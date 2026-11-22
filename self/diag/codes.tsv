@@ -1,7 +1,7 @@
 # The diagnostic codes: the source of truth for self/diag/codes_gen.maxon.
 # Run `go generate ./internal/...` after an edit. Columns, separated by tabs:
 #   constant   the name, which self/ spells with a lower-case first letter
-#   code       the code in the rows' ascending order; the stage digit is 1 lexer, 2 parser, 3 semantic, 4 IR, 9 internal
+#   code       the code in the rows' ascending order; the stage digit is 1 lexer, 2 parser, 3 semantic, 4 IR, 5 back end, 9 internal
 #   maxon      the case of ErrorCode in maxon-bin/Compiler/ErrorCodeRegistry.maxon that has this number, or - for a code
 #              of minimaxon's own; `diaggen --maxon <maxon repository>` checks both against the registry
 #   meaning    what the compiler refuses
@@ -126,5 +126,6 @@ ErrAmbiguousConformance	E3941	-	Two declarations that a module sees say one type
 ErrAmbiguousExtension	E3942	-	A call names a method, or a type names a typealias, that two extensions the module sees add to the type.
 ErrInvalidFieldAccess	E4006	invalidFieldAccess	A member is used that its type does not have: allCases on a union, or a method of a conditional extension on a value whose type arguments do not meet its 'where'.
 ErrTypeCycle	E4014	irTypeCycle	A type contains itself.
+ErrRegisterPressure	E5001	registerPressure	A loop holds more values at once than the target has registers of their class, so a load or store would land in the loop.
 ErrUnsupported	E9000	-	A construct the compiler does not support yet.
 ErrInterpreterOnly	E9900	-	A construct only the interpreter runs, so no native code is made for it.

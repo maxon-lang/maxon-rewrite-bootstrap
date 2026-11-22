@@ -360,6 +360,9 @@ export let errInvalidFieldAccess = "E4006"
 // A type contains itself.
 export let errTypeCycle = "E4014"
 
+// A loop holds more values at once than the target has registers of their class, so a load or store would land in the loop.
+export let errRegisterPressure = "E5001"
+
 // A construct the compiler does not support yet.
 export let errUnsupported = "E9000"
 

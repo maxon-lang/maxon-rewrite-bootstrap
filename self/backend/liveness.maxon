@@ -1,0 +1,572 @@
+// The blocks of a machine function as a graph, and where its virtual registers are live: what spilling and colouring
+// stand on. prepareBlocks lays the blocks out in reverse postorder (a dominance order), splits every critical edge and
+// every edge with arguments that leaves a block with more than one successor (so each edge's copies have a block of
+// their own to go in), gives each loop a preheader (a block whose only successor is the header and that no edge of the
+// loop enters), and finds the loops, their depth and the cold blocks. Liveness is per value and needs no fixpoint: in SSA
+// a value's definition dominates its uses, so it is live exactly on the paths back from each use to it.
+
+// noDef is the definition of a virtual register that no instruction defines: a block parameter, or one never defined.
+let noDef = -1 as ir.Index
+
+// noBlock is the block of a virtual register that nothing defines.
+let noBlock = -1 as ir.Index
+
+// firstListUse is the slot of a use that is not a register operand: an argument of an edge a branch takes, or the source
+// of a parallel copy, at firstListUse plus its index in edgeArgs or copies.
+let firstListUse = 3
+
+function nextCount(n Count) returns Count
+	return try n + 1 otherwise panic("backend: a count past memory")
+end 'nextCount'
+
+function prevCount(n Count) returns Count
+	return try n - 1 otherwise panic("backend: a count below 0")
+end 'prevCount'
+
+function addCounts(a Count, b Count) returns Count
+	return try a + b otherwise panic("backend: a count past memory")
+end 'addCounts'
+
+function maxOf(a Count, b Count) returns Count
+	if a > b 'a'
+		return a
+	end 'a'
+	return b
+end 'maxOf'
+
+// vregIndex is the number of a virtual register among the function's, from 0.
+function vregIndex(r MReg) returns Count
+	return try (r - firstVirtual) as Count otherwise panic("backend: a register operand that is not virtual")
+end 'vregIndex'
+
+function vregOf(index Count) returns MReg
+	return try (firstVirtual as Count + index) as MReg otherwise panic("backend: more virtual registers than an operand names")
+end 'vregOf'
+
+function indexOfCount(n Count) returns ir.Index
+	return try n as ir.Index otherwise panic("backend: a count past an index")
+end 'indexOfCount'
+
+function countOfIndex(i ir.Index) returns Count
+	return try i as Count otherwise panic("backend: an index below 0 where one is needed")
+end 'countOfIndex'
+
+function blockIdOf(n Count) returns MBlockID
+	return try n as MBlockID otherwise panic("backend: more blocks than a branch names")
+end 'blockIdOf'
+
+// classIndex is a register class's place in the per-class counts, which have classCount places.
+function classIndex(class RegClass) returns Count
+	return match class 'class'
+		gpr gives 0
+		xmm gives 1
+	end 'class'
+end 'classIndex'
+
+let classCount = 2
+
+function classAt(index Count) returns RegClass
+	if index == 0 'gpr'
+		return RegClass.gpr
+	end 'gpr'
+	if index == 1 'xmm'
+		return RegClass.xmm
+	end 'xmm'
+	panic("backend: a register class past the classes")
+end 'classAt'
+
+// maskCount is how many registers a mask holds.
+function maskCount(mask RegMask) returns Count
+	var m = mask
+	var n = 0 as Count
+	while m != 0 'bits'
+		if (m and 1) != 0 'has'
+			n = nextCount(n)
+		end 'has'
+		m = m shr 1
+	end 'bits'
+	return n
+end 'maskCount'
+
+// Operands are the registers one instruction reads and writes: its virtual uses, the first readLen of reads, each with
+// its slot, its virtual definitions, the first writeLen of writes, and the physical registers it reads and writes,
+// whether an operand names them or not. The lists keep their room from one instruction to the next.
+type Operands
+	var reads as MRegList
+	var slots as Array with Count
+	var readLen as Count
+	var writes as MRegList
+	var writeLen as Count
+	var physReads as RegMask
+	var physWrites as RegMask
+
+	static function new() returns Operands
+		return Operands{reads: MRegList.create(0), slots: Array.create(0), readLen: 0, writes: MRegList.create(0), writeLen: 0, physReads: 0, physWrites: 0}
+	end 'new'
+
+	function addRead(mutates self, r MReg, slot Count)
+		if isVirtual(r) 'virtual'
+			if readLen < reads.count() 'room'
+				reads[readLen] = r
+				slots[readLen] = slot
+			end 'room' else 'grow'
+				reads.push(r)
+				slots.push(slot)
+			end 'grow'
+			readLen = nextCount(readLen)
+		end 'virtual' else if isPhysical(r) 'physical'
+			physReads = physReads or (regBit(physicalNumber(r)) and not reservedMask())
+		end 'physical'
+	end 'addRead'
+
+	function addWrite(mutates self, r MReg)
+		if isVirtual(r) 'virtual'
+			if writeLen < writes.count() 'room'
+				writes[writeLen] = r
+			end 'room' else 'grow'
+				writes.push(r)
+			end 'grow'
+			writeLen = nextCount(writeLen)
+		end 'virtual' else if isPhysical(r) 'physical'
+			physWrites = physWrites or (regBit(physicalNumber(r)) and not reservedMask())
+		end 'physical'
+	end 'addWrite'
+
+	// gather finds the operands of the instruction x of fn. A restore neither reads nor defines its register: the value
+	// it brings back is live across the bracket, and only its register is out for the bracketed instruction.
+	function gather(mutates self, fn MirFunction, x MInstr, convs Conventions)
+		readLen = 0
+		writeLen = 0
+		physReads = 0
+		physWrites = 0
+		match x.kind 'kind'
+			target then self.gatherTarget(fn, x: x, convs: convs)
+			copy then self.gatherCopy(x)
+			spill then self.addRead(x.a, slot: 0)
+			reload then self.addWrite(x.a)
+			restore then return
+			parallelCopy then self.gatherParallelCopy(fn, x: x)
+			frameSetup or
+			frameTeardown then return
+		end 'kind'
+	end 'gather'
+
+	function gatherCopy(mutates self, x MInstr)
+		self.addWrite(x.a)
+		self.addRead(x.b, slot: 1)
+	end 'gatherCopy'
+
+	function gatherParallelCopy(mutates self, fn MirFunction, x MInstr)
+		let start = refIndex(x)
+		for i in 0 upto copyCount(x) 'pairs'
+			let at = addCounts(start, b: i)
+			self.addRead(fn.copies[at].src, slot: addCounts(firstListUse, b: i))
+			self.addWrite(fn.copies[at].dst)
+		end 'pairs'
+	end 'gatherParallelCopy'
+
+	function gatherTarget(mutates self, fn MirFunction, x MInstr, convs Conventions)
+		let n = operandCount(x)
+		var first = 0 as Count
+		if defines(x) 'defines'
+			self.addWrite(x.a)
+			first = 1
+		end 'defines'
+		for i in first upto n 'uses'
+			self.addRead(operandAt(x, index: i), slot: i)
+		end 'uses'
+		if x.ref == MRef.edge 'edge'
+			let edge = refIndex(x)
+			let args = fn.edges[edge].args
+			for i in 0 upto fn.edges[edge].argCount 'args'
+				self.addRead(fn.edgeArgs[addCounts(args, b: i)], slot: addCounts(firstListUse, b: i))
+			end 'args'
+		end 'edge'
+		// The stack and frame pointers are never a value's, so nothing counts them as held.
+		physReads = physReads or (implicitUses(x, convs: convs, canThrow: fn.canThrow) and not reservedMask())
+		physWrites = physWrites or (implicitDefs(x, convs: convs) and not reservedMask())
+	end 'gatherTarget'
+end 'Operands'
+
+// useOperand is the register a use of slot slot names in the instruction at k.
+function useOperand(fn MirFunction, k Count, slot Count) returns MReg
+	if slot < firstListUse 'operand'
+		return operandAt(fn.instrs[k], index: slot)
+	end 'operand'
+	let i = try slot - firstListUse otherwise panic("backend: a slot below the lists")
+	if fn.instrs[k].kind == MKind.parallelCopy 'copy'
+		return fn.copies[addCounts(refIndex(fn.instrs[k]), b: i)].src
+	end 'copy'
+	return fn.edgeArgs[addCounts(fn.edges[refIndex(fn.instrs[k])].args, b: i)]
+end 'useOperand'
+
+// renameUse makes the use of slot slot in the instruction at k name r.
+function renameUse(mutates fn MirFunction, k Count, slot Count, r MReg)
+	if slot < firstListUse 'operand'
+		setOperand(fn.instrs[k], index: slot, r: r)
+		return
+	end 'operand'
+	let i = try slot - firstListUse otherwise panic("backend: a slot below the lists")
+	if fn.instrs[k].kind == MKind.parallelCopy 'copy'
+		let at = addCounts(refIndex(fn.instrs[k]), b: i)
+		fn.copies[at].src = r
+		return
+	end 'copy'
+	let at = addCounts(fn.edges[refIndex(fn.instrs[k])].args, b: i)
+	fn.edgeArgs[at] = r
+end 'renameUse'
+
+// MirGraph is the blocks of a function as a graph: the edges by source and by target, the reverse postorder with the
+// immediate dominators, the loops with each one's preheader, and which blocks are cold.
+type MirGraph
+	var succStart as Array with Count
+	var succ as Array with Count
+	var predStart as Array with Count
+	var pred as Array with Count
+	var order as Array with Count
+	var rpo as Array with Count
+	var reached as Array with bool
+	var idom as Array with Count
+	var loops as ir.GraphLoops
+	// preheader is the preheader block of each loop, once prepareBlocks has given every loop one.
+	var preheader as Array with Count
+	// cold is whether a block runs only when a cold block has run: it is cold or a cold block dominates it.
+	var cold as Array with bool
+	// blockAt is the block of each instruction of the function.
+	var blockAt as Array with Count
+	var retreatFrom as Array with Count
+	var retreatTo as Array with Count
+	var edgeFrom as Array with Count
+	var edgeTo as Array with Count
+	var walk as ir.GraphWalk
+
+	static function new() returns MirGraph
+		return MirGraph{succStart: Array.create(0), succ: Array.create(0), predStart: Array.create(0), pred: Array.create(0), order: Array.create(0), rpo: Array.create(0), reached: Array.create(0), idom: Array.create(0), loops: ir.GraphLoops.new(), preheader: Array.create(0), cold: Array.create(0), blockAt: Array.create(0), retreatFrom: Array.create(0), retreatTo: Array.create(0), edgeFrom: Array.create(0), edgeTo: Array.create(0), walk: ir.GraphWalk.new()}
+	end 'new'
+
+	function blockCount() returns Count
+		return rpo.count()
+	end 'blockCount'
+
+	// build finds the graph of fn as it stands, which has a block: block 0 is its entry, and a block's edges are the
+	// ones its branches take, in their order.
+	function build(mutates self, fn MirFunction)
+		let blocks = fn.blocks.count()
+		edgeFrom.clear()
+		edgeTo.clear()
+		for b in 0 upto blocks 'blocks'
+			for k in fn.blocks[b].first upto fn.blocks[b].endAt 'instrs'
+				if fn.instrs[k].ref == MRef.edge 'edge'
+					edgeFrom.push(b)
+					edgeTo.push(fn.edges[refIndex(fn.instrs[k])].target as Count)
+				end 'edge'
+			end 'instrs'
+		end 'blocks'
+		ir.buildCsr(edgeFrom, targets: edgeTo, nodes: blocks, starts: succStart, list: succ)
+		ir.buildCsr(edgeTo, targets: edgeFrom, nodes: blocks, starts: predStart, list: pred)
+		ir.graphReversePostorder(succStart, succ: succ, nodes: blocks, order: order, rpo: rpo, reached: reached, retreatFrom: retreatFrom, retreatTo: retreatTo, walk: walk)
+		ir.graphDominators(predStart, pred: pred, order: order, rpo: rpo, nodes: blocks, idom: idom, walk: walk)
+		loops.find(predStart, pred: pred, order: order, rpo: rpo, idom: idom, reached: reached, retreatFrom: retreatFrom, retreatTo: retreatTo, walk: walk)
+		self.findCold(fn)
+		self.findPreheaders()
+		ir.resetCounts(blockAt, n: fn.instrs.count())
+		for b in 0 upto blocks 'at'
+			for k in fn.blocks[b].first upto fn.blocks[b].endAt 'instrs'
+				blockAt[k] = b
+			end 'instrs'
+		end 'at'
+	end 'build'
+
+	function findCold(mutates self, fn MirFunction)
+		ir.resetFlags(cold, n: fn.blocks.count())
+		for i in 0 upto order.count() 'each'
+			let b = order[i]
+			cold[b] = fn.blocks[b].likelihood == Likelihood.cold or (i > 0 and cold[idom[b]])
+		end 'each'
+	end 'findCold'
+
+	// findPreheaders finds the preheader of each loop that has one, and its header where it has none.
+	function findPreheaders(mutates self)
+		preheader.clear()
+		for l in 0 upto loops.loopCount() 'loops'
+			let head = loops.header[l]
+			var found = head
+			var outside = 0 as Count
+			for e in predStart[head] upto predStart[nextCount(head)] 'preds'
+				let p = pred[e]
+				if reached[p] and not loops.holds(l, node: p) 'outside'
+					found = p
+					outside = nextCount(outside)
+				end 'outside'
+			end 'preds'
+			if outside != 1 or self.succCount(found) != 1 'none'
+				found = head
+			end 'none'
+			preheader.push(found)
+		end 'loops'
+	end 'findPreheaders'
+
+	function succCount(b Count) returns Count
+		return try succStart[nextCount(b)] - succStart[b] otherwise panic("backend: edges out of order")
+	end 'succCount'
+
+	function predCount(b Count) returns Count
+		return try predStart[nextCount(b)] - predStart[b] otherwise panic("backend: edges out of order")
+	end 'predCount'
+
+	// isHot is whether a block is on a loop's hot path: in a loop and not cold.
+	function isHot(b Count) returns bool
+		return loops.depth[b] > 0 and not cold[b]
+	end 'isHot'
+
+	// loopHolds is whether the loop l holds the block b.
+	function loopHolds(l Count, b Count) returns bool
+		return loops.holds(l, node: b)
+	end 'loopHolds'
+end 'MirGraph'
+
+// newEdgeBlock adds a block that only jumps along a new edge to target with the arguments of the edge `from`, and makes
+// `from` an edge to it with none.
+function newEdgeBlock(mutates fn MirFunction, from Count, likelihood Likelihood) returns MBlockID
+	let id = blockIdOf(fn.blocks.count())
+	let first = fn.instrs.count()
+	let target = fn.edges[from].target
+	let jump = fn.addEdge(target, args: MRegList.create(0))
+	let at = try jump as Count otherwise panic("backend: an edge below 0")
+	fn.edges[at].args = fn.edges[from].args
+	fn.edges[at].argCount = fn.edges[from].argCount
+	fn.emit(newReferring(X64Form.jmpRel32, a: noMReg, ref: MRef.edge, aux: jump))
+	var block = MBlock.make(first, params: fn.blockParams.count())
+	block.endAt = fn.instrs.count()
+	block.likelihood = likelihood
+	fn.blocks.push(block)
+	fn.edges[from] = MEdge.make(id, args: 0, argCount: 0)
+	return id
+end 'newEdgeBlock'
+
+function colder(a Likelihood, b Likelihood) returns Likelihood
+	if a == Likelihood.cold or b == Likelihood.cold 'cold'
+		return Likelihood.cold
+	end 'cold'
+	return Likelihood.usual
+end 'colder'
+
+// prepareBlocks gives fn the shape spilling and colouring need, finds its graph in g, and makes the reverse postorder
+// its layout and the loops' depths its blocks'.
+function prepareBlocks(mutates fn MirFunction, mutates g MirGraph)
+	fn.endBlock()
+	g.build(fn)
+	if splitEdges(fn, g: g) 'split'
+		g.build(fn)
+	end 'split'
+	if addPreheaders(fn, g: g) 'added'
+		g.build(fn)
+	end 'added'
+	fn.order.clear()
+	for i in 0 upto g.order.count() 'order'
+		fn.order.push(blockIdOf(g.order[i]))
+	end 'order'
+	for b in 0 upto fn.blocks.count() 'depth'
+		fn.blocks[b].loopDepth = g.loops.depth[b]
+	end 'depth'
+end 'prepareBlocks'
+
+// splitEdges splits each edge out of a block with more than one successor that enters a block with more than one
+// predecessor, or that has arguments: the copies of its arguments may run only when the edge is taken.
+function splitEdges(mutates fn MirFunction, g MirGraph) returns bool
+	var any = false
+	let blocks = fn.blocks.count()
+	for b in 0 upto blocks 'blocks'
+		if not g.reached[b] or g.succCount(b) < 2 'single'
+			continue 'blocks'
+		end 'single'
+		for k in fn.blocks[b].first upto fn.blocks[b].endAt 'instrs'
+			if fn.instrs[k].ref != MRef.edge 'other'
+				continue 'instrs'
+			end 'other'
+			let edge = refIndex(fn.instrs[k])
+			let target = fn.edges[edge].target as Count
+			if g.predCount(target) > 1 or fn.edges[edge].argCount > 0 'critical'
+				_ = newEdgeBlock(fn, from: edge, likelihood: colder(fn.blocks[b].likelihood, b: fn.blocks[target].likelihood))
+				any = true
+			end 'critical'
+		end 'instrs'
+	end 'blocks'
+	return any
+end 'splitEdges'
+
+// addPreheaders gives each loop that has none a preheader: its edges in from outside the loop go to a new block, which
+// passes its own parameters on to the header. The entry is never a loop's header, since it sets up the frame.
+function addPreheaders(mutates fn MirFunction, g MirGraph) returns bool
+	var any = false
+	for l in 0 upto g.loops.loopCount() 'loops'
+		let head = g.loops.header[l]
+		if g.preheader[l] != head 'has'
+			continue 'loops'
+		end 'has'
+		if head == 0 'entry'
+			panic("backend: the entry block is the header of a loop")
+		end 'entry'
+		any = true
+		let id = blockIdOf(fn.blocks.count())
+		let first = fn.instrs.count()
+		let params = fn.blockParams.count()
+		var args = MRegList.create(0)
+		for i in 0 upto fn.blocks[head].paramCount 'params'
+			let class = fn.classes[vregIndex(fn.blockParams[addCounts(fn.blocks[head].params, b: i)])]
+			let r = fn.newVReg(class)
+			fn.blockParams.push(r)
+			args.push(r)
+		end 'params'
+		let jump = fn.addEdge(blockIdOf(head), args: args)
+		fn.emit(newReferring(X64Form.jmpRel32, a: noMReg, ref: MRef.edge, aux: jump))
+		var block = MBlock.make(first, params: params)
+		block.paramCount = args.count()
+		block.endAt = fn.instrs.count()
+		block.likelihood = fn.blocks[head].likelihood
+		fn.blocks.push(block)
+		for e in g.predStart[head] upto g.predStart[nextCount(head)] 'preds'
+			let p = g.pred[e]
+			if not g.reached[p] or g.loopHolds(l, b: p) 'inside'
+				continue 'preds'
+			end 'inside'
+			for k in fn.blocks[p].first upto fn.blocks[p].endAt 'instrs'
+				if fn.instrs[k].ref == MRef.edge and fn.edges[refIndex(fn.instrs[k])].target as Count == head 'into'
+					fn.edges[refIndex(fn.instrs[k])].target = id
+				end 'into'
+			end 'instrs'
+		end 'preds'
+	end 'loops'
+	return any
+end 'addPreheaders'
+
+typealias IndexList = Array with ir.Index
+
+// Liveness is where each virtual register of a function is defined, used and live. A register's uses are in the order
+// of the instructions, which is the layout order once the layout has been written; liveIn holds, for each block, the
+// registers live where it starts that its parameters are not, and valueLive the same as blocks for each register.
+type Liveness
+	// defBlock and defAt are where each virtual register is defined: its block, and the instruction, or noDef for a
+	// block's parameter.
+	var defBlock as Array with ir.Index
+	var defAt as Array with ir.Index
+	var useStart as Array with Count
+	var useList as Array with Count
+	// recordAt and recordSlot are each use: the instruction at recordAt reads the register through recordSlot.
+	var recordAt as CountList
+	var recordSlot as CountList
+	var liveInStart as Array with Count
+	var liveIn as Array with Count
+	var valueLiveStart as Array with Count
+	var valueLive as Array with Count
+	var pairBlock as Array with Count
+	var pairReg as Array with Count
+	var useOwner as Array with Count
+	var useIndexes as Array with Count
+	var stamp as Array with Count
+	var work as Array with Count
+	var ops as Operands
+
+	static function new() returns Liveness
+		return Liveness{defBlock: Array.create(0), defAt: Array.create(0), useStart: Array.create(0), useList: Array.create(0), recordAt: CountList.create(0), recordSlot: CountList.create(0), liveInStart: Array.create(0), liveIn: Array.create(0), valueLiveStart: Array.create(0), valueLive: Array.create(0), pairBlock: Array.create(0), pairReg: Array.create(0), useOwner: Array.create(0), useIndexes: Array.create(0), stamp: Array.create(0), work: Array.create(0), ops: Operands.new()}
+	end 'new'
+
+	function vregCount() returns Count
+		return defBlock.count()
+	end 'vregCount'
+
+	// compute finds the liveness of fn, whose graph g is: a walk back from each use of a value, through predecessors, to
+	// the block that defines it. Each block a walk passes holds the value live where it starts, so the work is the size
+	// of the live ranges in blocks, with no fixpoint.
+	function compute(mutates self, fn MirFunction, g MirGraph, convs Conventions)
+		let regs = fn.vregCount()
+		defBlock.clear()
+		defAt.clear()
+		for i in 0 upto regs 'none'
+			defBlock.push(noBlock)
+			defAt.push(noDef)
+		end 'none'
+		recordAt.clear()
+		recordSlot.clear()
+		useOwner.clear()
+		useIndexes.clear()
+		for i in 0 upto fn.order.count() 'blocks'
+			let b = fn.order[i] as Count
+			for p in 0 upto fn.blocks[b].paramCount 'params'
+				let r = fn.blockParams[addCounts(fn.blocks[b].params, b: p)]
+				self.define(r, block: b, at: noDef)
+			end 'params'
+			for k in fn.blocks[b].first upto fn.blocks[b].endAt 'instrs'
+				ops.gather(fn, x: fn.instrs[k], convs: convs)
+				for d in 0 upto ops.writeLen 'defs'
+					let r = ops.writes[d]
+					self.define(r, block: b, at: indexOfCount(k))
+				end 'defs'
+				for u in 0 upto ops.readLen 'uses'
+					useOwner.push(vregIndex(ops.reads[u]))
+					useIndexes.push(recordAt.count())
+					recordAt.push(k)
+					recordSlot.push(ops.slots[u])
+				end 'uses'
+			end 'instrs'
+		end 'blocks'
+		ir.buildCsr(useOwner, targets: useIndexes, nodes: regs, starts: useStart, list: useList)
+		self.walkLiveness(g, regs: regs)
+	end 'compute'
+
+	function define(mutates self, r MReg, block Count, at ir.Index)
+		let v = vregIndex(r)
+		if defBlock[v] != noBlock 'twice'
+			panic("backend: virtual register {r} is defined twice")
+		end 'twice'
+		defBlock[v] = indexOfCount(block)
+		defAt[v] = at
+	end 'define'
+
+	function walkLiveness(mutates self, g MirGraph, regs Count)
+		pairBlock.clear()
+		pairReg.clear()
+		ir.resetCounts(valueLiveStart, n: nextCount(regs))
+		valueLive.clear()
+		ir.resetCounts(stamp, n: g.blockCount())
+		for v in 0 upto regs 'values'
+			valueLiveStart[v] = valueLive.count()
+			let first = useStart[v]
+			let stop = useStart[nextCount(v)]
+			if first == stop 'unused'
+				continue 'values'
+			end 'unused'
+			if defBlock[v] == noBlock 'undefined'
+				panic("backend: virtual register {vregOf(v)} is read but never defined")
+			end 'undefined'
+			let home = countOfIndex(defBlock[v])
+			let mark = nextCount(v)
+			work.clear()
+			for e in first upto stop 'uses'
+				let b = g.blockAt[recordAt[useList[e]]]
+				if b != home and stamp[b] != mark 'live'
+					self.markLive(b, v: v, mark: mark)
+				end 'live'
+			end 'uses'
+			while work.count() > 0 'walk'
+				let b = try work.pop() otherwise panic("backend: an empty walk")
+				for e in g.predStart[b] upto g.predStart[nextCount(b)] 'preds'
+					let p = g.pred[e]
+					if g.reached[p] and p != home and stamp[p] != mark 'live'
+						self.markLive(p, v: v, mark: mark)
+					end 'live'
+				end 'preds'
+			end 'walk'
+		end 'values'
+		valueLiveStart[regs] = valueLive.count()
+		ir.buildCsr(pairBlock, targets: pairReg, nodes: g.blockCount(), starts: liveInStart, list: liveIn)
+	end 'walkLiveness'
+
+	function markLive(mutates self, b Count, v Count, mark Count)
+		stamp[b] = mark
+		work.push(b)
+		valueLive.push(b)
+		pairBlock.push(b)
+		pairReg.push(v)
+	end 'markLive'
+end 'Liveness'

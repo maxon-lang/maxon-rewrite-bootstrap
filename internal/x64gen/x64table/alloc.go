@@ -148,6 +148,16 @@ var allocPredicates = []struct {
 	{"isCall", func(f form) bool { return f.call }},
 	{"isReturn", func(f form) bool { return f.ret }},
 	{"hasPatchField", hasPatchField},
+	{"rematerializable", rematerializable},
+}
+
+// rematerializable is whether a form makes its result from its immediate alone: it reads no register, no memory and no
+// flag, writes nothing but its result and refers to nothing, so the allocator may write it again before a use instead
+// of keeping its result in a register or a spill slot.
+func rematerializable(f form) bool {
+	d, ok := f.defOperand()
+	return ok && d.access == write && len(f.uses()) == 0 && f.effects == noEffects &&
+		len(f.fixedUses) == 0 && len(f.fixedDefs) == 0 && len(f.clobbers) == 0 && !f.call && !f.ret && !hasPatchField(f)
 }
 
 // allocMasks are the allocation columns that are a set of registers.

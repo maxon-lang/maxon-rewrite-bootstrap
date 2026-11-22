@@ -255,9 +255,9 @@ layering cannot erode:
 | `project` | loading a project: discovery, finding the runtime's source (see "The runtime"), reading and parsing each module, the declaration tables, the module graph and its import-cycle check | `ast`, `diag`, `syntax`, `table` |
 | `resolve` | name resolution, into the module's `Resolution`: which declaration each name and type reference names, which type parameter each constraint binds, which modules the module depends on, visibility | `ast`, `diag`, `table` |
 | `check` | the stages of the type checker (`stages.maxon`), the generic bounds, the range analysis that decides what arithmetic can fail, the ownership pass, and what a behaviour may capture, into the module's `Typing` | `ast`, `diag`, `table` |
-| `ir` | the IR (fixed-size records, with the printer and the visitors generated from the IR table), its builder, finding the generic instances a module needs, lowering (the primitives' operations, where each value is dropped, the body of each behaviour), which reads the `Typing` of every module it follows a call, a constant or a field's default into, and the runtime's symbol names | `ast`, `diag`, `table` |
+| `ir` | the IR (fixed-size records, with the printer and the visitors generated from the IR table), the graph algorithms (reverse postorder, dominators, natural loops) that its flow and the machine IR share, its builder, finding the generic instances a module needs, lowering (the primitives' operations, where each value is dropped, the body of each behaviour), which reads the `Typing` of every module it follows a call, a constant or a field's default into, and the runtime's symbol names | `ast`, `diag`, `table` |
 | `opt` | the optimizer: its analyses (`Analysis`: over `ir.Flow`, the dominator tree, dominance frontiers, loop nesting depth and use counts per register), the rewrite rules' matcher generated from `internal/rulegen/generic.rules` (`rewriteInstr`, reading the definitions of `ir.Defs`) and the helpers the rules call; SSA construction (`Ssa`, `self/opt/ssa.maxon`: the slots nothing takes the address of become registers and block parameters), which `optimizeModule` runs on every function a native build compiles | `ir` |
-| `backend` | the x64 encoder (generated), the assembler and code unit, codegen, the machine IR (`mir.maxon`), x64's register file, conventions and instruction constraints (`regs_x64.maxon`), the trivial allocator (`trivial.maxon`) and the machine IR's encoder (`encode.maxon`), the drop and copy routine of each type, the entry stub, the linker and the PE writer | `ast`, `ir`, `table` |
+| `backend` | the x64 encoder (generated), the assembler and code unit, codegen, the machine IR (`mir.maxon`), x64's register file, conventions and instruction constraints (`regs_x64.maxon`), the trivial allocator (`trivial.maxon`), liveness, register pressure and spilling with the E5001 test (`liveness.maxon`, `pressure.maxon`, `spill.maxon`) and the machine IR's encoder (`encode.maxon`), the drop and copy routine of each type, the entry stub, the linker and the PE writer | `ast`, `diag`, `ir`, `table` |
 | `interp` | the tracking interpreter: runs the IR of a whole program with the primitives written in Maxon and a simulated scheduler of behaviours, and reports a violation of the memory model | `ast`, `ir`, `table` |
 | `fuzz` | the random program generator the `fuzz` command runs | `table` |
 | `driver` | the commands (`driver.maxon` is the command line); `compile.maxon` runs the pipeline as the task graph of `graph.maxon`; the corpus and spec runners, `interp`, `fuzz`, `fmt`, `rewrite`, `qualify`, `rename` and `update_positions` | all of the above |
@@ -1102,7 +1102,54 @@ one (every argument on the stack, the result in rax and the error in rdx, nothin
 The trivial allocator (`allocateTrivially`) gives every virtual register a spill slot of its own, reloads each instruction's
 virtual operands into r10 and r11 (which no form or convention fixes) and spills its definition; it turns each edge's
 arguments into a parallel copy through temporary slots, splitting a conditional branch's edge that has any into a block of
-its own. `encodeMachineFunction` writes an allocated function into a code unit, leaving out a jump to the block that follows.
+its own, and moves the values spilling put in slots (`spill`, `reload`, `restore`) between those slots and its own; the
+slots spilling gave out come first in the frame. `encodeMachineFunction` writes an allocated function into a code unit,
+leaving out a jump to the block that follows.
+
+#### Liveness, spilling and E5001
+
+The first half of the register allocator (`liveness.maxon`, `pressure.maxon`, `spill.maxon`) brings every instruction of a
+function under the registers free there, which the second half, colouring in dominance order, needs. Nothing in a build
+calls it yet; `selftest` runs it on hand-built functions (`self/spill_test.maxon`) and runs them through the trivial
+allocator.
+
+- **Blocks** (`prepareBlocks`): the layout becomes the reverse postorder; an edge out of a block with more than one
+  successor is split into a block of its own when its target has more than one predecessor or it has arguments; every
+  loop gets a preheader. Dominators and natural loops come from `self/ir/graph.maxon`, the graph algorithms that
+  `ir.Flow` uses too. A block is cold when it is marked so (a failing check) or a cold block dominates it; an ordinary
+  `if` arm is not, however rarely it runs, since nothing says so.
+- **Liveness** (`Liveness`): per value, a walk back from each use through predecessors to its definition, with no
+  fixpoint (SSA: the definition dominates the uses). An edge's arguments are uses at its branch and a block's
+  parameters definitions where it starts. It gives each value's uses in layout order and each block's live-in values.
+- **Pressure** (`BlockScan`): at each instruction, the values live across it plus the larger of those it reads last and
+  those it defines (a definition may take a dying operand's register, a two-address one included; a dead definition
+  still needs one), per class, against the class's registers no fixed value holds around it; the values live across it
+  must also fit outside the registers it writes (a call keeps only its convention's callee-saved registers, read from
+  the convention table).
+- **Tiers**, each one placement and no search: (1) a loop over its class's whole pool sends out the values it holds idle
+  (live across it, neither defined nor read on its hot path), farthest next use first, outermost loop first, so a value
+  that only an outer loop reads leaves the inner loop and is reloaded in the outer one; (2) constants over a hot point
+  are made again before their uses; (3) the E5001 test; (4) everywhere, a point still over its free registers spills by
+  farthest next use, constants first, then values already stored or defined outside the loop; in a cold block, a value
+  live across a call, or one the loop's hot path reads, is bracketed instead: stored before the point and restored into
+  its own register after it, which lends its register to the instructions between, so the hot path keeps it.
+- **A split** stores the value once, after its definition, and gives each use the cut reaches a reload (or the constant
+  made again), one per block and stretch of uses, hoisted to the preheader of every loop that holds neither the cut nor
+  the definition. A reload defines a new value that dominates its uses, so the function stays SSA with no new
+  parameter. The work is in rounds of analysis and one sweep each; an analysis is reused while nothing changed, and a
+  function that fits costs one.
+- **The invariant** (`verifyPressure`, which colouring and a future `--verify-ir` read): every virtual register has one
+  definition; at every instruction each class's demand fits its free registers; and spill code in a hot block lies only
+  in loops that define or read its value (a slot is one value). So a store runs where the definition does and a reload
+  no deeper than its uses.
+- **E5001** (`refuseHotLoops`, a `PressureRefusal` per loop nest and class; the driver reports it once instruction
+  selection exists): after tiers 1 and 2, a point of a loop's hot path over its class's whole pool. It names the loop,
+  the target, the class's register count, the registers over at the worst point, and how many of the source's variables
+  (values joined by edges) must leave the loop: found by taking out, one at a time, the variable that relieves the most
+  excess, where a variable out of registers still needs one at each instruction that reads or writes it. That can be
+  more than the registers over: sixteen accumulators, a counter and a bound are 19 registers at the worst point, five
+  over x64's 14, yet six must go, since an accumulator in memory frees nothing at its own update. A fixed register or a
+  call never refuses; it is spilled around.
 
 ## The runtime
 

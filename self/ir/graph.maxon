@@ -1,0 +1,230 @@
+// The graph algorithms that the IR's flow and the machine IR's blocks share. A graph is over nodes numbered from 0 up
+// to a count, node 0 its entry, with its edges by source and by target in the form buildCsr makes: succ[succStart[n]]
+// up to succ[succStart[n + 1]] are where n goes, pred[predStart[n]] up to pred[predStart[n + 1]] where it is entered
+// from. Each algorithm is linear or near it, since they run on every function of every build.
+
+// noLoop is the loop of a node that no loop holds, and the parent of an outermost loop.
+export let noLoop = -1 as Index
+
+// GraphWalk is the scratch of the walks, reused from one graph to the next so that its arrays keep their capacity.
+export type GraphWalk
+	var stack as Array with Count
+	var cursor as Array with Count
+	var open as Array with bool
+	var solved as Array with bool
+	var isHeader as Array with bool
+	var work as Array with Count
+	var stamp as Array with Count
+	var latchStart as Array with Count
+	var latch as Array with Count
+
+	export static function new() returns GraphWalk
+		return GraphWalk{stack: Array.create(0), cursor: Array.create(0), open: Array.create(0), solved: Array.create(0), isHeader: Array.create(0), work: Array.create(0), stamp: Array.create(0), latchStart: Array.create(0), latch: Array.create(0)}
+	end 'new'
+end 'GraphWalk'
+
+// graphReversePostorder numbers the nodes that the entry reaches, each before its successors but along a back edge, by a
+// depth-first walk that takes the edges of a node in their order: order is the reached nodes in reverse postorder, rpo
+// the number of each in it, and reached whether the entry reaches it. retreatFrom[k] to retreatTo[k] are the edges the
+// walk takes back to a node still open on its path, in the order it finds them: in a reducible graph, the back edges of
+// its loops. It is a loop over its own stack, since a function can have more blocks than the native stack has frames.
+export function graphReversePostorder(succStart Array with Count, succ Array with Count, nodes Count, mutates order Array with Count, mutates rpo Array with Count, mutates reached Array with bool, mutates retreatFrom Array with Count, mutates retreatTo Array with Count, mutates walk GraphWalk)
+	resetFlags(reached, n: nodes)
+	resetFlags(walk.open, n: nodes)
+	resetCounts(rpo, n: nodes)
+	order.clear()
+	walk.stack.clear()
+	walk.cursor.clear()
+	retreatFrom.clear()
+	retreatTo.clear()
+	walk.stack.push(0)
+	walk.cursor.push(succStart[0])
+	reached[0] = true
+	walk.open[0] = true
+	while walk.stack.count() > 0 'walk'
+		let top = try walk.stack.count() - 1 otherwise panic("ir: an empty walk")
+		let node = walk.stack[top]
+		let at = walk.cursor[top]
+		if at < succStart[plusOne(node)] 'more'
+			walk.cursor[top] = plusOne(at)
+			let target = succ[at]
+			if not reached[target] 'unseen'
+				reached[target] = true
+				walk.open[target] = true
+				walk.stack.push(target)
+				walk.cursor.push(succStart[target])
+			end 'unseen' else if walk.open[target] 'retreating'
+				retreatFrom.push(node)
+				retreatTo.push(target)
+			end 'retreating'
+		end 'more' else 'done'
+			order.push(node)
+			walk.open[node] = false
+			_ = try walk.stack.pop() otherwise panic("ir: an empty walk")
+			_ = try walk.cursor.pop() otherwise panic("ir: an empty walk")
+		end 'done'
+	end 'walk'
+	let n = order.count()
+	for i in 0 upto n / 2 'reverse'
+		let j = try n - 1 - i otherwise panic("ir: an empty walk")
+		let first = order[i]
+		order[i] = order[j]
+		order[j] = first
+	end 'reverse'
+	for i in 0 upto n 'number'
+		rpo[order[i]] = i
+	end 'number'
+end 'graphReversePostorder'
+
+// graphDominators finds the immediate dominator of each reached node by Cooper, Harvey and Kennedy's iteration over the
+// reverse postorder, which a reducible graph settles in two passes. The entry's is itself.
+export function graphDominators(predStart Array with Count, pred Array with Count, order Array with Count, rpo Array with Count, nodes Count, mutates idom Array with Count, mutates walk GraphWalk)
+	resetCounts(idom, n: nodes)
+	resetFlags(walk.solved, n: nodes)
+	walk.solved[0] = true
+	var changed = true
+	while changed 'fixpoint'
+		changed = false
+		for i in 1 upto order.count() 'each'
+			let s = order[i]
+			var found = false
+			var best = 0 as Count
+			for e in predStart[s] upto predStart[plusOne(s)] 'preds'
+				let q = pred[e]
+				if not walk.solved[q] 'unsolved'
+					continue 'preds'
+				end 'unsolved'
+				if not found 'first'
+					best = q
+					found = true
+				end 'first' else 'meet'
+					best = graphCommonDominator(rpo, idom: idom, a: q, other: best)
+				end 'meet'
+			end 'preds'
+			if found and (not walk.solved[s] or idom[s] != best) 'moved'
+				idom[s] = best
+				walk.solved[s] = true
+				changed = true
+			end 'moved'
+		end 'each'
+	end 'fixpoint'
+end 'graphDominators'
+
+// graphCommonDominator is the nearest node that dominates both a and other, both reached and with their dominators known
+// so far.
+export function graphCommonDominator(rpo Array with Count, idom Array with Count, a Count, other Count) returns Count
+	var x = a
+	var y = other
+	while x != y 'meet'
+		while rpo[x] > rpo[y] 'upX'
+			x = idom[x]
+		end 'upX'
+		while rpo[y] > rpo[x] 'upY'
+			y = idom[y]
+		end 'upY'
+	end 'meet'
+	return x
+end 'graphCommonDominator'
+
+// graphDominates is whether every path from the entry to the node b passes through the node a, both reached.
+export function graphDominates(rpo Array with Count, idom Array with Count, a Count, b Count) returns bool
+	var x = b
+	while rpo[x] > rpo[a] 'up'
+		x = idom[x]
+	end 'up'
+	return x == a
+end 'graphDominates'
+
+// GraphLoops is the natural loops of a graph: the loops by the reverse postorder of their headers, so an outer loop comes
+// before the loops it holds, each loop's header and the loop it is in; and for each node the innermost loop that holds it
+// and how many loops do.
+export type GraphLoops
+	export var header as Array with Count
+	export var parent as Array with Index
+	export var loopOf as Array with Index
+	export var depth as Array with Count
+
+	export static function new() returns GraphLoops
+		return GraphLoops{header: Array.create(0), parent: Array.create(0), loopOf: Array.create(0), depth: Array.create(0)}
+	end 'new'
+
+	export function loopCount() returns Count
+		return header.count()
+	end 'loopCount'
+
+	// find finds the natural loop of each header, the nodes that reach one of its back edges without passing through it.
+	// A retreating edge whose target does not dominate its source would make the graph irreducible, which lowering cannot
+	// make: Maxon has no goto, every loop is entered at its header, and a failure edge or a break only leaves a loop.
+	// Taking the headers in reverse postorder, the loops that hold a header are found before its own loop, the innermost
+	// last, which is what makes the innermost loop of a node the last one to claim it.
+	export function find(mutates self, predStart Array with Count, pred Array with Count, order Array with Count, rpo Array with Count, idom Array with Count, reached Array with bool, retreatFrom Array with Count, retreatTo Array with Count, mutates walk GraphWalk)
+		let nodes = rpo.count()
+		header.clear()
+		parent.clear()
+		loopOf.clear()
+		for n in 0 upto nodes 'none'
+			loopOf.push(noLoop)
+		end 'none'
+		resetCounts(depth, n: nodes)
+		resetFlags(walk.isHeader, n: nodes)
+		for k in 0 upto retreatFrom.count() 'check'
+			let tail = retreatFrom[k]
+			let head = retreatTo[k]
+			if not graphDominates(rpo, idom: idom, a: head, b: tail) 'irreducible'
+				panic("ir: an edge back to node {head} from node {tail}, which it does not dominate: the control flow is irreducible")
+			end 'irreducible'
+			walk.isHeader[head] = true
+		end 'check'
+		buildCsr(retreatTo, targets: retreatFrom, nodes: nodes, starts: walk.latchStart, list: walk.latch)
+		resetCounts(walk.stamp, n: nodes)
+		for i in 0 upto order.count() 'headers'
+			let head = order[i]
+			if not walk.isHeader[head] 'body'
+				continue 'headers'
+			end 'body'
+			let loop = header.count()
+			let mark = plusOne(loop)
+			header.push(head)
+			parent.push(loopOf[head])
+			let id = try loop as Index otherwise panic("ir: more loops than an index")
+			self.admit(head, mark: mark, loop: id, walk: walk)
+			walk.work.clear()
+			for e in walk.latchStart[head] upto walk.latchStart[plusOne(head)] 'latches'
+				let tail = walk.latch[e]
+				if walk.stamp[tail] != mark 'new'
+					self.admit(tail, mark: mark, loop: id, walk: walk)
+					walk.work.push(tail)
+				end 'new'
+			end 'latches'
+			while walk.work.count() > 0 'members'
+				let n = try walk.work.pop() otherwise panic("ir: an empty walk")
+				for e in predStart[n] upto predStart[plusOne(n)] 'preds'
+					let q = pred[e]
+					if reached[q] and walk.stamp[q] != mark 'new'
+						self.admit(q, mark: mark, loop: id, walk: walk)
+						walk.work.push(q)
+					end 'new'
+				end 'preds'
+			end 'members'
+		end 'headers'
+	end 'find'
+
+	function admit(mutates self, n Count, mark Count, loop Index, mutates walk GraphWalk)
+		walk.stamp[n] = mark
+		loopOf[n] = loop
+		depth[n] = plusOne(depth[n])
+	end 'admit'
+
+	// holds is whether the loop holds the node.
+	export function holds(loop Count, node Count) returns bool
+		var l = loopOf[node]
+		while l != noLoop 'up'
+			let at = try l as Count otherwise panic("ir: a loop below 0")
+			if at == loop 'found'
+				return true
+			end 'found'
+			l = parent[at]
+		end 'up'
+		return false
+	end 'holds'
+end 'GraphLoops'

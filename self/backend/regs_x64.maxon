@@ -151,7 +151,8 @@ function operandCount(x MInstr) returns Count
 		target gives machineOperandCount(x.form)
 		copy gives 2
 		spill or
-		reload gives 1
+		reload or
+		restore gives 1
 		parallelCopy or
 		frameSetup or
 		frameTeardown gives 0
@@ -165,6 +166,7 @@ function defines(x MInstr) returns bool
 		copy or
 		reload gives true
 		spill or
+		restore or
 		parallelCopy or
 		frameSetup or
 		frameTeardown gives false
@@ -178,6 +180,7 @@ function reuses(x MInstr) returns bool
 		copy or
 		reload or
 		spill or
+		restore or
 		parallelCopy or
 		frameSetup or
 		frameTeardown gives false
@@ -192,6 +195,7 @@ function implicitUses(x MInstr, convs Conventions, canThrow bool) returns RegMas
 		copy or
 		reload or
 		spill or
+		restore or
 		parallelCopy or
 		frameSetup or
 		frameTeardown gives 0
@@ -216,6 +220,7 @@ function implicitDefs(x MInstr, convs Conventions) returns RegMask
 		copy or
 		reload or
 		spill or
+		restore or
 		parallelCopy or
 		frameSetup or
 		frameTeardown gives 0
@@ -231,3 +236,18 @@ function callClobbers(x MInstr, convs Conventions) returns RegMask
 		win64 gives convs.win64.clobbered
 	end 'kind'
 end 'callClobbers'
+
+// isRematerializable is whether an instruction makes its result from nothing a register or memory holds, so a value it
+// defines can be made again before each use instead of being kept or spilled.
+function isRematerializable(x MInstr) returns bool
+	return match x.kind 'kind'
+		target gives rematerializable(x.form) and x.ref == MRef.none
+		copy or
+		reload or
+		spill or
+		restore or
+		parallelCopy or
+		frameSetup or
+		frameTeardown gives false
+	end 'kind'
+end 'isRematerializable'

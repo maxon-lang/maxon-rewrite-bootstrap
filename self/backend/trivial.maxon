@@ -1,23 +1,43 @@
-// The trivial allocator: every virtual register lives in a spill slot of its own, and each instruction reloads the
-// virtual registers it reads into scratch registers and spills the one it defines. It leaves SSA by turning every
+// The trivial allocator: every virtual register lives in a spill slot of its own, above the slots that spilling gave
+// out, and each instruction reloads the virtual registers it reads into scratch registers and spills the one it defines;
+// a spill, reload or restore that spilling wrote moves the value between its own slot and the one spilling gave it. It leaves SSA by turning every
 // edge's arguments into copies to the target's parameters, splitting a conditional branch's edge that has any. It
 // makes the machine IR's path from selection to bytes complete before the real allocator replaces it.
 
-// TrivialAlloc is the allocation of one function: the instructions written so far and how many temporary slots a
-// parallel copy has needed.
+// TrivialAlloc is the allocation of one function: the instructions written so far, the slots spilling gave out, below
+// the virtual registers' own, and how many temporary slots a parallel copy has needed.
 type TrivialAlloc
 	var out as MInstrList
+	var given as Count
 	var vregs as Count
 	var temps as Count
 
-	static function new(vregs Count) returns TrivialAlloc
-		return TrivialAlloc{out: MInstrList.create(0), vregs: vregs, temps: 0}
+	static function new(given Count, vregs Count) returns TrivialAlloc
+		return TrivialAlloc{out: MInstrList.create(0), given: given, vregs: vregs, temps: 0}
 	end 'new'
+
+	function vregSlot(r MReg) returns SpillSlot
+		let index = try (r - firstVirtual) as Count otherwise panic("backend: a virtual register below the first")
+		return try (given + index) as SpillSlot otherwise panic("backend: a frame past 2 GiB")
+	end 'vregSlot'
+
+	// toGiven stores a value into a slot that spilling gave it, and fromGiven loads it from one.
+	function toGiven(mutates self, src MReg, slot SpillSlot)
+		let scratch = trivialScratch(0)
+		self.moveInto(scratch, src: src)
+		out.push(newSpill(scratch, slot: slot))
+	end 'toGiven'
+
+	function fromGiven(mutates self, dst MReg, slot SpillSlot)
+		let scratch = trivialScratch(0)
+		out.push(newReload(scratch, slot: slot))
+		self.moveOut(dst, src: scratch)
+	end 'fromGiven'
 
 	// moveInto puts the value of src into the physical register dst.
 	function moveInto(mutates self, dst MReg, src MReg)
 		if isVirtual(src) 'reload'
-			out.push(newReload(dst, slot: vregSlot(src)))
+			out.push(newReload(dst, slot: self.vregSlot(src)))
 		end 'reload' else if src != dst 'move'
 			out.push(newCopy(dst, src: src))
 		end 'move'
@@ -26,7 +46,7 @@ type TrivialAlloc
 	// moveOut puts the value of the physical register src into dst.
 	function moveOut(mutates self, dst MReg, src MReg)
 		if isVirtual(dst) 'spill'
-			out.push(newSpill(src, slot: vregSlot(dst)))
+			out.push(newSpill(src, slot: self.vregSlot(dst)))
 		end 'spill' else if src != dst 'move'
 			out.push(newCopy(dst, src: src))
 		end 'move'
@@ -60,7 +80,7 @@ type TrivialAlloc
 		for i in 0 upto n 'write'
 			if isVirtual(dsts[i]) 'slot'
 				out.push(newReload(scratch, slot: self.tempSlot(i)))
-				out.push(newSpill(scratch, slot: vregSlot(dsts[i])))
+				out.push(newSpill(scratch, slot: self.vregSlot(dsts[i])))
 			end 'slot' else 'register'
 				out.push(newReload(dsts[i], slot: self.tempSlot(i)))
 			end 'register'
@@ -71,7 +91,7 @@ type TrivialAlloc
 	end 'parallelCopy'
 
 	function tempSlot(index Count) returns SpillSlot
-		return try (vregs + index) as SpillSlot otherwise panic("backend: a frame past 2 GiB")
+		return try (given + vregs + index) as SpillSlot otherwise panic("backend: a frame past 2 GiB")
 	end 'tempSlot'
 
 	// target writes a form with its virtual registers in scratch registers. A definition may share a use's scratch
@@ -119,10 +139,6 @@ type TrivialAlloc
 	end 'target'
 end 'TrivialAlloc'
 
-function vregSlot(r MReg) returns SpillSlot
-	return try (r - firstVirtual) as SpillSlot otherwise panic("backend: a virtual register below the first")
-end 'vregSlot'
-
 // edgeCopy writes the copies of an edge's arguments to its target's parameters, and takes the arguments off the edge.
 function edgeCopy(mutates t TrivialAlloc, mutates fn MirFunction, edge Count)
 	let target = fn.edges[edge].target as Count
@@ -160,7 +176,7 @@ typealias SplitList = Array with Split
 // allocateTrivially gives every virtual register of the function a spill slot, after which every operand is
 // physical, no edge has arguments and no parallel copy is left.
 export function allocateTrivially(mutates fn MirFunction)
-	var t = TrivialAlloc.new(fn.vregCount())
+	var t = TrivialAlloc.new(fn.spillSlots, vregs: fn.vregCount())
 	var splits = SplitList.create(0)
 	for pos in 0 upto fn.order.count() 'blocks'
 		let b = fn.order[pos] as Count
@@ -171,8 +187,9 @@ export function allocateTrivially(mutates fn MirFunction)
 				target then trivialTarget(t, fn: fn, x: x, splits: splits)
 				copy then t.copyOne(x.a, src: x.b)
 				parallelCopy then trivialParallelCopy(t, fn: fn, x: x)
-				spill or
-				reload then panic("backend: the trivial allocator allocates machine IR that has not been spilled")
+				spill then t.toGiven(x.a, slot: spillSlotOf(x))
+				reload or
+				restore then t.fromGiven(x.a, slot: spillSlotOf(x))
 				frameSetup or
 				frameTeardown then t.out.push(x)
 			end 'kind'
@@ -195,7 +212,7 @@ export function allocateTrivially(mutates fn MirFunction)
 		fn.blocks[b].paramCount = 0
 	end 'params'
 	fn.instrs = exchange(t.out, value: MInstrList.create(0))
-	fn.spillSlots = try t.vregs + t.temps otherwise panic("backend: a frame past memory")
+	fn.spillSlots = try t.given + t.vregs + t.temps otherwise panic("backend: a frame past memory")
 end 'allocateTrivially'
 
 // trivialTarget writes a form; a branch along an edge first copies the edge's arguments, or, for a conditional one,

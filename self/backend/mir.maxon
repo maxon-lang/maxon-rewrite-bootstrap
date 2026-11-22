@@ -52,6 +52,10 @@ export enum MKind
 	// spill stores a to the spill slot aux, and reload loads a from it.
 	spill
 	reload
+	// restore loads a back from the spill slot aux into its own register after an instruction that clobbered it: the
+	// end of a bracket that a spill of a opened. It is not a definition of a, which keeps its one definition and its
+	// register; only the bracketed instruction may leave that register holding something else.
+	restore
 	// frameSetup and frameTeardown are the prologue and the epilogue, which the frame writes once allocation has said
 	// how big it is.
 	frameSetup
@@ -119,17 +123,23 @@ export function newCopy(dst MReg, src MReg) returns MInstr
 	return MInstr.make(MKind.copy, form: pseudoForm, a: dst, b: src, c: noMReg)
 end 'newCopy'
 
-function newSpill(src MReg, slot SpillSlot) returns MInstr
+export function newSpill(src MReg, slot SpillSlot) returns MInstr
 	var x = MInstr.make(MKind.spill, form: pseudoForm, a: src, b: noMReg, c: noMReg)
 	x.aux = try slot as Imm32 otherwise panic("backend: a spill slot past 2 GiB")
 	return x
 end 'newSpill'
 
-function newReload(dst MReg, slot SpillSlot) returns MInstr
+export function newReload(dst MReg, slot SpillSlot) returns MInstr
 	var x = MInstr.make(MKind.reload, form: pseudoForm, a: dst, b: noMReg, c: noMReg)
 	x.aux = try slot as Imm32 otherwise panic("backend: a spill slot past 2 GiB")
 	return x
 end 'newReload'
+
+function newRestore(r MReg, slot SpillSlot) returns MInstr
+	var x = MInstr.make(MKind.restore, form: pseudoForm, a: r, b: noMReg, c: noMReg)
+	x.aux = try slot as Imm32 otherwise panic("backend: a spill slot past 2 GiB")
+	return x
+end 'newRestore'
 
 export function newFrameSetup() returns MInstr
 	return MInstr.make(MKind.frameSetup, form: pseudoForm, a: noMReg, b: noMReg, c: noMReg)

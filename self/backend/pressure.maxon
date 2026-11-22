@@ -1,0 +1,839 @@
+// Register pressure: how many registers of each class the values of a function need at each instruction, against how
+// many are free there; the check that a spilled function fits at every instruction, which colouring stands on; and the
+// test that refuses a hot loop whose values cannot all be in registers (E5001).
+//
+// At an instruction, the values live across it (T) each hold a register, and the instruction needs as many more as the
+// larger of the values it reads for the last time (D) and the ones it defines (F): it reads every operand before it writes
+// one, so a definition can take the register of a value that dies there, a two-address one included, and a definition
+// nothing reads still needs a register. That demand must fit the class's registers that no fixed value holds before or
+// after the instruction; and the values of T must also fit outside the registers the instruction writes. A bracket (a
+// spill of a value and, further down its block, a restore of it) lends the value's register to the instructions between,
+// which neither count the value nor may read it: the value comes back into that same register at the restore.
+
+// BlockScan walks one block back from its end, keeping the values live at each point, and leaves what each instruction
+// needs: for the instruction at first + i, demand and kept at i * classCount + the class's index, and the physical
+// registers that hold fixed values before and after it and that it writes.
+type BlockScan
+	var live as Array with bool
+	var out as Array with bool
+	var seen as Array with Count
+	var liveList as MRegList
+	var livePos as Array with Count
+	var liveCount as Array with Count
+	var outCount as Array with Count
+	var readCount as Array with Count
+	var writeCount as Array with Count
+	var liveWriteCount as Array with Count
+	var seenMark as Count
+	var ops as Operands
+	var first as Count
+	var demand as Array with Count
+	var kept as Array with Count
+	var physBefore as Array with RegMask
+	var physAfter as Array with RegMask
+	var written as Array with RegMask
+	// opens is whether each instruction is the spill that opens a bracket, which a restore further down closes.
+	var opens as Array with bool
+	// The log of the points whose demand is over their class's whole pool, which the E5001 test reads: for each, its
+	// block, class and counts, and the values live across it, each with whether the instruction reads it.
+	var logging as bool
+	var logBlock as Array with Count
+	var logClass as Array with Count
+	var logT as Array with Count
+	var logD as Array with Count
+	var logF as Array with Count
+	var logStart as Array with Count
+	var logReg as MRegList
+	var logKind as Array with Count
+	var webs as Array with Count
+	// pools is the whole pool of each class.
+	var pools as Array with Count
+
+	static function new() returns BlockScan
+		return BlockScan{live: Array.create(0), out: Array.create(0), seen: Array.create(0), liveList: MRegList.create(0), livePos: Array.create(0), liveCount: Array.create(0), outCount: Array.create(0), readCount: Array.create(0), writeCount: Array.create(0), liveWriteCount: Array.create(0), seenMark: 0, ops: Operands.new(), first: 0, demand: Array.create(0), kept: Array.create(0), physBefore: Array.create(0), physAfter: Array.create(0), written: Array.create(0), opens: Array.create(0), logging: false, logBlock: Array.create(0), logClass: Array.create(0), logT: Array.create(0), logD: Array.create(0), logF: Array.create(0), logStart: Array.create(0), logReg: MRegList.create(0), logKind: Array.create(0), webs: Array.create(0), pools: Array.create(0)}
+	end 'new'
+
+	// reset sizes the scan for a function's registers and empties the log.
+	function reset(mutates self, regs Count, logs bool)
+		ir.resetFlags(live, n: regs)
+		ir.resetFlags(out, n: regs)
+		ir.resetCounts(seen, n: regs)
+		ir.resetCounts(livePos, n: regs)
+		liveList.clear()
+		ir.resetCounts(liveCount, n: classCount)
+		ir.resetCounts(outCount, n: classCount)
+		ir.resetCounts(readCount, n: classCount)
+		ir.resetCounts(writeCount, n: classCount)
+		ir.resetCounts(liveWriteCount, n: classCount)
+		pools.clear()
+		for c in 0 upto classCount 'pools'
+			pools.push(fullPool(classAt(c)))
+		end 'pools'
+		seenMark = 0
+		logging = logs
+		logBlock.clear()
+		logClass.clear()
+		logT.clear()
+		logD.clear()
+		logF.clear()
+		logStart.clear()
+		logStart.push(0)
+		logReg.clear()
+		logKind.clear()
+	end 'reset'
+
+	function setLive(mutates self, fn MirFunction, r MReg)
+		let v = vregIndex(r)
+		if live[v] 'already'
+			return
+		end 'already'
+		live[v] = true
+		livePos[v] = liveList.count()
+		liveList.push(r)
+		let c = classIndex(fn.classes[v])
+		liveCount[c] = nextCount(liveCount[c])
+	end 'setLive'
+
+	function clearLive(mutates self, fn MirFunction, r MReg)
+		let v = vregIndex(r)
+		if not live[v] 'already'
+			return
+		end 'already'
+		live[v] = false
+		let at = livePos[v]
+		let last = try liveList.pop() otherwise panic("backend: an empty live set")
+		if last != r 'moved'
+			liveList[at] = last
+			livePos[vregIndex(last)] = at
+		end 'moved'
+		let c = classIndex(fn.classes[v])
+		liveCount[c] = prevCount(liveCount[c])
+	end 'clearLive'
+
+	function isLive(r MReg) returns bool
+		return live[vregIndex(r)]
+	end 'isLive'
+
+	// scan walks block b of fn, whose liveness is lv, from the values live where it ends to where it starts.
+	function scan(mutates self, fn MirFunction, g MirGraph, lv Liveness, b Count, convs Conventions)
+		first = fn.blocks[b].first
+		let n = try fn.blocks[b].endAt - first otherwise panic("backend: a block that ends before it starts")
+		while demand.count() < pointSlots(n) 'counts'
+			demand.push(0)
+			kept.push(0)
+		end 'counts'
+		while physBefore.count() < n 'masks'
+			physBefore.push(0)
+			physAfter.push(0)
+			written.push(0)
+			opens.push(false)
+		end 'masks'
+		for e in g.succStart[b] upto g.succStart[nextCount(b)] 'succs'
+			let s = g.succ[e]
+			for i in lv.liveInStart[s] upto lv.liveInStart[nextCount(s)] 'live'
+				self.setLive(fn, r: vregOf(lv.liveIn[i]))
+			end 'live'
+		end 'succs'
+		var phys = 0 as RegMask
+		var i = n as Count
+		while i > 0 'instrs'
+			i = prevCount(i)
+			let k = addCounts(first, b: i)
+			ops.gather(fn, x: fn.instrs[k], convs: convs)
+			self.point(fn, b: b, i: i, k: k)
+			physAfter[i] = phys
+			written[i] = ops.physWrites
+			opens[i] = false
+			phys = (phys and not ops.physWrites) or ops.physReads
+			physBefore[i] = phys
+			self.step(fn, x: fn.instrs[k], i: i)
+		end 'instrs'
+		if phys != 0 and b != 0 'fixedIn'
+			panic("backend: block {b} is entered with a fixed register holding a value")
+		end 'fixedIn'
+		while liveList.count() > 0 'clear'
+			let r = liveList[prevCount(liveList.count())]
+			self.clearLive(fn, r: r)
+		end 'clear'
+		for c in 0 upto classCount 'classes'
+			if outCount[c] != 0 'open'
+				panic("backend: a bracket in block {b} that no spill opens")
+			end 'open'
+		end 'classes'
+	end 'scan'
+
+	// point counts what the instruction at k, the i-th of the block, needs, with the live set as it is after it.
+	function point(mutates self, fn MirFunction, b Count, i Count, k Count)
+		seenMark = nextCount(seenMark)
+		for c in 0 upto classCount 'zero'
+			readCount[c] = 0
+			writeCount[c] = 0
+			liveWriteCount[c] = 0
+		end 'zero'
+		for d in 0 upto ops.writeLen 'writes'
+			let r = ops.writes[d]
+			let c = classIndex(fn.classes[vregIndex(r)])
+			writeCount[c] = nextCount(writeCount[c])
+			if self.isLive(r) 'live'
+				liveWriteCount[c] = nextCount(liveWriteCount[c])
+			end 'live'
+		end 'writes'
+		for u in 0 upto ops.readLen 'reads'
+			let r = ops.reads[u]
+			let v = vregIndex(r)
+			if seen[v] == seenMark 'twice'
+				continue 'reads'
+			end 'twice'
+			seen[v] = seenMark
+			if not live[v] 'dies'
+				let c = classIndex(fn.classes[v])
+				readCount[c] = nextCount(readCount[c])
+			end 'dies'
+		end 'reads'
+		for c in 0 upto classCount 'classes'
+			let across = try liveCount[c] - liveWriteCount[c] otherwise panic("backend: more live definitions than live values")
+			let at = addCounts(pointSlots(i), b: c)
+			let held = try across - outCount[c] otherwise panic("backend: more values out of their registers than live")
+			demand[at] = addCounts(held, b: maxOf(readCount[c], b: writeCount[c]))
+			kept[at] = held
+			if logging and demand[at] > pools[c] 'over'
+				self.logPoint(fn, b: b, c: c, across: held, k: k)
+			end 'over'
+		end 'classes'
+	end 'point'
+
+	function logPoint(mutates self, fn MirFunction, b Count, c Count, across Count, k Count)
+		logBlock.push(b)
+		logClass.push(c)
+		logT.push(across)
+		logD.push(readCount[c])
+		logF.push(writeCount[c])
+		for j in 0 upto liveList.count() 'live'
+			let r = liveList[j]
+			if classIndex(fn.classes[vregIndex(r)]) != c or self.writes(r) 'other'
+				continue 'live'
+			end 'other'
+			logReg.push(r)
+			logKind.push(acrossKind(self.readKind(fn, r: r, k: k)))
+		end 'live'
+		for u in 0 upto ops.readLen 'dying'
+			let r = ops.reads[u]
+			if live[vregIndex(r)] or classIndex(fn.classes[vregIndex(r)]) != c or self.loggedHere(r) 'other'
+				continue 'dying'
+			end 'other'
+			logReg.push(r)
+			var kind = entryLast as Count
+			if self.readKind(fn, r: r, k: k) == readOnlyCarried 'carried'
+				kind = entryLastCarried
+			end 'carried'
+			logKind.push(kind)
+		end 'dying'
+		logStart.push(logReg.count())
+	end 'logPoint'
+
+	// loggedHere is whether the point being logged lists r already.
+	function loggedHere(r MReg) returns bool
+		for e in logStart[prevCount(logStart.count())] upto logReg.count() 'entries'
+			if logReg[e] == r 'found'
+				return true
+			end 'found'
+		end 'entries'
+		return false
+	end 'loggedHere'
+
+	// readKind is how the instruction at k reads r: not at all, only as arguments of edges whose parameters are of r's
+	// variable (which would not be read at all were the variable in memory), or otherwise.
+	function readKind(fn MirFunction, r MReg, k Count) returns Count
+		var kind = readNone as Count
+		for u in 0 upto ops.readLen 'reads'
+			if ops.reads[u] != r 'other'
+				continue 'reads'
+			end 'other'
+			let slot = ops.slots[u]
+			if slot < firstListUse or fn.instrs[k].ref != MRef.edge 'operand'
+				return readCounted
+			end 'operand'
+			let edge = refIndex(fn.instrs[k])
+			let target = fn.edges[edge].target as Count
+			let param = fn.blockParams[addCounts(fn.blocks[target].params, b: try slot - firstListUse otherwise panic("backend: a slot below the lists"))]
+			if webs[vregIndex(param)] != webs[vregIndex(r)] 'otherVariable'
+				return readCounted
+			end 'otherVariable'
+			kind = readOnlyCarried
+		end 'reads'
+		return kind
+	end 'readKind'
+
+	function writes(r MReg) returns bool
+		for d in 0 upto ops.writeLen 'writes'
+			if ops.writes[d] == r 'found'
+				return true
+			end 'found'
+		end 'writes'
+		return false
+	end 'writes'
+
+	// step moves the live set from after the instruction x to before it.
+	function step(mutates self, fn MirFunction, x MInstr, i Count)
+		for d in 0 upto ops.writeLen 'writes'
+			let r = ops.writes[d]
+			self.clearLive(fn, r: r)
+		end 'writes'
+		for u in 0 upto ops.readLen 'reads'
+			let r = ops.reads[u]
+			self.setLive(fn, r: r)
+		end 'reads'
+		if x.kind == MKind.restore 'restore'
+			let v = vregIndex(x.a)
+			if out[v] 'twice'
+				panic("backend: a value restored twice in one bracket")
+			end 'twice'
+			out[v] = true
+			let c = classIndex(fn.classes[v])
+			outCount[c] = nextCount(outCount[c])
+		end 'restore' else if x.kind == MKind.spill and out[vregIndex(x.a)] 'opens'
+			let v = vregIndex(x.a)
+			out[v] = false
+			opens[i] = true
+			let c = classIndex(fn.classes[v])
+			outCount[c] = prevCount(outCount[c])
+		end 'opens'
+	end 'step'
+
+	function demandAt(i Count, c Count) returns Count
+		return demand[addCounts(pointSlots(i), b: c)]
+	end 'demandAt'
+
+	function keptAt(i Count, c Count) returns Count
+		return kept[addCounts(pointSlots(i), b: c)]
+	end 'keptAt'
+
+	// freeAt is how many registers of class c no fixed value holds around the i-th instruction, and freeAcrossAt how
+	// many of those it does not write either.
+	function freeAt(i Count, c Count) returns Count
+		return self.freeOfMask(c, mask: physBefore[i] or physAfter[i])
+	end 'freeAt'
+
+	function freeAcrossAt(i Count, c Count) returns Count
+		return self.freeOfMask(c, mask: physBefore[i] or physAfter[i] or written[i])
+	end 'freeAcrossAt'
+
+	// freeOfMask is how many registers of class c a mask of fixed registers leaves, counted only where it holds some.
+	function freeOfMask(c Count, mask RegMask) returns Count
+		if (mask and allocatable(classAt(c))) == 0 'none'
+			return pools[c]
+		end 'none'
+		return freeOf(classAt(c), mask: mask)
+	end 'freeOfMask'
+
+	// fitsAt is whether the i-th instruction's values fit its free registers.
+	function fitsAt(i Count) returns bool
+		for c in 0 upto classCount 'classes'
+			if self.demandAt(i, c: c) > self.freeAt(i, c: c) or self.keptAt(i, c: c) > self.freeAcrossAt(i, c: c) 'over'
+				return false
+			end 'over'
+		end 'classes'
+		return true
+	end 'fitsAt'
+end 'BlockScan'
+
+// pointSlots is where the counts of the i-th point start.
+function pointSlots(i Count) returns Count
+	return try i * classCount otherwise panic("backend: a block past memory")
+end 'pointSlots'
+
+// The kinds of the values a logged point lists, by what taking their variable out of registers across the loop does
+// there: one live across it and not read frees a register; one read (as an operand, or as an edge's argument for
+// another variable) still needs one, for the instruction alone; one only handed to its own variable's parameter frees
+// it outright; one read for the last time keeps its need; one read for the last time only by its own parameter frees
+// it.
+let entryIdle = 0
+
+let entryRead = 1
+
+let entryCarried = 2
+
+let entryLast = 3
+
+let entryLastCarried = 4
+
+let readNone = 0
+
+let readCounted = 1
+
+let readOnlyCarried = 2
+
+function acrossKind(read Count) returns Count
+	if read == readNone 'idle'
+		return entryIdle
+	end 'idle'
+	if read == readCounted 'read'
+		return entryRead
+	end 'read'
+	return entryCarried
+end 'acrossKind'
+
+// fullPool is how many registers of a class a value can be given.
+function fullPool(class RegClass) returns Count
+	return maskCount(allocatable(class))
+end 'fullPool'
+
+function freeOf(class RegClass, mask RegMask) returns Count
+	if (mask and allocatable(class)) == 0 'none'
+		return fullPool(class)
+	end 'none'
+	return maskCount(allocatable(class) and not mask)
+end 'freeOf'
+
+function classDescription(class RegClass) returns String
+	return match class 'class'
+		gpr gives "general-purpose"
+		xmm gives "xmm"
+	end 'class'
+end 'classDescription'
+
+// verifyPressure checks a spilled function: every virtual register has one definition, at every instruction the values
+// of each class fit its free registers, and no spill code stands on a loop's hot path where the loop neither defines nor
+// reads the value it moves. It gives what it finds wrong, nothing when the function is as colouring needs it.
+export function verifyPressure(fn MirFunction) returns NameList
+	var problems = NameList.create(0)
+	var g = MirGraph.new()
+	g.build(fn)
+	let convs = Conventions.make()
+	var lv = Liveness.new()
+	lv.compute(fn, g: g, convs: convs)
+	var scan = BlockScan.new()
+	scan.reset(fn.vregCount(), logs: false)
+	for o in 0 upto fn.order.count() 'blocks'
+		let b = fn.order[o] as Count
+		scan.scan(fn, g: g, lv: lv, b: b, convs: convs)
+		let n = try fn.blocks[b].endAt - fn.blocks[b].first otherwise panic("backend: a block that ends before it starts")
+		for i in 0 upto n 'points'
+			for c in 0 upto classCount 'classes'
+				let k = addCounts(fn.blocks[b].first, b: i)
+				let class = classDescription(classAt(c))
+				if scan.demandAt(i, c: c) > scan.freeAt(i, c: c) 'over'
+					problems.push("block {b}, instruction {k}: {scan.demandAt(i, c: c)} {class} values need registers where {scan.freeAt(i, c: c)} are free")
+				end 'over'
+				if scan.keptAt(i, c: c) > scan.freeAcrossAt(i, c: c) 'clobbered'
+					problems.push("block {b}, instruction {k}: {scan.keptAt(i, c: c)} {class} values live across it where it leaves {scan.freeAcrossAt(i, c: c)} registers alone")
+				end 'clobbered'
+			end 'classes'
+		end 'points'
+	end 'blocks'
+	checkPlacement(fn, g: g, convs: convs, problems: problems)
+	return problems
+end 'verifyPressure'
+
+function isSpillCode(x MInstr) returns bool
+	return x.kind == MKind.spill or x.kind == MKind.reload or x.kind == MKind.restore
+end 'isSpillCode'
+
+// checkPlacement holds spill code to where its value is wanted: an instruction that moves a value between a register and
+// its slot is either in a cold block or in loops that each define or read, through some register of that slot, the value
+// it moves. A spill slot stands for one value, so the registers stored to it or loaded from it are that value's pieces.
+function checkPlacement(fn MirFunction, g MirGraph, convs Conventions, mutates problems NameList)
+	var slotOf = IndexList.create(0)
+	for i in 0 upto fn.vregCount() 'none'
+		slotOf.push(noDef)
+	end 'none'
+	for k in 0 upto fn.instrs.count() 'instrs'
+		if isSpillCode(fn.instrs[k]) and isVirtual(fn.instrs[k].a) 'spill'
+			slotOf[vregIndex(fn.instrs[k].a)] = indexOfCount(spillSlotOf(fn.instrs[k]) as Count)
+		end 'spill'
+	end 'instrs'
+	var touchSlot = CountList.create(0)
+	var touchBlock = CountList.create(0)
+	var codeSlot = CountList.create(0)
+	var codeAt = CountList.create(0)
+	var ops = Operands.new()
+	for o in 0 upto fn.order.count() 'blocks'
+		let b = fn.order[o] as Count
+		for p in 0 upto fn.blocks[b].paramCount 'params'
+			touch(slotOf, r: fn.blockParams[addCounts(fn.blocks[b].params, b: p)], b: b, slots: touchSlot, blocks: touchBlock)
+		end 'params'
+		for k in fn.blocks[b].first upto fn.blocks[b].endAt 'instrs'
+			if isSpillCode(fn.instrs[k]) 'code'
+				codeSlot.push(spillSlotOf(fn.instrs[k]) as Count)
+				codeAt.push(k)
+				continue 'instrs'
+			end 'code'
+			ops.gather(fn, x: fn.instrs[k], convs: convs)
+			for u in 0 upto ops.readLen 'reads'
+				touch(slotOf, r: ops.reads[u], b: b, slots: touchSlot, blocks: touchBlock)
+			end 'reads'
+			for d in 0 upto ops.writeLen 'writes'
+				touch(slotOf, r: ops.writes[d], b: b, slots: touchSlot, blocks: touchBlock)
+			end 'writes'
+		end 'instrs'
+	end 'blocks'
+	let slots = fn.spillSlots
+	var touchStart = CountList.create(0)
+	var touchList = CountList.create(0)
+	ir.buildCsr(touchSlot, targets: touchBlock, nodes: slots, starts: touchStart, list: touchList)
+	var codeStart = CountList.create(0)
+	var codeList = CountList.create(0)
+	ir.buildCsr(codeSlot, targets: codeAt, nodes: slots, starts: codeStart, list: codeList)
+	var stamp = CountList.create(0)
+	ir.resetCounts(stamp, n: g.loops.loopCount())
+	for s in 0 upto slots 'slots'
+		let mark = nextCount(s)
+		for e in touchStart[s] upto touchStart[nextCount(s)] 'touching'
+			var l = g.loops.loopOf[touchList[e]]
+			while l != ir.noLoop 'up'
+				let at = countOfIndex(l)
+				stamp[at] = mark
+				l = g.loops.parent[at]
+			end 'up'
+		end 'touching'
+		for e in codeStart[s] upto codeStart[nextCount(s)] 'code'
+			let k = codeList[e]
+			let b = g.blockAt[k]
+			if g.cold[b] 'cold'
+				continue 'code'
+			end 'cold'
+			var l = g.loops.loopOf[b]
+			while l != ir.noLoop 'up'
+				let at = countOfIndex(l)
+				if stamp[at] != mark 'idle'
+					problems.push("block {b}, instruction {k}: spill code of slot {s} in the loop at block {g.loops.header[at]}, which neither defines nor reads its value")
+				end 'idle'
+				l = g.loops.parent[at]
+			end 'up'
+		end 'code'
+	end 'slots'
+end 'checkPlacement'
+
+function touch(slotOf IndexList, r MReg, b Count, mutates slots Array with Count, mutates blocks Array with Count)
+	let s = slotOf[vregIndex(r)]
+	if s != noDef 'spilled'
+		slots.push(countOfIndex(s))
+		blocks.push(b)
+	end 'spilled'
+end 'touch'
+
+// spillCodeCounts is how many spills, reloads and restores a spilled function has, all of them and those on a loop's
+// hot path, as all and hot.
+export type SpillCodeCounts
+	export var spills as Count
+	export var reloads as Count
+	export var restores as Count
+	export var hotSpills as Count
+	export var hotReloads as Count
+	export var hotRestores as Count
+
+	static function new() returns SpillCodeCounts
+		return SpillCodeCounts{spills: 0, reloads: 0, restores: 0, hotSpills: 0, hotReloads: 0, hotRestores: 0}
+	end 'new'
+
+	function countSpill(mutates self, hot bool)
+		spills = nextCount(spills)
+		if hot 'hot'
+			hotSpills = nextCount(hotSpills)
+		end 'hot'
+	end 'countSpill'
+
+	function countReload(mutates self, hot bool)
+		reloads = nextCount(reloads)
+		if hot 'hot'
+			hotReloads = nextCount(hotReloads)
+		end 'hot'
+	end 'countReload'
+
+	function countRestore(mutates self, hot bool)
+		restores = nextCount(restores)
+		if hot 'hot'
+			hotRestores = nextCount(hotRestores)
+		end 'hot'
+	end 'countRestore'
+end 'SpillCodeCounts'
+
+export function spillCodeCounts(fn MirFunction) returns SpillCodeCounts
+	var g = MirGraph.new()
+	g.build(fn)
+	var counts = SpillCodeCounts.new()
+	for o in 0 upto fn.order.count() 'blocks'
+		let b = fn.order[o] as Count
+		let hot = g.isHot(b)
+		for k in fn.blocks[b].first upto fn.blocks[b].endAt 'instrs'
+			match fn.instrs[k].kind 'kind'
+				spill then counts.countSpill(hot)
+				reload then counts.countReload(hot)
+				restore then counts.countRestore(hot)
+				target or
+				copy or
+				parallelCopy or
+				frameSetup or
+				frameTeardown then continue 'instrs'
+			end 'kind'
+		end 'instrs'
+	end 'blocks'
+	return counts
+end 'spillCodeCounts'
+
+// PressureRefusal is a hot loop whose values of one class cannot all be in registers, which E5001 reports: the header of
+// the innermost loop of its worst point, the registers the values there need (held) against the class's whole pool
+// (available), and the least number of values whose moving out of registers across the loop nest makes every point of
+// its hot path fit (needed), with those values in the order chosen. bound, held - available, is the least that any
+// choice can need, since a value out of registers frees at most one register at a point; needed is that unless no value
+// is live across all the worst points.
+export type PressureRefusal
+	export var loopHeader as MBlockID
+	export var class as RegClass
+	export var held as Count
+	export var available as Count
+	export var needed as Count
+	export var bound as Count
+	export var values as MRegList
+
+	static function make(loopHeader MBlockID, class RegClass, held Count, available Count, needed Count, consumes values MRegList) returns PressureRefusal
+		let bound = try held - available otherwise panic("backend: a refusal under its pool")
+		return PressureRefusal{loopHeader: loopHeader, class: class, held: held, available: available, needed: needed, bound: bound, values: values}
+	end 'make'
+end 'PressureRefusal'
+
+export typealias PressureRefusalList = Array with PressureRefusal
+
+// pressureRefusalMessage is the text of E5001 for a refusal, with the place of the loop and the name of the target.
+export function pressureRefusalMessage(r PressureRefusal, place String, target String) returns String
+	return diag.registerPressureLoop(place, over: "{r.bound}", held: "{r.held}", class: classDescription(r.class), target: target, available: "{r.available}", deficit: "{r.needed}")
+end 'pressureRefusalMessage'
+
+// refuseHotLoops finds the hot loops of fn over their pools, in the hot blocks over marks. Every point of a loop's hot path whose demand is over its
+// class's whole pool is logged; the points of one loop nest and class make one refusal. How many values must go is found
+// by taking out, one at a time, the value that relieves the most excess over those points: out of registers across the
+// loop, a value still needs one at an instruction that reads it, for that instruction alone.
+function refuseHotLoops(fn MirFunction, g MirGraph, lv Liveness, mutates scan BlockScan, convs Conventions, over BoolList) returns PressureRefusalList
+	var refusals = PressureRefusalList.create(0)
+	scan.reset(fn.vregCount(), logs: true)
+	scan.webs = websOf(fn)
+	for o in 0 upto fn.order.count() 'blocks'
+		let b = fn.order[o] as Count
+		if over[b] 'over'
+			scan.scan(fn, g: g, lv: lv, b: b, convs: convs)
+		end 'over'
+	end 'blocks'
+	let points = scan.logBlock.count()
+	if points == 0 'fits'
+		return refusals
+	end 'fits'
+	var nestOf = CountList.create(0)
+	for p in 0 upto points 'nests'
+		nestOf.push(outermostLoop(g, b: scan.logBlock[p]))
+	end 'nests'
+	var done = BoolList.create(0)
+	ir.resetFlags(done, n: points)
+	for p in 0 upto points 'groups'
+		if done[p] 'grouped'
+			continue 'groups'
+		end 'grouped'
+		var group = CountList.create(0)
+		for q in p upto points 'members'
+			if not done[q] and nestOf[q] == nestOf[p] and scan.logClass[q] == scan.logClass[p] 'same'
+				done[q] = true
+				group.push(q)
+			end 'same'
+		end 'members'
+		refusals.push(refusalOf(fn, g: g, lv: lv, scan: scan, group: group))
+	end 'groups'
+	return refusals
+end 'refuseHotLoops'
+
+function outermostLoop(g MirGraph, b Count) returns Count
+	var l = countOfIndex(g.loops.loopOf[b])
+	while g.loops.parent[l] != ir.noLoop 'up'
+		l = countOfIndex(g.loops.parent[l])
+	end 'up'
+	return l
+end 'outermostLoop'
+
+function excessOf(t Count, d Count, f Count, pool Count) returns Count
+	let need = addCounts(t, b: maxOf(d, b: f))
+	if need > pool 'over'
+		return try need - pool otherwise panic("backend: an excess below 0")
+	end 'over'
+	return 0
+end 'excessOf'
+
+// websOf is the variable of each virtual register of fn: the registers that edges join, an argument with the parameter it
+// becomes, are one variable of the source, which the programmer moves out of the loop as a whole.
+function websOf(fn MirFunction) returns CountList
+	var parent = CountList.create(0)
+	for v in 0 upto fn.vregCount() 'own'
+		parent.push(v)
+	end 'own'
+	for e in 0 upto fn.edges.count() 'edges'
+		let target = fn.edges[e].target as Count
+		for i in 0 upto fn.edges[e].argCount 'args'
+			let arg = fn.edgeArgs[addCounts(fn.edges[e].args, b: i)]
+			let param = fn.blockParams[addCounts(fn.blocks[target].params, b: i)]
+			if isVirtual(arg) 'virtual'
+				let a = webRoot(parent, v: vregIndex(arg))
+				let b = webRoot(parent, v: vregIndex(param))
+				if a < b 'lower'
+					parent[b] = a
+				end 'lower' else if b < a 'higher'
+					parent[a] = b
+				end 'higher'
+			end 'virtual'
+		end 'args'
+	end 'edges'
+	for v in 0 upto fn.vregCount() 'flatten'
+		let r = webRoot(parent, v: v)
+		parent[v] = r
+	end 'flatten'
+	return parent
+end 'websOf'
+
+function webRoot(mutates parent CountList, v Count) returns Count
+	var r = v
+	while parent[r] != r 'up'
+		r = parent[r]
+	end 'up'
+	var x = v
+	while parent[x] != r 'compress'
+		let next = parent[x]
+		parent[x] = r
+		x = next
+	end 'compress'
+	return r
+end 'webRoot'
+
+function refusalOf(fn MirFunction, g MirGraph, lv Liveness, scan BlockScan, group CountList) returns PressureRefusal
+	let c = scan.logClass[group[0]]
+	let class = classAt(c)
+	let pool = fullPool(class)
+	let webs = scan.webs.clone()
+	var t = CountList.create(0)
+	var d = CountList.create(0)
+	var worst = group[0]
+	var held = 0 as Count
+	for i in 0 upto group.count() 'points'
+		let p = group[i]
+		t.push(scan.logT[p])
+		d.push(scan.logD[p])
+		let need = addCounts(scan.logT[p], b: maxOf(scan.logD[p], b: scan.logF[p]))
+		if need > held 'worse'
+			held = need
+			worst = p
+		end 'worse'
+	end 'points'
+	let nest = outermostLoop(g, b: scan.logBlock[group[0]])
+	var candidates = CountList.create(0)
+	var reads = CountList.create(0)
+	var isCandidate = BoolList.create(0)
+	ir.resetFlags(isCandidate, n: fn.vregCount())
+	var counted = BoolList.create(0)
+	ir.resetFlags(counted, n: fn.vregCount())
+	var readsOfWeb = CountList.create(0)
+	ir.resetCounts(readsOfWeb, n: fn.vregCount())
+	for i in 0 upto group.count() 'collect'
+		let p = group[i]
+		for e in scan.logStart[p] upto scan.logStart[nextCount(p)] 'entries'
+			let v = vregIndex(scan.logReg[e])
+			let web = webs[v]
+			if not isCandidate[web] 'new'
+				isCandidate[web] = true
+				candidates.push(web)
+			end 'new'
+			if not counted[v] 'reads'
+				counted[v] = true
+				readsOfWeb[web] = addCounts(readsOfWeb[web], b: readsInLoop(g, lv: lv, v: v, loop: nest))
+			end 'reads'
+		end 'entries'
+	end 'collect'
+	var removed = BoolList.create(0)
+	ir.resetFlags(removed, n: fn.vregCount())
+	var chosen = MRegList.create(0)
+	while true 'choose'
+		var over = false
+		for i in 0 upto group.count() 'check'
+			if excessOf(t[i], d: d[i], f: scan.logF[group[i]], pool: pool) > 0 'over'
+				over = true
+			end 'over'
+		end 'check'
+		if not over 'fits'
+			break 'choose'
+		end 'fits'
+		var best = 0 as Count
+		var found = false
+		var bestGain = 0 as Count
+		for j in 0 upto candidates.count() 'each'
+			let web = candidates[j]
+			if removed[web] 'gone'
+				continue 'each'
+			end 'gone'
+			var gain = 0 as Count
+			for i in 0 upto group.count() 'gain'
+				let p = group[i]
+				var freed = 0 as Count
+				var loaded = 0 as Count
+				var handed = 0 as Count
+				for e in scan.logStart[p] upto scan.logStart[nextCount(p)] 'entries'
+					if webs[vregIndex(scan.logReg[e])] == web 'member'
+						let kind = scan.logKind[e]
+						if kind == entryIdle or kind == entryRead or kind == entryCarried 'across'
+							freed = nextCount(freed)
+						end 'across'
+						if kind == entryRead 'loaded'
+							loaded = nextCount(loaded)
+						end 'loaded'
+						if kind == entryLastCarried 'handed'
+							handed = nextCount(handed)
+						end 'handed'
+					end 'member'
+				end 'entries'
+				if freed > 0 or handed > 0 'reduces'
+					let before = excessOf(t[i], d: d[i], f: scan.logF[p], pool: pool)
+					let after = excessOf(try t[i] - freed otherwise 0, d: try addCounts(d[i], b: loaded) - handed otherwise 0, f: scan.logF[p], pool: pool)
+					gain = addCounts(gain, b: try before - after otherwise 0)
+				end 'reduces'
+			end 'gain'
+			if gain > 0 and (not found or gain > bestGain or (gain == bestGain and readsOfWeb[web] < readsOfWeb[best])) 'better'
+				best = web
+				bestGain = gain
+				found = true
+			end 'better'
+		end 'each'
+		if not found 'stuck'
+			break 'choose'
+		end 'stuck'
+		removed[best] = true
+		chosen.push(vregOf(best))
+		for i in 0 upto group.count() 'apply'
+			let p = group[i]
+			for e in scan.logStart[p] upto scan.logStart[nextCount(p)] 'entries'
+				if webs[vregIndex(scan.logReg[e])] == best 'member'
+					let kind = scan.logKind[e]
+					if kind == entryIdle or kind == entryRead or kind == entryCarried 'across'
+						t[i] = prevCount(t[i])
+					end 'across'
+					if kind == entryRead 'loaded'
+						d[i] = nextCount(d[i])
+					end 'loaded'
+					if kind == entryLastCarried 'handed'
+						d[i] = prevCount(d[i])
+					end 'handed'
+				end 'member'
+			end 'entries'
+		end 'apply'
+	end 'choose'
+	var left = 0 as Count
+	for i in 0 upto group.count() 'left'
+		left = maxOf(left, b: excessOf(t[i], d: d[i], f: scan.logF[group[i]], pool: pool))
+	end 'left'
+	let header = g.loops.header[countOfIndex(g.loops.loopOf[scan.logBlock[worst]])]
+	return PressureRefusal.make(blockIdOf(header), class: class, held: held, available: pool, needed: addCounts(chosen.count(), b: left), values: chosen)
+end 'refusalOf'
+
+// readsInLoop is how many times the instructions of a loop read the virtual register with index v, which ranks the
+// values to move out of it: the one read least costs least in memory.
+function readsInLoop(g MirGraph, lv Liveness, v Count, loop Count) returns Count
+	var n = 0 as Count
+	for e in lv.useStart[v] upto lv.useStart[nextCount(v)] 'uses'
+		if g.loopHolds(loop, b: g.blockAt[lv.recordAt[lv.useList[e]]]) 'inside'
+			n = nextCount(n)
+		end 'inside'
+	end 'uses'
+	return n
+end 'readsInLoop'

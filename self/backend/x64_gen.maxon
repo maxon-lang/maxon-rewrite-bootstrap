@@ -1815,6 +1815,85 @@ export function hasPatchField(form X64Form) returns bool
 	end 'form'
 end 'hasPatchField'
 
+export function rematerializable(form X64Form) returns bool
+	return match form 'form'
+		movRegImm32 or
+		movRegImm32Signed or
+		movRegImm64 gives true
+		movRegReg or
+		addRegReg or
+		subRegReg or
+		andRegReg or
+		orRegReg or
+		xorRegReg or
+		cmpRegReg or
+		testRegReg or
+		imulRegReg or
+		loadRegBaseDisp or
+		storeBaseDispReg or
+		leaRegBaseDisp or
+		movzxRegByteBaseDisp or
+		storeBaseDispReg8 or
+		movzxRegWordBaseDisp or
+		loadReg32BaseDisp or
+		storeBaseDispReg16 or
+		storeBaseDispReg32 or
+		storeBaseDispImm8 or
+		movzxRegReg8 or
+		setccReg or
+		addRegImm8 or
+		addRegImm32 or
+		andRegImm8 or
+		andRegImm32 or
+		subRegImm8 or
+		subRegImm32 or
+		cmpRegImm8 or
+		cmpRegImm32 or
+		notReg or
+		negReg or
+		mulReg or
+		divReg or
+		idivReg or
+		cqo or
+		shlRegCl or
+		shrRegCl or
+		sarRegCl or
+		sarRegImm8 or
+		pushReg or
+		popReg or
+		ret or
+		ud2 or
+		repMovsb or
+		repStosq or
+		repeCmpsb or
+		leaRegRip or
+		loadRegRip or
+		storeRipReg or
+		callRip or
+		callReg or
+		lockXaddBaseDispReg or
+		xchgBaseDispReg or
+		lockCmpxchgBaseDispReg or
+		pause or
+		loadRegGsBaseDisp or
+		jmpRel32 or
+		callRel32 or
+		jccRel32 or
+		movqXmm0Reg or
+		movqXmm1Reg or
+		movqRegXmm0 or
+		addsdXmm0Xmm1 or
+		subsdXmm0Xmm1 or
+		mulsdXmm0Xmm1 or
+		divsdXmm0Xmm1 or
+		sqrtsdXmm0Xmm0 or
+		ucomisdXmm0Xmm1 or
+		roundsdXmm0Xmm0Imm8 or
+		cvtsi2sdXmm0Reg or
+		cvttsd2siRaxXmm0 gives false
+	end 'form'
+end 'rematerializable'
+
 // fixedUses is the registers a form reads that no operand names.
 export function fixedUses(form X64Form) returns RegMask
 	return match form 'form'

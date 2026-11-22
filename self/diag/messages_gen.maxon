@@ -829,3 +829,8 @@ end 'heapAnnotationWithoutBinding'
 export function conditionalExtensionWithheld(typeName String, methodName String, clause String, bindingName String, interfaceName String) returns String
 	return "Type '{typeName}' has no field named '{methodName}' ('{methodName}' is available as a conditional extension {clause}, but '{bindingName}' does not implement '{interfaceName}')"
 end 'conditionalExtensionWithheld'
+
+// The text of errRegisterPressure for: the loop at {place} needs {over} more register(s) than are available: {held} values must be held in {class} registers at once inside this loop, but {target} has only {available}; remove {deficit} of them from the loop, for example by holding them in an array that the loop indexes
+export function registerPressureLoop(place String, over String, held String, class String, target String, available String, deficit String) returns String
+	return "the loop at {place} needs {over} more register(s) than are available: {held} values must be held in {class} registers at once inside this loop, but {target} has only {available}; remove {deficit} of them from the loop, for example by holding them in an array that the loop indexes"
+end 'registerPressureLoop'

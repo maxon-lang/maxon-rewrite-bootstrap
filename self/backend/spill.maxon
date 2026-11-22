@@ -1,0 +1,1141 @@
+// Spilling, the first half of register allocation: it brings every instruction of a function under the registers free
+// there, so that colouring in dominance order can give each value a register, and refuses (E5001) a hot loop whose
+// values cannot all be in registers. It moves values out of registers in tiers, the ones that cost the hot path nothing
+// first:
+//
+// 1. a value live across a loop that the loop's hot path neither defines nor reads leaves its registers for the loop:
+//    stored at its definition, reloaded where it is read after the loop or on the loop's cold path;
+// 2. a constant live across a hot point over its pool is made again before its uses instead of being kept;
+// 3. the E5001 test: a point of a loop's hot path still over its class's whole pool is refused;
+// 4. at every point still over the registers free there (a call keeps only the callee-saved ones, a division or a
+//    variable shift fixes rax, rdx or rcx, and code outside hot loops may simply hold too many values), values are
+//    spilled by farthest next use, constants first; in a cold block, a value live across a call, or one its loop's hot
+//    path reads, is bracketed instead: stored before the point and restored into its own register after it, so the hot
+//    path around the cold block keeps it in its register.
+//
+// A split is one placement with no search. The value is stored once, after its one definition; each use the cut reaches
+// gets a reload (or a constant made again), one per block and stretch of uses, placed before the first of them and
+// hoisted to the preheader of every loop that holds neither the cut nor the definition. So spill code never stands in a
+// loop that neither defines nor reads the value (verifyPressure checks it), a store runs where the definition does, and
+// a reload no deeper than the uses it serves. A reload defines a new value that dominates the uses it serves, so the
+// function stays in SSA form and needs no new block parameter.
+//
+// The work is in rounds, each a fresh analysis (graph, liveness) and a sweep; edits are applied between rounds. Every
+// split only shortens live ranges, so a round never makes a point worse; a block whose live-in values another block's
+// split changed waits for the next round.
+
+// Relief is what a sweep may do at a point over its registers.
+enum Relief
+	// constants: only make constants again, against the class's whole pool, in hot blocks.
+	constants
+	// all: spill whatever the tiers allow, against the registers free at the point, in every block.
+	all
+end 'Relief'
+
+// noDistance is the distance of a value whose next use the layout does not show.
+let noDistance = 2147483647
+
+// runsPerBlock is how many stretches of uses a split can give one block: the ones before the cut, which a loop brings
+// round again, and the ones after it.
+let runsPerBlock = 2
+
+// Victim tiers, cheapest first.
+let tierConstant = 0
+
+let tierStored = 1
+
+let tierPlain = 2
+
+let tierHotInLoop = 3
+
+// SpillResult is what spilling a function did: the hot loops it refused, and the spill code it wrote.
+export type SpillResult
+	export var refusals as PressureRefusalList
+	export var stores as Count
+	export var reloads as Count
+	export var remats as Count
+	export var brackets as Count
+	export var rounds as Count
+
+	static function new() returns SpillResult
+		return SpillResult{refusals: PressureRefusalList.create(0), stores: 0, reloads: 0, remats: 0, brackets: 0, rounds: 0}
+	end 'new'
+end 'SpillResult'
+
+// Spiller is the state of spilling, reused from one function to the next so that its arrays keep their capacity.
+export type Spiller
+	var graph as MirGraph
+	var lv as Liveness
+	var scan as BlockScan
+	var convs as Conventions
+	var ops as Operands
+	var result as SpillResult
+	// For each virtual register: the value it is a piece of (itself, or the value a reload or a constant made again
+	// stands for); and for each value: its slot, whether its definition stores it there, and its defining instruction if
+	// it is a constant.
+	var root as MRegList
+	var slotOf as IndexList
+	var stored as BoolList
+	var constAt as IndexList
+	var consts as MInstrList
+	var slots as Count
+	// For each register made in this round: its block, the register whose uses it took over, its insertion, and whether
+	// it is live out of its block (a reload hoisted to a preheader).
+	var madeBlock as IndexList
+	var madeOwner as CountList
+	var madeInsert as IndexList
+	var madeOut as BoolList
+	// The edits of a round.
+	var insertAt as CountList
+	var inserts as MInstrList
+	var cancelled as BoolList
+	var deleted as BoolList
+	var dirty as BoolList
+	var changed as bool
+	// current is whether the graph and liveness are those of the function as it stands.
+	var current as bool
+	// The scratch of a split.
+	var mark as Count
+	var liveMark as CountList
+	var visit as CountList
+	var stack as CountList
+	var reach as CountList
+	var reachAnchor as CountList
+	var anchorStamp as CountList
+	var anchorIndex as CountList
+	var anchorBlock as CountList
+	var anchorPos as CountList
+	var anchorEntry as IndexList
+	var anchorHoisted as BoolList
+	var anchorReg as MRegList
+	// The sweep of a block: the values in registers (S), each with the register whose uses it walks, the cursor in those
+	// uses and whether it is live out; the values bracketed or read at the point; and the values its splits will reload
+	// further down the block.
+	var inS as IndexList
+	var sReg as MRegList
+	var sOwner as CountList
+	var sCursor as CountList
+	var sOut as BoolList
+	var sCount as CountList
+	var outMark as CountList
+	var blockMark as Count
+	var fwdOut as BoolList
+	var outCount as CountList
+	var readStamp as CountList
+	var readMark as Count
+	var pendPos as CountList
+	var pendReg as MRegList
+	var pendOwner as CountList
+	var pendCursor as CountList
+	var pendOut as BoolList
+	var loopMax as CountList
+	// What the survey found of each block: the most each class needs at one instruction, and whether all fit.
+	var blockMost as CountList
+	var blockFits as BoolList
+	var loopEnd as CountList
+	var splitThisRound as MRegList
+	var bracketedNow as MRegList
+	var dyingCount as CountList
+	var writeCount as CountList
+	var deadList as MRegList
+	var pickedTier as Count
+	var insertRank as CountList
+
+	export static function new() returns Spiller
+		return Spiller{graph: MirGraph.new(), lv: Liveness.new(), scan: BlockScan.new(), convs: Conventions.make(), ops: Operands.new(), result: SpillResult.new(), root: MRegList.create(0), slotOf: IndexList.create(0), stored: BoolList.create(0), constAt: IndexList.create(0), consts: MInstrList.create(0), slots: 0, madeBlock: IndexList.create(0), madeOwner: CountList.create(0), madeInsert: IndexList.create(0), madeOut: BoolList.create(0), insertAt: CountList.create(0), inserts: MInstrList.create(0), cancelled: BoolList.create(0), deleted: BoolList.create(0), dirty: BoolList.create(0), changed: false, current: false, mark: 0, liveMark: CountList.create(0), visit: CountList.create(0), stack: CountList.create(0), reach: CountList.create(0), reachAnchor: CountList.create(0), anchorStamp: CountList.create(0), anchorIndex: CountList.create(0), anchorBlock: CountList.create(0), anchorPos: CountList.create(0), anchorEntry: IndexList.create(0), anchorHoisted: BoolList.create(0), anchorReg: MRegList.create(0), inS: IndexList.create(0), sReg: MRegList.create(0), sOwner: CountList.create(0), sCursor: CountList.create(0), sOut: BoolList.create(0), sCount: CountList.create(0), outMark: CountList.create(0), blockMark: 0, fwdOut: BoolList.create(0), outCount: CountList.create(0), readStamp: CountList.create(0), readMark: 0, pendPos: CountList.create(0), pendReg: MRegList.create(0), pendOwner: CountList.create(0), pendCursor: CountList.create(0), pendOut: BoolList.create(0), loopMax: CountList.create(0), blockMost: CountList.create(0), blockFits: BoolList.create(0), loopEnd: CountList.create(0), splitThisRound: MRegList.create(0), bracketedNow: MRegList.create(0), dyingCount: CountList.create(0), writeCount: CountList.create(0), deadList: MRegList.create(0), pickedTier: 0, insertRank: CountList.create(0)}
+	end 'new'
+
+	// start makes every virtual register of fn its own value, with no slot.
+	function start(mutates self, fn MirFunction)
+		result = SpillResult.new()
+		root.clear()
+		slotOf.clear()
+		stored.clear()
+		constAt.clear()
+		consts.clear()
+		for v in 0 upto fn.vregCount() 'values'
+			root.push(vregOf(v))
+			slotOf.push(noDef)
+			stored.push(false)
+			constAt.push(noDef)
+		end 'values'
+		slots = fn.spillSlots
+		current = false
+	end 'start'
+
+	// analyze starts a round: the graph and liveness of fn as it stands, and no edits. A round that changed nothing
+	// leaves them as they were, and the next one starts from them.
+	function analyze(mutates self, fn MirFunction)
+		if current 'current'
+			return
+		end 'current'
+		current = true
+		graph.build(fn)
+		lv.compute(fn, g: graph, convs: convs)
+		self.survey(fn)
+		result.rounds = nextCount(result.rounds)
+		let regs = fn.vregCount()
+		madeBlock.clear()
+		madeOwner.clear()
+		madeInsert.clear()
+		madeOut.clear()
+		for v in 0 upto regs 'made'
+			madeBlock.push(noBlock)
+			madeOwner.push(v)
+			madeInsert.push(noDef)
+			madeOut.push(false)
+		end 'made'
+		for v in 0 upto regs 'constants'
+			let at = lv.defAt[v]
+			if at != noDef and root[v] == vregOf(v) and constAt[v] == noDef and isRematerializable(fn.instrs[countOfIndex(at)]) 'constant'
+				constAt[v] = indexOfCount(consts.count())
+				consts.push(fn.instrs[countOfIndex(at)].clone())
+			end 'constant'
+		end 'constants'
+		insertAt.clear()
+		insertRank.clear()
+		inserts.clear()
+		cancelled.clear()
+		ir.resetFlags(deleted, n: fn.instrs.count())
+		ir.resetFlags(dirty, n: fn.blocks.count())
+		changed = false
+		splitThisRound.clear()
+		let blocks = fn.blocks.count()
+		ir.resetCounts(liveMark, n: blocks)
+		ir.resetCounts(visit, n: blocks)
+		ir.resetCounts(anchorStamp, n: runSlots(blocks))
+		ir.resetCounts(anchorIndex, n: runSlots(blocks))
+		mark = 0
+		ir.resetCounts(outMark, n: regs)
+		blockMark = 0
+		inS.clear()
+		for v in 0 upto regs 'notInS'
+			inS.push(noDef)
+		end 'notInS'
+		ir.resetFlags(fwdOut, n: regs)
+		ir.resetCounts(readStamp, n: regs)
+		readMark = 0
+	end 'analyze'
+
+	// survey scans every block once for the most each class needs at one of its instructions and whether all of them
+	// fit their free registers, which is all most functions need to be told that nothing is to be done.
+	function survey(mutates self, fn MirFunction)
+		let blocks = fn.blocks.count()
+		ir.resetCounts(blockMost, n: pointSlots(blocks))
+		ir.resetFlags(blockFits, n: blocks)
+		scan.reset(fn.vregCount(), logs: false)
+		for o in 0 upto fn.order.count() 'blocks'
+			let b = fn.order[o] as Count
+			scan.scan(fn, g: graph, lv: lv, b: b, convs: convs)
+			let n = try fn.blocks[b].endAt - fn.blocks[b].first otherwise panic("backend: a block that ends before it starts")
+			var fits = true
+			for i in 0 upto n 'points'
+				for c in 0 upto classCount 'classes'
+					let at = addCounts(pointSlots(b), b: c)
+					blockMost[at] = maxOf(blockMost[at], b: scan.demandAt(i, c: c))
+				end 'classes'
+				if fits and not scan.fitsAt(i) 'over'
+					fits = false
+				end 'over'
+			end 'points'
+			blockFits[b] = fits
+		end 'blocks'
+	end 'survey'
+
+	// mostIn is the most that class c needs at one instruction of block b.
+	function mostIn(b Count, c Count) returns Count
+		return blockMost[addCounts(pointSlots(b), b: c)]
+	end 'mostIn'
+
+	// overPool is whether some instruction of block b needs more registers of a class than the class has.
+	function overPool(b Count) returns bool
+		for c in 0 upto classCount 'classes'
+			if self.mostIn(b, c: c) > scan.pools[c] 'over'
+				return true
+			end 'over'
+		end 'classes'
+		return false
+	end 'overPool'
+
+	function isConstant(r MReg) returns bool
+		return constAt[vregIndex(root[vregIndex(r)])] != noDef
+	end 'isConstant'
+
+	function isMade(r MReg) returns bool
+		return vregIndex(r) >= lv.vregCount()
+	end 'isMade'
+
+	function defBlockOf(r MReg) returns Count
+		let v = vregIndex(r)
+		if v >= lv.vregCount() 'made'
+			return countOfIndex(madeBlock[v])
+		end 'made'
+		return countOfIndex(lv.defBlock[v])
+	end 'defBlockOf'
+
+	// newPiece is a new register for a piece of the value root, made in block b by the insertion `insert`.
+	function newPiece(mutates self, mutates fn MirFunction, rootReg MReg, b Count, owner Count, out bool) returns MReg
+		let class = fn.classes[vregIndex(rootReg)]
+		let r = fn.newVReg(class)
+		root.push(rootReg)
+		slotOf.push(noDef)
+		stored.push(false)
+		constAt.push(noDef)
+		madeBlock.push(indexOfCount(b))
+		madeOwner.push(owner)
+		madeInsert.push(indexOfCount(inserts.count()))
+		madeOut.push(out)
+		inS.push(noDef)
+		fwdOut.push(false)
+		readStamp.push(0)
+		outMark.push(0)
+		return r
+	end 'newPiece'
+
+	function insert(mutates self, at Count, consumes x MInstr)
+		self.insertRanked(at, rank: rankUsual, x: x)
+	end 'insert'
+
+	// insertRanked inserts before the instruction at, ahead of the insertions of a later rank there.
+	function insertRanked(mutates self, at Count, rank Count, consumes x MInstr)
+		insertRank.push(rank)
+		insertAt.push(at)
+		inserts.push(x)
+		cancelled.push(false)
+		changed = true
+	end 'insertRanked'
+
+	// slotFor is the slot of a value, given out the first time one is needed.
+	function slotFor(mutates self, rootReg MReg) returns SpillSlot
+		let v = vregIndex(rootReg)
+		if slotOf[v] == noDef 'new'
+			slotOf[v] = indexOfCount(slots)
+			slots = nextCount(slots)
+		end 'new'
+		return try slotOf[v] as SpillSlot otherwise panic("backend: a frame past 2 GiB")
+	end 'slotFor'
+
+	// storeAtDef stores a value to its slot after its definition, once.
+	function storeAtDef(mutates self, fn MirFunction, rootReg MReg)
+		let v = vregIndex(rootReg)
+		if stored[v] 'done'
+			return
+		end 'done'
+		stored[v] = true
+		let slot = self.slotFor(rootReg)
+		let b = countOfIndex(lv.defBlock[v])
+		var at = fn.blocks[b].first
+		if lv.defAt[v] != noDef 'instr'
+			at = nextCount(countOfIndex(lv.defAt[v]))
+			if at >= fn.blocks[b].endAt 'last'
+				panic("backend: virtual register {rootReg} is defined by the last instruction of its block")
+			end 'last'
+		end 'instr'
+		self.insert(at, x: newSpill(rootReg, slot: slot))
+		result.stores = nextCount(result.stores)
+	end 'storeAtDef'
+
+	// usesEnd is where owner's uses end in the use list.
+	function usesEnd(owner Count) returns Count
+		return lv.useStart[nextCount(owner)]
+	end 'usesEnd'
+
+	function entryAt(e Count) returns Count
+		return lv.recordAt[lv.useList[e]]
+	end 'entryAt'
+
+	// firstEntryFrom is the first of owner's uses at or after the instruction at.
+	function firstEntryFrom(owner Count, at Count) returns Count
+		var lo = lv.useStart[owner]
+		var hi = self.usesEnd(owner)
+		while lo < hi 'search'
+			let mid = addCounts(lo, b: (try hi - lo otherwise panic("backend: a search out of order")) / 2)
+			if self.entryAt(mid) < at 'below'
+				lo = nextCount(mid)
+			end 'below' else 'above'
+				hi = mid
+			end 'above'
+		end 'search'
+		return lo
+	end 'firstEntryFrom'
+
+	function names(fn MirFunction, e Count, r MReg) returns bool
+		let rec = lv.useList[e]
+		return useOperand(fn, k: lv.recordAt[rec], slot: lv.recordSlot[rec]) == r
+	end 'names'
+
+	// split takes the register r out of registers from a cut on: from the instruction at cutPos of block cutBlock on, or,
+	// with a loop, for that loop's hot path. Every use of r that the cut reaches reads a reload, or a constant made again,
+	// instead; a value that keeps no use and is a constant loses its definition. scanning is the block a sweep is in,
+	// whose later reloads it is told of; a reload in another block after it in the layout makes that block wait.
+	function split(mutates self, mutates fn MirFunction, r MReg, cutBlock Count, cutPos Count, region ir.Index, scanning ir.Index)
+		let v = vregIndex(r)
+		let rootReg = root[v]
+		let owner = madeOwner[v]
+		mark = nextCount(mark)
+		reach.clear()
+		reachAnchor.clear()
+		if self.isMade(r) 'local'
+			if region != ir.noLoop or madeOut[v] 'live'
+				panic("backend: a split of a reload that is live out of its block")
+			end 'live'
+			for e in self.firstEntryFrom(owner, at: cutPos) upto self.usesEnd(owner) 'uses'
+				if self.entryAt(e) >= fn.blocks[cutBlock].endAt 'past'
+					break 'uses'
+				end 'past'
+				if self.names(fn, e: e, r: r) 'mine'
+					reach.push(e)
+				end 'mine'
+			end 'uses'
+		end 'local' else 'walk'
+			self.reachUses(fn, v: v, r: r, cutBlock: cutBlock, cutPos: cutPos, region: region)
+		end 'walk'
+		anchorBlock.clear()
+		anchorPos.clear()
+		anchorEntry.clear()
+		anchorHoisted.clear()
+		anchorReg.clear()
+		let defBlock = self.defBlockOf(r)
+		for i in 0 upto reach.count() 'anchors'
+			let e = reach[i]
+			let at = self.entryAt(e)
+			var x = graph.blockAt[at]
+			var run = 1 as Count
+			if region == ir.noLoop and x == cutBlock and at < cutPos 'top'
+				run = 0
+			end 'top'
+			var pos = at
+			var hoisted = false
+			var l = graph.loops.loopOf[x]
+			while l != ir.noLoop 'hoist'
+				let loop = countOfIndex(l)
+				let pre = graph.preheader[loop]
+				if self.holdsCut(loop, cutBlock: cutBlock, region: region) or graph.loopHolds(loop, b: defBlock) or pre == graph.loops.header[loop] 'stays'
+					break 'hoist'
+				end 'stays'
+				let last = prevCount(fn.blocks[pre].endAt)
+				if region == ir.noLoop and pre == cutBlock and last < cutPos 'beforeCut'
+					break 'hoist'
+				end 'beforeCut'
+				x = pre
+				pos = last
+				hoisted = true
+				run = 1
+				l = graph.loops.loopOf[x]
+			end 'hoist'
+			let key = addCounts(runSlots(x), b: run)
+			var a = 0 as Count
+			if anchorStamp[key] == mark 'known'
+				a = anchorIndex[key]
+				if pos < anchorPos[a] 'earlier'
+					anchorPos[a] = pos
+				end 'earlier'
+			end 'known' else 'new'
+				a = anchorBlock.count()
+				anchorStamp[key] = mark
+				anchorIndex[key] = a
+				anchorBlock.push(x)
+				anchorPos.push(pos)
+				anchorEntry.push(noDef)
+				anchorHoisted.push(false)
+			end 'new'
+			if hoisted 'hoisted'
+				anchorHoisted[a] = true
+			end 'hoisted' else if anchorEntry[a] == noDef 'firstLocal'
+				anchorEntry[a] = indexOfCount(e)
+			end 'firstLocal'
+			reachAnchor.push(a)
+		end 'anchors'
+		let constant = self.isConstant(r)
+		if not constant and reach.count() > 0 'store'
+			self.storeAtDef(fn, rootReg: rootReg)
+		end 'store'
+		for a in 0 upto anchorBlock.count() 'pieces'
+			let b = anchorBlock[a]
+			let hoisted = anchorHoisted[a]
+			let pos = anchorPos[a]
+			let piece = self.newPiece(fn, rootReg: rootReg, b: b, owner: owner, out: hoisted)
+			anchorReg.push(piece)
+			if constant 'remat'
+				var x = consts[countOfIndex(constAt[vregIndex(rootReg)])].clone()
+				x.a = piece
+				self.insert(pos, x: x)
+				result.remats = nextCount(result.remats)
+			end 'remat' else 'reload'
+				let slot = self.slotFor(rootReg)
+				self.insert(pos, x: newReload(piece, slot: slot))
+				result.reloads = nextCount(result.reloads)
+			end 'reload'
+			if scanning != noBlock and b == countOfIndex(scanning) and pos >= cutPos 'later'
+				var cursor = self.usesEnd(owner)
+				if anchorEntry[a] != noDef 'uses'
+					cursor = countOfIndex(anchorEntry[a])
+				end 'uses'
+				self.pend(pos, r: piece, owner: owner, cursor: cursor, out: hoisted)
+			end 'later' else if scanning != noBlock and graph.rpo[b] > graph.rpo[countOfIndex(scanning)] 'wait'
+				dirty[b] = true
+			end 'wait'
+		end 'pieces'
+		for i in 0 upto reach.count() 'rename'
+			let rec = lv.useList[reach[i]]
+			renameUse(fn, k: lv.recordAt[rec], slot: lv.recordSlot[rec], r: anchorReg[reachAnchor[i]])
+		end 'rename'
+		self.dropIfUnused(fn, r: r, owner: owner)
+		splitThisRound.push(r)
+	end 'split'
+
+	function holdsCut(loop Count, cutBlock Count, region ir.Index) returns bool
+		if region != ir.noLoop 'region'
+			return graph.loopHolds(loop, b: graph.loops.header[countOfIndex(region)])
+		end 'region'
+		return graph.loopHolds(loop, b: cutBlock)
+	end 'holdsCut'
+
+	// reachUses finds the uses of the register r, with index v and its own liveness, that a path from the cut reaches
+	// before r's definition: the walk passes only blocks where r is live in.
+	function reachUses(mutates self, fn MirFunction, v Count, r MReg, cutBlock Count, cutPos Count, region ir.Index)
+		for e in lv.valueLiveStart[v] upto lv.valueLiveStart[nextCount(v)] 'live'
+			liveMark[lv.valueLive[e]] = mark
+		end 'live'
+		stack.clear()
+		if region != ir.noLoop 'region'
+			let head = graph.loops.header[countOfIndex(region)]
+			if liveMark[head] != mark 'notLive'
+				panic("backend: a split around a loop of a value not live into it")
+			end 'notLive'
+			visit[head] = mark
+			stack.push(head)
+		end 'region' else 'point'
+			self.visitSuccessors(cutBlock)
+		end 'point'
+		while stack.count() > 0 'walk'
+			let b = try stack.pop() otherwise panic("backend: an empty walk")
+			self.visitSuccessors(b)
+		end 'walk'
+		for e in lv.useStart[v] upto self.usesEnd(v) 'uses'
+			let at = self.entryAt(e)
+			let b = graph.blockAt[at]
+			var reached = visit[b] == mark
+			if region == ir.noLoop and b == cutBlock 'cut'
+				reached = at >= cutPos or visit[b] == mark
+			end 'cut'
+			if reached and self.names(fn, e: e, r: r) 'mine'
+				reach.push(e)
+			end 'mine'
+		end 'uses'
+	end 'reachUses'
+
+	function visitSuccessors(mutates self, b Count)
+		for e in graph.succStart[b] upto graph.succStart[nextCount(b)] 'succs'
+			let s = graph.succ[e]
+			if liveMark[s] == mark and visit[s] != mark 'live'
+				visit[s] = mark
+				stack.push(s)
+			end 'live'
+		end 'succs'
+	end 'visitSuccessors'
+
+	// dropIfUnused removes the definition of a register that a split left with no use: a constant's, or a piece's.
+	function dropIfUnused(mutates self, fn MirFunction, r MReg, owner Count)
+		let v = vregIndex(r)
+		var e = lv.useStart[owner]
+		if self.isMade(r) 'made'
+			e = self.firstEntryFrom(owner, at: fn.blocks[countOfIndex(madeBlock[v])].first)
+		end 'made'
+		while e < self.usesEnd(owner) 'uses'
+			if self.names(fn, e: e, r: r) 'used'
+				return
+			end 'used'
+			e = nextCount(e)
+		end 'uses'
+		if self.isMade(r) 'piece'
+			if madeOut[v] 'out'
+				return
+			end 'out'
+			cancelled[countOfIndex(madeInsert[v])] = true
+			return
+		end 'piece'
+		if self.isConstant(r) and lv.defAt[v] != noDef and not stored[v] 'constant'
+			deleted[countOfIndex(lv.defAt[v])] = true
+		end 'constant'
+	end 'dropIfUnused'
+
+	// pend tells the sweep of a reload it will meet further down its block.
+	function pend(mutates self, pos Count, r MReg, owner Count, cursor Count, out bool)
+		var at = pendPos.count()
+		pendPos.push(pos)
+		pendReg.push(r)
+		pendOwner.push(owner)
+		pendCursor.push(cursor)
+		pendOut.push(out)
+		while at > 0 and pendPos[prevCount(at)] > pos 'sort'
+			let prev = prevCount(at)
+			swapCounts(pendPos, i: prev, j: at)
+			let a = pendReg[prev]
+			pendReg[prev] = pendReg[at]
+			pendReg[at] = a
+			swapCounts(pendOwner, i: prev, j: at)
+			swapCounts(pendCursor, i: prev, j: at)
+			let b = pendOut[prev]
+			pendOut[prev] = pendOut[at]
+			pendOut[at] = b
+			at = prev
+		end 'sort'
+	end 'pend'
+
+	// apply writes the round's edits into fn: each insertion before the instruction it stands at, the deleted ones gone,
+	// the blocks in layout order and the ones the entry does not reach left empty.
+	function apply(mutates self, mutates fn MirFunction)
+		var starts = CountList.create(0)
+		var list = CountList.create(0)
+		var indexes = CountList.create(0)
+		var keys = CountList.create(0)
+		for i in 0 upto inserts.count() 'indexes'
+			indexes.push(i)
+			keys.push(addCounts(insertKey(insertAt[i]), b: insertRank[i]))
+		end 'indexes'
+		ir.buildCsr(keys, targets: indexes, nodes: insertKey(nextCount(fn.instrs.count())), starts: starts, list: list)
+		var out = MInstrList.create(0)
+		var placed = BoolList.create(0)
+		ir.resetFlags(placed, n: fn.blocks.count())
+		for o in 0 upto fn.order.count() 'blocks'
+			let b = fn.order[o] as Count
+			placed[b] = true
+			let first = out.count()
+			for k in fn.blocks[b].first upto fn.blocks[b].endAt 'instrs'
+				for e in starts[insertKey(k)] upto starts[insertKey(nextCount(k))] 'inserts'
+					if not cancelled[list[e]] 'live'
+						out.push(inserts[list[e]].clone())
+					end 'live'
+				end 'inserts'
+				if not deleted[k] 'kept'
+					out.push(fn.instrs[k].clone())
+				end 'kept'
+			end 'instrs'
+			fn.blocks[b].first = first
+			fn.blocks[b].endAt = out.count()
+		end 'blocks'
+		for b in 0 upto fn.blocks.count() 'unreached'
+			if not placed[b] 'empty'
+				fn.blocks[b].first = out.count()
+				fn.blocks[b].endAt = out.count()
+			end 'empty'
+		end 'unreached'
+		fn.instrs = out
+		current = false
+	end 'apply'
+end 'Spiller'
+
+// The ranks of the insertions before one instruction: a bracket's spill and restore go first, so that a bracket about a
+// point holds the reloads that stand at it.
+let rankFirst = 0
+
+let rankUsual = 1
+
+let insertRanks = 2
+
+function insertKey(at Count) returns Count
+	return try at * insertRanks otherwise panic("backend: more instructions than memory")
+end 'insertKey'
+
+function runSlots(b Count) returns Count
+	return try b * runsPerBlock otherwise panic("backend: more blocks than memory")
+end 'runSlots'
+
+function swapCounts(mutates a CountList, i Count, j Count)
+	let x = a[i]
+	a[i] = a[j]
+	a[j] = x
+end 'swapCounts'
+
+// spillFunction spills fn, which instruction selection made and prepareBlocks has not yet seen. Without a refusal, every
+// instruction of the result fits the registers free there, and fn.spillSlots counts the slots it gave out.
+export function spillFunction(mutates fn MirFunction, mutates s Spiller) returns SpillResult
+	prepareBlocks(fn, g: s.graph)
+	s.start(fn)
+	var maxDepth = 0 as Count
+	for b in 0 upto fn.blocks.count() 'depth'
+		maxDepth = maxOf(maxDepth, b: fn.blocks[b].loopDepth)
+	end 'depth'
+	for level in 1 upto nextCount(maxDepth) 'levels'
+		s.analyze(fn)
+		if not loopTier(fn, s: s, level: level) 'fits'
+			break 'levels'
+		end 'fits'
+		if s.changed 'edits'
+			s.apply(fn)
+		end 'edits'
+	end 'levels'
+	sweepRounds(fn, s: s, relief: Relief.constants)
+	s.analyze(fn)
+	var over = BoolList.create(0)
+	ir.resetFlags(over, n: fn.blocks.count())
+	for b in 0 upto fn.blocks.count() 'over'
+		over[b] = s.graph.reached[b] and s.graph.isHot(b) and s.overPool(b)
+	end 'over'
+	s.result.refusals = refuseHotLoops(fn, g: s.graph, lv: s.lv, scan: s.scan, convs: s.convs, over: over)
+	if s.result.refusals.count() == 0 'fits'
+		sweepRounds(fn, s: s, relief: Relief.all)
+	end 'fits'
+	fn.spillSlots = s.slots
+	return exchange(s.result, value: SpillResult.new())
+end 'spillFunction'
+
+// sweepRounds sweeps the blocks until a round changes nothing.
+function sweepRounds(mutates fn MirFunction, mutates s Spiller, relief Relief)
+	while true 'rounds'
+		s.analyze(fn)
+		for o in 0 upto fn.order.count() 'blocks'
+			let b = fn.order[o] as Count
+			if s.dirty[b] 'waits'
+				continue 'blocks'
+			end 'waits'
+			let needs = match relief 'relief'
+				constants gives s.graph.isHot(b) and s.overPool(b)
+				all gives not s.blockFits[b]
+			end 'relief'
+			if needs 'swept'
+				relieveBlock(fn, s: s, b: b, relief: relief)
+			end 'swept'
+		end 'blocks'
+		if not s.changed 'settled'
+			return
+		end 'settled'
+		s.apply(fn)
+	end 'rounds'
+end 'sweepRounds'
+
+// loopTier takes out of the loops at depth level that are over their pool the values they hold idle: live across the
+// loop, neither defined nor read on its hot path. A value idle across a loop is live at every point of it, so each one
+// taken out lowers every point by one, and as many are taken as the worst point is over, farthest next use first. It
+// gives whether any loop at that depth was over, without which no loop inside one is.
+function loopTier(mutates fn MirFunction, mutates s Spiller, level Count) returns bool
+	var over = false
+	let loops = s.graph.loops.loopCount()
+	ir.resetCounts(s.loopMax, n: pointSlots(loops))
+	ir.resetCounts(s.loopEnd, n: loops)
+	for o in 0 upto fn.order.count() 'blocks'
+		let b = fn.order[o] as Count
+		if not s.graph.isHot(b) 'cold'
+			continue 'blocks'
+		end 'cold'
+		let mostG = s.mostIn(b, c: 0)
+		let mostX = s.mostIn(b, c: 1)
+		var l = s.graph.loops.loopOf[b]
+		while l != ir.noLoop 'up'
+			let loop = countOfIndex(l)
+			s.loopEnd[loop] = maxOf(s.loopEnd[loop], b: fn.blocks[b].endAt)
+			let at = pointSlots(loop)
+			s.loopMax[at] = maxOf(s.loopMax[at], b: mostG)
+			s.loopMax[nextCount(at)] = maxOf(s.loopMax[nextCount(at)], b: mostX)
+			l = s.graph.loops.parent[loop]
+		end 'up'
+	end 'blocks'
+	for loop in 0 upto loops 'loops'
+		let head = s.graph.loops.header[loop]
+		if s.graph.loops.depth[head] != level 'level'
+			continue 'loops'
+		end 'level'
+		for c in 0 upto classCount 'classes'
+			let pool = fullPool(classAt(c))
+			let most = s.loopMax[addCounts(pointSlots(loop), b: c)]
+			if most <= pool 'fits'
+				continue 'classes'
+			end 'fits'
+			over = true
+			let excess = try most - pool otherwise panic("backend: an excess below 0")
+			var need = excess as Count
+			for i in 0 upto s.splitThisRound.count() 'relieved'
+				let r = s.splitThisRound[i]
+				if need > 0 and classIndex(fn.classes[vregIndex(r)]) == c and liveInto(s, r: r, b: head) 'into'
+					need = prevCount(need)
+				end 'into'
+			end 'relieved'
+			takeIdle(fn, s: s, loop: loop, c: c, need: need)
+		end 'classes'
+	end 'loops'
+	return over
+end 'loopTier'
+
+function liveInto(s Spiller, r MReg, b Count) returns bool
+	let v = vregIndex(r)
+	for e in s.lv.valueLiveStart[v] upto s.lv.valueLiveStart[nextCount(v)] 'live'
+		if s.lv.valueLive[e] == b 'found'
+			return true
+		end 'found'
+	end 'live'
+	return false
+end 'liveInto'
+
+// takeIdle splits need values of class c that loop holds idle around it, farthest next use after the loop first.
+function takeIdle(mutates fn MirFunction, mutates s Spiller, loop Count, c Count, need Count)
+	if need == 0 'none'
+		return
+	end 'none'
+	let head = s.graph.loops.header[loop]
+	var candidates = MRegList.create(0)
+	var distance = CountList.create(0)
+	for e in s.lv.liveInStart[head] upto s.lv.liveInStart[nextCount(head)] 'live'
+		let v = s.lv.liveIn[e]
+		let r = vregOf(v)
+		if classIndex(fn.classes[v]) != c or hotIn(s, v: v, loop: loop) 'hot'
+			continue 'live'
+		end 'hot'
+		var d = noDistance as Count
+		let after = s.firstEntryFrom(v, at: s.loopEnd[loop])
+		if after < s.usesEnd(v) 'used'
+			d = s.entryAt(after)
+		end 'used'
+		var at = candidates.count()
+		candidates.push(r)
+		distance.push(d)
+		while at > 0 and (distance[prevCount(at)] < d or (distance[prevCount(at)] == d and candidates[prevCount(at)] > r)) 'sort'
+			let prev = prevCount(at)
+			swapCounts(distance, i: prev, j: at)
+			let x = candidates[prev]
+			candidates[prev] = candidates[at]
+			candidates[at] = x
+			at = prev
+		end 'sort'
+	end 'live'
+	var taken = 0 as Count
+	while taken < need and taken < candidates.count() 'take'
+		s.split(fn, r: candidates[taken], cutBlock: head, cutPos: 0, region: indexOfCount(loop), scanning: noBlock)
+		taken = nextCount(taken)
+	end 'take'
+end 'takeIdle'
+
+// hotIn is whether a value is defined or read on the hot path of a loop.
+function hotIn(s Spiller, v Count, loop Count) returns bool
+	let home = countOfIndex(s.lv.defBlock[v])
+	if s.graph.loopHolds(loop, b: home) and not s.graph.cold[home] 'defined'
+		return true
+	end 'defined'
+	for e in s.lv.useStart[v] upto s.usesEnd(v) 'uses'
+		let b = s.graph.blockAt[s.entryAt(e)]
+		if s.graph.loopHolds(loop, b: b) and not s.graph.cold[b] 'read'
+			return true
+		end 'read'
+	end 'uses'
+	return false
+end 'hotIn'
+
+// relieveBlock sweeps block b down from its start with the values in registers, and wherever an instruction needs more
+// registers than the relief allows, takes values out until it fits.
+function relieveBlock(mutates fn MirFunction, mutates s Spiller, b Count, relief Relief)
+	s.scan.scan(fn, g: s.graph, lv: s.lv, b: b, convs: s.convs)
+	let first = fn.blocks[b].first
+	let endAt = fn.blocks[b].endAt
+	let n = try endAt - first otherwise panic("backend: a block that ends before it starts")
+	var over = false
+	for i in 0 upto n 'points'
+		if not fitsUnder(s, i: i, relief: relief) 'over'
+			over = true
+			break 'points'
+		end 'over'
+	end 'points'
+	if not over 'fits'
+		return
+	end 'fits'
+	s.blockMark = nextCount(s.blockMark)
+	for e in s.graph.succStart[b] upto s.graph.succStart[nextCount(b)] 'succs'
+		let succ = s.graph.succ[e]
+		for j in s.lv.liveInStart[succ] upto s.lv.liveInStart[nextCount(succ)] 'live'
+			s.outMark[s.lv.liveIn[j]] = s.blockMark
+		end 'live'
+	end 'succs'
+	s.sReg.clear()
+	s.sOwner.clear()
+	s.sCursor.clear()
+	s.sOut.clear()
+	ir.resetCounts(s.sCount, n: classCount)
+	ir.resetCounts(s.outCount, n: classCount)
+	s.pendPos.clear()
+	s.pendReg.clear()
+	s.pendOwner.clear()
+	s.pendCursor.clear()
+	s.pendOut.clear()
+	for j in s.lv.liveInStart[b] upto s.lv.liveInStart[nextCount(b)] 'liveIn'
+		let v = s.lv.liveIn[j]
+		enter(fn, s: s, r: vregOf(v), owner: v, cursor: s.firstEntryFrom(v, at: first), out: s.outMark[v] == s.blockMark)
+	end 'liveIn'
+	for p in 0 upto fn.blocks[b].paramCount 'params'
+		let r = fn.blockParams[addCounts(fn.blocks[b].params, b: p)]
+		enterDefined(fn, s: s, r: r, b: b, after: first)
+	end 'params'
+	for k in first upto endAt 'instrs'
+		let i = try k - first otherwise panic("backend: an instruction before its block")
+		s.bracketedNow.clear()
+		while s.pendPos.count() > 0 and s.pendPos[0] <= k 'pending'
+			if s.pendPos[0] < k 'missed'
+				panic("backend: a reload placed before the point the sweep is at")
+			end 'missed'
+			let r = s.pendReg[0]
+			let owner = s.pendOwner[0]
+			let cursor = s.pendCursor[0]
+			let out = s.pendOut[0]
+			popPending(s)
+			s.readMark = nextCount(s.readMark)
+			readsOf(fn, s: s, k: k)
+			let c = classIndex(fn.classes[vregIndex(r)])
+			let across = s.sCount[c]
+			makeRoom(fn, s: s, b: b, k: k, i: i, relief: relief, c: c, across: across, dying: 0, writes: 1, before: true)
+			enter(fn, s: s, r: r, owner: owner, cursor: cursor, out: out)
+		end 'pending'
+		s.ops.gather(fn, x: fn.instrs[k], convs: s.convs)
+		s.readMark = nextCount(s.readMark)
+		ir.resetCounts(s.dyingCount, n: classCount)
+		ir.resetCounts(s.writeCount, n: classCount)
+		s.deadList.clear()
+		for u in 0 upto s.ops.readLen 'reads'
+			let r = s.ops.reads[u]
+			let v = vregIndex(r)
+			if s.readStamp[v] == s.readMark 'twice'
+				continue 'reads'
+			end 'twice'
+			s.readStamp[v] = s.readMark
+			if s.inS[v] == noDef 'missing'
+				panic("backend: virtual register {r} is read in block {b} at instruction {k} where it is in no register")
+			end 'missing'
+			let at = countOfIndex(s.inS[v])
+			var cursor = s.sCursor[at]
+			let owner = s.sOwner[at]
+			while cursor < s.usesEnd(owner) and s.entryAt(cursor) <= k 'past'
+				cursor = nextCount(cursor)
+			end 'past'
+			s.sCursor[at] = cursor
+			let further = cursor < s.usesEnd(owner) and s.entryAt(cursor) < endAt
+			if not further and not s.sOut[at] 'dies'
+				let c = classIndex(fn.classes[v])
+				s.dyingCount[c] = nextCount(s.dyingCount[c])
+				s.deadList.push(r)
+			end 'dies'
+		end 'reads'
+		for d in 0 upto s.ops.writeLen 'writes'
+			let c = classIndex(fn.classes[vregIndex(s.ops.writes[d])])
+			s.writeCount[c] = nextCount(s.writeCount[c])
+		end 'writes'
+		for c in 0 upto classCount 'classes'
+			let dying = s.dyingCount[c]
+			let across = try s.sCount[c] - dying otherwise panic("backend: more values die than are in registers")
+			let writes = s.writeCount[c]
+			makeRoom(fn, s: s, b: b, k: k, i: i, relief: relief, c: c, across: across, dying: dying, writes: writes, before: false)
+		end 'classes'
+		for j in 0 upto s.deadList.count() 'dead'
+			let r = s.deadList[j]
+			leave(fn, s: s, r: r)
+		end 'dead'
+		for d in 0 upto s.ops.writeLen 'defined'
+			let r = s.ops.writes[d]
+			enterDefined(fn, s: s, r: r, b: b, after: nextCount(k))
+		end 'defined'
+		for j in 0 upto s.bracketedNow.count() 'close'
+			let v = vregIndex(s.bracketedNow[j])
+			s.fwdOut[v] = false
+			let c = classIndex(fn.classes[v])
+			s.outCount[c] = prevCount(s.outCount[c])
+		end 'close'
+		if s.scan.opens[i] 'opens'
+			let v = vregIndex(fn.instrs[k].a)
+			s.fwdOut[v] = true
+			let c = classIndex(fn.classes[v])
+			s.outCount[c] = nextCount(s.outCount[c])
+		end 'opens' else if fn.instrs[k].kind == MKind.restore 'restore'
+			let v = vregIndex(fn.instrs[k].a)
+			s.fwdOut[v] = false
+			let c = classIndex(fn.classes[v])
+			s.outCount[c] = prevCount(s.outCount[c])
+		end 'restore'
+	end 'instrs'
+	while s.sReg.count() > 0 'clear'
+		let r = s.sReg[prevCount(s.sReg.count())]
+		leave(fn, s: s, r: r)
+	end 'clear'
+	if s.pendPos.count() > 0 'leftOver'
+		panic("backend: a reload past the end of block {b}")
+	end 'leftOver'
+end 'relieveBlock'
+
+// fitsUnder is whether the i-th instruction of the block the scan holds fits what the relief measures against.
+function fitsUnder(s Spiller, i Count, relief Relief) returns bool
+	return match relief 'relief'
+		constants gives s.scan.demandAt(i, c: 0) <= s.scan.pools[0] and s.scan.demandAt(i, c: 1) <= s.scan.pools[1]
+		all gives s.scan.fitsAt(i)
+	end 'relief'
+end 'fitsUnder'
+
+function readsOf(fn MirFunction, mutates s Spiller, k Count)
+	s.ops.gather(fn, x: fn.instrs[k], convs: s.convs)
+	for u in 0 upto s.ops.readLen 'reads'
+		s.readStamp[vregIndex(s.ops.reads[u])] = s.readMark
+	end 'reads'
+end 'readsOf'
+
+function popPending(mutates s Spiller)
+	for j in 1 upto s.pendPos.count() 'shift'
+		let prev = prevCount(j)
+		s.pendPos[prev] = s.pendPos[j]
+		s.pendReg[prev] = s.pendReg[j]
+		s.pendOwner[prev] = s.pendOwner[j]
+		s.pendCursor[prev] = s.pendCursor[j]
+		s.pendOut[prev] = s.pendOut[j]
+	end 'shift'
+	_ = try s.pendPos.pop() otherwise panic("backend: no reload pending")
+	_ = try s.pendReg.pop() otherwise panic("backend: no reload pending")
+	_ = try s.pendOwner.pop() otherwise panic("backend: no reload pending")
+	_ = try s.pendCursor.pop() otherwise panic("backend: no reload pending")
+	_ = try s.pendOut.pop() otherwise panic("backend: no reload pending")
+end 'popPending'
+
+// enter puts a register in registers, walking owner's uses from cursor.
+function enter(fn MirFunction, mutates s Spiller, r MReg, owner Count, cursor Count, out bool)
+	let v = vregIndex(r)
+	if s.inS[v] != noDef 'twice'
+		panic("backend: virtual register {r} enters registers twice")
+	end 'twice'
+	s.inS[v] = indexOfCount(s.sReg.count())
+	s.sReg.push(r)
+	s.sOwner.push(owner)
+	s.sCursor.push(cursor)
+	s.sOut.push(out)
+	let c = classIndex(fn.classes[v])
+	s.sCount[c] = nextCount(s.sCount[c])
+end 'enter'
+
+// enterDefined puts a register that is defined at the instruction before `after` in registers if anything reads it.
+function enterDefined(fn MirFunction, mutates s Spiller, r MReg, b Count, after Count)
+	let v = vregIndex(r)
+	let cursor = s.firstEntryFrom(v, at: after)
+	let inBlock = cursor < s.usesEnd(v) and s.entryAt(cursor) < fn.blocks[b].endAt
+	let out = s.outMark[v] == s.blockMark
+	if inBlock or out 'read'
+		enter(fn, s: s, r: r, owner: v, cursor: cursor, out: out)
+	end 'read'
+end 'enterDefined'
+
+function leave(fn MirFunction, mutates s Spiller, r MReg)
+	let v = vregIndex(r)
+	if s.inS[v] == noDef 'absent'
+		return
+	end 'absent'
+	let at = countOfIndex(s.inS[v])
+	let last = prevCount(s.sReg.count())
+	if at != last 'move'
+		let moved = s.sReg[last]
+		s.sReg[at] = moved
+		s.sOwner[at] = s.sOwner[last]
+		s.sCursor[at] = s.sCursor[last]
+		s.sOut[at] = s.sOut[last]
+		s.inS[vregIndex(moved)] = indexOfCount(at)
+	end 'move'
+	_ = try s.sReg.pop() otherwise panic("backend: an empty register set")
+	_ = try s.sOwner.pop() otherwise panic("backend: an empty register set")
+	_ = try s.sCursor.pop() otherwise panic("backend: an empty register set")
+	_ = try s.sOut.pop() otherwise panic("backend: an empty register set")
+	s.inS[v] = noDef
+	let c = classIndex(fn.classes[v])
+	s.sCount[c] = prevCount(s.sCount[c])
+end 'leave'
+
+// makeRoom takes values of class c out of registers at the instruction at k, the i-th of block b (or at a reload just
+// before it), until its demand fits: across values live across it, of which the brackets open there hold none, dying
+// the ones it reads last, writes the ones it defines. In a cold block a value is bracketed instead of split where it
+// is live across a call or where the hot path of its loop reads it, so its spill code stays in the cold block.
+function makeRoom(mutates fn MirFunction, mutates s Spiller, b Count, k Count, i Count, relief Relief, c Count, across Count, dying Count, writes Count, before bool)
+	let class = classAt(c)
+	var free = s.scan.pools[c]
+	var freeAcross = free
+	if relief == Relief.all 'measured'
+		free = s.scan.freeOfMask(c, mask: s.scan.physBefore[i] or s.scan.physAfter[i])
+		freeAcross = free
+		if not before 'across'
+			freeAcross = s.scan.freeAcrossAt(i, c: c)
+		end 'across'
+	end 'measured'
+	let need = maxOf(dying, b: writes)
+	let cold = relief == Relief.all and s.graph.cold[b] and nextCount(k) < fn.blocks[b].endAt
+	let call = not before and isCallInstr(fn.instrs[k])
+	var t = across
+	while true 'over'
+		let held = try t - s.outCount[c] otherwise panic("backend: more values out of their registers than live")
+		if addCounts(held, b: need) <= free and held <= freeAcross 'fits'
+			return
+		end 'fits'
+		let victim = pickVictim(fn, s: s, b: b, c: c, relief: relief, bracket: cold)
+		if victim == noMReg 'none'
+			match relief 'relief'
+				constants then return
+				all then panic("backend: {addCounts(held, b: need)} values of class {classDescription(class)} need registers at instruction {k} of block {b}, where {free} are free, and none can leave them there")
+			end 'relief'
+		end 'none'
+		if cold and (call or s.pickedTier == tierHotInLoop) 'bracket'
+			let v = vregIndex(victim)
+			let rootReg = s.root[v]
+			let slot = s.slotFor(rootReg)
+			s.insertRanked(k, rank: rankFirst, x: newSpill(victim, slot: slot))
+			s.insertRanked(nextCount(k), rank: rankFirst, x: newRestore(victim, slot: slot))
+			s.fwdOut[v] = true
+			s.outCount[c] = nextCount(s.outCount[c])
+			s.bracketedNow.push(victim)
+			s.result.brackets = nextCount(s.result.brackets)
+			continue 'over'
+		end 'bracket'
+		leave(fn, s: s, r: victim)
+		s.split(fn, r: victim, cutBlock: b, cutPos: nextCount(k), region: ir.noLoop, scanning: indexOfCount(b))
+		t = prevCount(t)
+	end 'over'
+end 'makeRoom'
+
+function isCallInstr(x MInstr) returns bool
+	return x.kind == MKind.target and isCall(x.form)
+end 'isCallInstr'
+
+// pickVictim is the value of class c to take out of registers at the point the sweep of block b is at: not one the
+// point reads or one a bracket has out already, constants first, then values already stored or defined outside the
+// block's loop, then the rest; within a tier the one whose next use is farthest, the lowest register on a tie. A
+// reload hoisted to the block's end stays, and so does, in a cold block of a loop, a value the loop's hot path reads
+// while another value can go.
+function pickVictim(fn MirFunction, mutates s Spiller, b Count, c Count, relief Relief, bracket bool) returns MReg
+	var best = noMReg
+	var bestTier = 0 as Count
+	var bestDistance = 0 as Count
+	let l = s.graph.loops.loopOf[b]
+	for j in 0 upto s.sReg.count() 'members'
+		let r = s.sReg[j]
+		let v = vregIndex(r)
+		if classIndex(fn.classes[v]) != c or s.readStamp[v] == s.readMark or s.fwdOut[v] 'busy'
+			continue 'members'
+		end 'busy'
+		if s.isMade(r) and s.madeOut[v] and not bracket 'hoisted'
+			continue 'members'
+		end 'hoisted'
+		let constant = s.isConstant(r)
+		if relief == Relief.constants and not constant 'kept'
+			continue 'members'
+		end 'kept'
+		var tier = tierPlain as Count
+		if constant 'constant'
+			tier = tierConstant
+		end 'constant' else if s.stored[vregIndex(s.root[v])] 'stored'
+			tier = tierStored
+		end 'stored' else if l != ir.noLoop and not s.graph.loopHolds(countOfIndex(l), b: s.defBlockOf(r)) 'outside'
+			tier = tierStored
+		end 'outside'
+		if l != ir.noLoop and s.graph.cold[b] and not s.isMade(r) and hotIn(s, v: v, loop: countOfIndex(l)) 'hot'
+			tier = tierHotInLoop
+		end 'hot'
+		let owner = s.sOwner[j]
+		let cursor = s.sCursor[j]
+		var distance = noDistance as Count
+		if cursor < s.usesEnd(owner) 'next'
+			distance = s.entryAt(cursor)
+		end 'next'
+		if best == noMReg or tier < bestTier or (tier == bestTier and (distance > bestDistance or (distance == bestDistance and r < best))) 'better'
+			best = r
+			bestTier = tier
+			bestDistance = distance
+		end 'better'
+	end 'members'
+	s.pickedTier = bestTier
+	return best
+end 'pickVictim'
