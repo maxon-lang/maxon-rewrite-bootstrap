@@ -303,7 +303,9 @@ end 'anyQueued'
 // store-load fence in take, which the exchange that stores bottom gives.
 
 // queuePush is the owner's push. When the ring is full the owner makes one twice as large; a thief that read the old
-// one still finds there what it read the indices for, since the old ring is never written again or freed.
+// one still finds there what it read the indices for, since the old ring is never written again or freed. The top it
+// reads may be behind the thieves', which only grows the ring sooner: the slot it writes, of index b, is never one a
+// thief may still take, of an index from the true top up to b, all less than one ring past it.
 function queuePush(queue Count, record Count)
 	let b = __Raw.loadWord(queue, offset: queueBottomOffset)
 	let t = __Raw.loadWord(queue, offset: queueTopOffset)
@@ -350,6 +352,12 @@ end 'queueTake'
 // queueSteal is a thief's take of a queue's oldest behaviour, or noBehaviour when the queue is empty or another took it
 // first. Le et al. put a full fence between the reads of top and bottom; x64 does not reorder a load with a later load,
 // and the compare-exchange that claims the behaviour is locked, so the plain loads are enough.
+//
+// What the thief reads from the slot is right whenever its compare-exchange wins, so it can be read before: the
+// exchange wins only while top is still t, so no one has taken index t, the owner's take of the last behaviour
+// included, which moves top by the same exchange; the push of index t was published by the bottom the thief read after
+// t, and the owner writes the slot again only for index t plus the ring's capacity, which it pushes only once top has
+// passed t. When the exchange loses, the record it read may already have run and been freed, so it is dropped unread.
 function queueSteal(queue Count) returns Count
 	let t = __Raw.loadWord(queue, offset: queueTopOffset)
 	let b = __Raw.loadWord(queue, offset: queueBottomOffset)

@@ -1,0 +1,41 @@
+// Behaviours on one cown each set the exit code, and those on other cowns run beside them: the cown orders the setters,
+// so the last one scheduled on it decides the code, on whichever worker it runs, and it replaces main's.
+// expect-exit: 42
+//> done
+
+typealias Cells = Array with (cown with Cell)
+
+let setters = 50 as Count
+
+let others = 8 as Count
+
+type Cell
+	export var value as Count
+
+	static function make() returns Cell
+		return Cell{value: 0}
+	end 'make'
+end 'Cell'
+
+function main() returns ExitCode
+	let codes = cown(Cell.make())
+	var cells = Cells.create(0)
+	for i in 0 upto others 'cells'
+		cells.push(cown(Cell.make()))
+	end 'cells'
+	for i in 0 upto setters 'setters'
+		when codes as c 'set'
+			c.value = try c.value + 1 otherwise 0
+			Process.setExitCode(try (i * 7) mod 100 otherwise 0)
+		end 'set'
+		let other = share(cells[i mod others])
+		when other as o 'other'
+			o.value = try o.value + 1 otherwise 0
+		end 'other'
+	end 'setters'
+	when codes as c 'last'
+		Process.setExitCode(42)
+		print("done\n")
+	end 'last'
+	return 3
+end 'main'

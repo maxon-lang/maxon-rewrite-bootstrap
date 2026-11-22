@@ -211,8 +211,14 @@ type Generator
 	var carelessPercent as Count
 	// arraysOnly keeps a map, a list and a pool out of the program, so that it also compiles to an executable.
 	var arraysOnly as bool
-	// sharing lets the program freeze values, make cowns and schedule behaviours, none of which has an executable yet.
+	// sharing lets the program freeze values, make cowns and schedule behaviours.
 	var sharing as bool
+	// quiet keeps a program that shares and runs natively too, an arraysOnly one, to an output and an exit code that do not
+	// depend on the schedule, which the executable's and the interpreter's differ in: only main's own statements print, and
+	// only they schedule behaviours, so the behaviours on each cown run in the order main scheduled them and what each
+	// computes is the same under every schedule. Only how much of main's output comes before a trap in a behaviour still
+	// depends on it.
+	var quiet as bool
 	// behaviours is how many behaviours enclose the statement being written.
 	var behaviours as Count
 	// sinsLeft is how many rules of sharing a targeted program still breaks on purpose. A careless program breaks them
@@ -236,7 +242,7 @@ type Generator
 		tys.push(Ty.make(Kind.kCount, name: "", args: CountList.create(0), src: "Count"))
 		tys.push(Ty.make(Kind.kBool, name: "", args: CountList.create(0), src: "bool"))
 		tys.push(Ty.make(Kind.kString, name: "", args: CountList.create(0), src: "String"))
-		return Generator{rng: Rand.new(seed), tys: tys, tyIndex: TyIndex.new(), records: RecordList.create(0), unions: UnionList.create(0), fns: FnList.create(0), aliases: CountList.create(0), out: StringList.create(0), indent: 0, labels: 0, names: 0, scopes: Scopes.create(0), vars: VarList.create(0), store: PlaceList.create(0), hasRet: false, ret: 0, loop: 0, budget: 0, guards: StringList.create(0), pendingInit: CountList.create(0), carelessPercent: 0, arraysOnly: false, sharing: false, behaviours: 0, sinsLeft: 0, heldSin: false, inMain: false, tries: 0, sinning: false, recent: 0, recentOK: false}
+		return Generator{rng: Rand.new(seed), tys: tys, tyIndex: TyIndex.new(), records: RecordList.create(0), unions: UnionList.create(0), fns: FnList.create(0), aliases: CountList.create(0), out: StringList.create(0), indent: 0, labels: 0, names: 0, scopes: Scopes.create(0), vars: VarList.create(0), store: PlaceList.create(0), hasRet: false, ret: 0, loop: 0, budget: 0, guards: StringList.create(0), pendingInit: CountList.create(0), carelessPercent: 0, arraysOnly: false, sharing: false, quiet: false, behaviours: 0, sinsLeft: 0, heldSin: false, inMain: false, tries: 0, sinning: false, recent: 0, recentOK: false}
 	end 'new'
 
 	// kindOf is the kind of a type.
@@ -389,6 +395,22 @@ type Generator
 	function line(mutates self, text String)
 		out.push("{tabs(indent)}{text}")
 	end 'line'
+
+	// say writes a statement that prints, as voiced has it.
+	function say(mutates self, statement String)
+		self.line(self.voiced(statement))
+	end 'say'
+
+	// voiced is a statement as the program writes it here: in a quiet program, one that prints anywhere but in main's own
+	// statements only evaluates the string it would print.
+	function voiced(statement String) returns String
+		let n = statement.byteLength()
+		if not quiet or (inMain and behaviours == 0) or not hasPrefix(statement, prefix: printCall) 'spoken'
+			return statement.clone()
+		end 'spoken'
+		let inner = statement.sliceBytes(printCall.byteLength(), endPos: try n - printClose.byteLength() otherwise panic("fuzz: a print shorter than its call"))
+		return "_ = {inner}"
+	end 'voiced'
 
 	function blank(mutates self)
 		out.push("")
@@ -806,7 +828,7 @@ type Generator
 			self.line("{kwReturn} {value}")
 		end 'returned'
 		if out.count() == start 'empty'
-			self.line(printedText("m"))
+			self.say(printedText("m"))
 		end 'empty'
 		self.pop()
 		self.indentLess()
@@ -1912,7 +1934,7 @@ type Generator
 
 	function guardedEnd(mutates self, consumes mark GuardMark)
 		if out.count() == mark.start 'empty'
-			self.line(printNothing)
+			self.say(printNothing)
 		end 'empty'
 		self.pop()
 		self.indentLess()
@@ -2042,7 +2064,7 @@ type Generator
 				n = try n - weights[i].weight otherwise panic("fuzz: a weight past the draw")
 			end 'actions'
 		end 'tries'
-		self.line(printNothing)
+		self.say(printNothing)
 	end 'stmt'
 
 	// attempt writes a statement, or takes back what it wrote and says it could not.
@@ -2124,7 +2146,7 @@ type Generator
 			i = try i + 1 otherwise panic("fuzz: more statements than memory")
 		end 'statements'
 		if out.count() == start 'empty'
-			self.line(printedText("."))
+			self.say(printedText("."))
 		end 'empty'
 		self.pop()
 		self.indentLess()
@@ -2266,18 +2288,18 @@ type Generator
 		if n == 0 'string'
 			let found = self.place(tString, mutable: false)
 			if found.isSome() 'some'
-				self.line(printed(store[found.unwrap()].src))
+				self.say(printed(store[found.unwrap()].src))
 				return true
 			end 'some'
 		end 'string' else if n == 1 'bool'
 			let found = self.place(tBool, mutable: false)
 			if found.isSome() 'some'
-				self.line(printed(store[found.unwrap()].src))
+				self.say(printed(store[found.unwrap()].src))
 				return true
 			end 'some'
 		end 'bool'
 		let value = self.countExpr(2)
-		self.line(printed(value))
+		self.say(printed(value))
 		return true
 	end 'actPrint'
 
@@ -2482,7 +2504,7 @@ type Generator
 			i = try i + 1 otherwise panic("fuzz: more statements than memory")
 		end 'statements'
 		if out.count() == start 'empty'
-			self.line(printed(index))
+			self.say(printed(index))
 		end 'empty'
 		self.pop()
 		self.indentLess()
@@ -2574,7 +2596,8 @@ type Generator
 			for b in 0 upto pattern.bound.count() 'bound'
 				_ = self.declare(pattern.bound[b].name, t: pattern.bound[b].t, owned: false, mutable: false)
 			end 'bound'
-			let action = self.armAction(pattern.bound)
+			let spoken = self.armAction(pattern.bound)
+			let action = self.voiced(spoken)
 			self.line("{pattern.text} {kwThen} {action}")
 			states.push(self.moveState())
 			self.pop()
@@ -2674,7 +2697,7 @@ type Generator
 			self.elementStatement(v)
 			self.guardedEnd(mark)
 		end 'element' else if n < 7 'count'
-			self.line(printed("{name}.count()"))
+			self.say(printed("{name}.count()"))
 		end 'count' else if n < 8 and mutable 'put'
 			let value = self.owned(elem, depth: 2)
 			self.line("put({name}, x: {value})")
@@ -2709,7 +2732,7 @@ type Generator
 			let value = self.owned(elem, depth: 1)
 			self.line("overwrite({src}, value: {value})")
 		end 'overwrite' else if n < 5 and elem == tCount 'print'
-			self.line(printed(src))
+			self.say(printed(src))
 		end 'print' else 'other'
 			let ri = self.recordIndex(elem)
 			if ri.isSome() and mutable 'record'
@@ -2748,12 +2771,12 @@ type Generator
 	function elementCall(mutates self, v Count, elem Count)
 		let found = self.elementOf(v, mutable: false)
 		if not found.isSome() 'none'
-			self.line(printNothing)
+			self.say(printNothing)
 			return
 		end 'none'
 		let src = store[found.unwrap()].src.clone()
 		if elem == tCount or elem == tString 'printable'
-			self.line(printed(src))
+			self.say(printed(src))
 			return
 		end 'printable'
 		for f in 0 upto fns.count() 'fns'
@@ -2806,12 +2829,12 @@ type Generator
 			let handleT = self.handleOf(elem)
 			let held = self.place(handleT, mutable: false)
 			if held.isSome() 'some'
-				self.line(printed("{name}.contains({store[held.unwrap()].src})"))
+				self.say(printed("{name}.contains({store[held.unwrap()].src})"))
 				return true
 			end 'some'
 			return false
 		end 'contains' else 'count'
-			self.line(printed("{name}.count()"))
+			self.say(printed("{name}.count()"))
 		end 'count'
 		return true
 	end 'actPool'
@@ -2822,7 +2845,7 @@ type Generator
 		let mutable = vars[v].mutable
 		let found = self.elementOf(v, mutable: mutable)
 		if not found.isSome() 'none'
-			self.line(printNothing)
+			self.say(printNothing)
 			return
 		end 'none'
 		let src = store[found.unwrap()].src.clone()
@@ -2835,7 +2858,7 @@ type Generator
 			self.line("{kwLet} {name} = {src}.clone()")
 			_ = self.declare(name, t: elem, owned: true, mutable: false)
 		end 'copy' else if n < 3 and elem == tCount 'print'
-			self.line(printed(src))
+			self.say(printed(src))
 		end 'print' else 'clone'
 			self.line("_ = {src}.clone()")
 		end 'clone'
@@ -2905,7 +2928,7 @@ type Generator
 			_ = self.declare(kept, t: handleT, owned: false, mutable: false)
 			self.guardedEnd(mark)
 		end 'first' else 'count'
-			self.line(printed("{name}.count()"))
+			self.say(printed("{name}.count()"))
 		end 'count'
 		return true
 	end 'actList'
@@ -2938,9 +2961,9 @@ type Generator
 			self.guardedEnd(mark)
 		end 'element' else if n < 5 'contains'
 			let keyText = self.keyLiteral(key)
-			self.line(printed("{name}.contains({keyText})"))
+			self.say(printed("{name}.contains({keyText})"))
 		end 'contains' else 'count'
-			self.line(printed("{name}.count()"))
+			self.say(printed("{name}.count()"))
 		end 'count'
 		return true
 	end 'actMap'
@@ -3251,12 +3274,12 @@ type Generator
 	function bothElement(mutates self, v Count)
 		let found = self.elementOf(v, mutable: false)
 		if not found.isSome() 'none'
-			self.line(printNothing)
+			self.say(printNothing)
 			return
 		end 'none'
 		let p = found.unwrap()
 		if not self.managed(store[p].t) 'plain'
-			self.line(printNothing)
+			self.say(printNothing)
 			return
 		end 'plain'
 		_ = self.bothWith(p)
@@ -3338,14 +3361,14 @@ type Generator
 		let elem = self.elementTypeOf(t)
 		let found = self.elementOf(v, mutable: true)
 		if not found.isSome() 'none'
-			self.line(printNothing)
+			self.say(printNothing)
 			return
 		end 'none'
 		var target = store[found.unwrap()].src.clone()
 		if elem != tCount 'record'
 			let ri = self.recordIndex(elem)
 			if not ri.isSome() 'plain'
-				self.line(printNothing)
+				self.say(printNothing)
 				return
 			end 'plain'
 			let r = ri.unwrap()
@@ -3358,7 +3381,7 @@ type Generator
 				end 'count'
 			end 'fields'
 			if not located 'missing'
-				self.line(printNothing)
+				self.say(printNothing)
 				return
 			end 'missing'
 		end 'record'
@@ -3371,7 +3394,7 @@ type Generator
 			call = "churnList({name})"
 		end 'list' else if k == Kind.kMap 'map'
 			if tys[t].args[0] != tString 'keyed'
-				self.line(printNothing)
+				self.say(printNothing)
 				return
 			end 'keyed'
 			call = "churnMap({name})"
@@ -3628,11 +3651,11 @@ type Generator
 				let label = self.label()
 				self.line("{kwIf} {text} {label}")
 				self.indentMore()
-				self.line(printedText("eq"))
+				self.say(printedText("eq"))
 				self.indentLess()
 				self.line("{kwEnd} {label}")
 			end 'condition' else if n == 1 'printed'
-				self.line(printed(text))
+				self.say(printed(text))
 			end 'printed' else 'kept'
 				let name = self.fresh("v")
 				self.line("{kwLet} {name} = {text}")
@@ -3711,7 +3734,7 @@ type Generator
 		if n == 0 'printed'
 			let found = self.heldInterpolation(broken, elements: true)
 			if found.isSome() 'some'
-				self.line("print(\"{found.unwrap()}\\n\")")
+				self.say(printedText(found.unwrap()))
 				wrote = true
 			end 'some'
 		end 'printed' else if n == 1 'kept'
@@ -3736,7 +3759,7 @@ type Generator
 				let label = self.label()
 				self.line("{kwIf} {found.unwrap()} {label}")
 				self.indentMore()
-				self.line(printedText("eq"))
+				self.say(printedText("eq"))
 				self.indentLess()
 				self.line("{kwEnd} {label}")
 				wrote = true
@@ -3813,7 +3836,7 @@ type Generator
 		let t = self.elementTypeOf(store[base].t)
 		if use == useRead 'read'
 			if t == tCount or t == tString 'printable'
-				self.line(printed(element))
+				self.say(printed(element))
 			end 'printable' else if self.chance(50) 'kept'
 				let name = self.fresh("v")
 				self.line("{kwLet} {name} = {element}.clone()")
@@ -4223,7 +4246,7 @@ type Generator
 			end 'fields'
 		end 'record'
 		if tys[inner].kind == Kind.kArray 'array'
-			self.line(printed("{name}.count()"))
+			self.say(printed("{name}.count()"))
 		end 'array' else if hasField 'field'
 			self.line("_ = {name}.{firstField}")
 		end 'field' else 'other'
@@ -4235,7 +4258,7 @@ type Generator
 
 	// actWhen writes a behaviour on one or two cowns, whose body is written as a function of its own.
 	function actWhen(mutates self, depth Depth) returns bool
-		if not sharing or depth <= 0 or behaviours >= 2 'unusable'
+		if not sharing or depth <= 0 or behaviours >= 2 or (quiet and (behaviours > 0 or not inMain)) 'unusable'
 			return false
 		end 'unusable'
 		let cowns = self.varsOf(Kind.kCown)
@@ -4341,7 +4364,7 @@ type Generator
 			self.stmt(lower(depth))
 		end 'body'
 		if out.count() == start 'empty'
-			self.line(printedText("w"))
+			self.say(printedText("w"))
 		end 'empty'
 		var lines = StringList.create(0)
 		for i in start upto out.count() 'lines'
@@ -4525,7 +4548,9 @@ type Generator
 				heldSin = held
 			end 'targeted'
 		end 'untargeted'
-		sharing = not arraysOnly
+		let sharesNatively = self.chance(nativeSharingPrograms)
+		sharing = not arraysOnly or sharesNatively
+		quiet = arraysOnly and sharing
 		self.declareTypes()
 		self.writeTypes()
 		let functionCount = self.pickFrom(1, n: 4)
@@ -4534,6 +4559,12 @@ type Generator
 		end 'functions'
 		self.mainFunction()
 	end 'start'
+
+	// scheduleIndependent is whether the program's output and exit code are the same under every schedule: it schedules
+	// no behaviour, or it is quiet.
+	function scheduleIndependent() returns bool
+		return quiet or not sharing
+	end 'scheduleIndependent'
 
 	// finish is the program's text: the library, the typealiases of the instances the program names, and what it wrote.
 	function finish(library String) returns String

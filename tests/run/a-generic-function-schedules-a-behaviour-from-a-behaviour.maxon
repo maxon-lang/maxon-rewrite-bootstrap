@@ -1,0 +1,91 @@
+// A generic function whose behaviour schedules another, in two instances: each instance has its own bodies and thunks,
+// the inner behaviour's among them, and the inner one runs after the outer one on the same cown. Each instance writes
+// its lines in a part of the log of its own, which the last to report prints, so the output does not depend on which
+// instance finishes first.
+typealias Parts = Array with String
+
+interface Named
+	function named() returns String
+end 'Named'
+
+type Word implements Named
+	var text as String
+
+	static function make(consumes text String) returns Word
+		return Word{text: text}
+	end 'make'
+
+	function named() returns String
+		return "word {text}"
+	end 'named'
+end 'Word'
+
+type Number implements Named
+	var n as Count
+
+	static function make(n Count) returns Number
+		return Number{n: n}
+	end 'make'
+
+	function named() returns String
+		return "number {n}"
+	end 'named'
+end 'Number'
+
+type Slot uses T where T implements Named and Droppable
+	var held as T
+	var log as String
+
+	static function make(consumes held T) returns Self
+		return Self{held: held, log: ""}
+	end 'make'
+end 'Slot'
+
+type Log
+	export var parts as Parts
+	export var left as Count
+
+	static function make(left Count) returns Log
+		var parts = Parts.create(0)
+		for i in 0 upto left 'parts'
+			parts.push("")
+		end 'parts'
+		return Log{parts: parts, left: left}
+	end 'make'
+end 'Log'
+
+function relay(into cown with (Slot with T), consumes first T, consumes second T, report cown with Log, part Count) uses T where T implements Named and Droppable
+	let again = share(into)
+	let out = share(report)
+	when into as s 'outer'
+		s.held = first
+		s.log = "outer {s.held.named()}"
+		let next = second
+		let inner = share(out)
+		when again as t 'inner'
+			let text = "{t.log}, inner {t.held.named()} then {next.named()}"
+			t.held = next
+			when inner as r 'show'
+				r.parts[part] = text
+				r.left = try r.left - 1 otherwise 0
+				if r.left == 0 'done'
+					for i in 0 upto r.parts.count() 'print'
+						print("{r.parts[i]}\n")
+					end 'print'
+				end 'done'
+			end 'show'
+		end 'inner'
+	end 'outer'
+end 'relay'
+
+function main() returns ExitCode
+	let log = cown(Log.make(2))
+	let words = cown(Slot.make(Word.make("none")))
+	let numbers = cown(Slot.make(Number.make(0)))
+	relay(words, first: Word.make("a"), second: Word.make("b"), report: log, part: 0)
+	relay(numbers, first: Number.make(1), second: Number.make(2), report: log, part: 1)
+	return 0
+end 'main'
+
+//> outer word a, inner word a then word b
+//> outer number 1, inner number 1 then number 2

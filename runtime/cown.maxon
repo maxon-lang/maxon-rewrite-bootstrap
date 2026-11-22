@@ -6,7 +6,8 @@
 //
 // The record the compiled `when` makes (layout rows in internal/abigen): pending, run, the count n of cowns, then n
 // request slots {cown, next, blocked, owner}, then the n cowns in the order the source names them, then the captures.
-// The compiled code fills in run, n, the cowns and the captures; the acquire fills in the slots.
+// The compiled code fills in run, n, the cowns and the captures; the acquire fills in every field of the slots, so the
+// protocol does not depend on the allocator giving zeroed memory.
 
 // notQueued is a slot's next, and a cown's tail, when nothing is queued after it.
 let notQueued = 0 as Count
@@ -41,8 +42,18 @@ let behaviourHold = 1 as Count
 // exchanges; maxon's __cown_acquire_many does too. The wait needs no lock word, and it lasts only for the predecessor's
 // phase 1.
 //
+// Why pending reaches 0 exactly once, and only when the behaviour holds every cown: it starts at n + beingQueued, and is
+// lowered once for each slot, by this acquire for a cown that was idle or by the release of the behaviour ahead for one
+// that was not, and once by beingQueued here, so n + 1 locked steps in all, of which one finds it at 1. Until this
+// acquire takes its beingQueued step the count stays above 0, so no release can push the behaviour while it is queuing.
+//
+// Why the slot that phase 1 waits on is still there: prev's behaviour may run and finish meanwhile, but its release of
+// this cown finds the tail moved past prev's slot, so it waits for the link this stores before it hands the cown on and
+// lets the record be freed.
+//
 // x64 keeps plain stores in order and plain loads in order, so a plain store publishes what was written before it, and
-// the exchange and the locked add are full fences.
+// the exchange and the locked add are full fences. So does the compiled code, which neither reorders nor merges the
+// runtime's raw loads and stores; an optimizer must keep them, and the atomics, in order.
 function cownAcquire(record Count)
 	let n = __Raw.loadWord(record, offset: behaviourCownCountOffset)
 	for i in 0 upto n 'sort'
@@ -63,6 +74,7 @@ function cownAcquire(record Count)
 	for i in 0 upto n 'holds'
 		let slot = requestSlot(record, index: i)
 		__Raw.storeWord(slot, offset: requestOwnerOffset, value: record)
+		__Raw.storeWord(slot, offset: requestNextOffset, value: notQueued)
 		_ = __Raw.atomicAdd(__Raw.loadWord(slot, offset: requestCownOffset), offset: cownCountOffset, value: behaviourHold)
 	end 'holds'
 	__Raw.storeWord(record, offset: behaviourPendingOffset, value: try n + beingQueued otherwise panic("a behaviour names more cowns than memory"))
@@ -96,9 +108,16 @@ end 'cownAcquire'
 //    when that fails, a behaviour has exchanged itself into the tail and is about to link, so this waits for its link.
 //    The next behaviour's pending is lowered by 1, and whoever brings it to 0 pushes it on its own thread's queue.
 //
+// Why the compare-exchange and a concurrent acquire's exchange of the same tail cannot both win: they are locked
+// operations on one word, so one comes first. When the compare-exchange is first, the tail is 0 and the acquirer finds
+// the cown idle, after every write this behaviour made to the value, which the locked operation orders before it. When
+// the exchange is first, the compare-exchange fails and this waits for the link that the acquirer stores once it has
+// seen prev, which is this slot, no longer blocked; it was unblocked before this behaviour ran.
+//
 // Once this returns no other behaviour reads or writes the record's slots: a later behaviour writes a slot's next only
 // before the wait above ends, and reads its blocked only before that. The behaviour's holds on its cowns are the
-// thunk's to drop, since only the compiled code knows the types of the values they hold.
+// thunk's to drop, since only the compiled code knows the types of the values they hold. Each successor holds a hold of
+// its own, taken before it queued, so the drop that frees a cown is the one after the last behaviour that names it.
 function cownRelease(record Count)
 	let n = __Raw.loadWord(record, offset: behaviourCownCountOffset)
 	for i in 0 upto n 'slots'

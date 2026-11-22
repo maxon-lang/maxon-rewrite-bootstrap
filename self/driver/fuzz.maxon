@@ -25,8 +25,11 @@ let programsPerWorker = 100 as Count
 // workerMarker starts the line that a worker writes before each program, which says where it was if it dies.
 let workerMarker = "@"
 
-// workerTally starts the line that a worker ends with, which is its counts.
+// workerTally starts the line that a worker ends with, which is its counts: tallyWords words, the marker and the numbers,
+// then the rejected codes.
 let workerTally = "tally "
+
+let tallyWords = 9 as Count
 
 let defaultGeneratedPrograms = 300 as Count
 
@@ -35,6 +38,10 @@ let generatedStepLimit = 20000000 as Count
 
 // defaultScheduleSeeds is how many schedules a program that has behaviours runs under.
 let defaultScheduleSeeds = 3 as Count
+
+// nativeBehaviourRuns is how many times --native runs the executable of a program that schedules behaviours, each run
+// under another schedule, with the worker count of the fuzzer's environment (MAXON_MAX_PROCS).
+let nativeBehaviourRuns = 3 as Count
 
 // maxReportedFailures is how many failing programs are printed whole; the others only say their seed.
 let maxReportedFailures = 3 as Count
@@ -256,8 +263,14 @@ type NativeCheck
 end 'NativeCheck'
 
 // compareNative compiles the program the interpreter just ran and runs the executable. A program that uses a map, a list or a
-// pool has no executable yet and is skipped.
-function compareNative(mutates shared SharedRuntime, source String, outcome GeneratedRun) returns NativeCheck
+// pool has no executable yet and is skipped, as is one that schedules behaviours and was not written so that its output is
+// the same under every schedule. One that was runs several times, and a run that ends in a trap may have printed more or
+// less of main's output first than the interpreter did, since a behaviour runs beside main: one output must be the start
+// of the other.
+function compareNative(mutates shared SharedRuntime, source String, outcome GeneratedRun, scheduleIndependent bool) returns NativeCheck
+	if outcome.behaviours > 0 and not scheduleIndependent 'scheduleDependent'
+		return NativeCheck.agreed(false)
+	end 'scheduleDependent'
 	let exe = temporaryExecutable("fuzz.maxon")
 	var options = Options.new()
 	options.countAllocations = true
@@ -271,8 +284,27 @@ function compareNative(mutates shared SharedRuntime, source String, outcome Gene
 		return NativeCheck.agreed(false)
 	end 'failed'
 	let exePath = try FilePath.from(exe) otherwise return NativeCheck.differs("{exe} is not a path", ran: false)
-	let out = try Subprocess.run(Executable.path(exePath.clone()), arguments: CommandNames.create(0)) otherwise return NativeCheck.differs("cannot run {exe}", ran: false)
+	var runs = 1 as Count
+	if outcome.behaviours > 0 'scheduled'
+		runs = nativeBehaviourRuns
+	end 'scheduled'
+	for run in 0 upto runs 'runs'
+		let out = try Subprocess.run(Executable.path(exePath.clone()), arguments: CommandNames.create(0)) otherwise return NativeCheck.differs("cannot run {exe}", ran: false)
+		let check = compareRun(out, outcome: outcome)
+		if check.mismatch != "" 'mismatch'
+			try File.delete(exePath) otherwise panic("fuzz: cannot delete {exe}")
+			if runs == 1 'once'
+				return check
+			end 'once'
+			return NativeCheck.differs("run {run + 1} of {runs}, {workerCountText()}: {check.mismatch}", ran: true)
+		end 'mismatch'
+	end 'runs'
 	try File.delete(exePath) otherwise panic("fuzz: cannot delete {exe}")
+	return NativeCheck.agreed(true)
+end 'compareNative'
+
+// compareRun is how one run of the executable compares with the interpreter's outcome.
+function compareRun(out CollectedOutput, outcome GeneratedRun) returns NativeCheck
 	if findText(out.stderr, needle: leakMessage).isSome() 'leaked'
 		// The interpreter found no leak, so a box the executable still holds is one that it did not free.
 		return NativeCheck.differs("the executable ended with live heap boxes: {out.stderr}", ran: true)
@@ -280,11 +312,15 @@ function compareNative(mutates shared SharedRuntime, source String, outcome Gene
 	if out.exitCode() != outcome.exitCode 'exit'
 		return NativeCheck.differs("exit code {out.exitCode()} against {outcome.exitCode}", ran: true)
 	end 'exit'
-	if out.stdout != outcome.stdout 'stdout'
-		return NativeCheck.differs("standard output differs", ran: true)
-	end 'stdout'
-	return NativeCheck.agreed(true)
-end 'compareNative'
+	if out.stdout == outcome.stdout 'same'
+		return NativeCheck.agreed(true)
+	end 'same'
+	let trappedBeside = outcome.behaviours > 0 and outcome.exitCode != 0
+	if trappedBeside and (hasPrefix(out.stdout, prefix: outcome.stdout) or hasPrefix(outcome.stdout, prefix: out.stdout)) 'cutShort'
+		return NativeCheck.agreed(true)
+	end 'cutShort'
+	return NativeCheck.differs("standard output differs", ran: true)
+end 'compareRun'
 
 // keepSource saves a program in the directory, when there is one, to look at it later.
 function keepSource(dir String, name String, source String)
@@ -329,13 +365,15 @@ type FuzzTally
 	var timedOut as Count
 	var failures as Count
 	var compared as Count
+	// comparedConcurrent is how many of the compared programs scheduled behaviours.
+	var comparedConcurrent as Count
 	var concurrent as Count
 	var behaviours as Count
 	var rejectedCodes as ast.StringList
 	var rejectedCounts as table.StringMap with Count
 
 	static function new() returns FuzzTally
-		return FuzzTally{accepted: 0, trapped: 0, timedOut: 0, failures: 0, compared: 0, concurrent: 0, behaviours: 0, rejectedCodes: ast.StringList.create(0), rejectedCounts: table.StringMap.new()}
+		return FuzzTally{accepted: 0, trapped: 0, timedOut: 0, failures: 0, compared: 0, comparedConcurrent: 0, concurrent: 0, behaviours: 0, rejectedCodes: ast.StringList.create(0), rejectedCounts: table.StringMap.new()}
 	end 'new'
 
 	// reject counts programs that the checker refused, by the code of the first diagnostic of each.
@@ -351,7 +389,7 @@ type FuzzTally
 
 	// the counts of the worker's line, which ends a worker's output: its numbers in order, then the rejected codes with their counts.
 	function line() returns String
-		var text = "{workerTally}{accepted} {trapped} {timedOut} {failures} {compared} {concurrent} {behaviours}"
+		var text = "{workerTally}{accepted} {trapped} {timedOut} {failures} {compared} {comparedConcurrent} {concurrent} {behaviours}"
 		for i in 0 upto rejectedCodes.count() 'codes'
 			let count = rejectedCounts.get(rejectedCodes[i]).unwrap()
 			text = "{text} {rejectedCodes[i]}:{count}"
@@ -362,11 +400,11 @@ type FuzzTally
 	// add takes in the counts of a worker's line, which says whether it was one.
 	function add(mutates self, tallyLine String) returns bool
 		let words = splitWords(tallyLine)
-		if words.count() < 8 or words[0] != "tally" 'other'
+		if words.count() < tallyWords or words[0] != "tally" 'other'
 			return false
 		end 'other'
 		var numbers = FuzzCounts.create(0)
-		for i in 1 upto 8 'numbers'
+		for i in 1 upto tallyWords 'numbers'
 			let n = parseSeed(words[i])
 			if not n.isSome() 'invalid'
 				return false
@@ -378,9 +416,10 @@ type FuzzTally
 		timedOut = try timedOut + numbers[2] otherwise panic("fuzz: more programs than memory")
 		failures = try failures + numbers[3] otherwise panic("fuzz: more programs than memory")
 		compared = try compared + numbers[4] otherwise panic("fuzz: more programs than memory")
-		concurrent = try concurrent + numbers[5] otherwise panic("fuzz: more programs than memory")
-		behaviours = try behaviours + numbers[6] otherwise panic("fuzz: more programs than memory")
-		for i in 8 upto words.count() 'codes'
+		comparedConcurrent = try comparedConcurrent + numbers[5] otherwise panic("fuzz: more programs than memory")
+		concurrent = try concurrent + numbers[6] otherwise panic("fuzz: more programs than memory")
+		behaviours = try behaviours + numbers[7] otherwise panic("fuzz: more programs than memory")
+		for i in tallyWords upto words.count() 'codes'
 			let split = findText(words[i], needle: ":")
 			if split.isSome() 'pair'
 				let at = split.unwrap()
@@ -444,7 +483,8 @@ function fuzzWorker(options FuzzOptions, library String) returns ExitCode
 	var seed = options.first
 	while seed < last 'seeds'
 		print("{workerMarker}{seed}\n")
-		let source = fuzz.program(seed, library: library)
+		let generated = fuzz.generate(seed, library: library)
+		let source = generated.source.clone()
 		let outcome = runGenerated(source, schedules: options.schedules)
 		if outcome.syntaxFail 'syntax'
 			fail(tally, options: options, seed: seed, source: source, message: "the generator wrote a program that does not parse: {outcome.rejectedText}")
@@ -469,11 +509,14 @@ function fuzzWorker(options FuzzOptions, library String) returns ExitCode
 				tally.behaviours = try tally.behaviours + outcome.behaviours otherwise panic("fuzz: more behaviours than memory")
 			end 'concurrent'
 			if options.native 'native'
-				let check = compareNative(shared, source: source, outcome: outcome)
+				let check = compareNative(shared, source: source, outcome: outcome, scheduleIndependent: generated.scheduleIndependent)
 				if check.mismatch != "" 'mismatch'
 					fail(tally, options: options, seed: seed, source: source, message: "the executable and the interpreter differ: {check.mismatch}")
 				end 'mismatch' else if check.ran 'ran'
 					tally.compared = try tally.compared + 1 otherwise panic("fuzz: more programs than memory")
+					if outcome.behaviours > 0 'concurrent'
+						tally.comparedConcurrent = try tally.comparedConcurrent + 1 otherwise panic("fuzz: more programs than memory")
+					end 'concurrent'
 				end 'ran'
 			end 'native'
 		end 'accepted'
@@ -586,7 +629,7 @@ function fuzzSummary(mutates tally FuzzTally, options FuzzOptions) returns ExitC
 		parts.push("{tally.rejectedCodes[i]}:{count}")
 	end 'codes'
 	if tally.compared > 0 'compared'
-		print("{tally.compared} accepted programs also ran as executables with the same output and exit code\n")
+		print("{tally.compared} accepted programs also ran as executables with the same output and exit code, {tally.comparedConcurrent} of them scheduling behaviours, each run {nativeBehaviourRuns} times with {workerCountText()}\n")
 	end 'compared'
 	print("{options.count} programs: {tally.accepted} accepted and clean ({tally.trapped} of them ended in a trap, {tally.timedOut} ran out of steps), {total} rejected by the checker [{fuzz.joinStrings(parts, separator: " ")}], {tally.failures} failed\n")
 	print("{tally.concurrent} of the accepted programs scheduled behaviours ({tally.behaviours} in all), each under {options.schedules} schedules\n")

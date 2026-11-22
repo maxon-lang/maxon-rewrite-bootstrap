@@ -8,6 +8,9 @@ let carelessPrograms = 40 as Count
 // arraysOnlyPrograms is the share of programs with no map, list or pool, which can also run as executables.
 let arraysOnlyPrograms = 30 as Count
 
+// nativeSharingPrograms is the share of those that freeze values, make cowns and schedule behaviours, quietly.
+let nativeSharingPrograms = 50 as Count
+
 // targetedPrograms is the share of the programs that are not careless which break one rule of sharing, once.
 let targetedPrograms = 40 as Count
 
@@ -371,9 +374,25 @@ function actionTable() returns WeightedList
 	return t
 end 'actionTable'
 
-// program writes the source of one random program for the seed, whose library text is what every program starts with.
-export function program(seed Count, library String) returns String
+// GeneratedProgram is the source of a program and whether its output and exit code are the same under every schedule of
+// its behaviours, so that its executable and the interpreter, which schedule differently, can be compared.
+export type GeneratedProgram
+	export var source as String
+	export var scheduleIndependent as bool
+
+	static function make(consumes source String, scheduleIndependent bool) returns GeneratedProgram
+		return GeneratedProgram{source: source, scheduleIndependent: scheduleIndependent}
+	end 'make'
+end 'GeneratedProgram'
+
+// generate writes one random program for the seed, whose library text is what every program starts with.
+export function generate(seed Count, library String) returns GeneratedProgram
 	var g = Generator.new(seed)
 	g.start()
-	return g.finish(library)
+	return GeneratedProgram.make(g.finish(library), scheduleIndependent: g.scheduleIndependent())
+end 'generate'
+
+// program is the source of the program generate writes for the seed.
+export function program(seed Count, library String) returns String
+	return generate(seed, library: library).source.clone()
 end 'program'

@@ -79,6 +79,11 @@ let openBrace = "\{"
 
 let closeBrace = "\}"
 
+// printCall opens every statement that prints, and printClose ends it.
+let printCall = "print("
+
+let printClose = ")"
+
 let printNothing = "print(\"-\\n\")"
 
 // braced is text in braces, as an interpolation of the generated program.
@@ -88,12 +93,12 @@ end 'braced'
 
 // printed is the statement that prints the value of an expression and a newline.
 function printed(expr String) returns String
-	return "print(\"{braced(expr)}\\n\")"
+	return "{printCall}\"{braced(expr)}\\n\"{printClose}"
 end 'printed'
 
 // printedText is the statement that prints a fixed text and a newline.
 function printedText(text String) returns String
-	return "print(\"{text}\\n\")"
+	return "{printCall}\"{text}\\n\"{printClose}"
 end 'printedText'
 
 // quoted is a string literal of the generated program holding text.

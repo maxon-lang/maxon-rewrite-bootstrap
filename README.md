@@ -38,7 +38,7 @@ generator.
 | `minimaxon build <file\|dir> [-o out.exe]` | compile; the path given is the project's root, and a directory is a project, one module per directory (see "Modules") |
 | `minimaxon run <file\|dir>` | compile to the temporary directory, as `minimaxon-run-<process id>-<name>.exe`, and run; exits with the program's code |
 | `minimaxon check <file\|dir>` | diagnostics only, exit code 1 when there are any; `check runtime` checks the runtime's source and holds it to the functions the compiler calls (see "The runtime") |
-| `minimaxon test [--update-positions] [dir]` | run the corpus (default: the nearest `tests` directory from the executable upward; see "Tests") |
+| `minimaxon test [--update-positions] [--behaviours] [--repeat=N] [dir]` | run the corpus (default: the nearest `tests` directory from the executable upward; see "Tests") |
 | `minimaxon test <specs-dir\|file.md> [--verbose] [--skip-passed] [--record-passed]` | run maxon's spec tests (see "Tests") |
 | `minimaxon selftest` | run the compiler's own tests (`self/*_test.maxon`) |
 | `minimaxon rewrite --keyword=old=new <path>...` | rename a keyword by token in the `.maxon` files and the Markdown code under the paths (see "Changing the language") |
@@ -46,7 +46,7 @@ generator.
 | `minimaxon rename [--prelude=f,...] [--rules=file] <rule>... <program>...` | rename a built-in type or rewrite the calls of a built-in method by the declaration the checker resolved, never by text: `Array.append=push`, `Array.insert=insert({at}, value: {item})`, `Array.pop.unwrap=try {call} otherwise panic("empty")`, and a free function's whole call: `readFile().unwrap=try File.readText({path}) otherwise panic("unread")` (the rules are in `self/driver/rename.maxon`) |
 | `minimaxon fmt [--check] <path>...` | put the `.maxon` files and the Maxon code blocks of the `.md` files under the paths in the one layout; `--check` changes nothing and exits 1 listing the files that are not in it (see "Layout" and "Changing the language") |
 | `minimaxon interp <file\|dir> [--seed=N] [--frees]` | development only: run under the tracking interpreter, which runs a map, a list, a pool, a frozen value, a cown and a behaviour, and reports a violation of the memory model; `--frees` lists the values freed, in order |
-| `minimaxon fuzz [--seed=N] [--count=N] [--schedules=N] [--keep=DIR] [--native] [--dump]` | development only: write random programs, check them and run them under the interpreter (`self/fuzz`) |
+| `minimaxon fuzz [--seed=N] [--count=N] [--schedules=N] [--keep=DIR] [--native] [--dump]` | development only: write random programs, check them and run them under the interpreter (`self/fuzz`); `--native` also runs the executable of each that compiles and compares it with the interpreter (see "Tests") |
 | `go run ./cmd/convert [--specs] [--write] [--check] [--out=DIR] [<path>...]` | convert existing Maxon `.maxon` source files to minimaxon syntax and layout, marking unsupported constructs with `// TODO` comments and warnings on stderr; `--check` writes nothing and prints each kind of warning with its count and files, most frequent first (run `minimaxon qualify` after converting a project of several modules); `--specs` converts maxon's spec files, which is how `specs/` is made. It lays out what it converts with the compiler's `fmt`: `minimaxon.exe` in the root of the repository, or the compiler the environment variable `MINIMAXON` names |
 | `go run ./cmd/sample [-interval D] [-top N] [-callers N] [-focus TEXT,...] [-o FILE] <exe> [arg...]` | profile an executable that `build --emit-map` made: runs it, samples its main thread's instruction pointer and its `rbp` frames (1 ms by default), and prints the functions by self and by total samples, with the callers of the top ones and of those whose symbol contains a `-focus` text, and the wall time; code outside the image (a Windows DLL) is charged to the function that called it, found by scanning the stack, and exits with the program's code |
 
@@ -95,7 +95,8 @@ development, and `minimaxon test` always uses it. `--update-positions` makes `te
 generators and fails if a generated file (`*_gen.*`) changed; has the seed build `bin\minimaxon.exe`; and then runs
 `suites.ps1` on it, which runs the Go tests of the generators and tools (`go test ./...`, with that compiler as
 `cmd/convert`'s formatter) and, with the compiler: `selftest`, `check runtime`, `check self` (the compiler's own source under the rules it has just been given), `fmt --check self runtime tests`, the corpus (`test`, with no standard
-input), the spec tests that `specs/passed.txt` does not list (`test specs --skip-passed`: until Phase 3 a test that has passed is not
+input), the programs that schedule behaviours again under one worker and under two (`test --behaviours` with
+`MAXON_MAX_PROCS` set), the spec tests that `specs/passed.txt` does not list (`test specs --skip-passed`: until Phase 3 a test that has passed is not
 run again), and `fuzz` (300 generated programs, each one the checker accepts run clean under the interpreter). It stops at the
 first step that fails. That the compiler reproduces itself (the seed builds C1, C1 builds C2, C2 builds C3, and C3 is
 byte-identical to C2) is checked where the seed is renewed, `.\seed.ps1`, which then runs the same `suites.ps1` on C2.
@@ -119,7 +120,28 @@ map, a list or a pool has no executable yet: it fails to compile with `E9900`, a
 interpreter alone. A program that schedules behaviours runs under 20 schedules of the interpreter
 (seeds 0 to 19), and every one must give the same stdout and exit code and no violation, as must the executable, whose
 workers schedule it as the machine does, so the directives of such a program must say an output that does not depend
-on the schedule: print only from behaviours that the cowns put in order, such as one chain, or behaviours on one cown. A program under `tests/runtime/` is a test of the runtime: it is
+on the schedule: print only from behaviours that the cowns put in order, such as one chain, or behaviours on one cown.
+A program that schedules so many behaviours that 20 schedules of the interpreter would cost seconds says how many it
+runs under (`// schedules: N`).
+
+A program that schedules behaviours runs natively more than once, each run another schedule, and every run must give
+what the directives say: the runner knows it schedules some when a function it lowered, or a body in one, has a `When`
+instruction, and a test of the runtime counts as one, since it may run the scheduler by hand. It runs 2 times in a
+run of the corpus, or N with `--repeat=N`, under the worker count of the runner's environment, which every executable
+it starts inherits (`MAXON_MAX_PROCS`, else the machine's processors). `--behaviours` runs only those programs, and
+only natively, which is how a program meets other worker counts: `suites.ps1` runs the corpus with the machine's count,
+which holds every program to the interpreter too, and then `test --behaviours` with `MAXON_MAX_PROCS` at 1 and at 2,
+so the gate runs each such program 6 times natively under three counts, for about two seconds; it compiles only the
+programs that have the word `when` in a file, or are tests of the runtime, and leaves out the rest uncounted. A soak
+is the same flags with `--repeat=300` at each count. A failure names the run and the worker count. The stress
+programs are `behaviours-over-a-ring-of-cowns` and `behaviours-on-one-to-eight-cowns-and-pushers-handing-off` (1 to 8
+cowns per `when` and per-sender order across hand-offs, after maxon's `cown-multi-torture` and
+`cown-handoff-torture`); the others named `a-…` and `behaviours-…` each hold one path of the runtime to it (a function
+value or a frozen value shared into behaviours on many workers, a cown's last owner dropped inside a behaviour while
+others hold it, a generic function's nested `when`, behaviours scheduled from behaviours to a depth, `Process.setExitCode`
+ordered by a cown).
+
+A program under `tests/runtime/` is a test of the runtime: it is
 compiled as one more file of the runtime's module (`compileRuntimeTest`), so it may call the runtime's functions and the
 `__Raw` intrinsics, and holds `main`; it is run natively only, since the interpreter does not run the runtime's source.
 `tests/runtime/scheduler.maxon` tests the scheduler alone: it builds behaviour records by hand. A test executable runs under a 10 second deadline, and a program
@@ -145,6 +167,7 @@ Directives in comments say what the program must do:
 | `// expect-free: label` | the interpreter must free the program's values in the order of these lines, one value each, as `minimaxon interp --frees` prints them (`string "a1"`, `array`, `record`, `pool`) |
 | `// memory-limit: N` | the native run may use at most N megabytes; the runner does not enforce it yet |
 | `// native-only` | do not run the program under the interpreter; for a program whose point is what the executable does with memory, which the interpreter runs far too slowly |
+| `// schedules: N` | run the program under N schedules of the interpreter (seeds 0 to N - 1) instead of 20; for a program of thousands of behaviours |
 
 ### Errors
 
@@ -1044,6 +1067,13 @@ output and exit code are its own, a violation exits with 4 and a program that ou
   `self/fuzz/library.txt`. The command runs its seeds in worker processes, loads each program from memory
   (`project.loadSourceInto`), and with `--native` also builds each accepted program that has an executable, with its
   allocations counted, and compares it with the interpreter's: the same output and exit code, and no box left live.
+  The programs with no map, list or pool, which are the ones with an executable, share in half the seeds, and those are
+  quiet: only main's own statements print (a print anywhere else only evaluates its string) and only they schedule
+  behaviours, so the behaviours on each cown run in main's order and the output and the exit code are the same under
+  every schedule, the executable's and the interpreter's alike. Such a program's executable runs 3 times, under the
+  worker count of the fuzzer's environment; when the run traps, a behaviour may have trapped while main was still
+  printing, so the two outputs need only agree up to where the shorter ends. A program that schedules behaviours and is
+  not quiet is not compared.
 
 ### The machine IR
 

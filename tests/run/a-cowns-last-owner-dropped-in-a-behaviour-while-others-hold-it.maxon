@@ -1,0 +1,76 @@
+// Each resource is a cown with a destructor, and main hands its last owner to a behaviour on another cown, which drops
+// it at once, while the behaviours queued on the resource still run on other workers. Each behaviour holds the resource
+// until it has run, so the destructor runs once, after the last of them, whichever worker drops the last hold; it
+// reports to a log, which prints when every resource has closed.
+typealias Holders = Array with (cown with Holder)
+
+let resourceCount = 16 as Count
+
+let usesPerResource = 10 as Count
+
+type Log
+	export var left as Count
+	export var useCount as Count
+	export var closed as Count
+
+	static function make(left Count) returns Log
+		return Log{left: left, useCount: 0, closed: 0}
+	end 'make'
+end 'Log'
+
+type Resource
+	export var useCount as Count
+	export var log as cown with Log
+
+	static function make(log cown with Log) returns Resource
+		return Resource{useCount: 0, log: share(log)}
+	end 'make'
+
+	function close(destructs self)
+		let n = useCount
+		when log as l 'report'
+			l.useCount = try l.useCount + n otherwise 0
+			l.closed = try l.closed + 1 otherwise 0
+			l.left = try l.left - 1 otherwise 0
+			if l.left == 0 'last'
+				print("closed {l.closed} resources after {l.useCount} uses\n")
+			end 'last'
+		end 'report'
+	end 'close'
+end 'Resource'
+
+type Holder
+	export var held as Count
+
+	static function make() returns Holder
+		return Holder{held: 0}
+	end 'make'
+end 'Holder'
+
+function use(r cown with Resource)
+	when r as x 'use'
+		x.useCount = try x.useCount + 1 otherwise 0
+	end 'use'
+end 'use'
+
+function main() returns ExitCode
+	let log = cown(Log.make(resourceCount))
+	var holders = Holders.create(0)
+	for i in 0 upto resourceCount 'holders'
+		holders.push(cown(Holder.make()))
+	end 'holders'
+	for i in 0 upto resourceCount 'resources'
+		let r = cown(Resource.make(log), dropWith: close)
+		for u in 0 upto usesPerResource 'uses'
+			use(r)
+		end 'uses'
+		let holder = share(holders[i])
+		when holder as h 'drop'
+			h.held = try h.held + 1 otherwise 0
+			let last = r
+		end 'drop'
+	end 'resources'
+	return 0
+end 'main'
+
+//> closed 16 resources after 160 uses

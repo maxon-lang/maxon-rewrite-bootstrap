@@ -1,0 +1,59 @@
+// A tree of behaviours, each on a cown of its own that it makes for its children, scheduled from inside the behaviour
+// above it down to a depth: the cowns are made, named and freed on whichever workers run them. Each node reports to a
+// tally, and the last report prints the count and a sum that does not depend on the order the nodes ran in.
+let fanOut = 2 as Count
+
+let depth = 6 as Count
+
+type Node
+	export var level as Count
+	export var path as Count
+
+	static function make(level Count, path Count) returns Node
+		return Node{level: level, path: path}
+	end 'make'
+end 'Node'
+
+type Tally
+	export var left as Count
+	export var nodes as Count
+	export var paths as Count
+
+	static function make(left Count) returns Tally
+		return Tally{left: left, nodes: 0, paths: 0}
+	end 'make'
+end 'Tally'
+
+// grow schedules a node's behaviour, which reports to the tally and grows the node's children.
+function grow(node cown with Node, tally cown with Tally)
+	let t = share(tally)
+	when node as n 'node'
+		let level = n.level
+		let path = n.path
+		let reported = share(t)
+		when reported as k 'report'
+			k.nodes = try k.nodes + 1 otherwise 0
+			k.paths = try k.paths + path otherwise 0
+			k.left = try k.left - 1 otherwise 0
+			if k.left == 0 'last'
+				print("{k.nodes} nodes, paths {k.paths}\n")
+			end 'last'
+		end 'report'
+		if level < depth 'children'
+			for i in 0 upto fanOut 'children'
+				let child = cown(Node.make(try level + 1 otherwise 0, path: try path * fanOut + i otherwise 0))
+				grow(child, tally: t)
+			end 'children'
+		end 'children'
+	end 'node'
+end 'grow'
+
+function main() returns ExitCode
+	// A full binary tree of levels 0 to depth.
+	let nodes = 127 as Count
+	let tally = cown(Tally.make(nodes))
+	grow(cown(Node.make(0, path: 1)), tally: tally)
+	return 0
+end 'main'
+
+//> 127 nodes, paths 8128

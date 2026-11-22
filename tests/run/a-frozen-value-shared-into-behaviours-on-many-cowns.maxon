@@ -1,0 +1,67 @@
+// One frozen value shared into behaviours on many cowns, which read it and drop their owners from different workers at
+// once. main lets go of its own owner while they run, so the last owner is one of theirs, and the value is freed once,
+// by whichever worker drops it last.
+typealias Cells = Array with (cown with Cell)
+
+typealias Words = Array with String
+
+let cellCount = 8 as Count
+
+let behaviourCount = 160 as Count
+
+type Cell
+	export var value as Count
+
+	static function make() returns Cell
+		return Cell{value: 0}
+	end 'make'
+end 'Cell'
+
+type Table
+	export var words as Words
+	export var name as String
+
+	static function make(consumes words Words, consumes name String) returns Table
+		return Table{words: words, name: name}
+	end 'make'
+end 'Table'
+
+function tableOf(n Count) returns Table
+	var words = Words.create(0)
+	for i in 0 upto n 'words'
+		words.push("w{i}")
+	end 'words'
+	return Table.make(words, name: "table")
+end 'tableOf'
+
+// scheduleReads gives each behaviour a share of the table and drops the caller's owner when it returns.
+function scheduleReads(cells Cells, consumes table frozen with Table)
+	for i in 0 upto behaviourCount 'schedule'
+		let mine = share(table)
+		let target = share(cells[i mod cellCount])
+		when target as c 'read'
+			c.value = try c.value + mine.words[i mod mine.words.count()].byteLength() + mine.name.byteLength() otherwise 0
+		end 'read'
+	end 'schedule'
+end 'scheduleReads'
+
+function main() returns ExitCode
+	var cells = Cells.create(0)
+	for i in 0 upto cellCount 'make'
+		cells.push(cown(Cell.make()))
+	end 'make'
+	scheduleReads(cells, table: freeze(tableOf(10)))
+	let sum = cown(Cell.make())
+	for i in 0 upto cellCount 'cells'
+		let cell = share(cells[i])
+		when cell, sum as c, s 'add'
+			s.value = try s.value + c.value otherwise 0
+		end 'add'
+	end 'cells'
+	when sum as s 'report'
+		print("total {s.value}\n")
+	end 'report'
+	return 0
+end 'main'
+
+//> total 1120

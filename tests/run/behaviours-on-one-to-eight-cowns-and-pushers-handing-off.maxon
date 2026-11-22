@@ -1,0 +1,288 @@
+// A stress of the acquire and the hand-off, after maxon's cown-multi-torture and cown-handoff-torture.
+//
+// main schedules behaviours on 1 to 8 of a set of cells, named in an order that is not the cells', on every count in
+// turn: on each cell they must run in the order main scheduled them, and each counts an entry of its own on every cell
+// it holds. Pushers hand messages off: each round of a pusher, a behaviour on its own cown, schedules one message to
+// each counter, and a counter checks that every pusher's messages come in the order it sent them. When both parts are
+// done, which a tally counts, one chain sums the cells and the counters; what it prints does not depend on the
+// schedule, and an order broken anywhere shows in it. The interpreter runs it under one schedule, since it runs over a
+// thousand behaviours.
+// schedules: 1
+typealias Cells = Array with (cown with Cell)
+
+typealias Counts = Array with Count
+
+let cellCount = 16 as Count
+
+let mostCowns = 8 as Count
+
+let multiBehaviours = 800 as Count
+
+let pusherCount = 4 as Count
+
+let counterCount = 4 as Count
+
+// Every pushEvery behaviours on the cells, main schedules a round of each pusher.
+let pushEvery = 30 as Count
+
+// The tally waits for the cells' part and for every pusher.
+let parts = 5 as Count
+
+type Cell
+	export var entries as Count
+	export var sum as Count
+	export var last as Count
+	export var misordered as Count
+	// next is, for a counter, the round each pusher's next message must be from.
+	export var next as Counts
+
+	static function make() returns Cell
+		var next = Counts.create(0)
+		for i in 0 upto pusherCount 'pushers'
+			next.push(0)
+		end 'pushers'
+		return Cell{entries: 0, sum: 0, last: 0, misordered: 0, next: next}
+	end 'make'
+end 'Cell'
+
+type Sum
+	export var entries as Count
+	export var sum as Count
+	export var misordered as Count
+	export var messages as Count
+	export var left as Count
+
+	static function make() returns Sum
+		return Sum{entries: 0, sum: 0, misordered: 0, messages: 0, left: parts}
+	end 'make'
+end 'Sum'
+
+// enter is one behaviour's entry on a cell it holds: the k of the behaviours main scheduled on a cell only grow.
+function enter(mutates c Cell, k Count)
+	c.entries = try c.entries + 1 otherwise 0
+	c.sum = try c.sum + k otherwise 0
+	if k <= c.last 'misordered'
+		c.misordered = try c.misordered + 1 otherwise 0
+	end 'misordered'
+	c.last = k
+end 'enter'
+
+// slot is the index of the cell j strides on from start.
+function slot(start Count, stride Count, j Count) returns Count
+	return try (start + j * stride) mod cellCount otherwise 0
+end 'slot'
+
+// on schedules behaviour k on n cells, from the cell at start in steps of stride, which is odd and so reaches n distinct
+// cells of the 16.
+function on(cells Cells, n Count, start Count, stride Count, k Count)
+	let a = share(cells[slot(start, stride: stride, j: 0)])
+	let b = share(cells[slot(start, stride: stride, j: 1)])
+	let c = share(cells[slot(start, stride: stride, j: 2)])
+	let d = share(cells[slot(start, stride: stride, j: 3)])
+	let e = share(cells[slot(start, stride: stride, j: 4)])
+	let f = share(cells[slot(start, stride: stride, j: 5)])
+	let g = share(cells[slot(start, stride: stride, j: 6)])
+	let h = share(cells[slot(start, stride: stride, j: 7)])
+	if n == 1 'one'
+		when a as p 'one'
+			enter(p, k: k)
+		end 'one'
+	end 'one' else if n == 2 'two'
+		when a, b as p, q 'two'
+			enter(p, k: k)
+			enter(q, k: k)
+		end 'two'
+	end 'two' else if n == 3 'three'
+		when a, b, c as p, q, r 'three'
+			enter(p, k: k)
+			enter(q, k: k)
+			enter(r, k: k)
+		end 'three'
+	end 'three' else if n == 4 'four'
+		when a, b, c, d as p, q, r, s 'four'
+			enter(p, k: k)
+			enter(q, k: k)
+			enter(r, k: k)
+			enter(s, k: k)
+		end 'four'
+	end 'four' else if n == 5 'five'
+		when a, b, c, d, e as p, q, r, s, t 'five'
+			enter(p, k: k)
+			enter(q, k: k)
+			enter(r, k: k)
+			enter(s, k: k)
+			enter(t, k: k)
+		end 'five'
+	end 'five' else if n == 6 'six'
+		when a, b, c, d, e, f as p, q, r, s, t, u 'six'
+			enter(p, k: k)
+			enter(q, k: k)
+			enter(r, k: k)
+			enter(s, k: k)
+			enter(t, k: k)
+			enter(u, k: k)
+		end 'six'
+	end 'six' else if n == 7 'seven'
+		when a, b, c, d, e, f, g as p, q, r, s, t, u, v 'seven'
+			enter(p, k: k)
+			enter(q, k: k)
+			enter(r, k: k)
+			enter(s, k: k)
+			enter(t, k: k)
+			enter(u, k: k)
+			enter(v, k: k)
+		end 'seven'
+	end 'seven' else 'eight'
+		when a, b, c, d, e, f, g, h as p, q, r, s, t, u, v, w 'eight'
+			enter(p, k: k)
+			enter(q, k: k)
+			enter(r, k: k)
+			enter(s, k: k)
+			enter(t, k: k)
+			enter(u, k: k)
+			enter(v, k: k)
+			enter(w, k: k)
+		end 'eight'
+	end 'eight'
+end 'on'
+
+// send is a pusher's message of a round to a counter.
+function send(counter cown with Cell, pusher Count, round Count)
+	when counter as c 'message'
+		c.entries = try c.entries + 1 otherwise 0
+		c.sum = try c.sum + round otherwise 0
+		if c.next[pusher] != round 'misordered'
+			c.misordered = try c.misordered + 1 otherwise 0
+		end 'misordered'
+		c.next[pusher] = try round + 1 otherwise 0
+	end 'message'
+end 'send'
+
+// push schedules a pusher's round: one message to each counter, starting at a counter of its own.
+function push(pusher cown with Cell, counters Cells, id Count, round Count)
+	var mine = Cells.create(0)
+	for j in 0 upto counterCount 'counters'
+		mine.push(share(counters[try (id + j) mod counterCount otherwise 0]))
+	end 'counters'
+	when pusher as p 'round'
+		p.entries = try p.entries + 1 otherwise 0
+		for j in 0 upto mine.count() 'send'
+			send(mine[j], pusher: id, round: round)
+		end 'send'
+	end 'round'
+end 'push'
+
+// finished counts a part done; the last schedules the chain that sums the cells and the counters and prints.
+function finished(sum cown with Sum, cells Cells, counters Cells)
+	var all = Cells.create(0)
+	for i in 0 upto cells.count() 'cells'
+		all.push(share(cells[i]))
+	end 'cells'
+	var messages = Cells.create(0)
+	for i in 0 upto counters.count() 'counters'
+		messages.push(share(counters[i]))
+	end 'counters'
+	let total = share(sum)
+	when sum as s 'finished'
+		s.left = try s.left - 1 otherwise 0
+		if s.left == 0 'last'
+			for i in 0 upto all.count() 'cells'
+				let cell = share(all[i])
+				when cell, total as c, t 'cell'
+					t.entries = try t.entries + c.entries otherwise 0
+					t.sum = try t.sum + c.sum otherwise 0
+					t.misordered = try t.misordered + c.misordered otherwise 0
+				end 'cell'
+			end 'cells'
+			for i in 0 upto messages.count() 'counters'
+				let counter = share(messages[i])
+				when counter, total as c, t 'counter'
+					t.messages = try t.messages + c.entries otherwise 0
+					t.sum = try t.sum + c.sum otherwise 0
+					t.misordered = try t.misordered + c.misordered otherwise 0
+				end 'counter'
+			end 'counters'
+			when total as t 'report'
+				print("entries {t.entries} messages {t.messages} sum {t.sum} misordered {t.misordered}\n")
+			end 'report'
+		end 'last'
+	end 'finished'
+end 'finished'
+
+function main() returns ExitCode
+	var cells = Cells.create(0)
+	for i in 0 upto cellCount 'cells'
+		cells.push(cown(Cell.make()))
+	end 'cells'
+	var counters = Cells.create(0)
+	for i in 0 upto counterCount 'counters'
+		counters.push(cown(Cell.make()))
+	end 'counters'
+	var pushers = Cells.create(0)
+	for i in 0 upto pusherCount 'pushers'
+		pushers.push(cown(Cell.make()))
+	end 'pushers'
+	let sum = cown(Sum.make())
+	var round = 0 as Count
+	for i in 0 upto multiBehaviours 'multi'
+		let k = i + 1
+		let n = k mod mostCowns + 1
+		let stride = 2 * (k mod 4) + 1
+		on(cells, n: n, start: k * 5, stride: stride, k: k)
+		if k mod pushEvery == 0 'push'
+			for p in 0 upto pusherCount 'pushers'
+				push(pushers[p], counters: counters, id: p, round: round)
+			end 'pushers'
+			round = round + 1
+		end 'push'
+	end 'multi'
+	// Each cell's behaviours were all scheduled before these, so each finished runs after them.
+	var held = Cells.create(0)
+	for i in 0 upto cellCount 'held'
+		held.push(share(cells[i]))
+	end 'held'
+	finishedAfterCells(held, sum: sum, cells: cells, counters: counters)
+	for p in 0 upto pusherCount 'pushersDone'
+		let s = share(sum)
+		var c = Cells.create(0)
+		for i in 0 upto cellCount 'c'
+			c.push(share(cells[i]))
+		end 'c'
+		var m = Cells.create(0)
+		for i in 0 upto counterCount 'm'
+			m.push(share(counters[i]))
+		end 'm'
+		let pusher = share(pushers[p])
+		when pusher as q 'done'
+			q.entries = try q.entries + 1 otherwise 0
+			finished(s, cells: c, counters: m)
+		end 'done'
+	end 'pushersDone'
+	return 0
+end 'main'
+
+// finishedAfterCells schedules the cells' part's finish behind every behaviour main scheduled on any cell, by taking
+// each cell in turn in a chain whose end counts the part done.
+function finishedAfterCells(consumes held Cells, sum cown with Sum, cells Cells, counters Cells)
+	let gate = cown(Cell.make())
+	for i in 0 upto held.count() 'chain'
+		let cell = share(held[i])
+		when cell, gate as c, g 'after'
+			g.entries = try g.entries + c.entries otherwise 0
+		end 'after'
+	end 'chain'
+	let s = share(sum)
+	var c = Cells.create(0)
+	for i in 0 upto cells.count() 'c'
+		c.push(share(cells[i]))
+	end 'c'
+	var m = Cells.create(0)
+	for i in 0 upto counters.count() 'm'
+		m.push(share(counters[i]))
+	end 'm'
+	when gate as g 'gate'
+		finished(s, cells: c, counters: m)
+	end 'gate'
+end 'finishedAfterCells'
+
+//> entries 3600 messages 416 sum 1448400 misordered 0

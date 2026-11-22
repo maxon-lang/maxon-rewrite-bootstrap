@@ -1,0 +1,45 @@
+// One function value with a capture of its own, copied into behaviours on many cowns: the copies share one closure, so
+// they are dropped from different workers at once, and the closure, with what it captured, is freed once, by the last.
+// The chain that sums the cells runs after every behaviour on each cell, so the total does not depend on the schedule.
+typealias Cells = Array with (cown with Cell)
+
+let cellCount = 8 as Count
+
+let behaviourCount = 160 as Count
+
+type Cell
+	export var value as Count
+
+	static function make() returns Cell
+		return Cell{value: 0}
+	end 'make'
+end 'Cell'
+
+function main() returns ExitCode
+	var cells = Cells.create(0)
+	for i in 0 upto cellCount 'make'
+		cells.push(cown(Cell.make()))
+	end 'make'
+	let step = "abc".clone()
+	let add = function(n Count) gives try n + step.byteLength() otherwise 0
+	for i in 0 upto behaviourCount 'schedule'
+		let mine = add.clone()
+		let target = share(cells[i mod cellCount])
+		when target as c 'apply'
+			c.value = mine(c.value)
+		end 'apply'
+	end 'schedule'
+	let sum = cown(Cell.make())
+	for i in 0 upto cellCount 'cells'
+		let cell = share(cells[i])
+		when cell, sum as c, s 'add'
+			s.value = try s.value + c.value otherwise 0
+		end 'add'
+	end 'cells'
+	when sum as s 'report'
+		print("total {s.value}\n")
+	end 'report'
+	return 0
+end 'main'
+
+//> total 480
