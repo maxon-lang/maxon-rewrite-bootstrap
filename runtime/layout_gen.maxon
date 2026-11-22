@@ -408,8 +408,14 @@ let greenStrandLockOffset = 416 as Count
 // greenErrorOffset is where a coroutine holds what its function failed with, as a call that throws gives it: 0 when it returned.
 let greenErrorOffset = 424 as Count
 
+// greenResumeOffset is where a green thread holds the address the monitor stopped it at, which rt.asyncPreempt returns to, from the stop until asyncPreempted writes it into the slot of greenResumeSlotOffset.
+let greenResumeOffset = 432 as Count
+
+// greenResumeSlotOffset is where a green thread holds the address of the word on its stack that rt.asyncPreempt returns through, below the stack pointer it was stopped at, which the stop leaves unwritten.
+let greenResumeSlotOffset = 440 as Count
+
 // greenBytes is the size of a green thread's record.
-let greenBytes = 432 as Count
+let greenBytes = 448 as Count
 
 // pooledStackLowOffset is where a pooled stack holds the lowest address of its reserve.
 let pooledStackLowOffset = 0 as Count

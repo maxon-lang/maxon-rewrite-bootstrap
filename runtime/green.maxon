@@ -174,11 +174,21 @@ end 'greenTake'
 // ready is Go's goready: a parked or new green thread goes to runnext of the running thread's processor, and a thread is
 // woken for an idle processor; a running one is notified instead.
 function ready(context Count, g Count)
+	if queueReady(context, g: g) 'queued'
+		wakeProc(__Raw.loadWord(context, offset: contextSchedulerOffset))
+	end 'queued'
+end 'ready'
+
+// queueReady is ready but for the wake: it queues a parked or new green thread on runnext of the running thread's
+// processor, and says whether it did. mainRun readies main's green thread with it alone, as Go's newproc wakes no thread
+// before main has started: the main thread runs it next, and there is nothing else to run yet.
+function queueReady(context Count, g Count) returns bool
 	if markReady(g) 'queue'
 		runqPut(__Raw.loadWord(context, offset: contextProcOffset), g: g, next: true)
-		wakeProc(__Raw.loadWord(context, offset: contextSchedulerOffset))
+		return true
 	end 'queue'
-end 'ready'
+	return false
+end 'queueReady'
 
 // markReady moves a green thread's status for a ready and says whether the caller is to queue it: from parked or new to
 // runnable, it is; from running to notified, or when a ready already came, it is not. The status is read by a locked add of
@@ -486,10 +496,13 @@ function exitBlocking()
 end 'exitBlocking'
 
 // asyncPreempted is the code rt.asyncPreempt calls (contextPreemptCodeOffset), on the stack of the green thread the
-// monitor stopped, once every register is saved: Go's asyncPreempt2 and gopreempt_m, the green thread goes to the global
-// run queue, and returns into rt.asyncPreempt when it runs again, perhaps on another thread.
+// monitor stopped, once every register is saved: it writes the address the green thread was stopped at as the return of
+// rt.asyncPreempt (resumeAt), then Go's asyncPreempt2 and gopreempt_m, the green thread goes to the global run queue, and
+// returns into rt.asyncPreempt when it runs again, perhaps on another thread. The write is the stopped thread's own, after
+// rt.asyncPreempt's pushes below the slot, so the slot's page is committed by then.
 function asyncPreempted(context Count)
 	let g = __Raw.loadWord(context, offset: contextGreenOffset)
+	__Raw.storeWord(__Raw.loadWord(g, offset: greenResumeSlotOffset), offset: 0, value: __Raw.loadWord(g, offset: greenResumeOffset))
 	__Raw.storeWord(g, offset: greenPreemptOffset, value: unset)
 	switchToScheduler(context, intent: intentPreempted)
 end 'asyncPreempted'
@@ -533,14 +546,18 @@ function preemptibleAt(address Count) returns bool
 	return false
 end 'preemptibleAt'
 
-// pushReturnInto makes stopped code, at an instruction and a stack pointer, return into code: it pushes the instruction as
-// the return address, which no code's data is below the stack pointer to be overwritten by, and gives the new stack
-// pointer.
-function pushReturnInto(instruction Count, stackPointer Count) returns Count
-	let sp = __Raw.wrappingSub(stackPointer, right: wordBytes)
-	__Raw.storeWord(sp, offset: 0, value: instruction)
-	return sp
-end 'pushReturnInto'
+// resumeAt has a green thread that was stopped at an instruction and a stack pointer return there from rt.asyncPreempt,
+// and gives the stack pointer rt.asyncPreempt starts at: the word below the stopped one, which no code's data is in, is
+// the return address's slot. The stopper only keeps the two in the green thread's record and leaves its stack untouched,
+// and asyncPreempted writes the slot on the stopped thread: the slot may be in the stack's guard page, and the system
+// grows a stack through its guard page only for the thread whose stack it is (the TEB's bounds), so the monitor's write
+// there on Windows would raise a guard page violation on the monitor's thread and end the process.
+function resumeAt(g Count, instruction Count, stackPointer Count) returns Count
+	let slot = __Raw.wrappingSub(stackPointer, right: wordBytes)
+	__Raw.storeWord(g, offset: greenResumeOffset, value: instruction)
+	__Raw.storeWord(g, offset: greenResumeSlotOffset, value: slot)
+	return slot
+end 'resumeAt'
 
 #if os(Windows)
 	// The Win32 values a stack is reserved and committed with.

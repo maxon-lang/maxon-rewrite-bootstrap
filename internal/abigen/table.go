@@ -388,7 +388,13 @@ var layouts = []layoutConst{
 		"where the root of a strand holds the lock of its holder and its queue, 1 while it is held."},
 	{"greenErrorOffset", 53, false, toRuntime | toSelfBack,
 		"where a coroutine holds what its function failed with, as a call that throws gives it: 0 when it returned."},
-	{"greenBytes", 54, false, toRuntime,
+	// A stop has the stopped green thread write its own return into rt.asyncPreempt: Windows grows a stack through its
+	// guard page only for the stack's own thread, so a write from the monitor's thread at the frontier would fault.
+	{"greenResumeOffset", 54, false, toRuntime,
+		"where a green thread holds the address the monitor stopped it at, which rt.asyncPreempt returns to, from the stop until asyncPreempted writes it into the slot of greenResumeSlotOffset."},
+	{"greenResumeSlotOffset", 55, false, toRuntime,
+		"where a green thread holds the address of the word on its stack that rt.asyncPreempt returns through, below the stack pointer it was stopped at, which the stop leaves unwritten."},
+	{"greenBytes", 56, false, toRuntime,
 		"the size of a green thread's record."},
 
 	// A pooled stack: a reserve of stackReserveBytes that the system commits a page at a time, its lowest page the guard.

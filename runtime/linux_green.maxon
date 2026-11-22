@@ -80,8 +80,9 @@
 		let context = __Raw.threadContext()
 		let rip = __Raw.loadWord(signalContext, offset: linuxUcontextRipOffset)
 		let rsp = __Raw.loadWord(signalContext, offset: linuxUcontextRspOffset)
-		if stoppable(context, g: __Raw.loadWord(context, offset: contextGreenOffset), instruction: rip, stackPointer: rsp) 'stop'
-			__Raw.storeWord(signalContext, offset: linuxUcontextRspOffset, value: pushReturnInto(rip, stackPointer: rsp))
+		let g = __Raw.loadWord(context, offset: contextGreenOffset)
+		if stoppable(context, g: g, instruction: rip, stackPointer: rsp) 'stop'
+			__Raw.storeWord(signalContext, offset: linuxUcontextRspOffset, value: resumeAt(g, instruction: rip, stackPointer: rsp))
 			__Raw.storeWord(signalContext, offset: linuxUcontextRipOffset, value: __Raw.asyncPreemptAddress())
 		end 'stop'
 		_ = __Raw.atomicExchange(context, offset: contextSignalPendingOffset, value: unset)

@@ -1931,10 +1931,15 @@ link keeps only when the runtime's code names it (`self/backend/green.maxon`):
   what a call keeps and no more, as maxon's `__gt_context_switch` does; the switch record's layout (`switch*Offset`) is
   held to the convention's kept registers when the stub is written.
 - `rt.greenStart` calls the code in r12 with the word in rbx, which the runtime seeds a new stack's record with.
-- `rt.asyncPreempt` is where the monitor makes a green thread it stops return to, with the address it stopped at pushed
-  as the return address (Go's `asyncPreempt`): it saves the flags and every register, xmm0 to xmm15 whole, calls the code
-  at `contextPreemptCodeOffset` with the thread's context, and returns with every register as it was. No code writes
-  below the stack pointer, so the pushed address overwrites nothing. On Linux the stub also has `rt.preemptHandler`, the
+- `rt.asyncPreempt` is where the monitor makes a green thread it stops return to, with the stack pointer a word below
+  the one it stopped at (Go's `asyncPreempt`): it saves the flags and every register, xmm0 to xmm15 whole, calls the code
+  at `contextPreemptCodeOffset` with the thread's context, and returns with every register as it was, through that word.
+  No code writes below the stack pointer, so the word holds nothing. The stop does not write it: it keeps the address it
+  stopped at in the green thread's record (`resumeAt`), and the code the stub calls writes it, on the stopped thread,
+  once the stub's pushes below it have grown the stack (`asyncPreempted`). The word may be in the stack's guard page,
+  and Windows grows a stack through its guard page only for the thread whose stack it is, by its TEB's bounds: the
+  monitor's own write there raised a guard page violation on the monitor's thread, which ended the process with
+  0x80000001. On Linux the stub also has `rt.preemptHandler`, the
   handler of the preemption signal (SIGURG, as Go's), which calls the code at `contextSignalCodeOffset` with the signal's
   context, which may rewrite its rsp and rip to return into `rt.asyncPreempt`; on Windows the monitor suspends the thread
   and sets its registers (`SuspendThread`, `GetThreadContext`, `SetThreadContext`, `ResumeThread`, kernel32 imports).

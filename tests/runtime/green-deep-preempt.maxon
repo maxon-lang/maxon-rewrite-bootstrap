@@ -1,0 +1,59 @@
+// Deep stacks under preemption: more green threads than processors each recurse deep, spinning in every frame, so that
+// almost all of the time each one runs it is at the frontier the system commits its stack by, a page at a time through
+// the guard page, and the monitor stops each of them there many times and resumes it on whichever thread runs it next.
+// A stop that wrote to the stack from the monitor's thread would hit the guard page whenever the stack pointer is at the
+// frontier, since the system grows a stack through its guard page only for the stack's own thread; a resume with another
+// stack's bounds in the thread's TEB would fault on the next page. Each checks at the end that its depth came back whole.
+//> every worker recursed deep through its preemptions
+
+// testDepth is how deep each worker recurses: hundreds of pages of stack.
+let testDepth = 60000 as Count
+
+// testSpinsPerFrame is how long each frame spins before it calls the next, so that the descent spans many slices.
+let testSpinsPerFrame = 8000 as Count
+
+// testExtraWorkers is how many workers there are beyond the processors, so that some always wait for one.
+let testExtraWorkers = 2 as Count
+
+function main() returns ExitCode
+	greenReady(greenSpawn(__Raw.codeAddress("testCoordinator")))
+	return 0
+end 'main'
+
+function testCoordinator(g Count) returns Count
+	let workers = try osProcessorCount() + testExtraWorkers otherwise panic("too many processors")
+	let list = alloc(try workers * wordBytes otherwise panic("too many processors"))
+	for i in 0 upto workers 'spawn'
+		let worker = greenSpawn(__Raw.codeAddress("testWorker"))
+		__Raw.storeWord(list, offset: try i * wordBytes otherwise panic("too many processors"), value: worker)
+		greenReady(worker)
+	end 'spawn'
+	for i in 0 upto workers 'await'
+		if greenAwait(__Raw.loadWord(list, offset: try i * wordBytes otherwise panic("too many processors"))) != testDepth 'depth'
+			panic("a worker's recursion came back at another depth")
+		end 'depth'
+	end 'await'
+	free(list)
+	testWrite("every worker recursed deep through its preemptions\n")
+	return 0
+end 'testCoordinator'
+
+function testWorker(g Count) returns Count
+	return testDown(testDepth)
+end 'testWorker'
+
+// testDown spins, then recurses one deeper, and gives how deep it went.
+function testDown(n Count) returns Count
+	var spins = 0 as Count
+	while spins < testSpinsPerFrame 'spin'
+		spins = __Raw.wrappingAdd(spins, right: 1)
+	end 'spin'
+	if n == 0 'bottom'
+		return 0
+	end 'bottom'
+	return __Raw.wrappingAdd(testDown(__Raw.wrappingSub(n, right: 1)), right: 1)
+end 'testDown'
+
+function testWrite(text String)
+	write(__Raw.loadWord(__Raw.stdoutAddress(), offset: 0), text: text)
+end 'testWrite'

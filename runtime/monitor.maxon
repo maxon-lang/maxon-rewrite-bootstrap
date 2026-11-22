@@ -6,9 +6,9 @@
 // it, is taken and handed to another thread.
 //
 // Preemption is asynchronous only, Go's since 1.14, with no check in the compiled code: on Windows the monitor suspends
-// the thread, reads its registers, and when it may stop it there (stoppable) pushes the address it stopped at and sets
-// rip to rt.asyncPreempt, then resumes it; on Linux it sends the thread SIGURG, whose handler does the same to the
-// signal's context (preemptSignal, linux_green.maxon).
+// the thread, reads its registers, and when it may stop it there (stoppable) keeps the address it stopped at for the
+// thread to return to (resumeAt) and sets rip to rt.asyncPreempt, then resumes it; on Linux it sends the thread SIGURG,
+// whose handler does the same to the signal's context (preemptSignal, linux_green.maxon).
 
 // monitorFirstMicros and monitorLongestMicros are Go's bounds of sysmon's sleep, and monitorIdleRounds how many rounds
 // with nothing to do it waits before it doubles it.
@@ -208,7 +208,7 @@ end 'takeExitClaim'
 				let rip = __Raw.loadWord(registers, offset: windowsContextRipOffset)
 				let rsp = __Raw.loadWord(registers, offset: windowsContextRspOffset)
 				if stoppable(context, g: g, instruction: rip, stackPointer: rsp) 'stop'
-					__Raw.storeWord(registers, offset: windowsContextRspOffset, value: pushReturnInto(rip, stackPointer: rsp))
+					__Raw.storeWord(registers, offset: windowsContextRspOffset, value: resumeAt(g, instruction: rip, stackPointer: rsp))
 					__Raw.storeWord(registers, offset: windowsContextRipOffset, value: __Raw.asyncPreemptAddress())
 					if __Raw.callImport2("SetThreadContext", arg1: handle, arg2: registers) == 0 'set'
 						panic("cannot set the registers of a thread the monitor stops")

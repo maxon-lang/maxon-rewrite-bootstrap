@@ -89,7 +89,9 @@ goroutine's is. Where it differs from Go, and why:
 - **Timers are one heap under the scheduler's lock**, as maxon keeps its timer store under `__sched_lock`, where Go 1.14
   keeps a heap per processor; the design's decision (`phase4/concurrency-design.md`, section 5).
 - **`main` is a green thread, as Go's is a goroutine.** The stub calls `mainRun` with the code that calls `main`, which
-  runs it on a green thread and the scheduler on the main thread until nothing is left. `schedDrain` stays for the seed's
+  runs it on a green thread and the scheduler on the main thread until nothing is left. As Go's newproc wakes no thread
+  before main has started, `main`'s green thread is queued on the main thread's processor with no thread woken for it
+  (`queueReady`), so a program starts one thread of its own, the monitor's, until it makes work for more. `schedDrain` stays for the seed's
   stub, which calls `main` itself and the drain after it.
 - **Strands are maxon's, which Go has not**: the coroutines of an async call run one at a time with the green thread that
   started them (`strand.maxon`), handing the strand over only where one waits, yields or finishes, as maxon's strand of a
