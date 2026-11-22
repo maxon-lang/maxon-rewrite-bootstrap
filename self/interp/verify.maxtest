@@ -1,78 +1,33 @@
-// BpFn builds the function main of a project with ir.Builder.
-type BpFn
-	var b as ir.Builder
-	var decl as ast.FuncID
-
-	static function new(mutates p ast.Project) returns BpFn
-		let decl = interpFunction(p, name: "main", convs: convs0())
-		var b = ir.Builder.new()
-		b.start(decl, name: "", paramCount: 0 as Count)
-		return BpFn{b: b, decl: decl}
-	end 'new'
-
-	function block(mutates self) returns ir.BlockID
-		return b.newBlock()
-	end 'block'
-
-	function param(mutates self, block ir.BlockID) returns ir.Reg
-		return b.blockParam(block, kind: ir.IrKind.kindScalar)
-	end 'param'
-
-	function konst(mutates self, block ir.BlockID, value ir.Word) returns ir.Reg
-		let r = b.f.newReg(ir.IrKind.kindScalar)
-		b.emit(block, i: ir.newConst(r, value: value))
-		return r
-	end 'konst'
-
-	function bin(mutates self, block ir.BlockID, op ir.BinOp, left ir.Reg, right ir.Reg, fail ir.BlockID) returns ir.Reg
-		let r = b.f.newReg(ir.IrKind.kindScalar)
-		b.emit(block, i: ir.newBin(r, op: op, left: left, right: right, unsigned: false, fail: fail))
-		return r
-	end 'bin'
-
-	function cmp(mutates self, block ir.BlockID, op ir.CmpOp, left ir.Reg, right ir.Reg) returns ir.Reg
-		let r = b.f.newReg(ir.IrKind.kindScalar)
-		b.emit(block, i: ir.newCmp(r, op: op, left: left, right: right, unsigned: false))
-		return r
-	end 'cmp'
-end 'BpFn'
-
-function bpRegs(a ir.Reg) returns ir.RegList
-	var list = ir.RegList.create(0)
-	list.push(a)
-	return list
-end 'bpRegs'
-
 // bpRun requires the function to print as want, to keep the verifier's rules, and to return exit both interpreted and
 // compiled.
 function bpRun(label String, mutates p ast.Project, f ir.IrFunction, want ast.StringList, exit ExitCode)
-	expectIr(label, got: ir.irText(p, tt: ast.TypeSlot.none(), reads: p.types, ft: ast.FuncSlot.none(), funcReads: p.funcs, f: f), want: want)
+	ir.expectIr(label, got: ir.irText(p, tt: ast.TypeSlot.none(), reads: p.types, ft: ast.FuncSlot.none(), funcReads: p.funcs, f: f), want: want)
 	let problems = ir.verifyIr(p, tt: ast.TypeSlot.none(), reads: p.types, ft: ast.FuncSlot.none(), funcReads: p.funcs, f: f)
 	if problems.count() > 0 'refused'
 		panic("{label}: the verifier refuses it: {problems[0]}")
 	end 'refused'
 	expectClean(label, out: runMain(p, main: f), exit: exit as ir.Word)
-	runIr(p, fns: oneFunction(f.clone()), entry: f.decl, count: false, name: "minimaxon_bp_{label}.exe", expectedCode: exit, expectedOutput: "")
+	backend.runIr(p, fns: ir.oneFunction(f.clone()), entry: f.decl, count: false, name: "minimaxon_bp_{label}.exe", expectedCode: exit, expectedOutput: "")
 end 'bpRun'
 
 // A loop whose counter is a parameter of its header, set by the entry and by the back edge.
 test 'a loop carries its counter in a parameter'
-	var p = irProject()
-	var b = BpFn.new(p)
+	var p = ir.irProject()
+	var b = ir.BpFn.new(p)
 	let entry = b.block()
 	let header = b.block()
 	let body = b.block()
 	let exit = b.block()
 	let zero = b.konst(entry, value: 0)
 	let limit = b.konst(entry, value: 10)
-	let entryTerm = b.b.jumpWith(header, args: bpRegs(zero))
+	let entryTerm = b.b.jumpWith(header, args: ir.regs1(zero))
 	b.b.terminate(entry, t: entryTerm)
 	let i = b.param(header)
 	let more = b.cmp(header, op: ir.CmpOp.cmpLt, left: i, right: limit)
 	b.b.terminate(header, t: ir.newBranch(more, ifTrue: body, ifFalse: exit))
 	let one = b.konst(body, value: 1)
 	let next = b.bin(body, op: ir.BinOp.binAdd, left: i, right: one, fail: ir.noBlock)
-	let bodyTerm = b.b.jumpWith(header, args: bpRegs(next))
+	let bodyTerm = b.b.jumpWith(header, args: ir.regs1(next))
 	b.b.terminate(body, t: bodyTerm)
 	b.b.terminate(exit, t: ir.newRet(i))
 	var want = ast.StringList.create(0)
@@ -96,8 +51,8 @@ end 'a loop carries its counter in a parameter'
 
 // A diamond whose arms each pass their value to a parameter of the join.
 test 'a diamond joins its arms in a parameter'
-	var p = irProject()
-	var b = BpFn.new(p)
+	var p = ir.irProject()
+	var b = ir.BpFn.new(p)
 	let entry = b.block()
 	let left = b.block()
 	let right = b.block()
@@ -105,10 +60,10 @@ test 'a diamond joins its arms in a parameter'
 	let yes = b.konst(entry, value: 1)
 	b.b.terminate(entry, t: ir.newBranch(yes, ifTrue: left, ifFalse: right))
 	let forty = b.konst(left, value: 40)
-	let leftTerm = b.b.jumpWith(join, args: bpRegs(forty))
+	let leftTerm = b.b.jumpWith(join, args: ir.regs1(forty))
 	b.b.terminate(left, t: leftTerm)
 	let seven = b.konst(right, value: 7)
-	let rightTerm = b.b.jumpWith(join, args: bpRegs(seven))
+	let rightTerm = b.b.jumpWith(join, args: ir.regs1(seven))
 	b.b.terminate(right, t: rightTerm)
 	let joined = b.param(join)
 	let two = b.konst(join, value: 2)
@@ -137,8 +92,8 @@ end 'a diamond joins its arms in a parameter'
 // set, so the swap does not see its own writes. Three swaps of (3, 5) leave (5, 3), which gives 53; copying one after
 // the other would give 55.
 test 'an edge sets its parameters all at once'
-	var p = irProject()
-	var b = BpFn.new(p)
+	var p = ir.irProject()
+	var b = ir.BpFn.new(p)
 	let entry = b.block()
 	let header = b.block()
 	let exit = b.block()
@@ -192,8 +147,8 @@ end 'an edge sets its parameters all at once'
 
 // A switch whose cases pass different values to one block.
 test 'a switch case passes arguments'
-	var p = irProject()
-	var b = BpFn.new(p)
+	var p = ir.irProject()
+	var b = ir.BpFn.new(p)
 	let entry = b.block()
 	let target = b.block()
 	let other = b.block()
@@ -238,8 +193,8 @@ end 'a switch case passes arguments'
 // The same checks made by the builder: each failure gets a block of its own that jumps to the one they shared, and the
 // program still fails to it.
 test 'the builder gives each failure a block of its own'
-	var p = irProject()
-	var b = BpFn.new(p)
+	var p = ir.irProject()
+	var b = ir.BpFn.new(p)
 	let entry = b.block()
 	let failed = b.block()
 	let big = b.konst(entry, value: 9223372036854775807)

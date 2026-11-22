@@ -8,8 +8,8 @@ end 'formatText'
 // expectLayout checks the layout written for input, and that formatting the output again changes nothing.
 function expectLayout(label String, input String, expected String)
 	let got = formatText(input, label: label)
-	assertEqStr(got, expected: expected, label: label)
-	assertEqStr(formatText(got, label: label), expected: expected, label: "{label} again")
+	table.assertEqStr(got, expected: expected, label: label)
+	table.assertEqStr(formatText(got, label: label), expected: expected, label: "{label} again")
 end 'expectLayout'
 
 // expectRefusal checks that the formatter refuses input for something it cannot lay out, and so writes nothing.
@@ -73,8 +73,8 @@ end 'format refusals'
 test 'format markdown'
 	let doc = "Prose  with `let  x=1` kept.\n\n```maxon\nlet a=1\nlet b = 2\n```\n\n```\nlet   c = 3\n```\n\n```powershell\nlet   d = 4\n```\n\n```maxon\nlet = broken\n```\n\n```maxon\nlet e = 5\n```\n"
 	let expected = "Prose  with `let  x=1` kept.\n\n```maxon\nlet a = 1\n\nlet b = 2\n```\n\n```\nlet c = 3\n```\n\n```powershell\nlet   d = 4\n```\n\n```maxon\nlet = broken\n```\n\n```maxon\nlet e = 5\n```\n"
-	assertEqStr(formatMarkdown("a.md", text: doc), expected: expected, label: "markdown blocks that are programs")
+	table.assertEqStr(formatMarkdown("a.md", text: doc), expected: expected, label: "markdown blocks that are programs")
 	let crlfDoc = "text\r\n```maxon\r\nlet a=1\r\n```\r\n"
 	let crlfExpected = "text\r\n```maxon\r\nlet a = 1\r\n```\r\n"
-	assertEqStr(formatMarkdown("a.md", text: crlfDoc), expected: crlfExpected, label: "markdown carriage returns")
+	table.assertEqStr(formatMarkdown("a.md", text: crlfDoc), expected: crlfExpected, label: "markdown carriage returns")
 end 'format markdown'

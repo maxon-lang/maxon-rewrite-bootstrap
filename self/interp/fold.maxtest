@@ -5,19 +5,19 @@ function foldRun(label String, mutates p ast.Project, f ir.IrFunction, want ast.
 	var g = f.clone()
 	var fold = opt.Fold.new()
 	fold.foldFunction(g, raises: true)
-	expectIr(label, got: ir.irText(p, tt: ast.TypeSlot.none(), reads: p.types, ft: ast.FuncSlot.none(), funcReads: p.funcs, f: g), want: want)
+	ir.expectIr(label, got: ir.irText(p, tt: ast.TypeSlot.none(), reads: p.types, ft: ast.FuncSlot.none(), funcReads: p.funcs, f: g), want: want)
 	let problems = ir.verifyIr(p, tt: ast.TypeSlot.none(), reads: p.types, ft: ast.FuncSlot.none(), funcReads: p.funcs, f: g)
 	if problems.count() > 0 'refused'
 		panic("{label}: the verifier refuses it: {problems[0]}")
 	end 'refused'
 	expectClean(label, out: runMain(p, main: g), exit: exit as ir.Word)
-	runIr(p, fns: oneFunction(g.clone()), entry: g.decl, count: false, name: "minimaxon_fold_{label}.exe", expectedCode: exit, expectedOutput: "")
+	backend.runIr(p, fns: ir.oneFunction(g.clone()), entry: g.decl, count: false, name: "minimaxon_fold_{label}.exe", expectedCode: exit, expectedOutput: "")
 end 'foldRun'
 
 // Constants fold through arithmetic and a comparison into the branch, which becomes a jump, and the arm it never takes goes.
 test 'constants fold into the branch'
-	var p = irProject()
-	var b = BpFn.new(p)
+	var p = ir.irProject()
+	var b = ir.BpFn.new(p)
 	let entry = b.block()
 	let yes = b.block()
 	let no = b.block()
@@ -44,8 +44,8 @@ end 'constants fold into the branch'
 // A checked addition whose constants overflow is the jump to its failure block, which is then where the function goes;
 // nothing after the addition is left.
 test 'an overflowing constant addition takes its failure'
-	var p = irProject()
-	var b = BpFn.new(p)
+	var p = ir.irProject()
+	var b = ir.BpFn.new(p)
 	let entry = b.block()
 	let failed = b.block()
 	let max = b.konst(entry, value: i64Max)
@@ -68,8 +68,8 @@ end 'an overflowing constant addition takes its failure'
 // The guard of a divisor that is the constant 0 fails, so the function goes to its failure block there; the division after
 // it, which has no meaning on 0, is never folded and goes with the rest of the block.
 test 'a division by a zero constant takes its failure'
-	var p = irProject()
-	var b = BpFn.new(p)
+	var p = ir.irProject()
+	var b = ir.BpFn.new(p)
 	let entry = b.block()
 	let failed = b.block()
 	let ten = b.konst(entry, value: 10)
@@ -92,8 +92,8 @@ end 'a division by a zero constant takes its failure'
 
 // Constants that pass their checks fold: a guard that holds goes, and so does the check of an addition that fits.
 test 'checks that constants pass go'
-	var p = irProject()
-	var b = BpFn.new(p)
+	var p = ir.irProject()
+	var b = ir.BpFn.new(p)
 	let entry = b.block()
 	let failed = b.block()
 	let ten = b.konst(entry, value: 10)
@@ -115,15 +115,15 @@ end 'checks that constants pass go'
 
 // A checked addition of a value the pass cannot know keeps its check, which fires on the seventh trip of the loop.
 test 'a check that may fire stays'
-	var p = irProject()
-	var b = BpFn.new(p)
+	var p = ir.irProject()
+	var b = ir.BpFn.new(p)
 	let entry = b.block()
 	let header = b.block()
 	let body = b.block()
 	let exit = b.block()
 	let failed = b.block()
 	let zero = b.konst(entry, value: 0)
-	let entryTerm = b.b.jumpWith(header, args: bpRegs(zero))
+	let entryTerm = b.b.jumpWith(header, args: ir.regs1(zero))
 	b.b.terminate(entry, t: entryTerm)
 	let i = b.param(header)
 	let limit = b.konst(header, value: 10)
@@ -133,7 +133,7 @@ test 'a check that may fire stays'
 	_ = b.bin(body, op: ir.BinOp.binAdd, left: i, right: big, fail: failed)
 	let one = b.konst(body, value: 1)
 	let next = b.bin(body, op: ir.BinOp.binAdd, left: i, right: one, fail: ir.noBlock)
-	let bodyTerm = b.b.jumpWith(header, args: bpRegs(next))
+	let bodyTerm = b.b.jumpWith(header, args: ir.regs1(next))
 	b.b.terminate(body, t: bodyTerm)
 	b.b.terminate(exit, t: ir.newRet(zero))
 	let nine = b.konst(failed, value: 9)
@@ -164,8 +164,8 @@ end 'a check that may fire stays'
 
 // A parameter that both edges into its block pass the same value is that value, and one that nothing reads goes.
 test 'trivial and dead parameters go'
-	var p = irProject()
-	var b = BpFn.new(p)
+	var p = ir.irProject()
+	var b = ir.BpFn.new(p)
 	let entry = b.block()
 	let header = b.block()
 	let body = b.block()
@@ -176,7 +176,7 @@ test 'trivial and dead parameters go'
 	let five = b.konst(entry, value: 5)
 	let zero = b.konst(entry, value: 0)
 	let start = b.bin(entry, op: ir.BinOp.binAdd, left: five, right: zero, fail: ir.noBlock)
-	let entryTerm = b.b.jumpWith(header, args: bpRegs(zero))
+	let entryTerm = b.b.jumpWith(header, args: ir.regs1(zero))
 	b.b.terminate(entry, t: entryTerm)
 	let i = b.param(header)
 	let limit = b.konst(header, value: 3)
@@ -185,18 +185,18 @@ test 'trivial and dead parameters go'
 	let one = b.konst(body, value: 1)
 	let isOne = b.cmp(body, op: ir.CmpOp.cmpEq, left: i, right: one)
 	b.b.terminate(body, t: ir.newBranch(isOne, ifTrue: left, ifFalse: right))
-	var leftArgs = bpRegs(start)
+	var leftArgs = ir.regs1(start)
 	leftArgs.push(one)
 	let leftTerm = b.b.jumpWith(join, args: leftArgs)
 	b.b.terminate(left, t: leftTerm)
-	var rightArgs = bpRegs(start)
+	var rightArgs = ir.regs1(start)
 	rightArgs.push(i)
 	let rightTerm = b.b.jumpWith(join, args: rightArgs)
 	b.b.terminate(right, t: rightTerm)
 	let same = b.param(join)
 	_ = b.param(join)
 	let next = b.bin(join, op: ir.BinOp.binAdd, left: i, right: same, fail: ir.noBlock)
-	let joinTerm = b.b.jumpWith(header, args: bpRegs(next))
+	let joinTerm = b.b.jumpWith(header, args: ir.regs1(next))
 	b.b.terminate(join, t: joinTerm)
 	b.b.terminate(exit, t: ir.newRet(i))
 	var want = ast.StringList.create(0)
@@ -228,8 +228,8 @@ end 'trivial and dead parameters go'
 
 // A switch on a constant is a jump to the case it equals.
 test 'a switch on a constant is a jump'
-	var p = irProject()
-	var b = BpFn.new(p)
+	var p = ir.irProject()
+	var b = ir.BpFn.new(p)
 	let entry = b.block()
 	let first = b.block()
 	let second = b.block()

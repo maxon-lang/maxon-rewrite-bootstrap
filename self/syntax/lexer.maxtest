@@ -154,12 +154,6 @@ function checkInterpAst(m ast.ParsedModule)
 	end 'cnt'
 end 'checkInterpAst'
 
-function assertEqStr(got String, expected String, label String)
-	if got != expected 'neq'
-		panic("{label}: expected '{expected}', got '{got}'")
-	end 'neq'
-end 'assertEqStr'
-
 // functionNameColumn is where the name of a function begins after its keyword, which is where a declaration is located.
 let functionNameColumn = 10
 
@@ -185,8 +179,8 @@ test 'positions and diag'
 	made.takeParsed(m)
 	let loc0 = ast.locateModuleOffset(made, offset: d0Off)
 	let loc1 = ast.locateModuleOffset(made, offset: d1Off)
-	assertEqStr(loc0.file, expected: "a.maxon", label: "loc0.file")
-	assertEqStr(loc1.file, expected: "b.maxon", label: "loc1.file")
+	table.assertEqStr(loc0.file, expected: "a.maxon", label: "loc0.file")
+	table.assertEqStr(loc1.file, expected: "b.maxon", label: "loc1.file")
 	if loc0.line != 1 or loc0.col != functionNameColumn or loc1.line != 1 or loc1.col != functionNameColumn 'lc'
 		panic("unexpected decl locs")
 	end 'lc'
@@ -196,6 +190,6 @@ test 'positions and diag'
 	diag.pushSiteError(errs, code: "E3001", message: "second", module: 0 as diag.ModuleID, offset: d1Off)
 	diag.pushSiteError(errs, code: "E2001", message: "first", module: 0 as diag.ModuleID, offset: d0Off)
 	ast.locateAllErrors(mods, errs: errs)
-	assertEqStr(errs[0].file, expected: "a.maxon", label: "sort0")
-	assertEqStr(errs[1].file, expected: "b.maxon", label: "sort1")
+	table.assertEqStr(errs[0].file, expected: "a.maxon", label: "sort0")
+	table.assertEqStr(errs[1].file, expected: "b.maxon", label: "sort1")
 end 'positions and diag'

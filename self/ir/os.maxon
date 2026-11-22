@@ -259,6 +259,47 @@ function lowerFileDelete(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c
 	return konst(l, value: 0 as Word)
 end 'lowerFileDelete'
 
+// fileInfoDirectoryBit and fileInfoReadOnlyShift are where rt.os.fileInfo's attributes word holds its two flags.
+let fileInfoDirectoryBit = 1 as Word
+
+let fileInfoReadOnlyShift = 1 as Word
+
+// lowerFileInfo makes the FileInfo of what the entry stored and returned: the times and the size as they are, and each flag
+// as its bit of the attributes word, which is 0 or 1 as a bool is.
+function lowerFileInfo(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	let site = siteOf(l, p: p, node: c.node)
+	let size = l.b.f.newSlot(IrKind.kindScalar)
+	let created = l.b.f.newSlot(IrKind.kindScalar)
+	let accessed = l.b.f.newSlot(IrKind.kindScalar)
+	let attributes = l.b.f.newSlot(IrKind.kindScalar)
+	let dst = newReg(l, kind: IrKind.kindScalar)
+	var all = RegList.create(0)
+	all.push(pathText(l, path: args[0]))
+	all.push(slotAddr(l, slot: size))
+	all.push(slotAddr(l, slot: created))
+	all.push(slotAddr(l, slot: accessed))
+	all.push(slotAddr(l, slot: attributes))
+	let modified = failing(l, p: p, ms: ms, site: site, dst: dst, symbol: Rt.rtOsFileInfo, args: all)
+	let flags = load(l, slot: attributes)
+	let directoryBit = konst(l, value: fileInfoDirectoryBit)
+	let isDirectory = newReg(l, kind: IrKind.kindScalar)
+	emit(l, i: newBin(isDirectory, op: BinOp.binAnd, left: flags, right: directoryBit, unsigned: true, fail: noBlock))
+	let readOnlyShift = konst(l, value: fileInfoReadOnlyShift)
+	let isReadOnly = newReg(l, kind: IrKind.kindScalar)
+	emit(l, i: newBin(isReadOnly, op: BinOp.binShr, left: flags, right: readOnlyShift, unsigned: true, fail: noBlock))
+	var fields = RegList.create(0)
+	for i in 0 upto succ(ast.fileInfoIsReadOnlyField) 'fields'
+		fields.push(noReg)
+	end 'fields'
+	fields[ast.fileInfoSizeField] = load(l, slot: size)
+	fields[ast.fileInfoModifiedTimeField] = modified
+	fields[ast.fileInfoCreatedTimeField] = load(l, slot: created)
+	fields[ast.fileInfoAccessedTimeField] = load(l, slot: accessed)
+	fields[ast.fileInfoIsDirectoryField] = isDirectory
+	fields[ast.fileInfoIsReadOnlyField] = isReadOnly
+	return builtinRecord(l, p: p, ms: ms, t: exprType(p, module: l.module, node: c.node), values: fields)
+end 'lowerFileInfo'
+
 function lowerDirectoryIsDirectory(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	let path = pathText(l, path: args[0])
 	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtOsIsDirectory, kind: IrKind.kindScalar, args: argsOf1(path))

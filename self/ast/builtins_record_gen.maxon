@@ -39,6 +39,7 @@ export type Builtins
 	export var utf16ViewTy as TypeID
 	export var utf16IteratorTy as TypeID
 	export var collectedOutputTy as TypeID
+	export var fileInfoTy as TypeID
 	export var subprocessTy as TypeID
 	export var rawTy as TypeID
 	export var executableTy as TypeID
@@ -51,6 +52,7 @@ export type Builtins
 	export var fileWriteErrorTy as TypeID
 	export var fileDeleteErrorTy as TypeID
 	export var fileRenameErrorTy as TypeID
+	export var fileInfoErrorTy as TypeID
 	export var directoryListErrorTy as TypeID
 	export var processIntrospectionErrorTy as TypeID
 	export var subprocessErrorTy as TypeID
@@ -73,7 +75,7 @@ export type Builtins
 	export var stdlibFuncMap as FuncIDMap
 
 	export static function empty() returns Builtins
-		return Builtins{boolTy: noType, stringTy: noType, voidTy: noType, countTy: noType, elementIndexTy: noType, byteTy: noType, fullRangeIntTy: noType, codepointTy: noType, codeUnit16Ty: noType, exitCodeTy: noType, anonFloatTy: noType, neverTy: noType, anon64Ty: noType, anonU64Ty: noType, fullRangeFloatTy: noType, arrayOrigin: noType, fixedArrayOrigin: noType, mapOrigin: noType, listOrigin: noType, poolOrigin: noType, handleOrigin: noType, frozenOrigin: noType, cownOrigin: noType, commandLineTy: noType, processTy: noType, clockTy: noType, schedulerTy: noType, filePathTy: noType, fileTy: noType, directoryTy: noType, stringIndexTy: noType, byteViewTy: noType, byteIteratorTy: noType, codepointViewTy: noType, codepointIteratorTy: noType, utf16ViewTy: noType, utf16IteratorTy: noType, collectedOutputTy: noType, subprocessTy: noType, rawTy: noType, executableTy: noType, waitDeadlineTy: noType, arithmeticErrorTy: noType, arrayErrorTy: noType, mapErrorTy: noType, filePathErrorTy: noType, fileReadErrorTy: noType, fileWriteErrorTy: noType, fileDeleteErrorTy: noType, fileRenameErrorTy: noType, directoryListErrorTy: noType, processIntrospectionErrorTy: noType, subprocessErrorTy: noType, stringErrorTy: noType, iterationErrorTy: noType, castErrorTy: noType, copyableTy: noType, droppableTy: noType, errorTy: noType, initableFromStringLiteralTy: noType, fixedArrayCreateFilledFunc: noFunc, fixedArrayCreateCountedFunc: noFunc, fixedArrayCreateCountedFilledFunc: noFunc, fixedArrayGetProvenFunc: noFunc, fixedArraySetProvenFunc: noFunc, cownNewFunc: noFunc, cownNewDropWithFunc: noFunc, stringMethods: FuncIDMap.new(), stdlibTypeMap: TypeIDMap.new(), stdlibFuncMap: FuncIDMap.new()}
+		return Builtins{boolTy: noType, stringTy: noType, voidTy: noType, countTy: noType, elementIndexTy: noType, byteTy: noType, fullRangeIntTy: noType, codepointTy: noType, codeUnit16Ty: noType, exitCodeTy: noType, anonFloatTy: noType, neverTy: noType, anon64Ty: noType, anonU64Ty: noType, fullRangeFloatTy: noType, arrayOrigin: noType, fixedArrayOrigin: noType, mapOrigin: noType, listOrigin: noType, poolOrigin: noType, handleOrigin: noType, frozenOrigin: noType, cownOrigin: noType, commandLineTy: noType, processTy: noType, clockTy: noType, schedulerTy: noType, filePathTy: noType, fileTy: noType, directoryTy: noType, stringIndexTy: noType, byteViewTy: noType, byteIteratorTy: noType, codepointViewTy: noType, codepointIteratorTy: noType, utf16ViewTy: noType, utf16IteratorTy: noType, collectedOutputTy: noType, fileInfoTy: noType, subprocessTy: noType, rawTy: noType, executableTy: noType, waitDeadlineTy: noType, arithmeticErrorTy: noType, arrayErrorTy: noType, mapErrorTy: noType, filePathErrorTy: noType, fileReadErrorTy: noType, fileWriteErrorTy: noType, fileDeleteErrorTy: noType, fileRenameErrorTy: noType, fileInfoErrorTy: noType, directoryListErrorTy: noType, processIntrospectionErrorTy: noType, subprocessErrorTy: noType, stringErrorTy: noType, iterationErrorTy: noType, castErrorTy: noType, copyableTy: noType, droppableTy: noType, errorTy: noType, initableFromStringLiteralTy: noType, fixedArrayCreateFilledFunc: noFunc, fixedArrayCreateCountedFunc: noFunc, fixedArrayCreateCountedFilledFunc: noFunc, fixedArrayGetProvenFunc: noFunc, fixedArraySetProvenFunc: noFunc, cownNewFunc: noFunc, cownNewDropWithFunc: noFunc, stringMethods: FuncIDMap.new(), stdlibTypeMap: TypeIDMap.new(), stdlibFuncMap: FuncIDMap.new()}
 	end 'empty'
 
 	// isCapability is whether an interface is one that a type has by its parts and no declaration implements.

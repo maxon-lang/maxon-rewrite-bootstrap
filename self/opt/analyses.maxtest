@@ -74,8 +74,8 @@ function expectAnalysis(label String, p ast.Project, f ir.IrFunction, rpo String
 end 'expectAnalysis'
 
 test 'analysis of a diamond'
-	var p = irProject()
-	var b = BpFn.new(p)
+	var p = ir.irProject()
+	var b = ir.BpFn.new(p)
 	let entry = b.block()
 	let left = b.block()
 	let right = b.block()
@@ -89,8 +89,8 @@ test 'analysis of a diamond'
 end 'analysis of a diamond'
 
 test 'analysis of nested loops'
-	var p = irProject()
-	var b = BpFn.new(p)
+	var p = ir.irProject()
+	var b = ir.BpFn.new(p)
 	let entry = b.block()
 	let outer = b.block()
 	let inner = b.block()
@@ -110,8 +110,8 @@ end 'analysis of nested loops'
 
 // A loop with a continue has two back edges to its header, and is one loop.
 test 'analysis of a loop with two back edges'
-	var p = irProject()
-	var b = BpFn.new(p)
+	var p = ir.irProject()
+	var b = ir.BpFn.new(p)
 	let entry = b.block()
 	let header = b.block()
 	let body = b.block()
@@ -128,8 +128,8 @@ end 'analysis of a loop with two back edges'
 
 // A loop with a break in the middle of its body is left from two places.
 test 'analysis of a loop exited from the middle'
-	var p = irProject()
-	var b = BpFn.new(p)
+	var p = ir.irProject()
+	var b = ir.BpFn.new(p)
 	let entry = b.block()
 	let header = b.block()
 	let body = b.block()
@@ -145,8 +145,8 @@ test 'analysis of a loop exited from the middle'
 end 'analysis of a loop exited from the middle'
 
 test 'analysis of a switch'
-	var p = irProject()
-	var b = BpFn.new(p)
+	var p = ir.irProject()
+	var b = ir.BpFn.new(p)
 	let entry = b.block()
 	let one = b.block()
 	let two = b.block()
@@ -171,8 +171,8 @@ end 'analysis of a switch'
 // Each instruction that can fail ends a segment, with an edge to its failure block and one to the rest of its block, and
 // its result is defined in the next segment.
 test 'analysis of failure edges'
-	var p = irProject()
-	var b = BpFn.new(p)
+	var p = ir.irProject()
+	var b = ir.BpFn.new(p)
 	let entry = b.block()
 	let first = b.block()
 	let second = b.block()

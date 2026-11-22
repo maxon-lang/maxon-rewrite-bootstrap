@@ -67,7 +67,8 @@ builds a C3 identical to it).
 - **The seed is renewed only when `self/` or `runtime/` is to use a language feature the seed does not compile.**
   Land the feature written without using it, run `.\seed.ps1`, and commit the new seed on its own (`seed/README.md`).
 - **Add a test only when** a bug would otherwise come back, or nothing in the corpus covers a feature. A test of a part
-  of the compiler is a function of `self/*_test.maxon` that `selftest` runs; a Go test is for a generator or a tool.
+  of the compiler is a `test 'name'` declaration in a `.maxtest` file of its module's directory, run by
+  `minimaxon test self/<module>` (all of them by `selftest`); a Go test is for a generator or a tool.
 - **Corpus tests** under `tests/` run whole programs (`tests/run/`), diagnostics (`tests/errors/`, with
   `// expect-error: CODE [at L:C]`), programs that must only compile clean (`tests/check/`) and multi-module projects
   (`tests/modules/<case>/`). Maxon's spec tests (`specs/`) are the corpus that measures progress: the count that passes

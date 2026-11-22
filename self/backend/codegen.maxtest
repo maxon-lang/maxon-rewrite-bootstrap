@@ -1,140 +1,3 @@
-type FnBuilder
-	var f as ir.IrFunction
-	var blockStart as Count
-
-	static function new(decl ast.FuncID, consumes name String, paramCount Count) returns FnBuilder
-		return FnBuilder{f: ir.IrFunction.new(decl, name: name, paramCount: paramCount), blockStart: 0 as Count}
-	end 'new'
-
-	function reg(mutates self) returns ir.Reg
-		let index = try f.regs.count() as ir.Reg otherwise panic("too many registers")
-		f.regs.push(ir.IrKind.kindScalar)
-		return index
-	end 'reg'
-
-	function slot(mutates self, kind ir.IrKind) returns Count
-		let index = f.slots.count()
-		f.slots.push(kind)
-		return index
-	end 'slot'
-
-	function emit(mutates self, consumes instr ir.Instr)
-		f.instrs.push(instr)
-	end 'emit'
-
-	function constant(mutates self, value ir.Word) returns ir.Reg
-		let dst = self.reg()
-		self.emit(ir.newConst(dst, value: value))
-		return dst
-	end 'constant'
-
-	function bin(mutates self, op ir.BinOp, left ir.Reg, right ir.Reg, unsigned bool, fail ir.BlockID) returns ir.Reg
-		let dst = self.reg()
-		self.emit(ir.newBin(dst, op: op, left: left, right: right, unsigned: unsigned, fail: fail))
-		return dst
-	end 'bin'
-
-	function add(mutates self, left ir.Reg, right ir.Reg) returns ir.Reg
-		return self.bin(ir.BinOp.binAdd, left: left, right: right, unsigned: false, fail: ir.noBlock)
-	end 'add'
-
-	function cmp(mutates self, op ir.CmpOp, left ir.Reg, right ir.Reg, unsigned bool) returns ir.Reg
-		let dst = self.reg()
-		self.emit(ir.newCmp(dst, op: op, left: left, right: right, unsigned: unsigned))
-		return dst
-	end 'cmp'
-
-	function str(mutates self, text String) returns ir.Reg
-		let dst = self.reg()
-		let at = try f.strings.count() as ir.Index otherwise panic("too many strings")
-		f.strings.push(text.clone())
-		self.emit(ir.newStr(dst, text: at))
-		return dst
-	end 'str'
-
-	function typeIndex(mutates self, ty ast.TypeID) returns ir.Index
-		let at = try f.types.count() as ir.Index otherwise panic("too many types")
-		f.types.push(ty)
-		return at
-	end 'typeIndex'
-
-	function calleeIndex(mutates self, callee ast.FuncID) returns ir.Index
-		let at = try f.callees.count() as ir.Index otherwise panic("too many callees")
-		f.callees.push(callee)
-		return at
-	end 'calleeIndex'
-
-	// pushArgs adds the registers to the pool of arguments and gives where they start.
-	function pushArgs(mutates self, args ir.RegList) returns ir.Reg
-		let start = try f.args.count() as ir.Reg otherwise panic("too many arguments")
-		for i in 0 upto args.count() 'each'
-			f.args.push(args[i])
-		end 'each'
-		return start
-	end 'pushArgs'
-
-	function call(mutates self, callee ast.FuncID, args ir.RegList, errReg ir.Reg) returns ir.Reg
-		let dst = self.reg()
-		let count = try args.count() as ir.Reg otherwise panic("too many arguments")
-		let start = self.pushArgs(args)
-		let calleeAt = self.calleeIndex(callee)
-		self.emit(ir.newCall(dst, callee: calleeAt, argsStart: start, argsCount: count, errReg: errReg, floatResult: false))
-		return dst
-	end 'call'
-
-	function alloc(mutates self, bytes Count) returns ir.Reg
-		let dst = self.reg()
-		self.emit(ir.newAlloc(dst, bytes: bytes))
-		return dst
-	end 'alloc'
-
-	function storeWord(mutates self, obj ir.Reg, offset Count, src ir.Reg)
-		self.emit(ir.newStoreField(obj, offset: offset, src: src))
-	end 'storeWord'
-
-	function loadWord(mutates self, obj ir.Reg, offset Count) returns ir.Reg
-		let dst = self.reg()
-		self.emit(ir.newLoadField(dst, obj: obj, offset: offset))
-		return dst
-	end 'loadWord'
-
-	function copyOf(mutates self, src ir.Reg, ty ast.TypeID) returns ir.Reg
-		let dst = self.reg()
-		let at = self.typeIndex(ty)
-		self.emit(ir.newCopy(dst, src: src, ty: at))
-		return dst
-	end 'copyOf'
-
-	function drop(mutates self, src ir.Reg, ty ast.TypeID)
-		let at = self.typeIndex(ty)
-		self.emit(ir.newDrop(src, ty: at))
-	end 'drop'
-
-	// finish ends the block that the instructions since the last one make.
-	function finish(mutates self, consumes term ir.Term)
-		let endAt = f.instrs.count()
-		f.blocks.push(ir.Block.make(blockStart, endAt: endAt, params: 0, paramCount: 0, term: term))
-		blockStart = endAt
-	end 'finish'
-end 'FnBuilder'
-
-function regs1(a ir.Reg) returns ir.RegList
-	var list = ir.RegList.create(0)
-	list.push(a)
-	return list
-end 'regs1'
-
-function regs2(a ir.Reg, b ir.Reg) returns ir.RegList
-	var list = ir.RegList.create(0)
-	list.push(a)
-	list.push(b)
-	return list
-end 'regs2'
-
-function block(index Count) returns ir.BlockID
-	return try index as ir.BlockID otherwise panic("too many blocks")
-end 'block'
-
 // addFunction declares a function of the root module.
 function addFunction(mutates p ast.Project, name String, errTy ast.TypeID) returns ast.FuncID
 	var entry = ast.FuncEntry.make(name.clone(), visibility: "", module: p.rootModule, nodeID: 0 as ast.NodeID)
@@ -142,15 +5,6 @@ function addFunction(mutates p ast.Project, name String, errTy ast.TypeID) retur
 	let module = p.rootModule
 	return ast.makeFunc(p, module: module, f: entry)
 end 'addFunction'
-
-// allocRootType adds a type that the root module declares, as a link name needs every declared type to be in a module.
-function allocRootType(mutates p ast.Project, consumes entry ast.TypeEntry) returns ast.TypeID
-	var declared = entry
-	declared.hasDecl = true
-	declared.decl = ast.DeclRef.make(p.rootModule, ordinal: 0 as ast.DeclOrdinal)
-	let module = p.rootModule
-	return ast.makeType(p, module: module, e: declared)
-end 'allocRootType'
 
 // addPairType declares the record Pair with a number and a string.
 function addPairType(mutates p ast.Project) returns ast.TypeID
@@ -160,121 +14,9 @@ function addPairType(mutates p ast.Project) returns ast.TypeID
 	return allocRootType(p, entry: entry)
 end 'addPairType'
 
-// asmPrologue and asmEpilogue frame a function of the test runtime that calls Windows, which wants the stack aligned.
-function asmPrologue(mutates u CodeUnit)
-	u.asm.push(rbp)
-	u.asm.mov(rbp, src: rsp)
-	u.asm.andImm(rsp, imm: -16)
-	u.asm.subImm(rsp, imm: 48)
-end 'asmPrologue'
-
-function asmEpilogue(mutates u CodeUnit)
-	u.asm.mov(rsp, src: rbp)
-	u.asm.pop(rbp)
-	u.asm.ret()
-end 'asmEpilogue'
-
-// testLiveSymbol is the word in which the test's runtime counts its live boxes, as the real one counts them in each
-// thread's context.
-let testLiveSymbol = "test.live"
-
-// countLive adds to the number of live boxes, keeping every register but rcx.
-function asmCountLive(mutates u CodeUnit, delta Imm32)
-	u.asm.loadSymbol(rcx, symbol: testLiveSymbol)
-	u.asm.addImm(rcx, imm: delta)
-	u.asm.storeSymbol(testLiveSymbol, src: rcx)
-end 'asmCountLive'
-
-// testLeakExitCode is the runtime's exit code for a leak (runtime/output.maxon).
-let testLeakExitCode = 99
-
-// testPanicExitCode is the runtime's exit code for a panic, which a fault ends as.
-let testPanicExitCode = 1
-
-// runtimeUnit is the entries of the runtime that the test programs and the entry stub call, written in assembly by the
-// internal convention (the first two arguments in rcx and rdx, the result in r8): alloc, free, write, a stand-in for
-// itoa, checkLeaks, which exits with the runtime's leak code and writes no report, schedDrain and workerMain, which have
-// no behaviour to run, and panic, which exits with the panic code and writes nothing. They call Windows by Win64.
-function runtimeUnit(count bool) returns CodeUnit
-	let result = x64InternalResult
-	var u = CodeUnit.new()
-	u.defineData(testLiveSymbol, size: wordBytes)
-	u.defineCode(ir.rtSymbol(ir.Rt.rtAlloc))
-	asmPrologue(u)
-	u.asm.mov(r8, src: x64InternalArg(0))
-	u.asm.loadSymbol(rcx, symbol: ir.rtSymbol(ir.Rt.rtHeap))
-	u.asm.movImm(rdx, imm: 8)
-	u.asm.callImport(impHeapAlloc)
-	if count 'allocCount'
-		asmCountLive(u, delta: 1)
-	end 'allocCount'
-	u.asm.mov(result, src: rax)
-	asmEpilogue(u)
-	u.defineCode(ir.rtSymbol(ir.Rt.rtFree))
-	asmPrologue(u)
-	let freed = u.asm.newLabel()
-	u.asm.mov(r8, src: x64InternalArg(0))
-	u.asm.test(r8, right: r8)
-	u.asm.jcc(X64CondCode.equal, label: freed)
-	if count 'freeCount'
-		asmCountLive(u, delta: -1)
-	end 'freeCount'
-	u.asm.loadSymbol(rcx, symbol: ir.rtSymbol(ir.Rt.rtHeap))
-	u.asm.bitXor(rdx, src: rdx)
-	u.asm.callImport(impHeapFree)
-	u.asm.bind(freed)
-	asmEpilogue(u)
-	u.defineCode(ir.rtSymbol(ir.Rt.rtWrite))
-	asmPrologue(u)
-	u.asm.mov(r10, src: x64InternalArg(1))
-	u.asm.mov(rcx, src: x64InternalArg(0))
-	u.asm.load(r8, base: r10, disp: 0)
-	u.asm.lea(rdx, base: r10, disp: 8)
-	u.asm.lea(r9, base: rsp, disp: 40)
-	u.asm.bitXor(rax, src: rax)
-	u.asm.store(rsp, disp: 32, src: rax)
-	u.asm.callImport(impWriteFile)
-	asmEpilogue(u)
-	u.defineCode(ir.rtSymbol(ir.Rt.rtItoa))
-	u.asm.leaData(result, dataOffset: u.data.textOffset("?"))
-	u.asm.ret()
-	u.defineCode(ir.rtSymbol(ir.Rt.rtCheckLeaks))
-	asmPrologue(u)
-	let clean = u.asm.newLabel()
-	u.asm.mov(result, src: x64InternalArg(0))
-	u.asm.loadSymbol(rcx, symbol: testLiveSymbol)
-	u.asm.test(rcx, right: rcx)
-	u.asm.jcc(X64CondCode.equal, label: clean)
-	u.asm.movImm(rcx, imm: testLeakExitCode)
-	u.asm.callImport(impExitProcess)
-	u.asm.bind(clean)
-	asmEpilogue(u)
-	u.defineCode(ir.rtSymbol(ir.Rt.rtSchedDrain))
-	asmPrologue(u)
-	u.asm.mov(result, src: x64InternalArg(0))
-	asmEpilogue(u)
-	u.defineCode(ir.rtSymbol(ir.Rt.rtWorkerMain))
-	u.asm.ret()
-	u.defineCode(ir.rtSymbol(ir.Rt.rtPanic))
-	asmPrologue(u)
-	u.asm.movImm(rcx, imm: testPanicExitCode)
-	u.asm.callImport(impExitProcess)
-	return u
-end 'runtimeUnit'
-
-// runIr links the functions with the entry stub and the test runtime, and runs the executable.
-function runIr(mutates p ast.Project, fns ir.IrFunctionList, entry ast.FuncID, count bool, name String, expectedCode ExitCode, expectedOutput String)
-	var modules = FunctionLists.create(0)
-	modules.push(fns.clone())
-	var ready = UnitList.create(0)
-	ready.push(runtimeUnit(count))
-	let linked = buildProgram(p, modules: modules, ready: freeze(ready), entry: entry, options: RuntimeOptions.make(count), mapsSymbols: false)
-	runPeImage(linked.image, name: name, expectedCode: expectedCode, expectedOutput: expectedOutput)
-end 'runIr'
-
 // overflowMain calls itself until the stack runs out.
 function overflowMain(decl ast.FuncID) returns ir.IrFunction
-	var b = FnBuilder.new(decl, name: "main", paramCount: 0)
+	var b = ir.FnBuilder.new(decl, name: "main", paramCount: 0)
 	let result = b.call(decl, args: ir.RegList.create(0), errReg: ir.noReg)
 	b.finish(ir.newRet(result))
 	return b.f
@@ -288,7 +30,7 @@ function testStackOverflow(mutates p ast.Project)
 	let id = addFunction(p, name: "main", errTy: ast.noType)
 	let name = "minimaxon_cg_overflow.exe"
 	var modules = FunctionLists.create(0)
-	modules.push(oneFunction(overflowMain(id)))
+	modules.push(ir.oneFunction(overflowMain(id)))
 	var ready = UnitList.create(0)
 	ready.push(runtimeUnit(false))
 	let linked = buildProgram(p, modules: modules, ready: freeze(ready), entry: id, options: RuntimeOptions.make(false), mapsSymbols: false)
@@ -297,13 +39,13 @@ function testStackOverflow(mutates p ast.Project)
 	if shown > faultPanicPrefix.byteLength() 'longer'
 		shown = faultPanicPrefix.byteLength()
 	end 'longer'
-	assertEqStr(out.stderr.sliceBytes(0, endPos: shown), expected: faultPanicPrefix, label: name)
+	table.assertEqStr(out.stderr.sliceBytes(0, endPos: shown), expected: faultPanicPrefix, label: name)
 end 'testStackOverflow'
 
 // arithmeticMain returns 42 by way of every operator, a check, a guard and a branch; it returns 1 when one of them is wrong.
 function arithmeticMain(decl ast.FuncID) returns ir.IrFunction
-	var b = FnBuilder.new(decl, name: "main", paramCount: 0)
-	let fail = block(3)
+	var b = ir.FnBuilder.new(decl, name: "main", paramCount: 0)
+	let fail = ir.block(3)
 	let seven = b.constant(7)
 	let six = b.constant(6)
 	let product = b.bin(ir.BinOp.binMul, left: seven, right: six, unsigned: false, fail: ir.noBlock)
@@ -332,7 +74,7 @@ function arithmeticMain(decl ast.FuncID) returns ir.IrFunction
 	let thirdOk = b.bin(ir.BinOp.binAnd, left: unsignedLess, right: signedLess, unsigned: false, fail: ir.noBlock)
 	let firstTwo = b.bin(ir.BinOp.binAnd, left: firstOk, right: secondOk, unsigned: false, fail: ir.noBlock)
 	let allOk = b.bin(ir.BinOp.binAnd, left: firstTwo, right: thirdOk, unsigned: false, fail: ir.noBlock)
-	b.finish(ir.newBranch(allOk, ifTrue: block(1), ifFalse: block(2)))
+	b.finish(ir.newBranch(allOk, ifTrue: ir.block(1), ifFalse: ir.block(2)))
 	b.finish(ir.newRet(restored))
 	let wrong = b.constant(1)
 	b.finish(ir.newRet(wrong))
@@ -342,20 +84,20 @@ end 'arithmeticMain'
 
 // sumFunction adds 1 to n in a loop, through two slots.
 function sumFunction(decl ast.FuncID) returns ir.IrFunction
-	var b = FnBuilder.new(decl, name: "sum", paramCount: 1)
+	var b = ir.FnBuilder.new(decl, name: "sum", paramCount: 1)
 	let total = b.slot(ir.IrKind.kindScalar)
 	let counter = b.slot(ir.IrKind.kindScalar)
 	let zero = b.constant(0)
 	b.emit(ir.newStoreSlot(total, src: zero, borrow: false))
 	let first = b.constant(1)
 	b.emit(ir.newStoreSlot(counter, src: first, borrow: false))
-	b.finish(ir.newJump(block(1)))
+	b.finish(ir.newJump(ir.block(1)))
 	let limit = b.reg()
 	b.emit(ir.newLoadParam(limit, param: 0))
 	let current = b.reg()
 	b.emit(ir.newLoadSlot(current, slot: counter))
 	let more = b.cmp(ir.CmpOp.cmpLe, left: current, right: limit, unsigned: false)
-	b.finish(ir.newBranch(more, ifTrue: block(2), ifFalse: block(3)))
+	b.finish(ir.newBranch(more, ifTrue: ir.block(2), ifFalse: ir.block(3)))
 	let soFar = b.reg()
 	b.emit(ir.newLoadSlot(soFar, slot: total))
 	let at = b.reg()
@@ -365,7 +107,7 @@ function sumFunction(decl ast.FuncID) returns ir.IrFunction
 	let one = b.constant(1)
 	let after = b.add(at, right: one)
 	b.emit(ir.newStoreSlot(counter, src: after, borrow: false))
-	b.finish(ir.newJump(block(1)))
+	b.finish(ir.newJump(ir.block(1)))
 	let result = b.reg()
 	b.emit(ir.newLoadSlot(result, slot: total))
 	b.finish(ir.newRet(result))
@@ -374,12 +116,12 @@ end 'sumFunction'
 
 // halfFunction gives half of an even number, and fails with the error case 0 for an odd one.
 function halfFunction(decl ast.FuncID) returns ir.IrFunction
-	var b = FnBuilder.new(decl, name: "half", paramCount: 1)
+	var b = ir.FnBuilder.new(decl, name: "half", paramCount: 1)
 	let value = b.reg()
 	b.emit(ir.newLoadParam(value, param: 0))
 	let one = b.constant(1)
 	let low = b.bin(ir.BinOp.binAnd, left: value, right: one, unsigned: false, fail: ir.noBlock)
-	b.finish(ir.newBranch(low, ifTrue: block(1), ifFalse: block(2)))
+	b.finish(ir.newBranch(low, ifTrue: ir.block(1), ifFalse: ir.block(2)))
 	let errorCase = b.constant(1)
 	b.finish(ir.newThrow(errorCase))
 	let two = b.constant(2)
@@ -390,21 +132,21 @@ end 'halfFunction'
 
 // callingMain sums 9, halves 8, and fails to halve 7: 45 and 4 make 49, which a switch checks.
 function callingMain(decl ast.FuncID, sum ast.FuncID, half ast.FuncID) returns ir.IrFunction
-	var b = FnBuilder.new(decl, name: "main", paramCount: 0)
+	var b = ir.FnBuilder.new(decl, name: "main", paramCount: 0)
 	let nine = b.constant(9)
-	let total = b.call(sum, args: regs1(nine), errReg: ir.noReg)
+	let total = b.call(sum, args: ir.regs1(nine), errReg: ir.noReg)
 	let eight = b.constant(8)
 	let halfError = b.reg()
-	let halved = b.call(half, args: regs1(eight), errReg: halfError)
-	b.finish(ir.newBranch(halfError, ifTrue: block(4), ifFalse: block(1)))
+	let halved = b.call(half, args: ir.regs1(eight), errReg: halfError)
+	b.finish(ir.newBranch(halfError, ifTrue: ir.block(4), ifFalse: ir.block(1)))
 	let seven = b.constant(7)
 	let oddError = b.reg()
-	let ignored = b.call(half, args: regs1(seven), errReg: oddError)
-	b.finish(ir.newBranch(oddError, ifTrue: block(2), ifFalse: block(4)))
+	let ignored = b.call(half, args: ir.regs1(seven), errReg: oddError)
+	b.finish(ir.newBranch(oddError, ifTrue: ir.block(2), ifFalse: ir.block(4)))
 	let combined = b.add(total, right: halved)
 	let first = try b.f.cases.count() as ir.Index otherwise panic("too many cases")
-	b.f.cases.push(ir.SwitchCase.make(49, target: block(3), args: 0, argCount: 0))
-	b.finish(ir.newSwitch(combined, casesFirst: first, casesCount: 1, fallback: block(4)))
+	b.f.cases.push(ir.SwitchCase.make(49, target: ir.block(3), args: 0, argCount: 0))
+	b.finish(ir.newSwitch(combined, casesFirst: first, casesCount: 1, fallback: ir.block(4)))
 	b.finish(ir.newRet(combined))
 	let wrong = b.constant(1)
 	b.finish(ir.newRet(wrong))
@@ -414,7 +156,7 @@ end 'callingMain'
 // boxMain writes a string through a copy of a record, and exits with the number in it plus two. The record and its copy are
 // dropped by the routines of the type, and the drop of a box leaves none live.
 function boxMain(decl ast.FuncID, pair ast.TypeID) returns ir.IrFunction
-	var b = FnBuilder.new(decl, name: "main", paramCount: 0)
+	var b = ir.FnBuilder.new(decl, name: "main", paramCount: 0)
 	let kept = b.slot(ir.IrKind.kindManaged)
 	let box = b.reg()
 	b.emit(ir.newAlloc(box, bytes: ir.boxBytes(2, tagged: false)))
@@ -432,7 +174,7 @@ function boxMain(decl ast.FuncID, pair ast.TypeID) returns ir.IrFunction
 	b.emit(ir.newLoadField(copiedText, obj: copied, offset: ir.fieldOffset(1, tagged: false)))
 	let out = b.reg()
 	b.emit(ir.newLoadGlobal(out, symbol: ir.Rt.rtStdout))
-	let args = regs2(out, b: copiedText)
+	let args = ir.regs2(out, b: copiedText)
 	let count = try args.count() as ir.Reg otherwise panic("too many arguments")
 	let start = b.pushArgs(args)
 	b.emit(ir.newCallRuntime(ir.noReg, symbol: ir.Rt.rtWrite, argsStart: start, argsCount: count, routine: ir.noRoutine, proven: false))
@@ -451,7 +193,7 @@ end 'boxMain'
 
 // leakMain allocates a box and never frees it.
 function leakMain(decl ast.FuncID) returns ir.IrFunction
-	var b = FnBuilder.new(decl, name: "main", paramCount: 0)
+	var b = ir.FnBuilder.new(decl, name: "main", paramCount: 0)
 	let box = b.reg()
 	b.emit(ir.newAlloc(box, bytes: 8))
 	let code = b.constant(3)
@@ -499,7 +241,7 @@ function addRoutineTypes(mutates p ast.Project, pair ast.TypeID) returns Routine
 end 'addRoutineTypes'
 
 // pairBox makes a box of the record Pair holding a number and a literal.
-function pairBox(mutates b FnBuilder, number ir.Word, text String) returns ir.Reg
+function pairBox(mutates b ir.FnBuilder, number ir.Word, text String) returns ir.Reg
 	let box = b.alloc(16)
 	let n = b.constant(number)
 	b.storeWord(box, offset: 0, src: n)
@@ -512,7 +254,7 @@ end 'pairBox'
 // the case that the copies have (2 elements, case 1 and 5 bytes), and 1 for a read that finds what a move took. It has more managed slots than a frame zeroes one by one,
 // and a frame of more than a page. A box left live shows in the exit code, since the entry counts the boxes.
 function routinesMain(decl ast.FuncID, types RoutineTypes) returns ir.IrFunction
-	var b = FnBuilder.new(decl, name: "main", paramCount: 0)
+	var b = ir.FnBuilder.new(decl, name: "main", paramCount: 0)
 	for _ in 0 upto 7 'slots'
 		_ = b.slot(ir.IrKind.kindManaged)
 	end 'slots'
@@ -590,7 +332,7 @@ end 'routinesMain'
 // through its address, reads it back at each width, writes one byte of it, and writes a line by WriteFile, a DLL import of five words. It returns 42
 // when every value is what it should be.
 function rawMain(decl ast.FuncID) returns ir.IrFunction
-	var b = FnBuilder.new(decl, name: "main", paramCount: 0)
+	var b = ir.FnBuilder.new(decl, name: "main", paramCount: 0)
 	let written = b.slot(ir.IrKind.kindScalar)
 	let live = b.reg()
 	b.emit(ir.newGlobalAddr(live, symbol: ir.Rt.rtMainContext))
@@ -640,7 +382,7 @@ function rawMain(decl ast.FuncID) returns ir.IrFunction
 	let highOk = b.bin(ir.BinOp.binAnd, left: ok32, right: okWord, unsigned: false, fail: ir.noBlock)
 	let loadsOk = b.bin(ir.BinOp.binAnd, left: lowOk, right: highOk, unsigned: false, fail: ir.noBlock)
 	let allOk = b.bin(ir.BinOp.binAnd, left: loadsOk, right: okWrite, unsigned: false, fail: ir.noBlock)
-	b.finish(ir.newBranch(allOk, ifTrue: block(1), ifFalse: block(2)))
+	b.finish(ir.newBranch(allOk, ifTrue: ir.block(1), ifFalse: ir.block(2)))
 	let right = b.constant(42)
 	b.finish(ir.newRet(right))
 	let wrong = b.constant(1)
@@ -648,34 +390,28 @@ function rawMain(decl ast.FuncID) returns ir.IrFunction
 	return b.f
 end 'rawMain'
 
-function oneFunction(consumes f ir.IrFunction) returns ir.IrFunctionList
-	var list = ir.IrFunctionList.create(0)
-	list.push(f)
-	return list
-end 'oneFunction'
-
 test 'codegen'
 	var p = ast.Project.new("self")
 	_ = ast.addModule(p, m: ast.Module.new(0 as diag.ModuleID, path: "", text: "", files: ast.FileSpanList.create(0)))
 	let mainId = addFunction(p, name: "main", errTy: ast.noType)
-	runIr(p, fns: oneFunction(arithmeticMain(mainId)), entry: mainId, count: false, name: "minimaxon_cg_arithmetic.exe", expectedCode: 42, expectedOutput: "")
+	runIr(p, fns: ir.oneFunction(arithmeticMain(mainId)), entry: mainId, count: false, name: "minimaxon_cg_arithmetic.exe", expectedCode: 42, expectedOutput: "")
 	let sumId = addFunction(p, name: "sum", errTy: ast.noType)
 	let arithmeticError = p.builtins.arithmeticErrorTy
 	let halfId = addFunction(p, name: "half", errTy: arithmeticError)
 	let callingId = addFunction(p, name: "main", errTy: ast.noType)
-	var calling = oneFunction(callingMain(callingId, sum: sumId, half: halfId))
+	var calling = ir.oneFunction(callingMain(callingId, sum: sumId, half: halfId))
 	calling.push(sumFunction(sumId))
 	calling.push(halfFunction(halfId))
 	runIr(p, fns: calling, entry: callingId, count: false, name: "minimaxon_cg_calls.exe", expectedCode: 49, expectedOutput: "")
 	let pair = addPairType(p)
 	let boxId = addFunction(p, name: "main", errTy: ast.noType)
-	runIr(p, fns: oneFunction(boxMain(boxId, pair: pair)), entry: boxId, count: true, name: "minimaxon_cg_boxes.exe", expectedCode: 7, expectedOutput: "written through a copy\n")
+	runIr(p, fns: ir.oneFunction(boxMain(boxId, pair: pair)), entry: boxId, count: true, name: "minimaxon_cg_boxes.exe", expectedCode: 7, expectedOutput: "written through a copy\n")
 	let types = addRoutineTypes(p, pair: pair)
 	let routinesId = addFunction(p, name: "main", errTy: ast.noType)
-	runIr(p, fns: oneFunction(routinesMain(routinesId, types: types)), entry: routinesId, count: true, name: "minimaxon_cg_routines.exe", expectedCode: 9, expectedOutput: "")
+	runIr(p, fns: ir.oneFunction(routinesMain(routinesId, types: types)), entry: routinesId, count: true, name: "minimaxon_cg_routines.exe", expectedCode: 9, expectedOutput: "")
 	let leakId = addFunction(p, name: "main", errTy: ast.noType)
-	runIr(p, fns: oneFunction(leakMain(leakId)), entry: leakId, count: true, name: "minimaxon_cg_leak.exe", expectedCode: 99, expectedOutput: "")
+	runIr(p, fns: ir.oneFunction(leakMain(leakId)), entry: leakId, count: true, name: "minimaxon_cg_leak.exe", expectedCode: 99, expectedOutput: "")
 	let rawId = addFunction(p, name: "main", errTy: ast.noType)
-	runIr(p, fns: oneFunction(rawMain(rawId)), entry: rawId, count: false, name: "minimaxon_cg_raw.exe", expectedCode: 42, expectedOutput: "raw\n")
+	runIr(p, fns: ir.oneFunction(rawMain(rawId)), entry: rawId, count: false, name: "minimaxon_cg_raw.exe", expectedCode: 42, expectedOutput: "raw\n")
 	testStackOverflow(p)
 end 'codegen'

@@ -10,24 +10,24 @@ function ssaRun(label String, mutates p ast.Project, f ir.IrFunction, want ast.S
 	if got != counts 'counts'
 		panic("{label}: construction {got}, not {counts}")
 	end 'counts'
-	expectIr(label, got: ir.irText(p, tt: ast.TypeSlot.none(), reads: p.types, ft: ast.FuncSlot.none(), funcReads: p.funcs, f: g), want: want)
+	ir.expectIr(label, got: ir.irText(p, tt: ast.TypeSlot.none(), reads: p.types, ft: ast.FuncSlot.none(), funcReads: p.funcs, f: g), want: want)
 	let problems = ir.verifyIr(p, tt: ast.TypeSlot.none(), reads: p.types, ft: ast.FuncSlot.none(), funcReads: p.funcs, f: g)
 	if problems.count() > 0 'refused'
 		panic("{label}: the verifier refuses it: {problems[0]}")
 	end 'refused'
 	expectClean(label, out: runMain(p, main: g), exit: exit as ir.Word)
-	runIr(p, fns: oneFunction(g.clone()), entry: g.decl, count: count, name: "minimaxon_ssa_{label}.exe", expectedCode: exit, expectedOutput: "")
+	backend.runIr(p, fns: ir.oneFunction(g.clone()), entry: g.decl, count: count, name: "minimaxon_ssa_{label}.exe", expectedCode: exit, expectedOutput: "")
 end 'ssaRun'
 
-function slotOfHere(mutates b BpFn) returns Count
+function slotOfHere(mutates b ir.BpFn) returns Count
 	return b.b.f.newSlot(ir.IrKind.kindScalar)
 end 'slotOfHere'
 
-function storeTo(mutates b BpFn, block ir.BlockID, slot Count, v ir.Reg)
+function storeTo(mutates b ir.BpFn, block ir.BlockID, slot Count, v ir.Reg)
 	b.b.emit(block, i: ir.newStoreSlot(slot, src: v, borrow: false))
 end 'storeTo'
 
-function loadFrom(mutates b BpFn, block ir.BlockID, slot Count) returns ir.Reg
+function loadFrom(mutates b ir.BpFn, block ir.BlockID, slot Count) returns ir.Reg
 	let r = b.b.f.newReg(ir.IrKind.kindScalar)
 	b.b.emit(block, i: ir.newLoadSlot(r, slot: slot))
 	return r
@@ -35,8 +35,8 @@ end 'loadFrom'
 
 // A diamond that stores the slot on both arms joins the two values in a parameter.
 test 'a slot stored on both arms becomes a parameter'
-	var p = irProject()
-	var b = BpFn.new(p)
+	var p = ir.irProject()
+	var b = ir.BpFn.new(p)
 	let entry = b.block()
 	let left = b.block()
 	let right = b.block()
@@ -75,8 +75,8 @@ end 'a slot stored on both arms becomes a parameter'
 
 // A loop counter in a slot becomes a parameter of the loop's header, which the entry and the back edge pass.
 test 'a loop counter becomes a parameter of the header'
-	var p = irProject()
-	var b = BpFn.new(p)
+	var p = ir.irProject()
+	var b = ir.BpFn.new(p)
 	let entry = b.block()
 	let header = b.block()
 	let body = b.block()
@@ -118,8 +118,8 @@ end 'a loop counter becomes a parameter of the header'
 // A sum that a loop adds to and the exit reads, beside its counter: each slot is a parameter of the header, and the exit
 // reads the header's.
 test 'a slot assigned in a loop is read after it'
-	var p = irProject()
-	var b = BpFn.new(p)
+	var p = ir.irProject()
+	var b = ir.BpFn.new(p)
 	let entry = b.block()
 	let header = b.block()
 	let body = b.block()
@@ -167,8 +167,8 @@ end 'a slot assigned in a loop is read after it'
 // A slot whose address is taken stays in the frame, renumbered from 0, and one beside it that is only loaded and stored
 // does not.
 test 'a slot whose address is taken stays'
-	var p = irProject()
-	var b = BpFn.new(p)
+	var p = ir.irProject()
+	var b = ir.BpFn.new(p)
 	let entry = b.block()
 	let plain = slotOfHere(b)
 	let held = slotOfHere(b)
@@ -199,11 +199,11 @@ end 'a slot whose address is taken stays'
 // A box moved out of its slot and dropped there: the slot is known to be empty at its dropslot, which goes, and only the
 // drop of the moved value is left.
 test 'the drop of a moved out slot goes'
-	var p = irProject()
-	var b = BpFn.new(p)
+	var p = ir.irProject()
+	var b = ir.BpFn.new(p)
 	var cellEntry = ast.TypeEntry.make(ast.TypeKind.record, name: "Cell")
 	cellEntry.fields.push(ast.FieldInfo.make("n", ty: p.builtins.countTy, isVar: true, exported: true, hasDefault: false, defaultExpr: 0 as ast.NodeID, index: 0 as Count))
-	let cell = allocRootType(p, entry: cellEntry)
+	let cell = backend.allocRootType(p, entry: cellEntry)
 	let entry = b.block()
 	let s = b.b.f.newSlot(ir.IrKind.kindManaged)
 	let box = b.b.f.newReg(ir.IrKind.kindManaged)
@@ -231,8 +231,8 @@ end 'the drop of a moved out slot goes'
 // An entry block that is a loop's header, which a back edge enters, cannot take the slot's parameter: construction gives
 // the function a new entry that jumps to it, and the slot is 0 there before its first store.
 test 'an entry that is a loop header is split'
-	var p = irProject()
-	var b = BpFn.new(p)
+	var p = ir.irProject()
+	var b = ir.BpFn.new(p)
 	let entry = b.block()
 	let exit = b.block()
 	let i = slotOfHere(b)

@@ -1,55 +1,10 @@
-// BpFn builds the function main of a project with Builder.
-type BpFn
-	var b as Builder
-	var decl as ast.FuncID
-
-	static function new(mutates p ast.Project) returns BpFn
-		let decl = interpFunction(p, name: "main", convs: convs0())
-		var b = Builder.new()
-		b.start(decl, name: "", paramCount: 0 as Count)
-		return BpFn{b: b, decl: decl}
-	end 'new'
-
-	function block(mutates self) returns BlockID
-		return b.newBlock()
-	end 'block'
-
-	function param(mutates self, block BlockID) returns Reg
-		return b.blockParam(block, kind: IrKind.kindScalar)
-	end 'param'
-
-	function konst(mutates self, block BlockID, value Word) returns Reg
-		let r = b.f.newReg(IrKind.kindScalar)
-		b.emit(block, i: newConst(r, value: value))
-		return r
-	end 'konst'
-
-	function bin(mutates self, block BlockID, op BinOp, left Reg, right Reg, fail BlockID) returns Reg
-		let r = b.f.newReg(IrKind.kindScalar)
-		b.emit(block, i: newBin(r, op: op, left: left, right: right, unsigned: false, fail: fail))
-		return r
-	end 'bin'
-
-	function cmp(mutates self, block BlockID, op CmpOp, left Reg, right Reg) returns Reg
-		let r = b.f.newReg(IrKind.kindScalar)
-		b.emit(block, i: newCmp(r, op: op, left: left, right: right, unsigned: false))
-		return r
-	end 'cmp'
-end 'BpFn'
-
-function bpRegs(a Reg) returns RegList
-	var list = RegList.create(0)
-	list.push(a)
-	return list
-end 'bpRegs'
-
 // bpRefused requires the verifier to refuse the function, first for the reason fragment names.
 function bpRefused(label String, p ast.Project, f IrFunction, fragment String)
 	let problems = verifyIr(p, tt: ast.TypeSlot.none(), reads: p.types, ft: ast.FuncSlot.none(), funcReads: p.funcs, f: f)
 	if problems.count() == 0 'accepted'
 		panic("{label}: the verifier accepts IR that breaks its rule")
 	end 'accepted'
-	if not contains(problems[0], fragment: fragment) 'other'
+	if not table.contains(problems[0], fragment: fragment) 'other'
 		panic("{label}: the verifier says\n{problems[0]}\nand not '{fragment}'")
 	end 'other'
 end 'bpRefused'
@@ -131,7 +86,7 @@ test 'an argument of another kind is refused'
 	let target = b.block()
 	let managed = b.b.f.newReg(IrKind.kindManaged)
 	b.b.emit(entry, i: newConst(managed, value: 0))
-	let entryTerm = b.b.jumpWith(target, args: bpRegs(managed))
+	let entryTerm = b.b.jumpWith(target, args: regs1(managed))
 	b.b.terminate(entry, t: entryTerm)
 	let got = b.param(target)
 	b.b.terminate(target, t: newRet(got))

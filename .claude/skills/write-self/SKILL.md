@@ -82,8 +82,9 @@ rename` rewrites built-in names by what the checker resolved. New code follows t
 
 - `.\build.ps1` builds `minimaxon.exe` from the seed; `.\minimaxon.exe check self`, `.\minimaxon.exe selftest` and
   `.\minimaxon.exe fmt --check self runtime` are the quick checks, and `.\minimaxon.exe fmt self` fixes the layout.
-- A test of a part is a `test...` function in `self/*_test.maxon` that `selftest` runs; add one only when a bug would
-  come back or nothing in the corpus covers the feature. A behaviour is a `tests/run/` program, a diagnostic a
+- A test of a part is a `test 'name'` declaration in a `.maxtest` file of its module's directory, run by
+  `.\minimaxon.exe test self/<module>` (all of them by `selftest`); add one only when a bug would come back or nothing
+  in the corpus covers the feature. A behaviour is a `tests/run/` program, a diagnostic a
   `tests/errors/` program.
 - Before a commit, `.\check.ps1` passes. Do not commit unless asked; then directly on `main`.
 

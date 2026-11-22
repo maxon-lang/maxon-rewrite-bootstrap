@@ -124,6 +124,8 @@ var recordTypes = []recordType{
 	{Key: "Utf16View", Name: "UTF16View", Fields: []string{"private let text String"}},
 	{Key: "Utf16Iterator", Name: "UTF16Iterator", Fields: []string{"private let text String", "private var position Count"}},
 	{Key: "CollectedOutput", Name: "CollectedOutput", Fields: []string{"var stdout String", "var stderr String", "private let code ExitCode"}},
+	// FileInfo is maxon's: the size and the times of a file, in Unix seconds on the file system's clock, and its attributes.
+	{Key: "FileInfo", Name: "FileInfo", Fields: []string{"let size Count", "let modifiedTime Count", "let createdTime Count", "let accessedTime Count", "let isDirectory Bool", "let isReadOnly Bool"}},
 	{Key: "Subprocess", Name: "Subprocess"},
 	// Raw is maxon's __Raw: the closed set of raw machine and OS operations the runtime's source is written on, which
 	// only the runtime module may call (runtimeOnly).
@@ -216,6 +218,12 @@ var enumTypes = []enumType{
 		{"accessDenied", "ErrorRenameAccessDenied"},
 		{"busy", "ErrorRenameBusy"},
 		{"alreadyExists", "ErrorRenameAlreadyExists"},
+	}},
+	{Key: "FileInfoError", Name: "FileInfoError", Cases: []enumCase{
+		{"notFound", "ErrorInfoNotFound"},
+		{"accessDenied", "ErrorInfoAccessDenied"},
+		{"busy", "ErrorInfoBusy"},
+		{"failed", "ErrorInfoFailed"},
 	}},
 	{Key: "DirectoryListError", Name: "DirectoryListError", Cases: []enumCase{
 		{"notFound", "ErrorListNotFound"},
@@ -530,6 +538,7 @@ var tableFunctions = []function{
 	{Owner: "File", Name: "writeBinary", Static: true, Params: []string{"path FilePath", "content Array with Byte"}, Throws: "FileWriteError", Intrinsic: "FileWriteBinary"},
 	{Owner: "File", Name: "rename", Static: true, Params: []string{"from FilePath", "to FilePath"}, Throws: "FileRenameError", Intrinsic: "FileRename"},
 	{Owner: "File", Name: "delete", Static: true, Params: []string{"path FilePath"}, Throws: "FileDeleteError", Intrinsic: "FileDelete"},
+	{Owner: "File", Name: "info", Static: true, Params: []string{"path FilePath"}, Result: "FileInfo", Throws: "FileInfoError", Intrinsic: "FileInfo"},
 	{Owner: "Directory", Name: "isDirectory", Static: true, Params: []string{"path FilePath"}, Result: "Bool", Intrinsic: "DirectoryIsDirectory"},
 	// create makes the missing parents too, and gives whether the directory is there after it.
 	{Owner: "Directory", Name: "create", Static: true, Params: []string{"path FilePath"}, Result: "Bool", Intrinsic: "DirectoryCreate"},
@@ -708,6 +717,7 @@ var entries = []entry{
 	{"OsWriteBinary", "rt.os.writeBinary", "Os", roleCall, "(path String, content ByteArray, error)"},
 	{"OsRename", "rt.os.rename", "Os", roleCall, "(from String, to String, error): replaces what is at to"},
 	{"OsDelete", "rt.os.delete", "Os", roleCall, "(path String, error)"},
+	{"OsFileInfo", "rt.os.fileInfo", "Os", roleCall, "(path String, size, created, accessed, attributes, error) -> modified: the times in Unix seconds, and the attributes as a word whose bit 0 is whether the path is a directory and bit 1 whether it is read-only"},
 	{"OsIsDirectory", "rt.os.isDirectory", "Os", roleCall, "(path String) -> bool"},
 	{"OsCreateDirectory", "rt.os.createDirectory", "Os", roleCall, "(path String) -> bool: makes the missing parents too, and is whether the directory is there after it"},
 	{"OsList", "rt.os.list", "Os", roleCall, "(path String, error) -> Array with String: the path joined to the name of each entry"},
@@ -795,6 +805,7 @@ var runtimeFunctions = []runtimeFunction{
 	{"OsWriteBinary", "osWriteBinary(path String, content Count, errorAddress Count)"},
 	{"OsRename", "osRename(source String, destination String, errorAddress Count)"},
 	{"OsDelete", "osDelete(path String, errorAddress Count)"},
+	{"OsFileInfo", "osFileInfo(path String, size Count, created Count, accessed Count, attributes Count, errorAddress Count) Count"},
 	{"OsIsDirectory", "osIsDirectory(path String) Bool"},
 	{"OsCreateDirectory", "osCreateDirectory(path String) Bool"},
 	{"OsList", "osList(path String, errorAddress Count) Count"},

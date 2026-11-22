@@ -30,6 +30,18 @@ export let collectedOutputStderrField = 1 as Count
 
 export let collectedOutputCodeField = 2 as Count
 
+export let fileInfoSizeField = 0 as Count
+
+export let fileInfoModifiedTimeField = 1 as Count
+
+export let fileInfoCreatedTimeField = 2 as Count
+
+export let fileInfoAccessedTimeField = 3 as Count
+
+export let fileInfoIsDirectoryField = 4 as Count
+
+export let fileInfoIsReadOnlyField = 5 as Count
+
 export let executableName = 0 as Count
 
 export let executablePath = 1 as Count
@@ -97,6 +109,14 @@ export let errorRenameAccessDenied = 2 as Count
 export let errorRenameBusy = 3 as Count
 
 export let errorRenameAlreadyExists = 4 as Count
+
+export let errorInfoNotFound = 0 as Count
+
+export let errorInfoAccessDenied = 1 as Count
+
+export let errorInfoBusy = 2 as Count
+
+export let errorInfoFailed = 3 as Count
 
 export let errorListNotFound = 0 as Count
 
@@ -272,6 +292,7 @@ export enum Intrinsic
 	intrFileWriteBinary
 	intrFileRename
 	intrFileDelete
+	intrFileInfo
 	intrDirectoryIsDirectory
 	intrDirectoryCreate
 	intrDirectoryCurrentPath
@@ -464,6 +485,7 @@ function declareBuiltinTypes(mutates tt TypeSlot, reads TypeTable, mutates std P
 	b.utf16ViewTy = registerRecordType(tt, reads: reads, std: std, typeMap: typeMap, name: "UTF16View")
 	b.utf16IteratorTy = registerRecordType(tt, reads: reads, std: std, typeMap: typeMap, name: "UTF16Iterator")
 	b.collectedOutputTy = registerRecordType(tt, reads: reads, std: std, typeMap: typeMap, name: "CollectedOutput")
+	b.fileInfoTy = registerRecordType(tt, reads: reads, std: std, typeMap: typeMap, name: "FileInfo")
 	b.subprocessTy = registerRecordType(tt, reads: reads, std: std, typeMap: typeMap, name: "Subprocess")
 	b.rawTy = registerRecordType(tt, reads: reads, std: std, typeMap: typeMap, name: "__Raw")
 	addRecordField(tt, reads: reads, owner: b.filePathTy, name: "path", ty: b.stringTy, isVar: false, exported: true)
@@ -481,6 +503,12 @@ function declareBuiltinTypes(mutates tt TypeSlot, reads TypeTable, mutates std P
 	addRecordField(tt, reads: reads, owner: b.collectedOutputTy, name: "stdout", ty: b.stringTy, isVar: true, exported: true)
 	addRecordField(tt, reads: reads, owner: b.collectedOutputTy, name: "stderr", ty: b.stringTy, isVar: true, exported: true)
 	addRecordField(tt, reads: reads, owner: b.collectedOutputTy, name: "code", ty: b.exitCodeTy, isVar: false, exported: false)
+	addRecordField(tt, reads: reads, owner: b.fileInfoTy, name: "size", ty: b.countTy, isVar: false, exported: true)
+	addRecordField(tt, reads: reads, owner: b.fileInfoTy, name: "modifiedTime", ty: b.countTy, isVar: false, exported: true)
+	addRecordField(tt, reads: reads, owner: b.fileInfoTy, name: "createdTime", ty: b.countTy, isVar: false, exported: true)
+	addRecordField(tt, reads: reads, owner: b.fileInfoTy, name: "accessedTime", ty: b.countTy, isVar: false, exported: true)
+	addRecordField(tt, reads: reads, owner: b.fileInfoTy, name: "isDirectory", ty: b.boolTy, isVar: false, exported: true)
+	addRecordField(tt, reads: reads, owner: b.fileInfoTy, name: "isReadOnly", ty: b.boolTy, isVar: false, exported: true)
 	b.executableTy = registerUnionType(tt, reads: reads, std: std, typeMap: typeMap, name: "Executable", paramNames: StringList.create(0))
 	var payload9 = CaseFieldList.create(0)
 	payload9.push(CaseFieldInfo.make("value", ty: b.stringTy))
@@ -542,48 +570,54 @@ function declareBuiltinTypes(mutates tt TypeSlot, reads TypeTable, mutates std P
 	var names20 = StringList.create(0)
 	names20.push("notFound")
 	names20.push("accessDenied")
-	names20.push("listFailed")
-	b.directoryListErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "DirectoryListError", cases: names20)
+	names20.push("busy")
+	names20.push("failed")
+	b.fileInfoErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "FileInfoError", cases: names20)
 	var names21 = StringList.create(0)
-	names21.push("pathUnavailable")
-	names21.push("variableUnset")
-	names21.push("environmentUnreadable")
-	b.processIntrospectionErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "ProcessIntrospectionError", cases: names21)
+	names21.push("notFound")
+	names21.push("accessDenied")
+	names21.push("listFailed")
+	b.directoryListErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "DirectoryListError", cases: names21)
 	var names22 = StringList.create(0)
-	names22.push("executableNotFound")
-	names22.push("spawnFailed")
-	names22.push("busy")
-	names22.push("ioFailed")
-	names22.push("timeout")
-	names22.push("treeNotEnded")
-	names22.push("detachRefused")
-	names22.push("inputTooLarge")
-	names22.push("statusLost")
-	b.subprocessErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "SubprocessError", cases: names22)
+	names22.push("pathUnavailable")
+	names22.push("variableUnset")
+	names22.push("environmentUnreadable")
+	b.processIntrospectionErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "ProcessIntrospectionError", cases: names22)
 	var names23 = StringList.create(0)
-	names23.push("notFound")
-	names23.push("invalidIndex")
-	b.stringErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "StringError", cases: names23)
+	names23.push("executableNotFound")
+	names23.push("spawnFailed")
+	names23.push("busy")
+	names23.push("ioFailed")
+	names23.push("timeout")
+	names23.push("treeNotEnded")
+	names23.push("detachRefused")
+	names23.push("inputTooLarge")
+	names23.push("statusLost")
+	b.subprocessErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "SubprocessError", cases: names23)
 	var names24 = StringList.create(0)
-	names24.push("exhausted")
-	names24.push("atStart")
-	b.iterationErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "IterationError", cases: names24)
+	names24.push("notFound")
+	names24.push("invalidIndex")
+	b.stringErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "StringError", cases: names24)
 	var names25 = StringList.create(0)
-	names25.push("otherType")
-	b.castErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "CastError", cases: names25)
+	names25.push("exhausted")
+	names25.push("atStart")
+	b.iterationErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "IterationError", cases: names25)
+	var names26 = StringList.create(0)
+	names26.push("otherType")
+	b.castErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "CastError", cases: names26)
 	b.copyableTy = registerInterfaceType(tt, reads: reads, std: std, typeMap: typeMap, name: "Copyable")
 	b.droppableTy = registerInterfaceType(tt, reads: reads, std: std, typeMap: typeMap, name: "Droppable")
 	b.errorTy = registerInterfaceType(tt, reads: reads, std: std, typeMap: typeMap, name: "Error")
 	b.initableFromStringLiteralTy = registerInterfaceType(tt, reads: reads, std: std, typeMap: typeMap, name: "InitableFromStringLiteral")
 	tt.lists[typeList(tt, t: b.filePathTy)][typeIndex(tt, t: b.filePathTy)].conforms.push(b.initableFromStringLiteralTy)
-	let ty26 = instantiateType(tt, reads: reads, origin: b.arrayOrigin, args: oneArgList(b.byteTy))
-	registerStdInstanceAlias(std, typeMap: typeMap, name: "ByteArray", ty: ty26)
-	let ty27 = instantiateType(tt, reads: reads, origin: b.arrayOrigin, args: oneArgList(b.stringTy))
-	registerStdInstanceAlias(std, typeMap: typeMap, name: "StringArray", ty: ty27)
-	let ty28 = instantiateType(tt, reads: reads, origin: b.arrayOrigin, args: oneArgList(b.fullRangeIntTy))
-	registerStdInstanceAlias(std, typeMap: typeMap, name: "FullRangeIntArray", ty: ty28)
-	let ty29 = instantiateType(tt, reads: reads, origin: b.arrayOrigin, args: oneArgList(b.filePathTy))
-	registerStdInstanceAlias(std, typeMap: typeMap, name: "FilePathArray", ty: ty29)
+	let ty27 = instantiateType(tt, reads: reads, origin: b.arrayOrigin, args: oneArgList(b.byteTy))
+	registerStdInstanceAlias(std, typeMap: typeMap, name: "ByteArray", ty: ty27)
+	let ty28 = instantiateType(tt, reads: reads, origin: b.arrayOrigin, args: oneArgList(b.stringTy))
+	registerStdInstanceAlias(std, typeMap: typeMap, name: "StringArray", ty: ty28)
+	let ty29 = instantiateType(tt, reads: reads, origin: b.arrayOrigin, args: oneArgList(b.fullRangeIntTy))
+	registerStdInstanceAlias(std, typeMap: typeMap, name: "FullRangeIntArray", ty: ty29)
+	let ty30 = instantiateType(tt, reads: reads, origin: b.arrayOrigin, args: oneArgList(b.filePathTy))
+	registerStdInstanceAlias(std, typeMap: typeMap, name: "FilePathArray", ty: ty30)
 end 'declareBuiltinTypes'
 
 function declareArrayMethods(mutates tt TypeSlot, reads TypeTable, mutates ft FuncSlot, funcReads FuncTable, mutates std ParsedModule, mutates b Builtins, mutates funcMap FuncIDMap)
@@ -1260,6 +1294,10 @@ function declareFileMethods(mutates tt TypeSlot, reads TypeTable, mutates ft Fun
 	ps10.push(ParamSpec.make("path", ty: b.filePathTy, conv: Convention.convLet))
 	let f11 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.fileTy, op: Intrinsic.intrFileDelete, name: "delete", isStatic: true, selfConv: Convention.convLet, ret: b.voidTy, params: ps10, listed: true)
 	ft.lists[funcList(ft, f: f11)][funcIndex(ft, f: f11)].errTy = b.fileDeleteErrorTy
+	var ps12 = ParamSpecList.create(0)
+	ps12.push(ParamSpec.make("path", ty: b.filePathTy, conv: Convention.convLet))
+	let f13 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.fileTy, op: Intrinsic.intrFileInfo, name: "info", isStatic: true, selfConv: Convention.convLet, ret: b.fileInfoTy, params: ps12, listed: true)
+	ft.lists[funcList(ft, f: f13)][funcIndex(ft, f: f13)].errTy = b.fileInfoErrorTy
 end 'declareFileMethods'
 
 function declareDirectoryMethods(mutates tt TypeSlot, reads TypeTable, mutates ft FuncSlot, funcReads FuncTable, mutates std ParsedModule, mutates b Builtins, mutates funcMap FuncIDMap)

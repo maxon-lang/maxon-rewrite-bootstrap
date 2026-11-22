@@ -227,6 +227,11 @@ function entryOsDelete(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	try errorWord(vm, f: f, x: x, word: word)
 end 'entryOsDelete'
 
+// entryOsFileInfo stops the run: the compiler that compiles the interpreter has no File.info to read a file's times with.
+function entryOsFileInfo(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	throw trap(vm, message: "the interpreter cannot read a file's information")
+end 'entryOsFileInfo'
+
 function entryOsIsDirectory(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	let at = try textIndex(vm, o: argRef(vm, f: f, x: x, i: 0), what: "a path")
 	giveFlag(vm, x: x, b: Directory.isDirectory(pathOf(vm.h.texts[at].clone())))

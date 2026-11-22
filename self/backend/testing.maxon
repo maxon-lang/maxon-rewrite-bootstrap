@@ -1,0 +1,147 @@
+// Helpers that the tests of this module and of the modules above it share: the lowest module that may name all they
+// need is their one home, as a module's tests may name only what the module may name. Nothing else calls them, so the
+// linker leaves them out of every executable but a compile of tests.
+
+// allocRootType adds a type that the root module declares, as a link name needs every declared type to be in a module.
+export function allocRootType(mutates p ast.Project, consumes entry ast.TypeEntry) returns ast.TypeID
+	var declared = entry
+	declared.hasDecl = true
+	declared.decl = ast.DeclRef.make(p.rootModule, ordinal: 0 as ast.DeclOrdinal)
+	let module = p.rootModule
+	return ast.makeType(p, module: module, e: declared)
+end 'allocRootType'
+
+// countLive adds to the number of live boxes, keeping every register but rcx.
+export function asmCountLive(mutates u CodeUnit, delta Imm32)
+	u.asm.loadSymbol(rcx, symbol: testLiveSymbol)
+	u.asm.addImm(rcx, imm: delta)
+	u.asm.storeSymbol(testLiveSymbol, src: rcx)
+end 'asmCountLive'
+
+export function asmEpilogue(mutates u CodeUnit)
+	u.asm.mov(rsp, src: rbp)
+	u.asm.pop(rbp)
+	u.asm.ret()
+end 'asmEpilogue'
+
+// asmPrologue and asmEpilogue frame a function of the test runtime that calls Windows, which wants the stack aligned.
+export function asmPrologue(mutates u CodeUnit)
+	u.asm.push(rbp)
+	u.asm.mov(rbp, src: rsp)
+	u.asm.andImm(rsp, imm: -16)
+	u.asm.subImm(rsp, imm: 48)
+end 'asmPrologue'
+
+export function peTempPath(name String) returns FilePath
+	let dir = try Process.environmentVariable("TEMP") otherwise panic("TEMP is not set")
+	return try FilePath.from("{dir}\\{name}") otherwise panic("not a path")
+end 'peTempPath'
+
+// runIr links the functions with the entry stub and the test runtime, and runs the executable.
+export function runIr(mutates p ast.Project, fns ir.IrFunctionList, entry ast.FuncID, count bool, name String, expectedCode ExitCode, expectedOutput String)
+	var modules = FunctionLists.create(0)
+	modules.push(fns.clone())
+	var ready = UnitList.create(0)
+	ready.push(runtimeUnit(count))
+	let linked = buildProgram(p, modules: modules, ready: freeze(ready), entry: entry, options: RuntimeOptions.make(count), mapsSymbols: false)
+	runPeImage(linked.image, name: name, expectedCode: expectedCode, expectedOutput: expectedOutput)
+end 'runIr'
+
+// runPeImage writes the image to a file, runs it and gives what it printed and its exit code.
+export function runPeImage(image PeImage, name String, expectedCode ExitCode, expectedOutput String)
+	let out = runPeImageOutput(image, name: name, expectedCode: expectedCode)
+	table.assertEqStr(out.stdout, expected: expectedOutput, label: name)
+end 'runPeImage'
+
+// runPeImageOutput writes the image, runs it and checks its exit code, and gives what it wrote.
+export function runPeImageOutput(image PeImage, name String, expectedCode ExitCode) returns CollectedOutput
+	let path = peTempPath(name)
+	try writePeImage(image, path: path) otherwise panic("cannot write {name}")
+	let out = try Subprocess.run(Executable.path(peTempPath(name)), arguments: Array.create(0)) otherwise panic("cannot run {name}")
+	try File.delete(path) otherwise panic("cannot delete {name}")
+	if out.exitCode() != expectedCode 'code'
+		panic("{name}: expected exit code {expectedCode}, got {out.exitCode()}")
+	end 'code'
+	return out
+end 'runPeImageOutput'
+
+// runtimeUnit is the entries of the runtime that the test programs and the entry stub call, written in assembly by the
+// internal convention (the first two arguments in rcx and rdx, the result in r8): alloc, free, write, a stand-in for
+// itoa, checkLeaks, which exits with the runtime's leak code and writes no report, schedDrain and workerMain, which have
+// no behaviour to run, and panic, which exits with the panic code and writes nothing. They call Windows by Win64.
+export function runtimeUnit(count bool) returns CodeUnit
+	let result = x64InternalResult
+	var u = CodeUnit.new()
+	u.defineData(testLiveSymbol, size: wordBytes)
+	u.defineCode(ir.rtSymbol(ir.Rt.rtAlloc))
+	asmPrologue(u)
+	u.asm.mov(r8, src: x64InternalArg(0))
+	u.asm.loadSymbol(rcx, symbol: ir.rtSymbol(ir.Rt.rtHeap))
+	u.asm.movImm(rdx, imm: 8)
+	u.asm.callImport(impHeapAlloc)
+	if count 'allocCount'
+		asmCountLive(u, delta: 1)
+	end 'allocCount'
+	u.asm.mov(result, src: rax)
+	asmEpilogue(u)
+	u.defineCode(ir.rtSymbol(ir.Rt.rtFree))
+	asmPrologue(u)
+	let freed = u.asm.newLabel()
+	u.asm.mov(r8, src: x64InternalArg(0))
+	u.asm.test(r8, right: r8)
+	u.asm.jcc(X64CondCode.equal, label: freed)
+	if count 'freeCount'
+		asmCountLive(u, delta: -1)
+	end 'freeCount'
+	u.asm.loadSymbol(rcx, symbol: ir.rtSymbol(ir.Rt.rtHeap))
+	u.asm.bitXor(rdx, src: rdx)
+	u.asm.callImport(impHeapFree)
+	u.asm.bind(freed)
+	asmEpilogue(u)
+	u.defineCode(ir.rtSymbol(ir.Rt.rtWrite))
+	asmPrologue(u)
+	u.asm.mov(r10, src: x64InternalArg(1))
+	u.asm.mov(rcx, src: x64InternalArg(0))
+	u.asm.load(r8, base: r10, disp: 0)
+	u.asm.lea(rdx, base: r10, disp: 8)
+	u.asm.lea(r9, base: rsp, disp: 40)
+	u.asm.bitXor(rax, src: rax)
+	u.asm.store(rsp, disp: 32, src: rax)
+	u.asm.callImport(impWriteFile)
+	asmEpilogue(u)
+	u.defineCode(ir.rtSymbol(ir.Rt.rtItoa))
+	u.asm.leaData(result, dataOffset: u.data.textOffset("?"))
+	u.asm.ret()
+	u.defineCode(ir.rtSymbol(ir.Rt.rtCheckLeaks))
+	asmPrologue(u)
+	let clean = u.asm.newLabel()
+	u.asm.mov(result, src: x64InternalArg(0))
+	u.asm.loadSymbol(rcx, symbol: testLiveSymbol)
+	u.asm.test(rcx, right: rcx)
+	u.asm.jcc(X64CondCode.equal, label: clean)
+	u.asm.movImm(rcx, imm: testLeakExitCode)
+	u.asm.callImport(impExitProcess)
+	u.asm.bind(clean)
+	asmEpilogue(u)
+	u.defineCode(ir.rtSymbol(ir.Rt.rtSchedDrain))
+	asmPrologue(u)
+	u.asm.mov(result, src: x64InternalArg(0))
+	asmEpilogue(u)
+	u.defineCode(ir.rtSymbol(ir.Rt.rtWorkerMain))
+	u.asm.ret()
+	u.defineCode(ir.rtSymbol(ir.Rt.rtPanic))
+	asmPrologue(u)
+	u.asm.movImm(rcx, imm: testPanicExitCode)
+	u.asm.callImport(impExitProcess)
+	return u
+end 'runtimeUnit'
+
+// testLeakExitCode is the runtime's exit code for a leak (runtime/output.maxon).
+let testLeakExitCode = 99
+
+// testLiveSymbol is the word in which the test's runtime counts its live boxes, as the real one counts them in each
+// thread's context.
+let testLiveSymbol = "test.live"
+
+// testPanicExitCode is the runtime's exit code for a panic, which a fault ends as.
+let testPanicExitCode = 1

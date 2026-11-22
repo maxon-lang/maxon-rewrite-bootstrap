@@ -1,0 +1,32 @@
+// Helpers that the tests of this module and of the modules above it share: the lowest module that may name all they
+// need is their one home, as a module's tests may name only what the module may name. Nothing else calls them, so the
+// linker leaves them out of every executable but a compile of tests.
+
+export function assertEqStr(got String, expected String, label String)
+	if got != expected 'neq'
+		panic("{label}: expected '{expected}', got '{got}'")
+	end 'neq'
+end 'assertEqStr'
+
+// contains is whether text has fragment in it.
+export function contains(text String, fragment String) returns bool
+	let n = text.byteLength()
+	let m = fragment.byteLength()
+	if m > n 'longer'
+		return false
+	end 'longer'
+	let last = try n - m otherwise 0 as Count
+	for start in 0 upto try last + 1 otherwise last 'starts'
+		var same = true
+		for i in 0 upto m 'bytes'
+			if text.byteAt(try start + i otherwise 0 as Count) != fragment.byteAt(i) 'differs'
+				same = false
+				break 'bytes'
+			end 'differs'
+		end 'bytes'
+		if same 'found'
+			return true
+		end 'found'
+	end 'starts'
+	return false
+end 'contains'

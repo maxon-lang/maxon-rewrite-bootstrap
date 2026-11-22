@@ -985,13 +985,25 @@ export function addTestFiles(mutates p ast.Project, first Count, under String) r
 	for m in first upto p.modules.count() 'modules'
 		let dir = p.modules[m].dir.clone()
 		if sameText(dir, b: under) or belowDirectory(dir, dir: under) 'tested'
-			let tests = testFilesIn(dir)
-			p.modules[m].filePaths.append(tests)
-			added = try added + tests.count() otherwise panic("project: more files of tests than memory")
+			added = try added + addModuleTestFiles(p, m: m) otherwise panic("project: more files of tests than memory")
 		end 'tested'
 	end 'modules'
 	return added
 end 'addTestFiles'
+
+// addEveryTestFile adds to each module of p from first on its files of tests, after its source files, which a check of the
+// project with its tests reads.
+export function addEveryTestFile(mutates p ast.Project, first Count)
+	for m in first upto p.modules.count() 'modules'
+		_ = addModuleTestFiles(p, m: m)
+	end 'modules'
+end 'addEveryTestFile'
+
+function addModuleTestFiles(mutates p ast.Project, m Count) returns Count
+	let tests = testFilesIn(p.modules[m].dir)
+	p.modules[m].filePaths.append(tests)
+	return tests.count()
+end 'addModuleTestFiles'
 
 function failMissingInput(rootPath String, mutates errs diag.ErrorList) returns bool
 	diag.pushLocatedError(errs, code: diag.errUnexpectedToken, message: "no such file or directory", file: rootPath.clone(), line: 1 as Count, col: 1 as Count)

@@ -1,0 +1,228 @@
+// Helpers that the tests of this module and of the modules above it share: the lowest module that may name all they
+// need is their one home, as a module's tests may name only what the module may name. Nothing else calls them, so the
+// linker leaves them out of every executable but a compile of tests.
+
+export typealias ConvList = Array with ast.Convention
+
+export function block(index Count) returns BlockID
+	return try index as BlockID otherwise panic("too many blocks")
+end 'block'
+
+export function convs0() returns ConvList
+	return ConvList.create(0)
+end 'convs0'
+
+export function expectIr(label String, got String, want ast.StringList)
+	let text = linesText(want)
+	if got != text 'differs'
+		panic("{label}: the IR is\n{got}but it should be\n{text}")
+	end 'differs'
+end 'expectIr'
+
+export function interpFunction(mutates p ast.Project, name String, convs ConvList) returns ast.FuncID
+	var tree = thaw(p.modules[0].tree)
+	let node = tree.alloc(ast.NodeKind.funcDecl, start: 0 as diag.U32)
+	p.modules[0].tree = freeze(tree)
+	var entry = ast.FuncEntry.make(name.clone(), visibility: "export", module: 0 as diag.ModuleID, nodeID: node)
+	for i in 0 upto convs.count() 'params'
+		entry.params.push(ast.ParamSpec.make("p{i}", ty: p.builtins.countTy, conv: convs[i]))
+		entry.paramTypes.push(p.builtins.countTy)
+	end 'params'
+	return ast.makeFunc(p, module: 0 as diag.ModuleID, f: entry)
+end 'interpFunction'
+
+// irProject is a project of one module that has a function with a body of one statement's worth of nodes, which the
+// functions of the tests are declared in.
+export function irProject() returns ast.Project
+	var p = ast.Project.new("")
+	_ = ast.addModule(p, m: ast.Module.new(0 as diag.ModuleID, path: "", text: "", files: ast.FileSpanList.create(0)))
+	p.rootModule = 0 as diag.ModuleID
+	return p
+end 'irProject'
+
+export function linesText(lines ast.StringList) returns String
+	var b = ByteArray.create(0)
+	for i in 0 upto lines.count() 'each'
+		b.append(lines[i].toByteArray())
+		b.push(10 as Byte)
+	end 'each'
+	return String.from(b)
+end 'linesText'
+
+export function oneFunction(consumes f IrFunction) returns IrFunctionList
+	var list = IrFunctionList.create(0)
+	list.push(f)
+	return list
+end 'oneFunction'
+
+export function regs1(a Reg) returns RegList
+	var list = RegList.create(0)
+	list.push(a)
+	return list
+end 'regs1'
+
+export function regs2(a Reg, b Reg) returns RegList
+	var list = RegList.create(0)
+	list.push(a)
+	list.push(b)
+	return list
+end 'regs2'
+
+// BpFn builds the function main of a project with Builder.
+export type BpFn
+	export var b as Builder
+	export var decl as ast.FuncID
+
+	export static function new(mutates p ast.Project) returns BpFn
+		let decl = interpFunction(p, name: "main", convs: convs0())
+		var b = Builder.new()
+		b.start(decl, name: "", paramCount: 0 as Count)
+		return BpFn{b: b, decl: decl}
+	end 'new'
+
+	export function block(mutates self) returns BlockID
+		return b.newBlock()
+	end 'block'
+
+	export function param(mutates self, block BlockID) returns Reg
+		return b.blockParam(block, kind: IrKind.kindScalar)
+	end 'param'
+
+	export function konst(mutates self, block BlockID, value Word) returns Reg
+		let r = b.f.newReg(IrKind.kindScalar)
+		b.emit(block, i: newConst(r, value: value))
+		return r
+	end 'konst'
+
+	export function bin(mutates self, block BlockID, op BinOp, left Reg, right Reg, fail BlockID) returns Reg
+		let r = b.f.newReg(IrKind.kindScalar)
+		b.emit(block, i: newBin(r, op: op, left: left, right: right, unsigned: false, fail: fail))
+		return r
+	end 'bin'
+
+	export function cmp(mutates self, block BlockID, op CmpOp, left Reg, right Reg) returns Reg
+		let r = b.f.newReg(IrKind.kindScalar)
+		b.emit(block, i: newCmp(r, op: op, left: left, right: right, unsigned: false))
+		return r
+	end 'cmp'
+end 'BpFn'
+
+export type FnBuilder
+	export var f as IrFunction
+	export var blockStart as Count
+
+	export static function new(decl ast.FuncID, consumes name String, paramCount Count) returns FnBuilder
+		return FnBuilder{f: IrFunction.new(decl, name: name, paramCount: paramCount), blockStart: 0 as Count}
+	end 'new'
+
+	export function reg(mutates self) returns Reg
+		let index = try f.regs.count() as Reg otherwise panic("too many registers")
+		f.regs.push(IrKind.kindScalar)
+		return index
+	end 'reg'
+
+	export function slot(mutates self, kind IrKind) returns Count
+		let index = f.slots.count()
+		f.slots.push(kind)
+		return index
+	end 'slot'
+
+	export function emit(mutates self, consumes instr Instr)
+		f.instrs.push(instr)
+	end 'emit'
+
+	export function constant(mutates self, value Word) returns Reg
+		let dst = self.reg()
+		self.emit(newConst(dst, value: value))
+		return dst
+	end 'constant'
+
+	export function bin(mutates self, op BinOp, left Reg, right Reg, unsigned bool, fail BlockID) returns Reg
+		let dst = self.reg()
+		self.emit(newBin(dst, op: op, left: left, right: right, unsigned: unsigned, fail: fail))
+		return dst
+	end 'bin'
+
+	export function add(mutates self, left Reg, right Reg) returns Reg
+		return self.bin(BinOp.binAdd, left: left, right: right, unsigned: false, fail: noBlock)
+	end 'add'
+
+	export function cmp(mutates self, op CmpOp, left Reg, right Reg, unsigned bool) returns Reg
+		let dst = self.reg()
+		self.emit(newCmp(dst, op: op, left: left, right: right, unsigned: unsigned))
+		return dst
+	end 'cmp'
+
+	export function str(mutates self, text String) returns Reg
+		let dst = self.reg()
+		let at = try f.strings.count() as Index otherwise panic("too many strings")
+		f.strings.push(text.clone())
+		self.emit(newStr(dst, text: at))
+		return dst
+	end 'str'
+
+	export function typeIndex(mutates self, ty ast.TypeID) returns Index
+		let at = try f.types.count() as Index otherwise panic("too many types")
+		f.types.push(ty)
+		return at
+	end 'typeIndex'
+
+	export function calleeIndex(mutates self, callee ast.FuncID) returns Index
+		let at = try f.callees.count() as Index otherwise panic("too many callees")
+		f.callees.push(callee)
+		return at
+	end 'calleeIndex'
+
+	// pushArgs adds the registers to the pool of arguments and gives where they start.
+	export function pushArgs(mutates self, args RegList) returns Reg
+		let start = try f.args.count() as Reg otherwise panic("too many arguments")
+		for i in 0 upto args.count() 'each'
+			f.args.push(args[i])
+		end 'each'
+		return start
+	end 'pushArgs'
+
+	export function call(mutates self, callee ast.FuncID, args RegList, errReg Reg) returns Reg
+		let dst = self.reg()
+		let count = try args.count() as Reg otherwise panic("too many arguments")
+		let start = self.pushArgs(args)
+		let calleeAt = self.calleeIndex(callee)
+		self.emit(newCall(dst, callee: calleeAt, argsStart: start, argsCount: count, errReg: errReg, floatResult: false))
+		return dst
+	end 'call'
+
+	export function alloc(mutates self, bytes Count) returns Reg
+		let dst = self.reg()
+		self.emit(newAlloc(dst, bytes: bytes))
+		return dst
+	end 'alloc'
+
+	export function storeWord(mutates self, obj Reg, offset Count, src Reg)
+		self.emit(newStoreField(obj, offset: offset, src: src))
+	end 'storeWord'
+
+	export function loadWord(mutates self, obj Reg, offset Count) returns Reg
+		let dst = self.reg()
+		self.emit(newLoadField(dst, obj: obj, offset: offset))
+		return dst
+	end 'loadWord'
+
+	export function copyOf(mutates self, src Reg, ty ast.TypeID) returns Reg
+		let dst = self.reg()
+		let at = self.typeIndex(ty)
+		self.emit(newCopy(dst, src: src, ty: at))
+		return dst
+	end 'copyOf'
+
+	export function drop(mutates self, src Reg, ty ast.TypeID)
+		let at = self.typeIndex(ty)
+		self.emit(newDrop(src, ty: at))
+	end 'drop'
+
+	// finish ends the block that the instructions since the last one make.
+	export function finish(mutates self, consumes term Term)
+		let endAt = f.instrs.count()
+		f.blocks.push(Block.make(blockStart, endAt: endAt, params: 0, paramCount: 0, term: term))
+		blockStart = endAt
+	end 'finish'
+end 'FnBuilder'

@@ -1,9 +1,3 @@
-function assertEqStr(got String, expected String, label String)
-	if got != expected 'neq'
-		panic("{label}: expected '{expected}', got '{got}'")
-	end 'neq'
-end 'assertEqStr'
-
 function hexDigit(c Byte) returns Count
 	let value = c as Count
 	if value >= 65 'upper'
@@ -69,29 +63,6 @@ function peHelloProgram(image PeImage, messageLength Count) returns ByteArray
 	emitRel32(code, target: importSlotRva(image, index: 0), textRva: image.textRva)
 	return code
 end 'peHelloProgram'
-
-function peTempPath(name String) returns FilePath
-	let dir = try Process.environmentVariable("TEMP") otherwise panic("TEMP is not set")
-	return try FilePath.from("{dir}\\{name}") otherwise panic("not a path")
-end 'peTempPath'
-
-// runPeImage writes the image to a file, runs it and gives what it printed and its exit code.
-function runPeImage(image PeImage, name String, expectedCode ExitCode, expectedOutput String)
-	let out = runPeImageOutput(image, name: name, expectedCode: expectedCode)
-	assertEqStr(out.stdout, expected: expectedOutput, label: name)
-end 'runPeImage'
-
-// runPeImageOutput writes the image, runs it and checks its exit code, and gives what it wrote.
-function runPeImageOutput(image PeImage, name String, expectedCode ExitCode) returns CollectedOutput
-	let path = peTempPath(name)
-	try writePeImage(image, path: path) otherwise panic("cannot write {name}")
-	let out = try Subprocess.run(Executable.path(peTempPath(name)), arguments: Array.create(0)) otherwise panic("cannot run {name}")
-	try File.delete(path) otherwise panic("cannot delete {name}")
-	if out.exitCode() != expectedCode 'code'
-		panic("{name}: expected exit code {expectedCode}, got {out.exitCode()}")
-	end 'code'
-	return out
-end 'runPeImageOutput'
 
 test 'pe'
 	let message = "hello from a PE written by self\n"

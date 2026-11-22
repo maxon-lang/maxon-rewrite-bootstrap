@@ -47,6 +47,9 @@ let moveFileReplaceExisting = 1
 
 let dwordMask = 0xFFFFFFFF
 
+// dwordBits is the width of a DWORD, which the high half of a 64-bit quantity that Windows gives in two is shifted by.
+let dwordBits = 32
+
 let noSecurity = 0
 
 let noTemplate = 0
@@ -127,6 +130,14 @@ let deleteBusy = 2
 
 let deleteFailed = 3
 
+let infoNotFound = 0
+
+let infoAccessDenied = 1
+
+let infoBusy = 2
+
+let infoFailed = 3
+
 let listNotFound = 0
 
 let listAccessDenied = 1
@@ -150,6 +161,32 @@ let listPatternSuffix = "\\*"
 let findDataBytes = 592
 
 let findDataNameOffset = 44
+
+// Where WIN32_FIND_DATAW holds the attributes (a DWORD), the three FILETIMEs and the two halves of the size, the high
+// one first. The FILETIMEs sit at offsets that are not multiples of 8, which a word load on x64 does not mind.
+let findDataAttributesOffset = 0
+
+let findDataCreatedOffset = 4
+
+let findDataAccessedOffset = 12
+
+let findDataModifiedOffset = 20
+
+let findDataSizeHighOffset = 28
+
+let findDataSizeLowOffset = 32
+
+let fileAttributeReadOnly = 0x1
+
+// A FILETIME counts 100-nanosecond ticks from 1601: these make it Unix seconds.
+let fileTimeTicksPerSecond = 10000000
+
+let fileTimeTicksFrom1601To1970 = 116444736000000000
+
+// The bits of the attributes word that osFileInfo gives, which lowering reads FileInfo's flags from.
+let infoDirectoryFlag = 1
+
+let infoReadOnlyFlag = 2
 
 // longPathUnits is the longest path Windows has, which a buffer for the executable's path or the working directory is
 // made to hold.
@@ -217,6 +254,10 @@ end 'renameFailures'
 function deleteFailures() returns Count
 	return failureCases(deleteNotFound, accessDenied: deleteAccessDenied, busy: deleteBusy, alreadyExists: deleteFailed, other: deleteFailed)
 end 'deleteFailures'
+
+function infoFailures() returns Count
+	return failureCases(infoNotFound, accessDenied: infoAccessDenied, busy: infoBusy, alreadyExists: infoFailed, other: infoFailed)
+end 'infoFailures'
 
 function listFailures() returns Count
 	return failureCases(listNotFound, accessDenied: listAccessDenied, busy: listFailed, alreadyExists: listFailed, other: listFailed)
@@ -516,6 +557,52 @@ function osDelete(path String, errorAddress Count)
 	free(widePath)
 	endWithError(errorAddress, win32: win32, table: deleteFailures())
 end 'osDelete'
+
+// unixSecondsOf is the FILETIME at an offset of a record in Unix seconds, or 0 for a time before 1970.
+function unixSecondsOf(record Count, offset Count) returns Count
+	let ticks = __Raw.loadWord(record, offset: offset)
+	if ticks < fileTimeTicksFrom1601To1970 'before'
+		return 0
+	end 'before'
+	return (ticks - fileTimeTicksFrom1601To1970) / fileTimeTicksPerSecond
+end 'unixSecondsOf'
+
+// osFileInfo is the time a file was last written, in Unix seconds, and stores its size, the times it was made and last
+// read and a word of its attributes (infoDirectoryFlag, infoReadOnlyFlag) at the addresses given. FindFirstFileW reads
+// the directory's record of the file, as maxon does, so a file that another process holds open is no failure.
+function osFileInfo(path String, size Count, created Count, accessed Count, attributes Count, errorAddress Count) returns Count
+	let widePath = wideOf(path)
+	let findData = alloc(findDataBytes)
+	let search = __Raw.callImport2("FindFirstFileW", arg1: widePath, arg2: findData)
+	if search == invalidHandle 'missing'
+		let win32 = win32Error()
+		free(widePath)
+		free(findData)
+		endWithError(errorAddress, win32: win32, table: infoFailures())
+		return 0
+	end 'missing'
+	_ = __Raw.callImport1("FindClose", arg1: search)
+	free(widePath)
+	let high = dword(__Raw.loadWord(findData, offset: findDataSizeHighOffset))
+	let low = dword(__Raw.loadWord(findData, offset: findDataSizeLowOffset))
+	let highPart = try high shl dwordBits otherwise panic("a file's size is past a word")
+	__Raw.storeWord(size, offset: 0, value: highPart or low)
+	__Raw.storeWord(created, offset: 0, value: unixSecondsOf(findData, offset: findDataCreatedOffset))
+	__Raw.storeWord(accessed, offset: 0, value: unixSecondsOf(findData, offset: findDataAccessedOffset))
+	let raw = dword(__Raw.loadWord(findData, offset: findDataAttributesOffset))
+	var flags = 0 as Count
+	if (raw and fileAttributeDirectory) != 0 'directory'
+		flags = flags or infoDirectoryFlag
+	end 'directory'
+	if (raw and fileAttributeReadOnly) != 0 'readOnly'
+		flags = flags or infoReadOnlyFlag
+	end 'readOnly'
+	__Raw.storeWord(attributes, offset: 0, value: flags)
+	let modified = unixSecondsOf(findData, offset: findDataModifiedOffset)
+	free(findData)
+	succeed(errorAddress)
+	return modified
+end 'osFileInfo'
 
 // directoryAt is whether a zero-terminated UTF-16 path names a directory.
 function directoryAt(widePath Count) returns bool

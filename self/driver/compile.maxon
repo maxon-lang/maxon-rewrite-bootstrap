@@ -41,6 +41,9 @@ function startDiscovered(consumes p ast.Project, consumes memory project.SourceF
 		printError("test: no module under {options.testsUnder} has a file of tests (.maxtest)\n")
 		return diagnosticsExitCode
 	end 'noTests'
+	if options.checksTests 'checkTests'
+		project.addEveryTestFile(held, first: first)
+	end 'checkTests'
 	var traced = trace
 	traced.prepare()
 	startCompile(held, memory: memory, first: first, goal: goalOf(output), makesProgram: output != "" and not options.runsTests, output: output, options: options, ready: ready, errs: errs, trace: traced)

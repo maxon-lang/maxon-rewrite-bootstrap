@@ -53,6 +53,60 @@ function Test-Behaviours {
 	}
 }
 
+# The build cache must make the executable an uncached build makes. A project whose main inlines a leaf of the module it
+# names is built cold and warm, then the leaf's body is edited: the order takes the leaf's module to make the summary it
+# made before, main's entry is linked, the leaf's lower finds another summary and the compile is done again, and the
+# executable must be the uncached one of the edited source and print what that source prints. All of it runs on the
+# machine's workers and again on one, each with a cache of its own.
+function Test-Cache {
+	$case = Join-Path $PSScriptRoot 'tests\modules\a-leaf-of-a-named-module-is-inlined'
+	$beforeCache = $env:MINIMAXON_CACHE
+	$beforeProcs = $env:MAXON_MAX_PROCS
+	$root = Join-Path ([IO.Path]::GetTempPath()) "minimaxon-cache-test-$PID"
+	try {
+		foreach ($procs in '', '1') {
+			$env:MAXON_MAX_PROCS = $procs
+			Remove-Item -Recurse -Force $root -ErrorAction SilentlyContinue
+			$project = Join-Path $root 'project'
+			$null = New-Item -ItemType Directory -Force $root
+			Copy-Item -Recurse $case $project
+			$env:MINIMAXON_CACHE = Join-Path $root 'cache'
+			function Build($name, [string[]]$flags) {
+				$exe = Join-Path $root "$name.exe"
+				$out = & $compiler build $project -o $exe @flags 2>&1 | Out-String
+				if ($LASTEXITCODE -ne 0) { throw "cache: the $name build failed: $out" }
+				return (Get-FileHash $exe).Hash
+			}
+			function Same($a, $b, $what) {
+				if ($a -ne $b) { throw "cache ($(if ($procs) { "$procs worker" } else { 'all workers' })): $what" }
+			}
+			$uncached = Build 'uncached' @('--no-cache')
+			Same (Build 'cold' @()) $uncached 'the cold build differs from the uncached one'
+			Same (Build 'warm' @()) $uncached 'the warm build differs from the uncached one'
+			$leaf = Join-Path $project 'gauges\gauges.maxon'
+			$text = [IO.File]::ReadAllText($leaf)
+			$edited = $text.Replace("`t`treturn i`n`tend 'inside'", "`t`treturn i + 1`n`tend 'inside'")
+			if ($edited -eq $text) { throw 'cache: the leaf to edit is not in the test project' }
+			[IO.File]::WriteAllText($leaf, $edited)
+			$editedUncached = Build 'edited-uncached' @('--no-cache')
+			Same (Build 'edited' @()) $editedUncached 'after a misprediction the build differs from the uncached one'
+			Same (Build 'edited-warm' @()) $editedUncached 'the warm build of the edited source differs from the uncached one'
+			$printed = & (Join-Path $root 'edited.exe')
+			if ($printed -eq '5920') { throw 'cache: the edited leaf did not change what the program prints' }
+			$null = Build 'verified' @('--verify-cache')
+		}
+	} catch {
+		Write-Output $_.Exception.Message
+		$global:LASTEXITCODE = 1
+		return
+	} finally {
+		$env:MINIMAXON_CACHE = $beforeCache
+		$env:MAXON_MAX_PROCS = $beforeProcs
+		Remove-Item -Recurse -Force $root -ErrorAction SilentlyContinue
+	}
+	$global:LASTEXITCODE = 0
+}
+
 $steps = @(
 	# cmd/convert lays out what it converts with the compiler's fmt.
 	@('Go tests', { $env:MINIMAXON = $compiler; go test ./... }),
@@ -61,11 +115,12 @@ $steps = @(
 	# the signatures the compiler calls.
 	@('runtime', { & $compiler check runtime }),
 	# The compiler's own source is a program too: a rule that it breaks would otherwise show only when the seed is renewed.
-	@('self', { & $compiler check self --verify-reads }),
+	@('self', { & $compiler check self --tests --verify-reads }),
 	@('layout', { & $compiler fmt --check self runtime tests }),
 	# Test programs inherit stdin, so one that reads it would wait until the runner's deadline ends it: give it none.
 	@('corpus', { $null | & $compiler test @TestArgs }),
 	@('behaviours', { Test-Behaviours }),
+	@('cache', { Test-Cache }),
 	@('specs', { Test-Specs }),
 	# Every program the generator writes that the checker accepts must run clean under the interpreter: a violation is a
 	# hole in the checker.

@@ -1,28 +1,3 @@
-function linesText(lines ast.StringList) returns String
-	var b = ByteArray.create(0)
-	for i in 0 upto lines.count() 'each'
-		b.append(lines[i].toByteArray())
-		b.push(10 as Byte)
-	end 'each'
-	return String.from(b)
-end 'linesText'
-
-function expectIr(label String, got String, want ast.StringList)
-	let text = linesText(want)
-	if got != text 'differs'
-		panic("{label}: the IR is\n{got}but it should be\n{text}")
-	end 'differs'
-end 'expectIr'
-
-// irProject is a project of one module that has a function with a body of one statement's worth of nodes, which the
-// functions of the tests are declared in.
-function irProject() returns ast.Project
-	var p = ast.Project.new("")
-	_ = ast.addModule(p, m: ast.Module.new(0 as diag.ModuleID, path: "", text: "", files: ast.FileSpanList.create(0)))
-	p.rootModule = 0 as diag.ModuleID
-	return p
-end 'irProject'
-
 // irFunction declares a function of the project's module, which the lowering reads its parameters from, and gives the
 // node it is declared at.
 function irFunction(mutates p ast.Project, name String, params Count) returns ast.FuncID
