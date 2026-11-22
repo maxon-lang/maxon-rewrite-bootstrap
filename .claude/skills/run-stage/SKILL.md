@@ -102,6 +102,33 @@ A standing rule, applied after every task or workflow round and before merging.
 - Ask agents to prefer Read with offset/limit and Grep over `cat`/`sed`/`grep` through the shell. An auto-mode reminder
   tells them otherwise; following it works but costs more output.
 
+## Review before a commit
+
+Every task's change is reviewed before it is committed, by a fresh agent that did not write it. The gate proves
+behaviour; the review is for what the gate cannot see.
+
+- **When.** As soon as a task reports, while its patch is being merged and gated: save the patch
+  (`git -C <worktree> diff --cached --binary HEAD > <scratch>/<task>.patch`) and give the reviewer the patch's path and
+  the worktree to read around it. A change already on `main` is reviewed by its commit (`git show <hash>`).
+- **The two questions.**
+  1. *Proper Maxon style.* The references are maxon's `docs/STYLE_GUIDE.md`, `docs/BEST_PRACTICES.md` and
+     `docs/WRITING_MAXON_CODE.md` (`C:\Users\Eric\Dev\maxon`, read by Grep and line ranges), the `write-self` skill
+     and AGENTS.md's code quality rules, read through README "Where it differs from Maxon".
+  2. *Optimization opportunities.* Allocation and copies on hot paths, flat data and cache behaviour, algorithmic
+     cost, work repeated per function or per module that could be done once; for backend work, the quality of the
+     code it generates.
+- **The brief** gives the reviewer the diff and the code, never the author's report or the session's conclusions, and
+  asks for findings ranked most severe first, each with file and line, what is wrong, why it matters and the change
+  proposed, marked `style`, `optimization` or `defect`, and `must fix` or `could`. It asks for no praise and no
+  summary of the change. `sonnet` by default; `opus` for the runtime's concurrency, the allocator and the checker's
+  ownership and range analysis.
+- **What happens to findings.** The session triages them (a finding that contradicts a decision of the user's, or a
+  recorded difference, is dropped). `must fix` goes back to the author with `SendMessage`, in its worktree, before the
+  merge; when the change is already on `main`, to a fix task whose commit names the review. `could` findings that are
+  worth doing later go into the stage's queue. The reviewer never edits.
+- **Backlog.** Code that landed without a review is reviewed by area on the current tree, not commit by commit; the
+  findings are kept under the project's `phase3/reviews/` directory.
+
 ## Before a commit
 
 From the repository root (Go is at `C:\Program Files\Go\bin` if not on `PATH`):
