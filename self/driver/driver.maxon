@@ -148,14 +148,14 @@ export function run(args Array with String) returns ExitCode
 	end 'unnamed'
 	let path = rest[1].clone()
 	if command == "check" 'check'
-		return compilePath(path, output: "", options: options)
+		return buildPath(path, output: "", options: options)
 	end 'check'
 	if command == "build" 'build'
 		var output = defaultOutput(path)
 		if rest.count() >= 4 and rest[2] == outputFlag 'named'
 			output = rest[3].clone()
 		end 'named'
-		return compilePath(path, output: output, options: options)
+		return buildPath(path, output: output, options: options)
 	end 'build'
 	if command == "run" 'run'
 		return runProgram(path, options: options)

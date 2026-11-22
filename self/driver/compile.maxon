@@ -6,6 +6,40 @@ function compilePath(path String, output String, options Options) returns ExitCo
 	return report(errs)
 end 'compilePath'
 
+// goalOf is the goal of a compile with an output, an executable, and of one without, the diagnostics of a check, for which
+// it finds the instances and holds the runtime.
+function goalOf(output String) returns Goal
+	if output != "" 'makes'
+		return Goal.executable
+	end 'makes'
+	return Goal.instances
+end 'goalOf'
+
+// buildPath is compilePath for the compiler's build and check commands, whose compile runs as behaviours (startCompile), on
+// every core: the last of them prints the diagnostics and sets the code the process exits with, which replaces the one that
+// buildPath gives, unless the compile ended before its tasks began.
+function buildPath(path String, output String, options Options) returns ExitCode
+	var errs = diag.ErrorList.create(0)
+	var p = ast.Project.new("")
+	var ready = backend.UnitList.create(0)
+	if output != "" and not project.isRuntimeDirectory(path) 'runtime'
+		prepareRuntime(p, ready: ready, options: options, errs: errs)
+	end 'runtime'
+	if errs.count() > 0 'broken'
+		return report(errs)
+	end 'broken'
+	let first = p.modules.count()
+	match consumes project.discoverProjectInto(p, rootPath: path, errs: errs) 'found'
+		some(memory) then startCompile(p, memory: memory, first: first, goal: goalOf(output), makesProgram: output != "", output: output, options: options, ready: ready, errs: errs)
+		none then return report(errs)
+	end 'found'
+	return compiledByBehaviours
+end 'buildPath'
+
+// compiledByBehaviours is the code a process whose compile runs as behaviours gives when main returns, which the last of them
+// replaces.
+let compiledByBehaviours = 0 as ExitCode
+
 // compileProject is compilePath's compile, which leaves the diagnostics in errs for the caller to report.
 function compileProject(path String, output String, options Options, mutates errs diag.ErrorList)
 	var p = ast.Project.new("")
@@ -149,11 +183,7 @@ end 'compileLoaded'
 // compileFrom is the compile of compileDiscovered and compileLoaded: with an output, to the executable there, and without one
 // as far as the diagnostics, which it locates.
 function compileFrom(mutates p ast.Project, from Stage, memory project.SourceFiles, first Count, mutates ready backend.UnitList, output String, options Options, mutates errs diag.ErrorList) returns Generated
-	var goal = Goal.instances
-	if output != "" 'makes'
-		goal = Goal.executable
-	end 'makes'
-	var run = runStages(p, from: from, memory: memory, first: first, goal: goal, makesProgram: output != "", output: output, options: options, ready: ready, errs: errs)
+	var run = runStages(p, from: from, memory: memory, first: first, goal: goalOf(output), makesProgram: output != "", output: output, options: options, ready: ready, errs: errs)
 	let generated = run.generated()
 	ast.locateAllErrors(p.modules, errs: errs)
 	return generated
@@ -173,7 +203,7 @@ end 'declareFront'
 function checkLoaded(mutates p ast.Project, goal Goal, makesProgram bool, mutates errs diag.ErrorList) returns check.Checked
 	var ready = backend.UnitList.create(0)
 	var run = runStages(p, from: Stage.resolve, memory: project.SourceFiles.create(0), first: 0, goal: goal, makesProgram: makesProgram, output: "", options: Options.new(), ready: ready, errs: errs)
-	return exchange(run.checked, value: noChecked())
+	return exchange(run.checked, value: check.Checked.none())
 end 'checkLoaded'
 
 // lowerLoaded checks the modules of p, which are parsed, and lowers their functions, which is nothing when an error stopped
@@ -191,16 +221,17 @@ function appendErrors(mutates errs diag.ErrorList, found diag.ErrorList)
 end 'appendErrors'
 
 // verifyIr stops the compile at the first function whose IR breaks a rule of the verifier, which is a fault of the compiler.
-function verifyIr(p ast.Project, lowered backend.FunctionLists)
+function verifyIr(p ast.Project, lowered opt.LoweredLists)
+	let ms = ast.ModuleState.ofProject()
 	for m in 0 upto lowered.count() 'modules'
-		verifyFunctions(p, fns: lowered[m])
+		verifyFunctions(p, ms: ms, fns: lowered[m])
 	end 'modules'
 end 'verifyIr'
 
-// verifyFunctions is verifyIr for the functions of one module.
-function verifyFunctions(p ast.Project, fns ir.IrFunctionList)
+// verifyFunctions is verifyIr for the functions of one module, which a task that holds ms reads in p.
+function verifyFunctions(p ast.Project, ms ast.ModuleState, fns ir.IrFunctionList)
 	for i in 0 upto fns.count() 'functions'
-		let problems = ir.verifyIr(p, tt: ast.TypeSlot.none(), reads: p.types, ft: ast.FuncSlot.none(), funcReads: p.funcs, f: fns[i])
+		let problems = ir.verifyIr(p, tt: ms.types, reads: p.types, ft: ms.funcs, funcReads: p.funcs, f: fns[i])
 		if problems.count() > 0 'broken'
 			var text = ByteArray.create(0)
 			for k in 0 upto problems.count() 'each'
@@ -212,7 +243,7 @@ function verifyFunctions(p ast.Project, fns ir.IrFunctionList)
 end 'verifyFunctions'
 
 // writeIr writes the IR of every module's functions, in module order, as --emit-ir asks.
-function writeIr(p ast.Project, lowered backend.FunctionLists, path String)
+function writeIr(p ast.Project, lowered opt.LoweredLists, path String)
 	var text = ByteArray.create(0)
 	for m in 0 upto lowered.count() 'modules'
 		text.append(ir.moduleIrText(p, tt: ast.TypeSlot.none(), reads: p.types, ft: ast.FuncSlot.none(), funcReads: p.funcs, functions: lowered[m]).toByteArray())
@@ -224,7 +255,7 @@ end 'writeIr'
 // refusals are the places in the modules' functions where a program needs something the backend cannot run yet, such as
 // a map, a list or a pool, which only the interpreter runs. One is reported for each function, at its first, and an
 // instance that several modules lowered is reported once.
-function refusals(p ast.Project, lowered backend.FunctionLists, mutates errs diag.ErrorList)
+function refusals(p ast.Project, lowered opt.LoweredLists, mutates errs diag.ErrorList)
 	var seen = ir.RefusalList.create(0)
 	for m in 0 upto lowered.count() 'modules'
 		for f in 0 upto lowered[m].count() 'functions'

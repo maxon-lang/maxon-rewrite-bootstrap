@@ -253,18 +253,6 @@ function nameInfoOf(typing ast.Typing, node ast.NodeID) returns ast.NameInfo
 	end 'info'
 end 'nameInfoOf'
 
-export function checkerStartMod(mutates p ast.Project, modIdx Count) returns Checker
-	let modID = p.modules[modIdx].id
-	return Checker.make(modID, typing: thaw(p.typings[modIdx]))
-end 'checkerStartMod'
-
-export function checkerEndMod(mutates p ast.Project, consumes c Checker)
-	var mc = c
-	let mIdx = mc.modIdx
-	let finalTp = exchange(mc.typing, value: ast.Typing.new(mc.modID))
-	p.typings[mIdx] = freeze(finalTp)
-end 'checkerEndMod'
-
 export function typeIsAnonInt(tt ast.TypeSlot, reads ast.TypeTable, t ast.TypeID) returns bool
 	if t == ast.noType 'n'
 		return false

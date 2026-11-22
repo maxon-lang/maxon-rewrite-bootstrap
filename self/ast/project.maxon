@@ -599,36 +599,34 @@ end 'setDeclConst'
 
 typealias Reached = Array with bool
 
-// setModuleReads records, for each module the compile compiles from first on, the slots whose shapes its stages read:
-// those of the modules it names, directly or through others, whose stages its own wait on, and of the modules an
-// earlier compile compiled, which are done.
-export function setModuleReads(mutates p Project, first Count)
-	for m in first upto p.modules.count() 'modules'
-		var reached = Reached.filled(p.modules.count(), value: false)
-		for e in 0 upto first 'earlier'
-			reached[e] = true
-		end 'earlier'
-		var pending = SlotList.create(0)
-		pending.push(m)
-		while pending.count() > 0 'reach'
-			let at = try pending.pop() otherwise panic("a module was taken off an empty list")
-			for j in 0 upto p.resolutions[at].deps.count() 'deps'
-				let d = modIndex(p.resolutions[at].deps[j].module)
-				if not reached[d] 'new'
-					reached[d] = true
-					pending.push(d)
-				end 'new'
-			end 'deps'
-		end 'reach'
-		var slots = SlotList.create(0)
-		for d in 0 upto p.modules.count() 'slots'
-			if reached[d] and d != m 'read'
-				slots.push(moduleSlot(p.modules[d].id))
-			end 'read'
-		end 'slots'
-		setShapeReads(p.types, module: p.modules[m].id, slots: slots)
-	end 'modules'
-end 'setModuleReads'
+// moduleReads are the slots whose shapes the stages of module m read, of a compile of the modules from first on: those of
+// the modules it names, directly or through others, whose stages its own wait on, and of the modules an earlier compile
+// compiled, which are done.
+export function moduleReads(p Project, m Count, first Count) returns SlotList
+	var reached = Reached.filled(p.modules.count(), value: false)
+	for e in 0 upto first 'earlier'
+		reached[e] = true
+	end 'earlier'
+	var pending = SlotList.create(0)
+	pending.push(m)
+	while pending.count() > 0 'reach'
+		let at = try pending.pop() otherwise panic("a module was taken off an empty list")
+		for j in 0 upto p.resolutions[at].deps.count() 'deps'
+			let d = modIndex(p.resolutions[at].deps[j].module)
+			if not reached[d] 'new'
+				reached[d] = true
+				pending.push(d)
+			end 'new'
+		end 'deps'
+	end 'reach'
+	var slots = SlotList.create(0)
+	for d in 0 upto p.modules.count() 'slots'
+		if reached[d] and d != m 'read'
+			slots.push(moduleSlot(p.modules[d].id))
+		end 'read'
+	end 'slots'
+	return slots
+end 'moduleReads'
 
 // rawTypeOf is the type of the raw values of the enum or union t, an origin, once the constants stage of the module that
 // declares it has typed them, and noType before then or where its cases write literals.
@@ -742,12 +740,25 @@ export type Project
 	end 'view'
 end 'Project'
 
-// viewOf is the project as a task of a module reads it, made of shares of the products of the stages it waited on: modules,
-// the tables of types and functions, resolutions and typings, each a view or a share, and the rest of p shared.
-export function viewOf(p Project, consumes modules ModuleList, consumes types TypeTable, consumes funcs FuncTable, consumes resolutions Array with frozen with Resolution, consumes typings Array with frozen with Typing) returns Project
+// baseOf is what every task of a compile of the modules from first on reads of the work that ran before it, which nothing
+// writes while the compile runs: the built-ins, the standard library, the index of paths, and the modules before first, with
+// their slots of the tables, sealed when the compile began (sealProject), each shared. A task's view of the project is made
+// of it and of the products of the stages it waited on (viewFrom).
+export function baseOf(p Project, first Count) returns Project
 	let stdlib = p.stdlib.viewOf(share(p.stdlib.tree), parsed: true, viewTables: p.stdlib.tables.viewOf(everySegment))
-	return Project.view(p.root.clone(), target: p.target.clone(), rootModule: p.rootModule, modules: modules, stdlib: stdlib, byPath: share(p.byPath), types: types, funcs: funcs, builtins: share(p.builtins), resolutions: resolutions, typings: typings)
-end 'viewOf'
+	var modules = ModuleList.create(0)
+	var resolutions as Array with frozen with Resolution
+	resolutions = Array.create(0)
+	var typings as Array with frozen with Typing
+	typings = Array.create(0)
+	for a in 0 upto first 'earlier'
+		modules.push(p.modules[a].viewOf(share(p.modules[a].tree), parsed: true, viewTables: p.modules[a].tables.viewOf(everySegment)))
+		resolutions.push(share(p.resolutions[a]))
+		typings.push(share(p.typings[a]))
+	end 'earlier'
+	let firstSlot = moduleSlot(try first as diag.ModuleID otherwise panic("a module past the handles"))
+	return Project.view(p.root.clone(), target: p.target.clone(), rootModule: p.rootModule, modules: modules, stdlib: stdlib, byPath: share(p.byPath), types: baseTypes(p.types, firstSlot: firstSlot), funcs: baseFuncs(p.funcs, firstSlot: firstSlot), builtins: share(p.builtins), resolutions: resolutions, typings: typings)
+end 'baseOf'
 
 export function addModule(mutates p Project, consumes m Module) returns diag.ModuleID
 	let id = try p.modules.count() as diag.ModuleID otherwise panic("too many modules")

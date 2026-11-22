@@ -82,7 +82,10 @@ export type Leaves
 	end 'placeOf'
 end 'Leaves'
 
-export typealias LeavesList = Array with Leaves
+export typealias LeavesList = Array with frozen with Leaves
+
+// LoweredLists are the functions of the modules a compile lowers, by module, each frozen once its lower ended.
+export typealias LoweredLists = Array with frozen with ir.IrFunctionList
 
 // findLeaves finds the leaves among fns, the functions of the module whose entries the slot slot of the function table
 // holds, once the optimizer has run on them.
@@ -200,7 +203,7 @@ export type Inliner
 	// rebuild lays f out again with every call of a leaf outside a cold block replaced by a copy of the leaf: the block of
 	// the call ends there with a jump to the copy, whose returns and throws jump to a block added after it that holds the
 	// rest. The function's own blocks keep their numbers; the added ones come after them.
-	function rebuild(mutates self, mutates f ir.IrFunction, own Leaves, ownFns ir.IrFunctionList, lowered Array with ir.IrFunctionList, leaves LeavesList, reads Array with bool, first Count)
+	function rebuild(mutates self, mutates f ir.IrFunction, own Leaves, ownFns ir.IrFunctionList, lowered LoweredLists, leaves LeavesList, reads Array with bool, first Count)
 		head.clear()
 		tail.clear()
 		added.clear()
@@ -439,7 +442,7 @@ end 'hasLeafCall'
 
 // inlineInto replaces the calls of leaves in f and in the bodies of its closures and behaviours, and gives whether it
 // replaced any.
-function inlineInto(mutates o Optimizer, mutates f ir.IrFunction, own Leaves, ownFns ir.IrFunctionList, lowered Array with ir.IrFunctionList, leaves LeavesList, reads Array with bool, first Count) returns bool
+function inlineInto(mutates o Optimizer, mutates f ir.IrFunction, own Leaves, ownFns ir.IrFunctionList, lowered LoweredLists, leaves LeavesList, reads Array with bool, first Count) returns bool
 	var changed = false
 	for i in 0 upto f.bodies.count() 'bodies'
 		if inlineInto(o, f: f.bodies[i], own: own, ownFns: ownFns, lowered: lowered, leaves: leaves, reads: reads, first: first) 'body'
@@ -459,7 +462,7 @@ end 'inlineInto'
 // before any is copied, so every copy of a leaf is the same body. own are the module's leaves; lowered and leaves are the
 // functions and leaves of the modules this compile lowers, by their index from first, of which the module may read those
 // reads marks: the ones it names, whose lower its own waited for. The module's own entry in lowered is not read.
-export function inlineModule(mutates o Optimizer, mutates fns ir.IrFunctionList, mutates fallbacks ir.Fallbacks, own Leaves, lowered Array with ir.IrFunctionList, leaves LeavesList, reads Array with bool, first Count)
+export function inlineModule(mutates o Optimizer, mutates fns ir.IrFunctionList, mutates fallbacks ir.Fallbacks, own Leaves, lowered LoweredLists, leaves LeavesList, reads Array with bool, first Count)
 	for i in 0 upto fns.count() 'expand'
 		if mayLoop(fns[i]) and (treeHasExpandable(fns[i]) or treeHasLeafCall(fns[i], own: own, leaves: leaves, reads: reads, first: first)) 'fallback'
 			fallbacks.add(i, f: fns[i].clone())

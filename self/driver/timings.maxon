@@ -67,6 +67,15 @@ export type Timings
 		moduleNanos[module] = try before + nanos otherwise panic("driver: the time of a module passes a word of nanoseconds")
 	end 'addModule'
 
+	// addTask charges what one task timed besides its wall time: the phases of an emit and the calls an inline replaced.
+	export function addTask(mutates self, clock backend.EmitClock, inlined Count)
+		for i in 0 upto clock.nanos.count() 'phases'
+			let before = emit.nanos[i]
+			emit.nanos[i] = try before + clock.nanos[i] otherwise panic("driver: the time of a phase passes a word of nanoseconds")
+		end 'phases'
+		inlinedCalls = try inlinedCalls + inlined otherwise panic("driver: more calls inlined than memory")
+	end 'addTask'
+
 	// total is the time of every task.
 	export function total() returns Count
 		var sum = 0 as Count

@@ -64,33 +64,234 @@ export type ModuleState
 	end 'ofProject'
 end 'ModuleState'
 
-// lendModule lends the task of the stage of phase of module the module's slots of the tables, in which it writes the
-// segment of phase, and what lent says of the module. inputs are what of each slot the task waited on, which its slot's
-// index of shapes takes in.
-export function lendModule(mutates p Project, module diag.ModuleID, lent Lent, phase Phase, inputs Inputs) returns ModuleState
+// ModuleHome is what the tasks of one module write, which a compile holds for the module between its tasks, out of the
+// project (takeHome, putHome), so that a task reads every other module only in the products of the stages it waited on: the
+// module's slots of the type and the function table, its tables, its record (where it is, and the products of the stages
+// that made its source and its tree, frozen), and the products of its resolve and of its check. A task is lent what its
+// stage writes of it (lendHome) and gives it back (returnHome); what the stages that ended made of it is its product
+// (publish).
+export type ModuleHome
+	export var module as diag.ModuleID
+	var types as TypeSlot
+	var funcs as FuncSlot
+	var tables as ModuleTables
+	var record as Module
+	var resolution as frozen with Resolution
+	var typing as frozen with Typing
+
+	static function make(module diag.ModuleID, consumes types TypeSlot, consumes funcs FuncSlot, consumes tables ModuleTables, consumes record Module, consumes resolution frozen with Resolution, consumes typing frozen with Typing) returns ModuleHome
+		return ModuleHome{module: module, types: types, funcs: funcs, tables: tables, record: record, resolution: resolution, typing: typing}
+	end 'make'
+
+	// empty is the home of module whose parts are elsewhere.
+	export static function empty(module diag.ModuleID) returns ModuleHome
+		return ModuleHome.make(module, types: TypeSlot.none(), funcs: FuncSlot.none(), tables: ModuleTables.lentOut(), record: Module.new(module, path: "", text: "", files: FileSpanList.create(0)), resolution: freeze(Resolution.new(module)), typing: freeze(Typing.new(module)))
+	end 'empty'
+
+	// path is where the module is, which names it in a message.
+	export function path() returns String
+		return record.path.clone()
+	end 'path'
+
+	// setShapeReads records the slots of the modules whose shapes the stages of the module read besides its own and sharedSlot.
+	export function setShapeReads(mutates self, consumes slots SlotList)
+		types.reads = slots
+	end 'setShapeReads'
+
+	// setTyping makes typing, which the module's check ended with, its typing: the product of its verify.
+	export function setTyping(mutates self, consumes ended frozen with Typing)
+		typing = ended
+	end 'setTyping'
+
+	// startTyping is the typing the module's check starts from.
+	export function startTyping() returns Typing
+		return thaw(typing)
+	end 'startTyping'
+end 'ModuleHome'
+
+// takeHome takes what the tasks of module write out of the project, which keeps empty parts in its place.
+export function takeHome(mutates p Project, module diag.ModuleID) returns ModuleHome
 	let m = modIndex(module)
+	let slot = moduleSlot(module)
+	var record = exchange(p.modules[m], value: Module.new(module, path: "", text: "", files: FileSpanList.create(0)))
+	let tables = exchange(record.tables, value: ModuleTables.lentOut())
+	let types = exchange(p.types.slots[slot], value: TypeSlot.none())
+	let funcs = exchange(p.funcs.slots[slot], value: FuncSlot.none())
+	let resolution = exchange(p.resolutions[m], value: freeze(Resolution.new(module)))
+	let typing = exchange(p.typings[m], value: freeze(Typing.new(module)))
+	return ModuleHome.make(module, types: types, funcs: funcs, tables: tables, record: record, resolution: resolution, typing: typing)
+end 'takeHome'
+
+// putHome gives the project back what takeHome took.
+export function putHome(mutates p Project, consumes home ModuleHome)
+	var held = home
+	let m = modIndex(held.module)
+	let slot = moduleSlot(held.module)
+	var record = exchange(held.record, value: Module.new(held.module, path: "", text: "", files: FileSpanList.create(0)))
+	record.tables = exchange(held.tables, value: ModuleTables.lentOut())
+	p.modules[m] = record
+	p.types.slots[slot] = exchange(held.types, value: TypeSlot.none())
+	p.funcs.slots[slot] = exchange(held.funcs, value: FuncSlot.none())
+	p.resolutions[m] = exchange(held.resolution, value: freeze(Resolution.new(held.module)))
+	p.typings[m] = exchange(held.typing, value: freeze(Typing.new(held.module)))
+end 'putHome'
+
+// lendHome lends the task of the stage of phase of the module the module's slots of the tables, in which it writes the
+// segment of phase, and what lent says of the module. inputs are what of each slot the task waited on, which its slot's index
+// of shapes takes in from reads, the tables the task reads.
+export function lendHome(mutates home ModuleHome, reads Project, lent Lent, phase Phase, inputs Inputs) returns ModuleState
+	let module = home.module
 	var ms = ModuleState.idle(module)
 	ms.lent = lent
-	ms.types = lendTypeSlot(p.types, module: module, segment: phase.ordinal, inputs: inputs)
-	ms.funcs = lendFuncSlot(p.funcs, module: module, segment: phase.ordinal)
+	ms.types = exchange(home.types, value: TypeSlot.none())
+	beginTypeSegment(ms.types, segment: phase.ordinal, reads: reads.types, inputs: inputs)
+	ms.funcs = exchange(home.funcs, value: FuncSlot.none())
+	beginFuncSegment(ms.funcs, segment: phase.ordinal)
 	match lent 'lent'
 		none then return ms
 		tables then _ = 0
-		tree then lendTree(ms, p: p, phase: phase)
-		resolution then lendTree(ms, p: p, phase: phase)
-		source then ms.source = exchange(p.modules[m], value: Module.new(module, path: "", text: "", files: FileSpanList.create(0)))
+		tree then lendTree(ms, home: home, phase: phase)
+		resolution then lendTree(ms, home: home, phase: phase)
+		source then ms.source = exchange(home.record, value: Module.new(module, path: "", text: "", files: FileSpanList.create(0)))
 	end 'lent'
-	if lent == Lent.source 'source'
-		ms.tables = exchange(ms.source.tables, value: ModuleTables.lentOut())
-	end 'source' else 'held'
-		ms.tables = exchange(p.modules[m].tables, value: ModuleTables.lentOut())
-	end 'held'
+	ms.tables = exchange(home.tables, value: ModuleTables.lentOut())
 	ms.tables.phase = phase.ordinal
 	if lent == Lent.resolution 'resolution'
-		ms.resolution = thaw(p.resolutions[m])
+		ms.resolution = thaw(home.resolution)
 	end 'resolution'
 	return ms
+end 'lendHome'
+
+// returnHome gives the module's home back what lendHome lent, once the task's stage ended, which completes the segment it
+// wrote and the part of the tables it wrote, and makes what it made of the module's source, its tree and its resolution
+// the module's.
+export function returnHome(mutates home ModuleHome, consumes ms ModuleState)
+	var held = ms
+	var types = exchange(held.types, value: TypeSlot.none())
+	endTypeSegment(types)
+	home.types = types
+	var funcs = exchange(held.funcs, value: FuncSlot.none())
+	endFuncSegment(funcs)
+	home.funcs = funcs
+	if held.lent == Lent.none 'none'
+		return
+	end 'none'
+	if held.lent == Lent.source 'source'
+		held.source.takeParsed(exchange(held.parsed, value: ParsedModule.new(held.module, text: "", files: FileSpanList.create(0))))
+		home.record = exchange(held.source, value: Module.new(held.module, path: "", text: "", files: FileSpanList.create(0)))
+	end 'source'
+	if (held.lent == Lent.tree or held.lent == Lent.resolution) and not held.sharesTree 'tree'
+		home.record.tree = freeze(exchange(held.ownTree, value: Tree.new(held.module, text: "")))
+	end 'tree'
+	held.tables.sealWritten()
+	home.tables = exchange(held.tables, value: ModuleTables.lentOut())
+	if held.lent == Lent.resolution 'resolution'
+		home.resolution = freeze(exchange(held.resolution, value: Resolution.new(held.module)))
+	end 'resolution'
+end 'returnHome'
+
+// lendModule lends a task of the stage of phase of module, which runs on the project itself, what lendHome lends it out of
+// the project, which giveBack ends.
+export function lendModule(mutates p Project, module diag.ModuleID, lent Lent, phase Phase, inputs Inputs) returns ModuleState
+	var home = takeHome(p, module: module)
+	let ms = lendHome(home, reads: p, lent: lent, phase: phase, inputs: inputs)
+	putHome(p, home: home)
+	return ms
 end 'lendModule'
+
+// giveBack gives the project back what lendModule or lendProject lent.
+export function giveBack(mutates p Project, consumes ms ModuleState)
+	if ms.module == diag.stdlibID 'project'
+		var held = ms
+		returnTypeSlot(p.types, held: exchange(held.types, value: TypeSlot.none()))
+		returnFuncSlot(p.funcs, held: exchange(held.funcs, value: FuncSlot.none()))
+		return
+	end 'project'
+	var home = takeHome(p, module: ms.module)
+	returnHome(home, ms: ms)
+	putHome(p, home: home)
+end 'giveBack'
+
+// lendTree gives the task of the stage of phase the tree of its module. Each stage's tree is frozen when the stage ends, its
+// product, which tasks that waited on it share: a stage that reads it shares it, and one that writes it, the resolve, which
+// rewrites qualified names, and the bodies, which desugar, writes a copy of it, which becomes its own product.
+function lendTree(mutates ms ModuleState, home ModuleHome, phase Phase)
+	if phase == Phase.resolve or phase == Phase.bodies 'writes'
+		ms.ownTree = thaw(home.record.tree)
+		return
+	end 'writes'
+	ms.sharedTree = share(home.record.tree)
+	ms.sharesTree = true
+end 'lendTree'
+
+// ModuleProducts are what the stages of a module that ended made, up to the first segments, which a task that waited on
+// those stages shares: the lists of its slots of the tables that such a task reads (typeListsSeen, funcListsSeen), its record
+// with the parts of its tables of those stages, and its resolution and its typing once the stages that make them ended.
+export type ModuleProducts
+	export var segments as Count
+	var types as Array with frozen with TypeEntryList
+	var funcs as Array with frozen with FuncEntryList
+	var record as Module
+	var resolution as frozen with Resolution
+	var typing as frozen with Typing
+
+	static function make(segments Count, consumes types Array with frozen with TypeEntryList, consumes funcs Array with frozen with FuncEntryList, consumes record Module, consumes resolution frozen with Resolution, consumes typing frozen with Typing) returns ModuleProducts
+		return ModuleProducts{segments: segments, types: types, funcs: funcs, record: record, resolution: resolution, typing: typing}
+	end 'make'
+end 'ModuleProducts'
+
+// publish is the products of the module's stages that ended, up to the first segments.
+export function publish(home ModuleHome, segments Count) returns ModuleProducts
+	let module = home.module
+	let record = home.record.viewOf(share(home.record.tree), parsed: segments >= Phase.resolve.ordinal, viewTables: home.tables.viewOf(segments))
+	var resolution = freeze(Resolution.new(module))
+	if segments >= Phase.aliases.ordinal 'resolved'
+		resolution = share(home.resolution)
+	end 'resolved'
+	var typing = freeze(Typing.new(module))
+	if segments >= Phase.lower.ordinal 'verified'
+		typing = share(home.typing)
+	end 'verified'
+	return ModuleProducts.make(segments, types: typeListsSeen(home.types, waited: segments), funcs: funcListsSeen(home.funcs, waited: segments), record: record, resolution: resolution, typing: typing)
+end 'publish'
+
+// placeProducts makes the record of the module of products, as its stages made it, the project's: what places a diagnostic
+// in the module's files reads.
+export function placeProducts(mutates p Project, products ModuleProducts)
+	let m = modIndex(products.record.id)
+	p.modules[m] = products.record.clone()
+end 'placeProducts'
+
+// viewFrom is the project as a task reads it that holds the slot held, or none (noneSlot): base (baseOf), which every task
+// of the compile reads, and of each module the compile compiles, from first on, the products of its stages that the task
+// waited on (products), shared, as an executor of behaviours gives a task what it captured. The tables of the held module are read in
+// the task's state, so the view refuses a read of them. visible are the segments of each slot the task waited on, which a
+// view that verifies its reads names the task by.
+export function viewFrom(base Project, first Count, products Array with frozen with ModuleProducts, held Count, visible Inputs, verifies bool) returns Project
+	var modules = ModuleList.create(0)
+	var resolutions as Array with frozen with Resolution
+	resolutions = Array.create(0)
+	var typings as Array with frozen with Typing
+	typings = Array.create(0)
+	for a in 0 upto first 'earlier'
+		modules.push(base.modules[a].clone())
+		resolutions.push(share(base.resolutions[a]))
+		typings.push(share(base.typings[a]))
+	end 'earlier'
+	for k in 0 upto products.count() 'compiled'
+		var record = products[k].record.clone()
+		if moduleSlot(record.id) == held 'own'
+			record.tables = ModuleTables.lentOut()
+		end 'own'
+		modules.push(record)
+		resolutions.push(share(products[k].resolution))
+		typings.push(share(products[k].typing))
+	end 'compiled'
+	let firstSlot = moduleSlot(try first as diag.ModuleID otherwise panic("a module past the handles"))
+	let types = viewTypes(base.types, firstSlot: firstSlot, products: products, held: held, visible: visible, verifies: verifies)
+	let funcs = viewFuncs(base.funcs, firstSlot: firstSlot, products: products, held: held, visible: visible, verifies: verifies)
+	return Project.view(base.root.clone(), target: base.target.clone(), rootModule: base.rootModule, modules: modules, stdlib: base.stdlib.clone(), byPath: share(base.byPath), types: types, funcs: funcs, builtins: share(base.builtins), resolutions: resolutions, typings: typings)
+end 'viewFrom'
 
 // resolutionOf is the resolution of the module of ms, which its resolve made: a product every later stage of the module
 // reads in the project.
@@ -109,19 +310,6 @@ export function nodeDecl(p Project, ms ModuleState, node Count) returns table.Op
 	return ms.tables.memberDecl(node)
 end 'nodeDecl'
 
-// lendTree gives the task of the stage of phase the tree of its module. Each stage's tree is frozen when the stage ends, its
-// product, which tasks that waited on it share: a stage that reads it shares it, and one that writes it, the resolve, which
-// rewrites qualified names, and the bodies, which desugar, writes a copy of it, which becomes its own product.
-function lendTree(mutates ms ModuleState, p Project, phase Phase)
-	let m = modIndex(ms.module)
-	if phase == Phase.resolve or phase == Phase.bodies 'writes'
-		ms.ownTree = thaw(p.modules[m].tree)
-		return
-	end 'writes'
-	ms.sharedTree = share(p.modules[m].tree)
-	ms.sharesTree = true
-end 'lendTree'
-
 // lendProject lends sharedSlot of the tables to work of the project as a whole, which reads every other slot and holds no
 // module's parts.
 export function lendProject(mutates p Project) returns ModuleState
@@ -131,29 +319,6 @@ export function lendProject(mutates p Project) returns ModuleState
 	ms.funcs = lendFuncSlot(p.funcs, module: diag.stdlibID, segment: segment)
 	return ms
 end 'lendProject'
-
-// giveBack gives the project back what lendModule or lendProject lent.
-export function giveBack(mutates p Project, consumes ms ModuleState)
-	var held = ms
-	returnTypeSlot(p.types, held: exchange(held.types, value: TypeSlot.none()))
-	returnFuncSlot(p.funcs, held: exchange(held.funcs, value: FuncSlot.none()))
-	if held.lent == Lent.none 'none'
-		return
-	end 'none'
-	let m = modIndex(held.module)
-	if held.lent == Lent.source 'source'
-		held.source.takeParsed(exchange(held.parsed, value: ParsedModule.new(held.module, text: "", files: FileSpanList.create(0))))
-		p.modules[m] = exchange(held.source, value: Module.new(held.module, path: "", text: "", files: FileSpanList.create(0)))
-	end 'source'
-	if (held.lent == Lent.tree or held.lent == Lent.resolution) and not held.sharesTree 'tree'
-		p.modules[m].tree = freeze(exchange(held.ownTree, value: Tree.new(held.module, text: "")))
-	end 'tree'
-	held.tables.sealWritten()
-	p.modules[m].tables = exchange(held.tables, value: ModuleTables.lentOut())
-	if held.lent == Lent.resolution 'resolution'
-		p.resolutions[m] = freeze(exchange(held.resolution, value: Resolution.new(held.module)))
-	end 'resolution'
-end 'giveBack'
 
 // makeType makes a nominal type that module declares from work outside the tasks of a compile, which holds no slot of the
 // tables: it lends the module's slot for the one entry.

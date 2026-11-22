@@ -24,110 +24,122 @@ export type ModuleState
 	export var entryRole as EntryRole
 	// entry is the program's entry function, which the declare of the module whose role is entry finds.
 	export var entry as ast.FuncID
-	// typed is whether the module's verify ended and gave its typing to the project (giveTyping).
-	var typed as bool
 
 	export static function make(consumes checker Checker, entryRole EntryRole) returns ModuleState
 		let module = checker.modID
-		return ModuleState{unit: ast.ModuleState.idle(module), checker: checker, paramsOk: ByteArray.create(0), functions: ast.FuncIDList.create(0), constants: OrdinalList.create(0), entryRole: entryRole, entry: ast.noFunc, typed: false}
+		return ModuleState{unit: ast.ModuleState.idle(module), checker: checker, paramsOk: ByteArray.create(0), functions: ast.FuncIDList.create(0), constants: OrdinalList.create(0), entryRole: entryRole, entry: ast.noFunc}
 	end 'make'
 end 'ModuleState'
 
-// Checks are the check of a whole project: the state of each module, indexed by the module, and the order in which the
-// stages visit them.
-export type Checks
-	export var order as Array with diag.ModuleID
-	export var modules as Array with ModuleState
+// EntryPlan is what the declarations of every module decide about the program's entry function, which the task that orders
+// the modules finds: the module whose declare checks it, and whether the program needs one that no module declares.
+export type EntryPlan
+	export var module as table.Option with Count
+	export var missing as bool
 	// makesProgram is whether the compile makes an executable, which needs a main even in the runtime's own project.
 	export var makesProgram as bool
-	// entryModule is the module whose declare checks the entry function, which the declarations alone decide.
-	export var entryModule as table.Option with Count
 
-	export static function make(consumes order Array with diag.ModuleID, makesProgram bool) returns Checks
-		return Checks{order: order, modules: Array.create(0), makesProgram: makesProgram, entryModule: table.Option.none}
+	export static function none(makesProgram bool) returns EntryPlan
+		return EntryPlan{module: table.Option.none, missing: false, makesProgram: makesProgram}
+	end 'none'
+end 'EntryPlan'
+
+// ModuleChecked is what the check of one module gives the generate stage, its product: the functions its declare declared and
+// the ones among them that call a generic or go through a bound, tests left out, and the entry function if its declare found it.
+export type ModuleChecked
+	export var functions as ast.FuncIDList
+	export var callers as ast.FuncIDList
+	export var entry as ast.FuncID
+
+	export static function make(consumes functions ast.FuncIDList, consumes callers ast.FuncIDList, entry ast.FuncID) returns ModuleChecked
+		return ModuleChecked{functions: functions, callers: callers, entry: entry}
 	end 'make'
-end 'Checks'
 
-// Checked is what the check of a project gives the generate stage: the entry, the order of the modules, and by module the
-// functions the declare stage declared and the ones among them that call a generic or go through a bound.
+	export static function none() returns ModuleChecked
+		return ModuleChecked.make(ast.FuncIDList.create(0), callers: ast.FuncIDList.create(0), entry: ast.noFunc)
+	end 'none'
+end 'ModuleChecked'
+
+// Checked is what the check of a project gives the generate stage: the entry, and by module the functions the declare stage
+// declared and the ones among them that call a generic or go through a bound.
 export type Checked
 	export var entry as ast.FuncID
-	export var order as ModuleOrder
 	export var functions as FuncIDLists
 	export var callers as FuncIDLists
 
-	export static function make(entry ast.FuncID, consumes order ModuleOrder, consumes functions FuncIDLists, consumes callers FuncIDLists) returns Checked
-		return Checked{entry: entry, order: order, functions: functions, callers: callers}
+	export static function make(entry ast.FuncID, consumes functions FuncIDLists, consumes callers FuncIDLists) returns Checked
+		return Checked{entry: entry, functions: functions, callers: callers}
 	end 'make'
+
+	export static function none() returns Checked
+		return Checked{entry: ast.noFunc, functions: FuncIDLists.create(0), callers: FuncIDLists.create(0)}
+	end 'none'
+
+	// add takes in the product of the check of the next module, in module order.
+	export function add(mutates self, consumes made ModuleChecked)
+		var held = made
+		if held.entry != ast.noFunc 'entry'
+			entry = held.entry
+		end 'entry'
+		functions.push(exchange(held.functions, value: ast.FuncIDList.create(0)))
+		callers.push(exchange(held.callers, value: ast.FuncIDList.create(0)))
+	end 'add'
 end 'Checked'
 
 export typealias ModuleOrder = Array with diag.ModuleID
 
 export typealias FuncIDLists = Array with ast.FuncIDList
 
-// startChecks makes the check of every module of the project, which visits the modules in order.
-export function startChecks(mutates p ast.Project, consumes order Array with diag.ModuleID, makesProgram bool) returns Checks
-	var ch = Checks.make(order, makesProgram: makesProgram)
-	ch.entryModule = firstEntryModule(ch, p: p)
-	for i in 0 upto p.modules.count() 'each'
-		let role = entryRoleOf(ch, p: p, modIdx: i)
-		ch.modules.push(ModuleState.make(checkerStartMod(p, modIdx: i), entryRole: role))
-	end 'each'
-	return ch
-end 'startChecks'
+// planEntry decides from the declarations of the modules of order which of them checks the program's entry function: the one
+// whose entry comes first in the order of the program's files.
+export function planEntry(p ast.Project, order ModuleOrder, makesProgram bool) returns EntryPlan
+	var plan = EntryPlan.none(makesProgram)
+	plan.module = firstEntryModule(plan, p: p, order: order)
+	plan.missing = not plan.module.isSome() and holdsAnEntryModule(plan, p: p, order: order)
+	return plan
+end 'planEntry'
 
-// entryRoleOf is what the declare of the module does about the program's entry function.
-function entryRoleOf(ch Checks, p ast.Project, modIdx Count) returns EntryRole
-	if not mayHoldEntry(ch, p: p, modIdx: modIdx) or not declaresEntry(p, modIdx: modIdx) 'none'
+// startModule is the check of module as its first stage begins it, from typing, with what its declare does about the entry
+// function (entryRoleOf).
+export function startModule(module diag.ModuleID, consumes typing ast.Typing, role EntryRole) returns ModuleState
+	return ModuleState.make(Checker.make(module, typing: typing), entryRole: role)
+end 'startModule'
+
+// entryRoleOf is what the declare of the module does about the program's entry function, which plan decided.
+export function entryRoleOf(plan EntryPlan, p ast.Project, modIdx Count) returns EntryRole
+	if not mayHoldEntry(plan, p: p, modIdx: modIdx) or not declaresEntry(p, modIdx: modIdx) 'none'
 		return EntryRole.none
 	end 'none'
-	if isModule(ch.entryModule, modIdx: modIdx) 'entry'
+	if isModule(plan.module, modIdx: modIdx) 'entry'
 		return EntryRole.entry
 	end 'entry'
 	return EntryRole.second
 end 'entryRoleOf'
 
 // withoutTests is the functions that are not tests: a test is checked, and no program is made of it.
-function withoutTests(p ast.Project, consumes functions ast.FuncIDList) returns ast.FuncIDList
+function withoutTests(p ast.Project, ms ast.ModuleState, consumes functions ast.FuncIDList) returns ast.FuncIDList
 	var kept = ast.FuncIDList.create(0)
 	for i in 0 upto functions.count() 'each'
-		if not ast.funcEntry(ast.FuncSlot.none(), funcReads: p.funcs, f: functions[i]).isTest 'program'
+		if not ast.funcEntry(ms.funcs, funcReads: p.funcs, f: functions[i]).isTest 'program'
 			kept.push(functions[i])
 		end 'program'
 	end 'each'
 	return kept
 end 'withoutTests'
 
-// giveTyping gives the project the typing of the module whose verify has ended, which is the product of that stage: what
-// the stages after the check read of the module's bodies.
-export function giveTyping(mutates state ModuleState, mutates p ast.Project)
+// endModule ends the check of a module, whose state its last stage holds: it gives the module's typing, which the stages
+// after the check read of its bodies, and what the generate stage needs of its check.
+export function endModule(mutates state ModuleState, p ast.Project, sets typing ast.Typing) returns ModuleChecked
 	let modID = state.checker.modID
-	let finished = exchange(state.checker.typing, value: ast.Typing.new(modID))
-	p.typings[ast.modIndex(modID)] = freeze(finished)
-	state.typed = true
-end 'giveTyping'
-
-// endChecks gives the project the typing of each module whose verify did not end, and gives what the generate stage needs
-// of the check.
-export function endChecks(mutates p ast.Project, consumes ch Checks) returns Checked
-	var rest = ch
-	var functions = FuncIDLists.create(0)
-	var callers = FuncIDLists.create(0)
+	typing = exchange(state.checker.typing, value: ast.Typing.new(modID))
+	let functions = withoutTests(p, ms: state.unit, functions: exchange(state.functions, value: ast.FuncIDList.create(0)))
+	let callers = withoutTests(p, ms: state.unit, functions: exchange(state.checker.callers, value: ast.FuncIDList.create(0)))
 	var entry = ast.noFunc
-	for i in 0 upto rest.modules.count() 'each'
-		if rest.modules[i].entryRole == EntryRole.entry 'entry'
-			entry = rest.modules[i].entry
-		end 'entry'
-		let modID = rest.modules[i].checker.modID
-		functions.push(withoutTests(p, functions: exchange(rest.modules[i].functions, value: ast.FuncIDList.create(0))))
-		callers.push(withoutTests(p, functions: exchange(rest.modules[i].checker.callers, value: ast.FuncIDList.create(0))))
-		if not rest.modules[i].typed 'untyped'
-			let finished = exchange(rest.modules[i].checker, value: Checker.make(modID, typing: ast.Typing.new(modID)))
-			checkerEndMod(p, c: finished)
-		end 'untyped'
-	end 'each'
-	return Checked.make(entry, order: exchange(rest.order, value: ModuleOrder.create(0)), functions: functions, callers: callers)
-end 'endChecks'
+	if state.entryRole == EntryRole.entry 'entry'
+		entry = state.entry
+	end 'entry'
+	return ModuleChecked.make(functions, callers: callers, entry: entry)
+end 'endModule'
 
 // moduleAliases declares the bounds of the type parameters of the module's types, then its typealiases of instances.
 export function moduleAliases(mutates state ModuleState, p ast.Project, mutates errs diag.ErrorList)
@@ -150,21 +162,21 @@ end 'moduleDeclare'
 
 // projectEntry is the part of the declare that is of no one module: the error of a program in which no module declares the
 // entry function.
-export function projectEntry(ch Checks, p ast.Project, mutates errs diag.ErrorList)
-	if not ch.entryModule.isSome() and holdsAnEntryModule(ch, p: p) 'missing'
+export function projectEntry(plan EntryPlan, mutates errs diag.ErrorList)
+	if plan.missing 'missing'
 		reportNoEntry(errs)
 	end 'missing'
 end 'projectEntry'
 
 // firstEntryModule is the module whose entry function comes first in the order of the program's files, or none where no module
 // declares one.
-function firstEntryModule(ch Checks, p ast.Project) returns table.Option with Count
+function firstEntryModule(plan EntryPlan, p ast.Project, order ModuleOrder) returns table.Option with Count
 	var found = false
 	var first = 0 as Count
 	var firstOrder = ""
-	for i in 0 upto ch.order.count() 'each'
-		let m = ast.modIndex(ch.order[i])
-		if not mayHoldEntry(ch, p: p, modIdx: m) or not declaresEntry(p, modIdx: m) 'noEntry'
+	for i in 0 upto order.count() 'each'
+		let m = ast.modIndex(order[i])
+		if not mayHoldEntry(plan, p: p, modIdx: m) or not declaresEntry(p, modIdx: m) 'noEntry'
 			continue 'each'
 		end 'noEntry'
 		let order = entryOrder(p, modIdx: m)
@@ -189,13 +201,13 @@ end 'isModule'
 
 // mayHoldEntry is whether the module is where the program's entry function is looked for: every module of the program, and
 // the runtime's own project only when the compile makes an executable.
-function mayHoldEntry(ch Checks, p ast.Project, modIdx Count) returns bool
-	return not p.modules[modIdx].isRuntime or ch.makesProgram
+function mayHoldEntry(plan EntryPlan, p ast.Project, modIdx Count) returns bool
+	return not p.modules[modIdx].isRuntime or plan.makesProgram
 end 'mayHoldEntry'
 
-function holdsAnEntryModule(ch Checks, p ast.Project) returns bool
-	for i in 0 upto ch.order.count() 'each'
-		if mayHoldEntry(ch, p: p, modIdx: ast.modIndex(ch.order[i])) 'may'
+function holdsAnEntryModule(plan EntryPlan, p ast.Project, order ModuleOrder) returns bool
+	for i in 0 upto order.count() 'each'
+		if mayHoldEntry(plan, p: p, modIdx: ast.modIndex(order[i])) 'may'
 			return true
 		end 'may'
 	end 'each'

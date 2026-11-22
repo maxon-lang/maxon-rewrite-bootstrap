@@ -1,0 +1,446 @@
+// The executor of behaviours: a compile whose tasks run as behaviours, so that it uses every core. Each module the compile
+// compiles has a cown (Station) that holds its work and the gates of its tasks, and the project has one (ProjectStation) that
+// holds the project, the gates of the tasks of the project, and what every task found. A task that ends sends each task that
+// waits on it what it gave (Arrival) as a behaviour on the cown of that task, which takes it in at the task's gate and runs
+// the task there once its last input arrived: the decision is ordered by the cown, not by timing, and a behaviour that a
+// worker schedules runs on that worker next, so that a module's next stage stays on the core that has its data. A barrier
+// receives every module's input on the project's cown. The last task of the graph, a task of the project, ends the compile
+// (finishCompile): every task reported to the project's cown before it, so the errors are taken in task order and the
+// executable and the diagnostics are those that execute makes, whatever the number of workers.
+
+// Payload is what an input gives a task besides its outcome: how the check of the task's module starts (from the order),
+// the module's home (to and from the program, which reads the project whole), or the home and the unit of the module (to the
+// link).
+union Payload
+	none
+	start(value CheckStart)
+	home(value ast.ModuleHome)
+	emitted(value Emitted)
+end 'Payload'
+
+// Emitted is what the emit of a module gives the link: the module's home and its unit.
+type Emitted
+	var home as ast.ModuleHome
+	var unit as backend.CodeUnit
+
+	static function make(consumes home ast.ModuleHome, consumes unit backend.CodeUnit) returns Emitted
+		return Emitted{home: home, unit: unit}
+	end 'make'
+end 'Emitted'
+
+// Arrival is what a task that ended gives one task that waits on it.
+type Arrival
+	var outcome as Outcome
+	var payload as Payload
+
+	static function make(consumes outcome Outcome, consumes payload Payload) returns Arrival
+		return Arrival{outcome: outcome, payload: payload}
+	end 'make'
+end 'Arrival'
+
+// Gate is what a task that has not started has received from the tasks it waits on: how many of them ended, and what they
+// gave it, merged.
+type Gate
+	var arrived as Count
+	var outcome as Outcome
+
+	static function empty() returns Gate
+		return Gate{arrived: 0, outcome: Outcome.none()}
+	end 'empty'
+end 'Gate'
+
+typealias Gates = Array with Gate
+
+// pass takes in at the gate of task the outcome of one of its inputs, and gives whether every input of the task has ended. A
+// task that waits on nothing waits on the start of the compile.
+function pass(mutates gates Gates, graph TaskGraph, task Count, outcome Outcome) returns bool
+	while gates.count() <= task 'room'
+		gates.push(Gate.empty())
+	end 'room'
+	gates[task].arrived = try gates[task].arrived + 1 otherwise panic("driver: more inputs than memory")
+	gates[task].outcome.merge(outcome)
+	var needed = graph.tasks[task].inputCount
+	if needed == 0 'started'
+		needed = 1
+	end 'started'
+	if gates[task].arrived > needed 'more'
+		panic("driver: task {task} is given more inputs than it waits on")
+	end 'more'
+	return gates[task].arrived == needed
+end 'pass'
+
+// opened is what the inputs of task gave it, once they all arrived, which its gate no longer holds.
+function opened(mutates gates Gates, task Count) returns Outcome
+	var gate = exchange(gates[task], value: Gate.empty())
+	return exchange(gate.outcome, value: Outcome.none())
+end 'opened'
+
+// Station is what the cown of one module holds: the module's work, and the gates of its tasks, by task.
+type Station
+	var work as ModuleWork
+	var gates as Gates
+
+	static function make(consumes work ModuleWork) returns Station
+		return Station{work: work, gates: Gates.create(0)}
+	end 'make'
+
+	// receive takes in what an input gave task, and gives whether the task may start.
+	function receive(mutates self, ctx frozen with Context, task Count, consumes arrival Arrival) returns bool
+		var held = arrival
+		match consumes exchange(held.payload, value: Payload.none) 'payload'
+			none then _ = 0
+			start(value) then work.startCheck(value)
+			home(value) then work.home = value
+			emitted(_) then panic("driver: a module is sent its unit")
+		end 'payload'
+		return pass(gates, graph: ctx.graph, task: task, outcome: held.outcome)
+	end 'receive'
+end 'Station'
+
+// ProjectStation is what the cown of the project holds: the project, with the modules' homes while a task of the project that
+// reads it whole runs, the units that the program is linked with (ready), the gates of the tasks of the project, and, by task,
+// what became of every task and the errors it found.
+type ProjectStation
+	var p as ast.Project
+	var ready as backend.UnitList
+	// errs are the errors found before the compile began (earlier of them), and the compile's when it ends.
+	var errs as diag.ErrorList
+	var earlier as Count
+	var gates as Gates
+	var states as TaskStates
+	var errors as ErrorLists
+	var entryPlan as check.EntryPlan
+	// units are the modules' units, by module from first on, which their emit made.
+	var units as backend.UnitList
+	// homes is how many of the modules' homes the project holds.
+	var homes as Count
+	var timings as Timings
+
+	static function make(consumes p ast.Project, consumes ready backend.UnitList, consumes errs diag.ErrorList, makesProgram bool, modules Count, consumes timings Timings) returns ProjectStation
+		var units = backend.UnitList.create(0)
+		for _ in 0 upto modules 'modules'
+			units.push(backend.CodeUnit.new())
+		end 'modules'
+		let earlier = errs.count()
+		return ProjectStation{p: p, ready: ready, errs: errs, earlier: earlier, gates: Gates.create(0), states: TaskStates.create(0), errors: ErrorLists.create(0), entryPlan: check.EntryPlan.none(makesProgram), units: units, homes: 0, timings: timings}
+	end 'make'
+
+	// receive takes in what an input gave task, and gives whether the task may start.
+	function receive(mutates self, ctx frozen with Context, task Count, consumes arrival Arrival) returns bool
+		var held = arrival
+		match consumes exchange(held.payload, value: Payload.none) 'payload'
+			none then _ = 0
+			start(_) then panic("driver: the project is sent the start of a module's check")
+			home(value) then takeIn(value)
+			emitted(value) then takeEmitted(ctx, emitted: value)
+		end 'payload'
+		return pass(gates, graph: ctx.graph, task: task, outcome: held.outcome)
+	end 'receive'
+
+	// takeIn makes home the project's again.
+	function takeIn(mutates self, consumes home ast.ModuleHome)
+		ast.putHome(p, home: home)
+		homes = try homes + 1 otherwise panic("driver: more homes than memory")
+	end 'takeIn'
+
+	function takeEmitted(mutates self, ctx frozen with Context, consumes emitted Emitted)
+		var held = emitted
+		let slot = ctx.compile.slotOf(ast.modIndex(held.home.module))
+		units[slot] = exchange(held.unit, value: backend.CodeUnit.new())
+		let module = held.home.module
+		takeIn(exchange(held.home, value: ast.ModuleHome.empty(module)))
+	end 'takeEmitted'
+
+	// giveOut takes the home of module out of the project for the module's next task.
+	function giveOut(mutates self, module diag.ModuleID) returns ast.ModuleHome
+		homes = try homes - 1 otherwise panic("driver: a home is given out that the project does not hold")
+		return ast.takeHome(p, module: module)
+	end 'giveOut'
+
+	// record keeps what became of task, of stage of module, and the errors it found, and charges its time to the timings.
+	function record(mutates self, task Count, state TaskState, consumes found diag.ErrorList, stage Stage, module Count, nanos Count, timing TaskTiming)
+		while states.count() <= task 'room'
+			states.push(TaskState.waiting)
+			errors.push(diag.ErrorList.create(0))
+		end 'room'
+		states[task] = state
+		errors[task] = found
+		if timings.enabled and state != TaskState.skipped 'timed'
+			chargeTask(timings, stage: stage, module: module, nanos: nanos, timing: timing)
+		end 'timed'
+	end 'record'
+end 'ProjectStation'
+
+// Context is what every behaviour of a compile reads, frozen: the compile, its graph and who waits on each task, the files
+// the parse reads from memory, and the cowns of the modules and of the project. The order makes another, of the graph it
+// extends, which the tasks after it read.
+type Context
+	var compile as Compile
+	var graph as TaskGraph
+	var dependents as Array with TaskIDs
+	var memory as frozen with project.SourceFiles
+	var stations as Array with (cown with Station)
+	var project as cown with ProjectStation
+
+	static function make(consumes compile Compile, consumes graph TaskGraph, consumes memory frozen with project.SourceFiles, consumes stations Array with (cown with Station), consumes project cown with ProjectStation) returns Context
+		let dependents = graph.dependents()
+		return Context{compile: compile, graph: graph, dependents: dependents, memory: memory, stations: stations, project: project}
+	end 'make'
+
+	// extended is the context of the same compile with the graph longer, which extends this one's.
+	function extended(consumes longer TaskGraph) returns Context
+		return Context.make(compile.clone(), graph: longer, memory: share(memory), stations: stations.clone(), project: share(project))
+	end 'extended'
+end 'Context'
+
+// startCompile compiles the modules of p from the one at index first on, from their parse, as far as goal, as behaviours, and
+// ends the compile in the last of them (finishCompile), which sets the code the process exits with. memory holds the files
+// that the parse reads from memory rather than disk; ready are the units the program is linked with, and errs the errors
+// found before.
+function startCompile(consumes p ast.Project, consumes memory project.SourceFiles, first Count, goal Goal, makesProgram bool, output String, options Options, consumes ready backend.UnitList, consumes errs diag.ErrorList)
+	if goal != Goal.instances and goal != Goal.executable 'goal'
+		panic("driver: a compile of behaviours ends in a task of the project, which the goal {goal} has none of at its end")
+	end 'goal'
+	var held = p
+	let c = compileOf(held, from: Stage.parse, first: first, goal: goal, makesProgram: makesProgram, output: output, options: options)
+	var graph = TaskGraph.new(held.modules.count())
+	startGraph(graph, c: c, from: Stage.parse)
+	var stations as Array with (cown with Station)
+	stations = Array.create(0)
+	var known = Known.create(0)
+	for slot in 0 upto c.modules 'modules'
+		let work = ModuleWork.make(ast.takeHome(held, module: c.idOf(slot)))
+		known.push(work.product(c.begun))
+		stations.push(cown(Station.make(work)))
+	end 'modules'
+	let started = Outcome.start(known, failed: errs.count() > 0)
+	var timings = Timings.off()
+	if options.timings 'timed'
+		timings = Timings.start(Stage.allCaseNames, modules: held.modules.count())
+	end 'timed'
+	let station = cown(ProjectStation.make(held, ready: ready, errs: errs, makesProgram: makesProgram, modules: c.modules, timings: timings))
+	let ctx = freeze(Context.make(c, graph: graph, memory: freeze(memory), stations: stations, project: station))
+	for t in 0 upto ctx.graph.tasks.count() 'tasks'
+		if ctx.graph.tasks[t].inputCount == 0 'first'
+			arrive(ctx, task: t, arrival: Arrival.make(started.copy(), payload: Payload.none))
+		end 'first'
+	end 'tasks'
+end 'startCompile'
+
+// arrive schedules what task does when one of the tasks it waits on ended and gave it arrival: on the cown of the task's
+// module, or of the project, which holds the task's gate, and where the task runs once its last input arrived.
+function arrive(ctx frozen with Context, task Count, consumes arrival Arrival)
+	let k = share(ctx)
+	if isModuleStage(ctx.graph.tasks[task].stage) 'ofModule'
+		let station = share(ctx.stations[ctx.compile.slotOf(ctx.graph.tasks[task].module)])
+		when station as s 'arrive'
+			if s.receive(k, task: task, arrival: arrival) 'ready'
+				runModule(k, station: s, task: task)
+			end 'ready'
+		end 'arrive'
+	end 'ofModule' else 'ofProject'
+		let station = share(ctx.project)
+		when station as s 'arrive'
+			if s.receive(k, task: task, arrival: arrival) 'ready'
+				runProject(k, station: s, task: task)
+			end 'ready'
+		end 'arrive'
+	end 'ofProject'
+end 'arrive'
+
+// clockIf is the clock's time where timed says the tasks are timed, which only then read it.
+function clockIf(timed bool) returns Count
+	if timed 'timed'
+		return Clock.nowNanos()
+	end 'timed'
+	return 0
+end 'clockIf'
+
+// elapsedIf is the time since started, which clockIf gave, where timed says the tasks are timed.
+function elapsedIf(timed bool, started Count) returns Count
+	if timed 'timed'
+		return try Clock.nowNanos() - started otherwise panic("driver: the clock went backwards")
+	end 'timed'
+	return 0
+end 'elapsedIf'
+
+// runModule runs task, of a stage of the module of station, whose inputs all arrived, or skips it, reports it to the
+// project, and sends what it gave to the tasks that wait on it.
+function runModule(ctx frozen with Context, mutates station Station, task Count)
+	var outcome = opened(station.gates, task: task)
+	let stage = ctx.graph.tasks[task].stage
+	let m = ctx.graph.tasks[task].module
+	var found = diag.ErrorList.create(0)
+	var timing = TaskTiming.of(ctx.compile.options.timings)
+	var nanos = 0 as Count
+	var state = TaskState.skipped
+	if outcome.mustSkip(stage) 'skip'
+		outcome.skipped = true
+	end 'skip' else 'run'
+		let started = clockIf(ctx.compile.options.timings)
+		let slot = ctx.compile.slotOf(m)
+		outcome.known[slot] = moduleTask(ctx.compile, work: station.work, stage: stage, m: m, known: outcome.known, memory: ctx.memory, timing: timing, errs: found)
+		nanos = elapsedIf(ctx.compile.options.timings, started: started)
+		state = TaskState.done
+		if found.count() > 0 'failed'
+			state = TaskState.failed
+			outcome.noteFailure(true, phase: phaseOf(stage))
+		end 'failed'
+	end 'run'
+	reportTask(ctx, task: task, state: state, found: found, nanos: nanos, timing: timing)
+	for i in 0 upto ctx.dependents[task].count() 'dependents'
+		let d = ctx.dependents[task][i]
+		let payload = moduleGives(ctx, work: station.work, dependent: d)
+		arrive(ctx, task: d, arrival: Arrival.make(outcome.copy(), payload: payload))
+	end 'dependents'
+end 'runModule'
+
+// moduleGives is what a task of the module whose work is work gives the task dependent besides its outcome: its home to the
+// program, its home and its unit to the link, which read the project whole.
+function moduleGives(ctx frozen with Context, mutates work ModuleWork, dependent Count) returns Payload
+	let module = work.home.module
+	match ctx.graph.tasks[dependent].stage 's'
+		parse then return Payload.none
+		parsed then return Payload.none
+		resolve then return Payload.none
+		order then return Payload.none
+		aliases then return Payload.none
+		declare then return Payload.none
+		entry then return Payload.none
+		constantOrder then return Payload.none
+		constants then return Payload.none
+		bodies then return Payload.none
+		verify then return Payload.none
+		endCheck then return Payload.none
+		lower then return Payload.none
+		program then return Payload.home(exchange(work.home, value: ast.ModuleHome.empty(module)))
+		emit then return Payload.none
+		link then return Payload.emitted(Emitted.make(exchange(work.home, value: ast.ModuleHome.empty(module)), unit: exchange(work.unit, value: backend.CodeUnit.new())))
+	end 's'
+end 'moduleGives'
+
+// reportTask schedules the record of what became of task on the project's cown, before the tasks that wait on it are sent
+// anything, so that every task has reported when the last ends.
+function reportTask(ctx frozen with Context, task Count, state TaskState, consumes found diag.ErrorList, nanos Count, consumes timing TaskTiming)
+	let station = share(ctx.project)
+	let stage = ctx.graph.tasks[task].stage
+	let module = ctx.graph.tasks[task].module
+	when station as s 'report'
+		s.record(task, state: state, found: found, stage: stage, module: module, nanos: nanos, timing: timing)
+	end 'report'
+end 'reportTask'
+
+// runProject runs task, of a stage of the project, whose inputs all arrived, or skips it, and sends what it gave to the tasks
+// that wait on it; the last task of the graph ends the compile instead.
+function runProject(ctx frozen with Context, mutates station ProjectStation, task Count)
+	var outcome = opened(station.gates, task: task)
+	let stage = ctx.graph.tasks[task].stage
+	var found = diag.ErrorList.create(0)
+	var timing = TaskTiming.of(ctx.compile.options.timings)
+	var nanos = 0 as Count
+	var state = TaskState.skipped
+	var next = share(ctx)
+	var starts as Array with CheckStart
+	starts = Array.create(0)
+	if outcome.mustSkip(stage) 'skip'
+		outcome.skipped = true
+	end 'skip' else 'run'
+		let started = clockIf(ctx.compile.options.timings)
+		if stage == Stage.order 'order'
+			next = orderProject(ctx, station: station, known: outcome.known, starts: starts, errs: found)
+		end 'order' else 'other'
+			projectTask(ctx, station: station, stage: stage, known: outcome.known, errs: found)
+		end 'other'
+		nanos = elapsedIf(ctx.compile.options.timings, started: started)
+		state = TaskState.done
+		if found.count() > 0 'failed'
+			state = TaskState.failed
+			outcome.noteFailure(true, phase: phaseOf(stage))
+		end 'failed'
+	end 'run'
+	station.record(task, state: state, found: found, stage: stage, module: 0, nanos: nanos, timing: timing)
+	if next.dependents[task].count() == 0 'last'
+		finishCompile(next, station: station, known: outcome.known)
+		return
+	end 'last'
+	for i in 0 upto next.dependents[task].count() 'dependents'
+		let d = next.dependents[task][i]
+		var payload = Payload.none
+		if stage == Stage.order 'start'
+			let slot = next.compile.slotOf(next.graph.tasks[d].module)
+			payload = Payload.start(exchange(starts[slot], value: CheckStart.make(ast.SlotList.create(0), role: check.EntryRole.none)))
+		end 'start' else if stage == Stage.program 'home'
+			payload = Payload.home(station.giveOut(next.compile.idOf(next.compile.slotOf(next.graph.tasks[d].module))))
+		end 'home'
+		arrive(next, task: d, arrival: Arrival.make(outcome.copy(), payload: payload))
+	end 'dependents'
+end 'runProject'
+
+// orderProject runs the order on what the resolves made, and, unless a cycle stopped the compile, gives the context of the
+// graph that the tasks of the check and after it extend, and sets starts to how each module's check starts.
+function orderProject(ctx frozen with Context, mutates station ProjectStation, known Known, mutates starts Array with CheckStart, mutates errs diag.ErrorList) returns frozen with Context
+	match consumes orderTask(ctx.compile, known: known, errs: errs) 'ordered'
+		some(ordered) then return extendedBy(ctx, station: station, ordered: ordered, starts: starts)
+		none then return share(ctx)
+	end 'ordered'
+end 'orderProject'
+
+// extendedBy is the context of the graph that the order extends by what it decided (ordered), which sets starts to how each
+// module's check starts and the project's entry plan.
+function extendedBy(ctx frozen with Context, mutates station ProjectStation, consumes ordered Ordered, mutates starts Array with CheckStart) returns frozen with Context
+	var held = ordered
+	station.entryPlan = held.plan.clone()
+	var none as Array with CheckStart
+	none = Array.create(0)
+	starts = exchange(held.starts, value: none)
+	var graph = ctx.graph.clone()
+	addCheckTasks(graph, c: ctx.compile, ordered: held)
+	return freeze(ctx.extended(graph))
+end 'extendedBy'
+
+// projectTask runs the task of stage, a stage of the project other than the order, which knows known.
+function projectTask(ctx frozen with Context, mutates station ProjectStation, stage Stage, known Known, mutates errs diag.ErrorList)
+	match stage 's'
+		parse then panic("driver: the parse is a stage of a module")
+		parsed then return
+		resolve then panic("driver: the resolve is a stage of a module")
+		order then panic("driver: the order is run by orderProject")
+		aliases then panic("driver: the aliases are a stage of a module")
+		declare then panic("driver: the declare is a stage of a module")
+		entry then check.projectEntry(station.entryPlan, errs: errs)
+		constantOrder then panic("driver: the order of constants is a stage of a module")
+		constants then panic("driver: the constants are a stage of a module")
+		bodies then panic("driver: the bodies are a stage of a module")
+		verify then panic("driver: the verify is a stage of a module")
+		endCheck then return
+		lower then panic("driver: the lower is a stage of a module")
+		program then holdProgram(ctx.compile, p: station.p, known: known, errs: errs)
+		emit then panic("driver: the emit is a stage of a module")
+		link then linkUnits(ctx.compile, p: station.p, units: exchange(station.units, value: backend.UnitList.create(0)), ready: station.ready, entry: entryOf(known))
+	end 's'
+end 'projectTask'
+
+// finishCompile ends the compile in its last task, a task of the project, before which every task reported: it keeps the
+// errors of the earliest phase that has any, in task order, places them, prints them and sets the code the process exits
+// with. The project holds every module's home, or, where the compile stopped at the order, the products of their stages that
+// the order knew, from which the errors are placed.
+function finishCompile(ctx frozen with Context, mutates station ProjectStation, known Known)
+	for t in 0 upto ctx.graph.tasks.count() 'reported'
+		if t >= station.states.count() or station.states[t] == TaskState.waiting 'unreported'
+			panic("driver: the compile ends before task {t} reported")
+		end 'unreported'
+	end 'reported'
+	if station.homes == 0 'products'
+		for slot in 0 upto known.count() 'modules'
+			ast.placeProducts(station.p, products: known[slot].model)
+		end 'modules'
+	end 'products' else if station.homes != ctx.compile.modules 'some'
+		panic("driver: the compile ends with {station.homes} of the modules' homes")
+	end 'some'
+	keepEarliestErrors(ctx.graph, states: station.states, errors: station.errors, earlier: station.earlier, errs: station.errs)
+	if station.timings.enabled 'report'
+		reportTimings(station.timings, p: station.p, goal: ctx.compile.goal, first: ctx.compile.first)
+	end 'report'
+	ast.locateAllErrors(station.p.modules, errs: station.errs)
+	Process.setExitCode(report(station.errs))
+end 'finishCompile'

@@ -84,8 +84,9 @@ and its symbol, which `cmd/sample` reads. A profile of `self/` is two commands:
 the register allocation of every function to its invariants (spilling's to `verifyPressure`, colouring's to `checkColouring`), and stops the compile
 with an internal error naming the rules the first broken function breaks. `--timings` (on `build`, `run` and `check`) prints on standard error, once the stages have run, a table with one line for
 each stage of the task graph: the wall time its tasks took, in milliseconds, and its share of the total, and the five modules whose
-tasks took longest; a `build` prints it for the runtime's compile, which every build does first, and for the program's. The tasks
-run one at a time, so the stages' times add up to the compile's. The clock is read twice per task and only when the flag is on.
+tasks took longest; a `build` prints it for the runtime's compile, which every build does first, and for the program's. A
+`build` or `check` runs its tasks on every core, so the stages' times add up to the work the compile did, which is more than
+its wall time. The clock is read twice per task and only when the flag is on.
 Beneath the stages, a compile that emitted code splits the emit stage by phase (`backend.EmitPhase`): selection, the blocks'
 layout, and per spilling round the graph, liveness and pressure, then spilling's sweeps and edits, colouring, the rewrite out of
 SSA, `--verify-ir`'s checks and encoding, each by its share of the stage; the clock is read at each boundary of a phase.
@@ -480,12 +481,15 @@ selector's function, its own register for every IR register (`vregOf`) and a new
 ## Pipeline
 
 `self/driver/compile.maxon` runs the pipeline for `build`, `run`, `check`, the interpreter and the test runner as the task graph
-of "The modules phase" (`self/driver/graph.maxon`), on one thread. The errors reported are those of the first stage that has
-any, from every module. A `check` stops short of code generation but runs the stages that can report an error.
+of "The modules phase" (`self/driver/graph.maxon`): the `build` and `check` commands as behaviours, on every core
+(`buildPath`, `self/driver/executor.maxon`), and `run`, the interpreter, the test runner and the tools that read the compile's
+result on one thread (`execute`); both make the same executable and the same diagnostics, whatever the number of workers. The
+errors reported are those of the first stage that has any, from every module. A `check` stops short of code generation but
+runs the stages that can report an error.
 
 | Step | Module | Work |
 |---|---|---|
-| runtime | `driver`, `project` | for a `build`, `run` or test, the runtime (`runtime/`, see "The runtime") is loaded as module 0, run through the steps below and emitted once (`prepareRuntime`); a test run keeps it and adds each program to a copy of the project (`SharedRuntime`) |
+| runtime | `driver`, `project` | for a `build`, `run` or test, the runtime (`runtime/`, see "The runtime") is loaded as module 0, run through the steps below on one thread and emitted once (`prepareRuntime`); a test run keeps it and adds each program to a copy of the project (`SharedRuntime`) |
 | discover | `project` | `discoverProjectInto` scans the directory tree (names in sorted order; `E3182` for a directory that is no module name) and makes a `Module` for each directory; a single file is one root module. Its errors count as the parse's |
 | parse | `syntax`, `project` | `parseModule` reads a module's files into one buffer, lexes it and parses it into the module's `Tree` and `decls`; a lexical error ends the module's lexing, a syntax error abandons the rest of its file. Then `buildModuleTable` gives the module's declarations their names (a duplicate is `E3006`) and a shell type (a `TypeID` with no members yet) for each type declaration |
 | resolve | `resolve` | `resolveModule` binds every name, struct literal and type reference to its declaration, and each `where` constraint to the type parameter it names (`E3916`), into the module's `Resolution`; it records the modules the module depends on, checks visibility (`E3008`) and that no signature names a less visible type (`E3167`), and rewrites a qualified name in place (see "The AST"). It reads only the module's own declarations, the standard library and the declarations of the modules the module names |
@@ -495,14 +499,16 @@ any, from every module. A `check` stops short of code generation but runs the st
 | constants | `check` | `moduleConstantOrder`, then `moduleConstants`, two stages: types the top-level `let`s and the raw values that enums and unions write that are no literal (see "Raw values"), each after the constants and raw values of its module that it names (a cycle is `E2012`) |
 | bodies | `check` | `moduleBodies` types every type declaration and function body, a generic one once against its bounds, and the body of a behaviour as a function of its own that captures the variables it uses. A call into another module is recorded, not bound (`PendingCall`); a call that needs an instance of a generic is recorded on its function (`callers`) |
 | verify | `check` | `moduleVerify`: binds the recorded cross-module calls (`verifyCalls`) and checks every type argument against its parameter's bounds (`E3017`); then, for a module that found no error in this stage, the range analysis, which decides how each operator and cast can fail and requires a `try` around what can (`E3057`, `E3059`; see "Checked arithmetic"), and the ownership pass: moves, conventions, borrows, exclusivity, initialisation, frozen values and what a behaviour takes (`E3102`, `E3900` to `E3904`, `E3197`, `E2013`) |
-| lower | `ir` | after `endChecks` has given every module's typing back to the project, `lowerModule` for each module in order: it first finds the instances of generic functions that the module needs (`findInstances`: it starts from the calls recorded by its functions that are not generic, and follows each instance's recorded calls, whichever module declares the generic, with the type arguments bound, until no new instance turns up; `E3906` if the type arguments grow without end), then lowers the module's functions that are not generic, in source order, and the instances, in the order found. A `check` only finds the instances. A place that needs something the backend cannot run yet is noted as a refusal, and the driver reports the first of each function (`E9900`) before the backend, in a task of the project that first holds the runtime to the functions the compiler calls (`checkRuntimeFunctions`) and writes `--emit-ir` |
+| lower | `ir` | after the check of every module has ended (`endCheck`, which waits on every verify, each of which made its module's typing its product), `lowerModule` for each module in order: it first finds the instances of generic functions that the module needs (`findInstances`: it starts from the calls recorded by its functions that are not generic, and follows each instance's recorded calls, whichever module declares the generic, with the type arguments bound, until no new instance turns up; `E3906` if the type arguments grow without end), then lowers the module's functions that are not generic, in source order, and the instances, in the order found. A `check` only finds the instances. A place that needs something the backend cannot run yet is noted as a refusal, and the driver reports the first of each function (`E9900`) before the backend, in a task of the project that first holds the runtime to the functions the compiler calls (`checkRuntimeFunctions`) and writes `--emit-ir` |
 | optimize | `opt` | for a native build, in the task that lowers the module, right after it: `opt.optimizeModule` puts each function in SSA form and folds it (see "The IR"), then `opt.findLeaves` finds the module's leaves and `opt.inlineModule` replaces the calls of leaves, its own and those of the modules it names, by copies of their bodies and folds again what got one (see "Leaf inlining"); `--emit-ir` and `--verify-ir` see the result. A test keeps the IR as lowered for the interpreter (`Options.keepsLowered`), which tracks borrows by the loads of slots and reports a drop of a register that holds nothing |
 | emit | `backend` | `emitModule`: IR to x64, one code unit per module, in module order, calls between units symbolic; an instance that several modules need is emitted by each, and the link keeps one. In the link (`linkProgram`) the entry stub and the runtime's unit come first; `emitTypeRoutines` then makes the drop and copy routine of every type the units asked for, and of every type those reach (a record's fields, a union's payloads, an array's elements), in waves, ordered by where the modules first ask for them |
 | link | `backend` | `link` keeps only the sections of code and the pieces of data that the entry reaches through symbol and data references (every function is compiled; what nothing calls is dropped here), lays the units out in order, patches the references and `writePeImage` writes the executable. A symbol is its link name (see "Link names"); the one symbol that may be defined more than once is an instance of a generic function, and the table keeps the first unit's definition, so the copies are never reached and drop out like any dead section. Any other symbol defined twice is an internal error |
 
 **Errors.** Each task's errors are kept with its stage, and the compile reports those of the earliest stage that has any, from
-every module; a task of a later stage than one that failed is not started, since its errors would not be reported. Within a
-stage every module is visited, so one run reports the errors of all modules. Of the lower, only the first module in module
+every module; a task one of whose inputs failed in an earlier stage, directly or through the tasks it waited on, or was
+skipped, is not started (`Outcome.mustSkip`), since its errors would not be reported. Which tasks run is decided by their
+inputs alone, never by what else has run, so it is the same for every executor and number of workers. Within a stage every
+module is visited, so one run reports the errors of all modules. Of the lower, only the first module in module
 order that failed is reported, since an instance whose type arguments nest without end fails every module that reaches it. An error raised at a node is a `diag.Site` (module handle, offset); when the compile ends
 `ast.locateAllErrors` gives each its file, line and column, and then sorts them by file, line, column, code and message, so
 the output does not depend on the order the modules were visited in. A compile that finds no error never builds a line
@@ -517,35 +523,43 @@ a list, a pool, a frozen value, a cown and a behaviour run.
 ### The modules phase
 
 The driver runs each module's stages, from parse to emit, as tasks of one graph (`self/driver/graph.maxon`), as Go's build
-does. A task is a stage of one module (`Task`: the stage, the module, a range of the graph's flat list of inputs, its state and
-the range of the error list its errors are in), or a stage of the project as a whole: `parsed` joins the parses, since resolve
-may read the declaration table of any module that a qualified name passes through; `order` makes the module graph and refuses
-a cycle, and only then adds the tasks of the check and after it, since a module's dependencies are known once it is resolved;
-`entry` reports a program with no `main`; `endCheck` gives the modules' typing back to the project; `program` holds the runtime
-and reports refusals; `link` links the units. A task waits for its module's stage before it (or the task of the project before
+does. A task is a stage of one module (`Task`: the stage, the module and a range of the graph's flat list of inputs), or a
+stage of the project as a whole: `parsed` joins the parses, since resolve may read the declaration table of any module that a
+qualified name passes through; `order` makes the module graph and refuses a cycle, and only then adds the tasks of the check
+and after it, since a module's dependencies are known once it is resolved; `entry` reports a program with no `main`;
+`endCheck` waits on every module's verify and on `entry`, so that no module is lowered before every module's check ended;
+`program` holds the runtime and reports refusals; `link` links the units. A task waits for its module's stage before it (or the task of the project before
 it) and, from aliases to lower, for the same stage of each module it names, which comes before it in the module order and
 covers what the stage reads of those modules: resolve reads only the declaration tables of the modules a qualified name passes
 through; declare needs only the type objects of other modules' types, since what it needs of their declarations is checked in
 verify; a constant waits for the constants of the modules it names; a check reads the declarations and constants of the modules
-it reaches; the lower of a module reads the optimized IR and the leaves of the modules it names, whose calls it inlines. A task that waits for one that failed in its own stage still runs, as every module of a stage is visited; one whose
-input failed in an earlier stage, or was skipped, does not (a module whose dependency failed stops).
+it reaches; the lower of a module reads the optimized IR and the leaves of the modules it names, whose calls it inlines. A task
+that waits for one that failed in its own stage still runs, as every module of a stage is visited; one whose inputs failed in
+an earlier stage, directly or through the tasks they waited on, or were skipped, does not (a module whose dependency failed
+stops; see "Errors" in "Pipeline").
 
 **What a stage is given.** A stage of a module takes its module's state `mutates`, the project `p` read-only, and the error
 list of its task: the parse (`project.parseModule`), the resolve (`resolve.resolveModule`) and the lower (`ir.lowerModule`,
 `ir.findInstances`) an `ast.ModuleState`, a stage of the check (`check.moduleAliases` to `check.moduleVerify`) a
 `check.ModuleState`, which holds one (`unit`) with the checker's state of the module. An `ast.ModuleState` holds what the task
-writes of the model, which the driver lends out of the project for the task and takes back when it ends (`ast.lendModule`,
-`ast.giveBack`): its module's slot of each table (`ast.TypeSlot`, `ast.FuncSlot`: the nominal types, the shapes and their
+writes of the model, which the driver lends it out of the module's home for the task and takes back when it ends
+(`ast.lendHome`, `ast.returnHome`). A module's home (`ast.ModuleHome`) is its slots of the tables, its tables, its record and
+its resolution and typing, which a compile takes out of the project for each module it compiles when it begins and gives back
+when it ends (`ast.takeHome`, `ast.putHome`), and holds in the module's work meanwhile (`ModuleWork` in the driver, with the
+check the module's stages carry from one to the next and what its lower and its emit make), so that the project holds no part
+of a module that a task writes; `ast.lendModule` and `ast.giveBack` lend the same out of the project, for work outside the
+tasks. The task is lent its module's slot of each table (`ast.TypeSlot`, `ast.FuncSlot`: the nominal types, the shapes and their
 index, the functions and the cache of instances), the only slot it can make or fill an entry in, so that no stage can write
 another module's types or functions; the work of the project holds slot 0 (`ast.lendProject`), the built-ins' and the
-standard library's, which only it and what runs before the tasks write. While a task of a module runs, `p` is its view of the
-project (`taskView` in the driver, `lendTask` and `giveTask`), made only of shares of the products of the stages it waited on,
-as an executor of behaviours gives a task what it captured: of each module, the tree the latest of those stages made
-(`Run.trees`), its declarations if it waited on the parse, the parts of its tables it waited on (`ModuleTables.viewOf`), its
-resolution if it waited on the resolve and its typing if it waited on the verify (`ast.Module.viewOf`, `ast.viewOf`); of the
-tables of types and functions, of every other slot a share of each frozen list of the segments it waited on and of each later
-list the shell the last of those stages left (`ast.viewTypes`, `ast.viewFuncs`); and the built-ins, the standard library and
-the index of paths, shared. What a stage it did not wait on made is not there. Every read of an entry goes through one accessor
+standard library's, which only it and what runs before the tasks write. While a task runs, `p` is its view of the project
+(`taskView` in the driver, `ast.viewFrom`), made only of shares, which is what a behaviour that runs the task captures: of what
+ran before the compile, which nothing writes while it runs, frozen when it begins (`ast.baseOf`: the built-ins, the standard
+library, the index of paths and the modules an earlier compile compiled), and of the products of the stages it waited on
+(`ast.ModuleProducts`, `ast.publish`): of each module, its record with the tree the latest of those stages made, its
+declarations if it waited on the parse and the parts of its tables it waited on (`ModuleTables.viewOf`, `ast.Module.viewOf`),
+its resolution if it waited on the resolve and its typing if it waited on the verify; of the tables of types and functions, of
+every slot but its own a share of each frozen list of the segments it waited on and of each later list the shell the last of
+those stages left (`ast.typeListsSeen`, `ast.viewTypes`, `ast.viewFuncs`). What a stage it did not wait on made is not there. Every read of an entry goes through one accessor
 family that takes the slot the task holds and the project's table, and finds the entry in one or the other:
 `ast.typeEntry(ms.types, reads: p.types, t: t)` and `ast.funcEntry(ms.funcs, funcReads: p.funcs, f: f)`, functions that return
 a borrowed place (see "Ownership"), and `ast.typeKind`; a write indexes the task's own slot,
@@ -572,9 +586,13 @@ read-only. What runs outside the tasks and reads the tables (the IR printer and 
 tables, which then hold every slot; work outside the tasks that makes an entry lends the slot it makes it in
 (`ast.lendProject`, `ast.makeType`, `ast.makeFunc`), in a segment after every one the slot has (`ast.laterSegment`), which
 `makeType` and `makeFunc` keep open for the next entry (`ast.outsideSegment`, `ast.keepTypeSlot`). The emit
-(`backend.emitModule`) takes its module's state as the lower does, and the link the state of the project; only the work of
-the project as a whole (the order, the end of the check, the link) still takes the project `mutates`, to lend from it, and
-reads the project whole.
+(`backend.emitModule`) takes its module's state as the lower does, and the link the state of the project. The order reads its
+view of the products of every module's resolve, as a task of a module does, and decides how each module's check starts
+(`CheckStart`: the slots whose shapes its stages read, and what its declare does about `main`), which the module's work takes
+in (`ModuleWork.startCheck`); the program and the link read the project whole, which then holds every module's home: each
+module's last task before them gives them its home (and the emit its unit), and the program gives each home back to the
+module's emit. The code of the stages of the project is `orderTask`, `holdProgram` and `linkUnits` in
+`self/driver/tasks.maxon`, and of the stages of a module `moduleTask`, which both executors run.
 
 **What a stage makes.** Each stage's product is a set of values that are complete when its task ends and that no later
 task writes, and each is frozen then, so that a task that waited on the stage shares it. A slot's entries are kept by segment
@@ -594,29 +612,43 @@ read the shells of the generics of the modules it names. A module's `ModuleTable
 phase's ordinal, which only that stage writes and which is frozen when it ends (`ModuleTables.sealed`, `sealWritten`), and a
 read finds the latest part that holds the entry. The parse's product is the module's files, tree, declarations, their names
 and nested typealiases (`Module.takeParsed`), the resolve's its resolution and the tree it rewrote, the bodies' the tree they
-desugared, each frozen in the module (`ast.Module`: `files`, `tree`, `decls`, `names` and `nested` are `frozen with`) and the
-tree also kept by the stage that made it (`Run.trees`); the typing is the verify's, which its task gives the project when it
-ends (`check.giveTyping`); `p.resolutions` and `p.typings` hold frozen values, and so do `p.builtins` and `p.byPath`, which only
-the making of the project and the discovery write. The errors are the task's own list (`Run.errors`), which the compile's list
-takes in task order when the compile ends, so the diagnostics do not depend on the order the tasks ran in, and a refusal of
-the register allocator that two modules' instances of one generic meet is kept once (`refusedAlready`). What a task reads is
-its inputs (`ast.Inputs`, `taskInputs` in the driver): by slot, how many segments, those of the stages of each module that it
-waited on, directly or through the tasks it waited on, those of the stages that ended before the compile began (the parse's,
-for a compile of modules parsed already: `Run.begun`), and every segment of a module that an earlier compile compiled; a
-task's are found once, from those of its inputs, which ran before it (`Run.waited`). Its slot's index of shapes takes in the
+desugared, each frozen in the module's record (`ast.Module`: `files`, `tree`, `decls`, `names` and `nested` are `frozen with`);
+the typing is the verify's, which its task makes its home's when the module's check ends (`check.endModule`, which also gives
+the functions and the callers the lower reads, and the entry function the link reads); `p.resolutions` and `p.typings` hold
+frozen values, and so do `p.builtins` and `p.byPath`, which only the making of the project and the discovery write. At the end
+of each task of a module the products of its stages up to the task's are published (`ModuleWork.product`, `Product` in the
+driver: the module's `ast.ModuleProducts`, its code and leaves once its lower ended, and the entry function if its check found
+it), frozen. The errors are the task's own list, which the compile's list takes in task order when the compile ends
+(`keepEarliestErrors`), so the diagnostics do not depend on the order the tasks ran in, and a refusal of the register
+allocator that two modules' instances of one generic meet is kept once (`refusedAlready`). What a task knows (`Known` in the
+driver) is, of each module the compile compiles, the product of the latest of its stages that the task waited on, directly or
+through the tasks it waited on, or what the module held when the compile began (the parse's, for a compile of modules parsed
+already: `Compile.begun`): each task that ends gives the tasks that wait on it what it knew, with its own product, and whether
+it or a task before it failed or was skipped (`Outcome`), and a task merges what its inputs gave it (`Outcome.merge`). The
+segments of each slot that it waited on follow from it (`ast.Inputs`, `inputsOf`); its slot's index of shapes takes in the
 shapes of those segments when the task is lent its slot (`importShapes`), so a read is one probe. `--verify-reads` names the
 reader of an entry of the tables of types or functions that its view does not hold, where a read past the view stops the
-compile anyway. The project's `byPath` is written only by the discovery, before the tasks; `p.modules[m]` and
-`p.resolutions[m]` only by m's tasks; the project tasks `order`, `endCheck`, `program` and `link` run after every task they
-read (barriers), and the link's drop and copy routines make their shapes in a segment of slot 0 of their own.
+compile anyway. The project's `byPath` is written only by the discovery, before the tasks; a module's home only by its tasks;
+the project tasks `order`, `endCheck`, `program` and `link` run after every task they read (barriers), and the link's drop and
+copy routines make their shapes in a segment of slot 0 of their own.
 
-The executor (`execute`) runs the tasks on one thread, one at a time, in the order they were added: stage by stage, and within
-a stage in the module order (the dependency order from the check on, module order for parse, resolve and emit), so every task's
-inputs have run when it starts, and the tables every module shares (types, functions, instances) are filled in the order the
-stages always filled them, which keeps the executable and the diagnostics as they were. Running a module from one stage to
-the next while its data is in cache waits for a worker pool (Phase 3 of the plan), when the stages take only their own
-module's data: a worker that finishes a task goes on to the module's next stage, results are merged in module order, and the
-output and the errors stay those of the order above and do not depend on the schedule.
+Two executors run the graph. `execute` (`self/driver/graph.maxon`) runs the tasks on one thread, one at a time, in the order
+they were added: stage by stage, and within a stage in the module order (the dependency order from the check on, module order
+for parse, resolve and emit), so every task's inputs have run when it starts; the interpreter, `run`, the test runner and the
+tools that read what a compile made (`frontEnd`, `lowerLoaded`) use it, since they go on from the compile's result. The `build`
+and `check` commands run the tasks as behaviours (`startCompile`, `self/driver/executor.maxon`), on every core: each module
+the compile compiles has a cown that holds its work and the gate of each of its tasks (`Station`), and the project has one
+that holds the project, the gates of the tasks of the project and what became of every task (`ProjectStation`). A task that
+ends reports its state and errors on the project's cown, then sends each task that waits on it its outcome (`Arrival`, with
+the module's home or unit where the task is the program or the link) as a behaviour on that task's cown, which takes it in at
+the task's gate and runs the task there when its last input arrived; so a task's counter lives in its own cown and the decision
+is ordered by the cown, not by timing, and since a worker runs the behaviour it schedules next, a module's next stage stays on
+the core that has its data. The behaviours read one frozen context (`Context`: the compile, the graph and who waits on each
+task, and the cowns), which the order replaces by one of the graph it extended. The last task of the graph, a task of the
+project, ends the compile (`finishCompile`): every task reported before it, so it keeps the errors in task order, prints them
+and sets the code the process exits with (`Process.setExitCode`), which replaces `main`'s. Which tasks run depends only on
+their inputs, and every product only on the inputs of the task that made it, so `MAXON_MAX_PROCS=1` and every number of workers
+give the bytes and the diagnostics that `execute` gives.
 
 ### Reading a module
 
