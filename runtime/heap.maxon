@@ -1,33 +1,354 @@
-// The heap: every box is a block of the process heap, which the entry stub stores in g.heap before main runs, and which
-// HeapAlloc keeps safe for every thread. Each thread counts the boxes it allocates less those it frees in its own
-// context, so counting takes no locked step and no word that threads contend for; the count is kept in every executable,
-// so the runtime is the same code whatever the build, and only an executable built with --count-allocations sums it at
-// the end (checkLeaks). A box allocated on one thread and freed on another leaves one count high and the other low, which
-// the sum makes right.
+// The heap: each thread has one of its own, a record that its context names (contextHeapOffset) and that its first alloc
+// makes, so an alloc and a free take no lock and touch no word another thread writes. The process heap's lock would
+// serialize the workers, and a call into it costs more than the whole of a class's alloc.
+//
+// A box of up to largestSmallBytes is a slot of a size class, and a larger one is a block of the process heap of its own.
+// Each class keeps the addresses of the slots freed in it on a stack of its own, so a free and the next alloc of the class
+// are a push and a pop; a class whose stack is empty takes a new slot from the end of the heap's current chunk, a block of
+// chunkBytes of the process heap that every class of the heap carves from, so boxes allocated together lie together. The
+// stack is apart from the slots, not a list linked through them, so an alloc reads nothing of a slot that may have left
+// the cache since it was freed: it only writes it.
+//
+// Every box is preceded by a header word: the address of its heap's record plus its class's key (heapLargeKey for a large
+// box). The record is aligned to heapAlignBytes, above every key, so free finds the class and the heap from the box
+// alone; a mask over the box's address would save the word, but only with chunks aligned to their size, which HeapAlloc
+// does not give. A slot keeps its class and heap for good, so a reused slot's header is never written again.
+//
+// A behaviour can free what another worker allocated. A box that the freeing thread's heap does not own goes on its own
+// heap's list of remote frees (heapRemoteOffset), pushed with a compare-exchange and linked through the dead box's first
+// word, as mimalloc's thread-free list is; the owner takes the whole list with one exchange when a class of its heap runs
+// out, and frees each box there into its class. Only the owner takes from the list and it takes everything, so a push
+// cannot see a box that was taken and pushed again under it. A large box is a block of the process heap, which any thread
+// may give back.
+//
+// The runtime is the same code whatever the build: the heap counts the slots it carves and the large boxes it holds, less
+// those it freed, and the live boxes are that sum over the threads' heaps less the slots on their stacks and their lists
+// (liveBoxes), so a box of a class costs no count; only an executable built with --count-allocations asks for it, at the
+// end (checkLeaks).
 
-// heapZeroMemory is HeapAlloc's HEAP_ZERO_MEMORY: a new box is zeroed, so each place in it starts empty.
+// heapZeroMemory is HeapAlloc's HEAP_ZERO_MEMORY: a record, a chunk and a large box start zeroed.
 let heapZeroMemory = 8 as Count
 
-// noHeapFlags asks HeapFree for nothing special.
+// noHeapFlags asks HeapAlloc and HeapFree for nothing special.
 let noHeapFlags = 0 as Count
+
+// noHeap is a context's heap before the thread's first alloc has made it.
+let noHeap = 0 as Count
+
+// boxHeaderBytes is the header before every box.
+let boxHeaderBytes = wordBytes
+
+// heapKeyMask keeps the key of a box's header, and heapRecordMask the address of its heap's record: the bits below and
+// above heapAlignBytes.
+let heapKeyMask = 0x1FF as Count
+
+let heapRecordMask = 0xFFFFFFFFFFFFFE00 as Count
+
+// The classes: up to linearLimitBytes, one per word of size (8, 16, ..., 256), since most boxes are records of a few
+// words; above it, classesPerDoubling per power of two (320, 384, 448, 512, 640, ...), which keeps a slot at most a
+// quarter larger than its box, up to largestSmallBytes. A buffer that an array doubles is a power of two, which the
+// ladder holds exactly. The class of the n-th size has the key n words, so a linear class's key is its size.
+let classStepBytes = 8 as Count
+
+let classStepShift = 3 as Count
+
+// smallestBoxBytes is the least room a slot has for its box, so that alloc zeroes the first two words of a box it
+// reuses with no test of its size: most boxes are of two or three words.
+let smallestBoxBytes = 16 as Count
+
+// wordRoundMask clears the bits below a word, rounding a size that has had classStepBytes - 1 added up to a word.
+let wordRoundMask = 0xFFFFFFFFFFFFFFF8 as Count
+
+let linearLimitBytes = 256 as Count
+
+let classesPerDoubling = 4 as Count
+
+// firstDoublingStepShift is the shift of the step between the classes of the first power of two above linearLimitBytes,
+// a quarter of the power: 64 of 512.
+let firstDoublingStepShift = 6 as Count
+
+let largestSmallBytes = 8192 as Count
+
+// lastKey is the key of the class of largestSmallBytes: 32 linear classes and classesPerDoubling for each power of two
+// from 512 to largestSmallBytes, 52 classes of a word each.
+let lastKey = 416 as Count
+
+// chunkBytes is the block of the process heap that a heap's classes carve their slots from: large enough that HeapAlloc
+// maps it fresh, with pages that cost nothing until a slot is used.
+let chunkBytes = 1048576 as Count
+
+// largeBoxPadBytes is what a large box's block holds before the box: the header in its last word, and a word before it so
+// that the box keeps the 16-byte alignment that HeapAlloc gives the block, as a buffer that a loop walks wants.
+let largeBoxPadBytes = 16 as Count
+
+// firstStackBytes is the size of a class's first stack of its own, 512 addresses; a full stack doubles.
+let firstStackBytes = 4096 as Count
 
 // alloc is a new zeroed box of a number of bytes.
 function alloc(bytes Count) returns Count
-	let box = __Raw.callImport3("HeapAlloc", arg1: processHeap(), arg2: heapZeroMemory, arg3: bytes)
-	let context = __Raw.threadContext()
-	__Raw.storeWord(context, offset: contextLiveOffset, value: __Raw.wrappingAdd(__Raw.loadWord(context, offset: contextLiveOffset), right: 1))
+	let heap = __Raw.loadWord(__Raw.threadContext(), offset: contextHeapOffset)
+	if heap == noHeap 'first'
+		return allocFirst(bytes)
+	end 'first'
+	var key = __Raw.wrappingAdd(bytes, right: classStepBytes - 1) and wordRoundMask
+	if bytes > linearLimitBytes 'above'
+		if bytes > largestSmallBytes 'large'
+			return allocLarge(heap, bytes: bytes)
+		end 'large'
+		key = doublingKey(bytes)
+	end 'above'
+	let top = __Raw.loadWord(heap, offset: key)
+	let box = __Raw.loadWord(top, offset: 0)
+	if box == noBox 'fresh'
+		return allocFresh(heap, key: key, bytes: bytes)
+	end 'fresh'
+	__Raw.storeWord(heap, offset: key, value: __Raw.wrappingSub(top, right: wordBytes))
+	__Raw.storeWord(box, offset: 0, value: 0)
+	__Raw.storeWord(box, offset: wordBytes, value: 0)
+	if bytes > smallestBoxBytes 'more'
+		var done = smallestBoxBytes
+		while done < bytes 'zero'
+			__Raw.storeWord(box, offset: done, value: 0)
+			done = __Raw.wrappingAdd(done, right: wordBytes)
+		end 'zero'
+	end 'more'
 	return box
 end 'alloc'
 
-// free gives a box back to the heap. An empty place is skipped, since HeapFree does not accept it.
+// allocFirst is the first alloc of a thread, which makes its heap.
+function allocFirst(bytes Count) returns Count
+	_ = newHeapRecord()
+	return alloc(bytes)
+end 'allocFirst'
+
+// free gives a box back to its class, or a large one to the process heap. An empty place is skipped. A box of another
+// thread's heap goes on that heap's list.
 function free(box Count)
 	if box == noBox 'empty'
 		return
 	end 'empty'
-	let context = __Raw.threadContext()
-	__Raw.storeWord(context, offset: contextLiveOffset, value: __Raw.wrappingSub(__Raw.loadWord(context, offset: contextLiveOffset), right: 1))
-	_ = __Raw.callImport3("HeapFree", arg1: processHeap(), arg2: noHeapFlags, arg3: box)
+	let heap = __Raw.loadWord(__Raw.threadContext(), offset: contextHeapOffset)
+	let header = __Raw.loadWord(__Raw.wrappingSub(box, right: boxHeaderBytes), offset: 0)
+	if (header and heapRecordMask) != heap 'other'
+		freeOther(heap, box: box, header: header)
+		return
+	end 'other'
+	let key = header and heapKeyMask
+	let top = __Raw.wrappingAdd(__Raw.loadWord(heap, offset: key), right: wordBytes)
+	if top == __Raw.loadWord(heap, offset: __Raw.wrappingAdd(key, right: heapLimitsOffset)) 'full'
+		freeFull(heap, key: key, box: box)
+		return
+	end 'full'
+	__Raw.storeWord(top, offset: 0, value: box)
+	__Raw.storeWord(heap, offset: key, value: top)
 end 'free'
+
+// freeFull is a free that the stack of the box's key has no room for: a large box, whose key's stack is always full, or
+// a box of a class whose stack must grow first.
+function freeFull(heap Count, key Count, box Count)
+	if key == heapLargeKey 'large'
+		freeLarge(heap, box: box)
+		return
+	end 'large'
+	let top = growStack(heap, key: key)
+	__Raw.storeWord(top, offset: 0, value: box)
+	__Raw.storeWord(heap, offset: key, value: top)
+end 'freeFull'
+
+// freeOther frees a box that the running thread's heap (heap, or noHeap before its first alloc) did not make: a large box
+// goes back to the process heap, and a slot onto the list of the heap that owns it.
+function freeOther(heap Count, box Count, header Count)
+	if (header and heapKeyMask) == heapLargeKey 'large'
+		freeLarge(heapMade(heap), box: box)
+		return
+	end 'large'
+	let owner = header and heapRecordMask
+	while true 'push'
+		let head = __Raw.loadWord(owner, offset: heapRemoteOffset)
+		__Raw.storeWord(box, offset: 0, value: head)
+		if __Raw.compareExchange(owner, offset: heapRemoteOffset, expected: head, desired: box) == head 'pushed'
+			return
+		end 'pushed'
+	end 'push'
+end 'freeOther'
+
+// takeRemote frees into their classes the boxes that other threads freed of heap, the running thread's, and says whether
+// there were any.
+function takeRemote(heap Count) returns bool
+	if __Raw.loadWord(heap, offset: heapRemoteOffset) == noBox 'none'
+		return false
+	end 'none'
+	var box = __Raw.atomicExchange(heap, offset: heapRemoteOffset, value: noBox)
+	while box != noBox 'each'
+		let next = __Raw.loadWord(box, offset: 0)
+		free(box)
+		box = next
+	end 'each'
+	return true
+end 'takeRemote'
+
+// heapMade is heap, or the running thread's new heap when it has none yet.
+function heapMade(heap Count) returns Count
+	if heap == noHeap 'none'
+		return newHeapRecord()
+	end 'none'
+	return heap
+end 'heapMade'
+
+// liveBoxes is the number of boxes allocated and not yet freed, summed over the threads' heaps: read when no behaviour
+// runs, so no heap changes meanwhile.
+function liveBoxes() returns Count
+	let context = __Raw.threadContext()
+	let scheduler = __Raw.loadWord(context, offset: contextSchedulerOffset)
+	if scheduler == noScheduler 'oneThread'
+		return heapLive(__Raw.loadWord(context, offset: contextHeapOffset))
+	end 'oneThread'
+	var live = 0 as Count
+	let workers = __Raw.loadWord(scheduler, offset: schedWorkersOffset)
+	for i in 0 upto workers 'threads'
+		live = __Raw.wrappingAdd(live, right: heapLive(__Raw.loadWord(workerContext(scheduler, worker: i), offset: contextHeapOffset)))
+	end 'threads'
+	return live
+end 'liveBoxes'
+
+// heapLive is what a heap holds out: the slots it carved and the large boxes it holds, less those it freed, the slots on
+// its stacks and those on its list. A heap's count can be below 0, a wrapping word, when its thread freed large boxes
+// that another allocated; the sum is right.
+function heapLive(heap Count) returns Count
+	if heap == noHeap 'none'
+		return 0
+	end 'none'
+	var live = __Raw.loadWord(heap, offset: heapOutOffset)
+	var key = 0 as Count
+	while key <= lastKey 'classes'
+		let stacked = __Raw.wrappingSub(__Raw.loadWord(heap, offset: key), right: __Raw.loadWord(heap, offset: __Raw.wrappingAdd(key, right: heapBasesOffset)))
+		live = __Raw.wrappingSub(live, right: stacked shr classStepShift)
+		key = __Raw.wrappingAdd(key, right: classStepBytes)
+	end 'classes'
+	var box = __Raw.loadWord(heap, offset: heapRemoteOffset)
+	while box != noBox 'remote'
+		live = __Raw.wrappingSub(live, right: 1)
+		box = __Raw.loadWord(box, offset: 0)
+	end 'remote'
+	return live
+end 'heapLive'
+
+// countOut adds a number, which wraps to subtract, to the boxes a heap gave out that no stack holds.
+function countOut(heap Count, change Count)
+	__Raw.storeWord(heap, offset: heapOutOffset, value: __Raw.wrappingAdd(__Raw.loadWord(heap, offset: heapOutOffset), right: change))
+end 'countOut'
+
+// newHeapRecord makes the running thread's heap: a record aligned to heapAlignBytes, kept for the life of the process,
+// with every stack the empty one, no chunk yet, and the size of each class's boxes; it holds the ladder's constants to
+// the keys and the record they lay out.
+function newHeapRecord() returns Count
+	let block = __Raw.callImport3("HeapAlloc", arg1: processHeap(), arg2: heapZeroMemory, arg3: __Raw.wrappingAdd(heapRecordBytes, right: heapAlignBytes))
+	let heap = __Raw.wrappingAdd(block, right: heapKeyMask) and heapRecordMask
+	let empty = __Raw.wrappingAdd(heap, right: heapEmptyStackOffset)
+	var key = 0 as Count
+	var boxBytes = 0 as Count
+	var base = linearLimitBytes
+	while key <= lastKey 'classes'
+		__Raw.storeWord(heap, offset: key, value: empty)
+		__Raw.storeWord(heap, offset: __Raw.wrappingAdd(key, right: heapLimitsOffset), value: __Raw.wrappingAdd(empty, right: wordBytes))
+		__Raw.storeWord(heap, offset: __Raw.wrappingAdd(key, right: heapBasesOffset), value: empty)
+		var slotBoxBytes = boxBytes
+		if slotBoxBytes < smallestBoxBytes 'smallest'
+			slotBoxBytes = smallestBoxBytes
+		end 'smallest'
+		__Raw.storeWord(heap, offset: __Raw.wrappingAdd(key, right: heapBoxBytesOffset), value: slotBoxBytes)
+		var step = classStepBytes
+		if boxBytes >= linearLimitBytes 'doubling'
+			if boxBytes == __Raw.wrappingAdd(base, right: base) 'power'
+				base = boxBytes
+			end 'power'
+			step = base / classesPerDoubling
+		end 'doubling'
+		boxBytes = __Raw.wrappingAdd(boxBytes, right: step)
+		key = __Raw.wrappingAdd(key, right: classStepBytes)
+	end 'classes'
+	__Raw.storeWord(heap, offset: __Raw.wrappingAdd(heapLargeKey, right: heapLimitsOffset), value: wordBytes)
+	if __Raw.loadWord(heap, offset: __Raw.wrappingAdd(lastKey, right: heapBoxBytesOffset)) != largestSmallBytes or doublingKey(largestSmallBytes) != lastKey 'ladder'
+		panic("heap: the class ladder does not end at lastKey")
+	end 'ladder'
+	if lastKey >= heapOutOffset or heapLargeKey >= heapLimitsOffset or __Raw.wrappingAdd(heapKeyMask, right: 1) != heapAlignBytes or heapLargeKey >= heapAlignBytes 'layout'
+		panic("heap: the classes' keys do not fit the heap's record")
+	end 'layout'
+	__Raw.storeWord(__Raw.threadContext(), offset: contextHeapOffset, value: heap)
+	return heap
+end 'newHeapRecord'
+
+// doublingKey is the key of the class of a box of more than linearLimitBytes and at most largestSmallBytes: the power of
+// two above it, then the step of that power's classes that holds it.
+function doublingKey(bytes Count) returns Count
+	var base = linearLimitBytes
+	var stepShift = firstDoublingStepShift
+	var key = linearLimitBytes
+	while bytes > __Raw.wrappingAdd(base, right: base) 'power'
+		base = __Raw.wrappingAdd(base, right: base)
+		stepShift = __Raw.wrappingAdd(stepShift, right: 1)
+		key = __Raw.wrappingAdd(key, right: classesPerDoubling * classStepBytes)
+	end 'power'
+	let past = __Raw.wrappingSub(__Raw.wrappingSub(bytes, right: base), right: 1)
+	let stepKeys = (past shr __Raw.wrappingSub(stepShift, right: classStepShift)) and wordRoundMask
+	return __Raw.wrappingAdd(key, right: __Raw.wrappingAdd(stepKeys, right: classStepBytes))
+end 'doublingKey'
+
+// allocFresh is a new box of a class whose stack is empty: one that another thread freed, once the heap has taken its
+// list, or else the next slot of the chunk, which starts zeroed. A chunk too short for the slot is left, its tail with it,
+// for a new one.
+function allocFresh(heap Count, key Count, bytes Count) returns Count
+	if takeRemote(heap) and __Raw.loadWord(__Raw.loadWord(heap, offset: key), offset: 0) != noBox 'freed'
+		return alloc(bytes)
+	end 'freed'
+	let slotBytes = __Raw.wrappingAdd(boxHeaderBytes, right: __Raw.loadWord(heap, offset: __Raw.wrappingAdd(key, right: heapBoxBytesOffset)))
+	var slot = __Raw.loadWord(heap, offset: heapNextOffset)
+	if __Raw.wrappingSub(__Raw.loadWord(heap, offset: heapEndOffset), right: slot) < slotBytes 'chunk'
+		slot = __Raw.callImport3("HeapAlloc", arg1: processHeap(), arg2: heapZeroMemory, arg3: chunkBytes)
+		__Raw.storeWord(heap, offset: heapEndOffset, value: __Raw.wrappingAdd(slot, right: chunkBytes))
+	end 'chunk'
+	__Raw.storeWord(heap, offset: heapNextOffset, value: __Raw.wrappingAdd(slot, right: slotBytes))
+	__Raw.storeWord(slot, offset: 0, value: __Raw.wrappingAdd(heap, right: key))
+	countOut(heap, change: 1)
+	return __Raw.wrappingAdd(slot, right: boxHeaderBytes)
+end 'allocFresh'
+
+// growStack gives a class whose stack is full one twice the size, or firstStackBytes in place of the empty one, holding
+// what the old one held, and gives the word above its top.
+function growStack(heap Count, key Count) returns Count
+	let baseAt = __Raw.wrappingAdd(key, right: heapBasesOffset)
+	let limitAt = __Raw.wrappingAdd(key, right: heapLimitsOffset)
+	let base = __Raw.loadWord(heap, offset: baseAt)
+	let used = __Raw.wrappingSub(__Raw.loadWord(heap, offset: limitAt), right: base)
+	let empty = __Raw.wrappingAdd(heap, right: heapEmptyStackOffset)
+	var grown = __Raw.wrappingAdd(used, right: used)
+	if base == empty 'first'
+		grown = firstStackBytes
+	end 'first'
+	let bigger = __Raw.callImport3("HeapAlloc", arg1: processHeap(), arg2: noHeapFlags, arg3: grown)
+	copyBytes(base, target: bigger, count: used)
+	if base != empty 'old'
+		_ = __Raw.callImport3("HeapFree", arg1: processHeap(), arg2: noHeapFlags, arg3: base)
+	end 'old'
+	__Raw.storeWord(heap, offset: baseAt, value: bigger)
+	__Raw.storeWord(heap, offset: limitAt, value: __Raw.wrappingAdd(bigger, right: grown))
+	return __Raw.wrappingAdd(bigger, right: used)
+end 'growStack'
+
+// freeLarge gives a large box's block back to the process heap, and counts it on heap, the freeing thread's.
+function freeLarge(heap Count, box Count)
+	countOut(heap, change: __Raw.wrappingSub(0, right: 1))
+	_ = __Raw.callImport3("HeapFree", arg1: processHeap(), arg2: noHeapFlags, arg3: __Raw.wrappingSub(box, right: largeBoxPadBytes))
+end 'freeLarge'
+
+// allocLarge is a box of more than largestSmallBytes: a zeroed block of the process heap with the header before it.
+function allocLarge(heap Count, bytes Count) returns Count
+	countOut(heap, change: 1)
+	let block = __Raw.callImport3("HeapAlloc", arg1: processHeap(), arg2: heapZeroMemory, arg3: __Raw.wrappingAdd(bytes, right: largeBoxPadBytes))
+	let box = __Raw.wrappingAdd(block, right: largeBoxPadBytes)
+	__Raw.storeWord(__Raw.wrappingSub(box, right: boxHeaderBytes), offset: 0, value: __Raw.wrappingAdd(heap, right: heapLargeKey))
+	return box
+end 'allocLarge'
 
 function processHeap() returns Count
 	return __Raw.loadWord(__Raw.heapAddress(), offset: 0)
@@ -38,19 +359,3 @@ end 'processHeap'
 function keep(bytes Count) returns Count
 	return __Raw.callImport3("HeapAlloc", arg1: processHeap(), arg2: heapZeroMemory, arg3: bytes)
 end 'keep'
-
-// liveBoxes is how many boxes are allocated and not freed: the sum of every thread's count, read when no behaviour runs,
-// so no thread changes its count meanwhile.
-function liveBoxes() returns Count
-	let context = __Raw.threadContext()
-	let scheduler = __Raw.loadWord(context, offset: contextSchedulerOffset)
-	if scheduler == noScheduler 'oneThread'
-		return __Raw.loadWord(context, offset: contextLiveOffset)
-	end 'oneThread'
-	var live = 0 as Count
-	let workers = __Raw.loadWord(scheduler, offset: schedWorkersOffset)
-	for i in 0 upto workers 'threads'
-		live = __Raw.wrappingAdd(live, right: __Raw.loadWord(workerContext(scheduler, worker: i), offset: contextLiveOffset))
-	end 'threads'
-	return live
-end 'liveBoxes'

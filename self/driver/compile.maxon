@@ -19,6 +19,7 @@ end 'goalOf'
 // every core: the last of them prints the diagnostics and sets the code the process exits with, which replaces the one that
 // buildPath gives, unless the compile ended before its tasks began.
 function buildPath(path String, output String, options Options) returns ExitCode
+	let trace = Trace.start(options.trace)
 	var errs = diag.ErrorList.create(0)
 	var p = ast.Project.new("")
 	let ready = runtimeFor(p, path: path, output: output, options: options, errs: errs)
@@ -27,20 +28,22 @@ function buildPath(path String, output String, options Options) returns ExitCode
 	end 'broken'
 	let first = p.modules.count()
 	match consumes project.discoverProjectInto(p, rootPath: path, errs: errs) 'found'
-		some(memory) then return startDiscovered(p, memory: memory, first: first, output: output, options: options, ready: ready, errs: errs)
+		some(memory) then return startDiscovered(p, memory: memory, first: first, output: output, options: options, ready: ready, errs: errs, trace: trace)
 		none then return report(errs)
 	end 'found'
 end 'buildPath'
 
 // startDiscovered starts the compile of the modules of p that buildPath discovered, from first on, as behaviours; a compile of
 // tests first reads the files of tests of the modules it tests, and makes no program, whose main it does not look for.
-function startDiscovered(consumes p ast.Project, consumes memory project.SourceFiles, first Count, output String, options Options, consumes ready frozen with backend.UnitList, consumes errs diag.ErrorList) returns ExitCode
+function startDiscovered(consumes p ast.Project, consumes memory project.SourceFiles, first Count, output String, options Options, consumes ready frozen with backend.UnitList, consumes errs diag.ErrorList, consumes trace Trace) returns ExitCode
 	var held = p
 	if options.runsTests and project.addTestFiles(held, first: first, under: options.testsUnder) == 0 'noTests'
 		printError("test: no module under {options.testsUnder} has a file of tests (.maxtest)\n")
 		return diagnosticsExitCode
 	end 'noTests'
-	startCompile(held, memory: memory, first: first, goal: goalOf(output), makesProgram: output != "" and not options.runsTests, output: output, options: options, ready: ready, errs: errs)
+	var traced = trace
+	traced.prepare()
+	startCompile(held, memory: memory, first: first, goal: goalOf(output), makesProgram: output != "" and not options.runsTests, output: output, options: options, ready: ready, errs: errs, trace: traced)
 	return compiledByBehaviours
 end 'startDiscovered'
 

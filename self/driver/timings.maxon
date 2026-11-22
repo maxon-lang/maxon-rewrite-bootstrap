@@ -138,6 +138,15 @@ function emitReport(clock backend.EmitClock) returns String
 	return text
 end 'emitReport'
 
+// timingNames are the modules' paths, by module, which the timings and the trace name the modules by.
+function timingNames(p ast.Project) returns TimingNames
+	var names = TimingNames.create(0)
+	for m in 0 upto p.modules.count() 'modules'
+		names.push(p.modules[m].path.clone())
+	end 'modules'
+	return names
+end 'timingNames'
+
 function isListed(listed TimeTotals, module Count) returns bool
 	for i in 0 upto listed.count() 'each'
 		if listed[i] == module 'same'

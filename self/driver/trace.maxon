@@ -1,0 +1,161 @@
+// The timeline of a compile that runs as behaviours, which --trace=<file> writes in Chrome's trace format (chrome://tracing,
+// Perfetto): a span for what the compile did before its tasks (the runtime's compile and the discovery), one for each task
+// that ran, named by its stage and module, with the tasks it waited on, and the idle time between them. A behaviour cannot
+// tell which worker runs it, so the spans are laid out on lanes: each on the lowest lane free when it starts, so there are as
+// many lanes as tasks ran at once, never more than the workers, and a gap on a lane is a worker idle. The clock is read
+// twice per task and the spans kept only when the flag is on.
+
+// nanosPerMicro is the trace format's unit, the microsecond, in the clock's nanoseconds.
+let nanosPerMicro = 1000 as Count
+
+// microDigits is how many digits of nanoseconds follow a time's point in microseconds.
+let microDigits = 3 as Count
+
+// traceProcess is the one process the trace's spans belong to.
+let traceProcess = 1 as Count
+
+// TraceSpan is a task that ran, from start to finish on the clock.
+type TraceSpan
+	var task as Count
+	var stage as Stage
+	var module as Count
+	var start as Count
+	var finish as Count
+
+	static function make(task Count, stage Stage, module Count, start Count, finish Count) returns TraceSpan
+		return TraceSpan{task: task, stage: stage, module: module, start: start, finish: finish}
+	end 'make'
+end 'TraceSpan'
+
+typealias TraceSpans = Array with TraceSpan
+
+// Trace is the timeline of a compile: the file it is written to, or nothing for a compile that is not traced, the clock when
+// the compile began (origin) and when its tasks could begin (prepared), and the tasks that ran.
+export type Trace
+	var path as String
+	var origin as Count
+	var prepared as Count
+	var spans as TraceSpans
+
+	static function off() returns Trace
+		return Trace{path: "", origin: 0, prepared: 0, spans: TraceSpans.create(0)}
+	end 'off'
+
+	// start is the trace of a compile that begins now, written to path, or off where path is empty.
+	static function start(path String) returns Trace
+		if path == "" 'off'
+			return Trace.off()
+		end 'off'
+		let now = Clock.nowNanos()
+		return Trace{path: path.clone(), origin: now, prepared: now, spans: TraceSpans.create(0)}
+	end 'start'
+
+	function enabled() returns bool
+		return path != ""
+	end 'enabled'
+
+	// prepare marks the end of what the compile did before its tasks.
+	function prepare(mutates self)
+		if enabled() 'on'
+			prepared = Clock.nowNanos()
+		end 'on'
+	end 'prepare'
+
+	// add keeps task, of stage of module, which ran from start for nanos.
+	function add(mutates self, task Count, stage Stage, module Count, start Count, nanos Count)
+		let finish = try start + nanos otherwise panic("driver: a task ends past the clock")
+		spans.push(TraceSpan.make(task, stage: stage, module: module, start: start, finish: finish))
+	end 'add'
+
+	// write writes the trace of the compile of graph, whose modules names holds by module, to its file.
+	function write(names TimingNames, graph TaskGraph)
+		let order = byStart(spans)
+		var laneEnds = TimeTotals.create(0)
+		laneEnds.push(prepared)
+		var lanes = TimeTotals.create(0)
+		for _ in 0 upto spans.count() 'spans'
+			lanes.push(0)
+		end 'spans'
+		for i in 0 upto order.count() 'lay'
+			let s = order[i]
+			var lane = 0 as Count
+			while lane < laneEnds.count() and laneEnds[lane] > spans[s].start 'busy'
+				lane = lane + 1
+			end 'busy'
+			if lane == laneEnds.count() 'new'
+				laneEnds.push(spans[s].finish)
+			end 'new' else 'free'
+				laneEnds[lane] = spans[s].finish
+			end 'free'
+			lanes[s] = lane
+		end 'lay'
+		var text = ByteArray.create(0)
+		text.append("\{\"displayTimeUnit\":\"ms\",\"traceEvents\":[\n".toByteArray())
+		for lane in 0 upto laneEnds.count() 'names'
+			text.append("\{\"name\":\"thread_name\",\"ph\":\"M\",\"pid\":{traceProcess},\"tid\":{lane},\"args\":\{\"name\":\"lane {lane}\"\}\},\n".toByteArray())
+		end 'names'
+		text.append(event("before the tasks", category: "driver", lane: 0, start: origin, finish: prepared, args: "").toByteArray())
+		var idleFrom = TimeTotals.create(0)
+		for _ in 0 upto laneEnds.count() 'idle'
+			idleFrom.push(prepared)
+		end 'idle'
+		for i in 0 upto order.count() 'events'
+			let s = order[i]
+			let lane = lanes[s]
+			if spans[s].start > idleFrom[lane] 'gap'
+				text.append(",\n".toByteArray())
+				text.append(event("idle", category: "idle", lane: lane, start: idleFrom[lane], finish: spans[s].start, args: "").toByteArray())
+			end 'gap'
+			idleFrom[lane] = spans[s].finish
+			text.append(",\n".toByteArray())
+			let name = "{spans[s].stage} {names[spans[s].module]}"
+			text.append(event(name, category: "{spans[s].stage}", lane: lane, start: spans[s].start, finish: spans[s].finish, args: taskArgs(graph, task: spans[s].task)).toByteArray())
+		end 'events'
+		text.append("\n]\}\n".toByteArray())
+		let file = try FilePath.from(path) otherwise panic("driver: the trace's file {path} is not a path")
+		try File.writeText(file, content: String.from(text)) otherwise panic("driver: cannot write the trace to {path}")
+	end 'write'
+
+	// event is a span of the trace from start to finish on lane.
+	function event(name String, category String, lane Count, start Count, finish Count, args String) returns String
+		let at = microsText(try start - origin otherwise panic("driver: a span starts before the compile"))
+		let lasts = microsText(try finish - start otherwise panic("driver: a span ends before it starts"))
+		return "\{\"name\":\"{name}\",\"cat\":\"{category}\",\"ph\":\"X\",\"pid\":{traceProcess},\"tid\":{lane},\"ts\":{at},\"dur\":{lasts}{args}\}"
+	end 'event'
+end 'Trace'
+
+// taskArgs are the arguments of task's span: its number in the graph and the tasks it waited on.
+function taskArgs(graph TaskGraph, task Count) returns String
+	var inputs = ""
+	for k in 0 upto graph.tasks[task].inputCount 'inputs'
+		if k > 0 'comma'
+			inputs = "{inputs},"
+		end 'comma'
+		inputs = "{inputs}{graph.inputAt(task, k: k)}"
+	end 'inputs'
+	return ",\"args\":\{\"task\":{task},\"inputs\":[{inputs}]\}"
+end 'taskArgs'
+
+// byStart is the spans' indices in the order they started, earliest first.
+function byStart(spans TraceSpans) returns TimeTotals
+	var order = TimeTotals.create(0)
+	for i in 0 upto spans.count() 'insert'
+		order.push(i)
+		var j = i
+		while j > 0 and spans[order[j - 1]].start > spans[i].start 'shift'
+			order[j] = order[j - 1]
+			j = j - 1
+		end 'shift'
+		order[j] = i
+	end 'insert'
+	return order
+end 'byStart'
+
+// microsText is a time in microseconds, to the nanosecond.
+function microsText(nanos Count) returns String
+	var fraction = "{nanos mod nanosPerMicro}"
+	while fraction.byteLength() < microDigits 'pad'
+		fraction = "0{fraction}"
+	end 'pad'
+	return "{nanos / nanosPerMicro}.{fraction}"
+end 'microsText'

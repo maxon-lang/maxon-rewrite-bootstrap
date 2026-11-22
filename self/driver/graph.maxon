@@ -438,11 +438,7 @@ end 'putHomes'
 
 // reportTimings prints the compile's timings on standard error.
 function reportTimings(timings Timings, p ast.Project, goal Goal, first Count)
-	var names = TimingNames.create(0)
-	for m in 0 upto p.modules.count() 'modules'
-		names.push(p.modules[m].path.clone())
-	end 'modules'
-	printError(timings.report("compile timings, goal {goal}", names: names, first: first))
+	printError(timings.report("compile timings, goal {goal}", names: timingNames(p), first: first))
 end 'reportTimings'
 
 // chargeTask adds what a task of stage of module took, nanos and what it timed besides (timing), to timings.

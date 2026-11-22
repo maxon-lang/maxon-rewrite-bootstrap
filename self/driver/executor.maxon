@@ -115,14 +115,15 @@ type ProjectStation
 	// homes is how many of the modules' homes the project holds.
 	var homes as Count
 	var timings as Timings
+	var trace as Trace
 
-	static function make(consumes p ast.Project, consumes ready frozen with backend.UnitList, consumes errs diag.ErrorList, makesProgram bool, modules Count, consumes timings Timings) returns ProjectStation
+	static function make(consumes p ast.Project, consumes ready frozen with backend.UnitList, consumes errs diag.ErrorList, makesProgram bool, modules Count, consumes timings Timings, consumes trace Trace) returns ProjectStation
 		var units = backend.UnitList.create(0)
 		for _ in 0 upto modules 'modules'
 			units.push(backend.CodeUnit.new())
 		end 'modules'
 		let earlier = errs.count()
-		return ProjectStation{p: p, ready: ready, errs: errs, earlier: earlier, gates: Gates.create(0), states: TaskStates.create(0), errors: ErrorLists.create(0), entryPlan: check.EntryPlan.none(makesProgram), units: units, homes: 0, timings: timings}
+		return ProjectStation{p: p, ready: ready, errs: errs, earlier: earlier, gates: Gates.create(0), states: TaskStates.create(0), errors: ErrorLists.create(0), entryPlan: check.EntryPlan.none(makesProgram), units: units, homes: 0, timings: timings, trace: trace}
 	end 'make'
 
 	// receive takes in what an input gave task, and gives whether the task may start.
@@ -157,8 +158,9 @@ type ProjectStation
 		return ast.takeHome(p, module: module)
 	end 'giveOut'
 
-	// record keeps what became of task, of stage of module, and the errors it found, and charges its time to the timings.
-	function record(mutates self, task Count, state TaskState, consumes found diag.ErrorList, stage Stage, module Count, nanos Count, timing TaskTiming)
+	// record keeps what became of task, of stage of module, and the errors it found, and charges its time, nanos from started,
+	// to the timings and the trace.
+	function record(mutates self, task Count, state TaskState, consumes found diag.ErrorList, stage Stage, module Count, started Count, nanos Count, timing TaskTiming)
 		while states.count() <= task 'room'
 			states.push(TaskState.waiting)
 			errors.push(diag.ErrorList.create(0))
@@ -168,6 +170,9 @@ type ProjectStation
 		if timings.enabled and state != TaskState.skipped 'timed'
 			chargeTask(timings, stage: stage, module: module, nanos: nanos, timing: timing)
 		end 'timed'
+		if trace.enabled() and state != TaskState.skipped 'traced'
+			trace.add(task, stage: stage, module: module, start: started, nanos: nanos)
+		end 'traced'
 	end 'record'
 end 'ProjectStation'
 
@@ -195,9 +200,9 @@ end 'Context'
 
 // startCompile compiles the modules of p from the one at index first on, from their parse, as far as goal, as behaviours, and
 // ends the compile in the last of them (finishCompile), which sets the code the process exits with. memory holds the files
-// that the parse reads from memory rather than disk; ready are the units the program is linked with, and errs the errors
-// found before.
-function startCompile(consumes p ast.Project, consumes memory project.SourceFiles, first Count, goal Goal, makesProgram bool, output String, options Options, consumes ready frozen with backend.UnitList, consumes errs diag.ErrorList)
+// that the parse reads from memory rather than disk; ready are the units the program is linked with, errs the errors
+// found before, and trace the timeline that --trace writes when the compile ends.
+function startCompile(consumes p ast.Project, consumes memory project.SourceFiles, first Count, goal Goal, makesProgram bool, output String, options Options, consumes ready frozen with backend.UnitList, consumes errs diag.ErrorList, consumes trace Trace)
 	if goal != Goal.instances and goal != Goal.executable 'goal'
 		panic("driver: a compile of behaviours ends in a task of the project, which the goal {goal} has none of at its end")
 	end 'goal'
@@ -218,7 +223,7 @@ function startCompile(consumes p ast.Project, consumes memory project.SourceFile
 	if options.timings 'timed'
 		timings = Timings.start(Stage.allCaseNames, modules: held.modules.count())
 	end 'timed'
-	let station = cown(ProjectStation.make(held, ready: ready, errs: errs, makesProgram: makesProgram, modules: c.modules, timings: timings))
+	let station = cown(ProjectStation.make(held, ready: ready, errs: errs, makesProgram: makesProgram, modules: c.modules, timings: timings, trace: trace))
 	let ctx = freeze(Context.make(c, graph: graph, memory: freeze(memory), stations: stations, project: station))
 	for t in 0 upto ctx.graph.tasks.count() 'tasks'
 		if ctx.graph.tasks[t].inputCount == 0 'first'
@@ -273,21 +278,22 @@ function runModule(ctx frozen with Context, mutates station Station, task Count)
 	var found = diag.ErrorList.create(0)
 	var timing = TaskTiming.of(ctx.compile.options.timings)
 	var nanos = 0 as Count
+	var started = 0 as Count
 	var state = TaskState.skipped
 	if outcome.mustSkip(stage) 'skip'
 		outcome.skipped = true
 	end 'skip' else 'run'
-		let started = clockIf(ctx.compile.options.timings)
+		started = clockIf(ctx.compile.options.timesTasks())
 		let slot = ctx.compile.slotOf(m)
 		outcome.known[slot] = moduleTask(ctx.compile, work: station.work, stage: stage, m: m, known: outcome.known, memory: ctx.memory, timing: timing, errs: found)
-		nanos = elapsedIf(ctx.compile.options.timings, started: started)
+		nanos = elapsedIf(ctx.compile.options.timesTasks(), started: started)
 		state = TaskState.done
 		if found.count() > 0 'failed'
 			state = TaskState.failed
 			outcome.noteFailure(true, phase: phaseOf(stage))
 		end 'failed'
 	end 'run'
-	reportTask(ctx, task: task, state: state, found: found, nanos: nanos, timing: timing)
+	reportTask(ctx, task: task, state: state, found: found, started: started, nanos: nanos, timing: timing)
 	for i in 0 upto ctx.dependents[task].count() 'dependents'
 		let d = ctx.dependents[task][i]
 		let payload = moduleGives(ctx, work: station.work, dependent: d)
@@ -321,12 +327,12 @@ end 'moduleGives'
 
 // reportTask schedules the record of what became of task on the project's cown, before the tasks that wait on it are sent
 // anything, so that every task has reported when the last ends.
-function reportTask(ctx frozen with Context, task Count, state TaskState, consumes found diag.ErrorList, nanos Count, consumes timing TaskTiming)
+function reportTask(ctx frozen with Context, task Count, state TaskState, consumes found diag.ErrorList, started Count, nanos Count, consumes timing TaskTiming)
 	let station = share(ctx.project)
 	let stage = ctx.graph.tasks[task].stage
 	let module = ctx.graph.tasks[task].module
 	when station as s 'report'
-		s.record(task, state: state, found: found, stage: stage, module: module, nanos: nanos, timing: timing)
+		s.record(task, state: state, found: found, stage: stage, module: module, started: started, nanos: nanos, timing: timing)
 	end 'report'
 end 'reportTask'
 
@@ -342,23 +348,24 @@ function runProject(ctx frozen with Context, mutates station ProjectStation, tas
 	var next = share(ctx)
 	var starts as Array with CheckStart
 	starts = Array.create(0)
+	var started = 0 as Count
 	if outcome.mustSkip(stage) 'skip'
 		outcome.skipped = true
 	end 'skip' else 'run'
-		let started = clockIf(ctx.compile.options.timings)
+		started = clockIf(ctx.compile.options.timesTasks())
 		if stage == Stage.order 'order'
 			next = orderProject(ctx, station: station, known: outcome.known, starts: starts, errs: found)
 		end 'order' else 'other'
 			projectTask(ctx, station: station, stage: stage, known: outcome.known, errs: found)
 		end 'other'
-		nanos = elapsedIf(ctx.compile.options.timings, started: started)
+		nanos = elapsedIf(ctx.compile.options.timesTasks(), started: started)
 		state = TaskState.done
 		if found.count() > 0 'failed'
 			state = TaskState.failed
 			outcome.noteFailure(true, phase: phaseOf(stage))
 		end 'failed'
 	end 'run'
-	station.record(task, state: state, found: found, stage: stage, module: 0, nanos: nanos, timing: timing)
+	station.record(task, state: state, found: found, stage: stage, module: 0, started: started, nanos: nanos, timing: timing)
 	if next.dependents[task].count() == 0 'last'
 		finishCompile(next, station: station, known: outcome.known)
 		return
@@ -459,6 +466,9 @@ function finishCompile(ctx frozen with Context, mutates station ProjectStation, 
 	if station.timings.enabled 'report'
 		reportTimings(station.timings, p: station.p, goal: ctx.compile.goal, first: ctx.compile.first)
 	end 'report'
+	if station.trace.enabled() 'trace'
+		station.trace.write(timingNames(station.p), graph: ctx.graph)
+	end 'trace'
 	ast.locateAllErrors(station.p.modules, errs: station.errs)
 	let code = report(station.errs)
 	if code == 0 and ctx.compile.options.runsTests 'tests'

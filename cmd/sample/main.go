@@ -1,8 +1,8 @@
 //go:build windows
 
-// Command sample profiles an executable that minimaxon built: it runs a command line, samples its main thread's
-// instruction pointer and its chain of rbp frames at a fixed interval, and prints the functions by samples, using the
-// symbol map that `minimaxon build --emit-map` writes beside the executable.
+// Command sample profiles an executable that minimaxon built: it runs a command line, samples its main thread's (or, with
+// -threads, every running thread's) instruction pointer and its chain of rbp frames at a fixed interval, and prints the
+// functions by samples, using the symbol map that `minimaxon build --emit-map` writes beside the executable.
 package main
 
 import (
@@ -22,9 +22,10 @@ import (
 )
 
 const usageText = `usage:
-  sample [-map FILE] [-interval DURATION] [-top N] [-callers N] [-focus TEXT,...] [-o FILE] <exe> [arg...]
+  sample [-map FILE] [-interval DURATION] [-threads] [-top N] [-callers N] [-focus TEXT,...] [-o FILE] <exe> [arg...]
 
-Runs <exe> with its arguments, samples where its main thread is, and prints the functions by the samples they were
+Runs <exe> with its arguments, samples where its main thread is (with -threads, each of its threads that ran since its
+last sample, so that a parked or blocked thread adds nothing), and prints the functions by the samples they were
 running in (self) and by the samples they were on the stack in (total), with the callers of the top functions. The map
 defaults to <exe>.map, which minimaxon build --emit-map writes. The profile goes to standard error, or to -o FILE; the
 program's own output goes where sample's does. sample exits with the program's exit code.`
@@ -73,6 +74,18 @@ const (
 	unknownAddress = "(no symbol)"
 	// callersListed is how many callers each of the top functions lists.
 	callersListed = 12
+
+	// With -threads, the threads are listed again every threadListEvery samples, and a thread is sampled only when it ran
+	// more than ranCycles since its last sample: a thread that waits on a lock or an event is not running code.
+	th32csSnapThread    = 0x00000004
+	threadSuspendResume = 0x0002
+	threadGetContext    = 0x0008
+	threadQueryInfo     = 0x0040
+	threadListEvery     = 16
+	ranCycles           = 100000
+	threadEntrySize     = 28
+	ownerProcessOffset  = 12
+	threadIDOffset      = 8
 )
 
 var (
@@ -82,6 +95,11 @@ var (
 	procResumeThread          = kernel32.NewProc("ResumeThread")
 	procGetThreadContext      = kernel32.NewProc("GetThreadContext")
 	procReadProcessMemory     = kernel32.NewProc("ReadProcessMemory")
+	procCreateToolhelp32      = kernel32.NewProc("CreateToolhelp32Snapshot")
+	procThread32First         = kernel32.NewProc("Thread32First")
+	procThread32Next          = kernel32.NewProc("Thread32Next")
+	procOpenThread            = kernel32.NewProc("OpenThread")
+	procQueryThreadCycleTime  = kernel32.NewProc("QueryThreadCycleTime")
 	procNtQueryInformationPro = ntdll.NewProc("NtQueryInformationProcess")
 )
 
@@ -128,10 +146,41 @@ func (m *symbolMap) find(rva uint64) int {
 
 // target is the process being sampled.
 type target struct {
-	process, thread syscall.Handle
-	base            uint64
-	symbols         *symbolMap
-	context         []byte
+	process syscall.Handle
+	base    uint64
+	symbols *symbolMap
+	context []byte
+}
+
+// sampledThread is a thread of the target that -threads samples, with its cycle count when it was last looked at.
+type sampledThread struct {
+	handle syscall.Handle
+	cycles uint64
+}
+
+// threadIDs are the ids of the threads of the process now.
+func threadIDs(pid uint32) []uint32 {
+	snapshot, _, _ := procCreateToolhelp32.Call(th32csSnapThread, 0)
+	if syscall.Handle(snapshot) == syscall.InvalidHandle {
+		return nil
+	}
+	defer syscall.CloseHandle(syscall.Handle(snapshot))
+	var entry [threadEntrySize]byte
+	*(*uint32)(unsafe.Pointer(&entry[0])) = threadEntrySize
+	var ids []uint32
+	for r, _, _ := procThread32First.Call(snapshot, uintptr(unsafe.Pointer(&entry[0]))); r != 0; r, _, _ = procThread32Next.Call(snapshot, uintptr(unsafe.Pointer(&entry[0]))) {
+		if *(*uint32)(unsafe.Pointer(&entry[ownerProcessOffset])) == pid {
+			ids = append(ids, *(*uint32)(unsafe.Pointer(&entry[threadIDOffset])))
+		}
+	}
+	return ids
+}
+
+// cyclesOf is the CPU cycles the thread has run.
+func cyclesOf(thread syscall.Handle) uint64 {
+	var cycles uint64
+	procQueryThreadCycleTime.Call(uintptr(thread), uintptr(unsafe.Pointer(&cycles)))
+	return cycles
 }
 
 func (t *target) read(address uint64, out []byte) bool {
@@ -183,13 +232,13 @@ func (t *target) symbolOf(address uint64) int {
 
 // sample stops the thread, reads its stack of return addresses from the instruction pointer outwards, and lets it go.
 // It says false once the thread can no longer be read, as when the process is ending.
-func (t *target) sample(stack []uint64) ([]uint64, bool) {
-	if r, _, _ := procSuspendThread.Call(uintptr(t.thread)); int32(r) == -1 {
+func (t *target) sample(thread syscall.Handle, stack []uint64) ([]uint64, bool) {
+	if r, _, _ := procSuspendThread.Call(uintptr(thread)); int32(r) == -1 {
 		return stack, false
 	}
-	defer procResumeThread.Call(uintptr(t.thread))
+	defer procResumeThread.Call(uintptr(thread))
 	*(*uint32)(unsafe.Pointer(&t.context[contextFlagsOffset])) = contextControlInteger
-	if r, _, _ := procGetThreadContext.Call(uintptr(t.thread), uintptr(unsafe.Pointer(&t.context[0]))); r == 0 {
+	if r, _, _ := procGetThreadContext.Call(uintptr(thread), uintptr(unsafe.Pointer(&t.context[0]))); r == 0 {
 		return stack, false
 	}
 	rip, rsp, rbp := t.word(contextRipOffset), t.word(contextRspOffset), t.word(contextRbpOffset)
@@ -232,12 +281,21 @@ func (t *target) sample(stack []uint64) ([]uint64, bool) {
 // that code, and the first frame record above it, a saved rbp that points further up the stack next to a return address
 // into the image, is the frame of the function that made the call. It returns that frame, or 0 if there is none.
 func (t *target) scanForFrame(rsp uint64, stack *[]uint64) uint64 {
+	// The reads end on page boundaries, since the stack's base is one and the page past it is not mapped: a read that
+	// crosses it fails whole.
 	var page [stackScanChunk]byte
 	words := make([]uint64, 0, stackScanChunk/pointerSize)
-	for read := 0; read < stackScanBytes && t.read(rsp+uint64(read), page[:]); read += stackScanChunk {
-		for i := 0; i < stackScanChunk; i += pointerSize {
+	at := rsp
+	for read := 0; read < stackScanBytes; {
+		chunk := stackScanChunk - int(at%stackScanChunk)
+		if !t.read(at, page[:chunk]) {
+			break
+		}
+		for i := 0; i+pointerSize <= chunk; i += pointerSize {
 			words = append(words, *(*uint64)(unsafe.Pointer(&page[i])))
 		}
+		at += uint64(chunk)
+		read += chunk
 	}
 	call := -1
 	for i, w := range words {
@@ -261,7 +319,9 @@ func (t *target) scanForFrame(rsp uint64, stack *[]uint64) uint64 {
 
 // profile is what the samples add up to, per map entry; the last index stands for addresses outside any symbol.
 type profile struct {
-	samples     int
+	samples int
+	// waiting counts the looks at a thread, with -threads, that found it had not run since the last.
+	waiting     int
 	self, total []int
 	// callers counts, for each function, the samples in which it was called from each caller, once per sample.
 	callers []map[int]int
@@ -306,6 +366,7 @@ func run() int {
 	flags.Usage = func() { fmt.Fprintln(os.Stderr, usageText) }
 	mapPath := flags.String("map", "", "the symbol map (default <exe>.map)")
 	interval := flags.Duration("interval", time.Millisecond, "the time between samples")
+	allThreads := flags.Bool("threads", false, "sample every thread that ran since its last sample, not only the main thread")
 	top := flags.Int("top", 40, "how many functions each table lists")
 	callersOf := flags.Int("callers", 15, "how many of the top functions by self samples get their callers listed")
 	focus := flags.String("focus", "", "a comma-separated list of texts: the functions whose symbol contains one also get their callers listed")
@@ -365,22 +426,58 @@ func run() int {
 		fmt.Fprintf(os.Stderr, "sample: %v\n", err)
 		return exitError
 	}
-	t := &target{process: info.Process, thread: info.Thread, base: base, symbols: symbols, context: alignedContext()}
+	t := &target{process: info.Process, base: base, symbols: symbols, context: alignedContext()}
 	p := newProfile(len(symbols.entries))
 	procResumeThread.Call(uintptr(info.Thread))
 
 	var stack []uint64
 	seen := make([]int, 0, maxFrames)
-	for {
+	threads := map[uint32]*sampledThread{}
+	var order []uint32
+	for round := 0; ; round++ {
 		event, _ := syscall.WaitForSingleObject(info.Process, 0)
 		if event == waitObject0 {
 			break
 		}
-		var ok bool
-		if stack, ok = t.sample(stack); ok {
-			p.add(t, stack, seen)
+		if !*allThreads {
+			var ok bool
+			if stack, ok = t.sample(info.Thread, stack); ok {
+				p.add(t, stack, seen)
+			}
+			time.Sleep(*interval)
+			continue
+		}
+		if round%threadListEvery == 0 {
+			order = order[:0]
+			for _, id := range threadIDs(info.ProcessId) {
+				if threads[id] == nil {
+					h, _, _ := procOpenThread.Call(threadSuspendResume|threadGetContext|threadQueryInfo, 0, uintptr(id))
+					if h == 0 {
+						continue
+					}
+					threads[id] = &sampledThread{handle: syscall.Handle(h), cycles: cyclesOf(syscall.Handle(h))}
+				}
+				order = append(order, id)
+			}
+		}
+		for _, id := range order {
+			th := threads[id]
+			now := cyclesOf(th.handle)
+			ran := now-th.cycles > ranCycles
+			th.cycles = now
+			if !ran {
+				p.waiting++
+				continue
+			}
+			var ok bool
+			if stack, ok = t.sample(th.handle, stack); ok {
+				p.add(t, stack, seen)
+			}
 		}
 		time.Sleep(*interval)
+	}
+	for _, th := range threads {
+		syscall.CloseHandle(th.handle)
 	}
 	syscall.WaitForSingleObject(info.Process, infinite)
 	wall := time.Since(start)
@@ -413,7 +510,11 @@ func ranked(counts []int) []int {
 func percent(n, of int) float64 { return 100 * float64(n) / float64(max(of, 1)) }
 
 func report(out io.Writer, p *profile, symbols *symbolMap, wall, interval time.Duration, top, callersOf int, focus string) {
-	fmt.Fprintf(out, "wall %.3fs, %d samples at %v\n\n", wall.Seconds(), p.samples, interval)
+	fmt.Fprintf(out, "wall %.3fs, %d samples at %v", wall.Seconds(), p.samples, interval)
+	if p.waiting > 0 {
+		fmt.Fprintf(out, ", %d looks at a thread that had not run", p.waiting)
+	}
+	fmt.Fprintf(out, "\n\n")
 	fmt.Fprintf(out, "by self samples (self%%, total%%):\n")
 	bySelf := ranked(p.self)
 	for _, id := range bySelf[:min(top, len(bySelf))] {

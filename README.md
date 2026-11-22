@@ -49,12 +49,12 @@ generator.
 | `minimaxon interp <file\|dir> [--seed=N] [--frees]` | development only: run under the tracking interpreter, which runs a map, a list, a pool, a frozen value, a cown and a behaviour, and reports a violation of the memory model; `--frees` lists the values freed, in order |
 | `minimaxon fuzz [--seed=N] [--count=N] [--schedules=N] [--keep=DIR] [--native] [--dump]` | development only: write random programs, check them and run them under the interpreter (`self/fuzz`); `--native` also runs the executable of each that compiles and compares it with the interpreter (see "Tests") |
 | `go run ./cmd/convert [--specs] [--write] [--check] [--out=DIR] [<path>...]` | convert existing Maxon `.maxon` source files to minimaxon syntax and layout, marking unsupported constructs with `// TODO` comments and warnings on stderr; `--check` writes nothing and prints each kind of warning with its count and files, most frequent first (run `minimaxon qualify` after converting a project of several modules); `--specs` converts maxon's spec files, which is how `specs/` is made. It lays out what it converts with the compiler's `fmt`: `minimaxon.exe` in the root of the repository, or the compiler the environment variable `MINIMAXON` names |
-| `go run ./cmd/sample [-interval D] [-top N] [-callers N] [-focus TEXT,...] [-o FILE] <exe> [arg...]` | profile an executable that `build --emit-map` made: runs it, samples its main thread's instruction pointer and its `rbp` frames (1 ms by default), and prints the functions by self and by total samples, with the callers of the top ones and of those whose symbol contains a `-focus` text, and the wall time; code outside the image (a Windows DLL) is charged to the function that called it, found by scanning the stack, and exits with the program's code |
+| `go run ./cmd/sample [-interval D] [-threads] [-top N] [-callers N] [-focus TEXT,...] [-o FILE] <exe> [arg...]` | profile an executable that `build --emit-map` made: runs it, samples its main thread's instruction pointer and its `rbp` frames (1 ms by default), and prints the functions by self and by total samples, with the callers of the top ones and of those whose symbol contains a `-focus` text, and the wall time; code outside the image (a Windows DLL) is charged to the function that called it, found by scanning the stack, and exits with the program's code |
 
 `build` and `test <module dir>` keep each module's code in the build cache and link the code of a module whose key did not
 change from it (see "Build cache"); `--no-cache` compiles without it, and `--verify-cache` (development only) compiles every module
 and stops with an internal error at the first whose code or summary differs from the entry the cache holds under its key. The
-compiler has no `cache` command and no `--trace=`, `--jobs=` or `--with=`: it says so, prints its usage and exits 2, as it does for a command it does not know. `run` and the test
+compiler has no `cache` command and no `--jobs=` or `--with=`: it says so, prints its usage and exits 2, as it does for a command it does not know. `run` and the test
 runner (the corpus and the specs) build their executables in the temporary directory under names that hold the process id
 (and, for the runners, the test's number in the run), so two tests and two compilers running at once never write the same
 file. A runner deletes each test's
@@ -97,6 +97,13 @@ its wall time. The clock is read twice per task and only when the flag is on.
 Beneath the stages, a compile that emitted code splits the emit stage by phase (`backend.EmitPhase`): selection, the blocks'
 layout, and per spilling round the graph, liveness and pressure, then spilling's sweeps and edits, colouring, the rewrite out of
 SSA, `--verify-ir`'s checks and encoding, each by its share of the stage; the clock is read at each boundary of a phase.
+`--trace=<file>` (on `build` and `check`) writes the timeline of the compile's tasks to the file in Chrome's trace format
+(`chrome://tracing`, Perfetto; `self/driver/trace.maxon`): a span for what ran before the tasks (the runtime's compile and the
+discovery), one for each task that ran, named by its stage and module, with its number in the graph and the tasks it waited on
+in its arguments, and the idle time between them. A behaviour cannot tell which worker runs it, so the spans are laid on lanes,
+each on the lowest lane free when it starts: as many lanes as tasks ran at once, never more than the workers, and a gap on a
+lane is a worker idle. The clock is read twice per task and the spans kept only when the flag is on. `go run ./cmd/sample
+-threads` samples every thread that ran since its last sample, rather than the main thread only.
 `--count-allocations` builds an executable that counts its live heap boxes (see "Counting allocations"); it is for
 development, and `minimaxon test` always uses it. `--reverse-modules` (development only) runs the modules of each stage
 in another order that still puts each after the modules it names: the modules that name nothing of each other in the
@@ -1078,8 +1085,8 @@ parameter passed by address (`mutates`, `sets`) and a result that `returns borro
 takes words, as its thunk passes the words of the behaviour's record, and so do a runtime entry (`runtime`), whose
 signature `check runtime` holds to words, `callcode`, the drop and copy routines, the thread start and the entry stub.
 
-Records and union values are heap boxes of 8-byte words (a union's first word is its case index), allocated with `HeapAlloc` on
-the process heap (`runtime::alloc`) and freed with `HeapFree` (`runtime::free`) where their owner dies (see "Drops"); a box is
+Records and union values are heap boxes of 8-byte words (a union's first word is its case index), allocated by the running
+thread's heap (`runtime::alloc`, see "Native freeing") and freed by it (`runtime::free`) where their owner dies (see "Drops"); a box is
 zeroed when it is allocated. A string is a pointer to `[length][UTF-8 bytes]`: a literal lives in the executable's data section
 and is never freed, any other string is a box on the heap. An enum value is its case index. A constant whose value is a box
 lives in the data section too (see "Constants in the data section").
@@ -1369,10 +1376,23 @@ nothing.
   the literal, as in the interpreter. The alternative, a flag in the string's header, would cost a word in every string and a
   mask on every read of its length; a range check costs nothing until a string is dropped, and any compiler that puts constants
   in an image section can do the same.
-- **Free** is `HeapFree` on the process heap, behind `runtime::free`, which also skips 0 since `HeapFree` does not accept it.
-- **Counting allocations.** The runtime counts the heap boxes that are allocated and not freed in every executable, each
-  thread in its own context (`runtime::alloc` adds 1 and `runtime::free` subtracts 1, with no locked step), so the
-  runtime is the same code whatever the build; `checkLeaks` sums the threads' counts when no behaviour is left.
+- **The heap** is `runtime/heap.maxon`, one per thread: a record that the thread's context names and its first alloc makes,
+  so `runtime::alloc` and `runtime::free` take no lock and write no word that another thread writes (the process heap's lock
+  serialized the workers, and its calls were about 40% of a build). A box of up to 8 KB is a slot of a size class (one per
+  word up to 256 bytes, then four per power of two up to 8 KB), carved from 1 MB chunks of the process heap that the heap's
+  classes share, and a larger box is a block of the process heap of its own. A word before every box holds its heap's
+  record, aligned to 512 bytes, plus its class's key, so `free` (which skips 0) finds both from the box alone and pushes the
+  box's address on the class's stack, which `alloc` pops and zeroes; the stacks are apart from the slots, so an alloc reads
+  nothing of a slot that may have left the cache. A behaviour may free what another worker allocated: a box of another heap
+  goes on that heap's list of remote frees with a compare-exchange, linked through the dead box, and the owner takes the
+  whole list with one exchange when a class of its runs out, as mimalloc's thread-free list works; only the owner takes, and
+  takes everything, so no push meets a box taken and pushed again. A mask over the address would save the header word, but
+  HeapAlloc gives no alignment to a chunk's size, so a large box would carry up to a chunk of padding or every free a lookup
+  in a map of the address space.
+- **Counting allocations.** The runtime knows the heap boxes that are allocated and not freed in every executable, so the
+  runtime is the same code whatever the build: each heap counts the slots it carves and the large boxes it holds, less those
+  it frees, and the live boxes are the sum over the threads' heaps less the slots on their stacks and lists
+  (`runtime::liveBoxes`), so a box of a class costs no count; `checkLeaks` sums them when no behaviour is left.
   `--count-allocations` changes only the entry stub, which then passes `main`'s exit code to the runtime's `checkLeaks`: when
   the count is not 0 the executable writes `leaked allocations: N` to standard error and exits with 99, in place of `main`'s
   own exit code. `minimaxon test` and the program generator always use it, so every native run of the corpus ends with no box
@@ -1732,9 +1752,9 @@ mapped function exists with exactly that signature (`E3004` when it is missing, 
 
 **Globals.** The entry stub keeps the process heap and the two standard handles (`g.heap`, `g.stdout`, `g.stderr`),
 which it sets before `main`; the linker defines `g.imageDataStart` and `g.imageDataEnd`. Runtime source reaches a global through its address intrinsic.
-The runtime is the same code whatever the build: `alloc` and `free` always count, and `--count-allocations` changes only
-the stub, which then passes the exit code to the runtime's `checkLeaks`, which sums the count of live boxes that each
-thread keeps in its context; that exits with the leak report and 99 when
+The runtime is the same code whatever the build: each thread's heap always knows its live boxes, and `--count-allocations` changes only
+the stub, which then passes the exit code to the runtime's `checkLeaks`, which sums the live boxes of the threads' heaps;
+that exits with the leak report and 99 when
 a box is live, and gives the code back otherwise. Behaviour, exit codes and messages are maxon's runtime's.
 
 **Threads.** Each thread keeps its context, a record of `contextBytes` (`abigen`), in one thread-local slot. Before
@@ -3324,7 +3344,7 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   some of Maxon's specs use, a tuple of a type parameter read by field in a generic body, a one-element target list `(x) = e`,
   and the `E3064` lint on a tuple assignment of nothing but `_`.
 - A compiled program frees each value where its owner dies, as the IR says (see "Drops" and "Native freeing"), with one
-  `HeapFree` and no reference counting; Maxon counts references. A panic and a fault print no backtrace after their line
+  free and no reference counting; Maxon counts references. A panic and a fault print no backtrace after their line
   (the spec runner leaves maxon's `Stack trace:` lines out of what it compares). A frozen value, a cown and a function
   value are the values with a count of owners, always stepped by one locked add, whatever the program. Behaviours run
   to completion on a scheduler of worker threads of minimaxon's own (`runtime/sched.maxon`, `runtime/cown.maxon`),
