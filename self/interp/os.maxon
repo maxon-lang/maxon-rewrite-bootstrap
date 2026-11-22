@@ -190,6 +190,14 @@ function entryOsWriteBinary(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws H
 	try errorWord(vm, f: f, x: x, word: word)
 end 'entryOsWriteBinary'
 
+function entryOsWriteTextMode(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	try entryOsWriteText(vm, f: f, x: x)
+end 'entryOsWriteTextMode'
+
+function entryOsWriteBinaryMode(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	try entryOsWriteBinary(vm, f: f, x: x)
+end 'entryOsWriteBinaryMode'
+
 function entryOsRename(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	let fromAt = try textIndex(vm, o: argRef(vm, f: f, x: x, i: 0), what: "a path")
 	let source = pathOf(vm.h.texts[fromAt].clone())

@@ -332,6 +332,11 @@ function lowerIntrinsic(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleS
 	end 'receiver'
 	let base = l.args.count()
 	for i in 0 upto c.ordered.count() 'each'
+		if c.ordered[i] == 0 'defaulted'
+			let word = konst(l, value: try c.info.paramSpecs[i].defaultCase as Word otherwise panic("ir: a case index is out of range"))
+			pushArg(l, v: word)
+			continue 'each'
+		end 'defaulted'
 		let v = lowerConverted(l, p: p, ms: ms, e: c.ordered[i], target: c.info.paramSpecs[i].ty)
 		pushArg(l, v: v)
 	end 'each'

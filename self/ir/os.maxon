@@ -234,15 +234,23 @@ function lowerFileReadText(mutates l Lowerer, p ast.Project, ms ast.ModuleState,
 	return failing(l, p: p, ms: ms, site: siteOf(l, p: p, node: c.node), dst: dst, symbol: Rt.rtOsReadText, args: argsOf1(path))
 end 'lowerFileReadText'
 
+// isExecutable is whether a FilePermission is the executable case, as the flag the runtime's write takes.
+function isExecutable(mutates l Lowerer, mode Reg) returns Reg
+	let executable = konst(l, value: try ast.filePermissionExecutable as Word otherwise panic("ir: a case index is out of range"))
+	return compare(l, op: CmpOp.cmpEq, a: mode, b: executable, unsigned: false)
+end 'isExecutable'
+
 function lowerFileWriteText(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	let path = pathText(l, path: args[0])
-	_ = failing(l, p: p, ms: ms, site: siteOf(l, p: p, node: c.node), dst: noReg, symbol: Rt.rtOsWriteText, args: argsOf2(path, b: args[1]))
+	let executable = isExecutable(l, mode: args[2])
+	_ = failing(l, p: p, ms: ms, site: siteOf(l, p: p, node: c.node), dst: noReg, symbol: Rt.rtOsWriteTextMode, args: argsOf3(path, b: args[1], c: executable))
 	return konst(l, value: 0 as Word)
 end 'lowerFileWriteText'
 
 function lowerFileWriteBinary(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	let path = pathText(l, path: args[0])
-	_ = failing(l, p: p, ms: ms, site: siteOf(l, p: p, node: c.node), dst: noReg, symbol: Rt.rtOsWriteBinary, args: argsOf2(path, b: args[1]))
+	let executable = isExecutable(l, mode: args[2])
+	_ = failing(l, p: p, ms: ms, site: siteOf(l, p: p, node: c.node), dst: noReg, symbol: Rt.rtOsWriteBinaryMode, args: argsOf3(path, b: args[1], c: executable))
 	return konst(l, value: 0 as Word)
 end 'lowerFileWriteBinary'
 

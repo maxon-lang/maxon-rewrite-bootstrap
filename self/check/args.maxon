@@ -96,7 +96,7 @@ function orderArgs(c Checker, p ast.Project, ms ast.ModuleState, call ast.NodeID
 		end 'positional' else if seen == 0 and label == "" 'first'
 			slot = 0
 		end 'first' else 'labelled'
-			if seen == 0 and specs[0].defaultExpr == 0 and not specs[0].labelled 'noDefault'
+			if seen == 0 and not specs[0].hasDefault() and not specs[0].labelled 'noDefault'
 				failAt(c, p: p, ms: ms, node: arg, code: diag.errCallFirstArgNamed, msg: diag.firstArgNamed(), errs: errs)
 				return ordered
 			end 'noDefault'
@@ -122,7 +122,7 @@ function orderArgs(c Checker, p ast.Project, ms ast.ModuleState, call ast.NodeID
 		seen = try seen + 1 otherwise seen
 	end 'args'
 	for j in 0 upto specs.count() 'required'
-		if ordered[j] == 0 and specs[j].defaultExpr == 0 'missing'
+		if ordered[j] == 0 and not specs[j].hasDefault() 'missing'
 			failArity(c, p: p, ms: ms, call: call, callee: callee, specs: specs, given: given, receivers: receivers, errs: errs)
 			return ordered
 		end 'missing'

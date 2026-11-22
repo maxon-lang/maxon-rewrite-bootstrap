@@ -97,6 +97,10 @@ func (m *maxonBody) params(f fn, generic string) string {
 	v := m.fresh("ps")
 	m.line("var %s = ParamSpecList.create(0)", v)
 	for i, p := range f.params {
+		if p.defaultCase != "" {
+			m.line("%s.push(ParamSpec.withCaseDefault(%q, ty: %s, conv: %s, defaultCase: %d))", v, p.name, types[i], maxonConv(p.conv), defaultIndex(p))
+			continue
+		}
 		maker := "make"
 		if p.labelled {
 			maker = "labelledFirst"

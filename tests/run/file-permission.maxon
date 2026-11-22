@@ -1,0 +1,35 @@
+// A write takes a FilePermission, which Windows accepts and ignores as it has no executable mode;
+// file-permission-on-linux.maxon holds Linux's to it.
+// unsupported-targets: x64-linux
+//> default=ab
+//> normal=cd
+//> executable=ef
+//> binary=ABC
+//> binaryExecutable=ABC
+
+function path(text String) returns FilePath
+	return try FilePath.from(text) otherwise panic("not a path")
+end 'path'
+
+function main() returns ExitCode
+	let temp = try Process.environmentVariable("TEMP") otherwise panic("TEMP is not set")
+	let dir = "{temp}\\minimaxon_file_permission_test"
+	_ = Directory.create(path(dir))
+	let file = path("{dir}\\a.txt")
+	try File.writeText(file, content: "ab") otherwise panic("cannot write")
+	print("default={try File.readText(file) otherwise panic("cannot read")}\n")
+	try File.writeText(file, content: "cd", mode: FilePermission.normal) otherwise panic("cannot write")
+	print("normal={try File.readText(file) otherwise panic("cannot read")}\n")
+	try File.writeText(file, content: "ef", mode: FilePermission.executable) otherwise panic("cannot write")
+	print("executable={try File.readText(file) otherwise panic("cannot read")}\n")
+	var bytes = ByteArray.create(0)
+	bytes.push(65 as Byte)
+	bytes.push(66 as Byte)
+	bytes.push(67 as Byte)
+	try File.writeBinary(file, content: bytes) otherwise panic("cannot write")
+	print("binary={try File.readText(file) otherwise panic("cannot read")}\n")
+	try File.writeBinary(file, content: bytes, mode: FilePermission.executable) otherwise panic("cannot write")
+	print("binaryExecutable={try File.readText(file) otherwise panic("cannot read")}\n")
+	try File.delete(file) otherwise panic("cannot delete")
+	return 0
+end 'main'

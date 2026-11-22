@@ -321,6 +321,9 @@ let linuxOpenDirectory = 589824 as Count
 // linuxFileMode is 0666, which the umask narrows: the mode of a file the runtime makes.
 let linuxFileMode = 438 as Count
 
+// linuxExecutableFileMode is 0755, which the umask narrows: the mode of a file the runtime makes for FilePermission.executable.
+let linuxExecutableFileMode = 493 as Count
+
 // linuxDirectoryMode is 0777, which the umask narrows: the mode of a directory the runtime makes.
 let linuxDirectoryMode = 511 as Count
 

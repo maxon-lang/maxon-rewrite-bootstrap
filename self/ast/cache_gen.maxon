@@ -1839,6 +1839,8 @@ function storeParamSpec(mutates w table.CacheWriter, v ParamSpec)
 	w.word8(v.conv.ordinal as table.Word64)
 	w.word32(v.defaultExpr as table.Word64)
 	w.flag(v.labelled)
+	w.flag(v.hasCaseDefault)
+	w.word64(v.defaultCase as table.Word64)
 end 'storeParamSpec'
 
 extension ParamSpec
@@ -1848,7 +1850,9 @@ extension ParamSpec
 		let theConv = Convention.allCases[r.word8() as Count]
 		let theDefaultExpr = try (r.word32() as NodeID) otherwise panic("cache: a stored NodeID is out of its range")
 		let theLabelled = r.flag()
-		return ParamSpec{name: theName, ty: theTy, conv: theConv, defaultExpr: theDefaultExpr, labelled: theLabelled}
+		let theHasCaseDefault = r.flag()
+		let theDefaultCase = r.word64() as Count
+		return ParamSpec{name: theName, ty: theTy, conv: theConv, defaultExpr: theDefaultExpr, labelled: theLabelled, hasCaseDefault: theHasCaseDefault, defaultCase: theDefaultCase}
 	end 'cacheLoad'
 end 'ParamSpec'
 

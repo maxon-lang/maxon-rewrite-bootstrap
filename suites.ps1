@@ -39,18 +39,51 @@ function Test-Specs {
 
 # The corpus runs with the machine's worker count; the programs that schedule behaviours then run again, natively, under
 # one worker and under two. The runner cannot give the executables it starts another worker count, but its environment,
-# which they inherit, can.
-function Test-Behaviours {
+# which they inherit, can: WSL passes on only the variables that WSLENV names, so a Linux run names this one.
+function Test-Behaviours([string[]]$TargetArgs = @()) {
 	$before = $env:MAXON_MAX_PROCS
-	foreach ($procs in 1, 2) {
-		$env:MAXON_MAX_PROCS = $procs
-		try {
-			$null | & $compiler test --behaviours @TestArgs
-		} finally {
-			$env:MAXON_MAX_PROCS = $before
+	$beforeWsl = $env:WSLENV
+	$env:WSLENV = if ($beforeWsl) { "${beforeWsl}:MAXON_MAX_PROCS" } else { 'MAXON_MAX_PROCS' }
+	try {
+		foreach ($procs in 1, 2) {
+			$env:MAXON_MAX_PROCS = $procs
+			$null | & $compiler test --behaviours @TargetArgs @TestArgs
+			if ($LASTEXITCODE -ne 0) { return }
 		}
-		if ($LASTEXITCODE -ne 0) { return }
+	} finally {
+		$env:MAXON_MAX_PROCS = $before
+		$env:WSLENV = $beforeWsl
 	}
+}
+
+# The x64-linux corpus is compiled for Linux and run under WSL, in its default distribution, so the second target is held to
+# the same programs. A machine without WSL or a distribution fails the step: a gate that skipped it would pass without
+# running Linux's code.
+$linuxTarget = '--target=x64-linux'
+
+function Assert-Wsl {
+	if (-not (Get-Command wsl.exe -ErrorAction SilentlyContinue)) {
+		Write-Output 'the x64-linux corpus runs under WSL, and wsl.exe is not installed: install WSL (wsl --install)'
+		$global:LASTEXITCODE = 1
+		return
+	}
+	$null = wsl.exe --exec /bin/true 2>&1
+	if ($LASTEXITCODE -ne 0) {
+		Write-Output 'the x64-linux corpus runs under WSL, and its default distribution cannot run a program: install one (wsl --install -d Ubuntu) and start it once'
+		$global:LASTEXITCODE = 1
+	}
+}
+
+function Test-Linux {
+	Assert-Wsl
+	if ($LASTEXITCODE -ne 0) { return }
+	$null | & $compiler test $linuxTarget @TestArgs
+}
+
+function Test-LinuxBehaviours {
+	Assert-Wsl
+	if ($LASTEXITCODE -ne 0) { return }
+	Test-Behaviours @($linuxTarget)
 }
 
 # The build cache must make the executable an uncached build makes. A project whose main inlines a leaf of the module it
@@ -131,6 +164,8 @@ $steps = @(
 	# Test programs inherit stdin, so one that reads it would wait until the runner's deadline ends it: give it none.
 	@('corpus', { $null | & $compiler test @TestArgs }),
 	@('behaviours', { Test-Behaviours }),
+	@('corpus on linux', { Test-Linux }),
+	@('behaviours on linux', { Test-LinuxBehaviours }),
 	@('cache', { Test-Cache }),
 	@('specs', { Test-Specs }),
 	# Every program the generator writes that the checker accepts must run clean under the interpreter: a violation is a

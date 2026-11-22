@@ -93,11 +93,23 @@ type param struct {
 	ty   *tyExpr
 	// labelled is a parameter that a call names with its label even where it is the first, written "name:".
 	labelled bool
+	// defaultCase is the case of an enum parameter that a call leaving the argument out gives, written "= case", or "".
+	defaultCase string
 }
 
 var conventions = []string{"let", "mutates", "consumes"}
 
 func parseParam(s string) param {
+	s, defaultCase, hasDefault := strings.Cut(s, " = ")
+	if hasDefault && defaultCase == "" {
+		fail("parameter %q has no default after '='", s)
+	}
+	p := parseSignature(s)
+	p.defaultCase = defaultCase
+	return p
+}
+
+func parseSignature(s string) param {
 	fields := strings.SplitN(s, " ", 3)
 	conv := "let"
 	if len(fields) == 3 && isConvention(fields[0]) {
@@ -227,6 +239,9 @@ const stringOwner = "String"
 func (f fn) check() {
 	for _, p := range f.params {
 		f.checkType(p.ty)
+		if p.defaultCase != "" {
+			f.checkDefault(p)
+		}
 	}
 	f.checkType(f.result)
 	for _, b := range f.bounds {
@@ -234,6 +249,22 @@ func (f fn) check() {
 			fail("%s bounds %s, which is no parameter of %s", f.Name, b.param, f.Owner)
 		}
 	}
+}
+
+// checkDefault holds a default to a case of an enum row that the parameter takes by let.
+func (f fn) checkDefault(p param) {
+	e := enumOf(p.ty.name)
+	if e == nil || p.ty.arg != nil || p.conv != "let" {
+		fail("%s: the parameter %s has a default, which only a let parameter of an enum row of the table may", f.Name, p.name)
+	}
+	if defaultIndex(p) < 0 {
+		fail("%s: the default of %s is %s, which is no case of %s", f.Name, p.name, p.defaultCase, e.Name)
+	}
+}
+
+// defaultIndex is the index of the case a parameter's default names in its enum row, or -1.
+func defaultIndex(p param) int {
+	return slices.IndexFunc(enumOf(p.ty.name).Cases, func(c enumCase) bool { return c.Name == p.defaultCase })
 }
 
 func (f fn) checkType(t *tyExpr) {
@@ -306,7 +337,7 @@ func isOwner(name string) bool {
 			return true
 		}
 	}
-	return false
+	return enumOf(name) != nil
 }
 
 // field is a field of a built-in record.

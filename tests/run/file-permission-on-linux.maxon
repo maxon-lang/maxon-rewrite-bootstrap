@@ -1,0 +1,57 @@
+// A file that a write makes with FilePermission.executable can be run, and one made with the default mode cannot.
+// unsupported-targets: x64-windows
+// native-only
+//> normal=spawnFailed
+//> default=spawnFailed
+//> executable=ran 7
+//> binary=ran 7
+
+typealias Arguments = Array with String
+
+function path(text String) returns FilePath
+	return try FilePath.from(text) otherwise panic("not a path")
+end 'path'
+
+// outcome runs the file and says how the run ended.
+function outcome(file FilePath) returns String
+	try 'run'
+		let out = Subprocess.run(Executable.path(file.clone()), arguments: Arguments.create(0))
+		return "ran {out.exitCode()}"
+	end 'run' otherwise (e) 'failed'
+		match e 'kind'
+			executableNotFound then return "executableNotFound"
+			spawnFailed then return "spawnFailed"
+			busy then return "busy"
+			ioFailed then return "ioFailed"
+			timeout then return "timeout"
+			treeNotEnded then return "treeNotEnded"
+			detachRefused then return "detachRefused"
+			inputTooLarge then return "inputTooLarge"
+			statusLost then return "statusLost"
+		end 'kind'
+	end 'failed'
+	return "unreachable"
+end 'outcome'
+
+let script = "#!/bin/sh\nexit 7\n"
+
+function main() returns ExitCode
+	let dir = "/tmp/minimaxon_file_permission_test_{Process.id()}"
+	_ = Directory.create(path(dir))
+	let normal = path("{dir}/normal")
+	let plain = path("{dir}/default")
+	let executable = path("{dir}/executable")
+	let binary = path("{dir}/binary")
+	try File.writeText(normal, content: script, mode: FilePermission.normal) otherwise panic("cannot write")
+	try File.writeText(plain, content: script) otherwise panic("cannot write")
+	try File.writeText(executable, content: script, mode: FilePermission.executable) otherwise panic("cannot write")
+	try File.writeBinary(binary, content: script.toByteArray(), mode: FilePermission.executable) otherwise panic("cannot write")
+	print("normal={outcome(normal)}\n")
+	print("default={outcome(plain)}\n")
+	print("executable={outcome(executable)}\n")
+	print("binary={outcome(binary)}\n")
+	for name in ["normal", "default", "executable", "binary"] 'clean'
+		try File.delete(path("{dir}/{name}")) otherwise panic("cannot delete")
+	end 'clean'
+	return 0
+end 'main'

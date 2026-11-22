@@ -71,6 +71,7 @@ var linuxABI = []layoutConst{
 	{"linuxOpenCloseOnExec", 0x80000, true, toRuntime, "O_CLOEXEC: an fd that an execve closes, as pipe2 takes it."},
 	{"linuxOpenDirectory", 0x90000, true, toRuntime, "O_RDONLY | O_DIRECTORY | O_CLOEXEC."},
 	{"linuxFileMode", 0x1B6, true, toRuntime, "0666, which the umask narrows: the mode of a file the runtime makes."},
+	{"linuxExecutableFileMode", 0x1ED, true, toRuntime, "0755, which the umask narrows: the mode of a file the runtime makes for FilePermission.executable."},
 	{"linuxDirectoryMode", 0x1FF, true, toRuntime, "0777, which the umask narrows: the mode of a directory the runtime makes."},
 	{"linuxStatBytes", 144, true, toRuntime, "the size of a struct stat."},
 	{"linuxStatModeOffset", 24, true, toRuntime, "where a struct stat holds st_mode, 32 bits."},

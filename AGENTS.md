@@ -58,7 +58,9 @@ it carries today's code generator.
 
 is the gate: it formats and vets the Go, runs the generators and fails if a generated file changed, builds one compiler
 from the seed (`bin\minimaxon.exe`), runs the Go tests, and then has it run `selftest`, `check runtime`, `check self`,
-`fmt --check`, the corpus, every spec test (failing when one that `specs/passed.txt` lists does not pass) and `fuzz`.
+`fmt --check`, the corpus, the corpus again for `--target=x64-linux` (compiled for Linux and run under WSL, so WSL and
+a distribution must be installed: the step fails without them and never skips), every spec test (failing when one that
+`specs/passed.txt` lists does not pass) and `fuzz`.
 `.\seed.ps1` renews the seed, and is where the compiler is held to reproducing itself (seed builds C1, C1 builds C2, C2
 builds a C3 identical to it).
 

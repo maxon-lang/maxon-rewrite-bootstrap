@@ -510,8 +510,9 @@ let nanosPerSecond = 1000000000 as Count
 		return __Raw.stringAt(box)
 	end 'osReadText'
 
-	// writeFile replaces a file with bytes at an address, and gives the Win32 error that stopped it, or 0.
-	function writeFile(path String, data Count, length Count) returns Count
+	// writeFile replaces a file with bytes at an address, and gives the Win32 error that stopped it, or 0. Windows has no
+	// executable mode, so executable is not read, as maxon's is not.
+	function writeFile(path String, data Count, length Count, executable bool) returns Count
 		var win32 = 0 as Count
 		let file = openFile(path, access: genericWrite, share: noSharing, disposition: createAlways, win32Address: __Raw.addressOf(win32))
 		if file == invalidHandle 'open'
@@ -532,17 +533,25 @@ let nanosPerSecond = 1000000000 as Count
 	end 'writeFile'
 #endif
 
-// osWriteText replaces a file with a string.
-function osWriteText(path String, content String, errorAddress Count)
+// osWriteTextMode replaces a file with a string. A file that it creates gets the executable mode when executable is set.
+function osWriteTextMode(path String, content String, executable bool, errorAddress Count)
 	let box = __Raw.stringAddress(content)
-	endWithError(errorAddress, osError: writeFile(path, data: bytesOf(box), length: boxLength(box)), table: writeFailures())
-end 'osWriteText'
+	endWithError(errorAddress, osError: writeFile(path, data: bytesOf(box), length: boxLength(box), executable: executable), table: writeFailures())
+end 'osWriteTextMode'
 
-// osWriteBinary replaces a file with the bytes of a byte array.
-function osWriteBinary(path String, content Count, errorAddress Count)
+// osWriteBinaryMode replaces a file with the bytes of a byte array, as osWriteTextMode does.
+function osWriteBinaryMode(path String, content Count, executable bool, errorAddress Count)
 	let data = __Raw.loadWord(content, offset: osBytesDataOffset)
 	let length = __Raw.loadWord(content, offset: osBytesLengthOffset)
-	endWithError(errorAddress, osError: writeFile(path, data: data, length: length), table: writeFailures())
+	endWithError(errorAddress, osError: writeFile(path, data: data, length: length, executable: executable), table: writeFailures())
+end 'osWriteBinaryMode'
+
+function osWriteText(path String, content String, errorAddress Count)
+	osWriteTextMode(path, content: content, executable: false, errorAddress: errorAddress)
+end 'osWriteText'
+
+function osWriteBinary(path String, content Count, errorAddress Count)
+	osWriteBinaryMode(path, content: content, executable: false, errorAddress: errorAddress)
 end 'osWriteBinary'
 
 #if os(Windows)

@@ -132,8 +132,8 @@ the runtime reaches the system (`import` or `syscall`, each refused by the backe
 executable's path under `/mnt/`, in the default distribution), as maxon's `targets.tsv` names a runner for each target; the
 executables' count of workers reaches WSL through `WSLENV=MAXON_MAX_PROCS`, which the caller sets. A program that the
 target cannot run says so with `// unsupported-targets: x64-linux` (maxon's directive of a spec test), and a run for that target
-prints it as `SKIP` and counts it as not supported; `os-io`, `subprocess` and `conditional-compilation` are Windows'
-and `os-io-on-linux` and `subprocess-on-linux` Linux's.
+prints it as `SKIP` and counts it as not supported; `os-io`, `subprocess`, `file-permission` and `conditional-compilation` are
+Windows' and `os-io-on-linux`, `subprocess-on-linux` and `file-permission-on-linux` Linux's.
 The compiler cross-compiles itself: `build self --target=x64-linux` makes a Linux compiler, which checks and builds programs
 under WSL, and builds itself there to the same bytes. On Linux a compiler finds `runtime/` as on Windows and joins paths
 with `/` (`nativeSeparator` of `self/project`); its build cache is under `MINIMAXON_CACHE` only, since there is no
@@ -146,7 +146,9 @@ generators and fails if a generated file (`*_gen.*`) changed; has the seed build
 `suites.ps1` on it, which runs the Go tests of the generators and tools (`go test ./...`, with that compiler as
 `cmd/convert`'s formatter) and, with the compiler: `selftest`, `check runtime` for each target, `check self --tests` (the compiler's own source and its files of tests under the rules it has just been given), `fmt --check self runtime tests`, the corpus (`test`, with no standard
 input), the programs that schedule behaviours again under one worker and under two (`test --behaviours` with
-`MAXON_MAX_PROCS` set), the build cache (a project whose main inlines a leaf of the module it names, built cold, warm and after
+`MAXON_MAX_PROCS` set), the same corpus and the same two reruns for the `x64-linux` target (`test --target=x64-linux`, the
+executables run under WSL, to which `MAXON_MAX_PROCS` is passed by `WSLENV`; a machine with no WSL or no distribution fails these
+steps with what it lacks, and never skips them), the build cache (a project whose main inlines a leaf of the module it names, built cold, warm and after
 an edit of the leaf that the order mispredicts, on every worker and on one, each executable held to the uncached build of the same
 source, and `--verify-cache`), every spec test (`test specs --require-passed`, which fails when a test that `specs/passed.txt` lists does not pass, and
 counts the new passes), and `fuzz` (300 generated programs, each one the checker accepts run clean under the interpreter). It stops at the
@@ -3068,7 +3070,7 @@ records that have no fields (`internal/builtingen/table.go`), so a program calls
 | `FilePath.from(path)` | `FilePath`, with `/` made `\` | `FilePathError.invalidCharacter` for a control character or one of `<>"\|?*` |
 | `path.toString()` | `String` | — |
 | `File.readText(path)` | `String` | `FileReadError` |
-| `File.writeText(path, content: s)`, `File.writeBinary(path, content: bytes)` | — (a file that is there is replaced) | `FileWriteError` |
+| `File.writeText(path, content: s)`, `File.writeBinary(path, content: bytes)`, each with an optional `mode: FilePermission` | — (a file that is there is replaced, and keeps its mode) | `FileWriteError` |
 | `File.rename(from, to: dest)` | — (what is at `dest` is replaced) | `FileRenameError` |
 | `File.delete(path)` | — (a directory is refused, `accessDenied`) | `FileDeleteError` |
 | `File.info(path)` | `FileInfo`: `size`, `modifiedTime`, `createdTime` and `accessedTime` (Unix seconds on the file system's clock, as maxon's), `isDirectory`, `isReadOnly`; read from the directory's record of the file (`FindFirstFileW`), so a file another process holds open is no failure | `FileInfoError` |
@@ -3083,6 +3085,7 @@ records that have no fields (`internal/builtingen/table.go`), so a program calls
   is made with `FilePath.from`, or from a string literal with `FilePath from "text"`, which panics where `from` would throw.
 - **Errors** are maxon's enums, cases and all: `FileReadError` (`notFound`, `accessDenied`, `busy`, `failed`),
   `FileWriteError` (`failed`, `notFound`, `accessDenied`, `alreadyExists`, `busy`, `partialFileLeft`),
+  `FilePermission` (`normal`, 0666, the default of `mode:`, and `executable`, 0755, which only Linux's runtime has an effect for),
   `FileRenameError` (`failed`, `notFound`, `accessDenied`, `busy`, `alreadyExists`), `FileDeleteError` (`notFound`,
   `accessDenied`, `busy`, `failed`), `DirectoryListError` (`notFound`, `accessDenied`, `listFailed`),
   `ProcessIntrospectionError` (`pathUnavailable`, `variableUnset`, `environmentUnreadable`), `FilePathError`
@@ -3097,8 +3100,8 @@ records that have no fields (`internal/builtingen/table.go`), so a program calls
   after doubling the backslashes before it (`runtime/commandline.maxon`). The child's standard output and error are pipes,
   which the run drains in turn without waiting on either, so a child that fills one cannot block; its standard input is
   the program's. A name that is not found is `executableNotFound`.
-- **`Subprocess.runWithDeadline`** is maxon's `Subprocess.run` with its `deadline:`, a function of its own because built-ins have
-  no default arguments. When the deadline passes the run ends the child with `TerminateProcess` and throws `timeout`; it
+- **`Subprocess.runWithDeadline`** is maxon's `Subprocess.run` with its `deadline:`, a function of its own because a built-in's only
+  default argument is the case of an enum (`mode:` of the writes). When the deadline passes the run ends the child with `TerminateProcess` and throws `timeout`; it
   ends the child alone, not the process tree it started (maxon's ends the tree), and the output the child had written is
   lost with it.
 - **Natively**, the entries are Maxon source in `runtime/` (`os.maxon`, `subprocess.maxon`), which calls the `W` Win32
@@ -3323,8 +3326,8 @@ the checker reports where Maxon's parser does, as it needs the type of the value
 ### Where it differs from Maxon
 
 - x64-linux: a file the Linux runtime writes (`File.writeText`, `File.writeBinary`) is made with mode 0666 under the umask, and
-  there is no `mode:` argument, so an executable that a compiler running on Linux builds is not executable until it is made so;
-  maxon's ELF writer writes its executable with `FilePermission.executable`. `FilePath.from` turns a backslash into a slash
+  unless the write is given `mode: FilePermission.executable`, so an executable that a compiler running on Linux builds is not
+  executable until it is made so; maxon's ELF writer writes its executable with `FilePermission.executable`. `FilePath.from` turns a backslash into a slash
   and refuses nothing on Linux, as maxon's does. A run of a program found on `PATH` looks for it as `execvp` does, in the run's
   own `PATH`; the run passes the child the run's environment.
 - `Process.setExitCode(code)` sets the code the process ends with when `main` has returned and no behaviour is left,
@@ -3530,7 +3533,7 @@ the checker reports where Maxon's parser does, as it needs the type of the value
 - The OS functions (see "The OS") have maxon's names, signatures and errors, but are a subset, built in rather than
   stdlib code: `FilePath` has only `from`, `toString` and its `path`, and `FilePath.from` does not resolve a `file://`
   URL (one is taken as a path); `File` has no `readBinary`, `createText`, `exists`, `renameNew`, `info` or `openRead`,
-  and `writeText` and `writeBinary` take no `mode:`; `Directory` has no `exists`, `delete` or `removeTree`, and
+  `Directory` has no `exists`, `delete` or `removeTree`, and
   `Directory.list` lists in the order the system gives; `Process` has only `environmentVariable`, `executablePath`, `id` and `setExitCode`; `Subprocess.run`
   takes no `workingDirectory:` or `deadline:` (`runWithDeadline` takes the deadline), and `CollectedOutput` has no `status`, `pid` or `durationMs`;
   `SubprocessError` is an enum without maxon's payloads (the name, the reason, the output). Natively the runtime uses

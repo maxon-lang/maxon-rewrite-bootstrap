@@ -212,18 +212,31 @@ export type ParamSpec
 	// labelled is whether a call names the argument with its label even where it is the first, as a built-in's whose
 	// first parameter the form of the call leaves out does: `Vec3.create(value: 0)`.
 	export var labelled as bool
+	// hasCaseDefault is whether a built-in's enum parameter takes the case defaultCase where a call leaves the argument out:
+	// a built-in has no tree to hold a default expression in.
+	export var hasCaseDefault as bool
+	export var defaultCase as Count
 
 	export static function make(consumes name String, ty TypeID, conv Convention) returns ParamSpec
-		return ParamSpec{name: name, ty: ty, conv: conv, defaultExpr: 0 as NodeID, labelled: false}
+		return ParamSpec{name: name, ty: ty, conv: conv, defaultExpr: 0 as NodeID, labelled: false, hasCaseDefault: false, defaultCase: 0}
 	end 'make'
 
 	export static function withDefault(consumes name String, ty TypeID, conv Convention, defaultExpr NodeID) returns ParamSpec
-		return ParamSpec{name: name, ty: ty, conv: conv, defaultExpr: defaultExpr, labelled: false}
+		return ParamSpec{name: name, ty: ty, conv: conv, defaultExpr: defaultExpr, labelled: false, hasCaseDefault: false, defaultCase: 0}
 	end 'withDefault'
 
+	export static function withCaseDefault(consumes name String, ty TypeID, conv Convention, defaultCase Count) returns ParamSpec
+		return ParamSpec{name: name, ty: ty, conv: conv, defaultExpr: 0 as NodeID, labelled: false, hasCaseDefault: true, defaultCase: defaultCase}
+	end 'withCaseDefault'
+
 	export static function labelledFirst(consumes name String, ty TypeID, conv Convention) returns ParamSpec
-		return ParamSpec{name: name, ty: ty, conv: conv, defaultExpr: 0 as NodeID, labelled: true}
+		return ParamSpec{name: name, ty: ty, conv: conv, defaultExpr: 0 as NodeID, labelled: true, hasCaseDefault: false, defaultCase: 0}
 	end 'labelledFirst'
+
+	// hasDefault is whether a call may leave the argument out.
+	export function hasDefault() returns bool
+		return self.defaultExpr != 0 or self.hasCaseDefault
+	end 'hasDefault'
 end 'ParamSpec'
 
 export typealias ParamSpecList = Array with ParamSpec

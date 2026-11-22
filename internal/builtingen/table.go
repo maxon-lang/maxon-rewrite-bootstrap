@@ -206,6 +206,11 @@ var enumTypes = []enumType{
 		{"busy", "ErrorWriteBusy"},
 		{"partialFileLeft", "ErrorWritePartialFileLeft"},
 	}},
+	// FilePermission is maxon's: the mode of a file that a write creates, 0666 or 0755 on a system that has modes.
+	{Key: "FilePermission", Name: "FilePermission", Cases: []enumCase{
+		{"normal", "FilePermissionNormal"},
+		{"executable", "FilePermissionExecutable"},
+	}},
 	{Key: "FileDeleteError", Name: "FileDeleteError", Cases: []enumCase{
 		{"notFound", "ErrorDeleteNotFound"},
 		{"accessDenied", "ErrorDeleteAccessDenied"},
@@ -280,7 +285,8 @@ type function struct {
 	// Self is how a method takes its receiver: "", "mutates" or "consumes".
 	Self string
 	// Params are "convention name Type", the convention left out when it is let, and "name:" for one that a call labels
-	// even where it is the first argument.
+	// even where it is the first argument. A let parameter of an enum row may end in " = case", the case a call that leaves the
+	// argument out gives.
 	Params []string
 	// Result is the type it returns; "" is Void.
 	Result string
@@ -549,8 +555,8 @@ var tableFunctions = []function{
 	{Owner: "FilePath", Name: "init", Static: true, Params: []string{"value String"}, Result: "Self", Intrinsic: "FilePathInit"},
 	{Owner: "FilePath", Name: "toString", Result: "String", Intrinsic: "FilePathToString"},
 	{Owner: "File", Name: "readText", Static: true, Params: []string{"path FilePath"}, Result: "String", Throws: "FileReadError", Intrinsic: "FileReadText"},
-	{Owner: "File", Name: "writeText", Static: true, Params: []string{"path FilePath", "content String"}, Throws: "FileWriteError", Intrinsic: "FileWriteText"},
-	{Owner: "File", Name: "writeBinary", Static: true, Params: []string{"path FilePath", "content Array with Byte"}, Throws: "FileWriteError", Intrinsic: "FileWriteBinary"},
+	{Owner: "File", Name: "writeText", Static: true, Params: []string{"path FilePath", "content String", "mode FilePermission = normal"}, Throws: "FileWriteError", Intrinsic: "FileWriteText"},
+	{Owner: "File", Name: "writeBinary", Static: true, Params: []string{"path FilePath", "content Array with Byte", "mode FilePermission = normal"}, Throws: "FileWriteError", Intrinsic: "FileWriteBinary"},
 	{Owner: "File", Name: "rename", Static: true, Params: []string{"from FilePath", "to FilePath"}, Throws: "FileRenameError", Intrinsic: "FileRename"},
 	{Owner: "File", Name: "delete", Static: true, Params: []string{"path FilePath"}, Throws: "FileDeleteError", Intrinsic: "FileDelete"},
 	{Owner: "File", Name: "info", Static: true, Params: []string{"path FilePath"}, Result: "FileInfo", Throws: "FileInfoError", Intrinsic: "FileInfo"},
@@ -561,7 +567,7 @@ var tableFunctions = []function{
 	{Owner: "Directory", Name: "currentPath", Static: true, Result: "FilePath", Intrinsic: "DirectoryCurrentPath"},
 	{Owner: "Directory", Name: "list", Static: true, Params: []string{"path FilePath"}, Result: "Array with FilePath", Throws: "DirectoryListError", Intrinsic: "DirectoryList"},
 	{Owner: "Subprocess", Name: "run", Static: true, Params: []string{"executable Executable", "arguments Array with String"}, Result: "CollectedOutput", Throws: "SubprocessError", Intrinsic: "SubprocessRun"},
-	// minimaxon's built-ins have no default arguments, so maxon's run with a deadline is a function of its own. A child
+	// A built-in's only default argument is the case of an enum ("= case"), so maxon's run with a deadline is a function of its own. A child
 	// still running when the deadline passes is terminated, and the run throws timeout.
 	{Owner: "Subprocess", Name: "runWithDeadline", Static: true, Params: []string{"executable Executable", "arguments Array with String", "deadline WaitDeadline"}, Result: "CollectedOutput", Throws: "SubprocessError", Intrinsic: "SubprocessRunWithDeadline"},
 	{Owner: "CollectedOutput", Name: "exitCode", Result: "ExitCode", Intrinsic: "CollectedOutputExitCode"},
@@ -729,8 +735,10 @@ var entries = []entry{
 	{"OsProcessorCount", "rt.os.processorCount", "Os", roleCall, "() -> Count: how many workers the runtime runs behaviours on, as the scheduler counts them: the processors, or what MAXON_MAX_PROCS asks"},
 	{"OsPathFrom", "rt.os.pathFrom", "Os", roleCall, "(path String, error) -> String: the path with the native separator for the other one"},
 	{"OsReadText", "rt.os.readText", "Os", roleCall, "(path String, error) -> String"},
-	{"OsWriteText", "rt.os.writeText", "Os", roleCall, "(path String, content String, error)"},
-	{"OsWriteBinary", "rt.os.writeBinary", "Os", roleCall, "(path String, content ByteArray, error)"},
+	{"OsWriteText", "rt.os.writeText", "Os", roleCall, "(path String, content String, error): osWriteTextMode of the default mode, which a compiler that has no mode: calls"},
+	{"OsWriteBinary", "rt.os.writeBinary", "Os", roleCall, "(path String, content ByteArray, error): osWriteBinaryMode of the default mode, which a compiler that has no mode: calls"},
+	{"OsWriteTextMode", "rt.os.writeTextMode", "Os", roleCall, "(path String, content String, executable, error): executable is whether a file that the write creates gets the executable mode"},
+	{"OsWriteBinaryMode", "rt.os.writeBinaryMode", "Os", roleCall, "(path String, content ByteArray, executable, error): executable is whether a file that the write creates gets the executable mode"},
 	{"OsRename", "rt.os.rename", "Os", roleCall, "(from String, to String, error): replaces what is at to"},
 	{"OsDelete", "rt.os.delete", "Os", roleCall, "(path String, error)"},
 	{"OsFileInfo", "rt.os.fileInfo", "Os", roleCall, "(path String, size, created, accessed, attributes, error) -> modified: the times in Unix seconds, and the attributes as a word whose bit 0 is whether the path is a directory and bit 1 whether it is read-only"},
@@ -819,6 +827,8 @@ var runtimeFunctions = []runtimeFunction{
 	{"OsReadText", "osReadText(path String, errorAddress Count) String"},
 	{"OsWriteText", "osWriteText(path String, content String, errorAddress Count)"},
 	{"OsWriteBinary", "osWriteBinary(path String, content Count, errorAddress Count)"},
+	{"OsWriteTextMode", "osWriteTextMode(path String, content String, executable Bool, errorAddress Count)"},
+	{"OsWriteBinaryMode", "osWriteBinaryMode(path String, content Count, executable Bool, errorAddress Count)"},
 	{"OsRename", "osRename(source String, destination String, errorAddress Count)"},
 	{"OsDelete", "osDelete(path String, errorAddress Count)"},
 	{"OsFileInfo", "osFileInfo(path String, size Count, created Count, accessed Count, attributes Count, errorAddress Count) Count"},
