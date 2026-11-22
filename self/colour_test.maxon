@@ -529,6 +529,48 @@ function hallAcrossExpected() returns ExitCode
 	return exitOf(wrapAdd(wrapAdd(sum, b: sum), b: 100))
 end 'hallAcrossExpected'
 
+// subHeld is how many values the two-address test keeps live across its subtraction beside the minuend: with it and the
+// subtrahend they fill every register.
+let subHeld = 12
+
+// subMinuend is the value the two-address test subtracts from.
+let subMinuend = 100
+
+// subSubtrahend is the value the two-address test subtracts.
+let subSubtrahend = 30
+
+// mirSubLive subtracts a value that dies from one that lives on, with twelve others live across: fourteen values, as many
+// as there are registers, yet the difference may be in neither operand's register, since the minuend still holds its own
+// and the copy of the minuend into the difference's register comes before the subtraction reads the subtrahend. The
+// difference needs a fifteenth register, and one value is spilled around the subtraction.
+function mirSubLive(symbol String) returns backend.MirFunction
+	var fn = backend.MirFunction.new(symbol, canThrow: false)
+	_ = fn.startBlock()
+	fn.emit(backend.newFrameSetup())
+	var held = backend.MRegList.create(0)
+	for k in 0 upto subHeld 'held'
+		held.push(mirValue(fn, n: try (k + 1) as FullRangeInt otherwise panic("a value past 64 bits")))
+	end 'held'
+	let minuend = mirValue(fn, n: subMinuend)
+	let subtrahend = mirValue(fn, n: subSubtrahend)
+	let difference = mirDef(fn, form: backend.X64Form.subRegReg, b: minuend, c: subtrahend, imm: 0)
+	var sum = mirAdd(fn, left: difference, right: minuend)
+	for k in 0 upto subHeld 'sum'
+		sum = mirAdd(fn, left: sum, right: held[k])
+	end 'sum'
+	mirReturnMasked(fn, value: sum)
+	fn.endBlock()
+	return fn
+end 'mirSubLive'
+
+function subLiveExpected() returns ExitCode
+	var sum = (subMinuend - subSubtrahend + subMinuend) as FullRangeInt
+	for k in 0 upto subHeld 'sum'
+		sum = wrapAdd(sum, b: try (k + 1) as FullRangeInt otherwise panic("a value past 64 bits"))
+	end 'sum'
+	return exitOf(sum)
+end 'subLiveExpected'
+
 // allocateColoured spills and colours a function with the target's convention and checks it, the way runMir runs every
 // function of the machine IR's tests a second time.
 function allocateColoured(mutates fn backend.MirFunction, spilled bool)
@@ -635,6 +677,11 @@ function testColourHall(mutates p ast.Project)
 	expectCount("hallacross", what: "spills", got: backend.spillCodeCounts(acrossFn).spills, want: 0)
 	expectCount("hallacross", what: "moves out of a home and back", got: acrossResult.repairMoves, want: 2)
 	linkAndRun(p, fns: oneMir(acrossFn), entry: across, name: "minimaxon_colour_hallacross.exe", expectedCode: hallAcrossExpected())
+	let sub = addFunction(p, name: "main", errTy: ast.noType)
+	var subFn = mirSubLive(ast.funcLinkName(p, fid: sub))
+	_ = colourOf("sublive", fn: subFn, calleeSaved: 0)
+	expectCount("sublive", what: "spills", got: backend.spillCodeCounts(subFn).spills, want: 1)
+	linkAndRun(p, fns: oneMir(subFn), entry: sub, name: "minimaxon_colour_sublive.exe", expectedCode: subLiveExpected())
 end 'testColourHall'
 
 function hallCallsExpected() returns ExitCode

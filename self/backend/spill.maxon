@@ -1062,7 +1062,7 @@ function relieveBlock(mutates fn MirFunction, mutates s Spiller, b Count, relief
 			readsOf(fn, s: s, k: k)
 			let c = classIndex(fn.classes[vregIndex(r)])
 			let across = s.sCount[c]
-			makeRoom(fn, s: s, b: b, k: k, i: i, relief: relief, c: c, across: across, dying: 0, writes: 1, before: true)
+			makeRoom(fn, s: s, b: b, k: k, i: i, relief: relief, c: c, across: across, dying: 0, writes: 1, shares: true, before: true)
 			enter(fn, s: s, r: r, owner: owner, cursor: cursor, out: out)
 		end 'pending'
 		s.ops.load(s.lv, k: k)
@@ -1098,11 +1098,12 @@ function relieveBlock(mutates fn MirFunction, mutates s Spiller, b Count, relief
 			let c = classIndex(fn.classes[vregIndex(s.ops.writes[d])])
 			s.writeCount[c] = nextCount(s.writeCount[c])
 		end 'writes'
+		let shares = sharesDying(fn.instrs[k], reusedDies: s.deadList.contains(fn.instrs[k].b), otherDies: s.deadList.contains(fn.instrs[k].c))
 		for c in 0 upto classCount 'classes'
 			let dying = s.dyingCount[c]
 			let across = try s.sCount[c] - dying otherwise panic("backend: more values die than are in registers")
 			let writes = s.writeCount[c]
-			makeRoom(fn, s: s, b: b, k: k, i: i, relief: relief, c: c, across: across, dying: dying, writes: writes, before: false)
+			makeRoom(fn, s: s, b: b, k: k, i: i, relief: relief, c: c, across: across, dying: dying, writes: writes, shares: shares, before: false)
 		end 'classes'
 		for j in 0 upto s.deadList.count() 'dead'
 			let r = s.deadList[j]
@@ -1223,9 +1224,10 @@ end 'leave'
 
 // makeRoom takes values of class c out of registers at the instruction at k, the i-th of block b (or at a reload just
 // before it), until its demand fits: across values live across it, of which the brackets open there hold none, dying
-// the ones it reads last, writes the ones it defines. In a cold block a value is bracketed instead of split where it
+// the ones it reads last, writes the ones it defines, shares whether a definition may take a dying one's register
+// (instrNeed). In a cold block a value is bracketed instead of split where it
 // is live across a call or where the hot path of its loop reads it, so its spill code stays in the cold block.
-function makeRoom(mutates fn MirFunction, mutates s Spiller, b Count, k Count, i Count, relief Relief, c Count, across Count, dying Count, writes Count, before bool)
+function makeRoom(mutates fn MirFunction, mutates s Spiller, b Count, k Count, i Count, relief Relief, c Count, across Count, dying Count, writes Count, shares bool, before bool)
 	let call = not before and isCallInstr(fn.instrs[k])
 	var callAfter = noDistance as Count
 	var crossing = 0 as Count
@@ -1248,7 +1250,7 @@ function makeRoom(mutates fn MirFunction, mutates s Spiller, b Count, k Count, i
 			freeAcross = s.scan.freeAcrossAt(i, c: c)
 		end 'across'
 	end 'measured'
-	let need = maxOf(dying, b: writes)
+	let need = instrNeed(dying, writes: writes, shares: shares)
 	let cold = relief == Relief.all and s.graph.cold[b] and nextCount(k) < fn.blocks[b].endAt
 	var t = across
 	while true 'over'

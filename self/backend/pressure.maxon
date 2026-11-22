@@ -4,10 +4,13 @@
 //
 // At an instruction, the values live across it (T) each hold a register, and the instruction needs as many more as the
 // larger of the values it reads for the last time (D) and the ones it defines (F): it reads every operand before it writes
-// one, so a definition can take the register of a value that dies there, a two-address one included, and a definition
-// nothing reads still needs a register. That demand must fit the class's registers that no fixed value holds before or
-// after the instruction; and the values of T must also fit outside the registers the instruction writes. A bracket (a
-// spill of a value and, further down its block, a restore of it) lends the value's register to the instructions between,
+// one, so a definition can take the register of a value that dies there, and a definition nothing reads still needs a
+// register. A two-address definition, though, is a copy of its reused operand before the instruction, so it can take
+// only that operand's register, or its other use's where the form commutes (sharesDying): when neither dies there, the
+// instruction needs D + F. That demand must fit the class's registers that no fixed value holds before or after the
+// instruction; and the values of T must also fit outside the registers the instruction writes. E5001 counts values, T and
+// the larger of D and F, as it does not count a fixed register: a two-address form's own register is spilled around. A
+// bracket (a spill of a value and, further down its block, a restore of it) lends the value's register to the instructions between,
 // which neither count the value nor may read it: the value comes back into that same register at the restore.
 
 // notLive is the liveStamp of a value no block's walk holds live: every walk's liveMark is above it.
@@ -43,7 +46,7 @@ type BlockScan
 	// most is, by class, the most any instruction of the block needs, and fits whether every one fits its free registers.
 	var most as Array with Count
 	var fits as bool
-	// The log of the points whose demand is over their class's whole pool, which the E5001 test reads: for each, its
+	// The log of the points whose values are over their class's whole pool, which the E5001 test reads: for each, its
 	// block, class and counts, and the values live across it, each with whether the instruction reads it.
 	var logging as bool
 	var logBlock as Array with Count
@@ -130,6 +133,11 @@ type BlockScan
 	function isLive(r MReg) returns bool
 		return liveStamp[vregIndex(r)] == liveMark
 	end 'isLive'
+
+	// readsLast is whether r, an operand of the instruction the walk is at, is a value read there for the last time.
+	function readsLast(r MReg) returns bool
+		return isVirtual(r) and not self.isLive(r)
+	end 'readsLast'
 
 	// scan walks block b of fn, whose liveness is lv, from the values live where it ends to where it starts.
 	function scan(mutates self, fn MirFunction, g MirGraph, lv Liveness, b Count)
@@ -227,13 +235,14 @@ type BlockScan
 				readCount[c] = nextCount(readCount[c])
 			end 'dies'
 		end 'reads'
+		let shares = sharesDying(fn.instrs[k], reusedDies: self.readsLast(fn.instrs[k].b), otherDies: self.readsLast(fn.instrs[k].c))
 		for c in 0 upto classCount 'classes'
 			let across = try liveCount[c] - liveWriteCount[c] otherwise panic("backend: more live definitions than live values")
 			let at = addCounts(pointSlots(i), b: c)
 			let held = try across - outCount[c] otherwise panic("backend: more values out of their registers than live")
-			demand[at] = addCounts(held, b: maxOf(readCount[c], b: writeCount[c]))
+			demand[at] = addCounts(held, b: instrNeed(readCount[c], writes: writeCount[c], shares: shares))
 			kept[at] = held
-			if logging and demand[at] > pools[c] 'over'
+			if logging and addCounts(held, b: maxOf(readCount[c], b: writeCount[c])) > pools[c] 'over'
 				self.logPoint(fn, b: b, c: c, across: held, k: k)
 			end 'over'
 		end 'classes'
@@ -633,7 +642,7 @@ export function pressureRefusalMessage(r PressureRefusal, place String, target S
 	return diag.registerPressureLoop(place, over: "{r.bound}", held: "{r.held}", class: classDescription(r.class), target: target, available: "{r.available}", deficit: "{r.needed}")
 end 'pressureRefusalMessage'
 
-// refuseHotLoops finds the hot loops of fn over their pools, in the hot blocks over marks. Every point of a loop's hot path whose demand is over its
+// refuseHotLoops finds the hot loops of fn over their pools, in the hot blocks over marks. Every point of a loop's hot path whose values are over its
 // class's whole pool is logged; the points of one loop nest and class make one refusal. How many values must go is found
 // by taking out, one at a time, the value that relieves the most excess over those points: out of registers across the
 // loop, a value still needs one at an instruction that reads it, for that instruction alone.
@@ -683,6 +692,15 @@ function outermostLoop(g MirGraph, b Count) returns Count
 	end 'up'
 	return l
 end 'outermostLoop'
+
+// instrNeed is how many registers an instruction needs beside the values live across it, where it reads dying values for
+// the last time and defines writes: the larger, when a definition may take a dying value's register (shares), else both.
+function instrNeed(dying Count, writes Count, shares bool) returns Count
+	if shares 'shared'
+		return maxOf(dying, b: writes)
+	end 'shared'
+	return addCounts(dying, b: writes)
+end 'instrNeed'
 
 function excessOf(t Count, d Count, f Count, pool Count) returns Count
 	let need = addCounts(t, b: maxOf(d, b: f))

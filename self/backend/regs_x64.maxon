@@ -245,6 +245,17 @@ function commutes(x MInstr) returns bool
 	end 'kind'
 end 'commutes'
 
+// sharesDying is whether the definition of x may be given the register of a use x reads for the last time, where
+// reusedDies and otherDies say whether its uses b and c are: an instruction reads every operand before it writes one, but a
+// two-address form's definition is a copy of b before it, so it may take only b's register, or c's where the form
+// commutes. Otherwise it needs a register beside every dying use's, which colouring gives it and pressure counts.
+function sharesDying(x MInstr, reusedDies bool, otherDies bool) returns bool
+	if not reuses(x) or not isVirtual(x.b) 'oneAddress'
+		return true
+	end 'oneAddress'
+	return reusedDies or (commutes(x) and isVirtual(x.c) and otherDies)
+end 'sharesDying'
+
 // implicitUses are the registers an instruction reads that no operand names: a form's fixed uses, and the result
 // registers a return reads.
 function implicitUses(x MInstr, convs Conventions, canThrow bool) returns RegMask

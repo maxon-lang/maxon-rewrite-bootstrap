@@ -570,7 +570,8 @@ export type Colourer
 	// colourReuse gives a two-address definition the register of the operand it reuses when that operand dies there
 	// and the definition may be in it, or of its other use when that one dies and the form commutes; otherwise another
 	// register, into which a copy before the instruction puts the operand, never the register of another operand,
-	// which the instruction still reads.
+	// which the instruction still reads: where no use the definition may share dies (sharesDying), spilling left a
+	// register for it beside the dying ones.
 	function colourReuse(mutates self, mutates fn MirFunction, v Count, b Count, k Count, useMask RegMask)
 		let operand = vregIndex(fn.instrs[k].b)
 		if self.takeDying(fn, v: v, k: k, operand: operand) 'shared'
