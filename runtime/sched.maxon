@@ -472,6 +472,12 @@ function workerCount() returns Count
 	return processors
 end 'workerCount'
 
+// osProcessorCount is Scheduler.processorCount: the workers the runtime runs behaviours on, which is fixed by the machine and
+// the environment alone, so it is the same before the first behaviour is scheduled as after it.
+function osProcessorCount() returns Count
+	return workerCount()
+end 'osProcessorCount'
+
 // requestedWorkers is the count MAXON_MAX_PROCS asks for, or noRequest when it is unset or asks for none it may.
 function requestedWorkers() returns Count
 	var failed = 0 as Count

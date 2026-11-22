@@ -351,6 +351,10 @@ function runtimeEntry(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 		try entryOsClockNanos(vm, f: f, x: x)
 		return
 	end 'rtOsClockNanos'
+	if symbol == ir.Rt.rtOsProcessorCount 'rtOsProcessorCount'
+		try entryOsProcessorCount(vm, f: f, x: x)
+		return
+	end 'rtOsProcessorCount'
 	if symbol == ir.Rt.rtOsPathFrom 'rtOsPathFrom'
 		try entryOsPathFrom(vm, f: f, x: x)
 		return

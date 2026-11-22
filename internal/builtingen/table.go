@@ -108,6 +108,7 @@ var recordTypes = []recordType{
 	{Key: "CommandLine", Name: "CommandLine"},
 	{Key: "Process", Name: "Process"},
 	{Key: "Clock", Name: "Clock"},
+	{Key: "Scheduler", Name: "Scheduler"},
 	{Key: "FilePath", Name: "FilePath", Fields: []string{"let path String"}, Implements: []string{"InitableFromStringLiteral"}},
 	{Key: "File", Name: "File"},
 	{Key: "Directory", Name: "Directory"},
@@ -519,6 +520,8 @@ var tableFunctions = []function{
 	{Owner: "Process", Name: "setExitCode", Static: true, Params: []string{"code ExitCode"}, Intrinsic: "ProcessSetExitCode"},
 	// nowNanos is maxon's Clock.nowNanos, whose InstantNanos is an unsigned 64-bit integer, which Count is.
 	{Owner: "Clock", Name: "nowNanos", Static: true, Result: "Count", Intrinsic: "ClockNowNanos"},
+	// processorCount is maxon's Scheduler.processorCount, whose SchedulerProcessorCount is an unsigned 64-bit integer, which Count is.
+	{Owner: "Scheduler", Name: "processorCount", Static: true, Result: "Count", Intrinsic: "SchedulerProcessorCount"},
 	{Owner: "FilePath", Name: "from", Static: true, Params: []string{"path String"}, Result: "Self", Throws: "FilePathError", Intrinsic: "FilePathFrom"},
 	{Owner: "FilePath", Name: "init", Static: true, Params: []string{"value String"}, Result: "Self", Intrinsic: "FilePathInit"},
 	{Owner: "FilePath", Name: "toString", Result: "String", Intrinsic: "FilePathToString"},
@@ -698,6 +701,7 @@ var entries = []entry{
 	{"OsProcessId", "rt.os.processId", "Os", roleCall, "() -> Count: the id of the running process"},
 	{"OsSetExitCode", "rt.os.setExitCode", "Os", roleCall, "(code): the code the process ends with when main has returned and no behaviour is left, in place of main's"},
 	{"OsClockNanos", "rt.os.clockNanos", "Os", roleCall, "() -> Count: the monotonic clock in nanoseconds, from QueryPerformanceCounter"},
+	{"OsProcessorCount", "rt.os.processorCount", "Os", roleCall, "() -> Count: how many workers the runtime runs behaviours on, as the scheduler counts them: the processors, or what MAXON_MAX_PROCS asks"},
 	{"OsPathFrom", "rt.os.pathFrom", "Os", roleCall, "(path String, error) -> String: the path with the native separator for the other one"},
 	{"OsReadText", "rt.os.readText", "Os", roleCall, "(path String, error) -> String"},
 	{"OsWriteText", "rt.os.writeText", "Os", roleCall, "(path String, content String, error)"},
@@ -784,6 +788,7 @@ var runtimeFunctions = []runtimeFunction{
 	{"OsProcessId", "osProcessId() Count"},
 	{"OsSetExitCode", "osSetExitCode(code Count)"},
 	{"OsClockNanos", "osClockNanos() Count"},
+	{"OsProcessorCount", "osProcessorCount() Count"},
 	{"OsPathFrom", "osPathFrom(path String, errorAddress Count) String"},
 	{"OsReadText", "osReadText(path String, errorAddress Count) String"},
 	{"OsWriteText", "osWriteText(path String, content String, errorAddress Count)"},

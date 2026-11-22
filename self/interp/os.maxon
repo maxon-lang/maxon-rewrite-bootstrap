@@ -92,6 +92,13 @@ function entryOsProcessId(mutates vm Vm, f ir.IrFunction, x ir.Instr)
 	giveNum(vm, x: x, n: try Process.id() as ir.Word otherwise panic("interp: the process id is past a word"))
 end 'entryOsProcessId'
 
+// The interpreter runs one thread at a time, so its scheduler has one worker.
+let interpretedWorkers = 1 as ir.Word
+
+function entryOsProcessorCount(mutates vm Vm, f ir.IrFunction, x ir.Instr)
+	giveNum(vm, x: x, n: interpretedWorkers)
+end 'entryOsProcessorCount'
+
 // clockStepNanos is how far one reading moves the interpreter's clock.
 let clockStepNanos = 1000 as ir.Word
 

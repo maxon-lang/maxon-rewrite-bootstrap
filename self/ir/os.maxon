@@ -179,6 +179,10 @@ function lowerClockNowNanos(mutates l Lowerer, p ast.Project, ms ast.ModuleState
 	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtOsClockNanos, kind: IrKind.kindScalar, args: RegList.create(0))
 end 'lowerClockNowNanos'
 
+function lowerSchedulerProcessorCount(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtOsProcessorCount, kind: IrKind.kindScalar, args: RegList.create(0))
+end 'lowerSchedulerProcessorCount'
+
 function lowerProcessSetExitCode(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	entryVoid(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtOsSetExitCode, args: argsOf1(args[0]))
 	return konst(l, value: 0 as Word)

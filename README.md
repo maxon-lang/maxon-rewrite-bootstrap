@@ -1673,7 +1673,7 @@ value's box, a cown and a behaviour's record with its request slots, the schedul
 thread and no stack switch. The main thread is worker 0; the first behaviour scheduled (`schedEnter`) starts the other
 workers at once, as many as `GetActiveProcessorCount(ALL_PROCESSOR_GROUPS)` says (1 when it says 0) or as
 `MAXON_MAX_PROCS` asks (a decimal count from 1 to 2^31 - 1 with an optional `+`, as maxon reads it; any other value is
-ignored), each with the main thread's 256 MB stack reserve. A program that schedules nothing starts no thread. Each
+ignored), each with the main thread's 256 MB stack reserve. `Scheduler.processorCount()` is that count (`osProcessorCount`), the same before the first behaviour as after it. A program that schedules nothing starts no thread. Each
 worker owns a Chase-Lev deque of behaviour records whose ring doubles when full (the old rings are kept, as Chase and
 Lev's are, since a thief may still read one); a behaviour pushed (`schedPush`) goes on the pushing thread's deque, whose
 owner takes the newest first, and an idle worker steals the oldest of another's, trying every other deque from a random
@@ -2879,6 +2879,7 @@ records that have no fields (`internal/builtingen/table.go`), so a program calls
 | `Process.id()` | `Count`, the running process's id (`GetCurrentProcessId`); maxon's `Pid` is the same unsigned 64-bit integer | — |
 | `Process.setExitCode(code)` | — (the process ends with the last code set in place of `main`'s; see "Where it differs from Maxon") | — |
 | `Clock.nowNanos()` | `Count`, the monotonic clock in nanoseconds; only differences of two readings mean anything (see "Where it differs from Maxon") | — |
+| `Scheduler.processorCount()` | `Count`, the workers the runtime runs behaviours on: `MAXON_MAX_PROCS` when it holds a count, else the machine's processors (`GetActiveProcessorCount`); maxon's `SchedulerProcessorCount` is the same unsigned 64-bit integer; the interpreter has one worker and answers 1 | — |
 | `FilePath.from(path)` | `FilePath`, with `/` made `\` | `FilePathError.invalidCharacter` for a control character or one of `<>"\|?*` |
 | `path.toString()` | `String` | — |
 | `File.readText(path)` | `String` | `FileReadError` |
@@ -3135,6 +3136,8 @@ the checker reports where Maxon's parser does, as it needs the type of the value
 - `Clock` has only `nowNanos()`, which maxon's gives as `InstantNanos`, here a `Count`; maxon's `nowMs`, `osTickMs`,
   `threadCpuTicks`, `elapsedMs`, `elapsedNanos`, `remainingMs` and `WallClock` are not there. Natively a reading is the
   performance counter (`QueryPerformanceCounter`) in nanoseconds; the interpreter's clock moves by 1000 ns at each reading, so a run is deterministic.
+
+- `Scheduler` has only `processorCount()`, which maxon's gives as `SchedulerProcessorCount`, here a `Count`; maxon's `yield` is not there.
 
 - Conditional compilation, tests and `@heap` (see "Conditional compilation, tests and annotations"): a branch of `#if` is indented a tab deeper than its
   directives and each branch holds whole declarations, members or statements (Maxon lets the layout be what it likes and a branch

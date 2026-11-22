@@ -70,6 +70,9 @@ var importNames = []string{
 	"SwitchToThread",
 	"QueryPerformanceCounter",
 	"QueryPerformanceFrequency",
+	"InitializeProcThreadAttributeList",
+	"UpdateProcThreadAttribute",
+	"DeleteProcThreadAttributeList",
 }
 
 // importsMaxon is self/backend/imports_gen.maxon: the library, the slot of each import as a constant (imp followed by

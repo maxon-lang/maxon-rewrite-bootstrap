@@ -1,0 +1,15 @@
+// Scheduler.processorCount is the same before a behaviour is scheduled as after it, and is never 0.
+//> positive
+//> stable
+
+function main() returns ExitCode
+	let before = Scheduler.processorCount()
+	let after = Scheduler.processorCount()
+	if before >= 1 'positive'
+		print("positive\n")
+	end 'positive'
+	if before == after 'stable'
+		print("stable\n")
+	end 'stable'
+	return 0
+end 'main'

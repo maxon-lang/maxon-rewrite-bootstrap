@@ -112,6 +112,12 @@ export let impQueryPerformanceCounter = 52 as Count
 
 export let impQueryPerformanceFrequency = 53 as Count
 
+export let impInitializeProcThreadAttributeList = 54 as Count
+
+export let impUpdateProcThreadAttribute = 55 as Count
+
+export let impDeleteProcThreadAttributeList = 56 as Count
+
 export function rtImports() returns NameList
 	var names = NameList.create(0)
 	names.push("GetProcessHeap")
@@ -168,5 +174,8 @@ export function rtImports() returns NameList
 	names.push("SwitchToThread")
 	names.push("QueryPerformanceCounter")
 	names.push("QueryPerformanceFrequency")
+	names.push("InitializeProcThreadAttributeList")
+	names.push("UpdateProcThreadAttribute")
+	names.push("DeleteProcThreadAttributeList")
 	return names
 end 'rtImports'

@@ -1,0 +1,39 @@
+// Children that run at the same time inherit only their own pipes, so each run reads its child's output and sees the end of
+// it when that child ends, whether or not another child is still running. Each child waits a moment before it writes, so
+// that the runs overlap when there is more than one worker.
+typealias Arguments = Array with String
+
+type Output
+	export var text as String
+
+	static function make() returns Output
+		return Output{text: ""}
+	end 'make'
+end 'Output'
+
+function run(label Count, slot cown with Output)
+	when slot as output 'child'
+		var script = Arguments.create(0)
+		script.push("/c")
+		script.push("ping -n 2 127.0.0.1 >nul& echo child {label}")
+		let out = try Subprocess.run(Executable.name("cmd.exe"), arguments: script) otherwise panic("cannot run cmd.exe")
+		output.text = out.stdout.clone()
+	end 'child'
+end 'run'
+
+function main() returns ExitCode
+	let first = cown(Output.make())
+	let second = cown(Output.make())
+	let third = cown(Output.make())
+	let fourth = cown(Output.make())
+	run(1, slot: share(first))
+	run(2, slot: share(second))
+	run(3, slot: share(third))
+	run(4, slot: share(fourth))
+	when first, second, third, fourth as a, b, c, d 'report'
+		print("{a.text.trim()} | {b.text.trim()} | {c.text.trim()} | {d.text.trim()}\n")
+	end 'report'
+	return 0
+end 'main'
+
+//> child 1 | child 2 | child 3 | child 4
