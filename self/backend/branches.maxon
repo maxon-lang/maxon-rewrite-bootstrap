@@ -1,0 +1,176 @@
+// The layout of an allocated function's blocks for the encoder, and what it reads of the code around each instruction.
+// A block that only jumps on is left out, and every branch to it goes where its jump goes; the cold blocks (a failing
+// check's) are laid out after the others, so the hot path runs straight on; and the encoder leaves out a jump to the block
+// laid out next, and turns a conditional branch to it over a jump the other way into one branch.
+
+// BlockLayout plans the encoding of one function; its lists are reused from one function to the next.
+export type BlockLayout
+	// order is the blocks the encoder writes, in that order.
+	var order as MBlockIDList
+	// resolved is the block a branch to each block goes to: the block itself, or where its chain of jumps ends.
+	var resolved as MBlockIDList
+	var forwards as BoolList
+	// flagsLiveIn is whether a block may read the flags it is entered with, and flagsLiveAfter whether the flags are read
+	// after each instruction before they are written again.
+	var flagsLiveIn as BoolList
+	var flagsLiveAfter as BoolList
+	// framed is whether the function needs a frame of its own: its rbp-based slots, a spill, a call or the stack.
+	var framed as bool
+
+	export static function new() returns BlockLayout
+		return BlockLayout{order: MBlockIDList.create(0), resolved: MBlockIDList.create(0), forwards: BoolList.create(0), flagsLiveIn: BoolList.create(0), flagsLiveAfter: BoolList.create(0), framed: true}
+	end 'new'
+
+	function plan(mutates self, fn MirFunction)
+		framed = needsFrame(fn)
+		self.findFlags(fn)
+		order.clear()
+		resolved.clear()
+		for b in 0 upto fn.blocks.count() 'identity'
+			resolved.push(blockIdOf(b))
+		end 'identity'
+		if not endsInTransfers(fn) 'fallsThrough'
+			for o in 0 upto fn.order.count() 'asWritten'
+				order.push(fn.order[o])
+			end 'asWritten'
+			return
+		end 'fallsThrough'
+		self.resolveJumps(fn)
+		order.push(fn.order[0])
+		self.place(fn, cold: false)
+		self.place(fn, cold: true)
+	end 'plan'
+
+	// label is the label a branch along an edge goes to.
+	function label(fn MirFunction, edge Count) returns LabelID
+		if fn.edges[edge].argCount != 0 'arguments'
+			panic("backend: an edge keeps its arguments past allocation")
+		end 'arguments'
+		return resolved[fn.edges[edge].target as Count] as LabelID
+	end 'label'
+
+	// goesTo is whether a branch along an edge goes to the block b.
+	function goesTo(fn MirFunction, edge Count, b ir.Index) returns bool
+		return resolved[fn.edges[edge].target as Count] as ir.Index == b
+	end 'goesTo'
+
+	// resolveJumps finds the blocks that only jump on, and where each chain of them ends. A chain that comes back to
+	// itself is a loop that does nothing, whose blocks are kept.
+	function resolveJumps(mutates self, fn MirFunction)
+		let blocks = fn.blocks.count()
+		ir.resetFlags(forwards, n: blocks)
+		for o in 1 upto fn.order.count() 'blocks'
+			let b = fn.order[o] as Count
+			forwards[b] = fn.blocks[b].endAt == nextCount(fn.blocks[b].first) and isEdgeJump(fn.instrs[fn.blocks[b].first])
+		end 'blocks'
+		for b in 0 upto blocks 'chains'
+			var at = b
+			var steps = 0 as Count
+			while forwards[at] and steps <= blocks 'follow'
+				at = fn.edges[refIndex(fn.instrs[fn.blocks[at].first])].target as Count
+				steps = nextCount(steps)
+			end 'follow'
+			if steps > blocks 'cycle'
+				forwards[b] = false
+				at = b
+			end 'cycle'
+			resolved[b] = blockIdOf(at)
+		end 'chains'
+	end 'resolveJumps'
+
+	// place lays out the blocks of fn after its entry that no chain of jumps skips, of the likelihood cold says, in the
+	// order of fn.
+	function place(mutates self, fn MirFunction, cold bool)
+		for o in 1 upto fn.order.count() 'blocks'
+			let b = fn.order[o]
+			if not forwards[b as Count] and (fn.blocks[b as Count].likelihood == Likelihood.cold) == cold 'here'
+				order.push(b)
+			end 'here'
+		end 'blocks'
+	end 'place'
+
+	function findFlags(mutates self, fn MirFunction)
+		findFlagsLiveIn(fn, liveIn: flagsLiveIn)
+		ir.resetFlags(flagsLiveAfter, n: fn.instrs.count())
+		for b in 0 upto fn.blocks.count() 'blocks'
+			var live = flagsLiveOut(fn, b: b, liveIn: flagsLiveIn)
+			var k = fn.blocks[b].endAt
+			while k > fn.blocks[b].first 'instrs'
+				k = prevCount(k)
+				flagsLiveAfter[k] = live
+				if killsFlags(fn.instrs[k]) 'writes'
+					live = false
+				end 'writes'
+				if readsFlagsOf(fn.instrs[k]) 'reads'
+					live = true
+				end 'reads'
+			end 'instrs'
+		end 'blocks'
+	end 'findFlags'
+end 'BlockLayout'
+
+// isEdgeJump is whether an instruction always goes along an edge.
+function isEdgeJump(x MInstr) returns bool
+	return isUnconditionalJump(x) and x.ref == MRef.edge
+end 'isEdgeJump'
+
+// endsInTransfers is whether every block of fn that is written ends in an instruction that goes elsewhere, a jump, a
+// return or a trap, so none falls into the block written after it and the blocks may be laid out in any order.
+function endsInTransfers(fn MirFunction) returns bool
+	for o in 0 upto fn.order.count() 'blocks'
+		let b = fn.order[o] as Count
+		if fn.blocks[b].endAt == fn.blocks[b].first 'empty'
+			return false
+		end 'empty'
+		let last = prevCount(fn.blocks[b].endAt)
+		if not transfers(fn.instrs[last]) 'falls'
+			return false
+		end 'falls'
+	end 'blocks'
+	return true
+end 'endsInTransfers'
+
+function transfers(x MInstr) returns bool
+	return x.kind == MKind.target and (x.form == X64Form.jmpRel32 or x.form == X64Form.ret or x.form == X64Form.ud2)
+end 'transfers'
+
+// needsFrame is whether a function needs a frame of its own: it has slots or spills, which are addressed from rbp, or it
+// calls, which needs rsp aligned, or it names rbp or rsp itself. Otherwise it is a leaf that keeps only the callee-saved
+// registers it was given.
+function needsFrame(fn MirFunction) returns bool
+	if fn.slotsGiven() > 0 'slots'
+		return true
+	end 'slots'
+	let fp = physReg(rbp)
+	let sp = physReg(rsp)
+	for k in 0 upto fn.instrs.count() 'instrs'
+		if usesFrame(fn.instrs[k], fp: fp, sp: sp) 'uses'
+			return true
+		end 'uses'
+	end 'instrs'
+	return false
+end 'needsFrame'
+
+function usesFrame(x MInstr, fp MReg, sp MReg) returns bool
+	return match x.kind 'kind'
+		target gives isCall(x.form) or x.form == X64Form.pushReg or x.form == X64Form.popReg or x.form == X64Form.pushImm32 or namesFrame(x, fp: fp, sp: sp)
+		copy gives namesFrame(x, fp: fp, sp: sp)
+		spill or
+		reload or
+		restore gives true
+		parallelCopy gives panic("backend: a parallel copy that allocation left")
+		frameSetup or
+		frameTeardown gives false
+	end 'kind'
+end 'usesFrame'
+
+// namesFrame is whether an instruction names rbp or rsp as an operand.
+function namesFrame(x MInstr, fp MReg, sp MReg) returns bool
+	for i in 0 upto operandCount(x) 'operands'
+		let r = operandAt(x, index: i)
+		if r == fp or r == sp 'frame'
+			return true
+		end 'frame'
+	end 'operands'
+	return false
+end 'namesFrame'

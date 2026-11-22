@@ -89,11 +89,21 @@ export type Selector
 	var typeSymbols as CalleeSymbols
 	// datums are the constants of the executable's data that the unit defines, by symbol.
 	var datums as TableSet
+	// readCount is how many times the instructions and terminators of the function being selected read each register,
+	// so that a rule fuses an operation only into its one reader; reads is a list the counting reuses.
+	var readCount as CountList
+	var reads as ir.RegList
+	// irBlock is the IR block being selected, and irAt the instruction being selected.
+	var irBlock as Count
+	var irAt as Count
+	// dead removes the code that fusing left without a reader, and layout lays out the blocks for the encoder.
+	var dead as DeadCode
+	var layout as BlockLayout
 	// allocator allocates the registers of every function of the module.
 	var allocator as Allocator
 
 	static function new(verifies bool) returns Selector
-		return Selector{u: CodeUnit.new(), mir: MirFunction.new("", canThrow: false), defs: DefAtList.create(0), args: MRegList.create(0), callArgs: MRegList.create(0), params: MRegList.create(0), closureBody: false, calleeSymbols: CalleeSymbols.new(), canThrow: false, fnSymbol: "", tables: TableSet.new(), due: ir.WitnessTableList.create(0), typeNames: TableSet.new(), typeSymbols: CalleeSymbols.new(), datums: TableSet.new(), allocator: Allocator.new(verifies)}
+		return Selector{u: CodeUnit.new(), mir: MirFunction.new("", canThrow: false), defs: DefAtList.create(0), args: MRegList.create(0), callArgs: MRegList.create(0), params: MRegList.create(0), closureBody: false, calleeSymbols: CalleeSymbols.new(), canThrow: false, fnSymbol: "", tables: TableSet.new(), due: ir.WitnessTableList.create(0), typeNames: TableSet.new(), typeSymbols: CalleeSymbols.new(), datums: TableSet.new(), readCount: CountList.create(0), reads: ir.RegList.create(0), irBlock: 0, irAt: 0, dead: DeadCode.new(), layout: BlockLayout.new(), allocator: Allocator.new(verifies)}
 	end 'new'
 
 	// prepare names what the function's instructions ask for by handle: the symbols of its callees, and the drop and copy
@@ -141,7 +151,41 @@ export type Selector
 				_ = u.needed.symbol(p, ms: ms, kind: RoutineKind.copyRoutine, ty: ir.copyTy(f, x: f.instrs[k]))
 			end 'copy'
 		end 'instrs'
+		self.countReads(f)
 	end 'prepare'
+
+	function countReads(mutates self, f ir.IrFunction)
+		ir.resetCounts(readCount, n: f.regs.count())
+		for b in 0 upto f.blocks.count() 'blocks'
+			for k in f.blocks[b].first upto f.blocks[b].endAt 'instrs'
+				reads.clear()
+				ir.instrReads(f, x: f.instrs[k], out: reads)
+				self.countRead()
+			end 'instrs'
+			reads.clear()
+			ir.termReads(f, t: f.blocks[b].term, out: reads)
+			self.countRead()
+		end 'blocks'
+	end 'countReads'
+
+	function countRead(mutates self)
+		for i in 0 upto reads.count() 'each'
+			let r = regIndex(reads[i])
+			readCount[r] = nextCount(readCount[r])
+		end 'each'
+	end 'countRead'
+
+	// fuses is whether the instruction or terminator being selected may make the value of the register r itself, in place
+	// of reading it: it is the only reader, and the instruction that defines r comes right before it in its block, so
+	// nothing between writes the flags or memory and no operand of the definition lives longer. The definition is still
+	// selected at its place; the dead code removal leaves it out.
+	function fuses(f ir.IrFunction, r ir.Reg) returns bool
+		let d = defs[regIndex(r)]
+		if d == noDefAt or readCount[regIndex(r)] != 1 or irAt == f.blocks[irBlock].first 'apart'
+			return false
+		end 'apart'
+		return (try d as Count otherwise panic("backend: a definition before the first instruction")) == prevCount(irAt)
+	end 'fuses'
 
 	// typeName is the symbol of the word of data whose address names the type t, for the table of a value of it and the cast
 	// that tests for it, defined in the unit once.
@@ -838,8 +882,20 @@ end 'emitCallRuntime'
 // emitBounds goes to the failure block of a bounds check where the index is not below the length. The branch ends the
 // block: the failure block reads the index and the collection, which an edge in the middle of a block would keep live to
 // the block's end, across every call after the check.
+// A length that only the check reads, read right before it, is compared in the box itself.
 function emitBounds(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
-	sel.target(X64Form.cmpRegReg, a: vregOf(ir.boundsIndex(ins)), b: vregOf(ir.boundsLength(ins)), c: noMReg, aux: 0, imm: 0)
+	let index = vregOf(ir.boundsIndex(ins))
+	let length = ir.boundsLength(ins)
+	if sel.definedBy(fn, r: length, op: ir.Opcode.opLength) and sel.fuses(fn, r: length) 'inBox'
+		let read = sel.defOf(length)
+		let offset = match ir.lengthOf(fn.instrs[read]) 'of'
+			collectionArray gives arrayLengthOffset
+			collectionString gives stringLengthOffset
+		end 'of'
+		sel.target(X64Form.cmpRegBaseDisp, a: index, b: vregOf(ir.lengthSrc(fn.instrs[read])), c: noMReg, aux: imm32Of(offset), imm: 0)
+	end 'inBox' else 'register'
+		sel.target(X64Form.cmpRegReg, a: index, b: vregOf(length), c: noMReg, aux: 0, imm: 0)
+	end 'register'
 	sel.branchTo(X64CondCode.aboveEqual, block: blockOf(ir.boundsFail(ins)))
 end 'emitBounds'
 
@@ -1047,19 +1103,26 @@ function selectFunction(mutates sel Selector, p ast.Project, mutates ms ast.Modu
 		for k in 0 upto f.blocks[i].paramCount 'params'
 			sel.mir.addBlockParam(vregOf(f.blockParam(i, i: k)))
 		end 'params'
+		sel.irBlock = i
 		for k in f.blocks[i].first upto f.blocks[i].endAt 'instrs'
+			sel.irAt = k
 			selectInstr(sel, fn: f, ins: f.instrs[k])
 		end 'instrs'
+		sel.irAt = f.blocks[i].endAt
 		selectTerm(sel, fn: f, ins: f.blocks[i].term)
+		if f.blocks[i].term.kind == ir.TermKind.termTrap 'fails'
+			sel.mir.blocks[i].likelihood = Likelihood.cold
+		end 'fails'
 	end 'blocks'
 	sel.mir.endBlock()
 	var mir = exchange(sel.mir, value: MirFunction.new("", canThrow: false))
+	sel.dead.remove(mir)
 	sel.allocator.spiller.clock.lap(EmitPhase.selection)
 	let refusals = sel.allocator.allocate(mir)
 	if refusals.count() > 0 'refused'
 		return refusals
 	end 'refused'
-	encodeMachineFunction(sel.u, fn: mir, instance: instance)
+	encodeMachineFunction(sel.u, fn: mir, instance: instance, lay: sel.layout)
 	sel.allocator.spiller.clock.lap(EmitPhase.encoding)
 	return refusals
 end 'selectFunction'

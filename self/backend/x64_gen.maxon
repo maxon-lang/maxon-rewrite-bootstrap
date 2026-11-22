@@ -389,6 +389,20 @@ export function encodeLeaRegBaseIndex8Disp(mutates code ByteArray, dest X64Regis
 	writeMemIndex(code, regBits: regLow3(dest), base: base, index: index, scaleBits: 3, disp: disp)
 end 'encodeLeaRegBaseIndex8Disp'
 
+// mov dest, [base + index*1 + disp]: REX.W 8B /r.
+export function encodeLoadRegBaseIndex1Disp(mutates code ByteArray, dest X64Register, base X64Register, index X64Register, disp Imm32)
+	emitRex(code, wide: true, regField: dest, indexField: index, rmField: base, force: false)
+	code.push(0x8B)
+	writeMemIndex(code, regBits: regLow3(dest), base: base, index: index, scaleBits: 0, disp: disp)
+end 'encodeLoadRegBaseIndex1Disp'
+
+// mov [base + index*1 + disp], src: REX.W 89 /r.
+export function encodeStoreBaseIndex1DispReg(mutates code ByteArray, base X64Register, index X64Register, disp Imm32, src X64Register)
+	emitRex(code, wide: true, regField: src, indexField: index, rmField: base, force: false)
+	code.push(0x89)
+	writeMemIndex(code, regBits: regLow3(src), base: base, index: index, scaleBits: 0, disp: disp)
+end 'encodeStoreBaseIndex1DispReg'
+
 // movzx dest, [base + index*1 + disp]: REX.W 0F B6 /r.
 export function encodeMovzxRegByteBaseIndex1Disp(mutates code ByteArray, dest X64Register, base X64Register, index X64Register, disp Imm32)
 	emitRex(code, wide: true, regField: dest, indexField: index, rmField: base, force: false)
@@ -551,6 +565,89 @@ export function encodeCmpRegImm32(mutates code ByteArray, dest X64Register, imm 
 	writeModRmReg(code, regBits: 7, rm: dest)
 	writeImm32(code, value: imm)
 end 'encodeCmpRegImm32'
+
+// or dest, imm: REX.W 83 /1.
+export function encodeOrRegImm8(mutates code ByteArray, dest X64Register, imm Imm8)
+	emitRex(code, wide: true, regField: X64Register.rax, indexField: X64Register.rax, rmField: dest, force: false)
+	code.push(0x83)
+	writeModRmReg(code, regBits: 1, rm: dest)
+	writeImm8(code, value: imm)
+end 'encodeOrRegImm8'
+
+// or dest, imm: REX.W 81 /1.
+export function encodeOrRegImm32(mutates code ByteArray, dest X64Register, imm Imm32)
+	emitRex(code, wide: true, regField: X64Register.rax, indexField: X64Register.rax, rmField: dest, force: false)
+	code.push(0x81)
+	writeModRmReg(code, regBits: 1, rm: dest)
+	writeImm32(code, value: imm)
+end 'encodeOrRegImm32'
+
+// xor dest, imm: REX.W 83 /6.
+export function encodeXorRegImm8(mutates code ByteArray, dest X64Register, imm Imm8)
+	emitRex(code, wide: true, regField: X64Register.rax, indexField: X64Register.rax, rmField: dest, force: false)
+	code.push(0x83)
+	writeModRmReg(code, regBits: 6, rm: dest)
+	writeImm8(code, value: imm)
+end 'encodeXorRegImm8'
+
+// xor dest, imm: REX.W 81 /6.
+export function encodeXorRegImm32(mutates code ByteArray, dest X64Register, imm Imm32)
+	emitRex(code, wide: true, regField: X64Register.rax, indexField: X64Register.rax, rmField: dest, force: false)
+	code.push(0x81)
+	writeModRmReg(code, regBits: 6, rm: dest)
+	writeImm32(code, value: imm)
+end 'encodeXorRegImm32'
+
+// imul dest, src, imm: REX.W 6B /r.
+export function encodeImulRegRegImm8(mutates code ByteArray, dest X64Register, src X64Register, imm Imm8)
+	emitRex(code, wide: true, regField: dest, indexField: X64Register.rax, rmField: src, force: false)
+	code.push(0x6B)
+	writeModRmReg(code, regBits: regLow3(dest), rm: src)
+	writeImm8(code, value: imm)
+end 'encodeImulRegRegImm8'
+
+// imul dest, src, imm: REX.W 69 /r.
+export function encodeImulRegRegImm32(mutates code ByteArray, dest X64Register, src X64Register, imm Imm32)
+	emitRex(code, wide: true, regField: dest, indexField: X64Register.rax, rmField: src, force: false)
+	code.push(0x69)
+	writeModRmReg(code, regBits: regLow3(dest), rm: src)
+	writeImm32(code, value: imm)
+end 'encodeImulRegRegImm32'
+
+// shl reg, imm: REX.W C1 /4.
+export function encodeShlRegImm8(mutates code ByteArray, reg X64Register, imm Imm8)
+	emitRex(code, wide: true, regField: X64Register.rax, indexField: X64Register.rax, rmField: reg, force: false)
+	code.push(0xC1)
+	writeModRmReg(code, regBits: 4, rm: reg)
+	writeImm8(code, value: imm)
+end 'encodeShlRegImm8'
+
+// shr reg, imm: REX.W C1 /5.
+export function encodeShrRegImm8(mutates code ByteArray, reg X64Register, imm Imm8)
+	emitRex(code, wide: true, regField: X64Register.rax, indexField: X64Register.rax, rmField: reg, force: false)
+	code.push(0xC1)
+	writeModRmReg(code, regBits: 5, rm: reg)
+	writeImm8(code, value: imm)
+end 'encodeShrRegImm8'
+
+// cmp left, [base + disp]: REX.W 3B /r.
+export function encodeCmpRegBaseDisp(mutates code ByteArray, left X64Register, base X64Register, disp Imm32)
+	emitRex(code, wide: true, regField: left, indexField: X64Register.rax, rmField: base, force: false)
+	code.push(0x3B)
+	writeMem(code, regBits: regLow3(left), base: base, disp: disp)
+end 'encodeCmpRegBaseDisp'
+
+// xor dest, src: 31 /r.
+export function encodeXorReg32Reg32(mutates code ByteArray, dest X64Register, src X64Register)
+	emitRex(code, wide: false, regField: src, indexField: X64Register.rax, rmField: dest, force: false)
+	code.push(0x31)
+	writeModRmReg(code, regBits: regLow3(src), rm: dest)
+end 'encodeXorReg32Reg32'
+
+// leave : C9.
+export function encodeLeave(mutates code ByteArray)
+	code.push(0xC9)
+end 'encodeLeave'
 
 // not reg: REX.W F7 /2.
 export function encodeNotReg(mutates code ByteArray, reg X64Register)
@@ -941,6 +1038,8 @@ export enum X64Form
 	loadRegBaseIndex8Disp
 	storeBaseIndex8DispReg
 	leaRegBaseIndex8Disp
+	loadRegBaseIndex1Disp
+	storeBaseIndex1DispReg
 	movzxRegByteBaseIndex1Disp
 	storeBaseIndex1DispReg8
 	movzxRegWordBaseDisp
@@ -962,6 +1061,17 @@ export enum X64Form
 	subRegImm32
 	cmpRegImm8
 	cmpRegImm32
+	orRegImm8
+	orRegImm32
+	xorRegImm8
+	xorRegImm32
+	imulRegRegImm8
+	imulRegRegImm32
+	shlRegImm8
+	shrRegImm8
+	cmpRegBaseDisp
+	xorReg32Reg32
+	leave
 	notReg
 	negReg
 	mulReg
@@ -1016,19 +1126,19 @@ function formTableDigit(table String, form X64Form) returns Count
 end 'formTableDigit'
 
 export function setsFlags(form X64Form) returns bool
-	return formTableDigit("011111111000000000000000000000111111110111101111000000010000010100000000000001000", form: form) == 1
+	return formTableDigit("0111111110000000000000000000000011111111111111111100111101111000000010000010100000000000001000", form: form) == 1
 end 'setsFlags'
 
 export function readsFlags(form X64Form) returns bool
-	return formTableDigit("000000000000000000000000001000000000000000000000000000000000000000001000000000000", form: form) == 1
+	return formTableDigit("0000000000000000000000000000100000000000000000000000000000000000000000000000000001000000000000", form: form) == 1
 end 'readsFlags'
 
 export function readsMemory(form X64Form) returns bool
-	return formTableDigit("000000000100101001011000000000000000000000000000001101010101111101000000000000000", form: form) == 1
+	return formTableDigit("0000000001001010010101100000000000000000000000001010000000000001101010101111101000000000000000", form: form) == 1
 end 'readsMemory'
 
 export function writesMemory(form X64Form) returns bool
-	return formTableDigit("000000000010010100100111100000000000000000000000110001100011111100010000000000000", form: form) == 1
+	return formTableDigit("0000000000100101001010011110000000000000000000000000000000000110001100011111100010000000000000", form: form) == 1
 end 'writesMemory'
 
 // x64FirstVector is the number of xmm0 in the register file, after the general registers.
@@ -1036,7 +1146,7 @@ export let x64FirstVector = 16
 
 export let x64RegisterFileSize = 32
 
-export let x64FormCount = 81
+export let x64FormCount = 94
 
 // x64RegisterOf is the general register with a number of the register file.
 export function x64RegisterOf(number RegNum) returns X64Register
@@ -1081,105 +1191,118 @@ export function x64FormOf(number Count) returns X64Form
 		14 gives X64Form.loadRegBaseIndex8Disp
 		15 gives X64Form.storeBaseIndex8DispReg
 		16 gives X64Form.leaRegBaseIndex8Disp
-		17 gives X64Form.movzxRegByteBaseIndex1Disp
-		18 gives X64Form.storeBaseIndex1DispReg8
-		19 gives X64Form.movzxRegWordBaseDisp
-		20 gives X64Form.loadReg32BaseDisp
-		21 gives X64Form.storeBaseDispReg16
-		22 gives X64Form.storeBaseDispReg32
-		23 gives X64Form.storeBaseDispImm8
-		24 gives X64Form.storeBaseDispImm32
-		25 gives X64Form.movzxRegReg8
-		26 gives X64Form.setccReg
-		27 gives X64Form.movRegImm32
-		28 gives X64Form.movRegImm32Signed
-		29 gives X64Form.movRegImm64
-		30 gives X64Form.addRegImm8
-		31 gives X64Form.addRegImm32
-		32 gives X64Form.andRegImm8
-		33 gives X64Form.andRegImm32
-		34 gives X64Form.subRegImm8
-		35 gives X64Form.subRegImm32
-		36 gives X64Form.cmpRegImm8
-		37 gives X64Form.cmpRegImm32
-		38 gives X64Form.notReg
-		39 gives X64Form.negReg
-		40 gives X64Form.mulReg
-		41 gives X64Form.divReg
-		42 gives X64Form.idivReg
-		43 gives X64Form.cqo
-		44 gives X64Form.shlRegCl
-		45 gives X64Form.shrRegCl
-		46 gives X64Form.sarRegCl
-		47 gives X64Form.sarRegImm8
-		48 gives X64Form.pushReg
-		49 gives X64Form.pushImm32
-		50 gives X64Form.popReg
-		51 gives X64Form.ret
-		52 gives X64Form.ud2
-		53 gives X64Form.repMovsb
-		54 gives X64Form.repStosq
-		55 gives X64Form.repeCmpsb
-		56 gives X64Form.leaRegRip
-		57 gives X64Form.loadRegRip
-		58 gives X64Form.storeRipReg
-		59 gives X64Form.callRip
-		60 gives X64Form.callReg
-		61 gives X64Form.lockXaddBaseDispReg
-		62 gives X64Form.xchgBaseDispReg
-		63 gives X64Form.lockCmpxchgBaseDispReg
-		64 gives X64Form.pause
-		65 gives X64Form.loadRegGsBaseDisp
-		66 gives X64Form.jmpRel32
-		67 gives X64Form.callRel32
-		68 gives X64Form.jccRel32
-		69 gives X64Form.movqXmm0Reg
-		70 gives X64Form.movqXmm1Reg
-		71 gives X64Form.movqRegXmm0
-		72 gives X64Form.addsdXmm0Xmm1
-		73 gives X64Form.subsdXmm0Xmm1
-		74 gives X64Form.mulsdXmm0Xmm1
-		75 gives X64Form.divsdXmm0Xmm1
-		76 gives X64Form.sqrtsdXmm0Xmm0
-		77 gives X64Form.ucomisdXmm0Xmm1
-		78 gives X64Form.roundsdXmm0Xmm0Imm8
-		79 gives X64Form.cvtsi2sdXmm0Reg
-		80 gives X64Form.cvttsd2siRaxXmm0
+		17 gives X64Form.loadRegBaseIndex1Disp
+		18 gives X64Form.storeBaseIndex1DispReg
+		19 gives X64Form.movzxRegByteBaseIndex1Disp
+		20 gives X64Form.storeBaseIndex1DispReg8
+		21 gives X64Form.movzxRegWordBaseDisp
+		22 gives X64Form.loadReg32BaseDisp
+		23 gives X64Form.storeBaseDispReg16
+		24 gives X64Form.storeBaseDispReg32
+		25 gives X64Form.storeBaseDispImm8
+		26 gives X64Form.storeBaseDispImm32
+		27 gives X64Form.movzxRegReg8
+		28 gives X64Form.setccReg
+		29 gives X64Form.movRegImm32
+		30 gives X64Form.movRegImm32Signed
+		31 gives X64Form.movRegImm64
+		32 gives X64Form.addRegImm8
+		33 gives X64Form.addRegImm32
+		34 gives X64Form.andRegImm8
+		35 gives X64Form.andRegImm32
+		36 gives X64Form.subRegImm8
+		37 gives X64Form.subRegImm32
+		38 gives X64Form.cmpRegImm8
+		39 gives X64Form.cmpRegImm32
+		40 gives X64Form.orRegImm8
+		41 gives X64Form.orRegImm32
+		42 gives X64Form.xorRegImm8
+		43 gives X64Form.xorRegImm32
+		44 gives X64Form.imulRegRegImm8
+		45 gives X64Form.imulRegRegImm32
+		46 gives X64Form.shlRegImm8
+		47 gives X64Form.shrRegImm8
+		48 gives X64Form.cmpRegBaseDisp
+		49 gives X64Form.xorReg32Reg32
+		50 gives X64Form.leave
+		51 gives X64Form.notReg
+		52 gives X64Form.negReg
+		53 gives X64Form.mulReg
+		54 gives X64Form.divReg
+		55 gives X64Form.idivReg
+		56 gives X64Form.cqo
+		57 gives X64Form.shlRegCl
+		58 gives X64Form.shrRegCl
+		59 gives X64Form.sarRegCl
+		60 gives X64Form.sarRegImm8
+		61 gives X64Form.pushReg
+		62 gives X64Form.pushImm32
+		63 gives X64Form.popReg
+		64 gives X64Form.ret
+		65 gives X64Form.ud2
+		66 gives X64Form.repMovsb
+		67 gives X64Form.repStosq
+		68 gives X64Form.repeCmpsb
+		69 gives X64Form.leaRegRip
+		70 gives X64Form.loadRegRip
+		71 gives X64Form.storeRipReg
+		72 gives X64Form.callRip
+		73 gives X64Form.callReg
+		74 gives X64Form.lockXaddBaseDispReg
+		75 gives X64Form.xchgBaseDispReg
+		76 gives X64Form.lockCmpxchgBaseDispReg
+		77 gives X64Form.pause
+		78 gives X64Form.loadRegGsBaseDisp
+		79 gives X64Form.jmpRel32
+		80 gives X64Form.callRel32
+		81 gives X64Form.jccRel32
+		82 gives X64Form.movqXmm0Reg
+		83 gives X64Form.movqXmm1Reg
+		84 gives X64Form.movqRegXmm0
+		85 gives X64Form.addsdXmm0Xmm1
+		86 gives X64Form.subsdXmm0Xmm1
+		87 gives X64Form.mulsdXmm0Xmm1
+		88 gives X64Form.divsdXmm0Xmm1
+		89 gives X64Form.sqrtsdXmm0Xmm0
+		90 gives X64Form.ucomisdXmm0Xmm1
+		91 gives X64Form.roundsdXmm0Xmm0Imm8
+		92 gives X64Form.cvtsi2sdXmm0Reg
+		93 gives X64Form.cvttsd2siRaxXmm0
 		default panic("backend: a number that is no x64 form")
 	end 'number'
 end 'x64FormOf'
 
 // machineOperandCount is how many register operands a machine instruction of a form has.
 export function machineOperandCount(form X64Form) returns Count
-	return formTableDigit("233333223222223333322221121111222222112211102222101000001110133202000111000000010", form: form)
+	return formTableDigit("2333332232222233333332222112111122222211222222222302211102222101000001110133202000111000000010", form: form)
 end 'machineOperandCount'
 
 export function definesOperand(form X64Form) returns bool
-	return formTableDigit("111111001101101011011000011111111111001100001111001000001100011001000001000000000", form: form) == 1
+	return formTableDigit("1111110011011010110101100001111111111100111111110101100001111001000001100011001000001000000000", form: form) == 1
 end 'definesOperand'
 
 export function reusesOperand(form X64Form) returns bool
-	return formTableDigit("011111001000000000000000000000111111001100001111000000000000011000000000000000000", form: form) == 1
+	return formTableDigit("0111110010000000000000000000000011111100111100110101100001111000000000000011000000000000000000", form: form) == 1
 end 'reusesOperand'
 
 export function isCall(form X64Form) returns bool
-	return formTableDigit("000000000000000000000000000000000000000000000000000000000001100000010000000000000", form: form) == 1
+	return formTableDigit("0000000000000000000000000000000000000000000000000000000000000000000000001100000010000000000000", form: form) == 1
 end 'isCall'
 
 export function isReturn(form X64Form) returns bool
-	return formTableDigit("000000000000000000000000000000000000000000000000000100000000000000000000000000000", form: form) == 1
+	return formTableDigit("0000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000", form: form) == 1
 end 'isReturn'
 
 export function hasPatchField(form X64Form) returns bool
-	return formTableDigit("000000000000000000000000000000000000000000000000000000001111000000111000000000000", form: form) == 1
+	return formTableDigit("0000000000000000000000000000000000000000000000000000000000000000000001111000000111000000000000", form: form) == 1
 end 'hasPatchField'
 
 export function rematerializable(form X64Form) returns bool
-	return formTableDigit("000000000000000000000000000111000000000000000000000000000000000000000000000000000", form: form) == 1
+	return formTableDigit("0000000000000000000000000000011100000000000000000000000000000000000000000000000000000000000000", form: form) == 1
 end 'rematerializable'
 
 export function commutesOperands(form X64Form) returns bool
-	return formTableDigit("010111001000000000000000000000000000000000000000000000000000000000000000000000000", form: form) == 1
+	return formTableDigit("0101110010000000000000000000000000000000000000000000000000000000000000000000000000000000000000", form: form) == 1
 end 'commutesOperands'
 
 // fixedUses is the registers a form reads that no operand names.
@@ -1202,6 +1325,8 @@ export function fixedUses(form X64Form) returns RegMask
 		loadRegBaseIndex8Disp or
 		storeBaseIndex8DispReg or
 		leaRegBaseIndex8Disp or
+		loadRegBaseIndex1Disp or
+		storeBaseIndex1DispReg or
 		movzxRegByteBaseIndex1Disp or
 		storeBaseIndex1DispReg8 or
 		movzxRegWordBaseDisp or
@@ -1223,6 +1348,17 @@ export function fixedUses(form X64Form) returns RegMask
 		subRegImm32 or
 		cmpRegImm8 or
 		cmpRegImm32 or
+		orRegImm8 or
+		orRegImm32 or
+		xorRegImm8 or
+		xorRegImm32 or
+		imulRegRegImm8 or
+		imulRegRegImm32 or
+		shlRegImm8 or
+		shrRegImm8 or
+		cmpRegBaseDisp or
+		xorReg32Reg32 or
+		leave or
 		notReg or
 		negReg or
 		sarRegImm8 or
@@ -1289,6 +1425,8 @@ export function fixedDefs(form X64Form) returns RegMask
 		loadRegBaseIndex8Disp or
 		storeBaseIndex8DispReg or
 		leaRegBaseIndex8Disp or
+		loadRegBaseIndex1Disp or
+		storeBaseIndex1DispReg or
 		movzxRegByteBaseIndex1Disp or
 		storeBaseIndex1DispReg8 or
 		movzxRegWordBaseDisp or
@@ -1310,6 +1448,17 @@ export function fixedDefs(form X64Form) returns RegMask
 		subRegImm32 or
 		cmpRegImm8 or
 		cmpRegImm32 or
+		orRegImm8 or
+		orRegImm32 or
+		xorRegImm8 or
+		xorRegImm32 or
+		imulRegRegImm8 or
+		imulRegRegImm32 or
+		shlRegImm8 or
+		shrRegImm8 or
+		cmpRegBaseDisp or
+		xorReg32Reg32 or
+		leave or
 		notReg or
 		negReg or
 		shlRegCl or
@@ -1376,6 +1525,8 @@ export function clobbers(form X64Form) returns RegMask
 		loadRegBaseIndex8Disp or
 		storeBaseIndex8DispReg or
 		leaRegBaseIndex8Disp or
+		loadRegBaseIndex1Disp or
+		storeBaseIndex1DispReg or
 		movzxRegByteBaseIndex1Disp or
 		storeBaseIndex1DispReg8 or
 		movzxRegWordBaseDisp or
@@ -1397,6 +1548,17 @@ export function clobbers(form X64Form) returns RegMask
 		subRegImm32 or
 		cmpRegImm8 or
 		cmpRegImm32 or
+		orRegImm8 or
+		orRegImm32 or
+		xorRegImm8 or
+		xorRegImm32 or
+		imulRegRegImm8 or
+		imulRegRegImm32 or
+		shlRegImm8 or
+		shrRegImm8 or
+		cmpRegBaseDisp or
+		xorReg32Reg32 or
+		leave or
 		notReg or
 		negReg or
 		mulReg or
@@ -1507,6 +1669,8 @@ export function encodeMachineForm(mutates code ByteArray, form X64Form, a X64Reg
 		loadRegBaseIndex8Disp then encodeLoadRegBaseIndex8Disp(code, dest: a, base: b, index: c, disp: aux)
 		storeBaseIndex8DispReg then encodeStoreBaseIndex8DispReg(code, base: a, index: b, disp: aux, src: c)
 		leaRegBaseIndex8Disp then encodeLeaRegBaseIndex8Disp(code, dest: a, base: b, index: c, disp: aux)
+		loadRegBaseIndex1Disp then encodeLoadRegBaseIndex1Disp(code, dest: a, base: b, index: c, disp: aux)
+		storeBaseIndex1DispReg then encodeStoreBaseIndex1DispReg(code, base: a, index: b, disp: aux, src: c)
 		movzxRegByteBaseIndex1Disp then encodeMovzxRegByteBaseIndex1Disp(code, dest: a, base: b, index: c, disp: aux)
 		storeBaseIndex1DispReg8 then encodeStoreBaseIndex1DispReg8(code, base: a, index: b, disp: aux, src: c)
 		movzxRegWordBaseDisp then encodeMovzxRegWordBaseDisp(code, dest: a, base: b, disp: aux)
@@ -1528,6 +1692,17 @@ export function encodeMachineForm(mutates code ByteArray, form X64Form, a X64Reg
 		subRegImm32 then encodeSubRegImm32(code, dest: a, imm: try imm as Imm32 otherwise panic("backend: the immediate of SubRegImm32 does not fit it"))
 		cmpRegImm8 then encodeCmpRegImm8(code, dest: a, imm: try imm as Imm8 otherwise panic("backend: the immediate of CmpRegImm8 does not fit it"))
 		cmpRegImm32 then encodeCmpRegImm32(code, dest: a, imm: try imm as Imm32 otherwise panic("backend: the immediate of CmpRegImm32 does not fit it"))
+		orRegImm8 then encodeOrRegImm8(code, dest: a, imm: try imm as Imm8 otherwise panic("backend: the immediate of OrRegImm8 does not fit it"))
+		orRegImm32 then encodeOrRegImm32(code, dest: a, imm: try imm as Imm32 otherwise panic("backend: the immediate of OrRegImm32 does not fit it"))
+		xorRegImm8 then encodeXorRegImm8(code, dest: a, imm: try imm as Imm8 otherwise panic("backend: the immediate of XorRegImm8 does not fit it"))
+		xorRegImm32 then encodeXorRegImm32(code, dest: a, imm: try imm as Imm32 otherwise panic("backend: the immediate of XorRegImm32 does not fit it"))
+		imulRegRegImm8 then encodeImulRegRegImm8(code, dest: a, src: b, imm: try imm as Imm8 otherwise panic("backend: the immediate of ImulRegRegImm8 does not fit it"))
+		imulRegRegImm32 then encodeImulRegRegImm32(code, dest: a, src: b, imm: try imm as Imm32 otherwise panic("backend: the immediate of ImulRegRegImm32 does not fit it"))
+		shlRegImm8 then encodeShlRegImm8(code, reg: a, imm: try imm as Imm8 otherwise panic("backend: the immediate of ShlRegImm8 does not fit it"))
+		shrRegImm8 then encodeShrRegImm8(code, reg: a, imm: try imm as Imm8 otherwise panic("backend: the immediate of ShrRegImm8 does not fit it"))
+		cmpRegBaseDisp then encodeCmpRegBaseDisp(code, left: a, base: b, disp: aux)
+		xorReg32Reg32 then encodeXorReg32Reg32(code, dest: a, src: c)
+		leave then encodeLeave(code)
 		notReg then encodeNotReg(code, reg: a)
 		negReg then encodeNegReg(code, reg: a)
 		mulReg then encodeMulReg(code, reg: a)

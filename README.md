@@ -386,7 +386,12 @@ the immediate types, the helpers the encoders share and one encoder per form, ch
 ByteArray` first. `go test ./internal/x64gen/...` also encodes every form with registers `rax` to `r15`, displacements from none
 to 32 bits, bases of `rsp`, `rbp`, `r12` and `r13`, immediates at the limits of each kind and every condition code, with a
 reference encoder in the test, and compares the bytes with `internal/x64gen/x64table/testdata/assembler.golden`; `selftest` runs the
-generated Maxon on a set of those encodings (in `self/main.maxon`) and compares them with the same bytes.
+generated Maxon on a set of those encodings (in `self/main.maxon`) and compares them with the same bytes. A form added after
+that assembler was removed (the indexed and atomic forms, a word load and store at a base plus an index, `or` and `xor`
+with an immediate, the three-address `imul` with an
+immediate, the shifts by a constant, `cmp` of a register with memory, the 32-bit zeroing `xor`, `leave`) is compared with
+encodings written from the Intel manual and read back with LLVM's disassembler (`literal` in the test); a rule picks among
+its immediate sizes by a condition (`fitsImm8`), since a choice is compared with the golden file at every value.
 
 The allocation columns are what the machine IR asks of a form (see "The machine IR"), and the generator refuses a table in
 which they contradict the operands: a register operand with no access, two written operands, more than three register operands
@@ -413,7 +418,7 @@ a line that starts with `&&` or `=>` goes on with the rule before it, and `//` s
 (loadField obj [off])                                     => (LoadRegBaseDisp r obj [off])     // x64.rules
 (bin.add.unsigned.checked x y [f])                        => (AddRegReg x y) (JccRel32 [X64CondCode.below] [f])
 (branch c [yes] [no])                                     => (TestRegReg c c) (JccRel32 [X64CondCode.equal] [no]) (JmpRel32 [yes])
-(bin.mul.unsigned.!checked x y)                           => (Copy rax x) (MulReg y) (Copy r rax)
+(bin.mul.unsigned.checked x y [f])                        => (Copy rax x) (MulReg y) (Copy r rax) (JccRel32 [X64CondCode.below] [f])
 (call)                                                    => (emitCall)
 ```
 
@@ -446,7 +451,14 @@ a line that starts with `&&` or `=>` goes on with the rule before it, and `//` s
   selector (`sel`), the function (`fn`), the instruction (`ins`) and the backend's constants and the helpers of
   `self/backend/rules.maxon`. A sequence of forms that fixes registers (`SetccRax`) is none a rule names: it writes the
   copies to and from them. The rules of a target must match every IR operation with every case of its enum and every
-  value of its flags: for each, some rule with no condition matches any operands.
+  value of its flags: for each, some rule with no condition matches any operands. The instructions a selection pattern
+  matched below the root are selected at their own place all the same; a rule that makes one's value itself, as a branch
+  does a comparison it alone reads right before it (`sel.fuses`), leaves that one's code with no reader, which the machine
+  IR's dead code removal takes out (see "The machine IR"). So `x64.rules` fuses a comparison into the branch on it (`cmp`
+  and `jcc`, `test` against 0, a constant as an immediate), takes a constant as an immediate where a form has one (`add`,
+  `sub`, `and`, `or`, `xor`, `cmp`, the three-address `imul`, the shifts), makes an address that a load or a store alone
+  reads, a base plus a constant or plus a register, the access's own `[base + disp]` or `[base + index + disp]`, and
+  `emitBounds` compares an index with the length in the box where the check alone reads it.
 
 `rulegen` refuses, naming the rule and its line, a rule that names an operation, a case, a flag or an x64 form the tables do
 not have, gives an operation the wrong number or kind of operands, names a variable that its pattern does not bind, or can
@@ -921,7 +933,7 @@ virtual register a register (see "The machine IR"). A frame larger than a page t
 requires. Calls use the internal convention of the target table (`internal/targetgen`, maxon's): the integer arguments
 in `rcx`, `rdx`, `rax`, `r9`, `rsi` and `rdi`, the rest pushed right to left, so that the first of them is nearest the
 return address, which the caller pops; the result in `r8` and the error flag of a function that throws in `r10`; `rbx`,
-`r12` to `r15` and `xmm6` to `xmm15` are callee-saved, and a function saves in its frame those it uses. A function copies
+`r12` to `r15` and `xmm6` to `xmm15` are callee-saved, and a function pushes those it uses. A function copies
 its parameters out of the argument registers in its prologue (`Selector.takeParams`), and reads one passed on the stack
 from the frame. The Win64 ABI applies only to the DLL imports that the runtime calls (`import`).
 
@@ -1329,11 +1341,28 @@ calling conventions (`CallConvention`: the argument registers a call reads, and 
 target table's declarations (`regs_x64_gen.maxon`): the internal one and Win64 for an import. A call's `imm` is how many
 of its arguments are in its convention's registers, which `implicitUses` counts as read by it (`newCall`).
 
+Before allocation, `DeadCode` (`dead.maxon`) has every read of a virtual register that a copy of another one defines read
+that one instead (in SSA form the two hold one value wherever the copy's is live, so no point holds more values; a read of
+a parameter is such a copy), then removes the instructions whose only effect is a virtual register nothing reads, or
+flags that nothing reads before they are written again (the flags are live into a block whose first instruction that
+touches them reads them, or that touches none), and no other effect: no store, call, return, fixed register or branch. A selection rule that fuses an operation into its one reader (`Selector.fuses`: the reader is the only one, and the
+operation's instruction comes right before it in its block, so nothing between writes the flags or memory and no operand
+lives longer) leaves the operation's own code, selected at its place first, with no reader, and this pass takes it out: a
+constant made an immediate, a comparison made into a branch's flags, a length compared in its box, an address made the
+operand of its load or store.
+
 `emitModule` allocates each function it selects with an `Allocator` the module's functions share (`regalloc.maxon`):
 spilling, then colouring, below. The frame holds, from the frame pointer down, the slots given before allocation
 (`slotsGiven`: the `fixedSlots`, then the slots of block parameters in memory and those spilling gave out), then the
-callee-saved registers the function's values were given (`savedRegs`). `encodeMachineFunction` writes an allocated function
-into a code unit, leaving out a jump to the block that follows.
+callee-saved registers the function's values were given (`savedRegs`), pushed below them so that `rsp` is 16-byte aligned at
+a call. A leaf with no slots, no spill and no call that names neither `rbp` nor `rsp` has no frame: its prologue only pushes
+those registers and its epilogue pops them. `encodeMachineFunction` writes an allocated function into a code unit, laid out
+by a `BlockLayout` (`branches.maxon`): a block that only jumps on is left out and every branch to it goes where its chain of
+jumps ends; the cold blocks (those of IR blocks that end in a trap: a failing check's) come after the others, so the hot path runs
+straight on; a jump to the block laid out next is left out, and a conditional branch to it over a jump becomes one branch
+the other way. Where the flags are dead after it, a constant 0 is the 32-bit `xor` of the register with itself, and a copy
+followed by the addition or subtraction of a constant to the copied register (the copy allocation makes of a two-address
+form's operand that lives on) is one `lea`.
 
 #### Liveness, spilling and E5001
 
@@ -1447,8 +1476,8 @@ register and takes the function out of SSA form; `Allocator.allocate` runs both 
   is broken through a register that holds nothing the copy or the target's live values need, caller-saved first, or, when
   every register holds one, by exchanging two registers with three xors. A copy whose source and target got one register is
   dropped, and so is a `copy` whose two sides did.
-- **The frame**: the callee-saved registers the function's values were given are `savedRegs`; the encoder stores them in
-  words after the spill slots in the prologue and loads them back before each epilogue.
+- **The frame**: the callee-saved registers the function's values were given are `savedRegs`; the encoder pushes them below
+  the spill slots in the prologue and pops them before each epilogue, which then drops the frame with `leave`.
 - **The checker** (`checkColouring`, one walk): it runs the coloured function beside the original on tokens: a register holds
   a token, a copy moves one, an exchange swaps two, and what an instruction writes without a value gets a new one. Wherever
   the original reads a value, a fixed register or an edge's argument, or a block's live values and parameters are entered,

@@ -241,8 +241,9 @@ end 'runAllocated'
 // the executable.
 function linkAndRun(mutates p ast.Project, fns backend.MirFunctionList, entry ast.FuncID, name String, expectedCode ExitCode)
 	var u = backend.CodeUnit.new()
+	var lay = backend.BlockLayout.new()
 	for i in 0 upto fns.count() 'each'
-		backend.encodeMachineFunction(u, fn: fns[i], instance: false)
+		backend.encodeMachineFunction(u, fn: fns[i], instance: false, lay: lay)
 	end 'each'
 	u.asm.endLabels()
 	var units = backend.UnitList.create(0)

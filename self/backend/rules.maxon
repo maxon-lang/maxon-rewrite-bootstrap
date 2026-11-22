@@ -12,6 +12,16 @@ function fitsImm32(c ir.Word) returns bool
 	return c >= imm32Min and c <= imm32Max
 end 'fitsImm32'
 
+// fitsImm8 is whether a word is the sign extension of an 8-bit immediate.
+function fitsImm8(c ir.Word) returns bool
+	return c >= imm8Min and c <= imm8Max
+end 'fitsImm8'
+
+// shiftsInWord is whether a shift count leaves some bit of the word in it, which a shift by an immediate counts by.
+function shiftsInWord(c ir.Word) returns bool
+	return c >= 0 and c < shiftBitCount
+end 'shiftsInWord'
+
 // slotDisp is where a slot of the IR's frame sits below the frame pointer: the slots are the first of the fixed slots.
 function slotDisp(slot Count) returns Imm32
 	return spillSlotOffset(try slot as SpillSlot otherwise panic("backend: a slot past 2 GiB"))
@@ -29,6 +39,55 @@ function cmpCondition(x ir.Instr) returns X64CondCode
 		cmpGe gives X64CondCode.aboveEqual if unsigned else X64CondCode.greaterEqual
 	end 'op'
 end 'cmpCondition'
+
+// condOf is the condition code that holds when the comparison that defines r does.
+function condOf(sel Selector, fn ir.IrFunction, r ir.Reg) returns X64CondCode
+	return cmpCondition(fn.instrs[sel.defOf(r)])
+end 'condOf'
+
+// negated is the condition code that holds where cond does not.
+function negated(cond X64CondCode) returns X64CondCode
+	return match cond 'cond'
+		overflow gives X64CondCode.noOverflow
+		noOverflow gives X64CondCode.overflow
+		below gives X64CondCode.aboveEqual
+		aboveEqual gives X64CondCode.below
+		equal gives X64CondCode.notEqual
+		notEqual gives X64CondCode.equal
+		belowEqual gives X64CondCode.above
+		above gives X64CondCode.belowEqual
+		sign gives X64CondCode.noSign
+		noSign gives X64CondCode.sign
+		parity gives X64CondCode.noParity
+		noParity gives X64CondCode.parity
+		less gives X64CondCode.greaterEqual
+		greaterEqual gives X64CondCode.less
+		lessEqual gives X64CondCode.greater
+		greater gives X64CondCode.lessEqual
+	end 'cond'
+end 'negated'
+
+// swapped is the condition code of a comparison whose operands are swapped: x < y where y > x.
+function swapped(cond X64CondCode) returns X64CondCode
+	return match cond 'cond'
+		equal or
+		notEqual gives cond
+		below gives X64CondCode.above
+		above gives X64CondCode.below
+		aboveEqual gives X64CondCode.belowEqual
+		belowEqual gives X64CondCode.aboveEqual
+		less gives X64CondCode.greater
+		greater gives X64CondCode.less
+		lessEqual gives X64CondCode.greaterEqual
+		greaterEqual gives X64CondCode.lessEqual
+		overflow or
+		noOverflow or
+		sign or
+		noSign or
+		parity or
+		noParity gives panic("backend: a condition of no comparison of two operands swapped")
+	end 'cond'
+end 'swapped'
 
 // guardFailure is the condition code, after a comparison of a guard's value with its bound, that says the value is out
 // of the guard's range.

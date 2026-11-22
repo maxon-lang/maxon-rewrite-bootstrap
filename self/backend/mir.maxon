@@ -280,8 +280,8 @@ export type MirFunction
 	export var fixedSlots as Count
 	// spillSlots is how many words the frame holds below the frame pointer, which allocation decides.
 	export var spillSlots as Count
-	// savedRegs are the callee-saved registers allocation gave the function's values, which its frame keeps in the words
-	// after the spill slots for its caller.
+	// savedRegs are the callee-saved registers allocation gave the function's values, which its prologue pushes below the
+	// slots and its epilogues pop for its caller.
 	export var savedRegs as RegMask
 	// canThrow is whether the function returns an error beside its value, so a return reads the convention's error
 	// register too.
@@ -402,9 +402,9 @@ export type MirFunction
 		instrs.push(x)
 	end 'emit'
 
-	// frameBytes is the size of the frame below the frame pointer.
+	// frameBytes is the size of the slots below the frame pointer, which the callee-saved registers are pushed below.
 	function frameBytes() returns Count
-		return try (self.slotsGiven() + maskCount(savedRegs)) * spillSlotBytes otherwise panic("backend: a frame past memory")
+		return try self.slotsGiven() * spillSlotBytes otherwise panic("backend: a frame past memory")
 	end 'frameBytes'
 end 'MirFunction'
 

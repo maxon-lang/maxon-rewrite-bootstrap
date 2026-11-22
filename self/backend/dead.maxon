@@ -1,0 +1,292 @@
+// Dead code removal over the machine IR that selection wrote, before allocation. A rule that fuses an operation into
+// the one that reads it (a constant into an immediate, a comparison into a branch) leaves the operation's own code,
+// which was selected at its place first: the instructions whose only effect is a register nothing reads, or flags that
+// nothing reads before they are written again, are left out here.
+
+// DeadCode removes the dead instructions of each function; its lists are reused from one function to the next.
+export type DeadCode
+	// readCount counts the reads of each virtual register, from firstVirtual.
+	var readCount as CountList
+	// defAt is the instruction that defines each virtual register, or noDefinition for a block's parameter.
+	var defAt as CountList
+	var dead as BoolList
+	// sweepAt is the instruction the sweep is at, and again whether a removal left a register with no reader whose
+	// definition the sweep has passed, which only another sweep removes: a loop's.
+	var sweepAt as Count
+	var again as bool
+	// flagsLiveIn is whether a block may read the flags it is entered with: its first instruction that reads or writes
+	// them reads them, or none does.
+	var flagsLiveIn as BoolList
+	var written as BoolList
+	var out as MInstrList
+	// alias is the register each virtual register's reads read once copies are propagated: its own, or the one a copy
+	// copied into it.
+	var alias as MRegList
+
+	static function new() returns DeadCode
+		return DeadCode{readCount: CountList.create(0), defAt: CountList.create(0), dead: BoolList.create(0), sweepAt: 0, again: false, flagsLiveIn: BoolList.create(0), written: BoolList.create(0), out: MInstrList.create(0), alias: MRegList.create(0)}
+	end 'new'
+
+	// remove leaves out the dead instructions of fn, until none is left, and writes its blocks in the order of its layout.
+	// Selection writes the blocks in that order, so a sweep from the last block back meets every use before its
+	// definition but along a loop's back edge.
+	function remove(mutates self, mutates fn MirFunction)
+		fn.endBlock()
+		self.propagateCopies(fn)
+		self.countUses(fn)
+		findFlagsLiveIn(fn, liveIn: flagsLiveIn)
+		ir.resetFlags(dead, n: fn.instrs.count())
+		var any = false
+		again = true
+		while again 'rounds'
+			again = false
+			var o = fn.order.count()
+			while o > 0 'blocks'
+				o = prevCount(o)
+				if self.sweepBlock(fn, b: fn.order[o] as Count) 'some'
+					any = true
+				end 'some'
+			end 'blocks'
+		end 'rounds'
+		if any 'compact'
+			self.compact(fn)
+		end 'compact'
+	end 'remove'
+
+	// propagateCopies has every read of a virtual register that a copy of another one defines read that one instead: in
+	// SSA form the two hold the same value wherever the copy's is live, so no point holds more values than before, and the
+	// copy is left with no reader.
+	function propagateCopies(mutates self, mutates fn MirFunction)
+		alias.clear()
+		for v in 0 upto fn.vregCount() 'identity'
+			alias.push(vregAt(v))
+		end 'identity'
+		var any = false
+		for k in 0 upto fn.instrs.count() 'copies'
+			if fn.instrs[k].kind == MKind.copy and isVirtual(fn.instrs[k].a) and isVirtual(fn.instrs[k].b) 'copy'
+				let target = vregIndex(fn.instrs[k].a)
+				let source = vregIndex(fn.instrs[k].b)
+				if fn.classes[target] == fn.classes[source] 'sameClass'
+					alias[target] = fn.instrs[k].b
+					any = true
+				end 'sameClass'
+			end 'copy'
+		end 'copies'
+		if not any 'none'
+			return
+		end 'none'
+		for k in 0 upto fn.instrs.count() 'instrs'
+			var start = 0 as Count
+			if defines(fn.instrs[k]) 'defines'
+				start = 1
+			end 'defines'
+			for i in start upto operandCount(fn.instrs[k]) 'operands'
+				let r = operandAt(fn.instrs[k], index: i)
+				if isVirtual(r) 'virtual'
+					setOperand(fn.instrs[k], index: i, r: self.root(r))
+				end 'virtual'
+			end 'operands'
+		end 'instrs'
+		for i in 0 upto fn.edgeArgs.count() 'args'
+			let r = fn.edgeArgs[i]
+			if isVirtual(r) 'virtual'
+				fn.edgeArgs[i] = self.root(r)
+			end 'virtual'
+		end 'args'
+	end 'propagateCopies'
+
+	// root is the register a read of r reads once copies are propagated, at the end of a chain of copies.
+	function root(r MReg) returns MReg
+		var at = r
+		while alias[vregIndex(at)] != at 'chain'
+			at = alias[vregIndex(at)]
+		end 'chain'
+		return at
+	end 'root'
+
+	function countUses(mutates self, fn MirFunction)
+		ir.resetCounts(readCount, n: fn.vregCount())
+		ir.resetCounts(defAt, n: fn.vregCount())
+		for v in 0 upto fn.vregCount() 'none'
+			defAt[v] = noDefinition
+		end 'none'
+		for k in 0 upto fn.instrs.count() 'instrs'
+			self.countOperands(fn, x: fn.instrs[k], adds: true)
+			if defines(fn.instrs[k]) and isVirtual(fn.instrs[k].a) 'defines'
+				defAt[vregIndex(fn.instrs[k].a)] = k
+			end 'defines'
+		end 'instrs'
+	end 'countUses'
+
+	// countOperands counts a read of each virtual register an instruction reads, its edge's arguments too, or with adds
+	// false takes the reads back.
+	function countOperands(mutates self, fn MirFunction, x MInstr, adds bool)
+		var start = 0 as Count
+		if defines(x) 'defines'
+			start = 1
+		end 'defines'
+		for i in start upto operandCount(x) 'operands'
+			self.countRead(operandAt(x, index: i), adds: adds)
+		end 'operands'
+		if x.kind == MKind.parallelCopy 'copies'
+			let first = refIndex(x)
+			let stop = try first + copyCount(x) otherwise panic("backend: copies past memory")
+			for i in first upto stop 'each'
+				self.countRead(fn.copies[i].src, adds: adds)
+			end 'each'
+		end 'copies'
+		if x.ref == MRef.edge 'edge'
+			let e = refIndex(x)
+			let first = fn.edges[e].args
+			let stop = try first + fn.edges[e].argCount otherwise panic("backend: arguments past memory")
+			for i in first upto stop 'args'
+				self.countRead(fn.edgeArgs[i], adds: adds)
+			end 'args'
+		end 'edge'
+	end 'countOperands'
+
+	function countRead(mutates self, r MReg, adds bool)
+		if not isVirtual(r) 'physical'
+			return
+		end 'physical'
+		let at = vregIndex(r)
+		if adds 'add'
+			readCount[at] = nextCount(readCount[at])
+		end 'add' else 'drop'
+			readCount[at] = prevCount(readCount[at])
+			if readCount[at] == 0 and defAt[at] != noDefinition and defAt[at] > sweepAt 'passed'
+				again = true
+			end 'passed'
+		end 'drop'
+	end 'countRead'
+
+	// sweepBlock marks the dead instructions of block b from its end, and is whether it marked any.
+	function sweepBlock(mutates self, fn MirFunction, b Count) returns bool
+		var flagsLive = flagsLiveOut(fn, b: b, liveIn: flagsLiveIn)
+		var removed = false
+		var k = fn.blocks[b].endAt
+		while k > fn.blocks[b].first 'instrs'
+			k = prevCount(k)
+			if dead[k] 'gone'
+				continue
+			end 'gone'
+			sweepAt = k
+			if self.isDead(fn.instrs[k], flagsLive: flagsLive) 'dead'
+				dead[k] = true
+				removed = true
+				self.countOperands(fn, x: fn.instrs[k], adds: false)
+				continue
+			end 'dead'
+			if killsFlags(fn.instrs[k]) 'writes'
+				flagsLive = false
+			end 'writes'
+			if readsFlagsOf(fn.instrs[k]) 'reads'
+				flagsLive = true
+			end 'reads'
+		end 'instrs'
+		return removed
+	end 'sweepBlock'
+
+	// isDead is whether an instruction does nothing that is read: it defines a register nothing reads, or only writes
+	// the flags, and the flags it writes are not read, and it has no other effect.
+	function isDead(x MInstr, flagsLive bool) returns bool
+		return match x.kind 'kind'
+			copy gives isVirtual(x.a) and readCount[vregIndex(x.a)] == 0
+			target gives self.isDeadTarget(x, flagsLive: flagsLive)
+			parallelCopy or
+			spill or
+			reload or
+			restore or
+			frameSetup or
+			frameTeardown gives false
+		end 'kind'
+	end 'isDead'
+
+	function isDeadTarget(x MInstr, flagsLive bool) returns bool
+		let form = x.form
+		if definesOperand(form) 'defines'
+			if not isVirtual(x.a) or readCount[vregIndex(x.a)] != 0 'read'
+				return false
+			end 'read'
+		end 'defines' else if not setsFlags(form) or flagsLive 'effect'
+			return false
+		end 'effect'
+		if setsFlags(form) and flagsLive 'flagsRead'
+			return false
+		end 'flagsRead'
+		return not writesMemory(form) and not isCall(form) and not isReturn(form) and formWrites(form) == 0 and x.ref != MRef.edge and x.ref != MRef.importSlot
+	end 'isDeadTarget'
+
+	// compact writes the instructions of fn that are not dead in the order of its layout; a block the layout leaves out is
+	// left empty.
+	function compact(mutates self, mutates fn MirFunction)
+		out.clear()
+		for o in 0 upto fn.order.count() 'blocks'
+			let b = fn.order[o] as Count
+			let first = out.count()
+			for k in fn.blocks[b].first upto fn.blocks[b].endAt 'instrs'
+				if not dead[k] 'live'
+					out.push(fn.instrs[k].clone())
+				end 'live'
+			end 'instrs'
+			fn.blocks[b].first = first
+			fn.blocks[b].endAt = out.count()
+		end 'blocks'
+		ir.resetFlags(written, n: fn.blocks.count())
+		for o in 0 upto fn.order.count() 'placed'
+			written[fn.order[o] as Count] = true
+		end 'placed'
+		for b in 0 upto fn.blocks.count() 'unwritten'
+			if not written[b] 'empty'
+				fn.blocks[b].first = out.count()
+				fn.blocks[b].endAt = out.count()
+			end 'empty'
+		end 'unwritten'
+		let kept = exchange(out, value: MInstrList.create(0))
+		out = exchange(fn.instrs, value: kept)
+	end 'compact'
+end 'DeadCode'
+
+// noDefinition is the definition of a virtual register that no instruction defines: a block parameter.
+let noDefinition = 2147483647 as Count
+
+// killsFlags is whether an instruction leaves the flags holding nothing an instruction before it wrote: it writes them,
+// or it is a call or a return, after which they hold nothing the code reads.
+function killsFlags(x MInstr) returns bool
+	return x.kind == MKind.target and (setsFlags(x.form) or isCall(x.form) or isReturn(x.form))
+end 'killsFlags'
+
+function readsFlagsOf(x MInstr) returns bool
+	return x.kind == MKind.target and readsFlags(x.form)
+end 'readsFlagsOf'
+
+// findFlagsLiveIn finds whether each block may read the flags it is entered with: its first instruction that reads or
+// writes them reads them, or none does.
+function findFlagsLiveIn(fn MirFunction, mutates liveIn BoolList)
+	ir.resetFlags(liveIn, n: fn.blocks.count())
+	for b in 0 upto fn.blocks.count() 'blocks'
+		var live = true
+		var k = fn.blocks[b].first
+		while k < fn.blocks[b].endAt 'instrs'
+			if readsFlagsOf(fn.instrs[k]) 'reads'
+				break
+			end 'reads'
+			if killsFlags(fn.instrs[k]) 'writes'
+				live = false
+				break
+			end 'writes'
+			k = nextCount(k)
+		end 'instrs'
+		liveIn[b] = live
+	end 'blocks'
+end 'findFlagsLiveIn'
+
+// flagsLiveOut is whether a block that branches along its edges to blocks of which liveIn says so leaves the flags read.
+function flagsLiveOut(fn MirFunction, b Count, liveIn BoolList) returns bool
+	for k in fn.blocks[b].first upto fn.blocks[b].endAt 'successors'
+		if fn.instrs[k].ref == MRef.edge and liveIn[fn.edges[refIndex(fn.instrs[k])].target as Count] 'reads'
+			return true
+		end 'reads'
+	end 'successors'
+	return false
+end 'flagsLiveOut'

@@ -393,6 +393,15 @@ func buildForms() []form {
 			name: "LeaRegBaseIndex8Disp", mnemonic: "lea", operands: []operand{reg("dest", fieldReg, write), memIndex(wordScale)},
 			rexW: true, opcode: []byte{0x8D}, modrm: modOperands, effects: noEffects,
 		},
+		// A word at a byte offset, base plus index, which an address the runtime adds up is.
+		form{
+			name: "LoadRegBaseIndex1Disp", mnemonic: "mov", operands: []operand{reg("dest", fieldReg, write), memIndex(byteScale)},
+			rexW: true, opcode: []byte{0x8B}, modrm: modOperands, effects: reads,
+		},
+		form{
+			name: "StoreBaseIndex1DispReg", mnemonic: "mov", operands: []operand{memIndex(byteScale), reg("src", fieldReg, read)},
+			rexW: true, opcode: []byte{0x89}, modrm: modOperands, effects: writes,
+		},
 		form{
 			name: "MovzxRegByteBaseIndex1Disp", mnemonic: "movzx", operands: []operand{reg("dest", fieldReg, write), memIndex(byteScale)},
 			rexW: true, opcode: []byte{opcodeHigh, 0xB6}, modrm: modOperands, effects: reads,
@@ -452,9 +461,42 @@ func buildForms() []form {
 		mnemonic string
 		digit    int
 		access   access
-	}{{"add", 0, readWrite}, {"and", 4, readWrite}, {"sub", 5, readWrite}, {"cmp", 7, read}} {
+	}{{"add", 0, readWrite}, {"and", 4, readWrite}, {"sub", 5, readWrite}, {"cmp", 7, read}, {"or", 1, readWrite}, {"xor", 6, readWrite}} {
 		fs = append(fs, group1(g.mnemonic, g.digit, g.access)...)
 	}
+	fs = append(fs,
+		// imul with an immediate writes the product into a register of its own, which need not be the one it reads.
+		form{
+			name: "ImulRegRegImm8", mnemonic: "imul", operands: []operand{reg("dest", fieldReg, write), reg("src", fieldRM, read), imm8()},
+			rexW: true, opcode: []byte{0x6B}, modrm: modOperands, effects: flags,
+		},
+		form{
+			name: "ImulRegRegImm32", mnemonic: "imul", operands: []operand{reg("dest", fieldReg, write), reg("src", fieldRM, read), imm32()},
+			rexW: true, opcode: []byte{0x69}, modrm: modOperands, effects: flags,
+		},
+		// The shifts by a count below the word's bits, which no branch need guard.
+		form{
+			name: "ShlRegImm8", mnemonic: "shl", operands: []operand{reg("reg", fieldRM, readWrite), imm8()},
+			rexW: true, opcode: []byte{0xC1}, modrm: modDigit, digit: 4, effects: flags,
+		},
+		form{
+			name: "ShrRegImm8", mnemonic: "shr", operands: []operand{reg("reg", fieldRM, readWrite), imm8()},
+			rexW: true, opcode: []byte{0xC1}, modrm: modDigit, digit: 5, effects: flags,
+		},
+		// A comparison of a register with a word in memory, which need not be loaded into a register first.
+		form{
+			name: "CmpRegBaseDisp", mnemonic: "cmp", operands: []operand{reg("left", fieldReg, read), mem()},
+			rexW: true, opcode: []byte{0x3B}, modrm: modOperands, setsFlags: true, readsMemory: true,
+		},
+		// The 32-bit exclusive or of a register with itself clears the whole register in two or three bytes; the encoder
+		// writes it for a constant 0 where the flags it writes are dead.
+		form{
+			name: "XorReg32Reg32", mnemonic: "xor", operands: []operand{reg("dest", fieldRM, readWrite), reg("src", fieldReg, read)},
+			opcode: []byte{0x31}, modrm: modOperands, effects: flags,
+		},
+		// leave drops a frame: it sets rsp to rbp and pops rbp.
+		form{name: "Leave", mnemonic: "leave", opcode: []byte{0xC9}, effects: reads},
+	)
 	fs = append(fs,
 		groupF7("NotReg", "not", 2, readWrite, noEffects, alloc{}),
 		groupF7("NegReg", "neg", 3, readWrite, flags, alloc{}),

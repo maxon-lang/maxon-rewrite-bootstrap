@@ -34,6 +34,18 @@
 (loadField obj [off]) => (LoadRegBaseDisp r obj [off])
 (storeField obj [off] v) => (StoreBaseDispReg obj [off] v)
 (fieldAddr obj [off]) => (LeaRegBaseDisp r obj [off])
+// An address that only the access right after it reads, a base plus a constant or plus a register, is the access's own
+// address operand.
+(loadAt a:(bin.add.!checked x (const [c]))) && fitsImm32(c) and sel.fuses(fn, r: a) => (LoadRegBaseDisp r x [c])
+(storeAt a:(bin.add.!checked x (const [c])) v) && fitsImm32(c) and sel.fuses(fn, r: a) => (StoreBaseDispReg x [c] v)
+(loadRaw.8 a:(bin.add.!checked x (const [c]))) && fitsImm32(c) and sel.fuses(fn, r: a) => (MovzxRegByteBaseDisp r x [c])
+(loadRaw.8 a:(bin.add.!checked x y)) && sel.fuses(fn, r: a) => (MovzxRegByteBaseIndex1Disp r x y [0])
+(loadRaw.64 a:(bin.add.!checked x (const [c]))) && fitsImm32(c) and sel.fuses(fn, r: a) => (LoadRegBaseDisp r x [c])
+(loadRaw.64 a:(bin.add.!checked x y)) && sel.fuses(fn, r: a) => (LoadRegBaseIndex1Disp r x y [0])
+(storeRaw.8 a:(bin.add.!checked x (const [c])) v) && fitsImm32(c) and sel.fuses(fn, r: a) => (StoreBaseDispReg8 x [c] v)
+(storeRaw.8 a:(bin.add.!checked x y) v) && sel.fuses(fn, r: a) => (StoreBaseIndex1DispReg8 x y [0] v)
+(storeRaw.64 a:(bin.add.!checked x (const [c])) v) && fitsImm32(c) and sel.fuses(fn, r: a) => (StoreBaseDispReg x [c] v)
+(storeRaw.64 a:(bin.add.!checked x y) v) && sel.fuses(fn, r: a) => (StoreBaseIndex1DispReg x y [0] v)
 (loadAt a) => (LoadRegBaseDisp r a [0])
 (storeAt a v) => (StoreBaseDispReg a [0] v)
 (moveAt a) => (LoadRegBaseDisp r a [0]) (StoreBaseDispImm32 a [0] [0])
@@ -69,15 +81,25 @@
 // so for an unsigned word, and the overflow flag for a signed one.
 (bin.add.!checked x (const [c])) && fitsImm32(c) => (AddRegImm x [c])
 (bin.add.!checked x y) => (AddRegReg x y)
+// An immediate is sign-extended to the word, so the flags say of the word what they say of the constant.
+(bin.add.unsigned.checked x (const [c]) [f]) && fitsImm32(c) => (AddRegImm x [c]) (JccRel32 [X64CondCode.below] [f])
 (bin.add.unsigned.checked x y [f]) => (AddRegReg x y) (JccRel32 [X64CondCode.below] [f])
+(bin.add.checked x (const [c]) [f]) && fitsImm32(c) => (AddRegImm x [c]) (JccRel32 [X64CondCode.overflow] [f])
 (bin.add.checked x y [f]) => (AddRegReg x y) (JccRel32 [X64CondCode.overflow] [f])
 (bin.sub.!checked x (const [c])) && fitsImm32(c) => (SubRegImm x [c])
 (bin.sub.!checked x y) => (SubRegReg x y)
+(bin.sub.unsigned.checked x (const [c]) [f]) && fitsImm32(c) => (SubRegImm x [c]) (JccRel32 [X64CondCode.below] [f])
 (bin.sub.unsigned.checked x y [f]) => (SubRegReg x y) (JccRel32 [X64CondCode.below] [f])
+(bin.sub.checked x (const [c]) [f]) && fitsImm32(c) => (SubRegImm x [c]) (JccRel32 [X64CondCode.overflow] [f])
 (bin.sub.checked x y [f]) => (SubRegReg x y) (JccRel32 [X64CondCode.overflow] [f])
-(bin.mul.!unsigned.!checked x y) => (ImulRegReg x y)
+// A product's low word is the same signed or unsigned, so an unchecked one is imul's, whose immediate form writes a
+// register of its own; imul's overflow flag says a signed product does not fit.
+(bin.mul.!checked x (const [c])) && fitsImm8(c) => (ImulRegRegImm8 r x [c])
+(bin.mul.!checked x (const [c])) && fitsImm32(c) => (ImulRegRegImm32 r x [c])
+(bin.mul.!checked x y) => (ImulRegReg x y)
+(bin.mul.!unsigned.checked x (const [c]) [f]) && fitsImm8(c) => (ImulRegRegImm8 r x [c]) (JccRel32 [X64CondCode.overflow] [f])
+(bin.mul.!unsigned.checked x (const [c]) [f]) && fitsImm32(c) => (ImulRegRegImm32 r x [c]) (JccRel32 [X64CondCode.overflow] [f])
 (bin.mul.!unsigned.checked x y [f]) => (ImulRegReg x y) (JccRel32 [X64CondCode.overflow] [f])
-(bin.mul.unsigned.!checked x y) => (Copy rax x) (MulReg y) (Copy r rax)
 (bin.mul.unsigned.checked x y [f]) => (Copy rax x) (MulReg y) (Copy r rax) (JccRel32 [X64CondCode.below] [f])
 // A divisor is never 0 here: a guard or the range analysis has made sure. A signed division by -1 is the one the
 // processor faults on, which emitSignedDivide branches around.
@@ -87,14 +109,27 @@
 (bin.mod) => (emitSignedDivide)
 (bin.and x (const [c])) && fitsImm32(c) => (AndRegImm x [c])
 (bin.and x y) => (AndRegReg x y)
+(bin.or x (const [c])) && fitsImm8(c) => (OrRegImm8 x [c])
+(bin.or x (const [c])) && fitsImm32(c) => (OrRegImm32 x [c])
 (bin.or x y) => (OrRegReg x y)
+(bin.xor x (const [c])) && fitsImm8(c) => (XorRegImm8 x [c])
+(bin.xor x (const [c])) && fitsImm32(c) => (XorRegImm32 x [c])
 (bin.xor x y) => (XorRegReg x y)
-// A shift count past the word branches to the result every bit leaving gives.
+// A constant count within the word shifts by it; any other count past the word branches to the result every bit
+// leaving gives.
+(bin.shl.!checked x (const [c])) && shiftsInWord(c) => (ShlRegImm8 x [c])
+(bin.shr.unsigned x (const [c])) && shiftsInWord(c) => (ShrRegImm8 x [c])
+(bin.shr.!unsigned x (const [c])) && shiftsInWord(c) => (SarRegImm8 x [c])
 (bin.shl) => (emitShift)
 (bin.shr) => (emitShift)
 (neg.!checked x) => (NegReg x)
 (neg.checked x [f]) => (NegReg x) (JccRel32 [X64CondCode.overflow] [f])
 (not x) => (NotReg x)
+// A comparison with 0 is a test, which sets the flags as cmp does; a constant that fits is compared as an immediate.
+(cmp x (const [0])) => (TestRegReg x x) (SetccReg [cmpCondition(ins)] b) (MovzxRegReg8 r b)
+(cmp (const [0]) x) => (TestRegReg x x) (SetccReg [swapped(cmpCondition(ins))] b) (MovzxRegReg8 r b)
+(cmp x (const [k])) && fitsImm32(k) => (CmpRegImm x [k]) (SetccReg [cmpCondition(ins)] b) (MovzxRegReg8 r b)
+(cmp (const [k]) x) && fitsImm32(k) => (CmpRegImm x [k]) (SetccReg [swapped(cmpCondition(ins))] b) (MovzxRegReg8 r b)
 (cmp x y) => (CmpRegReg x y) (SetccReg [cmpCondition(ins)] b) (MovzxRegReg8 r b)
 
 // Guards go to their failure block unless the value is in the range.
@@ -145,8 +180,18 @@
 (dropAt) => (emitDropAt)
 (copy) => (emitCopyValue)
 
-// Terminators. A branch tests the condition against 0.
+// Terminators. A branch on a comparison that it alone reads, made right before it (Selector.fuses), makes the
+// comparison itself into the flags it goes by, and the comparison's own code, left with no reader, is removed; any other
+// branch tests its condition against 0.
 (jump [b]) => (JmpRel32 [b])
+(branch c:(cmp x (const [0])) [yes] [no]) && sel.fuses(fn, r: c) => (TestRegReg x x) (JccRel32 [negated(condOf(sel, fn: fn, r: c))] [no]) (JmpRel32 [yes])
+(branch c:(cmp (const [0]) x) [yes] [no]) && sel.fuses(fn, r: c)
+	=> (TestRegReg x x) (JccRel32 [negated(swapped(condOf(sel, fn: fn, r: c)))] [no]) (JmpRel32 [yes])
+(branch c:(cmp x (const [k])) [yes] [no]) && fitsImm32(k) and sel.fuses(fn, r: c)
+	=> (CmpRegImm x [k]) (JccRel32 [negated(condOf(sel, fn: fn, r: c))] [no]) (JmpRel32 [yes])
+(branch c:(cmp (const [k]) x) [yes] [no]) && fitsImm32(k) and sel.fuses(fn, r: c)
+	=> (CmpRegImm x [k]) (JccRel32 [negated(swapped(condOf(sel, fn: fn, r: c)))] [no]) (JmpRel32 [yes])
+(branch c:(cmp x y) [yes] [no]) && sel.fuses(fn, r: c) => (CmpRegReg x y) (JccRel32 [negated(condOf(sel, fn: fn, r: c))] [no]) (JmpRel32 [yes])
 (branch c [yes] [no]) => (TestRegReg c c) (JccRel32 [X64CondCode.equal] [no]) (JmpRel32 [yes])
 (switch) => (emitSwitch)
 (ret) => (emitRet)
