@@ -1,0 +1,205 @@
+// native-only
+// unsupported-targets: x64-linux, arm64-linux, arm64-macos
+// The debug port drives a child from outside it, as the debugger does: the program starts itself as its debuggee, pinned to
+// its machine since only the thread that started the child may wait for its events, and waits for them while behaviours
+// keep the other threads busy. At the child's creation it reads the image's header and the main thread's registers; past
+// the loader's breakpoint it plants a breakpoint at the image's entry, and when the child stops there it restores the byte,
+// moves the instruction pointer back onto it and lets the child run to its exit. The interpreter drives no debuggee.
+// expect-scheduler: used
+//> created MZ
+//> context 1232
+//> loader breakpoint
+//> entry breakpoint
+//> exited 7
+
+// The DEBUG_EVENT and CONTEXT fields read, on x64.
+let eventCodeAt = 0 as Count
+
+let eventProcessIdAt = 4 as Count
+
+let eventThreadIdAt = 8 as Count
+
+let eventFileAt = 16 as Count
+
+let eventProcessAt = 24 as Count
+
+let eventThreadAt = 32 as Count
+
+let eventImageBaseAt = 40 as Count
+
+let eventCreatedThreadAt = 16 as Count
+
+let exceptionCodeAt = 16 as Count
+
+let exceptionAddressAt = 32 as Count
+
+let exitCodeAt = 16 as Count
+
+let contextRipAt = 248 as Count
+
+let exceptionEvent = 1 as Count
+
+let createThreadEvent = 2 as Count
+
+let createProcessEvent = 3 as Count
+
+let exitProcessEvent = 5 as Count
+
+let loadDllEvent = 6 as Count
+
+let breakpointException = 0x80000003 as Count
+
+let peHeaderAt = 60 as Count
+
+let peEntryAt = 40 as Count
+
+let int3 = 0xCC as Byte
+
+let childExitCode = 7 as ExitCode
+
+let waitMs = 10000 as Count
+
+typealias Handles = Array with Count
+
+typealias Arguments = Array with String
+
+// word is the little-endian word of width bytes at an offset.
+function word(bytes Array with Byte, at Count, width Count) returns Count
+	var value = 0 as Count
+	var i = width
+	while i > 0 'bytes'
+		i = try i - 1 otherwise 0
+		value = try (value shl 8) or (bytes[try at + i otherwise 0] as Count) otherwise 0
+	end 'bytes'
+	return value
+end 'word'
+
+// Session is what the driver knows of its debuggee.
+type Session
+	export var processId as Count
+	export var process as Count
+	export var imageBase as Count
+	export var entry as Count
+	export var entryByte as Byte
+	export var threadIds as Handles
+	export var threads as Handles
+	export var loaderSeen as bool
+	export var done as bool
+
+	static function make() returns Session
+		return Session{processId: 0, process: 0, imageBase: 0, entry: 0, entryByte: 0, threadIds: Handles.create(0), threads: Handles.create(0), loaderSeen: false, done: false}
+	end 'make'
+
+	function threadOf(id Count) returns Count
+		for i in 0 upto threadIds.count() 'threads'
+			if threadIds[i] == id 'found'
+				return threads[i]
+			end 'found'
+		end 'threads'
+		panic("an event of a thread the driver was not told of")
+	end 'threadOf'
+end 'Session'
+
+function busy(tally cown with Count)
+	when tally as t 'spin'
+		var n = 0 as Count
+		for i in 0 upto 100000 'work'
+			n = (try n + i otherwise 0) and 0xFFFF
+		end 'work'
+		t = try t + 1 otherwise 0
+	end 'spin'
+end 'busy'
+
+function created(mutates s Session, event Array with Byte)
+	Debuggee.closeHandle(word(event, at: eventFileAt, width: 8))
+	s.process = word(event, at: eventProcessAt, width: 8)
+	s.imageBase = word(event, at: eventImageBaseAt, width: 8)
+	s.threadIds.push(word(event, at: eventThreadIdAt, width: 4))
+	s.threads.push(word(event, at: eventThreadAt, width: 8))
+	let header = try Debuggee.readMemory(s.process, address: s.imageBase, count: 2) otherwise panic("the image's header is unreadable")
+	print("created {String.from(header)}\n")
+	let pe = word(try Debuggee.readMemory(s.process, address: try s.imageBase + peHeaderAt otherwise 0, count: 4) otherwise panic("the PE offset is unreadable"), at: 0, width: 4)
+	let entryRva = word(try Debuggee.readMemory(s.process, address: try s.imageBase + pe + peEntryAt otherwise 0, count: 4) otherwise panic("the entry is unreadable"), at: 0, width: 4)
+	s.entry = try s.imageBase + entryRva otherwise 0
+	let context = try Debuggee.readContext(s.threads[0]) otherwise panic("the main thread's context is unreadable")
+	print("context {context.count()}\n")
+end 'created'
+
+function excepted(mutates s Session, event Array with Byte) returns DebugDisposition
+	let code = word(event, at: exceptionCodeAt, width: 4)
+	if code != breakpointException 'other'
+		return DebugDisposition.unhandled
+	end 'other'
+	if not s.loaderSeen 'loader'
+		s.loaderSeen = true
+		print("loader breakpoint\n")
+		let original = try Debuggee.readMemory(s.process, address: s.entry, count: 1) otherwise panic("the entry is unreadable")
+		s.entryByte = original[0]
+		var trap = ByteArray.create(0)
+		trap.push(int3)
+		try Debuggee.writeCode(s.process, address: s.entry, content: trap) otherwise panic("the breakpoint cannot be written")
+		return DebugDisposition.handled
+	end 'loader'
+	if word(event, at: exceptionAddressAt, width: 8) != s.entry 'elsewhere'
+		return DebugDisposition.unhandled
+	end 'elsewhere'
+	print("entry breakpoint\n")
+	var original = ByteArray.create(0)
+	original.push(s.entryByte)
+	try Debuggee.writeCode(s.process, address: s.entry, content: original) otherwise panic("the entry's byte cannot be restored")
+	let thread = s.threadOf(word(event, at: eventThreadIdAt, width: 4))
+	var context = try Debuggee.readContext(thread) otherwise panic("the stopped thread's context is unreadable")
+	for i in 0 upto 8 'rip'
+		context[try contextRipAt + i otherwise 0] = ((s.entry shr (i * 8)) and 0xFF) as Byte
+	end 'rip'
+	try Debuggee.writeContext(thread, context: context) otherwise panic("the stopped thread's context cannot be written")
+	return DebugDisposition.handled
+end 'excepted'
+
+function drive() returns ExitCode
+	if not Scheduler.pinToMachine() 'unpinned'
+		panic("no machine to pin to")
+	end 'unpinned'
+	let me = try Process.executablePath() otherwise panic("no path of the program")
+	var arguments = Arguments.create(0)
+	arguments.push("child")
+	var s = Session.make()
+	s.processId = try Debuggee.launch(Executable.path(me), arguments: arguments, outputToError: true) otherwise panic("the child cannot be started")
+	let tally = cown(0 as Count)
+	while not s.done 'events'
+		busy(share(tally))
+		sleep(1)
+		let event = Debuggee.waitEvent(waitMs)
+		if event.count() == 0 'none'
+			panic("no debug event came")
+		end 'none'
+		let code = word(event, at: eventCodeAt, width: 4)
+		var disposition = DebugDisposition.handled
+		if code == createProcessEvent 'process'
+			created(s, event: event)
+		end 'process' else if code == createThreadEvent 'thread'
+			s.threadIds.push(word(event, at: eventThreadIdAt, width: 4))
+			s.threads.push(word(event, at: eventCreatedThreadAt, width: 8))
+		end 'thread' else if code == loadDllEvent 'library'
+			Debuggee.closeHandle(word(event, at: eventFileAt, width: 8))
+		end 'library' else if code == exceptionEvent 'exception'
+			disposition = excepted(s, event: event)
+		end 'exception' else if code == exitProcessEvent 'exit'
+			print("exited {word(event, at: exitCodeAt, width: 4)}\n")
+			s.done = true
+		end 'exit'
+		if not Debuggee.continueEvent(word(event, at: eventProcessIdAt, width: 4), thread: word(event, at: eventThreadIdAt, width: 4), disposition: disposition) 'refused'
+			panic("the event cannot be continued")
+		end 'refused'
+	end 'events'
+	Scheduler.unpinFromMachine()
+	return 0
+end 'drive'
+
+function main() returns ExitCode
+	let args = CommandLine.args()
+	if args.count() > 1 and args[1] == "child" 'child'
+		return childExitCode
+	end 'child'
+	return drive()
+end 'main'

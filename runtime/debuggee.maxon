@@ -3,57 +3,262 @@
 // and lets go of its threads, from outside it. The events, contexts and memory go back as byte arrays, which the debugger
 // decodes. Only the thread that started the debuggee may wait for its events, so the debugger's green thread is pinned
 // to its machine (Scheduler.pinToMachine). On another system each entry panics, as maxon's windowsDebugCall does: the
-// debugger drives a program there through that system's own interface. The committed seed links a fixed list of DLL
-// functions, which lacks the debug port's, so until the seed is renewed each entry panics on Windows too.
+// debugger drives a program there through that system's own interface.
 
-function debugLaunch(executable String, arguments Count, outputToError bool, errorAddress Count) returns Count
-	panic("Debuggee.launch asks a host with no Win32 debug port")
-end 'debugLaunch'
+// The cases of DebuggeeError, as its enum lists them.
+let debuggeeUnreadable = 0
 
-function debugWaitEvent(budgetMs Count) returns Count
-	panic("Debuggee.waitEvent asks a host with no Win32 debug port")
-end 'debugWaitEvent'
+let debuggeeUnwritable = 1
 
-function debugContinueEvent(processId Count, thread Count, unhandled bool) returns bool
-	panic("Debuggee.continueEvent asks a host with no Win32 debug port")
-end 'debugContinueEvent'
+let debuggeeOutOfBounds = 2
 
-function debugReadMemory(process Count, address Count, count Count, errorAddress Count) returns Count
-	panic("Debuggee.readMemory asks a host with no Win32 debug port")
-end 'debugReadMemory'
+#if os(Windows)
+	// DEBUG_ONLY_THIS_PROCESS: the child is the caller's debuggee, and the processes it starts are not.
+	let debugOnlyThisProcess = 0x2
 
-function debugWriteCode(process Count, address Count, content Count, errorAddress Count)
-	panic("Debuggee.writeCode asks a host with no Win32 debug port")
-end 'debugWriteCode'
+	let stdOutputHandle = 0xFFFFFFF5
 
-function debugReadContext(thread Count, errorAddress Count) returns Count
-	panic("Debuggee.readContext asks a host with no Win32 debug port")
-end 'debugReadContext'
+	let stdErrorHandle = 0xFFFFFFF4
 
-function debugWriteContext(thread Count, context Count, errorAddress Count)
-	panic("Debuggee.writeContext asks a host with no Win32 debug port")
-end 'debugWriteContext'
+	// PROCESS_INFORMATION's process id, after its two handles.
+	let processIdOffset = 16
 
-function debugSuspend(thread Count) returns bool
-	panic("Debuggee.suspend asks a host with no Win32 debug port")
-end 'debugSuspend'
+	// A DEBUG_EVENT on x64.
+	let debugEventBytes = 0xB0
 
-function debugResume(thread Count) returns bool
-	panic("Debuggee.resume asks a host with no Win32 debug port")
-end 'debugResume'
+	// A CONTEXT on x64, which GetThreadContext wants on a 16-byte boundary, and the families of registers asked of it:
+	// CONTEXT_CONTROL, CONTEXT_INTEGER and CONTEXT_FLOATING_POINT, in the low dword of the word whose high dword is MxCsr.
+	let contextRecordBytes = 0x4D0
 
-function debugBreakIn(process Count) returns bool
-	panic("Debuggee.breakIn asks a host with no Win32 debug port")
-end 'debugBreakIn'
+	let contextAlignment = 16
 
-function debugDetach(processId Count) returns bool
-	panic("Debuggee.detach asks a host with no Win32 debug port")
-end 'debugDetach'
+	let contextAlignMask = 0xFFFFFFFFFFFFFFF0 as Count
 
-function debugCloseHandle(handle Count)
-	panic("Debuggee.closeHandle asks a host with no Win32 debug port")
-end 'debugCloseHandle'
+	let contextFlagsAt = 0x30
 
-function debugTerminate(process Count, exitCode Count) returns bool
-	panic("Debuggee.terminate asks a host with no Win32 debug port")
-end 'debugTerminate'
+	let contextFamilies = 0x0010000B
+
+	let continueHandled = 0x00010002
+
+	let continueUnhandled = 0x80010001
+
+	let pageExecuteReadWrite = 0x40
+
+	// debugLaunch starts the executable with the arguments, quoted as osRun quotes them, as the calling thread's debuggee:
+	// its standard input is the caller's, and its output and error the caller's own or, with outputToError, both the
+	// caller's error. It gives the child's process id; its handles come with its first debug event.
+	function debugLaunch(executable String, arguments Count, outputToError bool, errorAddress Count) returns Count
+		let frame = alloc(frameBytes)
+		let command = commandLineOf(executable, arguments: arguments)
+		let startup = fieldAt(frame, offset: frameStartupOffset)
+		__Raw.storeWord32(startup, offset: startupSizeOffset, value: startupBytes)
+		__Raw.storeWord32(startup, offset: startupFlagsOffset, value: startfUseStdHandles)
+		let errors = __Raw.callImport1("GetStdHandle", arg1: stdErrorHandle)
+		__Raw.storeWord(startup, offset: startupInputOffset, value: __Raw.callImport1("GetStdHandle", arg1: stdInputHandle))
+		__Raw.storeWord(startup, offset: startupOutputOffset, value: errors if outputToError else __Raw.callImport1("GetStdHandle", arg1: stdOutputHandle))
+		__Raw.storeWord(startup, offset: startupErrorOffset, value: errors)
+		let inherited = fieldAt(frame, offset: frameInheritedOffset)
+		var inheritedCount = listInherited(inherited, count: 0, handle: wordAt(startup, offset: startupInputOffset))
+		inheritedCount = listInherited(inherited, count: inheritedCount, handle: wordAt(startup, offset: startupOutputOffset))
+		inheritedCount = listInherited(inherited, count: inheritedCount, handle: wordAt(startup, offset: startupErrorOffset))
+		let process = fieldAt(frame, offset: frameProcessOffset)
+		let win32 = createChild(command, startup: startup, inherited: inherited, inheritedCount: inheritedCount, process: process, flags: extendedStartupInfoPresent or debugOnlyThisProcess)
+		free(command)
+		if win32 != 0 'spawn'
+			free(frame)
+			endWithError(errorAddress, osError: win32, table: spawnFailures())
+			return 0
+		end 'spawn'
+		closeHandle(wordAt(process, offset: processThreadOffset))
+		closeHandle(wordAt(process, offset: processHandleOffset))
+		let id = __Raw.loadWord32(process, offset: processIdOffset)
+		free(frame)
+		succeed(errorAddress)
+		return id
+	end 'debugLaunch'
+
+	// debugWaitEvent is the debug event that came within budgetMs milliseconds, as a new byte array of the DEBUG_EVENT,
+	// or an empty one when none did.
+	function debugWaitEvent(budgetMs Count) returns Count
+		let event = alloc(debugEventBytes)
+		enterBlocking()
+		let came = dword(__Raw.callImport2("WaitForDebugEvent", arg1: event, arg2: budgetMs)) != 0
+		exitBlocking()
+		let bytes = bytesNew()
+		if came 'came'
+			copyBytes(event, target: collectionExtend(bytes, count: debugEventBytes, elementBytes: byteBytes), count: debugEventBytes)
+		end 'came'
+		free(event)
+		return bytes
+	end 'debugWaitEvent'
+
+	function debugContinueEvent(processId Count, thread Count, unhandled bool) returns bool
+		let status = continueUnhandled if unhandled else continueHandled
+		return dword(__Raw.callImport3("ContinueDebugEvent", arg1: processId, arg2: thread, arg3: status)) != 0
+	end 'debugContinueEvent'
+
+	// debugReadMemory is a new byte array of count bytes of the process's memory from address, which fails unreadable when
+	// any of them cannot be read.
+	function debugReadMemory(process Count, address Count, count Count, errorAddress Count) returns Count
+		let room = alloc(count)
+		var moved = 0 as Count
+		let read = dword(__Raw.callImport5("ReadProcessMemory", arg1: process, arg2: address, arg3: room, arg4: count, arg5: __Raw.addressOf(moved))) != 0
+		if not read or moved != count 'short'
+			free(room)
+			failWith(errorAddress, errorCase: debuggeeUnreadable)
+			return 0
+		end 'short'
+		let bytes = bytesNew()
+		if count > 0 'some'
+			copyBytes(room, target: collectionExtend(bytes, count: count, elementBytes: byteBytes), count: count)
+		end 'some'
+		free(room)
+		succeed(errorAddress)
+		return bytes
+	end 'debugReadMemory'
+
+	// debugWriteCode writes the bytes of content at address of the process, whose code is mapped read and execute: it lifts
+	// the protection over them and puts it back, and flushes the instruction cache over them.
+	function debugWriteCode(process Count, address Count, content Count, errorAddress Count)
+		let count = collectionLength(content)
+		if count == 0 'nothing'
+			succeed(errorAddress)
+			return
+		end 'nothing'
+		var held = 0 as Count
+		var moved = 0 as Count
+		let lifted = dword(__Raw.callImport5("VirtualProtectEx", arg1: process, arg2: address, arg3: count, arg4: pageExecuteReadWrite, arg5: __Raw.addressOf(held))) != 0
+		let wrote = dword(__Raw.callImport5("WriteProcessMemory", arg1: process, arg2: address, arg3: collectionData(content), arg4: count, arg5: __Raw.addressOf(moved))) != 0
+		if lifted 'restore'
+			var lifting = 0 as Count
+			_ = __Raw.callImport5("VirtualProtectEx", arg1: process, arg2: address, arg3: count, arg4: dword(held), arg5: __Raw.addressOf(lifting))
+		end 'restore'
+		_ = __Raw.callImport3("FlushInstructionCache", arg1: process, arg2: address, arg3: count)
+		if not wrote or moved != count 'failed'
+			failWith(errorAddress, errorCase: debuggeeUnwritable)
+			return
+		end 'failed'
+		succeed(errorAddress)
+	end 'debugWriteCode'
+
+	// contextRoom is room for a CONTEXT and its alignment, and contextIn the aligned record in it.
+	function contextRoom() returns Count
+		return alloc(contextRecordBytes + contextAlignment)
+	end 'contextRoom'
+
+	function contextIn(room Count) returns Count
+		return __Raw.wrappingAdd(room, right: contextAlignment - 1) and contextAlignMask
+	end 'contextIn'
+
+	// debugReadContext is a new byte array of the thread's CONTEXT, its control, integer and floating-point registers.
+	function debugReadContext(thread Count, errorAddress Count) returns Count
+		let room = contextRoom()
+		let record = contextIn(room)
+		__Raw.storeWord32(record, offset: contextFlagsAt, value: contextFamilies)
+		if dword(__Raw.callImport2("GetThreadContext", arg1: thread, arg2: record)) == 0 'unread'
+			free(room)
+			failWith(errorAddress, errorCase: debuggeeUnreadable)
+			return 0
+		end 'unread'
+		let bytes = bytesNew()
+		copyBytes(record, target: collectionExtend(bytes, count: contextRecordBytes, elementBytes: byteBytes), count: contextRecordBytes)
+		free(room)
+		succeed(errorAddress)
+		return bytes
+	end 'debugReadContext'
+
+	// debugWriteContext sets the thread's registers to a CONTEXT that debugReadContext gave, changed; one of another size
+	// is outOfBounds.
+	function debugWriteContext(thread Count, context Count, errorAddress Count)
+		if collectionLength(context) != contextRecordBytes 'size'
+			failWith(errorAddress, errorCase: debuggeeOutOfBounds)
+			return
+		end 'size'
+		let room = contextRoom()
+		let record = contextIn(room)
+		copyBytes(collectionData(context), target: record, count: contextRecordBytes)
+		let written = dword(__Raw.callImport2("SetThreadContext", arg1: thread, arg2: record)) != 0
+		free(room)
+		if not written 'refused'
+			failWith(errorAddress, errorCase: debuggeeUnwritable)
+			return
+		end 'refused'
+		succeed(errorAddress)
+	end 'debugWriteContext'
+
+	function debugSuspend(thread Count) returns bool
+		return dword(__Raw.callImport1("SuspendThread", arg1: thread)) != suspendFailed
+	end 'debugSuspend'
+
+	function debugResume(thread Count) returns bool
+		return dword(__Raw.callImport1("ResumeThread", arg1: thread)) != suspendFailed
+	end 'debugResume'
+
+	function debugBreakIn(process Count) returns bool
+		return dword(__Raw.callImport1("DebugBreakProcess", arg1: process)) != 0
+	end 'debugBreakIn'
+
+	function debugDetach(processId Count) returns bool
+		return dword(__Raw.callImport1("DebugActiveProcessStop", arg1: processId)) != 0
+	end 'debugDetach'
+
+	function debugCloseHandle(handle Count)
+		closeHandle(handle)
+	end 'debugCloseHandle'
+
+	function debugTerminate(process Count, exitCode Count) returns bool
+		return dword(__Raw.callImport2("TerminateProcess", arg1: process, arg2: exitCode)) != 0
+	end 'debugTerminate'
+#else
+	function debugLaunch(executable String, arguments Count, outputToError bool, errorAddress Count) returns Count
+		panic("Debuggee.launch asks a host with no Win32 debug port")
+	end 'debugLaunch'
+
+	function debugWaitEvent(budgetMs Count) returns Count
+		panic("Debuggee.waitEvent asks a host with no Win32 debug port")
+	end 'debugWaitEvent'
+
+	function debugContinueEvent(processId Count, thread Count, unhandled bool) returns bool
+		panic("Debuggee.continueEvent asks a host with no Win32 debug port")
+	end 'debugContinueEvent'
+
+	function debugReadMemory(process Count, address Count, count Count, errorAddress Count) returns Count
+		panic("Debuggee.readMemory asks a host with no Win32 debug port")
+	end 'debugReadMemory'
+
+	function debugWriteCode(process Count, address Count, content Count, errorAddress Count)
+		panic("Debuggee.writeCode asks a host with no Win32 debug port")
+	end 'debugWriteCode'
+
+	function debugReadContext(thread Count, errorAddress Count) returns Count
+		panic("Debuggee.readContext asks a host with no Win32 debug port")
+	end 'debugReadContext'
+
+	function debugWriteContext(thread Count, context Count, errorAddress Count)
+		panic("Debuggee.writeContext asks a host with no Win32 debug port")
+	end 'debugWriteContext'
+
+	function debugSuspend(thread Count) returns bool
+		panic("Debuggee.suspend asks a host with no Win32 debug port")
+	end 'debugSuspend'
+
+	function debugResume(thread Count) returns bool
+		panic("Debuggee.resume asks a host with no Win32 debug port")
+	end 'debugResume'
+
+	function debugBreakIn(process Count) returns bool
+		panic("Debuggee.breakIn asks a host with no Win32 debug port")
+	end 'debugBreakIn'
+
+	function debugDetach(processId Count) returns bool
+		panic("Debuggee.detach asks a host with no Win32 debug port")
+	end 'debugDetach'
+
+	function debugCloseHandle(handle Count)
+		panic("Debuggee.closeHandle asks a host with no Win32 debug port")
+	end 'debugCloseHandle'
+
+	function debugTerminate(process Count, exitCode Count) returns bool
+		panic("Debuggee.terminate asks a host with no Win32 debug port")
+	end 'debugTerminate'
+#endif
