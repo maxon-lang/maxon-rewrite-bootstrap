@@ -56,6 +56,10 @@ let behaviourHold = 1 as Count
 // the releaser follows to the successor's record.
 function cownAcquire(record Count)
 	let n = __Raw.loadWord(record, offset: behaviourCownCountOffset)
+	if n == 1 'one'
+		acquireOne(record)
+		return
+	end 'one'
 	for i in 0 upto n 'sort'
 		let cown = __Raw.loadWord(record, offset: cownOffset(n, index: i))
 		var at = i
@@ -78,7 +82,6 @@ function cownAcquire(record Count)
 		_ = __Raw.atomicAdd(__Raw.loadWord(slot, offset: requestCownOffset), offset: cownCountOffset, value: behaviourHold)
 	end 'holds'
 	__Raw.storeWord(record, offset: behaviourPendingOffset, value: try n + beingQueued otherwise panic("a behaviour names more cowns than memory"))
-	schedEnter()
 	var acquired = 0 as Count
 	for i in 0 upto n 'queue'
 		let slot = requestSlot(record, index: i)
@@ -102,11 +105,42 @@ function cownAcquire(record Count)
 	end 'runnable'
 end 'cownAcquire'
 
+// acquireOne is cownAcquire of a behaviour that names one cown, as every message of a service is: with nothing else to
+// queue on, the slot is queued once it is in the tail, so it is marked so before the exchange, and the behaviour has no
+// pending count: it is runnable at once when the cown was idle, and else when the release of the behaviour ahead finds
+// it linked, which only that release does (cownRelease). The mark is published by the exchange, which a successor's
+// exchange of the same tail reads after.
+//
+// Its hold on the cown is taken by whoever makes it runnable: here when the cown was idle, and else by that release, on
+// the thread that runs the cown's behaviours, beside its own drop, so a send to a busy service steps no count. Until then
+// the cown is kept by the behaviour at the head of its queue, which holds it until its release has taken the hold of the
+// one after it, and the sender's handle keeps it while this runs.
+function acquireOne(record Count)
+	let cown = __Raw.loadWord(record, offset: cownOffset(1, index: 0))
+	let slot = requestSlot(record, index: 0)
+	__Raw.storeWord(slot, offset: requestCownOffset, value: cown)
+	__Raw.storeWord(slot, offset: requestOwnerOffset, value: record)
+	__Raw.storeWord(slot, offset: requestNextOffset, value: notQueued)
+	__Raw.storeWord(slot, offset: requestBlockedOffset, value: queued)
+	let prev = __Raw.atomicExchange(cown, offset: cownTailOffset, value: slot)
+	if prev == notQueued 'idle'
+		_ = __Raw.atomicAdd(cown, offset: cownCountOffset, value: behaviourHold)
+		schedPush(record)
+		return
+	end 'idle'
+	while __Raw.loadAcquire(prev, offset: requestBlockedOffset) == queuing 'wait'
+		__Raw.spinPause()
+	end 'wait'
+	__Raw.storeRelease(prev, offset: requestNextOffset, value: slot)
+end 'acquireOne'
+
 // cownRelease hands each cown of a behaviour that has run to the behaviour queued after it, in the slots' order:
 //
 // 3. When no slot is linked after this one, the cown goes idle by a compare-exchange of its tail from this slot to 0;
 //    when that fails, a behaviour has exchanged itself into the tail and is about to link, so this waits for its link.
-//    The next behaviour's pending is lowered by 1, and whoever brings it to 0 pushes it on its own thread's queue.
+//    The next behaviour's pending is lowered by 1, and whoever brings it to 0 makes it runnable (handOn); a next
+//    behaviour of one cown has no pending count, and this release, the only one that can, takes its hold on the cown
+//    (acquireOne) and makes it runnable.
 //
 // Why the compare-exchange and a concurrent acquire's exchange of the same tail cannot both win: they are locked
 // operations on one word, so one comes first. When the compare-exchange is first, the tail is 0 and the acquirer finds
@@ -117,7 +151,8 @@ end 'cownAcquire'
 // Once this returns no other behaviour reads or writes the record's slots: a later behaviour writes a slot's next only
 // before the wait above ends, and reads its blocked only before that. The behaviour's holds on its cowns are the
 // thunk's to drop, since only the compiled code knows the types of the values they hold. Each successor holds a hold of
-// its own, taken before it queued, so the drop that frees a cown is the one after the last behaviour that names it.
+// its own, taken before it queued, or for one of one cown by this release before the thunk's drop, so the drop that frees
+// a cown is the one after the last behaviour that names it.
 function cownRelease(record Count)
 	let n = __Raw.loadWord(record, offset: behaviourCownCountOffset)
 	for i in 0 upto n 'slots'
@@ -133,11 +168,27 @@ function cownRelease(record Count)
 			end 'link'
 		end 'last'
 		let owner = __Raw.loadWord(next, offset: requestOwnerOffset)
-		if __Raw.atomicAdd(owner, offset: behaviourPendingOffset, value: stepDown) == 1 'runnable'
-			schedPush(owner)
+		if __Raw.loadWord(owner, offset: behaviourCownCountOffset) == 1 'alone'
+			_ = __Raw.atomicAdd(__Raw.loadWord(slot, offset: requestCownOffset), offset: cownCountOffset, value: behaviourHold)
+			handOn(owner)
+		end 'alone' else if __Raw.atomicAdd(owner, offset: behaviourPendingOffset, value: stepDown) == 1 'runnable'
+			handOn(owner)
 		end 'runnable'
 	end 'slots'
 end 'cownRelease'
+
+// handOn gives a behaviour that a release made runnable to the green thread that runs the released one, which runs it
+// next in the same turn (runTurn), as maxon's runner goes on to a cown's next message: the cown passes from one behaviour
+// to the next with no run queue, no green thread and no switch between. When that green thread has been handed one
+// already, by a release of another cown of the same behaviour, the behaviour is made runnable as any other.
+function handOn(record Count)
+	let g = __Raw.loadWord(__Raw.threadContext(), offset: contextGreenOffset)
+	if g != noGreen and __Raw.loadWord(g, offset: greenKindOffset) == greenBehaviour and __Raw.loadWord(g, offset: greenHandedOffset) == noBehaviour 'turn'
+		__Raw.storeWord(g, offset: greenHandedOffset, value: record)
+		return
+	end 'turn'
+	schedPush(record)
+end 'handOn'
 
 // requestSlot is the address of a behaviour's request slot of an index.
 function requestSlot(record Count, index Count) returns Count

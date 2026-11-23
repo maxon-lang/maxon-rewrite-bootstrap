@@ -225,8 +225,8 @@ let windowsContextControl = 1048577 as Count
 // schedProcsOffset is where the scheduler's record holds how many processors there are (Go's gomaxprocs): the processors of the machine, or what MAXON_MAX_PROCS asks.
 let schedProcsOffset = 0 as Count
 
-// schedLiveOffset is where the scheduler's record holds how many behaviours and green threads have been made and not yet finished, stepped atomically: the program ends when that is 0 after main.
-let schedLiveOffset = 8 as Count
+// schedMadeProcsOffset is where the scheduler's record holds how many processors are made: a processor is made when a thread first takes it, and those made are the first of the ids, under the lock.
+let schedMadeProcsOffset = 8 as Count
 
 // schedLockOffset is where the scheduler's record holds its lock (Go's sched.lock): 1 while a thread holds it.
 let schedLockOffset = 16 as Count
@@ -321,14 +321,11 @@ let schedCarveEndOffset = 248 as Count
 // schedCarveBytesOffset is where the scheduler's record holds the size of the next block that records are carved from, 0 before the first, under the lock.
 let schedCarveBytesOffset = 256 as Count
 
-// schedMadeProcsOffset is where the scheduler's record holds how many processors are made: a processor is made when a thread first takes it, and those made are the first of the ids, under the lock.
-let schedMadeProcsOffset = 264 as Count
-
 // schedFreeStackCountOffset is where the scheduler's record holds how many stacks its list of free ones holds, under the lock.
-let schedFreeStackCountOffset = 272 as Count
+let schedFreeStackCountOffset = 264 as Count
 
 // schedProcessorsOffset is where the scheduler's record holds the address of each processor (Go's allp), a word each, by its id, 0 until it is made.
-let schedProcessorsOffset = 280 as Count
+let schedProcessorsOffset = 272 as Count
 
 // procIdOffset is where a processor holds its index among the processors.
 let procIdOffset = 0 as Count
@@ -360,35 +357,38 @@ let procSeenSyscallTickOffset = 64 as Count
 // procSeenSyscallWhenOffset is where a processor holds when the monitor first saw that syscalltick, in nanoseconds.
 let procSeenSyscallWhenOffset = 72 as Count
 
-// procRunqHeadOffset is where a processor holds the index of the oldest green thread of its run queue, which a taker advances with a compare-exchange.
-let procRunqHeadOffset = 80 as Count
-
-// procRunqTailOffset is where a processor holds the index past the newest green thread of its run queue, which only its owner writes.
-let procRunqTailOffset = 88 as Count
-
-// procRunNextOffset is where a processor holds the green thread readied last, which runs next (Go's runnext), 0 for none.
-let procRunNextOffset = 96 as Count
-
 // procFreeGreensOffset is where a processor holds its free green threads' records, linked through greenLinkOffset, which only its owner reads and writes.
-let procFreeGreensOffset = 104 as Count
+let procFreeGreensOffset = 80 as Count
 
 // procFreeGreenCountOffset is where a processor holds how many free green threads it keeps.
-let procFreeGreenCountOffset = 112 as Count
+let procFreeGreenCountOffset = 88 as Count
 
 // procFreeStacksOffset is where a processor holds its free stacks, linked through pooledStackNextOffset, which only its owner reads and writes.
-let procFreeStacksOffset = 120 as Count
+let procFreeStacksOffset = 96 as Count
 
 // procFreeStackCountOffset is where a processor holds how many free stacks it keeps.
-let procFreeStackCountOffset = 128 as Count
+let procFreeStackCountOffset = 104 as Count
+
+// procLiveOffset is where a processor holds how many behaviours and green threads its threads made live, less those that finished on it, a wrapping word that only the thread holding it writes: the sum over the processors is how many are left, exact while every processor is idle.
+let procLiveOffset = 112 as Count
+
+// procRunNextOffset is where a processor holds the green thread readied last, which runs next (Go's runnext), 0 for none.
+let procRunNextOffset = 120 as Count
+
+// procRunqHeadOffset is where a processor holds the index of the oldest green thread of its run queue, which a taker advances with a compare-exchange.
+let procRunqHeadOffset = 128 as Count
+
+// procRunqTailOffset is where a processor holds the index past the newest green thread of its run queue, which only its owner writes.
+let procRunqTailOffset = 136 as Count
 
 // procRunqOffset is where a processor's run queue begins, procRunqSlots green threads; index i is slot i modulo procRunqSlots.
-let procRunqOffset = 136 as Count
+let procRunqOffset = 144 as Count
 
 // procRunqSlots is how many green threads a processor's run queue holds, Go's: a full one sends half of them to the global run queue.
 let procRunqSlots = 256 as Count
 
 // procBytes is the size of a processor.
-let procBytes = 2184 as Count
+let procBytes = 2192 as Count
 
 // greenStatusOffset is where a green thread holds its status (greenIdle, greenRunnable, ...), changed with compare-exchanges where a reader of another thread may race.
 let greenStatusOffset = 0 as Count
@@ -456,8 +456,11 @@ let greenResumeSlotOffset = 440 as Count
 // greenCancelOffset is where a coroutine holds 1 once its promise is cancelled: its thunk does not start a function that has not started, and its sleeps end at once.
 let greenCancelOffset = 448 as Count
 
+// greenHandedOffset is where a green thread that runs behaviours holds the behaviour that the release of the one it ran made runnable and handed on to it, to run next in the same turn, 0 for none; only its own thread reads and writes it.
+let greenHandedOffset = 456 as Count
+
 // greenBytes is the size of a green thread's record.
-let greenBytes = 456 as Count
+let greenBytes = 464 as Count
 
 // selectorGreenOffset is where a selector holds the green thread that waits.
 let selectorGreenOffset = 0 as Count
@@ -540,20 +543,32 @@ let heapEmptyStackOffset = 2064 as Count
 // heapChunkBytesOffset is where a heap's record holds the size of its next chunk, 0 before its first.
 let heapChunkBytesOffset = 2080 as Count
 
-// heapRemoteOffset is where a heap's record holds the list of the boxes that other threads freed, linked through their first words, on a cache line of its own since other threads write it.
-let heapRemoteOffset = 2112 as Count
+// heapBatchOffset is where a heap's record holds the boxes of another heap that its thread freed and has not yet put on that heap's list, linked through their first words, the last freed first.
+let heapBatchOffset = 2088 as Count
+
+// heapBatchLastOffset is where a heap's record holds the first box it batched, the end of the batch's links.
+let heapBatchLastOffset = 2096 as Count
+
+// heapBatchCountOffset is where a heap's record holds how many boxes its batch holds.
+let heapBatchCountOffset = 2104 as Count
+
+// heapBatchOwnerOffset is where a heap's record holds the heap whose boxes its batch holds.
+let heapBatchOwnerOffset = 2112 as Count
+
+// heapRemoteOffset is where a heap's record holds the list of the boxes that other threads freed, linked through their first words, 128 bytes from the words its own thread writes, since other threads write it: a cache line of its own, and of Apple's cores'.
+let heapRemoteOffset = 2176 as Count
 
 // heapLargeKeptOffset is where a heap's record holds how many bytes of the large blocks that its thread freed it keeps for large boxes to come.
-let heapLargeKeptOffset = 2176 as Count
+let heapLargeKeptOffset = 2304 as Count
 
 // heapLargeVictimOffset is where a heap's record holds the offset of the slot of its kept large blocks that it gives back next when it needs room, round the slots.
-let heapLargeVictimOffset = 2184 as Count
+let heapLargeVictimOffset = 2312 as Count
 
 // heapLargeSlotsOffset is where a heap's record holds its kept large blocks, a block's address or 0 a word each, to the end of the record.
-let heapLargeSlotsOffset = 2192 as Count
+let heapLargeSlotsOffset = 2320 as Count
 
 // heapRecordBytes is the size of a heap's record.
-let heapRecordBytes = 2448 as Count
+let heapRecordBytes = 2576 as Count
 
 // heapAlignBytes is the alignment of a heap's record, above every key.
 let heapAlignBytes = 512 as Count

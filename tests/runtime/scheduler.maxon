@@ -80,7 +80,6 @@ function testSchedule(tally Count, depth Count)
 	__Raw.storeWord(record, offset: behaviourRunOffset, value: __Raw.codeAddress("testRun"))
 	__Raw.storeWord(record, offset: testDepthOffset, value: depth)
 	__Raw.storeWord(record, offset: testTallyOffset, value: tally)
-	schedEnter()
 	schedPush(record)
 end 'testSchedule'
 

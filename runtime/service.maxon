@@ -1,8 +1,10 @@
 // Services: what `spawn`, a send, a reply and `shutdown` lower to. A service is a cown whose value is its state, with its
 // mailbox's gate after the cown's words (serviceGateOffset), and each message is a behaviour on that one cown, so the
 // cown's queue is the mailbox and two messages of one service never run at once, preempted or not: a behaviour holds its
-// cown until its thunk releases it. The gate counts the messages a send has queued and the service has not started, as
-// maxon's does, so a mailbox holds at most its capacity of them, and holds serviceClosed once the service is shut down.
+// cown until its thunk releases it. The release hands the next message to the green thread that ran the last, which runs
+// up to a turn of them (runTurn), so an idle service holds no green thread and a busy one one. The gate counts the
+// messages a send has queued and the service has not started, as maxon's does, so a mailbox holds at most its capacity
+// of them, and holds serviceClosed once the service is shut down.
 // A reply is a cell shaped like a green thread that is awaited (greenAwaited), which never runs: the message's behaviour
 // gives it its value and error as a coroutine's finish would, so an await of it is an await of a coroutine.
 
@@ -31,20 +33,23 @@ function serviceNew(state Count, capacity Count) returns Count
 end 'serviceNew'
 
 // serviceReserve takes a place in the mailbox for a message, by a compare-exchange of the gate, unless the service is shut
-// down or the mailbox holds its capacity.
+// down or the mailbox holds its capacity. The gate is read once, as an acquire, and then by each compare-exchange that
+// fails, so a send takes one locked operation on the gate when no other send races it.
 function serviceReserve(handle Count) returns Count
 	let capacity = __Raw.loadWord(handle, offset: serviceCapacityOffset)
+	var gate = __Raw.loadAcquire(handle, offset: serviceGateOffset)
 	while true 'gate'
-		let gate = __Raw.atomicAdd(handle, offset: serviceGateOffset, value: 0)
 		if gate >= serviceClosed 'closed'
 			return sendStopped
 		end 'closed'
 		if gate >= capacity 'full'
 			return sendFull
 		end 'full'
-		if __Raw.compareExchange(handle, offset: serviceGateOffset, expected: gate, desired: __Raw.wrappingAdd(gate, right: 1)) == gate 'taken'
+		let seen = __Raw.compareExchange(handle, offset: serviceGateOffset, expected: gate, desired: __Raw.wrappingAdd(gate, right: 1))
+		if seen == gate 'taken'
 			return sendAccepted
 		end 'taken'
+		gate = seen
 	end 'gate'
 	return sendAccepted
 end 'serviceReserve'

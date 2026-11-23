@@ -1649,9 +1649,11 @@ nothing.
   record, aligned to 512 bytes, plus its class's key, so `free` (which skips 0) finds both from the box alone and pushes the
   box's address on the class's stack, which `alloc` pops and zeroes; the stacks are apart from the slots, so an alloc reads
   nothing of a slot that may have left the cache. A behaviour may free what another worker allocated: a box of another heap
-  goes on that heap's list of remote frees with a compare-exchange, linked through the dead box, and the owner takes the
-  whole list with one exchange when a class of its runs out, as mimalloc's thread-free list works; only the owner takes, and
-  takes everything, so no push meets a box taken and pushed again. A mask over the address would save the header word, but
+  goes on that heap's list of remote frees, linked through the dead box, and the owner takes the whole list with one
+  exchange when a class of its runs out, as mimalloc's thread-free list works; only the owner takes, and takes everything,
+  so no push meets a box taken and pushed again. The freeing thread gathers up to 64 boxes of one owner and pushes them with
+  one compare-exchange, as snmalloc batches its remote frees, since a service's messages are allocated by the sender and freed
+  by every worker that runs them, and a push per box had them all fight for the owner's word. A mask over the address would save the header word, but
   HeapAlloc gives no alignment to a chunk's size, so a large box would carry up to a chunk of padding or every free a lookup
   in a map of the address space. On Linux a large box's block is pages of its own, whole pages long, and a freed one is kept
   by the freeing thread's heap (up to 32 blocks and 4 MB, the one kept longest given back first to make room), and the

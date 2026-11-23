@@ -1,6 +1,7 @@
 // One sender and one service: 1,000,000 messages that change the state, sent in batches of 1,000, each batch ended by a
 // message whose reply the sender awaits before it sends the next, so the mailbox never holds more than a batch. Each
-// message is a behaviour of its own on the service's cown: this is the cost of a send, a behaviour and its green thread.
+// message is a behaviour of its own on the service's cown, and the messages queued run in turns on one green thread: this
+// is the cost of a send and a behaviour.
 typealias Word = int(0 to u64.max)
 
 let batches = 1000 as Word

@@ -8,9 +8,10 @@
 // not by the processor count: a green thread readied while a processor is idle and no thread is spinning starts one
 // (wakep), and the monitor (monitor.maxon) starts one for a processor it takes from a blocking call.
 //
-// A behaviour is a green thread once it starts: `when` calls schedEnter once for each behaviour it makes, before the
-// behaviour can run, and schedPush when it becomes runnable, which queues its record; a processor that takes the record
-// from a run queue gives it a green thread that runs the record's run with the record (execute). The
+// A behaviour is a green thread once it starts: `when` calls schedPush when the behaviour becomes runnable, which queues
+// its record; a processor that takes the record
+// from a run queue gives it a green thread that runs the record's run with the record (execute), and the behaviours that
+// its release makes runnable after it on that green thread, a turn of them (runTurn). The
 // main thread is thread 0 with processor 0, made with the scheduler when mainRun starts main's green thread; it runs the
 // scheduler on its own stack until no behaviour or green thread is left. The program then ends with ExitProcess, which
 // ends the other threads wherever they are. A program whose code needs none of this is linked without the scheduler
@@ -104,20 +105,33 @@ let plusSign = 0x2B as Byte
 
 let digitNine = 0x39 as Byte
 
-// schedEnter counts one more behaviour, which `when` calls before the behaviour can run.
-function schedEnter()
-	let scheduler = schedulerOf(__Raw.threadContext())
-	startMonitor(scheduler)
-	_ = __Raw.atomicAdd(scheduler, offset: schedLiveOffset, value: 1)
-end 'schedEnter'
-
-// schedPush makes a behaviour runnable: its record goes next on the running thread's processor as a run queue's entry, and
-// a thread is woken for the processors that are idle. It takes a green thread only when a processor starts it (execute).
+// schedPush makes a behaviour runnable: its record goes next on the running thread's processor as a run queue's entry, as
+// Go's goready puts a goroutine in runnext, and a thread is woken for the processors that are idle. It takes a green thread
+// only when a processor starts it (execute).
 function schedPush(record Count)
-	let context = __Raw.threadContext()
-	runqPut(__Raw.loadWord(context, offset: contextProcOffset), g: behaviourEntry(record), next: true)
-	wakeProc(__Raw.loadWord(context, offset: contextSchedulerOffset))
+	behaviourRunnable(record, next: true)
 end 'schedPush'
+
+// behaviourRunnable queues a behaviour that holds every cown it names on the running thread's processor, next or at the
+// tail, and counts it among the live ones (stepLive). A behaviour counts from when it is runnable, not from its `when`: one
+// queued behind another on a cown is kept by the one ahead, which counts until it has handed the cown on, so the count
+// is above 0 while anything is left, and a send to a busy service counts nothing.
+function behaviourRunnable(record Count, next bool)
+	let context = __Raw.threadContext()
+	stepLive(context, change: 1)
+	runqPut(__Raw.loadWord(context, offset: contextProcOffset), g: behaviourEntry(record), next: next)
+	wakeProc(__Raw.loadWord(context, offset: contextSchedulerOffset))
+end 'behaviourRunnable'
+
+// stepLive changes the count of live behaviours and green threads by 1 or stepDown, on the processor the running thread
+// holds: only that thread writes the processor's count, so the step is a plain one, and no word that every core writes
+// is stepped for each behaviour, where Go keeps no such count at all. A behaviour made live on one processor and finished
+// on another leaves one count above and one below; the sum over the processors is exact once every processor is idle,
+// which is when it is read (drained), each count published by the lock that put its processor on the idle list.
+function stepLive(context Count, change Count)
+	let proc = __Raw.loadWord(context, offset: contextProcOffset)
+	__Raw.storeWord(proc, offset: procLiveOffset, value: __Raw.wrappingAdd(__Raw.loadWord(proc, offset: procLiveOffset), right: change))
+end 'stepLive'
 
 // A run queue's entry is a green thread's record, or a runnable behaviour's record with behaviourEntryTag added: a
 // behaviour that has not started holds no green thread and no stack, as a message in maxon's cown queue holds no runner,
@@ -305,8 +319,11 @@ function findRunnable(context Count) returns Count
 			unlockScheduler(scheduler)
 			return late
 		end 'late'
-		idleProcPut(scheduler, proc: releaseProc(context))
+		let drained = idleProcPut(scheduler, proc: releaseProc(context))
 		unlockScheduler(scheduler)
+		if drained 'drained'
+			endDrain(scheduler)
+		end 'drained'
 		if __Raw.loadWord(context, offset: contextSpinningOffset) == set 'wasSpinning'
 			__Raw.storeWord(context, offset: contextSpinningOffset, value: unset)
 			_ = __Raw.atomicAdd(scheduler, offset: schedSpinningOffset, value: stepDown)
@@ -461,7 +478,8 @@ end 'pollReadied'
 
 // stopThread is Go's stopm: the thread, holding no processor, waits on the list of idle threads until a thread that
 // starts work hands it a processor (startThreadFor), which it takes. It says false on the main thread's drain when
-// nothing is left, which is checked under the lock that endDrain takes, so the last finish cannot be missed.
+// nothing is left, which is checked under the lock that the last processor's idle put and endDrain take, so the end of
+// the last behaviour or green thread cannot be missed.
 function stopThread(context Count) returns bool
 	let scheduler = __Raw.loadWord(context, offset: contextSchedulerOffset)
 	lockScheduler(scheduler)
@@ -485,13 +503,28 @@ function stopThread(context Count) returns bool
 	return true
 end 'stopThread'
 
-// drainEnded is whether the thread is the main thread after main and nothing is left.
+// drainEnded is whether the thread is the main thread after main and nothing is left, under the lock.
 function drainEnded(context Count, scheduler Count) returns bool
-	return __Raw.loadWord(context, offset: contextDrainsOffset) == set and __Raw.loadAcquire(scheduler, offset: schedLiveOffset) == 0
+	return __Raw.loadWord(context, offset: contextDrainsOffset) == set and nothingLeft(scheduler)
 end 'drainEnded'
 
-// endDrain is what the finish of the last behaviour or green thread does: it wakes the main thread when it is stopped,
-// taking it off the idle list, and breaks the poller's wait, where the main thread may wait, so that schedDrain returns.
+// nothingLeft is Go's checkdead, under the lock: every processor is idle and no behaviour or green thread is live. With
+// every processor idle no thread runs a green thread, so no count changes, and their sum is exact; once it is 0 nothing is
+// left that could make one again.
+function nothingLeft(scheduler Count) returns bool
+	if __Raw.loadAcquire(scheduler, offset: schedIdleProcCountOffset) != procCount(scheduler) 'busy'
+		return false
+	end 'busy'
+	var live = 0 as Count
+	for i in 0 upto madeProcs(scheduler) 'procs'
+		live = __Raw.wrappingAdd(live, right: __Raw.loadWord(procAt(scheduler, index: i), offset: procLiveOffset))
+	end 'procs'
+	return live == 0
+end 'nothingLeft'
+
+// endDrain is what the thread that puts the last processor on the idle list does once nothing is left: it wakes the main
+// thread when it is stopped, taking it off the idle list, and breaks the poller's wait, where the main thread may wait,
+// so that schedDrain returns.
 function endDrain(scheduler Count)
 	let main = __Raw.loadWord(scheduler, offset: schedMainThreadOffset)
 	lockScheduler(scheduler)
@@ -595,8 +628,11 @@ function handOffProc(scheduler Count, proc Count)
 		startThreadFor(scheduler, proc: proc, spinning: false)
 		return
 	end 'poller'
-	idleProcPut(scheduler, proc: proc)
+	let drained = idleProcPut(scheduler, proc: proc)
 	unlockScheduler(scheduler)
+	if drained 'drained'
+		endDrain(scheduler)
+	end 'drained'
 end 'handOffProc'
 
 // acquireProc is Go's acquirep: the thread holds the processor and runs its queues.
@@ -617,13 +653,16 @@ function releaseProc(context Count) returns Count
 	return proc
 end 'releaseProc'
 
-// idleProcPut is Go's pidleput, under the lock: the processor, whose queue is empty, joins the idle ones.
-function idleProcPut(scheduler Count, proc Count)
+// idleProcPut is Go's pidleput, under the lock: the processor, whose queue is empty, joins the idle ones. It says whether
+// that leaves nothing on the main thread's drain (Go's checkdead after an M goes idle), for which the caller calls
+// endDrain once it has let the lock go.
+function idleProcPut(scheduler Count, proc Count) returns bool
 	__Raw.storeRelease(proc, offset: procStatusOffset, value: procIdle)
 	__Raw.storeRelease(proc, offset: procThreadOffset, value: noThread)
 	__Raw.storeWord(proc, offset: procLinkOffset, value: __Raw.loadWord(scheduler, offset: schedIdleProcsOffset))
 	__Raw.storeWord(scheduler, offset: schedIdleProcsOffset, value: proc)
 	_ = __Raw.atomicAdd(scheduler, offset: schedIdleProcCountOffset, value: 1)
+	return drainEnded(__Raw.loadWord(scheduler, offset: schedMainThreadOffset), scheduler: scheduler)
 end 'idleProcPut'
 
 // idleProcGet is Go's pidleget, under the lock: an idle processor, or noProc. A processor that no thread has taken yet is
@@ -647,12 +686,24 @@ end 'idleProcGet'
 // lock (madeProcs, an acquire) finds the slots below it and their processors written.
 function makeProc(scheduler Count) returns Count
 	let id = madeProcs(scheduler)
-	let proc = keep(procBytes)
+	let proc = keepApart(procBytes)
 	__Raw.storeWord(proc, offset: procIdOffset, value: id)
 	__Raw.storeWord(scheduler, offset: try schedProcessorsOffset + id * wordBytes otherwise panic("too many processors for memory"), value: proc)
 	__Raw.storeRelease(scheduler, offset: schedMadeProcsOffset, value: __Raw.wrappingAdd(id, right: 1))
 	return proc
 end 'makeProc'
+
+// keepApart is a block that keep makes, its start a multiple of sharingBytes, so that the words a record lays out
+// sharingBytes apart, which different cores write, are on cache lines of their own.
+function keepApart(bytes Count) returns Count
+	return __Raw.wrappingAdd(keep(__Raw.wrappingAdd(bytes, right: sharingBytes)), right: sharingBytes - 1) and sharingMask
+end 'keepApart'
+
+// sharingBytes is the span within which the writes of two cores contend for one line: the cache line of Apple's cores,
+// and the pair of lines that x64's spatial prefetcher fetches together. sharingMask clears the bits below it.
+let sharingBytes = 128 as Count
+
+let sharingMask = 0xFFFFFFFFFFFFFF80 as Count
 
 function procCount(scheduler Count) returns Count
 	return __Raw.loadWord(scheduler, offset: schedProcsOffset)
@@ -788,10 +839,16 @@ function runqGrab(victim Count, into Count, at Count, takesNext bool) returns Co
 		if n == 0 'empty'
 			if takesNext 'next'
 				let next = __Raw.loadWord(victim, offset: procRunNextOffset)
-				if next != noGreen and __Raw.compareExchange(victim, offset: procRunNextOffset, expected: next, desired: noGreen) == next 'taken'
+				if next != noGreen 'queued'
+					if __Raw.loadAcquire(victim, offset: procStatusOffset) == procRunning 'running'
+						runNextBackoff()
+					end 'running'
+					if __Raw.compareExchange(victim, offset: procRunNextOffset, expected: next, desired: noGreen) != next 'moved'
+						continue 'grab'
+					end 'moved'
 					__Raw.storeWord(runqSlot(into, index: at), offset: 0, value: next)
 					return 1
-				end 'taken'
+				end 'queued'
 			end 'next'
 			return 0
 		end 'empty'
@@ -808,6 +865,20 @@ function runqGrab(victim Count, into Count, at Count, takesNext bool) returns Co
 	end 'grab'
 	return 0
 end 'runqGrab'
+
+// runNextBackoff is Go's pause before a thief takes the runnext of a processor that is running: the green thread there
+// has just readied it and is likely about to block, so its own processor runs it next with its data hot, rather than the
+// two trading it between cores. A message between two green threads costs well under a microsecond, so Go waits
+// runNextBackoffMicros, and yields the thread on Windows, whose timers are too coarse for that.
+function runNextBackoff()
+	#if os(Windows)
+		yieldThread()
+	#else
+		sleepMicros(__Raw.threadContext(), micros: runNextBackoffMicros)
+	#endif
+end 'runNextBackoff'
+
+let runNextBackoffMicros = 3 as Count
 
 // runqSlot is the address of the slot of a processor's ring that holds an index.
 function runqSlot(proc Count, index Count) returns Count

@@ -72,9 +72,10 @@ A Linux VM on a Mac gives no CPU model, and its file has none: `bench report --c
 
 ## Results
 
-Compiler and tables are the commit `b1877d1` plus this kit, on an AMD Ryzen 7 5800X (8 cores, 16 threads), Windows 11 and
-WSL2 on the same machine, seven rounds each. A WSL run is on the same hardware under a Linux kernel, so the difference from
-the Windows run is the operating system's. Regenerate the tables with `bench run` and `bench report`.
+The x64 tables are of the commit `1d962f4` with the service changes (turns of messages, per-processor live counts,
+batched remote frees) not yet committed, which is why the compiler's row names `1d962f4`, on an AMD Ryzen 7 5800X (8
+cores, 16 threads), Windows 11 and WSL2 on the same machine, seven rounds each. A WSL run is on the same hardware under a
+Linux kernel, so the difference from the Windows run is the operating system's. Regenerate the tables with `bench run` and `bench report`.
 
 ### x64-windows and x64-linux
 
@@ -84,113 +85,113 @@ Ratio is minimaxon's best time over Go's, so below 1 minimaxon is faster. Every 
 
 | target | CPU | cores | OS | rounds | compiler | Go |
 |---|---|---|---|---|---|---|
-| x64-windows | AMD Ryzen 7 5800X 8-Core Processor | 16 | Microsoft Windows NT 10.0.26300.0 X64 | 7 | minimaxon.exe at git b1877d1 | go version go1.27.4 windows/amd64 GOOS=windows GOARCH=amd64 |
-| x64-linux | AMD Ryzen 7 5800X 8-Core Processor | 16 | Linux Desky 5.15.167.4-microsoft-standard-WSL2 #1 SMP Tue Nov 5 00:21:55 UTC 2024 x86_64 x86_64 x86_64 GNU/Linux | 7 | minimaxon.exe at git b1877d1 | go version go1.27.4 windows/amd64 GOOS=linux GOARCH=amd64 |
+| x64-windows | AMD Ryzen 7 5800X 8-Core Processor | 16 | Microsoft Windows NT 10.0.26300.0 X64 | 7 | minimaxon.exe at git 1d962f4 | go version go1.27.4 windows/amd64 GOOS=windows GOARCH=amd64 |
+| x64-linux | AMD Ryzen 7 5800X 8-Core Processor | 16 | Linux Desky 5.15.167.4-microsoft-standard-WSL2 #1 SMP Tue Nov 5 00:21:55 UTC 2024 x86_64 x86_64 x86_64 GNU/Linux | 7 | minimaxon.exe at git 1d962f4 | go version go1.27.4 windows/amd64 GOOS=linux GOARCH=amd64 |
 
 #### Summary
 
 | target | geometric-mean ratio of the programs | of the phases of 1 ms or more | worst phases |
 |---|---|---|---|
-| x64-windows | 1.19 (11) | 1.23 (29) | map-operations / string iterate 2.81; service-messages-to-one-service / work 2.75; map-operations / string miss 1.88 |
-| x64-linux | 1.18 (11) | 1.32 (29) | map-operations / string iterate 6.26; map-operations / string miss 2.78; service-messages-to-one-service / work 2.64 |
+| x64-windows | 1.02 (11) | 1.09 (29) | map-operations / string iterate 3.62; map-operations / string hit 1.77; map-operations / string miss 1.75 |
+| x64-linux | 1.01 (11) | 1.13 (29) | map-operations / string iterate 4.27; map-operations / string miss 1.99; map-operations / string hit 1.92 |
 
 #### array-indexing
 
 | phase | x64-windows minimaxon ms | x64-windows Go ms | x64-windows ratio | x64-linux minimaxon ms | x64-linux Go ms | x64-linux ratio |
 |---|---:|---:|---:|---:|---:|---:|
-| fill | 8.12 | 0.00 | - | 3.77 | 0.12 | 32.69 |
-| rounds | 415.67 | 275.99 | 1.51 | 336.16 | 225.18 | 1.49 |
-| work | 423.83 | 277.00 | 1.53 | 339.95 | 225.35 | 1.51 |
+| fill | 3.27 | 0.00 | - | 3.27 | 0.06 | 51.29 |
+| rounds | 121.50 | 131.09 | 0.93 | 116.10 | 130.41 | 0.89 |
+| work | 124.80 | 131.09 | 0.95 | 119.39 | 130.51 | 0.91 |
 
 
 #### counted-loop
 
 | phase | x64-windows minimaxon ms | x64-windows Go ms | x64-windows ratio | x64-linux minimaxon ms | x64-linux Go ms | x64-linux ratio |
 |---|---:|---:|---:|---:|---:|---:|
-| work | 228.87 | 282.79 | 0.81 | 240.44 | 284.87 | 0.84 |
+| work | 208.17 | 255.22 | 0.82 | 211.99 | 257.04 | 0.82 |
 
 
 #### float-calls
 
 | phase | x64-windows minimaxon ms | x64-windows Go ms | x64-windows ratio | x64-linux minimaxon ms | x64-linux Go ms | x64-linux ratio |
 |---|---:|---:|---:|---:|---:|---:|
-| direct | 55.47 | 56.75 | 0.98 | 57.15 | 58.46 | 0.98 |
-| through | 65.54 | 55.14 | 1.19 | 71.77 | 56.18 | 1.28 |
-| work | 125.71 | 111.89 | 1.12 | 130.17 | 114.67 | 1.14 |
+| direct | 49.89 | 51.97 | 0.96 | 50.20 | 50.64 | 0.99 |
+| through | 50.21 | 50.26 | 1.00 | 51.26 | 50.68 | 1.01 |
+| work | 100.13 | 102.23 | 0.98 | 101.50 | 101.56 | 1.00 |
 
 
 #### float-dot-and-nbody
 
 | phase | x64-windows minimaxon ms | x64-windows Go ms | x64-windows ratio | x64-linux minimaxon ms | x64-linux Go ms | x64-linux ratio |
 |---|---:|---:|---:|---:|---:|---:|
-| dot | 18.21 | 21.90 | 0.83 | 18.47 | 14.28 | 1.29 |
-| nbody | 72.54 | 56.22 | 1.29 | 70.88 | 52.19 | 1.36 |
-| work | 90.78 | 78.12 | 1.16 | 89.99 | 66.57 | 1.35 |
+| dot | 12.32 | 12.66 | 0.97 | 12.43 | 12.43 | 1.00 |
+| nbody | 37.16 | 27.94 | 1.33 | 37.65 | 26.99 | 1.39 |
+| work | 49.69 | 40.98 | 1.21 | 50.71 | 39.45 | 1.29 |
 
 
 #### map-operations
 
 | phase | x64-windows minimaxon ms | x64-windows Go ms | x64-windows ratio | x64-linux minimaxon ms | x64-linux Go ms | x64-linux ratio |
 |---|---:|---:|---:|---:|---:|---:|
-| int insert | 173.10 | 148.64 | 1.16 | 180.95 | 121.16 | 1.49 |
-| int hit | 80.64 | 49.09 | 1.64 | 94.04 | 55.61 | 1.69 |
-| int miss | 66.12 | 41.92 | 1.58 | 56.27 | 42.33 | 1.33 |
-| int iterate | 13.44 | 15.67 | 0.86 | 11.39 | 14.63 | 0.78 |
-| int remove | 101.23 | 98.72 | 1.03 | 110.68 | 86.74 | 1.28 |
-| string build | 134.13 | 250.23 | 0.54 | 137.72 | 331.21 | 0.42 |
-| string insert | 431.81 | 277.82 | 1.55 | 512.98 | 352.40 | 1.46 |
-| string hit | 148.33 | 96.58 | 1.54 | 157.79 | 94.49 | 1.67 |
-| string miss | 133.35 | 71.06 | 1.88 | 149.48 | 53.75 | 2.78 |
-| string iterate | 46.76 | 16.65 | 2.81 | 60.17 | 9.61 | 6.26 |
-| string remove | 173.86 | 123.06 | 1.41 | 197.14 | 125.98 | 1.56 |
-| work | 1633.54 | 1252.77 | 1.30 | 1800.14 | 1388.37 | 1.30 |
+| int insert | 102.45 | 95.01 | 1.08 | 116.90 | 89.30 | 1.31 |
+| int hit | 43.31 | 30.70 | 1.41 | 49.03 | 32.18 | 1.52 |
+| int miss | 31.21 | 27.17 | 1.15 | 32.76 | 27.00 | 1.21 |
+| int iterate | 6.09 | 7.05 | 0.86 | 6.25 | 7.78 | 0.80 |
+| int remove | 71.06 | 79.58 | 0.89 | 71.74 | 73.43 | 0.98 |
+| string build | 56.45 | 107.46 | 0.53 | 64.07 | 114.07 | 0.56 |
+| string insert | 242.07 | 225.03 | 1.08 | 290.67 | 235.37 | 1.23 |
+| string hit | 98.11 | 55.48 | 1.77 | 107.34 | 55.86 | 1.92 |
+| string miss | 58.02 | 33.07 | 1.75 | 68.70 | 34.57 | 1.99 |
+| string iterate | 29.23 | 8.07 | 3.62 | 35.06 | 8.21 | 4.27 |
+| string remove | 120.51 | 107.58 | 1.12 | 143.33 | 111.63 | 1.28 |
+| work | 931.40 | 816.93 | 1.14 | 1077.87 | 806.94 | 1.34 |
 
 
 #### nested-loops
 
 | phase | x64-windows minimaxon ms | x64-windows Go ms | x64-windows ratio | x64-linux minimaxon ms | x64-linux Go ms | x64-linux ratio |
 |---|---:|---:|---:|---:|---:|---:|
-| work | 72.83 | 61.38 | 1.19 | 59.25 | 52.86 | 1.12 |
+| work | 41.52 | 36.22 | 1.15 | 41.99 | 35.95 | 1.17 |
 
 
 #### records-and-unions
 
 | phase | x64-windows minimaxon ms | x64-windows Go ms | x64-windows ratio | x64-linux minimaxon ms | x64-linux Go ms | x64-linux ratio |
 |---|---:|---:|---:|---:|---:|---:|
-| build | 0.10 | 0.00 | - | 0.07 | 0.03 | 2.20 |
-| match | 37.09 | 50.82 | 0.73 | 32.95 | 43.26 | 0.76 |
-| work | 37.26 | 50.82 | 0.73 | 33.11 | 43.33 | 0.76 |
+| build | 0.06 | 0.00 | - | 0.04 | 0.02 | 2.12 |
+| match | 24.63 | 22.95 | 1.07 | 24.84 | 22.48 | 1.10 |
+| work | 24.75 | 22.95 | 1.08 | 24.94 | 22.52 | 1.11 |
 
 
 #### recursion
 
 | phase | x64-windows minimaxon ms | x64-windows Go ms | x64-windows ratio | x64-linux minimaxon ms | x64-linux Go ms | x64-linux ratio |
 |---|---:|---:|---:|---:|---:|---:|
-| work | 255.00 | 257.22 | 0.99 | 231.17 | 256.47 | 0.90 |
+| work | 139.69 | 143.15 | 0.98 | 140.50 | 141.40 | 0.99 |
 
 
 #### service-messages-to-many-services
 
 | phase | x64-windows minimaxon ms | x64-windows Go ms | x64-windows ratio | x64-linux minimaxon ms | x64-linux Go ms | x64-linux ratio |
 |---|---:|---:|---:|---:|---:|---:|
-| spawn | 0.20 | 12.30 | 0.02 | 0.15 | 17.59 | 0.01 |
-| send | 93.65 | 52.37 | 1.79 | 120.99 | 56.83 | 2.13 |
-| await | 0.61 | 0.00 | - | 0.57 | 0.53 | 1.08 |
-| work | 94.49 | 66.23 | 1.43 | 134.59 | 104.82 | 1.28 |
+| spawn | 0.10 | 5.96 | 0.02 | 0.25 | 4.75 | 0.05 |
+| send | 55.91 | 61.43 | 0.91 | 41.87 | 52.45 | 0.80 |
+| await | 0.28 | 0.00 | - | 0.21 | 0.33 | 0.63 |
+| work | 56.44 | 68.16 | 0.83 | 42.39 | 57.57 | 0.74 |
 
 
 #### service-messages-to-one-service
 
 | phase | x64-windows minimaxon ms | x64-windows Go ms | x64-windows ratio | x64-linux minimaxon ms | x64-linux Go ms | x64-linux ratio |
 |---|---:|---:|---:|---:|---:|---:|
-| work | 176.72 | 64.27 | 2.75 | 150.41 | 57.06 | 2.64 |
+| work | 43.93 | 38.12 | 1.15 | 26.37 | 31.47 | 0.84 |
 
 
 #### string-building
 
 | phase | x64-windows minimaxon ms | x64-windows Go ms | x64-windows ratio | x64-linux minimaxon ms | x64-linux Go ms | x64-linux ratio |
 |---|---:|---:|---:|---:|---:|---:|
-| work | 59.19 | 62.26 | 0.95 | 57.49 | 63.82 | 0.90 |
+| work | 33.27 | 32.31 | 1.03 | 34.25 | 32.10 | 1.07 |
 
 
 #### Peak memory and executable size
@@ -200,137 +201,134 @@ Peak memory is the largest resident set of the runs, in MiB; size is the file's,
 | program | x64-windows minimaxon MiB | x64-windows Go MiB | x64-windows minimaxon KiB | x64-windows Go KiB | x64-linux minimaxon MiB | x64-linux Go MiB | x64-linux minimaxon KiB | x64-linux Go KiB |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
 | array-indexing | 4.2 | 6.3 | 12 | 2464 | 0.6 | 5.7 | 9 | 2316 |
-| counted-loop | 3.6 | 5.9 | 10 | 2462 | 0.3 | 5.7 | 9 | 2315 |
-| float-calls | 3.6 | 5.9 | 16 | 2469 | 0.3 | 5.7 | 14 | 2323 |
-| float-dot-and-nbody | 3.7 | 5.9 | 20 | 2474 | 0.3 | 5.7 | 18 | 2328 |
-| map-operations | 153.7 | 163.4 | 50 | 2476 | 158.1 | 168.1 | 45 | 2329 |
-| nested-loops | 3.6 | 5.9 | 12 | 2462 | 0.3 | 5.7 | 9 | 2315 |
-| records-and-unions | 3.7 | 6.0 | 13 | 2466 | 0.3 | 5.7 | 14 | 2317 |
+| counted-loop | 3.6 | 5.8 | 10 | 2462 | 0.3 | 5.7 | 9 | 2315 |
+| float-calls | 3.6 | 5.9 | 17 | 2469 | 0.3 | 5.7 | 18 | 2323 |
+| float-dot-and-nbody | 3.7 | 5.9 | 21 | 2474 | 0.3 | 5.7 | 22 | 2328 |
+| map-operations | 153.7 | 163.8 | 51 | 2476 | 158.1 | 160.4 | 49 | 2329 |
+| nested-loops | 3.6 | 5.8 | 12 | 2462 | 0.3 | 5.7 | 9 | 2315 |
+| records-and-unions | 3.7 | 5.9 | 14 | 2466 | 0.3 | 5.7 | 14 | 2317 |
 | recursion | 3.6 | 5.9 | 10 | 2462 | 0.3 | 5.7 | 9 | 2315 |
-| service-messages-to-many-services | 19.0 | 33.5 | 39 | 2466 | 42.9 | 26.3 | 37 | 2321 |
-| service-messages-to-one-service | 4.6 | 5.9 | 36 | 2464 | 0.9 | 5.7 | 32 | 2317 |
-| string-building | 3.6 | 11.4 | 10 | 2462 | 0.3 | 10.1 | 9 | 2316 |
+| service-messages-to-many-services | 5.2 | 33.3 | 40 | 2466 | 2.0 | 24.2 | 37 | 2321 |
+| service-messages-to-one-service | 4.3 | 5.9 | 38 | 2464 | 0.5 | 5.7 | 32 | 2317 |
+| string-building | 3.6 | 11.5 | 10 | 2462 | 0.3 | 12.3 | 9 | 2316 |
+
 
 ### arm64-linux
 
 An Apple M3 (8 cores) in an OrbStack Linux VM on a Mac, seven rounds, from the batch that `bench build --target=arm64-linux`
-made at the commit `b1877d1` plus this kit. The VM does not tell its CPU, so the table names it with `bench report --cpu="Apple M3"`.
-Two things in it are not the compiler's present state. `service-messages-to-many-services` failed on this run (minimaxon's
-program exited with a failure and printed nothing, so its times are blank and it is not in the means, which are over ten
-programs): a memory-ordering bug of the runtime, under investigation. And the batch predates the faster hash fold, so
-`map-operations` and the means are of the older code. Build the batch again for current numbers.
+made from `1d962f4` with the service changes (turns of messages, per-processor live counts, batched remote frees) not yet
+committed, which is why the compiler's row names `1d962f4`. The VM does not tell its CPU, so the table names it with
+`bench report --cpu="Apple M3"`.
 
 #### Systems
 
 | target | CPU | cores | OS | rounds | compiler | Go |
 |---|---|---|---|---|---|---|
-| arm64-linux | Apple M3 | 8 | Linux ubuntu 7.2.12-orbstack-00394-gbecdd6130068 #1 SMP PREEMPT Thu Oct 22 22:17:17 UTC 2026 aarch64 GNU/Linux | 7 | minimaxon.exe at git b1877d1 | go version go1.27.4 windows/amd64 GOOS=linux GOARCH=arm64 |
+| arm64-linux | Apple M3 | 8 | Linux ubuntu 7.2.12-orbstack-00394-gbecdd6130068 #1 SMP PREEMPT Thu Oct 22 22:17:17 UTC 2026 aarch64 GNU/Linux | 7 | minimaxon.exe at git 1d962f4 | go version go1.27.4 windows/amd64 GOOS=linux GOARCH=arm64 |
 
 #### Summary
 
 | target | geometric-mean ratio of the programs | of the phases of 1 ms or more | worst phases |
 |---|---|---|---|
-| arm64-linux | 1.31 (10) | 1.30 (27) | service-messages-to-one-service / work 3.28; map-operations / string iterate 2.35; array-indexing / work 2.22 |
+| arm64-linux | 1.07 (11) | 1.16 (29) | map-operations / string iterate 2.06; array-indexing / work 1.98; array-indexing / rounds 1.94 |
 
 #### array-indexing
 
 | phase | arm64-linux minimaxon ms | arm64-linux Go ms | arm64-linux ratio |
 |---|---:|---:|---:|
-| fill | 3.71 | 0.07 | 54.46 |
-| rounds | 218.20 | 99.88 | 2.18 |
-| work | 221.99 | 99.97 | 2.22 |
+| fill | 3.78 | 0.07 | 51.44 |
+| rounds | 193.54 | 99.70 | 1.94 |
+| work | 197.41 | 99.79 | 1.98 |
 
 
 #### counted-loop
 
 | phase | arm64-linux minimaxon ms | arm64-linux Go ms | arm64-linux ratio |
 |---|---:|---:|---:|
-| work | 222.80 | 273.05 | 0.82 |
+| work | 222.65 | 273.04 | 0.82 |
 
 
 #### float-calls
 
 | phase | arm64-linux minimaxon ms | arm64-linux Go ms | arm64-linux ratio |
 |---|---:|---:|---:|
-| direct | 69.36 | 69.46 | 1.00 |
-| through | 116.32 | 69.42 | 1.68 |
-| work | 185.69 | 138.95 | 1.34 |
+| direct | 69.26 | 69.45 | 1.00 |
+| through | 108.74 | 69.39 | 1.57 |
+| work | 178.01 | 138.90 | 1.28 |
 
 
 #### float-dot-and-nbody
 
 | phase | arm64-linux minimaxon ms | arm64-linux Go ms | arm64-linux ratio |
 |---|---:|---:|---:|
-| dot | 12.81 | 12.64 | 1.01 |
-| nbody | 27.65 | 17.76 | 1.56 |
-| work | 40.49 | 30.49 | 1.33 |
+| dot | 12.37 | 12.61 | 0.98 |
+| nbody | 27.75 | 17.70 | 1.57 |
+| work | 40.13 | 30.37 | 1.32 |
 
 
 #### map-operations
 
 | phase | arm64-linux minimaxon ms | arm64-linux Go ms | arm64-linux ratio |
 |---|---:|---:|---:|
-| int insert | 70.60 | 50.09 | 1.41 |
-| int hit | 31.37 | 25.15 | 1.25 |
-| int miss | 20.91 | 18.54 | 1.13 |
-| int iterate | 5.59 | 6.51 | 0.86 |
-| int remove | 41.94 | 51.79 | 0.81 |
-| string build | 42.31 | 78.95 | 0.54 |
-| string insert | 193.89 | 94.19 | 2.06 |
-| string hit | 68.17 | 39.26 | 1.74 |
-| string miss | 53.34 | 25.11 | 2.12 |
-| string iterate | 15.50 | 6.60 | 2.35 |
-| string remove | 77.24 | 68.61 | 1.13 |
-| work | 646.13 | 477.63 | 1.35 |
+| int insert | 66.90 | 49.96 | 1.34 |
+| int hit | 28.99 | 24.57 | 1.18 |
+| int miss | 19.54 | 17.83 | 1.10 |
+| int iterate | 5.60 | 6.51 | 0.86 |
+| int remove | 39.32 | 48.05 | 0.82 |
+| string build | 42.73 | 76.72 | 0.56 |
+| string insert | 172.51 | 89.22 | 1.93 |
+| string hit | 50.32 | 38.87 | 1.29 |
+| string miss | 40.11 | 24.83 | 1.62 |
+| string iterate | 13.79 | 6.69 | 2.06 |
+| string remove | 72.01 | 68.32 | 1.05 |
+| work | 570.70 | 460.99 | 1.24 |
 
 
 #### nested-loops
 
 | phase | arm64-linux minimaxon ms | arm64-linux Go ms | arm64-linux ratio |
 |---|---:|---:|---:|
-| work | 44.35 | 41.55 | 1.07 |
+| work | 44.02 | 41.46 | 1.06 |
 
 
 #### records-and-unions
 
 | phase | arm64-linux minimaxon ms | arm64-linux Go ms | arm64-linux ratio |
 |---|---:|---:|---:|
-| build | 0.02 | 0.02 | 1.00 |
-| match | 25.75 | 27.82 | 0.93 |
-| work | 25.79 | 27.84 | 0.93 |
+| build | 0.02 | 0.02 | 1.02 |
+| match | 25.73 | 27.77 | 0.93 |
+| work | 25.77 | 27.79 | 0.93 |
 
 
 #### recursion
 
 | phase | arm64-linux minimaxon ms | arm64-linux Go ms | arm64-linux ratio |
 |---|---:|---:|---:|
-| work | 101.66 | 102.30 | 0.99 |
+| work | 101.82 | 102.42 | 0.99 |
 
 
 #### service-messages-to-many-services
 
 | phase | arm64-linux minimaxon ms | arm64-linux Go ms | arm64-linux ratio |
 |---|---:|---:|---:|
-| spawn | 0.05 | 7.90 | 0.01 |
-| send | - | 14.62 | - |
-| await | - | 0.25 | - |
-| work | - | 25.06 | - |
+| spawn | 0.04 | 6.19 | 0.01 |
+| send | 18.50 | 14.87 | 1.24 |
+| await | 0.16 | 0.25 | 0.62 |
+| work | 19.67 | 24.72 | 0.80 |
 
-- arm64-linux: minimaxon exited with a failure (exit codes [1 1 1 1 1 1 1])
-- arm64-linux: minimaxon printed [], not the expected ["499500000"]
 
 #### service-messages-to-one-service
 
 | phase | arm64-linux minimaxon ms | arm64-linux Go ms | arm64-linux ratio |
 |---|---:|---:|---:|
-| work | 61.47 | 18.73 | 3.28 |
+| work | 13.68 | 18.74 | 0.73 |
 
 
 #### string-building
 
 | phase | arm64-linux minimaxon ms | arm64-linux Go ms | arm64-linux ratio |
 |---|---:|---:|---:|
-| work | 28.50 | 26.35 | 1.08 |
+| work | 28.23 | 26.32 | 1.07 |
 
 
 #### Peak memory and executable size
@@ -340,13 +338,13 @@ Peak memory is the largest resident set of the runs, in MiB; size is the file's,
 | program | arm64-linux minimaxon MiB | arm64-linux Go MiB | arm64-linux minimaxon KiB | arm64-linux Go KiB |
 |---|---:|---:|---:|---:|
 | array-indexing | 0.5 | 2.6 | 13 | 2297 |
-| counted-loop | 0.4 | 2.0 | 9 | 2297 |
+| counted-loop | 0.4 | 2.4 | 9 | 2297 |
 | float-calls | 0.4 | 2.1 | 14 | 2299 |
 | float-dot-and-nbody | 0.4 | 2.2 | 18 | 2301 |
-| map-operations | 156.4 | 152.5 | 49 | 2301 |
-| nested-loops | 0.4 | 2.2 | 9 | 2297 |
-| records-and-unions | 0.4 | 2.1 | 13 | 2297 |
+| map-operations | 156.4 | 159.1 | 49 | 2300 |
+| nested-loops | 0.4 | 2.1 | 9 | 2296 |
+| records-and-unions | 0.4 | 2.4 | 13 | 2297 |
 | recursion | 0.4 | 2.0 | 9 | 2296 |
-| service-messages-to-many-services | 10.7 | 23.1 | 36 | 2297 |
-| service-messages-to-one-service | 0.7 | 2.0 | 36 | 2297 |
-| string-building | 0.4 | 7.3 | 9 | 2297 |
+| service-messages-to-many-services | 45.8 | 23.1 | 37 | 2297 |
+| service-messages-to-one-service | 0.4 | 2.0 | 36 | 2297 |
+| string-building | 0.4 | 6.9 | 9 | 2297 |

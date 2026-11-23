@@ -19,10 +19,14 @@
 // does not give. A slot keeps its class and heap for good, so a reused slot's header is never written again.
 //
 // A green thread can free what another thread allocated, since it runs on whichever thread holds a processor when it runs.
-// A box that the freeing thread's heap does not own goes on its own heap's list of remote frees (heapRemoteOffset), pushed
-// with a compare-exchange and linked through the dead box's first word, as mimalloc's thread-free list is; the owner takes
-// the whole list with one exchange when a class of its heap runs out, and frees each box there into its class. Only the
-// owner takes from the list and it takes everything, so a push cannot see a box that was taken and pushed again under it.
+// A box that the freeing thread's heap does not own goes on its own heap's list of remote frees (heapRemoteOffset), linked
+// through the dead box's first word, as mimalloc's thread-free list is; the owner takes the whole list with one exchange
+// when a class of its heap runs out, and frees each box there into its class. Only the owner takes from the list and it
+// takes everything, so a push cannot see a box that was taken and pushed again under it. The freeing thread gathers the
+// boxes of one owner in a batch of its own heap's and pushes remoteBatchBoxes of them, or the batch it has when it frees
+// a box of another owner, with one compare-exchange, as snmalloc batches its remote frees: the messages of a service are
+// allocated by its senders and freed by whichever threads run them, and a push per box would have all of those threads
+// fight for the owner's one word. A batch holds at most remoteBatchBoxes boxes back from their owner, per thread.
 // A large box's block, whichever thread made it, goes back from the thread that frees it: on Linux to that thread's kept
 // blocks, which only it reads and writes.
 //
@@ -110,6 +114,9 @@ let largeKeptBytes = 4194304 as Count
 // slot of a class is at most a quarter larger than its box.
 let largeKeptWasteShift = 2 as Count
 
+// remoteBatchBoxes is how many boxes of another heap a heap's batch gathers before it puts them on that heap's list.
+let remoteBatchBoxes = 64 as Count
+
 // noSlot is no slot of a heap's kept large blocks: every slot's offset is past the start of the record.
 let noSlot = 0 as Count
 
@@ -192,14 +199,44 @@ function freeOther(heap Count, box Count, header Count)
 		return
 	end 'large'
 	let owner = header and heapRecordMask
-	while true 'push'
-		let head = __Raw.loadWord(owner, offset: heapRemoteOffset)
-		__Raw.storeWord(box, offset: 0, value: head)
-		if __Raw.compareExchange(owner, offset: heapRemoteOffset, expected: head, desired: box) == head 'pushed'
-			return
-		end 'pushed'
-	end 'push'
+	let mine = heapMade(heap)
+	if __Raw.loadWord(mine, offset: heapBatchOwnerOffset) != owner 'owner'
+		flushBatch(mine)
+		__Raw.storeWord(mine, offset: heapBatchOwnerOffset, value: owner)
+	end 'owner'
+	let count = __Raw.loadWord(mine, offset: heapBatchCountOffset)
+	if count == 0 'first'
+		__Raw.storeWord(mine, offset: heapBatchLastOffset, value: box)
+	end 'first'
+	__Raw.storeWord(box, offset: 0, value: __Raw.loadWord(mine, offset: heapBatchOffset))
+	__Raw.storeWord(mine, offset: heapBatchOffset, value: box)
+	__Raw.storeWord(mine, offset: heapBatchCountOffset, value: __Raw.wrappingAdd(count, right: 1))
+	if count == remoteBatchBoxes - 1 'full'
+		flushBatch(mine)
+	end 'full'
 end 'freeOther'
+
+// flushBatch puts the boxes a heap has batched on their heap's list, with one compare-exchange that links the batch's end
+// to the list's head, which publishes the links stored before it.
+function flushBatch(heap Count)
+	let first = __Raw.loadWord(heap, offset: heapBatchOffset)
+	if first == noBox 'empty'
+		return
+	end 'empty'
+	let owner = __Raw.loadWord(heap, offset: heapBatchOwnerOffset)
+	let last = __Raw.loadWord(heap, offset: heapBatchLastOffset)
+	var head = __Raw.loadWord(owner, offset: heapRemoteOffset)
+	while true 'push'
+		__Raw.storeWord(last, offset: 0, value: head)
+		let seen = __Raw.compareExchange(owner, offset: heapRemoteOffset, expected: head, desired: first)
+		if seen == head 'pushed'
+			break 'push'
+		end 'pushed'
+		head = seen
+	end 'push'
+	__Raw.storeWord(heap, offset: heapBatchOffset, value: noBox)
+	__Raw.storeWord(heap, offset: heapBatchCountOffset, value: 0)
+end 'flushBatch'
 
 // takeRemote frees into their classes the boxes that other threads freed of heap, the running thread's, and says whether
 // there were any.
@@ -261,7 +298,7 @@ function heapLive(heap Count) returns Count
 		live = __Raw.wrappingSub(live, right: 1)
 		box = __Raw.loadWord(box, offset: 0)
 	end 'remote'
-	return live
+	return __Raw.wrappingSub(live, right: __Raw.loadWord(heap, offset: heapBatchCountOffset))
 end 'heapLive'
 
 // countOut adds a number, which wraps to subtract, to the boxes a heap gave out that no stack holds.

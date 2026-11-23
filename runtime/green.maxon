@@ -39,6 +39,12 @@ let greenAwaited = 1 as Count
 // greenFinished is a green thread's waiter once it has finished: no record's address.
 let greenFinished = 1 as Count
 
+// noBehaviour is a green thread's handed behaviour when it has none (greenHandedOffset).
+let noBehaviour = 0 as Count
+
+// turnBehaviours is how many behaviours a green thread runs in one turn at most (runTurn), maxon's CownBatchMessages.
+let turnBehaviours = 64 as Count
+
 // What a green thread asks of its scheduler when it switches to it (contextIntentOffset).
 let intentPark = 1 as Count
 
@@ -89,6 +95,7 @@ function newGreen(context Count, code Count, kind Count) returns Count
 	__Raw.storeWord(g, offset: greenStrandLockOffset, value: unset)
 	__Raw.storeWord(g, offset: greenErrorOffset, value: 0)
 	__Raw.storeWord(g, offset: greenCancelOffset, value: unset)
+	__Raw.storeWord(g, offset: greenHandedOffset, value: noBehaviour)
 	return g
 end 'newGreen'
 
@@ -96,9 +103,8 @@ end 'newGreen'
 // readied, and counts it among the live ones, so the program does not end before it has finished.
 function greenSpawn(code Count) returns Count
 	let context = __Raw.threadContext()
-	let scheduler = schedulerOf(context)
-	startMonitor(scheduler)
-	_ = __Raw.atomicAdd(scheduler, offset: schedLiveOffset, value: 1)
+	startMonitor(schedulerOf(context))
+	stepLive(context, change: 1)
 	return newGreen(context, code: code, kind: greenAwaited)
 end 'greenSpawn'
 
@@ -349,11 +355,18 @@ function park(context Count)
 	strandAcquire(root, g: g)
 end 'park'
 
-// parkGreen parks the running green thread g of a thread's context until a ready, unless one came already.
+// parkGreen parks the running green thread g of a thread's context until a ready, unless one came already. A behaviour
+// handed on to g (handOn) is made runnable first: the code after a release, a drop that ends a cown's value, may wait,
+// and what it waits for may be that behaviour's to do.
 function parkGreen(context Count, g Count)
 	if __Raw.compareExchange(g, offset: greenStatusOffset, expected: greenNotified, desired: greenRunning) == greenNotified 'permit'
 		return
 	end 'permit'
+	let handed = __Raw.loadWord(g, offset: greenHandedOffset)
+	if handed != noBehaviour 'handed'
+		__Raw.storeWord(g, offset: greenHandedOffset, value: noBehaviour)
+		schedPush(handed)
+	end 'handed'
 	switchToScheduler(context, intent: intentPark)
 end 'parkGreen'
 
@@ -437,7 +450,8 @@ function requeue(context Count, g Count)
 end 'requeue'
 
 // finished is Go's goexit0: the green thread's stack goes back to the pool, a behaviour's record is freed and an awaited
-// one's waiter readied, and the count of live ones drops, the last one ending the main thread's drain.
+// one's waiter readied, and the processor's count of live ones drops (stepLive): the main thread's drain ends once the
+// last processor goes idle with nothing left (nothingLeft).
 function finished(context Count, g Count)
 	let scheduler = __Raw.loadWord(context, offset: contextSchedulerOffset)
 	let proc = __Raw.loadWord(context, offset: contextProcOffset)
@@ -451,9 +465,7 @@ function finished(context Count, g Count)
 	end 'behaviour' else 'awaited'
 		wakeWaiter(context, waiter: __Raw.atomicExchange(g, offset: greenWaiterOffset, value: greenFinished))
 	end 'awaited'
-	if __Raw.atomicAdd(scheduler, offset: schedLiveOffset, value: stepDown) == 1 'last'
-		endDrain(scheduler)
-	end 'last'
+	stepLive(context, change: stepDown)
 end 'finished'
 
 // greenMain is the code a green thread's stack starts in (rt.greenStart, with the green thread): it runs the green
@@ -461,6 +473,9 @@ end 'finished'
 function greenMain(g Count)
 	let result = __Raw.callCode1(__Raw.loadWord(g, offset: greenCodeOffset), arg1: __Raw.loadWord(g, offset: greenArgOffset))
 	__Raw.storeWord(g, offset: greenResultOffset, value: result)
+	if __Raw.loadWord(g, offset: greenKindOffset) == greenBehaviour 'behaviour'
+		runTurn(g)
+	end 'behaviour'
 	let root = __Raw.loadWord(g, offset: greenStrandOffset)
 	if root != noGreen 'strand'
 		strandRelease(__Raw.threadContext(), root: root, g: g)
@@ -468,6 +483,32 @@ function greenMain(g Count)
 	switchToScheduler(__Raw.threadContext(), intent: intentFinish)
 	panic("a finished green thread ran again")
 end 'greenMain'
+
+// runTurn runs on a behaviour's green thread, after the behaviour, the behaviours that the releases hand on to it (handOn),
+// one after another, so the messages queued on a busy service run on one green thread with no switch between them. A
+// turn is turnBehaviours behaviours at most, as maxon's runner takes 64 messages a turn, and ends sooner when the monitor
+// has asked the green thread to stop, which it could not do in the runtime's code between two behaviours, or when a
+// behaviour made a coroutine, whose strand the green thread now roots and which the next behaviour is no member of: the
+// behaviour handed on then goes to the tail of the processor's run queue, behind what waited meanwhile, as maxon's
+// runner yields after its 64, and the green thread finishes. A behaviour of the turn may be preempted, or park, as the
+// first may; the green thread holds only the cowns of the behaviour it runs, and the thread it runs on is read again after
+// each.
+function runTurn(g Count)
+	var ran = 1 as Count
+	while true 'turn'
+		let record = __Raw.loadWord(g, offset: greenHandedOffset)
+		if record == noBehaviour 'done'
+			return
+		end 'done'
+		__Raw.storeWord(g, offset: greenHandedOffset, value: noBehaviour)
+		if ran >= turnBehaviours or __Raw.loadAcquire(g, offset: greenPreemptOffset) == set or __Raw.loadWord(g, offset: greenStrandOffset) != noGreen 'ended'
+			behaviourRunnable(record, next: false)
+			return
+		end 'ended'
+		ran = __Raw.wrappingAdd(ran, right: 1)
+		_ = __Raw.callCode1(__Raw.loadWord(record, offset: behaviourRunOffset), arg1: record)
+	end 'turn'
+end 'runTurn'
 
 // giveStack gives a green thread that has not run a stack, and seeds the stack's switch record so that the first switch
 // onto it returns into rt.greenStart, which calls greenMain with the green thread.

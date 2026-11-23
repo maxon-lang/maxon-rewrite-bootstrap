@@ -1,6 +1,7 @@
 // 1,000 services with 1,000 messages each: one sender sends a message to each service in turn, a thousand rounds, so every
 // service has work queued while the others run, then awaits each service's total. Each message is a behaviour of its own
-// on its service's cown, and the services run on every core.
+// on its service's cown, the messages queued on a service run in turns on one green thread, and the services run on every
+// core.
 typealias Word = int(0 to u64.max)
 
 typealias Counters = Array with Counter.handle
