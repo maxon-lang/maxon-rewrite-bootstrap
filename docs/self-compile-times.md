@@ -72,3 +72,4 @@ neither.
 | 2026-11-22 | 4997b01 | panic line lookup and ownership borrow cache | 124903 | 2292 | 1799 | 1962 | 4088746 | 470.2 | 497.2 |
 | 2026-11-23 | d87df6e | two-word String (stage 1), lower split from inline | 126630 | 2297 | 1495 | 1469 | 4630314 | 527.2 | 554.7 |
 | 2026-11-23 | 0ecefbe | String elements in place, empty-slot panic entry | 126925 | 2408 | 1568 | 1573 | 4353898 | 511.3 | 543.9 |
+| 2026-11-23 | 882e693 | read-only literals, ASCII bit, StringBuilder | 127167 | 2291 | 1434 | 1672 | 4361642 | 516.0 | 540.5 |
