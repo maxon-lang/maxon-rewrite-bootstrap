@@ -71,3 +71,4 @@ neither.
 | 2026-11-22 | 2c02f3b | arm64 targets, swiss Map, service batching, String intrinsics | 124783 | 2213 | 2216 | 2254 | 4082349 | 482.2 | 500.6 |
 | 2026-11-22 | 4997b01 | panic line lookup and ownership borrow cache | 124903 | 2292 | 1799 | 1962 | 4088746 | 470.2 | 497.2 |
 | 2026-11-23 | d87df6e | two-word String (stage 1), lower split from inline | 126630 | 2297 | 1495 | 1469 | 4630314 | 527.2 | 554.7 |
+| 2026-11-23 | 0ecefbe | String elements in place, empty-slot panic entry | 126925 | 2408 | 1568 | 1573 | 4353898 | 511.3 | 543.9 |
