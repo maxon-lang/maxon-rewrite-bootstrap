@@ -373,7 +373,6 @@ error E2001: specs/lexer-parser-robustness/near-keyword-uppercase.maxon:6:1: Exp
 ### Random bytes: small fixed pseudo-random byte blobs
 
 <!-- test: random-printable-garbage-1 -->
-<!-- skip: minimaxon does not parse the converted source: unexpected character ';'; remove it, or move it into a string literal or a comment -->
 <!-- positions: moved -->
 ```maxon
 q1} ; + (= * foo,) bar
@@ -383,7 +382,6 @@ error E1010: specs/lexer-parser-robustness/random-printable-garbage-1.maxon:2:4:
 ```
 
 <!-- test: random-printable-garbage-2 -->
-<!-- skip: minimaxon does not parse the converted source: unexpected character '!' -->
 <!-- positions: moved -->
 ```maxon
 abc 123 def ! ? xyz
@@ -393,7 +391,6 @@ error E1010: specs/lexer-parser-robustness/random-printable-garbage-2.maxon:2:13
 ```
 
 <!-- test: random-printable-garbage-3 -->
-<!-- skip: minimaxon does not parse the converted source: unexpected character ';'; remove it, or move it into a string literal or a comment -->
 <!-- positions: moved -->
 ```maxon
 foo: bar baz ; qux | zap
@@ -418,7 +415,6 @@ error E2001: specs/lexer-parser-robustness/random-operator-soup-1.maxon:6:1: Exp
 ```
 
 <!-- test: random-operator-soup-2 -->
-<!-- skip: minimaxon does not parse the converted source: unexpected character '&'; remove it, or move it into a string literal or a comment -->
 <!-- positions: moved -->
 ```maxon
 == != <= >= & & | | < < > >
@@ -428,7 +424,6 @@ error E1010: specs/lexer-parser-robustness/random-operator-soup-2.maxon:2:13: Un
 ```
 
 <!-- test: random-operator-soup-3 -->
-<!-- skip: minimaxon does not parse the converted source: unexpected character ';'; remove it, or move it into a string literal or a comment -->
 <!-- positions: moved -->
 ```maxon
 .....,,,, ; ; ; ;
@@ -729,7 +724,6 @@ error E2010: specs/lexer-parser-robustness/repeated-keyword.maxon:6:19: Expected
 ### Truncated literals: partial tokens at unusual boundaries
 
 <!-- test: unterminated-string-followed-by-code -->
-<!-- skip: minimaxon does not parse the converted source: unterminated string literal -->
 Unterminated double-quoted string at end of line — lexer rejects with an
 unterminated-string diagnostic.
 ```maxon
@@ -744,7 +738,6 @@ error E1002: specs/lexer-parser-robustness/unterminated-string-followed-by-code.
 ```
 
 <!-- test: unterminated-interp -->
-<!-- skip: minimaxon does not parse the converted source: unterminated interpolation in string literal -->
 Unterminated interpolation — the inner expression's `}` is missing before the
 outer string's closing `"`. Lexer rejects with an unterminated-string
 diagnostic.
@@ -786,7 +779,6 @@ error E1007: specs/lexer-parser-robustness/unterminated-block-comment-with-newli
 ```
 
 <!-- test: bad-hex-escape-string -->
-<!-- skip: minimaxon does not parse the converted source: malformed hex escape -->
 ```maxon
 function main() returns ExitCode
 	let x = "\xZZ"
@@ -812,7 +804,6 @@ error E1004: specs/lexer-parser-robustness/bad-hex-escape-char.maxon:3:10: Inval
 ```
 
 <!-- test: short-unicode-escape -->
-<!-- skip: minimaxon does not parse the converted source: malformed hex escape -->
 ```maxon
 function main() returns ExitCode
 	let x = "\u12"
@@ -824,7 +815,6 @@ error E1004: specs/lexer-parser-robustness/short-unicode-escape.maxon:3:10: Inva
 ```
 
 <!-- test: non-hex-unicode-escape -->
-<!-- skip: minimaxon does not parse the converted source: malformed hex escape -->
 ```maxon
 function main() returns ExitCode
 	let x = "\uZZZZ"

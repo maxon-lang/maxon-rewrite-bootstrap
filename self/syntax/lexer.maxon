@@ -82,7 +82,7 @@ let utf8Max1 = 128 as Count
 
 let utf8Max2 = 2048 as Count
 
-// A surrogate is no code point of its own, so an escape that writes one writes the replacement character.
+// The surrogates are no Unicode scalar values, so an escape may not write one (E1004).
 let surrogateFirst = 55296 as Count
 
 let surrogateLast = 57343 as Count
@@ -287,24 +287,20 @@ function codepointText(cp Count) returns String
 	return "U+{hexText(cp, width: codepointDigits)}"
 end 'codepointText'
 
-// appendRune appends the UTF-8 bytes of a code point an escape writes, which is at most four hex digits.
+// appendRune appends the UTF-8 bytes of a code point an escape writes, which is at most four hex digits and no surrogate.
 function appendRune(mutates buf ByteArray, ch Count)
-	var r = ch
-	if r >= surrogateFirst and r <= surrogateLast 'surrogate'
-		r = replacementCharacter
-	end 'surrogate'
-	if r < utf8Max1 'one'
-		buf.push(try r as Byte otherwise panic("a one-byte rune exceeds a byte"))
+	if ch < utf8Max1 'one'
+		buf.push(try ch as Byte otherwise panic("a one-byte rune exceeds a byte"))
 		return
 	end 'one'
-	if r < utf8Max2 'two'
-		buf.push(try (utf8Lead2 or (r shr 6)) as Byte otherwise panic("a two-byte rune exceeds a byte"))
-		buf.push(try (utf8ContinuationTag or (r and utf8ContinuationBits)) as Byte otherwise panic("a continuation exceeds a byte"))
+	if ch < utf8Max2 'two'
+		buf.push(try (utf8Lead2 or (ch shr 6)) as Byte otherwise panic("a two-byte rune exceeds a byte"))
+		buf.push(try (utf8ContinuationTag or (ch and utf8ContinuationBits)) as Byte otherwise panic("a continuation exceeds a byte"))
 		return
 	end 'two'
-	buf.push(try (utf8Lead3 or (r shr 12)) as Byte otherwise panic("a three-byte rune exceeds a byte"))
-	buf.push(try (utf8ContinuationTag or ((r shr 6) and utf8ContinuationBits)) as Byte otherwise panic("a continuation exceeds a byte"))
-	buf.push(try (utf8ContinuationTag or (r and utf8ContinuationBits)) as Byte otherwise panic("a continuation exceeds a byte"))
+	buf.push(try (utf8Lead3 or (ch shr 12)) as Byte otherwise panic("a three-byte rune exceeds a byte"))
+	buf.push(try (utf8ContinuationTag or ((ch shr 6) and utf8ContinuationBits)) as Byte otherwise panic("a continuation exceeds a byte"))
+	buf.push(try (utf8ContinuationTag or (ch and utf8ContinuationBits)) as Byte otherwise panic("a continuation exceeds a byte"))
 end 'appendRune'
 
 type Lexer
@@ -913,6 +909,16 @@ type StringReader
 		end 'tooBig'
 	end 'requireByte'
 
+	// requireScalar refuses a surrogate, which is no Unicode scalar value, so no UTF-8 text holds it. Maxon reports it at
+	// the fragment of text it is in: the literal's quote for the first, and the byte after an interpolation for another.
+	function requireScalar(mutates self, src Source, mutates errs diag.ErrorList, codepoint Count) throws SyntaxError
+		if codepoint >= surrogateFirst and codepoint <= surrogateLast 'surrogate'
+			let fragment = open if run == after(open) else run
+			errs.push(src.errorAt(diag.errInvalidEscape, message: diag.surrogateEscape(), file: file, offset: fragment))
+			throw SyntaxError.refused
+		end 'surrogate'
+	end 'requireScalar'
+
 	function flushText(mutates self, src Source)
 		if collect 'collect'
 			if escaped 'decoded'
@@ -954,7 +960,9 @@ type StringReader
 			ch = try self.readHex(src, errs: errs, digits: 4 as Count)
 			if bytes 'narrow'
 				try self.requireByte(src, errs: errs, codepoint: ch)
-			end 'narrow'
+			end 'narrow' else 'text'
+				try self.requireScalar(src, errs: errs, codepoint: ch)
+			end 'text'
 		end 'unicode' else 'unknown'
 			let shown = runeAt(src.text, at: at, limit: limit)
 			throw self.fail(src, errs: errs, message: "unknown escape sequence '\\{shown}'", at: open)

@@ -42,13 +42,12 @@ error E1004: <fragment>:3:10: Malformed UTF-8 in character literal: a surrogate 
 ```
 
 <!-- test: error.surrogate-escape-in-a-string-literal -->
-<!-- positions: moved -->
 ### A string literal cannot spell a surrogate
 
 ```maxon
 function main() returns ExitCode
 	let s = "a\uDFFFb"
-	return try s.byteLength() as ExitCode otherwise panic("out of range")
+	return s.byteLength()
 end 'main'
 ```
 ```maxoncstderr
@@ -56,14 +55,13 @@ error E1004: <fragment>:3:10: Malformed UTF-8 in string interpolation: a surroga
 ```
 
 <!-- test: error.surrogate-escape-in-an-interpolated-string -->
-<!-- positions: moved -->
 ### A string fragment beside an interpolation cannot spell a surrogate
 
 ```maxon
 function main() returns ExitCode
 	let n = 7
 	let s = "{n}\uDC00"
-	return try s.byteLength() as ExitCode otherwise panic("out of range")
+	return s.byteLength()
 end 'main'
 ```
 ```maxoncstderr

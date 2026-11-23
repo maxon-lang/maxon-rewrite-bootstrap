@@ -38,8 +38,9 @@ const (
 	// the parser's message.
 	rejectedKindPrefix = "minimaxon does not parse the converted source: "
 
-	// A test that expects a syntax error from maxon (an E2xxx code) is about the source not parsing, so the source
-	// stays as converted and the runner compares the error.
+	// A test that expects an error of maxon's lexer or parser (an E1xxx or E2xxx code) is about the source not parsing,
+	// so the source stays as converted and the runner compares the error.
+	lexerErrorPrefix  = "error E1"
 	syntaxErrorPrefix = "error E2"
 	errorExpectation  = "maxoncstderr"
 )
@@ -273,5 +274,7 @@ func isErrorExpectation(fenceLine string) bool {
 }
 
 func hasSyntaxError(block []string) bool {
-	return slices.ContainsFunc(block, func(line string) bool { return strings.HasPrefix(line, syntaxErrorPrefix) })
+	return slices.ContainsFunc(block, func(line string) bool {
+		return strings.HasPrefix(line, lexerErrorPrefix) || strings.HasPrefix(line, syntaxErrorPrefix)
+	})
 }

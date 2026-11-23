@@ -403,7 +403,6 @@ end 'main'
 ```
 
 <!-- test: malformed-unicode-escape-in-a-string -->
-<!-- skip: minimaxon does not parse the converted source: malformed hex escape -->
 ### A malformed `\uNNNN` in a string is blamed at the escape
 `unicode-escape.invalid-too-few-digits` puts its escape at offset 0 of a character literal,
 so it cannot tell a column that tracks the escape from one that always names the opening quote.
@@ -418,7 +417,6 @@ error E1004: <fragment>:3:12: Invalid unicode escape '\uZZ': expected 4 hex digi
 ```
 
 <!-- test: malformed-escape-full-window -->
-<!-- skip: minimaxon does not parse the converted source: malformed hex escape -->
 ### A malformed `\uNNNN` quotes SIX bytes when six are there
 `availableUnicodeEscapeText` has two arms — the escape runs off the end of the literal body, or it does
 not — and every other malformed-escape case in the corpus takes the TRUNCATED one (`'\u00'` and

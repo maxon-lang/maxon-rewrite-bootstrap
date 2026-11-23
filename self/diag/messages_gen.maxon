@@ -470,6 +470,11 @@ export function byteStringCodepointRange(codepoint String, escape String) return
 	return "Codepoint {codepoint} exceeds the byte range 0-255 in byte string literal; use a {escape} hex escape to embed a raw byte"
 end 'byteStringCodepointRange'
 
+// The text of errInvalidEscape for: Malformed UTF-8 in string interpolation: a surrogate (U+D800 to U+DFFF) or an invalid byte sequence is not a Unicode scalar value
+export function surrogateEscape() returns String
+	return "Malformed UTF-8 in string interpolation: a surrogate (U+D800 to U+DFFF) or an invalid byte sequence is not a Unicode scalar value"
+end 'surrogateEscape'
+
 // The text of errErrorTypeMismatch for: type mismatch: ''{callee}' does not return a value'
 export function callReturnsNoValue(callee String) returns String
 	return "type mismatch: ''{callee}' does not return a value'"

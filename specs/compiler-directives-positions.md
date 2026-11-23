@@ -493,7 +493,6 @@ error E2065: specs/compiler-directives-positions/error.malformed-condition.maxon
 ```
 
 <!-- test: error.dead-branch-lexically-invalid -->
-<!-- skip: minimaxon does not parse the converted source: unterminated string literal -->
 <!-- positions: moved -->
 **A DEAD BRANCH IS STILL LEXED.** The whole file is tokenized before this pass runs at all, so
 lexical garbage in a branch nobody will parse is still an error — `E1002`, from the lexer, not from

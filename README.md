@@ -2013,6 +2013,9 @@ are a `Count`:
 | `__Raw.mulHigh(a, right: b)` | the high word of the 128-bit product of two words of no sign: one `mul` on x64, `umulh` on arm64 |
 | `__Raw.addressOf(word)` | the address of a local `Count`, passed `mutates`: an out-parameter of a DLL function |
 | `__Raw.stringAddress(text)`, `__Raw.stringAt(box)` | the box address of a borrowed `String`; a `String` that owns a box the runtime built |
+| `__Raw.stringBytes(text)`, `stringLength(text)`, `stringAscii(text)` | the address of the first byte of a borrowed `String`, its length in bytes, and whether each byte is known to be below 0x80 (false where nothing says so) |
+| `__Raw.stringRoom(capacity)`, `__Raw.freeStringRoom(bytes)`, `__Raw.stringOf(bytes, length: n, ascii: a)` | room for that many bytes that a `String` will own, zeroed; its free when no `String` took it; the `String` that owns the room, of its first `n` bytes |
+| `__Raw.stringSize()`, `__Raw.storeString(address, offset: o, bytes: b, length: n, ascii: a)`, `__Raw.stringBytesAt(address, offset: o)`, `stringLengthAt(...)` | the bytes a `String` takes in memory (an element of `Array with String`, a slot an entry fills); the `String` that owns room stored there; the first byte and the length of a `String` held there, which stays there |
 | `__Raw.heapAddress()`, `stdoutAddress()`, `stderrAddress()` | the address of a global of the entry stub |
 | `__Raw.callImport0(name)` to `__Raw.callImport10(name, arg1: a, ..., arg10: j)` | calls the library function `name`, a string literal (`E2004` otherwise), with that many words by the host convention, and gives what it returns: a DLL function of the import list on Windows, a libSystem function of `macosImports` on macOS |
 | `__Raw.syscall0(number)` to `__Raw.syscall6(number, arg1: a, ..., arg6: f)` | makes the system call of the number with that many words by Linux's system call convention, and gives what the kernel returns, `-errno` as a word when it failed; Linux only |
@@ -2045,7 +2048,11 @@ ordered access, atomic operation and `spinpause` reads and writes memory, so no 
 a plain `loadraw` or `storeraw` is ordered on x64 alone, so on arm64 a word that threads hand over without a lock
 needs an ordered access. The interpreter never runs the
 runtime's source, so it panics on each of them. The wrapping arithmetic is an unchecked `bin`, `addressOf`
-the `addr` of the local's slot, and `stringAddress` and `stringAt` the word itself. `self/backend` writes them
+the `addr` of the local's slot, and `stringAddress` and `stringAt` the word itself. The String operations after them
+say nothing of a String's layout, so one runtime source serves a compiler of either layout, the seed's among them (the
+seed compiles `runtime/` with its own layout when it builds C1): each lowers to the loads, stores, `rt.alloc` and
+`rt.free` of the layout of the compiler compiling it, here the box's (the bytes 8 past the box, room a box less its
+length word, `stringAscii` false, `stringSize` a word). `self/backend` writes them
 (`visitLoadRaw`, `visitStoreRaw`, `visitGlobalAddr`, `emitSyscall`, and `emitCallImport`, which aligns the stack itself, since a Maxon
 function's frame is not aligned, and keeps `rsp` in a value that allocation puts in a register Win64 keeps).
 
@@ -3806,6 +3813,7 @@ parameter handed `a` twice are true, two records built alike and a `.clone()` ar
 A source file is UTF-8, by Zig's rules and two more, each refused where it is:
 
 - Its bytes are well-formed UTF-8: no overlong form, surrogate, code point above U+10FFFF or broken sequence (`E1004`).
+  No escape writes a surrogate either: `"\uD800"` is `E1004`, as in maxon, and `�` is the placeholder.
 - It holds no control character (U+0000 to U+001F, U+007F) but a tab, a newline, and a carriage return directly before
   a newline (`E1900`); the layout then refuses that carriage return too (`E2001`).
 - It holds none of the Unicode line terminators NEL (U+0085), LS (U+2028) and PS (U+2029) (`E1901`).

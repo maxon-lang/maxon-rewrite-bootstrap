@@ -139,7 +139,6 @@ end 'main'
 ```
 
 <!-- test: hex-escape.invalid-short -->
-<!-- skip: minimaxon does not parse the converted source: malformed hex escape -->
 <!-- positions: moved -->
 
 ```maxon
@@ -153,7 +152,6 @@ error E1004: specs/hex-escape/hex-escape.invalid-short.maxon:3:15: Invalid hex e
 ```
 
 <!-- test: hex-escape.invalid-truncated -->
-<!-- skip: minimaxon does not parse the converted source: malformed hex escape -->
 <!-- positions: moved -->
 
 ```maxon

@@ -92,7 +92,6 @@ error E3004: <fragment>:5:9: call to undefined function 'undefinedCallee'
 ```
 
 <!-- test: shebang.only-on-the-first-line -->
-<!-- skip: minimaxon does not parse the converted source: incomplete directive -->
 <!-- positions: moved -->
 ⛔ **A CONTROL, and it is GREEN BOTH BEFORE AND AFTER the rule above.** `#!` on any line but the first
 is the unknown directive `#`, unchanged. It is here because the rule is a WIDENING of what the lexer

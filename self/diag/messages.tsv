@@ -100,6 +100,7 @@ throwMismatch	ErrErrorTypeMismatch	type mismatch: 'throw of '{errorType}' but th
 unionNotComparable	ErrEnumNotComparable	cannot compare union values using '{op}', use 'match' instead
 constructorRestricted	ErrConstructorRestriction	type '{typeName}' can only be constructed from within its own methods; use a static factory method instead
 byteStringCodepointRange	ErrInvalidEscape	Codepoint {codepoint} exceeds the byte range 0-255 in byte string literal; use a {escape} hex escape to embed a raw byte
+surrogateEscape	ErrInvalidEscape	Malformed UTF-8 in string interpolation: a surrogate (U+D800 to U+DFFF) or an invalid byte sequence is not a Unicode scalar value
 callReturnsNoValue	ErrErrorTypeMismatch	type mismatch: ''{callee}' does not return a value'
 ifTryDiscardsResult	ErrIfTryDiscardsResult	'if try' discards the result of '{callee}': only a call that returns nothing may be tested bare — bind the result with 'if let'
 tryBlockBindingNotMatched	ErrTryBlockBindingNotMatched	otherwise block must contain a match on the error binding '{bindingName}'

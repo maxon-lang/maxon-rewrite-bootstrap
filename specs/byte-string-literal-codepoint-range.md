@@ -27,7 +27,6 @@ so the input is rejected instead and this whole spec is marked
 ## Tests
 
 <!-- test: error.byte-string-literal.codepoint-literal-latin-extended -->
-<!-- skip: minimaxon does not parse the converted source: Codepoint U+0100 exceeds the byte range 0-255 in byte string literal; use a \xNN hex escape to embed a raw byte -->
 ```maxon
 function main() returns ExitCode
 	let bytes = b"Ā"
@@ -39,7 +38,6 @@ error E1004: <fragment>:3:14: Codepoint U+0100 exceeds the byte range 0-255 in b
 ```
 
 <!-- test: error.byte-string-literal.codepoint-uni-escape -->
-<!-- skip: minimaxon does not parse the converted source: Codepoint U+0100 exceeds the byte range 0-255 in byte string literal; use a \xNN hex escape to embed a raw byte -->
 ```maxon
 function main() returns ExitCode
 	let bytes = b"\u0100"
@@ -51,7 +49,6 @@ error E1004: <fragment>:3:14: Codepoint U+0100 exceeds the byte range 0-255 in b
 ```
 
 <!-- test: error.byte-string-literal.codepoint-emoji -->
-<!-- skip: minimaxon does not parse the converted source: Codepoint U+1f600 exceeds the byte range 0-255 in byte string literal; use a \xNN hex escape to embed a raw byte -->
 ```maxon
 function main() returns ExitCode
 	let bytes = b"😀"

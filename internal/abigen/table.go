@@ -40,9 +40,9 @@ var layouts = []layoutConst{
 	{"tagOffset", 0, false, toSelfIR,
 		"where a union box holds its case index; the payload follows it."},
 
-	{"stringLengthOffset", 0, false, toRuntime | toSelfBack,
+	{"stringLengthOffset", 0, false, toRuntime | toSelfIR | toSelfBack,
 		"where a String's box holds its length in bytes, a word."},
-	{"stringBytesOffset", 1, false, toRuntime | toSelfBack,
+	{"stringBytesOffset", 1, false, toRuntime | toSelfIR | toSelfBack,
 		"where a String's bytes begin, UTF-8 with no terminator."},
 
 	// A byte array's box is an array's box, so its routines read the same offsets; only its buffer differs.

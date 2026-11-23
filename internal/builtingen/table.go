@@ -472,6 +472,23 @@ func rawFunctions() []function {
 		own(raw("addressOf", []string{"mutates word Count"}, "Count", "RawAddressOf")),
 		raw("stringAddress", []string{"text String"}, "Count", "RawStringAddress"),
 		raw("stringAt", []string{"box Count"}, "String", "RawStringAt"),
+		// The String operations that say nothing of its layout, which the compiler compiling the runtime lays out as it
+		// lays out a String, so one runtime source serves the compiler of either layout (the seed's among them): the
+		// address of a borrowed string's first byte, its length in bytes and whether each byte is known to be below
+		// 0x80 (false where nothing says so); room for a number of bytes that a String will own, which no String
+		// took until stringOf, and its free when none does; the String that owns the room, of its first bytes, ascii saying
+		// that each is below 0x80; the bytes a String takes in memory, an element of an array of strings; that String
+		// stored in memory; and the first byte and the length of a String held in memory, which stays there.
+		raw("stringBytes", []string{"text String"}, "Count", "RawStringBytes"),
+		raw("stringLength", []string{"text String"}, "Count", "RawStringLength"),
+		raw("stringAscii", []string{"text String"}, "Bool", "RawStringAscii"),
+		raw("stringRoom", []string{"capacity Count"}, "Count", "RawStringRoom"),
+		raw("freeStringRoom", []string{"bytes Count"}, "", "RawFreeStringRoom"),
+		raw("stringOf", []string{"bytes Count", "length Count", "ascii Bool"}, "String", "RawStringOf"),
+		raw("stringSize", nil, "Count", "RawStringSize"),
+		raw("storeString", append(slices.Clone(at), "bytes Count", "length Count", "ascii Bool"), "", "RawStoreString"),
+		raw("stringBytesAt", at, "Count", "RawStringBytesAt"),
+		raw("stringLengthAt", at, "Count", "RawStringLengthAt"),
 		raw("heapAddress", nil, "Count", "RawHeapAddress"),
 		raw("stdoutAddress", nil, "Count", "RawStdoutAddress"),
 		raw("stderrAddress", nil, "Count", "RawStderrAddress"),

@@ -560,6 +560,36 @@ export function intrinsicCall(mutates l Lowerer, p ast.Project, mutates ms ast.M
 	if op == ast.Intrinsic.intrRawStringAt 'intrRawStringAt'
 		return lowerRawStringAt(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrRawStringAt'
+	if op == ast.Intrinsic.intrRawStringBytes 'intrRawStringBytes'
+		return lowerRawStringBytes(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrRawStringBytes'
+	if op == ast.Intrinsic.intrRawStringLength 'intrRawStringLength'
+		return lowerRawStringLength(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrRawStringLength'
+	if op == ast.Intrinsic.intrRawStringAscii 'intrRawStringAscii'
+		return lowerRawStringAscii(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrRawStringAscii'
+	if op == ast.Intrinsic.intrRawStringRoom 'intrRawStringRoom'
+		return lowerRawStringRoom(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrRawStringRoom'
+	if op == ast.Intrinsic.intrRawFreeStringRoom 'intrRawFreeStringRoom'
+		return lowerRawFreeStringRoom(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrRawFreeStringRoom'
+	if op == ast.Intrinsic.intrRawStringOf 'intrRawStringOf'
+		return lowerRawStringOf(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrRawStringOf'
+	if op == ast.Intrinsic.intrRawStringSize 'intrRawStringSize'
+		return lowerRawStringSize(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrRawStringSize'
+	if op == ast.Intrinsic.intrRawStoreString 'intrRawStoreString'
+		return lowerRawStoreString(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrRawStoreString'
+	if op == ast.Intrinsic.intrRawStringBytesAt 'intrRawStringBytesAt'
+		return lowerRawStringBytesAt(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrRawStringBytesAt'
+	if op == ast.Intrinsic.intrRawStringLengthAt 'intrRawStringLengthAt'
+		return lowerRawStringLengthAt(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrRawStringLengthAt'
 	if op == ast.Intrinsic.intrRawHeapAddress 'intrRawHeapAddress'
 		return lowerRawHeapAddress(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrRawHeapAddress'
@@ -1186,6 +1216,36 @@ export function ownsOperands(op ast.Intrinsic) returns bool
 	if op == ast.Intrinsic.intrRawStringAt 'intrRawStringAt'
 		return false
 	end 'intrRawStringAt'
+	if op == ast.Intrinsic.intrRawStringBytes 'intrRawStringBytes'
+		return false
+	end 'intrRawStringBytes'
+	if op == ast.Intrinsic.intrRawStringLength 'intrRawStringLength'
+		return false
+	end 'intrRawStringLength'
+	if op == ast.Intrinsic.intrRawStringAscii 'intrRawStringAscii'
+		return false
+	end 'intrRawStringAscii'
+	if op == ast.Intrinsic.intrRawStringRoom 'intrRawStringRoom'
+		return false
+	end 'intrRawStringRoom'
+	if op == ast.Intrinsic.intrRawFreeStringRoom 'intrRawFreeStringRoom'
+		return false
+	end 'intrRawFreeStringRoom'
+	if op == ast.Intrinsic.intrRawStringOf 'intrRawStringOf'
+		return false
+	end 'intrRawStringOf'
+	if op == ast.Intrinsic.intrRawStringSize 'intrRawStringSize'
+		return false
+	end 'intrRawStringSize'
+	if op == ast.Intrinsic.intrRawStoreString 'intrRawStoreString'
+		return false
+	end 'intrRawStoreString'
+	if op == ast.Intrinsic.intrRawStringBytesAt 'intrRawStringBytesAt'
+		return false
+	end 'intrRawStringBytesAt'
+	if op == ast.Intrinsic.intrRawStringLengthAt 'intrRawStringLengthAt'
+		return false
+	end 'intrRawStringLengthAt'
 	if op == ast.Intrinsic.intrRawHeapAddress 'intrRawHeapAddress'
 		return false
 	end 'intrRawHeapAddress'
