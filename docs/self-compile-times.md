@@ -74,3 +74,4 @@ neither.
 | 2026-11-23 | 0ecefbe | String elements in place, empty-slot panic entry | 126925 | 2408 | 1568 | 1573 | 4353898 | 511.3 | 543.9 |
 | 2026-11-23 | 882e693 | read-only literals, ASCII bit, StringBuilder | 127167 | 2291 | 1434 | 1672 | 4361642 | 516.0 | 540.5 |
 | 2026-11-23 | b64577c | debug info behind a flag; one-allocation interpolation, builder and append removed | 129770 | 2305 | 1521 | 1444 | 4355178 | 526.4 | 545.6 |
+| 2026-11-23 | 9dbfc6e | String views, var views, debug-info locals, E3944 removed, seed renewed | 131958 | 1792 | 1684 | 1652 | 4437738 | 526.4 | 546.6 |
