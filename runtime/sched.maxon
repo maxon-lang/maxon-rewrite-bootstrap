@@ -253,9 +253,18 @@ end 'workerMain'
 let workerLoop = 0 as Count
 
 // scheduleLoop is Go's schedule, on the thread's own stack: it finds a green thread and runs it until it switches back,
-// for good, or on the main thread after main until nothing is left.
+// for good, or on the main thread after main until nothing is left. A thread that a green thread is pinned to runs that
+// one alone, and a green thread pinned to another thread is handed to it; while no green thread is pinned, neither is
+// read.
 function scheduleLoop(context Count)
+	let scheduler = __Raw.loadWord(context, offset: contextSchedulerOffset)
 	while true 'schedule'
+		let pins = __Raw.loadAcquire(scheduler, offset: schedPinnedOffset) != 0
+		if pins and pinnedGreen(context) != noGreen 'pinned'
+			stopPinned(context)
+			execute(context, entry: pinnedGreen(context))
+			continue 'schedule'
+		end 'pinned'
 		if __Raw.loadWord(context, offset: contextProcOffset) == noProc 'noProc'
 			if not stopThread(context) 'ended'
 				return
@@ -268,9 +277,46 @@ function scheduleLoop(context Count)
 		if __Raw.loadWord(context, offset: contextSpinningOffset) == set 'spinning'
 			resetSpinning(context)
 		end 'spinning'
+		if pins and not isBehaviourEntry(g) and __Raw.loadWord(g, offset: greenLockedOffset) != noThread 'elsewhere'
+			startPinned(context, g: g)
+			continue 'schedule'
+		end 'elsewhere'
 		execute(context, entry: g)
 	end 'schedule'
 end 'scheduleLoop'
+
+// pinnedGreen is the green thread pinned to a thread (Go's m.lockedg), noGreen for none.
+function pinnedGreen(context Count) returns Count
+	return __Raw.loadWord(threadBlockSwitch(context), offset: threadBlockLockedOffset)
+end 'pinnedGreen'
+
+// stopPinned is Go's stoplockedm: a thread whose pinned green thread has parked, yielded or lost the thread's processor
+// runs no other green thread, so it hands its processor to another thread and waits until the thread that takes the
+// green thread from a queue hands it one to run it with (startPinned). The handed processor is the wake's signal, read
+// after the flag is set, so a hand-off that comes before the wait is not lost.
+function stopPinned(context Count)
+	if __Raw.loadWord(context, offset: contextProcOffset) != noProc 'held'
+		handOffProc(__Raw.loadWord(context, offset: contextSchedulerOffset), proc: releaseProc(context))
+	end 'held'
+	while true 'wait'
+		_ = __Raw.atomicExchange(context, offset: contextStoppedOffset, value: set)
+		let proc = __Raw.atomicExchange(context, offset: contextNextProcOffset, value: noProc)
+		if proc != noProc 'handed'
+			__Raw.storeWord(context, offset: contextStoppedOffset, value: unset)
+			acquireProc(context, proc: proc)
+			return
+		end 'handed'
+		waitStopped(context)
+	end 'wait'
+end 'stopPinned'
+
+// startPinned is Go's startlockedm: a green thread taken from a queue that is pinned to another thread runs there, on
+// this thread's processor, which this thread hands over, to stop until it is handed one again.
+function startPinned(context Count, g Count)
+	let pinnedTo = __Raw.loadWord(g, offset: greenLockedOffset)
+	_ = __Raw.atomicExchange(pinnedTo, offset: contextNextProcOffset, value: releaseProc(context))
+	wakeThread(pinnedTo)
+end 'startPinned'
 
 // findRunnable is Go's: the next green thread for the thread's processor, from its timers, its run queue, the global run
 // queue, the poller and the other processors' queues, or else the processor goes idle and the thread waits, in the poller

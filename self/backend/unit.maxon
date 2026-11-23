@@ -70,14 +70,15 @@ end 'DataFixup'
 
 export typealias DataFixupList = Array with DataFixup
 
-// ImportFixup is a reference of a kind to the import slot of the index-th imported name, written at pos.
+// ImportFixup is a reference of a kind to the import slot of a library function, by its name, written at pos. The link
+// gives a slot to each function that a live section calls, and to no other.
 export type ImportFixup
 	export var kind as FixupKind
 	export var pos as Count
-	export var index as Count
+	export var name as String
 
-	export static function make(kind FixupKind, pos Count, index Count) returns ImportFixup
-		return ImportFixup{kind: kind, pos: pos, index: index}
+	export static function make(kind FixupKind, pos Count, name String) returns ImportFixup
+		return ImportFixup{kind: kind, pos: pos, name: name.clone()}
 	end 'make'
 end 'ImportFixup'
 
@@ -150,9 +151,9 @@ export type Asm
 		symbolFixups.push(SymbolFixup.make(kind, pos: at, symbol: symbol.clone()))
 	end 'addSymbolFixup'
 
-	// addImportFixup notes a field of a kind at at that refers to the import slot of the index-th imported name.
-	function addImportFixup(mutates self, kind FixupKind, at Count, index Count)
-		importFixups.push(ImportFixup.make(kind, pos: at, index: index))
+	// addImportFixup notes a field of a kind at at that refers to the import slot of the library function of a name.
+	function addImportFixup(mutates self, kind FixupKind, at Count, name String)
+		importFixups.push(ImportFixup.make(kind, pos: at, name: name))
 	end 'addImportFixup'
 
 	// newLabel makes a label that stays valid until the next section starts.

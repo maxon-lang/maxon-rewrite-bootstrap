@@ -439,3 +439,68 @@ function entryOsRun(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 		giveNum(vm, x: x, n: code)
 	end 'ran'
 end 'entryOsRun'
+
+// entrySchedPin pins nothing: the interpreter runs one thread, which every green thread is on.
+function entrySchedPin(mutates vm Vm, f ir.IrFunction, x ir.Instr)
+	giveNum(vm, x: x, n: 1)
+end 'entrySchedPin'
+
+function entrySchedUnpin(mutates vm Vm, f ir.IrFunction, x ir.Instr)
+end 'entrySchedUnpin'
+
+// The debug port's entries halt: the interpreter drives no debuggee, so a program that does says `// native-only`.
+function entryDebugLaunch(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	debugPortNotInterpreted()
+end 'entryDebugLaunch'
+
+function entryDebugWaitEvent(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	debugPortNotInterpreted()
+end 'entryDebugWaitEvent'
+
+function entryDebugContinueEvent(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	debugPortNotInterpreted()
+end 'entryDebugContinueEvent'
+
+function entryDebugReadMemory(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	debugPortNotInterpreted()
+end 'entryDebugReadMemory'
+
+function entryDebugWriteCode(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	debugPortNotInterpreted()
+end 'entryDebugWriteCode'
+
+function entryDebugReadContext(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	debugPortNotInterpreted()
+end 'entryDebugReadContext'
+
+function entryDebugWriteContext(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	debugPortNotInterpreted()
+end 'entryDebugWriteContext'
+
+function entryDebugSuspend(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	debugPortNotInterpreted()
+end 'entryDebugSuspend'
+
+function entryDebugResume(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	debugPortNotInterpreted()
+end 'entryDebugResume'
+
+function entryDebugBreakIn(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	debugPortNotInterpreted()
+end 'entryDebugBreakIn'
+
+function entryDebugDetach(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	debugPortNotInterpreted()
+end 'entryDebugDetach'
+
+function entryDebugCloseHandle(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	debugPortNotInterpreted()
+end 'entryDebugCloseHandle'
+
+function entryDebugTerminate(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	debugPortNotInterpreted()
+end 'entryDebugTerminate'
+
+function debugPortNotInterpreted()
+	panic("interp: the debug port is not run by the interpreter: mark the program native-only")
+end 'debugPortNotInterpreted'

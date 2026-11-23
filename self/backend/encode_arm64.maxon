@@ -271,7 +271,7 @@ function arm64EncodeTarget(mutates u CodeUnit, fn MirFunction, lay BlockLayout, 
 		edge then u.asm.arm64UseLabel(lay.label(fn, edge: refIndex(x)), kind: arm64FixupKindOf(x))
 		symbol then u.asm.arm64NoteSymbol(arm64FixupKindOf(x), symbol: fn.symbols[refIndex(x)])
 		data then u.asm.arm64NoteData(arm64FixupKindOf(x), dataOffset: refIndex(x))
-		importSlot then u.asm.arm64NoteImport(arm64FixupKindOf(x), index: refIndex(x))
+		importSlot then u.asm.arm64NoteImport(arm64FixupKindOf(x), name: fn.symbols[refIndex(x)])
 	end 'ref'
 end 'arm64EncodeTarget'
 

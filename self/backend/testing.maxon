@@ -79,7 +79,7 @@ export function runtimeUnit(count bool) returns CodeUnit
 	u.asm.mov(r8, src: x64InternalArg(0))
 	u.asm.loadSymbol(rcx, symbol: ir.rtSymbol(ir.Rt.rtHeap))
 	u.asm.movImm(rdx, imm: 8)
-	u.asm.callImport(impHeapAlloc)
+	u.asm.callImport("HeapAlloc")
 	if count 'allocCount'
 		asmCountLive(u, delta: 1)
 	end 'allocCount'
@@ -96,7 +96,7 @@ export function runtimeUnit(count bool) returns CodeUnit
 	end 'freeCount'
 	u.asm.loadSymbol(rcx, symbol: ir.rtSymbol(ir.Rt.rtHeap))
 	u.asm.bitXor(rdx, src: rdx)
-	u.asm.callImport(impHeapFree)
+	u.asm.callImport("HeapFree")
 	u.asm.bind(freed)
 	asmEpilogue(u)
 	u.defineCode(ir.rtSymbol(ir.Rt.rtWrite))
@@ -108,7 +108,7 @@ export function runtimeUnit(count bool) returns CodeUnit
 	u.asm.lea(r9, base: rsp, disp: 40)
 	u.asm.bitXor(rax, src: rax)
 	u.asm.store(rsp, disp: 32, src: rax)
-	u.asm.callImport(impWriteFile)
+	u.asm.callImport("WriteFile")
 	asmEpilogue(u)
 	u.defineCode(ir.rtSymbol(ir.Rt.rtItoa))
 	u.asm.leaData(result, dataOffset: u.data.textOffset("?"))
@@ -122,13 +122,13 @@ export function runtimeUnit(count bool) returns CodeUnit
 	u.asm.test(rcx, right: rcx)
 	u.asm.jcc(MCond.equal, label: clean)
 	u.asm.movImm(rcx, imm: testLeakExitCode)
-	u.asm.callImport(impExitProcess)
+	u.asm.callImport("ExitProcess")
 	u.asm.bind(clean)
 	asmEpilogue(u)
 	u.defineCode(ir.rtSymbol(ir.Rt.rtPanic))
 	asmPrologue(u)
 	u.asm.movImm(rcx, imm: testPanicExitCode)
-	u.asm.callImport(impExitProcess)
+	u.asm.callImport("ExitProcess")
 	return u
 end 'runtimeUnit'
 

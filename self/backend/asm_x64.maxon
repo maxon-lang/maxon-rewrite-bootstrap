@@ -292,8 +292,8 @@ extension Asm
 		self.addSymbolFixup(FixupKind.rel32, at: lastField32(code), symbol: symbol)
 	end 'noteSymbolFixup'
 
-	function noteImportFixup(mutates self, index Count)
-		self.addImportFixup(FixupKind.rel32, at: lastField32(code), index: index)
+	function noteImportFixup(mutates self, name String)
+		self.addImportFixup(FixupKind.rel32, at: lastField32(code), name: name)
 	end 'noteImportFixup'
 
 	export function loadSymbol(mutates self, dst X64Register, symbol String)
@@ -311,10 +311,10 @@ extension Asm
 		self.noteSymbolFixup(symbol)
 	end 'leaSymbol'
 
-	// callImport calls through the import slot of the index-th name of the executable's imports.
-	export function callImport(mutates self, index Count)
+	// callImport calls a DLL function of a name through its import slot.
+	export function callImport(mutates self, name String)
 		encodeCallRip(code, disp: 0)
-		self.noteImportFixup(index)
+		self.noteImportFixup(name)
 	end 'callImport'
 
 	// callSymbol calls a function that another unit, or this one, defines, which the linker finds by its symbol.

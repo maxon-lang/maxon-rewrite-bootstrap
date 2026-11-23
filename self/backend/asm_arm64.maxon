@@ -120,8 +120,8 @@ extension Asm
 		self.addDataFixup(kind, at: arm64LastWord(code), dataOffset: dataOffset)
 	end 'arm64NoteData'
 
-	function arm64NoteImport(mutates self, kind FixupKind, index Count)
-		self.addImportFixup(kind, at: arm64LastWord(code), index: index)
+	function arm64NoteImport(mutates self, kind FixupKind, name String)
+		self.addImportFixup(kind, at: arm64LastWord(code), name: name)
 	end 'arm64NoteImport'
 
 	export function arm64Mov(mutates self, dst Arm64Register, src Arm64Register)
@@ -338,13 +338,13 @@ extension Asm
 		encodeArm64Blr(code, target: reg)
 	end 'arm64CallRegister'
 
-	// arm64CallImport calls the function of the index-th name of the system's imports through its slot of the global
-	// offset table, which the loader fills: its page, the word at its low bits in the scratch register, and a call of it.
-	export function arm64CallImport(mutates self, index Count)
+	// arm64CallImport calls the library function of a name through its slot of the global offset table, which the loader
+	// fills: its page, the word at its low bits in the scratch register, and a call of it.
+	export function arm64CallImport(mutates self, name String)
 		encodeArm64Adrp(code, dest: arm64Scratch, pages: 0)
-		self.arm64NoteImport(FixupKind.page21, index: index)
+		self.arm64NoteImport(FixupKind.page21, name: name)
 		encodeArm64Ldr64PageOff(code, dest: arm64Scratch, base: arm64Scratch, offset: 0)
-		self.arm64NoteImport(FixupKind.pageOffset12Word, index: index)
+		self.arm64NoteImport(FixupKind.pageOffset12Word, name: name)
 		encodeArm64Blr(code, target: arm64Scratch)
 	end 'arm64CallImport'
 

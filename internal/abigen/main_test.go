@@ -27,24 +27,17 @@ func TestImportsFileIsCurrent(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !bytes.Equal(bytes.ReplaceAll(got, []byte("\r\n"), []byte("\n")), []byte(importsMaxon(importNames, macosImports))) {
+	if !bytes.Equal(bytes.ReplaceAll(got, []byte("\r\n"), []byte("\n")), []byte(importsMaxon(macosImports))) {
 		t.Errorf("%s is not what the import list generates; run `go generate ./internal/abigen`", importsFile)
 	}
 }
 
-// literalImport matches a library function named by a string literal: a call of the runtime's `__Raw.callImportN` or
-// the entry stub's `importIndex`. The runtime's macOS source is in its files named macos*, and calls libSystem; every
-// other file calls the DLL functions of Windows.
-var literalImport = regexp.MustCompile(`(?:callImport(\d+)|importIndex)\("([A-Za-z0-9_]+)"`)
+// literalImport matches a libSystem function named by a string literal: a call of the runtime's `__Raw.callImportN` in
+// its macOS source, its files named macos*, or the arm64 entry stub's `arm64CallImport`. A DLL function of Windows needs
+// no list: a PE imports those its live code calls, by their names.
+var literalImport = regexp.MustCompile(`(?:callImport(\d+)|arm64CallImport)\("([A-Za-z0-9_]+)"`)
 
 func TestEveryImportTheCodeCallsIsListed(t *testing.T) {
-	listed := make(map[string]bool)
-	for _, n := range importNames {
-		if listed[n] {
-			t.Errorf("import %s is listed twice", n)
-		}
-		listed[n] = true
-	}
 	libSystem := make(map[string]libSystemFunction)
 	for _, f := range macosImports {
 		if _, ok := libSystem[f.name]; ok {
@@ -64,10 +57,7 @@ func TestEveryImportTheCodeCallsIsListed(t *testing.T) {
 			}
 			macos := strings.HasPrefix(filepath.Base(file), "macos")
 			for _, m := range literalImport.FindAllStringSubmatch(string(src), -1) {
-				if !macos {
-					if !listed[m[2]] {
-						t.Errorf("%s calls the DLL function %s, which the import list in imports.go lacks; add it at the end", file, m[2])
-					}
+				if m[1] != "" && !macos {
 					continue
 				}
 				f, ok := libSystem[m[2]]

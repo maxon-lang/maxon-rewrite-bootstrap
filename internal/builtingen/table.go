@@ -207,6 +207,10 @@ var recordTypes = []recordType{
 	// FileInfo is maxon's: the size and the times of a file, in Unix seconds on the file system's clock, and its attributes.
 	{Key: "FileInfo", Name: "FileInfo", Fields: []string{"let size Count", "let modifiedTime Count", "let createdTime Count", "let accessedTime Count", "let isDirectory Bool", "let isReadOnly Bool"}},
 	{Key: "Subprocess", Name: "Subprocess"},
+	// Debuggee is the host's debug interface that the compiler's debugger drives a program through from outside it, maxon's
+	// stdlib Debuggee.maxon: its DebugPort's Win32 verbs (maxon's __Builtins.debug* under it) as static functions over
+	// handles, ids and byte arrays, since the compiler, which is no library tier, calls them.
+	{Key: "Debuggee", Name: "Debuggee"},
 	// Raw is maxon's __Raw: the closed set of raw machine and OS operations the runtime's source is written on, which
 	// only the runtime module may call (runtimeOnly).
 	{Key: "Raw", Name: "__Raw"},
@@ -364,6 +368,18 @@ var enumTypes = []enumType{
 		{"detachRefused", "ErrorDetachRefused"},
 		{"inputTooLarge", "ErrorInputTooLarge"},
 		{"statusLost", "ErrorStatusLost"},
+	}},
+	// DebuggeeError is maxon's: what a read or a write of a debuggee's memory or registers fails with.
+	{Key: "DebuggeeError", Name: "DebuggeeError", Cases: []enumCase{
+		{"unreadable", "ErrorDebuggeeUnreadable"},
+		{"unwritable", "ErrorDebuggeeUnwritable"},
+		{"outOfBounds", "ErrorDebuggeeOutOfBounds"},
+	}},
+	// DebugDisposition is maxon's: whether the debugger handled the event it continues past, or hands an exception on to
+	// the program.
+	{Key: "DebugDisposition", Name: "DebugDisposition", Cases: []enumCase{
+		{"handled", "DispositionHandled"},
+		{"unhandled", "DispositionUnhandled"},
 	}},
 	{Key: "StringError", Name: "StringError", Cases: []enumCase{
 		{"notFound", "ErrorStringNotFound"},
@@ -732,6 +748,11 @@ var tableFunctions = []function{
 	// yield is maxon's Scheduler.yield: the coroutines of the caller's strand that wait to run, else the green threads that
 	// are runnable, run before the caller goes on.
 	{Owner: "Scheduler", Name: "yield", Static: true, Intrinsic: "SchedulerYield"},
+	// pinToMachine and unpinFromMachine are maxon's, Go's LockOSThread and UnlockOSThread: the calling green thread runs only
+	// on the thread running it now, and that thread runs no other green thread, until as many unpins as pins. A pin gives
+	// whether there is a machine to pin to, which off a green thread is the thread itself.
+	{Owner: "Scheduler", Name: "pinToMachine", Static: true, Result: "Bool", Intrinsic: "SchedulerPinToMachine"},
+	{Owner: "Scheduler", Name: "unpinFromMachine", Static: true, Intrinsic: "SchedulerUnpinFromMachine"},
 	// sleep is maxon's: the running green thread parks for at least the milliseconds, and its strand's other coroutines run
 	// meanwhile.
 	{Name: "sleep", Params: []string{"milliseconds Milliseconds"}, Intrinsic: "Sleep"},
@@ -770,6 +791,27 @@ var tableFunctions = []function{
 	// still running when the deadline passes is terminated, and the run throws timeout.
 	{Owner: "Subprocess", Name: "runWithDeadline", Static: true, Params: []string{"executable Executable", "arguments Array with String", "deadline WaitDeadline"}, Result: "CollectedOutput", Throws: "SubprocessError", Intrinsic: "SubprocessRunWithDeadline"},
 	{Owner: "CollectedOutput", Name: "exitCode", Result: "ExitCode", Intrinsic: "CollectedOutputExitCode"},
+	// The debug port, maxon's DebugPort over the Win32 debug API, as Debuggee's static functions; Windows only, so a call of
+	// one on another system panics, as maxon's windowsDebugCall does. launch starts the program as the caller's debuggee
+	// (DEBUG_ONLY_THIS_PROCESS), its output and error the caller's own or both the caller's error, and gives its process id;
+	// the thread that launched it is the one that may wait for its events, so the caller pins itself to its machine first.
+	// waitEvent gives the DEBUG_EVENT that came within the milliseconds, its bytes as the system wrote them, or none when
+	// none did. A process or thread is named by the handle its event gave.
+	{Owner: "Debuggee", Name: "launch", Static: true, Params: []string{"executable Executable", "arguments Array with String", "outputToError Bool"}, Result: "Count", Throws: "SubprocessError", Intrinsic: "DebuggeeLaunch"},
+	{Owner: "Debuggee", Name: "waitEvent", Static: true, Params: []string{"budgetMs Count"}, Result: "Array with Byte", Intrinsic: "DebuggeeWaitEvent"},
+	{Owner: "Debuggee", Name: "continueEvent", Static: true, Params: []string{"processId Count", "thread Count", "disposition DebugDisposition"}, Result: "Bool", Intrinsic: "DebuggeeContinueEvent"},
+	{Owner: "Debuggee", Name: "readMemory", Static: true, Params: []string{"process Count", "address Count", "count Count"}, Result: "Array with Byte", Throws: "DebuggeeError", Intrinsic: "DebuggeeReadMemory"},
+	// writeCode lifts the protection of the code it writes and puts it back, and flushes the instruction cache over it.
+	{Owner: "Debuggee", Name: "writeCode", Static: true, Params: []string{"process Count", "address Count", "content Array with Byte"}, Throws: "DebuggeeError", Intrinsic: "DebuggeeWriteCode"},
+	// readContext gives a thread's CONTEXT, its control, integer and floating-point registers, and writeContext writes one back.
+	{Owner: "Debuggee", Name: "readContext", Static: true, Params: []string{"thread Count"}, Result: "Array with Byte", Throws: "DebuggeeError", Intrinsic: "DebuggeeReadContext"},
+	{Owner: "Debuggee", Name: "writeContext", Static: true, Params: []string{"thread Count", "context Array with Byte"}, Throws: "DebuggeeError", Intrinsic: "DebuggeeWriteContext"},
+	{Owner: "Debuggee", Name: "suspend", Static: true, Params: []string{"thread Count"}, Result: "Bool", Intrinsic: "DebuggeeSuspend"},
+	{Owner: "Debuggee", Name: "resume", Static: true, Params: []string{"thread Count"}, Result: "Bool", Intrinsic: "DebuggeeResume"},
+	{Owner: "Debuggee", Name: "breakIn", Static: true, Params: []string{"process Count"}, Result: "Bool", Intrinsic: "DebuggeeBreakIn"},
+	{Owner: "Debuggee", Name: "detach", Static: true, Params: []string{"processId Count"}, Result: "Bool", Intrinsic: "DebuggeeDetach"},
+	{Owner: "Debuggee", Name: "closeHandle", Static: true, Params: []string{"handle Count"}, Intrinsic: "DebuggeeCloseHandle"},
+	{Owner: "Debuggee", Name: "terminate", Static: true, Params: []string{"process Count", "exitCode Count"}, Result: "Bool", Intrinsic: "DebuggeeTerminate"},
 	{Owner: "CollectedOutput", Name: "succeeded", Result: "Bool", Intrinsic: "CollectedOutputSucceeded"},
 
 	{Owner: "Builtins", Name: "currentProcessId", Static: true, Result: "Count", Intrinsic: "ProcessId", Instead: "Process.id()"},
@@ -921,6 +963,8 @@ var entries = []entry{
 	{"AsyncComplete", "rt.async.complete", "Source", roleCall, "(promise) -> bool: whether the coroutine or the reply of a promise has finished"},
 	{"Sleep", "rt.sleep", "Source", roleCall, "(milliseconds): parks the running green thread for at least that long"},
 	{"Yield", "rt.yield", "Source", roleCall, "(): lets the members of the strand that wait, else the runnable green threads, run first"},
+	{"SchedPin", "rt.pin", "Source", roleCall, "() -> bool: pins the running green thread to its thread, Go's LockOSThread, one level deeper"},
+	{"SchedUnpin", "rt.unpin", "Source", roleCall, "(): undoes one pin of the running green thread, Go's UnlockOSThread"},
 	{"HashSeed", "rt.hash.seed", "Source", roleCall, "() -> the fold of no bytes under the process's secret, which the first hash of the process draws or reads from MAXON_HASH_SEED"},
 	{"HashSeedDraw", "rt.hash.draw", "Source", roleCall, "() -> a fresh secret from the system, or the next of the sequence a pinned process draws"},
 	{"HashWord", "rt.hash.word", "Source", roleCall, "(word, seed) -> the fold of the word's 8 bytes under the seed"},
@@ -1014,6 +1058,20 @@ var entries = []entry{
 	{"OsCreateDirectory", "rt.os.createDirectory", "Os", roleCall, "(path String) -> bool: makes the missing parents too, and is whether the directory is there after it"},
 	{"OsDeleteDirectory", "rt.os.deleteDirectory", "Os", roleCall, "(path String, error): removes an empty directory"},
 	{"OsList", "rt.os.list", "Os", roleCall, "(path String, error) -> Array with String: the path joined to the name of each entry"},
+	// The debug port's entries, on Windows; a read or a write that fails sets its error word as an OS entry's does.
+	{"DebugLaunch", "rt.debug.launch", "Os", roleCall, "(executable String, arguments Array with String, outputToError, error) -> process id: starts the executable as the calling thread's debuggee"},
+	{"DebugWaitEvent", "rt.debug.waitEvent", "Os", roleCall, "(budgetMs) -> ByteArray: the debug event that came within the milliseconds, empty for none"},
+	{"DebugContinueEvent", "rt.debug.continueEvent", "Os", roleCall, "(processId, thread, unhandled) -> bool: unhandled hands the exception of the event on to the program"},
+	{"DebugReadMemory", "rt.debug.readMemory", "Os", roleCall, "(process, address, count, error) -> ByteArray"},
+	{"DebugWriteCode", "rt.debug.writeCode", "Os", roleCall, "(process, address, content ByteArray, error)"},
+	{"DebugReadContext", "rt.debug.readContext", "Os", roleCall, "(thread, error) -> ByteArray: the thread's CONTEXT"},
+	{"DebugWriteContext", "rt.debug.writeContext", "Os", roleCall, "(thread, context ByteArray, error)"},
+	{"DebugSuspend", "rt.debug.suspend", "Os", roleCall, "(thread) -> bool"},
+	{"DebugResume", "rt.debug.resume", "Os", roleCall, "(thread) -> bool"},
+	{"DebugBreakIn", "rt.debug.breakIn", "Os", roleCall, "(process) -> bool"},
+	{"DebugDetach", "rt.debug.detach", "Os", roleCall, "(processId) -> bool"},
+	{"DebugCloseHandle", "rt.debug.closeHandle", "Os", roleCall, "(handle)"},
+	{"DebugTerminate", "rt.debug.terminate", "Os", roleCall, "(process, exitCode) -> bool"},
 	{"OsRun", "rt.os.run", "Os", roleCall, "(executable String, arguments Array with String, deadlineMs, stdout, stderr, error) -> exit code: runs the executable with the arguments quoted as the C runtime splits them, and stores what the child wrote to each stream as a String at the address given for it; a child still running deadlineMs milliseconds after it started, when that is not 0, is terminated and the run fails with the timeout case"},
 }
 
@@ -1089,6 +1147,8 @@ var runtimeFunctions = []runtimeFunction{
 	{"AsyncComplete", "asyncComplete(promise Count) Bool"},
 	{"Sleep", "sleepMs(milliseconds Count)"},
 	{"Yield", "schedYield()"},
+	{"SchedPin", "schedPin() Bool"},
+	{"SchedUnpin", "schedUnpin()"},
 	{"HashSeed", "hashSeed() Count"},
 	{"HashSeedDraw", "drawHashSeed() Count"},
 	{"HashWord", "hashWord(word Count, seed Count) Count"},
@@ -1150,4 +1210,17 @@ var runtimeFunctions = []runtimeFunction{
 	{"OsDeleteDirectory", "osDeleteDirectory(path String, errorAddress Count)"},
 	{"OsList", "osList(path String, errorAddress Count) Count"},
 	{"OsRun", "osRun(executable String, arguments Count, deadlineMs Count, stdout Count, stderr Count, errorAddress Count) Count"},
+	{"DebugLaunch", "debugLaunch(executable String, arguments Count, outputToError Bool, errorAddress Count) Count"},
+	{"DebugWaitEvent", "debugWaitEvent(budgetMs Count) Count"},
+	{"DebugContinueEvent", "debugContinueEvent(processId Count, thread Count, unhandled Bool) Bool"},
+	{"DebugReadMemory", "debugReadMemory(process Count, address Count, count Count, errorAddress Count) Count"},
+	{"DebugWriteCode", "debugWriteCode(process Count, address Count, content Count, errorAddress Count)"},
+	{"DebugReadContext", "debugReadContext(thread Count, errorAddress Count) Count"},
+	{"DebugWriteContext", "debugWriteContext(thread Count, context Count, errorAddress Count)"},
+	{"DebugSuspend", "debugSuspend(thread Count) Bool"},
+	{"DebugResume", "debugResume(thread Count) Bool"},
+	{"DebugBreakIn", "debugBreakIn(process Count) Bool"},
+	{"DebugDetach", "debugDetach(processId Count) Bool"},
+	{"DebugCloseHandle", "debugCloseHandle(handle Count)"},
+	{"DebugTerminate", "debugTerminate(process Count, exitCode Count) Bool"},
 }

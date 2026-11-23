@@ -315,8 +315,11 @@ let schedCarveBytesOffset = 256 as Count
 // schedFreeStackCountOffset is where the scheduler's record holds how many stacks its list of free ones holds, under the lock.
 let schedFreeStackCountOffset = 264 as Count
 
+// schedPinnedOffset is where the scheduler's record holds how many green threads are pinned to their threads, stepped atomically, so a scheduler with none never reads a green thread's pin.
+let schedPinnedOffset = 272 as Count
+
 // schedProcessorsOffset is where the scheduler's record holds the address of each processor (Go's allp), a word each, by its id, 0 until it is made.
-let schedProcessorsOffset = 272 as Count
+let schedProcessorsOffset = 280 as Count
 
 // procIdOffset is where a processor holds its index among the processors.
 let procIdOffset = 0 as Count
@@ -450,8 +453,14 @@ let greenCancelOffset = 448 as Count
 // greenHandedOffset is where a green thread that runs behaviours holds the behaviour that the release of the one it ran made runnable and handed on to it, to run next in the same turn, 0 for none; only its own thread reads and writes it.
 let greenHandedOffset = 456 as Count
 
+// greenLockedOffset is where a green thread holds the context of the thread it is pinned to (Go's g.lockedm), 0 while it is pinned to none.
+let greenLockedOffset = 464 as Count
+
+// greenPinsOffset is where a green thread holds how many pins it holds, which nest: the last unpin frees it from its thread.
+let greenPinsOffset = 472 as Count
+
 // greenBytes is the size of a green thread's record.
-let greenBytes = 464 as Count
+let greenBytes = 480 as Count
 
 // selectorGreenOffset is where a selector holds the green thread that waits.
 let selectorGreenOffset = 0 as Count
@@ -489,8 +498,11 @@ let threadBlockEventsOffset = 256 as Count
 // pollEventSlots is how many events a thread takes from the poller at once.
 let pollEventSlots = 64 as Count
 
-// threadBlockBytes is the size of a thread's block: room for pollEventSlots events of windowsEntryBytes each, the larger of the two systems'.
-let threadBlockBytes = 2304 as Count
+// threadBlockLockedOffset is where a thread's block holds the green thread pinned to the thread (Go's m.lockedg), which it runs and no other, 0 for none.
+let threadBlockLockedOffset = 2304 as Count
+
+// threadBlockBytes is the size of a thread's block: room for pollEventSlots events of windowsEntryBytes each, the larger of the two systems', and the pinned green thread.
+let threadBlockBytes = 2312 as Count
 
 // pollStateOffset is where a poll descriptor holds the green thread that waits on it, or pollSignalled once a completion came and was not yet taken, exchanged atomically.
 let pollStateOffset = 0 as Count

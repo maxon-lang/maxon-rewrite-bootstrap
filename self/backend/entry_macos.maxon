@@ -64,7 +64,7 @@ function emitArm64MacosEntry(mutates u CodeUnit, count bool)
 	// (arm64.rules); pthread_key_create writes it into rt.tlsOffset.
 	u.asm.arm64Address(arm64HostArg(host, index: 0), symbol: ir.rtSymbol(ir.Rt.rtTlsOffset))
 	u.asm.arm64MovImm(arm64HostArg(host, index: 1), value: noKeyDestructor)
-	u.asm.arm64CallImport(macosImpPthreadKeyCreate)
+	u.asm.arm64CallImport("pthread_key_create")
 	arm64IntOfResult(u, system: host)
 	u.asm.arm64BranchIfNotZero(arm64HostResult(host), label: refused)
 	u.asm.arm64Address(arm64HostArg(host, index: 1), symbol: ir.rtSymbol(ir.Rt.rtMainContext))
@@ -96,7 +96,7 @@ end 'emitArm64MacosEntry'
 // pthread_setspecific gives 0 for.
 function emitArm64MacosSetContext(mutates u CodeUnit)
 	u.asm.arm64LoadSymbol(arm64HostArg(ast.TargetSystem.macos, index: 0), symbol: ir.rtSymbol(ir.Rt.rtTlsOffset))
-	u.asm.arm64CallImport(macosImpPthreadSetspecific)
+	u.asm.arm64CallImport("pthread_setspecific")
 end 'emitArm64MacosSetContext'
 
 // emitArm64MacosThreadStart writes rt.threadStart, the routine a worker's thread starts in, which pthread_create calls by
@@ -145,17 +145,17 @@ function emitArm64MacosFaultAction(mutates u CodeUnit, signal FullRangeInt)
 	u.asm.arm64MovImm(arm64HostArg(host, index: 0), value: signal)
 	u.asm.arm64Mov(arm64HostArg(host, index: 1), src: Arm64Register.sp)
 	u.asm.arm64MovImm(arm64HostArg(host, index: 2), value: noOldAction)
-	u.asm.arm64CallImport(macosImpSigaction)
+	u.asm.arm64CallImport("sigaction")
 end 'emitArm64MacosFaultAction'
 
 // macosStubImport is the libSystem function of a call the stub makes on every arm64 system.
-function macosStubImport(call Arm64StubCall) returns Count
+function macosStubImport(call Arm64StubCall) returns String
 	return match call 'call'
-		stubWrite gives macosImpWrite
-		stubExit gives macosImpExit
-		stubMap gives macosImpMmap
-		stubProtect gives macosImpMprotect
-		stubSignalStack gives macosImpSigaltstack
+		stubWrite gives "write"
+		stubExit gives "_exit"
+		stubMap gives "mmap"
+		stubProtect gives "mprotect"
+		stubSignalStack gives "sigaltstack"
 	end 'call'
 end 'macosStubImport'
 

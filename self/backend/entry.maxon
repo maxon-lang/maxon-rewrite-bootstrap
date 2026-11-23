@@ -116,13 +116,13 @@ end 'callRuntime'
 // leak report in its place when a box is still live.
 function emitEntry(mutates u CodeUnit, count bool)
 	u.asm.subImm(rsp, imm: windowsShadowSize)
-	u.asm.callImport(impGetProcessHeap)
+	u.asm.callImport("GetProcessHeap")
 	u.asm.storeSymbol(ir.rtSymbol(ir.Rt.rtHeap), src: rax)
 	u.asm.movImm(rcx, imm: stdOutputHandle)
-	u.asm.callImport(impGetStdHandle)
+	u.asm.callImport("GetStdHandle")
 	u.asm.storeSymbol(ir.rtSymbol(ir.Rt.rtStdout), src: rax)
 	u.asm.movImm(rcx, imm: stdErrorHandle)
-	u.asm.callImport(impGetStdHandle)
+	u.asm.callImport("GetStdHandle")
 	u.asm.storeSymbol(ir.rtSymbol(ir.Rt.rtStderr), src: rax)
 	emitFaultHandlerSetup(u)
 	let pastTheTeb = u.asm.newLabel()
@@ -132,7 +132,7 @@ function emitEntry(mutates u CodeUnit, count bool)
 		callRuntime(u, entry: ir.Rt.rtCheckLeaks, arg: resultWord())
 	end 'leaks'
 	u.asm.mov(x64WindowsHostArg(0), src: resultWord())
-	u.asm.callImport(impExitProcess)
+	u.asm.callImport("ExitProcess")
 	u.asm.bind(pastTheTeb)
 	u.asm.leaData(argWord(), dataOffset: u.data.textOffset(tlsSlotPastTheTeb))
 	u.asm.movImm(x64InternalArg(1), imm: literalWord(tlsSlotPastTheTeb))
@@ -142,7 +142,7 @@ end 'emitEntry'
 // emitTlsSetup takes the thread-local slot every thread keeps its context in, goes to pastTheTeb when the slot is not
 // inline in the TEB (TLS_OUT_OF_INDEXES among them), and stores the main thread's context in it.
 function emitTlsSetup(mutates u CodeUnit, pastTheTeb LabelID)
-	u.asm.callImport(impTlsAlloc)
+	u.asm.callImport("TlsAlloc")
 	u.asm.storeWord32(rsp, disp: dwordSlot, src: rax)
 	u.asm.loadWord32(rax, base: rsp, disp: dwordSlot)
 	u.asm.cmpImm(rax, imm: tebTlsSlots)
@@ -158,7 +158,7 @@ end 'emitTlsSetup'
 // emitTlsStore stores rdx in the running thread's thread-local slot.
 function emitTlsStore(mutates u CodeUnit)
 	u.asm.loadSymbol(rcx, symbol: ir.rtSymbol(ir.Rt.rtTlsSlot))
-	u.asm.callImport(impTlsSetValue)
+	u.asm.callImport("TlsSetValue")
 end 'emitTlsStore'
 
 // threadContextRegister is where a thread's start holds the thread's context across its calls: a register the internal
@@ -229,17 +229,6 @@ function emitThreadStart(mutates u CodeUnit)
 	u.asm.movImm(x64WindowsHostResult, imm: threadExitCode)
 	u.asm.ret()
 end 'emitThreadStart'
-
-// importIndex is the slot of a DLL import in the executable's import table, which a call of it goes through.
-export function importIndex(name String) returns Count
-	let names = rtImports()
-	for i in 0 upto names.count() 'names'
-		if names[i] == name 'found'
-			return i
-		end 'found'
-	end 'names'
-	panic("backend: the runtime calls a DLL function the executable does not import")
-end 'importIndex'
 
 // faultSymbol is the vectored exception handler that turns a hardware fault into a panic line, as maxon's runtime does:
 // without it a stack overflow or an access violation ends the process with no word of what happened.
@@ -322,7 +311,7 @@ function emitFaultHandlerSetup(mutates u CodeUnit)
 	emitStackGuarantee(u)
 	u.asm.movImm(rcx, imm: vectoredHandlerFirst)
 	u.asm.leaSymbol(rdx, symbol: faultSymbol)
-	u.asm.callImport(impAddVectoredExceptionHandler)
+	u.asm.callImport("AddVectoredExceptionHandler")
 end 'emitFaultHandlerSetup'
 
 // emitStackGuarantee keeps stack past the guard page of the running thread for the fault handler, in a frame of the
@@ -331,7 +320,7 @@ function emitStackGuarantee(mutates u CodeUnit)
 	u.asm.movImm(rax, imm: faultStackGuarantee)
 	u.asm.store(rsp, disp: guaranteeSlot, src: rax)
 	u.asm.lea(rcx, base: rsp, disp: guaranteeSlot)
-	u.asm.callImport(impSetThreadStackGuarantee)
+	u.asm.callImport("SetThreadStackGuarantee")
 end 'emitStackGuarantee'
 
 // emitFaultHandler writes the vectored exception handler (Win64 ABI: the EXCEPTION_POINTERS in rcx, the answer in rax).
@@ -362,7 +351,7 @@ function emitFaultHandler(mutates u CodeUnit)
 	emitStderrWrite(u)
 	emitExitClaim(u)
 	u.asm.movImm(rcx, imm: faultExitCode)
-	u.asm.callImport(impExitProcess)
+	u.asm.callImport("ExitProcess")
 end 'emitFaultHandler'
 
 // emitExitClaim takes the exit claim of the scheduler for the faulting thread before it ends the process, as the runtime's
@@ -425,5 +414,5 @@ function emitStderrWrite(mutates u CodeUnit)
 	u.asm.lea(r9, base: rsp, disp: faultWrittenSlot)
 	u.asm.movImm(r10, imm: 0)
 	u.asm.store(rsp, disp: faultFifthArgSlot, src: r10)
-	u.asm.callImport(impWriteFile)
+	u.asm.callImport("WriteFile")
 end 'emitStderrWrite'

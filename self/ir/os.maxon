@@ -459,3 +459,74 @@ function lowerCollectedOutputSucceeded(mutates l Lowerer, p ast.Project, mutates
 	let code = lowerCollectedOutputExitCode(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	return isZero(l, v: code)
 end 'lowerCollectedOutputSucceeded'
+
+function lowerSchedulerPinToMachine(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtSchedPin, kind: IrKind.kindScalar, args: RegList.create(0))
+end 'lowerSchedulerPinToMachine'
+
+function lowerSchedulerUnpinFromMachine(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	entryVoid(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtSchedUnpin, args: RegList.create(0))
+	return konst(l, value: 0 as Word)
+end 'lowerSchedulerUnpinFromMachine'
+
+// The debug port's functions call their entries with their words, byte arrays and the executable's text as they are.
+function lowerDebuggeeLaunch(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	let exe = executableText(l, p: p, exe: args[0])
+	let dst = newReg(l, kind: IrKind.kindScalar)
+	return failing(l, p: p, ms: ms, site: siteOf(l, p: p, node: c.node), dst: dst, symbol: Rt.rtDebugLaunch, args: argsOf3(exe, b: args[1], c: args[2]))
+end 'lowerDebuggeeLaunch'
+
+function lowerDebuggeeWaitEvent(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtDebugWaitEvent, kind: IrKind.kindManaged, args: argsOf1(args[0]))
+end 'lowerDebuggeeWaitEvent'
+
+function lowerDebuggeeContinueEvent(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	let unhandledCase = konst(l, value: try ast.dispositionUnhandled as Word otherwise panic("ir: a case index is out of range"))
+	let unhandled = compare(l, op: CmpOp.cmpEq, a: args[2], b: unhandledCase, unsigned: false)
+	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtDebugContinueEvent, kind: IrKind.kindScalar, args: argsOf3(args[0], b: args[1], c: unhandled))
+end 'lowerDebuggeeContinueEvent'
+
+function lowerDebuggeeReadMemory(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	let dst = newReg(l, kind: IrKind.kindManaged)
+	return failing(l, p: p, ms: ms, site: siteOf(l, p: p, node: c.node), dst: dst, symbol: Rt.rtDebugReadMemory, args: argsOf3(args[0], b: args[1], c: args[2]))
+end 'lowerDebuggeeReadMemory'
+
+function lowerDebuggeeWriteCode(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	_ = failing(l, p: p, ms: ms, site: siteOf(l, p: p, node: c.node), dst: noReg, symbol: Rt.rtDebugWriteCode, args: argsOf3(args[0], b: args[1], c: args[2]))
+	return konst(l, value: 0 as Word)
+end 'lowerDebuggeeWriteCode'
+
+function lowerDebuggeeReadContext(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	let dst = newReg(l, kind: IrKind.kindManaged)
+	return failing(l, p: p, ms: ms, site: siteOf(l, p: p, node: c.node), dst: dst, symbol: Rt.rtDebugReadContext, args: argsOf1(args[0]))
+end 'lowerDebuggeeReadContext'
+
+function lowerDebuggeeWriteContext(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	_ = failing(l, p: p, ms: ms, site: siteOf(l, p: p, node: c.node), dst: noReg, symbol: Rt.rtDebugWriteContext, args: argsOf2(args[0], b: args[1]))
+	return konst(l, value: 0 as Word)
+end 'lowerDebuggeeWriteContext'
+
+function lowerDebuggeeSuspend(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtDebugSuspend, kind: IrKind.kindScalar, args: argsOf1(args[0]))
+end 'lowerDebuggeeSuspend'
+
+function lowerDebuggeeResume(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtDebugResume, kind: IrKind.kindScalar, args: argsOf1(args[0]))
+end 'lowerDebuggeeResume'
+
+function lowerDebuggeeBreakIn(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtDebugBreakIn, kind: IrKind.kindScalar, args: argsOf1(args[0]))
+end 'lowerDebuggeeBreakIn'
+
+function lowerDebuggeeDetach(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtDebugDetach, kind: IrKind.kindScalar, args: argsOf1(args[0]))
+end 'lowerDebuggeeDetach'
+
+function lowerDebuggeeCloseHandle(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	entryVoid(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtDebugCloseHandle, args: argsOf1(args[0]))
+	return konst(l, value: 0 as Word)
+end 'lowerDebuggeeCloseHandle'
+
+function lowerDebuggeeTerminate(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtDebugTerminate, kind: IrKind.kindScalar, args: argsOf2(args[0], b: args[1]))
+end 'lowerDebuggeeTerminate'

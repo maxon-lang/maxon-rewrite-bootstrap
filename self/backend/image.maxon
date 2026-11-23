@@ -54,7 +54,7 @@ function positionsOf(pointers DataPointerList) returns CountList
 end 'positionsOf'
 
 // buildImage lays out the executable of the system's format, as the target table names it, with a slot for each of
-// imports (LinkImports): a PE of the runtime's DLL imports for Windows, a static ELF of the target's machine, which imports
+// imports (LinkImports): a PE of the DLL functions the code calls for Windows, a static ELF of the target's machine, which imports
 // nothing, for Linux, and a Mach-O that binds the libSystem functions the code calls for macOS.
 export function buildImage(target ast.Target, layout ImageLayout, imports NameList) returns Image
 	return match ast.imageFormatOf(target.system) 'format'

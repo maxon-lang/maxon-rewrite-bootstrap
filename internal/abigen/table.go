@@ -347,7 +347,9 @@ var layouts = []layoutConst{
 		"where the scheduler's record holds the size of the next block that records are carved from, 0 before the first, under the lock."},
 	{"schedFreeStackCountOffset", 33, false, toRuntime,
 		"where the scheduler's record holds how many stacks its list of free ones holds, under the lock."},
-	{"schedProcessorsOffset", 34, false, toRuntime,
+	{"schedPinnedOffset", 34, false, toRuntime,
+		"where the scheduler's record holds how many green threads are pinned to their threads, stepped atomically, so a scheduler with none never reads a green thread's pin."},
+	{"schedProcessorsOffset", 35, false, toRuntime,
 		"where the scheduler's record holds the address of each processor (Go's allp), a word each, by its id, 0 until it is made."},
 
 	// A processor (Go's P): what a thread must hold to run green threads, its local run queue (a ring that its owner puts
@@ -450,7 +452,12 @@ var layouts = []layoutConst{
 		"where a coroutine holds 1 once its promise is cancelled: its thunk does not start a function that has not started, and its sleeps end at once."},
 	{"greenHandedOffset", 57, false, toRuntime,
 		"where a green thread that runs behaviours holds the behaviour that the release of the one it ran made runnable and handed on to it, to run next in the same turn, 0 for none; only its own thread reads and writes it."},
-	{"greenBytes", 58, false, toRuntime,
+	// A pin (Go's LockOSThread): the thread a green thread runs on alone, and how many pins it holds.
+	{"greenLockedOffset", 58, false, toRuntime,
+		"where a green thread holds the context of the thread it is pinned to (Go's g.lockedm), 0 while it is pinned to none."},
+	{"greenPinsOffset", 59, false, toRuntime,
+		"where a green thread holds how many pins it holds, which nest: the last unpin frees it from its thread."},
+	{"greenBytes", 60, false, toRuntime,
 		"the size of a green thread's record."},
 
 	// A selector: the record of an awaitAny that waits, which every promise it waits on names as its waiter, tagged, as the
@@ -485,8 +492,12 @@ var layouts = []layoutConst{
 		"where a thread's block holds the poller's events, pollEventSlots of them."},
 	{"pollEventSlots", 64, true, toRuntime,
 		"how many events a thread takes from the poller at once."},
-	{"threadBlockBytes", 288, false, toRuntime,
-		"the size of a thread's block: room for pollEventSlots events of windowsEntryBytes each, the larger of the two systems'."},
+	// The context of the main thread is the entry's, of the size of the seed that compiled the runtime, so what a pin adds
+	// to a thread is in its block, which the runtime makes.
+	{"threadBlockLockedOffset", 288, false, toRuntime,
+		"where a thread's block holds the green thread pinned to the thread (Go's m.lockedg), which it runs and no other, 0 for none."},
+	{"threadBlockBytes", 289, false, toRuntime,
+		"the size of a thread's block: room for pollEventSlots events of windowsEntryBytes each, the larger of the two systems', and the pinned green thread."},
 
 	// A poll descriptor: what a green thread waits on in the poller, readied by a completion whose key is the descriptor.
 	{"pollStateOffset", 0, false, toRuntime,

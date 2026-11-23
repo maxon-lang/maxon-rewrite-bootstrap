@@ -18,7 +18,7 @@ export function writeUnit(u CodeUnit, mutates w table.ByteWriter)
 	for i in 0 upto u.asm.importFixups.count() 'imports'
 		w.count(u.asm.importFixups[i].kind.rawValue)
 		w.count(u.asm.importFixups[i].pos)
-		w.count(u.asm.importFixups[i].index)
+		w.text(u.asm.importFixups[i].name)
 	end 'imports'
 	w.count(u.asm.symbolFixups.count())
 	for i in 0 upto u.asm.symbolFixups.count() 'symbols'
@@ -71,7 +71,7 @@ export function readUnit(mutates r table.ByteReader) returns CodeUnit
 	for _ in 0 upto r.items() 'imports'
 		let kind = fixupKindOf(r.count())
 		let pos = r.count()
-		u.asm.importFixups.push(ImportFixup.make(kind, pos: pos, index: r.count()))
+		u.asm.importFixups.push(ImportFixup.make(kind, pos: pos, name: r.text()))
 	end 'imports'
 	for _ in 0 upto r.items() 'symbols'
 		let kind = fixupKindOf(r.count())

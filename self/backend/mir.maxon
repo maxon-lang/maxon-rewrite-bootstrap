@@ -84,7 +84,7 @@ export enum MRef
 	symbol
 	// data: aux is an offset into the code unit's data.
 	data
-	// importSlot: aux is the index of a name of the executable's imports, whose slot a call goes through.
+	// importSlot: aux indexes the function's symbols, the name of a library function whose import slot a call goes through.
 	importSlot
 end 'MRef'
 

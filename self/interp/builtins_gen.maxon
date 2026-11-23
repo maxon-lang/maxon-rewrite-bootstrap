@@ -199,6 +199,14 @@ function runtimeEntry(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 		try entryYield(vm, f: f, x: x)
 		return
 	end 'rtYield'
+	if symbol == ir.Rt.rtSchedPin 'rtSchedPin'
+		try entrySchedPin(vm, f: f, x: x)
+		return
+	end 'rtSchedPin'
+	if symbol == ir.Rt.rtSchedUnpin 'rtSchedUnpin'
+		try entrySchedUnpin(vm, f: f, x: x)
+		return
+	end 'rtSchedUnpin'
 	if symbol == ir.Rt.rtHashSeed 'rtHashSeed'
 		try entryHashSeed(vm, f: f, x: x)
 		return
@@ -527,6 +535,58 @@ function runtimeEntry(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 		try entryOsList(vm, f: f, x: x)
 		return
 	end 'rtOsList'
+	if symbol == ir.Rt.rtDebugLaunch 'rtDebugLaunch'
+		try entryDebugLaunch(vm, f: f, x: x)
+		return
+	end 'rtDebugLaunch'
+	if symbol == ir.Rt.rtDebugWaitEvent 'rtDebugWaitEvent'
+		try entryDebugWaitEvent(vm, f: f, x: x)
+		return
+	end 'rtDebugWaitEvent'
+	if symbol == ir.Rt.rtDebugContinueEvent 'rtDebugContinueEvent'
+		try entryDebugContinueEvent(vm, f: f, x: x)
+		return
+	end 'rtDebugContinueEvent'
+	if symbol == ir.Rt.rtDebugReadMemory 'rtDebugReadMemory'
+		try entryDebugReadMemory(vm, f: f, x: x)
+		return
+	end 'rtDebugReadMemory'
+	if symbol == ir.Rt.rtDebugWriteCode 'rtDebugWriteCode'
+		try entryDebugWriteCode(vm, f: f, x: x)
+		return
+	end 'rtDebugWriteCode'
+	if symbol == ir.Rt.rtDebugReadContext 'rtDebugReadContext'
+		try entryDebugReadContext(vm, f: f, x: x)
+		return
+	end 'rtDebugReadContext'
+	if symbol == ir.Rt.rtDebugWriteContext 'rtDebugWriteContext'
+		try entryDebugWriteContext(vm, f: f, x: x)
+		return
+	end 'rtDebugWriteContext'
+	if symbol == ir.Rt.rtDebugSuspend 'rtDebugSuspend'
+		try entryDebugSuspend(vm, f: f, x: x)
+		return
+	end 'rtDebugSuspend'
+	if symbol == ir.Rt.rtDebugResume 'rtDebugResume'
+		try entryDebugResume(vm, f: f, x: x)
+		return
+	end 'rtDebugResume'
+	if symbol == ir.Rt.rtDebugBreakIn 'rtDebugBreakIn'
+		try entryDebugBreakIn(vm, f: f, x: x)
+		return
+	end 'rtDebugBreakIn'
+	if symbol == ir.Rt.rtDebugDetach 'rtDebugDetach'
+		try entryDebugDetach(vm, f: f, x: x)
+		return
+	end 'rtDebugDetach'
+	if symbol == ir.Rt.rtDebugCloseHandle 'rtDebugCloseHandle'
+		try entryDebugCloseHandle(vm, f: f, x: x)
+		return
+	end 'rtDebugCloseHandle'
+	if symbol == ir.Rt.rtDebugTerminate 'rtDebugTerminate'
+		try entryDebugTerminate(vm, f: f, x: x)
+		return
+	end 'rtDebugTerminate'
 	if symbol == ir.Rt.rtOsRun 'rtOsRun'
 		try entryOsRun(vm, f: f, x: x)
 		return

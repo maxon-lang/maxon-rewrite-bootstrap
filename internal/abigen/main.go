@@ -37,7 +37,7 @@ func main() {
 			os.Exit(1)
 		}
 	}
-	if err := os.WriteFile(importsFile, []byte(importsMaxon(importNames, macosImports)), 0o644); err != nil {
+	if err := os.WriteFile(importsFile, []byte(importsMaxon(macosImports)), 0o644); err != nil {
 		fmt.Fprintln(os.Stderr, "abigen:", err)
 		os.Exit(1)
 	}

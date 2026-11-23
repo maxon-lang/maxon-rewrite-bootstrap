@@ -725,7 +725,7 @@ function copyAndPatch(mutates code ByteArray, mutates parts ImageParts, links Li
 		end 'dataFixups'
 		for j in begin.importFixups upto finish.importFixups 'importFixups'
 			let fixup = u.asm.importFixups[j].clone()
-			let index = imports.slotOf(fixup.index)
+			let index = imports.slotOf(fixup.name)
 			if index >= image.importSlots 'slot'
 				panic("link: a call of an import that the executable has no slot for")
 			end 'slot'
@@ -750,67 +750,109 @@ function copyAndPatch(mutates code ByteArray, mutates parts ImageParts, links Li
 	end 'sections'
 end 'copyAndPatch'
 
-// LinkImports are the library functions an executable imports: the names its table binds, in the order of their slots,
-// and the slot of each index of the system's imports that a fixup may name. A PE binds every DLL function the runtime
-// may call, in the order of the import list, which the Windows code is written against; a Mach-O binds only the
-// libSystem functions the live code calls, numbered in the order of macosImports, since dyld binds each slot at launch.
-// A static ELF imports nothing.
+// LinkImports are the library functions an executable imports, which are the ones its live sections call and no other:
+// the names its table binds, in the order of their slots, and the function's name of each slot that a fixup names. A PE
+// binds its DLL functions in the order of their names, by byte; a Mach-O binds its libSystem functions in the order of
+// macosImports, under their symbols, since dyld binds each slot at launch. A static ELF imports nothing.
 type LinkImports
 	var names as NameList
-	var slots as CountList
+	var called as NameList
 
 	static function of(system ast.TargetSystem, links LinkUnitList, units LinkUnits) returns LinkImports
 		return match ast.imageFormatOf(system) 'format'
-			pe gives LinkImports.every(rtImports())
-			elf gives LinkImports{names: NameList.create(0), slots: CountList.create(0)}
-			machO gives LinkImports.called(links, units: units)
+			pe gives LinkImports.dll(calledNames(links, units: units))
+			elf gives LinkImports{names: NameList.create(0), called: NameList.create(0)}
+			machO gives LinkImports.libSystem(calledNames(links, units: units))
 		end 'format'
 	end 'of'
 
-	// every is a table of every name, each in the slot of its index.
-	static function every(consumes names NameList) returns LinkImports
-		var slots = CountList.create(0)
-		for i in 0 upto names.count() 'slots'
-			slots.push(i)
-		end 'slots'
-		return LinkImports{names: names, slots: slots}
-	end 'every'
+	// dll is a PE's table: each DLL function called, under its own name.
+	static function dll(consumes called NameList) returns LinkImports
+		var sorted = called
+		sortNames(sorted)
+		return LinkImports{names: sorted.clone(), called: sorted}
+	end 'dll'
 
-	// called is a table of the libSystem functions that the live sections call.
-	static function called(links LinkUnitList, units LinkUnits) returns LinkImports
-		let all = macosImports().count()
-		var calledAt = falses(all)
-		for u in 0 upto links.count() 'units'
-			for s in 0 upto links[u].liveCode.count() 'sections'
-				if links[u].liveCode[s] 'live'
-					let next = try s + 1 otherwise panic("link: more sections than memory")
-					for j in links[u].sections[s].importFixups upto links[u].sections[next].importFixups 'fixups'
-						calledAt[units.at(u).asm.importFixups[j].index] = true
-					end 'fixups'
-				end 'live'
-			end 'sections'
-		end 'units'
+	// libSystem is a Mach-O's table: each libSystem function called, in the order of macosImports, under its symbol.
+	static function libSystem(called NameList) returns LinkImports
+		let all = macosImports()
 		var indices = CountList.create(0)
-		// An index that no live code calls has a slot past the table's, which slotOf's caller refuses.
-		let past = all
-		var slots = CountList.filled(all, value: past)
-		for i in 0 upto all 'indices'
-			if calledAt[i] 'calledHere'
-				slots[i] = indices.count()
+		var ordered = NameList.create(0)
+		for i in 0 upto all.count() 'listed'
+			if containsName(called, name: all[i]) 'calledHere'
 				indices.push(i)
+				ordered.push(all[i].clone())
 			end 'calledHere'
-		end 'indices'
-		return LinkImports{names: machoSymbolsOf(indices), slots: slots}
-	end 'called'
+		end 'listed'
+		for i in 0 upto called.count() 'known'
+			_ = macosImportIndex(called[i])
+		end 'known'
+		return LinkImports{names: machoSymbolsOf(indices), called: ordered}
+	end 'libSystem'
 
-	// slotOf is the slot of the import of an index, which a live fixup names.
-	function slotOf(index Count) returns Count
-		if index >= slots.count() 'unknown'
-			panic("link: a call of an import that the system's imports do not list")
-		end 'unknown'
-		return slots[index]
+	// slotOf is the slot of the library function that a live fixup names.
+	function slotOf(name String) returns Count
+		for i in 0 upto called.count() 'slots'
+			if called[i] == name 'found'
+				return i
+			end 'found'
+		end 'slots'
+		panic("link: a live call of the library function {name}, which the import table does not hold")
 	end 'slotOf'
 end 'LinkImports'
+
+// calledNames are the library functions that the live sections of the units call, each once, in the order of the first
+// call in the units' order.
+function calledNames(links LinkUnitList, units LinkUnits) returns NameList
+	var names = NameList.create(0)
+	for u in 0 upto links.count() 'units'
+		for s in 0 upto links[u].liveCode.count() 'sections'
+			if links[u].liveCode[s] 'live'
+				let next = try s + 1 otherwise panic("link: more sections than memory")
+				for j in links[u].sections[s].importFixups upto links[u].sections[next].importFixups 'fixups'
+					if not containsName(names, name: units.at(u).asm.importFixups[j].name) 'new'
+						names.push(units.at(u).asm.importFixups[j].name.clone())
+					end 'new'
+				end 'fixups'
+			end 'live'
+		end 'sections'
+	end 'units'
+	return names
+end 'calledNames'
+
+function containsName(names NameList, name String) returns bool
+	for i in 0 upto names.count() 'names'
+		if names[i] == name 'found'
+			return true
+		end 'found'
+	end 'names'
+	return false
+end 'containsName'
+
+// sortNames puts names in the order of their bytes, an insertion sort: a table holds a few dozen.
+function sortNames(mutates names NameList)
+	for i in 1 upto names.count() 'insert'
+		var j = i
+		while j > 0 and nameBefore(names[j], b: names[try j - 1 otherwise 0]) 'down'
+			let earlier = try j - 1 otherwise 0
+			let moved = exchange(names[j], value: "")
+			let before = exchange(names[earlier], value: moved)
+			names[j] = before
+			j = earlier
+		end 'down'
+	end 'insert'
+end 'sortNames'
+
+// nameBefore is whether a comes before b in the order of their bytes.
+function nameBefore(a String, b String) returns bool
+	let n = a.byteLength() if a.byteLength() < b.byteLength() else b.byteLength()
+	for i in 0 upto n 'bytes'
+		if a.byteAt(i) != b.byteAt(i) 'differ'
+			return a.byteAt(i) < b.byteAt(i)
+		end 'differ'
+	end 'bytes'
+	return a.byteLength() < b.byteLength()
+end 'nameBefore'
 
 // movedPos is where a fixup of a section is once the section is at an offset of the image's code.
 function movedPos(at Count, fixupPos Count, sectionStart Count) returns Count

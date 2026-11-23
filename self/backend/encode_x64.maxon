@@ -194,7 +194,7 @@ function encodeTargetInstr(mutates u CodeUnit, fn MirFunction, lay BlockLayout, 
 		edge then u.asm.useLabel(lay.label(fn, edge: refIndex(x)))
 		symbol then u.asm.noteSymbolFixup(fn.symbols[refIndex(x)])
 		data then u.asm.noteDataFixup(refIndex(x))
-		importSlot then u.asm.noteImportFixup(refIndex(x))
+		importSlot then u.asm.noteImportFixup(fn.symbols[refIndex(x)])
 	end 'ref'
 end 'encodeTargetInstr'
 

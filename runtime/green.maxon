@@ -460,6 +460,9 @@ function finished(context Count, g Count)
 	__Raw.storeWord(g, offset: greenStackOffset, value: noStack)
 	putFreeStack(scheduler, proc: proc, stack: stack)
 	__Raw.storeWord(g, offset: greenStatusOffset, value: greenDead)
+	if __Raw.loadWord(g, offset: greenLockedOffset) != noThread 'pinned'
+		unpinGreen(g)
+	end 'pinned'
 	if __Raw.loadWord(g, offset: greenKindOffset) == greenBehaviour 'behaviour'
 		putFreeGreen(scheduler, proc: proc, g: g)
 	end 'behaviour' else 'awaited'
@@ -467,6 +470,55 @@ function finished(context Count, g Count)
 	end 'awaited'
 	stepLive(context, change: stepDown)
 end 'finished'
+
+// schedPin is Scheduler.pinToMachine, Go's LockOSThread: the running green thread is pinned to the thread that runs it, one
+// pin deeper, so it runs on that thread alone and the thread runs no other until the last unpin (scheduleLoop). Off a
+// green thread, in a program without the scheduler, the code runs on its thread anyway, and there is nothing to note.
+// The runtime's code is never preempted, so the green thread is on this thread throughout.
+function schedPin() returns bool
+	let context = __Raw.threadContext()
+	let g = __Raw.loadWord(context, offset: contextGreenOffset)
+	if g == noGreen 'off'
+		return true
+	end 'off'
+	let pins = __Raw.loadWord(g, offset: greenPinsOffset)
+	if pins == 0 'first'
+		__Raw.storeWord(g, offset: greenLockedOffset, value: context)
+		__Raw.storeWord(threadBlockSwitch(context), offset: threadBlockLockedOffset, value: g)
+		_ = __Raw.atomicAdd(__Raw.loadWord(context, offset: contextSchedulerOffset), offset: schedPinnedOffset, value: 1)
+	end 'first'
+	__Raw.storeWord(g, offset: greenPinsOffset, value: __Raw.wrappingAdd(pins, right: 1))
+	return true
+end 'schedPin'
+
+// schedUnpin is Scheduler.unpinFromMachine, Go's UnlockOSThread: one pin of the running green thread less, and with the
+// last the green thread and its thread are free of each other. A green thread that holds no pin is a fatal error, as
+// maxon's is.
+function schedUnpin()
+	let g = __Raw.loadWord(__Raw.threadContext(), offset: contextGreenOffset)
+	if g == noGreen 'off'
+		return
+	end 'off'
+	let pins = __Raw.loadWord(g, offset: greenPinsOffset)
+	if pins == 0 'none'
+		panic("Scheduler.unpinFromMachine: the green thread holds no pin")
+	end 'none'
+	__Raw.storeWord(g, offset: greenPinsOffset, value: __Raw.wrappingSub(pins, right: 1))
+	if pins == 1 'last'
+		unpinGreen(g)
+	end 'last'
+end 'schedUnpin'
+
+// unpinGreen frees a green thread and the thread it is pinned to of each other: at its last unpin, or when it finishes
+// pinned, which leaves the thread to run the scheduler as before. A record is carved zeroed and one that finishes is
+// unpinned, so a green thread that newGreen makes holds no pin.
+function unpinGreen(g Count)
+	let pinnedTo = __Raw.loadWord(g, offset: greenLockedOffset)
+	__Raw.storeWord(g, offset: greenPinsOffset, value: 0)
+	__Raw.storeWord(threadBlockSwitch(pinnedTo), offset: threadBlockLockedOffset, value: noGreen)
+	__Raw.storeWord(g, offset: greenLockedOffset, value: noThread)
+	_ = __Raw.atomicAdd(__Raw.loadWord(pinnedTo, offset: contextSchedulerOffset), offset: schedPinnedOffset, value: stepDown)
+end 'unpinGreen'
 
 // greenMain is the code a green thread's stack starts in (rt.greenStart, with the green thread): it runs the green
 // thread's code, keeps the word that gave back, and finishes it, never to return.

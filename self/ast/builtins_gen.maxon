@@ -174,6 +174,16 @@ export let errorInputTooLarge = 7 as Count
 
 export let errorStatusLost = 8 as Count
 
+export let errorDebuggeeUnreadable = 0 as Count
+
+export let errorDebuggeeUnwritable = 1 as Count
+
+export let errorDebuggeeOutOfBounds = 2 as Count
+
+export let dispositionHandled = 0 as Count
+
+export let dispositionUnhandled = 1 as Count
+
 export let errorStringNotFound = 0 as Count
 
 export let errorStringInvalidIndex = 1 as Count
@@ -321,6 +331,8 @@ export enum Intrinsic
 	intrClockNowNanos
 	intrSchedulerProcessorCount
 	intrSchedulerYield
+	intrSchedulerPinToMachine
+	intrSchedulerUnpinFromMachine
 	intrSleep
 	intrServiceShutdown
 	intrPromiseCancel
@@ -344,6 +356,19 @@ export enum Intrinsic
 	intrSubprocessRun
 	intrSubprocessRunWithDeadline
 	intrCollectedOutputExitCode
+	intrDebuggeeLaunch
+	intrDebuggeeWaitEvent
+	intrDebuggeeContinueEvent
+	intrDebuggeeReadMemory
+	intrDebuggeeWriteCode
+	intrDebuggeeReadContext
+	intrDebuggeeWriteContext
+	intrDebuggeeSuspend
+	intrDebuggeeResume
+	intrDebuggeeBreakIn
+	intrDebuggeeDetach
+	intrDebuggeeCloseHandle
+	intrDebuggeeTerminate
 	intrCollectedOutputSucceeded
 	intrFloatToBits
 	intrTrailingZeros
@@ -711,6 +736,7 @@ function declareBuiltinTable(mutates tt TypeSlot, reads TypeTable, mutates ft Fu
 	declareDirectoryMethods(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, b: b, funcMap: funcMap)
 	declareSubprocessMethods(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, b: b, funcMap: funcMap)
 	declareCollectedOutputMethods(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, b: b, funcMap: funcMap)
+	declareDebuggeeMethods(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, b: b, funcMap: funcMap)
 	declareBuiltinsMethods(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, b: b, funcMap: funcMap)
 	declareRawMethods(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, b: b, funcMap: funcMap)
 end 'declareBuiltinTable'
@@ -771,6 +797,7 @@ function declareBuiltinTypes(mutates tt TypeSlot, reads TypeTable, mutates std P
 	b.collectedOutputTy = registerRecordType(tt, reads: reads, std: std, typeMap: typeMap, name: "CollectedOutput")
 	b.fileInfoTy = registerRecordType(tt, reads: reads, std: std, typeMap: typeMap, name: "FileInfo")
 	b.subprocessTy = registerRecordType(tt, reads: reads, std: std, typeMap: typeMap, name: "Subprocess")
+	b.debuggeeTy = registerRecordType(tt, reads: reads, std: std, typeMap: typeMap, name: "Debuggee")
 	b.rawTy = registerRecordType(tt, reads: reads, std: std, typeMap: typeMap, name: "__Raw")
 	b.builtinsTy = registerRecordType(tt, reads: reads, std: std, typeMap: typeMap, name: "__Builtins")
 	addRecordField(tt, reads: reads, owner: b.filePathTy, name: "path", ty: b.stringTy, isVar: false, exported: true)
@@ -899,29 +926,38 @@ function declareBuiltinTypes(mutates tt TypeSlot, reads TypeTable, mutates std P
 	names30.push("statusLost")
 	b.subprocessErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "SubprocessError", cases: names30)
 	var names31 = StringList.create(0)
-	names31.push("notFound")
-	names31.push("invalidIndex")
-	b.stringErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "StringError", cases: names31)
+	names31.push("unreadable")
+	names31.push("unwritable")
+	names31.push("outOfBounds")
+	b.debuggeeErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "DebuggeeError", cases: names31)
 	var names32 = StringList.create(0)
-	names32.push("exhausted")
-	names32.push("atStart")
-	b.iterationErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "IterationError", cases: names32)
+	names32.push("handled")
+	names32.push("unhandled")
+	b.debugDispositionTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "DebugDisposition", cases: names32)
 	var names33 = StringList.create(0)
-	names33.push("otherType")
-	b.castErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "CastError", cases: names33)
+	names33.push("notFound")
+	names33.push("invalidIndex")
+	b.stringErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "StringError", cases: names33)
+	var names34 = StringList.create(0)
+	names34.push("exhausted")
+	names34.push("atStart")
+	b.iterationErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "IterationError", cases: names34)
+	var names35 = StringList.create(0)
+	names35.push("otherType")
+	b.castErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "CastError", cases: names35)
 	b.copyableTy = registerInterfaceType(tt, reads: reads, std: std, typeMap: typeMap, name: "Copyable")
 	b.droppableTy = registerInterfaceType(tt, reads: reads, std: std, typeMap: typeMap, name: "Droppable")
 	b.errorTy = registerInterfaceType(tt, reads: reads, std: std, typeMap: typeMap, name: "Error")
 	b.initableFromStringLiteralTy = registerInterfaceType(tt, reads: reads, std: std, typeMap: typeMap, name: "InitableFromStringLiteral")
 	tt.lists[typeList(tt, t: b.filePathTy)][typeIndex(tt, t: b.filePathTy)].conforms.push(b.initableFromStringLiteralTy)
-	let ty34 = instantiateType(tt, reads: reads, origin: b.arrayOrigin, args: oneArgList(b.byteTy))
-	registerStdInstanceAlias(std, typeMap: typeMap, name: "ByteArray", ty: ty34)
-	let ty35 = instantiateType(tt, reads: reads, origin: b.arrayOrigin, args: oneArgList(b.stringTy))
-	registerStdInstanceAlias(std, typeMap: typeMap, name: "StringArray", ty: ty35)
-	let ty36 = instantiateType(tt, reads: reads, origin: b.arrayOrigin, args: oneArgList(b.fullRangeIntTy))
-	registerStdInstanceAlias(std, typeMap: typeMap, name: "FullRangeIntArray", ty: ty36)
-	let ty37 = instantiateType(tt, reads: reads, origin: b.arrayOrigin, args: oneArgList(b.filePathTy))
-	registerStdInstanceAlias(std, typeMap: typeMap, name: "FilePathArray", ty: ty37)
+	let ty36 = instantiateType(tt, reads: reads, origin: b.arrayOrigin, args: oneArgList(b.byteTy))
+	registerStdInstanceAlias(std, typeMap: typeMap, name: "ByteArray", ty: ty36)
+	let ty37 = instantiateType(tt, reads: reads, origin: b.arrayOrigin, args: oneArgList(b.stringTy))
+	registerStdInstanceAlias(std, typeMap: typeMap, name: "StringArray", ty: ty37)
+	let ty38 = instantiateType(tt, reads: reads, origin: b.arrayOrigin, args: oneArgList(b.fullRangeIntTy))
+	registerStdInstanceAlias(std, typeMap: typeMap, name: "FullRangeIntArray", ty: ty38)
+	let ty39 = instantiateType(tt, reads: reads, origin: b.arrayOrigin, args: oneArgList(b.filePathTy))
+	registerStdInstanceAlias(std, typeMap: typeMap, name: "FilePathArray", ty: ty39)
 end 'declareBuiltinTypes'
 
 function declareArrayMethods(mutates tt TypeSlot, reads TypeTable, mutates ft FuncSlot, funcReads FuncTable, mutates std ParsedModule, mutates b Builtins, mutates funcMap FuncIDMap)
@@ -1621,6 +1657,8 @@ end 'declareClockMethods'
 function declareSchedulerMethods(mutates tt TypeSlot, reads TypeTable, mutates ft FuncSlot, funcReads FuncTable, mutates std ParsedModule, mutates b Builtins, mutates funcMap FuncIDMap)
 	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.schedulerTy, op: Intrinsic.intrSchedulerProcessorCount, name: "processorCount", isStatic: true, selfConv: Convention.convLet, ret: b.countTy, params: ParamSpecList.create(0), listed: true)
 	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.schedulerTy, op: Intrinsic.intrSchedulerYield, name: "yield", isStatic: true, selfConv: Convention.convLet, ret: b.voidTy, params: ParamSpecList.create(0), listed: true)
+	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.schedulerTy, op: Intrinsic.intrSchedulerPinToMachine, name: "pinToMachine", isStatic: true, selfConv: Convention.convLet, ret: b.boolTy, params: ParamSpecList.create(0), listed: true)
+	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.schedulerTy, op: Intrinsic.intrSchedulerUnpinFromMachine, name: "unpinFromMachine", isStatic: true, selfConv: Convention.convLet, ret: b.voidTy, params: ParamSpecList.create(0), listed: true)
 end 'declareSchedulerMethods'
 
 function declareServiceMethods(mutates tt TypeSlot, reads TypeTable, mutates ft FuncSlot, funcReads FuncTable, mutates std ParsedModule, mutates b Builtins, mutates funcMap FuncIDMap)
@@ -1720,6 +1758,69 @@ function declareCollectedOutputMethods(mutates tt TypeSlot, reads TypeTable, mut
 	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.collectedOutputTy, op: Intrinsic.intrCollectedOutputExitCode, name: "exitCode", isStatic: false, selfConv: Convention.convLet, ret: b.exitCodeTy, params: ParamSpecList.create(0), listed: true)
 	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.collectedOutputTy, op: Intrinsic.intrCollectedOutputSucceeded, name: "succeeded", isStatic: false, selfConv: Convention.convLet, ret: b.boolTy, params: ParamSpecList.create(0), listed: true)
 end 'declareCollectedOutputMethods'
+
+function declareDebuggeeMethods(mutates tt TypeSlot, reads TypeTable, mutates ft FuncSlot, funcReads FuncTable, mutates std ParsedModule, mutates b Builtins, mutates funcMap FuncIDMap)
+	let ty1 = instantiateType(tt, reads: reads, origin: b.arrayOrigin, args: oneArgList(b.stringTy))
+	var ps2 = ParamSpecList.create(0)
+	ps2.push(ParamSpec.make("executable", ty: b.executableTy, conv: Convention.convLet))
+	ps2.push(ParamSpec.make("arguments", ty: ty1, conv: Convention.convLet))
+	ps2.push(ParamSpec.make("outputToError", ty: b.boolTy, conv: Convention.convLet))
+	let f3 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.debuggeeTy, op: Intrinsic.intrDebuggeeLaunch, name: "launch", isStatic: true, selfConv: Convention.convLet, ret: b.countTy, params: ps2, listed: true)
+	ft.lists[funcList(ft, f: f3)][funcIndex(ft, f: f3)].errTy = b.subprocessErrorTy
+	let ty4 = instantiateType(tt, reads: reads, origin: b.arrayOrigin, args: oneArgList(b.byteTy))
+	var ps5 = ParamSpecList.create(0)
+	ps5.push(ParamSpec.make("budgetMs", ty: b.countTy, conv: Convention.convLet))
+	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.debuggeeTy, op: Intrinsic.intrDebuggeeWaitEvent, name: "waitEvent", isStatic: true, selfConv: Convention.convLet, ret: ty4, params: ps5, listed: true)
+	var ps6 = ParamSpecList.create(0)
+	ps6.push(ParamSpec.make("processId", ty: b.countTy, conv: Convention.convLet))
+	ps6.push(ParamSpec.make("thread", ty: b.countTy, conv: Convention.convLet))
+	ps6.push(ParamSpec.make("disposition", ty: b.debugDispositionTy, conv: Convention.convLet))
+	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.debuggeeTy, op: Intrinsic.intrDebuggeeContinueEvent, name: "continueEvent", isStatic: true, selfConv: Convention.convLet, ret: b.boolTy, params: ps6, listed: true)
+	let ty7 = instantiateType(tt, reads: reads, origin: b.arrayOrigin, args: oneArgList(b.byteTy))
+	var ps8 = ParamSpecList.create(0)
+	ps8.push(ParamSpec.make("process", ty: b.countTy, conv: Convention.convLet))
+	ps8.push(ParamSpec.make("address", ty: b.countTy, conv: Convention.convLet))
+	ps8.push(ParamSpec.make("count", ty: b.countTy, conv: Convention.convLet))
+	let f9 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.debuggeeTy, op: Intrinsic.intrDebuggeeReadMemory, name: "readMemory", isStatic: true, selfConv: Convention.convLet, ret: ty7, params: ps8, listed: true)
+	ft.lists[funcList(ft, f: f9)][funcIndex(ft, f: f9)].errTy = b.debuggeeErrorTy
+	let ty10 = instantiateType(tt, reads: reads, origin: b.arrayOrigin, args: oneArgList(b.byteTy))
+	var ps11 = ParamSpecList.create(0)
+	ps11.push(ParamSpec.make("process", ty: b.countTy, conv: Convention.convLet))
+	ps11.push(ParamSpec.make("address", ty: b.countTy, conv: Convention.convLet))
+	ps11.push(ParamSpec.make("content", ty: ty10, conv: Convention.convLet))
+	let f12 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.debuggeeTy, op: Intrinsic.intrDebuggeeWriteCode, name: "writeCode", isStatic: true, selfConv: Convention.convLet, ret: b.voidTy, params: ps11, listed: true)
+	ft.lists[funcList(ft, f: f12)][funcIndex(ft, f: f12)].errTy = b.debuggeeErrorTy
+	let ty13 = instantiateType(tt, reads: reads, origin: b.arrayOrigin, args: oneArgList(b.byteTy))
+	var ps14 = ParamSpecList.create(0)
+	ps14.push(ParamSpec.make("thread", ty: b.countTy, conv: Convention.convLet))
+	let f15 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.debuggeeTy, op: Intrinsic.intrDebuggeeReadContext, name: "readContext", isStatic: true, selfConv: Convention.convLet, ret: ty13, params: ps14, listed: true)
+	ft.lists[funcList(ft, f: f15)][funcIndex(ft, f: f15)].errTy = b.debuggeeErrorTy
+	let ty16 = instantiateType(tt, reads: reads, origin: b.arrayOrigin, args: oneArgList(b.byteTy))
+	var ps17 = ParamSpecList.create(0)
+	ps17.push(ParamSpec.make("thread", ty: b.countTy, conv: Convention.convLet))
+	ps17.push(ParamSpec.make("context", ty: ty16, conv: Convention.convLet))
+	let f18 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.debuggeeTy, op: Intrinsic.intrDebuggeeWriteContext, name: "writeContext", isStatic: true, selfConv: Convention.convLet, ret: b.voidTy, params: ps17, listed: true)
+	ft.lists[funcList(ft, f: f18)][funcIndex(ft, f: f18)].errTy = b.debuggeeErrorTy
+	var ps19 = ParamSpecList.create(0)
+	ps19.push(ParamSpec.make("thread", ty: b.countTy, conv: Convention.convLet))
+	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.debuggeeTy, op: Intrinsic.intrDebuggeeSuspend, name: "suspend", isStatic: true, selfConv: Convention.convLet, ret: b.boolTy, params: ps19, listed: true)
+	var ps20 = ParamSpecList.create(0)
+	ps20.push(ParamSpec.make("thread", ty: b.countTy, conv: Convention.convLet))
+	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.debuggeeTy, op: Intrinsic.intrDebuggeeResume, name: "resume", isStatic: true, selfConv: Convention.convLet, ret: b.boolTy, params: ps20, listed: true)
+	var ps21 = ParamSpecList.create(0)
+	ps21.push(ParamSpec.make("process", ty: b.countTy, conv: Convention.convLet))
+	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.debuggeeTy, op: Intrinsic.intrDebuggeeBreakIn, name: "breakIn", isStatic: true, selfConv: Convention.convLet, ret: b.boolTy, params: ps21, listed: true)
+	var ps22 = ParamSpecList.create(0)
+	ps22.push(ParamSpec.make("processId", ty: b.countTy, conv: Convention.convLet))
+	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.debuggeeTy, op: Intrinsic.intrDebuggeeDetach, name: "detach", isStatic: true, selfConv: Convention.convLet, ret: b.boolTy, params: ps22, listed: true)
+	var ps23 = ParamSpecList.create(0)
+	ps23.push(ParamSpec.make("handle", ty: b.countTy, conv: Convention.convLet))
+	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.debuggeeTy, op: Intrinsic.intrDebuggeeCloseHandle, name: "closeHandle", isStatic: true, selfConv: Convention.convLet, ret: b.voidTy, params: ps23, listed: true)
+	var ps24 = ParamSpecList.create(0)
+	ps24.push(ParamSpec.make("process", ty: b.countTy, conv: Convention.convLet))
+	ps24.push(ParamSpec.make("exitCode", ty: b.countTy, conv: Convention.convLet))
+	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.debuggeeTy, op: Intrinsic.intrDebuggeeTerminate, name: "terminate", isStatic: true, selfConv: Convention.convLet, ret: b.boolTy, params: ps24, listed: true)
+end 'declareDebuggeeMethods'
 
 function declareBuiltinsMethods(mutates tt TypeSlot, reads TypeTable, mutates ft FuncSlot, funcReads FuncTable, mutates std ParsedModule, mutates b Builtins, mutates funcMap FuncIDMap)
 	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrProcessId, name: "currentProcessId", isStatic: true, selfConv: Convention.convLet, ret: b.countTy, params: ParamSpecList.create(0), listed: true)

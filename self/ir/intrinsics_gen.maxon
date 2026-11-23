@@ -407,6 +407,12 @@ export function intrinsicCall(mutates l Lowerer, p ast.Project, mutates ms ast.M
 	if op == ast.Intrinsic.intrSchedulerYield 'intrSchedulerYield'
 		return lowerSchedulerYield(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrSchedulerYield'
+	if op == ast.Intrinsic.intrSchedulerPinToMachine 'intrSchedulerPinToMachine'
+		return lowerSchedulerPinToMachine(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrSchedulerPinToMachine'
+	if op == ast.Intrinsic.intrSchedulerUnpinFromMachine 'intrSchedulerUnpinFromMachine'
+		return lowerSchedulerUnpinFromMachine(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrSchedulerUnpinFromMachine'
 	if op == ast.Intrinsic.intrSleep 'intrSleep'
 		return lowerSleep(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrSleep'
@@ -476,6 +482,45 @@ export function intrinsicCall(mutates l Lowerer, p ast.Project, mutates ms ast.M
 	if op == ast.Intrinsic.intrCollectedOutputExitCode 'intrCollectedOutputExitCode'
 		return lowerCollectedOutputExitCode(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrCollectedOutputExitCode'
+	if op == ast.Intrinsic.intrDebuggeeLaunch 'intrDebuggeeLaunch'
+		return lowerDebuggeeLaunch(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrDebuggeeLaunch'
+	if op == ast.Intrinsic.intrDebuggeeWaitEvent 'intrDebuggeeWaitEvent'
+		return lowerDebuggeeWaitEvent(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrDebuggeeWaitEvent'
+	if op == ast.Intrinsic.intrDebuggeeContinueEvent 'intrDebuggeeContinueEvent'
+		return lowerDebuggeeContinueEvent(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrDebuggeeContinueEvent'
+	if op == ast.Intrinsic.intrDebuggeeReadMemory 'intrDebuggeeReadMemory'
+		return lowerDebuggeeReadMemory(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrDebuggeeReadMemory'
+	if op == ast.Intrinsic.intrDebuggeeWriteCode 'intrDebuggeeWriteCode'
+		return lowerDebuggeeWriteCode(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrDebuggeeWriteCode'
+	if op == ast.Intrinsic.intrDebuggeeReadContext 'intrDebuggeeReadContext'
+		return lowerDebuggeeReadContext(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrDebuggeeReadContext'
+	if op == ast.Intrinsic.intrDebuggeeWriteContext 'intrDebuggeeWriteContext'
+		return lowerDebuggeeWriteContext(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrDebuggeeWriteContext'
+	if op == ast.Intrinsic.intrDebuggeeSuspend 'intrDebuggeeSuspend'
+		return lowerDebuggeeSuspend(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrDebuggeeSuspend'
+	if op == ast.Intrinsic.intrDebuggeeResume 'intrDebuggeeResume'
+		return lowerDebuggeeResume(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrDebuggeeResume'
+	if op == ast.Intrinsic.intrDebuggeeBreakIn 'intrDebuggeeBreakIn'
+		return lowerDebuggeeBreakIn(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrDebuggeeBreakIn'
+	if op == ast.Intrinsic.intrDebuggeeDetach 'intrDebuggeeDetach'
+		return lowerDebuggeeDetach(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrDebuggeeDetach'
+	if op == ast.Intrinsic.intrDebuggeeCloseHandle 'intrDebuggeeCloseHandle'
+		return lowerDebuggeeCloseHandle(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrDebuggeeCloseHandle'
+	if op == ast.Intrinsic.intrDebuggeeTerminate 'intrDebuggeeTerminate'
+		return lowerDebuggeeTerminate(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrDebuggeeTerminate'
 	if op == ast.Intrinsic.intrCollectedOutputSucceeded 'intrCollectedOutputSucceeded'
 		return lowerCollectedOutputSucceeded(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrCollectedOutputSucceeded'
@@ -1057,6 +1102,12 @@ export function ownsOperands(op ast.Intrinsic) returns bool
 	if op == ast.Intrinsic.intrSchedulerYield 'intrSchedulerYield'
 		return false
 	end 'intrSchedulerYield'
+	if op == ast.Intrinsic.intrSchedulerPinToMachine 'intrSchedulerPinToMachine'
+		return false
+	end 'intrSchedulerPinToMachine'
+	if op == ast.Intrinsic.intrSchedulerUnpinFromMachine 'intrSchedulerUnpinFromMachine'
+		return false
+	end 'intrSchedulerUnpinFromMachine'
 	if op == ast.Intrinsic.intrSleep 'intrSleep'
 		return false
 	end 'intrSleep'
@@ -1126,6 +1177,45 @@ export function ownsOperands(op ast.Intrinsic) returns bool
 	if op == ast.Intrinsic.intrCollectedOutputExitCode 'intrCollectedOutputExitCode'
 		return false
 	end 'intrCollectedOutputExitCode'
+	if op == ast.Intrinsic.intrDebuggeeLaunch 'intrDebuggeeLaunch'
+		return false
+	end 'intrDebuggeeLaunch'
+	if op == ast.Intrinsic.intrDebuggeeWaitEvent 'intrDebuggeeWaitEvent'
+		return false
+	end 'intrDebuggeeWaitEvent'
+	if op == ast.Intrinsic.intrDebuggeeContinueEvent 'intrDebuggeeContinueEvent'
+		return false
+	end 'intrDebuggeeContinueEvent'
+	if op == ast.Intrinsic.intrDebuggeeReadMemory 'intrDebuggeeReadMemory'
+		return false
+	end 'intrDebuggeeReadMemory'
+	if op == ast.Intrinsic.intrDebuggeeWriteCode 'intrDebuggeeWriteCode'
+		return false
+	end 'intrDebuggeeWriteCode'
+	if op == ast.Intrinsic.intrDebuggeeReadContext 'intrDebuggeeReadContext'
+		return false
+	end 'intrDebuggeeReadContext'
+	if op == ast.Intrinsic.intrDebuggeeWriteContext 'intrDebuggeeWriteContext'
+		return false
+	end 'intrDebuggeeWriteContext'
+	if op == ast.Intrinsic.intrDebuggeeSuspend 'intrDebuggeeSuspend'
+		return false
+	end 'intrDebuggeeSuspend'
+	if op == ast.Intrinsic.intrDebuggeeResume 'intrDebuggeeResume'
+		return false
+	end 'intrDebuggeeResume'
+	if op == ast.Intrinsic.intrDebuggeeBreakIn 'intrDebuggeeBreakIn'
+		return false
+	end 'intrDebuggeeBreakIn'
+	if op == ast.Intrinsic.intrDebuggeeDetach 'intrDebuggeeDetach'
+		return false
+	end 'intrDebuggeeDetach'
+	if op == ast.Intrinsic.intrDebuggeeCloseHandle 'intrDebuggeeCloseHandle'
+		return false
+	end 'intrDebuggeeCloseHandle'
+	if op == ast.Intrinsic.intrDebuggeeTerminate 'intrDebuggeeTerminate'
+		return false
+	end 'intrDebuggeeTerminate'
 	if op == ast.Intrinsic.intrCollectedOutputSucceeded 'intrCollectedOutputSucceeded'
 		return false
 	end 'intrCollectedOutputSucceeded'

@@ -1,0 +1,59 @@
+// The debug port, maxon's DebugPort (stdlib/Debuggee.maxon) over the Win32 debug API: the compiler's debugger starts a
+// program as its debuggee, waits for its debug events, reads and writes its memory and its threads' registers, and holds
+// and lets go of its threads, from outside it. The events, contexts and memory go back as byte arrays, which the debugger
+// decodes. Only the thread that started the debuggee may wait for its events, so the debugger's green thread is pinned
+// to its machine (Scheduler.pinToMachine). On another system each entry panics, as maxon's windowsDebugCall does: the
+// debugger drives a program there through that system's own interface. The committed seed links a fixed list of DLL
+// functions, which lacks the debug port's, so until the seed is renewed each entry panics on Windows too.
+
+function debugLaunch(executable String, arguments Count, outputToError bool, errorAddress Count) returns Count
+	panic("Debuggee.launch asks a host with no Win32 debug port")
+end 'debugLaunch'
+
+function debugWaitEvent(budgetMs Count) returns Count
+	panic("Debuggee.waitEvent asks a host with no Win32 debug port")
+end 'debugWaitEvent'
+
+function debugContinueEvent(processId Count, thread Count, unhandled bool) returns bool
+	panic("Debuggee.continueEvent asks a host with no Win32 debug port")
+end 'debugContinueEvent'
+
+function debugReadMemory(process Count, address Count, count Count, errorAddress Count) returns Count
+	panic("Debuggee.readMemory asks a host with no Win32 debug port")
+end 'debugReadMemory'
+
+function debugWriteCode(process Count, address Count, content Count, errorAddress Count)
+	panic("Debuggee.writeCode asks a host with no Win32 debug port")
+end 'debugWriteCode'
+
+function debugReadContext(thread Count, errorAddress Count) returns Count
+	panic("Debuggee.readContext asks a host with no Win32 debug port")
+end 'debugReadContext'
+
+function debugWriteContext(thread Count, context Count, errorAddress Count)
+	panic("Debuggee.writeContext asks a host with no Win32 debug port")
+end 'debugWriteContext'
+
+function debugSuspend(thread Count) returns bool
+	panic("Debuggee.suspend asks a host with no Win32 debug port")
+end 'debugSuspend'
+
+function debugResume(thread Count) returns bool
+	panic("Debuggee.resume asks a host with no Win32 debug port")
+end 'debugResume'
+
+function debugBreakIn(process Count) returns bool
+	panic("Debuggee.breakIn asks a host with no Win32 debug port")
+end 'debugBreakIn'
+
+function debugDetach(processId Count) returns bool
+	panic("Debuggee.detach asks a host with no Win32 debug port")
+end 'debugDetach'
+
+function debugCloseHandle(handle Count)
+	panic("Debuggee.closeHandle asks a host with no Win32 debug port")
+end 'debugCloseHandle'
+
+function debugTerminate(process Count, exitCode Count) returns bool
+	panic("Debuggee.terminate asks a host with no Win32 debug port")
+end 'debugTerminate'

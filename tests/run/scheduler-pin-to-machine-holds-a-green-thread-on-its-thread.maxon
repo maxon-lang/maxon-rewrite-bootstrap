@@ -1,0 +1,62 @@
+// native-only
+// A green thread pinned to its machine (Go's LockOSThread) parks, yields and sleeps while behaviours run on the other
+// threads, and its thread runs no other green thread meanwhile: every wait hands the processor on and has the green thread
+// handed back to its own thread. Pins nest, the last unpin frees it, and a coroutine that finishes pinned frees its
+// thread. The interpreter runs one thread and no sleep.
+// expect-scheduler: used
+//> pinned true
+//> nested true
+//> unpinned
+//> a coroutine pinned and finished
+//> 64 behaviours, sum 2016
+
+let behaviours = 64 as Count
+
+type Tally
+	export var count as Count
+	export var sum as Count
+
+	static function make() returns Tally
+		return Tally{count: 0, sum: 0}
+	end 'make'
+end 'Tally'
+
+function report(tally cown with Tally)
+	when tally as t 'printed'
+		print("{t.count} behaviours, sum {t.sum}\n")
+	end 'printed'
+end 'report'
+
+function pinnedWorker() returns bool
+	let pinned = Scheduler.pinToMachine()
+	sleep(1)
+	Scheduler.yield()
+	return pinned
+end 'pinnedWorker'
+
+function main() returns ExitCode
+	print("pinned {Scheduler.pinToMachine()}\n")
+	let tally = cown(Tally.make())
+	for i in 0 upto behaviours 'spawn'
+		let t = share(tally)
+		when t as k 'add'
+			k.count = try k.count + 1 otherwise 0
+			k.sum = try k.sum + i otherwise 0
+		end 'add'
+	end 'spawn'
+	for round in 0 upto 4 'waits'
+		sleep(1)
+		Scheduler.yield()
+	end 'waits'
+	print("nested {Scheduler.pinToMachine()}\n")
+	Scheduler.unpinFromMachine()
+	sleep(1)
+	Scheduler.unpinFromMachine()
+	print("unpinned\n")
+	let worker = async pinnedWorker()
+	if await worker 'held'
+		print("a coroutine pinned and finished\n")
+	end 'held'
+	report(tally)
+	return 0
+end 'main'

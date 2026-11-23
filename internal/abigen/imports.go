@@ -5,93 +5,15 @@ import (
 	"strings"
 )
 
-// The import table of every executable: the library the runtime and the entry stub call into, and its functions in the
-// order of their slots, which the PE writer lays out and the code calls through by index. The runtime names a function
-// by a string literal (`__Raw.callImportN("Name")`), so a name missing here is found by the test of this package rather
-// than by a panic at link time. Appending keeps every earlier slot; inserting moves them all.
+// The libraries an executable imports from. A PE imports the DLL functions its live code calls, which the link collects
+// from the calls' names (self/backend's LinkImports), so no list of them is kept here: the runtime calls one by a string
+// literal (`__Raw.callImportN("Name")`) and the entry stub by its name. macOS's functions are listed, since a call of a
+// variadic one depends on how many of its words are fixed.
 
 const importsFile = "../../self/backend/imports_gen.maxon"
 
-// importLibrary is the one library the executable imports from.
+// importLibrary is the one library a PE imports from.
 const importLibrary = "kernel32.dll"
-
-var importNames = []string{
-	"GetProcessHeap",
-	"HeapAlloc",
-	"GetStdHandle",
-	"WriteFile",
-	"ExitProcess",
-	"HeapFree",
-	"GetCommandLineA",
-	"CreateFileA",
-	"ReadFile",
-	"GetFileSizeEx",
-	"CloseHandle",
-	"MoveFileExA",
-	"DeleteFileA",
-	"FindFirstFileA",
-	"FindNextFileA",
-	"FindClose",
-	"GetFileAttributesA",
-	"CreateDirectoryA",
-	"GetEnvironmentVariableA",
-	"CreateProcessA",
-	"WaitForSingleObject",
-	"GetExitCodeProcess",
-	"GetLastError",
-	"CreatePipe",
-	"SetHandleInformation",
-	"PeekNamedPipe",
-	"GetCommandLineW",
-	"CreateFileW",
-	"MoveFileExW",
-	"DeleteFileW",
-	"FindFirstFileW",
-	"FindNextFileW",
-	"GetFileAttributesW",
-	"CreateDirectoryW",
-	"GetEnvironmentVariableW",
-	"CreateProcessW",
-	"GetModuleFileNameW",
-	"GetCurrentDirectoryW",
-	"GetModuleFileNameA",
-	"GetCurrentDirectoryA",
-	"GetTickCount64",
-	"TerminateProcess",
-	"GetCurrentProcessId",
-	"SetThreadStackGuarantee",
-	"AddVectoredExceptionHandler",
-	"CreateThread",
-	"CreateEventW",
-	"SetEvent",
-	"TlsAlloc",
-	"TlsSetValue",
-	"GetActiveProcessorCount",
-	"SwitchToThread",
-	"QueryPerformanceCounter",
-	"QueryPerformanceFrequency",
-	"InitializeProcThreadAttributeList",
-	"UpdateProcThreadAttribute",
-	"DeleteProcThreadAttributeList",
-	"VirtualAlloc",
-	"VirtualFree",
-	"GetCurrentThread",
-	"GetCurrentProcess",
-	"DuplicateHandle",
-	"SuspendThread",
-	"ResumeThread",
-	"GetThreadContext",
-	"SetThreadContext",
-	"Sleep",
-	"CreateIoCompletionPort",
-	"GetQueuedCompletionStatusEx",
-	"PostQueuedCompletionStatus",
-	// The system's entropy is ProcessPrng's, of bcryptprimitives.dll, which the import table does not name, so the runtime
-	// finds it by name and calls it by its address (__Raw.callHost2).
-	"LoadLibraryA",
-	"GetProcAddress",
-	"RemoveDirectoryW",
-}
 
 // libSystemFunction is a function of macOS's libSystem that the runtime or the entry stub may call. A variadic one
 // takes its first fixed words in registers and every word after them on the stack, as Apple's convention passes a
@@ -167,27 +89,14 @@ var macosImports = []libSystemFunction{
 	{name: "posix_spawnattr_destroy"},
 }
 
-// importsMaxon is self/backend/imports_gen.maxon: the library, the slot of each import as a constant (imp followed by
-// its name) and the list of names in slot order, and the libSystem functions a macOS executable may call, with the
-// variadic ones and the words of each that are fixed.
-func importsMaxon(names []string, macos []libSystemFunction) string {
+// importsMaxon is self/backend/imports_gen.maxon: the library a PE imports from, and the libSystem functions a macOS
+// executable may call, with the variadic ones and the words of each that are fixed.
+func importsMaxon(macos []libSystemFunction) string {
 	var b strings.Builder
 	b.WriteString("// " + header + "\n\n")
-	b.WriteString("// rtDll is the one library the executable imports from.\n")
+	b.WriteString("// rtDll is the one library a PE imports from.\n")
 	b.WriteString("export let rtDll = \"" + importLibrary + "\"\n")
-	b.WriteString("\n// The imports are in the order of their slots in the import table, which code calls through by index.\n")
-	for i, n := range names {
-		b.WriteString("export let imp" + n + " = " + strconv.Itoa(i) + " as Count\n\n")
-	}
-	b.WriteString("export function rtImports() returns NameList\n\tvar names = NameList.create(0)\n")
-	for _, n := range names {
-		b.WriteString("\tnames.push(\"" + n + "\")\n")
-	}
-	b.WriteString("\treturn names\nend 'rtImports'\n")
-	b.WriteString("\n// The libSystem functions a macOS executable may call, by their C names, each its index in macosImports as a\n// constant (macosImp followed by its name in camel case).\n")
-	for i, f := range macos {
-		b.WriteString("export let macosImp" + camel(f.name) + " = " + strconv.Itoa(i) + " as Count\n\n")
-	}
+	b.WriteString("\n// The libSystem functions a macOS executable may call, by their C names.\n")
 	b.WriteString("export function macosImports() returns NameList\n\tvar names = NameList.create(0)\n")
 	for _, f := range macos {
 		b.WriteString("\tnames.push(\"" + f.name + "\")\n")
@@ -208,25 +117,5 @@ func importsMaxon(names []string, macos []libSystemFunction) string {
 		}
 	}
 	b.WriteString("\treturn words\nend 'macosVariadicFixedWords'\n")
-	return b.String()
-}
-
-// camel is a C name in camel case, its underscores dropped and each letter after one raised: pthread_create is
-// PthreadCreate, _exit Exit.
-func camel(name string) string {
-	var b strings.Builder
-	up := true
-	for _, r := range name {
-		if r == '_' {
-			up = true
-			continue
-		}
-		if up {
-			b.WriteString(strings.ToUpper(string(r)))
-		} else {
-			b.WriteRune(r)
-		}
-		up = false
-	}
 	return b.String()
 }

@@ -496,7 +496,8 @@ function emitArm64CallImport(mutates sel Selector, fn ir.IrFunction, ins ir.Inst
 	end 'imports'
 	let name = ir.callImportName(fn, x: ins)
 	let count = ir.callImportArgsCount(ins)
-	let refers = Referent.make(MRef.importSlot, aux: imm32Of(arm64ImportIndex(sel.system, name: name)))
+	requireArm64Import(sel.system, name: name)
+	let refers = Referent.make(MRef.importSlot, aux: sel.mir.addSymbol(name))
 	let page = sel.newTemp()
 	sel.arm64Refer(Arm64Form.adrp, a: page, b: noMReg, refers: refers)
 	let code = sel.newTemp()
@@ -518,13 +519,13 @@ end 'emitArm64CallHost'
 
 // arm64ImportIndex is the index of a library function among the imports of the system, which the link numbers the
 // slots of those it calls from.
-function arm64ImportIndex(system ast.TargetSystem, name String) returns Count
-	return match system 'system'
-		macos gives macosImportIndex(name)
-		windows gives panic("backend: arm64 has no import table for Windows, which the target table runs no arm64 on")
-		linux gives panic("backend: arm64 Linux programs make system calls and import nothing")
+function requireArm64Import(system ast.TargetSystem, name String)
+	match system 'system'
+		macos then _ = macosImportIndex(name)
+		windows then panic("backend: arm64 has no import table for Windows, which the target table runs no arm64 on")
+		linux then panic("backend: arm64 Linux programs make system calls and import nothing")
 	end 'system'
-end 'arm64ImportIndex'
+end 'requireArm64Import'
 
 // arm64FixedWords is how many of the count words of a call of a library function its convention passes as the named
 // ones: all of them but where the function is variadic and the system passes what is variadic on the stack.

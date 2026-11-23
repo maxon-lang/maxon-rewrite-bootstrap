@@ -402,7 +402,7 @@ function emitCallImport(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
 	if ast.systemReach(sel.system) != ast.SystemReach.imports 'imports'
 		panic("backend: the runtime calls the library function {ir.callImportName(fn, x: ins)} on a target whose programs reach the system by system calls: its source for the target lacks that function")
 	end 'imports'
-	let slot = imm32Of(importIndex(ir.callImportName(fn, x: ins)))
+	let slot = sel.mir.addSymbol(ir.callImportName(fn, x: ins))
 	emitHostCall(sel, fn: fn, ins: ins, start: ir.callImportArgsStart(ins), count: ir.callImportArgsCount(ins), form: X64Form.callRip, code: noMReg, ref: MRef.importSlot, aux: slot)
 end 'emitCallImport'
 
