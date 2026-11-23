@@ -33,7 +33,7 @@ function Test-Generated {
 $steps = @(
 	# Only this checkout's Go: gofmt walks dot directories too, and .claude/worktrees holds other checkouts that
 	# agents are editing.
-	@('format', { gofmt -w cmd internal }),
+	@('format', { gofmt -w cmd internal tests/bench/go }),
 	@('go fix', { go fix ./... }),
 	@('vet', { go vet ./... }),
 	@('generators', { Test-Generated }),

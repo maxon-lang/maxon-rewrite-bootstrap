@@ -309,6 +309,8 @@ runs, and reports a program whose output is not its checksum; it is how a change
 process is started with `CreateProcessW`, its output going to a file, and for `x64-linux` from a copy in WSL's `/tmp` by a
 shell there, so neither PowerShell nor the start of WSL is in the time. `.\selftime.ps1` records the `.text` bytes of the compiler it built in `docs/self-compile-times.md`.
 
+Each program also prints the time of its phases as `<phase> ns <nanoseconds>` lines before its `work ns` line, and has a Go counterpart in `tests/bench/go/<name>/main.go` that does the same work and prints the same lines. `cmd/bench` (`go run ./cmd/bench`) builds both for any target into a batch that a script runs, on arm64 hardware too, and reports minimaxon against Go as Markdown tables; `docs/benchmarks.md` has how to run it and the latest tables.
+
 Directives in comments say what the program must do:
 
 | Directive | Meaning |

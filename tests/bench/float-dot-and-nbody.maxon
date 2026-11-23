@@ -62,7 +62,17 @@ function energy(x Reals, y Reals, z Reals, vx Reals, vy Reals, vz Reals, mass Re
 	return e
 end 'energy'
 
+// lap prints the time of the phase that began at since, which bench.ps1 and cmd/bench read from the line, and gives the
+// time the next one begins.
+function lap(phase String, since Count) returns Count
+	let now = Clock.nowNanos()
+	let elapsed = try (now - since) otherwise panic("the clock went backwards")
+	print("{phase} ns {elapsed}\n")
+	return now
+end 'lap'
+
 function work() returns ExitCode
+	var started = Clock.nowNanos()
 	var a = Reals.create(0)
 	var b = Reals.create(0)
 	for i in 0 upto size 'fill'
@@ -73,6 +83,7 @@ function work() returns ExitCode
 	for _ in 0 upto dotRounds 'rounds'
 		total = total + dot(a, b: b)
 	end 'rounds'
+	started = lap("dot", since: started)
 	var x = Reals.create(0)
 	var y = Reals.create(0)
 	var z = Reals.create(0)
@@ -93,6 +104,7 @@ function work() returns ExitCode
 	for _ in 0 upto steps 'steps'
 		advance(x, y: y, z: z, vx: vx, vy: vy, vz: vz, mass: mass)
 	end 'steps'
+	started = lap("nbody", since: started)
 	print("{total} {energy(x, y: y, z: z, vx: vx, vy: vy, vz: vz, mass: mass)}\n")
 	return 0
 end 'work'

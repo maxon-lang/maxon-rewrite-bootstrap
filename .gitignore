@@ -1,3 +1,4 @@
 /minimaxon.exe
 /bin/
 /.spec-run-*/
+/bench-*.txt

@@ -4,3 +4,5 @@
 tests/errors/layout-carriage-return.maxon -text
 # The seed is a compiled executable; git keeps its bytes as they are.
 seed/minimaxon.exe binary
+# The benchmark kit's shell script is embedded in cmd/bench and run by sh, which rejects a carriage return.
+cmd/bench/run.sh text eol=lf

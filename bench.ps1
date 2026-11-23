@@ -1,8 +1,9 @@
 # Builds each program of tests\bench with a compiler and reports, as a table, the size of the executable's code (.text, in
 # bytes), the time of its work and the time of its process, each the best of a number of runs with the spread of the runs
 # (the slowest less the best), in milliseconds, so a change to the code generator or the optimizer shows in the numbers it
-# is for. A program times its own work with Clock.nowNanos and prints it last, as a `work ns` line; the rest of its output
-# must be the lines of its `//>` directives: a result that differs is reported as wrong and the program has no time.
+# is for. A program times its own work with Clock.nowNanos and prints it last, as a `work ns` line, after the `<phase> ns` lines
+# of the phases it times for cmd/bench; the rest of its output must be the lines of its `//>` directives: a result that
+# differs is reported as wrong and the program has no time.
 #
 # The process is timed by a launcher that adds next to nothing to it: on Windows CreateProcess, with the output going to a
 # file, and the wait for the process to end; for x64-linux a shell in WSL's default distribution, which runs a copy of the
@@ -20,6 +21,7 @@ $ErrorActionPreference = 'Stop'
 $compilerExe = [System.IO.Path]::GetFullPath($Compiler, $PSScriptRoot)
 $work = Join-Path ([System.IO.Path]::GetTempPath()) "minimaxon-bench-$PID"
 $workLine = '^work ns (\d+)$'
+$phaseLine = '^.+ ns \d+$'
 $nanosPerMilli = 1e6
 
 Add-Type -TypeDefinition @'
@@ -105,7 +107,7 @@ function Split-Run([string[]]$lines) {
 	$result = @()
 	$workNanos = $null
 	foreach ($line in $lines) {
-		if ($line -match $workLine) { $workNanos = [double]$Matches[1] } else { $result += $line }
+		if ($line -match $workLine) { $workNanos = [double]$Matches[1] } elseif ($line -notmatch $phaseLine) { $result += $line }
 	}
 	return @{ Result = ($result -join "`n"); Work = $workNanos }
 }

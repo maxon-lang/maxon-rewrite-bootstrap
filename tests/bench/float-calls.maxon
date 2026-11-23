@@ -30,8 +30,22 @@ function through(f Blend) returns Real
 	return x + y
 end 'through'
 
+// lap prints the time of the phase that began at since, which bench.ps1 and cmd/bench read from the line, and gives the
+// time the next one begins.
+function lap(phase String, since Count) returns Count
+	let now = Clock.nowNanos()
+	let elapsed = try (now - since) otherwise panic("the clock went backwards")
+	print("{phase} ns {elapsed}\n")
+	return now
+end 'lap'
+
 function work() returns ExitCode
-	print("{direct()} {through(mix)}\n")
+	var started = Clock.nowNanos()
+	let called = direct()
+	started = lap("direct", since: started)
+	let passed = through(mix)
+	started = lap("through", since: started)
+	print("{called} {passed}\n")
 	return 0
 end 'work'
 

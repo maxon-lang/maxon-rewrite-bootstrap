@@ -25,14 +25,24 @@ end 'Shape'
 typealias Shapes = Array with Shape
 
 function weight(s Shape) returns Word
-	return match s 'weight'
+	return match s 'shape'
 		dot(at) gives try at.x + at.y otherwise panic("weight overflowed")
 		box(corner, width) gives try (corner.x + corner.y) * width otherwise panic("weight overflowed")
 		line(first, last) gives try first.x * last.y + first.y * last.x otherwise panic("weight overflowed")
-	end 'weight'
+	end 'shape'
 end 'weight'
 
+// lap prints the time of the phase that began at since, which bench.ps1 and cmd/bench read from the line, and gives the
+// time the next one begins.
+function lap(phase String, since Count) returns Count
+	let now = Clock.nowNanos()
+	let elapsed = try (now - since) otherwise panic("the clock went backwards")
+	print("{phase} ns {elapsed}\n")
+	return now
+end 'lap'
+
 function work() returns ExitCode
+	var started = Clock.nowNanos()
 	var shapes = Shapes.create(0)
 	for i in 0 upto count 'build'
 		let p = Point.make(i as Word, y: try ((i as Word) * 7) mod modulus otherwise panic("point overflowed"))
@@ -44,12 +54,14 @@ function work() returns ExitCode
 			shapes.push(Shape.line(p, last: Point.make(try (i as Word) + 1 otherwise panic("point overflowed"), y: (i as Word) mod 11)))
 		end 'line'
 	end 'build'
+	started = lap("build", since: started)
 	var checksum = 0 as Word
 	for round in 0 upto rounds 'rounds'
 		for i in 0 upto count 'shapes'
 			checksum = try (checksum + weight(shapes[i]) + (round as Word)) mod modulus otherwise panic("checksum overflowed")
 		end 'shapes'
 	end 'rounds'
+	started = lap("match", since: started)
 	print("{checksum}\n")
 	return 0
 end 'work'

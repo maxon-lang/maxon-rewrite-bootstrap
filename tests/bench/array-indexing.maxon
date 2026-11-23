@@ -10,13 +10,24 @@ let rounds = 20000 as Count
 
 let spread = 1000 as Count
 
+// lap prints the time of the phase that began at since, which bench.ps1 and cmd/bench read from the line, and gives the
+// time the next one begins.
+function lap(phase String, since Count) returns Count
+	let now = Clock.nowNanos()
+	let elapsed = try (now - since) otherwise panic("the clock went backwards")
+	print("{phase} ns {elapsed}\n")
+	return now
+end 'lap'
+
 function work() returns ExitCode
+	var started = Clock.nowNanos()
 	var a = Words.create(0)
 	var text = ""
 	for i in 0 upto size 'fill'
 		a.push((i mod spread) as Word)
 		text.append("{i mod 10}")
 	end 'fill'
+	started = lap("fill", since: started)
 	var sum = 0 as Word
 	var high = 0 as Word
 	for _ in 0 upto rounds 'rounds'
@@ -29,6 +40,7 @@ function work() returns ExitCode
 			end 'high'
 		end 'scan'
 	end 'rounds'
+	started = lap("rounds", since: started)
 	print("{sum} {high}\n")
 	return 0
 end 'work'

@@ -25,20 +25,33 @@ type Counter
 	end 'total'
 end 'Counter'
 
+// lap prints the time of the phase that began at since, which bench.ps1 and cmd/bench read from the line, and gives the
+// time the next one begins.
+function lap(phase String, since Count) returns Count
+	let now = Clock.nowNanos()
+	let elapsed = try (now - since) otherwise panic("the clock went backwards")
+	print("{phase} ns {elapsed}\n")
+	return now
+end 'lap'
+
 function work() returns ExitCode
+	var started = Clock.nowNanos()
 	var counters = Counters.create(0)
 	for s in 0 upto services 'spawn'
 		counters.push(spawn Counter.create())
 	end 'spawn'
+	started = lap("spawn", since: started)
 	for r in 0 upto rounds 'rounds'
 		for s in 0 upto services 'each'
 			try counters[s].add(r as Word) otherwise panic("the mailbox has room for every round")
 		end 'each'
 	end 'rounds'
+	started = lap("send", since: started)
 	var total = 0 as Word
 	for s in 0 upto services 'totals'
 		total = try total + (try await counters[s].total() otherwise panic("the service runs until it is shut down")) otherwise panic("the total overflowed")
 	end 'totals'
+	started = lap("await", since: started)
 	print("{total}\n")
 	return 0
 end 'work'
