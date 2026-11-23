@@ -53,15 +53,19 @@ export function locateInFile(text String, files FileSpanList, file Count, offset
 	if target > endPos 'clampHi'
 		target = endPos
 	end 'clampHi'
-	var line = 1 as Count
-	var lineStart = beginPos
-	for pos in beginPos upto target 'scan'
-		if text.byteAt(pos) == 10 'nl'
-			line = try line + 1 otherwise line
-			lineStart = try pos + 1 otherwise lineStart
-		end 'nl'
-	end 'scan'
-	let col = try (target - lineStart) + 1 otherwise 1 as Count
+	// The line is the last whose start is at or before target; the first starts at beginPos.
+	var lo = 0 as Count
+	var hi = files[file].lineStarts.count()
+	while hi > lo and hi - lo > 1 'search'
+		let mid = try lo + (hi - lo) / 2 otherwise panic("positions: a search past its bounds")
+		if files[file].lineStarts[mid] <= target 'atOrBefore'
+			lo = mid
+		end 'atOrBefore' else 'after'
+			hi = mid
+		end 'after'
+	end 'search'
+	let line = try lo + 1 otherwise panic("positions: a line past memory")
+	let col = try (target - files[file].lineStarts[lo]) + 1 otherwise panic("positions: an offset before its line")
 	return ErrorLocation.make(files[file].path.clone(), line: line, col: col)
 end 'locateInFile'
 

@@ -719,7 +719,7 @@ end 'lexed'
 export function sourceOf(consumes text String, path String) returns Source
 	var files = ast.FileSpanList.create(0)
 	let size = try text.byteLength() as diag.U32 otherwise panic("the module's text is larger than 4 GB; split the module")
-	files.push(ast.FileSpan.make(path.clone(), start: 0 as diag.U32, endOff: size))
+	files.push(ast.FileSpan.make(path.clone(), text: text, start: 0 as diag.U32, endOff: size))
 	return Source.make(text, files: files)
 end 'sourceOf'
 

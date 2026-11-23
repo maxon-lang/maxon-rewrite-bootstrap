@@ -1184,11 +1184,18 @@ end 'parseSource'
 export function parseModuleFiles(module diag.ModuleID, consumes path String, consumes filePaths ast.StringList, consumes fileTexts ast.StringList, target ast.Target) returns ParseResult
 	var buf = ByteArray.create(0)
 	var files = ast.FileSpanList.create(0)
+	var spans as Array with Count
+	spans = Array.create(0)
 	for i in 0 upto filePaths.count() 'concat'
-		let startOff = try buf.count() as diag.U32 otherwise panic("the module's text is larger than 4 GB; split the module")
 		buf.append(fileTexts[i].toByteArray())
-		let endOff = try buf.count() as diag.U32 otherwise panic("the module's text is larger than 4 GB; split the module")
-		files.push(ast.FileSpan.make(filePaths[i].clone(), start: startOff, endOff: endOff))
+		spans.push(buf.count())
 	end 'concat'
-	return parseSourceInto(module, path: path, src: Source.make(String.from(buf), files: files), target: target)
+	let text = String.from(buf)
+	var startOff = 0 as diag.U32
+	for i in 0 upto filePaths.count() 'spans'
+		let endOff = try spans[i] as diag.U32 otherwise panic("the module's text is larger than 4 GB; split the module")
+		files.push(ast.FileSpan.make(filePaths[i].clone(), text: text, start: startOff, endOff: endOff))
+		startOff = endOff
+	end 'spans'
+	return parseSourceInto(module, path: path, src: Source.make(text, files: files), target: target)
 end 'parseModuleFiles'

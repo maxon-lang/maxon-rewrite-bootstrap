@@ -266,8 +266,10 @@ function runNested(mutates o Ownership, p ast.Project, mutates ms ast.ModuleStat
 	let found = exchange(o.errs, value: diag.ErrorList.create(0))
 	var inner = Ownership.make(checker, errs: found)
 	inner.closureTy = closureTy
+	inner.borrowing = exchange(o.borrowing, value: BoolIntMap.new())
 	run(inner, p: p, ms: ms, fid: fid, body: body, paramSites: sites)
 	o.errs = exchange(inner.errs, value: diag.ErrorList.create(0))
+	o.borrowing = exchange(inner.borrowing, value: BoolIntMap.new())
 	o.c = exchange(inner.c, value: Checker.make(modID, typing: ast.Typing.new(modID)))
 end 'runNested'
 
@@ -297,7 +299,7 @@ function ifTryStmtOwn(mutates o Ownership, p ast.Project, mutates ms ast.ModuleS
 	let added = enterTry(o, handles: true)
 	var after = s
 	if name != "" 'binds'
-		if holdsBorrow(p, ms: ms, t: ownType(o, node: call)) 'borrows'
+		if holdsBorrowOf(o, p: p, ms: ms, t: ownType(o, node: call)) 'borrows'
 			fail(o, p: p, site: offsetOfOwn(o, p: p, ms: ms, node: call), code: diag.errBorrowEscapes, msg: "'{name}' would hold a borrow, which 'if try' cannot bind; bind it with 'let {name} = try ... otherwise ...'")
 		end 'borrows'
 		after = consume(o, p: p, ms: ms, e: call, dest: OwnDest.make(OwnDestKind.destVariable, name: name.clone()), s: after)
@@ -610,7 +612,7 @@ function forEachOwn(mutates o Ownership, p ast.Project, mutates ms ast.ModuleSta
 		// A loop over a cursor moves it on in place; one over a collection holds it only where the cursor it makes borrows
 		// it, as an array's loop does.
 		let walksItself = not info.hasFactory
-		held = held and (walksItself or holdsBorrow(p, ms: ms, t: info.cursorTy))
+		held = held and (walksItself or holdsBorrowOf(o, p: p, ms: ms, t: info.cursorTy))
 		let site = offsetOfOwn(o, p: p, ms: ms, node: source)
 		if walksItself and held and ast.isByAddress(info.advance.selfConv) and not changesProjection(o, p: p, ms: ms, e: source, site: site, what: "moved on as the cursor of a for") 'advances'
 			requireWritable(o, p: p, ms: ms, site: site, path: path)

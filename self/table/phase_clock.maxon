@@ -1,0 +1,59 @@
+// The wall time of the phases of a stage whose phases interleave, function by function, which --timings reports beneath
+// the stages: each phase is timed from the end of whatever ran before it.
+
+export typealias PhaseNanos = Array with Count
+
+// PhaseClock charges the time between two of its laps to the phase the later one names, by the phase's place in its
+// enum. A clock that is off charges none and reads no clock.
+export type PhaseClock
+	export var enabled as bool
+	export var nanos as PhaseNanos
+	var last as Count
+
+	export static function off() returns PhaseClock
+		return PhaseClock{enabled: false, nanos: PhaseNanos.create(0), last: 0}
+	end 'off'
+
+	// start is a clock of phases phases, running from now.
+	export static function start(phases Count) returns PhaseClock
+		var nanos = PhaseNanos.create(0)
+		for _ in 0 upto phases 'phases'
+			nanos.push(0)
+		end 'phases'
+		return PhaseClock{enabled: true, nanos: nanos, last: Clock.nowNanos()}
+	end 'start'
+
+	// restart drops the time since the last lap, which was of no phase.
+	export function restart(mutates self)
+		if enabled 'on'
+			last = Clock.nowNanos()
+		end 'on'
+	end 'restart'
+
+	// lap charges the time since the last lap to the phase at place at.
+	export function lap(mutates self, at Count)
+		if not enabled 'off'
+			return
+		end 'off'
+		let now = Clock.nowNanos()
+		let elapsed = try now - last otherwise panic("table: the clock went backwards")
+		nanos[at] = try nanos[at] + elapsed otherwise panic("table: the time of a phase passes a word of nanoseconds")
+		last = now
+	end 'lap'
+
+	// add charges the phases of other, a clock of the same phases, to this one's.
+	export function add(mutates self, other PhaseClock)
+		for i in 0 upto other.nanos.count() 'phases'
+			nanos[i] = try nanos[i] + other.nanos[i] otherwise panic("table: the time of a phase passes a word of nanoseconds")
+		end 'phases'
+	end 'add'
+
+	// total is the time of every phase.
+	export function total() returns Count
+		var sum = 0 as Count
+		for i in 0 upto nanos.count() 'phases'
+			sum = try sum + nanos[i] otherwise panic("table: the time of the phases passes a word of nanoseconds")
+		end 'phases'
+		return sum
+	end 'total'
+end 'PhaseClock'

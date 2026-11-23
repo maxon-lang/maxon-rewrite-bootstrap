@@ -575,11 +575,14 @@ end 'inlineInto'
 export function inlineModule(mutates o Optimizer, mutates fns ir.IrFunctionList, mutates own Leaves, mutates ownPreemptible Leaves, preemptible Preemptible, lowered LoweredLists, leaves LeavesList, reads Array with bool, first Count)
 	for i in 0 upto fns.count() 'expand'
 		_ = o.expander.expandFunction(fns[i])
+		o.lap(OptPhase.expansion)
 		if holdsRaising(fns[i]) 'raising'
 			o.fold.foldFunction(fns[i], raises: true)
+			o.lap(OptPhase.fold)
 		end 'raising'
 	end 'expand'
 	let order = calleesFirst(fns, slot: own.slot)
+	o.lap(OptPhase.inlining)
 	for n in 0 upto order.count() 'functions'
 		let i = order[n]
 		var f = exchange(fns[i], value: ir.IrFunction.new(ast.noFunc, name: "", paramCount: 0))
@@ -589,6 +592,7 @@ export function inlineModule(mutates o Optimizer, mutates fns ir.IrFunctionList,
 		end 'every' else 'preemptibleOnly'
 			changed = inlineInto(o, f: f, own: ownPreemptible, ownFns: fns, lowered: lowered, leaves: leaves, reads: reads, first: first)
 		end 'preemptibleOnly'
+		o.lap(OptPhase.inlining)
 		if changed 'changed'
 			threadAndFold(o, f: f, raises: true)
 			if ast.funcSlotOf(f.decl) == own.slot and isLeaf(f) 'promoted'
@@ -597,6 +601,7 @@ export function inlineModule(mutates o Optimizer, mutates fns ir.IrFunctionList,
 					ownPreemptible.add(f.decl, place: i)
 				end 'preemptible'
 			end 'promoted'
+			o.lap(OptPhase.inlining)
 		end 'changed'
 		fns[i] = f
 	end 'functions'

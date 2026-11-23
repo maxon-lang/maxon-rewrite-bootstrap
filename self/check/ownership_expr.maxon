@@ -54,7 +54,7 @@ function consume(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState,
 	if ast.isFunctionType(ms.types, reads: p.types, t: t) and dest.kind != OwnDestKind.destClosure and dest.kind != OwnDestKind.destBinding and dest.kind != OwnDestKind.destCast and dest.kind != OwnDestKind.destBranch 'escapes'
 		requireNoBorrows(o, p: p, ms: ms, e: e, what: "moved into {dest.text()}")
 	end 'escapes'
-	if holdsBorrow(p, ms: ms, t: t) 'borrows'
+	if holdsBorrowOf(o, p: p, ms: ms, t: t) 'borrows'
 		requireBorrowsStay(o, p: p, ms: ms, e: e, dest: dest)
 	end 'borrows'
 	if not isManagedOwn(p, ms: ms, t: t) or ast.sharesOnCopy(ms.types, reads: p.types, t: t) 'scalar'

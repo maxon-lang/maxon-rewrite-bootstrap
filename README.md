@@ -97,7 +97,10 @@ each stage of the task graph: the wall time its tasks took, in milliseconds, and
 tasks took longest; a `build` prints it for the runtime's compile, which every build does first, and for the program's. A
 `build` or `check` runs its tasks on every core, so the stages' times add up to the work the compile did, which is more than
 its wall time. The clock is read twice per task and only when the flag is on.
-Beneath the stages, a compile that emitted code splits the emit stage by phase (`backend.EmitPhase`): selection, the blocks'
+Beneath the stages, a compile that optimized code splits the lower stage by phase (`opt.OptPhase`): the lowering itself, then
+each pass of the optimizer (SSA construction, jump threading, the folds, the expansion, inlining, the analyses the passes after
+inlining share, rotation, LICM, CSE and copy elision) and the cache's summary, each by its share of the stage. A compile that
+emitted code splits the emit stage by phase (`backend.EmitPhase`): selection, the blocks'
 layout, and per spilling round the graph, liveness and pressure, then spilling's sweeps and edits, colouring, the rewrite out of
 SSA, `--verify-ir`'s checks and encoding, each by its share of the stage; the clock is read at each boundary of a phase.
 `--trace=<file>` (on `build` and `check`) writes the timeline of the compile's tasks to the file in Chrome's trace format

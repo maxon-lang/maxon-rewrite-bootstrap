@@ -14,6 +14,28 @@
 // (cse.maxon), which merges what moved out of a loop with what was computed before it, and copy elision (copies.maxon),
 // which needs the reads of one place merged to see that a copy of it is a move.
 
+// OptPhase is a part of the lower stage that --timings times on its own.
+export enum OptPhase
+	// lowering is the IR made from the checked module, and its checks under --verify-ir.
+	lowering
+	ssa
+	// threading is jump threading (thread.maxon).
+	threading
+	fold
+	// expansion is the primitives expanded (expand.maxon).
+	expansion
+	// inlining is the leaves found, the order of the callees and the calls of leaves replaced.
+	inlining
+	// analyses is the flow, the dominators and the loops' facts that the passes after inlining share.
+	analyses
+	rotation
+	licm
+	cse
+	copies
+	// summary is the module's summary for the build cache.
+	summary
+end 'OptPhase'
+
 // Optimizer is the state of the passes, kept from one function to the next.
 export type Optimizer
 	export var ssa as Ssa
@@ -28,12 +50,19 @@ export type Optimizer
 	// The analyses the passes after inlining share: each pass that changes a function has them found again.
 	var analysis as Analysis
 	var facts as LoopFacts
+	// clock times the passes for --timings.
+	export var clock as table.PhaseClock
 
 	// new is the passes of a build for an architecture, which decides how a read of a string's bytes leaves a loop
 	// (licm.maxon).
 	export static function new(arch ast.TargetArch) returns Optimizer
-		return Optimizer{ssa: Ssa.new(), fold: Fold.new(), expander: Expander.new(), inliner: Inliner.new(), rotator: Rotator.new(), licm: Licm.new(not addsIndexAndOffset(arch)), cse: Cse.new(), copies: Copies.new(), threader: Threader.new(), analysis: Analysis.new(), facts: LoopFacts.new()}
+		return Optimizer{ssa: Ssa.new(), fold: Fold.new(), expander: Expander.new(), inliner: Inliner.new(), rotator: Rotator.new(), licm: Licm.new(not addsIndexAndOffset(arch)), cse: Cse.new(), copies: Copies.new(), threader: Threader.new(), analysis: Analysis.new(), facts: LoopFacts.new(), clock: table.PhaseClock.off()}
 	end 'new'
+
+	// lap charges the time since the clock's last lap to phase.
+	export function lap(mutates self, phase OptPhase)
+		clock.lap(phase.ordinal)
+	end 'lap'
 end 'Optimizer'
 
 // addsIndexAndOffset is whether an access of the architecture adds both an index and a constant offset to its base: x64's
@@ -56,6 +85,7 @@ end 'optimizeModule'
 // optimizeFunction runs the passes before the fallback on f.
 function optimizeFunction(mutates o Optimizer, mutates f ir.IrFunction)
 	o.ssa.construct(f)
+	o.lap(OptPhase.ssa)
 	threadAndFold(o, f: f, raises: false)
 end 'optimizeFunction'
 
@@ -63,7 +93,9 @@ end 'optimizeFunction'
 // the constants the threaded edges left.
 function threadAndFold(mutates o Optimizer, mutates f ir.IrFunction, raises bool)
 	_ = o.threader.thread(f)
+	o.lap(OptPhase.threading)
 	o.fold.foldFunction(f, raises: raises)
+	o.lap(OptPhase.fold)
 end 'threadAndFold'
 
 // fallbackOf is the fallback of the function at place at of fns, a module's functions as lowerModule lowered them and the
@@ -95,16 +127,25 @@ function refine(mutates o Optimizer, mutates f ir.IrFunction)
 	end 'empty'
 	o.analysis.dominators(f)
 	o.facts.find(f, flow: o.analysis.flow)
+	o.lap(OptPhase.analyses)
 	if o.analysis.flow.retreatFrom.count() > 0 'loops'
-		if o.rotator.rotate(f, analysis: o.analysis, facts: o.facts) 'rotated'
+		let rotated = o.rotator.rotate(f, analysis: o.analysis, facts: o.facts)
+		o.lap(OptPhase.rotation)
+		if rotated 'rotated'
 			o.analysis.dominators(f)
 			o.facts.find(f, flow: o.analysis.flow)
+			o.lap(OptPhase.analyses)
 		end 'rotated'
-		if o.licm.hoist(f, analysis: o.analysis, facts: o.facts) 'hoisted'
+		let hoisted = o.licm.hoist(f, analysis: o.analysis, facts: o.facts)
+		o.lap(OptPhase.licm)
+		if hoisted 'hoisted'
 			o.analysis.dominators(f)
 			o.facts.find(f, flow: o.analysis.flow)
+			o.lap(OptPhase.analyses)
 		end 'hoisted'
 	end 'loops'
 	o.cse.eliminate(f, analysis: o.analysis, facts: o.facts)
+	o.lap(OptPhase.cse)
 	_ = o.copies.elide(f)
+	o.lap(OptPhase.copies)
 end 'refine'

@@ -5,6 +5,18 @@
 // be returned only where everything it borrows is lent by the caller, and stored only in a place whose scope ends inside
 // what it borrows.
 
+// holdsBorrowOf is holdsBorrow with the answers kept for the rest of the module's pass: the pass asks it of the type of
+// every argument a call writes, and the walk of a type's fields reaches every type it holds.
+function holdsBorrowOf(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState, t ast.TypeID) returns bool
+	let known = o.borrowing.get(t as Count)
+	if known.isSome() 'known'
+		return known.unwrap()
+	end 'known'
+	let holds = holdsBorrow(p, ms: ms, t: t)
+	o.borrowing.insert(t as Count, value: holds)
+	return holds
+end 'holdsBorrowOf'
+
 // valueBorrows is what the value of e borrows, which must be a value whose type holds a borrow.
 function valueBorrows(o Ownership, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID) returns OwnBorrows
 	var out = OwnBorrows.new()
@@ -141,7 +153,8 @@ end 'addArgumentBorrows'
 // bindBorrowHolder records that a local declared here holds what its value borrows, and holds each place it borrows for as
 // long as the local's scope lasts.
 function bindBorrowHolder(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState, local ast.LocalID, e ast.NodeID)
-	if not holdsBorrow(p, ms: ms, t: o.c.typing.locals[local as Count].ty) 'free'
+	let ty = o.c.typing.locals[local as Count].ty
+	if not holdsBorrowOf(o, p: p, ms: ms, t: ty) 'free'
 		return
 	end 'free'
 	let b = valueBorrows(o, p: p, ms: ms, e: e)
@@ -240,7 +253,7 @@ end 'borrowedName'
 
 // requireStoredBorrows refuses a value that holds a borrow where it is stored in target, a place rooted at a local.
 function requireStoredBorrows(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState, target ast.NodeID, value ast.NodeID, site diag.U32)
-	if not holdsBorrow(p, ms: ms, t: ownType(o, node: value)) 'free'
+	if not holdsBorrowOf(o, p: p, ms: ms, t: ownType(o, node: value)) 'free'
 		return
 	end 'free'
 	let path = pathOf(o, p: p, ms: ms, e: target)
@@ -265,7 +278,7 @@ function requireAbsorbedBorrows(mutates o Ownership, p ast.Project, mutates ms a
 end 'requireAbsorbedBorrows'
 
 function requireAbsorbedBy(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState, site diag.U32, call ast.CallInfo, receiver ast.NodeID, target ast.NodeID)
-	if not holdsBorrow(p, ms: ms, t: ownType(o, node: target)) 'free'
+	if not holdsBorrowOf(o, p: p, ms: ms, t: ownType(o, node: target)) 'free'
 		return
 	end 'free'
 	let path = pathOf(o, p: p, ms: ms, e: target)

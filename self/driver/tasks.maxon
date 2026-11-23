@@ -245,17 +245,18 @@ type Outcome
 	end 'mustSkip'
 end 'Outcome'
 
-// TaskTiming is what a task times besides its wall time, which --timings reports: the phases of an emit and the calls an
-// inline replaced.
+// TaskTiming is what a task times besides its wall time, which --timings reports: the phases of a lower and of an emit,
+// and the calls an inline replaced.
 type TaskTiming
+	var lower as table.PhaseClock
 	var emit as backend.EmitClock
 	var inlined as Count
 
 	static function of(timed bool) returns TaskTiming
 		if timed 'on'
-			return TaskTiming{emit: backend.EmitClock.start(), inlined: 0}
+			return TaskTiming{lower: table.PhaseClock.start(opt.OptPhase.allCaseNames.count()), emit: backend.EmitClock.start(), inlined: 0}
 		end 'on'
-		return TaskTiming{emit: backend.EmitClock.off(), inlined: 0}
+		return TaskTiming{lower: table.PhaseClock.off(), emit: backend.EmitClock.off(), inlined: 0}
 	end 'of'
 end 'TaskTiming'
 
@@ -452,6 +453,7 @@ function lowerModule(c Compile, mutates work ModuleWork, m Count, known Known, i
 	var found = diag.ErrorList.create(0)
 	var view as ast.Project
 	var ms = lendTask(c, work: work, stage: Stage.lower, lent: ast.Lent.tables, known: known, inputs: inputs, view: view)
+	timing.lower.restart()
 	if not lowersBodies(c.goal) 'instances'
 		_ = ir.findInstances(view, ms: ms, callers: work.checked.callers, errs: found)
 		appendErrors(errs, found: found)
@@ -473,6 +475,8 @@ function lowerModule(c Compile, mutates work ModuleWork, m Count, known Known, i
 				verifyFunctions(view, ms: ms, fns: lowered)
 			end 'verifyLowered'
 			var optimizer = opt.Optimizer.new(view.target.arch)
+			optimizer.clock = exchange(timing.lower, value: table.PhaseClock.off())
+			optimizer.lap(opt.OptPhase.lowering)
 			opt.optimizeModule(optimizer, fns: lowered)
 			inlineModule(c, work: work, p: view, ms: ms, m: m, known: known, fns: lowered, optimizer: optimizer, timing: timing)
 			if c.cache.enabled() 'summary'
@@ -488,6 +492,8 @@ function lowerModule(c Compile, mutates work ModuleWork, m Count, known Known, i
 				end 'kept'
 				work.digests.summary = summary
 			end 'summary'
+			optimizer.lap(opt.OptPhase.summary)
+			timing.lower = exchange(optimizer.clock, value: table.PhaseClock.off())
 		end 'optimize'
 		work.code = freeze(lowered)
 	end 'compiled'

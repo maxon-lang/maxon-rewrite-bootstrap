@@ -271,13 +271,26 @@ end 'NestedAlias'
 
 export typealias NestedAliasList = Array with NestedAlias
 
+export typealias LineStarts = Array with Count
+
 export type FileSpan
 	export var path as String
 	export var start as diag.U32
 	export var endOff as diag.U32
+	// lineStarts are the offsets in the module's text where the file's lines start, the first at start, so that an offset
+	// is located by a search of them rather than a walk of the file before it, which every panic of the program asks for.
+	export var lineStarts as LineStarts
 
-	export static function make(consumes path String, start diag.U32, endOff diag.U32) returns FileSpan
-		return FileSpan{path: path, start: start, endOff: endOff}
+	// make is the file at start up to endOff of the module's text.
+	export static function make(consumes path String, text String, start diag.U32, endOff diag.U32) returns FileSpan
+		var lineStarts = LineStarts.create(0)
+		lineStarts.push(start as Count)
+		for pos in start as Count upto endOff as Count 'bytes'
+			if text.byteAt(pos) == newlineByte 'newline'
+				lineStarts.push(try pos + 1 otherwise panic("ast: a line past memory"))
+			end 'newline'
+		end 'bytes'
+		return FileSpan{path: path, start: start, endOff: endOff, lineStarts: lineStarts}
 	end 'make'
 end 'FileSpan'
 

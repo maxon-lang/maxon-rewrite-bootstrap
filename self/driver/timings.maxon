@@ -32,13 +32,14 @@ export type Timings
 	// stageNanos is by stage, and moduleNanos by module, of the tasks of a stage of one module.
 	var stageNanos as TimeTotals
 	var moduleNanos as TimeTotals
-	// emit is charged the time of each phase of the emit stage, which the stage's own time holds.
+	// lower and emit are charged the time of each phase of the lower and the emit stage, which the stages' own times hold.
+	export var lower as table.PhaseClock
 	export var emit as backend.EmitClock
 	// inlinedCalls is how many calls leaf inlining replaced.
 	export var inlinedCalls as Count
 
 	export static function off() returns Timings
-		return Timings{enabled: false, stageNames: TimingNames.create(0), stageNanos: TimeTotals.create(0), moduleNanos: TimeTotals.create(0), emit: backend.EmitClock.off(), inlinedCalls: 0}
+		return Timings{enabled: false, stageNames: TimingNames.create(0), stageNanos: TimeTotals.create(0), moduleNanos: TimeTotals.create(0), lower: table.PhaseClock.off(), emit: backend.EmitClock.off(), inlinedCalls: 0}
 	end 'off'
 
 	// start is a table for the stages named, in order, and for modules modules.
@@ -51,7 +52,7 @@ export type Timings
 		for _ in 0 upto modules 'modules'
 			moduleNanos.push(0)
 		end 'modules'
-		return Timings{enabled: true, stageNames: stageNames, stageNanos: stageNanos, moduleNanos: moduleNanos, emit: backend.EmitClock.start(), inlinedCalls: 0}
+		return Timings{enabled: true, stageNames: stageNames, stageNanos: stageNanos, moduleNanos: moduleNanos, lower: table.PhaseClock.start(opt.OptPhase.allCaseNames.count()), emit: backend.EmitClock.start(), inlinedCalls: 0}
 	end 'start'
 
 	// addProject charges a task of a stage of the project as a whole.
@@ -67,13 +68,12 @@ export type Timings
 		moduleNanos[module] = try before + nanos otherwise panic("driver: the time of a module passes a word of nanoseconds")
 	end 'addModule'
 
-	// addTask charges what one task timed besides its wall time: the phases of an emit and the calls an inline replaced.
-	export function addTask(mutates self, clock backend.EmitClock, inlined Count)
-		for i in 0 upto clock.nanos.count() 'phases'
-			let before = emit.nanos[i]
-			emit.nanos[i] = try before + clock.nanos[i] otherwise panic("driver: the time of a phase passes a word of nanoseconds")
-		end 'phases'
-		emit.fallbacks = try emit.fallbacks + clock.fallbacks otherwise panic("driver: more fallbacks taken than memory")
+	// addTask charges what one task timed besides its wall time: the phases of a lower and of an emit, and the calls an
+	// inline replaced.
+	export function addTask(mutates self, lowered table.PhaseClock, emitted backend.EmitClock, inlined Count)
+		lower.add(lowered)
+		emit.phases.add(emitted.phases)
+		emit.fallbacks = try emit.fallbacks + emitted.fallbacks otherwise panic("driver: more fallbacks taken than memory")
 		inlinedCalls = try inlinedCalls + inlined otherwise panic("driver: more calls inlined than memory")
 	end 'addTask'
 
@@ -95,7 +95,8 @@ export type Timings
 			text = "{text}{row(stageNames[i], time: millisText(stageNanos[i]), share: shareText(stageNanos[i], whole: whole))}"
 		end 'stages'
 		text = "{text}{rule()}{row("total", time: millisText(whole), share: shareText(whole, whole: whole))}"
-		text = "{text}{emitReport(emit)}"
+		text = "{text}{phasesReport("lower phases", clock: lower, names: opt.OptPhase.allCaseNames)}"
+		text = "{text}{phasesReport("emit phases", clock: emit.phases, names: backend.EmitPhase.allCaseNames)}"
 		if inlinedCalls > 0 or emit.fallbacks > 0 'inlined'
 			text = "{text}\ncalls inlined: {inlinedCalls}\nfallbacks taken: {emit.fallbacks}\n"
 		end 'inlined'
@@ -121,23 +122,19 @@ export type Timings
 	end 'report'
 end 'Timings'
 
-// emitReport is the table of the phases of the emit stage, by their share of it, or nothing for a compile that emitted
-// no code.
-function emitReport(clock backend.EmitClock) returns String
-	var whole = 0 as Count
-	for i in 0 upto clock.nanos.count() 'phases'
-		whole = try whole + clock.nanos[i] otherwise panic("driver: the time of the phases passes a word of nanoseconds")
-	end 'phases'
+// phasesReport is the table of the phases of a stage, which names names by place, by their share of it, or nothing for a
+// compile that ran none.
+function phasesReport(title String, clock table.PhaseClock, names TimingNames) returns String
+	let whole = clock.total()
 	if whole == 0 'none'
 		return ""
 	end 'none'
-	let names = backend.EmitPhase.allCaseNames
-	var text = "\nemit phases\n{row("phase", time: "ms", share: "%")}{rule()}"
+	var text = "\n{title}\n{row("phase", time: "ms", share: "%")}{rule()}"
 	for i in 0 upto clock.nanos.count() 'phases'
 		text = "{text}{row(names[i], time: millisText(clock.nanos[i]), share: shareText(clock.nanos[i], whole: whole))}"
 	end 'phases'
 	return text
-end 'emitReport'
+end 'phasesReport'
 
 // timingNames are the modules' paths, by module, which the timings and the trace name the modules by.
 function timingNames(p ast.Project) returns TimingNames

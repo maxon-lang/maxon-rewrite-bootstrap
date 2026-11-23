@@ -23,45 +23,27 @@ export enum EmitPhase
 	encoding
 end 'EmitPhase'
 
-export typealias PhaseNanos = Array with Count
-
-// EmitClock charges the time between two of its laps to the phase the later one names. A clock that is off charges none.
-// It also counts the functions whose fallback, the IR they had before the optimizations that can raise a loop's pressure,
-// was compiled because the optimized one was refused.
+// EmitClock times the phases of the emit stage. It also counts the functions whose fallback, the IR they had before the
+// optimizations that can raise a loop's pressure, was compiled because the optimized one was refused.
 export type EmitClock
-	export var enabled as bool
-	export var nanos as PhaseNanos
+	export var phases as table.PhaseClock
 	export var fallbacks as Count
-	var last as Count
 
 	export static function off() returns EmitClock
-		return EmitClock{enabled: false, nanos: PhaseNanos.create(0), fallbacks: 0, last: 0}
+		return EmitClock{phases: table.PhaseClock.off(), fallbacks: 0}
 	end 'off'
 
 	export static function start() returns EmitClock
-		var nanos = PhaseNanos.create(0)
-		for _ in 0 upto EmitPhase.allCaseNames.count() 'phases'
-			nanos.push(0)
-		end 'phases'
-		return EmitClock{enabled: true, nanos: nanos, fallbacks: 0, last: Clock.nowNanos()}
+		return EmitClock{phases: table.PhaseClock.start(EmitPhase.allCaseNames.count()), fallbacks: 0}
 	end 'start'
 
 	// restart drops the time since the last lap, which was of no phase.
 	export function restart(mutates self)
-		if enabled 'on'
-			last = Clock.nowNanos()
-		end 'on'
+		phases.restart()
 	end 'restart'
 
 	// lap charges the time since the last lap to phase.
 	export function lap(mutates self, phase EmitPhase)
-		if not enabled 'off'
-			return
-		end 'off'
-		let now = Clock.nowNanos()
-		let elapsed = try now - last otherwise panic("backend: the clock went backwards")
-		let at = phase.ordinal
-		nanos[at] = try nanos[at] + elapsed otherwise panic("backend: the time of a phase passes a word of nanoseconds")
-		last = now
+		phases.lap(phase.ordinal)
 	end 'lap'
 end 'EmitClock'
