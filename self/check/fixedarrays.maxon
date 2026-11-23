@@ -35,7 +35,7 @@ end 'createForm'
 function writtenTypeOfCall(c Checker, p ast.Project, ms ast.ModuleState, call ast.NodeID, nt ast.TypeID) returns String
 	let obj = ast.memberExprObj(ms.tree(), id: ast.callExprCallee(ms.tree(), id: call))
 	if ms.tree().kindOf(obj) == ast.NodeKind.nameExpr 'named'
-		return ast.nameExprName(ms.tree(), id: obj)
+		return ast.nameExprName(ms.tree(), id: obj).clone()
 	end 'named'
 	return nameOfType(p, ms: ms, t: nt)
 end 'writtenTypeOfCall'

@@ -122,7 +122,7 @@ export function tryBinding(t Tree, e NodeID) returns String
 	if tryExprHandler(t, id: e) == 0 or tryExprValue(t, id: e) == 0 'none'
 		return ""
 	end 'none'
-	return nameExprName(t, id: tryExprValue(t, id: e))
+	return nameExprName(t, id: tryExprValue(t, id: e)).clone()
 end 'tryBinding'
 
 // tryHandlerFallsThrough is whether a try's block handler can run off its end, so that the try gives no value.

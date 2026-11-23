@@ -1,6 +1,6 @@
 // checkStructLit types a record literal, which only a method of the record writes.
 function checkStructLit(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
-	let typeName = ast.structLitExprTypeName(ms.tree(), id: e)
+	let typeName = ast.structLitExprTypeName(ms.tree(), id: e).clone()
 	let off = offsetOf(c, p: p, ms: ms, node: e)
 	var target = ast.noType
 	if typeName == "Self" 'selfType'
@@ -73,7 +73,7 @@ end 'checkLiteralFields'
 
 // checkLiteralField types one field value of a record literal, as a value of the field's type.
 function checkLiteralField(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, rt ast.TypeID, sf ast.NodeID, mutates ordered ast.NodeIDList, mutates errs diag.ErrorList) returns bool
-	let name = ast.structFieldName(ms.tree(), id: sf)
+	let name = ast.structFieldName(ms.tree(), id: sf).clone()
 	let value = ast.structFieldValue(ms.tree(), id: sf)
 	let typeName = nameOfType(p, ms: ms, t: rt)
 	if not ast.typeEntry(ms.types, reads: p.types, t: ast.originOf(ms.types, reads: p.types, t: rt)).findField(name).isSome() 'unknown'
@@ -273,7 +273,7 @@ end 'checkLimitMember'
 
 // checkTypeMember types a case of an enum or a union written after the type's name.
 function checkTypeMember(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, obj ast.NodeID, nt ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
-	let member = ast.memberExprName(ms.tree(), id: e)
+	let member = ast.memberExprName(ms.tree(), id: e).clone()
 	let off = offsetOf(c, p: p, ms: ms, node: e)
 	let k = kindOfType(p, ms: ms, t: nt)
 	var named = nt
@@ -326,7 +326,7 @@ function writtenName(tree ast.Tree, e ast.NodeID) returns String
 	if tree.kindOf(e) == ast.NodeKind.memberExpr 'member'
 		return "{writtenName(tree, e: ast.memberExprObj(tree, id: e))}.{ast.memberExprName(tree, id: e)}"
 	end 'member'
-	return ast.nameExprName(tree, id: e)
+	return ast.nameExprName(tree, id: e).clone()
 end 'writtenName'
 
 // The members that give every case of an enum, or every name of the cases of an enum or a union, in the order they are
@@ -390,7 +390,7 @@ end 'unknownCase'
 
 // checkValueMember types a field of a record value, and '.name', '.ordinal' and '.rawValue' of an enum or a union value.
 function checkValueMember(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, t ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
-	let member = ast.memberExprName(ms.tree(), id: e)
+	let member = ast.memberExprName(ms.tree(), id: e).clone()
 	let content = ast.contentType(ms.types, reads: p.types, t: t)
 	if not requireNotCown(c, p: p, ms: ms, off: offsetOf(c, p: p, ms: ms, node: e), t: content, use: "reading '{member}'", errs: errs) 'cown'
 		return ast.noType

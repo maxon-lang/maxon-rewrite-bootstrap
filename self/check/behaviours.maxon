@@ -95,7 +95,7 @@ function requireCapturable(mutates c Checker, p ast.Project, mutates ms ast.Modu
 	if source.projected and isForVariable(ms.tree(), l: source) 'element'
 		what = "the variable of a loop over a collection"
 	end 'element' else if isLentLet(ms.tree(), l: source) 'lent'
-		what = "a let bound to what a call lends, such as a view of a String"
+		what = "a let or a var bound to what a call lends, such as a view of a String"
 	end 'lent' else if source.projected 'projected'
 		what = "a match binding"
 	end 'projected' else if source.isSelf 'receiver'
@@ -194,7 +194,7 @@ function enterBehaviour(mutates c Checker, p ast.Project, mutates ms ast.ModuleS
 	let namesRef = ast.whenStmtNamesRef(ms.tree(), id: stmt)
 	for i in 0 upto values.count() 'accesses'
 		let name = ms.tree().nameAt(ms.tree().listAt(namesRef, index: i))
-		var access = ast.LocalEntry.make(name, ty: values[i], isVar: false, isParam: true, conv: ast.Convention.convMutates, definedAt: stmt)
+		var access = ast.LocalEntry.make(name.clone(), ty: values[i], isVar: false, isParam: true, conv: ast.Convention.convMutates, definedAt: stmt)
 		access.paramIndex = i
 		let id = bindLocal(c, p: p, ms: ms, entry: access, off: offsetOf(c, p: p, ms: ms, node: stmt), errs: errs)
 		if id == ast.noLocal 'unbound'
@@ -478,7 +478,7 @@ function dropWithCall(mutates c Checker, p ast.Project, mutates ms ast.ModuleSta
 		failAt(c, p: p, ms: ms, node: arg, code: diag.errCapabilityMisuse, msg: "'{contentName}' is a type parameter and has no destructor to name: a value that is not Droppable cannot go into a cown in generic code; add the bound 'where {contentName} implements Droppable'", errs: errs)
 		return ast.noFunc
 	end 'parameter'
-	let name = ast.nameExprName(ms.tree(), id: value)
+	let name = ast.nameExprName(ms.tree(), id: value).clone()
 	let method = methodNamed(p, ms: ms, t: content, name: name)
 	if method == ast.noFunc or not isNakedDestructor(p, ms: ms, method: method) 'notDestructor'
 		failAt(c, p: p, ms: ms, node: arg, code: diag.errCapabilityMisuse, msg: "'{name}' is not a destructor of '{contentName}' that takes no other argument and returns nothing{dropWithCandidates(p, ms: ms, t: content)}", errs: errs)

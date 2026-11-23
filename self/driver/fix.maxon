@@ -616,12 +616,12 @@ function expectsTrap(test SpecTest, text String) returns bool
 end 'expectsTrap'
 
 // withoutFinalNewline is a file's text as a block of a spec holds it, which ends before the newline that ends the file.
-function withoutFinalNewline(text String) returns String
+function withoutFinalNewline(text String) returns borrowed String
 	var finish = text.byteLength()
 	while finish > 0 and text.byteAt(try finish - 1 otherwise 0) == newlineByte 'trim'
 		finish = try finish - 1 otherwise 0
 	end 'trim'
-	return text.sliceBytes(0, endPos: finish).clone()
+	return text.sliceBytes(0, endPos: finish)
 end 'withoutFinalNewline'
 
 // fixedBlock is the maxon block of a test after fixing: the file, which is checked under the header line that the runner puts
@@ -633,13 +633,13 @@ function fixedBlock(source String, sections SourceSections, outcome FixOutcome) 
 		while at < text.byteLength() and text.byteAt(at) != newlineByte 'header'
 			at = offsetBy(at, by: 1)
 		end 'header'
-		return withoutFinalNewline(text.sliceBytes(minCount(offsetBy(at, by: 1), b: text.byteLength()), endPos: text.byteLength()))
+		return withoutFinalNewline(text.sliceBytes(minCount(offsetBy(at, by: 1), b: text.byteLength()), endPos: text.byteLength())).clone()
 	end 'single'
 	var edits = syntax.Edits.create(0)
 	for i in 0 upto sections.count() 'sections'
 		if outcome.changed[i] 'changed'
 			let finish = offsetBy(sections[i].start, by: sections[i].text.byteLength())
-			edits.push(syntax.Edit.make(sections[i].start, until: finish, replacement: withoutFinalNewline(outcome.files[i].text)))
+			edits.push(syntax.Edit.make(sections[i].start, until: finish, replacement: withoutFinalNewline(outcome.files[i].text).clone()))
 		end 'changed'
 	end 'sections'
 	return syntax.applyEdits(source, edits: edits)

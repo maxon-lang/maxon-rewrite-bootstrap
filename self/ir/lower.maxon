@@ -496,6 +496,11 @@ function visitAssignStmt(mutates l Lowerer, p ast.Project, mutates ms ast.Module
 		if name.kind == ast.NameKind.nameLocal 'local'
 			let v = lowerExpr(l, p: p, ms: ms, e: value)
 			let loc = localEntry(p, module: l.fnModule, id: name.local)
+			// A var bound to a borrowed result owns nothing: it is given another, which it borrows as its binding did.
+			if loc.isView() 'view'
+				emit(l, i: newStoreSlot(slotOf(loc), src: v, borrow: owning(regKind(l, v: v))))
+				return
+			end 'view'
 			if isByRef(loc) 'byRef'
 				let addr = refAddress(l, p: p, ms: ms, loc: loc)
 				dropAt(l, p: p, ms: ms, addr: addr, t: loc.ty)

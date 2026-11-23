@@ -200,7 +200,7 @@ function isQualifiedName(c Checker, p ast.Project, ms ast.ModuleState, e ast.Nod
 end 'isQualifiedName'
 
 function checkQualifiedName(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
-	let name = ast.nameExprName(ms.tree(), id: e)
+	let name = ast.nameExprName(ms.tree(), id: e).clone()
 	match consumes ast.nodeDecl(p, ms: ms, node: e as Count) 'bound'
 		some(ref) then return checkDeclaredName(c, p: p, ms: ms, e: e, ref: ref, name: name, errs: errs)
 		none then panic("a qualified name '{name}' was resolved to no declaration")
@@ -211,7 +211,7 @@ function checkNameExpr(mutates c Checker, p ast.Project, mutates ms ast.ModuleSt
 	if isQualifiedName(c, p: p, ms: ms, e: e) 'qualified'
 		return checkQualifiedName(c, p: p, ms: ms, e: e, errs: errs)
 	end 'qualified'
-	let name = ast.nameExprName(ms.tree(), id: e)
+	let name = ast.nameExprName(ms.tree(), id: e).clone()
 	let off = offsetOf(c, p: p, ms: ms, node: e)
 	let mark = errs.count()
 	let local = useLocal(c, p: p, ms: ms, use: e, name: name, errs: errs)

@@ -223,15 +223,15 @@ export function visibilityModifier(v Visibility) returns String
 end 'visibilityModifier'
 
 // parentPath is the path of the module a module's path is under; the root's and a top-level module's is the root's.
-export function parentPath(path String) returns String
+export function parentPath(path String) returns borrowed String
 	var i = path.byteLength()
 	while i > 0 'back'
 		i = try i - 1 otherwise 0 as Count
 		if path.byteAt(i) == 46 'dot'
-			return path.sliceBytes(0 as Count, endPos: i).clone()
+			return path.sliceBytes(0 as Count, endPos: i)
 		end 'dot'
 	end 'back'
-	return ""
+	return path.sliceBytes(0 as Count, endPos: 0 as Count)
 end 'parentPath'
 
 // isWithin is whether the module at path is the one at under or one under it.

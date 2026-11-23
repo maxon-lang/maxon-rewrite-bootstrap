@@ -100,9 +100,9 @@ Name : [a-z]+ ;
 `)[maxonNodesFile]
 	for _, want := range []string{
 		"\tlet blk = t.reserve(2 as Count)\n",
-		"export function threeA(t Tree, id NodeID) returns String\n\treturn t.nameAt(t.records[id as Count].a)\n",
-		"export function threeC(t Tree, id NodeID) returns String\n\treturn t.nameAt(t.blockWordAt(id, offset: 1 as Count))\n",
-		"export function twoB(t Tree, id NodeID) returns String\n\treturn t.nameAt(t.records[id as Count].b)\n",
+		"export function threeA(t Tree, id NodeID) returns borrowed String\n\treturn t.nameAt(t.records[id as Count].a)\n",
+		"export function threeC(t Tree, id NodeID) returns borrowed String\n\treturn t.nameAt(t.blockWordAt(id, offset: 1 as Count))\n",
+		"export function twoB(t Tree, id NodeID) returns borrowed String\n\treturn t.nameAt(t.records[id as Count].b)\n",
 	} {
 		if !strings.Contains(nodes, want) {
 			t.Errorf("nodes lack %q:\n%s", want, nodes)

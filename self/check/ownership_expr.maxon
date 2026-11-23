@@ -247,6 +247,11 @@ function requireMutable(mutates o Ownership, p ast.Project, mutates ms ast.Modul
 		mutableFail(o, p: p, ms: ms, site: site, call: call, text: text, fix: diag.Fix.none(), code: diag.errFrozenChange, msg: "'{text}' is part of a frozen value, whose contents are immutable and shared with its other owners; change a copy instead: 'var c = thaw(...)'")
 		return false
 	end 'frozen'
+	if root.isView() and path.steps.count() == 0 'view'
+		let fix = cloneFixIf(o, p: p, ms: ms, e: ast.letStmtInit(ms.tree(), id: root.definedAt), t: root.ty)
+		mutableFail(o, p: p, ms: ms, site: site, call: call, text: text, fix: fix, code: diag.errAssignToImmutable, msg: "'{root.name}' is bound to a borrowed result and owns nothing, so it changes only by an assignment of another result lent from what it holds; bind it to a copy with '.clone()' to change it in place")
+		return false
+	end 'view'
 	if (isForVariable(ms.tree(), l: root) or root.projected) and path.steps.count() == 0 'forVariable'
 		mutableFail(o, p: p, ms: ms, site: site, call: call, text: text, fix: diag.Fix.none(), code: diag.errAssignToImmutable, msg: diag.letReassigned(root.name))
 		return false
@@ -342,7 +347,7 @@ function lenderName(o Ownership, p ast.Project, ms ast.ModuleState, root ast.Loc
 	return "the match subject"
 end 'lenderName'
 
-// isLentLet is whether a local that borrows is a let bound to a borrowed result: a view of a String's bytes, a place that a
+// isLentLet is whether a local that borrows is a let or a var bound to a borrowed result: a view of a String's bytes, a place that a
 // function returns borrowed, or an element of a tuple one lends.
 function isLentLet(tree ast.Tree, l ast.LocalEntry) returns bool
 	return l.projected and l.definedAt != 0 and tree.kindOf(l.definedAt) == ast.NodeKind.letStmt
@@ -424,7 +429,7 @@ function projectionConflict(mutates o Ownership, p ast.Project, mutates ms ast.M
 	if k == OwnProjectionKind.projectLent 'lent'
 		let advice = copyAdvice(o, p: p, ms: ms, t: pr.ty, ifCopyable: "copy what {pr.holder} is bound to with '.clone()' to keep it apart", fallback: "change it after that scope")
 		let fix = cloneFixIf(o, p: p, ms: ms, e: pr.bound, t: pr.ty)
-		failFixed(o, p: p, site: site, code: diag.errExclusivity, msg: "'{held}' is lent to {pr.holder}, a let bound to what a call lends from it, which borrows it until its scope ends, so '{text}' cannot be changed or moved here; {advice}", fix: fix)
+		failFixed(o, p: p, site: site, code: diag.errExclusivity, msg: "'{held}' is lent to {pr.holder}, which is bound to what a call lends from it and borrows it until its scope ends, so '{text}' cannot be changed or moved here; {advice}", fix: fix)
 		return
 	end 'lent'
 	if k == OwnProjectionKind.projectMutableCapture 'mutableCapture'

@@ -189,7 +189,7 @@ function enterClosure(mutates c Checker, p ast.Project, mutates ms ast.ModuleSta
 	var failedParam = false
 	for i in 0 upto types.count() 'params'
 		let param = ms.tree().listAt(paramsRef, index: i) as ast.NodeID
-		let name = ast.closureParamName(ms.tree(), id: param)
+		let name = ast.closureParamName(ms.tree(), id: param).clone()
 		ms.funcs.lists[ast.funcList(ms.funcs, f: fid)][ast.funcIndex(ms.funcs, f: fid)].params.push(ast.ParamSpec.make(name.clone(), ty: types[i], conv: convs[i]))
 		ms.funcs.lists[ast.funcList(ms.funcs, f: fid)][ast.funcIndex(ms.funcs, f: fid)].paramTypes.push(types[i])
 		if name == "_" 'anonymous'

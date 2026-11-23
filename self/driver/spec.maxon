@@ -244,7 +244,7 @@ function parseSpec(text String) returns SpecTests
 			end 'close'
 		end 'fence' else if first == backtickByte and matchesAt(text, at: lineStart, needle: fenceMark) 'open'
 			inFence = true
-			fenceName = trimSpace(text.sliceBytes(offsetBy(lineStart, by: fenceMark.byteLength()), endPos: contentEnd))
+			fenceName = trimSpace(text.sliceBytes(offsetBy(lineStart, by: fenceMark.byteLength()), endPos: contentEnd)).clone()
 			bodyStart = offsetBy(lineEnd, by: 1)
 		end 'open' else if first == hashByte and matchesAt(text, at: lineStart, needle: headingPrefix) 'heading'
 			if reading 'ends'
@@ -281,7 +281,7 @@ function commentText(rest String) returns String
 	if finish >= suffix and rest.sliceBytes(try finish - suffix otherwise 0, endPos: finish) == commentSuffix 'closed'
 		finish = try finish - suffix otherwise 0
 	end 'closed'
-	return trimSpace(rest.sliceBytes(0, endPos: finish))
+	return trimSpace(rest.sliceBytes(0, endPos: finish)).clone()
 end 'commentText'
 
 // addFence adds a fenced block that follows a test marker. The source is the one block called maxon; prose fences hold
@@ -306,8 +306,8 @@ function addComment(mutates test SpecTest, line String)
 		return
 	end 'bare'
 	let at = split.unwrap()
-	let key = trimSpace(text.sliceBytes(0, endPos: at))
-	let value = trimSpace(text.sliceBytes(offsetBy(at, by: 1), endPos: text.byteLength()))
+	let key = trimSpace(text.sliceBytes(0, endPos: at)).clone()
+	let value = trimSpace(text.sliceBytes(offsetBy(at, by: 1), endPos: text.byteLength())).clone()
 	if key == skipKey 'skip'
 		test.skips.push(value)
 	end 'skip' else if key == positionsKey and value == positionsMoved 'positions'
@@ -323,7 +323,7 @@ function directiveKey(directive String) returns String
 	if not split.isSome() 'bare'
 		return directive.clone()
 	end 'bare'
-	return trimSpace(directive.sliceBytes(0, endPos: split.unwrap()))
+	return trimSpace(directive.sliceBytes(0, endPos: split.unwrap())).clone()
 end 'directiveKey'
 
 function directiveValue(directive String) returns String
@@ -331,7 +331,7 @@ function directiveValue(directive String) returns String
 	if not split.isSome() 'bare'
 		return ""
 	end 'bare'
-	return trimSpace(directive.sliceBytes(offsetBy(split.unwrap(), by: 1), endPos: directive.byteLength()))
+	return trimSpace(directive.sliceBytes(offsetBy(split.unwrap(), by: 1), endPos: directive.byteLength())).clone()
 end 'directiveValue'
 
 // listsTarget is whether a comma separated list of targets names target.
@@ -427,12 +427,12 @@ function fenceBase(name String) returns String
 	return lowerText(name.sliceBytes(0, endPos: split.unwrap()))
 end 'fenceBase'
 
-function fenceTarget(name String) returns String
+function fenceTarget(name String) returns borrowed String
 	let split = findText(name, needle: targetSeparator)
 	if not split.isSome() 'plain'
-		return ""
+		return name.sliceBytes(0, endPos: 0)
 	end 'plain'
-	return name.sliceBytes(offsetBy(split.unwrap(), by: 1), endPos: name.byteLength()).clone()
+	return name.sliceBytes(offsetBy(split.unwrap(), by: 1), endPos: name.byteLength())
 end 'fenceTarget'
 
 function isKnownFence(base String) returns bool
@@ -544,7 +544,7 @@ end 'SourceSection'
 function sectionOf(name String, source String, start Count, finish Count, lineOffset Count) returns SourceSection
 	let raw = source.sliceBytes(start, endPos: finish)
 	let leading = try raw.byteLength() - trimLeft(raw).byteLength() otherwise 0 as Count
-	return SourceSection.make(name.clone(), text: trimSpace(raw), start: offsetBy(start, by: leading), lineOffset: lineOffset)
+	return SourceSection.make(name.clone(), text: trimSpace(raw).clone(), start: offsetBy(start, by: leading), lineOffset: lineOffset)
 end 'sectionOf'
 
 typealias SourceSections = Array with SourceSection
@@ -571,7 +571,7 @@ function splitSections(source String) returns SourceSections
 				sections.push(sectionOf(name, source: source, start: bodyStart, finish: at, lineOffset: offset))
 			end 'flush'
 			haveMarker = true
-			name = trimSpace(source.sliceBytes(offsetBy(at, by: fileSectionPrefix.byteLength()), endPos: lineEnd))
+			name = trimSpace(source.sliceBytes(offsetBy(at, by: fileSectionPrefix.byteLength()), endPos: lineEnd)).clone()
 			bodyStart = offsetBy(lineEnd, by: 1)
 			offset = offsetBy(line, by: 2)
 		end 'marker'
@@ -1018,7 +1018,7 @@ function specFiles(path String) returns ast.StringList
 	end 'file'
 	let listed = try Directory.list(try FilePath.from(path) otherwise panic("test: {path} is not a path")) otherwise panic("test: cannot read {path}")
 	for i in 0 upto listed.count() 'entries'
-		let name = project.lastComponent(listed[i].toString())
+		let name = project.lastComponent(listed[i].toString()).clone()
 		if endsWith(name, suffix: specExtension) 'spec'
 			files.push(project.joinPath(path, name: name))
 		end 'spec'
@@ -1087,7 +1087,7 @@ function fileStem(file String) returns String
 	if endsWith(name, suffix: specExtension) 'extension'
 		return name.sliceBytes(0, endPos: try name.byteLength() - specExtension.byteLength() otherwise 0).clone()
 	end 'extension'
-	return name
+	return name.clone()
 end 'fileStem'
 
 // stageSpecTest stages the test of job, test index of the run, of the spec file file: it is skipped for a reason of the runner,
@@ -1139,7 +1139,7 @@ function expectedFirstCode(test SpecTest, text String) returns table.Option with
 	if not expected.isSome() 'none'
 		return table.Option.none
 	end 'none'
-	let block = trimSpace(expected.unwrap())
+	let block = trimSpace(expected.unwrap()).clone()
 	let start = errorLinePrefix.byteLength()
 	let finish = try start + diagnosticCodeWidth otherwise return table.Option.none
 	if not hasPrefix(block, prefix: errorLinePrefix) or block.byteLength() < finish 'unlisted'
@@ -1174,8 +1174,8 @@ function checkSpecError(test SpecTest, expected String, stem String, errs diag.E
 	for i in 0 upto errs.count() 'errors'
 		lines.push(diagnosticText(errs[i], sections: sections))
 	end 'errors'
-	var actual = trimSpace(joinLines(lines))
-	var wanted = trimSpace(replaceText(expected, needle: "specs/{stem}/{test.name}.maxon", replacement: fragmentToken))
+	var actual = trimSpace(joinLines(lines)).clone()
+	var wanted = trimSpace(replaceText(expected, needle: "specs/{stem}/{test.name}.maxon", replacement: fragmentToken)).clone()
 	if test.positionsMoved 'moved'
 		actual = withoutPositions(actual)
 		wanted = withoutPositions(wanted)
@@ -1254,7 +1254,7 @@ function checkStderr(test SpecTest, text String, actual String) returns TestResu
 	let block = fenceText(test, text: text, base: stderrFence)
 	var wanted = ""
 	if block.isSome() 'pinned'
-		wanted = trimSpace(withoutBacktrace(replaceText(block.unwrap(), needle: "{test.name}{fragmentExtension}:", replacement: "{fragmentToken}:")))
+		wanted = trimSpace(withoutBacktrace(replaceText(block.unwrap(), needle: "{test.name}{fragmentExtension}:", replacement: "{fragmentToken}:"))).clone()
 	end 'pinned'
 	return compareStream(stderrFence, wanted: wanted, actual: actual)
 end 'checkStderr'
@@ -1288,7 +1288,7 @@ function checkStream(test SpecTest, text String, base String, actual String) ret
 	let block = fenceText(test, text: text, base: base)
 	var wanted = ""
 	if block.isSome() 'pinned'
-		wanted = trimSpace(block.unwrap())
+		wanted = trimSpace(block.unwrap()).clone()
 	end 'pinned'
 	return compareStream(base, wanted: wanted, actual: actual)
 end 'checkStream'

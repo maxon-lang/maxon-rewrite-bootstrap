@@ -56,7 +56,7 @@ export function sortStrings(mutates xs ast.StringList)
 	end 'ins'
 end 'sortStrings'
 
-function trimTrailingSlash(p String) returns String
+function trimTrailingSlash(p String) returns borrowed String
 	var endPos = p.byteLength()
 	while endPos > 0 'trim'
 		let lastIdx = try endPos - 1 otherwise 0 as Count
@@ -69,7 +69,7 @@ function trimTrailingSlash(p String) returns String
 		end 'driveRoot'
 		endPos = lastIdx
 	end 'trim'
-	return p.sliceBytes(0 as Count, endPos: endPos).clone()
+	return p.sliceBytes(0 as Count, endPos: endPos)
 end 'trimTrailingSlash'
 
 export function joinPath(dir String, name String) returns String
@@ -350,7 +350,7 @@ export function readTextFile(text String) returns table.Option with String
 end 'readTextFile'
 
 // lastComponent is what follows the last separator of a path that Directory.list gave: the entry's name.
-export function lastComponent(path String) returns String
+export function lastComponent(path String) returns borrowed String
 	var at = path.byteLength()
 	while at > 0 'back'
 		let before = try at - 1 otherwise 0
@@ -359,7 +359,7 @@ export function lastComponent(path String) returns String
 		end 'separator'
 		at = before
 	end 'back'
-	return path.sliceBytes(at, endPos: path.byteLength()).clone()
+	return path.sliceBytes(at, endPos: path.byteLength())
 end 'lastComponent'
 
 // listDirectory sorts what a directory holds into the paths of its source files, the paths of its project files and the names
@@ -372,7 +372,7 @@ function listDirectory(dir String, memory SourceFiles, mutates files ast.StringL
 	let dirPath = try FilePath.from(dir) otherwise return false
 	let listed = try Directory.list(dirPath) otherwise FilePathList.create(0)
 	for i in 0 upto listed.count() 'split'
-		let name = lastComponent(listed[i].toString())
+		let name = lastComponent(listed[i].toString()).clone()
 		let full = joinPath(dir, name: name)
 		if isDirectoryPath(full) 'd'
 			let startsDot = name.byteLength() > 0 and name.byteAt(0 as Count) == dotByte
@@ -518,7 +518,7 @@ function projectFileIn(dir String) returns table.Option with String
 	var found = false
 	var first = ""
 	for i in 0 upto listed.count() 'each'
-		let name = lastComponent(listed[i].toString())
+		let name = lastComponent(listed[i].toString()).clone()
 		let full = joinPath(dir, name: name)
 		if endsWithText(name, suffix: projectFileExtension) and not isDirectoryPath(full) and (not found or diag.stringLess(full, b: first)) 'earlier'
 			first = full
@@ -704,7 +704,7 @@ function noteNestedAlias(mutates m ast.ParsedModule, dName String, ord ast.DeclO
 		return
 	end 'other'
 	match consumes ast.nestedAliasOwner(dName) 'owner'
-		some(owner) then m.nested.push(ast.NestedAlias.make(owner, member: ast.nestedAliasMember(dName), ordinal: ord))
+		some(owner) then m.nested.push(ast.NestedAlias.make(owner, member: ast.nestedAliasMember(dName).clone(), ordinal: ord))
 		none then _ = 0
 	end 'owner'
 end 'noteNestedAlias'
@@ -1019,7 +1019,7 @@ function testFilesIn(dir String) returns ast.StringList
 	let dirPath = try FilePath.from(dir) otherwise return found
 	let listed = try Directory.list(dirPath) otherwise FilePathList.create(0)
 	for i in 0 upto listed.count() 'each'
-		let name = lastComponent(listed[i].toString())
+		let name = lastComponent(listed[i].toString()).clone()
 		if endsWithMaxtest(name) 'test'
 			found.push(joinPath(dir, name: name))
 		end 'test'

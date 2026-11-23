@@ -149,7 +149,7 @@ function checkMatch(mutates c Checker, p ast.Project, mutates ms ast.ModuleState
 	end 'unfit'
 	let expect = c.expect
 	var state = MatchState.make(offsetOf(c, p: p, ms: ms, node: core))
-	pushBlock(c, label: ast.matchCoreLabel(ms.tree(), id: core), isLoop: false, node: core)
+	pushBlock(c, label: ast.matchCoreLabel(ms.tree(), id: core).clone(), isLoop: false, node: core)
 	let armsRef = ast.matchCoreArmsRef(ms.tree(), id: core)
 	let owned = ast.matchCoreConsumes(ms.tree(), id: core)
 	for i in 0 upto ms.tree().listLen(armsRef) 'arms'
@@ -433,8 +433,8 @@ end 'checkPattern'
 
 function checkCasePattern(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, pattern ast.NodeID, st ast.TypeID, owned bool, altCount Count, mutates state MatchState, mutates errs diag.ErrorList)
 	let off = offsetOf(c, p: p, ms: ms, node: pattern)
-	let qualifier = ast.patternCaseName(ms.tree(), id: pattern)
-	let member = ast.patternMember(ms.tree(), id: pattern)
+	let qualifier = ast.patternCaseName(ms.tree(), id: pattern).clone()
+	let member = ast.patternMember(ms.tree(), id: pattern).clone()
 	var caseName = qualifier.clone()
 	if member != "" 'qualified'
 		caseName = member.clone()
@@ -485,7 +485,7 @@ end 'reportUnknownCase'
 // enum's.
 function bindCase(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, pattern ast.NodeID, st ast.TypeID, caseIdx Count, owned bool, altCount Count, mutates locals ast.LocalIDList, mutates errs diag.ErrorList) returns bool
 	let off = offsetOf(c, p: p, ms: ms, node: pattern)
-	let caseName = ast.patternCaseName(ms.tree(), id: pattern)
+	let caseName = ast.patternCaseName(ms.tree(), id: pattern).clone()
 	let bindingsRef = ast.patternBindingsRef(ms.tree(), id: pattern)
 	let bindingCount = ms.tree().listLen(bindingsRef)
 	let orig = ast.originOf(ms.types, reads: p.types, t: st)
@@ -502,7 +502,7 @@ function bindCase(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, 
 		return false
 	end 'alternatives'
 	for i in 0 upto payloadCount 'payload'
-		let bindingName = ms.tree().nameAt(ms.tree().listAt(bindingsRef, index: i))
+		let bindingName = ms.tree().nameAt(ms.tree().listAt(bindingsRef, index: i)).clone()
 		if bindingName == "_" 'ignored'
 			locals.push(ast.noLocal)
 			continue 'payload'

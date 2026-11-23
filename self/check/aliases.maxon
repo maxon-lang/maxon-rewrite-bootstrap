@@ -282,7 +282,7 @@ function declareSupertype(mutates c Checker, p ast.Project, mutates ms ast.Modul
 		none then return
 	end 'own'
 	let off = ms.tree().startOf(a.parent)
-	let parentName = ast.typeRefName(ms.tree(), id: a.parent)
+	let parentName = ast.typeRefName(ms.tree(), id: a.parent).clone()
 	var parent = ast.noType
 	match ast.nodeDecl(p, ms: ms, node: a.parent as Count) 'named'
 		some(pref) then parent = declTypeOrNone(p, ms: ms, ref: pref)

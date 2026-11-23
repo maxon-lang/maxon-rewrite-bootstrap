@@ -1,0 +1,10 @@
+// A var bound to a view owns nothing, so it is given only another view of what it holds, never a value of its own.
+function main() returns ExitCode
+	let line = " a, b "
+	var rest = line.trim()
+	rest = "{rest}!"
+	print(rest)
+	return 0
+end 'main'
+
+// expect-error: E3901 at 5:2

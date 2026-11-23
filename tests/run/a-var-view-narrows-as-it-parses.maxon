@@ -1,0 +1,42 @@
+// A var bound to a view of a String is given another view of the same String, or of itself, as a parser narrows what is
+// left to read: each step is a view made in place, with no allocation and no copy, and nothing is dropped. The run ends
+// with no box live.
+
+// sumFields adds the numbers of a line of comma-separated fields, each of digits between spaces.
+function sumFields(line String) returns Count
+	var rest = line.trim()
+	var total = 0 as Count
+	while not rest.isEmpty() 'fields'
+		var comma = 0 as Count
+		while comma < rest.byteLength() and rest.byteAt(comma) != 44 'find'
+			comma = try comma + 1 otherwise panic("past the line")
+		end 'find'
+		var field = rest.sliceBytes(0, endPos: comma)
+		field = field.trim()
+		var value = 0 as Count
+		for i in 0 upto field.byteLength() 'digits'
+			value = try value * 10 + ((field.byteAt(i) - 48) as Count) otherwise panic("a field past Count")
+		end 'digits'
+		total = try total + value otherwise panic("a total past Count")
+		if comma == rest.byteLength() 'last'
+			rest = rest.sliceBytes(comma, endPos: comma)
+		end 'last' else 'more'
+			rest = rest.sliceBytes(try comma + 1 otherwise comma, endPos: rest.byteLength())
+		end 'more'
+	end 'fields'
+	return total
+end 'sumFields'
+
+function main() returns ExitCode
+	let text = "  1, 22 ,333,4000  "
+	var rest = text.trim()
+	var words = 0 as Count
+	while not rest.isEmpty() 'words'
+		words = try words + 1 otherwise panic("too many words")
+		rest = text.sliceBytes(text.byteLength(), endPos: text.byteLength())
+	end 'words'
+	print("{sumFields(text)} {words}\n")
+	return 0
+end 'main'
+
+//> 4356 1

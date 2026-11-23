@@ -84,7 +84,7 @@ export function panicLocation(m Module, offset diag.U32) returns String
 end 'panicLocation'
 
 // fileNameOf is the last component of a path, whichever separator it uses.
-export function fileNameOf(path String) returns String
+export function fileNameOf(path String) returns borrowed String
 	var at = path.byteLength()
 	while at > 0 'back'
 		let before = try at - 1 otherwise 0
@@ -94,7 +94,7 @@ export function fileNameOf(path String) returns String
 		end 'separator'
 		at = before
 	end 'back'
-	return path.sliceBytes(at, endPos: path.byteLength()).clone()
+	return path.sliceBytes(at, endPos: path.byteLength())
 end 'fileNameOf'
 
 export function locateSite(mods ModuleList, site diag.Site) returns ErrorLocation

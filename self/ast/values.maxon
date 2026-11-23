@@ -2,7 +2,7 @@
 export function strPartsText(t Tree, partsRef diag.U32) returns String
 	let count = t.strPartCount(partsRef)
 	if count == 1 'one'
-		return t.strPartText(partsRef, index: 0 as Count)
+		return t.strPartText(partsRef, index: 0 as Count).clone()
 	end 'one'
 	var text = ByteArray.create(0)
 	for i in 0 upto count 'parts'

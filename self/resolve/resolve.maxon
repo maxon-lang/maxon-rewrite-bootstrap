@@ -86,7 +86,7 @@ function pushErr(mutates errs diag.ErrorList, modID diag.ModuleID, off diag.U32,
 	diag.pushSiteError(errs, code: code, message: msg, module: modID, offset: off)
 end 'pushErr'
 
-function checkEnd(mutates r Resolver, label String, endNode ast.NodeID, mutates errs diag.ErrorList)
+function checkEnd(r Resolver, label String, endNode ast.NodeID, mutates errs diag.ErrorList)
 	if endNode == 0 'none'
 		return
 	end 'none'
@@ -99,7 +99,7 @@ end 'checkEnd'
 
 // openLabel starts a block or declaration that is labelled name at at, and reports it when a block or declaration that
 // encloses it has the same label.
-function openLabel(mutates r Resolver, p ast.Project, name String, at diag.U32, mutates errs diag.ErrorList)
+function openLabel(mutates r Resolver, p ast.Project, consumes name String, at diag.U32, mutates errs diag.ErrorList)
 	for i in 0 upto r.labels.count() 'enclosing'
 		if r.labels[i].name == name 'reused'
 			let outer = ast.locateTextOffset(r.tree.text, files: p.modules[ast.modIndex(r.modID)].files, offset: r.labels[i].at)
@@ -107,7 +107,7 @@ function openLabel(mutates r Resolver, p ast.Project, name String, at diag.U32, 
 			break 'enclosing'
 		end 'reused'
 	end 'enclosing'
-	r.labels.push(OpenLabel.make(name.clone(), at: at))
+	r.labels.push(OpenLabel.make(name, at: at))
 end 'openLabel'
 
 // openBlock is openLabel for a block whose header holds its label, given by ref. A block with no label opens nothing, and so
@@ -116,7 +116,7 @@ function openBlock(mutates r Resolver, p ast.Project, labelRef diag.U32, mutates
 	if labelRef == 0 'none'
 		return
 	end 'none'
-	openLabel(r, p: p, name: r.tree.labelAt(labelRef), at: r.tree.labelStart(labelRef), errs: errs)
+	openLabel(r, p: p, name: r.tree.labelAt(labelRef).clone(), at: r.tree.labelStart(labelRef), errs: errs)
 end 'openBlock'
 
 function closeLabel(mutates r Resolver)
@@ -437,7 +437,7 @@ function resolveTypeRef(mutates r Resolver, p ast.Project, tr ast.NodeID, mutate
 	end 'args'
 	let qualRef = ast.typeRefQualifierRef(r.tree, id: tr)
 	let qualCount = r.tree.listLen(qualRef)
-	let tName = ast.typeRefName(r.tree, id: tr)
+	let tName = ast.typeRefName(r.tree, id: tr).clone()
 	let off = r.tree.startOf(tr)
 	if qualCount == 0 'unqual'
 		match r.typeParams.get(tName) 'tp'
@@ -446,7 +446,7 @@ function resolveTypeRef(mutates r Resolver, p ast.Project, tr ast.NodeID, mutate
 		end 'tp'
 		return
 	end 'unqual'
-	let firstQual = r.tree.nameAt(r.tree.listAt(qualRef, index: 0 as Count))
+	let firstQual = r.tree.nameAt(r.tree.listAt(qualRef, index: 0 as Count)).clone()
 	if not isModuleRoot(p, module: r.modID, name: firstQual) 'noMod'
 		resolveOwnTypeMember(r, p: p, tr: tr, owner: firstQual, member: tName, qualCount: qualCount, off: off, errs: errs)
 		return
@@ -454,7 +454,7 @@ function resolveTypeRef(mutates r Resolver, p ast.Project, tr ast.NodeID, mutate
 	var path = ast.StringList.create(0)
 	var offs = ast.U32List.create(0)
 	for i in 1 upto qualCount 'qp'
-		path.push(r.tree.nameAt(r.tree.listAt(qualRef, index: i)))
+		path.push(r.tree.nameAt(r.tree.listAt(qualRef, index: i)).clone())
 		offs.push(off)
 	end 'qp'
 	path.push(tName.clone())
@@ -549,9 +549,9 @@ function popScope(mutates r Resolver)
 	try r.scopes.pop() otherwise ignore
 end 'popScope'
 
-function bindLocalName(mutates r Resolver, name String)
+function bindLocalName(mutates r Resolver, consumes name String)
 	let top = try r.scopes.count() - 1 otherwise 0 as Count
-	r.scopes[top].insert(name.clone(), value: true)
+	r.scopes[top].insert(name, value: true)
 end 'bindLocalName'
 
 function isNameBound(r Resolver, name String) returns bool
@@ -647,12 +647,12 @@ function resolveStmt(mutates r Resolver, p ast.Project, ms ast.ModuleState, id a
 		end 'hi' else 'tp'
 			resolveTypeRef(r, p: p, tr: ast.letStmtType(r.tree, id: id), errs: errs)
 		end 'tp'
-		bindLocalName(r, name: ast.letStmtName(r.tree, id: id))
+		bindLocalName(r, name: ast.letStmtName(r.tree, id: id).clone())
 	end 'sLet' else if k == ast.NodeKind.destructStmt 'sDes'
 		resolveExpr(r, p: p, ms: ms, id: ast.destructStmtInit(r.tree, id: id), errs: errs)
 		let namesRef = ast.destructStmtNamesRef(r.tree, id: id)
 		for i in 0 upto r.tree.listLen(namesRef) 'names'
-			bindLocalName(r, name: ast.bindNameName(r.tree, id: r.tree.listAt(namesRef, index: i) as ast.NodeID))
+			bindLocalName(r, name: ast.bindNameName(r.tree, id: r.tree.listAt(namesRef, index: i) as ast.NodeID).clone())
 		end 'names'
 	end 'sDes' else if k == ast.NodeKind.tupleAssignStmt 'sTup'
 		resolveExpr(r, p: p, ms: ms, id: ast.tupleAssignStmtValue(r.tree, id: id), errs: errs)
@@ -660,7 +660,7 @@ function resolveStmt(mutates r Resolver, p ast.Project, ms ast.ModuleState, id a
 		for i in 0 upto r.tree.listLen(targetsRef) 'targets'
 			let target = r.tree.listAt(targetsRef, index: i) as ast.NodeID
 			if ast.assignTargetIsLet(r.tree, id: target) or ast.assignTargetIsVar(r.tree, id: target) 'declares'
-				bindLocalName(r, name: ast.assignTargetName(r.tree, id: target))
+				bindLocalName(r, name: ast.assignTargetName(r.tree, id: target).clone())
 			end 'declares'
 		end 'targets'
 	end 'sTup' else if k == ast.NodeKind.assignStmt 'sAss'
@@ -724,11 +724,11 @@ function forNames(r Resolver, id ast.NodeID) returns ast.StringList
 	var names = ast.StringList.create(0)
 	let vars = ast.forStmtVarsRef(r.tree, id: id)
 	if r.tree.listLen(vars) == 0 'single'
-		names.push(ast.forStmtVar(r.tree, id: id))
+		names.push(ast.forStmtVar(r.tree, id: id).clone())
 		return names
 	end 'single'
 	for i in 0 upto r.tree.listLen(vars) 'each'
-		names.push(ast.bindNameName(r.tree, id: r.tree.listAt(vars, index: i) as ast.NodeID))
+		names.push(ast.bindNameName(r.tree, id: r.tree.listAt(vars, index: i) as ast.NodeID).clone())
 	end 'each'
 	return names
 end 'forNames'
@@ -745,7 +745,7 @@ function resolveWhenStmt(mutates r Resolver, p ast.Project, ms ast.ModuleState, 
 	let nLen = r.tree.listLen(nRef)
 	var bNames = ast.StringList.create(0)
 	for i in 0 upto nLen 'nm'
-		bNames.push(r.tree.nameAt(r.tree.listAt(nRef, index: i)))
+		bNames.push(r.tree.nameAt(r.tree.listAt(nRef, index: i)).clone())
 	end 'nm'
 	pushScopeList(r, names: bNames)
 	let outer = r.inClosure
@@ -768,7 +768,7 @@ function resolveTryStmt(mutates r Resolver, p ast.Project, ms ast.ModuleState, i
 	closeBlock(r, labelRef: ast.tryStmtLabelRef(r.tree, id: id))
 	if ast.tryStmtHasOtherwise(r.tree, id: id) 'ho'
 		checkEnd(r, label: ast.tryStmtHandlerLabel(r.tree, id: id), endNode: ast.tryStmtHandlerEnd(r.tree, id: id), errs: errs)
-		let bnd = ast.tryStmtBinding(r.tree, id: id)
+		let bnd = ast.tryStmtBinding(r.tree, id: id).clone()
 		var bs = ast.StringList.create(0)
 		if bnd != "" 'hasB'
 			bs.push(bnd)
@@ -789,7 +789,7 @@ function resolveIfTryStmt(mutates r Resolver, p ast.Project, ms ast.ModuleState,
 	resolveExpr(r, p: p, ms: ms, id: ast.ifTryStmtCall(r.tree, id: id), errs: errs)
 	var bound = ast.StringList.create(0)
 	if ast.ifTryStmtName(r.tree, id: id) != "" 'named'
-		bound.push(ast.ifTryStmtName(r.tree, id: id))
+		bound.push(ast.ifTryStmtName(r.tree, id: id).clone())
 	end 'named'
 	pushScopeList(r, names: bound)
 	openBlock(r, p: p, labelRef: ast.ifTryStmtLabelRef(r.tree, id: id), errs: errs)
@@ -799,7 +799,7 @@ function resolveIfTryStmt(mutates r Resolver, p ast.Project, ms ast.ModuleState,
 	if ast.ifTryStmtHasElse(r.tree, id: id) 'else'
 		var failed = ast.StringList.create(0)
 		if ast.ifTryStmtErrName(r.tree, id: id) != "" 'named'
-			failed.push(ast.ifTryStmtErrName(r.tree, id: id))
+			failed.push(ast.ifTryStmtErrName(r.tree, id: id).clone())
 		end 'named'
 		pushScopeList(r, names: failed)
 		openBlock(r, p: p, labelRef: ast.ifTryStmtElseLabelRef(r.tree, id: id), errs: errs)
@@ -825,7 +825,7 @@ function resolveMatchCore(mutates r Resolver, p ast.Project, ms ast.ModuleState,
 			let bRef = ast.patternBindingsRef(r.tree, id: pat)
 			let bCount = r.tree.listLen(bRef)
 			for bi in 0 upto bCount 'eachB'
-				bNames.push(r.tree.nameAt(r.tree.listAt(bRef, index: bi)))
+				bNames.push(r.tree.nameAt(r.tree.listAt(bRef, index: bi)).clone())
 			end 'eachB'
 		end 'eachPat'
 		pushScopeList(r, names: bNames)
@@ -862,7 +862,7 @@ function resolveMapLiteral(mutates r Resolver, p ast.Project, id ast.NodeID, mut
 end 'resolveMapLiteral'
 
 function resolveNameExpr(mutates r Resolver, p ast.Project, id ast.NodeID, mutates errs diag.ErrorList)
-	let n = ast.nameExprName(r.tree, id: id)
+	let n = ast.nameExprName(r.tree, id: id).clone()
 	if n == "Self" 's'
 		return
 	end 's'
@@ -926,7 +926,7 @@ function resolveMemberExpr(mutates r Resolver, p ast.Project, ms ast.ModuleState
 	var revSegs = SegmentList.create(0)
 	var cur = id
 	while r.tree.kindOf(cur) == ast.NodeKind.memberExpr 'collect'
-		revSegs.push(Segment.make(ast.memberExprName(r.tree, id: cur), node: cur))
+		revSegs.push(Segment.make(ast.memberExprName(r.tree, id: cur).clone(), node: cur))
 		cur = ast.memberExprObj(r.tree, id: cur)
 	end 'collect'
 	var segs = SegmentList.create(0)
@@ -939,7 +939,7 @@ function resolveMemberExpr(mutates r Resolver, p ast.Project, ms ast.ModuleState
 		resolveExpr(r, p: p, ms: ms, id: ast.memberExprObj(r.tree, id: id), errs: errs)
 		return
 	end 'notName'
-	let headName = ast.nameExprName(r.tree, id: cur)
+	let headName = ast.nameExprName(r.tree, id: cur).clone()
 	if isNameBound(r, name: headName) or headName == "Self" or r.typeParams.has(headName) 'bound'
 		resolveExpr(r, p: p, ms: ms, id: ast.memberExprObj(r.tree, id: id), errs: errs)
 		return
@@ -1122,7 +1122,7 @@ function resolveClosureExpr(mutates r Resolver, p ast.Project, ms ast.ModuleStat
 		if tr != 0 'typed'
 			resolveTypeRef(r, p: p, tr: tr, errs: errs)
 		end 'typed'
-		names.push(ast.closureParamName(r.tree, id: param))
+		names.push(ast.closureParamName(r.tree, id: param).clone())
 	end 'params'
 	let ret = ast.closureExprReturns(r.tree, id: id)
 	if ret != 0 'returns'
@@ -1154,7 +1154,7 @@ function resolveTryHandler(mutates r Resolver, p ast.Project, ms ast.ModuleState
 	var bs = ast.StringList.create(0)
 	let bound = ast.tryExprValue(r.tree, id: id)
 	if bound != 0 'binds'
-		bs.push(ast.nameExprName(r.tree, id: bound))
+		bs.push(ast.nameExprName(r.tree, id: bound).clone())
 	end 'binds'
 	pushScopeList(r, names: bs)
 	openBlock(r, p: p, labelRef: ast.handlerBlockLabelRef(r.tree, id: handler), errs: errs)
@@ -1185,7 +1185,7 @@ function resolveCallExpr(mutates r Resolver, p ast.Project, ms ast.ModuleState, 
 end 'resolveCallExpr'
 
 function resolveStructLitExpr(mutates r Resolver, p ast.Project, ms ast.ModuleState, id ast.NodeID, mutates errs diag.ErrorList)
-	let tName = ast.structLitExprTypeName(r.tree, id: id)
+	let tName = ast.structLitExprTypeName(r.tree, id: id).clone()
 	if tName != "Self" 'named'
 		let off = r.tree.startOf(id)
 		let lr = bareLookupAt(r, p: p, name: tName, off: off)
@@ -1230,7 +1230,7 @@ function spawnedTypes(tree ast.Tree) returns ast.StringList
 			if tree.kindOf(call) == ast.NodeKind.callExpr and tree.kindOf(ast.callExprCallee(tree, id: call)) == ast.NodeKind.memberExpr 'factory'
 				let head = ast.memberExprObj(tree, id: ast.callExprCallee(tree, id: call))
 				if tree.kindOf(head) == ast.NodeKind.nameExpr 'named'
-					out.push(ast.nameExprName(tree, id: head))
+					out.push(ast.nameExprName(tree, id: head).clone())
 				end 'named'
 			end 'factory'
 		end 'spawn'
@@ -1370,7 +1370,7 @@ function resolveFuncDecl(mutates r Resolver, p ast.Project, ms ast.ModuleState, 
 	pushScope(r)
 	r.fields = cloneBoolStrMap(fieldNames)
 	for i in 0 upto f.params.count() 'pNames'
-		bindLocalName(r, name: f.params[i].name)
+		bindLocalName(r, name: f.params[i].name.clone())
 	end 'pNames'
 	if hasReceiver 'receiver'
 		bindLocalName(r, name: ast.receiverName)
@@ -1566,7 +1566,7 @@ function extendedName(r Resolver, xd ast.ExtensionDecl) returns String
 	if xd.isInt 'integer'
 		return "int"
 	end 'integer'
-	return ast.typeRefName(r.tree, id: xd.target)
+	return ast.typeRefName(r.tree, id: xd.target).clone()
 end 'extendedName'
 
 // extensionTypeParams are the type parameters of the declaration an extension extends, or the associated types of the

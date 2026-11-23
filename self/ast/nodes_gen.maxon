@@ -463,7 +463,7 @@ export function setFuncTypeReturns(mutates t Tree, id NodeID, value NodeID)
 	t.setBlockWordAt(id, offset: 0 as Count, value: value as diag.U32)
 end 'setFuncTypeReturns'
 
-export function funcTypeCaptures(t Tree, id NodeID) returns String
+export function funcTypeCaptures(t Tree, id NodeID) returns borrowed String
 	return t.nameAt(t.blockWordAt(id, offset: 1 as Count))
 end 'funcTypeCaptures'
 
@@ -542,7 +542,7 @@ export function setTypeRefQualifierRef(mutates t Tree, id NodeID, ref diag.U32)
 	t.records[id as Count].a = ref
 end 'setTypeRefQualifierRef'
 
-export function typeRefName(t Tree, id NodeID) returns String
+export function typeRefName(t Tree, id NodeID) returns borrowed String
 	return t.nameAt(t.blockWordAt(id, offset: 0 as Count))
 end 'typeRefName'
 
@@ -689,7 +689,7 @@ export function newEndLabel(mutates t Tree, start diag.U32) returns NodeID
 	return id
 end 'newEndLabel'
 
-export function endLabelName(t Tree, id NodeID) returns String
+export function endLabelName(t Tree, id NodeID) returns borrowed String
 	return t.labelAt(t.records[id as Count].a)
 end 'endLabelName'
 
@@ -716,7 +716,7 @@ export function setLetStmtIsHeap(mutates t Tree, id NodeID)
 	t.records[id as Count].flags = t.records[id as Count].flags or (1 as Byte)
 end 'setLetStmtIsHeap'
 
-export function letStmtAnnotation(t Tree, id NodeID) returns String
+export function letStmtAnnotation(t Tree, id NodeID) returns borrowed String
 	return t.nameAt(t.records[id as Count].a)
 end 'letStmtAnnotation'
 
@@ -728,7 +728,7 @@ export function setLetStmtAnnotationRef(mutates t Tree, id NodeID, ref diag.U32)
 	t.records[id as Count].a = ref
 end 'setLetStmtAnnotationRef'
 
-export function letStmtName(t Tree, id NodeID) returns String
+export function letStmtName(t Tree, id NodeID) returns borrowed String
 	return t.nameAt(t.blockWordAt(id, offset: 0 as Count))
 end 'letStmtName'
 
@@ -798,7 +798,7 @@ export function newBindName(mutates t Tree, start diag.U32) returns NodeID
 	return id
 end 'newBindName'
 
-export function bindNameName(t Tree, id NodeID) returns String
+export function bindNameName(t Tree, id NodeID) returns borrowed String
 	return t.nameAt(t.records[id as Count].a)
 end 'bindNameName'
 
@@ -852,7 +852,7 @@ export function setAssignTargetIsVar(mutates t Tree, id NodeID)
 	t.records[id as Count].flags = t.records[id as Count].flags or (2 as Byte)
 end 'setAssignTargetIsVar'
 
-export function assignTargetName(t Tree, id NodeID) returns String
+export function assignTargetName(t Tree, id NodeID) returns borrowed String
 	return t.nameAt(t.records[id as Count].a)
 end 'assignTargetName'
 
@@ -926,7 +926,7 @@ export function setIfStmtCond(mutates t Tree, id NodeID, value NodeID)
 	t.records[id as Count].a = value as diag.U32
 end 'setIfStmtCond'
 
-export function ifStmtLabel(t Tree, id NodeID) returns String
+export function ifStmtLabel(t Tree, id NodeID) returns borrowed String
 	return t.labelAt(t.blockWordAt(id, offset: 0 as Count))
 end 'ifStmtLabel'
 
@@ -970,7 +970,7 @@ export function setIfStmtElseRef(mutates t Tree, id NodeID, ref diag.U32)
 	t.setBlockWordAt(id, offset: 3 as Count, value: ref)
 end 'setIfStmtElseRef'
 
-export function ifStmtElseLabel(t Tree, id NodeID) returns String
+export function ifStmtElseLabel(t Tree, id NodeID) returns borrowed String
 	return t.labelAt(t.blockWordAt(id, offset: 4 as Count))
 end 'ifStmtElseLabel'
 
@@ -1005,7 +1005,7 @@ export function setIfTryStmtIsLet(mutates t Tree, id NodeID)
 	t.records[id as Count].flags = t.records[id as Count].flags or (1 as Byte)
 end 'setIfTryStmtIsLet'
 
-export function ifTryStmtName(t Tree, id NodeID) returns String
+export function ifTryStmtName(t Tree, id NodeID) returns borrowed String
 	return t.nameAt(t.records[id as Count].a)
 end 'ifTryStmtName'
 
@@ -1033,7 +1033,7 @@ export function setIfTryStmtCall(mutates t Tree, id NodeID, value NodeID)
 	t.setBlockWordAt(id, offset: 0 as Count, value: value as diag.U32)
 end 'setIfTryStmtCall'
 
-export function ifTryStmtLabel(t Tree, id NodeID) returns String
+export function ifTryStmtLabel(t Tree, id NodeID) returns borrowed String
 	return t.labelAt(t.blockWordAt(id, offset: 1 as Count))
 end 'ifTryStmtLabel'
 
@@ -1069,7 +1069,7 @@ export function setIfTryStmtHasElse(mutates t Tree, id NodeID)
 	t.records[id as Count].flags = t.records[id as Count].flags or (4 as Byte)
 end 'setIfTryStmtHasElse'
 
-export function ifTryStmtErrName(t Tree, id NodeID) returns String
+export function ifTryStmtErrName(t Tree, id NodeID) returns borrowed String
 	return t.nameAt(t.blockWordAt(id, offset: 4 as Count))
 end 'ifTryStmtErrName'
 
@@ -1081,7 +1081,7 @@ export function setIfTryStmtErrNameRef(mutates t Tree, id NodeID, ref diag.U32)
 	t.setBlockWordAt(id, offset: 4 as Count, value: ref)
 end 'setIfTryStmtErrNameRef'
 
-export function ifTryStmtElseLabel(t Tree, id NodeID) returns String
+export function ifTryStmtElseLabel(t Tree, id NodeID) returns borrowed String
 	return t.labelAt(t.blockWordAt(id, offset: 5 as Count))
 end 'ifTryStmtElseLabel'
 
@@ -1124,7 +1124,7 @@ export function setWhileStmtCond(mutates t Tree, id NodeID, value NodeID)
 	t.records[id as Count].a = value as diag.U32
 end 'setWhileStmtCond'
 
-export function whileStmtLabel(t Tree, id NodeID) returns String
+export function whileStmtLabel(t Tree, id NodeID) returns borrowed String
 	return t.labelAt(t.blockWordAt(id, offset: 0 as Count))
 end 'whileStmtLabel'
 
@@ -1159,7 +1159,7 @@ export function newForStmt(mutates t Tree, start diag.U32) returns NodeID
 	return id
 end 'newForStmt'
 
-export function forStmtVar(t Tree, id NodeID) returns String
+export function forStmtVar(t Tree, id NodeID) returns borrowed String
 	return t.nameAt(t.records[id as Count].a)
 end 'forStmtVar'
 
@@ -1203,7 +1203,7 @@ export function setForStmtTo(mutates t Tree, id NodeID, value NodeID)
 	t.setBlockWordAt(id, offset: 2 as Count, value: value as diag.U32)
 end 'setForStmtTo'
 
-export function forStmtLabel(t Tree, id NodeID) returns String
+export function forStmtLabel(t Tree, id NodeID) returns borrowed String
 	return t.labelAt(t.blockWordAt(id, offset: 3 as Count))
 end 'forStmtLabel'
 
@@ -1238,7 +1238,7 @@ export function newTryStmt(mutates t Tree, start diag.U32) returns NodeID
 	return id
 end 'newTryStmt'
 
-export function tryStmtLabel(t Tree, id NodeID) returns String
+export function tryStmtLabel(t Tree, id NodeID) returns borrowed String
 	return t.labelAt(t.records[id as Count].a)
 end 'tryStmtLabel'
 
@@ -1274,7 +1274,7 @@ export function setTryStmtHasOtherwise(mutates t Tree, id NodeID)
 	t.records[id as Count].flags = t.records[id as Count].flags or (1 as Byte)
 end 'setTryStmtHasOtherwise'
 
-export function tryStmtBinding(t Tree, id NodeID) returns String
+export function tryStmtBinding(t Tree, id NodeID) returns borrowed String
 	return t.nameAt(t.blockWordAt(id, offset: 2 as Count))
 end 'tryStmtBinding'
 
@@ -1286,7 +1286,7 @@ export function setTryStmtBindingRef(mutates t Tree, id NodeID, ref diag.U32)
 	t.setBlockWordAt(id, offset: 2 as Count, value: ref)
 end 'setTryStmtBindingRef'
 
-export function tryStmtHandlerLabel(t Tree, id NodeID) returns String
+export function tryStmtHandlerLabel(t Tree, id NodeID) returns borrowed String
 	return t.labelAt(t.blockWordAt(id, offset: 3 as Count))
 end 'tryStmtHandlerLabel'
 
@@ -1321,7 +1321,7 @@ export function newHandlerBlock(mutates t Tree, start diag.U32) returns NodeID
 	return id
 end 'newHandlerBlock'
 
-export function handlerBlockLabel(t Tree, id NodeID) returns String
+export function handlerBlockLabel(t Tree, id NodeID) returns borrowed String
 	return t.labelAt(t.records[id as Count].a)
 end 'handlerBlockLabel'
 
@@ -1380,7 +1380,7 @@ export function newBreakStmt(mutates t Tree, start diag.U32) returns NodeID
 	return id
 end 'newBreakStmt'
 
-export function breakStmtLabel(t Tree, id NodeID) returns String
+export function breakStmtLabel(t Tree, id NodeID) returns borrowed String
 	return t.labelAt(t.records[id as Count].a)
 end 'breakStmtLabel'
 
@@ -1397,7 +1397,7 @@ export function newContinueStmt(mutates t Tree, start diag.U32) returns NodeID
 	return id
 end 'newContinueStmt'
 
-export function continueStmtLabel(t Tree, id NodeID) returns String
+export function continueStmtLabel(t Tree, id NodeID) returns borrowed String
 	return t.labelAt(t.records[id as Count].a)
 end 'continueStmtLabel'
 
@@ -1445,7 +1445,7 @@ export function setWhenStmtNamesRef(mutates t Tree, id NodeID, ref diag.U32)
 	t.setBlockWordAt(id, offset: 0 as Count, value: ref)
 end 'setWhenStmtNamesRef'
 
-export function whenStmtLabel(t Tree, id NodeID) returns String
+export function whenStmtLabel(t Tree, id NodeID) returns borrowed String
 	return t.labelAt(t.blockWordAt(id, offset: 1 as Count))
 end 'whenStmtLabel'
 
@@ -1496,7 +1496,7 @@ export function setMatchCoreSubject(mutates t Tree, id NodeID, value NodeID)
 	t.records[id as Count].a = value as diag.U32
 end 'setMatchCoreSubject'
 
-export function matchCoreLabel(t Tree, id NodeID) returns String
+export function matchCoreLabel(t Tree, id NodeID) returns borrowed String
 	return t.labelAt(t.blockWordAt(id, offset: 0 as Count))
 end 'matchCoreLabel'
 
@@ -1586,7 +1586,7 @@ export function newPattern(mutates t Tree, start diag.U32) returns NodeID
 	return id
 end 'newPattern'
 
-export function patternCaseName(t Tree, id NodeID) returns String
+export function patternCaseName(t Tree, id NodeID) returns borrowed String
 	return t.nameAt(t.records[id as Count].a)
 end 'patternCaseName'
 
@@ -1598,7 +1598,7 @@ export function setPatternCaseNameRef(mutates t Tree, id NodeID, ref diag.U32)
 	t.records[id as Count].a = ref
 end 'setPatternCaseNameRef'
 
-export function patternMember(t Tree, id NodeID) returns String
+export function patternMember(t Tree, id NodeID) returns borrowed String
 	return t.nameAt(t.blockWordAt(id, offset: 0 as Count))
 end 'patternMember'
 
@@ -1663,7 +1663,7 @@ export function setMemberExprObj(mutates t Tree, id NodeID, value NodeID)
 	t.records[id as Count].a = value as diag.U32
 end 'setMemberExprObj'
 
-export function memberExprName(t Tree, id NodeID) returns String
+export function memberExprName(t Tree, id NodeID) returns borrowed String
 	return t.nameAt(t.records[id as Count].b)
 end 'memberExprName'
 
@@ -2087,7 +2087,7 @@ export function newNameExpr(mutates t Tree, start diag.U32) returns NodeID
 	return id
 end 'newNameExpr'
 
-export function nameExprName(t Tree, id NodeID) returns String
+export function nameExprName(t Tree, id NodeID) returns borrowed String
 	return t.nameAt(t.records[id as Count].a)
 end 'nameExprName'
 
@@ -2122,7 +2122,7 @@ export function newStructLitExpr(mutates t Tree, start diag.U32) returns NodeID
 	return id
 end 'newStructLitExpr'
 
-export function structLitExprTypeName(t Tree, id NodeID) returns String
+export function structLitExprTypeName(t Tree, id NodeID) returns borrowed String
 	return t.nameAt(t.records[id as Count].a)
 end 'structLitExprTypeName'
 
@@ -2147,7 +2147,7 @@ export function newStructField(mutates t Tree, start diag.U32) returns NodeID
 	return id
 end 'newStructField'
 
-export function structFieldName(t Tree, id NodeID) returns String
+export function structFieldName(t Tree, id NodeID) returns borrowed String
 	return t.nameAt(t.records[id as Count].a)
 end 'structFieldName'
 
@@ -2193,7 +2193,7 @@ export function newArg(mutates t Tree, start diag.U32) returns NodeID
 	return id
 end 'newArg'
 
-export function argLabel(t Tree, id NodeID) returns String
+export function argLabel(t Tree, id NodeID) returns borrowed String
 	return t.nameAt(t.records[id as Count].a)
 end 'argLabel'
 
@@ -2220,7 +2220,7 @@ export function newSpawnExpr(mutates t Tree, start diag.U32) returns NodeID
 	return id
 end 'newSpawnExpr'
 
-export function spawnExprSpawn(t Tree, id NodeID) returns String
+export function spawnExprSpawn(t Tree, id NodeID) returns borrowed String
 	return t.nameAt(t.records[id as Count].a)
 end 'spawnExprSpawn'
 
@@ -2361,7 +2361,7 @@ export function setClosureParamConvention(mutates t Tree, id NodeID, text String
 	t.records[id as Count].aux = (t.records[id as Count].aux and (65280 as U16)) or code
 end 'setClosureParamConvention'
 
-export function closureParamName(t Tree, id NodeID) returns String
+export function closureParamName(t Tree, id NodeID) returns borrowed String
 	return t.nameAt(t.records[id as Count].a)
 end 'closureParamName'
 

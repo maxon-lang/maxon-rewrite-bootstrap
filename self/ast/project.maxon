@@ -1113,7 +1113,7 @@ function libraryTreeOf(path String) returns String
 	if parent == "" 'top'
 		return stdlibQualifier
 	end 'top'
-	return parent
+	return parent.clone()
 end 'libraryTreeOf'
 
 // qualifierRoot is the module that a qualified name written in module starts from: the library's root for a module of the
@@ -1135,7 +1135,7 @@ export function notVisible(p Project, name String, v Visibility, owner diag.Modu
 	if v == Visibility.unexported 'priv'
 		return "'{name}' is not exported from {describeModule(p, modID: owner)}: mark it 'export' to use it from {fromWord}"
 	end 'priv'
-	var tree = parentPath(modulePath(p, modID: owner))
+	var tree = parentPath(modulePath(p, modID: owner)).clone()
 	if owner != diag.stdlibID and p.modules[modIndex(owner)].isLibrary 'library'
 		tree = libraryTreeOf(modulePath(p, modID: owner))
 	end 'library'

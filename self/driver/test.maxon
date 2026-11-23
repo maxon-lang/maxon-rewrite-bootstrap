@@ -163,16 +163,16 @@ function isSpaceByte(c Byte) returns bool
 	return c == spaceByte or (c >= tabByte and c <= carriageReturnByte)
 end 'isSpaceByte'
 
-function trimLeft(text String) returns String
+function trimLeft(text String) returns borrowed String
 	var start = 0 as Count
 	let n = text.byteLength()
 	while start < n and isSpaceByte(text.byteAt(start)) 'skip'
 		start = start + 1
 	end 'skip'
-	return text.sliceBytes(start, endPos: n).clone()
+	return text.sliceBytes(start, endPos: n)
 end 'trimLeft'
 
-function trimSpace(text String) returns String
+function trimSpace(text String) returns borrowed String
 	var start = 0 as Count
 	var finish = text.byteLength()
 	while start < finish and isSpaceByte(text.byteAt(start)) 'skipLeft'
@@ -181,7 +181,7 @@ function trimSpace(text String) returns String
 	while finish > start and isSpaceByte(text.byteAt(try finish - 1 otherwise 0)) 'skipRight'
 		finish = try finish - 1 otherwise 0
 	end 'skipRight'
-	return text.sliceBytes(start, endPos: finish).clone()
+	return text.sliceBytes(start, endPos: finish)
 end 'trimSpace'
 
 // matchesAt is whether needle stands in text at the byte at.
@@ -283,8 +283,8 @@ function directiveNumber(text String, file String, directive String) returns Cou
 	end 'number'
 end 'directiveNumber'
 
-function afterPrefix(line String, prefix String) returns String
-	return line.sliceBytes(prefix.byteLength(), endPos: line.byteLength()).clone()
+function afterPrefix(line String, prefix String) returns borrowed String
+	return line.sliceBytes(prefix.byteLength(), endPos: line.byteLength())
 end 'afterPrefix'
 
 // afterMarkerSpace is the text of a directive after the one space that follows its marker, so that what the directive holds may
@@ -299,7 +299,7 @@ end 'afterMarkerSpace'
 // applyDirective adds what one line of a test program says, when it is a directive, to the expectation.
 function applyDirective(mutates expect Expectation, mutates stdout ByteArray, line String, file String)
 	if hasPrefix(line, prefix: expectErrorPrefix) 'error'
-		expect.errors.push(trimSpace(afterPrefix(line, prefix: expectErrorPrefix)))
+		expect.errors.push(trimSpace(afterPrefix(line, prefix: expectErrorPrefix)).clone())
 	end 'error' else if hasPrefix(line, prefix: expectFreePrefix) 'free'
 		expect.frees.push(afterMarkerSpace(afterPrefix(line, prefix: expectFreePrefix)))
 	end 'free' else if hasPrefix(line, prefix: expectExitPrefix) 'exit'
@@ -320,7 +320,7 @@ function applyDirective(mutates expect Expectation, mutates stdout ByteArray, li
 	end 'schedules' else if line == nativeOnlyDirective 'native'
 		expect.nativeOnly = true
 	end 'native' else if hasPrefix(line, prefix: unsupportedTargetsPrefix) 'targets'
-		expect.unsupportedTargets = trimSpace(afterPrefix(line, prefix: unsupportedTargetsPrefix))
+		expect.unsupportedTargets = trimSpace(afterPrefix(line, prefix: unsupportedTargetsPrefix)).clone()
 	end 'targets' else if hasPrefix(line, prefix: expectSchedulerPrefix) 'scheduler'
 		let answer = trimSpace(afterPrefix(line, prefix: expectSchedulerPrefix))
 		if answer != schedulerUsed and answer != schedulerUnused 'malformed'

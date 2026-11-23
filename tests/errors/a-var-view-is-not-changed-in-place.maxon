@@ -1,0 +1,14 @@
+// A var bound to a view changes only by an assignment of another view, never in place through a mutates parameter.
+function shorten(mutates text String)
+	text = "x"
+end 'shorten'
+
+function main() returns ExitCode
+	let line = " a, b "
+	var rest = line.trim()
+	shorten(rest)
+	print(rest)
+	return 0
+end 'main'
+
+// expect-error: E2013 at 9:10

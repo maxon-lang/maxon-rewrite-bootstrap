@@ -1124,7 +1124,7 @@ end 'instantiateGeneric'
 // binds none is refused where its declaration is checked, which names what it lacks.
 export function resolveBoundTypeRef(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, tr ast.NodeID, isBound bool, selfTy ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
 	let off = ms.tree().startOf(tr)
-	let tName = ast.typeRefName(ms.tree(), id: tr)
+	let tName = ast.typeRefName(ms.tree(), id: tr).clone()
 	match ast.nodeDecl(p, ms: ms, node: tr as Count) 'hit'
 		some(ref) then return checkInterfaceRef(c, p: p, ms: ms, tr: tr, off: off, tName: tName, ref: ref, isBound: isBound, selfTy: selfTy, errs: errs)
 		none then _ = 0
@@ -1203,7 +1203,7 @@ export function resolveTypeRef(mutates c Checker, p ast.Project, mutates ms ast.
 	let t = resolveNamedTypeRef(c, p: p, ms: ms, tr: tr, selfTy: selfTy, errs: errs)
 	if t != ast.noType and ast.typeKind(ms.types, reads: p.types, t: t) == ast.TypeKind.interfaceTy 'ifTy'
 		let off = ms.tree().startOf(tr)
-		c.pendingValueTypes.push(PendingValueType.make(off, iface: t, written: ast.typeRefName(ms.tree(), id: tr)))
+		c.pendingValueTypes.push(PendingValueType.make(off, iface: t, written: ast.typeRefName(ms.tree(), id: tr).clone()))
 	end 'ifTy'
 	return t
 end 'resolveTypeRef'
@@ -1233,14 +1233,14 @@ function bareNumberName(p ast.Project, ms ast.ModuleState, tr ast.NodeID) return
 	end 'other'
 	let name = ast.typeRefName(ms.tree(), id: tr)
 	if name == "int" or name == "float" 'bare'
-		return name
+		return name.clone()
 	end 'bare'
 	return ""
 end 'bareNumberName'
 
 function resolveNamedTypeRef(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, tr ast.NodeID, selfTy ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
 	let off = ms.tree().startOf(tr)
-	let tName = ast.typeRefName(ms.tree(), id: tr)
+	let tName = ast.typeRefName(ms.tree(), id: tr).clone()
 	let argsRef = ast.typeRefTypeArgsRef(ms.tree(), id: tr)
 	let hasArgs = ms.tree().listLen(argsRef) > 0
 	match ast.resolutionOf(p, ms: ms).typeParamSlots.get(tr as Count) 'tpSlot'

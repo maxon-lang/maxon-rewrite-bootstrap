@@ -489,6 +489,12 @@ export type LocalEntry
 	export static function make(consumes name String, ty TypeID, isVar bool, isParam bool, conv Convention, definedAt NodeID) returns LocalEntry
 		return LocalEntry{id: noLocal, name: name, ty: ty, isVar: isVar, isParam: isParam, isSelf: false, projected: false, paramIndex: 0 as Count, conv: conv, definedAt: definedAt, isUninitialized: false, isCapture: false, captureConv: Convention.convLet, slot: noSlot}
 	end 'make'
+
+	// isView is whether the local is a var bound to a borrowed result, such as a view of a String's bytes: it owns nothing,
+	// and an assignment gives it another result lent from what it holds (README, "Ownership").
+	export function isView() returns bool
+		return projected and isVar and not isParam and not isCapture
+	end 'isView'
 end 'LocalEntry'
 
 export typealias LocalEntryList = Array with LocalEntry

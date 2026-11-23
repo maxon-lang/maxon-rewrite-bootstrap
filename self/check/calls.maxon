@@ -60,7 +60,7 @@ function refuseConstantCall(mutates c Checker, p ast.Project, mutates ms ast.Mod
 	c.hasUses = false
 	c.allowCalls = false
 	if scratch.count() == 0 and t != ast.noType and isConstantResult(p, ms: ms, t: t) 'scalar'
-		let name = ast.nameExprName(ms.tree(), id: callee) if ms.tree().kindOf(callee) == ast.NodeKind.nameExpr else ast.memberExprName(ms.tree(), id: callee)
+		let name = ast.nameExprName(ms.tree(), id: callee).clone() if ms.tree().kindOf(callee) == ast.NodeKind.nameExpr else ast.memberExprName(ms.tree(), id: callee).clone()
 		checkFail(c.modID, off: ms.tree().reportStartOf(call), code: diag.errNonConstantInitializer, msg: diag.constantCallNotConstant(name), errs: errs)
 		return
 	end 'scalar'
@@ -144,7 +144,7 @@ end 'siblingMethod'
 // callSibling types a bare call of a method of the enclosing type: `helper()` is `self.helper()`, and a static method is
 // called as `Self.helper()`. A static method has no `self`, so a bare call of an instance method in it has no receiver.
 function callSibling(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, call ast.NodeID, callee ast.NodeID, method ast.FuncID, mutates errs diag.ErrorList) returns ast.TypeID
-	let name = ast.nameExprName(ms.tree(), id: callee)
+	let name = ast.nameExprName(ms.tree(), id: callee).clone()
 	let owner = c.owner
 	if ast.funcEntry(ms.funcs, funcReads: p.funcs, f: method).isStatic 'static'
 		return callOnType(c, p: p, ms: ms, call: call, nt: owner, name: name, errs: errs)
@@ -170,10 +170,10 @@ end 'refuseInstanceMethodWithoutReceiver'
 // writtenCallee is a callee as a message names it: a function by its name, a method by the name of its type and its own.
 function writtenCallee(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, callee ast.NodeID, mutates errs diag.ErrorList) returns String
 	if ms.tree().kindOf(callee) == ast.NodeKind.nameExpr 'function'
-		return ast.nameExprName(ms.tree(), id: callee)
+		return ast.nameExprName(ms.tree(), id: callee).clone()
 	end 'function'
 	let obj = ast.memberExprObj(ms.tree(), id: callee)
-	let method = ast.memberExprName(ms.tree(), id: callee)
+	let method = ast.memberExprName(ms.tree(), id: callee).clone()
 	if ms.tree().kindOf(obj) == ast.NodeKind.nameExpr 'named'
 		return "{ast.nameExprName(ms.tree(), id: obj)}.{method}"
 	end 'named'
@@ -214,7 +214,7 @@ function namesFunctionField(mutates c Checker, p ast.Project, mutates ms ast.Mod
 	if not typeHasKind(p, ms: ms, t: t, kind: ast.TypeKind.record) 'notRecord'
 		return false
 	end 'notRecord'
-	let name = ast.memberExprName(ms.tree(), id: callee)
+	let name = ast.memberExprName(ms.tree(), id: callee).clone()
 	match consumes ast.typeEntry(ms.types, reads: p.types, t: ast.originOf(ms.types, reads: p.types, t: t)).findField(name) 'field'
 		some(index) then return fieldIsFunction(p, ms: ms, owner: t, index: index)
 		none then return false
@@ -238,7 +238,7 @@ end 'unknownFunction'
 
 // callNamed types a call of a name that no local stands for: print, a function, or the cown type.
 function callNamed(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, call ast.NodeID, callee ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
-	let name = ast.nameExprName(ms.tree(), id: callee)
+	let name = ast.nameExprName(ms.tree(), id: callee).clone()
 	match consumes ast.nodeDecl(p, ms: ms, node: callee as Count) 'bound'
 		some(ref) then return callDeclared(c, p: p, ms: ms, call: call, ref: ref, name: name, errs: errs)
 		none then _ = 0
@@ -375,7 +375,7 @@ end 'namesString'
 // callMember types 'Type.function(...)', 'Union.case(...)' and 'object.method(...)'.
 function callMember(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, call ast.NodeID, callee ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
 	let obj = ast.memberExprObj(ms.tree(), id: callee)
-	let name = ast.memberExprName(ms.tree(), id: callee)
+	let name = ast.memberExprName(ms.tree(), id: callee).clone()
 	if namesString(c, p: p, ms: ms, e: obj) 'string'
 		return callStringStatic(c, p: p, ms: ms, call: call, name: name, errs: errs)
 	end 'string'
@@ -507,7 +507,7 @@ function unknownTypeFunction(c Checker, p ast.Project, ms ast.ModuleState, call 
 	if ms.tree().kindOf(callee) == ast.NodeKind.memberExpr 'member'
 		let head = ast.memberExprObj(ms.tree(), id: callee)
 		if ms.tree().kindOf(head) == ast.NodeKind.nameExpr and not isQualifiedName(c, p: p, ms: ms, e: head) and not p.modules[c.modIdx].names.has(ast.nameExprName(ms.tree(), id: head)) 'builtIn'
-			diag.pushUnqualifiedErrorAt(errs, code: diag.errUnknownFunction, message: undefinedFunctionText(written), module: c.modID, offset: offsetOf(c, p: p, ms: ms, node: call), name: ast.nameExprName(ms.tree(), id: head), at: offsetOf(c, p: p, ms: ms, node: head))
+			diag.pushUnqualifiedErrorAt(errs, code: diag.errUnknownFunction, message: undefinedFunctionText(written), module: c.modID, offset: offsetOf(c, p: p, ms: ms, node: call), name: ast.nameExprName(ms.tree(), id: head).clone(), at: offsetOf(c, p: p, ms: ms, node: head))
 			return ast.noType
 		end 'builtIn'
 	end 'member'

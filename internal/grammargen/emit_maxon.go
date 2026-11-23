@@ -299,7 +299,7 @@ func emitMaxonNodes(m *model) string {
 				if fp.st == stLabel {
 					readFn = "labelAt"
 				}
-				w.p("\nexport function %s(t Tree, id NodeID) returns String\n", getter)
+				w.p("\nexport function %s(t Tree, id NodeID) returns borrowed String\n", getter)
 				w.p("\treturn t.%s(%s)\n", readFn, maxonWordRead(p, fp.word))
 				w.p("end '%s'\n", getter)
 				w.p("\nexport function %sRef(t Tree, id NodeID) returns diag.U32\n", getter)

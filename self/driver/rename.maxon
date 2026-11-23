@@ -624,13 +624,13 @@ end 'missAt'
 function nodeName(t ast.Tree, id ast.NodeID) returns String
 	let kind = t.kindOf(id)
 	if kind == ast.NodeKind.typeRef 'typeRef'
-		return ast.typeRefName(t, id: id)
+		return ast.typeRefName(t, id: id).clone()
 	end 'typeRef'
 	if kind == ast.NodeKind.nameExpr 'nameExpr'
-		return ast.nameExprName(t, id: id)
+		return ast.nameExprName(t, id: id).clone()
 	end 'nameExpr'
 	if kind == ast.NodeKind.memberExpr 'memberExpr'
-		return ast.memberExprName(t, id: id)
+		return ast.memberExprName(t, id: id).clone()
 	end 'memberExpr'
 	return ""
 end 'nodeName'
@@ -1247,7 +1247,7 @@ function readRuleFile(path String, mutates ruleTexts ast.StringList) returns boo
 	for i in 0 upto lines.count() 'lines'
 		let line = trimSpace(lines[i])
 		if line != "" 'rule'
-			ruleTexts.push(line)
+			ruleTexts.push(line.clone())
 		end 'rule'
 	end 'lines'
 	return true

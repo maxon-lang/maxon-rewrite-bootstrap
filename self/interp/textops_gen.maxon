@@ -547,20 +547,6 @@ function stringTrimLast(text String, from Count) returns Count
 	return last
 end 'stringTrimLast'
 
-// stringTrim is a copy of text without the whitespace clusters at its start, where trimStart, and at its end, where
-// trimEnd: the seed's lowering of the trims calls it (seed/README.md), where a trim of this compiler is a view.
-function stringTrim(text String, trimStart bool, trimEnd bool) returns String
-	var first = 0 as Count
-	if trimStart 'leading'
-		first = stringTrimFirst(text)
-	end 'leading'
-	var last = text.byteLength()
-	if trimEnd 'trailing'
-		last = stringTrimLast(text, from: first)
-	end 'trailing'
-	return text.sliceBytes(first, endPos: last).clone()
-end 'stringTrim'
-
 // stringMapCase is text with its ASCII letters in upper case, or in lower case where upper is false.
 function stringMapCase(text String, upper bool) returns String
 	var first = strUpperFirst

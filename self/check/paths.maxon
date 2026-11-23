@@ -104,6 +104,11 @@ export type AccessPath
 		end 'each'
 		return true
 	end 'overlaps'
+
+	// contains is whether q lies within this place: this path is a prefix of q's, an element step standing for every element.
+	export function contains(q AccessPath) returns bool
+		return self.isPlace() and steps.count() <= q.steps.count() and self.overlaps(q)
+	end 'contains'
 end 'AccessPath'
 
 typealias AccessPaths = Array with AccessPath
@@ -142,7 +147,7 @@ function placeText(tree ast.Tree, e ast.NodeID) returns String
 		return ast.intLitValue(tree, id: e).toString()
 	end 'int'
 	if k == ast.NodeKind.nameExpr 'name'
-		return ast.nameExprName(tree, id: e)
+		return ast.nameExprName(tree, id: e).clone()
 	end 'name'
 	if k == ast.NodeKind.selfExpr 'self'
 		return "self"

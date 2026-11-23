@@ -1,0 +1,11 @@
+// A var bound to a view holds the String it views for its scope, through every view it is given.
+function main() returns ExitCode
+	var line = " a, b "
+	var rest = line.trim()
+	rest = rest.sliceBytes(1, endPos: rest.byteLength())
+	line = "c"
+	print(rest)
+	return 0
+end 'main'
+
+// expect-error: E3186 at 6:2

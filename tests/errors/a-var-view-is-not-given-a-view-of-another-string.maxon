@@ -1,0 +1,14 @@
+// A var bound to a view holds only the String its binding views, so a view of another String, which it could outlive,
+// cannot be given to it.
+function main() returns ExitCode
+	let line = " a, b "
+	var rest = line.trim()
+	if rest.byteLength() > 0 'other'
+		let other = " c "
+		rest = other.trim()
+	end 'other'
+	print(rest)
+	return 0
+end 'main'
+
+// expect-error: E3927 at 8:16

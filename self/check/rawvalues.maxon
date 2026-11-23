@@ -181,7 +181,7 @@ end 'payloadRead'
 // checkCaseRead types a member that the tag of a case with a payload answers: its name, its ordinal, its raw value, or a
 // field of its raw value. Any other member of it is not a value that can be made without the payload.
 function checkCaseRead(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, read CaseRead, mutates errs diag.ErrorList) returns ast.TypeID
-	let member = ast.memberExprName(ms.tree(), id: e)
+	let member = ast.memberExprName(ms.tree(), id: e).clone()
 	var kind = ast.MemberKind.memberCaseRawField
 	var result = p.builtins.stringTy
 	var fieldIndex = 0 as Count

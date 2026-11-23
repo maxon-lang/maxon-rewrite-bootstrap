@@ -109,12 +109,12 @@ function dedupe(items StringList) returns StringList
 end 'dedupe'
 
 // trimTrailingNewlines is the text without the newlines at its end.
-function trimTrailingNewlines(text String) returns String
+function trimTrailingNewlines(text String) returns borrowed String
 	var finish = text.byteLength()
 	while finish > 0 and text.byteAt(try finish - 1 otherwise 0) == 10 'trim'
 		finish = try finish - 1 otherwise 0
 	end 'trim'
-	return text.sliceBytes(0, endPos: finish).clone()
+	return text.sliceBytes(0, endPos: finish)
 end 'trimTrailingNewlines'
 
 // collectionSlot is the position of a collection's kind among the three that a program has: arrays, pools and lists.

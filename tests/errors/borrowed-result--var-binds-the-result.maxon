@@ -16,7 +16,9 @@ end 'labelOf'
 function main() returns ExitCode
 	let s = Shelf.make("x")
 	var l = labelOf(s)
+	l = "y"
+	print(l)
 	return 0
 end 'main'
 
-// expect-error: E3901 at 18:10
+// expect-error: E3901 at 19:2

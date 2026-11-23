@@ -269,7 +269,7 @@ function voidCalleeText(c Checker, p ast.Project, ms ast.ModuleState, call ast.N
 	if holder != ast.noType and ast.typeEntry(ms.types, reads: p.types, t: ast.originOf(ms.types, reads: p.types, t: holder)).hasDecl and ast.typeEntry(ms.types, reads: p.types, t: ast.originOf(ms.types, reads: p.types, t: holder)).decl.module != diag.stdlibID 'declared'
 		return "{declaredNameOfType(p, ms: ms, t: holder)}.{name}"
 	end 'declared'
-	return name
+	return name.clone()
 end 'voidCalleeText'
 
 // calleeText is the name a call is written with, as an error names it.
@@ -282,7 +282,7 @@ end 'calleeText'
 // binding of the result by the statement.
 function checkIfTryStmt(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, s ast.NodeID, mutates errs diag.ErrorList)
 	let call = ast.ifTryStmtCall(ms.tree(), id: s)
-	let name = ast.ifTryStmtName(ms.tree(), id: s)
+	let name = ast.ifTryStmtName(ms.tree(), id: s).clone()
 	if ms.tree().kindOf(call) != ast.NodeKind.callExpr 'notCall'
 		checkFail(c.modID, off: ifTryKeywordOffset(ms.tree(), call: call), code: diag.errExpressionError, msg: "'if try' tests a call that can fail: write the call after 'try'", errs: errs)
 		return
@@ -312,7 +312,7 @@ function checkIfTryStmt(mutates c Checker, p ast.Project, mutates ms ast.ModuleS
 	if not ast.ifTryStmtHasElse(ms.tree(), id: s) 'noElse'
 		return
 	end 'noElse'
-	let failed = ast.ifTryStmtErrName(ms.tree(), id: s)
+	let failed = ast.ifTryStmtErrName(ms.tree(), id: s).clone()
 	let handler = ast.ifTryStmtElseRef(ms.tree(), id: s)
 	pushScope(c)
 	if failed == "" 'anonymous'
@@ -327,7 +327,7 @@ function checkWhile(mutates c Checker, p ast.Project, mutates ms ast.ModuleState
 	if not requireBool(c, p: p, ms: ms, e: ast.whileStmtCond(ms.tree(), id: s), keyword: "while", errs: errs) 'badCond'
 		return
 	end 'badCond'
-	pushBlock(c, label: ast.whileStmtLabel(ms.tree(), id: s), isLoop: true, node: s)
+	pushBlock(c, label: ast.whileStmtLabel(ms.tree(), id: s).clone(), isLoop: true, node: s)
 	checkBlock(c, p: p, ms: ms, body: ast.whileStmtBodyRef(ms.tree(), id: s), errs: errs)
 	popBlock(c)
 end 'checkWhile'
@@ -383,7 +383,7 @@ function checkForBody(mutates c Checker, p ast.Project, mutates ms ast.ModuleSta
 end 'checkForBody'
 
 function enterForBody(mutates c Checker, p ast.Project, ms ast.ModuleState, s ast.NodeID)
-	pushBlock(c, label: ast.forStmtLabel(ms.tree(), id: s), isLoop: true, node: s)
+	pushBlock(c, label: ast.forStmtLabel(ms.tree(), id: s).clone(), isLoop: true, node: s)
 	pushScope(c)
 end 'enterForBody'
 
@@ -476,7 +476,7 @@ function checkEnumerated(mutates c Checker, p ast.Project, mutates ms ast.Module
 	let elem = typeElemType(p, ms: ms, ownerTy: t)
 	enterForBody(c, p: p, ms: ms, s: s)
 	let indexAt = ms.tree().listAt(namesRef, index: 0) as ast.NodeID
-	let indexName = ast.bindNameName(ms.tree(), id: indexAt)
+	let indexName = ast.bindNameName(ms.tree(), id: indexAt).clone()
 	if indexName != "_" 'index'
 		let index = declareLocal(c, p: p, ms: ms, name: indexName, t: p.builtins.elementIndexTy, isVar: false, definedAt: s, off: offsetOf(c, p: p, ms: ms, node: indexAt), errs: errs)
 		if index == ast.noLocal 'failed'
@@ -486,7 +486,7 @@ function checkEnumerated(mutates c Checker, p ast.Project, mutates ms ast.Module
 		c.typing.indexes.insert(s as Count, value: index)
 	end 'index'
 	let elementAt = ms.tree().listAt(namesRef, index: 1) as ast.NodeID
-	let elementName = ast.bindNameName(ms.tree(), id: elementAt)
+	let elementName = ast.bindNameName(ms.tree(), id: elementAt).clone()
 	var element = ast.noLocal
 	if elementName == "_" 'unnamed'
 		element = declareHidden(c, name: elementName, t: elem, definedAt: s)
@@ -758,7 +758,7 @@ function checkLet(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, 
 		failAt(c, p: p, ms: ms, node: s, code: diag.errUnexpectedToken, msg: diag.unknownAnnotation(ast.letStmtAnnotation(ms.tree(), id: s)), errs: errs)
 		return
 	end 'unknownAnnotation'
-	let name = ast.letStmtName(ms.tree(), id: s)
+	let name = ast.letStmtName(ms.tree(), id: s).clone()
 	if name == "_" 'discard'
 		failAt(c, p: p, ms: ms, node: s, code: diag.errUnexpectedToken, msg: "write '_ = call()' to discard a result", errs: errs)
 		return
@@ -803,14 +803,15 @@ function checkLet(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, 
 		return
 	end 'badHeap'
 	let local = declareLet(c, p: p, ms: ms, s: s, name: name, t: t, isVar: isVar, off: off, errs: errs)
-	if local != ast.noLocal and not isVar and bindsLent(c, p: p, ms: ms, e: initNode, t: t) 'lent'
+	if local != ast.noLocal and bindsLent(c, p: p, ms: ms, e: initNode, t: t) 'lent'
 		c.typing.locals[local as Count].projected = true
 	end 'lent'
 end 'checkLet'
 
-// bindsLent is whether a let bound to e borrows it rather than owning it: e is a call that returns a borrowed place of a
-// managed type, such as a view of a String's bytes that a slicing method lends, so the let holds what the call lends
-// from for its scope (README, "Ownership"). A var owns its value, so it is bound to a copy.
+// bindsLent is whether a let or a var bound to e borrows it rather than owning it: e is a call that returns a borrowed
+// place of a managed type, such as a view of a String's bytes that a slicing method lends, so the binding holds what the
+// call lends from for its scope (README, "Ownership"). A var so bound is a view that may be given another view of what it
+// holds (check.viewAssignOwn).
 function bindsLent(c Checker, p ast.Project, ms ast.ModuleState, e ast.NodeID, t ast.TypeID) returns bool
 	return ast.isManagedType(ms.types, reads: p.types, t: t) and lendsResult(c, tree: ms.tree(), e: ast.through(ms.tree(), e: e))
 end 'bindsLent'
@@ -964,9 +965,9 @@ function checkThrow(mutates c Checker, p ast.Project, mutates ms ast.ModuleState
 end 'checkThrow'
 
 function checkJump(mutates c Checker, p ast.Project, ms ast.ModuleState, s ast.NodeID, isBreak bool, mutates errs diag.ErrorList)
-	var label = ast.continueStmtLabel(ms.tree(), id: s)
+	var label = ast.continueStmtLabel(ms.tree(), id: s).clone()
 	if isBreak 'break'
-		label = ast.breakStmtLabel(ms.tree(), id: s)
+		label = ast.breakStmtLabel(ms.tree(), id: s).clone()
 	end 'break'
 	match consumes resolveJump(c, p: p, ms: ms, s: s, label: label, isBreak: isBreak, errs: errs) 'target'
 		some(node) then c.typing.jumps.insert(s as Count, value: node)
@@ -1043,7 +1044,7 @@ function checkTryStmt(mutates c Checker, p ast.Project, mutates ms ast.ModuleSta
 	checkBlock(c, p: p, ms: ms, body: body, errs: errs)
 	let errors = endCatching(c)
 	let handler = ast.tryStmtHandlerRef(ms.tree(), id: s)
-	let binding = ast.tryStmtBinding(ms.tree(), id: s)
+	let binding = ast.tryStmtBinding(ms.tree(), id: s).clone()
 	pushScope(c)
 	if binding == "" 'anonymous'
 		checkStmts(c, p: p, ms: ms, body: handler, errs: errs)

@@ -2808,8 +2808,17 @@ type-parameter type has one owner; every other access is a borrow that cannot ou
   `let` parameter is: moving it anywhere is `E3900`, whose fix is `.clone()`, and a behaviour cannot take it (`E3909`). For
   its scope it holds what the call lends from, so changing or moving that is `E3186`, whose fix copies what the `let` is
   bound to. Each place lent must outlive the statement: one made there, such as `name().trim()`, is `E3927`, fixed the
-  same way; a literal and a constant outlive it. A `var` owns its value, so binding one to a borrowed result is `E3901`
-  with the copy as its fix, as before.
+  same way; a literal and a constant outlive it. A result lent from such a `let` lies in what the `let` holds, so it holds
+  that in its place (`check.boundPaths`).
+- **A `var` bound to a borrowed result is a view** (`ast.LocalEntry.isView`): it borrows as such a `let` does, owns nothing
+  and holds what its binding lends from for its scope, and it may be assigned another borrowed result that lends only
+  from within what it holds or from itself, as a parser narrows what is left to read with `rest = rest.sliceBytes(n,
+  endPos: rest.byteLength())`: no copy, no allocation, and nothing drops. A result lent from another place, which the
+  `var` could outlive, is `E3927`, any other value, which would need an owner, is `E3901`, and changing it in place
+  (passing it `mutates` or `sets`) is `E2013`; each is fixed by binding the `var` to a copy, `.clone()`, which owns its
+  value. The rule is local to the function, as a re-borrow of the same place in Rust is; a projection in Hylo is never
+  rebound (assigning a `let` projection is an error and assigning an `inout` one writes through it), so a `var` view
+  follows Hylo in everything but that it may be rebound.
 - **Exclusivity.** A place is a local or parameter followed by field selections and element selections (`a[i]`, see
   "Primitives"), and two places overlap when one is a prefix of the other (`a` and `a.f`; `a.f` and `a.g` do not;
   `a[i]` and `a[j]` do, for every index). An argument passed `mutates`, `consumes` or `sets`
@@ -3649,7 +3658,7 @@ them, and `sliceBytes(start, endPos: end)` by bytes, `contains`, `startsWith`, `
 bytes that owns none, made in place with no allocation (`rt.str.view`: the address, and a word of the length, the
 receiver's ASCII bit and the view bit), which the call lends as a function that `returns borrowed` lends a place (see
 "Ownership"), so it is kept only by a copy, `.clone()`; the copy of a view copies its bytes, where the copy of a literal is
-the literal. A String is built by interpolation: there is no `append` and no `StringBuilder` (see
+the literal. A `var` bound to a view is given views of the same String as code narrows what it reads, with no copy. A String is built by interpolation: there is no `append` and no `StringBuilder` (see
 "Where it differs from Maxon"). An interpolation measures its parts (a String's length, a literal's
 known one, an integer's digit count by `rt.decimalLength`), allocates once (`rt.str.joinRoom`) and puts each part in place
 (`rt.str.joinPut`, and `rt.str.joinDigits`, which writes an integer's digits into the buffer with no String of their own),
@@ -4140,8 +4149,9 @@ the checker reports where Maxon's parser does, as it needs the type of the value
 - **A slice of a String is a view, and keeping one takes a copy.** `sliceBytes`, `slice`, `sliceLength`, `trim`,
   `trimStart` and `trimEnd` lend a view of the bytes of the String they are called on, made with no allocation and no copy,
   where maxon's give a String of their own (see "Ownership" and "Text"). A view is read, compared, interpolated, sliced
-  again, passed to a `let` parameter and bound to a `let`, which holds the String it views for its scope; storing it in a
-  field, an element or a `var`, returning it or passing it `consumes` (a service's message among them) is `E3901`
+  again, passed to a `let` parameter and bound to a `let` or a `var`, which holds the String it views for its scope and,
+  for a `var`, may be given another view of it; storing it in a
+  field or an element, returning it or passing it `consumes` (a service's message among them) is `E3901`
   (`E3900` from a `let` that holds one, or where the String is itself borrowed), a behaviour taking a `let` that holds one
   is `E3909`, and changing or moving the String while a `let` views it is `E3186`. Each names the copy, `.clone()`, which `fix` (that `specs.ps1` runs)
   writes at the place the message names, so converted maxon code keeps its meaning with one copy where maxon made one.

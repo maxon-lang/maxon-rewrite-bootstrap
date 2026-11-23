@@ -168,9 +168,9 @@ export type Tree
 		return lists[pos]
 	end 'listAt'
 
-	export function nameAt(ref diag.U32) returns String
+	export function nameAt(ref diag.U32) returns borrowed String
 		if ref == 0 'empty'
-			return ""
+			return text.sliceBytes(0, endPos: 0)
 		end 'empty'
 		let start = (ref - 1) as Count
 		var endPos = start
@@ -178,12 +178,12 @@ export type Tree
 		while endPos < n and isIdentByte(text.byteAt(endPos)) 'scan'
 			endPos = endPos + 1
 		end 'scan'
-		return text.sliceBytes(start, endPos: endPos).clone()
+		return text.sliceBytes(start, endPos: endPos)
 	end 'nameAt'
 
-	export function labelAt(ref diag.U32) returns String
+	export function labelAt(ref diag.U32) returns borrowed String
 		if ref == 0 'empty'
-			return ""
+			return text.sliceBytes(0, endPos: 0)
 		end 'empty'
 		let start = (ref - 1) as Count
 		var endPos = start
@@ -191,7 +191,7 @@ export type Tree
 		while endPos < n and text.byteAt(endPos) != 39 'scan'
 			endPos = endPos + 1
 		end 'scan'
-		return text.sliceBytes(start, endPos: endPos).clone()
+		return text.sliceBytes(start, endPos: endPos)
 	end 'labelAt'
 
 	export function kindOf(id NodeID) returns NodeKind
@@ -313,12 +313,12 @@ export type Tree
 	end 'strPartIsExpr'
 
 	// strPartFormat is the text of the format specifier of an interpolated part, and "" for a part that has none.
-	export function strPartFormat(partsRef diag.U32, index Count) returns String
+	export function strPartFormat(partsRef diag.U32, index Count) returns borrowed String
 		let tag = self.listAt(partsRef, index: try index * 2 otherwise panic("strPart index"))
 		if tag < partFormatTag 'none'
-			return ""
+			return text.sliceBytes(0, endPos: 0)
 		end 'none'
-		return strings[try (tag - partFormatTag) as Count otherwise panic("strPart format tag")].clone()
+		return strings[try (tag - partFormatTag) as Count otherwise panic("strPart format tag")]
 	end 'strPartFormat'
 
 	export function strPartExpr(partsRef diag.U32, index Count) returns NodeID
@@ -326,16 +326,16 @@ export type Tree
 		return arg as NodeID
 	end 'strPartExpr'
 
-	export function strPartText(partsRef diag.U32, index Count) returns String
+	export function strPartText(partsRef diag.U32, index Count) returns borrowed String
 		let base = try index * 2 otherwise panic("strPart index")
 		let tag = self.listAt(partsRef, index: base)
 		let arg = self.listAt(partsRef, index: try base + 1 otherwise panic("strPart index"))
 		if tag == partDecodedTag 'decoded'
-			return strings[arg as Count].clone()
+			return strings[arg as Count]
 		end 'decoded'
 		let n = try (tag - partRunTag) as Count otherwise panic("strPart raw tag")
 		let off = arg as Count
-		return text.sliceBytes(off, endPos: try off + n otherwise panic("strPart slice overflow")).clone()
+		return text.sliceBytes(off, endPos: try off + n otherwise panic("strPart slice overflow"))
 	end 'strPartText'
 
 	export function strIsPlain(partsRef diag.U32) returns bool

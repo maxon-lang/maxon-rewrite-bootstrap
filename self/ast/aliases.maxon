@@ -344,10 +344,10 @@ export function isNestedAlias(name String) returns bool
 end 'isNestedAlias'
 
 // nestedAliasMember is the name a nested typealias is declared by in its type's body.
-export function nestedAliasMember(name String) returns String
+export function nestedAliasMember(name String) returns borrowed String
 	match nestedOwnerLength(name) 'dot'
-		some(n) then return name.sliceBytes(try n + 1 otherwise n, endPos: name.byteLength()).clone()
-		none then return name.clone()
+		some(n) then return name.sliceBytes(try n + 1 otherwise n, endPos: name.byteLength())
+		none then return name
 	end 'dot'
 end 'nestedAliasMember'
 

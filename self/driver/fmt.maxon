@@ -55,11 +55,11 @@ end 'isSourcePath'
 
 // withoutCurrentDirectory is a path that a listing of the current directory gave, without the leading
 // separator-terminated dot that names the directory.
-function withoutCurrentDirectory(path String) returns String
+function withoutCurrentDirectory(path String) returns borrowed String
 	if path.byteLength() > 2 and path.byteAt(0 as Count) == dotByte and isSeparator(path.byteAt(1 as Count)) 'current'
-		return path.sliceBytes(2 as Count, endPos: path.byteLength()).clone()
+		return path.sliceBytes(2 as Count, endPos: path.byteLength())
 	end 'current'
-	return path.clone()
+	return path
 end 'withoutCurrentDirectory'
 
 // collectSourceFiles adds to files the .maxon and .md files at path, a file or a directory to search.
