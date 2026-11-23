@@ -72,7 +72,7 @@ export enum Opcode
 	opElemLoad
 	opLoadByte
 	opBuffer
-	opWordAt
+	opElemAt
 	opByteAt
 	opStrPtr
 	opStrWord
@@ -765,9 +765,9 @@ export function opEffects(op Opcode) returns Count
 	if op == Opcode.opBuffer 'opBuffer'
 		return 1
 	end 'opBuffer'
-	if op == Opcode.opWordAt 'opWordAt'
+	if op == Opcode.opElemAt 'opElemAt'
 		return 1
-	end 'opWordAt'
+	end 'opElemAt'
 	if op == Opcode.opByteAt 'opByteAt'
 		return 1
 	end 'opByteAt'
@@ -1289,23 +1289,25 @@ export function newBounds(index Reg, length Reg, fail BlockID) returns Instr
 	return r
 end 'newBounds'
 
-// ElemAddr gives the address of the element at Index of Arr, an array of words, where a Bounds has checked the
-// index.
-export function newElemAddr(dst Reg, arr Reg, index Reg) returns Instr
+// ElemAddr gives the address of the element at Index of Arr, where a Bounds has checked the index: the elements
+// are 1 shl Shift bytes each, a word (wordElementShift) or a String (stringElementShift).
+export function newElemAddr(dst Reg, arr Reg, index Reg, shift Count) returns Instr
 	var r = Instr.make(Opcode.opElemAddr)
 	r.dst = dst
 	r.a = arr
 	r.b = index
+	r.imm = try shift as Word otherwise panic("ir: elemAddr shift is out of range")
 	return r
 end 'newElemAddr'
 
-// ElemLoad reads the element at Index of Arr, an array of words, where a Bounds has checked the index: a scalar,
-// or a managed element lent as LoadAt lends it.
-export function newElemLoad(dst Reg, arr Reg, index Reg) returns Instr
+// ElemLoad reads the element at Index of Arr, of 1 shl Shift bytes, where a Bounds has checked the index: a
+// scalar, or a managed element or a String lent as LoadAt lends it.
+export function newElemLoad(dst Reg, arr Reg, index Reg, shift Count) returns Instr
 	var r = Instr.make(Opcode.opElemLoad)
 	r.dst = dst
 	r.a = arr
 	r.b = index
+	r.imm = try shift as Word otherwise panic("ir: elemLoad shift is out of range")
 	return r
 end 'newElemLoad'
 
@@ -1327,15 +1329,16 @@ export function newBuffer(dst Reg, src Reg) returns Instr
 	return r
 end 'newBuffer'
 
-// WordAt reads the word at Index of Data, the elements of an array that Buffer gave, where a Bounds has checked the
-// index: a scalar, or a managed element lent as LoadAt lends it.
-export function newWordAt(dst Reg, data Reg, index Reg) returns Instr
-	var r = Instr.make(Opcode.opWordAt)
+// ElemAt reads the element at Index of Data, the elements of an array that Buffer gave, of 1 shl Shift bytes,
+// where a Bounds has checked the index: a scalar, or a managed element or a String lent as LoadAt lends it.
+export function newElemAt(dst Reg, data Reg, index Reg, shift Count) returns Instr
+	var r = Instr.make(Opcode.opElemAt)
 	r.dst = dst
 	r.a = data
 	r.b = index
+	r.imm = try shift as Word otherwise panic("ir: elemAt shift is out of range")
 	return r
-end 'newWordAt'
+end 'newElemAt'
 
 // ByteAt reads the byte at Index of Data, the elements of a byte array that Buffer gave, where a Bounds has checked the index.
 export function newByteAt(dst Reg, data Reg, index Reg) returns Instr
@@ -1794,9 +1797,9 @@ export function opcodeName(op Opcode) returns String
 	if op == Opcode.opBuffer 'opBuffer'
 		return "Buffer"
 	end 'opBuffer'
-	if op == Opcode.opWordAt 'opWordAt'
-		return "WordAt"
-	end 'opWordAt'
+	if op == Opcode.opElemAt 'opElemAt'
+		return "ElemAt"
+	end 'opElemAt'
 	if op == Opcode.opByteAt 'opByteAt'
 		return "ByteAt"
 	end 'opByteAt'
@@ -2493,6 +2496,13 @@ export function elemAddrIndex(x Instr) returns Reg
 	return x.b
 end 'elemAddrIndex'
 
+export function elemAddrShift(x Instr) returns Count
+	if x.op != Opcode.opElemAddr 'op'
+		wrongInstr("elemAddrShift", found: x.op)
+	end 'op'
+	return try x.imm as Count otherwise panic("ir: elemAddr shift is out of range")
+end 'elemAddrShift'
+
 export function elemLoadArr(x Instr) returns Reg
 	if x.op != Opcode.opElemLoad 'op'
 		wrongInstr("elemLoadArr", found: x.op)
@@ -2506,6 +2516,13 @@ export function elemLoadIndex(x Instr) returns Reg
 	end 'op'
 	return x.b
 end 'elemLoadIndex'
+
+export function elemLoadShift(x Instr) returns Count
+	if x.op != Opcode.opElemLoad 'op'
+		wrongInstr("elemLoadShift", found: x.op)
+	end 'op'
+	return try x.imm as Count otherwise panic("ir: elemLoad shift is out of range")
+end 'elemLoadShift'
 
 export function loadByteSrc(x Instr) returns Reg
 	if x.op != Opcode.opLoadByte 'op'
@@ -2535,19 +2552,26 @@ export function bufferSrc(x Instr) returns Reg
 	return x.a
 end 'bufferSrc'
 
-export function wordAtData(x Instr) returns Reg
-	if x.op != Opcode.opWordAt 'op'
-		wrongInstr("wordAtData", found: x.op)
+export function elemAtData(x Instr) returns Reg
+	if x.op != Opcode.opElemAt 'op'
+		wrongInstr("elemAtData", found: x.op)
 	end 'op'
 	return x.a
-end 'wordAtData'
+end 'elemAtData'
 
-export function wordAtIndex(x Instr) returns Reg
-	if x.op != Opcode.opWordAt 'op'
-		wrongInstr("wordAtIndex", found: x.op)
+export function elemAtIndex(x Instr) returns Reg
+	if x.op != Opcode.opElemAt 'op'
+		wrongInstr("elemAtIndex", found: x.op)
 	end 'op'
 	return x.b
-end 'wordAtIndex'
+end 'elemAtIndex'
+
+export function elemAtShift(x Instr) returns Count
+	if x.op != Opcode.opElemAt 'op'
+		wrongInstr("elemAtShift", found: x.op)
+	end 'op'
+	return try x.imm as Count otherwise panic("ir: elemAt shift is out of range")
+end 'elemAtShift'
 
 export function byteAtData(x Instr) returns Reg
 	if x.op != Opcode.opByteAt 'op'
@@ -3252,9 +3276,9 @@ export function instrDef(x Instr) returns table.Option with Reg
 	if x.op == Opcode.opBuffer 'opBuffer'
 		return table.Option.some(x.dst)
 	end 'opBuffer'
-	if x.op == Opcode.opWordAt 'opWordAt'
+	if x.op == Opcode.opElemAt 'opElemAt'
 		return table.Option.some(x.dst)
-	end 'opWordAt'
+	end 'opElemAt'
 	if x.op == Opcode.opByteAt 'opByteAt'
 		return table.Option.some(x.dst)
 	end 'opByteAt'
@@ -3476,9 +3500,9 @@ export function instrFail(x Instr) returns table.Option with BlockID
 	if x.op == Opcode.opBuffer 'opBuffer'
 		return table.Option.none
 	end 'opBuffer'
-	if x.op == Opcode.opWordAt 'opWordAt'
+	if x.op == Opcode.opElemAt 'opElemAt'
 		return table.Option.none
-	end 'opWordAt'
+	end 'opElemAt'
 	if x.op == Opcode.opByteAt 'opByteAt'
 		return table.Option.none
 	end 'opByteAt'
@@ -3600,7 +3624,7 @@ export function instrCanFail(x Instr) returns bool
 		opElemLoad gives false
 		opLoadByte gives false
 		opBuffer gives false
-		opWordAt gives false
+		opElemAt gives false
 		opByteAt gives false
 		opStrPtr gives false
 		opStrWord gives false
@@ -3812,11 +3836,11 @@ export function instrReads(f IrFunction, x Instr, mutates out RegList)
 		out.push(bufferSrc(x))
 		return
 	end 'opBuffer'
-	if x.op == Opcode.opWordAt 'opWordAt'
-		out.push(wordAtData(x))
-		out.push(wordAtIndex(x))
+	if x.op == Opcode.opElemAt 'opElemAt'
+		out.push(elemAtData(x))
+		out.push(elemAtIndex(x))
 		return
-	end 'opWordAt'
+	end 'opElemAt'
 	if x.op == Opcode.opByteAt 'opByteAt'
 		out.push(byteAtData(x))
 		out.push(byteAtIndex(x))
@@ -4117,10 +4141,10 @@ export function instrWrites(x Instr, mutates out RegList)
 		out.push(x.dst)
 		return
 	end 'opBuffer'
-	if x.op == Opcode.opWordAt 'opWordAt'
+	if x.op == Opcode.opElemAt 'opElemAt'
 		out.push(x.dst)
 		return
-	end 'opWordAt'
+	end 'opElemAt'
 	if x.op == Opcode.opByteAt 'opByteAt'
 		out.push(x.dst)
 		return
@@ -4411,11 +4435,11 @@ export function renameInstrReads(mutates x Instr, mutates args RegList, names Re
 		x.a = renamedReg(names, r: x.a)
 		return
 	end 'opBuffer'
-	if x.op == Opcode.opWordAt 'opWordAt'
+	if x.op == Opcode.opElemAt 'opElemAt'
 		x.a = renamedReg(names, r: x.a)
 		x.b = renamedReg(names, r: x.b)
 		return
-	end 'opWordAt'
+	end 'opElemAt'
 	if x.op == Opcode.opByteAt 'opByteAt'
 		x.a = renamedReg(names, r: x.a)
 		x.b = renamedReg(names, r: x.b)
@@ -4805,12 +4829,12 @@ export function relocateInstr(mutates x Instr, at Relocation)
 		x.a = renamedReg(at.names, r: x.a)
 		return
 	end 'opBuffer'
-	if x.op == Opcode.opWordAt 'opWordAt'
+	if x.op == Opcode.opElemAt 'opElemAt'
 		x.dst = renamedReg(at.names, r: x.dst)
 		x.a = renamedReg(at.names, r: x.a)
 		x.b = renamedReg(at.names, r: x.b)
 		return
-	end 'opWordAt'
+	end 'opElemAt'
 	if x.op == Opcode.opByteAt 'opByteAt'
 		x.dst = renamedReg(at.names, r: x.dst)
 		x.a = renamedReg(at.names, r: x.a)
@@ -5038,7 +5062,7 @@ export interface InstrVisitor
 	function visitElemLoad(mutates self, f IrFunction, x Instr)
 	function visitLoadByte(mutates self, f IrFunction, x Instr)
 	function visitBuffer(mutates self, f IrFunction, x Instr)
-	function visitWordAt(mutates self, f IrFunction, x Instr)
+	function visitElemAt(mutates self, f IrFunction, x Instr)
 	function visitByteAt(mutates self, f IrFunction, x Instr)
 	function visitStrPtr(mutates self, f IrFunction, x Instr)
 	function visitStrWord(mutates self, f IrFunction, x Instr)
@@ -5246,10 +5270,10 @@ export function visitInstr(mutates visitor V, f IrFunction, x Instr) uses V wher
 		visitor.visitBuffer(f, x: x)
 		return
 	end 'opBuffer'
-	if x.op == Opcode.opWordAt 'opWordAt'
-		visitor.visitWordAt(f, x: x)
+	if x.op == Opcode.opElemAt 'opElemAt'
+		visitor.visitElemAt(f, x: x)
 		return
-	end 'opWordAt'
+	end 'opElemAt'
 	if x.op == Opcode.opByteAt 'opByteAt'
 		visitor.visitByteAt(f, x: x)
 		return
@@ -5540,10 +5564,10 @@ export function instrText(p ast.Project, tt ast.TypeSlot, reads ast.TypeTable, f
 		return "bounds %{boundsIndex(x)}, %{boundsLength(x)} else b{boundsFail(x)}"
 	end 'opBounds'
 	if x.op == Opcode.opElemAddr 'opElemAddr'
-		return "{resultText(x.dst)}elemaddr %{elemAddrArr(x)}, %{elemAddrIndex(x)}"
+		return "{resultText(x.dst)}elemaddr %{elemAddrArr(x)}, %{elemAddrIndex(x)} shl {elemAddrShift(x)}"
 	end 'opElemAddr'
 	if x.op == Opcode.opElemLoad 'opElemLoad'
-		return "{resultText(x.dst)}elem %{elemLoadArr(x)}, %{elemLoadIndex(x)}"
+		return "{resultText(x.dst)}elem %{elemLoadArr(x)}, %{elemLoadIndex(x)} shl {elemLoadShift(x)}"
 	end 'opElemLoad'
 	if x.op == Opcode.opLoadByte 'opLoadByte'
 		return "{resultText(x.dst)}byte.{collectionText(loadByteOf(x))} %{loadByteSrc(x)}, %{loadByteIndex(x)}"
@@ -5551,9 +5575,9 @@ export function instrText(p ast.Project, tt ast.TypeSlot, reads ast.TypeTable, f
 	if x.op == Opcode.opBuffer 'opBuffer'
 		return "{resultText(x.dst)}buffer %{bufferSrc(x)}"
 	end 'opBuffer'
-	if x.op == Opcode.opWordAt 'opWordAt'
-		return "{resultText(x.dst)}wordat %{wordAtData(x)}, %{wordAtIndex(x)}"
-	end 'opWordAt'
+	if x.op == Opcode.opElemAt 'opElemAt'
+		return "{resultText(x.dst)}elemat %{elemAtData(x)}, %{elemAtIndex(x)} shl {elemAtShift(x)}"
+	end 'opElemAt'
 	if x.op == Opcode.opByteAt 'opByteAt'
 		return "{resultText(x.dst)}byteat %{byteAtData(x)}, %{byteAtIndex(x)}"
 	end 'opByteAt'

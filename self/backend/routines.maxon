@@ -970,11 +970,13 @@ function emitStringReceiver(mutates u CodeUnit, p ast.Project, mutates ms ast.Mo
 	let fid = t.methods[index]
 	let method = ast.funcLinkNameIn(p, tt: ms.types, reads: p.types, ft: ms.funcs, funcReads: p.funcs, fid: fid)
 	let last = nextCount(wordsAfterReceiver(p, ms: ms, fid: fid))
-	if last >= rWordArgRegisters(a) 'stacked'
-		panic("routines: '{method}' takes more words than the registers pass, which a call of it through an interface value would have to move on the stack")
-	end 'stacked'
 	u.beginSection()
 	u.defineFunction(stringReceiverSymbol(t.symbol, index: index), instance: true)
+	if last >= rWordArgRegisters(a) 'stacked'
+		moveReceiverWordThroughFrame(u, p: p, ms: ms, fid: fid)
+		rJumpSymbol(u, a: a, symbol: method)
+		return
+	end 'stacked'
 	rRoleOfArg(u, a: a, dst: rThunkBase, index: last)
 	var i = last
 	while i > 1 'shift'
@@ -984,6 +986,112 @@ function emitStringReceiver(mutates u CodeUnit, p ast.Project, mutates ms ast.Mo
 	rArgOfRole(u, a: a, index: 1, src: rThunkBase)
 	rJumpSymbol(u, a: a, symbol: method)
 end 'emitStringReceiver'
+
+// incomingArgsDisp is where a routine's frame finds the first of the arguments its caller passed on the stack: past the
+// frame pointer it saved and the return address.
+let incomingArgsDisp = 16
+
+// moveReceiverWordThroughFrame is the move of emitStringReceiver where the words of the method fid pass the registers, so
+// that some of those it moves are on the stack: the call passed the receiver's word after every other argument, and the
+// method takes it right after the receiver's first word. Both orders place the same arguments, so the caller's stack has
+// the room of the method's. Each argument whose place differs is kept in the routine's frame before any is written, and
+// then written where the method takes it; a float in a register keeps its place, since the floats keep their order. The
+// frame is given back before the jump to the method, which finds its stack arguments where the caller put them.
+function moveReceiverWordThroughFrame(mutates u CodeUnit, p ast.Project, ms ast.ModuleState, fid ast.FuncID)
+	let a = p.target.arch
+	let sig = ir.funcSignature(p, ms: ms, fid: fid)
+	let places = addCounts(ast.leadingParams(ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fid)), b: ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fid).params.count())
+	var methodFloats as Array with bool
+	methodFloats = Array.create(0)
+	for place in 0 upto places 'places'
+		methodFloats.push(ir.isFloatAt(sig.args, place: place) and not ir.isFloatAt(sig.strings, place: place))
+		if ir.isFloatAt(sig.strings, place: place) 'string'
+			methodFloats.push(false)
+		end 'string'
+	end 'places'
+	let count = methodFloats.count()
+	var callerFloats as Array with bool
+	callerFloats = Array.create(0)
+	for k in 0 upto count 'caller'
+		callerFloats.push(methodFloats[callerArgOf(k, count: count)])
+	end 'caller'
+	var methodPlaces = CountList.create(0)
+	var callerPlaces = CountList.create(0)
+	_ = rPlaceArgs(a, floats: methodFloats, places: methodPlaces)
+	_ = rPlaceArgs(a, floats: callerFloats, places: callerPlaces)
+	let methodWords = wordIndices(methodFloats, places: methodPlaces, a: a)
+	let callerWords = wordIndices(callerFloats, places: callerPlaces, a: a)
+	var moved = CountList.create(0)
+	for k in 0 upto count 'moves'
+		let from = callerArgOf(k, count: count)
+		if methodPlaces[k] != callerPlaces[from] 'differs'
+			if methodFloats[k] and not rIsStackPlace(a, place: methodPlaces[k]) 'vector'
+				panic("routines: a float argument of a String method changes register through an interface value")
+			end 'vector'
+			moved.push(k)
+		end 'differs'
+	end 'moves'
+	requireThunkScratch(a, count: count)
+	routinePrologue(u, a: a, locals: moved.count())
+	for i in 0 upto moved.count() 'keep'
+		let from = callerArgOf(moved[i], count: count)
+		if rIsStackPlace(a, place: callerPlaces[from]) 'stack'
+			rLoad(u, a: a, dst: rThunkWord, base: rFrame, disp: incomingArgDisp(a, place: callerPlaces[from]))
+		end 'stack' else 'register'
+			rRoleOfArg(u, a: a, dst: rThunkWord, index: callerWords[from])
+		end 'register'
+		rStore(u, a: a, base: rFrame, disp: frameLocal(i), src: rThunkWord)
+	end 'keep'
+	for i in 0 upto moved.count() 'write'
+		let k = moved[i]
+		if rIsStackPlace(a, place: methodPlaces[k]) 'stack'
+			rLoad(u, a: a, dst: rThunkWord, base: rFrame, disp: frameLocal(i))
+			rStore(u, a: a, base: rFrame, disp: incomingArgDisp(a, place: methodPlaces[k]), src: rThunkWord)
+		end 'stack' else 'register'
+			rLoadArgWord(u, a: a, index: methodWords[k], base: rFrame, disp: frameLocal(i))
+		end 'register'
+	end 'write'
+	rLeaveFrame(u, a: a)
+end 'moveReceiverWordThroughFrame'
+
+// callerArgOf is which argument of a call through an interface value, count of them, the method's argument k is: the
+// receiver's word, the method's second, is the call's last, and the method's others follow the receiver's first word.
+function callerArgOf(k Count, count Count) returns Count
+	if k == 0 'first'
+		return 0
+	end 'first'
+	if k == 1 'word'
+		return prevCount(count)
+	end 'word'
+	return prevCount(k)
+end 'callerArgOf'
+
+// wordIndices is, for each argument a word register passes, which of the convention's word registers it is, and 0 for
+// any other.
+function wordIndices(floats Array with bool, places CountList, a ast.TargetArch) returns CountList
+	var indices = CountList.create(0)
+	var words = 0 as Count
+	for i in 0 upto floats.count() 'args'
+		if floats[i] or rIsStackPlace(a, place: places[i]) 'other'
+			indices.push(0)
+		end 'other' else 'word'
+			indices.push(words)
+			words = nextCount(words)
+		end 'word'
+	end 'args'
+	return indices
+end 'wordIndices'
+
+// incomingArgDisp is where a routine's frame finds the argument its caller passed at a place on the stack.
+function incomingArgDisp(a ast.TargetArch, place Count) returns Imm32
+	return imm32Of(try incomingArgsDisp + rStackSlotOf(a, place: place) * wordBytes otherwise panic("routines: an argument past memory"))
+end 'incomingArgDisp'
+
+// frameLocal is where a routine's frame holds its local i.
+function frameLocal(i Count) returns Imm32
+	let depth = try (i * wordBytes) as Imm32 otherwise panic("routines: a local past memory")
+	return try routineLocal0 - depth otherwise panic("routines: a local past memory")
+end 'frameLocal'
 
 // wordsAfterReceiver is how many words the method fid takes in general registers past its receiver: a word for each
 // parameter, two for a String, none for a float.

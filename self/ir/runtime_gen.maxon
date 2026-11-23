@@ -9,6 +9,7 @@ export enum Rt
 	rtWrite
 	rtPanic
 	rtPanicAt
+	rtPanicEmptySlot
 	rtConcat
 	rtItoa
 	rtFtoa
@@ -178,6 +179,9 @@ export function rtSymbol(r Rt) returns String
 	if r == Rt.rtPanicAt 'rtPanicAt'
 		return "runtime::panicAt"
 	end 'rtPanicAt'
+	if r == Rt.rtPanicEmptySlot 'rtPanicEmptySlot'
+		return "runtime::panicEmptySlot"
+	end 'rtPanicEmptySlot'
 	if r == Rt.rtConcat 'rtConcat'
 		return "runtime::concat"
 	end 'rtConcat'
@@ -642,6 +646,9 @@ export function rtText(r Rt) returns String
 	if r == Rt.rtPanicAt 'rtPanicAt'
 		return "rt.panicAt"
 	end 'rtPanicAt'
+	if r == Rt.rtPanicEmptySlot 'rtPanicEmptySlot'
+		return "rt.panicEmptySlot"
+	end 'rtPanicEmptySlot'
 	if r == Rt.rtConcat 'rtConcat'
 		return "rt.concat"
 	end 'rtConcat'
@@ -1106,446 +1113,449 @@ export function rtCode(r Rt) returns Count
 	if r == Rt.rtPanicAt 'rtPanicAt'
 		return 6
 	end 'rtPanicAt'
-	if r == Rt.rtConcat 'rtConcat'
+	if r == Rt.rtPanicEmptySlot 'rtPanicEmptySlot'
 		return 7
+	end 'rtPanicEmptySlot'
+	if r == Rt.rtConcat 'rtConcat'
+		return 8
 	end 'rtConcat'
 	if r == Rt.rtItoa 'rtItoa'
-		return 8
+		return 9
 	end 'rtItoa'
 	if r == Rt.rtFtoa 'rtFtoa'
-		return 9
+		return 10
 	end 'rtFtoa'
 	if r == Rt.rtFtoaExact 'rtFtoaExact'
-		return 10
+		return 11
 	end 'rtFtoaExact'
 	if r == Rt.rtFmtInt 'rtFmtInt'
-		return 11
+		return 12
 	end 'rtFmtInt'
 	if r == Rt.rtFmtPad 'rtFmtPad'
-		return 12
+		return 13
 	end 'rtFmtPad'
 	if r == Rt.rtFmtQuoted 'rtFmtQuoted'
-		return 13
+		return 14
 	end 'rtFmtQuoted'
 	if r == Rt.rtFmtFixed 'rtFmtFixed'
-		return 14
+		return 15
 	end 'rtFmtFixed'
 	if r == Rt.rtStreq 'rtStreq'
-		return 15
+		return 16
 	end 'rtStreq'
 	if r == Rt.rtStrLen 'rtStrLen'
-		return 16
+		return 17
 	end 'rtStrLen'
 	if r == Rt.rtStrByteAt 'rtStrByteAt'
-		return 17
+		return 18
 	end 'rtStrByteAt'
 	if r == Rt.rtStrSlice 'rtStrSlice'
-		return 18
+		return 19
 	end 'rtStrSlice'
 	if r == Rt.rtStrCount 'rtStrCount'
-		return 19
+		return 20
 	end 'rtStrCount'
 	if r == Rt.rtStrGraphemeIndex 'rtStrGraphemeIndex'
-		return 20
+		return 21
 	end 'rtStrGraphemeIndex'
 	if r == Rt.rtStrGraphemeBytePos 'rtStrGraphemeBytePos'
-		return 21
+		return 22
 	end 'rtStrGraphemeBytePos'
 	if r == Rt.rtStrFind 'rtStrFind'
-		return 22
+		return 23
 	end 'rtStrFind'
 	if r == Rt.rtStrFindLast 'rtStrFindLast'
-		return 23
+		return 24
 	end 'rtStrFindLast'
 	if r == Rt.rtStrHasAffix 'rtStrHasAffix'
-		return 24
+		return 25
 	end 'rtStrHasAffix'
 	if r == Rt.rtStrReplace 'rtStrReplace'
-		return 25
+		return 26
 	end 'rtStrReplace'
 	if r == Rt.rtStrTrim 'rtStrTrim'
-		return 26
+		return 27
 	end 'rtStrTrim'
 	if r == Rt.rtStrMapCase 'rtStrMapCase'
-		return 27
+		return 28
 	end 'rtStrMapCase'
 	if r == Rt.rtStrCodePointAt 'rtStrCodePointAt'
-		return 28
+		return 29
 	end 'rtStrCodePointAt'
 	if r == Rt.rtStrCodePointNext 'rtStrCodePointNext'
-		return 29
+		return 30
 	end 'rtStrCodePointNext'
 	if r == Rt.rtStrCodePointCount 'rtStrCodePointCount'
-		return 30
+		return 31
 	end 'rtStrCodePointCount'
 	if r == Rt.rtStrUtf16Unit 'rtStrUtf16Unit'
-		return 31
+		return 32
 	end 'rtStrUtf16Unit'
 	if r == Rt.rtStrUtf16Next 'rtStrUtf16Next'
-		return 32
+		return 33
 	end 'rtStrUtf16Next'
 	if r == Rt.rtStrUtf16Count 'rtStrUtf16Count'
-		return 33
+		return 34
 	end 'rtStrUtf16Count'
 	if r == Rt.rtPanicIndex 'rtPanicIndex'
-		return 34
+		return 35
 	end 'rtPanicIndex'
 	if r == Rt.rtHeap 'rtHeap'
-		return 35
+		return 36
 	end 'rtHeap'
 	if r == Rt.rtStdout 'rtStdout'
-		return 36
+		return 37
 	end 'rtStdout'
 	if r == Rt.rtStderr 'rtStderr'
-		return 37
+		return 38
 	end 'rtStderr'
 	if r == Rt.rtImageDataStart 'rtImageDataStart'
-		return 38
+		return 39
 	end 'rtImageDataStart'
 	if r == Rt.rtImageDataEnd 'rtImageDataEnd'
-		return 39
+		return 40
 	end 'rtImageDataEnd'
 	if r == Rt.rtCheckLeaks 'rtCheckLeaks'
-		return 40
+		return 41
 	end 'rtCheckLeaks'
 	if r == Rt.rtTlsSlot 'rtTlsSlot'
-		return 41
+		return 42
 	end 'rtTlsSlot'
 	if r == Rt.rtTlsOffset 'rtTlsOffset'
-		return 42
+		return 43
 	end 'rtTlsOffset'
 	if r == Rt.rtMainContext 'rtMainContext'
-		return 43
+		return 44
 	end 'rtMainContext'
 	if r == Rt.rtProcessStart 'rtProcessStart'
-		return 44
+		return 45
 	end 'rtProcessStart'
 	if r == Rt.rtThreadStart 'rtThreadStart'
-		return 45
+		return 46
 	end 'rtThreadStart'
 	if r == Rt.rtStackSwitch 'rtStackSwitch'
-		return 46
+		return 47
 	end 'rtStackSwitch'
 	if r == Rt.rtGreenStart 'rtGreenStart'
-		return 47
+		return 48
 	end 'rtGreenStart'
 	if r == Rt.rtAsyncPreempt 'rtAsyncPreempt'
-		return 48
+		return 49
 	end 'rtAsyncPreempt'
 	if r == Rt.rtPreemptHandler 'rtPreemptHandler'
-		return 49
+		return 50
 	end 'rtPreemptHandler'
 	if r == Rt.rtSigreturn 'rtSigreturn'
-		return 50
+		return 51
 	end 'rtSigreturn'
 	if r == Rt.rtPreemptibleCode 'rtPreemptibleCode'
-		return 51
+		return 52
 	end 'rtPreemptibleCode'
 	if r == Rt.rtSchedDrain 'rtSchedDrain'
-		return 52
+		return 53
 	end 'rtSchedDrain'
 	if r == Rt.rtWorkerMain 'rtWorkerMain'
-		return 53
+		return 54
 	end 'rtWorkerMain'
 	if r == Rt.rtEnterBlocking 'rtEnterBlocking'
-		return 54
+		return 55
 	end 'rtEnterBlocking'
 	if r == Rt.rtExitBlocking 'rtExitBlocking'
-		return 55
+		return 56
 	end 'rtExitBlocking'
 	if r == Rt.rtExitClaim 'rtExitClaim'
-		return 56
+		return 57
 	end 'rtExitClaim'
 	if r == Rt.rtCownAcquire 'rtCownAcquire'
-		return 57
+		return 58
 	end 'rtCownAcquire'
 	if r == Rt.rtCownRelease 'rtCownRelease'
-		return 58
+		return 59
 	end 'rtCownRelease'
 	if r == Rt.rtMainRun 'rtMainRun'
-		return 59
+		return 60
 	end 'rtMainRun'
 	if r == Rt.rtMainGreen 'rtMainGreen'
-		return 60
+		return 61
 	end 'rtMainGreen'
 	if r == Rt.rtAsyncNew 'rtAsyncNew'
-		return 61
+		return 62
 	end 'rtAsyncNew'
 	if r == Rt.rtAsyncStart 'rtAsyncStart'
-		return 62
+		return 63
 	end 'rtAsyncStart'
 	if r == Rt.rtAsyncAwait 'rtAsyncAwait'
-		return 63
+		return 64
 	end 'rtAsyncAwait'
 	if r == Rt.rtAsyncWait 'rtAsyncWait'
-		return 64
+		return 65
 	end 'rtAsyncWait'
 	if r == Rt.rtAsyncError 'rtAsyncError'
-		return 65
+		return 66
 	end 'rtAsyncError'
 	if r == Rt.rtAsyncTake 'rtAsyncTake'
-		return 66
+		return 67
 	end 'rtAsyncTake'
 	if r == Rt.rtAsyncCancel 'rtAsyncCancel'
-		return 67
+		return 68
 	end 'rtAsyncCancel'
 	if r == Rt.rtAsyncAwaitAny 'rtAsyncAwaitAny'
-		return 68
+		return 69
 	end 'rtAsyncAwaitAny'
 	if r == Rt.rtAsyncComplete 'rtAsyncComplete'
-		return 69
+		return 70
 	end 'rtAsyncComplete'
 	if r == Rt.rtSleep 'rtSleep'
-		return 70
+		return 71
 	end 'rtSleep'
 	if r == Rt.rtYield 'rtYield'
-		return 71
+		return 72
 	end 'rtYield'
 	if r == Rt.rtHashSeed 'rtHashSeed'
-		return 72
+		return 73
 	end 'rtHashSeed'
 	if r == Rt.rtHashSeedDraw 'rtHashSeedDraw'
-		return 73
+		return 74
 	end 'rtHashSeedDraw'
 	if r == Rt.rtHashWord 'rtHashWord'
-		return 74
+		return 75
 	end 'rtHashWord'
 	if r == Rt.rtHashBytes 'rtHashBytes'
-		return 75
+		return 76
 	end 'rtHashBytes'
 	if r == Rt.rtHashStringBytes 'rtHashStringBytes'
-		return 76
+		return 77
 	end 'rtHashStringBytes'
 	if r == Rt.rtBytesReadWord 'rtBytesReadWord'
-		return 77
+		return 78
 	end 'rtBytesReadWord'
 	if r == Rt.rtBytesAppendWord 'rtBytesAppendWord'
-		return 78
+		return 79
 	end 'rtBytesAppendWord'
 	if r == Rt.rtServiceNew 'rtServiceNew'
-		return 79
+		return 80
 	end 'rtServiceNew'
 	if r == Rt.rtServiceReserve 'rtServiceReserve'
-		return 80
+		return 81
 	end 'rtServiceReserve'
 	if r == Rt.rtServiceTaken 'rtServiceTaken'
-		return 81
+		return 82
 	end 'rtServiceTaken'
 	if r == Rt.rtServiceShutdown 'rtServiceShutdown'
-		return 82
+		return 83
 	end 'rtServiceShutdown'
 	if r == Rt.rtReplyNew 'rtReplyNew'
-		return 83
+		return 84
 	end 'rtReplyNew'
 	if r == Rt.rtReplyGive 'rtReplyGive'
-		return 84
+		return 85
 	end 'rtReplyGive'
 	if r == Rt.rtArrayNew 'rtArrayNew'
-		return 85
+		return 86
 	end 'rtArrayNew'
 	if r == Rt.rtArrayLen 'rtArrayLen'
-		return 86
+		return 87
 	end 'rtArrayLen'
 	if r == Rt.rtArrayElem 'rtArrayElem'
-		return 87
+		return 88
 	end 'rtArrayElem'
 	if r == Rt.rtArrayInsert 'rtArrayInsert'
-		return 88
+		return 89
 	end 'rtArrayInsert'
 	if r == Rt.rtArrayRemove 'rtArrayRemove'
-		return 89
+		return 90
 	end 'rtArrayRemove'
 	if r == Rt.rtArrayFill 'rtArrayFill'
-		return 90
+		return 91
 	end 'rtArrayFill'
 	if r == Rt.rtArrayReserve 'rtArrayReserve'
-		return 91
+		return 92
 	end 'rtArrayReserve'
 	if r == Rt.rtStrsElem 'rtStrsElem'
-		return 92
+		return 93
 	end 'rtStrsElem'
 	if r == Rt.rtStrsOpen 'rtStrsOpen'
-		return 93
+		return 94
 	end 'rtStrsOpen'
 	if r == Rt.rtStrsClose 'rtStrsClose'
-		return 94
+		return 95
 	end 'rtStrsClose'
 	if r == Rt.rtStrsFill 'rtStrsFill'
-		return 95
+		return 96
 	end 'rtStrsFill'
 	if r == Rt.rtStrsReserve 'rtStrsReserve'
-		return 96
+		return 97
 	end 'rtStrsReserve'
 	if r == Rt.rtArrayShrink 'rtArrayShrink'
-		return 97
+		return 98
 	end 'rtArrayShrink'
 	if r == Rt.rtListNew 'rtListNew'
-		return 98
+		return 99
 	end 'rtListNew'
 	if r == Rt.rtListLen 'rtListLen'
-		return 99
+		return 100
 	end 'rtListLen'
 	if r == Rt.rtListContains 'rtListContains'
-		return 100
+		return 101
 	end 'rtListContains'
 	if r == Rt.rtListElem 'rtListElem'
-		return 101
+		return 102
 	end 'rtListElem'
 	if r == Rt.rtListPushFront 'rtListPushFront'
-		return 102
+		return 103
 	end 'rtListPushFront'
 	if r == Rt.rtListPushBack 'rtListPushBack'
-		return 103
+		return 104
 	end 'rtListPushBack'
 	if r == Rt.rtListPopFront 'rtListPopFront'
-		return 104
+		return 105
 	end 'rtListPopFront'
 	if r == Rt.rtListPopBack 'rtListPopBack'
-		return 105
+		return 106
 	end 'rtListPopBack'
 	if r == Rt.rtListFirst 'rtListFirst'
-		return 106
+		return 107
 	end 'rtListFirst'
 	if r == Rt.rtListLast 'rtListLast'
-		return 107
+		return 108
 	end 'rtListLast'
 	if r == Rt.rtListNext 'rtListNext'
-		return 108
+		return 109
 	end 'rtListNext'
 	if r == Rt.rtListPrev 'rtListPrev'
-		return 109
+		return 110
 	end 'rtListPrev'
 	if r == Rt.rtListRemove 'rtListRemove'
-		return 110
+		return 111
 	end 'rtListRemove'
 	if r == Rt.rtListMoveToFront 'rtListMoveToFront'
-		return 111
+		return 112
 	end 'rtListMoveToFront'
 	if r == Rt.rtListCopy 'rtListCopy'
-		return 112
+		return 113
 	end 'rtListCopy'
 	if r == Rt.rtPoolNew 'rtPoolNew'
-		return 113
+		return 114
 	end 'rtPoolNew'
 	if r == Rt.rtPoolLen 'rtPoolLen'
-		return 114
+		return 115
 	end 'rtPoolLen'
 	if r == Rt.rtPoolContains 'rtPoolContains'
-		return 115
+		return 116
 	end 'rtPoolContains'
 	if r == Rt.rtPoolElem 'rtPoolElem'
-		return 116
+		return 117
 	end 'rtPoolElem'
 	if r == Rt.rtPoolInsert 'rtPoolInsert'
-		return 117
+		return 118
 	end 'rtPoolInsert'
 	if r == Rt.rtPoolRemove 'rtPoolRemove'
-		return 118
+		return 119
 	end 'rtPoolRemove'
 	if r == Rt.rtPoolCopy 'rtPoolCopy'
-		return 119
+		return 120
 	end 'rtPoolCopy'
 	if r == Rt.rtFrozenFreeze 'rtFrozenFreeze'
-		return 120
+		return 121
 	end 'rtFrozenFreeze'
 	if r == Rt.rtFrozenGet 'rtFrozenGet'
-		return 121
+		return 122
 	end 'rtFrozenGet'
 	if r == Rt.rtShare 'rtShare'
-		return 122
+		return 123
 	end 'rtShare'
 	if r == Rt.rtCownNew 'rtCownNew'
-		return 123
+		return 124
 	end 'rtCownNew'
 	if r == Rt.rtBytesNew 'rtBytesNew'
-		return 124
+		return 125
 	end 'rtBytesNew'
 	if r == Rt.rtBytesLen 'rtBytesLen'
-		return 125
+		return 126
 	end 'rtBytesLen'
 	if r == Rt.rtBytesGet 'rtBytesGet'
-		return 126
+		return 127
 	end 'rtBytesGet'
 	if r == Rt.rtBytesSet 'rtBytesSet'
-		return 127
+		return 128
 	end 'rtBytesSet'
 	if r == Rt.rtBytesInsert 'rtBytesInsert'
-		return 128
+		return 129
 	end 'rtBytesInsert'
 	if r == Rt.rtBytesRemove 'rtBytesRemove'
-		return 129
+		return 130
 	end 'rtBytesRemove'
 	if r == Rt.rtBytesAppend 'rtBytesAppend'
-		return 130
+		return 131
 	end 'rtBytesAppend'
 	if r == Rt.rtBytesAppendStr 'rtBytesAppendStr'
-		return 131
+		return 132
 	end 'rtBytesAppendStr'
 	if r == Rt.rtBytesToString 'rtBytesToString'
-		return 132
+		return 133
 	end 'rtBytesToString'
 	if r == Rt.rtOsArgs 'rtOsArgs'
-		return 133
+		return 134
 	end 'rtOsArgs'
 	if r == Rt.rtOsEnvironmentVariable 'rtOsEnvironmentVariable'
-		return 134
+		return 135
 	end 'rtOsEnvironmentVariable'
 	if r == Rt.rtOsExecutablePath 'rtOsExecutablePath'
-		return 135
+		return 136
 	end 'rtOsExecutablePath'
 	if r == Rt.rtOsCurrentPath 'rtOsCurrentPath'
-		return 136
+		return 137
 	end 'rtOsCurrentPath'
 	if r == Rt.rtOsProcessId 'rtOsProcessId'
-		return 137
+		return 138
 	end 'rtOsProcessId'
 	if r == Rt.rtOsSetExitCode 'rtOsSetExitCode'
-		return 138
+		return 139
 	end 'rtOsSetExitCode'
 	if r == Rt.rtOsClockNanos 'rtOsClockNanos'
-		return 139
+		return 140
 	end 'rtOsClockNanos'
 	if r == Rt.rtOsProcessorCount 'rtOsProcessorCount'
-		return 140
+		return 141
 	end 'rtOsProcessorCount'
 	if r == Rt.rtOsPathFrom 'rtOsPathFrom'
-		return 141
+		return 142
 	end 'rtOsPathFrom'
 	if r == Rt.rtOsReadText 'rtOsReadText'
-		return 142
+		return 143
 	end 'rtOsReadText'
 	if r == Rt.rtOsWriteTextMode 'rtOsWriteTextMode'
-		return 143
+		return 144
 	end 'rtOsWriteTextMode'
 	if r == Rt.rtOsWriteBinaryMode 'rtOsWriteBinaryMode'
-		return 144
+		return 145
 	end 'rtOsWriteBinaryMode'
 	if r == Rt.rtOsRename 'rtOsRename'
-		return 145
+		return 146
 	end 'rtOsRename'
 	if r == Rt.rtOsDelete 'rtOsDelete'
-		return 146
+		return 147
 	end 'rtOsDelete'
 	if r == Rt.rtOsFileInfo 'rtOsFileInfo'
-		return 147
+		return 148
 	end 'rtOsFileInfo'
 	if r == Rt.rtOsIsDirectory 'rtOsIsDirectory'
-		return 148
+		return 149
 	end 'rtOsIsDirectory'
 	if r == Rt.rtOsExists 'rtOsExists'
-		return 149
+		return 150
 	end 'rtOsExists'
 	if r == Rt.rtOsCreateDirectory 'rtOsCreateDirectory'
-		return 150
+		return 151
 	end 'rtOsCreateDirectory'
 	if r == Rt.rtOsDeleteDirectory 'rtOsDeleteDirectory'
-		return 151
+		return 152
 	end 'rtOsDeleteDirectory'
 	if r == Rt.rtOsList 'rtOsList'
-		return 152
+		return 153
 	end 'rtOsList'
 	if r == Rt.rtOsRun 'rtOsRun'
-		return 153
+		return 154
 	end 'rtOsRun'
 	panic("ir: rtNone has no number")
 end 'rtCode'
@@ -1559,153 +1569,154 @@ export function rtOf(code Count) returns Rt
 		4 gives Rt.rtWrite
 		5 gives Rt.rtPanic
 		6 gives Rt.rtPanicAt
-		7 gives Rt.rtConcat
-		8 gives Rt.rtItoa
-		9 gives Rt.rtFtoa
-		10 gives Rt.rtFtoaExact
-		11 gives Rt.rtFmtInt
-		12 gives Rt.rtFmtPad
-		13 gives Rt.rtFmtQuoted
-		14 gives Rt.rtFmtFixed
-		15 gives Rt.rtStreq
-		16 gives Rt.rtStrLen
-		17 gives Rt.rtStrByteAt
-		18 gives Rt.rtStrSlice
-		19 gives Rt.rtStrCount
-		20 gives Rt.rtStrGraphemeIndex
-		21 gives Rt.rtStrGraphemeBytePos
-		22 gives Rt.rtStrFind
-		23 gives Rt.rtStrFindLast
-		24 gives Rt.rtStrHasAffix
-		25 gives Rt.rtStrReplace
-		26 gives Rt.rtStrTrim
-		27 gives Rt.rtStrMapCase
-		28 gives Rt.rtStrCodePointAt
-		29 gives Rt.rtStrCodePointNext
-		30 gives Rt.rtStrCodePointCount
-		31 gives Rt.rtStrUtf16Unit
-		32 gives Rt.rtStrUtf16Next
-		33 gives Rt.rtStrUtf16Count
-		34 gives Rt.rtPanicIndex
-		35 gives Rt.rtHeap
-		36 gives Rt.rtStdout
-		37 gives Rt.rtStderr
-		38 gives Rt.rtImageDataStart
-		39 gives Rt.rtImageDataEnd
-		40 gives Rt.rtCheckLeaks
-		41 gives Rt.rtTlsSlot
-		42 gives Rt.rtTlsOffset
-		43 gives Rt.rtMainContext
-		44 gives Rt.rtProcessStart
-		45 gives Rt.rtThreadStart
-		46 gives Rt.rtStackSwitch
-		47 gives Rt.rtGreenStart
-		48 gives Rt.rtAsyncPreempt
-		49 gives Rt.rtPreemptHandler
-		50 gives Rt.rtSigreturn
-		51 gives Rt.rtPreemptibleCode
-		52 gives Rt.rtSchedDrain
-		53 gives Rt.rtWorkerMain
-		54 gives Rt.rtEnterBlocking
-		55 gives Rt.rtExitBlocking
-		56 gives Rt.rtExitClaim
-		57 gives Rt.rtCownAcquire
-		58 gives Rt.rtCownRelease
-		59 gives Rt.rtMainRun
-		60 gives Rt.rtMainGreen
-		61 gives Rt.rtAsyncNew
-		62 gives Rt.rtAsyncStart
-		63 gives Rt.rtAsyncAwait
-		64 gives Rt.rtAsyncWait
-		65 gives Rt.rtAsyncError
-		66 gives Rt.rtAsyncTake
-		67 gives Rt.rtAsyncCancel
-		68 gives Rt.rtAsyncAwaitAny
-		69 gives Rt.rtAsyncComplete
-		70 gives Rt.rtSleep
-		71 gives Rt.rtYield
-		72 gives Rt.rtHashSeed
-		73 gives Rt.rtHashSeedDraw
-		74 gives Rt.rtHashWord
-		75 gives Rt.rtHashBytes
-		76 gives Rt.rtHashStringBytes
-		77 gives Rt.rtBytesReadWord
-		78 gives Rt.rtBytesAppendWord
-		79 gives Rt.rtServiceNew
-		80 gives Rt.rtServiceReserve
-		81 gives Rt.rtServiceTaken
-		82 gives Rt.rtServiceShutdown
-		83 gives Rt.rtReplyNew
-		84 gives Rt.rtReplyGive
-		85 gives Rt.rtArrayNew
-		86 gives Rt.rtArrayLen
-		87 gives Rt.rtArrayElem
-		88 gives Rt.rtArrayInsert
-		89 gives Rt.rtArrayRemove
-		90 gives Rt.rtArrayFill
-		91 gives Rt.rtArrayReserve
-		92 gives Rt.rtStrsElem
-		93 gives Rt.rtStrsOpen
-		94 gives Rt.rtStrsClose
-		95 gives Rt.rtStrsFill
-		96 gives Rt.rtStrsReserve
-		97 gives Rt.rtArrayShrink
-		98 gives Rt.rtListNew
-		99 gives Rt.rtListLen
-		100 gives Rt.rtListContains
-		101 gives Rt.rtListElem
-		102 gives Rt.rtListPushFront
-		103 gives Rt.rtListPushBack
-		104 gives Rt.rtListPopFront
-		105 gives Rt.rtListPopBack
-		106 gives Rt.rtListFirst
-		107 gives Rt.rtListLast
-		108 gives Rt.rtListNext
-		109 gives Rt.rtListPrev
-		110 gives Rt.rtListRemove
-		111 gives Rt.rtListMoveToFront
-		112 gives Rt.rtListCopy
-		113 gives Rt.rtPoolNew
-		114 gives Rt.rtPoolLen
-		115 gives Rt.rtPoolContains
-		116 gives Rt.rtPoolElem
-		117 gives Rt.rtPoolInsert
-		118 gives Rt.rtPoolRemove
-		119 gives Rt.rtPoolCopy
-		120 gives Rt.rtFrozenFreeze
-		121 gives Rt.rtFrozenGet
-		122 gives Rt.rtShare
-		123 gives Rt.rtCownNew
-		124 gives Rt.rtBytesNew
-		125 gives Rt.rtBytesLen
-		126 gives Rt.rtBytesGet
-		127 gives Rt.rtBytesSet
-		128 gives Rt.rtBytesInsert
-		129 gives Rt.rtBytesRemove
-		130 gives Rt.rtBytesAppend
-		131 gives Rt.rtBytesAppendStr
-		132 gives Rt.rtBytesToString
-		133 gives Rt.rtOsArgs
-		134 gives Rt.rtOsEnvironmentVariable
-		135 gives Rt.rtOsExecutablePath
-		136 gives Rt.rtOsCurrentPath
-		137 gives Rt.rtOsProcessId
-		138 gives Rt.rtOsSetExitCode
-		139 gives Rt.rtOsClockNanos
-		140 gives Rt.rtOsProcessorCount
-		141 gives Rt.rtOsPathFrom
-		142 gives Rt.rtOsReadText
-		143 gives Rt.rtOsWriteTextMode
-		144 gives Rt.rtOsWriteBinaryMode
-		145 gives Rt.rtOsRename
-		146 gives Rt.rtOsDelete
-		147 gives Rt.rtOsFileInfo
-		148 gives Rt.rtOsIsDirectory
-		149 gives Rt.rtOsExists
-		150 gives Rt.rtOsCreateDirectory
-		151 gives Rt.rtOsDeleteDirectory
-		152 gives Rt.rtOsList
-		153 gives Rt.rtOsRun
+		7 gives Rt.rtPanicEmptySlot
+		8 gives Rt.rtConcat
+		9 gives Rt.rtItoa
+		10 gives Rt.rtFtoa
+		11 gives Rt.rtFtoaExact
+		12 gives Rt.rtFmtInt
+		13 gives Rt.rtFmtPad
+		14 gives Rt.rtFmtQuoted
+		15 gives Rt.rtFmtFixed
+		16 gives Rt.rtStreq
+		17 gives Rt.rtStrLen
+		18 gives Rt.rtStrByteAt
+		19 gives Rt.rtStrSlice
+		20 gives Rt.rtStrCount
+		21 gives Rt.rtStrGraphemeIndex
+		22 gives Rt.rtStrGraphemeBytePos
+		23 gives Rt.rtStrFind
+		24 gives Rt.rtStrFindLast
+		25 gives Rt.rtStrHasAffix
+		26 gives Rt.rtStrReplace
+		27 gives Rt.rtStrTrim
+		28 gives Rt.rtStrMapCase
+		29 gives Rt.rtStrCodePointAt
+		30 gives Rt.rtStrCodePointNext
+		31 gives Rt.rtStrCodePointCount
+		32 gives Rt.rtStrUtf16Unit
+		33 gives Rt.rtStrUtf16Next
+		34 gives Rt.rtStrUtf16Count
+		35 gives Rt.rtPanicIndex
+		36 gives Rt.rtHeap
+		37 gives Rt.rtStdout
+		38 gives Rt.rtStderr
+		39 gives Rt.rtImageDataStart
+		40 gives Rt.rtImageDataEnd
+		41 gives Rt.rtCheckLeaks
+		42 gives Rt.rtTlsSlot
+		43 gives Rt.rtTlsOffset
+		44 gives Rt.rtMainContext
+		45 gives Rt.rtProcessStart
+		46 gives Rt.rtThreadStart
+		47 gives Rt.rtStackSwitch
+		48 gives Rt.rtGreenStart
+		49 gives Rt.rtAsyncPreempt
+		50 gives Rt.rtPreemptHandler
+		51 gives Rt.rtSigreturn
+		52 gives Rt.rtPreemptibleCode
+		53 gives Rt.rtSchedDrain
+		54 gives Rt.rtWorkerMain
+		55 gives Rt.rtEnterBlocking
+		56 gives Rt.rtExitBlocking
+		57 gives Rt.rtExitClaim
+		58 gives Rt.rtCownAcquire
+		59 gives Rt.rtCownRelease
+		60 gives Rt.rtMainRun
+		61 gives Rt.rtMainGreen
+		62 gives Rt.rtAsyncNew
+		63 gives Rt.rtAsyncStart
+		64 gives Rt.rtAsyncAwait
+		65 gives Rt.rtAsyncWait
+		66 gives Rt.rtAsyncError
+		67 gives Rt.rtAsyncTake
+		68 gives Rt.rtAsyncCancel
+		69 gives Rt.rtAsyncAwaitAny
+		70 gives Rt.rtAsyncComplete
+		71 gives Rt.rtSleep
+		72 gives Rt.rtYield
+		73 gives Rt.rtHashSeed
+		74 gives Rt.rtHashSeedDraw
+		75 gives Rt.rtHashWord
+		76 gives Rt.rtHashBytes
+		77 gives Rt.rtHashStringBytes
+		78 gives Rt.rtBytesReadWord
+		79 gives Rt.rtBytesAppendWord
+		80 gives Rt.rtServiceNew
+		81 gives Rt.rtServiceReserve
+		82 gives Rt.rtServiceTaken
+		83 gives Rt.rtServiceShutdown
+		84 gives Rt.rtReplyNew
+		85 gives Rt.rtReplyGive
+		86 gives Rt.rtArrayNew
+		87 gives Rt.rtArrayLen
+		88 gives Rt.rtArrayElem
+		89 gives Rt.rtArrayInsert
+		90 gives Rt.rtArrayRemove
+		91 gives Rt.rtArrayFill
+		92 gives Rt.rtArrayReserve
+		93 gives Rt.rtStrsElem
+		94 gives Rt.rtStrsOpen
+		95 gives Rt.rtStrsClose
+		96 gives Rt.rtStrsFill
+		97 gives Rt.rtStrsReserve
+		98 gives Rt.rtArrayShrink
+		99 gives Rt.rtListNew
+		100 gives Rt.rtListLen
+		101 gives Rt.rtListContains
+		102 gives Rt.rtListElem
+		103 gives Rt.rtListPushFront
+		104 gives Rt.rtListPushBack
+		105 gives Rt.rtListPopFront
+		106 gives Rt.rtListPopBack
+		107 gives Rt.rtListFirst
+		108 gives Rt.rtListLast
+		109 gives Rt.rtListNext
+		110 gives Rt.rtListPrev
+		111 gives Rt.rtListRemove
+		112 gives Rt.rtListMoveToFront
+		113 gives Rt.rtListCopy
+		114 gives Rt.rtPoolNew
+		115 gives Rt.rtPoolLen
+		116 gives Rt.rtPoolContains
+		117 gives Rt.rtPoolElem
+		118 gives Rt.rtPoolInsert
+		119 gives Rt.rtPoolRemove
+		120 gives Rt.rtPoolCopy
+		121 gives Rt.rtFrozenFreeze
+		122 gives Rt.rtFrozenGet
+		123 gives Rt.rtShare
+		124 gives Rt.rtCownNew
+		125 gives Rt.rtBytesNew
+		126 gives Rt.rtBytesLen
+		127 gives Rt.rtBytesGet
+		128 gives Rt.rtBytesSet
+		129 gives Rt.rtBytesInsert
+		130 gives Rt.rtBytesRemove
+		131 gives Rt.rtBytesAppend
+		132 gives Rt.rtBytesAppendStr
+		133 gives Rt.rtBytesToString
+		134 gives Rt.rtOsArgs
+		135 gives Rt.rtOsEnvironmentVariable
+		136 gives Rt.rtOsExecutablePath
+		137 gives Rt.rtOsCurrentPath
+		138 gives Rt.rtOsProcessId
+		139 gives Rt.rtOsSetExitCode
+		140 gives Rt.rtOsClockNanos
+		141 gives Rt.rtOsProcessorCount
+		142 gives Rt.rtOsPathFrom
+		143 gives Rt.rtOsReadText
+		144 gives Rt.rtOsWriteTextMode
+		145 gives Rt.rtOsWriteBinaryMode
+		146 gives Rt.rtOsRename
+		147 gives Rt.rtOsDelete
+		148 gives Rt.rtOsFileInfo
+		149 gives Rt.rtOsIsDirectory
+		150 gives Rt.rtOsExists
+		151 gives Rt.rtOsCreateDirectory
+		152 gives Rt.rtOsDeleteDirectory
+		153 gives Rt.rtOsList
+		154 gives Rt.rtOsRun
 		default panic("ir: a number that is no runtime symbol")
 	end 'code'
 end 'rtOf'
@@ -1742,6 +1753,9 @@ export function rtUnit(r Rt) returns RtUnit
 	if r == Rt.rtPanicAt 'rtPanicAt'
 		return RtUnit.rtUnitRuntime
 	end 'rtPanicAt'
+	if r == Rt.rtPanicEmptySlot 'rtPanicEmptySlot'
+		return RtUnit.rtUnitRuntime
+	end 'rtPanicEmptySlot'
 	if r == Rt.rtConcat 'rtConcat'
 		return RtUnit.rtUnitRuntime
 	end 'rtConcat'
@@ -2235,411 +2249,415 @@ export function rtFunctions(b ast.Builtins) returns RtFunctionList
 	params4.push(RtParam.make(ast.Convention.convLet, name: "message", ty: b.stringTy))
 	fns.push(RtFunction.make(Rt.rtPanicAt, name: "panicAt", params: params4, result: b.voidTy))
 	var params5 = RtParamList.create(0)
-	params5.push(RtParam.make(ast.Convention.convLet, name: "left", ty: b.stringTy))
-	params5.push(RtParam.make(ast.Convention.convLet, name: "right", ty: b.stringTy))
-	fns.push(RtFunction.make(Rt.rtConcat, name: "concat", params: params5, result: b.stringTy))
+	params5.push(RtParam.make(ast.Convention.convLet, name: "location", ty: b.stringTy))
+	params5.push(RtParam.make(ast.Convention.convLet, name: "index", ty: b.countTy))
+	fns.push(RtFunction.make(Rt.rtPanicEmptySlot, name: "panicEmptySlot", params: params5, result: b.voidTy))
 	var params6 = RtParamList.create(0)
-	params6.push(RtParam.make(ast.Convention.convLet, name: "n", ty: b.countTy))
-	params6.push(RtParam.make(ast.Convention.convLet, name: "unsigned", ty: b.boolTy))
-	fns.push(RtFunction.make(Rt.rtItoa, name: "itoa", params: params6, result: b.stringTy))
+	params6.push(RtParam.make(ast.Convention.convLet, name: "left", ty: b.stringTy))
+	params6.push(RtParam.make(ast.Convention.convLet, name: "right", ty: b.stringTy))
+	fns.push(RtFunction.make(Rt.rtConcat, name: "concat", params: params6, result: b.stringTy))
 	var params7 = RtParamList.create(0)
-	params7.push(RtParam.make(ast.Convention.convLet, name: "bits", ty: b.countTy))
-	fns.push(RtFunction.make(Rt.rtFtoa, name: "ftoa", params: params7, result: b.stringTy))
+	params7.push(RtParam.make(ast.Convention.convLet, name: "n", ty: b.countTy))
+	params7.push(RtParam.make(ast.Convention.convLet, name: "unsigned", ty: b.boolTy))
+	fns.push(RtFunction.make(Rt.rtItoa, name: "itoa", params: params7, result: b.stringTy))
 	var params8 = RtParamList.create(0)
 	params8.push(RtParam.make(ast.Convention.convLet, name: "bits", ty: b.countTy))
-	fns.push(RtFunction.make(Rt.rtFtoaExact, name: "ftoaExact", params: params8, result: b.stringTy))
+	fns.push(RtFunction.make(Rt.rtFtoa, name: "ftoa", params: params8, result: b.stringTy))
 	var params9 = RtParamList.create(0)
-	params9.push(RtParam.make(ast.Convention.convLet, name: "n", ty: b.countTy))
-	params9.push(RtParam.make(ast.Convention.convLet, name: "radix", ty: b.countTy))
-	params9.push(RtParam.make(ast.Convention.convLet, name: "flags", ty: b.countTy))
-	params9.push(RtParam.make(ast.Convention.convLet, name: "width", ty: b.countTy))
-	fns.push(RtFunction.make(Rt.rtFmtInt, name: "formatInteger", params: params9, result: b.stringTy))
+	params9.push(RtParam.make(ast.Convention.convLet, name: "bits", ty: b.countTy))
+	fns.push(RtFunction.make(Rt.rtFtoaExact, name: "ftoaExact", params: params9, result: b.stringTy))
 	var params10 = RtParamList.create(0)
-	params10.push(RtParam.make(ast.Convention.convLet, name: "text", ty: b.stringTy))
+	params10.push(RtParam.make(ast.Convention.convLet, name: "n", ty: b.countTy))
+	params10.push(RtParam.make(ast.Convention.convLet, name: "radix", ty: b.countTy))
+	params10.push(RtParam.make(ast.Convention.convLet, name: "flags", ty: b.countTy))
 	params10.push(RtParam.make(ast.Convention.convLet, name: "width", ty: b.countTy))
-	params10.push(RtParam.make(ast.Convention.convLet, name: "zeroFill", ty: b.boolTy))
-	fns.push(RtFunction.make(Rt.rtFmtPad, name: "formatPadded", params: params10, result: b.stringTy))
+	fns.push(RtFunction.make(Rt.rtFmtInt, name: "formatInteger", params: params10, result: b.stringTy))
 	var params11 = RtParamList.create(0)
 	params11.push(RtParam.make(ast.Convention.convLet, name: "text", ty: b.stringTy))
-	params11.push(RtParam.make(ast.Convention.convLet, name: "single", ty: b.boolTy))
 	params11.push(RtParam.make(ast.Convention.convLet, name: "width", ty: b.countTy))
-	fns.push(RtFunction.make(Rt.rtFmtQuoted, name: "formatQuoted", params: params11, result: b.stringTy))
+	params11.push(RtParam.make(ast.Convention.convLet, name: "zeroFill", ty: b.boolTy))
+	fns.push(RtFunction.make(Rt.rtFmtPad, name: "formatPadded", params: params11, result: b.stringTy))
 	var params12 = RtParamList.create(0)
-	params12.push(RtParam.make(ast.Convention.convLet, name: "magnitude", ty: b.stringTy))
-	params12.push(RtParam.make(ast.Convention.convLet, name: "negative", ty: b.boolTy))
-	params12.push(RtParam.make(ast.Convention.convLet, name: "precision", ty: b.countTy))
-	fns.push(RtFunction.make(Rt.rtFmtFixed, name: "formatFixed", params: params12, result: b.stringTy))
+	params12.push(RtParam.make(ast.Convention.convLet, name: "text", ty: b.stringTy))
+	params12.push(RtParam.make(ast.Convention.convLet, name: "single", ty: b.boolTy))
+	params12.push(RtParam.make(ast.Convention.convLet, name: "width", ty: b.countTy))
+	fns.push(RtFunction.make(Rt.rtFmtQuoted, name: "formatQuoted", params: params12, result: b.stringTy))
 	var params13 = RtParamList.create(0)
-	params13.push(RtParam.make(ast.Convention.convLet, name: "left", ty: b.stringTy))
-	params13.push(RtParam.make(ast.Convention.convLet, name: "right", ty: b.stringTy))
-	fns.push(RtFunction.make(Rt.rtStreq, name: "streq", params: params13, result: b.boolTy))
+	params13.push(RtParam.make(ast.Convention.convLet, name: "magnitude", ty: b.stringTy))
+	params13.push(RtParam.make(ast.Convention.convLet, name: "negative", ty: b.boolTy))
+	params13.push(RtParam.make(ast.Convention.convLet, name: "precision", ty: b.countTy))
+	fns.push(RtFunction.make(Rt.rtFmtFixed, name: "formatFixed", params: params13, result: b.stringTy))
 	var params14 = RtParamList.create(0)
-	params14.push(RtParam.make(ast.Convention.convLet, name: "text", ty: b.stringTy))
-	fns.push(RtFunction.make(Rt.rtStrLen, name: "stringLength", params: params14, result: b.countTy))
+	params14.push(RtParam.make(ast.Convention.convLet, name: "left", ty: b.stringTy))
+	params14.push(RtParam.make(ast.Convention.convLet, name: "right", ty: b.stringTy))
+	fns.push(RtFunction.make(Rt.rtStreq, name: "streq", params: params14, result: b.boolTy))
 	var params15 = RtParamList.create(0)
 	params15.push(RtParam.make(ast.Convention.convLet, name: "text", ty: b.stringTy))
-	params15.push(RtParam.make(ast.Convention.convLet, name: "index", ty: b.countTy))
-	fns.push(RtFunction.make(Rt.rtStrByteAt, name: "stringByteAt", params: params15, result: b.byteTy))
+	fns.push(RtFunction.make(Rt.rtStrLen, name: "stringLength", params: params15, result: b.countTy))
 	var params16 = RtParamList.create(0)
 	params16.push(RtParam.make(ast.Convention.convLet, name: "text", ty: b.stringTy))
-	params16.push(RtParam.make(ast.Convention.convLet, name: "from", ty: b.countTy))
-	params16.push(RtParam.make(ast.Convention.convLet, name: "until", ty: b.countTy))
-	fns.push(RtFunction.make(Rt.rtStrSlice, name: "stringSlice", params: params16, result: b.stringTy))
+	params16.push(RtParam.make(ast.Convention.convLet, name: "index", ty: b.countTy))
+	fns.push(RtFunction.make(Rt.rtStrByteAt, name: "stringByteAt", params: params16, result: b.byteTy))
 	var params17 = RtParamList.create(0)
 	params17.push(RtParam.make(ast.Convention.convLet, name: "text", ty: b.stringTy))
-	fns.push(RtFunction.make(Rt.rtStrCount, name: "stringCount", params: params17, result: b.countTy))
+	params17.push(RtParam.make(ast.Convention.convLet, name: "from", ty: b.countTy))
+	params17.push(RtParam.make(ast.Convention.convLet, name: "until", ty: b.countTy))
+	fns.push(RtFunction.make(Rt.rtStrSlice, name: "stringSlice", params: params17, result: b.stringTy))
 	var params18 = RtParamList.create(0)
 	params18.push(RtParam.make(ast.Convention.convLet, name: "text", ty: b.stringTy))
-	params18.push(RtParam.make(ast.Convention.convLet, name: "bytePos", ty: b.countTy))
-	fns.push(RtFunction.make(Rt.rtStrGraphemeIndex, name: "stringGraphemeIndex", params: params18, result: b.countTy))
+	fns.push(RtFunction.make(Rt.rtStrCount, name: "stringCount", params: params18, result: b.countTy))
 	var params19 = RtParamList.create(0)
 	params19.push(RtParam.make(ast.Convention.convLet, name: "text", ty: b.stringTy))
-	params19.push(RtParam.make(ast.Convention.convLet, name: "from", ty: b.countTy))
-	params19.push(RtParam.make(ast.Convention.convLet, name: "count", ty: b.countTy))
-	fns.push(RtFunction.make(Rt.rtStrGraphemeBytePos, name: "stringGraphemeBytePos", params: params19, result: b.countTy))
+	params19.push(RtParam.make(ast.Convention.convLet, name: "bytePos", ty: b.countTy))
+	fns.push(RtFunction.make(Rt.rtStrGraphemeIndex, name: "stringGraphemeIndex", params: params19, result: b.countTy))
 	var params20 = RtParamList.create(0)
 	params20.push(RtParam.make(ast.Convention.convLet, name: "text", ty: b.stringTy))
-	params20.push(RtParam.make(ast.Convention.convLet, name: "needle", ty: b.stringTy))
 	params20.push(RtParam.make(ast.Convention.convLet, name: "from", ty: b.countTy))
-	fns.push(RtFunction.make(Rt.rtStrFind, name: "stringFind", params: params20, result: b.countTy))
+	params20.push(RtParam.make(ast.Convention.convLet, name: "count", ty: b.countTy))
+	fns.push(RtFunction.make(Rt.rtStrGraphemeBytePos, name: "stringGraphemeBytePos", params: params20, result: b.countTy))
 	var params21 = RtParamList.create(0)
 	params21.push(RtParam.make(ast.Convention.convLet, name: "text", ty: b.stringTy))
 	params21.push(RtParam.make(ast.Convention.convLet, name: "needle", ty: b.stringTy))
-	fns.push(RtFunction.make(Rt.rtStrFindLast, name: "stringFindLast", params: params21, result: b.countTy))
+	params21.push(RtParam.make(ast.Convention.convLet, name: "from", ty: b.countTy))
+	fns.push(RtFunction.make(Rt.rtStrFind, name: "stringFind", params: params21, result: b.countTy))
 	var params22 = RtParamList.create(0)
 	params22.push(RtParam.make(ast.Convention.convLet, name: "text", ty: b.stringTy))
-	params22.push(RtParam.make(ast.Convention.convLet, name: "affix", ty: b.stringTy))
-	params22.push(RtParam.make(ast.Convention.convLet, name: "atEnd", ty: b.boolTy))
-	fns.push(RtFunction.make(Rt.rtStrHasAffix, name: "stringHasAffix", params: params22, result: b.boolTy))
+	params22.push(RtParam.make(ast.Convention.convLet, name: "needle", ty: b.stringTy))
+	fns.push(RtFunction.make(Rt.rtStrFindLast, name: "stringFindLast", params: params22, result: b.countTy))
 	var params23 = RtParamList.create(0)
 	params23.push(RtParam.make(ast.Convention.convLet, name: "text", ty: b.stringTy))
-	params23.push(RtParam.make(ast.Convention.convLet, name: "old", ty: b.stringTy))
-	params23.push(RtParam.make(ast.Convention.convLet, name: "replacement", ty: b.stringTy))
-	params23.push(RtParam.make(ast.Convention.convLet, name: "all", ty: b.boolTy))
-	fns.push(RtFunction.make(Rt.rtStrReplace, name: "stringReplace", params: params23, result: b.stringTy))
+	params23.push(RtParam.make(ast.Convention.convLet, name: "affix", ty: b.stringTy))
+	params23.push(RtParam.make(ast.Convention.convLet, name: "atEnd", ty: b.boolTy))
+	fns.push(RtFunction.make(Rt.rtStrHasAffix, name: "stringHasAffix", params: params23, result: b.boolTy))
 	var params24 = RtParamList.create(0)
 	params24.push(RtParam.make(ast.Convention.convLet, name: "text", ty: b.stringTy))
-	params24.push(RtParam.make(ast.Convention.convLet, name: "trimStart", ty: b.boolTy))
-	params24.push(RtParam.make(ast.Convention.convLet, name: "trimEnd", ty: b.boolTy))
-	fns.push(RtFunction.make(Rt.rtStrTrim, name: "stringTrim", params: params24, result: b.stringTy))
+	params24.push(RtParam.make(ast.Convention.convLet, name: "old", ty: b.stringTy))
+	params24.push(RtParam.make(ast.Convention.convLet, name: "replacement", ty: b.stringTy))
+	params24.push(RtParam.make(ast.Convention.convLet, name: "all", ty: b.boolTy))
+	fns.push(RtFunction.make(Rt.rtStrReplace, name: "stringReplace", params: params24, result: b.stringTy))
 	var params25 = RtParamList.create(0)
 	params25.push(RtParam.make(ast.Convention.convLet, name: "text", ty: b.stringTy))
-	params25.push(RtParam.make(ast.Convention.convLet, name: "upper", ty: b.boolTy))
-	fns.push(RtFunction.make(Rt.rtStrMapCase, name: "stringMapCase", params: params25, result: b.stringTy))
+	params25.push(RtParam.make(ast.Convention.convLet, name: "trimStart", ty: b.boolTy))
+	params25.push(RtParam.make(ast.Convention.convLet, name: "trimEnd", ty: b.boolTy))
+	fns.push(RtFunction.make(Rt.rtStrTrim, name: "stringTrim", params: params25, result: b.stringTy))
 	var params26 = RtParamList.create(0)
 	params26.push(RtParam.make(ast.Convention.convLet, name: "text", ty: b.stringTy))
-	params26.push(RtParam.make(ast.Convention.convLet, name: "bytePos", ty: b.countTy))
-	fns.push(RtFunction.make(Rt.rtStrCodePointAt, name: "stringCodePointAt", params: params26, result: b.countTy))
+	params26.push(RtParam.make(ast.Convention.convLet, name: "upper", ty: b.boolTy))
+	fns.push(RtFunction.make(Rt.rtStrMapCase, name: "stringMapCase", params: params26, result: b.stringTy))
 	var params27 = RtParamList.create(0)
 	params27.push(RtParam.make(ast.Convention.convLet, name: "text", ty: b.stringTy))
 	params27.push(RtParam.make(ast.Convention.convLet, name: "bytePos", ty: b.countTy))
-	fns.push(RtFunction.make(Rt.rtStrCodePointNext, name: "stringCodePointNext", params: params27, result: b.countTy))
+	fns.push(RtFunction.make(Rt.rtStrCodePointAt, name: "stringCodePointAt", params: params27, result: b.countTy))
 	var params28 = RtParamList.create(0)
 	params28.push(RtParam.make(ast.Convention.convLet, name: "text", ty: b.stringTy))
-	fns.push(RtFunction.make(Rt.rtStrCodePointCount, name: "stringCodePointCount", params: params28, result: b.countTy))
+	params28.push(RtParam.make(ast.Convention.convLet, name: "bytePos", ty: b.countTy))
+	fns.push(RtFunction.make(Rt.rtStrCodePointNext, name: "stringCodePointNext", params: params28, result: b.countTy))
 	var params29 = RtParamList.create(0)
 	params29.push(RtParam.make(ast.Convention.convLet, name: "text", ty: b.stringTy))
-	params29.push(RtParam.make(ast.Convention.convLet, name: "state", ty: b.countTy))
-	fns.push(RtFunction.make(Rt.rtStrUtf16Unit, name: "stringUtf16Unit", params: params29, result: b.countTy))
+	fns.push(RtFunction.make(Rt.rtStrCodePointCount, name: "stringCodePointCount", params: params29, result: b.countTy))
 	var params30 = RtParamList.create(0)
 	params30.push(RtParam.make(ast.Convention.convLet, name: "text", ty: b.stringTy))
 	params30.push(RtParam.make(ast.Convention.convLet, name: "state", ty: b.countTy))
-	fns.push(RtFunction.make(Rt.rtStrUtf16Next, name: "stringUtf16Next", params: params30, result: b.countTy))
+	fns.push(RtFunction.make(Rt.rtStrUtf16Unit, name: "stringUtf16Unit", params: params30, result: b.countTy))
 	var params31 = RtParamList.create(0)
 	params31.push(RtParam.make(ast.Convention.convLet, name: "text", ty: b.stringTy))
-	fns.push(RtFunction.make(Rt.rtStrUtf16Count, name: "stringUtf16Count", params: params31, result: b.countTy))
-	let params32 = RtParamList.create(0)
-	fns.push(RtFunction.make(Rt.rtPanicIndex, name: "panicIndex", params: params32, result: b.voidTy))
-	var params33 = RtParamList.create(0)
-	params33.push(RtParam.make(ast.Convention.convLet, name: "code", ty: b.countTy))
-	fns.push(RtFunction.make(Rt.rtCheckLeaks, name: "checkLeaks", params: params33, result: b.countTy))
+	params31.push(RtParam.make(ast.Convention.convLet, name: "state", ty: b.countTy))
+	fns.push(RtFunction.make(Rt.rtStrUtf16Next, name: "stringUtf16Next", params: params31, result: b.countTy))
+	var params32 = RtParamList.create(0)
+	params32.push(RtParam.make(ast.Convention.convLet, name: "text", ty: b.stringTy))
+	fns.push(RtFunction.make(Rt.rtStrUtf16Count, name: "stringUtf16Count", params: params32, result: b.countTy))
+	let params33 = RtParamList.create(0)
+	fns.push(RtFunction.make(Rt.rtPanicIndex, name: "panicIndex", params: params33, result: b.voidTy))
 	var params34 = RtParamList.create(0)
 	params34.push(RtParam.make(ast.Convention.convLet, name: "code", ty: b.countTy))
-	fns.push(RtFunction.make(Rt.rtSchedDrain, name: "schedDrain", params: params34, result: b.countTy))
+	fns.push(RtFunction.make(Rt.rtCheckLeaks, name: "checkLeaks", params: params34, result: b.countTy))
 	var params35 = RtParamList.create(0)
-	params35.push(RtParam.make(ast.Convention.convLet, name: "context", ty: b.countTy))
-	fns.push(RtFunction.make(Rt.rtWorkerMain, name: "workerMain", params: params35, result: b.voidTy))
-	let params36 = RtParamList.create(0)
-	fns.push(RtFunction.make(Rt.rtEnterBlocking, name: "enterBlocking", params: params36, result: b.voidTy))
+	params35.push(RtParam.make(ast.Convention.convLet, name: "code", ty: b.countTy))
+	fns.push(RtFunction.make(Rt.rtSchedDrain, name: "schedDrain", params: params35, result: b.countTy))
+	var params36 = RtParamList.create(0)
+	params36.push(RtParam.make(ast.Convention.convLet, name: "context", ty: b.countTy))
+	fns.push(RtFunction.make(Rt.rtWorkerMain, name: "workerMain", params: params36, result: b.voidTy))
 	let params37 = RtParamList.create(0)
-	fns.push(RtFunction.make(Rt.rtExitBlocking, name: "exitBlocking", params: params37, result: b.voidTy))
-	var params38 = RtParamList.create(0)
-	params38.push(RtParam.make(ast.Convention.convLet, name: "context", ty: b.countTy))
-	fns.push(RtFunction.make(Rt.rtExitClaim, name: "takeExitClaim", params: params38, result: b.voidTy))
+	fns.push(RtFunction.make(Rt.rtEnterBlocking, name: "enterBlocking", params: params37, result: b.voidTy))
+	let params38 = RtParamList.create(0)
+	fns.push(RtFunction.make(Rt.rtExitBlocking, name: "exitBlocking", params: params38, result: b.voidTy))
 	var params39 = RtParamList.create(0)
-	params39.push(RtParam.make(ast.Convention.convLet, name: "record", ty: b.countTy))
-	fns.push(RtFunction.make(Rt.rtCownAcquire, name: "cownAcquire", params: params39, result: b.voidTy))
+	params39.push(RtParam.make(ast.Convention.convLet, name: "context", ty: b.countTy))
+	fns.push(RtFunction.make(Rt.rtExitClaim, name: "takeExitClaim", params: params39, result: b.voidTy))
 	var params40 = RtParamList.create(0)
 	params40.push(RtParam.make(ast.Convention.convLet, name: "record", ty: b.countTy))
-	fns.push(RtFunction.make(Rt.rtCownRelease, name: "cownRelease", params: params40, result: b.voidTy))
+	fns.push(RtFunction.make(Rt.rtCownAcquire, name: "cownAcquire", params: params40, result: b.voidTy))
 	var params41 = RtParamList.create(0)
-	params41.push(RtParam.make(ast.Convention.convLet, name: "code", ty: b.countTy))
-	fns.push(RtFunction.make(Rt.rtMainRun, name: "mainRun", params: params41, result: b.countTy))
+	params41.push(RtParam.make(ast.Convention.convLet, name: "record", ty: b.countTy))
+	fns.push(RtFunction.make(Rt.rtCownRelease, name: "cownRelease", params: params41, result: b.voidTy))
 	var params42 = RtParamList.create(0)
 	params42.push(RtParam.make(ast.Convention.convLet, name: "code", ty: b.countTy))
-	fns.push(RtFunction.make(Rt.rtAsyncNew, name: "asyncNew", params: params42, result: b.countTy))
+	fns.push(RtFunction.make(Rt.rtMainRun, name: "mainRun", params: params42, result: b.countTy))
 	var params43 = RtParamList.create(0)
-	params43.push(RtParam.make(ast.Convention.convLet, name: "g", ty: b.countTy))
-	fns.push(RtFunction.make(Rt.rtAsyncStart, name: "asyncStart", params: params43, result: b.voidTy))
+	params43.push(RtParam.make(ast.Convention.convLet, name: "code", ty: b.countTy))
+	fns.push(RtFunction.make(Rt.rtAsyncNew, name: "asyncNew", params: params43, result: b.countTy))
 	var params44 = RtParamList.create(0)
-	params44.push(RtParam.make(ast.Convention.convLet, name: "promise", ty: b.countTy))
-	fns.push(RtFunction.make(Rt.rtAsyncAwait, name: "asyncAwait", params: params44, result: b.countTy))
+	params44.push(RtParam.make(ast.Convention.convLet, name: "g", ty: b.countTy))
+	fns.push(RtFunction.make(Rt.rtAsyncStart, name: "asyncStart", params: params44, result: b.voidTy))
 	var params45 = RtParamList.create(0)
 	params45.push(RtParam.make(ast.Convention.convLet, name: "promise", ty: b.countTy))
-	fns.push(RtFunction.make(Rt.rtAsyncWait, name: "asyncWait", params: params45, result: b.voidTy))
+	fns.push(RtFunction.make(Rt.rtAsyncAwait, name: "asyncAwait", params: params45, result: b.countTy))
 	var params46 = RtParamList.create(0)
 	params46.push(RtParam.make(ast.Convention.convLet, name: "promise", ty: b.countTy))
-	fns.push(RtFunction.make(Rt.rtAsyncError, name: "asyncError", params: params46, result: b.countTy))
+	fns.push(RtFunction.make(Rt.rtAsyncWait, name: "asyncWait", params: params46, result: b.voidTy))
 	var params47 = RtParamList.create(0)
 	params47.push(RtParam.make(ast.Convention.convLet, name: "promise", ty: b.countTy))
-	fns.push(RtFunction.make(Rt.rtAsyncTake, name: "asyncTake", params: params47, result: b.countTy))
+	fns.push(RtFunction.make(Rt.rtAsyncError, name: "asyncError", params: params47, result: b.countTy))
 	var params48 = RtParamList.create(0)
 	params48.push(RtParam.make(ast.Convention.convLet, name: "promise", ty: b.countTy))
-	fns.push(RtFunction.make(Rt.rtAsyncCancel, name: "asyncCancel", params: params48, result: b.voidTy))
+	fns.push(RtFunction.make(Rt.rtAsyncTake, name: "asyncTake", params: params48, result: b.countTy))
 	var params49 = RtParamList.create(0)
-	params49.push(RtParam.make(ast.Convention.convLet, name: "array", ty: b.countTy))
-	fns.push(RtFunction.make(Rt.rtAsyncAwaitAny, name: "asyncAwaitAny", params: params49, result: b.countTy))
+	params49.push(RtParam.make(ast.Convention.convLet, name: "promise", ty: b.countTy))
+	fns.push(RtFunction.make(Rt.rtAsyncCancel, name: "asyncCancel", params: params49, result: b.voidTy))
 	var params50 = RtParamList.create(0)
-	params50.push(RtParam.make(ast.Convention.convLet, name: "promise", ty: b.countTy))
-	fns.push(RtFunction.make(Rt.rtAsyncComplete, name: "asyncComplete", params: params50, result: b.boolTy))
+	params50.push(RtParam.make(ast.Convention.convLet, name: "array", ty: b.countTy))
+	fns.push(RtFunction.make(Rt.rtAsyncAwaitAny, name: "asyncAwaitAny", params: params50, result: b.countTy))
 	var params51 = RtParamList.create(0)
-	params51.push(RtParam.make(ast.Convention.convLet, name: "milliseconds", ty: b.countTy))
-	fns.push(RtFunction.make(Rt.rtSleep, name: "sleepMs", params: params51, result: b.voidTy))
-	let params52 = RtParamList.create(0)
-	fns.push(RtFunction.make(Rt.rtYield, name: "schedYield", params: params52, result: b.voidTy))
+	params51.push(RtParam.make(ast.Convention.convLet, name: "promise", ty: b.countTy))
+	fns.push(RtFunction.make(Rt.rtAsyncComplete, name: "asyncComplete", params: params51, result: b.boolTy))
+	var params52 = RtParamList.create(0)
+	params52.push(RtParam.make(ast.Convention.convLet, name: "milliseconds", ty: b.countTy))
+	fns.push(RtFunction.make(Rt.rtSleep, name: "sleepMs", params: params52, result: b.voidTy))
 	let params53 = RtParamList.create(0)
-	fns.push(RtFunction.make(Rt.rtHashSeed, name: "hashSeed", params: params53, result: b.countTy))
+	fns.push(RtFunction.make(Rt.rtYield, name: "schedYield", params: params53, result: b.voidTy))
 	let params54 = RtParamList.create(0)
-	fns.push(RtFunction.make(Rt.rtHashSeedDraw, name: "drawHashSeed", params: params54, result: b.countTy))
-	var params55 = RtParamList.create(0)
-	params55.push(RtParam.make(ast.Convention.convLet, name: "word", ty: b.countTy))
-	params55.push(RtParam.make(ast.Convention.convLet, name: "seed", ty: b.countTy))
-	fns.push(RtFunction.make(Rt.rtHashWord, name: "hashWord", params: params55, result: b.countTy))
+	fns.push(RtFunction.make(Rt.rtHashSeed, name: "hashSeed", params: params54, result: b.countTy))
+	let params55 = RtParamList.create(0)
+	fns.push(RtFunction.make(Rt.rtHashSeedDraw, name: "drawHashSeed", params: params55, result: b.countTy))
 	var params56 = RtParamList.create(0)
-	params56.push(RtParam.make(ast.Convention.convLet, name: "array", ty: b.countTy))
-	params56.push(RtParam.make(ast.Convention.convLet, name: "at", ty: b.countTy))
-	params56.push(RtParam.make(ast.Convention.convLet, name: "count", ty: b.countTy))
+	params56.push(RtParam.make(ast.Convention.convLet, name: "word", ty: b.countTy))
 	params56.push(RtParam.make(ast.Convention.convLet, name: "seed", ty: b.countTy))
-	fns.push(RtFunction.make(Rt.rtHashBytes, name: "hashBytes", params: params56, result: b.countTy))
+	fns.push(RtFunction.make(Rt.rtHashWord, name: "hashWord", params: params56, result: b.countTy))
 	var params57 = RtParamList.create(0)
-	params57.push(RtParam.make(ast.Convention.convLet, name: "text", ty: b.stringTy))
+	params57.push(RtParam.make(ast.Convention.convLet, name: "array", ty: b.countTy))
 	params57.push(RtParam.make(ast.Convention.convLet, name: "at", ty: b.countTy))
 	params57.push(RtParam.make(ast.Convention.convLet, name: "count", ty: b.countTy))
 	params57.push(RtParam.make(ast.Convention.convLet, name: "seed", ty: b.countTy))
-	fns.push(RtFunction.make(Rt.rtHashStringBytes, name: "hashStringBytes", params: params57, result: b.countTy))
+	fns.push(RtFunction.make(Rt.rtHashBytes, name: "hashBytes", params: params57, result: b.countTy))
 	var params58 = RtParamList.create(0)
-	params58.push(RtParam.make(ast.Convention.convLet, name: "array", ty: b.countTy))
+	params58.push(RtParam.make(ast.Convention.convLet, name: "text", ty: b.stringTy))
 	params58.push(RtParam.make(ast.Convention.convLet, name: "at", ty: b.countTy))
-	params58.push(RtParam.make(ast.Convention.convLet, name: "width", ty: b.countTy))
-	params58.push(RtParam.make(ast.Convention.convLet, name: "bigEndian", ty: b.boolTy))
-	params58.push(RtParam.make(ast.Convention.convLet, name: "errorAddress", ty: b.countTy))
-	fns.push(RtFunction.make(Rt.rtBytesReadWord, name: "bytesReadWord", params: params58, result: b.countTy))
+	params58.push(RtParam.make(ast.Convention.convLet, name: "count", ty: b.countTy))
+	params58.push(RtParam.make(ast.Convention.convLet, name: "seed", ty: b.countTy))
+	fns.push(RtFunction.make(Rt.rtHashStringBytes, name: "hashStringBytes", params: params58, result: b.countTy))
 	var params59 = RtParamList.create(0)
 	params59.push(RtParam.make(ast.Convention.convLet, name: "array", ty: b.countTy))
-	params59.push(RtParam.make(ast.Convention.convLet, name: "word", ty: b.countTy))
+	params59.push(RtParam.make(ast.Convention.convLet, name: "at", ty: b.countTy))
 	params59.push(RtParam.make(ast.Convention.convLet, name: "width", ty: b.countTy))
 	params59.push(RtParam.make(ast.Convention.convLet, name: "bigEndian", ty: b.boolTy))
-	fns.push(RtFunction.make(Rt.rtBytesAppendWord, name: "bytesAppendWord", params: params59, result: b.voidTy))
+	params59.push(RtParam.make(ast.Convention.convLet, name: "errorAddress", ty: b.countTy))
+	fns.push(RtFunction.make(Rt.rtBytesReadWord, name: "bytesReadWord", params: params59, result: b.countTy))
 	var params60 = RtParamList.create(0)
-	params60.push(RtParam.make(ast.Convention.convLet, name: "state", ty: b.countTy))
-	params60.push(RtParam.make(ast.Convention.convLet, name: "capacity", ty: b.countTy))
-	fns.push(RtFunction.make(Rt.rtServiceNew, name: "serviceNew", params: params60, result: b.countTy))
+	params60.push(RtParam.make(ast.Convention.convLet, name: "array", ty: b.countTy))
+	params60.push(RtParam.make(ast.Convention.convLet, name: "word", ty: b.countTy))
+	params60.push(RtParam.make(ast.Convention.convLet, name: "width", ty: b.countTy))
+	params60.push(RtParam.make(ast.Convention.convLet, name: "bigEndian", ty: b.boolTy))
+	fns.push(RtFunction.make(Rt.rtBytesAppendWord, name: "bytesAppendWord", params: params60, result: b.voidTy))
 	var params61 = RtParamList.create(0)
-	params61.push(RtParam.make(ast.Convention.convLet, name: "handle", ty: b.countTy))
-	fns.push(RtFunction.make(Rt.rtServiceReserve, name: "serviceReserve", params: params61, result: b.countTy))
+	params61.push(RtParam.make(ast.Convention.convLet, name: "state", ty: b.countTy))
+	params61.push(RtParam.make(ast.Convention.convLet, name: "capacity", ty: b.countTy))
+	fns.push(RtFunction.make(Rt.rtServiceNew, name: "serviceNew", params: params61, result: b.countTy))
 	var params62 = RtParamList.create(0)
-	params62.push(RtParam.make(ast.Convention.convLet, name: "state", ty: b.countTy))
-	fns.push(RtFunction.make(Rt.rtServiceTaken, name: "serviceTaken", params: params62, result: b.voidTy))
+	params62.push(RtParam.make(ast.Convention.convLet, name: "handle", ty: b.countTy))
+	fns.push(RtFunction.make(Rt.rtServiceReserve, name: "serviceReserve", params: params62, result: b.countTy))
 	var params63 = RtParamList.create(0)
-	params63.push(RtParam.make(ast.Convention.convLet, name: "handle", ty: b.countTy))
-	fns.push(RtFunction.make(Rt.rtServiceShutdown, name: "serviceShutdown", params: params63, result: b.voidTy))
-	let params64 = RtParamList.create(0)
-	fns.push(RtFunction.make(Rt.rtReplyNew, name: "replyNew", params: params64, result: b.countTy))
-	var params65 = RtParamList.create(0)
-	params65.push(RtParam.make(ast.Convention.convLet, name: "promise", ty: b.countTy))
-	params65.push(RtParam.make(ast.Convention.convLet, name: "value", ty: b.countTy))
-	params65.push(RtParam.make(ast.Convention.convLet, name: "error", ty: b.countTy))
-	fns.push(RtFunction.make(Rt.rtReplyGive, name: "replyGive", params: params65, result: b.voidTy))
-	let params66 = RtParamList.create(0)
-	fns.push(RtFunction.make(Rt.rtArrayNew, name: "arrayNew", params: params66, result: b.countTy))
-	var params67 = RtParamList.create(0)
-	params67.push(RtParam.make(ast.Convention.convLet, name: "array", ty: b.countTy))
-	fns.push(RtFunction.make(Rt.rtArrayLen, name: "arrayLength", params: params67, result: b.countTy))
+	params63.push(RtParam.make(ast.Convention.convLet, name: "state", ty: b.countTy))
+	fns.push(RtFunction.make(Rt.rtServiceTaken, name: "serviceTaken", params: params63, result: b.voidTy))
+	var params64 = RtParamList.create(0)
+	params64.push(RtParam.make(ast.Convention.convLet, name: "handle", ty: b.countTy))
+	fns.push(RtFunction.make(Rt.rtServiceShutdown, name: "serviceShutdown", params: params64, result: b.voidTy))
+	let params65 = RtParamList.create(0)
+	fns.push(RtFunction.make(Rt.rtReplyNew, name: "replyNew", params: params65, result: b.countTy))
+	var params66 = RtParamList.create(0)
+	params66.push(RtParam.make(ast.Convention.convLet, name: "promise", ty: b.countTy))
+	params66.push(RtParam.make(ast.Convention.convLet, name: "value", ty: b.countTy))
+	params66.push(RtParam.make(ast.Convention.convLet, name: "error", ty: b.countTy))
+	fns.push(RtFunction.make(Rt.rtReplyGive, name: "replyGive", params: params66, result: b.voidTy))
+	let params67 = RtParamList.create(0)
+	fns.push(RtFunction.make(Rt.rtArrayNew, name: "arrayNew", params: params67, result: b.countTy))
 	var params68 = RtParamList.create(0)
 	params68.push(RtParam.make(ast.Convention.convLet, name: "array", ty: b.countTy))
-	params68.push(RtParam.make(ast.Convention.convLet, name: "index", ty: b.countTy))
-	fns.push(RtFunction.make(Rt.rtArrayElem, name: "arrayElem", params: params68, result: b.countTy))
+	fns.push(RtFunction.make(Rt.rtArrayLen, name: "arrayLength", params: params68, result: b.countTy))
 	var params69 = RtParamList.create(0)
 	params69.push(RtParam.make(ast.Convention.convLet, name: "array", ty: b.countTy))
 	params69.push(RtParam.make(ast.Convention.convLet, name: "index", ty: b.countTy))
-	params69.push(RtParam.make(ast.Convention.convLet, name: "element", ty: b.countTy))
-	fns.push(RtFunction.make(Rt.rtArrayInsert, name: "arrayInsert", params: params69, result: b.voidTy))
+	fns.push(RtFunction.make(Rt.rtArrayElem, name: "arrayElem", params: params69, result: b.countTy))
 	var params70 = RtParamList.create(0)
 	params70.push(RtParam.make(ast.Convention.convLet, name: "array", ty: b.countTy))
 	params70.push(RtParam.make(ast.Convention.convLet, name: "index", ty: b.countTy))
-	fns.push(RtFunction.make(Rt.rtArrayRemove, name: "arrayRemove", params: params70, result: b.countTy))
+	params70.push(RtParam.make(ast.Convention.convLet, name: "element", ty: b.countTy))
+	fns.push(RtFunction.make(Rt.rtArrayInsert, name: "arrayInsert", params: params70, result: b.voidTy))
 	var params71 = RtParamList.create(0)
 	params71.push(RtParam.make(ast.Convention.convLet, name: "array", ty: b.countTy))
-	params71.push(RtParam.make(ast.Convention.convLet, name: "count", ty: b.countTy))
-	params71.push(RtParam.make(ast.Convention.convLet, name: "word", ty: b.countTy))
-	fns.push(RtFunction.make(Rt.rtArrayFill, name: "arrayFill", params: params71, result: b.voidTy))
+	params71.push(RtParam.make(ast.Convention.convLet, name: "index", ty: b.countTy))
+	fns.push(RtFunction.make(Rt.rtArrayRemove, name: "arrayRemove", params: params71, result: b.countTy))
 	var params72 = RtParamList.create(0)
 	params72.push(RtParam.make(ast.Convention.convLet, name: "array", ty: b.countTy))
 	params72.push(RtParam.make(ast.Convention.convLet, name: "count", ty: b.countTy))
-	fns.push(RtFunction.make(Rt.rtArrayReserve, name: "arrayReserve", params: params72, result: b.voidTy))
+	params72.push(RtParam.make(ast.Convention.convLet, name: "word", ty: b.countTy))
+	fns.push(RtFunction.make(Rt.rtArrayFill, name: "arrayFill", params: params72, result: b.voidTy))
 	var params73 = RtParamList.create(0)
 	params73.push(RtParam.make(ast.Convention.convLet, name: "array", ty: b.countTy))
-	params73.push(RtParam.make(ast.Convention.convLet, name: "index", ty: b.countTy))
-	fns.push(RtFunction.make(Rt.rtStrsElem, name: "stringsElem", params: params73, result: b.countTy))
+	params73.push(RtParam.make(ast.Convention.convLet, name: "count", ty: b.countTy))
+	fns.push(RtFunction.make(Rt.rtArrayReserve, name: "arrayReserve", params: params73, result: b.voidTy))
 	var params74 = RtParamList.create(0)
 	params74.push(RtParam.make(ast.Convention.convLet, name: "array", ty: b.countTy))
 	params74.push(RtParam.make(ast.Convention.convLet, name: "index", ty: b.countTy))
-	fns.push(RtFunction.make(Rt.rtStrsOpen, name: "stringsOpen", params: params74, result: b.countTy))
+	fns.push(RtFunction.make(Rt.rtStrsElem, name: "stringsElem", params: params74, result: b.countTy))
 	var params75 = RtParamList.create(0)
 	params75.push(RtParam.make(ast.Convention.convLet, name: "array", ty: b.countTy))
 	params75.push(RtParam.make(ast.Convention.convLet, name: "index", ty: b.countTy))
-	fns.push(RtFunction.make(Rt.rtStrsClose, name: "stringsClose", params: params75, result: b.voidTy))
+	fns.push(RtFunction.make(Rt.rtStrsOpen, name: "stringsOpen", params: params75, result: b.countTy))
 	var params76 = RtParamList.create(0)
 	params76.push(RtParam.make(ast.Convention.convLet, name: "array", ty: b.countTy))
-	params76.push(RtParam.make(ast.Convention.convLet, name: "count", ty: b.countTy))
-	fns.push(RtFunction.make(Rt.rtStrsFill, name: "stringsFill", params: params76, result: b.voidTy))
+	params76.push(RtParam.make(ast.Convention.convLet, name: "index", ty: b.countTy))
+	fns.push(RtFunction.make(Rt.rtStrsClose, name: "stringsClose", params: params76, result: b.voidTy))
 	var params77 = RtParamList.create(0)
 	params77.push(RtParam.make(ast.Convention.convLet, name: "array", ty: b.countTy))
 	params77.push(RtParam.make(ast.Convention.convLet, name: "count", ty: b.countTy))
-	fns.push(RtFunction.make(Rt.rtStrsReserve, name: "stringsReserve", params: params77, result: b.voidTy))
+	fns.push(RtFunction.make(Rt.rtStrsFill, name: "stringsFill", params: params77, result: b.voidTy))
 	var params78 = RtParamList.create(0)
 	params78.push(RtParam.make(ast.Convention.convLet, name: "array", ty: b.countTy))
-	params78.push(RtParam.make(ast.Convention.convLet, name: "length", ty: b.countTy))
-	fns.push(RtFunction.make(Rt.rtArrayShrink, name: "arrayShrink", params: params78, result: b.voidTy))
+	params78.push(RtParam.make(ast.Convention.convLet, name: "count", ty: b.countTy))
+	fns.push(RtFunction.make(Rt.rtStrsReserve, name: "stringsReserve", params: params78, result: b.voidTy))
 	var params79 = RtParamList.create(0)
-	params79.push(RtParam.make(ast.Convention.convLet, name: "value", ty: b.countTy))
-	fns.push(RtFunction.make(Rt.rtFrozenFreeze, name: "frozenFreeze", params: params79, result: b.countTy))
+	params79.push(RtParam.make(ast.Convention.convLet, name: "array", ty: b.countTy))
+	params79.push(RtParam.make(ast.Convention.convLet, name: "length", ty: b.countTy))
+	fns.push(RtFunction.make(Rt.rtArrayShrink, name: "arrayShrink", params: params79, result: b.voidTy))
 	var params80 = RtParamList.create(0)
-	params80.push(RtParam.make(ast.Convention.convLet, name: "frozen", ty: b.countTy))
-	fns.push(RtFunction.make(Rt.rtFrozenGet, name: "frozenGet", params: params80, result: b.countTy))
+	params80.push(RtParam.make(ast.Convention.convLet, name: "value", ty: b.countTy))
+	fns.push(RtFunction.make(Rt.rtFrozenFreeze, name: "frozenFreeze", params: params80, result: b.countTy))
 	var params81 = RtParamList.create(0)
-	params81.push(RtParam.make(ast.Convention.convLet, name: "box", ty: b.countTy))
-	fns.push(RtFunction.make(Rt.rtShare, name: "share", params: params81, result: b.countTy))
+	params81.push(RtParam.make(ast.Convention.convLet, name: "frozen", ty: b.countTy))
+	fns.push(RtFunction.make(Rt.rtFrozenGet, name: "frozenGet", params: params81, result: b.countTy))
 	var params82 = RtParamList.create(0)
-	params82.push(RtParam.make(ast.Convention.convLet, name: "value", ty: b.countTy))
-	params82.push(RtParam.make(ast.Convention.convLet, name: "ending", ty: b.countTy))
-	fns.push(RtFunction.make(Rt.rtCownNew, name: "cownNew", params: params82, result: b.countTy))
-	let params83 = RtParamList.create(0)
-	fns.push(RtFunction.make(Rt.rtBytesNew, name: "bytesNew", params: params83, result: b.countTy))
-	var params84 = RtParamList.create(0)
-	params84.push(RtParam.make(ast.Convention.convLet, name: "array", ty: b.countTy))
-	fns.push(RtFunction.make(Rt.rtBytesLen, name: "bytesLength", params: params84, result: b.countTy))
+	params82.push(RtParam.make(ast.Convention.convLet, name: "box", ty: b.countTy))
+	fns.push(RtFunction.make(Rt.rtShare, name: "share", params: params82, result: b.countTy))
+	var params83 = RtParamList.create(0)
+	params83.push(RtParam.make(ast.Convention.convLet, name: "value", ty: b.countTy))
+	params83.push(RtParam.make(ast.Convention.convLet, name: "ending", ty: b.countTy))
+	fns.push(RtFunction.make(Rt.rtCownNew, name: "cownNew", params: params83, result: b.countTy))
+	let params84 = RtParamList.create(0)
+	fns.push(RtFunction.make(Rt.rtBytesNew, name: "bytesNew", params: params84, result: b.countTy))
 	var params85 = RtParamList.create(0)
 	params85.push(RtParam.make(ast.Convention.convLet, name: "array", ty: b.countTy))
-	params85.push(RtParam.make(ast.Convention.convLet, name: "index", ty: b.countTy))
-	fns.push(RtFunction.make(Rt.rtBytesGet, name: "bytesGet", params: params85, result: b.byteTy))
+	fns.push(RtFunction.make(Rt.rtBytesLen, name: "bytesLength", params: params85, result: b.countTy))
 	var params86 = RtParamList.create(0)
 	params86.push(RtParam.make(ast.Convention.convLet, name: "array", ty: b.countTy))
 	params86.push(RtParam.make(ast.Convention.convLet, name: "index", ty: b.countTy))
-	params86.push(RtParam.make(ast.Convention.convLet, name: "value", ty: b.byteTy))
-	fns.push(RtFunction.make(Rt.rtBytesSet, name: "bytesSet", params: params86, result: b.voidTy))
+	fns.push(RtFunction.make(Rt.rtBytesGet, name: "bytesGet", params: params86, result: b.byteTy))
 	var params87 = RtParamList.create(0)
 	params87.push(RtParam.make(ast.Convention.convLet, name: "array", ty: b.countTy))
 	params87.push(RtParam.make(ast.Convention.convLet, name: "index", ty: b.countTy))
 	params87.push(RtParam.make(ast.Convention.convLet, name: "value", ty: b.byteTy))
-	fns.push(RtFunction.make(Rt.rtBytesInsert, name: "bytesInsert", params: params87, result: b.voidTy))
+	fns.push(RtFunction.make(Rt.rtBytesSet, name: "bytesSet", params: params87, result: b.voidTy))
 	var params88 = RtParamList.create(0)
 	params88.push(RtParam.make(ast.Convention.convLet, name: "array", ty: b.countTy))
 	params88.push(RtParam.make(ast.Convention.convLet, name: "index", ty: b.countTy))
-	fns.push(RtFunction.make(Rt.rtBytesRemove, name: "bytesRemove", params: params88, result: b.byteTy))
+	params88.push(RtParam.make(ast.Convention.convLet, name: "value", ty: b.byteTy))
+	fns.push(RtFunction.make(Rt.rtBytesInsert, name: "bytesInsert", params: params88, result: b.voidTy))
 	var params89 = RtParamList.create(0)
 	params89.push(RtParam.make(ast.Convention.convLet, name: "array", ty: b.countTy))
-	params89.push(RtParam.make(ast.Convention.convLet, name: "other", ty: b.countTy))
-	fns.push(RtFunction.make(Rt.rtBytesAppend, name: "bytesAppend", params: params89, result: b.voidTy))
+	params89.push(RtParam.make(ast.Convention.convLet, name: "index", ty: b.countTy))
+	fns.push(RtFunction.make(Rt.rtBytesRemove, name: "bytesRemove", params: params89, result: b.byteTy))
 	var params90 = RtParamList.create(0)
 	params90.push(RtParam.make(ast.Convention.convLet, name: "array", ty: b.countTy))
-	params90.push(RtParam.make(ast.Convention.convLet, name: "text", ty: b.stringTy))
-	fns.push(RtFunction.make(Rt.rtBytesAppendStr, name: "bytesAppendStr", params: params90, result: b.voidTy))
+	params90.push(RtParam.make(ast.Convention.convLet, name: "other", ty: b.countTy))
+	fns.push(RtFunction.make(Rt.rtBytesAppend, name: "bytesAppend", params: params90, result: b.voidTy))
 	var params91 = RtParamList.create(0)
 	params91.push(RtParam.make(ast.Convention.convLet, name: "array", ty: b.countTy))
-	fns.push(RtFunction.make(Rt.rtBytesToString, name: "bytesToString", params: params91, result: b.stringTy))
-	let params92 = RtParamList.create(0)
-	fns.push(RtFunction.make(Rt.rtOsArgs, name: "osArgs", params: params92, result: b.countTy))
-	var params93 = RtParamList.create(0)
-	params93.push(RtParam.make(ast.Convention.convLet, name: "name", ty: b.stringTy))
-	params93.push(RtParam.make(ast.Convention.convLet, name: "errorAddress", ty: b.countTy))
-	fns.push(RtFunction.make(Rt.rtOsEnvironmentVariable, name: "osEnvironmentVariable", params: params93, result: b.stringTy))
+	params91.push(RtParam.make(ast.Convention.convLet, name: "text", ty: b.stringTy))
+	fns.push(RtFunction.make(Rt.rtBytesAppendStr, name: "bytesAppendStr", params: params91, result: b.voidTy))
+	var params92 = RtParamList.create(0)
+	params92.push(RtParam.make(ast.Convention.convLet, name: "array", ty: b.countTy))
+	fns.push(RtFunction.make(Rt.rtBytesToString, name: "bytesToString", params: params92, result: b.stringTy))
+	let params93 = RtParamList.create(0)
+	fns.push(RtFunction.make(Rt.rtOsArgs, name: "osArgs", params: params93, result: b.countTy))
 	var params94 = RtParamList.create(0)
+	params94.push(RtParam.make(ast.Convention.convLet, name: "name", ty: b.stringTy))
 	params94.push(RtParam.make(ast.Convention.convLet, name: "errorAddress", ty: b.countTy))
-	fns.push(RtFunction.make(Rt.rtOsExecutablePath, name: "osExecutablePath", params: params94, result: b.stringTy))
-	let params95 = RtParamList.create(0)
-	fns.push(RtFunction.make(Rt.rtOsCurrentPath, name: "osCurrentPath", params: params95, result: b.stringTy))
+	fns.push(RtFunction.make(Rt.rtOsEnvironmentVariable, name: "osEnvironmentVariable", params: params94, result: b.stringTy))
+	var params95 = RtParamList.create(0)
+	params95.push(RtParam.make(ast.Convention.convLet, name: "errorAddress", ty: b.countTy))
+	fns.push(RtFunction.make(Rt.rtOsExecutablePath, name: "osExecutablePath", params: params95, result: b.stringTy))
 	let params96 = RtParamList.create(0)
-	fns.push(RtFunction.make(Rt.rtOsProcessId, name: "osProcessId", params: params96, result: b.countTy))
-	var params97 = RtParamList.create(0)
-	params97.push(RtParam.make(ast.Convention.convLet, name: "code", ty: b.countTy))
-	fns.push(RtFunction.make(Rt.rtOsSetExitCode, name: "osSetExitCode", params: params97, result: b.voidTy))
-	let params98 = RtParamList.create(0)
-	fns.push(RtFunction.make(Rt.rtOsClockNanos, name: "osClockNanos", params: params98, result: b.countTy))
+	fns.push(RtFunction.make(Rt.rtOsCurrentPath, name: "osCurrentPath", params: params96, result: b.stringTy))
+	let params97 = RtParamList.create(0)
+	fns.push(RtFunction.make(Rt.rtOsProcessId, name: "osProcessId", params: params97, result: b.countTy))
+	var params98 = RtParamList.create(0)
+	params98.push(RtParam.make(ast.Convention.convLet, name: "code", ty: b.countTy))
+	fns.push(RtFunction.make(Rt.rtOsSetExitCode, name: "osSetExitCode", params: params98, result: b.voidTy))
 	let params99 = RtParamList.create(0)
-	fns.push(RtFunction.make(Rt.rtOsProcessorCount, name: "osProcessorCount", params: params99, result: b.countTy))
-	var params100 = RtParamList.create(0)
-	params100.push(RtParam.make(ast.Convention.convLet, name: "path", ty: b.stringTy))
-	params100.push(RtParam.make(ast.Convention.convLet, name: "errorAddress", ty: b.countTy))
-	fns.push(RtFunction.make(Rt.rtOsPathFrom, name: "osPathFrom", params: params100, result: b.stringTy))
+	fns.push(RtFunction.make(Rt.rtOsClockNanos, name: "osClockNanos", params: params99, result: b.countTy))
+	let params100 = RtParamList.create(0)
+	fns.push(RtFunction.make(Rt.rtOsProcessorCount, name: "osProcessorCount", params: params100, result: b.countTy))
 	var params101 = RtParamList.create(0)
 	params101.push(RtParam.make(ast.Convention.convLet, name: "path", ty: b.stringTy))
 	params101.push(RtParam.make(ast.Convention.convLet, name: "errorAddress", ty: b.countTy))
-	fns.push(RtFunction.make(Rt.rtOsReadText, name: "osReadText", params: params101, result: b.stringTy))
+	fns.push(RtFunction.make(Rt.rtOsPathFrom, name: "osPathFrom", params: params101, result: b.stringTy))
 	var params102 = RtParamList.create(0)
 	params102.push(RtParam.make(ast.Convention.convLet, name: "path", ty: b.stringTy))
-	params102.push(RtParam.make(ast.Convention.convLet, name: "content", ty: b.stringTy))
-	params102.push(RtParam.make(ast.Convention.convLet, name: "executable", ty: b.boolTy))
 	params102.push(RtParam.make(ast.Convention.convLet, name: "errorAddress", ty: b.countTy))
-	fns.push(RtFunction.make(Rt.rtOsWriteTextMode, name: "osWriteTextMode", params: params102, result: b.voidTy))
+	fns.push(RtFunction.make(Rt.rtOsReadText, name: "osReadText", params: params102, result: b.stringTy))
 	var params103 = RtParamList.create(0)
 	params103.push(RtParam.make(ast.Convention.convLet, name: "path", ty: b.stringTy))
-	params103.push(RtParam.make(ast.Convention.convLet, name: "content", ty: b.countTy))
+	params103.push(RtParam.make(ast.Convention.convLet, name: "content", ty: b.stringTy))
 	params103.push(RtParam.make(ast.Convention.convLet, name: "executable", ty: b.boolTy))
 	params103.push(RtParam.make(ast.Convention.convLet, name: "errorAddress", ty: b.countTy))
-	fns.push(RtFunction.make(Rt.rtOsWriteBinaryMode, name: "osWriteBinaryMode", params: params103, result: b.voidTy))
+	fns.push(RtFunction.make(Rt.rtOsWriteTextMode, name: "osWriteTextMode", params: params103, result: b.voidTy))
 	var params104 = RtParamList.create(0)
-	params104.push(RtParam.make(ast.Convention.convLet, name: "source", ty: b.stringTy))
-	params104.push(RtParam.make(ast.Convention.convLet, name: "destination", ty: b.stringTy))
+	params104.push(RtParam.make(ast.Convention.convLet, name: "path", ty: b.stringTy))
+	params104.push(RtParam.make(ast.Convention.convLet, name: "content", ty: b.countTy))
+	params104.push(RtParam.make(ast.Convention.convLet, name: "executable", ty: b.boolTy))
 	params104.push(RtParam.make(ast.Convention.convLet, name: "errorAddress", ty: b.countTy))
-	fns.push(RtFunction.make(Rt.rtOsRename, name: "osRename", params: params104, result: b.voidTy))
+	fns.push(RtFunction.make(Rt.rtOsWriteBinaryMode, name: "osWriteBinaryMode", params: params104, result: b.voidTy))
 	var params105 = RtParamList.create(0)
-	params105.push(RtParam.make(ast.Convention.convLet, name: "path", ty: b.stringTy))
+	params105.push(RtParam.make(ast.Convention.convLet, name: "source", ty: b.stringTy))
+	params105.push(RtParam.make(ast.Convention.convLet, name: "destination", ty: b.stringTy))
 	params105.push(RtParam.make(ast.Convention.convLet, name: "errorAddress", ty: b.countTy))
-	fns.push(RtFunction.make(Rt.rtOsDelete, name: "osDelete", params: params105, result: b.voidTy))
+	fns.push(RtFunction.make(Rt.rtOsRename, name: "osRename", params: params105, result: b.voidTy))
 	var params106 = RtParamList.create(0)
 	params106.push(RtParam.make(ast.Convention.convLet, name: "path", ty: b.stringTy))
-	params106.push(RtParam.make(ast.Convention.convLet, name: "size", ty: b.countTy))
-	params106.push(RtParam.make(ast.Convention.convLet, name: "created", ty: b.countTy))
-	params106.push(RtParam.make(ast.Convention.convLet, name: "accessed", ty: b.countTy))
-	params106.push(RtParam.make(ast.Convention.convLet, name: "attributes", ty: b.countTy))
 	params106.push(RtParam.make(ast.Convention.convLet, name: "errorAddress", ty: b.countTy))
-	fns.push(RtFunction.make(Rt.rtOsFileInfo, name: "osFileInfo", params: params106, result: b.countTy))
+	fns.push(RtFunction.make(Rt.rtOsDelete, name: "osDelete", params: params106, result: b.voidTy))
 	var params107 = RtParamList.create(0)
 	params107.push(RtParam.make(ast.Convention.convLet, name: "path", ty: b.stringTy))
-	fns.push(RtFunction.make(Rt.rtOsIsDirectory, name: "osIsDirectory", params: params107, result: b.boolTy))
+	params107.push(RtParam.make(ast.Convention.convLet, name: "size", ty: b.countTy))
+	params107.push(RtParam.make(ast.Convention.convLet, name: "created", ty: b.countTy))
+	params107.push(RtParam.make(ast.Convention.convLet, name: "accessed", ty: b.countTy))
+	params107.push(RtParam.make(ast.Convention.convLet, name: "attributes", ty: b.countTy))
+	params107.push(RtParam.make(ast.Convention.convLet, name: "errorAddress", ty: b.countTy))
+	fns.push(RtFunction.make(Rt.rtOsFileInfo, name: "osFileInfo", params: params107, result: b.countTy))
 	var params108 = RtParamList.create(0)
 	params108.push(RtParam.make(ast.Convention.convLet, name: "path", ty: b.stringTy))
-	fns.push(RtFunction.make(Rt.rtOsExists, name: "osExists", params: params108, result: b.boolTy))
+	fns.push(RtFunction.make(Rt.rtOsIsDirectory, name: "osIsDirectory", params: params108, result: b.boolTy))
 	var params109 = RtParamList.create(0)
 	params109.push(RtParam.make(ast.Convention.convLet, name: "path", ty: b.stringTy))
-	fns.push(RtFunction.make(Rt.rtOsCreateDirectory, name: "osCreateDirectory", params: params109, result: b.boolTy))
+	fns.push(RtFunction.make(Rt.rtOsExists, name: "osExists", params: params109, result: b.boolTy))
 	var params110 = RtParamList.create(0)
 	params110.push(RtParam.make(ast.Convention.convLet, name: "path", ty: b.stringTy))
-	params110.push(RtParam.make(ast.Convention.convLet, name: "errorAddress", ty: b.countTy))
-	fns.push(RtFunction.make(Rt.rtOsDeleteDirectory, name: "osDeleteDirectory", params: params110, result: b.voidTy))
+	fns.push(RtFunction.make(Rt.rtOsCreateDirectory, name: "osCreateDirectory", params: params110, result: b.boolTy))
 	var params111 = RtParamList.create(0)
 	params111.push(RtParam.make(ast.Convention.convLet, name: "path", ty: b.stringTy))
 	params111.push(RtParam.make(ast.Convention.convLet, name: "errorAddress", ty: b.countTy))
-	fns.push(RtFunction.make(Rt.rtOsList, name: "osList", params: params111, result: b.countTy))
+	fns.push(RtFunction.make(Rt.rtOsDeleteDirectory, name: "osDeleteDirectory", params: params111, result: b.voidTy))
 	var params112 = RtParamList.create(0)
-	params112.push(RtParam.make(ast.Convention.convLet, name: "executable", ty: b.stringTy))
-	params112.push(RtParam.make(ast.Convention.convLet, name: "arguments", ty: b.countTy))
-	params112.push(RtParam.make(ast.Convention.convLet, name: "deadlineMs", ty: b.countTy))
-	params112.push(RtParam.make(ast.Convention.convLet, name: "stdout", ty: b.countTy))
-	params112.push(RtParam.make(ast.Convention.convLet, name: "stderr", ty: b.countTy))
+	params112.push(RtParam.make(ast.Convention.convLet, name: "path", ty: b.stringTy))
 	params112.push(RtParam.make(ast.Convention.convLet, name: "errorAddress", ty: b.countTy))
-	fns.push(RtFunction.make(Rt.rtOsRun, name: "osRun", params: params112, result: b.countTy))
+	fns.push(RtFunction.make(Rt.rtOsList, name: "osList", params: params112, result: b.countTy))
+	var params113 = RtParamList.create(0)
+	params113.push(RtParam.make(ast.Convention.convLet, name: "executable", ty: b.stringTy))
+	params113.push(RtParam.make(ast.Convention.convLet, name: "arguments", ty: b.countTy))
+	params113.push(RtParam.make(ast.Convention.convLet, name: "deadlineMs", ty: b.countTy))
+	params113.push(RtParam.make(ast.Convention.convLet, name: "stdout", ty: b.countTy))
+	params113.push(RtParam.make(ast.Convention.convLet, name: "stderr", ty: b.countTy))
+	params113.push(RtParam.make(ast.Convention.convLet, name: "errorAddress", ty: b.countTy))
+	fns.push(RtFunction.make(Rt.rtOsRun, name: "osRun", params: params113, result: b.countTy))
 	return fns
 end 'rtFunctions'
 
@@ -2672,6 +2690,7 @@ export function rtGivesString(r Rt) returns bool
 		rtWrite or
 		rtPanic or
 		rtPanicAt or
+		rtPanicEmptySlot or
 		rtStreq or
 		rtStrLen or
 		rtStrByteAt or

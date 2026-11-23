@@ -76,11 +76,11 @@
 (storeRaw.64 a:(bin.add.!checked x (const [c])) v) && arm64Str64OffHolds(c as FullRangeInt) and sel.fuses(fn, r: a) => (Str64Off v x [c])
 (storeRaw.64 a:(bin.add.!checked x y) v) && sel.fuses(fn, r: a) => (Str64Idx1 v x y)
 // An element's address that only the access right after it reads is the buffer and the index of a register-offset
-// access, which scales the index by the word.
-(loadAt a:(elemAddr arr i)) && sel.fuses(fn, r: a) and sel.inXmm(ins.dst) => (Ldr64Off d arr [arrayDataOffset]) (LdrDIdx r d i)
-(loadAt a:(elemAddr arr i)) && sel.fuses(fn, r: a) => (Ldr64Off d arr [arrayDataOffset]) (Ldr64Idx r d i)
-(storeAt a:(elemAddr arr i) v) && sel.fuses(fn, r: a) and sel.inXmm(v) => (Ldr64Off d arr [arrayDataOffset]) (StrDIdx v d i)
-(storeAt a:(elemAddr arr i) v) && sel.fuses(fn, r: a) => (Ldr64Off d arr [arrayDataOffset]) (Str64Idx v d i)
+// access, which scales the index by the word: an element of a word.
+(loadAt a:(elemAddr arr i [s])) && s == wordElementShift and sel.fuses(fn, r: a) and sel.inXmm(ins.dst) => (Ldr64Off d arr [arrayDataOffset]) (LdrDIdx r d i)
+(loadAt a:(elemAddr arr i [s])) && s == wordElementShift and sel.fuses(fn, r: a) => (Ldr64Off d arr [arrayDataOffset]) (Ldr64Idx r d i)
+(storeAt a:(elemAddr arr i [s]) v) && s == wordElementShift and sel.fuses(fn, r: a) and sel.inXmm(v) => (Ldr64Off d arr [arrayDataOffset]) (StrDIdx v d i)
+(storeAt a:(elemAddr arr i [s]) v) && s == wordElementShift and sel.fuses(fn, r: a) => (Ldr64Off d arr [arrayDataOffset]) (Str64Idx v d i)
 (loadAt a) && sel.inXmm(ins.dst) => (LdrDOff r a [0])
 (loadAt a) => (Ldr64Off r a [0])
 (storeAt a v) && sel.inXmm(v) => (StrDOff v a [0])
@@ -114,21 +114,23 @@
 
 // The collection operations: a length is a load of the box, a bounds check a compare and a branch to its failure block,
 // which calls the entry the access is the common case of (emitArm64Bounds), and an element an access at the index into
-// the buffer, whose word is at the index shifted by 3 and whose byte at the index.
+// the buffer, whose element is at the index shifted by the element's size and whose byte at the index.
 (length.array s) => (Ldr64Off r s [arrayLengthOffset])
 (length.string) => (emitStringLength)
 (bounds) => (emitArm64Bounds)
-(elemAddr a i) => (Ldr64Off d a [arrayDataOffset]) (AddRegRegLsl r d i [arm64WordShift])
-(elemLoad a i) && sel.inXmm(ins.dst) => (Ldr64Off d a [arrayDataOffset]) (LdrDIdx r d i)
-(elemLoad a i) => (Ldr64Off d a [arrayDataOffset]) (Ldr64Idx r d i)
+(elemAddr a i [s]) => (Ldr64Off d a [arrayDataOffset]) (AddRegRegLsl r d i [s])
+(elemLoad) && isStringReg(fn, r: ins.dst) => (emitStringElemLoad)
+(elemLoad a i [_]) && sel.inXmm(ins.dst) => (Ldr64Off d a [arrayDataOffset]) (LdrDIdx r d i)
+(elemLoad a i [_]) => (Ldr64Off d a [arrayDataOffset]) (Ldr64Idx r d i)
 (loadByte.array a i) => (Ldr64Off d a [arrayDataOffset]) (LdrbIdx r d i)
 (loadByte.string s i) => (LdrbIdx r s i)
 (buffer s) => (Ldr64Off r s [arrayDataOffset])
 (strPtr) => (emitStrPtr)
 (strWord) => (emitStrWord)
 (strMake) => (emitStrMake)
-(wordAt d i) && sel.inXmm(ins.dst) => (LdrDIdx r d i)
-(wordAt d i) => (Ldr64Idx r d i)
+(elemAt) && isStringReg(fn, r: ins.dst) => (emitStringElemAt)
+(elemAt d i [_]) && sel.inXmm(ins.dst) => (LdrDIdx r d i)
+(elemAt d i [_]) => (Ldr64Idx r d i)
 (byteAt d i) => (LdrbIdx r d i)
 
 // Integer arithmetic. A checked operation goes to its failure block when the result does not fit: the carry of an adds,

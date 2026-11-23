@@ -17,6 +17,11 @@ let panicEnd = "\n"
 // indexOutOfRange is the panic of an array index past the end.
 let indexOutOfRange = "index out of range"
 
+// emptySlotPrefix and emptySlotSuffix are maxon's message of a lent read of an empty slot, around the slot's index.
+let emptySlotPrefix = "empty slot: element "
+
+let emptySlotSuffix = " of the array was never filled"
+
 // leakExitCode is what an executable built to count its allocations exits with when main returned and a box is still
 // live. It differs from every code a program or a trap gives.
 let leakExitCode = 99 as Count
@@ -66,6 +71,20 @@ function panicAt(location String, message String)
 	writeHandle(handle, text: panicEnd)
 	exitProcess(panicExitCode)
 end 'panicAt'
+
+// panicEmptySlot is the panic of a lent read of an empty slot of an array: the code of each such read calls it, rather
+// than format the message itself, since the read is common and its panic cold.
+function panicEmptySlot(location String, index Count)
+	let handle = standardError()
+	writeHandle(handle, text: panicAtPrefix)
+	writeHandle(handle, text: location)
+	writeHandle(handle, text: panicAtSeparator)
+	writeHandle(handle, text: emptySlotPrefix)
+	writeHandle(handle, text: itoa(index, unsigned: true))
+	writeHandle(handle, text: emptySlotSuffix)
+	writeHandle(handle, text: panicEnd)
+	exitProcess(panicExitCode)
+end 'panicEmptySlot'
 
 // The runtime's aborts, maxon's (its RuntimeAbort): each writes `fatal error: runtime abort N (name)` to standard error and
 // exits with N.

@@ -53,6 +53,10 @@ var layouts = []layoutConst{
 		"the bit of a String's word that says every byte is below 0x80, so each grapheme is one byte; clear means nothing is known."},
 	{"stringLengthShift", 2, true, toSelfIR | toSelfBack,
 		"how far a String's length is shifted up in its word, past its flags: the length is the word shifted right by it."},
+	{"wordElementShift", 3, true, toSelfIR | toSelfBack,
+		"how far the index of an element of a word is shifted to its offset in a buffer: wordBytes is 1 shifted by it."},
+	{"stringElementShift", 4, true, toSelfIR | toSelfBack,
+		"how far the index of a String element is shifted to its offset in a buffer: stringValueBytes is 1 shifted by it."},
 
 	// A byte array's box is an array's box, so its routines read the same offsets; only its buffer differs.
 	{"arrayLengthOffset", 0, false, toRuntime | toSelfBack,

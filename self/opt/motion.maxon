@@ -82,7 +82,7 @@ export function motionOf(x ir.Instr) returns Motion
 		opElemLoad or
 		opLoadByte or
 		opBuffer or
-		opWordAt or
+		opElemAt or
 		opByteAt gives Motion.read
 		opLoadGlobal or
 		opLoadRaw or

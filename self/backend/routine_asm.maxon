@@ -128,23 +128,30 @@ end 'arm64RoutinePrologue'
 
 // rEpilogue gives the frame back and returns.
 function rEpilogue(mutates u CodeUnit, a ast.TargetArch)
+	rLeaveFrame(u, a: a)
 	match a 'arch'
-		x64 then x64RoutineEpilogue(u)
-		arm64 then arm64RoutineEpilogue(u)
+		x64 then u.asm.ret()
+		arm64 then u.asm.arm64Ret()
 	end 'arch'
 end 'rEpilogue'
 
-function x64RoutineEpilogue(mutates u CodeUnit)
+// rLeaveFrame gives the frame of rPrologue back, leaving the stack as the routine was entered with it.
+function rLeaveFrame(mutates u CodeUnit, a ast.TargetArch)
+	match a 'arch'
+		x64 then x64LeaveFrame(u)
+		arm64 then arm64LeaveFrame(u)
+	end 'arch'
+end 'rLeaveFrame'
+
+function x64LeaveFrame(mutates u CodeUnit)
 	u.asm.mov(rsp, src: rbp)
 	u.asm.pop(rbp)
-	u.asm.ret()
-end 'x64RoutineEpilogue'
+end 'x64LeaveFrame'
 
-function arm64RoutineEpilogue(mutates u CodeUnit)
+function arm64LeaveFrame(mutates u CodeUnit)
 	u.asm.arm64Mov(Arm64Register.sp, src: arm64FramePointer)
 	u.asm.arm64Leave()
-	u.asm.arm64Ret()
-end 'arm64RoutineEpilogue'
+end 'arm64LeaveFrame'
 
 // rEnterStub and rLeaveStub bracket a routine with no frame of its own that calls: on arm64 the call writes the link
 // register, which the bracket keeps; x64's call keeps its return address on the stack.

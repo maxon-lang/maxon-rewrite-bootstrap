@@ -15,6 +15,10 @@ function runtimeEntry(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 		try entryPanicAt(vm, f: f, x: x)
 		return
 	end 'rtPanicAt'
+	if symbol == ir.Rt.rtPanicEmptySlot 'rtPanicEmptySlot'
+		try entryPanicEmptySlot(vm, f: f, x: x)
+		return
+	end 'rtPanicEmptySlot'
 	if symbol == ir.Rt.rtConcat 'rtConcat'
 		try entryConcat(vm, f: f, x: x)
 		return

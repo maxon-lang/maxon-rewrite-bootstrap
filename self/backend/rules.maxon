@@ -123,9 +123,6 @@ end 'guardFailure'
 // arm64Imm12Max is the largest immediate that the 12 bits of an add, a sub and a cmp hold.
 let arm64Imm12Max = 4095
 
-// arm64WordShift is the shift of an index that the offset of its word in a buffer is.
-let arm64WordShift = 3 as ir.Word
-
 // arm64SignShift is the shift that leaves a word's sign alone, and the top bit of a bitfield move of the whole word.
 let arm64SignShift = 63
 

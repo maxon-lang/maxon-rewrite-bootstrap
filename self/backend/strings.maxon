@@ -147,6 +147,19 @@ function emitStringLength(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
 	sel.shiftRightInto(result, src: word, count: stringLengthShift)
 end 'emitStringLength'
 
+// emitStringElemLoad reads a String element of an array whose bounds check has passed.
+function emitStringElemLoad(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
+	let data = sel.load(vregOf(ir.elemLoadArr(ins)), disp: imm32Of(arrayDataOffset))
+	let at = sel.elementAddress(data, index: vregOf(ir.elemLoadIndex(ins)), shift: ir.elemLoadShift(ins))
+	sel.loadString(ins.dst, base: at, disp: 0)
+end 'emitStringElemLoad'
+
+// emitStringElemAt reads a String element of a buffer that a Buffer read gave, whose bounds check has passed.
+function emitStringElemAt(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
+	let at = sel.elementAddress(vregOf(ir.elemAtData(ins)), index: vregOf(ir.elemAtIndex(ins)), shift: ir.elemAtShift(ins))
+	sel.loadString(ins.dst, base: at, disp: 0)
+end 'emitStringElemAt'
+
 function emitStrPtr(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
 	let result = sel.resultOf(ins.dst)
 	sel.copy(result, src: vregOf(ir.strPtrSrc(ins)))

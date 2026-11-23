@@ -633,13 +633,14 @@ export type Selector
 		end 'arch'
 	end 'address'
 
-	// wordAddress is the address of the word at an index of the buffer at base.
-	function wordAddress(mutates self, base MReg, index MReg) returns MReg
+	// elementAddress is the address of the element at an index of the buffer at base, whose elements are 1 shl shift bytes
+	// each.
+	function elementAddress(mutates self, base MReg, index MReg, shift Count) returns MReg
 		return match arch 'arch'
-			x64 gives self.x64WordAddress(base, index: index)
-			arm64 gives self.arm64WordAddress(base, index: index)
+			x64 gives self.x64ElementAddress(base, index: index, shift: shift)
+			arm64 gives self.arm64ElementAddress(base, index: index, shift: shift)
 		end 'arch'
-	end 'wordAddress'
+	end 'elementAddress'
 
 	// loadIndexedByte is a register that the byte at base plus index plus disp, zero-extended, defines.
 	function loadIndexedByte(mutates self, base MReg, index MReg, disp Imm32) returns MReg
@@ -928,24 +929,36 @@ function emitCallRuntime(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
 		sel.callSymbol(ir.rtSymbol(ir.Rt.rtFree))
 		return
 	end 'boxedString'
-	let reads = symbol == ir.Rt.rtArrayElem or symbol == ir.Rt.rtBytesGet or symbol == ir.Rt.rtStrByteAt
+	let reads = symbol == ir.Rt.rtArrayElem or symbol == ir.Rt.rtStrsElem or symbol == ir.Rt.rtBytesGet or symbol == ir.Rt.rtStrByteAt
+	let opens = symbol == ir.Rt.rtStrsOpen
 	if not ir.writtenInPlace(symbol) or (reads and ins.dst == ir.noReg) 'call'
 		sel.callWords(fn, symbol: ir.rtSymbol(symbol), start: start, count: ir.callRuntimeArgsCount(ins), dst: ins.dst)
 		return
 	end 'call'
-	if not reads and ins.dst != ir.noReg 'result'
+	if not reads and not opens and ins.dst != ir.noReg 'result'
 		panic("backend: {ir.rtSymbol(symbol)} is written in place and gives no result, and this call keeps one")
 	end 'result'
-	let keeps = reads
+	let keeps = (reads or opens) and ins.dst != ir.noReg
 	let slow = sel.mir.addBlock()
 	let done = sel.mir.addBlock()
 	let box = argAt(fn, start: start, index: 0)
 	let index = argAt(fn, start: start, index: 1)
 	if symbol == ir.Rt.rtArrayElem 'arrayElem'
 		let data = sel.elementBuffer(box, index: index, slow: slow)
-		let at = sel.wordAddress(data, index: index)
+		let at = sel.elementAddress(data, index: index, shift: wordElementShift)
 		sel.reach(done, value: at, keeps: keeps)
-	end 'arrayElem' else if symbol == ir.Rt.rtBytesGet 'bytesGet'
+	end 'arrayElem' else if symbol == ir.Rt.rtStrsElem 'stringsElem'
+		let data = sel.elementBuffer(box, index: index, slow: slow)
+		let at = sel.elementAddress(data, index: index, shift: stringElementShift)
+		sel.reach(done, value: at, keeps: keeps)
+	end 'stringsElem' else if symbol == ir.Rt.rtStrsOpen 'stringsOpen'
+		// The room is past the length, so it holds no String yet: it is left empty, as the entry leaves it.
+		let atEnd = sel.knownLength(fn, box: fn.args[start], index: fn.args[nextCount(start)])
+		let data = sel.pushInPlace(box, index: index, atEnd: atEnd, slow: slow)
+		let at = sel.elementAddress(data, index: index, shift: stringElementShift)
+		sel.emptyString(at, disp: 0)
+		sel.reach(done, value: at, keeps: keeps)
+	end 'stringsOpen' else if symbol == ir.Rt.rtBytesGet 'bytesGet'
 		let data = sel.elementBuffer(box, index: index, slow: slow)
 		let byte = sel.loadIndexedByte(data, index: index, disp: 0)
 		sel.reach(done, value: byte, keeps: keeps)
@@ -990,6 +1003,14 @@ function emitCallRuntime(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
 		sel.mir.writeBlock(done)
 	end 'none'
 end 'emitCallRuntime'
+
+// emitElemAddr is the address of an element of an array, after the bounds check, whose size the instruction says.
+function emitElemAddr(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
+	let data = sel.load(vregOf(ir.elemAddrArr(ins)), disp: imm32Of(arrayDataOffset))
+	let at = sel.elementAddress(data, index: vregOf(ir.elemAddrIndex(ins)), shift: ir.elemAddrShift(ins))
+	let result = sel.resultOf(ins.dst)
+	sel.copy(result, src: at)
+end 'emitElemAddr'
 
 // cownNew passes the entry the value and the address of the code of the destructor that ends it, or 0 when it is dropped.
 function emitCownNew(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)

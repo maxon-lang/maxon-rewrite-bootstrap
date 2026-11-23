@@ -103,6 +103,14 @@ function entryPanicAt(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	throw trapAt(vm, location: location, message: message)
 end 'entryPanicAt'
 
+// entryPanicEmptySlot traps with maxon's message of a lent read of an empty slot, as panicUnlessFilled's call says.
+function entryPanicEmptySlot(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let place = try textIndex(vm, o: argRef(vm, f: f, x: x, i: 0), what: "a panic location")
+	let index = ir.bitsOfWord(argNum(vm, f: f, x: x, i: 1))
+	let location = vm.h.texts[place].clone()
+	throw trapAt(vm, location: location, message: ir.emptySlotMessage(index))
+end 'entryPanicEmptySlot'
+
 function entryConcat(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	let a = try textIndex(vm, o: argRef(vm, f: f, x: x, i: 0), what: "a concatenation")
 	let b = try textIndex(vm, o: argRef(vm, f: f, x: x, i: 1), what: "a concatenation")

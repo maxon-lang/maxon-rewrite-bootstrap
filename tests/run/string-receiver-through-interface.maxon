@@ -1,0 +1,35 @@
+// A String method called through an interface value takes its receiver as two words, which the call moves into place:
+// with more argument words than the registers hold, some of them move on the stack.
+typealias Real = float(f64.min to f64.max)
+
+interface Joiner
+	function join(a String, b String, c String, d String, count Count, last String) returns String
+	function weigh(x Real, y Real, word Count) returns Count
+end 'Joiner'
+
+extension String implements Joiner
+	function join(a String, b String, c String, d String, count Count, last String) returns String
+		return "{self}|{a}|{b}|{c}|{d}|{count}|{last}"
+	end 'join'
+
+	function weigh(x Real, y Real, word Count) returns Count
+		if x < y 'less'
+			return try self.byteLength() + word otherwise 0
+		end 'less'
+		return word
+	end 'weigh'
+end 'String'
+
+function joined(j Joiner) returns String
+	return j.join("a", b: "bb", c: "ccc", d: "dddd", count: 7, last: "end")
+end 'joined'
+
+function main() returns ExitCode
+	let held = "self" as Joiner
+	print("{joined(held)}\n")
+	print("{held.weigh(1.5, y: 2.5, word: 10)}\n")
+	return 0
+end 'main'
+
+//> self|a|bb|ccc|dddd|7|end
+//> 14

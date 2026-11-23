@@ -1226,7 +1226,7 @@ what a later pass such as reference counting or an optimization changes.
     division only from the header's prefix, the operations before the first that stays, so it fails in the preheader
     exactly when, and after the same effects as, it would have at the start of the first iteration, and only when its
     failure path reads nothing the loop defines. An element read that stays in such a loop is split into the read of the
-    array's buffer (`buffer`, which leaves) and the access at the index (`wordat`, `byteat`), which only a native build
+    array's buffer (`buffer`, which leaves) and the access at the index (`elemat`, `byteat`), which only a native build
     makes. A byte read of a string needs no such split: a String's first word is the address of its bytes, which the
     access indexes as it is. Loops are taken innermost first, so a value leaves a whole nest; a
     constant is copied, not moved.
@@ -1403,9 +1403,10 @@ runtime each implement the entries. The element is always visible in the call:
   the entries that read a length or an element of an array, a byte array or a string as operations of the IR, so that the
   optimizer, instruction selection and the register allocator see loads and no call: `length.array %a` and `length.string
   %s` read the count (`rt.array.len`, `rt.bytes.len`, `rt.str.len`), `bounds %i, %n else b7` goes to `b7` unless `%i` is
-  below `%n` (unsigned, so a negative index is past every length), `elemaddr %a, %i` is the address of the element of an
-  array of words (`rt.array.elem`), `elem %a, %i` reads it where only the `loadat` right after the call reads the address (a
-  scalar, or a managed element lent as `loadat` lends it), and `byte.array %a, %i` and `byte.string %s, %i` read a byte
+  below `%n` (unsigned, so a negative index is past every length), `elemaddr %a, %i shl 3` is the address of the element of an
+  array of words (`rt.array.elem`) and `elemaddr %a, %i shl 4` of an array of Strings (`rt.strs.elem`), `elem %a, %i shl s`
+  reads it where only the `loadat` right after the call reads the address (a scalar, or a managed element or a String lent
+  as `loadat` lends it), and `byte.array %a, %i` and `byte.string %s, %i` read a byte
   (`rt.bytes.get`, `rt.str.byteAt`). A read of an element is a `length`, a `bounds` and the read; the failure block of the
   `bounds`, one per read after the function's blocks, makes the call that was there and a `trap`: called there, the entry
   traps with its own message and exit code, natively and under the interpreter, so a miss fails exactly as before.
@@ -1420,7 +1421,7 @@ runtime each implement the entries. The element is always visible in the call:
   lowered), each operation on its model of the collection: a `bounds` by the IR's own meaning (`ir.evalBounds`), as the fold
   decides one whose operands are constants, and an element by the cell its entry's address would name, so its checks of a
   stale or freed box and of a borrow a call is still waiting to use (`elemaddr` and `elem` open a window as `loadat` does)
-  are those of the call; none of the passes after inlining run on the interpreter's IR, so the `buffer`, `wordat`
+  are those of the call; none of the passes after inlining run on the interpreter's IR, so the `buffer`, `elemat`
   and `byteat` that code motion splits an element read into reach only the backend. A native build expands each function after the fold, before leaf inlining; with no call left in
   a loop, a loop that the call let compile may need more registers than x64 has, so the function's IR before the expansion
   is its fallback (see "E5001 and the optimizations"), whose calls the backend writes in place as it always did.

@@ -3,14 +3,14 @@
 // frozen value holds, is a load, and reading, writing or pushing one element calls the entry only for an index out of range
 // or a buffer that has to grow.
 export function writtenInPlace(symbol Rt) returns bool
-	return symbol == Rt.rtArrayLen or symbol == Rt.rtBytesLen or symbol == Rt.rtStrLen or symbol == Rt.rtFrozenGet or symbol == Rt.rtArrayElem or symbol == Rt.rtBytesGet or symbol == Rt.rtStrByteAt or symbol == Rt.rtBytesSet or symbol == Rt.rtArrayInsert or symbol == Rt.rtBytesInsert
+	return symbol == Rt.rtArrayLen or symbol == Rt.rtBytesLen or symbol == Rt.rtStrLen or symbol == Rt.rtFrozenGet or symbol == Rt.rtArrayElem or symbol == Rt.rtStrsElem or symbol == Rt.rtBytesGet or symbol == Rt.rtStrByteAt or symbol == Rt.rtBytesSet or symbol == Rt.rtArrayInsert or symbol == Rt.rtStrsOpen or symbol == Rt.rtBytesInsert
 end 'writtenInPlace'
 
 // onlyReads is whether a call of the runtime entry symbol changes nothing its caller can read: it reads its arguments and
 // what they reach, and gives a scalar or a new box. So it ends no read of the caller (opt.motionOf), and a value it is
 // lent may be a borrow of one that nothing else changes.
 export function onlyReads(symbol Rt) returns bool
-	return symbol == Rt.rtConcat or symbol == Rt.rtItoa or symbol == Rt.rtFtoa or symbol == Rt.rtFtoaExact or symbol == Rt.rtFmtInt or symbol == Rt.rtFmtPad or symbol == Rt.rtFmtQuoted or symbol == Rt.rtFmtFixed or symbol == Rt.rtStreq or symbol == Rt.rtStrLen or symbol == Rt.rtStrByteAt or symbol == Rt.rtStrSlice or symbol == Rt.rtStrCount or symbol == Rt.rtStrGraphemeIndex or symbol == Rt.rtStrGraphemeBytePos or symbol == Rt.rtStrFind or symbol == Rt.rtStrFindLast or symbol == Rt.rtStrHasAffix or symbol == Rt.rtStrReplace or symbol == Rt.rtStrTrim or symbol == Rt.rtStrMapCase or symbol == Rt.rtStrCodePointAt or symbol == Rt.rtStrCodePointNext or symbol == Rt.rtStrCodePointCount or symbol == Rt.rtStrUtf16Unit or symbol == Rt.rtStrUtf16Next or symbol == Rt.rtStrUtf16Count or symbol == Rt.rtHashWord or symbol == Rt.rtHashBytes or symbol == Rt.rtHashStringBytes or symbol == Rt.rtArrayNew or symbol == Rt.rtArrayLen or symbol == Rt.rtArrayElem or symbol == Rt.rtBytesNew or symbol == Rt.rtBytesLen or symbol == Rt.rtBytesGet or symbol == Rt.rtBytesToString
+	return symbol == Rt.rtConcat or symbol == Rt.rtItoa or symbol == Rt.rtFtoa or symbol == Rt.rtFtoaExact or symbol == Rt.rtFmtInt or symbol == Rt.rtFmtPad or symbol == Rt.rtFmtQuoted or symbol == Rt.rtFmtFixed or symbol == Rt.rtStreq or symbol == Rt.rtStrLen or symbol == Rt.rtStrByteAt or symbol == Rt.rtStrSlice or symbol == Rt.rtStrCount or symbol == Rt.rtStrGraphemeIndex or symbol == Rt.rtStrGraphemeBytePos or symbol == Rt.rtStrFind or symbol == Rt.rtStrFindLast or symbol == Rt.rtStrHasAffix or symbol == Rt.rtStrReplace or symbol == Rt.rtStrTrim or symbol == Rt.rtStrMapCase or symbol == Rt.rtStrCodePointAt or symbol == Rt.rtStrCodePointNext or symbol == Rt.rtStrCodePointCount or symbol == Rt.rtStrUtf16Unit or symbol == Rt.rtStrUtf16Next or symbol == Rt.rtStrUtf16Count or symbol == Rt.rtHashWord or symbol == Rt.rtHashBytes or symbol == Rt.rtHashStringBytes or symbol == Rt.rtArrayNew or symbol == Rt.rtArrayLen or symbol == Rt.rtArrayElem or symbol == Rt.rtStrsElem or symbol == Rt.rtBytesNew or symbol == Rt.rtBytesLen or symbol == Rt.rtBytesGet or symbol == Rt.rtBytesToString
 end 'onlyReads'
 
 // arrayOf is the runtime of the array type t, read through the binding and through a frozen value.
@@ -126,10 +126,11 @@ export enum SlotRead
 	slotCopied
 end 'SlotRead'
 
-// emptySlotPrefix and emptySlotSuffix are maxon's message of a lent read of an empty slot, around the slot's index.
-let emptySlotPrefix = "empty slot: element "
-
-let emptySlotSuffix = " of the array was never filled"
+// emptySlotMessage is maxon's message of a lent read of an empty slot at an index, which the runtime's panicEmptySlot
+// writes too.
+export function emptySlotMessage(index Count) returns String
+	return "empty slot: element {index} of the array was never filled"
+end 'emptySlotMessage'
 
 // requireFilled goes on only when the element read from a slot is there: a managed element of an empty slot is 0, and a
 // scalar has no empty slot, since 0 is a value of it.
@@ -156,14 +157,8 @@ function panicUnlessFilled(mutates l Lowerer, p ast.Project, site diag.Site, fil
 	let bad = l.b.newBlock()
 	l.b.terminate(l.cur, t: newBranch(filled, ifTrue: ok, ifFalse: bad))
 	l.cur = bad
-	let prefix = strReg(l, value: emptySlotPrefix)
-	let unsigned = konst(l, value: 1 as Word)
-	let digits = runtime(l, symbol: Rt.rtItoa, kind: IrKind.kindManaged, args: argsOf2(index, b: unsigned))
-	let lead = runtime(l, symbol: Rt.rtConcat, kind: IrKind.kindManaged, args: argsOf2(prefix, b: digits))
-	let suffix = strReg(l, value: emptySlotSuffix)
-	let message = runtime(l, symbol: Rt.rtConcat, kind: IrKind.kindManaged, args: argsOf2(lead, b: suffix))
 	let location = strReg(l, value: ast.panicLocation(p.modules[ast.modIndex(site.module)], offset: site.offset))
-	emitCallRuntime(l, dst: noReg, symbol: Rt.rtPanicAt, args: argsOf2(location, b: message), routine: ast.noFunc)
+	emitCallRuntime(l, dst: noReg, symbol: Rt.rtPanicEmptySlot, args: argsOf2(location, b: index), routine: ast.noFunc)
 	seal(l, t: newTrap())
 	l.cur = ok
 end 'panicUnlessFilled'

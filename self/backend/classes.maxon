@@ -152,7 +152,7 @@ export type ClassChoice
 			opLoadAt then self.wantsGpr(ir.loadAtAddr(x))
 			opStoreAt then self.wantsGpr(ir.storeAtAddr(x))
 			opElemLoad then self.wantsGprBoth(ir.elemLoadArr(x), b: ir.elemLoadIndex(x))
-			opWordAt then self.wantsGprBoth(ir.wordAtData(x), b: ir.wordAtIndex(x))
+			opElemAt then self.wantsGprBoth(ir.elemAtData(x), b: ir.elemAtIndex(x))
 			opLoadParam then self.wantsClass(x.dst, float: ir.isFloatAt(f.floatParams, place: ir.loadParamParam(x)))
 			opCall then self.weighCall(f, x: x, start: ir.callArgsStart(x), count: ir.callArgsCount(x))
 			opCallValue then self.weighCall(f, x: x, start: ir.callValueArgsStart(x), count: ir.callValueArgsCount(x))

@@ -15,7 +15,7 @@
 //   same array has moved to the preheader before it: that read proved the box there, and nothing frees a box that the
 //   loop still names, so reading another word of its header cannot fault. An element read that stays in such a loop,
 //   of an array that does not change in it, is split for this into the read of the array's buffer (Buffer), which
-//   leaves, and the read at the index (WordAt, ByteAt), which stays; where the buffer cannot leave, nothing is split.
+//   leaves, and the read at the index (ElemAt, ByteAt), which stays; where the buffer cannot leave, nothing is split.
 //   A byte read of a string needs no split: the address of its bytes is the string's first word, a register.
 // - A check or a division, only from the prefix of the header: the header's instructions up to the first one that
 //   stays. The header runs whenever the preheader has run, so such an instruction ran first in the iteration after
@@ -396,7 +396,7 @@ export type Licm
 				let dst = f.instrs[k].dst
 				let index = f.instrs[k].b
 				if f.instrs[k].op == ir.Opcode.opElemLoad 'word'
-					editor.replace(k, x: ir.newWordAt(dst, data: data, index: index))
+					editor.replace(k, x: ir.newElemAt(dst, data: data, index: index, shift: ir.elemLoadShift(f.instrs[k])))
 				end 'word' else 'byte'
 					editor.replace(k, x: ir.newByteAt(dst, data: data, index: index))
 				end 'byte'
