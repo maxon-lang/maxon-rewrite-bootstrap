@@ -319,6 +319,7 @@ function moduleGives(ctx frozen with Context, mutates work ModuleWork, dependent
 		verify then return Payload.none
 		endCheck then return Payload.none
 		lower then return Payload.none
+		inline then return Payload.none
 		program then return Payload.home(exchange(work.home, value: ast.ModuleHome.empty(module)))
 		emit then return Payload.none
 		link then return Payload.emitted(Emitted.make(exchange(work.home, value: ast.ModuleHome.empty(module)), unit: exchange(work.unit, value: backend.CodeUnit.new())))
@@ -421,6 +422,7 @@ function projectTask(ctx frozen with Context, mutates station ProjectStation, st
 		verify then panic("driver: the verify is a stage of a module")
 		endCheck then return
 		lower then panic("driver: the lower is a stage of a module")
+		inline then panic("driver: the inline is a stage of a module")
 		program then holdProgram(ctx.compile, p: station.p, known: known, errs: errs)
 		emit then panic("driver: the emit is a stage of a module")
 		link then _ = linkUnits(ctx.compile, p: station.p, units: exchange(station.units, value: backend.UnitList.create(0)), ready: station.ready, entry: entryOf(known), tests: testsOf(known))

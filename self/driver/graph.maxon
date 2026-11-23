@@ -1,6 +1,6 @@
-// The task graph of a compile: each stage of each module is a task that waits for the module's stage before it and for the
-// same stage of the modules it names, and a stage of the project as a whole is a task that waits for every module's stage
-// before it. Two executors run it: execute, here, one task at a time in the order they were added, which is the order of the
+// The task graph of a compile: each stage of each module is a task that waits for the module's stage before it and, where
+// it reads what that stage made of them, for the same stage of the modules it names, and a stage of the project as a whole
+// is a task that waits for every module's stage before it. Two executors run it: execute, here, one task at a time in the order they were added, which is the order of the
 // stages and, within a stage, the order of the modules the stage visits, so every task's inputs have run when it starts; and
 // the behaviours of executor.maxon, each task once its inputs have ended, on every core. Both run the work of tasks.maxon on
 // what the task's inputs gave it, so they make the same executable and the same diagnostics.
@@ -22,9 +22,13 @@ enum Stage
 	constants
 	bodies
 	verify
-	// endCheck (project) gives each module's typing back to the project, which lower reads.
+	// endCheck (project) ends the check of the project: every module's verify and the entry ended without an error, which the
+	// program waits on. A module's lower waits only on its own verify, which waited on the verify of each module it reaches.
 	endCheck
+	// lower lowers the module's functions and runs the passes that read only them; inline replaces their calls of leaves, of
+	// its own and of the modules it names, whose inline it waits on, and runs the passes after it.
 	lower
+	inline
 	// program (project) holds the runtime to the functions the compiler calls, writes --emit-ir and reports what the backend
 	// cannot run yet.
 	program
@@ -109,13 +113,14 @@ type TaskGraph
 		groupOfModules = false
 	end 'addProjectTask'
 
-	// addSideTask adds a stage of the project that waits for every task of the stage added before it, as addProjectTask does,
-	// but that no later stage of modules waits for, and gives the task.
-	function addSideTask(mutates self, stage Stage) returns Count
+	// addSideTask adds a stage of the project that waits for every task of the stage added before it, and for the tasks also,
+	// as addProjectTask does, but that no later stage of modules waits for, and gives the task.
+	function addSideTask(mutates self, stage Stage, also TaskIDs) returns Count
 		let id = tasks.count()
 		let firstInput = inputs.count()
 		inputs.append(group)
-		tasks.push(Task.make(stage, module: 0, firstInput: firstInput, inputCount: group.count()))
+		inputs.append(also)
+		tasks.push(Task.make(stage, module: 0, firstInput: firstInput, inputCount: try inputs.count() - firstInput otherwise panic("driver: a task's inputs end before they start")))
 		return id
 	end 'addSideTask'
 
@@ -196,7 +201,8 @@ function readsNamedModules(stage Stage) returns bool
 		bodies gives true
 		verify gives true
 		endCheck gives false
-		lower gives true
+		lower gives false
+		inline gives true
 		program gives false
 		emit gives false
 		link gives false
@@ -258,6 +264,7 @@ function isModuleStage(stage Stage) returns bool
 		verify gives true
 		endCheck gives false
 		lower gives true
+		inline gives true
 		program gives false
 		emit gives true
 		link gives false
@@ -281,6 +288,7 @@ function phaseOfStage(stage Stage) returns ast.Phase
 		verify then return ast.Phase.verify
 		endCheck then panic("driver: endCheck is a stage of the project")
 		lower then return ast.Phase.lower
+		inline then return ast.Phase.inline
 		program then panic("driver: program is a stage of the project")
 		emit then return ast.Phase.emit
 		link then panic("driver: link is a stage of the project")
@@ -524,6 +532,7 @@ function runTask(mutates run Run, mutates p ast.Project, task Count, mutates out
 		verify then panic("driver: the verify is a stage of a module")
 		endCheck then run.generates = true
 		lower then panic("driver: the lower is a stage of a module")
+		inline then panic("driver: the inline is a stage of a module")
 		program then programTask(run, p: p, known: outcome.known, errs: errs)
 		emit then panic("driver: the emit is a stage of a module")
 		link then linkTask(run, p: p, known: outcome.known, ready: ready)

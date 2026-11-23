@@ -513,6 +513,7 @@ export enum Phase
 	bodies
 	verify
 	lower
+	inline
 	emit
 	// project is the first segment of the tasks of the project as a whole.
 	project

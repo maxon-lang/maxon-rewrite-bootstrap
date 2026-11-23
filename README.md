@@ -97,7 +97,7 @@ each stage of the task graph: the wall time its tasks took, in milliseconds, and
 tasks took longest; a `build` prints it for the runtime's compile, which every build does first, and for the program's. A
 `build` or `check` runs its tasks on every core, so the stages' times add up to the work the compile did, which is more than
 its wall time. The clock is read twice per task and only when the flag is on.
-Beneath the stages, a compile that optimized code splits the lower stage by phase (`opt.OptPhase`): the lowering itself, then
+Beneath the stages, a compile that optimized code splits the lower and inline stages by phase (`opt.OptPhase`): the lowering itself, then
 each pass of the optimizer (SSA construction, jump threading, the folds, the expansion, inlining, the analyses the passes after
 inlining share, rotation, LICM, CSE and copy elision) and the cache's summary, each by its share of the stage. A compile that
 emitted code splits the emit stage by phase (`backend.EmitPhase`): selection, the blocks'
@@ -738,8 +738,8 @@ runs the stages that can report an error.
 | constants | `check` | `moduleConstantOrder`, then `moduleConstants`, two stages: types the top-level `let`s and the raw values that enums and unions write that are no literal (see "Raw values"), each after the constants and raw values of its module that it names (a cycle is `E2012`) |
 | bodies | `check` | `moduleBodies` types every type declaration and function body, a generic one once against its bounds, and the body of a behaviour as a function of its own that captures the variables it uses. A call into another module is recorded, not bound (`PendingCall`); a call that needs an instance of a generic is recorded on its function (`callers`) |
 | verify | `check` | `moduleVerify`: binds the recorded cross-module calls (`verifyCalls`) and checks every type argument against its parameter's bounds (`E3017`); then, for a module that found no error in this stage, the range analysis, which decides how each operator and cast can fail and requires a `try` around what can (`E3057`, `E3059`; see "Checked arithmetic"), and the ownership pass: moves, conventions, borrows, exclusivity, initialisation, frozen values and what a behaviour takes (`E3102`, `E3900` to `E3904`, `E3197`, `E2013`) |
-| lower | `ir` | after the check of every module has ended (`endCheck`, which waits on every verify, each of which made its module's typing its product), `lowerModule` for each module in order: it first finds the instances of generic functions that the module needs (`findInstances`: it starts from the calls recorded by its functions that are not generic, and follows each instance's recorded calls, whichever module declares the generic, with the type arguments bound, until no new instance turns up; `E3906` if the type arguments grow without end), then lowers the module's functions that are not generic, in source order, and the instances, in the order found. A `check` only finds the instances. A place that needs something the backend cannot run yet is noted as a refusal, and the driver reports the first of each function (`E9900`) before the backend, in a task of the project that first holds the runtime to the functions the compiler calls (`checkRuntimeFunctions`) and writes `--emit-ir` |
-| optimize | `opt` | for a native build, in the task that lowers the module, right after it: `opt.optimizeModule` puts each function in SSA form and folds it (see "The IR"), then `opt.findLeaves` finds the module's leaves and `opt.inlineModule` replaces the calls of leaves, its own and those of the modules it names, by copies of their bodies and folds again what got one (see "Leaf inlining"), then rotates the loops of each function, moves what does not change out of them and merges what is computed twice (see "The passes after inlining"); `--emit-ir` and `--verify-ir` see the result. A test keeps the IR as lowered for the interpreter (`Options.keepsLowered`), which tracks borrows by the loads of slots and reports a drop of a register that holds nothing |
+| lower | `ir` | once the module's verify ended, which made its typing its product and waited on the verify of each module it names, `lowerModule`: it reads of other modules only the typings of those its calls, constants and instances reach, so it waits on no other module's stage. It first finds the instances of generic functions that the module needs (`findInstances`: it starts from the calls recorded by its functions that are not generic, and follows each instance's recorded calls, whichever module declares the generic, with the type arguments bound, until no new instance turns up; `E3906` if the type arguments grow without end), then lowers the module's functions that are not generic, in source order, and the instances, in the order found. A `check` only finds the instances. A place that needs something the backend cannot run yet is noted as a refusal, and the driver reports the first of each function (`E9900`) before the backend, in a task of the project that first holds the runtime to the functions the compiler calls (`checkRuntimeFunctions`) and writes `--emit-ir` |
+| optimize | `opt` | for a native build, in the task that lowers the module, right after it: `opt.optimizeModule` puts each function in SSA form and folds it (see "The IR"); then the module's inline (`inline`, a stage of its own that waits on the module's lower and on the inline of each module it names, since it reads their optimized code and leaves): `opt.findLeaves` finds the module's leaves and `opt.inlineModule` replaces the calls of leaves, its own and those of the modules it names, by copies of their bodies and folds again what got one (see "Leaf inlining"), then rotates the loops of each function, moves what does not change out of them and merges what is computed twice (see "The passes after inlining"); `--emit-ir` and `--verify-ir` see the result. A test keeps the IR as lowered for the interpreter (`Options.keepsLowered`), which tracks borrows by the loads of slots and reports a drop of a register that holds nothing |
 | emit | `backend` | `emitModule`: IR to x64, one code unit per module, in module order, calls between units symbolic; an instance that several modules need is emitted by each, and the link keeps one. The emit then makes in the unit the drop and copy routine of every type its code asks for, and of every type those reach (a record's fields, a union's payloads, an array's elements), in the order they are first asked for (`backend.carryRoutines`), so a unit asks the link for nothing and holds no handle, which is what lets the build cache keep it; a routine that several units make is kept once, as an instance is. In the link (`linkProgram`) the entry stub and the runtime's unit come first; `emitTypeRoutines` makes there, in waves, only what units made without the driver ask for (the backend's own tests) |
 | link | `backend` | `link` keeps only the sections of code and the pieces of data that the entry reaches through symbol and data references (every function is compiled; what nothing calls is dropped here), lays the units out in order, patches the references and `writePeImage` writes the executable. A symbol is its link name (see "Link names"); the one symbol that may be defined more than once is an instance of a generic function, and the table keeps the first unit's definition, so the copies are never reached and drop out like any dead section. Any other symbol defined twice is an internal error |
 
@@ -766,13 +766,17 @@ does. A task is a stage of one module (`Task`: the stage, the module and a range
 stage of the project as a whole: `parsed` joins the parses, since resolve may read the declaration table of any module that a
 qualified name passes through; `order` makes the module graph and refuses a cycle, and only then adds the tasks of the check
 and after it, since a module's dependencies are known once it is resolved; `entry` reports a program with no `main`;
-`endCheck` waits on every module's verify and on `entry`, so that no module is lowered before every module's check ended;
+`endCheck` waits on every module's verify and on `entry`, and the program waits on it, so that no code is made of a program
+whose check failed, while no module's lower waits for the check of a module it does not reach;
 `program` holds the runtime and reports refusals; `link` links the units. A task waits for its module's stage before it (or the task of the project before
-it) and, from aliases to lower, for the same stage of each module it names, which comes before it in the module order and
+it) and, from aliases to verify and for the inline, for the same stage of each module it names, which comes before it in the module order and
 covers what the stage reads of those modules: resolve reads only the declaration tables of the modules a qualified name passes
 through; declare needs only the type objects of other modules' types, since what it needs of their declarations is checked in
 verify; a constant waits for the constants of the modules it names; a check reads the declarations and constants of the modules
-it reaches; the lower of a module reads the optimized IR and the leaves of the modules it names, whose calls it inlines. A task
+it reaches; the lower of a module reads of other modules only the typings of those it reaches, which its verify waited on,
+directly or through the verifies of the modules it names, so it waits for no other module's lower; the inline of a module
+reads the optimized code and the leaves of the modules it names, whose calls it inlines. A lower that runs while the check of
+a module it does not reach fails reports nothing, since the errors of the earliest stage are the ones reported. A task
 that waits for one that failed in its own stage still runs, as every module of a stage is visited; one whose inputs failed in
 an earlier stage, directly or through the tasks they waited on, or were skipped, does not (a module whose dependency failed
 stops; see "Errors" in "Pipeline").
@@ -811,8 +815,8 @@ typealiases a type written `Owner.member` names, and what its extensions add to 
 decided it); the resolve alone holds its `Resolution`, which every later stage reads in the project as the resolve's product
 (`ast.resolutionOf`, and `ast.nodeDecl` for what a name or a type is bound to); and what else of the module its stage writes
 (`ast.Lent`): the module it makes for the parse (`source`, what the parse writes being an `ast.ParsedModule` in `ms.parsed`),
-the tree and the resolution for the resolve (`resolution`), the tree for the check (`tree`), nothing more for the lower and the
-emit (`tables`). A stage reads its module's tree through `ms.tree()`: the resolve, which rewrites qualified names, and the
+the tree and the resolution for the resolve (`resolution`), the tree for the check (`tree`), nothing more for the lower, the
+inline and the emit (`tables`). A stage reads its module's tree through `ms.tree()`: the resolve, which rewrites qualified names, and the
 bodies, which desugar, write a copy of the tree the stage before made (`ms.ownTree`, `ast.lendTree`), and every other stage
 shares that tree, frozen. A stage reads its own module's lent parts in its state and every other module's in the project,
 through the accessors of the module tables (`ast.declType`, `ast.declFunc`, `ast.paramType`, `ast.nodeFunc`, `ast.declConst`,
@@ -856,7 +860,7 @@ the typing is the verify's, which its task makes its home's when the module's ch
 the functions and the callers the lower reads, and the entry function the link reads); `p.resolutions` and `p.typings` hold
 frozen values, and so do `p.builtins` and `p.byPath`, which only the making of the project and the discovery write. At the end
 of each task of a module the products of its stages up to the task's are published (`ModuleWork.product`, `Product` in the
-driver: the module's `ast.ModuleProducts`, its code and leaves once its lower ended, and the entry function if its check found
+driver: the module's `ast.ModuleProducts`, its code and leaves once its inline ended, and the entry function if its check found
 it), frozen. The errors are the task's own list, which the compile's list takes in task order when the compile ends
 (`keepEarliestErrors`), so the diagnostics do not depend on the order the tasks ran in, and a refusal of the register
 allocator that two modules' instances of one generic meet is kept once (`refusedAlready`). What a task knows (`Known` in the
@@ -1058,7 +1062,7 @@ the test runners and a compile with `--emit-ir` or `--verify-ir`, which need eve
   *shown text*, the same without its comment lines and without the body of each function, method or test that no other module
   copies (`publicDigest`): one that has no `uses` and stands in no `uses` type, no `interface` and no `extension`. The layout is
   part of the language, so a header is one line and its body the lines below it to the `end` at the header's indentation.
-- **The summary** of a module, made by its lower, is the digest of its shown text, of the IR of its leaves (`opt.findLeaves`; the
+- **The summary** of a module, made by its inline, is the digest of its shown text, of the IR of its leaves (`opt.findLeaves`; the
   IR printer's text, which names functions and types by link name) and of the summaries of the modules it names: what another
   module copies of it, its declarations, layouts, constants, generic and extension bodies and the leaves it inlines, and,
   folded in, what those depend on. Editing any other body changes the module's key and not its summary.
@@ -1082,17 +1086,17 @@ the test runners and a compile with `--emit-ir` or `--verify-ir`, which need eve
   trims now and `cache clear` deletes everything.
 - **The order decides** (`planModules`), in the modules' order: a module is *settled* when every module it names is and the
   cache holds an entry under its key, whose summary it then has. A module that is not settled, and every module it names,
-  directly or not, read what one another's check and lower made, since it may instantiate a generic or inline a leaf of any
+  directly or not, read what one another's check, lower and inline made, since it may instantiate a generic or inline a leaf of any
   of them: one of those that is settled and whose checked state the cache holds loads it (`Reach.restored`), and the others
   run their check and lower; a settled module that none of them names runs nothing after its constants (`Reach.loaded`: its
   check ends where its constants did, which gives the entry function and the tests), and its emit links the entry's unit.
-- **The checked state** of a module (`<key'>.checked`) is what its stages after its constants made, as its lower left
+- **The checked state** of a module (`<key'>.checked`) is what its stages after its constants made, as its inline left
   them: its slots of the type and function tables whole (every segment's lists and the shells each stage left), its
   `ModuleTables`, its tree as the bodies desugared it, its `Typing`, its `check.ModuleChecked`, and its leaves with their IR
   (a function of its code that is no leaf is kept as its handle, since what reads the code of a module it names reads its
-  leaves alone). `publish` cuts a slot by segment and picks shells by stage, so the home as the lower left it gives each of
+  leaves alone). `publish` cuts a slot by segment and picks shells by stage, so the home as the inline left it gives each of
   those stages' products exactly: a restored module's bodies load it (`restoreChecked`), its verify gives what its check
-  ended with and its lower its leaves, and none of them checks or lowers anything. It is written only by a settled module
+  ended with and its lower its leaves, and none of them, nor its inline, checks or lowers anything. It is written only by a settled module
   that ran its check because a module that names it did not settle, the one place it is needed, so a compile of new source,
   one with an empty cache among them, writes none. Its values are stored by the functions `internal/cachegen` generates from
   the types' own declarations (`cache_gen.maxon`, over `table.CacheWriter` and `CacheReader`: each integer in the bytes its

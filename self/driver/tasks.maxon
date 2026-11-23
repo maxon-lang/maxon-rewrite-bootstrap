@@ -48,9 +48,10 @@ type ModuleWork
 	// checked is what the module's check made when it ended (checkEnded).
 	var checked as check.ModuleChecked
 	var checkEnded as bool
-	// lowered are the module's functions as lowered, for a compile that makes no code, and kept those as lowered, before the
-	// optimizer changed them, for a compile that keeps them; code are the functions that the emit compiles and that the lower of
-	// a module that names this one reads, frozen when the lower ended, and leaves those of them that a call may be replaced by.
+	// lowered are the module's functions as lowered, for a compile that makes no code, or as the passes of its lower left them
+	// for its inline, and kept those as lowered, before the optimizer changed them, for a compile that keeps them; code are the
+	// functions that the emit compiles and that the inline of a module that names this one reads, frozen when the inline
+	// ended, and leaves those of them that a call may be replaced by.
 	var lowered as ir.IrFunctionList
 	var kept as ir.IrFunctionList
 	var code as frozen with ir.IrFunctionList
@@ -337,7 +338,8 @@ function moduleTask(c Compile, mutates work ModuleWork, stage Stage, m Count, kn
 		bodies then return checkTask(c, work: work, stage: stage, known: known, inputs: inputs, errs: errs)
 		verify then return checkTask(c, work: work, stage: stage, known: known, inputs: inputs, errs: errs)
 		endCheck then panic("driver: endCheck is a stage of the project")
-		lower then return lowerModule(c, work: work, m: m, known: known, inputs: inputs, timing: timing, errs: errs)
+		lower then return lowerModule(c, work: work, known: known, inputs: inputs, timing: timing, errs: errs)
+		inline then return inlineTask(c, work: work, m: m, known: known, inputs: inputs, timing: timing)
 		program then panic("driver: program is a stage of the project")
 		emit then return emitModule(c, work: work, known: known, inputs: inputs, timing: timing, errs: errs)
 		link then panic("driver: link is a stage of the project")
@@ -369,9 +371,10 @@ function endLoadedCheck(c Compile, mutates work ModuleWork, known Known) returns
 	return giveTask(work, ms: ended, stage: Stage.bodies)
 end 'endLoadedCheck'
 
-// restoredTask is the bodies, the verify or the lower of a module whose checked state the cache holds: the bodies load it,
-// which makes the module's home what its lower left the last time, the verify ends the check with what it ended with then,
-// and the lower gives its leaves and their code; each gives the product of the stages up to its own, as the stage would.
+// restoredTask is the bodies, the verify, the lower or the inline of a module whose checked state the cache holds: the bodies
+// load it, which makes the module's home what its inline left the last time, the verify ends the check with what it ended
+// with then, the lower gives its leaves and their code, and the inline nothing more; each gives the product of the stages up
+// to its own, as the stage would.
 function restoredTask(c Compile, mutates work ModuleWork, stage Stage) returns frozen with Product
 	if stage == Stage.bodies 'bodies'
 		restoreChecked(work, dir: c.cache.dir)
@@ -381,7 +384,7 @@ function restoredTask(c Compile, mutates work ModuleWork, stage Stage) returns f
 	end 'verify' else if stage == Stage.lower 'lower'
 		work.code = freeze(exchange(work.restored.code, value: ir.IrFunctionList.create(0)))
 		work.leaves = freeze(exchange(work.restored.leaves, value: opt.Leaves.empty()))
-	end 'lower' else 'other'
+	end 'lower' else if stage != Stage.inline 'other'
 		panic("driver: the {stage} of a restored module runs as it always does")
 	end 'other'
 	return work.product(try phaseOfStage(stage).ordinal + 1 otherwise panic("driver: a phase past memory"))
@@ -431,6 +434,7 @@ function checkTask(c Compile, mutates work ModuleWork, stage Stage, known Known,
 		verify then check.moduleVerify(work.checkState, p: view, errs: errs)
 		endCheck then panic("driver: endCheck is a stage of the project")
 		lower then panic("driver: the lower is no stage of the check")
+		inline then panic("driver: the inline is no stage of the check")
 		program then panic("driver: program is a stage of the project")
 		emit then panic("driver: the emit is no stage of the check")
 		link then panic("driver: the link is a stage of the project")
@@ -444,12 +448,13 @@ function checkTask(c Compile, mutates work ModuleWork, stage Stage, known Known,
 end 'checkTask'
 
 // lowerModule finds the instances of generic functions that the module needs and, for a compile that lowers, lowers the
-// module's functions and those instances; for a compile that makes code, the optimizer then runs on them while they are
-// fresh, so --emit-ir and --verify-ir see what codegen gets, and they are the module's code. The interpreter runs the IR as
-// lowered (kept), with its primitives expanded as codegen's are (opt.expandModule): it tracks borrows by the loads of slots,
-// which SSA form has none of, and reports a drop of a register that holds nothing, which a parameter that a moved value
-// reaches may be.
-function lowerModule(c Compile, mutates work ModuleWork, m Count, known Known, inputs ast.Inputs, mutates timing TaskTiming, mutates errs diag.ErrorList) returns frozen with Product
+// module's functions and those instances; for a compile that makes code, the passes of the optimizer that read only the
+// module's own functions then run on them while they are fresh (opt.optimizeModule), and its inline goes on with them. It
+// reads of other modules only the typings of those its calls, constants and instances reach, which its verify waited on. The
+// interpreter runs the IR as lowered (kept), with its primitives expanded as codegen's are (opt.expandModule): it tracks
+// borrows by the loads of slots, which SSA form has none of, and reports a drop of a register that holds nothing, which a
+// parameter that a moved value reaches may be.
+function lowerModule(c Compile, mutates work ModuleWork, known Known, inputs ast.Inputs, mutates timing TaskTiming, mutates errs diag.ErrorList) returns frozen with Product
 	var found = diag.ErrorList.create(0)
 	var view as ast.Project
 	var ms = lendTask(c, work: work, stage: Stage.lower, lent: ast.Lent.tables, known: known, inputs: inputs, view: view)
@@ -468,46 +473,57 @@ function lowerModule(c Compile, mutates work ModuleWork, m Count, known Known, i
 		if not c.options.keepsLowered 'expand'
 			opt.expandModule(lowered)
 		end 'expand'
-		work.lowered = lowered
-	end 'interpreted' else 'compiled'
-		if found.count() == 0 'optimize'
-			if c.options.verifyIr 'verifyLowered'
-				verifyFunctions(view, ms: ms, fns: lowered)
-			end 'verifyLowered'
-			var optimizer = opt.Optimizer.new()
-			optimizer.clock = exchange(timing.lower, value: table.PhaseClock.off())
-			optimizer.lap(opt.OptPhase.lowering)
-			opt.optimizeModule(optimizer, fns: lowered)
-			inlineModule(c, work: work, p: view, ms: ms, m: m, known: known, fns: lowered, optimizer: optimizer, timing: timing)
-			if c.cache.enabled() 'summary'
-				let summary = summaryOf(c, p: view, m: m, own: work.digests, leaves: leafDigest(view, ms: ms, fns: lowered, leaves: work.leaves), summaries: summariesOf(known))
-				if (work.found.isSome() or work.speculated) and not summary.equals(work.digests.summary) 'differs'
-					if not c.cache.speculates 'fault'
-						panic("driver: module {m} ({work.home.path()}) makes another summary than the build cache's entry under its key holds, so its key leaves out something its summary reads")
-					end 'fault'
-					work.mispredicted = true
-				end 'differs'
-				if not work.found.isSome() 'kept'
-					writeSpeculation(c.cache.dir, key: speculationKey(c, p: view, m: m, own: work.digests, summaries: summariesOf(known)), summary: summary)
-				end 'kept'
-				work.digests.summary = summary
-			end 'summary'
-			optimizer.lap(opt.OptPhase.summary)
-			timing.lower = exchange(optimizer.clock, value: table.PhaseClock.off())
-		end 'optimize'
-		work.code = freeze(lowered)
-	end 'compiled'
-	let clean = found.count() == 0
+	end 'interpreted' else if found.count() == 0 'optimize'
+		if c.options.verifyIr 'verifyLowered'
+			verifyFunctions(view, ms: ms, fns: lowered)
+		end 'verifyLowered'
+		var optimizer = opt.Optimizer.new()
+		optimizer.clock = exchange(timing.lower, value: table.PhaseClock.off())
+		optimizer.lap(opt.OptPhase.lowering)
+		opt.optimizeModule(optimizer, fns: lowered)
+		timing.lower = exchange(optimizer.clock, value: table.PhaseClock.off())
+	end 'optimize'
+	work.lowered = lowered
 	appendErrors(errs, found: found)
-	let product = giveTask(work, ms: ms, stage: Stage.lower)
-	if keepsChecked(c, work: work) and clean 'checked'
+	return giveTask(work, ms: ms, stage: Stage.lower)
+end 'lowerModule'
+
+// inlineTask runs the passes of the optimizer from leaf inlining on (inlineModule) on the functions the module's lower left,
+// which then are the module's code, so --emit-ir and --verify-ir see what codegen gets, and makes the module's summary for
+// the build cache, which reads the summaries of the modules it names.
+function inlineTask(c Compile, mutates work ModuleWork, m Count, known Known, inputs ast.Inputs, mutates timing TaskTiming) returns frozen with Product
+	var view as ast.Project
+	var ms = lendTask(c, work: work, stage: Stage.inline, lent: ast.Lent.tables, known: known, inputs: inputs, view: view)
+	timing.lower.restart()
+	var fns = exchange(work.lowered, value: ir.IrFunctionList.create(0))
+	var optimizer = opt.Optimizer.new()
+	optimizer.clock = exchange(timing.lower, value: table.PhaseClock.off())
+	inlineModule(c, work: work, p: view, ms: ms, m: m, known: known, fns: fns, optimizer: optimizer, timing: timing)
+	if c.cache.enabled() 'summary'
+		let summary = summaryOf(c, p: view, m: m, own: work.digests, leaves: leafDigest(view, ms: ms, fns: fns, leaves: work.leaves), summaries: summariesOf(known))
+		if (work.found.isSome() or work.speculated) and not summary.equals(work.digests.summary) 'differs'
+			if not c.cache.speculates 'fault'
+				panic("driver: module {m} ({work.home.path()}) makes another summary than the build cache's entry under its key holds, so its key leaves out something its summary reads")
+			end 'fault'
+			work.mispredicted = true
+		end 'differs'
+		if not work.found.isSome() 'kept'
+			writeSpeculation(c.cache.dir, key: speculationKey(c, p: view, m: m, own: work.digests, summaries: summariesOf(known)), summary: summary)
+		end 'kept'
+		work.digests.summary = summary
+	end 'summary'
+	optimizer.lap(opt.OptPhase.summary)
+	timing.lower = exchange(optimizer.clock, value: table.PhaseClock.off())
+	work.code = freeze(fns)
+	let product = giveTask(work, ms: ms, stage: Stage.inline)
+	if keepsChecked(c, work: work) 'checked'
 		work.checkedState = checkedState(work)
 	end 'checked'
 	return product
-end 'lowerModule'
+end 'inlineTask'
 
-// keepsChecked is whether the lower of the module of work keeps its checked state: where the module is settled and ran its
-// check and lower only because a module that names it is not (or the compile verifies the cache), which is where a later
+// keepsChecked is whether the inline of the module of work keeps its checked state: where the module is settled and ran its
+// check, lower and inline only because a module that names it is not (or the compile verifies the cache), which is where a later
 // compile loads that state instead. A module whose source changed is not settled, so no compile pays for the states of the
 // modules it compiles anew, a compile with an empty cache among them, and the first that needs one writes it.
 function keepsChecked(c Compile, work ModuleWork) returns bool
@@ -515,7 +531,7 @@ function keepsChecked(c Compile, work ModuleWork) returns bool
 end 'keepsChecked'
 
 // inlineModule finds the leaves of module m, whose functions fns the optimizer has run on, and replaces the calls of leaves in
-// them: of its own, and of the modules it names (in p, the task's view) that this compile lowers, whose lower its own waited
+// them: of its own, and of the modules it names (in p, the task's view) that this compile lowers, whose inline its own waited
 // for, and whose code and leaves it knows.
 function inlineModule(c Compile, mutates work ModuleWork, p ast.Project, ms ast.ModuleState, m Count, known Known, mutates fns ir.IrFunctionList, mutates optimizer opt.Optimizer, mutates timing TaskTiming)
 	let preemptible = preemptibleFunctions(p, ms: ms, m: m, fns: fns)
@@ -710,7 +726,7 @@ function addCheckTasks(mutates graph TaskGraph, c Compile, ordered Ordered)
 	let first = c.first
 	graph.addModuleTasks(Stage.aliases, order: ordered.order, deps: ordered.deps, first: first)
 	graph.addModuleTasks(Stage.declare, order: ordered.order, deps: ordered.deps, first: first)
-	let entry = graph.addSideTask(Stage.entry)
+	let entry = graph.addSideTask(Stage.entry, also: TaskIDs.create(0))
 	graph.addModuleTasks(Stage.constantOrder, order: ordered.order, deps: ordered.deps, first: first)
 	graph.addModuleTasks(Stage.constants, order: ordered.order, deps: ordered.deps, first: first)
 	if c.goal == Goal.declared 'declared'
@@ -723,12 +739,16 @@ function addCheckTasks(mutates graph TaskGraph, c Compile, ordered Ordered)
 	end 'checked'
 	var entries = TaskIDs.create(0)
 	entries.push(entry)
-	graph.addProjectTask(Stage.endCheck, also: entries)
+	var ended = TaskIDs.create(0)
+	ended.push(graph.addSideTask(Stage.endCheck, also: entries))
 	graph.addModuleTasks(Stage.lower, order: ordered.order, deps: ordered.deps, first: first)
 	if c.goal == Goal.lowered 'lowered'
 		return
 	end 'lowered'
-	graph.addProjectTask(Stage.program, also: TaskIDs.create(0))
+	if makesCode(c.goal) 'inline'
+		graph.addModuleTasks(Stage.inline, order: ordered.order, deps: ordered.deps, first: first)
+	end 'inline'
+	graph.addProjectTask(Stage.program, also: ended)
 	if c.goal == Goal.instances 'instances'
 		return
 	end 'instances'
