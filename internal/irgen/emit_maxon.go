@@ -146,12 +146,40 @@ func maxonPresent(o op, x operand) string {
 	return fmt.Sprintf("(%s.flags and %s) != 0", v, maxonFlag(x.Flag))
 }
 
+// maxonKindCheck is the guard that opens an accessor of one operation: a record of another kind holds other things in
+// the same fields, so reading it would give a wrong value that nothing flags.
+func maxonKindCheck(o op, accessor string) string {
+	if o.Term {
+		return fmt.Sprintf("\tif t.kind != %s 'kind'\n\t\twrongTerm(%q, found: t.kind)\n\tend 'kind'\n", maxonConst(o), accessor)
+	}
+	return fmt.Sprintf("\tif x.op != %s 'op'\n\t\twrongInstr(%q, found: x.op)\n\tend 'op'\n", maxonConst(o), accessor)
+}
+
+// emitMaxonKindNames writes what a failed guard reports: the accessor and the kind of the record it was given.
+func emitMaxonKindNames(w *writer) {
+	for _, term := range []bool{false, true} {
+		what, sel, typ, fn, bad := "an instruction", "op", "Opcode", "opcodeName", "wrongInstr"
+		if term {
+			what, sel, typ, fn, bad = "a terminator", "kind", "TermKind", "termKindName", "wrongTerm"
+		}
+		w.p("// %s is the name of the kind of %s.\nexport function %s(%s %s) returns String\n", fn, what, fn, sel, typ)
+		for _, o := range ops {
+			if o.Term == term {
+				w.p("\tif %s == %s '%s'\n\t\treturn %q\n\tend '%s'\n", sel, maxonConst(o), maxonCase(o), o.Name, maxonCase(o))
+			}
+		}
+		w.p("\treturn \"none\"\nend '%s'\n\n", fn)
+		w.p("// %s stops the compiler: an accessor was given %s of a kind it does not read.\nexport function %s(accessor String, found %s)\n\tpanic(\"ir: {accessor} was given a {%s(found)}\")\nend '%s'\n\n", bad, what, bad, typ, fn, bad)
+	}
+}
+
 func emitMaxon() string {
 	w := &writer{}
 	w.p("%s", header)
 	emitMaxonTypes(w)
 	emitMaxonRecords(w)
 	emitMaxonCtors(w)
+	emitMaxonKindNames(w)
 	emitMaxonGetters(w)
 	emitMaxonQueries(w)
 	emitMaxonRegisters(w)
@@ -365,12 +393,13 @@ func emitMaxonGetters(w *writer) {
 				what := lowerFirst(o.Name) + " " + lowerFirst(x.Name)
 				w.p("// %sStart is where the %s of a%s %s start in their pool.\nexport function %sStart(%s %s) returns Count\n", g, lowerFirst(x.Name), article(o.Name), o.Name, g, v, rec)
 				if x.Kind == kMoreRegs || x.Kind == kMoreEdgeArgs {
+					// The getters it adds up check the kind.
 					w.p("\treturn try %s otherwise panic(\"ir: %s is out of range\")\nend '%sStart'\n\n", start, what, g)
 				} else {
-					w.p("\treturn %s\nend '%sStart'\n\n", toCount(start, what), g)
+					w.p("%s\treturn %s\nend '%sStart'\n\n", maxonKindCheck(o, g+"Start"), toCount(start, what), g)
 				}
-				w.p("// %sCount is how many %s a%s %s has.\nexport function %sCount(%s %s) returns Count\n\treturn %s\nend '%sCount'\n\n",
-					g, lowerFirst(x.Name), article(o.Name), o.Name, g, v, rec, toCount(count, what), g)
+				w.p("// %sCount is how many %s a%s %s has.\nexport function %sCount(%s %s) returns Count\n%s\treturn %s\nend '%sCount'\n\n",
+					g, lowerFirst(x.Name), article(o.Name), o.Name, g, v, rec, maxonKindCheck(o, g+"Count"), toCount(count, what), g)
 				continue
 			}
 			if x.Kind == kFloats {
@@ -383,12 +412,12 @@ func emitMaxonGetters(w *writer) {
 				params = "f IrFunction, " + params
 			}
 			if optional(x) {
-				w.p("export function %s(%s) returns bool\n\treturn %s\nend '%s'\n\n", maxonHas(o, x), v+" "+rec, maxonPresent(o, x), maxonHas(o, x))
+				w.p("export function %s(%s) returns bool\n%s\treturn %s\nend '%s'\n\n", maxonHas(o, x), v+" "+rec, maxonKindCheck(o, maxonHas(o, x)), maxonPresent(o, x), maxonHas(o, x))
 				w.p("export function %s(%s) returns table.Option with %s\n\tif not %s '%s'\n\t\treturn table.Option.none\n\tend '%s'\n\treturn table.Option.some(%s)\nend '%s'\n\n",
 					g, params, maxonType(x), maxonHas(o, x)+"("+v+")", "absent", "absent", maxonRead(o, x), g)
 				continue
 			}
-			w.p("export function %s(%s) returns %s\n\treturn %s\nend '%s'\n\n", g, params, maxonType(x), maxonRead(o, x), g)
+			w.p("export function %s(%s) returns %s\n%s\treturn %s\nend '%s'\n\n", g, params, maxonType(x), maxonKindCheck(o, g), maxonRead(o, x), g)
 		}
 	}
 }

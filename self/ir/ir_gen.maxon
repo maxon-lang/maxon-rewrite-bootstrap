@@ -1585,205 +1585,576 @@ export function newThrow(err Reg) returns Term
 	return r
 end 'newThrow'
 
+// opcodeName is the name of the kind of an instruction.
+export function opcodeName(op Opcode) returns String
+	if op == Opcode.opConst 'opConst'
+		return "Const"
+	end 'opConst'
+	if op == Opcode.opStr 'opStr'
+		return "Str"
+	end 'opStr'
+	if op == Opcode.opDatum 'opDatum'
+		return "Datum"
+	end 'opDatum'
+	if op == Opcode.opLoadSlot 'opLoadSlot'
+		return "LoadSlot"
+	end 'opLoadSlot'
+	if op == Opcode.opStoreSlot 'opStoreSlot'
+		return "StoreSlot"
+	end 'opStoreSlot'
+	if op == Opcode.opSlotAddr 'opSlotAddr'
+		return "SlotAddr"
+	end 'opSlotAddr'
+	if op == Opcode.opLoadParam 'opLoadParam'
+		return "LoadParam"
+	end 'opLoadParam'
+	if op == Opcode.opLoadField 'opLoadField'
+		return "LoadField"
+	end 'opLoadField'
+	if op == Opcode.opStoreField 'opStoreField'
+		return "StoreField"
+	end 'opStoreField'
+	if op == Opcode.opFieldAddr 'opFieldAddr'
+		return "FieldAddr"
+	end 'opFieldAddr'
+	if op == Opcode.opLoadAt 'opLoadAt'
+		return "LoadAt"
+	end 'opLoadAt'
+	if op == Opcode.opStoreAt 'opStoreAt'
+		return "StoreAt"
+	end 'opStoreAt'
+	if op == Opcode.opLoadGlobal 'opLoadGlobal'
+		return "LoadGlobal"
+	end 'opLoadGlobal'
+	if op == Opcode.opLoadRaw 'opLoadRaw'
+		return "LoadRaw"
+	end 'opLoadRaw'
+	if op == Opcode.opStoreRaw 'opStoreRaw'
+		return "StoreRaw"
+	end 'opStoreRaw'
+	if op == Opcode.opGlobalAddr 'opGlobalAddr'
+		return "GlobalAddr"
+	end 'opGlobalAddr'
+	if op == Opcode.opCallImport 'opCallImport'
+		return "CallImport"
+	end 'opCallImport'
+	if op == Opcode.opSyscall 'opSyscall'
+		return "Syscall"
+	end 'opSyscall'
+	if op == Opcode.opAtomicAdd 'opAtomicAdd'
+		return "AtomicAdd"
+	end 'opAtomicAdd'
+	if op == Opcode.opAtomicExchange 'opAtomicExchange'
+		return "AtomicExchange"
+	end 'opAtomicExchange'
+	if op == Opcode.opCompareExchange 'opCompareExchange'
+		return "CompareExchange"
+	end 'opCompareExchange'
+	if op == Opcode.opSpinPause 'opSpinPause'
+		return "SpinPause"
+	end 'opSpinPause'
+	if op == Opcode.opThreadContext 'opThreadContext'
+		return "ThreadContext"
+	end 'opThreadContext'
+	if op == Opcode.opCallCode 'opCallCode'
+		return "CallCode"
+	end 'opCallCode'
+	if op == Opcode.opCallHost 'opCallHost'
+		return "CallHost"
+	end 'opCallHost'
+	if op == Opcode.opCodeAddress 'opCodeAddress'
+		return "CodeAddress"
+	end 'opCodeAddress'
+	if op == Opcode.opBin 'opBin'
+		return "Bin"
+	end 'opBin'
+	if op == Opcode.opCmp 'opCmp'
+		return "Cmp"
+	end 'opCmp'
+	if op == Opcode.opFBin 'opFBin'
+		return "FBin"
+	end 'opFBin'
+	if op == Opcode.opFCmp 'opFCmp'
+		return "FCmp"
+	end 'opFCmp'
+	if op == Opcode.opFUnary 'opFUnary'
+		return "FUnary"
+	end 'opFUnary'
+	if op == Opcode.opIntToFloat 'opIntToFloat'
+		return "IntToFloat"
+	end 'opIntToFloat'
+	if op == Opcode.opFloatToInt 'opFloatToInt'
+		return "FloatToInt"
+	end 'opFloatToInt'
+	if op == Opcode.opNeg 'opNeg'
+		return "Neg"
+	end 'opNeg'
+	if op == Opcode.opNot 'opNot'
+		return "Not"
+	end 'opNot'
+	if op == Opcode.opGuard 'opGuard'
+		return "Guard"
+	end 'opGuard'
+	if op == Opcode.opLength 'opLength'
+		return "Length"
+	end 'opLength'
+	if op == Opcode.opBounds 'opBounds'
+		return "Bounds"
+	end 'opBounds'
+	if op == Opcode.opElemAddr 'opElemAddr'
+		return "ElemAddr"
+	end 'opElemAddr'
+	if op == Opcode.opElemLoad 'opElemLoad'
+		return "ElemLoad"
+	end 'opElemLoad'
+	if op == Opcode.opLoadByte 'opLoadByte'
+		return "LoadByte"
+	end 'opLoadByte'
+	if op == Opcode.opBuffer 'opBuffer'
+		return "Buffer"
+	end 'opBuffer'
+	if op == Opcode.opWordAt 'opWordAt'
+		return "WordAt"
+	end 'opWordAt'
+	if op == Opcode.opByteAt 'opByteAt'
+		return "ByteAt"
+	end 'opByteAt'
+	if op == Opcode.opAlloc 'opAlloc'
+		return "Alloc"
+	end 'opAlloc'
+	if op == Opcode.opCall 'opCall'
+		return "Call"
+	end 'opCall'
+	if op == Opcode.opCallRuntime 'opCallRuntime'
+		return "CallRuntime"
+	end 'opCallRuntime'
+	if op == Opcode.opWhen 'opWhen'
+		return "When"
+	end 'opWhen'
+	if op == Opcode.opAsync 'opAsync'
+		return "Async"
+	end 'opAsync'
+	if op == Opcode.opClosure 'opClosure'
+		return "Closure"
+	end 'opClosure'
+	if op == Opcode.opFuncValue 'opFuncValue'
+		return "FuncValue"
+	end 'opFuncValue'
+	if op == Opcode.opCallValue 'opCallValue'
+		return "CallValue"
+	end 'opCallValue'
+	if op == Opcode.opBox 'opBox'
+		return "Box"
+	end 'opBox'
+	if op == Opcode.opFrameBox 'opFrameBox'
+		return "FrameBox"
+	end 'opFrameBox'
+	if op == Opcode.opFrameArea 'opFrameArea'
+		return "FrameArea"
+	end 'opFrameArea'
+	if op == Opcode.opCallWitness 'opCallWitness'
+		return "CallWitness"
+	end 'opCallWitness'
+	if op == Opcode.opIsType 'opIsType'
+		return "IsType"
+	end 'opIsType'
+	if op == Opcode.opDrop 'opDrop'
+		return "Drop"
+	end 'opDrop'
+	if op == Opcode.opDropSlot 'opDropSlot'
+		return "DropSlot"
+	end 'opDropSlot'
+	if op == Opcode.opDropAt 'opDropAt'
+		return "DropAt"
+	end 'opDropAt'
+	if op == Opcode.opMoveSlot 'opMoveSlot'
+		return "MoveSlot"
+	end 'opMoveSlot'
+	if op == Opcode.opMoveAt 'opMoveAt'
+		return "MoveAt"
+	end 'opMoveAt'
+	if op == Opcode.opCopy 'opCopy'
+		return "Copy"
+	end 'opCopy'
+	return "none"
+end 'opcodeName'
+
+// wrongInstr stops the compiler: an accessor was given an instruction of a kind it does not read.
+export function wrongInstr(accessor String, found Opcode)
+	panic("ir: {accessor} was given a {opcodeName(found)}")
+end 'wrongInstr'
+
+// termKindName is the name of the kind of a terminator.
+export function termKindName(kind TermKind) returns String
+	if kind == TermKind.termJump 'termJump'
+		return "Jump"
+	end 'termJump'
+	if kind == TermKind.termBranch 'termBranch'
+		return "Branch"
+	end 'termBranch'
+	if kind == TermKind.termSwitch 'termSwitch'
+		return "Switch"
+	end 'termSwitch'
+	if kind == TermKind.termRet 'termRet'
+		return "Ret"
+	end 'termRet'
+	if kind == TermKind.termTrap 'termTrap'
+		return "Trap"
+	end 'termTrap'
+	if kind == TermKind.termThrow 'termThrow'
+		return "Throw"
+	end 'termThrow'
+	return "none"
+end 'termKindName'
+
+// wrongTerm stops the compiler: an accessor was given a terminator of a kind it does not read.
+export function wrongTerm(accessor String, found TermKind)
+	panic("ir: {accessor} was given a {termKindName(found)}")
+end 'wrongTerm'
+
 export function constValue(x Instr) returns Word
+	if x.op != Opcode.opConst 'op'
+		wrongInstr("constValue", found: x.op)
+	end 'op'
 	return x.imm
 end 'constValue'
 
 export function strText(f IrFunction, x Instr) returns String
+	if x.op != Opcode.opStr 'op'
+		wrongInstr("strText", found: x.op)
+	end 'op'
 	return f.stringAt(x.c)
 end 'strText'
 
 export function datumItem(x Instr) returns Count
+	if x.op != Opcode.opDatum 'op'
+		wrongInstr("datumItem", found: x.op)
+	end 'op'
 	return try x.c as Count otherwise panic("ir: datum item is out of range")
 end 'datumItem'
 
 export function loadSlotSlot(x Instr) returns Count
+	if x.op != Opcode.opLoadSlot 'op'
+		wrongInstr("loadSlotSlot", found: x.op)
+	end 'op'
 	return try x.imm as Count otherwise panic("ir: loadSlot slot is out of range")
 end 'loadSlotSlot'
 
 export function storeSlotSlot(x Instr) returns Count
+	if x.op != Opcode.opStoreSlot 'op'
+		wrongInstr("storeSlotSlot", found: x.op)
+	end 'op'
 	return try x.imm as Count otherwise panic("ir: storeSlot slot is out of range")
 end 'storeSlotSlot'
 
 export function storeSlotSrc(x Instr) returns Reg
+	if x.op != Opcode.opStoreSlot 'op'
+		wrongInstr("storeSlotSrc", found: x.op)
+	end 'op'
 	return x.a
 end 'storeSlotSrc'
 
 export function storeSlotBorrow(x Instr) returns bool
+	if x.op != Opcode.opStoreSlot 'op'
+		wrongInstr("storeSlotBorrow", found: x.op)
+	end 'op'
 	return (x.flags and flagBorrow) != 0
 end 'storeSlotBorrow'
 
 export function slotAddrSlot(x Instr) returns Count
+	if x.op != Opcode.opSlotAddr 'op'
+		wrongInstr("slotAddrSlot", found: x.op)
+	end 'op'
 	return try x.imm as Count otherwise panic("ir: slotAddr slot is out of range")
 end 'slotAddrSlot'
 
 export function loadParamParam(x Instr) returns Count
+	if x.op != Opcode.opLoadParam 'op'
+		wrongInstr("loadParamParam", found: x.op)
+	end 'op'
 	return try x.imm as Count otherwise panic("ir: loadParam param is out of range")
 end 'loadParamParam'
 
 export function loadFieldObj(x Instr) returns Reg
+	if x.op != Opcode.opLoadField 'op'
+		wrongInstr("loadFieldObj", found: x.op)
+	end 'op'
 	return x.a
 end 'loadFieldObj'
 
 export function loadFieldOffset(x Instr) returns Count
+	if x.op != Opcode.opLoadField 'op'
+		wrongInstr("loadFieldOffset", found: x.op)
+	end 'op'
 	return try x.imm as Count otherwise panic("ir: loadField offset is out of range")
 end 'loadFieldOffset'
 
 export function storeFieldObj(x Instr) returns Reg
+	if x.op != Opcode.opStoreField 'op'
+		wrongInstr("storeFieldObj", found: x.op)
+	end 'op'
 	return x.a
 end 'storeFieldObj'
 
 export function storeFieldOffset(x Instr) returns Count
+	if x.op != Opcode.opStoreField 'op'
+		wrongInstr("storeFieldOffset", found: x.op)
+	end 'op'
 	return try x.imm as Count otherwise panic("ir: storeField offset is out of range")
 end 'storeFieldOffset'
 
 export function storeFieldSrc(x Instr) returns Reg
+	if x.op != Opcode.opStoreField 'op'
+		wrongInstr("storeFieldSrc", found: x.op)
+	end 'op'
 	return x.b
 end 'storeFieldSrc'
 
 export function storeFieldBorrow(x Instr) returns bool
+	if x.op != Opcode.opStoreField 'op'
+		wrongInstr("storeFieldBorrow", found: x.op)
+	end 'op'
 	return (x.flags and flagBorrow) != 0
 end 'storeFieldBorrow'
 
 export function fieldAddrObj(x Instr) returns Reg
+	if x.op != Opcode.opFieldAddr 'op'
+		wrongInstr("fieldAddrObj", found: x.op)
+	end 'op'
 	return x.a
 end 'fieldAddrObj'
 
 export function fieldAddrOffset(x Instr) returns Count
+	if x.op != Opcode.opFieldAddr 'op'
+		wrongInstr("fieldAddrOffset", found: x.op)
+	end 'op'
 	return try x.imm as Count otherwise panic("ir: fieldAddr offset is out of range")
 end 'fieldAddrOffset'
 
 export function loadAtAddr(x Instr) returns Reg
+	if x.op != Opcode.opLoadAt 'op'
+		wrongInstr("loadAtAddr", found: x.op)
+	end 'op'
 	return x.a
 end 'loadAtAddr'
 
 export function storeAtAddr(x Instr) returns Reg
+	if x.op != Opcode.opStoreAt 'op'
+		wrongInstr("storeAtAddr", found: x.op)
+	end 'op'
 	return x.a
 end 'storeAtAddr'
 
 export function storeAtSrc(x Instr) returns Reg
+	if x.op != Opcode.opStoreAt 'op'
+		wrongInstr("storeAtSrc", found: x.op)
+	end 'op'
 	return x.b
 end 'storeAtSrc'
 
 export function loadGlobalSymbol(x Instr) returns Rt
+	if x.op != Opcode.opLoadGlobal 'op'
+		wrongInstr("loadGlobalSymbol", found: x.op)
+	end 'op'
 	return rtOf(try x.imm as Count otherwise panic("ir: loadGlobal symbol is out of range"))
 end 'loadGlobalSymbol'
 
 export function loadRawAddr(x Instr) returns Reg
+	if x.op != Opcode.opLoadRaw 'op'
+		wrongInstr("loadRawAddr", found: x.op)
+	end 'op'
 	return x.a
 end 'loadRawAddr'
 
 export function loadRawWidth(x Instr) returns RawWidth
+	if x.op != Opcode.opLoadRaw 'op'
+		wrongInstr("loadRawWidth", found: x.op)
+	end 'op'
 	return rawWidthOf(x.sub)
 end 'loadRawWidth'
 
 export function storeRawAddr(x Instr) returns Reg
+	if x.op != Opcode.opStoreRaw 'op'
+		wrongInstr("storeRawAddr", found: x.op)
+	end 'op'
 	return x.a
 end 'storeRawAddr'
 
 export function storeRawSrc(x Instr) returns Reg
+	if x.op != Opcode.opStoreRaw 'op'
+		wrongInstr("storeRawSrc", found: x.op)
+	end 'op'
 	return x.b
 end 'storeRawSrc'
 
 export function storeRawWidth(x Instr) returns RawWidth
+	if x.op != Opcode.opStoreRaw 'op'
+		wrongInstr("storeRawWidth", found: x.op)
+	end 'op'
 	return rawWidthOf(x.sub)
 end 'storeRawWidth'
 
 export function globalAddrSymbol(x Instr) returns Rt
+	if x.op != Opcode.opGlobalAddr 'op'
+		wrongInstr("globalAddrSymbol", found: x.op)
+	end 'op'
 	return rtOf(try x.imm as Count otherwise panic("ir: globalAddr symbol is out of range"))
 end 'globalAddrSymbol'
 
 export function callImportName(f IrFunction, x Instr) returns String
+	if x.op != Opcode.opCallImport 'op'
+		wrongInstr("callImportName", found: x.op)
+	end 'op'
 	return f.stringAt(x.c)
 end 'callImportName'
 
 // callImportArgsStart is where the args of a CallImport start in their pool.
 export function callImportArgsStart(x Instr) returns Count
+	if x.op != Opcode.opCallImport 'op'
+		wrongInstr("callImportArgsStart", found: x.op)
+	end 'op'
 	return try x.a as Count otherwise panic("ir: callImport args is out of range")
 end 'callImportArgsStart'
 
 // callImportArgsCount is how many args a CallImport has.
 export function callImportArgsCount(x Instr) returns Count
+	if x.op != Opcode.opCallImport 'op'
+		wrongInstr("callImportArgsCount", found: x.op)
+	end 'op'
 	return try x.b as Count otherwise panic("ir: callImport args is out of range")
 end 'callImportArgsCount'
 
 // syscallArgsStart is where the args of a Syscall start in their pool.
 export function syscallArgsStart(x Instr) returns Count
+	if x.op != Opcode.opSyscall 'op'
+		wrongInstr("syscallArgsStart", found: x.op)
+	end 'op'
 	return try x.a as Count otherwise panic("ir: syscall args is out of range")
 end 'syscallArgsStart'
 
 // syscallArgsCount is how many args a Syscall has.
 export function syscallArgsCount(x Instr) returns Count
+	if x.op != Opcode.opSyscall 'op'
+		wrongInstr("syscallArgsCount", found: x.op)
+	end 'op'
 	return try x.b as Count otherwise panic("ir: syscall args is out of range")
 end 'syscallArgsCount'
 
 export function atomicAddAddr(x Instr) returns Reg
+	if x.op != Opcode.opAtomicAdd 'op'
+		wrongInstr("atomicAddAddr", found: x.op)
+	end 'op'
 	return x.a
 end 'atomicAddAddr'
 
 export function atomicAddSrc(x Instr) returns Reg
+	if x.op != Opcode.opAtomicAdd 'op'
+		wrongInstr("atomicAddSrc", found: x.op)
+	end 'op'
 	return x.b
 end 'atomicAddSrc'
 
 export function atomicExchangeAddr(x Instr) returns Reg
+	if x.op != Opcode.opAtomicExchange 'op'
+		wrongInstr("atomicExchangeAddr", found: x.op)
+	end 'op'
 	return x.a
 end 'atomicExchangeAddr'
 
 export function atomicExchangeSrc(x Instr) returns Reg
+	if x.op != Opcode.opAtomicExchange 'op'
+		wrongInstr("atomicExchangeSrc", found: x.op)
+	end 'op'
 	return x.b
 end 'atomicExchangeSrc'
 
 // compareExchangeArgsStart is where the args of a CompareExchange start in their pool.
 export function compareExchangeArgsStart(x Instr) returns Count
+	if x.op != Opcode.opCompareExchange 'op'
+		wrongInstr("compareExchangeArgsStart", found: x.op)
+	end 'op'
 	return try x.a as Count otherwise panic("ir: compareExchange args is out of range")
 end 'compareExchangeArgsStart'
 
 // compareExchangeArgsCount is how many args a CompareExchange has.
 export function compareExchangeArgsCount(x Instr) returns Count
+	if x.op != Opcode.opCompareExchange 'op'
+		wrongInstr("compareExchangeArgsCount", found: x.op)
+	end 'op'
 	return try x.b as Count otherwise panic("ir: compareExchange args is out of range")
 end 'compareExchangeArgsCount'
 
 // callCodeArgsStart is where the args of a CallCode start in their pool.
 export function callCodeArgsStart(x Instr) returns Count
+	if x.op != Opcode.opCallCode 'op'
+		wrongInstr("callCodeArgsStart", found: x.op)
+	end 'op'
 	return try x.a as Count otherwise panic("ir: callCode args is out of range")
 end 'callCodeArgsStart'
 
 // callCodeArgsCount is how many args a CallCode has.
 export function callCodeArgsCount(x Instr) returns Count
+	if x.op != Opcode.opCallCode 'op'
+		wrongInstr("callCodeArgsCount", found: x.op)
+	end 'op'
 	return try x.b as Count otherwise panic("ir: callCode args is out of range")
 end 'callCodeArgsCount'
 
 // callHostArgsStart is where the args of a CallHost start in their pool.
 export function callHostArgsStart(x Instr) returns Count
+	if x.op != Opcode.opCallHost 'op'
+		wrongInstr("callHostArgsStart", found: x.op)
+	end 'op'
 	return try x.a as Count otherwise panic("ir: callHost args is out of range")
 end 'callHostArgsStart'
 
 // callHostArgsCount is how many args a CallHost has.
 export function callHostArgsCount(x Instr) returns Count
+	if x.op != Opcode.opCallHost 'op'
+		wrongInstr("callHostArgsCount", found: x.op)
+	end 'op'
 	return try x.b as Count otherwise panic("ir: callHost args is out of range")
 end 'callHostArgsCount'
 
 export function codeAddressCallee(f IrFunction, x Instr) returns ast.FuncID
+	if x.op != Opcode.opCodeAddress 'op'
+		wrongInstr("codeAddressCallee", found: x.op)
+	end 'op'
 	return f.calleeAt(x.c)
 end 'codeAddressCallee'
 
 export function binOp(x Instr) returns BinOp
+	if x.op != Opcode.opBin 'op'
+		wrongInstr("binOp", found: x.op)
+	end 'op'
 	return binOpOf(x.sub)
 end 'binOp'
 
 export function binLeft(x Instr) returns Reg
+	if x.op != Opcode.opBin 'op'
+		wrongInstr("binLeft", found: x.op)
+	end 'op'
 	return x.a
 end 'binLeft'
 
 export function binRight(x Instr) returns Reg
+	if x.op != Opcode.opBin 'op'
+		wrongInstr("binRight", found: x.op)
+	end 'op'
 	return x.b
 end 'binRight'
 
 export function binUnsigned(x Instr) returns bool
+	if x.op != Opcode.opBin 'op'
+		wrongInstr("binUnsigned", found: x.op)
+	end 'op'
 	return (x.flags and flagUnsigned) != 0
 end 'binUnsigned'
 
 export function binHasFail(x Instr) returns bool
+	if x.op != Opcode.opBin 'op'
+		wrongInstr("binHasFail", found: x.op)
+	end 'op'
 	return (x.flags and flagChecked) != 0
 end 'binHasFail'
 
@@ -1795,70 +2166,121 @@ export function binFail(x Instr) returns table.Option with BlockID
 end 'binFail'
 
 export function cmpOp(x Instr) returns CmpOp
+	if x.op != Opcode.opCmp 'op'
+		wrongInstr("cmpOp", found: x.op)
+	end 'op'
 	return cmpOpOf(x.sub)
 end 'cmpOp'
 
 export function cmpLeft(x Instr) returns Reg
+	if x.op != Opcode.opCmp 'op'
+		wrongInstr("cmpLeft", found: x.op)
+	end 'op'
 	return x.a
 end 'cmpLeft'
 
 export function cmpRight(x Instr) returns Reg
+	if x.op != Opcode.opCmp 'op'
+		wrongInstr("cmpRight", found: x.op)
+	end 'op'
 	return x.b
 end 'cmpRight'
 
 export function cmpUnsigned(x Instr) returns bool
+	if x.op != Opcode.opCmp 'op'
+		wrongInstr("cmpUnsigned", found: x.op)
+	end 'op'
 	return (x.flags and flagUnsigned) != 0
 end 'cmpUnsigned'
 
 export function fBinOp(x Instr) returns FBinOp
+	if x.op != Opcode.opFBin 'op'
+		wrongInstr("fBinOp", found: x.op)
+	end 'op'
 	return fBinOpOf(x.sub)
 end 'fBinOp'
 
 export function fBinLeft(x Instr) returns Reg
+	if x.op != Opcode.opFBin 'op'
+		wrongInstr("fBinLeft", found: x.op)
+	end 'op'
 	return x.a
 end 'fBinLeft'
 
 export function fBinRight(x Instr) returns Reg
+	if x.op != Opcode.opFBin 'op'
+		wrongInstr("fBinRight", found: x.op)
+	end 'op'
 	return x.b
 end 'fBinRight'
 
 export function fCmpOp(x Instr) returns CmpOp
+	if x.op != Opcode.opFCmp 'op'
+		wrongInstr("fCmpOp", found: x.op)
+	end 'op'
 	return cmpOpOf(x.sub)
 end 'fCmpOp'
 
 export function fCmpLeft(x Instr) returns Reg
+	if x.op != Opcode.opFCmp 'op'
+		wrongInstr("fCmpLeft", found: x.op)
+	end 'op'
 	return x.a
 end 'fCmpLeft'
 
 export function fCmpRight(x Instr) returns Reg
+	if x.op != Opcode.opFCmp 'op'
+		wrongInstr("fCmpRight", found: x.op)
+	end 'op'
 	return x.b
 end 'fCmpRight'
 
 export function fUnaryOp(x Instr) returns FUnaryOp
+	if x.op != Opcode.opFUnary 'op'
+		wrongInstr("fUnaryOp", found: x.op)
+	end 'op'
 	return fUnaryOpOf(x.sub)
 end 'fUnaryOp'
 
 export function fUnarySrc(x Instr) returns Reg
+	if x.op != Opcode.opFUnary 'op'
+		wrongInstr("fUnarySrc", found: x.op)
+	end 'op'
 	return x.a
 end 'fUnarySrc'
 
 export function intToFloatSrc(x Instr) returns Reg
+	if x.op != Opcode.opIntToFloat 'op'
+		wrongInstr("intToFloatSrc", found: x.op)
+	end 'op'
 	return x.a
 end 'intToFloatSrc'
 
 export function intToFloatUnsigned(x Instr) returns bool
+	if x.op != Opcode.opIntToFloat 'op'
+		wrongInstr("intToFloatUnsigned", found: x.op)
+	end 'op'
 	return (x.flags and flagUnsigned) != 0
 end 'intToFloatUnsigned'
 
 export function floatToIntSrc(x Instr) returns Reg
+	if x.op != Opcode.opFloatToInt 'op'
+		wrongInstr("floatToIntSrc", found: x.op)
+	end 'op'
 	return x.a
 end 'floatToIntSrc'
 
 export function negSrc(x Instr) returns Reg
+	if x.op != Opcode.opNeg 'op'
+		wrongInstr("negSrc", found: x.op)
+	end 'op'
 	return x.a
 end 'negSrc'
 
 export function negHasFail(x Instr) returns bool
+	if x.op != Opcode.opNeg 'op'
+		wrongInstr("negHasFail", found: x.op)
+	end 'op'
 	return (x.flags and flagChecked) != 0
 end 'negHasFail'
 
@@ -1870,112 +2292,193 @@ export function negFail(x Instr) returns table.Option with BlockID
 end 'negFail'
 
 export function notSrc(x Instr) returns Reg
+	if x.op != Opcode.opNot 'op'
+		wrongInstr("notSrc", found: x.op)
+	end 'op'
 	return x.a
 end 'notSrc'
 
 export function guardSrc(x Instr) returns Reg
+	if x.op != Opcode.opGuard 'op'
+		wrongInstr("guardSrc", found: x.op)
+	end 'op'
 	return x.a
 end 'guardSrc'
 
 export function guardKind(x Instr) returns GuardKind
+	if x.op != Opcode.opGuard 'op'
+		wrongInstr("guardKind", found: x.op)
+	end 'op'
 	return guardKindOf(x.sub)
 end 'guardKind'
 
 export function guardBound(x Instr) returns Word
+	if x.op != Opcode.opGuard 'op'
+		wrongInstr("guardBound", found: x.op)
+	end 'op'
 	return x.imm
 end 'guardBound'
 
 export function guardFail(x Instr) returns BlockID
+	if x.op != Opcode.opGuard 'op'
+		wrongInstr("guardFail", found: x.op)
+	end 'op'
 	return x.c as BlockID
 end 'guardFail'
 
 export function lengthSrc(x Instr) returns Reg
+	if x.op != Opcode.opLength 'op'
+		wrongInstr("lengthSrc", found: x.op)
+	end 'op'
 	return x.a
 end 'lengthSrc'
 
 export function lengthOf(x Instr) returns Collection
+	if x.op != Opcode.opLength 'op'
+		wrongInstr("lengthOf", found: x.op)
+	end 'op'
 	return collectionOf(x.sub)
 end 'lengthOf'
 
 export function boundsIndex(x Instr) returns Reg
+	if x.op != Opcode.opBounds 'op'
+		wrongInstr("boundsIndex", found: x.op)
+	end 'op'
 	return x.a
 end 'boundsIndex'
 
 export function boundsLength(x Instr) returns Reg
+	if x.op != Opcode.opBounds 'op'
+		wrongInstr("boundsLength", found: x.op)
+	end 'op'
 	return x.b
 end 'boundsLength'
 
 export function boundsFail(x Instr) returns BlockID
+	if x.op != Opcode.opBounds 'op'
+		wrongInstr("boundsFail", found: x.op)
+	end 'op'
 	return x.c as BlockID
 end 'boundsFail'
 
 export function elemAddrArr(x Instr) returns Reg
+	if x.op != Opcode.opElemAddr 'op'
+		wrongInstr("elemAddrArr", found: x.op)
+	end 'op'
 	return x.a
 end 'elemAddrArr'
 
 export function elemAddrIndex(x Instr) returns Reg
+	if x.op != Opcode.opElemAddr 'op'
+		wrongInstr("elemAddrIndex", found: x.op)
+	end 'op'
 	return x.b
 end 'elemAddrIndex'
 
 export function elemLoadArr(x Instr) returns Reg
+	if x.op != Opcode.opElemLoad 'op'
+		wrongInstr("elemLoadArr", found: x.op)
+	end 'op'
 	return x.a
 end 'elemLoadArr'
 
 export function elemLoadIndex(x Instr) returns Reg
+	if x.op != Opcode.opElemLoad 'op'
+		wrongInstr("elemLoadIndex", found: x.op)
+	end 'op'
 	return x.b
 end 'elemLoadIndex'
 
 export function loadByteSrc(x Instr) returns Reg
+	if x.op != Opcode.opLoadByte 'op'
+		wrongInstr("loadByteSrc", found: x.op)
+	end 'op'
 	return x.a
 end 'loadByteSrc'
 
 export function loadByteIndex(x Instr) returns Reg
+	if x.op != Opcode.opLoadByte 'op'
+		wrongInstr("loadByteIndex", found: x.op)
+	end 'op'
 	return x.b
 end 'loadByteIndex'
 
 export function loadByteOf(x Instr) returns Collection
+	if x.op != Opcode.opLoadByte 'op'
+		wrongInstr("loadByteOf", found: x.op)
+	end 'op'
 	return collectionOf(x.sub)
 end 'loadByteOf'
 
 export function bufferSrc(x Instr) returns Reg
+	if x.op != Opcode.opBuffer 'op'
+		wrongInstr("bufferSrc", found: x.op)
+	end 'op'
 	return x.a
 end 'bufferSrc'
 
 export function wordAtData(x Instr) returns Reg
+	if x.op != Opcode.opWordAt 'op'
+		wrongInstr("wordAtData", found: x.op)
+	end 'op'
 	return x.a
 end 'wordAtData'
 
 export function wordAtIndex(x Instr) returns Reg
+	if x.op != Opcode.opWordAt 'op'
+		wrongInstr("wordAtIndex", found: x.op)
+	end 'op'
 	return x.b
 end 'wordAtIndex'
 
 export function byteAtData(x Instr) returns Reg
+	if x.op != Opcode.opByteAt 'op'
+		wrongInstr("byteAtData", found: x.op)
+	end 'op'
 	return x.a
 end 'byteAtData'
 
 export function byteAtIndex(x Instr) returns Reg
+	if x.op != Opcode.opByteAt 'op'
+		wrongInstr("byteAtIndex", found: x.op)
+	end 'op'
 	return x.b
 end 'byteAtIndex'
 
 export function allocBytes(x Instr) returns Count
+	if x.op != Opcode.opAlloc 'op'
+		wrongInstr("allocBytes", found: x.op)
+	end 'op'
 	return try x.imm as Count otherwise panic("ir: alloc bytes is out of range")
 end 'allocBytes'
 
 export function callCallee(f IrFunction, x Instr) returns ast.FuncID
+	if x.op != Opcode.opCall 'op'
+		wrongInstr("callCallee", found: x.op)
+	end 'op'
 	return f.calleeAt(x.c)
 end 'callCallee'
 
 // callArgsStart is where the args of a Call start in their pool.
 export function callArgsStart(x Instr) returns Count
+	if x.op != Opcode.opCall 'op'
+		wrongInstr("callArgsStart", found: x.op)
+	end 'op'
 	return try x.a as Count otherwise panic("ir: call args is out of range")
 end 'callArgsStart'
 
 // callArgsCount is how many args a Call has.
 export function callArgsCount(x Instr) returns Count
+	if x.op != Opcode.opCall 'op'
+		wrongInstr("callArgsCount", found: x.op)
+	end 'op'
 	return try x.b as Count otherwise panic("ir: call args is out of range")
 end 'callArgsCount'
 
 export function callHasErrReg(x Instr) returns bool
+	if x.op != Opcode.opCall 'op'
+		wrongInstr("callHasErrReg", found: x.op)
+	end 'op'
 	return (x.flags and flagThrows) != 0
 end 'callHasErrReg'
 
@@ -1987,24 +2490,39 @@ export function callErrReg(x Instr) returns table.Option with Reg
 end 'callErrReg'
 
 export function callFloatResult(x Instr) returns bool
+	if x.op != Opcode.opCall 'op'
+		wrongInstr("callFloatResult", found: x.op)
+	end 'op'
 	return (x.flags and flagFloatResult) != 0
 end 'callFloatResult'
 
 export function callRuntimeSymbol(x Instr) returns Rt
+	if x.op != Opcode.opCallRuntime 'op'
+		wrongInstr("callRuntimeSymbol", found: x.op)
+	end 'op'
 	return rtOf(try x.imm as Count otherwise panic("ir: callRuntime symbol is out of range"))
 end 'callRuntimeSymbol'
 
 // callRuntimeArgsStart is where the args of a CallRuntime start in their pool.
 export function callRuntimeArgsStart(x Instr) returns Count
+	if x.op != Opcode.opCallRuntime 'op'
+		wrongInstr("callRuntimeArgsStart", found: x.op)
+	end 'op'
 	return try x.a as Count otherwise panic("ir: callRuntime args is out of range")
 end 'callRuntimeArgsStart'
 
 // callRuntimeArgsCount is how many args a CallRuntime has.
 export function callRuntimeArgsCount(x Instr) returns Count
+	if x.op != Opcode.opCallRuntime 'op'
+		wrongInstr("callRuntimeArgsCount", found: x.op)
+	end 'op'
 	return try x.b as Count otherwise panic("ir: callRuntime args is out of range")
 end 'callRuntimeArgsCount'
 
 export function callRuntimeHasRoutine(x Instr) returns bool
+	if x.op != Opcode.opCallRuntime 'op'
+		wrongInstr("callRuntimeHasRoutine", found: x.op)
+	end 'op'
 	return x.c != noRoutine
 end 'callRuntimeHasRoutine'
 
@@ -2016,20 +2534,32 @@ export function callRuntimeRoutine(f IrFunction, x Instr) returns table.Option w
 end 'callRuntimeRoutine'
 
 export function callRuntimeProven(x Instr) returns bool
+	if x.op != Opcode.opCallRuntime 'op'
+		wrongInstr("callRuntimeProven", found: x.op)
+	end 'op'
 	return (x.flags and flagProven) != 0
 end 'callRuntimeProven'
 
 export function whenBody(f IrFunction, x Instr) returns Count
+	if x.op != Opcode.opWhen 'op'
+		wrongInstr("whenBody", found: x.op)
+	end 'op'
 	return try x.imm as Count otherwise panic("ir: when body is out of range")
 end 'whenBody'
 
 // whenCownsStart is where the cowns of a When start in their pool.
 export function whenCownsStart(x Instr) returns Count
+	if x.op != Opcode.opWhen 'op'
+		wrongInstr("whenCownsStart", found: x.op)
+	end 'op'
 	return try x.a as Count otherwise panic("ir: when cowns is out of range")
 end 'whenCownsStart'
 
 // whenCownsCount is how many cowns a When has.
 export function whenCownsCount(x Instr) returns Count
+	if x.op != Opcode.opWhen 'op'
+		wrongInstr("whenCownsCount", found: x.op)
+	end 'op'
 	return try x.b as Count otherwise panic("ir: when cowns is out of range")
 end 'whenCownsCount'
 
@@ -2040,102 +2570,171 @@ end 'whenCapturesStart'
 
 // whenCapturesCount is how many captures a When has.
 export function whenCapturesCount(x Instr) returns Count
+	if x.op != Opcode.opWhen 'op'
+		wrongInstr("whenCapturesCount", found: x.op)
+	end 'op'
 	return try x.c as Count otherwise panic("ir: when captures is out of range")
 end 'whenCapturesCount'
 
 export function asyncCallee(f IrFunction, x Instr) returns ast.FuncID
+	if x.op != Opcode.opAsync 'op'
+		wrongInstr("asyncCallee", found: x.op)
+	end 'op'
 	return f.calleeAt(x.c)
 end 'asyncCallee'
 
 // asyncArgsStart is where the args of an Async start in their pool.
 export function asyncArgsStart(x Instr) returns Count
+	if x.op != Opcode.opAsync 'op'
+		wrongInstr("asyncArgsStart", found: x.op)
+	end 'op'
 	return try x.a as Count otherwise panic("ir: async args is out of range")
 end 'asyncArgsStart'
 
 // asyncArgsCount is how many args an Async has.
 export function asyncArgsCount(x Instr) returns Count
+	if x.op != Opcode.opAsync 'op'
+		wrongInstr("asyncArgsCount", found: x.op)
+	end 'op'
 	return try x.b as Count otherwise panic("ir: async args is out of range")
 end 'asyncArgsCount'
 
 export function closureBody(f IrFunction, x Instr) returns Count
+	if x.op != Opcode.opClosure 'op'
+		wrongInstr("closureBody", found: x.op)
+	end 'op'
 	return try x.imm as Count otherwise panic("ir: closure body is out of range")
 end 'closureBody'
 
 // closureCapturesStart is where the captures of a Closure start in their pool.
 export function closureCapturesStart(x Instr) returns Count
+	if x.op != Opcode.opClosure 'op'
+		wrongInstr("closureCapturesStart", found: x.op)
+	end 'op'
 	return try x.a as Count otherwise panic("ir: closure captures is out of range")
 end 'closureCapturesStart'
 
 // closureCapturesCount is how many captures a Closure has.
 export function closureCapturesCount(x Instr) returns Count
+	if x.op != Opcode.opClosure 'op'
+		wrongInstr("closureCapturesCount", found: x.op)
+	end 'op'
 	return try x.b as Count otherwise panic("ir: closure captures is out of range")
 end 'closureCapturesCount'
 
 export function funcValueCallee(f IrFunction, x Instr) returns ast.FuncID
+	if x.op != Opcode.opFuncValue 'op'
+		wrongInstr("funcValueCallee", found: x.op)
+	end 'op'
 	return f.calleeAt(x.c)
 end 'funcValueCallee'
 
 // callValueArgsStart is where the args of a CallValue start in their pool.
 export function callValueArgsStart(x Instr) returns Count
+	if x.op != Opcode.opCallValue 'op'
+		wrongInstr("callValueArgsStart", found: x.op)
+	end 'op'
 	return try x.a as Count otherwise panic("ir: callValue args is out of range")
 end 'callValueArgsStart'
 
 // callValueArgsCount is how many args a CallValue has.
 export function callValueArgsCount(x Instr) returns Count
+	if x.op != Opcode.opCallValue 'op'
+		wrongInstr("callValueArgsCount", found: x.op)
+	end 'op'
 	return try x.b as Count otherwise panic("ir: callValue args is out of range")
 end 'callValueArgsCount'
 
 export function callValueFloatResult(x Instr) returns bool
+	if x.op != Opcode.opCallValue 'op'
+		wrongInstr("callValueFloatResult", found: x.op)
+	end 'op'
 	return (x.flags and flagFloatResult) != 0
 end 'callValueFloatResult'
 
 export function boxTable(f IrFunction, x Instr) returns WitnessTable
+	if x.op != Opcode.opBox 'op'
+		wrongInstr("boxTable", found: x.op)
+	end 'op'
 	return f.tableAt(x.c)
 end 'boxTable'
 
 export function boxValue(x Instr) returns Reg
+	if x.op != Opcode.opBox 'op'
+		wrongInstr("boxValue", found: x.op)
+	end 'op'
 	return x.a
 end 'boxValue'
 
 export function frameBoxTable(f IrFunction, x Instr) returns WitnessTable
+	if x.op != Opcode.opFrameBox 'op'
+		wrongInstr("frameBoxTable", found: x.op)
+	end 'op'
 	return f.tableAt(x.c)
 end 'frameBoxTable'
 
 export function frameBoxValue(x Instr) returns Reg
+	if x.op != Opcode.opFrameBox 'op'
+		wrongInstr("frameBoxValue", found: x.op)
+	end 'op'
 	return x.a
 end 'frameBoxValue'
 
 export function frameBoxBox(x Instr) returns Count
+	if x.op != Opcode.opFrameBox 'op'
+		wrongInstr("frameBoxBox", found: x.op)
+	end 'op'
 	return try x.imm as Count otherwise panic("ir: frameBox box is out of range")
 end 'frameBoxBox'
 
 export function frameAreaWords(x Instr) returns Count
+	if x.op != Opcode.opFrameArea 'op'
+		wrongInstr("frameAreaWords", found: x.op)
+	end 'op'
 	return try x.c as Count otherwise panic("ir: frameArea words is out of range")
 end 'frameAreaWords'
 
 export function frameAreaBox(x Instr) returns Count
+	if x.op != Opcode.opFrameArea 'op'
+		wrongInstr("frameAreaBox", found: x.op)
+	end 'op'
 	return try x.imm as Count otherwise panic("ir: frameArea box is out of range")
 end 'frameAreaBox'
 
 export function callWitnessRecv(x Instr) returns ReceiverConv
+	if x.op != Opcode.opCallWitness 'op'
+		wrongInstr("callWitnessRecv", found: x.op)
+	end 'op'
 	return receiverConvOf(x.sub)
 end 'callWitnessRecv'
 
 export function callWitnessSlot(x Instr) returns Count
+	if x.op != Opcode.opCallWitness 'op'
+		wrongInstr("callWitnessSlot", found: x.op)
+	end 'op'
 	return try x.c as Count otherwise panic("ir: callWitness slot is out of range")
 end 'callWitnessSlot'
 
 // callWitnessArgsStart is where the args of a CallWitness start in their pool.
 export function callWitnessArgsStart(x Instr) returns Count
+	if x.op != Opcode.opCallWitness 'op'
+		wrongInstr("callWitnessArgsStart", found: x.op)
+	end 'op'
 	return try x.a as Count otherwise panic("ir: callWitness args is out of range")
 end 'callWitnessArgsStart'
 
 // callWitnessArgsCount is how many args a CallWitness has.
 export function callWitnessArgsCount(x Instr) returns Count
+	if x.op != Opcode.opCallWitness 'op'
+		wrongInstr("callWitnessArgsCount", found: x.op)
+	end 'op'
 	return try x.b as Count otherwise panic("ir: callWitness args is out of range")
 end 'callWitnessArgsCount'
 
 export function callWitnessHasErrReg(x Instr) returns bool
+	if x.op != Opcode.opCallWitness 'op'
+		wrongInstr("callWitnessHasErrReg", found: x.op)
+	end 'op'
 	return (x.flags and flagThrows) != 0
 end 'callWitnessHasErrReg'
 
@@ -2147,90 +2746,153 @@ export function callWitnessErrReg(x Instr) returns table.Option with Reg
 end 'callWitnessErrReg'
 
 export function callWitnessFloatResult(x Instr) returns bool
+	if x.op != Opcode.opCallWitness 'op'
+		wrongInstr("callWitnessFloatResult", found: x.op)
+	end 'op'
 	return (x.flags and flagFloatResult) != 0
 end 'callWitnessFloatResult'
 
 export function isTypeSrc(x Instr) returns Reg
+	if x.op != Opcode.opIsType 'op'
+		wrongInstr("isTypeSrc", found: x.op)
+	end 'op'
 	return x.a
 end 'isTypeSrc'
 
 export function isTypeTy(f IrFunction, x Instr) returns ast.TypeID
+	if x.op != Opcode.opIsType 'op'
+		wrongInstr("isTypeTy", found: x.op)
+	end 'op'
 	return f.typeAt(x.c)
 end 'isTypeTy'
 
 export function dropSrc(x Instr) returns Reg
+	if x.op != Opcode.opDrop 'op'
+		wrongInstr("dropSrc", found: x.op)
+	end 'op'
 	return x.a
 end 'dropSrc'
 
 export function dropTy(f IrFunction, x Instr) returns ast.TypeID
+	if x.op != Opcode.opDrop 'op'
+		wrongInstr("dropTy", found: x.op)
+	end 'op'
 	return f.typeAt(x.c)
 end 'dropTy'
 
 export function dropSlotSlot(x Instr) returns Count
+	if x.op != Opcode.opDropSlot 'op'
+		wrongInstr("dropSlotSlot", found: x.op)
+	end 'op'
 	return try x.imm as Count otherwise panic("ir: dropSlot slot is out of range")
 end 'dropSlotSlot'
 
 export function dropSlotTy(f IrFunction, x Instr) returns ast.TypeID
+	if x.op != Opcode.opDropSlot 'op'
+		wrongInstr("dropSlotTy", found: x.op)
+	end 'op'
 	return f.typeAt(x.c)
 end 'dropSlotTy'
 
 export function dropAtAddr(x Instr) returns Reg
+	if x.op != Opcode.opDropAt 'op'
+		wrongInstr("dropAtAddr", found: x.op)
+	end 'op'
 	return x.a
 end 'dropAtAddr'
 
 export function dropAtTy(f IrFunction, x Instr) returns ast.TypeID
+	if x.op != Opcode.opDropAt 'op'
+		wrongInstr("dropAtTy", found: x.op)
+	end 'op'
 	return f.typeAt(x.c)
 end 'dropAtTy'
 
 export function moveSlotSlot(x Instr) returns Count
+	if x.op != Opcode.opMoveSlot 'op'
+		wrongInstr("moveSlotSlot", found: x.op)
+	end 'op'
 	return try x.imm as Count otherwise panic("ir: moveSlot slot is out of range")
 end 'moveSlotSlot'
 
 export function moveAtAddr(x Instr) returns Reg
+	if x.op != Opcode.opMoveAt 'op'
+		wrongInstr("moveAtAddr", found: x.op)
+	end 'op'
 	return x.a
 end 'moveAtAddr'
 
 export function copySrc(x Instr) returns Reg
+	if x.op != Opcode.opCopy 'op'
+		wrongInstr("copySrc", found: x.op)
+	end 'op'
 	return x.a
 end 'copySrc'
 
 export function copyTy(f IrFunction, x Instr) returns ast.TypeID
+	if x.op != Opcode.opCopy 'op'
+		wrongInstr("copyTy", found: x.op)
+	end 'op'
 	return f.typeAt(x.c)
 end 'copyTy'
 
 export function jumpTarget(t Term) returns BlockID
+	if t.kind != TermKind.termJump 'kind'
+		wrongTerm("jumpTarget", found: t.kind)
+	end 'kind'
 	return t.target
 end 'jumpTarget'
 
 // jumpArgsStart is where the args of a Jump start in their pool.
 export function jumpArgsStart(t Term) returns Count
+	if t.kind != TermKind.termJump 'kind'
+		wrongTerm("jumpArgsStart", found: t.kind)
+	end 'kind'
 	return try t.args as Count otherwise panic("ir: jump args is out of range")
 end 'jumpArgsStart'
 
 // jumpArgsCount is how many args a Jump has.
 export function jumpArgsCount(t Term) returns Count
+	if t.kind != TermKind.termJump 'kind'
+		wrongTerm("jumpArgsCount", found: t.kind)
+	end 'kind'
 	return try t.targetArgs as Count otherwise panic("ir: jump args is out of range")
 end 'jumpArgsCount'
 
 export function branchCond(t Term) returns Reg
+	if t.kind != TermKind.termBranch 'kind'
+		wrongTerm("branchCond", found: t.kind)
+	end 'kind'
 	return t.value
 end 'branchCond'
 
 export function branchIfTrue(t Term) returns BlockID
+	if t.kind != TermKind.termBranch 'kind'
+		wrongTerm("branchIfTrue", found: t.kind)
+	end 'kind'
 	return t.target
 end 'branchIfTrue'
 
 // branchTrueArgsStart is where the trueArgs of a Branch start in their pool.
 export function branchTrueArgsStart(t Term) returns Count
+	if t.kind != TermKind.termBranch 'kind'
+		wrongTerm("branchTrueArgsStart", found: t.kind)
+	end 'kind'
 	return try t.args as Count otherwise panic("ir: branch trueArgs is out of range")
 end 'branchTrueArgsStart'
 
 // branchTrueArgsCount is how many trueArgs a Branch has.
 export function branchTrueArgsCount(t Term) returns Count
+	if t.kind != TermKind.termBranch 'kind'
+		wrongTerm("branchTrueArgsCount", found: t.kind)
+	end 'kind'
 	return try t.targetArgs as Count otherwise panic("ir: branch trueArgs is out of range")
 end 'branchTrueArgsCount'
 
 export function branchIfFalse(t Term) returns BlockID
+	if t.kind != TermKind.termBranch 'kind'
+		wrongTerm("branchIfFalse", found: t.kind)
+	end 'kind'
 	return t.other
 end 'branchIfFalse'
 
@@ -2241,42 +2903,69 @@ end 'branchFalseArgsStart'
 
 // branchFalseArgsCount is how many falseArgs a Branch has.
 export function branchFalseArgsCount(t Term) returns Count
+	if t.kind != TermKind.termBranch 'kind'
+		wrongTerm("branchFalseArgsCount", found: t.kind)
+	end 'kind'
 	return try t.otherArgs as Count otherwise panic("ir: branch falseArgs is out of range")
 end 'branchFalseArgsCount'
 
 export function switchValue(t Term) returns Reg
+	if t.kind != TermKind.termSwitch 'kind'
+		wrongTerm("switchValue", found: t.kind)
+	end 'kind'
 	return t.value
 end 'switchValue'
 
 // switchCasesStart is where the cases of a Switch start in their pool.
 export function switchCasesStart(t Term) returns Count
+	if t.kind != TermKind.termSwitch 'kind'
+		wrongTerm("switchCasesStart", found: t.kind)
+	end 'kind'
 	return try t.first as Count otherwise panic("ir: switch cases is out of range")
 end 'switchCasesStart'
 
 // switchCasesCount is how many cases a Switch has.
 export function switchCasesCount(t Term) returns Count
+	if t.kind != TermKind.termSwitch 'kind'
+		wrongTerm("switchCasesCount", found: t.kind)
+	end 'kind'
 	return try t.count as Count otherwise panic("ir: switch cases is out of range")
 end 'switchCasesCount'
 
 export function switchFallback(t Term) returns BlockID
+	if t.kind != TermKind.termSwitch 'kind'
+		wrongTerm("switchFallback", found: t.kind)
+	end 'kind'
 	return t.target
 end 'switchFallback'
 
 // switchFallbackArgsStart is where the fallbackArgs of a Switch start in their pool.
 export function switchFallbackArgsStart(t Term) returns Count
+	if t.kind != TermKind.termSwitch 'kind'
+		wrongTerm("switchFallbackArgsStart", found: t.kind)
+	end 'kind'
 	return try t.args as Count otherwise panic("ir: switch fallbackArgs is out of range")
 end 'switchFallbackArgsStart'
 
 // switchFallbackArgsCount is how many fallbackArgs a Switch has.
 export function switchFallbackArgsCount(t Term) returns Count
+	if t.kind != TermKind.termSwitch 'kind'
+		wrongTerm("switchFallbackArgsCount", found: t.kind)
+	end 'kind'
 	return try t.targetArgs as Count otherwise panic("ir: switch fallbackArgs is out of range")
 end 'switchFallbackArgsCount'
 
 export function retValue(t Term) returns Reg
+	if t.kind != TermKind.termRet 'kind'
+		wrongTerm("retValue", found: t.kind)
+	end 'kind'
 	return t.value
 end 'retValue'
 
 export function throwErr(t Term) returns Reg
+	if t.kind != TermKind.termThrow 'kind'
+		wrongTerm("throwErr", found: t.kind)
+	end 'kind'
 	return t.value
 end 'throwErr'
 
