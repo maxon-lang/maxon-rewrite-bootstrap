@@ -1,0 +1,301 @@
+// The engine's answers, maxon's DebugReply, and the one JSON object per line that `debug --batch` writes for each, maxon's
+// DebugEvents: the keys, their order and the absence of a list (null beside a `<key>Unavailable` reason) are maxon's.
+
+export typealias CountList = Array with Count
+
+export type Frame
+	export var number as Count
+	export var functionName as String
+	export var file as String
+	export var line as Count
+	export var column as Count
+	export var offset as Count
+	export var inlined as bool
+
+	export static function make(number Count, consumes functionName String, consumes file String, line Count, column Count, offset Count, inlined bool) returns Frame
+		return Frame{number: number, functionName: functionName, file: file, line: line, column: column, offset: offset, inlined: inlined}
+	end 'make'
+end 'Frame'
+
+export typealias FrameList = Array with Frame
+
+export type SourceLine
+	export var line as Count
+	export var text as String
+	export var current as bool
+
+	export static function make(line Count, consumes text String, current bool) returns SourceLine
+		return SourceLine{line: line, text: text, current: current}
+	end 'make'
+end 'SourceLine'
+
+export typealias SourceLines = Array with SourceLine
+
+// StopReport is a stop as maxon's `stop` event has it; an empty fault or function is none.
+export type StopReport
+	export var reason as String
+	export var fault as String
+	export var functionName as String
+	export var file as String
+	export var line as Count
+	export var column as Count
+	export var offset as Count
+	export var machine as Count
+	export var source as SourceLines
+	export var frames as FrameList
+
+	export static function make(consumes reason String, consumes fault String, consumes functionName String, consumes file String, line Count, column Count, offset Count, machine Count, consumes source SourceLines, consumes frames FrameList) returns StopReport
+		return StopReport{reason: reason, fault: fault, functionName: functionName, file: file, line: line, column: column, offset: offset, machine: machine, source: source, frames: frames}
+	end 'make'
+end 'StopReport'
+
+// BreakAnswer is maxon's answer to `break` and `clear`: an empty function or reason is none.
+export type BreakAnswer
+	export var action as String
+	export var functionName as String
+	export var file as String
+	export var line as Count
+	export var offsets as CountList
+	export var candidates as StringArray
+	export var reason as String
+
+	export static function make(consumes action String, consumes functionName String, consumes file String, line Count, consumes offsets CountList) returns BreakAnswer
+		return BreakAnswer{action: action, functionName: functionName, file: file, line: line, offsets: offsets, candidates: StringArray.create(0), reason: ""}
+	end 'make'
+end 'BreakAnswer'
+
+// ValueNode is a value as maxon's tree has it: its name, type, kind and display, why it cannot be read (empty when it
+// can), and its children by their indices in the tree.
+export type ValueNode
+	export var name as String
+	export var typeName as String
+	export var kind as String
+	export var display as String
+	export var unavailable as String
+	export var children as CountList
+
+	export static function make(consumes name String, consumes typeName String, consumes kind String, consumes display String, consumes unavailable String, consumes children CountList) returns ValueNode
+		return ValueNode{name: name, typeName: typeName, kind: kind, display: display, unavailable: unavailable, children: children}
+	end 'make'
+end 'ValueNode'
+
+export type ValueTree
+	export var nodes as Array with ValueNode
+	export var roots as CountList
+
+	export static function new() returns ValueTree
+		return ValueTree{nodes: Array.create(0), roots: CountList.create(0)}
+	end 'new'
+
+	// add puts a node in the tree and gives its index.
+	export function add(mutates self, consumes node ValueNode) returns Count
+		nodes.push(node)
+		return try nodes.count() - 1 otherwise panic("debugger: an empty tree")
+	end 'add'
+end 'ValueTree'
+
+export union DebugReply
+	breakpoint(answer BreakAnswer)
+	stopped(stop StopReport)
+	walked(frames FrameList)
+	locals(functionName String, values ValueTree)
+	value(tree ValueTree)
+	exited(code Count)
+	crashed(status Count)
+	timedOut(waitingFor String)
+	failed(message String)
+	spoken(lines StringArray)
+	quit
+end 'DebugReply'
+
+export typealias DebugReplies = Array with DebugReply
+
+// eventLine is the JSON object of a reply, or none for a reply that has none (help's lines, quit).
+export function eventLine(reply DebugReply) returns table.Option with String
+	return match reply 'which'
+		breakpoint(answer) gives table.Option.some(breakpointObject(answer))
+		stopped(stop) gives table.Option.some(stopObject(stop))
+		walked(frames) gives table.Option.some("\{\"event\":\"backtrace\",{listOrAbsence("frames", list: frameArray(frames), present: frames.count() > 0, reason: noBacktraceReason)}\}")
+		locals(functionName, values) gives table.Option.some("\{\"event\":\"locals\"{functionField(functionName)},\"locals\":{valueArray(values, indices: values.roots)}\}")
+		value(tree) gives table.Option.some("\{\"event\":\"value\",\"value\":{valueObject(tree, index: tree.roots[0])}\}")
+		exited(code) gives table.Option.some("\{\"event\":\"exit\",\"code\":{code}\}")
+		crashed(status) gives table.Option.some("\{\"event\":\"crash\",\"status\":{jsonString(hexWord(status))}\}")
+		timedOut(waitingFor) gives table.Option.some("\{\"event\":\"timeout\",\"waitingFor\":{jsonString(waitingFor)}\}")
+		failed(message) gives table.Option.some("\{\"event\":\"error\",\"message\":{jsonString(message)}\}")
+		spoken(lines) gives table.Option.none
+		quit gives table.Option.none
+	end 'which'
+end 'eventLine'
+
+let noSourceReason = "no-source-file"
+
+let noBacktraceReason = "not-walkable"
+
+function breakpointObject(answer BreakAnswer) returns String
+	var out = "\{\"event\":\"breakpoint\",\"action\":{jsonString(answer.action)}{functionField(answer.functionName)},\"file\":{jsonString(answer.file)},\"line\":{answer.line}"
+	if answer.offsets.count() > 0 'resolved'
+		out = "{out},\"offset\":{jsonString(hexWord(answer.offsets[0]))}"
+	end 'resolved'
+	if answer.offsets.count() > 1 'several'
+		var spelled = StringArray.create(0)
+		for i in 0 upto answer.offsets.count() 'offsets'
+			spelled.push(hexWord(answer.offsets[i]))
+		end 'offsets'
+		out = "{out},\"offsets\":{stringArray(spelled)}"
+	end 'several'
+	if answer.candidates.count() > 0 'candidates'
+		out = "{out},\"candidates\":{stringArray(answer.candidates)}"
+	end 'candidates'
+	if answer.reason != "" 'reason'
+		out = "{out},\"reason\":{jsonString(answer.reason)}"
+	end 'reason'
+	return "{out}\}"
+end 'breakpointObject'
+
+function stopObject(stop StopReport) returns String
+	var out = "\{\"event\":\"stop\",\"reason\":{jsonString(stop.reason)}"
+	if stop.fault != "" 'fault'
+		out = "{out},\"fault\":{jsonString(stop.fault)}"
+	end 'fault'
+	out = "{out}{functionField(stop.functionName)},\"file\":{jsonString(stop.file)},\"line\":{stop.line},\"col\":{stop.column},\"offset\":{jsonString(hexWord(stop.offset))},\"machine\":{stop.machine}"
+	out = "{out},{listOrAbsence("source", list: sourceArray(stop.source), present: stop.source.count() > 0, reason: noSourceReason)}"
+	out = "{out},{listOrAbsence("backtrace", list: frameArray(stop.frames), present: stop.frames.count() > 0, reason: noBacktraceReason)}"
+	return "{out}\}"
+end 'stopObject'
+
+function functionField(functionName String) returns String
+	return "" if functionName == "" else ",\"function\":{jsonString(functionName)}"
+end 'functionField'
+
+// listOrAbsence is a list under its key, or null beside a `<key>Unavailable` reason, never [].
+function listOrAbsence(key String, list String, present bool, reason String) returns String
+	if present 'list'
+		return "\"{key}\":{list}"
+	end 'list'
+	return "\"{key}\":null,\"{key}Unavailable\":{jsonString(reason)}"
+end 'listOrAbsence'
+
+function frameArray(frames FrameList) returns String
+	var out = ByteArray.create(0)
+	out.push(openBracket)
+	for i in 0 upto frames.count() 'frames'
+		if i > 0 'comma'
+			out.push(comma)
+		end 'comma'
+		let f = frames[i].clone()
+		var text = "\{\"frame\":{f.number},\"function\":{jsonString(f.functionName)},\"file\":{jsonString(f.file)},\"line\":{f.line},\"col\":{f.column},\"offset\":{jsonString(hexWord(f.offset))}"
+		if f.inlined 'inlined'
+			text = "{text},\"inlined\":true"
+		end 'inlined'
+		out.append("{text}\}".toByteArray())
+	end 'frames'
+	out.push(closeBracket)
+	return String.from(out)
+end 'frameArray'
+
+function sourceArray(lines SourceLines) returns String
+	var out = ByteArray.create(0)
+	out.push(openBracket)
+	for i in 0 upto lines.count() 'lines'
+		if i > 0 'comma'
+			out.push(comma)
+		end 'comma'
+		out.append("\{\"line\":{lines[i].line},\"text\":{jsonString(lines[i].text)},\"current\":{lines[i].current}\}".toByteArray())
+	end 'lines'
+	out.push(closeBracket)
+	return String.from(out)
+end 'sourceArray'
+
+function valueArray(tree ValueTree, indices CountList) returns String
+	var out = ByteArray.create(0)
+	out.push(openBracket)
+	for i in 0 upto indices.count() 'values'
+		if i > 0 'comma'
+			out.push(comma)
+		end 'comma'
+		out.append(valueObject(tree, index: indices[i]).toByteArray())
+	end 'values'
+	out.push(closeBracket)
+	return String.from(out)
+end 'valueArray'
+
+function valueObject(tree ValueTree, index Count) returns String
+	let node = tree.nodes[index].clone()
+	var out = "\{\"name\":{jsonString(node.name)},\"type\":{jsonString(node.typeName)},\"kind\":{jsonString(node.kind)},\"display\":{jsonString(node.display)}"
+	if node.unavailable != "" 'unavailable'
+		out = "{out},\"unavailable\":{jsonString(node.unavailable)}"
+	end 'unavailable'
+	if node.children.count() > 0 'children'
+		out = "{out},\"children\":{valueArray(tree, indices: node.children)}"
+	end 'children'
+	return "{out}\}"
+end 'valueObject'
+
+function stringArray(values StringArray) returns String
+	var out = ByteArray.create(0)
+	out.push(openBracket)
+	for i in 0 upto values.count() 'values'
+		if i > 0 'comma'
+			out.push(comma)
+		end 'comma'
+		out.append(jsonString(values[i]).toByteArray())
+	end 'values'
+	out.push(closeBracket)
+	return String.from(out)
+end 'stringArray'
+
+let openBracket = 91 as Byte
+
+let closeBracket = 93 as Byte
+
+let comma = 44 as Byte
+
+let quoteByte = 34 as Byte
+
+let backslashByte = 92 as Byte
+
+let firstPrintable = 32 as Byte
+
+// shortEscape is the letter of the two-byte escape of a control byte, maxon's Json: backspace, form feed, newline,
+// carriage return and tab, or 0 for one with none.
+function shortEscape(b Byte) returns Byte
+	if b == 8 'backspace'
+		return 98
+	end 'backspace'
+	if b == 12 'formFeed'
+		return 102
+	end 'formFeed'
+	if b == 10 'newline'
+		return 110
+	end 'newline'
+	if b == 13 'carriageReturn'
+		return 114
+	end 'carriageReturn'
+	if b == 9 'tab'
+		return 116
+	end 'tab'
+	return 0
+end 'shortEscape'
+
+// jsonString is a string as JSON writes it: quoted, with a quote, a backslash and a control character escaped, as
+// maxon's Json writes it.
+export function jsonString(text String) returns String
+	var out = ByteArray.create(0)
+	out.push(quoteByte)
+	for i in 0 upto text.byteLength() 'bytes'
+		let b = text.byteAt(i)
+		if b == quoteByte or b == backslashByte 'escaped'
+			out.push(backslashByte)
+			out.push(b)
+		end 'escaped' else if shortEscape(b) != 0 'short'
+			out.push(backslashByte)
+			out.push(shortEscape(b))
+		end 'short' else if b < firstPrintable 'control'
+			out.append("\\u00{hexDigitsText.sliceBytes(b as Count shr 4, endPos: (b as Count shr 4) + 1)}{hexDigitsText.sliceBytes(b as Count and 15, endPos: (b as Count and 15) + 1)}".toByteArray())
+		end 'control' else 'plain'
+			out.push(b)
+		end 'plain'
+	end 'bytes'
+	out.push(quoteByte)
+	return String.from(out)
+end 'jsonString'

@@ -1,0 +1,461 @@
+// Values read out of the stopped program by the sidecar's locals and types, maxon's DebugValue in minimaxon's layout
+// (README, "Debug info"): a word is its value, a String two words in place (the address of its bytes, then its length
+// shifted past its flags), a record, a union and an array the address of a box (a union's first word its case index, its
+// payload after it; an array's length first and its buffer's address third), an enum its case index.
+
+let optimizedOutReason = "optimized-out"
+
+let notLiveHereReason = "not-live-here"
+
+let readFailedReason = "read-failed"
+
+let layoutNotDescribedReason = "layout-not-described"
+
+let nullDisplay = "<null>"
+
+let structDisplay = "\{…\}"
+
+let voidPayloadName = "Void"
+
+let boolTypeName = "Bool"
+
+let byteTypeName = "Byte"
+
+// The most children and text bytes a value shows, maxon's.
+let mostChildren = 32 as Count
+
+let mostTextBytes = 256 as Count
+
+// The layout of a String's word and of an array's box (self/backend/layout_gen.maxon).
+let stringLengthShift = 3 as Count
+
+let arrayLengthAt = 0 as Count
+
+let arrayDataAt = 16 as Count
+
+let stringValueBytes = 16 as Count
+
+let unionPayloadAt = 8 as Count
+
+// Source is where a value is: words already read (a String's two), a place in the program's memory, or nowhere.
+union Source
+	words(first Count, second Count)
+	memory(address Count)
+	nowhere
+end 'Source'
+
+// Reading is what a value is read with: the program's memory, the sidecar, and the stopped frame's registers and frame
+// pointer.
+export type Reading
+	export var context as ByteArray
+	export var fp as Count
+
+	export static function make(consumes context ByteArray, fp Count) returns Reading
+		return Reading{context: context, fp: fp}
+	end 'make'
+end 'Reading'
+
+// renderLocals is the locals of the function at the stop that hold a value at its offset, each name once, in the order the
+// sidecar lists them.
+export function renderLocals(host WindowsHost, reader mxdbg.MxdbgReader, f Count, offset Count, reading Reading) returns ValueTree
+	var tree = ValueTree.new()
+	var names = StringArray.create(0)
+	let first = reader.funcLocalFirst(f)
+	for k in first upto plus(first, by: reader.funcLocalCount(f)) 'locals'
+		if not names.contains(reader.localName(k)) 'new'
+			names.push(reader.localName(k))
+		end 'new'
+	end 'locals'
+	for i in 0 upto names.count() 'names'
+		let index = renderLocal(tree, host: host, reader: reader, f: f, offset: offset, reading: reading, name: names[i])
+		tree.roots.push(index)
+	end 'names'
+	return tree
+end 'renderLocals'
+
+// hasLocal is whether the function at the stop has a local of the name.
+export function hasLocal(reader mxdbg.MxdbgReader, f Count, name String) returns bool
+	let first = reader.funcLocalFirst(f)
+	for k in first upto plus(first, by: reader.funcLocalCount(f)) 'locals'
+		if reader.localName(k) == name 'found'
+			return true
+		end 'found'
+	end 'locals'
+	return false
+end 'hasLocal'
+
+// renderLocal is one local of a name: the record of its first word that holds at the offset, and a String's record of its
+// second word.
+export function renderLocal(mutates tree ValueTree, host WindowsHost, reader mxdbg.MxdbgReader, f Count, offset Count, reading Reading, name String) returns Count
+	let first = reader.funcLocalFirst(f)
+	var held as table.Option with Count
+	var second as table.Option with Count
+	held = table.Option.none
+	second = table.Option.none
+	var optimizedOut = false
+	var typeId = 0 as Count
+	for k in first upto plus(first, by: reader.funcLocalCount(f)) 'locals'
+		if reader.localName(k) != name 'other'
+			continue 'locals'
+		end 'other'
+		typeId = reader.localType(k) as Count
+		if reader.localKind(k) == mxdbg.MxdbgLocKindOptimizedOut 'gone'
+			optimizedOut = true
+			continue 'locals'
+		end 'gone'
+		if reader.localStart(k) <= offset and offset < reader.localEnd(k) 'live'
+			if (reader.localFlags(k) and mxdbg.MxdbgLocalFlagSecondWord) != 0 'second'
+				second = table.Option.some(k)
+			end 'second' else 'first'
+				held = table.Option.some(k)
+			end 'first'
+		end 'live'
+	end 'locals'
+	let typeName = reader.typeName(typeId)
+	if not held.isSome() 'missing'
+		if optimizedOut 'gone'
+			return missing(tree, name: name, typeName: typeName, kind: "", reason: optimizedOutReason)
+		end 'gone'
+		return missing(tree, name: name, typeName: "", kind: "", reason: notLiveHereReason)
+	end 'missing'
+	let w1 = recordWord(host, record: held.unwrap(), reader: reader, reading: reading)
+	if not w1.isSome() 'unread'
+		return missing(tree, name: name, typeName: typeName, kind: "", reason: readFailedReason)
+	end 'unread'
+	var w2 = 0 as Count
+	if reader.typeKind(typeId) == mxdbg.MxdbgTypeKindString 'string'
+		if not second.isSome() 'noLength'
+			return missing(tree, name: name, typeName: typeName, kind: "", reason: notLiveHereReason)
+		end 'noLength'
+		let read = recordWord(host, record: second.unwrap(), reader: reader, reading: reading)
+		if not read.isSome() 'unreadLength'
+			return missing(tree, name: name, typeName: typeName, kind: "", reason: readFailedReason)
+		end 'unreadLength'
+		w2 = read.unwrap()
+	end 'string'
+	return renderTyped(tree, host: host, reader: reader, name: name, typeId: typeId, source: Source.words(w1.unwrap(), second: w2))
+end 'renderLocal'
+
+// recordWord is the word a local's record says where to find: a register of the stopped frame, or a slot from its frame
+// pointer.
+function recordWord(host WindowsHost, record Count, reader mxdbg.MxdbgReader, reading Reading) returns table.Option with Count
+	let kind = reader.localKind(record)
+	let value = reader.localValue(record)
+	if kind == mxdbg.MxdbgLocKindRegister 'register'
+		if value < 0 or value as Count >= registerFileSize 'notARegister'
+			return table.Option.none
+		end 'notARegister'
+		if value as Count >= generalRegisters 'vector'
+			return table.Option.some(contextVectorLow(reading.context, number: try value as Count - generalRegisters otherwise 0))
+		end 'vector'
+		return table.Option.some(contextRegister(reading.context, number: value as Count))
+	end 'register'
+	if kind == mxdbg.MxdbgLocKindStackSlot 'slot'
+		let displacement = value as Word
+		return host.readWord(plus(reading.fp, by: displacement as Count))
+	end 'slot'
+	return table.Option.none
+end 'recordWord'
+
+function missing(mutates tree ValueTree, name String, typeName String, kind String, reason String) returns Count
+	return tree.add(ValueNode.make(name.clone(), typeName: typeName.clone(), kind: kind.clone(), display: "", unavailable: reason.clone(), children: CountList.create(0)))
+end 'missing'
+
+function rendered(mutates tree ValueTree, name String, typeName String, kind String, consumes display String) returns Count
+	return tree.add(ValueNode.make(name.clone(), typeName: typeName.clone(), kind: kind.clone(), display: display, unavailable: "", children: CountList.create(0)))
+end 'rendered'
+
+function withChildren(mutates tree ValueTree, name String, typeName String, kind String, consumes display String, consumes children CountList) returns Count
+	return tree.add(ValueNode.make(name.clone(), typeName: typeName.clone(), kind: kind.clone(), display: display, unavailable: "", children: children))
+end 'withChildren'
+
+// firstWord is the word a value is: the one read, or the one at its place.
+function firstWord(host WindowsHost, source Source) returns table.Option with Count
+	return match source 'source'
+		words(first, second) gives table.Option.some(first)
+		memory(address) gives host.readWord(address)
+		nowhere gives table.Option.none
+	end 'source'
+end 'firstWord'
+
+// renderTyped renders a value of a type from where it is.
+function renderTyped(mutates tree ValueTree, host WindowsHost, reader mxdbg.MxdbgReader, name String, typeId Count, source Source) returns Count
+	let typeName = reader.typeName(typeId)
+	let kindWord = reader.typeKind(typeId)
+	let kind = mxdbg.mxdbgTypeKindName(kindWord)
+	if kindWord == mxdbg.MxdbgTypeKindString 'string'
+		return renderString(tree, host: host, name: name, typeName: typeName, kind: kind, source: source)
+	end 'string'
+	let read = firstWord(host, source: source)
+	if not read.isSome() 'unread'
+		return missing(tree, name: name, typeName: typeName, kind: kind, reason: readFailedReason)
+	end 'unread'
+	let raw = read.unwrap()
+	if kindWord == mxdbg.MxdbgTypeKindPrimitive 'primitive'
+		if typeName == boolTypeName 'bool'
+			return rendered(tree, name: name, typeName: typeName, kind: kind, display: "{(raw and 0xFF) != 0}")
+		end 'bool'
+		return rendered(tree, name: name, typeName: typeName, kind: kind, display: "{raw}")
+	end 'primitive'
+	if kindWord == mxdbg.MxdbgTypeKindIntRanged 'integer'
+		if typeName == byteTypeName 'byte'
+			return rendered(tree, name: name, typeName: typeName, kind: kind, display: "{raw and 0xFF}")
+		end 'byte'
+		if (reader.typeFlags(typeId) and mxdbg.MxdbgTypeFlagSigned) != 0 'signed'
+			return rendered(tree, name: name, typeName: typeName, kind: kind, display: signedText(raw))
+		end 'signed'
+		return rendered(tree, name: name, typeName: typeName, kind: kind, display: "{raw}")
+	end 'integer'
+	if kindWord == mxdbg.MxdbgTypeKindFloatRanged 'float'
+		return rendered(tree, name: name, typeName: typeName, kind: kind, display: floatText(raw))
+	end 'float'
+	if kindWord == mxdbg.MxdbgTypeKindEnum 'enum'
+		return rendered(tree, name: name, typeName: typeName, kind: kind, display: caseName(reader, typeId: typeId, tag: raw))
+	end 'enum'
+	if kindWord == mxdbg.MxdbgTypeKindStruct 'struct'
+		if raw == 0 'null'
+			return rendered(tree, name: name, typeName: typeName, kind: kind, display: nullDisplay)
+		end 'null'
+		var children = CountList.create(0)
+		let first = reader.typeFieldFirst(typeId)
+		for k in first upto plus(first, by: reader.typeFieldCount(typeId)) 'fields'
+			children.push(renderTyped(tree, host: host, reader: reader, name: reader.fieldName(k), typeId: reader.fieldType(k) as Count, source: Source.memory(plus(raw, by: reader.fieldOffset(k) as Count))))
+		end 'fields'
+		return withChildren(tree, name: name, typeName: typeName, kind: kind, display: structDisplay, children: children)
+	end 'struct'
+	if kindWord == mxdbg.MxdbgTypeKindUnion 'union'
+		return renderUnion(tree, host: host, reader: reader, name: name, typeId: typeId, kind: kind, box: raw)
+	end 'union'
+	if kindWord == mxdbg.MxdbgTypeKindArray 'array'
+		return renderArray(tree, host: host, reader: reader, name: name, typeId: typeId, kind: kind, box: raw)
+	end 'array'
+	if kindWord == mxdbg.MxdbgTypeKindManagedRecord 'record'
+		if raw == 0 'null'
+			return rendered(tree, name: name, typeName: typeName, kind: kind, display: nullDisplay)
+		end 'null'
+		return rendered(tree, name: name, typeName: typeName, kind: kind, display: "<record {hexWord(raw)}>")
+	end 'record'
+	if kindWord == mxdbg.MxdbgTypeKindFunction 'function'
+		return rendered(tree, name: name, typeName: typeName, kind: kind, display: "<code {hexWord(raw)}>")
+	end 'function'
+	return missing(tree, name: name, typeName: typeName, kind: kind, reason: layoutNotDescribedReason)
+end 'renderTyped'
+
+// renderString is a String's text, as maxon's display has it: quoted, with its length.
+function renderString(mutates tree ValueTree, host WindowsHost, name String, typeName String, kind String, source Source) returns Count
+	let words = stringWords(host, source: source)
+	if not words.isSome() 'unread'
+		return missing(tree, name: name, typeName: typeName, kind: kind, reason: readFailedReason)
+	end 'unread'
+	let held = words.unwrap()
+	let length = held.lengthWord shr stringLengthShift
+	let shown = length if length < mostTextBytes else mostTextBytes
+	if shown == 0 'empty'
+		return rendered(tree, name: name, typeName: typeName, kind: kind, display: "\"\" (len=0)")
+	end 'empty'
+	let bytes = host.readMemory(held.bytesAt, count: shown)
+	if not bytes.isSome() 'unreadText'
+		return missing(tree, name: name, typeName: typeName, kind: kind, reason: readFailedReason)
+	end 'unreadText'
+	return rendered(tree, name: name, typeName: typeName, kind: kind, display: "\"{String.from(bytes.unwrap())}\" (len={length})")
+end 'renderString'
+
+// StringWords are a String's two words: the address of its bytes and its length's word.
+type StringWords
+	var bytesAt as Count
+	var lengthWord as Count
+
+	static function make(bytesAt Count, lengthWord Count) returns StringWords
+		return StringWords{bytesAt: bytesAt, lengthWord: lengthWord}
+	end 'make'
+end 'StringWords'
+
+function stringWords(host WindowsHost, source Source) returns table.Option with StringWords
+	return match source 'source'
+		words(first, second) gives table.Option.some(StringWords.make(first, lengthWord: second))
+		memory(address) gives stringWordsAt(host, address: address)
+		nowhere gives table.Option.none
+	end 'source'
+end 'stringWords'
+
+function stringWordsAt(host WindowsHost, address Count) returns table.Option with StringWords
+	let first = host.readWord(address)
+	let second = host.readWord(plus(address, by: wordBytes))
+	if not first.isSome() or not second.isSome() 'unread'
+		return table.Option.none
+	end 'unread'
+	return table.Option.some(StringWords.make(first.unwrap(), lengthWord: second.unwrap()))
+end 'stringWordsAt'
+
+// renderUnion is the case a union's box holds, with its payload as a child.
+function renderUnion(mutates tree ValueTree, host WindowsHost, reader mxdbg.MxdbgReader, name String, typeId Count, kind String, box Count) returns Count
+	let typeName = reader.typeName(typeId)
+	if box == 0 'null'
+		return rendered(tree, name: name, typeName: typeName, kind: kind, display: nullDisplay)
+	end 'null'
+	let read = host.readWord(box)
+	if not read.isSome() 'unread'
+		return missing(tree, name: name, typeName: typeName, kind: kind, reason: readFailedReason)
+	end 'unread'
+	let tag = read.unwrap()
+	let first = reader.typeFieldFirst(typeId)
+	for k in first upto plus(first, by: reader.typeFieldCount(typeId)) 'cases'
+		if reader.fieldOffset(k) as Count == tag 'case'
+			var children = CountList.create(0)
+			let payload = reader.fieldType(k) as Count
+			if reader.typeName(payload) != voidPayloadName and reader.typeKind(payload) != mxdbg.MxdbgTypeKindManagedRecord 'payload'
+				children.push(renderTyped(tree, host: host, reader: reader, name: reader.fieldName(k), typeId: payload, source: Source.memory(plus(box, by: unionPayloadAt))))
+			end 'payload'
+			return withChildren(tree, name: name, typeName: typeName, kind: kind, display: reader.fieldName(k), children: children)
+		end 'case'
+	end 'cases'
+	return rendered(tree, name: name, typeName: typeName, kind: kind, display: "<tag {tag}>")
+end 'renderUnion'
+
+// renderArray is an array's length and its first elements as children.
+function renderArray(mutates tree ValueTree, host WindowsHost, reader mxdbg.MxdbgReader, name String, typeId Count, kind String, box Count) returns Count
+	let typeName = reader.typeName(typeId)
+	if box == 0 'null'
+		return rendered(tree, name: name, typeName: typeName, kind: kind, display: nullDisplay)
+	end 'null'
+	let length = host.readWord(plus(box, by: arrayLengthAt))
+	let data = host.readWord(plus(box, by: arrayDataAt))
+	if not length.isSome() or not data.isSome() 'unread'
+		return missing(tree, name: name, typeName: typeName, kind: kind, reason: readFailedReason)
+	end 'unread'
+	if reader.typeElement(typeId) == mxdbg.MxdbgNoElementType 'noElement'
+		return missing(tree, name: name, typeName: typeName, kind: kind, reason: layoutNotDescribedReason)
+	end 'noElement'
+	let element = reader.typeElement(typeId) as Count
+	let count = length.unwrap()
+	let buffer = data.unwrap()
+	let shown = count if count < mostChildren else mostChildren
+	var children = CountList.create(0)
+	for i in 0 upto shown 'elements'
+		children.push(renderElement(tree, host: host, reader: reader, element: element, at: plus(buffer, by: try i * strideOf(reader, element: element) otherwise 0), index: i))
+	end 'elements'
+	return withChildren(tree, name: name, typeName: typeName, kind: kind, display: "[{count}]", children: children)
+end 'renderArray'
+
+function renderElement(mutates tree ValueTree, host WindowsHost, reader mxdbg.MxdbgReader, element Count, at Count, index Count) returns Count
+	if reader.typeName(element) == byteTypeName 'byte'
+		let b = host.readMemory(at, count: 1)
+		if not b.isSome() 'unread'
+			return missing(tree, name: "[{index}]", typeName: byteTypeName, kind: mxdbg.mxdbgTypeKindName(reader.typeKind(element)), reason: readFailedReason)
+		end 'unread'
+		return rendered(tree, name: "[{index}]", typeName: byteTypeName, kind: mxdbg.mxdbgTypeKindName(reader.typeKind(element)), display: "{b.unwrap()[0]}")
+	end 'byte'
+	return renderTyped(tree, host: host, reader: reader, name: "[{index}]", typeId: element, source: Source.memory(at))
+end 'renderElement'
+
+// strideOf is the bytes an element takes in an array's buffer: a String two words, a byte one, any other value a word.
+function strideOf(reader mxdbg.MxdbgReader, element Count) returns Count
+	if reader.typeKind(element) == mxdbg.MxdbgTypeKindString 'string'
+		return stringValueBytes
+	end 'string'
+	if reader.typeName(element) == byteTypeName 'byte'
+		return 1
+	end 'byte'
+	return wordBytes
+end 'strideOf'
+
+function caseName(reader mxdbg.MxdbgReader, typeId Count, tag Count) returns String
+	let first = reader.typeFieldFirst(typeId)
+	for k in first upto plus(first, by: reader.typeFieldCount(typeId)) 'cases'
+		if reader.fieldOffset(k) as Count == tag 'case'
+			return reader.fieldName(k)
+		end 'case'
+	end 'cases'
+	return "<tag {tag}>"
+end 'caseName'
+
+let signBit = 0x8000000000000000 as Count
+
+// signedText is a word read as a signed integer.
+function signedText(raw Count) returns String
+	if raw < signBit 'positive'
+		return "{raw}"
+	end 'positive'
+	return "-{((0 as Word) - (raw as Word)) as Count}"
+end 'signedText'
+
+// The fields of a double: its sign, its exponent's 11 bits with their bias, and its 52 bits of fraction.
+let fractionBits = 52 as Count
+
+let exponentMask = 0x7FF as Count
+
+let fractionMask = 0xFFFFFFFFFFFFF as Count
+
+let exponentBias = 1075 as Count
+
+let implicitBit = 0x10000000000000 as Count
+
+// floatText is a double from its bits, as interpolation spells it: its fraction scaled by its power of two.
+function floatText(raw Count) returns String
+	let exponent = (raw shr fractionBits) and exponentMask
+	let fraction = raw and fractionMask
+	if exponent == exponentMask 'special'
+		return "nan" if fraction != 0 else ("-inf" if raw >= signBit else "inf")
+	end 'special'
+	let mantissa = fraction if exponent == 0 else fraction or implicitBit
+	var value = mantissa as FullRangeFloat
+	let biased = exponent if exponent > 0 else 1
+	var up = 0 as Count
+	var down = 0 as Count
+	if biased >= exponentBias 'large'
+		up = biased - exponentBias
+	end 'large' else 'small'
+		down = exponentBias - biased
+	end 'small'
+	for i in 0 upto up 'up'
+		value = value * 2.0
+	end 'up'
+	for i in 0 upto down 'down'
+		value = value / 2.0
+	end 'down'
+	if raw >= signBit 'negative'
+		value = 0.0 - value
+	end 'negative'
+	return "{value}"
+end 'floatText'
+
+// renderPath renders a local and then the field each dotted name after it names, maxon's `print` of a path.
+export function renderPath(host WindowsHost, reader mxdbg.MxdbgReader, f Count, offset Count, reading Reading, path String) returns table.Option with ValueTree
+	let parts = splitDots(path)
+	if parts.count() == 0 or not hasLocal(reader, f: f, name: parts[0]) 'unknown'
+		return table.Option.none
+	end 'unknown'
+	var tree = ValueTree.new()
+	var at = renderLocal(tree, host: host, reader: reader, f: f, offset: offset, reading: reading, name: parts[0])
+	for i in 1 upto parts.count() 'fields'
+		var found = false
+		let children = tree.nodes[at].children.clone()
+		for c in 0 upto children.count() 'children'
+			if not found and tree.nodes[children[c]].name == parts[i] 'match'
+				at = children[c]
+				found = true
+			end 'match'
+		end 'children'
+		if not found 'noField'
+			return table.Option.none
+		end 'noField'
+	end 'fields'
+	tree.nodes[at].name = path.clone()
+	tree.roots.push(at)
+	return table.Option.some(tree)
+end 'renderPath'
+
+let dotByte = 46 as Byte
+
+function splitDots(path String) returns StringArray
+	var parts = StringArray.create(0)
+	var start = 0 as Count
+	let limit = try path.byteLength() + 1 otherwise path.byteLength()
+	for i in 0 upto limit 'bytes'
+		if i == path.byteLength() or path.byteAt(i) == dotByte 'end'
+			parts.push(path.sliceBytes(start, endPos: i).clone())
+			start = try i + 1 otherwise i
+		end 'end'
+	end 'bytes'
+	return parts
+end 'splitDots'

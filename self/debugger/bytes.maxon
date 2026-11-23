@@ -1,0 +1,73 @@
+// The words the debugger reads out of the program's memory and registers and writes back, little-endian, as maxon's
+// DebugBytes reads them.
+
+export let wordBytes = 8 as Count
+
+let byteBits = 8 as Count
+
+let byteMask = 0xFF as Count
+
+// Word is a word of the program's: an address, a register, a raw value, whose arithmetic wraps.
+export typealias Word = bits(64)
+
+// word is the little-endian word of width bytes at an offset of the bytes, 0 past their end.
+export function word(bytes ByteArray, at Count, width Count) returns Count
+	var value = 0 as Word
+	var i = width
+	while i > 0 'bytes'
+		i = try i - 1 otherwise panic("debugger: a byte before the word")
+		let place = try at + i otherwise panic("debugger: a byte past memory")
+		if place >= bytes.count() 'past'
+			return 0
+		end 'past'
+		value = (value shl byteBits) or (bytes[place] as Word)
+	end 'bytes'
+	return value as Count
+end 'word'
+
+// putWord writes a word, and putDword its low 32 bits, little-endian at an offset of the bytes.
+export function putWord(mutates bytes ByteArray, at Count, value Count)
+	putBytes(bytes, at: at, value: value, width: wordBytes)
+end 'putWord'
+
+export function putDword(mutates bytes ByteArray, at Count, value Count)
+	putBytes(bytes, at: at, value: value, width: 4)
+end 'putDword'
+
+function putBytes(mutates bytes ByteArray, at Count, value Count, width Count)
+	for i in 0 upto width 'bytes'
+		bytes[try at + i otherwise panic("debugger: a byte past memory")] = ((value shr (try i * byteBits otherwise 0)) and byteMask) as Byte
+	end 'bytes'
+end 'putBytes'
+
+// plus and minus are address arithmetic, which wraps as the machine's does.
+export function plus(a Count, by Count) returns Count
+	return ((a as Word) + (by as Word)) as Count
+end 'plus'
+
+export function minus(a Count, by Count) returns Count
+	return ((a as Word) - (by as Word)) as Count
+end 'minus'
+
+let hexDigitsText = "0123456789abcdef"
+
+let nibbleBits = 4 as Count
+
+let nibbleMask = 15 as Count
+
+// hexWord is 0x and the word in hexadecimal digits, as maxon's events spell an offset or a status.
+export function hexWord(value Count) returns String
+	var digits = ByteArray.create(0)
+	var v = value
+	while v > 0 or digits.count() == 0 'digits'
+		digits.push(hexDigitsText.byteAt(v and nibbleMask))
+		v = v shr nibbleBits
+	end 'digits'
+	var out = ByteArray.create(0)
+	var i = digits.count()
+	while i > 0 'reverse'
+		i = try i - 1 otherwise panic("debugger: a digit before the first")
+		out.push(digits[i])
+	end 'reverse'
+	return "0x{String.from(out)}"
+end 'hexWord'

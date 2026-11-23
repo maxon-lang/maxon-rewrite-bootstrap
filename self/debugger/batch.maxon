@@ -1,0 +1,86 @@
+// A session of `debug --batch`, maxon's DebugBatch: the program is started under the debugger, parked at the loader's
+// stop before any of its code runs, the commands answered in order, each answer one JSON object on its own line, and the
+// program ended with the session. The program's own output and error both go to the debugger's error, so the output is
+// the events alone.
+
+let commandSeparator = ";"
+
+let scriptPrefix = "@"
+
+// batchCommands are the commands a `--commands=` spelling names: separated by `;`, or the lines of the file after `@`.
+export function batchCommands(spelling String) returns table.Option with StringArray
+	if not spelling.startsWith(scriptPrefix) 'written'
+		return table.Option.some(splitCommands(spelling))
+	end 'written'
+	let path = try FilePath.from(spelling.sliceBytes(1, endPos: spelling.byteLength())) otherwise return table.Option.none
+	let body = try File.readText(path) otherwise return table.Option.none
+	return table.Option.some(splitCommands(body.replace("\r", with: "").replace("\n", with: commandSeparator)))
+end 'batchCommands'
+
+function splitCommands(spelling String) returns StringArray
+	var commands = StringArray.create(0)
+	var start = 0 as Count
+	let limit = try spelling.byteLength() + 1 otherwise spelling.byteLength()
+	for i in 0 upto limit 'bytes'
+		if i == spelling.byteLength() or spelling.byteAt(i) == 59 'end'
+			let piece = spelling.sliceBytes(start, endPos: i).trim()
+			if piece != "" 'command'
+				commands.push(piece.clone())
+			end 'command'
+			start = try i + 1 otherwise i
+		end 'end'
+	end 'bytes'
+	return commands
+end 'splitCommands'
+
+let sessionSucceeded = 0 as ExitCode
+
+let sessionFailed = 1 as ExitCode
+
+// runBatch debugs the executable, which the reader describes, with the commands, and gives the session's exit code: 0
+// when it completed, the program's own code being data of its exit event, and 1 for a session that was refused, timed
+// out or saw the program crash.
+export function runBatch(exe String, consumes reader mxdbg.MxdbgReader, arguments StringArray, commands StringArray, budgetMs Count) returns ExitCode
+	let textRva = match consumes reader.figureCountNamed(mxdbg.ImageTextRvaFigureName) 'rva'
+		some(rva) gives rva
+		none gives 0
+	end 'rva'
+	if not Scheduler.pinToMachine() 'unpinned'
+		printError("debug: no machine to drive the program from\n")
+		return sessionFailed
+	end 'unpinned'
+	let code = match consumes WindowsHost.launch(exe, arguments: arguments, outputToError: true, budgetMs: budgetMs) 'launched'
+		launched(host) gives driveBatch(host, reader: reader, textRva: textRva, commands: commands, budgetMs: budgetMs)
+		refused(reason) gives refusedSession(exe, reason: reason)
+	end 'launched'
+	Scheduler.unpinFromMachine()
+	return code
+end 'runBatch'
+
+function refusedSession(exe String, reason String) returns ExitCode
+	printError("debug: {exe}: {reason}\n")
+	return sessionFailed
+end 'refusedSession'
+
+function driveBatch(consumes host WindowsHost, consumes reader mxdbg.MxdbgReader, textRva Count, commands StringArray, budgetMs Count) returns ExitCode
+	var engine = DebugEngine.make(host, reader: reader, textRva: textRva, budgetMs: budgetMs)
+	if not engine.waitLoader() 'neverStopped'
+		printError("debug: the program ended before the debugger could stop it\n")
+		return sessionFailed
+	end 'neverStopped'
+	var session = DebugSession.make(engine)
+	for i in 0 upto commands.count() 'commands'
+		if session.over 'quit'
+			break 'commands'
+		end 'quit'
+		let replies = session.run(commands[i])
+		for k in 0 upto replies.count() 'replies'
+			match consumes eventLine(replies[k].clone()) 'line'
+				some(text) then print("{text}\n")
+				none then _ = 0
+			end 'line'
+		end 'replies'
+	end 'commands'
+	session.engine.terminate()
+	return sessionFailed if session.engine.failedSession else sessionSucceeded
+end 'driveBatch'

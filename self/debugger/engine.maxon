@@ -1,0 +1,603 @@
+// The engine, maxon's DebugEngine: it holds the program under the host, plants and lifts the traps of breakpoints and of
+// the return points a step runs to, runs the program to its next stop, steps one instruction with the other threads held
+// (lifting a trap the thread stands on and planting it again after), and walks a line, a call or a return out of the
+// line table, the inline sites and what each instruction did to the stack.
+
+let int3 = 0xCC as Byte
+
+// The stop reasons of maxon's events.
+export let breakpointReason = "breakpoint"
+
+export let stepReason = "step"
+
+export let trapReason = "trap"
+
+export let faultReason = "fault"
+
+// Trap is a byte of the program's code the engine wrote int3 over: its offset, the byte it saved, and whether a
+// breakpoint or a step's return point holds it.
+type Trap
+	var offset as Count
+	var saved as Byte
+	var user as bool
+	var temporary as bool
+
+	static function make(offset Count, saved Byte, temporary bool) returns Trap
+		return Trap{offset: offset, saved: saved, user: not temporary, temporary: temporary}
+	end 'make'
+end 'Trap'
+
+export enum ProgramState
+	parked
+	stopped
+	running
+	ended
+end 'ProgramState'
+
+// Outcome is how a run or a step of the program ended: a stop of a thread at an address for a reason, the arrival at
+// the return point of a step, its end, or the wait's budget.
+union Outcome
+	stopped(thread Count, reason String, fault Count, address Count)
+	arrived(thread Count)
+	exited(code Count)
+	timedOut
+end 'Outcome'
+
+export type DebugEngine
+	export var host as WindowsHost
+	export var reader as mxdbg.MxdbgReader
+	export var textBase as Count
+	var traps as Array with Trap
+	export var state as ProgramState
+	export var thread as Count
+	export var reason as String
+	export var faultCode as Count
+	var passFault as bool
+	export var budgetMs as Count
+	export var failedSession as bool
+	// The return point of a step: its offset, and the stack pointer a thread has there when it returns from the frame.
+	var returnOffset as Count
+	var returnSp as Count
+
+	export static function make(consumes host WindowsHost, consumes reader mxdbg.MxdbgReader, textRva Count, budgetMs Count) returns DebugEngine
+		let base = plus(host.imageBase, by: textRva)
+		return DebugEngine{host: host, reader: reader, textBase: base, traps: Array.create(0), state: ProgramState.parked, thread: 0, reason: "", faultCode: 0, passFault: false, budgetMs: budgetMs, failedSession: false, returnOffset: 0, returnSp: 0}
+	end 'make'
+
+	// waitLoader takes the loader's breakpoint, before any of the program's code runs, where the session parks it.
+	export function waitLoader(mutates self) returns bool
+		while true 'events'
+			match consumes host.wait(budgetMs) 'event'
+				loader(t, address) then return self.parkAt(t)
+				exited(code) then return self.endWith(code)
+				timedOut then return false
+				breakpoint(t, address) then _ = 0
+				singleStep(t, address) then _ = 0
+				fault(t, code, address) then host.handOn()
+			end 'event'
+		end 'events'
+		return false
+	end 'waitLoader'
+
+	function parkAt(mutates self, t Count) returns bool
+		thread = t
+		state = ProgramState.parked
+		return true
+	end 'parkAt'
+
+	function endWith(mutates self, code Count) returns bool
+		state = ProgramState.ended
+		return false
+	end 'endWith'
+
+	// trapAt is the index of the trap at an offset, or none.
+	function trapAt(offset Count) returns table.Option with Count
+		for i in 0 upto traps.count() 'traps'
+			if traps[i].offset == offset 'found'
+				return table.Option.some(i)
+			end 'found'
+		end 'traps'
+		return table.Option.none
+	end 'trapAt'
+
+	// plant writes int3 at an offset for a breakpoint or a return point, saving the byte it covers, and gives whether it
+	// could.
+	export function plant(mutates self, offset Count, temporary bool) returns bool
+		let held = self.trapAt(offset)
+		if held.isSome() 'already'
+			let i = held.unwrap()
+			if temporary 'temp'
+				traps[i].temporary = true
+			end 'temp' else 'user'
+				traps[i].user = true
+			end 'user'
+			return true
+		end 'already'
+		let address = plus(textBase, by: offset)
+		let original = host.readMemory(address, count: 1)
+		if not original.isSome() 'unread'
+			return false
+		end 'unread'
+		if not host.writeMemory(address, bytes: trapBytes()) 'unwritable'
+			return false
+		end 'unwritable'
+		traps.push(Trap.make(offset, saved: original.unwrap()[0], temporary: temporary))
+		return true
+	end 'plant'
+
+	// lift takes a breakpoint's or a return point's hold off the trap at an offset, and writes its byte back when nothing
+	// holds it.
+	export function lift(mutates self, offset Count, temporary bool) returns bool
+		let held = self.trapAt(offset)
+		if not held.isSome() 'none'
+			return false
+		end 'none'
+		let i = held.unwrap()
+		if temporary 'temp'
+			traps[i].temporary = false
+		end 'temp' else 'user'
+			traps[i].user = false
+		end 'user'
+		if traps[i].user or traps[i].temporary 'still'
+			return true
+		end 'still'
+		var original = ByteArray.create(0)
+		original.push(traps[i].saved)
+		_ = host.writeMemory(plus(textBase, by: offset), bytes: original)
+		_ = try traps.remove(i) otherwise panic("debugger: a trap past the list")
+		return true
+	end 'lift'
+
+	// isUserTrap is whether a breakpoint stands at an offset.
+	export function isUserTrap(offset Count) returns bool
+		let held = self.trapAt(offset)
+		return held.isSome() and traps[held.unwrap()].user
+	end 'isUserTrap'
+
+	// context is the registers of the stopped thread, or none.
+	export function context() returns table.Option with ByteArray
+		return host.context(thread)
+	end 'context'
+
+	// programCounter is where the stopped thread stands.
+	export function programCounter() returns Count
+		return match consumes host.context(thread) 'read'
+			some(c) gives contextProgramCounter(c)
+			none gives 0
+		end 'read'
+	end 'programCounter'
+
+	// stepInstruction runs one instruction of a thread with every other thread held, lifting a trap it stands on and
+	// planting it again after; a stop of another thread at a trap meanwhile is put back on its trap for later.
+	function stepInstruction(mutates self, t Count) returns Outcome
+		let pc = match consumes host.context(t) 'read'
+			some(c) gives contextProgramCounter(c)
+			none gives 0
+		end 'read'
+		let offset = minus(pc, by: textBase)
+		let held = self.trapAt(offset)
+		let standing = held.isSome()
+		if standing 'lift'
+			var original = ByteArray.create(0)
+			original.push(traps[held.unwrap()].saved)
+			_ = host.writeMemory(pc, bytes: original)
+		end 'lift'
+		host.holdOthers(t)
+		_ = host.setTrapFlag(t, armed: true)
+		self.releaseFault()
+		var outcome = Outcome.timedOut
+		var waiting = true
+		while waiting 'events'
+			let event = host.wait(budgetMs)
+			outcome = self.classify(event)
+			waiting = outcomeThread(outcome) != t and outcomeReason(outcome) == breakpointReason and self.putBack(outcomeThread(outcome), address: outcomeAddress(outcome))
+		end 'events'
+		if standing and not host.ended 'replant'
+			_ = host.writeMemory(pc, bytes: trapBytes())
+		end 'replant'
+		host.letOthersGo()
+		return outcome
+	end 'stepInstruction'
+
+	// putBack puts a thread that stopped at a trap back on it, to stop there again when it next runs, and says whether it
+	// did, so the wait goes on.
+	function putBack(st Count, address Count) returns bool
+		if not self.trapAt(minus(address, by: textBase)).isSome() 'notOurs'
+			return false
+		end 'notOurs'
+		return host.setProgramCounter(st, address: address)
+	end 'putBack'
+
+	// releaseFault has the program take the fault it stopped at when it goes on, as maxon's continue hands it to the runtime.
+	function releaseFault(mutates self)
+		if passFault 'fault'
+			host.handOn()
+			passFault = false
+		end 'fault'
+	end 'releaseFault'
+
+	// classify turns a host event into an outcome: a trap the engine planted puts the thread back on its byte, the
+	// return point of a step reached by the thread that returns from its frame is an arrival, and one reached in another
+	// frame or green thread is stepped over and run on from.
+	function classify(mutates self, event HostEvent) returns Outcome
+		return match event 'event'
+			timedOut gives Outcome.timedOut
+			exited(code) gives Outcome.exited(code)
+			loader(t, address) gives Outcome.stopped(t, reason: trapReason, fault: 0, address: address)
+			singleStep(t, address) gives Outcome.stopped(t, reason: stepReason, fault: 0, address: address)
+			fault(t, code, address) gives Outcome.stopped(t, reason: faultReason, fault: code, address: address)
+			breakpoint(t, address) gives self.trapStop(t, address: address)
+		end 'event'
+	end 'classify'
+
+	function trapStop(mutates self, t Count, address Count) returns Outcome
+		let offset = minus(address, by: textBase)
+		if not self.trapAt(offset).isSome() 'notOurs'
+			return Outcome.stopped(t, reason: trapReason, fault: 0, address: address)
+		end 'notOurs'
+		_ = host.setProgramCounter(t, address: address)
+		return Outcome.stopped(t, reason: breakpointReason, fault: 0, address: address)
+	end 'trapStop'
+
+	// runFree lets the program run, every thread, from where it stands until a stop, the return point, its end or the
+	// budget, stepping over a trap the stopped thread stands on first and over the return point where another frame
+	// reaches it.
+	function runFree(mutates self) returns Outcome
+		var t = thread
+		while true 'run'
+			let first = self.stepOffTrap(t)
+			if first.isSome() 'stoppedOff'
+				return first.unwrap()
+			end 'stoppedOff'
+			self.releaseFault()
+			let event = host.wait(budgetMs)
+			let outcome = self.classify(event)
+			if not self.isPassedReturnPoint(outcomeThread(outcome), why: outcomeReason(outcome), address: outcomeAddress(outcome)) 'arrived'
+				return self.arrivalOf(outcome)
+			end 'arrived'
+			t = outcomeThread(outcome)
+		end 'run'
+		return Outcome.timedOut
+	end 'runFree'
+
+	// stepOffTrap steps a thread off a trap it stands on, and gives the outcome when that step was itself a stop.
+	function stepOffTrap(mutates self, t Count) returns table.Option with Outcome
+		let pc = match consumes host.context(t) 'read'
+			some(c) gives contextProgramCounter(c)
+			none gives 0
+		end 'read'
+		if not self.trapAt(minus(pc, by: textBase)).isSome() 'free'
+			return table.Option.none
+		end 'free'
+		let outcome = self.stepInstruction(t)
+		if outcomeReason(outcome) == stepReason 'stepped'
+			return table.Option.none
+		end 'stepped'
+		return table.Option.some(outcome)
+	end 'stepOffTrap'
+
+	// isPassedReturnPoint is whether a stop is the return point reached by another frame than the step's, which the run
+	// goes on from; no breakpoint stands there.
+	function isPassedReturnPoint(st Count, why String, address Count) returns bool
+		if why != breakpointReason or returnSp == 0 'notReturn'
+			return false
+		end 'notReturn'
+		let offset = minus(address, by: textBase)
+		if offset != returnOffset or self.isUserTrap(offset) 'notReturn'
+			return false
+		end 'notReturn'
+		return self.stackPointerOf(st) != returnSp
+	end 'isPassedReturnPoint'
+
+	// arrivalOf is a stop at the return point by the frame the step returns from, which is an arrival.
+	function arrivalOf(outcome Outcome) returns Outcome
+		let st = outcomeThread(outcome)
+		if returnSp != 0 and outcomeReason(outcome) == breakpointReason and minus(outcomeAddress(outcome), by: textBase) == returnOffset and self.stackPointerOf(st) == returnSp 'arrival'
+			return Outcome.arrived(st)
+		end 'arrival'
+		return outcome.clone()
+	end 'arrivalOf'
+
+	function stackPointerOf(t Count) returns Count
+		return match consumes host.context(t) 'read'
+			some(c) gives contextRegister(c, number: stackPointerNumber)
+			none gives 0
+		end 'read'
+	end 'stackPointerOf'
+
+	// settle records how an outcome left the program: stopped at a thread, ended, or still running past the budget.
+	function settle(mutates self, outcome Outcome) returns DebugReply
+		return match outcome 'which'
+			stopped(st, why, fault, address) gives self.stopAt(st, why: why, fault: fault)
+			arrived(st) gives self.stopAt(st, why: stepReason, fault: 0)
+			exited(code) gives self.ended(code)
+			timedOut gives self.timedOut()
+		end 'which'
+	end 'settle'
+
+	function stopAt(mutates self, st Count, why String, fault Count) returns DebugReply
+		thread = st
+		state = ProgramState.stopped
+		reason = why.clone()
+		faultCode = fault
+		passFault = why == faultReason
+		return DebugReply.stopped(self.stopReport())
+	end 'stopAt'
+
+	function ended(mutates self, code Count) returns DebugReply
+		let crashed = reason == faultReason
+		state = ProgramState.ended
+		if crashed 'crash'
+			failedSession = true
+			return DebugReply.crashed(code)
+		end 'crash'
+		return DebugReply.exited(code)
+	end 'ended'
+
+	function timedOut(mutates self) returns DebugReply
+		failedSession = true
+		state = ProgramState.running
+		return DebugReply.timedOut("a stop")
+	end 'timedOut'
+
+	// resume runs the program to its next stop, maxon's run and continue.
+	export function resume(mutates self) returns DebugReply
+		self.clearReturnPoint()
+		let outcome = self.runFree()
+		return self.settle(outcome)
+	end 'resume'
+
+	function clearReturnPoint(mutates self)
+		if returnSp != 0 'set'
+			let at = returnOffset
+			_ = self.lift(at, temporary: true)
+			returnSp = 0
+		end 'set'
+	end 'clearReturnPoint'
+
+	// runToReturn runs the program until the frame whose return lands at an address with a stack pointer returns there.
+	function runToReturn(mutates self, address Count, sp Count) returns Outcome
+		let at = minus(address, by: textBase)
+		returnOffset = at
+		returnSp = sp
+		if not self.plant(at, temporary: true) 'unwritable'
+			returnSp = 0
+			return Outcome.stopped(thread, reason: trapReason, fault: 0, address: address)
+		end 'unwritable'
+		let outcome = self.runFree()
+		self.clearReturnPoint()
+		return outcome
+	end 'runToReturn'
+
+	// finish runs the stopped frame to its return, maxon's finish.
+	export function finish(mutates self) returns DebugReply
+		let context = match consumes self.context() 'read'
+			some(c) gives c
+			none gives ByteArray.create(0)
+		end 'read'
+		let frames = physicalFrames(host, reader: reader, textBase: textBase, context: context)
+		if frames.count() < 2 or not isAuthored(reader, f: self.functionOf(frames[1])) 'outermost'
+			return DebugReply.failed("'finish' needs a caller frame, and the stop is in the outermost frame")
+		end 'outermost'
+		let back = returnOf(host, reader: reader, textBase: textBase, frame: frames[0])
+		if not back.isSome() 'unwalkable'
+			return DebugReply.failed("the stopped frame's return cannot be found")
+		end 'unwalkable'
+		let r = back.unwrap()
+		let outcome = self.runToReturn(r.address, sp: r.sp)
+		return self.settle(outcome)
+	end 'finish'
+
+	function functionOf(frame PhysicalFrame) returns Count
+		return match consumes reader.functionAt(lookupOffset(frame, textBase: textBase)) 'f'
+			some(f) gives f
+			none gives 0
+		end 'f'
+	end 'functionOf'
+
+	// walk steps a line, maxon's step (into calls of the program's own functions) and next (over every call): one
+	// instruction at a time, a call that is run over run to its return at full speed, until control enters another line
+	// of the frame it started in, enters a function it steps into past its prologue, or returns from that frame.
+	export function walk(mutates self, into bool) returns DebugReply
+		let startContext = match consumes self.context() 'read'
+			some(c) gives c
+			none gives ByteArray.create(0)
+		end 'read'
+		if startContext.count() == 0 'unread'
+			return DebugReply.failed("the stopped thread's registers cannot be read")
+		end 'unread'
+		let startOffset = minus(contextProgramCounter(startContext), by: textBase)
+		let start = positionOf(reader, offset: startOffset)
+		let startDepth = siteDepth(reader, offset: startOffset)
+		let frames = physicalFrames(host, reader: reader, textBase: textBase, context: startContext)
+		var frameTop = 0 as Count
+		if frames.count() > 0 'framed'
+			let back = returnOf(host, reader: reader, textBase: textBase, frame: frames[0])
+			if back.isSome() 'known'
+				frameTop = back.unwrap().sp
+			end 'known'
+		end 'framed'
+		let deadline = plus(Clock.nowNanos(), by: try budgetMs * nanosPerMilli otherwise budgetMs)
+		var left = false
+		var entering = false
+		var callee = 0 as Count
+		while Clock.nowNanos() < deadline 'instructions'
+			let beforeSp = self.stackPointerOf(thread)
+			let beforePc = self.programCounter()
+			let t = thread
+			let outcome = self.stepInstruction(t)
+			if outcomeReason(outcome) != stepReason or outcomeThread(outcome) != t 'stop'
+				return self.settle(outcome)
+			end 'stop'
+			let sp = self.stackPointerOf(thread)
+			let pc = self.programCounter()
+			let offset = minus(pc, by: textBase)
+			if sp == minus(beforeSp, by: wordBytes) and self.calledFrom(beforePc, sp: sp) 'called'
+				let found = reader.functionAt(offset)
+				let known = found.isSome()
+				let f = found.unwrap() if known else 0
+				if into and known and isAuthored(reader, f: f) 'stepIn'
+					entering = true
+					callee = f
+				end 'stepIn' else 'runOver'
+					let ret = host.readWord(sp)
+					let arrival = self.runToReturn(ret.unwrap(), sp: plus(sp, by: wordBytes))
+					if not isArrival(arrival) 'interrupted'
+						return self.settle(arrival)
+					end 'interrupted'
+					thread = outcomeThread(arrival)
+					continue 'instructions'
+				end 'runOver'
+			end 'called'
+			if entering 'entering'
+				if offset >= bodyStart(reader, f: callee) and offset < reader.funcEnd(callee) 'inBody'
+					return self.settle(Outcome.arrived(thread))
+				end 'inBody'
+				continue 'instructions'
+			end 'entering'
+			if frameTop != 0 and sp >= frameTop 'returned'
+				let landing = reader.functionAt(offset)
+				if landing.isSome() and isAuthored(reader, f: landing.unwrap()) 'program'
+					return self.settle(Outcome.arrived(thread))
+				end 'program'
+				return self.resume()
+			end 'returned'
+			let here = positionOf(reader, offset: offset)
+			if here.line != start.line or here.file != start.file 'otherLine'
+				left = true
+			end 'otherLine'
+			if isLineEntry(reader, offset: offset) and (left or here.line != start.line) 'entry'
+				let depth = siteDepth(reader, offset: offset)
+				if into or depth <= startDepth 'stops'
+					return self.settle(Outcome.arrived(thread))
+				end 'stops'
+			end 'entry'
+		end 'instructions'
+		failedSession = true
+		return DebugReply.timedOut("a step")
+	end 'walk'
+
+	// calledFrom is whether the word at the top of the stack is a return address just past the instruction at before: the
+	// instruction pushed it, so it was a call.
+	function calledFrom(before Count, sp Count) returns bool
+		let pushed = host.readWord(sp)
+		if not pushed.isSome() 'unread'
+			return false
+		end 'unread'
+		let ret = pushed.unwrap()
+		return ret > before and ret <= plus(before, by: longestInstruction)
+	end 'calledFrom'
+
+	// stopReport is the stopped thread's stop as maxon's event has it.
+	export function stopReport() returns StopReport
+		let context = match consumes self.context() 'read'
+			some(c) gives c
+			none gives ByteArray.create(0)
+		end 'read'
+		let pc = contextProgramCounter(context) if context.count() > 0 else 0
+		let offset = minus(pc, by: textBase)
+		let p = positionOf(reader, offset: offset)
+		var frames = FrameList.create(0)
+		if context.count() > 0 'walk'
+			frames = logicalFrames(reader, textBase: textBase, physical: physicalFrames(host, reader: reader, textBase: textBase, context: context))
+		end 'walk'
+		return StopReport.make(reason.clone(), fault: faultText(faultCode) if reason == faultReason else "", functionName: innermostName(reader, offset: offset), file: fileLabel(reader, file: p.file), line: p.line, column: p.column, offset: offset, machine: thread, source: sourceWindow(reader, file: p.file, line: p.line), frames: frames)
+	end 'stopReport'
+
+	// terminate ends the program at the session's end, waiting for its end so that nothing is left running.
+	export function terminate(mutates self)
+		if state == ProgramState.ended 'gone'
+			return
+		end 'gone'
+		host.letOthersGo()
+		host.terminate()
+		var waiting = true
+		while waiting 'drain'
+			waiting = match consumes host.wait(budgetMs) 'event'
+				exited gives false
+				timedOut gives false
+				loader or
+				breakpoint or
+				singleStep or
+				fault gives true
+			end 'event'
+		end 'drain'
+		state = ProgramState.ended
+	end 'terminate'
+end 'DebugEngine'
+
+let nanosPerMilli = 1000000 as Count
+
+// The thread, reason and address of an outcome, none for an arrival's reason and address, and for an end's thread.
+function outcomeThread(outcome Outcome) returns Count
+	return match outcome 'which'
+		stopped(st, why, fault, address) gives st
+		arrived(st) gives st
+		exited or
+		timedOut gives 0
+	end 'which'
+end 'outcomeThread'
+
+function outcomeReason(outcome Outcome) returns String
+	return match outcome 'which'
+		stopped(st, why, fault, address) gives why.clone()
+		arrived or
+		exited or
+		timedOut gives ""
+	end 'which'
+end 'outcomeReason'
+
+function outcomeAddress(outcome Outcome) returns Count
+	return match outcome 'which'
+		stopped(st, why, fault, address) gives address
+		arrived or
+		exited or
+		timedOut gives 0
+	end 'which'
+end 'outcomeAddress'
+
+// isArrival is whether a step's run reached its return point; the thread it arrived on may be another, the green thread
+// having moved.
+function isArrival(outcome Outcome) returns bool
+	return match outcome 'which'
+		arrived gives true
+		stopped or
+		exited or
+		timedOut gives false
+	end 'which'
+end 'isArrival'
+
+// longestInstruction is the most bytes an x64 instruction takes.
+let longestInstruction = 15 as Count
+
+function trapBytes() returns ByteArray
+	var bytes = ByteArray.create(0)
+	bytes.push(int3)
+	return bytes
+end 'trapBytes'
+
+// The Windows exception codes of the faults maxon names, and the names its panic line uses.
+let accessViolation = 0xC0000005 as Count
+
+let stackOverflow = 0xC00000FD as Count
+
+let integerDivideByZero = 0xC0000094 as Count
+
+let integerOverflow = 0xC0000095 as Count
+
+// faultText is a fault as maxon's stop names it.
+export function faultText(code Count) returns String
+	if code == accessViolation 'access'
+		return "nil pointer or invalid memory access"
+	end 'access'
+	if code == stackOverflow 'overflow'
+		return "stack overflow"
+	end 'overflow'
+	if code == integerDivideByZero 'divide'
+		return "integer divide by zero"
+	end 'divide'
+	if code == integerOverflow 'integerOverflow'
+		return "integer overflow"
+	end 'integerOverflow'
+	return "hardware fault {hexWord(code)}"
+end 'faultText'

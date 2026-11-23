@@ -1,0 +1,326 @@
+// The Windows host, maxon's WindowsBackend over the debug port (Debuggee): it starts the program as the debugger's child,
+// pumps its debug events, keeping the bookkeeping ones (threads made and ended, libraries loaded) to itself, and answers
+// the engine's stops, reads and writes of memory and registers, the trap flag of a thread, and holding the threads that are
+// not stepping. The thread that waits for the events must be the one that started the program, so the session pins its
+// green thread to its machine before the launch.
+
+// The DEBUG_EVENT of x64: the code, the process and thread ids, and the union after them.
+let eventCodeAt = 0 as Count
+
+let eventProcessIdAt = 4 as Count
+
+let eventThreadIdAt = 8 as Count
+
+let eventUnionAt = 16 as Count
+
+let eventCreateProcessHandleAt = 24 as Count
+
+let eventCreateProcessThreadAt = 32 as Count
+
+let eventCreateProcessImageBaseAt = 40 as Count
+
+let eventExceptionAddressAt = 32 as Count
+
+let dwordBytes = 4 as Count
+
+let debugEventException = 1 as Count
+
+let debugEventCreateThread = 2 as Count
+
+let debugEventCreateProcess = 3 as Count
+
+let debugEventExitThread = 4 as Count
+
+let debugEventExitProcess = 5 as Count
+
+let debugEventLoadDll = 6 as Count
+
+// The exception codes the host tells apart; the WOW64 breakpoint of a 32-bit loader is the first one's twin.
+let exceptionBreakpoint = 0x80000003 as Count
+
+let exceptionSingleStep = 0x80000004 as Count
+
+let exceptionWow64Breakpoint = 0x4000001F as Count
+
+// The CONTEXT of x64: the general registers in their hardware order, the instruction pointer and the flags.
+let contextGprAt = 0x78 as Count
+
+let contextRipAt = 0xF8 as Count
+
+let contextFlagsAt = 0x44 as Count
+
+let trapFlag = 0x100 as Count
+
+// HostEvent is what the host reports to the engine: the program's own stops and its end.
+export union HostEvent
+	timedOut
+	exited(code Count)
+	loader(thread Count, address Count)
+	breakpoint(thread Count, address Count)
+	singleStep(thread Count, address Count)
+	fault(thread Count, code Count, address Count)
+end 'HostEvent'
+
+export union HostLaunch
+	launched(host WindowsHost)
+	refused(reason String)
+end 'HostLaunch'
+
+typealias Handles = Array with Count
+
+export type WindowsHost
+	var processId as Count
+	var process as Count
+	export var imageBase as Count
+	var threadIds as Handles
+	var threadHandles as Handles
+	var pendingProcess as Count
+	var pendingThread as Count
+	var pendingUnhandled as bool
+	var pending as bool
+	var sawLoader as bool
+	var suspended as Handles
+	export var ended as bool
+
+	// launch starts the executable with the arguments as the debugger's child and takes the events up to its creation.
+	export static function launch(executable String, arguments StringArray, outputToError bool, budgetMs Count) returns HostLaunch
+		let path = try FilePath.from(executable) otherwise return HostLaunch.refused("'{executable}' is not a path")
+		let id = try Debuggee.launch(Executable.path(path), arguments: arguments, outputToError: outputToError) otherwise (e) 'spawn'
+			return HostLaunch.refused("the program cannot be started: {e.name}")
+		end 'spawn'
+		var host = WindowsHost{processId: id, process: 0, imageBase: 0, threadIds: Handles.create(0), threadHandles: Handles.create(0), pendingProcess: 0, pendingThread: 0, pendingUnhandled: false, pending: false, sawLoader: false, suspended: Handles.create(0), ended: false}
+		while host.process == 0 'created'
+			let event = Debuggee.waitEvent(budgetMs)
+			if event.count() == 0 'none'
+				return HostLaunch.refused("the program was started and never reported its creation")
+			end 'none'
+			host.note(event)
+			if word(event, at: eventCodeAt, width: dwordBytes) == debugEventCreateProcess 'process'
+				host.created(event)
+			end 'process'
+			host.release()
+		end 'created'
+		return HostLaunch.launched(host)
+	end 'launch'
+
+	// note records the event that waits for an answer.
+	function note(mutates self, event ByteArray)
+		pendingProcess = word(event, at: eventProcessIdAt, width: dwordBytes)
+		pendingThread = word(event, at: eventThreadIdAt, width: dwordBytes)
+		pendingUnhandled = false
+		pending = true
+	end 'note'
+
+	function created(mutates self, event ByteArray)
+		Debuggee.closeHandle(word(event, at: eventUnionAt, width: wordBytes))
+		process = word(event, at: eventCreateProcessHandleAt, width: wordBytes)
+		imageBase = word(event, at: eventCreateProcessImageBaseAt, width: wordBytes)
+		self.remember(word(event, at: eventThreadIdAt, width: dwordBytes), handle: word(event, at: eventCreateProcessThreadAt, width: wordBytes))
+	end 'created'
+
+	function remember(mutates self, id Count, handle Count)
+		threadIds.push(id)
+		threadHandles.push(handle)
+	end 'remember'
+
+	function forget(mutates self, id Count)
+		var ids = Handles.create(0)
+		var handles = Handles.create(0)
+		for i in 0 upto threadIds.count() 'threads'
+			if threadIds[i] != id 'kept'
+				ids.push(threadIds[i])
+				handles.push(threadHandles[i])
+			end 'kept'
+		end 'threads'
+		threadIds = ids
+		threadHandles = handles
+	end 'forget'
+
+	// handleOf is the handle of a thread the host was told of, 0 for one it was not.
+	export function handleOf(id Count) returns Count
+		for i in 0 upto threadIds.count() 'threads'
+			if threadIds[i] == id 'found'
+				return threadHandles[i]
+			end 'found'
+		end 'threads'
+		return 0
+	end 'handleOf'
+
+	// release answers the event that waits, handing an exception the debugger did not take on to the program.
+	export function release(mutates self)
+		if not pending 'none'
+			return
+		end 'none'
+		pending = false
+		let disposition = DebugDisposition.unhandled if pendingUnhandled else DebugDisposition.handled
+		_ = Debuggee.continueEvent(pendingProcess, thread: pendingThread, disposition: disposition)
+	end 'release'
+
+	// handOn has the program take the exception of the event that waits when it is released.
+	export function handOn(mutates self)
+		pendingUnhandled = true
+	end 'handOn'
+
+	// wait releases the event that waits and gives the program's next stop or its end, answering the events that are the
+	// host's own bookkeeping.
+	export function wait(mutates self, budgetMs Count) returns HostEvent
+		while true 'pump'
+			self.release()
+			let event = Debuggee.waitEvent(budgetMs)
+			if event.count() == 0 'none'
+				return HostEvent.timedOut
+			end 'none'
+			self.note(event)
+			let code = word(event, at: eventCodeAt, width: dwordBytes)
+			let thread = word(event, at: eventThreadIdAt, width: dwordBytes)
+			if code == debugEventCreateThread 'thread'
+				self.remember(thread, handle: word(event, at: eventUnionAt, width: wordBytes))
+			end 'thread' else if code == debugEventExitThread 'threadLeft'
+				self.forget(thread)
+			end 'threadLeft' else if code == debugEventLoadDll 'library'
+				Debuggee.closeHandle(word(event, at: eventUnionAt, width: wordBytes))
+			end 'library' else if code == debugEventExitProcess 'exit'
+				ended = true
+				self.release()
+				return HostEvent.exited(word(event, at: eventUnionAt, width: dwordBytes))
+			end 'exit' else if code == debugEventException 'exception'
+				let address = word(event, at: eventExceptionAddressAt, width: wordBytes)
+				let exception = word(event, at: eventUnionAt, width: dwordBytes)
+				if exception == exceptionBreakpoint or exception == exceptionWow64Breakpoint 'trap'
+					if not sawLoader 'loader'
+						sawLoader = true
+						return HostEvent.loader(thread, address: address)
+					end 'loader'
+					return HostEvent.breakpoint(thread, address: address)
+				end 'trap'
+				if exception == exceptionSingleStep 'step'
+					return HostEvent.singleStep(thread, address: address)
+				end 'step'
+				return HostEvent.fault(thread, code: exception, address: address)
+			end 'exception'
+		end 'pump'
+		panic("debugger: the event pump ended")
+	end 'wait'
+
+	// readMemory is count bytes of the program's memory at an address, or none.
+	export function readMemory(address Count, count Count) returns table.Option with ByteArray
+		let bytes = try Debuggee.readMemory(process, address: address, count: count) otherwise return table.Option.none
+		return table.Option.some(bytes)
+	end 'readMemory'
+
+	// readWord is the little-endian word of the program's memory at an address, or none.
+	export function readWord(address Count) returns table.Option with Count
+		return match consumes self.readMemory(address, count: wordBytes) 'read'
+			some(bytes) gives table.Option.some(word(bytes, at: 0, width: wordBytes))
+			none gives table.Option.none
+		end 'read'
+	end 'readWord'
+
+	export function writeMemory(address Count, bytes ByteArray) returns bool
+		try Debuggee.writeCode(process, address: address, content: bytes) otherwise return false
+		return true
+	end 'writeMemory'
+
+	// context is the registers of a thread, or none.
+	export function context(thread Count) returns table.Option with ByteArray
+		let handle = self.handleOf(thread)
+		if handle == 0 'unknown'
+			return table.Option.none
+		end 'unknown'
+		let bytes = try Debuggee.readContext(handle) otherwise return table.Option.none
+		return table.Option.some(bytes)
+	end 'context'
+
+	export function setContext(thread Count, context ByteArray) returns bool
+		let handle = self.handleOf(thread)
+		if handle == 0 'unknown'
+			return false
+		end 'unknown'
+		try Debuggee.writeContext(handle, context: context) otherwise return false
+		return true
+	end 'setContext'
+
+	// setProgramCounter puts a thread's instruction pointer at an address, as a breakpoint's stop is put back on its byte.
+	export function setProgramCounter(thread Count, address Count) returns bool
+		var context = match consumes self.context(thread) 'read'
+			some(bytes) gives bytes
+			none gives ByteArray.create(0)
+		end 'read'
+		if context.count() == 0 'unread'
+			return false
+		end 'unread'
+		putWord(context, at: contextRipAt, value: address)
+		return self.setContext(thread, context: context)
+	end 'setProgramCounter'
+
+	// setTrapFlag arms or clears the x86 trap flag of a thread, which makes its next instruction stop it.
+	export function setTrapFlag(thread Count, armed bool) returns bool
+		var context = match consumes self.context(thread) 'read'
+			some(bytes) gives bytes
+			none gives ByteArray.create(0)
+		end 'read'
+		if context.count() == 0 'unread'
+			return false
+		end 'unread'
+		let flags = word(context, at: contextFlagsAt, width: dwordBytes)
+		let changed = flags or trapFlag if armed else flags and (trapFlag xor 0xFFFFFFFF)
+		putDword(context, at: contextFlagsAt, value: changed)
+		return self.setContext(thread, context: context)
+	end 'setTrapFlag'
+
+	// holdOthers suspends every thread but one, for a step of that one; letOthersGo resumes them.
+	export function holdOthers(mutates self, thread Count)
+		for i in 0 upto threadIds.count() 'threads'
+			if threadIds[i] != thread and Debuggee.suspend(threadHandles[i]) 'held'
+				suspended.push(threadHandles[i])
+			end 'held'
+		end 'threads'
+	end 'holdOthers'
+
+	export function letOthersGo(mutates self)
+		for i in 0 upto suspended.count() 'threads'
+			_ = Debuggee.resume(suspended[i])
+		end 'threads'
+		suspended.clear()
+	end 'letOthersGo'
+
+	// terminate ends the program, whose end the next wait reports.
+	export function terminate(mutates self)
+		if ended 'gone'
+			return
+		end 'gone'
+		_ = Debuggee.terminate(process, exitCode: terminatedExitCode)
+	end 'terminate'
+end 'WindowsHost'
+
+// terminatedExitCode is the code of a program the session ends.
+let terminatedExitCode = 1 as Count
+
+// contextRegister is the word of a general register, by its number in the register file, in a CONTEXT.
+export function contextRegister(context ByteArray, number Count) returns Count
+	return word(context, at: try contextGprAt + number * wordBytes otherwise panic("debugger: a register past the context"), width: wordBytes)
+end 'contextRegister'
+
+// contextVectorLow is the low word of an xmm register, by its number among them, in a CONTEXT: a double's bits.
+export function contextVectorLow(context ByteArray, number Count) returns Count
+	return word(context, at: try contextXmmAt + number * xmmBytes otherwise panic("debugger: a register past the context"), width: wordBytes)
+end 'contextVectorLow'
+
+let contextXmmAt = 0x1A0 as Count
+
+let xmmBytes = 16 as Count
+
+// registerFileSize is how many registers the register file numbers: the general ones, then the xmm ones.
+export let registerFileSize = 32 as Count
+
+export function contextProgramCounter(context ByteArray) returns Count
+	return word(context, at: contextRipAt, width: wordBytes)
+end 'contextProgramCounter'
+
+// The x64 registers the unwinder reads, by their numbers.
+export let stackPointerNumber = 4 as Count
+
+export let framePointerNumber = 5 as Count
+
+// generalRegisters is how many general registers the CONTEXT holds.
+export let generalRegisters = 16 as Count

@@ -224,7 +224,8 @@ function Test-SelfCompilesForArm64 {
 # sidecar of self must be walkable, and on every target that of a program whose locals are in registers, in frame slots and
 # in two words (a String) must say so, with its record's fields. A stack overflow's fault line, whose address is in a
 # function of one statement, is then symbolized to that statement on x64 Windows (a copy of the executable that the loader
-# keeps at its image base), x64 Linux and arm64 Linux (under WSL and its qemu).
+# keeps at its image base), x64 Linux and arm64 Linux (under WSL and its qemu). On x64 Windows a batch session of the
+# debugger drives the locals program (debug --batch) and its events are held to $sessionEvents.
 $debugInfoTargets = 'x64-windows', 'x64-linux', 'arm64-linux', 'arm64-macos'
 $debugInfoPrograms = 'tests\run\arithmetic.maxon', 'tests\run\array-methods.maxon', 'tests\run\generics.maxon'
 $overflowLine = 'overflow.maxon:3:2  (in export::down)'
@@ -273,6 +274,23 @@ end 'main'
 # What the dump of the locals program must show: a local of across in a register and one in a frame slot, the second word of
 # a String, and the fields of Pair.
 $localsExpected = '(?m)^        a  \[0x[0-9a-f]+, 0x[0-9a-f]+\)  (r[a-z0-9]+|x[0-9]+)  :', '(?m)^        [a-o]  \[0x[0-9a-f]+, 0x[0-9a-f]+\)  \[(rbp|x29)[-+]0x[0-9a-f]+\]  :', '(?m)^        greeting  .* \(second word\)  : String', '(?m)^        \+0x0008  name : String'
+# The events the batch session of the locals program must answer, one per command that has one.
+$sessionEvents = @(
+	'^\{"event":"breakpoint","action":"set","function":"export::across","file":"locals.maxon","line":20,'
+	'^\{"event":"breakpoint","action":"set","function":"export::named","file":"locals.maxon","line":32,'
+	'^\{"event":"stop","reason":"breakpoint","function":"export::across","file":"locals.maxon","line":20,.*"current":true.*"backtrace":\[\{"frame":0,"function":"export::across".*\{"frame":1,"function":"export::main"'
+	'^\{"event":"value","value":\{"name":"a","type":"[^"]*","kind":"IntRanged","display":"6"\}\}$'
+	'^\{"event":"stop","reason":"step","function":"export::across","file":"locals.maxon","line":21,'
+	'^\{"event":"value","value":\{"name":"h","type":"[^"]*","kind":"IntRanged","display":"13"\}\}$'
+	'^\{"event":"stop","reason":"breakpoint","function":"export::named","file":"locals.maxon","line":32,'
+	'^\{"event":"locals","function":"export::named","locals":\[\{"name":"text","type":"String","kind":"String","display":"\\"x\\" \(len=1\)"\}'
+	'^\{"event":"stop","reason":"step","function":"export::named","file":"locals.maxon","line":33,'
+	'^\{"event":"value","value":\{"name":"pair.name","type":"String","kind":"String","display":"\\"x\\" \(len=1\)"\}\}$'
+	'^\{"event":"value","value":\{"name":"pair.left","type":"Count","kind":"IntRanged","display":"4"\}\}$'
+	'^\{"event":"backtrace","frames":\[\{"frame":0,"function":"export::named".*\{"frame":1,"function":"export::main"'
+	'^\{"event":"stop","reason":"step","function":"export::main","file":"locals.maxon","line":38,'
+	'^\{"event":"exit","code":0\}$'
+)
 $overflowSource = @"
 // The program whose stack overflow the debug info step symbolizes: every instruction of down is its one statement's.
 function down(n Count) returns Count
@@ -319,6 +337,17 @@ function Test-DebugInfo {
 				if ($dump -notmatch $expected) { throw "debug info: the locals of the program built for $t do not match $expected" }
 			}
 		}
+		# A batch session drives the locals program on x64 Windows: a breakpoint on a bare line and one on a function, the
+		# backtrace, a scalar local in a register and one in a frame slot, a step over a line, a String local, a record's
+		# fields, a step out of a frame and the run to the program's exit. The program's own output goes to stderr.
+		$ErrorActionPreference = 'Continue'
+		$session = Join-Path $root 'locals-x64-windows.exe'
+		$events = @(& $compiler debug --batch '--commands=break 20;break named;run;print a;next;print h;continue;locals;next;print pair.name;print pair.left;backtrace;finish;continue' $session 2>$null)
+		if ($LASTEXITCODE -ne 0) { throw "debug info: the batch session of $session exits $LASTEXITCODE`: $($events -join "`n")" }
+		foreach ($i in 0..($sessionEvents.Count - 1)) {
+			if ($i -ge $events.Count -or $events[$i] -notmatch $sessionEvents[$i]) { throw "debug info: event $i of the batch session does not match $($sessionEvents[$i]): $($events -join "`n")" }
+		}
+		if ($events.Count -ne $sessionEvents.Count) { throw "debug info: the batch session answered $($events.Count) events, not $($sessionEvents.Count): $($events -join "`n")" }
 		# The loader keeps an image whose header asks for no move at its image base, where the sidecar places its code.
 		$windows = Join-Path $root 'overflow-x64-windows.exe'
 		$fixed = Join-Path $root 'fixed.exe'

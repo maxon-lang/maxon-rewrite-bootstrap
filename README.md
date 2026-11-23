@@ -44,6 +44,7 @@ generator.
 | `minimaxon selftest` | run the compiler's own tests: `test self`, from the root of the repository |
 | `minimaxon debug --symbolize <exe> <offset\|rip=0x<address>>...` | name the function, `file:line:column` and the inlined calls of code offsets (decimal or `0x` hex) of an executable that `build --debug-info` made, or of the address of a fault line, from the sidecar beside it, refusing one that describes another build (see "Debug info") |
 | `minimaxon debug --dump-info <exe> [header\|files\|functions\|types\|lines\|inline\|layout]...` | print the sidecar's sections, every one when none is named |
+| `minimaxon debug --batch --commands=<cmd;cmd;...\|@file> [--stop-timeout=<seconds>] <exe> [-- <args>...]` | debug an executable that `build --debug-info` made, on x64 Windows: launch it under the debugger, run the commands and write one JSON event per line, maxon's batch mode (see "Debug info") |
 | `minimaxon cache [trim\|clear]` | say where the build cache is and how many files and bytes it holds; `trim` deletes what a trim would (the files unused for five days) whether one is due or not, `clear` every file the cache wrote (see "Build cache") |
 | `minimaxon rewrite --keyword=old=new <path>...` | rename a keyword by token in the `.maxon` files and the Markdown code under the paths (see "Changing the language") |
 | `minimaxon qualify <dir>...` | write the module's path before each bare name of another module's declaration in the projects (see "Changing the language") |
@@ -469,6 +470,7 @@ layering cannot erode:
 | `backend` | the line table of the code it writes and the sidecar of an executable (`lines.maxon`, `sidecar.maxon`; see "Debug info"), the x64 and arm64 encoders (generated), the assembler and code unit (`unit.maxon`: labels, fixups of a kind, sections; x64's instructions in `asm_x64.maxon`, arm64's and the patching of their fields in `asm_arm64.maxon`), instruction selection (`isel.maxon`: the module's functions into machine IR by the rules of each instruction set, `internal/rulegen/x64.rules` generated into `lower_x64_gen.maxon` and `arm64.rules` into `lower_arm64_gen.maxon`, the helpers every architecture shares, and the primitives of the machine they call, which `isel_x64.maxon` writes for x64 and `isel_arm64.maxon` for arm64, each with its half of the calls and the helpers only its rules name; `rules.maxon`), the machine IR (`mir.maxon`: forms by `FormID`, conditions by `MCond`), what the allocator asks of every architecture and form (`machine.maxon`, over `machine_gen.maxon`), x64's register file and conventions (`regs_x64.maxon`, over the target table's `regs_x64_gen.maxon`) and arm64's (`regs_arm64.maxon`, over `regs_arm64_gen.maxon`), liveness, register pressure and spilling with the E5001 test (`liveness.maxon`, `pressure.maxon`, `spill.maxon`), block parameters in memory (`params_memory.maxon`), colouring, SSA destruction and the colouring's checker (`regalloc.maxon`, `ssa_destruction.maxon`, `colour_check.maxon`) and each architecture's encoder of the machine IR (`encode_x64.maxon`, `encode_arm64.maxon`, which writes maxon's arm64 frame), the drop and copy routine of each type (`routines.maxon`, written in the instructions of `routine_asm.maxon`, which each architecture's assembler writes, naming its registers by their roles), the entry stub of each system (`entry.maxon`, `entry_linux.maxon`, and arm64's `entry_arm64.maxon`) with the green threads' code (`green.maxon`, `green_arm64.maxon`) and the two ways it starts main (`start.maxon`), the linker, which decides between them by what the program reaches, and the writers of the executable's formats behind one image (`image.maxon`: the PE writer `pe.maxon`, the ELF writer `elf.maxon`, of either machine, and the Mach-O writer `macho.maxon`, with the ad-hoc code signature `codesign.maxon` and the SHA-256 it hashes with, `sha256.maxon`) | `ast`, `diag`, `ir`, `mxdbg`, `table` |
 | `interp` | the tracking interpreter: runs the IR of a whole program with the primitives written in Maxon and a simulated scheduler of behaviours, and reports a violation of the memory model | `ast`, `ir`, `table` |
 | `fuzz` | the random program generator the `fuzz` command runs | `table` |
+| `debugger` | the debugger, maxon's (`maxon-bin/Debug/`): the Windows host over the debug port (`host_windows.maxon`), the engine that plants traps, runs, steps and walks lines (`engine.maxon`), where the sidecar places code and the frames of a stopped thread (`symbols.maxon`), values (`values.maxon`), the commands (`commands.maxon`), the answers and their JSON events (`replies.maxon`) and the batch session (`batch.maxon`) | `mxdbg`, `table` |
 | `driver` | the commands (`driver.maxon` is the command line); `compile.maxon` runs the pipeline as the task graph of `graph.maxon`; `cache.maxon` is the build cache, `unittests.maxon` the compile of a module's tests; the corpus and spec runners, `interp`, `fuzz`, `fmt`, `rewrite`, `qualify`, `rename` and `update_positions` | all of the above |
 
 `main.maxon`, in the root module, runs `driver.run`. Each module's tests are its own, in its `.maxtest` files (see "Tests"). The generators are Go, in `internal/`, and `cmd/convert` and `cmd/sample` are standalone tools (see
@@ -1137,10 +1139,10 @@ tables are indexed by `NodeID`, which depends only on its text), its diagnostics
 the modules that name it have to be looked at again.
 ## Debug info
 
-The debugger will be commands of the compiler, as maxon's is (`maxon debug`): it reads a sidecar that the build writes
+The debugger is commands of the compiler, as maxon's is (`maxon debug`): it reads a sidecar that the build writes
 beside the executable, maxon's `.mxdbg` format, and drives the unmodified executable from outside. What is here is its first
 part: the source positions carried from the lowering to the machine code, the sidecar with its line table, its types and
-where each local is, and `debug --symbolize` and `--dump-info`, which read it.
+where each local is, `debug --symbolize` and `--dump-info`, which read it, and the debugger's batch mode on x64 Windows.
 
 - **Only with the flag.** `build --debug-info` writes `<out>.mxdbg` (`foo.exe.mxdbg`, maxon's name) and an executable byte for
   byte the one a build without the flag makes: every input of the sidecar is an observation of code already laid out, and
@@ -1210,11 +1212,45 @@ where each local is, and `debug --symbolize` and `--dump-info`, which read it.
   records: on Windows the loader may move the image, so an address maps only when it was loaded there) and prints maxon's line
   for each, `0x1290  main.maxon:6:2  (in export::down)`, and under it each inlined call the code is in, innermost first,
   `  inlined export::square called at main.maxon:12:3`.
+- **The debugger** (`self/debugger`, maxon's `maxon-bin/Debug/`) drives an executable that a build with `--debug-info` made
+  from outside it, on x64 Windows: `debug --batch --commands=<cmd;cmd;...|@file> [--stop-timeout=<seconds>] <exe> [-- <args>...]`
+  launches the program under the debug port (`Debuggee`) from a green thread pinned to its machine, parks it at the loader's
+  stop before any of its code runs, answers the commands in order with one JSON object per line, maxon's events
+  (`breakpoint`, `stop`, `backtrace`, `locals`, `value`, `exit`, `crash`, `timeout`, `error`, with maxon's keys and their order),
+  and ends the program with the session. The program's output and error both go to the debugger's error. The session exits 0
+  when it completed, the program's exit code being data of its `exit` event, and 1 when it timed out (`--stop-timeout`, 10
+  seconds by default), saw a crash, or could not start.
+  - **Commands**, maxon's names and aliases: `break` (`b`) and `clear` of `file.maxon:LINE`, a bare `LINE` in the file of
+    `main`, `*0x<offset>` or a function's name (its symbol, the symbol past its module such as `Pair.make`, its last name, or a
+    prefix, the first that answers; several are `ambiguous` with the candidates, none `no-match`); a line arms its
+    `line-entry` rows, past the prologue of a function whose first row it is, and a function the inliner copied into its
+    callers every copy's start; code of the runtime or that the compiler synthesized is refused `inside-runtime-symbol`.
+    `run` (`r`) and `continue` (`c`) run to the next stop; `step` (`s`) and `next` (`n`) walk a line one instruction at a
+    time, every other thread held, until control enters another line of the frame, `step` also stopping past the prologue
+    of a function of the program's it calls and `next` running every call to its return; a step that returns from its
+    frame stops where it lands in the program's code, or runs on when it lands in the runtime's. `finish` runs the frame to
+    its return. `backtrace` (`bt`, `where`), `locals`, `print` (`p`) of a local or a dotted path of fields, `help` (`?`,
+    `commands`) and `quit` (`q`, `exit`).
+  - **Traps.** A breakpoint is int3 written over the code; resuming from one restores the byte, steps the thread with every
+    other thread suspended and writes it again, and a stop of another thread at a trap meanwhile is put back on it for later.
+    A call that a step runs over goes to a trap at its return address that holds only for the frame that returns there: the
+    stack pointer the return leaves, so a recursive call, or another green thread through the same code, runs on; the green
+    thread may return on another thread, which the step then follows.
+  - **Frames** are unwound by the frame pointer: the top frame by the code of its function (`push rbp; mov rbp, rsp`, or
+    the pushes of a leaf with no frame counted from its prologue or epilogue), the callers through rbp, each with the inline
+    sites at its code as frames of their own, innermost first. A stop carries the source around its line (two lines either
+    side, read from the sidecar's root) and its backtrace.
+  - **Values** are read by the sidecar's locals and types: a local in a register of the stopped thread (an xmm register for a
+    double) or a frame slot, one of a name with no record at the stop `not-live-here` and an optimized-out one
+    `optimized-out`; a String from its two words, as `"text" (len=N)`; a record's box with its fields as children, an
+    enum's case, a union's case with its payload, an array's count with its first 32 elements, a double from its bits.
 - **Verified.** `--verify-ir` on a build with the flag holds every span of every function to the source of the function it is
   in, from its header's line to its end, and a span in an inline site to its callee's (`verifySpans`). The gate's
   `debug info` step builds programs on the four targets with and without the flag, compares the executables, verifies the
   spans of `self` and those programs, walks the sidecar of `self`, holds the dump of a program's locals to a register, a frame
-  slot, a String's second word and a record's fields on each target, and symbolizes the `rip=` of a stack overflow on x64
+  slot, a String's second word and a record's fields on each target, on x64 Windows holds a batch session of that program
+  to its events (a breakpoint on a line and on a function, the backtrace, a local in a register and one in a slot, a step
+  over a line, a String local, a record's fields, a step out and the run to the exit), and symbolizes the `rip=` of a stack overflow on x64
   Windows, x64 Linux and arm64 Linux to its line.
 ## The IR
 
@@ -4343,6 +4379,13 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   different numbers are two types. Not supported: a cast between tuple types (`E3009`, `E3226`), the spelling `t._0` of an element that
   some of Maxon's specs use, a tuple of a type parameter read by field in a generic body, a one-element target list `(x) = e`,
   and the `E3064` lint on a tuple assignment of nothing but `_`.
+- **The debugger** is maxon's batch mode on x64 Windows only; its interactive REPL, which reads the commands from standard
+  input, waits for a built-in that reads it (minimaxon has none yet), and `until`, `pause`, `detach`, the green-thread
+  commands (`threads`, `gt`, `gt-backtrace`, `gt-park`, `gt-resume`), `trace` and conditional breakpoints answer an `error`
+  until they are built. Its events name a function by its symbol (`export::named`), as the sidecar does, and a `stop` carries
+  no `thread` (the runtime publishes no roster of green threads yet). The locals of an inlined body cannot be printed, as the
+  sidecar describes none. Stepping finds a call by what the instruction did to the stack (it pushed the address after
+  itself), where maxon decodes it with its x64 classifier, whose conversion needs maxon's own code shapes.
 - **The debug port is the built-in `Debuggee`**, where maxon's is its library's `DebugPort` (`stdlib/Debuggee.maxon`) over
   `__Builtins.debug*`: the compiler, which is no library tier, calls it, so its Win32 verbs are static functions of a built-in
   record over handles, ids and byte arrays (a `DEBUG_EVENT`, a `CONTEXT`), and the debugger decodes them, where maxon's

@@ -1,0 +1,491 @@
+// The commands of a session, maxon's DebugCommands: their names and aliases, what a break target names, and each
+// command's answers.
+
+// commandRows are maxon's commands, each its name and aliases.
+function commandRows() returns Array with StringArray
+	var rows = Array.create(0) as Array with StringArray
+	rows.push(row("break", b: "b", c: ""))
+	rows.push(row("clear", b: "", c: ""))
+	rows.push(row("run", b: "r", c: ""))
+	rows.push(row("continue", b: "c", c: ""))
+	rows.push(row("step", b: "s", c: ""))
+	rows.push(row("next", b: "n", c: ""))
+	rows.push(row("finish", b: "", c: ""))
+	rows.push(row("until", b: "u", c: ""))
+	rows.push(row("backtrace", b: "bt", c: "where"))
+	rows.push(row("print", b: "p", c: ""))
+	rows.push(row("locals", b: "", c: ""))
+	rows.push(row("pause", b: "", c: ""))
+	rows.push(row("detach", b: "", c: ""))
+	rows.push(row("help", b: "?", c: "commands"))
+	rows.push(row("quit", b: "q", c: "exit"))
+	rows.push(row("threads", b: "", c: ""))
+	rows.push(row("gt-backtrace", b: "", c: ""))
+	rows.push(row("gt", b: "", c: ""))
+	rows.push(row("gt-park", b: "", c: ""))
+	rows.push(row("gt-resume", b: "", c: ""))
+	rows.push(row("trace", b: "", c: ""))
+	return rows
+end 'commandRows'
+
+function row(a String, b String, c String) returns StringArray
+	var names = StringArray.create(0)
+	names.push(a.clone())
+	if b != "" 'b'
+		names.push(b.clone())
+	end 'b'
+	if c != "" 'c'
+		names.push(c.clone())
+	end 'c'
+	return names
+end 'row'
+
+// canonicalCommand is the name of the command a word names, or none.
+function canonicalCommand(word String) returns table.Option with String
+	let rows = commandRows()
+	for i in 0 upto rows.count() 'rows'
+		if rows[i].contains(word) 'found'
+			return table.Option.some(rows[i][0].clone())
+		end 'found'
+	end 'rows'
+	return table.Option.none
+end 'canonicalCommand'
+
+function helpLines() returns StringArray
+	let rows = commandRows()
+	var lines = StringArray.create(0)
+	for i in 0 upto rows.count() 'rows'
+		var spelling = rows[i][0].clone()
+		for k in 1 upto rows[i].count() 'aliases'
+			spelling = "{spelling}, {rows[i][k]}"
+		end 'aliases'
+		lines.push(spelling)
+	end 'rows'
+	return lines
+end 'helpLines'
+
+let notStartedMessage = "the program is parked before its first line: `continue` starts it"
+
+let programGoneMessage = "the program is no longer running"
+
+let runningMessage = "the program is running: it must stop before it can be stepped"
+
+let spaceByte = 32 as Byte
+
+// DebugSession is a session's engine and whether the reader has quit.
+export type DebugSession
+	export var engine as DebugEngine
+	export var over as bool
+
+	export static function make(consumes engine DebugEngine) returns DebugSession
+		return DebugSession{engine: engine, over: false}
+	end 'make'
+
+	// run answers one command line.
+	export function run(mutates self, line String) returns DebugReplies
+		var replies = DebugReplies.create(0)
+		let trimmed = line.trim()
+		var split = trimmed.byteLength()
+		for i in 0 upto trimmed.byteLength() 'word'
+			if trimmed.byteAt(i) == spaceByte and split == trimmed.byteLength() 'space'
+				split = i
+			end 'space'
+		end 'word'
+		let word = trimmed.sliceBytes(0, endPos: split)
+		let argument = trimmed.sliceBytes(split, endPos: trimmed.byteLength()).trim()
+		if word == "" 'empty'
+			return replies
+		end 'empty'
+		let named = canonicalCommand(word)
+		if not named.isSome() 'unknown'
+			replies.push(DebugReply.failed("'{word}' is not a debugger command"))
+			return replies
+		end 'unknown'
+		replies.push(self.perform(named.unwrap(), argument: argument))
+		return replies
+	end 'run'
+
+	function perform(mutates self, command String, argument String) returns DebugReply
+		if command == "quit" 'quit'
+			over = true
+			return DebugReply.quit
+		end 'quit'
+		if command == "help" 'help'
+			return DebugReply.spoken(helpLines())
+		end 'help'
+		if engine.state == ProgramState.ended 'gone'
+			return DebugReply.failed(programGoneMessage)
+		end 'gone'
+		if command == "break" 'break'
+			return self.arm(argument, clearing: false)
+		end 'break'
+		if command == "clear" 'clear'
+			return self.arm(argument, clearing: true)
+		end 'clear'
+		if command == "run" or command == "continue" 'resume'
+			return engine.resume()
+		end 'resume'
+		if command == "until" or command == "pause" or command == "detach" or command == "threads" or command == "gt-backtrace" or command == "gt" or command == "gt-park" or command == "gt-resume" or command == "trace" 'unsupported'
+			return DebugReply.failed("'{command}' is not supported by this debugger yet")
+		end 'unsupported'
+		if engine.state == ProgramState.parked 'parked'
+			return DebugReply.failed(notStartedMessage)
+		end 'parked'
+		if engine.state == ProgramState.running 'running'
+			return DebugReply.failed(runningMessage)
+		end 'running'
+		if command == "step" or command == "next" 'walk'
+			if engine.reason == faultReason 'fault'
+				return DebugReply.failed("'{command}' is refused: fault-is-terminal")
+			end 'fault'
+			return engine.walk(command == "step")
+		end 'walk'
+		if command == "finish" 'finish'
+			return engine.finish()
+		end 'finish'
+		if command == "backtrace" 'backtrace'
+			let report = engine.stopReport()
+			return DebugReply.walked(report.frames.clone())
+		end 'backtrace'
+		if command == "locals" 'locals'
+			return self.locals()
+		end 'locals'
+		if command == "print" 'print'
+			return self.printPath(argument)
+		end 'print'
+		panic("debugger: the command table names '{command}', which no command answers")
+	end 'perform'
+
+	// stoppedFunction is the function the stopped thread stands in, its offset and what its values are read with.
+	function stoppedFunction() returns table.Option with Count
+		return engine.reader.functionAt(minus(engine.programCounter(), by: engine.textBase))
+	end 'stoppedFunction'
+
+	function reading() returns Reading
+		let context = match consumes engine.context() 'read'
+			some(c) gives c
+			none gives ByteArray.create(0)
+		end 'read'
+		let fp = contextRegister(context, number: framePointerNumber) if context.count() > 0 else 0
+		return Reading.make(context, fp: fp)
+	end 'reading'
+
+	function locals() returns DebugReply
+		let f = self.stoppedFunction()
+		if not f.isSome() 'outside'
+			return DebugReply.locals("", values: ValueTree.new())
+		end 'outside'
+		let fi = f.unwrap()
+		let offset = minus(engine.programCounter(), by: engine.textBase)
+		return DebugReply.locals(engine.reader.funcName(fi), values: renderLocals(engine.host, reader: engine.reader, f: fi, offset: offset, reading: self.reading()))
+	end 'locals'
+
+	function printPath(path String) returns DebugReply
+		let f = self.stoppedFunction()
+		if path == "" or not f.isSome() 'nothing'
+			return DebugReply.failed("'print' needs the name of a local, or a path of fields from one")
+		end 'nothing'
+		let offset = minus(engine.programCounter(), by: engine.textBase)
+		return match consumes renderPath(engine.host, reader: engine.reader, f: f.unwrap(), offset: offset, reading: self.reading(), path: path) 'rendered'
+			some(tree) gives DebugReply.value(tree)
+			none gives DebugReply.failed("no local or field named '{path}' at this stop")
+		end 'rendered'
+	end 'printPath'
+
+	// arm sets or clears the breakpoints a target names, answering as maxon's break does.
+	function arm(mutates self, spelling String, clearing bool) returns DebugReply
+		var resolved = resolveTarget(engine.reader, spelling: spelling)
+		if resolved.action != "" 'unresolved'
+			return DebugReply.breakpoint(resolved)
+		end 'unresolved'
+		for i in 0 upto resolved.offsets.count() 'offsets'
+			let f = engine.reader.functionAt(resolved.offsets[i])
+			if f.isSome() and isRuntimeCode(engine.reader, f: f.unwrap()) 'runtime'
+				resolved.action = "refused"
+				resolved.reason = "inside-runtime-symbol"
+				return DebugReply.breakpoint(resolved)
+			end 'runtime'
+		end 'offsets'
+		for i in 0 upto resolved.offsets.count() 'plant'
+			let done = engine.lift(resolved.offsets[i], temporary: false) if clearing else engine.plant(resolved.offsets[i], temporary: false)
+			if not done and not clearing 'unwritable'
+				resolved.action = "refused"
+				resolved.reason = "unwritable"
+				return DebugReply.breakpoint(resolved)
+			end 'unwritable'
+		end 'plant'
+		resolved.action = "cleared" if clearing else "set"
+		return DebugReply.breakpoint(resolved)
+	end 'arm'
+end 'DebugSession'
+
+let starByte = 42 as Byte
+
+// resolveTarget is the code a break target names, maxon's: `*0x<offset>`, `file.maxon:LINE`, a bare `LINE` in the file that
+// declares main, or a function's name. An answer with an action already is a target that names no code.
+function resolveTarget(reader mxdbg.MxdbgReader, spelling String) returns BreakAnswer
+	if spelling == "" 'empty'
+		return refusal("not-set", spelling: spelling)
+	end 'empty'
+	if spelling.byteAt(0) == starByte 'offset'
+		let parsed = parseNumber(spelling.sliceBytes(1, endPos: spelling.byteLength()))
+		if not parsed.isSome() 'bad'
+			return refusal("not-set", spelling: spelling)
+		end 'bad'
+		let number = parsed.unwrap()
+		let f = reader.functionAt(number)
+		if not f.isSome() 'outside'
+			var answer = refusal("refused", spelling: spelling)
+			answer.reason = "out-of-text"
+			answer.offsets.push(number)
+			return answer
+		end 'outside'
+		return answerAt(reader, offsets: oneOffset(number))
+	end 'offset'
+	let colon = lastColon(spelling)
+	if colon.isSome() 'fileLine'
+		let at = colon.unwrap()
+		let line = parseNumber(spelling.sliceBytes(try at + 1 otherwise 0, endPos: spelling.byteLength()))
+		if line.isSome() 'numbered'
+			return lineTarget(reader, file: spelling.sliceBytes(0, endPos: at).clone(), line: line.unwrap(), spelling: spelling)
+		end 'numbered'
+	end 'fileLine'
+	let bare = parseNumber(spelling)
+	if bare.isSome() 'bareLine'
+		return lineTarget(reader, file: mainFile(reader), line: bare.unwrap(), spelling: spelling)
+	end 'bareLine'
+	return functionTarget(reader, spelling: spelling)
+end 'resolveTarget'
+
+function oneOffset(offset Count) returns CountList
+	var offsets = CountList.create(0)
+	offsets.push(offset)
+	return offsets
+end 'oneOffset'
+
+function refusal(action String, spelling String) returns BreakAnswer
+	return BreakAnswer.make(action.clone(), functionName: "", file: "", line: 0, offsets: CountList.create(0))
+end 'refusal'
+
+// answerAt is the answer for offsets of code: the function and the line of the first.
+function answerAt(reader mxdbg.MxdbgReader, consumes offsets CountList) returns BreakAnswer
+	let p = positionOf(reader, offset: offsets[0])
+	var answer = BreakAnswer.make("", functionName: innermostName(reader, offset: offsets[0]), file: fileLabel(reader, file: p.file), line: p.line, offsets: offsets)
+	return answer
+end 'answerAt'
+
+// lineTarget is where control enters a line of a file: the line-entry rows of the line table, past the prologue of a
+// function whose first row it is.
+function lineTarget(reader mxdbg.MxdbgReader, file String, line Count, spelling String) returns BreakAnswer
+	if line == 0 'zero'
+		return refusal("not-set", spelling: spelling)
+	end 'zero'
+	var files = CountList.create(0)
+	var names = StringArray.create(0)
+	for i in 0 upto reader.fileCount() 'files'
+		if fileMatches(reader.fileName(i), spelling: file) 'match'
+			files.push(i)
+			if not names.contains(reader.fileName(i)) 'name'
+				names.push(reader.fileName(i))
+			end 'name'
+		end 'match'
+	end 'files'
+	if names.count() > 1 'ambiguous'
+		var answer = refusal("ambiguous", spelling: spelling)
+		answer.candidates = names
+		return answer
+	end 'ambiguous'
+	if files.count() == 0 'noFile'
+		return refusal("no-match", spelling: spelling)
+	end 'noFile'
+	var offsets = CountList.create(0)
+	for f in 0 upto reader.functionCount() 'functions'
+		let first = reader.funcLineFirst(f)
+		for r in first upto plus(first, by: reader.funcLineCount(f)) 'rows'
+			if reader.lineLine(r) as Count == line and files.contains(reader.lineFile(r) as Count) and (reader.lineFlags(r) and mxdbg.MxdbgLineFlagLineEntry) != 0 'entry'
+				var offset = reader.lineOffset(r)
+				if offset == reader.funcStart(f) 'prologue'
+					offset = bodyStart(reader, f: f)
+				end 'prologue'
+				if not offsets.contains(offset) 'new'
+					offsets.push(offset)
+				end 'new'
+			end 'entry'
+		end 'rows'
+	end 'functions'
+	if offsets.count() == 0 'noCode'
+		var answer = refusal("no-code", spelling: spelling)
+		answer.file = baseName(file)
+		answer.line = line
+		return answer
+	end 'noCode'
+	var answer = answerAt(reader, offsets: offsets)
+	answer.line = line
+	return answer
+end 'lineTarget'
+
+// fileMatches is whether a spelling names a file of the sidecar: all of its path, its end after a separator, or its name.
+function fileMatches(name String, spelling String) returns bool
+	if name == spelling or baseName(name) == spelling 'whole'
+		return true
+	end 'whole'
+	return name.endsWith("/{spelling}") or name.endsWith("\\{spelling}")
+end 'fileMatches'
+
+// mainFile is the file of the function named main of the program's own code, where a bare line is.
+function mainFile(reader mxdbg.MxdbgReader) returns String
+	for f in 0 upto reader.functionCount() 'functions'
+		if leafName(reader.funcName(f)) == "main" and isAuthored(reader, f: f) 'main'
+			let first = reader.funcLineFirst(f)
+			if reader.funcLineCount(f) > 0 'rows'
+				return reader.fileName(reader.lineFile(first) as Count)
+			end 'rows'
+		end 'main'
+	end 'functions'
+	return ""
+end 'mainFile'
+
+// functionTarget is the body of the function a name names: its symbol, the symbol past its module (`Type.method`), its
+// last name, or a prefix of one of those, the first of these that any function answers to. A function the inliner copied
+// into its callers and kept no body of is armed at the start of each copy.
+function functionTarget(reader mxdbg.MxdbgReader, spelling String) returns BreakAnswer
+	for pass in 0 upto 4 'passes'
+		var names = StringArray.create(0)
+		var offsets = CountList.create(0)
+		for f in 0 upto reader.functionCount() 'functions'
+			let name = reader.funcName(f)
+			if nameMatches(name, spelling: spelling, pass: pass) and not isRuntimeCode(reader, f: f) and not names.contains(name) 'match'
+				names.push(name.clone())
+				offsets.push(bodyStart(reader, f: f))
+			end 'match'
+		end 'functions'
+		if names.count() == 0 'inlined'
+			for r in 0 upto reader.rangeCount() 'ranges'
+				let site = reader.rangeSite(r) as Count
+				let name = reader.siteName(site)
+				if nameMatches(name, spelling: spelling, pass: pass) and isSiteEntry(reader, range: r) 'copy'
+					if not names.contains(name) 'name'
+						names.push(name.clone())
+					end 'name'
+					offsets.push(reader.rangeStart(r))
+				end 'copy'
+			end 'ranges'
+		end 'inlined'
+		if names.count() > 1 'ambiguous'
+			var answer = refusal("ambiguous", spelling: spelling)
+			answer.candidates = names
+			return answer
+		end 'ambiguous'
+		if names.count() == 1 'one'
+			return answerAt(reader, offsets: offsets)
+		end 'one'
+	end 'passes'
+	return refusal("no-match", spelling: spelling)
+end 'functionTarget'
+
+// nameMatches is whether a symbol answers to a spelling by the rule of a pass of functionTarget.
+function nameMatches(name String, spelling String, pass Count) returns bool
+	if pass == 0 'exact'
+		return name == spelling
+	end 'exact'
+	if pass == 1 'local'
+		return moduleLocal(name) == spelling
+	end 'local'
+	if pass == 2 'leaf'
+		return leafName(name) == spelling
+	end 'leaf'
+	return moduleLocal(name).startsWith(spelling)
+end 'nameMatches'
+
+// isSiteEntry is whether a range of inlined code is the first of its site's, where control enters the copy.
+function isSiteEntry(reader mxdbg.MxdbgReader, range Count) returns bool
+	let site = reader.rangeSite(range)
+	for r in 0 upto range 'earlier'
+		if reader.rangeSite(r) == site 'before'
+			return false
+		end 'before'
+	end 'earlier'
+	return true
+end 'isSiteEntry'
+
+// moduleLocal is a symbol past its module, `export::Pair.make` as `Pair.make`.
+function moduleLocal(symbol String) returns String
+	var at = symbol.byteLength()
+	while at > 1 'back'
+		if symbol.byteAt(try at - 1 otherwise 0) == colonByte and symbol.byteAt(try at - 2 otherwise 0) == colonByte 'module'
+			return symbol.sliceBytes(at, endPos: symbol.byteLength()).clone()
+		end 'module'
+		at = try at - 1 otherwise 0
+	end 'back'
+	return symbol.clone()
+end 'moduleLocal'
+
+// leafName is a symbol's last name, `export::Pair.make` as `make`.
+function leafName(symbol String) returns String
+	let local = moduleLocal(symbol)
+	var at = local.byteLength()
+	while at > 0 'back'
+		if local.byteAt(try at - 1 otherwise 0) == 46 'dot'
+			return local.sliceBytes(at, endPos: local.byteLength()).clone()
+		end 'dot'
+		at = try at - 1 otherwise 0
+	end 'back'
+	return local
+end 'leafName'
+
+function lastColon(spelling String) returns table.Option with Count
+	var at = spelling.byteLength()
+	while at > 0 'back'
+		at = try at - 1 otherwise 0
+		if spelling.byteAt(at) == colonByte 'colon'
+			return table.Option.some(at)
+		end 'colon'
+	end 'back'
+	return table.Option.none
+end 'lastColon'
+
+let decimalRadix = 10 as Count
+
+let hexRadix = 16 as Count
+
+let digitZero = 48 as Byte
+
+let digitNine = 57 as Byte
+
+let lowerA = 97 as Byte
+
+let lowerF = 102 as Byte
+
+let upperA = 65 as Byte
+
+let upperF = 70 as Byte
+
+// parseNumber is a decimal or 0x-prefixed hexadecimal number, or none.
+export function parseNumber(spelled String) returns table.Option with Count
+	var radix = decimalRadix
+	var at = 0 as Count
+	if spelled.startsWith("0x") 'hex'
+		radix = hexRadix
+		at = 2
+	end 'hex'
+	if at >= spelled.byteLength() 'empty'
+		return table.Option.none
+	end 'empty'
+	var value = 0 as Count
+	for i in at upto spelled.byteLength() 'digits'
+		let c = spelled.byteAt(i)
+		var digit = radix
+		if c >= digitZero and c <= digitNine 'decimal'
+			digit = (c - digitZero) as Count
+		end 'decimal' else if c >= lowerA and c <= lowerF 'lower'
+			digit = (c - lowerA) as Count + 10
+		end 'lower' else if c >= upperA and c <= upperF 'upper'
+			digit = (c - upperA) as Count + 10
+		end 'upper'
+		if digit >= radix 'notDigit'
+			return table.Option.none
+		end 'notDigit'
+		value = try value * radix + digit otherwise return table.Option.none
+	end 'digits'
+	return table.Option.some(value)
+end 'parseNumber'

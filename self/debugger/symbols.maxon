@@ -1,0 +1,396 @@
+// What the sidecar says of the program's code, maxon's DebugSymbols: where an offset of the code is in the source, the
+// frames of a stopped thread, unwound by the frame pointer with the inline sites' frames inside each, and what a break
+// target names.
+
+// Position is where an offset of the code is: its function, row, file, line and column; function is none outside every
+// function and row none before its first row.
+export type Position
+	export var func as table.Option with Count
+	export var row as table.Option with Count
+	export var file as mxdbg.MxdbgIndex
+	export var line as Count
+	export var column as Count
+
+	static function at(consumes func table.Option with Count) returns Position
+		return Position{func: func, row: table.Option.none, file: mxdbg.MxdbgNoSourceFile, line: 0, column: 0}
+	end 'at'
+end 'Position'
+
+// positionOf is where the code offset is in the source.
+export function positionOf(reader mxdbg.MxdbgReader, offset Count) returns Position
+	let f = reader.functionAt(offset)
+	let held = f.isSome()
+	var p = Position.at(f)
+	if held 'inFunction'
+		let row = reader.rowAt(reader.functionAt(offset).unwrap(), offset: offset)
+		if row.isSome() 'row'
+			let r = row.unwrap()
+			p.row = table.Option.some(r)
+			p.file = reader.lineFile(r)
+			p.line = reader.lineLine(r) as Count
+			p.column = reader.lineColumn(r) as Count
+		end 'row'
+	end 'inFunction'
+	return p
+end 'positionOf'
+
+// fileLabel is a file as the events name it: the path the sidecar records for it from the program's root, or the name of
+// a program built from one file, whose root is that file.
+export function fileLabel(reader mxdbg.MxdbgReader, file mxdbg.MxdbgIndex) returns String
+	if file == mxdbg.MxdbgNoSourceFile or file as Count >= reader.fileCount() 'none'
+		return ""
+	end 'none'
+	let name = reader.fileName(file as Count)
+	if isAbsolute(name) 'absolute'
+		return baseName(name)
+	end 'absolute'
+	return name
+end 'fileLabel'
+
+let slashByte = 47 as Byte
+
+let colonByte = 58 as Byte
+
+function isAbsolute(path String) returns bool
+	return path.byteLength() > 1 and (path.byteAt(0) == slashByte or path.byteAt(1) == colonByte)
+end 'isAbsolute'
+
+// baseName is a path's last part.
+export function baseName(path String) returns String
+	var at = path.byteLength()
+	while at > 0 'back'
+		let b = path.byteAt(try at - 1 otherwise 0)
+		if b == slashByte or b == backslashByte 'separator'
+			return path.sliceBytes(at, endPos: path.byteLength()).clone()
+		end 'separator'
+		at = try at - 1 otherwise 0
+	end 'back'
+	return path.clone()
+end 'baseName'
+
+// sourcePath is where the debugger reads a file of the source: the sidecar's name for it, from the root's directory when it
+// is relative.
+export function sourcePath(reader mxdbg.MxdbgReader, file mxdbg.MxdbgIndex) returns String
+	let name = reader.fileName(file as Count)
+	if isAbsolute(name) 'absolute'
+		return name
+	end 'absolute'
+	let root = reader.sourceRoot()
+	if root.endsWith(".maxon") 'oneFile'
+		return "{directoryOf(root)}/{name}"
+	end 'oneFile'
+	return "{root}/{name}"
+end 'sourcePath'
+
+function directoryOf(path String) returns String
+	let base = baseName(path)
+	return path.sliceBytes(0, endPos: try path.byteLength() - base.byteLength() - 1 otherwise 0).clone()
+end 'directoryOf'
+
+// sourceRadius is how many lines a stop shows on each side of its own, maxon's SourceWindowRadius.
+let sourceRadius = 2 as Count
+
+let newlineByte = 10 as Byte
+
+let carriageReturnByte = 13 as Byte
+
+// sourceWindow is the lines of the file around a line, or none when the file cannot be read.
+export function sourceWindow(reader mxdbg.MxdbgReader, file mxdbg.MxdbgIndex, line Count) returns SourceLines
+	var window = SourceLines.create(0)
+	if file == mxdbg.MxdbgNoSourceFile or file as Count >= reader.fileCount() or line == 0 'none'
+		return window
+	end 'none'
+	let path = try FilePath.from(sourcePath(reader, file: file)) otherwise return window
+	let text = try File.readText(path) otherwise return window
+	var number = 1 as Count
+	var start = 0 as Count
+	let first = try line - sourceRadius otherwise 1
+	let last = try line + sourceRadius otherwise line
+	let limit = try text.byteLength() + 1 otherwise text.byteLength()
+	for i in 0 upto limit 'bytes'
+		if i == text.byteLength() or text.byteAt(i) == newlineByte 'end'
+			if number >= first and number <= last and not (i == text.byteLength() and start == i) 'held'
+				var finish = i as Count
+				if finish > start and text.byteAt(try finish - 1 otherwise 0) == carriageReturnByte 'cr'
+					finish = try finish - 1 otherwise 0
+				end 'cr'
+				window.push(SourceLine.make(number, text: text.sliceBytes(start, endPos: finish).clone(), current: number == line))
+			end 'held'
+			number = try number + 1 otherwise number
+			start = try i + 1 otherwise i
+		end 'end'
+	end 'bytes'
+	return window
+end 'sourceWindow'
+
+// isAuthored is whether a function's code is the program's own, where a breakpoint may stand and a step stops.
+export function isAuthored(reader mxdbg.MxdbgReader, f Count) returns bool
+	return mxdbg.mxdbgOriginName(reader.funcOrigin(f)) == "authored"
+end 'isAuthored'
+
+// isRuntimeCode is whether a function is the runtime's or what the compiler synthesized, which a breakpoint refuses.
+export function isRuntimeCode(reader mxdbg.MxdbgReader, f Count) returns bool
+	let origin = mxdbg.mxdbgOriginName(reader.funcOrigin(f))
+	return origin == "runtime" or origin == "synthesized"
+end 'isRuntimeCode'
+
+// bodyStart is the offset where a function's body starts, past its prologue, where a breakpoint on it stands.
+export function bodyStart(reader mxdbg.MxdbgReader, f Count) returns Count
+	return plus(reader.funcStart(f), by: reader.funcPrologueOffset(f) as Count)
+end 'bodyStart'
+
+// siteDepth is how many inline sites hold the code offset.
+export function siteDepth(reader mxdbg.MxdbgReader, offset Count) returns Count
+	var depth = 0 as Count
+	var site = reader.siteAt(offset)
+	while site.isSome() 'sites'
+		depth = try depth + 1 otherwise depth
+		let parent = reader.siteParent(site.unwrap())
+		site = table.Option.none
+		if parent != mxdbg.MxdbgNoInlineSite 'nested'
+			site = table.Option.some(parent as Count)
+		end 'nested'
+	end 'sites'
+	return depth
+end 'siteDepth'
+
+// isLineEntry is whether the code offset starts a row where control enters its line.
+export function isLineEntry(reader mxdbg.MxdbgReader, offset Count) returns bool
+	let f = reader.functionAt(offset)
+	if not f.isSome() 'outside'
+		return false
+	end 'outside'
+	let row = reader.rowAt(f.unwrap(), offset: offset)
+	if not row.isSome() 'before'
+		return false
+	end 'before'
+	let r = row.unwrap()
+	return reader.lineOffset(r) == offset and (reader.lineFlags(r) and mxdbg.MxdbgLineFlagLineEntry) != 0
+end 'isLineEntry'
+
+// PhysicalFrame is a frame of the machine's stack: where its code is (an address), its stack pointer and frame pointer.
+export type PhysicalFrame
+	export var pc as Count
+	export var sp as Count
+	export var fp as Count
+	export var top as bool
+
+	static function make(pc Count, sp Count, fp Count, top bool) returns PhysicalFrame
+		return PhysicalFrame{pc: pc, sp: sp, fp: fp, top: top}
+	end 'make'
+end 'PhysicalFrame'
+
+export typealias PhysicalFrames = Array with PhysicalFrame
+
+// frameRecordBytes is the saved frame pointer and the return address above it.
+let frameRecordBytes = 16 as Count
+
+// mostFrames bounds a walk, as maxon's backtrace stops at 100.
+let mostFrames = 100 as Count
+
+let pushRbp = 0x55 as Byte
+
+let returnByte = 0xC3 as Byte
+
+let rexB = 0x41 as Byte
+
+let firstPush = 0x50 as Byte
+
+let lastPush = 0x57 as Byte
+
+let firstPop = 0x58 as Byte
+
+let lastPop = 0x5F as Byte
+
+// framedPrologueBytes is `push rbp; mov rbp, rsp`, which starts a function that has a frame.
+let framedPrologueBytes = 4 as Count
+
+// Return is where a frame returns to: the return address, and the caller's stack and frame pointers then.
+export type Return
+	export var address as Count
+	export var sp as Count
+	export var fp as Count
+
+	static function make(address Count, sp Count, fp Count) returns Return
+		return Return{address: address, sp: sp, fp: fp}
+	end 'make'
+end 'Return'
+
+// returnOf is where the frame at the top of a stopped thread returns to, by the frame its function builds: one that saves
+// rbp is unwound through it once it is set, and a leaf with no frame by the registers it has pushed at the instruction it
+// stands on, which the bytes of its prologue and epilogue say.
+export function returnOf(host WindowsHost, reader mxdbg.MxdbgReader, textBase Count, frame PhysicalFrame) returns table.Option with Return
+	if not frame.top 'caller'
+		return callerReturn(host, fp: frame.fp)
+	end 'caller'
+	let offset = minus(frame.pc, by: textBase)
+	let found = reader.functionAt(offset)
+	if not found.isSome() 'outside'
+		return table.Option.none
+	end 'outside'
+	let f = found.unwrap()
+	let start = reader.funcStart(f)
+	let code = match consumes host.readMemory(plus(textBase, by: start), count: minus(reader.funcEnd(f), by: start)) 'code'
+		some(bytes) gives bytes
+		none gives ByteArray.create(0)
+	end 'code'
+	let at = minus(offset, by: start)
+	if code.count() == 0 or at >= code.count() 'unread'
+		return table.Option.none
+	end 'unread'
+	let framed = code.count() >= framedPrologueBytes and code[0] == pushRbp and code[1] == 0x48 and code[2] == 0x89 and code[3] == 0xE5
+	if at == 0 or code[at] == returnByte 'atEdge'
+		return returnAt(host, sp: frame.sp, pushes: 0, fp: frame.fp)
+	end 'atEdge'
+	if framed 'framed'
+		if at == 1 'pushed'
+			let savedFp = host.readWord(frame.sp)
+			if not savedFp.isSome() 'unread'
+				return table.Option.none
+			end 'unread'
+			return returnAt(host, sp: frame.sp, pushes: 1, fp: savedFp.unwrap())
+		end 'pushed'
+		return callerReturn(host, fp: frame.fp)
+	end 'framed'
+	var pushes = 0 as Count
+	if at < reader.funcPrologueOffset(f) as Count 'prologue'
+		var i = 0 as Count
+		while i < at 'pushes'
+			i = try i + instructionPushLength(code, at: i) otherwise at
+			pushes = try pushes + 1 otherwise pushes
+		end 'pushes'
+	end 'prologue' else 'body'
+		let pops = popsBeforeReturn(code, at: at)
+		pushes = (reader.funcFrameSize(f) as Count) / wordBytes
+		if pops >= 0 'epilogue'
+			pushes = try pops as Count otherwise pushes
+		end 'epilogue'
+	end 'body'
+	return returnAt(host, sp: frame.sp, pushes: pushes, fp: frame.fp)
+end 'returnOf'
+
+// instructionPushLength is the length of the push at an offset of a leaf's prologue: one byte, or two for r8 to r15.
+function instructionPushLength(code ByteArray, at Count) returns Count
+	return 2 if code[at] == rexB else 1
+end 'instructionPushLength'
+
+// popsBeforeReturn is how many pops stand between the offset and the return of a leaf's epilogue, or -1 when what follows
+// is not one.
+function popsBeforeReturn(code ByteArray, at Count) returns FullRangeInt
+	var i = at
+	var pops = 0 as FullRangeInt
+	while i < code.count() 'scan'
+		let b = code[i]
+		if b == returnByte 'ret'
+			return pops
+		end 'ret'
+		if b >= firstPop and b <= lastPop 'pop'
+			i = try i + 1 otherwise code.count()
+		end 'pop' else if b == rexB and i + 1 < code.count() and code[i + 1] >= firstPop and code[i + 1] <= lastPop 'popHigh'
+			i = try i + 2 otherwise code.count()
+		end 'popHigh' else 'other'
+			return -1
+		end 'other'
+		pops = try pops + 1 otherwise pops
+	end 'scan'
+	return -1
+end 'popsBeforeReturn'
+
+// returnAt is the return of a frame whose return address is above the words it has pushed, with the caller's frame
+// pointer.
+function returnAt(host WindowsHost, sp Count, pushes Count, fp Count) returns table.Option with Return
+	let slot = plus(sp, by: try pushes * wordBytes otherwise 0)
+	let address = host.readWord(slot)
+	if not address.isSome() 'unread'
+		return table.Option.none
+	end 'unread'
+	return table.Option.some(Return.make(address.unwrap(), sp: plus(slot, by: wordBytes), fp: fp))
+end 'returnAt'
+
+// callerReturn is the return of a frame whose frame pointer is set: the saved one at it, the return address above.
+function callerReturn(host WindowsHost, fp Count) returns table.Option with Return
+	if fp == 0 'none'
+		return table.Option.none
+	end 'none'
+	let saved = host.readWord(fp)
+	let address = host.readWord(plus(fp, by: wordBytes))
+	if not saved.isSome() or not address.isSome() 'unread'
+		return table.Option.none
+	end 'unread'
+	return table.Option.some(Return.make(address.unwrap(), sp: plus(fp, by: frameRecordBytes), fp: saved.unwrap()))
+end 'callerReturn'
+
+// physicalFrames are the frames of a stopped thread, from its registers down while each return lands in a function.
+export function physicalFrames(host WindowsHost, reader mxdbg.MxdbgReader, textBase Count, context ByteArray) returns PhysicalFrames
+	var frames = PhysicalFrames.create(0)
+	var frame = PhysicalFrame.make(contextProgramCounter(context), sp: contextRegister(context, number: stackPointerNumber), fp: contextRegister(context, number: framePointerNumber), top: true)
+	while frames.count() < mostFrames 'walk'
+		if not reader.functionAt(lookupOffset(frame, textBase: textBase)).isSome() 'outside'
+			return frames
+		end 'outside'
+		frames.push(frame.clone())
+		let back = returnOf(host, reader: reader, textBase: textBase, frame: frame)
+		if not back.isSome() 'end'
+			return frames
+		end 'end'
+		let r = back.unwrap()
+		if r.sp <= frame.sp 'notUp'
+			return frames
+		end 'notUp'
+		frame = PhysicalFrame.make(r.address, sp: r.sp, fp: r.fp, top: false)
+	end 'walk'
+	return frames
+end 'physicalFrames'
+
+// lookupOffset is the code offset a frame's position is read at: its instruction's at the top, and in a caller the call's,
+// the byte before the return address.
+export function lookupOffset(frame PhysicalFrame, textBase Count) returns Count
+	let offset = minus(frame.pc, by: textBase)
+	return offset if frame.top else minus(offset, by: 1)
+end 'lookupOffset'
+
+// logicalFrames are the frames a backtrace shows: each physical frame's inlined bodies, innermost first, then its function.
+export function logicalFrames(reader mxdbg.MxdbgReader, textBase Count, physical PhysicalFrames) returns FrameList
+	var frames = FrameList.create(0)
+	for i in 0 upto physical.count() 'physical'
+		let offset = minus(physical[i].pc, by: textBase)
+		let at = lookupOffset(physical[i], textBase: textBase)
+		let p = positionOf(reader, offset: at)
+		var file = p.file
+		var line = p.line
+		var column = p.column
+		var site = reader.siteAt(at)
+		while site.isSome() 'sites'
+			let s = site.unwrap()
+			frames.push(Frame.make(frames.count(), functionName: reader.siteName(s), file: frameFile(reader, file: file), line: line, column: column, offset: offset, inlined: true))
+			file = reader.siteCallFile(s)
+			line = reader.siteCallLine(s) as Count
+			column = reader.siteCallColumn(s) as Count
+			let parent = reader.siteParent(s)
+			site = table.Option.none
+			if parent != mxdbg.MxdbgNoInlineSite 'nested'
+				site = table.Option.some(parent as Count)
+			end 'nested'
+		end 'sites'
+		frames.push(Frame.make(frames.count(), functionName: reader.funcName(p.func.unwrap()), file: frameFile(reader, file: file), line: line, column: column, offset: offset, inlined: false))
+	end 'physical'
+	return frames
+end 'logicalFrames'
+
+// frameFile is a frame's file as maxon's frames name it: by its file name.
+function frameFile(reader mxdbg.MxdbgReader, file mxdbg.MxdbgIndex) returns String
+	return baseName(fileLabel(reader, file: file))
+end 'frameFile'
+
+// innermostName is the function a position is in, the innermost inlined body's when it is in one.
+export function innermostName(reader mxdbg.MxdbgReader, offset Count) returns String
+	let site = reader.siteAt(offset)
+	if site.isSome() 'inlined'
+		return reader.siteName(site.unwrap())
+	end 'inlined'
+	let f = reader.functionAt(offset)
+	if f.isSome() 'function'
+		return reader.funcName(f.unwrap())
+	end 'function'
+	return ""
+end 'innermostName'

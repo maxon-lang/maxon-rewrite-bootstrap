@@ -16,8 +16,25 @@ let debugFailureExit = 1 as ExitCode
 
 let debugSuccessExit = 0 as ExitCode
 
-// debugCommand runs `debug --symbolize <exe> <offset>...` or `debug --dump-info <exe> [section]...`.
+let batchFlag = "--batch"
+
+let commandsPrefix = "--commands="
+
+let stopTimeoutPrefix = "--stop-timeout="
+
+let programArgumentsMark = "--"
+
+// defaultStopTimeoutMs is how long a session waits for a stop, maxon's 10 seconds.
+let defaultStopTimeoutMs = 10000 as Count
+
+let millisPerSecond = 1000 as Count
+
+// debugCommand runs `debug --symbolize <exe> <offset>...`, `debug --dump-info <exe> [section]...` or a session,
+// `debug --batch --commands=<cmd;...|@file> [--stop-timeout=<seconds>] <exe> [-- <program args>...]`.
 function debugCommand(args CommandNames) returns ExitCode
+	if args.count() >= 2 and args[1] == batchFlag 'batch'
+		return debugBatch(args)
+	end 'batch'
 	if args.count() < 3 or (args[1] != symbolizeFlag and args[1] != dumpInfoFlag) 'usage'
 		printError(usage())
 		return usageExitCode
@@ -28,6 +45,88 @@ function debugCommand(args CommandNames) returns ExitCode
 		refused(reason) gives refuseDebug(exe, reason: reason)
 	end 'loaded'
 end 'debugCommand'
+
+// debugBatch reads a batch session's options, loads the sidecar beside the executable and runs the session.
+function debugBatch(args CommandNames) returns ExitCode
+	var commands = ""
+	var hasCommands = false
+	var budgetMs = defaultStopTimeoutMs
+	var exe = ""
+	var programArgs = StringArray.create(0)
+	var i = 2 as Count
+	while i < args.count() 'options'
+		let a = args[i].clone()
+		if a == programArgumentsMark 'rest'
+			for k in sumCounts(i, b: 1) upto args.count() 'program'
+				programArgs.push(args[k].clone())
+			end 'program'
+			i = args.count()
+			continue 'options'
+		end 'rest'
+		if hasPrefix(a, prefix: commandsPrefix) 'commands'
+			commands = a.sliceBytes(commandsPrefix.byteLength(), endPos: a.byteLength()).clone()
+			hasCommands = true
+		end 'commands' else if hasPrefix(a, prefix: stopTimeoutPrefix) 'timeout'
+			match consumes secondsAsMillis(a.sliceBytes(stopTimeoutPrefix.byteLength(), endPos: a.byteLength())) 'seconds'
+				some(ms) then budgetMs = ms
+				none then return refuseOption(a)
+			end 'seconds'
+		end 'timeout' else if exe == "" 'exe'
+			exe = a
+		end 'exe' else 'extra'
+			return refuseOption(a)
+		end 'extra'
+		i = sumCounts(i, b: 1)
+	end 'options'
+	if not hasCommands or exe == "" 'usage'
+		printError(usage())
+		return usageExitCode
+	end 'usage'
+	let script = debugger.batchCommands(commands)
+	if not script.isSome() 'unreadable'
+		printError("debug: the commands file '{commands}' cannot be read\n")
+		return debugFailureExit
+	end 'unreadable'
+	return match consumes loadSidecar(exe) 'loaded'
+		read(reader) gives debugger.runBatch(exe, reader: reader, arguments: programArgs, commands: script.unwrap(), budgetMs: budgetMs)
+		refused(reason) gives refuseDebug(exe, reason: reason)
+	end 'loaded'
+end 'debugBatch'
+
+function refuseOption(option String) returns ExitCode
+	printError("debug: '{option}' is not an option of a session, or is not a number of seconds from 0.001\n")
+	return debugFailureExit
+end 'refuseOption'
+
+let decimalPoint = 46 as Byte
+
+// secondsAsMillis is a number of seconds, with up to three decimals, in milliseconds, none for 0 or a spelling that is not.
+function secondsAsMillis(spelled String) returns table.Option with Count
+	var point = spelled.byteLength()
+	for i in 0 upto spelled.byteLength() 'point'
+		if spelled.byteAt(i) == decimalPoint and point == spelled.byteLength() 'found'
+			point = i
+		end 'found'
+	end 'point'
+	let whole = spelled.sliceBytes(0, endPos: point)
+	var fraction = "" if point == spelled.byteLength() else spelled.sliceBytes(sumCounts(point, b: 1), endPos: spelled.byteLength()).clone()
+	if fraction.byteLength() > 3 'tooFine'
+		fraction = fraction.sliceBytes(0, endPos: 3).clone()
+	end 'tooFine'
+	while fraction.byteLength() < 3 'pad'
+		fraction = "{fraction}0"
+	end 'pad'
+	let seconds = (parseNumber(whole) if whole != "" else table.Option.some(0 as Count))
+	let millis = parseNumber(fraction)
+	if not seconds.isSome() or not millis.isSome() 'bad'
+		return table.Option.none
+	end 'bad'
+	let total = try seconds.unwrap() * millisPerSecond + millis.unwrap() otherwise return table.Option.none
+	if total == 0 'zero'
+		return table.Option.none
+	end 'zero'
+	return table.Option.some(total)
+end 'secondsAsMillis'
 
 function refuseDebug(exe String, reason String) returns ExitCode
 	printError("debug: {exe}: {reason}\n")
