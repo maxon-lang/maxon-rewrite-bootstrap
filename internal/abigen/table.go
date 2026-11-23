@@ -50,7 +50,7 @@ var layouts = []layoutConst{
 	{"stringOwnedBit", 1, true, toSelfIR | toSelfBack,
 		"the bit of a String's word that says it owns its bytes, a box of runtime::alloc that its drop frees; a literal and a view own none, so their drop does nothing and touches no memory."},
 	{"stringAsciiBit", 2, true, toSelfIR | toSelfBack,
-		"the bit of a String's word that says every byte is below 0x80, so each grapheme is one byte; clear means nothing is known."},
+		"the bit of a String's word that says every byte is below 0x80 and none is a carriage return, so each grapheme cluster and each code point is one byte; clear means nothing is known."},
 	{"stringLengthShift", 2, true, toSelfIR | toSelfBack,
 		"how far a String's length is shifted up in its word, past its flags: the length is the word shifted right by it."},
 	{"wordElementShift", 3, true, toSelfIR | toSelfBack,

@@ -185,3 +185,19 @@ end 'lowerStringIndexCharIndex'
 function lowerStringIndexBytePos(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	return indexBytePos(l, index: recv)
 end 'lowerStringIndexBytePos'
+
+// lowerAppendStringBytes is __Builtins.appendStringBytes: the bytes of a String pushed onto an array of bytes in place.
+function lowerAppendStringBytes(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	entryVoid(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtBytesAppendStr, args: argsOf2(args[0], b: args[1]))
+	return konst(l, value: 0 as Word)
+end 'lowerAppendStringBytes'
+
+// lowerSingleByteGraphemes is __Builtins.singleByteGraphemes: a String's ASCII bit.
+function lowerSingleByteGraphemes(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return runtime(l, symbol: Rt.rtStrSimple, kind: IrKind.kindScalar, args: argsOf1(args[0]))
+end 'lowerSingleByteGraphemes'
+
+// lowerTakeString is __Builtins.takeString: the bytes of an array of bytes handed over as a String, the array left empty.
+function lowerTakeString(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtBytesTakeString, kind: IrKind.kindManaged, args: argsOf2(args[0], b: args[1]))
+end 'lowerTakeString'

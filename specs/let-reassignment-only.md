@@ -53,12 +53,12 @@ type Report
 		return Self{columns: ColumnArray.create(0)}
 	end 'create'
 
-	function addColumn(column Column)
+	function addColumn(consumes column Column)
 		self.columns.push(column)
 	end 'addColumn'
 
 	function render(counts Counts) returns String
-		let row = StringBuilder.create()
+		var row = StringBuilder.create()
 		for column in self.columns 'eachColumn'
 			row.append("[{column(counts)}]")
 		end 'eachColumn'

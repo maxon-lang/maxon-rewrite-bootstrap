@@ -13,13 +13,11 @@ enum LinkTargetKind
 	linkUndefined
 	linkCode
 	linkData
-	linkImageDataStart
-	linkImageDataEnd
 	linkPreemptibleCode
 end 'LinkTargetKind'
 
-// LinkTarget is where a symbol is defined: a section of code or a piece of data of a unit, and its offset in the unit,
-// or one of the bounds of the data section.
+// LinkTarget is where a symbol is defined: a section of code or a piece of data of a unit, and its offset in the unit, or
+// the table of preemptible code.
 type LinkTarget
 	var kind as LinkTargetKind
 	var unit as Count
@@ -43,16 +41,22 @@ type LinkUnit
 	var pieces as CountList
 	var liveCode as BoolList
 	var liveData as BoolList
-	// codeAt and dataAt are where each live section and piece go, counted from codeBase and dataBase, where the layout
-	// puts the unit; codeSize and dataSize are how much the unit's live parts take.
+	// readOnly says which pieces go in the image's read-only data (DataSection.readOnly) rather than its data.
+	var readOnly as BoolList
+	// codeAt and dataAt are where each live section and piece go, counted from codeBase, and from dataBase or constBase by
+	// the piece's part of the image, where the layout puts the unit; codeSize, dataSize and constSize are how much the
+	// unit's live parts take.
 	var codeAt as CountList
 	var dataAt as CountList
 	var codeBase as Count
 	var dataBase as Count
+	var constBase as Count
 	var codeSize as Count
 	var dataSize as Count
+	var constSize as Count
 	var hasCode as bool
 	var hasData as bool
+	var hasConst as bool
 	// firstID is the id of the unit's first definition: its code symbols, then its data symbols.
 	var firstID as Count
 	// targets is the id of what each symbol fixup names, and dataPieces the piece each data fixup points into. A section
@@ -60,8 +64,8 @@ type LinkUnit
 	var targets as CountList
 	var dataPieces as CountList
 
-	static function make(consumes sections CodeSectionList, consumes sectionStarts CountList, consumes pieces CountList, consumes liveCode BoolList, consumes liveData BoolList, consumes codeAt CountList, consumes dataAt CountList, consumes targets CountList, consumes dataPieces CountList) returns LinkUnit
-		return LinkUnit{sections: sections, sectionStarts: sectionStarts, pieces: pieces, liveCode: liveCode, liveData: liveData, codeAt: codeAt, dataAt: dataAt, codeBase: 0 as Count, dataBase: 0 as Count, codeSize: 0 as Count, dataSize: 0 as Count, hasCode: false, hasData: false, firstID: 0 as Count, targets: targets, dataPieces: dataPieces}
+	static function make(consumes sections CodeSectionList, consumes sectionStarts CountList, consumes pieces CountList, consumes liveCode BoolList, consumes liveData BoolList, consumes readOnly BoolList, consumes codeAt CountList, consumes dataAt CountList, consumes targets CountList, consumes dataPieces CountList) returns LinkUnit
+		return LinkUnit{sections: sections, sectionStarts: sectionStarts, pieces: pieces, liveCode: liveCode, liveData: liveData, readOnly: readOnly, codeAt: codeAt, dataAt: dataAt, codeBase: 0 as Count, dataBase: 0 as Count, constBase: 0 as Count, codeSize: 0 as Count, dataSize: 0 as Count, constSize: 0 as Count, hasCode: false, hasData: false, hasConst: false, firstID: 0 as Count, targets: targets, dataPieces: dataPieces}
 	end 'make'
 end 'LinkUnit'
 
@@ -121,17 +125,20 @@ function newLinkUnit(u CodeUnit) returns LinkUnit
 		sectionStarts.push(sections[i].code)
 	end 'starts'
 	var pieces = CountList.create(0)
+	var readOnly = BoolList.create(0)
 	if u.data.pieces.count() == 0 'none'
 		pieces.push(0)
+		readOnly.push(false)
 	end 'none' else 'some'
 		for i in 0 upto u.data.pieces.count() 'copy'
 			pieces.push(u.data.pieces[i])
+			readOnly.push(u.data.readOnly[i])
 		end 'copy'
 	end 'some'
 	pieces.push(u.data.bytes.count())
 	let sectionCount = try sections.count() - 1 otherwise panic("link: no sections")
 	let pieceCount = try pieces.count() - 1 otherwise panic("link: no pieces")
-	return LinkUnit.make(sections, sectionStarts: sectionStarts, pieces: pieces, liveCode: falses(sectionCount), liveData: falses(pieceCount), codeAt: zeros(sectionCount), dataAt: zeros(pieceCount), targets: zeros(u.asm.symbolFixups.count()), dataPieces: zeros(u.asm.dataFixups.count()))
+	return LinkUnit.make(sections, sectionStarts: sectionStarts, pieces: pieces, liveCode: falses(sectionCount), liveData: falses(pieceCount), readOnly: readOnly, codeAt: zeros(sectionCount), dataAt: zeros(pieceCount), targets: zeros(u.asm.symbolFixups.count()), dataPieces: zeros(u.asm.dataFixups.count()))
 end 'newLinkUnit'
 
 // Linked is the executable of a link, the map of its code's symbols when the link was asked for one, and whether the
@@ -272,25 +279,19 @@ export function link(units LinkUnits, entry String, choice SchedulerChoice, targ
 	for i in 0 upto units.count() 'units'
 		links.push(newLinkUnit(units.at(i)))
 	end 'units'
-	// Ids count from 1, so that 0 is no definition, and end with the bounds of the data section.
+	// Ids count from 1, so that 0 is no definition, and end with the table of preemptible code.
 	var next = 1 as Count
 	for i in 0 upto links.count() 'ids'
 		links[i].firstID = next
 		next = try next + units.at(i).codeSymbols.count() + units.at(i).dataSymbols.count() otherwise panic("link: more symbols than memory")
 	end 'ids'
-	let imageDataStart = next
-	let imageDataEnd = try next + 1 otherwise panic("link: more symbols than memory")
-	let preemptibleCode = try next + 2 otherwise panic("link: more symbols than memory")
+	let preemptibleCode = next
 	var symbols = SymbolIds.new()
 	var defined = LinkTargetList.filled(try preemptibleCode + 1 otherwise panic("link: more symbols than memory"), value: LinkTarget.make(LinkTargetKind.linkUndefined, unit: 0, part: 0, offset: 0))
 	for i in 0 upto links.count() 'define'
 		defineSymbols(links[i], u: units.at(i), index: i, symbols: symbols, defined: defined)
 	end 'define'
-	defined[imageDataStart] = LinkTarget.make(LinkTargetKind.linkImageDataStart, unit: 0, part: 0, offset: 0)
-	defined[imageDataEnd] = LinkTarget.make(LinkTargetKind.linkImageDataEnd, unit: 0, part: 0, offset: 0)
 	defined[preemptibleCode] = LinkTarget.make(LinkTargetKind.linkPreemptibleCode, unit: 0, part: 0, offset: 0)
-	defineSymbol(symbols, id: imageDataStart, symbol: ir.rtSymbol(ir.Rt.rtImageDataStart), repeatable: false)
-	defineSymbol(symbols, id: imageDataEnd, symbol: ir.rtSymbol(ir.Rt.rtImageDataEnd), repeatable: false)
 	defineSymbol(symbols, id: preemptibleCode, symbol: ir.rtSymbol(ir.Rt.rtPreemptibleCode), repeatable: false)
 	let startId = lookupSymbol(symbols, symbol: entry)
 	let start = defined[startId].clone()
@@ -311,16 +312,17 @@ export function link(units LinkUnits, entry String, choice SchedulerChoice, targ
 	let dataSize = try tableAt + table.bytes() otherwise panic("link: data past memory")
 	let pointers = livePointers(links, units: units)
 	let imports = LinkImports.of(target.system, links: links, units: units)
-	var image = buildImage(target, layout: ImageLayout.make(sizes.code, dataSize: dataSize, entryOffset: finalOffset(links, t: start), pointers: pointers.clone()), imports: imports.names)
+	var image = buildImage(target, layout: ImageLayout.make(sizes.code, constSize: sizes.constant, dataSize: dataSize, entryOffset: codeOffset(links, t: start), pointers: pointers.clone()), imports: imports.names)
 	var code = ByteArray.create(0)
-	var data = ByteArray.create(dataSize)
+	var parts = ImageParts.make(ByteArray.create(sizes.constant), data: ByteArray.create(dataSize))
 	for i in 0 upto links.count() 'copy'
-		copyAndPatch(code, data: data, links: links, unit: i, u: units.at(i), defined: defined, image: image, imports: imports, tableAt: tableAt, arch: target.arch)
+		copyAndPatch(code, parts: parts, links: links, unit: i, u: units.at(i), defined: defined, image: image, imports: imports, tableAt: tableAt, arch: target.arch)
 	end 'copy'
-	table.write(data, at: tableAt, image: image)
-	writePointers(target.system, image: image, data: data, pointers: pointers)
+	table.write(parts.data, at: tableAt, image: image)
+	writePointers(target.system, image: image, data: parts.data, pointers: pointers)
 	placeCode(image, at: 0, bytes: code)
-	placeData(image, at: 0, bytes: data)
+	placeConstants(image, bytes: parts.constants)
+	placeData(image, at: 0, bytes: parts.data)
 	var symbolMap = ""
 	if mapsSymbols 'map'
 		// The map names each symbol at its own definition, so a substitute's code is listed by its own name.
@@ -341,6 +343,9 @@ function livePointers(links LinkUnitList, units LinkUnits) returns DataPointerLi
 			if not links[u].liveData[piece] 'dropped'
 				continue 'pointers'
 			end 'dropped'
+			if links[u].readOnly[piece] 'constant'
+				panic("link: a word that holds an address in a piece of read-only data")
+			end 'constant'
 			if containing(links[u].pieces, offset: pointer.target) != piece 'apart'
 				panic("link: a pointer of the data reaches past its piece")
 			end 'apart'
@@ -412,7 +417,7 @@ function symbolMapText(links LinkUnitList, units LinkUnits, symbols SymbolIds, d
 			let id = try links[u].firstID + i otherwise panic("link: more symbols than memory")
 			let t = defined[id].clone()
 			if lookupSymbol(symbols, symbol: units.at(u).codeSymbols[i].symbol) == id and links[u].liveCode[t.part] 'kept'
-				entries.push(MapEntry.make(try textRva + finalOffset(links, t: t) otherwise panic("link: code past memory"), symbol: units.at(u).codeSymbols[i].symbol.clone()))
+				entries.push(MapEntry.make(try textRva + codeOffset(links, t: t) otherwise panic("link: code past memory"), symbol: units.at(u).codeSymbols[i].symbol.clone()))
 			end 'kept'
 		end 'symbols'
 	end 'units'
@@ -536,26 +541,39 @@ function markSection(mutates links LinkUnitList, u CodeUnit, symbols SymbolIds, 
 				links[target.unit].liveCode[target.part] = true
 				work.push(LiveSection.make(target.unit, index: target.part))
 			end 'fresh'
-		end 'codeTarget' else if target.kind != LinkTargetKind.linkImageDataStart and target.kind != LinkTargetKind.linkImageDataEnd and target.kind != LinkTargetKind.linkPreemptibleCode 'unknown'
+		end 'codeTarget' else if target.kind != LinkTargetKind.linkPreemptibleCode 'unknown'
 			panic("link: unknown target kind {target.kind.name}")
 		end 'unknown'
 	end 'symbols'
 end 'markSection'
 
-// LinkSizes are how much code and data the live parts of every unit take.
+// LinkSizes are how much code, read-only data and data the live parts of every unit take.
 type LinkSizes
 	var code as Count
+	var constant as Count
 	var data as Count
 
-	static function make(code Count, data Count) returns LinkSizes
-		return LinkSizes{code: code, data: data}
+	static function make(code Count, constant Count, data Count) returns LinkSizes
+		return LinkSizes{code: code, constant: constant, data: data}
 	end 'make'
 end 'LinkSizes'
 
-// layOut places the live sections and pieces, unit after unit, and gives the sizes of the code and the data. Each unit
-// places its own parts from its own start, which is aligned; the running sum over the units then gives each its base.
+// ImageParts are the bytes of the image's read-only data and of its data, which the link writes the live pieces into.
+type ImageParts
+	var constants as ByteArray
+	var data as ByteArray
+
+	static function make(consumes constants ByteArray, consumes data ByteArray) returns ImageParts
+		return ImageParts{constants: constants, data: data}
+	end 'make'
+end 'ImageParts'
+
+// layOut places the live sections and pieces, unit after unit, and gives the sizes of the code, the read-only data and the
+// data. Each unit places its own parts from its own start, which is aligned; the running sum over the units then gives
+// each its base.
 function layOut(mutates links LinkUnitList) returns LinkSizes
 	var codeSize = 0 as Count
+	var constSize = 0 as Count
 	var dataSize = 0 as Count
 	for i in 0 upto links.count() 'units'
 		place(links[i])
@@ -569,8 +587,13 @@ function layOut(mutates links LinkUnitList) returns LinkSizes
 		end 'data'
 		links[i].dataBase = dataSize
 		dataSize = try dataSize + links[i].dataSize otherwise panic("link: data past memory")
+		if links[i].hasConst 'constant'
+			constSize = alignUp(constSize, alignment: linkDataAlignment)
+		end 'constant'
+		links[i].constBase = constSize
+		constSize = try constSize + links[i].constSize otherwise panic("link: data past memory")
 	end 'units'
-	return LinkSizes.make(codeSize, data: dataSize)
+	return LinkSizes.make(codeSize, constant: constSize, data: dataSize)
 end 'layOut'
 
 // place gives each live section and piece its offset from the start of the unit's code and its data.
@@ -590,28 +613,42 @@ function place(mutates l LinkUnit)
 		end 'live'
 	end 'sections'
 	for p in 0 upto l.liveData.count() 'pieces'
-		if l.liveData[p] 'live'
+		if not l.liveData[p] 'dropped'
+			continue 'pieces'
+		end 'dropped'
+		let length = try l.pieces[p + 1] - l.pieces[p] otherwise panic("link: a piece that ends before it starts")
+		if l.readOnly[p] 'constant'
+			l.hasConst = true
+			l.constSize = alignUp(l.constSize, alignment: linkDataAlignment)
+			l.dataAt[p] = l.constSize
+			l.constSize = try l.constSize + length otherwise panic("link: data past memory")
+		end 'constant' else 'data'
 			l.hasData = true
 			l.dataSize = alignUp(l.dataSize, alignment: linkDataAlignment)
 			l.dataAt[p] = l.dataSize
-			let length = try l.pieces[p + 1] - l.pieces[p] otherwise panic("link: a piece that ends before it starts")
 			l.dataSize = try l.dataSize + length otherwise panic("link: data past memory")
-		end 'live'
+		end 'data'
 	end 'pieces'
 end 'place'
 
-// finalOffset is where a symbol's definition ends up in the code or the data section.
-function finalOffset(links LinkUnitList, t LinkTarget) returns Count
-	if t.kind == LinkTargetKind.linkData 'data'
-		let inPiece = try t.offset - links[t.unit].pieces[t.part] otherwise panic("link: a definition before its piece")
-		return try links[t.unit].dataBase + links[t.unit].dataAt[t.part] + inPiece otherwise panic("link: data past memory")
-	end 'data'
-	if t.kind == LinkTargetKind.linkCode 'code'
-		let inSection = try t.offset - links[t.unit].sections[t.part].code otherwise panic("link: a definition before its section")
-		return try links[t.unit].codeBase + links[t.unit].codeAt[t.part] + inSection otherwise panic("link: code past memory")
+// codeOffset is where the definition of a symbol of code ends up in the code.
+function codeOffset(links LinkUnitList, t LinkTarget) returns Count
+	if t.kind != LinkTargetKind.linkCode 'code'
+		panic("link: a target of kind {t.kind.name} has no place in the code")
 	end 'code'
-	panic("link: a target of kind {t.kind.name} has no offset")
-end 'finalOffset'
+	let inSection = try t.offset - links[t.unit].sections[t.part].code otherwise panic("link: a definition before its section")
+	return try links[t.unit].codeBase + links[t.unit].codeAt[t.part] + inSection otherwise panic("link: code past memory")
+end 'codeOffset'
+
+// pieceRva is the address in the image of the byte at an offset of a unit's data, in a live piece: in the image's read-only
+// data or its data, by the piece.
+function pieceRva(l LinkUnit, piece Count, offset Count, image Image) returns Count
+	let inPiece = try offset - l.pieces[piece] otherwise panic("link: a reference before its piece")
+	if l.readOnly[piece] 'constant'
+		return try image.constRva + l.constBase + l.dataAt[piece] + inPiece otherwise panic("link: an address past the image")
+	end 'constant'
+	return try image.dataRva + l.dataBase + l.dataAt[piece] + inPiece otherwise panic("link: an address past the image")
+end 'pieceRva'
 
 // copyRange puts the bytes of src from one offset up to another at an offset of dest.
 function copyRange(mutates dest ByteArray, at Count, src ByteArray, begin Count, finish Count)
@@ -655,13 +692,18 @@ end 'patchLinkRel32'
 // copyAndPatch puts the live sections and pieces of a unit, u at place unit of the layout, into the code and the data of the
 // image and fills in the addresses they refer to. A section moves as a whole, so a fixup keeps its place in it. The units
 // come in the order of their places, so the code is written in that order, with traps in the gaps that align a section.
-function copyAndPatch(mutates code ByteArray, mutates data ByteArray, links LinkUnitList, unit Count, u CodeUnit, defined LinkTargetList, image Image, imports LinkImports, tableAt Count, arch ast.TargetArch)
+function copyAndPatch(mutates code ByteArray, mutates parts ImageParts, links LinkUnitList, unit Count, u CodeUnit, defined LinkTargetList, image Image, imports LinkImports, tableAt Count, arch ast.TargetArch)
 	let l = links[unit].clone()
-	for p in 0 upto l.liveData.count() 'data'
-		if l.liveData[p] 'live'
-			copyRange(data, at: try l.dataBase + l.dataAt[p] otherwise panic("link: data past memory"), src: u.data.bytes, begin: l.pieces[p], finish: l.pieces[p + 1])
-		end 'live'
-	end 'data'
+	for p in 0 upto l.liveData.count() 'pieces'
+		if not l.liveData[p] 'dropped'
+			continue 'pieces'
+		end 'dropped'
+		if l.readOnly[p] 'constant'
+			copyRange(parts.constants, at: try l.constBase + l.dataAt[p] otherwise panic("link: data past memory"), src: u.data.bytes, begin: l.pieces[p], finish: l.pieces[p + 1])
+		end 'constant' else 'data'
+			copyRange(parts.data, at: try l.dataBase + l.dataAt[p] otherwise panic("link: data past memory"), src: u.data.bytes, begin: l.pieces[p], finish: l.pieces[p + 1])
+		end 'data'
+	end 'pieces'
 	for s in 0 upto l.liveCode.count() 'sections'
 		if not l.liveCode[s] 'dropped'
 			continue 'sections'
@@ -673,10 +715,8 @@ function copyAndPatch(mutates code ByteArray, mutates data ByteArray, links Link
 		appendRange(code, src: u.asm.code, begin: begin.code, finish: finish.code)
 		for j in begin.dataFixups upto finish.dataFixups 'dataFixups'
 			let fixup = u.asm.dataFixups[j].clone()
-			let piece = l.dataPieces[j]
-			let inPiece = try fixup.dataOffset - l.pieces[piece] otherwise panic("link: a reference before its piece")
-			let offset = try l.dataBase + l.dataAt[piece] + inPiece otherwise panic("link: data past memory")
-			linkPatch(code, kind: fixup.kind, pos: movedPos(at, fixupPos: fixup.pos, sectionStart: begin.code), textRva: image.textRva, target: try image.dataRva + offset otherwise panic("link: an address past the image"))
+			let target = pieceRva(l, piece: l.dataPieces[j], offset: fixup.dataOffset, image: image)
+			linkPatch(code, kind: fixup.kind, pos: movedPos(at, fixupPos: fixup.pos, sectionStart: begin.code), textRva: image.textRva, target: target)
 		end 'dataFixups'
 		for j in begin.importFixups upto finish.importFixups 'importFixups'
 			let fixup = u.asm.importFixups[j].clone()
@@ -690,16 +730,12 @@ function copyAndPatch(mutates code ByteArray, mutates data ByteArray, links Link
 		for j in begin.symbolFixups upto finish.symbolFixups 'symbolFixups'
 			let target = defined[l.targets[j]].clone()
 			var address = 0 as Count
-			if target.kind == LinkTargetKind.linkImageDataStart 'start'
-				address = image.dataRva
-			end 'start' else if target.kind == LinkTargetKind.linkImageDataEnd 'end'
-				address = try image.dataRva + data.count() otherwise panic("link: an address past the image")
-			end 'end' else if target.kind == LinkTargetKind.linkPreemptibleCode 'table'
+			if target.kind == LinkTargetKind.linkPreemptibleCode 'table'
 				address = try image.dataRva + tableAt otherwise panic("link: an address past the image")
 			end 'table' else if target.kind == LinkTargetKind.linkData 'dataTarget'
-				address = try image.dataRva + finalOffset(links, t: target) otherwise panic("link: an address past the image")
+				address = pieceRva(links[target.unit], piece: target.part, offset: target.offset, image: image)
 			end 'dataTarget' else if target.kind == LinkTargetKind.linkCode 'codeTarget'
-				address = try image.textRva + finalOffset(links, t: target) otherwise panic("link: an address past the image")
+				address = try image.textRva + codeOffset(links, t: target) otherwise panic("link: an address past the image")
 			end 'codeTarget' else 'unknown'
 				panic("link: a live fixup has a target of kind {target.kind.name}")
 			end 'unknown'

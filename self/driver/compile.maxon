@@ -21,7 +21,7 @@ end 'goalOf'
 function buildPath(path String, output String, options Options) returns ExitCode
 	let trace = Trace.start(options.trace)
 	var errs = diag.ErrorList.create(0)
-	var p = projectFor(options.target)
+	var p = projectFor(options)
 	let ready = runtimeFor(p, path: path, output: output, options: options, errs: errs)
 	if errs.count() > 0 'broken'
 		return report(errs)
@@ -56,7 +56,7 @@ let compiledByBehaviours = 0 as ExitCode
 
 // compileProject is compilePath's compile, which leaves the diagnostics in errs for the caller to report.
 function compileProject(path String, output String, options Options, mutates errs diag.ErrorList)
-	var p = projectFor(options.target)
+	var p = projectFor(options)
 	let ready = runtimeFor(p, path: path, output: output, options: options, errs: errs)
 	if errs.count() > 0 'broken'
 		return
@@ -90,10 +90,8 @@ type SharedRuntime
 	var p as frozen with ast.Project
 	var ready as frozen with backend.UnitList
 
-	static function prepare(target ast.Target, mutates errs diag.ErrorList) returns SharedRuntime
-		var p = projectFor(target)
-		var options = Options.new()
-		options.target = target.clone()
+	static function prepare(options Options, mutates errs diag.ErrorList) returns SharedRuntime
+		var p = projectFor(options)
 		let ready = prepareRuntime(p, options: options, errs: errs)
 		_ = ast.takeBody(p, module: runtimeModule)
 		return SharedRuntime{p: freeze(p), ready: freeze(ready)}
@@ -110,10 +108,12 @@ type SharedRuntime
 	end 'projectForProgram'
 end 'SharedRuntime'
 
-// projectFor is a new project of the target, which no module is in yet.
-function projectFor(target ast.Target) returns ast.Project
+// projectFor is a new project of the options' target, which no module is in yet. A build that counts its allocations checks
+// the ASCII bit of each owned String it drops or copies too.
+function projectFor(options Options) returns ast.Project
 	var p = ast.Project.new("")
-	p.target = target.clone()
+	p.target = options.target.clone()
+	p.checksStrings = options.countAllocations
 	return p
 end 'projectFor'
 
@@ -185,7 +185,7 @@ end 'compileSourceWith'
 // compileRuntimeTest compiles a test of the runtime: the file is compiled as one more file of the runtime's module,
 // whose main it holds, so that it may call the runtime's functions and the __Raw intrinsics, as a program may not.
 function compileRuntimeTest(file String, output String, options Options, mutates errs diag.ErrorList) returns CompiledProgram
-	var p = projectFor(options.target)
+	var p = projectFor(options)
 	project.discoverRuntime(p)
 	p.modules[ast.modIndex(p.rootModule)].filePaths.push(file.clone())
 	let generated = compileDiscovered(p, memory: project.SourceFiles.create(0), first: 0, ready: noReadyUnits(), output: output, options: options, errs: errs)
@@ -204,6 +204,7 @@ function prepareRuntime(mutates p ast.Project, options Options, mutates errs dia
 	runtimeOptions.compiler = options.compiler.clone()
 	runtimeOptions.verifiesCache = options.verifiesCache
 	runtimeOptions.target = options.target.clone()
+	runtimeOptions.countAllocations = options.countAllocations
 	var run = runStages(p, from: Stage.parse, memory: project.SourceFiles.create(0), first: first, goal: Goal.units, makesProgram: false, output: "", options: runtimeOptions, ready: noReadyUnits(), errs: errs)
 	if errs.count() > 0 'failed'
 		ast.locateAllErrors(p.modules, errs: errs)

@@ -106,8 +106,63 @@ end 'stringSlice'
 function stringOfBytes(bytes Count, length Count) returns String
 	let room = __Raw.stringRoom(length)
 	copyBytes(bytes, target: room, count: length)
-	return __Raw.stringOf(room, length: length, ascii: false)
+	return stringOfRoom(room, length: length)
 end 'stringOfBytes'
+
+// stringOfRoom is the string of the length bytes that were just written to room, whose ASCII bit says what they are: the
+// one pass over bytes that are still in the cache is what lets every later operation take its byte path.
+function stringOfRoom(room Count, length Count) returns String
+	return __Raw.stringOf(room, length: length, ascii: bytesAreSimple(room, length: length))
+end 'stringOfRoom'
+
+// highBits has the top bit of each byte of a word set, and carriageReturns a carriage return in each byte.
+let highBits = 0x8080808080808080 as Count
+
+let carriageReturns = 0x0D0D0D0D0D0D0D0D as Count
+
+let lowBits = 0x0101010101010101 as Count
+
+let byteHighBit = 0x80 as Byte
+
+let carriageReturn = 13 as Byte
+
+// bytesAreSimple is whether every byte of a span is below 0x80 and none is a carriage return, so that every grapheme
+// cluster of it is one byte: a carriage return and a line feed are one cluster. It is what a String's ASCII bit says (the
+// layout's stringAsciiBit), a word at a time and then the bytes left over.
+function bytesAreSimple(bytes Count, length Count) returns bool
+	var at = 0 as Count
+	while __Raw.wrappingAdd(at, right: wordBytes) <= length 'words'
+		let word = __Raw.loadWord(bytes, offset: at)
+		let crossed = word xor carriageReturns
+		if (word and highBits) != 0 or (__Raw.wrappingSub(crossed, right: lowBits) and not crossed and highBits) != 0 'other'
+			return false
+		end 'other'
+		at = __Raw.wrappingAdd(at, right: wordBytes)
+	end 'words'
+	while at < length 'bytes'
+		let byte = __Raw.loadByte(bytes, offset: at)
+		if byte >= byteHighBit or byte == carriageReturn 'other'
+			return false
+		end 'other'
+		at = __Raw.wrappingAdd(at, right: 1)
+	end 'bytes'
+	return true
+end 'bytesAreSimple'
+
+// strKnownSimple is whether a string's ASCII bit is set, which says that each of its grapheme clusters is one byte
+// (bytesAreSimple): the text operations (textops.maxon) then take their byte paths. A clear bit only means nothing is
+// known.
+function strKnownSimple(text String) returns bool
+	return __Raw.stringAscii(text)
+end 'strKnownSimple'
+
+// checkSimpleBytes is the check of a String's ASCII bit that a build counting its allocations makes at each drop and copy
+// of an owned String whose bit is set: the bit over a byte that is not simple is a bug of whatever made the String.
+function checkSimpleBytes(bytes Count, length Count)
+	if not bytesAreSimple(bytes, length: length) 'wrong'
+		panic("a String's ASCII bit is set over a byte that is not ASCII or is a carriage return")
+	end 'wrong'
+end 'checkSimpleBytes'
 
 // copyBytes copies a word at a time and then the bytes left over, first first, so that a target below the source may
 // overlap it: each word is read before the target that overlaps it is written.

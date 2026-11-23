@@ -1120,8 +1120,8 @@ If that empty buffer were the shared record, two builders would share it, and ap
 would publish the other's length.
 ```maxon
 function main() returns ExitCode
-	let a = StringBuilder.create()
-	let b = StringBuilder.create()
+	var a = StringBuilder.create()
+	var b = StringBuilder.create()
 	let fromA = a.build()
 	let fromB = b.build()
 	a.append("AAA")

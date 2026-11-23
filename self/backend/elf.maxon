@@ -1,8 +1,8 @@
 // The Linux ELF64 writer, after maxon's (Targets/Linux/ElfWriter.maxon): a static ET_EXEC at a fixed load address, with
 // no interpreter, no dynamic section and no relocation, since a Linux program calls the kernel itself and the image is
-// never moved, so the link writes every address it holds as the image's own. Two PT_LOAD segments: the first, readable
-// and executable, maps the file from its start, the headers and then the code; the second, readable and writable, is the
-// data, from a page of the file of its own.
+// never moved, so the link writes every address it holds as the image's own. Three PT_LOAD segments: the first, readable
+// and executable, maps the file from its start, the headers and then the code; the second, readable only, is the read-only
+// data, and the third, readable and writable, is the data, each from a page of the file of its own.
 
 // elfLoadAddress is where the image is loaded, maxon's: the address of the first byte of the file.
 let elfLoadAddress = 0x400000 as Count
@@ -13,7 +13,7 @@ let elfHeaderBytes = 64 as Count
 
 let elfProgramHeaderBytes = 56 as Count
 
-let elfProgramHeaderCount = 2 as Count
+let elfProgramHeaderCount = 3 as Count
 
 // elfEmptyDataBytes is the data segment of a program with no data: a PT_LOAD with no bytes in the file is one a loader may
 // refuse, as maxon's writer notes.
@@ -52,14 +52,16 @@ let elfSegmentRead = 4 as Count
 // none: the loader reads the program headers alone.
 let elfNoSections = 0 as Count
 
-// buildElfImage lays out the file for the code and the data of the layout, with the entry point at its offset in the code.
-// The data's pointers hold the image's own addresses, which writePointers fills in, so the layout's pointers need no table
-// here.
+// buildElfImage lays out the file for the code, the read-only data and the data of the layout, with the entry point at its
+// offset in the code. The data's pointers hold the image's own addresses, which writePointers fills in, so the layout's
+// pointers need no table here.
 export function buildElfImage(arch ast.TargetArch, layout ImageLayout) returns Image
 	let headersSize = sum(elfHeaderBytes, b: product(elfProgramHeaderBytes, b: elfProgramHeaderCount))
 	let codeOffset = alignUp(headersSize, alignment: codeLineBytes)
 	let codeEnd = sum(codeOffset, b: layout.codeSize)
-	let dataOffset = alignUp(codeEnd, alignment: elfPageBytes)
+	let constOffset = alignUp(codeEnd, alignment: elfPageBytes)
+	let constLength = layout.constSize if layout.constSize > 0 else elfEmptyDataBytes
+	let dataOffset = alignUp(sum(constOffset, b: constLength), alignment: elfPageBytes)
 	let dataLength = layout.dataSize if layout.dataSize > 0 else elfEmptyDataBytes
 	var w = ByteArray.create(0)
 	pushU32(w, v: elfMagic)
@@ -82,10 +84,11 @@ export function buildElfImage(arch ast.TargetArch, layout ImageLayout) returns I
 	pushU16(w, v: elfNoSections)
 	pushU16(w, v: elfNoSections)
 	pushProgramHeader(w, flags: elfSegmentRead or elfSegmentExecute, fileOffset: 0, size: codeEnd)
+	pushProgramHeader(w, flags: elfSegmentRead, fileOffset: constOffset, size: constLength)
 	pushProgramHeader(w, flags: elfSegmentRead or elfSegmentWrite, fileOffset: dataOffset, size: dataLength)
 	var file = ByteArray.create(sum(dataOffset, b: dataLength))
 	copyInto(file, at: 0, src: w)
-	return Image.make(file, format: ast.ImageFormat.elf, base: elfLoadAddress, textRva: codeOffset, dataRva: dataOffset, iatRva: 0, importSlots: 0, codeOffset: codeOffset, dataOffset: dataOffset)
+	return Image.make(file, format: ast.ImageFormat.elf, base: elfLoadAddress, textRva: codeOffset, constRva: constOffset, dataRva: dataOffset, iatRva: 0, importSlots: 0, codeOffset: codeOffset, constOffset: constOffset, dataOffset: dataOffset)
 end 'buildElfImage'
 
 // elfMachineOf is the e_machine of an image of an architecture.

@@ -314,7 +314,7 @@ export function viewFrom(base Project, first Count, products Array with frozen w
 	let firstSlot = moduleSlot(try first as diag.ModuleID otherwise panic("a module past the handles"))
 	let types = viewTypes(base.types, firstSlot: firstSlot, products: products, held: held, visible: visible, verifies: verifies)
 	let funcs = viewFuncs(base.funcs, firstSlot: firstSlot, products: products, held: held, visible: visible, verifies: verifies)
-	return Project.view(base.root.clone(), target: base.target.clone(), rootModule: base.rootModule, library: base.library.clone(), modules: modules, stdlib: base.stdlib.clone(), byPath: share(base.byPath), types: types, funcs: funcs, builtins: share(base.builtins), resolutions: resolutions, typings: typings)
+	return Project.view(base.root.clone(), target: base.target.clone(), checksStrings: base.checksStrings, rootModule: base.rootModule, library: base.library.clone(), modules: modules, stdlib: base.stdlib.clone(), byPath: share(base.byPath), types: types, funcs: funcs, builtins: share(base.builtins), resolutions: resolutions, typings: typings)
 end 'viewFrom'
 
 // resolutionOf is the resolution of the module of ms, which its resolve made: a product every later stage of the module

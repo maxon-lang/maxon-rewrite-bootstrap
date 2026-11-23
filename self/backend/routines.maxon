@@ -319,7 +319,7 @@ end 'emitRoutine'
 function emitDrop(mutates u CodeUnit, a ast.TargetArch, p ast.Project, mutates ms ast.ModuleState, ty ast.TypeID)
 	let kind = ast.typeKind(ms.types, reads: p.types, t: ty)
 	if kind == ast.TypeKind.primString 'string'
-		dropString(u, a: a)
+		dropString(u, a: a, checks: p.checksStrings)
 		return
 	end 'string'
 	if kind == ast.TypeKind.record 'record'
@@ -372,7 +372,7 @@ end 'emitDrop'
 function emitCopy(mutates u CodeUnit, a ast.TargetArch, p ast.Project, mutates ms ast.ModuleState, ty ast.TypeID)
 	let kind = ast.typeKind(ms.types, reads: p.types, t: ty)
 	if kind == ast.TypeKind.primString 'string'
-		copyString(u, a: a)
+		copyString(u, a: a, checks: p.checksStrings)
 		return
 	end 'string'
 	if kind == ast.TypeKind.record 'record'
@@ -1357,12 +1357,31 @@ function skipUnlessOwned(mutates u CodeUnit, a ast.TargetArch, done LabelID)
 	rBranch(u, a: a, cond: MCond.equal, label: done)
 end 'skipUnlessOwned'
 
+// checkAsciiBit has the runtime check the bytes of the owned String that the routine's argument and its first local hold,
+// where its ASCII bit is set (Project.checksStrings).
+function checkAsciiBit(mutates u CodeUnit, a ast.TargetArch)
+	let clear = u.asm.newLabel()
+	rMovImm(u, a: a, dst: rWork, imm: stringAsciiBit)
+	rLoad(u, a: a, dst: rSecond, base: rFrame, disp: routineLocal0)
+	rTest(u, a: a, left: rSecond, right: rWork)
+	rBranch(u, a: a, cond: MCond.equal, label: clear)
+	rLoad(u, a: a, dst: rWork, base: rFrame, disp: routineLocal0)
+	rShrImm(u, a: a, dst: rWork, shift: stringLengthShift)
+	rArgOfRole(u, a: a, index: 1, src: rWork)
+	rLoadArgWord(u, a: a, index: 0, base: rFrame, disp: routineArg)
+	rCallSymbol(u, a: a, symbol: ir.rtSymbol(ir.Rt.rtCheckSimpleBytes))
+	u.asm.bind(clear)
+end 'checkAsciiBit'
+
 // dropString frees the bytes of a String that owns them: its word says so, with no access to memory.
-function dropString(mutates u CodeUnit, a ast.TargetArch)
+function dropString(mutates u CodeUnit, a ast.TargetArch, checks bool)
 	let done = u.asm.newLabel()
 	routinePrologue(u, a: a, locals: 1)
 	rStore(u, a: a, base: rFrame, disp: routineLocal0, src: rArgWord)
 	skipUnlessOwned(u, a: a, done: done)
+	if checks 'checks'
+		checkAsciiBit(u, a: a)
+	end 'checks'
 	freeArgument(u, a: a)
 	u.asm.bind(done)
 	routineEpilogue(u, a: a)
@@ -1513,11 +1532,14 @@ end 'copyArray'
 
 // copyString is a new String of the same word and a copy of the bytes, where the String owns them: a literal's and a
 // view's copy is the same two words, whose bytes no copy frees.
-function copyString(mutates u CodeUnit, a ast.TargetArch)
+function copyString(mutates u CodeUnit, a ast.TargetArch, checks bool)
 	let shared = u.asm.newLabel()
 	routinePrologue(u, a: a, locals: 2)
 	rStore(u, a: a, base: rFrame, disp: routineLocal0, src: rArgWord)
 	skipUnlessOwned(u, a: a, done: shared)
+	if checks 'checks'
+		checkAsciiBit(u, a: a)
+	end 'checks'
 	rLoad(u, a: a, dst: rWork, base: rFrame, disp: routineLocal0)
 	rShrImm(u, a: a, dst: rWork, shift: stringLengthShift)
 	callRuntimeWithWork(u, a: a, entry: ir.Rt.rtAlloc)

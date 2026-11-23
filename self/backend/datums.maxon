@@ -14,9 +14,7 @@ end 'datumBoxBytes'
 
 // layOutDatum writes the datum d at the end of the data as a piece of its own, and gives where its value is: its root box.
 function layOutDatum(mutates data DataSection, d ir.Datum) returns Count
-	data.align8()
-	let at = data.bytes.count()
-	data.pieces.push(at)
+	let at = data.startPiece(false)
 	var boxAt = CountList.create(0)
 	var next = at
 	for i in 0 upto d.boxes.count() 'boxes'

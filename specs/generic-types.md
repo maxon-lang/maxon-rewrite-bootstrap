@@ -6405,29 +6405,29 @@ type Box uses T
 	var v as T
 	typealias Peers = Array with Self
 
-	static function twice(v T) returns Peers
-		let out = Peers.create(0)
-		out.push(Self{v: v})
-		out.push(Self{v: v})
+	static function twice(v T) returns Peers where T implements Copyable
+		var out = Peers.create(0)
+		out.push(Self{v: v.clone()})
+		out.push(Self{v: v.clone()})
 		return out
 	end 'twice'
 
-	function held() returns T
-		return self.v
+	function held() returns T where T implements Copyable
+		return self.v.clone()
 	end 'held'
 end 'Box'
 
 typealias TextBox = Box with String
 
 function heapString(a String, b String) returns String
-	let sb = StringBuilder.create()
+	var sb = StringBuilder.create()
 	sb.append(a)
 	sb.append(b)
 	return sb.build()
 end 'heapString'
 
 function main() returns ExitCode
-	let boxes = TextBox.twice(heapString("first payload ", b: "long enough to allocate"))
+	var boxes = TextBox.twice(heapString("first payload ", b: "long enough to allocate"))
 	let first = try boxes.pop() otherwise panic("one")
 	_ = try boxes.pop() otherwise panic("two")
 	let noise = heapString("overwrite payload ", b: "long enough to allocate xxxxxxxx")
@@ -6582,7 +6582,7 @@ function work(n Whole) returns Whole
 end 'work'
 
 function longText(tag String) returns String
-	let sb = StringBuilder.create()
+	var sb = StringBuilder.create()
 	sb.append(tag)
 	sb.append(" payload long enough to allocate")
 	return sb.build()
@@ -6592,7 +6592,7 @@ type Holder uses T
 	public var slot as T
 	var origin as Whole
 
-	static function create(item T, spare T, keep bool, refuse bool) returns Self throws KeepError
+	static function create(item T, spare T, keep bool, refuse bool) returns Self throws KeepError where T implements Copyable
 		if keep 'kept'
 			let built = Self{slot: item, origin: 1}
 			if refuse 'refusedKept'
@@ -6708,7 +6708,7 @@ The concrete twin of the case above: a `mutable` `String` parameter that is reas
 factory builds, with the caller's variable and the array each keeping what they hold.
 ```maxon
 function longText(tag String) returns String
-	let sb = StringBuilder.create()
+	var sb = StringBuilder.create()
 	sb.append(tag)
 	sb.append(" payload long enough to allocate")
 	return sb.build()
@@ -6719,11 +6719,11 @@ type Hold
 	export var items as Items
 
 	static function of(mutates first String, replacement String, swap bool) returns Hold
-		let xs = Items.create(0)
+		var xs = Items.create(0)
 		if swap 'swapped'
-			first = replacement
+			first = replacement.clone()
 		end 'swapped'
-		xs.push(first)
+		xs.push(first.clone())
 		return Hold{items: xs}
 	end 'of'
 end 'Hold'
@@ -6769,7 +6769,7 @@ function work(n Whole) returns Whole
 end 'work'
 
 function longText(tag String) returns String
-	let sb = StringBuilder.create()
+	var sb = StringBuilder.create()
 	sb.append(tag)
 	sb.append(" payload long enough to allocate")
 	return sb.build()
@@ -6780,8 +6780,8 @@ type Holder uses T
 	var origin as Whole
 	typealias Pieces = Array with Self
 
-	static function create(item T, spare T, keep bool, refuse bool) returns Self throws KeepError
-		let pieces = Pieces.create(0)
+	static function create(item T, spare T, keep bool, refuse bool) returns Self throws KeepError where T implements Copyable
+		var pieces = Pieces.create(0)
 		var made = 2 as Whole
 		if keep 'kept'
 			pieces.push(Self{slot: item, origin: 1})
@@ -6853,7 +6853,7 @@ function work(n Whole) returns Whole
 end 'work'
 
 function longText(tag String) returns String
-	let sb = StringBuilder.create()
+	var sb = StringBuilder.create()
 	sb.append(tag)
 	sb.append(" payload long enough to allocate")
 	return sb.build()
@@ -6863,7 +6863,7 @@ type Holder uses T
 	public var slot as T
 	var origin as Whole
 
-	static function create(item T, spare T, stopAt Whole) returns Self
+	static function create(item T, spare T, stopAt Whole) returns Self where T implements Copyable
 		var found = Self{slot: spare, origin: 0}
 		var round = 1 as Whole
 		while round < 4 'scan'
@@ -7022,7 +7022,7 @@ loop leaves holds the last, and the leak gate is clean.
 typealias Whole = int(i64.min to i64.max)
 
 function longText(tag String) returns String
-	let sb = StringBuilder.create()
+	var sb = StringBuilder.create()
 	sb.append(tag)
 	sb.append(" payload long enough to allocate")
 	return sb.build()
@@ -7032,11 +7032,11 @@ type Holder uses T
 	public var slot as T
 	var origin as Whole
 
-	static function create(item T, spare T, n Whole) returns Self
-		var found = Self{slot: spare, origin: 0}
+	static function create(item T, spare T, n Whole) returns Self where T implements Copyable
+		var found = Self{slot: spare.clone(), origin: 0}
 		var round = 0 as Whole
 		while round < n 'scan'
-			found = Self{slot: item, origin: round + 1}
+			found = Self{slot: item.clone(), origin: round + 1}
 			round = round + 1
 		end 'scan'
 		return found
@@ -7075,7 +7075,7 @@ stores the result and on the path that does not, without a leak.
 typealias Whole = int(i64.min to i64.max)
 
 function longText(tag String) returns String
-	let sb = StringBuilder.create()
+	var sb = StringBuilder.create()
 	sb.append(tag)
 	sb.append(" payload long enough to allocate")
 	return sb.build()
@@ -7085,12 +7085,12 @@ type Holder uses T
 	public var slot as T
 	var origin as Whole
 
-	static function create(item T, spare T, keep bool) returns Self
-		let f = function() gives item
+	static function create(item T, spare T, keep bool) returns Self where T implements Copyable
+		let f = function() gives item.clone()
 		if keep 'kept'
 			return Self{slot: f(), origin: 1}
 		end 'kept'
-		return Self{slot: spare, origin: 2}
+		return Self{slot: spare.clone(), origin: 2}
 	end 'create'
 end 'Holder'
 
@@ -7410,7 +7410,7 @@ iteration, as the bodies over a `String` do, and the leak gate is clean.
 typealias Whole = int(i64.min to i64.max)
 
 function longText(tag String) returns String
-	let sb = StringBuilder.create()
+	var sb = StringBuilder.create()
 	sb.append(tag)
 	sb.append(" payload long enough to allocate")
 	return sb.build()
@@ -7420,9 +7420,9 @@ type Twice uses T
 	public var slot as T
 	var origin as Whole
 
-	static function create(item T) returns Self
-		let first = Self{slot: item, origin: 1}
-		return Self{slot: item, origin: first.origin + 1}
+	static function create(item T) returns Self where T implements Copyable
+		let first = Self{slot: item.clone(), origin: 1}
+		return Self{slot: item.clone(), origin: try first.origin + 1 otherwise panic("out of range")}
 	end 'create'
 
 	function source() returns Whole
@@ -7434,11 +7434,11 @@ type Looped uses T
 	public var slot as T
 	var origin as Whole
 
-	static function create(item T, spare T, n Whole) returns Self
-		var found = Self{slot: spare, origin: 0}
+	static function create(item T, spare T, n Whole) returns Self where T implements Copyable
+		var found = Self{slot: spare.clone(), origin: 0}
 		var round = 0 as Whole
 		while round < n 'scan'
-			found = Self{slot: item, origin: round + 1}
+			found = Self{slot: item.clone(), origin: round + 1}
 			round = round + 1
 		end 'scan'
 		return found
@@ -7454,10 +7454,10 @@ type Outer uses U
 	typealias InnerLooped = Looped with U
 	public var count as Whole
 
-	static function build(item U, spare U) returns Self
+	static function build(item U, spare U) returns Self where U implements Droppable and Copyable
 		let twice = InnerTwice.create(item)
 		let looped = InnerLooped.create(item, spare: spare, n: 2)
-		return Self{count: twice.source() + looped.source()}
+		return Self{count: try twice.source() + looped.source() otherwise panic("out of range")}
 	end 'build'
 end 'Outer'
 

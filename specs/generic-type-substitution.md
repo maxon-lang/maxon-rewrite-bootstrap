@@ -431,12 +431,12 @@ typealias Integer = int(i64.min to i64.max)
 type Inner uses U
 	let x as U
 
-	function value() returns U
-		return x
+	function value() returns U where U implements Copyable
+		return x.clone()
 	end 'value'
 
-	static function create(x U) returns Self
-		return Self{x: x}
+	static function create(x U) returns Self where U implements Copyable
+		return Self{x: x.clone()}
 	end 'create'
 end 'Inner'
 
@@ -445,11 +445,11 @@ type Box uses T
 	let inner as TInner
 	export let tag as Integer
 
-	function value() returns T
+	function value() returns T where T implements Copyable
 		return inner.value()
 	end 'value'
 
-	static function create(x T, tag Integer) returns Self
+	static function create(x T, tag Integer) returns Self where T implements Copyable
 		return Self{inner: TInner.create(x), tag: tag}
 	end 'create'
 end 'Box'
@@ -460,36 +460,36 @@ type Bag uses Element
 	var items as BoxArray
 	export var one as EBox
 
-	function add(x Element, tag Integer)
+	function add(mutates self, x Element, tag Integer) where Element implements Copyable
 		items.push(EBox.create(x, tag: tag))
 	end 'add'
 
-	function first() returns Element throws ArrayError
+	function first() returns Element throws ArrayError where Element implements Copyable
 		let slot = try self.items.first() otherwise 'e'
 			throw ArrayError.indexOutOfBounds
 		end 'e'
 		return slot.value()
 	end 'first'
 
-	static function create(x Element) returns Self
+	static function create(x Element) returns Self where Element implements Copyable
 		return Self{items: BoxArray{}, one: EBox.create(x, tag: 0)}
 	end 'create'
 
-	function replaceWith(b EBox)
-		one = b
+	function replaceWith(mutates self, b EBox) where Element implements Droppable and Copyable
+		one = b.clone()
 	end 'replaceWith'
 
-	function probe(x Element) returns Integer
+	function probe(mutates self, x Element) returns Integer where Element implements Droppable and Copyable
 		let b = EBox.create(x, tag: 3)
 		self.one = EBox.create(x, tag: 4)
-		return b.tag + self.one.tag
+		return try b.tag + self.one.tag otherwise panic("out of range")
 	end 'probe'
 end 'Bag'
 
 typealias StrBag = Bag with String
 
-function fill(b StrBag)
-	let sb = StringBuilder.create()
+function fill(mutates b StrBag)
+	var sb = StringBuilder.create()
 	sb.append("hello ")
 	sb.append("heap world")
 	let s = sb.build()
@@ -497,16 +497,16 @@ function fill(b StrBag)
 end 'fill'
 
 function main() returns ExitCode
-	let b = StrBag.create("seed")
+	var b = StrBag.create("seed")
 	fill(b)
 	let got = try b.first() otherwise 'e'
 		return 9
 	end 'e'
 	var total = 0 as Integer
 	for i in 0 upto 50 'eachRound'
-		let sb = StringBuilder.create()
+		var sb = StringBuilder.create()
 		sb.append("a heap string of some length {i}")
-		total = total + b.probe(sb.build())
+		total = try total + b.probe(sb.build()) otherwise panic("out of range")
 	end 'eachRound'
 	b.replaceWith(b.one)
 	print("{got} {total} {b.one.value()}\n")

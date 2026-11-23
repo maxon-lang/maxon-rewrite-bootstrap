@@ -11,28 +11,31 @@ end 'secondWordDisp'
 // type's routines read.
 let ifaceWordOffset = ifaceValueOffset + stringWordOffset
 
-// literalWord is the word of a literal: its length and whether every byte is below 0x80, and no bytes of its own, since
-// they are the executable's.
+// literalWord is the word of a literal: its length and its ASCII bit, and no bytes of its own, since they are the
+// executable's.
 function literalWord(text String) returns FullRangeInt
 	var word = try (text.byteLength() shl stringLengthShift) as FullRangeInt otherwise panic("backend: a literal past memory")
-	if isAscii(text) 'ascii'
+	if holdsSimpleBytes(text) 'simple'
 		word = word or stringAsciiBit
-	end 'ascii'
+	end 'simple'
 	return word
 end 'literalWord'
 
-// isAscii is whether every byte of a text is below 0x80.
-function isAscii(text String) returns bool
+// holdsSimpleBytes is whether every byte of a text is below 0x80 and none is a carriage return, which a line feed after it
+// would make one grapheme cluster with: what a String's ASCII bit says (runtime::bytesAreSimple).
+function holdsSimpleBytes(text String) returns bool
 	for i in 0 upto text.byteLength() 'bytes'
-		if text.byteAt(i) >= asciiLimit 'high'
+		if text.byteAt(i) >= asciiLimit or text.byteAt(i) == carriageReturnByte 'other'
 			return false
-		end 'high'
+		end 'other'
 	end 'bytes'
 	return true
-end 'isAscii'
+end 'holdsSimpleBytes'
 
 // asciiLimit is the first byte that is not ASCII.
 let asciiLimit = 0x80 as Byte
+
+let carriageReturnByte = 13 as Byte
 
 extension Selector
 	// frameBase is the register the frame's slots are addressed from.

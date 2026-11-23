@@ -1,37 +1,42 @@
 // The executable's file in memory, whatever its format: the writer of the target's format (pe.maxon, elf.maxon, macho.maxon) lays it
-// out with its headers and leaves the code and the data zeroed at the places they have in the file, and the link writes
-// them there and patches the addresses they refer to by where the image puts each part.
+// out with its headers and leaves the code, the read-only data and the data zeroed at the places they have in the file, and
+// the link writes them there and patches the addresses they refer to by where the image puts each part. The read-only data
+// (the bytes of literals, counted texts and float constants) is mapped where nothing may write it, so a write through a
+// literal's address faults.
 
 // Image is an executable's file, its format, and where its parts are: the address the image is loaded at, and the code,
-// the data and the import slots by their offset from it (their RVA), how many import slots there are, and the code and
-// the data by their offset in the file.
+// the read-only data, the data and the import slots by their offset from it (their RVA), how many import slots there are,
+// and the code, the read-only data and the data by their offset in the file.
 export type Image
 	export var file as ByteArray
 	export var format as ast.ImageFormat
 	export var base as Count
 	export var textRva as Count
+	export var constRva as Count
 	export var dataRva as Count
 	export var iatRva as Count
 	export var importSlots as Count
 	export var codeOffset as Count
+	export var constOffset as Count
 	export var dataOffset as Count
 
-	static function make(consumes file ByteArray, format ast.ImageFormat, base Count, textRva Count, dataRva Count, iatRva Count, importSlots Count, codeOffset Count, dataOffset Count) returns Image
-		return Image{file: file, format: format, base: base, textRva: textRva, dataRva: dataRva, iatRva: iatRva, importSlots: importSlots, codeOffset: codeOffset, dataOffset: dataOffset}
+	static function make(consumes file ByteArray, format ast.ImageFormat, base Count, textRva Count, constRva Count, dataRva Count, iatRva Count, importSlots Count, codeOffset Count, constOffset Count, dataOffset Count) returns Image
+		return Image{file: file, format: format, base: base, textRva: textRva, constRva: constRva, dataRva: dataRva, iatRva: iatRva, importSlots: importSlots, codeOffset: codeOffset, constOffset: constOffset, dataOffset: dataOffset}
 	end 'make'
 end 'Image'
 
-// ImageLayout is what a writer lays an image out for: the sizes of the code and the data, the offset of the entry point
-// in the code, and the words of the data, in increasing order of their offsets, that hold addresses of the data, which
-// the format says how the loader moves.
+// ImageLayout is what a writer lays an image out for: the sizes of the code, the read-only data and the data, the offset
+// of the entry point in the code, and the words of the data, in increasing order of their offsets, that hold addresses of
+// the data, which the format says how the loader moves.
 export type ImageLayout
 	export var codeSize as Count
+	export var constSize as Count
 	export var dataSize as Count
 	export var entryOffset as Count
 	export var pointers as DataPointerList
 
-	static function make(codeSize Count, dataSize Count, entryOffset Count, consumes pointers DataPointerList) returns ImageLayout
-		return ImageLayout{codeSize: codeSize, dataSize: dataSize, entryOffset: entryOffset, pointers: pointers}
+	static function make(codeSize Count, constSize Count, dataSize Count, entryOffset Count, consumes pointers DataPointerList) returns ImageLayout
+		return ImageLayout{codeSize: codeSize, constSize: constSize, dataSize: dataSize, entryOffset: entryOffset, pointers: pointers}
 	end 'make'
 
 	// relocated are the offsets of the words of the data that hold addresses.
@@ -53,7 +58,7 @@ end 'positionsOf'
 // nothing, for Linux, and a Mach-O that binds the libSystem functions the code calls for macOS.
 export function buildImage(target ast.Target, layout ImageLayout, imports NameList) returns Image
 	return match ast.imageFormatOf(target.system) 'format'
-		pe gives buildPeImage(layout.codeSize, dataSize: layout.dataSize, dll: rtDll, imports: imports, entryOffset: layout.entryOffset, relocated: layout.relocated())
+		pe gives buildPeImage(layout, dll: rtDll, imports: imports)
 		elf gives buildElfImage(target.arch, layout: layout)
 		machO gives buildMachOImage(layout, imports: imports)
 	end 'format'
@@ -80,6 +85,10 @@ end 'writeAbsolutePointers'
 export function placeCode(mutates image Image, at Count, bytes ByteArray)
 	copyInto(image.file, at: sum(image.codeOffset, b: at), src: bytes)
 end 'placeCode'
+
+export function placeConstants(mutates image Image, bytes ByteArray)
+	copyInto(image.file, at: image.constOffset, src: bytes)
+end 'placeConstants'
 
 export function placeData(mutates image Image, at Count, bytes ByteArray)
 	copyInto(image.file, at: sum(image.dataOffset, b: at), src: bytes)

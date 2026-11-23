@@ -54,11 +54,11 @@ that is the defect this block exists to catch.**
 <!-- MmTrace -->
 ```maxon
 function main() returns ExitCode
-	let sb = StringBuilder.create()
+	var sb = StringBuilder.create()
 	sb.append("ab")
 	sb.append("cd")
 	let s = sb.build()
-	return s.byteLength() as ExitCode
+	return try s.byteLength() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

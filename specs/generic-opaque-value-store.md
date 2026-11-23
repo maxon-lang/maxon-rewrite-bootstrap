@@ -775,8 +775,8 @@ type Box uses T
 	export var v as T
 	export var tag as Integer
 
-	static function create(x T, tag Integer) returns Self
-		return Self{v: x, tag: tag}
+	static function create(x T, tag Integer) returns Self where T implements Copyable
+		return Self{v: x.clone(), tag: tag}
 	end 'create'
 end 'Box'
 
@@ -789,7 +789,7 @@ type Bag uses Element
 		return Self{items: EBoxArray.create(0)}
 	end 'create'
 
-	function add(x Element, tag Integer)
+	function add(mutates self, x Element, tag Integer) where Element implements Copyable
 		self.items.push(EBox.create(x, tag: tag))
 	end 'add'
 
@@ -801,13 +801,13 @@ end 'Bag'
 typealias StrBag = Bag with String
 
 function heap(n Integer) returns String
-	let sb = StringBuilder.create()
+	var sb = StringBuilder.create()
 	sb.append("a heap string long enough to allocate {n}")
 	return sb.build()
 end 'heap'
 
 function main() returns ExitCode
-	let b = StrBag.create()
+	var b = StrBag.create()
 	b.add(heap(1), tag: 4)
 	let c = b.copy()
 	b.add(heap(2), tag: 5)
@@ -893,8 +893,8 @@ type Box uses T
 	export var v as T
 	export var tag as Integer
 
-	static function create(x T, tag Integer) returns Self
-		return Self{v: x, tag: tag}
+	static function create(x T, tag Integer) returns Self where T implements Copyable
+		return Self{v: x.clone(), tag: tag}
 	end 'create'
 end 'Box'
 
@@ -907,7 +907,7 @@ type Bag uses Element
 		return Self{items: EBoxArray.create(0)}
 	end 'create'
 
-	function add(x Element, tag Integer)
+	function add(mutates self, x Element, tag Integer) where Element implements Copyable
 		self.items.push(EBox.create(x, tag: tag))
 	end 'add'
 
@@ -915,21 +915,21 @@ type Bag uses Element
 		return self.items.clone()
 	end 'copy'
 
-	function addBox(b EBox)
-		self.items.push(b)
+	function addBox(mutates self, b EBox) where Element implements Copyable
+		self.items.push(b.clone())
 	end 'addBox'
 end 'Bag'
 
 typealias StrBag = Bag with String
 
 function heap(n Integer) returns String
-	let sb = StringBuilder.create()
+	var sb = StringBuilder.create()
 	sb.append("a heap string long enough to allocate {n}")
 	return sb.build()
 end 'heap'
 
 function main() returns ExitCode
-	let b = StrBag.create()
+	var b = StrBag.create()
 	b.add(heap(1), tag: 4)
 	let c = b.copy()
 	let one = try c.get(0) otherwise return 90
@@ -956,8 +956,8 @@ type Box uses T
 	export var v as T
 	export var tag as Integer
 
-	static function create(x T, tag Integer) returns Self
-		return Self{v: x, tag: tag}
+	static function create(x T, tag Integer) returns Self where T implements Copyable
+		return Self{v: x.clone(), tag: tag}
 	end 'create'
 end 'Box'
 
@@ -970,7 +970,7 @@ type Bag uses Element
 		return Self{items: EBoxArray.create(0)}
 	end 'create'
 
-	function add(x Element, tag Integer)
+	function add(mutates self, x Element, tag Integer) where Element implements Copyable
 		self.items.push(EBox.create(x, tag: tag))
 	end 'add'
 
@@ -978,27 +978,27 @@ type Bag uses Element
 		return self.items.clone()
 	end 'copy'
 
-	function viaStash(b EBox) returns Integer
+	function viaStash(b EBox) returns Integer where Element implements Copyable
 		return Self.stash(b, into: self.items)
 	end 'viaStash'
 
-	static function stash(b EBox, into EBoxArray) returns Integer
-		let target = into
-		target.push(b)
-		return target.count()
+	static function stash(b EBox, into EBoxArray) returns Integer where Element implements Copyable
+		var target = into.clone()
+		target.push(b.clone())
+		return try target.count() as Integer otherwise panic("out of range")
 	end 'stash'
 end 'Bag'
 
 typealias StrBag = Bag with String
 
 function heap(n Integer) returns String
-	let sb = StringBuilder.create()
+	var sb = StringBuilder.create()
 	sb.append("a heap string long enough to allocate {n}")
 	return sb.build()
 end 'heap'
 
 function main() returns ExitCode
-	let b = StrBag.create()
+	var b = StrBag.create()
 	b.add(heap(1), tag: 4)
 	let c = b.copy()
 	let one = try c.get(0) otherwise return 90
@@ -1027,8 +1027,8 @@ type Box uses T
 	export var v as T
 	export var tag as Integer
 
-	static function create(x T, tag Integer) returns Self
-		return Self{v: x, tag: tag}
+	static function create(x T, tag Integer) returns Self where T implements Copyable
+		return Self{v: x.clone(), tag: tag}
 	end 'create'
 end 'Box'
 
@@ -1041,7 +1041,7 @@ type Bag uses Element
 		return Self{items: EBoxArray.create(0)}
 	end 'create'
 
-	function add(x Element, tag Integer)
+	function add(mutates self, x Element, tag Integer) where Element implements Copyable
 		self.items.push(EBox.create(x, tag: tag))
 	end 'add'
 
@@ -1049,9 +1049,9 @@ type Bag uses Element
 		return self.items.clone()
 	end 'copy'
 
-	function wrap(b EBox) returns EBoxArray
-		let xs = EBoxArray.create(0)
-		xs.push(b)
+	function wrap(b EBox) returns EBoxArray where Element implements Copyable
+		var xs = EBoxArray.create(0)
+		xs.push(b.clone())
 		return xs
 	end 'wrap'
 end 'Bag'
@@ -1059,13 +1059,13 @@ end 'Bag'
 typealias StrBag = Bag with String
 
 function heap(n Integer) returns String
-	let sb = StringBuilder.create()
+	var sb = StringBuilder.create()
 	sb.append("a heap string long enough to allocate {n}")
 	return sb.build()
 end 'heap'
 
 function main() returns ExitCode
-	let b = StrBag.create()
+	var b = StrBag.create()
 	b.add(heap(1), tag: 4)
 	let c = b.copy()
 	let one = try c.get(0) otherwise return 90
@@ -1281,8 +1281,8 @@ type Box uses T
 	export var v as T
 	export var tag as Integer
 
-	static function create(x T, tag Integer) returns Self
-		return Self{v: x, tag: tag}
+	static function create(x T, tag Integer) returns Self where T implements Copyable
+		return Self{v: x.clone(), tag: tag}
 	end 'create'
 end 'Box'
 
@@ -1295,7 +1295,7 @@ type Bag uses Element
 		return Self{items: EBoxArray.create(0)}
 	end 'create'
 
-	function add(x Element, tag Integer)
+	function add(mutates self, x Element, tag Integer) where Element implements Copyable
 		self.items.push(EBox.create(x, tag: tag))
 	end 'add'
 
@@ -1303,21 +1303,21 @@ type Bag uses Element
 		return self.items.clone()
 	end 'copy'
 
-	function wrap(b EBox) returns EBoxArray
-		return [b]
+	function wrap(b EBox) returns EBoxArray where Element implements Copyable
+		return [b.clone()]
 	end 'wrap'
 end 'Bag'
 
 typealias StrBag = Bag with String
 
 function heap(n Integer) returns String
-	let sb = StringBuilder.create()
+	var sb = StringBuilder.create()
 	sb.append("a heap string long enough to allocate {n}")
 	return sb.build()
 end 'heap'
 
 function main() returns ExitCode
-	let b = StrBag.create()
+	var b = StrBag.create()
 	b.add(heap(1), tag: 4)
 	let c = b.copy()
 	let one = try c.get(0) otherwise return 90
@@ -1760,19 +1760,19 @@ A `Self`-returning static that copies a type-parameter field out of a borrowed `
 type Cell uses T
 	export var v as T
 
-	static function create(v T) returns Self
-		return Self{v: v}
+	static function create(v T) returns Self where T implements Copyable
+		return Self{v: v.clone()}
 	end 'create'
 
-	static function copyOf(other Self) returns Self
-		return Self{v: other.v}
+	static function copyOf(other Self) returns Self where T implements Copyable
+		return Self{v: other.v.clone()}
 	end 'copyOf'
 end 'Cell'
 
 typealias StrCell = Cell with String
 
 function heapString(a String, b String) returns String
-	let sb = StringBuilder.create()
+	var sb = StringBuilder.create()
 	sb.append(a)
 	sb.append(b)
 	return sb.build()
@@ -1804,8 +1804,8 @@ type Bag uses T
 		return Self{items: TArray.create(0)}
 	end 'make'
 
-	function add(x T)
-		self.items.push(x)
+	function add(mutates self, x T) where T implements Copyable
+		self.items.push(x.clone())
 	end 'add'
 
 	function fresh() returns Self
@@ -1816,16 +1816,16 @@ end 'Bag'
 typealias StrBag = Bag with String
 
 function heapString(a String, b String) returns String
-	let sb = StringBuilder.create()
+	var sb = StringBuilder.create()
 	sb.append(a)
 	sb.append(b)
 	return sb.build()
 end 'heapString'
 
 function main() returns ExitCode
-	let b = StrBag.make()
+	var b = StrBag.make()
 	b.add(heapString("first payload ", b: "long enough to allocate"))
-	let c = b.fresh()
+	var c = b.fresh()
 	c.add(heapString("second payload ", b: "long enough to allocate"))
 	c.add(heapString("third payload ", b: "long enough to allocate"))
 	print("{b.items.count()} {c.items.count()}\n")
@@ -1895,13 +1895,13 @@ type Bag uses T
 		return Self{items: TArray.create(0)}
 	end 'make'
 
-	function add(x T)
-		self.items.push(x)
+	function add(mutates self, x T) where T implements Copyable
+		self.items.push(x.clone())
 	end 'add'
 
-	function merge(other Bag)
+	function merge(mutates self, other Bag) where T implements Copyable
 		for x in other.items 'each'
-			self.items.push(x)
+			self.items.push(x.clone())
 		end 'each'
 	end 'merge'
 end 'Bag'
@@ -1909,16 +1909,16 @@ end 'Bag'
 typealias StrBag = Bag with String
 
 function heapString(a String, b String) returns String
-	let sb = StringBuilder.create()
+	var sb = StringBuilder.create()
 	sb.append(a)
 	sb.append(b)
 	return sb.build()
 end 'heapString'
 
 function main() returns ExitCode
-	let a = StrBag.make()
+	var a = StrBag.make()
 	a.add(heapString("first payload ", b: "long enough to allocate"))
-	let b = StrBag.make()
+	var b = StrBag.make()
 	b.add(heapString("second payload ", b: "long enough to allocate"))
 	a.merge(b)
 	print("{a.items.count()} {b.items.count()}\n")
@@ -1938,26 +1938,26 @@ A type-parameter field assigned from another instance's field holds that instanc
 type Cell uses T
 	export var v as T
 
-	static function create(v T) returns Self
-		return Self{v: v}
+	static function create(v T) returns Self where T implements Copyable
+		return Self{v: v.clone()}
 	end 'create'
 
-	function takeFrom(other Self)
-		self.v = other.v
+	function takeFrom(mutates self, other Self) where T implements Droppable and Copyable
+		self.v = other.v.clone()
 	end 'takeFrom'
 end 'Cell'
 
 typealias StrCell = Cell with String
 
 function heapString(a String, b String) returns String
-	let sb = StringBuilder.create()
+	var sb = StringBuilder.create()
 	sb.append(a)
 	sb.append(b)
 	return sb.build()
 end 'heapString'
 
 function main() returns ExitCode
-	let a = StrCell.create(heapString("first payload ", b: "long enough to allocate"))
+	var a = StrCell.create(heapString("first payload ", b: "long enough to allocate"))
 	let b = StrCell.create(heapString("second payload ", b: "long enough to allocate"))
 	a.takeFrom(b)
 	print("{a.v}\n")
@@ -1978,7 +1978,7 @@ type Cell uses T
 	typealias TArray = Array with T
 	export var v as T
 
-	static function firstOf(xs TArray) returns Self
+	static function firstOf(xs TArray) returns Self where T implements Copyable
 		return Self{v: try xs.get(0) otherwise panic("empty")}
 	end 'firstOf'
 end 'Cell'
@@ -1988,14 +1988,14 @@ typealias StrCell = Cell with String
 typealias Strings = Array with String
 
 function heapString(a String, b String) returns String
-	let sb = StringBuilder.create()
+	var sb = StringBuilder.create()
 	sb.append(a)
 	sb.append(b)
 	return sb.build()
 end 'heapString'
 
 function main() returns ExitCode
-	let xs = Strings.create(0)
+	var xs = Strings.create(0)
 	xs.push(heapString("first payload ", b: "long enough to allocate"))
 	xs.push(heapString("second payload ", b: "long enough to allocate"))
 	let c = StrCell.firstOf(xs)
@@ -2017,9 +2017,9 @@ type Cell uses T
 	typealias TArray = Array with T
 	export var v as T
 
-	static function firstOf(xs TArray) returns Self
+	static function firstOf(xs TArray) returns Self where T implements Copyable
 		for e in xs 'each'
-			return Self{v: e}
+			return Self{v: e.clone()}
 		end 'each'
 		panic("empty")
 	end 'firstOf'
@@ -2030,14 +2030,14 @@ typealias StrCell = Cell with String
 typealias Strings = Array with String
 
 function heapString(a String, b String) returns String
-	let sb = StringBuilder.create()
+	var sb = StringBuilder.create()
 	sb.append(a)
 	sb.append(b)
 	return sb.build()
 end 'heapString'
 
 function main() returns ExitCode
-	let xs = Strings.create(0)
+	var xs = Strings.create(0)
 	xs.push(heapString("first payload ", b: "long enough to allocate"))
 	xs.push(heapString("second payload ", b: "long enough to allocate"))
 	let c = StrCell.firstOf(xs)
@@ -2059,7 +2059,7 @@ type Cell uses T
 	typealias TArray = Array with T
 	export var v as T
 
-	static function firstOf(xs TArray) returns Self
+	static function firstOf(xs TArray) returns Self where T implements Copyable
 		let e = try xs.get(0) otherwise panic("empty")
 		return Self{v: e}
 	end 'firstOf'
@@ -2070,14 +2070,14 @@ typealias StrCell = Cell with String
 typealias Strings = Array with String
 
 function heapString(a String, b String) returns String
-	let sb = StringBuilder.create()
+	var sb = StringBuilder.create()
 	sb.append(a)
 	sb.append(b)
 	return sb.build()
 end 'heapString'
 
 function main() returns ExitCode
-	let xs = Strings.create(0)
+	var xs = Strings.create(0)
 	xs.push(heapString("first payload ", b: "long enough to allocate"))
 	xs.push(heapString("second payload ", b: "long enough to allocate"))
 	let c = StrCell.firstOf(xs)
@@ -2098,19 +2098,19 @@ The same record built from a field of another `Self`-returning static's result.
 type Cell uses T
 	export var v as T
 
-	static function make(v T) returns Self
-		return Self{v: v}
+	static function make(v T) returns Self where T implements Copyable
+		return Self{v: v.clone()}
 	end 'make'
 
-	static function copyVia(v T) returns Self
-		return Self{v: Self.make(v).v}
+	static function copyVia(v T) returns Self where T implements Droppable and Copyable
+		return Self{v: Self.make(v).v.clone()}
 	end 'copyVia'
 end 'Cell'
 
 typealias StrCell = Cell with String
 
 function heapString(a String, b String) returns String
-	let sb = StringBuilder.create()
+	var sb = StringBuilder.create()
 	sb.append(a)
 	sb.append(b)
 	return sb.build()
@@ -2135,8 +2135,8 @@ The same record built from a local that holds the parameter.
 type Cell uses T
 	export var v as T
 
-	static function wrap(v T) returns Self
-		let x = v
+	static function wrap(v T) returns Self where T implements Copyable
+		let x = v.clone()
 		return Self{v: x}
 	end 'wrap'
 end 'Cell'
@@ -2144,7 +2144,7 @@ end 'Cell'
 typealias StrCell = Cell with String
 
 function heapString(a String, b String) returns String
-	let sb = StringBuilder.create()
+	var sb = StringBuilder.create()
 	sb.append(a)
 	sb.append(b)
 	return sb.build()
@@ -2169,13 +2169,13 @@ The same record built from a copy of the parameter that the body reassigns from 
 type Cell uses T
 	export var v as T
 
-	static function make(v T) returns Self
-		return Self{v: v}
+	static function make(v T) returns Self where T implements Copyable
+		return Self{v: v.clone()}
 	end 'make'
 
-	static function adopt(v T, other Self) returns Self
-		var held = v
-		held = other.v
+	static function adopt(v T, other Self) returns Self where T implements Copyable
+		var held = v.clone()
+		held = other.v.clone()
 		return Self{v: held}
 	end 'adopt'
 end 'Cell'
@@ -2183,7 +2183,7 @@ end 'Cell'
 typealias StrCell = Cell with String
 
 function heapString(a String, b String) returns String
-	let sb = StringBuilder.create()
+	var sb = StringBuilder.create()
 	sb.append(a)
 	sb.append(b)
 	return sb.build()
@@ -2222,27 +2222,27 @@ type Cell uses T
 	export var label as String
 	export var labelled as bool
 
-	static function make(v T, label String, labelled bool) returns Self
-		return Self{v: v, label: label, labelled: labelled}
+	static function make(v T, label String, labelled bool) returns Self where T implements Copyable
+		return Self{v: v.clone(), label: label.clone(), labelled: labelled}
 	end 'make'
 
 	function pickLabel() returns String throws PickError
 		if not labelled 'unlabelled'
 			throw PickError.empty
 		end 'unlabelled'
-		return label
+		return label.clone()
 	end 'pickLabel'
 
-	static function relabel(v T, other Self, fallback String) returns Self
+	static function relabel(v T, other Self, fallback String) returns Self where T implements Copyable
 		let d = fallback.clone()
-		return Self{v: v, label: try other.pickLabel() otherwise d, labelled: true}
+		return Self{v: v.clone(), label: try other.pickLabel() otherwise d, labelled: true}
 	end 'relabel'
 end 'Cell'
 
 typealias StrCell = Cell with String
 
 function heapString(a String, b String) returns String
-	let sb = StringBuilder.create()
+	var sb = StringBuilder.create()
 	sb.append(a)
 	sb.append(b)
 	return sb.build()
@@ -2439,15 +2439,15 @@ A static that reassigns a copy of its parameter from a field of another instance
 type Cell uses T
 	export var v as T
 
-	static function make(v T) returns Self
-		return Self{v: v}
+	static function make(v T) returns Self where T implements Copyable
+		return Self{v: v.clone()}
 	end 'make'
 
-	static function adopt(v T, other Self, flag bool) returns Self
-		var held = v
-		held = other.v
+	static function adopt(v T, other Self, flag bool) returns Self where T implements Copyable
+		var held = v.clone()
+		held = other.v.clone()
 		if flag 'direct'
-			return Self{v: other.v}
+			return Self{v: other.v.clone()}
 		end 'direct'
 		return Self{v: held}
 	end 'adopt'
@@ -2456,7 +2456,7 @@ end 'Cell'
 typealias StrCell = Cell with String
 
 function heapString(a String, b String) returns String
-	let sb = StringBuilder.create()
+	var sb = StringBuilder.create()
 	sb.append(a)
 	sb.append(b)
 	return sb.build()
@@ -2489,13 +2489,13 @@ A closure inside a static that names its own parameter like the method's paramet
 type Cell uses T
 	export var v as T
 
-	static function make(v T) returns Self
-		return Self{v: v}
+	static function make(v T) returns Self where T implements Copyable
+		return Self{v: v.clone()}
 	end 'make'
 
-	static function rewrap(v T, other Self) returns Self
-		let f = function(v T) gives Self{v: v}
-		_ = Self{v: v}
+	static function rewrap(v T, other Self) returns Self where T implements Droppable and Copyable
+		let f = function(v T) gives Self{v: v.clone()}
+		_ = Self{v: v.clone()}
 		return f(other.v)
 	end 'rewrap'
 end 'Cell'
@@ -2503,7 +2503,7 @@ end 'Cell'
 typealias StrCell = Cell with String
 
 function heapString(a String, b String) returns String
-	let sb = StringBuilder.create()
+	var sb = StringBuilder.create()
 	sb.append(a)
 	sb.append(b)
 	return sb.build()
@@ -2536,13 +2536,13 @@ A closure parameter named like a local of the static is the closure's argument, 
 type Cell uses T
 	export var v as T
 
-	static function make(v T) returns Self
-		return Self{v: v}
+	static function make(v T) returns Self where T implements Copyable
+		return Self{v: v.clone()}
 	end 'make'
 
-	static function rewrap(v T, other Self, keepLocal bool) returns Self
-		let chosen = v
-		let f = function(chosen T) gives Self{v: chosen}
+	static function rewrap(v T, other Self, keepLocal bool) returns Self where T implements Copyable
+		let chosen = v.clone()
+		let f = function(chosen T) gives Self{v: chosen.clone()}
 		if keepLocal 'local'
 			return Self{v: chosen}
 		end 'local'
@@ -2553,7 +2553,7 @@ end 'Cell'
 typealias StrCell = Cell with String
 
 function heapString(a String, b String) returns String
-	let sb = StringBuilder.create()
+	var sb = StringBuilder.create()
 	sb.append(a)
 	sb.append(b)
 	return sb.build()
@@ -4272,12 +4272,12 @@ type Box uses T
 	let x as T
 	let tag as Integer
 
-	function value() returns T
-		return x
+	function value() returns T where T implements Copyable
+		return x.clone()
 	end 'value'
 
-	static function create(x T, tag Integer) returns Self
-		return Self{x: x, tag: tag}
+	static function create(x T, tag Integer) returns Self where T implements Copyable
+		return Self{x: x.clone(), tag: tag}
 	end 'create'
 end 'Box'
 
@@ -4286,11 +4286,11 @@ type Bag uses Element
 	typealias BoxArray = Array with EBox
 	var items as BoxArray
 
-	function add(x Element, tag Integer)
+	function add(mutates self, x Element, tag Integer) where Element implements Copyable
 		items.push(EBox.create(x, tag: tag))
 	end 'add'
 
-	function first() returns Element throws ArrayError
+	function first() returns Element throws ArrayError where Element implements Copyable
 		let slot = try self.items.first() otherwise 'e'
 			throw ArrayError.indexOutOfBounds
 		end 'e'
@@ -4304,8 +4304,8 @@ end 'Bag'
 
 typealias StrBag = Bag with String
 
-function fill(b StrBag)
-	let sb = StringBuilder.create()
+function fill(mutates b StrBag)
+	var sb = StringBuilder.create()
 	sb.append("hello ")
 	sb.append("heap world")
 	let s = sb.build()
@@ -4313,7 +4313,7 @@ function fill(b StrBag)
 end 'fill'
 
 function main() returns ExitCode
-	let b = StrBag.create()
+	var b = StrBag.create()
 	fill(b)
 	let got = try b.first() otherwise 'e'
 		return 9
@@ -4344,12 +4344,12 @@ type Box uses T
 	let x as T
 	let tag as Integer
 
-	function value() returns T
-		return x
+	function value() returns T where T implements Copyable
+		return x.clone()
 	end 'value'
 
-	static function create(x T, tag Integer) returns Self
-		return Self{x: x, tag: tag}
+	static function create(x T, tag Integer) returns Self where T implements Copyable
+		return Self{x: x.clone(), tag: tag}
 	end 'create'
 end 'Box'
 
@@ -4363,7 +4363,7 @@ type Bag
 		return Self{}
 	end 'create'
 
-	function add(x String, tag Integer)
+	function add(mutates self, x String, tag Integer)
 		items.push(StrBox.create(x, tag: tag))
 	end 'add'
 
@@ -4375,8 +4375,8 @@ type Bag
 	end 'first'
 end 'Bag'
 
-function fill(b Bag)
-	let sb = StringBuilder.create()
+function fill(mutates b Bag)
+	var sb = StringBuilder.create()
 	sb.append("hello ")
 	sb.append("heap world")
 	let s = sb.build()
@@ -4384,7 +4384,7 @@ function fill(b Bag)
 end 'fill'
 
 function main() returns ExitCode
-	let b = Bag.create()
+	var b = Bag.create()
 	fill(b)
 	let got = try b.first() otherwise 'e'
 		return 9
@@ -4413,12 +4413,12 @@ typealias Integer = int(i64.min to i64.max)
 type Inner uses U
 	let x as U
 
-	function value() returns U
-		return x
+	function value() returns U where U implements Copyable
+		return x.clone()
 	end 'value'
 
-	static function create(x U) returns Self
-		return Self{x: x}
+	static function create(x U) returns Self where U implements Copyable
+		return Self{x: x.clone()}
 	end 'create'
 end 'Inner'
 
@@ -4427,11 +4427,11 @@ type Box uses T
 	let inner as TInner
 	let tag as Integer
 
-	function value() returns T
+	function value() returns T where T implements Copyable
 		return inner.value()
 	end 'value'
 
-	static function create(x T, tag Integer) returns Self
+	static function create(x T, tag Integer) returns Self where T implements Copyable
 		return Self{inner: TInner.create(x), tag: tag}
 	end 'create'
 end 'Box'
@@ -4441,11 +4441,11 @@ type Bag uses Element
 	typealias BoxArray = Array with EBox
 	var items as BoxArray
 
-	function add(x Element, tag Integer)
+	function add(mutates self, x Element, tag Integer) where Element implements Copyable
 		items.push(EBox.create(x, tag: tag))
 	end 'add'
 
-	function first() returns Element throws ArrayError
+	function first() returns Element throws ArrayError where Element implements Copyable
 		let slot = try self.items.first() otherwise 'e'
 			throw ArrayError.indexOutOfBounds
 		end 'e'
@@ -4459,8 +4459,8 @@ end 'Bag'
 
 typealias StrBag = Bag with String
 
-function fill(b StrBag)
-	let sb = StringBuilder.create()
+function fill(mutates b StrBag)
+	var sb = StringBuilder.create()
 	sb.append("hello ")
 	sb.append("heap world")
 	let s = sb.build()
@@ -4468,7 +4468,7 @@ function fill(b StrBag)
 end 'fill'
 
 function main() returns ExitCode
-	let b = StrBag.create()
+	var b = StrBag.create()
 	fill(b)
 	let got = try b.first() otherwise 'e'
 		return 9
@@ -4582,15 +4582,15 @@ type Bag uses Element
 	typealias Items = Array with Element
 	var items as Items
 
-	function fill(x Element, times Idx)
+	function fill(mutates self, x Element, times Idx) where Element implements Copyable
 		var n = 0 as Idx
 		while n < times 'innerFill'
-			items.push(x)
+			items.push(x.clone())
 			n = n + 1
 		end 'innerFill'
 	end 'fill'
 
-	function at(i Idx) returns Element throws ArrayError
+	function at(i Idx) returns Element throws ArrayError where Element implements Copyable
 		return try self.items.get(i)
 	end 'at'
 
@@ -4601,15 +4601,15 @@ end 'Bag'
 
 typealias StrBag = Bag with String
 
-function load(b StrBag)
-	let sb = StringBuilder.create()
+function load(mutates b StrBag)
+	var sb = StringBuilder.create()
 	sb.append("a repeated borrowed string long enough to force a heap allocation")
 	let s = sb.build()
 	b.fill(s, times: 100)
 end 'load'
 
 function main() returns ExitCode
-	let b = StrBag.create()
+	var b = StrBag.create()
 	load(b)
 	let middle = try b.at(50) otherwise return 1
 	print("{middle}\n")
@@ -4834,12 +4834,12 @@ type Box uses T
 	export let x as T
 	export let tag as Integer
 
-	function value() returns T
-		return x
+	function value() returns T where T implements Copyable
+		return x.clone()
 	end 'value'
 
-	static function create(x T, tag Integer) returns Self
-		return Self{x: x, tag: tag}
+	static function create(x T, tag Integer) returns Self where T implements Copyable
+		return Self{x: x.clone(), tag: tag}
 	end 'create'
 end 'Box'
 
@@ -4847,11 +4847,11 @@ type Bag uses Element
 	typealias EBox = Box with Element
 	let one as EBox
 
-	function first() returns Element
+	function first() returns Element where Element implements Copyable
 		return one.value()
 	end 'first'
 
-	static function create(x Element, tag Integer) returns Self
+	static function create(x Element, tag Integer) returns Self where Element implements Copyable
 		return Self{one: EBox.create(x, tag: tag)}
 	end 'create'
 end 'Bag'
@@ -4859,7 +4859,7 @@ end 'Bag'
 typealias StrBag = Bag with String
 
 function fill() returns StrBag
-	let sb = StringBuilder.create()
+	var sb = StringBuilder.create()
 	sb.append("hello ")
 	sb.append("heap world")
 	let s = sb.build()
@@ -4896,12 +4896,12 @@ type Box uses T
 	export let x as T
 	export let tag as Integer
 
-	function value() returns T
-		return x
+	function value() returns T where T implements Copyable
+		return x.clone()
 	end 'value'
 
-	static function create(x T, tag Integer) returns Self
-		return Self{x: x, tag: tag}
+	static function create(x T, tag Integer) returns Self where T implements Copyable
+		return Self{x: x.clone(), tag: tag}
 	end 'create'
 end 'Box'
 
@@ -4910,11 +4910,11 @@ type Bag uses Element
 	typealias Items = Array with Element
 	var items as Items
 
-	function add(x Element)
-		items.push(x)
+	function add(mutates self, x Element) where Element implements Copyable
+		items.push(x.clone())
 	end 'add'
 
-	function tagOfFirst() returns Integer
+	function tagOfFirst() returns Integer where Element implements Copyable
 		let w = EBox.create(try items.get(0 as Idx) otherwise panic("oob"), tag: 7)
 		return w.tag
 	end 'tagOfFirst'
@@ -4927,11 +4927,11 @@ end 'Bag'
 typealias StrBag = Bag with String
 
 function main() returns ExitCode
-	let b = StrBag.create()
-	let sb = StringBuilder.create()
+	var b = StrBag.create()
+	var sb = StringBuilder.create()
 	sb.append("a heap payload the record only borrows")
 	b.add(sb.build())
-	return b.tagOfFirst() as ExitCode
+	return try b.tagOfFirst() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -4960,11 +4960,11 @@ type Box uses T
 	export let tag as Integer
 
 	function value() returns String
-		return x
+		return x.clone()
 	end 'value'
 
 	static function create(x String, tag Integer) returns Self
-		return Self{x: x, tag: tag}
+		return Self{x: x.clone(), tag: tag}
 	end 'create'
 end 'Box'
 
@@ -4973,7 +4973,7 @@ type Bag uses Element
 	typealias Store = Array with EBox
 	var items as Store
 
-	function add(x String, tag Integer)
+	function add(mutates self, x String, tag Integer)
 		items.push(EBox.create(x, tag: tag))
 	end 'add'
 
@@ -4989,15 +4989,15 @@ end 'Bag'
 
 typealias StrBag = Bag with String
 
-function fill(b StrBag)
-	let sb = StringBuilder.create()
+function fill(mutates b StrBag)
+	var sb = StringBuilder.create()
 	sb.append("hello ")
 	sb.append("heap world")
 	b.add(sb.build(), tag: 7)
 end 'fill'
 
 function main() returns ExitCode
-	let b = StrBag.create()
+	var b = StrBag.create()
 	fill(b)
 	let got = try b.first() otherwise return 9
 	print("{got}\n")
@@ -5037,12 +5037,12 @@ type Box uses T
 	let x as T
 	let tag as Integer
 
-	function value() returns T
-		return x
+	function value() returns T where T implements Copyable
+		return x.clone()
 	end 'value'
 
-	static function create(x T, tag Integer) returns Self
-		return Self{x: x, tag: tag}
+	static function create(x T, tag Integer) returns Self where T implements Copyable
+		return Self{x: x.clone(), tag: tag}
 	end 'create'
 end 'Box'
 
@@ -5050,7 +5050,7 @@ type Bag uses Element
 	export typealias EBox = Box with Element
 	var seed as Integer
 
-	function wrap(x Element) returns EBox
+	function wrap(x Element) returns EBox where Element implements Copyable
 		return EBox.create(x, tag: seed)
 	end 'wrap'
 
@@ -5064,7 +5064,7 @@ typealias StrBag = Bag with String
 typealias StrBox = Box with String
 
 function makeOne(b StrBag) returns StrBox
-	let sb = StringBuilder.create()
+	var sb = StringBuilder.create()
 	sb.append("a heap payload ")
 	sb.append("long enough to allocate")
 	let s = sb.build()
@@ -5106,12 +5106,12 @@ type Box uses T
 	let x as T
 	let tag as Integer
 
-	function value() returns T
-		return x
+	function value() returns T where T implements Copyable
+		return x.clone()
 	end 'value'
 
-	static function create(x T, tag Integer) returns Self
-		return Self{x: x, tag: tag}
+	static function create(x T, tag Integer) returns Self where T implements Copyable
+		return Self{x: x.clone(), tag: tag}
 	end 'create'
 end 'Box'
 
@@ -5119,7 +5119,7 @@ type Bag uses Element
 	export typealias EBox = Box with Element
 	var seed as Integer
 
-	function wrap(x Element) returns EBox
+	function wrap(x Element) returns EBox where Element implements Copyable
 		return EBox.create(x, tag: seed)
 	end 'wrap'
 
@@ -5136,10 +5136,10 @@ typealias BoxArray = Array with StrBox
 
 function main() returns ExitCode
 	let b = StrBag.create()
-	let kept = BoxArray.create(0)
+	var kept = BoxArray.create(0)
 	var i = 0 as Count
 	while i < 100 'fill'
-		let sb = StringBuilder.create()
+		var sb = StringBuilder.create()
 		sb.append("payload number ")
 		sb.append("{i} long enough to be a heap record")
 		kept.push(b.wrap(sb.build()))
@@ -5172,8 +5172,8 @@ type Inner2 uses P, Q
 	let p as P
 	let q as Q
 
-	static function create(p P, q Q) returns Self
-		return Self{p: p, q: q}
+	static function create(p P, q Q) returns Self where P implements Copyable, Q implements Copyable
+		return Self{p: p.clone(), q: q.clone()}
 	end 'create'
 end 'Inner2'
 
@@ -5182,7 +5182,7 @@ type Mid uses Y, Z
 	let i as In
 	export let tag as Integer
 
-	static function create(y Y, z Z) returns Self
+	static function create(y Y, z Z) returns Self where Y implements Copyable, Z implements Copyable
 		return Self{i: In.create(y, q: z), tag: 2}
 	end 'create'
 end 'Mid'
@@ -5191,9 +5191,9 @@ type Outer uses T, U
 	typealias M = Mid with (T, U)
 	var n as Integer
 
-	function build(t T, u U) returns Integer
+	function build(t T, u U) returns Integer where T implements Droppable and Copyable, U implements Droppable and Copyable
 		let m = M.create(t, z: u)
-		return n + m.tag
+		return try n + m.tag otherwise panic("out of range")
 	end 'build'
 
 	static function create() returns Self
@@ -5204,7 +5204,7 @@ end 'Outer'
 typealias O = Outer with (String, String)
 
 function heapString(a String, b String) returns String
-	let sb = StringBuilder.create()
+	var sb = StringBuilder.create()
 	sb.append(a)
 	sb.append(b)
 	return sb.build()
@@ -5248,8 +5248,8 @@ type Inner2 uses P, Q
 	let p as P
 	let q as Q
 
-	static function create(p P, q Q) returns Self
-		return Self{p: p, q: q}
+	static function create(p P, q Q) returns Self where P implements Copyable, Q implements Copyable
+		return Self{p: p.clone(), q: q.clone()}
 	end 'create'
 end 'Inner2'
 
@@ -5258,7 +5258,7 @@ type Mid uses Y, Z
 	let i as In
 	export let tag as Integer
 
-	static function create(y Y, z Z) returns Self
+	static function create(y Y, z Z) returns Self where Y implements Copyable, Z implements Copyable
 		return Self{i: In.create(y, q: z), tag: 2}
 	end 'create'
 end 'Mid'
@@ -5267,9 +5267,9 @@ type Outer uses T, U
 	typealias M = Mid with (T, U)
 	var n as Integer
 
-	function build(t T, u U) returns Integer
+	function build(t T, u U) returns Integer where T implements Droppable and Copyable, U implements Droppable and Copyable
 		let m = M.create(t, z: u)
-		return n + m.tag
+		return try n + m.tag otherwise panic("out of range")
 	end 'build'
 
 	static function create() returns Self
@@ -5282,7 +5282,7 @@ typealias O = Outer with (String, String)
 typealias MS = Mid with (String, String)
 
 function heapString(a String, b String) returns String
-	let sb = StringBuilder.create()
+	var sb = StringBuilder.create()
 	sb.append(a)
 	sb.append(b)
 	return sb.build()
@@ -5317,8 +5317,8 @@ type Inner2 uses P, Q
 	let p as P
 	let q as Q
 
-	static function create(p P, q Q) returns Self
-		return Self{p: p, q: q}
+	static function create(p P, q Q) returns Self where P implements Copyable, Q implements Copyable
+		return Self{p: p.clone(), q: q.clone()}
 	end 'create'
 end 'Inner2'
 
@@ -5327,9 +5327,9 @@ type Mid uses Y, Z
 	let i as In
 	export let tag as Integer
 
-	static function create(y Y, z Z) returns Self
+	static function create(y Y, z Z) returns Self where Y implements Copyable, Z implements Copyable
 		let inner = In.create(y, q: z)
-		let bump = function(n Integer) gives n + 1
+		let bump = function(n Integer) gives try n + 1 otherwise panic("out of range")
 		return Self{i: inner, tag: bump(1)}
 	end 'create'
 end 'Mid'
@@ -5338,9 +5338,9 @@ type Outer uses T, U
 	typealias M = Mid with (T, U)
 	var n as Integer
 
-	function build(t T, u U) returns Integer
+	function build(t T, u U) returns Integer where T implements Droppable and Copyable, U implements Droppable and Copyable
 		let m = M.create(t, z: u)
-		return n + m.tag
+		return try n + m.tag otherwise panic("out of range")
 	end 'build'
 
 	static function create() returns Self
@@ -5353,7 +5353,7 @@ typealias O = Outer with (String, String)
 typealias MS = Mid with (String, String)
 
 function heapString(a String, b String) returns String
-	let sb = StringBuilder.create()
+	var sb = StringBuilder.create()
 	sb.append(a)
 	sb.append(b)
 	return sb.build()
@@ -5488,8 +5488,8 @@ typealias Integer = int(i64.min to i64.max)
 type Box uses T
 	export let x as T
 
-	static function create(x T) returns Self
-		return Self{x: x}
+	static function create(x T) returns Self where T implements Copyable
+		return Self{x: x.clone()}
 	end 'create'
 end 'Box'
 
@@ -5498,7 +5498,7 @@ type Bag uses E
 	typealias EPair = (EBox, Integer)
 	export let pair as EPair
 
-	static function create(x E) returns Self
+	static function create(x E) returns Self where E implements Copyable
 		return Self{pair: (EBox.create(x), 1)}
 	end 'create'
 end 'Bag'
@@ -5507,23 +5507,23 @@ type Outer uses T
 	typealias TBag = Bag with T
 	var bag as TBag
 
-	static function create(x T) returns Self
+	static function create(x T) returns Self where T implements Copyable
 		return Self{bag: TBag.create(x)}
 	end 'create'
 
-	function reset(x T)
+	function reset(mutates self, x T) where T implements Droppable and Copyable
 		self.bag = TBag.create(x)
 	end 'reset'
 
-	function first() returns T
-		return self.bag.pair.0.x
+	function first() returns T where T implements Copyable
+		return self.bag.pair.0.x.clone()
 	end 'first'
 end 'Outer'
 
 typealias StrOuter = Outer with String
 
 function heapString(a String, b String) returns String
-	let sb = StringBuilder.create()
+	var sb = StringBuilder.create()
 	sb.append(a)
 	sb.append(b)
 	return sb.build()
@@ -5532,7 +5532,7 @@ end 'heapString'
 function main() returns ExitCode
 	let s1 = heapString("first payload ", b: "long enough to allocate")
 	let s2 = heapString("second payload ", b: "long enough to allocate")
-	let o = StrOuter.create(s1)
+	var o = StrOuter.create(s1)
 	o.reset(s2)
 	print("{o.first()}\n")
 	return 0
@@ -5553,8 +5553,8 @@ typealias Integer = int(i64.min to i64.max)
 type Bag uses E
 	export let pair as (E, Integer)
 
-	static function create(x E) returns Self
-		return Self{pair: (x, 1)}
+	static function create(x E) returns Self where E implements Copyable
+		return Self{pair: (x.clone(), 1)}
 	end 'create'
 end 'Bag'
 
@@ -5562,23 +5562,23 @@ type Outer uses T
 	typealias TBag = Bag with T
 	var bag as TBag
 
-	static function create(x T) returns Self
+	static function create(x T) returns Self where T implements Copyable
 		return Self{bag: TBag.create(x)}
 	end 'create'
 
-	function reset(x T)
+	function reset(mutates self, x T) where T implements Droppable and Copyable
 		self.bag = TBag.create(x)
 	end 'reset'
 
-	function first() returns T
-		return self.bag.pair.0
+	function first() returns T where T implements Copyable
+		return self.bag.pair.0.clone()
 	end 'first'
 end 'Outer'
 
 typealias StrOuter = Outer with String
 
 function heapString(a String, b String) returns String
-	let sb = StringBuilder.create()
+	var sb = StringBuilder.create()
 	sb.append(a)
 	sb.append(b)
 	return sb.build()
@@ -5587,7 +5587,7 @@ end 'heapString'
 function main() returns ExitCode
 	let s1 = heapString("first payload ", b: "long enough to allocate")
 	let s2 = heapString("second payload ", b: "long enough to allocate")
-	let o = StrOuter.create(s1)
+	var o = StrOuter.create(s1)
 	o.reset(s2)
 	print("{o.first()}\n")
 	return 0
@@ -5608,8 +5608,8 @@ typealias Integer = int(i64.min to i64.max)
 type Box uses T
 	export let x as T
 
-	static function create(x T) returns Self
-		return Self{x: x}
+	static function create(x T) returns Self where T implements Copyable
+		return Self{x: x.clone()}
 	end 'create'
 end 'Box'
 
@@ -5618,16 +5618,16 @@ type Bag uses E
 	typealias EPair = (EBox, Integer)
 	export var pair as EPair
 
-	static function create(x E) returns Self
+	static function create(x E) returns Self where E implements Copyable
 		return Self{pair: (EBox.create(x), 1)}
 	end 'create'
 
-	function swap(p EPair)
-		self.pair = p
+	function swap(mutates self, p EPair) where E implements Droppable and Copyable
+		self.pair = p.clone()
 	end 'swap'
 
-	function first() returns E
-		return self.pair.0.x
+	function first() returns E where E implements Copyable
+		return self.pair.0.x.clone()
 	end 'first'
 end 'Bag'
 
@@ -5636,7 +5636,7 @@ typealias StrBag = Bag with String
 typealias StrBox = Box with String
 
 function heapString(a String, b String) returns String
-	let sb = StringBuilder.create()
+	var sb = StringBuilder.create()
 	sb.append(a)
 	sb.append(b)
 	return sb.build()
@@ -5645,7 +5645,7 @@ end 'heapString'
 function main() returns ExitCode
 	let s1 = heapString("first payload ", b: "long enough to allocate")
 	let s2 = heapString("second payload ", b: "long enough to allocate")
-	let b = StrBag.create(s1)
+	var b = StrBag.create(s1)
 	b.swap((StrBox.create(s2), 2))
 	print("{b.first()} {b.pair.1}\n")
 	return 0
@@ -5684,17 +5684,17 @@ type Holder uses K, V
 	let k as K
 	let v as V
 
-	static function create(k K, v V) returns Self
-		return Self{k: k, v: v}
+	static function create(k K, v V) returns Self where K implements Copyable, V implements Copyable
+		return Self{k: k.clone(), v: v.clone()}
 	end 'create'
 
-	function pair() returns Pair
-		return (k, v)
+	function pair() returns Pair where K implements Copyable, V implements Copyable
+		return (k.clone(), v.clone())
 	end 'pair'
 
 	// The drop under test: this body is shared, so the tuple it takes back is typed
 	// at the parameters and the reference its first slot holds is a descriptor read.
-	function second() returns V
+	function second() returns V where K implements Droppable and Copyable, V implements Copyable
 		let p = pair()
 		return p.1
 	end 'second'
@@ -5703,7 +5703,7 @@ end 'Holder'
 typealias StrHolder = Holder with String, Small
 
 function heapString(a String, b String) returns String
-	let sb = StringBuilder.create()
+	var sb = StringBuilder.create()
 	sb.append(a)
 	sb.append(b)
 	return sb.build()
@@ -5738,15 +5738,15 @@ type Holder uses K, V
 	let k as K
 	let v as V
 
-	static function create(k K, v V) returns Self
-		return Self{k: k, v: v}
+	static function create(k K, v V) returns Self where K implements Copyable, V implements Copyable
+		return Self{k: k.clone(), v: v.clone()}
 	end 'create'
 
-	function pair() returns Pair
-		return (k, v)
+	function pair() returns Pair where K implements Copyable, V implements Copyable
+		return (k.clone(), v.clone())
 	end 'pair'
 
-	function second() returns V
+	function second() returns V where K implements Droppable and Copyable, V implements Copyable
 		let p = pair()
 		return p.1
 	end 'second'
@@ -5757,7 +5757,7 @@ typealias StrHolder = Holder with String, Small
 typealias SmallHolder = Holder with Small, Small
 
 function heapString(a String, b String) returns String
-	let sb = StringBuilder.create()
+	var sb = StringBuilder.create()
 	sb.append(a)
 	sb.append(b)
 	return sb.build()
@@ -5793,19 +5793,19 @@ type Holder uses K, V
 	let k as K
 	let v as V
 
-	static function create(k K, v V) returns Self
-		return Self{k: k, v: v}
+	static function create(k K, v V) returns Self where K implements Copyable, V implements Copyable
+		return Self{k: k.clone(), v: v.clone()}
 	end 'create'
 
-	function pair() returns Pair
-		return (k, v)
+	function pair() returns Pair where K implements Copyable, V implements Copyable
+		return (k.clone(), v.clone())
 	end 'pair'
 end 'Holder'
 
 typealias StrHolder = Holder with String, Small
 
 function heapString(a String, b String) returns String
-	let sb = StringBuilder.create()
+	var sb = StringBuilder.create()
 	sb.append(a)
 	sb.append(b)
 	return sb.build()
@@ -6091,26 +6091,26 @@ The same assignment spelled by the bare field name: it reserves the layout descr
 type Cell uses T
 	export var v as T
 
-	static function create(v T) returns Self
-		return Self{v: v}
+	static function create(v T) returns Self where T implements Copyable
+		return Self{v: v.clone()}
 	end 'create'
 
-	function takeFrom(item T)
-		v = item
+	function takeFrom(mutates self, item T) where T implements Droppable and Copyable
+		v = item.clone()
 	end 'takeFrom'
 end 'Cell'
 
 typealias StrCell = Cell with String
 
 function heapString(a String, b String) returns String
-	let sb = StringBuilder.create()
+	var sb = StringBuilder.create()
 	sb.append(a)
 	sb.append(b)
 	return sb.build()
 end 'heapString'
 
 function main() returns ExitCode
-	let a = StrCell.create(heapString("first payload ", b: "long enough to allocate"))
+	var a = StrCell.create(heapString("first payload ", b: "long enough to allocate"))
 	let s = heapString("second payload ", b: "long enough to allocate")
 	a.takeFrom(s)
 	print("{a.v} {s}\n")
@@ -6130,26 +6130,26 @@ The same assignment spelled by the bare field name: the reassignment reserves th
 type Cell uses T
 	export var v as T
 
-	static function create(v T) returns Self
-		return Self{v: v}
+	static function create(v T) returns Self where T implements Copyable
+		return Self{v: v.clone()}
 	end 'create'
 
-	function takeFrom(other Self)
-		v = other.v
+	function takeFrom(mutates self, other Self) where T implements Droppable and Copyable
+		v = other.v.clone()
 	end 'takeFrom'
 end 'Cell'
 
 typealias StrCell = Cell with String
 
 function heapString(a String, b String) returns String
-	let sb = StringBuilder.create()
+	var sb = StringBuilder.create()
 	sb.append(a)
 	sb.append(b)
 	return sb.build()
 end 'heapString'
 
 function main() returns ExitCode
-	let a = StrCell.create(heapString("first payload ", b: "long enough to allocate"))
+	var a = StrCell.create(heapString("first payload ", b: "long enough to allocate"))
 	let b = StrCell.create(heapString("second payload ", b: "long enough to allocate"))
 	a.takeFrom(b)
 	print("{a.v}\n")
@@ -6169,8 +6169,8 @@ A type-parameter field of an instance held over the enclosing type's own paramet
 type Slot uses T
 	export var v as T
 
-	static function create(v T) returns Self
-		return Self{v: v}
+	static function create(v T) returns Self where T implements Copyable
+		return Self{v: v.clone()}
 	end 'create'
 end 'Slot'
 
@@ -6178,30 +6178,30 @@ type Wrapper uses T
 	export typealias Inner = Slot with T
 	var inner as Inner
 
-	static function create(v T) returns Self
+	static function create(v T) returns Self where T implements Copyable
 		return Self{inner: Inner.create(v)}
 	end 'create'
 
-	function put(item T)
-		self.inner.v = item
+	function put(mutates self, item T) where T implements Droppable and Copyable
+		self.inner.v = item.clone()
 	end 'put'
 
-	function show() returns T
-		return self.inner.v
+	function show() returns T where T implements Copyable
+		return self.inner.v.clone()
 	end 'show'
 end 'Wrapper'
 
 typealias StrWrapper = Wrapper with String
 
 function heapString(a String, b String) returns String
-	let sb = StringBuilder.create()
+	var sb = StringBuilder.create()
 	sb.append(a)
 	sb.append(b)
 	return sb.build()
 end 'heapString'
 
 function main() returns ExitCode
-	let w = StrWrapper.create(heapString("first payload ", b: "long enough to allocate"))
+	var w = StrWrapper.create(heapString("first payload ", b: "long enough to allocate"))
 	let s = heapString("second payload ", b: "long enough to allocate")
 	w.put(s)
 	print("{w.show()} {s}\n")
@@ -6221,19 +6221,19 @@ A type-parameter field written through a `Self`-typed parameter drops the displa
 type Cell uses T
 	export var v as T
 
-	static function create(v T) returns Self
-		return Self{v: v}
+	static function create(v T) returns Self where T implements Copyable
+		return Self{v: v.clone()}
 	end 'create'
 
-	function overwrite(other Self, item T)
-		other.v = item
+	function overwrite(mutates other Self, item T) where T implements Droppable and Copyable
+		other.v = item.clone()
 	end 'overwrite'
 end 'Cell'
 
 typealias StrCell = Cell with String
 
 function heapString(a String, b String) returns String
-	let sb = StringBuilder.create()
+	var sb = StringBuilder.create()
 	sb.append(a)
 	sb.append(b)
 	return sb.build()
@@ -6241,7 +6241,7 @@ end 'heapString'
 
 function main() returns ExitCode
 	let a = StrCell.create(heapString("first payload ", b: "long enough to allocate"))
-	let b = StrCell.create(heapString("second payload ", b: "long enough to allocate"))
+	var b = StrCell.create(heapString("second payload ", b: "long enough to allocate"))
 	let s = heapString("third payload ", b: "long enough to allocate")
 	a.overwrite(b, item: s)
 	print("{b.v} {s}\n")
@@ -6261,8 +6261,8 @@ The same write through the nested field of a `Self`-typed parameter.
 type Slot uses T
 	export var v as T
 
-	static function create(v T) returns Self
-		return Self{v: v}
+	static function create(v T) returns Self where T implements Copyable
+		return Self{v: v.clone()}
 	end 'create'
 end 'Slot'
 
@@ -6270,23 +6270,23 @@ type Wrapper uses T
 	export typealias Inner = Slot with T
 	var inner as Inner
 
-	static function create(v T) returns Self
+	static function create(v T) returns Self where T implements Copyable
 		return Self{inner: Inner.create(v)}
 	end 'create'
 
-	function putInto(other Self, item T)
-		other.inner.v = item
+	function putInto(mutates other Self, item T) where T implements Droppable and Copyable
+		other.inner.v = item.clone()
 	end 'putInto'
 
-	function show() returns T
-		return self.inner.v
+	function show() returns T where T implements Copyable
+		return self.inner.v.clone()
 	end 'show'
 end 'Wrapper'
 
 typealias StrWrapper = Wrapper with String
 
 function heapString(a String, b String) returns String
-	let sb = StringBuilder.create()
+	var sb = StringBuilder.create()
 	sb.append(a)
 	sb.append(b)
 	return sb.build()
@@ -6294,7 +6294,7 @@ end 'heapString'
 
 function main() returns ExitCode
 	let w = StrWrapper.create(heapString("first payload ", b: "long enough to allocate"))
-	let o = StrWrapper.create(heapString("second payload ", b: "long enough to allocate"))
+	var o = StrWrapper.create(heapString("second payload ", b: "long enough to allocate"))
 	let s = heapString("third payload ", b: "long enough to allocate")
 	w.putInto(o, item: s)
 	print("{o.show()} {s}\n")
@@ -6316,8 +6316,8 @@ typealias Small = int(0 to 255)
 type Slot uses V
 	export var v as V
 
-	static function create(first V) returns Self
-		return Self{v: first}
+	static function create(first V) returns Self where V implements Copyable
+		return Self{v: first.clone()}
 	end 'create'
 end 'Slot'
 
@@ -6326,35 +6326,35 @@ type Wrapper uses T, U
 	var tag as T
 	var inner as Inner
 
-	static function create(t T, u U) returns Self
-		return Self{tag: t, inner: Inner.create(u)}
+	static function create(t T, u U) returns Self where T implements Copyable, U implements Copyable
+		return Self{tag: t.clone(), inner: Inner.create(u)}
 	end 'create'
 
-	function peekValue() returns U
-		return self.inner.v
+	function peekValue() returns U where U implements Copyable
+		return self.inner.v.clone()
 	end 'peekValue'
 
-	function put(item U)
-		self.inner.v = item
+	function put(mutates self, item U) where U implements Droppable and Copyable
+		self.inner.v = item.clone()
 	end 'put'
 
-	function putInto(other Self, item U)
-		other.inner.v = item
+	function putInto(mutates other Self, item U) where U implements Droppable and Copyable
+		other.inner.v = item.clone()
 	end 'putInto'
 end 'Wrapper'
 
 typealias SmallStrWrapper = Wrapper with (Small, String)
 
 function heapString(a String, b String) returns String
-	let sb = StringBuilder.create()
+	var sb = StringBuilder.create()
 	sb.append(a)
 	sb.append(b)
 	return sb.build()
 end 'heapString'
 
 function main() returns ExitCode
-	let w = SmallStrWrapper.create(3, u: heapString("first payload ", b: "long enough to allocate"))
-	let o = SmallStrWrapper.create(4, u: heapString("other payload ", b: "long enough to allocate"))
+	var w = SmallStrWrapper.create(3, u: heapString("first payload ", b: "long enough to allocate"))
+	var o = SmallStrWrapper.create(4, u: heapString("other payload ", b: "long enough to allocate"))
 	let s = heapString("second payload ", b: "long enough to allocate")
 	let t = heapString("third payload ", b: "long enough to allocate")
 	w.put(s)
@@ -6376,8 +6376,8 @@ The same write through a field of a field, both holding an instance over the enc
 type Slot uses T
 	export var v as T
 
-	static function create(v T) returns Self
-		return Self{v: v}
+	static function create(v T) returns Self where T implements Copyable
+		return Self{v: v.clone()}
 	end 'create'
 end 'Slot'
 
@@ -6385,7 +6385,7 @@ type Middle uses T
 	export typealias Inner = Slot with T
 	export var b as Inner
 
-	static function create(v T) returns Self
+	static function create(v T) returns Self where T implements Copyable
 		return Self{b: Inner.create(v)}
 	end 'create'
 end 'Middle'
@@ -6394,30 +6394,30 @@ type Outer uses T
 	export typealias Mid = Middle with T
 	var a as Mid
 
-	static function create(v T) returns Self
+	static function create(v T) returns Self where T implements Copyable
 		return Self{a: Mid.create(v)}
 	end 'create'
 
-	function put(item T)
-		self.a.b.v = item
+	function put(mutates self, item T) where T implements Droppable and Copyable
+		self.a.b.v = item.clone()
 	end 'put'
 
-	function show() returns T
-		return self.a.b.v
+	function show() returns T where T implements Copyable
+		return self.a.b.v.clone()
 	end 'show'
 end 'Outer'
 
 typealias StrOuter = Outer with String
 
 function heapString(a String, b String) returns String
-	let sb = StringBuilder.create()
+	var sb = StringBuilder.create()
 	sb.append(a)
 	sb.append(b)
 	return sb.build()
 end 'heapString'
 
 function main() returns ExitCode
-	let o = StrOuter.create(heapString("first payload ", b: "long enough to allocate"))
+	var o = StrOuter.create(heapString("first payload ", b: "long enough to allocate"))
 	let s = heapString("second payload ", b: "long enough to allocate")
 	o.put(s)
 	print("{o.show()} {s}\n")
@@ -6483,26 +6483,26 @@ The same assignment through a `Self`-typed parameter of a `static function`, whi
 type Cell uses T
 	export var v as T
 
-	static function create(v T) returns Self
-		return Self{v: v}
+	static function create(v T) returns Self where T implements Copyable
+		return Self{v: v.clone()}
 	end 'create'
 
-	static function overwrite(target Self, item T)
-		target.v = item
+	static function overwrite(mutates target Self, item T) where T implements Droppable and Copyable
+		target.v = item.clone()
 	end 'overwrite'
 end 'Cell'
 
 typealias StrCell = Cell with String
 
 function heapString(a String, b String) returns String
-	let sb = StringBuilder.create()
+	var sb = StringBuilder.create()
 	sb.append(a)
 	sb.append(b)
 	return sb.build()
 end 'heapString'
 
 function main() returns ExitCode
-	let a = StrCell.create(heapString("first payload ", b: "long enough to allocate"))
+	var a = StrCell.create(heapString("first payload ", b: "long enough to allocate"))
 	let s = heapString("second payload ", b: "long enough to allocate")
 	StrCell.overwrite(a, item: s)
 	print("{a.v} {s}\n")
@@ -6523,13 +6523,13 @@ type Inner uses T
 	export typealias Items = Array with T
 	var v as T
 
-	static function create(x T) returns Self
-		return Self{v: x}
+	static function create(x T) returns Self where T implements Copyable
+		return Self{v: x.clone()}
 	end 'create'
 
-	function stash() returns Count
-		let items = Items.create(0)
-		items.push(self.v)
+	function stash() returns Count where T implements Copyable
+		var items = Items.create(0)
+		items.push(self.v.clone())
 		return items.count()
 	end 'stash'
 end 'Inner'
@@ -6538,15 +6538,15 @@ type Outer uses T
 	typealias Held = Inner with T
 	var held as Held
 
-	static function create(x T) returns Self
+	static function create(x T) returns Self where T implements Copyable
 		return Self{held: Held.create(x)}
 	end 'create'
 
-	function make() returns Held
-		return held
+	function make() returns Held where T implements Copyable
+		return held.clone()
 	end 'make'
 
-	function probe() returns Count
+	function probe() returns Count where T implements Droppable and Copyable
 		return self.make().stash()
 	end 'probe'
 end 'Outer'
@@ -6554,7 +6554,7 @@ end 'Outer'
 typealias StrOuter = Outer with String
 
 function heapString(a String, b String) returns String
-	let sb = StringBuilder.create()
+	var sb = StringBuilder.create()
 	sb.append(a)
 	sb.append(b)
 	return sb.build()
@@ -6584,8 +6584,8 @@ type Pile uses T
 		return Self{n: 0}
 	end 'create'
 
-	static function stash(items Items, item T)
-		items.push(item)
+	static function stash(mutates items Items, item T) where T implements Copyable
+		items.push(item.clone())
 	end 'stash'
 end 'Pile'
 
@@ -6594,14 +6594,14 @@ typealias StrPile = Pile with String
 typealias StrItems = Array with String
 
 function heapString(a String, b String) returns String
-	let sb = StringBuilder.create()
+	var sb = StringBuilder.create()
 	sb.append(a)
 	sb.append(b)
 	return sb.build()
 end 'heapString'
 
 function main() returns ExitCode
-	let items = StrItems.create(0)
+	var items = StrItems.create(0)
 	let s = heapString("pushed payload ", b: "long enough to allocate")
 	StrPile.stash(items, item: s)
 	StrPile.stash(items, item: s)
@@ -6624,14 +6624,14 @@ type Pile uses T
 	export typealias Items = Array with T
 	export var top as T
 
-	static function create(top T) returns Self
-		return Self{top: top}
+	static function create(top T) returns Self where T implements Copyable
+		return Self{top: top.clone()}
 	end 'create'
 
-	static function tally(owner Self) returns Count
-		let items = Items.create(0)
-		items.push(owner.top)
-		items.push(owner.top)
+	static function tally(owner Self) returns Count where T implements Copyable
+		var items = Items.create(0)
+		items.push(owner.top.clone())
+		items.push(owner.top.clone())
 		return items.count()
 	end 'tally'
 end 'Pile'
@@ -6639,7 +6639,7 @@ end 'Pile'
 typealias StrPile = Pile with String
 
 function heapString(a String, b String) returns String
-	let sb = StringBuilder.create()
+	var sb = StringBuilder.create()
 	sb.append(a)
 	sb.append(b)
 	return sb.build()

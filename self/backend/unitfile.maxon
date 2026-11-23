@@ -30,6 +30,7 @@ export function writeUnit(u CodeUnit, mutates w table.ByteWriter)
 	w.count(u.data.pieces.count())
 	for i in 0 upto u.data.pieces.count() 'pieces'
 		w.count(u.data.pieces[i])
+		w.flag(u.data.readOnly[i])
 	end 'pieces'
 	w.count(u.data.pointers.count())
 	for i in 0 upto u.data.pointers.count() 'pointers'
@@ -80,6 +81,7 @@ export function readUnit(mutates r table.ByteReader) returns CodeUnit
 	u.data.bytes = r.run()
 	for _ in 0 upto r.items() 'pieces'
 		u.data.pieces.push(r.count())
+		u.data.readOnly.push(r.flag())
 	end 'pieces'
 	for _ in 0 upto r.items() 'pointers'
 		let pos = r.count()

@@ -485,6 +485,15 @@ export function intrinsicCall(mutates l Lowerer, p ast.Project, mutates ms ast.M
 	if op == ast.Intrinsic.intrTrailingZeros 'intrTrailingZeros'
 		return lowerTrailingZeros(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrTrailingZeros'
+	if op == ast.Intrinsic.intrAppendStringBytes 'intrAppendStringBytes'
+		return lowerAppendStringBytes(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrAppendStringBytes'
+	if op == ast.Intrinsic.intrSingleByteGraphemes 'intrSingleByteGraphemes'
+		return lowerSingleByteGraphemes(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrSingleByteGraphemes'
+	if op == ast.Intrinsic.intrTakeString 'intrTakeString'
+		return lowerTakeString(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrTakeString'
 	if op == ast.Intrinsic.intrHashSeed 'intrHashSeed'
 		return lowerHashSeed(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrHashSeed'
@@ -1135,6 +1144,15 @@ export function ownsOperands(op ast.Intrinsic) returns bool
 	if op == ast.Intrinsic.intrTrailingZeros 'intrTrailingZeros'
 		return false
 	end 'intrTrailingZeros'
+	if op == ast.Intrinsic.intrAppendStringBytes 'intrAppendStringBytes'
+		return false
+	end 'intrAppendStringBytes'
+	if op == ast.Intrinsic.intrSingleByteGraphemes 'intrSingleByteGraphemes'
+		return false
+	end 'intrSingleByteGraphemes'
+	if op == ast.Intrinsic.intrTakeString 'intrTakeString'
+		return false
+	end 'intrTakeString'
 	if op == ast.Intrinsic.intrHashSeed 'intrHashSeed'
 		return false
 	end 'intrHashSeed'

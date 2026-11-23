@@ -146,9 +146,9 @@ function machoExitImage() returns ByteArray
 	let imports = libSystemImports(1)
 	// The segments' places depend on the sizes only by whole pages, and the programs are far smaller than one, so a layout
 	// made for one byte of code is the layout the programs are made for.
-	let probe = buildMachOImage(ImageLayout.make(1, dataSize: 0, entryOffset: 0, pointers: DataPointerList.create(0)), imports: imports)
+	let probe = buildMachOImage(ImageLayout.make(1, constSize: 0, dataSize: 0, entryOffset: 0, pointers: DataPointerList.create(0)), imports: imports)
 	let code = machoExitProgram(probe)
-	var image = buildMachOImage(ImageLayout.make(code.count(), dataSize: 0, entryOffset: 0, pointers: DataPointerList.create(0)), imports: imports)
+	var image = buildMachOImage(ImageLayout.make(code.count(), constSize: 0, dataSize: 0, entryOffset: 0, pointers: DataPointerList.create(0)), imports: imports)
 	placeCode(image, at: 0, bytes: code)
 	let file = signedMachO(image, identifier: "minimaxon_macho_exit")
 	checkMachO(file, image: image, code: code, imports: imports, pointers: DataPointerList.create(0), identifier: "minimaxon_macho_exit")
@@ -160,9 +160,9 @@ function machoRebasedImage() returns ByteArray
 	let imports = libSystemImports(2)
 	var data = machoRebasedData()
 	let pointers = machoRebasedPointers()
-	let probe = buildMachOImage(ImageLayout.make(1, dataSize: data.count(), entryOffset: 0, pointers: pointers.clone()), imports: imports)
+	let probe = buildMachOImage(ImageLayout.make(1, constSize: 0, dataSize: data.count(), entryOffset: 0, pointers: pointers.clone()), imports: imports)
 	let code = machoRebasedProgram(probe)
-	var image = buildMachOImage(ImageLayout.make(code.count(), dataSize: data.count(), entryOffset: 0, pointers: pointers.clone()), imports: imports)
+	var image = buildMachOImage(ImageLayout.make(code.count(), constSize: 0, dataSize: data.count(), entryOffset: 0, pointers: pointers.clone()), imports: imports)
 	writePointers(ast.TargetSystem.macos, image: image, data: data, pointers: pointers)
 	placeCode(image, at: 0, bytes: code)
 	placeData(image, at: 0, bytes: data)

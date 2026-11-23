@@ -275,5 +275,5 @@ function stringOfUnits(source Count, units Count) returns String
 	end 'outside'
 	let room = __Raw.stringRoom(units * maxUtf8BytesPerUnit)
 	let written = utf8FromUtf16(source, units: units, dst: room)
-	return __Raw.stringOf(room, length: written, ascii: false)
+	return stringOfRoom(room, length: written)
 end 'stringOfUnits'

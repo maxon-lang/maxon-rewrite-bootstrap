@@ -84,6 +84,20 @@ let peTextFlags = 1610612768 as Count
 
 let peDataFlags = 3221225536 as Count
 
+// peConstFlags are a section of initialized data that is only read: IMAGE_SCN_CNT_INITIALIZED_DATA and IMAGE_SCN_MEM_READ.
+let peConstFlags = 0x40000040 as Count
+
+// The places of the sections among the image's, in the order buildPeImage lays them out.
+let peTextSection = 0 as Count
+
+let peConstSection = 1 as Count
+
+let peDataSection = 2 as Count
+
+let peIdataSection = 3 as Count
+
+let peRelocSection = 4 as Count
+
 let peImportDescriptorSize = 40 as Count
 
 let peImportDescriptorPad = 20 as Count
@@ -252,14 +266,21 @@ function buildRelocations(dataRva Count, relocated CountList) returns ByteArray
 	return w
 end 'buildRelocations'
 
-// buildPeImage lays out the file for sections of the given sizes, with its headers and imports written and the entry
-// point at an offset in the code. The import slot of the i-th name is at importSlotRva(image, index: i). relocated are the
-// offsets of the data, in increasing order, of the words that hold addresses of the image, which a base relocation table
-// lets the loader move with it.
-export function buildPeImage(codeSize Count, dataSize Count, dll String, imports NameList, entryOffset Count, relocated CountList) returns Image
+// buildPeImage lays out the file for the sections of the layout, .text, .rdata, .data, .idata and .reloc, with its headers
+// and imports written and the entry point at its offset in the code. The import slot of the i-th name is at
+// importSlotRva(image, index: i). The layout's pointers are the words of the data that hold addresses of the image, which a
+// base relocation table lets the loader move with it.
+export function buildPeImage(layout ImageLayout, dll String, imports NameList) returns Image
+	let codeSize = layout.codeSize
+	let dataSize = layout.dataSize
+	let entryOffset = layout.entryOffset
+	let relocated = layout.relocated()
 	let codeSpan = codeSize if codeSize > 0 else 1
 	let dataSpan = dataSize if dataSize > 0 else 1
-	let dataRva = sum(peTextRva, b: alignUp(codeSpan, alignment: peSectionAlignment))
+	// A section with no data still has bytes in the file.
+	let constLength = layout.constSize if layout.constSize > 0 else peEmptyDataSize
+	let constRva = sum(peTextRva, b: alignUp(codeSpan, alignment: peSectionAlignment))
+	let dataRva = sum(constRva, b: alignUp(constLength, alignment: peSectionAlignment))
 	let idataRva = sum(dataRva, b: alignUp(dataSpan, alignment: peSectionAlignment))
 	let table = buildImports(idataRva, dll: dll, imports: imports)
 	let idataSize = table.bytes.count()
@@ -270,6 +291,7 @@ export function buildPeImage(codeSize Count, dataSize Count, dll String, imports
 	let dataLength = dataSize if dataSize > 0 else peEmptyDataSize
 	var sections = SectionList.create(0)
 	sections.push(Section.make(".text", size: codeSize, rva: peTextRva, flags: peTextFlags))
+	sections.push(Section.make(".rdata", size: constLength, rva: constRva, flags: peConstFlags))
 	sections.push(Section.make(".data", size: dataLength, rva: dataRva, flags: peDataFlags))
 	sections.push(Section.make(".idata", size: idataSize, rva: idataRva, flags: peDataFlags))
 	if relocSize > 0 'reloc'
@@ -303,7 +325,8 @@ export function buildPeImage(codeSize Count, dataSize Count, dll String, imports
 	pushU8(w, v: peLinkerMajor)
 	pushU8(w, v: 0)
 	pushU32(w, v: alignUp(codeSize, alignment: peFileAlignment))
-	pushU32(w, v: sum(sum(alignUp(dataSize, alignment: peFileAlignment), b: alignUp(idataSize, alignment: peFileAlignment)), b: alignUp(relocSize, alignment: peFileAlignment)))
+	let constFileSize = alignUp(constLength, alignment: peFileAlignment)
+	pushU32(w, v: sum(constFileSize, b: sum(sum(alignUp(dataSize, alignment: peFileAlignment), b: alignUp(idataSize, alignment: peFileAlignment)), b: alignUp(relocSize, alignment: peFileAlignment))))
 	pushU32(w, v: 0)
 	pushU32(w, v: sum(peTextRva, b: entryOffset))
 	pushU32(w, v: peTextRva)
@@ -348,11 +371,11 @@ export function buildPeImage(codeSize Count, dataSize Count, dll String, imports
 	end 'headers'
 	var file = ByteArray.create(fileSize)
 	copyInto(file, at: 0, src: w)
-	copyInto(file, at: fileOffsets[2], src: table.bytes)
+	copyInto(file, at: fileOffsets[peIdataSection], src: table.bytes)
 	if relocSize > 0 'relocBytes'
-		copyInto(file, at: fileOffsets[3], src: relocations)
+		copyInto(file, at: fileOffsets[peRelocSection], src: relocations)
 	end 'relocBytes'
-	return Image.make(file, format: ast.ImageFormat.pe, base: peImageBase, textRva: peTextRva, dataRva: dataRva, iatRva: sum(idataRva, b: table.iatOffset), importSlots: imports.count(), codeOffset: fileOffsets[0], dataOffset: fileOffsets[1])
+	return Image.make(file, format: ast.ImageFormat.pe, base: peImageBase, textRva: peTextRva, constRva: constRva, dataRva: dataRva, iatRva: sum(idataRva, b: table.iatOffset), importSlots: imports.count(), codeOffset: fileOffsets[peTextSection], constOffset: fileOffsets[peConstSection], dataOffset: fileOffsets[peDataSection])
 end 'buildPeImage'
 
 // importSlotRva is the address of the slot the loader fills with the index-th imported function, which code calls

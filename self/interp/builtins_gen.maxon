@@ -403,6 +403,14 @@ function runtimeEntry(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 		try entryBytesAppendStr(vm, f: f, x: x)
 		return
 	end 'rtBytesAppendStr'
+	if symbol == ir.Rt.rtBytesTakeString 'rtBytesTakeString'
+		try entryBytesTakeString(vm, f: f, x: x)
+		return
+	end 'rtBytesTakeString'
+	if symbol == ir.Rt.rtStrSimple 'rtStrSimple'
+		try entryStrSimple(vm, f: f, x: x)
+		return
+	end 'rtStrSimple'
 	if symbol == ir.Rt.rtBytesToString 'rtBytesToString'
 		try entryBytesToString(vm, f: f, x: x)
 		return
@@ -491,28 +499,28 @@ function runtimeEntry(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 		try entryOsRun(vm, f: f, x: x)
 		return
 	end 'rtOsRun'
-	if symbol == ir.Rt.rtEntry or symbol == ir.Rt.rtAlloc or symbol == ir.Rt.rtFree or symbol == ir.Rt.rtPanicIndex 'internal0'
+	if symbol == ir.Rt.rtEntry or symbol == ir.Rt.rtAlloc or symbol == ir.Rt.rtFree or symbol == ir.Rt.rtCheckSimpleBytes 'internal0'
 		panic("interp: {ir.rtText(symbol)} is no entry the IR calls")
 	end 'internal0'
-	if symbol == ir.Rt.rtHeap or symbol == ir.Rt.rtStdout or symbol == ir.Rt.rtStderr or symbol == ir.Rt.rtImageDataStart 'internal1'
+	if symbol == ir.Rt.rtPanicIndex or symbol == ir.Rt.rtHeap or symbol == ir.Rt.rtStdout or symbol == ir.Rt.rtStderr 'internal1'
 		panic("interp: {ir.rtText(symbol)} is no entry the IR calls")
 	end 'internal1'
-	if symbol == ir.Rt.rtImageDataEnd or symbol == ir.Rt.rtCheckLeaks or symbol == ir.Rt.rtTlsSlot or symbol == ir.Rt.rtTlsOffset 'internal2'
+	if symbol == ir.Rt.rtCheckLeaks or symbol == ir.Rt.rtTlsSlot or symbol == ir.Rt.rtTlsOffset or symbol == ir.Rt.rtMainContext 'internal2'
 		panic("interp: {ir.rtText(symbol)} is no entry the IR calls")
 	end 'internal2'
-	if symbol == ir.Rt.rtMainContext or symbol == ir.Rt.rtProcessStart or symbol == ir.Rt.rtThreadStart or symbol == ir.Rt.rtStackSwitch 'internal3'
+	if symbol == ir.Rt.rtProcessStart or symbol == ir.Rt.rtThreadStart or symbol == ir.Rt.rtStackSwitch or symbol == ir.Rt.rtGreenStart 'internal3'
 		panic("interp: {ir.rtText(symbol)} is no entry the IR calls")
 	end 'internal3'
-	if symbol == ir.Rt.rtGreenStart or symbol == ir.Rt.rtAsyncPreempt or symbol == ir.Rt.rtPreemptHandler or symbol == ir.Rt.rtSigreturn 'internal4'
+	if symbol == ir.Rt.rtAsyncPreempt or symbol == ir.Rt.rtPreemptHandler or symbol == ir.Rt.rtSigreturn or symbol == ir.Rt.rtPreemptibleCode 'internal4'
 		panic("interp: {ir.rtText(symbol)} is no entry the IR calls")
 	end 'internal4'
-	if symbol == ir.Rt.rtPreemptibleCode or symbol == ir.Rt.rtSchedDrain or symbol == ir.Rt.rtWorkerMain or symbol == ir.Rt.rtEnterBlocking 'internal5'
+	if symbol == ir.Rt.rtSchedDrain or symbol == ir.Rt.rtWorkerMain or symbol == ir.Rt.rtEnterBlocking or symbol == ir.Rt.rtExitBlocking 'internal5'
 		panic("interp: {ir.rtText(symbol)} is no entry the IR calls")
 	end 'internal5'
-	if symbol == ir.Rt.rtExitBlocking or symbol == ir.Rt.rtExitClaim or symbol == ir.Rt.rtCownAcquire or symbol == ir.Rt.rtCownRelease 'internal6'
+	if symbol == ir.Rt.rtExitClaim or symbol == ir.Rt.rtCownAcquire or symbol == ir.Rt.rtCownRelease or symbol == ir.Rt.rtMainRun 'internal6'
 		panic("interp: {ir.rtText(symbol)} is no entry the IR calls")
 	end 'internal6'
-	if symbol == ir.Rt.rtMainRun or symbol == ir.Rt.rtMainGreen or symbol == ir.Rt.rtAsyncNew or symbol == ir.Rt.rtAsyncStart 'internal7'
+	if symbol == ir.Rt.rtMainGreen or symbol == ir.Rt.rtAsyncNew or symbol == ir.Rt.rtAsyncStart 'internal7'
 		panic("interp: {ir.rtText(symbol)} is no entry the IR calls")
 	end 'internal7'
 	panic("interp: a call of no runtime entry")

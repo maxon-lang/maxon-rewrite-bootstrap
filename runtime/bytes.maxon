@@ -57,6 +57,23 @@ function bytesAppendStr(array Count, text String)
 	copyBytes(__Raw.stringBytes(text), target: tail, count: count)
 end 'bytesAppendStr'
 
+// bytesTakeString is the string of the bytes of the array, whose buffer it takes as the string's own, with no copy, leaving
+// the array empty with no buffer: what a StringBuilder's build hands over. simple is the string's ASCII bit, which the
+// builder kept as the bytes went in. An empty array, which may have no buffer, gives the empty literal, since a string's
+// address is never 0.
+function bytesTakeString(array Count, simple bool) returns String
+	let length = collectionLength(array)
+	let buffer = collectionData(array)
+	__Raw.storeWord(array, offset: arrayLengthOffset, value: 0)
+	__Raw.storeWord(array, offset: arrayCapacityOffset, value: 0)
+	__Raw.storeWord(array, offset: arrayDataOffset, value: 0)
+	if length == 0 'empty'
+		free(buffer)
+		return ""
+	end 'empty'
+	return __Raw.stringOf(buffer, length: length, ascii: simple)
+end 'bytesTakeString'
+
 // bytesToString is a new string of the bytes of the array, which the caller owns.
 function bytesToString(array Count) returns String
 	let length = collectionLength(array)

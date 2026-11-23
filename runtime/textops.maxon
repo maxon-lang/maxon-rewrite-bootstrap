@@ -3,7 +3,9 @@
 // internal/builtingen/table.go) and also, copied by that generator to self/interp/textops_gen.maxon, the interpreter's, so
 // that one text says what each means. Everything here uses only what both modules have: a String's byte operations,
 // interpolation and integers; a position is a byte position in a string, and a search gives its position plus 1, so that
-// 0 is no match.
+// 0 is no match. A string whose ASCII bit is set (strKnownSimple, which each module defines: the runtime by the bit, the
+// interpreter, which keeps none, as false) has one byte to each grapheme cluster and to each code point, so the operations
+// that walk clusters or code points take the byte at a time, or answer by its length, there.
 
 let strAsciiLimit = 0x80 as Byte
 
@@ -184,6 +186,9 @@ function strGraphemeEnd(text String, start Count) returns Count
 	if start >= size 'atEnd'
 		return size
 	end 'atEnd'
+	if strKnownSimple(text) 'simple'
+		return strAdd(start, right: 1)
+	end 'simple'
 	let first = text.byteAt(start)
 	if first < strAsciiLimit and first != strCarriageReturn 'plain'
 		let following = strAdd(start, right: 1)
@@ -251,6 +256,9 @@ end 'strGraphemeEnd'
 // stringCount is the number of grapheme clusters of a string.
 function stringCount(text String) returns Count
 	let size = text.byteLength()
+	if strKnownSimple(text) 'simple'
+		return size
+	end 'simple'
 	var at = 0 as Count
 	var clusters = 0 as Count
 	while at < size 'each'
@@ -262,6 +270,9 @@ end 'stringCount'
 
 // stringGraphemeIndex is the number of clusters that start before a byte position.
 function stringGraphemeIndex(text String, bytePos Count) returns Count
+	if strKnownSimple(text) 'simple'
+		return bytePos if bytePos < text.byteLength() else text.byteLength()
+	end 'simple'
 	var at = 0 as Count
 	var clusters = 0 as Count
 	while at < bytePos and at < text.byteLength() 'each'
@@ -273,6 +284,16 @@ end 'stringGraphemeIndex'
 
 // stringGraphemeBytePos is the byte position that count clusters after the one at from end at, or the end of the string.
 function stringGraphemeBytePos(text String, from Count, count Count) returns Count
+	if strKnownSimple(text) 'simple'
+		let size = text.byteLength()
+		if from >= size 'past'
+			return from
+		end 'past'
+		if count >= strSub(size, right: from) 'end'
+			return size
+		end 'end'
+		return strAdd(from, right: count)
+	end 'simple'
 	var at = from
 	var left = count
 	while left > 0 and at < text.byteLength() 'each'
@@ -309,6 +330,9 @@ end 'stringCodePointNext'
 // stringCodePointCount is the number of code points of a string.
 function stringCodePointCount(text String) returns Count
 	let size = text.byteLength()
+	if strKnownSimple(text) 'simple'
+		return size
+	end 'simple'
 	var at = 0 as Count
 	var count = 0 as Count
 	while at < size 'each'
@@ -358,6 +382,9 @@ end 'stringUtf16Next'
 // stringUtf16Count is the number of UTF-16 code units of a string.
 function stringUtf16Count(text String) returns Count
 	let size = text.byteLength()
+	if strKnownSimple(text) 'simple'
+		return size
+	end 'simple'
 	var at = 0 as Count
 	var count = 0 as Count
 	while at < size 'each'

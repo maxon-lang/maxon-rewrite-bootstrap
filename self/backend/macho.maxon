@@ -1,5 +1,5 @@
 // The macOS arm64 Mach-O writer, after maxon's (Targets/Macos/MachOWriter.maxon): a PIE MH_EXECUTE that dyld loads, with
-// the segments __PAGEZERO, __TEXT (the headers and __text), __DATA (__data, then __got on a page of its own) and
+// the segments __PAGEZERO, __TEXT (the headers, __text and __const, the read-only data, as ld64 places it), __DATA (__data, then __got on a page of its own) and
 // __LINKEDIT (the chained fixups, an empty exports trie, an empty symbol table and the code signature). macOS has no
 // system calls a program may make itself, so every call of the OS goes through libSystem: each function the link calls
 // has a slot of __got that dyld binds by name through a chained fixup. macOS slides every arm64 executable, so a word of
@@ -119,6 +119,9 @@ let machoSegmentCount = 4 as Count
 
 let machoDataSegmentIndex = 2 as Count
 
+// machoTextSectionCount is the sections of __TEXT: __text and __const.
+let machoTextSectionCount = 2 as Count
+
 // machoLibSystemOrdinal is the 1-based place of libSystem among the image's LC_LOAD_DYLIB commands, the one dylib it links.
 let machoLibSystemOrdinal = 1 as Count
 
@@ -234,7 +237,7 @@ export function buildMachOImage(layout ImageLayout, imports NameList) returns Im
 	let hasGot = imports.count() > 0
 	let dataSectionCount = 2 if hasGot else 1
 	let dylibCommandSize = alignUp(sum(dylibCommandHeaderSize, b: sum(libSystemPath.byteLength(), b: 1)), alignment: dylibCommandAlignment)
-	let textCommandSize = sum(segmentCommandBaseSize, b: sectionHeaderSize)
+	let textCommandSize = sum(segmentCommandBaseSize, b: product(sectionHeaderSize, b: machoTextSectionCount))
 	let dataCommandSize = sum(segmentCommandBaseSize, b: product(sectionHeaderSize, b: dataSectionCount))
 	var commandsSize = sum(segmentCommandBaseSize, b: textCommandSize)
 	commandsSize = sum(commandsSize, b: sum(dataCommandSize, b: segmentCommandBaseSize))
@@ -243,7 +246,9 @@ export function buildMachOImage(layout ImageLayout, imports NameList) returns Im
 	commandsSize = sum(commandsSize, b: sum(dylibCommandSize, b: buildVersionCommandSize))
 	commandsSize = sum(commandsSize, b: sum(chainedFixupsCommandSize, b: sum(exportsTrieCommandSize, b: codeSignatureCommandSize)))
 	let codeOffset = alignUp(sum(machHeaderSize, b: commandsSize), alignment: codeLineBytes)
-	let textSegmentSize = alignUp(sum(codeOffset, b: layout.codeSize), alignment: machoPageBytes)
+	let constOffset = alignUp(sum(codeOffset, b: layout.codeSize), alignment: wordBytes)
+	let constLength = layout.constSize if layout.constSize > 0 else machoEmptyDataBytes
+	let textSegmentSize = alignUp(sum(constOffset, b: constLength), alignment: machoPageBytes)
 	let dataSegmentOffset = textSegmentSize
 	let dataLength = layout.dataSize if layout.dataSize > 0 else machoEmptyDataBytes
 	let gotOffsetInData = alignUp(dataLength, alignment: machoPageBytes)
@@ -279,8 +284,9 @@ export function buildMachOImage(layout ImageLayout, imports NameList) returns Im
 	pushU32(w, v: mhDyldLink or mhTwoLevel or mhPie)
 	pushU32(w, v: 0)
 	pushSegmentCommand(w, name: "__PAGEZERO", vmaddr: 0, vmsize: machoPageZeroSize, fileoff: 0, filesize: 0, prot: vmProtNone, sections: 0)
-	pushSegmentCommand(w, name: machoTextSegment, vmaddr: base, vmsize: textSegmentSize, fileoff: 0, filesize: textSegmentSize, prot: vmProtRead or vmProtExecute, sections: 1)
+	pushSegmentCommand(w, name: machoTextSegment, vmaddr: base, vmsize: textSegmentSize, fileoff: 0, filesize: textSegmentSize, prot: vmProtRead or vmProtExecute, sections: machoTextSectionCount)
 	pushSectionHeader64(w, name: "__text", segment: machoTextSegment, addr: sum(base, b: codeOffset), size: layout.codeSize, offset: codeOffset, alignment: codeLineBytes, flags: sAttrPureInstructions or sAttrSomeInstructions or sRegular)
+	pushSectionHeader64(w, name: "__const", segment: machoTextSegment, addr: sum(base, b: constOffset), size: constLength, offset: constOffset, alignment: wordBytes, flags: sRegular)
 	let dataAddr = sum(base, b: dataSegmentOffset)
 	pushSegmentCommand(w, name: machoDataSegment, vmaddr: dataAddr, vmsize: dataSegmentSize, fileoff: dataSegmentOffset, filesize: dataSegmentSize, prot: vmProtRead or vmProtWrite, sections: dataSectionCount)
 	pushSectionHeader64(w, name: "__data", segment: machoDataSegment, addr: dataAddr, size: dataLength, offset: dataSegmentOffset, alignment: wordBytes, flags: sRegular)
@@ -342,7 +348,7 @@ export function buildMachOImage(layout ImageLayout, imports NameList) returns Im
 	end 'got'
 	copyInto(file, at: sum(dataSegmentOffset, b: gotOffsetInData), src: got)
 	copyInto(file, at: linkeditOffset, src: chainedFixups)
-	return Image.make(file, format: ast.ImageFormat.machO, base: base, textRva: codeOffset, dataRva: dataSegmentOffset, iatRva: sum(dataSegmentOffset, b: gotOffsetInData), importSlots: imports.count(), codeOffset: codeOffset, dataOffset: dataSegmentOffset)
+	return Image.make(file, format: ast.ImageFormat.machO, base: base, textRva: codeOffset, constRva: constOffset, dataRva: dataSegmentOffset, iatRva: sum(dataSegmentOffset, b: gotOffsetInData), importSlots: imports.count(), codeOffset: codeOffset, constOffset: constOffset, dataOffset: dataSegmentOffset)
 end 'buildMachOImage'
 
 // chainNext is the next field of the fixup at index of the fixups, which are offsets of __DATA in increasing order: the

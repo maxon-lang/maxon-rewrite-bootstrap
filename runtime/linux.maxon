@@ -311,7 +311,7 @@
 			return noString()
 		end 'failedRead'
 		succeed(errorAddress)
-		return __Raw.stringOf(bytes, length: done, ascii: false)
+		return stringOfRoom(bytes, length: done)
 	end 'osReadText'
 
 	// writeFile replaces a file with bytes at an address, and gives the errno that stopped it, or 0. The mode applies to a

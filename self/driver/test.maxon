@@ -591,7 +591,9 @@ end 'runTests'
 // once. It panics when the runtime does not compile, since no test could then say anything about the program it compiles.
 function prepareSharedRuntime(target ast.Target) returns SharedRuntime
 	var errs = diag.ErrorList.create(0)
-	let shared = SharedRuntime.prepare(target, errs: errs)
+	var options = testOptions()
+	options.target = target.clone()
+	let shared = SharedRuntime.prepare(options, errs: errs)
 	if errs.count() > 0 'broken'
 		panic("test: the runtime does not compile: {joinErrors(errs)}")
 	end 'broken'

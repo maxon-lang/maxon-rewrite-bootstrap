@@ -3061,13 +3061,13 @@ The closure captures a `(T, T)` tuple local over `String`, so the environment ho
 type Twin uses T
 	var kept as T
 
-	static function create(kept T) returns Self
-		return Self{kept: kept}
+	static function create(kept T) returns Self where T implements Copyable
+		return Self{kept: kept.clone()}
 	end 'create'
 
-	function first(a T, b T) returns T
-		let both = (a, b)
-		let f = function() gives both.0
+	function first(a T, b T) returns T where T implements Copyable
+		let both = (a.clone(), b.clone())
+		let f = function() gives both.0.clone()
 		return f()
 	end 'first'
 end 'Twin'
@@ -3075,7 +3075,7 @@ end 'Twin'
 typealias StrTwin = Twin with String
 
 function heapString(a String, b String) returns String
-	let sb = StringBuilder.create()
+	var sb = StringBuilder.create()
 	sb.append(a)
 	sb.append(b)
 	return sb.build()

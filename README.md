@@ -196,7 +196,7 @@ stamp), failing on any failure; otherwise it leaves the batch at `in\gate\` with
 session to run, and prints a skip line, as it does when the folder is not mounted.
 
 The executable is written by `macho.maxon`, after maxon's `MachOWriter.maxon`: a PIE `MH_EXECUTE` for arm64 with 16 KB
-pages, `__PAGEZERO` over the low 4 GB, `__TEXT` from the start of the file at 0x100000000 (the headers and `__text`),
+pages, `__PAGEZERO` over the low 4 GB, `__TEXT` from the start of the file at 0x100000000 (the headers, `__text` and `__const`, the read-only data),
 `__DATA` (`__data`, then `__got` on a page of its own) and `__LINKEDIT`, and 14 load commands: the four segments,
 `LC_SYMTAB` and `LC_DYSYMTAB` (with no symbol), `LC_LOAD_DYLINKER`, `LC_MAIN`, `LC_UUID` (the first 16 bytes of the code's
 SHA-256), `LC_LOAD_DYLIB` of libSystem, `LC_BUILD_VERSION` (macOS 13.0), `LC_DYLD_CHAINED_FIXUPS`, an empty
@@ -378,7 +378,11 @@ is that of its module (`app::main`), and a project with no `main` in any module 
   the qualified spellings.
 - **The standard library** is Maxon source in `stdlib/`, found as `runtime/` is (the `stdlib` directory of the nearest
   directory, from the compiler's executable's upward, that has one), converted from maxon's `stdlib/` by `cmd/convert`
-  but for `Map.maxon`, which is minimaxon's own (see "Where it differs from Maxon") and which no conversion touches:
+  but for `Map.maxon` and `StringBuilder.maxon`, which are minimaxon's own (see "Where it differs from Maxon"; maxon's
+  `StringBuilder` reaches into the bytes of its library `String`, which here is two words of the compiler's, so this one
+  appends through `__Builtins.appendStringBytes` to one buffer in place, keeps the ASCII bit by
+  `__Builtins.singleByteGraphemes`, and hands the buffer over as the built `String` with `__Builtins.takeString`, no copy)
+  and which no conversion touches:
   `stdlib/files.txt` lists the files converted so far, each with the library module it goes to (its directory under
   `stdlib/`, `.` for the root) and, where two files of one module would share a name, the name it takes (`StringHash.maxon`), and `.\stdlib.ps1` regenerates them, then applies the compiler's `fix` to them as `specs.ps1`
   does to the spec tests (a `let` that is changed becomes a `var`, a name of another library module is qualified); none is
@@ -1359,9 +1363,12 @@ signature `check runtime` holds to words, `callcode`, the drop and copy routines
 
 Records and union values are heap boxes of 8-byte words (a union's first word is its case index), allocated by the running
 thread's heap (`runtime::alloc`, see "Native freeing") and freed by it (`runtime::free`) where their owner dies (see "Drops"); a box is
-zeroed when it is allocated. A string is a pointer to `[length][UTF-8 bytes]`: a literal lives in the executable's data section
-and is never freed, any other string is a box on the heap. An enum value is its case index. A constant whose value is a box
-lives in the data section too (see "Constants in the data section").
+zeroed when it is allocated. A String is two words (see "The IR"): a literal's bytes live in the executable's read-only data
+and are never freed, and any other string's bytes are a buffer on the heap. An enum value is its case index. A constant
+whose value is a box lives in the data section (see "Constants in the data section"). The image keeps what nothing writes
+and holds no address, the bytes of literals and of the entry stub's texts and the words of float constants, in read-only
+data: PE's `.rdata`, a read-only ELF `PT_LOAD` between the code's and the data's, and Mach-O's `__TEXT,__const`; the link
+lays out each piece of a unit's data (`DataSection.readOnly`) in one or the other, so a write through a literal faults.
 
 ### Constants in the data section
 
@@ -1648,10 +1655,21 @@ nothing.
   is below 0x80, and whether the String owns its bytes (`stringLengthShift`, `stringAsciiBit`, `stringOwnedBit`). The IR
   holds one in one register of its own kind (`kindString`), which instruction selection makes two virtual registers; a
   place that holds one (a slot, a field, an element, a capture, an interface value's box) takes two words, and the empty
-  place is 0 and 0. A literal points at its bytes in the executable's data and owns none of them, so its drop does
+  place is 0 and 0. A literal points at its bytes in the executable's read-only data and owns none of them, so its drop does
   nothing and its copy is itself; the drop of a String frees its bytes only when the owned bit says so, and its copy
   allocates only then. The length is the word shifted right, with no access to memory. `strptr`, `strword` and
   `strmake` take a String apart and make one of its two words, which only the runtime's String intrinsics write.
+- **The ASCII bit** of a String's word says that every byte is below 0x80 and none is a carriage return, which a line
+  feed after it would join in one grapheme cluster: each cluster and each code point is then one byte. It is set only
+  where the bytes are examined anyway: a literal's at compile time, a String made of bytes the runtime has just written
+  (`runtime::stringOfRoom`: a `ByteArray`'s, a file read, a UTF-16 text converted), the join of two that have it, a slice
+  of one that has it, and an integer's digits. A clear bit only means nothing is known. The text operations
+  (`runtime/textops.maxon`) take their byte paths where it is set: the count of clusters, of code points and of UTF-16
+  units is the length, a cluster's index and the position of the cluster n after another are arithmetic, and a walk over
+  the clusters (trim and the iteration of characters among them) goes a byte at a time; the interpreter keeps no bit and
+  always takes the general paths, which give the same answers. A build that counts its allocations
+  (`--count-allocations`, so every run of the corpus and of the spec tests) checks the bit of each owned String it drops or
+  copies (`Project.checksStrings`, `runtime::checkSimpleBytes`), so a bit set over another byte fails the program.
 - **The heap** is `runtime/heap.maxon`, one per thread: a record that the thread's context names and its first alloc makes,
   so `runtime::alloc` and `runtime::free` take no lock and write no word that another thread writes (the process heap's lock
   serialized the workers, and its calls were about 40% of a build). A box of up to 8 KB is a slot of a size class (one per
@@ -1676,7 +1694,8 @@ nothing.
   runtime is the same code whatever the build: each heap counts the slots it carves and the large boxes it holds, less those
   it frees, and the live boxes are the sum over the threads' heaps less the slots on their stacks and lists
   (`runtime::liveBoxes`), so a box of a class costs no count; `checkLeaks` sums them when no behaviour is left.
-  `--count-allocations` changes only the entry stub, which then passes `main`'s exit code to the runtime's `checkLeaks`: when
+  `--count-allocations` changes the entry stub, which then passes `main`'s exit code to the runtime's `checkLeaks`, and the drop
+  and the copy of a String, which check its ASCII bit (see "The ASCII bit"): when
   the count is not 0 the executable writes `leaked allocations: N` to standard error and exits with 99, in place of `main`'s
   own exit code. `minimaxon test` and the program generator always use it, so every native run of the corpus ends with no box
   live, a literal not being one. A panic and a trap exit at once and skip the check, because they end the program with values
@@ -2085,9 +2104,9 @@ mapped function exists with exactly that signature (`E3004` when it is missing, 
 
 **Globals.** The entry stub keeps the process heap and the two standard handles (`g.heap`, `g.stdout`, `g.stderr`),
 which it sets before `main`, on Linux the standard handles, fds 1 and 2, and the stack pointer the process started with
-(`g.processStart`), and no heap; the linker defines `g.imageDataStart` and `g.imageDataEnd`. Runtime source reaches a global through its address intrinsic.
+(`g.processStart`), and no heap. Runtime source reaches a global through its address intrinsic.
 The runtime is the same code whatever the build: each thread's heap always knows its live boxes, and `--count-allocations` changes only
-the stub, which then passes the exit code to the runtime's `checkLeaks`, which sums the live boxes of the threads' heaps;
+the stub and the String routines (see "The ASCII bit"), which then passes the exit code to the runtime's `checkLeaks`, which sums the live boxes of the threads' heaps;
 that exits with the leak report and 99 when
 a box is live, and gives the code back otherwise. Behaviour, exit codes and messages are maxon's runtime's.
 
@@ -3321,7 +3340,7 @@ one anywhere.
 | `Handle with T` | no operations; `==` and `!=` |
 | `__ManagedMemory with T` | maxon's raw buffer, which only the library tiers name (`E3185`): the box of an array, seen through maxon's buffer operations, each the array operation that does the same, so there is one implementation of each on either target. `length()`; `get(i)`, a copy of the element, where `T` is `Copyable`, throwing `__ManagedMemoryError.indexOutOfBounds` past the end and `emptySlot` at an empty slot (see `Array.clearSlot`). `xs.managed` is the buffer of an array: the array itself seen as one, so it is borrowed, moved and dropped as `xs` is (`let m = xs.managed` moves `xs`) |
 | `__GroupMemory with (A, B)` | minimaxon's raw buffer of the groups of a swiss table, which only the library tiers name (`E3185`), laid out as Go's map lays out its groups: each group is a control word and then eight pairs, the first half of a pair beside its second. `create(groups, control: w)` makes the groups, each control word `w` and each pair empty; `groups()`; `control(g)` and `setControl(g, value: w)` read and write a group's word as it is; a pair is named by its index over every group, eight to a group: `first(at)` and `second(at)` lend a half (a lent managed half that is empty panics, as an array's empty slot does), `put(at, first: a, second: b)` and `setSecond(at, value: b)` move halves in and drop what they held, `takeFirst(at)` and `takeSecond(at)` move one out and leave it empty, and `clear(at)` drops both. A group or a pair past the end traps. It is an array box of the words (`ir/groups.maxon`), so a read is a load; its drop and its copy go through each half by its type, an empty managed half being 0 |
-| `__Builtins` | maxon's raw intrinsics, which only the library tiers call (`E3185`), each the built-in that does the same: `currentProcessId()` is `Process.id()`, `currentTimeNanos()` `Clock.nowNanos()`; `floatToBits(x)` is the 64 bits of a double as a `FullRangeInt`, a reinterpretation that the library's float hash folds; `trailingZeros(word)` is the count of 0 bits below a `Count`'s lowest 1 bit, 64 for 0, the IR's `ctz`, by which `Map` reads the first match of a control word; `hashWord(word, seed)` and `hashBytes(bytes, at, count, seed)` are maxon's seeded hash, its software fold of a word or of a span of a `ByteArray` under a `HashDigest` seed (`runtime/hashfold.maxon`, which the interpreter runs too, as `hashfold_gen.maxon`), a span past the end a panic; `readBigEndian(bytes, at, width)` and `readLittleEndian` the `OrderedWord` of the 2, 4 or 8 bytes at an index, the first the most or the least significant, throwing `ArrayError.indexOutOfBounds` when they are not all inside, and `appendBigEndian(bytes, word, width)` and `appendLittleEndian` the append of a word's low bytes in that order; the width is the literal 2, 4 or 8 (`E3005` otherwise, in maxon's words). `OrderedWord` and `HashDigest` are built-in `bits(64)` aliases, as maxon's library declares them (`stdlib/Builtins.maxon`, `Hasher.maxon`). `hashSeed()` is the fold of no bytes under the process's secret, which a `Hasher` starts from, and `drawHashSeed()` a fresh secret (`HashSeed.random()`): the first call makes the process's hash state, as maxon's runtime does, from the 16 hexadecimal digits that `MAXON_HASH_SEED` pins (a pin that is not exits 1 with maxon's message, an empty one is none) or from 8 bytes of the system's entropy (Windows' `ProcessPrng`, loaded by name only then, and Linux's `getrandom`), and a pinned process draws a fixed sequence of seeds from it; the interpreter draws an unpinned secret from its own random numbers, so a run stays deterministic. A program that never asks for the seed reads neither the variable nor the entropy. The test runners pin `MAXON_HASH_SEED` for every program they start (`hashseed.ps1`), as maxon's harness hands its programs the run's seed |
+| `__Builtins` | maxon's raw intrinsics, which only the library tiers call (`E3185`), each the built-in that does the same: `currentProcessId()` is `Process.id()`, `currentTimeNanos()` `Clock.nowNanos()`; `floatToBits(x)` is the 64 bits of a double as a `FullRangeInt`, a reinterpretation that the library's float hash folds; `trailingZeros(word)` is the count of 0 bits below a `Count`'s lowest 1 bit, 64 for 0, the IR's `ctz`, by which `Map` reads the first match of a control word; `appendStringBytes(bytes, text)` pushes a String's bytes onto a `ByteArray` in place, `singleByteGraphemes(text)` is a String's ASCII bit, and `takeString(bytes, simple)` is the String of a `ByteArray`'s bytes, whose buffer it takes with no copy, leaving the array empty with none (`rt.bytes.takeString`), which `StringBuilder` is made of; `hashWord(word, seed)` and `hashBytes(bytes, at, count, seed)` are maxon's seeded hash, its software fold of a word or of a span of a `ByteArray` under a `HashDigest` seed (`runtime/hashfold.maxon`, which the interpreter runs too, as `hashfold_gen.maxon`), a span past the end a panic; `readBigEndian(bytes, at, width)` and `readLittleEndian` the `OrderedWord` of the 2, 4 or 8 bytes at an index, the first the most or the least significant, throwing `ArrayError.indexOutOfBounds` when they are not all inside, and `appendBigEndian(bytes, word, width)` and `appendLittleEndian` the append of a word's low bytes in that order; the width is the literal 2, 4 or 8 (`E3005` otherwise, in maxon's words). `OrderedWord` and `HashDigest` are built-in `bits(64)` aliases, as maxon's library declares them (`stdlib/Builtins.maxon`, `Hasher.maxon`). `hashSeed()` is the fold of no bytes under the process's secret, which a `Hasher` starts from, and `drawHashSeed()` a fresh secret (`HashSeed.random()`): the first call makes the process's hash state, as maxon's runtime does, from the 16 hexadecimal digits that `MAXON_HASH_SEED` pins (a pin that is not exits 1 with maxon's message, an empty one is none) or from 8 bytes of the system's entropy (Windows' `ProcessPrng`, loaded by name only then, and Linux's `getrandom`), and a pinned process draws a fixed sequence of seeds from it; the interpreter draws an unpinned secret from its own random numbers, so a run stays deterministic. A program that never asks for the seed reads neither the variable nor the entropy. The test runners pin `MAXON_HASH_SEED` for every program they start (`hashseed.ps1`), as maxon's harness hands its programs the run's seed |
 | `__ManagedMemoryCursor with T` | maxon's position in a raw buffer, which only the library tiers name (`E3185`), made by a buffer's `createCursor()` at its first element, which fails with `__ManagedMemoryError.indexOutOfBounds` on an empty buffer. It holds a borrow of the buffer (see "Borrowing values"), so the buffer cannot change while it lives and it always names an element: `current()` lends it, `index()` is its index, `advance()`, `retreat()` and `seek(index)` move it (`mutates self`) and fail, leaving it where it was, past either end, and `peek(ahead)` is a copy of the element so many places on, where `T` is `Copyable` |
 | `ArrayError`, `IterationError`, `__ManagedMemoryError` | maxon's error enums: `indexOutOfBounds` and `emptySlot`; `exhausted` and `atStart`, which the iteration protocol throws; a buffer's, whose first two cases are an array's |
 | `ByteArray` | `typealias ByteArray = Array with Byte`, built in: the same type, with every operation of `Array`; `String.toByteArray()` is a new one of a string's UTF-8 bytes, and `String.from(bytes)` a string of a copy of them |
@@ -3992,7 +4011,7 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   `dropEmpty`, which the built-in had, and a `Handle` is no key, since it is not `Hashable`. maxon makes a payload-free enum
   `Hashable` and `Equatable` itself; here such an enum declares both, with its methods, to be a key (not yet synthesized).
 - **A `String` is two words in place**, its bytes' address and a word of its length, an ASCII bit and an owned bit,
-  where maxon's is the address of a counted box. A literal is its bytes in the executable's data, copied by no
+  where maxon's is the address of a counted box. A literal is its bytes in the executable's read-only data, copied by no
   operation; an owned String's bytes are a heap buffer of their own, freed by the String that owns them. A field, an
   element, a capture and an interface value hold the two words, and a call passes them in two registers. What
   programs say of a `String` is unchanged.

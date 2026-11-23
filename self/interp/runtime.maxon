@@ -103,6 +103,13 @@ function entryPanicAt(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	throw trapAt(vm, location: location, message: message)
 end 'entryPanicAt'
 
+// strKnownSimple is the interpreter's answer to whether a string's ASCII bit is set, which the text operations it shares
+// with the runtime ask (textops_gen.maxon): it keeps no bit, so it knows nothing, and those operations take their general
+// paths, which give the same answers.
+function strKnownSimple(text String) returns bool
+	return false
+end 'strKnownSimple'
+
 // entryPanicEmptySlot traps with maxon's message of a lent read of an empty slot, as panicUnlessFilled's call says.
 function entryPanicEmptySlot(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	let place = try textIndex(vm, o: argRef(vm, f: f, x: x, i: 0), what: "a panic location")
@@ -558,6 +565,21 @@ function entryBytesAppendStr(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws 
 	let from = vm.h.texts[at].toByteArray()
 	vm.h.buffers[vm.h.oData[b]].append(from)
 end 'entryBytesAppendStr'
+
+// entryBytesTakeString is the string of the bytes of an array, which it leaves empty: the interpreter's buffer and its
+// text are apart, so the bytes are copied where the runtime hands the buffer over.
+function entryBytesTakeString(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let b = try collection(vm, o: argRef(vm, f: f, x: x, i: 0), kind: kindBytes, what: "a build")
+	try restructure(vm, o: b)
+	let bytes = exchange(vm.h.buffers[vm.h.oData[b]], value: ByteArray.create(0))
+	let made = newString(vm, text: String.from(bytes))
+	giveRef(vm, x: x, o: made)
+end 'entryBytesTakeString'
+
+// entryStrSimple is strKnownSimple: the interpreter keeps no ASCII bit.
+function entryStrSimple(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	giveFlag(vm, x: x, b: strKnownSimple(""))
+end 'entryStrSimple'
 
 function entryBytesToString(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	let b = try collection(vm, o: argRef(vm, f: f, x: x, i: 0), kind: kindBytes, what: "a toString")

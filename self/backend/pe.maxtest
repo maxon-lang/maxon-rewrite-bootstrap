@@ -72,13 +72,13 @@ test 'pe'
 	kernel.push("WriteFile")
 	// The sections' addresses depend on their sizes only by whole pages, and the programs are far smaller than one, so
 	// a layout made for one byte of code is the layout the programs are made for.
-	let probe = buildPeImage(1, dataSize: message.byteLength(), dll: "kernel32.dll", imports: kernel, entryOffset: 0, relocated: CountList.create(0))
+	let probe = buildPeImage(ImageLayout.make(1, constSize: 0, dataSize: message.byteLength(), entryOffset: 0, pointers: DataPointerList.create(0)), dll: "kernel32.dll", imports: kernel)
 	let exitCode = peExitProgram(probe)
-	var exitImage = buildPeImage(exitCode.count(), dataSize: 0, dll: "kernel32.dll", imports: kernel, entryOffset: 0, relocated: CountList.create(0))
+	var exitImage = buildPeImage(ImageLayout.make(exitCode.count(), constSize: 0, dataSize: 0, entryOffset: 0, pointers: DataPointerList.create(0)), dll: "kernel32.dll", imports: kernel)
 	placeCode(exitImage, at: 0, bytes: exitCode)
 	runPeImage(exitImage, name: "minimaxon_pe_exit.exe", expectedCode: 42, expectedOutput: "")
 	let helloCode = peHelloProgram(probe, messageLength: message.byteLength())
-	var helloImage = buildPeImage(helloCode.count(), dataSize: message.byteLength(), dll: "kernel32.dll", imports: kernel, entryOffset: 0, relocated: CountList.create(0))
+	var helloImage = buildPeImage(ImageLayout.make(helloCode.count(), constSize: 0, dataSize: message.byteLength(), entryOffset: 0, pointers: DataPointerList.create(0)), dll: "kernel32.dll", imports: kernel)
 	placeCode(helloImage, at: 0, bytes: helloCode)
 	placeData(helloImage, at: 0, bytes: message.toByteArray())
 	runPeImage(helloImage, name: "minimaxon_pe_hello.exe", expectedCode: 7, expectedOutput: message)

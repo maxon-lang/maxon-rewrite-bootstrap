@@ -1148,18 +1148,18 @@ instantiates it (here over a heap `String`, whose reference the tuple must relea
 type Box uses T
 	export let v as T
 
-	static function create(v T) returns Self
-		return Self{v: v}
+	static function create(v T) returns Self where T implements Copyable
+		return Self{v: v.clone()}
 	end 'create'
 
-	function pack() returns Integer
-		let t = (self.v, 1)
+	function pack() returns Integer where T implements Copyable
+		let t = (self.v.clone(), 1)
 		return t.1
 	end 'pack'
 end 'Box'
 
 function heapText() returns String
-	let builder = StringBuilder.create()
+	var builder = StringBuilder.create()
 	builder.append("a heap string long enough to allocate ")
 	builder.append("and then some")
 	return builder.build()
@@ -1167,7 +1167,7 @@ end 'heapText'
 
 function main() returns ExitCode
 	let b = Box.create(heapText())
-	return b.pack()
+	return try b.pack() as ExitCode otherwise panic("out of range")
 end 'main'
 
 typealias Integer = int(i64.min to i64.max)
@@ -2013,15 +2013,15 @@ typealias Pair = (String, Integer)
 typealias Pairs = Array with Pair
 
 function main() returns ExitCode
-	let xs = Pairs.create(0)
-	let sb = StringBuilder.create()
+	var xs = Pairs.create(0)
+	var sb = StringBuilder.create()
 	sb.append("a heap ")
 	sb.append("payload")
 	xs.push((sb.build(), 5))
 	let ys = xs.clone()
 	let cloned = try ys.get(0) otherwise panic("cloned")
 	print("{cloned.0}\n")
-	return cloned.1 + ys.count() as Integer
+	return try cloned.1 + ys.count() as Integer otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -2075,8 +2075,8 @@ typealias Pair = (String, Integer)
 typealias Pairs = Array with Pair
 
 function main() returns ExitCode
-	let xs = Pairs.create(0)
-	let sb = StringBuilder.create()
+	var xs = Pairs.create(0)
+	var sb = StringBuilder.create()
 	sb.append("shared ")
 	sb.append("record")
 	xs.push((sb.build(), 3))
@@ -2084,7 +2084,7 @@ function main() returns ExitCode
 	let original = try xs.get(0) otherwise panic("pushed")
 	let copied = try ys.get(0) otherwise panic("cloned")
 	print("{original.0}|{copied.0}\n")
-	return original.1 + copied.1 + xs.count() as Integer + ys.count() as Integer
+	return try original.1 + copied.1 + xs.count() as Integer + ys.count() as Integer otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

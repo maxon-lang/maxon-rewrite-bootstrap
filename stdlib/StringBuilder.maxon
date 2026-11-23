@@ -1,0 +1,52 @@
+/// Builds a `String` piece by piece: maxon's `StringBuilder`, whose pieces go into one buffer of bytes in place, which
+/// grows geometrically, and whose `build` hands that buffer over as the `String` it built, with no copy.
+/// @category Text
+// minimaxon's own, as Map.maxon is: maxon's reaches into the bytes of its String, which a minimaxon String keeps as two
+// words of the compiler's, so this one reaches them through the library's intrinsics (__Builtins.appendStringBytes,
+// singleByteGraphemes, takeString).
+public type StringBuilder
+	var bytes as Array with Byte
+	// Every piece so far has one byte to each grapheme cluster, which the String it builds says by its ASCII bit, so that
+	// no build scans the bytes again: an empty builder has, and one piece that has not settles it.
+	var singleByteGraphemesFlag as bool
+
+	public static function create() returns StringBuilder
+		return StringBuilder{bytes: Array.create(0), singleByteGraphemesFlag: true}
+	end 'create'
+
+	/// Reserve room for `byteCount` bytes up front, for when the caller knows the final size: one allocation of exactly
+	/// that, where growing would reallocate log2(n) times.
+	public function reserve(mutates self, byteCount Count)
+		bytes.reserve(byteCount)
+	end 'reserve'
+
+	public function append(mutates self, other String)
+		__Builtins.appendStringBytes(bytes, other)
+		if not __Builtins.singleByteGraphemes(other) 'clearFlag'
+			singleByteGraphemesFlag = false
+		end 'clearFlag'
+	end 'append'
+
+	public function byteLength() returns Count
+		return bytes.count()
+	end 'byteLength'
+
+	public function isEmpty() returns bool
+		return bytes.count() == 0
+	end 'isEmpty'
+
+	/// Throw away what has been built, keeping the capacity, so that a builder reused for many strings pays for its growth
+	/// once.
+	public function clear(mutates self)
+		bytes.clear()
+		singleByteGraphemesFlag = true
+	end 'clear'
+
+	/// The `String` that was built, which takes the builder's buffer as its own bytes, with no copy: the builder is empty
+	/// afterwards, with no buffer, so that its next append cannot move bytes the String holds.
+	public function build(mutates self) returns String
+		let built = __Builtins.takeString(bytes, singleByteGraphemesFlag)
+		singleByteGraphemesFlag = true
+		return built
+	end 'build'
+end 'StringBuilder'

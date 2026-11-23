@@ -282,12 +282,24 @@ export type DataSection
 	// pieces are the offsets where each string, each constant and each reserved value begins, which the link keeps or
 	// drops whole.
 	export var pieces as CountList
+	// readOnly says, for each piece, that nothing ever writes it and it holds no address: the bytes of a literal and of a
+	// counted text, and a float constant's word, which the link puts in the image's read-only data.
+	export var readOnly as Array with bool
 	// pointers are the words of the constants that hold addresses, in the order of their offsets.
 	export var pointers as DataPointerList
 
 	export static function new() returns DataSection
-		return DataSection{bytes: ByteArray.create(0), strings: StringOffsets.new(), literals: StringOffsets.new(), words: WordOffsets.new(), pieces: CountList.create(0), pointers: DataPointerList.create(0)}
+		return DataSection{bytes: ByteArray.create(0), strings: StringOffsets.new(), literals: StringOffsets.new(), words: WordOffsets.new(), pieces: CountList.create(0), readOnly: Array.create(0), pointers: DataPointerList.create(0)}
 	end 'new'
+
+	// startPiece begins a piece, aligned to a word, which is read-only (constant) or not, and gives its offset.
+	export function startPiece(mutates self, constant bool) returns Count
+		self.align8()
+		let at = bytes.count()
+		pieces.push(at)
+		readOnly.push(constant)
+		return at
+	end 'startPiece'
 
 	export function align8(mutates self)
 		while bytes.count() mod wordBytes != 0 'pad'
@@ -296,9 +308,7 @@ export type DataSection
 	end 'align8'
 
 	export function reserve(mutates self, size Count) returns Count
-		self.align8()
-		let at = bytes.count()
-		pieces.push(at)
+		let at = self.startPiece(false)
 		for _ in 0 upto size 'zeros'
 			bytes.push(0)
 		end 'zeros'
@@ -311,7 +321,10 @@ export type DataSection
 			some(at) then return at
 			none then _ = 0
 		end 'known'
-		let at = self.reserve(wordBytes)
+		let at = self.startPiece(true)
+		for _ in 0 upto wordBytes 'room'
+			bytes.push(0)
+		end 'room'
 		var rest = bits
 		for i in 0 upto wordBytes 'bytes'
 			bytes[addCounts(at, b: i)] = (rest mod byteValues) as Byte
@@ -329,9 +342,7 @@ export type DataSection
 			some(at) then return at
 			none then _ = 0
 		end 'known'
-		self.align8()
-		let at = bytes.count()
-		pieces.push(at)
+		let at = self.startPiece(true)
 		bytes.append(text.toByteArray())
 		if text.byteLength() == 0 'empty'
 			bytes.push(0)
@@ -347,9 +358,7 @@ export type DataSection
 			some(at) then return at
 			none then _ = 0
 		end 'known'
-		self.align8()
-		let at = bytes.count()
-		pieces.push(at)
+		let at = self.startPiece(true)
 		var length = text.byteLength()
 		for _ in 0 upto wordBytes 'length'
 			bytes.push((length mod byteValues) as Byte)

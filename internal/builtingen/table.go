@@ -778,6 +778,11 @@ var tableFunctions = []function{
 	// trailingZeros is the number of 0 bits of a word below its lowest 1 bit, and 64 for 0: the place of the first match
 	// in a word of matches, one instruction where the machine has one.
 	{Owner: "Builtins", Name: "trailingZeros", Static: true, Params: []string{"_ Count"}, Result: "Count", Intrinsic: "TrailingZeros", Instead: "a loop over the word's bits"},
+	// A StringBuilder (stdlib/StringBuilder.maxon) appends a String's bytes to its buffer in place, keeps whether every
+	// piece had one byte to each grapheme cluster, and hands its buffer over as the String it built, with no copy.
+	{Owner: "Builtins", Name: "appendStringBytes", Static: true, Params: []string{"mutates _ Array with Byte", "_ String"}, Intrinsic: "AppendStringBytes", Instead: "StringBuilder's append(text)"},
+	{Owner: "Builtins", Name: "singleByteGraphemes", Static: true, Params: []string{"_ String"}, Result: "Bool", Intrinsic: "SingleByteGraphemes", Instead: "the String's own operations"},
+	{Owner: "Builtins", Name: "takeString", Static: true, Params: []string{"mutates _ Array with Byte", "_ Bool"}, Result: "String", Intrinsic: "TakeString", Instead: "StringBuilder's build()"},
 	{Owner: "Builtins", Name: "hashSeed", Static: true, Result: "HashDigest", Intrinsic: "HashSeed", Instead: "Hasher.create()"},
 	{Owner: "Builtins", Name: "drawHashSeed", Static: true, Result: "HashDigest", Intrinsic: "HashSeedDraw", Instead: "HashSeed.random()"},
 	{Owner: "Builtins", Name: "hashWord", Static: true, Params: []string{"_ HashDigest", "_ HashDigest"}, Result: "HashDigest", Intrinsic: "HashWord", Instead: "a Hasher's combine(value)"},
@@ -840,6 +845,7 @@ var entries = []entry{
 	{"Write", "rt.write", "Runtime", roleCall, "(handle, text String)"},
 	{"Panic", "rt.panic", "Runtime", roleCall, "(message String): exits"},
 	{"PanicAt", "rt.panicAt", "Runtime", roleCall, "(location String, message String): exits, saying where the program's panic is"},
+	{"CheckSimpleBytes", "rt.checkSimpleBytes", "Runtime", roleInternal, "(bytes, length): panics unless every byte is below 0x80 and none is a carriage return, the check of an owned String's ASCII bit that a build counting its allocations makes"},
 	{"PanicEmptySlot", "rt.panicEmptySlot", "Runtime", roleCall, "(location String, index): exits as panicAt does, with maxon's message of a lent read of an empty slot at the index"},
 	{"Concat", "rt.concat", "Runtime", roleCall, "(String, String) -> String"},
 	{"Itoa", "rt.itoa", "Runtime", roleCall, "(n, unsigned) -> String"},
@@ -872,8 +878,6 @@ var entries = []entry{
 	{"Heap", "g.heap", "Runtime", roleGlobal, "the process heap"},
 	{"Stdout", "g.stdout", "Runtime", roleGlobal, "the handle of standard output"},
 	{"Stderr", "g.stderr", "Runtime", roleGlobal, "the handle of standard error"},
-	{"ImageDataStart", "g.imageDataStart", "Linker", roleGlobal, "the start of the data section, where every string literal lives, so the runtime can tell an immortal string from one on the heap"},
-	{"ImageDataEnd", "g.imageDataEnd", "Linker", roleGlobal, "the end of the data section"},
 	{"CheckLeaks", "rt.checkLeaks", "Source", roleInternal, "(exit code) -> exit code: what the entry of an executable built to count its allocations calls after main, which exits with a leak report when a box is still live"},
 	{"TlsSlot", "g.tlsSlot", "Runtime", roleGlobal, "the thread-local slot that each thread keeps its context in, which on Windows the entry takes with TlsAlloc and a thread sets with TlsSetValue, and on Linux is the main thread's word that fs points at"},
 	{"TlsOffset", "g.tlsOffset", "Runtime", roleGlobal, "where the thread-local slot is in a thread's TEB, which a read of the thread's context loads at"},
@@ -973,6 +977,8 @@ var entries = []entry{
 	{"BytesRemove", "rt.bytes.remove", "Bytes", roleCall, "(ByteArray, index) -> byte"},
 	{"BytesAppend", "rt.bytes.append", "Bytes", roleCall, "(ByteArray, other ByteArray)"},
 	{"BytesAppendStr", "rt.bytes.appendStr", "Bytes", roleCall, "(ByteArray, text String)"},
+	{"BytesTakeString", "rt.bytes.takeString", "Bytes", roleCall, "(ByteArray, simple) -> String: the array's bytes, its buffer handed over with no copy, and the array left empty with no buffer; simple is the String's ASCII bit"},
+	{"StrSimple", "rt.str.simple", "Runtime", roleCall, "(String) -> whether its ASCII bit is set: each grapheme cluster is one byte"},
 	{"BytesToString", "rt.bytes.toString", "Bytes", roleCall, "(ByteArray) -> String"},
 
 	// An OS entry that can fail takes last the address of a word, its error, which it sets to the case plus 1 of the
@@ -1017,6 +1023,7 @@ var runtimeFunctions = []runtimeFunction{
 	{"Panic", "panicWith(message String)"},
 	{"PanicAt", "panicAt(location String, message String)"},
 	{"PanicEmptySlot", "panicEmptySlot(location String, index Count)"},
+	{"CheckSimpleBytes", "checkSimpleBytes(bytes Count, length Count)"},
 	{"Concat", "concat(left String, right String) String"},
 	{"Itoa", "itoa(n Count, unsigned Bool) String"},
 	{"Ftoa", "ftoa(bits Count) String"},
@@ -1103,6 +1110,8 @@ var runtimeFunctions = []runtimeFunction{
 	{"BytesRemove", "bytesRemove(array Count, index Count) Byte"},
 	{"BytesAppend", "bytesAppend(array Count, other Count)"},
 	{"BytesAppendStr", "bytesAppendStr(array Count, text String)"},
+	{"BytesTakeString", "bytesTakeString(array Count, simple Bool) String"},
+	{"StrSimple", "strKnownSimple(text String) Bool"},
 	{"BytesToString", "bytesToString(array Count) String"},
 	{"OsArgs", "osArgs() Count"},
 	{"OsEnvironmentVariable", "osEnvironmentVariable(name String, errorAddress Count) String"},

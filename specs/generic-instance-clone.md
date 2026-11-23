@@ -248,11 +248,11 @@ type Bag uses Element
 	export typealias Outer = Array with Inner
 	var rows as Outer
 
-	function addRow(r Inner)
-		rows.push(r)
+	function addRow(mutates self, r Inner) where Element implements Copyable
+		rows.push(r.clone())
 	end 'addRow'
 
-	function copyRows() returns Outer
+	function copyRows() returns Outer where Element implements Copyable
 		return rows.clone()
 	end 'copyRows'
 
