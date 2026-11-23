@@ -367,6 +367,26 @@ function stagedInLibrary(test SpecTest) returns bool
 	return false
 end 'stagedInLibrary'
 
+// debugInfoDirective has the runner build the test with --debug-info and walk its sidecar before the run, as maxon's does
+// (sidecarWalkFault).
+let debugInfoDirective = "DebugInfo"
+
+// buildsDebugInfo is whether the test carries the debugInfoDirective.
+function buildsDebugInfo(test SpecTest) returns bool
+	for i in 0 upto test.directives.count() 'directives'
+		if directiveKey(test.directives[i]) == debugInfoDirective 'named'
+			return true
+		end 'named'
+	end 'directives'
+	return false
+end 'buildsDebugInfo'
+
+// discardSidecar deletes the sidecar beside exe, which the runner has walked.
+function discardSidecar(exe String)
+	let path = try FilePath.from(backend.sidecarPathOf(exe)) otherwise return
+	try File.delete(path) otherwise ignore
+end 'discardSidecar'
+
 // directiveSkip is why a directive keeps this runner from running the test, or nothing when the runner can honour it. Each
 // names a feature of maxon's runtime or of its runner that this compiler does not have yet.
 function directiveSkip(directive String) returns table.Option with String
@@ -392,10 +412,8 @@ function directiveSkip(directive String) returns table.Option with String
 	if key == "MmTrace" or key == "LogTrace" or key == "AsyncTrace" 'trace'
 		return table.Option.some("needs maxon's memory trace ({key})")
 	end 'trace'
-	// maxon's walk of the sidecar a case builds holds it to a type table that names some type, which the sidecar does not
-	// have yet (README, "Debug info").
-	if key == "DebugInfo" 'debugInfo'
-		return table.Option.some("needs the debug info's type table ({key})")
+	if key == debugInfoDirective 'debugInfo'
+		return table.Option.none
 	end 'debugInfo'
 	return table.Option.some("unknown directive {key}")
 end 'directiveSkip'
@@ -1090,6 +1108,13 @@ function stageSpecTest(shared SharedRuntime, job SpecJob, file SpecFile, index C
 	if checked.isSome() 'checked'
 		return doneBuilt(checked.unwrap(), exe: exe, built: errs.count() == 0)
 	end 'checked'
+	if buildsDebugInfo(job.test) 'sidecar'
+		let fault = sidecarWalkFault(exe)
+		discardSidecar(exe)
+		if fault.isSome() 'unwalkable'
+			return doneBuilt(TestResult.failed(fault.unwrap()), exe: exe, built: true)
+		end 'unwalkable'
+	end 'sidecar'
 	return Staged.needsRun(PendingRun.spec(SpecPending.make(index, exe: exe.clone(), test: job.test.clone(), file: job.file)))
 end 'stageSpecTest'
 
@@ -1098,6 +1123,7 @@ end 'stageSpecTest'
 function compileSpecSource(shared SharedRuntime, exe String, test SpecTest, source String, sections SourceSections, mutates errs diag.ErrorList)
 	var options = testOptions()
 	options.stagesInLibrary = stagedInLibrary(test)
+	options.debugInfo = buildsDebugInfo(test)
 	if sections.count() == 0 'single'
 		let fragment = "{fragmentHeader}{test.name}\n{source}\n"
 		compileSourceWith(shared, path: fragmentToken, text: fragment, output: exe, options: options, errs: errs)

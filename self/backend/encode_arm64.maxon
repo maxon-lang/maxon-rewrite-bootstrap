@@ -42,6 +42,9 @@ end 'encodeArm64Function'
 function arm64EncodeBlocks(mutates u CodeUnit, fn MirFunction, mutates lay BlockLayout)
 	lay.site = 0
 	u.startRows()
+	if fn.keepsSpans 'code'
+		lay.startCode(fn, at: u.asm.pos())
+	end 'code'
 	for _ in 0 upto fn.blocks.count() 'labels'
 		_ = u.asm.newLabel()
 	end 'labels'
@@ -58,9 +61,12 @@ function arm64EncodeBlocks(mutates u CodeUnit, fn MirFunction, mutates lay Block
 			let encoded = k
 			k = arm64EncodeAt(u, fn: fn, lay: lay, k: k, stop: fn.blocks[b as Count].endAt, next: next)
 			if fn.keepsSpans 'rows'
-				noteSpans(u, fn: fn, from: encoded, upTo: k, at: at)
+				noteSpans(u, fn: fn, lay: lay, from: encoded, upTo: k, at: at)
 			end 'rows'
 		end 'instrs'
+		if fn.keepsSpans 'end'
+			lay.codeEnd[b as Count] = u.asm.pos()
+		end 'end'
 	end 'blocks'
 end 'arm64EncodeBlocks'
 

@@ -131,10 +131,23 @@ end 'inlinedSpan'
 // inlineInto records in f that the call at span call is replaced by a copy of callee, and the calls that callee holds copies
 // of, and gives the site field of the copy, which inlinedSpan reads the callee's spans by.
 export function inlineInto(mutates f IrFunction, callee IrFunction, call Word) returns Count
-	let base = try f.sites.count() + 1 otherwise panic("ir: an inline site past memory")
-	f.sites.push(InlineSite.make(callee.decl, call: call))
-	for s in 0 upto callee.sites.count() 'nested'
-		f.sites.push(InlineSite.make(callee.sites[s].callee, call: inlinedSpan(callee.sites[s].call, base: base)))
+	let base = try siteCount(f) + 1 otherwise panic("ir: an inline site past memory")
+	f.debug.push(DebugEntry.site(callee.decl, call: call))
+	for i in 0 upto callee.debug.count() 'nested'
+		if callee.debug[i].kind == DebugKind.debugSite 'site'
+			f.debug.push(DebugEntry.site(callee.debug[i].callee, call: inlinedSpan(callee.debug[i].call, base: base)))
+		end 'site'
 	end 'nested'
 	return base
 end 'inlineInto'
+
+// siteCount is how many inline sites f has.
+export function siteCount(f IrFunction) returns Count
+	var n = 0 as Count
+	for i in 0 upto f.debug.count() 'entries'
+		if f.debug[i].kind == DebugKind.debugSite 'site'
+			n = try n + 1 otherwise panic("ir: an inline site past memory")
+		end 'site'
+	end 'entries'
+	return n
+end 'siteCount'

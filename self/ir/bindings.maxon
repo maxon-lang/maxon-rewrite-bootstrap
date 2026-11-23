@@ -1,0 +1,105 @@
+// The debug list of a function, which a build that writes debug info keeps (README, "Debug info"): its inline sites and the
+// names of its source. A site is a call that leaf inlining replaced by a copy of its callee (spans.maxon). A name is a local
+// or parameter the function declares, by name and type, with what holds it as the passes go: the registers a local's values
+// are in, once SSA construction has made registers of its slot, or the slot that stays in the frame. It is one list beside
+// the instructions (IrFunction.debug), never in one, so a build without debug info keeps nothing in it, makes no more of it
+// than the one empty list a function has, and no pass reads it; a pass that reads a register as another one (fold, CSE,
+// copy elision) renames what is here with its instructions (renameBound).
+
+// noBinding is a parameter or a slot that names no local of the source, such as a slot lowering made for itself.
+export let noBinding = 4294967295 as Count
+
+// DebugKind is what an entry of a function's debug list says: an inline site (numbered by its place among the sites), a local
+// or parameter of the source (a binding, numbered by its place in the list), a register that holds one of its values, or a
+// slot of the frame that holds it.
+export enum DebugKind
+	debugSite
+	debugLocal
+	debugValue
+	debugFramed
+end 'DebugKind'
+
+// DebugEntry is an entry of the list: for debugSite, the callee and the span of the call, whose site field is the site the
+// call itself is in; for debugLocal, the name, the type, the place of the parameter it is (or noBinding) and the slot
+// lowering gave it (or noBinding); for debugValue, the binding and the register; for debugFramed, the binding and the slot,
+// numbered as the slots that stay in the frame are.
+export type DebugEntry
+	export var kind as DebugKind
+	export var callee as ast.FuncID
+	export var call as Word
+	export var name as String
+	export var ty as ast.TypeID
+	export var binding as Count
+	export var param as Count
+	export var slot as Count
+	export var reg as Reg
+
+	export static function site(callee ast.FuncID, call Word) returns DebugEntry
+		return DebugEntry{kind: DebugKind.debugSite, callee: callee, call: call, name: "", ty: ast.noType, binding: noBinding, param: noBinding, slot: noBinding, reg: noReg}
+	end 'site'
+
+	export static function local(consumes name String, ty ast.TypeID, param Count, slot Count) returns DebugEntry
+		return DebugEntry{kind: DebugKind.debugLocal, callee: ast.noFunc, call: noSpan, name: name, ty: ty, binding: noBinding, param: param, slot: slot, reg: noReg}
+	end 'local'
+
+	export static function value(binding Count, reg Reg) returns DebugEntry
+		return DebugEntry{kind: DebugKind.debugValue, callee: ast.noFunc, call: noSpan, name: "", ty: ast.noType, binding: binding, param: noBinding, slot: noBinding, reg: reg}
+	end 'value'
+
+	export static function framed(binding Count, slot Count) returns DebugEntry
+		return DebugEntry{kind: DebugKind.debugFramed, callee: ast.noFunc, call: noSpan, name: "", ty: ast.noType, binding: binding, param: noBinding, slot: slot, reg: noReg}
+	end 'framed'
+end 'DebugEntry'
+
+export typealias DebugList = Array with DebugEntry
+
+// sitesOf is the inline sites of f, in the order they were made, which a span's site field numbers.
+export function sitesOf(f IrFunction) returns InlineSiteList
+	var sites = InlineSiteList.create(0)
+	for i in 0 upto f.debug.count() 'entries'
+		if f.debug[i].kind == DebugKind.debugSite 'site'
+			sites.push(InlineSite.make(f.debug[i].callee, call: f.debug[i].call))
+		end 'site'
+	end 'entries'
+	return sites
+end 'sitesOf'
+
+// SlotNames are, by each slot lowering numbered, the binding it holds or noBinding, which SSA construction reads.
+export typealias SlotNames = Array with Count
+
+// slotNames fills names with the binding of each of f's slots.
+export function slotNames(f IrFunction, mutates names SlotNames)
+	names.clear()
+	for _ in 0 upto f.slots.count() 'slots'
+		names.push(noBinding)
+	end 'slots'
+	for i in 0 upto f.debug.count() 'entries'
+		let slot = f.debug[i].slot
+		if f.debug[i].kind == DebugKind.debugLocal and slot != noBinding and slot < names.count() 'slotted'
+			names[slot] = i
+		end 'slotted'
+	end 'entries'
+end 'slotNames'
+
+// holdIn says that the register r holds a value of binding, when it is one.
+export function holdIn(mutates f IrFunction, binding Count, r Reg)
+	if binding != noBinding and r != noReg 'named'
+		f.debug.push(DebugEntry.value(binding, reg: r))
+	end 'named'
+end 'holdIn'
+
+// keepInFrame says that binding stays in the frame, in the slot numbered kept.
+export function keepInFrame(mutates f IrFunction, binding Count, kept Count)
+	if binding != noBinding 'named'
+		f.debug.push(DebugEntry.framed(binding, slot: kept))
+	end 'named'
+end 'keepInFrame'
+
+// renameBound makes each register that holds a binding's value the register that repl says it is read as.
+export function renameBound(mutates f IrFunction, repl RegList)
+	for i in 0 upto f.debug.count() 'entries'
+		if f.debug[i].kind == DebugKind.debugValue 'value'
+			f.debug[i].reg = renamedReg(repl, r: f.debug[i].reg)
+		end 'value'
+	end 'entries'
+end 'renameBound'

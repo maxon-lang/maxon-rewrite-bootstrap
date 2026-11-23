@@ -31,10 +31,29 @@ export type BlockLayout
 	var sites as CountList
 	var relaxed as BoolList
 	var site as Count
+	// Where the code of a function that keeps spans went, for its debug info (locals.maxon): codeStart is where it starts,
+	// codeAt where the code of each instruction starts and codeEnd where that of each block ends, or notPlaced for one the
+	// layout left out.
+	var codeStart as Count
+	var codeAt as CountList
+	var codeEnd as CountList
 
 	export static function new() returns BlockLayout
-		return BlockLayout{order: MBlockIDList.create(0), resolved: MBlockIDList.create(0), forwards: BoolList.create(0), flagsLiveIn: BoolList.create(0), flagsLiveAfter: BoolList.create(0), flagsPass: BoolList.create(0), framed: true, position: CountList.create(0), loopEnd: CountList.create(0), heads: false, starts: CountList.create(0), sites: CountList.create(0), relaxed: BoolList.create(0), site: 0}
+		return BlockLayout{order: MBlockIDList.create(0), resolved: MBlockIDList.create(0), forwards: BoolList.create(0), flagsLiveIn: BoolList.create(0), flagsLiveAfter: BoolList.create(0), flagsPass: BoolList.create(0), framed: true, position: CountList.create(0), loopEnd: CountList.create(0), heads: false, starts: CountList.create(0), sites: CountList.create(0), relaxed: BoolList.create(0), site: 0, codeStart: 0, codeAt: CountList.create(0), codeEnd: CountList.create(0)}
 	end 'new'
+
+	// startCode notes that the code of fn is written from at on, none of its instructions yet.
+	function startCode(mutates self, fn MirFunction, at Count)
+		codeStart = at
+		codeAt.clear()
+		for _ in 0 upto fn.instrs.count() 'instrs'
+			codeAt.push(notPlaced)
+		end 'instrs'
+		codeEnd.clear()
+		for _ in 0 upto fn.blocks.count() 'blocks'
+			codeEnd.push(notPlaced)
+		end 'blocks'
+	end 'startCode'
 
 	// nextSite notes that the conditional branch written next is at a position, and is whether it is relaxed.
 	function nextSite(mutates self, at Count) returns bool

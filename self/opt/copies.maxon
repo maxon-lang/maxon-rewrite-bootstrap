@@ -83,6 +83,9 @@ export type Copies
 			for b in 0 upto f.blocks.count() 'terms'
 				ir.renameTermReads(f.blocks[b].term, args: f.args, cases: f.cases, names: repl)
 			end 'terms'
+			if f.keepsSpans 'bound'
+				ir.renameBound(f, repl: repl)
+			end 'bound'
 		end 'rename'
 		editor.finish(f)
 		return true

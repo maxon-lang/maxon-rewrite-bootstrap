@@ -80,9 +80,12 @@ export type Ssa
 	var instrs as ir.InstrList
 	var spans as ir.SpanList
 	var blockParams as ir.RegList
+	// names is, when the function keeps spans, the binding of the source that each slot holds (ir.slotNames), which renaming
+	// gives each register a promoted slot becomes and compaction each slot that stays.
+	var names as ir.SlotNames
 
 	export static function new() returns Ssa
-		return Ssa{analysis: Analysis.new(), promoted: 0, kept: 0, params: 0, dropsRemoved: 0, promotable: Array.create(0), newSlot: Array.create(0), defMark: Array.create(0), useMark: Array.create(0), useFrom: Array.create(0), useTo: Array.create(0), defFrom: Array.create(0), defTo: Array.create(0), useStart: Array.create(0), useSeg: Array.create(0), defStart: Array.create(0), defSeg: Array.create(0), liveMark: Array.create(0), defHere: Array.create(0), placed: Array.create(0), queued: Array.create(0), work: Array.create(0), paramBlock: Array.create(0), paramSlot: Array.create(0), paramReg: ir.RegList.create(0), paramOrder: Array.create(0), paramStart: Array.create(0), paramAt: Array.create(0), cur: ir.RegList.create(0), undoSlot: Array.create(0), undoValue: ir.RegList.create(0), repl: ir.RegList.create(0), keep: Array.create(0), stack: Array.create(0), cursor: Array.create(0), heights: Array.create(0), zeroScalar: ir.noReg, zeroManaged: ir.noReg, zeroString: ir.noReg, retargetFrom: ir.noBlock, retargetTo: ir.noBlock, extending: false, edgeStart: 0 as ir.Index, edgeCount: 0 as ir.Index, successors: ir.SuccessorVisitor.new(), instrs: ir.InstrList.create(0), spans: ir.SpanList.create(0), blockParams: ir.RegList.create(0)}
+		return Ssa{analysis: Analysis.new(), promoted: 0, kept: 0, params: 0, dropsRemoved: 0, promotable: Array.create(0), newSlot: Array.create(0), defMark: Array.create(0), useMark: Array.create(0), useFrom: Array.create(0), useTo: Array.create(0), defFrom: Array.create(0), defTo: Array.create(0), useStart: Array.create(0), useSeg: Array.create(0), defStart: Array.create(0), defSeg: Array.create(0), liveMark: Array.create(0), defHere: Array.create(0), placed: Array.create(0), queued: Array.create(0), work: Array.create(0), paramBlock: Array.create(0), paramSlot: Array.create(0), paramReg: ir.RegList.create(0), paramOrder: Array.create(0), paramStart: Array.create(0), paramAt: Array.create(0), cur: ir.RegList.create(0), undoSlot: Array.create(0), undoValue: ir.RegList.create(0), repl: ir.RegList.create(0), keep: Array.create(0), stack: Array.create(0), cursor: Array.create(0), heights: Array.create(0), zeroScalar: ir.noReg, zeroManaged: ir.noReg, zeroString: ir.noReg, retargetFrom: ir.noBlock, retargetTo: ir.noBlock, extending: false, edgeStart: 0 as ir.Index, edgeCount: 0 as ir.Index, successors: ir.SuccessorVisitor.new(), instrs: ir.InstrList.create(0), spans: ir.SpanList.create(0), blockParams: ir.RegList.create(0), names: ir.SlotNames.create(0)}
 	end 'new'
 
 	// construct puts the function f, which keeps the verifier's rules, and the bodies of its behaviours and closures in
@@ -94,7 +97,15 @@ export type Ssa
 		for i in 0 upto f.bodies.count() 'bodies'
 			self.construct(f.bodies[i])
 		end 'bodies'
+		if f.keepsSpans 'names'
+			ir.slotNames(f, names: names)
+		end 'names'
 		if f.blocks.count() == 0 or not self.classify(f) 'nothing'
+			if f.keepsSpans 'framed'
+				for v in 0 upto names.count() 'slots'
+					ir.keepInFrame(f, binding: names[v], kept: v)
+				end 'slots'
+			end 'framed'
 			return
 		end 'nothing'
 		analysis.dominance(f)
@@ -110,8 +121,30 @@ export type Ssa
 		self.collect(f)
 		self.place(f)
 		self.rename(f)
+		if f.keepsSpans 'named'
+			self.nameValues(f)
+		end 'named'
 		self.compact(f)
 	end 'construct'
+
+	// nameValues gives each binding of the source its values, once renaming has read every store through the values it
+	// stores: the value each store to its promoted slot stores (the stores renaming removed, which keep the slot's first
+	// number) and each parameter placed for the slot, or the slot it stays in.
+	function nameValues(mutates self, mutates f ir.IrFunction)
+		for k in 0 upto f.instrs.count() 'stores'
+			if f.instrs[k].op == ir.Opcode.opStoreSlot and not keep[k] 'promoted'
+				ir.holdIn(f, binding: names[ir.storeSlotSlot(f.instrs[k])], r: ir.storeSlotSrc(f.instrs[k]))
+			end 'promoted'
+		end 'stores'
+		for k in 0 upto paramReg.count() 'params'
+			ir.holdIn(f, binding: names[paramSlot[k]], r: paramReg[k])
+		end 'params'
+		for v in 0 upto names.count() 'slots'
+			if not promotable[v] 'stays'
+				ir.keepInFrame(f, binding: names[v], kept: newSlot[v])
+			end 'stays'
+		end 'slots'
+	end 'nameValues'
 
 	// classify finds the slots that are promoted, numbers the others from 0, and says whether any is promoted.
 	function classify(mutates self, f ir.IrFunction) returns bool

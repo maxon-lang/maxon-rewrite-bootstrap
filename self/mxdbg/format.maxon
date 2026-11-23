@@ -5,8 +5,8 @@
 // run lines, locals, types, coverage, fields, and the sections lines, types, fields, locals, coverage.
 //
 // minimaxon writes this version's layout whole and fills the sections it describes so far (README, "Debug info"): the header,
-// the files, the functions, the line table, the inline sites and their code ranges, and the layout figures. The types, the
-// fields, the locals, the coverage points, the constant words and the globals are there, each with no record.
+// the files, the functions, the line table, the types and their fields, the locals, the inline sites and their code ranges,
+// and the layout figures. The coverage points, the constant words and the globals are there, each with no record.
 
 // MXDBG and three zero bytes, so that the header stays 4- and 8-byte aligned. A reader that does not see them refuses the file.
 let MxdbgMagicByte0 = 77 as Byte
@@ -198,6 +198,164 @@ let MxdbgInlineRangeCodeStart = 0 as Count
 let MxdbgInlineRangeCodeEnd = 4 as Count
 
 let MxdbgInlineRangeSite = 8 as Count
+
+let MxdbgTypeNameOff = 0 as Count
+
+let MxdbgTypeNameLen = 4 as Count
+
+let MxdbgTypeKindWord = 8 as Count
+
+let MxdbgTypeSize = 12 as Count
+
+let MxdbgTypeAlign = 16 as Count
+
+let MxdbgTypeFieldFirst = 20 as Count
+
+let MxdbgTypeFieldCount = 24 as Count
+
+let MxdbgTypeElementTypeId = 28 as Count
+
+let MxdbgTypeFlags = 32 as Count
+
+let MxdbgFieldNameOff = 0 as Count
+
+let MxdbgFieldNameLen = 4 as Count
+
+let MxdbgFieldOffset = 8 as Count
+
+let MxdbgFieldTypeId = 12 as Count
+
+let MxdbgLocalNameOff = 0 as Count
+
+let MxdbgLocalNameLen = 4 as Count
+
+let MxdbgLocalLocKind = 8 as Count
+
+let MxdbgLocalLocValue = 12 as Count
+
+let MxdbgLocalTypeId = 16 as Count
+
+let MxdbgLocalScopeStart = 20 as Count
+
+let MxdbgLocalScopeEnd = 24 as Count
+
+let MxdbgLocalFlags = 28 as Count
+
+let MxdbgLocalSite = 32 as Count
+
+// What a type record's kind word says, maxon's: how a reader takes the bytes at a local's location. string and array are
+// heap records (minimaxon's String is its two words in place, see MxdbgLocalFlagSecondWord), function a function value,
+// managedRecord a word that points at what the sidecar does not describe, unionWord a union held as one tagged word.
+export let MxdbgTypeKindPrimitive = 0 as MxdbgIndex
+
+export let MxdbgTypeKindIntRanged = 1 as MxdbgIndex
+
+export let MxdbgTypeKindFloatRanged = 2 as MxdbgIndex
+
+export let MxdbgTypeKindStruct = 3 as MxdbgIndex
+
+export let MxdbgTypeKindEnum = 4 as MxdbgIndex
+
+export let MxdbgTypeKindUnion = 5 as MxdbgIndex
+
+export let MxdbgTypeKindString = 6 as MxdbgIndex
+
+export let MxdbgTypeKindArray = 7 as MxdbgIndex
+
+export let MxdbgTypeKindManagedRecord = 8 as MxdbgIndex
+
+export let MxdbgTypeKindFunction = 9 as MxdbgIndex
+
+export let MxdbgTypeKindUnionWord = 10 as MxdbgIndex
+
+// mxdbgTypeKindName is how a dump spells a type kind, maxon's, or the word for one it does not know.
+export function mxdbgTypeKindName(kind MxdbgIndex) returns String
+	if kind == MxdbgTypeKindPrimitive 'primitive'
+		return "Primitive"
+	end 'primitive'
+	if kind == MxdbgTypeKindIntRanged 'intRanged'
+		return "IntRanged"
+	end 'intRanged'
+	if kind == MxdbgTypeKindFloatRanged 'floatRanged'
+		return "FloatRanged"
+	end 'floatRanged'
+	if kind == MxdbgTypeKindStruct 'struct'
+		return "Struct"
+	end 'struct'
+	if kind == MxdbgTypeKindEnum 'enumeration'
+		return "Enum"
+	end 'enumeration'
+	if kind == MxdbgTypeKindUnion or kind == MxdbgTypeKindUnionWord 'union'
+		return "Union"
+	end 'union'
+	if kind == MxdbgTypeKindString 'string'
+		return "String"
+	end 'string'
+	if kind == MxdbgTypeKindArray 'array'
+		return "Array"
+	end 'array'
+	if kind == MxdbgTypeKindFunction 'functionValue'
+		return "Function"
+	end 'functionValue'
+	if kind == MxdbgTypeKindManagedRecord 'managed'
+		return "ManagedRecord"
+	end 'managed'
+	return "{kind}"
+end 'mxdbgTypeKindName'
+
+// mxdbgTypeKindIsIndirect is whether a value of the kind is the address of what it is, which a local's record then says.
+export function mxdbgTypeKindIsIndirect(kind MxdbgIndex) returns bool
+	return kind == MxdbgTypeKindStruct or kind == MxdbgTypeKindUnion or kind == MxdbgTypeKindArray or kind == MxdbgTypeKindManagedRecord or kind == MxdbgTypeKindFunction
+end 'mxdbgTypeKindIsIndirect'
+
+// MxdbgNoElementType is the element type of a type that has none.
+export let MxdbgNoElementType = 4294967295 as MxdbgIndex
+
+// MxdbgTypeFlagSigned says that a type's integers are signed, which its bits cannot say.
+export let MxdbgTypeFlagSigned = 1 as MxdbgIndex
+
+// Where a local is, maxon's: a displacement from the frame pointer, a register by its number in the target's register file
+// (the general ones, then the vector ones), or nowhere over its code.
+export let MxdbgLocKindStackSlot = 0 as MxdbgIndex
+
+export let MxdbgLocKindRegister = 1 as MxdbgIndex
+
+export let MxdbgLocKindOptimizedOut = 2 as MxdbgIndex
+
+export let MxdbgLocKindConstant = 3 as MxdbgIndex
+
+export let MxdbgLocKindFoldedAggregate = 4 as MxdbgIndex
+
+// mxdbgLocKindName is how a dump spells a location kind.
+export function mxdbgLocKindName(kind MxdbgIndex) returns String
+	if kind == MxdbgLocKindStackSlot 'stack'
+		return "stack"
+	end 'stack'
+	if kind == MxdbgLocKindRegister 'register'
+		return "register"
+	end 'register'
+	if kind == MxdbgLocKindOptimizedOut 'gone'
+		return "optimized-out"
+	end 'gone'
+	if kind == MxdbgLocKindConstant 'constant'
+		return "constant"
+	end 'constant'
+	if kind == MxdbgLocKindFoldedAggregate 'folded'
+		return "folded"
+	end 'folded'
+	return "{kind}"
+end 'mxdbgLocKindName'
+
+function mxdbgLocKindIsKnown(kind MxdbgIndex) returns bool
+	return kind <= MxdbgLocKindFoldedAggregate
+end 'mxdbgLocKindIsKnown'
+
+// A local's flags: indirect, maxon's, says that its location holds the address of its value (a record, a union, an array);
+// secondWord, minimaxon's, that the record is of the second word of a String, the word of its length and bits, which is in a place of its
+// own, while the record without it is of the first, the address of its bytes.
+export let MxdbgLocalFlagIndirect = 1 as MxdbgIndex
+
+export let MxdbgLocalFlagSecondWord = 2 as MxdbgIndex
 
 let MxdbgLineCodeOffset = 0 as Count
 

@@ -74,7 +74,27 @@ function declareSlots(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleSta
 			l.b.f.slots[slotOf(loc)] = kindOf(l, p: p, ms: ms, t: loc.ty)
 		end 'slotted'
 	end 'each'
+	if l.b.keepsSpans 'bindings'
+		declareBindings(l, p: p, ms: ms, ids: ids)
+	end 'bindings'
 end 'declareSlots'
+
+// declareBindings names, for the debug info, each local of the function that a parameter or a slot holds, with its type as
+// the instance has it (bindings.maxon).
+function declareBindings(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, ids ast.LocalIDList)
+	for i in 0 upto ids.count() 'each'
+		let loc = localEntry(p, module: l.fnModule, id: ids[i])
+		if loc.name == "_" 'unnamed'
+			continue 'each'
+		end 'unnamed'
+		let ty = applyType(l, p: p, ms: ms, t: loc.ty)
+		if loc.isParam 'param'
+			l.b.f.debug.push(DebugEntry.local(loc.name.clone(), ty: ty, param: loc.paramIndex, slot: noBinding))
+		end 'param' else if loc.slot != ast.noSlot 'slotted'
+			l.b.f.debug.push(DebugEntry.local(loc.name.clone(), ty: ty, param: noBinding, slot: slotOf(loc)))
+		end 'slotted'
+	end 'each'
+end 'declareBindings'
 
 // lowerBody lowers the statements of the function that begin started, and finishes it.
 function lowerBody(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState) returns IrFunction

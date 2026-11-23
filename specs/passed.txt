@@ -1289,6 +1289,12 @@ dead-function-elimination.md: unreachable-cone-pruned
 dead-function-elimination.md: unreachable-function-pruned
 dead-function-elimination.md: witness-method-kept
 dead-top-level-var-elim.md: unused-array-literal-init-dropped
+debug-info-locals.md: a-var-rebound-across-a-merge-keeps-its-name
+debug-info-locals.md: locals-inside-a-generic-body-are-named
+debug-info-locals.md: registers-and-spills-both-name-their-locals
+debug-info-spans.md: bounds-check-continuation-does-not-desync-spans
+debug-info-spans.md: divide-guard-continuation-does-not-desync-spans
+debug-info-spans.md: monomorphized-generic-continuation-does-not-desync-spans
 deep-let-built-values.md: a-fresh-record-is-assigned-to-a-var
 deep-let-built-values.md: a-let-fields-own-record-is-written-through-a-var
 deep-let-built-values.md: a-local-bound-to-a-let-fields-record-is-assigned-to-a-var

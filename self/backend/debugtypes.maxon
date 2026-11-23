@@ -1,0 +1,260 @@
+// The type table of the debug info (README, "Debug info"), maxon's (maxon-bin/Compiler/Debug/MxdbgTypeTable.maxon): every
+// type a local of the program has, and every type a field, a case or an element of one of them has, closed by a worklist,
+// each by its kind, size, alignment, signedness, fields and element type as minimaxon lays it out, numbered in the order of
+// their names, which is the type id a field or a local names. A value takes a word, and a String two in place; a record, a
+// union and an array are the address of a box (ir.valuesBytes, ir.valueOffset), a union's first word its case index; an
+// enum is its case index, which its fields' offsets are. A field of an enum or a union is a case, typed by its payload: void
+// for none, the one value's type, and noType, described as a managed record, for several.
+
+// Sizes and alignments of what the table describes.
+let wordSize = 8 as Count
+
+let boolSize = 1 as Count
+
+// severalValuesName is how the table names noType, the payload of a case that holds more than one value, or a type it
+// cannot name.
+let severalValuesName = "<values>"
+
+type DebugTypes
+	// By the place each was found at: the type, its name, kind, size, alignment, flags, its element type and whether it has
+	// one, and its fields from fieldFirst up to the next one's.
+	var keys as ast.TypeIDList
+	var found as table.IntMap with Count
+	var names as ast.StringList
+	var kinds as Array with mxdbg.MxdbgIndex
+	var sizes as CountList
+	var aligns as CountList
+	var flags as Array with mxdbg.MxdbgIndex
+	var elements as ast.TypeIDList
+	var hasElement as BoolList
+	var fieldFirst as CountList
+	var fieldNames as ast.StringList
+	var fieldOffsets as CountList
+	var fieldTypes as ast.TypeIDList
+	// pending are the types still to describe; order is the places in the order of their names, and idOf the type id of
+	// each place, once sealed.
+	var pending as ast.TypeIDList
+	var order as CountList
+	var idOf as CountList
+
+	static function new() returns DebugTypes
+		return DebugTypes{keys: ast.TypeIDList.create(0), found: table.IntMap.new(), names: ast.StringList.create(0), kinds: Array.create(0), sizes: CountList.create(0), aligns: CountList.create(0), flags: Array.create(0), elements: ast.TypeIDList.create(0), hasElement: BoolList.create(0), fieldFirst: CountList.create(0), fieldNames: ast.StringList.create(0), fieldOffsets: CountList.create(0), fieldTypes: ast.TypeIDList.create(0), pending: ast.TypeIDList.create(0), order: CountList.create(0), idOf: CountList.create(0)}
+	end 'new'
+
+	// close describes t and every type it refers to.
+	function close(mutates self, p ast.Project, mutates ms ast.ModuleState, t ast.TypeID)
+		if found.has(t as Count) 'known'
+			return
+		end 'known'
+		pending.push(t)
+		while pending.count() > 0 'work'
+			let next = try pending.pop() otherwise panic("backend: an empty worklist")
+			if found.has(next as Count) 'described'
+				continue 'work'
+			end 'described'
+			self.describe(p, ms: ms, t: next)
+		end 'work'
+	end 'close'
+
+	// begin starts the entry of t, which describe then completes.
+	function begin(mutates self, t ast.TypeID, consumes name String, kind mxdbg.MxdbgIndex, size Count, align Count, flag mxdbg.MxdbgIndex)
+		found.insert(t as Count, value: keys.count())
+		keys.push(t)
+		names.push(name)
+		kinds.push(kind)
+		sizes.push(size)
+		aligns.push(align)
+		flags.push(flag)
+		elements.push(ast.noType)
+		hasElement.push(false)
+		fieldFirst.push(fieldNames.count())
+	end 'begin'
+
+	function addField(mutates self, consumes name String, offset Count, t ast.TypeID)
+		fieldNames.push(name)
+		fieldOffsets.push(offset)
+		fieldTypes.push(t)
+		if not found.has(t as Count) 'more'
+			pending.push(t)
+		end 'more'
+	end 'addField'
+
+	function setElement(mutates self, t ast.TypeID)
+		let last = try keys.count() - 1 otherwise panic("backend: an element of no type")
+		elements[last] = t
+		hasElement[last] = true
+		if not found.has(t as Count) 'more'
+			pending.push(t)
+		end 'more'
+	end 'setElement'
+
+	// describe adds the entry of t, as minimaxon lays a value of it out.
+	function describe(mutates self, p ast.Project, mutates ms ast.ModuleState, t ast.TypeID)
+		if t == ast.noType 'none'
+			self.begin(t, name: severalValuesName, kind: mxdbg.MxdbgTypeKindManagedRecord, size: wordSize, align: wordSize, flag: 0)
+			return
+		end 'none'
+		let name = ast.typeName(ms.types, reads: p.types, t: t)
+		match ast.typeKind(ms.types, reads: p.types, t: t) 'kind'
+			invalid then self.begin(t, name: name, kind: mxdbg.MxdbgTypeKindManagedRecord, size: wordSize, align: wordSize, flag: 0)
+			primBool then self.begin(t, name: name, kind: mxdbg.MxdbgTypeKindPrimitive, size: boolSize, align: boolSize, flag: 0)
+			primString then self.begin(t, name: name, kind: mxdbg.MxdbgTypeKindString, size: ir.stringValueBytes, align: wordSize, flag: 0)
+			primVoid or
+			primNever then self.begin(t, name: name, kind: mxdbg.MxdbgTypeKindPrimitive, size: 0, align: 1, flag: 0)
+			intRange or
+			constInt then self.begin(t, name: name, kind: mxdbg.MxdbgTypeKindIntRanged, size: wordSize, align: wordSize, flag: mxdbg.MxdbgTypeFlagSigned if ast.typeEntry(ms.types, reads: p.types, t: t).minVal.isNeg() else 0)
+			floatRange or
+			constFloat then self.begin(t, name: name, kind: mxdbg.MxdbgTypeKindFloatRanged, size: wordSize, align: wordSize, flag: mxdbg.MxdbgTypeFlagSigned)
+			record then self.describeRecord(p, ms: ms, t: t, name: name)
+			enumTy then self.describeCases(p, ms: ms, t: t, name: name, kind: mxdbg.MxdbgTypeKindEnum)
+			unionTy then self.describeCases(p, ms: ms, t: t, name: name, kind: mxdbg.MxdbgTypeKindUnion)
+			builtinArray then self.describeArray(p, ms: ms, t: t, name: name)
+			builtinHandle then self.begin(t, name: name, kind: mxdbg.MxdbgTypeKindPrimitive, size: wordSize, align: wordSize, flag: 0)
+			builtinList or
+			builtinPool or
+			builtinFrozen or
+			builtinCown or
+			builtinCursor or
+			builtinGroups or
+			builtinPromise or
+			builtinService or
+			typeParam or
+			interfaceTy then self.begin(t, name: name, kind: mxdbg.MxdbgTypeKindManagedRecord, size: wordSize, align: wordSize, flag: 0)
+			funcTy then self.begin(t, name: name, kind: mxdbg.MxdbgTypeKindFunction, size: wordSize, align: wordSize, flag: 0)
+		end 'kind'
+	end 'describe'
+
+	// describeArray is an array: the address of its box, and its elements' type.
+	function describeArray(mutates self, p ast.Project, mutates ms ast.ModuleState, t ast.TypeID, name String)
+		self.begin(t, name: name.clone(), kind: mxdbg.MxdbgTypeKindArray, size: wordSize, align: wordSize, flag: 0)
+		self.setElement(ast.typeEntry(ms.types, reads: p.types, t: t).typeArgs[0])
+	end 'describeArray'
+
+	// describeRecord is a record's box: its fields in their order, each after the words of the ones before it; a tuple's are
+	// named by their place.
+	function describeRecord(mutates self, p ast.Project, mutates ms ast.ModuleState, t ast.TypeID, name String)
+		var types as ast.TypeIDList
+		var fieldNamesOf = ast.StringList.create(0)
+		if ast.isTupleType(ms.types, reads: p.types, t: t) 'tuple'
+			types = ast.typeEntry(ms.types, reads: p.types, t: t).typeArgs.clone()
+			for i in 0 upto types.count() 'places'
+				fieldNamesOf.push("{i}")
+			end 'places'
+		end 'tuple' else 'record'
+			types = ir.fieldTypes(ms.types, reads: p.types, owner: t)
+			let origin = ast.originOf(ms.types, reads: p.types, t: t)
+			for i in 0 upto types.count() 'fields'
+				fieldNamesOf.push(ast.typeEntry(ms.types, reads: p.types, t: origin).fields[i].name.clone())
+			end 'fields'
+		end 'record'
+		self.begin(t, name: name.clone(), kind: mxdbg.MxdbgTypeKindStruct, size: ir.valuesBytes(ms.types, reads: p.types, types: types, tagged: false), align: wordSize, flag: 0)
+		for i in 0 upto types.count() 'fields'
+			self.addField(fieldNamesOf[i].clone(), offset: ir.valueOffset(ms.types, reads: p.types, types: types, index: i, tagged: false), t: types[i])
+		end 'fields'
+	end 'describeRecord'
+
+	// describeCases is an enum, a word, or a union, a box as big as its largest case's: each case a field at its case index,
+	// typed by its payload.
+	function describeCases(mutates self, p ast.Project, mutates ms ast.ModuleState, t ast.TypeID, name String, kind mxdbg.MxdbgIndex)
+		let origin = ast.originOf(ms.types, reads: p.types, t: t)
+		let cases = ast.typeEntry(ms.types, reads: p.types, t: origin).cases.count()
+		var size = wordSize
+		var payloads = ast.TypeIDList.create(0)
+		for c in 0 upto cases 'cases'
+			let count = ast.typeEntry(ms.types, reads: p.types, t: origin).cases[c].payload.count()
+			if kind == mxdbg.MxdbgTypeKindUnion 'box'
+				let types = ir.payloadTypes(ms.types, reads: p.types, owner: t, caseIndex: c)
+				let bytes = ir.valuesBytes(ms.types, reads: p.types, types: types, tagged: true)
+				if bytes > size 'larger'
+					size = bytes
+				end 'larger'
+			end 'box'
+			if count == 0 'none'
+				payloads.push(p.builtins.voidTy)
+			end 'none' else if count == 1 'one'
+				payloads.push(ast.payloadType(ms.types, reads: p.types, owner: t, caseIndex: c, index: 0))
+			end 'one' else 'several'
+				payloads.push(ast.noType)
+			end 'several'
+		end 'cases'
+		self.begin(t, name: name.clone(), kind: kind, size: size, align: wordSize, flag: 0)
+		for c in 0 upto cases 'fields'
+			self.addField(ast.typeEntry(ms.types, reads: p.types, t: origin).cases[c].name.clone(), offset: c, t: payloads[c])
+		end 'fields'
+	end 'describeCases'
+
+	// seal numbers the types in the order of their names, the order they were found in among types of one name.
+	function seal(mutates self)
+		order.clear()
+		for i in 0 upto keys.count() 'places'
+			order.push(i)
+		end 'places'
+		var scratch = CountList.filled(order.count(), value: 0)
+		sortByName(order, scratch: scratch, names: names, from: 0, to: order.count())
+		idOf = CountList.filled(keys.count(), value: 0)
+		for id in 0 upto order.count() 'ids'
+			idOf[order[id]] = id
+		end 'ids'
+	end 'seal'
+
+	// idOfType is the type id of t, which close has described.
+	function idOfType(t ast.TypeID) returns mxdbg.MxdbgIndex
+		return match found.get(t as Count) 'found'
+			some(place) gives mxdbg.mxdbgWord(idOf[place])
+			none gives panic("backend: the debug info names a type it did not describe")
+		end 'found'
+	end 'idOfType'
+
+	// kindOfType is the kind of t, which close has described.
+	function kindOfType(t ast.TypeID) returns mxdbg.MxdbgIndex
+		return match found.get(t as Count) 'found'
+			some(place) gives kinds[place]
+			none gives panic("backend: the debug info names a type it did not describe")
+		end 'found'
+	end 'kindOfType'
+
+	// writeInto adds the sealed types and their fields to w, in the order of their ids.
+	function writeInto(mutates w mxdbg.MxdbgWriter)
+		for id in 0 upto order.count() 'types'
+			let at = order[id]
+			var element = mxdbg.MxdbgNoElementType
+			if hasElement[at] 'element'
+				element = self.idOfType(elements[at])
+			end 'element'
+			w.addType(names[at], kind: kinds[at], size: mxdbg.mxdbgWord(sizes[at]), align: mxdbg.mxdbgWord(aligns[at]), elementTypeId: element, flags: flags[at])
+			var stop = fieldNames.count()
+			if nextCount(at) < fieldFirst.count() 'next'
+				stop = fieldFirst[nextCount(at)]
+			end 'next'
+			for f in fieldFirst[at] upto stop 'fields'
+				w.addField(fieldNames[f], offset: mxdbg.mxdbgWord(fieldOffsets[f]), typeId: self.idOfType(fieldTypes[f]))
+			end 'fields'
+		end 'types'
+	end 'writeInto'
+end 'DebugTypes'
+
+// sortByName sorts the places from up to to of order by their names, stably, through scratch: a merge sort.
+function sortByName(mutates order CountList, mutates scratch CountList, names ast.StringList, from Count, to Count)
+	if from >= to or nextCount(from) >= to 'sorted'
+		return
+	end 'sorted'
+	let mid = try from + (to - from) / 2 otherwise panic("backend: a sort past its bounds")
+	sortByName(order, scratch: scratch, names: names, from: from, to: mid)
+	sortByName(order, scratch: scratch, names: names, from: mid, to: to)
+	var i = from as Count
+	var j = mid as Count
+	var k = from as Count
+	while k < to 'merge'
+		if j >= to or (i < mid and not diag.stringLess(names[order[j]], b: names[order[i]])) 'left'
+			scratch[k] = order[i]
+			i = nextCount(i)
+		end 'left' else 'right'
+			scratch[k] = order[j]
+			j = nextCount(j)
+		end 'right'
+		k = nextCount(k)
+	end 'merge'
+	for x in from upto to 'copy'
+		order[x] = scratch[x]
+	end 'copy'
+end 'sortByName'

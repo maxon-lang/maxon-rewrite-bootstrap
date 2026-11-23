@@ -126,6 +126,9 @@ export type Cse
 		if not editor.changed 'none'
 			return
 		end 'none'
+		if replaced and f.keepsSpans 'bound'
+			ir.renameBound(f, repl: repl)
+		end 'bound'
 		editor.finish(f)
 	end 'eliminate'
 

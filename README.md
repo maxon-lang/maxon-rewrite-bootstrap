@@ -43,7 +43,7 @@ generator.
 | `minimaxon test <module dir>` | run the tests of the modules under the directory: the `test` declarations of their files of tests (`.maxtest`), compiled with the modules they name and the runtime into one executable whose entry calls each, which is then run (see "Tests") |
 | `minimaxon selftest` | run the compiler's own tests: `test self`, from the root of the repository |
 | `minimaxon debug --symbolize <exe> <offset\|rip=0x<address>>...` | name the function, `file:line:column` and the inlined calls of code offsets (decimal or `0x` hex) of an executable that `build --debug-info` made, or of the address of a fault line, from the sidecar beside it, refusing one that describes another build (see "Debug info") |
-| `minimaxon debug --dump-info <exe> [header\|files\|functions\|lines\|inline\|layout]...` | print the sidecar's sections, every one when none is named |
+| `minimaxon debug --dump-info <exe> [header\|files\|functions\|types\|lines\|inline\|layout]...` | print the sidecar's sections, every one when none is named |
 | `minimaxon cache [trim\|clear]` | say where the build cache is and how many files and bytes it holds; `trim` deletes what a trim would (the files unused for five days) whether one is due or not, `clear` every file the cache wrote (see "Build cache") |
 | `minimaxon rewrite --keyword=old=new <path>...` | rename a keyword by token in the `.maxon` files and the Markdown code under the paths (see "Changing the language") |
 | `minimaxon qualify <dir>...` | write the module's path before each bare name of another module's declaration in the projects (see "Changing the language") |
@@ -1139,14 +1139,14 @@ the modules that name it have to be looked at again.
 
 The debugger will be commands of the compiler, as maxon's is (`maxon debug`): it reads a sidecar that the build writes
 beside the executable, maxon's `.mxdbg` format, and drives the unmodified executable from outside. What is here is its first
-part: the source positions carried from the lowering to the machine code, the sidecar with its line table, and `debug
---symbolize` and `--dump-info`, which read it.
+part: the source positions carried from the lowering to the machine code, the sidecar with its line table, its types and
+where each local is, and `debug --symbolize` and `--dump-info`, which read it.
 
 - **Only with the flag.** `build --debug-info` writes `<out>.mxdbg` (`foo.exe.mxdbg`, maxon's name) and an executable byte for
   byte the one a build without the flag makes: every input of the sidecar is an observation of code already laid out, and
   nothing of it reaches the code, the data or the headers. A build without the flag keeps no position anywhere: the columns
   below stay empty, a pass that makes or lays out instructions tests a flag of the function that is always false, and a
-  build of `self` takes the time it took before, within the noise (1,411 against 1,414 ms, best of nine). A build with it compiles without the build cache, whose units keep no lines.
+  build of `self` takes the time it took before, within the noise (1,545, 1,520 and 1,620 against 1,523, 1,528 and 1,606 ms, best of nine in three interleaved rounds, with the names of locals; with the flag it takes about 1.8 s and writes a sidecar of 10 MB). A build with it compiles without the build cache, whose units keep no lines.
 - **Spans in the IR.** The lowering gives every instruction the span of the statement it lowers (`positionAt` in
   `lowerStmt`), and the code of no statement (the parameters taken, the return at the end) the declaration's, through the
   builder's `pos`, which `Builder.emit`, the one place instructions are made, writes into the column. A span is one word
@@ -1170,14 +1170,42 @@ part: the source positions carried from the lowering to the machine code, the si
 - **Rows.** The encoders note a row where the span of the code changes (`CodeUnit.noteSpan`); the function's first row is at
   its start, so its prologue is its first statement's code. The link places each unit's rows with its live sections
   (`describeLines`), and the sidecar writer places each span in its file by the module's line starts (`writeSidecar`).
+- **Names in the IR.** A build that writes debug info gives a function the list of the locals and parameters of its source,
+  in the one debug list that holds its inline sites too (`IrFunction.debug`, `self/ir/bindings.maxon`), so a build without
+  it makes nothing more per function: each one's name and type as the instance has it, and what holds it as the
+  passes go. Lowering names the slot of each local and the place of each parameter; SSA construction names each register a
+  store to a promoted slot gives it and each block parameter it places for one, and a slot that stays in the frame; the
+  fold, CSE and copy elision rename those registers with the instructions that read them. A register of a value that a
+  pass removes names nothing. Selection makes the registers the virtual registers (a String's two, a parameter's the copy
+  its prologue takes or its place on the stack), and the dead code removal follows the copies it propagates.
+- **Locals** (`self/backend/locals.maxon`) are read after allocation from what it decided, and change nothing of it: a
+  value is in the register colouring gave it (or a window's) wherever it is live, from its definition to its last use or
+  over a block it is live through, and in its spill slot where no register holds it and a reload or a restore of it is
+  still ahead; a reload is the value it reloads, and a bracket has the value out of its register. Where two values of
+  one name are live, the name is the one defined last in the layout, which is the order of dominance. A slot that stays in
+  the frame, and a parameter on the stack, hold their local from the prologue's end to the function's. A local that is
+  nowhere is optimized out over the whole function. The encoder notes where each instruction's code starts, and the link
+  places each unit's records with its live sections (`describeLines`), with each function's frame: its size below the
+  caller's stack pointer, its parameters, and where its prologue ends.
+- **Types** (`self/backend/debugtypes.maxon`, maxon's `MxdbgTypeTable`) are every type a local has, closed over their
+  fields, cases and elements, numbered in the order of their names: a value is a word and a String two in place (`stringValueBytes`,
+  kind `string`, no fields: a reader takes its words by the layout's constants), a record, a union and an array the address of a box (`struct` with its fields at their
+  offsets, `union` with a field per case at its case index typed by its payload, `array` with its element type), an enum
+  its case index (its cases' offsets), an integer alias 8 bytes and signed when its range is, a bool one byte.
 - **The sidecar** has maxon's layout (`self/mxdbg/format.maxon`): a 160-byte header (the target, the build id, the root,
   the image base, the compiler), the files (the runtime's as `runtime/<file>`, the library's by its module's path, the
-  program's relative to its root), the functions with their code ranges, windows of rows and origin (`authored`, `library`,
-  `runtime`, `synthesized`), the line table (20-byte rows with the `statement` and `line-entry` flags), the inline sites
-  and the disjoint code ranges under each, and the layout figures `ImageTextRva` and `ImageTextBytes`. The build id is the
+  program's relative to its root), the functions with their code ranges, frames, windows of rows and of locals and origin
+  (`authored`, `library`, `runtime`, `synthesized`), the line table (20-byte rows with the `statement` and `line-entry`
+  flags), the types and their fields, the locals (a register by its number in the target's register file, a slot by its
+  displacement from the frame pointer, `indirect` for the address of a box), the inline sites and the disjoint code ranges
+  under each, and the layout figures `ImageTextRva` and `ImageTextBytes`. The build id is the
   first eight bytes of the SHA-256 of the code, maxon's, which `debug` takes again of the executable's code (in a PE image
   the section at `ImageTextRva`, in an ELF or Mach-O image the file at that offset) and refuses a sidecar of another build.
   "Where it differs from Maxon" lists what v1 leaves empty.
+- **`debug --dump-info`** prints the sections as maxon's does: each function with its frame and its locals (a register by
+  its name, a slot as `[rbp-0x18]` or `[x29+0x20]`, an indirect value marked `*`, a String's second word as such) and the
+  types with their fields. A spec test with `<!-- DebugInfo -->` is built with `--debug-info` and its sidecar walked as
+  maxon's runner walks it: it loads, names some type, and gives the functions windows of locals with no gap or overlap.
 - **`debug --symbolize`** takes code offsets or the `rip=0x<address>` of a fault line (from the image base the sidecar
   records: on Windows the loader may move the image, so an address maps only when it was loaded there) and prints maxon's line
   for each, `0x1290  main.maxon:6:2  (in export::down)`, and under it each inlined call the code is in, innermost first,
@@ -1185,8 +1213,9 @@ part: the source positions carried from the lowering to the machine code, the si
 - **Verified.** `--verify-ir` on a build with the flag holds every span of every function to the source of the function it is
   in, from its header's line to its end, and a span in an inline site to its callee's (`verifySpans`). The gate's
   `debug info` step builds programs on the four targets with and without the flag, compares the executables, verifies the
-  spans of `self` and those programs, and symbolizes the `rip=` of a stack overflow on x64 Windows, x64 Linux and arm64 Linux to
-  its line.
+  spans of `self` and those programs, walks the sidecar of `self`, holds the dump of a program's locals to a register, a frame
+  slot, a String's second word and a record's fields on each target, and symbolizes the `rip=` of a stack overflow on x64
+  Windows, x64 Linux and arm64 Linux to its line.
 ## The IR
 
 The checker works on the AST, which mirrors what the author wrote. Everything after it works on the IR in `self/ir`, which is
@@ -4279,12 +4308,16 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   and the `E3064` lint on a tuple assignment of nothing but `_`.
 - **Debug info is written only with `--debug-info`**, where maxon writes it by default and turns it off with `--no-debug-info`,
   which minimaxon takes as the default: a build that does not ask for it pays nothing for it (see "Debug info"). Its sidecar
-  is maxon's format, version 12, with these sections empty so far: the types and their fields, the locals, the coverage points,
-  the constant words and the globals of the runtime's contract. A function's frame size, parameter count and prologue offset are
-  0; its display name is its symbol; a row is where the span of the code changes (every statement's start, and the code of
-  inlined bodies), a line entry where its line differs from the row's before it or it starts its function; the layout
-  table adds `ImageTextBytes`, the length of the code the build id hashes, beside maxon's `ImageTextRva`; and the header names
-  the compiler as `minimaxon`.
+  is maxon's format, version 12, with these sections empty so far: the coverage points, the constant words and the globals of
+  the runtime's contract. A function's display name is its symbol; a row is where the span of the code changes (every
+  statement's start, and the code of inlined bodies), a line entry where its line differs from the row's before it or it
+  starts its function; the layout table adds `ImageTextBytes`, the length of the code the build id hashes, beside maxon's
+  `ImageTextRva`; and the header names the compiler as `minimaxon`. The types are minimaxon's layout: a String is two words in
+  place, so a String local has two records, the second with the flag `secondWord` (2, minimaxon's) for its word (the length and its bits), and
+  the kind `string` is not indirect; an enum's and a union's cases are at their case index, not a raw tag; every integer is
+  8 bytes. A register is numbered as the target's register file numbers it (the general registers, then the vector ones),
+  and a type is named as the checker spells it. The locals of an inlined body are not described yet (maxon's carry their
+  inline site), no local is a constant or a folded record, and a local's records say where it is held, not its lexical scope.
 - A compiled program frees each value where its owner dies, as the IR says (see "Drops" and "Native freeing"), with one
   free and no reference counting; Maxon counts references. A panic and a fault print no backtrace after their line
   (the spec runner leaves maxon's `Stack trace:` lines out of what it compares). A frozen value, a cown and a function

@@ -130,9 +130,11 @@ export type Selector
 	// which reads a thread's context and reaches the kernel its own way.
 	var arch as ast.TargetArch
 	var system as ast.TargetSystem
+	// harvest describes the locals of a function that keeps spans (locals.maxon).
+	var harvest as LocalHarvest
 
 	static function new(verifies bool, target ast.Target) returns Selector
-		return Selector{u: CodeUnit.new(), mir: MirFunction.new("", canThrow: false, arch: target.arch), defs: DefAtList.create(0), second: MRegList.create(0), stringTy: ast.noType, args: MRegList.create(0), callArgs: MRegList.create(0), callFloats: Array.create(0), places: CountList.create(0), params: MRegList.create(0), paramPlaces: CountList.create(0), paramFloats: Array.create(0), paramWordAt: CountList.create(0), wordPositions: CountList.create(0), closureBody: false, calleeSymbols: CalleeSymbols.new(), canThrow: false, floatResult: false, fnSymbol: "", tables: TableSet.new(), due: ir.WitnessTableList.create(0), thunks: TableSet.new(), dueThunks: ast.FuncIDList.create(0), typeNames: TableSet.new(), typeSymbols: CalleeSymbols.new(), datums: TableSet.new(), readCount: CountList.create(0), reads: ir.RegList.create(0), irBlock: 0, irAt: 0, dead: DeadCode.new(), layout: BlockLayout.new(), allocator: Allocator.new(verifies, target: target), classes: ClassChoice.new(), arch: target.arch, system: target.system}
+		return Selector{u: CodeUnit.new(), mir: MirFunction.new("", canThrow: false, arch: target.arch), defs: DefAtList.create(0), second: MRegList.create(0), stringTy: ast.noType, args: MRegList.create(0), callArgs: MRegList.create(0), callFloats: Array.create(0), places: CountList.create(0), params: MRegList.create(0), paramPlaces: CountList.create(0), paramFloats: Array.create(0), paramWordAt: CountList.create(0), wordPositions: CountList.create(0), closureBody: false, calleeSymbols: CalleeSymbols.new(), canThrow: false, floatResult: false, fnSymbol: "", tables: TableSet.new(), due: ir.WitnessTableList.create(0), thunks: TableSet.new(), dueThunks: ast.FuncIDList.create(0), typeNames: TableSet.new(), typeSymbols: CalleeSymbols.new(), datums: TableSet.new(), readCount: CountList.create(0), reads: ir.RegList.create(0), irBlock: 0, irAt: 0, dead: DeadCode.new(), layout: BlockLayout.new(), allocator: Allocator.new(verifies, target: target), classes: ClassChoice.new(), arch: target.arch, system: target.system, harvest: LocalHarvest.new()}
 	end 'new'
 
 	// prepare names what the function's instructions ask for by handle: the symbols of its callees, and the drop and copy
@@ -1263,8 +1265,15 @@ function selectFunction(mutates sel Selector, p ast.Project, mutates ms ast.Modu
 	end 'blocks'
 	sel.mir.endBlock()
 	var mir = exchange(sel.mir, value: MirFunction.new("", canThrow: false, arch: sel.arch))
+	if f.keepsSpans 'named'
+		let named = namedValues(sel, f: f)
+		sel.harvest.named = named
+	end 'named'
 	legalizeClasses(mir)
 	sel.dead.remove(mir)
+	if f.keepsSpans 'copies'
+		followCopies(sel.harvest.named, dead: sel.dead)
+	end 'copies'
 	sel.allocator.spiller.clock.lap(EmitPhase.selection)
 	let refusals = sel.allocator.allocate(mir)
 	if refusals.count() > 0 'refused'
@@ -1274,18 +1283,23 @@ function selectFunction(mutates sel Selector, p ast.Project, mutates ms ast.Modu
 		if mir.spans.count() != mir.instrs.count() 'apart'
 			panic("backend: {symbol} keeps {mir.spans.count()} spans for {mir.instrs.count()} machine instructions")
 		end 'apart'
-		sel.u.addSites(siteCallees(p, ms: ms, f: f), sites: f.sites)
+		let sites = ir.sitesOf(f)
+		sel.u.addSites(siteCallees(p, ms: ms, sites: sites), sites: sites)
+		sel.harvest.harvest(f, fn: mir, s: sel.allocator.spiller, c: sel.allocator.colourer)
 	end 'sites'
 	encodeFunction(sel, fn: mir, instance: instance)
+	if f.keepsSpans 'locals'
+		sel.harvest.finish(sel.u, f: f, fn: mir, lay: sel.layout)
+	end 'locals'
 	sel.allocator.spiller.clock.lap(EmitPhase.encoding)
 	return refusals
 end 'selectFunction'
 
 // siteCallees are the link names of the callees of f's inline sites.
-function siteCallees(p ast.Project, ms ast.ModuleState, f ir.IrFunction) returns ast.StringList
+function siteCallees(p ast.Project, ms ast.ModuleState, sites ir.InlineSiteList) returns ast.StringList
 	var names = ast.StringList.create(0)
-	for s in 0 upto f.sites.count() 'sites'
-		names.push(ast.funcLinkNameIn(p, tt: ms.types, reads: p.types, ft: ms.funcs, funcReads: p.funcs, fid: f.sites[s].callee))
+	for s in 0 upto sites.count() 'sites'
+		names.push(ast.funcLinkNameIn(p, tt: ms.types, reads: p.types, ft: ms.funcs, funcReads: p.funcs, fid: sites[s].callee))
 	end 'sites'
 	return names
 end 'siteCallees'

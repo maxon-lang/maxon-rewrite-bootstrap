@@ -1,6 +1,6 @@
 // The debug info of an executable, the `.mxdbg` sidecar beside it (README, "Debug info"), from the lines of its code that the
-// link described: its files, its functions, its line table, its inline sites and the code under each, and the layout figures
-// by which a reader finds its code. Each row's span is placed in its file here, from the module's text, so the units and the
+// link described: its files, its functions and their frames, its line table, its types (debugtypes.maxon) and each function's
+// locals, its inline sites and the code under each, and the layout figures by which a reader finds its code. Each row's span is placed in its file here, from the module's text, so the units and the
 // link carry offsets only.
 
 // compilerStamp is the compiler a sidecar says wrote it.
@@ -10,7 +10,7 @@ let compilerStamp = "minimaxon"
 let noModule = -1 as diag.ModuleID
 
 // writeSidecar writes the sidecar of the executable at out, whose code lines describes, beside it.
-export function writeSidecar(p ast.Project, lines CodeLines, out FilePath) throws FileWriteError
+export function writeSidecar(mutates p ast.Project, lines CodeLines, out FilePath) throws FileWriteError
 	var w = mxdbg.MxdbgWriter.create()
 	var firstFile = CountList.create(0)
 	for m in 0 upto p.modules.count() 'modules'
@@ -19,8 +19,18 @@ export function writeSidecar(p ast.Project, lines CodeLines, out FilePath) throw
 			w.addFile(recordedPath(p, m: m, path: p.modules[m].files[j].path))
 		end 'files'
 	end 'modules'
+	var types = DebugTypes.new()
+	var ms = ast.lendProject(p)
+	types.close(p, ms: ms, t: p.builtins.voidTy)
+	for i in 0 upto lines.locals.count() 'localTypes'
+		types.close(p, ms: ms, t: lines.locals[i].ty)
+	end 'localTypes'
+	ast.giveBack(p, ms: ms)
+	types.seal()
+	types.writeInto(w)
 	let siteModules = siteModulesOf(p, lines: lines)
 	var r = 0 as Count
+	var local = 0 as Count
 	for f in 0 upto lines.functions.count() 'functions'
 		while r < lines.rowOffsets.count() and lines.rowOffsets[r] < lines.starts[f] 'before'
 			r = ir.succ(r)
@@ -29,8 +39,15 @@ export function writeSidecar(p ast.Project, lines CodeLines, out FilePath) throw
 		if r < lines.rowOffsets.count() and lines.rowOffsets[r] < lines.ends[f] 'placed'
 			origin = originOf(p, module: ir.spanModule(lines.rowSpans[r]))
 		end 'placed'
-		w.addFunction(lines.functions[f], displayName: lines.functions[f], origin: origin, codeStart: mxdbg.mxdbgWord(lines.starts[f]), codeEnd: mxdbg.mxdbgWord(lines.ends[f]), prologueOffset: 0, frameSize: 0, paramCount: 0)
+		w.addFunction(lines.functions[f], displayName: lines.functions[f], origin: origin, codeStart: mxdbg.mxdbgWord(lines.starts[f]), codeEnd: mxdbg.mxdbgWord(lines.ends[f]), prologueOffset: mxdbg.mxdbgWord(lines.frames[f].prologue), frameSize: mxdbg.mxdbgWord(lines.frames[f].size), paramCount: mxdbg.mxdbgWord(lines.frames[f].params))
+		while local < lines.locals.count() and lines.localFunctions[local] == f 'locals'
+			writeLocal(w, types: types, local: lines.locals[local])
+			local = ir.succ(local)
+		end 'locals'
 	end 'functions'
+	if local != lines.locals.count() 'apart'
+		panic("backend: the debug info's locals from {local} of {lines.locals.count()} are not in the order of their functions")
+	end 'apart'
 	writeRows(w, p: p, lines: lines, firstFile: firstFile)
 	for s in 0 upto lines.siteCallees.count() 'sites'
 		let call = lines.siteCalls[s]
@@ -49,6 +66,20 @@ export function writeSidecar(p ast.Project, lines CodeLines, out FilePath) throw
 	let bytes = w.build(lines.buildId, targetTriple: p.target.name(), sourceRoot: p.root, compilerVersion: compilerStamp)
 	try File.writeBinary(try FilePath.from(sidecarPathOf(out.toString())) otherwise panic("backend: the sidecar of {out.toString()} is not a path"), content: bytes)
 end 'writeSidecar'
+
+// writeLocal adds a local of the function added last: indirect where its type is the address of its value and it has a
+// place, and the second word of a String as such.
+function writeLocal(mutates w mxdbg.MxdbgWriter, types DebugTypes, local DebugLocal)
+	var flags = 0 as mxdbg.MxdbgIndex
+	let placed = local.kind == mxdbg.MxdbgLocKindStackSlot or local.kind == mxdbg.MxdbgLocKindRegister
+	if placed and mxdbg.mxdbgTypeKindIsIndirect(types.kindOfType(local.ty)) 'indirect'
+		flags = flags or mxdbg.MxdbgLocalFlagIndirect
+	end 'indirect'
+	if local.second 'second'
+		flags = flags or mxdbg.MxdbgLocalFlagSecondWord
+	end 'second'
+	w.addLocal(local.name, locKind: local.kind, locValue: local.value, typeId: types.idOfType(local.ty), scopeStart: mxdbg.mxdbgWord(local.start), scopeEnd: mxdbg.mxdbgWord(local.stop), flags: flags, site: mxdbg.MxdbgNoInlineSite)
+end 'writeLocal'
 
 // recordedPath is how the sidecar names a file of module m, as maxon's does: one of the runtime or of the standard library by
 // its tier, runtime/<file> or the module's path and the file (stdlib/...), and one of the program relative to its root, which

@@ -1,6 +1,7 @@
 // The lines of a linked executable's code, which a build with --debug-info describes in its sidecar (README, "Debug info"):
-// the functions the link kept, with where each starts and ends in the code, and the rows of their units' line tables
-// (CodeUnit.lineOffsets) at their places in it, with the inline sites they name. Like the map of the code's symbols it
+// the functions the link kept, with where each starts and ends in the code and its frame, and the rows of their units' line
+// tables (CodeUnit.lineOffsets) and their locals (CodeUnit.debugLocals) at their places in it, with the inline sites the rows
+// name. Like the map of the code's symbols it
 // observes the layout and changes nothing of it, so the executable is the same with it or without.
 
 // CodeLines are a linked executable's lines: offsets count from the start of its code, which is at textRva from base.
@@ -21,9 +22,15 @@ export type CodeLines
 	// sites are the inline sites that a row, or a site a row is in, names: the callee's symbol and the call's span.
 	export var siteCallees as ast.StringList
 	export var siteCalls as ir.SpanList
+	// frames are each function's frame, all 0 for one that no frame describes (code that no IR made); locals are the locals
+	// of the functions at their places in the code, a function's after those of the ones before it, and localFunctions the
+	// function of each.
+	export var frames as DebugFrameList
+	export var locals as DebugLocalList
+	export var localFunctions as CountList
 
 	static function new(base Count, textRva Count, codeSize Count, consumes buildId ByteArray) returns CodeLines
-		return CodeLines{base: base, textRva: textRva, codeSize: codeSize, buildId: buildId, functions: ast.StringList.create(0), starts: CountList.create(0), ends: CountList.create(0), rowOffsets: CountList.create(0), rowSpans: ir.SpanList.create(0), siteCallees: ast.StringList.create(0), siteCalls: ir.SpanList.create(0)}
+		return CodeLines{base: base, textRva: textRva, codeSize: codeSize, buildId: buildId, functions: ast.StringList.create(0), starts: CountList.create(0), ends: CountList.create(0), rowOffsets: CountList.create(0), rowSpans: ir.SpanList.create(0), siteCallees: ast.StringList.create(0), siteCalls: ir.SpanList.create(0), frames: DebugFrameList.create(0), locals: DebugLocalList.create(0), localFunctions: CountList.create(0)}
 	end 'new'
 
 	static function none() returns CodeLines
@@ -62,6 +69,8 @@ let noSite = -1 as ir.Index
 // describeUnit adds the live functions of unit u, the rows of their code and the sites those rows are in.
 function describeUnit(mutates lines CodeLines, l LinkUnit, u CodeUnit)
 	var symbol = 0 as Count
+	var frame = 0 as Count
+	var local = 0 as Count
 	let sectionCount = l.liveCode.count()
 	for s in 0 upto sectionCount 'sections'
 		let begin = l.sections[s].code
@@ -69,12 +78,33 @@ function describeUnit(mutates lines CodeLines, l LinkUnit, u CodeUnit)
 		while symbol < u.codeSymbols.count() and u.codeSymbols[symbol].offset < begin 'before'
 			symbol = plusCount(symbol)
 		end 'before'
-		if l.liveCode[s] and symbol < u.codeSymbols.count() and u.codeSymbols[symbol].offset < finish 'named'
-			let at = sectionAt(l, s: s)
+		while frame < u.debugFrames.count() and u.debugFrames[frame].start < begin 'framesBefore'
+			frame = plusCount(frame)
+		end 'framesBefore'
+		let named = l.liveCode[s] and symbol < u.codeSymbols.count() and u.codeSymbols[symbol].offset < finish
+		let at = sectionAt(l, s: s)
+		if named 'named'
 			lines.functions.push(u.codeSymbols[symbol].symbol.clone())
 			lines.starts.push(at)
 			lines.ends.push(try at + (finish - begin) otherwise panic("link: code past memory"))
+			if frame < u.debugFrames.count() and u.debugFrames[frame].start < finish 'framed'
+				var described = u.debugFrames[frame].clone()
+				described.start = placedIn(at, offset: described.start, begin: begin)
+				lines.frames.push(described)
+			end 'framed' else 'unframed'
+				lines.frames.push(DebugFrame.make(at, size: 0, params: 0, prologue: 0))
+			end 'unframed'
 		end 'named'
+		while local < u.debugLocals.count() and u.debugLocals[local].start < finish 'locals'
+			if named and u.debugLocals[local].start >= begin 'kept'
+				var placed = u.debugLocals[local].clone()
+				placed.start = placedIn(at, offset: placed.start, begin: begin)
+				placed.stop = placedIn(at, offset: placed.stop, begin: begin)
+				lines.locals.push(placed)
+				lines.localFunctions.push(try lines.functions.count() - 1 otherwise panic("link: a local of no function"))
+			end 'kept'
+			local = plusCount(local)
+		end 'locals'
 	end 'sections'
 	var siteAt = SiteIndexes.filled(u.siteCallees.count(), value: noSite)
 	for r in 0 upto u.lineOffsets.count() 'used'
@@ -121,6 +151,12 @@ function globalSpan(siteAt SiteIndexes, span ir.Word) returns ir.Word
 	let global = try siteAt[ir.pred(field)] as Count otherwise panic("link: a row in a site the description left out")
 	return ir.withSite(span, site: ir.succ(global))
 end 'globalSpan'
+
+// placedIn is where an offset of a unit's code, in the section that starts at begin there, is in the code that places that
+// section at at.
+function placedIn(at Count, offset Count, begin Count) returns Count
+	return try at + (offset - begin) otherwise panic("link: code past memory")
+end 'placedIn'
 
 // sectionAt is where a live section of a unit starts in the code.
 function sectionAt(l LinkUnit, s Count) returns Count

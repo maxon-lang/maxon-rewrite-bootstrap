@@ -394,6 +394,10 @@ export type CodeUnit
 	export var lineSpans as ir.SpanList
 	export var siteCallees as ast.StringList
 	export var siteCalls as ir.SpanList
+	// debugFrames and debugLocals are, of the same functions, the frame of each and where each of their locals is over the
+	// stretches of their code (locals.maxon), in the order the functions were written.
+	export var debugFrames as DebugFrameList
+	export var debugLocals as DebugLocalList
 	// siteBase is where the sites of the function being written start, less one; opensRows says that the next row starts the
 	// function, at rowStart, so that its prologue is the code of its first statement.
 	var siteBase as Count
@@ -401,7 +405,7 @@ export type CodeUnit
 	var rowStart as Count
 
 	export static function new() returns CodeUnit
-		return CodeUnit{asm: Asm.new(), data: DataSection.new(), codeSymbols: SymbolDefList.create(0), dataSymbols: SymbolDefList.create(0), sections: CodeSectionList.create(0), needed: RoutineSet.new(), preemptible: false, lineOffsets: CountList.create(0), lineSpans: ir.SpanList.create(0), siteCallees: ast.StringList.create(0), siteCalls: ir.SpanList.create(0), siteBase: 0, opensRows: false, rowStart: 0}
+		return CodeUnit{asm: Asm.new(), data: DataSection.new(), codeSymbols: SymbolDefList.create(0), dataSymbols: SymbolDefList.create(0), sections: CodeSectionList.create(0), needed: RoutineSet.new(), preemptible: false, lineOffsets: CountList.create(0), lineSpans: ir.SpanList.create(0), siteCallees: ast.StringList.create(0), siteCalls: ir.SpanList.create(0), debugFrames: DebugFrameList.create(0), debugLocals: DebugLocalList.create(0), siteBase: 0, opensRows: false, rowStart: 0}
 	end 'new'
 
 	// addSites makes the inline sites of the function to be written next, whose callees' link names are callees, the unit's.

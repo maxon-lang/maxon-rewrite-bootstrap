@@ -45,13 +45,16 @@ export type MxdbgWriter
 	var figureNames as Words
 	var figures as Figures
 	var imageBase as Count
+	// locals and types are the tables of the locals, the types and their fields (MxdbgLocalColumns, MxdbgTypeColumns).
+	var locals as MxdbgLocalColumns
+	var types as MxdbgTypeColumns
 
 	export static function create() returns MxdbgWriter
 		var nameOffs = Words.create(0)
 		nameOffs.push(0)
 		var nameLens = Words.create(0)
 		nameLens.push(0)
-		return MxdbgWriter{stringPool: ByteArray.create(0), interned: table.StringMap.new(), nameOffs: nameOffs, nameLens: nameLens, fileNames: Words.create(0), funcNames: Words.create(0), funcStarts: Words.create(0), funcEnds: Words.create(0), funcPrologues: Words.create(0), funcFrames: Words.create(0), funcParams: Words.create(0), funcDisplayNames: Words.create(0), funcOrigins: Words.create(0), lineOffsets: Words.create(0), lineFiles: Words.create(0), lineLines: Words.create(0), lineCols: Words.create(0), lineFlags: Words.create(0), siteNames: Words.create(0), siteParents: Words.create(0), siteFiles: Words.create(0), siteLines: Words.create(0), siteCols: Words.create(0), siteOrigins: Words.create(0), rangeStarts: Words.create(0), rangeEnds: Words.create(0), rangeSites: Words.create(0), figureNames: Words.create(0), figures: Figures.create(0), imageBase: 0}
+		return MxdbgWriter{stringPool: ByteArray.create(0), interned: table.StringMap.new(), nameOffs: nameOffs, nameLens: nameLens, fileNames: Words.create(0), funcNames: Words.create(0), funcStarts: Words.create(0), funcEnds: Words.create(0), funcPrologues: Words.create(0), funcFrames: Words.create(0), funcParams: Words.create(0), funcDisplayNames: Words.create(0), funcOrigins: Words.create(0), lineOffsets: Words.create(0), lineFiles: Words.create(0), lineLines: Words.create(0), lineCols: Words.create(0), lineFlags: Words.create(0), siteNames: Words.create(0), siteParents: Words.create(0), siteFiles: Words.create(0), siteLines: Words.create(0), siteCols: Words.create(0), siteOrigins: Words.create(0), rangeStarts: Words.create(0), rangeEnds: Words.create(0), rangeSites: Words.create(0), figureNames: Words.create(0), figures: Figures.create(0), imageBase: 0, locals: MxdbgLocalColumns.create(), types: MxdbgTypeColumns.create()}
 	end 'create'
 
 	// intern is the index of the name text: the empty one writes nothing to the pool.
@@ -92,7 +95,48 @@ export type MxdbgWriter
 		let funcDisplayNamesName = self.intern(displayName)
 		funcDisplayNames.push(funcDisplayNamesName)
 		funcOrigins.push(mxdbgOriginWord(origin))
+		locals.funcLocalFirsts.push(mxdbgWord(locals.localNames.count()))
 	end 'addFunction'
+
+	// addLocal adds a local of the function added last, which its window grows by: there is no function id, so a record
+	// belongs to the function being described.
+	export function addLocal(mutates self, name String, locKind MxdbgIndex, locValue MxdbgRecordFigure, typeId MxdbgIndex, scopeStart MxdbgIndex, scopeEnd MxdbgIndex, flags MxdbgIndex, site MxdbgIndex)
+		if funcNames.count() == 0 'noFunctionYet'
+			panic("MxdbgWriter.addLocal: a local record was added before any function; a local grows the window of the function it belongs to")
+		end 'noFunctionYet'
+		let localName = self.intern(name)
+		locals.localNames.push(localName)
+		locals.localKinds.push(locKind)
+		locals.localValues.push(locValue)
+		locals.localTypes.push(typeId)
+		locals.localStarts.push(scopeStart)
+		locals.localEnds.push(scopeEnd)
+		locals.localFlags.push(flags)
+		locals.localSites.push(site)
+	end 'addLocal'
+
+	// addType registers a type; its id is its place, which a field or a local names it by.
+	export function addType(mutates self, name String, kind MxdbgIndex, size MxdbgIndex, align MxdbgIndex, elementTypeId MxdbgIndex, flags MxdbgIndex)
+		let typeName = self.intern(name)
+		types.typeNames.push(typeName)
+		types.typeKinds.push(kind)
+		types.typeSizes.push(size)
+		types.typeAligns.push(align)
+		types.typeElements.push(elementTypeId)
+		types.typeFlags.push(flags)
+		types.typeFieldFirsts.push(mxdbgWord(types.fieldNames.count()))
+	end 'addType'
+
+	// addField adds a field of the type added last, addLocal's twin.
+	export function addField(mutates self, name String, offset MxdbgIndex, typeId MxdbgIndex)
+		if types.typeNames.count() == 0 'noTypeYet'
+			panic("MxdbgWriter.addField: a field record was added before any type; a field grows the window of the type it belongs to")
+		end 'noTypeYet'
+		let fieldName = self.intern(name)
+		types.fieldNames.push(fieldName)
+		types.fieldOffsets.push(offset)
+		types.fieldTypes.push(typeId)
+	end 'addField'
 
 	export function addLine(mutates self, codeOffset MxdbgIndex, fileId MxdbgIndex, line MxdbgIndex, column MxdbgIndex, flags MxdbgIndex)
 		lineOffsets.push(codeOffset)
@@ -144,9 +188,9 @@ export type MxdbgWriter
 		let funcTableOff = after(fileTableOff, stride: MxdbgFileEntrySize, count: fileNames.count())
 		let lineTableOff = after(funcTableOff, stride: MxdbgFuncEntrySize, count: funcNames.count())
 		let typeTableOff = after(lineTableOff, stride: MxdbgLineEntrySize, count: lineOffsets.count())
-		let fieldTableOff = after(typeTableOff, stride: MxdbgTypeEntrySize, count: 0)
-		let localTableOff = after(fieldTableOff, stride: MxdbgFieldEntrySize, count: 0)
-		let covTableOff = after(localTableOff, stride: MxdbgLocalEntrySize, count: 0)
+		let fieldTableOff = after(typeTableOff, stride: MxdbgTypeEntrySize, count: types.typeNames.count())
+		let localTableOff = after(fieldTableOff, stride: MxdbgFieldEntrySize, count: types.fieldNames.count())
+		let covTableOff = after(localTableOff, stride: MxdbgLocalEntrySize, count: locals.localNames.count())
 		let inlineSiteTableOff = after(covTableOff, stride: MxdbgCovEntrySize, count: 0)
 		let inlineRangeTableOff = after(inlineSiteTableOff, stride: MxdbgInlineSiteEntrySize, count: siteNames.count())
 		let constTableOff = after(inlineRangeTableOff, stride: MxdbgInlineRangeEntrySize, count: rangeStarts.count())
@@ -169,9 +213,9 @@ export type MxdbgWriter
 		self.patchTable(buf, at: MxdbgOffFileTableOff, offset: fileTableOff, count: fileNames.count())
 		self.patchTable(buf, at: MxdbgOffFuncTableOff, offset: funcTableOff, count: funcNames.count())
 		self.patchTable(buf, at: MxdbgOffLineTableOff, offset: lineTableOff, count: lineOffsets.count())
-		self.patchTable(buf, at: MxdbgOffTypeTableOff, offset: typeTableOff, count: 0)
-		self.patchTable(buf, at: MxdbgOffFieldTableOff, offset: fieldTableOff, count: 0)
-		self.patchTable(buf, at: MxdbgOffLocalTableOff, offset: localTableOff, count: 0)
+		self.patchTable(buf, at: MxdbgOffTypeTableOff, offset: typeTableOff, count: types.typeNames.count())
+		self.patchTable(buf, at: MxdbgOffFieldTableOff, offset: fieldTableOff, count: types.fieldNames.count())
+		self.patchTable(buf, at: MxdbgOffLocalTableOff, offset: localTableOff, count: locals.localNames.count())
 		self.patchTable(buf, at: MxdbgOffCovTableOff, offset: covTableOff, count: 0)
 		self.patchTable(buf, at: MxdbgOffInlineSiteTableOff, offset: inlineSiteTableOff, count: siteNames.count())
 		self.patchTable(buf, at: MxdbgOffInlineRangeTableOff, offset: inlineRangeTableOff, count: rangeStarts.count())
@@ -200,8 +244,10 @@ export type MxdbgWriter
 			// An empty window says 0 for its first row, as maxon's writer has it.
 			patchDword(buf, offset: sumOf(rec, b: MxdbgFuncLineFirst), value: mxdbgWord(first if count > 0 else 0))
 			patchDword(buf, offset: sumOf(rec, b: MxdbgFuncLineCount), value: mxdbgWord(count))
-			patchDword(buf, offset: sumOf(rec, b: MxdbgFuncLocalFirst), value: 0)
-			patchDword(buf, offset: sumOf(rec, b: MxdbgFuncLocalCount), value: 0)
+			let localFirst = locals.funcLocalFirsts[i]
+			let localEnd = windowStop(locals.funcLocalFirsts, i: i, total: locals.localNames.count())
+			patchDword(buf, offset: sumOf(rec, b: MxdbgFuncLocalFirst), value: localFirst)
+			patchDword(buf, offset: sumOf(rec, b: MxdbgFuncLocalCount), value: mxdbgWord(try localEnd - (localFirst as Count) otherwise panic("mxdbg: a local window that ends before it starts")))
 			self.patchName(buf, at: rec, offset: MxdbgFuncDisplayNameOff, length: MxdbgFuncDisplayNameLen, name: funcDisplayNames[i])
 			patchDword(buf, offset: sumOf(rec, b: MxdbgFuncOrigin), value: funcOrigins[i])
 			patchDword(buf, offset: sumOf(rec, b: MxdbgFuncPrologueOffset), value: funcPrologues[i])
@@ -217,6 +263,8 @@ export type MxdbgWriter
 			patchDword(buf, offset: sumOf(rec, b: MxdbgLineCol), value: lineCols[i])
 			patchDword(buf, offset: sumOf(rec, b: MxdbgLineFlags), value: lineFlags[i])
 		end 'lines'
+		self.writeTypes(buf)
+		self.writeLocals(buf)
 		for i in 0 upto siteNames.count() 'sites'
 			let rec = appendedRecord(buf, stride: MxdbgInlineSiteEntrySize)
 			self.patchName(buf, at: rec, offset: MxdbgInlineSiteNameOff, length: MxdbgInlineSiteNameLen, name: siteNames[i])
@@ -240,6 +288,76 @@ export type MxdbgWriter
 		buf.append(stringPool)
 		return buf
 	end 'build'
+
+	// writeTypes appends the type table and the field table to buf.
+	function writeTypes(mutates buf ByteArray)
+		for i in 0 upto types.typeNames.count() 'types'
+			let rec = appendedRecord(buf, stride: MxdbgTypeEntrySize)
+			let fieldEnd = windowStop(types.typeFieldFirsts, i: i, total: types.fieldNames.count())
+			self.patchName(buf, at: rec, offset: MxdbgTypeNameOff, length: MxdbgTypeNameLen, name: types.typeNames[i])
+			patchDword(buf, offset: sumOf(rec, b: MxdbgTypeKindWord), value: types.typeKinds[i])
+			patchDword(buf, offset: sumOf(rec, b: MxdbgTypeSize), value: types.typeSizes[i])
+			patchDword(buf, offset: sumOf(rec, b: MxdbgTypeAlign), value: types.typeAligns[i])
+			patchDword(buf, offset: sumOf(rec, b: MxdbgTypeFieldFirst), value: types.typeFieldFirsts[i])
+			patchDword(buf, offset: sumOf(rec, b: MxdbgTypeFieldCount), value: mxdbgWord(try fieldEnd - (types.typeFieldFirsts[i] as Count) otherwise panic("mxdbg: a field window that ends before it starts")))
+			patchDword(buf, offset: sumOf(rec, b: MxdbgTypeElementTypeId), value: types.typeElements[i])
+			patchDword(buf, offset: sumOf(rec, b: MxdbgTypeFlags), value: types.typeFlags[i])
+		end 'types'
+		for i in 0 upto types.fieldNames.count() 'fields'
+			let rec = appendedRecord(buf, stride: MxdbgFieldEntrySize)
+			self.patchName(buf, at: rec, offset: MxdbgFieldNameOff, length: MxdbgFieldNameLen, name: types.fieldNames[i])
+			patchDword(buf, offset: sumOf(rec, b: MxdbgFieldOffset), value: types.fieldOffsets[i])
+			patchDword(buf, offset: sumOf(rec, b: MxdbgFieldTypeId), value: types.fieldTypes[i])
+		end 'fields'
+	end 'writeTypes'
+
+	// writeLocals appends the local table to buf.
+	function writeLocals(mutates buf ByteArray)
+		for i in 0 upto locals.localNames.count() 'locals'
+			let rec = appendedRecord(buf, stride: MxdbgLocalEntrySize)
+			self.patchName(buf, at: rec, offset: MxdbgLocalNameOff, length: MxdbgLocalNameLen, name: locals.localNames[i])
+			patchDword(buf, offset: sumOf(rec, b: MxdbgLocalLocKind), value: locals.localKinds[i])
+			patchDword(buf, offset: sumOf(rec, b: MxdbgLocalLocValue), value: mxdbgFigureWord(locals.localValues[i]))
+			patchDword(buf, offset: sumOf(rec, b: MxdbgLocalTypeId), value: locals.localTypes[i])
+			patchDword(buf, offset: sumOf(rec, b: MxdbgLocalScopeStart), value: locals.localStarts[i])
+			patchDword(buf, offset: sumOf(rec, b: MxdbgLocalScopeEnd), value: locals.localEnds[i])
+			patchDword(buf, offset: sumOf(rec, b: MxdbgLocalFlags), value: locals.localFlags[i])
+			patchDword(buf, offset: sumOf(rec, b: MxdbgLocalSite), value: locals.localSites[i])
+		end 'locals'
+	end 'writeLocals'
+
+	// requireLocalsAndTypes holds each local to its function's code, a known location kind, a type and a site the file holds,
+	// and each element type and field type to a type it holds.
+	function requireLocalsAndTypes()
+		for i in 0 upto funcNames.count() 'functionsLocals'
+			let first = locals.funcLocalFirsts[i] as Count
+			let stop = windowStop(locals.funcLocalFirsts, i: i, total: locals.localNames.count())
+			for k in first upto stop 'locals'
+				if locals.localStarts[k] >= locals.localEnds[k] or locals.localStarts[k] < funcStarts[i] or locals.localEnds[k] > funcEnds[i] 'outside'
+					panic("MxdbgWriter: local {k} holds over code that is empty or outside that of its function, {i}")
+				end 'outside'
+				if not mxdbgLocKindIsKnown(locals.localKinds[k]) 'kind'
+					panic("MxdbgWriter: local {k} names location kind {locals.localKinds[k]}, which is none the reader knows")
+				end 'kind'
+				if locals.localTypes[k] as Count >= types.typeNames.count() 'type'
+					panic("MxdbgWriter: local {k} names type {locals.localTypes[k]}, past the {types.typeNames.count()} types")
+				end 'type'
+				if locals.localSites[k] != MxdbgNoInlineSite and locals.localSites[k] as Count >= siteNames.count() 'site'
+					panic("MxdbgWriter: local {k} is in inline site {locals.localSites[k]}, past the {siteNames.count()} sites")
+				end 'site'
+			end 'locals'
+		end 'functionsLocals'
+		for i in 0 upto types.typeNames.count() 'types'
+			if types.typeElements[i] != MxdbgNoElementType and types.typeElements[i] as Count >= types.typeNames.count() 'element'
+				panic("MxdbgWriter: type {i} names element type {types.typeElements[i]}, past the {types.typeNames.count()} types")
+			end 'element'
+		end 'types'
+		for i in 0 upto types.fieldNames.count() 'fields'
+			if types.fieldTypes[i] as Count >= types.typeNames.count() 'fieldType'
+				panic("MxdbgWriter: field {i} names type {types.fieldTypes[i]}, past the {types.typeNames.count()} types")
+			end 'fieldType'
+		end 'fields'
+	end 'requireLocalsAndTypes'
 
 	// patchTable writes a section's offset and count into the header slots from at.
 	function patchTable(mutates buf ByteArray, at Count, offset Count, count Count)
@@ -276,6 +394,7 @@ export type MxdbgWriter
 				panic("MxdbgWriter: inline site {i} is called from file {siteFiles[i]}, past the {fileNames.count()} files")
 			end 'noSuchFile'
 		end 'sites'
+		self.requireLocalsAndTypes()
 		var rangeEnd = 0 as MxdbgIndex
 		for i in 0 upto rangeStarts.count() 'ranges'
 			if rangeStarts[i] >= rangeEnds[i] or rangeStarts[i] < rangeEnd 'rangeOutOfOrder'
@@ -299,6 +418,16 @@ function sumOf(a Count, b Count) returns Count
 	return try a + b otherwise panic("mxdbg: an offset past memory")
 end 'sumOf'
 
+// windowStop is where the window of record i ends in a table of total records whose windows start at firsts: where the next
+// one starts, or the table's end.
+function windowStop(firsts Words, i Count, total Count) returns Count
+	let next = sumOf(i, b: 1)
+	if next < firsts.count() 'next'
+		return firsts[next] as Count
+	end 'next'
+	return total
+end 'windowStop'
+
 // mxdbgWord is a count as a word of the file, which must fit 32 bits.
 export function mxdbgWord(n Count) returns MxdbgIndex
 	return try n as MxdbgIndex otherwise panic("mxdbg: {n} is past a 32-bit word of the sidecar")
@@ -317,3 +446,42 @@ function appendedRecord(mutates buf ByteArray, stride Count) returns Count
 	writeZeros(buf, n: stride)
 	return rec
 end 'appendedRecord'
+
+// MxdbgLocalColumns are the local table as a writer holds it: each function's window from where the table stood when the
+// function was added (funcLocalFirsts), and each local's name, location kind and figure, type, the code it holds over, flags
+// and inline site.
+type MxdbgLocalColumns
+	var funcLocalFirsts as Words
+	var localNames as Words
+	var localKinds as Words
+	var localValues as Figures
+	var localTypes as Words
+	var localStarts as Words
+	var localEnds as Words
+	var localFlags as Words
+	var localSites as Words
+
+	static function create() returns MxdbgLocalColumns
+		return MxdbgLocalColumns{funcLocalFirsts: Words.create(0), localNames: Words.create(0), localKinds: Words.create(0), localValues: Figures.create(0), localTypes: Words.create(0), localStarts: Words.create(0), localEnds: Words.create(0), localFlags: Words.create(0), localSites: Words.create(0)}
+	end 'create'
+end 'MxdbgLocalColumns'
+
+// MxdbgTypeColumns are the type table and its field table as a writer holds them: each type's fields from where the field
+// table stood when it was added (typeFieldFirsts), its name, kind, size, alignment, element type and flags, and each field's
+// name, offset and type.
+type MxdbgTypeColumns
+	var typeFieldFirsts as Words
+	var typeNames as Words
+	var typeKinds as Words
+	var typeSizes as Words
+	var typeAligns as Words
+	var typeElements as Words
+	var typeFlags as Words
+	var fieldNames as Words
+	var fieldOffsets as Words
+	var fieldTypes as Words
+
+	static function create() returns MxdbgTypeColumns
+		return MxdbgTypeColumns{typeFieldFirsts: Words.create(0), typeNames: Words.create(0), typeKinds: Words.create(0), typeSizes: Words.create(0), typeAligns: Words.create(0), typeElements: Words.create(0), typeFlags: Words.create(0), fieldNames: Words.create(0), fieldOffsets: Words.create(0), fieldTypes: Words.create(0)}
+	end 'create'
+end 'MxdbgTypeColumns'

@@ -26,6 +26,8 @@ export type MxdbgReader
 	var funcs as MxdbgTable
 	var lines as MxdbgTable
 	var types as MxdbgTable
+	var fields as MxdbgTable
+	var locals as MxdbgTable
 	var sites as MxdbgTable
 	var ranges as MxdbgTable
 	var figures as MxdbgTable
@@ -39,9 +41,9 @@ export type MxdbgReader
 		if version != MxdbgFormatVersion 'version'
 			return MxdbgParse.refused("it is version {version} of the format, and this compiler reads version {MxdbgFormatVersion}")
 		end 'version'
-		var r = MxdbgReader{image: ByteArray.create(0), pool: readDword(image, offset: MxdbgOffStringPoolOff) as Count, poolSize: readDword(image, offset: MxdbgOffStringPoolSize) as Count, files: tableAt(image, at: MxdbgOffFileTableOff), funcs: tableAt(image, at: MxdbgOffFuncTableOff), lines: tableAt(image, at: MxdbgOffLineTableOff), types: tableAt(image, at: MxdbgOffTypeTableOff), sites: tableAt(image, at: MxdbgOffInlineSiteTableOff), ranges: tableAt(image, at: MxdbgOffInlineRangeTableOff), figures: tableAt(image, at: MxdbgOffLayoutTableOff)}
+		var r = MxdbgReader{image: ByteArray.create(0), pool: readDword(image, offset: MxdbgOffStringPoolOff) as Count, poolSize: readDword(image, offset: MxdbgOffStringPoolSize) as Count, files: tableAt(image, at: MxdbgOffFileTableOff), funcs: tableAt(image, at: MxdbgOffFuncTableOff), lines: tableAt(image, at: MxdbgOffLineTableOff), types: tableAt(image, at: MxdbgOffTypeTableOff), fields: tableAt(image, at: MxdbgOffFieldTableOff), locals: tableAt(image, at: MxdbgOffLocalTableOff), sites: tableAt(image, at: MxdbgOffInlineSiteTableOff), ranges: tableAt(image, at: MxdbgOffInlineRangeTableOff), figures: tableAt(image, at: MxdbgOffLayoutTableOff)}
 		let size = image.count()
-		if not fits(r.pool, count: r.poolSize, stride: 1, size: size) or not fits(r.files.offset, count: r.files.count, stride: MxdbgFileEntrySize, size: size) or not fits(r.funcs.offset, count: r.funcs.count, stride: MxdbgFuncEntrySize, size: size) or not fits(r.lines.offset, count: r.lines.count, stride: MxdbgLineEntrySize, size: size) or not fits(r.sites.offset, count: r.sites.count, stride: MxdbgInlineSiteEntrySize, size: size) or not fits(r.ranges.offset, count: r.ranges.count, stride: MxdbgInlineRangeEntrySize, size: size) or not fits(r.figures.offset, count: r.figures.count, stride: MxdbgLayoutEntrySize, size: size) 'past'
+		if not fits(r.pool, count: r.poolSize, stride: 1, size: size) or not fits(r.files.offset, count: r.files.count, stride: MxdbgFileEntrySize, size: size) or not fits(r.funcs.offset, count: r.funcs.count, stride: MxdbgFuncEntrySize, size: size) or not fits(r.lines.offset, count: r.lines.count, stride: MxdbgLineEntrySize, size: size) or not fits(r.types.offset, count: r.types.count, stride: MxdbgTypeEntrySize, size: size) or not fits(r.fields.offset, count: r.fields.count, stride: MxdbgFieldEntrySize, size: size) or not fits(r.locals.offset, count: r.locals.count, stride: MxdbgLocalEntrySize, size: size) or not fits(r.sites.offset, count: r.sites.count, stride: MxdbgInlineSiteEntrySize, size: size) or not fits(r.ranges.offset, count: r.ranges.count, stride: MxdbgInlineRangeEntrySize, size: size) or not fits(r.figures.offset, count: r.figures.count, stride: MxdbgLayoutEntrySize, size: size) 'past'
 			return MxdbgParse.refused("a table reaches past the end of the file")
 		end 'past'
 		r.image = image
@@ -49,7 +51,28 @@ export type MxdbgReader
 			if not fits(r.funcLineFirst(i), count: r.funcLineCount(i), stride: 1, size: r.lines.count) 'window'
 				return MxdbgParse.refused("function {i}'s rows reach past the line table")
 			end 'window'
+			if not fits(r.funcLocalFirst(i), count: r.funcLocalCount(i), stride: 1, size: r.locals.count) 'locals'
+				return MxdbgParse.refused("function {i}'s locals reach past the local table")
+			end 'locals'
 		end 'windows'
+		for i in 0 upto r.types.count 'types'
+			if not fits(r.typeFieldFirst(i), count: r.typeFieldCount(i), stride: 1, size: r.fields.count) 'fields'
+				return MxdbgParse.refused("type {i}'s fields reach past the field table")
+			end 'fields'
+			if r.typeElement(i) != MxdbgNoElementType and r.typeElement(i) as Count >= r.types.count 'element'
+				return MxdbgParse.refused("type {i} names an element type past the type table")
+			end 'element'
+		end 'types'
+		for i in 0 upto r.fields.count 'fields'
+			if r.fieldType(i) as Count >= r.types.count 'fieldType'
+				return MxdbgParse.refused("field {i} names a type past the type table")
+			end 'fieldType'
+		end 'fields'
+		for i in 0 upto r.locals.count 'locals'
+			if r.localType(i) as Count >= r.types.count 'localType'
+				return MxdbgParse.refused("local {i} names a type past the type table")
+			end 'localType'
+		end 'locals'
 		for i in 0 upto r.sites.count 'sites'
 			if r.siteParent(i) != MxdbgNoInlineSite and r.siteParent(i) as Count >= i 'parent'
 				return MxdbgParse.refused("inline site {i} names a parent that is not recorded before it")
@@ -175,6 +198,122 @@ export type MxdbgReader
 	export function funcOrigin(i Count) returns MxdbgIndex
 		return self.funcWord(i, field: MxdbgFuncOrigin)
 	end 'funcOrigin'
+
+	export function funcFrameSize(i Count) returns MxdbgIndex
+		return self.funcWord(i, field: MxdbgFuncFrameSize)
+	end 'funcFrameSize'
+
+	export function funcParamCount(i Count) returns MxdbgIndex
+		return self.funcWord(i, field: MxdbgFuncParamCount)
+	end 'funcParamCount'
+
+	export function funcPrologueOffset(i Count) returns MxdbgIndex
+		return self.funcWord(i, field: MxdbgFuncPrologueOffset)
+	end 'funcPrologueOffset'
+
+	export function funcLocalFirst(i Count) returns Count
+		return self.funcWord(i, field: MxdbgFuncLocalFirst) as Count
+	end 'funcLocalFirst'
+
+	export function funcLocalCount(i Count) returns Count
+		return self.funcWord(i, field: MxdbgFuncLocalCount) as Count
+	end 'funcLocalCount'
+
+	export function fieldCount() returns Count
+		return fields.count
+	end 'fieldCount'
+
+	export function localCount() returns Count
+		return locals.count
+	end 'localCount'
+
+	function typeWord(i Count, field Count) returns MxdbgIndex
+		return self.recordWord(types, stride: MxdbgTypeEntrySize, i: i, field: field)
+	end 'typeWord'
+
+	export function typeName(i Count) returns String
+		return self.text(self.typeWord(i, field: MxdbgTypeNameOff), len: self.typeWord(i, field: MxdbgTypeNameLen))
+	end 'typeName'
+
+	export function typeKind(i Count) returns MxdbgIndex
+		return self.typeWord(i, field: MxdbgTypeKindWord)
+	end 'typeKind'
+
+	export function typeSize(i Count) returns MxdbgIndex
+		return self.typeWord(i, field: MxdbgTypeSize)
+	end 'typeSize'
+
+	export function typeAlign(i Count) returns MxdbgIndex
+		return self.typeWord(i, field: MxdbgTypeAlign)
+	end 'typeAlign'
+
+	export function typeFieldFirst(i Count) returns Count
+		return self.typeWord(i, field: MxdbgTypeFieldFirst) as Count
+	end 'typeFieldFirst'
+
+	export function typeFieldCount(i Count) returns Count
+		return self.typeWord(i, field: MxdbgTypeFieldCount) as Count
+	end 'typeFieldCount'
+
+	export function typeElement(i Count) returns MxdbgIndex
+		return self.typeWord(i, field: MxdbgTypeElementTypeId)
+	end 'typeElement'
+
+	export function typeFlags(i Count) returns MxdbgIndex
+		return self.typeWord(i, field: MxdbgTypeFlags)
+	end 'typeFlags'
+
+	function fieldWord(i Count, field Count) returns MxdbgIndex
+		return self.recordWord(fields, stride: MxdbgFieldEntrySize, i: i, field: field)
+	end 'fieldWord'
+
+	export function fieldName(i Count) returns String
+		return self.text(self.fieldWord(i, field: MxdbgFieldNameOff), len: self.fieldWord(i, field: MxdbgFieldNameLen))
+	end 'fieldName'
+
+	export function fieldOffset(i Count) returns MxdbgIndex
+		return self.fieldWord(i, field: MxdbgFieldOffset)
+	end 'fieldOffset'
+
+	export function fieldType(i Count) returns MxdbgIndex
+		return self.fieldWord(i, field: MxdbgFieldTypeId)
+	end 'fieldType'
+
+	function localWord(i Count, field Count) returns MxdbgIndex
+		return self.recordWord(locals, stride: MxdbgLocalEntrySize, i: i, field: field)
+	end 'localWord'
+
+	export function localName(i Count) returns String
+		return self.text(self.localWord(i, field: MxdbgLocalNameOff), len: self.localWord(i, field: MxdbgLocalNameLen))
+	end 'localName'
+
+	export function localKind(i Count) returns MxdbgIndex
+		return self.localWord(i, field: MxdbgLocalLocKind)
+	end 'localKind'
+
+	export function localValue(i Count) returns MxdbgRecordFigure
+		return mxdbgSignedWord(self.localWord(i, field: MxdbgLocalLocValue))
+	end 'localValue'
+
+	export function localType(i Count) returns MxdbgIndex
+		return self.localWord(i, field: MxdbgLocalTypeId)
+	end 'localType'
+
+	export function localStart(i Count) returns Count
+		return self.localWord(i, field: MxdbgLocalScopeStart) as Count
+	end 'localStart'
+
+	export function localEnd(i Count) returns Count
+		return self.localWord(i, field: MxdbgLocalScopeEnd) as Count
+	end 'localEnd'
+
+	export function localFlags(i Count) returns MxdbgIndex
+		return self.localWord(i, field: MxdbgLocalFlags)
+	end 'localFlags'
+
+	export function localSite(i Count) returns MxdbgIndex
+		return self.localWord(i, field: MxdbgLocalSite)
+	end 'localSite'
 
 	export function lineCount() returns Count
 		return lines.count

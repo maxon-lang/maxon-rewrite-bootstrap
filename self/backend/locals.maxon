@@ -1,0 +1,855 @@
+// The locals of a function's source in its machine code, which a build that writes debug info describes (README, "Debug
+// info"): where each local and parameter is over each stretch of the function's code, read from what allocation decided once
+// it is done, and the function's frame. Like the line rows it only observes code already allocated and changes none of it.
+//
+// A binding names, after selection, the virtual registers of its values (MNamed), and a slot that stays in the frame or a
+// parameter on the stack a displacement from the frame pointer. A value is where its register is (or a window of colouring
+// moved it to) wherever it is live, and in its spill slot where its value is still to be reloaded and no register holds it;
+// a reload is the value it reloads. Where two values of one name are live, the name is the one defined last, by the layout,
+// which is the order of dominance.
+
+// DebugLocal is a binding over a stretch of a unit's code, from start up to end: its name and type, where it is (a location
+// kind of the sidecar and its figure: a register's number, a displacement from the frame pointer), and whether it is the
+// second word of a String.
+export type DebugLocal
+	export var name as String
+	export var ty as ast.TypeID
+	export var kind as mxdbg.MxdbgIndex
+	export var value as mxdbg.MxdbgRecordFigure
+	export var start as Count
+	export var stop as Count
+	export var second as bool
+
+	static function make(consumes name String, ty ast.TypeID, kind mxdbg.MxdbgIndex, value mxdbg.MxdbgRecordFigure, start Count, stop Count, second bool) returns DebugLocal
+		return DebugLocal{name: name, ty: ty, kind: kind, value: value, start: start, stop: stop, second: second}
+	end 'make'
+end 'DebugLocal'
+
+export typealias DebugLocalList = Array with DebugLocal
+
+// DebugFrame is the frame of a function whose code starts at start in its unit: the bytes it takes below its caller's stack
+// pointer, its parameters, and how far its prologue goes from its start.
+export type DebugFrame
+	export var start as Count
+	export var size as Count
+	export var params as Count
+	export var prologue as Count
+
+	static function make(start Count, size Count, params Count, prologue Count) returns DebugFrame
+		return DebugFrame{start: start, size: size, params: params, prologue: prologue}
+	end 'make'
+end 'DebugFrame'
+
+export typealias DebugFrameList = Array with DebugFrame
+
+// MNamed is a word of a binding (firstWord, or a String's secondWord): in a virtual register, or, where reg is noMReg, at a
+// displacement from the frame pointer for the whole function.
+type MNamed
+	var binding as Count
+	var reg as MReg
+	var disp as FullRangeInt
+	var word as Count
+
+	static function inRegister(binding Count, reg MReg, word Count) returns MNamed
+		return MNamed{binding: binding, reg: reg, disp: 0, word: word}
+	end 'inRegister'
+
+	static function inFrame(binding Count, disp FullRangeInt, word Count) returns MNamed
+		return MNamed{binding: binding, reg: noMReg, disp: disp, word: word}
+	end 'inFrame'
+end 'MNamed'
+
+typealias MNamedList = Array with MNamed
+
+let firstWord = 0 as Count
+
+let secondWord = 1 as Count
+
+// noValue is a slot no value is spilled to, or a piece of a binding that is its slot's; mixedSlot a slot that holds more than
+// one value (block parameters in memory), whose reloads are values of their own.
+let noValue = 4294967295 as Count
+
+let mixedSlot = 4294967294 as Count
+
+// wholeFunction is the block of a record that holds from the prologue's end to the function's: a slot or a parameter in the
+// frame.
+let wholeFunction = 4294967295 as Count
+
+// notPlaced is an instruction or a block the layout of the code left out.
+let notPlaced = 4294967295 as Count
+
+// namedValues are the words of f's bindings as selection left them, which sel has just selected.
+function namedValues(sel Selector, f ir.IrFunction) returns MNamedList
+	var named = MNamedList.create(0)
+	for i in 0 upto f.debug.count() 'entries'
+		match f.debug[i].kind 'kind'
+			debugSite then _ = 0
+			debugLocal then nameParam(named, sel: sel, f: f, binding: i, place: f.debug[i].param)
+			debugValue then nameRegister(named, sel: sel, f: f, binding: f.debug[i].binding, r: f.debug[i].reg)
+			debugFramed then nameSlot(named, sel: sel, f: f, binding: f.debug[i].binding, slot: f.debug[i].slot)
+		end 'kind'
+	end 'entries'
+	return named
+end 'namedValues'
+
+// nameRegister names the virtual registers of the IR register r, two for a String.
+function nameRegister(mutates named MNamedList, sel Selector, f ir.IrFunction, binding Count, r ir.Reg)
+	named.push(MNamed.inRegister(binding, reg: vregOf(r), word: firstWord))
+	if isStringReg(f, r: r) 'string'
+		named.push(MNamed.inRegister(binding, reg: sel.second[regIndex(r)], word: secondWord))
+	end 'string'
+end 'nameRegister'
+
+// nameSlot names the words of a slot that stays in the frame, two for a String.
+function nameSlot(mutates named MNamedList, sel Selector, f ir.IrFunction, binding Count, slot Count)
+	let disp = slotFrameDisp(sel.arch, slot: slot)
+	named.push(MNamed.inFrame(binding, disp: disp as FullRangeInt, word: firstWord))
+	if f.slots[slot] == ir.IrKind.kindString 'string'
+		named.push(MNamed.inFrame(binding, disp: secondWordDisp(disp) as FullRangeInt, word: secondWord))
+	end 'string'
+end 'nameSlot'
+
+// nameParam names the words of the parameter at place, when the binding is one: the register the prologue copied each into,
+// or where it is on the stack.
+function nameParam(mutates named MNamedList, sel Selector, f ir.IrFunction, binding Count, place Count)
+	if place == ir.noBinding or place >= sel.paramWordAt.count() 'none'
+		return
+	end 'none'
+	let w = sel.paramWordAt[place]
+	nameParamWord(named, sel: sel, binding: binding, w: w, word: firstWord)
+	if ir.isFloatAt(f.stringParams, place: place) 'string'
+		nameParamWord(named, sel: sel, binding: binding, w: nextCount(w), word: secondWord)
+	end 'string'
+end 'nameParam'
+
+function nameParamWord(mutates named MNamedList, sel Selector, binding Count, w Count, word Count)
+	let v = sel.params[w]
+	if v != noMReg 'register'
+		named.push(MNamed.inRegister(binding, reg: v, word: word))
+		return
+	end 'register'
+	match sel.arch 'arch'
+		x64 then named.push(MNamed.inFrame(binding, disp: paramDisp(sel.paramPlaces[w]) as FullRangeInt, word: word))
+		arm64 then panic("backend: an arm64 parameter on the stack that the prologue did not load")
+	end 'arch'
+end 'nameParamWord'
+
+// followCopies names, in place of each register a copy defined, the register the dead code removal has its reads read.
+function followCopies(mutates named MNamedList, dead DeadCode)
+	for i in 0 upto named.count() 'named'
+		let r = named[i].reg
+		if r != noMReg and isVirtual(r) and vregIndex(r) < dead.alias.count() 'copied'
+			named[i].reg = dead.root(r)
+		end 'copied'
+	end 'named'
+end 'followCopies'
+
+// slotFrameDisp is where the IR's slot of the frame starts from the frame pointer; spillFrameDisp where a word of the slots
+// given by allocation is.
+function slotFrameDisp(arch ast.TargetArch, slot Count) returns Imm32
+	return match arch 'arch'
+		x64 gives slotDisp(slot)
+		arm64 gives arm64SlotDisp(slot)
+	end 'arch'
+end 'slotFrameDisp'
+
+function spillFrameDisp(arch ast.TargetArch, slot SpillSlot) returns FullRangeInt
+	return match arch 'arch'
+		x64 gives spillSlotOffset(slot) as FullRangeInt
+		arm64 gives arm64WordDisp(slot as Count) as FullRangeInt
+	end 'arch'
+end 'spillFrameDisp'
+
+// debugFrameSize is the bytes the frame of an allocated function takes below its caller's stack pointer, as its prologue makes
+// it.
+function debugFrameSize(fn MirFunction, framed bool) returns Count
+	return match fn.arch 'arch'
+		x64 gives x64FrameSize(fn, framed: framed)
+		arm64 gives arm64FrameSize(fn) if framed else 0
+	end 'arch'
+end 'debugFrameSize'
+
+// LocalHarvest is the work of describing a function's locals, which a module's functions share so that its arrays keep their
+// capacity: named is the words of the function's bindings, and the records are pending until the code is laid out.
+type LocalHarvest
+	var named as MNamedList
+	// By virtual register, the value a reload of it reloads, or itself; by spill slot, the value spilled to it, noValue or
+	// mixedSlot; the registers reloads define; and the brackets, a value out of its register from one instruction up to
+	// another of a block.
+	var rootOf as CountList
+	var slotValue as CountList
+	var reloads as CountList
+	var bracketValue as CountList
+	var bracketBlock as CountList
+	var bracketFrom as CountList
+	var bracketTo as CountList
+	// The pieces of the name being described: the binding, a block, the instructions from lo up to hi, the value whose
+	// register holds it (or noValue for its slot, at disp), and the key of the value it is, where its definition is in the
+	// layout.
+	var pieceBinding as CountList
+	var pieceBlock as CountList
+	var pieceLo as CountList
+	var pieceHi as CountList
+	var pieceMember as CountList
+	var pieceKey as CountList
+	var pieceDisp as Array with FullRangeInt
+	// The spill slot and instruction of each spill and of each reload or restore.
+	var storeSlot as CountList
+	var storeAt as CountList
+	var readSlot as CountList
+	var readAt as CountList
+	// By block, stamped with mark: whether the walk of a slot passed it (stamp), whether the value being described is live
+	// into it (liveStamp), and where its last use there is (useStamp, lastUse); and the first of its pieces, which pieceNext
+	// chains (blockHead), with the blocks that have one.
+	var blocks as CountList
+	var points as CountList
+	var stamp as CountList
+	var liveStamp as CountList
+	var useStamp as CountList
+	var lastUse as CountList
+	var blockHead as CountList
+	var pieceNext as CountList
+	var scratch as CountList
+	var mark as Count
+	var work as CountList
+	// The records: the binding, the word, the location's kind and figure, and the code from lo up to hi of block, numbered as
+	// the coloured function's instructions are once harvest ends.
+	var outBinding as CountList
+	var outWord as CountList
+	var outKind as Array with mxdbg.MxdbgIndex
+	var outValue as Array with FullRangeInt
+	var outBlock as CountList
+	var outLo as CountList
+	var outHi as CountList
+
+	static function new() returns LocalHarvest
+		return LocalHarvest{named: MNamedList.create(0), rootOf: CountList.create(0), slotValue: CountList.create(0), reloads: CountList.create(0), bracketValue: CountList.create(0), bracketBlock: CountList.create(0), bracketFrom: CountList.create(0), bracketTo: CountList.create(0), pieceBinding: CountList.create(0), pieceBlock: CountList.create(0), pieceLo: CountList.create(0), pieceHi: CountList.create(0), pieceMember: CountList.create(0), pieceKey: CountList.create(0), pieceDisp: Array.create(0), storeSlot: CountList.create(0), storeAt: CountList.create(0), readSlot: CountList.create(0), readAt: CountList.create(0), blocks: CountList.create(0), points: CountList.create(0), stamp: CountList.create(0), liveStamp: CountList.create(0), useStamp: CountList.create(0), lastUse: CountList.create(0), blockHead: CountList.create(0), pieceNext: CountList.create(0), scratch: CountList.create(0), mark: 0, work: CountList.create(0), outBinding: CountList.create(0), outWord: CountList.create(0), outKind: Array.create(0), outValue: Array.create(0), outBlock: CountList.create(0), outLo: CountList.create(0), outHi: CountList.create(0)}
+	end 'new'
+
+	// harvest finds where each named word of fn is, which s spilled and c coloured and rewrote.
+	function harvest(mutates self, f ir.IrFunction, fn MirFunction, s Spiller, c Colourer)
+		outBinding.clear()
+		outWord.clear()
+		outKind.clear()
+		outValue.clear()
+		outBlock.clear()
+		outLo.clear()
+		outHi.clear()
+		self.findFamilies(s, c: c)
+		for i in 0 upto named.count() 'groups'
+			if self.seenBefore(f, i: i) 'done'
+				continue 'groups'
+			end 'done'
+			let word = named[i].word
+			self.clearPieces()
+			for j in i upto named.count() 'members'
+				if not self.sameWord(f, a: i, b: j) 'other'
+					continue 'members'
+				end 'other'
+				let binding = named[j].binding
+				let reg = named[j].reg
+				let disp = named[j].disp
+				if reg == noMReg 'framed'
+					if self.onlyFramed(f, i: i) 'whole'
+						self.record(binding, word: word, kind: mxdbg.MxdbgLocKindStackSlot, value: disp, block: wholeFunction, lo: 0, hi: 0)
+					end 'whole' else 'everyBlock'
+						self.addFramePieces(c, binding: binding, disp: disp)
+					end 'everyBlock'
+					continue 'members'
+				end 'framed'
+				self.addFamily(fn, s: s, c: c, r: reg, binding: binding)
+			end 'members'
+			self.sweep(s, c: c, word: word)
+		end 'groups'
+		self.renumber(fn, c: c)
+	end 'harvest'
+
+	// seenBefore is whether a named word before i is the same word of a binding of the same name as i's, which its group
+	// described: the bindings of one name are one group, so that where two are live the one defined last is the name's.
+	function seenBefore(f ir.IrFunction, i Count) returns bool
+		for j in 0 upto i 'before'
+			if self.sameWord(f, a: j, b: i) 'same'
+				return true
+			end 'same'
+		end 'before'
+		return false
+	end 'seenBefore'
+
+	// onlyFramed is whether every word of i's group is in the frame, so that each holds its name over the whole function.
+	function onlyFramed(f ir.IrFunction, i Count) returns bool
+		for j in i upto named.count() 'members'
+			if self.sameWord(f, a: i, b: j) and named[j].reg != noMReg 'register'
+				return false
+			end 'register'
+		end 'members'
+		return true
+	end 'onlyFramed'
+
+	// addFramePieces adds a slot of the frame as a piece of every block, below any value of the name: a binding that stays
+	// in the frame holds the name wherever a value of another binding of it is not live.
+	function addFramePieces(mutates self, c Colourer, binding Count, disp FullRangeInt)
+		for b in 0 upto c.origBlocks.count() 'blocks'
+			self.addPiece(b, lo: c.origBlocks[b].first, hi: c.origBlocks[b].endAt, member: noValue, key: 0, binding: binding, disp: disp)
+		end 'blocks'
+	end 'addFramePieces'
+
+	// sameWord is whether the named words a and b are the same word of bindings of one name.
+	function sameWord(f ir.IrFunction, a Count, b Count) returns bool
+		return named[a].word == named[b].word and f.debug[named[a].binding].name == f.debug[named[b].binding].name
+	end 'sameWord'
+
+	// findFamilies finds the value each spill slot holds, the value each reload reloads, and the brackets.
+	function findFamilies(mutates self, s Spiller, c Colourer)
+		let vregs = s.lv.vregCount()
+		rootOf.clear()
+		for v in 0 upto vregs 'identity'
+			rootOf.push(v)
+		end 'identity'
+		slotValue.clear()
+		reloads.clear()
+		bracketValue.clear()
+		bracketBlock.clear()
+		bracketFrom.clear()
+		bracketTo.clear()
+		storeSlot.clear()
+		storeAt.clear()
+		readSlot.clear()
+		readAt.clear()
+		let blockCount = s.graph.blockCount()
+		while stamp.count() < blockCount 'room'
+			stamp.push(0)
+			liveStamp.push(0)
+			useStamp.push(0)
+			lastUse.push(0)
+			blockHead.push(noValue)
+		end 'room'
+		for k in 0 upto c.origInstrs.count() 'spills'
+			let kind = c.origInstrs[k].kind
+			if kind == MKind.reload or kind == MKind.restore 'read'
+				readSlot.push(spillSlotOf(c.origInstrs[k]) as Count)
+				readAt.push(k)
+			end 'read'
+			if kind == MKind.spill 'store'
+				storeSlot.push(spillSlotOf(c.origInstrs[k]) as Count)
+				storeAt.push(k)
+			end 'store'
+			if c.origInstrs[k].kind == MKind.spill and isVirtual(c.origInstrs[k].a) 'spill'
+				let slot = spillSlotOf(c.origInstrs[k]) as Count
+				while slotValue.count() <= slot 'room'
+					slotValue.push(noValue)
+				end 'room'
+				let v = vregIndex(c.origInstrs[k].a)
+				if slotValue[slot] == noValue 'first'
+					slotValue[slot] = v
+				end 'first' else if slotValue[slot] != v 'another'
+					slotValue[slot] = mixedSlot
+				end 'another'
+				if c.opens[k] 'bracket'
+					bracketValue.push(v)
+					bracketBlock.push(s.graph.blockAt[k])
+					bracketFrom.push(nextCount(k))
+					bracketTo.push(c.bracketEnd[k])
+				end 'bracket'
+			end 'spill'
+		end 'spills'
+		for k in 0 upto c.origInstrs.count() 'reloads'
+			if c.origInstrs[k].kind == MKind.reload and isVirtual(c.origInstrs[k].a) 'reload'
+				let slot = spillSlotOf(c.origInstrs[k]) as Count
+				let v = vregIndex(c.origInstrs[k].a)
+				if slot < slotValue.count() and slotValue[slot] < mixedSlot and v < vregs 'one'
+					rootOf[v] = slotValue[slot]
+					reloads.push(v)
+				end 'one'
+			end 'reload'
+		end 'reloads'
+	end 'findFamilies'
+
+	function clearPieces(mutates self)
+		pieceBinding.clear()
+		pieceBlock.clear()
+		pieceLo.clear()
+		pieceHi.clear()
+		pieceMember.clear()
+		pieceKey.clear()
+		pieceDisp.clear()
+	end 'clearPieces'
+
+	function addPiece(mutates self, b Count, lo Count, hi Count, member Count, key Count, binding Count, disp FullRangeInt)
+		if hi <= lo 'empty'
+			return
+		end 'empty'
+		pieceBinding.push(binding)
+		pieceBlock.push(b)
+		pieceLo.push(lo)
+		pieceHi.push(hi)
+		pieceMember.push(member)
+		pieceKey.push(key)
+		pieceDisp.push(disp)
+	end 'addPiece'
+
+	// addFamily adds the pieces of the value in r: where it, or a reload of it, is live, and where its slot holds it.
+	function addFamily(mutates self, fn MirFunction, s Spiller, c Colourer, r MReg, binding Count)
+		if not isVirtual(r) 'physical'
+			return
+		end 'physical'
+		let v = vregIndex(r)
+		if v >= s.lv.vregCount() or s.lv.defBlock[v] == noBlock or rootOf[v] != v 'gone'
+			return
+		end 'gone'
+		let key = self.defKey(s, c: c, v: v)
+		self.addStretches(s, c: c, m: v, key: key, binding: binding)
+		for i in 0 upto reloads.count() 'reloads'
+			let m = reloads[i]
+			if rootOf[m] == v 'reload'
+				self.addStretches(s, c: c, m: m, key: key, binding: binding)
+			end 'reload'
+		end 'reloads'
+		for slot in 0 upto slotValue.count() 'slots'
+			if slotValue[slot] == v 'spilled'
+				self.addSlotPieces(fn, s: s, c: c, slot: slot, key: key, binding: binding)
+			end 'spilled'
+		end 'slots'
+	end 'addFamily'
+
+	// defKey is where the value v is defined in the layout: a parameter of a block after the instructions before the block
+	// and before its own, an instruction's value after the instruction, each key twice the place plus one for an instruction.
+	function defKey(s Spiller, c Colourer, v Count) returns Count
+		let at = s.lv.defAt[v]
+		if at == noDef 'param'
+			return try c.origBlocks[countOfIndex(s.lv.defBlock[v])].first * 2 otherwise panic("backend: a key past memory")
+		end 'param'
+		return try countOfIndex(at) * 2 + 1 otherwise panic("backend: a key past memory")
+	end 'defKey'
+
+	// addStretches adds the stretches where the value m is live: after its definition in its block, and in each block it is
+	// live into, up to its last use there or the block's end when it is live out of it.
+	function addStretches(mutates self, s Spiller, c Colourer, m Count, key Count, binding Count)
+		if m >= c.coloured.count() or not c.coloured[m] 'uncoloured'
+			return
+		end 'uncoloured'
+		mark = nextCount(mark)
+		for e in s.lv.valueLiveStart[m] upto s.lv.valueLiveStart[nextCount(m)] 'liveIn'
+			liveStamp[s.lv.valueLive[e]] = mark
+		end 'liveIn'
+		for e in s.lv.useStart[m] upto s.lv.useStart[nextCount(m)] 'uses'
+			let k = s.lv.recordAt[s.lv.useList[e]]
+			let b = s.graph.blockAt[k]
+			if useStamp[b] != mark or lastUse[b] < nextCount(k) 'later'
+				useStamp[b] = mark
+				lastUse[b] = nextCount(k)
+			end 'later'
+		end 'uses'
+		self.stretchIn(s, c: c, m: m, b: countOfIndex(s.lv.defBlock[m]), key: key, binding: binding, defined: true)
+		for e in s.lv.valueLiveStart[m] upto s.lv.valueLiveStart[nextCount(m)] 'live'
+			self.stretchIn(s, c: c, m: m, b: s.lv.valueLive[e], key: key, binding: binding, defined: false)
+		end 'live'
+	end 'addStretches'
+
+	function stretchIn(mutates self, s Spiller, c Colourer, m Count, b Count, key Count, binding Count, defined bool)
+		var lo = c.origBlocks[b].first
+		if defined and s.lv.defAt[m] != noDef 'afterDef'
+			lo = nextCount(countOfIndex(s.lv.defAt[m]))
+		end 'afterDef'
+		var hi = lo
+		if self.liveOut(s, b: b) 'out'
+			hi = c.origBlocks[b].endAt
+		end 'out' else if useStamp[b] == mark and lastUse[b] > hi 'dies'
+			hi = lastUse[b]
+		end 'dies'
+		self.addPiece(b, lo: lo, hi: hi, member: m, key: key, binding: binding, disp: 0)
+	end 'stretchIn'
+
+	// liveOut is whether the value whose live blocks liveStamp holds is live out of block b: into one of its successors.
+	function liveOut(s Spiller, b Count) returns bool
+		for e in s.graph.succStart[b] upto s.graph.succStart[nextCount(b)] 'succs'
+			if liveStamp[s.graph.succ[e]] == mark 'into'
+				return true
+			end 'into'
+		end 'succs'
+		return false
+	end 'liveOut'
+
+	// lastStore is the last spill to the slot from instruction from up to before, or noValue.
+	function lastStore(slot Count, from Count, before Count) returns Count
+		var last = noValue
+		for i in 0 upto storeAt.count() 'stores'
+			let k = storeAt[i]
+			if storeSlot[i] == slot and k >= from and k < before and (last == noValue or k > last) 'later'
+				last = k
+			end 'later'
+		end 'stores'
+		return last
+	end 'lastStore'
+
+	// addSlotPieces adds where the spill slot holds its value: from each reload or restore of it back to the spill before it,
+	// through every block between.
+	function addSlotPieces(mutates self, fn MirFunction, s Spiller, c Colourer, slot Count, key Count, binding Count)
+		let disp = spillFrameDisp(fn.arch, slot: try slot as SpillSlot otherwise panic("backend: a spill slot past 2 GiB"))
+		mark = nextCount(mark)
+		work.clear()
+		for r in 0 upto readAt.count() 'reads'
+			if readSlot[r] == slot 'read'
+				let k = readAt[r]
+				let b = s.graph.blockAt[k]
+				let store = self.lastStore(slot, from: c.origBlocks[b].first, before: k)
+				if store != noValue 'stored'
+					self.addPiece(b, lo: nextCount(store), hi: nextCount(k), member: noValue, key: key, binding: binding, disp: disp)
+				end 'stored' else 'through'
+					self.addPiece(b, lo: c.origBlocks[b].first, hi: nextCount(k), member: noValue, key: key, binding: binding, disp: disp)
+					self.queuePreds(s, b: b)
+				end 'through'
+			end 'read'
+		end 'reads'
+		while work.count() > 0 'walk'
+			let b = try work.pop() otherwise panic("backend: an empty walk")
+			if stamp[b] == mark 'seen'
+				continue 'walk'
+			end 'seen'
+			stamp[b] = mark
+			let store = self.lastStore(slot, from: c.origBlocks[b].first, before: c.origBlocks[b].endAt)
+			if store != noValue 'stored'
+				self.addPiece(b, lo: nextCount(store), hi: c.origBlocks[b].endAt, member: noValue, key: key, binding: binding, disp: disp)
+			end 'stored' else 'through'
+				self.addPiece(b, lo: c.origBlocks[b].first, hi: c.origBlocks[b].endAt, member: noValue, key: key, binding: binding, disp: disp)
+				self.queuePreds(s, b: b)
+			end 'through'
+		end 'walk'
+	end 'addSlotPieces'
+
+	function queuePreds(mutates self, s Spiller, b Count)
+		for e in s.graph.predStart[b] upto s.graph.predStart[nextCount(b)] 'preds'
+			let p = s.graph.pred[e]
+			if s.graph.reached[p] and stamp[p] != mark 'more'
+				work.push(p)
+			end 'more'
+		end 'preds'
+	end 'queuePreds'
+
+	// sweep records where the binding's word is over each block its pieces are in: at each point where a piece, a window or
+	// a bracket begins or ends, the piece of the value defined last, its register before its slot.
+	function sweep(mutates self, s Spiller, c Colourer, word Count)
+		blocks.clear()
+		pieceNext.clear()
+		for p in 0 upto pieceBlock.count() 'pieces'
+			let b = pieceBlock[p]
+			if blockHead[b] == noValue 'first'
+				blocks.push(b)
+			end 'first'
+			pieceNext.push(blockHead[b])
+			blockHead[b] = p
+		end 'pieces'
+		sortCounts(blocks, scratch: scratch, from: 0, to: blocks.count())
+		for i in 0 upto blocks.count() 'blocks'
+			let b = blocks[i]
+			points.clear()
+			var p = blockHead[b]
+			while p != noValue 'points'
+				insertSorted(points, value: pieceLo[p])
+				insertSorted(points, value: pieceHi[p])
+				let m = pieceMember[p]
+				if m != noValue 'register'
+					self.addWindowPoints(c, m: m, b: b)
+					self.addBracketPoints(m, b: b)
+				end 'register'
+				p = pieceNext[p]
+			end 'points'
+			for t in 1 upto points.count() 'spans'
+				let k = points[try t - 1 otherwise panic("backend: a point before the first")]
+				let best = self.bestPiece(c, b: b, k: k)
+				if best == noValue 'none'
+					continue 'spans'
+				end 'none'
+				let m = pieceMember[best]
+				let binding = pieceBinding[best]
+				let disp = pieceDisp[best]
+				let next = points[t]
+				if m == noValue 'slot'
+					self.record(binding, word: word, kind: mxdbg.MxdbgLocKindStackSlot, value: disp, block: b, lo: k, hi: next)
+				end 'slot' else 'register'
+					self.record(binding, word: word, kind: mxdbg.MxdbgLocKindRegister, value: try c.locAt(m, b: b, k: k) as FullRangeInt otherwise panic("backend: a register past a figure"), block: b, lo: k, hi: next)
+				end 'register'
+			end 'spans'
+		end 'blocks'
+		for i in 0 upto blocks.count() 'reset'
+			blockHead[blocks[i]] = noValue
+		end 'reset'
+	end 'sweep'
+
+	function addWindowPoints(mutates self, c Colourer, m Count, b Count)
+		var w = c.winFirst[m]
+		while w != noDef 'windows'
+			let i = countOfIndex(w)
+			if c.winBlock[i] == b 'here'
+				insertSorted(points, value: c.winFrom[i])
+				insertSorted(points, value: c.winTo[i])
+			end 'here'
+			w = c.winNext[i]
+		end 'windows'
+	end 'addWindowPoints'
+
+	function addBracketPoints(mutates self, m Count, b Count)
+		for i in 0 upto bracketValue.count() 'brackets'
+			if bracketValue[i] == m and bracketBlock[i] == b 'here'
+				insertSorted(points, value: bracketFrom[i])
+				insertSorted(points, value: bracketTo[i])
+			end 'here'
+		end 'brackets'
+	end 'addBracketPoints'
+
+	// bestPiece is the piece of block b that holds the binding at instruction k, or noValue: of the pieces over k, that of
+	// the value defined last, a register over a slot; a register piece of a value a bracket has out of its register holds
+	// nothing there.
+	function bestPiece(c Colourer, b Count, k Count) returns Count
+		var best = noValue
+		var p = blockHead[b]
+		while p != noValue 'pieces'
+			let at = p
+			p = pieceNext[at]
+			if k < pieceLo[at] or k >= pieceHi[at] 'outside'
+				continue 'pieces'
+			end 'outside'
+			let m = pieceMember[at]
+			if m != noValue and self.inBracket(m, b: b, k: k) 'lent'
+				continue 'pieces'
+			end 'lent'
+			if best == noValue or pieceKey[at] > pieceKey[best] or (pieceKey[at] == pieceKey[best] and m != noValue and pieceMember[best] == noValue) 'better'
+				best = at
+			end 'better'
+		end 'pieces'
+		return best
+	end 'bestPiece'
+
+	function inBracket(m Count, b Count, k Count) returns bool
+		for i in 0 upto bracketValue.count() 'brackets'
+			if bracketValue[i] == m and bracketBlock[i] == b and bracketFrom[i] <= k and k < bracketTo[i] 'inside'
+				return true
+			end 'inside'
+		end 'brackets'
+		return false
+	end 'inBracket'
+
+	// record adds a record, or extends the last one where it is the same place and goes on from there.
+	function record(mutates self, binding Count, word Count, kind mxdbg.MxdbgIndex, value FullRangeInt, block Count, lo Count, hi Count)
+		let n = outBinding.count()
+		if n > 0 and block != wholeFunction 'extend'
+			let last = try n - 1 otherwise panic("backend: a record before the first")
+			if outBinding[last] == binding and outWord[last] == word and outKind[last] == kind and outValue[last] == value and outBlock[last] == block and outHi[last] == lo 'same'
+				outHi[last] = hi
+				return
+			end 'same'
+		end 'extend'
+		outBinding.push(binding)
+		outWord.push(word)
+		outKind.push(kind)
+		outValue.push(value)
+		outBlock.push(block)
+		outLo.push(lo)
+		outHi.push(hi)
+	end 'record'
+
+	// renumber numbers the records' instructions as the coloured function has them, after the rewrite: an instruction that
+	// disappeared is where the next one is, and a block's end its end.
+	function renumber(mutates self, fn MirFunction, c Colourer)
+		for i in 0 upto outBlock.count() 'records'
+			let b = outBlock[i]
+			if b == wholeFunction 'whole'
+				continue 'records'
+			end 'whole'
+			outLo[i] = newIndex(c, k: outLo[i])
+			if outHi[i] == c.origBlocks[b].endAt 'end'
+				outHi[i] = fn.blocks[b].endAt
+			end 'end' else 'inside'
+				outHi[i] = newIndex(c, k: outHi[i])
+			end 'inside'
+		end 'records'
+	end 'renumber'
+
+	// finish gives the unit the frame of fn, which f was selected into and the encoder has just written as lay says, and the
+	// records of its locals at their places in the code: a binding with none is optimized out over the whole function.
+	function finish(mutates self, mutates u CodeUnit, f ir.IrFunction, fn MirFunction, lay BlockLayout)
+		let functionEnd = u.asm.pos()
+		let prologueEnd = prologueEndOf(fn, lay: lay, functionEnd: functionEnd)
+		u.debugFrames.push(DebugFrame.make(lay.codeStart, size: debugFrameSize(fn, framed: lay.framed), params: f.paramCount, prologue: try prologueEnd - lay.codeStart otherwise panic("backend: a prologue that ends before its function")))
+		var placed = BoolList.create(0)
+		ir.resetFlags(placed, n: f.debug.count())
+		var group = u.debugLocals.count()
+		for i in 0 upto outBlock.count() 'records'
+			if i > 0 and (outWord[i] != outWord[prevCount(i)] or f.debug[outBinding[i]].name != f.debug[outBinding[prevCount(i)]].name) 'nextGroup'
+				settleRecords(u.debugLocals, from: group)
+				group = u.debugLocals.count()
+			end 'nextGroup'
+			let b = outBlock[i]
+			var start = prologueEnd
+			var stop = functionEnd
+			if b != wholeFunction 'stretch'
+				start = notPlaced
+				if outLo[i] < lay.codeAt.count() 'placed'
+					start = lay.codeAt[outLo[i]]
+				end 'placed'
+				if outHi[i] == fn.blocks[b].endAt 'blockEnd'
+					stop = lay.codeEnd[b]
+				end 'blockEnd' else 'inside'
+					stop = lay.codeAt[outHi[i]]
+				end 'inside'
+			end 'stretch'
+			if start == notPlaced or stop == notPlaced or start >= stop 'nowhere'
+				continue 'records'
+			end 'nowhere'
+			let binding = outBinding[i]
+			placed[binding] = true
+			u.debugLocals.push(DebugLocal.make(f.debug[binding].name.clone(), ty: f.debug[binding].ty, kind: outKind[i], value: try outValue[i] as mxdbg.MxdbgRecordFigure otherwise panic("backend: a location past the sidecar's figure"), start: start, stop: stop, second: outWord[i] == secondWord))
+		end 'records'
+		settleRecords(u.debugLocals, from: group)
+		for i in 0 upto f.debug.count() 'unplaced'
+			if f.debug[i].kind == ir.DebugKind.debugLocal and not placed[i] and not namePlaced(f, placed: placed, name: f.debug[i].name) and lay.codeStart < functionEnd 'gone'
+				u.debugLocals.push(DebugLocal.make(f.debug[i].name.clone(), ty: f.debug[i].ty, kind: mxdbg.MxdbgLocKindOptimizedOut, value: 0, start: lay.codeStart, stop: functionEnd, second: false))
+			end 'gone'
+		end 'unplaced'
+	end 'finish'
+end 'LocalHarvest'
+
+// namePlaced is whether a binding of f of the name has a place somewhere, which the name then is.
+function namePlaced(f ir.IrFunction, placed BoolList, name String) returns bool
+	for i in 0 upto f.debug.count() 'bindings'
+		if placed[i] and f.debug[i].kind == ir.DebugKind.debugLocal and f.debug[i].name == name 'placed'
+			return true
+		end 'placed'
+	end 'bindings'
+	return false
+end 'namePlaced'
+
+// settleRecords puts the records of one word of a binding, from from on, in the order of the code, and joins each to the one
+// before it where both say the same place and the code of one goes on into the other's.
+function settleRecords(mutates list DebugLocalList, from Count)
+	if list.count() <= from 'none'
+		return
+	end 'none'
+	for i in nextCount(from) upto list.count() 'sort'
+		var j = i
+		while j > from and list[prevCount(j)].start > list[j].start 'back'
+			let earlier = list[prevCount(j)].clone()
+			list[prevCount(j)] = list[j].clone()
+			list[j] = earlier
+			j = prevCount(j)
+		end 'back'
+	end 'sort'
+	var kept = from
+	for i in from upto list.count() 'merge'
+		if kept > from 'joins'
+			let last = prevCount(kept)
+			if list[last].kind == list[i].kind and list[last].value == list[i].value and list[last].stop >= list[i].start 'same'
+				if list[i].stop > list[last].stop 'longer'
+					list[last].stop = list[i].stop
+				end 'longer'
+				continue 'merge'
+			end 'same'
+		end 'joins'
+		if kept != i 'move'
+			list[kept] = list[i].clone()
+		end 'move'
+		kept = nextCount(kept)
+	end 'merge'
+	list.truncate(kept)
+end 'settleRecords'
+
+// newIndex is where the code of the instruction k of the function before the rewrite starts after it, with the copies the
+// rewrite put before it: a change of place at k is one there, so the stretches on either side of it still meet.
+function newIndex(c Colourer, k Count) returns Count
+	return c.outStart[k]
+end 'newIndex'
+
+// prologueEndOf is where the prologue of fn ends in its code: the code after its frame setup.
+function prologueEndOf(fn MirFunction, lay BlockLayout, functionEnd Count) returns Count
+	for b in 0 upto fn.blocks.count() 'blocks'
+		for k in fn.blocks[b].first upto fn.blocks[b].endAt 'instrs'
+			if fn.instrs[k].kind == MKind.frameSetup 'setup'
+				let after = nextCount(k)
+				if after < fn.blocks[b].endAt and lay.codeAt[after] != notPlaced 'next'
+					return lay.codeAt[after]
+				end 'next'
+				if lay.codeEnd[b] != notPlaced 'end'
+					return lay.codeEnd[b]
+				end 'end'
+			end 'setup'
+		end 'instrs'
+	end 'blocks'
+	return lay.codeStart
+end 'prologueEndOf'
+
+// registerName is how a dump names the register of a number in the register file of the architecture (a local's location):
+// x64's general registers by name and its vector ones from xmm0, arm64's from x0 and its vector ones from v0.
+export function registerName(arch ast.TargetArch, number Count) returns String
+	return match arch 'arch'
+		x64 gives x64RegisterName(number)
+		arm64 gives arm64RegisterName(number)
+	end 'arch'
+end 'registerName'
+
+// framePointerNumber is the number of the architecture's frame pointer in its register file, which a slot is measured from.
+export function framePointerNumber(arch ast.TargetArch) returns Count
+	return match arch 'arch'
+		x64 gives regNumOf(rbp) as Count
+		arm64 gives arm64RegNumOf(arm64FramePointer) as Count
+	end 'arch'
+end 'framePointerNumber'
+
+function x64RegisterName(number Count) returns String
+	if number < x64FirstVector 'general'
+		return X64Register.allCases[number].name
+	end 'general'
+	return "xmm{try number - x64FirstVector otherwise panic("backend: a register below the vector ones")}"
+end 'x64RegisterName'
+
+function arm64RegisterName(number Count) returns String
+	if number < arm64FirstVector 'general'
+		return Arm64Register.allCases[number].name
+	end 'general'
+	return "v{try number - arm64FirstVector otherwise panic("backend: a register below the vector ones")}"
+end 'arm64RegisterName'
+
+// sortCounts sorts the counts from from up to to of list in ascending order, through scratch: a merge sort.
+function sortCounts(mutates list CountList, mutates scratch CountList, from Count, to Count)
+	if from >= to or nextCount(from) >= to 'sorted'
+		return
+	end 'sorted'
+	while scratch.count() < to 'room'
+		scratch.push(0)
+	end 'room'
+	let mid = try from + (to - from) / 2 otherwise panic("backend: a sort past its bounds")
+	sortCounts(list, scratch: scratch, from: from, to: mid)
+	sortCounts(list, scratch: scratch, from: mid, to: to)
+	var i = from as Count
+	var j = mid as Count
+	var k = from as Count
+	while k < to 'merge'
+		if j >= to or (i < mid and list[i] <= list[j]) 'left'
+			scratch[k] = list[i]
+			i = nextCount(i)
+		end 'left' else 'right'
+			scratch[k] = list[j]
+			j = nextCount(j)
+		end 'right'
+		k = nextCount(k)
+	end 'merge'
+	for x in from upto to 'copy'
+		list[x] = scratch[x]
+	end 'copy'
+end 'sortCounts'
+
+// insertSorted puts value in the ascending list, once.
+function insertSorted(mutates list CountList, value Count)
+	var at = list.count()
+	while at > 0 and list[prevCount(at)] >= value 'back'
+		at = prevCount(at)
+	end 'back'
+	if at < list.count() and list[at] == value 'there'
+		return
+	end 'there'
+	list.push(value)
+	var i = prevCount(list.count())
+	while i > at 'shift'
+		list[i] = list[prevCount(i)]
+		i = prevCount(i)
+	end 'shift'
+	list[at] = value
+end 'insertSorted'

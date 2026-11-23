@@ -482,9 +482,10 @@ function padSpans(mutates out ir.SpanList, fn MirFunction, count Count)
 end 'padSpans'
 
 // noteSpans gives the unit the spans of the instructions of fn from from up to upTo, which it has just written as one from
-// at on.
-function noteSpans(mutates u CodeUnit, fn MirFunction, from Count, upTo Count, at Count)
+// at on, and notes where their code starts in lay.
+function noteSpans(mutates u CodeUnit, fn MirFunction, mutates lay BlockLayout, from Count, upTo Count, at Count)
 	for j in from upto upTo 'each'
 		u.noteSpan(fn.spans[j], at: at)
+		lay.codeAt[j] = at
 	end 'each'
 end 'noteSpans'

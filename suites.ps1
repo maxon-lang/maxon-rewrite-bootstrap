@@ -220,13 +220,59 @@ function Test-SelfCompilesForArm64 {
 }
 
 # Debug info is written only with --debug-info and must leave the executable as it is: programs are built for every target
-# with and without it, and self for this one, with every span verified (--verify-ir), and the executables compared. A stack
-# overflow's fault line, whose address is in a function of one statement, is then symbolized to that statement on x64
-# Windows (a copy of the executable that the loader keeps at its image base), x64 Linux and arm64 Linux (under WSL and its
-# qemu).
+# with and without it, and self for this one, with every span verified (--verify-ir), and the executables compared. The
+# sidecar of self must be walkable, and on every target that of a program whose locals are in registers, in frame slots and
+# in two words (a String) must say so, with its record's fields. A stack overflow's fault line, whose address is in a
+# function of one statement, is then symbolized to that statement on x64 Windows (a copy of the executable that the loader
+# keeps at its image base), x64 Linux and arm64 Linux (under WSL and its qemu).
 $debugInfoTargets = 'x64-windows', 'x64-linux', 'arm64-linux', 'arm64-macos'
 $debugInfoPrograms = 'tests\run\arithmetic.maxon', 'tests\run\array-methods.maxon', 'tests\run\generics.maxon'
 $overflowLine = 'overflow.maxon:3:2  (in export::down)'
+$localsSource = @"
+// The program whose locals the debug info step reads: across holds more values over a call than the callee-saved
+// registers, so some are in registers and some in frame slots; named holds a record and a String of two words.
+type Pair
+	export var left as Count
+	export var name as String
+
+	static function make(left Count, consumes name String) returns Pair
+		return Pair{left: left, name: name}
+	end 'make'
+end 'Pair'
+
+function across(seed Count) returns Count
+	let a = try seed + 1 otherwise 0
+	let b = try seed + 2 otherwise 0
+	let c = try seed + 3 otherwise 0
+	let d = try seed + 4 otherwise 0
+	let e = try seed + 5 otherwise 0
+	let f = try seed + 6 otherwise 0
+	let g = try seed + 7 otherwise 0
+	let h = try seed + 8 otherwise 0
+	let i = try seed + 9 otherwise 0
+	let j = try seed + 10 otherwise 0
+	let k = try seed + 11 otherwise 0
+	let m = try seed + 12 otherwise 0
+	let n = try seed + 13 otherwise 0
+	let o = try seed + 14 otherwise 0
+	print("{a}\n")
+	return try a + b + c + d + e + f + g + h + i + j + k + m + n + o otherwise 0
+end 'across'
+
+function named(text String, count Count) returns String
+	let pair = Pair.make(count, name: text.clone())
+	let greeting = "{pair.name}:{pair.left}"
+	return greeting
+end 'named'
+
+function main() returns ExitCode
+	print("{across(5)} {named("x", count: 4)}\n")
+	return 0
+end 'main'
+"@
+# What the dump of the locals program must show: a local of across in a register and one in a frame slot, the second word of
+# a String, and the fields of Pair.
+$localsExpected = '(?m)^        a  \[0x[0-9a-f]+, 0x[0-9a-f]+\)  (r[a-z0-9]+|x[0-9]+)  :', '(?m)^        [a-o]  \[0x[0-9a-f]+, 0x[0-9a-f]+\)  \[(rbp|x29)[-+]0x[0-9a-f]+\]  :', '(?m)^        greeting  .* \(second word\)  : String', '(?m)^        \+0x0008  name : String'
 $overflowSource = @"
 // The program whose stack overflow the debug info step symbolizes: every instruction of down is its one statement's.
 function down(n Count) returns Count
@@ -245,6 +291,8 @@ function Test-DebugInfo {
 		$null = New-Item -ItemType Directory -Force $root
 		$overflow = Join-Path $root 'overflow.maxon'
 		[IO.File]::WriteAllText($overflow, $overflowSource.Replace("`r`n", "`n") + "`n")
+		$locals = Join-Path $root 'locals.maxon'
+		[IO.File]::WriteAllText($locals, $localsSource.Replace("`r`n", "`n") + "`n")
 		function Build($source, $out, [string[]]$flags) {
 			$text = & $compiler build $source -o $out --no-cache @flags 2>&1 | Out-String
 			if ($LASTEXITCODE -ne 0) { throw "debug info: the build of $source $flags failed: $text" }
@@ -260,9 +308,15 @@ function Test-DebugInfo {
 			if (-not (Test-Path (Join-Path $root "$name.exe.mxdbg"))) { throw "debug info: no sidecar beside the build of $source $flags" }
 		}
 		Same (Join-Path $PSScriptRoot 'self') @() 'self'
+		$walked = & $compiler debug --dump-info (Join-Path $root 'self.exe') functions types 2>&1 | Out-String
+		if ($LASTEXITCODE -ne 0 -or $walked -notmatch '(?m)^  types \([1-9]') { throw "debug info: the sidecar of self cannot be walked: $($walked.Substring(0, [Math]::Min(400, $walked.Length)))" }
 		foreach ($t in $debugInfoTargets) {
-			foreach ($p in @($overflow) + $debugInfoPrograms) {
+			foreach ($p in @($overflow, $locals) + $debugInfoPrograms) {
 				Same $p @("--target=$t") "$([IO.Path]::GetFileNameWithoutExtension($p))-$t"
+			}
+			$dump = & $compiler debug --dump-info (Join-Path $root "locals-$t.exe") functions types 2>&1 | Out-String
+			foreach ($expected in $localsExpected) {
+				if ($dump -notmatch $expected) { throw "debug info: the locals of the program built for $t do not match $expected" }
 			}
 		}
 		# The loader keeps an image whose header asks for no move at its image base, where the sidecar places its code.

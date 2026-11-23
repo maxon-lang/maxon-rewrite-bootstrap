@@ -158,6 +158,7 @@ end 'CompiledProgram'
 // the run shares, and keeps what it lowered.
 function compileProjectWith(shared SharedRuntime, path String, output String, options Options, mutates errs diag.ErrorList) returns CompiledProgram
 	var p = shared.projectForProgram()
+	p.keepsSpans = options.debugInfo
 	let first = p.modules.count()
 	var generated = Generated.nothing()
 	match consumes project.discoverProjectInto(p, rootPath: path, errs: errs) 'found'
@@ -170,6 +171,7 @@ end 'compileProjectWith'
 // compileFilesWith is compileProjectWith for a project whose files are held in memory, as the directory at path holds them.
 function compileFilesWith(shared SharedRuntime, path String, files project.SourceFiles, output String, options Options, mutates errs diag.ErrorList)
 	var p = shared.projectForProgram()
+	p.keepsSpans = options.debugInfo
 	let first = p.modules.count()
 	project.discoverFilesInto(p, rootPath: path, files: files, errs: errs)
 	_ = compileDiscovered(p, memory: files, first: first, ready: shared.ready, output: output, options: options, errs: errs)
@@ -178,6 +180,7 @@ end 'compileFilesWith'
 // compileSourceWith is compileProjectWith for a program that is the one file text, named path in the diagnostics.
 function compileSourceWith(shared SharedRuntime, path String, text String, output String, options Options, mutates errs diag.ErrorList)
 	var p = shared.projectForProgram()
+	p.keepsSpans = options.debugInfo
 	let first = p.modules.count()
 	let memory = project.discoverSourceInto(p, path: path, text: text, errs: errs)
 	_ = compileDiscovered(p, memory: memory, first: first, ready: shared.ready, output: output, options: options, errs: errs)

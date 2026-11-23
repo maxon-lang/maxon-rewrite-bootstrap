@@ -136,6 +136,23 @@ function loadArrayOfDatumWord(mutates r table.CacheReader) returns Array with Da
 	return a
 end 'loadArrayOfDatumWord'
 
+function storeArrayOfDebugEntry(mutates w table.CacheWriter, v Array with DebugEntry)
+	w.word64(v.count() as table.Word64)
+	for i in 0 upto v.count() 'items'
+		storeDebugEntry(w, v: v[i])
+	end 'items'
+end 'storeArrayOfDebugEntry'
+
+function loadArrayOfDebugEntry(mutates r table.CacheReader) returns Array with DebugEntry
+	let n = r.items()
+	var a as Array with DebugEntry
+	a = Array.create(0)
+	for _ in 0 upto n 'items'
+		a.push(DebugEntry.cacheLoad(r))
+	end 'items'
+	return a
+end 'loadArrayOfDebugEntry'
+
 function storeArrayOfFloatMask(mutates w table.CacheWriter, v Array with FloatMask)
 	w.word64(v.count() as table.Word64)
 	for i in 0 upto v.count() 'items'
@@ -152,23 +169,6 @@ function loadArrayOfFloatMask(mutates r table.CacheReader) returns Array with Fl
 	end 'items'
 	return a
 end 'loadArrayOfFloatMask'
-
-function storeArrayOfInlineSite(mutates w table.CacheWriter, v Array with InlineSite)
-	w.word64(v.count() as table.Word64)
-	for i in 0 upto v.count() 'items'
-		storeInlineSite(w, v: v[i])
-	end 'items'
-end 'storeArrayOfInlineSite'
-
-function loadArrayOfInlineSite(mutates r table.CacheReader) returns Array with InlineSite
-	let n = r.items()
-	var a as Array with InlineSite
-	a = Array.create(0)
-	for _ in 0 upto n 'items'
-		a.push(InlineSite.cacheLoad(r))
-	end 'items'
-	return a
-end 'loadArrayOfInlineSite'
 
 function storeArrayOfInstr(mutates w table.CacheWriter, v Array with Instr)
 	w.word64(v.count() as table.Word64)
@@ -389,18 +389,32 @@ extension DatumWord
 	end 'cacheLoad'
 end 'DatumWord'
 
-function storeInlineSite(mutates w table.CacheWriter, v InlineSite)
+function storeDebugEntry(mutates w table.CacheWriter, v DebugEntry)
+	w.word8(v.kind.ordinal as table.Word64)
 	w.word64(v.callee as table.Word64)
 	w.word64(v.call as table.Word64)
-end 'storeInlineSite'
+	w.text(v.name)
+	w.word64(v.ty as table.Word64)
+	w.word64(v.binding as table.Word64)
+	w.word64(v.param as table.Word64)
+	w.word64(v.slot as table.Word64)
+	w.word64(v.reg as table.Word64)
+end 'storeDebugEntry'
 
-extension InlineSite
-	static function cacheLoad(mutates r table.CacheReader) returns InlineSite
+extension DebugEntry
+	static function cacheLoad(mutates r table.CacheReader) returns DebugEntry
+		let theKind = DebugKind.allCases[r.word8() as Count]
 		let theCallee = try (r.word64() as ast.FuncID) otherwise panic("cache: a stored ast.FuncID is out of its range")
 		let theCall = r.word64() as Word
-		return InlineSite{callee: theCallee, call: theCall}
+		let theName = r.text()
+		let theTy = try (r.word64() as ast.TypeID) otherwise panic("cache: a stored ast.TypeID is out of its range")
+		let theBinding = r.word64() as Count
+		let theParam = r.word64() as Count
+		let theSlot = r.word64() as Count
+		let theReg = try (r.int64() as Reg) otherwise panic("cache: a stored Reg is out of its range")
+		return DebugEntry{kind: theKind, callee: theCallee, call: theCall, name: theName, ty: theTy, binding: theBinding, param: theParam, slot: theSlot, reg: theReg}
 	end 'cacheLoad'
-end 'InlineSite'
+end 'DebugEntry'
 
 function storeInstr(mutates w table.CacheWriter, v Instr)
 	w.word8(v.op.ordinal as table.Word64)
@@ -461,7 +475,7 @@ export function storeIrFunction(mutates w table.CacheWriter, v IrFunction)
 	storeArrayOfFloatMask(w, v: v.floatMasks)
 	w.flag(v.keepsSpans)
 	storeArrayOfWord(w, v: v.spans)
-	storeArrayOfInlineSite(w, v: v.sites)
+	storeArrayOfDebugEntry(w, v: v.debug)
 end 'storeIrFunction'
 
 extension IrFunction
@@ -499,8 +513,8 @@ extension IrFunction
 		let theFloatMasks = loadArrayOfFloatMask(r)
 		let theKeepsSpans = r.flag()
 		let theSpans = loadArrayOfWord(r)
-		let theSites = loadArrayOfInlineSite(r)
-		return IrFunction{decl: theDecl, name: theName, paramCount: theParamCount, slots: theSlots, regs: theRegs, frameBoxes: theFrameBoxes, instrs: theInstrs, blocks: theBlocks, args: theArgs, blockParams: theBlockParams, types: theTypes, callees: theCallees, strings: theStrings, cases: theCases, tables: theTables, datums: theDatums, refusals: theRefusals, usesArrays: theUsesArrays, usesBytes: theUsesBytes, usesOs: theUsesOs, bodies: theBodies, captureTypes: theCaptureTypes, captureOwned: theCaptureOwned, cownTypes: theCownTypes, lendsResult: theLendsResult, floatParams: theFloatParams, floatResult: theFloatResult, stringParams: theStringParams, stringResult: theStringResult, floatStarts: theFloatStarts, floatMasks: theFloatMasks, keepsSpans: theKeepsSpans, spans: theSpans, sites: theSites}
+		let theDebug = loadArrayOfDebugEntry(r)
+		return IrFunction{decl: theDecl, name: theName, paramCount: theParamCount, slots: theSlots, regs: theRegs, frameBoxes: theFrameBoxes, instrs: theInstrs, blocks: theBlocks, args: theArgs, blockParams: theBlockParams, types: theTypes, callees: theCallees, strings: theStrings, cases: theCases, tables: theTables, datums: theDatums, refusals: theRefusals, usesArrays: theUsesArrays, usesBytes: theUsesBytes, usesOs: theUsesOs, bodies: theBodies, captureTypes: theCaptureTypes, captureOwned: theCaptureOwned, cownTypes: theCownTypes, lendsResult: theLendsResult, floatParams: theFloatParams, floatResult: theFloatResult, stringParams: theStringParams, stringResult: theStringResult, floatStarts: theFloatStarts, floatMasks: theFloatMasks, keepsSpans: theKeepsSpans, spans: theSpans, debug: theDebug}
 	end 'cacheLoad'
 end 'IrFunction'
 

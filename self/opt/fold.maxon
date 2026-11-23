@@ -138,8 +138,21 @@ export type Fold
 		end 'converge'
 		self.markLive(f)
 		self.compact(f)
+		if f.keepsSpans 'bound'
+			self.renameBound(f)
+		end 'bound'
 		instrsAfter = try instrsAfter + f.instrs.count() otherwise panic("opt: a count past memory")
 	end 'foldFunction'
+
+	// renameBound makes each register that holds a value of the source's locals the one it is read as now.
+	function renameBound(mutates self, mutates f ir.IrFunction)
+		for i in 0 upto f.debug.count() 'entries'
+			if f.debug[i].kind == ir.DebugKind.debugValue 'value'
+				let r = f.debug[i].reg
+				f.debug[i].reg = self.find(r)
+			end 'value'
+		end 'entries'
+	end 'renameBound'
 
 	// start sets up the arrays for f and queues every parameter, instruction and terminator, block by block in the order
 	// lowering laid them out, which mostly puts a value before what reads it.

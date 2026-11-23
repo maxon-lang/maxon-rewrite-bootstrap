@@ -29,6 +29,9 @@ end 'encodeX64Function'
 // pads nothing; otherwise it pads before the head of each loop as fitLine says.
 function encodeBlocks(mutates u CodeUnit, fn MirFunction, mutates lay BlockLayout, measure bool)
 	let notes = fn.keepsSpans and not measure
+	if notes 'code'
+		lay.startCode(fn, at: u.asm.pos())
+	end 'code'
 	for _ in 0 upto fn.blocks.count() 'labels'
 		_ = u.asm.newLabel()
 	end 'labels'
@@ -52,9 +55,12 @@ function encodeBlocks(mutates u CodeUnit, fn MirFunction, mutates lay BlockLayou
 			let encoded = k
 			k = encodeAt(u, fn: fn, lay: lay, k: k, stop: fn.blocks[b as Count].endAt, next: next)
 			if notes 'rows'
-				noteSpans(u, fn: fn, from: encoded, upTo: k, at: at)
+				noteSpans(u, fn: fn, lay: lay, from: encoded, upTo: k, at: at)
 			end 'rows'
 		end 'instrs'
+		if notes 'end'
+			lay.codeEnd[b as Count] = u.asm.pos()
+		end 'end'
 	end 'blocks'
 	if measure 'end'
 		lay.starts.push(u.sectionOffset())
@@ -245,6 +251,16 @@ function encodeFrameSetup(mutates u CodeUnit, fn MirFunction, framed bool)
 		end 'save'
 	end 'vectors'
 end 'encodeFrameSetup'
+
+// x64FrameSize is the bytes the frame encodeFrameSetup makes takes below the return address: rbp, the slots and the xmm
+// registers it saves, and the general registers it pushes.
+function x64FrameSize(fn MirFunction, framed bool) returns Count
+	let saved = try maskCount(fn.savedRegs and classMask(x64Arch, class: RegClass.gpr)) * wordBytes otherwise panic("backend: a frame past memory")
+	if not framed 'leaf'
+		return saved
+	end 'leaf'
+	return try wordBytes + alignUp(fn.frameBytes() + savedVectorBytes(fn) + saved, alignment: x64StackAlignment) otherwise panic("backend: a frame past memory")
+end 'x64FrameSize'
 
 // encodeFrameTeardown restores the xmm registers the prologue saved and pops the general ones it pushed, in the other
 // order, then drops the frame.
