@@ -30,7 +30,7 @@ end 'execDatum'
 function execLoadSlot(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	let slot = ir.loadSlotSlot(x)
 	let c = slotCell(vm, slot: slot)
-	if f.slots[slot] == ir.IrKind.kindManaged 'managed'
+	if ir.owning(f.slots[slot]) 'managed'
 		_ = try live(vm, o: vm.h.refOf(c), what: "a read of the slot")
 	end 'managed'
 	copyToReg(vm, dst: x.dst, c: c)
@@ -438,7 +438,7 @@ function execClosure(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	let o = vm.h.newClosure(body, captures: count, owned: owned.clone(), site: site)
 	for i in 0 upto count 'captures'
 		let r = f.args[try start + i otherwise panic("interp: a capture past the pool")]
-		let c = vm.h.field(o, i: try closureHeaderWords + i otherwise panic("interp: a capture past memory"))
+		let c = vm.h.field(o, i: captureWord(i))
 		if owned[i] 'owned'
 			try store(vm, f: f, c: c, src: r, what: "the capture of a closure")
 		end 'owned' else 'held'

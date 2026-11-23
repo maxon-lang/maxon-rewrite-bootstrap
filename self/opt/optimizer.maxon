@@ -53,10 +53,9 @@ export type Optimizer
 	// clock times the passes for --timings.
 	export var clock as table.PhaseClock
 
-	// new is the passes of a build for an architecture, which decides how a read of a string's bytes leaves a loop
-	// (licm.maxon).
-	export static function new(arch ast.TargetArch) returns Optimizer
-		return Optimizer{ssa: Ssa.new(), fold: Fold.new(), expander: Expander.new(), inliner: Inliner.new(), rotator: Rotator.new(), licm: Licm.new(not addsIndexAndOffset(arch)), cse: Cse.new(), copies: Copies.new(), threader: Threader.new(), analysis: Analysis.new(), facts: LoopFacts.new(), clock: table.PhaseClock.off()}
+	// new is the passes of a build.
+	export static function new() returns Optimizer
+		return Optimizer{ssa: Ssa.new(), fold: Fold.new(), expander: Expander.new(), inliner: Inliner.new(), rotator: Rotator.new(), licm: Licm.new(), cse: Cse.new(), copies: Copies.new(), threader: Threader.new(), analysis: Analysis.new(), facts: LoopFacts.new(), clock: table.PhaseClock.off()}
 	end 'new'
 
 	// lap charges the time since the clock's last lap to phase.
@@ -64,16 +63,6 @@ export type Optimizer
 		clock.lap(phase.ordinal)
 	end 'lap'
 end 'Optimizer'
-
-// addsIndexAndOffset is whether an access of the architecture adds both an index and a constant offset to its base: x64's
-// does, so a byte of a string is read at the string plus the index plus the offset of its bytes; arm64's adds one or the
-// other, so the address of the bytes is made first.
-function addsIndexAndOffset(arch ast.TargetArch) returns bool
-	return match arch 'arch'
-		x64 gives true
-		arm64 gives false
-	end 'arch'
-end 'addsIndexAndOffset'
 
 // optimizeModule runs the optimizer on the functions of a module that the backend compiles.
 export function optimizeModule(mutates o Optimizer, mutates fns ir.IrFunctionList)
@@ -105,7 +94,7 @@ end 'threadAndFold'
 export function fallbackOf(p ast.Project, mutates ms ast.ModuleState, fns ir.IrFunctionList, at Count) returns table.Option with ir.IrFunction
 	var instances = ir.instancesOf(p, ms: ms, fns: fns)
 	var f = ir.lowerFunction(p, ms: ms, fn: fns[at].decl, instances: instances)
-	var o = Optimizer.new(p.target.arch)
+	var o = Optimizer.new()
 	optimizeFunction(o, f: f)
 	if not mayLoop(f) 'straight'
 		return table.Option.none

@@ -375,6 +375,57 @@ function entryArrayRemove(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Hal
 	try moveOutOfCollection(vm, x: x, c: e, what: "the remove")
 end 'entryArrayRemove'
 
+// The entries of an array of strings: its model is an array's, a cell to an element, which the code moves a String in and
+// out of through the address of the cell.
+function entryStrsElem(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	try entryArrayElem(vm, f: f, x: x)
+end 'entryStrsElem'
+
+// entryStrsOpen puts an empty cell at an index, which may be the length, and gives its address.
+function entryStrsOpen(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let a = try collection(vm, o: argRef(vm, f: f, x: x, i: 0), kind: kindArray, what: "an insert")
+	let i = ir.bitsOfWord(argNum(vm, f: f, x: x, i: 1))
+	let data = vm.h.oData[a]
+	if i > vm.h.elements[data].count() 'outside'
+		throw trap(vm, message: indexOutOfRangeMessage)
+	end 'outside'
+	try restructure(vm, o: a)
+	let e = vm.h.newCell(a)
+	vm.h.elements[data].insert(i, value: e)
+	giveAddress(vm, x: x, c: e)
+end 'entryStrsOpen'
+
+// entryStrsClose takes out the cell at an index, which the code moved the String out of.
+function entryStrsClose(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let a = try collection(vm, o: argRef(vm, f: f, x: x, i: 0), kind: kindArray, what: "a remove")
+	let i = ir.bitsOfWord(argNum(vm, f: f, x: x, i: 1))
+	let data = vm.h.oData[a]
+	if i >= vm.h.elements[data].count() 'outside'
+		throw trap(vm, message: indexOutOfRangeMessage)
+	end 'outside'
+	try restructure(vm, o: a)
+	let e = try vm.h.elements[data].remove(i) otherwise panic("interp: an element that was there is gone")
+	if vm.h.refOf(e) != 0 'held'
+		throw violation(vm, kind: movedUse, message: "a close of an element of an array of strings that still holds its String")
+	end 'held'
+end 'entryStrsClose'
+
+// entryStrsFill appends count empty cells.
+function entryStrsFill(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let a = try collection(vm, o: argRef(vm, f: f, x: x, i: 0), kind: kindArray, what: "a fill")
+	let count = ir.bitsOfWord(argNum(vm, f: f, x: x, i: 1))
+	let data = vm.h.oData[a]
+	try restructure(vm, o: a)
+	for _ in 0 upto count 'cells'
+		let cell = vm.h.newCell(a)
+		vm.h.elements[data].push(cell)
+	end 'cells'
+end 'entryStrsFill'
+
+function entryStrsReserve(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	try entryArrayReserve(vm, f: f, x: x)
+end 'entryStrsReserve'
+
 // entryArrayFill appends count copies of a word, each in a place of its own as an insert's element is.
 function entryArrayFill(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	let a = try collection(vm, o: argRef(vm, f: f, x: x, i: 0), kind: kindArray, what: "a fill")

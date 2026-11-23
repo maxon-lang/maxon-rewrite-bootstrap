@@ -59,7 +59,7 @@ function lowerExpr(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState,
 	if boxes 'boxed'
 		return lowerBoxed(l, p: p, ms: ms, e: e, v: v, ty: ty, iface: iface)
 	end 'boxed'
-	if regKind(l, v: v) != IrKind.kindManaged 'scalar'
+	if not owning(regKind(l, v: v)) 'scalar'
 		return v
 	end 'scalar'
 	let consumed = isConsumed(p, module: l.module, node: e)
@@ -454,7 +454,9 @@ function visitNameExpr(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleSt
 	if name.kind == ast.NameKind.nameSelfField 'field'
 		let d = newReg(l, kind: kindOf(l, p: p, ms: ms, t: exprType(p, module: l.module, node: e)))
 		let obj = selfReg(l, p: p, ms: ms)
-		loadField(l, p: p, ms: ms, d: d, obj: obj, e: e, index: name.fieldIndex)
+		let owner = selfType(l, p: p, ms: ms)
+		let offset = fieldAt(l, p: p, ms: ms, owner: owner, index: name.fieldIndex)
+		loadField(l, p: p, ms: ms, d: d, obj: obj, e: e, offset: offset)
 		return d
 	end 'field'
 	if name.kind == ast.NameKind.nameConst 'const'
@@ -472,9 +474,8 @@ end 'visitNameExpr'
 
 // loadField is the value of a field of a record: a move out of it when the ownership pass found the expression consuming
 // it, which leaves 0 in the field for the drop of the record to skip, and a borrow otherwise.
-function loadField(mutates l Lowerer, p ast.Project, ms ast.ModuleState, d Reg, obj Reg, e ast.NodeID, index Count)
-	let offset = wordOffset(index)
-	if movesOut(p, ms: ms, module: l.module, node: e) and regKind(l, v: d) == IrKind.kindManaged 'move'
+function loadField(mutates l Lowerer, p ast.Project, ms ast.ModuleState, d Reg, obj Reg, e ast.NodeID, offset Count)
+	if movesOut(p, ms: ms, module: l.module, node: e) and owning(regKind(l, v: d)) 'move'
 		let addr = newReg(l, kind: IrKind.kindScalar)
 		emit(l, i: newFieldAddr(addr, obj: obj, offset: offset))
 		emit(l, i: newMoveAt(d, addr: addr))
@@ -501,7 +502,9 @@ function address(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, e
 		if name.kind == ast.NameKind.nameSelfField 'field'
 			let d = newReg(l, kind: IrKind.kindScalar)
 			let obj = selfReg(l, p: p, ms: ms)
-			emit(l, i: newFieldAddr(d, obj: obj, offset: wordOffset(name.fieldIndex)))
+			let owner = selfType(l, p: p, ms: ms)
+			let offset = fieldAt(l, p: p, ms: ms, owner: owner, index: name.fieldIndex)
+			emit(l, i: newFieldAddr(d, obj: obj, offset: offset))
 			return d
 		end 'field'
 	end 'name'
@@ -511,9 +514,11 @@ function address(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, e
 			return address(l, p: p, ms: ms, e: ast.memberExprObj(p.modules[l.mi].tree, id: e))
 		end 'view'
 		if member.kind == ast.MemberKind.memberField 'field'
-			let obj = lowerRead(l, p: p, ms: ms, e: ast.memberExprObj(p.modules[l.mi].tree, id: e))
+			let objExpr = ast.memberExprObj(p.modules[l.mi].tree, id: e)
+			let obj = lowerRead(l, p: p, ms: ms, e: objExpr)
 			let d = newReg(l, kind: IrKind.kindScalar)
-			emit(l, i: newFieldAddr(d, obj: obj, offset: wordOffset(member.fieldIndex)))
+			let offset = fieldAt(l, p: p, ms: ms, owner: exprType(p, module: l.module, node: objExpr), index: member.fieldIndex)
+			emit(l, i: newFieldAddr(d, obj: obj, offset: offset))
 			return d
 		end 'field'
 	end 'member'
@@ -831,10 +836,11 @@ function checkedCallee(l Lowerer, p ast.Project, ms ast.ModuleState, target ast.
 	return target
 end 'checkedCallee'
 
-// boxBytes is the size of a record or union box: a word per field (one for a box with none), and a first word for a
-// union's case index. The backend sizes the boxes it copies with it, so a copy has the layout lowering gives a value.
-export function boxBytes(fields Count, tagged bool) returns Count
-	var words = fields
+// boxBytes is the size of a record or union box of a number of words of values (one for a box with none), and a first
+// word for a union's case index (layouts.maxon). The backend sizes the boxes it copies with it, so a copy has the layout
+// lowering gives a value.
+export function boxBytes(values Count, tagged bool) returns Count
+	var words = values
 	if words < 1 'one'
 		words = 1
 	end 'one'
@@ -844,12 +850,13 @@ export function boxBytes(fields Count, tagged bool) returns Count
 	return wordOffset(words)
 end 'boxBytes'
 
-// fieldOffset is where the field with this index sits in a box: after the case index when the box is a union's.
-export function fieldOffset(index Count, tagged bool) returns Count
+// fieldOffset is where a value sits in a box after a number of words of the values before it: after the case index when
+// the box is a union's.
+export function fieldOffset(word Count, tagged bool) returns Count
 	if tagged 'tag'
-		return wordOffset(succ(index))
+		return wordOffset(succ(word))
 	end 'tag'
-	return wordOffset(index)
+	return wordOffset(word)
 end 'fieldOffset'
 
 // record is a new box of the fields of the type t, which the tag, when it has one, makes a union: values are the
@@ -857,8 +864,15 @@ end 'fieldOffset'
 function record(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, t ast.TypeID, tag Index, values ExprRefList) returns Reg
 	let tagged = tag != noTag
 	let count = values.count()
+	let applied = applyType(l, p: p, ms: ms, t: t)
+	var types = ast.TypeIDList.create(0)
+	if tagged 'union'
+		types = payloadTypes(ms.types, reads: p.types, owner: applied, caseIndex: try tag as Count otherwise panic("ir: a case index is out of range"))
+	end 'union' else 'fields'
+		types = fieldTypes(ms.types, reads: p.types, owner: applied)
+	end 'fields'
 	let box = newReg(l, kind: IrKind.kindManaged)
-	emit(l, i: newAlloc(box, bytes: boxBytes(count, tagged: tagged)))
+	emit(l, i: newAlloc(box, bytes: valuesBytes(ms.types, reads: p.types, types: types, tagged: tagged)))
 	if tagged 'tagStore'
 		let tagReg = konst(l, value: try tag as Word otherwise panic("ir: a case index is out of range"))
 		emit(l, i: newStoreField(box, offset: tagOffset, src: tagReg, borrow: false))
@@ -870,7 +884,7 @@ function record(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, t 
 	end 'owned'
 	for i in 0 upto count 'each'
 		let v = exprIn(l, p: p, ms: ms, e: values[i])
-		emit(l, i: newStoreField(box, offset: fieldOffset(i, tagged: tagged), src: v, borrow: false))
+		emit(l, i: newStoreField(box, offset: valueOffset(ms.types, reads: p.types, types: types, index: i, tagged: tagged), src: v, borrow: false))
 		popPending(l, n: succ(mark))
 	end 'each'
 	popPending(l, n: mark)
@@ -881,11 +895,11 @@ end 'record'
 // value itself. site is the source that needs the copy, kept when the type holds something that has no native code.
 function copyValue(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, site diag.Site, v Reg, t ast.TypeID) returns Reg
 	let ty = applyType(l, p: p, ms: ms, t: t)
-	if kindOfType(p, ms: ms, t: ty) != IrKind.kindManaged 'scalar'
+	if not owning(kindOfType(p, ms: ms, t: ty)) 'scalar'
 		return v
 	end 'scalar'
 	requireNative(l, p: p, ms: ms, site: site, t: ty)
-	let d = newReg(l, kind: IrKind.kindManaged)
+	let d = newReg(l, kind: kindOfType(p, ms: ms, t: ty))
 	emitCopy(l, dst: d, src: v, ty: ty)
 	return d
 end 'copyValue'
@@ -913,7 +927,8 @@ function visitMemberExpr(mutates l Lowerer, p ast.Project, mutates ms ast.Module
 	if kind == ast.MemberKind.memberField 'field'
 		let base = lowerRead(l, p: p, ms: ms, e: obj)
 		let d = newReg(l, kind: kindOf(l, p: p, ms: ms, t: exprType(p, module: l.module, node: e)))
-		loadField(l, p: p, ms: ms, d: d, obj: base, e: e, index: member.fieldIndex)
+		let offset = fieldAt(l, p: p, ms: ms, owner: exprType(p, module: l.module, node: obj), index: member.fieldIndex)
+		loadField(l, p: p, ms: ms, d: d, obj: base, e: e, offset: offset)
 		return d
 	end 'field'
 	if kind == ast.MemberKind.memberView 'view'
@@ -996,7 +1011,8 @@ function rawFieldOf(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState
 	let origin = ast.typeEntry(ms.types, reads: p.types, t: t).effectiveOrigin()
 	let recordTy = ast.rawTypeOf(p, ms: ms, t: origin)
 	let d = newReg(l, kind: kindOf(l, p: p, ms: ms, t: ft))
-	emit(l, i: newLoadField(d, obj: record, offset: wordOffset(field)))
+	let offset = fieldAt(l, p: p, ms: ms, owner: recordTy, index: field)
+	emit(l, i: newLoadField(d, obj: record, offset: offset))
 	if not rawDatums(p, ms: ms, origin: origin).isSome() 'built'
 		dropValue(l, p: p, ms: ms, v: record, t: recordTy)
 	end 'built'
@@ -1087,7 +1103,7 @@ end 'datumSelect'
 
 // names is the name of the case that index says, as a string of the executable.
 function names(mutates l Lowerer, index Reg, names ast.StringList) returns Reg
-	let sel = selectStart(l, kind: IrKind.kindManaged, index: index, count: names.count())
+	let sel = selectStart(l, kind: IrKind.kindString, index: index, count: names.count())
 	for i in 0 upto names.count() 'each'
 		selectArm(l, s: sel, i: i)
 		let v = strReg(l, value: names[i])
@@ -1370,7 +1386,7 @@ function visitBinaryExpr(mutates l Lowerer, p ast.Project, mutates ms ast.Module
 	while node != e 'inner'
 		v = lowerOperator(l, p: p, ms: ms, e: node, left: v)
 		popPending(l, n: mark)
-		if regKind(l, v: v) == IrKind.kindManaged 'managed'
+		if owning(regKind(l, v: v)) 'managed'
 			panic("lower: the operator at node {node} of module {l.module} has a managed value")
 		end 'managed'
 		node = ast.nextOperator(chain, e: e)

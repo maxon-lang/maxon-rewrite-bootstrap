@@ -226,6 +226,7 @@ func generateMachine(targets []target.Target, machines []isa.ISA) (string, error
 		reg       func(target.Convention) string
 	}{
 		{"internalResultOf", "the number in an architecture's register file of the register its internal convention returns a word in", func(c target.Convention) string { return c.Result }},
+		{"internalSecondResultOf", "the number in an architecture's register file of the register its internal convention returns the second word of a String in", func(c target.Convention) string { return c.SecondResult }},
 		{"internalFloatResultOf", "the number in an architecture's register file of the register its internal convention returns a float in", func(c target.Convention) string { return c.FloatResult }},
 		{"internalErrorOf", "the number in an architecture's register file of the register of its internal convention's error flag", func(c target.Convention) string { return c.Error }},
 	}

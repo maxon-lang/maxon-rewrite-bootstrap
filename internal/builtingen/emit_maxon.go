@@ -465,6 +465,29 @@ func emitMaxonRtFunctions(sb *strings.Builder, t table) {
 		fmt.Fprintf(sb, "\tfns.push(RtFunction.make(Rt.rt%s, name: %q, params: params%d, result: %s))\n", r.entry.Name, r.name, i, primOf(r.result.name).Maxon)
 	}
 	sb.WriteString("\treturn fns\nend 'rtFunctions'\n")
+	sb.WriteString("\n// rtGivesString is whether the function that defines an entry returns a String, which a call of it gives in a\n// register of that kind.\nexport function rtGivesString(r Rt) returns bool\n\treturn match r 'entry'\n")
+	gives := map[string]bool{}
+	for _, r := range t.rtFuncs {
+		gives[r.entry.Name] = r.result.name == "String"
+	}
+	var strs, others []string
+	others = append(others, "rtNone")
+	for _, e := range entries {
+		if gives[e.Name] {
+			strs = append(strs, "rt"+e.Name)
+		} else {
+			others = append(others, "rt"+e.Name)
+		}
+	}
+	for _, group := range []struct {
+		names []string
+		gives string
+	}{{strs, "true"}, {others, "false"}} {
+		if len(group.names) > 0 {
+			fmt.Fprintf(sb, "\t\t%s gives %s\n", strings.Join(group.names, " or\n\t\t"), group.gives)
+		}
+	}
+	sb.WriteString("\tend 'entry'\nend 'rtGivesString'\n")
 }
 
 // emitMaxonIntrinsics writes self/ir's dispatch from an intrinsic to the function that lowers it, which the lowerer

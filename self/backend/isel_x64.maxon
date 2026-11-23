@@ -130,16 +130,12 @@ extension Selector
 	end 'takeFrom'
 
 	function x64TakeParams(mutates self, f ir.IrFunction)
-		paramFloats.clear()
-		for at in 0 upto f.paramCount 'order'
-			let k = paramAtPosition(at, count: f.paramCount, closure: closureBody)
-			paramFloats.push(ir.isFloatAt(f.floatParams, place: k))
-		end 'order'
+		self.paramWords(f)
 		_ = placeArgs(paramFloats, places: places)
 		params.clear()
 		paramPlaces.clear()
-		for k in 0 upto f.paramCount 'params'
-			let place = places[paramPosition(k, count: f.paramCount, closure: closureBody)]
+		for w in 0 upto wordPositions.count() 'params'
+			let place = places[wordPositions[w]]
 			paramPlaces.push(place)
 			if isStackPlace(place) 'stack'
 				params.push(noMReg)
@@ -174,7 +170,7 @@ extension Selector
 	function x64ZeroManagedSlots(mutates self, f ir.IrFunction)
 		var managed = 0 as Count
 		for i in 0 upto f.slots.count() 'count'
-			if f.slots[i] == ir.IrKind.kindManaged 'managed'
+			if ir.owning(f.slots[i]) 'managed'
 				managed = try managed + 1 otherwise panic("backend: more slots than memory")
 			end 'managed'
 		end 'count'
@@ -187,14 +183,17 @@ extension Selector
 		if managed > zeroInlineSlots 'string'
 			let slots = f.slots.count()
 			self.target(X64Form.leaRegBaseDisp, a: x64PhysReg(rdi), b: fp, c: noMReg, aux: slotDisp(try slots - 1 otherwise panic("backend: no slots")), imm: 0)
-			self.constantInto(x64PhysReg(rcx), value: try slots as FullRangeInt otherwise panic("backend: more slots than memory"))
+			self.constantInto(x64PhysReg(rcx), value: try slotsWords(f) as FullRangeInt otherwise panic("backend: more slots than memory"))
 			self.target(X64Form.repStosq, a: noMReg, b: noMReg, c: noMReg, aux: 0, imm: 0)
 			return
 		end 'string'
 		for i in 0 upto f.slots.count() 'inline'
-			if f.slots[i] == ir.IrKind.kindManaged 'managed'
+			if ir.owning(f.slots[i]) 'managed'
 				self.store(fp, disp: slotDisp(i), src: zero)
 			end 'managed'
+			if f.slots[i] == ir.IrKind.kindString 'string'
+				self.store(fp, disp: secondWordDisp(slotDisp(i)), src: zero)
+			end 'string'
 		end 'inline'
 	end 'x64ZeroManagedSlots'
 
@@ -202,6 +201,14 @@ extension Selector
 		self.emit(newFrameTeardown())
 		self.target(X64Form.ret, a: noMReg, b: noMReg, c: noMReg, aux: 0, imm: 0)
 	end 'x64Leave'
+
+	function x64ShiftRightInto(mutates self, dst MReg, src MReg, count Count)
+		self.target(X64Form.shrRegImm8, a: dst, b: src, c: noMReg, aux: 0, imm: try count as FullRangeInt otherwise panic("backend: a shift past the word"))
+	end 'x64ShiftRightInto'
+
+	function x64ReferAddressInto(mutates self, dst MReg, refers Referent)
+		self.referring(X64Form.leaRegRip, a: dst, refers: refers)
+	end 'x64ReferAddressInto'
 
 	function x64LoadInto(mutates self, dst MReg, base MReg, disp Imm32)
 		self.target(X64Form.loadRegBaseDisp, a: dst, b: base, c: noMReg, aux: disp, imm: 0)
@@ -442,13 +449,9 @@ end 'emitSyscall'
 function emitBounds(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
 	let index = vregOf(ir.boundsIndex(ins))
 	let length = ir.boundsLength(ins)
-	if sel.definedBy(fn, r: length, op: ir.Opcode.opLength) and sel.fuses(fn, r: length) 'inBox'
+	if sel.definedBy(fn, r: length, op: ir.Opcode.opLength) and sel.fuses(fn, r: length) and ir.lengthOf(fn.instrs[sel.defOf(length)]) == ir.Collection.collectionArray 'inBox'
 		let read = sel.defOf(length)
-		let offset = match ir.lengthOf(fn.instrs[read]) 'of'
-			collectionArray gives arrayLengthOffset
-			collectionString gives stringLengthOffset
-		end 'of'
-		sel.target(X64Form.cmpRegBaseDisp, a: index, b: vregOf(ir.lengthSrc(fn.instrs[read])), c: noMReg, aux: imm32Of(offset), imm: 0)
+		sel.target(X64Form.cmpRegBaseDisp, a: index, b: vregOf(ir.lengthSrc(fn.instrs[read])), c: noMReg, aux: imm32Of(arrayLengthOffset), imm: 0)
 	end 'inBox' else 'register'
 		sel.target(X64Form.cmpRegReg, a: index, b: vregOf(length), c: noMReg, aux: 0, imm: 0)
 	end 'register'
@@ -459,7 +462,7 @@ end 'emitBounds'
 function emitFrameBox(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
 	let box = vregOf(ins.dst)
 	sel.target(X64Form.leaRegBaseDisp, a: box, b: x64PhysReg(rbp), c: noMReg, aux: frameBoxDisp(fn, box: ir.frameBoxBox(ins)), imm: 0)
-	sel.fillBox(box, table: ir.frameBoxTable(fn, x: ins), value: vregOf(ir.frameBoxValue(ins)))
+	sel.fillBox(fn, box: box, table: ir.frameBoxTable(fn, x: ins), value: ir.frameBoxValue(ins))
 end 'emitFrameBox'
 
 // emitFrameArea gives the address of a frame area, which starts at the word of its last frame box that is lowest, and lies
@@ -470,11 +473,7 @@ function emitFrameArea(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
 end 'emitFrameArea'
 
 function emitDropSlot(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
-	let fp = x64PhysReg(rbp)
-	let disp = slotDisp(ir.dropSlotSlot(ins))
-	let value = sel.load(fp, disp: disp)
-	sel.storeImm(fp, disp: disp, value: 0)
-	sel.callRoutine(RoutineKind.dropRoutine, ty: ir.dropSlotTy(fn, x: ins), value: value)
+	sel.dropPlace(x64PhysReg(rbp), disp: slotDisp(ir.dropSlotSlot(ins)), ty: ir.dropSlotTy(fn, x: ins))
 end 'emitDropSlot'
 
 // paramDisp is where an argument on the stack sits above the frame pointer, by its place among those there: they are
@@ -486,19 +485,27 @@ end 'paramDisp'
 // emitLoadParam reads a parameter: one the internal convention passes in a register from where the prologue copied it,
 // and one it passes on the stack from the frame.
 function emitLoadParam(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
-	let k = ir.loadParamParam(ins)
+	let w = sel.paramWordAt[ir.loadParamParam(ins)]
 	let result = sel.resultOf(ins.dst)
-	let v = sel.params[k]
+	loadParamWord(sel, w: w, into: result, float: sel.inXmm(ins.dst))
+	if isStringReg(fn, r: ins.dst) 'string'
+		loadParamWord(sel, w: nextCount(w), into: sel.secondOf(ins.dst), float: false)
+	end 'string'
+end 'emitLoadParam'
+
+// loadParamWord reads the word w of the parameters into a register.
+function loadParamWord(mutates sel Selector, w Count, into MReg, float bool)
+	let v = sel.params[w]
 	if v != noMReg 'register'
-		sel.copy(result, src: v)
+		sel.copy(into, src: v)
 		return
 	end 'register'
-	let load = X64Form.movsdRegBaseDisp if sel.inXmm(ins.dst) else X64Form.loadRegBaseDisp
-	sel.target(load, a: result, b: x64PhysReg(rbp), c: noMReg, aux: paramDisp(sel.paramPlaces[k]), imm: 0)
-end 'emitLoadParam'
+	let load = X64Form.movsdRegBaseDisp if float else X64Form.loadRegBaseDisp
+	sel.target(load, a: into, b: x64PhysReg(rbp), c: noMReg, aux: paramDisp(sel.paramPlaces[w]), imm: 0)
+end 'loadParamWord'
 
 // frameBoxDisp is where a frame box starts, after the IR's slots: its words lie upward from there, as a box's do.
 function frameBoxDisp(f ir.IrFunction, box Count) returns Imm32
-	let last = try f.slots.count() + box * ifaceBoxWords + ifaceBoxWords - 1 otherwise panic("backend: a frame box past memory")
-	return slotDisp(last)
+	let last = try slotsWords(f) + box * ifaceBoxWords + ifaceBoxWords - 1 otherwise panic("backend: a frame box past memory")
+	return spillSlotOffset(try last as SpillSlot otherwise panic("backend: a frame box past 2 GiB"))
 end 'frameBoxDisp'

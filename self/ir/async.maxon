@@ -83,7 +83,7 @@ function lowerPromiseCancel(mutates l Lowerer, p ast.Project, mutates ms ast.Mod
 	var valueDrop = ast.noType
 	if result != p.builtins.voidTy 'value'
 		dst = newReg(l, kind: kindOf(l, p: p, ms: ms, t: result))
-		if kindOf(l, p: p, ms: ms, t: result) == IrKind.kindManaged 'managed'
+		if owning(kindOf(l, p: p, ms: ms, t: result)) 'managed'
 			valueDrop = dropType(l, p: p, ms: ms, t: result)
 		end 'managed'
 	end 'value'

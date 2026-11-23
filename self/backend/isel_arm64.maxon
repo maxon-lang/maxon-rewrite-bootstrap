@@ -127,6 +127,17 @@ extension Selector
 		end 'added'
 	end 'arm64Store'
 
+	// arm64ShiftRightInto is lsr: ubfm of the bits from count up.
+	function arm64ShiftRightInto(mutates self, dst MReg, src MReg, count Count)
+		self.arm64Instr(Arm64Form.ubfmRegReg, a: dst, b: src, c: noMReg, aux: arm64SignShift as Imm32, imm: try count as FullRangeInt otherwise panic("backend: a shift past the word"))
+	end 'arm64ShiftRightInto'
+
+	function arm64ReferAddressInto(mutates self, dst MReg, refers Referent)
+		let page = self.newTemp()
+		self.arm64Refer(Arm64Form.adrp, a: page, b: noMReg, refers: refers)
+		self.arm64Refer(Arm64Form.addPageOff, a: dst, b: page, refers: refers)
+	end 'arm64ReferAddressInto'
+
 	function arm64LoadInto(mutates self, dst MReg, base MReg, disp Imm32)
 		self.arm64Load(dst, base: base, disp: disp as FullRangeInt, float: false)
 	end 'arm64LoadInto'
@@ -261,31 +272,26 @@ extension Selector
 	// arm64TakeParams loads the parameters the convention passes on the stack from where the prologue left their address,
 	// before anything can write the register it is in, then copies those it passes in registers out of them.
 	function arm64TakeParams(mutates self, f ir.IrFunction)
-		paramFloats.clear()
-		for at in 0 upto f.paramCount 'order'
-			let k = paramAtPosition(at, count: f.paramCount, closure: closureBody)
-			paramFloats.push(ir.isFloatAt(f.floatParams, place: k))
-		end 'order'
+		self.paramWords(f)
 		_ = arm64PlaceArgs(paramFloats, places: places)
 		params.clear()
 		paramPlaces.clear()
-		for k in 0 upto f.paramCount 'params'
-			let position = paramPosition(k, count: f.paramCount, closure: closureBody)
-			paramPlaces.push(places[position])
+		for w in 0 upto wordPositions.count() 'params'
+			paramPlaces.push(places[wordPositions[w]])
 			params.push(noMReg)
 		end 'params'
 		let base = arm64PhysReg(arm64IncomingBase)
-		for k in 0 upto f.paramCount 'stack'
+		for k in 0 upto wordPositions.count() 'stack'
 			let place = paramPlaces[k]
 			if arm64IsStackPlace(place) 'loaded'
-				let float = paramFloats[paramPosition(k, count: f.paramCount, closure: closureBody)]
+				let float = paramFloats[wordPositions[k]]
 				let v = self.newTempOf(RegClass.xmm if float else RegClass.gpr)
 				self.arm64Load(v, base: base, disp: try (arm64StackSlotOf(place) * wordBytes) as FullRangeInt otherwise panic("backend: a parameter past memory"), float: float)
 				params[k] = v
 				mir.incomingStack = true
 			end 'loaded'
 		end 'stack'
-		for k in 0 upto f.paramCount 'registers'
+		for k in 0 upto wordPositions.count() 'registers'
 			let place = paramPlaces[k]
 			if not arm64IsStackPlace(place) 'register'
 				let v = self.newTempOf(classOfNumber(arch, number: physicalNumber(placeRegister(place))))
@@ -320,9 +326,12 @@ extension Selector
 		let fp = arm64PhysReg(arm64FramePointer)
 		let zero = arm64PhysReg(arm64ZeroRegister)
 		for i in 0 upto f.slots.count() 'slots'
-			if f.slots[i] == ir.IrKind.kindManaged 'managed'
+			if ir.owning(f.slots[i]) 'managed'
 				self.arm64StoreWord(fp, disp: arm64SlotDisp(i), src: zero)
 			end 'managed'
+			if f.slots[i] == ir.IrKind.kindString 'string'
+				self.arm64StoreWord(fp, disp: secondWordDisp(arm64SlotDisp(i)), src: zero)
+			end 'string'
 		end 'slots'
 	end 'arm64ZeroManagedSlots'
 
@@ -581,7 +590,7 @@ end 'emitArm64Bounds'
 // arm64FrameBoxDisp is where a frame box starts, after the IR's slots: its words lie upward from there, as a box's do, and
 // as the slots do above the frame record.
 function arm64FrameBoxDisp(f ir.IrFunction, box Count) returns Imm32
-	return arm64SlotDisp(try f.slots.count() + box * ifaceBoxWords otherwise panic("backend: a frame box past memory"))
+	return arm64WordDisp(try slotsWords(f) + box * ifaceBoxWords otherwise panic("backend: a frame box past memory"))
 end 'arm64FrameBoxDisp'
 
 // emitArm64FrameBox makes an interface value whose box is one of the function's frame boxes.
@@ -589,7 +598,7 @@ function emitArm64FrameBox(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
 	let at = sel.arm64AddConst(arm64PhysReg(arm64FramePointer), value: arm64FrameBoxDisp(fn, box: ir.frameBoxBox(ins)) as FullRangeInt)
 	let box = vregOf(ins.dst)
 	sel.copy(box, src: at)
-	sel.fillBox(box, table: ir.frameBoxTable(fn, x: ins), value: vregOf(ir.frameBoxValue(ins)))
+	sel.fillBox(fn, box: box, table: ir.frameBoxTable(fn, x: ins), value: ir.frameBoxValue(ins))
 end 'emitArm64FrameBox'
 
 // emitArm64FrameArea gives the address of a frame area, which starts at its first frame box, the lowest, and lies upward
@@ -600,16 +609,18 @@ function emitArm64FrameArea(mutates sel Selector, fn ir.IrFunction, ins ir.Instr
 end 'emitArm64FrameArea'
 
 function emitArm64DropSlot(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
-	let fp = arm64PhysReg(arm64FramePointer)
-	let disp = arm64SlotDisp(ir.dropSlotSlot(ins))
-	let value = sel.load(fp, disp: disp)
-	sel.storeImm(fp, disp: disp, value: 0)
-	sel.callRoutine(RoutineKind.dropRoutine, ty: ir.dropSlotTy(fn, x: ins), value: value)
+	sel.dropPlace(arm64PhysReg(arm64FramePointer), disp: arm64SlotDisp(ir.dropSlotSlot(ins)), ty: ir.dropSlotTy(fn, x: ins))
 end 'emitArm64DropSlot'
 
 // emitArm64LoadParam reads a parameter from where the prologue took it.
 function emitArm64LoadParam(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
+	let w = sel.paramWordAt[ir.loadParamParam(ins)]
 	let result = sel.resultOf(ins.dst)
-	let v = sel.params[ir.loadParamParam(ins)]
-	sel.copy(result, src: v)
+	let first = sel.params[w]
+	sel.copy(result, src: first)
+	if isStringReg(fn, r: ins.dst) 'string'
+		let word = sel.params[nextCount(w)]
+		let second = sel.secondOf(ins.dst)
+		sel.copy(second, src: word)
+	end 'string'
 end 'emitArm64LoadParam'

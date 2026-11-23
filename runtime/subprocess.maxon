@@ -87,23 +87,26 @@
 
 	let processThreadOffset = 8
 
-	// A pipe the run reads, as a record of words: the read end it keeps, the write end the child gets, the string read so
-	// far with the room it has, whether the child may still write, and the two counts that PeekNamedPipe and ReadFile set.
+	// A pipe the run reads, as a record of words: the read end it keeps, the write end the child gets, the room of the
+	// string read so far (__Raw.stringRoom) with its length and its capacity, whether the child may still write, and the two
+	// counts that PeekNamedPipe and ReadFile set.
 	let pipeReadOffset = 0
 
 	let pipeWriteOffset = 8
 
 	let pipeTextOffset = 16
 
-	let pipeCapacityOffset = 24
+	let pipeLengthOffset = 24
 
-	let pipeOpenOffset = 32
+	let pipeCapacityOffset = 32
 
-	let pipeAvailableOffset = 40
+	let pipeOpenOffset = 40
 
-	let pipeReceivedOffset = 48
+	let pipeAvailableOffset = 48
 
-	let pipeBytes = 56
+	let pipeReceivedOffset = 56
+
+	let pipeBytes = 64
 
 	// The run's frame, one allocation: a security descriptor, the startup record, the array of the handles the child inherits
 	// (which the attribute list points into until the child is created), the process record, and the two pipes.
@@ -151,13 +154,14 @@ function wordAt(base Count, offset Count) returns Count
 	return __Raw.loadWord(base, offset: offset)
 end 'wordAt'
 
-// argumentBox is the box of the argument at an index of an array of strings.
-function argumentBox(arguments Count, index Count) returns Count
+// argumentAt is the address of the argument at an index of an array of strings, which stays there: its bytes are
+// __Raw.stringBytesAt and its length __Raw.stringLengthAt of it at 0.
+function argumentAt(arguments Count, index Count) returns Count
 	if index >= osArrayLimit 'outside'
 		panic("too many arguments to quote")
 	end 'outside'
-	return __Raw.loadWord(__Raw.loadWord(arguments, offset: osArrayDataOffset), offset: index * osArrayElementBytes)
-end 'argumentBox'
+	return __Raw.wrappingAdd(__Raw.loadWord(arguments, offset: osArrayDataOffset), right: collectionBytes(index, elementBytes: __Raw.stringSize()))
+end 'argumentAt'
 
 #if os(Windows)
 	// commandLineOf is a new zero-terminated UTF-16 command line of the executable and the arguments, each quoted by the
@@ -167,18 +171,17 @@ end 'argumentBox'
 		if count >= osArrayLimit 'outside'
 			panic("too many arguments to quote")
 		end 'outside'
-		let executableBox = __Raw.stringAddress(executable)
-		var capacity = __Raw.wrappingAdd(quotedBound(boxLength(executableBox)), right: 1)
+		var capacity = __Raw.wrappingAdd(quotedBound(__Raw.stringLength(executable)), right: 1)
 		for i in 0 upto count 'size'
-			let spaceAndArgument = __Raw.wrappingAdd(quotedBound(boxLength(argumentBox(arguments, index: i))), right: 1)
+			let spaceAndArgument = __Raw.wrappingAdd(quotedBound(__Raw.stringLengthAt(argumentAt(arguments, index: i), offset: 0)), right: 1)
 			capacity = __Raw.wrappingAdd(capacity, right: spaceAndArgument)
 		end 'size'
 		let line = alloc(capacity)
-		var length = quoteArgument(bytesOf(executableBox), length: boxLength(executableBox), dst: line)
+		var length = quoteArgument(__Raw.stringBytes(executable), length: __Raw.stringLength(executable), dst: line)
 		for i in 0 upto count 'write'
-			let box = argumentBox(arguments, index: i)
+			let argument = argumentAt(arguments, index: i)
 			length = storeNextByte(line, offset: length, value: spaceByte)
-			length = __Raw.wrappingAdd(length, right: quoteArgument(bytesOf(box), length: boxLength(box), dst: __Raw.wrappingAdd(line, right: length)))
+			length = __Raw.wrappingAdd(length, right: quoteArgument(__Raw.stringBytesAt(argument, offset: 0), length: __Raw.stringLengthAt(argument, offset: 0), dst: __Raw.wrappingAdd(line, right: length)))
 		end 'write'
 		if length >= textUnitLimit 'long'
 			panic("command line too long to convert")
@@ -191,7 +194,8 @@ end 'argumentBox'
 
 	// openPipe makes a pipe whose write end the child can inherit and whose read end it cannot, and gives whether it did.
 	function openPipe(pipe Count, security Count) returns bool
-		__Raw.storeWord(pipe, offset: pipeTextOffset, value: newStringBox(0))
+		__Raw.storeWord(pipe, offset: pipeTextOffset, value: __Raw.stringRoom(0))
+		__Raw.storeWord(pipe, offset: pipeLengthOffset, value: 0)
 		let made = __Raw.callImport4("CreatePipe", arg1: fieldAt(pipe, offset: pipeReadOffset), arg2: fieldAt(pipe, offset: pipeWriteOffset), arg3: security, arg4: defaultPipeSize)
 		if dword(made) == 0 'failed'
 			return false
@@ -263,10 +267,18 @@ end 'argumentBox'
 		closeIfOpen(output, offset: pipeWriteOffset)
 		closeIfOpen(errors, offset: pipeReadOffset)
 		closeIfOpen(errors, offset: pipeWriteOffset)
-		free(wordAt(output, offset: pipeTextOffset))
-		free(wordAt(errors, offset: pipeTextOffset))
+		freePipeText(output)
+		freePipeText(errors)
 		free(command)
 	end 'abandonRun'
+
+	// freePipeText frees the room of the text of a pipe that no string took, which openPipe may not have made.
+	function freePipeText(pipe Count)
+		let room = wordAt(pipe, offset: pipeTextOffset)
+		if room != 0 'made'
+			__Raw.freeStringRoom(room)
+		end 'made'
+	end 'freePipeText'
 
 	// drainPipe reads what a pipe holds now, and gives whether it read anything. It never waits. A pipe whose child has closed
 	// its end is no longer open. The text keeps room beyond its length, which grows by doubling.
@@ -285,23 +297,22 @@ end 'argumentBox'
 			return false
 		end 'nothing'
 		var text = wordAt(pipe, offset: pipeTextOffset)
-		let length = boxLength(text)
+		let length = wordAt(pipe, offset: pipeLengthOffset)
 		let needed = __Raw.wrappingAdd(length, right: available)
 		let capacity = wordAt(pipe, offset: pipeCapacityOffset)
 		if needed > capacity 'grow'
 			let doubled = __Raw.wrappingAdd(capacity, right: capacity)
 			let grown = doubled if doubled > needed else needed
-			let box = newStringBox(grown)
-			copyBytes(bytesOf(text), target: bytesOf(box), count: length)
-			__Raw.storeWord(box, offset: stringLengthOffset, value: length)
-			free(text)
-			text = box
-			__Raw.storeWord(pipe, offset: pipeTextOffset, value: box)
+			let room = __Raw.stringRoom(grown)
+			copyBytes(text, target: room, count: length)
+			__Raw.freeStringRoom(text)
+			text = room
+			__Raw.storeWord(pipe, offset: pipeTextOffset, value: room)
 			__Raw.storeWord(pipe, offset: pipeCapacityOffset, value: grown)
 		end 'grow'
 		__Raw.storeWord(pipe, offset: pipeReceivedOffset, value: 0)
-		_ = __Raw.callImport5("ReadFile", arg1: wordAt(pipe, offset: pipeReadOffset), arg2: __Raw.wrappingAdd(bytesOf(text), right: length), arg3: available, arg4: fieldAt(pipe, offset: pipeReceivedOffset), arg5: noOverlapped)
-		__Raw.storeWord(text, offset: stringLengthOffset, value: __Raw.wrappingAdd(length, right: wordAt(pipe, offset: pipeReceivedOffset)))
+		_ = __Raw.callImport5("ReadFile", arg1: wordAt(pipe, offset: pipeReadOffset), arg2: __Raw.wrappingAdd(text, right: length), arg3: available, arg4: fieldAt(pipe, offset: pipeReceivedOffset), arg5: noOverlapped)
+		__Raw.storeWord(pipe, offset: pipeLengthOffset, value: __Raw.wrappingAdd(length, right: wordAt(pipe, offset: pipeReceivedOffset)))
 		return true
 	end 'drainPipe'
 
@@ -313,8 +324,8 @@ end 'argumentBox'
 		closeHandle(child)
 		closeHandle(wordAt(output, offset: pipeReadOffset))
 		closeHandle(wordAt(errors, offset: pipeReadOffset))
-		free(wordAt(output, offset: pipeTextOffset))
-		free(wordAt(errors, offset: pipeTextOffset))
+		freePipeText(output)
+		freePipeText(errors)
 		free(frame)
 		failWith(errorAddress, errorCase: timedOut)
 	end 'endAtDeadline'
@@ -388,8 +399,8 @@ end 'argumentBox'
 		closeHandle(child)
 		closeHandle(wordAt(output, offset: pipeReadOffset))
 		closeHandle(wordAt(errors, offset: pipeReadOffset))
-		__Raw.storeWord(stdout, offset: 0, value: wordAt(output, offset: pipeTextOffset))
-		__Raw.storeWord(stderr, offset: 0, value: wordAt(errors, offset: pipeTextOffset))
+		__Raw.storeString(stdout, offset: 0, bytes: wordAt(output, offset: pipeTextOffset), length: wordAt(output, offset: pipeLengthOffset), ascii: false)
+		__Raw.storeString(stderr, offset: 0, bytes: wordAt(errors, offset: pipeTextOffset), length: wordAt(errors, offset: pipeLengthOffset), ascii: false)
 		free(frame)
 		succeed(errorAddress)
 		return exitCode

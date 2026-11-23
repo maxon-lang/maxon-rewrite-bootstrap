@@ -3,10 +3,11 @@
 // counts, writes or frees it; the strings in it are immortal as every string of the data section is.
 
 // datumBoxBytes is the size of a box of a datum and the buffer it owns.
-function datumBoxBytes(box ir.DatumBox) returns Count
+function datumBoxBytes(d ir.Datum, box ir.DatumBox) returns Count
+	let words = ir.datumWordsOf(d.words, first: box.first, count: box.count)
 	return match box.shape 'shape'
-		words gives try box.count * wordBytes otherwise panic("backend: a constant past memory")
-		array gives try arrayHeaderBytes + box.count * wordBytes otherwise panic("backend: a constant past memory")
+		words gives try words * wordBytes otherwise panic("backend: a constant past memory")
+		array gives try arrayHeaderBytes + words * wordBytes otherwise panic("backend: a constant past memory")
 		bytes gives try arrayHeaderBytes + alignUp(box.count * byteBytes, alignment: wordBytes) otherwise panic("backend: a constant past memory")
 	end 'shape'
 end 'datumBoxBytes'
@@ -20,12 +21,12 @@ function layOutDatum(mutates data DataSection, d ir.Datum) returns Count
 	var next = at
 	for i in 0 upto d.boxes.count() 'boxes'
 		boxAt.push(next)
-		next = try next + datumBoxBytes(d.boxes[i]) otherwise panic("backend: a constant past memory")
+		next = try next + datumBoxBytes(d, box: d.boxes[i]) otherwise panic("backend: a constant past memory")
 	end 'boxes'
 	var textAt = CountList.create(0)
 	for i in 0 upto d.texts.count() 'texts'
 		textAt.push(next)
-		next = try next + alignUp(stringBytesOffset + d.texts[i].byteLength(), alignment: wordBytes) otherwise panic("backend: a constant past memory")
+		next = try next + alignUp(d.texts[i].byteLength(), alignment: wordBytes) otherwise panic("backend: a constant past memory")
 	end 'texts'
 	for i in 0 upto d.boxes.count() 'write'
 		let box = d.boxes[i].clone()
@@ -57,7 +58,6 @@ function layOutDatum(mutates data DataSection, d ir.Datum) returns Count
 		end 'bytes'
 	end 'write'
 	for i in 0 upto d.texts.count() 'strings'
-		pushU64(data.bytes, v: d.texts[i].byteLength())
 		data.bytes.append(d.texts[i].toByteArray())
 		data.align8()
 	end 'strings'
@@ -72,10 +72,16 @@ function pushDatumWord(mutates data DataSection, d ir.Datum, w Count, boxAt Coun
 	let word = d.words[w].clone()
 	match word.part 'part'
 		scalar then pushU64(data.bytes, v: ir.bitsOfWord(word.value))
-		text then pushPointer(data, target: textAt[try word.value as Count otherwise panic("backend: a string of a constant that is not one")])
+		text then pushText(data, d: d, index: try word.value as Count otherwise panic("backend: a string of a constant that is not one"), textAt: textAt)
 		box then pushPointer(data, target: boxAt[try word.value as Count otherwise panic("backend: a box of a constant that is not one")])
 	end 'part'
 end 'pushDatumWord'
+
+// pushText writes a String of the datum's texts: the address of its bytes, which the link fills in, and its word.
+function pushText(mutates data DataSection, d ir.Datum, index Count, textAt CountList)
+	pushPointer(data, target: textAt[index])
+	pushU64(data.bytes, v: try literalWord(d.texts[index]) as Count otherwise panic("backend: a literal's word past a word"))
+end 'pushText'
 
 // pushPointer writes a word that the link fills in with the address of target, an offset of the data.
 function pushPointer(mutates data DataSection, target Count)

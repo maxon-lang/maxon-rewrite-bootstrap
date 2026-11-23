@@ -261,6 +261,9 @@ end 'regKind'
 
 // kindOfType is the kind of a value of a type.
 function kindOfType(p ast.Project, ms ast.ModuleState, t ast.TypeID) returns IrKind
+	if ast.isStringType(ms.types, reads: p.types, t: t) 'string'
+		return IrKind.kindString
+	end 'string'
 	if ast.isManagedType(ms.types, reads: p.types, t: t) 'managed'
 		return IrKind.kindManaged
 	end 'managed'
@@ -309,6 +312,15 @@ export function newReg(mutates l Lowerer, kind IrKind) returns Reg
 	return l.b.f.newReg(kind)
 end 'newReg'
 
+// stringParts is the address of the bytes and the word of a String, which the runtime's entries of arrays of strings take.
+function stringParts(mutates l Lowerer, text Reg) returns RegList
+	let bytes = newReg(l, kind: IrKind.kindScalar)
+	emit(l, i: newStrPtr(bytes, src: text))
+	let word = newReg(l, kind: IrKind.kindScalar)
+	emit(l, i: newStrWord(word, src: text))
+	return argsOf2(bytes, b: word)
+end 'stringParts'
+
 export function konst(mutates l Lowerer, value Word) returns Reg
 	let d = newReg(l, kind: IrKind.kindScalar)
 	emit(l, i: newConst(d, value: value))
@@ -316,7 +328,7 @@ export function konst(mutates l Lowerer, value Word) returns Reg
 end 'konst'
 
 export function strReg(mutates l Lowerer, value String) returns Reg
-	let d = newReg(l, kind: IrKind.kindManaged)
+	let d = newReg(l, kind: IrKind.kindString)
 	emitStr(l, d: d, text: value.clone())
 	return d
 end 'strReg'
@@ -340,8 +352,17 @@ export function compare(mutates l Lowerer, op CmpOp, a Reg, b Reg, unsigned bool
 end 'compare'
 
 // runtime calls a runtime entry of the runtime unit and gives its value.
+// resultKind is the kind of what a call of a runtime entry gives: a String's whatever the caller asks, since a String is
+// two words and the entry's own signature says it gives one.
+function resultKind(symbol Rt, kind IrKind) returns IrKind
+	if rtGivesString(symbol) 'string'
+		return IrKind.kindString
+	end 'string'
+	return kind
+end 'resultKind'
+
 function runtime(mutates l Lowerer, symbol Rt, kind IrKind, args RegList) returns Reg
-	let d = newReg(l, kind: kind)
+	let d = newReg(l, kind: resultKind(symbol, kind: kind))
 	emitCallRuntime(l, dst: d, symbol: symbol, args: args, routine: ast.noFunc)
 	return d
 end 'runtime'
@@ -410,10 +431,11 @@ function emitThrowingCall(mutates l Lowerer, p ast.Project, ms ast.ModuleState, 
 	emit(l, i: instr)
 end 'emitThrowingCall'
 
-// frameArea is a new frame area of a lent tuple of that many elements, a word each.
+// frameArea is a new frame area of a lent tuple of that many elements, room for a String's two words each, the most an
+// element takes of the tuple's box.
 function frameArea(mutates l Lowerer, elements Count) returns Reg
 	let area = newReg(l, kind: IrKind.kindManaged)
-	let instr = l.b.frameArea(area, words: elements)
+	let instr = l.b.frameArea(area, words: try elements * (stringValueBytes / wordBytes) otherwise panic("ir: a frame area past memory"))
 	emit(l, i: instr)
 	return area
 end 'frameArea'

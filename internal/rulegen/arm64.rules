@@ -16,6 +16,8 @@
 // Constants and the addresses of what the link places: a page by adrp and the low bits of the address by the add or the
 // load after it, each with its reference. A constant in a d register is fmov's immediate where its 8 bits hold it, 0.0
 // the zero register moved over, and any other double read from a word of the data.
+// A String is two registers (emitString...): its first word, the address of its bytes, is the IR register's own.
+(const) && isStringReg(fn, r: ins.dst) => (emitStringConst)
 (const [c]) && sel.inXmm(ins.dst) and arm64HoldsFloatImmediate(c) => (FmovDImm r [arm64FloatImmediate(c)])
 (const [0]) && sel.inXmm(ins.dst) => (FmovDX r sp)
 (const [c]) && sel.inXmm(ins.dst) => (Adrp t [sel.floatRef(c)]) (LdrDPageOff r t [sel.floatRef(c)])
@@ -23,13 +25,16 @@
 (const [c]) && arm64OneMove(c) => (MovzRegImm r [arm64OneMoveHalfword(c)] [arm64OneMoveShift(c)])
 (const [c]) && arm64IsLogicalImmediate(c as FullRangeInt) => (MovRegMask r [c])
 (const) => (emitArm64Constant)
-(str) => (Adrp t [sel.textRef(fn, ins: ins)]) (AddPageOff r t [sel.textRef(fn, ins: ins)])
+(str) => (emitStr)
 (datum) => (Adrp t [sel.datumRef(fn, ins: ins)]) (AddPageOff r t [sel.datumRef(fn, ins: ins)])
 (loadGlobal [g]) => (Adrp t [sel.symbolRef(ir.rtSymbol(g))]) (Ldr64PageOff r t [sel.symbolRef(ir.rtSymbol(g))])
 (globalAddr [g]) => (Adrp t [sel.symbolRef(ir.rtSymbol(g))]) (AddPageOff r t [sel.symbolRef(ir.rtSymbol(g))])
 (codeAddress) => (Adrp t [sel.calleeRef(ir.codeAddressCallee(fn, x: ins))]) (AddPageOff r t [sel.calleeRef(ir.codeAddressCallee(fn, x: ins))])
 
 // The frame: slots are words above the frame record; emitArm64LoadParam reads parameters, by the convention.
+(loadSlot) && isStringReg(fn, r: ins.dst) => (emitStringLoadSlot)
+(storeSlot [n] v) && isStringReg(fn, r: v) => (emitStringStoreSlot)
+(moveSlot) && isStringReg(fn, r: ins.dst) => (emitStringMoveSlot)
 (loadSlot [n]) && sel.inXmm(ins.dst) and arm64LdrDOffHolds(arm64SlotDisp(n) as FullRangeInt) => (LdrDOff r x29 [arm64SlotDisp(n)])
 (loadSlot [n]) && arm64Ldr64OffHolds(arm64SlotDisp(n) as FullRangeInt) => (Ldr64Off r x29 [arm64SlotDisp(n)])
 (loadSlot) => (emitArm64LoadSlot)
@@ -43,6 +48,11 @@
 (loadParam) => (emitArm64LoadParam)
 
 // Memory. An offset that the scaled field of the access does not hold, nor the unscaled one, is added to the base first.
+(loadField) && isStringReg(fn, r: ins.dst) => (emitStringLoadField)
+(storeField obj [off] v) && isStringReg(fn, r: v) => (emitStringStoreField)
+(loadAt) && isStringReg(fn, r: ins.dst) => (emitStringLoadAt)
+(storeAt a v) && isStringReg(fn, r: v) => (emitStringStoreAt)
+(moveAt) && isStringReg(fn, r: ins.dst) => (emitStringMoveAt)
 (loadField obj [off]) && sel.inXmm(ins.dst) and arm64LdrDOffHolds(arm64Disp(off)) => (LdrDOff r obj [off])
 (loadField obj [off]) && arm64Ldr64OffHolds(arm64Disp(off)) => (Ldr64Off r obj [off])
 (loadField) => (emitArm64LoadField)
@@ -106,15 +116,17 @@
 // which calls the entry the access is the common case of (emitArm64Bounds), and an element an access at the index into
 // the buffer, whose word is at the index shifted by 3 and whose byte at the index.
 (length.array s) => (Ldr64Off r s [arrayLengthOffset])
-(length.string s) => (Ldr64Off r s [stringLengthOffset])
+(length.string) => (emitStringLength)
 (bounds) => (emitArm64Bounds)
 (elemAddr a i) => (Ldr64Off d a [arrayDataOffset]) (AddRegRegLsl r d i [arm64WordShift])
 (elemLoad a i) && sel.inXmm(ins.dst) => (Ldr64Off d a [arrayDataOffset]) (LdrDIdx r d i)
 (elemLoad a i) => (Ldr64Off d a [arrayDataOffset]) (Ldr64Idx r d i)
 (loadByte.array a i) => (Ldr64Off d a [arrayDataOffset]) (LdrbIdx r d i)
-(loadByte.string s i) => (AddRegImm p s [stringBytesOffset]) (LdrbIdx r p i)
+(loadByte.string s i) => (LdrbIdx r s i)
 (buffer s) => (Ldr64Off r s [arrayDataOffset])
-(bytes s) => (AddRegImm r s [stringBytesOffset])
+(strPtr) => (emitStrPtr)
+(strWord) => (emitStrWord)
+(strMake) => (emitStrMake)
 (wordAt d i) && sel.inXmm(ins.dst) => (LdrDIdx r d i)
 (wordAt d i) => (Ldr64Idx r d i)
 (byteAt d i) => (LdrbIdx r d i)

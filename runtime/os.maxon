@@ -13,8 +13,6 @@ let osArrayCapacityOffset = 8 as Count
 
 let osArrayDataOffset = 16 as Count
 
-let osArrayElementBytes = 8
-
 let osArrayFirstCapacity = 4
 
 let osArrayLimit = 0x100000000
@@ -316,9 +314,9 @@ function endWithError(errorAddress Count, osError Count, table Count)
 	failWith(errorAddress, errorCase: (table shr (failureOf(osError) * caseBits)) and caseMask)
 end 'endWithError'
 
-// noString is what an entry that returns a string gives when it failed.
+// noString is what an entry that returns a string gives when it failed: a literal, which nothing frees.
 function noString() returns String
-	return __Raw.stringAt(noBox)
+	return ""
 end 'noString'
 
 // stringArrayNew is a new array with no strings.
@@ -326,8 +324,10 @@ function stringArrayNew() returns Count
 	return alloc(osArrayHeaderBytes)
 end 'stringArrayNew'
 
-// stringArrayPush moves a string's box in at the end of an array of strings, which grows by doubling.
-function stringArrayPush(array Count, box Count)
+// stringArrayPush puts the string that owns room (__Raw.stringRoom) of a length at the end of an array of strings, which
+// grows by doubling.
+function stringArrayPush(array Count, room Count, textLength Count)
+	let elementBytes = __Raw.stringSize()
 	let length = __Raw.loadWord(array, offset: osArrayLengthOffset)
 	let capacity = __Raw.loadWord(array, offset: osArrayCapacityOffset)
 	if length >= osArrayLimit 'outside'
@@ -335,17 +335,24 @@ function stringArrayPush(array Count, box Count)
 	end 'outside'
 	if length == capacity 'grow'
 		let grown = osArrayFirstCapacity if capacity == 0 else length * 2
-		let data = alloc(grown * osArrayElementBytes)
+		let data = alloc(collectionBytes(grown, elementBytes: elementBytes))
 		let old = __Raw.loadWord(array, offset: osArrayDataOffset)
-		copyBytes(old, target: data, count: length * osArrayElementBytes)
+		copyBytes(old, target: data, count: collectionBytes(length, elementBytes: elementBytes))
 		free(old)
 		__Raw.storeWord(array, offset: osArrayDataOffset, value: data)
 		__Raw.storeWord(array, offset: osArrayCapacityOffset, value: grown)
 	end 'grow'
 	let data = __Raw.loadWord(array, offset: osArrayDataOffset)
-	__Raw.storeWord(data, offset: length * osArrayElementBytes, value: box)
+	__Raw.storeString(data, offset: collectionBytes(length, elementBytes: elementBytes), bytes: room, length: textLength, ascii: false)
 	__Raw.storeWord(array, offset: osArrayLengthOffset, value: length + 1)
 end 'stringArrayPush'
+
+// pushBytes puts a new string of a copy of a number of bytes at an address at the end of an array of strings.
+function pushBytes(array Count, address Count, length Count)
+	let room = __Raw.stringRoom(length)
+	copyBytes(address, target: room, count: length)
+	stringArrayPush(array, room: room, textLength: length)
+end 'pushBytes'
 
 // nanosPerSecond is what a count of whole seconds is scaled to.
 let nanosPerSecond = 1000000000 as Count
@@ -360,12 +367,12 @@ let nanosPerSecond = 1000000000 as Count
 		end 'outside'
 		let line = alloc(units * maxUtf8BytesPerUnit + 1)
 		let length = utf8FromUtf16(wideLine, units: units, dst: line)
-		let scratch = newStringBox(length)
+		let scratch = alloc(__Raw.wrappingAdd(length, right: wordBytes))
 		let args = stringArrayNew()
 		var position = skipSeparators(line, length: length, position: 0)
 		while position < length 'each'
-			let next = scanArgument(line, length: length, position: position, box: scratch)
-			stringArrayPush(args, box: copyStringBox(scratch))
+			let next = scanArgument(line, length: length, position: position, scratch: scratch)
+			pushBytes(args, address: __Raw.wrappingAdd(scratch, right: wordBytes), length: __Raw.loadWord(scratch, offset: 0))
 			position = skipSeparators(line, length: length, position: next)
 		end 'each'
 		free(scratch)
@@ -453,9 +460,8 @@ let nanosPerSecond = 1000000000 as Count
 	// osPathFrom is a path with the native separator in place of the other one, which refuses a character that Windows does
 	// not allow in a path.
 	function osPathFrom(path String, errorAddress Count) returns String
-		let box = __Raw.stringAddress(path)
-		let length = boxLength(box)
-		let source = bytesOf(box)
+		let length = __Raw.stringLength(path)
+		let source = __Raw.stringBytes(path)
 		for i in 0 upto length 'check'
 			let byte = __Raw.loadByte(source, offset: i)
 			if byte <= lastControlByte 'control'
@@ -469,14 +475,13 @@ let nanosPerSecond = 1000000000 as Count
 				end 'refused'
 			end 'invalid'
 		end 'check'
-		let native = newStringBox(length)
-		let dest = bytesOf(native)
+		let dest = __Raw.stringRoom(length)
 		for i in 0 upto length 'copy'
 			let byte = __Raw.loadByte(source, offset: i)
 			__Raw.storeByte(dest, offset: i, value: pathSeparator if byte == otherSeparator else byte)
 		end 'copy'
 		succeed(errorAddress)
-		return __Raw.stringAt(native)
+		return __Raw.stringOf(dest, length: length, ascii: __Raw.stringAscii(path))
 	end 'osPathFrom'
 
 	// openFile is the handle of a file that CreateFileW opened, or invalidHandle with the Win32 error stored at win32Address.
@@ -506,8 +511,7 @@ let nanosPerSecond = 1000000000 as Count
 			endWithError(errorAddress, osError: sizeError, table: readFailures())
 			return noString()
 		end 'sized'
-		let box = newStringBox(size)
-		let bytes = bytesOf(box)
+		let bytes = __Raw.stringRoom(size)
 		var done = 0 as Count
 		var readError = 0 as Count
 		var reading = true
@@ -527,13 +531,12 @@ let nanosPerSecond = 1000000000 as Count
 		exitBlocking()
 		closeHandle(file)
 		if readError != 0 'failedRead'
-			free(box)
+			__Raw.freeStringRoom(bytes)
 			endWithError(errorAddress, osError: readError, table: readFailures())
 			return noString()
 		end 'failedRead'
-		__Raw.storeWord(box, offset: stringLengthOffset, value: done)
 		succeed(errorAddress)
-		return __Raw.stringAt(box)
+		return __Raw.stringOf(bytes, length: done, ascii: false)
 	end 'osReadText'
 
 	// writeFile replaces a file with bytes at an address, and gives the Win32 error that stopped it, or 0. Windows has no
@@ -563,8 +566,7 @@ let nanosPerSecond = 1000000000 as Count
 
 // osWriteTextMode replaces a file with a string. A file that it creates gets the executable mode when executable is set.
 function osWriteTextMode(path String, content String, executable bool, errorAddress Count)
-	let box = __Raw.stringAddress(content)
-	endWithError(errorAddress, osError: writeFile(path, data: bytesOf(box), length: boxLength(box), executable: executable), table: writeFailures())
+	endWithError(errorAddress, osError: writeFile(path, data: __Raw.stringBytes(content), length: __Raw.stringLength(content), executable: executable), table: writeFailures())
 end 'osWriteTextMode'
 
 // osWriteBinaryMode replaces a file with the bytes of a byte array, as osWriteTextMode does.
@@ -720,26 +722,24 @@ end 'osWriteBinary'
 		return units == 2 and unitAt(name, index: 0) == dotByte and unitAt(name, index: 1) == dotByte
 	end 'isDotEntry'
 
-	// entryPathBox is a new box of the path joined to the name of an entry: a separator goes between them unless the path
-	// is empty or ends with one.
-	function entryPathBox(path String, name Count, units Count) returns Count
-		let pathBox = __Raw.stringAddress(path)
-		let pathLength = boxLength(pathBox)
-		let separate = pathLength != 0 and __Raw.loadByte(bytesOf(pathBox), offset: __Raw.wrappingSub(pathLength, right: 1)) != pathSeparator
+	// pushEntryPath puts a new string of the path joined to the name of an entry at the end of an array of strings: a
+	// separator goes between them unless the path is empty or ends with one.
+	function pushEntryPath(entries Count, path String, name Count, units Count)
+		let pathLength = __Raw.stringLength(path)
+		let pathBytes = __Raw.stringBytes(path)
+		let separate = pathLength != 0 and __Raw.loadByte(pathBytes, offset: __Raw.wrappingSub(pathLength, right: 1)) != pathSeparator
 		if units >= textUnitLimit 'outside'
 			panic("entry name too long to list")
 		end 'outside'
-		let box = newStringBox(__Raw.wrappingAdd(__Raw.wrappingAdd(pathLength, right: 1), right: units * maxUtf8BytesPerUnit))
-		let bytes = bytesOf(box)
-		copyBytes(bytesOf(pathBox), target: bytes, count: pathLength)
+		let bytes = __Raw.stringRoom(__Raw.wrappingAdd(__Raw.wrappingAdd(pathLength, right: 1), right: units * maxUtf8BytesPerUnit))
+		copyBytes(pathBytes, target: bytes, count: pathLength)
 		var at = pathLength
 		if separate 'separator'
 			at = storeNextByte(bytes, offset: at, value: pathSeparator)
 		end 'separator'
 		at = __Raw.wrappingAdd(at, right: utf8FromUtf16(name, units: units, dst: __Raw.wrappingAdd(bytes, right: at)))
-		__Raw.storeWord(box, offset: stringLengthOffset, value: at)
-		return box
-	end 'entryPathBox'
+		stringArrayPush(entries, room: bytes, textLength: at)
+	end 'pushEntryPath'
 
 	// osList is the path joined to the name of each entry of a directory, `.` and `..` left out, in the order Windows gives.
 	function osList(path String, errorAddress Count) returns Count
@@ -761,7 +761,7 @@ end 'osWriteBinary'
 		while more 'entries'
 			let units = wideLength(name)
 			if not isDotEntry(name, units: units) 'entry'
-				stringArrayPush(entries, box: entryPathBox(path, name: name, units: units))
+				pushEntryPath(entries, path: path, name: name, units: units)
 			end 'entry'
 			more = dword(__Raw.callImport2("FindNextFileW", arg1: search, arg2: findData)) != 0
 		end 'entries'

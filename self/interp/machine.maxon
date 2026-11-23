@@ -193,10 +193,20 @@ type Machine implements ir.InstrVisitor, ir.TermVisitor
 		panic("interp: a buffer, which only the native optimizer makes")
 	end 'visitBuffer'
 
-	// Only a native build's optimizer makes a bytes (self/opt/licm.maxon), which the IR the interpreter runs never holds.
-	function visitBytes(mutates self, f ir.IrFunction, x ir.Instr)
-		panic("interp: a bytes, which only the native optimizer makes")
-	end 'visitBytes'
+	// A strptr is the runtime source's but for the test of an element read, which is whether the slot holds a String: the
+	// interpreter's address of a String is 1 when the register holds one, and 0 when it holds nothing, as an empty slot is.
+	function visitStrPtr(mutates self, f ir.IrFunction, x ir.Instr)
+		let held = 0 as ir.Word if vm.ref(ir.strPtrSrc(x)) == 0 else 1 as ir.Word
+		vm.setNum(x.dst, n: held)
+	end 'visitStrPtr'
+
+	function visitStrWord(mutates self, f ir.IrFunction, x ir.Instr)
+		panic("interp: strword is the runtime source's, which the interpreter never runs")
+	end 'visitStrWord'
+
+	function visitStrMake(mutates self, f ir.IrFunction, x ir.Instr)
+		panic("interp: strmake is the runtime source's, which the interpreter never runs")
+	end 'visitStrMake'
 
 	// Only a native build's optimizer makes a wordAt (self/opt/licm.maxon), which the IR the interpreter runs never holds.
 	function visitWordAt(mutates self, f ir.IrFunction, x ir.Instr)

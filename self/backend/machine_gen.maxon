@@ -233,6 +233,14 @@ export function internalResultOf(arch ast.TargetArch) returns RegNum
 	end 'arch'
 end 'internalResultOf'
 
+// internalSecondResultOf is the number in an architecture's register file of the register its internal convention returns the second word of a String in.
+export function internalSecondResultOf(arch ast.TargetArch) returns RegNum
+	return match arch 'arch'
+		x64 gives 9 as RegNum
+		arm64 gives 1 as RegNum
+	end 'arch'
+end 'internalSecondResultOf'
+
 // internalFloatResultOf is the number in an architecture's register file of the register its internal convention returns a float in.
 export function internalFloatResultOf(arch ast.TargetArch) returns RegNum
 	return match arch 'arch'

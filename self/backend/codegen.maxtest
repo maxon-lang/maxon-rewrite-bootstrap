@@ -6,6 +6,12 @@ function addFunction(mutates p ast.Project, name String, errTy ast.TypeID) retur
 	return ast.makeFunc(p, module: module, f: entry)
 end 'addFunction'
 
+// pairWords is how many words the record Pair's fields take: a number's one and a String's two.
+let pairWords = 3 as Count
+
+// shapeBytes is the size of the box of the union Shape: its case and its widest payload, a String's two words.
+let shapeBytes = 24 as Count
+
 // addPairType declares the record Pair with a number and a string.
 function addPairType(mutates p ast.Project) returns ast.TypeID
 	var entry = ast.TypeEntry.make(ast.TypeKind.record, name: "Pair")
@@ -159,7 +165,7 @@ function boxMain(decl ast.FuncID, pair ast.TypeID) returns ir.IrFunction
 	var b = ir.FnBuilder.new(decl, name: "main", paramCount: 0)
 	let kept = b.slot(ir.IrKind.kindManaged)
 	let box = b.reg()
-	b.emit(ir.newAlloc(box, bytes: ir.boxBytes(2, tagged: false)))
+	b.emit(ir.newAlloc(box, bytes: ir.boxBytes(pairWords, tagged: false)))
 	b.emit(ir.newStoreSlot(kept, src: box, borrow: false))
 	let five = b.constant(5)
 	b.emit(ir.newStoreField(box, offset: ir.fieldOffset(0, tagged: false), src: five, borrow: false))
@@ -170,8 +176,7 @@ function boxMain(decl ast.FuncID, pair ast.TypeID) returns ir.IrFunction
 	b.emit(ir.newCopy(copied, src: box, ty: pairIndex))
 	let number = b.reg()
 	b.emit(ir.newLoadField(number, obj: copied, offset: ir.fieldOffset(0, tagged: false)))
-	let copiedText = b.reg()
-	b.emit(ir.newLoadField(copiedText, obj: copied, offset: ir.fieldOffset(1, tagged: false)))
+	let copiedText = b.loadString(copied, offset: ir.fieldOffset(1, tagged: false))
 	let out = b.reg()
 	b.emit(ir.newLoadGlobal(out, symbol: ir.Rt.rtStdout))
 	let args = ir.regs2(out, b: copiedText)
@@ -242,7 +247,7 @@ end 'addRoutineTypes'
 
 // pairBox makes a box of the record Pair holding a number and a literal.
 function pairBox(mutates b ir.FnBuilder, number ir.Word, text String) returns ir.Reg
-	let box = b.alloc(16)
+	let box = b.alloc(ir.boxBytes(pairWords, tagged: false))
 	let n = b.constant(number)
 	b.storeWord(box, offset: 0, src: n)
 	let s = b.str(text)
@@ -275,7 +280,7 @@ function routinesMain(decl ast.FuncID, types RoutineTypes) returns ir.IrFunction
 	let length = b.loadWord(arrayCopy, offset: 0)
 	b.drop(array, ty: types.pairs)
 	b.drop(arrayCopy, ty: types.pairs)
-	let named = b.alloc(16)
+	let named = b.alloc(shapeBytes)
 	let one = b.constant(1)
 	b.storeWord(named, offset: 0, src: one)
 	let label = b.str("n")
@@ -284,7 +289,7 @@ function routinesMain(decl ast.FuncID, types RoutineTypes) returns ir.IrFunction
 	let tag = b.loadWord(namedCopy, offset: 0)
 	b.drop(named, ty: types.shape)
 	b.drop(namedCopy, ty: types.shape)
-	let circle = b.alloc(16)
+	let circle = b.alloc(shapeBytes)
 	let nine = b.constant(9)
 	b.storeWord(circle, offset: 8, src: nine)
 	let circleCopy = b.copyOf(circle, ty: types.shape)
@@ -300,11 +305,12 @@ function routinesMain(decl ast.FuncID, types RoutineTypes) returns ir.IrFunction
 	let byteCount = b.loadWord(bytesCopy, offset: 0)
 	b.drop(header, ty: types.bytes)
 	b.drop(bytesCopy, ty: types.bytes)
-	let heapString = b.alloc(16)
-	let three = b.constant(3)
-	b.storeWord(heapString, offset: 0, src: three)
-	let letters = b.constant(6513249)
-	b.storeWord(heapString, offset: 8, src: letters)
+	let letters = b.alloc(8)
+	let abc = b.constant(6513249)
+	b.storeWord(letters, offset: 0, src: abc)
+	let ownedWord = b.constant(15)
+	let heapString = b.regOf(ir.IrKind.kindString)
+	b.emit(ir.newStrMake(heapString, bytes: letters, word: ownedWord))
 	let stringCopy = b.copyOf(heapString, ty: types.text)
 	b.drop(heapString, ty: types.text)
 	b.drop(stringCopy, ty: types.text)
@@ -359,9 +365,12 @@ function rawMain(decl ast.FuncID) returns ir.IrFunction
 	let wantWord = b.constant(0x01020304050607FF)
 	let okWord = b.cmp(ir.CmpOp.cmpEq, left: word, right: wantWord, unsigned: false)
 	let line = b.str("raw\n")
-	let lengthBytes = b.constant(8)
-	let bytes = b.add(line, right: lengthBytes)
-	let length = b.loadWord(line, offset: 0)
+	let bytes = b.reg()
+	b.emit(ir.newStrPtr(bytes, src: line))
+	let lineWord = b.reg()
+	b.emit(ir.newStrWord(lineWord, src: line))
+	let lengthShift = b.constant(2)
+	let length = b.bin(ir.BinOp.binShr, left: lineWord, right: lengthShift, unsigned: true, fail: ir.noBlock)
 	let handle = b.reg()
 	b.emit(ir.newLoadGlobal(handle, symbol: ir.Rt.rtStdout))
 	let writtenAddr = b.reg()

@@ -125,6 +125,10 @@ extension Asm
 		encodeAddRegImm(code, dest: dst, imm: imm)
 	end 'addImm'
 
+	export function shrImm(mutates self, dst X64Register, imm Imm8)
+		encodeShrRegImm8(code, reg: dst, imm: imm)
+	end 'shrImm'
+
 	export function andImm(mutates self, dst X64Register, imm Imm32)
 		encodeAndRegImm(code, dest: dst, imm: imm)
 	end 'andImm'

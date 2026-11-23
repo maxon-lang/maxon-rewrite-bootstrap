@@ -94,11 +94,6 @@ function storeUnit(address Count, index Count, value Count)
 	__Raw.storeWord16(address, offset: index * wideUnitBytes, value: value)
 end 'storeUnit'
 
-// boxLength is the number of bytes of the string whose box is at an address.
-function boxLength(box Count) returns Count
-	return __Raw.loadWord(box, offset: stringLengthOffset)
-end 'boxLength'
-
 // continuationAt is whether the byte ahead of an index is in range lowest..highest, which a byte past the end never is.
 function continuationAt(source Count, index Count, ahead Count, byteLength Count, lowest Count, highest Count) returns bool
 	let position = __Raw.wrappingAdd(index, right: ahead)
@@ -264,13 +259,12 @@ end 'wideLength'
 
 // wideOf is a new zero-terminated UTF-16 copy of a string, which the caller frees.
 function wideOf(text String) returns Count
-	let box = __Raw.stringAddress(text)
-	let length = boxLength(box)
+	let length = __Raw.stringLength(text)
 	if length >= textUnitLimit 'outside'
 		panic("text too long to convert")
 	end 'outside'
 	let wide = alloc((length + 1) * wideUnitBytes)
-	_ = utf16FromUtf8(bytesOf(box), byteLength: length, dst: wide)
+	_ = utf16FromUtf8(__Raw.stringBytes(text), byteLength: length, dst: wide)
 	return wide
 end 'wideOf'
 
@@ -279,16 +273,7 @@ function stringOfUnits(source Count, units Count) returns String
 	if units >= textUnitLimit 'outside'
 		panic("text too long to convert")
 	end 'outside'
-	let box = newStringBox(units * maxUtf8BytesPerUnit)
-	let written = utf8FromUtf16(source, units: units, dst: bytesOf(box))
-	__Raw.storeWord(box, offset: stringLengthOffset, value: written)
-	return __Raw.stringAt(box)
+	let room = __Raw.stringRoom(units * maxUtf8BytesPerUnit)
+	let written = utf8FromUtf16(source, units: units, dst: room)
+	return __Raw.stringOf(room, length: written, ascii: false)
 end 'stringOfUnits'
-
-// copyStringBox is a new box with the length and the bytes of another.
-function copyStringBox(box Count) returns Count
-	let length = boxLength(box)
-	let copy = newStringBox(length)
-	copyBytes(bytesOf(box), target: bytesOf(copy), count: length)
-	return copy
-end 'copyStringBox'

@@ -139,15 +139,21 @@ export function rewriteInstr(mutates fn ir.IrFunction, at Count, defs ir.Defs, m
 	if op == ir.Opcode.opBuffer 'opcodeBuffer'
 		return false
 	end 'opcodeBuffer'
-	if op == ir.Opcode.opBytes 'opcodeBytes'
-		return false
-	end 'opcodeBytes'
 	if op == ir.Opcode.opWordAt 'opcodeWordAt'
 		return false
 	end 'opcodeWordAt'
 	if op == ir.Opcode.opByteAt 'opcodeByteAt'
 		return false
 	end 'opcodeByteAt'
+	if op == ir.Opcode.opStrPtr 'opcodeStrPtr'
+		return false
+	end 'opcodeStrPtr'
+	if op == ir.Opcode.opStrWord 'opcodeStrWord'
+		return false
+	end 'opcodeStrWord'
+	if op == ir.Opcode.opStrMake 'opcodeStrMake'
+		return false
+	end 'opcodeStrMake'
 	if op == ir.Opcode.opAlloc 'opcodeAlloc'
 		return false
 	end 'opcodeAlloc'

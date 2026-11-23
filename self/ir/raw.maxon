@@ -28,13 +28,6 @@ function rawStore(mutates l Lowerer, args RegList, width RawWidth) returns Reg
 	return konst(l, value: 0 as Word)
 end 'rawStore'
 
-// sameWord is another register of the kind with the word of w, which a value of another type is made of: the box of a
-// string is a word and a word is a box. It is the sum with 0.
-function sameWord(mutates l Lowerer, w Reg, kind IrKind) returns Reg
-	let zero = konst(l, value: 0 as Word)
-	return wrappingBin(l, op: BinOp.binAdd, a: w, b: zero, kind: kind)
-end 'sameWord'
-
 // globalAddress is the address of a symbol of the entry stub: a global, or the code a thread starts at.
 function globalAddress(mutates l Lowerer, symbol Rt) returns Reg
 	let d = newReg(l, kind: IrKind.kindScalar)
@@ -105,19 +98,8 @@ function lowerRawAddressOf(mutates l Lowerer, p ast.Project, mutates ms ast.Modu
 	return address(l, p: p, ms: ms, e: c.ordered[0])
 end 'lowerRawAddressOf'
 
-// lowerRawStringAddress is the address of a string's box, which is the string.
-function lowerRawStringAddress(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
-	return sameWord(l, w: args[0], kind: IrKind.kindScalar)
-end 'lowerRawStringAddress'
-
-// lowerRawStringAt is the string that owns a box the runtime built, so the one the call gives is dropped like any other.
-function lowerRawStringAt(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
-	return sameWord(l, w: args[0], kind: IrKind.kindManaged)
-end 'lowerRawStringAt'
-
-// The intrinsics that say nothing of a String's layout. A String is the address of its box, which holds its length and
-// then its bytes, so a String's room is a box less its header and the bytes are past it. The ascii operand of the
-// box layout is evaluated and nothing keeps it.
+// The String intrinsics, which say nothing of the layout to the runtime's source: a String is its two words in one register
+// (strptr, strword, strmake), its room a box of runtime::alloc that the String owns once stringOf makes it.
 
 // shifted is the word w moved by a constant of the layout: plus it for binAdd, less it for binSub.
 function shifted(mutates l Lowerer, w Reg, op BinOp, offset Count) returns Reg
@@ -133,74 +115,89 @@ function loadWordAt(mutates l Lowerer, w Reg, offset Count) returns Reg
 	return d
 end 'loadWordAt'
 
-// roomString is the box of the String whose room starts at bytes, with its length stored: the word the String is.
-function roomString(mutates l Lowerer, bytes Reg, length Reg) returns Reg
-	let box = shifted(l, w: bytes, op: BinOp.binSub, offset: stringBytesOffset)
-	let at = shifted(l, w: box, op: BinOp.binAdd, offset: stringLengthOffset)
-	emit(l, i: newStoreRaw(at, src: length, width: RawWidth.width64))
-	return box
-end 'roomString'
+// lengthOfWord is the length a String's word holds.
+function lengthOfWord(mutates l Lowerer, word Reg) returns Reg
+	let shift = konst(l, value: countWord(stringLengthShift))
+	return wrappingBin(l, op: BinOp.binShr, a: word, b: shift, kind: IrKind.kindScalar)
+end 'lengthOfWord'
+
+// ownedWord is the word of a String that owns its bytes, of a length and an ascii flag, 0 or 1.
+function ownedWord(mutates l Lowerer, length Reg, ascii Reg) returns Reg
+	let shift = konst(l, value: countWord(stringLengthShift))
+	let shiftedLength = wrappingBin(l, op: BinOp.binShl, a: length, b: shift, kind: IrKind.kindScalar)
+	let one = konst(l, value: 1 as Word)
+	let flag = wrappingBin(l, op: BinOp.binShl, a: ascii, b: one, kind: IrKind.kindScalar)
+	let flags = shifted(l, w: flag, op: BinOp.binAdd, offset: stringOwnedBit)
+	return wrappingBin(l, op: BinOp.binOr, a: shiftedLength, b: flags, kind: IrKind.kindScalar)
+end 'ownedWord'
+
+// stringWord is the word of a String.
+function stringWord(mutates l Lowerer, text Reg) returns Reg
+	let d = newReg(l, kind: IrKind.kindScalar)
+	emit(l, i: newStrWord(d, src: text))
+	return d
+end 'stringWord'
 
 function lowerRawStringBytes(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
-	return shifted(l, w: args[0], op: BinOp.binAdd, offset: stringBytesOffset)
+	let d = newReg(l, kind: IrKind.kindScalar)
+	emit(l, i: newStrPtr(d, src: args[0]))
+	return d
 end 'lowerRawStringBytes'
 
 function lowerRawStringLength(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
-	return loadWordAt(l, w: args[0], offset: stringLengthOffset)
+	let word = stringWord(l, text: args[0])
+	return lengthOfWord(l, word: word)
 end 'lowerRawStringLength'
 
-// lowerRawStringAscii is false: a box holds no flag.
 function lowerRawStringAscii(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
-	return konst(l, value: 0 as Word)
+	let word = stringWord(l, text: args[0])
+	let one = konst(l, value: 1 as Word)
+	let down = wrappingBin(l, op: BinOp.binShr, a: word, b: one, kind: IrKind.kindScalar)
+	return wrappingBin(l, op: BinOp.binAnd, a: down, b: one, kind: IrKind.kindScalar)
 end 'lowerRawStringAscii'
 
 function lowerRawStringRoom(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
-	let size = shifted(l, w: args[0], op: BinOp.binAdd, offset: stringBytesOffset)
-	let box = runtime(l, symbol: Rt.rtAlloc, kind: IrKind.kindScalar, args: argsOf1(size))
-	return shifted(l, w: box, op: BinOp.binAdd, offset: stringBytesOffset)
+	return runtime(l, symbol: Rt.rtAlloc, kind: IrKind.kindScalar, args: argsOf1(args[0]))
 end 'lowerRawStringRoom'
 
 // lowerRawFreeStringRoom gives 0 as its value, as a store does.
 function lowerRawFreeStringRoom(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
-	let box = shifted(l, w: args[0], op: BinOp.binSub, offset: stringBytesOffset)
-	_ = runtime(l, symbol: Rt.rtFree, kind: IrKind.kindScalar, args: argsOf1(box))
+	_ = runtime(l, symbol: Rt.rtFree, kind: IrKind.kindScalar, args: argsOf1(args[0]))
 	return konst(l, value: 0 as Word)
 end 'lowerRawFreeStringRoom'
 
 // lowerRawStringOf is the string that owns the room, so the one the call gives is dropped like any other.
 function lowerRawStringOf(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
-	let box = roomString(l, bytes: args[0], length: args[1])
-	return sameWord(l, w: box, kind: IrKind.kindManaged)
+	let word = ownedWord(l, length: args[1], ascii: args[2])
+	let d = newReg(l, kind: IrKind.kindString)
+	emit(l, i: newStrMake(d, bytes: args[0], word: word))
+	return d
 end 'lowerRawStringOf'
 
 function lowerRawStringSize(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
-	return konst(l, value: countWord(wordBytes))
+	return konst(l, value: countWord(stringValueBytes))
 end 'lowerRawStringSize'
 
 // lowerRawStoreString gives 0 as its value, as a store does.
 function lowerRawStoreString(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
-	let box = roomString(l, bytes: args[2], length: args[3])
+	let word = ownedWord(l, length: args[3], ascii: args[4])
 	let at = rawAddress(l, address: args[0], offset: args[1])
-	emit(l, i: newStoreRaw(at, src: box, width: RawWidth.width64))
+	let bytesAt = shifted(l, w: at, op: BinOp.binAdd, offset: stringBytesOffset)
+	emit(l, i: newStoreRaw(bytesAt, src: args[2], width: RawWidth.width64))
+	let wordAt = shifted(l, w: at, op: BinOp.binAdd, offset: stringWordOffset)
+	emit(l, i: newStoreRaw(wordAt, src: word, width: RawWidth.width64))
 	return konst(l, value: 0 as Word)
 end 'lowerRawStoreString'
 
-// storedBox is the box of the String held at address + offset.
-function storedBox(mutates l Lowerer, args RegList) returns Reg
-	let at = rawAddress(l, address: args[0], offset: args[1])
-	let d = newReg(l, kind: IrKind.kindScalar)
-	emit(l, i: newLoadRaw(d, addr: at, width: RawWidth.width64))
-	return d
-end 'storedBox'
-
 function lowerRawStringBytesAt(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
-	let box = storedBox(l, args: args)
-	return shifted(l, w: box, op: BinOp.binAdd, offset: stringBytesOffset)
+	let at = rawAddress(l, address: args[0], offset: args[1])
+	return loadWordAt(l, w: at, offset: stringBytesOffset)
 end 'lowerRawStringBytesAt'
 
 function lowerRawStringLengthAt(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
-	let box = storedBox(l, args: args)
-	return loadWordAt(l, w: box, offset: stringLengthOffset)
+	let at = rawAddress(l, address: args[0], offset: args[1])
+	let word = loadWordAt(l, w: at, offset: stringWordOffset)
+	return lengthOfWord(l, word: word)
 end 'lowerRawStringLengthAt'
 
 function lowerRawHeapAddress(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg

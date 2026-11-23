@@ -22,10 +22,26 @@ function shiftsInWord(c ir.Word) returns bool
 	return c >= 0 and c < shiftBitCount
 end 'shiftsInWord'
 
-// slotDisp is where a slot of the IR's frame sits below the frame pointer: the slots are the first of the fixed slots.
+// slotWords is how many words of the frame a slot of the IR takes: a String's two, the most a value takes, whatever the
+// slot holds.
+let slotWords = 2
+
+// slotsWords is how many words of the frame the IR's slots take, the first of the fixed slots.
+function slotsWords(f ir.IrFunction) returns Count
+	return try f.slots.count() * slotWords otherwise panic("backend: a frame past memory")
+end 'slotsWords'
+
+// slotDisp is where a slot of the IR's frame sits below the frame pointer: the slots are the first of the fixed slots,
+// each slotWords words from its lowest, which a String's first word is at and a word is.
 function slotDisp(slot Count) returns Imm32
-	return spillSlotOffset(try slot as SpillSlot otherwise panic("backend: a slot past 2 GiB"))
+	let lowest = try slot * slotWords + slotWords - 1 otherwise panic("backend: a slot past 2 GiB")
+	return spillSlotOffset(try lowest as SpillSlot otherwise panic("backend: a slot past 2 GiB"))
 end 'slotDisp'
+
+// isStringReg is whether the IR register r of f holds a String, which selection gives two virtual registers.
+function isStringReg(f ir.IrFunction, r ir.Reg) returns bool
+	return r != ir.noReg and f.regs[try r as Count otherwise panic("backend: a register that is not one")] == ir.IrKind.kindString
+end 'isStringReg'
 
 // cmpCondition is the condition code that holds when a comparison does.
 function cmpCondition(x ir.Instr) returns MCond
@@ -147,10 +163,15 @@ function arm64Field32(value FullRangeInt) returns Imm32
 end 'arm64Field32'
 
 // arm64SlotDisp is where a slot of the IR's frame sits above the frame pointer, after the frame record: the slots are the
-// first of the fixed slots, and the spill slots follow them.
+// first of the fixed slots, slotWords words each, and the spill slots follow them.
 function arm64SlotDisp(slot Count) returns Imm32
-	return imm32Of(try arm64FrameRecordBytes + slot * spillSlotBytes otherwise panic("backend: a slot past 2 GiB"))
+	return arm64WordDisp(try slot * slotWords otherwise panic("backend: a slot past 2 GiB"))
 end 'arm64SlotDisp'
+
+// arm64WordDisp is where a word of the fixed or spill slots sits above the frame pointer, after the frame record.
+function arm64WordDisp(word Count) returns Imm32
+	return imm32Of(try arm64FrameRecordBytes + word * spillSlotBytes otherwise panic("backend: a slot past 2 GiB"))
+end 'arm64WordDisp'
 
 // arm64LslImmr and arm64LslImms are the fields of the bitfield move that shifts left by a count within the word.
 function arm64LslImmr(c ir.Word) returns Count

@@ -29,7 +29,7 @@ function lowerStringAppend(mutates l Lowerer, p ast.Project, mutates ms ast.Modu
 	let other = lowerConverted(l, p: p, ms: ms, e: c.ordered[0], target: c.info.paramSpecs[0].ty)
 	let places = l.writeBacks.count()
 	let addr = address(l, p: p, ms: ms, e: c.receiver)
-	let old = newReg(l, kind: IrKind.kindManaged)
+	let old = newReg(l, kind: IrKind.kindString)
 	emit(l, i: newLoadAt(old, addr: addr))
 	let joined = runtime(l, symbol: Rt.rtConcat, kind: IrKind.kindManaged, args: argsOf2(old, b: other))
 	let string = p.builtins.stringTy

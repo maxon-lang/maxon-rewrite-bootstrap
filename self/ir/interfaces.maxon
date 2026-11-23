@@ -87,7 +87,7 @@ function lowerBoxed(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState
 	requireNative(l, p: p, ms: ms, site: siteOf(l, p: p, node: e), t: table.concrete)
 	let consumed = isConsumed(p, module: l.module, node: e)
 	var value = v
-	if regKind(l, v: v) == IrKind.kindManaged 'settle'
+	if owning(regKind(l, v: v)) 'settle'
 		value = settle(l, p: p, ms: ms, e: e, v: v, ty: ty, consumed: consumed)
 	end 'settle'
 	let box = newReg(l, kind: IrKind.kindManaged)
@@ -132,7 +132,7 @@ function lowerRecoveryCast(mutates l Lowerer, p ast.Project, mutates ms ast.Modu
 	emit(l, i: newFieldAddr(addr, obj: box, offset: ifaceValueOffset))
 	let kind = kindOf(l, p: p, ms: ms, t: ty)
 	let v = newReg(l, kind: kind)
-	if kind == IrKind.kindManaged 'managed'
+	if owning(kind) 'managed'
 		emit(l, i: newMoveAt(v, addr: addr))
 	end 'managed' else 'scalar'
 		emit(l, i: newLoadAt(v, addr: addr))

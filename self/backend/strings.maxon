@@ -1,0 +1,200 @@
+// The selection of Strings (README, "The IR"): a String register of the IR is two virtual registers, the IR register's own
+// for the address of its bytes and secondOf for its word, and a String in memory is those two words, the first at the
+// place's address. Every helper that moves a value moves both; the rules send each access of a String here.
+
+// secondWordDisp is where the word of a String lies when its first word is at disp.
+function secondWordDisp(disp Imm32) returns Imm32
+	return try (disp + stringWordOffset) as Imm32 otherwise panic("backend: a String's word past 2 GiB")
+end 'secondWordDisp'
+
+// ifaceWordOffset is where the box of an interface value holds the word of a String it holds, and nothing that another
+// type's routines read.
+let ifaceWordOffset = ifaceValueOffset + stringWordOffset
+
+// literalWord is the word of a literal: its length and whether every byte is below 0x80, and no bytes of its own, since
+// they are the executable's.
+function literalWord(text String) returns FullRangeInt
+	var word = try (text.byteLength() shl stringLengthShift) as FullRangeInt otherwise panic("backend: a literal past memory")
+	if isAscii(text) 'ascii'
+		word = word or stringAsciiBit
+	end 'ascii'
+	return word
+end 'literalWord'
+
+// isAscii is whether every byte of a text is below 0x80.
+function isAscii(text String) returns bool
+	for i in 0 upto text.byteLength() 'bytes'
+		if text.byteAt(i) >= asciiLimit 'high'
+			return false
+		end 'high'
+	end 'bytes'
+	return true
+end 'isAscii'
+
+// asciiLimit is the first byte that is not ASCII.
+let asciiLimit = 0x80 as Byte
+
+extension Selector
+	// frameBase is the register the frame's slots are addressed from.
+	function frameBase() returns MReg
+		return match arch 'arch'
+			x64 gives x64PhysReg(rbp)
+			arm64 gives arm64PhysReg(arm64FramePointer)
+		end 'arch'
+	end 'frameBase'
+
+	// slotOffset is where a slot of the IR lies from frameBase.
+	function slotOffset(slot Count) returns Imm32
+		return match arch 'arch'
+			x64 gives slotDisp(slot)
+			arm64 gives arm64SlotDisp(slot)
+		end 'arch'
+	end 'slotOffset'
+
+	// shiftRightInto sets dst to src shifted right by count, zeros coming in.
+	function shiftRightInto(mutates self, dst MReg, src MReg, count Count)
+		match arch 'arch'
+			x64 then self.x64ShiftRightInto(dst, src: src, count: count)
+			arm64 then self.arm64ShiftRightInto(dst, src: src, count: count)
+		end 'arch'
+	end 'shiftRightInto'
+
+	// referAddressInto sets dst to the address that refers names.
+	function referAddressInto(mutates self, dst MReg, refers Referent)
+		match arch 'arch'
+			x64 then self.x64ReferAddressInto(dst, refers: refers)
+			arm64 then self.arm64ReferAddressInto(dst, refers: refers)
+		end 'arch'
+	end 'referAddressInto'
+
+	// loadString loads the String at base plus disp into the IR register r.
+	function loadString(mutates self, r ir.Reg, base MReg, disp Imm32)
+		self.loadInto(vregOf(r), base: base, disp: disp)
+		self.loadInto(self.secondOf(r), base: base, disp: secondWordDisp(disp))
+	end 'loadString'
+
+	// storeString stores the String in the IR register r at base plus disp.
+	function storeString(mutates self, base MReg, disp Imm32, r ir.Reg)
+		self.store(base, disp: disp, src: vregOf(r))
+		self.store(base, disp: secondWordDisp(disp), src: self.secondOf(r))
+	end 'storeString'
+
+	// storeSecondWord stores the word of a String value in the box that holder holds, whose entry stored its first word at
+	// offset: the entries that make a frozen value and a cown take a word, and their boxes have room for two.
+	function storeSecondWord(mutates self, f ir.IrFunction, value ir.Reg, holder ir.Reg, offset Count)
+		if isStringReg(f, r: value) 'string'
+			self.store(vregOf(holder), disp: secondWordDisp(imm32Of(offset)), src: self.secondOf(value))
+		end 'string'
+	end 'storeSecondWord'
+
+	// storeValue stores the value in the IR register r of f at base plus disp: a word, or a String's two.
+	function storeValue(mutates self, base MReg, disp Imm32, r ir.Reg, f ir.IrFunction)
+		if isStringReg(f, r: r) 'string'
+			self.storeString(base, disp: disp, r: r)
+			return
+		end 'string'
+		self.store(base, disp: disp, src: vregOf(r))
+	end 'storeValue'
+
+	// emptyString leaves the String at base plus disp empty: 0 and 0, which owns nothing.
+	function emptyString(mutates self, base MReg, disp Imm32)
+		self.storeImm(base, disp: disp, value: 0)
+		self.storeImm(base, disp: secondWordDisp(disp), value: 0)
+	end 'emptyString'
+
+	// dropPlace drops the value of type ty at base plus disp, a String's two words or a word, and leaves the place empty.
+	function dropPlace(mutates self, base MReg, disp Imm32, ty ast.TypeID)
+		let value = self.load(base, disp: disp)
+		self.storeImm(base, disp: disp, value: 0)
+		self.addArg(value, float: false)
+		if ty == stringTy 'string'
+			let word = self.load(base, disp: secondWordDisp(disp))
+			self.storeImm(base, disp: secondWordDisp(disp), value: 0)
+			self.addArg(word, float: false)
+		end 'string'
+		self.callSymbol(u.needed.lookup(RoutineKind.dropRoutine, ty: ty))
+	end 'dropPlace'
+end 'Selector'
+
+// valueWordsOf is how many words the value in the IR register r of f takes in memory.
+function valueWordsOf(f ir.IrFunction, r ir.Reg) returns Count
+	if isStringReg(f, r: r) 'string'
+		return stringValueBytes / wordBytes
+	end 'string'
+	return 1
+end 'valueWordsOf'
+
+// emitStringConst is the empty String, the only constant a String register is given: a slot read before its first store.
+function emitStringConst(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
+	if ir.constValue(ins) != 0 'value'
+		panic("backend: a String register given a constant other than the empty place")
+	end 'value'
+	sel.constantInto(vregOf(ins.dst), value: 0)
+	sel.constantInto(sel.secondOf(ins.dst), value: 0)
+end 'emitStringConst'
+
+// emitStr is a literal: the address of its bytes in the executable and its word, both known before the program runs.
+function emitStr(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
+	let refers = sel.textRef(fn, ins: ins)
+	sel.referAddressInto(vregOf(ins.dst), refers: refers)
+	sel.constantInto(sel.secondOf(ins.dst), value: literalWord(ir.strText(fn, x: ins)))
+end 'emitStr'
+
+// emitStringLength is the length a String's word holds, which reads no memory.
+function emitStringLength(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
+	let result = sel.resultOf(ins.dst)
+	let word = sel.secondOf(ir.lengthSrc(ins))
+	sel.shiftRightInto(result, src: word, count: stringLengthShift)
+end 'emitStringLength'
+
+function emitStrPtr(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
+	let result = sel.resultOf(ins.dst)
+	sel.copy(result, src: vregOf(ir.strPtrSrc(ins)))
+end 'emitStrPtr'
+
+function emitStrWord(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
+	let result = sel.resultOf(ins.dst)
+	let word = sel.secondOf(ir.strWordSrc(ins))
+	sel.copy(result, src: word)
+end 'emitStrWord'
+
+function emitStrMake(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
+	sel.copy(vregOf(ins.dst), src: vregOf(ir.strMakeBytes(ins)))
+	sel.copy(sel.secondOf(ins.dst), src: vregOf(ir.strMakeWord(ins)))
+end 'emitStrMake'
+
+function emitStringLoadSlot(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
+	sel.loadString(ins.dst, base: sel.frameBase(), disp: sel.slotOffset(ir.loadSlotSlot(ins)))
+end 'emitStringLoadSlot'
+
+function emitStringStoreSlot(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
+	sel.storeString(sel.frameBase(), disp: sel.slotOffset(ir.storeSlotSlot(ins)), r: ir.storeSlotSrc(ins))
+end 'emitStringStoreSlot'
+
+function emitStringMoveSlot(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
+	let disp = sel.slotOffset(ir.moveSlotSlot(ins))
+	sel.loadString(ins.dst, base: sel.frameBase(), disp: disp)
+	sel.emptyString(sel.frameBase(), disp: disp)
+end 'emitStringMoveSlot'
+
+function emitStringLoadField(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
+	sel.loadString(ins.dst, base: vregOf(ir.loadFieldObj(ins)), disp: imm32Of(ir.loadFieldOffset(ins)))
+end 'emitStringLoadField'
+
+function emitStringStoreField(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
+	sel.storeString(vregOf(ir.storeFieldObj(ins)), disp: imm32Of(ir.storeFieldOffset(ins)), r: ir.storeFieldSrc(ins))
+end 'emitStringStoreField'
+
+function emitStringLoadAt(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
+	sel.loadString(ins.dst, base: vregOf(ir.loadAtAddr(ins)), disp: 0)
+end 'emitStringLoadAt'
+
+function emitStringStoreAt(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
+	sel.storeString(vregOf(ir.storeAtAddr(ins)), disp: 0, r: ir.storeAtSrc(ins))
+end 'emitStringStoreAt'
+
+function emitStringMoveAt(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
+	let at = vregOf(ir.moveAtAddr(ins))
+	sel.loadString(ins.dst, base: at, disp: 0)
+	sel.emptyString(at, disp: 0)
+end 'emitStringMoveAt'

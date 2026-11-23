@@ -474,7 +474,7 @@ function lowerModule(c Compile, mutates work ModuleWork, m Count, known Known, i
 			if c.options.verifyIr 'verifyLowered'
 				verifyFunctions(view, ms: ms, fns: lowered)
 			end 'verifyLowered'
-			var optimizer = opt.Optimizer.new(view.target.arch)
+			var optimizer = opt.Optimizer.new()
 			optimizer.clock = exchange(timing.lower, value: table.PhaseClock.off())
 			optimizer.lap(opt.OptPhase.lowering)
 			opt.optimizeModule(optimizer, fns: lowered)

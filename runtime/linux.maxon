@@ -99,8 +99,7 @@
 
 	// writeHandle writes a string to an fd, all of it.
 	function writeHandle(handle Count, text String)
-		let box = __Raw.stringAddress(text)
-		_ = writeAll(handle, data: bytesOf(box), length: boxLength(box))
+		_ = writeAll(handle, data: __Raw.stringBytes(text), length: __Raw.stringLength(text))
 	end 'writeHandle'
 
 	// exitProcess ends the process, every thread of it, with a code; it does not return.
@@ -145,13 +144,6 @@
 		return length
 	end 'cLength'
 
-	// boxOfBytes is a new string box of a number of bytes at an address.
-	function boxOfBytes(address Count, length Count) returns Count
-		let box = newStringBox(length)
-		copyBytes(address, target: bytesOf(box), count: length)
-		return box
-	end 'boxOfBytes'
-
 	// atCwd is the directory fd of a path relative to the working directory, AT_FDCWD.
 	function atCwd() returns Count
 		return __Raw.wrappingSub(0, right: linuxAtCwdNegated)
@@ -163,7 +155,7 @@
 		let args = stringArrayNew()
 		for i in 0 upto count 'each'
 			let arg = startWord(i + 1)
-			stringArrayPush(args, box: boxOfBytes(arg, length: cLength(arg)))
+			pushBytes(args, address: arg, length: cLength(arg))
 		end 'each'
 		return args
 	end 'osArgs'
@@ -187,15 +179,14 @@
 	// osEnvironmentVariable is the value of a variable of the environment the process started with, which a variable that
 	// is not set has none of.
 	function osEnvironmentVariable(name String, errorAddress Count) returns String
-		let nameBox = __Raw.stringAddress(name)
-		let length = boxLength(nameBox)
+		let length = __Raw.stringLength(name)
 		var at = environment()
 		while __Raw.loadWord(at, offset: 0) != 0 'entries'
 			let entry = __Raw.loadWord(at, offset: 0)
-			if namesEntry(entry, name: bytesOf(nameBox), length: length) 'found'
+			if namesEntry(entry, name: __Raw.stringBytes(name), length: length) 'found'
 				let value = __Raw.wrappingAdd(entry, right: __Raw.wrappingAdd(length, right: 1))
 				succeed(errorAddress)
-				return __Raw.stringAt(boxOfBytes(value, length: cLength(value)))
+				return stringOfBytes(value, length: cLength(value))
 			end 'found'
 			at = __Raw.wrappingAdd(at, right: wordBytes)
 		end 'entries'
@@ -215,10 +206,10 @@
 			failWith(errorAddress, errorCase: pathUnavailable)
 			return noString()
 		end 'failed'
-		let box = boxOfBytes(buffer, length: length)
+		let text = stringOfBytes(buffer, length: length)
 		free(buffer)
 		succeed(errorAddress)
-		return __Raw.stringAt(box)
+		return text
 	end 'osExecutablePath'
 
 	// osCurrentPath is the working directory, which stops the program when the kernel cannot give it.
@@ -229,9 +220,9 @@
 			free(buffer)
 			panic("Directory.currentPath: getcwd failed")
 		end 'failed'
-		let box = boxOfBytes(buffer, length: size - 1)
+		let text = stringOfBytes(buffer, length: size - 1)
 		free(buffer)
-		return __Raw.stringAt(box)
+		return text
 	end 'osCurrentPath'
 
 	// osClockNanos is the monotonic clock in nanoseconds.
@@ -251,17 +242,15 @@
 
 	// osPathFrom is a path with the native separator in place of the other one; a Linux path may hold any other byte.
 	function osPathFrom(path String, errorAddress Count) returns String
-		let box = __Raw.stringAddress(path)
-		let length = boxLength(box)
-		let source = bytesOf(box)
-		let native = newStringBox(length)
-		let dest = bytesOf(native)
+		let length = __Raw.stringLength(path)
+		let source = __Raw.stringBytes(path)
+		let dest = __Raw.stringRoom(length)
 		for i in 0 upto length 'copy'
 			let byte = __Raw.loadByte(source, offset: i)
 			__Raw.storeByte(dest, offset: i, value: slashByte if byte == backslashByte else byte)
 		end 'copy'
 		succeed(errorAddress)
-		return __Raw.stringAt(native)
+		return __Raw.stringOf(dest, length: length, ascii: __Raw.stringAscii(path))
 	end 'osPathFrom'
 
 	// openPath is the fd of the file a path names, opened with flags, or -errno.
@@ -296,8 +285,7 @@
 			endWithError(errorAddress, osError: errnoOf(statted), table: readFailures())
 			return noString()
 		end 'sized'
-		let box = newStringBox(size)
-		let bytes = bytesOf(box)
+		let bytes = __Raw.stringRoom(size)
 		var done = 0 as Count
 		var readError = 0 as Count
 		var reading = true
@@ -318,13 +306,12 @@
 		exitBlocking()
 		closeFd(fd)
 		if readError != 0 'failedRead'
-			free(box)
+			__Raw.freeStringRoom(bytes)
 			endWithError(errorAddress, osError: readError, table: readFailures())
 			return noString()
 		end 'failedRead'
-		__Raw.storeWord(box, offset: stringLengthOffset, value: done)
 		succeed(errorAddress)
-		return __Raw.stringAt(box)
+		return __Raw.stringOf(bytes, length: done, ascii: false)
 	end 'osReadText'
 
 	// writeFile replaces a file with bytes at an address, and gives the errno that stopped it, or 0. The mode applies to a
@@ -480,27 +467,26 @@
 		return second == terminatorByte or (second == dotEntryByte and __Raw.loadByte(name, offset: 2) == terminatorByte)
 	end 'isDotName'
 
-	// entryPath is a new box of the path joined to the zero-terminated name of an entry: a separator goes between them
-	// unless the path is empty or ends with one.
-	function entryPath(path String, name Count) returns Count
-		let pathBox = __Raw.stringAddress(path)
-		let pathLength = boxLength(pathBox)
+	// pushEntryPath puts a new string of the path joined to the zero-terminated name of an entry at the end of an array of
+	// strings: a separator goes between them unless the path is empty or ends with one.
+	function pushEntryPath(entries Count, path String, name Count)
+		let pathLength = __Raw.stringLength(path)
+		let pathBytes = __Raw.stringBytes(path)
 		let nameLength = cLength(name)
-		let separate = pathLength != 0 and __Raw.loadByte(bytesOf(pathBox), offset: pathLength - 1) != slashByte
+		let separate = pathLength != 0 and __Raw.loadByte(pathBytes, offset: pathLength - 1) != slashByte
 		var length = __Raw.wrappingAdd(pathLength, right: nameLength)
 		if separate 'separator'
 			length = __Raw.wrappingAdd(length, right: 1)
 		end 'separator'
-		let box = newStringBox(length)
-		let bytes = bytesOf(box)
-		copyBytes(bytesOf(pathBox), target: bytes, count: pathLength)
+		let bytes = __Raw.stringRoom(length)
+		copyBytes(pathBytes, target: bytes, count: pathLength)
 		var at = pathLength
 		if separate 'slash'
 			at = storeNextByte(bytes, offset: at, value: slashByte)
 		end 'slash'
 		copyBytes(name, target: __Raw.wrappingAdd(bytes, right: at), count: nameLength)
-		return box
-	end 'entryPath'
+		stringArrayPush(entries, room: bytes, textLength: length)
+	end 'pushEntryPath'
 
 	// osList is the path joined to the name of each entry of a directory, `.` and `..` left out, in the order the kernel
 	// gives.
@@ -527,7 +513,7 @@
 					let record = __Raw.wrappingAdd(buffer, right: at)
 					let name = __Raw.wrappingAdd(record, right: linuxDirentNameOffset)
 					if not isDotName(name) 'entry'
-						stringArrayPush(entries, box: entryPath(path, name: name))
+						pushEntryPath(entries, path: path, name: name)
 					end 'entry'
 					at = __Raw.wrappingAdd(at, right: __Raw.loadWord16(record, offset: linuxDirentLengthOffset))
 				end 'records'

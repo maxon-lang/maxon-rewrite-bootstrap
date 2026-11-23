@@ -113,7 +113,7 @@ function adoptParams(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleStat
 	let hasReceiver = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: l.fn).hasReceiver
 	if hasReceiver and ast.receiverLocal(p, ms: ms, f: l.origin) != ast.noLocal 'self'
 		let selfLocal = localEntry(p, module: l.fnModule, id: ast.receiverLocal(p, ms: ms, f: l.origin))
-		if ast.ownsValue(selfLocal.conv) and kindOf(l, p: p, ms: ms, t: selfLocal.ty) == IrKind.kindManaged 'owned'
+		if ast.ownsValue(selfLocal.conv) and owning(kindOf(l, p: p, ms: ms, t: selfLocal.ty)) 'owned'
 			let slot = adopt(l, p: p, ms: ms, index: selfLocal.paramIndex, t: selfLocal.ty)
 			l.selfOwner = indexOf(slot)
 		end 'owned'
@@ -121,7 +121,7 @@ function adoptParams(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleStat
 	let first = ast.leadingParams(ast.funcEntry(ms.funcs, funcReads: p.funcs, f: l.fn))
 	for i in 0 upto ast.funcEntry(ms.funcs, funcReads: p.funcs, f: l.fn).params.count() 'each'
 		let ty = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: l.fn).paramTypes[i]
-		if ast.funcEntry(ms.funcs, funcReads: p.funcs, f: l.fn).params[i].conv == ast.Convention.convConsumes and kindOf(l, p: p, ms: ms, t: ty) == IrKind.kindManaged 'consumed'
+		if ast.funcEntry(ms.funcs, funcReads: p.funcs, f: l.fn).params[i].conv == ast.Convention.convConsumes and owning(kindOf(l, p: p, ms: ms, t: ty)) 'consumed'
 			let slot = adopt(l, p: p, ms: ms, index: try first + i otherwise panic("ir: too many parameters"), t: ty)
 			let local = ast.paramLocal(p, ms: ms, f: l.origin, index: i)
 			if local != ast.noLocal 'named'
@@ -132,8 +132,9 @@ function adoptParams(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleStat
 end 'adoptParams'
 
 function adopt(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, index Count, t ast.TypeID) returns Count
-	let slot = l.b.f.newSlot(IrKind.kindManaged)
-	let v = paramReg(l, index: index, kind: IrKind.kindManaged)
+	let kind = kindOf(l, p: p, ms: ms, t: t)
+	let slot = l.b.f.newSlot(kind)
+	let v = paramReg(l, index: index, kind: kind)
 	emit(l, i: newStoreSlot(slot, src: v, borrow: false))
 	ownLocal(l, p: p, ms: ms, slot: slot, t: t)
 	return slot
@@ -155,8 +156,8 @@ end 'ownerOf'
 // ownedRead is the value of a slot that owns what it holds: a move out of it when the expression moves it out, and a
 // borrow otherwise.
 function ownedRead(mutates l Lowerer, p ast.Project, ms ast.ModuleState, slot Count, e ast.NodeID) returns Reg
-	if movesOut(p, ms: ms, module: l.module, node: e) and slotKind(l, slot: slot) == IrKind.kindManaged 'move'
-		let d = newReg(l, kind: IrKind.kindManaged)
+	if movesOut(p, ms: ms, module: l.module, node: e) and owning(slotKind(l, slot: slot)) 'move'
+		let d = newReg(l, kind: slotKind(l, slot: slot))
 		emit(l, i: newMoveSlot(d, slot: slot))
 		return d
 	end 'move'
@@ -184,6 +185,19 @@ function jumpsOf(l Lowerer, node ast.NodeID) returns JumpFrame
 end 'jumpsOf'
 
 // self is the receiver, borrowed: a consumes self lives in the slot that owns it.
+// selfType is the type of the receiver of the function being lowered.
+function selfType(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState) returns ast.TypeID
+	return localEntry(p, module: l.fnModule, id: ast.receiverLocal(p, ms: ms, f: l.origin)).ty
+end 'selfType'
+
+// fieldAt is where the field at index of a box of the record owner, a type the body names, sits: the record a frozen value
+// holds, for one read through it.
+function fieldAt(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, owner ast.TypeID, index Count) returns Count
+	let applied = applyType(l, p: p, ms: ms, t: owner)
+	let record = ast.contentType(ms.types, reads: p.types, t: applied)
+	return recordFieldOffset(ms.types, reads: p.types, owner: record, index: index)
+end 'fieldAt'
+
 function selfReg(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState) returns Reg
 	if l.selfOwner != noSlot 'owned'
 		return load(l, slot: slotIndex(l.selfOwner))
@@ -308,7 +322,7 @@ function visitLetStmt(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleSta
 	// A let that a destructuring of a lent tuple makes borrows what it is bound to, and owns nothing.
 	if sym.projected 'lent'
 		let v = lowerExpr(l, p: p, ms: ms, e: init)
-		emit(l, i: newStoreSlot(slotOf(sym), src: v, borrow: regKind(l, v: v) == IrKind.kindManaged))
+		emit(l, i: newStoreSlot(slotOf(sym), src: v, borrow: owning(regKind(l, v: v))))
 		return
 	end 'lent'
 	if init != 0 'init'
@@ -392,7 +406,8 @@ function lentTuple(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState,
 			elements.push(lowerExpr(l, p: p, ms: ms, e: lit.ordered[i]))
 		end 'elements'
 		for i in 0 upto elements.count() 'stores'
-			emit(l, i: newStoreField(area, offset: wordOffset(i), src: elements[i], borrow: regKind(l, v: elements[i]) == IrKind.kindManaged))
+			let offset = recordFieldOffset(ms.types, reads: p.types, owner: tuple, index: i)
+			emit(l, i: newStoreField(area, offset: offset, src: elements[i], borrow: owning(regKind(l, v: elements[i]))))
 		end 'stores'
 		return area
 	end 'written'
@@ -400,8 +415,9 @@ function lentTuple(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState,
 	for i in 0 upto l.lentElements 'words'
 		let element = ast.typeEntry(ms.types, reads: p.types, t: tuple).typeArgs[i]
 		let word = newReg(l, kind: kindOf(l, p: p, ms: ms, t: element))
-		emit(l, i: newLoadField(word, obj: box, offset: wordOffset(i)))
-		emit(l, i: newStoreField(area, offset: wordOffset(i), src: word, borrow: regKind(l, v: word) == IrKind.kindManaged))
+		let offset = recordFieldOffset(ms.types, reads: p.types, owner: tuple, index: i)
+		emit(l, i: newLoadField(word, obj: box, offset: offset))
+		emit(l, i: newStoreField(area, offset: offset, src: word, borrow: owning(regKind(l, v: word))))
 	end 'words'
 	return area
 end 'lentTuple'
@@ -447,7 +463,7 @@ function visitAssignStmt(mutates l Lowerer, p ast.Project, mutates ms ast.Module
 				dropAt(l, p: p, ms: ms, addr: addr, t: loc.ty)
 				emit(l, i: newStoreAt(addr, src: v))
 			end 'byRef' else 'slot'
-				if kindOf(l, p: p, ms: ms, t: loc.ty) == IrKind.kindManaged 'managed'
+				if owning(kindOf(l, p: p, ms: ms, t: loc.ty)) 'managed'
 					let ty = dropType(l, p: p, ms: ms, t: loc.ty)
 					emitDropSlot(l, slot: slotOf(loc), ty: ty)
 				end 'managed'
@@ -458,16 +474,20 @@ function visitAssignStmt(mutates l Lowerer, p ast.Project, mutates ms ast.Module
 		if name.kind == ast.NameKind.nameSelfField 'field'
 			let v = lowerExpr(l, p: p, ms: ms, e: value)
 			let obj = selfReg(l, p: p, ms: ms)
-			storeField(l, p: p, ms: ms, obj: obj, index: name.fieldIndex, t: exprType(p, module: l.module, node: target), v: v)
+			let owner = selfType(l, p: p, ms: ms)
+			let offset = fieldAt(l, p: p, ms: ms, owner: owner, index: name.fieldIndex)
+			storeField(l, p: p, ms: ms, obj: obj, offset: offset, t: exprType(p, module: l.module, node: target), v: v)
 			return
 		end 'field'
 	end 'name'
 	if k == ast.NodeKind.memberExpr 'member'
 		let member = memberInfoAt(p, module: l.module, node: target)
 		if member.kind == ast.MemberKind.memberField 'field'
-			let obj = lowerExpr(l, p: p, ms: ms, e: ast.memberExprObj(p.modules[l.mi].tree, id: target))
+			let objExpr = ast.memberExprObj(p.modules[l.mi].tree, id: target)
+			let obj = lowerExpr(l, p: p, ms: ms, e: objExpr)
 			let v = lowerExpr(l, p: p, ms: ms, e: value)
-			storeField(l, p: p, ms: ms, obj: obj, index: member.fieldIndex, t: exprType(p, module: l.module, node: target), v: v)
+			let offset = fieldAt(l, p: p, ms: ms, owner: exprType(p, module: l.module, node: objExpr), index: member.fieldIndex)
+			storeField(l, p: p, ms: ms, obj: obj, offset: offset, t: exprType(p, module: l.module, node: target), v: v)
 			return
 		end 'field'
 	end 'member'
@@ -564,7 +584,7 @@ function visitForEach(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleSta
 	let arr = load(l, slot: held)
 	let i = load(l, slot: index)
 	let elem = arrayLoad(l, p: p, ms: ms, box: box, arr: arr, index: i)
-	let lent = regKind(l, v: elem) == IrKind.kindManaged
+	let lent = owning(regKind(l, v: elem))
 	emit(l, i: newStoreSlot(slotOf(sym), src: elem, borrow: lent))
 	let indexLocal = indexLocalOf(p, module: l.module, node: s)
 	if indexLocal != ast.noLocal 'enumerated'

@@ -38,9 +38,15 @@ function visitWhenStmt(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleSt
 		cowns.push(lowerExpr(l, p: p, ms: ms, e: p.modules[l.mi].tree.listAt(cownsRef, index: i) as ast.NodeID))
 	end 'cowns'
 	var captures = RegList.create(0)
+	var strings = 0 as FloatMask
 	for i in 0 upto info.captures.count() 'captures'
-		captures.push(lowerExpr(l, p: p, ms: ms, e: info.captures[i].refNode))
+		let capture = lowerExpr(l, p: p, ms: ms, e: info.captures[i].refNode)
+		if regKind(l, v: capture) == IrKind.kindString 'string'
+			strings = strings or floatBit(try cowns.count() + i otherwise panic("lower: a behaviour past memory"))
+		end 'string'
+		captures.push(capture)
 	end 'captures'
+	l.b.f.bodies[body].stringParams = strings
 	emitWhen(l, behaviour: body, cowns: cowns, captures: captures)
 end 'visitWhenStmt'
 

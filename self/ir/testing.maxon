@@ -116,10 +116,14 @@ export type FnBuilder
 	end 'new'
 
 	export function reg(mutates self) returns Reg
-		let index = try f.regs.count() as Reg otherwise panic("too many registers")
-		f.regs.push(IrKind.kindScalar)
-		return index
+		return self.regOf(IrKind.kindScalar)
 	end 'reg'
+
+	export function regOf(mutates self, kind IrKind) returns Reg
+		let index = try f.regs.count() as Reg otherwise panic("too many registers")
+		f.regs.push(kind)
+		return index
+	end 'regOf'
 
 	export function slot(mutates self, kind IrKind) returns Count
 		let index = f.slots.count()
@@ -154,7 +158,7 @@ export type FnBuilder
 	end 'cmp'
 
 	export function str(mutates self, text String) returns Reg
-		let dst = self.reg()
+		let dst = self.regOf(IrKind.kindString)
 		let at = try f.strings.count() as Index otherwise panic("too many strings")
 		f.strings.push(text.clone())
 		self.emit(newStr(dst, text: at))
@@ -207,8 +211,16 @@ export type FnBuilder
 		return dst
 	end 'loadWord'
 
+	// loadString loads the String at an offset of the box obj.
+	export function loadString(mutates self, obj Reg, offset Count) returns Reg
+		let dst = self.regOf(IrKind.kindString)
+		self.emit(newLoadField(dst, obj: obj, offset: offset))
+		return dst
+	end 'loadString'
+
 	export function copyOf(mutates self, src Reg, ty ast.TypeID) returns Reg
-		let dst = self.reg()
+		let kind = f.regs[regIndex(src)]
+		let dst = self.regOf(kind)
 		let at = self.typeIndex(ty)
 		self.emit(newCopy(dst, src: src, ty: at))
 		return dst

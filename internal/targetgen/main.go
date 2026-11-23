@@ -231,6 +231,13 @@ func emitConvention(b *strings.Builder, t target.Target, named target.NamedConve
 		return err
 	}
 	fmt.Fprintf(b, "// %sResult is the register of a call's result.\nexport let %sResult = %s\n\n", p, p, r)
+	if c.SecondResult != "" {
+		s, err := generalRegister(t, c.SecondResult)
+		if err != nil {
+			return err
+		}
+		fmt.Fprintf(b, "// %sSecondResult is the register of the second word of a String result.\nexport let %sSecondResult = %s\n\n", p, p, s)
+	}
 	if c.Number != "" {
 		n, err := generalRegister(t, c.Number)
 		if err != nil {

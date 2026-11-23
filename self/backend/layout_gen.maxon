@@ -3,11 +3,23 @@
 // wordBytes is the size of a word: an address, a length, an integer, a handle, and each field of a box.
 export let wordBytes = 8
 
-// stringLengthOffset is where a String's box holds its length in bytes, a word.
-export let stringLengthOffset = 0
+// stringBytesOffset is where a String holds the address of its first byte, UTF-8 with no terminator: in the executable's read-only data for a literal, a heap box for an owned string, the bytes of another string for a borrowed view.
+export let stringBytesOffset = 0
 
-// stringBytesOffset is where a String's bytes begin, UTF-8 with no terminator.
-export let stringBytesOffset = 8
+// stringWordOffset is where a String holds its word: its length in bytes shifted left by stringLengthShift, with stringAsciiBit and stringOwnedBit.
+export let stringWordOffset = 8
+
+// stringValueBytes is the size of a String in memory: a field, an element, a capture or a slot of one.
+export let stringValueBytes = 16
+
+// stringOwnedBit is the bit of a String's word that says it owns its bytes, a box of runtime::alloc that its drop frees; a literal and a view own none, so their drop does nothing and touches no memory.
+export let stringOwnedBit = 1
+
+// stringAsciiBit is the bit of a String's word that says every byte is below 0x80, so each grapheme is one byte; clear means nothing is known.
+export let stringAsciiBit = 2
+
+// stringLengthShift is how far a String's length is shifted up in its word, past its flags: the length is the word shifted right by it.
+export let stringLengthShift = 2
 
 // arrayLengthOffset is where the box of an array, and of a byte array, holds its length, a count of elements.
 export let arrayLengthOffset = 0
@@ -30,8 +42,11 @@ export let closureCodeOffset = 8
 // closureDropOffset is where the box of a closure holds the address of the routine that drops what it owns, or 0 when it owns nothing.
 export let closureDropOffset = 16
 
-// closureCapturesOffset is where the box of a closure holds what it captured, a word each, in the order of its body's captures.
+// closureCapturesOffset is where the box of a closure holds what it captured, closureCaptureBytes each, in the order of its body's captures.
 export let closureCapturesOffset = 24
+
+// closureCaptureBytes is the room a closure gives each capture: the widest value, a String's two words, whatever the capture holds.
+export let closureCaptureBytes = 16
 
 // ifaceTableOffset is where the box of an interface value holds the address of its table.
 export let ifaceTableOffset = 0
@@ -39,8 +54,8 @@ export let ifaceTableOffset = 0
 // ifaceValueOffset is where the box of an interface value holds the value, which it owns unless it lends it to a call.
 export let ifaceValueOffset = 8
 
-// ifaceBoxBytes is the size of the box of an interface value.
-export let ifaceBoxBytes = 16
+// ifaceBoxBytes is the size of the box of an interface value: the table's address and the widest value, a String's two words.
+export let ifaceBoxBytes = 24
 
 // tableEntryBytes is the size of an entry of the table of an interface value.
 export let tableEntryBytes = 8
@@ -63,11 +78,11 @@ export let tableFirstMethod = 3
 // frozenCountOffset is where the box of a frozen value holds how many owners share it, stepped atomically; the value is dropped and the box freed when it reaches 0.
 export let frozenCountOffset = 0
 
-// frozenValueOffset is where the box of a frozen value holds the value: a scalar, or the address of its box.
+// frozenValueOffset is where the box of a frozen value holds the value: a scalar, the address of its box, or a String's two words.
 export let frozenValueOffset = 8
 
 // frozenBoxBytes is the size of the box of a frozen value.
-export let frozenBoxBytes = 16
+export let frozenBoxBytes = 24
 
 // cownCountOffset is where a cown holds how many owners share it, stepped atomically.
 export let cownCountOffset = 0
@@ -78,11 +93,11 @@ export let cownTailOffset = 8
 // cownEndingOffset is where a cown holds the address of the code that ends its value in place of a drop (`dropWith:`), or 0.
 export let cownEndingOffset = 16
 
-// cownValueOffset is where a cown holds its value, a word: a behaviour that mutates it is given this field's address.
+// cownValueOffset is where a cown holds its value, a word or a String's two: a behaviour that mutates it is given this field's address.
 export let cownValueOffset = 24
 
 // cownBytes is the size of a cown.
-export let cownBytes = 32
+export let cownBytes = 40
 
 // behaviourPendingOffset is where a behaviour's record holds how many cowns it still waits for, plus one while it is being queued, stepped atomically: it runs when that reaches 0.
 export let behaviourPendingOffset = 0

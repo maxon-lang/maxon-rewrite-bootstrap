@@ -1,5 +1,5 @@
-// The string entries: joining, formatting an integer, comparing, and reading a string's bytes. A string these make is a
-// new box on the heap (layout_gen.maxon), which the caller owns.
+// The string entries: joining, formatting an integer, comparing, and reading a string's bytes. A string these make owns
+// room of its own (__Raw.stringRoom), which the caller owns with it.
 
 let decimalBase = 10 as Count
 
@@ -11,15 +11,15 @@ let minusSign = 45 as Byte
 // signBit is the bit that makes a signed word negative.
 let signBit = 0x8000000000000000 as Count
 
-// concat is a new string of the bytes of left and then of right.
+// concat is a new string of the bytes of left and then of right, every byte below 0x80 where each of them says so.
 function concat(left String, right String) returns String
-	let leftLength = stringLength(left)
-	let rightLength = stringLength(right)
-	let box = newStringBox(__Raw.wrappingAdd(leftLength, right: rightLength))
-	let bytes = bytesOf(box)
-	copyBytes(bytesOf(__Raw.stringAddress(left)), target: bytes, count: leftLength)
-	copyBytes(bytesOf(__Raw.stringAddress(right)), target: __Raw.wrappingAdd(bytes, right: leftLength), count: rightLength)
-	return __Raw.stringAt(box)
+	let leftLength = __Raw.stringLength(left)
+	let rightLength = __Raw.stringLength(right)
+	let length = __Raw.wrappingAdd(leftLength, right: rightLength)
+	let room = __Raw.stringRoom(length)
+	copyBytes(__Raw.stringBytes(left), target: room, count: leftLength)
+	copyBytes(__Raw.stringBytes(right), target: __Raw.wrappingAdd(room, right: leftLength), count: rightLength)
+	return __Raw.stringOf(room, length: length, ascii: __Raw.stringAscii(left) and __Raw.stringAscii(right))
 end 'concat'
 
 // itoa is the decimal digits of a word, read as signed unless unsigned says otherwise, with a '-' before a negative one.
@@ -39,8 +39,7 @@ function itoa(n Count, unsigned bool) returns String
 	if negative 'room'
 		length = __Raw.wrappingAdd(length, right: 1)
 	end 'room'
-	let box = newStringBox(length)
-	let bytes = bytesOf(box)
+	let bytes = __Raw.stringRoom(length)
 	if negative 'minus'
 		__Raw.storeByte(bytes, offset: 0, value: minusSign)
 	end 'minus'
@@ -51,17 +50,17 @@ function itoa(n Count, unsigned bool) returns String
 		__Raw.storeByte(bytes, offset: at, value: digitZero + value mod decimalBase)
 		value = value / decimalBase
 	end 'digit'
-	return __Raw.stringAt(box)
+	return __Raw.stringOf(bytes, length: length, ascii: true)
 end 'itoa'
 
 // streq is whether two strings have the same bytes.
 function streq(left String, right String) returns bool
-	let length = stringLength(left)
-	if length != stringLength(right) 'lengths'
+	let length = __Raw.stringLength(left)
+	if length != __Raw.stringLength(right) 'lengths'
 		return false
 	end 'lengths'
-	let leftBytes = bytesOf(__Raw.stringAddress(left))
-	let rightBytes = bytesOf(__Raw.stringAddress(right))
+	let leftBytes = __Raw.stringBytes(left)
+	let rightBytes = __Raw.stringBytes(right)
 	var at = 0 as Count
 	while __Raw.wrappingAdd(at, right: wordBytes) <= length 'words'
 		if __Raw.loadWord(leftBytes, offset: at) != __Raw.loadWord(rightBytes, offset: at) 'differ'
@@ -80,40 +79,35 @@ end 'streq'
 
 // stringLength is the number of bytes of a string.
 function stringLength(text String) returns Count
-	return __Raw.loadWord(__Raw.stringAddress(text), offset: stringLengthOffset)
+	return __Raw.stringLength(text)
 end 'stringLength'
 
 // stringByteAt is the byte at an index of a string, which panics past the end.
 function stringByteAt(text String, index Count) returns Byte
-	if index >= stringLength(text) 'outside'
+	if index >= __Raw.stringLength(text) 'outside'
 		panic("string byte position out of bounds")
 	end 'outside'
-	return __Raw.loadByte(bytesOf(__Raw.stringAddress(text)), offset: index)
+	return __Raw.loadByte(__Raw.stringBytes(text), offset: index)
 end 'stringByteAt'
 
 // stringSlice is a new string of the bytes of text from one index up to another, which panics unless
 // from <= until <= the length.
 function stringSlice(text String, from Count, until Count) returns String
-	if from > until or until > stringLength(text) 'outside'
+	if from > until or until > __Raw.stringLength(text) 'outside'
 		panic("string slice out of bounds")
 	end 'outside'
 	let length = until - from
-	let box = newStringBox(length)
-	copyBytes(__Raw.wrappingAdd(bytesOf(__Raw.stringAddress(text)), right: from), target: bytesOf(box), count: length)
-	return __Raw.stringAt(box)
+	let room = __Raw.stringRoom(length)
+	copyBytes(__Raw.wrappingAdd(__Raw.stringBytes(text), right: from), target: room, count: length)
+	return __Raw.stringOf(room, length: length, ascii: __Raw.stringAscii(text))
 end 'stringSlice'
 
-// newStringBox is the box of a new string of a length, its bytes zero.
-function newStringBox(length Count) returns Count
-	let box = alloc(__Raw.wrappingAdd(stringBytesOffset, right: length))
-	__Raw.storeWord(box, offset: stringLengthOffset, value: length)
-	return box
-end 'newStringBox'
-
-// bytesOf is the address of the first byte of a string's box.
-function bytesOf(box Count) returns Count
-	return __Raw.wrappingAdd(box, right: stringBytesOffset)
-end 'bytesOf'
+// stringOfBytes is a new string of a copy of a number of bytes at an address.
+function stringOfBytes(bytes Count, length Count) returns String
+	let room = __Raw.stringRoom(length)
+	copyBytes(bytes, target: room, count: length)
+	return __Raw.stringOf(room, length: length, ascii: false)
+end 'stringOfBytes'
 
 // copyBytes copies a word at a time and then the bytes left over, first first, so that a target below the source may
 // overlap it: each word is read before the target that overlaps it is written.
@@ -132,13 +126,12 @@ end 'copyBytes'
 // cStringOf is a new zero-terminated copy of a string, which the caller frees: a path or an argument as the kernel reads
 // it, or a name as a Windows function of an A name reads it.
 function cStringOf(text String) returns Count
-	return cStringOfBox(__Raw.stringAddress(text))
+	return cStringOfBytes(__Raw.stringBytes(text), length: __Raw.stringLength(text))
 end 'cStringOf'
 
-// cStringOfBox is cStringOf of the string a box holds.
-function cStringOfBox(box Count) returns Count
-	let length = boxLength(box)
+// cStringOfBytes is a new zero-terminated copy of a number of bytes at an address, which the caller frees.
+function cStringOfBytes(bytes Count, length Count) returns Count
 	let copy = alloc(__Raw.wrappingAdd(length, right: 1))
-	copyBytes(bytesOf(box), target: copy, count: length)
+	copyBytes(bytes, target: copy, count: length)
 	return copy
-end 'cStringOfBox'
+end 'cStringOfBytes'

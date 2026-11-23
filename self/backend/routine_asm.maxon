@@ -20,10 +20,13 @@ enum RoutineReg
 	// pointer.
 	frame
 	stack
-	// arg, result and error are the internal convention's first argument, result and error registers.
+	// arg, result and error are the internal convention's first argument, result and error registers, and argWord and
+	// resultWord its second argument and its second result, which a String's word is passed and given in.
 	arg
 	result
 	error
+	argWord
+	resultWord
 	// thunkBase holds the record a thunk passes the words of, and thunkWord a word it passes on the stack, apart from
 	// every argument register.
 	thunkBase
@@ -50,6 +53,10 @@ let rResult = RoutineReg.result
 
 let rError = RoutineReg.error
 
+let rArgWord = RoutineReg.argWord
+
+let rResultWord = RoutineReg.resultWord
+
 let rThunkBase = RoutineReg.thunkBase
 
 let rThunkWord = RoutineReg.thunkWord
@@ -67,6 +74,8 @@ function x64RoutineRegister(r RoutineReg) returns X64Register
 		arg gives argWord()
 		result gives resultWord()
 		error gives x64InternalError
+		argWord gives x64InternalArg(1)
+		resultWord gives x64InternalSecondResult
 		thunkBase gives r11
 		thunkWord gives r10
 	end 'role'
@@ -87,6 +96,8 @@ function arm64RoutineRegister(r RoutineReg) returns Arm64Register
 		arg gives arm64ArgWord()
 		result gives arm64ResultWord()
 		error gives arm64InternalError
+		argWord gives arm64InternalArg(1)
+		resultWord gives arm64InternalSecondResult
 		thunkBase gives Arm64Register.x13
 		thunkWord gives Arm64Register.x14
 	end 'role'
@@ -194,6 +205,13 @@ function rAddImm(mutates u CodeUnit, a ast.TargetArch, dst RoutineReg, imm Imm32
 		arm64 then u.asm.arm64AddImm(arm64RoutineRegister(dst), src: arm64RoutineRegister(dst), value: imm as FullRangeInt)
 	end 'arch'
 end 'rAddImm'
+
+function rShrImm(mutates u CodeUnit, a ast.TargetArch, dst RoutineReg, shift Count)
+	match a 'arch'
+		x64 then u.asm.shrImm(x64RoutineRegister(dst), imm: try shift as Imm8 otherwise panic("routines: a shift past the word"))
+		arm64 then u.asm.arm64ShrImm(arm64RoutineRegister(dst), src: arm64RoutineRegister(dst), shift: try shift as Arm64Imm6 otherwise panic("routines: a shift past the word"))
+	end 'arch'
+end 'rShrImm'
 
 function rAdd(mutates u CodeUnit, a ast.TargetArch, dst RoutineReg, src RoutineReg)
 	match a 'arch'
@@ -444,6 +462,38 @@ function rLoadArgWord(mutates u CodeUnit, a ast.TargetArch, index Count, base Ro
 		arm64 then u.asm.arm64Load(arm64InternalArg(index), base: arm64RoutineRegister(base), disp: disp as FullRangeInt)
 	end 'arch'
 end 'rLoadArgWord'
+
+// rArgFrom moves into the register of the internal convention's word argument i that of its word argument from.
+function rArgFrom(mutates u CodeUnit, a ast.TargetArch, index Count, from Count)
+	match a 'arch'
+		x64 then u.asm.mov(x64InternalArg(index), src: x64InternalArg(from))
+		arm64 then u.asm.arm64Mov(arm64InternalArg(index), src: arm64InternalArg(from))
+	end 'arch'
+end 'rArgFrom'
+
+// rArgOfRole moves into the register of the internal convention's word argument i a routine register.
+function rArgOfRole(mutates u CodeUnit, a ast.TargetArch, index Count, src RoutineReg)
+	match a 'arch'
+		x64 then u.asm.mov(x64InternalArg(index), src: x64RoutineRegister(src))
+		arm64 then u.asm.arm64Mov(arm64InternalArg(index), src: arm64RoutineRegister(src))
+	end 'arch'
+end 'rArgOfRole'
+
+// rRoleOfArg moves into a routine register the register of the internal convention's word argument i.
+function rRoleOfArg(mutates u CodeUnit, a ast.TargetArch, dst RoutineReg, index Count)
+	match a 'arch'
+		x64 then u.asm.mov(x64RoutineRegister(dst), src: x64InternalArg(index))
+		arm64 then u.asm.arm64Mov(arm64RoutineRegister(dst), src: arm64InternalArg(index))
+	end 'arch'
+end 'rRoleOfArg'
+
+// rWordArgRegisters is how many word arguments the internal convention passes in registers.
+function rWordArgRegisters(a ast.TargetArch) returns Count
+	return match a 'arch'
+		x64 gives x64InternalArgCount
+		arm64 gives arm64InternalArgCount
+	end 'arch'
+end 'rWordArgRegisters'
 
 // rAddImmArg adds a constant to the register of the internal convention's word argument i.
 function rAddImmArg(mutates u CodeUnit, a ast.TargetArch, index Count, imm Imm32)

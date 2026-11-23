@@ -239,6 +239,26 @@ function runtimeEntry(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 		try entryArrayReserve(vm, f: f, x: x)
 		return
 	end 'rtArrayReserve'
+	if symbol == ir.Rt.rtStrsElem 'rtStrsElem'
+		try entryStrsElem(vm, f: f, x: x)
+		return
+	end 'rtStrsElem'
+	if symbol == ir.Rt.rtStrsOpen 'rtStrsOpen'
+		try entryStrsOpen(vm, f: f, x: x)
+		return
+	end 'rtStrsOpen'
+	if symbol == ir.Rt.rtStrsClose 'rtStrsClose'
+		try entryStrsClose(vm, f: f, x: x)
+		return
+	end 'rtStrsClose'
+	if symbol == ir.Rt.rtStrsFill 'rtStrsFill'
+		try entryStrsFill(vm, f: f, x: x)
+		return
+	end 'rtStrsFill'
+	if symbol == ir.Rt.rtStrsReserve 'rtStrsReserve'
+		try entryStrsReserve(vm, f: f, x: x)
+		return
+	end 'rtStrsReserve'
 	if symbol == ir.Rt.rtArrayShrink 'rtArrayShrink'
 		try entryArrayShrink(vm, f: f, x: x)
 		return

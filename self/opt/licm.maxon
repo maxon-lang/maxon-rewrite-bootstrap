@@ -16,9 +16,7 @@
 //   loop still names, so reading another word of its header cannot fault. An element read that stays in such a loop,
 //   of an array that does not change in it, is split for this into the read of the array's buffer (Buffer), which
 //   leaves, and the read at the index (WordAt, ByteAt), which stays; where the buffer cannot leave, nothing is split.
-//   On a machine whose access adds an index or an offset to its base but not both (addsIndexAndOffset), a byte read of a
-//   string that does not change in the loop is split the same way, whatever the loop writes, into the address of the
-//   string's bytes (Bytes), a pure operation that leaves, and the read at the index; elsewhere the access adds both.
+//   A byte read of a string needs no split: the address of its bytes is the string's first word, a register.
 // - A check or a division, only from the prefix of the header: the header's instructions up to the first one that
 //   stays. The header runs whenever the preheader has run, so such an instruction ran first in the iteration after
 //   nothing but what moved with it, which has no effect a program sees: it fails or faults in the preheader exactly when
@@ -46,8 +44,6 @@ let noSplit = 0 as Count
 export type Licm
 	// hoisted is how many instructions the pass moved out of a loop, over every function it was given, once for each loop.
 	export var hoisted as Count
-	// splitsBytes is whether a byte read of a string is split for the address of its bytes to leave a loop.
-	var splitsBytes as bool
 	var editor as Editor
 	// By register: the segment where it is defined as far as the loops are concerned; for a value moved out of a loop, the
 	// immediate dominator of the loop's header, which is outside it and inside every loop around it.
@@ -61,7 +57,7 @@ export type Licm
 	var target as Array with Count
 	var lastAt as Array with Count
 	var real as Count
-	// The addresses split off element reads (a buffer read, or the bytes of a string), the element read each was split
+	// The addresses split off element reads (a buffer read), the element read each was split
 	// off, and the register each gives once it is placed; by instruction, the address plus 1 split off it, or noSplit.
 	var virtual as ir.InstrList
 	var virtualOf as Array with Count
@@ -82,8 +78,8 @@ export type Licm
 	var params as ir.RegList
 	var stack as Array with Count
 
-	export static function new(splitsBytes bool) returns Licm
-		return Licm{hoisted: 0, splitsBytes: splitsBytes, editor: Editor.new(), home: Array.create(0), witness: Array.create(0), runsAt: Array.create(0), target: Array.create(0), lastAt: Array.create(0), real: 0, virtual: ir.InstrList.create(0), virtualOf: Array.create(0), virtualReg: ir.RegList.create(0), splitOff: Array.create(0), order: Array.create(0), leftFirst: Array.create(0), leftLast: Array.create(0), leftNext: Array.create(0), anyLeft: Array.create(0), preheader: Array.create(0), mustSeg: 0, regs: ir.RegList.create(0), names: ir.RegList.create(0), params: ir.RegList.create(0), stack: Array.create(0)}
+	export static function new() returns Licm
+		return Licm{hoisted: 0, editor: Editor.new(), home: Array.create(0), witness: Array.create(0), runsAt: Array.create(0), target: Array.create(0), lastAt: Array.create(0), real: 0, virtual: ir.InstrList.create(0), virtualOf: Array.create(0), virtualReg: ir.RegList.create(0), splitOff: Array.create(0), order: Array.create(0), leftFirst: Array.create(0), leftLast: Array.create(0), leftNext: Array.create(0), anyLeft: Array.create(0), preheader: Array.create(0), mustSeg: 0, regs: ir.RegList.create(0), names: ir.RegList.create(0), params: ir.RegList.create(0), stack: Array.create(0)}
 	end 'new'
 
 	// hoist moves what is invariant out of the loops of f and says whether anything moved. f is in SSA form and keeps the
@@ -189,22 +185,21 @@ export type Licm
 	end 'fromInner'
 
 	// trySplit splits the address of what it reads off instruction k, an element read that stays in loop l, when that
-	// address can leave l: the buffer read of an array in a loop that writes no memory, or the bytes of a string.
+	// address can leave l: the buffer read of an array in a loop that writes no memory.
 	function trySplit(mutates self, f ir.IrFunction, k Count, l Count, analysis Analysis, facts LoopFacts)
 		if splitOff[k] != noSplit 'no'
 			return
 		end 'no'
 		let op = f.instrs[k].op
 		let arrayRead = op == ir.Opcode.opElemLoad or (op == ir.Opcode.opLoadByte and ir.loadByteOf(f.instrs[k]) == ir.Collection.collectionArray)
-		let stringRead = splitsBytes and op == ir.Opcode.opLoadByte and ir.loadByteOf(f.instrs[k]) == ir.Collection.collectionString
-		if not (arrayRead and not facts.clobbers[l]) and not stringRead 'other'
+		if not arrayRead or facts.clobbers[l] 'other'
 			return
 		end 'other'
 		let src = f.instrs[k].a
 		if facts.loops.holds(l, node: home[regIndex(src)]) 'varies'
 			return
 		end 'varies'
-		let x = ir.newBytes(ir.noReg, src: src) if stringRead else ir.newBuffer(ir.noReg, src: src)
+		let x = ir.newBuffer(ir.noReg, src: src)
 		let id = sum(real, b: virtual.count())
 		virtual.push(x.clone())
 		virtualOf.push(k)
@@ -410,7 +405,7 @@ export type Licm
 		editor.finish(f)
 	end 'place'
 
-	// moveBuffer writes the address v split off an element read, a buffer read or the bytes of a string, in the preheader
+	// moveBuffer writes the address v split off an element read, a buffer read, in the preheader
 	// of loop l, unless the element read it was split off left as a whole.
 	function moveBuffer(mutates self, mutates f ir.IrFunction, v Count, l Count)
 		if target[virtualOf[v]] != noTarget 'whole'

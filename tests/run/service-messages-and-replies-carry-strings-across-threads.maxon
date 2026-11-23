@@ -1,0 +1,128 @@
+// native-only
+// A message and its reply carry a String as its two words, across threads: coroutines that may run on any processor send
+// services owned Strings they built, literals and empty Strings, which the services keep, drop and send back, and the
+// services reply with owned Strings they built, literals and empty Strings. Most owned Strings are freed on another
+// thread than the one that made them, many to a heap's batch of remote frees.
+//> service 0 kept=400 empty=400 last=s0-r399
+//> service 1 kept=400 empty=400 last=s1-r399
+//> service 2 kept=400 empty=400 last=s2-r399
+//> service 3 kept=400 empty=400 last=s3-r399
+//> service 4 kept=400 empty=400 last=s4-r399
+//> service 5 kept=400 empty=400 last=s5-r399
+//> service 6 kept=400 empty=400 last=s6-r399
+//> service 7 kept=400 empty=400 last=s7-r399
+//> bytes match
+typealias Keepers = Array with Keeper.handle
+
+typealias Feeds = Array with Promise with Count
+
+let services = 8 as Count
+
+let rounds = 400 as Count
+
+// replyEvery is how many rounds a feeder sends between the rounds whose replies it awaits.
+let replyEvery = 10 as Count
+
+type Keeper
+	var kept as Count
+	var empty as Count
+	var bytes as Count
+	var last as String
+	var held as Array with String
+
+	static function create() returns Self
+		return Self{kept: 0, empty: 0, bytes: 0, last: "", held: Array.create(0)}
+	end 'create'
+
+	export function take(mutates self, consumes owned String, literal String, consumes nothing String)
+		self.kept = try self.kept + 1 otherwise panic("the count passes a word")
+		if nothing.byteLength() == 0 'empty'
+			self.empty = try self.empty + 1 otherwise panic("the count passes a word")
+		end 'empty'
+		self.bytes = try self.bytes + owned.byteLength() + literal.byteLength() otherwise panic("the count passes a word")
+		self.held.push(nothing)
+		self.last = owned
+	end 'take'
+
+	export function echo(consumes text String) returns String
+		return text
+	end 'echo'
+
+	export function made(n Count) returns String
+		return "made-{n}"
+	end 'made'
+
+	export function plain() returns String
+		return "plain"
+	end 'plain'
+
+	export function blank() returns String
+		return ""
+	end 'blank'
+
+	export function bytes() returns Count
+		return self.bytes
+	end 'bytes'
+
+	export function report() returns String
+		return "kept={self.kept} empty={self.empty} last={self.last}"
+	end 'report'
+end 'Keeper'
+
+// expected is the bytes a feeder of service s sends in owned and literal Strings, and the bytes of the replies it awaits.
+function expected(s Count) returns Count
+	var total = 0 as Count
+	for r in 0 upto rounds 'rounds'
+		total = try total + "s{s}-r{r}".byteLength() + "lit".byteLength() otherwise panic("the count passes a word")
+		if r mod replyEvery == 0 'reply'
+			total = try total + "e{s}-{r}".byteLength() + "made-{r}".byteLength() + "plain".byteLength() otherwise panic("the count passes a word")
+		end 'reply'
+	end 'rounds'
+	return total
+end 'expected'
+
+// feed sends rounds messages to k as service s, awaiting the replies of every replyEvery-th round, and gives the bytes of
+// the replies.
+function feed(consumes k Keeper.handle, s Count) returns Count
+	var got = 0 as Count
+	for r in 0 upto rounds 'rounds'
+		try k.take("s{s}-r{r}", literal: "lit", nothing: "") otherwise panic("the mailbox has room")
+		if r mod replyEvery == 0 'reply'
+			let echoed = try await k.echo("e{s}-{r}") otherwise panic("the service runs")
+			let made = try await k.made(r) otherwise panic("the service runs")
+			let plain = try await k.plain() otherwise panic("the service runs")
+			let blank = try await k.blank() otherwise panic("the service runs")
+			got = try got + echoed.byteLength() + made.byteLength() + plain.byteLength() + blank.byteLength() otherwise panic("the count passes a word")
+		end 'reply'
+	end 'rounds'
+	return got
+end 'feed'
+
+function main() returns ExitCode
+	var keepers = Keepers.create(0)
+	for s in 0 upto services 'spawn'
+		keepers.push(spawn Keeper.create())
+	end 'spawn'
+	var fed = Feeds.create(0)
+	for s in 0 upto services 'feed'
+		fed.push(async feed(keepers[s].clone(), s: s))
+	end 'feed'
+	var replied = 0 as Count
+	for s in 0 upto services 'await'
+		replied = try replied + await fed[s] otherwise panic("the count passes a word")
+	end 'await'
+	var sent = 0 as Count
+	var want = 0 as Count
+	for s in 0 upto services 'reports'
+		print("service {s} {try await keepers[s].report() otherwise "stopped"}\n")
+		sent = try sent + (try await keepers[s].bytes() otherwise 0) otherwise panic("the count passes a word")
+		want = try want + expected(s) otherwise panic("the count passes a word")
+	end 'reports'
+	let total = try sent + replied otherwise panic("the count passes a word")
+	if total == want 'same'
+		print("bytes match\n")
+		return 0
+	end 'same'
+	print("bytes differ: sent {sent} replied {replied} want {want}\n")
+	return 1
+end 'main'

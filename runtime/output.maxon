@@ -32,9 +32,8 @@ let leakMessageEnd = "\n"
 	// writeHandle writes a string to a handle, all of it in one WriteFile, which a console or a pipe takes whole.
 	function writeHandle(handle Count, text String)
 		var written = 0 as Count
-		let box = __Raw.stringAddress(text)
-		let length = __Raw.loadWord(box, offset: stringLengthOffset)
-		let bytes = __Raw.wrappingAdd(box, right: stringBytesOffset)
+		let length = __Raw.stringLength(text)
+		let bytes = __Raw.stringBytes(text)
 		_ = __Raw.callImport5("WriteFile", arg1: handle, arg2: bytes, arg3: length, arg4: __Raw.addressOf(written), arg5: noOverlapped)
 	end 'writeHandle'
 #endif

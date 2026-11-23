@@ -338,17 +338,21 @@ var ops = []op{
 		Result: valueResult, Operands: []operand{reg("Src", fA), reg("Index", fB), collectionOp}, Effects: []effect{effReads},
 		Text: "byte.{Of} {Src}, {Index}"},
 	// A native build splits an element read in a loop that nothing writes memory in (self/opt/licm.maxon) into the read
-	// of the array's buffer, which then leaves the loop, and the read at the index, and a byte read of a string that does
-	// not change in a loop, on a machine whose access adds no offset to an index, into the address of its bytes and the
-	// read at the index; the interpreter never sees them.
+	// of the array's buffer, which then leaves the loop, and the read at the index; the interpreter never sees them.
 	{Name: "Buffer", Eval: noEval, Doc: "Buffer reads the address of the elements of Src, an array or a byte array, which a push that grows it moves.",
 		Result: valueResult, Operands: []operand{reg("Src", fA)}, Effects: []effect{effReads}, Text: "buffer {Src}"},
-	{Name: "Bytes", Eval: noEval, Doc: "Bytes gives the address of the bytes of Src, a string, which never move.",
-		Result: valueResult, Operands: []operand{reg("Src", fA)}, Text: "bytes {Src}"},
 	{Name: "WordAt", Eval: noEval, Doc: "WordAt reads the word at Index of Data, the elements of an array that Buffer gave, where a Bounds has checked the\n// index: a scalar, or a managed element lent as LoadAt lends it.",
 		Result: valueResult, Operands: []operand{reg("Data", fA), reg("Index", fB)}, Effects: []effect{effReads}, Text: "wordat {Data}, {Index}"},
-	{Name: "ByteAt", Eval: noEval, Doc: "ByteAt reads the byte at Index of Data, the elements of a byte array that Buffer gave or the bytes of a string\n// that Bytes gave, where a Bounds has checked the index.",
+	{Name: "ByteAt", Eval: noEval, Doc: "ByteAt reads the byte at Index of Data, the elements of a byte array that Buffer gave, where a Bounds has checked the index.",
 		Result: valueResult, Operands: []operand{reg("Data", fA), reg("Index", fB)}, Effects: []effect{effReads}, Text: "byteat {Data}, {Index}"},
+	// A String is two words in one register (README, "The IR"): the address of its bytes and its word, which these give
+	// and make, so they move no memory; the runtime's String intrinsics are made of them.
+	{Name: "StrPtr", Eval: noEval, Doc: "StrPtr gives the address of the first byte of the string Src, its first word.",
+		Result: valueResult, Operands: []operand{reg("Src", fA)}, Text: "strptr {Src}"},
+	{Name: "StrWord", Eval: noEval, Doc: "StrWord gives the word of the string Src: its length shifted up past its flags, and the flags.",
+		Result: valueResult, Operands: []operand{reg("Src", fA)}, Text: "strword {Src}"},
+	{Name: "StrMake", Eval: noEval, Doc: "StrMake gives the string of the address Bytes and the word Word.",
+		Result: valueResult, Operands: []operand{reg("Bytes", fA), reg("Word", fB)}, Text: "strmake {Bytes}, {Word}"},
 	{Name: "Alloc", Eval: noEval, Doc: "Alloc gives a new box of Bytes bytes.", Result: valueResult,
 		Operands: []operand{num("Bytes")}, Effects: []effect{effCalls, effAllocates}, Text: "alloc {Bytes}"},
 	{Name: "Call", Eval: noEval, Doc: "Call applies Callee to Args.", Result: optionalResult,

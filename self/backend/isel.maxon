@@ -66,6 +66,11 @@ export type Selector
 	var mir as MirFunction
 	// defs is the instruction that defines each register of the function being selected.
 	var defs as DefAtList
+	// second is the virtual register of the second word of each String register of the function being selected, its word,
+	// and noMReg for every other register: a String is two words, and the IR register's own is its first.
+	var second as MRegList
+	// stringTy is the type String, whose values are two words.
+	var stringTy as ast.TypeID
 	var args as MRegList
 	// callArgs are the arguments of the call being selected, in the order the convention passes them, and callFloats
 	// which of them are floats; places is where the convention puts them (placeArgs).
@@ -78,6 +83,10 @@ export type Selector
 	var params as MRegList
 	var paramPlaces as CountList
 	var paramFloats as Array with bool
+	// params and paramPlaces are by word, a String parameter's two in a row: paramWordAt is the first word of each
+	// parameter, and wordPositions where the convention passes each word, as paramFloats has them.
+	var paramWordAt as CountList
+	var wordPositions as CountList
 	// closureBody is whether the function being selected is the body of a closure, whose first parameter, the closure,
 	// the convention passes last.
 	var closureBody as bool
@@ -123,13 +132,14 @@ export type Selector
 	var system as ast.TargetSystem
 
 	static function new(verifies bool, target ast.Target) returns Selector
-		return Selector{u: CodeUnit.new(), mir: MirFunction.new("", canThrow: false, arch: target.arch), defs: DefAtList.create(0), args: MRegList.create(0), callArgs: MRegList.create(0), callFloats: Array.create(0), places: CountList.create(0), params: MRegList.create(0), paramPlaces: CountList.create(0), paramFloats: Array.create(0), closureBody: false, calleeSymbols: CalleeSymbols.new(), canThrow: false, floatResult: false, fnSymbol: "", tables: TableSet.new(), due: ir.WitnessTableList.create(0), thunks: TableSet.new(), dueThunks: ast.FuncIDList.create(0), typeNames: TableSet.new(), typeSymbols: CalleeSymbols.new(), datums: TableSet.new(), readCount: CountList.create(0), reads: ir.RegList.create(0), irBlock: 0, irAt: 0, dead: DeadCode.new(), layout: BlockLayout.new(), allocator: Allocator.new(verifies, target: target), classes: ClassChoice.new(), arch: target.arch, system: target.system}
+		return Selector{u: CodeUnit.new(), mir: MirFunction.new("", canThrow: false, arch: target.arch), defs: DefAtList.create(0), second: MRegList.create(0), stringTy: ast.noType, args: MRegList.create(0), callArgs: MRegList.create(0), callFloats: Array.create(0), places: CountList.create(0), params: MRegList.create(0), paramPlaces: CountList.create(0), paramFloats: Array.create(0), paramWordAt: CountList.create(0), wordPositions: CountList.create(0), closureBody: false, calleeSymbols: CalleeSymbols.new(), canThrow: false, floatResult: false, fnSymbol: "", tables: TableSet.new(), due: ir.WitnessTableList.create(0), thunks: TableSet.new(), dueThunks: ast.FuncIDList.create(0), typeNames: TableSet.new(), typeSymbols: CalleeSymbols.new(), datums: TableSet.new(), readCount: CountList.create(0), reads: ir.RegList.create(0), irBlock: 0, irAt: 0, dead: DeadCode.new(), layout: BlockLayout.new(), allocator: Allocator.new(verifies, target: target), classes: ClassChoice.new(), arch: target.arch, system: target.system}
 	end 'new'
 
 	// prepare names what the function's instructions ask for by handle: the symbols of its callees, and the drop and copy
 	// routines of its types, which are asked for in the order the code does.
 	function prepare(mutates self, p ast.Project, mutates ms ast.ModuleState, f ir.IrFunction)
 		canThrow = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: f.decl).errTy != ast.noType
+		stringTy = p.builtins.stringTy
 		floatResult = f.floatResult
 		calleeSymbols = CalleeSymbols.new()
 		for i in 0 upto f.callees.count() 'callees'
@@ -301,7 +311,12 @@ export type Selector
 		end 'arity'
 		args.clear()
 		for i in 0 upto count 'args'
-			args.push(argAt(f, start: start, index: i))
+			let r = f.args[try start + i otherwise panic("backend: an argument past the pool")]
+			args.push(vregOf(r))
+			let word = second[regIndex(r)]
+			if word != noMReg 'string'
+				args.push(word)
+			end 'string'
 		end 'args'
 		return Referent.make(MRef.edge, aux: mir.addEdge(blockOf(target), args: args))
 	end 'edgeTo'
@@ -360,9 +375,65 @@ export type Selector
 	// mask floats says from its place first on.
 	function addArgs(mutates self, f ir.IrFunction, start Count, count Count, floats ir.FloatMask, first Count)
 		for i in 0 upto count 'args'
-			self.addArg(argAt(f, start: start, index: i), float: ir.isFloatAt(floats, place: try first + i otherwise panic("backend: an argument past the pool")))
+			self.addValue(f.args[try start + i otherwise panic("backend: an argument past the pool")], float: ir.isFloatAt(floats, place: try first + i otherwise panic("backend: an argument past the pool")))
 		end 'args'
 	end 'addArgs'
+
+	// addValue adds an IR register to the call being selected: a float, a word, or the two words of a String, in order.
+	function addValue(mutates self, r ir.Reg, float bool)
+		self.addArg(vregOf(r), float: float)
+		let word = second[regIndex(r)]
+		if word != noMReg 'string'
+			self.addArg(word, float: false)
+		end 'string'
+	end 'addValue'
+
+	// secondOf is the second word of the String in the IR register r.
+	function secondOf(r ir.Reg) returns MReg
+		let word = second[regIndex(r)]
+		if word == noMReg 'none'
+			panic("backend: in {fnSymbol}, the second word of register {r}, which holds no String")
+		end 'none'
+		return word
+	end 'secondOf'
+
+	// paramWords lays out the words of f's parameters, a String's two in a row: paramFloats is whether each is a float in the
+	// order the convention passes them, paramWordAt the first word of each parameter, and wordPositions where in that order
+	// each word is, by parameter.
+	function paramWords(mutates self, f ir.IrFunction)
+		paramFloats.clear()
+		paramWordAt.clear()
+		wordPositions.clear()
+		var starts = CountList.create(0)
+		for at in 0 upto f.paramCount 'order'
+			let k = paramAtPosition(at, count: f.paramCount, closure: closureBody)
+			starts.push(paramFloats.count())
+			paramFloats.push(ir.isFloatAt(f.floatParams, place: k))
+			if ir.isFloatAt(f.stringParams, place: k) 'string'
+				paramFloats.push(false)
+			end 'string'
+		end 'order'
+		for k in 0 upto f.paramCount 'params'
+			let start = starts[paramPosition(k, count: f.paramCount, closure: closureBody)]
+			paramWordAt.push(wordPositions.count())
+			wordPositions.push(start)
+			if ir.isFloatAt(f.stringParams, place: k) 'string'
+				wordPositions.push(nextCount(start))
+			end 'string'
+		end 'params'
+	end 'paramWords'
+
+	// pairStrings gives each String register of f the virtual register of its second word, after those of every register.
+	function pairStrings(mutates self, f ir.IrFunction)
+		second.clear()
+		for r in 0 upto f.regs.count() 'regs'
+			if f.regs[r] == ir.IrKind.kindString 'string'
+				second.push(mir.newVReg(RegClass.gpr))
+			end 'string' else 'other'
+				second.push(noMReg)
+			end 'other'
+		end 'regs'
+	end 'pairStrings'
 
 	// addWords adds the arguments args[start] on, count of them, to the call being selected, as words.
 	function addWords(mutates self, f ir.IrFunction, start Count, count Count)
@@ -373,6 +444,10 @@ export type Selector
 	function takeResult(mutates self, dst ir.Reg, float bool)
 		if dst != ir.noReg 'kept'
 			self.copy(vregOf(dst), src: physOfNumber(internalResult(arch, float: float)))
+			let word = second[regIndex(dst)]
+			if word != noMReg 'string'
+				self.copy(word, src: physOfNumber(internalSecondResultOf(arch)))
+			end 'string'
 		end 'kept'
 	end 'takeResult'
 
@@ -397,6 +472,12 @@ export type Selector
 		self.addArg(value, float: false)
 		self.callSymbol(u.needed.lookup(kind, ty: ty))
 	end 'callRoutine'
+
+	// callRoutineOf calls the drop or copy routine of a type with the value in an IR register: a String's two words.
+	function callRoutineOf(mutates self, kind RoutineKind, ty ast.TypeID, value ir.Reg)
+		self.addValue(value, float: false)
+		self.callSymbol(u.needed.lookup(kind, ty: ty))
+	end 'callRoutineOf'
 
 	// allocInto allocates a box of a number of bytes into dst.
 	function allocInto(mutates self, dst MReg, bytes Count)
@@ -429,6 +510,15 @@ export type Selector
 		mir.writeBlock(block)
 		mir.addBlockParam(vregOf(r))
 	end 'join'
+
+	// addParamOf adds an IR register to the parameters of the block being written: its word, or a String's two.
+	function addParamOf(mutates self, r ir.Reg)
+		mir.addBlockParam(vregOf(r))
+		let word = second[regIndex(r)]
+		if word != noMReg 'string'
+			mir.addBlockParam(word)
+		end 'string'
+	end 'addParamOf'
 
 	// inBounds goes to slow unless the index is below the length the box holds at lengthOffset. The comparison is
 	// unsigned, so no index the entry would refuse passes it.
@@ -465,8 +555,7 @@ export type Selector
 	// closureBox allocates the box of a closure into box and fills in its header. drop is the routine that drops what it
 	// owns, or empty for none.
 	function closureBox(mutates self, box MReg, code String, drop String, captures Count)
-		let words = try closureCapturesOffset / wordBytes + captures otherwise panic("backend: a closure past memory")
-		self.allocInto(box, bytes: try words * wordBytes otherwise panic("backend: a closure past memory"))
+		self.allocInto(box, bytes: try closureCapturesOffset + captures * closureCaptureBytes otherwise panic("backend: a closure past memory"))
 		self.storeImm(box, disp: imm32Of(closureCountOffset), value: 1)
 		let codeAt = self.address(code)
 		self.store(box, disp: imm32Of(closureCodeOffset), src: codeAt)
@@ -479,10 +568,10 @@ export type Selector
 	end 'closureBox'
 
 	// fillBox writes the address of the table and the value into an interface value's box.
-	function fillBox(mutates self, box MReg, table ir.WitnessTable, value MReg)
+	function fillBox(mutates self, f ir.IrFunction, box MReg, table ir.WitnessTable, value ir.Reg)
 		let tableAt = self.address(table.symbol)
 		self.store(box, disp: imm32Of(ifaceTableOffset), src: tableAt)
-		self.store(box, disp: imm32Of(ifaceValueOffset), src: value)
+		self.storeValue(box, disp: imm32Of(ifaceValueOffset), r: value, f: f)
 	end 'fillBox'
 
 	// The primitives of the architecture: what the shared helpers and the driver ask of the machine, each written by the
@@ -733,8 +822,9 @@ function emitCallValue(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
 end 'emitCallValue'
 
 // emitCallWitness calls the entry of a method in the table of an interface value, which jumps to the method, with the
-// value the box holds first and the other arguments. A method that consumes the value takes it out of the box, which
-// is freed once the method has returned.
+// value the box holds first and the other arguments, and then the word of a String the box holds, which only a String's
+// method reads, through the routine its table goes through (emitStringReceiver). A method that consumes the value takes
+// it out of the box, which is freed once the method has returned.
 function emitCallWitness(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
 	let start = ir.callWitnessArgsStart(ins)
 	let count = ir.callWitnessArgsCount(ins)
@@ -744,6 +834,8 @@ function emitCallWitness(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
 	let entry = sel.addImm(table, imm: imm32Of(try (tableFirstMethod + ir.callWitnessSlot(ins)) * tableEntrySize(sel.arch) otherwise panic("backend: a table past memory")))
 	sel.addArg(value, float: ir.isFloatAt(ir.callFloats(fn, x: ins), place: 0))
 	sel.addArgs(fn, start: try start + 1 otherwise panic("backend: an argument past the pool"), count: try count - 1 otherwise panic("backend: a witness call with no interface value"), floats: ir.callFloats(fn, x: ins), first: 1)
+	let word = sel.load(iface, disp: imm32Of(ifaceWordOffset))
+	sel.addArg(word, float: false)
 	sel.callRegister(entry)
 	sel.takeResult(ins.dst, float: ir.callReturnsFloat(ins))
 	sel.takeError(ir.callWitnessErrReg(ins))
@@ -785,13 +877,21 @@ end 'emitAlloc'
 function emitCallRuntime(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
 	let symbol = ir.callRuntimeSymbol(ins)
 	let start = ir.callRuntimeArgsStart(ins)
-	if symbol == ir.Rt.rtArrayLen or symbol == ir.Rt.rtBytesLen or symbol == ir.Rt.rtStrLen or symbol == ir.Rt.rtFrozenGet 'load'
+	if symbol == ir.Rt.rtStrLen 'stringLength'
+		let result = sel.resultOf(ins.dst)
+		let word = sel.secondOf(fn.args[start])
+		sel.shiftRightInto(result, src: word, count: stringLengthShift)
+		return
+	end 'stringLength'
+	if symbol == ir.Rt.rtArrayLen or symbol == ir.Rt.rtBytesLen or symbol == ir.Rt.rtFrozenGet 'load'
 		var offset = imm32Of(arrayLengthOffset)
-		if symbol == ir.Rt.rtStrLen 'string'
-			offset = imm32Of(stringLengthOffset)
-		end 'string' else if symbol == ir.Rt.rtFrozenGet 'frozen'
+		if symbol == ir.Rt.rtFrozenGet 'frozen'
 			offset = imm32Of(frozenValueOffset)
 		end 'frozen'
+		if isStringReg(fn, r: ins.dst) 'string'
+			sel.loadString(ins.dst, base: argAt(fn, start: start, index: 0), disp: offset)
+			return
+		end 'string'
 		let result = sel.resultOf(ins.dst)
 		sel.loadInto(result, base: argAt(fn, start: start, index: 0), disp: offset)
 		return
@@ -800,6 +900,34 @@ function emitCallRuntime(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
 		emitCownNew(sel, fn: fn, ins: ins)
 		return
 	end 'cown'
+	if symbol == ir.Rt.rtFrozenFreeze 'freeze'
+		let value = fn.args[start]
+		sel.addArg(vregOf(value), float: false)
+		sel.callSymbol(ir.rtSymbol(symbol))
+		sel.takeResult(ins.dst, float: false)
+		sel.storeSecondWord(fn, value: value, holder: ins.dst, offset: frozenValueOffset)
+		return
+	end 'freeze'
+	if symbol == ir.Rt.rtReplyGive and isStringReg(fn, r: fn.args[nextCount(start)]) 'boxReply'
+		let box = sel.newTemp()
+		sel.allocInto(box, bytes: stringValueBytes)
+		sel.storeString(box, disp: imm32Of(stringBytesOffset), r: fn.args[nextCount(start)])
+		sel.addArg(argAt(fn, start: start, index: 0), float: false)
+		sel.addArg(box, float: false)
+		sel.addValue(fn.args[try start + 2 otherwise panic("backend: an argument past the pool")], float: false)
+		sel.callSymbol(ir.rtSymbol(symbol))
+		return
+	end 'boxReply'
+	if (symbol == ir.Rt.rtAsyncAwait or symbol == ir.Rt.rtAsyncTake) and isStringReg(fn, r: ins.dst) 'boxedString'
+		sel.addWords(fn, start: start, count: ir.callRuntimeArgsCount(ins))
+		sel.callSymbol(ir.rtSymbol(symbol))
+		let box = sel.newTemp()
+		sel.copy(box, src: physOfNumber(internalResultOf(sel.arch)))
+		sel.loadString(ins.dst, base: box, disp: imm32Of(stringBytesOffset))
+		sel.addArg(box, float: false)
+		sel.callSymbol(ir.rtSymbol(ir.Rt.rtFree))
+		return
+	end 'boxedString'
 	let reads = symbol == ir.Rt.rtArrayElem or symbol == ir.Rt.rtBytesGet or symbol == ir.Rt.rtStrByteAt
 	if not ir.writtenInPlace(symbol) or (reads and ins.dst == ir.noReg) 'call'
 		sel.callWords(fn, symbol: ir.rtSymbol(symbol), start: start, count: ir.callRuntimeArgsCount(ins), dst: ins.dst)
@@ -839,8 +967,11 @@ function emitCallRuntime(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
 		sel.args.clear()
 		sel.jumpTo(done)
 	end 'bytesInsert' else if symbol == ir.Rt.rtStrByteAt 'stringByteAt'
-		sel.inBounds(box, index: index, lengthOffset: stringLengthOffset, slow: slow)
-		let byte = sel.loadIndexedByte(box, index: index, disp: imm32Of(stringBytesOffset))
+		let length = sel.newTemp()
+		sel.shiftRightInto(length, src: sel.secondOf(fn.args[start]), count: stringLengthShift)
+		sel.compare(index, b: length)
+		sel.branchTo(MCond.aboveEqual, block: slow)
+		let byte = sel.loadIndexedByte(box, index: index, disp: 0)
 		sel.reach(done, value: byte, keeps: keeps)
 	end 'stringByteAt' else 'unknown'
 		panic("backend: {ir.rtSymbol(symbol)} is not written in place")
@@ -866,10 +997,12 @@ function emitCownNew(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
 		some(r) gives sel.address(sel.calleeSymbol(r))
 		none gives sel.constant(0)
 	end 'routine'
-	sel.addArg(argAt(fn, start: ir.callRuntimeArgsStart(ins), index: 0), float: false)
+	let value = fn.args[ir.callRuntimeArgsStart(ins)]
+	sel.addArg(vregOf(value), float: false)
 	sel.addArg(routine, float: false)
 	sel.callSymbol(ir.rtSymbol(ir.Rt.rtCownNew))
 	sel.takeResult(ins.dst, float: false)
+	sel.storeSecondWord(fn, value: value, holder: ins.dst, offset: cownValueOffset)
 end 'emitCownNew'
 
 // emitClosure makes the box of a closure: a count of 1, the code of its body, the routine that drops what it owns, and
@@ -886,7 +1019,13 @@ function emitClosure(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
 	sel.closureBox(box, code: body, drop: drop, captures: count)
 	let start = ir.closureCapturesStart(ins)
 	for i in 0 upto count 'captures'
-		sel.store(box, disp: imm32Of(try closureCapturesOffset + i * wordBytes otherwise panic("backend: a capture past memory")), src: argAt(fn, start: start, index: i))
+		let capture = fn.args[try start + i otherwise panic("backend: a capture past the pool")]
+		let disp = imm32Of(try closureCapturesOffset + i * closureCaptureBytes otherwise panic("backend: a capture past memory"))
+		if isStringReg(fn, r: capture) 'string'
+			sel.storeString(box, disp: disp, r: capture)
+		end 'string' else 'word'
+			sel.store(box, disp: disp, src: vregOf(capture))
+		end 'word'
 	end 'captures'
 end 'emitClosure'
 
@@ -900,7 +1039,7 @@ end 'emitFuncValue'
 function emitBox(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
 	let box = vregOf(ins.dst)
 	sel.allocInto(box, bytes: ifaceBoxBytes)
-	sel.fillBox(box, table: ir.boxTable(fn, x: ins), value: vregOf(ir.boxValue(ins)))
+	sel.fillBox(fn, box: box, table: ir.boxTable(fn, x: ins), value: ir.boxValue(ins))
 end 'emitBox'
 
 // emitWhen makes a behaviour's record and hands it to the runtime's acquire: the thunk of its body, how many cowns it
@@ -915,14 +1054,21 @@ function emitWhen(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
 		panic("backend: a behaviour's body does not take its cowns' values and its captures, which its thunk passes it")
 	end 'shape'
 	let start = behaviourWordsOffset(cowns)
+	let first = ir.whenCownsStart(ins)
+	var slots = 0 as Count
+	for i in 0 upto words 'width'
+		slots = try slots + valueWordsOf(fn, r: fn.args[try first + i otherwise panic("backend: an argument past the pool")]) otherwise panic("backend: a behaviour past memory")
+	end 'width'
 	let record = sel.newTemp()
-	sel.allocInto(record, bytes: try start + words * wordBytes otherwise panic("backend: a behaviour past memory"))
+	sel.allocInto(record, bytes: try start + slots * wordBytes otherwise panic("backend: a behaviour past memory"))
 	let thunk = sel.address(thunkSymbol(bodySymbol(sel.fnSymbol, index: index)))
 	sel.store(record, disp: imm32Of(behaviourRunOffset), src: thunk)
 	sel.storeImm(record, disp: imm32Of(behaviourCownCountOffset), value: try cowns as Imm32 otherwise panic("backend: a behaviour past memory"))
-	let first = ir.whenCownsStart(ins)
+	var at = start
 	for i in 0 upto words 'words'
-		sel.store(record, disp: imm32Of(try start + i * wordBytes otherwise panic("backend: a behaviour past memory")), src: argAt(fn, start: first, index: i))
+		let r = fn.args[try first + i otherwise panic("backend: an argument past the pool")]
+		sel.storeValue(record, disp: imm32Of(at), r: r, f: fn)
+		at = try at + valueWordsOf(fn, r: r) * wordBytes otherwise panic("backend: a behaviour past memory")
 	end 'words'
 	sel.addArg(record, float: false)
 	sel.callSymbol(ir.rtSymbol(ir.Rt.rtCownAcquire))
@@ -933,7 +1079,11 @@ end 'emitWhen'
 // last as maxon's __gt_ready does. The promise is the green thread.
 function emitAsync(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
 	let count = ir.asyncArgsCount(ins)
-	if count > greenArgWords 'words'
+	var argWords = 0 as Count
+	for i in 0 upto count 'width'
+		argWords = try argWords + valueWordsOf(fn, r: fn.args[try ir.asyncArgsStart(ins) + i otherwise panic("backend: an argument past the pool")]) otherwise panic("backend: a coroutine past memory")
+	end 'width'
+	if argWords > greenArgWords 'words'
 		panic("backend: an async call passes more words than a coroutine holds, which the checker refuses")
 	end 'words'
 	let thunk = sel.address(asyncThunkSymbol(sel.calleeSymbol(ir.asyncCallee(fn, x: ins))))
@@ -942,8 +1092,11 @@ function emitAsync(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
 	sel.takeResult(ins.dst, float: false)
 	let g = vregOf(ins.dst)
 	let start = ir.asyncArgsStart(ins)
+	var at = greenArgsOffset as Count
 	for i in 0 upto count 'args'
-		sel.store(g, disp: imm32Of(try greenArgsOffset + i * wordBytes otherwise panic("backend: a coroutine past memory")), src: argAt(fn, start: start, index: i))
+		let r = fn.args[try start + i otherwise panic("backend: an argument past the pool")]
+		sel.storeValue(g, disp: imm32Of(at), r: r, f: fn)
+		at = try at + valueWordsOf(fn, r: r) * wordBytes otherwise panic("backend: a coroutine past memory")
 	end 'args'
 	sel.addArg(g, float: false)
 	sel.callSymbol(ir.rtSymbol(ir.Rt.rtAsyncStart))
@@ -956,18 +1109,15 @@ function asyncThunkSymbol(callee String) returns String
 end 'asyncThunkSymbol'
 
 function emitDropValue(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
-	sel.callRoutine(RoutineKind.dropRoutine, ty: ir.dropTy(fn, x: ins), value: vregOf(ir.dropSrc(ins)))
+	sel.callRoutineOf(RoutineKind.dropRoutine, ty: ir.dropTy(fn, x: ins), value: ir.dropSrc(ins))
 end 'emitDropValue'
 
 function emitDropAt(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
-	let at = vregOf(ir.dropAtAddr(ins))
-	let value = sel.load(at, disp: 0)
-	sel.storeImm(at, disp: 0, value: 0)
-	sel.callRoutine(RoutineKind.dropRoutine, ty: ir.dropAtTy(fn, x: ins), value: value)
+	sel.dropPlace(vregOf(ir.dropAtAddr(ins)), disp: 0, ty: ir.dropAtTy(fn, x: ins))
 end 'emitDropAt'
 
 function emitCopyValue(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
-	sel.callRoutine(RoutineKind.copyRoutine, ty: ir.copyTy(fn, x: ins), value: vregOf(ir.copySrc(ins)))
+	sel.callRoutineOf(RoutineKind.copyRoutine, ty: ir.copyTy(fn, x: ins), value: ir.copySrc(ins))
 	sel.takeResult(ins.dst, float: false)
 end 'emitCopyValue'
 
@@ -991,18 +1141,25 @@ end 'emitSwitch'
 
 // emitRet returns a value in the convention's register for it, a float's or a word's.
 function emitRet(mutates sel Selector, fn ir.IrFunction, ins ir.Term)
-	sel.copy(physOfNumber(internalResult(sel.arch, float: sel.floatResult)), src: vregOf(ir.retValue(ins)))
+	let value = ir.retValue(ins)
+	sel.copy(physOfNumber(internalResult(sel.arch, float: sel.floatResult)), src: vregOf(value))
+	if isStringReg(fn, r: value) 'string'
+		sel.copy(physOfNumber(internalSecondResultOf(sel.arch)), src: sel.secondOf(value))
+	end 'string'
 	if sel.canThrow 'clear'
 		sel.zeroInto(physOfNumber(internalErrorOf(sel.arch)), float: false)
 	end 'clear'
 	sel.leave()
 end 'emitRet'
 
-// emitThrow returns an error, with the result register cleared, which the return reads all the same.
+// emitThrow returns an error, with the result registers cleared, which the return reads all the same.
 function emitThrow(mutates sel Selector, fn ir.IrFunction, ins ir.Term)
 	sel.copy(physOfNumber(internalErrorOf(sel.arch)), src: vregOf(ir.throwErr(ins)))
 	let float = sel.floatResult
 	sel.zeroInto(physOfNumber(internalResult(sel.arch, float: float)), float: float)
+	if fn.stringResult 'string'
+		sel.zeroInto(physOfNumber(internalSecondResultOf(sel.arch)), float: false)
+	end 'string'
 	sel.leave()
 end 'emitThrow'
 
@@ -1040,8 +1197,10 @@ function selectFunction(mutates sel Selector, p ast.Project, mutates ms ast.Modu
 	sel.closureBody = closure
 	sel.mir = MirFunction.new(symbol, canThrow: sel.canThrow, arch: sel.arch)
 	sel.mir.floatResult = sel.floatResult
+	sel.mir.stringResult = f.stringResult
 	sel.classes.choose(f, fn: sel.mir)
-	sel.mir.fixedSlots = try f.slots.count() + f.frameBoxes * ifaceBoxWords otherwise panic("backend: a frame past memory")
+	sel.pairStrings(f)
+	sel.mir.fixedSlots = try slotsWords(f) + f.frameBoxes * ifaceBoxWords otherwise panic("backend: a frame past memory")
 	for _ in 0 upto f.blocks.count() 'blocks'
 		_ = sel.mir.addBlock()
 	end 'blocks'
@@ -1055,7 +1214,7 @@ function selectFunction(mutates sel Selector, p ast.Project, mutates ms ast.Modu
 	for i in 0 upto f.blocks.count() 'blocks'
 		sel.mir.writeBlock(try i as MBlockID otherwise panic("backend: more blocks than a branch names"))
 		for k in 0 upto f.blocks[i].paramCount 'params'
-			sel.mir.addBlockParam(vregOf(f.blockParam(i, i: k)))
+			sel.addParamOf(f.blockParam(i, i: k))
 		end 'params'
 		sel.irBlock = i
 		for k in f.blocks[i].first upto f.blocks[i].endAt 'instrs'

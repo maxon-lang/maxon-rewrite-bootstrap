@@ -16,9 +16,11 @@
 // goes to a failure block, which takes no arguments, as the IR's own do.
 
 // Constants and the addresses of what the link places. A constant in an xmm register is read from a word of the data.
+// A String is two registers (emitString...): its first word, the address of its bytes, is the IR register's own.
+(const) && isStringReg(fn, r: ins.dst) => (emitStringConst)
 (const [c]) && sel.inXmm(ins.dst) => (MovsdRegRip r [sel.floatRef(c)])
 (const [c]) => (MovRegImm r [c])
-(str) => (LeaRegRip r [sel.textRef(fn, ins: ins)])
+(str) => (emitStr)
 (datum) => (LeaRegRip r [sel.datumRef(fn, ins: ins)])
 (loadGlobal [g]) => (LoadRegRip r [sel.symbolRef(ir.rtSymbol(g))])
 (globalAddr [g]) => (LeaRegRip r [sel.symbolRef(ir.rtSymbol(g))])
@@ -26,6 +28,9 @@
 
 // The frame: slots are words at the frame pointer; emitLoadParam reads parameters, by the convention. A word that an xmm
 // register holds is read and written by movsd, here and in memory.
+(loadSlot) && isStringReg(fn, r: ins.dst) => (emitStringLoadSlot)
+(storeSlot [n] v) && isStringReg(fn, r: v) => (emitStringStoreSlot)
+(moveSlot) && isStringReg(fn, r: ins.dst) => (emitStringMoveSlot)
 (loadSlot [n]) && sel.inXmm(ins.dst) => (MovsdRegBaseDisp r rbp [slotDisp(n)])
 (loadSlot [n]) => (LoadRegBaseDisp r rbp [slotDisp(n)])
 (storeSlot [n] v) && sel.inXmm(v) => (MovsdBaseDispReg rbp [slotDisp(n)] v)
@@ -35,6 +40,11 @@
 (loadParam) => (emitLoadParam)
 
 // Memory.
+(loadField) && isStringReg(fn, r: ins.dst) => (emitStringLoadField)
+(storeField obj [off] v) && isStringReg(fn, r: v) => (emitStringStoreField)
+(loadAt) && isStringReg(fn, r: ins.dst) => (emitStringLoadAt)
+(storeAt a v) && isStringReg(fn, r: v) => (emitStringStoreAt)
+(moveAt) && isStringReg(fn, r: ins.dst) => (emitStringMoveAt)
 (loadField obj [off]) && sel.inXmm(ins.dst) => (MovsdRegBaseDisp r obj [off])
 (loadField obj [off]) => (LoadRegBaseDisp r obj [off])
 (storeField obj [off] v) && sel.inXmm(v) => (MovsdBaseDispReg obj [off] v)
@@ -91,15 +101,17 @@
 // which calls the entry the access is the common case of (emitBounds), and an element an access at the index into the
 // buffer.
 (length.array s) => (LoadRegBaseDisp r s [arrayLengthOffset])
-(length.string s) => (LoadRegBaseDisp r s [stringLengthOffset])
+(length.string) => (emitStringLength)
 (bounds) => (emitBounds)
 (elemAddr a i) => (LoadRegBaseDisp d a [arrayDataOffset]) (LeaRegBaseIndex8Disp r d i [0])
 (elemLoad a i) && sel.inXmm(ins.dst) => (LoadRegBaseDisp d a [arrayDataOffset]) (MovsdRegBaseIndex8Disp r d i [0])
 (elemLoad a i) => (LoadRegBaseDisp d a [arrayDataOffset]) (LoadRegBaseIndex8Disp r d i [0])
 (loadByte.array a i) => (LoadRegBaseDisp d a [arrayDataOffset]) (MovzxRegByteBaseIndex1Disp r d i [0])
-(loadByte.string s i) => (MovzxRegByteBaseIndex1Disp r s i [stringBytesOffset])
+(loadByte.string s i) => (MovzxRegByteBaseIndex1Disp r s i [0])
 (buffer s) => (LoadRegBaseDisp r s [arrayDataOffset])
-(bytes s) => (LeaRegBaseDisp r s [stringBytesOffset])
+(strPtr) => (emitStrPtr)
+(strWord) => (emitStrWord)
+(strMake) => (emitStrMake)
 (wordAt d i) && sel.inXmm(ins.dst) => (MovsdRegBaseIndex8Disp r d i [0])
 (wordAt d i) => (LoadRegBaseIndex8Disp r d i [0])
 (byteAt d i) => (MovzxRegByteBaseIndex1Disp r d i [0])

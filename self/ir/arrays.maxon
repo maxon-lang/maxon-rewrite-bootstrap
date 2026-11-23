@@ -28,6 +28,11 @@ function arrayPacked(p ast.Project, ms ast.ModuleState, box ArrayBox) returns bo
 	return ast.packsByte(ms.types, reads: p.types, b: p.builtins, elem: ast.typeArgAt(ms.types, reads: p.types, t: box.ty, index: 0))
 end 'arrayPacked'
 
+// arrayOfStrings is whether the array holds Strings, two words to an element, which the rt.strs entries address.
+function arrayOfStrings(p ast.Project, ms ast.ModuleState, box ArrayBox) returns bool
+	return ast.isStringType(ms.types, reads: p.types, t: arrayElem(p, ms: ms, box: box))
+end 'arrayOfStrings'
+
 function arrayElem(p ast.Project, ms ast.ModuleState, box ArrayBox) returns ast.TypeID
 	return ast.typeArgAt(ms.types, reads: p.types, t: box.ty, index: 0)
 end 'arrayElem'
@@ -42,17 +47,24 @@ end 'arrayNew'
 // arrayReserve makes the buffer of an array hold count elements, where a lowering knows how many it is about to push: an
 // array of words reserves them, and an array of bytes grows as it is pushed to.
 function arrayReserve(mutates l Lowerer, p ast.Project, ms ast.ModuleState, box ArrayBox, arr Reg, count Reg)
-	if not arrayPacked(p, ms: ms, box: box) 'words'
+	if arrayOfStrings(p, ms: ms, box: box) 'strings'
+		entryVoid(l, p: p, site: box.site, symbol: Rt.rtStrsReserve, args: argsOf2(arr, b: count))
+	end 'strings' else if not arrayPacked(p, ms: ms, box: box) 'words'
 		entryVoid(l, p: p, site: box.site, symbol: Rt.rtArrayReserve, args: argsOf2(arr, b: count))
 	end 'words'
 end 'arrayReserve'
 
 // arrayFill appends count copies of v, a word that needs no copy of its own, to an array that is not packed, in one call
-// that writes them in a pass where as many inserts would each check the buffer.
+// that writes them in a pass where as many inserts would each check the buffer. An array of strings is filled with empty
+// elements, the String that the empty place v is.
 function arrayFill(mutates l Lowerer, p ast.Project, ms ast.ModuleState, box ArrayBox, arr Reg, count Reg, v Reg)
 	if arrayPacked(p, ms: ms, box: box) 'packed'
 		panic("lower: a fill of an array of bytes")
 	end 'packed'
+	if arrayOfStrings(p, ms: ms, box: box) 'strings'
+		entryVoid(l, p: p, site: box.site, symbol: Rt.rtStrsFill, args: argsOf2(arr, b: count))
+		return
+	end 'strings'
 	entryVoid(l, p: p, site: box.site, symbol: Rt.rtArrayFill, args: argsOf3(arr, b: count, c: v))
 end 'arrayFill'
 
@@ -69,6 +81,11 @@ function arrayInsert(mutates l Lowerer, p ast.Project, ms ast.ModuleState, box A
 		entryVoid(l, p: p, site: box.site, symbol: Rt.rtBytesInsert, args: argsOf3(arr, b: index, c: v))
 		return
 	end 'packed'
+	if arrayOfStrings(p, ms: ms, box: box) 'strings'
+		let at = entry(l, p: p, site: box.site, symbol: Rt.rtStrsOpen, kind: IrKind.kindScalar, args: argsOf2(arr, b: index))
+		emit(l, i: newStoreAt(at, src: v))
+		return
+	end 'strings'
 	entryVoid(l, p: p, site: box.site, symbol: Rt.rtArrayInsert, args: argsOf3(arr, b: index, c: v))
 end 'arrayInsert'
 
@@ -84,6 +101,13 @@ function arrayRemove(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleStat
 	end 'packed'
 	let elem = arrayElem(p, ms: ms, box: box)
 	let kind = kindOf(l, p: p, ms: ms, t: elem)
+	if arrayOfStrings(p, ms: ms, box: box) 'strings'
+		let at = entry(l, p: p, site: box.site, symbol: Rt.rtStrsElem, kind: IrKind.kindScalar, args: argsOf2(arr, b: index))
+		let d = newReg(l, kind: kind)
+		emit(l, i: newMoveAt(d, addr: at))
+		entryVoid(l, p: p, site: box.site, symbol: Rt.rtStrsClose, args: argsOf2(arr, b: index))
+		return d
+	end 'strings'
 	return entry(l, p: p, site: box.site, symbol: Rt.rtArrayRemove, kind: kind, args: argsOf2(arr, b: index))
 end 'arrayRemove'
 
@@ -113,8 +137,13 @@ function requireFilled(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleSt
 	if not ast.isManagedType(ms.types, reads: p.types, t: elem) 'scalar'
 		return
 	end 'scalar'
+	var word = element
+	if ast.isStringType(ms.types, reads: p.types, t: elem) 'string'
+		word = newReg(l, kind: IrKind.kindScalar)
+		emit(l, i: newStrPtr(word, src: element))
+	end 'string'
 	let empty = konst(l, value: 0 as Word)
-	let filled = compare(l, op: CmpOp.cmpNe, a: element, b: empty, unsigned: true)
+	let filled = compare(l, op: CmpOp.cmpNe, a: word, b: empty, unsigned: true)
 	match read 'read'
 		slotCopied then failUnless(l, p: p, ms: ms, cond: filled, errorCase: ast.errorEmptySlot)
 		slotLent then panicUnlessFilled(l, p: p, site: site, filled: filled, index: index)
@@ -158,6 +187,12 @@ end 'arrayRead'
 // end.
 function arrayClearSlot(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, box ArrayBox, arr Reg, index Reg)
 	arrayInBounds(l, p: p, ms: ms, box: box, arr: arr, index: index)
+	let elem = arrayElem(p, ms: ms, box: box)
+	if owning(kindOf(l, p: p, ms: ms, t: elem)) and not arrayPacked(p, ms: ms, box: box) 'owning'
+		let addr = arrayAddress(l, p: p, ms: ms, box: box, arr: arr, index: index, checked: false)
+		dropAt(l, p: p, ms: ms, addr: addr, t: elem)
+		return
+	end 'owning'
 	let empty = konst(l, value: 0 as Word)
 	arrayWrite(l, p: p, ms: ms, box: box, arr: arr, index: index, v: empty, checked: false)
 end 'arrayClearSlot'
@@ -185,6 +220,9 @@ function arrayAddress(mutates l Lowerer, p ast.Project, ms ast.ModuleState, box 
 	if arrayPacked(p, ms: ms, box: box) 'packed'
 		panic("lower: an element of {ast.typeName(ms.types, reads: p.types, t: box.ty)} has no word address")
 	end 'packed'
+	if arrayOfStrings(p, ms: ms, box: box) 'strings'
+		return elementEntry(l, p: p, site: box.site, symbol: Rt.rtStrsElem, args: argsOf2(arr, b: index), checked: checked)
+	end 'strings'
 	return elementEntry(l, p: p, site: box.site, symbol: Rt.rtArrayElem, args: argsOf2(arr, b: index), checked: checked)
 end 'arrayAddress'
 
@@ -285,7 +323,7 @@ end 'saturatingSub'
 // each, before the length is set.
 function arrayShrinkTo(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, box ArrayBox, arr Reg, keep Reg)
 	let elem = arrayElem(p, ms: ms, box: box)
-	if kindOf(l, p: p, ms: ms, t: elem) == IrKind.kindManaged 'owning'
+	if owning(kindOf(l, p: p, ms: ms, t: elem)) 'owning'
 		let length = arrayLength(l, p: p, ms: ms, box: box, arr: arr)
 		let extra = newReg(l, kind: IrKind.kindScalar)
 		emit(l, i: newBin(extra, op: BinOp.binSub, left: length, right: keep, unsigned: true, fail: noBlock))
@@ -319,12 +357,17 @@ function arrayTruncate(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleSt
 end 'arrayTruncate'
 
 // arrayGrowZero pushes zero elements until the array has newLength of them, which the checker has held to an element that has a zero.
-function arrayGrowZero(mutates l Lowerer, p ast.Project, ms ast.ModuleState, box ArrayBox, arr Reg, newLength Reg)
+function arrayGrowZero(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, box ArrayBox, arr Reg, newLength Reg)
 	let length = arrayLength(l, p: p, ms: ms, box: box, arr: arr)
 	let missing = saturatingSub(l, a: newLength, b: length)
 	let loop = countedLoopBegin(l, limit: missing)
-	let zero = konst(l, value: 0 as Word)
-	arrayPush(l, p: p, ms: ms, box: box, arr: arr, v: zero)
+	if arrayOfStrings(p, ms: ms, box: box) 'strings'
+		let length = arrayLength(l, p: p, ms: ms, box: box, arr: arr)
+		_ = entry(l, p: p, site: box.site, symbol: Rt.rtStrsOpen, kind: IrKind.kindScalar, args: argsOf2(arr, b: length))
+	end 'strings' else 'words'
+		let zero = konst(l, value: 0 as Word)
+		arrayPush(l, p: p, ms: ms, box: box, arr: arr, v: zero)
+	end 'words'
 	countedLoopEnd(l, loop: loop)
 end 'arrayGrowZero'
 

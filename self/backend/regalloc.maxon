@@ -496,7 +496,7 @@ export type Colourer
 	function step(mutates self, mutates fn MirFunction, lv Liveness, b Count, k Count)
 		let kind = fn.instrs[k].kind
 		if kind == MKind.restore 'restore'
-			self.closeBracket(vregIndex(fn.instrs[k].a))
+			self.closeBracket(fn, v: vregIndex(fn.instrs[k].a), b: b, k: k)
 			return
 		end 'restore'
 		if kind == MKind.spill and opens[k] 'opens'
@@ -551,11 +551,16 @@ export type Colourer
 		return false
 	end 'definedAt'
 
-	// closeBracket puts a bracketed value back in the register it lent.
-	function closeBracket(mutates self, v Count)
+	// closeBracket puts a bracketed value back in the register it lent, at the restore at k of block b, first moving out
+	// a value relocate put there for the bracket's length.
+	function closeBracket(mutates self, fn MirFunction, v Count, b Count, k Count)
 		for i in 0 upto openValue.count() 'open'
 			if openValue[i] == v 'found'
 				let r = openReg[i]
+				if (busy and maskOfCount(r)) != 0 'borrowed'
+					let w = holder[r]
+					self.evict(fn, w: w, b: b, k: k)
+				end 'borrowed'
 				let last = prevCount(openValue.count())
 				openValue[i] = openValue[last]
 				openReg[i] = openReg[last]
@@ -569,6 +574,28 @@ export type Colourer
 		end 'open'
 		panic("backend: a restore of virtual register {vregAt(v)} that no spill opened")
 	end 'closeBracket'
+
+	// evict moves w out of the register it holds before the instruction at k of block b: into its home if that is free,
+	// otherwise into a free register it may be in, one no other value has as its home if there is one.
+	function evict(mutates self, fn MirFunction, w Count, b Count, k Count)
+		moveValue.clear()
+		moveDsts.clear()
+		moveSrcs.clear()
+		let keep = physBefore[k] or physAfter[k] or written[k]
+		let room = allocatable(arch, class: fn.classes[w]) and not busy and not keep and not self.bracketMask(w, k: k)
+		if room == 0 'none'
+			panic("backend: in {fn.symbol}, virtual register {vregAt(w)} has nowhere to go out of a lent register before the restore at instruction {k}, which spilling rules out")
+		end 'none'
+		var pick = room and not homes
+		if not homeless[w] and maskHas(room, number: regNumOfCount(reg[w])) 'home'
+			pick = maskOfCount(reg[w])
+		end 'home' else if pick == 0 'any'
+			pick = room
+		end 'any'
+		moveValue.push(w)
+		self.moveTo(w, r: lowestRegister(pick))
+		self.emitMoves(b, k: k, through: busy or keep)
+	end 'evict'
 
 	// colourReuse gives a two-address definition the register of the operand it reuses when that operand dies there
 	// and the definition may be in it, or of its other use when that one dies and the form commutes; otherwise another
@@ -847,8 +874,11 @@ export type Colourer
 
 	// relocate moves out, by one parallel copy before the instruction at k of block b, each flagged value in a register
 	// the instruction fixes or, for a value live across it, clobbers or leaves fixed: into a free register it may be in
-	// there, one no other value has as its home and it may be in for good if there is one; where none is free, into the
-	// register of a value that dies at k, which moves to a free register or, with none, into the register vacated.
+	// there, one no other value has as its home and it may be in for good if there is one; where none is free, into a
+	// register an open bracket lends, which the value leaves again at the bracket's restore (a bracket about a call lends
+	// a register the call keeps, which a value live across the call may need while the bracketed value is out); failing
+	// that, into the register of a value that dies at k, which moves to a free register or, with none, into the register
+	// vacated.
 	function relocate(mutates self, mutates fn MirFunction, b Count, k Count)
 		let keep = physBefore[k] or physAfter[k] or written[k]
 		moveValue.clear()
@@ -882,9 +912,14 @@ export type Colourer
 					pick = room
 				end 'any'
 				self.moveTo(w, r: lowestRegister(pick))
-			end 'free' else 'dying'
-				self.takeFromDying(fn, w: w, k: k, keep: keep, lent: lent)
-			end 'dying'
+				continue 'moves'
+			end 'free'
+			let borrowed = allocatable(arch, class: fn.classes[w]) and not busy and not keep
+			if borrowed != 0 'lent'
+				self.moveTo(w, r: lowestRegister(borrowed))
+				continue 'moves'
+			end 'lent'
+			self.takeFromDying(fn, w: w, k: k, keep: keep, lent: lent)
 		end 'moves'
 		through = through or busy
 		self.emitMoves(b, k: k, through: through)
@@ -934,7 +969,7 @@ export type Colourer
 			end 'held'
 			r = nextCount(r)
 		end 'registers'
-		panic("backend: virtual register {vregAt(w)} must leave its register before instruction {k} and has nowhere to go: the values live across it are more than the registers it leaves, which spilling rules out")
+		panic("backend: in {fn.symbol}, virtual register {vregAt(w)} must leave its register before instruction {k} and has nowhere to go: the values live across it are more than the registers it leaves, which spilling rules out")
 	end 'takeFromDying'
 
 	function isMoving(v Count) returns bool

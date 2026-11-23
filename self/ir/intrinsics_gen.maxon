@@ -554,12 +554,6 @@ export function intrinsicCall(mutates l Lowerer, p ast.Project, mutates ms ast.M
 	if op == ast.Intrinsic.intrRawAddressOf 'intrRawAddressOf'
 		return lowerRawAddressOf(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrRawAddressOf'
-	if op == ast.Intrinsic.intrRawStringAddress 'intrRawStringAddress'
-		return lowerRawStringAddress(l, p: p, ms: ms, c: c, recv: recv, args: args)
-	end 'intrRawStringAddress'
-	if op == ast.Intrinsic.intrRawStringAt 'intrRawStringAt'
-		return lowerRawStringAt(l, p: p, ms: ms, c: c, recv: recv, args: args)
-	end 'intrRawStringAt'
 	if op == ast.Intrinsic.intrRawStringBytes 'intrRawStringBytes'
 		return lowerRawStringBytes(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrRawStringBytes'
@@ -1210,12 +1204,6 @@ export function ownsOperands(op ast.Intrinsic) returns bool
 	if op == ast.Intrinsic.intrRawAddressOf 'intrRawAddressOf'
 		return true
 	end 'intrRawAddressOf'
-	if op == ast.Intrinsic.intrRawStringAddress 'intrRawStringAddress'
-		return false
-	end 'intrRawStringAddress'
-	if op == ast.Intrinsic.intrRawStringAt 'intrRawStringAt'
-		return false
-	end 'intrRawStringAt'
 	if op == ast.Intrinsic.intrRawStringBytes 'intrRawStringBytes'
 		return false
 	end 'intrRawStringBytes'

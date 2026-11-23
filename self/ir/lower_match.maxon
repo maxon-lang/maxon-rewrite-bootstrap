@@ -42,7 +42,7 @@ function lowerMatch(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState
 			pushScope(l, block: true)
 			takeApart(l, p: p, ms: ms, arm: arm, subject: subject, st: st)
 		end 'takeApart' else 'borrow'
-			borrowPayloads(l, p: p, ms: ms, arm: arm, subject: subject)
+			borrowPayloads(l, p: p, ms: ms, arm: arm, subject: subject, st: st)
 		end 'borrow'
 		let form = ast.matchArmForm(p.modules[l.mi].tree, id: arm)
 		if form == ast.ArmKind.armThen 'then'
@@ -87,8 +87,14 @@ function closedSubject(p ast.Project, ms ast.ModuleState, st ast.TypeID) returns
 	return kind == ast.TypeKind.enumTy or kind == ast.TypeKind.unionTy or st == p.builtins.boolTy
 end 'closedSubject'
 
+// payloadAt is where the payload at index of the case caseIndex of a box of the union st, a type the body names, sits.
+function payloadAt(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, st ast.TypeID, caseIndex Count, index Count) returns Count
+	let applied = applyType(l, p: p, ms: ms, t: st)
+	return payloadOffset(ms.types, reads: p.types, owner: applied, caseIndex: caseIndex, index: index)
+end 'payloadAt'
+
 // borrowPayloads binds the payload an arm names to a borrow of the subject's box.
-function borrowPayloads(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, arm ast.NodeID, subject Reg)
+function borrowPayloads(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, arm ast.NodeID, subject Reg, st ast.TypeID)
 	let patternsRef = ast.matchArmPatternsRef(p.modules[l.mi].tree, id: arm)
 	for i in 0 upto p.modules[l.mi].tree.listLen(patternsRef) 'patterns'
 		let pat = p.modules[l.mi].tree.listAt(patternsRef, index: i) as ast.NodeID
@@ -99,8 +105,9 @@ function borrowPayloads(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleS
 				let local = localEntry(p, module: l.fnModule, id: bindings[j])
 				let kind = kindOf(l, p: p, ms: ms, t: local.ty)
 				let d = newReg(l, kind: kind)
-				emit(l, i: newLoadField(d, obj: subject, offset: fieldOffset(j, tagged: true)))
-				emit(l, i: newStoreSlot(slotOf(local), src: d, borrow: kind == IrKind.kindManaged))
+				let offset = payloadAt(l, p: p, ms: ms, st: st, caseIndex: info.caseIdx, index: j)
+				emit(l, i: newLoadField(d, obj: subject, offset: offset))
+				emit(l, i: newStoreSlot(slotOf(local), src: d, borrow: owning(kind)))
 			end 'named'
 		end 'bindings'
 	end 'patterns'
@@ -118,10 +125,10 @@ function takeApart(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState,
 		for j in 0 upto bindings.count() 'bindings'
 			if bindings[j] != ast.noLocal 'named'
 				let local = localEntry(p, module: l.fnModule, id: bindings[j])
-				let offset = fieldOffset(j, tagged: true)
+				let offset = payloadAt(l, p: p, ms: ms, st: st, caseIndex: info.caseIdx, index: j)
 				let kind = kindOf(l, p: p, ms: ms, t: local.ty)
 				let d = newReg(l, kind: kind)
-				if kind == IrKind.kindManaged 'managed'
+				if owning(kind) 'managed'
 					let addr = newReg(l, kind: IrKind.kindScalar)
 					emit(l, i: newFieldAddr(addr, obj: subject, offset: offset))
 					emit(l, i: newMoveAt(d, addr: addr))

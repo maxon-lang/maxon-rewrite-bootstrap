@@ -1973,6 +1973,12 @@ export function isMutatingFunction(tt TypeSlot, reads TypeTable, t TypeID) retur
 	return isFunctionType(tt, reads: reads, t: t) and funcMutatesCaptures(tt, reads: reads, t: t)
 end 'isMutatingFunction'
 
+// isStringType is whether a value of the type is a String: two words wherever it is held, the address of its bytes and
+// its word, where every other value is one.
+export function isStringType(tt TypeSlot, reads TypeTable, t TypeID) returns bool
+	return t != noType and typeKind(tt, reads: reads, t: t) == TypeKind.primString
+end 'isStringType'
+
 export function isManagedType(tt TypeSlot, reads TypeTable, t TypeID) returns bool
 	if t == noType 'no'
 		return false

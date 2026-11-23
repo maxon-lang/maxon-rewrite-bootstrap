@@ -397,16 +397,15 @@ function floatTextOf(negative bool, digits Count, count Count, scale FullRangeIn
 			end 'point'
 		end 'integral'
 	end 'number'
-	let box = newStringBox(length)
-	let out = bytesOf(box)
+	let out = __Raw.stringRoom(length)
 	var at = 0 as Count
 	if negative 'minus'
 		__Raw.storeByte(out, offset: 0, value: floatMinusByte)
 		at = 1
 	end 'minus'
 	if wordLength != 0 'word'
-		copyBytes(bytesOf(__Raw.stringAddress(word)), target: __Raw.wrappingAdd(out, right: at), count: wordLength)
-		return __Raw.stringAt(box)
+		copyBytes(__Raw.stringBytes(word), target: __Raw.wrappingAdd(out, right: at), count: wordLength)
+		return floatText(out, length: length)
 	end 'word'
 	if scale <= 0 'fraction'
 		at = floatPut(out, at: at, value: floatZeroByte)
@@ -415,7 +414,7 @@ function floatTextOf(negative bool, digits Count, count Count, scale FullRangeIn
 			at = floatPut(out, at: at, value: floatZeroByte)
 		end 'zeros'
 		at = floatPutDigits(out, at: at, digits: digits, from: 0, until: count)
-		return __Raw.stringAt(box)
+		return floatText(out, length: length)
 	end 'fraction'
 	if whole >= count 'integral'
 		at = floatPutDigits(out, at: at, digits: digits, from: 0, until: count)
@@ -424,13 +423,19 @@ function floatTextOf(negative bool, digits Count, count Count, scale FullRangeIn
 		end 'zeros'
 		at = floatPut(out, at: at, value: floatPointByte)
 		at = floatPut(out, at: at, value: floatZeroByte)
-		return __Raw.stringAt(box)
+		return floatText(out, length: length)
 	end 'integral'
 	at = floatPutDigits(out, at: at, digits: digits, from: 0, until: whole)
 	at = floatPut(out, at: at, value: floatPointByte)
 	at = floatPutDigits(out, at: at, digits: digits, from: whole, until: count)
-	return __Raw.stringAt(box)
+	return floatText(out, length: length)
 end 'floatTextOf'
+
+// floatText is the string that owns the room of a float's text, whose every byte is a digit, a sign, a point or a letter
+// of a word, so below 0x80.
+function floatText(room Count, length Count) returns String
+	return __Raw.stringOf(room, length: length, ascii: true)
+end 'floatText'
 
 function floatPut(out Count, at Count, value Byte) returns Count
 	__Raw.storeByte(out, offset: at, value: value)

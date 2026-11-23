@@ -408,6 +408,8 @@ export function storeIrFunction(mutates w table.CacheWriter, v IrFunction)
 	w.flag(v.lendsResult)
 	w.word64(v.floatParams as table.Word64)
 	w.flag(v.floatResult)
+	w.word64(v.stringParams as table.Word64)
+	w.flag(v.stringResult)
 	storeArrayOfCount(w, v: v.floatStarts)
 	storeArrayOfFloatMask(w, v: v.floatMasks)
 end 'storeIrFunction'
@@ -441,9 +443,11 @@ extension IrFunction
 		let theLendsResult = r.flag()
 		let theFloatParams = r.word64() as FloatMask
 		let theFloatResult = r.flag()
+		let theStringParams = r.word64() as FloatMask
+		let theStringResult = r.flag()
 		let theFloatStarts = loadArrayOfCount(r)
 		let theFloatMasks = loadArrayOfFloatMask(r)
-		return IrFunction{decl: theDecl, name: theName, paramCount: theParamCount, slots: theSlots, regs: theRegs, frameBoxes: theFrameBoxes, instrs: theInstrs, blocks: theBlocks, args: theArgs, blockParams: theBlockParams, types: theTypes, callees: theCallees, strings: theStrings, cases: theCases, tables: theTables, datums: theDatums, refusals: theRefusals, usesArrays: theUsesArrays, usesBytes: theUsesBytes, usesOs: theUsesOs, bodies: theBodies, captureTypes: theCaptureTypes, captureOwned: theCaptureOwned, cownTypes: theCownTypes, lendsResult: theLendsResult, floatParams: theFloatParams, floatResult: theFloatResult, floatStarts: theFloatStarts, floatMasks: theFloatMasks}
+		return IrFunction{decl: theDecl, name: theName, paramCount: theParamCount, slots: theSlots, regs: theRegs, frameBoxes: theFrameBoxes, instrs: theInstrs, blocks: theBlocks, args: theArgs, blockParams: theBlockParams, types: theTypes, callees: theCallees, strings: theStrings, cases: theCases, tables: theTables, datums: theDatums, refusals: theRefusals, usesArrays: theUsesArrays, usesBytes: theUsesBytes, usesOs: theUsesOs, bodies: theBodies, captureTypes: theCaptureTypes, captureOwned: theCaptureOwned, cownTypes: theCownTypes, lendsResult: theLendsResult, floatParams: theFloatParams, floatResult: theFloatResult, stringParams: theStringParams, stringResult: theStringResult, floatStarts: theFloatStarts, floatMasks: theFloatMasks}
 	end 'cacheLoad'
 end 'IrFunction'
 

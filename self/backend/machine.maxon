@@ -199,12 +199,16 @@ function implicitUses(x MInstr, fn MirFunction) returns RegMask
 	end 'kind'
 end 'implicitUses'
 
-// returnUses are the registers a return of fn reads: its result's, and its error's when it throws.
+// returnUses are the registers a return of fn reads: its result's (both of a String's words), and its error's when it
+// throws.
 function returnUses(x MInstr, fn MirFunction) returns RegMask
 	if not isReturn(x.form) 'other'
 		return 0
 	end 'other'
-	let result = regBit(internalResult(fn.arch, float: fn.floatResult))
+	var result = regBit(internalResult(fn.arch, float: fn.floatResult))
+	if fn.stringResult 'string'
+		result = result or regBit(internalSecondResultOf(fn.arch))
+	end 'string'
 	if fn.canThrow 'error'
 		return result or regBit(internalErrorOf(fn.arch))
 	end 'error'

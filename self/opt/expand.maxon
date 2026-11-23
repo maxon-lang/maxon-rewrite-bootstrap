@@ -88,7 +88,7 @@ export type Expander
 			out.push(ir.newLoadByte(call.dst, src: src, index: index, of: of))
 			return next
 		end 'byte'
-		if next < endAt and f.instrs[next].op == ir.Opcode.opLoadAt and ir.loadAtAddr(f.instrs[next]) == call.dst and reads[regIndex(call.dst)] == 1 'read'
+		if next < endAt and f.instrs[next].op == ir.Opcode.opLoadAt and ir.loadAtAddr(f.instrs[next]) == call.dst and reads[regIndex(call.dst)] == 1 and f.regs[regIndex(f.instrs[next].dst)] != ir.IrKind.kindString 'read'
 			out.push(ir.newElemLoad(f.instrs[next].dst, arr: src, index: index))
 			return plusOne(next)
 		end 'read'

@@ -53,6 +53,47 @@ function arrayReserve(array Count, count Count)
 	end 'more'
 end 'arrayReserve'
 
+// The entries of an array of strings, whose elements are a String each, __Raw.stringSize() bytes: the code that calls them
+// moves the Strings in and out of the addresses they give.
+
+// stringsElem is the address of the element at an index, which panics past the end.
+function stringsElem(array Count, index Count) returns Count
+	return collectionElementAddress(array, index: index, elementBytes: __Raw.stringSize())
+end 'stringsElem'
+
+// stringsOpen makes room for an element at an index, which may be the length, and gives its address: an empty String,
+// its words 0, which the code may fill or leave empty.
+function stringsOpen(array Count, index Count) returns Count
+	let at = collectionOpenGap(array, index: index, elementBytes: __Raw.stringSize(), firstCapacity: arrayFirstCapacity)
+	__Raw.storeWord(at, offset: 0, value: 0)
+	__Raw.storeWord(at, offset: wordBytes, value: 0)
+	return at
+end 'stringsOpen'
+
+// stringsClose takes the element at an index, which the code moved out, out of the buffer.
+function stringsClose(array Count, index Count)
+	_ = collectionElementAddress(array, index: index, elementBytes: __Raw.stringSize())
+	collectionCloseGap(array, index: index, elementBytes: __Raw.stringSize())
+end 'stringsClose'
+
+// stringsFill appends count empty elements, which alloc zeroed.
+function stringsFill(array Count, count Count)
+	let at = collectionExtend(array, count: count, elementBytes: __Raw.stringSize(), firstCapacity: arrayFirstCapacity)
+	let past = __Raw.wrappingAdd(at, right: collectionBytes(count, elementBytes: __Raw.stringSize()))
+	var place = at
+	while place != past 'words'
+		__Raw.storeWord(place, offset: 0, value: 0)
+		place = __Raw.wrappingAdd(place, right: wordBytes)
+	end 'words'
+end 'stringsFill'
+
+// stringsReserve makes the buffer hold a count of elements, exactly, where it holds fewer.
+function stringsReserve(array Count, count Count)
+	if count > __Raw.loadWord(array, offset: arrayCapacityOffset) 'more'
+		collectionMove(array, capacity: count, elementBytes: __Raw.stringSize())
+	end 'more'
+end 'stringsReserve'
+
 // arrayShrink makes an array or a byte array a length that is not above its own, and keeps the buffer. The elements
 // above the length are the caller's to have moved out or dropped already, or need no drop.
 function arrayShrink(array Count, length Count)

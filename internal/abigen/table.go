@@ -40,10 +40,19 @@ var layouts = []layoutConst{
 	{"tagOffset", 0, false, toSelfIR,
 		"where a union box holds its case index; the payload follows it."},
 
-	{"stringLengthOffset", 0, false, toRuntime | toSelfIR | toSelfBack,
-		"where a String's box holds its length in bytes, a word."},
-	{"stringBytesOffset", 1, false, toRuntime | toSelfIR | toSelfBack,
-		"where a String's bytes begin, UTF-8 with no terminator."},
+	// A String is two words, held inline wherever a value is: the address of its bytes and a word of its length and flags.
+	{"stringBytesOffset", 0, false, toSelfIR | toSelfBack,
+		"where a String holds the address of its first byte, UTF-8 with no terminator: in the executable's read-only data for a literal, a heap box for an owned string, the bytes of another string for a borrowed view."},
+	{"stringWordOffset", 1, false, toSelfIR | toSelfBack,
+		"where a String holds its word: its length in bytes shifted left by stringLengthShift, with stringAsciiBit and stringOwnedBit."},
+	{"stringValueBytes", 2, false, toSelfIR | toSelfBack,
+		"the size of a String in memory: a field, an element, a capture or a slot of one."},
+	{"stringOwnedBit", 1, true, toSelfIR | toSelfBack,
+		"the bit of a String's word that says it owns its bytes, a box of runtime::alloc that its drop frees; a literal and a view own none, so their drop does nothing and touches no memory."},
+	{"stringAsciiBit", 2, true, toSelfIR | toSelfBack,
+		"the bit of a String's word that says every byte is below 0x80, so each grapheme is one byte; clear means nothing is known."},
+	{"stringLengthShift", 2, true, toSelfIR | toSelfBack,
+		"how far a String's length is shifted up in its word, past its flags: the length is the word shifted right by it."},
 
 	// A byte array's box is an array's box, so its routines read the same offsets; only its buffer differs.
 	{"arrayLengthOffset", 0, false, toRuntime | toSelfBack,
@@ -65,16 +74,19 @@ var layouts = []layoutConst{
 	{"closureDropOffset", 2, false, toSelfBack,
 		"where the box of a closure holds the address of the routine that drops what it owns, or 0 when it owns nothing."},
 	{"closureCapturesOffset", 3, false, toSelfIR | toSelfBack,
-		"where the box of a closure holds what it captured, a word each, in the order of its body's captures."},
+		"where the box of a closure holds what it captured, closureCaptureBytes each, in the order of its body's captures."},
+	{"closureCaptureBytes", 2, false, toSelfIR | toSelfBack,
+		"the room a closure gives each capture: the widest value, a String's two words, whatever the capture holds."},
 
 	// An interface value is the box of a value of a type that implements the interface, and the address of the table of
-	// that type's code for the interface: a word each, the box owned like a record's.
+	// that type's code for the interface, the box owned like a record's: the address a word, and the value as many as it
+	// takes, a String's two.
 	{"ifaceTableOffset", 0, false, toSelfIR | toSelfBack,
 		"where the box of an interface value holds the address of its table."},
 	{"ifaceValueOffset", 1, false, toSelfIR | toSelfBack,
 		"where the box of an interface value holds the value, which it owns unless it lends it to a call."},
-	{"ifaceBoxBytes", 2, false, toSelfIR | toSelfBack,
-		"the size of the box of an interface value."},
+	{"ifaceBoxBytes", 3, false, toSelfIR | toSelfBack,
+		"the size of the box of an interface value: the table's address and the widest value, a String's two words."},
 	// A table is code: an entry is a jump to the routine or the method, padded to a word, so calling an entry is calling
 	// what it jumps to, with the arguments as they are.
 	{"tableEntryBytes", 1, false, toSelfBack,
@@ -94,8 +106,8 @@ var layouts = []layoutConst{
 	{"frozenCountOffset", 0, false, toRuntime | toSelfBack,
 		"where the box of a frozen value holds how many owners share it, stepped atomically; the value is dropped and the box freed when it reaches 0."},
 	{"frozenValueOffset", 1, false, toRuntime | toSelfBack,
-		"where the box of a frozen value holds the value: a scalar, or the address of its box."},
-	{"frozenBoxBytes", 2, false, toRuntime | toSelfBack,
+		"where the box of a frozen value holds the value: a scalar, the address of its box, or a String's two words."},
+	{"frozenBoxBytes", 3, false, toRuntime | toSelfBack,
 		"the size of the box of a frozen value."},
 
 	// A cown has no lock word: the behaviours waiting on it are a chain of their request slots, the newest at tail.
@@ -106,16 +118,16 @@ var layouts = []layoutConst{
 	{"cownEndingOffset", 2, false, toRuntime | toSelfBack,
 		"where a cown holds the address of the code that ends its value in place of a drop (`dropWith:`), or 0."},
 	{"cownValueOffset", 3, false, toRuntime | toSelfBack,
-		"where a cown holds its value, a word: a behaviour that mutates it is given this field's address."},
-	{"cownBytes", 4, false, toRuntime | toSelfBack,
+		"where a cown holds its value, a word or a String's two: a behaviour that mutates it is given this field's address."},
+	{"cownBytes", 5, false, toRuntime | toSelfBack,
 		"the size of a cown."},
 	// A service is a cown with its mailbox's gate after the cown's words, so a behaviour, a share and a drop of the handle
 	// are a cown's.
-	{"serviceGateOffset", 4, false, toRuntime,
+	{"serviceGateOffset", 5, false, toRuntime,
 		"where a service holds its mailbox's gate, stepped atomically: how many messages are queued and not yet started, plus serviceClosed once it is shut down."},
-	{"serviceCapacityOffset", 5, false, toRuntime,
+	{"serviceCapacityOffset", 6, false, toRuntime,
 		"where a service holds how many messages its mailbox holds at most."},
-	{"serviceBytes", 6, false, toRuntime,
+	{"serviceBytes", 7, false, toRuntime,
 		"the size of a service."},
 
 	// A behaviour's record: its header, its request slots in the order of their cowns' addresses, its cowns in the order

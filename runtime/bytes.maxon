@@ -54,13 +54,11 @@ function bytesAppendStr(array Count, text String)
 		return
 	end 'empty'
 	let tail = collectionExtend(array, count: count, elementBytes: byteBytes, firstCapacity: bytesFirstCapacity)
-	copyBytes(bytesOf(__Raw.stringAddress(text)), target: tail, count: count)
+	copyBytes(__Raw.stringBytes(text), target: tail, count: count)
 end 'bytesAppendStr'
 
 // bytesToString is a new string of the bytes of the array, which the caller owns.
 function bytesToString(array Count) returns String
 	let length = collectionLength(array)
-	let box = newStringBox(length)
-	copyBytes(collectionData(array), target: bytesOf(box), count: length)
-	return __Raw.stringAt(box)
+	return stringOfBytes(collectionData(array), length: length)
 end 'bytesToString'

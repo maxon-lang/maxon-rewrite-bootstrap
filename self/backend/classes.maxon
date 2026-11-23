@@ -188,8 +188,10 @@ export type ClassChoice
 			opElemAddr or
 			opLoadByte or
 			opBuffer or
-			opBytes or
 			opByteAt or
+			opStrPtr or
+			opStrWord or
+			opStrMake or
 			opAlloc or
 			opCallRuntime or
 			opWhen or

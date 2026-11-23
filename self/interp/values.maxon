@@ -35,8 +35,15 @@ let kindClosure = 9 as Count
 // closureFnWord is the word of a closure that holds the function it calls.
 let closureFnWord = 1 as Count
 
-// closureHeaderWords are the words of a closure before what it captured.
+// closureHeaderWords are the words of a closure before what it captured, and captureWords the words of each capture.
 let closureHeaderWords = 3 as Count
+
+let captureWords = (ir.closureCaptureBytes / wordBytes) as Count
+
+// captureWord is the word of a closure that its capture at an index starts at.
+function captureWord(index Count) returns Count
+	return try closureHeaderWords + index * captureWords otherwise panic("interp: a capture past memory")
+end 'captureWord'
 
 function kindName(kind Count) returns String
 	return match kind 'k'
@@ -296,7 +303,7 @@ type Heap
 	function newClosure(mutates self, fn Count, captures Count, consumes owned BoolList, site Count) returns Count
 		let o = self.newObject(kindClosure, site: site)
 		let first = cellN.count()
-		let words = try closureHeaderWords + captures otherwise panic("interp: a closure past memory")
+		let words = captureWord(captures)
 		for _ in 0 upto words 'each'
 			_ = self.newCell(o)
 		end 'each'

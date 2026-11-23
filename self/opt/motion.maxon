@@ -66,16 +66,18 @@ export function motionOf(x ir.Instr) returns Motion
 		opIntToFloat or
 		opFloatToInt or
 		opNot or
-		opBytes or
+		opStrPtr or
+		opStrWord or
+		opStrMake or
 		opTrailingZeros gives Motion.pure
 		opBin gives binMotion(x)
+		opLength gives lengthMotion(x)
 		opNeg gives Motion.check if ir.instrCanFail(x) else Motion.pure
 		opGuard or
 		opBounds gives Motion.check
 		opLoadSlot or
 		opLoadField or
 		opLoadAt or
-		opLength or
 		opElemAddr or
 		opElemLoad or
 		opLoadByte or
@@ -120,6 +122,14 @@ export function motionOf(x ir.Instr) returns Motion
 		opMoveAt gives Motion.clobber
 	end 'op'
 end 'motionOf'
+
+// lengthMotion is a read for an array's length, which a push changes, and pure for a String's, which its word holds.
+function lengthMotion(x ir.Instr) returns Motion
+	return match ir.lengthOf(x) 'of'
+		collectionArray gives Motion.read
+		collectionString gives Motion.pure
+	end 'of'
+end 'lengthMotion'
 
 function binMotion(x ir.Instr) returns Motion
 	if ir.instrCanFail(x) 'checked'

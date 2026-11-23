@@ -1222,9 +1222,8 @@ what a later pass such as reference counting or an optimization changes.
     exactly when, and after the same effects as, it would have at the start of the first iteration, and only when its
     failure path reads nothing the loop defines. An element read that stays in such a loop is split into the read of the
     array's buffer (`buffer`, which leaves) and the access at the index (`wordat`, `byteat`), which only a native build
-    makes. On arm64, whose access adds an index or an offset to its base but not both, a byte read of a string that does
-    not change in a loop, whatever the loop writes, is split the same way into the address of its bytes (`bytes`, pure)
-    and a `byteat`; x64 adds both in the access. Loops are taken innermost first, so a value leaves a whole nest; a
+    makes. A byte read of a string needs no such split: a String's first word is the address of its bytes, which the
+    access indexes as it is. Loops are taken innermost first, so a value leaves a whole nest; a
     constant is copied, not moved.
   - **Common subexpression elimination** (`self/opt/cse.maxon`, maxon's `CommonSubexpressionElimination`) walks the
     dominator tree with a scoped hash table: an operation that computes what an operation dominating it computed goes, a
@@ -1324,7 +1323,8 @@ requires. Calls use the internal convention of the target table (`internal/targe
 in `rcx`, `rdx`, `rax`, `r9`, `rsi` and `rdi` and the float arguments in `xmm0` to `xmm5`, each class counted apart as
 maxon counts them (the third float is in `xmm2` however many integers come before it), and the arguments past their
 class's registers in one run on the stack in the order of the arguments, pushed right to left, so that the first of them
-is nearest the return address, which the caller pops (`placeArgs`); the result in `r8`, a float result in `xmm0`, and the
+is nearest the return address, which the caller pops (`placeArgs`); a String argument as two words in a row, the
+address of its bytes and its word; the result in `r8`, the word of a String result in `r9`, a float result in `xmm0`, and the
 error flag of a function that throws in `r10`; `rbx`, `r12` to `r15` and `xmm6` to `xmm15` are callee-saved, and a
 function pushes those it uses. A function copies its parameters out of the argument registers in its prologue
 (`Selector.takeParams`), and reads one passed on the stack from the frame. The Win64 ABI applies only to the DLL imports
@@ -1379,8 +1379,8 @@ address of the piece are written by the link and listed in the image's base relo
 entries in blocks of a page, in address order), so the loader moves them with the image. The data section stays writable and a
 constant has no count and no marker: the checker refuses writing a constant or moving a part out of it (`E2013`, `E3901`), a
 read that only borrows reads the data, and a read that takes the value (a `let`, a `consumes` argument, a box of an
-interface) takes a copy (`settle`), so nothing ever drops, counts or writes a datum, and the strings it holds are immortal by
-the address check every literal has. The interpreter makes each datum once by its symbol, as immortal objects, and reports a
+interface) takes a copy (`settle`), so nothing ever drops, counts or writes a datum, and the strings it holds own nothing, as
+every literal's word says. The interpreter makes each datum once by its symbol, as immortal objects, and reports a
 drop of one, a store into one or a move out of one as a violation.
 
 ### The primitives in the IR
@@ -1415,7 +1415,7 @@ runtime each implement the entries. The element is always visible in the call:
   lowered), each operation on its model of the collection: a `bounds` by the IR's own meaning (`ir.evalBounds`), as the fold
   decides one whose operands are constants, and an element by the cell its entry's address would name, so its checks of a
   stale or freed box and of a borrow a call is still waiting to use (`elemaddr` and `elem` open a window as `loadat` does)
-  are those of the call; none of the passes after inlining run on the interpreter's IR, so the `buffer`, `bytes`, `wordat`
+  are those of the call; none of the passes after inlining run on the interpreter's IR, so the `buffer`, `wordat`
   and `byteat` that code motion splits an element read into reach only the backend. A native build expands each function after the fold, before leaf inlining; with no call left in
   a loop, a loop that the call let compile may need more registers than x64 has, so the function's IR before the expansion
   is its fallback (see "E5001 and the optimizations"), whose calls the backend writes in place as it always did.
@@ -1494,7 +1494,7 @@ backend passes `rt.cown.new` the address of the code of the instruction's routin
 cown's `ending`. The drop routine of `frozen with T` and of `cown with T` (`backend.dropFrozen`, `dropCown`) subtracts 1
 with one `lock xadd`, and the owner that found 1 there frees the box and then ends the value, which is the order the
 interpreter frees them in: the cown's `ending` with the value when it has one and the value is there, else the drop
-routine of `T`. A string literal stays immortal inside a frozen value, since dropping it is the string's drop.
+routine of `T`. A string literal owns nothing inside a frozen value either, since dropping it is the string's drop.
 
 A `when` allocates the behaviour's **record** (`backend.emitWhen`; layouts `behaviour*Offset` and `request*Offset`
 of `internal/abigen`): `pending`, `run` (the address of the body's thunk), `n` (how many cowns it names), `n` request slots
@@ -1610,8 +1610,8 @@ list or a pool is refused natively like one that makes it.
   (`ir.pushScope`, `popScope`, `unwind`). A condition drops its temporaries before it branches.
 - **Sink parameters** are copied into a slot at entry (`OwnerSlot`), which owns them from there, so the callee can move on or
   drop them like a local. A `consumes _` parameter is dropped too.
-- **A string is owned like any value.** A literal and the name of a case are immortal and never freed (a drop of one is a no-op,
-  found by its address natively), but an interpolation makes a new string, and so does `clone()` of a string that is not a
+- **A string is owned like any value.** A literal and the name of a case are never freed (its word does not own its bytes, so a drop of one is a
+  no-op), but an interpolation makes a new string, and so does `clone()` of a string that is not a
   literal; the copy of a literal is the literal.
 
 ### Native freeing
@@ -1632,18 +1632,20 @@ nothing.
   (`backend.emitTypeRoutines`); the link drops a routine that only unreachable code calls. A drop routine takes the value (0 does
   nothing) and drops each managed word of it by the routine of its type, then frees the box: a record drops its managed fields,
   a union switches on its case index and drops the managed words of that payload, an array drops each element, then frees the
-  element buffer and the header, a string frees its buffer unless it is a literal. A copy routine allocates the box the way
+  element buffer and the header, a string frees its bytes when its word says it owns them. A copy routine allocates the box the way
   lowering sizes it, and copies each word, a managed one by the copy routine of its type. A routine calls the routines of its
   parts and nothing is inlined, so a type that contains itself through an array (a tree) is a routine that calls itself. A drop
   of a record or a union with nothing managed in it is `runtime::free` itself, with no routine; a scalar, an enum and a `Handle`
   have none and are never dropped. The routines are named by their type's link name and ordered by where the modules first ask
   for them, never by a map.
-- **Literals are immortal, found by address.** Every string literal and the name of every case is in the executable's data
-  section, and a string on the heap never is, so the drop of a string compares its address with the bounds of that section
-  (`g.imageDataStart` and `g.imageDataEnd`, which the linker defines) and does nothing for one inside. The copy of a literal is
-  the literal, as in the interpreter. The alternative, a flag in the string's header, would cost a word in every string and a
-  mask on every read of its length; a range check costs nothing until a string is dropped, and any compiler that puts constants
-  in an image section can do the same.
+- **A String is two words**: the address of its bytes, and a word of its length shifted left by two, whether each byte
+  is below 0x80, and whether the String owns its bytes (`stringLengthShift`, `stringAsciiBit`, `stringOwnedBit`). The IR
+  holds one in one register of its own kind (`kindString`), which instruction selection makes two virtual registers; a
+  place that holds one (a slot, a field, an element, a capture, an interface value's box) takes two words, and the empty
+  place is 0 and 0. A literal points at its bytes in the executable's data and owns none of them, so its drop does
+  nothing and its copy is itself; the drop of a String frees its bytes only when the owned bit says so, and its copy
+  allocates only then. The length is the word shifted right, with no access to memory. `strptr`, `strword` and
+  `strmake` take a String apart and make one of its two words, which only the runtime's String intrinsics write.
 - **The heap** is `runtime/heap.maxon`, one per thread: a record that the thread's context names and its first alloc makes,
   so `runtime::alloc` and `runtime::free` take no lock and write no word that another thread writes (the process heap's lock
   serialized the workers, and its calls were about 40% of a build). A box of up to 8 KB is a slot of a size class (one per
@@ -2017,7 +2019,6 @@ are a `Count`:
 | `__Raw.wrappingAdd(a, right: b)`, `__Raw.wrappingSub(a, right: b)` | address arithmetic: the sum or the difference modulo 2^64, unchecked |
 | `__Raw.mulHigh(a, right: b)` | the high word of the 128-bit product of two words of no sign: one `mul` on x64, `umulh` on arm64 |
 | `__Raw.addressOf(word)` | the address of a local `Count`, passed `mutates`: an out-parameter of a DLL function |
-| `__Raw.stringAddress(text)`, `__Raw.stringAt(box)` | the box address of a borrowed `String`; a `String` that owns a box the runtime built |
 | `__Raw.stringBytes(text)`, `stringLength(text)`, `stringAscii(text)` | the address of the first byte of a borrowed `String`, its length in bytes, and whether each byte is known to be below 0x80 (false where nothing says so) |
 | `__Raw.stringRoom(capacity)`, `__Raw.freeStringRoom(bytes)`, `__Raw.stringOf(bytes, length: n, ascii: a)` | room for that many bytes that a `String` will own, zeroed; its free when no `String` took it; the `String` that owns the room, of its first `n` bytes |
 | `__Raw.stringSize()`, `__Raw.storeString(address, offset: o, bytes: b, length: n, ascii: a)`, `__Raw.stringBytesAt(address, offset: o)`, `stringLengthAt(...)` | the bytes a `String` takes in memory (an element of `Array with String`, a slot an entry fills); the `String` that owns room stored there; the first byte and the length of a `String` held there, which stays there |
@@ -2053,11 +2054,11 @@ ordered access, atomic operation and `spinpause` reads and writes memory, so no 
 a plain `loadraw` or `storeraw` is ordered on x64 alone, so on arm64 a word that threads hand over without a lock
 needs an ordered access. The interpreter never runs the
 runtime's source, so it panics on each of them. The wrapping arithmetic is an unchecked `bin`, `addressOf`
-the `addr` of the local's slot, and `stringAddress` and `stringAt` the word itself. The String operations after them
+the `addr` of the local's slot. The String operations after them
 say nothing of a String's layout, so one runtime source serves a compiler of either layout, the seed's among them (the
 seed compiles `runtime/` with its own layout when it builds C1): each lowers to the loads, stores, `rt.alloc` and
-`rt.free` of the layout of the compiler compiling it, here the box's (the bytes 8 past the box, room a box less its
-length word, `stringAscii` false, `stringSize` a word). `self/backend` writes them
+`rt.free` of the layout of the compiler compiling it, here two words (`strptr` the bytes, the length and `stringAscii` read
+from `strword`, room an `rt.alloc` that `strmake` makes an owner of, `stringSize` two words). `self/backend` writes them
 (`visitLoadRaw`, `visitStoreRaw`, `visitGlobalAddr`, `emitSyscall`, and `emitCallImport`, which aligns the stack itself, since a Maxon
 function's frame is not aligned, and keeps `rsp` in a value that allocation puts in a register Win64 keeps).
 
@@ -2257,7 +2258,7 @@ no backtrace either; a panic of an operation the runtime refuses (an index past 
 
 **What runtime source may do.** It is ordinary Maxon apart from the intrinsics: integers, `bool`, loops, `panic` with a
 literal (which calls the runtime's own `panicAt`, which allocates nothing), and `String` values, borrowed as a
-parameter or owned once `stringAt` makes one. A dropped `String` goes through the compiler-emitted drop routine, which
+parameter or owned once `stringOf` makes one. A dropped `String` goes through the compiler-emitted drop routine, which
 calls `free`, so no free comes back into the code that started it. It uses none of the primitives (`Array`, `Map`, ...),
 which the runtime implements, and throws nothing. Runtime collections are not generic: an array entry takes a
 descriptor of its element's size and layout, and only a thin typed wrapper is per type.
@@ -3984,6 +3985,11 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   the header with the other literal markers (`Builtin*Literal`). maxon's `Map` has no subscript, `replace`, `isEmpty` or
   `dropEmpty`, which the built-in had, and a `Handle` is no key, since it is not `Hashable`. maxon makes a payload-free enum
   `Hashable` and `Equatable` itself; here such an enum declares both, with its methods, to be a key (not yet synthesized).
+- **A `String` is two words in place**, its bytes' address and a word of its length, an ASCII bit and an owned bit,
+  where maxon's is the address of a counted box. A literal is its bytes in the executable's data, copied by no
+  operation; an owned String's bytes are a heap buffer of their own, freed by the String that owns them. A field, an
+  element, a capture and an interface value hold the two words, and a call passes them in two registers. What
+  programs say of a `String` is unchanged.
 - `String` implements `Hashable` and `Equatable` through the library's extension, which the conversion writes from the header
   of maxon's `String.maxon`, with the methods that the built-in `String` lacks (`hash()`) from maxon's source; the built-in
   `equals` meets `Equatable` and is called in place through a bound. `Cloneable` is left out: `clone()` is the copy every

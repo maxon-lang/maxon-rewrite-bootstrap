@@ -38,6 +38,9 @@ end 'arm64InternalArg'
 // arm64InternalResult is the register of a call's result.
 export let arm64InternalResult = Arm64Register.x0
 
+// arm64InternalSecondResult is the register of the second word of a String result.
+export let arm64InternalSecondResult = Arm64Register.x1
+
 // arm64InternalFloatArgCount is how many float arguments a call passes in registers, counted apart from the integer ones; the
 // rest go on the stack.
 export let arm64InternalFloatArgCount = 8

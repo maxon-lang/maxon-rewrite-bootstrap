@@ -121,9 +121,9 @@ function arm64EncodeInstr(mutates u CodeUnit, fn MirFunction, lay BlockLayout, x
 	match x.kind 'kind'
 		target then arm64EncodeTarget(u, fn: fn, lay: lay, x: x)
 		copy then arm64EncodeCopy(u, x: x)
-		spill then arm64FrameAccess(u, load: false, r: x.a, disp: arm64SlotDisp(spillSlotOf(x) as Count) as FullRangeInt)
+		spill then arm64FrameAccess(u, load: false, r: x.a, disp: arm64WordDisp(spillSlotOf(x) as Count) as FullRangeInt)
 		reload or
-		restore then arm64FrameAccess(u, load: true, r: x.a, disp: arm64SlotDisp(spillSlotOf(x) as Count) as FullRangeInt)
+		restore then arm64FrameAccess(u, load: true, r: x.a, disp: arm64WordDisp(spillSlotOf(x) as Count) as FullRangeInt)
 		parallelCopy then panic("backend: a parallel copy that allocation left")
 		frameSetup then arm64EncodeFrameSetup(u, fn: fn, framed: lay.framed)
 		frameTeardown then arm64EncodeFrameTeardown(u, fn: fn, framed: lay.framed)
@@ -266,7 +266,7 @@ end 'arm64EncodeTarget'
 // arm64SavedDisp is where the frame keeps the nth of the callee-saved registers the function's values were given: in the
 // words above its slots.
 function arm64SavedDisp(fn MirFunction, nth Count) returns FullRangeInt
-	return arm64SlotDisp(try fn.slotsGiven() + nth otherwise panic("backend: a frame past memory")) as FullRangeInt
+	return arm64WordDisp(try fn.slotsGiven() + nth otherwise panic("backend: a frame past memory")) as FullRangeInt
 end 'arm64SavedDisp'
 
 // arm64FrameSize is the bytes a function's frame takes below its caller's stack pointer: the outgoing arguments, the frame

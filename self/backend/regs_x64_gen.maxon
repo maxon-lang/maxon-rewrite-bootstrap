@@ -36,6 +36,9 @@ end 'x64InternalArg'
 // x64InternalResult is the register of a call's result.
 export let x64InternalResult = X64Register.r8
 
+// x64InternalSecondResult is the register of the second word of a String result.
+export let x64InternalSecondResult = X64Register.r9
+
 // x64InternalFloatArgCount is how many float arguments a call passes in registers, counted apart from the integer ones; the
 // rest go on the stack.
 export let x64InternalFloatArgCount = 6

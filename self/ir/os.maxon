@@ -136,7 +136,7 @@ end 'slotAddr'
 
 // pathText is the String a FilePath holds, lent for as long as the path is.
 function pathText(mutates l Lowerer, path Reg) returns Reg
-	let d = newReg(l, kind: IrKind.kindManaged)
+	let d = newReg(l, kind: IrKind.kindString)
 	emit(l, i: newLoadField(d, obj: path, offset: fieldOffset(ast.filePathPathField, tagged: false)))
 	return d
 end 'pathText'
@@ -148,10 +148,11 @@ function builtinRecord(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleSt
 	if ast.typeKind(ms.types, reads: p.types, t: ty) != ast.TypeKind.record or ast.typeEntry(ms.types, reads: p.types, t: origin).fields.count() != values.count() 'shape'
 		panic("lower: {ast.typeName(ms.types, reads: p.types, t: t)} is not a record of {values.count()} fields")
 	end 'shape'
+	let types = fieldTypes(ms.types, reads: p.types, owner: ty)
 	let box = newReg(l, kind: IrKind.kindManaged)
-	emit(l, i: newAlloc(box, bytes: boxBytes(values.count(), tagged: false)))
+	emit(l, i: newAlloc(box, bytes: valuesBytes(ms.types, reads: p.types, types: types, tagged: false)))
 	for i in 0 upto values.count() 'each'
-		emit(l, i: newStoreField(box, offset: fieldOffset(i, tagged: false), src: values[i], borrow: false))
+		emit(l, i: newStoreField(box, offset: valueOffset(ms.types, reads: p.types, types: types, index: i, tagged: false), src: values[i], borrow: false))
 	end 'each'
 	return box
 end 'builtinRecord'
@@ -161,12 +162,12 @@ function lowerCommandLineArgs(mutates l Lowerer, p ast.Project, ms ast.ModuleSta
 end 'lowerCommandLineArgs'
 
 function lowerProcessEnvironmentVariable(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
-	let dst = newReg(l, kind: IrKind.kindManaged)
+	let dst = newReg(l, kind: IrKind.kindString)
 	return failing(l, p: p, ms: ms, site: siteOf(l, p: p, node: c.node), dst: dst, symbol: Rt.rtOsEnvironmentVariable, args: argsOf1(args[0]))
 end 'lowerProcessEnvironmentVariable'
 
 function lowerProcessExecutablePath(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
-	let dst = newReg(l, kind: IrKind.kindManaged)
+	let dst = newReg(l, kind: IrKind.kindString)
 	let text = failing(l, p: p, ms: ms, site: siteOf(l, p: p, node: c.node), dst: dst, symbol: Rt.rtOsExecutablePath, args: RegList.create(0))
 	return builtinRecord(l, p: p, ms: ms, t: exprType(p, module: l.module, node: c.node), values: argsOf1(text))
 end 'lowerProcessExecutablePath'
@@ -204,7 +205,7 @@ function lowerDirectoryCurrentPath(mutates l Lowerer, p ast.Project, mutates ms 
 end 'lowerDirectoryCurrentPath'
 
 function lowerFilePathFrom(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
-	let dst = newReg(l, kind: IrKind.kindManaged)
+	let dst = newReg(l, kind: IrKind.kindString)
 	let text = failing(l, p: p, ms: ms, site: siteOf(l, p: p, node: c.node), dst: dst, symbol: Rt.rtOsPathFrom, args: argsOf1(args[0]))
 	return builtinRecord(l, p: p, ms: ms, t: exprType(p, module: l.module, node: c.node), values: argsOf1(text))
 end 'lowerFilePathFrom'
@@ -215,7 +216,7 @@ let invalidPathText = "FilePath: invalid path"
 // lowerFilePathInit is `FilePath from "text"`: FilePath.from, which stops the program where it would throw.
 function lowerFilePathInit(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	let errSlot = l.b.f.newSlot(IrKind.kindScalar)
-	let dst = newReg(l, kind: IrKind.kindManaged)
+	let dst = newReg(l, kind: IrKind.kindString)
 	var all = argsOf1(args[0])
 	all.push(slotAddr(l, slot: errSlot))
 	emitEntry(l, p: p, site: siteOf(l, p: p, node: c.node), dst: dst, symbol: Rt.rtOsPathFrom, args: all, routine: ast.noFunc)
@@ -239,7 +240,7 @@ function lowerFilePathToString(mutates l Lowerer, p ast.Project, mutates ms ast.
 end 'lowerFilePathToString'
 
 function lowerFileReadText(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
-	let dst = newReg(l, kind: IrKind.kindManaged)
+	let dst = newReg(l, kind: IrKind.kindString)
 	let path = pathText(l, path: args[0])
 	return failing(l, p: p, ms: ms, site: siteOf(l, p: p, node: c.node), dst: dst, symbol: Rt.rtOsReadText, args: argsOf1(path))
 end 'lowerFileReadText'
@@ -339,8 +340,8 @@ function lowerDirectoryDelete(mutates l Lowerer, p ast.Project, mutates ms ast.M
 	return konst(l, value: 0 as Word)
 end 'lowerDirectoryDelete'
 
-// lowerDirectoryList makes a FilePath of each String the entry gives, in its place in the array, so the array the entry
-// made is the one returned.
+// lowerDirectoryList makes a FilePath of each String the entry gives, moved out of the array of strings the entry made,
+// which is then dropped empty.
 function lowerDirectoryList(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	let site = siteOf(l, p: p, node: c.node)
 	let dst = newReg(l, kind: IrKind.kindManaged)
@@ -349,15 +350,21 @@ function lowerDirectoryList(mutates l Lowerer, p ast.Project, mutates ms ast.Mod
 	let listTy = builtinOf(l, p: p, ms: ms, collection: exprType(p, module: l.module, node: c.node))
 	let pathTy = elementType(p, ms: ms, bt: listTy)
 	let n = entry(l, p: p, site: site, symbol: Rt.rtArrayLen, kind: IrKind.kindScalar, args: argsOf1(paths))
+	let out = entry(l, p: p, site: site, symbol: Rt.rtArrayNew, kind: IrKind.kindManaged, args: RegList.create(0))
+	entryVoid(l, p: p, site: site, symbol: Rt.rtArrayReserve, args: argsOf2(out, b: n))
 	let loop = countedLoopBegin(l, limit: n)
 	let i = countedLoopIndex(l, loop: loop)
-	let addr = entry(l, p: p, site: site, symbol: Rt.rtArrayElem, kind: IrKind.kindScalar, args: argsOf2(paths, b: i))
-	let text = newReg(l, kind: IrKind.kindManaged)
+	let addr = entry(l, p: p, site: site, symbol: Rt.rtStrsElem, kind: IrKind.kindScalar, args: argsOf2(paths, b: i))
+	let text = newReg(l, kind: IrKind.kindString)
 	emit(l, i: newMoveAt(text, addr: addr))
 	let made = builtinRecord(l, p: p, ms: ms, t: pathTy, values: argsOf1(text))
-	emit(l, i: newStoreAt(addr, src: made))
+	entryVoid(l, p: p, site: site, symbol: Rt.rtArrayInsert, args: argsOf3(out, b: i, c: made))
 	countedLoopEnd(l, loop: loop)
-	return paths
+	var stringArgs = ast.TypeIDList.create(0)
+	stringArgs.push(p.builtins.stringTy)
+	let strings = ast.instantiateType(ms.types, reads: p.types, origin: p.builtins.arrayOrigin, args: stringArgs)
+	dropValue(l, p: p, ms: ms, v: paths, t: strings)
+	return out
 end 'lowerDirectoryList'
 
 // noDeadline is the deadline of rt.os.run that never passes.
@@ -395,8 +402,8 @@ end 'deadlineMs'
 // runSubprocess runs the child and makes the CollectedOutput of what the entry stored and returned.
 function runSubprocess(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, executable Reg, arguments Reg, deadlineMs Reg) returns Reg
 	let site = siteOf(l, p: p, node: c.node)
-	let stdout = l.b.f.newSlot(IrKind.kindManaged)
-	let stderr = l.b.f.newSlot(IrKind.kindManaged)
+	let stdout = l.b.f.newSlot(IrKind.kindString)
+	let stderr = l.b.f.newSlot(IrKind.kindString)
 	let dst = newReg(l, kind: IrKind.kindScalar)
 	let exe = executableText(l, p: p, exe: executable)
 	var all = RegList.create(0)
@@ -418,9 +425,7 @@ end 'runSubprocess'
 
 // executableText is the String an Executable names, a name or a path's, lent for as long as the Executable is.
 function executableText(mutates l Lowerer, p ast.Project, exe Reg) returns Reg
-	let text = l.b.f.newSlot(IrKind.kindManaged)
-	let payload = newReg(l, kind: IrKind.kindManaged)
-	emit(l, i: newLoadField(payload, obj: exe, offset: fieldOffset(payloadField, tagged: true)))
+	let text = l.b.f.newSlot(IrKind.kindString)
 	let path = l.b.newBlock()
 	let name = l.b.newBlock()
 	let join = l.b.newBlock()
@@ -429,23 +434,28 @@ function executableText(mutates l Lowerer, p ast.Project, exe Reg) returns Reg
 	let isPath = compare(l, op: CmpOp.cmpEq, a: tag, b: pathCase, unsigned: false)
 	l.b.terminate(l.cur, t: newBranch(isPath, ifTrue: path, ifFalse: name))
 	l.cur = path
-	let pathString = pathText(l, path: payload)
+	let filePath = newReg(l, kind: IrKind.kindManaged)
+	emit(l, i: newLoadField(filePath, obj: exe, offset: fieldOffset(payloadField, tagged: true)))
+	let pathString = pathText(l, path: filePath)
 	emit(l, i: newStoreSlot(text, src: pathString, borrow: true))
 	goTo(l, target: join)
 	l.cur = name
-	emit(l, i: newStoreSlot(text, src: payload, borrow: true))
+	let nameString = newReg(l, kind: IrKind.kindString)
+	emit(l, i: newLoadField(nameString, obj: exe, offset: fieldOffset(payloadField, tagged: true)))
+	emit(l, i: newStoreSlot(text, src: nameString, borrow: true))
 	goTo(l, target: join)
 	l.cur = join
 	return load(l, slot: text)
 end 'executableText'
 
-function lowerCollectedOutputExitCode(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+function lowerCollectedOutputExitCode(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	let d = newReg(l, kind: IrKind.kindScalar)
-	emit(l, i: newLoadField(d, obj: recv, offset: fieldOffset(ast.collectedOutputCodeField, tagged: false)))
+	let offset = fieldAt(l, p: p, ms: ms, owner: exprType(p, module: l.module, node: c.receiver), index: ast.collectedOutputCodeField)
+	emit(l, i: newLoadField(d, obj: recv, offset: offset))
 	return d
 end 'lowerCollectedOutputExitCode'
 
-function lowerCollectedOutputSucceeded(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+function lowerCollectedOutputSucceeded(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	let code = lowerCollectedOutputExitCode(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	return isZero(l, v: code)
 end 'lowerCollectedOutputSucceeded'

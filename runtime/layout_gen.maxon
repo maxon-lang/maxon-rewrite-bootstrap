@@ -6,12 +6,6 @@ let wordBytes = 8 as Count
 // noBox is the empty place: a box address that names nothing, which a move leaves behind and a free skips.
 let noBox = 0 as Count
 
-// stringLengthOffset is where a String's box holds its length in bytes, a word.
-let stringLengthOffset = 0 as Count
-
-// stringBytesOffset is where a String's bytes begin, UTF-8 with no terminator.
-let stringBytesOffset = 8 as Count
-
 // arrayLengthOffset is where the box of an array, and of a byte array, holds its length, a count of elements.
 let arrayLengthOffset = 0 as Count
 
@@ -30,11 +24,11 @@ let arrayFirstCapacity = 4 as Count
 // frozenCountOffset is where the box of a frozen value holds how many owners share it, stepped atomically; the value is dropped and the box freed when it reaches 0.
 let frozenCountOffset = 0 as Count
 
-// frozenValueOffset is where the box of a frozen value holds the value: a scalar, or the address of its box.
+// frozenValueOffset is where the box of a frozen value holds the value: a scalar, the address of its box, or a String's two words.
 let frozenValueOffset = 8 as Count
 
 // frozenBoxBytes is the size of the box of a frozen value.
-let frozenBoxBytes = 16 as Count
+let frozenBoxBytes = 24 as Count
 
 // cownCountOffset is where a cown holds how many owners share it, stepped atomically.
 let cownCountOffset = 0 as Count
@@ -45,20 +39,20 @@ let cownTailOffset = 8 as Count
 // cownEndingOffset is where a cown holds the address of the code that ends its value in place of a drop (`dropWith:`), or 0.
 let cownEndingOffset = 16 as Count
 
-// cownValueOffset is where a cown holds its value, a word: a behaviour that mutates it is given this field's address.
+// cownValueOffset is where a cown holds its value, a word or a String's two: a behaviour that mutates it is given this field's address.
 let cownValueOffset = 24 as Count
 
 // cownBytes is the size of a cown.
-let cownBytes = 32 as Count
+let cownBytes = 40 as Count
 
 // serviceGateOffset is where a service holds its mailbox's gate, stepped atomically: how many messages are queued and not yet started, plus serviceClosed once it is shut down.
-let serviceGateOffset = 32 as Count
+let serviceGateOffset = 40 as Count
 
 // serviceCapacityOffset is where a service holds how many messages its mailbox holds at most.
-let serviceCapacityOffset = 40 as Count
+let serviceCapacityOffset = 48 as Count
 
 // serviceBytes is the size of a service.
-let serviceBytes = 48 as Count
+let serviceBytes = 56 as Count
 
 // behaviourPendingOffset is where a behaviour's record holds how many cowns it still waits for, plus one while it is being queued, stepped atomically: it runs when that reaches 0.
 let behaviourPendingOffset = 0 as Count

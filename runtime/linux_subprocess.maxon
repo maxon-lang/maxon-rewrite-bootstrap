@@ -12,11 +12,13 @@
 
 	let streamTextOffset = 8
 
-	let streamCapacityOffset = 16
+	let streamLengthOffset = 16
 
-	let streamOpenOffset = 24
+	let streamCapacityOffset = 24
 
-	let streamBytes = 32
+	let streamOpenOffset = 32
+
+	let streamBytes = 40
 
 	// The run's record, one allocation: the two streams, the three pipes as pipe2 writes them, the read end then the
 	// write end, 32 bits each, the poll records of the two streams, the child's wait status and the errno a failed execve
@@ -102,9 +104,8 @@
 	// separator, and otherwise the first directory of PATH that holds a program of the name, as execvp looks; 0 when there
 	// is none.
 	function programPath(executable String) returns Count
-		let box = __Raw.stringAddress(executable)
-		let nameLength = boxLength(box)
-		let name = bytesOf(box)
+		let nameLength = __Raw.stringLength(executable)
+		let name = __Raw.stringBytes(executable)
 		for i in 0 upto nameLength 'separator'
 			if __Raw.loadByte(name, offset: i) == slashByte 'path'
 				return cStringOf(executable)
@@ -115,9 +116,8 @@
 		if unset != 0 'noSearch'
 			return 0
 		end 'noSearch'
-		let searchBox = __Raw.stringAddress(search)
-		let searchBytes = bytesOf(searchBox)
-		let searchLength = boxLength(searchBox)
+		let searchBytes = __Raw.stringBytes(search)
+		let searchLength = __Raw.stringLength(search)
 		var start = 0 as Count
 		while start <= searchLength 'directories'
 			var stop = start
@@ -141,7 +141,7 @@
 		let vector = alloc(try (count + 2) * wordBytes otherwise panic("too many arguments for memory"))
 		__Raw.storeWord(vector, offset: 0, value: cStringOf(executable))
 		for i in 0 upto count 'arguments'
-			__Raw.storeWord(vector, offset: try (i + 1) * wordBytes otherwise panic("too many arguments for memory"), value: cStringOfBox(argumentBox(arguments, index: i)))
+			__Raw.storeWord(vector, offset: try (i + 1) * wordBytes otherwise panic("too many arguments for memory"), value: cStringOfBytes(__Raw.stringBytesAt(argumentAt(arguments, index: i), offset: 0), length: __Raw.stringLengthAt(argumentAt(arguments, index: i), offset: 0)))
 		end 'arguments'
 		return vector
 	end 'argumentVector'
@@ -236,7 +236,8 @@
 	// startStream makes a stream of the read end of a pipe, open, with an empty text.
 	function startStream(stream Count, pipes Count)
 		__Raw.storeWord(stream, offset: streamFdOffset, value: pipeFd(pipes, writeEnd: false))
-		__Raw.storeWord(stream, offset: streamTextOffset, value: newStringBox(0))
+		__Raw.storeWord(stream, offset: streamTextOffset, value: __Raw.stringRoom(0))
+		__Raw.storeWord(stream, offset: streamLengthOffset, value: 0)
 		__Raw.storeWord(stream, offset: streamCapacityOffset, value: 0)
 		__Raw.storeWord(stream, offset: streamOpenOffset, value: 1)
 	end 'startStream'
@@ -245,22 +246,21 @@
 	// which grows by doubling.
 	function drainStream(stream Count)
 		var text = wordAt(stream, offset: streamTextOffset)
-		let length = boxLength(text)
+		let length = wordAt(stream, offset: streamLengthOffset)
 		let capacity = wordAt(stream, offset: streamCapacityOffset)
 		if __Raw.wrappingSub(capacity, right: length) < readChunkBytes 'grow'
 			let doubled = __Raw.wrappingAdd(capacity, right: capacity)
 			let needed = __Raw.wrappingAdd(length, right: readChunkBytes)
 			let grown = doubled if doubled > needed else needed
-			let box = newStringBox(grown)
-			copyBytes(bytesOf(text), target: bytesOf(box), count: length)
-			__Raw.storeWord(box, offset: stringLengthOffset, value: length)
-			free(text)
-			text = box
-			__Raw.storeWord(stream, offset: streamTextOffset, value: box)
+			let grownRoom = __Raw.stringRoom(grown)
+			copyBytes(text, target: grownRoom, count: length)
+			__Raw.freeStringRoom(text)
+			text = grownRoom
+			__Raw.storeWord(stream, offset: streamTextOffset, value: grownRoom)
 			__Raw.storeWord(stream, offset: streamCapacityOffset, value: grown)
 		end 'grow'
 		let room = __Raw.wrappingSub(wordAt(stream, offset: streamCapacityOffset), right: length)
-		let got = __Raw.syscall3(linuxSysRead, arg1: wordAt(stream, offset: streamFdOffset), arg2: __Raw.wrappingAdd(bytesOf(text), right: length), arg3: room)
+		let got = __Raw.syscall3(linuxSysRead, arg1: wordAt(stream, offset: streamFdOffset), arg2: __Raw.wrappingAdd(text, right: length), arg3: room)
 		if failed(got) 'failed'
 			if errnoOf(got) != linuxEintr and errnoOf(got) != linuxEagain 'broken'
 				__Raw.storeWord(stream, offset: streamOpenOffset, value: 0)
@@ -271,7 +271,7 @@
 			__Raw.storeWord(stream, offset: streamOpenOffset, value: 0)
 			return
 		end 'ended'
-		__Raw.storeWord(text, offset: stringLengthOffset, value: __Raw.wrappingAdd(length, right: got))
+		__Raw.storeWord(stream, offset: streamLengthOffset, value: __Raw.wrappingAdd(length, right: got))
 	end 'drainStream'
 
 	#if arch(arm64)
@@ -328,6 +328,11 @@
 		end 'drain'
 	end 'pollStreams'
 
+	// storeStreamText stores the text a stream read as a string at an address, which owns its room from then on.
+	function storeStreamText(at Count, stream Count)
+		__Raw.storeString(at, offset: 0, bytes: wordAt(stream, offset: streamTextOffset), length: wordAt(stream, offset: streamLengthOffset), ascii: false)
+	end 'storeStreamText'
+
 	// closeStreams closes the read ends of the run's streams.
 	function closeStreams(run Count)
 		closeFd(wordAt(fieldAt(run, offset: runOutputOffset), offset: streamFdOffset))
@@ -336,8 +341,8 @@
 
 	// freeTexts frees the texts of the run's streams.
 	function freeTexts(run Count)
-		free(wordAt(fieldAt(run, offset: runOutputOffset), offset: streamTextOffset))
-		free(wordAt(fieldAt(run, offset: runErrorOffset), offset: streamTextOffset))
+		__Raw.freeStringRoom(wordAt(fieldAt(run, offset: runOutputOffset), offset: streamTextOffset))
+		__Raw.freeStringRoom(wordAt(fieldAt(run, offset: runErrorOffset), offset: streamTextOffset))
 	end 'freeTexts'
 
 	// osRun runs an executable with arguments and gives its exit code, and stores what the child wrote to its standard
@@ -409,8 +414,8 @@
 		let code = exitCodeOf(reap(run, pid: pid))
 		exitBlocking()
 		closeStreams(run)
-		__Raw.storeWord(stdout, offset: 0, value: wordAt(fieldAt(run, offset: runOutputOffset), offset: streamTextOffset))
-		__Raw.storeWord(stderr, offset: 0, value: wordAt(fieldAt(run, offset: runErrorOffset), offset: streamTextOffset))
+		storeStreamText(stdout, stream: fieldAt(run, offset: runOutputOffset))
+		storeStreamText(stderr, stream: fieldAt(run, offset: runErrorOffset))
 		free(run)
 		succeed(errorAddress)
 		return code

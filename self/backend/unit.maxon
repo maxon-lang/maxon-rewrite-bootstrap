@@ -276,6 +276,7 @@ export typealias DataPointerList = Array with DataPointer
 export type DataSection
 	export var bytes as ByteArray
 	var strings as StringOffsets
+	var literals as StringOffsets
 	// words are the offsets of the words that constants read into xmm registers are, by their bits.
 	var words as WordOffsets
 	// pieces are the offsets where each string, each constant and each reserved value begins, which the link keeps or
@@ -285,7 +286,7 @@ export type DataSection
 	export var pointers as DataPointerList
 
 	export static function new() returns DataSection
-		return DataSection{bytes: ByteArray.create(0), strings: StringOffsets.new(), words: WordOffsets.new(), pieces: CountList.create(0), pointers: DataPointerList.create(0)}
+		return DataSection{bytes: ByteArray.create(0), strings: StringOffsets.new(), literals: StringOffsets.new(), words: WordOffsets.new(), pieces: CountList.create(0), pointers: DataPointerList.create(0)}
 	end 'new'
 
 	export function align8(mutates self)
@@ -320,8 +321,28 @@ export type DataSection
 		return at
 	end 'wordOffset'
 
-	// textOffset is where a string is, as the length and then the bytes, put there once however often it is asked for.
+	// textOffset is where the bytes of a literal are, which a String's first word points at, put there once however often
+	// it is asked for: aligned to a word, so a word-at-a-time read of them stays in the piece. The empty literal takes a
+	// byte all the same, since its address, never 0, is what tells it from an empty place.
 	export function textOffset(mutates self, text String) returns Count
+		match literals.get(text) 'known'
+			some(at) then return at
+			none then _ = 0
+		end 'known'
+		self.align8()
+		let at = bytes.count()
+		pieces.push(at)
+		bytes.append(text.toByteArray())
+		if text.byteLength() == 0 'empty'
+			bytes.push(0)
+		end 'empty'
+		literals.insert(text.clone(), value: at)
+		return at
+	end 'textOffset'
+
+	// countedTextOffset is where a text is, as the length and then the bytes, which the entry stubs read themselves, put
+	// there once however often it is asked for.
+	export function countedTextOffset(mutates self, text String) returns Count
 		match strings.get(text) 'known'
 			some(at) then return at
 			none then _ = 0
@@ -337,7 +358,7 @@ export type DataSection
 		bytes.append(text.toByteArray())
 		strings.insert(text.clone(), value: at)
 		return at
-	end 'textOffset'
+	end 'countedTextOffset'
 end 'DataSection'
 
 // CodeUnit is the code and data of one module, of the routines of some types, or of the entry, with the symbols it defines.

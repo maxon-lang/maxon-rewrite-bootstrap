@@ -11,18 +11,26 @@ typealias FloatPlace = int(0 to 63)
 // floatMaskBits is how many arguments a FloatMask holds.
 let floatMaskBits = 64
 
-// FloatSignature is which of a call's arguments, by their place among the arguments, and whether its result are floats.
+// FloatSignature is which of a call's arguments, by their place among the arguments, and whether its result are floats,
+// and which of them and whether its result are Strings, each two words, which a function's parameters say alike.
 export type FloatSignature
 	export var args as FloatMask
 	export var result as bool
+	export var strings as FloatMask
+	export var stringResult as bool
 
 	export static function make(args FloatMask, result bool) returns FloatSignature
-		return FloatSignature{args: args, result: result}
+		return FloatSignature{args: args, result: result, strings: 0 as FloatMask, stringResult: false}
 	end 'make'
+
+	// withStrings is the signature with the Strings among its arguments and its result.
+	export function withStrings(stringArgs FloatMask, givesString bool) returns FloatSignature
+		return FloatSignature{args: args, result: result, strings: stringArgs, stringResult: givesString}
+	end 'withStrings'
 
 	// words is the signature of a call that passes and returns only words.
 	export static function words() returns FloatSignature
-		return FloatSignature{args: 0 as FloatMask, result: false}
+		return FloatSignature{args: 0 as FloatMask, result: false, strings: 0 as FloatMask, stringResult: false}
 	end 'words'
 end 'FloatSignature'
 
@@ -106,6 +114,12 @@ function passesFloatIn(tt ast.TypeSlot, reads ast.TypeTable, conv ast.Convention
 	return not ast.isByAddress(conv) and ast.isFloatType(tt, reads: reads, t: t)
 end 'passesFloatIn'
 
+// passesString is whether a value of type t passed by the convention conv is a String's two words: one passed by the
+// address of the caller's place is a word.
+function passesString(tt ast.TypeSlot, reads ast.TypeTable, conv ast.Convention, t ast.TypeID) returns bool
+	return not ast.isByAddress(conv) and ast.isStringType(tt, reads: reads, t: t)
+end 'passesString'
+
 // funcSignature is the float signature of a call of the function fid, and of the function: its receiver first, where it
 // has one, then its parameters, and its result unless it lends a place. An instance of a generic function has its types
 // substituted in its declaration, so the declaration is what both the function and every call of it read.
@@ -116,27 +130,48 @@ end 'funcSignature'
 // funcSignatureIn is funcSignature read through a module's slots of the tables.
 function funcSignatureIn(tt ast.TypeSlot, reads ast.TypeTable, ft ast.FuncSlot, funcReads ast.FuncTable, fid ast.FuncID) returns FloatSignature
 	var args = 0 as FloatMask
+	var strings = 0 as FloatMask
 	let first = ast.leadingParams(ast.funcEntry(ft, funcReads: funcReads, f: fid))
-	if ast.funcEntry(ft, funcReads: funcReads, f: fid).hasReceiver and passesFloatIn(tt, reads: reads, conv: ast.funcEntry(ft, funcReads: funcReads, f: fid).selfConv, t: ast.funcEntry(ft, funcReads: funcReads, f: fid).ownerTy) 'receiver'
-		args = floatBit(0)
+	if ast.funcEntry(ft, funcReads: funcReads, f: fid).hasReceiver 'receiver'
+		let conv = ast.funcEntry(ft, funcReads: funcReads, f: fid).selfConv
+		let owner = ast.funcEntry(ft, funcReads: funcReads, f: fid).ownerTy
+		if passesFloatIn(tt, reads: reads, conv: conv, t: owner) 'float'
+			args = floatBit(0)
+		end 'float'
+		if passesString(tt, reads: reads, conv: conv, t: owner) 'string'
+			strings = floatBit(0)
+		end 'string'
 	end 'receiver'
 	for i in 0 upto ast.funcEntry(ft, funcReads: funcReads, f: fid).params.count() 'params'
-		if passesFloatIn(tt, reads: reads, conv: ast.funcEntry(ft, funcReads: funcReads, f: fid).params[i].conv, t: ast.funcEntry(ft, funcReads: funcReads, f: fid).paramTypes[i]) 'float'
+		let conv = ast.funcEntry(ft, funcReads: funcReads, f: fid).params[i].conv
+		let ty = ast.funcEntry(ft, funcReads: funcReads, f: fid).paramTypes[i]
+		if passesFloatIn(tt, reads: reads, conv: conv, t: ty) 'float'
 			args = args or floatBit(try first + i otherwise panic("ir: too many parameters"))
 		end 'float'
+		if passesString(tt, reads: reads, conv: conv, t: ty) 'string'
+			strings = strings or floatBit(try first + i otherwise panic("ir: too many parameters"))
+		end 'string'
 	end 'params'
 	let lends = ast.funcEntry(ft, funcReads: funcReads, f: fid).result == ast.ResultConv.resultBorrowed
-	return FloatSignature.make(args, result: not lends and ast.isFloatType(tt, reads: reads, t: ast.funcEntry(ft, funcReads: funcReads, f: fid).retTy))
+	let retTy = ast.funcEntry(ft, funcReads: funcReads, f: fid).retTy
+	return FloatSignature.make(args, result: not lends and ast.isFloatType(tt, reads: reads, t: retTy)).withStrings(strings, givesString: ast.isStringType(tt, reads: reads, t: retTy))
 end 'funcSignatureIn'
 
 // valueSignature is the float signature of a call of a function value of the function type t, whose type arguments the
 // caller has applied, and of the body of a closure of that type: the closure first, a word, then the parameters.
 export function valueSignature(p ast.Project, ms ast.ModuleState, t ast.TypeID) returns FloatSignature
 	var args = 0 as FloatMask
+	var strings = 0 as FloatMask
 	for i in 0 upto ast.funcParamCount(ms.types, reads: p.types, t: t) 'params'
-		if passesFloat(p, ms: ms, conv: ast.funcParamConv(ms.types, reads: p.types, t: t, index: i), t: ast.funcParamType(ms.types, reads: p.types, t: t, index: i)) 'float'
+		let conv = ast.funcParamConv(ms.types, reads: p.types, t: t, index: i)
+		let ty = ast.funcParamType(ms.types, reads: p.types, t: t, index: i)
+		if passesFloat(p, ms: ms, conv: conv, t: ty) 'float'
 			args = args or floatBit(try i + 1 otherwise panic("ir: too many parameters"))
 		end 'float'
+		if passesString(ms.types, reads: p.types, conv: conv, t: ty) 'string'
+			strings = strings or floatBit(try i + 1 otherwise panic("ir: too many parameters"))
+		end 'string'
 	end 'params'
-	return FloatSignature.make(args, result: ast.isFloatType(ms.types, reads: p.types, t: ast.funcResult(ms.types, reads: p.types, t: t)))
+	let result = ast.funcResult(ms.types, reads: p.types, t: t)
+	return FloatSignature.make(args, result: ast.isFloatType(ms.types, reads: p.types, t: result)).withStrings(strings, givesString: ast.isStringType(ms.types, reads: p.types, t: result))
 end 'valueSignature'

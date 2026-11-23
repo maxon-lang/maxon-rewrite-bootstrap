@@ -93,9 +93,14 @@ function lowerServiceBody(mutates l Lowerer, p ast.Project, mutates ms ast.Modul
 		args.push(recv)
 	end 'message'
 	var owned = RegList.create(0)
+	var strings = 0 as FloatMask
 	for i in 0 upto params 'params'
 		let ty = applyType(l, p: p, ms: ms, t: fn.paramTypes[i])
-		let v = paramReg(inner, index: try i + 1 otherwise panic("lower: too many parameters in a message"), kind: kindOf(l, p: p, ms: ms, t: ty))
+		let kind = kindOf(l, p: p, ms: ms, t: ty)
+		if kind == IrKind.kindString 'string'
+			strings = strings or floatBit(try i + 1 otherwise panic("lower: too many parameters in a message"))
+		end 'string'
+		let v = paramReg(inner, index: try i + 1 otherwise panic("lower: too many parameters in a message"), kind: kind)
 		args.push(v)
 		owned.push(v)
 	end 'params'
@@ -117,7 +122,7 @@ function lowerServiceBody(mutates l Lowerer, p ast.Project, mutates ms ast.Modul
 	end 'plain'
 	for i in 0 upto params 'borrowed'
 		let ty = applyType(l, p: p, ms: ms, t: fn.paramTypes[i])
-		if fn.params[i].conv == ast.Convention.convLet and kindOf(l, p: p, ms: ms, t: ty) == IrKind.kindManaged 'lent'
+		if fn.params[i].conv == ast.Convention.convLet and owning(kindOf(l, p: p, ms: ms, t: ty)) 'lent'
 			emitDropReg(inner, src: owned[i], ty: dropType(l, p: p, ms: ms, t: ty))
 		end 'lent'
 	end 'borrowed'
@@ -134,6 +139,7 @@ function lowerServiceBody(mutates l Lowerer, p ast.Project, mutates ms ast.Modul
 	let zero = konst(inner, value: 0 as Word)
 	inner.b.terminate(inner.cur, t: newRet(zero))
 	var body = inner.b.finish()
+	body.stringParams = strings
 	l.instances = exchange(inner.instances, value: InstanceSet.new())
 	var cowns = ast.TypeIDList.create(0)
 	cowns.push(handleTy)
@@ -148,7 +154,7 @@ end 'lowerServiceBody'
 // the outer lowerer's, whose type arguments the body's are.
 function dropReply(mutates inner Lowerer, p ast.Project, mutates ms ast.ModuleState, mutates l Lowerer, dst Reg, resultTy ast.TypeID, err Reg, errTy ast.TypeID)
 	var valueDrop = ast.noType
-	if dst != noReg and kindOf(l, p: p, ms: ms, t: resultTy) == IrKind.kindManaged 'managed'
+	if dst != noReg and owning(kindOf(l, p: p, ms: ms, t: resultTy)) 'managed'
 		valueDrop = dropType(l, p: p, ms: ms, t: resultTy)
 	end 'managed'
 	var errDrop = ast.noType

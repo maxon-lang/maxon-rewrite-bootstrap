@@ -8,11 +8,6 @@
 // groupPairs is the number of pairs of a group: one for each byte of its control word.
 export let groupPairs = 8 as Word
 
-// groupWords is the number of words of a group: the control word and two for each pair.
-export let groupWords = 17 as Word
-
-let pairWords = 2 as Word
-
 let pairInGroupMask = 7 as Word
 
 let groupOfPairShift = 3 as Word
@@ -20,21 +15,41 @@ let groupOfPairShift = 3 as Word
 // groupsOutOfRange is what a use of a pair or a group at or past the end of a buffer of groups panics with.
 let groupsOutOfRange = "index out of range: the buffer of groups is shorter"
 
-// firstHalf and secondHalf are where the halves of a pair are from the start of its pair's place in the group, which the
-// control word comes before: one word and two words on.
+// firstHalf and secondHalf name the halves of a pair.
 let firstHalf = 1 as Word
 
 let secondHalf = 2 as Word
 
-// Groups is the buffer a call is on, with the types of the two halves of its pairs.
+// Groups is the buffer a call is on, with the types of the two halves of its pairs and the words each takes: a group is
+// its control word and then its pairs, the first half of each before the second.
 type Groups
 	var site as diag.Site
 	var first as ast.TypeID
 	var second as ast.TypeID
+	var firstWords as Word
+	var secondWords as Word
 
-	static function make(consumes site diag.Site, first ast.TypeID, second ast.TypeID) returns Groups
-		return Groups{site: site, first: first, second: second}
+	static function make(consumes site diag.Site, first ast.TypeID, second ast.TypeID, firstWords Word, secondWords Word) returns Groups
+		return Groups{site: site, first: first, second: second, firstWords: firstWords, secondWords: secondWords}
 	end 'make'
+
+	// pairWords is the number of words of a pair.
+	function pairWords() returns Word
+		return try firstWords + secondWords otherwise panic("ir: a pair past memory")
+	end 'pairWords'
+
+	// groupWords is the number of words of a group: the control word and its pairs.
+	function groupWords() returns Word
+		return try 1 + groupPairs * self.pairWords() otherwise panic("ir: a group past memory")
+	end 'groupWords'
+
+	// halfOffset is where a half is from the start of its pair's place in the group, which the control word comes before.
+	function halfOffset(index Word) returns Word
+		if index == firstHalf 'first'
+			return 1
+		end 'first'
+		return try 1 + firstWords otherwise panic("ir: a pair past memory")
+	end 'halfOffset'
 
 	// half is the type of a pair's first half or its second.
 	function half(index Word) returns ast.TypeID
@@ -55,7 +70,11 @@ function groupsOfCall(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleSta
 	if ast.typeKind(ms.types, reads: p.types, t: bt) != ast.TypeKind.builtinGroups 'notGroups'
 		panic("lower: {ast.typeName(ms.types, reads: p.types, t: bt)} is not a buffer of groups")
 	end 'notGroups'
-	return Groups.make(siteOf(l, p: p, node: c.node), first: ast.typeArgAt(ms.types, reads: p.types, t: bt, index: 0), second: ast.typeArgAt(ms.types, reads: p.types, t: bt, index: 1))
+	let first = ast.typeArgAt(ms.types, reads: p.types, t: bt, index: 0)
+	let second = ast.typeArgAt(ms.types, reads: p.types, t: bt, index: 1)
+	let firstWords = countWord(valueWords(ms.types, reads: p.types, t: first))
+	let secondWords = countWord(valueWords(ms.types, reads: p.types, t: second))
+	return Groups.make(siteOf(l, p: p, node: c.node), first: first, second: second, firstWords: firstWords, secondWords: secondWords)
 end 'groupsOfCall'
 
 // binary is the operation of a register and a constant, as a word of no sign.
@@ -69,7 +88,7 @@ end 'binary'
 // groupCount is the number of whole groups of the buffer arr.
 function groupCount(mutates l Lowerer, p ast.Project, g Groups, arr Reg) returns Reg
 	let words = entry(l, p: p, site: g.site, symbol: Rt.rtArrayLen, kind: IrKind.kindScalar, args: argsOf1(arr))
-	return binary(l, op: BinOp.binDiv, left: words, right: groupWords)
+	return binary(l, op: BinOp.binDiv, left: words, right: g.groupWords())
 end 'groupCount'
 
 // groupsWord is the address of the word at index in the buffer arr, where index is a word of the group position, which is
@@ -83,19 +102,19 @@ end 'groupsWord'
 // controlWord is the address of the control word of a group.
 function controlWord(mutates l Lowerer, p ast.Project, g Groups, arr Reg, group Reg) returns Reg
 	let groups = groupCount(l, p: p, g: g, arr: arr)
-	let index = binary(l, op: BinOp.binMul, left: group, right: groupWords)
+	let index = binary(l, op: BinOp.binMul, left: group, right: g.groupWords())
 	return groupsWord(l, p: p, g: g, arr: arr, position: group, bound: groups, index: index)
 end 'controlWord'
 
 // pairHalf is the address of a half of the pair at an index over every group.
 function pairHalf(mutates l Lowerer, p ast.Project, g Groups, arr Reg, at Reg, half Word) returns Reg
 	let group = binary(l, op: BinOp.binShr, left: at, right: groupOfPairShift)
-	let start = binary(l, op: BinOp.binMul, left: group, right: groupWords)
+	let start = binary(l, op: BinOp.binMul, left: group, right: g.groupWords())
 	let inGroup = binary(l, op: BinOp.binAnd, left: at, right: pairInGroupMask)
-	let offset = binary(l, op: BinOp.binMul, left: inGroup, right: pairWords)
+	let offset = binary(l, op: BinOp.binMul, left: inGroup, right: g.pairWords())
 	let pair = newReg(l, kind: IrKind.kindScalar)
 	emit(l, i: newBin(pair, op: BinOp.binAdd, left: start, right: offset, unsigned: true, fail: noBlock))
-	let index = binary(l, op: BinOp.binAdd, left: pair, right: half)
+	let index = binary(l, op: BinOp.binAdd, left: pair, right: g.halfOffset(half))
 	let groups = groupCount(l, p: p, g: g, arr: arr)
 	return groupsWord(l, p: p, g: g, arr: arr, position: group, bound: groups, index: index)
 end 'pairHalf'
@@ -112,13 +131,13 @@ end 'lowerTrailingZeros'
 function lowerGroupsCreate(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	let g = groupsOfCall(l, p: p, ms: ms, c: c)
 	let out = entry(l, p: p, site: g.site, symbol: Rt.rtArrayNew, kind: IrKind.kindManaged, args: RegList.create(0))
-	let words = binary(l, op: BinOp.binMul, left: args[0], right: groupWords)
+	let words = binary(l, op: BinOp.binMul, left: args[0], right: g.groupWords())
 	entryVoid(l, p: p, site: g.site, symbol: Rt.rtArrayReserve, args: argsOf2(out, b: words))
 	let empty = konst(l, value: 0 as Word)
 	entryVoid(l, p: p, site: g.site, symbol: Rt.rtArrayFill, args: argsOf3(out, b: words, c: empty))
 	let groups = countedLoopBegin(l, limit: args[0])
 	let group = countedLoopIndex(l, loop: groups)
-	let index = binary(l, op: BinOp.binMul, left: group, right: groupWords)
+	let index = binary(l, op: BinOp.binMul, left: group, right: g.groupWords())
 	let addr = elementEntry(l, p: p, site: g.site, symbol: Rt.rtArrayElem, args: argsOf2(out, b: index), checked: false)
 	emit(l, i: newStoreAt(addr, src: args[1]))
 	countedLoopEnd(l, loop: groups)
@@ -163,6 +182,17 @@ function lowerGroupsSecond(mutates l Lowerer, p ast.Project, mutates ms ast.Modu
 	return pairLend(l, p: p, ms: ms, c: c, recv: recv, at: args[0], half: secondHalf)
 end 'lowerGroupsSecond'
 
+// pairEmpty drops what a half whose address is addr held and leaves it empty, which a drop does to a managed half; a
+// scalar half is set to 0.
+function pairEmpty(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, g Groups, addr Reg, half Word)
+	if owning(kindOf(l, p: p, ms: ms, t: g.half(half))) 'owning'
+		dropAt(l, p: p, ms: ms, addr: addr, t: g.half(half))
+		return
+	end 'owning'
+	let empty = konst(l, value: 0 as Word)
+	emit(l, i: newStoreAt(addr, src: empty))
+end 'pairEmpty'
+
 // pairStore moves v into a half whose address is addr, dropping what the half held.
 function pairStore(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, g Groups, addr Reg, half Word, v Reg)
 	dropAt(l, p: p, ms: ms, addr: addr, t: g.half(half))
@@ -193,7 +223,7 @@ function pairTake(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, 
 	let addr = pairHalf(l, p: p, g: g, arr: recv, at: at, half: half)
 	let kind = kindOf(l, p: p, ms: ms, t: g.half(half))
 	let d = newReg(l, kind: kind)
-	if kind == IrKind.kindManaged 'managed'
+	if owning(kind) 'managed'
 		emit(l, i: newMoveAt(d, addr: addr))
 	end 'managed' else 'scalar'
 		emit(l, i: newLoadAt(d, addr: addr))
@@ -214,8 +244,7 @@ function lowerGroupsClear(mutates l Lowerer, p ast.Project, mutates ms ast.Modul
 	let g = groupsOfCall(l, p: p, ms: ms, c: c)
 	let first = pairHalf(l, p: p, g: g, arr: recv, at: args[0], half: firstHalf)
 	let second = pairHalf(l, p: p, g: g, arr: recv, at: args[0], half: secondHalf)
-	let empty = konst(l, value: 0 as Word)
-	pairStore(l, p: p, ms: ms, g: g, addr: first, half: firstHalf, v: empty)
-	pairStore(l, p: p, ms: ms, g: g, addr: second, half: secondHalf, v: empty)
+	pairEmpty(l, p: p, ms: ms, g: g, addr: first, half: firstHalf)
+	pairEmpty(l, p: p, ms: ms, g: g, addr: second, half: secondHalf)
 	return konst(l, value: 0 as Word)
 end 'lowerGroupsClear'

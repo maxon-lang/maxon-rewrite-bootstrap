@@ -135,6 +135,7 @@ function emitEntry(mutates u CodeUnit, count bool)
 	u.asm.callImport(impExitProcess)
 	u.asm.bind(pastTheTeb)
 	u.asm.leaData(argWord(), dataOffset: u.data.textOffset(tlsSlotPastTheTeb))
+	u.asm.movImm(x64InternalArg(1), imm: literalWord(tlsSlotPastTheTeb))
 	callRuntime(u, entry: ir.Rt.rtPanic, arg: argWord())
 end 'emitEntry'
 
@@ -392,7 +393,7 @@ end 'emitExitClaim'
 // at faultDigitsSlot, with rax, rcx, rdx, r10 and r11.
 function emitAddressDigits(mutates u CodeUnit)
 	u.asm.load(rax, base: rsp, disp: faultAddressSlot)
-	u.asm.leaData(r10, dataOffset: u.data.textOffset(hexDigits))
+	u.asm.leaData(r10, dataOffset: u.data.countedTextOffset(hexDigits))
 	u.asm.movImm(rcx, imm: nibbleBits)
 	for i in 0 upto addressDigits 'digits'
 		let lastDigit = try faultDigitsSlot + addressDigits - 1 otherwise panic("backend: the fault frame is past 2 GiB")
@@ -413,7 +414,7 @@ function emitFaultArm(mutates u CodeUnit, code FullRangeInt, words String, repor
 	u.asm.movImm(r10, imm: code)
 	u.asm.cmp(rdx, right: r10)
 	u.asm.jcc(MCond.notEqual, label: next)
-	u.asm.leaData(rax, dataOffset: u.data.textOffset(faultLineOpening(words)))
+	u.asm.leaData(rax, dataOffset: u.data.countedTextOffset(faultLineOpening(words)))
 	u.asm.jmp(report)
 	u.asm.bind(next)
 end 'emitFaultArm'

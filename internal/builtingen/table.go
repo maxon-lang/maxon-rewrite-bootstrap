@@ -470,8 +470,6 @@ func rawFunctions() []function {
 		// mulHigh is the high word of the 128-bit product of two words of no sign, which the hash's fold is made of.
 		raw("mulHigh", []string{"left Count", "right Count"}, "Count", "RawMulHigh"),
 		own(raw("addressOf", []string{"mutates word Count"}, "Count", "RawAddressOf")),
-		raw("stringAddress", []string{"text String"}, "Count", "RawStringAddress"),
-		raw("stringAt", []string{"box Count"}, "String", "RawStringAt"),
 		// The String operations that say nothing of its layout, which the compiler compiling the runtime lays out as it
 		// lays out a String, so one runtime source serves the compiler of either layout (the seed's among them): the
 		// address of a borrowed string's first byte, its length in bytes and whether each byte is known to be below
@@ -928,6 +926,13 @@ var entries = []entry{
 	{"ArrayRemove", "rt.array.remove", "Arrays", roleCall, "(array, index) -> element: moves it out"},
 	{"ArrayFill", "rt.array.fill", "Arrays", roleCall, "(array, count, word): appends count copies of a word that needs no copy of its own, a scalar or the 0 of an empty slot, as as many inserts at the end would"},
 	{"ArrayReserve", "rt.array.reserve", "Arrays", roleCall, "(array, count): makes the buffer hold count elements, so as many inserts after it never grow it; the length and the elements stay"},
+	// An array of strings holds two words to an element, a String's, which the code moves in and out with stores and loads of
+	// the addresses these give: the runtime moves only bytes.
+	{"StrsElem", "rt.strs.elem", "Arrays", roleCall, "(array of strings, index) -> address of the element"},
+	{"StrsOpen", "rt.strs.open", "Arrays", roleCall, "(array of strings, index) -> address of a new empty element at index, which may be the length, after what follows moves up by one"},
+	{"StrsClose", "rt.strs.close", "Arrays", roleCall, "(array of strings, index): takes the element at index, which the code moved out, out of the buffer"},
+	{"StrsFill", "rt.strs.fill", "Arrays", roleCall, "(array of strings, count): appends count empty elements"},
+	{"StrsReserve", "rt.strs.reserve", "Arrays", roleCall, "(array of strings, count): makes the buffer hold count elements"},
 	{"ArrayShrink", "rt.array.shrink", "Arrays", roleCall, "(array or byte array, length): sets the length to one that is not above it, keeping the buffer; what was above it was moved out or needs no drop"},
 
 	{"ListNew", "rt.list.new", "Interpreter", roleCall, "() -> list"},
@@ -954,7 +959,7 @@ var entries = []entry{
 	{"PoolRemove", "rt.pool.remove", "Interpreter", roleCall, "(pool, handle) -> element: moves it out"},
 	{"PoolCopy", "rt.pool.copy", "Interpreter", roleCall, "(pool) -> pool: every element copied, handles still valid in the copy"},
 
-	{"FrozenFreeze", "rt.frozen.freeze", "Shared", roleCall, "(value) -> frozen: moves the value into a new box with a count of 1"},
+	{"FrozenFreeze", "rt.frozen.freeze", "Shared", roleCall, "(value) -> frozen: moves the value into a new box with a count of 1; the backend stores a String's word after it"},
 	{"FrozenGet", "rt.frozen.get", "Shared", roleCall, "(frozen) -> what it holds, lent: an immutable borrow, valid while the frozen value is; the backend writes it in place, a load that leaves the count alone"},
 	{"Share", "rt.share", "Shared", roleCall, "(frozen or cown) -> the same box: another owner, with the count raised by 1 in one locked step"},
 	{"CownNew", "rt.cown.new", "Shared", roleCall, "(value) -> cown: moves the value into a new cown with a count of 1; the instruction's Routine, when it has one, ends the value instead of a drop, and the backend passes its code's address, or 0, as a second word"},
@@ -1082,6 +1087,11 @@ var runtimeFunctions = []runtimeFunction{
 	{"ArrayRemove", "arrayRemove(array Count, index Count) Count"},
 	{"ArrayFill", "arrayFill(array Count, count Count, word Count)"},
 	{"ArrayReserve", "arrayReserve(array Count, count Count)"},
+	{"StrsElem", "stringsElem(array Count, index Count) Count"},
+	{"StrsOpen", "stringsOpen(array Count, index Count) Count"},
+	{"StrsClose", "stringsClose(array Count, index Count)"},
+	{"StrsFill", "stringsFill(array Count, count Count)"},
+	{"StrsReserve", "stringsReserve(array Count, count Count)"},
 	{"ArrayShrink", "arrayShrink(array Count, length Count)"},
 	{"BytesNew", "bytesNew() Count"},
 	{"BytesLen", "bytesLength(array Count) Count"},

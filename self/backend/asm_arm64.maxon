@@ -291,6 +291,11 @@ extension Asm
 		self.arm64NoteSymbol(FixupKind.pageOffset12, symbol: symbol)
 	end 'arm64Address'
 
+	// arm64ShrImm is lsr: the bits of src from shift up, in dst.
+	export function arm64ShrImm(mutates self, dst Arm64Register, src Arm64Register, shift Arm64Imm6)
+		encodeArm64UbfmRegReg(code, dest: dst, src: src, immr: shift, imms: arm64SignShift as Arm64Imm6)
+	end 'arm64ShrImm'
+
 	// arm64AddressData puts the address of an offset of the data section in dst.
 	export function arm64AddressData(mutates self, dst Arm64Register, dataOffset Count)
 		encodeArm64Adrp(code, dest: dst, pages: 0)

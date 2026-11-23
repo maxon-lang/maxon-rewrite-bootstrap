@@ -21,7 +21,7 @@ function visitClosureExpr(mutates l Lowerer, p ast.Project, mutates ms ast.Modul
 		let ref = info.captures[i].refNode
 		let inner = localEntry(p, module: l.fnModule, id: info.captures[i].innerLocal)
 		let t = applyType(l, p: p, ms: ms, t: inner.ty)
-		let owned = kindOf(l, p: p, ms: ms, t: t) == IrKind.kindManaged and info.captures[i].conv == ast.Convention.convConsumes
+		let owned = owning(kindOf(l, p: p, ms: ms, t: t)) and info.captures[i].conv == ast.Convention.convConsumes
 		if inner.captureConv == ast.Convention.convMutates 'address'
 			captures.push(address(l, p: p, ms: ms, e: ref))
 		end 'address' else 'value'
@@ -63,7 +63,7 @@ end 'captureRead'
 
 // captureOffset is where the closure holds what its body's local loc captured.
 function captureOffset(loc ast.LocalEntry) returns Count
-	return try closureCapturesOffset + wordOffset(loc.paramIndex) otherwise panic("lower: a capture past memory")
+	return try closureCapturesOffset + loc.paramIndex * closureCaptureBytes otherwise panic("lower: a capture past memory")
 end 'captureOffset'
 
 // refAddress is the address of the caller's place that a local passed by address stands for: a parameter's, the one a

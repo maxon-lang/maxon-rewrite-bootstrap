@@ -5,7 +5,8 @@
 // firstOwner is the count of a box that one place owns.
 let firstOwner = 1 as Count
 
-// frozenFreeze moves a value into a new frozen box, whatever the value holds: one allocation and two stores.
+// frozenFreeze moves a value into a new frozen box, whatever the value holds: one allocation and two stores. The box has
+// room for a String's two words, the second of which the code that freezes one stores itself.
 function frozenFreeze(value Count) returns Count
 	let box = alloc(frozenBoxBytes)
 	__Raw.storeWord(box, offset: frozenCountOffset, value: firstOwner)
@@ -25,7 +26,8 @@ function share(box Count) returns Count
 end 'share'
 
 // cownNew moves a value into a new cown that no behaviour waits for. ending is the address of the destructor that ends
-// the value in place of its drop, or 0.
+// the value in place of its drop, or 0. The cown has room for a String's two words, the second of which the code that
+// makes one stores itself.
 function cownNew(value Count, ending Count) returns Count
 	let cown = alloc(cownBytes)
 	__Raw.storeWord(cown, offset: cownCountOffset, value: firstOwner)

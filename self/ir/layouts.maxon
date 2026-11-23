@@ -1,0 +1,63 @@
+// Where the parts of a box lie (README, "The IR"): a value takes a word, and a String two, the address of its bytes and
+// its word, held inline wherever a value is, so a field, a payload or a capture lies after the words of the ones before
+// it. Lowering, the backend's routines and the datums lay out every box with these, so they agree.
+
+// valueWords is how many words a value of the type takes in memory.
+export function valueWords(tt ast.TypeSlot, reads ast.TypeTable, t ast.TypeID) returns Count
+	if ast.isStringType(tt, reads: reads, t: t) 'string'
+		return stringValueBytes / wordBytes
+	end 'string'
+	return 1
+end 'valueWords'
+
+// wordsBefore is how many words the values of the first count of the types take.
+export function wordsBefore(tt ast.TypeSlot, reads ast.TypeTable, types ast.TypeIDList, count Count) returns Count
+	var words = 0 as Count
+	for i in 0 upto count 'each'
+		words = try words + valueWords(tt, reads: reads, t: types[i]) otherwise panic("ir: a box past memory")
+	end 'each'
+	return words
+end 'wordsBefore'
+
+// valuesBytes is the size of a box of values of the types: a word for a box of none, and a first word for a union's case
+// index when tagged.
+export function valuesBytes(tt ast.TypeSlot, reads ast.TypeTable, types ast.TypeIDList, tagged bool) returns Count
+	return boxBytes(wordsBefore(tt, reads: reads, types: types, count: types.count()), tagged: tagged)
+end 'valuesBytes'
+
+// valueOffset is where the value at index of a box of values of the types sits: after the case index when tagged.
+export function valueOffset(tt ast.TypeSlot, reads ast.TypeTable, types ast.TypeIDList, index Count, tagged bool) returns Count
+	return fieldOffset(wordsBefore(tt, reads: reads, types: types, count: index), tagged: tagged)
+end 'valueOffset'
+
+// fieldTypes is the types of the fields of the record owner, an instance's with its arguments applied.
+export function fieldTypes(mutates tt ast.TypeSlot, reads ast.TypeTable, owner ast.TypeID) returns ast.TypeIDList
+	var types = ast.TypeIDList.create(0)
+	let count = ast.typeEntry(tt, reads: reads, t: ast.originOf(tt, reads: reads, t: owner)).fields.count()
+	for i in 0 upto count 'fields'
+		types.push(ast.fieldType(tt, reads: reads, owner: owner, index: i))
+	end 'fields'
+	return types
+end 'fieldTypes'
+
+// payloadTypes is the types of the payload of a case of the union owner.
+export function payloadTypes(mutates tt ast.TypeSlot, reads ast.TypeTable, owner ast.TypeID, caseIndex Count) returns ast.TypeIDList
+	var types = ast.TypeIDList.create(0)
+	let count = ast.typeEntry(tt, reads: reads, t: ast.originOf(tt, reads: reads, t: owner)).cases[caseIndex].payload.count()
+	for i in 0 upto count 'payload'
+		types.push(ast.payloadType(tt, reads: reads, owner: owner, caseIndex: caseIndex, index: i))
+	end 'payload'
+	return types
+end 'payloadTypes'
+
+// recordFieldOffset is where the field at index of a box of the record owner sits.
+export function recordFieldOffset(mutates tt ast.TypeSlot, reads ast.TypeTable, owner ast.TypeID, index Count) returns Count
+	let types = fieldTypes(tt, reads: reads, owner: owner)
+	return valueOffset(tt, reads: reads, types: types, index: index, tagged: false)
+end 'recordFieldOffset'
+
+// payloadOffset is where the payload at index of a box of the case caseIndex of the union owner sits.
+export function payloadOffset(mutates tt ast.TypeSlot, reads ast.TypeTable, owner ast.TypeID, caseIndex Count, index Count) returns Count
+	let types = payloadTypes(tt, reads: reads, owner: owner, caseIndex: caseIndex)
+	return valueOffset(tt, reads: reads, types: types, index: index, tagged: true)
+end 'payloadOffset'

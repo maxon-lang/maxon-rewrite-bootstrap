@@ -39,6 +39,9 @@ type Convention struct {
 	// Result is the register of an integer result, and FloatResult of a float one, or "" for a convention with no
 	// FloatArgs.
 	Result, FloatResult string
+	// SecondResult is the register of the second word of a String result, whose first is in Result, or "" for a
+	// convention that never gives one.
+	SecondResult string
 	// Error is the register of the error flag of a function that throws, or "" for a convention with none.
 	Error string
 	// CalleeSaved are the registers a call keeps, and CallerSaved the ones it may leave holding anything; together
@@ -267,6 +270,9 @@ func (t Target) Check() error {
 		if c.Error != "" {
 			moved = append(moved, c.Error)
 		}
+		if c.SecondResult != "" {
+			moved = append(moved, c.SecondResult)
+		}
 		for _, n := range moved {
 			m, err := t.Mask([]string{n})
 			if err != nil {
@@ -275,6 +281,9 @@ func (t Target) Check() error {
 			if m&lost == 0 {
 				return fmt.Errorf("%s %s: %s passes a value but is not caller-saved", t.Name, c.Prefix, n)
 			}
+		}
+		if c.SecondResult != "" && (c.SecondResult == c.Result || c.SecondResult == c.Error) {
+			return fmt.Errorf("%s %s: the second word of a String result shares a register with the result or the error flag", t.Name, c.Prefix)
 		}
 		if c.Error != "" && (c.Error == c.Result || slices.Contains(c.Args, c.Error)) {
 			return fmt.Errorf("%s %s: the error flag shares a register with a value", t.Name, c.Prefix)
@@ -301,15 +310,16 @@ var X64 = Target{
 	Reserved:       []string{"rsp", "rbp"},
 	StackAlignment: 16,
 	Internal: Convention{
-		Doc:         "the convention between the compiler's own functions, maxon's",
-		Prefix:      "Internal",
-		Args:        []string{"rcx", "rdx", "rax", "r9", "rsi", "rdi"},
-		FloatArgs:   []string{"xmm0", "xmm1", "xmm2", "xmm3", "xmm4", "xmm5"},
-		Result:      "r8",
-		FloatResult: "xmm0",
-		Error:       "r10",
-		CalleeSaved: []string{"rbx", "r12", "r13", "r14", "r15", "xmm6", "xmm7", "xmm8", "xmm9", "xmm10", "xmm11", "xmm12", "xmm13", "xmm14", "xmm15"},
-		CallerSaved: []string{"rax", "rcx", "rdx", "rsi", "rdi", "r8", "r9", "r10", "r11", "xmm0", "xmm1", "xmm2", "xmm3", "xmm4", "xmm5"},
+		Doc:          "the convention between the compiler's own functions, maxon's",
+		Prefix:       "Internal",
+		Args:         []string{"rcx", "rdx", "rax", "r9", "rsi", "rdi"},
+		FloatArgs:    []string{"xmm0", "xmm1", "xmm2", "xmm3", "xmm4", "xmm5"},
+		Result:       "r8",
+		SecondResult: "r9",
+		FloatResult:  "xmm0",
+		Error:        "r10",
+		CalleeSaved:  []string{"rbx", "r12", "r13", "r14", "r15", "xmm6", "xmm7", "xmm8", "xmm9", "xmm10", "xmm11", "xmm12", "xmm13", "xmm14", "xmm15"},
+		CallerSaved:  []string{"rax", "rcx", "rdx", "rsi", "rdi", "r8", "r9", "r10", "r11", "xmm0", "xmm1", "xmm2", "xmm3", "xmm4", "xmm5"},
 	},
 	Systems: []System{
 		{
@@ -376,15 +386,16 @@ var Arm64 = Target{
 	Reserved:       []string{"x15", "x16", "x17", "x18", "x29", "x30", "sp"},
 	StackAlignment: 16,
 	Internal: Convention{
-		Doc:         "the convention between the compiler's own functions, maxon's",
-		Prefix:      "Internal",
-		Args:        arm64Args,
-		FloatArgs:   arm64FloatArgs,
-		Result:      "x0",
-		FloatResult: "d0",
-		Error:       "x9",
-		CalleeSaved: arm64CalleeSaved,
-		CallerSaved: arm64CallerSaved,
+		Doc:          "the convention between the compiler's own functions, maxon's",
+		Prefix:       "Internal",
+		Args:         arm64Args,
+		FloatArgs:    arm64FloatArgs,
+		Result:       "x0",
+		SecondResult: "x1",
+		FloatResult:  "d0",
+		Error:        "x9",
+		CalleeSaved:  arm64CalleeSaved,
+		CallerSaved:  arm64CallerSaved,
 	},
 	Systems: []System{
 		{

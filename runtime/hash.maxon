@@ -178,8 +178,8 @@ function hashBytes(array Count, at Count, count Count, seed Count) returns Count
 end 'hashBytes'
 
 // hashStringBytes is __Builtins.hashBytes of a string: the fold of the count bytes of the string from an index under a
-// seed. A string's box holds its length and then its bytes, where an array's points at its buffer, so it has its own entry
-// to the same fold.
+// seed. A string's bytes are where __Raw.stringBytes says, where an array's box points at its buffer, so it has its own
+// entry to the same fold.
 function hashStringBytes(text String, at Count, count Count, seed Count) returns Count
 	let length = stringLength(text)
 	if at > length or count > length - at 'outside'
@@ -188,7 +188,7 @@ function hashStringBytes(text String, at Count, count Count, seed Count) returns
 	if count == 0 'empty'
 		return hashSpan(0, count: 0, seed: seed as HashWord) as Count
 	end 'empty'
-	return hashSpan(__Raw.wrappingAdd(bytesOf(__Raw.stringAddress(text)), right: at) as HashInput, count: count, seed: seed as HashWord) as Count
+	return hashSpan(__Raw.wrappingAdd(__Raw.stringBytes(text), right: at) as HashInput, count: count, seed: seed as HashWord) as Count
 end 'hashStringBytes'
 
 function hashLoadWord(input HashInput, at Count) returns HashWord

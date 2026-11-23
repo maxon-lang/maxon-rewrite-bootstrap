@@ -169,7 +169,7 @@ function constantObject(mutates vm Vm, d ir.Datum) returns Count
 	var objects = CountList.create(0)
 	for i in 0 upto d.boxes.count() 'make'
 		let o = match d.boxes[i].shape 'shape'
-			words gives newBox(vm, words: d.boxes[i].count)
+			words gives newBox(vm, words: ir.datumWordsOf(d.words, first: d.boxes[i].first, count: d.boxes[i].count))
 			array gives newArray(vm)
 			bytes gives newBytes(vm, buf: ByteArray.create(0))
 		end 'shape'
@@ -179,6 +179,7 @@ function constantObject(mutates vm Vm, d ir.Datum) returns Count
 	for i in 0 upto d.boxes.count() 'fill'
 		let o = objects[i]
 		let box = d.boxes[i].clone()
+		var at = 0 as Count
 		for k in 0 upto box.count 'words'
 			let word = d.words[try box.first + k otherwise panic("interp: a constant past memory")].clone()
 			if box.shape == ir.DatumShape.bytes 'byte'
@@ -187,7 +188,8 @@ function constantObject(mutates vm Vm, d ir.Datum) returns Count
 			end 'byte'
 			var c = 0 as Count
 			if box.shape == ir.DatumShape.words 'field'
-				c = try vm.h.oData[o] + k otherwise panic("interp: a constant past memory")
+				c = try vm.h.oData[o] + at otherwise panic("interp: a constant past memory")
+				at = try at + ir.datumWordWidth(word) otherwise panic("interp: a constant past memory")
 			end 'field' else 'element'
 				c = vm.h.newCell(o)
 				vm.h.elements[vm.h.oData[o]].push(c)
@@ -265,7 +267,7 @@ end 'adopt'
 
 // isManaged is whether a register holds an object, as against a scalar or an address.
 function isManaged(f ir.IrFunction, r ir.Reg) returns bool
-	return f.regs[try r as Count otherwise panic("interp: a register that does not exist")] == ir.IrKind.kindManaged
+	return ir.owning(f.regs[try r as Count otherwise panic("interp: a register that does not exist")])
 end 'isManaged'
 
 // store puts a register's value in a place, as an owner when the register is managed.
@@ -404,7 +406,7 @@ function free(mutates vm Vm, o Count) throws Halt
 	end 'cown'
 	if kind == kindClosure 'closure'
 		for i in 0 upto vm.h.shareds[data].owned.count() 'captures'
-			let c = vm.h.field(o, i: try closureHeaderWords + i otherwise panic("interp: a capture past memory"))
+			let c = vm.h.field(o, i: captureWord(i))
 			if vm.h.shareds[data].owned[i] 'owned'
 				try freeCell(vm, c: c)
 			end 'owned' else 'held'

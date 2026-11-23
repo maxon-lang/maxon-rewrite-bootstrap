@@ -7,16 +7,24 @@
 // Where a for walks it, a method that has no unit to give does not throw: the loop is over, and exit is the block after it.
 // Where a program calls it, exit is noBlock and the method throws IterationError as any other does.
 
+// viewFieldOffset is where a field of a view or an iterator sits: the String it reads first, and the position after it.
+function viewFieldOffset(field Count) returns Count
+	if field == 0 'text'
+		return 0
+	end 'text'
+	return stringValueBytes
+end 'viewFieldOffset'
+
 // loadText is the string that a view or an iterator holds, which they own.
 function loadText(mutates l Lowerer, obj Reg, field Count) returns Reg
-	let d = newReg(l, kind: IrKind.kindManaged)
-	emit(l, i: newLoadField(d, obj: obj, offset: fieldOffset(field, tagged: false)))
+	let d = newReg(l, kind: IrKind.kindString)
+	emit(l, i: newLoadField(d, obj: obj, offset: viewFieldOffset(field)))
 	return d
 end 'loadText'
 
 function loadPosition(mutates l Lowerer, obj Reg, field Count) returns Reg
 	let d = newReg(l, kind: IrKind.kindScalar)
-	emit(l, i: newLoadField(d, obj: obj, offset: fieldOffset(field, tagged: false)))
+	emit(l, i: newLoadField(d, obj: obj, offset: viewFieldOffset(field)))
 	return d
 end 'loadPosition'
 
@@ -63,7 +71,7 @@ function readUnit(mutates l Lowerer, iterator Reg, textField Count, positionFiel
 end 'readUnit'
 
 function setPosition(mutates l Lowerer, iterator Reg, positionField Count, position Reg)
-	emit(l, i: newStoreField(iterator, offset: fieldOffset(positionField, tagged: false), src: position, borrow: false))
+	emit(l, i: newStoreField(iterator, offset: viewFieldOffset(positionField), src: position, borrow: false))
 end 'setPosition'
 
 // stepOn sets the position of an iterator to the one that a step entry gave, which is the position plus 1, or 0 where there

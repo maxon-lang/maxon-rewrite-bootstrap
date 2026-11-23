@@ -6,14 +6,29 @@ export let wordBytes = 8 as Count
 // tagOffset is where a union box holds its case index; the payload follows it.
 export let tagOffset = 0 as Count
 
-// stringLengthOffset is where a String's box holds its length in bytes, a word.
-export let stringLengthOffset = 0 as Count
+// stringBytesOffset is where a String holds the address of its first byte, UTF-8 with no terminator: in the executable's read-only data for a literal, a heap box for an owned string, the bytes of another string for a borrowed view.
+export let stringBytesOffset = 0 as Count
 
-// stringBytesOffset is where a String's bytes begin, UTF-8 with no terminator.
-export let stringBytesOffset = 8 as Count
+// stringWordOffset is where a String holds its word: its length in bytes shifted left by stringLengthShift, with stringAsciiBit and stringOwnedBit.
+export let stringWordOffset = 8 as Count
 
-// closureCapturesOffset is where the box of a closure holds what it captured, a word each, in the order of its body's captures.
+// stringValueBytes is the size of a String in memory: a field, an element, a capture or a slot of one.
+export let stringValueBytes = 16 as Count
+
+// stringOwnedBit is the bit of a String's word that says it owns its bytes, a box of runtime::alloc that its drop frees; a literal and a view own none, so their drop does nothing and touches no memory.
+export let stringOwnedBit = 1 as Count
+
+// stringAsciiBit is the bit of a String's word that says every byte is below 0x80, so each grapheme is one byte; clear means nothing is known.
+export let stringAsciiBit = 2 as Count
+
+// stringLengthShift is how far a String's length is shifted up in its word, past its flags: the length is the word shifted right by it.
+export let stringLengthShift = 2 as Count
+
+// closureCapturesOffset is where the box of a closure holds what it captured, closureCaptureBytes each, in the order of its body's captures.
 export let closureCapturesOffset = 24 as Count
+
+// closureCaptureBytes is the room a closure gives each capture: the widest value, a String's two words, whatever the capture holds.
+export let closureCaptureBytes = 16 as Count
 
 // ifaceTableOffset is where the box of an interface value holds the address of its table.
 export let ifaceTableOffset = 0 as Count
@@ -21,5 +36,5 @@ export let ifaceTableOffset = 0 as Count
 // ifaceValueOffset is where the box of an interface value holds the value, which it owns unless it lends it to a call.
 export let ifaceValueOffset = 8 as Count
 
-// ifaceBoxBytes is the size of the box of an interface value.
-export let ifaceBoxBytes = 16 as Count
+// ifaceBoxBytes is the size of the box of an interface value: the table's address and the widest value, a String's two words.
+export let ifaceBoxBytes = 24 as Count

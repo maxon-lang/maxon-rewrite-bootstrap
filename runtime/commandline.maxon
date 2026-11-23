@@ -50,17 +50,18 @@ function quoteAt(line Count, length Count, position Count) returns bool
 	return position < length and __Raw.loadByte(line, offset: position) == quoteByte
 end 'quoteAt'
 
-// scanArgument reads the argument that starts at a position of a command line, writes it into a string box (its length
-// and its bytes, which are never more than the line has left), and gives the position where the argument ended: at a space
-// or a tab outside quotes, or at the end. The rules are the C runtime's, the first argument's included:
+// scanArgument reads the argument that starts at a position of a command line, writes it into scratch (its length in the
+// first word and its bytes after it, which are never more than the line has left), and gives the position where the
+// argument ended: at a space or a tab outside quotes, or at the end. The rules are the C runtime's, the first argument's
+// included:
 //   - a space or a tab ends the argument unless it is inside quotes;
 //   - a quote that has no backslash in front of it starts or ends quotes, and is not part of the argument;
 //   - a quote inside quotes and directly followed by another is a literal quote, and both are read;
 //   - 2n backslashes in front of a quote are n backslashes and leave the quote to the rules above;
 //   - 2n+1 backslashes in front of a quote are n backslashes and a literal quote;
 //   - backslashes that no quote follows are literal.
-function scanArgument(line Count, length Count, position Count, box Count) returns Count
-	let dest = bytesOf(box)
+function scanArgument(line Count, length Count, position Count, scratch Count) returns Count
+	let dest = __Raw.wrappingAdd(scratch, right: wordBytes)
 	var at = position
 	var written = 0 as Count
 	var quoted = false
@@ -95,7 +96,7 @@ function scanArgument(line Count, length Count, position Count, box Count) retur
 			at = __Raw.wrappingAdd(at, right: 1)
 		end 'ordinary'
 	end 'scan'
-	__Raw.storeWord(box, offset: stringLengthOffset, value: written)
+	__Raw.storeWord(scratch, offset: 0, value: written)
 	return at
 end 'scanArgument'
 
