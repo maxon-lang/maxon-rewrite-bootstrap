@@ -259,8 +259,7 @@ let workerLoop = 0 as Count
 function scheduleLoop(context Count)
 	let scheduler = __Raw.loadWord(context, offset: contextSchedulerOffset)
 	while true 'schedule'
-		let pins = __Raw.loadAcquire(scheduler, offset: schedPinnedOffset) != 0
-		if pins and pinnedGreen(context) != noGreen 'pinned'
+		if anyPinned(scheduler) and pinnedGreen(context) != noGreen 'pinned'
 			stopPinned(context)
 			execute(context, entry: pinnedGreen(context))
 			continue 'schedule'
@@ -277,13 +276,21 @@ function scheduleLoop(context Count)
 		if __Raw.loadWord(context, offset: contextSpinningOffset) == set 'spinning'
 			resetSpinning(context)
 		end 'spinning'
-		if pins and not isBehaviourEntry(g) and __Raw.loadWord(g, offset: greenLockedOffset) != noThread 'elsewhere'
+		if not isBehaviourEntry(g) and anyPinned(scheduler) and __Raw.loadWord(g, offset: greenLockedOffset) != noThread 'elsewhere'
 			startPinned(context, g: g)
 			continue 'schedule'
 		end 'elsewhere'
 		execute(context, entry: g)
 	end 'schedule'
 end 'scheduleLoop'
+
+// anyPinned is whether some green thread is pinned to its thread, read where a pin is about to be acted on, never kept from
+// an earlier read: the search for work may wait, and a green thread pinned meanwhile would then run on the thread that
+// took it, leaving its own thread stopped for good. A green thread's pin is counted before it switches back to be queued,
+// so a thread that takes it from a queue, an acquire, reads a count that holds the pin.
+function anyPinned(scheduler Count) returns bool
+	return __Raw.loadAcquire(scheduler, offset: schedPinnedOffset) != 0
+end 'anyPinned'
 
 // pinnedGreen is the green thread pinned to a thread (Go's m.lockedg), noGreen for none.
 function pinnedGreen(context Count) returns Count

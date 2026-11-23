@@ -93,6 +93,14 @@ function startsChecked(negative bool) returns bool
 	return true
 end 'startsChecked'
 
+// hasRoom is whether a message to the service is taken, which it is once the factory has run: a sleep of any length could
+// end before the factory's does.
+function hasRoom(slow Slow.handle) returns bool
+	let reply = try slow.count() otherwise return false
+	_ = try await reply otherwise 0
+	return true
+end 'hasRoom'
+
 function main() returns ExitCode
 	let slow = spawn(capacity: 2) Slow.create()
 	for i in 0 upto 3 'fill'
@@ -104,7 +112,9 @@ function main() returns ExitCode
 		end 'refused'
 	end 'fill'
 	// Once the factory has run, the service takes the two messages it queued, and the mailbox has room again.
-	sleep(400)
+	while not hasRoom(slow) 'factory'
+		sleep(1)
+	end 'factory'
 	if startsChecked(true) 'started'
 		print("unexpected service\n")
 	end 'started'
@@ -122,7 +132,9 @@ function main() returns ExitCode
 	try worker.work(log.clone()) otherwise ignore
 	try worker.work(log.clone()) otherwise ignore
 	worker.shutdown()
-	sleep(50)
+	while (try await log.count() otherwise 0) < 2 'logging'
+		sleep(1)
+	end 'logging'
 	print("logged={try await log.count() otherwise 0}\n")
 	return 0
 end 'main'

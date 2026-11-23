@@ -45,7 +45,9 @@ function main() returns ExitCode
 	b.cancel()
 	let c = async nap(1, tag: "3")
 	print("c complete={c.isComplete()}\n")
-	sleep(50)
+	while not c.isComplete() 'running'
+		sleep(1)
+	end 'running'
 	print("c complete={c.isComplete()}\n")
 	let three = await c
 	print("{three}\n" if three == "3" else "wrong\n")
