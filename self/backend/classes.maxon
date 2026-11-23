@@ -188,6 +188,7 @@ export type ClassChoice
 			opElemAddr or
 			opLoadByte or
 			opBuffer or
+			opBytes or
 			opByteAt or
 			opAlloc or
 			opCallRuntime or

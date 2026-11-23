@@ -14,7 +14,10 @@
 // greaterEqual and equal fail for it, as an ordered comparison must, and their negations hold.
 
 // Constants and the addresses of what the link places: a page by adrp and the low bits of the address by the add or the
-// load after it, each with its reference. A constant in a d register is read from a word of the data.
+// load after it, each with its reference. A constant in a d register is fmov's immediate where its 8 bits hold it, 0.0
+// the zero register moved over, and any other double read from a word of the data.
+(const [c]) && sel.inXmm(ins.dst) and arm64HoldsFloatImmediate(c) => (FmovDImm r [arm64FloatImmediate(c)])
+(const [0]) && sel.inXmm(ins.dst) => (FmovDX r sp)
 (const [c]) && sel.inXmm(ins.dst) => (Adrp t [sel.floatRef(c)]) (LdrDPageOff r t [sel.floatRef(c)])
 (const [c]) && arm64OneMove(c) and arm64LadderInverted(c as FullRangeInt) => (MovnRegImm r [arm64OneMoveHalfword(c)] [arm64OneMoveShift(c)])
 (const [c]) && arm64OneMove(c) => (MovzRegImm r [arm64OneMoveHalfword(c)] [arm64OneMoveShift(c)])
@@ -62,6 +65,12 @@
 (storeRaw.8 a:(bin.add.!checked x y) v) && sel.fuses(fn, r: a) => (StrbIdx v x y)
 (storeRaw.64 a:(bin.add.!checked x (const [c])) v) && arm64Str64OffHolds(c as FullRangeInt) and sel.fuses(fn, r: a) => (Str64Off v x [c])
 (storeRaw.64 a:(bin.add.!checked x y) v) && sel.fuses(fn, r: a) => (Str64Idx1 v x y)
+// An element's address that only the access right after it reads is the buffer and the index of a register-offset
+// access, which scales the index by the word.
+(loadAt a:(elemAddr arr i)) && sel.fuses(fn, r: a) and sel.inXmm(ins.dst) => (Ldr64Off d arr [arrayDataOffset]) (LdrDIdx r d i)
+(loadAt a:(elemAddr arr i)) && sel.fuses(fn, r: a) => (Ldr64Off d arr [arrayDataOffset]) (Ldr64Idx r d i)
+(storeAt a:(elemAddr arr i) v) && sel.fuses(fn, r: a) and sel.inXmm(v) => (Ldr64Off d arr [arrayDataOffset]) (StrDIdx v d i)
+(storeAt a:(elemAddr arr i) v) && sel.fuses(fn, r: a) => (Ldr64Off d arr [arrayDataOffset]) (Str64Idx v d i)
 (loadAt a) && sel.inXmm(ins.dst) => (LdrDOff r a [0])
 (loadAt a) => (Ldr64Off r a [0])
 (storeAt a v) && sel.inXmm(v) => (StrDOff v a [0])
@@ -99,12 +108,13 @@
 (length.array s) => (Ldr64Off r s [arrayLengthOffset])
 (length.string s) => (Ldr64Off r s [stringLengthOffset])
 (bounds) => (emitArm64Bounds)
-(elemAddr a i) => (Ldr64Off d a [arrayDataOffset]) (UbfmRegReg w i [arm64LslImmr(arm64WordShift)] [arm64LslImms(arm64WordShift)]) (AddRegReg r d w)
+(elemAddr a i) => (Ldr64Off d a [arrayDataOffset]) (AddRegRegLsl r d i [arm64WordShift])
 (elemLoad a i) && sel.inXmm(ins.dst) => (Ldr64Off d a [arrayDataOffset]) (LdrDIdx r d i)
 (elemLoad a i) => (Ldr64Off d a [arrayDataOffset]) (Ldr64Idx r d i)
 (loadByte.array a i) => (Ldr64Off d a [arrayDataOffset]) (LdrbIdx r d i)
 (loadByte.string s i) => (AddRegImm p s [stringBytesOffset]) (LdrbIdx r p i)
 (buffer s) => (Ldr64Off r s [arrayDataOffset])
+(bytes s) => (AddRegImm r s [stringBytesOffset])
 (wordAt d i) && sel.inXmm(ins.dst) => (LdrDIdx r d i)
 (wordAt d i) => (Ldr64Idx r d i)
 (byteAt d i) => (LdrbIdx r d i)
@@ -114,6 +124,9 @@
 // of add and sub hold is one, and its negation the other operation's.
 (bin.add.!checked x (const [c])) && arm64HoldsImm12(c as FullRangeInt) => (AddRegImm r x [c])
 (bin.add.!checked x (const [c])) && arm64HoldsNegatedImm12(c as FullRangeInt) => (SubRegImm r x [-c])
+// A shift by a constant that only the addition or the subtraction right after it reads is its shifted operand.
+(bin.add.!checked x s:(bin.shl.!checked y (const [c]))) && shiftsInWord(c) and sel.fuses(fn, r: s) => (AddRegRegLsl r x y [c])
+(bin.add.!checked x s:(bin.shr.unsigned y (const [c]))) && shiftsInWord(c) and sel.fuses(fn, r: s) => (AddRegRegLsr r x y [c])
 (bin.add.!checked x y) => (AddRegReg r x y)
 (bin.add.unsigned.checked x (const [c]) [f]) && arm64HoldsImm12(c as FullRangeInt) => (AddsRegImm r x [c]) (BCond [MCond.aboveEqual] [f])
 (bin.add.unsigned.checked x y [f]) => (AddsRegReg r x y) (BCond [MCond.aboveEqual] [f])
@@ -122,6 +135,7 @@
 (bin.add.checked x y [f]) => (AddsRegReg r x y) (BCond [MCond.overflow] [f])
 (bin.sub.!checked x (const [c])) && arm64HoldsImm12(c as FullRangeInt) => (SubRegImm r x [c])
 (bin.sub.!checked x (const [c])) && arm64HoldsNegatedImm12(c as FullRangeInt) => (AddRegImm r x [-c])
+(bin.sub.!checked x s:(bin.shl.!checked y (const [c]))) && shiftsInWord(c) and sel.fuses(fn, r: s) => (SubRegRegLsl r x y [c])
 (bin.sub.!checked x y) => (SubRegReg r x y)
 (bin.sub.unsigned.checked x (const [c]) [f]) && arm64HoldsImm12(c as FullRangeInt) => (SubsRegImm r x [c]) (BCond [MCond.below] [f])
 (bin.sub.unsigned.checked x y [f]) => (SubsRegReg r x y) (BCond [MCond.below] [f])
@@ -130,6 +144,8 @@
 (bin.sub.checked x y [f]) => (SubsRegReg r x y) (BCond [MCond.overflow] [f])
 // A product's low word is the same signed or unsigned. It fits a signed word where the high word is the low word's sign
 // spread, and an unsigned one where the high word is 0; the low word, which r binds, is the result.
+// A product by one more than a power of two is the operand added to itself shifted.
+(bin.mul.!checked x (const [c])) && arm64ShiftedAddFactor(c) => (AddRegRegLsl r x x [arm64ShiftOfFactor(c)])
 (bin.mul.!checked x y) => (MulRegReg r x y)
 r:(bin.mul.!unsigned.checked x y [f])
 	=> (MulRegReg r x y) (SmulhRegReg h x y) (SbfmRegReg s r [arm64SignShift] [arm64SignShift]) (CmpRegReg h s) (BCond [MCond.notEqual] [f])
@@ -222,10 +238,13 @@ r:(bin.mul.unsigned.checked x y [f]) => (MulRegReg r x y) (UmulhRegReg h x y) (C
 
 // Terminators. A branch on a comparison that it alone reads, made right before it (Selector.fuses), makes the
 // comparison itself into the flags it goes by, and the comparison's own code, left with no reader, is removed; a test of
-// equality with 0 is cbz or cbnz; any other branch tests its condition against 0.
+// a word against 0 that holds where it is 0, or where it is not (equality, or an unsigned word at most 0 or above it), is
+// cbz or cbnz; any other branch tests its condition against 0.
 (jump [b]) => (B [b])
-(branch c:(cmp x (const [0])) [yes] [no]) && sel.fuses(fn, r: c) and condOf(sel, fn: fn, r: c) == MCond.equal => (Cbnz x [no]) (B [yes])
-(branch c:(cmp x (const [0])) [yes] [no]) && sel.fuses(fn, r: c) and condOf(sel, fn: fn, r: c) == MCond.notEqual => (Cbz x [no]) (B [yes])
+(branch c:(cmp x (const [0])) [yes] [no]) && sel.fuses(fn, r: c) and arm64HoldsAtZero(condOf(sel, fn: fn, r: c)) => (Cbnz x [no]) (B [yes])
+(branch c:(cmp x (const [0])) [yes] [no]) && sel.fuses(fn, r: c) and arm64HoldsOffZero(condOf(sel, fn: fn, r: c)) => (Cbz x [no]) (B [yes])
+(branch c:(cmp (const [0]) x) [yes] [no]) && sel.fuses(fn, r: c) and arm64HoldsAtZero(swapped(condOf(sel, fn: fn, r: c))) => (Cbnz x [no]) (B [yes])
+(branch c:(cmp (const [0]) x) [yes] [no]) && sel.fuses(fn, r: c) and arm64HoldsOffZero(swapped(condOf(sel, fn: fn, r: c))) => (Cbz x [no]) (B [yes])
 (branch c:(cmp x (const [k])) [yes] [no]) && arm64HoldsImm12(k as FullRangeInt) and sel.fuses(fn, r: c)
 	=> (CmpRegImm x [k]) (BCond [negated(condOf(sel, fn: fn, r: c))] [no]) (B [yes])
 (branch c:(cmp (const [k]) x) [yes] [no]) && arm64HoldsImm12(k as FullRangeInt) and sel.fuses(fn, r: c)

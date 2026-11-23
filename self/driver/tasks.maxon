@@ -472,7 +472,7 @@ function lowerModule(c Compile, mutates work ModuleWork, m Count, known Known, i
 			if c.options.verifyIr 'verifyLowered'
 				verifyFunctions(view, ms: ms, fns: lowered)
 			end 'verifyLowered'
-			var optimizer = opt.Optimizer.new()
+			var optimizer = opt.Optimizer.new(view.target.arch)
 			opt.optimizeModule(optimizer, fns: lowered)
 			inlineModule(c, work: work, p: view, ms: ms, m: m, known: known, fns: lowered, optimizer: optimizer, timing: timing)
 			if c.cache.enabled() 'summary'

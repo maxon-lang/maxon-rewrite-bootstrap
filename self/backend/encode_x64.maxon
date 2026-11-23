@@ -280,8 +280,8 @@ end 'needsFrame'
 
 function usesFrame(x MInstr, fp MReg, sp MReg) returns bool
 	return match x.kind 'kind'
-		target gives isCall(x.form) or isX64Form(x, form: X64Form.pushReg) or isX64Form(x, form: X64Form.popReg) or isX64Form(x, form: X64Form.pushImm32) or namesFrame(x, fp: fp, sp: sp)
-		copy gives namesFrame(x, fp: fp, sp: sp)
+		target gives isCall(x.form) or isX64Form(x, form: X64Form.pushReg) or isX64Form(x, form: X64Form.popReg) or isX64Form(x, form: X64Form.pushImm32) or namesFrame(x, fp: fp, other: sp)
+		copy gives namesFrame(x, fp: fp, other: sp)
 		spill or
 		reload or
 		restore gives true
@@ -291,11 +291,12 @@ function usesFrame(x MInstr, fp MReg, sp MReg) returns bool
 	end 'kind'
 end 'usesFrame'
 
-// namesFrame is whether an instruction names rbp or rsp as an operand.
-function namesFrame(x MInstr, fp MReg, sp MReg) returns bool
+// namesFrame is whether an instruction names as an operand the frame pointer or the other register a frame of its own
+// is kept by: x64's stack pointer, or arm64's link register, which the frame record saves.
+function namesFrame(x MInstr, fp MReg, other MReg) returns bool
 	for i in 0 upto operandCount(x) 'operands'
 		let r = operandAt(x, index: i)
-		if r == fp or r == sp 'frame'
+		if r == fp or r == other 'frame'
 			return true
 		end 'frame'
 	end 'operands'

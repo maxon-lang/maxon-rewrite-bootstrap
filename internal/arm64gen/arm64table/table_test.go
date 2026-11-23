@@ -90,6 +90,9 @@ var (
 	highSpread = []int64{1, 4095}
 	// wideSpread is a move-wide halfword's: the assembler writes the halfword at a shift, and has no way to write 0 at one.
 	wideSpread = []int64{1, 0xFFFF}
+	// fpImmSpread is a floating-point immediate's: 2.125, 1.0 and -1.9375. The assembler loads 2.0, whose 8 bits are 0,
+	// from memory instead, so a literal word has that one.
+	fpImmSpread = []int64{1, 0x70, 0xFF}
 	// unscaledSpread are offsets that only the unscaled forms hold, so that an assembler that picks the form by the
 	// offset picks them.
 	unscaledSpread = []int64{-256, -1}
@@ -117,6 +120,8 @@ func spreads(f form) [][]int64 {
 				out = append(out, highSpread)
 			case o.name == "imm" && o.at == imm16At && o.bits == imm16Bits && len(f.operands) == 3:
 				out = append(out, wideSpread)
+			case o.at == fpImmAt && o.bits == fpImmBits:
+				out = append(out, fpImmSpread)
 			default:
 				out = append(out, []int64{0, 1, 1<<o.bits - 1})
 			}
@@ -305,6 +310,7 @@ var literal = []struct {
 	{"Bl", []int64{0x7FFFFFC}, 0x95FFFFFF},
 	{"Cbnz", []int64{3, -8}, 0xB5FFFFC3},
 	{"FmovDX", []int64{1, 2}, 0x9E670041},
+	{"FmovDImm", []int64{0, 0}, 0x1E601000},
 	{"AddRegImm", []int64{31, 31, 16}, 0x910043FF},
 	{"SubRegImm", []int64{31, 31, 16}, 0xD10043FF},
 	{"SubRegImmHigh", []int64{31, 31, 1}, 0xD14007FF},

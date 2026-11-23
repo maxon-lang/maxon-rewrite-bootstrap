@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"encoding/hex"
 	"fmt"
+	"math"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -23,6 +24,8 @@ const captureVariable = "ARM64_CAPTURE_GOLDEN"
 // destination last.
 var goSyntax = map[string]string{
 	"AddRegReg": "ADD {right}, {left}, {dest}", "SubRegReg": "SUB {right}, {left}, {dest}",
+	"AddRegRegLsl": "ADD {right}<<{shift:count}, {left}, {dest}", "AddRegRegLsr": "ADD {right}>>{shift:count}, {left}, {dest}",
+	"SubRegRegLsl": "SUB {right}<<{shift:count}, {left}, {dest}", "FmovDImm": "FMOVD {imm:double}, {dest}",
 	"AddsRegReg": "ADDS {right}, {left}, {dest}", "SubsRegReg": "SUBS {right}, {left}, {dest}",
 	"CmpRegReg": "CMP {right}, {left}", "NegReg": "NEG {src}, {dest}",
 	"AndRegReg": "AND {right}, {left}, {dest}", "OrrRegReg": "ORR {right}, {left}, {dest}",
@@ -133,6 +136,15 @@ func goText(c goldenCase) string {
 				return fmt.Sprintf("$%d", v<<imm12Bits)
 			case "wide":
 				return fmt.Sprintf("$(%d<<%d)", v, c.vals[at+1]*imm16Bits)
+			case "count":
+				return strconv.FormatInt(v, 10)
+			case "double":
+				// The point makes the assembler read the number as a float.
+				text := strconv.FormatFloat(expandFPImm(v), 'f', -1, 64)
+				if !strings.Contains(text, ".") {
+					text += ".0"
+				}
+				return "$(" + text + ")"
 			}
 			return fmt.Sprintf("$%d", v)
 		case kindMask, kindPageOffset:
@@ -147,6 +159,17 @@ func goText(c goldenCase) string {
 			panic(fmt.Sprintf("%s: no Go syntax for operand kind %d", c.form.name, o.kind))
 		}
 	})
+}
+
+// expandFPImm is the double that a floating-point immediate's 8 bits stand for (the manual's VFPExpandImm): the sign,
+// the top bit of the exponent inverted and then repeated eight times, the exponent's two low bits, and four bits of the
+// fraction.
+func expandFPImm(imm8 int64) float64 {
+	sign := uint64(imm8>>7) & 1
+	top := uint64(imm8>>6) & 1
+	exp := (top^1)<<10 | (top*0xFF)<<2 | uint64(imm8>>4)&3
+	frac := uint64(imm8) & 0xF
+	return math.Float64frombits(sign<<63 | exp<<52 | frac<<48)
 }
 
 // padOf is the words a branch case goes back over to its label.

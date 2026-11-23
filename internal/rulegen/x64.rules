@@ -99,6 +99,7 @@
 (loadByte.array a i) => (LoadRegBaseDisp d a [arrayDataOffset]) (MovzxRegByteBaseIndex1Disp r d i [0])
 (loadByte.string s i) => (MovzxRegByteBaseIndex1Disp r s i [stringBytesOffset])
 (buffer s) => (LoadRegBaseDisp r s [arrayDataOffset])
+(bytes s) => (LeaRegBaseDisp r s [stringBytesOffset])
 (wordAt d i) && sel.inXmm(ins.dst) => (MovsdRegBaseIndex8Disp r d i [0])
 (wordAt d i) => (LoadRegBaseIndex8Disp r d i [0])
 (byteAt d i) => (MovzxRegByteBaseIndex1Disp r d i [0])

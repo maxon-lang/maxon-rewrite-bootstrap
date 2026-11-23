@@ -14,9 +14,10 @@ export type DeadCode
 	// definition the sweep has passed, which only another sweep removes: a loop's.
 	var sweepAt as Count
 	var again as bool
-	// flagsLiveIn is whether a block may read the flags it is entered with: its first instruction that reads or writes
-	// them reads them, or none does.
+	// flagsLiveIn is whether a block may read the flags it is entered with, and flagsPass whether it neither reads nor
+	// writes them (findFlagsLiveIn).
 	var flagsLiveIn as BoolList
+	var flagsPass as BoolList
 	var written as BoolList
 	var out as MInstrList
 	// alias is the register each virtual register's reads read once copies are propagated: its own, or the one a copy
@@ -24,7 +25,7 @@ export type DeadCode
 	var alias as MRegList
 
 	static function new() returns DeadCode
-		return DeadCode{readCount: CountList.create(0), defAt: CountList.create(0), dead: BoolList.create(0), sweepAt: 0, again: false, flagsLiveIn: BoolList.create(0), written: BoolList.create(0), out: MInstrList.create(0), alias: MRegList.create(0)}
+		return DeadCode{readCount: CountList.create(0), defAt: CountList.create(0), dead: BoolList.create(0), sweepAt: 0, again: false, flagsLiveIn: BoolList.create(0), flagsPass: BoolList.create(0), written: BoolList.create(0), out: MInstrList.create(0), alias: MRegList.create(0)}
 	end 'new'
 
 	// remove leaves out the dead instructions of fn, until none is left, and writes its blocks in the order of its layout.
@@ -34,7 +35,7 @@ export type DeadCode
 		fn.endBlock()
 		self.propagateCopies(fn)
 		self.countUses(fn)
-		findFlagsLiveIn(fn, liveIn: flagsLiveIn)
+		findFlagsLiveIn(fn, liveIn: flagsLiveIn, passes: flagsPass)
 		ir.resetFlags(dead, n: fn.instrs.count())
 		var any = false
 		again = true
@@ -261,24 +262,41 @@ function readsFlagsOf(x MInstr) returns bool
 end 'readsFlagsOf'
 
 // findFlagsLiveIn finds whether each block may read the flags it is entered with: its first instruction that reads or
-// writes them reads them, or none does.
-function findFlagsLiveIn(fn MirFunction, mutates liveIn BoolList)
+// writes them reads them, or none does and a block it branches to may read them. passes is whether a block is of the
+// second kind, which takes what its successors say, round after round until no answer changes: an answer only goes from
+// false to true, so the rounds end.
+function findFlagsLiveIn(fn MirFunction, mutates liveIn BoolList, mutates passes BoolList)
 	ir.resetFlags(liveIn, n: fn.blocks.count())
+	ir.resetFlags(passes, n: fn.blocks.count())
 	for b in 0 upto fn.blocks.count() 'blocks'
-		var live = true
+		var touches = false
 		var k = fn.blocks[b].first
 		while k < fn.blocks[b].endAt 'instrs'
 			if readsFlagsOf(fn.instrs[k]) 'reads'
+				liveIn[b] = true
+				touches = true
 				break
 			end 'reads'
 			if killsFlags(fn.instrs[k]) 'writes'
-				live = false
+				touches = true
 				break
 			end 'writes'
 			k = nextCount(k)
 		end 'instrs'
-		liveIn[b] = live
+		passes[b] = not touches
 	end 'blocks'
+	var changed = true
+	while changed 'rounds'
+		changed = false
+		var b = fn.blocks.count()
+		while b > 0 'blocks'
+			b = prevCount(b)
+			if passes[b] and not liveIn[b] and flagsLiveOut(fn, b: b, liveIn: liveIn) 'reads'
+				liveIn[b] = true
+				changed = true
+			end 'reads'
+		end 'blocks'
+	end 'rounds'
 end 'findFlagsLiveIn'
 
 // flagsLiveOut is whether a block that branches along its edges to blocks of which liveIn says so leaves the flags read.

@@ -157,8 +157,7 @@ extension Selector
 
 	// arm64WordAddress is the address of the word at an index of the buffer at base: the index shifted by 3, added.
 	function arm64WordAddress(mutates self, base MReg, index MReg) returns MReg
-		let scaled = self.arm64Define(Arm64Form.ubfmRegReg, b: index, c: noMReg, aux: arm64Field32(arm64Disp(arm64LslImms(arm64WordShift))), imm: arm64Disp(arm64LslImmr(arm64WordShift)))
-		return self.arm64Define(Arm64Form.addRegReg, b: base, c: scaled, aux: 0, imm: 0)
+		return self.arm64Define(Arm64Form.addRegRegLsl, b: base, c: index, aux: 0, imm: arm64WordShift as FullRangeInt)
 	end 'arm64WordAddress'
 
 	function arm64LoadIndexedByte(mutates self, base MReg, index MReg, disp Imm32) returns MReg

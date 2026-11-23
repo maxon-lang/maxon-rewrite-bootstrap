@@ -24,6 +24,13 @@
 // everywhere it dominates, as the table knows what was computed: a branch below it on the same condition becomes a jump to
 // the side it takes, and the editor leaves out the blocks that only the other side reached.
 //
+// What the walk knows also proves indexes below lengths, as unsigned words, everywhere a segment dominates: a branch's
+// condition that is such a comparison, on the side where it says so, and a parameter of a block that each edge into it
+// gives a value below one length on the way in (the edge leaves a branch that says so, directly or through blocks that
+// one edge enters and that jump on, as a preheader does), as the index of a counted loop is at its header: below the length at the guard and at the test of each
+// iteration. The length is defined above the block, so it is the same on every edge. A bounds check of a proven index
+// against its length cannot fail, and goes with its failure block.
+//
 // The cost is linear: one analysis, one pass over the segments in reverse postorder, the walk with its table (open
 // addressing, its slots stamped by function so it is never cleared), and the copy of the function when something went.
 
@@ -87,9 +94,14 @@ export type Cse
 	var known as Array with Count
 	var learned as ir.RegList
 	var learnedMarks as Array with Count
+	// The indexes proven below lengths on the path, each beside its length, which the walk forgets back to a mark as it
+	// leaves the segment that proved them.
+	var provenIndex as ir.RegList
+	var provenLength as ir.RegList
+	var provenMarks as Array with Count
 
 	export static function new() returns Cse
-		return Cse{merged: 0, editor: Editor.new(), entry: Array.create(0), exit: Array.create(0), versions: 0, repl: ir.RegList.create(0), replaced: false, slotInstr: Array.create(0), slotVersion: Array.create(0), slotStamp: Array.create(0), stamp: 0, mask: 0, filled: Array.create(0), stack: Array.create(0), cursor: Array.create(0), marks: Array.create(0), regs: ir.RegList.create(0), constant: Array.create(0), constantValue: Array.create(0), known: Array.create(0), learned: ir.RegList.create(0), learnedMarks: Array.create(0)}
+		return Cse{merged: 0, editor: Editor.new(), entry: Array.create(0), exit: Array.create(0), versions: 0, repl: ir.RegList.create(0), replaced: false, slotInstr: Array.create(0), slotVersion: Array.create(0), slotStamp: Array.create(0), stamp: 0, mask: 0, filled: Array.create(0), stack: Array.create(0), cursor: Array.create(0), marks: Array.create(0), regs: ir.RegList.create(0), constant: Array.create(0), constantValue: Array.create(0), known: Array.create(0), learned: ir.RegList.create(0), learnedMarks: Array.create(0), provenIndex: ir.RegList.create(0), provenLength: ir.RegList.create(0), provenMarks: Array.create(0)}
 	end 'new'
 
 	// eliminate removes the redundant instructions of f, which is in SSA form and keeps the verifier's rules, and which
@@ -106,6 +118,9 @@ export type Cse
 		ir.resetCounts(known, n: f.regs.count())
 		learned.clear()
 		learnedMarks.clear()
+		provenIndex.clear()
+		provenLength.clear()
+		provenMarks.clear()
 		editor.begin(f)
 		self.walk(f, analysis: analysis, facts: facts)
 		if not editor.changed 'none'
@@ -260,6 +275,11 @@ export type Cse
 					let r = try learned.pop() otherwise panic("opt: an empty walk")
 					known[regIndex(r)] = unknownCondition
 				end 'forget'
+				let provenMark = try provenMarks.pop() otherwise panic("opt: an empty walk")
+				while provenIndex.count() > provenMark 'unprove'
+					_ = try provenIndex.pop() otherwise panic("opt: an empty walk")
+					_ = try provenLength.pop() otherwise panic("opt: an empty walk")
+				end 'unprove'
 				_ = try stack.pop() otherwise panic("opt: an empty walk")
 				_ = try cursor.pop() otherwise panic("opt: an empty walk")
 			end 'leave'
@@ -274,7 +294,9 @@ export type Cse
 		let height = filled.count()
 		marks.push(height)
 		learnedMarks.push(learned.count())
+		provenMarks.push(provenIndex.count())
 		self.learnBranch(f, s: s, analysis: analysis)
+		self.learnParams(f, s: s, analysis: analysis)
 		if s != analysis.flow.segBase[analysis.flow.segBlock[s]] 'afterCheck'
 			// The check that ended the segment before this one passed here.
 			let k = try analysis.flow.segEnd[try s - 1 otherwise panic("opt: a segment before the first")] - 1 otherwise panic("opt: an empty segment ends in a check")
@@ -288,6 +310,11 @@ export type Cse
 			if replaced 'rename'
 				ir.renameInstrReads(f.instrs[k], args: f.args, names: repl)
 			end 'rename'
+			if f.instrs[k].op == ir.Opcode.opBounds and self.provenBelow(ir.boundsIndex(f.instrs[k]), length: ir.boundsLength(f.instrs[k])) 'proven'
+				editor.remove(k)
+				merged = plusOne(merged)
+				continue 'instrs'
+			end 'proven'
 			let m = motionOf(f.instrs[k])
 			if m == Motion.clobber 'clobber'
 				v = exit[s] if plusOne(k) == last else self.newVersion()
@@ -340,9 +367,191 @@ export type Cse
 			return
 		end 'already'
 		let b = analysis.flow.segBlock[s]
-		known[regIndex(cond)] = conditionHolds if ir.blockIndex(ir.branchIfTrue(f.blocks[from].term)) == b else conditionFails
+		let holds = ir.blockIndex(ir.branchIfTrue(f.blocks[from].term)) == b
+		known[regIndex(cond)] = conditionHolds if holds else conditionFails
 		learned.push(cond)
+		let below = self.comparedBelow(f, cond: cond, holds: holds, analysis: analysis)
+		if below.isSome() 'proves'
+			let pair = below.unwrap()
+			provenIndex.push(pair.index)
+			provenLength.push(pair.length)
+		end 'proves'
 	end 'learnBranch'
+
+	// learnParams proves each parameter of the block that s starts below a length where every edge into it gives a value
+	// below that length, and the length is defined in a segment that dominates s.
+	function learnParams(mutates self, f ir.IrFunction, s Count, analysis Analysis)
+		let b = analysis.flow.segBlock[s]
+		if s == 0 or s != analysis.flow.segBase[b] or f.blocks[b].paramCount == 0 'noParams'
+			return
+		end 'noParams'
+		for j in 0 upto f.blocks[b].paramCount 'params'
+			var length = ir.noReg
+			var edges = 0 as Count
+			var proven = true
+			for e in analysis.flow.predStart[s] upto analysis.flow.predStart[plusOne(s)] 'edges'
+				let p = analysis.flow.pred[e]
+				if not analysis.flow.reached[p] 'unreached'
+					continue 'edges'
+				end 'unreached'
+				let bound = self.edgeBound(f, p: p, to: b, j: j, analysis: analysis)
+				if not bound.isSome() 'unknown'
+					proven = false
+					break 'edges'
+				end 'unknown'
+				let n = bound.unwrap()
+				if edges == 0 'first'
+					length = n
+				end 'first' else if not self.sameOperand(self.canon(length), b: self.canon(n)) 'differs'
+					proven = false
+					break 'edges'
+				end 'differs'
+				edges = plusOne(edges)
+			end 'edges'
+			if proven and edges > 0 and self.definedAbove(length, s: s, analysis: analysis) 'proves'
+				provenIndex.push(f.blockParam(b, i: j))
+				provenLength.push(self.canon(length))
+			end 'proves'
+		end 'params'
+	end 'learnParams'
+
+	// definedAbove is whether a constant gives r, or its definition is in a segment that dominates s and is not s, so that
+	// r holds one value wherever s is entered from.
+	function definedAbove(r ir.Reg, s Count, analysis Analysis) returns bool
+		if self.isConstant(r) 'constant'
+			return true
+		end 'constant'
+		let at = regIndex(self.canon(r))
+		if not analysis.flow.defs.defined[at] 'undefined'
+			return false
+		end 'undefined'
+		let d = analysis.flow.defs.seg[at]
+		return d != s and analysis.flow.dominates(d, b: s)
+	end 'definedAbove'
+
+	// edgeBound is the length that the edge from segment p into block b proves the value it passes to the parameter j of
+	// b below: the edge leaves a branch, or a block that ends in a jump and is entered from one segment, whose own edge
+	// leaves such a branch, on the side where the branch's condition says so. Values are SSA registers, so what the
+	// branch compared holds all the way along.
+	function edgeBound(f ir.IrFunction, p Count, to Count, j Count, analysis Analysis) returns table.Option with ir.Reg
+		if analysis.flow.endsInFailure(p) 'failure'
+			return table.Option.none
+		end 'failure'
+		let from = analysis.flow.segBlock[p]
+		let arg = edgeArg(f, from: from, to: to, j: j)
+		if not arg.isSome() 'noArg'
+			return table.Option.none
+		end 'noArg'
+		var block = from
+		var into = to
+		for _ in 0 upto maxProofSteps 'back'
+			if f.blocks[block].term.kind == ir.TermKind.termBranch 'branch'
+				let yes = ir.blockIndex(ir.branchIfTrue(f.blocks[block].term))
+				let no = ir.blockIndex(ir.branchIfFalse(f.blocks[block].term))
+				if yes == no 'bothSides'
+					return table.Option.none
+				end 'bothSides'
+				return self.boundAt(f, cond: ir.branchCond(f.blocks[block].term), holds: yes == into, index: arg.unwrap(), analysis: analysis)
+			end 'branch'
+			let start = analysis.flow.segBase[block]
+			if f.blocks[block].term.kind != ir.TermKind.termJump or plusOne(analysis.flow.predStart[start]) != analysis.flow.predStart[plusOne(start)] 'notPassing'
+				return table.Option.none
+			end 'notPassing'
+			let before = analysis.flow.pred[analysis.flow.predStart[start]]
+			if analysis.flow.endsInFailure(before) 'failureIn'
+				return table.Option.none
+			end 'failureIn'
+			into = block
+			block = analysis.flow.segBlock[before]
+		end 'back'
+		return table.Option.none
+	end 'edgeBound'
+
+	// boundAt is the length that the branch on cond proves index below, on its true side where holds says so and on its
+	// false side otherwise.
+	function boundAt(f ir.IrFunction, cond ir.Reg, holds bool, index ir.Reg, analysis Analysis) returns table.Option with ir.Reg
+		let below = self.comparedBelow(f, cond: cond, holds: holds, analysis: analysis)
+		if below.isSome() 'compared'
+			let pair = below.unwrap()
+			if self.sameOperand(self.canon(pair.index), b: self.canon(index)) 'same'
+				return table.Option.some(pair.length)
+			end 'same'
+		end 'compared'
+		if self.isConstant(index) and constantValue[regIndex(index)] == 0 'zero'
+			return self.nonZero(f, cond: cond, holds: holds, analysis: analysis)
+		end 'zero'
+		return table.Option.none
+	end 'boundAt'
+
+	// comparedBelow is the index and the length that the comparison cond proves the one below the other, as unsigned
+	// words, where it holds, or fails when holds is false.
+	function comparedBelow(f ir.IrFunction, cond ir.Reg, holds bool, analysis Analysis) returns table.Option with BelowPair
+		let x = self.definition(f, r: cond, analysis: analysis)
+		if not x.isSome() 'noCompare'
+			return table.Option.none
+		end 'noCompare'
+		let c = x.unwrap()
+		if not ir.cmpUnsigned(c) 'signed'
+			return table.Option.none
+		end 'signed'
+		let op = ir.cmpOp(c)
+		if (op == ir.CmpOp.cmpLt and holds) or (op == ir.CmpOp.cmpGe and not holds) 'leftBelow'
+			return table.Option.some(BelowPair.make(ir.cmpLeft(c), length: ir.cmpRight(c)))
+		end 'leftBelow'
+		if (op == ir.CmpOp.cmpGt and holds) or (op == ir.CmpOp.cmpLe and not holds) 'rightBelow'
+			return table.Option.some(BelowPair.make(ir.cmpRight(c), length: ir.cmpLeft(c)))
+		end 'rightBelow'
+		return table.Option.none
+	end 'comparedBelow'
+
+	// nonZero is the register that the comparison cond proves is not 0, which 0 is below, where it holds, or fails when
+	// holds is false.
+	function nonZero(f ir.IrFunction, cond ir.Reg, holds bool, analysis Analysis) returns table.Option with ir.Reg
+		let x = self.definition(f, r: cond, analysis: analysis)
+		if not x.isSome() 'noCompare'
+			return table.Option.none
+		end 'noCompare'
+		let c = x.unwrap()
+		let op = ir.cmpOp(c)
+		if not ((op == ir.CmpOp.cmpNe and holds) or (op == ir.CmpOp.cmpEq and not holds)) 'equality'
+			return table.Option.none
+		end 'equality'
+		if self.isConstant(ir.cmpRight(c)) and constantValue[regIndex(ir.cmpRight(c))] == 0 'rightZero'
+			return table.Option.some(ir.cmpLeft(c))
+		end 'rightZero'
+		if self.isConstant(ir.cmpLeft(c)) and constantValue[regIndex(ir.cmpLeft(c))] == 0 'leftZero'
+			return table.Option.some(ir.cmpRight(c))
+		end 'leftZero'
+		return table.Option.none
+	end 'nonZero'
+
+	// definition is the comparison that defines r, if one does.
+	function definition(f ir.IrFunction, r ir.Reg, analysis Analysis) returns table.Option with ir.Instr
+		let at = analysis.flow.defs.instr[regIndex(r)]
+		if at == ir.noDef 'param'
+			return table.Option.none
+		end 'param'
+		let k = try at as Count otherwise panic("opt: a definition before the instructions")
+		if f.instrs[k].op != ir.Opcode.opCmp 'other'
+			return table.Option.none
+		end 'other'
+		return table.Option.some(f.instrs[k].clone())
+	end 'definition'
+
+	// canon is the register a read of r reads once the replacements found so far are made.
+	function canon(r ir.Reg) returns ir.Reg
+		return repl[regIndex(r)]
+	end 'canon'
+
+	// provenBelow is whether the path to the segment being walked proved index below length.
+	function provenBelow(index ir.Reg, length ir.Reg) returns bool
+		for i in 0 upto provenIndex.count() 'pairs'
+			if self.sameOperand(self.canon(provenIndex[i]), b: self.canon(index)) and self.sameOperand(self.canon(provenLength[i]), b: self.canon(length)) 'found'
+				return true
+			end 'found'
+		end 'pairs'
+		return false
+	end 'provenBelow'
 
 	// takeKnownSide makes a branch of block b on a condition that the branches above it decided a jump to the side it takes.
 	function takeKnownSide(mutates self, mutates f ir.IrFunction, b Count)
@@ -384,6 +593,37 @@ export type Cse
 		filled.push(slot)
 	end 'record'
 end 'Cse'
+
+// maxProofSteps is the most blocks that one edge enters and that jump on, that an edge passes through on its way back to
+// the branch that proves its value below a length: the preheader that loop-invariant code motion makes, and the block of
+// the branch's side.
+let maxProofSteps = 4 as Count
+
+// BelowPair is an index that a comparison proves below a length, as unsigned words.
+type BelowPair
+	var index as ir.Reg
+	var length as ir.Reg
+
+	static function make(index ir.Reg, length ir.Reg) returns BelowPair
+		return BelowPair{index: index, length: length}
+	end 'make'
+end 'BelowPair'
+
+// edgeArg is the argument that block from passes to the parameter j of block to along its one edge to it, if it has one.
+function edgeArg(f ir.IrFunction, from Count, to Count, j Count) returns table.Option with ir.Reg
+	let term = f.blocks[from].term.clone()
+	var start = 0 as Count
+	if term.kind == ir.TermKind.termJump and ir.blockIndex(ir.jumpTarget(term)) == to 'jump'
+		start = ir.jumpArgsStart(term)
+	end 'jump' else if term.kind == ir.TermKind.termBranch and ir.blockIndex(ir.branchIfTrue(term)) == to and ir.blockIndex(ir.branchIfFalse(term)) != to 'yes'
+		start = ir.branchTrueArgsStart(term)
+	end 'yes' else if term.kind == ir.TermKind.termBranch and ir.blockIndex(ir.branchIfFalse(term)) == to and ir.blockIndex(ir.branchIfTrue(term)) != to 'no'
+		start = ir.branchFalseArgsStart(term)
+	end 'no' else 'other'
+		return table.Option.none
+	end 'other'
+	return table.Option.some(f.args[try start + j otherwise panic("opt: an argument past the pool")])
+end 'edgeArg'
 
 // regPart is the bits of a register field, which an operand that is not there holds as 0 or ir.noReg.
 function regPart(r ir.Reg) returns Count

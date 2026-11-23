@@ -1,7 +1,7 @@
 // The arm64 encoder of machine IR, as encode_x64.maxon is x64's: an allocated function, every operand physical, into a
 // code unit, with the label uses and fixups of arm64's kinds. The blocks are laid out as a BlockLayout plans
-// (branches.maxon). The frame is maxon's (Arm64PrologueEpilogue.maxon): every function has a frame record, the caller's
-// frame pointer and the return address, which the frame pointer points at; the room for the arguments its calls pass on
+// (branches.maxon). The frame is maxon's (Arm64PrologueEpilogue.maxon): every function but a leaf that needs none
+// (arm64NeedsFrame) has a frame record, the caller's frame pointer and the return address, which the frame pointer points at; the room for the arguments its calls pass on
 // the stack is below it, at the stack pointer, where AAPCS64 has a callee find them; the slots are above it, the fixed
 // ones and then the spill slots, a word each at [x29 + 16 + slot*8]; and the callee-saved registers its values were given
 // are kept in words above the slots. The stack pointer does not move between the prologue and an epilogue.
@@ -20,7 +20,7 @@ let arm64PreIndexReach = 504
 // branch reaches. Only a branch that went far is written the long way, and it stays long, so the writing ends.
 export function encodeArm64Function(mutates u CodeUnit, fn MirFunction, instance bool, mutates lay BlockLayout)
 	lay.plan(fn)
-	lay.framed = true
+	lay.framed = arm64NeedsFrame(fn)
 	lay.sites.clear()
 	lay.relaxed.clear()
 	u.beginSection()
@@ -125,10 +125,42 @@ function arm64EncodeInstr(mutates u CodeUnit, fn MirFunction, lay BlockLayout, x
 		reload or
 		restore then arm64FrameAccess(u, load: true, r: x.a, disp: arm64SlotDisp(spillSlotOf(x) as Count) as FullRangeInt)
 		parallelCopy then panic("backend: a parallel copy that allocation left")
-		frameSetup then arm64EncodeFrameSetup(u, fn: fn)
-		frameTeardown then arm64EncodeFrameTeardown(u, fn: fn)
+		frameSetup then arm64EncodeFrameSetup(u, fn: fn, framed: lay.framed)
+		frameTeardown then arm64EncodeFrameTeardown(u, fn: fn, framed: lay.framed)
 	end 'kind'
 end 'arm64EncodeInstr'
+
+// arm64NeedsFrame is whether a function needs a frame of its own: it has slots, spills or callee-saved registers, which
+// are kept above the frame record and addressed from x29, or arguments on the stack either way, or a call, which
+// overwrites x30, or it names x29 or x30 itself. Otherwise it is a leaf, which AAPCS64 lets keep no frame record: the
+// caller's frame pointer and the return address stay in their registers, and a green thread stopped in it resumes with
+// both, as rt.asyncPreempt keeps every register.
+function arm64NeedsFrame(fn MirFunction) returns bool
+	if fn.slotsGiven() > 0 or fn.savedRegs != 0 or fn.outgoingBytes != 0 or fn.incomingStack 'kept'
+		return true
+	end 'kept'
+	let fp = arm64PhysReg(arm64FramePointer)
+	let lr = arm64PhysReg(arm64LinkRegister)
+	for k in 0 upto fn.instrs.count() 'instrs'
+		if arm64UsesFrame(fn.instrs[k], fp: fp, lr: lr) 'uses'
+			return true
+		end 'uses'
+	end 'instrs'
+	return false
+end 'arm64NeedsFrame'
+
+function arm64UsesFrame(x MInstr, fp MReg, lr MReg) returns bool
+	return match x.kind 'kind'
+		target gives isCall(x.form) or namesFrame(x, fp: fp, other: lr)
+		copy gives namesFrame(x, fp: fp, other: lr)
+		spill or
+		reload or
+		restore gives true
+		parallelCopy gives panic("backend: a parallel copy that allocation left")
+		frameSetup or
+		frameTeardown gives false
+	end 'kind'
+end 'arm64UsesFrame'
 
 // arm64EncodeCopy moves a register to another of its class.
 function arm64EncodeCopy(mutates u CodeUnit, x MInstr)
@@ -247,8 +279,11 @@ end 'arm64FrameSize'
 // arm64EncodeFrameSetup is the prologue: the frame made room for below the stack pointer, touching each page of a frame
 // past one, the frame record stored above the outgoing arguments and the frame pointer pointed at it, the callee-saved
 // registers the function's values were given kept above the slots, and for a function that takes arguments on the stack,
-// their address, its caller's stack pointer, in arm64IncomingBase.
-function arm64EncodeFrameSetup(mutates u CodeUnit, fn MirFunction)
+// their address, its caller's stack pointer, in arm64IncomingBase. A leaf with no frame has no prologue.
+function arm64EncodeFrameSetup(mutates u CodeUnit, fn MirFunction, framed bool)
+	if not framed 'leaf'
+		return
+	end 'leaf'
 	let size = arm64FrameSize(fn)
 	let sp = Arm64Register.sp
 	if fn.outgoingBytes == 0 and size <= arm64PreIndexReach 'pair'
@@ -288,8 +323,11 @@ function arm64SaveCallee(mutates u CodeUnit, fn MirFunction, load bool)
 end 'arm64SaveCallee'
 
 // arm64EncodeFrameTeardown loads back the callee-saved registers and the frame record, and gives the frame back: the stack
-// pointer is the frame's bottom at every epilogue.
-function arm64EncodeFrameTeardown(mutates u CodeUnit, fn MirFunction)
+// pointer is the frame's bottom at every epilogue. A leaf with no frame has nothing to give back.
+function arm64EncodeFrameTeardown(mutates u CodeUnit, fn MirFunction, framed bool)
+	if not framed 'leaf'
+		return
+	end 'leaf'
 	arm64SaveCallee(u, fn: fn, load: true)
 	let size = arm64FrameSize(fn)
 	let sp = Arm64Register.sp

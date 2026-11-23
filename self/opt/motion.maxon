@@ -66,6 +66,7 @@ export function motionOf(x ir.Instr) returns Motion
 		opIntToFloat or
 		opFloatToInt or
 		opNot or
+		opBytes or
 		opTrailingZeros gives Motion.pure
 		opBin gives binMotion(x)
 		opNeg gives Motion.check if ir.instrCanFail(x) else Motion.pure

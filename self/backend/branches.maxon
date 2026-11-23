@@ -10,10 +10,12 @@ export type BlockLayout
 	// resolved is the block a branch to each block goes to: the block itself, or where its chain of jumps ends.
 	var resolved as MBlockIDList
 	var forwards as BoolList
-	// flagsLiveIn is whether a block may read the flags it is entered with, and flagsLiveAfter whether the flags are read
-	// after each instruction before they are written again.
+	// flagsLiveIn is whether a block may read the flags it is entered with, flagsPass whether it neither reads nor writes
+	// them (findFlagsLiveIn), and flagsLiveAfter whether the flags are read after each instruction before they are written
+	// again.
 	var flagsLiveIn as BoolList
 	var flagsLiveAfter as BoolList
+	var flagsPass as BoolList
 	// framed is whether the function needs a frame of its own, which the architecture's encoder decides.
 	var framed as bool
 	// position is where each block is in order. loopEnd is, for the head of a loop as the code runs it, the position past
@@ -31,7 +33,7 @@ export type BlockLayout
 	var site as Count
 
 	export static function new() returns BlockLayout
-		return BlockLayout{order: MBlockIDList.create(0), resolved: MBlockIDList.create(0), forwards: BoolList.create(0), flagsLiveIn: BoolList.create(0), flagsLiveAfter: BoolList.create(0), framed: true, position: CountList.create(0), loopEnd: CountList.create(0), heads: false, starts: CountList.create(0), sites: CountList.create(0), relaxed: BoolList.create(0), site: 0}
+		return BlockLayout{order: MBlockIDList.create(0), resolved: MBlockIDList.create(0), forwards: BoolList.create(0), flagsLiveIn: BoolList.create(0), flagsLiveAfter: BoolList.create(0), flagsPass: BoolList.create(0), framed: true, position: CountList.create(0), loopEnd: CountList.create(0), heads: false, starts: CountList.create(0), sites: CountList.create(0), relaxed: BoolList.create(0), site: 0}
 	end 'new'
 
 	// nextSite notes that the conditional branch written next is at a position, and is whether it is relaxed.
@@ -175,7 +177,7 @@ export type BlockLayout
 	end 'place'
 
 	function findFlags(mutates self, fn MirFunction)
-		findFlagsLiveIn(fn, liveIn: flagsLiveIn)
+		findFlagsLiveIn(fn, liveIn: flagsLiveIn, passes: flagsPass)
 		ir.resetFlags(flagsLiveAfter, n: fn.instrs.count())
 		for b in 0 upto fn.blocks.count() 'blocks'
 			var live = flagsLiveOut(fn, b: b, liveIn: flagsLiveIn)

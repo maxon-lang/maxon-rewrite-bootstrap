@@ -193,6 +193,11 @@ type Machine implements ir.InstrVisitor, ir.TermVisitor
 		panic("interp: a buffer, which only the native optimizer makes")
 	end 'visitBuffer'
 
+	// Only a native build's optimizer makes a bytes (self/opt/licm.maxon), which the IR the interpreter runs never holds.
+	function visitBytes(mutates self, f ir.IrFunction, x ir.Instr)
+		panic("interp: a bytes, which only the native optimizer makes")
+	end 'visitBytes'
+
 	// Only a native build's optimizer makes a wordAt (self/opt/licm.maxon), which the IR the interpreter runs never holds.
 	function visitWordAt(mutates self, f ir.IrFunction, x ir.Instr)
 		panic("interp: a wordAt, which only the native optimizer makes")

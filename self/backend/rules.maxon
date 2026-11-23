@@ -161,6 +161,79 @@ function arm64LslImms(c ir.Word) returns Count
 	return try (arm64SignShift - c) as Count otherwise panic("backend: a shift past the word")
 end 'arm64LslImms'
 
+// The bits of a double that fmov's 8-bit immediate holds: the low 48 are 0; above the fraction's top 4 bits and the
+// exponent's low 2, the next 8 bits are all the same, and the one above them is their inverse, under the sign. The
+// immediate is the sign, the repeated bit, and the 6 bits below the repeated ones.
+let arm64FloatLowBits = 48
+
+let arm64FloatLowMask = 0xFFFFFFFFFFFF
+
+let arm64FloatKeptBits = 0x3F
+
+let arm64FloatRepeatedAt = 54
+
+let arm64FloatRepeatedMask = 0xFF
+
+let arm64FloatInverseAt = 62
+
+let arm64FloatSignAt = 63
+
+let arm64FloatImmSignAt = 7
+
+let arm64FloatImmRepeatedAt = 6
+
+// arm64HoldsFloatImmediate is whether the bits of a double are a value that fmov's immediate holds.
+function arm64HoldsFloatImmediate(c ir.Word) returns bool
+	let word = c as Arm64Bits
+	if (word and arm64FloatLowMask) != 0 'fraction'
+		return false
+	end 'fraction'
+	let repeated = (word shr arm64FloatRepeatedAt) and arm64FloatRepeatedMask
+	let inverse = (word shr arm64FloatInverseAt) and 1
+	return (repeated == arm64FloatRepeatedMask and inverse == 0) or (repeated == 0 and inverse == 1)
+end 'arm64HoldsFloatImmediate'
+
+// arm64FloatImmediate is fmov's immediate of the bits of a double that arm64HoldsFloatImmediate says it holds.
+function arm64FloatImmediate(c ir.Word) returns Count
+	let word = c as Arm64Bits
+	let sign = (word shr arm64FloatSignAt) and 1
+	let repeated = (word shr arm64FloatRepeatedAt) and 1
+	let kept = (word shr arm64FloatLowBits) and arm64FloatKeptBits
+	return ((sign shl arm64FloatImmSignAt) or (repeated shl arm64FloatImmRepeatedAt) or kept) as Count
+end 'arm64FloatImmediate'
+
+// arm64HoldsAtZero is whether a comparison of a word with 0 on its right, by its condition, holds where the word is 0
+// and nowhere else: equality, or an unsigned word at most 0.
+function arm64HoldsAtZero(cond MCond) returns bool
+	return cond == MCond.equal or cond == MCond.belowEqual
+end 'arm64HoldsAtZero'
+
+// arm64HoldsOffZero is whether such a comparison holds where the word is not 0 and nowhere else: inequality, or an
+// unsigned word above 0.
+function arm64HoldsOffZero(cond MCond) returns bool
+	return cond == MCond.notEqual or cond == MCond.above
+end 'arm64HoldsOffZero'
+
+// arm64ShiftedAddFactor is whether a factor is one more than a power of two past 1, so that a product by it is the operand
+// added to itself shifted left by arm64ShiftOfFactor.
+function arm64ShiftedAddFactor(c ir.Word) returns bool
+	if c <= 2 'small'
+		return false
+	end 'small'
+	let below = (c - 1) as Arm64Bits
+	return (below and (below - 1)) == 0
+end 'arm64ShiftedAddFactor'
+
+function arm64ShiftOfFactor(c ir.Word) returns Count
+	var shift = 0 as Count
+	var rest = (try c - 1 otherwise panic("backend: a factor of i64.min")) as Arm64Bits
+	while rest > 1 'halve'
+		rest = rest shr 1
+		shift = nextCount(shift)
+	end 'halve'
+	return shift
+end 'arm64ShiftOfFactor'
+
 // arm64LiveHalfword is the one halfword of a word that its ladder writes, which arm64OneMove says it has, or the first
 // for a word whose ladder writes none.
 function arm64LiveHalfword(c ir.Word) returns Count

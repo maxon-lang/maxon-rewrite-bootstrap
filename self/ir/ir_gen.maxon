@@ -72,6 +72,7 @@ export enum Opcode
 	opElemLoad
 	opLoadByte
 	opBuffer
+	opBytes
 	opWordAt
 	opByteAt
 	opAlloc
@@ -762,6 +763,9 @@ export function opEffects(op Opcode) returns Count
 	if op == Opcode.opBuffer 'opBuffer'
 		return 1
 	end 'opBuffer'
+	if op == Opcode.opBytes 'opBytes'
+		return 0
+	end 'opBytes'
 	if op == Opcode.opWordAt 'opWordAt'
 		return 1
 	end 'opWordAt'
@@ -1315,6 +1319,14 @@ export function newBuffer(dst Reg, src Reg) returns Instr
 	return r
 end 'newBuffer'
 
+// Bytes gives the address of the bytes of Src, a string, which never move.
+export function newBytes(dst Reg, src Reg) returns Instr
+	var r = Instr.make(Opcode.opBytes)
+	r.dst = dst
+	r.a = src
+	return r
+end 'newBytes'
+
 // WordAt reads the word at Index of Data, the elements of an array that Buffer gave, where a Bounds has checked the
 // index: a scalar, or a managed element lent as LoadAt lends it.
 export function newWordAt(dst Reg, data Reg, index Reg) returns Instr
@@ -1325,8 +1337,8 @@ export function newWordAt(dst Reg, data Reg, index Reg) returns Instr
 	return r
 end 'newWordAt'
 
-// ByteAt reads the byte at Index of Data, the elements of a byte array that Buffer gave, where a Bounds has
-// checked the index.
+// ByteAt reads the byte at Index of Data, the elements of a byte array that Buffer gave or the bytes of a string
+// that Bytes gave, where a Bounds has checked the index.
 export function newByteAt(dst Reg, data Reg, index Reg) returns Instr
 	var r = Instr.make(Opcode.opByteAt)
 	r.dst = dst
@@ -1758,6 +1770,9 @@ export function opcodeName(op Opcode) returns String
 	if op == Opcode.opBuffer 'opBuffer'
 		return "Buffer"
 	end 'opBuffer'
+	if op == Opcode.opBytes 'opBytes'
+		return "Bytes"
+	end 'opBytes'
 	if op == Opcode.opWordAt 'opWordAt'
 		return "WordAt"
 	end 'opWordAt'
@@ -2490,6 +2505,13 @@ export function bufferSrc(x Instr) returns Reg
 	return x.a
 end 'bufferSrc'
 
+export function bytesSrc(x Instr) returns Reg
+	if x.op != Opcode.opBytes 'op'
+		wrongInstr("bytesSrc", found: x.op)
+	end 'op'
+	return x.a
+end 'bytesSrc'
+
 export function wordAtData(x Instr) returns Reg
 	if x.op != Opcode.opWordAt 'op'
 		wrongInstr("wordAtData", found: x.op)
@@ -3179,6 +3201,9 @@ export function instrDef(x Instr) returns table.Option with Reg
 	if x.op == Opcode.opBuffer 'opBuffer'
 		return table.Option.some(x.dst)
 	end 'opBuffer'
+	if x.op == Opcode.opBytes 'opBytes'
+		return table.Option.some(x.dst)
+	end 'opBytes'
 	if x.op == Opcode.opWordAt 'opWordAt'
 		return table.Option.some(x.dst)
 	end 'opWordAt'
@@ -3394,6 +3419,9 @@ export function instrFail(x Instr) returns table.Option with BlockID
 	if x.op == Opcode.opBuffer 'opBuffer'
 		return table.Option.none
 	end 'opBuffer'
+	if x.op == Opcode.opBytes 'opBytes'
+		return table.Option.none
+	end 'opBytes'
 	if x.op == Opcode.opWordAt 'opWordAt'
 		return table.Option.none
 	end 'opWordAt'
@@ -3509,6 +3537,7 @@ export function instrCanFail(x Instr) returns bool
 		opElemLoad gives false
 		opLoadByte gives false
 		opBuffer gives false
+		opBytes gives false
 		opWordAt gives false
 		opByteAt gives false
 		opAlloc gives false
@@ -3718,6 +3747,10 @@ export function instrReads(f IrFunction, x Instr, mutates out RegList)
 		out.push(bufferSrc(x))
 		return
 	end 'opBuffer'
+	if x.op == Opcode.opBytes 'opBytes'
+		out.push(bytesSrc(x))
+		return
+	end 'opBytes'
 	if x.op == Opcode.opWordAt 'opWordAt'
 		out.push(wordAtData(x))
 		out.push(wordAtIndex(x))
@@ -4010,6 +4043,10 @@ export function instrWrites(x Instr, mutates out RegList)
 		out.push(x.dst)
 		return
 	end 'opBuffer'
+	if x.op == Opcode.opBytes 'opBytes'
+		out.push(x.dst)
+		return
+	end 'opBytes'
 	if x.op == Opcode.opWordAt 'opWordAt'
 		out.push(x.dst)
 		return
@@ -4292,6 +4329,10 @@ export function renameInstrReads(mutates x Instr, mutates args RegList, names Re
 		x.a = renamedReg(names, r: x.a)
 		return
 	end 'opBuffer'
+	if x.op == Opcode.opBytes 'opBytes'
+		x.a = renamedReg(names, r: x.a)
+		return
+	end 'opBytes'
 	if x.op == Opcode.opWordAt 'opWordAt'
 		x.a = renamedReg(names, r: x.a)
 		x.b = renamedReg(names, r: x.b)
@@ -4673,6 +4714,11 @@ export function relocateInstr(mutates x Instr, at Relocation)
 		x.a = renamedReg(at.names, r: x.a)
 		return
 	end 'opBuffer'
+	if x.op == Opcode.opBytes 'opBytes'
+		x.dst = renamedReg(at.names, r: x.dst)
+		x.a = renamedReg(at.names, r: x.a)
+		return
+	end 'opBytes'
 	if x.op == Opcode.opWordAt 'opWordAt'
 		x.dst = renamedReg(at.names, r: x.dst)
 		x.a = renamedReg(at.names, r: x.a)
@@ -4890,6 +4936,7 @@ export interface InstrVisitor
 	function visitElemLoad(mutates self, f IrFunction, x Instr)
 	function visitLoadByte(mutates self, f IrFunction, x Instr)
 	function visitBuffer(mutates self, f IrFunction, x Instr)
+	function visitBytes(mutates self, f IrFunction, x Instr)
 	function visitWordAt(mutates self, f IrFunction, x Instr)
 	function visitByteAt(mutates self, f IrFunction, x Instr)
 	function visitAlloc(mutates self, f IrFunction, x Instr)
@@ -5095,6 +5142,10 @@ export function visitInstr(mutates visitor V, f IrFunction, x Instr) uses V wher
 		visitor.visitBuffer(f, x: x)
 		return
 	end 'opBuffer'
+	if x.op == Opcode.opBytes 'opBytes'
+		visitor.visitBytes(f, x: x)
+		return
+	end 'opBytes'
 	if x.op == Opcode.opWordAt 'opWordAt'
 		visitor.visitWordAt(f, x: x)
 		return
@@ -5388,6 +5439,9 @@ export function instrText(p ast.Project, tt ast.TypeSlot, reads ast.TypeTable, f
 	if x.op == Opcode.opBuffer 'opBuffer'
 		return "{resultText(x.dst)}buffer %{bufferSrc(x)}"
 	end 'opBuffer'
+	if x.op == Opcode.opBytes 'opBytes'
+		return "{resultText(x.dst)}bytes %{bytesSrc(x)}"
+	end 'opBytes'
 	if x.op == Opcode.opWordAt 'opWordAt'
 		return "{resultText(x.dst)}wordat %{wordAtData(x)}, %{wordAtIndex(x)}"
 	end 'opWordAt'

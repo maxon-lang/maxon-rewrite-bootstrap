@@ -1213,12 +1213,16 @@ what a later pass such as reference counting or an optimization changes.
   - **Loop-invariant code motion** (`self/opt/licm.maxon`, maxon's `LoopInvariantCodeMotion`) moves to a loop's preheader
     (the block that enters it, or one made on the edges that enter its header) a pure operation whose operands do not
     change in the loop; a read, when the loop holds no clobber and the first iteration runs it anyway (its segment
-    dominates every exit and every edge back), or when a read of the same array's box moved before it; and a check or a
+    dominates every exit and every edge back), when a read of the same array's box moved before it, or when it reads one
+    of the function's slots, which is always there to read; and a check or a
     division only from the header's prefix, the operations before the first that stays, so it fails in the preheader
     exactly when, and after the same effects as, it would have at the start of the first iteration, and only when its
     failure path reads nothing the loop defines. An element read that stays in such a loop is split into the read of the
     array's buffer (`buffer`, which leaves) and the access at the index (`wordat`, `byteat`), which only a native build
-    makes. Loops are taken innermost first, so a value leaves a whole nest; a constant is copied, not moved.
+    makes. On arm64, whose access adds an index or an offset to its base but not both, a byte read of a string that does
+    not change in a loop, whatever the loop writes, is split the same way into the address of its bytes (`bytes`, pure)
+    and a `byteat`; x64 adds both in the access. Loops are taken innermost first, so a value leaves a whole nest; a
+    constant is copied, not moved.
   - **Common subexpression elimination** (`self/opt/cse.maxon`, maxon's `CommonSubexpressionElimination`) walks the
     dominator tree with a scoped hash table: an operation that computes what an operation dominating it computed goes, a
     check that an identical dominating one passed goes with its failure block, and a read is merged only with one that
@@ -1226,7 +1230,11 @@ what a later pass such as reference counting or an optimization changes.
     header of a loop that holds a clobber, so no read is merged across a write on any path. An operand that a constant
     gives is keyed by its number, since constants are never merged and two uses of one number read two registers. A
     block that only one side of a branch enters knows the branch's condition everywhere it dominates, so a branch below it
-    on the same condition becomes a jump to the side it takes, and the blocks only the other side reached go.
+    on the same condition becomes a jump to the side it takes, and the blocks only the other side reached go. What the
+    walk knows also proves an index below a length, as unsigned words: a branch's comparison on the side that says so,
+    and a block parameter that every edge into it gives a value so proven below one length defined above the block, as a
+    counted loop's index is at its header (below the length at the guard and at each iteration's test); a bounds check
+    of a proven index against its length goes with its failure block.
 
   - **Copy elision** (`self/opt/copies.maxon`) runs last: a copy that is only lent (read by an operation that keeps nothing,
     or by a runtime entry that only reads, `ir.onlyReads`) and dropped on every path, with no clobber and no drop of anything
@@ -1404,8 +1412,8 @@ runtime each implement the entries. The element is always visible in the call:
   lowered), each operation on its model of the collection: a `bounds` by the IR's own meaning (`ir.evalBounds`), as the fold
   decides one whose operands are constants, and an element by the cell its entry's address would name, so its checks of a
   stale or freed box and of a borrow a call is still waiting to use (`elemaddr` and `elem` open a window as `loadat` does)
-  are those of the call; none of the passes after inlining run on the interpreter's IR, so the `buffer`, `wordat` and
-  `byteat` that code motion splits an element read into reach only the backend. A native build expands each function after the fold, before leaf inlining; with no call left in
+  are those of the call; none of the passes after inlining run on the interpreter's IR, so the `buffer`, `bytes`, `wordat`
+  and `byteat` that code motion splits an element read into reach only the backend. A native build expands each function after the fold, before leaf inlining; with no call left in
   a loop, a loop that the call let compile may need more registers than x64 has, so the function's IR before the expansion
   is its fallback (see "E5001 and the optimizations"), whose calls the backend writes in place as it always did.
 - An array whose element is an integer that fits in a byte (`ByteArray`, `Array with Byte`) or an enum of at most 256 cases,
@@ -1795,8 +1803,10 @@ below its slots in the prologue and restored before each return. A float argumen
 convention's float registers (see "Floats across calls"), and a float live across a call stays in `xmm6` to `xmm15` as
 an integer does in `rbx` and `r12` to `r15`.
 
-**arm64's frame** (`encode_arm64.maxon`) is maxon's: every function has a frame record, `stp x29, x30` and the frame pointer
-pointed at it; below it the room for the arguments its calls pass past the registers (`MirFunction.outgoingBytes`, which
+**arm64's frame** (`encode_arm64.maxon`) is maxon's: every function but a leaf that needs none has a frame record, `stp
+x29, x30` and the frame pointer pointed at it (a leaf with no slots, spills, callee-saved registers, stack arguments or
+calls, that names neither register, keeps both in their registers and has no prologue, as AAPCS64 allows and as x64's
+leaf has no frame); below it the room for the arguments its calls pass past the registers (`MirFunction.outgoingBytes`, which
 selection grows), at the stack pointer, where AAPCS64 has a callee find them; above it the slots, the fixed ones and then the
 spill slots, at `[x29 + 16 + slot*8]`, and above them the callee-saved registers the function's values were given. The
 stack pointer does not move between the prologue and an epilogue. A function that takes arguments on the stack has its

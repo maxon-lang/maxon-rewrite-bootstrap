@@ -40,6 +40,11 @@ const (
 	imm16Bits = 16
 	hwAt      = 21
 	hwBits    = 2
+	// shiftAt is how far a shifted register operand is shifted left.
+	shiftAt = 10
+	// fpImmAt is the 8 bits of a floating-point immediate: its sign, 3 bits of its exponent and 4 of its fraction.
+	fpImmAt   = 13
+	fpImmBits = 8
 	// immrAt and immsAt are a bitfield's rotation and its top bit.
 	immrAt    = 16
 	immsAt    = 10
@@ -244,6 +249,12 @@ func threeReg(name, mnemonic string, opcode uint32, e effects) form {
 		operands: []operand{reg("dest", rdAt, write), reg("left", rnAt, read), reg("right", rmAt, read)}}
 }
 
+// shiftedReg is an instruction of the shape op rd, rn, rm shifted by an amount, whose kind of shift is in its opcode.
+func shiftedReg(name, mnemonic string, opcode uint32) form {
+	return form{name: name, mnemonic: mnemonic, opcode: opcode, operands: []operand{
+		reg("dest", rdAt, write), reg("left", rnAt, read), reg("right", rmAt, read), imm("shift", shiftAt, sixBits)}}
+}
+
 // twoReg is an instruction of the shape op rd, rn.
 func twoReg(name, mnemonic string, opcode uint32, dest, src operand) form {
 	return form{name: name, mnemonic: mnemonic, opcode: opcode, operands: []operand{dest, src}}
@@ -385,6 +396,9 @@ func floatForms() []form {
 		two("Fneg", "fneg", 0x1E614000),
 		two("Fabs", "fabs", 0x1E60C000),
 		two("FmovDD", "fmov", 0x1E604000),
+		// A double that 8 bits hold, ±(16 + f)/16 × 2^e for f of 4 bits and e from -3 to 4, set from the immediate alone.
+		{name: "FmovDImm", mnemonic: "fmov", opcode: 0x1E601000,
+			operands: []operand{vec("dest", rdAt, write), imm("imm", fpImmAt, fpImmBits)}},
 		two("Frintn", "frintn", 0x1E644000),
 		two("Frintm", "frintm", 0x1E654000),
 		two("Frintp", "frintp", 0x1E64C000),
@@ -411,6 +425,12 @@ var forms = buildForms()
 func buildForms() []form {
 	fs := []form{
 		threeReg("AddRegReg", "add", 0x8B000000, noEffects),
+		// An add of a register shifted left by a constant (an index scaled to the offset of its element, or a multiply by
+		// one more than a power of two) or right, as a division by a constant halves a difference, and a subtraction of a
+		// register shifted left.
+		shiftedReg("AddRegRegLsl", "add", 0x8B000000),
+		shiftedReg("AddRegRegLsr", "add", 0x8B400000),
+		shiftedReg("SubRegRegLsl", "sub", 0xCB000000),
 		threeReg("SubRegReg", "sub", 0xCB000000, noEffects),
 		threeReg("AddsRegReg", "adds", 0xAB000000, flags),
 		threeReg("SubsRegReg", "subs", 0xEB000000, flags),
