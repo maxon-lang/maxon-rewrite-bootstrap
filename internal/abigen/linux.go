@@ -15,6 +15,7 @@ var linuxABI = []layoutConst{
 	{"linuxSysMprotect", 10, true, toRuntime | toSelfBack, "mprotect(address, length, protection)."},
 	{"linuxSysMunmap", 11, true, toRuntime, "munmap(address, length)."},
 	{"linuxSysRtSigaction", 13, true, toRuntime | toSelfBack, "rt_sigaction(signal, action, old action, size of the signal mask)."},
+	{"linuxSysRtSigprocmask", 14, true, toRuntime, "rt_sigprocmask(how, set, old set, size of the signal mask)."},
 	{"linuxSysRtSigreturn", 15, true, toSelfBack, "rt_sigreturn(), which a signal handler's restorer calls."},
 	{"linuxSysSchedYield", 24, true, toRuntime, "sched_yield()."},
 	{"linuxSysGetpid", 39, true, toRuntime, "getpid()."},
@@ -67,6 +68,7 @@ var linuxABI = []layoutConst{
 	{"linuxFaultActionFlags", 0x0C000004, true, toSelfBack, "SA_SIGINFO | SA_ONSTACK | SA_RESTORER: the flags of the fault handler's action, which runs on the thread's signal stack and is handed the siginfo and the context."},
 	{"linuxPreemptActionFlags", 0x1C000004, true, toRuntime, "SA_SIGINFO | SA_ONSTACK | SA_RESTORER | SA_RESTART: the flags of the preemption signal's action, which also has a system call that the signal broke off made again where it can be."},
 	{"linuxSigurg", 23, true, toRuntime, "SIGURG, the signal the monitor stops a thread with, as Go's runtime does: no program of the runtime's asks for it."},
+	{"linuxSigUnblock", 1, true, toRuntime, "SIG_UNBLOCK: rt_sigprocmask lets the signals of the set through and leaves the others as they are."},
 	// The ucontext_t that a handler is given holds the registers of the code the signal stopped.
 	{"linuxUcontextSpOffset", 160, true, toRuntime | toSelfBack, "where a ucontext_t holds the stopped code's stack pointer."},
 	{"linuxUcontextPcOffset", 168, true, toRuntime | toSelfBack, "where a ucontext_t holds the address of the stopped code, its program counter."},
@@ -160,6 +162,7 @@ var linuxArm64 = []archValue{
 	{"linuxSysMprotect", 226},
 	{"linuxSysMunmap", 215},
 	{"linuxSysRtSigaction", 134},
+	{"linuxSysRtSigprocmask", 135},
 	{"linuxSysRtSigreturn", 139},
 	{"linuxSysSchedYield", 124},
 	{"linuxSysGetpid", 172},

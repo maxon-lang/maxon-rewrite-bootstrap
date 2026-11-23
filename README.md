@@ -2119,7 +2119,8 @@ so the code at `run` must have released and freed what the behaviour holds by th
   blocking call, or to finish, which its thread's scheduler then does on its own stack.
 - **The monitor** (Go's sysmon) is a thread of its own that holds no processor and allocates nothing. It wakes every 20 µs
   to 10 ms; asks a green thread that has run 10 ms to stop and stops its thread from outside, on Windows by
-  `SuspendThread`, `GetThreadContext` and `SetThreadContext`, on Linux by SIGURG, when the thread is in the program's code,
+  `SuspendThread`, `GetThreadContext` and `SetThreadContext`, on Linux by SIGURG, which every thread that runs green
+  threads unblocks for itself as it starts (Go's `minitSignalMask`), when the thread is in the program's code,
   on the green thread's stack and not in a blocking call; takes a processor from a thread in a bracketed blocking call
   (`enterBlocking`, `exitBlocking`, Go's entersyscall and exitsyscall, around file I/O, `write` and the wait for a child)
   and hands it to another thread; and polls a poller no thread has polled for 10 ms. On Windows it holds the exit claim

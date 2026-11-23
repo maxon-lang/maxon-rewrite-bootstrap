@@ -378,7 +378,10 @@ function execute(context Count, entry Count)
 	let g = greenOf(context, entry: entry)
 	let proc = __Raw.loadWord(context, offset: contextProcOffset)
 	__Raw.storeWord(proc, offset: procSchedTickOffset, value: __Raw.wrappingAdd(__Raw.loadWord(proc, offset: procSchedTickOffset), right: 1))
-	_ = __Raw.atomicExchange(g, offset: greenStatusOffset, value: greenRunning)
+	if __Raw.atomicExchange(g, offset: greenStatusOffset, value: greenRunning) == greenNotified 'permit'
+		// A ready that came before the green thread was requeued is still its permit (requeue).
+		_ = __Raw.compareExchange(g, offset: greenStatusOffset, expected: greenRunning, desired: greenNotified)
+	end 'permit'
 	__Raw.storeWord(g, offset: greenPreemptOffset, value: unset)
 	if __Raw.loadWord(g, offset: greenStackOffset) == noStack 'first'
 		giveStack(context, g: g)
@@ -421,10 +424,12 @@ function parked(context Count, g Count)
 end 'parked'
 
 // requeue is Go's goschedImpl, for a yield, a preemption, and a green thread whose thread lost its processor in a blocking
-// call: the green thread goes to the global run queue, and a thread is woken for an idle processor.
+// call: the green thread goes to the global run queue, and a thread is woken for an idle processor. One that a ready made
+// notified while it ran stays so on the queue and when it runs again: it may have read its condition before the ready and
+// be about to park on it, which only the permit then ends.
 function requeue(context Count, g Count)
 	let scheduler = __Raw.loadWord(context, offset: contextSchedulerOffset)
-	__Raw.storeWord(g, offset: greenStatusOffset, value: greenRunnable)
+	_ = __Raw.compareExchange(g, offset: greenStatusOffset, expected: greenRunning, desired: greenRunnable)
 	lockScheduler(scheduler)
 	globalPut(scheduler, g: g)
 	unlockScheduler(scheduler)

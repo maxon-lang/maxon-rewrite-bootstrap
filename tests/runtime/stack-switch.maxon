@@ -44,8 +44,6 @@ let testPending = 1 as Count
 
 	let testReadWrite = 4 as Count
 
-	let testSameAccess = 2 as Count
-
 	let testSuspendFailed = 0xFFFFFFFF as Count
 #endif
 
@@ -205,19 +203,12 @@ function testAwait(stop Count, offset Count)
 	end 'wait'
 end 'testAwait'
 
-// testSpinner is the thread that is stopped: it says what it is stopped by, then spins until its stop is acknowledged.
+// testSpinner is the thread that is stopped: it takes what it is stopped by as the runtime's threads do, which on Linux
+// also lets the signal through, says what that is, then spins until its stop is acknowledged.
 function testSpinner(context Count)
 	let stop = __Raw.wrappingAdd(context, right: contextBytes)
-	#if os(Windows)
-		var handle = 0 as Count
-		let process = __Raw.callImport0("GetCurrentProcess")
-		if __Raw.callImport7("DuplicateHandle", arg1: process, arg2: __Raw.callImport0("GetCurrentThread"), arg3: process, arg4: __Raw.addressOf(handle), arg5: 0, arg6: 0, arg7: testSameAccess) == 0 'refused'
-			panic("cannot make a handle of the spinning thread")
-		end 'refused'
-		__Raw.storeWord(stop, offset: testTargetOffset, value: handle)
-	#else
-		__Raw.storeWord(stop, offset: testTargetOffset, value: __Raw.syscall0(linuxSysGettid))
-	#endif
+	setThreadIdentity(context)
+	__Raw.storeWord(stop, offset: testTargetOffset, value: __Raw.loadWord(context, offset: contextThreadOffset))
 	__Raw.storeWord(stop, offset: testSpinningOffset, value: 1)
 	while __Raw.loadWord(context, offset: contextSignalPendingOffset) != 0 'spin'
 		__Raw.spinPause()

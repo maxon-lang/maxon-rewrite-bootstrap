@@ -7,14 +7,20 @@ let testPairs = 64 as Count
 
 let testRounds = 500 as Count
 
-// A pair's record: whose turn it is (0 or 1), how many turns were played, and the two players.
+// A pair's record: whose turn it is (0 or 1), how many turns were played, the two players, and how many readies of one
+// by the other have been made.
 let testTurnOffset = 0 as Count
 
 let testTurnsOffset = 8 as Count
 
 let testPlayersOffset = 16 as Count
 
-let testPairBytes = 32 as Count
+let testReadiesOffset = 32 as Count
+
+let testPairBytes = 40 as Count
+
+// testReadies is how many readies the two of a pair make of each other: side 0's every round, side 1's all but its last.
+let testReadies = (testRounds * 2 - 1) as Count
 
 // A player's arguments: its pair and its side.
 let testPairArgument = 0 as Count
@@ -37,9 +43,8 @@ function testCoordinator(g Count) returns Count
 			greenSetArgument(player, index: testSideArgument, value: side)
 			__Raw.storeWord(pair, offset: testPlayerOffset(side), value: player)
 		end 'players'
-		for side in 0 upto 2 'start'
-			greenReady(__Raw.loadWord(pair, offset: testPlayerOffset(side)))
-		end 'start'
+		// Side 1 is started by side 0's first ready: a ready of it here could come after the two had played every round.
+		greenReady(__Raw.loadWord(pair, offset: testPlayerOffset(0)))
 	end 'pairs'
 	var turns = 0 as Count
 	for i in 0 upto testPairs 'await'
@@ -75,8 +80,14 @@ function testPlayer(g Count) returns Count
 		// The other side's last round comes before this side's when this is side 1, which has then no one to ready.
 		if side == 0 or round + 1 < testRounds 'more'
 			greenReady(other)
+			_ = __Raw.atomicAdd(pair, offset: testReadiesOffset, value: 1)
 		end 'more'
 	end 'rounds'
+	// The other side may see the turn this side handed it before this side's ready of it, play its last round and end:
+	// a player ends only once every ready of it has been made, since a ready of a green thread that ended is a fault.
+	while __Raw.atomicAdd(pair, offset: testReadiesOffset, value: 0) != testReadies 'settle'
+		greenYield()
+	end 'settle'
 	return testRounds
 end 'testPlayer'
 

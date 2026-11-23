@@ -603,6 +603,9 @@ let linuxPreemptActionFlags = 469762052 as Count
 // linuxSigurg is SIGURG, the signal the monitor stops a thread with, as Go's runtime does: no program of the runtime's asks for it.
 let linuxSigurg = 23 as Count
 
+// linuxSigUnblock is SIG_UNBLOCK: rt_sigprocmask lets the signals of the set through and leaves the others as they are.
+let linuxSigUnblock = 1 as Count
+
 // linuxErrnoLimit is one past the largest errno: a result above the word -linuxErrnoLimit is a failure.
 let linuxErrnoLimit = 4096 as Count
 
@@ -775,6 +778,9 @@ let linuxPollReturnedOffset = 6 as Count
 	// linuxSysRtSigaction is rt_sigaction(signal, action, old action, size of the signal mask).
 	let linuxSysRtSigaction = 134 as Count
 
+	// linuxSysRtSigprocmask is rt_sigprocmask(how, set, old set, size of the signal mask).
+	let linuxSysRtSigprocmask = 135 as Count
+
 	// linuxSysSchedYield is sched_yield().
 	let linuxSysSchedYield = 124 as Count
 
@@ -915,6 +921,9 @@ let linuxPollReturnedOffset = 6 as Count
 
 	// linuxSysRtSigaction is rt_sigaction(signal, action, old action, size of the signal mask).
 	let linuxSysRtSigaction = 13 as Count
+
+	// linuxSysRtSigprocmask is rt_sigprocmask(how, set, old set, size of the signal mask).
+	let linuxSysRtSigprocmask = 14 as Count
 
 	// linuxSysSchedYield is sched_yield().
 	let linuxSysSchedYield = 24 as Count

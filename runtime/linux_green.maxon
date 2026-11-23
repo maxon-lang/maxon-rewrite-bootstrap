@@ -62,9 +62,18 @@
 		_ = __Raw.syscall2(linuxSysNanosleep, arg1: time, arg2: noRemaining)
 	end 'sleepMicros'
 
-	// setThreadIdentity keeps what the monitor signals the running thread by: its thread id.
+	// setThreadIdentity keeps what the monitor signals the running thread by, its thread id, and lets the signal through,
+	// as Go's minitSignalMask does: a thread starts with its creator's mask, and the main thread with the one its process
+	// was started with, either of which may block the signal. Under qemu-user, which runs arm64-linux under WSL, a thread
+	// made while the emulator held its creator's signals blocked to take one starts with every signal blocked, and only a
+	// mask the thread sets itself undoes that; a thread that never took the signal would never be stopped, and would keep
+	// its processor and what waits in its run queue for as long as its green thread runs.
 	function setThreadIdentity(context Count)
 		__Raw.storeWord(context, offset: contextThreadOffset, value: __Raw.syscall0(linuxSysGettid))
+		var preemption = (1 as Count) shl (linuxSigurg - 1)
+		if failed(__Raw.syscall4(linuxSysRtSigprocmask, arg1: linuxSigUnblock, arg2: __Raw.addressOf(preemption), arg3: 0, arg4: linuxSignalMaskBytes)) 'refused'
+			panic("cannot let the preemption signal through to a thread")
+		end 'refused'
 	end 'setThreadIdentity'
 
 	// initPreemption makes rt.preemptHandler the action of the preemption signal for every thread, on the thread's signal
