@@ -10,18 +10,21 @@ let noTimer = 0 as Count
 let timersFirstCapacity = 64 as Count
 
 // greenSleep is Go's timeSleep: the running green thread parks until at least a number of nanoseconds have passed. A
-// cancelled coroutine's sleep ends at once, after a yield that lets its strand's other members run, as maxon's does.
+// cancelled coroutine's sleep ends at once, after a yield that lets its strand's other members run, as maxon's does. The
+// cancel is read under the lock that asyncCancel's expireSleep takes after it marks the coroutine, so a cancel either is
+// seen here or finds the timer on the heap.
 function greenSleep(nanoseconds Count)
 	let context = __Raw.threadContext()
 	let g = greenCurrent()
+	let scheduler = __Raw.loadWord(context, offset: contextSchedulerOffset)
+	let wake = try nanotime(context) + nanoseconds otherwise panic("a sleep past the end of the clock")
+	lockScheduler(scheduler)
 	if isCancelled(g) 'cancelled'
+		unlockScheduler(scheduler)
 		greenYield()
 		return
 	end 'cancelled'
-	let scheduler = __Raw.loadWord(context, offset: contextSchedulerOffset)
-	let wake = try nanotime(context) + nanoseconds otherwise panic("a sleep past the end of the clock")
 	__Raw.storeWord(g, offset: greenWhenOffset, value: wake)
-	lockScheduler(scheduler)
 	timerPush(scheduler, g: g)
 	let earliest = __Raw.loadWord(scheduler, offset: schedTimerNextOffset) == wake
 	unlockScheduler(scheduler)
