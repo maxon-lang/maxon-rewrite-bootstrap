@@ -68,3 +68,4 @@ neither.
 | 2026-11-22 | 87cc499 | Phase 4: stdlib loader, line-fit code placement, fallback IR on demand (three agents building alongside) | 103870 | 2729 | 1708 | 1411 | 2811949 | 387.9 | 403.5 |
 | 2026-11-22 | 84f5f83 | Phase 4: green-thread runtime, async/await, borrowed iterators, interface bounds (one agent building alongside) | 107696 | 2694 | 2593 | 2610 | 2922605 | 390.9 | 402.8 |
 | 2026-11-22 | 36944b1 | native Map, neutral backend, behaviours without stacks | 110696 | 1913 | 1882 | 1843 | 3479085 | 440.4 | 453.3 |
+| 2026-11-22 | 2c02f3b | arm64 targets, swiss Map, service batching, String intrinsics | 124783 | 2213 | 2216 | 2254 | 4082349 | 482.2 | 500.6 |
