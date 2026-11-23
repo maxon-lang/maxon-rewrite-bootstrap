@@ -237,9 +237,9 @@ whichever comes first.
 ```maxon
 function main() returns ExitCode
 	let s = "abc"
-	let whole = s.sliceLength(s.startIndex(), length: 99)
+	let whole = s.sliceLength(s.startIndex(), length: 99).clone()
 	print("{whole} {whole.byteLength()}\n")
-	let none = s.sliceLength(s.startIndex(), length: 0)
+	let none = s.sliceLength(s.startIndex(), length: 0).clone()
 	print("[{none}] {none.byteLength()}\n")
 	return 0
 end 'main'
@@ -321,9 +321,9 @@ function main() returns ExitCode
 	acc = "{acc}{s.slice(s.startIndex(), endIndex: idx)}"
 	acc = "{acc}]"
 	print("{acc}\n")
-	let inner = s.slice(s.startIndex(), endIndex: idx)
+	let inner = s.slice(s.startIndex(), endIndex: idx).clone()
 	let innerEnd = try inner.findFirst("llo") otherwise inner.endIndex()
-	let nested = inner.slice(inner.startIndex(), endIndex: innerEnd)
+	let nested = inner.slice(inner.startIndex(), endIndex: innerEnd).clone()
 	print("{nested}\n")
 	return 0
 end 'main'
@@ -373,7 +373,7 @@ that answers is the corpus's own `sliceBytes` precondition.
 function main() returns ExitCode
 	let s = "hello world"
 	let a = try s.findFirst("world") otherwise s.endIndex()
-	let bad = s.slice(a, endIndex: s.startIndex())
+	let bad = s.slice(a, endIndex: s.startIndex()).clone()
 	print("{bad}\n")
 	return 0
 end 'main'
@@ -400,7 +400,7 @@ function main() returns ExitCode
 	let long = "hello world that is long"
 	let short = "hi"
 	let far = try long.findFirst("long") otherwise long.endIndex()
-	let oob = short.slice(short.startIndex(), endIndex: far)
+	let oob = short.slice(short.startIndex(), endIndex: far).clone()
 	print("{oob}\n")
 	return 0
 end 'main'
@@ -431,7 +431,7 @@ type Label
 	end 'create'
 
 	function head() returns String
-		return text.sliceLength(text.startIndex(), length: 2)
+		return text.sliceLength(text.startIndex(), length: 2).clone()
 	end 'head'
 
 	function width() returns Integer
@@ -441,7 +441,7 @@ type Label
 
 	function upTo(needle String) returns String
 		let hit = try text.findFirst(needle) otherwise text.endIndex()
-		return text.slice(text.startIndex(), endIndex: hit)
+		return text.slice(text.startIndex(), endIndex: hit).clone()
 	end 'upTo'
 end 'Label'
 

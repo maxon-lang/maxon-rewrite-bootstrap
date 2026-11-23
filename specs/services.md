@@ -6019,9 +6019,9 @@ end 'Svc'
 function main() returns ExitCode
 	let h = spawn Svc.create()
 	var src = "payload {42}"
-	let n = try await h.keep(src.sliceLength(src.startIndex(), length: 7)) otherwise 0
+	let n = try await h.keep(src.sliceLength(src.startIndex(), length: 7).clone()) otherwise 0
 	src = "{src}!"
-	let m = try await h.keep(src.slice(src.startIndex(), endIndex: src.endIndex())) otherwise 0
+	let m = try await h.keep(src.slice(src.startIndex(), endIndex: src.endIndex()).clone()) otherwise 0
 	src = "{src}?"
 	print("main {src} after the service kept {n} and {m} bytes\n")
 	return 0

@@ -70,7 +70,7 @@ typealias FuzzCounts = Array with Count
 // fuzzFlagValue is what a flag with a value gives, when the argument is that flag.
 function fuzzFlagValue(arg String, prefix String) returns table.Option with String
 	if hasPrefix(arg, prefix: prefix) 'flag'
-		return table.Option.some(arg.sliceBytes(prefix.byteLength(), endPos: arg.byteLength()))
+		return table.Option.some(arg.sliceBytes(prefix.byteLength(), endPos: arg.byteLength()).clone())
 	end 'flag'
 	return table.Option.none
 end 'fuzzFlagValue'
@@ -442,13 +442,13 @@ function splitWords(text String) returns ast.StringList
 	for i in 0 upto n 'bytes'
 		if text.byteAt(i) == spaceByte 'cut'
 			if i > start 'word'
-				words.push(text.sliceBytes(start, endPos: i))
+				words.push(text.sliceBytes(start, endPos: i).clone())
 			end 'word'
 			start = i + 1
 		end 'cut'
 	end 'bytes'
 	if n > start 'last'
-		words.push(text.sliceBytes(start, endPos: n))
+		words.push(text.sliceBytes(start, endPos: n).clone())
 	end 'last'
 	return words
 end 'splitWords'

@@ -161,7 +161,7 @@ export function run(args Array with String) returns ExitCode
 		end 'tests' else if args[i] == timingsFlag 'timings'
 			options.timings = true
 		end 'timings' else if hasPrefix(args[i], prefix: traceFlag) 'trace'
-			options.trace = args[i].sliceBytes(traceFlag.byteLength(), endPos: args[i].byteLength())
+			options.trace = args[i].sliceBytes(traceFlag.byteLength(), endPos: args[i].byteLength()).clone()
 		end 'trace' else if hasPrefix(args[i], prefix: targetFlag) 'target'
 			let name = args[i].sliceBytes(targetFlag.byteLength(), endPos: args[i].byteLength())
 			let named = targetNamed(name)

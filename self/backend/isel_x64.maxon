@@ -206,6 +206,18 @@ extension Selector
 		self.target(X64Form.shrRegImm8, a: dst, b: src, c: noMReg, aux: 0, imm: try count as FullRangeInt otherwise panic("backend: a shift past the word"))
 	end 'x64ShiftRightInto'
 
+	function x64ShiftLeftInto(mutates self, dst MReg, src MReg, count Count)
+		self.target(X64Form.shlRegImm8, a: dst, b: src, c: noMReg, aux: 0, imm: try count as FullRangeInt otherwise panic("backend: a shift past the word"))
+	end 'x64ShiftLeftInto'
+
+	function x64OrMaskInto(mutates self, dst MReg, src MReg, mask FullRangeInt)
+		var form = X64Form.orRegImm32
+		if mask >= -128 and mask <= 127 'byte'
+			form = X64Form.orRegImm8
+		end 'byte'
+		self.target(form, a: dst, b: src, c: noMReg, aux: 0, imm: mask)
+	end 'x64OrMaskInto'
+
 	function x64ReferAddressInto(mutates self, dst MReg, refers Referent)
 		self.referring(X64Form.leaRegRip, a: dst, refers: refers)
 	end 'x64ReferAddressInto'

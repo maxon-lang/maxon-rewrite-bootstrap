@@ -1,0 +1,19 @@
+type Log
+	export var lines as Count
+
+	static function make() returns Log
+		return Log{lines: 0}
+	end 'make'
+end 'Log'
+
+function main() returns ExitCode
+	let line = " a{1} "
+	let word = line.trim()
+	let log = cown(Log.make())
+	when log as l 'later'
+		print(word)
+	end 'later'
+	return 0
+end 'main'
+
+// expect-error: E3909 at 14:9

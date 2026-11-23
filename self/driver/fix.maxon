@@ -621,7 +621,7 @@ function withoutFinalNewline(text String) returns String
 	while finish > 0 and text.byteAt(try finish - 1 otherwise 0) == newlineByte 'trim'
 		finish = try finish - 1 otherwise 0
 	end 'trim'
-	return text.sliceBytes(0, endPos: finish)
+	return text.sliceBytes(0, endPos: finish).clone()
 end 'withoutFinalNewline'
 
 // fixedBlock is the maxon block of a test after fixing: the file, which is checked under the header line that the runner puts

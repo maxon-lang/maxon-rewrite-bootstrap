@@ -109,7 +109,7 @@ function cutText(text String, separator String) returns table.Option with Cut
 	end 'none'
 	let at = found.unwrap()
 	let tailStart = try at + separator.byteLength() otherwise panic("rename: a rule longer than memory")
-	return table.Option.some(Cut.make(text.sliceBytes(0, endPos: at), tail: text.sliceBytes(tailStart, endPos: text.byteLength())))
+	return table.Option.some(Cut.make(text.sliceBytes(0, endPos: at).clone(), tail: text.sliceBytes(tailStart, endPos: text.byteLength()).clone()))
 end 'cutText'
 
 // RenameRule is one rule: what it renames, and what it writes instead.
@@ -163,7 +163,7 @@ function parseRenameRule(text String) returns table.Option with RenameRule
 				if not hasPrefix(call.tail, prefix: memberSeparator) 'noDot'
 					return table.Option.none
 				end 'noDot'
-				rule.suffix = call.tail.sliceBytes(1, endPos: call.tail.byteLength())
+				rule.suffix = call.tail.sliceBytes(1, endPos: call.tail.byteLength()).clone()
 			end 'suffixed'
 			if call.head != "" and rule.template != "" 'valid'
 				return table.Option.some(rule)
@@ -537,7 +537,7 @@ function templateParts(template String, args ArgSpans) returns table.Option with
 			open = increment(open)
 		end 'findOpen'
 		if open == template.byteLength() 'rest'
-			parts.push(TemplatePart.text(template.sliceBytes(at, endPos: template.byteLength())))
+			parts.push(TemplatePart.text(template.sliceBytes(at, endPos: template.byteLength()).clone()))
 			break 'scan'
 		end 'rest'
 		var closing = open
@@ -548,7 +548,7 @@ function templateParts(template String, args ArgSpans) returns table.Option with
 			return table.Option.none
 		end 'unclosed'
 		if open > at 'literal'
-			parts.push(TemplatePart.text(template.sliceBytes(at, endPos: open)))
+			parts.push(TemplatePart.text(template.sliceBytes(at, endPos: open).clone()))
 		end 'literal'
 		let found = args.get(template.sliceBytes(increment(open), endPos: closing))
 		if not found.isSome() 'unknown'
@@ -1258,11 +1258,11 @@ function splitPreludes(list String, mutates preludes ast.StringList)
 	var begin = 0 as Count
 	for at in 0 upto list.byteLength() 'scan'
 		if list.byteAt(at) == commaByte 'separator'
-			preludes.push(list.sliceBytes(begin, endPos: at))
+			preludes.push(list.sliceBytes(begin, endPos: at).clone())
 			begin = increment(at)
 		end 'separator'
 	end 'scan'
-	preludes.push(list.sliceBytes(begin, endPos: list.byteLength()))
+	preludes.push(list.sliceBytes(begin, endPos: list.byteLength()).clone())
 end 'splitPreludes'
 
 // renameCommand is the rename command: rest holds its name, then the rules, the flags and the programs.

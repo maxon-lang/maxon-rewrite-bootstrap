@@ -262,7 +262,7 @@ export type ByteReader
 		let finish = try at + n otherwise panic("table: a read past memory")
 		let value = source.sliceBytes(at, endPos: finish)
 		at = finish
-		return value
+		return value.clone()
 	end 'text'
 
 	export function run(mutates self) returns ByteArray

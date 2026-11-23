@@ -1,0 +1,9 @@
+function main() returns ExitCode
+	var line = " a{1} "
+	let word = line.trim()
+	line = "b"
+	print(word)
+	return 0
+end 'main'
+
+// expect-error: E3186 at 4:2

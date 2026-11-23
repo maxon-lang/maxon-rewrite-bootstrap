@@ -175,9 +175,16 @@ function moveOfProjection(mutates o Ownership, p ast.Project, mutates ms ast.Mod
 	if lent.count() > 0 and isBorrowed(o.c.typing.locals[lent[0].root as Count]) 'borrowed'
 		code = diag.errMoveOutOfBorrow
 	end 'borrowed'
-	let advice = copyAdvice(o, p: p, ms: ms, t: t, ifCopyable: "copy it with '.clone()'", fallback: "declare '{name}' 'returns T' to give a value")
 	let fix = cloneFixIf(o, p: p, ms: ms, e: e, t: t)
-	failFixed(o, p: p, site: offsetOfOwn(o, p: p, ms: ms, node: e), code: code, msg: "'{name}' returns a place it borrows from its arguments, not a value of its own, so it cannot be moved into {dest.text()}; {advice}", fix: fix)
+	var what = "a place it borrows from its arguments"
+	var advice = ""
+	if t == p.builtins.stringTy 'view'
+		what = "a view of the bytes of a String it borrows"
+		advice = "copy it with '.clone()' to keep it"
+	end 'view' else 'place'
+		advice = copyAdvice(o, p: p, ms: ms, t: t, ifCopyable: "copy it with '.clone()'", fallback: "declare '{name}' 'returns T' to give a value")
+	end 'place'
+	failFixed(o, p: p, site: offsetOfOwn(o, p: p, ms: ms, node: e), code: code, msg: "'{name}' returns {what}, not a value of its own, so it cannot be moved into {dest.text()}; {advice}", fix: fix)
 end 'moveOfProjection'
 
 // changesProjection refuses a change to a part of a borrowed result, which its function lends only to be read, and says
@@ -323,14 +330,23 @@ function throughElement(collection AccessPath, path AccessPath) returns AccessPa
 	return out
 end 'throughElement'
 
-// lenderName says what a local that borrows lends from: the variable of a for borrows an element of its collection, and
-// any other is a binding of a match.
+// lenderName says what a local that borrows lends from: the variable of a for borrows an element of its collection, a let
+// what the call it is bound to lends, and any other is a binding of a match.
 function lenderName(o Ownership, p ast.Project, ms ast.ModuleState, root ast.LocalEntry) returns String
 	if isForVariable(ms.tree(), l: root) 'loop'
 		return "the collection the loop walks"
 	end 'loop'
+	if isLentLet(ms.tree(), l: root) 'let'
+		return "what the call it is bound to lends from"
+	end 'let'
 	return "the match subject"
 end 'lenderName'
+
+// isLentLet is whether a local that borrows is a let bound to a borrowed result: a view of a String's bytes, a place that a
+// function returns borrowed, or an element of a tuple one lends.
+function isLentLet(tree ast.Tree, l ast.LocalEntry) returns bool
+	return l.projected and l.definedAt != 0 and tree.kindOf(l.definedAt) == ast.NodeKind.letStmt
+end 'isLentLet'
 
 // isForVariable is whether a local is the variable of a for: a count, or each element of a collection in turn, which a
 // local that borrows is unless it is a binding of a match.
@@ -405,6 +421,12 @@ function projectionConflict(mutates o Ownership, p ast.Project, mutates ms ast.M
 		fail(o, p: p, site: site, code: diag.errExclusivity, msg: "'{held}' is borrowed by {pr.holder}, which holds a borrow of it until its scope ends, so '{text}' cannot be changed or moved here; change it after that scope, or end the borrowing value in a block of its own")
 		return
 	end 'borrow'
+	if k == OwnProjectionKind.projectLent 'lent'
+		let advice = copyAdvice(o, p: p, ms: ms, t: pr.ty, ifCopyable: "copy what {pr.holder} is bound to with '.clone()' to keep it apart", fallback: "change it after that scope")
+		let fix = cloneFixIf(o, p: p, ms: ms, e: pr.bound, t: pr.ty)
+		failFixed(o, p: p, site: site, code: diag.errExclusivity, msg: "'{held}' is lent to {pr.holder}, a let bound to what a call lends from it, which borrows it until its scope ends, so '{text}' cannot be changed or moved here; {advice}", fix: fix)
+		return
+	end 'lent'
 	if k == OwnProjectionKind.projectMutableCapture 'mutableCapture'
 		fail(o, p: p, site: site, code: diag.errExclusivity, msg: "'{held}' is borrowed to be changed by {pr.holder}, a mutating closure that lives until its scope ends, so it cannot be changed here; change it after that, or through the closure")
 		return

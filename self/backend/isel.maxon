@@ -884,6 +884,10 @@ function emitCallRuntime(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
 		sel.shiftRightInto(result, src: word, count: stringLengthShift)
 		return
 	end 'stringLength'
+	if symbol == ir.Rt.rtStrView 'stringView'
+		emitStringView(sel, fn: fn, ins: ins)
+		return
+	end 'stringView'
 	if symbol == ir.Rt.rtStrOwned 'stringOwned'
 		let result = sel.resultOf(ins.dst)
 		let word = sel.secondOf(fn.args[start])

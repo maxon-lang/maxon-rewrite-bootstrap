@@ -228,7 +228,7 @@ export function parentPath(path String) returns String
 	while i > 0 'back'
 		i = try i - 1 otherwise 0 as Count
 		if path.byteAt(i) == 46 'dot'
-			return path.sliceBytes(0 as Count, endPos: i)
+			return path.sliceBytes(0 as Count, endPos: i).clone()
 		end 'dot'
 	end 'back'
 	return ""

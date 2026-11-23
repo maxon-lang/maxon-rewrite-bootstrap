@@ -60,10 +60,15 @@ function entryStrReplace(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	giveText(vm, x: x, text: stringReplace(text, old: old, replacement: replacement, all: argNum(vm, f: f, x: x, i: 3) != 0))
 end 'entryStrReplace'
 
-function entryStrTrim(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+function entryStrTrimFirst(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	let text = try stringArg(vm, f: f, x: x, i: 0, what: "a string trim")
-	giveText(vm, x: x, text: stringTrim(text, trimStart: argNum(vm, f: f, x: x, i: 1) != 0, trimEnd: argNum(vm, f: f, x: x, i: 2) != 0))
-end 'entryStrTrim'
+	giveCount(vm, x: x, n: stringTrimFirst(text))
+end 'entryStrTrimFirst'
+
+function entryStrTrimLast(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let text = try stringArg(vm, f: f, x: x, i: 0, what: "a string trim")
+	giveCount(vm, x: x, n: stringTrimLast(text, from: countArg(vm, f: f, x: x, i: 1)))
+end 'entryStrTrimLast'
 
 function entryFmtInt(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	giveText(vm, x: x, text: formatInteger(countArg(vm, f: f, x: x, i: 0), radix: countArg(vm, f: f, x: x, i: 1), flags: countArg(vm, f: f, x: x, i: 2), width: countArg(vm, f: f, x: x, i: 3)))

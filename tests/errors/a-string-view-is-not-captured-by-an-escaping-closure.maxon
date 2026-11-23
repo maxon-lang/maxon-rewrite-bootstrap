@@ -1,0 +1,13 @@
+typealias Reader = function() returns Count
+
+function reader(text String) returns Reader
+	let word = text.trim()
+	return function() gives word.byteLength()
+end 'reader'
+
+function main() returns ExitCode
+	print("{reader(" a ")()}")
+	return 0
+end 'main'
+
+// expect-error: E3925 at 5:9

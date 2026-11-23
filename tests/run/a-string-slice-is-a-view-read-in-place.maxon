@@ -1,0 +1,41 @@
+// A slice and a trim of a String lend a view of its bytes, made with no allocation: bound to a let, passed down to a let
+// parameter, compared, sliced again and interpolated, and kept only by a copy, which owns its bytes. The run ends with no
+// box live, so no view frees the bytes it reads and each copy frees its own; the copy of a view of bytes that are not
+// ASCII keeps a clear ASCII bit, which the count of allocations checks.
+
+type Entry
+	export var key as String
+
+	static function make(consumes key String) returns Entry
+		return Entry{key: key}
+	end 'make'
+end 'Entry'
+
+// wordLength is how many bytes of text come before its first space, a view it is lent.
+function wordLength(text String) returns Count
+	var i = 0 as Count
+	while i < text.byteLength() and text.byteAt(i) != 32 'scan'
+		i = try i + 1 otherwise panic("past the text")
+	end 'scan'
+	return i
+end 'wordLength'
+
+function main() returns ExitCode
+	let line = "  key{1} = välue  "
+	let trimmed = line.trim()
+	let n = wordLength(trimmed)
+	let key = trimmed.sliceBytes(0, endPos: n)
+	let value = trimmed.sliceBytes(try n + 3 otherwise panic("past the line"), endPos: trimmed.byteLength())
+	print("[{trimmed}] [{key}] [{value}]\n")
+	if key == "key1" and value.startsWith("v") 'same'
+		print("same\n")
+	end 'same'
+	let entry = Entry.make(key.clone())
+	let kept = value.sliceBytes(1, endPos: value.byteLength()).clone()
+	print("{entry.key} {kept} {kept.count()}\n")
+	return 0
+end 'main'
+
+//> [key1 = välue] [key1] [välue]
+//> same
+//> key1 älue 4

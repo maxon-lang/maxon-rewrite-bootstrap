@@ -200,7 +200,7 @@ export function appendText(t ast.Tree, call ast.NodeID) returns table.Option wit
 	let placeText = t.text.sliceBytes(ast.exprStart(t, e: ast.memberExprObj(t, id: callee)), endPos: t.startOf(callee) as Count).trimEnd()
 	var part = "\{{t.text.sliceBytes(valueExtent.begin as Count, endPos: valueExtent.until as Count)}\}"
 	if t.kindOf(arg) == ast.NodeKind.strLit 'literal'
-		part = t.text.sliceBytes(nextOf(valueExtent.begin as Count), endPos: try (valueExtent.until as Count) - 1 otherwise panic("fixes: a string literal with no quotes"))
+		part = t.text.sliceBytes(nextOf(valueExtent.begin as Count), endPos: try (valueExtent.until as Count) - 1 otherwise panic("fixes: a string literal with no quotes")).clone()
 	end 'literal'
 	return table.Option.some("{placeText} = \"\{{placeText}\}{part}\"")
 end 'appendText'

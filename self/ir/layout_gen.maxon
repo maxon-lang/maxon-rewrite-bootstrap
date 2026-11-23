@@ -9,7 +9,7 @@ export let tagOffset = 0 as Count
 // stringBytesOffset is where a String holds the address of its first byte, UTF-8 with no terminator: in the executable's read-only data for a literal, a heap box for an owned string, the bytes of another string for a borrowed view.
 export let stringBytesOffset = 0 as Count
 
-// stringWordOffset is where a String holds its word: its length in bytes shifted left by stringLengthShift, with stringAsciiBit and stringOwnedBit.
+// stringWordOffset is where a String holds its word: its length in bytes shifted left by stringLengthShift, with stringAsciiBit, stringOwnedBit and stringViewBit.
 export let stringWordOffset = 8 as Count
 
 // stringValueBytes is the size of a String in memory: a field, an element, a capture or a slot of one.
@@ -18,11 +18,14 @@ export let stringValueBytes = 16 as Count
 // stringOwnedBit is the bit of a String's word that says it owns its bytes, a box of runtime::alloc that its drop frees; a literal and a view own none, so their drop does nothing and touches no memory.
 export let stringOwnedBit = 1 as Count
 
+// stringViewBit is the bit of a String's word that says it is a view of another String's bytes, which it owns none of: its copy copies them, where a literal's copy is the literal, since its bytes outlive every copy.
+export let stringViewBit = 4 as Count
+
 // stringAsciiBit is the bit of a String's word that says every byte is below 0x80 and none is a carriage return, so each grapheme cluster and each code point is one byte; clear means nothing is known.
 export let stringAsciiBit = 2 as Count
 
 // stringLengthShift is how far a String's length is shifted up in its word, past its flags: the length is the word shifted right by it.
-export let stringLengthShift = 2 as Count
+export let stringLengthShift = 3 as Count
 
 // wordElementShift is how far the index of an element of a word is shifted to its offset in a buffer: wordBytes is 1 shifted by it.
 export let wordElementShift = 3 as Count

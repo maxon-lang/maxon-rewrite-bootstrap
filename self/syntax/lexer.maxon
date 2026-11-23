@@ -137,7 +137,7 @@ export type Token
 	end 'endOffset'
 
 	export function text(src String) returns String
-		return src.sliceBytes(start as Count, endPos: self.endOffset())
+		return src.sliceBytes(start as Count, endPos: self.endOffset()).clone()
 	end 'text'
 end 'Token'
 
@@ -199,7 +199,7 @@ function runeAt(text String, at Count, limit Count) returns String
 		appendRune(shown, ch: replacementCharacter)
 		return String.from(shown)
 	end 'invalid'
-	return text.sliceBytes(at, endPos: try at + n otherwise limit)
+	return text.sliceBytes(at, endPos: try at + n otherwise limit).clone()
 end 'runeAt'
 
 // The lowest lead byte of a sequence that can be valid, the first that cannot (its code points would pass U+10FFFF), and
@@ -924,7 +924,7 @@ type StringReader
 			if escaped 'decoded'
 				parts.push(StrPart.text(String.from(buf), begin: run, raw: false))
 			end 'decoded' else 'raw'
-				parts.push(StrPart.text(src.text.sliceBytes(run, endPos: pos), begin: run, raw: true))
+				parts.push(StrPart.text(src.text.sliceBytes(run, endPos: pos).clone(), begin: run, raw: true))
 			end 'raw'
 		end 'collect'
 		escaped = false

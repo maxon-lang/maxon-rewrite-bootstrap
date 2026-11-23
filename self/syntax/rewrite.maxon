@@ -146,7 +146,7 @@ export function markdownKeywordEdits(file String, text String, old String, repla
 		try 'rename'
 			if ranges[i].block 'block'
 				// A block is lexed as a file of its own, so its offsets are moved to where it stands in the document.
-				let blockSource = sourceOf(text.sliceBytes(begin, endPos: until), path: file)
+				let blockSource = sourceOf(text.sliceBytes(begin, endPos: until).clone(), path: file)
 				let local = try keywordEdits(blockSource, old: old, replacement: replacement, errs: errs)
 				for e in 0 upto local.count() 'moved'
 					found.push(Edit.make(try local[e].begin + begin otherwise panic("a source offset overflows"), until: try local[e].until + begin otherwise panic("a source offset overflows"), replacement: local[e].replacement.clone()))

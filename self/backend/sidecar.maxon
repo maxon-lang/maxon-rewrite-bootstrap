@@ -62,7 +62,7 @@ function recordedPath(p ast.Project, m Count, path String) returns String
 	end 'library'
 	let root = p.root.byteLength()
 	if root > 0 and path.byteLength() > root and path.sliceBytes(0, endPos: root) == p.root and isSeparatorByte(path.byteAt(root)) 'underRoot'
-		return path.sliceBytes(ir.succ(root), endPos: path.byteLength())
+		return path.sliceBytes(ir.succ(root), endPos: path.byteLength()).clone()
 	end 'underRoot'
 	return path.clone()
 end 'recordedPath'

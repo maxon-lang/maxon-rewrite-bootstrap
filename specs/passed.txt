@@ -6126,6 +6126,7 @@ sleep.md: sleep.basic
 sleep.md: sleep.zero
 slice-memory.md: nested-slice-memory
 slice-memory.md: slice-cleanup-decrefs-parent
+slice-memory.md: slice-copy-increfs-parent
 slice-memory.md: slice-parent-outlives-original
 slice-memory.md: static-string-slice
 sqrt.md: sqrt.basic

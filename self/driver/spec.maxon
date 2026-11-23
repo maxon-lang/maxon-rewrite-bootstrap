@@ -414,7 +414,7 @@ function fenceTarget(name String) returns String
 	if not split.isSome() 'plain'
 		return ""
 	end 'plain'
-	return name.sliceBytes(offsetBy(split.unwrap(), by: 1), endPos: name.byteLength())
+	return name.sliceBytes(offsetBy(split.unwrap(), by: 1), endPos: name.byteLength()).clone()
 end 'fenceTarget'
 
 function isKnownFence(base String) returns bool
@@ -506,7 +506,7 @@ function fenceText(test SpecTest, text String, base String) returns table.Option
 		return table.Option.none
 	end 'none'
 	let found = fence.unwrap()
-	return table.Option.some(text.sliceBytes(found.start, endPos: found.finish))
+	return table.Option.some(text.sliceBytes(found.start, endPos: found.finish).clone())
 end 'fenceText'
 
 // SourceSection is one file of a multi-file block: its name, its text, where the text is in the block, and the number that
@@ -699,7 +699,7 @@ function diagnosticPlaces(text String) returns String
 		let head = line.sliceBytes(0, endPos: codeEnd)
 		let placeStart = offsetBy(codeEnd, by: placeEnd.byteLength())
 		if not matchesAt(line, at: codeEnd, needle: placeEnd) 'unplaced'
-			out.push(head)
+			out.push(head.clone())
 			continue 'lines'
 		end 'unplaced'
 		var at = placeStart
@@ -710,7 +710,7 @@ function diagnosticPlaces(text String) returns String
 		if place.contains(fragmentToken) 'placed'
 			out.push("{head}{placeEnd}{place}")
 		end 'placed' else 'elsewhere'
-			out.push(head)
+			out.push(head.clone())
 		end 'elsewhere'
 	end 'lines'
 	return joinLines(out)
@@ -1067,7 +1067,7 @@ end 'readText'
 function fileStem(file String) returns String
 	let name = project.lastComponent(file)
 	if endsWith(name, suffix: specExtension) 'extension'
-		return name.sliceBytes(0, endPos: try name.byteLength() - specExtension.byteLength() otherwise 0)
+		return name.sliceBytes(0, endPos: try name.byteLength() - specExtension.byteLength() otherwise 0).clone()
 	end 'extension'
 	return name
 end 'fileStem'
@@ -1119,7 +1119,7 @@ function expectedFirstCode(test SpecTest, text String) returns table.Option with
 	if not hasPrefix(block, prefix: errorLinePrefix) or block.byteLength() < finish 'unlisted'
 		return table.Option.none
 	end 'unlisted'
-	return table.Option.some(block.sliceBytes(start, endPos: finish))
+	return table.Option.some(block.sliceBytes(start, endPos: finish).clone())
 end 'expectedFirstCode'
 
 // checkSpecTest is whether a compile that gave errs is what the result blocks of the test say, or nothing when the compile

@@ -802,15 +802,31 @@ function checkLet(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, 
 		bindLet(c, p: p, ms: ms, s: s, name: name, t: ast.noType, isVar: isVar, off: off, errs: errs)
 		return
 	end 'badHeap'
-	bindLet(c, p: p, ms: ms, s: s, name: name, t: t, isVar: isVar, off: off, errs: errs)
+	let local = declareLet(c, p: p, ms: ms, s: s, name: name, t: t, isVar: isVar, off: off, errs: errs)
+	if local != ast.noLocal and not isVar and bindsLent(c, p: p, ms: ms, e: initNode, t: t) 'lent'
+		c.typing.locals[local as Count].projected = true
+	end 'lent'
 end 'checkLet'
 
+// bindsLent is whether a let bound to e borrows it rather than owning it: e is a call that returns a borrowed place of a
+// managed type, such as a view of a String's bytes that a slicing method lends, so the let holds what the call lends
+// from for its scope (README, "Ownership"). A var owns its value, so it is bound to a copy.
+function bindsLent(c Checker, p ast.Project, ms ast.ModuleState, e ast.NodeID, t ast.TypeID) returns bool
+	return ast.isManagedType(ms.types, reads: p.types, t: t) and lendsResult(c, tree: ms.tree(), e: ast.through(ms.tree(), e: e))
+end 'bindsLent'
+
 function bindLet(mutates c Checker, p ast.Project, ms ast.ModuleState, s ast.NodeID, name String, t ast.TypeID, isVar bool, off diag.U32, mutates errs diag.ErrorList)
+	_ = declareLet(c, p: p, ms: ms, s: s, name: name, t: t, isVar: isVar, off: off, errs: errs)
+end 'bindLet'
+
+// declareLet declares the local that the statement s binds, and gives it, or noLocal where the declaration was refused.
+function declareLet(mutates c Checker, p ast.Project, ms ast.ModuleState, s ast.NodeID, name String, t ast.TypeID, isVar bool, off diag.U32, mutates errs diag.ErrorList) returns ast.LocalID
 	let local = declareLocal(c, p: p, ms: ms, name: name, t: t, isVar: isVar, definedAt: s, off: off, errs: errs)
 	if local != ast.noLocal 'declared'
 		c.typing.nodeLocals.insert(s as Count, value: local)
 	end 'declared'
-end 'bindLet'
+	return local
+end 'declareLet'
 
 // checkAssign types an assignment to a variable, a field or an element.
 function checkAssign(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, s ast.NodeID, mutates errs diag.ErrorList)

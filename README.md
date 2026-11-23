@@ -1708,13 +1708,17 @@ nothing.
   of a record or a union with nothing managed in it is `runtime::free` itself, with no routine; a scalar, an enum and a `Handle`
   have none and are never dropped. The routines are named by their type's link name and ordered by where the modules first ask
   for them, never by a map.
-- **A String is two words**: the address of its bytes, and a word of its length shifted left by two, whether each byte
-  is below 0x80, and whether the String owns its bytes (`stringLengthShift`, `stringAsciiBit`, `stringOwnedBit`). The IR
+- **A String is two words**: the address of its bytes, and a word of its length shifted left by three, whether each byte
+  is below 0x80, whether the String owns its bytes, and whether it is a view of another String's (`stringLengthShift`,
+  `stringAsciiBit`, `stringOwnedBit`, `stringViewBit`). The IR
   holds one in one register of its own kind (`kindString`), which instruction selection makes two virtual registers; a
   place that holds one (a slot, a field, an element, a capture, an interface value's box) takes two words, and the empty
   place is 0 and 0. A literal points at its bytes in the executable's read-only data and owns none of them, so its drop does
   nothing and its copy is itself; the drop of a String frees its bytes only when the owned bit says so, and its copy
-  allocates only then. The length is the word shifted right, with no access to memory. `strptr`, `strword` and
+  allocates only then or when the view bit says it is a view (`rt.str.view`, which instruction selection writes in place:
+  the address plus the start, and the length, the ASCII bit and the view bit), whose copy owns its bytes. A view needs its
+  bit because a copy is made where nothing says whether the String is a literal, whose copy may share bytes that outlive
+  every copy, or a view, whose copy may not: a `let` parameter is given either. The length is the word shifted right, with no access to memory. `strptr`, `strword` and
   `strmake` take a String apart and make one of its two words, which only the runtime's String intrinsics write.
 - **The ASCII bit** of a String's word says that every byte is below 0x80 and none is a carriage return, which a line
   feed after it would join in one grapheme cluster: each cluster and each code point is then one byte. It is set only
@@ -2734,8 +2738,8 @@ type-parameter type has one owner; every other access is a borrow that cannot ou
   of a temporary, which is dropped when its statement ends, are not moved out either (`E3901`); `clone()` is the fix for
   all of them. A match binding also cannot
   be assigned, and the subject cannot be assigned, moved or passed `mutates` while the arm runs (`E3186`). There are no
-  local projection bindings (`mutates r = a.f`): borrows exist only as parameters, match bindings, call arguments and
-  the results of functions that return a borrowed place.
+  local projection bindings (`mutates r = a.f`): borrows exist only as parameters, match bindings, call arguments, the
+  results of functions that return a borrowed place, and a `let` bound to one (below).
 - **A function can return a borrowed place.** `typeEntry(tt TypeSlot, reads TypeTable, t TypeID) returns borrowed
   TypeEntry` gives a place of type `TypeEntry` that it borrows from its arguments, where `returns TypeEntry` gives a
   value the caller owns. `borrowed` is a word only between `returns` and a type, so it stays a name everywhere else.
@@ -2769,7 +2773,14 @@ type-parameter type has one owner; every other access is a borrow that cannot ou
   passes to a `let` or `mutates` parameter, the receiver among them, for as long as the caller uses it: everywhere a
   subscript holds its collection (an argument while later ones are evaluated, an operand, a for over it, a match binding
   of it) it holds each of those, and an argument passed `mutates`, `consumes` or `sets` beside it that overlaps one is
-  `E3186`.
+  `E3186`. A scalar argument lends nothing to a result that is not a scalar.
+- **A `let` bound to a borrowed result borrows it** (`check.bindsLent`): `let t = s.trim()` or `let e = entryOf(table)`
+  binds the place, or the view (see "Text"), with no copy, and owns nothing, so nothing drops at its end. It is read as a
+  `let` parameter is: moving it anywhere is `E3900`, whose fix is `.clone()`, and a behaviour cannot take it (`E3909`). For
+  its scope it holds what the call lends from, so changing or moving that is `E3186`, whose fix copies what the `let` is
+  bound to. Each place lent must outlive the statement: one made there, such as `name().trim()`, is `E3927`, fixed the
+  same way; a literal and a constant outlive it. A `var` owns its value, so binding one to a borrowed result is `E3901`
+  with the copy as its fix, as before.
 - **Exclusivity.** A place is a local or parameter followed by field selections and element selections (`a[i]`, see
   "Primitives"), and two places overlap when one is a prefix of the other (`a` and `a.f`; `a.f` and `a.g` do not;
   `a[i]` and `a[j]` do, for every index). An argument passed `mutates`, `consumes` or `sets`
@@ -3602,10 +3613,14 @@ A `String` is its UTF-8 bytes. Besides the byte operations, it has maxon's metho
 is the number of clusters, a `StringIndex` (built-in record; `charIndex()` and `bytePos()` give its two parts) names the
 start of one, and `startIndex()`, `endIndex()`, `findFirst(needle)` and `findLast(needle)` give them, the searches throwing
 `StringError.notFound` where the needle is not there; `slice(start, endIndex: end)` and `sliceLength(start, length: n)` cut by
-them, `contains`, `startsWith`, `endsWith`, `equals` and `isEmpty` ask, `replace(old, with: new)` and `replaceFirst` leave a
-string with an empty or absent `old` as it was, `trim`, `trimStart` and `trimEnd` remove the whitespace and newline clusters of
-maxon's `CharacterSet.whitespacesAndNewlines` (they take no set), `toLower` and `toUpper` map the ASCII letters only, as
-maxon's do. A String is built by interpolation: there is no `append` and no `StringBuilder` (`E3944`, whose fix writes
+them, and `sliceBytes(start, endPos: end)` by bytes, `contains`, `startsWith`, `endsWith`, `equals` and `isEmpty` ask,
+`replace(old, with: new)` and `replaceFirst` leave a string with an empty or absent `old` as it was, `trim`, `trimStart` and
+`trimEnd` remove the whitespace and newline clusters of maxon's `CharacterSet.whitespacesAndNewlines` (they take no set),
+`toLower` and `toUpper` map the ASCII letters only, as maxon's do. A slice and a trim are a view: a String of the receiver's
+bytes that owns none, made in place with no allocation (`rt.str.view`: the address, and a word of the length, the
+receiver's ASCII bit and the view bit), which the call lends as a function that `returns borrowed` lends a place (see
+"Ownership"), so it is kept only by a copy, `.clone()`; the copy of a view copies its bytes, where the copy of a literal is
+the literal. A String is built by interpolation: there is no `append` and no `StringBuilder` (`E3944`, whose fix writes
 the interpolation; see "Where it differs from Maxon"). An interpolation measures its parts (a String's length, a literal's
 known one, an integer's digit count by `rt.decimalLength`), allocates once (`rt.str.joinRoom`) and puts each part in place
 (`rt.str.joinPut`, and `rt.str.joinDigits`, which writes an integer's digits into the buffer with no String of their own),
@@ -4089,11 +4104,19 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   the header with the other literal markers (`Builtin*Literal`). maxon's `Map` has no subscript, `replace`, `isEmpty` or
   `dropEmpty`, which the built-in had, and a `Handle` is no key, since it is not `Hashable`. maxon makes a payload-free enum
   `Hashable` and `Equatable` itself; here such an enum declares both, with its methods, to be a key (not yet synthesized).
-- **A `String` is two words in place**, its bytes' address and a word of its length, an ASCII bit and an owned bit,
-  where maxon's is the address of a counted box. A literal is its bytes in the executable's read-only data, copied by no
-  operation; an owned String's bytes are a heap buffer of their own, freed by the String that owns them. A field, an
-  element, a capture and an interface value hold the two words, and a call passes them in two registers. What
-  programs say of a `String` is unchanged.
+- **A `String` is two words in place**, its bytes' address and a word of its length, an ASCII bit, an owned bit and a
+  view bit, where maxon's is the address of a counted box. A literal is its bytes in the executable's read-only data, copied
+  by no operation; an owned String's bytes are a heap buffer of their own, freed by the String that owns them; a view's are
+  another String's, so it frees none, and its copy copies them. A field, an element, a capture and an interface value hold
+  the two words, and a call passes them in two registers.
+- **A slice of a String is a view, and keeping one takes a copy.** `sliceBytes`, `slice`, `sliceLength`, `trim`,
+  `trimStart` and `trimEnd` lend a view of the bytes of the String they are called on, made with no allocation and no copy,
+  where maxon's give a String of their own (see "Ownership" and "Text"). A view is read, compared, interpolated, sliced
+  again, passed to a `let` parameter and bound to a `let`, which holds the String it views for its scope; storing it in a
+  field, an element or a `var`, returning it or passing it `consumes` (a service's message among them) is `E3901`
+  (`E3900` from a `let` that holds one, or where the String is itself borrowed), a behaviour taking a `let` that holds one
+  is `E3909`, and changing or moving the String while a `let` views it is `E3186`. Each names the copy, `.clone()`, which `fix` (that `specs.ps1` runs)
+  writes at the place the message names, so converted maxon code keeps its meaning with one copy where maxon made one.
 - `String` implements `Hashable` and `Equatable` through the library's extension, which the conversion writes from the header
   of maxon's `String.maxon`, with the methods that the built-in `String` lacks (`hash()`) from maxon's source; the built-in
   `equals` meets `Equatable` and is called in place through a bound. `Cloneable` is left out: `clone()` is the copy every

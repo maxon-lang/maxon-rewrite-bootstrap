@@ -1,0 +1,18 @@
+type Entry
+	export var key as String
+
+	static function make(consumes key String) returns Entry
+		return Entry{key: key}
+	end 'make'
+
+	static function ofLine(line String) returns Entry
+		return Entry{key: line.trim()}
+	end 'ofLine'
+end 'Entry'
+
+function main() returns ExitCode
+	print(Entry.ofLine(" key ").key)
+	return 0
+end 'main'
+
+// expect-error: E3900 at 9:26

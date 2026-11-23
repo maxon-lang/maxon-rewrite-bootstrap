@@ -517,30 +517,46 @@ function strClusterIsSpace(text String, start Count, stop Count) returns bool
 	return span == length and strIsSpace(strCodePoint(text, at: start, length: length))
 end 'strClusterIsSpace'
 
-// stringTrim is text without the whitespace clusters at its start, where trimStart, and at its end, where trimEnd.
-function stringTrim(text String, trimStart bool, trimEnd bool) returns String
+// stringTrimFirst is the byte position of the first cluster of text that is not whitespace, or its length where every one is.
+function stringTrimFirst(text String) returns Count
 	let size = text.byteLength()
 	var first = 0 as Count
+	var stop = strGraphemeEnd(text, start: 0)
+	while first < size and strClusterIsSpace(text, start: first, stop: stop) 'skip'
+		first = stop
+		stop = strGraphemeEnd(text, start: first)
+	end 'skip'
+	return first
+end 'stringTrimFirst'
+
+// stringTrimLast is the byte position after the last cluster of text at or after the position from that is not
+// whitespace, or from where every one is: the clusters are walked from from, which starts one.
+function stringTrimLast(text String, from Count) returns Count
+	let size = text.byteLength()
+	var at = from
+	var last = from
+	while at < size 'scan'
+		let stop = strGraphemeEnd(text, start: at)
+		if not strClusterIsSpace(text, start: at, stop: stop) 'kept'
+			last = stop
+		end 'kept'
+		at = stop
+	end 'scan'
+	return last
+end 'stringTrimLast'
+
+// stringTrim is a copy of text without the whitespace clusters at its start, where trimStart, and at its end, where
+// trimEnd: the seed's lowering of the trims calls it (seed/README.md), where a trim of this compiler is a view.
+function stringTrim(text String, trimStart bool, trimEnd bool) returns String
+	var first = 0 as Count
 	if trimStart 'leading'
-		var stop = strGraphemeEnd(text, start: 0)
-		while first < size and strClusterIsSpace(text, start: first, stop: stop) 'skip'
-			first = stop
-			stop = strGraphemeEnd(text, start: first)
-		end 'skip'
+		first = stringTrimFirst(text)
 	end 'leading'
-	var last = size
+	var last = text.byteLength()
 	if trimEnd 'trailing'
-		var at = first
-		last = first
-		while at < size 'scan'
-			let stop = strGraphemeEnd(text, start: at)
-			if not strClusterIsSpace(text, start: at, stop: stop) 'kept'
-				last = stop
-			end 'kept'
-			at = stop
-		end 'scan'
+		last = stringTrimLast(text, from: first)
 	end 'trailing'
-	return text.sliceBytes(first, endPos: last)
+	return text.sliceBytes(first, endPos: last).clone()
 end 'stringTrim'
 
 // stringMapCase is text with its ASCII letters in upper case, or in lower case where upper is false.
@@ -781,10 +797,11 @@ function formatFixed(magnitude String, negative bool, precision Count) returns S
 		end 'found'
 	end 'find'
 	let whole = magnitude.sliceBytes(0, endPos: point)
-	var fraction = ""
+	var after = size
 	if point < size 'fraction'
-		fraction = magnitude.sliceBytes(strAdd(point, right: 1), endPos: size)
+		after = strAdd(point, right: 1)
 	end 'fraction'
+	let fraction = magnitude.sliceBytes(after, endPos: size)
 	let places = fraction.byteLength()
 	if places <= precision 'exact'
 		if precision == 0 'none'

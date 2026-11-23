@@ -132,6 +132,13 @@ extension Selector
 		self.arm64Instr(Arm64Form.ubfmRegReg, a: dst, b: src, c: noMReg, aux: arm64SignShift as Imm32, imm: try count as FullRangeInt otherwise panic("backend: a shift past the word"))
 	end 'arm64ShiftRightInto'
 
+	// arm64ShiftLeftInto is lsl: ubfm that moves the low bits up by count.
+	function arm64ShiftLeftInto(mutates self, dst MReg, src MReg, count Count)
+		let shift = try count as ir.Word otherwise panic("backend: a shift past the word")
+		let imms = try arm64LslImms(shift) as Imm32 otherwise panic("backend: a shift past the word")
+		self.arm64Instr(Arm64Form.ubfmRegReg, a: dst, b: src, c: noMReg, aux: imms, imm: try arm64LslImmr(shift) as FullRangeInt otherwise panic("backend: a shift past the word"))
+	end 'arm64ShiftLeftInto'
+
 	function arm64ReferAddressInto(mutates self, dst MReg, refers Referent)
 		let page = self.newTemp()
 		self.arm64Refer(Arm64Form.adrp, a: page, b: noMReg, refers: refers)

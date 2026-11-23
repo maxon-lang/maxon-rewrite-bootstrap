@@ -15,7 +15,7 @@ end 'labelOf'
 
 function main() returns ExitCode
 	let s = Shelf.make("x")
-	let l = labelOf(s)
+	var l = labelOf(s)
 	return 0
 end 'main'
 

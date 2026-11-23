@@ -94,7 +94,9 @@ function requireCapturable(mutates c Checker, p ast.Project, mutates ms ast.Modu
 	var what = "a let or 'mutates' parameter"
 	if source.projected and isForVariable(ms.tree(), l: source) 'element'
 		what = "the variable of a loop over a collection"
-	end 'element' else if source.projected 'projected'
+	end 'element' else if isLentLet(ms.tree(), l: source) 'lent'
+		what = "a let bound to what a call lends, such as a view of a String"
+	end 'lent' else if source.projected 'projected'
 		what = "a match binding"
 	end 'projected' else if source.isSelf 'receiver'
 		what = "the receiver"

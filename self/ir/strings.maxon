@@ -103,16 +103,36 @@ function indexBytePos(mutates l Lowerer, index Reg) returns Reg
 	return d
 end 'indexBytePos'
 
+// stringView is the String that lends the bytes of text from the byte position from up to until: a slicing method gives
+// one, with no allocation and no copy, and the caller copies it to keep it (README, "Text"). Positions the lowering did
+// not compute from text itself are checked first, as a slice of maxon's is.
+function stringView(mutates l Lowerer, text Reg, from Reg, until Reg, checked bool) returns Reg
+	if checked 'bounds'
+		let size = runtime(l, symbol: Rt.rtStrLen, kind: IrKind.kindScalar, args: argsOf1(text))
+		let ordered = compare(l, op: CmpOp.cmpLe, a: from, b: until, unsigned: true)
+		let inside = compare(l, op: CmpOp.cmpLe, a: until, b: size, unsigned: true)
+		let both = wrappingBin(l, op: BinOp.binAnd, a: ordered, b: inside, kind: IrKind.kindScalar)
+		requireOrTrap(l, cond: both, message: stringSliceOutside)
+	end 'bounds'
+	let length = wrappingBin(l, op: BinOp.binSub, a: until, b: from, kind: IrKind.kindScalar)
+	let d = newReg(l, kind: IrKind.kindString)
+	emitCallRuntime(l, dst: d, symbol: Rt.rtStrView, args: argsOf3(text, b: from, c: length), routine: ast.noFunc)
+	return d
+end 'stringView'
+
+// stringSliceOutside is maxon's message of a slice whose positions are not inside the string.
+let stringSliceOutside = "string slice out of bounds"
+
 function lowerStringSlice(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	let start = indexBytePos(l, index: args[0])
 	let stop = indexBytePos(l, index: args[1])
-	return runtime(l, symbol: Rt.rtStrSlice, kind: IrKind.kindManaged, args: argsOf3(recv, b: start, c: stop))
+	return stringView(l, text: recv, from: start, until: stop, checked: true)
 end 'lowerStringSlice'
 
 function lowerStringSliceLength(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	let start = indexBytePos(l, index: args[0])
 	let stop = runtime(l, symbol: Rt.rtStrGraphemeBytePos, kind: IrKind.kindScalar, args: argsOf3(recv, b: start, c: args[1]))
-	return runtime(l, symbol: Rt.rtStrSlice, kind: IrKind.kindManaged, args: argsOf3(recv, b: start, c: stop))
+	return stringView(l, text: recv, from: start, until: stop, checked: true)
 end 'lowerStringSliceLength'
 
 function replace(mutates l Lowerer, text Reg, old Reg, replacement Reg, all bool) returns Reg
@@ -129,10 +149,20 @@ function lowerStringReplaceFirst(mutates l Lowerer, p ast.Project, ms ast.Module
 	return replace(l, text: recv, old: args[0], replacement: args[1], all: false)
 end 'lowerStringReplaceFirst'
 
+// trim is the view of text without the whitespace clusters at its start, where fromStart, and at its end, where fromEnd,
+// whose positions the runtime finds inside text.
 function trim(mutates l Lowerer, text Reg, fromStart bool, fromEnd bool) returns Reg
-	let trimStart = flag(l, on: fromStart)
-	let trimEnd = flag(l, on: fromEnd)
-	return runtime(l, symbol: Rt.rtStrTrim, kind: IrKind.kindManaged, args: argsOf3(text, b: trimStart, c: trimEnd))
+	var first = konst(l, value: 0 as Word)
+	if fromStart 'leading'
+		first = runtime(l, symbol: Rt.rtStrTrimFirst, kind: IrKind.kindScalar, args: argsOf1(text))
+	end 'leading'
+	var last = noReg
+	if fromEnd 'trailing'
+		last = runtime(l, symbol: Rt.rtStrTrimLast, kind: IrKind.kindScalar, args: argsOf2(text, b: first))
+	end 'trailing' else 'whole'
+		last = runtime(l, symbol: Rt.rtStrLen, kind: IrKind.kindScalar, args: argsOf1(text))
+	end 'whole'
+	return stringView(l, text: text, from: first, until: last, checked: false)
 end 'trim'
 
 function lowerStringTrim(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg

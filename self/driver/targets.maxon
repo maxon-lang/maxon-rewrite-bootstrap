@@ -139,11 +139,11 @@ function runnerWords(text String) returns CommandNames
 	var start = 0 as Count
 	for i in 0 upto text.byteLength() 'bytes'
 		if text.byteAt(i) == runnerWordSeparator 'separator'
-			words.push(text.sliceBytes(start, endPos: i))
+			words.push(text.sliceBytes(start, endPos: i).clone())
 			start = i + 1
 		end 'separator'
 	end 'bytes'
-	words.push(text.sliceBytes(start, endPos: text.byteLength()))
+	words.push(text.sliceBytes(start, endPos: text.byteLength()).clone())
 	return words
 end 'runnerWords'
 

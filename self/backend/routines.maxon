@@ -1349,13 +1349,18 @@ function behaviourWordDisp(start Count, index Count) returns Imm32
 end 'behaviourWordDisp'
 
 // skipUnlessOwned goes to done unless the String whose word is in the first local owns its bytes: a literal's are the
-// executable's and a view's another String's, so neither is freed or copied.
+// executable's and a view's another String's, so neither is freed.
 function skipUnlessOwned(mutates u CodeUnit, a ast.TargetArch, done LabelID)
-	rMovImm(u, a: a, dst: rWork, imm: stringOwnedBit)
+	skipUnlessBits(u, a: a, bits: stringOwnedBit, done: done)
+end 'skipUnlessOwned'
+
+// skipUnlessBits goes to done unless the word of the String in the first local has one of bits set.
+function skipUnlessBits(mutates u CodeUnit, a ast.TargetArch, bits FullRangeInt, done LabelID)
+	rMovImm(u, a: a, dst: rWork, imm: bits)
 	rLoad(u, a: a, dst: rSecond, base: rFrame, disp: routineLocal0)
 	rTest(u, a: a, left: rSecond, right: rWork)
 	rBranch(u, a: a, cond: MCond.equal, label: done)
-end 'skipUnlessOwned'
+end 'skipUnlessBits'
 
 // checkAsciiBit has the runtime check the bytes of the owned String that the routine's argument and its first local hold,
 // where its ASCII bit is set (Project.checksStrings).
@@ -1530,16 +1535,26 @@ function copyArray(mutates u CodeUnit, a ast.TargetArch, p ast.Project, mutates 
 	routineReturn(u, a: a)
 end 'copyArray'
 
-// copyString is a new String of the same word and a copy of the bytes, where the String owns them: a literal's and a
-// view's copy is the same two words, whose bytes no copy frees.
+// copyString is a new String of a copy of the bytes, which it owns, where the String owns them or is a view of another's:
+// a literal's copy is the same two words, since its bytes are the executable's and outlive every copy. A view's copy has
+// its word with the owned bit in place of the view bit.
 function copyString(mutates u CodeUnit, a ast.TargetArch, checks bool)
 	let shared = u.asm.newLabel()
+	let owned = u.asm.newLabel()
 	routinePrologue(u, a: a, locals: 2)
 	rStore(u, a: a, base: rFrame, disp: routineLocal0, src: rArgWord)
-	skipUnlessOwned(u, a: a, done: shared)
+	skipUnlessBits(u, a: a, bits: stringOwnedBit or stringViewBit, done: shared)
 	if checks 'checks'
 		checkAsciiBit(u, a: a)
 	end 'checks'
+	rMovImm(u, a: a, dst: rWork, imm: stringViewBit)
+	rLoad(u, a: a, dst: rSecond, base: rFrame, disp: routineLocal0)
+	rTest(u, a: a, left: rSecond, right: rWork)
+	rBranch(u, a: a, cond: MCond.equal, label: owned)
+	rMovImm(u, a: a, dst: rWork, imm: stringViewBit - stringOwnedBit)
+	rSub(u, a: a, dst: rSecond, src: rWork)
+	rStore(u, a: a, base: rFrame, disp: routineLocal0, src: rSecond)
+	u.asm.bind(owned)
 	rLoad(u, a: a, dst: rWork, base: rFrame, disp: routineLocal0)
 	rShrImm(u, a: a, dst: rWork, shift: stringLengthShift)
 	callRuntimeWithWork(u, a: a, entry: ir.Rt.rtAlloc)

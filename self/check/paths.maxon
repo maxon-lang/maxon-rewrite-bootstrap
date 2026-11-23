@@ -268,21 +268,28 @@ end 'projectionOf'
 
 // lenders are the arguments that a call of a function returning a borrowed place may lend it from: each one it passes to a
 // let or a mutates parameter, the receiver among them. Which one the place is in is the callee's to decide and is not
-// known at the call, so the place borrows all of them, as a let projection borrows its let arguments in Hylo.
-function lenders(o Ownership, ms ast.ModuleState, call ast.NodeID) returns ast.NodeIDList
+// known at the call, so the place borrows all of them, as a let projection borrows its let arguments in Hylo. A scalar
+// argument lends nothing to a place that is not a scalar, as a position given to a slice of a String does not.
+function lenders(o Ownership, p ast.Project, ms ast.ModuleState, call ast.NodeID) returns ast.NodeIDList
 	let info = ownCall(o, node: call)
+	let managed = isManagedOwn(p, ms: ms, t: ownType(o, node: call))
 	var out = ast.NodeIDList.create(0)
 	let receiver = ast.callReceiver(ms.tree(), e: call, kind: info.kind)
-	if receiver != 0 and lends(info.selfConv) 'receiver'
+	if receiver != 0 and lends(info.selfConv) and mayLend(o, p: p, ms: ms, arg: receiver, managed: managed) 'receiver'
 		out.push(receiver)
 	end 'receiver'
 	for i in 0 upto info.ordered.count() 'args'
-		if info.ordered[i] != 0 and lends(info.paramSpecs[i].conv) 'lent'
+		if info.ordered[i] != 0 and lends(info.paramSpecs[i].conv) and mayLend(o, p: p, ms: ms, arg: info.ordered[i], managed: managed) 'lent'
 			out.push(info.ordered[i])
 		end 'lent'
 	end 'args'
 	return out
 end 'lenders'
+
+// mayLend is whether an argument may hold the place a call lends, whose result is managed or a scalar.
+function mayLend(o Ownership, p ast.Project, ms ast.ModuleState, arg ast.NodeID, managed bool) returns bool
+	return not managed or isManagedOwn(p, ms: ms, t: ownType(o, node: arg))
+end 'mayLend'
 
 // lends is whether a parameter of a convention borrows its argument for the call, so that a place the callee returns may
 // lie in it.
@@ -308,7 +315,7 @@ function addLentPaths(o Ownership, p ast.Project, ms ast.ModuleState, e ast.Node
 		end 'named'
 		return
 	end 'place'
-	let from = lenders(o, ms: ms, call: call)
+	let from = lenders(o, p: p, ms: ms, call: call)
 	for i in 0 upto from.count() 'each'
 		addLentPaths(o, p: p, ms: ms, e: from[i], paths: paths)
 	end 'each'

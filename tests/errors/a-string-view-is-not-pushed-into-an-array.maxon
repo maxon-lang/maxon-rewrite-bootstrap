@@ -1,0 +1,10 @@
+typealias Names = Array with String
+
+function main() returns ExitCode
+	let line = "a,b{1}"
+	var parts = Names.create(0)
+	parts.push(line.sliceBytes(0, endPos: 1))
+	return 0
+end 'main'
+
+// expect-error: E3901 at 6:18

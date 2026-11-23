@@ -30,7 +30,7 @@ export enum Rt
 	rtStreq
 	rtStrLen
 	rtStrByteAt
-	rtStrSlice
+	rtStrView
 	rtStrCount
 	rtStrGraphemeIndex
 	rtStrGraphemeBytePos
@@ -38,7 +38,8 @@ export enum Rt
 	rtStrFindLast
 	rtStrHasAffix
 	rtStrReplace
-	rtStrTrim
+	rtStrTrimFirst
+	rtStrTrimLast
 	rtStrMapCase
 	rtStrCodePointAt
 	rtStrCodePointNext
@@ -250,9 +251,9 @@ export function rtSymbol(r Rt) returns String
 	if r == Rt.rtStrByteAt 'rtStrByteAt'
 		return "runtime::stringByteAt"
 	end 'rtStrByteAt'
-	if r == Rt.rtStrSlice 'rtStrSlice'
-		return "runtime::stringSlice"
-	end 'rtStrSlice'
+	if r == Rt.rtStrView 'rtStrView'
+		return "rt.str.view"
+	end 'rtStrView'
 	if r == Rt.rtStrCount 'rtStrCount'
 		return "runtime::stringCount"
 	end 'rtStrCount'
@@ -274,9 +275,12 @@ export function rtSymbol(r Rt) returns String
 	if r == Rt.rtStrReplace 'rtStrReplace'
 		return "runtime::stringReplace"
 	end 'rtStrReplace'
-	if r == Rt.rtStrTrim 'rtStrTrim'
-		return "runtime::stringTrim"
-	end 'rtStrTrim'
+	if r == Rt.rtStrTrimFirst 'rtStrTrimFirst'
+		return "runtime::stringTrimFirst"
+	end 'rtStrTrimFirst'
+	if r == Rt.rtStrTrimLast 'rtStrTrimLast'
+		return "runtime::stringTrimLast"
+	end 'rtStrTrimLast'
 	if r == Rt.rtStrMapCase 'rtStrMapCase'
 		return "runtime::stringMapCase"
 	end 'rtStrMapCase'
@@ -741,9 +745,9 @@ export function rtText(r Rt) returns String
 	if r == Rt.rtStrByteAt 'rtStrByteAt'
 		return "rt.str.byteAt"
 	end 'rtStrByteAt'
-	if r == Rt.rtStrSlice 'rtStrSlice'
-		return "rt.str.slice"
-	end 'rtStrSlice'
+	if r == Rt.rtStrView 'rtStrView'
+		return "rt.str.view"
+	end 'rtStrView'
 	if r == Rt.rtStrCount 'rtStrCount'
 		return "rt.str.count"
 	end 'rtStrCount'
@@ -765,9 +769,12 @@ export function rtText(r Rt) returns String
 	if r == Rt.rtStrReplace 'rtStrReplace'
 		return "rt.str.replace"
 	end 'rtStrReplace'
-	if r == Rt.rtStrTrim 'rtStrTrim'
-		return "rt.str.trim"
-	end 'rtStrTrim'
+	if r == Rt.rtStrTrimFirst 'rtStrTrimFirst'
+		return "rt.str.trimFirst"
+	end 'rtStrTrimFirst'
+	if r == Rt.rtStrTrimLast 'rtStrTrimLast'
+		return "rt.str.trimLast"
+	end 'rtStrTrimLast'
 	if r == Rt.rtStrMapCase 'rtStrMapCase'
 		return "rt.str.mapCase"
 	end 'rtStrMapCase'
@@ -1232,9 +1239,9 @@ export function rtCode(r Rt) returns Count
 	if r == Rt.rtStrByteAt 'rtStrByteAt'
 		return 27
 	end 'rtStrByteAt'
-	if r == Rt.rtStrSlice 'rtStrSlice'
+	if r == Rt.rtStrView 'rtStrView'
 		return 28
-	end 'rtStrSlice'
+	end 'rtStrView'
 	if r == Rt.rtStrCount 'rtStrCount'
 		return 29
 	end 'rtStrCount'
@@ -1256,386 +1263,389 @@ export function rtCode(r Rt) returns Count
 	if r == Rt.rtStrReplace 'rtStrReplace'
 		return 35
 	end 'rtStrReplace'
-	if r == Rt.rtStrTrim 'rtStrTrim'
+	if r == Rt.rtStrTrimFirst 'rtStrTrimFirst'
 		return 36
-	end 'rtStrTrim'
-	if r == Rt.rtStrMapCase 'rtStrMapCase'
+	end 'rtStrTrimFirst'
+	if r == Rt.rtStrTrimLast 'rtStrTrimLast'
 		return 37
+	end 'rtStrTrimLast'
+	if r == Rt.rtStrMapCase 'rtStrMapCase'
+		return 38
 	end 'rtStrMapCase'
 	if r == Rt.rtStrCodePointAt 'rtStrCodePointAt'
-		return 38
+		return 39
 	end 'rtStrCodePointAt'
 	if r == Rt.rtStrCodePointNext 'rtStrCodePointNext'
-		return 39
+		return 40
 	end 'rtStrCodePointNext'
 	if r == Rt.rtStrCodePointCount 'rtStrCodePointCount'
-		return 40
+		return 41
 	end 'rtStrCodePointCount'
 	if r == Rt.rtStrUtf16Unit 'rtStrUtf16Unit'
-		return 41
+		return 42
 	end 'rtStrUtf16Unit'
 	if r == Rt.rtStrUtf16Next 'rtStrUtf16Next'
-		return 42
+		return 43
 	end 'rtStrUtf16Next'
 	if r == Rt.rtStrUtf16Count 'rtStrUtf16Count'
-		return 43
+		return 44
 	end 'rtStrUtf16Count'
 	if r == Rt.rtPanicIndex 'rtPanicIndex'
-		return 44
+		return 45
 	end 'rtPanicIndex'
 	if r == Rt.rtHeap 'rtHeap'
-		return 45
+		return 46
 	end 'rtHeap'
 	if r == Rt.rtStdout 'rtStdout'
-		return 46
+		return 47
 	end 'rtStdout'
 	if r == Rt.rtStderr 'rtStderr'
-		return 47
+		return 48
 	end 'rtStderr'
 	if r == Rt.rtCheckLeaks 'rtCheckLeaks'
-		return 48
+		return 49
 	end 'rtCheckLeaks'
 	if r == Rt.rtTlsSlot 'rtTlsSlot'
-		return 49
+		return 50
 	end 'rtTlsSlot'
 	if r == Rt.rtTlsOffset 'rtTlsOffset'
-		return 50
+		return 51
 	end 'rtTlsOffset'
 	if r == Rt.rtMainContext 'rtMainContext'
-		return 51
+		return 52
 	end 'rtMainContext'
 	if r == Rt.rtProcessStart 'rtProcessStart'
-		return 52
+		return 53
 	end 'rtProcessStart'
 	if r == Rt.rtThreadStart 'rtThreadStart'
-		return 53
+		return 54
 	end 'rtThreadStart'
 	if r == Rt.rtStackSwitch 'rtStackSwitch'
-		return 54
+		return 55
 	end 'rtStackSwitch'
 	if r == Rt.rtGreenStart 'rtGreenStart'
-		return 55
+		return 56
 	end 'rtGreenStart'
 	if r == Rt.rtAsyncPreempt 'rtAsyncPreempt'
-		return 56
+		return 57
 	end 'rtAsyncPreempt'
 	if r == Rt.rtPreemptHandler 'rtPreemptHandler'
-		return 57
+		return 58
 	end 'rtPreemptHandler'
 	if r == Rt.rtSigreturn 'rtSigreturn'
-		return 58
+		return 59
 	end 'rtSigreturn'
 	if r == Rt.rtPreemptibleCode 'rtPreemptibleCode'
-		return 59
+		return 60
 	end 'rtPreemptibleCode'
 	if r == Rt.rtSchedDrain 'rtSchedDrain'
-		return 60
+		return 61
 	end 'rtSchedDrain'
 	if r == Rt.rtWorkerMain 'rtWorkerMain'
-		return 61
+		return 62
 	end 'rtWorkerMain'
 	if r == Rt.rtEnterBlocking 'rtEnterBlocking'
-		return 62
+		return 63
 	end 'rtEnterBlocking'
 	if r == Rt.rtExitBlocking 'rtExitBlocking'
-		return 63
+		return 64
 	end 'rtExitBlocking'
 	if r == Rt.rtExitClaim 'rtExitClaim'
-		return 64
+		return 65
 	end 'rtExitClaim'
 	if r == Rt.rtCownAcquire 'rtCownAcquire'
-		return 65
+		return 66
 	end 'rtCownAcquire'
 	if r == Rt.rtCownRelease 'rtCownRelease'
-		return 66
+		return 67
 	end 'rtCownRelease'
 	if r == Rt.rtMainRun 'rtMainRun'
-		return 67
+		return 68
 	end 'rtMainRun'
 	if r == Rt.rtMainGreen 'rtMainGreen'
-		return 68
+		return 69
 	end 'rtMainGreen'
 	if r == Rt.rtAsyncNew 'rtAsyncNew'
-		return 69
+		return 70
 	end 'rtAsyncNew'
 	if r == Rt.rtAsyncStart 'rtAsyncStart'
-		return 70
+		return 71
 	end 'rtAsyncStart'
 	if r == Rt.rtAsyncAwait 'rtAsyncAwait'
-		return 71
+		return 72
 	end 'rtAsyncAwait'
 	if r == Rt.rtAsyncWait 'rtAsyncWait'
-		return 72
+		return 73
 	end 'rtAsyncWait'
 	if r == Rt.rtAsyncError 'rtAsyncError'
-		return 73
+		return 74
 	end 'rtAsyncError'
 	if r == Rt.rtAsyncTake 'rtAsyncTake'
-		return 74
+		return 75
 	end 'rtAsyncTake'
 	if r == Rt.rtAsyncCancel 'rtAsyncCancel'
-		return 75
+		return 76
 	end 'rtAsyncCancel'
 	if r == Rt.rtAsyncAwaitAny 'rtAsyncAwaitAny'
-		return 76
+		return 77
 	end 'rtAsyncAwaitAny'
 	if r == Rt.rtAsyncComplete 'rtAsyncComplete'
-		return 77
+		return 78
 	end 'rtAsyncComplete'
 	if r == Rt.rtSleep 'rtSleep'
-		return 78
+		return 79
 	end 'rtSleep'
 	if r == Rt.rtYield 'rtYield'
-		return 79
+		return 80
 	end 'rtYield'
 	if r == Rt.rtHashSeed 'rtHashSeed'
-		return 80
+		return 81
 	end 'rtHashSeed'
 	if r == Rt.rtHashSeedDraw 'rtHashSeedDraw'
-		return 81
+		return 82
 	end 'rtHashSeedDraw'
 	if r == Rt.rtHashWord 'rtHashWord'
-		return 82
+		return 83
 	end 'rtHashWord'
 	if r == Rt.rtHashBytes 'rtHashBytes'
-		return 83
+		return 84
 	end 'rtHashBytes'
 	if r == Rt.rtHashStringBytes 'rtHashStringBytes'
-		return 84
+		return 85
 	end 'rtHashStringBytes'
 	if r == Rt.rtBytesReadWord 'rtBytesReadWord'
-		return 85
+		return 86
 	end 'rtBytesReadWord'
 	if r == Rt.rtBytesAppendWord 'rtBytesAppendWord'
-		return 86
+		return 87
 	end 'rtBytesAppendWord'
 	if r == Rt.rtServiceNew 'rtServiceNew'
-		return 87
+		return 88
 	end 'rtServiceNew'
 	if r == Rt.rtServiceReserve 'rtServiceReserve'
-		return 88
+		return 89
 	end 'rtServiceReserve'
 	if r == Rt.rtServiceTaken 'rtServiceTaken'
-		return 89
+		return 90
 	end 'rtServiceTaken'
 	if r == Rt.rtServiceShutdown 'rtServiceShutdown'
-		return 90
+		return 91
 	end 'rtServiceShutdown'
 	if r == Rt.rtReplyNew 'rtReplyNew'
-		return 91
+		return 92
 	end 'rtReplyNew'
 	if r == Rt.rtReplyGive 'rtReplyGive'
-		return 92
+		return 93
 	end 'rtReplyGive'
 	if r == Rt.rtArrayNew 'rtArrayNew'
-		return 93
+		return 94
 	end 'rtArrayNew'
 	if r == Rt.rtArrayLen 'rtArrayLen'
-		return 94
+		return 95
 	end 'rtArrayLen'
 	if r == Rt.rtArrayElem 'rtArrayElem'
-		return 95
+		return 96
 	end 'rtArrayElem'
 	if r == Rt.rtArrayInsert 'rtArrayInsert'
-		return 96
+		return 97
 	end 'rtArrayInsert'
 	if r == Rt.rtArrayRemove 'rtArrayRemove'
-		return 97
+		return 98
 	end 'rtArrayRemove'
 	if r == Rt.rtArrayFill 'rtArrayFill'
-		return 98
+		return 99
 	end 'rtArrayFill'
 	if r == Rt.rtArrayCapacity 'rtArrayCapacity'
-		return 99
+		return 100
 	end 'rtArrayCapacity'
 	if r == Rt.rtArrayReserve 'rtArrayReserve'
-		return 100
+		return 101
 	end 'rtArrayReserve'
 	if r == Rt.rtStrsElem 'rtStrsElem'
-		return 101
+		return 102
 	end 'rtStrsElem'
 	if r == Rt.rtStrsOpen 'rtStrsOpen'
-		return 102
+		return 103
 	end 'rtStrsOpen'
 	if r == Rt.rtStrsClose 'rtStrsClose'
-		return 103
+		return 104
 	end 'rtStrsClose'
 	if r == Rt.rtStrsFill 'rtStrsFill'
-		return 104
+		return 105
 	end 'rtStrsFill'
 	if r == Rt.rtStrsReserve 'rtStrsReserve'
-		return 105
+		return 106
 	end 'rtStrsReserve'
 	if r == Rt.rtArrayShrink 'rtArrayShrink'
-		return 106
+		return 107
 	end 'rtArrayShrink'
 	if r == Rt.rtListNew 'rtListNew'
-		return 107
+		return 108
 	end 'rtListNew'
 	if r == Rt.rtListLen 'rtListLen'
-		return 108
+		return 109
 	end 'rtListLen'
 	if r == Rt.rtListContains 'rtListContains'
-		return 109
+		return 110
 	end 'rtListContains'
 	if r == Rt.rtListElem 'rtListElem'
-		return 110
+		return 111
 	end 'rtListElem'
 	if r == Rt.rtListPushFront 'rtListPushFront'
-		return 111
+		return 112
 	end 'rtListPushFront'
 	if r == Rt.rtListPushBack 'rtListPushBack'
-		return 112
+		return 113
 	end 'rtListPushBack'
 	if r == Rt.rtListPopFront 'rtListPopFront'
-		return 113
+		return 114
 	end 'rtListPopFront'
 	if r == Rt.rtListPopBack 'rtListPopBack'
-		return 114
+		return 115
 	end 'rtListPopBack'
 	if r == Rt.rtListFirst 'rtListFirst'
-		return 115
+		return 116
 	end 'rtListFirst'
 	if r == Rt.rtListLast 'rtListLast'
-		return 116
+		return 117
 	end 'rtListLast'
 	if r == Rt.rtListNext 'rtListNext'
-		return 117
+		return 118
 	end 'rtListNext'
 	if r == Rt.rtListPrev 'rtListPrev'
-		return 118
+		return 119
 	end 'rtListPrev'
 	if r == Rt.rtListRemove 'rtListRemove'
-		return 119
+		return 120
 	end 'rtListRemove'
 	if r == Rt.rtListMoveToFront 'rtListMoveToFront'
-		return 120
+		return 121
 	end 'rtListMoveToFront'
 	if r == Rt.rtListCopy 'rtListCopy'
-		return 121
+		return 122
 	end 'rtListCopy'
 	if r == Rt.rtPoolNew 'rtPoolNew'
-		return 122
+		return 123
 	end 'rtPoolNew'
 	if r == Rt.rtPoolLen 'rtPoolLen'
-		return 123
+		return 124
 	end 'rtPoolLen'
 	if r == Rt.rtPoolContains 'rtPoolContains'
-		return 124
+		return 125
 	end 'rtPoolContains'
 	if r == Rt.rtPoolElem 'rtPoolElem'
-		return 125
+		return 126
 	end 'rtPoolElem'
 	if r == Rt.rtPoolInsert 'rtPoolInsert'
-		return 126
+		return 127
 	end 'rtPoolInsert'
 	if r == Rt.rtPoolRemove 'rtPoolRemove'
-		return 127
+		return 128
 	end 'rtPoolRemove'
 	if r == Rt.rtPoolCopy 'rtPoolCopy'
-		return 128
+		return 129
 	end 'rtPoolCopy'
 	if r == Rt.rtFrozenFreeze 'rtFrozenFreeze'
-		return 129
+		return 130
 	end 'rtFrozenFreeze'
 	if r == Rt.rtFrozenGet 'rtFrozenGet'
-		return 130
+		return 131
 	end 'rtFrozenGet'
 	if r == Rt.rtShare 'rtShare'
-		return 131
+		return 132
 	end 'rtShare'
 	if r == Rt.rtCownNew 'rtCownNew'
-		return 132
+		return 133
 	end 'rtCownNew'
 	if r == Rt.rtBytesNew 'rtBytesNew'
-		return 133
+		return 134
 	end 'rtBytesNew'
 	if r == Rt.rtBytesLen 'rtBytesLen'
-		return 134
+		return 135
 	end 'rtBytesLen'
 	if r == Rt.rtBytesGet 'rtBytesGet'
-		return 135
+		return 136
 	end 'rtBytesGet'
 	if r == Rt.rtBytesSet 'rtBytesSet'
-		return 136
+		return 137
 	end 'rtBytesSet'
 	if r == Rt.rtBytesInsert 'rtBytesInsert'
-		return 137
+		return 138
 	end 'rtBytesInsert'
 	if r == Rt.rtBytesRemove 'rtBytesRemove'
-		return 138
+		return 139
 	end 'rtBytesRemove'
 	if r == Rt.rtBytesAppend 'rtBytesAppend'
-		return 139
+		return 140
 	end 'rtBytesAppend'
 	if r == Rt.rtBytesAppendStr 'rtBytesAppendStr'
-		return 140
+		return 141
 	end 'rtBytesAppendStr'
 	if r == Rt.rtBytesToString 'rtBytesToString'
-		return 141
+		return 142
 	end 'rtBytesToString'
 	if r == Rt.rtOsArgs 'rtOsArgs'
-		return 142
+		return 143
 	end 'rtOsArgs'
 	if r == Rt.rtOsEnvironmentVariable 'rtOsEnvironmentVariable'
-		return 143
+		return 144
 	end 'rtOsEnvironmentVariable'
 	if r == Rt.rtOsExecutablePath 'rtOsExecutablePath'
-		return 144
+		return 145
 	end 'rtOsExecutablePath'
 	if r == Rt.rtOsCurrentPath 'rtOsCurrentPath'
-		return 145
+		return 146
 	end 'rtOsCurrentPath'
 	if r == Rt.rtOsProcessId 'rtOsProcessId'
-		return 146
+		return 147
 	end 'rtOsProcessId'
 	if r == Rt.rtOsSetExitCode 'rtOsSetExitCode'
-		return 147
+		return 148
 	end 'rtOsSetExitCode'
 	if r == Rt.rtOsClockNanos 'rtOsClockNanos'
-		return 148
+		return 149
 	end 'rtOsClockNanos'
 	if r == Rt.rtOsProcessorCount 'rtOsProcessorCount'
-		return 149
+		return 150
 	end 'rtOsProcessorCount'
 	if r == Rt.rtOsPathFrom 'rtOsPathFrom'
-		return 150
+		return 151
 	end 'rtOsPathFrom'
 	if r == Rt.rtOsReadText 'rtOsReadText'
-		return 151
+		return 152
 	end 'rtOsReadText'
 	if r == Rt.rtOsWriteTextMode 'rtOsWriteTextMode'
-		return 152
+		return 153
 	end 'rtOsWriteTextMode'
 	if r == Rt.rtOsWriteBinaryMode 'rtOsWriteBinaryMode'
-		return 153
+		return 154
 	end 'rtOsWriteBinaryMode'
 	if r == Rt.rtOsRename 'rtOsRename'
-		return 154
+		return 155
 	end 'rtOsRename'
 	if r == Rt.rtOsDelete 'rtOsDelete'
-		return 155
+		return 156
 	end 'rtOsDelete'
 	if r == Rt.rtOsFileInfo 'rtOsFileInfo'
-		return 156
+		return 157
 	end 'rtOsFileInfo'
 	if r == Rt.rtOsIsDirectory 'rtOsIsDirectory'
-		return 157
+		return 158
 	end 'rtOsIsDirectory'
 	if r == Rt.rtOsExists 'rtOsExists'
-		return 158
+		return 159
 	end 'rtOsExists'
 	if r == Rt.rtOsCreateDirectory 'rtOsCreateDirectory'
-		return 159
+		return 160
 	end 'rtOsCreateDirectory'
 	if r == Rt.rtOsDeleteDirectory 'rtOsDeleteDirectory'
-		return 160
+		return 161
 	end 'rtOsDeleteDirectory'
 	if r == Rt.rtOsList 'rtOsList'
-		return 161
+		return 162
 	end 'rtOsList'
 	if r == Rt.rtOsRun 'rtOsRun'
-		return 162
+		return 163
 	end 'rtOsRun'
 	panic("ir: rtNone has no number")
 end 'rtCode'
@@ -1670,7 +1680,7 @@ export function rtOf(code Count) returns Rt
 		25 gives Rt.rtStreq
 		26 gives Rt.rtStrLen
 		27 gives Rt.rtStrByteAt
-		28 gives Rt.rtStrSlice
+		28 gives Rt.rtStrView
 		29 gives Rt.rtStrCount
 		30 gives Rt.rtStrGraphemeIndex
 		31 gives Rt.rtStrGraphemeBytePos
@@ -1678,133 +1688,134 @@ export function rtOf(code Count) returns Rt
 		33 gives Rt.rtStrFindLast
 		34 gives Rt.rtStrHasAffix
 		35 gives Rt.rtStrReplace
-		36 gives Rt.rtStrTrim
-		37 gives Rt.rtStrMapCase
-		38 gives Rt.rtStrCodePointAt
-		39 gives Rt.rtStrCodePointNext
-		40 gives Rt.rtStrCodePointCount
-		41 gives Rt.rtStrUtf16Unit
-		42 gives Rt.rtStrUtf16Next
-		43 gives Rt.rtStrUtf16Count
-		44 gives Rt.rtPanicIndex
-		45 gives Rt.rtHeap
-		46 gives Rt.rtStdout
-		47 gives Rt.rtStderr
-		48 gives Rt.rtCheckLeaks
-		49 gives Rt.rtTlsSlot
-		50 gives Rt.rtTlsOffset
-		51 gives Rt.rtMainContext
-		52 gives Rt.rtProcessStart
-		53 gives Rt.rtThreadStart
-		54 gives Rt.rtStackSwitch
-		55 gives Rt.rtGreenStart
-		56 gives Rt.rtAsyncPreempt
-		57 gives Rt.rtPreemptHandler
-		58 gives Rt.rtSigreturn
-		59 gives Rt.rtPreemptibleCode
-		60 gives Rt.rtSchedDrain
-		61 gives Rt.rtWorkerMain
-		62 gives Rt.rtEnterBlocking
-		63 gives Rt.rtExitBlocking
-		64 gives Rt.rtExitClaim
-		65 gives Rt.rtCownAcquire
-		66 gives Rt.rtCownRelease
-		67 gives Rt.rtMainRun
-		68 gives Rt.rtMainGreen
-		69 gives Rt.rtAsyncNew
-		70 gives Rt.rtAsyncStart
-		71 gives Rt.rtAsyncAwait
-		72 gives Rt.rtAsyncWait
-		73 gives Rt.rtAsyncError
-		74 gives Rt.rtAsyncTake
-		75 gives Rt.rtAsyncCancel
-		76 gives Rt.rtAsyncAwaitAny
-		77 gives Rt.rtAsyncComplete
-		78 gives Rt.rtSleep
-		79 gives Rt.rtYield
-		80 gives Rt.rtHashSeed
-		81 gives Rt.rtHashSeedDraw
-		82 gives Rt.rtHashWord
-		83 gives Rt.rtHashBytes
-		84 gives Rt.rtHashStringBytes
-		85 gives Rt.rtBytesReadWord
-		86 gives Rt.rtBytesAppendWord
-		87 gives Rt.rtServiceNew
-		88 gives Rt.rtServiceReserve
-		89 gives Rt.rtServiceTaken
-		90 gives Rt.rtServiceShutdown
-		91 gives Rt.rtReplyNew
-		92 gives Rt.rtReplyGive
-		93 gives Rt.rtArrayNew
-		94 gives Rt.rtArrayLen
-		95 gives Rt.rtArrayElem
-		96 gives Rt.rtArrayInsert
-		97 gives Rt.rtArrayRemove
-		98 gives Rt.rtArrayFill
-		99 gives Rt.rtArrayCapacity
-		100 gives Rt.rtArrayReserve
-		101 gives Rt.rtStrsElem
-		102 gives Rt.rtStrsOpen
-		103 gives Rt.rtStrsClose
-		104 gives Rt.rtStrsFill
-		105 gives Rt.rtStrsReserve
-		106 gives Rt.rtArrayShrink
-		107 gives Rt.rtListNew
-		108 gives Rt.rtListLen
-		109 gives Rt.rtListContains
-		110 gives Rt.rtListElem
-		111 gives Rt.rtListPushFront
-		112 gives Rt.rtListPushBack
-		113 gives Rt.rtListPopFront
-		114 gives Rt.rtListPopBack
-		115 gives Rt.rtListFirst
-		116 gives Rt.rtListLast
-		117 gives Rt.rtListNext
-		118 gives Rt.rtListPrev
-		119 gives Rt.rtListRemove
-		120 gives Rt.rtListMoveToFront
-		121 gives Rt.rtListCopy
-		122 gives Rt.rtPoolNew
-		123 gives Rt.rtPoolLen
-		124 gives Rt.rtPoolContains
-		125 gives Rt.rtPoolElem
-		126 gives Rt.rtPoolInsert
-		127 gives Rt.rtPoolRemove
-		128 gives Rt.rtPoolCopy
-		129 gives Rt.rtFrozenFreeze
-		130 gives Rt.rtFrozenGet
-		131 gives Rt.rtShare
-		132 gives Rt.rtCownNew
-		133 gives Rt.rtBytesNew
-		134 gives Rt.rtBytesLen
-		135 gives Rt.rtBytesGet
-		136 gives Rt.rtBytesSet
-		137 gives Rt.rtBytesInsert
-		138 gives Rt.rtBytesRemove
-		139 gives Rt.rtBytesAppend
-		140 gives Rt.rtBytesAppendStr
-		141 gives Rt.rtBytesToString
-		142 gives Rt.rtOsArgs
-		143 gives Rt.rtOsEnvironmentVariable
-		144 gives Rt.rtOsExecutablePath
-		145 gives Rt.rtOsCurrentPath
-		146 gives Rt.rtOsProcessId
-		147 gives Rt.rtOsSetExitCode
-		148 gives Rt.rtOsClockNanos
-		149 gives Rt.rtOsProcessorCount
-		150 gives Rt.rtOsPathFrom
-		151 gives Rt.rtOsReadText
-		152 gives Rt.rtOsWriteTextMode
-		153 gives Rt.rtOsWriteBinaryMode
-		154 gives Rt.rtOsRename
-		155 gives Rt.rtOsDelete
-		156 gives Rt.rtOsFileInfo
-		157 gives Rt.rtOsIsDirectory
-		158 gives Rt.rtOsExists
-		159 gives Rt.rtOsCreateDirectory
-		160 gives Rt.rtOsDeleteDirectory
-		161 gives Rt.rtOsList
-		162 gives Rt.rtOsRun
+		36 gives Rt.rtStrTrimFirst
+		37 gives Rt.rtStrTrimLast
+		38 gives Rt.rtStrMapCase
+		39 gives Rt.rtStrCodePointAt
+		40 gives Rt.rtStrCodePointNext
+		41 gives Rt.rtStrCodePointCount
+		42 gives Rt.rtStrUtf16Unit
+		43 gives Rt.rtStrUtf16Next
+		44 gives Rt.rtStrUtf16Count
+		45 gives Rt.rtPanicIndex
+		46 gives Rt.rtHeap
+		47 gives Rt.rtStdout
+		48 gives Rt.rtStderr
+		49 gives Rt.rtCheckLeaks
+		50 gives Rt.rtTlsSlot
+		51 gives Rt.rtTlsOffset
+		52 gives Rt.rtMainContext
+		53 gives Rt.rtProcessStart
+		54 gives Rt.rtThreadStart
+		55 gives Rt.rtStackSwitch
+		56 gives Rt.rtGreenStart
+		57 gives Rt.rtAsyncPreempt
+		58 gives Rt.rtPreemptHandler
+		59 gives Rt.rtSigreturn
+		60 gives Rt.rtPreemptibleCode
+		61 gives Rt.rtSchedDrain
+		62 gives Rt.rtWorkerMain
+		63 gives Rt.rtEnterBlocking
+		64 gives Rt.rtExitBlocking
+		65 gives Rt.rtExitClaim
+		66 gives Rt.rtCownAcquire
+		67 gives Rt.rtCownRelease
+		68 gives Rt.rtMainRun
+		69 gives Rt.rtMainGreen
+		70 gives Rt.rtAsyncNew
+		71 gives Rt.rtAsyncStart
+		72 gives Rt.rtAsyncAwait
+		73 gives Rt.rtAsyncWait
+		74 gives Rt.rtAsyncError
+		75 gives Rt.rtAsyncTake
+		76 gives Rt.rtAsyncCancel
+		77 gives Rt.rtAsyncAwaitAny
+		78 gives Rt.rtAsyncComplete
+		79 gives Rt.rtSleep
+		80 gives Rt.rtYield
+		81 gives Rt.rtHashSeed
+		82 gives Rt.rtHashSeedDraw
+		83 gives Rt.rtHashWord
+		84 gives Rt.rtHashBytes
+		85 gives Rt.rtHashStringBytes
+		86 gives Rt.rtBytesReadWord
+		87 gives Rt.rtBytesAppendWord
+		88 gives Rt.rtServiceNew
+		89 gives Rt.rtServiceReserve
+		90 gives Rt.rtServiceTaken
+		91 gives Rt.rtServiceShutdown
+		92 gives Rt.rtReplyNew
+		93 gives Rt.rtReplyGive
+		94 gives Rt.rtArrayNew
+		95 gives Rt.rtArrayLen
+		96 gives Rt.rtArrayElem
+		97 gives Rt.rtArrayInsert
+		98 gives Rt.rtArrayRemove
+		99 gives Rt.rtArrayFill
+		100 gives Rt.rtArrayCapacity
+		101 gives Rt.rtArrayReserve
+		102 gives Rt.rtStrsElem
+		103 gives Rt.rtStrsOpen
+		104 gives Rt.rtStrsClose
+		105 gives Rt.rtStrsFill
+		106 gives Rt.rtStrsReserve
+		107 gives Rt.rtArrayShrink
+		108 gives Rt.rtListNew
+		109 gives Rt.rtListLen
+		110 gives Rt.rtListContains
+		111 gives Rt.rtListElem
+		112 gives Rt.rtListPushFront
+		113 gives Rt.rtListPushBack
+		114 gives Rt.rtListPopFront
+		115 gives Rt.rtListPopBack
+		116 gives Rt.rtListFirst
+		117 gives Rt.rtListLast
+		118 gives Rt.rtListNext
+		119 gives Rt.rtListPrev
+		120 gives Rt.rtListRemove
+		121 gives Rt.rtListMoveToFront
+		122 gives Rt.rtListCopy
+		123 gives Rt.rtPoolNew
+		124 gives Rt.rtPoolLen
+		125 gives Rt.rtPoolContains
+		126 gives Rt.rtPoolElem
+		127 gives Rt.rtPoolInsert
+		128 gives Rt.rtPoolRemove
+		129 gives Rt.rtPoolCopy
+		130 gives Rt.rtFrozenFreeze
+		131 gives Rt.rtFrozenGet
+		132 gives Rt.rtShare
+		133 gives Rt.rtCownNew
+		134 gives Rt.rtBytesNew
+		135 gives Rt.rtBytesLen
+		136 gives Rt.rtBytesGet
+		137 gives Rt.rtBytesSet
+		138 gives Rt.rtBytesInsert
+		139 gives Rt.rtBytesRemove
+		140 gives Rt.rtBytesAppend
+		141 gives Rt.rtBytesAppendStr
+		142 gives Rt.rtBytesToString
+		143 gives Rt.rtOsArgs
+		144 gives Rt.rtOsEnvironmentVariable
+		145 gives Rt.rtOsExecutablePath
+		146 gives Rt.rtOsCurrentPath
+		147 gives Rt.rtOsProcessId
+		148 gives Rt.rtOsSetExitCode
+		149 gives Rt.rtOsClockNanos
+		150 gives Rt.rtOsProcessorCount
+		151 gives Rt.rtOsPathFrom
+		152 gives Rt.rtOsReadText
+		153 gives Rt.rtOsWriteTextMode
+		154 gives Rt.rtOsWriteBinaryMode
+		155 gives Rt.rtOsRename
+		156 gives Rt.rtOsDelete
+		157 gives Rt.rtOsFileInfo
+		158 gives Rt.rtOsIsDirectory
+		159 gives Rt.rtOsExists
+		160 gives Rt.rtOsCreateDirectory
+		161 gives Rt.rtOsDeleteDirectory
+		162 gives Rt.rtOsList
+		163 gives Rt.rtOsRun
 		default panic("ir: a number that is no runtime symbol")
 	end 'code'
 end 'rtOf'
@@ -1904,9 +1915,9 @@ export function rtUnit(r Rt) returns RtUnit
 	if r == Rt.rtStrByteAt 'rtStrByteAt'
 		return RtUnit.rtUnitRuntime
 	end 'rtStrByteAt'
-	if r == Rt.rtStrSlice 'rtStrSlice'
+	if r == Rt.rtStrView 'rtStrView'
 		return RtUnit.rtUnitRuntime
-	end 'rtStrSlice'
+	end 'rtStrView'
 	if r == Rt.rtStrCount 'rtStrCount'
 		return RtUnit.rtUnitRuntime
 	end 'rtStrCount'
@@ -1928,9 +1939,12 @@ export function rtUnit(r Rt) returns RtUnit
 	if r == Rt.rtStrReplace 'rtStrReplace'
 		return RtUnit.rtUnitRuntime
 	end 'rtStrReplace'
-	if r == Rt.rtStrTrim 'rtStrTrim'
+	if r == Rt.rtStrTrimFirst 'rtStrTrimFirst'
 		return RtUnit.rtUnitRuntime
-	end 'rtStrTrim'
+	end 'rtStrTrimFirst'
+	if r == Rt.rtStrTrimLast 'rtStrTrimLast'
+		return RtUnit.rtUnitRuntime
+	end 'rtStrTrimLast'
 	if r == Rt.rtStrMapCase 'rtStrMapCase'
 		return RtUnit.rtUnitRuntime
 	end 'rtStrMapCase'
@@ -2448,46 +2462,43 @@ export function rtFunctions(b ast.Builtins) returns RtFunctionList
 	fns.push(RtFunction.make(Rt.rtStrByteAt, name: "stringByteAt", params: params24, result: b.byteTy))
 	var params25 = RtParamList.create(0)
 	params25.push(RtParam.make(ast.Convention.convLet, name: "text", ty: b.stringTy))
-	params25.push(RtParam.make(ast.Convention.convLet, name: "from", ty: b.countTy))
-	params25.push(RtParam.make(ast.Convention.convLet, name: "until", ty: b.countTy))
-	fns.push(RtFunction.make(Rt.rtStrSlice, name: "stringSlice", params: params25, result: b.stringTy))
+	fns.push(RtFunction.make(Rt.rtStrCount, name: "stringCount", params: params25, result: b.countTy))
 	var params26 = RtParamList.create(0)
 	params26.push(RtParam.make(ast.Convention.convLet, name: "text", ty: b.stringTy))
-	fns.push(RtFunction.make(Rt.rtStrCount, name: "stringCount", params: params26, result: b.countTy))
+	params26.push(RtParam.make(ast.Convention.convLet, name: "bytePos", ty: b.countTy))
+	fns.push(RtFunction.make(Rt.rtStrGraphemeIndex, name: "stringGraphemeIndex", params: params26, result: b.countTy))
 	var params27 = RtParamList.create(0)
 	params27.push(RtParam.make(ast.Convention.convLet, name: "text", ty: b.stringTy))
-	params27.push(RtParam.make(ast.Convention.convLet, name: "bytePos", ty: b.countTy))
-	fns.push(RtFunction.make(Rt.rtStrGraphemeIndex, name: "stringGraphemeIndex", params: params27, result: b.countTy))
+	params27.push(RtParam.make(ast.Convention.convLet, name: "from", ty: b.countTy))
+	params27.push(RtParam.make(ast.Convention.convLet, name: "count", ty: b.countTy))
+	fns.push(RtFunction.make(Rt.rtStrGraphemeBytePos, name: "stringGraphemeBytePos", params: params27, result: b.countTy))
 	var params28 = RtParamList.create(0)
 	params28.push(RtParam.make(ast.Convention.convLet, name: "text", ty: b.stringTy))
+	params28.push(RtParam.make(ast.Convention.convLet, name: "needle", ty: b.stringTy))
 	params28.push(RtParam.make(ast.Convention.convLet, name: "from", ty: b.countTy))
-	params28.push(RtParam.make(ast.Convention.convLet, name: "count", ty: b.countTy))
-	fns.push(RtFunction.make(Rt.rtStrGraphemeBytePos, name: "stringGraphemeBytePos", params: params28, result: b.countTy))
+	fns.push(RtFunction.make(Rt.rtStrFind, name: "stringFind", params: params28, result: b.countTy))
 	var params29 = RtParamList.create(0)
 	params29.push(RtParam.make(ast.Convention.convLet, name: "text", ty: b.stringTy))
 	params29.push(RtParam.make(ast.Convention.convLet, name: "needle", ty: b.stringTy))
-	params29.push(RtParam.make(ast.Convention.convLet, name: "from", ty: b.countTy))
-	fns.push(RtFunction.make(Rt.rtStrFind, name: "stringFind", params: params29, result: b.countTy))
+	fns.push(RtFunction.make(Rt.rtStrFindLast, name: "stringFindLast", params: params29, result: b.countTy))
 	var params30 = RtParamList.create(0)
 	params30.push(RtParam.make(ast.Convention.convLet, name: "text", ty: b.stringTy))
-	params30.push(RtParam.make(ast.Convention.convLet, name: "needle", ty: b.stringTy))
-	fns.push(RtFunction.make(Rt.rtStrFindLast, name: "stringFindLast", params: params30, result: b.countTy))
+	params30.push(RtParam.make(ast.Convention.convLet, name: "affix", ty: b.stringTy))
+	params30.push(RtParam.make(ast.Convention.convLet, name: "atEnd", ty: b.boolTy))
+	fns.push(RtFunction.make(Rt.rtStrHasAffix, name: "stringHasAffix", params: params30, result: b.boolTy))
 	var params31 = RtParamList.create(0)
 	params31.push(RtParam.make(ast.Convention.convLet, name: "text", ty: b.stringTy))
-	params31.push(RtParam.make(ast.Convention.convLet, name: "affix", ty: b.stringTy))
-	params31.push(RtParam.make(ast.Convention.convLet, name: "atEnd", ty: b.boolTy))
-	fns.push(RtFunction.make(Rt.rtStrHasAffix, name: "stringHasAffix", params: params31, result: b.boolTy))
+	params31.push(RtParam.make(ast.Convention.convLet, name: "old", ty: b.stringTy))
+	params31.push(RtParam.make(ast.Convention.convLet, name: "replacement", ty: b.stringTy))
+	params31.push(RtParam.make(ast.Convention.convLet, name: "all", ty: b.boolTy))
+	fns.push(RtFunction.make(Rt.rtStrReplace, name: "stringReplace", params: params31, result: b.stringTy))
 	var params32 = RtParamList.create(0)
 	params32.push(RtParam.make(ast.Convention.convLet, name: "text", ty: b.stringTy))
-	params32.push(RtParam.make(ast.Convention.convLet, name: "old", ty: b.stringTy))
-	params32.push(RtParam.make(ast.Convention.convLet, name: "replacement", ty: b.stringTy))
-	params32.push(RtParam.make(ast.Convention.convLet, name: "all", ty: b.boolTy))
-	fns.push(RtFunction.make(Rt.rtStrReplace, name: "stringReplace", params: params32, result: b.stringTy))
+	fns.push(RtFunction.make(Rt.rtStrTrimFirst, name: "stringTrimFirst", params: params32, result: b.countTy))
 	var params33 = RtParamList.create(0)
 	params33.push(RtParam.make(ast.Convention.convLet, name: "text", ty: b.stringTy))
-	params33.push(RtParam.make(ast.Convention.convLet, name: "trimStart", ty: b.boolTy))
-	params33.push(RtParam.make(ast.Convention.convLet, name: "trimEnd", ty: b.boolTy))
-	fns.push(RtFunction.make(Rt.rtStrTrim, name: "stringTrim", params: params33, result: b.stringTy))
+	params33.push(RtParam.make(ast.Convention.convLet, name: "from", ty: b.countTy))
+	fns.push(RtFunction.make(Rt.rtStrTrimLast, name: "stringTrimLast", params: params33, result: b.countTy))
 	var params34 = RtParamList.create(0)
 	params34.push(RtParam.make(ast.Convention.convLet, name: "text", ty: b.stringTy))
 	params34.push(RtParam.make(ast.Convention.convLet, name: "upper", ty: b.boolTy))
@@ -2829,9 +2840,7 @@ export function rtGivesString(r Rt) returns bool
 		rtFmtPad or
 		rtFmtQuoted or
 		rtFmtFixed or
-		rtStrSlice or
 		rtStrReplace or
-		rtStrTrim or
 		rtStrMapCase or
 		rtBytesToString or
 		rtOsEnvironmentVariable or
@@ -2854,12 +2863,15 @@ export function rtGivesString(r Rt) returns bool
 		rtStreq or
 		rtStrLen or
 		rtStrByteAt or
+		rtStrView or
 		rtStrCount or
 		rtStrGraphemeIndex or
 		rtStrGraphemeBytePos or
 		rtStrFind or
 		rtStrFindLast or
 		rtStrHasAffix or
+		rtStrTrimFirst or
+		rtStrTrimLast or
 		rtStrCodePointAt or
 		rtStrCodePointNext or
 		rtStrCodePointCount or

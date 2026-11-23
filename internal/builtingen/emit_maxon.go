@@ -342,9 +342,7 @@ func emitMaxonFunction(m *maxonBody, f fn) {
 		}
 		id := m.fresh("f")
 		m.line("let %s = %s", id, call)
-		if f.Lends {
-			m.line("ft.lists[funcList(ft, f: %[1]s)][funcIndex(ft, f: %[1]s)].result = ResultConv.resultBorrowed", id)
-		}
+		m.lends(f, id)
 		for _, bd := range f.bounds {
 			p := m.ownerParam(f.Owner, paramIndex(ownerParams(f.Owner), bd.param))
 			m.line("ft.lists[funcList(ft, f: %[1]s)][funcIndex(ft, f: %[1]s)].bounds.push(ParamBound.make(%s, ifaceTy: b.%s))", id, p, maxonField(bd.iface, false))
@@ -378,6 +376,7 @@ func emitMaxonFunction(m *maxonBody, f fn) {
 	id := m.fresh("f")
 	m.line("let %s = %s", id, call)
 	m.errorType(f, id)
+	m.lends(f, id)
 	if f.gbound != "" {
 		m.line("ft.lists[funcList(ft, f: %[1]s)][funcIndex(ft, f: %[1]s)].bounds.push(ParamBound.make(%s, ifaceTy: b.%s))", id, generic, maxonField(f.gbound, false))
 	}
@@ -392,6 +391,13 @@ func emitMaxonFunction(m *maxonBody, f fn) {
 	}
 	if f.Field != "" {
 		m.line("b.%sFunc = %s", lowerFirst(f.Field), id)
+	}
+}
+
+// lends makes the function id lend a place, or a view, rather than give a value, when its row says so.
+func (m *maxonBody) lends(f fn, id string) {
+	if f.Lends {
+		m.line("ft.lists[funcList(ft, f: %[1]s)][funcIndex(ft, f: %[1]s)].result = ResultConv.resultBorrowed", id)
 	}
 }
 

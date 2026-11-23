@@ -178,7 +178,7 @@ export type Tree
 		while endPos < n and isIdentByte(text.byteAt(endPos)) 'scan'
 			endPos = endPos + 1
 		end 'scan'
-		return text.sliceBytes(start, endPos: endPos)
+		return text.sliceBytes(start, endPos: endPos).clone()
 	end 'nameAt'
 
 	export function labelAt(ref diag.U32) returns String
@@ -191,7 +191,7 @@ export type Tree
 		while endPos < n and text.byteAt(endPos) != 39 'scan'
 			endPos = endPos + 1
 		end 'scan'
-		return text.sliceBytes(start, endPos: endPos)
+		return text.sliceBytes(start, endPos: endPos).clone()
 	end 'labelAt'
 
 	export function kindOf(id NodeID) returns NodeKind
@@ -335,7 +335,7 @@ export type Tree
 		end 'decoded'
 		let n = try (tag - partRunTag) as Count otherwise panic("strPart raw tag")
 		let off = arg as Count
-		return text.sliceBytes(off, endPos: try off + n otherwise panic("strPart slice overflow"))
+		return text.sliceBytes(off, endPos: try off + n otherwise panic("strPart slice overflow")).clone()
 	end 'strPartText'
 
 	export function strIsPlain(partsRef diag.U32) returns bool

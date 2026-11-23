@@ -173,7 +173,7 @@ left untouched.
 ```maxon
 function main() returns ExitCode
 	let s = "hello world"
-	var sub = s.sliceLength(s.startIndex(), length: 5)
+	var sub = s.sliceLength(s.startIndex(), length: 5).clone()
 	sub = "{sub}!"
 	print("{sub} {s}\n")
 	return 0
@@ -195,7 +195,7 @@ two values had nothing to do with each other, so no existing case can catch this
 function main() returns ExitCode
 	let s = "hello world"
 	let other = "hello"
-	var sub = s.sliceLength(s.startIndex(), length: 5)
+	var sub = s.sliceLength(s.startIndex(), length: 5).clone()
 	sub = "{sub}!"
 	print("{sub} {other}\n")
 	return 0

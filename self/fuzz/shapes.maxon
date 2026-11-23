@@ -114,7 +114,7 @@ function trimTrailingNewlines(text String) returns String
 	while finish > 0 and text.byteAt(try finish - 1 otherwise 0) == 10 'trim'
 		finish = try finish - 1 otherwise 0
 	end 'trim'
-	return text.sliceBytes(0, endPos: finish)
+	return text.sliceBytes(0, endPos: finish).clone()
 end 'trimTrailingNewlines'
 
 // collectionSlot is the position of a collection's kind among the three that a program has: arrays, pools and lists.

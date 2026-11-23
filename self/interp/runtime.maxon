@@ -239,17 +239,16 @@ function entryStrByteAt(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	giveNum(vm, x: x, n: vm.h.texts[at].byteAt(i) as ir.Word)
 end 'entryStrByteAt'
 
-function entryStrSlice(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
-	let at = try textIndex(vm, o: argRef(vm, f: f, x: x, i: 0), what: "a string slice")
+// entryStrView gives a view of a String's bytes, whose bounds the lowering checked, as a String that no one owns and that
+// is never freed, as a literal is: the interpreter has no bytes of one String that another can point into.
+function entryStrView(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let at = try textIndex(vm, o: argRef(vm, f: f, x: x, i: 0), what: "a string view")
 	let start = ir.bitsOfWord(argNum(vm, f: f, x: x, i: 1))
-	let stop = ir.bitsOfWord(argNum(vm, f: f, x: x, i: 2))
-	if start > stop or stop > vm.h.texts[at].byteLength() 'outside'
-		throw trap(vm, message: "string slice out of bounds")
-	end 'outside'
-	let text = vm.h.texts[at].sliceBytes(start, endPos: stop)
-	let made = newString(vm, text: text)
+	let stop = try start + ir.bitsOfWord(argNum(vm, f: f, x: x, i: 2)) otherwise panic("interp: a view past memory")
+	let made = newString(vm, text: vm.h.texts[at].sliceBytes(start, endPos: stop).clone())
+	vm.h.oImmortal[made] = true
 	giveRef(vm, x: x, o: made)
-end 'entryStrSlice'
+end 'entryStrView'
 
 // newShared makes a frozen value or a cown that owns a value the entry takes, with one owner: the reference it returns.
 function newShared(mutates vm Vm, f ir.IrFunction, kind Count, src ir.Reg, what String) returns Count throws Halt

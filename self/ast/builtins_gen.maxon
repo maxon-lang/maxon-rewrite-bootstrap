@@ -1318,6 +1318,7 @@ function declareStringMethods(mutates tt TypeSlot, reads TypeTable, mutates ft F
 	ps4.push(ParamSpec.make("start", ty: b.countTy, conv: Convention.convLet))
 	ps4.push(ParamSpec.make("endPos", ty: b.countTy, conv: Convention.convLet))
 	let f5 = registerStdFunc(ft, funcReads: funcReads, std: std, funcMap: funcMap, op: Intrinsic.intrStringSliceBytes, name: "sliceBytes", generics: TypeIDList.create(0), ret: b.stringTy, params: ps4, declareInStd: false)
+	ft.lists[funcList(ft, f: f5)][funcIndex(ft, f: f5)].result = ResultConv.resultBorrowed
 	ft.lists[funcList(ft, f: f5)][funcIndex(ft, f: f5)].ownerTy = b.stringTy
 	ft.lists[funcList(ft, f: f5)][funcIndex(ft, f: f5)].isStatic = false
 	ft.lists[funcList(ft, f: f5)][funcIndex(ft, f: f5)].hasReceiver = true
@@ -1419,6 +1420,7 @@ function declareStringMethods(mutates tt TypeSlot, reads TypeTable, mutates ft F
 	ps30.push(ParamSpec.make("start", ty: b.stringIndexTy, conv: Convention.convLet))
 	ps30.push(ParamSpec.make("endIndex", ty: b.stringIndexTy, conv: Convention.convLet))
 	let f31 = registerStdFunc(ft, funcReads: funcReads, std: std, funcMap: funcMap, op: Intrinsic.intrStringSlice, name: "slice", generics: TypeIDList.create(0), ret: b.stringTy, params: ps30, declareInStd: false)
+	ft.lists[funcList(ft, f: f31)][funcIndex(ft, f: f31)].result = ResultConv.resultBorrowed
 	ft.lists[funcList(ft, f: f31)][funcIndex(ft, f: f31)].ownerTy = b.stringTy
 	ft.lists[funcList(ft, f: f31)][funcIndex(ft, f: f31)].isStatic = false
 	ft.lists[funcList(ft, f: f31)][funcIndex(ft, f: f31)].hasReceiver = true
@@ -1427,6 +1429,7 @@ function declareStringMethods(mutates tt TypeSlot, reads TypeTable, mutates ft F
 	ps32.push(ParamSpec.make("start", ty: b.stringIndexTy, conv: Convention.convLet))
 	ps32.push(ParamSpec.make("length", ty: b.countTy, conv: Convention.convLet))
 	let f33 = registerStdFunc(ft, funcReads: funcReads, std: std, funcMap: funcMap, op: Intrinsic.intrStringSliceLength, name: "sliceLength", generics: TypeIDList.create(0), ret: b.stringTy, params: ps32, declareInStd: false)
+	ft.lists[funcList(ft, f: f33)][funcIndex(ft, f: f33)].result = ResultConv.resultBorrowed
 	ft.lists[funcList(ft, f: f33)][funcIndex(ft, f: f33)].ownerTy = b.stringTy
 	ft.lists[funcList(ft, f: f33)][funcIndex(ft, f: f33)].isStatic = false
 	ft.lists[funcList(ft, f: f33)][funcIndex(ft, f: f33)].hasReceiver = true
@@ -1448,16 +1451,19 @@ function declareStringMethods(mutates tt TypeSlot, reads TypeTable, mutates ft F
 	ft.lists[funcList(ft, f: f37)][funcIndex(ft, f: f37)].hasReceiver = true
 	b.stringMethods.insert("replaceFirst", value: f37)
 	let f38 = registerStdFunc(ft, funcReads: funcReads, std: std, funcMap: funcMap, op: Intrinsic.intrStringTrim, name: "trim", generics: TypeIDList.create(0), ret: b.stringTy, params: ParamSpecList.create(0), declareInStd: false)
+	ft.lists[funcList(ft, f: f38)][funcIndex(ft, f: f38)].result = ResultConv.resultBorrowed
 	ft.lists[funcList(ft, f: f38)][funcIndex(ft, f: f38)].ownerTy = b.stringTy
 	ft.lists[funcList(ft, f: f38)][funcIndex(ft, f: f38)].isStatic = false
 	ft.lists[funcList(ft, f: f38)][funcIndex(ft, f: f38)].hasReceiver = true
 	b.stringMethods.insert("trim", value: f38)
 	let f39 = registerStdFunc(ft, funcReads: funcReads, std: std, funcMap: funcMap, op: Intrinsic.intrStringTrimStart, name: "trimStart", generics: TypeIDList.create(0), ret: b.stringTy, params: ParamSpecList.create(0), declareInStd: false)
+	ft.lists[funcList(ft, f: f39)][funcIndex(ft, f: f39)].result = ResultConv.resultBorrowed
 	ft.lists[funcList(ft, f: f39)][funcIndex(ft, f: f39)].ownerTy = b.stringTy
 	ft.lists[funcList(ft, f: f39)][funcIndex(ft, f: f39)].isStatic = false
 	ft.lists[funcList(ft, f: f39)][funcIndex(ft, f: f39)].hasReceiver = true
 	b.stringMethods.insert("trimStart", value: f39)
 	let f40 = registerStdFunc(ft, funcReads: funcReads, std: std, funcMap: funcMap, op: Intrinsic.intrStringTrimEnd, name: "trimEnd", generics: TypeIDList.create(0), ret: b.stringTy, params: ParamSpecList.create(0), declareInStd: false)
+	ft.lists[funcList(ft, f: f40)][funcIndex(ft, f: f40)].result = ResultConv.resultBorrowed
 	ft.lists[funcList(ft, f: f40)][funcIndex(ft, f: f40)].ownerTy = b.stringTy
 	ft.lists[funcList(ft, f: f40)][funcIndex(ft, f: f40)].isStatic = false
 	ft.lists[funcList(ft, f: f40)][funcIndex(ft, f: f40)].hasReceiver = true

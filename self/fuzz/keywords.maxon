@@ -155,7 +155,7 @@ end 'tabs'
 // withoutTab is the line with its first tab taken off, when it has one.
 function withoutTab(line String) returns String
 	if line.byteLength() > 0 and line.byteAt(0) == 9 'tabbed'
-		return line.sliceBytes(1, endPos: line.byteLength())
+		return line.sliceBytes(1, endPos: line.byteLength()).clone()
 	end 'tabbed'
 	return line.clone()
 end 'withoutTab'

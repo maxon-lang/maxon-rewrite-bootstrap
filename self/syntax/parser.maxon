@@ -170,7 +170,7 @@ type Parser
 
 	// text is a token's text: a substring of the module's source.
 	function text(t Token) returns String
-		return src.text.sliceBytes(t.start as Count, endPos: t.endOffset())
+		return src.text.sliceBytes(t.start as Count, endPos: t.endOffset()).clone()
 	end 'text'
 
 	function cur() returns Token
@@ -833,7 +833,7 @@ function addInterpolation(mutates p Parser, mutates parts ast.StrPartsBuilder, b
 		p.errors.push(p.src.errorAt(diag.errIntegerLiteralRange, message: diag.formatFieldOverflow(spec, bound: "{ast.formatFieldBound}"), file: file, offset: until))
 		throw SyntaxError.refused
 	end 'overflow'
-	parts.formatted(p.tree, e: node, spec: spec)
+	parts.formatted(p.tree, e: node, spec: spec.clone())
 end 'addInterpolation'
 
 // byteStrLitParts reads the byte string literal that t is: its bytes are one part, which is a string of them.
@@ -1050,7 +1050,7 @@ function baseName(path String) returns String
 			start = after(i)
 		end 'separator'
 	end 'each'
-	return path.sliceBytes(start, endPos: path.byteLength())
+	return path.sliceBytes(start, endPos: path.byteLength()).clone()
 end 'baseName'
 
 // testFileName is the name of the file of tests that a file is renamed to, which has the name of the file with its extension

@@ -95,10 +95,10 @@ function runtimeEntry(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 		try entryStrByteAt(vm, f: f, x: x)
 		return
 	end 'rtStrByteAt'
-	if symbol == ir.Rt.rtStrSlice 'rtStrSlice'
-		try entryStrSlice(vm, f: f, x: x)
+	if symbol == ir.Rt.rtStrView 'rtStrView'
+		try entryStrView(vm, f: f, x: x)
 		return
-	end 'rtStrSlice'
+	end 'rtStrView'
 	if symbol == ir.Rt.rtStrCount 'rtStrCount'
 		try entryStrCount(vm, f: f, x: x)
 		return
@@ -127,10 +127,14 @@ function runtimeEntry(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 		try entryStrReplace(vm, f: f, x: x)
 		return
 	end 'rtStrReplace'
-	if symbol == ir.Rt.rtStrTrim 'rtStrTrim'
-		try entryStrTrim(vm, f: f, x: x)
+	if symbol == ir.Rt.rtStrTrimFirst 'rtStrTrimFirst'
+		try entryStrTrimFirst(vm, f: f, x: x)
 		return
-	end 'rtStrTrim'
+	end 'rtStrTrimFirst'
+	if symbol == ir.Rt.rtStrTrimLast 'rtStrTrimLast'
+		try entryStrTrimLast(vm, f: f, x: x)
+		return
+	end 'rtStrTrimLast'
 	if symbol == ir.Rt.rtStrMapCase 'rtStrMapCase'
 		try entryStrMapCase(vm, f: f, x: x)
 		return

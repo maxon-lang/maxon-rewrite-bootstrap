@@ -94,7 +94,7 @@ export function fileNameOf(path String) returns String
 		end 'separator'
 		at = before
 	end 'back'
-	return path.sliceBytes(at, endPos: path.byteLength())
+	return path.sliceBytes(at, endPos: path.byteLength()).clone()
 end 'fileNameOf'
 
 export function locateSite(mods ModuleList, site diag.Site) returns ErrorLocation
@@ -116,7 +116,7 @@ export function qualifierOf(m Module) returns String
 	end 'root'
 	if m.isLibrary 'library'
 		let skip = try stdlibQualifier.byteLength() + 1 otherwise panic("positions: a library path past memory")
-		return m.path.sliceBytes(skip, endPos: m.path.byteLength())
+		return m.path.sliceBytes(skip, endPos: m.path.byteLength()).clone()
 	end 'library'
 	return m.path.clone()
 end 'qualifierOf'

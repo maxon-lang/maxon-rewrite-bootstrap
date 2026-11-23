@@ -169,7 +169,7 @@ function trimLeft(text String) returns String
 	while start < n and isSpaceByte(text.byteAt(start)) 'skip'
 		start = start + 1
 	end 'skip'
-	return text.sliceBytes(start, endPos: n)
+	return text.sliceBytes(start, endPos: n).clone()
 end 'trimLeft'
 
 function trimSpace(text String) returns String
@@ -181,7 +181,7 @@ function trimSpace(text String) returns String
 	while finish > start and isSpaceByte(text.byteAt(try finish - 1 otherwise 0)) 'skipRight'
 		finish = try finish - 1 otherwise 0
 	end 'skipRight'
-	return text.sliceBytes(start, endPos: finish)
+	return text.sliceBytes(start, endPos: finish).clone()
 end 'trimSpace'
 
 // matchesAt is whether needle stands in text at the byte at.
@@ -255,7 +255,7 @@ function readLines(path String) returns ast.StringList
 	let content = try File.readText(filePath) otherwise panic("test: cannot read {path}")
 	var text = content.clone()
 	if hasByteOrderMark(text) 'bom'
-		text = text.sliceBytes(byteOrderMarkBytes, endPos: text.byteLength())
+		text = text.sliceBytes(byteOrderMarkBytes, endPos: text.byteLength()).clone()
 	end 'bom'
 	return splitLines(withoutCarriageReturns(text, loneToo: true))
 end 'readLines'
@@ -267,11 +267,11 @@ function splitLines(text String) returns ast.StringList
 	let n = text.byteLength()
 	for i in 0 upto n 'scan'
 		if text.byteAt(i) == newlineByte 'cut'
-			lines.push(text.sliceBytes(start, endPos: i))
+			lines.push(text.sliceBytes(start, endPos: i).clone())
 			start = i + 1
 		end 'cut'
 	end 'scan'
-	lines.push(text.sliceBytes(start, endPos: n))
+	lines.push(text.sliceBytes(start, endPos: n).clone())
 	return lines
 end 'splitLines'
 
@@ -284,14 +284,14 @@ function directiveNumber(text String, file String, directive String) returns Cou
 end 'directiveNumber'
 
 function afterPrefix(line String, prefix String) returns String
-	return line.sliceBytes(prefix.byteLength(), endPos: line.byteLength())
+	return line.sliceBytes(prefix.byteLength(), endPos: line.byteLength()).clone()
 end 'afterPrefix'
 
 // afterMarkerSpace is the text of a directive after the one space that follows its marker, so that what the directive holds may
 // start or end with spaces of its own.
 function afterMarkerSpace(text String) returns String
 	if text.byteLength() > 0 and text.byteAt(0) == spaceByte 'space'
-		return text.sliceBytes(1, endPos: text.byteLength())
+		return text.sliceBytes(1, endPos: text.byteLength()).clone()
 	end 'space'
 	return text.clone()
 end 'afterMarkerSpace'
@@ -571,7 +571,7 @@ function runTests(dir String, options CorpusOptions, width RunWidth) returns Exi
 	for i in 0 upto files.count() 'tests'
 		let file = files[i].clone()
 		let nameStart = try root.byteLength() + 1 otherwise panic("test: {root} is too long")
-		let name = file.sliceBytes(nameStart, endPos: file.byteLength())
+		let name = file.sliceBytes(nameStart, endPos: file.byteLength()).clone()
 		var expect = readExpectation(file)
 		expect.checkOnly = options.compilesOnly or hasPrefix(file, prefix: checkOnlyPrefix)
 		if hasPrefix(file, prefix: runtimeTierPrefix) 'runtimeTier'
@@ -812,9 +812,9 @@ function checkExpectedError(expected String, file String, errs diag.ErrorList, u
 	let hasAt = split.isSome()
 	if hasAt 'positioned'
 		let found = split.unwrap()
-		code = expected.sliceBytes(0, endPos: found)
+		code = expected.sliceBytes(0, endPos: found).clone()
 		let atStart = try found + errorLocationSplit.byteLength() otherwise panic("test: {expected} is too long")
-		at = expected.sliceBytes(atStart, endPos: expected.byteLength())
+		at = expected.sliceBytes(atStart, endPos: expected.byteLength()).clone()
 	end 'positioned'
 	for i in 0 upto errs.count() 'each'
 		if errs[i].code == code and (not hasAt or at == positionText(errs[i])) 'found'

@@ -33,7 +33,7 @@ function splitRename(text String) returns table.Option with Rename
 	if old == "" or replacement == "" 'empty'
 		return table.Option.none
 	end 'empty'
-	return table.Option.some(Rename.make(old, replacement: replacement))
+	return table.Option.some(Rename.make(old.clone(), replacement: replacement.clone()))
 end 'splitRename'
 
 // rewriteCommand is the rewrite command: rest holds its name, --keyword=old=new and the paths.

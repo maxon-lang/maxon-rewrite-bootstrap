@@ -411,8 +411,8 @@ type function struct {
 	Throws string
 	// Intrinsic is what it lowers to: ast.Intrinsic+Intrinsic, ir's lower+Intrinsic.
 	Intrinsic string
-	// Lends is whether the method gives a place in its receiver rather than a value, as a function that returns borrowed
-	// does.
+	// Lends is whether the method gives a place in its receiver, or a view of a String's bytes, rather than a value, as a
+	// function that returns borrowed does.
 	Lends bool
 	// Field is the ast.Builtins field that holds a free function which is not declared by its name, or a method that the
 	// checker chooses for a call of the name in place of the one declared by it: an overload by the arguments' form.
@@ -650,8 +650,9 @@ var tableFunctions = []function{
 
 	{Owner: "String", Name: "byteLength", Result: "Count", Intrinsic: "StringByteLength"},
 	{Owner: "String", Name: "byteAt", Params: []string{"index Count"}, Result: "Byte", Intrinsic: "StringByteAt"},
-	// sliceBytes is maxon's name for the byte range, which keeps slice for a range of graphemes.
-	{Owner: "String", Name: "sliceBytes", Params: []string{"start Count", "endPos Count"}, Result: "String", Intrinsic: "StringSliceBytes"},
+	// sliceBytes is maxon's name for the byte range, which keeps slice for a range of graphemes. It and the other slicing
+	// methods (slice, sliceLength and the trims) lend a view of the receiver's bytes, which the caller copies to keep.
+	{Owner: "String", Name: "sliceBytes", Params: []string{"start Count", "endPos Count"}, Result: "String", Lends: true, Intrinsic: "StringSliceBytes"},
 	{Owner: "String", Name: "toByteArray", Result: "Array with Byte", Intrinsic: "StringToByteArray"},
 	{Owner: "String", Name: "from", Static: true, Params: []string{"bytes Array with Byte"}, Result: "String", Intrinsic: "StringFrom"},
 	{Owner: "String", Name: "bytes", Result: "ByteView", Intrinsic: "StringBytes"},
@@ -681,14 +682,14 @@ var tableFunctions = []function{
 	{Owner: "String", Name: "findLast", Params: []string{"needle String"}, Result: "StringIndex", Throws: "StringError", Intrinsic: "StringFindLast"},
 	{Owner: "String", Name: "startIndex", Result: "StringIndex", Intrinsic: "StringStartIndex"},
 	{Owner: "String", Name: "endIndex", Result: "StringIndex", Intrinsic: "StringEndIndex"},
-	{Owner: "String", Name: "slice", Params: []string{"start StringIndex", "endIndex StringIndex"}, Result: "String", Intrinsic: "StringSlice"},
-	{Owner: "String", Name: "sliceLength", Params: []string{"start StringIndex", "length Count"}, Result: "String", Intrinsic: "StringSliceLength"},
+	{Owner: "String", Name: "slice", Params: []string{"start StringIndex", "endIndex StringIndex"}, Result: "String", Lends: true, Intrinsic: "StringSlice"},
+	{Owner: "String", Name: "sliceLength", Params: []string{"start StringIndex", "length Count"}, Result: "String", Lends: true, Intrinsic: "StringSliceLength"},
 	{Owner: "String", Name: "replace", Params: []string{"old String", "with String"}, Result: "String", Intrinsic: "StringReplace"},
 	{Owner: "String", Name: "replaceFirst", Params: []string{"old String", "with String"}, Result: "String", Intrinsic: "StringReplaceFirst"},
 	// trim takes no CharacterSet: it removes whitespace and newlines, maxon's default.
-	{Owner: "String", Name: "trim", Result: "String", Intrinsic: "StringTrim"},
-	{Owner: "String", Name: "trimStart", Result: "String", Intrinsic: "StringTrimStart"},
-	{Owner: "String", Name: "trimEnd", Result: "String", Intrinsic: "StringTrimEnd"},
+	{Owner: "String", Name: "trim", Result: "String", Lends: true, Intrinsic: "StringTrim"},
+	{Owner: "String", Name: "trimStart", Result: "String", Lends: true, Intrinsic: "StringTrimStart"},
+	{Owner: "String", Name: "trimEnd", Result: "String", Lends: true, Intrinsic: "StringTrimEnd"},
 	{Owner: "String", Name: "toLower", Result: "String", Intrinsic: "StringToLower"},
 	{Owner: "String", Name: "toUpper", Result: "String", Intrinsic: "StringToUpper"},
 	{Owner: "StringIndex", Name: "charIndex", Result: "Count", Intrinsic: "StringIndexCharIndex"},
@@ -867,7 +868,7 @@ var entries = []entry{
 	{"Streq", "rt.streq", "Runtime", roleCall, "(String, String) -> bool"},
 	{"StrLen", "rt.str.len", "Runtime", roleCall, "(String) -> count of bytes"},
 	{"StrByteAt", "rt.str.byteAt", "Runtime", roleCall, "(String, index) -> byte"},
-	{"StrSlice", "rt.str.slice", "Runtime", roleCall, "(String, from, until) -> String"},
+	{"StrView", "rt.str.view", "Runtime", roleCall, "(String, from, length) -> String: a view of the length bytes from from, which owns none and has the String's ASCII bit, the bounds checked before; the backend writes it in place"},
 	{"StrCount", "rt.str.count", "Runtime", roleCall, "(String) -> count of its grapheme clusters"},
 	{"StrGraphemeIndex", "rt.str.graphemeIndex", "Runtime", roleCall, "(String, byte position) -> count of the clusters that start before it"},
 	{"StrGraphemeBytePos", "rt.str.graphemeBytePos", "Runtime", roleCall, "(String, from, count) -> the byte position that count clusters after from end at, or the end"},
@@ -875,7 +876,8 @@ var entries = []entry{
 	{"StrFindLast", "rt.str.findLast", "Runtime", roleCall, "(String, needle String) -> the position of the last match, plus 1, or 0"},
 	{"StrHasAffix", "rt.str.hasAffix", "Runtime", roleCall, "(String, affix String, atEnd) -> whether it starts with the affix, or ends with it where atEnd"},
 	{"StrReplace", "rt.str.replace", "Runtime", roleCall, "(String, old String, replacement String, all) -> String with the first match, or each, replaced"},
-	{"StrTrim", "rt.str.trim", "Runtime", roleCall, "(String, trimStart, trimEnd) -> String without the whitespace at those ends"},
+	{"StrTrimFirst", "rt.str.trimFirst", "Runtime", roleCall, "(String) -> the byte position of the first cluster that is not whitespace, or the length"},
+	{"StrTrimLast", "rt.str.trimLast", "Runtime", roleCall, "(String, from) -> the byte position after the last cluster at or after from that is not whitespace, or from"},
 	{"StrMapCase", "rt.str.mapCase", "Runtime", roleCall, "(String, upper) -> String with its ASCII letters in that case"},
 	{"StrCodePointAt", "rt.str.codePointAt", "Runtime", roleCall, "(String, byte position) -> the code point that starts there"},
 	{"StrCodePointNext", "rt.str.codePointNext", "Runtime", roleCall, "(String, byte position) -> the byte position of the next code point, plus 1, or 0 at the last"},
@@ -1050,7 +1052,6 @@ var runtimeFunctions = []runtimeFunction{
 	{"Streq", "streq(left String, right String) Bool"},
 	{"StrLen", "stringLength(text String) Count"},
 	{"StrByteAt", "stringByteAt(text String, index Count) Byte"},
-	{"StrSlice", "stringSlice(text String, from Count, until Count) String"},
 	{"StrCount", "stringCount(text String) Count"},
 	{"StrGraphemeIndex", "stringGraphemeIndex(text String, bytePos Count) Count"},
 	{"StrGraphemeBytePos", "stringGraphemeBytePos(text String, from Count, count Count) Count"},
@@ -1058,7 +1059,8 @@ var runtimeFunctions = []runtimeFunction{
 	{"StrFindLast", "stringFindLast(text String, needle String) Count"},
 	{"StrHasAffix", "stringHasAffix(text String, affix String, atEnd Bool) Bool"},
 	{"StrReplace", "stringReplace(text String, old String, replacement String, all Bool) String"},
-	{"StrTrim", "stringTrim(text String, trimStart Bool, trimEnd Bool) String"},
+	{"StrTrimFirst", "stringTrimFirst(text String) Count"},
+	{"StrTrimLast", "stringTrimLast(text String, from Count) Count"},
 	{"StrMapCase", "stringMapCase(text String, upper Bool) String"},
 	{"StrCodePointAt", "stringCodePointAt(text String, bytePos Count) Count"},
 	{"StrCodePointNext", "stringCodePointNext(text String, bytePos Count) Count"},

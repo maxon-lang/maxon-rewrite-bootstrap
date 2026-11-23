@@ -69,7 +69,7 @@ function trimTrailingSlash(p String) returns String
 		end 'driveRoot'
 		endPos = lastIdx
 	end 'trim'
-	return p.sliceBytes(0 as Count, endPos: endPos)
+	return p.sliceBytes(0 as Count, endPos: endPos).clone()
 end 'trimTrailingSlash'
 
 export function joinPath(dir String, name String) returns String
@@ -98,9 +98,9 @@ export function parentDir(path String) returns String
 		let ch = path.byteAt(prev)
 		if ch == 47 or ch == 92 'sep'
 			if prev == 0 'rootSlash'
-				return path.sliceBytes(0 as Count, endPos: 1 as Count)
+				return path.sliceBytes(0 as Count, endPos: 1 as Count).clone()
 			end 'rootSlash'
-			return path.sliceBytes(0 as Count, endPos: prev)
+			return path.sliceBytes(0 as Count, endPos: prev).clone()
 		end 'sep'
 		i = prev
 	end 'back'
@@ -279,11 +279,11 @@ export function absolutePath(path String) returns String
 	let n = full.byteLength()
 	for i in 0 upto n 'scan'
 		if isSeparator(full.byteAt(i)) 'cut'
-			addPathPart(parts, part: full.sliceBytes(start, endPos: i))
+			addPathPart(parts, part: full.sliceBytes(start, endPos: i).clone())
 			start = i + 1
 		end 'cut'
 	end 'scan'
-	addPathPart(parts, part: full.sliceBytes(start, endPos: n))
+	addPathPart(parts, part: full.sliceBytes(start, endPos: n).clone())
 	var out = ByteArray.create(0)
 	for i in 0 upto parts.count() 'join'
 		if i > 0 'separator'
@@ -359,7 +359,7 @@ export function lastComponent(path String) returns String
 		end 'separator'
 		at = before
 	end 'back'
-	return path.sliceBytes(at, endPos: path.byteLength())
+	return path.sliceBytes(at, endPos: path.byteLength()).clone()
 end 'lastComponent'
 
 // listDirectory sorts what a directory holds into the paths of its source files, the paths of its project files and the names
@@ -436,7 +436,7 @@ function listMemory(dir String, memory SourceFiles, mutates files ast.StringList
 			end 'name'
 			let name = rest.sliceBytes(0, endPos: cut)
 			if not containsString(dirs, text: name) 'new'
-				dirs.push(name)
+				dirs.push(name.clone())
 			end 'new'
 		end 'below'
 	end 'each'
@@ -793,7 +793,7 @@ function lastPathPart(path String) returns String
 			start = try i + 1 otherwise i
 		end 'separator'
 	end 'each'
-	return path.sliceBytes(start, endPos: path.byteLength())
+	return path.sliceBytes(start, endPos: path.byteLength()).clone()
 end 'lastPathPart'
 
 function parseSingleModule(mutates ms ast.ModuleState, p ast.Project, memory SourceFiles, mutates errs diag.ErrorList)

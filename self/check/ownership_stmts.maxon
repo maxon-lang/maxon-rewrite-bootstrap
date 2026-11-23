@@ -120,18 +120,73 @@ function letStmtOwn(mutates o Ownership, p ast.Project, mutates ms ast.ModuleSta
 	return bindLends(without(out, l: sym), holder: sym)
 end 'letStmtOwn'
 
-// lentLetOwn checks a let that a destructuring of a lent tuple makes (check/destructure.maxon): it borrows the place init
-// is, an element of the tuple or the tuple a call lends, instead of moving it, and holds what that place borrows from for
-// as long as its scope lasts, as a value that holds a borrow holds what it borrows. It owns nothing, so nothing drops.
+// lentLetOwn checks a let that borrows what it is bound to (check.bindsLent): a borrowed result, such as a view of a
+// String's bytes, or what a destructuring of a lent tuple makes (check/destructure.maxon), an element of the tuple or the
+// tuple a call lends. It borrows that place instead of moving it, and holds what the place borrows from for as long as its
+// scope lasts, as a value that holds a borrow holds what it borrows. It owns nothing, so nothing drops.
 function lentLetOwn(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState, sym ast.LocalID, init ast.NodeID, consumes s OwnState) returns OwnState
 	let out = expr(o, p: p, ms: ms, e: init, s: s)
 	let name = o.c.typing.locals[sym as Count].name.clone()
+	let ty = ownType(o, node: init)
+	let call = projectionOf(o, ms: ms, e: init)
+	if call != 0 'result'
+		let temporary = temporaryLender(o, p: p, ms: ms, call: call)
+		if temporary != 0 'temporary'
+			let fix = cloneFixIf(o, p: p, ms: ms, e: init, t: ty)
+			failFixed(o, p: p, site: offsetOfOwn(o, p: p, ms: ms, node: temporary), code: diag.errBorrowEscapes, msg: "'{name}' is bound to what '{projectionName(o, p: p, ms: ms, call: call)}' lends from this value, which ends with the statement, so '{name}' would outlive it; bind the value to a variable first, or copy what '{name}' is bound to with '.clone()'", fix: fix)
+		end 'temporary'
+	end 'result'
 	let lent = lentPaths(o, p: p, ms: ms, e: init)
 	for i in 0 upto lent.count() 'each'
-		o.projections.push(OwnProjection.capture(lent[i].clone(), kind: OwnProjectionKind.projectBorrow, ty: ownType(o, node: init), holder: "'{name}'"))
+		if call != 0 'result'
+			o.projections.push(OwnProjection.lent(lent[i].clone(), ty: ty, holder: "'{name}'", bound: init))
+		end 'result' else 'tuple'
+			o.projections.push(OwnProjection.capture(lent[i].clone(), kind: OwnProjectionKind.projectBorrow, ty: ty, holder: "'{name}'"))
+		end 'tuple'
 	end 'each'
 	return without(out, l: sym)
 end 'lentLetOwn'
+
+// temporaryLender is an argument that a call of a function returning a borrowed place lends it from, through the calls
+// nested in it, which is a value made in the statement and dropped at its end, or 0 where every one outlives the
+// statement: a place, a constant or a literal of the executable.
+function temporaryLender(o Ownership, p ast.Project, ms ast.ModuleState, call ast.NodeID) returns ast.NodeID
+	let from = lenders(o, p: p, ms: ms, call: call)
+	for i in 0 upto from.count() 'each'
+		let inner = projectionOf(o, ms: ms, e: from[i])
+		if inner != 0 'nested'
+			let found = temporaryLender(o, p: p, ms: ms, call: inner)
+			if found != 0 'temporary'
+				return found
+			end 'temporary'
+			continue 'each'
+		end 'nested'
+		if not outlivesStatement(o, p: p, ms: ms, e: from[i]) 'temporary'
+			return from[i]
+		end 'temporary'
+	end 'each'
+	return 0 as ast.NodeID
+end 'temporaryLender'
+
+// outlivesStatement is whether the value of e lives past the statement that reads it: a place, a name of a constant or a
+// global, or a literal of the executable's data.
+function outlivesStatement(o Ownership, p ast.Project, ms ast.ModuleState, e ast.NodeID) returns bool
+	let n = ast.through(ms.tree(), e: e)
+	let k = ms.tree().kindOf(n)
+	if k == ast.NodeKind.nameExpr or k == ast.NodeKind.selfExpr 'name'
+		return true
+	end 'name'
+	if k == ast.NodeKind.memberExpr 'member'
+		return isPlaceMember(ownMember(o, node: n).kind) and outlivesStatement(o, p: p, ms: ms, e: ast.memberExprObj(ms.tree(), id: n))
+	end 'member'
+	if k == ast.NodeKind.indexExpr 'element'
+		return outlivesStatement(o, p: p, ms: ms, e: ast.indexExprObj(ms.tree(), id: n))
+	end 'element'
+	if k == ast.NodeKind.strLit 'literal'
+		return ms.tree().strIsPlain(ast.strLitPartsRef(ms.tree(), id: n))
+	end 'literal'
+	return false
+end 'outlivesStatement'
 
 function assignStmtOwn(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState, st ast.NodeID, consumes s OwnState) returns OwnState
 	let target = ast.assignStmtTarget(ms.tree(), id: st)
@@ -484,12 +539,9 @@ function requireLentByParameters(mutates o Ownership, p ast.Project, mutates ms 
 	end 'boxed'
 	let call = projectionOf(o, ms: ms, e: e)
 	if call != 0 'projection'
-		let managed = isManagedOwn(p, ms: ms, t: ownType(o, node: e))
-		let from = lenders(o, ms: ms, call: call)
+		let from = lenders(o, p: p, ms: ms, call: call)
 		for i in 0 upto from.count() 'each'
-			if not managed or isManagedOwn(p, ms: ms, t: ownType(o, node: from[i])) 'mayHold'
-				requireLentByParameters(o, p: p, ms: ms, e: from[i])
-			end 'mayHold'
+			requireLentByParameters(o, p: p, ms: ms, e: from[i])
 		end 'each'
 		return
 	end 'projection'

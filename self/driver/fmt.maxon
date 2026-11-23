@@ -57,7 +57,7 @@ end 'isSourcePath'
 // separator-terminated dot that names the directory.
 function withoutCurrentDirectory(path String) returns String
 	if path.byteLength() > 2 and path.byteAt(0 as Count) == dotByte and isSeparator(path.byteAt(1 as Count)) 'current'
-		return path.sliceBytes(2 as Count, endPos: path.byteLength())
+		return path.sliceBytes(2 as Count, endPos: path.byteLength()).clone()
 	end 'current'
 	return path.clone()
 end 'withoutCurrentDirectory'

@@ -1,0 +1,11 @@
+function firstByte(text String) returns String
+	let first = text.sliceBytes(0, endPos: 1)
+	return first
+end 'firstByte'
+
+function main() returns ExitCode
+	print(firstByte("ab"))
+	return 0
+end 'main'
+
+// expect-error: E3900 at 3:9

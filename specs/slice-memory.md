@@ -85,7 +85,7 @@ function main() returns ExitCode
 	let start = s.startIndex()
 	let idx = try s.findFirst(" ") otherwise s.endIndex()
 	let sub1 = s.slice(start, endIndex: idx)
-	let sub2 = sub1
+	let sub2 = sub1.clone()
 	print("{sub1}\n")
 	print("{sub2}\n")
 	return 0
@@ -131,7 +131,7 @@ function getSlice() returns String
 	let s = "hello world that is long enough to require heap allocation and more text to be sure"
 	let start = s.startIndex()
 	let idx = try s.findFirst(" ") otherwise s.endIndex()
-	return s.slice(start, endIndex: idx)
+	return s.slice(start, endIndex: idx).clone()
 end 'getSlice'
 
 function main() returns ExitCode

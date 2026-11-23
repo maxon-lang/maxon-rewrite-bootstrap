@@ -764,7 +764,7 @@ function lowerStringByteAt(mutates l Lowerer, p ast.Project, ms ast.ModuleState,
 end 'lowerStringByteAt'
 
 function lowerStringSliceBytes(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
-	return runtime(l, symbol: Rt.rtStrSlice, kind: IrKind.kindManaged, args: argsOf3(recv, b: args[0], c: args[1]))
+	return stringView(l, text: recv, from: args[0], until: args[1], checked: true)
 end 'lowerStringSliceBytes'
 
 // lowerStringToByteArray is a new byte array of the string's UTF-8 bytes.

@@ -182,7 +182,7 @@ end 'publishWaits'
 function exprText(tree ast.Tree, e ast.NodeID) returns String
 	let start = ast.exprStart(tree, e: e) as Count
 	return match consumes ast.exprEnd(tree, e: e) 'end'
-		some(past) gives tree.text.sliceBytes(start, endPos: past)
+		some(past) gives tree.text.sliceBytes(start, endPos: past).clone()
 		none gives placeText(tree, e: e)
 	end 'end'
 end 'exprText'
