@@ -212,25 +212,35 @@ function arm64Preserved(r Count) returns bool
 end 'arm64Preserved'
 
 // emitArm64LoadContext reads the running thread's context into a register, as a read of __Raw.threadContext does
-// (arm64.rules).
+// (arm64.rules); a read of the TSD slot changes the scratch register too, which every caller here has saved or holds
+// nothing in.
 function emitArm64LoadContext(mutates u CodeUnit, system ast.TargetSystem, dst Arm64Register)
 	match arm64ThreadContext(system) 'context'
 		threadRegister then encodeArm64MrsTpidr(u.asm.code, dest: dst)
-		tlsSlot then panic("backend: arm64 reads a thread's context from its TSD slot only on macOS, which has no entry stub yet")
+		tlsSlot then emitArm64LoadTsdContext(u, dst: dst)
 	end 'context'
 end 'emitArm64LoadContext'
 
-// emitArm64PreemptHandler writes rt.preemptHandler, the handler of the Linux preemption signal, which the kernel calls by
-// AAPCS64 with the signal's context in x2 and the restorer as its return address, on the thread's signal stack: it calls
-// the code that contextSignalCodeOffset of the thread's context names with that context, which may make the stopped code
-// resume in rt.asyncPreempt, and returns to the restorer.
-function emitArm64PreemptHandler(mutates u CodeUnit)
+// emitArm64LoadTsdContext reads the slot of the thread's TSD array, which tpidrro_el0 points at, that the key in
+// rt.tlsOffset names.
+function emitArm64LoadTsdContext(mutates u CodeUnit, dst Arm64Register)
+	encodeArm64MrsTpidrro(u.asm.code, dest: dst)
+	encodeArm64AndRegMask(u.asm.code, dest: dst, src: dst, imm: arm64TsdMask as FullRangeInt)
+	u.asm.arm64LoadSymbol(arm64Scratch, symbol: ir.rtSymbol(ir.Rt.rtTlsOffset))
+	encodeArm64Ldr64Idx(u.asm.code, dest: dst, base: dst, index: arm64Scratch)
+end 'emitArm64LoadTsdContext'
+
+// emitArm64PreemptHandler writes rt.preemptHandler, the handler of the preemption signal, which the system calls by
+// AAPCS64 with the signal's context in x2, on the thread's signal stack, and returns through the restorer on Linux and
+// libSystem's trampoline on macOS: it calls the code that contextSignalCodeOffset of the thread's context names with that
+// context, which may make the stopped code resume in rt.asyncPreempt, and returns.
+function emitArm64PreemptHandler(mutates u CodeUnit, system ast.TargetSystem)
 	let code = Arm64Register.x9
 	u.beginSection()
 	u.defineCode(ir.rtSymbol(ir.Rt.rtPreemptHandler))
 	u.asm.arm64Enter()
-	u.asm.arm64Mov(arm64ArgWord(), src: arm64ArgRegister(ConventionKind.host, system: ast.TargetSystem.linux, index: 2))
-	emitArm64LoadContext(u, system: ast.TargetSystem.linux, dst: code)
+	u.asm.arm64Mov(arm64ArgWord(), src: arm64ArgRegister(ConventionKind.host, system: system, index: 2))
+	emitArm64LoadContext(u, system: system, dst: code)
 	u.asm.arm64Load(code, base: code, disp: arm64Disp(contextSignalCodeOffset))
 	u.asm.arm64CallRegister(code)
 	u.asm.arm64Leave()

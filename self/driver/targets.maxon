@@ -40,10 +40,12 @@ end 'hostTarget'
 // targets.tsv names a runner for each target: itself when the target is the host's, and a Linux executable on Windows
 // through WSL, in its default distribution, which sees the Windows drives under wslMountRoot: an x64 one natively, and an
 // arm64 one through the qemu-aarch64 that the distribution registers with binfmt_misc. An executable that WSL runs gets
-// the variables of the runner's environment that WSLENV names.
-enum TargetRunner
+// the variables of the runner's environment that WSLENV names. --runner names a command that starts each executable in
+// their place, its words and then the executable's path, as cmd/batchrun does for a batch run on another machine.
+union TargetRunner
 	native
 	wsl
+	command(words CommandNames)
 end 'TargetRunner'
 
 let wslCommand = "wsl.exe"
@@ -86,6 +88,7 @@ function runnerExecutable(runner TargetRunner, exe FilePath) returns Executable
 	return match runner 'runner'
 		native gives Executable.path(exe.clone())
 		wsl gives Executable.name(wslCommand)
+		command(words) gives Executable.name(words[0].clone())
 	end 'runner'
 end 'runnerExecutable'
 
@@ -94,8 +97,36 @@ function runnerArguments(runner TargetRunner, exe String) returns CommandNames
 	return match runner 'runner'
 		native gives CommandNames.create(0)
 		wsl gives wslArguments(exe)
+		command(words) gives commandArguments(words, exe: exe)
 	end 'runner'
 end 'runnerArguments'
+
+// commandArguments are the arguments of a run of a --runner command that starts the executable at exe: the words after
+// the command's first, then the path.
+function commandArguments(words CommandNames, exe String) returns CommandNames
+	var arguments = CommandNames.create(0)
+	for i in 1 upto words.count() 'words'
+		arguments.push(words[i].clone())
+	end 'words'
+	arguments.push(exe.clone())
+	return arguments
+end 'commandArguments'
+
+let runnerWordSeparator = 0x2C as Byte
+
+// runnerWords are the words of a --runner command, separated by commas.
+function runnerWords(text String) returns CommandNames
+	var words = CommandNames.create(0)
+	var start = 0 as Count
+	for i in 0 upto text.byteLength() 'bytes'
+		if text.byteAt(i) == runnerWordSeparator 'separator'
+			words.push(text.sliceBytes(start, endPos: i))
+			start = i + 1
+		end 'separator'
+	end 'bytes'
+	words.push(text.sliceBytes(start, endPos: text.byteLength()))
+	return words
+end 'runnerWords'
 
 // wslArguments are the arguments of a run of WSL that executes the executable at exe.
 function wslArguments(exe String) returns CommandNames

@@ -103,6 +103,87 @@ function Test-Arm64LinuxBehaviours {
 	Test-Behaviours @($arm64LinuxTarget)
 }
 
+# The arm64-macos corpus runs on the Mac, which this machine reaches only through a folder that both mount ($macShare,
+# the Mac's ~/Dev/agents/minimaxon): the gate compiles every program and the reruns of those that schedule behaviours,
+# keeping each executable through cmd/batchrun, and when the share holds the Mac's results of exactly those executables
+# (the stamp of their rows), replays them through the test runner, which compares them, and fails on any failure.
+# Otherwise it stages the batch at in\gate for the Mac session to run (bash ~/Dev/agents/minimaxon/in/gate/run.sh) and
+# skips, as it does when the share is not mounted: the Mac is not the gate's machine.
+$macShare = 'M:\agents\minimaxon'
+
+$macTarget = '--target=arm64-macos'
+
+# robocopy's exit codes below 8 say what it copied; 8 and above, that it failed.
+$robocopyFailed = 8
+
+function Invoke-MacCorpus([string]$batchrun, [string]$mode, [string]$stage) {
+	$runner = "--runner=$batchrun,$mode,$stage"
+	$null | & $compiler test $macTarget --verify-ir $runner @TestArgs
+	$corpus = $LASTEXITCODE
+	$before = $env:MAXON_MAX_PROCS
+	$behaviours = 0
+	try {
+		foreach ($procs in 1, 2) {
+			$env:MAXON_MAX_PROCS = $procs
+			$null | & $compiler test --behaviours $macTarget $runner @TestArgs
+			if ($LASTEXITCODE -ne 0) { $behaviours = $LASTEXITCODE }
+		}
+	} finally {
+		$env:MAXON_MAX_PROCS = $before
+	}
+	return [Math]::Max($corpus, $behaviours)
+}
+
+function Test-Mac {
+	if (-not (Test-Path "$macShare\in")) {
+		Write-Output "mac lane: skipped, $macShare is not mounted"
+		$global:LASTEXITCODE = 0
+		return
+	}
+	$root = Join-Path ([IO.Path]::GetTempPath()) "minimaxon-mac-$PID"
+	try {
+		$null = New-Item -ItemType Directory -Force $root
+		$batchrun = Join-Path $root 'batchrun.exe'
+		go build -o $batchrun ./cmd/batchrun
+		if ($LASTEXITCODE -ne 0) { return }
+		$stage = Join-Path $root 'stage'
+		$null = Invoke-MacCorpus $batchrun 'record' $stage
+		$stamp = (Get-ChildItem "$stage\rows" | Sort-Object Name | ForEach-Object Name) -join "`n"
+		$results = "$macShare\out\gate"
+		if ((Test-Path "$results\stamp.txt") -and ([IO.File]::ReadAllText("$results\stamp.txt").TrimEnd() -eq $stamp)) {
+			$replay = Join-Path $root 'results'
+			$null = robocopy "$results\out" "$replay\out" /E /NFL /NDL /NJH /NJS /NP
+			if ($LASTEXITCODE -ge $robocopyFailed) {
+				Write-Output "mac lane: cannot copy the Mac's results from $results"
+				$global:LASTEXITCODE = 1
+				return
+			}
+			$output = Invoke-MacCorpus $batchrun 'replay' $replay
+			$code = $output[-1]
+			$output | Select-Object -SkipLast 1 | Where-Object { $_ -notmatch '^PASS ' }
+			$global:LASTEXITCODE = $code
+			return
+		}
+		$batch = "$macShare\in\gate"
+		$env:GOOS = 'darwin'; $env:GOARCH = 'arm64'
+		try { go build -o "$stage\batchrun" ./cmd/batchrun } finally { Remove-Item Env:GOOS; Remove-Item Env:GOARCH }
+		if ($LASTEXITCODE -ne 0) { return }
+		Copy-Item cmd\batchrun\run.sh "$stage\run.sh"
+		[IO.File]::WriteAllText("$stage\stamp.txt", "$stamp`n")
+		# A mirror, so no row or executable of an older batch stays for the Mac to run: the share refuses some listings
+		# that Remove-Item makes, and robocopy's purge does not.
+		$null = robocopy $stage $batch /MIR /NFL /NDL /NJH /NJS /NP
+		if ($LASTEXITCODE -ge $robocopyFailed) {
+			Write-Output "mac lane: cannot stage the batch at $batch"
+			$global:LASTEXITCODE = 1
+			return
+		}
+		Write-Output "mac lane: skipped, the Mac has no results of this corpus: run bash ~/Dev/agents/minimaxon/in/gate/run.sh there and the gate again"
+		$global:LASTEXITCODE = 0
+	} finally {
+		Remove-Item -Recurse -Force $root -ErrorAction SilentlyContinue
+	}
+}
 # The build cache must make the executable an uncached build makes. A project whose main inlines a leaf of the module it
 # names is built cold and warm, then the leaf's body is edited: the order takes the leaf's module to make the summary it
 # made before, main's entry is linked, the leaf's lower finds another summary and the compile is done again, and the
@@ -174,10 +255,10 @@ $steps = @(
 	@('selftest', { & $compiler selftest }),
 	# Nothing compiles the runtime's source until a program is built, so this is what holds it to the language and to
 	# the signatures the compiler calls, for each target, whose branches of the source differ.
-	@('runtime', { & $compiler check runtime; if ($LASTEXITCODE -eq 0) { & $compiler check runtime --target=x64-linux }; if ($LASTEXITCODE -eq 0) { & $compiler check runtime --target=arm64-linux } }),
+	@('runtime', { & $compiler check runtime; foreach ($t in '--target=x64-linux', '--target=arm64-linux', '--target=arm64-macos') { if ($LASTEXITCODE -eq 0) { & $compiler check runtime $t } } }),
 	# A program compiles only the library modules it names, so this is what holds the whole standard library to the language,
 	# for each target.
-	@('stdlib', { & $compiler check stdlib; if ($LASTEXITCODE -eq 0) { & $compiler check stdlib --target=x64-linux }; if ($LASTEXITCODE -eq 0) { & $compiler check stdlib --target=arm64-linux } }),
+	@('stdlib', { & $compiler check stdlib; foreach ($t in '--target=x64-linux', '--target=arm64-linux', '--target=arm64-macos') { if ($LASTEXITCODE -eq 0) { & $compiler check stdlib $t } } }),
 	# The compiler's own source is a program too: a rule that it breaks would otherwise show only when the seed is renewed.
 	@('self', { & $compiler check self --tests --verify-reads }),
 	@('layout', { & $compiler fmt --check self runtime tests stdlib }),
@@ -188,6 +269,7 @@ $steps = @(
 	@('behaviours on linux', { Test-LinuxBehaviours }),
 	@('corpus on arm64 linux', { Test-Arm64Linux }),
 	@('behaviours on arm64 linux', { Test-Arm64LinuxBehaviours }),
+	@('corpus on arm64 macos', { Test-Mac }),
 	@('cache', { Test-Cache }),
 	@('specs', { Test-Specs }),
 	# Every program the generator writes that the checker accepts must run clean under the interpreter: a violation is a
@@ -202,5 +284,5 @@ foreach ($step in $steps) {
 		Write-Output "check failed at: $name"
 		exit 1
 	}
-	if ($name -eq 'specs' -and $output) { $output | Write-Output }
+	if ($name -in 'specs', 'corpus on arm64 macos' -and $output) { $output | Write-Output }
 }

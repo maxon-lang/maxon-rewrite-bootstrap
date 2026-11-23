@@ -404,6 +404,9 @@ let behavioursFlag = "--behaviours"
 
 let repeatFlag = "--repeat="
 
+// runnerFlag names the command that starts each executable of the corpus, in place of the target's runner.
+let runnerFlag = "--runner="
+
 // behaviourRuns is how many times the corpus runs the executable of a program that schedules behaviours, unless
 // --repeat says: each run is another schedule, and the gate runs the corpus under three worker counts, so a few runs each
 // are enough there, while a soak asks for hundreds.
@@ -448,6 +451,8 @@ function testCommand(rest CommandNames, given Options) returns ExitCode
 	var corpus = CorpusOptions.new()
 	var corpusFlags = false
 	var executables = 0 as Count
+	var commandRunner as table.Option with TargetRunner
+	commandRunner = table.Option.none
 	var path = ""
 	var hasPath = false
 	for i in 1 upto rest.count() 'arguments'
@@ -460,7 +465,14 @@ function testCommand(rest CommandNames, given Options) returns ExitCode
 				printError("test: {executablesFlag} takes a number of executables from 1\n")
 				return usageExitCode
 			end 'malformed'
-		end 'executables' else if rest[i] == verboseFlag 'verbose'
+		end 'executables' else if hasPrefix(rest[i], prefix: runnerFlag) 'runner'
+			let words = runnerWords(afterPrefix(rest[i], prefix: runnerFlag))
+			if words[0].byteLength() == 0 'empty'
+				printError("test: {runnerFlag} names the command that starts each executable\n")
+				return usageExitCode
+			end 'empty'
+			commandRunner = table.Option.some(TargetRunner.command(words))
+		end 'runner' else if rest[i] == verboseFlag 'verbose'
 			verbose = true
 		end 'verbose' else if rest[i] == updatePositionsFlag 'positions'
 			corpus.updatePositions = true
@@ -508,7 +520,7 @@ function testCommand(rest CommandNames, given Options) returns ExitCode
 	corpus.verbose = verbose
 	corpus.target = given.target.clone()
 	corpus.verifiesIr = given.verifyIr
-	let runner = runnerFor(given.target)
+	let runner = commandRunner.clone() if commandRunner.isSome() else runnerFor(given.target)
 	if not runner.isSome() 'noRunner'
 		printError("test: no runner on {hostTarget().name()} starts the executables of {given.target.name()}\n")
 		return usageExitCode

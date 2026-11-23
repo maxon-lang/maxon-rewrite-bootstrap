@@ -150,7 +150,7 @@ var layouts = []layoutConst{
 	{"contextAllNextOffset", 1, false, toRuntime,
 		"where a thread's context holds the next of every thread that runs green threads (Go's allm), a list that only grows."},
 	{"contextParkEventOffset", 2, false, toRuntime,
-		"where a thread's context holds the event it waits on while it has no processor, on Windows."},
+		"where a thread's context holds the event it waits on while it has no processor, on Windows, and the mutex and condition it waits on, on macOS."},
 	{"contextHeapOffset", 3, false, toRuntime,
 		"where a thread's context holds the address of its heap's record, 0 until the thread's first alloc makes it."},
 	{"contextRandomOffset", 4, false, toRuntime,
@@ -472,7 +472,7 @@ var layouts = []layoutConst{
 	{"pollStateOffset", 0, false, toRuntime,
 		"where a poll descriptor holds the green thread that waits on it, or pollSignalled once a completion came and was not yet taken, exchanged atomically."},
 	{"pollFdOffset", 1, false, toRuntime,
-		"where a poll descriptor holds the eventfd that signals it, on Linux."},
+		"where a poll descriptor holds the eventfd that signals it, on Linux, and the kqueue whose user event of the descriptor signals it, on macOS."},
 	{"pollDescriptorBytes", 2, false, toRuntime,
 		"the size of a poll descriptor."},
 

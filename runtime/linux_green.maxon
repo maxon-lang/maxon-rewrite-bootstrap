@@ -119,6 +119,27 @@
 		_ = __Raw.atomicExchange(context, offset: contextSignalPendingOffset, value: unset)
 	end 'preemptSignal'
 
+	// The calls that tests/runtime's programs stop a thread and sleep through, which name the thread's signal and its
+	// context as the runtime's preemption does on every system that signals: signalThread sends the preemption signal to
+	// the thread of an id, signalPcAddress and signalSpAddress are where a signal's context holds the stopped code's
+	// program counter and stack pointer, and sysNanosleep sleeps for a timespec and gives 0, or -errno with what is left
+	// of the sleep in the timespec at remaining.
+	function signalThread(thread Count)
+		_ = __Raw.syscall3(linuxSysTgkill, arg1: __Raw.syscall0(linuxSysGetpid), arg2: thread, arg3: linuxSigurg)
+	end 'signalThread'
+
+	function signalPcAddress(signalContext Count) returns Count
+		return __Raw.wrappingAdd(signalContext, right: linuxUcontextPcOffset)
+	end 'signalPcAddress'
+
+	function signalSpAddress(signalContext Count) returns Count
+		return __Raw.wrappingAdd(signalContext, right: linuxUcontextSpOffset)
+	end 'signalSpAddress'
+
+	function sysNanosleep(time Count, remaining Count) returns Count
+		return __Raw.syscall2(linuxSysNanosleep, arg1: time, arg2: remaining)
+	end 'sysNanosleep'
+
 	// initPoller makes the epoll fd and the eventfd that breaks its wait.
 	function initPoller(scheduler Count)
 		let poller = __Raw.syscall1(linuxSysEpollCreate1, arg1: linuxEpollCloexec)

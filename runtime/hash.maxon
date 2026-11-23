@@ -132,7 +132,9 @@ end 'refuseHashSeed'
 		end 'refused'
 		return word
 	end 'drawEntropy'
-#else
+#endif
+
+#if os(Linux)
 	// drawEntropy is 8 bytes of the system's entropy, from getrandom, made again when a signal breaks it off.
 	function drawEntropy() returns Count
 		var word = 0 as Count

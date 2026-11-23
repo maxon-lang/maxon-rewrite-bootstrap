@@ -80,5 +80,6 @@ export function knownTargets() returns TargetList
 	targets.push(Target.make(TargetArch.x64, system: TargetSystem.windows))
 	targets.push(Target.make(TargetArch.x64, system: TargetSystem.linux))
 	targets.push(Target.make(TargetArch.arm64, system: TargetSystem.linux))
+	targets.push(Target.make(TargetArch.arm64, system: TargetSystem.macos))
 	return targets
 end 'knownTargets'

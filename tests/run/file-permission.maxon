@@ -1,6 +1,6 @@
 // A write takes a FilePermission, which Windows accepts and ignores as it has no executable mode;
 // file-permission-on-linux.maxon holds Linux's to it.
-// unsupported-targets: x64-linux, arm64-linux
+// unsupported-targets: x64-linux, arm64-linux, arm64-macos
 //> default=ab
 //> normal=cd
 //> executable=ef

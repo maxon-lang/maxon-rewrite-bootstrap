@@ -423,7 +423,7 @@ function allocLarge(heap Count, bytes Count) returns Count
 	return box
 end 'allocLarge'
 
-#if os(Linux)
+#if os(Linux) or os(macOS)
 	// keptOrMapped is the block of a large box of a number of bytes: one that heap kept, with the box's bytes zeroed, or else
 	// new pages, which the kernel zeroes, with their length in the block.
 	function keptOrMapped(heap Count, bytes Count) returns Count

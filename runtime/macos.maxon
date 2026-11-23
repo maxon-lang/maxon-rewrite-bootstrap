@@ -1,0 +1,664 @@
+// The runtime's OS layer on macOS, which reaches the system through libSystem's functions (the macos constants of
+// layout_gen.maxon), since Apple's system calls are not a stable interface: exit, the pages the heap is carved from, the
+// calls its entries make, the executable's path, the working directory, the clock, renaming, deleting, a file's times,
+// directories, a worker's thread and the mutex and condition it parks on, the processors and the system's entropy. A
+// function that fails returns -1 with the error in errno, which checked turns into what a Linux system call gives,
+// -errno, so the entries here read their calls as linux.maxon's read system calls. What each entry does is what
+// its Windows twin does, in the files of the entries; a failure gives the case of its error that the same failure gives
+// there (failureOf).
+
+#if os(macOS)
+	// noFd is the fd of an anonymous mapping, -1.
+	let noFd = 0xFFFFFFFFFFFFFFFF as Count
+
+	// noMappingOffset is the offset of an anonymous mapping, which has no file.
+	let noMappingOffset = 0 as Count
+
+	// noFlags asks a call for nothing special.
+	let noFlags = 0 as Count
+
+	// The bytes of a path that the runtime reads: the separator, the other one that FilePath.from turns into it, as maxon's
+	// does, and the terminator of a C string.
+	let slashByte = 0x2F as Byte
+
+	let terminatorByte = 0 as Byte
+
+	let equalsByte = 0x3D as Byte
+
+	let dotEntryByte = 0x2E as Byte
+
+	// failed is whether what a call returned is -errno, a word in the last page of the address space, which checked makes
+	// of a libSystem function's failure, as a Linux system call gives it.
+	function failed(result Count) returns bool
+		return result > __Raw.wrappingSub(0, right: linuxErrnoLimit)
+	end 'failed'
+
+	// errnoOf is the errno of a system call that failed.
+	function errnoOf(result Count) returns Count
+		return __Raw.wrappingSub(0, right: result)
+	end 'errnoOf'
+
+	// osErrorOf is the errno of a system call's result, or 0 when it did not fail.
+	function osErrorOf(result Count) returns Count
+		if failed(result) 'failed'
+			return errnoOf(result)
+		end 'failed'
+		return 0
+	end 'osErrorOf'
+
+	// writeAll writes the bytes at an address to an fd, as many calls as the kernel takes, and gives the errno that
+	// stopped it, or 0.
+	function writeAll(fd Count, data Count, length Count) returns Count
+		var done = 0 as Count
+		while done < length 'write'
+			let written = sysWrite(fd, data: __Raw.wrappingAdd(data, right: done), length: length - done)
+			if failed(written) 'failed'
+				if interrupted(written) 'again'
+					continue 'write'
+				end 'again'
+				return errnoOf(written)
+			end 'failed'
+			done = __Raw.wrappingAdd(done, right: written)
+		end 'write'
+		return 0
+	end 'writeAll'
+
+	// writeHandle writes a string to an fd, all of it.
+	function writeHandle(handle Count, text String)
+		let box = __Raw.stringAddress(text)
+		_ = writeAll(handle, data: bytesOf(box), length: boxLength(box))
+	end 'writeHandle'
+
+	// processStart is the stack pointer the process started with.
+	function processStart() returns Count
+		return __Raw.loadWord(__Raw.processStartAddress(), offset: 0)
+	end 'processStart'
+
+	// startWord is the word at an index of the words the process started with: the argument count is the first.
+	function startWord(index Count) returns Count
+		return __Raw.loadWord(processStart(), offset: try index * wordBytes otherwise panic("a word past the process's start"))
+	end 'startWord'
+
+	// cLength is the length of the zero-terminated bytes at an address.
+	function cLength(address Count) returns Count
+		var length = 0 as Count
+		while __Raw.loadByte(address, offset: length) != terminatorByte 'each'
+			length = __Raw.wrappingAdd(length, right: 1)
+		end 'each'
+		return length
+	end 'cLength'
+
+	// boxOfBytes is a new string box of a number of bytes at an address.
+	function boxOfBytes(address Count, length Count) returns Count
+		let box = newStringBox(length)
+		copyBytes(address, target: bytesOf(box), count: length)
+		return box
+	end 'boxOfBytes'
+
+	// osArgs is the program's arguments, the program's own name first, as the kernel lays them out for dyld.
+	function osArgs() returns Count
+		let count = startWord(0)
+		let args = stringArrayNew()
+		for i in 0 upto count 'each'
+			let arg = startWord(i + 1)
+			stringArrayPush(args, box: boxOfBytes(arg, length: cLength(arg)))
+		end 'each'
+		return args
+	end 'osArgs'
+
+	// environment is the address of the first of the environment's entries, each `NAME=value`, which a null ends.
+	function environment() returns Count
+		return __Raw.wrappingAdd(processStart(), right: try (startWord(0) + 2) * wordBytes otherwise panic("an environment past memory"))
+	end 'environment'
+
+	// namesEntry is whether the zero-terminated entry of the environment at an address is the one of a name: the name, then
+	// '='.
+	function namesEntry(entry Count, name Count, length Count) returns bool
+		for i in 0 upto length 'bytes'
+			if __Raw.loadByte(entry, offset: i) != __Raw.loadByte(name, offset: i) 'differs'
+				return false
+			end 'differs'
+		end 'bytes'
+		return __Raw.loadByte(entry, offset: length) == equalsByte
+	end 'namesEntry'
+
+	// osEnvironmentVariable is the value of a variable of the environment the process started with, which a variable that
+	// is not set has none of.
+	function osEnvironmentVariable(name String, errorAddress Count) returns String
+		let nameBox = __Raw.stringAddress(name)
+		let length = boxLength(nameBox)
+		var at = environment()
+		while __Raw.loadWord(at, offset: 0) != 0 'entries'
+			let entry = __Raw.loadWord(at, offset: 0)
+			if namesEntry(entry, name: bytesOf(nameBox), length: length) 'found'
+				let value = __Raw.wrappingAdd(entry, right: __Raw.wrappingAdd(length, right: 1))
+				succeed(errorAddress)
+				return __Raw.stringAt(boxOfBytes(value, length: cLength(value)))
+			end 'found'
+			at = __Raw.wrappingAdd(at, right: wordBytes)
+		end 'entries'
+		failWith(errorAddress, errorCase: variableUnset)
+		return noString()
+	end 'osEnvironmentVariable'
+
+	// osPathFrom is a path with the native separator in place of the other one; a macOS path may hold any other byte.
+	function osPathFrom(path String, errorAddress Count) returns String
+		let box = __Raw.stringAddress(path)
+		let length = boxLength(box)
+		let source = bytesOf(box)
+		let native = newStringBox(length)
+		let dest = bytesOf(native)
+		for i in 0 upto length 'copy'
+			let byte = __Raw.loadByte(source, offset: i)
+			__Raw.storeByte(dest, offset: i, value: slashByte if byte == backslashByte else byte)
+		end 'copy'
+		succeed(errorAddress)
+		return __Raw.stringAt(native)
+	end 'osPathFrom'
+
+	// osReadText is the whole content of a file.
+	function osReadText(path String, errorAddress Count) returns String
+		let fd = openReading(path)
+		if failed(fd) 'open'
+			endWithError(errorAddress, osError: errnoOf(fd), table: readFailures())
+			return noString()
+		end 'open'
+		let stat = newStat()
+		let statted = sysFstat(fd, stat: stat)
+		let size = statSize(stat)
+		free(stat)
+		if failed(statted) 'sized'
+			closeFd(fd)
+			endWithError(errorAddress, osError: errnoOf(statted), table: readFailures())
+			return noString()
+		end 'sized'
+		let box = newStringBox(size)
+		let bytes = bytesOf(box)
+		var done = 0 as Count
+		var readError = 0 as Count
+		var reading = true
+		enterBlocking()
+		while done < size and reading 'read'
+			let chunk = sysRead(fd, buffer: __Raw.wrappingAdd(bytes, right: done), length: size - done)
+			if failed(chunk) 'failed'
+				if not interrupted(chunk) 'stop'
+					readError = errnoOf(chunk)
+					reading = false
+				end 'stop'
+			end 'failed' else if chunk == 0 'shrunk'
+				reading = false
+			end 'shrunk' else 'more'
+				done = __Raw.wrappingAdd(done, right: chunk)
+			end 'more'
+		end 'read'
+		exitBlocking()
+		closeFd(fd)
+		if readError != 0 'failedRead'
+			free(box)
+			endWithError(errorAddress, osError: readError, table: readFailures())
+			return noString()
+		end 'failedRead'
+		__Raw.storeWord(box, offset: stringLengthOffset, value: done)
+		succeed(errorAddress)
+		return __Raw.stringAt(box)
+	end 'osReadText'
+
+	// writeFile replaces a file with bytes at an address, and gives the errno that stopped it, or 0. The mode applies to a
+	// file that it creates; one that is there keeps its own.
+	function writeFile(path String, data Count, length Count, executable bool) returns Count
+		let fd = openReplacing(path, executable: executable)
+		if failed(fd) 'open'
+			return errnoOf(fd)
+		end 'open'
+		enterBlocking()
+		let errno = writeAll(fd, data: data, length: length)
+		exitBlocking()
+		closeFd(fd)
+		return errno
+	end 'writeFile'
+
+	// negativeWordBit is set in a word that holds a negative number, such as the seconds of a time before 1970.
+	let negativeWordBit = 0x8000000000000000 as Count
+
+	// secondsAt is the seconds of the statx timestamp at an offset of a record, or 0 for a time before 1970, as the
+	// Windows entry gives.
+	function secondsAt(record Count, offset Count) returns Count
+		let seconds = __Raw.loadWord(record, offset: offset)
+		if (seconds and negativeWordBit) != 0 'before'
+			return 0
+		end 'before'
+		return seconds
+	end 'secondsAt'
+
+	function osIsDirectory(path String) returns bool
+		let stat = newStat()
+		let result = statPath(path, stat: stat)
+		let directory = statIsDirectory(stat)
+		free(stat)
+		return not failed(result) and directory
+	end 'osIsDirectory'
+
+	// osExists is whether a file or a directory is at a path: it has a status.
+	function osExists(path String) returns bool
+		let stat = newStat()
+		let result = statPath(path, stat: stat)
+		free(stat)
+		return not failed(result)
+	end 'osExists'
+
+	// osCreateDirectory makes a directory and the parents it is missing, each prefix that ends before a separator first,
+	// and gives whether the directory is there after it. A directory that is there already fails to be made, which is no
+	// matter.
+	function osCreateDirectory(path String) returns bool
+		let cPath = cStringOf(path)
+		let length = cLength(cPath)
+		for i in 1 upto length 'prefixes'
+			if __Raw.loadByte(cPath, offset: i) == slashByte 'separator'
+				__Raw.storeByte(cPath, offset: i, value: terminatorByte)
+				makeDirectory(cPath)
+				__Raw.storeByte(cPath, offset: i, value: slashByte)
+			end 'separator'
+		end 'prefixes'
+		makeDirectory(cPath)
+		free(cPath)
+		return osIsDirectory(path)
+	end 'osCreateDirectory'
+
+	// isDotName is whether the zero-terminated name of a directory entry is `.` or `..`, which a listing leaves out.
+	function isDotName(name Count) returns bool
+		if __Raw.loadByte(name, offset: 0) != dotEntryByte 'other'
+			return false
+		end 'other'
+		let second = __Raw.loadByte(name, offset: 1)
+		return second == terminatorByte or (second == dotEntryByte and __Raw.loadByte(name, offset: 2) == terminatorByte)
+	end 'isDotName'
+
+	// entryPath is a new box of the path joined to the zero-terminated name of an entry: a separator goes between them
+	// unless the path is empty or ends with one.
+	function entryPath(path String, name Count) returns Count
+		let pathBox = __Raw.stringAddress(path)
+		let pathLength = boxLength(pathBox)
+		let nameLength = cLength(name)
+		let separate = pathLength != 0 and __Raw.loadByte(bytesOf(pathBox), offset: pathLength - 1) != slashByte
+		var length = __Raw.wrappingAdd(pathLength, right: nameLength)
+		if separate 'separator'
+			length = __Raw.wrappingAdd(length, right: 1)
+		end 'separator'
+		let box = newStringBox(length)
+		let bytes = bytesOf(box)
+		copyBytes(bytesOf(pathBox), target: bytes, count: pathLength)
+		var at = pathLength
+		if separate 'slash'
+			at = storeNextByte(bytes, offset: at, value: slashByte)
+		end 'slash'
+		copyBytes(name, target: __Raw.wrappingAdd(bytes, right: at), count: nameLength)
+		return box
+	end 'entryPath'
+
+	// failedCall is what a libSystem function that fails returns, -1.
+	let failedCall = 0xFFFFFFFFFFFFFFFF as Count
+
+	// noAttributes is the default attributes of a mutex or a condition, and noOldAction the action sigaction is not asked
+	// to give back.
+	let noAttributes = 0 as Count
+
+	let noOldAction = 0 as Count
+
+	// nullPointer is the address a libSystem function that finds nothing gives, or that a caller passes for none.
+	let nullPointer = 0 as Count
+
+	// errno is the error of the last libSystem function of the thread that failed.
+	function errno() returns Count
+		return __Raw.loadWord32(__Raw.callImport0("__error"), offset: 0)
+	end 'errno'
+
+	// checked is what a libSystem function returned, or -errno where it failed, and checkedInt the same of one that
+	// returns an int.
+	function checked(result Count) returns Count
+		if result == failedCall 'failed'
+			return __Raw.wrappingSub(0, right: errno())
+		end 'failed'
+		return result
+	end 'checked'
+
+	function checkedInt(result Count) returns Count
+		return checked(intResult(result))
+	end 'checkedInt'
+
+	// The halves of a word, and the sign of its lower half.
+	let lowHalf = 0xFFFFFFFF as Count
+
+	let highHalf = 0xFFFFFFFF00000000 as Count
+
+	let intSignBit = 0x80000000 as Count
+
+	// intResult is the word of the int a libSystem function returned, its sign extended: AAPCS64 leaves the upper half of
+	// the register undefined.
+	function intResult(result Count) returns Count
+		let low = result and lowHalf
+		if (low and intSignBit) != 0 'negative'
+			return low or highHalf
+		end 'negative'
+		return low
+	end 'intResult'
+
+	// failureOf is the failure that an errno is, by the Win32 error that names the same failure on Windows.
+	function failureOf(errno Count) returns Failure
+		if errno == macosEnoent or errno == macosEnotdir 'missing'
+			return failureNotFound
+		end 'missing'
+		if errno == macosEacces or errno == macosEperm or errno == macosEisdir 'denied'
+			return failureAccessDenied
+		end 'denied'
+		if errno == macosEbusy or errno == macosEtxtbsy 'busy'
+			return failureBusy
+		end 'busy'
+		if errno == macosEexist or errno == macosEnotempty 'exists'
+			return failureAlreadyExists
+		end 'exists'
+		return failureOther
+	end 'failureOf'
+
+	// exitProcess ends the process, every thread of it, with a code; it does not return. _exit runs no handler that a C
+	// program registered, of which the runtime has none.
+	function exitProcess(code Count)
+		_ = __Raw.callImport1("_exit", arg1: code)
+	end 'exitProcess'
+
+	function closeFd(fd Count)
+		_ = __Raw.callImport1("close", arg1: fd)
+	end 'closeFd'
+
+	// The calls the entries make, each giving what libSystem returned or -errno.
+	function sysRead(fd Count, buffer Count, length Count) returns Count
+		return checked(__Raw.callImport3("read", arg1: fd, arg2: buffer, arg3: length))
+	end 'sysRead'
+
+	function sysWrite(fd Count, data Count, length Count) returns Count
+		return checked(__Raw.callImport3("write", arg1: fd, arg2: data, arg3: length))
+	end 'sysWrite'
+
+	function sysFstat(fd Count, stat Count) returns Count
+		return checkedInt(__Raw.callImport2("fstat", arg1: fd, arg2: stat))
+	end 'sysFstat'
+
+	// interrupted is whether a call failed because a signal broke it off, so that it is made again.
+	function interrupted(result Count) returns bool
+		return failed(result) and errnoOf(result) == macosEintr
+	end 'interrupted'
+
+	// unready is whether a read failed because the fd has nothing yet.
+	function unready(result Count) returns bool
+		return failed(result) and errnoOf(result) == macosEagain
+	end 'unready'
+
+	// newStat is room for a struct stat, which statSize and statIsDirectory read.
+	function newStat() returns Count
+		return alloc(macosStatBytes)
+	end 'newStat'
+
+	function statSize(stat Count) returns Count
+		return __Raw.loadWord(stat, offset: macosStatSizeOffset)
+	end 'statSize'
+
+	function statMode(stat Count) returns Count
+		return __Raw.loadWord16(stat, offset: macosStatModeOffset)
+	end 'statMode'
+
+	function statIsDirectory(stat Count) returns bool
+		return (statMode(stat) and macosModeTypeMask) == macosModeDirectory
+	end 'statIsDirectory'
+
+	// openPath is the fd of the file a path names, opened with flags, or -errno; open is variadic, so the mode is passed
+	// on the stack.
+	function openPath(path String, flags Count, mode Count) returns Count
+		let cPath = cStringOf(path)
+		let fd = checkedInt(__Raw.callImport3("open", arg1: cPath, arg2: flags, arg3: mode))
+		free(cPath)
+		return fd
+	end 'openPath'
+
+	// openReading opens a file to read, and openReplacing opens one to replace, made with the executable mode when it is
+	// not there: each gives the fd or -errno.
+	function openReading(path String) returns Count
+		return openPath(path, flags: macosOpenReadOnly, mode: 0)
+	end 'openReading'
+
+	function openReplacing(path String, executable bool) returns Count
+		return openPath(path, flags: macosOpenReplace, mode: macosExecutableFileMode if executable else macosFileMode)
+	end 'openReplacing'
+
+	// statPath fills a struct stat of the file a path names and gives 0, or gives -errno, as statCString does for a
+	// zero-terminated path.
+	function statPath(path String, stat Count) returns Count
+		let cPath = cStringOf(path)
+		let result = statCString(cPath, stat: stat)
+		free(cPath)
+		return result
+	end 'statPath'
+
+	function statCString(cPath Count, stat Count) returns Count
+		return checkedInt(__Raw.callImport2("stat", arg1: cPath, arg2: stat))
+	end 'statCString'
+
+	// makeDirectory makes the directory of a zero-terminated path, which may fail.
+	function makeDirectory(cPath Count)
+		_ = __Raw.callImport2("mkdir", arg1: cPath, arg2: macosDirectoryMode)
+	end 'makeDirectory'
+
+	// mapPages is a block of zeroed pages that holds a number of bytes, which libSystem maps.
+	function mapPages(bytes Count) returns Count
+		let block = checked(__Raw.callImport6("mmap", arg1: nullPointer, arg2: bytes, arg3: macosProtReadWrite, arg4: macosMapAnonPrivate, arg5: noFd, arg6: noMappingOffset))
+		if failed(block) 'refused'
+			panic("out of memory: the system maps no more pages")
+		end 'refused'
+		return block
+	end 'mapPages'
+
+	// unmapPages gives back the pages of a block of a number of bytes that mapPages made.
+	function unmapPages(block Count, bytes Count)
+		_ = __Raw.callImport2("munmap", arg1: block, arg2: bytes)
+	end 'unmapPages'
+
+	// osExecutablePath is the full path of the running executable: the one dyld loaded it from, which may name links,
+	// made real, as maxon's runtime reads it.
+	function osExecutablePath(errorAddress Count) returns String
+		let buffer = alloc(macosPathBytes)
+		var size = macosPathBytes as Count
+		if intResult(__Raw.callImport2("_NSGetExecutablePath", arg1: buffer, arg2: __Raw.addressOf(size))) != 0 'long'
+			free(buffer)
+			failWith(errorAddress, errorCase: pathUnavailable)
+			return noString()
+		end 'long'
+		let real = __Raw.callImport2("realpath", arg1: buffer, arg2: nullPointer)
+		free(buffer)
+		if real == nullPointer 'unreal'
+			failWith(errorAddress, errorCase: pathUnavailable)
+			return noString()
+		end 'unreal'
+		let box = boxOfBytes(real, length: cLength(real))
+		_ = __Raw.callImport1("free", arg1: real)
+		succeed(errorAddress)
+		return __Raw.stringAt(box)
+	end 'osExecutablePath'
+
+	// osCurrentPath is the working directory, which stops the program when libSystem cannot give it.
+	function osCurrentPath() returns String
+		let buffer = alloc(macosPathBytes)
+		if __Raw.callImport2("getcwd", arg1: buffer, arg2: macosPathBytes) == nullPointer 'failed'
+			free(buffer)
+			panic("Directory.currentPath: getcwd failed")
+		end 'failed'
+		let box = boxOfBytes(buffer, length: cLength(buffer))
+		free(buffer)
+		return __Raw.stringAt(box)
+	end 'osCurrentPath'
+
+	// osClockNanos is the monotonic clock in nanoseconds.
+	function osClockNanos() returns Count
+		return __Raw.callImport1("clock_gettime_nsec_np", arg1: macosClockUptimeRaw)
+	end 'osClockNanos'
+
+	function osProcessId() returns Count
+		return intResult(__Raw.callImport0("getpid"))
+	end 'osProcessId'
+
+	// osRename moves a file or a directory, and replaces what is at the destination.
+	function osRename(source String, destination String, errorAddress Count)
+		let oldPath = cStringOf(source)
+		let newPath = cStringOf(destination)
+		let result = checkedInt(__Raw.callImport2("rename", arg1: oldPath, arg2: newPath))
+		free(oldPath)
+		free(newPath)
+		endWithError(errorAddress, osError: osErrorOf(result), table: renameFailures())
+	end 'osRename'
+
+	// osDelete deletes a file, which a directory is not: unlink refuses it.
+	function osDelete(path String, errorAddress Count)
+		let cPath = cStringOf(path)
+		let result = checkedInt(__Raw.callImport1("unlink", arg1: cPath))
+		free(cPath)
+		endWithError(errorAddress, osError: osErrorOf(result), table: deleteFailures())
+	end 'osDelete'
+
+	// osFileInfo is the time a file was last written, in Unix seconds, and stores its size, the times it was made and last
+	// read and a word of its attributes (infoDirectoryFlag, infoReadOnlyFlag) at the addresses given. macOS's struct stat
+	// holds the time a file was made.
+	function osFileInfo(path String, size Count, created Count, accessed Count, attributes Count, errorAddress Count) returns Count
+		let stat = newStat()
+		let osError = osErrorOf(statPath(path, stat: stat))
+		if osError != 0 'failed'
+			free(stat)
+			endWithError(errorAddress, osError: osError, table: infoFailures())
+			return 0
+		end 'failed'
+		let mode = statMode(stat)
+		var flags = 0 as Count
+		if (mode and macosModeTypeMask) == macosModeDirectory 'directory'
+			flags = flags or infoDirectoryFlag
+		end 'directory'
+		if (mode and macosModeOwnerWrite) == 0 'readOnly'
+			flags = flags or infoReadOnlyFlag
+		end 'readOnly'
+		__Raw.storeWord(size, offset: 0, value: statSize(stat))
+		__Raw.storeWord(created, offset: 0, value: secondsAt(stat, offset: macosStatCreatedOffset))
+		__Raw.storeWord(accessed, offset: 0, value: secondsAt(stat, offset: macosStatAccessedOffset))
+		__Raw.storeWord(attributes, offset: 0, value: flags)
+		let modified = secondsAt(stat, offset: macosStatModifiedOffset)
+		free(stat)
+		succeed(errorAddress)
+		return modified
+	end 'osFileInfo'
+
+	// osList is the path joined to the name of each entry of a directory, `.` and `..` left out, in the order libSystem
+	// gives. readdir gives no entry at the end and on a failure alike, which errno, cleared before it, tells apart.
+	function osList(path String, errorAddress Count) returns Count
+		let cPath = cStringOf(path)
+		let directory = __Raw.callImport1("opendir", arg1: cPath)
+		free(cPath)
+		if directory == nullPointer 'open'
+			endWithError(errorAddress, osError: errno(), table: listFailures())
+			return noBox
+		end 'open'
+		let entries = stringArrayNew()
+		var listError = 0 as Count
+		var listing = true
+		while listing 'entries'
+			__Raw.storeWord32(__Raw.callImport0("__error"), offset: 0, value: 0)
+			let entry = __Raw.callImport1("readdir", arg1: directory)
+			if entry == nullPointer 'done'
+				listError = errno()
+				listing = false
+			end 'done' else 'entry'
+				let name = __Raw.wrappingAdd(entry, right: macosDirentNameOffset)
+				if not isDotName(name) 'named'
+					stringArrayPush(entries, box: entryPath(path, name: name))
+				end 'named'
+			end 'entry'
+		end 'entries'
+		_ = __Raw.callImport1("closedir", arg1: directory)
+		if listError != 0 'failedList'
+			endWithError(errorAddress, osError: listError, table: listFailures())
+			return entries
+		end 'failedList'
+		succeed(errorAddress)
+		return entries
+	end 'osList'
+
+	// A thread's parker, which its context names (contextParkEventOffset): a mutex and the condition a stopped thread waits
+	// on under it.
+	let parkerCondOffset = macosPthreadMutexBytes
+
+	let parkerBytes = (macosPthreadMutexBytes + macosPthreadCondBytes) as Count
+
+	// newParker is a parker, kept until the process ends.
+	function newParker() returns Count
+		let parker = keep(parkerBytes)
+		if intResult(__Raw.callImport2("pthread_mutex_init", arg1: parker, arg2: noAttributes)) != 0 'mutex'
+			panic("cannot make a thread's mutex")
+		end 'mutex'
+		if intResult(__Raw.callImport2("pthread_cond_init", arg1: __Raw.wrappingAdd(parker, right: parkerCondOffset), arg2: noAttributes)) != 0 'cond'
+			panic("cannot make a thread's condition")
+		end 'cond'
+		return parker
+	end 'newParker'
+
+	// parkWhileSet sleeps on a parker while the word at an address is set, which a waker clears before it signals the
+	// parker under its mutex, so that no wake falls between the read and the wait.
+	function parkWhileSet(parker Count, word Count)
+		_ = __Raw.callImport1("pthread_mutex_lock", arg1: parker)
+		while __Raw.loadWord(word, offset: 0) == set 'wait'
+			_ = __Raw.callImport2("pthread_cond_wait", arg1: __Raw.wrappingAdd(parker, right: parkerCondOffset), arg2: parker)
+		end 'wait'
+		_ = __Raw.callImport1("pthread_mutex_unlock", arg1: parker)
+	end 'parkWhileSet'
+
+	// unpark wakes the thread that sleeps on a parker.
+	function unpark(parker Count)
+		_ = __Raw.callImport1("pthread_mutex_lock", arg1: parker)
+		_ = __Raw.callImport1("pthread_cond_signal", arg1: __Raw.wrappingAdd(parker, right: parkerCondOffset))
+		_ = __Raw.callImport1("pthread_mutex_unlock", arg1: parker)
+	end 'unpark'
+
+	// yieldProcessor gives the processor the thread runs on to another thread of the system.
+	function yieldProcessor()
+		_ = __Raw.callImport0("sched_yield")
+	end 'yieldProcessor'
+
+	// startThread starts a worker's thread at once, with the main thread's stack reserve, which pthread maps and the
+	// system commits a page at a time. The thread starts in rt.threadStart with its context, and nothing joins it.
+	function startThread(context Count)
+		let attributes = alloc(macosPthreadAttrBytes)
+		let thread = alloc(wordBytes)
+		if intResult(__Raw.callImport1("pthread_attr_init", arg1: attributes)) != 0 'attributes'
+			panic("cannot make a worker thread's attributes")
+		end 'attributes'
+		if intResult(__Raw.callImport2("pthread_attr_setstacksize", arg1: attributes, arg2: stackReserveBytes)) != 0 'stack'
+			panic("cannot give a worker thread its stack")
+		end 'stack'
+		if intResult(__Raw.callImport4("pthread_create", arg1: thread, arg2: attributes, arg3: __Raw.threadStartAddress(), arg4: context)) != 0 'failed'
+			panic("cannot start a worker thread")
+		end 'failed'
+		_ = __Raw.callImport1("pthread_attr_destroy", arg1: attributes)
+		free(thread)
+		free(attributes)
+	end 'startThread'
+
+	// onlineProcessors is how many processors are online, as maxon's runtime counts them; 0 when libSystem does not say.
+	function onlineProcessors() returns Count
+		let count = __Raw.callImport1("sysconf", arg1: macosScNprocessorsOnln)
+		if count == failedCall 'uncounted'
+			return 0
+		end 'uncounted'
+		return count
+	end 'onlineProcessors'
+
+	// drawEntropy is 8 bytes of the system's entropy, from getentropy.
+	function drawEntropy() returns Count
+		var word = 0 as Count
+		if intResult(__Raw.callImport2("getentropy", arg1: __Raw.addressOf(word), arg2: hashSecretBytes)) != 0 'refused'
+			panic("the operating system refused to supply the entropy for a hash seed")
+		end 'refused'
+		return word
+	end 'drawEntropy'
+#endif

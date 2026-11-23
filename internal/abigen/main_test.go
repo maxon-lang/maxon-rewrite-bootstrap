@@ -5,6 +5,8 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strconv"
+	"strings"
 	"testing"
 )
 
@@ -25,14 +27,15 @@ func TestImportsFileIsCurrent(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !bytes.Equal(bytes.ReplaceAll(got, []byte("\r\n"), []byte("\n")), []byte(importsMaxon(importNames))) {
+	if !bytes.Equal(bytes.ReplaceAll(got, []byte("\r\n"), []byte("\n")), []byte(importsMaxon(importNames, macosImports))) {
 		t.Errorf("%s is not what the import list generates; run `go generate ./internal/abigen`", importsFile)
 	}
 }
 
-// literalImport matches a DLL function named by a string literal: a call of the runtime's `__Raw.callImportN` or the
-// entry stub's `importIndex`.
-var literalImport = regexp.MustCompile(`(?:callImport\d+|importIndex)\("([A-Za-z0-9_]+)"`)
+// literalImport matches a library function named by a string literal: a call of the runtime's `__Raw.callImportN` or
+// the entry stub's `importIndex`. The runtime's macOS source is in its files named macos*, and calls libSystem; every
+// other file calls the DLL functions of Windows.
+var literalImport = regexp.MustCompile(`(?:callImport(\d+)|importIndex)\("([A-Za-z0-9_]+)"`)
 
 func TestEveryImportTheCodeCallsIsListed(t *testing.T) {
 	listed := make(map[string]bool)
@@ -42,19 +45,38 @@ func TestEveryImportTheCodeCallsIsListed(t *testing.T) {
 		}
 		listed[n] = true
 	}
+	libSystem := make(map[string]libSystemFunction)
+	for _, f := range macosImports {
+		if _, ok := libSystem[f.name]; ok {
+			t.Errorf("libSystem function %s is listed twice", f.name)
+		}
+		libSystem[f.name] = f
+	}
 	for _, dir := range []string{"../../runtime", "../../self/backend", "../../tests/runtime"} {
 		files, err := filepath.Glob(filepath.Join(dir, "*.maxon"))
 		if err != nil {
 			t.Fatal(err)
 		}
-		for _, f := range files {
-			src, err := os.ReadFile(f)
+		for _, file := range files {
+			src, err := os.ReadFile(file)
 			if err != nil {
 				t.Fatal(err)
 			}
+			macos := strings.HasPrefix(filepath.Base(file), "macos")
 			for _, m := range literalImport.FindAllStringSubmatch(string(src), -1) {
-				if !listed[m[1]] {
-					t.Errorf("%s calls the DLL function %s, which the import list in imports.go lacks; add it at the end", f, m[1])
+				if !macos {
+					if !listed[m[2]] {
+						t.Errorf("%s calls the DLL function %s, which the import list in imports.go lacks; add it at the end", file, m[2])
+					}
+					continue
+				}
+				f, ok := libSystem[m[2]]
+				if !ok {
+					t.Errorf("%s calls the libSystem function %s, which macosImports in imports.go lacks", file, m[2])
+					continue
+				}
+				if words, _ := strconv.Atoi(m[1]); f.variadic && m[1] != "" && words < f.fixed {
+					t.Errorf("%s calls the variadic %s with %d words, fewer than its %d fixed ones", file, f.name, words, f.fixed)
 				}
 			}
 		}

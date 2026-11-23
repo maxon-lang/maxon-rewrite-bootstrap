@@ -273,6 +273,75 @@ export let linuxArchSetFs = 4098
 // linuxCloneWorkerFlags is CLONE_VM | CLONE_FS | CLONE_FILES | CLONE_SIGHAND | CLONE_THREAD | CLONE_SETTLS: a thread of the process with the thread pointer it is given, maxon's worker flags but CLONE_CHILD_CLEARTID, since nothing waits for a worker to end.
 export let linuxCloneWorkerFlags = 593664
 
+// macosPageBytes is the size of a page of arm64 macOS, which mprotect works in.
+export let macosPageBytes = 16384
+
+// macosProtNone is PROT_NONE: a page that faults when touched, a stack's guard.
+export let macosProtNone = 0
+
+// macosProtReadWrite is PROT_READ | PROT_WRITE.
+export let macosProtReadWrite = 3
+
+// macosMapAnonPrivate is MAP_ANON | MAP_PRIVATE: zeroed pages of no file.
+export let macosMapAnonPrivate = 4098
+
+// macosMapNoReserve is MAP_NORESERVE: a stack's address space, committed a page at a time as it is touched.
+export let macosMapNoReserve = 64
+
+// macosSigfpe is SIGFPE.
+export let macosSigfpe = 8
+
+// macosSigbus is SIGBUS: an access a mapped page refuses, which a stack's guard page gives.
+export let macosSigbus = 10
+
+// macosSigsegv is SIGSEGV.
+export let macosSigsegv = 11
+
+// macosFpeIntegerOverflow is FPE_INTOVF: the si_code of a SIGFPE of an integer overflow.
+export let macosFpeIntegerOverflow = 8
+
+// macosSigactionHandlerOffset is where a struct sigaction holds the handler.
+export let macosSigactionHandlerOffset = 0
+
+// macosSigactionMaskOffset is where a struct sigaction holds the signals blocked while the handler runs, 32 bits.
+export let macosSigactionMaskOffset = 8
+
+// macosSigactionFlagsOffset is where a struct sigaction holds the flags, 32 bits.
+export let macosSigactionFlagsOffset = 12
+
+// macosSigactionBytes is the size of a struct sigaction.
+export let macosSigactionBytes = 16
+
+// macosFaultActionFlags is SA_SIGINFO | SA_ONSTACK: the flags of the fault handler's action, which runs on the thread's signal stack and is handed the siginfo and the context.
+export let macosFaultActionFlags = 65
+
+// macosSiginfoCodeOffset is where a siginfo_t holds si_code, 32 bits.
+export let macosSiginfoCodeOffset = 8
+
+// macosSiginfoAddressOffset is where a siginfo_t holds si_addr, the address a fault was at, after six 32-bit fields.
+export let macosSiginfoAddressOffset = 24
+
+// macosStackSpOffset is where a stack_t holds ss_sp, the lowest address of the stack.
+export let macosStackSpOffset = 0
+
+// macosStackSizeOffset is where a stack_t holds ss_size.
+export let macosStackSizeOffset = 8
+
+// macosStackFlagsOffset is where a stack_t holds ss_flags, 32 bits.
+export let macosStackFlagsOffset = 16
+
+// macosStackRecordBytes is the size of a stack_t.
+export let macosStackRecordBytes = 24
+
+// macosUcontextMcontextOffset is where a ucontext_t holds uc_mcontext, the address of the stopped code's registers, after uc_onstack, uc_sigmask, uc_stack, uc_link and uc_mcsize.
+export let macosUcontextMcontextOffset = 48
+
+// macosMcontextSpOffset is where an mcontext64 holds the stopped code's stack pointer: __ss, after the 16 bytes of __es, holds x0 to x28, fp, lr, sp and pc.
+export let macosMcontextSpOffset = 264
+
+// macosMcontextPcOffset is where an mcontext64 holds the address of the stopped code, its program counter.
+export let macosMcontextPcOffset = 272
+
 // arm64LinuxSysWrite is write(fd, buffer, count), on arm64.
 export let arm64LinuxSysWrite = 64
 

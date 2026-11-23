@@ -260,6 +260,15 @@ export function x64HostShadowBytes(system ast.TargetSystem) returns Count
 	end 'system'
 end 'x64HostShadowBytes'
 
+// x64HostVariadicOnStack is the VariadicOnStack of the host convention, the one of the system's libraries on a system.
+export function x64HostVariadicOnStack(system ast.TargetSystem) returns bool
+	return match system 'system'
+		windows gives x64WindowsHostVariadicOnStack
+		linux gives x64LinuxHostVariadicOnStack
+		macos gives panic("backend: x64 runs no macOS")
+	end 'system'
+end 'x64HostVariadicOnStack'
+
 // x64HostCalleeSaved is the CalleeSaved of the host convention, the one of the system's libraries on a system.
 export function x64HostCalleeSaved(system ast.TargetSystem) returns RegMask
 	return match system 'system'

@@ -1,7 +1,7 @@
 // The entry stub's code for green threads, used by hand: two stacks that rt.stackSwitch switches between, the second
 // started at rt.greenStart, the link's table of the code a green thread may be stopped in, and a thread stopped where it
 // spins and made to return into rt.asyncPreempt, by SuspendThread and SetThreadContext on Windows and by the preemption
-// signal, whose handler rewrites the signal's context, on Linux. The code the trampoline calls writes the return address
+// signal, whose handler rewrites the signal's context, on Linux and macOS. The code the trampoline calls writes the return address
 // the stop kept and acknowledges the stop by clearing the context's pending preemption, which ends the spin.
 //> switched 1000 times, sum 500500
 //> preemptible: the test's code yes, the runtime's alloc no
@@ -162,7 +162,7 @@ function testStopping()
 	__Raw.storeWord(spinner, offset: contextStartCodeOffset, value: __Raw.codeAddress("testSpinner"))
 	__Raw.storeWord(spinner, offset: contextPreemptCodeOffset, value: __Raw.codeAddress("testPreempted"))
 	__Raw.storeWord(spinner, offset: contextSignalPendingOffset, value: testPending)
-	#if os(Linux)
+	#if os(Linux) or os(macOS)
 		__Raw.storeWord(spinner, offset: contextSignalCodeOffset, value: __Raw.codeAddress("testSignal"))
 	#endif
 	startThread(spinner)
@@ -187,7 +187,7 @@ function testStopping()
 		_ = __Raw.callImport1("ResumeThread", arg1: target)
 		free(buffer)
 	#else
-		_ = __Raw.syscall3(linuxSysTgkill, arg1: __Raw.syscall0(linuxSysGetpid), arg2: target, arg3: linuxSigurg)
+		signalThread(target)
 	#endif
 	testAwait(stop, offset: testDoneOffset)
 	#if os(Windows)
@@ -204,7 +204,7 @@ function testAwait(stop Count, offset Count)
 end 'testAwait'
 
 // testSpinner is the thread that is stopped: it takes what it is stopped by as the runtime's threads do, which on Linux
-// also lets the signal through, says what that is, then spins until its stop is acknowledged.
+// and macOS also lets the signal through, says what that is, then spins until its stop is acknowledged.
 function testSpinner(context Count)
 	let stop = __Raw.wrappingAdd(context, right: contextBytes)
 	setThreadIdentity(context)
@@ -233,17 +233,19 @@ function testPreempted(context Count)
 	__Raw.storeWord(context, offset: contextSignalPendingOffset, value: 0)
 end 'testPreempted'
 
-#if os(Linux)
+#if os(Linux) or os(macOS)
 	// testSignal is what rt.preemptHandler calls with the signal's context on the stopped thread: it makes the stopped
 	// code return into rt.asyncPreempt.
 	function testSignal(signalContext Count)
 		let stop = __Raw.wrappingAdd(__Raw.threadContext(), right: contextBytes)
-		let slot = testResumeAt(stop, instruction: __Raw.loadWord(signalContext, offset: linuxUcontextPcOffset), stackPointer: __Raw.loadWord(signalContext, offset: linuxUcontextSpOffset))
+		let pc = signalPcAddress(signalContext)
+		let sp = signalSpAddress(signalContext)
+		let slot = testResumeAt(stop, instruction: __Raw.loadWord(pc, offset: 0), stackPointer: __Raw.loadWord(sp, offset: 0))
 		// x64's rt.asyncPreempt returns through the slot, which the stop moves the stack pointer to; arm64's branches through
 		// it below the stack pointer it was stopped at.
 		#if arch(x64)
-			__Raw.storeWord(signalContext, offset: linuxUcontextSpOffset, value: slot)
+			__Raw.storeWord(sp, offset: 0, value: slot)
 		#endif
-		__Raw.storeWord(signalContext, offset: linuxUcontextPcOffset, value: __Raw.asyncPreemptAddress())
+		__Raw.storeWord(pc, offset: 0, value: __Raw.asyncPreemptAddress())
 	end 'testSignal'
 #endif

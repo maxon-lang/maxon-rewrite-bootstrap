@@ -96,7 +96,7 @@ let contextSchedulerOffset = 0 as Count
 // contextAllNextOffset is where a thread's context holds the next of every thread that runs green threads (Go's allm), a list that only grows.
 let contextAllNextOffset = 8 as Count
 
-// contextParkEventOffset is where a thread's context holds the event it waits on while it has no processor, on Windows.
+// contextParkEventOffset is where a thread's context holds the event it waits on while it has no processor, on Windows, and the mutex and condition it waits on, on macOS.
 let contextParkEventOffset = 16 as Count
 
 // contextHeapOffset is where a thread's context holds the address of its heap's record, 0 until the thread's first alloc makes it.
@@ -501,7 +501,7 @@ let threadBlockBytes = 2304 as Count
 // pollStateOffset is where a poll descriptor holds the green thread that waits on it, or pollSignalled once a completion came and was not yet taken, exchanged atomically.
 let pollStateOffset = 0 as Count
 
-// pollFdOffset is where a poll descriptor holds the eventfd that signals it, on Linux.
+// pollFdOffset is where a poll descriptor holds the eventfd that signals it, on Linux, and the kqueue whose user event of the descriptor signals it, on macOS.
 let pollFdOffset = 8 as Count
 
 // pollDescriptorBytes is the size of a poll descriptor.
@@ -752,6 +752,198 @@ let linuxPollEventsOffset = 4 as Count
 
 // linuxPollReturnedOffset is where a struct pollfd holds the events that came.
 let linuxPollReturnedOffset = 6 as Count
+
+// macosClockUptimeRaw is CLOCK_UPTIME_RAW: clock_gettime_nsec_np's monotonic clock, which stands still while the machine sleeps, as Linux's CLOCK_MONOTONIC does.
+let macosClockUptimeRaw = 8 as Count
+
+// macosTimespecBytes is a timespec: the seconds, then the nanoseconds, a word each.
+let macosTimespecBytes = 16 as Count
+
+// macosPageBytes is the size of a page of arm64 macOS, which mprotect works in.
+let macosPageBytes = 16384 as Count
+
+// macosProtNone is PROT_NONE: a page that faults when touched, a stack's guard.
+let macosProtNone = 0 as Count
+
+// macosProtReadWrite is PROT_READ | PROT_WRITE.
+let macosProtReadWrite = 3 as Count
+
+// macosMapAnonPrivate is MAP_ANON | MAP_PRIVATE: zeroed pages of no file.
+let macosMapAnonPrivate = 4098 as Count
+
+// macosMapNoReserve is MAP_NORESERVE: a stack's address space, committed a page at a time as it is touched.
+let macosMapNoReserve = 64 as Count
+
+// macosOpenReadOnly is O_RDONLY | O_CLOEXEC.
+let macosOpenReadOnly = 16777216 as Count
+
+// macosOpenReplace is O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC.
+let macosOpenReplace = 16778753 as Count
+
+// macosFileMode is 0666, which the umask narrows: the mode of a file the runtime makes.
+let macosFileMode = 438 as Count
+
+// macosExecutableFileMode is 0755, which the umask narrows: the mode of a file the runtime makes for FilePermission.executable.
+let macosExecutableFileMode = 493 as Count
+
+// macosDirectoryMode is 0777, which the umask narrows: the mode of a directory the runtime makes.
+let macosDirectoryMode = 511 as Count
+
+// macosPathBytes is PATH_MAX, the longest path libSystem gives back, with its terminator.
+let macosPathBytes = 1024 as Count
+
+// macosStatBytes is the size of a struct stat, whose inode is 64 bits on arm64.
+let macosStatBytes = 144 as Count
+
+// macosStatModeOffset is where a struct stat holds st_mode, 16 bits.
+let macosStatModeOffset = 4 as Count
+
+// macosStatAccessedOffset is where a struct stat holds st_atimespec, whose first word is its seconds.
+let macosStatAccessedOffset = 32 as Count
+
+// macosStatModifiedOffset is where a struct stat holds st_mtimespec, whose first word is its seconds.
+let macosStatModifiedOffset = 48 as Count
+
+// macosStatCreatedOffset is where a struct stat holds st_birthtimespec, the time the file was made, whose first word is its seconds.
+let macosStatCreatedOffset = 80 as Count
+
+// macosStatSizeOffset is where a struct stat holds st_size.
+let macosStatSizeOffset = 96 as Count
+
+// macosModeTypeMask is S_IFMT: the bits of st_mode that say what a file is.
+let macosModeTypeMask = 61440 as Count
+
+// macosModeDirectory is S_IFDIR.
+let macosModeDirectory = 16384 as Count
+
+// macosModeOwnerWrite is S_IWUSR: a file without it is the read-only one of FileInfo.
+let macosModeOwnerWrite = 128 as Count
+
+// macosPollIn is POLLIN.
+let macosPollIn = 1 as Count
+
+// macosPollRecordBytes is a struct pollfd: the fd and the events asked, then the events that came, 16 bits.
+let macosPollRecordBytes = 8 as Count
+
+// macosPollEventsOffset is where a struct pollfd holds the events asked.
+let macosPollEventsOffset = 4 as Count
+
+// macosPollReturnedOffset is where a struct pollfd holds the events that came.
+let macosPollReturnedOffset = 6 as Count
+
+// macosDirentNameOffset is where a struct dirent that readdir gives holds its name, zero-terminated, after d_ino, d_seekoff, d_reclen, d_namlen and d_type.
+let macosDirentNameOffset = 21 as Count
+
+// macosEperm is EPERM.
+let macosEperm = 1 as Count
+
+// macosEnoent is ENOENT.
+let macosEnoent = 2 as Count
+
+// macosEintr is EINTR: a call that a signal broke off, which is made again.
+let macosEintr = 4 as Count
+
+// macosEacces is EACCES.
+let macosEacces = 13 as Count
+
+// macosEbusy is EBUSY.
+let macosEbusy = 16 as Count
+
+// macosEexist is EEXIST.
+let macosEexist = 17 as Count
+
+// macosEnotdir is ENOTDIR.
+let macosEnotdir = 20 as Count
+
+// macosEisdir is EISDIR.
+let macosEisdir = 21 as Count
+
+// macosEtxtbsy is ETXTBSY.
+let macosEtxtbsy = 26 as Count
+
+// macosEagain is EAGAIN.
+let macosEagain = 35 as Count
+
+// macosEnotempty is ENOTEMPTY.
+let macosEnotempty = 66 as Count
+
+// macosSigkill is SIGKILL.
+let macosSigkill = 9 as Count
+
+// macosSigurg is SIGURG, the signal the monitor stops a thread with, as Go's runtime does: no program of the runtime's asks for it.
+let macosSigurg = 16 as Count
+
+// macosSigUnblock is SIG_UNBLOCK: pthread_sigmask lets the signals of the set, a 32-bit sigset_t, through and leaves the others as they are.
+let macosSigUnblock = 2 as Count
+
+// macosSigactionHandlerOffset is where a struct sigaction holds the handler.
+let macosSigactionHandlerOffset = 0 as Count
+
+// macosSigactionMaskOffset is where a struct sigaction holds the signals blocked while the handler runs, 32 bits.
+let macosSigactionMaskOffset = 8 as Count
+
+// macosSigactionFlagsOffset is where a struct sigaction holds the flags, 32 bits.
+let macosSigactionFlagsOffset = 12 as Count
+
+// macosSigactionBytes is the size of a struct sigaction.
+let macosSigactionBytes = 16 as Count
+
+// macosPreemptActionFlags is SA_SIGINFO | SA_ONSTACK | SA_RESTART: the flags of the preemption signal's action, which also has a call that the signal broke off made again where it can be.
+let macosPreemptActionFlags = 67 as Count
+
+// macosUcontextMcontextOffset is where a ucontext_t holds uc_mcontext, the address of the stopped code's registers, after uc_onstack, uc_sigmask, uc_stack, uc_link and uc_mcsize.
+let macosUcontextMcontextOffset = 48 as Count
+
+// macosMcontextSpOffset is where an mcontext64 holds the stopped code's stack pointer: __ss, after the 16 bytes of __es, holds x0 to x28, fp, lr, sp and pc.
+let macosMcontextSpOffset = 264 as Count
+
+// macosMcontextPcOffset is where an mcontext64 holds the address of the stopped code, its program counter.
+let macosMcontextPcOffset = 272 as Count
+
+// macosKeventBytes is the size of a struct kevent: ident, filter (16 bits), flags (16 bits), fflags (32 bits), data and udata.
+let macosKeventBytes = 32 as Count
+
+// macosKeventFilterOffset is where a struct kevent holds its filter, 16 bits.
+let macosKeventFilterOffset = 8 as Count
+
+// macosKeventFlagsOffset is where a struct kevent holds its flags, 16 bits.
+let macosKeventFlagsOffset = 10 as Count
+
+// macosKeventFflagsOffset is where a struct kevent holds the flags of its filter, 32 bits.
+let macosKeventFflagsOffset = 12 as Count
+
+// macosKeventUdataOffset is where a struct kevent holds udata, the word it is reported with.
+let macosKeventUdataOffset = 24 as Count
+
+// macosEvfiltUser is EVFILT_USER, -10 in 16 bits: an event that a kevent call triggers, of no fd.
+let macosEvfiltUser = 65526 as Count
+
+// macosEvAddClear is EV_ADD | EV_CLEAR: registers an event that its report resets, so it is reported once for any number of triggers before it.
+let macosEvAddClear = 33 as Count
+
+// macosEvDelete is EV_DELETE: takes an event off the kqueue.
+let macosEvDelete = 2 as Count
+
+// macosNoteTrigger is NOTE_TRIGGER: the fflags that trigger a user event.
+let macosNoteTrigger = 16777216 as Count
+
+// macosPthreadAttrBytes is the size of a pthread_attr_t.
+let macosPthreadAttrBytes = 64 as Count
+
+// macosPthreadMutexBytes is the size of a pthread_mutex_t.
+let macosPthreadMutexBytes = 64 as Count
+
+// macosPthreadCondBytes is the size of a pthread_cond_t.
+let macosPthreadCondBytes = 48 as Count
+
+// macosScNprocessorsOnln is _SC_NPROCESSORS_ONLN: sysconf's count of the processors online.
+let macosScNprocessorsOnln = 58 as Count
+
+// macosSpawnObjectBytes is the size of a posix_spawn_file_actions_t and of a posix_spawnattr_t, each the address of what the init call allocates.
+let macosSpawnObjectBytes = 8 as Count
+
+// macosSpawnCloexecDefault is POSIX_SPAWN_CLOEXEC_DEFAULT: the child has only the fds the file actions give it, so no other run's pipe stays open in it.
+let macosSpawnCloexecDefault = 16384 as Count
 
 #if arch(arm64)
 	// linuxSysRead is read(fd, buffer, count).

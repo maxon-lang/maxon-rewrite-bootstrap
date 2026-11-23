@@ -1,7 +1,8 @@
 // Command abigen generates what the runtime and the compilers must agree on: from the layouts table in table.go the
 // offsets and sizes of the string, array, byte array and union boxes, from linux.go the numbers of the Linux kernel's
-// calls, and from the import list in imports.go the slots
-// of the DLL functions the executable imports. `go generate ./internal/abigen` runs it.
+// calls, from macos.go the numbers and layouts of macOS's libSystem, and from the import lists in imports.go the slots
+// of the DLL functions a Windows executable imports and the libSystem functions a macOS one may. `go generate
+// ./internal/abigen` runs it.
 package main
 
 //go:generate go run .
@@ -36,7 +37,7 @@ func main() {
 			os.Exit(1)
 		}
 	}
-	if err := os.WriteFile(importsFile, []byte(importsMaxon(importNames)), 0o644); err != nil {
+	if err := os.WriteFile(importsFile, []byte(importsMaxon(importNames, macosImports)), 0o644); err != nil {
 		fmt.Fprintln(os.Stderr, "abigen:", err)
 		os.Exit(1)
 	}
@@ -47,7 +48,7 @@ func main() {
 // backend writes the code of every target, so it gets the arm64 value of such a row by the row's name after arm64.
 func generate(o output) string {
 	var rows []layoutConst
-	for _, c := range slices.Concat(layouts, linuxABI) {
+	for _, c := range slices.Concat(layouts, linuxABI, macosABI) {
 		if c.to&o.to != 0 {
 			rows = append(rows, c)
 		}

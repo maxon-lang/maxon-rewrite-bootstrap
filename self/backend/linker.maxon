@@ -310,11 +310,12 @@ export function link(units LinkUnits, entry String, choice SchedulerChoice, targ
 	let tableAt = alignUp(sizes.data, alignment: linkDataAlignment)
 	let dataSize = try tableAt + table.bytes() otherwise panic("link: data past memory")
 	let pointers = livePointers(links, units: units)
-	var image = buildImage(target, layout: ImageLayout.make(sizes.code, dataSize: dataSize, entryOffset: finalOffset(links, t: start), pointers: pointers.clone()))
+	let imports = LinkImports.of(target.system, links: links, units: units)
+	var image = buildImage(target, layout: ImageLayout.make(sizes.code, dataSize: dataSize, entryOffset: finalOffset(links, t: start), pointers: pointers.clone()), imports: imports.names)
 	var code = ByteArray.create(0)
 	var data = ByteArray.create(dataSize)
 	for i in 0 upto links.count() 'copy'
-		copyAndPatch(code, data: data, links: links, unit: i, u: units.at(i), defined: defined, image: image, tableAt: tableAt, arch: target.arch)
+		copyAndPatch(code, data: data, links: links, unit: i, u: units.at(i), defined: defined, image: image, imports: imports, tableAt: tableAt, arch: target.arch)
 	end 'copy'
 	table.write(data, at: tableAt, image: image)
 	writePointers(target.system, image: image, data: data, pointers: pointers)
@@ -654,7 +655,7 @@ end 'patchLinkRel32'
 // copyAndPatch puts the live sections and pieces of a unit, u at place unit of the layout, into the code and the data of the
 // image and fills in the addresses they refer to. A section moves as a whole, so a fixup keeps its place in it. The units
 // come in the order of their places, so the code is written in that order, with traps in the gaps that align a section.
-function copyAndPatch(mutates code ByteArray, mutates data ByteArray, links LinkUnitList, unit Count, u CodeUnit, defined LinkTargetList, image Image, tableAt Count, arch ast.TargetArch)
+function copyAndPatch(mutates code ByteArray, mutates data ByteArray, links LinkUnitList, unit Count, u CodeUnit, defined LinkTargetList, image Image, imports LinkImports, tableAt Count, arch ast.TargetArch)
 	let l = links[unit].clone()
 	for p in 0 upto l.liveData.count() 'data'
 		if l.liveData[p] 'live'
@@ -679,10 +680,11 @@ function copyAndPatch(mutates code ByteArray, mutates data ByteArray, links Link
 		end 'dataFixups'
 		for j in begin.importFixups upto finish.importFixups 'importFixups'
 			let fixup = u.asm.importFixups[j].clone()
-			if fixup.index >= image.importSlots 'slot'
+			let index = imports.slotOf(fixup.index)
+			if index >= image.importSlots 'slot'
 				panic("link: a call of an import that the executable has no slot for")
 			end 'slot'
-			let slot = try fixup.index * importSlotBytes otherwise panic("link: an import past memory")
+			let slot = try index * importSlotBytes otherwise panic("link: an import past memory")
 			linkPatch(code, kind: fixup.kind, pos: movedPos(at, fixupPos: fixup.pos, sectionStart: begin.code), textRva: image.textRva, target: try image.iatRva + slot otherwise panic("link: an address past the image"))
 		end 'importFixups'
 		for j in begin.symbolFixups upto finish.symbolFixups 'symbolFixups'
@@ -706,6 +708,68 @@ function copyAndPatch(mutates code ByteArray, mutates data ByteArray, links Link
 		end 'symbolFixups'
 	end 'sections'
 end 'copyAndPatch'
+
+// LinkImports are the library functions an executable imports: the names its table binds, in the order of their slots,
+// and the slot of each index of the system's imports that a fixup may name. A PE binds every DLL function the runtime
+// may call, in the order of the import list, which the Windows code is written against; a Mach-O binds only the
+// libSystem functions the live code calls, numbered in the order of macosImports, since dyld binds each slot at launch.
+// A static ELF imports nothing.
+type LinkImports
+	var names as NameList
+	var slots as CountList
+
+	static function of(system ast.TargetSystem, links LinkUnitList, units LinkUnits) returns LinkImports
+		return match ast.imageFormatOf(system) 'format'
+			pe gives LinkImports.every(rtImports())
+			elf gives LinkImports{names: NameList.create(0), slots: CountList.create(0)}
+			machO gives LinkImports.called(links, units: units)
+		end 'format'
+	end 'of'
+
+	// every is a table of every name, each in the slot of its index.
+	static function every(consumes names NameList) returns LinkImports
+		var slots = CountList.create(0)
+		for i in 0 upto names.count() 'slots'
+			slots.push(i)
+		end 'slots'
+		return LinkImports{names: names, slots: slots}
+	end 'every'
+
+	// called is a table of the libSystem functions that the live sections call.
+	static function called(links LinkUnitList, units LinkUnits) returns LinkImports
+		let all = macosImports().count()
+		var calledAt = falses(all)
+		for u in 0 upto links.count() 'units'
+			for s in 0 upto links[u].liveCode.count() 'sections'
+				if links[u].liveCode[s] 'live'
+					let next = try s + 1 otherwise panic("link: more sections than memory")
+					for j in links[u].sections[s].importFixups upto links[u].sections[next].importFixups 'fixups'
+						calledAt[units.at(u).asm.importFixups[j].index] = true
+					end 'fixups'
+				end 'live'
+			end 'sections'
+		end 'units'
+		var indices = CountList.create(0)
+		// An index that no live code calls has a slot past the table's, which slotOf's caller refuses.
+		let past = all
+		var slots = CountList.filled(all, value: past)
+		for i in 0 upto all 'indices'
+			if calledAt[i] 'calledHere'
+				slots[i] = indices.count()
+				indices.push(i)
+			end 'calledHere'
+		end 'indices'
+		return LinkImports{names: machoSymbolsOf(indices), slots: slots}
+	end 'called'
+
+	// slotOf is the slot of the import of an index, which a live fixup names.
+	function slotOf(index Count) returns Count
+		if index >= slots.count() 'unknown'
+			panic("link: a call of an import that the system's imports do not list")
+		end 'unknown'
+		return slots[index]
+	end 'slotOf'
+end 'LinkImports'
 
 // movedPos is where a fixup of a section is once the section is at an offset of the image's code.
 function movedPos(at Count, fixupPos Count, sectionStart Count) returns Count

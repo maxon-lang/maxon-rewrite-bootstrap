@@ -5,7 +5,8 @@
 // make it, which clones the process's thread onto the stack the runtime mapped, with its context as the clone's thread
 // pointer. The fault handler and the restorer its signals return through are here too, with the green threads' code
 // (green_arm64.maxon). Every system call is svc with its number in x8 and its words in x0 to x5, which keeps every
-// register but x0, the result.
+// register but x0, the result. The stack switch, the signal stack, the mappings and the fault handler serve macOS's entry
+// too (entry_macos.maxon), each call of the system made by the system's way (emitArm64StubCall).
 
 // The registers the stub works in: x9 to x14, which no system call's word is passed in, and x19, which keeps the main
 // stack's reserve across the calls that guard it.
@@ -24,9 +25,55 @@ function emitArm64Runtime(calls EntryCalls, options RuntimeOptions, system ast.T
 	return match system 'system'
 		linux gives emitArm64LinuxRuntime(calls, options: options)
 		windows gives panic("backend: arm64 has no entry stub for Windows, which the target table runs no arm64 on")
-		macos gives panic("backend: arm64 has no entry stub for macOS yet, whose target the target table holds pending")
+		macos gives emitArm64MacosRuntime(calls, options: options)
 	end 'system'
 end 'emitArm64Runtime'
+
+// Arm64StubCall is a call of the system that the stub makes on every arm64 system, whose words are in x0 to x5: a system
+// call on Linux, a libSystem function on macOS, whose host convention passes its first words in those registers too.
+enum Arm64StubCall
+	stubWrite
+	stubExit
+	stubMap
+	stubProtect
+	stubSignalStack
+end 'Arm64StubCall'
+
+// emitArm64StubCall makes a call of the system with the words in x0 to x5; its result is in x0.
+function emitArm64StubCall(mutates u CodeUnit, system ast.TargetSystem, call Arm64StubCall)
+	requireArm64StubConventions(system)
+	match system 'system'
+		linux then arm64StubSyscall(u, number: arm64LinuxStubNumber(call))
+		macos then u.asm.arm64CallImport(macosStubImport(call))
+		windows then panic("backend: arm64 has no entry stub for Windows, which the target table runs no arm64 on")
+	end 'system'
+end 'emitArm64StubCall'
+
+function arm64LinuxStubNumber(call Arm64StubCall) returns FullRangeInt
+	return match call 'call'
+		stubWrite gives arm64LinuxSysWrite
+		stubExit gives arm64LinuxSysExitGroup
+		stubMap gives arm64LinuxSysMmap
+		stubProtect gives arm64LinuxSysMprotect
+		stubSignalStack gives arm64LinuxSysSigaltstack
+	end 'call'
+end 'arm64LinuxStubNumber'
+
+// requireArm64StubConventions holds the system's calls to the registers the stub passes their words and takes their
+// result in, which are Linux's system call's.
+function requireArm64StubConventions(system ast.TargetSystem)
+	if system != ast.TargetSystem.macos 'kernel'
+		return
+	end 'kernel'
+	for i in 0 upto arm64LinuxSyscallArgCount 'words'
+		if arm64HostArg(system, index: i) != arm64StubArg(i) 'apart'
+			panic("backend: the stub passes a word of a macOS call in a register its host convention does not")
+		end 'apart'
+	end 'words'
+	if arm64HostResult(system) != arm64LinuxSyscallResult 'result'
+		panic("backend: the stub takes a macOS call's result from a register its host convention does not give it in")
+	end 'result'
+end 'requireArm64StubConventions'
 
 // emitArm64LinuxRuntime is the arm64 Linux unit of the entry: the standard handles, the main thread's context and the stack
 // pointer the process started with, which the runtime's source reads; the entry, the routine that starts a thread, and the
@@ -47,11 +94,11 @@ function emitArm64LinuxRuntime(calls EntryCalls, options RuntimeOptions) returns
 	emitArm64ThreadStart(u)
 	u.beginSection()
 	u.defineCode(faultSymbol)
-	emitArm64FaultHandler(u)
+	emitArm64FaultHandler(u, system: ast.TargetSystem.linux)
 	u.defineCode(ir.rtSymbol(ir.Rt.rtSigreturn))
 	arm64StubSyscall(u, number: arm64LinuxSysRtSigreturn)
 	emitArm64GreenRoutines(u, system: ast.TargetSystem.linux)
-	emitArm64PreemptHandler(u)
+	emitArm64PreemptHandler(u, system: ast.TargetSystem.linux)
 	return u
 end 'emitArm64LinuxRuntime'
 
@@ -66,12 +113,70 @@ function arm64StubArg(index Count) returns Arm64Register
 	return arm64LinuxSyscallArg(index)
 end 'arm64StubArg'
 
-// arm64BranchIfFailed goes to a label where the result of a system call is -errno: a word above -linuxErrnoLimit.
-function arm64BranchIfFailed(mutates u CodeUnit, to LabelID)
-	u.asm.arm64MovImm(stubTemp, value: 0 - (linuxErrnoLimit as FullRangeInt))
-	u.asm.arm64Cmp(arm64LinuxSyscallResult, right: stubTemp)
-	u.asm.arm64BranchIf(MCond.above, label: to)
+// macosFailedCall is what a libSystem function that fails returns, -1, with the error in errno.
+let macosFailedCall = -1
+
+// arm64BranchIfFailed goes to a label where the result of a call of the system says it failed: on Linux -errno, a word
+// above -linuxErrnoLimit, and on macOS -1.
+function arm64BranchIfFailed(mutates u CodeUnit, system ast.TargetSystem, to LabelID)
+	match system 'system'
+		linux then arm64BranchOnResult(u, value: 0 - (linuxErrnoLimit as FullRangeInt), cond: MCond.above, to: to)
+		macos then arm64BranchOnResult(u, value: macosFailedCall, cond: MCond.equal, to: to)
+		windows then panic("backend: arm64 has no entry stub for Windows, which the target table runs no arm64 on")
+	end 'system'
 end 'arm64BranchIfFailed'
+
+// arm64IntOfResult clears the upper half of the result of a call that returns an int, which macOS's host convention
+// leaves undefined: a Linux system call gives a whole word.
+function arm64IntOfResult(mutates u CodeUnit, system ast.TargetSystem)
+	if system == ast.TargetSystem.macos 'host'
+		encodeArm64AndRegMask(u.asm.code, dest: arm64LinuxSyscallResult, src: arm64LinuxSyscallResult, imm: arm64IntMask)
+	end 'host'
+end 'arm64IntOfResult'
+
+// arm64IntMask is the lower half of a word, an int's.
+let arm64IntMask = 0xFFFFFFFF
+
+// arm64BranchOnResult goes to a label where a call's result compares with a value by the condition.
+function arm64BranchOnResult(mutates u CodeUnit, value FullRangeInt, cond MCond, to LabelID)
+	u.asm.arm64MovImm(stubTemp, value: value)
+	u.asm.arm64Cmp(arm64LinuxSyscallResult, right: stubTemp)
+	u.asm.arm64BranchIf(cond, label: to)
+end 'arm64BranchOnResult'
+
+// arm64PageBytes, arm64ProtNone, arm64ProtReadWrite and arm64MapFlags are a system's values of mmap and mprotect.
+function arm64PageBytes(system ast.TargetSystem) returns FullRangeInt
+	return match system 'system'
+		linux gives linuxPageBytes
+		macos gives macosPageBytes
+		windows gives panic("backend: arm64 has no entry stub for Windows, which the target table runs no arm64 on")
+	end 'system'
+end 'arm64PageBytes'
+
+function arm64ProtNone(system ast.TargetSystem) returns FullRangeInt
+	return match system 'system'
+		linux gives linuxProtNone
+		macos gives macosProtNone
+		windows gives panic("backend: arm64 has no entry stub for Windows, which the target table runs no arm64 on")
+	end 'system'
+end 'arm64ProtNone'
+
+function arm64ProtReadWrite(system ast.TargetSystem) returns FullRangeInt
+	return match system 'system'
+		linux gives linuxProtReadWrite
+		macos gives macosProtReadWrite
+		windows gives panic("backend: arm64 has no entry stub for Windows, which the target table runs no arm64 on")
+	end 'system'
+end 'arm64ProtReadWrite'
+
+// arm64MapFlags are the flags of zeroed pages of no file, which a reserve has the system commit a page at a time.
+function arm64MapFlags(system ast.TargetSystem, reserve bool) returns FullRangeInt
+	return match system 'system'
+		linux gives (linuxMapAnonPrivate or linuxMapNoReserve) if reserve else linuxMapAnonPrivate
+		macos gives (macosMapAnonPrivate or macosMapNoReserve) if reserve else macosMapAnonPrivate
+		windows gives panic("backend: arm64 has no entry stub for Windows, which the target table runs no arm64 on")
+	end 'system'
+end 'arm64MapFlags'
 
 // emitArm64LinuxEntry writes the executable's entry point, where the kernel starts the process with sp at the argument
 // count and every other register 0.
@@ -86,8 +191,8 @@ function emitArm64LinuxEntry(mutates u CodeUnit, count bool)
 	// tpidr_el0 is the main thread's context, as a worker's start makes it its own.
 	u.asm.arm64Address(stubTemp, symbol: ir.rtSymbol(ir.Rt.rtMainContext))
 	encodeArm64MsrTpidr(u.asm.code, src: stubTemp)
-	emitArm64MainStack(u, unmapped: unmapped)
-	emitArm64SignalStack(u)
+	emitArm64MainStack(u, system: ast.TargetSystem.linux, unmapped: unmapped)
+	emitArm64SignalStack(u, system: ast.TargetSystem.linux)
 	emitArm64FaultActions(u)
 	u.asm.arm64CallSymbol(runMainSymbol)
 	if count 'leaks'
@@ -100,29 +205,31 @@ function emitArm64LinuxEntry(mutates u CodeUnit, count bool)
 end 'emitArm64LinuxEntry'
 
 // emitArm64MainStack moves the main thread to a stack of stackReserveBytes of its own, as a worker's, its lowest page the
-// guard, and goes to unmapped when the kernel refuses.
-function emitArm64MainStack(mutates u CodeUnit, unmapped LabelID)
-	emitArm64Map(u, bytes: stackReserveBytes, flags: linuxMapAnonPrivate or linuxMapNoReserve)
-	arm64BranchIfFailed(u, to: unmapped)
+// guard, and goes to unmapped when the system refuses.
+function emitArm64MainStack(mutates u CodeUnit, system ast.TargetSystem, unmapped LabelID)
+	emitArm64Map(u, system: system, bytes: stackReserveBytes, reserve: true)
+	arm64BranchIfFailed(u, system: system, to: unmapped)
 	u.asm.arm64Mov(stubReserve, src: arm64LinuxSyscallResult)
-	u.asm.arm64MovImm(arm64StubArg(1), value: linuxPageBytes)
-	u.asm.arm64MovImm(arm64StubArg(2), value: linuxProtNone)
-	arm64StubSyscall(u, number: arm64LinuxSysMprotect)
+	u.asm.arm64MovImm(arm64StubArg(1), value: arm64PageBytes(system))
+	u.asm.arm64MovImm(arm64StubArg(2), value: arm64ProtNone(system))
+	emitArm64StubCall(u, system: system, call: Arm64StubCall.stubProtect)
+	arm64IntOfResult(u, system: system)
 	u.asm.arm64BranchIfNotZero(arm64LinuxSyscallResult, label: unmapped)
 	u.asm.arm64MovImm(stubTemp, value: stackReserveBytes)
 	u.asm.arm64Add(stubTemp, left: stubReserve, right: stubTemp)
 	u.asm.arm64Mov(Arm64Register.sp, src: stubTemp)
 end 'emitArm64MainStack'
 
-// emitArm64Map maps bytes of zeroed pages of no file with the flags, readable and writable; the address is in x0.
-function emitArm64Map(mutates u CodeUnit, bytes FullRangeInt, flags FullRangeInt)
+// emitArm64Map maps bytes of zeroed pages of no file, readable and writable, a reserve that the system commits a page at
+// a time when reserve is set; the address is in x0.
+function emitArm64Map(mutates u CodeUnit, system ast.TargetSystem, bytes FullRangeInt, reserve bool)
 	u.asm.arm64MovImm(arm64StubArg(0), value: noAddress)
 	u.asm.arm64MovImm(arm64StubArg(1), value: bytes)
-	u.asm.arm64MovImm(arm64StubArg(2), value: linuxProtReadWrite)
-	u.asm.arm64MovImm(arm64StubArg(3), value: flags)
+	u.asm.arm64MovImm(arm64StubArg(2), value: arm64ProtReadWrite(system))
+	u.asm.arm64MovImm(arm64StubArg(3), value: arm64MapFlags(system, reserve: reserve))
 	u.asm.arm64MovImm(arm64StubArg(4), value: noFile)
 	u.asm.arm64MovImm(arm64StubArg(5), value: noOffset)
-	arm64StubSyscall(u, number: arm64LinuxSysMmap)
+	emitArm64StubCall(u, system: system, call: Arm64StubCall.stubMap)
 end 'emitArm64Map'
 
 // emitArm64ThreadStart writes the routine that starts a worker's thread, which the runtime calls by the internal
@@ -141,28 +248,46 @@ function emitArm64ThreadStart(mutates u CodeUnit)
 	u.asm.arm64BranchIfZero(arm64LinuxSyscallResult, label: child)
 	u.asm.arm64Ret()
 	u.asm.bind(child)
-	emitArm64SignalStack(u)
+	emitArm64SignalStack(u, system: ast.TargetSystem.linux)
 	u.asm.arm64Load(arm64ArgWord(), base: Arm64Register.sp, disp: 0)
 	u.asm.arm64CallSymbol(ir.rtSymbol(ir.Rt.rtWorkerMain))
 	u.asm.arm64MovImm(arm64StubArg(0), value: workerExitCode)
 	arm64StubSyscall(u, number: arm64LinuxSysExit)
 end 'emitArm64ThreadStart'
 
+// Arm64StackRecord is where a system's stack_t, which sigaltstack reads, holds each of its fields, and its size.
+type Arm64StackRecord
+	var sp as FullRangeInt
+	var flags as FullRangeInt
+	var size as FullRangeInt
+	var bytes as Count
+
+	static function of(system ast.TargetSystem) returns Arm64StackRecord
+		return match system 'system'
+			linux gives Arm64StackRecord{sp: stackSpOffset, flags: stackFlagsOffset, size: stackSizeOffset, bytes: stackRecordBytes}
+			macos gives Arm64StackRecord{sp: macosStackSpOffset, flags: macosStackFlagsOffset, size: macosStackSizeOffset, bytes: macosStackRecordBytes}
+			windows gives panic("backend: arm64 has no entry stub for Windows, which the target table runs no arm64 on")
+		end 'system'
+	end 'of'
+end 'Arm64StackRecord'
+
 // emitArm64SignalStack gives the running thread a stack of faultStackGuarantee bytes that its signals run on, as x64's
-// does, through a stack_t below the stack pointer, a room the stack's alignment rounds up.
-function emitArm64SignalStack(mutates u CodeUnit)
+// does, through a stack_t below the stack pointer, a room the stack's alignment rounds up. Its flags are a word of zeros
+// on either system, whose stack_t pads them to one.
+function emitArm64SignalStack(mutates u CodeUnit, system ast.TargetSystem)
 	let skip = u.asm.newLabel()
-	let room = alignUp(stackRecordBytes, alignment: arm64StackAlignment)
-	emitArm64Map(u, bytes: faultStackGuarantee, flags: linuxMapAnonPrivate)
-	arm64BranchIfFailed(u, to: skip)
+	let record = Arm64StackRecord.of(system)
+	let room = alignUp(record.bytes, alignment: arm64StackAlignment)
+	emitArm64Map(u, system: system, bytes: faultStackGuarantee, reserve: false)
+	arm64BranchIfFailed(u, system: system, to: skip)
 	u.asm.arm64AddImm(Arm64Register.sp, src: Arm64Register.sp, value: arm64Negated(arm64Disp(room)))
-	u.asm.arm64Store(Arm64Register.sp, disp: stackSpOffset, src: arm64LinuxSyscallResult)
-	u.asm.arm64Store(Arm64Register.sp, disp: stackFlagsOffset, src: arm64ZeroRegister)
+	u.asm.arm64Store(Arm64Register.sp, disp: record.sp, src: arm64LinuxSyscallResult)
+	u.asm.arm64Store(Arm64Register.sp, disp: record.flags, src: arm64ZeroRegister)
 	u.asm.arm64MovImm(stubTemp, value: faultStackGuarantee)
-	u.asm.arm64Store(Arm64Register.sp, disp: stackSizeOffset, src: stubTemp)
+	u.asm.arm64Store(Arm64Register.sp, disp: record.size, src: stubTemp)
 	u.asm.arm64Mov(arm64StubArg(0), src: Arm64Register.sp)
 	u.asm.arm64MovImm(arm64StubArg(1), value: noOldStack)
-	arm64StubSyscall(u, number: arm64LinuxSysSigaltstack)
+	emitArm64StubCall(u, system: system, call: Arm64StubCall.stubSignalStack)
 	u.asm.arm64AddImm(Arm64Register.sp, src: Arm64Register.sp, value: arm64Disp(room))
 	u.asm.bind(skip)
 end 'emitArm64SignalStack'
@@ -197,20 +322,22 @@ end 'emitArm64FaultAction'
 // x1, the context in x2), on the thread's signal stack: it writes `panic: <what> at rip=0x<address>` to standard error,
 // as maxon's arm64 runtime does, and exits with the panic code, making nothing but system calls. arm64's division
 // raises no signal, so a SIGFPE reads as the x64 handler reads one.
-function emitArm64FaultHandler(mutates u CodeUnit)
+function emitArm64FaultHandler(mutates u CodeUnit, system ast.TargetSystem)
 	let report = u.asm.newLabel()
 	let memory = u.asm.newLabel()
 	let wild = u.asm.newLabel()
 	let overflowed = u.asm.newLabel()
 	let frame = alignUp(faultFrameSize, alignment: arm64StackAlignment)
 	let line = stubSecond
+	let signals = Arm64SignalLayout.of(system)
+	let info = arm64ArgRegister(ConventionKind.host, system: system, index: 1)
 	u.asm.arm64AddImm(Arm64Register.sp, src: Arm64Register.sp, value: arm64Negated(arm64Disp(frame)))
-	u.asm.arm64Load(stubTemp, base: arm64ArgRegister(ConventionKind.host, system: ast.TargetSystem.linux, index: 2), disp: arm64LinuxUcontextPcOffset)
+	emitArm64StoppedRegister(u, system: system, dst: stubTemp, pc: true)
 	u.asm.arm64Store(Arm64Register.sp, disp: faultAddressSlot, src: stubTemp)
-	u.asm.arm64CmpImm(arm64ArgWord(), value: linuxSigfpe)
+	u.asm.arm64CmpImm(arm64ArgWord(), value: signals.fpe)
 	u.asm.arm64BranchIf(MCond.notEqual, label: memory)
-	u.asm.arm64LoadWord32(stubTemp, base: arm64ArgRegister(ConventionKind.host, system: ast.TargetSystem.linux, index: 1), disp: siginfoCodeOffset)
-	u.asm.arm64CmpImm(stubTemp, value: fpeIntegerOverflow)
+	u.asm.arm64LoadWord32(stubTemp, base: info, disp: signals.codeOffset)
+	u.asm.arm64CmpImm(stubTemp, value: signals.integerOverflow)
 	u.asm.arm64BranchIf(MCond.equal, label: overflowed)
 	u.asm.arm64AddressData(line, dataOffset: u.data.textOffset(faultLineOpening(divideByZeroWords)))
 	u.asm.arm64Jump(report)
@@ -218,8 +345,8 @@ function emitArm64FaultHandler(mutates u CodeUnit)
 	u.asm.arm64AddressData(line, dataOffset: u.data.textOffset(faultLineOpening(integerOverflowWords)))
 	u.asm.arm64Jump(report)
 	u.asm.bind(memory)
-	u.asm.arm64Load(stubTemp, base: arm64ArgRegister(ConventionKind.host, system: ast.TargetSystem.linux, index: 1), disp: siginfoAddressOffset)
-	u.asm.arm64Load(stubThird, base: arm64ArgRegister(ConventionKind.host, system: ast.TargetSystem.linux, index: 2), disp: arm64LinuxUcontextSpOffset)
+	u.asm.arm64Load(stubTemp, base: info, disp: signals.addressOffset)
+	emitArm64StoppedRegister(u, system: system, dst: stubThird, pc: false)
 	u.asm.arm64Sub(stubTemp, left: stubTemp, right: stubThird)
 	u.asm.arm64MovImm(stubThird, value: stackFaultReach)
 	u.asm.arm64Add(stubTemp, left: stubTemp, right: stubThird)
@@ -233,19 +360,52 @@ function emitArm64FaultHandler(mutates u CodeUnit)
 	u.asm.bind(report)
 	u.asm.arm64Load(arm64StubArg(2), base: line, disp: 0)
 	u.asm.arm64AddImm(arm64StubArg(1), src: line, value: wordBytes)
-	emitArm64StderrWrite(u)
+	emitArm64StderrWrite(u, system: system)
 	emitArm64AddressDigits(u)
 	u.asm.arm64AddImm(arm64StubArg(1), src: Arm64Register.sp, value: faultDigitsSlot)
 	u.asm.arm64MovImm(arm64StubArg(2), value: addressDigits + 1)
-	emitArm64StderrWrite(u)
+	emitArm64StderrWrite(u, system: system)
 	u.asm.arm64MovImm(arm64StubArg(0), value: faultExitCode)
-	arm64StubSyscall(u, number: arm64LinuxSysExitGroup)
+	emitArm64StubCall(u, system: system, call: Arm64StubCall.stubExit)
 end 'emitArm64FaultHandler'
 
+// Arm64SignalLayout is what the fault handler reads of a system's signals: the number of SIGFPE, the si_code of an
+// integer overflow, and where a siginfo_t holds si_code and the address of a fault.
+type Arm64SignalLayout
+	var fpe as FullRangeInt
+	var integerOverflow as FullRangeInt
+	var codeOffset as FullRangeInt
+	var addressOffset as FullRangeInt
+
+	static function of(system ast.TargetSystem) returns Arm64SignalLayout
+		return match system 'system'
+			linux gives Arm64SignalLayout{fpe: linuxSigfpe, integerOverflow: fpeIntegerOverflow, codeOffset: siginfoCodeOffset, addressOffset: siginfoAddressOffset}
+			macos gives Arm64SignalLayout{fpe: macosSigfpe, integerOverflow: macosFpeIntegerOverflow, codeOffset: macosSiginfoCodeOffset, addressOffset: macosSiginfoAddressOffset}
+			windows gives panic("backend: arm64 has no entry stub for Windows, which the target table runs no arm64 on")
+		end 'system'
+	end 'of'
+end 'Arm64SignalLayout'
+
+// emitArm64StoppedRegister reads the program counter, or the stack pointer, of the code a signal stopped, from the context
+// its handler is handed in x2: Linux's ucontext_t holds the registers, and macOS's the address of a record of them.
+function emitArm64StoppedRegister(mutates u CodeUnit, system ast.TargetSystem, dst Arm64Register, pc bool)
+	let context = arm64ArgRegister(ConventionKind.host, system: system, index: 2)
+	match system 'system'
+		linux then u.asm.arm64Load(dst, base: context, disp: arm64LinuxUcontextPcOffset if pc else arm64LinuxUcontextSpOffset)
+		macos then emitArm64MacosStoppedRegister(u, dst: dst, context: context, pc: pc)
+		windows then panic("backend: arm64 has no entry stub for Windows, which the target table runs no arm64 on")
+	end 'system'
+end 'emitArm64StoppedRegister'
+
+function emitArm64MacosStoppedRegister(mutates u CodeUnit, dst Arm64Register, context Arm64Register, pc bool)
+	u.asm.arm64Load(dst, base: context, disp: macosUcontextMcontextOffset)
+	u.asm.arm64Load(dst, base: dst, disp: macosMcontextPcOffset if pc else macosMcontextSpOffset)
+end 'emitArm64MacosStoppedRegister'
+
 // emitArm64StderrWrite writes the x2 bytes at x1 to standard error.
-function emitArm64StderrWrite(mutates u CodeUnit)
+function emitArm64StderrWrite(mutates u CodeUnit, system ast.TargetSystem)
 	u.asm.arm64LoadSymbol(arm64StubArg(0), symbol: ir.rtSymbol(ir.Rt.rtStderr))
-	arm64StubSyscall(u, number: arm64LinuxSysWrite)
+	emitArm64StubCall(u, system: system, call: Arm64StubCall.stubWrite)
 end 'emitArm64StderrWrite'
 
 // emitArm64AddressDigits writes the faulting address, in the handler's frame, as addressDigits hexadecimal digits and a

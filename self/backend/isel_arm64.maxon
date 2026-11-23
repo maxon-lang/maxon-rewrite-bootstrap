@@ -473,23 +473,82 @@ function emitArm64CompareExchange(mutates sel Selector, fn ir.IrFunction, ins ir
 	sel.arm64TakeFrom(ins.dst, r: Arm64Register.x0)
 end 'emitArm64CompareExchange'
 
-// emitArm64CallImport calls a function of the system's libraries, which an arm64 executable reaches through its global
-// offset table, written by the Mach-O writer, which the backend does not have yet.
+// emitArm64CallImport calls a function of the system's libraries, which an arm64 executable reaches through its slot of
+// the global offset table: the slot's page, the word at its low bits, and a call of that by the host convention.
 function emitArm64CallImport(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
 	if ast.systemReach(sel.system) != ast.SystemReach.imports 'imports'
 		panic("backend: the runtime calls the library function {ir.callImportName(fn, x: ins)} on a target whose programs reach the system by system calls: its source for the target lacks that function")
 	end 'imports'
-	panic("backend: arm64 calls a library function through the global offset table of a Mach-O executable, which the backend has no writer of yet")
+	let name = ir.callImportName(fn, x: ins)
+	let count = ir.callImportArgsCount(ins)
+	let refers = Referent.make(MRef.importSlot, aux: imm32Of(arm64ImportIndex(sel.system, name: name)))
+	let page = sel.newTemp()
+	sel.arm64Refer(Arm64Form.adrp, a: page, b: noMReg, refers: refers)
+	let code = sel.newTemp()
+	sel.arm64Refer(Arm64Form.ldr64PageOff, a: code, b: page, refers: refers)
+	emitArm64HostCall(sel, fn: fn, ins: ins, start: ir.callImportArgsStart(ins), count: count, fixed: arm64FixedWords(sel.system, name: name, count: count), code: code)
 end 'emitArm64CallImport'
 
-// emitArm64CallHost calls the code at an address by the host convention, which only a system whose programs reach it
-// through its libraries has.
+// emitArm64CallHost calls the code at an address, the first of its arguments, by the host convention, which only a
+// system whose programs reach it through its libraries has.
 function emitArm64CallHost(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
 	if ast.systemReach(sel.system) != ast.SystemReach.imports 'host'
 		panic("backend: the runtime calls a library function by its address on a target whose programs reach the system by system calls: its source for the target lacks that function")
 	end 'host'
-	panic("backend: arm64 calls a library function of a Mach-O executable, which the backend has no writer of yet")
+	let start = ir.callHostArgsStart(ins)
+	let words = try ir.callHostArgsCount(ins) - 1 otherwise panic("backend: a host call with no address")
+	let first = try start + 1 otherwise panic("backend: an argument past the pool")
+	emitArm64HostCall(sel, fn: fn, ins: ins, start: first, count: words, fixed: words, code: argAt(fn, start: start, index: 0))
 end 'emitArm64CallHost'
+
+// arm64ImportIndex is the index of a library function among the imports of the system, which the link numbers the
+// slots of those it calls from.
+function arm64ImportIndex(system ast.TargetSystem, name String) returns Count
+	return match system 'system'
+		macos gives macosImportIndex(name)
+		windows gives panic("backend: arm64 has no import table for Windows, which the target table runs no arm64 on")
+		linux gives panic("backend: arm64 Linux programs make system calls and import nothing")
+	end 'system'
+end 'arm64ImportIndex'
+
+// arm64FixedWords is how many of the count words of a call of a library function its convention passes as the named
+// ones: all of them but where the function is variadic and the system passes what is variadic on the stack.
+function arm64FixedWords(system ast.TargetSystem, name String, count Count) returns Count
+	if not arm64HostVariadicOnStack(system) 'registers'
+		return count
+	end 'registers'
+	let fixed = macosFixedWords(name, count: count)
+	if fixed > count 'short'
+		panic("backend: the runtime calls the variadic {name} with {count} words, fewer than its {fixed} fixed ones")
+	end 'short'
+	return fixed
+end 'arm64FixedWords'
+
+// emitArm64HostCall calls the code a register holds by the host convention with the count words from start of the call's
+// arguments: the first fixed in their registers, and the rest, the variadic words of a convention that passes them on the
+// stack, stored a word each from the stack pointer, in the room the frame keeps for the most any call of the function
+// passes there. arm64's host conventions keep the registers the internal one keeps, so the call is one of the internal
+// convention as the allocator sees it.
+function emitArm64HostCall(mutates sel Selector, fn ir.IrFunction, ins ir.Instr, start Count, count Count, fixed Count, code MReg)
+	if arm64KeptBy(ConventionKind.host, system: sel.system) != arm64KeptBy(ConventionKind.internal, system: sel.system) 'kept'
+		panic("backend: an arm64 host convention keeps other registers than the internal one, so a host call is not one of the internal convention")
+	end 'kept'
+	if fixed > arm64ArgRegisterCount(ConventionKind.host, system: sel.system) 'many'
+		panic("backend: a host call of more fixed words than the host convention has registers for")
+	end 'many'
+	let sp = arm64PhysReg(Arm64Register.sp)
+	for i in fixed upto count 'stacked'
+		let at = try (i - fixed) * wordBytes otherwise panic("backend: more arguments than memory")
+		sel.arm64Store(sp, disp: arm64Disp(at), src: argAt(fn, start: start, index: i), float: false)
+	end 'stacked'
+	let room = try (count - fixed) * wordBytes otherwise panic("backend: more arguments than memory")
+	sel.mir.outgoingBytes = maxOf(sel.mir.outgoingBytes, b: room)
+	for i in 0 upto fixed 'registers'
+		sel.copy(arm64PhysReg(arm64ArgRegister(ConventionKind.host, system: sel.system, index: i)), src: argAt(fn, start: start, index: i))
+	end 'registers'
+	sel.emit(newArm64Call(Arm64Form.blr, a: code, ref: MRef.none, aux: 0, argRegs: arm64WordArgRegs(ConventionKind.host, system: sel.system, count: fixed)))
+	sel.arm64TakeFrom(ins.dst, r: arm64ResultRegister(ConventionKind.host, system: sel.system))
+end 'emitArm64HostCall'
 
 // emitArm64Syscall calls the kernel by Linux's system call convention: the number and the words in its registers, svc,
 // and the result in its result register.

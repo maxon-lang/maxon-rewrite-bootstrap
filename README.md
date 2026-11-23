@@ -130,12 +130,12 @@ the key of every module in the build cache. Code generation is one IR for every 
 selection and one internal convention; what differs is stated in tables (`internal/targetgen`'s target model and systems,
 `internal/abigen`'s imports and Linux numbers, the arm64 kernel's among them) and behind one choice per place. The target
 model is generated (`self/ast/targets_gen.maxon`): an `ast.Target` is an architecture (`ast.TargetArch`: x64 and arm64) on a
-system (`ast.TargetSystem`: Windows, Linux, and macOS, whose arm64 target the table holds pending until a Mach-O writer and
-the runtime's macOS source exist), each system with its format of executable (`imageFormatOf`: PE, ELF, Mach-O), the way its programs
+system (`ast.TargetSystem`: Windows, Linux and macOS), each system with its format of executable (`imageFormatOf`: PE, ELF, Mach-O), the way its programs
 reach it (`systemReach`: imports or system calls, each refused by the backend on a system that reaches it the other way),
 the suffix of an executable's name, and `knownTargets`, every architecture on each system its table runs. The backend
 matches on the architecture where its code is the processor's (the selection, the encoder, the entry stub) and on the
-system's table where it is the system's: the entry stub (`entry.maxon`, `entry_linux.maxon`, `entry_arm64.maxon`), the writer
+system's table where it is the system's: the entry stub (`entry.maxon`, `entry_linux.maxon`, `entry_arm64.maxon`,
+`entry_macos.maxon`), the writer
 of the executable (`buildImage`, `writePointers` and `writeImage`: `pe.maxon`, `elf.maxon` or `macho.maxon`), the host and
 system call conventions (`x64HostArg(system, index:)`), and the read of a thread's context (`x64ThreadContext`, which
 `x64.rules` reads; on arm64-linux `tpidr_el0` holds the context itself). The runtime's Linux source is one for both
@@ -149,21 +149,56 @@ reaches WSL through `WSLENV=MAXON_MAX_PROCS`, which the caller sets, and `--veri
 it. A program that the target cannot run says so with `// unsupported-targets: x64-linux` (maxon's directive of a spec
 test), and a run for that target prints it as `SKIP` and counts it as not supported; `os-io`, `subprocess`,
 `file-permission` and `conditional-compilation` are Windows', `os-io-on-linux`, `subprocess-on-linux` and
-`file-permission-on-linux` Linux's, and the two programs that E5001 refuses for x64's register count are not arm64-linux's,
-which has more registers.
+`file-permission-on-linux` Linux's (which macOS runs too, its paths and programs being POSIX's), as
+`children-started-at-once-each-read-their-own-output-on-posix` is the twin of the cmd.exe one that WSL runs too, and the two
+programs that E5001 refuses for x64's register count are not arm64's, which has more registers.
 The compiler cross-compiles itself: `build self --target=x64-linux` makes a Linux compiler, which checks and builds programs
 under WSL, and builds itself there to the same bytes. On Linux a compiler finds `runtime/` as on Windows and joins paths
 with `/` (`nativeSeparator` of `self/project`); its build cache is under `MINIMAXON_CACHE` only, since there is no
 `LOCALAPPDATA`, and `run` and `test` still put their executables under `TEMP`.
 
-macOS's executable is written by `macho.maxon`, after maxon's `MachOWriter.maxon`, though no architecture runs on macOS yet
-and `buildImage` refuses it until the runtime has a table of macOS's imports: a PIE `MH_EXECUTE` for arm64 with 16 KB
+`--target=arm64-macos` builds an arm64 macOS executable. Apple's system calls are not a stable interface, so every call of
+the system is one of a libSystem function: the runtime's macOS source (`macos.maxon`, `macos_green.maxon`,
+`macos_subprocess.maxon`, all of it in `#if os(macOS)`, beside the Linux files they mirror) calls them by
+`__Raw.callImportN("name", ...)`, the C name, and the entry stub by `arm64CallImport`. `internal/abigen` lists the functions
+a macOS executable may call (`macosImports`, each variadic one with the words it fixes: `open`'s mode goes on the stack, as
+Apple's AAPCS64 passes every variadic argument) and macOS's numbers and layouts (`macos.go`: the flags, `struct stat`,
+`struct dirent`, the errno values, `struct sigaction` of libSystem's wrapper, `stack_t`, `siginfo_t`, the `ucontext_t` whose
+`uc_mcontext` points at the registers, `struct kevent`, the sizes of the pthread objects). A call is `adrp`/`ldr` of its
+`__got` slot and `blr`; the link binds only the functions its live code calls, numbered in the order of `macosImports`
+(`LinkImports`), where a PE binds the whole DLL list. A libSystem function that fails returns -1 with the error in errno,
+which the runtime's `checked` turns into -errno, so the macOS source reads its calls as the Linux source reads system calls,
+and an `int` result is sign-extended from its lower half (`intResult`), which AAPCS64 leaves the upper half of undefined.
+dyld calls the entry, `LC_MAIN`, as C's main: the entry keeps the word before the arguments as where the process started
+(the kernel lays out the count, the arguments and the environment as Linux's does), makes the `pthread_key_create` key
+whose slot of a thread's TSD array (`tpidrro_el0`) holds its context, gives the main thread its context there, moves to a
+stack of the reserve, gives each thread a `sigaltstack` and the fault handler (`SIGSEGV`, `SIGBUS`, `SIGFPE`) through
+libSystem's `sigaction`, whose trampoline the handlers return through, and exits by `_exit`. A worker starts in
+`rt.threadStart`, which `pthread_create` runs on a stack of the reserve (`pthread_attr_setstacksize`); a parked thread
+waits on a mutex and a condition of its own (macOS 13, maxon's floor, has no futex); preemption is `SIGURG` through
+`pthread_kill`, as on Linux; the poller is a kqueue whose user events (`EVFILT_USER`) break its wait and signal each poll
+descriptor; a run of a program is `posix_spawn` with `POSIX_SPAWN_CLOEXEC_DEFAULT`.
+
+The Mac is not on the gate's machine, so `test --target=arm64-macos` takes `--runner=command,word,...`, which starts each
+executable through a command in place of the target's runner: `cmd/batchrun` (plain Go, cross-built for darwin/arm64)
+keeps each executable and a row of its run in a staging directory (`batchrun record <stage>`), runs every row on the Mac
+at least twice with a deadline each (`batchrun run <stage>`, writing `out/<run>.stdout`, `.stderr` and `.status`, and
+what macOS's log says of a run that did not exit), and gives each run's result back to a second run of the test runner
+(`batchrun replay <stage>`), so that every comparison stays the runner's. A row is the digest of the executable's signed
+bytes, the signature's size left out, since the signature names the file, and its worker count, which a deterministic
+compile gives again. The gate's step `corpus on arm64 macos` (`suites.ps1`) does it through the folder that Windows and
+the Mac both mount (`M:\agents\minimaxon\`, the Mac's `~/Dev/agents/minimaxon/`): it stages the corpus and its reruns
+under one and two workers, and replays them when `out\gate\` holds the Mac's results of exactly those rows (their
+stamp), failing on any failure; otherwise it leaves the batch at `in\gate\` with `cmd/batchrun/run.sh` for the Mac
+session to run, and prints a skip line, as it does when the folder is not mounted.
+
+The executable is written by `macho.maxon`, after maxon's `MachOWriter.maxon`: a PIE `MH_EXECUTE` for arm64 with 16 KB
 pages, `__PAGEZERO` over the low 4 GB, `__TEXT` from the start of the file at 0x100000000 (the headers and `__text`),
 `__DATA` (`__data`, then `__got` on a page of its own) and `__LINKEDIT`, and 14 load commands: the four segments,
 `LC_SYMTAB` and `LC_DYSYMTAB` (with no symbol), `LC_LOAD_DYLINKER`, `LC_MAIN`, `LC_UUID` (the first 16 bytes of the code's
 SHA-256), `LC_LOAD_DYLIB` of libSystem, `LC_BUILD_VERSION` (macOS 13.0), `LC_DYLD_CHAINED_FIXUPS`, an empty
 `LC_DYLD_EXPORTS_TRIE` and `LC_CODE_SIGNATURE`; maxon's `LC_SOURCE_VERSION` is left out, since a program here has no
-version. `buildMachOImage` is given the Mach-O symbols to bind (`_exit`), one 8-byte slot of `__got` each, bound by name
+version. `buildMachOImage` is given the Mach-O symbols to bind (`_exit`, the C name with the platform's underscore), one 8-byte slot of `__got` each, bound by name
 through chained fixups (`DYLD_CHAINED_PTR_64_OFFSET`, `DYLD_CHAINED_IMPORT`), and `writePointers` makes each word of the
 data that holds an address a chained rebase of the target's offset from the base, each page of `__DATA` a chain of its
 own. `writeImage` signs a Mach-O image under its file's name, as ld64 does (`codesign.maxon`): an ad-hoc, linker-signed
@@ -1967,7 +2002,7 @@ are a `Count`:
 | `__Raw.addressOf(word)` | the address of a local `Count`, passed `mutates`: an out-parameter of a DLL function |
 | `__Raw.stringAddress(text)`, `__Raw.stringAt(box)` | the box address of a borrowed `String`; a `String` that owns a box the runtime built |
 | `__Raw.heapAddress()`, `stdoutAddress()`, `stderrAddress()` | the address of a global of the entry stub |
-| `__Raw.callImport0(name)` to `__Raw.callImport10(name, arg1: a, ..., arg10: j)` | calls the DLL function `name`, a string literal (`E2004` otherwise), with that many words by the Win64 convention, and gives what it returns; Windows only |
+| `__Raw.callImport0(name)` to `__Raw.callImport10(name, arg1: a, ..., arg10: j)` | calls the library function `name`, a string literal (`E2004` otherwise), with that many words by the host convention, and gives what it returns: a DLL function of the import list on Windows, a libSystem function of `macosImports` on macOS |
 | `__Raw.syscall0(number)` to `__Raw.syscall6(number, arg1: a, ..., arg6: f)` | makes the system call of the number with that many words by Linux's system call convention, and gives what the kernel returns, `-errno` as a word when it failed; Linux only |
 | `__Raw.processStartAddress()` | the address of `g.processStart`, where the Linux entry keeps the stack pointer the process started with: the argument count, the arguments, a null, the environment |
 | `__Raw.atomicAdd(address, offset: o, value: v)`, `__Raw.atomicExchange(address, offset: o, value: v)` | adds `v` to the word at `address + o`, or puts `v` there, as one locked step (a full fence), and gives the word it found |
@@ -2119,8 +2154,8 @@ so the code at `run` must have released and freed what the behaviour holds by th
   blocking call, or to finish, which its thread's scheduler then does on its own stack.
 - **The monitor** (Go's sysmon) is a thread of its own that holds no processor and allocates nothing. It wakes every 20 µs
   to 10 ms; asks a green thread that has run 10 ms to stop and stops its thread from outside, on Windows by
-  `SuspendThread`, `GetThreadContext` and `SetThreadContext`, on Linux by SIGURG, which every thread that runs green
-  threads unblocks for itself as it starts (Go's `minitSignalMask`), when the thread is in the program's code,
+  `SuspendThread`, `GetThreadContext` and `SetThreadContext`, on Linux and macOS by SIGURG, which every thread that runs
+  green threads unblocks for itself as it starts (Go's `minitSignalMask`), when the thread is in the program's code,
   on the green thread's stack and not in a blocking call; takes a processor from a thread in a bracketed blocking call
   (`enterBlocking`, `exitBlocking`, Go's entersyscall and exitsyscall, around file I/O, `write` and the wait for a child)
   and hands it to another thread; and polls a poller no thread has polled for 10 ms. On Windows it holds the exit claim

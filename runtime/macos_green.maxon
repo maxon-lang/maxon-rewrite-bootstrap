@@ -1,0 +1,240 @@
+// The macOS part of green threads and the scheduler, through libSystem: a green thread's stack's pages, the clock and the
+// monitor's sleep, the thread the monitor signals, the preemption signal's action and where its context holds the
+// stopped code's registers, and the poller, a kqueue with a user event that breaks its wait and one for each poll
+// descriptor, which any thread triggers. The rest is green.maxon's and sched.maxon's, which every system shares.
+
+#if os(macOS)
+	// stackGuardBytes is the guard page at the bottom of a stack's reserve.
+	let stackGuardBytes = macosPageBytes
+
+	// noChanges and noEvents are kevent's lists that a call passes none of, and noTimeout the wait of one that waits until
+	// something comes.
+	let noChanges = 0 as Count
+
+	let noEvents = 0 as Count
+
+	let noTimeout = 0 as Count
+
+	let oneChange = 1 as Count
+
+	let microsPerSecond = 1000000 as Count
+
+	let noRemaining = 0 as Count
+
+	// newStack maps a stack whose pages the system commits as they are touched, its lowest page the guard, as a worker
+	// thread's (startThread).
+	function newStack() returns Count
+		let low = mapReserve(stackReserveBytes)
+		if failed(low) 'unmapped'
+			panic("out of memory: no address space for a green thread's stack")
+		end 'unmapped'
+		if failed(guardPage(low)) 'unguarded'
+			panic("cannot guard a green thread's stack")
+		end 'unguarded'
+		return stackRecord(low, high: __Raw.wrappingAdd(low, right: stackReserveBytes), limit: low)
+	end 'newStack'
+
+	// releaseStack unmaps a stack's reserve, its record with it.
+	function releaseStack(stack Count)
+		if failed(unmapBlock(__Raw.loadWord(stack, offset: pooledStackLowOffset), bytes: stackReserveBytes)) 'failed'
+			panic("a green thread's stack cannot be given back to the system")
+		end 'failed'
+	end 'releaseStack'
+
+	// stackGrew is false: the system commits a stack's pages as they are touched and does not say how many were, so a
+	// pooled stack keeps what its green threads touched, and only the cap on the pools bounds it.
+	function stackGrew(stack Count) returns bool
+		return false
+	end 'stackGrew'
+
+	// sleepMicros sleeps the monitor for a number of microseconds, through the timespec of its block; a signal that ends the
+	// sleep early only shortens the round.
+	function sleepMicros(context Count, micros Count)
+		let time = __Raw.wrappingAdd(threadBlockSwitch(context), right: threadBlockClockOffset)
+		__Raw.storeWord(time, offset: 0, value: micros / microsPerSecond)
+		__Raw.storeWord(time, offset: wordBytes, value: try (micros mod microsPerSecond) * nanosPerMicro otherwise panic("a sleep past a word of nanoseconds"))
+		_ = sysNanosleep(time, remaining: noRemaining)
+	end 'sleepMicros'
+
+	// preemptSignal is the code the preemption signal's handler calls (contextSignalCodeOffset) with the signal's context,
+	// on the thread's signal stack: Go's doSigPreempt, which makes the stopped code return into rt.asyncPreempt when it may
+	// be stopped there, and answers the signal. arm64's rt.asyncPreempt keeps the word it branches through below the stack
+	// pointer it was stopped at.
+	function preemptSignal(signalContext Count)
+		let context = __Raw.threadContext()
+		let pc = signalPcAddress(signalContext)
+		let rip = __Raw.loadWord(pc, offset: 0)
+		let rsp = __Raw.loadWord(signalSpAddress(signalContext), offset: 0)
+		let g = __Raw.loadWord(context, offset: contextGreenOffset)
+		if stoppable(context, g: g, instruction: rip, stackPointer: rsp) 'stop'
+			_ = resumeAt(g, instruction: rip, stackPointer: rsp)
+			__Raw.storeWord(pc, offset: 0, value: __Raw.asyncPreemptAddress())
+		end 'stop'
+		_ = __Raw.atomicExchange(context, offset: contextSignalPendingOffset, value: unset)
+	end 'preemptSignal'
+
+	// mapReserve maps a stack's reserve of a number of bytes, whose pages the system commits as they are touched, and gives
+	// its address or -errno; guardPage makes its lowest page the guard, and unmapBlock gives a block back, each giving 0 or
+	// -errno.
+	function mapReserve(bytes Count) returns Count
+		return checked(__Raw.callImport6("mmap", arg1: nullPointer, arg2: bytes, arg3: macosProtReadWrite, arg4: macosMapAnonPrivate or macosMapNoReserve, arg5: noFd, arg6: noMappingOffset))
+	end 'mapReserve'
+
+	function guardPage(low Count) returns Count
+		return checkedInt(__Raw.callImport3("mprotect", arg1: low, arg2: stackGuardBytes, arg3: macosProtNone))
+	end 'guardPage'
+
+	function unmapBlock(block Count, bytes Count) returns Count
+		return checkedInt(__Raw.callImport2("munmap", arg1: block, arg2: bytes))
+	end 'unmapBlock'
+
+	// nanotime is the monotonic clock in nanoseconds, which clock_gettime_nsec_np gives with no record, so it allocates
+	// nothing.
+	function nanotime(context Count) returns Count
+		return osClockNanos()
+	end 'nanotime'
+
+	// sysNanosleep sleeps for the timespec at an address, and gives 0, or -errno with what is left of the sleep in the
+	// timespec at remaining where that is not 0.
+	function sysNanosleep(time Count, remaining Count) returns Count
+		return checkedInt(__Raw.callImport2("nanosleep", arg1: time, arg2: remaining))
+	end 'sysNanosleep'
+
+	// signalThread sends the preemption signal to a thread, its pthread.
+	function signalThread(thread Count)
+		_ = __Raw.callImport2("pthread_kill", arg1: thread, arg2: macosSigurg)
+	end 'signalThread'
+
+	// noOldMask is the signal mask pthread_sigmask is not asked to give back.
+	let noOldMask = 0 as Count
+
+	// setThreadIdentity keeps what the monitor signals the running thread by, its pthread, and lets the signal through, as
+	// Go's minitSignalMask does on darwin: a thread pthread_create makes starts with its creator's mask, and the main
+	// thread with the one its process was started with, either of which may block the signal, and a thread that never took
+	// it would never be stopped.
+	function setThreadIdentity(context Count)
+		__Raw.storeWord(context, offset: contextThreadOffset, value: __Raw.callImport0("pthread_self"))
+		var preemption = (1 as Count) shl (macosSigurg - 1)
+		if intResult(__Raw.callImport3("pthread_sigmask", arg1: macosSigUnblock, arg2: __Raw.addressOf(preemption), arg3: noOldMask)) != 0 'refused'
+			panic("cannot let the preemption signal through to a thread")
+		end 'refused'
+	end 'setThreadIdentity'
+
+	// initPreemption makes rt.preemptHandler the action of the preemption signal for every thread, on the thread's signal
+	// stack, with the calls it breaks off made again where the system can. The mask, 32 bits, and the flags after it are
+	// one word.
+	function initPreemption()
+		let action = alloc(macosSigactionBytes)
+		__Raw.storeWord(action, offset: macosSigactionHandlerOffset, value: __Raw.preemptHandlerAddress())
+		__Raw.storeWord32(action, offset: macosSigactionMaskOffset, value: 0)
+		__Raw.storeWord32(action, offset: macosSigactionFlagsOffset, value: macosPreemptActionFlags)
+		if intResult(__Raw.callImport3("sigaction", arg1: macosSigurg, arg2: action, arg3: noOldAction)) != 0 'refused'
+			panic("cannot set the preemption signal's action")
+		end 'refused'
+		free(action)
+	end 'initPreemption'
+
+	// preemptThread stops a thread on macOS: it sends it the preemption signal, unless one is not yet answered, as Go's
+	// preemptM does.
+	function preemptThread(scheduler Count, context Count, g Count)
+		if __Raw.compareExchange(context, offset: contextSignalPendingOffset, expected: unset, desired: set) != unset 'pending'
+			return
+		end 'pending'
+		signalThread(__Raw.loadWord(context, offset: contextThreadOffset))
+	end 'preemptThread'
+
+	// signalPcAddress and signalSpAddress are where the context of a signal holds the stopped code's program counter and
+	// stack pointer: in the record of the registers that the ucontext_t points at.
+	function signalPcAddress(signalContext Count) returns Count
+		return __Raw.wrappingAdd(__Raw.loadWord(signalContext, offset: macosUcontextMcontextOffset), right: macosMcontextPcOffset)
+	end 'signalPcAddress'
+
+	function signalSpAddress(signalContext Count) returns Count
+		return __Raw.wrappingAdd(__Raw.loadWord(signalContext, offset: macosUcontextMcontextOffset), right: macosMcontextSpOffset)
+	end 'signalSpAddress'
+
+	// initPoller makes the kqueue and the user event that breaks its wait.
+	function initPoller(scheduler Count)
+		let poller = checkedInt(__Raw.callImport0("kqueue"))
+		if failed(poller) 'poller'
+			panic("cannot make the poller")
+		end 'poller'
+		__Raw.storeWord(scheduler, offset: schedPollerOffset, value: poller)
+		changeUserEvent(poller, ident: pollBreakKey, flags: macosEvAddClear, fflags: 0, key: pollBreakKey)
+	end 'initPoller'
+
+	// changeUserEvent makes one change of the user event of an ident of the kqueue, which reports it with a key.
+	function changeUserEvent(poller Count, ident Count, flags Count, fflags Count, key Count)
+		let change = alloc(macosKeventBytes)
+		__Raw.storeWord(change, offset: 0, value: ident)
+		__Raw.storeWord16(change, offset: macosKeventFilterOffset, value: macosEvfiltUser)
+		__Raw.storeWord16(change, offset: macosKeventFlagsOffset, value: flags)
+		__Raw.storeWord32(change, offset: macosKeventFflagsOffset, value: fflags)
+		__Raw.storeWord(change, offset: macosKeventUdataOffset, value: key)
+		if failed(checkedInt(__Raw.callImport6("kevent", arg1: poller, arg2: change, arg3: oneChange, arg4: noEvents, arg5: 0, arg6: noTimeout))) 'refused'
+			panic("cannot change a user event of the poller")
+		end 'refused'
+		free(change)
+	end 'changeUserEvent'
+
+	// netpoll takes what is ready, waiting up to delay nanoseconds for something when nothing is, into the thread's block,
+	// whose timespec holds the wait, and gives the list of the green threads it readied. A user event that came was reset
+	// as it was reported (EV_CLEAR).
+	function netpoll(context Count, delay Count) returns Count
+		let scheduler = __Raw.loadWord(context, offset: contextSchedulerOffset)
+		let events = __Raw.wrappingAdd(threadBlockSwitch(context), right: threadBlockEventsOffset)
+		var timeout = noTimeout
+		if delay != netpollForever 'bounded'
+			timeout = __Raw.wrappingAdd(threadBlockSwitch(context), right: threadBlockClockOffset)
+			__Raw.storeWord(timeout, offset: 0, value: delay / nanosPerSecond)
+			__Raw.storeWord(timeout, offset: wordBytes, value: delay mod nanosPerSecond)
+		end 'bounded'
+		let got = checkedInt(__Raw.callImport6("kevent", arg1: __Raw.loadWord(scheduler, offset: schedPollerOffset), arg2: noChanges, arg3: 0, arg4: events, arg5: pollEventSlots, arg6: timeout))
+		if failed(got) 'failed'
+			if interrupted(got) 'interrupted'
+				return noGreen
+			end 'interrupted'
+			panic("the poller's wait failed")
+		end 'failed'
+		var list = noGreen
+		var event = events
+		for i in 0 upto got 'events'
+			let key = __Raw.loadWord(event, offset: macosKeventUdataOffset)
+			if key == pollBreakKey 'break'
+				__Raw.storeWord(scheduler, offset: schedPollWakeSigOffset, value: unset)
+			end 'break' else 'descriptor'
+				list = pollSignalledInto(key, list: list)
+			end 'descriptor'
+			event = __Raw.wrappingAdd(event, right: macosKeventBytes)
+		end 'events'
+		return list
+	end 'netpoll'
+
+	// netpollBreak ends the wait of the thread in the poller, once for any number of breaks before it takes one.
+	function netpollBreak(scheduler Count)
+		if __Raw.compareExchange(scheduler, offset: schedPollWakeSigOffset, expected: unset, desired: set) != unset 'sent'
+			return
+		end 'sent'
+		changeUserEvent(__Raw.loadWord(scheduler, offset: schedPollerOffset), ident: pollBreakKey, flags: 0, fflags: macosNoteTrigger, key: pollBreakKey)
+	end 'netpollBreak'
+
+	// pollNew is a poll descriptor with a user event of its own, its address the event's ident and its key, which pollFree
+	// deletes.
+	function pollNew() returns Count
+		let scheduler = schedulerOf(__Raw.threadContext())
+		let descriptor = alloc(pollDescriptorBytes)
+		__Raw.storeWord(descriptor, offset: pollFdOffset, value: __Raw.loadWord(scheduler, offset: schedPollerOffset))
+		changeUserEvent(__Raw.loadWord(descriptor, offset: pollFdOffset), ident: descriptor, flags: macosEvAddClear, fflags: 0, key: descriptor)
+		return descriptor
+	end 'pollNew'
+
+	// pollSignal signals a poll descriptor through its user event, from any thread.
+	function pollSignal(descriptor Count)
+		changeUserEvent(__Raw.loadWord(descriptor, offset: pollFdOffset), ident: descriptor, flags: 0, fflags: macosNoteTrigger, key: descriptor)
+	end 'pollSignal'
+
+	function pollFree(descriptor Count)
+		changeUserEvent(__Raw.loadWord(descriptor, offset: pollFdOffset), ident: descriptor, flags: macosEvDelete, fflags: 0, key: descriptor)
+		free(descriptor)
+	end 'pollFree'
+#endif

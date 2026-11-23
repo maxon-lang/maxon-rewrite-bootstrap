@@ -88,8 +88,7 @@ type OS struct {
 var (
 	Windows = OS{Name: "windows", Display: "Windows", Image: PE, Reach: Imports, ExecutableSuffix: ".exe"}
 	Linux   = OS{Name: "linux", Display: "Linux", Image: ELF, Reach: Syscalls}
-	// MacOS has no target that runs it yet; its row says what a target that does will be asked.
-	MacOS = OS{Name: "macos", Display: "macOS", Image: MachO, Reach: Imports}
+	MacOS   = OS{Name: "macos", Display: "macOS", Image: MachO, Reach: Imports}
 )
 
 // OSes are the systems, in the order of the cases of ast.TargetSystem.
@@ -419,8 +418,6 @@ var Arm64 = Target{
 		},
 		{
 			OS: MacOS,
-			// The backend has no writer of Mach-O executables yet, and the runtime no source for macOS.
-			Pending: true,
 			// A thread's context is in a slot of the thread's TSD array, which tpidrro_el0 points at, at the key that the
 			// entry stub keeps, as Windows' is in a TLS slot of the TEB.
 			ThreadContext: "tlsSlot",

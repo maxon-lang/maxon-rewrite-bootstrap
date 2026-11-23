@@ -48,14 +48,14 @@ function positionsOf(pointers DataPointerList) returns CountList
 	return out
 end 'positionsOf'
 
-// buildImage lays out the executable of the system's format, as the target table names it: a PE with the table of the
-// runtime's imports for Windows, and a static ELF of the target's machine, which imports nothing, for Linux. The Mach-O
-// writer binds the libSystem functions it is given, and the runtime has no table of macOS's yet.
-export function buildImage(target ast.Target, layout ImageLayout) returns Image
+// buildImage lays out the executable of the system's format, as the target table names it, with a slot for each of
+// imports (LinkImports): a PE of the runtime's DLL imports for Windows, a static ELF of the target's machine, which imports
+// nothing, for Linux, and a Mach-O that binds the libSystem functions the code calls for macOS.
+export function buildImage(target ast.Target, layout ImageLayout, imports NameList) returns Image
 	return match ast.imageFormatOf(target.system) 'format'
-		pe gives buildPeImage(layout.codeSize, dataSize: layout.dataSize, dll: rtDll, imports: rtImports(), entryOffset: layout.entryOffset, relocated: layout.relocated())
+		pe gives buildPeImage(layout.codeSize, dataSize: layout.dataSize, dll: rtDll, imports: imports, entryOffset: layout.entryOffset, relocated: layout.relocated())
 		elf gives buildElfImage(target.arch, layout: layout)
-		machO gives panic("backend: no table of the runtime's macOS imports for the Mach-O writer yet")
+		machO gives buildMachOImage(layout, imports: imports)
 	end 'format'
 end 'buildImage'
 

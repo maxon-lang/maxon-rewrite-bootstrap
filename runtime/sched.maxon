@@ -919,19 +919,28 @@ end 'unlockScheduler'
 function yieldThread()
 	#if os(Windows)
 		_ = __Raw.callImport0("SwitchToThread")
-	#else
+	#endif
+	#if os(Linux)
 		_ = __Raw.syscall0(linuxSysSchedYield)
+	#endif
+	#if os(macOS)
+		yieldProcessor()
 	#endif
 end 'yieldThread'
 
 // waitStopped waits until a waker clears the context's stopped flag (wakeThread). A wake before the wait makes the wait
-// return at once: on Windows the auto-reset event stays set, and on Linux the futex sees the flag already 0.
+// return at once: on Windows the auto-reset event stays set, on Linux the futex sees the flag already 0, and on macOS the
+// parker reads it under its mutex.
 function waitStopped(context Count)
 	while __Raw.loadWord(context, offset: contextStoppedOffset) == set 'wait'
 		#if os(Windows)
 			_ = __Raw.callImport2("WaitForSingleObject", arg1: __Raw.loadWord(context, offset: contextParkEventOffset), arg2: waitForever)
-		#else
+		#endif
+		#if os(Linux)
 			futexWait(__Raw.wrappingAdd(context, right: contextStoppedOffset), value: set)
+		#endif
+		#if os(macOS)
+			parkWhileSet(__Raw.loadWord(context, offset: contextParkEventOffset), word: __Raw.wrappingAdd(context, right: contextStoppedOffset))
 		#endif
 	end 'wait'
 end 'waitStopped'
@@ -941,8 +950,12 @@ function wakeThread(context Count)
 	_ = __Raw.atomicExchange(context, offset: contextStoppedOffset, value: unset)
 	#if os(Windows)
 		_ = __Raw.callImport1("SetEvent", arg1: __Raw.loadWord(context, offset: contextParkEventOffset))
-	#else
+	#endif
+	#if os(Linux)
 		futexWakeOne(__Raw.wrappingAdd(context, right: contextStoppedOffset))
+	#endif
+	#if os(macOS)
+		unpark(__Raw.loadWord(context, offset: contextParkEventOffset))
 	#endif
 end 'wakeThread'
 
@@ -972,8 +985,11 @@ function initThread(scheduler Count, context Count)
 	#if os(Windows)
 		__Raw.storeWord(context, offset: contextParkEventOffset, value: newEvent())
 	#endif
+	#if os(macOS)
+		__Raw.storeWord(context, offset: contextParkEventOffset, value: newParker())
+	#endif
 	__Raw.storeWord(context, offset: contextPreemptCodeOffset, value: __Raw.codeAddress("asyncPreempted"))
-	#if os(Linux)
+	#if os(Linux) or os(macOS)
 		__Raw.storeWord(context, offset: contextSignalCodeOffset, value: __Raw.codeAddress("preemptSignal"))
 	#endif
 	__Raw.storeWord(context, offset: contextRandomOffset, value: __Raw.wrappingAdd(context, right: randomStep))

@@ -288,7 +288,7 @@ func emitBySystem(b *strings.Builder, t target.Target) error {
 		quantities    []roleQuantity
 	}{
 		{"Host", "the host convention, the one of the system's libraries", func(s target.System) *target.Convention { return &s.Host },
-			[]roleQuantity{{"ArgCount", "Count", false, false}, {"Arg", reg, true, true}, {"Result", reg, false, false}, {"ShadowBytes", "Count", false, false}, {"CalleeSaved", "RegMask", false, true}}},
+			[]roleQuantity{{"ArgCount", "Count", false, false}, {"Arg", reg, true, true}, {"Result", reg, false, false}, {"ShadowBytes", "Count", false, false}, {"VariadicOnStack", "bool", false, false}, {"CalleeSaved", "RegMask", false, true}}},
 		{"Syscall", "the convention of a system call", func(s target.System) *target.Convention { return s.Syscall },
 			[]roleQuantity{{"ArgCount", "Count", false, false}, {"Arg", reg, true, true}, {"Result", reg, false, false}, {"Number", reg, false, false}, {"CalleeSaved", "RegMask", false, true}}},
 	}

@@ -224,3 +224,198 @@ export function rtImports() returns NameList
 	names.push("GetProcAddress")
 	return names
 end 'rtImports'
+
+// The libSystem functions a macOS executable may call, by their C names, each its index in macosImports as a
+// constant (macosImp followed by its name in camel case).
+export let macosImpExit = 0 as Count
+
+export let macosImpWrite = 1 as Count
+
+export let macosImpRead = 2 as Count
+
+export let macosImpOpen = 3 as Count
+
+export let macosImpClose = 4 as Count
+
+export let macosImpFstat = 5 as Count
+
+export let macosImpStat = 6 as Count
+
+export let macosImpMmap = 7 as Count
+
+export let macosImpMunmap = 8 as Count
+
+export let macosImpMprotect = 9 as Count
+
+export let macosImpGetpid = 10 as Count
+
+export let macosImpGetcwd = 11 as Count
+
+export let macosImpClockGettimeNsecNp = 12 as Count
+
+export let macosImpNanosleep = 13 as Count
+
+export let macosImpError = 14 as Count
+
+export let macosImpRename = 15 as Count
+
+export let macosImpUnlink = 16 as Count
+
+export let macosImpMkdir = 17 as Count
+
+export let macosImpOpendir = 18 as Count
+
+export let macosImpReaddir = 19 as Count
+
+export let macosImpClosedir = 20 as Count
+
+export let macosImpNSGetExecutablePath = 21 as Count
+
+export let macosImpRealpath = 22 as Count
+
+export let macosImpFree = 23 as Count
+
+export let macosImpSysconf = 24 as Count
+
+export let macosImpGetentropy = 25 as Count
+
+export let macosImpSchedYield = 26 as Count
+
+export let macosImpPthreadAttrInit = 27 as Count
+
+export let macosImpPthreadAttrSetstacksize = 28 as Count
+
+export let macosImpPthreadAttrDestroy = 29 as Count
+
+export let macosImpPthreadCreate = 30 as Count
+
+export let macosImpPthreadKeyCreate = 31 as Count
+
+export let macosImpPthreadSetspecific = 32 as Count
+
+export let macosImpPthreadSelf = 33 as Count
+
+export let macosImpPthreadKill = 34 as Count
+
+export let macosImpPthreadSigmask = 35 as Count
+
+export let macosImpPthreadMutexInit = 36 as Count
+
+export let macosImpPthreadMutexLock = 37 as Count
+
+export let macosImpPthreadMutexUnlock = 38 as Count
+
+export let macosImpPthreadCondInit = 39 as Count
+
+export let macosImpPthreadCondWait = 40 as Count
+
+export let macosImpPthreadCondSignal = 41 as Count
+
+export let macosImpSigaction = 42 as Count
+
+export let macosImpSigaltstack = 43 as Count
+
+export let macosImpKqueue = 44 as Count
+
+export let macosImpKevent = 45 as Count
+
+export let macosImpPipe = 46 as Count
+
+export let macosImpPoll = 47 as Count
+
+export let macosImpWaitpid = 48 as Count
+
+export let macosImpKill = 49 as Count
+
+export let macosImpPosixSpawn = 50 as Count
+
+export let macosImpPosixSpawnFileActionsInit = 51 as Count
+
+export let macosImpPosixSpawnFileActionsAdddup2 = 52 as Count
+
+export let macosImpPosixSpawnFileActionsAddinheritNp = 53 as Count
+
+export let macosImpPosixSpawnFileActionsDestroy = 54 as Count
+
+export let macosImpPosixSpawnattrInit = 55 as Count
+
+export let macosImpPosixSpawnattrSetflags = 56 as Count
+
+export let macosImpPosixSpawnattrDestroy = 57 as Count
+
+export function macosImports() returns NameList
+	var names = NameList.create(0)
+	names.push("_exit")
+	names.push("write")
+	names.push("read")
+	names.push("open")
+	names.push("close")
+	names.push("fstat")
+	names.push("stat")
+	names.push("mmap")
+	names.push("munmap")
+	names.push("mprotect")
+	names.push("getpid")
+	names.push("getcwd")
+	names.push("clock_gettime_nsec_np")
+	names.push("nanosleep")
+	names.push("__error")
+	names.push("rename")
+	names.push("unlink")
+	names.push("mkdir")
+	names.push("opendir")
+	names.push("readdir")
+	names.push("closedir")
+	names.push("_NSGetExecutablePath")
+	names.push("realpath")
+	names.push("free")
+	names.push("sysconf")
+	names.push("getentropy")
+	names.push("sched_yield")
+	names.push("pthread_attr_init")
+	names.push("pthread_attr_setstacksize")
+	names.push("pthread_attr_destroy")
+	names.push("pthread_create")
+	names.push("pthread_key_create")
+	names.push("pthread_setspecific")
+	names.push("pthread_self")
+	names.push("pthread_kill")
+	names.push("pthread_sigmask")
+	names.push("pthread_mutex_init")
+	names.push("pthread_mutex_lock")
+	names.push("pthread_mutex_unlock")
+	names.push("pthread_cond_init")
+	names.push("pthread_cond_wait")
+	names.push("pthread_cond_signal")
+	names.push("sigaction")
+	names.push("sigaltstack")
+	names.push("kqueue")
+	names.push("kevent")
+	names.push("pipe")
+	names.push("poll")
+	names.push("waitpid")
+	names.push("kill")
+	names.push("posix_spawn")
+	names.push("posix_spawn_file_actions_init")
+	names.push("posix_spawn_file_actions_adddup2")
+	names.push("posix_spawn_file_actions_addinherit_np")
+	names.push("posix_spawn_file_actions_destroy")
+	names.push("posix_spawnattr_init")
+	names.push("posix_spawnattr_setflags")
+	names.push("posix_spawnattr_destroy")
+	return names
+end 'macosImports'
+
+// macosVariadicImports are the variadic functions of macosImports, and macosVariadicFixedWords the words of each
+// that it takes in registers: the rest go on the stack.
+export function macosVariadicImports() returns NameList
+	var names = NameList.create(0)
+	names.push("open")
+	return names
+end 'macosVariadicImports'
+
+export function macosVariadicFixedWords() returns CountList
+	var words = CountList.create(0)
+	words.push(2)
+	return words
+end 'macosVariadicFixedWords'

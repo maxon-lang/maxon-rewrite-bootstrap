@@ -55,17 +55,20 @@ function testOther(g Count) returns Count
 	return 0
 end 'testOther'
 
+// testTimespecBytes is a timespec, its seconds and its nanoseconds, a word each on Linux and macOS.
+let testTimespecBytes = 16 as Count
+
 // testBlock sleeps in the system for testBlockMillis.
 function testBlock()
 	#if os(Windows)
 		_ = __Raw.callImport1("Sleep", arg1: testBlockMillis)
 	#else
-		let time = alloc(linuxTimespecBytes)
+		let time = alloc(testTimespecBytes)
 		__Raw.storeWord(time, offset: 0, value: 0)
 		__Raw.storeWord(time, offset: wordBytes, value: testBlockMillis * nanosPerMilli)
-		var slept = __Raw.syscall2(linuxSysNanosleep, arg1: time, arg2: time)
+		var slept = sysNanosleep(time, remaining: time)
 		while slept != 0 'again'
-			slept = __Raw.syscall2(linuxSysNanosleep, arg1: time, arg2: time)
+			slept = sysNanosleep(time, remaining: time)
 		end 'again'
 		free(time)
 	#endif

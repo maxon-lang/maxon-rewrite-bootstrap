@@ -293,6 +293,15 @@ export function arm64HostShadowBytes(system ast.TargetSystem) returns Count
 	end 'system'
 end 'arm64HostShadowBytes'
 
+// arm64HostVariadicOnStack is the VariadicOnStack of the host convention, the one of the system's libraries on a system.
+export function arm64HostVariadicOnStack(system ast.TargetSystem) returns bool
+	return match system 'system'
+		windows gives panic("backend: arm64 runs no Windows")
+		linux gives arm64LinuxHostVariadicOnStack
+		macos gives arm64macOSHostVariadicOnStack
+	end 'system'
+end 'arm64HostVariadicOnStack'
+
 // arm64HostCalleeSaved is the CalleeSaved of the host convention, the one of the system's libraries on a system.
 export function arm64HostCalleeSaved(system ast.TargetSystem) returns RegMask
 	return match system 'system'

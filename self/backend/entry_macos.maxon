@@ -1,0 +1,195 @@
+// The entry stub of an arm64 macOS executable, beside entry_arm64.maxon's for Linux, whose stack switch, signal stack and
+// fault handler it shares: macOS has no stable system call, so every call of the system is one of a libSystem function
+// through its slot of the global offset table (arm64CallImport). dyld calls the entry, the executable's LC_MAIN, as C's
+// main, with the argument count, the arguments, the environment and Apple's strings. The entry keeps where the arguments
+// are, sets the standard handles, makes the thread-specific key the context of every thread is kept at and gives the
+// main thread its context there, moves to a stack of the main thread's reserve, runs main by rt.runMain (start.maxon) and
+// exits with what main returns. A thread the runtime makes starts in rt.threadStart, the routine pthread_create runs.
+
+let macosStdoutFd = 1
+
+let macosStderrFd = 2
+
+// noKeyDestructor is pthread_key_create's destructor of a thread's value when the thread ends: none, since a context is
+// the runtime's to free.
+let noKeyDestructor = 0
+
+// macosThreadExitCode is what rt.threadStart returns to pthread, which nothing joins to read.
+let macosThreadExitCode = 0
+
+// keyRefused is the line the entry writes when libSystem gives it no thread-specific key, before a context the
+// runtime's panic could read is anywhere.
+let keyRefused = "panic: the runtime could not make the thread-specific key of the threads' contexts\n"
+
+// emitArm64MacosRuntime is the arm64 macOS unit of the entry: the standard handles, the main thread's context, where the
+// arguments start and the thread-specific key, which the runtime's source reads; the entry, the routine a thread starts
+// in, and the fault handler.
+function emitArm64MacosRuntime(calls EntryCalls, options RuntimeOptions) returns CodeUnit
+	var u = CodeUnit.new()
+	u.defineData(ir.rtSymbol(ir.Rt.rtStdout), size: wordBytes)
+	u.defineData(ir.rtSymbol(ir.Rt.rtStderr), size: wordBytes)
+	u.defineData(ir.rtSymbol(ir.Rt.rtMainContext), size: contextBytes)
+	u.defineData(ir.rtSymbol(ir.Rt.rtProcessStart), size: wordBytes)
+	u.defineData(ir.rtSymbol(ir.Rt.rtTlsOffset), size: wordBytes)
+	emitStartData(u)
+	u.beginSection()
+	u.defineCode(ir.rtSymbol(ir.Rt.rtEntry))
+	emitArm64MacosEntry(u, count: options.countAllocations)
+	emitStartRoutines(u, a: arm64Arch, calls: calls)
+	u.beginSection()
+	u.defineCode(ir.rtSymbol(ir.Rt.rtThreadStart))
+	emitArm64MacosThreadStart(u)
+	u.beginSection()
+	u.defineCode(faultSymbol)
+	emitArm64FaultHandler(u, system: ast.TargetSystem.macos)
+	emitArm64GreenRoutines(u, system: ast.TargetSystem.macos)
+	emitArm64PreemptHandler(u, system: ast.TargetSystem.macos)
+	return u
+end 'emitArm64MacosRuntime'
+
+// emitArm64MacosEntry writes the executable's entry point. The kernel lays out the argument count, the arguments, a null
+// and the environment as it does on Linux, and dyld passes the address of the first argument, so the word before it is
+// the count, and that word is where the process's start is, as the runtime reads it on Linux (processStart).
+function emitArm64MacosEntry(mutates u CodeUnit, count bool)
+	let unmapped = u.asm.newLabel()
+	let refused = u.asm.newLabel()
+	let host = ast.TargetSystem.macos
+	u.asm.arm64AddImm(stubTemp, src: arm64HostArg(host, index: 1), value: arm64Negated(arm64Disp(wordBytes)))
+	u.asm.arm64StoreSymbol(ir.rtSymbol(ir.Rt.rtProcessStart), src: stubTemp)
+	u.asm.arm64MovImm(stubTemp, value: macosStdoutFd)
+	u.asm.arm64StoreSymbol(ir.rtSymbol(ir.Rt.rtStdout), src: stubTemp)
+	u.asm.arm64MovImm(stubTemp, value: macosStderrFd)
+	u.asm.arm64StoreSymbol(ir.rtSymbol(ir.Rt.rtStderr), src: stubTemp)
+	// The key is the slot of a thread's TSD array that its context is kept in, which a read of the context indexes
+	// (arm64.rules); pthread_key_create writes it into rt.tlsOffset.
+	u.asm.arm64Address(arm64HostArg(host, index: 0), symbol: ir.rtSymbol(ir.Rt.rtTlsOffset))
+	u.asm.arm64MovImm(arm64HostArg(host, index: 1), value: noKeyDestructor)
+	u.asm.arm64CallImport(macosImpPthreadKeyCreate)
+	arm64IntOfResult(u, system: host)
+	u.asm.arm64BranchIfNotZero(arm64HostResult(host), label: refused)
+	u.asm.arm64Address(arm64HostArg(host, index: 1), symbol: ir.rtSymbol(ir.Rt.rtMainContext))
+	emitArm64MacosSetContext(u)
+	arm64IntOfResult(u, system: host)
+	u.asm.arm64BranchIfNotZero(arm64HostResult(host), label: refused)
+	emitArm64MainStack(u, system: host, unmapped: unmapped)
+	emitArm64SignalStack(u, system: host)
+	emitArm64MacosFaultActions(u)
+	u.asm.arm64CallSymbol(runMainSymbol)
+	if count 'leaks'
+		u.asm.arm64CallSymbol(ir.rtSymbol(ir.Rt.rtCheckLeaks))
+	end 'leaks'
+	emitArm64StubCall(u, system: host, call: Arm64StubCall.stubExit)
+	u.asm.bind(unmapped)
+	u.asm.arm64AddressData(arm64ArgWord(), dataOffset: u.data.textOffset(stackUnmapped))
+	u.asm.arm64CallSymbol(ir.rtSymbol(ir.Rt.rtPanic))
+	u.asm.bind(refused)
+	u.asm.arm64AddressData(stubSecond, dataOffset: u.data.textOffset(keyRefused))
+	u.asm.arm64Load(arm64StubArg(2), base: stubSecond, disp: 0)
+	u.asm.arm64AddImm(arm64StubArg(1), src: stubSecond, value: wordBytes)
+	emitArm64StderrWrite(u, system: host)
+	u.asm.arm64MovImm(arm64StubArg(0), value: faultExitCode)
+	emitArm64StubCall(u, system: host, call: Arm64StubCall.stubExit)
+end 'emitArm64MacosEntry'
+
+// emitArm64MacosSetContext makes the address in x1 the running thread's context: its value of the key, which
+// pthread_setspecific gives 0 for.
+function emitArm64MacosSetContext(mutates u CodeUnit)
+	u.asm.arm64LoadSymbol(arm64HostArg(ast.TargetSystem.macos, index: 0), symbol: ir.rtSymbol(ir.Rt.rtTlsOffset))
+	u.asm.arm64CallImport(macosImpPthreadSetspecific)
+end 'emitArm64MacosSetContext'
+
+// emitArm64MacosThreadStart writes rt.threadStart, the routine a worker's thread starts in, which pthread_create calls by
+// the host convention with the thread's context: it gives the thread its signal stack, makes the context the thread's,
+// calls the runtime's workerMain with it, and returns to pthread, which ends the thread. stubReserve, which it holds the
+// context in, is a register the host convention has it keep, as the internal one has workerMain keep it. The key is the
+// one the entry made, which pthread_setspecific does not refuse.
+function emitArm64MacosThreadStart(mutates u CodeUnit)
+	let host = ast.TargetSystem.macos
+	u.asm.arm64Enter()
+	u.asm.arm64Push(stubReserve, second: arm64ZeroRegister)
+	u.asm.arm64Mov(stubReserve, src: arm64HostArg(host, index: 0))
+	emitArm64SignalStack(u, system: host)
+	u.asm.arm64Mov(arm64HostArg(host, index: 1), src: stubReserve)
+	emitArm64MacosSetContext(u)
+	u.asm.arm64Mov(arm64ArgWord(), src: stubReserve)
+	u.asm.arm64CallSymbol(ir.rtSymbol(ir.Rt.rtWorkerMain))
+	u.asm.arm64Pop(stubReserve, second: arm64ZeroRegister)
+	u.asm.arm64Leave()
+	u.asm.arm64MovImm(arm64HostResult(host), value: macosThreadExitCode)
+	u.asm.arm64Ret()
+end 'emitArm64MacosThreadStart'
+
+// emitArm64MacosFaultActions makes the fault handler the action of each signal of a hardware fault, for every thread,
+// through the struct sigaction of libSystem's sigaction below the stack pointer, which supplies the trampoline the
+// handler would return through.
+function emitArm64MacosFaultActions(mutates u CodeUnit)
+	let room = alignUp(macosSigactionBytes, alignment: arm64StackAlignment)
+	u.asm.arm64AddImm(Arm64Register.sp, src: Arm64Register.sp, value: arm64Negated(arm64Disp(room)))
+	u.asm.arm64Address(stubTemp, symbol: faultSymbol)
+	u.asm.arm64Store(Arm64Register.sp, disp: macosSigactionHandlerOffset, src: stubTemp)
+	// The mask, 32 bits, and the flags, the 32 bits after it, are one word.
+	u.asm.arm64MovImm(stubTemp, value: macosFaultActionFlags shl macosSigactionMaskBits)
+	u.asm.arm64Store(Arm64Register.sp, disp: macosSigactionMaskOffset, src: stubTemp)
+	emitArm64MacosFaultAction(u, signal: macosSigsegv)
+	emitArm64MacosFaultAction(u, signal: macosSigbus)
+	emitArm64MacosFaultAction(u, signal: macosSigfpe)
+	u.asm.arm64AddImm(Arm64Register.sp, src: Arm64Register.sp, value: arm64Disp(room))
+end 'emitArm64MacosFaultActions'
+
+// macosSigactionMaskBits is the width of a struct sigaction's mask, which its flags follow.
+let macosSigactionMaskBits = 32
+
+function emitArm64MacosFaultAction(mutates u CodeUnit, signal FullRangeInt)
+	let host = ast.TargetSystem.macos
+	u.asm.arm64MovImm(arm64HostArg(host, index: 0), value: signal)
+	u.asm.arm64Mov(arm64HostArg(host, index: 1), src: Arm64Register.sp)
+	u.asm.arm64MovImm(arm64HostArg(host, index: 2), value: noOldAction)
+	u.asm.arm64CallImport(macosImpSigaction)
+end 'emitArm64MacosFaultAction'
+
+// macosStubImport is the libSystem function of a call the stub makes on every arm64 system.
+function macosStubImport(call Arm64StubCall) returns Count
+	return match call 'call'
+		stubWrite gives macosImpWrite
+		stubExit gives macosImpExit
+		stubMap gives macosImpMmap
+		stubProtect gives macosImpMprotect
+		stubSignalStack gives macosImpSigaltstack
+	end 'call'
+end 'macosStubImport'
+
+// macosImportIndex is the index of a libSystem function among macosImports, which a call of it names its slot by.
+export function macosImportIndex(name String) returns Count
+	let names = macosImports()
+	for i in 0 upto names.count() 'names'
+		if names[i] == name 'found'
+			return i
+		end 'found'
+	end 'names'
+	panic("backend: the runtime calls the libSystem function {name}, which macosImports does not list")
+end 'macosImportIndex'
+
+// macosFixedWords is how many words of a call of a libSystem function of count words are its named ones: the fixed
+// words of a variadic function, and every word of another.
+function macosFixedWords(name String, count Count) returns Count
+	let variadics = macosVariadicImports()
+	for i in 0 upto variadics.count() 'variadics'
+		if variadics[i] == name 'variadic'
+			return macosVariadicFixedWords()[i]
+		end 'variadic'
+	end 'variadics'
+	return count
+end 'macosFixedWords'
+
+// machoSymbolPrefix is what the platform puts before a C name to make its Mach-O symbol: `_exit` of exit.
+let machoSymbolPrefix = "_"
+
+// machoSymbolsOf are the Mach-O symbols of the libSystem functions of the indices, in their order.
+function machoSymbolsOf(indices CountList) returns NameList
+	let names = macosImports()
+	var symbols = NameList.create(0)
+	for i in 0 upto indices.count() 'indices'
+		symbols.push("{machoSymbolPrefix}{names[indices[i]]}")
+	end 'indices'
+	return symbols
+end 'machoSymbolsOf'
