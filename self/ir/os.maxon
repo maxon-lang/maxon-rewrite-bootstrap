@@ -372,13 +372,19 @@ export let noDeadline = 0 as Word
 
 function lowerSubprocessRun(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	let never = konst(l, value: noDeadline)
-	return runSubprocess(l, p: p, ms: ms, c: c, executable: args[0], arguments: args[1], deadlineMs: never)
+	return runSubprocess(l, p: p, ms: ms, c: c, executable: args[0], arguments: args[1], directory: noReg, deadlineMs: never)
 end 'lowerSubprocessRun'
 
 function lowerSubprocessRunWithDeadline(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	let millis = deadlineMs(l, p: p, deadline: args[2])
-	return runSubprocess(l, p: p, ms: ms, c: c, executable: args[0], arguments: args[1], deadlineMs: millis)
+	return runSubprocess(l, p: p, ms: ms, c: c, executable: args[0], arguments: args[1], directory: noReg, deadlineMs: millis)
 end 'lowerSubprocessRunWithDeadline'
+
+function lowerSubprocessRunInDirectory(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	let millis = deadlineMs(l, p: p, deadline: args[3])
+	let directory = pathText(l, path: args[2])
+	return runSubprocess(l, p: p, ms: ms, c: c, executable: args[0], arguments: args[1], directory: directory, deadlineMs: millis)
+end 'lowerSubprocessRunInDirectory'
 
 // deadlineMs is the milliseconds a WaitDeadline gives, noDeadline for none.
 function deadlineMs(mutates l Lowerer, p ast.Project, deadline Reg) returns Reg
@@ -399,8 +405,9 @@ function deadlineMs(mutates l Lowerer, p ast.Project, deadline Reg) returns Reg
 	return load(l, slot: millis)
 end 'deadlineMs'
 
-// runSubprocess runs the child and makes the CollectedOutput of what the entry stored and returned.
-function runSubprocess(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, executable Reg, arguments Reg, deadlineMs Reg) returns Reg
+// runSubprocess runs the child, in directory by rt.os.runIn or, for noReg, in the caller's working directory by rt.os.run,
+// and makes the CollectedOutput of what the entry stored and returned.
+function runSubprocess(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, executable Reg, arguments Reg, directory Reg, deadlineMs Reg) returns Reg
 	let site = siteOf(l, p: p, node: c.node)
 	let stdout = l.b.f.newSlot(IrKind.kindString)
 	let stderr = l.b.f.newSlot(IrKind.kindString)
@@ -409,10 +416,15 @@ function runSubprocess(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleSt
 	var all = RegList.create(0)
 	all.push(exe)
 	all.push(arguments)
+	var symbol = Rt.rtOsRun
+	if directory != noReg 'directory'
+		all.push(directory)
+		symbol = Rt.rtOsRunIn
+	end 'directory'
 	all.push(deadlineMs)
 	all.push(slotAddr(l, slot: stdout))
 	all.push(slotAddr(l, slot: stderr))
-	let code = failing(l, p: p, ms: ms, site: site, dst: dst, symbol: Rt.rtOsRun, args: all)
+	let code = failing(l, p: p, ms: ms, site: site, dst: dst, symbol: symbol, args: all)
 	var fields = RegList.create(0)
 	for i in 0 upto succ(ast.collectedOutputCodeField) 'fields'
 		fields.push(noReg)

@@ -225,8 +225,10 @@ end 'argumentAt'
 	end 'listInherited'
 
 	// createChild creates the child that command and the startup record describe, inheriting the handles of the array and no
-	// others, with the creation flags given, and gives the Win32 error of the step that failed, or 0 when the child was created.
-	function createChild(command Count, startup Count, inherited Count, inheritedCount Count, process Count, flags Count) returns Count
+	// others, with the creation flags given, in the directory that the zero-terminated UTF-16 path names, or in the caller's
+	// working directory for noCurrentDirectory, and gives the Win32 error of the step that failed, or 0 when the child was
+	// created.
+	function createChild(command Count, startup Count, inherited Count, inheritedCount Count, process Count, flags Count, directory Count) returns Count
 		var listBytes = 0 as Count
 		// The call that asks for the size fails by design.
 		_ = __Raw.callImport4("InitializeProcThreadAttributeList", arg1: noAttributeList, arg2: attributeCount, arg3: noAttributeFlags, arg4: __Raw.addressOf(listBytes))
@@ -242,7 +244,7 @@ end 'argumentAt'
 			failure = win32Error()
 		end 'unupdated' else 'update'
 			__Raw.storeWord(startup, offset: startupAttributeListOffset, value: list)
-			let created = __Raw.callImport10("CreateProcessW", arg1: noApplication, arg2: command, arg3: noSecurity, arg4: noThreadSecurity, arg5: inheritHandles, arg6: flags, arg7: noEnvironment, arg8: noCurrentDirectory, arg9: startup, arg10: process)
+			let created = __Raw.callImport10("CreateProcessW", arg1: noApplication, arg2: command, arg3: noSecurity, arg4: noThreadSecurity, arg5: inheritHandles, arg6: flags, arg7: noEnvironment, arg8: directory, arg9: startup, arg10: process)
 			if dword(created) == 0 'uncreated'
 				failure = win32Error()
 			end 'uncreated'
@@ -335,6 +337,12 @@ end 'argumentAt'
 	// child still running deadlineMs milliseconds after it started, when that is not noDeadline, is ended and fails the run
 	// with the timeout case.
 	function osRun(executable String, arguments Count, deadlineMs Count, stdout Count, stderr Count, errorAddress Count) returns Count
+		return osRunIn(executable, arguments: arguments, directory: "", deadlineMs: deadlineMs, stdout: stdout, stderr: stderr, errorAddress: errorAddress)
+	end 'osRun'
+
+	// osRunIn is osRun with the child started in directory, relative to the run's working directory, or in the run's own
+	// working directory when directory is empty.
+	function osRunIn(executable String, arguments Count, directory String, deadlineMs Count, stdout Count, stderr Count, errorAddress Count) returns Count
 		let frame = alloc(frameBytes)
 		let output = fieldAt(frame, offset: frameOutputOffset)
 		let errors = fieldAt(frame, offset: frameErrorOffset)
@@ -359,7 +367,14 @@ end 'argumentAt'
 		inheritedCount = listInherited(inherited, count: inheritedCount, handle: wordAt(startup, offset: startupOutputOffset))
 		inheritedCount = listInherited(inherited, count: inheritedCount, handle: wordAt(startup, offset: startupErrorOffset))
 		let process = fieldAt(frame, offset: frameProcessOffset)
-		let win32 = createChild(command, startup: startup, inherited: inherited, inheritedCount: inheritedCount, process: process, flags: extendedStartupInfoPresent)
+		var wideDirectory = noCurrentDirectory as Count
+		if __Raw.stringLength(directory) != 0 'directory'
+			wideDirectory = wideOf(directory)
+		end 'directory'
+		let win32 = createChild(command, startup: startup, inherited: inherited, inheritedCount: inheritedCount, process: process, flags: extendedStartupInfoPresent, directory: wideDirectory)
+		if wideDirectory != noCurrentDirectory 'wide'
+			free(wideDirectory)
+		end 'wide'
 		if win32 != 0 'spawn'
 			abandonRun(output, errors: errors, command: command)
 			free(frame)
@@ -404,5 +419,5 @@ end 'argumentAt'
 		free(frame)
 		succeed(errorAddress)
 		return exitCode
-	end 'osRun'
+	end 'osRunIn'
 #endif

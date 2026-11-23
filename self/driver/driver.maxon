@@ -299,13 +299,12 @@ end 'runProgram'
 // temporaryExecutable is where run builds the program at path: in the temporary directory, named after the process and the
 // program, so that two compilers running at once never write the same file.
 function temporaryExecutable(path String, suffix String) returns String
-	let dir = try Process.environmentVariable("TEMP") otherwise panic("driver: TEMP is not set")
 	let name = defaultOutput(path, suffix: suffix)
 	var at = name.byteLength()
 	while at > 0 and not isSeparator(name.byteAt(try at - 1 otherwise 0)) 'back'
 		at = try at - 1 otherwise 0
 	end 'back'
-	return "{dir}\\minimaxon-run-{Process.id()}-{name.sliceBytes(at, endPos: name.byteLength())}"
+	return ast.temporaryPath("minimaxon-run-{Process.id()}-{name.sliceBytes(at, endPos: name.byteLength())}")
 end 'temporaryExecutable'
 
 // checkPath runs the front end over the project at path and prints its diagnostics.

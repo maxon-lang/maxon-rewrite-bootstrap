@@ -73,6 +73,24 @@ export function executableSuffix(system TargetSystem) returns String
 	end 'system'
 end 'executableSuffix'
 
+// pathSeparator is the separator of a system's paths.
+export function pathSeparator(system TargetSystem) returns String
+	return match system 'system'
+		windows gives "\\"
+		linux gives "/"
+		macos gives "/"
+	end 'system'
+end 'pathSeparator'
+
+// temporaryVariable is the environment variable that names a system's directory of temporary files, as maxon reads it.
+export function temporaryVariable(system TargetSystem) returns String
+	return match system 'system'
+		windows gives "TEMP"
+		linux gives "TMPDIR"
+		macos gives "TMPDIR"
+	end 'system'
+end 'temporaryVariable'
+
 // knownTargets are the targets this compiler compiles for, each architecture on each system it runs, in the order a
 // usage message lists them.
 export function knownTargets() returns TargetList

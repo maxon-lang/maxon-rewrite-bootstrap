@@ -29,31 +29,8 @@ end 'targetRoster'
 
 // hostTarget is the target of the system the compiler runs on, which a compile with no --target is for.
 function hostTarget() returns ast.Target
-	return ast.Target.make(hostArch(), system: hostSystem())
+	return ast.Target.host()
 end 'hostTarget'
-
-// hostArch is the architecture the compiler runs on: the one it was compiled for.
-function hostArch() returns ast.TargetArch
-	#if arch(x64)
-		return ast.TargetArch.x64
-	#endif
-	#if arch(arm64)
-		return ast.TargetArch.arm64
-	#endif
-end 'hostArch'
-
-// hostSystem is the system the compiler runs on: the one it was compiled for.
-function hostSystem() returns ast.TargetSystem
-	#if os(Windows)
-		return ast.TargetSystem.windows
-	#endif
-	#if os(Linux)
-		return ast.TargetSystem.linux
-	#endif
-	#if os(macOS)
-		return ast.TargetSystem.macos
-	#endif
-end 'hostSystem'
 
 // TargetRunner is how the test runner starts an executable of a target on the system the compiler runs on, as maxon's
 // targets.tsv names a runner for each target: itself when the target is the host's, and a Linux executable on Windows

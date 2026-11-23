@@ -62,6 +62,7 @@ export function macosImports() returns NameList
 	names.push("posix_spawn")
 	names.push("posix_spawn_file_actions_init")
 	names.push("posix_spawn_file_actions_adddup2")
+	names.push("posix_spawn_file_actions_addchdir_np")
 	names.push("posix_spawn_file_actions_addinherit_np")
 	names.push("posix_spawn_file_actions_destroy")
 	names.push("posix_spawnattr_init")

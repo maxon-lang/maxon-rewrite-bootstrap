@@ -62,7 +62,7 @@ let debuggeeOutOfBounds = 2
 		inheritedCount = listInherited(inherited, count: inheritedCount, handle: wordAt(startup, offset: startupOutputOffset))
 		inheritedCount = listInherited(inherited, count: inheritedCount, handle: wordAt(startup, offset: startupErrorOffset))
 		let process = fieldAt(frame, offset: frameProcessOffset)
-		let win32 = createChild(command, startup: startup, inherited: inherited, inheritedCount: inheritedCount, process: process, flags: extendedStartupInfoPresent or debugOnlyThisProcess)
+		let win32 = createChild(command, startup: startup, inherited: inherited, inheritedCount: inheritedCount, process: process, flags: extendedStartupInfoPresent or debugOnlyThisProcess, directory: noCurrentDirectory)
 		free(command)
 		if win32 != 0 'spawn'
 			free(frame)

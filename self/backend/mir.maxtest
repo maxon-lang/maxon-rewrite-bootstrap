@@ -245,9 +245,9 @@ function linkAndRun(mutates p ast.Project, fns MirFunctionList, entry ast.FuncID
 	var units = UnitList.create(0)
 	units.push(u)
 	var ready = UnitList.create(0)
-	ready.push(runtimeUnit(false))
+	ready.push(runtimeUnit(p.target, count: false))
 	let linked = linkProgram(p, modules: units, ready: freeze(ready), entry: entry, options: RuntimeOptions.make(false), mapsSymbols: false)
-	runPeImage(linked.image, name: name, expectedCode: expectedCode, expectedOutput: "")
+	runImage(linked.image, name: name, expectedCode: expectedCode, expectedOutput: "")
 end 'linkAndRun'
 
 function oneMir(consumes fn MirFunction) returns MirFunctionList

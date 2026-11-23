@@ -599,6 +599,10 @@ function runtimeEntry(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 		try entryOsRun(vm, f: f, x: x)
 		return
 	end 'rtOsRun'
+	if symbol == ir.Rt.rtOsRunIn 'rtOsRunIn'
+		try entryOsRunIn(vm, f: f, x: x)
+		return
+	end 'rtOsRunIn'
 	if symbol == ir.Rt.rtEntry or symbol == ir.Rt.rtAlloc or symbol == ir.Rt.rtFree or symbol == ir.Rt.rtCheckSimpleBytes 'internal0'
 		panic("interp: {ir.rtText(symbol)} is no entry the IR calls")
 	end 'internal0'

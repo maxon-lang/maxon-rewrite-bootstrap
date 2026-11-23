@@ -183,6 +183,7 @@ export enum Rt
 	rtDebugCloseHandle
 	rtDebugTerminate
 	rtOsRun
+	rtOsRunIn
 end 'Rt'
 
 // rtSymbol is the name the runtime defines a symbol by.
@@ -727,6 +728,9 @@ export function rtSymbol(r Rt) returns String
 	if r == Rt.rtOsRun 'rtOsRun'
 		return "runtime::osRun"
 	end 'rtOsRun'
+	if r == Rt.rtOsRunIn 'rtOsRunIn'
+		return "runtime::osRunIn"
+	end 'rtOsRunIn'
 	panic("ir: rtNone names no runtime symbol")
 end 'rtSymbol'
 
@@ -1272,6 +1276,9 @@ export function rtText(r Rt) returns String
 	if r == Rt.rtOsRun 'rtOsRun'
 		return "rt.os.run"
 	end 'rtOsRun'
+	if r == Rt.rtOsRunIn 'rtOsRunIn'
+		return "rt.os.runIn"
+	end 'rtOsRunIn'
 	panic("ir: rtNone has no text")
 end 'rtText'
 
@@ -1817,6 +1824,9 @@ export function rtCode(r Rt) returns Count
 	if r == Rt.rtOsRun 'rtOsRun'
 		return 180
 	end 'rtOsRun'
+	if r == Rt.rtOsRunIn 'rtOsRunIn'
+		return 181
+	end 'rtOsRunIn'
 	panic("ir: rtNone has no number")
 end 'rtCode'
 
@@ -2003,6 +2013,7 @@ export function rtOf(code Count) returns Rt
 		178 gives Rt.rtDebugCloseHandle
 		179 gives Rt.rtDebugTerminate
 		180 gives Rt.rtOsRun
+		181 gives Rt.rtOsRunIn
 		default panic("ir: a number that is no runtime symbol")
 	end 'code'
 end 'rtOf'
@@ -2561,6 +2572,9 @@ export function rtUnit(r Rt) returns RtUnit
 	if r == Rt.rtOsRun 'rtOsRun'
 		return RtUnit.rtUnitOs
 	end 'rtOsRun'
+	if r == Rt.rtOsRunIn 'rtOsRunIn'
+		return RtUnit.rtUnitOs
+	end 'rtOsRunIn'
 	panic("ir: rtNone is defined by no unit")
 end 'rtUnit'
 
@@ -3118,6 +3132,15 @@ export function rtFunctions(b ast.Builtins) returns RtFunctionList
 	params138.push(RtParam.make(ast.Convention.convLet, name: "stderr", ty: b.countTy))
 	params138.push(RtParam.make(ast.Convention.convLet, name: "errorAddress", ty: b.countTy))
 	fns.push(RtFunction.make(Rt.rtOsRun, name: "osRun", params: params138, result: b.countTy))
+	var params139 = RtParamList.create(0)
+	params139.push(RtParam.make(ast.Convention.convLet, name: "executable", ty: b.stringTy))
+	params139.push(RtParam.make(ast.Convention.convLet, name: "arguments", ty: b.countTy))
+	params139.push(RtParam.make(ast.Convention.convLet, name: "directory", ty: b.stringTy))
+	params139.push(RtParam.make(ast.Convention.convLet, name: "deadlineMs", ty: b.countTy))
+	params139.push(RtParam.make(ast.Convention.convLet, name: "stdout", ty: b.countTy))
+	params139.push(RtParam.make(ast.Convention.convLet, name: "stderr", ty: b.countTy))
+	params139.push(RtParam.make(ast.Convention.convLet, name: "errorAddress", ty: b.countTy))
+	fns.push(RtFunction.make(Rt.rtOsRunIn, name: "osRunIn", params: params139, result: b.countTy))
 	return fns
 end 'rtFunctions'
 
@@ -3305,6 +3328,7 @@ export function rtGivesString(r Rt) returns bool
 		rtDebugDetach or
 		rtDebugCloseHandle or
 		rtDebugTerminate or
-		rtOsRun gives false
+		rtOsRun or
+		rtOsRunIn gives false
 	end 'entry'
 end 'rtGivesString'

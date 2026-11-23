@@ -356,6 +356,7 @@ export enum Intrinsic
 	intrDirectoryList
 	intrSubprocessRun
 	intrSubprocessRunWithDeadline
+	intrSubprocessRunInDirectory
 	intrCollectedOutputExitCode
 	intrDebuggeeLaunch
 	intrDebuggeeWaitEvent
@@ -1758,6 +1759,14 @@ function declareSubprocessMethods(mutates tt TypeSlot, reads TypeTable, mutates 
 	ps5.push(ParamSpec.make("deadline", ty: b.waitDeadlineTy, conv: Convention.convLet))
 	let f6 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.subprocessTy, op: Intrinsic.intrSubprocessRunWithDeadline, name: "runWithDeadline", isStatic: true, selfConv: Convention.convLet, ret: b.collectedOutputTy, params: ps5, listed: true)
 	ft.lists[funcList(ft, f: f6)][funcIndex(ft, f: f6)].errTy = b.subprocessErrorTy
+	let ty7 = instantiateType(tt, reads: reads, origin: b.arrayOrigin, args: oneArgList(b.stringTy))
+	var ps8 = ParamSpecList.create(0)
+	ps8.push(ParamSpec.make("executable", ty: b.executableTy, conv: Convention.convLet))
+	ps8.push(ParamSpec.make("arguments", ty: ty7, conv: Convention.convLet))
+	ps8.push(ParamSpec.make("directory", ty: b.filePathTy, conv: Convention.convLet))
+	ps8.push(ParamSpec.make("deadline", ty: b.waitDeadlineTy, conv: Convention.convLet))
+	let f9 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.subprocessTy, op: Intrinsic.intrSubprocessRunInDirectory, name: "runInDirectory", isStatic: true, selfConv: Convention.convLet, ret: b.collectedOutputTy, params: ps8, listed: true)
+	ft.lists[funcList(ft, f: f9)][funcIndex(ft, f: f9)].errTy = b.subprocessErrorTy
 end 'declareSubprocessMethods'
 
 function declareCollectedOutputMethods(mutates tt TypeSlot, reads TypeTable, mutates ft FuncSlot, funcReads FuncTable, mutates std ParsedModule, mutates b Builtins, mutates funcMap FuncIDMap)

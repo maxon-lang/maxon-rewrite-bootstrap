@@ -184,16 +184,30 @@
 	end 'openPipes'
 
 	// execChild is the child of a run: it puts the write ends of the output pipes in place of its standard output and
-	// error, which dup3 leaves open on exec, and executes the program. When that fails it writes the errno down the
-	// status pipe and exits.
-	function execChild(run Count, path Count, vector Count)
+	// error, which dup3 leaves open on exec, moves to the zero-terminated directory unless that is noDirectory, and executes
+	// the program. When a step fails it writes the errno down the status pipe and exits.
+	function execChild(run Count, path Count, vector Count, directory Count)
 		_ = __Raw.syscall3(linuxSysDup3, arg1: pipeFd(fieldAt(run, offset: runOutputPipeOffset), writeEnd: true), arg2: stdoutFd, arg3: noFlags)
 		_ = __Raw.syscall3(linuxSysDup3, arg1: pipeFd(fieldAt(run, offset: runErrorPipeOffset), writeEnd: true), arg2: stderrFd, arg3: noFlags)
+		if directory != noDirectory 'directory'
+			let moved = __Raw.syscall1(linuxSysChdir, arg1: directory)
+			if failed(moved) 'unmoved'
+				failChild(run, errno: errnoOf(moved))
+			end 'unmoved'
+		end 'directory'
 		let result = __Raw.syscall3(linuxSysExecve, arg1: path, arg2: vector, arg3: environment())
-		__Raw.storeWord(run, offset: runExecErrnoOffset, value: errnoOf(result))
+		failChild(run, errno: errnoOf(result))
+	end 'execChild'
+
+	// failChild writes the errno of the step of the child that failed down the status pipe and exits.
+	function failChild(run Count, errno Count)
+		__Raw.storeWord(run, offset: runExecErrnoOffset, value: errno)
 		_ = writeAll(pipeFd(fieldAt(run, offset: runStatusPipeOffset), writeEnd: true), data: fieldAt(run, offset: runExecErrnoOffset), length: wordBytes)
 		exitProcess(execFailedExitCode)
-	end 'execChild'
+	end 'failChild'
+
+	// noDirectory is the directory of a child that starts in the run's working directory.
+	let noDirectory = 0
 
 	// execErrno is the errno that the child of a run wrote down the status pipe, or 0 when the pipe closed unwritten, as an
 	// execve that succeeded closes it.
@@ -350,6 +364,12 @@
 	// error. A child still running deadlineMs milliseconds after it started, when that is not noDeadline, is killed and
 	// fails the run with the timeout case.
 	function osRun(executable String, arguments Count, deadlineMs Count, stdout Count, stderr Count, errorAddress Count) returns Count
+		return osRunIn(executable, arguments: arguments, directory: "", deadlineMs: deadlineMs, stdout: stdout, stderr: stderr, errorAddress: errorAddress)
+	end 'osRun'
+
+	// osRunIn is osRun with the child started in directory, relative to the run's working directory, or in the run's own
+	// working directory when directory is empty.
+	function osRunIn(executable String, arguments Count, directory String, deadlineMs Count, stdout Count, stderr Count, errorAddress Count) returns Count
 		let path = programPath(executable)
 		if path == 0 'missing'
 			failWith(errorAddress, errorCase: executableNotFound)
@@ -363,10 +383,17 @@
 			return 0
 		end 'pipes'
 		let vector = argumentVector(executable, arguments: arguments)
+		var start = noDirectory as Count
+		if __Raw.stringLength(directory) != 0 'directory'
+			start = cStringOf(directory)
+		end 'directory'
 		let pid = __Raw.syscall5(linuxSysClone, arg1: linuxCloneChildFlags, arg2: 0, arg3: 0, arg4: 0, arg5: 0)
 		if pid == 0 'child'
-			execChild(run, path: path, vector: vector)
+			execChild(run, path: path, vector: vector, directory: start)
 		end 'child'
+		if start != noDirectory 'started'
+			free(start)
+		end 'started'
 		freeVector(vector)
 		free(path)
 		closeFd(pipeFd(fieldAt(run, offset: runOutputPipeOffset), writeEnd: true))
@@ -419,5 +446,5 @@
 		free(run)
 		succeed(errorAddress)
 		return code
-	end 'osRun'
+	end 'osRunIn'
 #endif

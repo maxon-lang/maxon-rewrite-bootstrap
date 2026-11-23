@@ -84,6 +84,7 @@ var macosImports = []libSystemFunction{
 	{name: "posix_spawn"},
 	{name: "posix_spawn_file_actions_init"},
 	{name: "posix_spawn_file_actions_adddup2"},
+	{name: "posix_spawn_file_actions_addchdir_np"},
 	{name: "posix_spawn_file_actions_addinherit_np"},
 	{name: "posix_spawn_file_actions_destroy"},
 	{name: "posix_spawnattr_init"},

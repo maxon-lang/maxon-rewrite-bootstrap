@@ -278,6 +278,12 @@
 	// error. A child still running deadlineMs milliseconds after it started, when that is not noDeadline, is killed and
 	// fails the run with the timeout case.
 	function osRun(executable String, arguments Count, deadlineMs Count, stdout Count, stderr Count, errorAddress Count) returns Count
+		return osRunIn(executable, arguments: arguments, directory: "", deadlineMs: deadlineMs, stdout: stdout, stderr: stderr, errorAddress: errorAddress)
+	end 'osRun'
+
+	// osRunIn is osRun with the child started in directory, relative to the run's working directory, or in the run's own
+	// working directory when directory is empty.
+	function osRunIn(executable String, arguments Count, directory String, deadlineMs Count, stdout Count, stderr Count, errorAddress Count) returns Count
 		let path = programPath(executable)
 		if path == 0 'missing'
 			failWith(errorAddress, errorCase: executableNotFound)
@@ -291,7 +297,14 @@
 			return 0
 		end 'pipes'
 		let vector = argumentVector(executable, arguments: arguments)
-		let pid = spawnChild(run, path: path, vector: vector)
+		var start = noDirectory as Count
+		if __Raw.stringLength(directory) != 0 'directory'
+			start = cStringOf(directory)
+		end 'directory'
+		let pid = spawnChild(run, path: path, vector: vector, directory: start)
+		if start != noDirectory 'started'
+			free(start)
+		end 'started'
 		freeVector(vector)
 		free(path)
 		closeFd(pipeFd(fieldAt(run, offset: runOutputPipeOffset), writeEnd: true))
@@ -333,7 +346,7 @@
 		free(run)
 		succeed(errorAddress)
 		return code
-	end 'osRun'
+	end 'osRunIn'
 
 	let stdinFd = 0
 
@@ -357,9 +370,12 @@
 		_ = __Raw.callImport2("kill", arg1: pid, arg2: macosSigkill)
 	end 'killChild'
 
-	// spawnChild spawns the run's child, which executes the program, and gives its pid, or -errno where posix_spawn
-	// failed, which gives the errno itself.
-	function spawnChild(run Count, path Count, vector Count) returns Count
+	// noDirectory is the directory of a child that starts in the run's working directory.
+	let noDirectory = 0
+
+	// spawnChild spawns the run's child, which moves to the zero-terminated directory unless that is noDirectory and executes
+	// the program, and gives its pid, or -errno where posix_spawn failed, which gives the errno itself.
+	function spawnChild(run Count, path Count, vector Count, directory Count) returns Count
 		let actions = alloc(macosSpawnObjectBytes)
 		let attributes = alloc(macosSpawnObjectBytes)
 		if intResult(__Raw.callImport1("posix_spawn_file_actions_init", arg1: actions)) != 0 'actions'
@@ -371,6 +387,9 @@
 		_ = __Raw.callImport3("posix_spawn_file_actions_adddup2", arg1: actions, arg2: pipeFd(fieldAt(run, offset: runOutputPipeOffset), writeEnd: true), arg3: stdoutFd)
 		_ = __Raw.callImport3("posix_spawn_file_actions_adddup2", arg1: actions, arg2: pipeFd(fieldAt(run, offset: runErrorPipeOffset), writeEnd: true), arg3: stderrFd)
 		_ = __Raw.callImport2("posix_spawn_file_actions_addinherit_np", arg1: actions, arg2: stdinFd)
+		if directory != noDirectory 'directory'
+			_ = __Raw.callImport2("posix_spawn_file_actions_addchdir_np", arg1: actions, arg2: directory)
+		end 'directory'
 		_ = __Raw.callImport2("posix_spawnattr_setflags", arg1: attributes, arg2: macosSpawnCloexecDefault)
 		// posix_spawn writes a pid_t, 32 bits, into the word's lower half.
 		var pid = 0 as Count

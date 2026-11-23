@@ -1060,6 +1060,9 @@ let macosSpawnCloexecDefault = 16384 as Count
 	// linuxSysGetcwd is getcwd(buffer, size).
 	let linuxSysGetcwd = 17 as Count
 
+	// linuxSysChdir is chdir(path).
+	let linuxSysChdir = 49 as Count
+
 	// linuxSysFutex is futex(address, operation, value, timeout, address2, value3).
 	let linuxSysFutex = 98 as Count
 
@@ -1206,6 +1209,9 @@ let macosSpawnCloexecDefault = 16384 as Count
 
 	// linuxSysGetcwd is getcwd(buffer, size).
 	let linuxSysGetcwd = 79 as Count
+
+	// linuxSysChdir is chdir(path).
+	let linuxSysChdir = 80 as Count
 
 	// linuxSysRename is rename(old, new), which replaces what is at new.
 	let linuxSysRename = 82 as Count

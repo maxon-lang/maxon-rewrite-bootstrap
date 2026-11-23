@@ -76,8 +76,9 @@ const (
 )
 
 // OS is an operating system as the whole compiler sees it, whatever processor it runs on: how a target's name and an
-// `#if os(...)` spell it, the format of its executables, how its programs reach it, and what an executable's name ends
-// with. ast.TargetSystem has a case for each.
+// `#if os(...)` spell it, the format of its executables, how its programs reach it, what an executable's name ends with,
+// the separator of its paths, and the environment variable that names its directory of temporary files, as maxon reads
+// it. ast.TargetSystem has a case for each.
 type OS struct {
 	// Name is the case of ast.TargetSystem.
 	Name string
@@ -86,12 +87,14 @@ type OS struct {
 	Image            ImageFormat
 	Reach            Reach
 	ExecutableSuffix string
+	PathSeparator    string
+	TempVariable     string
 }
 
 var (
-	Windows = OS{Name: "windows", Display: "Windows", Image: PE, Reach: Imports, ExecutableSuffix: ".exe"}
-	Linux   = OS{Name: "linux", Display: "Linux", Image: ELF, Reach: Syscalls}
-	MacOS   = OS{Name: "macos", Display: "macOS", Image: MachO, Reach: Imports}
+	Windows = OS{Name: "windows", Display: "Windows", Image: PE, Reach: Imports, ExecutableSuffix: ".exe", PathSeparator: `\`, TempVariable: "TEMP"}
+	Linux   = OS{Name: "linux", Display: "Linux", Image: ELF, Reach: Syscalls, PathSeparator: "/", TempVariable: "TMPDIR"}
+	MacOS   = OS{Name: "macos", Display: "macOS", Image: MachO, Reach: Imports, PathSeparator: "/", TempVariable: "TMPDIR"}
 )
 
 // OSes are the systems, in the order of the cases of ast.TargetSystem.

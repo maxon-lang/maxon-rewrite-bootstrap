@@ -361,12 +361,23 @@ function entryOsList(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	end 'listed'
 end 'entryOsList'
 
-// The arguments of rt.os.run that are the addresses its output is stored at.
+// The arguments of rt.os.run that are the child's deadline and the addresses its output is stored at; rt.os.runIn has the
+// directory the child starts in at runDirectoryArg, before them.
 let runDeadlineArg = 2 as Count
 
 let runStdoutArg = 3 as Count
 
 let runStderrArg = 4 as Count
+
+let runDirectoryArg = 2 as Count
+
+// runInShift is how far the arguments of rt.os.runIn after its directory are from where rt.os.run has them.
+let runInShift = 1 as Count
+
+// runArg is the index of an argument of rt.os.run in an entry whose arguments are shift past rt.os.run's.
+function runArg(index Count, shift Count) returns Count
+	return try index + shift otherwise panic("interp: an argument of rt.os.run past memory")
+end 'runArg'
 
 // deadlineOf is the deadline that the milliseconds of rt.os.run name.
 function deadlineOf(ms ir.Word) returns WaitDeadline
@@ -396,6 +407,18 @@ function isPath(text String) returns bool
 end 'isPath'
 
 function entryOsRun(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	try runChild(vm, f: f, x: x, directory: "", shift: 0)
+end 'entryOsRun'
+
+function entryOsRunIn(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let directoryAt = try textIndex(vm, o: argRef(vm, f: f, x: x, i: runDirectoryArg), what: "a working directory")
+	let directory = vm.h.texts[directoryAt].clone()
+	try runChild(vm, f: f, x: x, directory: directory, shift: runInShift)
+end 'entryOsRunIn'
+
+// runChild runs the child of rt.os.run, or of rt.os.runIn, whose arguments past the directory are shift from rt.os.run's, in
+// directory, or in the interpreter's working directory when that is empty.
+function runChild(mutates vm Vm, f ir.IrFunction, x ir.Instr, directory String, shift Count) throws Halt
 	let exeAt = try textIndex(vm, o: argRef(vm, f: f, x: x, i: 0), what: "an executable")
 	let exeText = vm.h.texts[exeAt].clone()
 	let argsObj = try collection(vm, o: argRef(vm, f: f, x: x, i: 1), kind: kindArray, what: "the arguments")
@@ -409,7 +432,10 @@ function entryOsRun(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	if isPath(exeText) 'path'
 		executable = Executable.path(pathOf(exeText.clone()))
 	end 'path'
-	let deadline = deadlineOf(argNum(vm, f: f, x: x, i: runDeadlineArg))
+	if directory != "" 'directory'
+		panic("interp: a child in a working directory of its own needs the compiler's Subprocess.runInDirectory, which the seed does not compile yet")
+	end 'directory'
+	let deadline = deadlineOf(argNum(vm, f: f, x: x, i: runArg(runDeadlineArg, shift: shift)))
 	var word = 0 as ir.Word
 	var stdout = ""
 	var stderr = ""
@@ -434,11 +460,11 @@ function entryOsRun(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	end 'failed'
 	try errorWord(vm, f: f, x: x, word: word)
 	if word == 0 'ran'
-		try output(vm, f: f, x: x, index: runStdoutArg, text: stdout)
-		try output(vm, f: f, x: x, index: runStderrArg, text: stderr)
+		try output(vm, f: f, x: x, index: runArg(runStdoutArg, shift: shift), text: stdout)
+		try output(vm, f: f, x: x, index: runArg(runStderrArg, shift: shift), text: stderr)
 		giveNum(vm, x: x, n: code)
 	end 'ran'
-end 'entryOsRun'
+end 'runChild'
 
 // entrySchedPin pins nothing: the interpreter runs one thread, which every green thread is on.
 function entrySchedPin(mutates vm Vm, f ir.IrFunction, x ir.Instr)

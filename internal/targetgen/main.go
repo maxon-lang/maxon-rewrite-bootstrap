@@ -112,6 +112,8 @@ func generateModel(targets []target.Target) (string, error) {
 	systemFunction(&b, "imageFormatOf", "the format of a system's executables", "ImageFormat", func(o target.OS) string { return "ImageFormat." + string(o.Image) })
 	systemFunction(&b, "systemReach", "how a system's programs reach it", "SystemReach", func(o target.OS) string { return "SystemReach." + string(o.Reach) })
 	systemFunction(&b, "executableSuffix", "what the name of an executable for a system ends with, as maxon names them", "String", func(o target.OS) string { return fmt.Sprintf("%q", o.ExecutableSuffix) })
+	systemFunction(&b, "pathSeparator", "the separator of a system's paths", "String", func(o target.OS) string { return fmt.Sprintf("%q", o.PathSeparator) })
+	systemFunction(&b, "temporaryVariable", "the environment variable that names a system's directory of temporary files, as maxon reads it", "String", func(o target.OS) string { return fmt.Sprintf("%q", o.TempVariable) })
 	b.WriteString("// knownTargets are the targets this compiler compiles for, each architecture on each system it runs, in the order a\n// usage message lists them.\n")
 	b.WriteString("export function knownTargets() returns TargetList\n\tvar targets = TargetList.create(0)\n")
 	for _, t := range targets {

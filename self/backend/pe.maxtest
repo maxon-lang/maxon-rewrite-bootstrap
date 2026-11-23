@@ -64,6 +64,15 @@ function peHelloProgram(image Image, messageLength Count) returns ByteArray
 	return code
 end 'peHelloProgram'
 
+// runWherePeLoads runs the image on a system that loads PEs; elsewhere the test only builds it.
+function runWherePeLoads(image Image, name String, expectedCode ExitCode, expectedOutput String)
+	match ast.imageFormatOf(ast.Target.host().system) 'format'
+		pe then runImage(image, name: name, expectedCode: expectedCode, expectedOutput: expectedOutput)
+		elf or
+		machO then return
+	end 'format'
+end 'runWherePeLoads'
+
 test 'pe'
 	let message = "hello from a PE written by self\n"
 	var kernel = NameList.create(0)
@@ -76,12 +85,12 @@ test 'pe'
 	let exitCode = peExitProgram(probe)
 	var exitImage = buildPeImage(ImageLayout.make(exitCode.count(), constSize: 0, dataSize: 0, entryOffset: 0, pointers: DataPointerList.create(0)), dll: "kernel32.dll", imports: kernel)
 	placeCode(exitImage, at: 0, bytes: exitCode)
-	runPeImage(exitImage, name: "minimaxon_pe_exit.exe", expectedCode: 42, expectedOutput: "")
+	runWherePeLoads(exitImage, name: "minimaxon_pe_exit.exe", expectedCode: 42, expectedOutput: "")
 	let helloCode = peHelloProgram(probe, messageLength: message.byteLength())
 	var helloImage = buildPeImage(ImageLayout.make(helloCode.count(), constSize: 0, dataSize: message.byteLength(), entryOffset: 0, pointers: DataPointerList.create(0)), dll: "kernel32.dll", imports: kernel)
 	placeCode(helloImage, at: 0, bytes: helloCode)
 	placeData(helloImage, at: 0, bytes: message.toByteArray())
-	runPeImage(helloImage, name: "minimaxon_pe_hello.exe", expectedCode: 7, expectedOutput: message)
+	runWherePeLoads(helloImage, name: "minimaxon_pe_hello.exe", expectedCode: 7, expectedOutput: message)
 end 'pe'
 
 function hexOf(code ByteArray) returns String

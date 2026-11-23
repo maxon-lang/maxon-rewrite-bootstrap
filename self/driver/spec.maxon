@@ -401,9 +401,6 @@ end 'discardSidecar'
 function directiveSkip(directive String) returns table.Option with String
 	let key = directiveKey(directive)
 	if key == targetsDirective 'targets'
-		if listsTarget(directiveValue(directive), target: hostTarget().name()) 'excluded'
-			return table.Option.some("unsupported on {hostTarget().name()}")
-		end 'excluded'
 		return table.Option.none
 	end 'targets'
 	if key == tierDirective 'tier'
@@ -457,12 +454,27 @@ function fenceSkip(fence SpecFence) returns table.Option with String
 	if not isKnownFence(base) 'unknown'
 		return table.Option.some("unknown result block {fence.name}")
 	end 'unknown'
-	let target = fenceTarget(fence.name)
-	if target != "" and target != hostTarget().name() 'other'
-		return table.Option.some("a result block for the target {target}")
-	end 'other'
 	return table.Option.none
 end 'fenceSkip'
+
+// hostSkip is why the test does not run on the system the compiler runs on, though it may on another: its directive
+// excludes the host's target, or it has a result block for another target. A test of the list skipped so was recorded on
+// another system, and is kept in the list rather than lost.
+function hostSkip(test SpecTest) returns table.Option with String
+	let host = hostTarget().name()
+	for i in 0 upto test.directives.count() 'directives'
+		if directiveKey(test.directives[i]) == targetsDirective and listsTarget(directiveValue(test.directives[i]), target: host) 'excluded'
+			return table.Option.some("unsupported on {host}")
+		end 'excluded'
+	end 'directives'
+	for i in 0 upto test.fences.count() 'fences'
+		let target = fenceTarget(test.fences[i].name)
+		if target != "" and target != host 'other'
+			return table.Option.some("a result block for the target {target}")
+		end 'other'
+	end 'fences'
+	return table.Option.none
+end 'hostSkip'
 
 // skipReason is why the runner does not run a test, or nothing when it runs it: the conversion's skip, a directive or a
 // block that needs more than this compiler has yet, or a source that stages maxon's own library.
@@ -470,6 +482,10 @@ function skipReason(test SpecTest, text String) returns table.Option with String
 	if test.skips.count() > 0 'converted'
 		return table.Option.some(test.skips[0].clone())
 	end 'converted'
+	let onHost = hostSkip(test)
+	if onHost.isSome() 'host'
+		return onHost
+	end 'host'
 	for i in 0 upto test.directives.count() 'directives'
 		let reason = directiveSkip(test.directives[i])
 		if reason.isSome() 'skipped'
@@ -606,17 +622,9 @@ end 'sectionFiles'
 // projectRoot is the directory that the files of a multi-file test are in, which is no directory of the system.
 let projectRoot = "<project>"
 
-// nativePath is a path of a section with the separators of the system.
+// nativePath is a path of a section, which the corpus writes with portableSeparator, with the separators of the system.
 function nativePath(name String) returns String
-	var out = ByteArray.create(0)
-	for i in 0 upto name.byteLength() 'bytes'
-		var c = name.byteAt(i)
-		if c == slashByte 'slash'
-			c = backslashByte
-		end 'slash'
-		out.push(c)
-	end 'bytes'
-	return String.from(out)
+	return replaceText(name, needle: portableSeparator, replacement: ast.hostSeparator())
 end 'nativePath'
 
 // diagnosticText is the line of a diagnostic as the expectations write it: the file becomes `<fragment>` behind its
@@ -625,7 +633,7 @@ function diagnosticText(e diag.CompileError, sections SourceSections) returns St
 	if not e.located or sections.count() == 0 'unchanged'
 		return e.format()
 	end 'unchanged'
-	let prefix = "{projectRoot}\\"
+	let prefix = projectPrefix()
 	if not hasPrefix(e.file, prefix: prefix) 'outside'
 		return e.format()
 	end 'outside'
@@ -641,20 +649,20 @@ end 'diagnosticText'
 
 // withoutProject is a message with the directory of the files of the test taken out of the paths it names.
 function withoutProject(message String) returns String
-	return replaceText(message, needle: "{projectRoot}\\", replacement: "")
+	return replaceText(message, needle: projectPrefix(), replacement: "")
 end 'withoutProject'
+
+// projectPrefix begins the path of each file of a multi-file test.
+function projectPrefix() returns String
+	return "{projectRoot}{ast.hostSeparator()}"
+end 'projectPrefix'
+
+// portableSeparator is the separator of the paths that the corpus writes, whatever the system.
+let portableSeparator = "/"
 
 // portablePath is a path with the separators that the corpus writes.
 function portablePath(path String) returns String
-	var out = ByteArray.create(0)
-	for i in 0 upto path.byteLength() 'bytes'
-		var c = path.byteAt(i)
-		if c == backslashByte 'separator'
-			c = slashByte
-		end 'separator'
-		out.push(c)
-	end 'bytes'
-	return String.from(out)
+	return replaceText(path, needle: ast.hostSeparator(), replacement: portableSeparator)
 end 'portablePath'
 
 // directoryEnd is where the directory part of a portable path ends, past its last separator.
@@ -905,7 +913,7 @@ type SpecRun
 				end 'lost'
 			end 'converted' else if inList 'kept'
 				keptKeys.push(job.key.clone())
-				if options.requirePassed 'lost'
+				if options.requirePassed and not hostSkip(job.test).isSome() 'lost'
 					self.noteLost(job.key, what: "skipped: {result.detail}")
 				end 'lost'
 			end 'kept'

@@ -794,6 +794,9 @@ var tableFunctions = []function{
 	// A built-in's only default argument is the case of an enum ("= case"), so maxon's run with a deadline is a function of its own. A child
 	// still running when the deadline passes is terminated, and the run throws timeout.
 	{Owner: "Subprocess", Name: "runWithDeadline", Static: true, Params: []string{"executable Executable", "arguments Array with String", "deadline WaitDeadline"}, Result: "CollectedOutput", Throws: "SubprocessError", Intrinsic: "SubprocessRunWithDeadline"},
+	// maxon's run with workingDirectory: WorkingDirectory.at(directory), a function of its own for the same reason: the child
+	// starts in directory, relative to the caller's working directory, and the run has the deadline's.
+	{Owner: "Subprocess", Name: "runInDirectory", Static: true, Params: []string{"executable Executable", "arguments Array with String", "directory FilePath", "deadline WaitDeadline"}, Result: "CollectedOutput", Throws: "SubprocessError", Intrinsic: "SubprocessRunInDirectory"},
 	{Owner: "CollectedOutput", Name: "exitCode", Result: "ExitCode", Intrinsic: "CollectedOutputExitCode"},
 	// The debug port, maxon's DebugPort over the Win32 debug API, as Debuggee's static functions; Windows only, so a call of
 	// one on another system panics, as maxon's windowsDebugCall does. launch starts the program as the caller's debuggee
@@ -1081,6 +1084,7 @@ var entries = []entry{
 	{"DebugCloseHandle", "rt.debug.closeHandle", "Os", roleCall, "(handle)"},
 	{"DebugTerminate", "rt.debug.terminate", "Os", roleCall, "(process, exitCode) -> bool"},
 	{"OsRun", "rt.os.run", "Os", roleCall, "(executable String, arguments Array with String, deadlineMs, stdout, stderr, error) -> exit code: runs the executable with the arguments quoted as the C runtime splits them, and stores what the child wrote to each stream as a String at the address given for it; a child still running deadlineMs milliseconds after it started, when that is not 0, is terminated and the run fails with the timeout case"},
+	{"OsRunIn", "rt.os.runIn", "Os", roleCall, "(executable String, arguments Array with String, directory String, deadlineMs, stdout, stderr, error) -> exit code: rt.os.run with the child started in directory, relative to the caller's working directory"},
 }
 
 // runtimeFunction is the function of the runtime's source (runtime/) that defines an entry, so that self links a call of
@@ -1219,6 +1223,7 @@ var runtimeFunctions = []runtimeFunction{
 	{"OsDeleteDirectory", "osDeleteDirectory(path String, errorAddress Count)"},
 	{"OsList", "osList(path String, errorAddress Count) Count"},
 	{"OsRun", "osRun(executable String, arguments Count, deadlineMs Count, stdout Count, stderr Count, errorAddress Count) Count"},
+	{"OsRunIn", "osRunIn(executable String, arguments Count, directory String, deadlineMs Count, stdout Count, stderr Count, errorAddress Count) Count"},
 	{"DebugLaunch", "debugLaunch(executable String, arguments Count, outputToError Bool, errorAddress Count) Count"},
 	{"DebugWaitEvent", "debugWaitEvent(budgetMs Count) Count"},
 	{"DebugContinueEvent", "debugContinueEvent(processId Count, thread Count, unhandled Bool) Bool"},

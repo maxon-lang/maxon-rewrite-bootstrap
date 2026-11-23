@@ -18,6 +18,11 @@ export type Target
 		return Target.make(TargetArch.x64, system: TargetSystem.linux)
 	end 'linuxX64'
 
+	// host is the target of the system the compiler runs on, which a compile with no --target is for.
+	export static function host() returns Target
+		return Target.make(hostArch(), system: hostSystem())
+	end 'host'
+
 	// os is the name of the target's system, as `#if os(...)` names it.
 	export function os() returns String
 		return systemName(system)
@@ -35,3 +40,51 @@ export type Target
 end 'Target'
 
 export typealias TargetList = Array with Target
+
+// hostArch is the architecture the compiler runs on: the one it was compiled for.
+function hostArch() returns TargetArch
+	#if arch(x64)
+		return TargetArch.x64
+	#endif
+	#if arch(arm64)
+		return TargetArch.arm64
+	#endif
+end 'hostArch'
+
+// hostSystem is the system the compiler runs on: the one it was compiled for.
+function hostSystem() returns TargetSystem
+	#if os(Windows)
+		return TargetSystem.windows
+	#endif
+	#if os(Linux)
+		return TargetSystem.linux
+	#endif
+	#if os(macOS)
+		return TargetSystem.macos
+	#endif
+end 'hostSystem'
+
+// hostSeparator is the separator of the paths of the system the compiler runs on, which it joins paths with and its
+// directories list them with.
+export function hostSeparator() returns String
+	return pathSeparator(hostSystem())
+end 'hostSeparator'
+
+// temporaryPath is the path of a file called name in the compiler's own directory, temporaryFolder, of the directory of
+// temporary files of the system the compiler runs on, which the system's variable names, as maxon reads it. Everything the
+// compiler writes there is in one directory of its own, so that a scanner that holds the executables a test run builds to be
+// threats can be told to leave that directory alone, and not every program's temporary files.
+export function temporaryPath(name String) returns String
+	let variable = temporaryVariable(hostSystem())
+	let temporary = try Process.environmentVariable(variable) otherwise panic("{variable} is not set, which names the directory of temporary files")
+	let dir = "{temporary}{hostSeparator()}{temporaryFolder}"
+	let made = try FilePath.from(dir) otherwise panic("the directory of temporary files {dir} is no path")
+	if not Directory.create(made) 'unmade'
+		panic("cannot make the directory of temporary files {dir}")
+	end 'unmade'
+	return "{dir}{hostSeparator()}{name}"
+end 'temporaryPath'
+
+// temporaryFolder is the compiler's directory in the directory of temporary files, as maxon keeps its own under the name of
+// the language.
+let temporaryFolder = "minimaxon"

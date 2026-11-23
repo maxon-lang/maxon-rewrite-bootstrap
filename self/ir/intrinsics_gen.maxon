@@ -482,6 +482,9 @@ export function intrinsicCall(mutates l Lowerer, p ast.Project, mutates ms ast.M
 	if op == ast.Intrinsic.intrSubprocessRunWithDeadline 'intrSubprocessRunWithDeadline'
 		return lowerSubprocessRunWithDeadline(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrSubprocessRunWithDeadline'
+	if op == ast.Intrinsic.intrSubprocessRunInDirectory 'intrSubprocessRunInDirectory'
+		return lowerSubprocessRunInDirectory(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrSubprocessRunInDirectory'
 	if op == ast.Intrinsic.intrCollectedOutputExitCode 'intrCollectedOutputExitCode'
 		return lowerCollectedOutputExitCode(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrCollectedOutputExitCode'
@@ -1183,6 +1186,9 @@ export function ownsOperands(op ast.Intrinsic) returns bool
 	if op == ast.Intrinsic.intrSubprocessRunWithDeadline 'intrSubprocessRunWithDeadline'
 		return false
 	end 'intrSubprocessRunWithDeadline'
+	if op == ast.Intrinsic.intrSubprocessRunInDirectory 'intrSubprocessRunInDirectory'
+		return false
+	end 'intrSubprocessRunInDirectory'
 	if op == ast.Intrinsic.intrCollectedOutputExitCode 'intrCollectedOutputExitCode'
 		return false
 	end 'intrCollectedOutputExitCode'

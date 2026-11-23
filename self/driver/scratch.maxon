@@ -10,8 +10,7 @@ type Scratch
 
 	// make is the scratch of a run of a kind of tests whose executables' names end with suffix, their target's.
 	static function make(kind String, suffix String) returns Scratch
-		let dir = try Process.environmentVariable("TEMP") otherwise panic("test: TEMP is not set")
-		return Scratch{prefix: "{dir}\\minimaxon-{kind}-{Process.id()}-", suffix: suffix.clone(), made: 0, left: ast.StringList.create(0)}
+		return Scratch{prefix: ast.temporaryPath("minimaxon-{kind}-{Process.id()}-"), suffix: suffix.clone(), made: 0, left: ast.StringList.create(0)}
 	end 'make'
 
 	// nextExecutable is the path of an executable that no other test of this run, and no other run, builds to.

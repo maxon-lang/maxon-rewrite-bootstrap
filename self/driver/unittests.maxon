@@ -18,8 +18,7 @@ end 'moduleTests'
 // testExecutable is where a compile of the tests under dir writes its executable: in the temporary directory, named after
 // the process and the directory, so that two compilers running at once never write the same file.
 function testExecutable(dir String) returns String
-	let temp = try Process.environmentVariable("TEMP") otherwise panic("driver: TEMP is not set")
-	return "{temp}\\minimaxon-test-{Process.id()}-{project.lastComponent(dir)}{executableExtension(hostTarget())}"
+	return ast.temporaryPath("minimaxon-test-{Process.id()}-{project.lastComponent(dir)}{executableExtension(hostTarget())}")
 end 'testExecutable'
 
 // runTestExecutable runs the executable of tests at path, which a compile of the tests under dir made, passes on what it

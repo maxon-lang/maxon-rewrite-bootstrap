@@ -121,7 +121,7 @@ var builtinMethods = map[string][]string{
 	"FilePath":              {"from", "init", "toString"},
 	"File":                  {"readText", "writeText", "writeBinary", "rename", "delete", "exists", "info"},
 	"Directory":             {"isDirectory", "create", "currentPath", "delete", "list"},
-	"Subprocess":            {"run", "runWithDeadline"},
+	"Subprocess":            {"run", "runWithDeadline", "runInDirectory"},
 	"CollectedOutput":       {"exitCode", "succeeded"},
 	"Debuggee":              {"launch", "waitEvent", "continueEvent", "readMemory", "writeCode", "readContext", "writeContext", "suspend", "resume", "breakIn", "detach", "closeHandle", "terminate"},
 	"Builtins":              {"currentProcessId", "currentTimeNanos", "floatToBits", "bitsToFloat", "trailingZeros", "hashSeed", "drawHashSeed", "hashWord", "hashBytes", "readBigEndian", "readLittleEndian", "appendBigEndian", "appendLittleEndian"},
