@@ -126,8 +126,8 @@ products of the stages it waited on, as an executor of behaviours gives it); the
 executable that imports kernel32, or `x64-linux` or `arm64-linux`, a static ELF executable (`ET_EXEC` at maxon's fixed load
 address, 0x400000, with no interpreter, no dynamic section and no relocation, `EM_X86_64` or `EM_AARCH64`) that calls the kernel
 itself. A name of no target is refused
-with the list of the targets and exit code 1, as maxon's is. The default is the system the compiler runs on (`hostTarget`, a
-`#if` of `self/driver/targets.maxon`), and a `build` with no `-o` names its executable with the target's extension, `.exe` or
+with the list of the targets and exit code 1, as maxon's is. The default is the system the compiler runs on (`hostTarget`, the
+`#if`s of `self/driver/targets.maxon`: the architecture and the system the compiler was compiled for), and a `build` with no `-o` names its executable with the target's extension, `.exe` or
 none. The target picks the branches of every `#if` of the compile, the runtime's among them (see "The runtime"), and is part of
 the key of every module in the build cache. Code generation is one IR for every target, and on each architecture one
 selection and one internal convention; what differs is stated in tables (`internal/targetgen`'s target model and systems,
@@ -223,7 +223,8 @@ input), the programs that schedule behaviours again under one, two and four work
 executables run under WSL, to which `MAXON_MAX_PROCS` is passed by `WSLENV`; a machine with no WSL or no distribution fails these
 steps with what it lacks, and never skips them), and again for the `arm64-linux` target (`test --target=arm64-linux --verify-ir`,
 every program compiled with arm64's selection and allocation held to their invariants, and its static executable run under WSL by
-the `qemu-aarch64` that WSL has registered with binfmt_misc), every program of `tests/bench/` compiled, and none run, with `--verify-ir` for each of the four targets (`test testsench --target=<target> --verify-ir --compile-only`), the build cache (a project whose main inlines a leaf of the module it names, built cold, warm and after
+the `qemu-aarch64` that WSL has registered with binfmt_misc), every program of `tests/bench/` compiled, and none run, with `--verify-ir` for each of the four targets (`test testsench --target=<target> --verify-ir --compile-only`), the compiler's own source
+built, and not run, for `arm64-linux` and `arm64-macos` (`build self --target=<target> --verify-ir --no-cache`), the build cache (a project whose main inlines a leaf of the module it names, built cold, warm and after
 an edit of the leaf that the order mispredicts, on every worker and on one, each executable held to the uncached build of the same
 source, and `--verify-cache`), every spec test (`test specs --require-passed`, which fails when a test that `specs/passed.txt` lists does not pass, and
 counts the new passes), and `fuzz` (300 generated programs, each one the checker accepts run clean under the interpreter). It stops at the

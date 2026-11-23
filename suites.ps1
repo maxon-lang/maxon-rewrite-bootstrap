@@ -201,6 +201,24 @@ function Test-BenchmarksCompile {
 	}
 }
 
+# The compiler's own source is the largest program there is, and only the x64 build of it runs in the gate, so it is compiled
+# for arm64 as well, uncached, with the IR and the allocation of every function verified. Running that build is left to an
+# arm64 machine: under qemu a self-build takes about fifteen seconds.
+$selfArm64Targets = '--target=arm64-linux', '--target=arm64-macos'
+
+function Test-SelfCompilesForArm64 {
+	$root = Join-Path ([IO.Path]::GetTempPath()) "minimaxon-self-arm64-$PID"
+	try {
+		$null = New-Item -ItemType Directory -Force $root
+		foreach ($t in $selfArm64Targets) {
+			& $compiler build self $t --verify-ir --no-cache -o (Join-Path $root 'minimaxon')
+			if ($LASTEXITCODE -ne 0) { return }
+		}
+	} finally {
+		Remove-Item -Recurse -Force $root -ErrorAction SilentlyContinue
+	}
+}
+
 # The build cache must make the executable an uncached build makes. A project whose main inlines a leaf of the module it
 # names is built cold and warm, then the leaf's body is edited: the order takes the leaf's module to make the summary it
 # made before, main's entry is linked, the leaf's lower finds another summary and the compile is done again, and the
@@ -288,6 +306,7 @@ $steps = @(
 	@('behaviours on arm64 linux', { Test-Arm64LinuxBehaviours }),
 	@('corpus on arm64 macos', { Test-Mac }),
 	@('benchmarks compile', { Test-BenchmarksCompile }),
+	@('self compiles for arm64', { Test-SelfCompilesForArm64 }),
 	@('cache', { Test-Cache }),
 	@('specs', { Test-Specs }),
 	# Every program the generator writes that the checker accepts must run clean under the interpreter: a violation is a

@@ -1,0 +1,31 @@
+// The buffer of a constant array that an inner loop reads leaves both loops, and the constant it is read from, defined
+// in the outer loop, is copied before them with it.
+let primes = [2 as Count, 3, 5, 7, 11, 13]
+
+function holds(set Array with Count, n Count) returns bool
+	for i in 0 upto set.count() 'each'
+		if set[i] == n 'found'
+			return true
+		end 'found'
+	end 'each'
+	return false
+end 'holds'
+
+function countPrimes(limit Count) returns Count
+	var n = 0 as Count
+	var i = limit
+	while i > 0 'outer'
+		if holds(primes, n: i) 'prime'
+			n = try n + 1 otherwise 0
+		end 'prime'
+		i = try i - 1 otherwise 0
+	end 'outer'
+	return n
+end 'countPrimes'
+
+function main() returns ExitCode
+	print("{countPrimes(20)}\n")
+	return 0
+end 'main'
+
+//> 6
