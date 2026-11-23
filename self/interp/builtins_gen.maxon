@@ -479,6 +479,10 @@ function runtimeEntry(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 		try entryOsSetExitCode(vm, f: f, x: x)
 		return
 	end 'rtOsSetExitCode'
+	if symbol == ir.Rt.rtOsEnterBackgroundPriority 'rtOsEnterBackgroundPriority'
+		try entryOsEnterBackgroundPriority(vm, f: f, x: x)
+		return
+	end 'rtOsEnterBackgroundPriority'
 	if symbol == ir.Rt.rtOsClockNanos 'rtOsClockNanos'
 		try entryOsClockNanos(vm, f: f, x: x)
 		return

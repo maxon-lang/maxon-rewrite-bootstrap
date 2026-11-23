@@ -530,3 +530,7 @@ end 'lowerDebuggeeCloseHandle'
 function lowerDebuggeeTerminate(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtDebugTerminate, kind: IrKind.kindScalar, args: argsOf2(args[0], b: args[1]))
 end 'lowerDebuggeeTerminate'
+
+function lowerProcessEnterBackgroundPriority(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtOsEnterBackgroundPriority, kind: IrKind.kindScalar, args: RegList.create(0))
+end 'lowerProcessEnterBackgroundPriority'

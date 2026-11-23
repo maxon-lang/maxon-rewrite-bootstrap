@@ -612,6 +612,12 @@ let stackReserveBytes = 268435456 as Count
 // byteBytes is the size of an element of a byte array.
 let byteBytes = 1 as Count
 
+// linuxSysGetpriority is getpriority(which, who): 20 minus the nice value, as the kernel answers it.
+let linuxSysGetpriority = 140 as Count
+
+// linuxSysSetpriority is setpriority(which, who, nice): the nice value of the calling thread, and of the threads and processes it starts.
+let linuxSysSetpriority = 141 as Count
+
 // linuxEpollCloexec is EPOLL_CLOEXEC: the poller is closed in a child that execs.
 let linuxEpollCloexec = 524288 as Count
 

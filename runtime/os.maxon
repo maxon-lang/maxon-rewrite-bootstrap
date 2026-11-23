@@ -455,6 +455,17 @@ let nanosPerSecond = 1000000000 as Count
 		return dword(__Raw.callImport0("GetCurrentProcessId"))
 	end 'osProcessId'
 
+	// belowNormalPriorityClass is BELOW_NORMAL_PRIORITY_CLASS, which a process inherits to the processes it starts.
+	let belowNormalPriorityClass = 0x4000 as Count
+
+	// osEnterBackgroundPriority lowers the process's priority class and answers the class that Windows reports then, which is a
+	// second reading of it and not the value written.
+	function osEnterBackgroundPriority() returns Count
+		let process = __Raw.callImport0("GetCurrentProcess")
+		_ = __Raw.callImport2("SetPriorityClass", arg1: process, arg2: belowNormalPriorityClass)
+		return dword(__Raw.callImport1("GetPriorityClass", arg1: process))
+	end 'osEnterBackgroundPriority'
+
 	// osPathFrom is a path with the native separator in place of the other one, which refuses a character that Windows does
 	// not allow in a path.
 	function osPathFrom(path String, errorAddress Count) returns String

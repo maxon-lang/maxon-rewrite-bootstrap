@@ -398,6 +398,9 @@ export function intrinsicCall(mutates l Lowerer, p ast.Project, mutates ms ast.M
 	if op == ast.Intrinsic.intrProcessSetExitCode 'intrProcessSetExitCode'
 		return lowerProcessSetExitCode(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrProcessSetExitCode'
+	if op == ast.Intrinsic.intrProcessEnterBackgroundPriority 'intrProcessEnterBackgroundPriority'
+		return lowerProcessEnterBackgroundPriority(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrProcessEnterBackgroundPriority'
 	if op == ast.Intrinsic.intrClockNowNanos 'intrClockNowNanos'
 		return lowerClockNowNanos(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrClockNowNanos'
@@ -1096,6 +1099,9 @@ export function ownsOperands(op ast.Intrinsic) returns bool
 	if op == ast.Intrinsic.intrProcessSetExitCode 'intrProcessSetExitCode'
 		return false
 	end 'intrProcessSetExitCode'
+	if op == ast.Intrinsic.intrProcessEnterBackgroundPriority 'intrProcessEnterBackgroundPriority'
+		return false
+	end 'intrProcessEnterBackgroundPriority'
 	if op == ast.Intrinsic.intrClockNowNanos 'intrClockNowNanos'
 		return false
 	end 'intrClockNowNanos'

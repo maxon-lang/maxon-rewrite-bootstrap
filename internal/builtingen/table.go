@@ -741,6 +741,10 @@ var tableFunctions = []function{
 	{Owner: "Process", Name: "id", Static: true, Result: "Count", Intrinsic: "ProcessId"},
 	// setExitCode is how a behaviour, which runs after main has returned, decides the code the process ends with.
 	{Owner: "Process", Name: "setExitCode", Static: true, Params: []string{"code ExitCode"}, Intrinsic: "ProcessSetExitCode"},
+	// enterBackgroundPriority is maxon's Process.enterBackgroundPriority: this process, and the processes and threads it starts after it,
+	// run at background scheduling priority, and the answer is the priority the system reports then, a second reading: Windows' priority
+	// class (16384, BELOW_NORMAL_PRIORITY_CLASS) or a POSIX nice value (10). maxon's BackgroundPriority is a FullRangeInt.
+	{Owner: "Process", Name: "enterBackgroundPriority", Static: true, Result: "FullRangeInt", Intrinsic: "ProcessEnterBackgroundPriority"},
 	// nowNanos is maxon's Clock.nowNanos, whose InstantNanos is an unsigned 64-bit integer, which Count is.
 	{Owner: "Clock", Name: "nowNanos", Static: true, Result: "Count", Intrinsic: "ClockNowNanos"},
 	// processorCount is maxon's Scheduler.processorCount, whose SchedulerProcessorCount is an unsigned 64-bit integer, which Count is.
@@ -1046,6 +1050,7 @@ var entries = []entry{
 	{"OsCurrentPath", "rt.os.currentPath", "Os", roleCall, "() -> String: the working directory, panicking when Windows cannot give it"},
 	{"OsProcessId", "rt.os.processId", "Os", roleCall, "() -> Count: the id of the running process"},
 	{"OsSetExitCode", "rt.os.setExitCode", "Os", roleCall, "(code): the code the process ends with when main has returned and no behaviour is left, in place of main's"},
+	{"OsEnterBackgroundPriority", "rt.os.enterBackgroundPriority", "Os", roleCall, "() -> Count: puts the process at background priority (Windows' below-normal class, a POSIX nice of 10) and answers the priority the system reports afterwards"},
 	{"OsClockNanos", "rt.os.clockNanos", "Os", roleCall, "() -> Count: the monotonic clock in nanoseconds, from QueryPerformanceCounter"},
 	{"OsProcessorCount", "rt.os.processorCount", "Os", roleCall, "() -> Count: how many workers the runtime runs behaviours on, as the scheduler counts them: the processors, or what MAXON_MAX_PROCS asks"},
 	{"OsPathFrom", "rt.os.pathFrom", "Os", roleCall, "(path String, error) -> String: the path with the native separator for the other one"},
@@ -1197,6 +1202,7 @@ var runtimeFunctions = []runtimeFunction{
 	{"OsCurrentPath", "osCurrentPath() String"},
 	{"OsProcessId", "osProcessId() Count"},
 	{"OsSetExitCode", "osSetExitCode(code Count)"},
+	{"OsEnterBackgroundPriority", "osEnterBackgroundPriority() Count"},
 	{"OsClockNanos", "osClockNanos() Count"},
 	{"OsProcessorCount", "osProcessorCount() Count"},
 	{"OsPathFrom", "osPathFrom(path String, errorAddress Count) String"},

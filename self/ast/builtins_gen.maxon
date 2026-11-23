@@ -328,6 +328,7 @@ export enum Intrinsic
 	intrProcessExecutablePath
 	intrProcessId
 	intrProcessSetExitCode
+	intrProcessEnterBackgroundPriority
 	intrClockNowNanos
 	intrSchedulerProcessorCount
 	intrSchedulerYield
@@ -1652,6 +1653,7 @@ function declareProcessMethods(mutates tt TypeSlot, reads TypeTable, mutates ft 
 	var ps4 = ParamSpecList.create(0)
 	ps4.push(ParamSpec.make("code", ty: b.exitCodeTy, conv: Convention.convLet))
 	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.processTy, op: Intrinsic.intrProcessSetExitCode, name: "setExitCode", isStatic: true, selfConv: Convention.convLet, ret: b.voidTy, params: ps4, listed: true)
+	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.processTy, op: Intrinsic.intrProcessEnterBackgroundPriority, name: "enterBackgroundPriority", isStatic: true, selfConv: Convention.convLet, ret: b.fullRangeIntTy, params: ParamSpecList.create(0), listed: true)
 end 'declareProcessMethods'
 
 function declareClockMethods(mutates tt TypeSlot, reads TypeTable, mutates ft FuncSlot, funcReads FuncTable, mutates std ParsedModule, mutates b Builtins, mutates funcMap FuncIDMap)

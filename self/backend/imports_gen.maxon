@@ -17,6 +17,8 @@ export function macosImports() returns NameList
 	names.push("munmap")
 	names.push("mprotect")
 	names.push("getpid")
+	names.push("getpriority")
+	names.push("setpriority")
 	names.push("getcwd")
 	names.push("clock_gettime_nsec_np")
 	names.push("nanosleep")

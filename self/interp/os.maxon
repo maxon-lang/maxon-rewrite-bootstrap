@@ -501,6 +501,12 @@ function entryDebugTerminate(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws 
 	debugPortNotInterpreted()
 end 'entryDebugTerminate'
 
+// The interpreter runs inside the process that interprets it, whose priority a program it runs is not to change: a program that
+// asks is marked native-only.
+function entryOsEnterBackgroundPriority(mutates vm Vm, f ir.IrFunction, x ir.Instr)
+	panic("interp: the interpreter does not change the compiler's priority: mark the program native-only")
+end 'entryOsEnterBackgroundPriority'
+
 function debugPortNotInterpreted()
 	panic("interp: the debug port is not run by the interpreter: mark the program native-only")
 end 'debugPortNotInterpreted'

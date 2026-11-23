@@ -113,7 +113,7 @@ var builtinMethods = map[string][]string{
 	"Utf16Iterator":         {"current", "advance"},
 	"StringIndex":           {"charIndex", "bytePos"},
 	"CommandLine":           {"args"},
-	"Process":               {"environmentVariable", "executablePath", "id", "setExitCode"},
+	"Process":               {"environmentVariable", "executablePath", "id", "setExitCode", "enterBackgroundPriority"},
 	"Clock":                 {"nowNanos"},
 	"Scheduler":             {"processorCount", "yield", "pinToMachine", "unpinFromMachine"},
 	"__ServiceHandle":       {"shutdown"},

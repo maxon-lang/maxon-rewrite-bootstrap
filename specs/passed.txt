@@ -5381,6 +5381,8 @@ print-large-write.md: stdout-exactly-the-cap
 print-large-write.md: stdout-just-over-the-cap
 print-large-write.md: stdout-over-64-kib
 print-large-write.md: stdout-twice-the-cap
+process-background-priority.md: process-background-priority.answers-the-below-normal-class
+process-background-priority.md: process-background-priority.is-stable-across-calls
 process-environment-variable.md: process-environment-variable.finds-a-variable-every-host-has
 process-environment-variable.md: process-environment-variable.unset-name-throws
 process-executable-path.md: process-executable-path.is-absolute

@@ -499,6 +499,18 @@
 		return intResult(__Raw.callImport0("getpid"))
 	end 'osProcessId'
 
+	// darwinPrioProcess is PRIO_PROCESS, which Darwin scopes to the whole process, its threads and its children.
+	let darwinPrioProcess = 0 as Count
+
+	let backgroundNice = 10 as Count
+
+	// osEnterBackgroundPriority sets the nice value to 10, as an absolute value so that asking twice sinks no further, and
+	// answers the nice value that getpriority reports then.
+	function osEnterBackgroundPriority() returns Count
+		_ = __Raw.callImport3("setpriority", arg1: darwinPrioProcess, arg2: 0, arg3: backgroundNice)
+		return intResult(__Raw.callImport2("getpriority", arg1: darwinPrioProcess, arg2: 0))
+	end 'osEnterBackgroundPriority'
+
 	// osRename moves a file or a directory, and replaces what is at the destination.
 	function osRename(source String, destination String, errorAddress Count)
 		let oldPath = cStringOf(source)

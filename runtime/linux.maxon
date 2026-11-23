@@ -250,6 +250,22 @@
 		return __Raw.syscall0(linuxSysGetpid)
 	end 'osProcessId'
 
+	// linuxPrioProcess is PRIO_PROCESS, and a who of 0 names the calling thread, which the kernel scopes a nice value to; the
+	// threads and processes it starts afterwards inherit it.
+	let linuxPrioProcess = 0 as Count
+
+	let backgroundNice = 10 as Count
+
+	// niceBias is what getpriority adds to the negated nice value so that its answer is positive.
+	let niceBias = 20 as Count
+
+	// osEnterBackgroundPriority sets the nice value to 10, as an absolute value so that asking twice sinks no further, and
+	// answers the nice value that the kernel reports then.
+	function osEnterBackgroundPriority() returns Count
+		_ = __Raw.syscall3(linuxSysSetpriority, arg1: linuxPrioProcess, arg2: 0, arg3: backgroundNice)
+		return __Raw.wrappingSub(niceBias, right: __Raw.syscall2(linuxSysGetpriority, arg1: linuxPrioProcess, arg2: 0))
+	end 'osEnterBackgroundPriority'
+
 	// osPathFrom is a path with the native separator in place of the other one; a Linux path may hold any other byte.
 	function osPathFrom(path String, errorAddress Count) returns String
 		let length = __Raw.stringLength(path)

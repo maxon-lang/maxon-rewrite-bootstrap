@@ -20,6 +20,8 @@ var linuxABI = []layoutConst{
 	{"linuxSysRtSigreturn", 15, true, toSelfBack, "rt_sigreturn(), which a signal handler's restorer calls."},
 	{"linuxSysSchedYield", 24, true, toRuntime, "sched_yield()."},
 	{"linuxSysGetpid", 39, true, toRuntime, "getpid()."},
+	{"linuxSysGetpriority", 140, true, toRuntime, "getpriority(which, who): 20 minus the nice value, as the kernel answers it."},
+	{"linuxSysSetpriority", 141, true, toRuntime, "setpriority(which, who, nice): the nice value of the calling thread, and of the threads and processes it starts."},
 	{"linuxSysClone", 56, true, toRuntime | toSelfBack, "clone(flags, stack, parent tid, child tid, tls), x86-64's order of the last two."},
 	{"linuxSysExecve", 59, true, toRuntime, "execve(path, argv, envp)."},
 	{"linuxSysExit", 60, true, toRuntime | toSelfBack, "exit(code), which ends the calling thread alone."},

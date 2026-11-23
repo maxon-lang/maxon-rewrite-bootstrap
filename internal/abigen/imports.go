@@ -39,6 +39,8 @@ var macosImports = []libSystemFunction{
 	{name: "munmap"},
 	{name: "mprotect"},
 	{name: "getpid"},
+	{name: "getpriority"},
+	{name: "setpriority"},
 	{name: "getcwd"},
 	{name: "clock_gettime_nsec_np"},
 	{name: "nanosleep"},
