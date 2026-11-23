@@ -90,6 +90,7 @@ var importNames = []string{
 	// finds it by name and calls it by its address (__Raw.callHost2).
 	"LoadLibraryA",
 	"GetProcAddress",
+	"RemoveDirectoryW",
 }
 
 // libSystemFunction is a function of macOS's libSystem that the runtime or the entry stub may call. A variadic one
@@ -123,6 +124,7 @@ var macosImports = []libSystemFunction{
 	{name: "rename"},
 	{name: "unlink"},
 	{name: "mkdir"},
+	{name: "rmdir"},
 	{name: "opendir"},
 	{name: "readdir"},
 	{name: "closedir"},

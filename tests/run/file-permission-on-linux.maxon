@@ -53,5 +53,6 @@ function main() returns ExitCode
 	for name in ["normal", "default", "executable", "binary"] 'clean'
 		try File.delete(path("{dir}/{name}")) otherwise panic("cannot delete")
 	end 'clean'
+	try Directory.delete(path(dir)) otherwise panic("cannot remove the directory")
 	return 0
 end 'main'

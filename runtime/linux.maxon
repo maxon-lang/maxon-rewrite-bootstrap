@@ -367,6 +367,18 @@
 		endWithError(errorAddress, osError: osErrorOf(result), table: deleteFailures())
 	end 'osDelete'
 
+	// osDeleteDirectory removes an empty directory: rmdir, which arm64's kernel has as unlinkat with AT_REMOVEDIR.
+	function osDeleteDirectory(path String, errorAddress Count)
+		let cPath = cStringOf(path)
+		#if arch(arm64)
+			let result = __Raw.syscall3(linuxSysUnlinkat, arg1: atCwd(), arg2: cPath, arg3: linuxAtRemoveDirectory)
+		#else
+			let result = __Raw.syscall1(linuxSysRmdir, arg1: cPath)
+		#endif
+		free(cPath)
+		endDirectoryDelete(errorAddress, osError: osErrorOf(result), notDirectory: linuxEnotdir)
+	end 'osDeleteDirectory'
+
 	// negativeWordBit is set in a word that holds a negative number, such as the seconds of a time before 1970.
 	let negativeWordBit = 0x8000000000000000 as Count
 

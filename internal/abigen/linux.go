@@ -27,6 +27,7 @@ var linuxABI = []layoutConst{
 	{"linuxSysGetcwd", 79, true, toRuntime, "getcwd(buffer, size)."},
 	{"linuxSysRename", 82, true, toRuntime, "rename(old, new), which replaces what is at new."},
 	{"linuxSysMkdir", 83, true, toRuntime, "mkdir(path, mode)."},
+	{"linuxSysRmdir", 84, true, toRuntime, "rmdir(path), which removes an empty directory."},
 	{"linuxSysUnlink", 87, true, toRuntime, "unlink(path), which refuses a directory."},
 	{"linuxSysSigaltstack", 131, true, toSelfBack, "sigaltstack(stack, old stack)."},
 	{"linuxSysArchPrctl", 158, true, toSelfBack, "arch_prctl(code, address)."},
@@ -98,6 +99,7 @@ var linuxABI = []layoutConst{
 
 	// Files.
 	{"linuxAtCwdNegated", 100, true, toRuntime, "AT_FDCWD, -100, negated: the directory fd of a path relative to the working directory."},
+	{"linuxAtRemoveDirectory", 0x200, true, toRuntime, "AT_REMOVEDIR: the flag that makes unlinkat remove an empty directory, as rmdir does, on arm64, which has no rmdir."},
 	{"linuxOpenReadOnly", 0x80000, true, toRuntime, "O_RDONLY | O_CLOEXEC."},
 	{"linuxOpenReplace", 0x80241, true, toRuntime, "O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC."},
 	{"linuxOpenCloseOnExec", 0x80000, true, toRuntime, "O_CLOEXEC: an fd that an execve closes, as pipe2 takes it."},
@@ -204,7 +206,7 @@ var linuxArm64 = []archValue{
 	{"linuxUcontextPcOffset", 440},
 }
 
-var linuxArm64Lacks = []string{"linuxSysPoll", "linuxSysRename", "linuxSysMkdir", "linuxSysUnlink", "linuxSysArchPrctl", "linuxSysEpollWait", "linuxArchSetFs"}
+var linuxArm64Lacks = []string{"linuxSysPoll", "linuxSysRename", "linuxSysMkdir", "linuxSysRmdir", "linuxSysUnlink", "linuxSysArchPrctl", "linuxSysEpollWait", "linuxArchSetFs"}
 
 var linuxArm64Extra = []layoutConst{
 	{"linuxSysMkdirat", 34, true, toRuntime, "mkdirat(directory fd, path, mode)."},

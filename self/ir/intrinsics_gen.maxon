@@ -461,6 +461,9 @@ export function intrinsicCall(mutates l Lowerer, p ast.Project, mutates ms ast.M
 	if op == ast.Intrinsic.intrDirectoryCurrentPath 'intrDirectoryCurrentPath'
 		return lowerDirectoryCurrentPath(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrDirectoryCurrentPath'
+	if op == ast.Intrinsic.intrDirectoryDelete 'intrDirectoryDelete'
+		return lowerDirectoryDelete(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrDirectoryDelete'
 	if op == ast.Intrinsic.intrDirectoryList 'intrDirectoryList'
 		return lowerDirectoryList(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrDirectoryList'
@@ -1084,6 +1087,9 @@ export function ownsOperands(op ast.Intrinsic) returns bool
 	if op == ast.Intrinsic.intrDirectoryCurrentPath 'intrDirectoryCurrentPath'
 		return false
 	end 'intrDirectoryCurrentPath'
+	if op == ast.Intrinsic.intrDirectoryDelete 'intrDirectoryDelete'
+		return false
+	end 'intrDirectoryDelete'
 	if op == ast.Intrinsic.intrDirectoryList 'intrDirectoryList'
 		return false
 	end 'intrDirectoryList'

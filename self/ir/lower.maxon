@@ -77,7 +77,11 @@ function lowerBody(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState)
 	pushScope(l, block: true)
 	adoptParams(l, p: p, ms: ms)
 	let bodyRef = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: l.origin).bodyRef
-	lowerBlock(l, p: p, ms: ms, ref: bodyRef)
+	if ast.funcEntry(ms.funcs, funcReads: p.funcs, f: l.origin).isTest 'test'
+		lowerTestBody(l, p: p, ms: ms, ref: bodyRef)
+	end 'test' else 'function'
+		lowerBlock(l, p: p, ms: ms, ref: bodyRef)
+	end 'function'
 	popScope(l, p: p)
 	if not l.b.terminated(l.cur) 'open'
 		let zero = konst(l, value: 0 as Word)
@@ -85,6 +89,22 @@ function lowerBody(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState)
 	end 'open'
 	return l.b.finish()
 end 'lowerBody'
+
+// lowerTestBody lowers the body of a test, which handles every error it raises (the check gives it that handler): a failure
+// that reaches it ends the executable of tests with a panic that names the test, since a test throws nothing to its caller.
+function lowerTestBody(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, ref diag.U32)
+	let failed = l.b.newBlock()
+	let done = l.b.newBlock()
+	_ = enterTry(l, target: failed, binding: noSlot)
+	lowerBlock(l, p: p, ms: ms, ref: ref)
+	leaveTry(l)
+	goTo(l, target: done)
+	l.cur = failed
+	let message = strReg(l, value: "{funcSymbol(p, tt: ms.types, reads: p.types, ft: ms.funcs, funcReads: p.funcs, fid: l.fn)} raised an error that it does not handle")
+	emitCallRuntime(l, dst: noReg, symbol: Rt.rtPanic, args: argsOf1(message), routine: ast.noFunc)
+	seal(l, t: newTrap())
+	l.cur = done
+end 'lowerTestBody'
 
 // adoptParams moves each consumes parameter into a slot, which owns it from there on. A parameter the body does not name
 // (`_`) is dropped all the same, because the caller gave it away. The locals are the origin's, whose body an instance is;

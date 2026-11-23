@@ -93,6 +93,17 @@ func (r *results) metaValue(key string) string {
 	return missing
 }
 
+// setMeta gives a line of the system a value, replacing the one it has.
+func (r *results) setMeta(key, value string) {
+	for i := range r.meta {
+		if r.meta[i].key == key {
+			r.meta[i].value = value
+			return
+		}
+	}
+	r.meta = append(r.meta, metaLine{key, value})
+}
+
 func (r *results) benchmark(name string) *benchmark {
 	for _, b := range r.benchmarks {
 		if b.name == name {

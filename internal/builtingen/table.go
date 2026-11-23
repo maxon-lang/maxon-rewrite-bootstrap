@@ -339,6 +339,11 @@ var enumTypes = []enumType{
 		{"accessDenied", "ErrorListAccessDenied"},
 		{"listFailed", "ErrorListFailed"},
 	}},
+	{Key: "DirectoryDeleteError", Name: "DirectoryDeleteError", Cases: []enumCase{
+		{"notFound", "ErrorDirectoryDeleteNotFound"},
+		{"notEmpty", "ErrorDirectoryDeleteNotEmpty"},
+		{"deleteFailed", "ErrorDirectoryDeleteFailed"},
+	}},
 	{Key: "ProcessIntrospectionError", Name: "ProcessIntrospectionError", Cases: []enumCase{
 		{"pathUnavailable", "ErrorPathUnavailable"},
 		{"variableUnset", "ErrorVariableUnset"},
@@ -737,6 +742,8 @@ var tableFunctions = []function{
 	{Owner: "Directory", Name: "create", Static: true, Params: []string{"path FilePath"}, Result: "Bool", Intrinsic: "DirectoryCreate"},
 	// list gives the path of each entry, the directory's path joined to its name.
 	{Owner: "Directory", Name: "currentPath", Static: true, Result: "FilePath", Intrinsic: "DirectoryCurrentPath"},
+	// delete removes an empty directory: one that still holds an entry is refused (notEmpty), and a file or a link there is deleteFailed.
+	{Owner: "Directory", Name: "delete", Static: true, Params: []string{"path FilePath"}, Throws: "DirectoryDeleteError", Intrinsic: "DirectoryDelete"},
 	{Owner: "Directory", Name: "list", Static: true, Params: []string{"path FilePath"}, Result: "Array with FilePath", Throws: "DirectoryListError", Intrinsic: "DirectoryList"},
 	{Owner: "Subprocess", Name: "run", Static: true, Params: []string{"executable Executable", "arguments Array with String"}, Result: "CollectedOutput", Throws: "SubprocessError", Intrinsic: "SubprocessRun"},
 	// A built-in's only default argument is the case of an enum ("= case"), so maxon's run with a deadline is a function of its own. A child
@@ -966,6 +973,7 @@ var entries = []entry{
 	{"OsIsDirectory", "rt.os.isDirectory", "Os", roleCall, "(path String) -> bool"},
 	{"OsExists", "rt.os.exists", "Os", roleCall, "(path String) -> bool: whether a file or a directory is at the path"},
 	{"OsCreateDirectory", "rt.os.createDirectory", "Os", roleCall, "(path String) -> bool: makes the missing parents too, and is whether the directory is there after it"},
+	{"OsDeleteDirectory", "rt.os.deleteDirectory", "Os", roleCall, "(path String, error): removes an empty directory"},
 	{"OsList", "rt.os.list", "Os", roleCall, "(path String, error) -> Array with String: the path joined to the name of each entry"},
 	{"OsRun", "rt.os.run", "Os", roleCall, "(executable String, arguments Array with String, deadlineMs, stdout, stderr, error) -> exit code: runs the executable with the arguments quoted as the C runtime splits them, and stores what the child wrote to each stream as a String at the address given for it; a child still running deadlineMs milliseconds after it started, when that is not 0, is terminated and the run fails with the timeout case"},
 }
@@ -1085,6 +1093,7 @@ var runtimeFunctions = []runtimeFunction{
 	{"OsIsDirectory", "osIsDirectory(path String) Bool"},
 	{"OsExists", "osExists(path String) Bool"},
 	{"OsCreateDirectory", "osCreateDirectory(path String) Bool"},
+	{"OsDeleteDirectory", "osDeleteDirectory(path String, errorAddress Count)"},
 	{"OsList", "osList(path String, errorAddress Count) Count"},
 	{"OsRun", "osRun(executable String, arguments Count, deadlineMs Count, stdout Count, stderr Count, errorAddress Count) Count"},
 }

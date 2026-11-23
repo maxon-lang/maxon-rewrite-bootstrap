@@ -16,8 +16,9 @@ const usageText = `usage:
   bench run --target=x64-windows|x64-linux [--rounds=7] [--results=bench-<target>.txt] [--compiler=...] [--root=.]
       Builds the batch, runs it on this machine (x64-linux through WSL on Windows) and reports. An arm64 target is refused:
       emulated timings mean nothing, so ship the batch to arm64 hardware.
-  bench report <results-file>...
-      Writes the Markdown report of the results of one or more targets, side by side.
+  bench report [--cpu=<name>] <results-file>...
+      Writes the Markdown report of the results of one or more targets, side by side. A machine that cannot tell its CPU
+      (a Linux VM on a Mac) leaves it out of its results file; --cpu names it for the files that have none.
 
 Run from the repository's root. Times are the best of the rounds, and a ratio below 1 means minimaxon is faster.`
 
@@ -104,24 +105,29 @@ func runCommandLine(args []string) error {
 	if err := runLocal(runOptions{build: buildOptions{root: *root, compiler: *compiler, target: t}, rounds: *rounds, results: file}); err != nil {
 		return err
 	}
-	return reportFiles([]string{file})
+	return reportFiles([]string{file}, "")
 }
 
 func reportCommand(args []string) error {
 	set := flag.NewFlagSet("report", flag.ExitOnError)
+	cpu := set.String("cpu", "", "the CPU of the results files that record none")
 	set.Parse(args)
 	if set.NArg() == 0 {
 		return fmt.Errorf("report needs one or more results files")
 	}
-	return reportFiles(set.Args())
+	return reportFiles(set.Args(), *cpu)
 }
 
-func reportFiles(files []string) error {
+// reportFiles writes the report of the results files; unknownCPU, when it is not empty, is the CPU of each that records none.
+func reportFiles(files []string, unknownCPU string) error {
 	var all []*results
 	for _, file := range files {
 		r, err := readResults(file)
 		if err != nil {
 			return err
+		}
+		if unknownCPU != "" && r.metaValue("cpu") == missing {
+			r.setMeta("cpu", unknownCPU)
 		}
 		all = append(all, r)
 	}

@@ -1,5 +1,6 @@
 // The OS entries on Windows paths, under TEMP; os-io-on-linux.maxon is the same on Linux's.
 // unsupported-targets: x64-linux, arm64-linux, arm64-macos
+// native-only
 //> args=true
 //> unset=variableUnset
 //> exe=true false
@@ -16,10 +17,14 @@
 //> deleteMissing=notFound
 //> listMissing=notFound
 //> deleteDirectory=accessDenied
+//> removeMissing=notFound
+//> removeNotEmpty=notEmpty
+//> removeFile=deleteFailed
 //> info=3 false false true
 //> infoDirectory=true
 //> infoMissing=notFound
 //> gone=false
+//> removed=true
 
 function readError(path FilePath) returns String
 	try 'read'
@@ -51,6 +56,20 @@ function renameError(from FilePath, dest FilePath) returns String
 	end 'failed'
 	return "unreachable"
 end 'renameError'
+
+function removeError(path FilePath) returns String
+	try 'remove'
+		Directory.delete(path)
+		return "removed"
+	end 'remove' otherwise (e) 'failed'
+		match e 'kind'
+			notFound then return "notFound"
+			notEmpty then return "notEmpty"
+			deleteFailed then return "deleteFailed"
+		end 'kind'
+	end 'failed'
+	return "unreachable"
+end 'removeError'
 
 function deleteError(path FilePath) returns String
 	try 'delete'
@@ -140,7 +159,8 @@ function main() returns ExitCode
 	print("path={pathError("a/b\\c.txt")}\n")
 	print("invalid={pathError("a?b")}\n")
 	let temp = try Process.environmentVariable("TEMP") otherwise panic("TEMP is not set")
-	let dir = "{temp}\\minimaxon_os_io_test\\nested"
+	let root = "{temp}\\minimaxon_os_io_test"
+	let dir = "{root}\\nested"
 	let created = Directory.create(path(dir))
 	print("created={created} isDirectory={Directory.isDirectory(path(dir))}\n")
 	let f1 = path("{dir}\\a.txt")
@@ -162,11 +182,17 @@ function main() returns ExitCode
 	print("deleteMissing={deleteError(f1)}\n")
 	print("listMissing={listError(path("{dir}\\none"))}\n")
 	print("deleteDirectory={deleteError(path(dir))}\n")
+	print("removeMissing={removeError(f1)}\n")
+	print("removeNotEmpty={removeError(path(dir))}\n")
+	print("removeFile={removeError(f2)}\n")
 	let info = try File.info(f2) otherwise panic("cannot read the information")
 	print("info={info.size} {info.isDirectory} {info.isReadOnly} {info.modifiedTime > lateIn2020 and info.createdTime > lateIn2020}\n")
 	print("infoDirectory={(try File.info(path(dir)) otherwise panic("cannot read the information")).isDirectory}\n")
 	print("infoMissing={infoError(f1)}\n")
 	try File.delete(f2) otherwise panic("cannot delete")
 	print("gone={Directory.isDirectory(f2)}\n")
+	try Directory.delete(path(dir)) otherwise panic("cannot remove the directory")
+	try Directory.delete(path(root)) otherwise panic("cannot remove the parent directory")
+	print("removed={not File.exists(path(root))}\n")
 	return 0
 end 'main'

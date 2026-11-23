@@ -333,6 +333,12 @@ function lowerDirectoryCreate(mutates l Lowerer, p ast.Project, ms ast.ModuleSta
 	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtOsCreateDirectory, kind: IrKind.kindScalar, args: argsOf1(path))
 end 'lowerDirectoryCreate'
 
+function lowerDirectoryDelete(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	let path = pathText(l, path: args[0])
+	_ = failing(l, p: p, ms: ms, site: siteOf(l, p: p, node: c.node), dst: noReg, symbol: Rt.rtOsDeleteDirectory, args: argsOf1(path))
+	return konst(l, value: 0 as Word)
+end 'lowerDirectoryDelete'
+
 // lowerDirectoryList makes a FilePath of each String the entry gives, in its place in the array, so the array the entry
 // made is the one returned.
 function lowerDirectoryList(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg

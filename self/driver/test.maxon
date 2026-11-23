@@ -404,6 +404,10 @@ let behavioursFlag = "--behaviours"
 
 let repeatFlag = "--repeat="
 
+// compileOnlyFlag compiles every program of the corpus and runs none, as the programs of tests/check are: it is how the
+// gate holds the benchmarks, which the runner leaves out of the corpus, to the compiler for every target.
+let compileOnlyFlag = "--compile-only"
+
 // runnerFlag names the command that starts each executable of the corpus, in place of the target's runner.
 let runnerFlag = "--runner="
 
@@ -429,14 +433,16 @@ type CorpusOptions
 	var runner as TargetRunner
 	// verifiesIr compiles every program with --verify-ir.
 	var verifiesIr as bool
+	// compilesOnly makes every program one that is only compiled.
+	var compilesOnly as bool
 
 	static function new() returns CorpusOptions
-		return CorpusOptions{verbose: false, updatePositions: false, behavioursOnly: false, repeats: behaviourRuns, target: hostTarget(), runner: TargetRunner.native, verifiesIr: false}
+		return CorpusOptions{verbose: false, updatePositions: false, behavioursOnly: false, repeats: behaviourRuns, target: hostTarget(), runner: TargetRunner.native, verifiesIr: false, compilesOnly: false}
 	end 'new'
 end 'CorpusOptions'
 
 // testCommand is `test [dir|file.md] [--verbose] [--update-positions] [--behaviours] [--repeat=N] [--executables=N]
-// [--skip-passed] [--require-passed] [--record-passed]`: the corpus is the given directory of programs, or the spec files at the given path, or
+// [--compile-only] [--skip-passed] [--require-passed] [--record-passed]`: the corpus is the given directory of programs, or the spec files at the given path, or
 // else the nearest tests directory from the executable's upward. With --update-positions a test whose expect-error got its
 // code at another place has the directive rewritten to that place, as after a change that only moves code, such as renaming
 // a keyword. --behaviours runs only the programs that schedule behaviours, natively, and --repeat runs the executable of each
@@ -479,7 +485,10 @@ function testCommand(rest CommandNames, given Options) returns ExitCode
 		end 'positions' else if rest[i] == behavioursFlag 'behaviours'
 			corpus.behavioursOnly = true
 			corpusFlags = true
-		end 'behaviours' else if hasPrefix(rest[i], prefix: repeatFlag) 'repeat'
+		end 'behaviours' else if rest[i] == compileOnlyFlag 'compileOnly'
+			corpus.compilesOnly = true
+			corpusFlags = true
+		end 'compileOnly' else if hasPrefix(rest[i], prefix: repeatFlag) 'repeat'
 			let runs = match consumes parseCount(afterPrefix(rest[i], prefix: repeatFlag)) 'runs'
 				some(n) gives n
 				none gives 0
@@ -512,7 +521,7 @@ function testCommand(rest CommandNames, given Options) returns ExitCode
 	let width = RunWidth.of(runWorkers(), executables: executables)
 	if hasPath and isSpecPath(path) 'specs'
 		if corpusFlags 'corpusFlags'
-			printError("test: {behavioursFlag} and {repeatFlag}N are for the corpus, not the spec files\n")
+			printError("test: {behavioursFlag}, {compileOnlyFlag} and {repeatFlag}N are for the corpus, not the spec files\n")
 			return usageExitCode
 		end 'corpusFlags'
 		return runSpecs(path, options: options, width: width)
@@ -521,11 +530,14 @@ function testCommand(rest CommandNames, given Options) returns ExitCode
 	corpus.target = given.target.clone()
 	corpus.verifiesIr = given.verifyIr
 	let runner = commandRunner.clone() if commandRunner.isSome() else runnerFor(given.target)
-	if not runner.isSome() 'noRunner'
+	if not runner.isSome() and not corpus.compilesOnly 'noRunner'
 		printError("test: no runner on {hostTarget().name()} starts the executables of {given.target.name()}\n")
 		return usageExitCode
 	end 'noRunner'
-	corpus.runner = runner.unwrap()
+	// A compile-only run starts no executable, so a target that nothing here runs may be compiled for.
+	if runner.isSome() 'runs'
+		corpus.runner = runner.unwrap()
+	end 'runs'
 	if hasPath 'given'
 		return runTests(path, options: corpus, width: width)
 	end 'given'
@@ -561,7 +573,7 @@ function runTests(dir String, options CorpusOptions, width RunWidth) returns Exi
 		let nameStart = try root.byteLength() + 1 otherwise panic("test: {root} is too long")
 		let name = file.sliceBytes(nameStart, endPos: file.byteLength())
 		var expect = readExpectation(file)
-		expect.checkOnly = hasPrefix(file, prefix: checkOnlyPrefix)
+		expect.checkOnly = options.compilesOnly or hasPrefix(file, prefix: checkOnlyPrefix)
 		if hasPrefix(file, prefix: runtimeTierPrefix) 'runtimeTier'
 			expect.runtimeTier = true
 			expect.nativeOnly = true

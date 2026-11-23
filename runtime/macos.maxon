@@ -521,6 +521,14 @@
 		endWithError(errorAddress, osError: osErrorOf(result), table: deleteFailures())
 	end 'osDelete'
 
+	// osDeleteDirectory removes an empty directory.
+	function osDeleteDirectory(path String, errorAddress Count)
+		let cPath = cStringOf(path)
+		let result = checkedInt(__Raw.callImport1("rmdir", arg1: cPath))
+		free(cPath)
+		endDirectoryDelete(errorAddress, osError: osErrorOf(result), notDirectory: macosEnotdir)
+	end 'osDeleteDirectory'
+
 	// osFileInfo is the time a file was last written, in Unix seconds, and stores its size, the times it was made and last
 	// read and a word of its attributes (infoDirectoryFlag, infoReadOnlyFlag) at the addresses given. macOS's struct stat
 	// holds the time a file was made.

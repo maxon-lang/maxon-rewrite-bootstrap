@@ -332,6 +332,11 @@ function entryOsCreateDirectory(mutates vm Vm, f ir.IrFunction, x ir.Instr) thro
 	giveFlag(vm, x: x, b: Directory.create(pathOf(vm.h.texts[at].clone())))
 end 'entryOsCreateDirectory'
 
+// entryOsDeleteDirectory halts: the interpreter removes no directory, so a program that does says `// native-only`.
+function entryOsDeleteDirectory(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	panic("interp: Directory.delete is not run by the interpreter: mark the program native-only")
+end 'entryOsDeleteDirectory'
+
 function entryOsList(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	let at = try textIndex(vm, o: argRef(vm, f: f, x: x, i: 0), what: "a path")
 	let path = pathOf(vm.h.texts[at].clone())

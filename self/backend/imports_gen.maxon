@@ -148,6 +148,8 @@ export let impLoadLibraryA = 70 as Count
 
 export let impGetProcAddress = 71 as Count
 
+export let impRemoveDirectoryW = 72 as Count
+
 export function rtImports() returns NameList
 	var names = NameList.create(0)
 	names.push("GetProcessHeap")
@@ -222,6 +224,7 @@ export function rtImports() returns NameList
 	names.push("PostQueuedCompletionStatus")
 	names.push("LoadLibraryA")
 	names.push("GetProcAddress")
+	names.push("RemoveDirectoryW")
 	return names
 end 'rtImports'
 
@@ -263,85 +266,87 @@ export let macosImpUnlink = 16 as Count
 
 export let macosImpMkdir = 17 as Count
 
-export let macosImpOpendir = 18 as Count
+export let macosImpRmdir = 18 as Count
 
-export let macosImpReaddir = 19 as Count
+export let macosImpOpendir = 19 as Count
 
-export let macosImpClosedir = 20 as Count
+export let macosImpReaddir = 20 as Count
 
-export let macosImpNSGetExecutablePath = 21 as Count
+export let macosImpClosedir = 21 as Count
 
-export let macosImpRealpath = 22 as Count
+export let macosImpNSGetExecutablePath = 22 as Count
 
-export let macosImpFree = 23 as Count
+export let macosImpRealpath = 23 as Count
 
-export let macosImpSysconf = 24 as Count
+export let macosImpFree = 24 as Count
 
-export let macosImpGetentropy = 25 as Count
+export let macosImpSysconf = 25 as Count
 
-export let macosImpSchedYield = 26 as Count
+export let macosImpGetentropy = 26 as Count
 
-export let macosImpPthreadAttrInit = 27 as Count
+export let macosImpSchedYield = 27 as Count
 
-export let macosImpPthreadAttrSetstacksize = 28 as Count
+export let macosImpPthreadAttrInit = 28 as Count
 
-export let macosImpPthreadAttrDestroy = 29 as Count
+export let macosImpPthreadAttrSetstacksize = 29 as Count
 
-export let macosImpPthreadCreate = 30 as Count
+export let macosImpPthreadAttrDestroy = 30 as Count
 
-export let macosImpPthreadKeyCreate = 31 as Count
+export let macosImpPthreadCreate = 31 as Count
 
-export let macosImpPthreadSetspecific = 32 as Count
+export let macosImpPthreadKeyCreate = 32 as Count
 
-export let macosImpPthreadSelf = 33 as Count
+export let macosImpPthreadSetspecific = 33 as Count
 
-export let macosImpPthreadKill = 34 as Count
+export let macosImpPthreadSelf = 34 as Count
 
-export let macosImpPthreadSigmask = 35 as Count
+export let macosImpPthreadKill = 35 as Count
 
-export let macosImpPthreadMutexInit = 36 as Count
+export let macosImpPthreadSigmask = 36 as Count
 
-export let macosImpPthreadMutexLock = 37 as Count
+export let macosImpPthreadMutexInit = 37 as Count
 
-export let macosImpPthreadMutexUnlock = 38 as Count
+export let macosImpPthreadMutexLock = 38 as Count
 
-export let macosImpPthreadCondInit = 39 as Count
+export let macosImpPthreadMutexUnlock = 39 as Count
 
-export let macosImpPthreadCondWait = 40 as Count
+export let macosImpPthreadCondInit = 40 as Count
 
-export let macosImpPthreadCondSignal = 41 as Count
+export let macosImpPthreadCondWait = 41 as Count
 
-export let macosImpSigaction = 42 as Count
+export let macosImpPthreadCondSignal = 42 as Count
 
-export let macosImpSigaltstack = 43 as Count
+export let macosImpSigaction = 43 as Count
 
-export let macosImpKqueue = 44 as Count
+export let macosImpSigaltstack = 44 as Count
 
-export let macosImpKevent = 45 as Count
+export let macosImpKqueue = 45 as Count
 
-export let macosImpPipe = 46 as Count
+export let macosImpKevent = 46 as Count
 
-export let macosImpPoll = 47 as Count
+export let macosImpPipe = 47 as Count
 
-export let macosImpWaitpid = 48 as Count
+export let macosImpPoll = 48 as Count
 
-export let macosImpKill = 49 as Count
+export let macosImpWaitpid = 49 as Count
 
-export let macosImpPosixSpawn = 50 as Count
+export let macosImpKill = 50 as Count
 
-export let macosImpPosixSpawnFileActionsInit = 51 as Count
+export let macosImpPosixSpawn = 51 as Count
 
-export let macosImpPosixSpawnFileActionsAdddup2 = 52 as Count
+export let macosImpPosixSpawnFileActionsInit = 52 as Count
 
-export let macosImpPosixSpawnFileActionsAddinheritNp = 53 as Count
+export let macosImpPosixSpawnFileActionsAdddup2 = 53 as Count
 
-export let macosImpPosixSpawnFileActionsDestroy = 54 as Count
+export let macosImpPosixSpawnFileActionsAddinheritNp = 54 as Count
 
-export let macosImpPosixSpawnattrInit = 55 as Count
+export let macosImpPosixSpawnFileActionsDestroy = 55 as Count
 
-export let macosImpPosixSpawnattrSetflags = 56 as Count
+export let macosImpPosixSpawnattrInit = 56 as Count
 
-export let macosImpPosixSpawnattrDestroy = 57 as Count
+export let macosImpPosixSpawnattrSetflags = 57 as Count
+
+export let macosImpPosixSpawnattrDestroy = 58 as Count
 
 export function macosImports() returns NameList
 	var names = NameList.create(0)
@@ -363,6 +368,7 @@ export function macosImports() returns NameList
 	names.push("rename")
 	names.push("unlink")
 	names.push("mkdir")
+	names.push("rmdir")
 	names.push("opendir")
 	names.push("readdir")
 	names.push("closedir")

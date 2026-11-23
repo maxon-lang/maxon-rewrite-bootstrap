@@ -70,6 +70,8 @@ let osBytesDataOffset = 16 as Count
 	let win32SharingViolation = 32
 
 	let win32FileExists = 80
+
+	let win32DirNotEmpty = 145
 #endif
 
 let failureNotFound = 0
@@ -146,6 +148,12 @@ let listNotFound = 0
 let listAccessDenied = 1
 
 let listFailed = 2
+
+let directoryDeleteNotFound = 0
+
+let directoryDeleteNotEmpty = 1
+
+let directoryDeleteFailed = 2
 
 // The bits of the attributes word that osFileInfo gives, which lowering reads FileInfo's flags from.
 let infoDirectoryFlag = 1
@@ -235,7 +243,7 @@ typealias FailureCase = int(0 to 255)
 		if win32 == win32SharingViolation 'busy'
 			return failureBusy
 		end 'busy'
-		if win32 == win32FileExists 'exists'
+		if win32 == win32FileExists or win32 == win32DirNotEmpty 'exists'
 			return failureAlreadyExists
 		end 'exists'
 		return failureOther
@@ -271,6 +279,22 @@ end 'infoFailures'
 function listFailures() returns Count
 	return failureCases(listNotFound, accessDenied: listAccessDenied, busy: listFailed, alreadyExists: listFailed, other: listFailed)
 end 'listFailures'
+
+// directoryDeleteFailures is the table of Directory.delete: a directory that still holds an entry is the failure that a name
+// already taken is, which is how every system tells it.
+function directoryDeleteFailures() returns Count
+	return failureCases(directoryDeleteNotFound, accessDenied: directoryDeleteFailed, busy: directoryDeleteFailed, alreadyExists: directoryDeleteNotEmpty, other: directoryDeleteFailed)
+end 'directoryDeleteFailures'
+
+// endDirectoryDelete ends osDeleteDirectory on a system whose rmdir answers a file or a link with ENOTDIR, which every other
+// entry tells as a missing path: Directory.delete says deleteFailed for it, as it does where RemoveDirectoryW tells the two apart.
+function endDirectoryDelete(errorAddress Count, osError Count, notDirectory Count)
+	if osError == notDirectory 'file'
+		failWith(errorAddress, errorCase: directoryDeleteFailed)
+		return
+	end 'file'
+	endWithError(errorAddress, osError: osError, table: directoryDeleteFailures())
+end 'endDirectoryDelete'
 
 // succeed clears the error word of an entry that did not fail.
 function succeed(errorAddress Count)
@@ -584,6 +608,17 @@ end 'osWriteBinary'
 		free(widePath)
 		endWithError(errorAddress, osError: win32, table: deleteFailures())
 	end 'osDelete'
+
+	// osDeleteDirectory removes an empty directory: RemoveDirectoryW refuses one that holds an entry, and a file or a link.
+	function osDeleteDirectory(path String, errorAddress Count)
+		let widePath = wideOf(path)
+		var win32 = 0 as Count
+		if dword(__Raw.callImport1("RemoveDirectoryW", arg1: widePath)) == 0 'failed'
+			win32 = win32Error()
+		end 'failed'
+		free(widePath)
+		endWithError(errorAddress, osError: win32, table: directoryDeleteFailures())
+	end 'osDeleteDirectory'
 
 	// unixSecondsOf is the FILETIME at an offset of a record in Unix seconds, or 0 for a time before 1970.
 	function unixSecondsOf(record Count, offset Count) returns Count

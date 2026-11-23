@@ -41,6 +41,7 @@ writes `../../out/bench-<target>.txt`, relative to the batch directory, which `b
 on Windows. Each run's phase times, exit code, wall time (where `date` has nanoseconds) and peak resident set are in the
 file, with `uname -a`, the CPU model, the core count and the toolchains. Copy the file back and run `bench report` on it
 with the other targets' to put the targets side by side.
+A Linux VM on a Mac gives no CPU model, and its file has none: `bench report --cpu=<name>` names it for the files that lack one.
 
 ## What the numbers are
 
@@ -212,9 +213,140 @@ Peak memory is the largest resident set of the runs, in MiB; size is the file's,
 
 ### arm64-linux
 
-Not measured yet. Build the batch with `go run ./cmd/bench build --target=arm64-linux --out=<dir>`, run `sh run.sh` in it on
-the arm64 machine (see "Running it"), and put the results file's `bench report` tables here:
+An Apple M3 (8 cores) in an OrbStack Linux VM on a Mac, seven rounds, from the batch that `bench build --target=arm64-linux`
+made at the commit `b1877d1` plus this kit. The VM does not tell its CPU, so the table names it with `bench report --cpu="Apple M3"`.
+Two things in it are not the compiler's present state. `service-messages-to-many-services` failed on this run (minimaxon's
+program exited with a failure and printed nothing, so its times are blank and it is not in the means, which are over ten
+programs): a memory-ordering bug of the runtime, under investigation. And the batch predates the faster hash fold, so
+`map-operations` and the means are of the older code. Build the batch again for current numbers.
+
+#### Systems
+
+| target | CPU | cores | OS | rounds | compiler | Go |
+|---|---|---|---|---|---|---|
+| arm64-linux | Apple M3 | 8 | Linux ubuntu 7.2.12-orbstack-00394-gbecdd6130068 #1 SMP PREEMPT Thu Oct 22 22:17:17 UTC 2026 aarch64 GNU/Linux | 7 | minimaxon.exe at git b1877d1 | go version go1.27.4 windows/amd64 GOOS=linux GOARCH=arm64 |
+
+#### Summary
 
 | target | geometric-mean ratio of the programs | of the phases of 1 ms or more | worst phases |
 |---|---|---|---|
-| arm64-linux | | | |
+| arm64-linux | 1.31 (10) | 1.30 (27) | service-messages-to-one-service / work 3.28; map-operations / string iterate 2.35; array-indexing / work 2.22 |
+
+#### array-indexing
+
+| phase | arm64-linux minimaxon ms | arm64-linux Go ms | arm64-linux ratio |
+|---|---:|---:|---:|
+| fill | 3.71 | 0.07 | 54.46 |
+| rounds | 218.20 | 99.88 | 2.18 |
+| work | 221.99 | 99.97 | 2.22 |
+
+
+#### counted-loop
+
+| phase | arm64-linux minimaxon ms | arm64-linux Go ms | arm64-linux ratio |
+|---|---:|---:|---:|
+| work | 222.80 | 273.05 | 0.82 |
+
+
+#### float-calls
+
+| phase | arm64-linux minimaxon ms | arm64-linux Go ms | arm64-linux ratio |
+|---|---:|---:|---:|
+| direct | 69.36 | 69.46 | 1.00 |
+| through | 116.32 | 69.42 | 1.68 |
+| work | 185.69 | 138.95 | 1.34 |
+
+
+#### float-dot-and-nbody
+
+| phase | arm64-linux minimaxon ms | arm64-linux Go ms | arm64-linux ratio |
+|---|---:|---:|---:|
+| dot | 12.81 | 12.64 | 1.01 |
+| nbody | 27.65 | 17.76 | 1.56 |
+| work | 40.49 | 30.49 | 1.33 |
+
+
+#### map-operations
+
+| phase | arm64-linux minimaxon ms | arm64-linux Go ms | arm64-linux ratio |
+|---|---:|---:|---:|
+| int insert | 70.60 | 50.09 | 1.41 |
+| int hit | 31.37 | 25.15 | 1.25 |
+| int miss | 20.91 | 18.54 | 1.13 |
+| int iterate | 5.59 | 6.51 | 0.86 |
+| int remove | 41.94 | 51.79 | 0.81 |
+| string build | 42.31 | 78.95 | 0.54 |
+| string insert | 193.89 | 94.19 | 2.06 |
+| string hit | 68.17 | 39.26 | 1.74 |
+| string miss | 53.34 | 25.11 | 2.12 |
+| string iterate | 15.50 | 6.60 | 2.35 |
+| string remove | 77.24 | 68.61 | 1.13 |
+| work | 646.13 | 477.63 | 1.35 |
+
+
+#### nested-loops
+
+| phase | arm64-linux minimaxon ms | arm64-linux Go ms | arm64-linux ratio |
+|---|---:|---:|---:|
+| work | 44.35 | 41.55 | 1.07 |
+
+
+#### records-and-unions
+
+| phase | arm64-linux minimaxon ms | arm64-linux Go ms | arm64-linux ratio |
+|---|---:|---:|---:|
+| build | 0.02 | 0.02 | 1.00 |
+| match | 25.75 | 27.82 | 0.93 |
+| work | 25.79 | 27.84 | 0.93 |
+
+
+#### recursion
+
+| phase | arm64-linux minimaxon ms | arm64-linux Go ms | arm64-linux ratio |
+|---|---:|---:|---:|
+| work | 101.66 | 102.30 | 0.99 |
+
+
+#### service-messages-to-many-services
+
+| phase | arm64-linux minimaxon ms | arm64-linux Go ms | arm64-linux ratio |
+|---|---:|---:|---:|
+| spawn | 0.05 | 7.90 | 0.01 |
+| send | - | 14.62 | - |
+| await | - | 0.25 | - |
+| work | - | 25.06 | - |
+
+- arm64-linux: minimaxon exited with a failure (exit codes [1 1 1 1 1 1 1])
+- arm64-linux: minimaxon printed [], not the expected ["499500000"]
+
+#### service-messages-to-one-service
+
+| phase | arm64-linux minimaxon ms | arm64-linux Go ms | arm64-linux ratio |
+|---|---:|---:|---:|
+| work | 61.47 | 18.73 | 3.28 |
+
+
+#### string-building
+
+| phase | arm64-linux minimaxon ms | arm64-linux Go ms | arm64-linux ratio |
+|---|---:|---:|---:|
+| work | 28.50 | 26.35 | 1.08 |
+
+
+#### Peak memory and executable size
+
+Peak memory is the largest resident set of the runs, in MiB; size is the file's, in KiB.
+
+| program | arm64-linux minimaxon MiB | arm64-linux Go MiB | arm64-linux minimaxon KiB | arm64-linux Go KiB |
+|---|---:|---:|---:|---:|
+| array-indexing | 0.5 | 2.6 | 13 | 2297 |
+| counted-loop | 0.4 | 2.0 | 9 | 2297 |
+| float-calls | 0.4 | 2.1 | 14 | 2299 |
+| float-dot-and-nbody | 0.4 | 2.2 | 18 | 2301 |
+| map-operations | 156.4 | 152.5 | 49 | 2301 |
+| nested-loops | 0.4 | 2.2 | 9 | 2297 |
+| records-and-unions | 0.4 | 2.1 | 13 | 2297 |
+| recursion | 0.4 | 2.0 | 9 | 2296 |
+| service-messages-to-many-services | 10.7 | 23.1 | 36 | 2297 |
+| service-messages-to-one-service | 0.7 | 2.0 | 36 | 2297 |
+| string-building | 0.4 | 7.3 | 9 | 2297 |

@@ -1430,6 +1430,7 @@ directory-scope.md: every-unmarked-declaration-kind-is-visible-to-another-file-o
 directory-scope.md: module-is-an-ordinary-identifier
 directory-scope.md: unmarked-functions-call-each-other-across-three-files-of-a-directory
 directory.md: current-directory-not-empty
+directory.md: delete-refuses-an-existing-file-as-failed-and-leaves-it
 directory.md: directory-is-directory
 directory.md: file-is-not-directory
 directory.md: list-directory-count
@@ -1983,6 +1984,7 @@ field-visibility-is-directory-scoped.md: error.a-type-in-another-directory-canno
 field-visibility-is-directory-scoped.md: error.a-type-in-another-directory-cannot-write-an-unmarked-field
 field-visibility-is-directory-scoped.md: own-type-reaches-its-own-private-field
 file-info.md: file-info.basic-size
+file-info.md: file-info.directory
 file-info.md: file-info.empty-file
 file-info.md: file-info.not-found
 file-info.md: file-info.read-only

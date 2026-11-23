@@ -642,6 +642,9 @@ let linuxTimespecBytes = 16 as Count
 // linuxAtCwdNegated is AT_FDCWD, -100, negated: the directory fd of a path relative to the working directory.
 let linuxAtCwdNegated = 100 as Count
 
+// linuxAtRemoveDirectory is AT_REMOVEDIR: the flag that makes unlinkat remove an empty directory, as rmdir does, on arm64, which has no rmdir.
+let linuxAtRemoveDirectory = 512 as Count
+
 // linuxOpenReadOnly is O_RDONLY | O_CLOEXEC.
 let linuxOpenReadOnly = 524288 as Count
 
@@ -1146,6 +1149,9 @@ let macosSpawnCloexecDefault = 16384 as Count
 
 	// linuxSysMkdir is mkdir(path, mode).
 	let linuxSysMkdir = 83 as Count
+
+	// linuxSysRmdir is rmdir(path), which removes an empty directory.
+	let linuxSysRmdir = 84 as Count
 
 	// linuxSysUnlink is unlink(path), which refuses a directory.
 	let linuxSysUnlink = 87 as Count

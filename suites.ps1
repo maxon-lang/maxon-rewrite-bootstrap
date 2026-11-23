@@ -38,15 +38,19 @@ function Test-Specs {
 	$global:LASTEXITCODE = 0
 }
 
+# The worker counts that the programs that schedule behaviours run under again, natively, after the corpus has run with the
+# machine's: a bug of the runtime's memory ordering showed only at four workers, so the counts reach past two.
+$behaviourWorkers = 1, 2, 4
+
 # The corpus runs with the machine's worker count; the programs that schedule behaviours then run again, natively, under
-# one worker and under two. The runner cannot give the executables it starts another worker count, but its environment,
+# each of $behaviourWorkers. The runner cannot give the executables it starts another worker count, but its environment,
 # which they inherit, can: WSL passes on only the variables that WSLENV names, so a Linux run names this one.
 function Test-Behaviours([string[]]$TargetArgs = @()) {
 	$before = $env:MAXON_MAX_PROCS
 	$beforeWsl = $env:WSLENV
 	$env:WSLENV = if ($beforeWsl) { "${beforeWsl}:MAXON_MAX_PROCS" } else { 'MAXON_MAX_PROCS' }
 	try {
-		foreach ($procs in 1, 2) {
+		foreach ($procs in $behaviourWorkers) {
 			$env:MAXON_MAX_PROCS = $procs
 			$null | & $compiler test --behaviours @TargetArgs @TestArgs
 			if ($LASTEXITCODE -ne 0) { return }
@@ -123,7 +127,7 @@ function Invoke-MacCorpus([string]$batchrun, [string]$mode, [string]$stage) {
 	$before = $env:MAXON_MAX_PROCS
 	$behaviours = 0
 	try {
-		foreach ($procs in 1, 2) {
+		foreach ($procs in $behaviourWorkers) {
 			$env:MAXON_MAX_PROCS = $procs
 			$null | & $compiler test --behaviours $macTarget $runner @TestArgs
 			if ($LASTEXITCODE -ne 0) { $behaviours = $LASTEXITCODE }
@@ -184,6 +188,19 @@ function Test-Mac {
 		Remove-Item -Recurse -Force $root -ErrorAction SilentlyContinue
 	}
 }
+
+# The benchmarks are not part of the corpus, since they run long enough to time, so a change that stops one compiling would
+# show only when somebody next measures. Each is compiled, and none run, for every target, with the IR and the allocation of
+# every function verified.
+$benchmarkTargets = '--target=x64-windows', '--target=x64-linux', '--target=arm64-linux', '--target=arm64-macos'
+
+function Test-BenchmarksCompile {
+	foreach ($t in $benchmarkTargets) {
+		$null | & $compiler test tests\bench $t --verify-ir --compile-only
+		if ($LASTEXITCODE -ne 0) { return }
+	}
+}
+
 # The build cache must make the executable an uncached build makes. A project whose main inlines a leaf of the module it
 # names is built cold and warm, then the leaf's body is edited: the order takes the leaf's module to make the summary it
 # made before, main's entry is linked, the leaf's lower finds another summary and the compile is done again, and the
@@ -270,6 +287,7 @@ $steps = @(
 	@('corpus on arm64 linux', { Test-Arm64Linux }),
 	@('behaviours on arm64 linux', { Test-Arm64LinuxBehaviours }),
 	@('corpus on arm64 macos', { Test-Mac }),
+	@('benchmarks compile', { Test-BenchmarksCompile }),
 	@('cache', { Test-Cache }),
 	@('specs', { Test-Specs }),
 	# Every program the generator writes that the checker accepts must run clean under the interpreter: a violation is a

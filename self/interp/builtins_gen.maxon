@@ -455,6 +455,10 @@ function runtimeEntry(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 		try entryOsCreateDirectory(vm, f: f, x: x)
 		return
 	end 'rtOsCreateDirectory'
+	if symbol == ir.Rt.rtOsDeleteDirectory 'rtOsDeleteDirectory'
+		try entryOsDeleteDirectory(vm, f: f, x: x)
+		return
+	end 'rtOsDeleteDirectory'
 	if symbol == ir.Rt.rtOsList 'rtOsList'
 		try entryOsList(vm, f: f, x: x)
 		return

@@ -357,3 +357,15 @@ test 'raw'
 	want.push("")
 	expectIr("raw", got: irText(p, tt: ms.types, reads: p.types, ft: ms.funcs, funcReads: p.funcs, f: f), want: want)
 end 'raw'
+
+// The body of a test handles an operation that can fail, as the check lets it: the sum below may leave Count's range.
+function termOfTheTestSum() returns Count
+	return 3
+end 'termOfTheTestSum'
+
+test 'a test body lowers an operation that can fail'
+	let sum = termOfTheTestSum() + termOfTheTestSum()
+	if sum != 6 'sum'
+		panic("3 and 3 make 6")
+	end 'sum'
+end 'a test body lowers an operation that can fail'

@@ -1,6 +1,7 @@
 // A write takes a FilePermission, which Windows accepts and ignores as it has no executable mode;
 // file-permission-on-linux.maxon holds Linux's to it.
 // unsupported-targets: x64-linux, arm64-linux, arm64-macos
+// native-only
 //> default=ab
 //> normal=cd
 //> executable=ef
@@ -31,5 +32,6 @@ function main() returns ExitCode
 	try File.writeBinary(file, content: bytes, mode: FilePermission.executable) otherwise panic("cannot write")
 	print("binaryExecutable={try File.readText(file) otherwise panic("cannot read")}\n")
 	try File.delete(file) otherwise panic("cannot delete")
+	try Directory.delete(path(dir)) otherwise panic("cannot remove the directory")
 	return 0
 end 'main'

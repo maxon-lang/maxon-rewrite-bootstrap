@@ -215,12 +215,12 @@ from the page starts, and the signature's hashes.
 generators and fails if a generated file (`*_gen.*`) changed; has the seed build `bin\minimaxon.exe`; and then runs
 `suites.ps1` on it, which runs the Go tests of the generators and tools (`go test ./...`, with that compiler as
 `cmd/convert`'s formatter) and, with the compiler: `selftest`, `check runtime` for each target, `check self --tests` (the compiler's own source and its files of tests under the rules it has just been given), `fmt --check self runtime tests`, the corpus (`test`, with no standard
-input), the programs that schedule behaviours again under one worker and under two (`test --behaviours` with
-`MAXON_MAX_PROCS` set), the same corpus and the same two reruns for the `x64-linux` target (`test --target=x64-linux`, the
+input), the programs that schedule behaviours again under one, two and four workers (`test --behaviours` with
+`MAXON_MAX_PROCS` set; `$behaviourWorkers` in `suites.ps1` names the counts), the same corpus and the same reruns for the `x64-linux` target (`test --target=x64-linux`, the
 executables run under WSL, to which `MAXON_MAX_PROCS` is passed by `WSLENV`; a machine with no WSL or no distribution fails these
 steps with what it lacks, and never skips them), and again for the `arm64-linux` target (`test --target=arm64-linux --verify-ir`,
 every program compiled with arm64's selection and allocation held to their invariants, and its static executable run under WSL by
-the `qemu-aarch64` that WSL has registered with binfmt_misc), the build cache (a project whose main inlines a leaf of the module it names, built cold, warm and after
+the `qemu-aarch64` that WSL has registered with binfmt_misc), every program of `tests/bench/` compiled, and none run, with `--verify-ir` for each of the four targets (`test testsench --target=<target> --verify-ir --compile-only`), the build cache (a project whose main inlines a leaf of the module it names, built cold, warm and after
 an edit of the leaf that the order mispredicts, on every worker and on one, each executable held to the uncached build of the same
 source, and `--verify-cache`), every spec test (`test specs --require-passed`, which fails when a test that `specs/passed.txt` lists does not pass, and
 counts the new passes), and `fuzz` (300 generated programs, each one the checker accepts run clean under the interpreter). It stops at the
@@ -272,10 +272,10 @@ A program that runs the scheduler runs natively more than once, each run another
 what the directives say: the runner knows it does from the link, which gives the scheduler only to a program whose code
 reaches it (see "Main with or without the scheduler"), a test of the runtime that runs it by hand among them. It runs 2 times in a
 run of the corpus, or N with `--repeat=N`, under the worker count of the runner's environment, which every executable
-it starts inherits (`MAXON_MAX_PROCS`, else the machine's processors). `--behaviours` runs only those programs, and
+it starts inherits (`MAXON_MAX_PROCS`, else the machine's processors). `--compile-only` compiles every program and runs none, for any target (the gate holds `tests/bench/` to the compiler with it). `--behaviours` runs only those programs, and
 only natively, which is how a program meets other worker counts: `suites.ps1` runs the corpus with the machine's count,
-which holds every program to the interpreter too, and then `test --behaviours` with `MAXON_MAX_PROCS` at 1 and at 2,
-so the gate runs each such program 6 times natively under three counts, for about two seconds; it compiles only the
+which holds every program to the interpreter too, and then `test --behaviours` with `MAXON_MAX_PROCS` at 1, 2 and 4,
+so the gate runs each such program 8 times natively under four counts; it compiles only the
 programs that have one of the words `when`, `async`, `sleep` and `Scheduler` in a file, or are tests of the runtime, and
 leaves out the rest uncounted. A soak
 is the same flags with `--repeat=300` at each count. A failure names the run and the worker count. The stress
@@ -309,7 +309,7 @@ runs, and reports a program whose output is not its checksum; it is how a change
 process is started with `CreateProcessW`, its output going to a file, and for `x64-linux` from a copy in WSL's `/tmp` by a
 shell there, so neither PowerShell nor the start of WSL is in the time. `.\selftime.ps1` records the `.text` bytes of the compiler it built in `docs/self-compile-times.md`.
 
-Each program also prints the time of its phases as `<phase> ns <nanoseconds>` lines before its `work ns` line, and has a Go counterpart in `tests/bench/go/<name>/main.go` that does the same work and prints the same lines. `cmd/bench` (`go run ./cmd/bench`) builds both for any target into a batch that a script runs, on arm64 hardware too, and reports minimaxon against Go as Markdown tables; `docs/benchmarks.md` has how to run it and the latest tables.
+Each program also prints the time of its phases as `<phase> ns <nanoseconds>` lines before its `work ns` line, and has a Go counterpart in `tests/bench/go/<name>/main.go` that does the same work and prints the same lines. `cmd/bench` (`go run ./cmd/bench`) builds both for any target into a batch that a script runs, on arm64 hardware too, and reports minimaxon against Go as Markdown tables (`bench report --cpu=<name>` names the CPU of a results file that has none, as a Linux VM on a Mac writes it); `docs/benchmarks.md` has how to run it and the latest tables.
 
 Directives in comments say what the program must do:
 
@@ -3534,6 +3534,7 @@ records that have no fields (`internal/builtingen/table.go`), so a program calls
 | `File.writeText(path, content: s)`, `File.writeBinary(path, content: bytes)`, each with an optional `mode: FilePermission` | — (a file that is there is replaced, and keeps its mode) | `FileWriteError` |
 | `File.rename(from, to: dest)` | — (what is at `dest` is replaced) | `FileRenameError` |
 | `File.delete(path)` | — (a directory is refused, `accessDenied`) | `FileDeleteError` |
+| `Directory.delete(path)` | — (removes an empty directory: one that still holds an entry is refused, `notEmpty`, and a file or a link there is `deleteFailed`; `RemoveDirectoryW`, `rmdir`, and `unlinkat` with `AT_REMOVEDIR` on arm64 Linux, which has no `rmdir`; the interpreter runs no `Directory.delete`, so a program that calls it is `// native-only`) | `DirectoryDeleteError` |
 | `File.info(path)` | `FileInfo`: `size`, `modifiedTime`, `createdTime` and `accessedTime` (Unix seconds on the file system's clock, as maxon's), `isDirectory`, `isReadOnly`; read from the directory's record of the file (`FindFirstFileW`), so a file another process holds open is no failure | `FileInfoError` |
 | `Directory.isDirectory(path)` | `bool` | — |
 | `Directory.create(path)` | `bool`, whether the directory is there after it; the missing parents are made too | — |
@@ -3549,11 +3550,12 @@ records that have no fields (`internal/builtingen/table.go`), so a program calls
   `FilePermission` (`normal`, 0666, the default of `mode:`, and `executable`, 0755, which only Linux's runtime has an effect for),
   `FileRenameError` (`failed`, `notFound`, `accessDenied`, `busy`, `alreadyExists`), `FileDeleteError` (`notFound`,
   `accessDenied`, `busy`, `failed`), `DirectoryListError` (`notFound`, `accessDenied`, `listFailed`),
+  `DirectoryDeleteError` (`notFound`, `notEmpty`, `deleteFailed`),
   `ProcessIntrospectionError` (`pathUnavailable`, `variableUnset`, `environmentUnreadable`), `FilePathError`
   (`invalidCharacter`, `notFileURL`, `malformedURL`, `noParent`) and `SubprocessError` (`executableNotFound`,
   `spawnFailed`, `busy`, `ioFailed`, `timeout`, `treeNotEnded`, `detachRefused`, `inputTooLarge`, `statusLost`). Which
   case a failure is comes from the Win32 error, as maxon's runtime tells them: not found (2, 3), access denied (5),
-  busy (32), already exists (80), and the operation's catch-all for any other. Cases that nothing here fails with are
+  busy (32), already exists (80, and 145 for a directory that is not empty), and the operation's catch-all for any other. Cases that nothing here fails with are
   kept so that a `match` is the one maxon needs.
 - **`Subprocess.run`** takes an `Executable`, maxon's union: `Executable.name(n)`, searched for as Windows searches the
   first word of a command line, or `Executable.path(p)`. Each argument is quoted as the C runtime's
@@ -3920,7 +3922,7 @@ parser asks for the end of the line after its name), and compiles to a function 
 character that is no letter, digit or underscore made an underscore: two tests of a module that compile to one name are
 `E3107`. A test is parsed, resolved and checked, and its body is held to Maxon's rule that it handles every error it raises:
 a call that throws needs no `try` in a test body (a closure written in it is an ordinary function), and a bare `try` takes
-an error of any type. No program is made of a test: lowering leaves it out. `build`, `run` and `check` read the `.maxon` files
+an error of any type. A failure that reaches the end of a test body (an operation that can fail, a call that throws) ends the executable of tests with a panic that names the test. No program is made of a test: lowering leaves it out. `build`, `run` and `check` read the `.maxon` files
 of a directory only, so a `.maxtest` file is no part of a build, and `fmt` lays out `.maxtest` files as it does `.maxon` ones;
 a project held in memory, as a spec test's files, names its files itself and its `.maxtest` files are checked with the rest.
 `minimaxon test <dir>`, where the directory is a module (it holds source) and it or a module under it holds a file of tests, is
