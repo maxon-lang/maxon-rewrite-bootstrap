@@ -164,6 +164,8 @@ export type ClassChoice
 			opLoadGlobal or
 			opLoadRaw or
 			opStoreRaw or
+			opLoadAcquire or
+			opStoreRelease or
 			opGlobalAddr or
 			opCallImport or
 			opSyscall or

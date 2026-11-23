@@ -30,20 +30,52 @@ function arm64FieldMask(at Count, bits Count) returns Arm64Bits
 	return (((1 as Arm64Bits) shl bits) - 1) shl at
 end 'arm64FieldMask'
 
+// arm64BranchBits and arm64BranchFieldAt are the width and the place of the field of a branch's kind, which holds its
+// distance in words.
+function arm64BranchBits(kind FixupKind) returns Count
+	return match kind 'kind'
+		branch26 gives arm64Imm26Bits as Count
+		branch19 gives arm64Imm19Bits as Count
+		rel32 or
+		page21 or
+		pageOffset12 or
+		pageOffset12Word gives panic("backend: a fixup of kind {kind.name} is no branch")
+	end 'kind'
+end 'arm64BranchBits'
+
+function arm64BranchFieldAt(kind FixupKind) returns Count
+	return match kind 'kind'
+		branch26 gives arm64Imm26At as Count
+		branch19 gives arm64Imm19At as Count
+		rel32 or
+		page21 or
+		pageOffset12 or
+		pageOffset12Word gives panic("backend: a fixup of kind {kind.name} is no branch")
+	end 'kind'
+end 'arm64BranchFieldAt'
+
+// Arm64BranchUnits is how many words a branch of the widest field, b's 26 bits, goes back at most.
+typealias Arm64BranchUnits = int(1 to 33554432)
+
+// arm64BranchReach is the distance in words past the farthest a branch of a kind goes forward, and the farthest back.
+function arm64BranchReach(kind FixupKind) returns Arm64BranchUnits
+	return try ((1 as FullRangeInt) shl (arm64BranchBits(kind) - 1)) as Arm64BranchUnits otherwise panic("backend: a branch field past 26 bits")
+end 'arm64BranchReach'
+
+// arm64BranchReaches is whether the field of a branch of a kind holds a distance in bytes.
+function arm64BranchReaches(kind FixupKind, distance FullRangeInt) returns bool
+	let reach = arm64BranchReach(kind)
+	return arm64HoldsUnits(distance, scale: arm64WordBytes, low: 0 - reach, high: reach - 1)
+end 'arm64BranchReaches'
+
 // arm64PatchBranch makes the branch at an offset of the code go a distance in bytes from it, by its kind's field.
 function arm64PatchBranch(mutates code ByteArray, kind FixupKind, at Count, distance FullRangeInt)
-	var fieldAt = arm64Imm26At as Count
-	var bits = arm64Imm26Bits as Count
-	if kind == FixupKind.branch19 'conditional'
-		fieldAt = arm64Imm19At
-		bits = arm64Imm19Bits
-	end 'conditional' else if kind != FixupKind.branch26 'other'
-		panic("backend: a fixup of kind {kind.name} is no branch")
-	end 'other'
-	let reach = try (1 as FullRangeInt) shl (bits - 1) otherwise panic("backend: a branch field past the word")
-	if not arm64HoldsUnits(distance, scale: arm64WordBytes, low: 0 - reach, high: reach - 1) 'far'
+	if not arm64BranchReaches(kind, distance: distance) 'far'
 		panic("backend: an arm64 branch goes {distance} bytes, past the reach of its field")
 	end 'far'
+	let reach = arm64BranchReach(kind)
+	let bits = arm64BranchBits(kind)
+	let fieldAt = arm64BranchFieldAt(kind)
 	arm64SetField(code, at: at, mask: arm64FieldMask(fieldAt, bits: bits), field: arm64UnitsField(distance, scale: arm64WordBytes, low: 0 - reach, high: reach - 1, bits: bits, at: fieldAt))
 end 'arm64PatchBranch'
 

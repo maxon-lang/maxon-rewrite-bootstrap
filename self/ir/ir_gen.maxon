@@ -42,6 +42,8 @@ export enum Opcode
 	opLoadGlobal
 	opLoadRaw
 	opStoreRaw
+	opLoadAcquire
+	opStoreRelease
 	opGlobalAddr
 	opCallImport
 	opSyscall
@@ -670,6 +672,12 @@ export function opEffects(op Opcode) returns Count
 	if op == Opcode.opStoreRaw 'opStoreRaw'
 		return 2
 	end 'opStoreRaw'
+	if op == Opcode.opLoadAcquire 'opLoadAcquire'
+		return 3
+	end 'opLoadAcquire'
+	if op == Opcode.opStoreRelease 'opStoreRelease'
+		return 3
+	end 'opStoreRelease'
 	if op == Opcode.opGlobalAddr 'opGlobalAddr'
 		return 0
 	end 'opGlobalAddr'
@@ -1013,6 +1021,22 @@ export function newStoreRaw(addr Reg, src Reg, width RawWidth) returns Instr
 	r.sub = rawWidthCode(width)
 	return r
 end 'newStoreRaw'
+
+// LoadAcquire reads the word at an address, and nothing after it reads or writes memory before it.
+export function newLoadAcquire(dst Reg, addr Reg) returns Instr
+	var r = Instr.make(Opcode.opLoadAcquire)
+	r.dst = dst
+	r.a = addr
+	return r
+end 'newLoadAcquire'
+
+// StoreRelease writes Src to the word at an address after everything before it has read and written memory.
+export function newStoreRelease(addr Reg, src Reg) returns Instr
+	var r = Instr.make(Opcode.opStoreRelease)
+	r.a = addr
+	r.b = src
+	return r
+end 'newStoreRelease'
 
 // GlobalAddr gives the address of a global of the runtime.
 export function newGlobalAddr(dst Reg, symbol Rt) returns Instr
@@ -1644,6 +1668,12 @@ export function opcodeName(op Opcode) returns String
 	if op == Opcode.opStoreRaw 'opStoreRaw'
 		return "StoreRaw"
 	end 'opStoreRaw'
+	if op == Opcode.opLoadAcquire 'opLoadAcquire'
+		return "LoadAcquire"
+	end 'opLoadAcquire'
+	if op == Opcode.opStoreRelease 'opStoreRelease'
+		return "StoreRelease"
+	end 'opStoreRelease'
 	if op == Opcode.opGlobalAddr 'opGlobalAddr'
 		return "GlobalAddr"
 	end 'opGlobalAddr'
@@ -2008,6 +2038,27 @@ export function storeRawWidth(x Instr) returns RawWidth
 	end 'op'
 	return rawWidthOf(x.sub)
 end 'storeRawWidth'
+
+export function loadAcquireAddr(x Instr) returns Reg
+	if x.op != Opcode.opLoadAcquire 'op'
+		wrongInstr("loadAcquireAddr", found: x.op)
+	end 'op'
+	return x.a
+end 'loadAcquireAddr'
+
+export function storeReleaseAddr(x Instr) returns Reg
+	if x.op != Opcode.opStoreRelease 'op'
+		wrongInstr("storeReleaseAddr", found: x.op)
+	end 'op'
+	return x.a
+end 'storeReleaseAddr'
+
+export function storeReleaseSrc(x Instr) returns Reg
+	if x.op != Opcode.opStoreRelease 'op'
+		wrongInstr("storeReleaseSrc", found: x.op)
+	end 'op'
+	return x.b
+end 'storeReleaseSrc'
 
 export function globalAddrSymbol(x Instr) returns Rt
 	if x.op != Opcode.opGlobalAddr 'op'
@@ -3038,6 +3089,12 @@ export function instrDef(x Instr) returns table.Option with Reg
 	if x.op == Opcode.opStoreRaw 'opStoreRaw'
 		return table.Option.none
 	end 'opStoreRaw'
+	if x.op == Opcode.opLoadAcquire 'opLoadAcquire'
+		return table.Option.some(x.dst)
+	end 'opLoadAcquire'
+	if x.op == Opcode.opStoreRelease 'opStoreRelease'
+		return table.Option.none
+	end 'opStoreRelease'
 	if x.op == Opcode.opGlobalAddr 'opGlobalAddr'
 		return table.Option.some(x.dst)
 	end 'opGlobalAddr'
@@ -3247,6 +3304,12 @@ export function instrFail(x Instr) returns table.Option with BlockID
 	if x.op == Opcode.opStoreRaw 'opStoreRaw'
 		return table.Option.none
 	end 'opStoreRaw'
+	if x.op == Opcode.opLoadAcquire 'opLoadAcquire'
+		return table.Option.none
+	end 'opLoadAcquire'
+	if x.op == Opcode.opStoreRelease 'opStoreRelease'
+		return table.Option.none
+	end 'opStoreRelease'
 	if x.op == Opcode.opGlobalAddr 'opGlobalAddr'
 		return table.Option.none
 	end 'opGlobalAddr'
@@ -3416,6 +3479,8 @@ export function instrCanFail(x Instr) returns bool
 		opLoadGlobal gives false
 		opLoadRaw gives false
 		opStoreRaw gives false
+		opLoadAcquire gives false
+		opStoreRelease gives false
 		opGlobalAddr gives false
 		opCallImport gives false
 		opSyscall gives false
@@ -3526,6 +3591,15 @@ export function instrReads(f IrFunction, x Instr, mutates out RegList)
 		out.push(storeRawSrc(x))
 		return
 	end 'opStoreRaw'
+	if x.op == Opcode.opLoadAcquire 'opLoadAcquire'
+		out.push(loadAcquireAddr(x))
+		return
+	end 'opLoadAcquire'
+	if x.op == Opcode.opStoreRelease 'opStoreRelease'
+		out.push(storeReleaseAddr(x))
+		out.push(storeReleaseSrc(x))
+		return
+	end 'opStoreRelease'
 	if x.op == Opcode.opGlobalAddr 'opGlobalAddr'
 		return
 	end 'opGlobalAddr'
@@ -3820,6 +3894,13 @@ export function instrWrites(x Instr, mutates out RegList)
 	if x.op == Opcode.opStoreRaw 'opStoreRaw'
 		return
 	end 'opStoreRaw'
+	if x.op == Opcode.opLoadAcquire 'opLoadAcquire'
+		out.push(x.dst)
+		return
+	end 'opLoadAcquire'
+	if x.op == Opcode.opStoreRelease 'opStoreRelease'
+		return
+	end 'opStoreRelease'
 	if x.op == Opcode.opGlobalAddr 'opGlobalAddr'
 		out.push(x.dst)
 		return
@@ -4084,6 +4165,15 @@ export function renameInstrReads(mutates x Instr, mutates args RegList, names Re
 		x.b = renamedReg(names, r: x.b)
 		return
 	end 'opStoreRaw'
+	if x.op == Opcode.opLoadAcquire 'opLoadAcquire'
+		x.a = renamedReg(names, r: x.a)
+		return
+	end 'opLoadAcquire'
+	if x.op == Opcode.opStoreRelease 'opStoreRelease'
+		x.a = renamedReg(names, r: x.a)
+		x.b = renamedReg(names, r: x.b)
+		return
+	end 'opStoreRelease'
 	if x.op == Opcode.opGlobalAddr 'opGlobalAddr'
 		return
 	end 'opGlobalAddr'
@@ -4420,6 +4510,16 @@ export function relocateInstr(mutates x Instr, at Relocation)
 		x.b = renamedReg(at.names, r: x.b)
 		return
 	end 'opStoreRaw'
+	if x.op == Opcode.opLoadAcquire 'opLoadAcquire'
+		x.dst = renamedReg(at.names, r: x.dst)
+		x.a = renamedReg(at.names, r: x.a)
+		return
+	end 'opLoadAcquire'
+	if x.op == Opcode.opStoreRelease 'opStoreRelease'
+		x.a = renamedReg(at.names, r: x.a)
+		x.b = renamedReg(at.names, r: x.b)
+		return
+	end 'opStoreRelease'
 	if x.op == Opcode.opGlobalAddr 'opGlobalAddr'
 		x.dst = renamedReg(at.names, r: x.dst)
 		return
@@ -4760,6 +4860,8 @@ export interface InstrVisitor
 	function visitLoadGlobal(mutates self, f IrFunction, x Instr)
 	function visitLoadRaw(mutates self, f IrFunction, x Instr)
 	function visitStoreRaw(mutates self, f IrFunction, x Instr)
+	function visitLoadAcquire(mutates self, f IrFunction, x Instr)
+	function visitStoreRelease(mutates self, f IrFunction, x Instr)
 	function visitGlobalAddr(mutates self, f IrFunction, x Instr)
 	function visitCallImport(mutates self, f IrFunction, x Instr)
 	function visitSyscall(mutates self, f IrFunction, x Instr)
@@ -4873,6 +4975,14 @@ export function visitInstr(mutates visitor V, f IrFunction, x Instr) uses V wher
 		visitor.visitStoreRaw(f, x: x)
 		return
 	end 'opStoreRaw'
+	if x.op == Opcode.opLoadAcquire 'opLoadAcquire'
+		visitor.visitLoadAcquire(f, x: x)
+		return
+	end 'opLoadAcquire'
+	if x.op == Opcode.opStoreRelease 'opStoreRelease'
+		visitor.visitStoreRelease(f, x: x)
+		return
+	end 'opStoreRelease'
 	if x.op == Opcode.opGlobalAddr 'opGlobalAddr'
 		visitor.visitGlobalAddr(f, x: x)
 		return
@@ -5166,6 +5276,12 @@ export function instrText(p ast.Project, tt ast.TypeSlot, reads ast.TypeTable, f
 	if x.op == Opcode.opStoreRaw 'opStoreRaw'
 		return "storeraw.{rawWidthText(storeRawWidth(x))} %{storeRawAddr(x)}, %{storeRawSrc(x)}"
 	end 'opStoreRaw'
+	if x.op == Opcode.opLoadAcquire 'opLoadAcquire'
+		return "{resultText(x.dst)}loadacquire %{loadAcquireAddr(x)}"
+	end 'opLoadAcquire'
+	if x.op == Opcode.opStoreRelease 'opStoreRelease'
+		return "storerelease %{storeReleaseAddr(x)}, %{storeReleaseSrc(x)}"
+	end 'opStoreRelease'
 	if x.op == Opcode.opGlobalAddr 'opGlobalAddr'
 		return "{resultText(x.dst)}globaladdr {rtText(globalAddrSymbol(x))}"
 	end 'opGlobalAddr'

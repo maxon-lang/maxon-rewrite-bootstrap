@@ -68,6 +68,14 @@
 (storeRaw.32 a v) => (StoreBaseDispReg32 a [0] v)
 (storeRaw.64 a v) => (StoreBaseDispReg a [0] v)
 
+// x64 orders every load as an acquire and every store as a release, so the ordered accesses are plain moves.
+(loadAcquire a:(bin.add.!checked x (const [c]))) && fitsImm32(c) and sel.fuses(fn, r: a) => (LoadRegBaseDisp r x [c])
+(loadAcquire a:(bin.add.!checked x y)) && sel.fuses(fn, r: a) => (LoadRegBaseIndex1Disp r x y [0])
+(storeRelease a:(bin.add.!checked x (const [c])) v) && fitsImm32(c) and sel.fuses(fn, r: a) => (StoreBaseDispReg x [c] v)
+(storeRelease a:(bin.add.!checked x y) v) && sel.fuses(fn, r: a) => (StoreBaseIndex1DispReg x y [0] v)
+(loadAcquire a) => (LoadRegBaseDisp r a [0])
+(storeRelease a v) => (StoreBaseDispReg a [0] v)
+
 // The atomic operations are a locked instruction each, so a full fence. On Windows the thread's context is read from its
 // TEB as TlsGetValue does for a slot below 64, which the entry made sure the runtime's is; on Linux it is the word that fs
 // points at, which the entry and a thread's start set.

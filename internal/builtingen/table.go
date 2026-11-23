@@ -456,6 +456,10 @@ func rawFunctions() []function {
 		raw("storeWord16", append(slices.Clone(at), "value Count"), "", "RawStore16"),
 		raw("storeWord32", append(slices.Clone(at), "value Count"), "", "RawStore32"),
 		raw("storeWord", append(slices.Clone(at), "value Count"), "", "RawStore64"),
+		// The ordered word accesses are how a word that another thread reads or writes without a lock is handed over: an
+		// acquire load is done before every access after it, and a release store after every access before it.
+		raw("loadAcquire", at, "Count", "RawLoadAcquire"),
+		raw("storeRelease", append(slices.Clone(at), "value Count"), "", "RawStoreRelease"),
 		raw("wrappingAdd", []string{"left Count", "right Count"}, "Count", "RawWrappingAdd"),
 		raw("wrappingSub", []string{"left Count", "right Count"}, "Count", "RawWrappingSub"),
 		// mulHigh is the high word of the 128-bit product of two words of no sign, which the hash's fold is made of.

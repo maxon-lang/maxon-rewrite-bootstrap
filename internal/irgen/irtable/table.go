@@ -254,6 +254,15 @@ var ops = []op{
 	{Name: "StoreRaw", Eval: noEval, Doc: "StoreRaw writes the low Width bits of Src at an address.",
 		Operands: []operand{reg("Addr", fA), reg("Src", fB), widthOp}, Effects: []effect{effWrites},
 		Text: "storeraw.{Width} {Addr}, {Src}"},
+	// The ordered accesses are the word another thread hands over: no read or write after an acquire is done before it,
+	// and none before a release is done after it, so a thread whose acquire sees a release sees what was written before
+	// it. A weakly ordered processor needs that said, since its plain accesses may be seen out of order.
+	{Name: "LoadAcquire", Eval: noEval, Doc: "LoadAcquire reads the word at an address, and nothing after it reads or writes memory before it.",
+		Result: valueResult, Operands: []operand{reg("Addr", fA)}, Effects: []effect{effReads, effWrites},
+		Text: "loadacquire {Addr}"},
+	{Name: "StoreRelease", Eval: noEval, Doc: "StoreRelease writes Src to the word at an address after everything before it has read and written memory.",
+		Operands: []operand{reg("Addr", fA), reg("Src", fB)}, Effects: []effect{effReads, effWrites},
+		Text: "storerelease {Addr}, {Src}"},
 	{Name: "GlobalAddr", Eval: noEval, Doc: "GlobalAddr gives the address of a global of the runtime.", Result: valueResult,
 		Operands: []operand{symbolOp}, Text: "globaladdr {Symbol}"},
 	{Name: "CallImport", Eval: noEval, Doc: "CallImport calls the DLL import Name, a string of the function, with the words Args, by the\n// Win64 convention, and gives what it returns.",

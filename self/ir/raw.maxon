@@ -74,6 +74,19 @@ function lowerRawStore64(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c
 	return rawStore(l, args: args, width: RawWidth.width64)
 end 'lowerRawStore64'
 
+function lowerRawLoadAcquire(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	let at = rawAddress(l, address: args[0], offset: args[1])
+	let d = newReg(l, kind: IrKind.kindScalar)
+	emit(l, i: newLoadAcquire(d, addr: at))
+	return d
+end 'lowerRawLoadAcquire'
+
+function lowerRawStoreRelease(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	let at = rawAddress(l, address: args[0], offset: args[1])
+	emit(l, i: newStoreRelease(at, src: args[2]))
+	return konst(l, value: 0 as Word)
+end 'lowerRawStoreRelease'
+
 function lowerRawWrappingAdd(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	return wrappingBin(l, op: BinOp.binAdd, a: args[0], b: args[1], kind: IrKind.kindScalar)
 end 'lowerRawWrappingAdd'

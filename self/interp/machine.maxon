@@ -72,6 +72,14 @@ type Machine implements ir.InstrVisitor, ir.TermVisitor
 		panic("interp: storeraw is the runtime source's, which the interpreter never runs")
 	end 'visitStoreRaw'
 
+	function visitLoadAcquire(mutates self, f ir.IrFunction, x ir.Instr)
+		panic("interp: loadacquire is the runtime source's, which the interpreter never runs")
+	end 'visitLoadAcquire'
+
+	function visitStoreRelease(mutates self, f ir.IrFunction, x ir.Instr)
+		panic("interp: storerelease is the runtime source's, which the interpreter never runs")
+	end 'visitStoreRelease'
+
 	function visitGlobalAddr(mutates self, f ir.IrFunction, x ir.Instr)
 		panic("interp: globaladdr is the runtime source's, which the interpreter never runs")
 	end 'visitGlobalAddr'

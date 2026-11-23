@@ -271,3 +271,64 @@ test 'arm64 machine ir'
 	a64Allocated(u, f: a64Flag())
 	u.asm.endLabels()
 end 'arm64 machine ir'
+
+// a64FarNops is how many nops put a block past the reach of a conditional branch, 1 MB, either way.
+let a64FarNops = 262150
+
+// a64Far is a function whose registers are physical already: a cbz forward over a block of more nops than a conditional
+// branch reaches, and a b.eq after them back to the entry.
+function a64Far() returns MirFunction
+	var fn = MirFunction.new("a64.far", canThrow: false, arch: ast.TargetArch.arm64)
+	let entry = 0 as MBlockID
+	let long = 1 as MBlockID
+	let back = 2 as MBlockID
+	let none = MRegList.create(0)
+	_ = fn.startBlock()
+	let past = fn.addEdge(back, args: none)
+	fn.emit(newArm64Referring(Arm64Form.cbz, a: arm64PhysReg(Arm64Register.x0), b: noMReg, ref: MRef.edge, aux: past))
+	a64Jump(fn, target: long, args: none)
+	_ = fn.startBlock()
+	for _ in 0 upto a64FarNops 'nops'
+		fn.emit(newArm64Target(Arm64Form.nop, a: noMReg, b: noMReg, c: noMReg, aux: 0, imm: 0))
+	end 'nops'
+	a64Jump(fn, target: back, args: none)
+	_ = fn.startBlock()
+	a64Branch(fn, cond: MCond.equal, target: entry, args: none)
+	fn.emit(newArm64Target(Arm64Form.ret, a: noMReg, b: noMReg, c: noMReg, aux: 0, imm: 0))
+	fn.endBlock()
+	return fn
+end 'a64Far'
+
+// a64ExpectWords holds the words of the code at an offset to those encoded into expected.
+function a64ExpectWords(code ByteArray, at Count, expected ByteArray, label String)
+	for i in 0 upto expected.count() 'bytes'
+		let here = try at + i otherwise panic("{label}: an offset past memory")
+		if code[here] != expected[i] 'differs'
+			panic("{label}: byte {i} is {code[here]}, and the encoder writes {expected[i]}")
+		end 'differs'
+	end 'bytes'
+end 'a64ExpectWords'
+
+// A conditional branch past its reach, forward or back, is the inverted branch over a b, and the b goes to the block.
+test 'arm64 branch relaxation'
+	var u = CodeUnit.new()
+	var lay = BlockLayout.new()
+	encodeArm64Function(u, fn: a64Far(), instance: false, lay: lay)
+	u.asm.endLabels()
+	let word = arm64WordBytes as Imm32
+	let nops = a64FarNops as Imm32
+	var head = ByteArray.create(0)
+	encodeArm64Cbnz(head, src: Arm64Register.x0, rel: 2 * word)
+	encodeArm64B(head, rel: (nops + 1) * word)
+	a64ExpectWords(u.asm.code, at: 0, expected: head, label: "the far cbz")
+	let backAt = (2 + a64FarNops) * arm64WordBytes
+	var tail = ByteArray.create(0)
+	encodeArm64BCond(tail, cond: MCond.notEqual, rel: 2 * word)
+	encodeArm64B(tail, rel: 0 - (nops + 3) * word)
+	encodeArm64Ret(tail)
+	a64ExpectWords(u.asm.code, at: backAt, expected: tail, label: "the far b.eq")
+	let size = try backAt + tail.count() otherwise panic("the far function past memory")
+	if u.asm.code.count() != size 'length'
+		panic("the far function is {u.asm.code.count()} bytes, and {size} were expected")
+	end 'length'
+end 'arm64 branch relaxation'

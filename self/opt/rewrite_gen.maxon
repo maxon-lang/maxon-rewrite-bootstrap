@@ -49,6 +49,12 @@ export function rewriteInstr(mutates fn ir.IrFunction, at Count, defs ir.Defs, m
 	if op == ir.Opcode.opStoreRaw 'opcodeStoreRaw'
 		return false
 	end 'opcodeStoreRaw'
+	if op == ir.Opcode.opLoadAcquire 'opcodeLoadAcquire'
+		return false
+	end 'opcodeLoadAcquire'
+	if op == ir.Opcode.opStoreRelease 'opcodeStoreRelease'
+		return false
+	end 'opcodeStoreRelease'
 	if op == ir.Opcode.opGlobalAddr 'opcodeGlobalAddr'
 		return false
 	end 'opcodeGlobalAddr'

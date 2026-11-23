@@ -23,10 +23,47 @@ export type BlockLayout
 	var loopEnd as CountList
 	var heads as bool
 	var starts as CountList
+	// The conditional branches along edges of an architecture whose field may not reach their targets, numbered in the
+	// order the encoder writes them, which is the same each time it writes the function: sites is where each was written
+	// last, relaxed whether it is written as the inverted branch over an unconditional one, and site the one written next.
+	var sites as CountList
+	var relaxed as BoolList
+	var site as Count
 
 	export static function new() returns BlockLayout
-		return BlockLayout{order: MBlockIDList.create(0), resolved: MBlockIDList.create(0), forwards: BoolList.create(0), flagsLiveIn: BoolList.create(0), flagsLiveAfter: BoolList.create(0), framed: true, position: CountList.create(0), loopEnd: CountList.create(0), heads: false, starts: CountList.create(0)}
+		return BlockLayout{order: MBlockIDList.create(0), resolved: MBlockIDList.create(0), forwards: BoolList.create(0), flagsLiveIn: BoolList.create(0), flagsLiveAfter: BoolList.create(0), framed: true, position: CountList.create(0), loopEnd: CountList.create(0), heads: false, starts: CountList.create(0), sites: CountList.create(0), relaxed: BoolList.create(0), site: 0}
 	end 'new'
+
+	// nextSite notes that the conditional branch written next is at a position, and is whether it is relaxed.
+	function nextSite(mutates self, at Count) returns bool
+		if site == relaxed.count() 'first'
+			relaxed.push(false)
+			sites.push(at)
+		end 'first' else 'again'
+			sites[site] = at
+		end 'again'
+		let far = relaxed[site]
+		site = nextCount(site)
+		return far
+	end 'nextSite'
+
+	// relax marks the site at a position of the last writing as relaxed.
+	function relax(mutates self, at Count)
+		var low = 0 as Count
+		var high = sites.count()
+		while low < high 'search'
+			let middle = (try low + high otherwise panic("backend: more branch sites than memory")) / 2
+			if sites[middle] < at 'below'
+				low = nextCount(middle)
+			end 'below' else 'above'
+				high = middle
+			end 'above'
+		end 'search'
+		if low == sites.count() or sites[low] != at 'none'
+			panic("backend: a far branch at {at} that is no conditional branch along an edge")
+		end 'none'
+		relaxed[low] = true
+	end 'relax'
 
 	function plan(mutates self, fn MirFunction)
 		self.findFlags(fn)

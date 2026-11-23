@@ -126,9 +126,14 @@ export type Asm
 	var useAt as CountList
 	var useKind as Array with FixupKind
 	var usePrevious as CountList
+	// relaxes says that the code being written is a function that the arm64 encoder writes again when one of its
+	// conditional branches goes past the reach of its field (encode_arm64.maxon), so such a branch is left unpatched and
+	// noted in farBranches, where it is no defect.
+	var relaxes as bool
+	var farBranches as CountList
 
 	export static function new() returns Asm
-		return Asm{code: ByteArray.create(0), dataFixups: DataFixupList.create(0), importFixups: ImportFixupList.create(0), symbolFixups: SymbolFixupList.create(0), labels: LabelList.create(0), useAt: CountList.create(0), useKind: Array.create(0), usePrevious: CountList.create(0)}
+		return Asm{code: ByteArray.create(0), dataFixups: DataFixupList.create(0), importFixups: ImportFixupList.create(0), symbolFixups: SymbolFixupList.create(0), labels: LabelList.create(0), useAt: CountList.create(0), useKind: Array.create(0), usePrevious: CountList.create(0), relaxes: false, farBranches: CountList.create(0)}
 	end 'new'
 
 	export function pos() returns Count
@@ -161,7 +166,8 @@ export type Asm
 	function addLabelUse(mutates self, label LabelID, kind FixupKind, at Count)
 		let index = label as Count
 		if labels[index].bound 'bound'
-			patchLabelField(code, kind: kind, at: at, target: labels[index].pos)
+			let target = labels[index].pos
+			self.patchUse(kind, at: at, target: target)
 			return
 		end 'bound'
 		useAt.push(at)
@@ -177,7 +183,9 @@ export type Asm
 		var use = labels[index].last
 		while use != 0 'uses'
 			let at = try use - 1 otherwise panic("a label use is before the table")
-			patchLabelField(code, kind: useKind[at], at: useAt[at], target: target)
+			let kind = useKind[at]
+			let field = useAt[at]
+			self.patchUse(kind, at: field, target: target)
 			use = usePrevious[at]
 		end 'uses'
 		labels[index].bound = true
@@ -185,13 +193,27 @@ export type Asm
 		labels[index].last = 0
 	end 'bind'
 
-	// endLabels checks that every label of the section that ends was bound, and forgets them.
+	// patchUse makes the field of a kind at at go to target, or notes it in farBranches when it is a conditional branch
+	// of code that relaxes them and target is past its reach.
+	function patchUse(mutates self, kind FixupKind, at Count, target Count)
+		if kind == FixupKind.branch19 and relaxes and not arm64BranchReaches(kind, distance: distanceOf(at, target: target)) 'far'
+			farBranches.push(at)
+			return
+		end 'far'
+		patchLabelField(code, kind: kind, at: at, target: target)
+	end 'patchUse'
+
+	// endLabels checks that every label of the section that ends was bound and every branch to one patched, and forgets
+	// them.
 	export function endLabels(mutates self)
 		for i in 0 upto labels.count() 'each'
 			if labels[i].last != 0 'unbound'
 				panic("backend: a branch goes to a label that was never bound")
 			end 'unbound'
 		end 'each'
+		if farBranches.count() != 0 'far'
+			panic("backend: a conditional branch past the reach of its field that was not written again")
+		end 'far'
 		labels = LabelList.create(0)
 		useAt.clear()
 		useKind.clear()

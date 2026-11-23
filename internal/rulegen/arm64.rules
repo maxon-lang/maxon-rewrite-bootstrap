@@ -76,6 +76,11 @@
 (storeRaw.32 a v) => (Str32Off v a [0])
 (storeRaw.64 a v) => (Str64Off v a [0])
 
+// The ordered accesses are ldar and stlr, which take no offset. Between them they are sequentially consistent, as Go's
+// atomic.Load and Store are on arm64, but a plain load after a stlr may still be done before it.
+(loadAcquire a) => (Ldar r a)
+(storeRelease a v) => (Stlr v a)
+
 // The atomic operations are LSE's, each of which orders as acquire and release, so a full fence of the word. The thread's
 // context is tpidr_el0 itself on Linux, which the entry and a thread's start set; on macOS it is in a slot of the
 // thread's TSD array, which tpidrro_el0 points at, at the key the entry keeps in rt.tlsOffset.

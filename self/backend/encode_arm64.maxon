@@ -15,12 +15,32 @@ let arm64ProbeBytes = 4096
 let arm64PreIndexReach = 504
 
 // encodeArm64Function writes a function whose registers are allocated into the unit, as a section of its own, and
-// defines its symbol.
+// defines its symbol. A conditional branch reaches 1 MB either way, so in a function longer than that one may not reach
+// its block: the function is written again with each such branch the inverted branch over a b, as maxon does, until every
+// branch reaches. Only a branch that went far is written the long way, and it stays long, so the writing ends.
 export function encodeArm64Function(mutates u CodeUnit, fn MirFunction, instance bool, mutates lay BlockLayout)
 	lay.plan(fn)
 	lay.framed = true
+	lay.sites.clear()
+	lay.relaxed.clear()
 	u.beginSection()
 	u.defineFunction(fn.symbol, instance: instance)
+	u.asm.relaxes = true
+	arm64EncodeBlocks(u, fn: fn, lay: lay)
+	while u.asm.farBranches.count() != 0 'relax'
+		for i in 0 upto u.asm.farBranches.count() 'far'
+			lay.relax(u.asm.farBranches[i])
+		end 'far'
+		u.asm.farBranches.clear()
+		u.rewindSection()
+		arm64EncodeBlocks(u, fn: fn, lay: lay)
+	end 'relax'
+	u.asm.relaxes = false
+end 'encodeArm64Function'
+
+// arm64EncodeBlocks writes the blocks of fn in the order of the layout.
+function arm64EncodeBlocks(mutates u CodeUnit, fn MirFunction, mutates lay BlockLayout)
+	lay.site = 0
 	for _ in 0 upto fn.blocks.count() 'labels'
 		_ = u.asm.newLabel()
 	end 'labels'
@@ -36,32 +56,61 @@ export function encodeArm64Function(mutates u CodeUnit, fn MirFunction, instance
 			k = arm64EncodeAt(u, fn: fn, lay: lay, k: k, stop: fn.blocks[b as Count].endAt, next: next)
 		end 'instrs'
 	end 'blocks'
-end 'encodeArm64Function'
+end 'arm64EncodeBlocks'
 
 // arm64EncodeAt encodes instruction k of fn, or it and the jump after it in its block, which ends at stop, as one, and is
 // the instruction after them: a jump to the block laid out next is left out, and a conditional branch to it over a jump
 // becomes one branch the other way.
-function arm64EncodeAt(mutates u CodeUnit, fn MirFunction, lay BlockLayout, k Count, stop Count, next ir.Index) returns Count
+function arm64EncodeAt(mutates u CodeUnit, fn MirFunction, mutates lay BlockLayout, k Count, stop Count, next ir.Index) returns Count
 	let after = nextCount(k)
 	if isEdgeJump(fn.instrs[k]) and lay.goesTo(fn, edge: refIndex(fn.instrs[k]), b: next) 'fallsThrough'
 		return after
 	end 'fallsThrough'
-	if after < stop and arm64IsEdgeBranch(fn.instrs[k]) and isEdgeJump(fn.instrs[after]) and lay.goesTo(fn, edge: refIndex(fn.instrs[k]), b: next) 'overJump'
-		var other = fn.instrs[k].clone()
+	if not arm64IsEdgeBranch(fn.instrs[k]) 'other'
+		arm64EncodeInstr(u, fn: fn, lay: lay, x: fn.instrs[k])
+		return after
+	end 'other'
+	if after < stop and isEdgeJump(fn.instrs[after]) and lay.goesTo(fn, edge: refIndex(fn.instrs[k]), b: next) 'overJump'
+		var other = arm64Inverted(fn.instrs[k])
 		other.aux = fn.instrs[after].aux
-		if isArm64Form(other, form: Arm64Form.bCond) 'condition'
-			other.cond = negated(other.cond)
-		end 'condition' else if isArm64Form(other, form: Arm64Form.cbz) 'zero'
-			other.form = arm64FormID(Arm64Form.cbnz)
-		end 'zero' else 'notZero'
-			other.form = arm64FormID(Arm64Form.cbz)
-		end 'notZero'
-		arm64EncodeTarget(u, fn: fn, lay: lay, x: other)
+		arm64EncodeEdgeBranch(u, fn: fn, lay: lay, x: other)
 		return nextCount(after)
 	end 'overJump'
-	arm64EncodeInstr(u, fn: fn, lay: lay, x: fn.instrs[k])
+	arm64EncodeEdgeBranch(u, fn: fn, lay: lay, x: fn.instrs[k])
 	return after
 end 'arm64EncodeAt'
+
+// arm64Inverted is a conditional branch that goes where x does when x does not.
+function arm64Inverted(x MInstr) returns MInstr
+	var other = x.clone()
+	if isArm64Form(x, form: Arm64Form.bCond) 'condition'
+		other.cond = negated(x.cond)
+	end 'condition' else if isArm64Form(x, form: Arm64Form.cbz) 'zero'
+		other.form = arm64FormID(Arm64Form.cbnz)
+	end 'zero' else if isArm64Form(x, form: Arm64Form.cbnz) 'notZero'
+		other.form = arm64FormID(Arm64Form.cbz)
+	end 'notZero' else 'unconditional'
+		panic("backend: an inverted branch of an instruction that is no conditional branch")
+	end 'unconditional'
+	return other
+end 'arm64Inverted'
+
+// arm64OverBranch is the distance of a branch to the instruction after the one after it.
+let arm64OverBranch = 8
+
+// arm64EncodeEdgeBranch writes a conditional branch along an edge: the branch itself, or once it went past the reach of
+// its field, the inverted branch over a b to its block.
+function arm64EncodeEdgeBranch(mutates u CodeUnit, fn MirFunction, mutates lay BlockLayout, x MInstr)
+	let at = u.asm.pos()
+	if not lay.nextSite(at) 'near'
+		arm64EncodeTarget(u, fn: fn, lay: lay, x: x)
+		return
+	end 'near'
+	arm64EncodeForm(u, x: arm64Inverted(x))
+	arm64PatchBranch(u.asm.code, kind: FixupKind.branch19, at: at, distance: arm64OverBranch)
+	encodeArm64B(u.asm.code, rel: 0)
+	u.asm.arm64UseLabel(lay.label(fn, edge: refIndex(x)), kind: FixupKind.branch26)
+end 'arm64EncodeEdgeBranch'
 
 // arm64IsEdgeBranch is whether an instruction is a conditional branch along an edge: b.cond, cbz or cbnz.
 function arm64IsEdgeBranch(x MInstr) returns bool
@@ -159,6 +208,12 @@ function arm64FixupKindOf(x MInstr) returns FixupKind
 	panic("backend: an arm64 form with a field a reference patches of no fixup kind")
 end 'arm64FixupKindOf'
 
+// arm64EncodeForm writes the instruction word of x's form from its fields, with any field a reference patches left 0.
+function arm64EncodeForm(mutates u CodeUnit, x MInstr)
+	let n = machineOperandCount(x.form)
+	encodeArm64MachineForm(u.asm.code, form: x.form, a: arm64OperandRegister(x, index: 0, count: n), b: arm64OperandRegister(x, index: 1, count: n), c: arm64OperandRegister(x, index: 2, count: n), aux: x.aux, imm: x.imm, cond: x.cond)
+end 'arm64EncodeForm'
+
 function arm64EncodeTarget(mutates u CodeUnit, fn MirFunction, lay BlockLayout, x MInstr)
 	if reuses(x) and x.a != x.b 'reuse'
 		panic("backend: a two-address definition in another register than the operand it reuses")
@@ -166,8 +221,7 @@ function arm64EncodeTarget(mutates u CodeUnit, fn MirFunction, lay BlockLayout, 
 	if hasPatchField(x.form) != (x.ref != MRef.none) 'reference'
 		panic("backend: a reference on a form without a field for it, or a field with no reference")
 	end 'reference'
-	let n = machineOperandCount(x.form)
-	encodeArm64MachineForm(u.asm.code, form: x.form, a: arm64OperandRegister(x, index: 0, count: n), b: arm64OperandRegister(x, index: 1, count: n), c: arm64OperandRegister(x, index: 2, count: n), aux: x.aux, imm: x.imm, cond: x.cond)
+	arm64EncodeForm(u, x: x)
 	match x.ref 'ref'
 		none then return
 		edge then u.asm.arm64UseLabel(lay.label(fn, edge: refIndex(x)), kind: arm64FixupKindOf(x))

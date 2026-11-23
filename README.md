@@ -1765,7 +1765,10 @@ spill slots, at `[x29 + 16 + slot*8]`, and above them the callee-saved registers
 stack pointer does not move between the prologue and an epilogue. A function that takes arguments on the stack has its
 prologue leave their address, its caller's stack pointer, in `x16` (`MirFunction.incomingStack`), which the loads of them
 right after it read, since no displacement from the frame pointer is known before the frame is. A frame of more than a page
-touches each page on the way down, and an offset past a scaled field goes through `x17`.
+touches each page on the way down, and an offset past a scaled field goes through `x17`. A `b.cond`, `cbz` or `cbnz` reaches
+1 MB either way: one whose block is farther is left unpatched (`Asm.farBranches`), and the function is written again with
+each such branch the inverted branch over a `b`, until every branch reaches, as maxon relaxes them. A function under 1 MB is
+written once.
 
 `emitModule` allocates each function it selects with an `Allocator` the module's functions share (`regalloc.maxon`):
 spilling, then colouring, below. The frame holds, from the frame pointer down, the slots given before allocation
@@ -1958,6 +1961,7 @@ are a `Count`:
 |---|---|
 | `__Raw.loadByte(address, offset: o)`, `loadWord16`, `loadWord32`, `loadWord` | the 1, 2, 4 or 8 bytes at `address + o`, zero-extended: a `Byte` for one byte, a `Count` for more |
 | `__Raw.storeByte(address, offset: o, value: v)`, `storeWord16`, `storeWord32`, `storeWord` | writes the low 1, 2, 4 or 8 bytes of `v` at `address + o` |
+| `__Raw.loadAcquire(address, offset: o)`, `__Raw.storeRelease(address, offset: o, value: v)` | the word at `address + o`, read as an acquire, or `v` written there as a release: no access after the acquire is done before it, and none before the release after it, so a thread whose acquire sees a word another thread released sees what that thread wrote before it; the hand-over of a word that threads share without a lock or an atomic operation |
 | `__Raw.wrappingAdd(a, right: b)`, `__Raw.wrappingSub(a, right: b)` | address arithmetic: the sum or the difference modulo 2^64, unchecked |
 | `__Raw.mulHigh(a, right: b)` | the high word of the 128-bit product of two words of no sign: one `mul` on x64, `umulh` on arm64 |
 | `__Raw.addressOf(word)` | the address of a local `Count`, passed `mutates`: an out-parameter of a DLL function |
@@ -1982,13 +1986,17 @@ Only the runtime module may call them: a call anywhere else is `E3152` (maxon's 
 its message), which `callFunction` in `self/check/calls.maxon` raises from the rows' runtime-only flag
 (`ast.intrinsicRuntimeOnly`). They lower to IR operations that only the runtime's code has: `loadraw.W`
 and `storeraw.W`, W the width in bits, at the address plus the offset; `globaladdr` of an `Rt` global; `import`,
-which names the DLL function among the function's strings; `syscall`, a call of the system call convention; `atomicadd`, `atomicxchg` and `cmpxchg` at the address plus
-the offset (`lock xadd`, `xchg`, `lock cmpxchg`); `spinpause`; `threadcontext`, which on Windows reads the slot straight from the
+which names the DLL function among the function's strings; `syscall`, a call of the system call convention; `loadacquire` and `storerelease` of the word at the address plus the
+offset (a plain `mov` on x64, whose loads are acquires and stores releases, and `ldar` and `stlr` on arm64, which
+are sequentially consistent between themselves, as Go's `atomic.Load` and `Store` are, though a plain load after a
+`stlr` may be done before it); `atomicadd`, `atomicxchg` and `cmpxchg` at the address plus
+the offset (`lock xadd`, `xchg`, `lock cmpxchg`; LSE's `ldaddal`, `swpal` and `casal` on arm64); `spinpause`; `threadcontext`, which on Windows reads the slot straight from the
 TEB (`mov rax, gs:[rcx + 0x1480]`, `rcx` the slot's offset in `g.tlsOffset`) and on Linux the word that `fs` points at
 (`mov rax, fs:[0]`), maxon's thread pointer; `callcode`, an indirect call; and `callhost`, an indirect call by the host convention, which
 `emitHostCall` sets up as it does an import's. Each
-atomic operation and `spinpause` reads and writes memory, so no pass moves a load or a store across one; on x64 a plain
-load is an acquire and a plain store a release, so these are all the scheduler needs. The interpreter never runs the
+ordered access, atomic operation and `spinpause` reads and writes memory, so no pass moves a load or a store across one;
+a plain `loadraw` or `storeraw` is ordered on x64 alone, so on arm64 a word that threads hand over without a lock
+needs an ordered access. The interpreter never runs the
 runtime's source, so it panics on each of them. The wrapping arithmetic is an unchecked `bin`, `addressOf`
 the `addr` of the local's slot, and `stringAddress` and `stringAt` the word itself. `self/backend` writes them
 (`visitLoadRaw`, `visitStoreRaw`, `visitGlobalAddr`, `emitSyscall`, and `emitCallImport`, which aligns the stack itself, since a Maxon

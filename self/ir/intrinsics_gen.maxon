@@ -533,6 +533,12 @@ export function intrinsicCall(mutates l Lowerer, p ast.Project, mutates ms ast.M
 	if op == ast.Intrinsic.intrRawStore64 'intrRawStore64'
 		return lowerRawStore64(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrRawStore64'
+	if op == ast.Intrinsic.intrRawLoadAcquire 'intrRawLoadAcquire'
+		return lowerRawLoadAcquire(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrRawLoadAcquire'
+	if op == ast.Intrinsic.intrRawStoreRelease 'intrRawStoreRelease'
+		return lowerRawStoreRelease(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrRawStoreRelease'
 	if op == ast.Intrinsic.intrRawWrappingAdd 'intrRawWrappingAdd'
 		return lowerRawWrappingAdd(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrRawWrappingAdd'
@@ -1150,6 +1156,12 @@ export function ownsOperands(op ast.Intrinsic) returns bool
 	if op == ast.Intrinsic.intrRawStore64 'intrRawStore64'
 		return false
 	end 'intrRawStore64'
+	if op == ast.Intrinsic.intrRawLoadAcquire 'intrRawLoadAcquire'
+		return false
+	end 'intrRawLoadAcquire'
+	if op == ast.Intrinsic.intrRawStoreRelease 'intrRawStoreRelease'
+		return false
+	end 'intrRawStoreRelease'
 	if op == ast.Intrinsic.intrRawWrappingAdd 'intrRawWrappingAdd'
 		return false
 	end 'intrRawWrappingAdd'
