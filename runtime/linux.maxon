@@ -111,19 +111,25 @@
 		_ = __Raw.syscall1(linuxSysClose, arg1: fd)
 	end 'closeFd'
 
-	// mapPages is a block of zeroed pages that holds a number of bytes, which the kernel maps.
-	function mapPages(bytes Count) returns Count
-		let block = __Raw.syscall6(linuxSysMmap, arg1: 0, arg2: bytes, arg3: linuxProtReadWrite, arg4: linuxMapAnonPrivate, arg5: noFd, arg6: noMappingOffset)
+	// The page heap's part of the kernel (pages.maxon), Go's: reservePages maps address space read-write with no reserve of
+	// memory, so a page costs nothing until it is touched and commitPages has nothing to do; releasePagesToSystem gives the
+	// memory of pages back by MADV_DONTNEED, after which they read zero.
+	function reservePages(bytes Count) returns Count
+		let block = __Raw.syscall6(linuxSysMmap, arg1: 0, arg2: bytes, arg3: linuxProtReadWrite, arg4: linuxMapAnonPrivate or linuxMapNoReserve, arg5: noFd, arg6: noMappingOffset)
 		if failed(block) 'refused'
 			panic("out of memory: the kernel maps no more pages")
 		end 'refused'
 		return block
-	end 'mapPages'
+	end 'reservePages'
 
-	// unmapPages gives back the pages of a block of a number of bytes that mapPages made.
-	function unmapPages(block Count, bytes Count)
-		_ = __Raw.syscall2(linuxSysMunmap, arg1: block, arg2: bytes)
-	end 'unmapPages'
+	function commitPages(block Count, bytes Count)
+	end 'commitPages'
+
+	function releasePagesToSystem(block Count, bytes Count)
+		if failed(__Raw.syscall3(linuxSysMadvise, arg1: block, arg2: bytes, arg3: linuxMadvDontNeed)) 'failed'
+			panic("the page heap's pages cannot be given back to the kernel")
+		end 'failed'
+	end 'releasePagesToSystem'
 
 	// processStart is the stack pointer the process started with.
 	function processStart() returns Count
@@ -228,13 +234,17 @@
 	// osClockNanos is the monotonic clock in nanoseconds.
 	function osClockNanos() returns Count
 		let time = alloc(linuxTimespecBytes)
-		_ = __Raw.syscall2(linuxSysClockGettime, arg1: linuxClockMonotonic, arg2: time)
-		let seconds = __Raw.loadWord(time, offset: 0)
-		let nanos = __Raw.loadWord(time, offset: wordBytes)
+		let nanos = clockNanosInto(time)
 		free(time)
-		let wholeNanos = try seconds * nanosPerSecond otherwise panic("the monotonic clock is past a word of nanoseconds")
-		return try wholeNanos + nanos otherwise panic("the monotonic clock is past a word of nanoseconds")
+		return nanos
 	end 'osClockNanos'
+
+	// clockNanosInto is the monotonic clock in nanoseconds, read through a timespec at an address.
+	function clockNanosInto(time Count) returns Count
+		_ = __Raw.syscall2(linuxSysClockGettime, arg1: linuxClockMonotonic, arg2: time)
+		let wholeNanos = try __Raw.loadWord(time, offset: 0) * nanosPerSecond otherwise panic("the monotonic clock is past a word of nanoseconds")
+		return try wholeNanos + __Raw.loadWord(time, offset: wordBytes) otherwise panic("the monotonic clock is past a word of nanoseconds")
+	end 'clockNanosInto'
 
 	function osProcessId() returns Count
 		return __Raw.syscall0(linuxSysGetpid)

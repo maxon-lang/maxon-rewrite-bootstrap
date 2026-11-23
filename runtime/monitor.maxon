@@ -3,7 +3,8 @@
 // polls when no thread has for pollStaleNanos, starts a thread for a timer that is due when no thread waits in the
 // poller, and retakes processors: a processor whose green thread has run for preemptNanos is asked to stop it, and one
 // whose thread has been in a blocking call since the monitor's last look, while there is other work or no thread to do
-// it, is taken and handed to another thread.
+// it, is taken and handed to another thread. It runs the page heap's release pass when one is due (pagesTick), as Go's
+// sysmon wakes the scavenger, so an idle program gives its free pages back.
 //
 // Preemption is asynchronous only, Go's since 1.14, with no check in the compiled code: on Windows the monitor suspends
 // the thread, reads its registers, and when it may stop it there (stoppable) keeps the address it stopped at for the
@@ -77,6 +78,7 @@ function monitorMain(context Count)
 		end 'retook' else 'none'
 			idle = __Raw.wrappingAdd(idle, right: 1)
 		end 'none'
+		pagesTick(heapPages(__Raw.loadWord(__Raw.loadWord(scheduler, offset: schedMainThreadOffset), offset: contextHeapOffset)), now: now)
 	end 'rounds'
 end 'monitorMain'
 

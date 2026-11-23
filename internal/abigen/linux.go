@@ -14,6 +14,7 @@ var linuxABI = []layoutConst{
 	{"linuxSysMmap", 9, true, toRuntime | toSelfBack, "mmap(address, length, protection, flags, fd, offset)."},
 	{"linuxSysMprotect", 10, true, toRuntime | toSelfBack, "mprotect(address, length, protection)."},
 	{"linuxSysMunmap", 11, true, toRuntime, "munmap(address, length)."},
+	{"linuxSysMadvise", 28, true, toRuntime, "madvise(address, length, advice)."},
 	{"linuxSysRtSigaction", 13, true, toRuntime | toSelfBack, "rt_sigaction(signal, action, old action, size of the signal mask)."},
 	{"linuxSysRtSigprocmask", 14, true, toRuntime, "rt_sigprocmask(how, set, old set, size of the signal mask)."},
 	{"linuxSysRtSigreturn", 15, true, toSelfBack, "rt_sigreturn(), which a signal handler's restorer calls."},
@@ -83,6 +84,7 @@ var linuxABI = []layoutConst{
 	{"linuxProtReadWrite", 3, true, toRuntime | toSelfBack, "PROT_READ | PROT_WRITE."},
 	{"linuxMapAnonPrivate", 0x22, true, toRuntime | toSelfBack, "MAP_PRIVATE | MAP_ANONYMOUS: zeroed pages of no file."},
 	{"linuxMapNoReserve", 0x4000, true, toRuntime | toSelfBack, "MAP_NORESERVE: a stack's address space, committed a page at a time as it is touched."},
+	{"linuxMadvDontNeed", 4, true, toRuntime, "MADV_DONTNEED: the kernel frees the memory of private anonymous pages, which read zero when next touched."},
 
 	// arch_prctl and clone: the thread pointer, which fs addresses, and a worker's thread.
 	{"linuxArchSetFs", 0x1002, true, toSelfBack, "ARCH_SET_FS: arch_prctl sets the base that fs addresses from."},
@@ -163,6 +165,7 @@ var linuxArm64 = []archValue{
 	{"linuxSysMmap", 222},
 	{"linuxSysMprotect", 226},
 	{"linuxSysMunmap", 215},
+	{"linuxSysMadvise", 233},
 	{"linuxSysRtSigaction", 134},
 	{"linuxSysRtSigprocmask", 135},
 	{"linuxSysRtSigreturn", 139},

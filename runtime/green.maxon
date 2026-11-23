@@ -805,23 +805,12 @@ function resumeAt(g Count, instruction Count, stackPointer Count) returns Count
 end 'resumeAt'
 
 #if os(Windows)
-	// The Win32 values a stack is reserved and committed with.
-	let memReserve = 0x2000 as Count
-
-	let memCommit = 0x1000 as Count
-
-	let pageReadWrite = 4 as Count
-
-	let pageGuard = 0x100 as Count
-
 	// stackFirstCommitBytes is what a new stack commits at its top, a page, as the executable's header has the system commit
 	// for a thread; the guard page below it grows the stack on its first touch, as the system grows a thread's.
 	let stackFirstCommitBytes = 4096 as Count
 
 	// stackGuardBytes is the guard page at the bottom of a stack's reserve.
 	let stackGuardBytes = 4096 as Count
-
-	let memRelease = 0x8000 as Count
 
 	// releaseWholeReserve is VirtualFree's size of a release, which frees the whole reserve.
 	let releaseWholeReserve = 0 as Count

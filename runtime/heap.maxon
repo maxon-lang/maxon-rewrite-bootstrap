@@ -2,21 +2,23 @@
 // makes, so an alloc and a free take no lock and touch no word another thread writes. The process heap's lock would
 // serialize the workers, and a call into it costs more than the whole of a class's alloc.
 //
-// A box of up to largestSmallBytes is a slot of a size class, and a larger one is a block of the process heap of its own.
-// The process heap is Windows' (HeapAlloc), which keeps the blocks freed to it for the next; on Linux a block is pages that
-// the kernel maps (mapPages), zeroed, and a freed one is kept by the freeing thread's heap for a large box to come, as
-// mimalloc and snmalloc keep theirs, so a program that grows and drops buffers does not map, unmap and fault in pages for
-// each: a heap keeps a few blocks and at most largeKeptBytes, the shortest that fits serves a box, and the rest go back.
+// A box of up to largestSmallBytes is a slot of a size class, and a larger one is a run of the page heap of its own
+// (pages.maxon), which is where every block of a heap comes from on every system. A freed large box's run is kept by the
+// freeing thread's heap for a large box to come, as Go's per-processor page cache and mimalloc's and snmalloc's caches keep
+// theirs, so that a program that grows and drops buffers takes no lock for each: a heap keeps a few runs and at most
+// largeKeptBytes, the shortest that fits serves a box, and the rest go back to the page heap, as they all do when the
+// thread stops for want of work (releaseKept). A large box that grows takes the pages after its run when they are free
+// (growInPlace), so a buffer that grows to megabytes is neither copied nor faulted in again at each step.
 // Each class keeps the addresses of the slots freed in it on a stack of its own, so a free and the next alloc of the class
-// are a push and a pop; a class whose stack is empty takes a new slot from the end of the heap's current chunk, a block of
-// the process heap that every class of the heap carves from, so boxes allocated together lie together. The
+// are a push and a pop; a class whose stack is empty takes a new slot from the end of the heap's current chunk, a run of
+// the page heap that every class of the heap carves from, so boxes allocated together lie together. The
 // stack is apart from the slots, not a list linked through them, so an alloc reads nothing of a slot that may have left
 // the cache since it was freed: it only writes it.
 //
 // Every box is preceded by a header word: the address of its heap's record plus its class's key (heapLargeKey for a large
 // box). The record is aligned to heapAlignBytes, above every key, so free finds the class and the heap from the box
-// alone; a mask over the box's address would save the word, but only with chunks aligned to their size, which HeapAlloc
-// does not give. A slot keeps its class and heap for good, so a reused slot's header is never written again.
+// alone; a mask over the box's address would save the word, but only with chunks aligned to their size, which the page
+// heap's runs are not. A slot keeps its class and heap for good, so a reused slot's header is never written again.
 //
 // A green thread can free what another thread allocated, since it runs on whichever thread holds a processor when it runs.
 // A box that the freeing thread's heap does not own goes on its own heap's list of remote frees (heapRemoteOffset), linked
@@ -27,19 +29,13 @@
 // a box of another owner, with one compare-exchange, as snmalloc batches its remote frees: the messages of a service are
 // allocated by its senders and freed by whichever threads run them, and a push per box would have all of those threads
 // fight for the owner's one word. A batch holds at most remoteBatchBoxes boxes back from their owner, per thread.
-// A large box's block, whichever thread made it, goes back from the thread that frees it: on Linux to that thread's kept
-// blocks, which only it reads and writes.
+// A large box's run, whichever thread made it, goes back from the thread that frees it, to that thread's kept runs, which
+// only it reads and writes.
 //
 // The runtime is the same code whatever the build: the heap counts the slots it carves and the large boxes it holds, less
 // those it freed, and the live boxes are that sum over the threads' heaps less the slots on their stacks and their lists
 // (liveBoxes), so a box of a class costs no count; only an executable built with --count-allocations asks for it, at the
 // end (checkLeaks).
-
-// heapZeroMemory is HeapAlloc's HEAP_ZERO_MEMORY: a record, a chunk and a large box start zeroed.
-let heapZeroMemory = 8 as Count
-
-// noHeapFlags asks HeapAlloc and HeapFree for nothing special.
-let noHeapFlags = 0 as Count
 
 // noHeap is a context's heap before the thread's first alloc has made it.
 let noHeap = 0 as Count
@@ -82,17 +78,17 @@ let largestSmallBytes = 8192 as Count
 // from 512 to largestSmallBytes, 52 classes of a word each.
 let lastKey = 416 as Count
 
-// chunkBytes is the block of the process heap that a heap's classes carve their slots from once the heap has grown: large
-// enough that HeapAlloc maps it fresh, with pages that cost nothing until a slot is used. A heap's first chunk is
-// firstChunkBytes, four pages, which hold a slot of the largest class, and each next one twice the last up to chunkBytes, since HeapAlloc
-// commits the whole of a chunk it maps: a program that allocates a few boxes holds a few pages, not a megabyte.
+// chunkBytes is the run of the page heap that a heap's classes carve their slots from once the heap has grown, whose pages
+// cost nothing until a slot is used. A heap's first chunk is firstChunkBytes, two pages, which hold a slot of the largest
+// class, and each next one twice the last up to chunkBytes, since the page heap commits the whole of a run it gives out: a
+// program that allocates a few boxes holds a few pages, not a megabyte.
 let chunkBytes = 1048576 as Count
 
 let firstChunkBytes = 16384 as Count
 
-// largeBoxPadBytes is what a large box's block holds before the box: the header in its last word, and a word before it so
-// that the box keeps the 16-byte alignment that HeapAlloc gives the block, as a buffer that a loop walks wants. That word
-// holds the length of the block (largeBoxLengthOffset): on Linux its pages, which unmapping them takes.
+// largeBoxPadBytes is what a large box's run holds before the box: the header in its last word, and a word before it so
+// that the box keeps the 16-byte alignment a buffer that a loop walks wants. That word holds the length of the run
+// (largeBoxLengthOffset), its pages' bytes, which giving it back takes.
 let largeBoxPadBytes = 16 as Count
 
 let largeBoxLengthOffset = 0 as Count
@@ -100,18 +96,13 @@ let largeBoxLengthOffset = 0 as Count
 // firstStackBytes is the size of a class's first stack of its own, 512 addresses; a full stack doubles.
 let firstStackBytes = 4096 as Count
 
-// largePageBytes is the page that a large block's length is rounded up to, the kernel's, and largePageMask the bits below
-// it.
-let largePageBytes = 4096 as Count
+// largeKeptBytes bounds the large runs a heap keeps for reuse, so that a thread that freed much gives the memory back to
+// the page heap, where every thread can reuse it: 512 KB, the 64 pages of Go's per-processor page cache. A larger bound
+// only adds to a program's peak (4 MB a thread adds 12 MB to a build of self/) for no gain in its time.
+let largeKeptBytes = 524288 as Count
 
-let largePageMask = 4095 as Count
-
-// largeKeptBytes bounds the large blocks a heap keeps for reuse, so that a thread that freed much gives the memory back:
-// enough for the buffers a compile of a module grows and drops over and over, little against what the program holds.
-let largeKeptBytes = 4194304 as Count
-
-// largeKeptWasteShift says how much longer than a large box's block a kept block that serves it may be: a quarter, as a
-// slot of a class is at most a quarter larger than its box.
+// largeKeptWasteShift says how much longer than a large box's run a kept run that serves it may be: a quarter, as a slot
+// of a class is at most a quarter larger than its box.
 let largeKeptWasteShift = 2 as Count
 
 // remoteBatchBoxes is how many boxes of another heap a heap's batch gathers before it puts them on that heap's list.
@@ -129,7 +120,7 @@ function alloc(bytes Count) returns Count
 	var key = __Raw.wrappingAdd(bytes, right: classStepBytes - 1) and wordRoundMask
 	if bytes > linearLimitBytes 'above'
 		if bytes > largestSmallBytes 'large'
-			return allocLarge(heap, bytes: bytes)
+			return allocLarge(heap, bytes: bytes, zeroFrom: 0)
 		end 'large'
 		key = doublingKey(bytes)
 	end 'above'
@@ -156,6 +147,62 @@ function allocFirst(bytes Count) returns Count
 	_ = newHeapRecord()
 	return alloc(bytes)
 end 'allocFirst'
+
+// grownBox is a buffer of bytes that holds the first kept bytes of box, a buffer of held bytes or noBox: box itself where
+// its run grows in place (growInPlace), and else a new box with them copied in, the old one the caller's to free, since
+// what is written next may be read from it. With zeroed, its bytes past kept read zero, as a new box's do, box's from kept
+// to held having been zero already; without, for a caller that reads nothing past what it writes, nothing is zeroed. A
+// large box zeroes no more than that, as Go's growslice clears only what its copy does not write; a slot of a class is
+// zeroed whole, which costs little. A box of more than largestSmallBytes is a large one, so held alone says which.
+function grownBox(box Count, held Count, kept Count, bytes Count, zeroed bool) returns Count
+	var moved = noBox
+	if bytes <= largestSmallBytes 'small'
+		moved = alloc(bytes)
+	end 'small' else 'large'
+		if held > largestSmallBytes 'inPlace'
+			var heldZeroFrom = bytes
+			if zeroed 'zeroed'
+				heldZeroFrom = held
+			end 'zeroed'
+			if growInPlace(box, zeroFrom: heldZeroFrom, bytes: bytes) 'grew'
+				return box
+			end 'grew'
+		end 'inPlace'
+		var zeroFrom = bytes
+		if zeroed 'zeroed'
+			zeroFrom = kept
+		end 'zeroed'
+		moved = allocLarge(heapMade(__Raw.loadWord(__Raw.threadContext(), offset: contextHeapOffset)), bytes: bytes, zeroFrom: zeroFrom)
+	end 'large'
+	copyBytes(box, target: moved, count: kept)
+	return moved
+end 'grownBox'
+
+// growInPlace makes a large box hold a number of bytes where it is, and says whether it did: when its run holds them, or
+// the page heap extends its run with the free pages after it. The box's bytes from zeroFrom on are then zero: zeroFrom is
+// where the bytes the caller keeps or writes end, and a caller that reads nothing past them passes bytes. The box stays
+// where it was, so what points into it stays good.
+function growInPlace(box Count, zeroFrom Count, bytes Count) returns bool
+	let block = __Raw.wrappingSub(box, right: largeBoxPadBytes)
+	let length = __Raw.loadWord(block, offset: largeBoxLengthOffset)
+	let held = __Raw.wrappingSub(length, right: largeBoxPadBytes)
+	if bytes > held 'extend'
+		let wanted = largeBlockBytes(bytes)
+		if not pageExtend(runningPages(), run: block, count: length shr pageShift, more: __Raw.wrappingSub(wanted, right: length) shr pageShift, zeroFrom: __Raw.wrappingAdd(largeBoxPadBytes, right: zeroFrom), zeroTo: __Raw.wrappingAdd(largeBoxPadBytes, right: bytes)) 'taken'
+			return false
+		end 'taken'
+		__Raw.storeWord(block, offset: largeBoxLengthOffset, value: wanted)
+		zeroRange(box, from: zeroFrom, to: held)
+		return true
+	end 'extend'
+	zeroRange(box, from: zeroFrom, to: bytes)
+	return true
+end 'growInPlace'
+
+// heapPages is the page heap that a heap's record names, the process's.
+function heapPages(heap Count) returns Count
+	return __Raw.loadWord(heap, offset: heapPagesOffset)
+end 'heapPages'
 
 // free gives a box back to its class, or a large one's block back (freeLarge). An empty place is skipped. A box of another
 // thread's heap goes on that heap's list.
@@ -306,16 +353,13 @@ function countOut(heap Count, change Count)
 	__Raw.storeWord(heap, offset: heapOutOffset, value: __Raw.wrappingAdd(__Raw.loadWord(heap, offset: heapOutOffset), right: change))
 end 'countOut'
 
-// newHeapRecord makes the running thread's heap: a record aligned to heapAlignBytes, kept for the life of the process,
-// with every stack the empty one, no chunk yet, and the size of each class's boxes; it holds the ladder's constants to
-// the keys and the record they lay out.
+// newHeapRecord makes the running thread's heap: a record of the page heap's pages, which are aligned to heapAlignBytes,
+// kept for the life of the process, with every stack the empty one, no chunk yet, and the size of each class's boxes; it
+// holds the ladder's constants to the keys and the record they lay out.
 function newHeapRecord() returns Count
-	#if os(Windows)
-		let block = __Raw.callImport3("HeapAlloc", arg1: processHeap(), arg2: heapZeroMemory, arg3: __Raw.wrappingAdd(heapRecordBytes, right: heapAlignBytes))
-	#else
-		let block = mapPages(__Raw.wrappingAdd(heapRecordBytes, right: heapAlignBytes))
-	#endif
-	let heap = __Raw.wrappingAdd(block, right: heapKeyMask) and heapRecordMask
+	let pages = processPages(__Raw.threadContext())
+	let heap = pageAlloc(pages, count: pagesFor(heapRecordBytes), zeroFrom: 0, zeroTo: heapRecordBytes)
+	__Raw.storeWord(heap, offset: heapPagesOffset, value: pages)
 	let empty = __Raw.wrappingAdd(heap, right: heapEmptyStackOffset)
 	var key = 0 as Count
 	var boxBytes = 0 as Count
@@ -344,12 +388,28 @@ function newHeapRecord() returns Count
 	if __Raw.loadWord(heap, offset: __Raw.wrappingAdd(lastKey, right: heapBoxBytesOffset)) != largestSmallBytes or doublingKey(largestSmallBytes) != lastKey 'ladder'
 		panic("heap: the class ladder does not end at lastKey")
 	end 'ladder'
-	if lastKey >= heapOutOffset or heapLargeKey >= heapLimitsOffset or __Raw.wrappingAdd(heapKeyMask, right: 1) != heapAlignBytes or heapLargeKey >= heapAlignBytes or heapLargeSlotsOffset >= heapRecordBytes 'layout'
+	if lastKey >= heapOutOffset or heapLargeKey >= heapLimitsOffset or __Raw.wrappingAdd(heapKeyMask, right: 1) != heapAlignBytes or heapLargeKey >= heapAlignBytes or heapLargeSlotsOffset >= heapRecordBytes or (heap and heapKeyMask) != 0 'layout'
 		panic("heap: the classes' keys do not fit the heap's record")
 	end 'layout'
 	__Raw.storeWord(__Raw.threadContext(), offset: contextHeapOffset, value: heap)
 	return heap
 end 'newHeapRecord'
+
+// processPages is the process's page heap: the one the main thread's heap names, or a new one when the main thread has no
+// heap yet, which is only before its first allocation, while it is the one thread there is (a scheduler is made by
+// allocations of the main thread's).
+function processPages(context Count) returns Count
+	let main = __Raw.loadWord(mainContext(context), offset: contextHeapOffset)
+	if main == noHeap 'first'
+		return newPageHeap()
+	end 'first'
+	return heapPages(main)
+end 'processPages'
+
+// runningPages is the page heap, by the running thread's heap, made if it has none.
+function runningPages() returns Count
+	return heapPages(heapMade(__Raw.loadWord(__Raw.threadContext(), offset: contextHeapOffset)))
+end 'runningPages'
 
 // doublingKey is the key of the class of a box of more than linearLimitBytes and at most largestSmallBytes: the power of
 // two above it, then the step of that power's classes that holds it.
@@ -386,17 +446,13 @@ function allocFresh(heap Count, key Count, bytes Count) returns Count
 end 'allocFresh'
 
 // newChunk gives heap a new chunk, which its classes carve from on, and gives its start: firstChunkBytes the first time and
-// twice the last up to chunkBytes, so a thread that allocates little holds little.
+// twice the last up to chunkBytes, so a thread that allocates little holds little. Its slots start zeroed.
 function newChunk(heap Count) returns Count
 	var bytes = __Raw.loadWord(heap, offset: heapChunkBytesOffset)
 	if bytes == 0 'first'
 		bytes = firstChunkBytes
 	end 'first'
-	#if os(Windows)
-		let chunk = __Raw.callImport3("HeapAlloc", arg1: processHeap(), arg2: heapZeroMemory, arg3: bytes)
-	#else
-		let chunk = mapPages(bytes)
-	#endif
+	let chunk = pageAlloc(heapPages(heap), count: bytes shr pageShift, zeroFrom: 0, zeroTo: bytes)
 	__Raw.storeWord(heap, offset: heapEndOffset, value: __Raw.wrappingAdd(chunk, right: bytes))
 	if bytes < chunkBytes 'grow'
 		__Raw.storeWord(heap, offset: heapChunkBytesOffset, value: __Raw.wrappingAdd(bytes, right: bytes))
@@ -416,38 +472,28 @@ function growStack(heap Count, key Count) returns Count
 	if base == empty 'first'
 		grown = firstStackBytes
 	end 'first'
-	#if os(Windows)
-		let bigger = __Raw.callImport3("HeapAlloc", arg1: processHeap(), arg2: noHeapFlags, arg3: grown)
-	#else
-		let bigger = mapPages(grown)
-	#endif
+	let pages = heapPages(heap)
+	let bigger = pageAlloc(pages, count: pagesFor(grown), zeroFrom: 0, zeroTo: 0)
 	copyBytes(base, target: bigger, count: used)
-	if base != empty 'old'
-		#if os(Windows)
-			_ = __Raw.callImport3("HeapFree", arg1: processHeap(), arg2: noHeapFlags, arg3: base)
-		#else
-			unmapPages(base, bytes: used)
-		#endif
-	end 'old'
 	__Raw.storeWord(heap, offset: baseAt, value: bigger)
 	__Raw.storeWord(heap, offset: limitAt, value: __Raw.wrappingAdd(bigger, right: grown))
+	__Raw.storeWord(heap, offset: key, value: __Raw.wrappingSub(__Raw.wrappingAdd(bigger, right: used), right: wordBytes))
+	if base != empty 'old'
+		pageFree(pages, run: base, count: pagesFor(used))
+	end 'old'
 	return __Raw.wrappingAdd(bigger, right: used)
 end 'growStack'
 
-// freeLarge takes a large box out of the count of heap, the freeing thread's, and gives its block back to the process
-// heap on Windows, and on Linux keeps it in heap for a large box to come.
+// freeLarge takes a large box out of the count of heap, the freeing thread's, and keeps its run in heap for a large box to
+// come.
 function freeLarge(heap Count, box Count)
 	countOut(heap, change: __Raw.wrappingSub(0, right: 1))
 	let block = __Raw.wrappingSub(box, right: largeBoxPadBytes)
-	#if os(Windows)
-		_ = __Raw.callImport3("HeapFree", arg1: processHeap(), arg2: noHeapFlags, arg3: block)
-	#else
-		keepLarge(heap, block: block, length: __Raw.loadWord(block, offset: largeBoxLengthOffset))
-	#endif
+	keepLarge(heap, block: block, length: __Raw.loadWord(block, offset: largeBoxLengthOffset))
 end 'freeLarge'
 
 // boxCapacity is how many bytes a box holds, which may be more than alloc was asked for: the size of its class's slots, or
-// what a large box's block holds past its pad. A String that appends in place grows into it (strings.maxon).
+// what a large box's run holds past its pad. A String that appends in place grows into it (strings.maxon).
 function boxCapacity(box Count) returns Count
 	let header = __Raw.loadWord(__Raw.wrappingSub(box, right: boxHeaderBytes), offset: 0)
 	let key = header and heapKeyMask
@@ -458,151 +504,133 @@ function boxCapacity(box Count) returns Count
 	return __Raw.loadWord(header and heapRecordMask, offset: __Raw.wrappingAdd(key, right: heapBoxBytesOffset))
 end 'boxCapacity'
 
-// allocLarge is a box of more than largestSmallBytes: a zeroed block of the process heap on Windows, and on Linux a block
-// that heap kept, with the box zeroed, or else new pages, with the header before the box. The block's first word holds its
-// length, which boxCapacity reads, and on Linux unmapping it takes.
-function allocLarge(heap Count, bytes Count) returns Count
+// allocLarge is a box of more than largestSmallBytes whose bytes from zeroFrom on are zero: a run that heap kept, or else a
+// new run of the page heap, which zeroes only the pages that were written, with the header before the box. The run's first
+// word holds its length, which boxCapacity reads and giving it back takes.
+function allocLarge(heap Count, bytes Count, zeroFrom Count) returns Count
 	countOut(heap, change: 1)
-	#if os(Windows)
-		let length = __Raw.wrappingAdd(bytes, right: largeBoxPadBytes)
-		let block = __Raw.callImport3("HeapAlloc", arg1: processHeap(), arg2: heapZeroMemory, arg3: length)
+	let length = largeBlockBytes(bytes)
+	var block = takeKept(heap, length: length)
+	if block != noBox 'kept'
+		zeroRange(block, from: __Raw.wrappingAdd(largeBoxPadBytes, right: zeroFrom), to: __Raw.wrappingAdd(largeBoxPadBytes, right: bytes))
+	end 'kept' else 'new'
+		block = pageAlloc(heapPages(heap), count: length shr pageShift, zeroFrom: __Raw.wrappingAdd(largeBoxPadBytes, right: zeroFrom), zeroTo: __Raw.wrappingAdd(largeBoxPadBytes, right: bytes))
 		__Raw.storeWord(block, offset: largeBoxLengthOffset, value: length)
-	#else
-		let block = keptOrMapped(heap, bytes: bytes)
-	#endif
+	end 'new'
 	let box = __Raw.wrappingAdd(block, right: largeBoxPadBytes)
 	__Raw.storeWord(__Raw.wrappingSub(box, right: boxHeaderBytes), offset: 0, value: __Raw.wrappingAdd(heap, right: heapLargeKey))
 	return box
 end 'allocLarge'
 
-#if os(Linux) or os(macOS)
-	// keptOrMapped is the block of a large box of a number of bytes: one that heap kept, with the box's bytes zeroed, or else
-	// new pages, which the kernel zeroes, with their length in the block.
-	function keptOrMapped(heap Count, bytes Count) returns Count
-		let length = largeBlockBytes(bytes)
-		let kept = takeKept(heap, length: length)
-		if kept != noBox 'kept'
-			zeroWords(__Raw.wrappingAdd(kept, right: largeBoxPadBytes), bytes: bytes)
-			return kept
+// largeBlockBytes is the length of the run of a large box of a number of bytes: the box and its pad in whole pages, which
+// the run holds all of, so that a kept run serves any box its pages hold.
+function largeBlockBytes(bytes Count) returns Count
+	return runBytes(pagesFor(__Raw.wrappingAdd(bytes, right: largeBoxPadBytes)))
+end 'largeBlockBytes'
+
+// takeKept takes out of heap's kept runs the shortest that holds length bytes and is at most a quarter longer, so that a
+// box never holds much more than it needs, or gives noBox.
+function takeKept(heap Count, length Count) returns Count
+	let longest = __Raw.wrappingAdd(length, right: length shr largeKeptWasteShift)
+	var best = noSlot
+	var bestLength = 0 as Count
+	var at = heapLargeSlotsOffset
+	while at < heapRecordBytes 'slots'
+		let block = __Raw.loadWord(heap, offset: at)
+		if block != noBox 'kept'
+			let held = __Raw.loadWord(block, offset: largeBoxLengthOffset)
+			if held >= length and held <= longest and (best == noSlot or held < bestLength) 'fits'
+				best = at
+				bestLength = held
+			end 'fits'
 		end 'kept'
-		let block = mapPages(length)
-		__Raw.storeWord(block, offset: largeBoxLengthOffset, value: length)
-		return block
-	end 'keptOrMapped'
+		at = __Raw.wrappingAdd(at, right: wordBytes)
+	end 'slots'
+	if best == noSlot 'none'
+		return noBox
+	end 'none'
+	let block = __Raw.loadWord(heap, offset: best)
+	__Raw.storeWord(heap, offset: best, value: noBox)
+	addKept(heap, change: __Raw.wrappingSub(0, right: bestLength))
+	return block
+end 'takeKept'
 
-	// largeBlockBytes is the length of the block of a large box of a number of bytes: the box and its pad in whole pages, which
-	// the block holds all of, so that a kept block serves any box its pages hold.
-	function largeBlockBytes(bytes Count) returns Count
-		let wanted = __Raw.wrappingAdd(__Raw.wrappingAdd(bytes, right: largeBoxPadBytes), right: largePageMask)
-		return wanted and __Raw.wrappingSub(0, right: largePageBytes)
-	end 'largeBlockBytes'
+// keepLarge keeps a freed run of length bytes in heap for a large box to come. A heap keeps a run in each of its slots and
+// at most largeKeptBytes in all: a longer run goes straight back to the page heap, and to make room the heap gives back the
+// runs it kept, round its slots, so the one kept longest goes first and a heap that frees much holds no more than the
+// bound.
+function keepLarge(heap Count, block Count, length Count)
+	if length > largeKeptBytes 'long'
+		pageFree(heapPages(heap), run: block, count: length shr pageShift)
+		return
+	end 'long'
+	var free = emptySlot(heap)
+	while free == noSlot or __Raw.wrappingAdd(__Raw.loadWord(heap, offset: heapLargeKeptOffset), right: length) > largeKeptBytes 'room'
+		let victim = __Raw.loadWord(heap, offset: heapLargeVictimOffset)
+		var next = __Raw.wrappingAdd(victim, right: wordBytes)
+		if next == heapRecordBytes 'round'
+			next = heapLargeSlotsOffset
+		end 'round'
+		__Raw.storeWord(heap, offset: heapLargeVictimOffset, value: next)
+		if __Raw.loadWord(heap, offset: victim) != noBox 'giveBack'
+			giveBackKept(heap, slot: victim)
+			if free == noSlot 'emptied'
+				free = victim
+			end 'emptied'
+		end 'giveBack'
+	end 'room'
+	__Raw.storeWord(heap, offset: free, value: block)
+	addKept(heap, change: length)
+end 'keepLarge'
 
-	// takeKept takes out of heap's kept blocks the shortest that holds length bytes and is at most a quarter longer, so that a
-	// box never holds much more than it needs, or gives noBox.
-	function takeKept(heap Count, length Count) returns Count
-		let longest = __Raw.wrappingAdd(length, right: length shr largeKeptWasteShift)
-		var best = noSlot
-		var bestLength = 0 as Count
-		var at = heapLargeSlotsOffset
-		while at < heapRecordBytes 'slots'
-			let block = __Raw.loadWord(heap, offset: at)
-			if block != noBox 'kept'
-				let held = __Raw.loadWord(block, offset: largeBoxLengthOffset)
-				if held >= length and held <= longest and (best == noSlot or held < bestLength) 'fits'
-					best = at
-					bestLength = held
-				end 'fits'
-			end 'kept'
-			at = __Raw.wrappingAdd(at, right: wordBytes)
-		end 'slots'
-		if best == noSlot 'none'
-			return noBox
-		end 'none'
-		let block = __Raw.loadWord(heap, offset: best)
-		__Raw.storeWord(heap, offset: best, value: noBox)
-		addKept(heap, change: __Raw.wrappingSub(0, right: bestLength))
-		return block
-	end 'takeKept'
+// releaseKept gives every run that a thread's heap keeps back to the page heap: the thread stops for want of work, and an
+// idle thread holds no memory for runs to come, which the page heap's release pass can then give back to the system.
+function releaseKept(heap Count)
+	if heap == noHeap or __Raw.loadWord(heap, offset: heapLargeKeptOffset) == 0 'none'
+		return
+	end 'none'
+	var at = heapLargeSlotsOffset
+	while at < heapRecordBytes 'slots'
+		if __Raw.loadWord(heap, offset: at) != noBox 'kept'
+			giveBackKept(heap, slot: at)
+		end 'kept'
+		at = __Raw.wrappingAdd(at, right: wordBytes)
+	end 'slots'
+end 'releaseKept'
 
-	// keepLarge keeps a freed block of length bytes in heap for a large box to come. A heap keeps a block in each of its slots
-	// and at most largeKeptBytes in all: a longer block goes straight back, and to make room the heap gives back the blocks it
-	// kept, round its slots, so the one kept longest goes first and a heap that frees much holds no more than the bound.
-	function keepLarge(heap Count, block Count, length Count)
-		if length > largeKeptBytes 'long'
-			unmapPages(block, bytes: length)
-			return
-		end 'long'
-		var free = emptySlot(heap)
-		while free == noSlot or __Raw.wrappingAdd(__Raw.loadWord(heap, offset: heapLargeKeptOffset), right: length) > largeKeptBytes 'room'
-			let victim = __Raw.loadWord(heap, offset: heapLargeVictimOffset)
-			var next = __Raw.wrappingAdd(victim, right: wordBytes)
-			if next == heapRecordBytes 'round'
-				next = heapLargeSlotsOffset
-			end 'round'
-			__Raw.storeWord(heap, offset: heapLargeVictimOffset, value: next)
-			let old = __Raw.loadWord(heap, offset: victim)
-			if old != noBox 'giveBack'
-				let oldLength = __Raw.loadWord(old, offset: largeBoxLengthOffset)
-				__Raw.storeWord(heap, offset: victim, value: noBox)
-				addKept(heap, change: __Raw.wrappingSub(0, right: oldLength))
-				unmapPages(old, bytes: oldLength)
-				if free == noSlot 'emptied'
-					free = victim
-				end 'emptied'
-			end 'giveBack'
-		end 'room'
-		__Raw.storeWord(heap, offset: free, value: block)
-		addKept(heap, change: length)
-	end 'keepLarge'
+// giveBackKept gives the run that a slot of heap's kept runs holds back to the page heap.
+function giveBackKept(heap Count, slot Count)
+	let block = __Raw.loadWord(heap, offset: slot)
+	let length = __Raw.loadWord(block, offset: largeBoxLengthOffset)
+	__Raw.storeWord(heap, offset: slot, value: noBox)
+	addKept(heap, change: __Raw.wrappingSub(0, right: length))
+	pageFree(heapPages(heap), run: block, count: length shr pageShift)
+end 'giveBackKept'
 
-	// emptySlot is the offset of a slot of heap's kept large blocks that holds none, or noSlot.
-	function emptySlot(heap Count) returns Count
-		var at = heapLargeSlotsOffset
-		while at < heapRecordBytes 'slots'
-			if __Raw.loadWord(heap, offset: at) == noBox 'empty'
-				return at
-			end 'empty'
-			at = __Raw.wrappingAdd(at, right: wordBytes)
-		end 'slots'
-		return noSlot
-	end 'emptySlot'
+// emptySlot is the offset of a slot of heap's kept large runs that holds none, or noSlot.
+function emptySlot(heap Count) returns Count
+	var at = heapLargeSlotsOffset
+	while at < heapRecordBytes 'slots'
+		if __Raw.loadWord(heap, offset: at) == noBox 'empty'
+			return at
+		end 'empty'
+		at = __Raw.wrappingAdd(at, right: wordBytes)
+	end 'slots'
+	return noSlot
+end 'emptySlot'
 
-	// addKept adds a number, which wraps to subtract, to the bytes of large blocks that heap keeps.
-	function addKept(heap Count, change Count)
-		__Raw.storeWord(heap, offset: heapLargeKeptOffset, value: __Raw.wrappingAdd(__Raw.loadWord(heap, offset: heapLargeKeptOffset), right: change))
-	end 'addKept'
+// addKept adds a number, which wraps to subtract, to the bytes of large runs that heap keeps.
+function addKept(heap Count, change Count)
+	__Raw.storeWord(heap, offset: heapLargeKeptOffset, value: __Raw.wrappingAdd(__Raw.loadWord(heap, offset: heapLargeKeptOffset), right: change))
+end 'addKept'
 
-	// zeroWords zeroes the words that hold a number of bytes from an address.
-	function zeroWords(at Count, bytes Count)
-		var done = 0 as Count
-		while done < bytes 'words'
-			__Raw.storeWord(at, offset: done, value: 0)
-			done = __Raw.wrappingAdd(done, right: wordBytes)
-		end 'words'
-	end 'zeroWords'
-#endif
-
-#if os(Windows)
-	function processHeap() returns Count
-		return __Raw.loadWord(__Raw.heapAddress(), offset: 0)
-	end 'processHeap'
-#endif
-
-// keep is a zeroed block that the runtime keeps until the process ends, such as a thread's context and a processor, which no
-// program drops: it is not one of the program's boxes, so the leak check does not count it.
+// keep is a zeroed block of the page heap that the runtime keeps until the process ends, such as a thread's context and a
+// processor, which no program drops: it is not one of the program's boxes, so the leak check does not count it.
 function keep(bytes Count) returns Count
-	#if os(Windows)
-		return __Raw.callImport3("HeapAlloc", arg1: processHeap(), arg2: heapZeroMemory, arg3: bytes)
-	#else
-		return mapPages(bytes)
-	#endif
+	return pageAlloc(runningPages(), count: pagesFor(bytes), zeroFrom: 0, zeroTo: bytes)
 end 'keep'
 
 // unkeep gives back a block of a number of bytes that keep made, which nothing reads again, as a grown table's old one.
 function unkeep(block Count, bytes Count)
-	#if os(Windows)
-		_ = __Raw.callImport3("HeapFree", arg1: processHeap(), arg2: noHeapFlags, arg3: block)
-	#else
-		unmapPages(block, bytes: bytes)
-	#endif
+	pageFree(runningPages(), run: block, count: pagesFor(bytes))
 end 'unkeep'

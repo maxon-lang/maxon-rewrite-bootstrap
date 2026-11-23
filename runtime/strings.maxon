@@ -107,18 +107,18 @@ end 'stringJoinDigits'
 // executable's, so its first append copies them. As the entries of an interpolation do, these take the String over.
 
 // extendedRoom is the address of a buffer that holds length bytes and room for needed in all: bytes, where owned says it is
-// a buffer of its own with that room, or else a new one the growth policy sizes, with the length bytes copied into it.
+// a buffer of its own with that room or one that grows to the growth policy's size in place, or else a new one of that
+// size with the length bytes copied into it (grownBox). Nothing past the length of a String is read, so none of the room
+// is zeroed.
 function extendedRoom(bytes Count, length Count, owned bool, needed Count) returns Count
-	var capacity = length
-	if owned 'owned'
-		capacity = boxCapacity(bytes)
-		if needed <= capacity 'room'
-			return bytes
-		end 'room'
-	end 'owned'
-	let room = __Raw.stringRoom(grownCapacity(capacity, required: needed))
-	copyBytes(bytes, target: room, count: length)
-	return room
+	if not owned 'literal'
+		return grownBox(bytes, held: 0, kept: length, bytes: grownCapacity(length, required: needed), zeroed: false)
+	end 'literal'
+	let capacity = boxCapacity(bytes)
+	if needed <= capacity 'room'
+		return bytes
+	end 'room'
+	return grownBox(bytes, held: capacity, kept: length, bytes: grownCapacity(capacity, required: needed), zeroed: false)
 end 'extendedRoom'
 
 // stringExtend is text's bytes with room for extra more after them, the old buffer left for stringRelease.

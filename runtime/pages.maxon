@@ -1,0 +1,583 @@
+// The page heap, Go's mheap without its spans: the one place the runtime takes memory from the system and gives it back,
+// shared by every thread, under a lock. It hands out runs of whole pages: the chunks that the heaps of the threads carve
+// their size classes from, the blocks of large boxes, the stacks of the classes, and the blocks the runtime keeps. A run
+// that comes back is free for the next at once, its pages still committed, and is merged with the free pages beside it
+// for nothing, since the free pages are a bitmap, not lists.
+//
+// Its memory is arenas, address space reserved from the system arenaBytes at a time (a run longer than that gets an arena
+// of its own size), each with a header in its first pages: the arena's place in the list, its size, where a search starts,
+// and four bitmaps of a bit per page: the pages given out, those written since the system last zeroed them (dirty), those
+// the system holds no memory for (released: never committed, or given back), and those freed since the last release pass
+// (recent). A run is the lowest one of the first arena that has room, as Go's page allocator finds the lowest address.
+// Pages that are released are zero when the run takes them, and so are the pages of an arena never used; only the dirty
+// pages of a run are zeroed, and only the bytes of them that the caller asks for, as Go's needzero spares memory fresh
+// from the system, and growslice clears only the tail that its copy does not write.
+//
+// The memory of free pages goes back to the system only by a release pass, Go's scavenger in its simplest sound form: at
+// most once a scavengePeriodNanos, from a free into the page heap and from the monitor's round, a pass gives back the free
+// pages that were free at the pass before as well, from the highest page down, until the committed free pages are no more
+// than retainDivisor-th of the pages in use, Go's retainExtraPercent. A program that keeps freeing and allocating keeps
+// its free pages and faults none in again; one that goes idle gives them back within two periods, down to a tenth of what
+// it holds; a program without the scheduler has no monitor, so its pass runs only at its frees. What a release costs, the
+// system's call, is paid under the lock, once a period at most.
+//
+// What it leaves out of Go's: the spans, mcentral and the sweep, which serve a collector that this runtime has not; the
+// radix tree of summaries over the bitmaps (a search walks an arena's bitmap a word at a time, which a heap of a few arenas
+// does not need more than); the per-processor page cache, whose part the heaps' kept large blocks play (heap.maxon); the
+// background scavenger's pacing to 1% of the processors' time and its huge-page awareness; and the arena index, since a
+// free finds its arena by walking the few there are. An arena is never unmapped, as Go never unmaps one.
+
+// pageBytes is the page heap's page, Go's (_PageSize): every run is a whole number of them, so a run is aligned to it.
+let pageBytes = 8192 as Count
+
+let pageShift = 13 as Count
+
+let pageMask = 8191 as Count
+
+// arenaPages is how many pages the page heap reserves at once, Go's heapArenaBytes on 64-bit Linux, 64 MB: address space,
+// which costs nothing until a run commits it.
+let arenaPages = 8192 as Count
+
+// releasePages is the run that a release gives back at least, aligned to it in its arena: 16 KB, the page of macOS on
+// arm64, the largest of the systems', which a release must not split.
+let releasePages = 2 as Count
+
+// retainDivisor keeps the committed free pages a release pass leaves at a tenth of those in use, Go's retainExtraPercent:
+// room to allocate from without faulting pages in.
+let retainDivisor = 10 as Count
+
+// scavengePeriodNanos is how often a release pass runs at most, and how long a free page stays free before one gives it
+// back.
+let scavengePeriodNanos = 1000000000 as Count
+
+// The bitmaps of an arena, in this order after its header: a bit per page, the bit of a page's index in the word at its
+// index over pagesPerBitmapWord.
+let bitmapUsed = 0 as Count
+
+let bitmapDirty = 1 as Count
+
+let bitmapReleased = 2 as Count
+
+let bitmapRecent = 3 as Count
+
+let arenaBitmaps = 4 as Count
+
+let pagesPerBitmapWord = 64 as Count
+
+let bitmapWordShift = 6 as Count
+
+let bitmapBitMask = 63 as Count
+
+let allBits = 0xFFFFFFFFFFFFFFFF as Count
+
+let lowestBit = 1 as Count
+
+// bitsPerByte turns an arena's pages into the bytes of one of its bitmaps.
+let bitsPerByteShift = 3 as Count
+
+// noPage is no page of an arena: the first page holds the header, so no run starts there.
+let noPage = 0 as Count
+
+let noArena = 0 as Count
+
+// pagesFor is how many pages hold a number of bytes.
+function pagesFor(bytes Count) returns Count
+	let rounded = try bytes + pageMask otherwise panic("out of memory: a block past the address space")
+	return rounded shr pageShift
+end 'pagesFor'
+
+// pageAlloc is the address of a new run of count pages of the page heap whose first arena is pages, with its bytes from
+// zeroFrom to zeroTo zeroed and the others as the pages held them. The search and the bitmaps are under the lock; the
+// zeroing is not, since the run is the caller's once it is marked.
+function pageAlloc(pages Count, count Count, zeroFrom Count, zeroTo Count) returns Count
+	lockPages(pages)
+	var arena = pages
+	var first = findRun(arena, count: count)
+	while first == noPage 'arenas'
+		var next = __Raw.loadWord(arena, offset: arenaNextOffset)
+		if next == noArena 'grow'
+			let grown = newArena(count)
+			__Raw.storeWord(arena, offset: arenaNextOffset, value: grown)
+			next = grown
+		end 'grow'
+		arena = next
+		first = findRun(arena, count: count)
+	end 'arenas'
+	let zeroStart = dirtyStart(arena, first: first, from: zeroFrom, to: zeroTo)
+	let zeroEnd = dirtyEnd(arena, first: first, from: zeroFrom, to: zeroTo)
+	takeRun(pages, arena: arena, first: first, count: count)
+	unlockPages(pages)
+	let run = pageAddress(arena, page: first)
+	zeroRange(run, from: zeroStart, to: zeroEnd)
+	return run
+end 'pageAlloc'
+
+// pageFree gives a run of count pages back to the page heap, free for the next run at once, and runs a release pass when
+// one is due.
+function pageFree(pages Count, run Count, count Count)
+	lockPages(pages)
+	let now = pagesClock(pages)
+	let arena = arenaOf(pages, address: run)
+	let first = pageIndex(arena, address: run)
+	setBits(arena, bitmap: bitmapUsed, first: first, count: count, value: false)
+	setBits(arena, bitmap: bitmapRecent, first: first, count: count, value: true)
+	addPagesWord(pages, offset: pagesInUseOffset, change: __Raw.wrappingSub(0, right: count))
+	addPagesWord(pages, offset: pagesRetainedOffset, change: count)
+	if first < __Raw.loadWord(arena, offset: arenaHintOffset) 'lower'
+		__Raw.storeWord(arena, offset: arenaHintOffset, value: first)
+	end 'lower'
+	scavengeIfDue(pages, now: now)
+	unlockPages(pages)
+end 'pageFree'
+
+// pageExtend grows a run of count pages by more pages in place, when the pages after it are free, zeroing the bytes of the
+// added pages from zeroFrom to zeroTo, offsets in the run, that were written; it says whether it grew the run.
+function pageExtend(pages Count, run Count, count Count, more Count, zeroFrom Count, zeroTo Count) returns bool
+	lockPages(pages)
+	let arena = arenaOf(pages, address: run)
+	let at = __Raw.wrappingAdd(pageIndex(arena, address: run), right: count)
+	let past = __Raw.wrappingAdd(at, right: more)
+	if past > __Raw.loadWord(arena, offset: arenaPagesOffset) or countBits(arena, bitmap: bitmapUsed, first: at, count: more) != 0 'taken'
+		unlockPages(pages)
+		return false
+	end 'taken'
+	let first = pageIndex(arena, address: run)
+	var from = runBytes(count)
+	if zeroFrom > from 'later'
+		from = zeroFrom
+	end 'later'
+	let zeroStart = dirtyStart(arena, first: first, from: from, to: zeroTo)
+	let zeroEnd = dirtyEnd(arena, first: first, from: from, to: zeroTo)
+	takeRun(pages, arena: arena, first: at, count: more)
+	unlockPages(pages)
+	zeroRange(run, from: zeroStart, to: zeroEnd)
+	return true
+end 'pageExtend'
+
+// newPageHeap is the page heap of the process, its first arena, which holds the page heap's own words in its header.
+function newPageHeap() returns Count
+	return newArena(0)
+end 'newPageHeap'
+
+// pagesTick is the monitor's part of the page heap: a release pass when one is due, read first without the lock, since a
+// round that finds none due is the common one.
+function pagesTick(pages Count, now Count)
+	if __Raw.wrappingSub(now, right: __Raw.loadWord(pages, offset: pagesScavengedAtOffset)) < scavengePeriodNanos 'early'
+		return
+	end 'early'
+	lockPages(pages)
+	scavengeIfDue(pages, now: now)
+	unlockPages(pages)
+end 'pagesTick'
+
+// pagesClock is the monotonic clock in nanoseconds, read under the lock with no allocation, since a free into the page
+// heap may come from the heap's own paths: on Linux through the timespec in the page heap's header.
+function pagesClock(pages Count) returns Count
+	#if os(Linux)
+		return clockNanosInto(__Raw.wrappingAdd(pages, right: pagesClockOffset))
+	#else
+		return osClockNanos()
+	#endif
+end 'pagesClock'
+
+function lockPages(pages Count)
+	spinLock(pages, offset: pagesLockOffset)
+end 'lockPages'
+
+function unlockPages(pages Count)
+	spinUnlock(pages, offset: pagesLockOffset)
+end 'unlockPages'
+
+// newArena reserves an arena that has a free run of count pages after its header, arenaPages or a multiple of it, commits
+// its header and marks every other page free and released.
+function newArena(count Count) returns Count
+	var total = arenaPages
+	while total < __Raw.wrappingAdd(count, right: headerPages(total)) 'size'
+		total = try total + arenaPages otherwise panic("out of memory: a block past the address space")
+	end 'size'
+	let header = headerPages(total)
+	let arena = reservePages(runBytes(total))
+	commitPages(arena, bytes: runBytes(header))
+	__Raw.storeWord(arena, offset: arenaPagesOffset, value: total)
+	__Raw.storeWord(arena, offset: arenaHintOffset, value: header)
+	setBits(arena, bitmap: bitmapUsed, first: 0, count: header, value: true)
+	setBits(arena, bitmap: bitmapReleased, first: header, count: __Raw.wrappingSub(total, right: header), value: true)
+	return arena
+end 'newArena'
+
+// headerPages is how many pages the header of an arena of a number of pages takes: its words and its bitmaps.
+function headerPages(total Count) returns Count
+	return pagesFor(__Raw.wrappingAdd(arenaBitmapsOffset, right: try arenaBitmaps * (total shr bitsPerByteShift) otherwise panic("an arena past the address space")))
+end 'headerPages'
+
+// findRun is the first page of the lowest free run of count pages of an arena, or noPage. Whole words of the bitmap of
+// used pages are skipped when they are full and counted when they are empty.
+function findRun(arena Count, count Count) returns Count
+	let total = __Raw.loadWord(arena, offset: arenaPagesOffset)
+	let used = bitmapOf(arena, bitmap: bitmapUsed)
+	var page = __Raw.loadWord(arena, offset: arenaHintOffset)
+	var start = page
+	var run = 0 as Count
+	while page < total 'pages'
+		let word = __Raw.loadWord(used, offset: bitmapWord(page))
+		if (page and bitmapBitMask) == 0 and word == allBits 'full'
+			page = __Raw.wrappingAdd(page, right: pagesPerBitmapWord)
+			start = page
+			run = 0
+		end 'full' else if (page and bitmapBitMask) == 0 and word == 0 'empty'
+			run = __Raw.wrappingAdd(run, right: pagesPerBitmapWord)
+			page = __Raw.wrappingAdd(page, right: pagesPerBitmapWord)
+		end 'empty' else if ((word shr (page and bitmapBitMask)) and 1) != 0 'usedPage'
+			page = __Raw.wrappingAdd(page, right: 1)
+			start = page
+			run = 0
+		end 'usedPage' else 'freePage'
+			run = __Raw.wrappingAdd(run, right: 1)
+			page = __Raw.wrappingAdd(page, right: 1)
+		end 'freePage'
+		if run >= count 'found'
+			return start
+		end 'found'
+	end 'pages'
+	return noPage
+end 'findRun'
+
+// takeRun marks a free run of an arena given out: it commits the pages of it that are released, which are zero, and marks
+// every page of it in use and dirty, under the lock.
+function takeRun(pages Count, arena Count, first Count, count Count)
+	let released = countBits(arena, bitmap: bitmapReleased, first: first, count: count)
+	if released != 0 'commit'
+		let low = firstBit(arena, bitmap: bitmapReleased, first: first, count: count)
+		let high = endBit(arena, bitmap: bitmapReleased, first: first, count: count)
+		commitPages(pageAddress(arena, page: low), bytes: runBytes(__Raw.wrappingSub(high, right: low)))
+		setBits(arena, bitmap: bitmapReleased, first: low, count: __Raw.wrappingSub(high, right: low), value: false)
+	end 'commit'
+	setBits(arena, bitmap: bitmapUsed, first: first, count: count, value: true)
+	setBits(arena, bitmap: bitmapDirty, first: first, count: count, value: true)
+	setBits(arena, bitmap: bitmapRecent, first: first, count: count, value: false)
+	addPagesWord(pages, offset: pagesInUseOffset, change: count)
+	addPagesWord(pages, offset: pagesRetainedOffset, change: __Raw.wrappingSub(0, right: __Raw.wrappingSub(count, right: released)))
+	if first == __Raw.loadWord(arena, offset: arenaHintOffset) 'past'
+		__Raw.storeWord(arena, offset: arenaHintOffset, value: __Raw.wrappingAdd(first, right: count))
+	end 'past'
+	if released != 0 'grew'
+		releaseForGrowth(pages, grew: released)
+	end 'grew'
+end 'takeRun'
+
+// releaseForGrowth is Go's scavenging when the heap grows: a run that committed pages the program did not hold grows what it
+// holds, so as many committed free pages as that go back to the system at once, however recently they were freed, down to
+// the tenth of the pages in use that a release pass leaves. A program whose buffers outgrow the free runs then holds what
+// it uses, not that and every smaller run it outgrew.
+function releaseForGrowth(pages Count, grew Count)
+	let goal = __Raw.loadWord(pages, offset: pagesInUseOffset) / retainDivisor
+	let retained = __Raw.loadWord(pages, offset: pagesRetainedOffset)
+	if retained <= goal 'within'
+		return
+	end 'within'
+	var floor = goal as Count
+	if __Raw.wrappingSub(retained, right: goal) > grew 'part'
+		floor = __Raw.wrappingSub(retained, right: grew)
+	end 'part'
+	releaseDown(pages, goal: floor, aged: false)
+end 'releaseForGrowth'
+
+// scavengeIfDue runs a release pass when the last was a period ago, under the lock.
+function scavengeIfDue(pages Count, now Count)
+	if __Raw.wrappingSub(now, right: __Raw.loadWord(pages, offset: pagesScavengedAtOffset)) < scavengePeriodNanos 'early'
+		return
+	end 'early'
+	__Raw.storeWord(pages, offset: pagesScavengedAtOffset, value: now)
+	releaseDown(pages, goal: __Raw.loadWord(pages, offset: pagesInUseOffset) / retainDivisor, aged: true)
+	var arena = pages
+	while arena != noArena 'arenas'
+		clearBitmap(arena, bitmap: bitmapRecent)
+		arena = __Raw.loadWord(arena, offset: arenaNextOffset)
+	end 'arenas'
+end 'scavengeIfDue'
+
+// releaseDown gives back free committed pages of every arena while the page heap holds more than goal of them, only
+// those free at the last pass too where aged says so.
+function releaseDown(pages Count, goal Count, aged bool)
+	var arena = pages
+	while arena != noArena and __Raw.loadWord(pages, offset: pagesRetainedOffset) > goal 'arenas'
+		releaseArena(pages, arena: arena, goal: goal, aged: aged)
+		arena = __Raw.loadWord(arena, offset: arenaNextOffset)
+	end 'arenas'
+end 'releaseDown'
+
+// releaseArena gives back to the system the free pages of an arena (where aged says so, only those free at the last pass
+// too), in aligned groups of releasePages from the highest down, while the page heap's committed free pages are above goal.
+// Neighbouring groups go back in one call.
+function releaseArena(pages Count, arena Count, goal Count, aged bool)
+	let total = __Raw.loadWord(arena, offset: arenaPagesOffset)
+	let lowest = headerPages(total)
+	var group = __Raw.wrappingSub(total, right: total mod releasePages)
+	var high = group
+	var pending = 0 as Count
+	while group >= __Raw.wrappingAdd(lowest, right: releasePages) and __Raw.wrappingSub(__Raw.loadWord(pages, offset: pagesRetainedOffset), right: pending) > goal 'groups'
+		let low = __Raw.wrappingSub(group, right: releasePages)
+		let committed = releasableCommitted(arena, first: low, aged: aged)
+		if committed == 0 'kept'
+			releaseRun(pages, arena: arena, first: group, past: high)
+			high = low
+			pending = 0
+		end 'kept'
+		pending = __Raw.wrappingAdd(pending, right: committed)
+		group = low
+	end 'groups'
+	releaseRun(pages, arena: arena, first: group, past: high)
+end 'releaseArena'
+
+// releasableCommitted is how many committed pages a group of releasePages pages from first gives back: those it holds when
+// every page of it is free and, where aged says so, was free at the last pass, and else none.
+function releasableCommitted(arena Count, first Count, aged bool) returns Count
+	if countBits(arena, bitmap: bitmapUsed, first: first, count: releasePages) != 0 'used'
+		return 0
+	end 'used'
+	if aged and countBits(arena, bitmap: bitmapRecent, first: first, count: releasePages) != 0 'recent'
+		return 0
+	end 'recent'
+	return __Raw.wrappingSub(releasePages, right: countBits(arena, bitmap: bitmapReleased, first: first, count: releasePages))
+end 'releasableCommitted'
+
+// releaseRun gives back the pages of an arena from first to past, which are free, as released and clean.
+function releaseRun(pages Count, arena Count, first Count, past Count)
+	if first >= past 'none'
+		return
+	end 'none'
+	let count = __Raw.wrappingSub(past, right: first)
+	let committed = __Raw.wrappingSub(count, right: countBits(arena, bitmap: bitmapReleased, first: first, count: count))
+	releasePagesToSystem(pageAddress(arena, page: first), bytes: runBytes(count))
+	setBits(arena, bitmap: bitmapReleased, first: first, count: count, value: true)
+	setBits(arena, bitmap: bitmapDirty, first: first, count: count, value: false)
+	addPagesWord(pages, offset: pagesRetainedOffset, change: __Raw.wrappingSub(0, right: committed))
+end 'releaseRun'
+
+// dirtyStart is the offset in the run at an arena's page first of the first byte from from on, before to, of a page that
+// is dirty, or to when there is none.
+function dirtyStart(arena Count, first Count, from Count, to Count) returns Count
+	if from >= to 'none'
+		return to
+	end 'none'
+	var page = __Raw.wrappingAdd(first, right: from shr pageShift)
+	let past = __Raw.wrappingAdd(first, right: pagesFor(to))
+	while page < past 'pages'
+		if bitAt(arena, bitmap: bitmapDirty, page: page) 'dirty'
+			let start = runBytes(__Raw.wrappingSub(page, right: first))
+			if start < from 'inside'
+				return from
+			end 'inside'
+			return start
+		end 'dirty'
+		page = __Raw.wrappingAdd(page, right: 1)
+	end 'pages'
+	return to
+end 'dirtyStart'
+
+// dirtyEnd is the offset in the run at an arena's page first just past the last byte before to, from from on, of a page
+// that is dirty, or from when there is none.
+function dirtyEnd(arena Count, first Count, from Count, to Count) returns Count
+	if from >= to 'none'
+		return from
+	end 'none'
+	let lowest = __Raw.wrappingAdd(first, right: from shr pageShift)
+	var page = __Raw.wrappingAdd(first, right: pagesFor(to))
+	while page > lowest 'pages'
+		page = __Raw.wrappingSub(page, right: 1)
+		if bitAt(arena, bitmap: bitmapDirty, page: page) 'dirty'
+			let past = runBytes(__Raw.wrappingAdd(__Raw.wrappingSub(page, right: first), right: 1))
+			if past > to 'inside'
+				return to
+			end 'inside'
+			return past
+		end 'dirty'
+	end 'pages'
+	return from
+end 'dirtyEnd'
+
+// zeroRange zeroes the bytes of a block from an offset up to another: the bytes up to a word, the words, then the bytes
+// left.
+function zeroRange(block Count, from Count, to Count)
+	var at = from
+	while at < to and (at and (wordBytes - 1)) != 0 'head'
+		__Raw.storeByte(block, offset: at, value: 0)
+		at = __Raw.wrappingAdd(at, right: 1)
+	end 'head'
+	while __Raw.wrappingAdd(at, right: wordBytes) <= to 'words'
+		__Raw.storeWord(block, offset: at, value: 0)
+		at = __Raw.wrappingAdd(at, right: wordBytes)
+	end 'words'
+	while at < to 'tail'
+		__Raw.storeByte(block, offset: at, value: 0)
+		at = __Raw.wrappingAdd(at, right: 1)
+	end 'tail'
+end 'zeroRange'
+
+// arenaOf is the arena of the page heap that holds an address.
+function arenaOf(pages Count, address Count) returns Count
+	var arena = pages
+	while arena != noArena 'arenas'
+		if address >= arena and address < pageAddress(arena, page: __Raw.loadWord(arena, offset: arenaPagesOffset)) 'inside'
+			return arena
+		end 'inside'
+		arena = __Raw.loadWord(arena, offset: arenaNextOffset)
+	end 'arenas'
+	panic("the page heap was given back a block it did not make")
+end 'arenaOf'
+
+// runBytes is the bytes of a number of pages.
+function runBytes(count Count) returns Count
+	return try count shl pageShift otherwise panic("out of memory: a run past the address space")
+end 'runBytes'
+
+// bitmapWord is the offset in a bitmap of the word that holds a page's bit.
+function bitmapWord(page Count) returns Count
+	return try (page shr bitmapWordShift) * wordBytes otherwise panic("a page past the address space")
+end 'bitmapWord'
+
+function pageAddress(arena Count, page Count) returns Count
+	return __Raw.wrappingAdd(arena, right: runBytes(page))
+end 'pageAddress'
+
+function pageIndex(arena Count, address Count) returns Count
+	return __Raw.wrappingSub(address, right: arena) shr pageShift
+end 'pageIndex'
+
+// addPagesWord adds a number, which wraps to subtract, to a count of the page heap, under its lock.
+function addPagesWord(pages Count, offset Count, change Count)
+	__Raw.storeWord(pages, offset: offset, value: __Raw.wrappingAdd(__Raw.loadWord(pages, offset: offset), right: change))
+end 'addPagesWord'
+
+// bitmapOf is the address of one of an arena's bitmaps.
+function bitmapOf(arena Count, bitmap Count) returns Count
+	let bytes = __Raw.loadWord(arena, offset: arenaPagesOffset) shr bitsPerByteShift
+	return __Raw.wrappingAdd(arena, right: __Raw.wrappingAdd(arenaBitmapsOffset, right: try bitmap * bytes otherwise panic("an arena past the address space")))
+end 'bitmapOf'
+
+function bitAt(arena Count, bitmap Count, page Count) returns bool
+	let word = __Raw.loadWord(bitmapOf(arena, bitmap: bitmap), offset: bitmapWord(page))
+	return ((word shr (page and bitmapBitMask)) and 1) != 0
+end 'bitAt'
+
+// spanMask is the bits of a word from a bit on, count of them.
+function spanMask(bit Count, count Count) returns Count
+	if count == pagesPerBitmapWord 'whole'
+		return allBits
+	end 'whole'
+	let low = try lowestBit shl count otherwise panic("a mask past a word")
+	return try __Raw.wrappingSub(low, right: lowestBit) shl bit otherwise panic("a mask past a word")
+end 'spanMask'
+
+// setBits sets or clears the bits of count pages from first in one of an arena's bitmaps, a word at a time.
+function setBits(arena Count, bitmap Count, first Count, count Count, value bool)
+	let words = bitmapOf(arena, bitmap: bitmap)
+	let past = __Raw.wrappingAdd(first, right: count)
+	var page = first
+	while page < past 'words'
+		let bit = page and bitmapBitMask
+		var span = __Raw.wrappingSub(pagesPerBitmapWord, right: bit)
+		if __Raw.wrappingAdd(page, right: span) > past 'short'
+			span = __Raw.wrappingSub(past, right: page)
+		end 'short'
+		let mask = spanMask(bit, count: span)
+		let at = bitmapWord(page)
+		let word = __Raw.loadWord(words, offset: at)
+		if value 'set'
+			__Raw.storeWord(words, offset: at, value: word or mask)
+		end 'set' else 'clear'
+			__Raw.storeWord(words, offset: at, value: word and not mask)
+		end 'clear'
+		page = __Raw.wrappingAdd(page, right: span)
+	end 'words'
+end 'setBits'
+
+// countBits is how many of the bits of count pages from first are set in one of an arena's bitmaps.
+function countBits(arena Count, bitmap Count, first Count, count Count) returns Count
+	let words = bitmapOf(arena, bitmap: bitmap)
+	let past = __Raw.wrappingAdd(first, right: count)
+	var page = first
+	var found = 0 as Count
+	while page < past 'words'
+		let bit = page and bitmapBitMask
+		var span = __Raw.wrappingSub(pagesPerBitmapWord, right: bit)
+		if __Raw.wrappingAdd(page, right: span) > past 'short'
+			span = __Raw.wrappingSub(past, right: page)
+		end 'short'
+		var word = __Raw.loadWord(words, offset: bitmapWord(page)) and spanMask(bit, count: span)
+		while word != 0 'bits'
+			word = word and __Raw.wrappingSub(word, right: 1)
+			found = __Raw.wrappingAdd(found, right: 1)
+		end 'bits'
+		page = __Raw.wrappingAdd(page, right: span)
+	end 'words'
+	return found
+end 'countBits'
+
+// firstBit is the first of count pages from first whose bit is set in one of an arena's bitmaps; one is.
+function firstBit(arena Count, bitmap Count, first Count, count Count) returns Count
+	var page = first
+	while not bitAt(arena, bitmap: bitmap, page: page) 'pages'
+		page = __Raw.wrappingAdd(page, right: 1)
+	end 'pages'
+	return page
+end 'firstBit'
+
+// endBit is just past the last of count pages from first whose bit is set in one of an arena's bitmaps; one is.
+function endBit(arena Count, bitmap Count, first Count, count Count) returns Count
+	var page = __Raw.wrappingAdd(first, right: count)
+	while not bitAt(arena, bitmap: bitmap, page: __Raw.wrappingSub(page, right: 1)) 'pages'
+		page = __Raw.wrappingSub(page, right: 1)
+	end 'pages'
+	return page
+end 'endBit'
+
+// clearBitmap clears one of an arena's bitmaps.
+function clearBitmap(arena Count, bitmap Count)
+	let words = bitmapOf(arena, bitmap: bitmap)
+	let bytes = __Raw.loadWord(arena, offset: arenaPagesOffset) shr bitsPerByteShift
+	var at = 0 as Count
+	while at < bytes 'words'
+		__Raw.storeWord(words, offset: at, value: 0)
+		at = __Raw.wrappingAdd(at, right: wordBytes)
+	end 'words'
+end 'clearBitmap'
+
+// The system's part, Go's sysReserve, sysMap and sysUnused, on Windows; the Linux and macOS ones are in their files.
+// reservePages reserves address space for a number of bytes, committing none of it; commitPages commits pages of it, which
+// read zero until written; releasePagesToSystem gives the memory of committed pages back, which read zero when committed
+// again.
+#if os(Windows)
+	// The Win32 values of VirtualAlloc and VirtualFree.
+	let memReserve = 0x2000 as Count
+
+	let memCommit = 0x1000 as Count
+
+	let memDecommit = 0x4000 as Count
+
+	let memRelease = 0x8000 as Count
+
+	let pageReadWrite = 4 as Count
+
+	let pageGuard = 0x100 as Count
+
+	function reservePages(bytes Count) returns Count
+		let block = __Raw.callImport4("VirtualAlloc", arg1: 0, arg2: bytes, arg3: memReserve, arg4: pageReadWrite)
+		if block == 0 'refused'
+			panic("out of memory: the system reserves no more address space")
+		end 'refused'
+		return block
+	end 'reservePages'
+
+	function commitPages(block Count, bytes Count)
+		if __Raw.callImport4("VirtualAlloc", arg1: block, arg2: bytes, arg3: memCommit, arg4: pageReadWrite) == 0 'refused'
+			panic("out of memory: the system commits no more pages")
+		end 'refused'
+	end 'commitPages'
+
+	function releasePagesToSystem(block Count, bytes Count)
+		if __Raw.callImport3("VirtualFree", arg1: block, arg2: bytes, arg3: memDecommit) == 0 'failed'
+			panic("the page heap's pages cannot be given back to the system")
+		end 'failed'
+	end 'releasePagesToSystem'
+#endif

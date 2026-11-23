@@ -522,7 +522,7 @@ let windowsEntryBytes = 32 as Count
 // heapOutOffset is where a heap's record holds how many boxes it carved from chunks plus how many large boxes it holds, less those it freed.
 let heapOutOffset = 424 as Count
 
-// heapLargeKey is the key in the header of a large box, a block of the process heap of its own; its stack is always full, so a free of it takes the slow path.
+// heapLargeKey is the key in the header of a large box, a run of the page heap of its own; its stack is always full, so a free of it takes the slow path.
 let heapLargeKey = 504 as Count
 
 // heapLimitsOffset is where a heap's record holds, at a class's key past it, the end of the class's stack.
@@ -567,14 +567,44 @@ let heapLargeKeptOffset = 2304 as Count
 // heapLargeVictimOffset is where a heap's record holds the offset of the slot of its kept large blocks that it gives back next when it needs room, round the slots.
 let heapLargeVictimOffset = 2312 as Count
 
+// heapPagesOffset is where a heap's record holds the process's page heap, its first arena, which every heap's record names.
+let heapPagesOffset = 2320 as Count
+
 // heapLargeSlotsOffset is where a heap's record holds its kept large blocks, a block's address or 0 a word each, to the end of the record.
-let heapLargeSlotsOffset = 2320 as Count
+let heapLargeSlotsOffset = 2328 as Count
 
 // heapRecordBytes is the size of a heap's record.
-let heapRecordBytes = 2576 as Count
+let heapRecordBytes = 2584 as Count
 
 // heapAlignBytes is the alignment of a heap's record, above every key.
 let heapAlignBytes = 512 as Count
+
+// arenaNextOffset is where an arena's header holds the next arena of the page heap, 0 after the last.
+let arenaNextOffset = 0 as Count
+
+// arenaPagesOffset is where an arena's header holds how many pages it spans, its header's among them, a multiple of 64.
+let arenaPagesOffset = 8 as Count
+
+// arenaHintOffset is where an arena's header holds the lowest of its pages that may be free, where a search for a run starts.
+let arenaHintOffset = 16 as Count
+
+// pagesLockOffset is where the page heap's first arena holds the page heap's lock, a word taken by a compare-exchange from 0 to 1.
+let pagesLockOffset = 24 as Count
+
+// pagesInUseOffset is where the page heap's first arena holds how many pages of every arena are given out.
+let pagesInUseOffset = 32 as Count
+
+// pagesRetainedOffset is where the page heap's first arena holds how many free pages are committed: given back to the page heap and not yet to the system.
+let pagesRetainedOffset = 40 as Count
+
+// pagesScavengedAtOffset is where the page heap's first arena holds the monotonic clock's nanoseconds at its last release pass.
+let pagesScavengedAtOffset = 48 as Count
+
+// pagesClockOffset is where the page heap's first arena holds the timespec, two words, that it reads the clock into on Linux, under its lock.
+let pagesClockOffset = 56 as Count
+
+// arenaBitmapsOffset is where an arena's header ends and its bitmaps start, a bit per page each: the pages given out, those written since the system zeroed them, those the system holds no memory for, and those freed since the last release pass.
+let arenaBitmapsOffset = 72 as Count
 
 // stackReserveBytes is the stack each thread reserves, the main thread's in the executable's header and a worker's when the runtime starts it, so a behaviour has the same stack on every thread. The compiler's passes recurse once per level of an expression, and a left-leaning chain of operators is as deep as it is long: a sum of 4,000 names takes about 22 MB. A reserve is only address space, committed a page at a time as the stack grows, so it costs a program nothing that it does not use.
 let stackReserveBytes = 268435456 as Count
@@ -638,6 +668,9 @@ let linuxMapAnonPrivate = 34 as Count
 
 // linuxMapNoReserve is MAP_NORESERVE: a stack's address space, committed a page at a time as it is touched.
 let linuxMapNoReserve = 16384 as Count
+
+// linuxMadvDontNeed is MADV_DONTNEED: the kernel frees the memory of private anonymous pages, which read zero when next touched.
+let linuxMadvDontNeed = 4 as Count
 
 // linuxCloneChildFlags is SIGCHLD alone: clone makes a child process with a copy of the memory, as fork does, which signals the parent when it ends.
 let linuxCloneChildFlags = 17 as Count
@@ -791,6 +824,9 @@ let macosMapAnonPrivate = 4098 as Count
 
 // macosMapNoReserve is MAP_NORESERVE: a stack's address space, committed a page at a time as it is touched.
 let macosMapNoReserve = 64 as Count
+
+// macosMapFixed is MAP_FIXED: the mapping replaces what is at the address it is given.
+let macosMapFixed = 16 as Count
 
 // macosOpenReadOnly is O_RDONLY | O_CLOEXEC.
 let macosOpenReadOnly = 16777216 as Count
@@ -985,6 +1021,9 @@ let macosSpawnCloexecDefault = 16384 as Count
 	// linuxSysMunmap is munmap(address, length).
 	let linuxSysMunmap = 215 as Count
 
+	// linuxSysMadvise is madvise(address, length, advice).
+	let linuxSysMadvise = 233 as Count
+
 	// linuxSysRtSigaction is rt_sigaction(signal, action, old action, size of the signal mask).
 	let linuxSysRtSigaction = 134 as Count
 
@@ -1128,6 +1167,9 @@ let macosSpawnCloexecDefault = 16384 as Count
 
 	// linuxSysMunmap is munmap(address, length).
 	let linuxSysMunmap = 11 as Count
+
+	// linuxSysMadvise is madvise(address, length, advice).
+	let linuxSysMadvise = 28 as Count
 
 	// linuxSysRtSigaction is rt_sigaction(signal, action, old action, size of the signal mask).
 	let linuxSysRtSigaction = 13 as Count

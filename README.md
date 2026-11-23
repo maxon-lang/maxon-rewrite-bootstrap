@@ -1763,8 +1763,8 @@ nothing.
 - **The heap** is `runtime/heap.maxon`, one per thread: a record that the thread's context names and its first alloc makes,
   so `runtime::alloc` and `runtime::free` take no lock and write no word that another thread writes (the process heap's lock
   serialized the workers, and its calls were about 40% of a build). A box of up to 8 KB is a slot of a size class (one per
-  word up to 256 bytes, then four per power of two up to 8 KB), carved from 1 MB chunks of the process heap that the heap's
-  classes share, and a larger box is a block of the process heap of its own. A word before every box holds its heap's
+  word up to 256 bytes, then four per power of two up to 8 KB), carved from chunks of the page heap that the heap's classes
+  share (16 KB doubling to 1 MB), and a larger box is a run of the page heap of its own. A word before every box holds its heap's
   record, aligned to 512 bytes, plus its class's key, so `free` (which skips 0) finds both from the box alone and pushes the
   box's address on the class's stack, which `alloc` pops and zeroes; the stacks are apart from the slots, so an alloc reads
   nothing of a slot that may have left the cache. A behaviour may free what another worker allocated: a box of another heap
@@ -1772,14 +1772,27 @@ nothing.
   exchange when a class of its runs out, as mimalloc's thread-free list works; only the owner takes, and takes everything,
   so no push meets a box taken and pushed again. The freeing thread gathers up to 64 boxes of one owner and pushes them with
   one compare-exchange, as snmalloc batches its remote frees, since a service's messages are allocated by the sender and freed
-  by every worker that runs them, and a push per box had them all fight for the owner's word. A mask over the address would save the header word, but
-  HeapAlloc gives no alignment to a chunk's size, so a large box would carry up to a chunk of padding or every free a lookup
-  in a map of the address space. On Linux a large box's block is pages of its own, whole pages long, and a freed one is kept
-  by the freeing thread's heap (up to 32 blocks and 4 MB, the one kept longest given back first to make room), and the
-  shortest kept block that holds a large box and is at most a quarter longer serves it, its box zeroed; so a program that
-  grows and drops buffers maps and unmaps no pages for each (the array-indexing benchmark made 1,875 mmaps, now 61, and
-  `build self` 6,782, now about 3,800). Windows' process heap keeps freed blocks itself, and a heap of its own showed no
-  gain there.
+  by every worker that runs them, and a push per box had them all fight for the owner's word. A mask over the address would
+  save the header word, but the page heap's runs are not aligned to a chunk's size, so a large box would carry up to a chunk
+  of padding or every free a lookup in a map of the address space. A freed large box's run is kept by the freeing thread's
+  heap (up to 32 runs and 512 KB, the 64 pages of Go's per-processor page cache, the one kept longest given back to the page heap first to make room, and all of them when the
+  thread stops for want of work), and the shortest kept run that holds a large box and is at most a quarter longer serves it;
+  so a program that grows and drops buffers takes no lock for each. A large box that grows (an array's, a byte array's or a
+  String's buffer, by the one growth policy) takes the free pages after its run where there are some (`growInPlace`), so it is
+  neither copied nor faulted in again; else it moves to a buffer that zeroes only what the copy does not write, as Go's
+  growslice clears only the tail.
+- **The page heap** is `runtime/pages.maxon`, Go's mheap without its spans, the same code on every system over three calls of
+  the system's (reserve, commit, release: `VirtualAlloc` and `VirtualFree` on Windows, `mmap` and `madvise` on Linux, `mmap`
+  on macOS): the one place memory comes from and goes back to, shared by the threads under a lock that only their slow paths
+  take (a chunk, a large box that no kept run serves, a stack of a class, a block the runtime keeps). Its memory is arenas of
+  64 MB of reserved address space, with a bitmap per arena of the 8 KB pages given out, those written since the system zeroed
+  them, those the system holds no memory for, and those freed since the last release pass; a run is the lowest free one, so
+  freed runs merge with their neighbours for nothing and are reused while still committed, and only its written pages are
+  zeroed, as Go's needzero spares memory fresh from the system. Free pages go back to the system only by a release pass (Go's
+  scavenger in its simplest form), at most once a second, from a free into the page heap and from the monitor's round: it
+  gives back the free pages that were free at the pass before too, from the highest down, until the committed free pages are
+  a tenth of those in use (Go's `retainExtraPercent`). A busy program keeps its free pages and faults none in again; an idle
+  one gives them back within two seconds, so an idle service holds no more than it did.
 - **Counting allocations.** The runtime knows the heap boxes that are allocated and not freed in every executable, so the
   runtime is the same code whatever the build: each heap counts the slots it carves and the large boxes it holds, less those
   it frees, and the live boxes are the sum over the threads' heaps less the slots on their stacks and lists
@@ -2195,7 +2208,7 @@ error in `r10` too. `minimaxon check runtime` holds the runtime to the table: ea
 mapped function exists with exactly that signature (`E3004` when it is missing, `E3005` when it differs) and links as
 `rtSymbol` says. A new entry is a row of each table and a function in `runtime/`.
 
-**Globals.** The entry stub keeps the process heap and the two standard handles (`g.heap`, `g.stdout`, `g.stderr`),
+**Globals.** The entry stub keeps the process heap and the two standard handles (`g.heap`, `g.stdout`, `g.stderr`; the runtime's heap uses no process heap, but the backend's test runtime does),
 which it sets before `main`, on Linux the standard handles, fds 1 and 2, and the stack pointer the process started with
 (`g.processStart`), and no heap. Runtime source reaches a global through its address intrinsic.
 The runtime is the same code whatever the build: each thread's heap always knows its live boxes, and `--count-allocations` changes only

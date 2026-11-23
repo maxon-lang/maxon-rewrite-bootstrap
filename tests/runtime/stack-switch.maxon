@@ -40,10 +40,6 @@ let testStopBytes = 40 as Count
 let testPending = 1 as Count
 
 #if os(Windows)
-	let testCommitReserve = 0x3000 as Count
-
-	let testReadWrite = 4 as Count
-
 	let testSuspendFailed = 0xFFFFFFFF as Count
 #endif
 
@@ -111,15 +107,7 @@ end 'testSwitch'
 
 // testStack is the lowest address of testStackBytes of committed memory, which the process keeps.
 function testStack() returns Count
-	#if os(Windows)
-		let low = __Raw.callImport4("VirtualAlloc", arg1: 0, arg2: testStackBytes, arg3: testCommitReserve, arg4: testReadWrite)
-		if low == 0 'refused'
-			panic("cannot allocate the green stack")
-		end 'refused'
-		return low
-	#else
-		return mapPages(testStackBytes)
-	#endif
+	return keep(testStackBytes)
 end 'testStack'
 
 function testTable()

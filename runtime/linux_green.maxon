@@ -47,10 +47,7 @@
 
 	// nanotime is the monotonic clock in nanoseconds, read into the thread's block, so it allocates nothing.
 	function nanotime(context Count) returns Count
-		let time = __Raw.wrappingAdd(threadBlockSwitch(context), right: threadBlockClockOffset)
-		_ = __Raw.syscall2(linuxSysClockGettime, arg1: linuxClockMonotonic, arg2: time)
-		let wholeNanos = try __Raw.loadWord(time, offset: 0) * nanosPerSecond otherwise panic("the monotonic clock is past a word of nanoseconds")
-		return try wholeNanos + __Raw.loadWord(time, offset: wordBytes) otherwise panic("the monotonic clock is past a word of nanoseconds")
+		return clockNanosInto(__Raw.wrappingAdd(threadBlockSwitch(context), right: threadBlockClockOffset))
 	end 'nanotime'
 
 	// sleepMicros sleeps the monitor for a number of microseconds, through the timespec of its block; a signal that ends the

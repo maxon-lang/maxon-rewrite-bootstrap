@@ -181,15 +181,19 @@ function collectionReserve(box Count, needed Count, elementBytes Count)
 	collectionMove(box, capacity: grownCapacity(capacity, required: needed), elementBytes: elementBytes)
 end 'collectionReserve'
 
-// collectionMove moves the elements into a buffer of a capacity that holds them, and frees the buffer it leaves: the
-// elements moved to the new one, so only the buffer goes.
+// collectionMove makes the buffer hold a larger capacity, whose slots past the length read zero, as a new buffer's do: in
+// place where the heap can grow it, and else by moving the elements into a new buffer (grownBox) and freeing the one it
+// leaves: the elements moved to the new one, so only the buffer goes.
 function collectionMove(box Count, capacity Count, elementBytes Count)
-	let buffer = alloc(collectionBytes(capacity, elementBytes: elementBytes))
 	let old = collectionData(box)
-	copyBytes(old, target: buffer, count: collectionBytes(collectionLength(box), elementBytes: elementBytes))
-	__Raw.storeWord(box, offset: arrayDataOffset, value: buffer)
+	let held = collectionBytes(__Raw.loadWord(box, offset: arrayCapacityOffset), elementBytes: elementBytes)
+	let length = collectionBytes(collectionLength(box), elementBytes: elementBytes)
+	let buffer = grownBox(old, held: held, kept: length, bytes: collectionBytes(capacity, elementBytes: elementBytes), zeroed: true)
+	if buffer != old 'moved'
+		__Raw.storeWord(box, offset: arrayDataOffset, value: buffer)
+		free(old)
+	end 'moved'
 	__Raw.storeWord(box, offset: arrayCapacityOffset, value: capacity)
-	free(old)
 end 'collectionMove'
 
 // collectionExtend adds room for a number of elements after the last and gives the address of the room, which the

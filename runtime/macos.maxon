@@ -432,19 +432,29 @@
 		_ = __Raw.callImport2("mkdir", arg1: cPath, arg2: macosDirectoryMode)
 	end 'makeDirectory'
 
-	// mapPages is a block of zeroed pages that holds a number of bytes, which libSystem maps.
-	function mapPages(bytes Count) returns Count
-		let block = checked(__Raw.callImport6("mmap", arg1: nullPointer, arg2: bytes, arg3: macosProtReadWrite, arg4: macosMapAnonPrivate, arg5: noFd, arg6: noMappingOffset))
+	// The page heap's part of the system (pages.maxon): reservePages maps address space read-write with no reserve of
+	// memory, so a page costs nothing until it is touched and commitPages has nothing to do; releasePagesToSystem maps fresh
+	// pages over the ones given back, which frees their memory and has them read zero, where Go's madvise(MADV_FREE_REUSABLE)
+	// leaves what they held.
+	function reservePages(bytes Count) returns Count
+		return mappedPages(nullPointer, bytes: bytes, flags: macosMapAnonPrivate or macosMapNoReserve)
+	end 'reservePages'
+
+	function commitPages(block Count, bytes Count)
+	end 'commitPages'
+
+	function releasePagesToSystem(block Count, bytes Count)
+		_ = mappedPages(block, bytes: bytes, flags: macosMapAnonPrivate or macosMapNoReserve or macosMapFixed)
+	end 'releasePagesToSystem'
+
+	// mappedPages maps zeroed pages that hold a number of bytes, at an address or where the system puts them.
+	function mappedPages(address Count, bytes Count, flags Count) returns Count
+		let block = checked(__Raw.callImport6("mmap", arg1: address, arg2: bytes, arg3: macosProtReadWrite, arg4: flags, arg5: noFd, arg6: noMappingOffset))
 		if failed(block) 'refused'
 			panic("out of memory: the system maps no more pages")
 		end 'refused'
 		return block
-	end 'mapPages'
-
-	// unmapPages gives back the pages of a block of a number of bytes that mapPages made.
-	function unmapPages(block Count, bytes Count)
-		_ = __Raw.callImport2("munmap", arg1: block, arg2: bytes)
-	end 'unmapPages'
+	end 'mappedPages'
 
 	// osExecutablePath is the full path of the running executable: the one dyld loaded it from, which may name links,
 	// made real, as maxon's runtime reads it.

@@ -537,6 +537,7 @@ function stopThread(context Count) returns bool
 	__Raw.storeWord(context, offset: contextIdleNextOffset, value: __Raw.loadWord(scheduler, offset: schedIdleThreadsOffset))
 	__Raw.storeWord(scheduler, offset: schedIdleThreadsOffset, value: context)
 	unlockScheduler(scheduler)
+	releaseKept(__Raw.loadWord(context, offset: contextHeapOffset))
 	waitStopped(context)
 	let proc = __Raw.atomicExchange(context, offset: contextNextProcOffset, value: noProc)
 	if proc == noProc 'unhanded'
@@ -1012,12 +1013,21 @@ function runqPutUnspilled(proc Count, g Count)
 	__Raw.storeRelease(proc, offset: procRunqTailOffset, value: __Raw.wrappingAdd(tail, right: 1))
 end 'runqPutUnspilled'
 
-// The scheduler's lock: a word taken by a compare-exchange from 0 to 1 and given back by a store, held for a few loads and
-// stores and never across a wait. Runtime code is never stopped by the monitor, so a holder is only ever descheduled by the
-// system, and a waiter yields after a few rounds so as not to keep it from running.
 function lockScheduler(scheduler Count)
+	spinLock(scheduler, offset: schedLockOffset)
+end 'lockScheduler'
+
+function unlockScheduler(scheduler Count)
+	spinUnlock(scheduler, offset: schedLockOffset)
+end 'unlockScheduler'
+
+// The runtime's locks, the scheduler's and the page heap's: a word taken by a compare-exchange from 0 to 1 and given back
+// by a store, held for a few loads and stores, or a system call, and never across a wait. Runtime code is never stopped by
+// the monitor, so a holder is only ever descheduled by the system, and a waiter yields after a few rounds so as not to keep
+// it from running.
+function spinLock(record Count, offset Count)
 	var round = 0 as Count
-	while __Raw.compareExchange(scheduler, offset: schedLockOffset, expected: unset, desired: set) != unset 'take'
+	while __Raw.compareExchange(record, offset: offset, expected: unset, desired: set) != unset 'take'
 		if round < lockSpinRounds 'spin'
 			for i in 0 upto lockPauses 'pauses'
 				__Raw.spinPause()
@@ -1027,11 +1037,11 @@ function lockScheduler(scheduler Count)
 			yieldThread()
 		end 'yield'
 	end 'take'
-end 'lockScheduler'
+end 'spinLock'
 
-function unlockScheduler(scheduler Count)
-	_ = __Raw.atomicExchange(scheduler, offset: schedLockOffset, value: unset)
-end 'unlockScheduler'
+function spinUnlock(record Count, offset Count)
+	_ = __Raw.atomicExchange(record, offset: offset, value: unset)
+end 'spinUnlock'
 
 // yieldThread gives the processor the thread runs on to another thread of the system.
 function yieldThread()

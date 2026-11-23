@@ -16,6 +16,7 @@ var macosABI = []layoutConst{
 	{"macosProtReadWrite", 3, true, toRuntime | toSelfBack, "PROT_READ | PROT_WRITE."},
 	{"macosMapAnonPrivate", 0x1002, true, toRuntime | toSelfBack, "MAP_ANON | MAP_PRIVATE: zeroed pages of no file."},
 	{"macosMapNoReserve", 0x40, true, toRuntime | toSelfBack, "MAP_NORESERVE: a stack's address space, committed a page at a time as it is touched."},
+	{"macosMapFixed", 0x10, true, toRuntime, "MAP_FIXED: the mapping replaces what is at the address it is given."},
 
 	// Files.
 	{"macosOpenReadOnly", 0x1000000, true, toRuntime, "O_RDONLY | O_CLOEXEC."},
