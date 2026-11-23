@@ -27,6 +27,38 @@ function runtimeEntry(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 		try entryItoa(vm, f: f, x: x)
 		return
 	end 'rtItoa'
+	if symbol == ir.Rt.rtDecimalLength 'rtDecimalLength'
+		try entryDecimalLength(vm, f: f, x: x)
+		return
+	end 'rtDecimalLength'
+	if symbol == ir.Rt.rtStrJoinRoom 'rtStrJoinRoom'
+		try entryStrJoinRoom(vm, f: f, x: x)
+		return
+	end 'rtStrJoinRoom'
+	if symbol == ir.Rt.rtStrJoinPut 'rtStrJoinPut'
+		try entryStrJoinPut(vm, f: f, x: x)
+		return
+	end 'rtStrJoinPut'
+	if symbol == ir.Rt.rtStrJoinDigits 'rtStrJoinDigits'
+		try entryStrJoinDigits(vm, f: f, x: x)
+		return
+	end 'rtStrJoinDigits'
+	if symbol == ir.Rt.rtStrOwned 'rtStrOwned'
+		try entryStrOwned(vm, f: f, x: x)
+		return
+	end 'rtStrOwned'
+	if symbol == ir.Rt.rtStrExtend 'rtStrExtend'
+		try entryStrExtend(vm, f: f, x: x)
+		return
+	end 'rtStrExtend'
+	if symbol == ir.Rt.rtStrRelease 'rtStrRelease'
+		try entryStrRelease(vm, f: f, x: x)
+		return
+	end 'rtStrRelease'
+	if symbol == ir.Rt.rtStrAppend 'rtStrAppend'
+		try entryStrAppend(vm, f: f, x: x)
+		return
+	end 'rtStrAppend'
 	if symbol == ir.Rt.rtFtoa 'rtFtoa'
 		try entryFtoa(vm, f: f, x: x)
 		return
@@ -239,6 +271,10 @@ function runtimeEntry(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 		try entryArrayFill(vm, f: f, x: x)
 		return
 	end 'rtArrayFill'
+	if symbol == ir.Rt.rtArrayCapacity 'rtArrayCapacity'
+		try entryArrayCapacity(vm, f: f, x: x)
+		return
+	end 'rtArrayCapacity'
 	if symbol == ir.Rt.rtArrayReserve 'rtArrayReserve'
 		try entryArrayReserve(vm, f: f, x: x)
 		return
@@ -403,14 +439,6 @@ function runtimeEntry(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 		try entryBytesAppendStr(vm, f: f, x: x)
 		return
 	end 'rtBytesAppendStr'
-	if symbol == ir.Rt.rtBytesTakeString 'rtBytesTakeString'
-		try entryBytesTakeString(vm, f: f, x: x)
-		return
-	end 'rtBytesTakeString'
-	if symbol == ir.Rt.rtStrSimple 'rtStrSimple'
-		try entryStrSimple(vm, f: f, x: x)
-		return
-	end 'rtStrSimple'
 	if symbol == ir.Rt.rtBytesToString 'rtBytesToString'
 		try entryBytesToString(vm, f: f, x: x)
 		return

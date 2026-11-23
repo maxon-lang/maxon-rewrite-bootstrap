@@ -4,7 +4,7 @@ function main() returns ExitCode
 	var ages = Ages.create()
 	ages.upsert("a", value: 1)
 	for (name, age) in ages 'each'
-		name.append("x")
+		name = "{name}x"
 	end 'each'
 	return 0
 end 'main'

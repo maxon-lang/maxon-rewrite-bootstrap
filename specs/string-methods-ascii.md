@@ -294,7 +294,7 @@ function main() returns ExitCode
 	end 'loop'
 	print("\n")
 	var acc = ""
-	acc.append("x,y")
+	acc = "{acc}x,y"
 	let grown = acc.split(",")
 	print("{grown.count()}\n")
 	return 0
@@ -400,7 +400,7 @@ difference.
 ```maxon
 function makeAffix(head bool) returns String
 	var s = "af"
-	s.append("fix" if head else "ter")
+	s = "{s}{"fix" if head else "ter"}"
 	return s
 end 'makeAffix'
 
@@ -474,7 +474,7 @@ typealias Tag = int(0 to 9)
 
 function piece(n Tag) returns String
 	var s = "p"
-	s.append("{n}")
+	s = "{s}{n}"
 	return s
 end 'piece'
 
@@ -490,7 +490,7 @@ function main() returns ExitCode
 	print("{needle.byteLength()}{wide.byteLength()}\n")
 	print("[{needle}][{wide}]\n")
 	var grown = "MiXeD"
-	grown.append("-CaSe-TAIL")
+	grown = "{grown}-CaSe-TAIL"
 	print("[{grown.toLower()}][{grown.toUpper()}][{grown}]\n")
 	return 0
 end 'main'

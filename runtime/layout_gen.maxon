@@ -18,9 +18,6 @@ let arrayDataOffset = 16 as Count
 // arrayHeaderBytes is the size of the box of an array and of a byte array.
 let arrayHeaderBytes = 24 as Count
 
-// arrayFirstCapacity is the capacity of an empty array's first buffer, which it doubles from.
-let arrayFirstCapacity = 4 as Count
-
 // frozenCountOffset is where the box of a frozen value holds how many owners share it, stepped atomically; the value is dropped and the box freed when it reaches 0.
 let frozenCountOffset = 0 as Count
 
@@ -572,9 +569,6 @@ let stackReserveBytes = 268435456 as Count
 
 // byteBytes is the size of an element of a byte array.
 let byteBytes = 1 as Count
-
-// bytesFirstCapacity is the capacity of an empty byte array's first buffer, which it doubles from.
-let bytesFirstCapacity = 16 as Count
 
 // linuxEpollCloexec is EPOLL_CLOEXEC: the poller is closed in a child that execs.
 let linuxEpollCloexec = 524288 as Count

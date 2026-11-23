@@ -335,7 +335,7 @@ error E2004: <fragment>:7:12: Function 'Set.insert' does not return a value
 ```
 
 <!-- test: error.string-void-mutator-in-value-position -->
-<!-- skip: differing error code: operand types -->
+<!-- skip: language difference: a String is built by an interpolation assigned back to it, which appends in place; there is no StringBuilder and no String.append -->
 ⚠ THE CONTROL for `String`, and one whose refusal DOES NOT COME FROM AN ARM. `append` is
 `stdlib/String.maxon`'s, so this is the ORDINARY refusal every void call gets. ⭐ **That is why it names
 `String.append` where an arm would name a bare member**: an arm blames the member the author wrote, while

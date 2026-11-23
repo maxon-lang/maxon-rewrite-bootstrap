@@ -1441,7 +1441,7 @@ type FifoTape
 			self.misplaced = try self.misplaced + 1 otherwise panic("out of range")
 		end 'outOfPlace'
 		if self.seen < edge or self.seen >= backlog - edge 'atAnEdge'
-			self.trail.append(" {s}")
+			self.trail = "{self.trail} {s}"
 		end 'atAnEdge'
 		self.seen = try self.seen + 1 otherwise panic("out of range")
 	end 'note'
@@ -1500,7 +1500,7 @@ type InboxTape
 			self.misplaced = try self.misplaced + 1 otherwise panic("out of range")
 		end 'outOfPlace'
 		if self.seen < edge or self.seen >= backlog - edge 'atAnEdge'
-			self.trail.append(" {s}")
+			self.trail = "{self.trail} {s}"
 		end 'atAnEdge'
 		self.seen = try self.seen + 1 otherwise panic("out of range")
 	end 'note'
@@ -2815,7 +2815,7 @@ type Ledger
 
 	export function take(mutates self, n Tally)
 		self.taken = try self.taken + 1 otherwise panic("out of range")
-		self.log.append(" {n}")
+		self.log = "{self.log} {n}"
 	end 'take'
 
 	export function finish() returns Tally
@@ -5982,7 +5982,7 @@ function main() returns ExitCode
 	let h = spawn Svc.create()
 	var src = "payload {42}"
 	let n = try await h.keep(src.clone()) otherwise 0
-	src.append("!")
+	src = "{src}!"
 	print("main {src} after the service kept {n} bytes\n")
 	return 0
 end 'main'
@@ -6020,9 +6020,9 @@ function main() returns ExitCode
 	let h = spawn Svc.create()
 	var src = "payload {42}"
 	let n = try await h.keep(src.sliceLength(src.startIndex(), length: 7)) otherwise 0
-	src.append("!")
+	src = "{src}!"
 	let m = try await h.keep(src.slice(src.startIndex(), endIndex: src.endIndex())) otherwise 0
-	src.append("?")
+	src = "{src}?"
 	print("main {src} after the service kept {n} and {m} bytes\n")
 	return 0
 end 'main'
@@ -6117,7 +6117,7 @@ function main() returns ExitCode
 	for i in 1 to rounds 'round'
 		let r = try readers.get(i mod serviceCount) otherwise panic("readers.get")
 		var s = ""
-		s.append("payload {i mod 10}")
+		s = "{s}payload {i mod 10}"
 		let bytes = s.toByteArray()
 		try r.take(s) otherwise panic("an open mailbox with room takes the send")
 		kept = try kept + bytes.count() otherwise panic("out of range")
@@ -7964,7 +7964,7 @@ function main() returns ExitCode
 	var src = "payload {42}"
 	let part = src.clone()
 	let n = try await h.measure(part) otherwise 0
-	src.append("!")
+	src = "{src}!"
 	print("service read {n} bytes, sender wrote {src}\n")
 	return 0
 end 'main'

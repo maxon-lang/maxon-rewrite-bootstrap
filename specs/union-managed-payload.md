@@ -536,7 +536,7 @@ end 'grab'
 function main() returns ExitCode
 	let m = M.text("original payload, long enough to be a real heap allocation")
 	var escaped = grab(m)
-	escaped.append(" MUTATED")
+	escaped = "{escaped} MUTATED"
 	print("{grab(m)}|{escaped}\n")
 	return 0
 end 'main'
@@ -606,7 +606,7 @@ end 'grab'
 function main() returns ExitCode
 	let m = M.text("original payload, long enough to be a real heap allocation")
 	var own = grab(m).clone()
-	own.append(" MUTATED")
+	own = "{own} MUTATED"
 	print("{grab(m)}\n{own}\n")
 	return 0
 end 'main'

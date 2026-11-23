@@ -190,7 +190,7 @@ typealias Int = int(i64.min to i64.max)
 typealias IntArray = Array with Int
 
 function main() returns ExitCode
-	let arr = IntArray.create(0)
+	var arr = IntArray.create(0)
 	var refused = false
 	try arr.set(0, value: 5) otherwise 'outOfRange'
 		refused = true
@@ -214,7 +214,7 @@ typealias Int = int(i64.min to i64.max)
 typealias IntArray = Array with Int
 
 function main() returns ExitCode
-	let arr = IntArray from [11, 22, 33]
+	var arr = IntArray from [11, 22, 33]
 	let sub = try arr.slice(0, endIndex: 2) otherwise panic("slice: 0..2 of a length-3 array")
 	let before = arr.capacity()
 	var refused = false

@@ -1593,13 +1593,13 @@ function holds(s String, key Tally, fillByte Tally, padLength Tally) returns boo
 end 'holds'
 
 function makePad(fill String, length Tally) returns String
-	let sb = StringBuilder.create()
+	var sb = ""
 	var left = length
 	while left > 0 'build'
-		sb.append(fill)
+		sb = "{sb}{fill}"
 		left = left - 1
 	end 'build'
-	return sb.build()
+	return sb
 end 'makePad'
 
 type Churn

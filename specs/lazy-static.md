@@ -244,7 +244,7 @@ type Vocab
 
 	static function describe(a String, b String) returns String
 		var s = "{Vocab.indent}{a}\n"
-		s.append("{Vocab.indent}{b}\n")
+		s = "{s}{Vocab.indent}{b}\n"
 		return s
 	end 'describe'
 end 'Vocab'
@@ -277,9 +277,9 @@ type Vocab
 	static function mix(flag bool) returns String
 		var s = "{Vocab.first}1"
 		if flag 'withSecond'
-			s.append("{Vocab.second}2")
+			s = "{s}{Vocab.second}2"
 		end 'withSecond'
-		s.append("{Vocab.first}3")
+		s = "{s}{Vocab.first}3"
 		return s
 	end 'mix'
 end 'Vocab'

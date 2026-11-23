@@ -1,0 +1,299 @@
+// The String an interpolated literal makes. Its parts are evaluated in order, then measured: a String part's length is its
+// word's, a literal part's is known before the program runs, and an integer's is the count of its digits. The sum is one
+// allocation, and each part is put into it after the ones before, an integer's digits written there and never made into a
+// String of their own (runtime/strings.maxon). An interpolated literal that is a part of another, with no format of its
+// own, gives its parts to the outer one, so it is never made.
+//
+// An assignment whose value is an interpolated literal that starts with the assigned place itself, `s = "{s}..."`, appends
+// the other parts to the String the place holds: the assignment consumes that String, which owns its buffer alone when its
+// owned bit is set (a literal's is clear), so the parts go in after its bytes where the buffer has room, and otherwise the
+// growth policy sizes a new one. The ownership pass holds the place while the other parts are evaluated (the first part
+// of a literal and an assignment's target are both held), so none of them changes it; a part that reads it again reads the
+// old bytes, which the append neither moves nor frees until every part is in.
+
+// TextOwner says who owns the string a part of an interpolated literal gives, or that the part is an integer.
+export enum TextOwner
+	// textBorrowed is a string some other owner holds, which the literal only reads.
+	textBorrowed
+	// textImmortal is a string in the executable.
+	textImmortal
+	// textFresh is a string the literal made, which it owns until it joins it into the result.
+	textFresh
+	// textDecimal is an integer, whose decimal digits the join writes into its buffer itself.
+	textDecimal
+end 'TextOwner'
+
+// TextPart is the value of a part of an interpolated literal and who owns it: unsigned says how a textDecimal part is read,
+// and known that the part is the literal text at index of the parts at partsRef, length bytes long, which is made into a
+// String only where it is put, so that no literal is held across the calls before.
+export type TextPart
+	export var value as Reg
+	export var owner as TextOwner
+	export var unsigned as bool
+	export var known as bool
+	export var length as Count
+	export var partsRef as diag.U32
+	export var index as Count
+
+	export static function make(value Reg, owner TextOwner) returns TextPart
+		return TextPart{value: value, owner: owner, unsigned: false, known: false, length: 0 as Count, partsRef: 0 as diag.U32, index: 0 as Count}
+	end 'make'
+
+	export static function literal(partsRef diag.U32, index Count, length Count) returns TextPart
+		return TextPart{value: noReg, owner: TextOwner.textImmortal, unsigned: false, known: true, length: length, partsRef: partsRef, index: index}
+	end 'literal'
+
+	export static function decimal(value Reg, unsigned bool) returns TextPart
+		return TextPart{value: value, owner: TextOwner.textDecimal, unsigned: unsigned, known: false, length: 0 as Count, partsRef: 0 as diag.U32, index: 0 as Count}
+	end 'decimal'
+
+	// isText is whether the part is a String.
+	export function isText() returns bool
+		return owner != TextOwner.textDecimal
+	end 'isText'
+end 'TextPart'
+
+export typealias TextParts = Array with TextPart
+
+// textOf is the String register of a part that is text: a literal's made where it is asked for.
+function textOf(mutates l Lowerer, p ast.Project, part TextPart) returns Reg
+	if part.known 'literal'
+		return strReg(l, value: p.modules[l.mi].tree.strPartText(part.partsRef, index: part.index))
+	end 'literal'
+	return part.value
+end 'textOf'
+
+// joinParts is a new String of the texts of the parts in order. A lone String part that is no borrow is the String itself,
+// a lone integer is its digits, and two Strings are joined by the one entry that measures, allocates and copies both.
+function joinParts(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, parts TextParts) returns Reg
+	if parts.count() == 1 and parts[0].isText() 'whole'
+		return parts[0].value
+	end 'whole'
+	var joined = noReg
+	if parts.count() == 1 'digits'
+		let unsigned = flag(l, on: parts[0].unsigned)
+		joined = runtime(l, symbol: Rt.rtItoa, kind: IrKind.kindManaged, args: argsOf2(parts[0].value, b: unsigned))
+	end 'digits' else if parts.count() == 2 and parts[0].isText() and parts[1].isText() 'pair'
+		let left = textOf(l, p: p, part: parts[0])
+		let right = textOf(l, p: p, part: parts[1])
+		joined = runtime(l, symbol: Rt.rtConcat, kind: IrKind.kindManaged, args: argsOf2(left, b: right))
+	end 'pair' else 'measured'
+		let lengths = measure(l, parts: parts)
+		let length = total(l, parts: parts, lengths: lengths)
+		let room = runtime(l, symbol: Rt.rtStrJoinRoom, kind: IrKind.kindManaged, args: argsOf1(length))
+		joined = putParts(l, p: p, text: room, parts: parts, lengths: lengths)
+	end 'measured'
+	dropFresh(l, p: p, ms: ms, parts: parts)
+	return joined
+end 'joinParts'
+
+// measure is the length of each part in bytes: a literal's is a constant, which total folds.
+function measure(mutates l Lowerer, parts TextParts) returns RegList
+	var lengths = RegList.create(0)
+	for i in 0 upto parts.count() 'parts'
+		if parts[i].known 'known'
+			lengths.push(noReg)
+		end 'known' else if parts[i].isText() 'text'
+			lengths.push(runtime(l, symbol: Rt.rtStrLen, kind: IrKind.kindScalar, args: argsOf1(parts[i].value)))
+		end 'text' else 'digits'
+			let unsigned = flag(l, on: parts[i].unsigned)
+			lengths.push(runtime(l, symbol: Rt.rtDecimalLength, kind: IrKind.kindScalar, args: argsOf2(parts[i].value, b: unsigned)))
+		end 'digits'
+	end 'parts'
+	return lengths
+end 'measure'
+
+// total is the sum of the lengths of the parts: the known ones as one constant, and the others added to it.
+function total(mutates l Lowerer, parts TextParts, lengths RegList) returns Reg
+	var known = 0 as Count
+	for i in 0 upto parts.count() 'known'
+		if parts[i].known 'literal'
+			known = try known + parts[i].length otherwise panic("lower: an interpolated literal past memory")
+		end 'literal'
+	end 'known'
+	var sum = konst(l, value: countWord(known))
+	for i in 0 upto parts.count() 'measured'
+		if not parts[i].known 'unknown'
+			let next = newReg(l, kind: IrKind.kindScalar)
+			emit(l, i: newBin(next, op: BinOp.binAdd, left: sum, right: lengths[i], unsigned: true, fail: noBlock))
+			sum = next
+		end 'unknown'
+	end 'measured'
+	return sum
+end 'total'
+
+// putParts puts each part after the text, in the room its buffer has for them, and gives the String it makes.
+function putParts(mutates l Lowerer, p ast.Project, text Reg, parts TextParts, lengths RegList) returns Reg
+	var joined = text
+	for i in 0 upto parts.count() 'parts'
+		if parts[i].known and parts[i].length == 0 'empty'
+			continue 'parts'
+		end 'empty'
+		if parts[i].isText() 'text'
+			let part = textOf(l, p: p, part: parts[i])
+			joined = runtime(l, symbol: Rt.rtStrJoinPut, kind: IrKind.kindManaged, args: argsOf2(joined, b: part))
+		end 'text' else 'digits'
+			var args = argsOf3(joined, b: parts[i].value, c: flag(l, on: parts[i].unsigned))
+			args.push(lengths[i])
+			joined = runtime(l, symbol: Rt.rtStrJoinDigits, kind: IrKind.kindManaged, args: args)
+		end 'digits'
+	end 'parts'
+	return joined
+end 'putParts'
+
+// dropFresh drops the Strings the parts made, once the join has copied them.
+function dropFresh(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, parts TextParts)
+	for i in 0 upto parts.count() 'parts'
+		if parts[i].owner == TextOwner.textFresh 'fresh'
+			let string = p.builtins.stringTy
+			dropValue(l, p: p, ms: ms, v: parts[i].value, t: string)
+		end 'fresh'
+	end 'parts'
+end 'dropFresh'
+
+// appendsTo is whether an assignment of value to target appends to target: the value is an interpolated literal of more
+// than one part whose first is target itself, a String read with no format.
+function appendsTo(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, target ast.NodeID, value ast.NodeID) returns bool
+	let literal = ast.through(p.modules[l.mi].tree, e: value)
+	if p.modules[l.mi].tree.kindOf(literal) != ast.NodeKind.strLit 'other'
+		return false
+	end 'other'
+	let partsRef = ast.strLitPartsRef(p.modules[l.mi].tree, id: literal)
+	if p.modules[l.mi].tree.strPartCount(partsRef) < 2 or not p.modules[l.mi].tree.strPartIsExpr(partsRef, index: 0 as Count) 'shape'
+		return false
+	end 'shape'
+	if p.modules[l.mi].tree.strPartFormat(partsRef, index: 0 as Count).byteLength() > 0 'formatted'
+		return false
+	end 'formatted'
+	let applied = applyType(l, p: p, ms: ms, t: exprType(p, module: l.module, node: target))
+	if ast.contentType(ms.types, reads: p.types, t: applied) != p.builtins.stringTy 'notString'
+		return false
+	end 'notString'
+	return samePlace(l, p: p, a: target, b: p.modules[l.mi].tree.strPartExpr(partsRef, index: 0 as Count))
+end 'appendsTo'
+
+// samePlace is whether two expressions name one place whatever runs between them: the same local, the same field of the
+// same place, or the same element, at a literal index or one that an immutable local holds, of the same place.
+function samePlace(mutates l Lowerer, p ast.Project, a ast.NodeID, b ast.NodeID) returns bool
+	let x = ast.through(p.modules[l.mi].tree, e: a)
+	let y = ast.through(p.modules[l.mi].tree, e: b)
+	let k = p.modules[l.mi].tree.kindOf(x)
+	if k != p.modules[l.mi].tree.kindOf(y) 'kinds'
+		return false
+	end 'kinds'
+	if k == ast.NodeKind.nameExpr 'name'
+		let n = nameInfoAt(p, module: l.module, node: x)
+		let m = nameInfoAt(p, module: l.module, node: y)
+		if n.kind == ast.NameKind.nameLocal and m.kind == ast.NameKind.nameLocal 'local'
+			return n.local == m.local
+		end 'local'
+		if n.kind == ast.NameKind.nameSelfField and m.kind == ast.NameKind.nameSelfField 'field'
+			return n.fieldIndex == m.fieldIndex
+		end 'field'
+		return false
+	end 'name'
+	if k == ast.NodeKind.memberExpr 'member'
+		let n = memberInfoAt(p, module: l.module, node: x)
+		let m = memberInfoAt(p, module: l.module, node: y)
+		if n.kind != ast.MemberKind.memberField or m.kind != ast.MemberKind.memberField or n.fieldIndex != m.fieldIndex 'field'
+			return false
+		end 'field'
+		return samePlace(l, p: p, a: ast.memberExprObj(p.modules[l.mi].tree, id: x), b: ast.memberExprObj(p.modules[l.mi].tree, id: y))
+	end 'member'
+	if k == ast.NodeKind.indexExpr 'index'
+		if not samePlace(l, p: p, a: ast.indexExprObj(p.modules[l.mi].tree, id: x), b: ast.indexExprObj(p.modules[l.mi].tree, id: y)) 'collection'
+			return false
+		end 'collection'
+		return sameIndex(l, p: p, a: indexNode(l, p: p, e: x), b: indexNode(l, p: p, e: y))
+	end 'index'
+	return false
+end 'samePlace'
+
+// indexNode is the index expression of a subscript.
+function indexNode(l Lowerer, p ast.Project, e ast.NodeID) returns ast.NodeID
+	return p.modules[l.mi].tree.listAt(ast.indexExprArgsRef(p.modules[l.mi].tree, id: e), index: 0 as Count) as ast.NodeID
+end 'indexNode'
+
+// sameIndex is whether two indexes have one value whatever runs between them: the same integer literal, or the same local
+// that cannot be assigned.
+function sameIndex(mutates l Lowerer, p ast.Project, a ast.NodeID, b ast.NodeID) returns bool
+	let x = ast.through(p.modules[l.mi].tree, e: a)
+	let y = ast.through(p.modules[l.mi].tree, e: b)
+	let k = p.modules[l.mi].tree.kindOf(x)
+	if k != p.modules[l.mi].tree.kindOf(y) 'kinds'
+		return false
+	end 'kinds'
+	if k == ast.NodeKind.intLit 'literal'
+		return ast.intLitNegative(p.modules[l.mi].tree, id: x) == ast.intLitNegative(p.modules[l.mi].tree, id: y) and ast.intLitMagnitude(p.modules[l.mi].tree, id: x).eq(ast.intLitMagnitude(p.modules[l.mi].tree, id: y))
+	end 'literal'
+	if k == ast.NodeKind.nameExpr 'name'
+		let n = nameInfoAt(p, module: l.module, node: x)
+		let m = nameInfoAt(p, module: l.module, node: y)
+		if n.kind != ast.NameKind.nameLocal or m.kind != ast.NameKind.nameLocal or n.local != m.local 'local'
+			return false
+		end 'local'
+		return not localEntry(p, module: l.fnModule, id: n.local).isVar
+	end 'name'
+	return false
+end 'sameIndex'
+
+// lowerAppend assigns to target the interpolated literal value that starts with target itself (appendsTo): the other parts
+// are evaluated, then the String the place holds is moved out of it, the parts appended to it, and the result stored in
+// the place, which the move left empty. A local in a slot is moved and stored as a value, and any other place through its
+// address.
+function lowerAppend(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, target ast.NodeID, value ast.NodeID)
+	let partsRef = ast.strLitPartsRef(p.modules[l.mi].tree, id: ast.through(p.modules[l.mi].tree, e: value))
+	let mark = l.pending.count()
+	var parts = TextParts.create(0)
+	textParts(l, p: p, ms: ms, partsRef: partsRef, from: 1 as Count, parts: parts)
+	popPending(l, n: mark)
+	let slot = localSlot(l, p: p, target: target)
+	if slot.isSome() 'slot'
+		let local = slot.unwrap()
+		let old = newReg(l, kind: IrKind.kindString)
+		emit(l, i: newMoveSlot(old, slot: local))
+		let grown = appendParts(l, p: p, old: old, parts: parts)
+		emit(l, i: newStoreSlot(local, src: grown, borrow: false))
+	end 'slot' else 'place'
+		let places = l.writeBacks.count()
+		let addr = address(l, p: p, ms: ms, e: target)
+		let old = newReg(l, kind: IrKind.kindString)
+		emit(l, i: newMoveAt(old, addr: addr))
+		let grown = appendParts(l, p: p, old: old, parts: parts)
+		emit(l, i: newStoreAt(addr, src: grown))
+		writeBack(l, p: p, ms: ms, mark: places)
+	end 'place'
+	dropFresh(l, p: p, ms: ms, parts: parts)
+end 'lowerAppend'
+
+// localSlot is the slot of the local that target names, where the local lives in one of the function's own.
+function localSlot(mutates l Lowerer, p ast.Project, target ast.NodeID) returns table.Option with Count
+	if p.modules[l.mi].tree.kindOf(target) != ast.NodeKind.nameExpr 'other'
+		return table.Option.none
+	end 'other'
+	let name = nameInfoAt(p, module: l.module, node: target)
+	if name.kind != ast.NameKind.nameLocal 'notLocal'
+		return table.Option.none
+	end 'notLocal'
+	let loc = localEntry(p, module: l.fnModule, id: name.local)
+	if isByRef(loc) 'byRef'
+		return table.Option.none
+	end 'byRef'
+	return table.Option.some(slotOf(loc))
+end 'localSlot'
+
+// appendParts is old with the parts after its bytes, old consumed: one String part by the one entry that extends, puts and
+// releases, and any other parts measured, put into the room the extension made, and the old buffer released after the last.
+function appendParts(mutates l Lowerer, p ast.Project, old Reg, parts TextParts) returns Reg
+	let owned = runtime(l, symbol: Rt.rtStrOwned, kind: IrKind.kindScalar, args: argsOf1(old))
+	if parts.count() == 1 and parts[0].isText() 'one'
+		let part = textOf(l, p: p, part: parts[0])
+		return runtime(l, symbol: Rt.rtStrAppend, kind: IrKind.kindManaged, args: argsOf3(old, b: owned, c: part))
+	end 'one'
+	let lengths = measure(l, parts: parts)
+	let extra = total(l, parts: parts, lengths: lengths)
+	let extended = runtime(l, symbol: Rt.rtStrExtend, kind: IrKind.kindManaged, args: argsOf3(old, b: owned, c: extra))
+	let grown = putParts(l, p: p, text: extended, parts: parts, lengths: lengths)
+	emitCallRuntime(l, dst: noReg, symbol: Rt.rtStrRelease, args: argsOf3(old, b: owned, c: grown), routine: ast.noFunc)
+	return grown
+end 'appendParts'

@@ -62,6 +62,14 @@ extension Selector
 		end 'arch'
 	end 'shiftRightInto'
 
+	// maskInto sets dst to the bits of src that mask has set.
+	function maskInto(mutates self, dst MReg, src MReg, mask FullRangeInt)
+		match arch 'arch'
+			x64 then self.target(chooseAndRegImm(try mask as Imm32 otherwise panic("backend: a mask past 32 bits")), a: dst, b: src, c: noMReg, aux: 0, imm: mask)
+			arm64 then self.arm64Instr(Arm64Form.andRegMask, a: dst, b: src, c: noMReg, aux: 0, imm: mask)
+		end 'arch'
+	end 'maskInto'
+
 	// referAddressInto sets dst to the address that refers names.
 	function referAddressInto(mutates self, dst MReg, refers Referent)
 		match arch 'arch'

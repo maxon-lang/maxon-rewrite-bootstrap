@@ -436,7 +436,7 @@ end 'fromHex'
 function toHex(bytes ByteArray) returns String
 	var text = ""
 	for byte in bytes 'eachByte'
-		text.append("{byte:02x}")
+		text = "{text}{byte:02x}"
 	end 'eachByte'
 	return text
 end 'toHex'
@@ -1101,9 +1101,9 @@ end 'child'
 function intactReport() returns String
 	var report = "states distinct=true\n"
 	for index in 0 upto words().count() 'eachWord'
-		report.append("w={index} distinct=true\n")
+		report = "{report}w={index} distinct=true\n"
 	end 'eachWord'
-	report.append("words distinct=true\n")
+	report = "{report}words distinct=true\n"
 	return report
 end 'intactReport'
 
@@ -1477,7 +1477,7 @@ let SpelledSeedLength = 17
 function toHex(bytes ByteArray) returns String
 	var text = ""
 	for byte in bytes 'eachByte'
-		text.append("{byte:02x}")
+		text = "{text}{byte:02x}"
 	end 'eachByte'
 	return text
 end 'toHex'
@@ -1538,7 +1538,7 @@ let SpelledSeedLength = 17
 function toHex(bytes ByteArray) returns String
 	var text = ""
 	for byte in bytes 'eachByte'
-		text.append("{byte:02x}")
+		text = "{text}{byte:02x}"
 	end 'eachByte'
 	return text
 end 'toHex'
@@ -1604,7 +1604,7 @@ let SpelledSeedLength = 17
 function toHex(bytes ByteArray) returns String
 	var text = ""
 	for byte in bytes 'eachByte'
-		text.append("{byte:02x}")
+		text = "{text}{byte:02x}"
 	end 'eachByte'
 	return text
 end 'toHex'
@@ -1669,7 +1669,7 @@ let SpelledDrawLength = 16
 function toHex(bytes ByteArray) returns String
 	var text = ""
 	for byte in bytes 'eachByte'
-		text.append("{byte:02x}")
+		text = "{text}{byte:02x}"
 	end 'eachByte'
 	return text
 end 'toHex'

@@ -58,11 +58,11 @@ type Report
 	end 'addColumn'
 
 	function render(counts Counts) returns String
-		var row = StringBuilder.create()
+		var row = ""
 		for column in self.columns 'eachColumn'
-			row.append("[{column(counts)}]")
+			row = "{row}[{column(counts)}]"
 		end 'eachColumn'
-		return row.build()
+		return row
 	end 'render'
 end 'Report'
 
@@ -604,7 +604,7 @@ function main() returns ExitCode
 	let m = Counted.create()
 	m.upsert("a", value: 1)
 	for (k, _) in m 'each'
-		k.append("x")
+		k = "{k}x"
 	end 'each'
 	return 0
 end 'main'

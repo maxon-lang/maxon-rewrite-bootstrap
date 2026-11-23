@@ -272,9 +272,9 @@ typealias Strs = Array with String
 function main() returns ExitCode
 	var b = StrBag.create()
 	var r = Strs.create(0)
-	var sb = StringBuilder.create()
-	sb.append("a heap row element long enough to allocate")
-	r.push(sb.build())
+	var sb = ""
+	sb = "{sb}a heap row element long enough to allocate"
+	r.push(sb)
 	b.addRow(r)
 	let c = b.copyRows()
 	print("{c.count()}\n")

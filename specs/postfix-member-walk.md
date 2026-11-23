@@ -578,8 +578,8 @@ then dropped at statement end, so a leak here is exit 101 and the untouched `s` 
 
 function main() returns ExitCode
 	let s = "abc"
-	s.clone().append("XYZ")
-	return try s.byteLength() as ExitCode otherwise panic("out of range")
+	s.clone() = "{s.clone()}XYZ"
+	return s.byteLength()
 end 'main'
 ```
 ```exitcode

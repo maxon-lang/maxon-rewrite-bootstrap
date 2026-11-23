@@ -10,7 +10,7 @@ function work() returns ExitCode
 	var total = 0 as Word
 	for i in 0 upto items 'items'
 		var line = "item {i}"
-		line.append(", value {i mod 97}")
+		line = "{line}, value {i mod 97}"
 		for at in 0 upto line.byteLength() 'bytes'
 			checksum = try (checksum * 31 + line.byteAt(at)) mod modulus otherwise panic("checksum overflowed")
 		end 'bytes'

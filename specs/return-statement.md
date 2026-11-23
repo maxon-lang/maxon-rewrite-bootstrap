@@ -489,7 +489,7 @@ end 'build'
 
 function pick(k Index) returns String
 	var kept = build(50)
-	kept.append("+")
+	kept = "{kept}+"
 	let s0 = build(0)
 	let s1 = build(1)
 	let s2 = build(2)

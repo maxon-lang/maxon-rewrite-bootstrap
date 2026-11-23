@@ -490,6 +490,12 @@ function lowerArrayCount(mutates l Lowerer, p ast.Project, mutates ms ast.Module
 	return arrayLength(l, p: p, ms: ms, box: a, arr: recv)
 end 'lowerArrayCount'
 
+// lowerArrayCapacity is how many elements the array's buffer holds, the one count that every kind of array keeps alike.
+function lowerArrayCapacity(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	let a = arrayOfCall(l, p: p, ms: ms, c: c)
+	return entry(l, p: p, site: a.site, symbol: Rt.rtArrayCapacity, kind: IrKind.kindScalar, args: argsOf1(recv))
+end 'lowerArrayCapacity'
+
 function lowerArrayIsEmpty(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	let a = arrayOfCall(l, p: p, ms: ms, c: c)
 	let n = arrayLength(l, p: p, ms: ms, box: a, arr: recv)

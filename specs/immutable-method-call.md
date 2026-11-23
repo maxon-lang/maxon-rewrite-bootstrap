@@ -36,13 +36,14 @@ end 'main'
 ```
 
 <!-- test: append-on-let-string-error -->
+<!-- positions: moved -->
 Calling `append` on a `let` string should produce a compile-time error.
 
 ```maxon
 
 function main() returns ExitCode
 	let s = "hello"
-	s.append(" world")
+	s = "{s} world"
 	return 0
 end 'main'
 ```
@@ -58,7 +59,7 @@ record it denotes is the caller's and may be written, exactly as an array parame
 typealias Integer = int(i64.min to i64.max)
 
 function grow(mutates s String) returns Integer
-	s.append("XY")
+	s = "{s}XY"
 	return try s.byteLength() as Integer otherwise panic("out of range")
 end 'grow'
 
@@ -338,7 +339,7 @@ type Buf
 	end 'create'
 
 	function grow(mutates self)
-		s.append("XY")
+		s = "{s}XY"
 	end 'grow'
 
 	function size() returns Integer
@@ -510,7 +511,7 @@ end 'Holder'
 
 function main() returns ExitCode
 	var h = Holder.create("ab")
-	h.name.append("XY")
+	h.name = "{h.name}XY"
 	print("{h.name}\n")
 	return 0
 end 'main'

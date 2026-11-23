@@ -5,9 +5,6 @@ function main() returns ExitCode
 	return 0
 end 'main'
 
-// expect-free: string "1"
-// expect-free: string "3"
-// expect-free: string "2"
 // expect-free: string "v1"
 // expect-free: string "u3"
 // expect-free: string "w2"

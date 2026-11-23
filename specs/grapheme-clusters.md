@@ -482,7 +482,7 @@ claim one byte per grapheme over a buffer whose CR+LF is a single two-byte clust
 ```maxon
 function main() returns ExitCode
 	var s = "a\r"
-	s.append("\nb")
+	s = "{s}\nb"
 	print("{s.count()}\n")
 	return 0
 end 'main'

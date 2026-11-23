@@ -92,6 +92,7 @@ func Convert(file, src string, kind inputKind) Result {
 	}
 	joinEndOtherwise(lines)
 	rewriteDestructors(lines)
+	rewriteStringBuilders(lines)
 	rewriteWithIterator(lines, addWarn)
 	transformLines(lines, addWarn)
 

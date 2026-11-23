@@ -4539,11 +4539,11 @@ end 'refuseThree'
 let ExtraBytes = 200000
 
 function filler() returns String
-	let text = StringBuilder.create()
+	var text = ""
 	for row in 0 upto ExtraBytes / 16 'eachRow'
-		text.append("{row:08x}-padding\n")
+		text = "{text}{row:08x}-padding\n"
 	end 'eachRow'
-	return text.build()
+	return text
 end 'filler'
 
 function hearAll(raw TcpClient) returns String

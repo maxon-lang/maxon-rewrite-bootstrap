@@ -174,7 +174,7 @@ left untouched.
 function main() returns ExitCode
 	let s = "hello world"
 	var sub = s.sliceLength(s.startIndex(), length: 5)
-	sub.append("!")
+	sub = "{sub}!"
 	print("{sub} {s}\n")
 	return 0
 end 'main'
@@ -196,7 +196,7 @@ function main() returns ExitCode
 	let s = "hello world"
 	let other = "hello"
 	var sub = s.sliceLength(s.startIndex(), length: 5)
-	sub.append("!")
+	sub = "{sub}!"
 	print("{sub} {other}\n")
 	return 0
 end 'main'

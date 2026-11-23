@@ -884,6 +884,12 @@ function emitCallRuntime(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
 		sel.shiftRightInto(result, src: word, count: stringLengthShift)
 		return
 	end 'stringLength'
+	if symbol == ir.Rt.rtStrOwned 'stringOwned'
+		let result = sel.resultOf(ins.dst)
+		let word = sel.secondOf(fn.args[start])
+		sel.maskInto(result, src: word, mask: stringOwnedBit)
+		return
+	end 'stringOwned'
 	if symbol == ir.Rt.rtArrayLen or symbol == ir.Rt.rtBytesLen or symbol == ir.Rt.rtFrozenGet 'load'
 		var offset = imm32Of(arrayLengthOffset)
 		if symbol == ir.Rt.rtFrozenGet 'frozen'

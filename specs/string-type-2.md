@@ -642,7 +642,7 @@ Append a string literal to an existing string.
 ```maxon
 function main() returns ExitCode
 	var s = "Hello"
-	s.append(" World")
+	s = "{s} World"
 	print("{s}\n")
 	return 0
 end 'main'
@@ -661,7 +661,7 @@ Append an interpolated string directly into the target buffer without materializ
 function main() returns ExitCode
 	var s = "Hello"
 	let name = "World"
-	s.append(" {name}!")
+	s = "{s} {name}!"
 	print("{s}\n")
 	return 0
 end 'main'
@@ -681,7 +681,7 @@ function main() returns ExitCode
 	var s = ""
 	var i = 0 as FullRangeInt
 	while i < 5 'loop'
-		s.append("{i}")
+		s = "{s}{i}"
 		i = i + 1
 	end 'loop'
 	print("{s}\n")
@@ -702,7 +702,7 @@ Append another string variable.
 function main() returns ExitCode
 	var s = "abc"
 	let other = "def"
-	s.append(other)
+	s = "{s}{other}"
 	print("{s}\n")
 	return 0
 end 'main'
@@ -745,8 +745,8 @@ function main() returns ExitCode
 	var s = "["
 	let a = 1
 	let b = 2
-	s.append("{a}+{b}")
-	s.append("]")
+	s = "{s}{a}+{b}"
+	s = "{s}]"
 	print("{s}\n")
 	return 0
 end 'main'
@@ -778,7 +778,7 @@ without ever asserting on its own.
 ```maxon
 function main() returns ExitCode
 	var s = "abc"
-	s.append(s)
+	s = "{s}{s}"
 	print("{s}\n")
 	return 0
 end 'main'
@@ -804,11 +804,11 @@ detach.
 ```maxon
 function main() returns ExitCode
 	var t = "xy"
-	t.append("")
+	t = "{t}"
 	print("{t}|{t.byteLength()}\n")
 	var u = ""
-	u.append("")
-	u.append("q")
+	u = "{u}"
+	u = "{u}q"
 	print("{u}|{u.byteLength()}\n")
 	return 0
 end 'main'
@@ -836,7 +836,7 @@ end 'relay'
 function main() returns ExitCode
 	let v = "ab"
 	var out = relay(v)
-	out.append("XY")
+	out = "{out}XY"
 	print("v={v} out={out}\n")
 	return 0
 end 'main'
@@ -856,7 +856,7 @@ the string `s` held before are both untouched.
 ```maxon
 function make() returns String
 	var m = "a"
-	m.append("b")
+	m = "{m}b"
 	return m
 end 'make'
 
@@ -868,7 +868,7 @@ function main() returns ExitCode
 	let v = make()
 	var s = "zz"
 	s = relay(v)
-	s.append("XY")
+	s = "{s}XY"
 	print("v={v} s={s}\n")
 	return 0
 end 'main'
@@ -887,7 +887,7 @@ written and the leak gate stays quiet.
 ```maxon
 function make() returns String
 	var m = "a"
-	m.append("b")
+	m = "{m}b"
 	return m
 end 'make'
 
@@ -900,7 +900,7 @@ function main() returns ExitCode
 	var s = "zz"
 	for i in 0 upto 3 'trips'
 		s = relay(v)
-		s.append("{i}")
+		s = "{s}{i}"
 	end 'trips'
 	print("v={v} s={s}\n")
 	return 0
@@ -920,7 +920,7 @@ so growing the field leaves `v` as it was.
 ```maxon
 function make() returns String
 	var m = "a"
-	m.append("b")
+	m = "{m}b"
 	return m
 end 'make'
 
@@ -940,7 +940,7 @@ type Holder
 	end 'adopt'
 
 	function grow(mutates self)
-		self.text.append("XY")
+		self.text = "{self.text}XY"
 	end 'grow'
 
 	function show(v String)
@@ -971,7 +971,7 @@ owed there and growing the field leaves `v` as it was.
 ```maxon
 function make() returns String
 	var m = "a"
-	m.append("b")
+	m = "{m}b"
 	return m
 end 'make'
 
@@ -987,7 +987,7 @@ type Holder
 	end 'adopting'
 
 	function grow(mutates self)
-		self.text.append("XY")
+		self.text = "{self.text}XY"
 	end 'grow'
 
 	function show(v String)
@@ -1017,7 +1017,7 @@ the field through `adopt` or through a record built by `create` leaves `v` as it
 ```maxon
 function make() returns String
 	var m = "a"
-	m.append("b")
+	m = "{m}b"
 	return m
 end 'make'
 
@@ -1033,7 +1033,7 @@ type Holder
 	end 'adopt'
 
 	function grow(mutates self)
-		self.text.append("XY")
+		self.text = "{self.text}XY"
 	end 'grow'
 
 	function show(v String)
@@ -1077,7 +1077,7 @@ end 'lit'
 
 function main() returns ExitCode
 	var first = lit()
-	first.append("XY")
+	first = "{first}XY"
 	let second = lit()
 	print("first={first} second={second}\n")
 	return 0
@@ -1169,7 +1169,7 @@ function main() returns ExitCode
 	let who = "ello"
 	var s = "H{who}"
 	let arr = s.toByteArray()
-	s.append("!!!")
+	s = "{s}!!!"
 	let b0 = try arr.get(0) otherwise panic("get")
 	print("s={s} arr.count={arr.count()} arr[0]={b0}")
 	return 0

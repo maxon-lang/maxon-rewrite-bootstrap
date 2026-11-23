@@ -13,8 +13,6 @@ let osArrayCapacityOffset = 8 as Count
 
 let osArrayDataOffset = 16 as Count
 
-let osArrayFirstCapacity = 4
-
 let osArrayLimit = 0x100000000
 
 let osBytesLengthOffset = 0 as Count
@@ -325,7 +323,7 @@ function stringArrayNew() returns Count
 end 'stringArrayNew'
 
 // stringArrayPush puts the string that owns room (__Raw.stringRoom) of a length at the end of an array of strings, which
-// grows by doubling.
+// grows by the growth policy (arrays.maxon).
 function stringArrayPush(array Count, room Count, textLength Count)
 	let elementBytes = __Raw.stringSize()
 	let length = __Raw.loadWord(array, offset: osArrayLengthOffset)
@@ -334,7 +332,7 @@ function stringArrayPush(array Count, room Count, textLength Count)
 		panic("array too long to build")
 	end 'outside'
 	if length == capacity 'grow'
-		let grown = osArrayFirstCapacity if capacity == 0 else length * 2
+		let grown = grownCapacity(capacity, required: length + 1)
 		let data = alloc(collectionBytes(grown, elementBytes: elementBytes))
 		let old = __Raw.loadWord(array, offset: osArrayDataOffset)
 		copyBytes(old, target: data, count: collectionBytes(length, elementBytes: elementBytes))

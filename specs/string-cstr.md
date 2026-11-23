@@ -76,7 +76,7 @@ receiver's bytes end.
 ```maxon
 function main() returns ExitCode
 	var s = ""
-	s.append("hello world")
+	s = "{s}hello world"
 	print("{String.fromCString(s.cstr())} len={s.count()}\n")
 	return 0
 end 'main'
@@ -98,7 +98,7 @@ whole shape rather than the half that is actually unsafe.
 ```maxon
 function main() returns ExitCode
 	var s = ""
-	s.append("xxxxxxxxxxxxxxxx")
+	s = "{s}xxxxxxxxxxxxxxxx"
 	print("{String.fromCString(s.cstr())} len={s.count()}\n")
 	return 0
 end 'main'
@@ -124,7 +124,7 @@ function main() returns ExitCode
 	var p = lit.cstr()
 	let afterLit = __Builtins.mmAllocTotal() + __Builtins.mmRawAllocTotal()
 	var s = ""
-	s.append("xxxxxxxx")
+	s = "{s}xxxxxxxx"
 	let beforeFirst = __Builtins.mmAllocTotal() + __Builtins.mmRawAllocTotal()
 	p = s.cstr()
 	let afterFirst = __Builtins.mmAllocTotal() + __Builtins.mmRawAllocTotal()

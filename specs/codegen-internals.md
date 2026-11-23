@@ -164,7 +164,7 @@ function main() returns ExitCode
 	let a = "a"
 	var i = 0 as Count
 	while i < 5 'loop'
-		s.append(a)
+		s = "{s}{a}"
 		i = i + 1
 	end 'loop'
 	return try s.byteLength() as ExitCode otherwise panic("out of range")

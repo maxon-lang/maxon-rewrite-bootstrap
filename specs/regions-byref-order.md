@@ -5758,8 +5758,8 @@ A `mutable` value parameter the callee only appends to is still a by-reference c
 
 ```maxon
 function fillStr(mutates a String, b String)
-	a.append("x")
-	a.append(b)
+	a = "{a}x"
+	a = "{a}{b}"
 end 'fillStr'
 
 function main() returns ExitCode
@@ -5803,8 +5803,8 @@ Two `mutable` value positions of one call that name the same local overlap wheth
 
 ```maxon
 function both(mutates a String, mutates b String)
-	a.append("a")
-	b.append("b")
+	a = "{a}a"
+	b = "{b}b"
 end 'both'
 
 function main() returns ExitCode
@@ -6188,8 +6188,8 @@ The rewrite the cell cure names compiles for a `String` local: the copy is a `.c
 
 ```maxon
 function both(mutates a String, mutates b String)
-	a.append("a")
-	b.append("b")
+	a = "{a}a"
+	b = "{b}b"
 end 'both'
 
 function main() returns ExitCode
@@ -7044,7 +7044,7 @@ A write-through that rebinds the cell travels along the forwarding edge like a r
 typealias Tally = int(0 to u64.max)
 
 function inner(mutates x String)
-	x.append("!")
+	x = "{x}!"
 end 'inner'
 
 function outer(mutates a String, b String) returns Tally

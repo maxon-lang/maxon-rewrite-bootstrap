@@ -422,7 +422,7 @@ a `var`.
 typealias Integer = int(i64.min to i64.max)
 
 function grow(mutates s String) returns Integer
-	s.append("XY")
+	s = "{s}XY"
 	return try s.byteLength() as Integer otherwise panic("out of range")
 end 'grow'
 
@@ -442,7 +442,7 @@ A `var` String owns a real heap record, so the same helper is legal on it.
 typealias Integer = int(i64.min to i64.max)
 
 function grow(mutates s String) returns Integer
-	s.append("XY")
+	s = "{s}XY"
 	return try s.byteLength() as Integer otherwise panic("out of range")
 end 'grow'
 
@@ -734,7 +734,7 @@ typealias Integer = int(i64.min to i64.max)
 let GREETING = "hi"
 
 function grow(mutates s String) returns Integer
-	s.append("XY")
+	s = "{s}XY"
 	return try s.byteLength() as Integer otherwise panic("out of range")
 end 'grow'
 
@@ -1582,7 +1582,7 @@ end 'pass'
 
 function tag(p String)
 	var x = pass(p)
-	x.append(" TAGGED")
+	x = "{x} TAGGED"
 	print("{x}\n")
 end 'tag'
 
@@ -1859,7 +1859,7 @@ type Holder
 end 'Holder'
 
 function nudge(mutates t Holder)
-	t.name.append("XY")
+	t.name = "{t.name}XY"
 end 'nudge'
 
 function main() returns ExitCode
@@ -1889,7 +1889,7 @@ type Holder
 end 'Holder'
 
 function grow(mutates s String)
-	s.append("XY")
+	s = "{s}XY"
 end 'grow'
 
 function nudge(mutates t Holder)

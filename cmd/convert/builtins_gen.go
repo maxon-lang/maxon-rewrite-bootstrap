@@ -9,6 +9,7 @@ var builtinNames = map[string]bool{
 	"Count":                     true,
 	"ElementIndex":              true,
 	"FullRangeInt":              true,
+	"ReportedCapacity":          true,
 	"Byte":                      true,
 	"FullRangeFloat":            true,
 	"Codepoint":                 true,
@@ -93,14 +94,14 @@ var builtinNames = map[string]bool{
 
 // builtinMethods are the methods minimaxon declares on each type it builds in, by the type's name, in the table's order.
 var builtinMethods = map[string][]string{
-	"Array":                 {"create", "filled", "count", "isEmpty", "get", "set", "push", "append", "insert", "remove", "pop", "dropEmpty", "clear", "truncate", "reserve", "resize", "slice", "growFilled", "refill", "clearSlot", "contains", "containsSequence", "equals", "first", "last", "awaitAny"},
+	"Array":                 {"create", "filled", "count", "isEmpty", "capacity", "get", "set", "push", "append", "insert", "remove", "pop", "dropEmpty", "clear", "truncate", "reserve", "resize", "slice", "growFilled", "refill", "clearSlot", "contains", "containsSequence", "equals", "first", "last", "awaitAny"},
 	"FixedArray":            {"create", "count", "get", "set", "refill"},
 	"__ManagedMemory":       {"length", "get", "createCursor"},
 	"__ManagedMemoryCursor": {"current", "index", "advance", "retreat", "seek", "peek"},
 	"__GroupMemory":         {"create", "groups", "control", "setControl", "first", "second", "put", "setSecond", "takeFirst", "takeSecond", "clear"},
 	"List":                  {"create", "count", "isEmpty", "contains", "prepend", "append", "removeFirst", "removeLast", "first", "last", "next", "prev", "remove", "moveToFront", "dropEmpty"},
 	"Pool":                  {"create", "count", "isEmpty", "contains", "insert", "remove", "dropEmpty"},
-	"String":                {"byteLength", "byteAt", "sliceBytes", "toByteArray", "from", "bytes", "codepoints", "utf16", "isEmpty", "equals", "append", "count", "contains", "startsWith", "endsWith", "findFirst", "findLast", "startIndex", "endIndex", "slice", "sliceLength", "replace", "replaceFirst", "trim", "trimStart", "trimEnd", "toLower", "toUpper"},
+	"String":                {"byteLength", "byteAt", "sliceBytes", "toByteArray", "from", "bytes", "codepoints", "utf16", "isEmpty", "equals", "count", "contains", "startsWith", "endsWith", "findFirst", "findLast", "startIndex", "endIndex", "slice", "sliceLength", "replace", "replaceFirst", "trim", "trimStart", "trimEnd", "toLower", "toUpper"},
 	"ByteView":              {"createIterator", "count"},
 	"ByteIterator":          {"current", "advance"},
 	"CodepointView":         {"createIterator", "count"},
@@ -119,6 +120,6 @@ var builtinMethods = map[string][]string{
 	"Directory":             {"isDirectory", "create", "currentPath", "delete", "list"},
 	"Subprocess":            {"run", "runWithDeadline"},
 	"CollectedOutput":       {"exitCode", "succeeded"},
-	"Builtins":              {"currentProcessId", "currentTimeNanos", "floatToBits", "trailingZeros", "appendStringBytes", "singleByteGraphemes", "takeString", "hashSeed", "drawHashSeed", "hashWord", "hashBytes", "readBigEndian", "readLittleEndian", "appendBigEndian", "appendLittleEndian"},
+	"Builtins":              {"currentProcessId", "currentTimeNanos", "floatToBits", "trailingZeros", "hashSeed", "drawHashSeed", "hashWord", "hashBytes", "readBigEndian", "readLittleEndian", "appendBigEndian", "appendLittleEndian"},
 	"Raw":                   {"loadByte", "loadWord16", "loadWord32", "loadWord", "storeByte", "storeWord16", "storeWord32", "storeWord", "loadAcquire", "storeRelease", "wrappingAdd", "wrappingSub", "mulHigh", "addressOf", "stringBytes", "stringLength", "stringAscii", "stringRoom", "freeStringRoom", "stringOf", "stringSize", "storeString", "stringBytesAt", "stringLengthAt", "heapAddress", "stdoutAddress", "stderrAddress", "atomicAdd", "atomicExchange", "compareExchange", "spinPause", "threadContext", "callCode1", "callHost2", "threadStartAddress", "stackSwitchAddress", "greenStartAddress", "asyncPreemptAddress", "preemptibleCodeAddress", "codeAddress", "callImport0", "callImport1", "callImport2", "callImport3", "callImport4", "callImport5", "callImport6", "callImport7", "callImport8", "callImport9", "callImport10", "syscall0", "syscall1", "syscall2", "syscall3", "syscall4", "syscall5", "syscall6", "processStartAddress", "preemptHandlerAddress", "signalReturnAddress"},
 }

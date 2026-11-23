@@ -28,7 +28,7 @@ function main() returns ExitCode
 	let unit = "0123456789abcdef"
 	var line = ""
 	for _ in 0 upto 256 'fill'
-		line.append(unit)
+		line = "{line}{unit}"
 	end 'fill'
 	print(line)
 	print("\n")
@@ -49,7 +49,7 @@ function main() returns ExitCode
 	let unit = "0123456789abcdef"
 	var line = ""
 	for _ in 0 upto 512 'fill'
-		line.append(unit)
+		line = "{line}{unit}"
 	end 'fill'
 	print(line)
 	print("\n")
@@ -70,7 +70,7 @@ function main() returns ExitCode
 	let unit = "abcdefghijklmnopqrstuvwxyz"
 	var line = ""
 	for _ in 0 upto 158 'fill'
-		line.append(unit)
+		line = "{line}{unit}"
 	end 'fill'
 	print(line)
 	print("\n")
@@ -91,7 +91,7 @@ function main() returns ExitCode
 	let unit = "abcdefghijklmnopqrstuvwxyz"
 	var line = ""
 	for _ in 0 upto 2521 'fill'
-		line.append(unit)
+		line = "{line}{unit}"
 	end 'fill'
 	print(line)
 	print("\n")
@@ -112,7 +112,7 @@ function main() returns ExitCode
 	let unit = "abcdefghijklmnopqrstuvwxyz"
 	var line = ""
 	for _ in 0 upto 158 'fill'
-		line.append(unit)
+		line = "{line}{unit}"
 	end 'fill'
 	printError(line)
 	printError("\n")
@@ -133,7 +133,7 @@ function main() returns ExitCode
 	let unit = "abcdefghijklmnopqrstuvwxyz"
 	var line = ""
 	for _ in 0 upto 2521 'fill'
-		line.append(unit)
+		line = "{line}{unit}"
 	end 'fill'
 	printError(line)
 	printError("\n")

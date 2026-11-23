@@ -87,10 +87,11 @@ error E2013: <fragment>:3:2: 's' is a parameter and cannot be reassigned; mark i
 ```
 
 <!-- test: error.appending-to-a-string-parameter-is-refused -->
+<!-- positions: moved -->
 A mutating method on a `String` parameter replaces the value the parameter holds, so it is a reassignment.
 ```maxon
 function shout(s String)
-	s.append("!")
+	s = "{s}!"
 	print("{s}\n")
 end 'shout'
 
@@ -243,7 +244,7 @@ end 'main'
 ```maxon
 function shouted(s String) returns String
 	var t = s.clone()
-	t.append("!")
+	t = "{t}!"
 	return t
 end 'shouted'
 

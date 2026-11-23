@@ -24,34 +24,133 @@ end 'concat'
 
 // itoa is the decimal digits of a word, read as signed unless unsigned says otherwise, with a '-' before a negative one.
 function itoa(n Count, unsigned bool) returns String
-	let negative = not unsigned and n >= signBit
-	var magnitude = n
-	if negative 'sign'
-		magnitude = __Raw.wrappingSub(0, right: n)
-	end 'sign'
-	var digits = 1 as Count
-	var rest = (magnitude / decimalBase) as Count
-	while rest != 0 'count'
-		digits = __Raw.wrappingAdd(digits, right: 1)
-		rest = rest / decimalBase
-	end 'count'
-	var length = digits
-	if negative 'room'
-		length = __Raw.wrappingAdd(length, right: 1)
-	end 'room'
+	let length = decimalLength(n, unsigned: unsigned)
 	let bytes = __Raw.stringRoom(length)
-	if negative 'minus'
-		__Raw.storeByte(bytes, offset: 0, value: minusSign)
-	end 'minus'
-	var at = length
-	var value = magnitude
-	for _ in 0 upto digits 'digit'
-		at = __Raw.wrappingSub(at, right: 1)
-		__Raw.storeByte(bytes, offset: at, value: digitZero + value mod decimalBase)
-		value = value / decimalBase
-	end 'digit'
+	writeDecimal(bytes, n: n, unsigned: unsigned, length: length)
 	return __Raw.stringOf(bytes, length: length, ascii: true)
 end 'itoa'
+
+// isNegative is whether a word read as signed unless unsigned says otherwise is below 0.
+function isNegative(n Count, unsigned bool) returns bool
+	return not unsigned and n >= signBit
+end 'isNegative'
+
+// decimalLength is how many bytes the decimal text of a word takes, read as signed unless unsigned says otherwise, its '-'
+// among them.
+function decimalLength(n Count, unsigned bool) returns Count
+	var magnitude = n
+	var length = 1 as Count
+	if isNegative(n, unsigned: unsigned) 'sign'
+		magnitude = __Raw.wrappingSub(0, right: n)
+		length = 2
+	end 'sign'
+	var rest = (magnitude / decimalBase) as Count
+	while rest != 0 'count'
+		length = __Raw.wrappingAdd(length, right: 1)
+		rest = rest / decimalBase
+	end 'count'
+	return length
+end 'decimalLength'
+
+// writeDecimal writes the length bytes of the decimal text of a word (decimalLength) at an address: the '-' of a negative
+// one, then its digits, the last first.
+function writeDecimal(at Count, n Count, unsigned bool, length Count)
+	var value = n
+	var digits = length
+	if isNegative(n, unsigned: unsigned) 'sign'
+		value = __Raw.wrappingSub(0, right: n)
+		digits = __Raw.wrappingSub(length, right: 1)
+		__Raw.storeByte(at, offset: 0, value: minusSign)
+	end 'sign'
+	var place = length
+	for _ in 0 upto digits 'digit'
+		place = __Raw.wrappingSub(place, right: 1)
+		__Raw.storeByte(at, offset: place, value: digitZero + value mod decimalBase)
+		value = value / decimalBase
+	end 'digit'
+end 'writeDecimal'
+
+// The String an interpolation builds: stringJoinRoom gives it the room that the measure of its parts asks for, and each part
+// is put after the ones before, a String's bytes by stringJoinPut and an integer's digits by stringJoinDigits, so it is made
+// with one allocation and each byte is written once. Its ASCII bit is that of every part. Each of these entries takes the
+// String it is given over, and the String it gives owns the same buffer: the code that calls them never drops what it
+// passed, and nothing in this source calls them.
+
+// stringJoinRoom is an empty String that owns room for a number of bytes.
+function stringJoinRoom(length Count) returns String
+	return __Raw.stringOf(__Raw.stringRoom(length), length: 0, ascii: true)
+end 'stringJoinRoom'
+
+// stringJoinPut is text with the bytes of part after its own, which text's buffer has room for.
+function stringJoinPut(text String, part String) returns String
+	let length = __Raw.stringLength(text)
+	let count = __Raw.stringLength(part)
+	let bytes = __Raw.stringBytes(text)
+	copyBytes(__Raw.stringBytes(part), target: __Raw.wrappingAdd(bytes, right: length), count: count)
+	return __Raw.stringOf(bytes, length: __Raw.wrappingAdd(length, right: count), ascii: __Raw.stringAscii(text) and __Raw.stringAscii(part))
+end 'stringJoinPut'
+
+// stringJoinDigits is text with the length bytes of the decimal text of a word after its own, which text's buffer has room
+// for.
+function stringJoinDigits(text String, n Count, unsigned bool, length Count) returns String
+	let start = __Raw.stringLength(text)
+	let bytes = __Raw.stringBytes(text)
+	writeDecimal(__Raw.wrappingAdd(bytes, right: start), n: n, unsigned: unsigned, length: length)
+	return __Raw.stringOf(bytes, length: __Raw.wrappingAdd(start, right: length), ascii: __Raw.stringAscii(text))
+end 'stringJoinDigits'
+
+// An interpolation assigned back to the String it starts with, `s = "{s}..."`, appends the rest to that String: the old
+// value is the assignment's to consume, so where it owns its buffer and the buffer has room (boxCapacity) the parts go in
+// after its bytes, and otherwise its bytes move to a buffer that the growth policy (arrays.maxon) sizes. The old buffer is
+// freed only after every part is in, since a later part may be a view of it, as the second of `"{s}{s}"` is. Whether the
+// String owns its buffer is its owned bit, which the code reads in place and passes as owned: a literal's bytes are the
+// executable's, so its first append copies them. As the entries of an interpolation do, these take the String over.
+
+// extendedRoom is the address of a buffer that holds length bytes and room for needed in all: bytes, where owned says it is
+// a buffer of its own with that room, or else a new one the growth policy sizes, with the length bytes copied into it.
+function extendedRoom(bytes Count, length Count, owned bool, needed Count) returns Count
+	var capacity = length
+	if owned 'owned'
+		capacity = boxCapacity(bytes)
+		if needed <= capacity 'room'
+			return bytes
+		end 'room'
+	end 'owned'
+	let room = __Raw.stringRoom(grownCapacity(capacity, required: needed))
+	copyBytes(bytes, target: room, count: length)
+	return room
+end 'extendedRoom'
+
+// stringExtend is text's bytes with room for extra more after them, the old buffer left for stringRelease.
+function stringExtend(text String, owned bool, extra Count) returns String
+	let length = __Raw.stringLength(text)
+	let needed = try length + extra otherwise panic("string size overflows")
+	let room = extendedRoom(__Raw.stringBytes(text), length: length, owned: owned, needed: needed)
+	return __Raw.stringOf(room, length: length, ascii: __Raw.stringAscii(text))
+end 'stringExtend'
+
+// stringRelease frees the buffer of text, which stringExtend extended into grown, where text owned it and grown's bytes are
+// in another.
+function stringRelease(text String, owned bool, grown String)
+	let bytes = __Raw.stringBytes(text)
+	if owned and bytes != __Raw.stringBytes(grown) 'moved'
+		__Raw.freeStringRoom(bytes)
+	end 'moved'
+end 'stringRelease'
+
+// stringAppend is text with part's bytes after its own: the append of one part, which may be a view of text's bytes.
+function stringAppend(text String, owned bool, part String) returns String
+	let bytes = __Raw.stringBytes(text)
+	let length = __Raw.stringLength(text)
+	let count = __Raw.stringLength(part)
+	let needed = try length + count otherwise panic("string size overflows")
+	let room = extendedRoom(bytes, length: length, owned: owned, needed: needed)
+	copyBytes(__Raw.stringBytes(part), target: __Raw.wrappingAdd(room, right: length), count: count)
+	if owned and room != bytes 'moved'
+		__Raw.freeStringRoom(bytes)
+	end 'moved'
+	return __Raw.stringOf(room, length: needed, ascii: __Raw.stringAscii(text) and __Raw.stringAscii(part))
+end 'stringAppend'
 
 // streq is whether two strings have the same bytes.
 function streq(left String, right String) returns bool

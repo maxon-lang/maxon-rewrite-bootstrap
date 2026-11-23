@@ -32,6 +32,7 @@ var primTypes = []primType{
 	{"ExitCode", "b.exitCodeTy"},
 	{"Milliseconds", "b.millisecondsTy"},
 	{"MailboxCapacity", "b.mailboxCapacityTy"},
+	{"ReportedCapacity", "b.reportedCapacityTy"},
 	{"FullRangeInt", "b.fullRangeIntTy"},
 	// Float is the type of a float whose range is not known, which maxon names FullRangeFloat.
 	{"Float", "b.anonFloatTy"},
@@ -54,6 +55,9 @@ var stdAliases = []stdAlias{
 	{Name: "Count", Field: "countTy", Lo: "I128.zero()", Hi: "I128.u64Max()"},
 	{Name: "ElementIndex", Field: "elementIndexTy", Lo: "I128.zero()", Hi: "I128.u64Max()"},
 	{Name: "FullRangeInt", Field: "fullRangeIntTy", Lo: "I128.i64Min()", Hi: "I128.i64Max()"},
+	// ReportedCapacity is maxon's (stdlib/Array.maxon): what an array's capacity() gives, signed since maxon's view of a buffer it
+	// does not own answers with a negative flag, which an array here never is.
+	{Name: "ReportedCapacity", Field: "reportedCapacityTy", Lo: "I128.i64Min()", Hi: "I128.i64Max()"},
 	{Name: "Byte", Field: "byteTy", Lo: "I128.zero()", Hi: "I128.fromCount(255 as Count)"},
 	{Name: "FullRangeFloat", Field: "fullRangeFloatTy", Lo: "floatNegate(floatMaxBits)", Hi: "floatMaxBits", Float: true},
 	{Name: "Codepoint", Field: "codepointTy", Lo: "I128.zero()", Hi: "I128.fromCount(1114111 as Count)"},
@@ -548,6 +552,7 @@ var tableFunctions = []function{
 	{Owner: "Array", Name: "filled", Static: true, Params: []string{"count ElementIndex", "consumes value T"}, Result: "Self", Bounds: []string{"T Copyable"}, Intrinsic: "ArrayFilled"},
 	{Owner: "Array", Name: "count", Result: "Count", Intrinsic: "ArrayCount"},
 	{Owner: "Array", Name: "isEmpty", Result: "Bool", Intrinsic: "ArrayIsEmpty"},
+	{Owner: "Array", Name: "capacity", Result: "ReportedCapacity", Intrinsic: "ArrayCapacity"},
 	{Owner: "Array", Name: "get", Params: []string{"index ElementIndex"}, Result: "T", Bounds: []string{"T Copyable"}, Throws: "ArrayError", Intrinsic: "ArrayGet"},
 	{Owner: "Array", Name: "set", Self: "mutates", Params: []string{"index ElementIndex", "consumes value T"}, Bounds: []string{"T Droppable"}, Throws: "ArrayError", Intrinsic: "ArraySet"},
 	{Owner: "Array", Name: "push", Self: "mutates", Params: []string{"consumes value T"}, Intrinsic: "ArrayPush"},
@@ -667,7 +672,6 @@ var tableFunctions = []function{
 	{Owner: "String", Name: "isEmpty", Result: "Bool", Intrinsic: "StringIsEmpty"},
 	{Owner: "String", Name: "equals", Params: []string{"other String"}, Result: "Bool", Intrinsic: "StringEquals"},
 	// append moves the string to a new one, joined, and stores that in the receiver's place.
-	{Owner: "String", Name: "append", Self: "mutates", Params: []string{"other String"}, Intrinsic: "StringAppend", OwnsOperands: true, MayOverlap: true},
 	// count and every position in a string are of grapheme clusters; startIndex, endIndex and the searches give a StringIndex.
 	{Owner: "String", Name: "count", Result: "Count", Intrinsic: "StringCount"},
 	{Owner: "String", Name: "contains", Params: []string{"needle String"}, Result: "Bool", Intrinsic: "StringContains"},
@@ -778,11 +782,6 @@ var tableFunctions = []function{
 	// trailingZeros is the number of 0 bits of a word below its lowest 1 bit, and 64 for 0: the place of the first match
 	// in a word of matches, one instruction where the machine has one.
 	{Owner: "Builtins", Name: "trailingZeros", Static: true, Params: []string{"_ Count"}, Result: "Count", Intrinsic: "TrailingZeros", Instead: "a loop over the word's bits"},
-	// A StringBuilder (stdlib/StringBuilder.maxon) appends a String's bytes to its buffer in place, keeps whether every
-	// piece had one byte to each grapheme cluster, and hands its buffer over as the String it built, with no copy.
-	{Owner: "Builtins", Name: "appendStringBytes", Static: true, Params: []string{"mutates _ Array with Byte", "_ String"}, Intrinsic: "AppendStringBytes", Instead: "StringBuilder's append(text)"},
-	{Owner: "Builtins", Name: "singleByteGraphemes", Static: true, Params: []string{"_ String"}, Result: "Bool", Intrinsic: "SingleByteGraphemes", Instead: "the String's own operations"},
-	{Owner: "Builtins", Name: "takeString", Static: true, Params: []string{"mutates _ Array with Byte", "_ Bool"}, Result: "String", Intrinsic: "TakeString", Instead: "StringBuilder's build()"},
 	{Owner: "Builtins", Name: "hashSeed", Static: true, Result: "HashDigest", Intrinsic: "HashSeed", Instead: "Hasher.create()"},
 	{Owner: "Builtins", Name: "drawHashSeed", Static: true, Result: "HashDigest", Intrinsic: "HashSeedDraw", Instead: "HashSeed.random()"},
 	{Owner: "Builtins", Name: "hashWord", Static: true, Params: []string{"_ HashDigest", "_ HashDigest"}, Result: "HashDigest", Intrinsic: "HashWord", Instead: "a Hasher's combine(value)"},
@@ -849,6 +848,16 @@ var entries = []entry{
 	{"PanicEmptySlot", "rt.panicEmptySlot", "Runtime", roleCall, "(location String, index): exits as panicAt does, with maxon's message of a lent read of an empty slot at the index"},
 	{"Concat", "rt.concat", "Runtime", roleCall, "(String, String) -> String"},
 	{"Itoa", "rt.itoa", "Runtime", roleCall, "(n, unsigned) -> String"},
+	// An interpolation is measured, given one buffer and has each part put into it (README, "Strings"); one that is assigned
+	// back to the String it starts with appends the rest to that String's own buffer where it has room.
+	{"DecimalLength", "rt.decimalLength", "Runtime", roleCall, "(n, unsigned) -> how many bytes the decimal text of n takes, its '-' among them, read as signed unless unsigned says otherwise"},
+	{"StrJoinRoom", "rt.str.joinRoom", "Runtime", roleCall, "(length) -> String: an empty String that owns room for length bytes, which an interpolation puts its parts into"},
+	{"StrJoinPut", "rt.str.joinPut", "Runtime", roleCall, "(String, part String) -> String: the String with the part's bytes after its own, in the room it has for them, its ASCII bit kept where both have it"},
+	{"StrJoinDigits", "rt.str.joinDigits", "Runtime", roleCall, "(String, n, unsigned, length) -> String: the String with the length bytes of the decimal text of n after its own, in the room it has for them"},
+	{"StrOwned", "rt.str.owned", "Runtime", roleCall, "(String) -> whether it owns its bytes, its owned bit, which the backend reads in place"},
+	{"StrExtend", "rt.str.extend", "Runtime", roleCall, "(String, owned, extra) -> String: the String's bytes with room for extra more after them, in its own buffer where it owns one with the room and else in one the growth policy sizes, the old buffer kept for rt.str.release"},
+	{"StrRelease", "rt.str.release", "Runtime", roleCall, "(old String, owned, grown String): frees the old String's buffer where it owned one and grown's bytes are elsewhere"},
+	{"StrAppend", "rt.str.append", "Runtime", roleCall, "(String, owned, part String) -> String: rt.str.extend, rt.str.joinPut and rt.str.release of one part"},
 	{"Ftoa", "rt.ftoa", "Runtime", roleCall, "(bits) -> String: the text of the double of the bits"},
 	{"FtoaExact", "rt.ftoaExact", "Runtime", roleCall, "(bits) -> String: the exact decimal of the magnitude of the double of the bits, or inf or nan"},
 	{"FmtInt", "rt.fmt.int", "Runtime", roleCall, "(n, radix, flags, width) -> String: the word in the base, in a field"},
@@ -930,6 +939,7 @@ var entries = []entry{
 	{"ArrayInsert", "rt.array.insert", "Arrays", roleCall, "(array, index, element): moves it in at index, which may be the length"},
 	{"ArrayRemove", "rt.array.remove", "Arrays", roleCall, "(array, index) -> element: moves it out"},
 	{"ArrayFill", "rt.array.fill", "Arrays", roleCall, "(array, count, word): appends count copies of a word that needs no copy of its own, a scalar or the 0 of an empty slot, as as many inserts at the end would"},
+	{"ArrayCapacity", "rt.array.capacity", "Arrays", roleCall, "(array or byte array) -> count: how many elements its buffer holds"},
 	{"ArrayReserve", "rt.array.reserve", "Arrays", roleCall, "(array, count): makes the buffer hold count elements, so as many inserts after it never grow it; the length and the elements stay"},
 	// An array of strings holds two words to an element, a String's, which the code moves in and out with stores and loads of
 	// the addresses these give: the runtime moves only bytes.
@@ -977,8 +987,6 @@ var entries = []entry{
 	{"BytesRemove", "rt.bytes.remove", "Bytes", roleCall, "(ByteArray, index) -> byte"},
 	{"BytesAppend", "rt.bytes.append", "Bytes", roleCall, "(ByteArray, other ByteArray)"},
 	{"BytesAppendStr", "rt.bytes.appendStr", "Bytes", roleCall, "(ByteArray, text String)"},
-	{"BytesTakeString", "rt.bytes.takeString", "Bytes", roleCall, "(ByteArray, simple) -> String: the array's bytes, its buffer handed over with no copy, and the array left empty with no buffer; simple is the String's ASCII bit"},
-	{"StrSimple", "rt.str.simple", "Runtime", roleCall, "(String) -> whether its ASCII bit is set: each grapheme cluster is one byte"},
 	{"BytesToString", "rt.bytes.toString", "Bytes", roleCall, "(ByteArray) -> String"},
 
 	// An OS entry that can fail takes last the address of a word, its error, which it sets to the case plus 1 of the
@@ -1026,6 +1034,13 @@ var runtimeFunctions = []runtimeFunction{
 	{"CheckSimpleBytes", "checkSimpleBytes(bytes Count, length Count)"},
 	{"Concat", "concat(left String, right String) String"},
 	{"Itoa", "itoa(n Count, unsigned Bool) String"},
+	{"DecimalLength", "decimalLength(n Count, unsigned Bool) Count"},
+	{"StrJoinRoom", "stringJoinRoom(length Count) String"},
+	{"StrJoinPut", "stringJoinPut(text String, part String) String"},
+	{"StrJoinDigits", "stringJoinDigits(text String, n Count, unsigned Bool, length Count) String"},
+	{"StrExtend", "stringExtend(text String, owned Bool, extra Count) String"},
+	{"StrRelease", "stringRelease(text String, owned Bool, grown String)"},
+	{"StrAppend", "stringAppend(text String, owned Bool, part String) String"},
 	{"Ftoa", "ftoa(bits Count) String"},
 	{"FtoaExact", "ftoaExact(bits Count) String"},
 	{"FmtInt", "formatInteger(n Count, radix Count, flags Count, width Count) String"},
@@ -1095,6 +1110,7 @@ var runtimeFunctions = []runtimeFunction{
 	{"ArrayInsert", "arrayInsert(array Count, index Count, element Count)"},
 	{"ArrayRemove", "arrayRemove(array Count, index Count) Count"},
 	{"ArrayFill", "arrayFill(array Count, count Count, word Count)"},
+	{"ArrayCapacity", "arrayCapacity(array Count) Count"},
 	{"ArrayReserve", "arrayReserve(array Count, count Count)"},
 	{"StrsElem", "stringsElem(array Count, index Count) Count"},
 	{"StrsOpen", "stringsOpen(array Count, index Count) Count"},
@@ -1110,8 +1126,6 @@ var runtimeFunctions = []runtimeFunction{
 	{"BytesRemove", "bytesRemove(array Count, index Count) Byte"},
 	{"BytesAppend", "bytesAppend(array Count, other Count)"},
 	{"BytesAppendStr", "bytesAppendStr(array Count, text String)"},
-	{"BytesTakeString", "bytesTakeString(array Count, simple Bool) String"},
-	{"StrSimple", "strKnownSimple(text String) Bool"},
 	{"BytesToString", "bytesToString(array Count) String"},
 	{"OsArgs", "osArgs() Count"},
 	{"OsEnvironmentVariable", "osEnvironmentVariable(name String, errorAddress Count) String"},

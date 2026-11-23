@@ -1160,26 +1160,6 @@ function selectEnd(mutates l Lowerer, s Select) returns Reg
 	return fetch(l, slot: s.result)
 end 'selectEnd'
 
-// TextOwner says who owns the string a part of an interpolated literal gives.
-export enum TextOwner
-	// textBorrowed is a string some other owner holds, which the literal only reads.
-	textBorrowed
-	// textImmortal is a string in the executable.
-	textImmortal
-	// textFresh is a string the literal made, which it owns until it joins it into the result.
-	textFresh
-end 'TextOwner'
-
-// TextPart is the value of a part of an interpolated literal and who owns it.
-export type TextPart
-	export var value as Reg
-	export var owner as TextOwner
-
-	export static function make(value Reg, owner TextOwner) returns TextPart
-		return TextPart{value: value, owner: owner}
-	end 'make'
-end 'TextPart'
-
 // plainText is the text of a string literal with no interpolation.
 function plainText(l Lowerer, p ast.Project, e ast.NodeID) returns String
 	return partsText(l, p: p, partsRef: ast.strLitPartsRef(p.modules[l.mi].tree, id: e))
@@ -1202,46 +1182,64 @@ function visitByteStrLit(mutates l Lowerer, p ast.Project, mutates ms ast.Module
 	return out
 end 'visitByteStrLit'
 
-// visitStrLit joins the parts of an interpolated literal into a new string, dropping each intermediate string once it has
-// been joined. A literal of a single borrowed string is a copy of it, because the literal's value is its own.
+// visitStrLit is the String an interpolated literal makes (joins.maxon). A literal of a single borrowed string is a copy of
+// it, because the literal's value is its own.
 function visitStrLit(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID) returns Reg
 	let partsRef = ast.strLitPartsRef(p.modules[l.mi].tree, id: e)
-	let count = p.modules[l.mi].tree.strPartCount(partsRef)
 	if p.modules[l.mi].tree.strIsPlain(partsRef) 'plain'
 		return strReg(l, value: plainText(l, p: p, e: e))
 	end 'plain'
-	let first = strPart(l, p: p, ms: ms, partsRef: partsRef, index: 0 as Count)
-	var acc = first.value
-	var owner = first.owner
-	if count == 1 and owner == TextOwner.textBorrowed 'single'
+	let mark = l.pending.count()
+	var parts = TextParts.create(0)
+	textParts(l, p: p, ms: ms, partsRef: partsRef, from: 0 as Count, parts: parts)
+	popPending(l, n: mark)
+	if parts.count() == 1 and parts[0].owner == TextOwner.textBorrowed 'single'
 		let string = p.builtins.stringTy
-		return copyValue(l, p: p, ms: ms, site: siteOf(l, p: p, node: e), v: acc, t: string)
+		return copyValue(l, p: p, ms: ms, site: siteOf(l, p: p, node: e), v: parts[0].value, t: string)
 	end 'single'
-	for i in 1 upto count 'join'
-		let mark = l.pending.count()
-		if owner == TextOwner.textFresh 'fresh'
-			l.pending.push(PendingDrop.ofReg(acc, ty: p.builtins.stringTy))
-		end 'fresh'
-		let next = strPart(l, p: p, ms: ms, partsRef: partsRef, index: i)
-		popPending(l, n: mark)
-		let joined = runtime(l, symbol: Rt.rtConcat, kind: IrKind.kindManaged, args: argsOf2(acc, b: next.value))
-		if owner == TextOwner.textFresh 'dropAcc'
-			let string = p.builtins.stringTy
-			dropValue(l, p: p, ms: ms, v: acc, t: string)
-		end 'dropAcc'
-		if next.owner == TextOwner.textFresh 'dropNext'
-			let string = p.builtins.stringTy
-			dropValue(l, p: p, ms: ms, v: next.value, t: string)
-		end 'dropNext'
-		acc = joined
-		owner = TextOwner.textFresh
-	end 'join'
-	return acc
+	return joinParts(l, p: p, ms: ms, parts: parts)
 end 'visitStrLit'
+
+// textParts evaluates the parts of a literal from the index from on, in order, and adds them to parts: a part that is itself
+// an interpolated literal, with no format of its own, adds its parts in its place, so the String of the outer literal is made
+// with them and the inner one is never made. Each String a part makes is dropped by a failure of a later part until the
+// join takes it (l.pending), which the caller ends.
+function textParts(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, partsRef diag.U32, from Count, mutates parts TextParts)
+	let count = p.modules[l.mi].tree.strPartCount(partsRef)
+	for i in from upto count 'parts'
+		let nested = nestedParts(l, p: p, partsRef: partsRef, index: i)
+		if nested.isSome() 'nested'
+			textParts(l, p: p, ms: ms, partsRef: nested.unwrap(), from: 0 as Count, parts: parts)
+			continue 'parts'
+		end 'nested'
+		let part = strPart(l, p: p, ms: ms, partsRef: partsRef, index: i)
+		if part.owner == TextOwner.textFresh 'fresh'
+			l.pending.push(PendingDrop.ofReg(part.value, ty: p.builtins.stringTy))
+		end 'fresh'
+		parts.push(part)
+	end 'parts'
+end 'textParts'
+
+// nestedParts is the parts of the part at index when it is an interpolated literal written with no format, which the outer
+// literal takes in its place.
+function nestedParts(l Lowerer, p ast.Project, partsRef diag.U32, index Count) returns table.Option with diag.U32
+	if not p.modules[l.mi].tree.strPartIsExpr(partsRef, index: index) or p.modules[l.mi].tree.strPartFormat(partsRef, index: index).byteLength() > 0 'other'
+		return table.Option.none
+	end 'other'
+	let inner = ast.through(p.modules[l.mi].tree, e: p.modules[l.mi].tree.strPartExpr(partsRef, index: index))
+	if p.modules[l.mi].tree.kindOf(inner) != ast.NodeKind.strLit 'notLiteral'
+		return table.Option.none
+	end 'notLiteral'
+	let innerRef = ast.strLitPartsRef(p.modules[l.mi].tree, id: inner)
+	if p.modules[l.mi].tree.strIsPlain(innerRef) 'plain'
+		return table.Option.none
+	end 'plain'
+	return table.Option.some(innerRef)
+end 'nestedParts'
 
 function strPart(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, partsRef diag.U32, index Count) returns TextPart
 	if not p.modules[l.mi].tree.strPartIsExpr(partsRef, index: index) 'text'
-		return TextPart.make(strReg(l, value: p.modules[l.mi].tree.strPartText(partsRef, index: index)), owner: TextOwner.textImmortal)
+		return TextPart.literal(partsRef, index: index, length: p.modules[l.mi].tree.strPartText(partsRef, index: index).byteLength())
 	end 'text'
 	let e = p.modules[l.mi].tree.strPartExpr(partsRef, index: index)
 	let v = lowerRead(l, p: p, ms: ms, e: e)
@@ -1271,16 +1269,10 @@ function strPart(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, p
 		return formattedFloat(l, p: p, ms: ms, v: v, spec: spec)
 	end 'formattedFloat'
 	if kind == ast.TypeKind.constInt 'constant'
-		let flag = konst(l, value: 0 as Word)
-		return TextPart.make(runtime(l, symbol: Rt.rtItoa, kind: IrKind.kindManaged, args: argsOf2(v, b: flag)), owner: TextOwner.textFresh)
+		return TextPart.decimal(v, unsigned: false)
 	end 'constant'
 	if kind == ast.TypeKind.intRange 'int'
-		var flag = 0 as Word
-		if ast.isUnsignedInt(ms.types, reads: p.types, t: t) 'unsigned'
-			flag = 1
-		end 'unsigned'
-		let flagReg = konst(l, value: flag)
-		return TextPart.make(runtime(l, symbol: Rt.rtItoa, kind: IrKind.kindManaged, args: argsOf2(v, b: flagReg)), owner: TextOwner.textFresh)
+		return TextPart.decimal(v, unsigned: ast.isUnsignedInt(ms.types, reads: p.types, t: t))
 	end 'int'
 	if kind == ast.TypeKind.constFloat or kind == ast.TypeKind.floatRange 'float'
 		return TextPart.make(runtime(l, symbol: Rt.rtFtoa, kind: IrKind.kindManaged, args: argsOf1(v)), owner: TextOwner.textFresh)
@@ -1315,8 +1307,7 @@ function rawText(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, t
 	if spec.present 'intSpec'
 		return formattedInt(l, p: p, v: raw, signed: true, spec: spec)
 	end 'intSpec'
-	let signed = konst(l, value: 0 as Word)
-	return TextPart.make(runtime(l, symbol: Rt.rtItoa, kind: IrKind.kindManaged, args: argsOf2(raw, b: signed)), owner: TextOwner.textFresh)
+	return TextPart.decimal(raw, unsigned: false)
 end 'rawText'
 
 // formatSpecOf is the format specifier of a part of a string literal, which asks for nothing for a part that has none. The

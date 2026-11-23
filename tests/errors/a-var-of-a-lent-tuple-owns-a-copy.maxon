@@ -15,6 +15,6 @@ end 'Holder'
 function main() returns ExitCode
 	let h = Holder.make()
 	var (p, _) = h.both()
-	p.append("!")
+	p = "{p}!"
 	return 0
 end 'main'

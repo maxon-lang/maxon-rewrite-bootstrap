@@ -318,8 +318,8 @@ function main() returns ExitCode
 	let s = "hello world"
 	let idx = try s.findFirst(" ") otherwise s.endIndex()
 	var acc = "["
-	acc.append(s.slice(s.startIndex(), endIndex: idx))
-	acc.append("]")
+	acc = "{acc}{s.slice(s.startIndex(), endIndex: idx)}"
+	acc = "{acc}]"
 	print("{acc}\n")
 	let inner = s.slice(s.startIndex(), endIndex: idx)
 	let innerEnd = try inner.findFirst("llo") otherwise inner.endIndex()

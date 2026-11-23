@@ -466,6 +466,10 @@ end 'visitContinueStmt'
 function visitAssignStmt(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, s ast.NodeID)
 	let target = ast.assignStmtTarget(p.modules[l.mi].tree, id: s)
 	let value = ast.assignStmtValue(p.modules[l.mi].tree, id: s)
+	if appendsTo(l, p: p, ms: ms, target: target, value: value) 'append'
+		lowerAppend(l, p: p, ms: ms, target: target, value: value)
+		return
+	end 'append'
 	let k = p.modules[l.mi].tree.kindOf(target)
 	if k == ast.NodeKind.nameExpr 'name'
 		let name = nameInfoAt(p, module: l.module, node: target)

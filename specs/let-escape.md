@@ -848,7 +848,7 @@ type H
 end 'H'
 
 function grow(mutates h H)
-	h.s.append("x")
+	h.s = "{h.s}x"
 end 'grow'
 
 function runtimeText(n Count) returns String
@@ -3001,7 +3001,7 @@ type H
 end 'H'
 
 function grow(mutates h H)
-	h.s.append("x")
+	h.s = "{h.s}x"
 end 'grow'
 
 function runtimeText(n Count) returns String

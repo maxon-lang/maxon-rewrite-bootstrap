@@ -331,7 +331,7 @@ end 'pass'
 function main() returns ExitCode
 	let h = Holder.create("base")
 	var x = pass(h.path)
-	x.append(" more")
+	x = "{x} more"
 	print("{x} {h.path}\n")
 	return 0
 end 'main'
@@ -381,7 +381,7 @@ returns its `path` field, and the `var` made from it holds a copy of its own.
 function main() returns ExitCode
 	let fp = try FilePath.from("somedir") otherwise panic("a relative path is valid")
 	var s = fp.toString()
-	s.append(" more")
+	s = "{s} more"
 	print("{s} {fp.toString()}\n")
 	return 0
 end 'main'
@@ -402,7 +402,7 @@ function main() returns ExitCode
 	let n = 7
 	let a = "lit{n}"
 	var b = relay(a)
-	b.append("x")
+	b = "{b}x"
 	print("{a} {b}\n")
 	return 0
 end 'main'
@@ -439,7 +439,7 @@ function main() returns ExitCode
 	let n = 7
 	let a = "lit{n}"
 	var b = pick(a, depth: 3)
-	b.append("x")
+	b = "{b}x"
 	print("{a} {b}\n")
 	return 0
 end 'main'
@@ -479,7 +479,7 @@ end 'nameOf'
 function main() returns ExitCode
 	let t = Tag.create("tag")
 	var y = nameOf(t)
-	y.append(" more")
+	y = "{y} more"
 	print("{y} {t.label}\n")
 	return 0
 end 'main'
@@ -501,7 +501,7 @@ function main() returns ExitCode
 	let s = "cap{n}"
 	let f = function() gives s.clone()
 	var x = f()
-	x.append(" more")
+	x = "{x} more"
 	print("{x} {f()}\n")
 	return 0
 end 'main'
@@ -647,7 +647,7 @@ holds, and `fp` is read after it.
 public function helper() returns ExitCode
 	let fp = try FilePath.from("some/dir") otherwise panic("a relative path is valid")
 	var s = fp.toString()
-	s.append(" more")
+	s = "{s} more"
 	print("{s} {fp.toString()}\n")
 	return 0
 end 'helper'
@@ -691,7 +691,7 @@ function main() returns ExitCode
 	let n = 7
 	let a = "lit{n} long enough to be a real heap string value"
 	var b = relay(a)
-	b.append("x")
+	b = "{b}x"
 	print("{a} {b}\n")
 	return 0
 end 'main'
@@ -714,7 +714,7 @@ function main() returns ExitCode
 	let n = 7
 	let a = "lit{n} long enough to be a real heap string value"
 	var b = relay(a).clone()
-	b.append("x")
+	b = "{b}x"
 	print("{a} {b}\n")
 	return 0
 end 'main'
@@ -878,7 +878,7 @@ end 'pass'
 function tagIt(p String)
 	let q = p.clone()
 	var x = pass(q)
-	x.append("!")
+	x = "{x}!"
 	print("{q}\n")
 end 'tagIt'
 
@@ -886,7 +886,7 @@ function main() returns ExitCode
 	let n = 7
 	var a = "lit{n}"
 	tagIt(a)
-	a.append("?")
+	a = "{a}?"
 	print("{a}\n")
 	return 0
 end 'main'

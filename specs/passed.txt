@@ -697,6 +697,7 @@ borrow-liveness.md: a-closure-capturing-a-borrowed-field-is-copied-into-an-outer
 borrow-liveness.md: a-closure-capturing-a-borrowed-field-is-handed-to-a-function-that-keeps-it
 borrow-liveness.md: a-closure-capturing-a-borrowed-field-is-returned
 borrow-liveness.md: a-closure-capturing-a-borrowed-field-is-stored-in-a-field
+borrow-liveness.md: a-corpus-served-read-only-member-leaves-an-element-read-intact
 borrow-liveness.md: a-field-handed-to-a-callee-that-cannot-reach-it
 borrow-liveness.md: a-field-read-survives-a-rebind-of-its-root
 borrow-liveness.md: a-field-read-through-a-var-field-of-a-parameter-survives-a-rebind-of-that-field
@@ -965,6 +966,7 @@ co-allocated-arrays.md: a-recycled-co-allocated-array-reads-zero
 co-allocated-arrays.md: a-recycled-fixed-array-reads-zero-at-a-slab-class-and-past-the-slabs
 co-allocated-arrays.md: a-separate-buffer-allocated-right-behind-its-record-is-released-with-it
 co-allocated-arrays.md: a-slice-of-managed-elements-owns-its-elements-and-frees-them-once
+co-allocated-arrays.md: an-array-created-at-a-constant-capacity-reads-zero-in-a-slot-an-earlier-array-left-filled
 co-allocated-arrays.md: an-immortal-literal-array-clones-and-detaches-as-before
 codegen-internals.md: f32-arithmetic-uses-ss-instructions
 codegen-internals.md: f32-comparison-uses-ucomiss
@@ -3102,6 +3104,7 @@ immutable-constants.md: an-immutable-element-fills-the-second-payload-case-of-a-
 immutable-constants.md: an-inline-byte-literal-passed-to-a-parameter-a-plain-field-keeps-is-read-only-for-the-caller
 immutable-constants.md: constant-names-are-pushed-into-an-immutable-array-and-read-by-for
 immutable-constants.md: inline-byte-literal-is-immutable
+immutable-method-call.md: append-on-let-string-error
 immutable-method-call.md: append-on-string-parameter-ok
 immutable-method-call.md: append-on-var-self-field-string-ok
 immutable-method-call.md: append-to-a-string-field-off-a-local-let
@@ -3613,6 +3616,7 @@ managed-memory-methods.md: array-get-set
 managed-memory-methods.md: array-growth
 managed-memory-methods.md: array-insert-remove
 managed-memory-methods.md: array-literal
+managed-memory-methods.md: array-set-is-still-bounded-by-the-live-length
 managed-memory-methods.md: array-slice
 managed-memory-methods.md: array-via-methods
 managed-memory-methods.md: clear-then-resize-bool-reads-false
@@ -3891,7 +3895,6 @@ memory-safety.md: clone-of-a-clone-is-independent-of-both
 memory-safety.md: clone-of-nested-array-copies-the-inner-array
 memory-safety.md: clone-of-string-array-copies-its-strings
 memory-safety.md: mutated-payload-bound-inside-the-arm-frees-its-record
-memory-safety.md: shared-record-not-written-through-a-field-assign
 memory-safety.md: shared-record-not-written-through-a-union-payload
 method-call-on-parameter.md: method-call-chain-same-type
 method-call-on-parameter.md: method-call-on-same-type-parameter
@@ -6220,6 +6223,7 @@ stdlib-array.md: array-literal
 stdlib-array.md: build-sorted-with-inserts
 stdlib-array.md: clear-array
 stdlib-array.md: empty-array
+stdlib-array.md: every-growing-door-grows-by-one-policy
 stdlib-array.md: first-last
 stdlib-array.md: for-in-double-iteration
 stdlib-array.md: for-in-iteration
@@ -6251,6 +6255,7 @@ stdlib-array.md: remove-from-end
 stdlib-array.md: remove-from-middle
 stdlib-array.md: remove-out-of-bounds
 stdlib-array.md: remove-strings
+stdlib-array.md: reserve-capacity
 stdlib-array.md: set-element
 stdlib-array.md: string-array-get
 stdlib-array.md: string-array-iteration
@@ -6294,7 +6299,9 @@ stdlib-user-shadows.md: stdlib-user-shadows.user-union-coexists-with-a-listed-mo
 stdlib-user-shadows.md: stdlib-user-shadows.user-union-shadows-a-listed-module
 store-detaches-before-it-stores.md: a-checked-store-through-a-viewed-owner-detaches-first
 store-detaches-before-it-stores.md: a-proven-store-into-a-literal-fixed-array-never-reaches-its-image
+store-detaches-before-it-stores.md: a-refused-store-into-a-viewed-owner-allocates-nothing
 store-detaches-before-it-stores.md: a-store-into-a-view-detaches-the-view-and-leaves-its-parent
+store-detaches-before-it-stores.md: a-store-into-an-empty-array-throws-and-allocates-nothing
 store-detaches-before-it-stores.md: a-store-into-an-immortal-literal-never-reaches-its-image
 store-detaches-before-it-stores.md: a-store-over-a-viewed-element-that-owes-a-destructor-releases-it
 store-detaches-before-it-stores.md: a-store-over-an-element-that-owes-a-destructor-releases-it

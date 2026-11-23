@@ -23,22 +23,6 @@ function lowerStringEquals(mutates l Lowerer, p ast.Project, ms ast.ModuleState,
 	return runtime(l, symbol: Rt.rtStreq, kind: IrKind.kindScalar, args: argsOf2(recv, b: args[0]))
 end 'lowerStringEquals'
 
-// lowerStringAppend stores the receiver joined with the other string in the receiver's place, which drops the string that
-// was there. The other string is computed before the place is addressed, so that computing it cannot leave the address stale.
-function lowerStringAppend(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
-	let other = lowerConverted(l, p: p, ms: ms, e: c.ordered[0], target: c.info.paramSpecs[0].ty)
-	let places = l.writeBacks.count()
-	let addr = address(l, p: p, ms: ms, e: c.receiver)
-	let old = newReg(l, kind: IrKind.kindString)
-	emit(l, i: newLoadAt(old, addr: addr))
-	let joined = runtime(l, symbol: Rt.rtConcat, kind: IrKind.kindManaged, args: argsOf2(old, b: other))
-	let string = p.builtins.stringTy
-	dropAt(l, p: p, ms: ms, addr: addr, t: string)
-	emit(l, i: newStoreAt(addr, src: joined))
-	writeBack(l, p: p, ms: ms, mark: places)
-	return konst(l, value: 0 as Word)
-end 'lowerStringAppend'
-
 function lowerStringCount(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	return runtime(l, symbol: Rt.rtStrCount, kind: IrKind.kindScalar, args: argsOf1(recv))
 end 'lowerStringCount'
@@ -185,19 +169,3 @@ end 'lowerStringIndexCharIndex'
 function lowerStringIndexBytePos(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	return indexBytePos(l, index: recv)
 end 'lowerStringIndexBytePos'
-
-// lowerAppendStringBytes is __Builtins.appendStringBytes: the bytes of a String pushed onto an array of bytes in place.
-function lowerAppendStringBytes(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
-	entryVoid(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtBytesAppendStr, args: argsOf2(args[0], b: args[1]))
-	return konst(l, value: 0 as Word)
-end 'lowerAppendStringBytes'
-
-// lowerSingleByteGraphemes is __Builtins.singleByteGraphemes: a String's ASCII bit.
-function lowerSingleByteGraphemes(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
-	return runtime(l, symbol: Rt.rtStrSimple, kind: IrKind.kindScalar, args: argsOf1(args[0]))
-end 'lowerSingleByteGraphemes'
-
-// lowerTakeString is __Builtins.takeString: the bytes of an array of bytes handed over as a String, the array left empty.
-function lowerTakeString(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
-	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtBytesTakeString, kind: IrKind.kindManaged, args: argsOf2(args[0], b: args[1]))
-end 'lowerTakeString'

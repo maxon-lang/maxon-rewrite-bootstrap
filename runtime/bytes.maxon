@@ -1,5 +1,4 @@
-// The byte array entries: the array's routines (arrays.maxon) with an element of one byte, and a buffer that starts at
-// bytesFirstCapacity.
+// The byte array entries: the array's routines (arrays.maxon) with an element of one byte.
 
 // bytesNew is a new empty byte array: no buffer yet.
 function bytesNew() returns Count
@@ -24,7 +23,7 @@ end 'bytesSet'
 
 // bytesInsert puts a byte in at an index, which may be the length, after what follows moves up by one.
 function bytesInsert(array Count, index Count, value Byte)
-	let at = collectionOpenGap(array, index: index, elementBytes: byteBytes, firstCapacity: bytesFirstCapacity)
+	let at = collectionOpenGap(array, index: index, elementBytes: byteBytes)
 	__Raw.storeByte(at, offset: 0, value: value)
 end 'bytesInsert'
 
@@ -43,7 +42,7 @@ function bytesAppend(array Count, other Count)
 	if count == 0 'empty'
 		return
 	end 'empty'
-	let tail = collectionExtend(array, count: count, elementBytes: byteBytes, firstCapacity: bytesFirstCapacity)
+	let tail = collectionExtend(array, count: count, elementBytes: byteBytes)
 	copyBytes(collectionData(other), target: tail, count: count)
 end 'bytesAppend'
 
@@ -53,26 +52,9 @@ function bytesAppendStr(array Count, text String)
 	if count == 0 'empty'
 		return
 	end 'empty'
-	let tail = collectionExtend(array, count: count, elementBytes: byteBytes, firstCapacity: bytesFirstCapacity)
+	let tail = collectionExtend(array, count: count, elementBytes: byteBytes)
 	copyBytes(__Raw.stringBytes(text), target: tail, count: count)
 end 'bytesAppendStr'
-
-// bytesTakeString is the string of the bytes of the array, whose buffer it takes as the string's own, with no copy, leaving
-// the array empty with no buffer: what a StringBuilder's build hands over. simple is the string's ASCII bit, which the
-// builder kept as the bytes went in. An empty array, which may have no buffer, gives the empty literal, since a string's
-// address is never 0.
-function bytesTakeString(array Count, simple bool) returns String
-	let length = collectionLength(array)
-	let buffer = collectionData(array)
-	__Raw.storeWord(array, offset: arrayLengthOffset, value: 0)
-	__Raw.storeWord(array, offset: arrayCapacityOffset, value: 0)
-	__Raw.storeWord(array, offset: arrayDataOffset, value: 0)
-	if length == 0 'empty'
-		free(buffer)
-		return ""
-	end 'empty'
-	return __Raw.stringOf(buffer, length: length, ascii: simple)
-end 'bytesTakeString'
 
 // bytesToString is a new string of the bytes of the array, which the caller owns.
 function bytesToString(array Count) returns String

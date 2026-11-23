@@ -801,9 +801,9 @@ end 'Bag'
 typealias StrBag = Bag with String
 
 function heap(n Integer) returns String
-	var sb = StringBuilder.create()
-	sb.append("a heap string long enough to allocate {n}")
-	return sb.build()
+	var sb = ""
+	sb = "{sb}a heap string long enough to allocate {n}"
+	return sb
 end 'heap'
 
 function main() returns ExitCode
@@ -863,9 +863,9 @@ end 'Bag'
 typealias StrBag = Bag with String
 
 function heap(n Integer) returns String
-	let sb = StringBuilder.create()
-	sb.append("a heap string long enough to allocate {n}")
-	return sb.build()
+	var sb = ""
+	sb = "{sb}a heap string long enough to allocate {n}"
+	return sb
 end 'heap'
 
 function main() returns ExitCode
@@ -923,9 +923,9 @@ end 'Bag'
 typealias StrBag = Bag with String
 
 function heap(n Integer) returns String
-	var sb = StringBuilder.create()
-	sb.append("a heap string long enough to allocate {n}")
-	return sb.build()
+	var sb = ""
+	sb = "{sb}a heap string long enough to allocate {n}"
+	return sb
 end 'heap'
 
 function main() returns ExitCode
@@ -992,9 +992,9 @@ end 'Bag'
 typealias StrBag = Bag with String
 
 function heap(n Integer) returns String
-	var sb = StringBuilder.create()
-	sb.append("a heap string long enough to allocate {n}")
-	return sb.build()
+	var sb = ""
+	sb = "{sb}a heap string long enough to allocate {n}"
+	return sb
 end 'heap'
 
 function main() returns ExitCode
@@ -1059,9 +1059,9 @@ end 'Bag'
 typealias StrBag = Bag with String
 
 function heap(n Integer) returns String
-	var sb = StringBuilder.create()
-	sb.append("a heap string long enough to allocate {n}")
-	return sb.build()
+	var sb = ""
+	sb = "{sb}a heap string long enough to allocate {n}"
+	return sb
 end 'heap'
 
 function main() returns ExitCode
@@ -1311,9 +1311,9 @@ end 'Bag'
 typealias StrBag = Bag with String
 
 function heap(n Integer) returns String
-	var sb = StringBuilder.create()
-	sb.append("a heap string long enough to allocate {n}")
-	return sb.build()
+	var sb = ""
+	sb = "{sb}a heap string long enough to allocate {n}"
+	return sb
 end 'heap'
 
 function main() returns ExitCode
@@ -1734,10 +1734,10 @@ end 'Bag'
 typealias StrBag = Bag with String
 
 function heapString(a String, b String) returns String
-	let sb = StringBuilder.create()
-	sb.append(a)
-	sb.append(b)
-	return sb.build()
+	var sb = ""
+	sb = "{sb}{a}"
+	sb = "{sb}{b}"
+	return sb
 end 'heapString'
 
 function main() returns ExitCode
@@ -1772,10 +1772,10 @@ end 'Cell'
 typealias StrCell = Cell with String
 
 function heapString(a String, b String) returns String
-	var sb = StringBuilder.create()
-	sb.append(a)
-	sb.append(b)
-	return sb.build()
+	var sb = ""
+	sb = "{sb}{a}"
+	sb = "{sb}{b}"
+	return sb
 end 'heapString'
 
 function main() returns ExitCode
@@ -1816,10 +1816,10 @@ end 'Bag'
 typealias StrBag = Bag with String
 
 function heapString(a String, b String) returns String
-	var sb = StringBuilder.create()
-	sb.append(a)
-	sb.append(b)
-	return sb.build()
+	var sb = ""
+	sb = "{sb}{a}"
+	sb = "{sb}{b}"
+	return sb
 end 'heapString'
 
 function main() returns ExitCode
@@ -1864,10 +1864,10 @@ end 'Bag'
 typealias StrBag = Bag with String
 
 function heapString(a String, b String) returns String
-	let sb = StringBuilder.create()
-	sb.append(a)
-	sb.append(b)
-	return sb.build()
+	var sb = ""
+	sb = "{sb}{a}"
+	sb = "{sb}{b}"
+	return sb
 end 'heapString'
 
 function main() returns ExitCode
@@ -1909,10 +1909,10 @@ end 'Bag'
 typealias StrBag = Bag with String
 
 function heapString(a String, b String) returns String
-	var sb = StringBuilder.create()
-	sb.append(a)
-	sb.append(b)
-	return sb.build()
+	var sb = ""
+	sb = "{sb}{a}"
+	sb = "{sb}{b}"
+	return sb
 end 'heapString'
 
 function main() returns ExitCode
@@ -1950,10 +1950,10 @@ end 'Cell'
 typealias StrCell = Cell with String
 
 function heapString(a String, b String) returns String
-	var sb = StringBuilder.create()
-	sb.append(a)
-	sb.append(b)
-	return sb.build()
+	var sb = ""
+	sb = "{sb}{a}"
+	sb = "{sb}{b}"
+	return sb
 end 'heapString'
 
 function main() returns ExitCode
@@ -1988,10 +1988,10 @@ typealias StrCell = Cell with String
 typealias Strings = Array with String
 
 function heapString(a String, b String) returns String
-	var sb = StringBuilder.create()
-	sb.append(a)
-	sb.append(b)
-	return sb.build()
+	var sb = ""
+	sb = "{sb}{a}"
+	sb = "{sb}{b}"
+	return sb
 end 'heapString'
 
 function main() returns ExitCode
@@ -2030,10 +2030,10 @@ typealias StrCell = Cell with String
 typealias Strings = Array with String
 
 function heapString(a String, b String) returns String
-	var sb = StringBuilder.create()
-	sb.append(a)
-	sb.append(b)
-	return sb.build()
+	var sb = ""
+	sb = "{sb}{a}"
+	sb = "{sb}{b}"
+	return sb
 end 'heapString'
 
 function main() returns ExitCode
@@ -2070,10 +2070,10 @@ typealias StrCell = Cell with String
 typealias Strings = Array with String
 
 function heapString(a String, b String) returns String
-	var sb = StringBuilder.create()
-	sb.append(a)
-	sb.append(b)
-	return sb.build()
+	var sb = ""
+	sb = "{sb}{a}"
+	sb = "{sb}{b}"
+	return sb
 end 'heapString'
 
 function main() returns ExitCode
@@ -2110,10 +2110,10 @@ end 'Cell'
 typealias StrCell = Cell with String
 
 function heapString(a String, b String) returns String
-	var sb = StringBuilder.create()
-	sb.append(a)
-	sb.append(b)
-	return sb.build()
+	var sb = ""
+	sb = "{sb}{a}"
+	sb = "{sb}{b}"
+	return sb
 end 'heapString'
 
 function main() returns ExitCode
@@ -2144,10 +2144,10 @@ end 'Cell'
 typealias StrCell = Cell with String
 
 function heapString(a String, b String) returns String
-	var sb = StringBuilder.create()
-	sb.append(a)
-	sb.append(b)
-	return sb.build()
+	var sb = ""
+	sb = "{sb}{a}"
+	sb = "{sb}{b}"
+	return sb
 end 'heapString'
 
 function main() returns ExitCode
@@ -2183,10 +2183,10 @@ end 'Cell'
 typealias StrCell = Cell with String
 
 function heapString(a String, b String) returns String
-	var sb = StringBuilder.create()
-	sb.append(a)
-	sb.append(b)
-	return sb.build()
+	var sb = ""
+	sb = "{sb}{a}"
+	sb = "{sb}{b}"
+	return sb
 end 'heapString'
 
 function build() returns StrCell
@@ -2242,10 +2242,10 @@ end 'Cell'
 typealias StrCell = Cell with String
 
 function heapString(a String, b String) returns String
-	var sb = StringBuilder.create()
-	sb.append(a)
-	sb.append(b)
-	return sb.build()
+	var sb = ""
+	sb = "{sb}{a}"
+	sb = "{sb}{b}"
+	return sb
 end 'heapString'
 
 function main() returns ExitCode
@@ -2456,10 +2456,10 @@ end 'Cell'
 typealias StrCell = Cell with String
 
 function heapString(a String, b String) returns String
-	var sb = StringBuilder.create()
-	sb.append(a)
-	sb.append(b)
-	return sb.build()
+	var sb = ""
+	sb = "{sb}{a}"
+	sb = "{sb}{b}"
+	return sb
 end 'heapString'
 
 function build() returns StrCell
@@ -2503,10 +2503,10 @@ end 'Cell'
 typealias StrCell = Cell with String
 
 function heapString(a String, b String) returns String
-	var sb = StringBuilder.create()
-	sb.append(a)
-	sb.append(b)
-	return sb.build()
+	var sb = ""
+	sb = "{sb}{a}"
+	sb = "{sb}{b}"
+	return sb
 end 'heapString'
 
 function build() returns StrCell
@@ -2553,10 +2553,10 @@ end 'Cell'
 typealias StrCell = Cell with String
 
 function heapString(a String, b String) returns String
-	var sb = StringBuilder.create()
-	sb.append(a)
-	sb.append(b)
-	return sb.build()
+	var sb = ""
+	sb = "{sb}{a}"
+	sb = "{sb}{b}"
+	return sb
 end 'heapString'
 
 function build(keepLocal bool) returns StrCell
@@ -4305,10 +4305,10 @@ end 'Bag'
 typealias StrBag = Bag with String
 
 function fill(mutates b StrBag)
-	var sb = StringBuilder.create()
-	sb.append("hello ")
-	sb.append("heap world")
-	let s = sb.build()
+	var sb = ""
+	sb = "{sb}hello "
+	sb = "{sb}heap world"
+	let s = sb
 	b.add(s, tag: 7)
 end 'fill'
 
@@ -4376,10 +4376,10 @@ type Bag
 end 'Bag'
 
 function fill(mutates b Bag)
-	var sb = StringBuilder.create()
-	sb.append("hello ")
-	sb.append("heap world")
-	let s = sb.build()
+	var sb = ""
+	sb = "{sb}hello "
+	sb = "{sb}heap world"
+	let s = sb
 	b.add(s, tag: 7)
 end 'fill'
 
@@ -4460,10 +4460,10 @@ end 'Bag'
 typealias StrBag = Bag with String
 
 function fill(mutates b StrBag)
-	var sb = StringBuilder.create()
-	sb.append("hello ")
-	sb.append("heap world")
-	let s = sb.build()
+	var sb = ""
+	sb = "{sb}hello "
+	sb = "{sb}heap world"
+	let s = sb
 	b.add(s, tag: 7)
 end 'fill'
 
@@ -4602,9 +4602,9 @@ end 'Bag'
 typealias StrBag = Bag with String
 
 function load(mutates b StrBag)
-	var sb = StringBuilder.create()
-	sb.append("a repeated borrowed string long enough to force a heap allocation")
-	let s = sb.build()
+	var sb = ""
+	sb = "{sb}a repeated borrowed string long enough to force a heap allocation"
+	let s = sb
 	b.fill(s, times: 100)
 end 'load'
 
@@ -4734,10 +4734,10 @@ end 'Bag'
 typealias StrBag = Bag with String
 
 function fill(b StrBag)
-	let sb = StringBuilder.create()
-	sb.append("hello ")
-	sb.append("heap world")
-	b.add(sb.build(), tag: 7)
+	var sb = ""
+	sb = "{sb}hello "
+	sb = "{sb}heap world"
+	b.add(sb, tag: 7)
 end 'fill'
 
 function main() returns ExitCode
@@ -4859,10 +4859,10 @@ end 'Bag'
 typealias StrBag = Bag with String
 
 function fill() returns StrBag
-	var sb = StringBuilder.create()
-	sb.append("hello ")
-	sb.append("heap world")
-	let s = sb.build()
+	var sb = ""
+	sb = "{sb}hello "
+	sb = "{sb}heap world"
+	let s = sb
 	return StrBag.create(s, tag: 7)
 end 'fill'
 
@@ -4928,9 +4928,9 @@ typealias StrBag = Bag with String
 
 function main() returns ExitCode
 	var b = StrBag.create()
-	var sb = StringBuilder.create()
-	sb.append("a heap payload the record only borrows")
-	b.add(sb.build())
+	var sb = ""
+	sb = "{sb}a heap payload the record only borrows"
+	b.add(sb)
 	return try b.tagOfFirst() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
@@ -4990,10 +4990,10 @@ end 'Bag'
 typealias StrBag = Bag with String
 
 function fill(mutates b StrBag)
-	var sb = StringBuilder.create()
-	sb.append("hello ")
-	sb.append("heap world")
-	b.add(sb.build(), tag: 7)
+	var sb = ""
+	sb = "{sb}hello "
+	sb = "{sb}heap world"
+	b.add(sb, tag: 7)
 end 'fill'
 
 function main() returns ExitCode
@@ -5064,10 +5064,10 @@ typealias StrBag = Bag with String
 typealias StrBox = Box with String
 
 function makeOne(b StrBag) returns StrBox
-	var sb = StringBuilder.create()
-	sb.append("a heap payload ")
-	sb.append("long enough to allocate")
-	let s = sb.build()
+	var sb = ""
+	sb = "{sb}a heap payload "
+	sb = "{sb}long enough to allocate"
+	let s = sb
 	return b.wrap(s)
 end 'makeOne'
 
@@ -5139,10 +5139,10 @@ function main() returns ExitCode
 	var kept = BoxArray.create(0)
 	var i = 0 as Count
 	while i < 100 'fill'
-		var sb = StringBuilder.create()
-		sb.append("payload number ")
-		sb.append("{i} long enough to be a heap record")
-		kept.push(b.wrap(sb.build()))
+		var sb = ""
+		sb = "{sb}payload number "
+		sb = "{sb}{i} long enough to be a heap record"
+		kept.push(b.wrap(sb))
 		i = i + 1
 	end 'fill'
 	print("{kept.count()}\n")
@@ -5204,10 +5204,10 @@ end 'Outer'
 typealias O = Outer with (String, String)
 
 function heapString(a String, b String) returns String
-	var sb = StringBuilder.create()
-	sb.append(a)
-	sb.append(b)
-	return sb.build()
+	var sb = ""
+	sb = "{sb}{a}"
+	sb = "{sb}{b}"
+	return sb
 end 'heapString'
 
 function main() returns ExitCode
@@ -5282,10 +5282,10 @@ typealias O = Outer with (String, String)
 typealias MS = Mid with (String, String)
 
 function heapString(a String, b String) returns String
-	var sb = StringBuilder.create()
-	sb.append(a)
-	sb.append(b)
-	return sb.build()
+	var sb = ""
+	sb = "{sb}{a}"
+	sb = "{sb}{b}"
+	return sb
 end 'heapString'
 
 function main() returns ExitCode
@@ -5353,10 +5353,10 @@ typealias O = Outer with (String, String)
 typealias MS = Mid with (String, String)
 
 function heapString(a String, b String) returns String
-	var sb = StringBuilder.create()
-	sb.append(a)
-	sb.append(b)
-	return sb.build()
+	var sb = ""
+	sb = "{sb}{a}"
+	sb = "{sb}{b}"
+	return sb
 end 'heapString'
 
 function main() returns ExitCode
@@ -5523,10 +5523,10 @@ end 'Outer'
 typealias StrOuter = Outer with String
 
 function heapString(a String, b String) returns String
-	var sb = StringBuilder.create()
-	sb.append(a)
-	sb.append(b)
-	return sb.build()
+	var sb = ""
+	sb = "{sb}{a}"
+	sb = "{sb}{b}"
+	return sb
 end 'heapString'
 
 function main() returns ExitCode
@@ -5578,10 +5578,10 @@ end 'Outer'
 typealias StrOuter = Outer with String
 
 function heapString(a String, b String) returns String
-	var sb = StringBuilder.create()
-	sb.append(a)
-	sb.append(b)
-	return sb.build()
+	var sb = ""
+	sb = "{sb}{a}"
+	sb = "{sb}{b}"
+	return sb
 end 'heapString'
 
 function main() returns ExitCode
@@ -5636,10 +5636,10 @@ typealias StrBag = Bag with String
 typealias StrBox = Box with String
 
 function heapString(a String, b String) returns String
-	var sb = StringBuilder.create()
-	sb.append(a)
-	sb.append(b)
-	return sb.build()
+	var sb = ""
+	sb = "{sb}{a}"
+	sb = "{sb}{b}"
+	return sb
 end 'heapString'
 
 function main() returns ExitCode
@@ -5703,10 +5703,10 @@ end 'Holder'
 typealias StrHolder = Holder with String, Small
 
 function heapString(a String, b String) returns String
-	var sb = StringBuilder.create()
-	sb.append(a)
-	sb.append(b)
-	return sb.build()
+	var sb = ""
+	sb = "{sb}{a}"
+	sb = "{sb}{b}"
+	return sb
 end 'heapString'
 
 function main() returns ExitCode
@@ -5757,10 +5757,10 @@ typealias StrHolder = Holder with String, Small
 typealias SmallHolder = Holder with Small, Small
 
 function heapString(a String, b String) returns String
-	var sb = StringBuilder.create()
-	sb.append(a)
-	sb.append(b)
-	return sb.build()
+	var sb = ""
+	sb = "{sb}{a}"
+	sb = "{sb}{b}"
+	return sb
 end 'heapString'
 
 function main() returns ExitCode
@@ -5805,10 +5805,10 @@ end 'Holder'
 typealias StrHolder = Holder with String, Small
 
 function heapString(a String, b String) returns String
-	var sb = StringBuilder.create()
-	sb.append(a)
-	sb.append(b)
-	return sb.build()
+	var sb = ""
+	sb = "{sb}{a}"
+	sb = "{sb}{b}"
+	return sb
 end 'heapString'
 
 function main() returns ExitCode
@@ -6103,10 +6103,10 @@ end 'Cell'
 typealias StrCell = Cell with String
 
 function heapString(a String, b String) returns String
-	var sb = StringBuilder.create()
-	sb.append(a)
-	sb.append(b)
-	return sb.build()
+	var sb = ""
+	sb = "{sb}{a}"
+	sb = "{sb}{b}"
+	return sb
 end 'heapString'
 
 function main() returns ExitCode
@@ -6142,10 +6142,10 @@ end 'Cell'
 typealias StrCell = Cell with String
 
 function heapString(a String, b String) returns String
-	var sb = StringBuilder.create()
-	sb.append(a)
-	sb.append(b)
-	return sb.build()
+	var sb = ""
+	sb = "{sb}{a}"
+	sb = "{sb}{b}"
+	return sb
 end 'heapString'
 
 function main() returns ExitCode
@@ -6194,10 +6194,10 @@ end 'Wrapper'
 typealias StrWrapper = Wrapper with String
 
 function heapString(a String, b String) returns String
-	var sb = StringBuilder.create()
-	sb.append(a)
-	sb.append(b)
-	return sb.build()
+	var sb = ""
+	sb = "{sb}{a}"
+	sb = "{sb}{b}"
+	return sb
 end 'heapString'
 
 function main() returns ExitCode
@@ -6233,10 +6233,10 @@ end 'Cell'
 typealias StrCell = Cell with String
 
 function heapString(a String, b String) returns String
-	var sb = StringBuilder.create()
-	sb.append(a)
-	sb.append(b)
-	return sb.build()
+	var sb = ""
+	sb = "{sb}{a}"
+	sb = "{sb}{b}"
+	return sb
 end 'heapString'
 
 function main() returns ExitCode
@@ -6286,10 +6286,10 @@ end 'Wrapper'
 typealias StrWrapper = Wrapper with String
 
 function heapString(a String, b String) returns String
-	var sb = StringBuilder.create()
-	sb.append(a)
-	sb.append(b)
-	return sb.build()
+	var sb = ""
+	sb = "{sb}{a}"
+	sb = "{sb}{b}"
+	return sb
 end 'heapString'
 
 function main() returns ExitCode
@@ -6346,10 +6346,10 @@ end 'Wrapper'
 typealias SmallStrWrapper = Wrapper with (Small, String)
 
 function heapString(a String, b String) returns String
-	var sb = StringBuilder.create()
-	sb.append(a)
-	sb.append(b)
-	return sb.build()
+	var sb = ""
+	sb = "{sb}{a}"
+	sb = "{sb}{b}"
+	return sb
 end 'heapString'
 
 function main() returns ExitCode
@@ -6410,10 +6410,10 @@ end 'Outer'
 typealias StrOuter = Outer with String
 
 function heapString(a String, b String) returns String
-	var sb = StringBuilder.create()
-	sb.append(a)
-	sb.append(b)
-	return sb.build()
+	var sb = ""
+	sb = "{sb}{a}"
+	sb = "{sb}{b}"
+	return sb
 end 'heapString'
 
 function main() returns ExitCode
@@ -6495,10 +6495,10 @@ end 'Cell'
 typealias StrCell = Cell with String
 
 function heapString(a String, b String) returns String
-	var sb = StringBuilder.create()
-	sb.append(a)
-	sb.append(b)
-	return sb.build()
+	var sb = ""
+	sb = "{sb}{a}"
+	sb = "{sb}{b}"
+	return sb
 end 'heapString'
 
 function main() returns ExitCode
@@ -6554,10 +6554,10 @@ end 'Outer'
 typealias StrOuter = Outer with String
 
 function heapString(a String, b String) returns String
-	var sb = StringBuilder.create()
-	sb.append(a)
-	sb.append(b)
-	return sb.build()
+	var sb = ""
+	sb = "{sb}{a}"
+	sb = "{sb}{b}"
+	return sb
 end 'heapString'
 
 function main() returns ExitCode
@@ -6594,10 +6594,10 @@ typealias StrPile = Pile with String
 typealias StrItems = Array with String
 
 function heapString(a String, b String) returns String
-	var sb = StringBuilder.create()
-	sb.append(a)
-	sb.append(b)
-	return sb.build()
+	var sb = ""
+	sb = "{sb}{a}"
+	sb = "{sb}{b}"
+	return sb
 end 'heapString'
 
 function main() returns ExitCode
@@ -6639,10 +6639,10 @@ end 'Pile'
 typealias StrPile = Pile with String
 
 function heapString(a String, b String) returns String
-	var sb = StringBuilder.create()
-	sb.append(a)
-	sb.append(b)
-	return sb.build()
+	var sb = ""
+	sb = "{sb}{a}"
+	sb = "{sb}{b}"
+	return sb
 end 'heapString'
 
 function main() returns ExitCode

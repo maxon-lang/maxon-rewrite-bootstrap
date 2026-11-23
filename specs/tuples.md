@@ -1159,10 +1159,10 @@ type Box uses T
 end 'Box'
 
 function heapText() returns String
-	var builder = StringBuilder.create()
-	builder.append("a heap string long enough to allocate ")
-	builder.append("and then some")
-	return builder.build()
+	var builder = ""
+	builder = "{builder}a heap string long enough to allocate "
+	builder = "{builder}and then some"
+	return builder
 end 'heapText'
 
 function main() returns ExitCode
@@ -2014,10 +2014,10 @@ typealias Pairs = Array with Pair
 
 function main() returns ExitCode
 	var xs = Pairs.create(0)
-	var sb = StringBuilder.create()
-	sb.append("a heap ")
-	sb.append("payload")
-	xs.push((sb.build(), 5))
+	var sb = ""
+	sb = "{sb}a heap "
+	sb = "{sb}payload"
+	xs.push((sb, 5))
 	let ys = xs.clone()
 	let cloned = try ys.get(0) otherwise panic("cloned")
 	print("{cloned.0}\n")
@@ -2044,10 +2044,10 @@ typealias Pairs = Array with Pair
 
 function main() returns ExitCode
 	let xs = Pairs.create(0)
-	let sb = StringBuilder.create()
-	sb.append("a heap ")
-	sb.append("payload")
-	xs.push((sb.build(), 5))
+	var sb = ""
+	sb = "{sb}a heap "
+	sb = "{sb}payload"
+	xs.push((sb, 5))
 	let ys = xs.clone()
 	let cloned = try ys.get(0) otherwise panic("cloned")
 	print("{cloned.0}\n")
@@ -2076,10 +2076,10 @@ typealias Pairs = Array with Pair
 
 function main() returns ExitCode
 	var xs = Pairs.create(0)
-	var sb = StringBuilder.create()
-	sb.append("shared ")
-	sb.append("record")
-	xs.push((sb.build(), 3))
+	var sb = ""
+	sb = "{sb}shared "
+	sb = "{sb}record"
+	xs.push((sb, 3))
 	let ys = xs.clone()
 	let original = try xs.get(0) otherwise panic("pushed")
 	let copied = try ys.get(0) otherwise panic("cloned")

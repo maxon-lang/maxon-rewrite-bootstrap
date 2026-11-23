@@ -381,11 +381,8 @@ is that of its module (`app::main`), and a project with no `main` in any module 
   the qualified spellings.
 - **The standard library** is Maxon source in `stdlib/`, found as `runtime/` is (the `stdlib` directory of the nearest
   directory, from the compiler's executable's upward, that has one), converted from maxon's `stdlib/` by `cmd/convert`
-  but for `Map.maxon` and `StringBuilder.maxon`, which are minimaxon's own (see "Where it differs from Maxon"; maxon's
-  `StringBuilder` reaches into the bytes of its library `String`, which here is two words of the compiler's, so this one
-  appends through `__Builtins.appendStringBytes` to one buffer in place, keeps the ASCII bit by
-  `__Builtins.singleByteGraphemes`, and hands the buffer over as the built `String` with `__Builtins.takeString`, no copy)
-  and which no conversion touches:
+  but for `Map.maxon`, which is minimaxon's own (see "Where it differs from Maxon") and which no conversion touches; maxon's
+  `StringBuilder.maxon` is left out, since an interpolation builds a String here:
   `stdlib/files.txt` lists the files converted so far, each with the library module it goes to (its directory under
   `stdlib/`, `.` for the root) and, where two files of one module would share a name, the name it takes (`StringHash.maxon`), and `.\stdlib.ps1` regenerates them, then applies the compiler's `fix` to them as `specs.ps1`
   does to the spec tests (a `let` that is changed becomes a `var`, a name of another library module is qualified); none is
@@ -1524,8 +1521,8 @@ runtime each implement the entries. The element is always visible in the call:
 
 **Native.** The array, the byte array and the OS entries have code: the entries are functions of `runtime/` (`arrays.maxon`,
 `bytes.maxon`, `os.maxon`, `subprocess.maxon`) that the program links like any other function. An array is a box of three
-words, the length, the capacity and the address of its elements, which are 8-byte words; `rt.array.insert` grows it by doubling
-and shifts what follows, and frees the buffer it leaves (the elements moved to the new one, so only the buffer goes), and
+words, the length, the capacity and the address of its elements, which are 8-byte words; `rt.array.insert` grows it by the growth policy
+(see "Text") and shifts what follows, and frees the buffer it leaves (the elements moved to the new one, so only the buffer goes), and
 `rt.array.remove` hands the element it removes to the caller, who owns it. `rt.array.fill` appends a number of copies of a word that needs no copy of its own, which an array of a scalar that `create` or `filled` makes, and the words of a buffer of groups, are written by in one pass. `rt.array.shrink` sets the length of an array or a byte array and keeps the buffer: `clear` and `truncate` of an element that needs no drop are that one call, and of an element that owns something they drop each element in place, last first, in one loop in the IR (`arrayShrinkTo`), and then call it. A byte array has the same three words, with a buffer
 of one byte to an element; its copy and drop routines copy and free the buffer whole. A list and a pool are lowered all
 the same, which is what the interpreter runs, but the driver refuses a function that needs one before it generates code:
@@ -3403,7 +3400,7 @@ one anywhere.
 | `Handle with T` | no operations; `==` and `!=` |
 | `__ManagedMemory with T` | maxon's raw buffer, which only the library tiers name (`E3185`): the box of an array, seen through maxon's buffer operations, each the array operation that does the same, so there is one implementation of each on either target. `length()`; `get(i)`, a copy of the element, where `T` is `Copyable`, throwing `__ManagedMemoryError.indexOutOfBounds` past the end and `emptySlot` at an empty slot (see `Array.clearSlot`). `xs.managed` is the buffer of an array: the array itself seen as one, so it is borrowed, moved and dropped as `xs` is (`let m = xs.managed` moves `xs`) |
 | `__GroupMemory with (A, B)` | minimaxon's raw buffer of the groups of a swiss table, which only the library tiers name (`E3185`), laid out as Go's map lays out its groups: each group is a control word and then eight pairs, the first half of a pair beside its second. `create(groups, control: w)` makes the groups, each control word `w` and each pair empty; `groups()`; `control(g)` and `setControl(g, value: w)` read and write a group's word as it is; a pair is named by its index over every group, eight to a group: `first(at)` and `second(at)` lend a half (a lent managed half that is empty panics, as an array's empty slot does), `put(at, first: a, second: b)` and `setSecond(at, value: b)` move halves in and drop what they held, `takeFirst(at)` and `takeSecond(at)` move one out and leave it empty, and `clear(at)` drops both. A group or a pair past the end traps. It is an array box of the words (`ir/groups.maxon`), so a read is a load; its drop and its copy go through each half by its type, an empty managed half being 0 |
-| `__Builtins` | maxon's raw intrinsics, which only the library tiers call (`E3185`), each the built-in that does the same: `currentProcessId()` is `Process.id()`, `currentTimeNanos()` `Clock.nowNanos()`; `floatToBits(x)` is the 64 bits of a double as a `FullRangeInt`, a reinterpretation that the library's float hash folds; `trailingZeros(word)` is the count of 0 bits below a `Count`'s lowest 1 bit, 64 for 0, the IR's `ctz`, by which `Map` reads the first match of a control word; `appendStringBytes(bytes, text)` pushes a String's bytes onto a `ByteArray` in place, `singleByteGraphemes(text)` is a String's ASCII bit, and `takeString(bytes, simple)` is the String of a `ByteArray`'s bytes, whose buffer it takes with no copy, leaving the array empty with none (`rt.bytes.takeString`), which `StringBuilder` is made of; `hashWord(word, seed)` and `hashBytes(bytes, at, count, seed)` are maxon's seeded hash, its software fold of a word or of a span of a `ByteArray` under a `HashDigest` seed (`runtime/hashfold.maxon`, which the interpreter runs too, as `hashfold_gen.maxon`), a span past the end a panic; `readBigEndian(bytes, at, width)` and `readLittleEndian` the `OrderedWord` of the 2, 4 or 8 bytes at an index, the first the most or the least significant, throwing `ArrayError.indexOutOfBounds` when they are not all inside, and `appendBigEndian(bytes, word, width)` and `appendLittleEndian` the append of a word's low bytes in that order; the width is the literal 2, 4 or 8 (`E3005` otherwise, in maxon's words). `OrderedWord` and `HashDigest` are built-in `bits(64)` aliases, as maxon's library declares them (`stdlib/Builtins.maxon`, `Hasher.maxon`). `hashSeed()` is the fold of no bytes under the process's secret, which a `Hasher` starts from, and `drawHashSeed()` a fresh secret (`HashSeed.random()`): the first call makes the process's hash state, as maxon's runtime does, from the 16 hexadecimal digits that `MAXON_HASH_SEED` pins (a pin that is not exits 1 with maxon's message, an empty one is none) or from 8 bytes of the system's entropy (Windows' `ProcessPrng`, loaded by name only then, and Linux's `getrandom`), and a pinned process draws a fixed sequence of seeds from it; the interpreter draws an unpinned secret from its own random numbers, so a run stays deterministic. A program that never asks for the seed reads neither the variable nor the entropy. The test runners pin `MAXON_HASH_SEED` for every program they start (`hashseed.ps1`), as maxon's harness hands its programs the run's seed |
+| `__Builtins` | maxon's raw intrinsics, which only the library tiers call (`E3185`), each the built-in that does the same: `currentProcessId()` is `Process.id()`, `currentTimeNanos()` `Clock.nowNanos()`; `floatToBits(x)` is the 64 bits of a double as a `FullRangeInt`, a reinterpretation that the library's float hash folds; `trailingZeros(word)` is the count of 0 bits below a `Count`'s lowest 1 bit, 64 for 0, the IR's `ctz`, by which `Map` reads the first match of a control word; `hashWord(word, seed)` and `hashBytes(bytes, at, count, seed)` are maxon's seeded hash, its software fold of a word or of a span of a `ByteArray` under a `HashDigest` seed (`runtime/hashfold.maxon`, which the interpreter runs too, as `hashfold_gen.maxon`), a span past the end a panic; `readBigEndian(bytes, at, width)` and `readLittleEndian` the `OrderedWord` of the 2, 4 or 8 bytes at an index, the first the most or the least significant, throwing `ArrayError.indexOutOfBounds` when they are not all inside, and `appendBigEndian(bytes, word, width)` and `appendLittleEndian` the append of a word's low bytes in that order; the width is the literal 2, 4 or 8 (`E3005` otherwise, in maxon's words). `OrderedWord` and `HashDigest` are built-in `bits(64)` aliases, as maxon's library declares them (`stdlib/Builtins.maxon`, `Hasher.maxon`). `hashSeed()` is the fold of no bytes under the process's secret, which a `Hasher` starts from, and `drawHashSeed()` a fresh secret (`HashSeed.random()`): the first call makes the process's hash state, as maxon's runtime does, from the 16 hexadecimal digits that `MAXON_HASH_SEED` pins (a pin that is not exits 1 with maxon's message, an empty one is none) or from 8 bytes of the system's entropy (Windows' `ProcessPrng`, loaded by name only then, and Linux's `getrandom`), and a pinned process draws a fixed sequence of seeds from it; the interpreter draws an unpinned secret from its own random numbers, so a run stays deterministic. A program that never asks for the seed reads neither the variable nor the entropy. The test runners pin `MAXON_HASH_SEED` for every program they start (`hashseed.ps1`), as maxon's harness hands its programs the run's seed |
 | `__ManagedMemoryCursor with T` | maxon's position in a raw buffer, which only the library tiers name (`E3185`), made by a buffer's `createCursor()` at its first element, which fails with `__ManagedMemoryError.indexOutOfBounds` on an empty buffer. It holds a borrow of the buffer (see "Borrowing values"), so the buffer cannot change while it lives and it always names an element: `current()` lends it, `index()` is its index, `advance()`, `retreat()` and `seek(index)` move it (`mutates self`) and fail, leaving it where it was, past either end, and `peek(ahead)` is a copy of the element so many places on, where `T` is `Copyable` |
 | `ArrayError`, `IterationError`, `__ManagedMemoryError` | maxon's error enums: `indexOutOfBounds` and `emptySlot`; `exhausted` and `atStart`, which the iteration protocol throws; a buffer's, whose first two cases are an array's |
 | `ByteArray` | `typealias ByteArray = Array with Byte`, built in: the same type, with every operation of `Array`; `String.toByteArray()` is a new one of a string's UTF-8 bytes, and `String.from(bytes)` a string of a copy of them |
@@ -3477,8 +3474,8 @@ dropped, ends after every element was taken out. Nothing built in returns an `Op
 - **A borrow is held while the rest is evaluated.** Wherever lowering evaluates an operand to a borrow of a managed
   place, then evaluates the next, then uses the borrow, the place stays borrowed through the next. That is an argument
   while later arguments are evaluated, the target of `x.f = v` and `a[i] = v` while the value is, the left operand of a
-  string comparison while the right is, the collection of a subscript while its index is, and the first part of an
-  interpolated string while the second is (later parts are joined as soon as they are evaluated, so they hold nothing).
+  string comparison while the right is, the collection of a subscript while its index is, and each part of an
+  interpolated string while the later ones are (the parts are measured and joined once all are evaluated).
   A call in there that changes an overlapping place is refused (`E3186`): `look(a[0], n: drop(a))`, where `drop`
   takes `a` as `mutates`, `a[0].n = drop(a)`, `a[0] == wipe(a)`, `rows[0].cells[shrink(rows)]` (read, assigned,
   passed `mutates` or matched) and `"{p.name}{take(p)}"`. A scalar that is only read is a value by then and holds
@@ -3608,7 +3605,20 @@ start of one, and `startIndex()`, `endIndex()`, `findFirst(needle)` and `findLas
 them, `contains`, `startsWith`, `endsWith`, `equals` and `isEmpty` ask, `replace(old, with: new)` and `replaceFirst` leave a
 string with an empty or absent `old` as it was, `trim`, `trimStart` and `trimEnd` remove the whitespace and newline clusters of
 maxon's `CharacterSet.whitespacesAndNewlines` (they take no set), `toLower` and `toUpper` map the ASCII letters only, as
-maxon's do, and `s.append(t)` joins `t` to the string in `s`'s place (a new string, so a loop of appends is quadratic).
+maxon's do. A String is built by interpolation: there is no `append` and no `StringBuilder` (`E3944`, whose fix writes
+the interpolation; see "Where it differs from Maxon"). An interpolation measures its parts (a String's length, a literal's
+known one, an integer's digit count by `rt.decimalLength`), allocates once (`rt.str.joinRoom`) and puts each part in place
+(`rt.str.joinPut`, and `rt.str.joinDigits`, which writes an integer's digits into the buffer with no String of their own),
+its ASCII bit the AND of the parts'; an interpolation that is a part of another with no format of its own gives the outer
+one its parts (`self/ir/joins.maxon`). An assignment whose value is an interpolation that starts with the assigned place
+itself, `s = "{s}..."` (a local, a field of a place, or an element at a literal or immutable index, through a `mutates`
+parameter too), appends: the assignment consumes the old String, so where its owned bit is set (not a literal, whose bytes
+are the executable's) and its box has room (`boxCapacity`, the size of the heap's slot or large block, read from the box's
+header) the parts go in after its bytes, and otherwise it moves to a buffer the growth policy sizes; the old buffer is
+freed only after every part is in, so a later part that reads the place, as in `"{s}{s}"`, reads the old bytes. The
+growth policy is maxon's (`__managed_grown_cap`, Go's `nextslicecap`) and the only one, for an array, a byte array and a
+String (`grownCapacity`, `runtime/arrays.maxon`): below 256 a buffer doubles, above it the step is
+`(capacity + 3 * 256) / 4`, easing toward 1.25, an ask that outruns doubling is taken as it is, and no capacity is below 4.
 Their code is `runtime/textops.maxon`, which the executable links and `builtingen` copies to `self/interp/textops_gen.maxon`
 for the interpreter, so one text says what each means; a search gives its position plus 1 so that 0 is no match.
 
@@ -4055,6 +4065,12 @@ the checker reports where Maxon's parser does, as it needs the type of the value
 
 ### Where it differs from Maxon
 
+- **A String is built by interpolation.** There is no `StringBuilder` and no `String.append` (`E3944`, whose fix writes
+  `s = "{s}{x}"`): an interpolation assigned back to the String it starts with appends in place, and an interpolation is
+  one allocation with each part written into place (see "Text"). `fix` (which `specs.ps1` and `stdlib.ps1` run) rewrites
+  an `append` of a String to the interpolation, `cmd/convert` writes a builder that only gathers text (made by
+  `StringBuilder.create()`, then statements `b.append(x)` and one `b.build()`, its last use) as that String, and a spec test
+  whose program uses a builder any other way is skipped as a language difference (`self/driver/skips.tsv`).
 - **Source text follows Zig's rules and two more** (see "Source text"). As in maxon, a name is ASCII and a non-ASCII
   character outside comments and string literals is `E1010`. The rest differ: maxon accepts malformed UTF-8 in a comment
   (in a literal it is `E1004` there too), and control characters, NEL, LS, PS and the bidirectional controls in comments

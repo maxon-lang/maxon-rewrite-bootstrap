@@ -21,7 +21,7 @@ end 'arrayElem'
 
 // arrayInsert moves an element in at an index, which may be the length, after what follows moves up by one.
 function arrayInsert(array Count, index Count, element Count)
-	let at = collectionOpenGap(array, index: index, elementBytes: wordBytes, firstCapacity: arrayFirstCapacity)
+	let at = collectionOpenGap(array, index: index, elementBytes: wordBytes)
 	__Raw.storeWord(at, offset: 0, value: element)
 end 'arrayInsert'
 
@@ -36,7 +36,7 @@ end 'arrayRemove'
 // arrayFill appends count copies of a word that needs no copy of its own, a scalar or the 0 of an empty slot, as as many
 // inserts at the end would, in one pass over the room.
 function arrayFill(array Count, count Count, word Count)
-	let at = collectionExtend(array, count: count, elementBytes: wordBytes, firstCapacity: arrayFirstCapacity)
+	let at = collectionExtend(array, count: count, elementBytes: wordBytes)
 	let past = __Raw.wrappingAdd(at, right: collectionBytes(count, elementBytes: wordBytes))
 	var place = at
 	while place != past 'words'
@@ -44,6 +44,11 @@ function arrayFill(array Count, count Count, word Count)
 		place = __Raw.wrappingAdd(place, right: wordBytes)
 	end 'words'
 end 'arrayFill'
+
+// arrayCapacity is how many elements the buffer of an array or a byte array holds.
+function arrayCapacity(array Count) returns Count
+	return __Raw.loadWord(array, offset: arrayCapacityOffset)
+end 'arrayCapacity'
 
 // arrayReserve makes the buffer of an array hold a count of elements, exactly, where it holds fewer: a caller that knows how
 // many it will insert pays for one buffer rather than for each doubling up to it.
@@ -64,7 +69,7 @@ end 'stringsElem'
 // stringsOpen makes room for an element at an index, which may be the length, and gives its address: an empty String,
 // its words 0, which the code may fill or leave empty.
 function stringsOpen(array Count, index Count) returns Count
-	let at = collectionOpenGap(array, index: index, elementBytes: __Raw.stringSize(), firstCapacity: arrayFirstCapacity)
+	let at = collectionOpenGap(array, index: index, elementBytes: __Raw.stringSize())
 	__Raw.storeWord(at, offset: 0, value: 0)
 	__Raw.storeWord(at, offset: wordBytes, value: 0)
 	return at
@@ -78,7 +83,7 @@ end 'stringsClose'
 
 // stringsFill appends count empty elements, which alloc zeroed.
 function stringsFill(array Count, count Count)
-	let at = collectionExtend(array, count: count, elementBytes: __Raw.stringSize(), firstCapacity: arrayFirstCapacity)
+	let at = collectionExtend(array, count: count, elementBytes: __Raw.stringSize())
 	let past = __Raw.wrappingAdd(at, right: collectionBytes(count, elementBytes: __Raw.stringSize()))
 	var place = at
 	while place != past 'words'
@@ -129,20 +134,51 @@ function collectionBytes(count Count, elementBytes Count) returns Count
 	return try count * elementBytes otherwise panic("array size overflows")
 end 'collectionBytes'
 
-// collectionReserve makes the buffer hold a number of elements, growing it by doubling from firstCapacity.
-function collectionReserve(box Count, needed Count, elementBytes Count, firstCapacity Count)
+// The growth policy, maxon's (ManagedMemoryRuntime's __managed_grown_cap) and Go's nextslicecap, and the only one: every
+// buffer that grows to hold more, an array's, a byte array's and a String's (strings.maxon), takes the capacity it gives.
+// Below growthThreshold a buffer doubles, which copies a small one least; above it the step is
+// (capacity + easeNumeratorScale * growthThreshold) / easeDivisor, a ratio of 1.25 + 0.75 * growthThreshold / capacity
+// that eases toward 1.25, since a doubled big buffer holds up to a whole buffer of slack. An ask that outruns doubling is
+// taken as it is, and no capacity is below minimumCapacity, so a small ask does not climb 1, 2, 3. A reserve is exact and
+// takes none of it.
+let growthThreshold = 256 as Count
+
+let minimumCapacity = 4 as Count
+
+let easeNumeratorScale = 3 as Count
+
+let easeDivisor = 4 as Count
+
+// grownCapacity is the capacity a buffer of a capacity grows to so that it holds a number of elements.
+function grownCapacity(current Count, required Count) returns Count
+	let doubled = try current + current otherwise panic("array size overflows")
+	if required > doubled 'ask'
+		return atLeastMinimum(required)
+	end 'ask'
+	if current < growthThreshold 'double'
+		return atLeastMinimum(doubled)
+	end 'double'
+	var capacity = current
+	while capacity < required 'ease'
+		capacity = try capacity + (capacity + easeNumeratorScale * growthThreshold) / easeDivisor otherwise panic("array size overflows")
+	end 'ease'
+	return capacity
+end 'grownCapacity'
+
+function atLeastMinimum(capacity Count) returns Count
+	if capacity < minimumCapacity 'floor'
+		return minimumCapacity
+	end 'floor'
+	return capacity
+end 'atLeastMinimum'
+
+// collectionReserve makes the buffer hold a number of elements, growing it by the growth policy.
+function collectionReserve(box Count, needed Count, elementBytes Count)
 	let capacity = __Raw.loadWord(box, offset: arrayCapacityOffset)
 	if needed <= capacity 'room'
 		return
 	end 'room'
-	var grown = capacity
-	if grown == 0 'first'
-		grown = firstCapacity
-	end 'first'
-	while grown < needed 'double'
-		grown = try grown + grown otherwise panic("array size overflows")
-	end 'double'
-	collectionMove(box, capacity: grown, elementBytes: elementBytes)
+	collectionMove(box, capacity: grownCapacity(capacity, required: needed), elementBytes: elementBytes)
 end 'collectionReserve'
 
 // collectionMove moves the elements into a buffer of a capacity that holds them, and frees the buffer it leaves: the
@@ -158,10 +194,10 @@ end 'collectionMove'
 
 // collectionExtend adds room for a number of elements after the last and gives the address of the room, which the
 // caller fills.
-function collectionExtend(box Count, count Count, elementBytes Count, firstCapacity Count) returns Count
+function collectionExtend(box Count, count Count, elementBytes Count) returns Count
 	let length = collectionLength(box)
 	let total = try length + count otherwise panic("array size overflows")
-	collectionReserve(box, needed: total, elementBytes: elementBytes, firstCapacity: firstCapacity)
+	collectionReserve(box, needed: total, elementBytes: elementBytes)
 	__Raw.storeWord(box, offset: arrayLengthOffset, value: total)
 	return collectionPlace(box, index: length, elementBytes: elementBytes)
 end 'collectionExtend'
@@ -169,12 +205,12 @@ end 'collectionExtend'
 // collectionOpenGap makes room for one element at an index, which may be the length and panics past it, by moving what
 // follows up by one, and gives the address of the room. The index is
 // not past the length, so its subtraction does not wrap.
-function collectionOpenGap(box Count, index Count, elementBytes Count, firstCapacity Count) returns Count
+function collectionOpenGap(box Count, index Count, elementBytes Count) returns Count
 	let length = collectionLength(box)
 	if index > length 'outside'
 		panicIndex()
 	end 'outside'
-	_ = collectionExtend(box, count: 1, elementBytes: elementBytes, firstCapacity: firstCapacity)
+	_ = collectionExtend(box, count: 1, elementBytes: elementBytes)
 	let at = collectionPlace(box, index: index, elementBytes: elementBytes)
 	copyBackward(at, target: __Raw.wrappingAdd(at, right: elementBytes), count: collectionBytes(__Raw.wrappingSub(length, right: index), elementBytes: elementBytes))
 	return at

@@ -2369,11 +2369,11 @@ function stage(directory String, name String, text String)
 end 'stage'
 
 function servedFile() returns String
-	let text = StringBuilder.create()
+	var text = ""
 	for row in 0 upto FileRows 'eachRow'
-		text.append("{row:06x} the quick brown fox jumps over the lazy dog 0123456789\n")
+		text = "{text}{row:06x} the quick brown fox jumps over the lazy dog 0123456789\n"
 	end 'eachRow'
-	return text.build()
+	return text
 end 'servedFile'
 
 let stagedNames = ["root.pem", "server.pem", "server.key", "client-root.pem", "client.pem", "client.key", "served.txt"]
@@ -2686,11 +2686,11 @@ function stage(directory String, name String, text String)
 end 'stage'
 
 function servedFile() returns String
-	let text = StringBuilder.create()
+	var text = ""
 	for row in 0 upto FileRows 'eachRow'
-		text.append("{row:06x} the quick brown fox jumps over the lazy dog 0123456789\n")
+		text = "{text}{row:06x} the quick brown fox jumps over the lazy dog 0123456789\n"
 	end 'eachRow'
-	return text.build()
+	return text
 end 'servedFile'
 
 let stagedNames = ["root.pem", "server.pem", "server.key", "client-root.pem", "client.pem", "client.key", "served.txt"]
@@ -2848,14 +2848,14 @@ typealias ClientRunArray = Array with ClientRun
 function runAll(server HttpServer, label String, directory String, runs ClientRunArray) returns String
 	let boundPort = server.port()
 	let peer = async serveInterop(server)
-	let report = StringBuilder.create()
-	report.append("{label}\n")
+	var report = ""
+	report = "{report}{label}\n"
 	for run in runs 'eachRun'
-		report.append("  {run.name}: {runClient(directory, port: boundPort, request: run.request, options: run.flags)}\n")
+		report = "{report}  {run.name}: {runClient(directory, port: boundPort, request: run.request, options: run.flags)}\n"
 	end 'eachRun'
 	peer.cancel()
 	server.close()
-	return report.build()
+	return report
 end 'runAll'
 
 function scenario(label String, directory String, serverOptions TlsServerOptions, runs ClientRunArray) returns String

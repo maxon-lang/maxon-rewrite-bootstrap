@@ -1973,13 +1973,13 @@ type BigAnswerHandler implements HttpHandler
 end 'BigAnswerHandler'
 
 function bigAnswer() returns String
-	let body = StringBuilder.create()
+	var body = ""
 	var written = 0 as Count
 	while written < AnswerBytes 'fill'
-		body.append("0123456789abcdef")
+		body = "{body}0123456789abcdef"
 		written = written + 16
 	end 'fill'
-	return body.build()
+	return body
 end 'bigAnswer'
 
 function serveOne(server HttpServer, handler frozen with BigAnswerHandler) returns HttpServeEnd

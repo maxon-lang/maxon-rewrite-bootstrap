@@ -1286,7 +1286,7 @@ function makeRoom(mutates fn MirFunction, mutates s Spiller, b Count, k Count, i
 			let rootReg = s.root[v]
 			let slot = s.slotFor(rootReg)
 			s.insertRanked(k, rank: rankFirst, x: newSpill(victim, slot: slot))
-			s.insertRanked(nextCount(k), rank: rankFirst, x: newRestore(victim, slot: slot))
+			s.insertRanked(bracketClose(fn, s: s, k: k), rank: rankFirst, x: newRestore(victim, slot: slot))
 			s.fwdOut[v] = true
 			s.outCount[c] = nextCount(s.outCount[c])
 			s.bracketedNow.push(victim)
@@ -1301,6 +1301,18 @@ function makeRoom(mutates fn MirFunction, mutates s Spiller, b Count, k Count, i
 		end 'crossed'
 	end 'over'
 end 'makeRoom'
+
+// bracketClose is where the restore of a bracket about the instruction at k goes: after the copies that take what k left
+// in its fixed registers (a call's results), since the restore writes the value's register and colouring may have given
+// the value one of those, which the value is out of for the bracket's length.
+function bracketClose(fn MirFunction, s Spiller, k Count) returns Count
+	let left = implicitDefs(fn.instrs[k], convs: s.convs)
+	var at = nextCount(k)
+	while fn.instrs[at].kind == MKind.copy and isPhysical(fn.instrs[at].b) and maskHas(left, number: physicalNumber(fn.instrs[at].b)) 'results'
+		at = nextCount(at)
+	end 'results'
+	return at
+end 'bracketClose'
 
 function isCallInstr(x MInstr) returns bool
 	return x.kind == MKind.target and isCall(x.form)

@@ -1289,7 +1289,7 @@ zero: the zeroing contract holds on that road as on the call's. **If the recycle
 reads the first one's bytes.**
 ```maxon
 function leaveFilled() returns Count
-	let bytes = ByteArray.create(16)
+	var bytes = ByteArray.create(16)
 	for i in 0 upto 16 'fill'
 		try bytes.set(i, value: 255) otherwise panic("set")
 	end 'fill'
@@ -1302,7 +1302,7 @@ function sumOfFresh() returns Count
 	for i in 0 upto 16 'eachByte'
 		total = total + (try fresh.get(i) otherwise panic("get")) as Count
 	end 'eachByte'
-	return total + fresh.count() + (fresh.capacity() as Count)
+	return try total + fresh.count() + (fresh.capacity() as Count) otherwise panic("out of range")
 end 'sumOfFresh'
 
 function main() returns ExitCode

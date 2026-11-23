@@ -1,0 +1,82 @@
+// String accumulation: one String grown in a loop from pieces of 8 bytes to a final size by an interpolation assigned back
+// to the string, which appends in place, at a small, a medium and a large final size, with ASCII and with non-ASCII pieces.
+// Each size makes 16 MB in all. The arguments `interpolation <size> <text>` run one of them alone, as a measure of its own
+// peak memory takes; go/string-accumulation is the same work by Go's strings.Builder and by +=.
+typealias Word = int(0 to u64.max)
+
+let pieceBytes = 8 as Count
+
+let smallBytes = 256 as Count
+
+let smallRounds = 65536 as Count
+
+let mediumBytes = 65536 as Count
+
+let mediumRounds = 256 as Count
+
+let largeBytes = 16777216 as Count
+
+let largeRounds = 1 as Count
+
+let asciiPiece = "abcdefg "
+
+// otherPiece is 8 bytes, one of its characters two.
+let otherPiece = "héllo w"
+
+function byInterpolation(rounds Count, size Count, piece String) returns Word
+	var total = 0 as Word
+	for _ in 0 upto rounds 'rounds'
+		var s = ""
+		for _ in 0 upto size / pieceBytes 'pieces'
+			s = "{s}{piece}"
+		end 'pieces'
+		total = try total + (s.byteLength() as Word) + (s.byteAt(s.byteLength() - 1) as Word) otherwise panic("total overflowed")
+	end 'rounds'
+	return total
+end 'byInterpolation'
+
+// run times one way at one size with one piece, and prints the time as a phase that cmd/bench reads.
+function run(way String, size String, text String) returns Word
+	var piece = asciiPiece
+	if text == "other" 'other'
+		piece = otherPiece
+	end 'other'
+	let started = Clock.nowNanos()
+	var total = 0 as Word
+	if size == "small" 'small'
+		total = byInterpolation(smallRounds, size: smallBytes, piece: piece)
+	end 'small' else if size == "medium" 'medium'
+		total = byInterpolation(mediumRounds, size: mediumBytes, piece: piece)
+	end 'medium' else 'large'
+		total = byInterpolation(largeRounds, size: largeBytes, piece: piece)
+	end 'large'
+	let elapsed = try Clock.nowNanos() - started otherwise panic("the clock went backwards")
+	print("{way} {size} {text} ns {elapsed}\n")
+	return total
+end 'run'
+
+function work() returns Word
+	var total = 0 as Word
+	for size in ["small", "medium", "large"] 'sizes'
+		for text in ["ascii", "other"] 'texts'
+			total = try total + run("interpolation", size: size, text: text) otherwise panic("total overflowed")
+		end 'texts'
+	end 'sizes'
+	return total
+end 'work'
+
+// main times the work, which bench.ps1 reads from the line it prints after the result.
+function main() returns ExitCode
+	let args = CommandLine.args()
+	if args.count() == 4 'one'
+		let total = run(try args.get(1) otherwise "", size: try args.get(2) otherwise "", text: try args.get(3) otherwise "")
+		print("{total}\n")
+		return 0
+	end 'one'
+	let started = Clock.nowNanos()
+	let total = work()
+	let elapsed = try Clock.nowNanos() - started otherwise panic("the clock went backwards")
+	print("{total}\n")
+	print("work ns {elapsed}\n")
+	return 0
+end 'main'

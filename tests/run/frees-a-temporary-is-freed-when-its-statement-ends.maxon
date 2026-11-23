@@ -6,10 +6,6 @@ function main() returns ExitCode
 end 'main'
 
 //> t2
-// expect-free: string "1"
-// expect-free: string "2"
-// expect-free: string "t2"
 // expect-free: string "t2\n"
-// expect-free: string "3"
 // expect-free: string "b3"
 // expect-free: string "a1"

@@ -142,7 +142,7 @@ end 'main'
 ```maxon
 function main() returns ExitCode
 	var s = "hello"
-	s.append(" world")
+	s = "{s} world"
 	return try s.byteLength() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
@@ -1262,7 +1262,7 @@ typealias Int = int(i64.min to i64.max)
 typealias IntArray = Array with Int
 
 function main() returns ExitCode
-	let arr = IntArray.create(0)
+	var arr = IntArray.create(0)
 	arr.push(1)
 	arr.push(2)
 	if arr.capacity() < 4 'needsASlotPastTheLength'

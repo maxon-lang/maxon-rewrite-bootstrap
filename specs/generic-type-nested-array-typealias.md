@@ -3075,10 +3075,10 @@ end 'Twin'
 typealias StrTwin = Twin with String
 
 function heapString(a String, b String) returns String
-	var sb = StringBuilder.create()
-	sb.append(a)
-	sb.append(b)
-	return sb.build()
+	var sb = ""
+	sb = "{sb}{a}"
+	sb = "{sb}{b}"
+	return sb
 end 'heapString'
 
 function main() returns ExitCode

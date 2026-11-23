@@ -1143,7 +1143,7 @@ function failUnknownType(c Checker, p ast.Project, ms ast.ModuleState, tr ast.No
 	let off = ms.tree().startOf(tr)
 	let tName = ast.typeRefName(ms.tree(), id: tr)
 	if ms.tree().listLen(ast.typeRefQualifierRef(ms.tree(), id: tr)) == 0 'bare'
-		diag.pushUnqualifiedError(errs, code: diag.errUnknownType, message: diag.unknownType(tName), module: c.modID, offset: off, name: tName.clone())
+		pushUnknownName(errs, code: diag.errUnknownType, message: diag.unknownType(tName), module: c.modID, offset: off, name: tName)
 		return
 	end 'bare'
 	checkFail(c.modID, off: off, code: diag.errUnknownType, msg: diag.unknownType(tName), errs: errs)

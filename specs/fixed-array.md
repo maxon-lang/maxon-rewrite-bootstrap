@@ -2192,7 +2192,7 @@ function main() returns ExitCode
 	let names = Names.create(launder(3), value: label(7))
 	var joined = ""
 	for name in names 'each'
-		joined.append("{name},")
+		joined = "{joined}{name},"
 	end 'each'
 	print("{names.count()} {joined}\n")
 	return 0
@@ -2293,7 +2293,7 @@ function main() returns ExitCode
 	names.refill(label(2))
 	var joined = ""
 	for name in names 'each'
-		joined.append(" {name}")
+		joined = "{joined} {name}"
 	end 'each'
 	print("{held}{joined}\n")
 	return 0
@@ -2419,7 +2419,7 @@ function main() returns ExitCode
 	try names.set(2, value: label(3)) otherwise panic("set")
 	var joined = ""
 	for (iter, name) in names.enumerated() 'each'
-		joined.append("{iter}={name} ")
+		joined = "{joined}{iter}={name} "
 	end 'each'
 	print("{joined}\n")
 	return 0

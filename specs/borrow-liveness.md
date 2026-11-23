@@ -1150,7 +1150,7 @@ type Bag
 end 'Bag'
 
 function main() returns ExitCode
-	let b = Bag.create()
+	var b = Bag.create()
 	b.items.push("alpha string long enough for heap allocation")
 	let s = try b.items.get(0) otherwise ""
 	let n = b.room()
@@ -4443,9 +4443,9 @@ function main() returns ExitCode
 	let h = Holder.create("original {42}")
 	let c = h.text.byteLength() > 0
 	var s = h.text if c else fresh()
-	s.append("!")
+	s = "{s}!"
 	var r = pick(h, c: c)
-	r.append("?")
+	r = "{r}?"
 	print("{s} {r} {h.text}\n")
 	return 0
 end 'main'
@@ -4477,7 +4477,7 @@ function main() returns ExitCode
 	var s = "start {0}"
 	replace(s)
 	s = h.text
-	s.append("!")
+	s = "{s}!"
 	replace(s)
 	print("{s} {h.text}\n")
 	return 0
@@ -4502,7 +4502,7 @@ type Holder
 end 'Holder'
 
 function grow(mutates s String)
-	s.append("+")
+	s = "{s}+"
 end 'grow'
 
 function main() returns ExitCode
@@ -4539,7 +4539,7 @@ type Holder
 end 'Holder'
 
 function grow(mutates s String)
-	s.append("+")
+	s = "{s}+"
 end 'grow'
 
 function main() returns ExitCode

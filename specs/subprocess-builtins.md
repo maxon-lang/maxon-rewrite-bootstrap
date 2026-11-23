@@ -2171,7 +2171,7 @@ function main() returns ExitCode
 		if chunk.byteLength() == 0 'ended'
 			break
 		end 'ended'
-		output.append(chunk)
+		output = "{output}{chunk}"
 	end 'draining'
 	let code = __Builtins.subprocessWaitExit(h, 0)
 	let expected = "ping"
@@ -3169,13 +3169,13 @@ function main() returns ExitCode
 	__Builtins.subprocessResultRelease(made)
 	__Builtins.subprocessReleaseHandle(first)
 	let fifo = "{dir}/f"
-	let payload = StringBuilder.create()
+	var payload = ""
 	for _ in 0 upto payloadBytes 'fill'
-		payload.append("x")
+		payload = "{payload}x"
 	end 'fill'
 	let reader = spawn FifoReader.create()
 	try reader.countFrom("{dir}/f") otherwise return 9
-	try File.writeText(try FilePath.from(fifo) otherwise return 2, content: payload.build()) otherwise return 3
+	try File.writeText(try FilePath.from(fifo) otherwise return 2, content: payload) otherwise return 3
 	let answer = try await reader.answer() otherwise return 8
 	print("child: {answer}\n")
 	try File.delete(try FilePath.from(fifo) otherwise return 4) otherwise return 5

@@ -5,7 +5,7 @@ function main() returns ExitCode
 	var xs = Pairs.create(0)
 	xs.push((1 as Count, "one"))
 	for (n, s) in xs 'each'
-		s.append("!")
+		s = "{s}!"
 	end 'each'
 	return 0
 end 'main'

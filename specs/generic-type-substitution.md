@@ -489,10 +489,10 @@ end 'Bag'
 typealias StrBag = Bag with String
 
 function fill(mutates b StrBag)
-	var sb = StringBuilder.create()
-	sb.append("hello ")
-	sb.append("heap world")
-	let s = sb.build()
+	var sb = ""
+	sb = "{sb}hello "
+	sb = "{sb}heap world"
+	let s = sb
 	b.add(s, tag: 7)
 end 'fill'
 
@@ -504,9 +504,9 @@ function main() returns ExitCode
 	end 'e'
 	var total = 0 as Integer
 	for i in 0 upto 50 'eachRound'
-		var sb = StringBuilder.create()
-		sb.append("a heap string of some length {i}")
-		total = try total + b.probe(sb.build()) otherwise panic("out of range")
+		var sb = ""
+		sb = "{sb}a heap string of some length {i}"
+		total = try total + b.probe(sb) otherwise panic("out of range")
 	end 'eachRound'
 	b.replaceWith(b.one)
 	print("{got} {total} {b.one.value()}\n")

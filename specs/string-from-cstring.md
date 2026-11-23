@@ -68,7 +68,7 @@ The exit code is the other half of the assertion: a stranded buffer on either si
 ```maxon
 function main() returns ExitCode
 	var packed = ""
-	packed.append("packed tight")
+	packed = "{packed}packed tight"
 	let round = String.fromCString(packed.cstr())
 	print("{round} len={round.byteLength()}\n")
 	return 0
@@ -89,9 +89,9 @@ reading the old block would print rubbish or fault. It prints what it was built 
 ```maxon
 function main() returns ExitCode
 	var owner = ""
-	owner.append("original")
+	owner = "{owner}original"
 	let copy = String.fromCString(owner.cstr())
-	owner.append("-and-then-a-great-deal-more-so-the-buffer-moves")
+	owner = "{owner}-and-then-a-great-deal-more-so-the-buffer-moves"
 	print("copy={copy}\n")
 	print("owner={owner}\n")
 	return 0

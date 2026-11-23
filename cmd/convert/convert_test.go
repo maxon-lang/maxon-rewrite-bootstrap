@@ -203,6 +203,23 @@ end 'Txn'
 `,
 		},
 		{
+			name: "a StringBuilder that only gathers text becomes an interpolated String",
+			in: `function text(n Count) returns String
+	let b = StringBuilder.create()
+	b.append("n = ")
+	b.append(n)
+	return b.build()
+end 'text'
+`,
+			want: `function text(n Count) returns String
+	var b = ""
+	b = "{b}n = "
+	b = "{b}{n}"
+	return b
+end 'text'
+`,
+		},
+		{
 			name: "is unique becomes is noncopyable",
 			in: `type Ticket is unique
 	var id as Count

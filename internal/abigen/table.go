@@ -67,8 +67,6 @@ var layouts = []layoutConst{
 		"where the box of an array, and of a byte array, holds the address of its buffer, which has a word of 8 bytes to an element of an array and a byte to an element of a byte array."},
 	{"arrayHeaderBytes", 3, false, toRuntime | toSelfBack,
 		"the size of the box of an array and of a byte array."},
-	{"arrayFirstCapacity", 4, true, toRuntime,
-		"the capacity of an empty array's first buffer, which it doubles from."},
 
 	// A closure is a counted box: a function value is one word, the address of it, and copying the value shares the box.
 	{"closureCountOffset", 0, false, toSelfBack,
@@ -550,6 +548,4 @@ var layouts = []layoutConst{
 
 	{"byteBytes", 1, true, toRuntime | toSelfBack,
 		"the size of an element of a byte array."},
-	{"bytesFirstCapacity", 16, true, toRuntime,
-		"the capacity of an empty byte array's first buffer, which it doubles from."},
 }

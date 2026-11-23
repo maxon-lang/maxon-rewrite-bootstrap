@@ -20,6 +20,8 @@ export let fixKindVar = "var"
 
 export let fixKindBound = "bound"
 
+export let fixKindInterpolation = "interpolation"
+
 // fixPanicText is what the panic of a try that a fix writes says: the failure it stands for, which the program never
 // expected.
 let fixPanicText = "out of range"
@@ -177,6 +179,47 @@ export function borrowedResultFix(t ast.Tree, method ast.NodeID) returns diag.Fi
 	end 'scan'
 	return diag.Fix.none()
 end 'borrowedResultFix'
+
+// appendText is the interpolation that the call `place.append(value)` of a String is written as, `place = "{place}{value}"`,
+// where a literal value's text goes in as it is written: what "write the interpolation" asks for. It is nothing for a call
+// whose text it cannot find.
+export function appendText(t ast.Tree, call ast.NodeID) returns table.Option with String
+	let callee = ast.callExprCallee(t, id: call)
+	let argsRef = ast.callExprArgsRef(t, id: call)
+	if t.kindOf(callee) != ast.NodeKind.memberExpr or t.listLen(argsRef) != 1 'shape'
+		return table.Option.none
+	end 'shape'
+	let arg = ast.argValue(t, id: t.listAt(argsRef, index: 0 as Count) as ast.NodeID)
+	let value = ast.exprExtent(t, e: arg)
+	if not value.isSome() 'unknown'
+		return table.Option.none
+	end 'unknown'
+	let valueExtent = value.unwrap()
+	// The place is the text before the member's dot, which is where a member node starts: the extent of a bare name runs on
+	// through the dotted words after it, as a qualified name's does.
+	let placeText = t.text.sliceBytes(ast.exprStart(t, e: ast.memberExprObj(t, id: callee)), endPos: t.startOf(callee) as Count).trimEnd()
+	var part = "\{{t.text.sliceBytes(valueExtent.begin as Count, endPos: valueExtent.until as Count)}\}"
+	if t.kindOf(arg) == ast.NodeKind.strLit 'literal'
+		part = t.text.sliceBytes(nextOf(valueExtent.begin as Count), endPos: try (valueExtent.until as Count) - 1 otherwise panic("fixes: a string literal with no quotes"))
+	end 'literal'
+	return table.Option.some("{placeText} = \"\{{placeText}\}{part}\"")
+end 'appendText'
+
+function nextOf(at Count) returns Count
+	return try at + 1 otherwise panic("fixes: an offset past a module")
+end 'nextOf'
+
+// interpolationFix replaces the call of a String's append with appendText.
+export function interpolationFix(t ast.Tree, call ast.NodeID, consumes text String) returns diag.Fix
+	let found = ast.exprExtent(t, e: call)
+	if not found.isSome() 'unknown'
+		return diag.Fix.none()
+	end 'unknown'
+	let extent = found.unwrap()
+	var edits = diag.FixEdits.create(0)
+	edits.push(diag.FixEdit.make(t.module, begin: extent.begin, until: extent.until, text: text))
+	return fixOf(fixKindInterpolation, edits: edits)
+end 'interpolationFix'
 
 // boundFix gives the type parameter named param the bound in the where clause of the function declared at decl, a type
 // parameter of its own or of the type it is a method of: what "add the bound 'where T implements Copyable'" asks for.

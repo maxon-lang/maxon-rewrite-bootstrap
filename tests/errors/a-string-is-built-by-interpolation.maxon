@@ -1,0 +1,10 @@
+function main() returns ExitCode
+	var s = "a"
+	s.append("b")
+	var b = StringBuilder.create()
+	print(s)
+	return 0
+end 'main'
+
+// expect-error: E3944 at 3:4
+// expect-error: E3944 at 4:10

@@ -1574,7 +1574,7 @@ no buffer was allocated: an eager copy would report a grown positive capacity fr
 ```maxon
 function main() returns ExitCode
 	let arr = FullRangeIntArray from [10, 20, 30, 40, 50]
-	let sub = try arr.slice(1, endIndex: 4) otherwise return 1
+	var sub = try arr.slice(1, endIndex: 4) otherwise return 1
 	let notMine = -1
 	let asView = sub.capacity()
 	try sub.set(0, value: 99) otherwise panic("index 0 is in bounds")

@@ -374,11 +374,11 @@ let ChunkBytes = 1048576
 let MostChunks = 512
 
 function oneChunk() returns String
-	let chunk = StringBuilder.create()
+	var chunk = ""
 	for _ in 0 upto ChunkBytes 'fill'
-		chunk.append("x")
+		chunk = "{chunk}x"
 	end 'fill'
-	return chunk.build()
+	return chunk
 end 'oneChunk'
 
 function main() returns ExitCode

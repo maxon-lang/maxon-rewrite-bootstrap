@@ -491,14 +491,14 @@ function main() returns ExitCode
 	end 'childMode'
 	let argv = StringArray.create(0)
 	argv.push("count")
-	let builder = StringBuilder.create()
+	var builder = ""
 	var filled = 0 as Count
 	while filled < 200000 'fill'
-		builder.append("x")
+		builder = "{builder}x"
 		filled = filled + 1
 	end 'fill'
 	let exe = Executable.path(try Process.executablePath() otherwise return 2)
-	let outcome = try runChildFedAfterLine(exe, argv: argv, workingDirectory: WorkingDirectory.inherit, environment: Environment.inherit, deadlineMs: 20000, endsWhen: RunEndsWhen.outputEnds, tailSilenceMs: 200, tailCapMs: 1000, anchor: "ready", feed: builder.build()) otherwise return 3
+	let outcome = try runChildFedAfterLine(exe, argv: argv, workingDirectory: WorkingDirectory.inherit, environment: Environment.inherit, deadlineMs: 20000, endsWhen: RunEndsWhen.outputEnds, tailSilenceMs: 200, tailCapMs: 1000, anchor: "ready", feed: builder) otherwise return 3
 	match outcome 'outcome'
 		ran(report) then print(report.stdout)
 		outputBroken(_, reason, _) then print("output broke: {reason}\n")
@@ -535,16 +535,16 @@ function main() returns ExitCode
 	let exe = Executable.path(try Process.executablePath() otherwise return 2)
 	let argv = StringArray.create(0)
 	argv.push("emit")
-	let builder = StringBuilder.create()
+	var builder = ""
 	var filled = 0 as Count
 	while filled < 200000 'fill'
-		builder.append("x")
+		builder = "{builder}x"
 		filled = filled + 1
 	end 'fill'
 	let child = try StreamingSubprocess.spawn(exe, arguments: argv) otherwise return 3
 	let pid = try child.processId() otherwise return 5
 	let pump = try ChildPump.of(child) otherwise return 4
-	let feed = StdinFeed.afterLine("anchor", line: builder.build())
+	let feed = StdinFeed.afterLine("anchor", line: builder)
 	feed.offer(PumpEvent.said(StdioStream.stdout, text: "anchor"), child: child, pump: pump)
 	let capture = StreamCapture.create()
 	let tail = PumpTail.begin(2000, capMs: 10000).drainAndRelease(pump, child: child, into: capture)
@@ -939,7 +939,7 @@ function main() returns ExitCode
 	let path = FilePath from "stream-reader-a-file-is-read-line-by-line.txt"
 	var content = ""
 	for i in 0 upto 1000 'eachLine'
-		content.append("line {i}\n")
+		content = "{content}line {i}\n"
 	end 'eachLine'
 	try File.writeText(path, content: content) otherwise return 1
 	let outcome = linesOf(path)

@@ -25,7 +25,7 @@ function work() returns ExitCode
 	var text = ""
 	for i in 0 upto size 'fill'
 		a.push((i mod spread) as Word)
-		text.append("{i mod 10}")
+		text = "{text}{i mod 10}"
 	end 'fill'
 	started = lap("fill", since: started)
 	var sum = 0 as Word

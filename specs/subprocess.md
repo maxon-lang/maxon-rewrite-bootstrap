@@ -3097,7 +3097,7 @@ let deadlineMs = 10000
 function block() returns String
 	var text = ""
 	for _ in 0 upto 65536 'byte'
-		text.append("a")
+		text = "{text}a"
 	end 'byte'
 	return text
 end 'block'
@@ -3128,7 +3128,7 @@ function main() returns ExitCode
 	let chunk = block()
 	var payload = ""
 	for _ in 0 upto stdinBlocks 'fill'
-		payload.append(chunk)
+		payload = "{payload}{chunk}"
 	end 'fill'
 	let argv = StringArray.create(0)
 	argv.push("child")
@@ -4038,7 +4038,7 @@ let deadlineMs = 20000
 function block() returns String
 	var text = ""
 	for _ in 0 upto 65536 'byte'
-		text.append("a")
+		text = "{text}a"
 	end 'byte'
 	return text
 end 'block'
@@ -4054,7 +4054,7 @@ function main() returns ExitCode
 	let chunk = block()
 	var payload = ""
 	for _ in 0 upto payloadBlocks 'fill'
-		payload.append(chunk)
+		payload = "{payload}{chunk}"
 	end 'fill'
 	let config = Configuration.create(exe)
 	config.arguments = argv
@@ -4090,7 +4090,7 @@ let deadlineMs = 20000
 function block() returns String
 	var text = ""
 	for _ in 0 upto 65536 'byte'
-		text.append("a")
+		text = "{text}a"
 	end 'byte'
 	return text
 end 'block'
@@ -4101,7 +4101,7 @@ function main() returns ExitCode
 	let chunk = block()
 	var payload = ""
 	for _ in 0 upto payloadBlocks 'fill'
-		payload.append(chunk)
+		payload = "{payload}{chunk}"
 	end 'fill'
 	let config = Configuration.create(exe)
 	config.arguments = argv
@@ -4169,7 +4169,7 @@ let deadlineMs = 20000
 function block() returns String
 	var text = ""
 	for _ in 0 upto 65536 'byte'
-		text.append("a")
+		text = "{text}a"
 	end 'byte'
 	return text
 end 'block'
@@ -4180,7 +4180,7 @@ function main() returns ExitCode
 	let chunk = block()
 	var payload = ""
 	for _ in 0 upto payloadBlocks 'fill'
-		payload.append(chunk)
+		payload = "{payload}{chunk}"
 	end 'fill'
 	let config = Configuration.create(exe)
 	config.arguments = argv
@@ -4242,7 +4242,7 @@ let payloadBlocks = 16
 function block() returns String
 	var text = ""
 	for _ in 0 upto 65536 'byte'
-		text.append("a")
+		text = "{text}a"
 	end 'byte'
 	return text
 end 'block'
@@ -4258,7 +4258,7 @@ function main() returns ExitCode
 	let chunk = block()
 	var payload = ""
 	for _ in 0 upto payloadBlocks 'fill'
-		payload.append(chunk)
+		payload = "{payload}{chunk}"
 	end 'fill'
 	let child = try StreamingSubprocess.spawn(exe, arguments: argv) otherwise return 3
 	let code = try child.wait() otherwise return 4
@@ -4389,15 +4389,15 @@ function main() returns ExitCode
 		let exe = Executable.path(try FilePath.from("/bin/sh") otherwise return 2)
 		let argv = StringArray from ["-c", "exit 7"]
 	#endif
-	let builder = StringBuilder.create()
+	var builder = ""
 	var filled = 0 as Count
 	while filled < 1048576 'fill'
-		builder.append("x")
+		builder = "{builder}x"
 		filled = filled + 1
 	end 'fill'
 	let child = try StreamingSubprocess.spawn(exe, arguments: argv) otherwise return 3
 	let pump = try ChildPump.of(child) otherwise return 4
-	let feed = StdinFeed.afterLine("anchor", line: builder.build())
+	let feed = StdinFeed.afterLine("anchor", line: builder)
 	let code = try child.wait() otherwise return 5
 	feed.offer(PumpEvent.said(StdioStream.stdout, text: "anchor"), child: child, pump: pump)
 	pump.stop()
@@ -4426,14 +4426,14 @@ function main() returns ExitCode
 	end 'childMode'
 	let argv = StringArray.create(0)
 	argv.push("exits")
-	let builder = StringBuilder.create()
+	var builder = ""
 	var filled = 0 as Count
 	while filled < 1048576 'fill'
-		builder.append("x")
+		builder = "{builder}x"
 		filled = filled + 1
 	end 'fill'
 	let exe = Executable.path(try Process.executablePath() otherwise return 2)
-	let outcome = try runChildFedAfterLine(exe, argv: argv, workingDirectory: WorkingDirectory.inherit, environment: Environment.inherit, deadlineMs: 20000, endsWhen: RunEndsWhen.outputEnds, tailSilenceMs: 200, tailCapMs: 1000, anchor: "ready", feed: builder.build()) otherwise return 3
+	let outcome = try runChildFedAfterLine(exe, argv: argv, workingDirectory: WorkingDirectory.inherit, environment: Environment.inherit, deadlineMs: 20000, endsWhen: RunEndsWhen.outputEnds, tailSilenceMs: 200, tailCapMs: 1000, anchor: "ready", feed: builder) otherwise return 3
 	match outcome 'outcome'
 		ran(report) then print(report.stdout)
 		outputBroken(_, reason, _) then print("output broke: {reason}\n")

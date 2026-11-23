@@ -2175,7 +2175,7 @@ function main() returns ExitCode
 	let k = 3
 	var v = Holder.create("ab{k}")
 	let n = v.name
-	v.name.append("XY")
+	v.name = "{v.name}XY"
 	print("{n} {v.name}\n")
 	return 0
 end 'main'
@@ -2200,7 +2200,7 @@ type Holder
 end 'Holder'
 
 function nudge(mutates t Holder)
-	t.name.append("XY")
+	t.name = "{t.name}XY"
 end 'nudge'
 
 function main() returns ExitCode
@@ -2235,7 +2235,7 @@ let Greeting = "hi"
 
 function main() returns ExitCode
 	var v = Holder.create(Greeting)
-	v.name.append("!")
+	v.name = "{v.name}!"
 	print("{Greeting} {v.name}\n")
 	return 0
 end 'main'

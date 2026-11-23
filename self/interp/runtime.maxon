@@ -127,14 +127,87 @@ function entryConcat(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 end 'entryConcat'
 
 function entryItoa(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
-	let n = argNum(vm, f: f, x: x, i: 0)
-	var text = "{n}"
-	if argNum(vm, f: f, x: x, i: 1) != 0 'unsigned'
-		text = "{ir.bitsOfWord(n)}"
-	end 'unsigned'
-	let made = newString(vm, text: text)
+	let made = newString(vm, text: decimalText(vm, f: f, x: x, at: 0))
 	giveRef(vm, x: x, o: made)
 end 'entryItoa'
+
+// decimalText is the text of the word that an entry's argument at is, read as signed unless the argument after it says
+// unsigned.
+function decimalText(vm Vm, f ir.IrFunction, x ir.Instr, at Count) returns String
+	let n = argNum(vm, f: f, x: x, i: at)
+	if argNum(vm, f: f, x: x, i: try at + 1 otherwise panic("interp: an argument past a word")) != 0 'unsigned'
+		return "{ir.bitsOfWord(n)}"
+	end 'unsigned'
+	return "{n}"
+end 'decimalText'
+
+function entryDecimalLength(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let text = decimalText(vm, f: f, x: x, at: 0)
+	giveNum(vm, x: x, n: try text.byteLength() as ir.Word otherwise panic("interp: a text past a word"))
+end 'entryDecimalLength'
+
+// The entries of the String an interpolation builds, and of one it appends to, take the String they are given over and give
+// it back with the text added, which the interpreter keeps in the same object: it has no buffer, so the room these make and
+// the owned bit mean nothing to it. An extension is a new object, as a buffer the growth moved is, since a part after it may
+// read the old text, and its release drops the old one, which the append moved out of its place.
+
+function entryStrJoinRoom(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let made = newString(vm, text: "")
+	giveRef(vm, x: x, o: made)
+end 'entryStrJoinRoom'
+
+// appendText adds text to the String object o and gives it back as the entry's value: a literal, which owns no buffer and is
+// every copy of itself, is left as it is and the text given in a new object, as the native append copies its bytes.
+function appendText(mutates vm Vm, x ir.Instr, o Count, text String) throws Halt
+	let at = try textIndex(vm, o: o, what: "an interpolation")
+	let joined = "{vm.h.texts[at]}{text}"
+	if vm.h.oImmortal[o] 'literal'
+		let made = newString(vm, text: joined)
+		giveRef(vm, x: x, o: made)
+		return
+	end 'literal'
+	vm.h.texts[at] = joined
+	giveRef(vm, x: x, o: o)
+end 'appendText'
+
+function entryStrJoinPut(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let part = try textIndex(vm, o: argRef(vm, f: f, x: x, i: 1), what: "a part of an interpolation")
+	let text = vm.h.texts[part].clone()
+	try appendText(vm, x: x, o: argRef(vm, f: f, x: x, i: 0), text: text)
+end 'entryStrJoinPut'
+
+function entryStrJoinDigits(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let text = decimalText(vm, f: f, x: x, at: 1)
+	try appendText(vm, x: x, o: argRef(vm, f: f, x: x, i: 0), text: text)
+end 'entryStrJoinDigits'
+
+// entryStrOwned is whether a String is no literal, which is the one String the interpreter has that owns no buffer.
+function entryStrOwned(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let o = argRef(vm, f: f, x: x, i: 0)
+	_ = try textIndex(vm, o: o, what: "an owned bit")
+	giveFlag(vm, x: x, b: not vm.h.oImmortal[o])
+end 'entryStrOwned'
+
+function entryStrExtend(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let at = try textIndex(vm, o: argRef(vm, f: f, x: x, i: 0), what: "an extended string")
+	let made = newString(vm, text: vm.h.texts[at].clone())
+	giveRef(vm, x: x, o: made)
+end 'entryStrExtend'
+
+function entryStrRelease(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let old = argRef(vm, f: f, x: x, i: 0)
+	_ = try textIndex(vm, o: old, what: "an extended string")
+	_ = try textIndex(vm, o: argRef(vm, f: f, x: x, i: 2), what: "an extended string")
+	if argNum(vm, f: f, x: x, i: 1) != 0 'owned'
+		try drop(vm, o: old)
+	end 'owned'
+end 'entryStrRelease'
+
+function entryStrAppend(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let part = try textIndex(vm, o: argRef(vm, f: f, x: x, i: 2), what: "an appended string")
+	let text = vm.h.texts[part].clone()
+	try appendText(vm, x: x, o: argRef(vm, f: f, x: x, i: 0), text: text)
+end 'entryStrAppend'
 
 function entryFtoa(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	let made = newString(vm, text: ast.floatText(ir.bitsOfWord(argNum(vm, f: f, x: x, i: 0))))
@@ -454,6 +527,11 @@ function entryArrayFill(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 end 'entryArrayFill'
 
 // entryArrayReserve changes nothing the interpreter's model of an array has: a buffer's capacity is no part of it.
+// entryArrayCapacity is the native runtime's buffer, which the interpreter does not model: an array here is its elements.
+function entryArrayCapacity(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	panic("interp: an array's capacity is the native runtime's buffer, which the interpreter does not model")
+end 'entryArrayCapacity'
+
 function entryArrayReserve(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	let a = try live(vm, o: argRef(vm, f: f, x: x, i: 0), what: "a reserve")
 	_ = try collection(vm, o: a, kind: kindArray, what: "a reserve")
@@ -565,21 +643,6 @@ function entryBytesAppendStr(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws 
 	let from = vm.h.texts[at].toByteArray()
 	vm.h.buffers[vm.h.oData[b]].append(from)
 end 'entryBytesAppendStr'
-
-// entryBytesTakeString is the string of the bytes of an array, which it leaves empty: the interpreter's buffer and its
-// text are apart, so the bytes are copied where the runtime hands the buffer over.
-function entryBytesTakeString(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
-	let b = try collection(vm, o: argRef(vm, f: f, x: x, i: 0), kind: kindBytes, what: "a build")
-	try restructure(vm, o: b)
-	let bytes = exchange(vm.h.buffers[vm.h.oData[b]], value: ByteArray.create(0))
-	let made = newString(vm, text: String.from(bytes))
-	giveRef(vm, x: x, o: made)
-end 'entryBytesTakeString'
-
-// entryStrSimple is strKnownSimple: the interpreter keeps no ASCII bit.
-function entryStrSimple(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
-	giveFlag(vm, x: x, b: strKnownSimple(""))
-end 'entryStrSimple'
 
 function entryBytesToString(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	let b = try collection(vm, o: argRef(vm, f: f, x: x, i: 0), kind: kindBytes, what: "a toString")

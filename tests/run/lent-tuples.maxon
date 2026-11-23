@@ -78,7 +78,7 @@ function main() returns ExitCode
 	let (p, q) = h.both()
 	print("{p} {q}\n")
 	var copy = h.again().clone()
-	copy.1.append("!")
+	copy.1 = "{copy.1}!"
 	print("{joined(copy)}\n")
 	let (count, name) = h.counted()
 	print("{count} {name}\n")

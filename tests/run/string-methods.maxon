@@ -12,11 +12,11 @@ end 'find'
 
 function main() returns ExitCode
 	var s = "ab"
-	s.append("cd")
-	s.append(s.clone())
+	s = "{s}cd"
+	s = "{s}{s.clone()}"
 	print("{s} {s.count()} {s.isEmpty()} {"".isEmpty()}\n")
 	var twice = "xy"
-	twice.append(twice)
+	twice = "{twice}{twice}"
 	print("{twice}\n")
 	let accents = "e\u0301a🇩🇪👨‍👩x\r\ny"
 	print("{accents.count()} {accents.byteLength()} {"".count()}\n")
@@ -34,7 +34,7 @@ function main() returns ExitCode
 	print("[{"  \t hi there \r\n".trim()}][{"  hi  ".trimStart()}][{"  hi  ".trimEnd()}][{"   ".trim()}][{"".trim()}][{"a".trim()}]\n")
 	print("{"Hello, World 42".toLower()} {"Hello, World 42".toUpper()} {"".toUpper().count()}\n")
 	var bytes = "no match".replace("o", with: "0")
-	bytes.append("!")
+	bytes = "{bytes}!"
 	print("{bytes} {bytes.count()}\n")
 	return 0
 end 'main'

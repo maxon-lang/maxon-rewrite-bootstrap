@@ -6420,10 +6420,10 @@ end 'Box'
 typealias TextBox = Box with String
 
 function heapString(a String, b String) returns String
-	var sb = StringBuilder.create()
-	sb.append(a)
-	sb.append(b)
-	return sb.build()
+	var sb = ""
+	sb = "{sb}{a}"
+	sb = "{sb}{b}"
+	return sb
 end 'heapString'
 
 function main() returns ExitCode
@@ -6582,10 +6582,10 @@ function work(n Whole) returns Whole
 end 'work'
 
 function longText(tag String) returns String
-	var sb = StringBuilder.create()
-	sb.append(tag)
-	sb.append(" payload long enough to allocate")
-	return sb.build()
+	var sb = ""
+	sb = "{sb}{tag}"
+	sb = "{sb} payload long enough to allocate"
+	return sb
 end 'longText'
 
 type Holder uses T
@@ -6658,10 +6658,10 @@ caller's cell nor a second reference to the pushed value: the caller's variable 
 they hold, and the leak gate is clean.
 ```maxon
 function longText(tag String) returns String
-	let sb = StringBuilder.create()
-	sb.append(tag)
-	sb.append(" payload long enough to allocate")
-	return sb.build()
+	var sb = ""
+	sb = "{sb}{tag}"
+	sb = "{sb} payload long enough to allocate"
+	return sb
 end 'longText'
 
 type Hold uses U
@@ -6708,10 +6708,10 @@ The concrete twin of the case above: a `mutable` `String` parameter that is reas
 factory builds, with the caller's variable and the array each keeping what they hold.
 ```maxon
 function longText(tag String) returns String
-	var sb = StringBuilder.create()
-	sb.append(tag)
-	sb.append(" payload long enough to allocate")
-	return sb.build()
+	var sb = ""
+	sb = "{sb}{tag}"
+	sb = "{sb} payload long enough to allocate"
+	return sb
 end 'longText'
 
 type Hold
@@ -6769,10 +6769,10 @@ function work(n Whole) returns Whole
 end 'work'
 
 function longText(tag String) returns String
-	var sb = StringBuilder.create()
-	sb.append(tag)
-	sb.append(" payload long enough to allocate")
-	return sb.build()
+	var sb = ""
+	sb = "{sb}{tag}"
+	sb = "{sb} payload long enough to allocate"
+	return sb
 end 'longText'
 
 type Holder uses T
@@ -6853,10 +6853,10 @@ function work(n Whole) returns Whole
 end 'work'
 
 function longText(tag String) returns String
-	var sb = StringBuilder.create()
-	sb.append(tag)
-	sb.append(" payload long enough to allocate")
-	return sb.build()
+	var sb = ""
+	sb = "{sb}{tag}"
+	sb = "{sb} payload long enough to allocate"
+	return sb
 end 'longText'
 
 type Holder uses T
@@ -6972,10 +6972,10 @@ A generic factory that copies its `T` parameter into a local it reassigns and th
 variable and the record each holding their own reference, and the leak gate is clean.
 ```maxon
 function longText(tag String) returns String
-	let sb = StringBuilder.create()
-	sb.append(tag)
-	sb.append(" payload long enough to allocate")
-	return sb.build()
+	var sb = ""
+	sb = "{sb}{tag}"
+	sb = "{sb} payload long enough to allocate"
+	return sb
 end 'longText'
 
 type Wrap uses U
@@ -7022,10 +7022,10 @@ loop leaves holds the last, and the leak gate is clean.
 typealias Whole = int(i64.min to i64.max)
 
 function longText(tag String) returns String
-	var sb = StringBuilder.create()
-	sb.append(tag)
-	sb.append(" payload long enough to allocate")
-	return sb.build()
+	var sb = ""
+	sb = "{sb}{tag}"
+	sb = "{sb} payload long enough to allocate"
+	return sb
 end 'longText'
 
 type Holder uses T
@@ -7075,10 +7075,10 @@ stores the result and on the path that does not, without a leak.
 typealias Whole = int(i64.min to i64.max)
 
 function longText(tag String) returns String
-	var sb = StringBuilder.create()
-	sb.append(tag)
-	sb.append(" payload long enough to allocate")
-	return sb.build()
+	var sb = ""
+	sb = "{sb}{tag}"
+	sb = "{sb} payload long enough to allocate"
+	return sb
 end 'longText'
 
 type Holder uses T
@@ -7410,10 +7410,10 @@ iteration, as the bodies over a `String` do, and the leak gate is clean.
 typealias Whole = int(i64.min to i64.max)
 
 function longText(tag String) returns String
-	var sb = StringBuilder.create()
-	sb.append(tag)
-	sb.append(" payload long enough to allocate")
-	return sb.build()
+	var sb = ""
+	sb = "{sb}{tag}"
+	sb = "{sb} payload long enough to allocate"
+	return sb
 end 'longText'
 
 type Twice uses T

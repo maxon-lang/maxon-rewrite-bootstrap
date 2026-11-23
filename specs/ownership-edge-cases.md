@@ -1754,7 +1754,7 @@ function main() returns ExitCode
 	let a = "x"
 	var i = 0 as Count
 	while i < 5 'loop'
-		s.append(a)
+		s = "{s}{a}"
 		i = i + 1
 	end 'loop'
 	return try s.byteLength() as ExitCode otherwise panic("out of range")
@@ -2310,11 +2310,11 @@ The third round is what makes this case pin its own claim.
 ```maxon
 function main() returns ExitCode
 	var s = "abc"
-	s.append(s)
+	s = "{s}{s}"
 	print("A={s}|{s.byteLength()}\n")
-	s.append(s)
+	s = "{s}{s}"
 	print("B={s}|{s.byteLength()}\n")
-	s.append(s)
+	s = "{s}{s}"
 	print("C={s}|{s.byteLength()}\n")
 	print("D=done\n")
 	return 0
@@ -2343,9 +2343,9 @@ be long enough not to be carried inline.
 ```maxon
 function main() returns ExitCode
 	var s = "0123456789abcdefghijABCDEFGHIJ"
-	s.append("+")
+	s = "{s}+"
 	let c = s.clone()
-	s.append("TAIL")
+	s = "{s}TAIL"
 	print("clone={c}|{c.byteLength()}\n")
 	print("source={s}|{s.byteLength()}\n")
 	return 0
@@ -2370,9 +2370,9 @@ its own bytes.
 ```maxon
 function main() returns ExitCode
 	var s = "0123456789abcdefghijABCDEFGHIJ"
-	s.append("+")
+	s = "{s}+"
 	let c = s.clone()
-	s.append(c)
+	s = "{s}{c}"
 	print("{s}\n")
 	print("{s.byteLength()}\n")
 	return 0

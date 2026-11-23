@@ -139,7 +139,7 @@ function main() returns ExitCode
 	var s = "aXbXc"
 	let empty = s.replaceFirst("", with: "Q")
 	let missing = s.replaceFirst("zz", with: "Q")
-	s.append("!")
+	s = "{s}!"
 	print("{empty} {missing} {s}\n")
 	return 0
 end 'main'
@@ -179,7 +179,7 @@ string is long enough to be heap-backed, which is the only case where the differ
 function main() returns ExitCode
 	var a = "HELLOWORLDLONGENOUGH"
 	let c = a.clone()
-	a.append("TAIL")
+	a = "{a}TAIL"
 	print("{a} {c}\n")
 	return 0
 end 'main'

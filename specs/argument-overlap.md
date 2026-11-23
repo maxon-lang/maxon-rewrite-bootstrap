@@ -223,7 +223,7 @@ a counted value taken before the call.
 ```maxon
 function main() returns ExitCode
 	var s = "ab"
-	s.append(s)
+	s = "{s}{s}"
 	print("{s}\n")
 	return 0
 end 'main'

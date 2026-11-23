@@ -532,7 +532,7 @@ typealias Int = int(i64.min to i64.max)
 typealias IntArray = Array with Int
 
 function main() returns ExitCode
-	let arr = IntArray.create(0)
+	var arr = IntArray.create(0)
 	arr.reserve(100)
 	if arr.capacity() < 100 'cap'
 		return 1
@@ -558,9 +558,9 @@ typealias Int = int(i64.min to i64.max)
 typealias IntArray = Array with Int
 
 function main() returns ExitCode
-	let pushed = IntArray.create(0)
-	let inserted = IntArray.create(0)
-	let filled = IntArray.create(0)
+	var pushed = IntArray.create(0)
+	var inserted = IntArray.create(0)
+	var filled = IntArray.create(0)
 	var pushLadder = ""
 	var insertLadder = ""
 	var fillLadder = ""
@@ -573,15 +573,15 @@ function main() returns ExitCode
 		filled.growFilled(i + 1, value: i)
 		if pushed.capacity() != lastPush 'push'
 			lastPush = pushed.capacity()
-			pushLadder.append(" {pushed.capacity()}")
+			pushLadder = "{pushLadder} {pushed.capacity()}"
 		end 'push'
 		if inserted.capacity() != lastInsert 'insert'
 			lastInsert = inserted.capacity()
-			insertLadder.append(" {inserted.capacity()}")
+			insertLadder = "{insertLadder} {inserted.capacity()}"
 		end 'insert'
 		if filled.capacity() != lastFill 'fill'
 			lastFill = filled.capacity()
-			fillLadder.append(" {filled.capacity()}")
+			fillLadder = "{fillLadder} {filled.capacity()}"
 		end 'fill'
 	end 'grow'
 	print("push:{pushLadder}\n")

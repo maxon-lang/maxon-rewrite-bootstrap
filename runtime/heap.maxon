@@ -91,8 +91,8 @@ let chunkBytes = 1048576 as Count
 let firstChunkBytes = 16384 as Count
 
 // largeBoxPadBytes is what a large box's block holds before the box: the header in its last word, and a word before it so
-// that the box keeps the 16-byte alignment that HeapAlloc gives the block, as a buffer that a loop walks wants. On Linux
-// that word holds the length of the block's pages (largeBoxLengthOffset), which unmapping them takes.
+// that the box keeps the 16-byte alignment that HeapAlloc gives the block, as a buffer that a loop walks wants. That word
+// holds the length of the block (largeBoxLengthOffset): on Linux its pages, which unmapping them takes.
 let largeBoxPadBytes = 16 as Count
 
 let largeBoxLengthOffset = 0 as Count
@@ -446,12 +446,27 @@ function freeLarge(heap Count, box Count)
 	#endif
 end 'freeLarge'
 
+// boxCapacity is how many bytes a box holds, which may be more than alloc was asked for: the size of its class's slots, or
+// what a large box's block holds past its pad. A String that appends in place grows into it (strings.maxon).
+function boxCapacity(box Count) returns Count
+	let header = __Raw.loadWord(__Raw.wrappingSub(box, right: boxHeaderBytes), offset: 0)
+	let key = header and heapKeyMask
+	if key == heapLargeKey 'large'
+		let block = __Raw.wrappingSub(box, right: largeBoxPadBytes)
+		return __Raw.wrappingSub(__Raw.loadWord(block, offset: largeBoxLengthOffset), right: largeBoxPadBytes)
+	end 'large'
+	return __Raw.loadWord(header and heapRecordMask, offset: __Raw.wrappingAdd(key, right: heapBoxBytesOffset))
+end 'boxCapacity'
+
 // allocLarge is a box of more than largestSmallBytes: a zeroed block of the process heap on Windows, and on Linux a block
-// that heap kept, with the box zeroed, or else new pages, with the header before the box.
+// that heap kept, with the box zeroed, or else new pages, with the header before the box. The block's first word holds its
+// length, which boxCapacity reads, and on Linux unmapping it takes.
 function allocLarge(heap Count, bytes Count) returns Count
 	countOut(heap, change: 1)
 	#if os(Windows)
-		let block = __Raw.callImport3("HeapAlloc", arg1: processHeap(), arg2: heapZeroMemory, arg3: __Raw.wrappingAdd(bytes, right: largeBoxPadBytes))
+		let length = __Raw.wrappingAdd(bytes, right: largeBoxPadBytes)
+		let block = __Raw.callImport3("HeapAlloc", arg1: processHeap(), arg2: heapZeroMemory, arg3: length)
+		__Raw.storeWord(block, offset: largeBoxLengthOffset, value: length)
 	#else
 		let block = keptOrMapped(heap, bytes: bytes)
 	#endif

@@ -672,12 +672,12 @@ let EarlyHints = "HTTP/1.1 103 Early Hints\r\nLink: </style.css>; rel=preload\r\
 function answer(listener TcpListener, interimCount InterimCount) returns String
 	let conn = try listener.accept() otherwise return "accept-failed"
 	_ = try conn.readSome(RequestBytes) otherwise return "recv-failed"
-	let reply = StringBuilder.create()
+	var reply = ""
 	for _ in 0 upto interimCount 'eachInterim'
-		reply.append(EarlyHints)
+		reply = "{reply}{EarlyHints}"
 	end 'eachInterim'
-	reply.append("HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\nok")
-	_ = try conn.send(reply.build()) otherwise return "send-failed"
+	reply = "{reply}HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\nok"
+	_ = try conn.send(reply) otherwise return "send-failed"
 	conn.close()
 	return "answered"
 end 'answer'
@@ -775,13 +775,13 @@ function streamAHead(listener TcpListener) returns String
 	let conn = try listener.accept() otherwise return "accept-failed"
 	_ = try conn.readSome(RequestBytes) otherwise return "recv-failed"
 	_ = try conn.send("HTTP/1.1 200 OK\r\n") otherwise return "send-failed"
-	let line = StringBuilder.create()
-	line.append("X-Padding: ")
+	var line = ""
+	line = "{line}X-Padding: "
 	for _ in 0 upto 100 'pad'
-		line.append("x")
+		line = "{line}x"
 	end 'pad'
-	line.append("\r\n")
-	let field = line.build()
+	line = "{line}\r\n"
+	let field = line
 	var sent = 0 as Count
 	while sent < MostLines 'stream'
 		_ = try conn.send(field) otherwise break
