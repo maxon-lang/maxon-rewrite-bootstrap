@@ -126,18 +126,15 @@ export function isExtensionAlias(tables ModuleTables, ordinal DeclOrdinal) retur
 	return false
 end 'isExtensionAlias'
 
-// conformsInModule is whether an extension of the module m says the type owner implements iface, or an interface that
-// extends it. Seen from another module, only a conformance that m may give counts: one of a type or to an interface
-// that m declares (Hylo's rule for orphans), so a module cannot change what a type it does not own means to an interface
-// it does not own anywhere but in itself.
-function conformsInModule(p Project, ms ModuleState, module diag.ModuleID, tables ModuleTables, owner TypeID, iface TypeID, outside bool) returns bool
-	for i in 0 upto tables.extConformCount() 'each'
-		if tables.extConform(i).owner == owner and extendsInterface(ms.types, reads: p.types, have: tables.extConform(i).iface, want: iface) and givesConformance(p, ms: ms, module: module, tables: tables, index: i, outside: outside) 'hit'
-			return true
-		end 'hit'
-	end 'each'
-	return false
-end 'conformsInModule'
+// conformanceAt is the interface that an extension says t implements, which the extension writes over the parameters of t's
+// declaration, as t's type arguments bind them.
+function conformanceAt(p Project, mutates ms ModuleState, written TypeID, t TypeID) returns TypeID
+	let params = cloneTypeArgs(typeEntry(ms.types, reads: p.types, t: originOf(ms.types, reads: p.types, t: t)).typeParams)
+	if params.count() == 0 'plain'
+		return written
+	end 'plain'
+	return substituteType(ms.types, reads: p.types, t: written, params: params, args: typeArgsOf(ms.types, reads: p.types, t: t))
+end 'conformanceAt'
 
 // givesConformance is whether the index-th conformance that the extensions of the module m declare holds where code sees
 // it: everywhere in m, and outside it only where m declares the type or the interface.
@@ -251,7 +248,16 @@ export function interfaceExtensionArgs(p Project, mutates ms ModuleState, recv T
 			return args
 		end 'direct'
 	end 'each'
-	// An interface reached through one that extends it has no associated types, as no interface that another extends has.
+	for i in 0 upto have.count() 'inherited'
+		let declared = originOf(ms.types, reads: p.types, t: recv)
+		let params = cloneTypeArgs(typeEntry(ms.types, reads: p.types, t: declared).typeParams)
+		let bound = substituteType(ms.types, reads: p.types, t: have[i], params: params, args: typeArgsOf(ms.types, reads: p.types, t: recv))
+		let ancestor = ancestorBindings(ms.types, reads: p.types, have: bound, want: origin)
+		if ancestor.isSome() 'found'
+			args.append(ancestor.unwrap())
+			return args
+		end 'found'
+	end 'inherited'
 	return args
 end 'interfaceExtensionArgs'
 
@@ -370,12 +376,12 @@ export function conformanceSource(p Project, mutates ms ModuleState, from diag.M
 	let key = extensionKey(p, ms: ms, t: t)
 	if key.isSome() and from != diag.stdlibID 'extensions'
 		let owner = key.unwrap()
-		if conformsOf(p, ms: ms, module: from, owner: owner, iface: iface, outside: false) 'own'
+		if conformsOf(p, ms: ms, module: from, t: t, owner: owner, iface: iface, outside: false) 'own'
 			seen.push(Conformance.make(from, inBody: false))
 		end 'own'
 		for i in 0 upto namedCount(p, ms: ms, module: from) 'deps'
 			let dep = namedModule(p, ms: ms, module: from, index: i)
-			if dep != from and conformsOf(p, ms: ms, module: dep, owner: owner, iface: iface, outside: true) 'hit'
+			if dep != from and conformsOf(p, ms: ms, module: dep, t: t, owner: owner, iface: iface, outside: true) 'hit'
 				seen.push(Conformance.make(dep, inBody: false))
 			end 'hit'
 		end 'deps'
@@ -608,12 +614,25 @@ function aliasOf(p Project, ms ModuleState, module diag.ModuleID, owner TypeID, 
 	return aliasIn(module, tables: p.modules[modIndex(module)].tables, owner: owner, name: name)
 end 'aliasOf'
 
-function conformsOf(p Project, ms ModuleState, module diag.ModuleID, owner TypeID, iface TypeID, outside bool) returns bool
+// conformsOf is whether an extension of the module m says the type t, whose extensions are filed under owner, implements
+// iface, or an interface that extends it. Seen from another module, only a conformance that m may give counts: one of a type or
+// to an interface that m declares (Hylo's rule for orphans), so a module cannot change what a type it does not own means to
+// an interface it does not own anywhere but in itself.
+function conformsOf(p Project, mutates ms ModuleState, module diag.ModuleID, t TypeID, owner TypeID, iface TypeID, outside bool) returns bool
+	var written = TypeIDList.create(0)
 	if module == ms.module 'own'
-		return conformsInModule(p, ms: ms, module: module, tables: ms.tables, owner: owner, iface: iface, outside: outside)
-	end 'own'
-	p.modules[modIndex(module)].tables.requireHeld()
-	return conformsInModule(p, ms: ms, module: module, tables: p.modules[modIndex(module)].tables, owner: owner, iface: iface, outside: outside)
+		appendConformsInModule(p, ms: ms, module: module, tables: ms.tables, owner: owner, outside: outside, out: written)
+	end 'own' else 'other'
+		p.modules[modIndex(module)].tables.requireHeld()
+		appendConformsInModule(p, ms: ms, module: module, tables: p.modules[modIndex(module)].tables, owner: owner, outside: outside, out: written)
+	end 'other'
+	for i in 0 upto written.count() 'each'
+		let have = conformanceAt(p, ms: ms, written: written[i], t: t)
+		if extendsInterface(ms.types, reads: p.types, have: have, want: iface) 'hit'
+			return true
+		end 'hit'
+	end 'each'
+	return false
 end 'conformsOf'
 
 function appendConformsOf(p Project, ms ModuleState, module diag.ModuleID, owner TypeID, outside bool, mutates out TypeIDList)

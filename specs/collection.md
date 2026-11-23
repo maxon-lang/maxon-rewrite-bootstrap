@@ -270,7 +270,7 @@ typealias Integer = int(i64.min to i64.max)
 
 function main() returns ExitCode
 	let arr = [2, 3, 4]
-	let result = arr.map(function(x Integer) gives x * 3)
+	let result = arr.map(function(x Integer) gives try x * 3 otherwise panic("out of range"))
 	let val0 = (try result.get(0) otherwise 0) as Integer
 	let val1 = (try result.get(1) otherwise 0) as Integer
 	let val2 = (try result.get(2) otherwise 0) as Integer
@@ -295,7 +295,7 @@ typealias Integer = int(i64.min to i64.max)
 
 function main() returns ExitCode
 	let arr = [1, 2, 3, 4]
-	let squared = arr.map(function(n Integer) gives n * n)
+	let squared = arr.map(function(n Integer) gives try n * n otherwise panic("out of range"))
 	let val0 = (try squared.get(0) otherwise 0) as Integer
 	let val1 = (try squared.get(1) otherwise 0) as Integer
 	let val2 = (try squared.get(2) otherwise 0) as Integer
@@ -381,7 +381,7 @@ typealias Integer = int(i64.min to i64.max)
 
 function main() returns ExitCode
 	let arr = [42]
-	let result = arr.map(function(x Integer) gives x + 8)
+	let result = arr.map(function(x Integer) gives try x + 8 otherwise panic("out of range"))
 	let val = (try result.get(0) otherwise 0) as Integer
 	print("{val}\n")
 	return 0
@@ -405,10 +405,10 @@ typealias Integer = int(i64.min to i64.max)
 typealias IntArray = Array with Integer
 
 function main() returns ExitCode
-	let a = IntArray.create(0)
+	var a = IntArray.create(0)
 	a.push(1)
 	a.push(2)
-	let t = a.map(function(x Integer) gives x + 1)
+	let t = a.map(function(x Integer) gives try x + 1 otherwise panic("out of range"))
 	let val0 = try t.get(0) otherwise 0
 	let val1 = try t.get(1) otherwise 0
 	print("{val0}\n")
@@ -433,10 +433,10 @@ typealias Integer = int(i64.min to i64.max)
 typealias IntSet = Set with Integer
 
 function main() returns ExitCode
-	let s = IntSet.create()
+	var s = IntSet.create()
 	s.insert(1)
 	s.insert(2)
-	let t = s.map(function(a Integer) gives a + 1)
+	let t = s.map(function(a Integer) gives try a + 1 otherwise panic("out of range"))
 	print("{t.count()}\n")
 	return 0
 end 'main'
@@ -494,9 +494,9 @@ end 'Point'
 typealias PointArray = Array with Point
 
 function main() returns ExitCode
-	let a = PointArray.create(0)
+	var a = PointArray.create(0)
 	a.push(Point.create(7))
-	let out = a.map(function(p Point) gives p)
+	let out = a.map(function(p Point) gives p.clone())
 	let first = try out.get(0) otherwise Point.create(0)
 	print("x={first.x}\n")
 	return 0
@@ -535,7 +535,7 @@ function good(c Color) returns Color
 end 'good'
 
 function main() returns ExitCode
-	let a = ColorArray.create(0)
+	var a = ColorArray.create(0)
 	a.push(Color.blue)
 	let b = a.map(good)
 	print("n={b.count()}\n")

@@ -1449,7 +1449,7 @@ method answers its own when the program calls it.
 ```maxon
 extension String
 	public function needleOccursIn(haystack String, len BytePos, needle String) returns bool
-		return len > haystack.byteLength() + needle.byteLength()
+		return len > (try haystack.byteLength() + needle.byteLength() otherwise panic("out of range"))
 	end 'needleOccursIn'
 end 'String'
 

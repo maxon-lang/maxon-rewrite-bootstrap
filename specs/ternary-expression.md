@@ -935,6 +935,7 @@ held b padded out long enough to be a real heap allocation | held b padded out l
 ```
 
 <!-- test: ternary-expression.ownership.immutable-arm-inside-a-loop -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 ### The co-owning arm is not held to a LOOP refusal that only a move earns
 ⭐ **A REFUSAL WHOSE PREMISE IS THE MOVE.** `poisonOwningBinding` refuses a move of a binding declared
 outside the innermost loop — the back edge would re-move it next iteration and a `break` would leave it

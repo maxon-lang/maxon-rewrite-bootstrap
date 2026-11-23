@@ -90,7 +90,7 @@ end 'main'
 <!-- test: qualified-call -->
 ```maxon
 function main() returns ExitCode
-	return trunc(Math.pow(2.0, exponent: 4.0))
+	return try trunc(Math.pow(2.0, exponent: 4.0)) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

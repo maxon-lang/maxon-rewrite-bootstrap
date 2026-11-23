@@ -30,7 +30,7 @@ typealias Integer = int(i64.min to i64.max)
 typealias IntArray = Array with Integer
 
 function main() returns ExitCode
-	let a = IntArray.create(0)
+	var a = IntArray.create(0)
 	a.sort()
 	print("count={a.count()}\n")
 	return 0
@@ -51,7 +51,7 @@ typealias Integer = int(i64.min to i64.max)
 typealias IntArray = Array with Integer
 
 function main() returns ExitCode
-	let a = IntArray.create(0)
+	var a = IntArray.create(0)
 	a.push(42)
 	a.sort()
 	let x = try a.get(0) otherwise return 99
@@ -74,7 +74,7 @@ typealias Integer = int(i64.min to i64.max)
 typealias IntArray = Array with Integer
 
 function main() returns ExitCode
-	let a = IntArray.create(0)
+	var a = IntArray.create(0)
 	a.push(1)
 	a.push(2)
 	a.push(3)
@@ -103,7 +103,7 @@ typealias Integer = int(i64.min to i64.max)
 typealias IntArray = Array with Integer
 
 function main() returns ExitCode
-	let a = IntArray.create(0)
+	var a = IntArray.create(0)
 	a.push(5)
 	a.push(4)
 	a.push(3)
@@ -132,7 +132,7 @@ typealias Integer = int(i64.min to i64.max)
 typealias IntArray = Array with Integer
 
 function main() returns ExitCode
-	let a = IntArray.create(0)
+	var a = IntArray.create(0)
 	a.push(7)
 	a.push(7)
 	a.push(7)
@@ -160,7 +160,7 @@ typealias Integer = int(i64.min to i64.max)
 typealias IntArray = Array with Integer
 
 function main() returns ExitCode
-	let a = IntArray.create(0)
+	var a = IntArray.create(0)
 	a.push(3)
 	a.push(1)
 	a.push(4)
@@ -194,11 +194,11 @@ This exercises the refcount-on-swap path through `__ManagedMemory.set/get`.
 typealias StringArray = Array with String
 
 function byLength(a String, b String) returns Ordering
-	return a.count().compare(b.count())
+	return a.count().compare(try b.count() as FullRangeInt otherwise panic("out of range"))
 end 'byLength'
 
 function main() returns ExitCode
-	let a = StringArray.create(0)
+	var a = StringArray.create(0)
 	a.push("banana")
 	a.push("fig")
 	a.push("apple")
@@ -234,7 +234,7 @@ function descending(x Integer, y Integer) returns Ordering
 end 'descending'
 
 function main() returns ExitCode
-	let a = IntArray.create(0)
+	var a = IntArray.create(0)
 	a.push(2)
 	a.push(7)
 	a.push(1)
@@ -268,7 +268,7 @@ function ascending(x Integer, y Integer) returns Ordering
 end 'ascending'
 
 function main() returns ExitCode
-	let a = IntArray.create(0)
+	var a = IntArray.create(0)
 	a.push(4)
 	a.push(2)
 	a.push(5)
@@ -298,7 +298,7 @@ typealias Integer = int(i64.min to i64.max)
 typealias IntArray = Array with Integer
 
 function main() returns ExitCode
-	let a = IntArray.create(0)
+	var a = IntArray.create(0)
 	a.push(9)
 	a.push(2)
 	a.push(7)
@@ -341,7 +341,7 @@ end 'KeyTag'
 typealias KeyTagArray = Array with KeyTag
 
 function main() returns ExitCode
-	let a = KeyTagArray.create(0)
+	var a = KeyTagArray.create(0)
 	a.push(KeyTag.init(2, tag: 0))
 	a.push(KeyTag.init(1, tag: 1))
 	a.push(KeyTag.init(2, tag: 2))
@@ -382,7 +382,7 @@ function ascending(x Integer, y Integer) returns Ordering
 end 'ascending'
 
 function main() returns ExitCode
-	let a = IntArray.create(0)
+	var a = IntArray.create(0)
 	for v in [50, 40, 30, 20, 10, 45, 35, 25, 15, 5, 48, 38, 28, 18, 8, 46, 36, 26, 16, 6, 44, 34, 24, 14, 4, 42, 32, 22, 12, 2, 49, 39, 29, 19, 9, 47, 37, 27, 17, 7, 43, 33, 23, 13, 3, 41, 31, 21, 11, 1] 'fill'
 		a.push(v)
 	end 'fill'
@@ -422,7 +422,7 @@ function ascending(x Integer, y Integer) returns Ordering
 end 'ascending'
 
 function main() returns ExitCode
-	let a = IntArray.create(0)
+	var a = IntArray.create(0)
 	for i in 0 upto 100 'fill'
 		a.push((i * 31) + 7)
 	end 'fill'
@@ -453,7 +453,7 @@ function ascending(x Integer, y Integer) returns Ordering
 end 'ascending'
 
 function main() returns ExitCode
-	let a = IntArray.create(0)
+	var a = IntArray.create(0)
 	for i in 0 upto 35 'fill'
 		a.push(i + 1)
 	end 'fill'
@@ -503,12 +503,12 @@ end 'isSorted'
 
 // Build the k-th permutation of [0,1,2,3] using factoriadic decomposition.
 function nthPerm4(k Integer) returns IntArray
-	let pool = IntArray.create(0)
+	var pool = IntArray.create(0)
 	pool.push(0)
 	pool.push(1)
 	pool.push(2)
 	pool.push(3)
-	let result = IntArray.create(0)
+	var result = IntArray.create(0)
 	var remaining = k
 	let divs = [6, 2, 1, 1]
 	for i in 0 upto 4 'pick'
@@ -527,10 +527,10 @@ function main() returns ExitCode
 	var k = 0 as Integer
 	var failed = 0 as Count
 	while k < 24 'eachPerm'
-		let perm = nthPerm4(k)
+		var perm = nthPerm4(k)
 		perm.sortBy(ascending)
 		if not isSorted(perm) 'bad'
-			failed = failed + 1
+			failed = try failed + 1 otherwise panic("out of range")
 		end 'bad'
 		k = k + 1
 	end 'eachPerm'
@@ -563,7 +563,7 @@ function ascending(x Integer, y Integer) returns Ordering
 end 'ascending'
 
 function main() returns ExitCode
-	let a = IntArray.create(0)
+	var a = IntArray.create(0)
 	a.push(50)
 	a.push(40)
 	a.push(30)
@@ -656,7 +656,7 @@ function byKey(a KeyTag, b KeyTag) returns Ordering
 end 'byKey'
 
 function main() returns ExitCode
-	let a = KeyTagArray.create(0)
+	var a = KeyTagArray.create(0)
 	a.push(KeyTag.init(2, tag: 0))
 	a.push(KeyTag.init(1, tag: 1))
 	a.push(KeyTag.init(2, tag: 2))
@@ -763,7 +763,7 @@ function ascending(x Integer, y Integer) returns Ordering
 end 'ascending'
 
 function main() returns ExitCode
-	let a = IntArray.create(0)
+	var a = IntArray.create(0)
 	a.push(11)
 	a.push(7)
 	a.push(3)
@@ -808,8 +808,8 @@ function main() returns ExitCode
 	var sum = 0 as Integer
 	var squares = 0 as Integer
 	for x in a 'tally'
-		sum = sum + x
-		squares = squares + x * x
+		sum = try sum + x otherwise panic("out of range")
+		squares = try squares + x * x otherwise panic("out of range")
 	end 'tally'
 	a.sortBy(ascending)
 	var ordered = a.count() == n
@@ -817,8 +817,8 @@ function main() returns ExitCode
 	var squaresAfter = 0 as Integer
 	for i in 0 upto a.count() 'walk'
 		let v = try a.get(i) otherwise return 99
-		sumAfter = sumAfter + v
-		squaresAfter = squaresAfter + v * v
+		sumAfter = try sumAfter + v otherwise panic("out of range")
+		squaresAfter = try squaresAfter + v * v otherwise panic("out of range")
 		if i > 0 'pair'
 			let p = try a.get(i - 1) otherwise return 99
 			if p > v 'oop'
@@ -866,7 +866,7 @@ function ascending(x Integer, y Integer) returns Ordering
 end 'ascending'
 
 function main() returns ExitCode
-	let a = IntArray.create(0)
+	var a = IntArray.create(0)
 	// 50 descending then 50 ascending — two large runs after findRun.
 	a.push(100)
 	a.push(99)
@@ -972,8 +972,8 @@ function main() returns ExitCode
 	var sum = 0 as Integer
 	var squares = 0 as Integer
 	for x in a 'tally'
-		sum = sum + x
-		squares = squares + x * x
+		sum = try sum + x otherwise panic("out of range")
+		squares = try squares + x * x otherwise panic("out of range")
 	end 'tally'
 	a.sortBy(ascending)
 	var ordered = a.count() == n
@@ -981,8 +981,8 @@ function main() returns ExitCode
 	var squaresAfter = 0 as Integer
 	for i in 0 upto a.count() 'walk'
 		let v = try a.get(i) otherwise return 99
-		sumAfter = sumAfter + v
-		squaresAfter = squaresAfter + v * v
+		sumAfter = try sumAfter + v otherwise panic("out of range")
+		squaresAfter = try squaresAfter + v * v otherwise panic("out of range")
 		if i > 0 'pair'
 			let p = try a.get(i - 1) otherwise return 99
 			if p > v 'oop'
@@ -1020,7 +1020,7 @@ function ascending(x Integer, y Integer) returns Ordering
 end 'ascending'
 
 function main() returns ExitCode
-	let a = IntArray.create(0)
+	var a = IntArray.create(0)
 	a.push(40)
 	a.push(20)
 	a.push(60)
@@ -1065,8 +1065,8 @@ function main() returns ExitCode
 	var sum = 0 as Integer
 	var squares = 0 as Integer
 	for x in a 'tally'
-		sum = sum + x
-		squares = squares + x * x
+		sum = try sum + x otherwise panic("out of range")
+		squares = try squares + x * x otherwise panic("out of range")
 	end 'tally'
 	a.sortBy(ascending)
 	var ordered = a.count() == n
@@ -1074,8 +1074,8 @@ function main() returns ExitCode
 	var squaresAfter = 0 as Integer
 	for i in 0 upto a.count() 'walk'
 		let v = try a.get(i) otherwise return 99
-		sumAfter = sumAfter + v
-		squaresAfter = squaresAfter + v * v
+		sumAfter = try sumAfter + v otherwise panic("out of range")
+		squaresAfter = try squaresAfter + v * v otherwise panic("out of range")
 		if i > 0 'pair'
 			let p = try a.get(i - 1) otherwise return 99
 			if p > v 'oop'
@@ -1115,18 +1115,18 @@ function ascending(x Integer, y Integer) returns Ordering
 end 'ascending'
 
 function main() returns ExitCode
-	let a = IntArray.create(0)
+	var a = IntArray.create(0)
 	var r = 2463534242 as Integer
 	for i in 0 upto 5000 'fill'
-		r = (r * 1103515245 + 12345) and 0x7FFFFFFF
+		r = (try r * 1103515245 + 12345 otherwise panic("out of range")) and 0x7FFFFFFF
 		a.push(r and 0xFFFF)
 	end 'fill'
 	let n = a.count()
 	var sum = 0 as Integer
 	var squares = 0 as Integer
 	for x in a 'tally'
-		sum = sum + x
-		squares = squares + x * x
+		sum = try sum + x otherwise panic("out of range")
+		squares = try squares + x * x otherwise panic("out of range")
 	end 'tally'
 	a.sortBy(ascending)
 	var ordered = a.count() == n
@@ -1134,8 +1134,8 @@ function main() returns ExitCode
 	var squaresAfter = 0 as Integer
 	for i in 0 upto a.count() 'walk'
 		let v = try a.get(i) otherwise return 99
-		sumAfter = sumAfter + v
-		squaresAfter = squaresAfter + v * v
+		sumAfter = try sumAfter + v otherwise panic("out of range")
+		squaresAfter = try squaresAfter + v * v otherwise panic("out of range")
 		if i > 0 'pair'
 			let p = try a.get(i - 1) otherwise return 99
 			if p > v 'oop'
@@ -1363,13 +1363,13 @@ type Adversary
 		return try self.values.get(item as ElementIndex) otherwise panic("Adversary.valueOf: every item the sort holds is one this adversary numbered")
 	end 'valueOf'
 
-	function freeze(item Integer)
+	function freeze(mutates self, item Integer)
 		try self.values.set(item as ElementIndex, value: self.solid) otherwise panic("Adversary.freeze: every item the sort holds is one this adversary numbered")
-		self.solid = self.solid + 1
+		self.solid = try self.solid + 1 otherwise panic("out of range")
 	end 'freeze'
 
-	function compare(x Integer, y Integer) returns Ordering
-		self.calls = self.calls + 1
+	function compare(mutates self, x Integer, y Integer) returns Ordering
+		self.calls = try self.calls + 1 otherwise panic("out of range")
 		if self.valueOf(x) == self.gas and self.valueOf(y) == self.gas 'bothUndecided'
 			if x == self.candidate 'freezeTheCandidate'
 				self.freeze(x)
@@ -1386,11 +1386,11 @@ type Adversary
 	end 'compare'
 end 'Adversary'
 
-function adversarial(x Integer, y Integer, adversary Adversary) returns Ordering
+function adversarial(x Integer, y Integer, mutates adversary Adversary) returns Ordering
 	return adversary.compare(x, y: y)
 end 'adversarial'
 
-function sortAgainst(items IntArray, adversary Adversary)
+function sortAgainst(mutates items IntArray, adversary Adversary)
 	items.sortBy(function(x Integer, y Integer) gives adversarial(x, y: y, adversary: adversary))
 end 'sortAgainst'
 
@@ -1444,11 +1444,11 @@ let ShortestLength = 100
 let LongestLength = 400
 
 function nextSeed(seed Tally) returns Tally
-	return (seed * 1103515245 + 12345) mod 2147483648
+	return try (seed * 1103515245 + 12345) mod 2147483648 otherwise panic("out of range")
 end 'nextSeed'
 
 function main() returns ExitCode
-	let spreads = SpreadArray.create(0)
+	var spreads = SpreadArray.create(0)
 	for spread in [2, 3, 4, 8, 16, 40] 'spreads'
 		spreads.push(spread)
 	end 'spreads'
@@ -1456,7 +1456,7 @@ function main() returns ExitCode
 	var bad = 0 as Tally
 	for spread in spreads 'eachSpread'
 		for n in ShortestLength to LongestLength 'eachLength'
-			let values = SortKeyArray.create(0)
+			var values = SortKeyArray.create(0)
 			var sum = 0 as Tally
 			var squares = 0 as Tally
 			for _ in 0 upto n 'fill'
@@ -1474,11 +1474,11 @@ function main() returns ExitCode
 					ordered = false
 				end 'outOfOrder'
 				previous = v
-				sum = sum - (v as Tally)
-				squares = squares - (v as Tally) * (v as Tally)
+				sum = try sum - (v as Tally) otherwise panic("out of range")
+				squares = try squares - (v as Tally) * (v as Tally) otherwise panic("out of range")
 			end 'walk'
 			if not ordered or sum != 0 or squares != 0 'broken'
-				bad = bad + 1
+				bad = try bad + 1 otherwise panic("out of range")
 			end 'broken'
 		end 'eachLength'
 	end 'eachSpread'
@@ -1526,11 +1526,11 @@ function byKey(a Ticket, b Ticket) returns Ordering
 end 'byKey'
 
 function nextSeed(seed Tally) returns Tally
-	return (seed * 1103515245 + 12345) mod 2147483648
+	return try (seed * 1103515245 + 12345) mod 2147483648 otherwise panic("out of range")
 end 'nextSeed'
 
 function main() returns ExitCode
-	let spreads = SpreadArray.create(0)
+	var spreads = SpreadArray.create(0)
 	for spread in [2, 3, 4, 8, 16, 40] 'spreads'
 		spreads.push(spread)
 	end 'spreads'
@@ -1539,7 +1539,7 @@ function main() returns ExitCode
 	var unstable = 0 as Tally
 	for spread in spreads 'eachSpread'
 		for n in ShortestLength to LongestLength 'eachLength'
-			let entries = TicketArray.create(0)
+			var entries = TicketArray.create(0)
 			for arrival in 0 upto n 'fill'
 				seed = nextSeed(seed)
 				let key = try ((seed shr 16) mod (spread as Tally)) otherwise panic("a spread is never zero")
@@ -1561,15 +1561,15 @@ function main() returns ExitCode
 				end 'hasPrevious'
 				previousKey = entry.key
 				previousArrival = entry.arrival
-				arrivals = arrivals + entry.arrival
+				arrivals = try arrivals + entry.arrival otherwise panic("out of range")
 			end 'walk'
 			if arrivals != n * (n - 1) / 2 'lost'
 				ordered = false
 			end 'lost'
 			if not ordered 'countUnsorted'
-				unsorted = unsorted + 1
+				unsorted = try unsorted + 1 otherwise panic("out of range")
 			end 'countUnsorted' else if not stable 'countUnstable'
-				unstable = unstable + 1
+				unstable = try unstable + 1 otherwise panic("out of range")
 			end 'countUnstable'
 		end 'eachLength'
 	end 'eachSpread'
@@ -1617,7 +1617,7 @@ function byKey(a Ticket, b Ticket) returns Ordering
 end 'byKey'
 
 function nextSeed(seed Tally) returns Tally
-	return (seed * 1103515245 + 12345) mod 2147483648
+	return try (seed * 1103515245 + 12345) mod 2147483648 otherwise panic("out of range")
 end 'nextSeed'
 
 function main() returns ExitCode
@@ -1625,7 +1625,7 @@ function main() returns ExitCode
 	var unstable = 0 as Tally
 	for n in 2 to LongestLength 'eachLength'
 		for _ in 0 upto ArraysPerLength 'eachArray'
-			let entries = TicketArray.create(0)
+			var entries = TicketArray.create(0)
 			for arrival in 0 upto n 'fill'
 				seed = nextSeed(seed)
 				entries.push(Ticket.create(((seed shr 16) mod KeySpread) as SortKey, arrival: arrival))

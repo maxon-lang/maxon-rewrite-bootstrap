@@ -4351,12 +4351,12 @@ typealias Words = Array with String
 typealias Nums = Array with Count
 
 function main() returns ExitCode
-	let words = Words.create(0)
+	var words = Words.create(0)
 	words.push("ab")
-	let nums = Nums.create(0)
+	var nums = Nums.create(0)
 	nums.push(4)
 	let shouted = words.map(function(w) gives "{w}!")
-	let doubled = nums.map(function(n) gives n * 2)
+	let doubled = nums.map(function(n) gives try n * 2 otherwise panic("out of range"))
 	print("{try shouted.get(0) otherwise ""} {try doubled.get(0) otherwise 0}\n")
 	return 0
 end 'main'

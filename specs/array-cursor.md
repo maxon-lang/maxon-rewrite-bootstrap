@@ -23,18 +23,18 @@ typealias Byte = int(0 to u8.max)
 typealias ByteArray = Array with Byte
 
 function main() returns ExitCode
-	let arr = ByteArray.create(0)
+	var arr = ByteArray.create(0)
 	arr.push(10)
 	arr.push(20)
 	arr.push(30)
-	let cursor = try arr.cursor() otherwise 'fail'
+	var cursor = try arr.cursor() otherwise 'fail'
 		return 99
 	end 'fail'
 	var sum = cursor.current()
 	try cursor.advance() otherwise ignore
-	sum = sum + cursor.current()
+	sum = try sum + cursor.current() otherwise panic("out of range")
 	try cursor.advance() otherwise ignore
-	sum = sum + cursor.current()
+	sum = try sum + cursor.current() otherwise panic("out of range")
 	return sum
 end 'main'
 ```
@@ -50,11 +50,11 @@ typealias Byte = int(0 to u8.max)
 typealias ByteArray = Array with Byte
 
 function main() returns ExitCode
-	let arr = ByteArray.create(0)
+	var arr = ByteArray.create(0)
 	arr.push(10)
 	arr.push(20)
 	arr.push(30)
-	let cursor = try arr.cursor() otherwise 'fail'
+	var cursor = try arr.cursor() otherwise 'fail'
 		return 99
 	end 'fail'
 	let i0 = cursor.index()
@@ -64,7 +64,7 @@ function main() returns ExitCode
 	let i2 = cursor.index()
 	// 0 + 1*10 + 2*100 = 210 (printed, not returned: 210 > the valid
 	// ExitCode range of 0..125 on the wasm target)
-	print("{i0 + i1 * 10 + i2 * 100}\n")
+	print("{try i0 + i1 * 10 + i2 * 100 otherwise panic("out of range")}\n")
 	return 0
 end 'main'
 ```
@@ -83,7 +83,7 @@ typealias Byte = int(0 to u8.max)
 typealias ByteArray = Array with Byte
 
 function main() returns ExitCode
-	let arr = ByteArray.create(0)
+	var arr = ByteArray.create(0)
 	arr.push(10)
 	arr.push(20)
 	arr.push(30)
@@ -108,11 +108,11 @@ typealias Byte = int(0 to u8.max)
 typealias ByteArray = Array with Byte
 
 function main() returns ExitCode
-	let arr = ByteArray.create(0)
+	var arr = ByteArray.create(0)
 	arr.push(10)
 	arr.push(20)
 	arr.push(30)
-	let cursor = try arr.cursor() otherwise 'fail'
+	var cursor = try arr.cursor() otherwise 'fail'
 		return 99
 	end 'fail'
 	try cursor.advance() otherwise ignore
@@ -134,13 +134,13 @@ typealias Byte = int(0 to u8.max)
 typealias ByteArray = Array with Byte
 
 function main() returns ExitCode
-	let arr = ByteArray.create(0)
+	var arr = ByteArray.create(0)
 	arr.push(10)
 	arr.push(20)
 	arr.push(30)
 	arr.push(40)
 	arr.push(50)
-	let cursor = try arr.cursor() otherwise 'fail'
+	var cursor = try arr.cursor() otherwise 'fail'
 		return 99
 	end 'fail'
 	try cursor.advanceBy(3) otherwise ignore
@@ -159,12 +159,12 @@ typealias Byte = int(0 to u8.max)
 typealias ByteArray = Array with Byte
 
 function main() returns ExitCode
-	let arr = ByteArray.create(0)
+	var arr = ByteArray.create(0)
 	arr.push(10)
 	arr.push(20)
 	arr.push(30)
 	arr.push(40)
-	let cursor = try arr.cursor() otherwise 'fail'
+	var cursor = try arr.cursor() otherwise 'fail'
 		return 99
 	end 'fail'
 	try cursor.seek(2) otherwise ignore
@@ -183,10 +183,10 @@ typealias Byte = int(0 to u8.max)
 typealias ByteArray = Array with Byte
 
 function main() returns ExitCode
-	let arr = ByteArray.create(0)
+	var arr = ByteArray.create(0)
 	arr.push(10)
 	arr.push(20)
-	let cursor = try arr.cursor() otherwise 'fail'
+	var cursor = try arr.cursor() otherwise 'fail'
 		return 99
 	end 'fail'
 	try cursor.seek(5) otherwise 'caught'
@@ -208,10 +208,10 @@ typealias Byte = int(0 to u8.max)
 typealias ByteArray = Array with Byte
 
 function main() returns ExitCode
-	let arr = ByteArray.create(0)
+	var arr = ByteArray.create(0)
 	arr.push(10)
 	arr.push(20)
-	let cursor = try arr.cursor() otherwise 'fail'
+	var cursor = try arr.cursor() otherwise 'fail'
 		return 99
 	end 'fail'
 	// Advance to last element
@@ -238,9 +238,9 @@ typealias Byte = int(0 to u8.max)
 typealias ByteArray = Array with Byte
 
 function main() returns ExitCode
-	let arr = ByteArray.create(0)
+	var arr = ByteArray.create(0)
 	arr.push(10)
-	let cursor = try arr.cursor() otherwise 'fail'
+	var cursor = try arr.cursor() otherwise 'fail'
 		return 99
 	end 'fail'
 	// Try to retreat at position 0 — should throw
@@ -263,13 +263,13 @@ typealias Byte = int(0 to u8.max)
 typealias ByteArray = Array with Byte
 
 function main() returns ExitCode
-	let arr = ByteArray.create(0)
+	var arr = ByteArray.create(0)
 	arr.push(10)
 	arr.push(20)
 	arr.push(30)
 	arr.push(40)
 	arr.push(50)
-	let cursor = try arr.cursor() otherwise 'fail'
+	var cursor = try arr.cursor() otherwise 'fail'
 		return 99
 	end 'fail'
 	try cursor.advanceBy(4) otherwise ignore
@@ -289,11 +289,11 @@ typealias Byte = int(0 to u8.max)
 typealias ByteArray = Array with Byte
 
 function main() returns ExitCode
-	let arr = ByteArray.create(0)
+	var arr = ByteArray.create(0)
 	arr.push(10)
 	arr.push(20)
 	arr.push(30)
-	let cursor = try arr.cursor() otherwise 'fail'
+	var cursor = try arr.cursor() otherwise 'fail'
 		return 99
 	end 'fail'
 	try cursor.advance() otherwise ignore
@@ -335,7 +335,7 @@ typealias Byte = int(0 to u8.max)
 typealias ByteArray = Array with Byte
 
 function main() returns ExitCode
-	let arr = ByteArray.create(0)
+	var arr = ByteArray.create(0)
 	arr.push(10)
 	arr.push(20)
 	let cursor = try arr.cursor() otherwise 'fail'
@@ -360,7 +360,7 @@ Cursor over a bit-packed `Array with bool` must extract individual bits rather t
 typealias BoolArray = Array with bool
 
 function main() returns ExitCode
-	let arr = BoolArray.create(0)
+	var arr = BoolArray.create(0)
 	arr.push(true)
 	arr.push(false)
 	arr.push(true)
@@ -427,6 +427,7 @@ end 'main'
 ```
 
 <!-- test: a-cursor-sees-a-push-to-its-source -->
+<!-- skip: language difference: a place passed mutates, consumes or sets overlaps nothing else the call or the statement holds, where maxon shares the place by a reference count -->
 A push under a live cursor may reallocate the buffer; the cursor still reads the element it
 names, and can seek onto the element the push added.
 ```maxon
@@ -450,6 +451,7 @@ v 42 long enough heap string
 ```
 
 <!-- test: current-past-the-end-after-the-source-is-cleared-panics -->
+<!-- skip: language difference: a place passed mutates, consumes or sets overlaps nothing else the call or the statement holds, where maxon shares the place by a reference count -->
 `clear` shortens the array to nothing under a cursor parked at index 3. `current()` finds its position
 past the live length and panics with an index out of range rather than reading the released slot.
 ```maxon
@@ -562,13 +564,13 @@ typealias Byte = int(0 to u8.max)
 typealias ByteArray = Array with Byte
 
 function main() returns ExitCode
-	let arr = ByteArray.create(0)
+	var arr = ByteArray.create(0)
 	arr.push(10)
 	arr.push(20)
 	arr.push(30)
 	arr.push(40)
 	arr.push(50)
-	let cursor = try arr.cursor() otherwise 'fail'
+	var cursor = try arr.cursor() otherwise 'fail'
 		return 99
 	end 'fail'
 	try cursor.advanceBy(4) otherwise 'forward'

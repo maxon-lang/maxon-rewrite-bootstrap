@@ -61,6 +61,11 @@ function lowerFloatToBits(mutates l Lowerer, p ast.Project, ms ast.ModuleState, 
 	return args[0]
 end 'lowerFloatToBits'
 
+// lowerBitsToFloat is __Builtins.bitsToFloat, the inverse of floatToBits: the integer is the 64 bits of the double already.
+function lowerBitsToFloat(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return args[0]
+end 'lowerBitsToFloat'
+
 // floatNegation flips the sign of a double, its bit 63, as IEEE-754 negates: -(0.0) is -0.0 and a NaN keeps its payload.
 function floatNegation(mutates l Lowerer, v Reg) returns Reg
 	let sign = konst(l, value: floatWord(ast.floatSignBit))

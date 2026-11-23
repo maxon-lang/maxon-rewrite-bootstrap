@@ -47,7 +47,7 @@ end 'main'
 ```maxon
 function main() returns ExitCode
 	let result = Math.exp(0.0)
-	return trunc(result)
+	return try trunc(result) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -59,7 +59,7 @@ end 'main'
 ```maxon
 function main() returns ExitCode
 	let result = Math.exp(1.0) // e^1 ≈ 2.71828
-	return trunc(result)
+	return try trunc(result) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -71,7 +71,7 @@ end 'main'
 ```maxon
 function main() returns ExitCode
 	let result = Math.exp(2.0) // e^2 ≈ 7.389
-	return trunc(result)
+	return try trunc(result) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -83,7 +83,7 @@ end 'main'
 ```maxon
 function main() returns ExitCode
 	let result = Math.exp(3) // Int promoted to float
-	return trunc(result)
+	return try trunc(result) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -95,7 +95,7 @@ end 'main'
 ```maxon
 function main() returns ExitCode
 	let result = Math.exp(-1.0) // e^-1 ≈ 0.368
-	return trunc(result)
+	return try trunc(result) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

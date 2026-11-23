@@ -347,9 +347,9 @@ function main() returns ExitCode
 	while trips < 500 'loop'
 		let s = "hello world"
 		let idx = try s.findFirst("world") otherwise s.endIndex()
-		total = total + idx.charIndex()
-		let part = s.slice(s.startIndex(), endIndex: idx)
-		total = total + (part.byteLength() as GraphemeIndex)
+		total = try total + idx.charIndex() otherwise panic("out of range")
+		let part = s.slice(s.startIndex(), endIndex: idx).clone()
+		total = try total + (part.byteLength() as GraphemeIndex) otherwise panic("out of range")
 		trips = trips + 1
 	end 'loop'
 	print("{total}\n")

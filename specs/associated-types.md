@@ -4891,7 +4891,6 @@ error E3120: <fragment>:9:6: 'Runner' binds 'Giver's associated type 'Element' t
 ```
 
 <!-- test: a-conformance-declared-by-an-extension-binds-its-own-associated-type -->
-<!-- skip: extension headers with type arguments are not supported in minimaxon -->
 `A` declares `implements Named` on the type and its `Sink` conformance on an `extension`, so its `Sink` binding is in a later declaration than its first.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -4916,10 +4915,9 @@ type A implements Named
 	end 'code'
 end 'A'
 
-// TODO: extension headers with type arguments are not supported in minimaxon
 extension A implements Sink with Integer
 	function put(x Integer) returns Integer
-		return x + self.base
+		return try x + self.base otherwise panic("out of range")
 	end 'put'
 end 'A'
 
@@ -4931,7 +4929,7 @@ type B implements Sink with String
 	end 'create'
 
 	function put(x String) returns Integer
-		return (x.count() as Integer) + self.base
+		return try (x.count() as Integer) + self.base otherwise panic("out of range")
 	end 'put'
 end 'B'
 
@@ -4948,7 +4946,7 @@ function useB(s StringSink) returns Integer
 end 'useB'
 
 function main() returns ExitCode
-	print("{useA(A.create()) + useB(B.create())}\n")
+	print("{try useA(A.create()) + useB(B.create()) otherwise panic("out of range")}\n")
 	return 0
 end 'main'
 ```
@@ -4960,7 +4958,6 @@ end 'main'
 ```
 
 <!-- test: error.an-extension-declared-binding-is-checked-against-the-receivers-claim -->
-<!-- skip: extension headers with type arguments are not supported in minimaxon -->
 <!-- positions: moved -->
 The same split declaration, widened into a receiver claiming the other binding.
 ```maxon
@@ -4986,7 +4983,6 @@ type A implements Named
 	end 'code'
 end 'A'
 
-// TODO: extension headers with type arguments are not supported in minimaxon
 extension A implements Sink with Integer
 	function put(x Integer) returns Integer
 		return x + self.base

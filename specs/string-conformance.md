@@ -334,7 +334,7 @@ function main() returns ExitCode
 	var acc = 0 as Counter
 	while i < 100 'loop'
 		if "a1b".equals("a{1}b") 'eq'
-			acc = acc + 1
+			acc = try acc + 1 otherwise panic("out of range")
 		end 'eq'
 		if "a{1}b".hash() != "a1b".hash() 'neverTrue'
 			return 1

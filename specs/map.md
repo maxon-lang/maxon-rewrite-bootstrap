@@ -1452,7 +1452,7 @@ let KeyCount = 4096 as Tally
 let HighShift = 40
 
 function main() returns ExitCode
-	let hashes = TallySet.create()
+	var hashes = TallySet.create()
 	for k in 0 upto KeyCount 'eachKey'
 		let key = k shl HighShift
 		hashes.insert(key.hash() as Tally)

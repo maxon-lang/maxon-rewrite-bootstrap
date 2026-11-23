@@ -1033,8 +1033,8 @@ typealias TallyMap = Map with (Tally, Tally)
 typealias TallySet = Set with Tally
 
 function main() returns ExitCode
-	let map = TallyMap.create()
-	let seen = TallySet.create()
+	var map = TallyMap.create()
+	var seen = TallySet.create()
 	let key = 4 as Tally
 	map.upsert(key, value: 5)
 	seen.insert(key)

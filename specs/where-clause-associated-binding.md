@@ -968,7 +968,6 @@ end 'main'
 ```
 
 <!-- test: error.an-extension-declared-binding-is-checked-against-the-constraint -->
-<!-- skip: extension headers with type arguments are not supported in minimaxon -->
 <!-- positions: moved -->
 A conformance declared by an `extension` is the one `Wrap`'s constraint is checked against, whichever declaration of the type comes first.
 ```maxon
@@ -994,7 +993,6 @@ type TextCur implements Named
 	end 'code'
 end 'TextCur'
 
-// TODO: extension headers with type arguments are not supported in minimaxon
 extension TextCur implements Cursor with String
 	function current() returns String
 		return self.v

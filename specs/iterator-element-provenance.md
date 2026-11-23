@@ -135,6 +135,7 @@ end 'main'
 ```
 
 <!-- test: the-current-element-of-a-cursor-over-a-let-array-can-be-bound-to-a-var -->
+<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 A cursor made from the `let` `frozen` hands out `frozen`'s elements, so `var c` writes one.
 
 ```maxon
@@ -166,6 +167,7 @@ end 'main'
 ```
 
 <!-- test: the-current-element-of-a-cursor-over-a-let-array-is-written-by-a-callee -->
+<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 The element is passed straight to `bump`, which writes it.
 
 ```maxon
@@ -230,6 +232,7 @@ end 'main'
 ```
 
 <!-- test: a-var-array-hands-out-writable-elements-through-a-for-and-a-cursor -->
+<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 Over a `var` array the same two routes write: the `for` variable and the cursor's element both are the array's own
 records.
 
@@ -290,20 +293,20 @@ function read(c Counter) returns Integer
 end 'read'
 
 function main() returns ExitCode
-	let items = Plain.create(0)
+	var items = Plain.create(0)
 	items.push(Counter.create(4))
 	items.push(Counter.create(5))
 	let frozen = items
 	var total = 0 as Integer
 	for (_, c) in frozen.enumerated() 'each'
-		total = total + read(c)
+		total = try total + read(c) otherwise panic("out of range")
 	end 'each'
-	let it = try frozen.createIterator() otherwise return 2
-	let head = it.current()
-	total = total + head.n
+	var it = try frozen.createIterator() otherwise return 2
+	let head = it.current().clone()
+	total = try total + head.n otherwise panic("out of range")
 	try it.advance() otherwise return 3
-	total = total + read(it.current())
-	return total as ExitCode
+	total = try total + read(it.current()) otherwise panic("out of range")
+	return try total as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

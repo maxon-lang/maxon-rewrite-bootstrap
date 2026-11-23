@@ -527,6 +527,9 @@ export function intrinsicCall(mutates l Lowerer, p ast.Project, mutates ms ast.M
 	if op == ast.Intrinsic.intrFloatToBits 'intrFloatToBits'
 		return lowerFloatToBits(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrFloatToBits'
+	if op == ast.Intrinsic.intrBitsToFloat 'intrBitsToFloat'
+		return lowerBitsToFloat(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrBitsToFloat'
 	if op == ast.Intrinsic.intrTrailingZeros 'intrTrailingZeros'
 		return lowerTrailingZeros(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrTrailingZeros'
@@ -1222,6 +1225,9 @@ export function ownsOperands(op ast.Intrinsic) returns bool
 	if op == ast.Intrinsic.intrFloatToBits 'intrFloatToBits'
 		return false
 	end 'intrFloatToBits'
+	if op == ast.Intrinsic.intrBitsToFloat 'intrBitsToFloat'
+		return false
+	end 'intrBitsToFloat'
 	if op == ast.Intrinsic.intrTrailingZeros 'intrTrailingZeros'
 		return false
 	end 'intrTrailingZeros'

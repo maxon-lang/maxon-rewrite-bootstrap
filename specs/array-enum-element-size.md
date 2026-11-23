@@ -266,7 +266,7 @@ function markNegative(s Signal) returns Signal
 end 'markNegative'
 
 function main() returns ExitCode
-	let a = Signals.create(0)
+	var a = Signals.create(0)
 	a.push(Signal.plus)
 	a.push(Signal.zero)
 	a.push(Signal.minus)
@@ -275,9 +275,9 @@ function main() returns ExitCode
 	let last = try a.last() otherwise Signal.zero
 	var seenNegative = 0 as Integer
 	for v in a.map(markNegative) 'each'
-		seenNegative = seenNegative + (v.rawValue as Integer)
+		seenNegative = try seenNegative + (v.rawValue as Integer) otherwise panic("out of range")
 	end 'each'
-	return ((((first.rawValue as Integer) + 2) * 100) + (((last.rawValue as Integer) + 2) * 10) + seenNegative) as ExitCode
+	return try ((((first.rawValue as Integer) + 2) * 100) + (((last.rawValue as Integer) + 2) * 10) + seenNegative) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

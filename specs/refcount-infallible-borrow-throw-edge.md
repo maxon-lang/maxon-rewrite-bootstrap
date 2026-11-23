@@ -56,7 +56,7 @@ type Item
 	export var tag as Tag
 
 	static function create(n String, t Tag) returns Item
-		return Item{name: n, tag: t}
+		return Item{name: n.clone(), tag: t}
 	end 'create'
 end 'Item'
 
@@ -79,29 +79,29 @@ type Reader
 	// Mirrors Parser.consume: `cur` is an infallible borrow of the current element;
 	// the SEPARATE fallible `advance()` throws on truncation, and on that throw edge
 	// `cur` dies without being returned.
-	function consume(depth Tag) returns Item throws AccessError
+	function consume(mutates self, depth Tag) returns Item throws AccessError
 		// Self-recursive on a never-taken path so the inliner leaves this a REAL call
 		// (Parser.consume is invoked via try_call, never inlined). Inlining collapses
 		// the multi-path borrow-forward shape and hides the bug.
 		if depth > 1000000 'rec'
-			return try self.consume(depth + 1)
+			return try self.consume(try depth + 1 otherwise panic("out of range"))
 		end 'rec'
-		let cur = cursor.current()
+		let cur = cursor.current().clone()
 		try cursor.advance() otherwise throw AccessError.truncated
-		return cur
+		return cur.clone()
 	end 'consume'
 end 'Reader'
 
 function main() returns ExitCode
-	let arr = ItemArray.create(0)
+	var arr = ItemArray.create(0)
 	arr.push(Item.create("alpha", t: 7))
-	let reader = try Reader.create(arr) otherwise return 3
+	var reader = try Reader.create(arr) otherwise return 3
 	// Cursor sits at element 0 (the last). consume(): cur = element 0 (borrow);
 	// advance() fails (no element 1) -> throw; cur dies on the throw path. Pre-fix,
 	// element 0 is over-released and this arr teardown double-frees it.
 	let r = try reader.consume(0) otherwise Item.create("z", t: 5)
-	let n = arr.count() + r.tag
-	return n
+	let n = try arr.count() + r.tag otherwise panic("out of range")
+	return try n as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

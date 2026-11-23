@@ -651,6 +651,11 @@ public type MapIterator uses Key, Value implements Iterator with Entry where Key
 		return (tables.current().groups.first(slot), tables.current().groups.second(slot))
 	end 'current'
 
+	/// The key of the current entry, which a Set walks.
+	public function key() returns borrowed Key
+		return tables.current().groups.first(slot)
+	end 'key'
+
 	public function advance(mutates self) throws IterationError
 		if later != 0 'inGroup'
 			slot = slotAt(groupOf(slot), index: firstMatch(later))

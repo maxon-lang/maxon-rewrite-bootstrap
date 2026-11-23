@@ -440,7 +440,7 @@ error E2062: <fragment>:8:31: Cannot use 'float' as a type argument: a float typ
 typealias Flags = Array with bool
 
 function main() returns ExitCode
-	let flags = Flags from [true, false, true]
+	var flags = Flags from [true, false, true]
 	let found = flags.contains(false)
 	flags.sort()
 	let first = try flags.get(0) otherwise return 3

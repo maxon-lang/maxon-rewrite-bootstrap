@@ -284,7 +284,7 @@ let Headings = ["## Deferred", "## Notes"]
 function main() returns ExitCode
 	let first = try Headings.get(0) otherwise ""
 	let second = try Headings.get(1) otherwise ""
-	return (first.byteLength() + second.byteLength() + (Headings.count() as BytePos)) as ExitCode
+	return try (first.byteLength() + second.byteLength() + (Headings.count() as BytePos)) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

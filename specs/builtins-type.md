@@ -167,7 +167,7 @@ proves neither direction is converting numerically.
 typealias FloatBits = int(i64.min to i64.max)
 
 function roundTripBits(bits FloatBits) returns FloatBits
-	return __Builtins.floatToBits(__Builtins.bitsToFloat(bits))
+	return __Builtins.floatToBits(__Builtins.bitsToFloat(bits as FullRangeInt))
 end 'roundTripBits'
 
 function main() returns ExitCode

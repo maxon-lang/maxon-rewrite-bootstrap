@@ -569,7 +569,7 @@ func TestConvertLibraryRules(t *testing.T) {
 		}
 	}
 	write("helpers/table/slots.maxon", "public enum Slot\n\tempty\nend 'Slot'\n")
-	write("Interfaces.maxon", "public interface Hashable\n\tfunction hash() returns HashValue\nend 'Hashable'\n\npublic interface Cloneable\n\tfunction clone() returns Self\nend 'Cloneable'\n\npublic interface BuiltinStringLiteral\n\tstatic function init(value Count) returns Self\nend 'BuiltinStringLiteral'\n")
+	write("Interfaces.maxon", "public interface Hashable\n\tfunction hash() returns HashValue\nend 'Hashable'\n\npublic interface Cloneable\n\tfunction clone() returns Self\nend 'Cloneable'\n\npublic interface BuiltinStringLiteral\n\tstatic function init(value Count) returns Self\nend 'BuiltinStringLiteral'\n\npublic interface Iterable uses Element, Iter\n\tfunction createIterator() returns Iter throws IterationError\nend 'Iterable'\n")
 	cases := []struct{ name, file, in, want string }{
 		{
 			name: "a member naming a helper's type is export, and so is one naming that member",
@@ -582,6 +582,12 @@ func TestConvertLibraryRules(t *testing.T) {
 			file: "String.maxon",
 			in:   "let Unused = 1\n\npublic type String implements BuiltinStringLiteral, Hashable, Cloneable, Iterable with (Count, Count)\n\tpublic function hash() returns HashValue\n\t\treturn hashText(self)\n\tend 'hash'\n\n\tpublic function clone() returns String\n\t\treturn self\n\tend 'clone'\nend 'String'\n\nfunction hashText(s String) returns HashValue\n\treturn 0\nend 'hashText'\n",
 			want: "extension String implements Hashable\n\tpublic function hash() returns HashValue\n\t\treturn hashText(self)\n\tend 'hash'\nend 'String'\n\nfunction hashText(s String) returns HashValue\n\treturn 0\nend 'hashText'\n",
+		},
+		{
+			name: "an extension of a built-in generic type names its parameter as the table does, and gives no conditional conformance",
+			file: "Array.maxon",
+			in:   "public type Array uses Element implements Iterable with (Element, ArrayIter)\n\tpublic typealias ArrayIter = ArrayIterator with Element\n\n\tpublic function count() returns Count\n\t\treturn 0\n\tend 'count'\n\n\tpublic function createIterator() returns ArrayIter throws IterationError\n\t\treturn try ArrayIter.create(managed)\n\tend 'createIterator'\n\n\tpublic function cursor() returns ArrayIter throws IterationError\n\t\treturn try ArrayIter.create(managed)\n\tend 'cursor'\nend 'Array'\n\npublic extension Array implements Hashable where Element implements Hashable\n\tpublic function hash() returns HashValue\n\t\tif __Builtins.elementsHashAsStorage() 'storage'\n\t\t\treturn 0\n\t\tend 'storage'\n\t\treturn managed.length() as HashValue\n\tend 'hash'\n\n\tpublic function count() returns Count\n\t\treturn 0\n\tend 'count'\nend 'Array'\n",
+			want: "extension Array implements Iterable with (T, ArrayIter)\n\tpublic typealias ArrayIter = ArrayIterator with T\n\n\tpublic function createIterator() returns ArrayIter throws IterationError\n\t\treturn try ArrayIter.create(self.managed)\n\tend 'createIterator'\n\n\tpublic function cursor() returns ArrayIter throws IterationError\n\t\treturn try ArrayIter.create(self.managed)\n\tend 'cursor'\nend 'Array'\n\npublic extension Array where T implements Hashable\n\tpublic function hash() returns HashValue\n\t\treturn self.managed.length() as HashValue\n\tend 'hash'\nend 'Array'\n",
 		},
 	}
 	for _, tc := range cases {

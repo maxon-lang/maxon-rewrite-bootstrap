@@ -2188,11 +2188,11 @@ function plain() returns Integer
 end 'plain'
 
 function main() returns ExitCode
-	let s = IntPromiseArray.create(0)
+	var s = IntPromiseArray.create(0)
 	s.push(async plain())
 	let c = try s.cursor() otherwise panic("has one")
 	let p = c.current()
-	return (await p) as ExitCode
+	return try (await p) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -2577,12 +2577,12 @@ function plain(n Integer) returns Integer
 end 'plain'
 
 function main() returns ExitCode
-	let s = IntPromiseArray.create(0)
+	var s = IntPromiseArray.create(0)
 	s.push(async plain(4))
 	let c = try s.cursor() otherwise panic("has one")
 	let a = c.current()
 	let b = c.current()
-	return ((await a) + (await b)) as ExitCode
+	return try ((await a) + (await b)) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

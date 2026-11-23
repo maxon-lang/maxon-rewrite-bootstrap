@@ -75,7 +75,7 @@ end 'main'
 ```maxon
 function main() returns ExitCode
 	let result = Math.log(1.0)
-	return trunc(result)
+	return try trunc(result) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

@@ -105,9 +105,9 @@ typealias Integer = int(i64.min to i64.max)
 typealias IntSet = Set with Integer
 
 function main() returns ExitCode
-	let s = IntSet.create()
+	var s = IntSet.create()
 	s.insert(1)
-	return s.count() as ExitCode
+	return try s.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -123,9 +123,9 @@ typealias Integer = int(i64.min to i64.max)
 typealias IntSet = Set with Integer
 
 function main() returns ExitCode
-	let s = IntSet.create()
+	var s = IntSet.create()
 	s.insert(1)
-	return s.count() as ExitCode
+	return try s.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -141,12 +141,12 @@ typealias Integer = int(i64.min to i64.max)
 typealias IntSet = Set with Integer
 
 function main() returns ExitCode
-	let s = IntSet.create()
+	var s = IntSet.create()
 	let gone = s.remove(1)
 	if gone 'g'
 		return 1
 	end 'g'
-	return s.count() as ExitCode
+	return try s.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -162,12 +162,12 @@ typealias Integer = int(i64.min to i64.max)
 typealias IntSet = Set with Integer
 
 function main() returns ExitCode
-	let s = IntSet.create()
+	var s = IntSet.create()
 	let gone = s.remove(1)
 	if gone 'g'
 		return 1
 	end 'g'
-	return s.count() as ExitCode
+	return try s.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -191,7 +191,7 @@ function main() returns ExitCode
 	if has 'h'
 		return 1
 	end 'h'
-	return s.count() as ExitCode
+	return try s.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

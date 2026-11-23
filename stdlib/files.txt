@@ -7,3 +7,5 @@ Hasher.maxon .
 PrimitiveExtensions.maxon .
 helpers/string/hash.maxon . StringHash.maxon
 String.maxon .
+Array.maxon .
+Math.maxon .

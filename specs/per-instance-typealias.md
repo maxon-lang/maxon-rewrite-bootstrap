@@ -2181,7 +2181,7 @@ with two parameters: `combine` takes the program's, and the library's `map` keep
 export extension Iterable
 	export typealias ElementTransform = function(Element, Element) returns Element
 
-	export function combine(transform ElementTransform, seed Element) returns Element
+	export function combine(transform ElementTransform, consumes seed Element) returns Element where Element implements Droppable
 		var total = seed
 		for item in self 'each'
 			total = transform(total, item)
@@ -2196,12 +2196,12 @@ typealias Number = int(0 to 99)
 typealias Numbers = Array with Number
 
 function main() returns ExitCode
-	let xs = Numbers.create(0)
+	var xs = Numbers.create(0)
 	xs.push(3)
 	xs.push(1)
-	let mapped = xs.map(function(n) gives n)
+	var mapped = xs.map(function(n) gives n)
 	mapped.push(5)
-	let total = xs.combine(function(a, b) gives (a + b) as Number, seed: 0)
+	let total = xs.combine(function(a, b) gives try (a + b) as Number otherwise panic("out of range"), seed: 0)
 	print("{mapped.count()} {total}\n")
 	return 0
 end 'main'
@@ -2222,7 +2222,7 @@ and `combine` the program's two.
 export extension Iterable
 	export typealias ElementTransform = function(Element, Element) returns Element
 
-	export function combine(transform ElementTransform, seed Element) returns Element
+	export function combine(transform ElementTransform, consumes seed Element) returns Element where Element implements Droppable
 		var total = seed
 		for item in self 'each'
 			total = transform(total, item)
@@ -2243,8 +2243,8 @@ type Zebra uses Item implements Iterable with (Item, ZebraCursor)
 		return Self{items: ZebraItems.create(0)}
 	end 'make'
 
-	function add(item Item)
-		self.items.push(item)
+	function add(mutates self, item Item) where Item implements Copyable
+		self.items.push(item.clone())
 	end 'add'
 
 	function createIterator() returns ZebraCursor throws IterationError
@@ -2255,12 +2255,12 @@ end 'Zebra'
 typealias QuantumZebra = Zebra with Quantum
 
 function main() returns ExitCode
-	let sack = QuantumZebra.make()
+	var sack = QuantumZebra.make()
 	sack.add(3)
 	sack.add(1)
-	let mapped = sack.map(function(n) gives n)
+	var mapped = sack.map(function(n) gives n)
 	mapped.push(5)
-	let total = sack.combine(function(a, b) gives (a + b) as Quantum, seed: 0)
+	let total = sack.combine(function(a, b) gives try (a + b) as Quantum otherwise panic("out of range"), seed: 0)
 	print("{mapped.count()} {total}\n")
 	return 0
 end 'main'
@@ -2280,7 +2280,7 @@ every library conformer, and a plain `Array` is the receiver of `map` and of `co
 export extension Iterable
 	export typealias ElementTransform = function(Element, Element) returns Element
 
-	export function combine(transform ElementTransform, seed Element) returns Element
+	export function combine(transform ElementTransform, consumes seed Element) returns Element where Element implements Droppable
 		var total = seed
 		for item in self 'each'
 			total = transform(total, item)
@@ -2303,8 +2303,8 @@ type Zebra uses Item implements Iterable with (Item, ZebraCursor)
 		return Self{items: ZebraItems.create(0)}
 	end 'make'
 
-	function add(item Item)
-		self.items.push(item)
+	function add(mutates self, item Item) where Item implements Copyable
+		self.items.push(item.clone())
 	end 'add'
 
 	function createIterator() returns ZebraCursor throws IterationError
@@ -2315,15 +2315,15 @@ end 'Zebra'
 typealias QuantumZebra = Zebra with Quantum
 
 function main() returns ExitCode
-	let zebra = QuantumZebra.make()
+	var zebra = QuantumZebra.make()
 	zebra.add(2)
-	let xs = Quantums.create(0)
+	var xs = Quantums.create(0)
 	xs.push(3)
 	xs.push(1)
-	let mapped = xs.map(function(n) gives n)
+	var mapped = xs.map(function(n) gives n)
 	mapped.push(5)
-	let total = xs.combine(function(a, b) gives (a + b) as Quantum, seed: 0)
-	let zebraTotal = zebra.combine(function(a, b) gives (a + b) as Quantum, seed: 0)
+	let total = xs.combine(function(a, b) gives try (a + b) as Quantum otherwise panic("out of range"), seed: 0)
+	let zebraTotal = zebra.combine(function(a, b) gives try (a + b) as Quantum otherwise panic("out of range"), seed: 0)
 	print("{mapped.count()} {total} {zebraTotal}\n")
 	return 0
 end 'main'

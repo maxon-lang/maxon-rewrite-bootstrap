@@ -101,7 +101,7 @@ type Sorter
 end 'Sorter'
 
 function main() returns ExitCode
-	let rows = Rows.create(0)
+	var rows = Rows.create(0)
 	rows.push(Row.create(3))
 	rows.push(Row.create(1))
 	rows.push(Row.create(2))

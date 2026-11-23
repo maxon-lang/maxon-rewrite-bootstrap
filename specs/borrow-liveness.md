@@ -1458,21 +1458,21 @@ type Bag
 		return Self{items: StringArray.create(0), name: "tag", seen: IntSet.create()}
 	end 'create'
 
-	function mark()
-		name.append("!")
+	function mark(mutates self)
+		name = "{name}!"
 	end 'mark'
 
-	function note(v Integer)
+	function note(mutates self, v Integer)
 		seen.insert(v)
 	end 'note'
 
 	function seenCount() returns Integer
-		return seen.count()
+		return try seen.count() as Integer otherwise panic("out of range")
 	end 'seenCount'
 end 'Bag'
 
 function main() returns ExitCode
-	let b = Bag.create()
+	var b = Bag.create()
 	b.items.push("alpha string long enough for heap allocation")
 	let s = try b.items.get(0) otherwise ""
 	b.mark()
@@ -1556,6 +1556,7 @@ hello 5
 ```
 
 <!-- test: a-value-read-through-a-cursor-survives-a-clear-of-its-source -->
+<!-- skip: language difference: a place passed mutates, consumes or sets overlaps nothing else the call or the statement holds, where maxon shares the place by a reference count -->
 ### A value read through a cursor survives a clear of the cursor's source
 `c.current()` counts the element it returns, and the cursor counts its source.
 ```maxon
@@ -1576,6 +1577,7 @@ end 'main'
 ```
 
 <!-- test: a-value-read-through-a-cursor-printed-before-the-clear -->
+<!-- skip: language difference: a place passed mutates, consumes or sets overlaps nothing else the call or the statement holds, where maxon shares the place by a reference count -->
 ### A value read through a cursor, printed before the clear
 ```maxon
 function main() returns ExitCode

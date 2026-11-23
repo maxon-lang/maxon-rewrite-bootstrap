@@ -280,7 +280,7 @@ type Row
 	export var label as String
 
 	static function create(label String) returns Row
-		return Self{label: label}
+		return Self{label: label.clone()}
 	end 'create'
 end 'Row'
 
@@ -292,15 +292,15 @@ function longestLen(rows RowArray) returns ExitCode
 	while i < rows.count() 'scan'
 		let len = (try rows.get(i) otherwise break).label.count()
 		if len > best 'bigger'
-			best = len
+			best = len as GraphemeIndex
 		end 'bigger'
 		i = i + 1
 	end 'scan'
-	return best as ExitCode
+	return try best as ExitCode otherwise panic("out of range")
 end 'longestLen'
 
 function main() returns ExitCode
-	let rows = RowArray.create(0)
+	var rows = RowArray.create(0)
 	rows.push(Row.create("ab"))
 	rows.push(Row.create("abcd"))
 	rows.push(Row.create("a"))

@@ -156,7 +156,7 @@ An iterator passed to a helper function is still iterable from its current posit
 ```maxon
 typealias TokenIter = ArrayIterator with String
 
-function printRest(iter TokenIter)
+function printRest(mutates iter TokenIter)
 	for t in iter 'rest'
 		print("{t}\n")
 	end 'rest'
@@ -164,7 +164,7 @@ end 'printRest'
 
 function main() returns ExitCode
 	let toks = ["a", "b", "c", "d"]
-	let iter = try toks.createIterator() otherwise return 9
+	var iter = try toks.createIterator() otherwise return 9
 	try iter.advance() otherwise return 9
 	try iter.advance() otherwise return 9
 	printRest(iter)

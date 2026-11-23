@@ -819,6 +819,8 @@ var tableFunctions = []function{
 	// floatToBits is the 64 bits of a double read as an integer, as maxon's is: a reinterpretation, which the library's
 	// float hash folds.
 	{Owner: "Builtins", Name: "floatToBits", Static: true, Params: []string{"_ Float"}, Result: "FullRangeInt", Intrinsic: "FloatToBits", Instead: "the float's own operations"},
+	// bitsToFloat is its inverse: the double whose 64 bits are the integer, the only way to make an infinity or a NaN.
+	{Owner: "Builtins", Name: "bitsToFloat", Static: true, Params: []string{"_ FullRangeInt"}, Result: "Float", Intrinsic: "BitsToFloat", Instead: "the float's own operations"},
 	// The seeded hash of maxon's runtime, its software fold: hashSeed is the fold of no bytes under the process's secret,
 	// which a Hasher starts from; hashWord and hashBytes fold a word or the bytes of a span of an array under a seed;
 	// drawHashSeed draws a fresh secret from the system, or the next of the pinned process's sequence.

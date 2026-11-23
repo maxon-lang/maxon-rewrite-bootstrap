@@ -90,6 +90,7 @@ count=7
 ```
 
 <!-- test: a-handler-may-sort-its-own-field -->
+<!-- skip: language difference: a message that calls through a function value or an interface, whose target the check cannot see, may wait on another party while it holds its service -->
 **THE STANDARD LIBRARY'S LARGEST ALGORITHM RUNS ON A MESSAGE.** `Array.sort` reaches no module storage, so
 sorting a field of `self` is the cure this rule prescribes rather than something it refuses. All four entries
 run — both `Comparable` forms, which pass a comparator closure through the extension's witness slot, and

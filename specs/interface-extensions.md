@@ -306,13 +306,13 @@ typealias Integer = int(i64.min to i64.max)
 
 function main() returns ExitCode
 	let nums = [1, 2, 3, 4, 5]
-	let doubled = nums.map(function(x Integer) gives x * 2)
+	let doubled = nums.map(function(x Integer) gives try x * 2 otherwise panic("out of range"))
 	var sum = 0 as Integer
 	for n in doubled 'loop'
-		sum = sum + n
+		sum = try sum + n otherwise panic("out of range")
 	end 'loop'
 	// 2 + 4 + 6 + 8 + 10 = 30
-	return sum
+	return try sum as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -915,7 +915,7 @@ type BagIter uses E implements Iterator with Int
 	end 'current'
 
 	function advance(mutates self) throws IterationError
-		i = i - 1
+		i = try i - 1 otherwise panic("out of range")
 		if i <= 0 'exhausted'
 			throw IterationError.exhausted
 		end 'exhausted'
@@ -937,7 +937,7 @@ type Bag uses Element implements Iterable with (Int, BIter)
 	function walk() returns Int
 		var total = 0 as Int
 		for x in self 'loop'
-			total = total + x
+			total = try total + x otherwise panic("out of range")
 		end 'loop'
 		return total
 	end 'walk'
@@ -946,9 +946,9 @@ end 'Bag'
 typealias IntBag = Bag with Int
 
 function main() returns ExitCode
-	let doubled = [1, 2, 3].map(function(x) gives x + x)
+	let doubled = [1, 2, 3].map(function(x) gives try x + x otherwise panic("out of range"))
 	let b = IntBag.create()
-	return (doubled.count() as Int + b.walk()) as ExitCode
+	return try (doubled.count() as Int + b.walk()) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -972,7 +972,7 @@ type BagIter implements Iterator with Integer
 		return i
 	end 'current'
 
-	function advance() throws IterationError
+	function advance(mutates self) throws IterationError
 		i = i - 1
 		if i <= 0 'exhausted'
 			throw IterationError.exhausted
@@ -1008,7 +1008,7 @@ end 'bagTotal'
 function main() returns ExitCode
 	let doubled = [1, 2, 3].map(function(x) gives x + x)
 	let c = BagIter.create()
-	return (doubled.count() as Integer + bagTotal() + c.current()) as ExitCode
+	return (doubled.count() as lib.Integer + bagTotal() + c.current()) as ExitCode
 end 'main'
 ```
 ```maxoncstderr

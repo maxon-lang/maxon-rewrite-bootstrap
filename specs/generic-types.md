@@ -425,8 +425,8 @@ end 'main'
 type Box uses T
 	export var value as T
 
-	static function create(v T) returns Self
-		return Self{value: v}
+	static function create(v T) returns Self where T implements Copyable
+		return Self{value: v.clone()}
 	end 'create'
 end 'Box'
 
@@ -437,7 +437,7 @@ function main() returns ExitCode
 	var total = 0 as BytePos
 	while i < 100 'loop'
 		let b = StrBox.create("{i}")
-		total = total + b.value.byteLength()
+		total = try total + b.value.byteLength() otherwise panic("out of range")
 		i = i + 1
 	end 'loop'
 	return 0 if total == 190 else 1
@@ -507,8 +507,8 @@ end 'main'
 type Box uses T
 	export var value as T
 
-	static function create(v T) returns Self
-		return Self{value: v}
+	static function create(v T) returns Self where T implements Copyable
+		return Self{value: v.clone()}
 	end 'create'
 end 'Box'
 
@@ -522,7 +522,7 @@ function main() returns ExitCode
 	while i < 50 'loop'
 		let inner = StrBox.create("{i}")
 		let outer = BoxBox.create(inner)
-		total = total + outer.value.value.byteLength()
+		total = try total + outer.value.value.byteLength() otherwise panic("out of range")
 		i = i + 1
 	end 'loop'
 	return 0 if total == 90 else 1
@@ -4617,8 +4617,8 @@ type Box uses T
 		return Self{tag: 0}
 	end 'create'
 
-	function echo(v T) returns T
-		return v
+	function echo(v T) returns T where T implements Copyable
+		return v.clone()
 	end 'echo'
 end 'Box'
 
@@ -4630,10 +4630,10 @@ function main() returns ExitCode
 	var total = 0 as BytePos
 	while i < 100 'loop'
 		let s = bx.echo("{i}")
-		total = total + s.byteLength()
+		total = try total + s.byteLength() otherwise panic("out of range")
 		i = i + 1
 	end 'loop'
-	return (total - 190) as ExitCode
+	return try (total - 190) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

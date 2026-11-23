@@ -7675,7 +7675,7 @@ type Holder
 	export let bytes as ByteArray
 
 	static function around(text String) returns Self
-		return Self{text: text, bytes: text.toByteArray()}
+		return Self{text: text.clone(), bytes: text.toByteArray()}
 	end 'around'
 end 'Holder'
 
@@ -7687,7 +7687,7 @@ type Reader
 	end 'create'
 
 	export function read(consumes h Holder) returns Integer
-		return h.text.byteLength() + (h.bytes.count() as BytePos)
+		return try h.text.byteLength() + (h.bytes.count() as BytePos) otherwise panic("out of range")
 	end 'read'
 end 'Reader'
 
@@ -8671,7 +8671,7 @@ type Holder
 	export let text as String
 
 	static function around(text String) returns Self
-		return Self{bytes: text.toByteArray(), text: text}
+		return Self{bytes: text.toByteArray(), text: text.clone()}
 	end 'around'
 end 'Holder'
 
@@ -8683,7 +8683,7 @@ type Reader
 	end 'create'
 
 	export function read(consumes h Holder) returns Integer
-		return h.text.byteLength() + (h.bytes.count() as BytePos)
+		return try h.text.byteLength() + (h.bytes.count() as BytePos) otherwise panic("out of range")
 	end 'read'
 end 'Reader'
 

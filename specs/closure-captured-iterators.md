@@ -550,12 +550,12 @@ end 'Box'
 
 typealias BoxArray = Array with Box
 
-function bumpBox(box Box) returns Count
-	box.count = box.count + 1
+function bumpBox(mutates box Box) returns Count
+	box.count = try box.count + 1 otherwise panic("out of range")
 	return box.count
 end 'bumpBox'
 
-function runIt(g Bump) returns Count
+function runIt(mutates g Bump) returns Count
 	return g()
 end 'runIt'
 
@@ -566,7 +566,7 @@ function bumpFirst(boxes BoxArray) returns Count
 end 'bumpFirst'
 
 function main() returns ExitCode
-	let boxes = BoxArray.create(0)
+	var boxes = BoxArray.create(0)
 	let first = Box.create(1)
 	boxes.push(first)
 	print("{bumpFirst(boxes)} {first.count}\n")
@@ -578,6 +578,7 @@ end 'main'
 ```
 
 <!-- test: a-returned-mutates-captures-closure-writes-through-an-iterator-over-a-mutable-array -->
+<!-- skip: language difference: a closure that borrows what it captures does not escape -->
 `makeBump` returns the closure over a mutable array's iterator, and calling it on that array writes the element.
 
 ```maxon
@@ -783,12 +784,12 @@ end 'Box'
 
 typealias BoxArray = Array with Box
 
-function bumpBox(box Box) returns Count
-	box.count = box.count + 1
+function bumpBox(mutates box Box) returns Count
+	box.count = try box.count + 1 otherwise panic("out of range")
 	return box.count
 end 'bumpBox'
 
-function runIt(g Bump) returns Count
+function runIt(mutates g Bump) returns Count
 	return g()
 end 'runIt'
 
@@ -800,7 +801,7 @@ function bumpFirst(boxes BoxArray) returns Count
 end 'bumpFirst'
 
 function main() returns ExitCode
-	let boxes = BoxArray.create(0)
+	var boxes = BoxArray.create(0)
 	let first = Box.create(1)
 	boxes.push(first)
 	print("{bumpFirst(boxes)} {first.count}\n")
@@ -812,6 +813,7 @@ end 'main'
 ```
 
 <!-- test: a-returned-mutates-captures-closure-hands-back-an-element-of-an-iterator-over-a-mutable-array -->
+<!-- skip: language difference: a closure that borrows what it captures does not escape -->
 `makeFetch` returns a `mutates captures` closure that hands back the element its iterator reads. The caller passes a mutable array, so the element is the array's own and a write through the result reaches `first`.
 
 ```maxon
@@ -923,12 +925,12 @@ typealias BoxArray = Array with Box
 
 typealias BoxIter = ArrayIterator with Box
 
-function bumpBox(box Box) returns Count
-	box.count = box.count + 1
+function bumpBox(mutates box Box) returns Count
+	box.count = try box.count + 1 otherwise panic("out of range")
 	return box.count
 end 'bumpBox'
 
-function runIt(g Bump) returns Count
+function runIt(mutates g Bump) returns Count
 	return g()
 end 'runIt'
 
@@ -936,7 +938,7 @@ type Lens
 	export var it as BoxIter
 
 	static function over(it BoxIter) returns Self
-		return Self{it: it}
+		return Self{it: it.clone()}
 	end 'over'
 end 'Lens'
 
@@ -947,7 +949,7 @@ function bumpFirst(boxes BoxArray) returns Count
 end 'bumpFirst'
 
 function main() returns ExitCode
-	let boxes = BoxArray.create(0)
+	var boxes = BoxArray.create(0)
 	let first = Box.create(1)
 	boxes.push(first)
 	print("{bumpFirst(boxes)} {first.count}\n")

@@ -1195,11 +1195,11 @@ function main() returns ExitCode
 	var result = 0 as BytePos
 	try risky(9) otherwise (e) 'handler'
 		match e 'check'
-			bad(msg) then result = msg.byteLength()
+			bad(msg) then result = msg.byteLength() as BytePos
 			ok then result = 1
 		end 'check'
 	end 'handler'
-	return result
+	return try result as ExitCode otherwise panic("out of range")
 end 'main'
 
 // --- file: zzz.maxon

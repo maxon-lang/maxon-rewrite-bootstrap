@@ -467,7 +467,7 @@ typealias Names = Set with String
 function main() returns ExitCode
 	var names = Names.create()
 	names.insert("a")
-	return names.count() as ExitCode
+	return try names.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```maxoncstderr

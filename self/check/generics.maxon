@@ -95,8 +95,14 @@ type Shortfall
 		return Shortfall{missing: ast.StringList.create(0), wrong: ast.StringList.create(0), edits: diag.FixEdits.create(0), unfixed: 0 as Count, kind: ""}
 	end 'new'
 
-	// addWrong records a method whose signature differs, and the fix that mends it, if one does.
+	// addWrong records a method whose signature differs, and the fix that mends it, if one does: a requirement that two
+	// interfaces of the type share, one extending the other, is recorded once.
 	function addWrong(mutates self, consumes text String, fix diag.Fix)
+		for i in 0 upto wrong.count() 'known'
+			if wrong[i] == text 'again'
+				return
+			end 'again'
+		end 'known'
 		wrong.push(text)
 		if not fix.isSome() 'none'
 			unfixed = try unfixed + 1 otherwise panic("generics: more methods than memory")

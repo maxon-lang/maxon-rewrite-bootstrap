@@ -463,14 +463,14 @@ export let SmallSortThreshold = 7
 typealias Numbers = Array with ExitCode
 
 function main() returns ExitCode
-	let xs = Numbers.create(0)
+	var xs = Numbers.create(0)
 	for i in 0 upto 40 'fill'
 		xs.push((40 - i) as ExitCode)
 	end 'fill'
 	xs.sort()
 	let first = try xs.get(0) otherwise 0
 	let last = try xs.get(39) otherwise 0
-	return first + lib.SmallSortThreshold + last - 7
+	return try first + lib.SmallSortThreshold + last - 7 otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

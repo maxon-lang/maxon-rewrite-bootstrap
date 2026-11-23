@@ -20,6 +20,24 @@ export type DeclRef
 	end 'make'
 end 'DeclRef'
 
+// methodNamesOf are the names of the methods that an extension declares.
+function methodNamesOf(xd ExtensionDecl) returns StringList
+	var names = StringList.create(0)
+	for i in 0 upto xd.methods.count() 'methods'
+		names.push(xd.methods[i].name.clone())
+	end 'methods'
+	return names
+end 'methodNamesOf'
+
+// typeMethodNamesOf are the names of the methods that a type declares.
+function typeMethodNamesOf(td TypeDecl) returns StringList
+	var names = StringList.create(0)
+	for i in 0 upto td.methods.count() 'methods'
+		names.push(td.methods[i].name.clone())
+	end 'methods'
+	return names
+end 'typeMethodNamesOf'
+
 export union Decl
 	funcDecl(value FuncDecl)
 	constDecl(value ConstDecl)
@@ -96,6 +114,20 @@ export union Decl
 			extensionDecl(v) gives v.id
 		end 'd'
 	end 'nodeID'
+
+	// memberNames are the names of the methods that the declaration adds to a type: an extension's, or a type's own.
+	export function memberNames() returns StringList
+		return match self 'd'
+			extensionDecl(v) gives methodNamesOf(v)
+			typeDecl(v) gives typeMethodNamesOf(v)
+			funcDecl(_) gives StringList.create(0)
+			constDecl(_) gives StringList.create(0)
+			enumDecl(_) gives StringList.create(0)
+			unionDecl(_) gives StringList.create(0)
+			aliasDecl(_) gives StringList.create(0)
+			interfaceDecl(_) gives StringList.create(0)
+		end 'd'
+	end 'memberNames'
 
 	export function level() returns Visibility
 		return visibilityOf(self.visibility())

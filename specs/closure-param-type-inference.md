@@ -80,10 +80,10 @@ applied — so this fails on its VALUE if the refusal below ever over-reaches.
 
 function main() returns ExitCode
 	let nums = [1, 2, 3]
-	let out = nums.map(function(a) gives a * 10)
+	let out = nums.map(function(a) gives try a * 10 otherwise panic("out of range"))
 	var sum = 0 as FullRangeInt
 	for n in out 'loop'
-		sum = sum + n
+		sum = try sum + n otherwise panic("out of range")
 	end 'loop'
 	print("sum={sum}\n")
 	return 0
@@ -258,7 +258,7 @@ typealias Score = int(i64.min to i64.max)
 typealias ScoreArray = Array with Score
 
 function main() returns ExitCode
-	let scores = ScoreArray.create(0)
+	var scores = ScoreArray.create(0)
 	scores.push(3)
 	scores.push(1)
 	scores.push(2)
@@ -282,11 +282,11 @@ alias's instance, and a closure that declares its parameters at `ByteArray` matc
 typealias Rows = Array with ByteArray
 
 function main() returns ExitCode
-	let rows = Rows.create(0)
+	var rows = Rows.create(0)
 	rows.push("ccc".toByteArray())
 	rows.push("a".toByteArray())
 	rows.push("bb".toByteArray())
-	rows.sortBy(function(left ByteArray, right ByteArray) gives left.count().compare(right.count()))
+	rows.sortBy(function(left ByteArray, right ByteArray) gives left.count().compare(try right.count() as FullRangeInt otherwise panic("out of range")))
 	for row in rows 'each'
 		print("{row.count()}\n")
 	end 'each'
@@ -305,11 +305,11 @@ The same comparator with its parameter types left out takes them from the generi
 typealias Rows = Array with ByteArray
 
 function main() returns ExitCode
-	let rows = Rows.create(0)
+	var rows = Rows.create(0)
 	rows.push("ccc".toByteArray())
 	rows.push("a".toByteArray())
 	rows.push("bb".toByteArray())
-	rows.sortBy(function(left, right) gives right.count().compare(left.count()))
+	rows.sortBy(function(left, right) gives right.count().compare(try left.count() as FullRangeInt otherwise panic("out of range")))
 	for row in rows 'each'
 		print("{row.count()}\n")
 	end 'each'

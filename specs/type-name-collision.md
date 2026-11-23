@@ -4139,7 +4139,7 @@ public interface Comparable
 end 'Comparable'
 
 function main() returns ExitCode
-	let values = FullRangeIntArray from [3, 1, 2]
+	var values = FullRangeIntArray from [3, 1, 2]
 	values.sort()
 	let first = try values.get(0) otherwise return 3
 	print("{first}\n")
@@ -4383,7 +4383,7 @@ end 'Comparable'
 
 function main() returns ExitCode
 	let held = Comparable.create()
-	let values = FullRangeIntArray from [3, 1, 2]
+	var values = FullRangeIntArray from [3, 1, 2]
 	values.sort()
 	let first = try values.get(0) otherwise return 3
 	print("{first} {held.count}\n")

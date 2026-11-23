@@ -646,7 +646,7 @@ type Bag uses Element
 		return try items.get(i) otherwise panic("Bag.at: index out of range")
 	end 'at'
 
-	function cloned() returns Self
+	function cloned() returns Self where Element implements Copyable
 		return Self{items: items.clone()}
 	end 'cloned'
 

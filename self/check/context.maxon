@@ -529,12 +529,13 @@ export function coerce(mutates c Checker, p ast.Project, mutates ms ast.ModuleSt
 		return false
 	end 'lossy'
 	let tName = ast.typeName(ms.types, reads: p.types, t: target)
+	let castTarget = castName(p, ms: ms, target: target)
 	if (sk == ast.TypeKind.constInt or typeIsAnonInt(ms.types, reads: p.types, t: src)) and dk == ast.TypeKind.intRange 'valueFit'
 		// A constant that does not fit is wrong whatever converts it, and an anonymous range goes in by the cast that the
 		// range analysis proves where the value is used.
 		var fit = diag.Fix.none()
 		if sk != ast.TypeKind.constInt 'anonymous'
-			fit = castFix(ms.tree(), e: node, target: tName)
+			fit = castFix(ms.tree(), e: node, target: castTarget)
 		end 'anonymous'
 		checkFailFixed(c.modID, off: at, code: diag.errTypeMismatch, msg: valueOutOfRange(p, ms: ms, value: offendingBound(p, ms: ms, src: src, target: target), target: target), fix: fit, errs: errs)
 		return false
@@ -551,11 +552,20 @@ export function coerce(mutates c Checker, p ast.Project, mutates ms ast.ModuleSt
 	var fix = diag.Fix.none()
 	let integers = sk == ast.TypeKind.intRange and dk == ast.TypeKind.intRange
 	if integers 'cast'
-		fix = castFix(ms.tree(), e: node, target: tName)
+		fix = castFix(ms.tree(), e: node, target: castTarget)
 	end 'cast'
 	checkFailFixed(c.modID, off: at, code: diag.errTypeMismatch, msg: wrong.words(clashName(p, ms: ms, t: target, other: src), got: clashName(p, ms: ms, t: src, other: target), castable: integers), fix: fix, errs: errs)
 	return false
 end 'coerce'
+
+// castName is how a cast to the integer type target is written: an anonymous 64-bit signed range, the type of `Self` in an
+// extension of `int`, has no spelling of its own, and its alias is FullRangeInt.
+function castName(p ast.Project, ms ast.ModuleState, target ast.TypeID) returns String
+	if target == p.builtins.anon64Ty 'anonymous'
+		return ast.typeName(ms.types, reads: p.types, t: p.builtins.fullRangeIntTy)
+	end 'anonymous'
+	return ast.typeName(ms.types, reads: p.types, t: target)
+end 'castName'
 
 // offendingBound is the end of the range of src that target does not hold: the lowest value when that is below the target, else the highest.
 function offendingBound(p ast.Project, ms ast.ModuleState, src ast.TypeID, target ast.TypeID) returns String

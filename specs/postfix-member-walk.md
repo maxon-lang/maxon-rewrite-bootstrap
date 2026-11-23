@@ -221,7 +221,7 @@ typealias Wide = int(i64.min to i64.max)
 typealias WideSet = Set with Wide
 
 function main() returns ExitCode
-	return WideSet.create().count() + 11
+	return try WideSet.create().count() + 11 otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

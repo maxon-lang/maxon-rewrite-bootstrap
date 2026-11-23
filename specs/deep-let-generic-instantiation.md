@@ -56,7 +56,7 @@ type Registry uses Key where Key implements Hashable and Equatable
 		return Self{seen: KeySet.create()}
 	end 'create'
 
-	function remember(keys KeyArray)
+	function remember(mutates self, keys KeyArray) where Key implements Copyable
 		for key in keys 'eachKey'
 			self.seen.insert(key)
 		end 'eachKey'
@@ -68,12 +68,12 @@ type Registry uses Key where Key implements Hashable and Equatable
 end 'Registry'
 
 function main() returns ExitCode
-	let names = StringArray.create(0)
+	var names = StringArray.create(0)
 	names.push("a")
 	names.push("b")
-	let registry = StringRegistry.create()
+	var registry = StringRegistry.create()
 	registry.remember(names)
-	return registry.size() as ExitCode
+	return try registry.size() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -198,7 +198,7 @@ type Counter implements Hashable, Equatable
 	end 'create'
 
 	function hash() returns HashValue
-		return self.n as HashValue
+		return try self.n as HashValue otherwise panic("out of range")
 	end 'hash'
 
 	function equals(other Counter) returns bool
@@ -207,10 +207,10 @@ type Counter implements Hashable, Equatable
 end 'Counter'
 
 function main() returns ExitCode
-	let members = CounterSet.create()
+	var members = CounterSet.create()
 	members.insert(freeze(Counter.create(1)))
 	members.insert(freeze(Counter.create(2)))
-	return members.count() as ExitCode
+	return try members.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

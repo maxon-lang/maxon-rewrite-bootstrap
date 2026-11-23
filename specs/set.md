@@ -260,7 +260,7 @@ typealias Int = int(i64.min to i64.max)
 typealias IntSet = Set with Int
 
 function main() returns ExitCode
-	let s = IntSet.create()
+	var s = IntSet.create()
 	var i = 0 as Int
 	while i < 20 'fill'
 		s.insert(i)
@@ -297,16 +297,16 @@ typealias Int = int(i64.min to i64.max)
 
 typealias IntSet = Set with Int
 
-function add(s IntSet, v Int)
+function add(mutates s IntSet, v Int)
 	s.insert(v)
 end 'add'
 
 function main() returns ExitCode
-	let s = IntSet.create()
+	var s = IntSet.create()
 	add(s, v: 3)
 	add(s, v: 4)
 	add(s, v: 3)
-	return s.count() as ExitCode
+	return try s.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -330,21 +330,21 @@ type Reg
 		return Self{seen: IntSet.create()}
 	end 'create'
 
-	function add(v Int)
+	function add(mutates self, v Int)
 		seen.insert(v)
 	end 'add'
 
 	function size() returns Int
-		return seen.count()
+		return try seen.count() as Int otherwise panic("out of range")
 	end 'size'
 end 'Reg'
 
 function main() returns ExitCode
-	let r = Reg.create()
+	var r = Reg.create()
 	r.add(3)
 	r.add(4)
 	r.add(3)
-	return r.size() as ExitCode
+	return try r.size() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

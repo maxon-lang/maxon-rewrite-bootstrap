@@ -1107,7 +1107,7 @@ export type Points
 		return Self{items: [Point.make(3), Point.make(1), Point.make(2)]}
 	end 'make'
 
-	export function sort()
+	export function sort(mutates self)
 		self.items.sort()
 	end 'sort'
 
@@ -1119,7 +1119,7 @@ end 'Points'
 
 // --- file: main.maxon
 function main() returns ExitCode
-	let points = lib.Points.make()
+	var points = lib.Points.make()
 	points.sort()
 	print("{points.firstX()}\n")
 	return 0

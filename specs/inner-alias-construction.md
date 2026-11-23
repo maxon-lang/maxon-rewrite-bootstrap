@@ -196,7 +196,7 @@ type Plain
 	typealias Nums = Set with ExitCode
 
 	static function make() returns Count
-		let s = Nums.create()
+		var s = Nums.create()
 		s.insert(3)
 		s.insert(3)
 		return s.count()

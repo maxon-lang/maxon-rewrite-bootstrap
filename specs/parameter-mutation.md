@@ -465,14 +465,14 @@ typealias Integer = int(i64.min to i64.max)
 
 typealias IntSet = Set with Integer
 
-function add(s IntSet)
+function add(mutates s IntSet)
 	s.insert(1)
 end 'add'
 
 function main() returns ExitCode
-	let s = IntSet.create()
+	var s = IntSet.create()
 	add(s)
-	return s.count() as ExitCode
+	return try s.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -487,14 +487,14 @@ typealias Integer = int(i64.min to i64.max)
 
 typealias IntSet = Set with Integer
 
-function add(s IntSet)
+function add(mutates s IntSet)
 	s.insert(1)
 end 'add'
 
 function main() returns ExitCode
-	let s = IntSet.create()
+	var s = IntSet.create()
 	add(s)
-	return s.count() as ExitCode
+	return try s.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

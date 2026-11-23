@@ -73,7 +73,7 @@ type Lex
 	var counter as Integer
 
 	static function create() returns Self throws IterErr
-		let toks = TokBuf.create(0)
+		var toks = TokBuf.create(0)
 		for i in 0 upto 200 'fill'
 			toks.push(Tok.make(i))
 		end 'fill'
@@ -84,48 +84,48 @@ type Lex
 	// Returns cur.current() (a borrow of the self-field-owned token array). The
 	// counter arithmetic keeps this over the inline budget so it stays a standalone
 	// borrow-returning function, mirroring the large real Parser.consume.
-	function consume() returns Tok throws IterErr
-		counter = counter + 1
-		counter = counter + 2
-		counter = counter + 3
-		counter = counter + 4
-		counter = counter + 5
-		counter = counter + 6
-		counter = counter + 7
-		counter = counter + 8
-		counter = counter + 9
-		counter = counter + 10
-		let t = cur.current()
+	function consume(mutates self) returns Tok throws IterErr
+		counter = try counter + 1 otherwise panic("out of range")
+		counter = try counter + 2 otherwise panic("out of range")
+		counter = try counter + 3 otherwise panic("out of range")
+		counter = try counter + 4 otherwise panic("out of range")
+		counter = try counter + 5 otherwise panic("out of range")
+		counter = try counter + 6 otherwise panic("out of range")
+		counter = try counter + 7 otherwise panic("out of range")
+		counter = try counter + 8 otherwise panic("out of range")
+		counter = try counter + 9 otherwise panic("out of range")
+		counter = try counter + 10 otherwise panic("out of range")
+		let t = cur.current().clone()
 		try cur.advance() otherwise throw IterErr.stop
-		return t
+		return t.clone()
 	end 'consume'
 
 	// Mirrors Parser.consumeExpecting: `return try consume()`. Bloated so it stays
 	// standalone and the returned-borrow retain would land in its own body.
-	function consumeExpecting(tag Integer) returns Tok throws IterErr
-		counter = counter + tag
-		counter = counter + tag
-		counter = counter + tag
-		counter = counter + tag
-		counter = counter + tag
-		counter = counter + tag
-		counter = counter + tag
-		counter = counter + tag
+	function consumeExpecting(mutates self, tag Integer) returns Tok throws IterErr
+		counter = try counter + tag otherwise panic("out of range")
+		counter = try counter + tag otherwise panic("out of range")
+		counter = try counter + tag otherwise panic("out of range")
+		counter = try counter + tag otherwise panic("out of range")
+		counter = try counter + tag otherwise panic("out of range")
+		counter = try counter + tag otherwise panic("out of range")
+		counter = try counter + tag otherwise panic("out of range")
+		counter = try counter + tag otherwise panic("out of range")
 		return try consume()
 	end 'consumeExpecting'
 end 'Lex'
 
 function run() returns Integer throws IterErr
-	let lex = try Lex.create()
+	var lex = try Lex.create()
 	var sum = 0 as Integer
 	for _ in 0 upto 40 'loop'
 		let a = try lex.consumeExpecting(1)
-		sum = sum + a.line
+		sum = try sum + a.line otherwise panic("out of range")
 	end 'loop'
 	let b = try lex.consumeExpecting(2)
 	let c = try lex.consumeExpecting(3)
 	let d = try lex.consumeExpecting(4)
-	sum = sum + b.line + c.line + d.line
+	sum = try sum + b.line + c.line + d.line otherwise panic("out of range")
 	return sum
 end 'run'
 
@@ -134,7 +134,7 @@ function main() returns ExitCode
 	// AND, via the leak gate, that no forwarded token leaked (a leak would
 	// exit 101 instead of 903 mod 256 = 135).
 	let s = try run() otherwise 0
-	return s mod 256
+	return try s mod 256 otherwise panic("out of range")
 end 'main'
 
 typealias Integer = int(i64.min to i64.max)

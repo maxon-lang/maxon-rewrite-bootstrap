@@ -85,6 +85,7 @@ func Convert(file, src string, kind inputKind) Result {
 			dropLiteralMarkers(lines)
 		}
 		dropBuiltinDeclarations(lines)
+		rewriteBuiltinExtensions(lines)
 		addInterfaceWheres(lines)
 		lendRequirements(lines)
 		dropReplacedMembers(lines)
@@ -1004,8 +1005,8 @@ func parenthesizeAssociatedTypes(toks []token, arities map[string]int) []token {
 }
 
 // warnUnsupportedExtension warns about the parts of an extension header that minimaxon does not have: an extension of a
-// library type it has no counterpart of, and a conformance with type arguments. A 'with' after the 'where' of a
-// conditional extension binds a bound's associated types, not the header's.
+// library type it has no counterpart of, and an extended type with type arguments. A 'with' after the 'implements' binds
+// the associated types of a conformance, and one after the 'where' those of a bound, not the extended type's.
 func warnUnsupportedExtension(line *sourceLine, declIdx int, warn func(*sourceLine, string)) {
 	toks := line.code
 	if declIdx+1 >= len(toks) {
@@ -1017,7 +1018,7 @@ func warnUnsupportedExtension(line *sourceLine, declIdx int, warn func(*sourceLi
 	}
 	for _, tok := range toks[declIdx+2:] {
 		switch tok.text {
-		case "where":
+		case "where", "implements":
 			return
 		case "with":
 			warn(line, "extension headers with type arguments are not supported in minimaxon")
@@ -1159,13 +1160,21 @@ const cloneRequirement = "clone"
 // staticRequirement starts the name of a requirement that is a static function (libraryInterfaces).
 const staticRequirement = "static "
 
+// keptBuiltinMembers are the members of a type that the compiler builds in whose library declaration minimaxon keeps as an
+// extension of the built-in type, besides the members that the interfaces it keeps require: the methods maxon declares in
+// the type's body and the built-in lacks. Such a type is kept with the conformances that take type arguments too.
+var keptBuiltinMembers = map[string][]string{
+	"Array": {"cursor"},
+}
+
 // keepBuiltinConformances converts a file of the library that declares a type minimaxon builds in, whose methods the
-// compiler declares (String), into that type's conformances alone: an extension of the type that implements the
-// interfaces of its header that the library declares and that take no type arguments, with each method they require
-// that the built-in type lacks, as the file writes it, and the file's declarations that those methods name. The rest of
-// the file is the built-in's own implementation, which minimaxon has natively. A conformance whose requirements neither
-// the built-in nor the file meets, that requires clone, or that requires a static function, which makes a value of the
-// type where the compiler makes the built-in's, is left out.
+// compiler declares (String, Array), into that type's conformances alone: an extension of the type that implements the
+// interfaces of its header that the library declares and that take no type arguments (those of a type of
+// keptBuiltinMembers may), with each method they require that the built-in type lacks, as the file writes it, the members
+// that keptBuiltinMembers names, and the file's declarations that those methods name. The rest of the file is the
+// built-in's own implementation, which minimaxon has natively. A conformance whose requirements neither the built-in nor
+// the file meets, that requires clone, or that requires a static function, which makes a value of the type where the
+// compiler makes the built-in's, is left out.
 func keepBuiltinConformances(lines []sourceLine, interfaces map[string][]string) {
 	header := -1
 	name := ""
@@ -1179,7 +1188,7 @@ func keepBuiltinConformances(lines []sourceLine, interfaces map[string][]string)
 			continue
 		}
 		candidate := l.code[declIdx+1].text
-		if _, ok := builtinMethods[candidate]; ok && !builtinNames[candidate] {
+		if _, ok := builtinMethods[candidate]; ok && (!builtinNames[candidate] || keptBuiltinMembers[candidate] != nil) {
 			header, name = i, candidate
 			break
 		}
@@ -1189,11 +1198,12 @@ func keepBuiltinConformances(lines []sourceLine, interfaces map[string][]string)
 	}
 	last := topLevelEnd(lines, header)
 	declared := memberMethods(lines, header, last)
-	var kept []string
-	var needed []string
+	typeArgs := keptBuiltinMembers[name] != nil
+	var kept [][]token
+	needed := slices.Clone(keptBuiltinMembers[name])
 	for _, item := range implementedInterfaces(lines[header].code) {
 		reqs, ok := interfaces[item.name]
-		if !ok || item.hasArgs || slices.Contains(reqs, cloneRequirement) || slices.ContainsFunc(reqs, func(r string) bool { return strings.HasPrefix(r, staticRequirement) }) {
+		if !ok || item.hasArgs && !typeArgs || slices.Contains(reqs, cloneRequirement) || slices.ContainsFunc(reqs, func(r string) bool { return strings.HasPrefix(r, staticRequirement) }) {
 			continue
 		}
 		var mine []string
@@ -1211,7 +1221,7 @@ func keepBuiltinConformances(lines []sourceLine, interfaces map[string][]string)
 		if !met {
 			continue
 		}
-		kept = append(kept, item.name)
+		kept = append(kept, item.tokens)
 		for _, m := range mine {
 			if !slices.Contains(needed, m) {
 				needed = append(needed, m)
@@ -1221,7 +1231,10 @@ func keepBuiltinConformances(lines []sourceLine, interfaces map[string][]string)
 	keep := make([]bool, len(lines))
 	keep[header], keep[last] = true, true
 	for _, m := range needed {
-		span := declared[m]
+		span, ok := declared[m]
+		if !ok {
+			panic(fmt.Sprintf("%s declares no member %s, which keptBuiltinMembers keeps", name, m))
+		}
 		for k := span.first; k <= span.last; k++ {
 			keep[k] = true
 		}
@@ -1233,13 +1246,72 @@ func keepBuiltinConformances(lines []sourceLine, interfaces map[string][]string)
 		} else {
 			code = append(code, token{kind: tokPunct, text: ","})
 		}
-		code = append(code, token{kind: tokIdent, text: iface})
+		code = append(code, iface...)
 	}
 	lines[header].code = code
+	keepBodyTypealiases(lines, keep, header, last)
+	keepListedDeclarations(lines, keep, header, last, keptBuiltinDeclarations[name])
+	if typeArgs {
+		for k := header; k <= last; k++ {
+			lines[k].removed = !keep[k]
+		}
+		return
+	}
 	keepNamedDeclarations(lines, keep, header, last)
 	for k := range lines {
 		if !keep[k] {
 			lines[k].removed = true
+		}
+	}
+}
+
+// keptBuiltinDeclarations are the top-level declarations of the file of a type that the compiler builds in, besides the
+// type, that the library's other files and programs name: the vocabulary of the type's operations.
+var keptBuiltinDeclarations = map[string][]string{
+	"String": {"BytePos", "GraphemeIndex"},
+}
+
+// keepListedDeclarations keeps the top-level declarations that names lists, outside the type from header to last, with the
+// comments above them.
+func keepListedDeclarations(lines []sourceLine, keep []bool, header, last int, names []string) {
+	for k := 0; k < len(lines); k++ {
+		l := &lines[k]
+		if k >= header && k <= last || l.removed || len(l.code) == 0 || l.indent != "" {
+			continue
+		}
+		declIdx := skipModifiers(l.code)
+		if declIdx+1 >= len(l.code) || !slices.Contains(names, l.code[declIdx+1].text) {
+			continue
+		}
+		end := k
+		if slices.Contains(blockDeclWords, l.code[declIdx].text) {
+			end = topLevelEnd(lines, k)
+		}
+		for j := commentsAbove(lines, k); j <= end; j++ {
+			keep[j] = true
+		}
+		k = end
+	}
+}
+
+// keepBodyTypealiases keeps each typealias that the body of the type from header to last declares and that a kept line names,
+// and those that they name in turn.
+func keepBodyTypealiases(lines []sourceLine, keep []bool, header, last int) {
+	for changed := true; changed; {
+		changed = false
+		for k := header + 1; k < last; k++ {
+			l := &lines[k]
+			if keep[k] || l.removed || len(l.code) == 0 || l.indent != "	" {
+				continue
+			}
+			declIdx := skipModifiers(l.code)
+			if declIdx+1 >= len(l.code) || l.code[declIdx].text != "typealias" || !namedByKept(lines, keep, l.code[declIdx+1].text) {
+				continue
+			}
+			for j := commentsAbove(lines, k); j <= k; j++ {
+				keep[j] = true
+			}
+			changed = true
 		}
 	}
 }
@@ -1396,6 +1468,8 @@ func dropLiteralMarkers(lines []sourceLine) {
 type implementedInterface struct {
 	name    string
 	hasArgs bool
+	// tokens are the item as written, its type arguments included.
+	tokens []token
 }
 
 // implementedInterfaces are the interfaces of the implements clause of a type's header.
@@ -1421,12 +1495,15 @@ func implementedInterfaces(code []token) []implementedInterface {
 			return items
 		}
 		if start && t.kind == tokIdent {
-			items = append(items, implementedInterface{name: t.text})
+			items = append(items, implementedInterface{name: t.text, tokens: []token{t}})
 			start = false
 			continue
 		}
-		if t.kind == tokIdent && t.text == "with" && len(items) > 0 {
-			items[len(items)-1].hasArgs = true
+		if len(items) > 0 {
+			items[len(items)-1].tokens = append(items[len(items)-1].tokens, t)
+			if t.kind == tokIdent && t.text == "with" {
+				items[len(items)-1].hasArgs = true
+			}
 		}
 	}
 	return items

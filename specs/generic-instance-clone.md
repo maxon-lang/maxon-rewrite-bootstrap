@@ -201,7 +201,7 @@ type Bucket
 end 'Bucket'
 
 function detached() returns Bucket
-	let b = Bucket.create(5)
+	var b = Bucket.create(5)
 	b.members.insert("a string long enough to force a heap allocation")
 	b.members.insert("a second string long enough to force a heap allocation")
 	return b.clone()
@@ -216,7 +216,7 @@ function main() returns ExitCode
 	if not c.members.contains("a second string long enough to force a heap allocation") 'lostAMember'
 		return 92
 	end 'lostAMember'
-	return c.tag
+	return try c.tag as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -412,8 +412,8 @@ type Box uses T
 	export var v as T
 	export var tag as Integer
 
-	static function create(x T, tag Integer) returns Self
-		return Self{v: x, tag: tag}
+	static function create(x T, tag Integer) returns Self where T implements Copyable
+		return Self{v: x.clone(), tag: tag}
 	end 'create'
 end 'Box'
 
@@ -426,7 +426,7 @@ type Bag uses Element
 		return Self{items: EBoxArray.create(0)}
 	end 'create'
 
-	function add(x Element, tag Integer)
+	function add(mutates self, x Element, tag Integer) where Element implements Copyable
 		self.items.push(EBox.create(x, tag: tag))
 	end 'add'
 
@@ -438,7 +438,7 @@ end 'Bag'
 typealias IntBag = Bag with Integer
 
 function main() returns ExitCode
-	let b = IntBag.create()
+	var b = IntBag.create()
 	b.add(91, tag: 4)
 	let c = b.copy()
 	let e = try c.get(0) otherwise return 90
@@ -461,8 +461,8 @@ type Box uses T
 	export var v as T
 	export var tag as Integer
 
-	static function create(x T, tag Integer) returns Self
-		return Self{v: x, tag: tag}
+	static function create(x T, tag Integer) returns Self where T implements Copyable
+		return Self{v: x.clone(), tag: tag}
 	end 'create'
 end 'Box'
 
@@ -475,7 +475,7 @@ type Bag uses Element
 		return Self{items: EBoxArray.create(0)}
 	end 'create'
 
-	function add(x Element, tag Integer)
+	function add(mutates self, x Element, tag Integer) where Element implements Copyable
 		self.items.push(EBox.create(x, tag: tag))
 	end 'add'
 
@@ -487,7 +487,7 @@ end 'Bag'
 typealias IntBag = Bag with Integer
 
 function main() returns ExitCode
-	let b = IntBag.create()
+	var b = IntBag.create()
 	b.add(91, tag: 4)
 	let c = b.items
 	let e = try c.get(0) otherwise return 90
@@ -554,8 +554,8 @@ type Box uses T
 	export var v as T
 	export var tag as Integer
 
-	static function create(x T, tag Integer) returns Self
-		return Self{v: x, tag: tag}
+	static function create(x T, tag Integer) returns Self where T implements Copyable
+		return Self{v: x.clone(), tag: tag}
 	end 'create'
 end 'Box'
 

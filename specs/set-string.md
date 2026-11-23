@@ -34,11 +34,11 @@ dropped at scope exit (the leak gate stays green).
 typealias StrSet = Set with String
 
 function main() returns ExitCode
-	let s = StrSet.create()
+	var s = StrSet.create()
 	s.insert("alice")
 	s.insert("bob")
 	s.insert("carol")
-	return s.count()
+	return try s.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -53,12 +53,12 @@ freed at scope exit are two distinct allocations). Count stays 3.
 typealias StrSet = Set with String
 
 function main() returns ExitCode
-	let s = StrSet.create()
+	var s = StrSet.create()
 	s.insert("alice")
 	s.insert("bob")
 	s.insert("carol")
 	s.insert("bob")
-	return s.count()
+	return try s.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -72,7 +72,7 @@ end 'main'
 typealias StrSet = Set with String
 
 function main() returns ExitCode
-	let s = StrSet.create()
+	var s = StrSet.create()
 	s.insert("alice")
 	s.insert("bob")
 	if s.contains("bob") 'yes'
@@ -91,7 +91,7 @@ A key never inserted is absent; the borrowed argument still drops cleanly.
 typealias StrSet = Set with String
 
 function main() returns ExitCode
-	let s = StrSet.create()
+	var s = StrSet.create()
 	s.insert("alice")
 	s.insert("bob")
 	if s.contains("dave") 'yes'
@@ -112,13 +112,13 @@ remove), the borrowed argument once (at statement end), and the two survivors on
 typealias StrSet = Set with String
 
 function main() returns ExitCode
-	let s = StrSet.create()
+	var s = StrSet.create()
 	s.insert("alice")
 	s.insert("bob")
 	s.insert("carol")
 	let removed = s.remove("alice")
 	if removed 'ok'
-		return s.count()
+		return try s.count() as ExitCode otherwise panic("out of range")
 	end 'ok'
 	return 1
 end 'main'
@@ -133,7 +133,7 @@ A removed key is no longer present — the tombstoned slot is skipped by a later
 typealias StrSet = Set with String
 
 function main() returns ExitCode
-	let s = StrSet.create()
+	var s = StrSet.create()
 	s.insert("alice")
 	s.insert("bob")
 	_ = s.remove("bob")
@@ -153,7 +153,7 @@ Removing an absent key returns false and drops nothing stored — only the borro
 typealias StrSet = Set with String
 
 function main() returns ExitCode
-	let s = StrSet.create()
+	var s = StrSet.create()
 	s.insert("alice")
 	let removed = s.remove("zzz")
 	if removed 'ok'
@@ -175,7 +175,7 @@ drops at statement end. All twenty present and no leak.
 typealias StrSet = Set with String
 
 function main() returns ExitCode
-	let s = StrSet.create()
+	var s = StrSet.create()
 	var i = 0 as FullRangeInt
 	while i < 20 'fill'
 		s.insert("k{i}")
@@ -265,11 +265,11 @@ function main() returns ExitCode
 	var i = 0 as Counter
 	var acc = 0 as Counter
 	while i < 100 'loop'
-		let s = StrSet.create()
+		var s = StrSet.create()
 		s.insert("a{i}")
 		s.insert("b{i}")
 		if s.count() == 2 'ok'
-			acc = acc + 1
+			acc = try acc + 1 otherwise panic("out of range")
 		end 'ok'
 		i = i + 1
 	end 'loop'
@@ -298,11 +298,11 @@ function main() returns ExitCode
 	var i = 0 as Counter
 	var acc = 0 as Counter
 	while i < 100 'loop'
-		let s = StrSet.create()
+		var s = StrSet.create()
 		s.insert("dup")
 		s.insert("dup")
 		if s.count() == 1 'ok'
-			acc = acc + 1
+			acc = try acc + 1 otherwise panic("out of range")
 		end 'ok'
 		i = i + 1
 	end 'loop'
@@ -330,12 +330,12 @@ function main() returns ExitCode
 	var i = 0 as Counter
 	var acc = 0 as Counter
 	while i < 100 'loop'
-		let s = StrSet.create()
+		var s = StrSet.create()
 		s.insert("gone{i}")
 		let removed = s.remove("gone{i}")
 		if removed 'ok'
 			if s.count() == 0 'empty'
-				acc = acc + 1
+				acc = try acc + 1 otherwise panic("out of range")
 			end 'empty'
 		end 'ok'
 		i = i + 1

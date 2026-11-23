@@ -61,7 +61,7 @@ end 'main'
 ```maxon
 function main() returns ExitCode
 	let result = Math.pow(2.0, exponent: 3.0)
-	return trunc(result)
+	return try trunc(result) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -73,7 +73,7 @@ end 'main'
 ```maxon
 function main() returns ExitCode
 	let result = Math.pow(5.0, exponent: 2.0)
-	return trunc(result)
+	return try trunc(result) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -85,7 +85,7 @@ end 'main'
 ```maxon
 function main() returns ExitCode
 	let result = Math.pow(123.0, exponent: 0.0)
-	return trunc(result)
+	return try trunc(result) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -121,7 +121,7 @@ end 'main'
 ```maxon
 function main() returns ExitCode
 	let result = Math.pow(3, exponent: 2) // Ints promoted to float
-	return trunc(result)
+	return try trunc(result) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -133,7 +133,7 @@ end 'main'
 ```maxon
 function main() returns ExitCode
 	let result = Math.pow(2.0, exponent: 3.0)
-	return trunc(result)
+	return try trunc(result) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

@@ -1,0 +1,64 @@
+/// Hash set of unique elements, on the table of `Map`: a set is a map whose every value is true, so it shares the whole of
+/// the map's probing, growth and tombstone handling.
+/// @category Collections
+// maxon's Set is its own open-addressing table; here there is one table implementation, the Map's.
+
+public type Set uses Element implements Iterable with (Element, SetIterator) where Element implements Hashable and Equatable
+	public typealias SetIter = SetIterator with Element
+	typealias Members = Map with (Element, bool)
+	var members = Members.create()
+
+	/// Create an empty set
+	public static function create() returns Self
+		return Self{}
+	end 'create'
+
+	/// Insert an element into the set; one that is there already is left as it is.
+	public function insert(mutates self, element Element) where Element implements Copyable
+		if members.contains(element) 'present'
+			return
+		end 'present'
+		try members.insert(element, value: true) otherwise panic("Set.insert: the member is absent")
+	end 'insert'
+
+	public function contains(element Element) returns bool where Element implements Copyable
+		return members.contains(element)
+	end 'contains'
+
+	/// Remove an element, answering whether it was there.
+	public function remove(mutates self, element Element) returns bool where Element implements Droppable and Copyable
+		return members.remove(element)
+	end 'remove'
+
+	public function count() returns EntryCount
+		return members.count()
+	end 'count'
+
+	/// Create a fresh iterator positioned at the first member.
+	/// Throws IterationError.exhausted if the set is empty.
+	public function createIterator() returns SetIter throws IterationError
+		return SetIter.create(try members.createIterator())
+	end 'createIterator'
+
+	/// Get current capacity (total number of slots)
+	public function getCapacity() returns hashtable.TableCapacity
+		return members.getCapacity()
+	end 'getCapacity'
+end 'Set'
+
+public type SetIterator uses Element implements Iterator with Element where Element implements Hashable and Equatable
+	typealias Walk = MapIterator with (Element, bool)
+	var walk as Walk
+
+	static function create(consumes walk MapIterator with (Element, bool)) returns Self
+		return Self{walk: walk}
+	end 'create'
+
+	public function current() returns borrowed Element
+		return walk.key()
+	end 'current'
+
+	public function advance(mutates self) throws IterationError
+		try walk.advance()
+	end 'advance'
+end 'SetIterator'

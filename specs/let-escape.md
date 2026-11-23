@@ -1012,21 +1012,21 @@ type Holder
 		return Holder{items: Layouts.create(0), seen: Seen.create()}
 	end 'create'
 
-	function add(layout Layout)
-		self.items.push(layout)
+	function add(mutates self, layout Layout)
+		self.items.push(layout.clone())
 	end 'add'
 
 	function first() returns Layout
 		return try self.items.get(0) otherwise panic("empty")
 	end 'first'
 
-	function note(id Count)
+	function note(mutates self, id Count)
 		self.seen.upsert(id, value: id)
 	end 'note'
 end 'Holder'
 
 function main() returns ExitCode
-	let holder = Holder.create()
+	var holder = Holder.create()
 	holder.add(Layout.create())
 	let layout = holder.first()
 	holder.note(7)
@@ -1069,21 +1069,21 @@ type Holder
 		return Holder{items: Layouts.create(0), seen: Seen.create()}
 	end 'create'
 
-	function add(layout Layout)
-		self.items.push(layout)
+	function add(mutates self, layout Layout)
+		self.items.push(layout.clone())
 	end 'add'
 
 	function first() returns Layout
 		return try self.items.get(0) otherwise panic("empty")
 	end 'first'
 
-	function note(id Count)
+	function note(mutates self, id Count)
 		self.seen.insert(id)
 	end 'note'
 end 'Holder'
 
 function main() returns ExitCode
-	let holder = Holder.create()
+	var holder = Holder.create()
 	holder.add(Layout.create())
 	let layout = holder.first()
 	holder.note(7)
@@ -1099,6 +1099,7 @@ end 'main'
 ```
 
 <!-- test: let-escape.a-let-pushed-into-a-module-holder-and-read-again-is-accepted -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 The `let` record is pushed into a container of the holder and read afterwards: the push is accepted, whichever field of the holder is written later.
 
 ```maxon
@@ -1211,13 +1212,13 @@ type Holder
 		return self.names.clone()
 	end 'grab'
 
-	function grow(id Count)
+	function grow(mutates self, id Count)
 		self.names.insert(id)
 	end 'grow'
 end 'Holder'
 
 function main() returns ExitCode
-	let holder = Holder.create()
+	var holder = Holder.create()
 	let names = holder.grab()
 	holder.grow(7)
 	print("{names.count()}\n")
@@ -1294,14 +1295,14 @@ type Holder
 	var extra as Layout
 
 	static function create(extra Layout) returns Holder
-		return Holder{items: Layouts.create(0), extra: extra}
+		return Holder{items: Layouts.create(0), extra: extra.clone()}
 	end 'create'
 
-	function add(layout Layout)
-		self.items.push(layout)
+	function add(mutates self, layout Layout)
+		self.items.push(layout.clone())
 	end 'add'
 
-	function touch(id Count)
+	function touch(mutates self, id Count)
 		self.extra.names.insert(id)
 	end 'touch'
 end 'Holder'
@@ -1309,7 +1310,7 @@ end 'Holder'
 function main() returns ExitCode
 	let layout = Layout.create()
 	let other = Layout.create()
-	let holder = Holder.create(other)
+	var holder = Holder.create(other)
 	holder.add(layout)
 	holder.touch(7)
 	print("{layout.names.count()}\n")
@@ -1346,14 +1347,14 @@ type Holder
 		return Holder{first: first.clone()}
 	end 'create'
 
-	function touch(id Count)
+	function touch(mutates self, id Count)
 		self.first.names.insert(id)
 	end 'touch'
 end 'Holder'
 
 function main() returns ExitCode
 	let layout = Layout.create()
-	let holder = Holder.create(layout)
+	var holder = Holder.create(layout)
 	holder.touch(7)
 	print("{layout.names.count()}\n")
 	return 0
@@ -1387,7 +1388,7 @@ type Inner
 	export var spare as Layout
 
 	static function create(layout Layout, spare Layout) returns Inner
-		return Inner{layout: layout, spare: spare}
+		return Inner{layout: layout.clone(), spare: spare.clone()}
 	end 'create'
 end 'Inner'
 
@@ -1398,7 +1399,7 @@ type Holder
 		return Holder{inner: Inner.create(layout, spare: spare)}
 	end 'create'
 
-	function touch(id Count)
+	function touch(mutates self, id Count)
 		self.inner.spare.names.insert(id)
 	end 'touch'
 end 'Holder'
@@ -1406,7 +1407,7 @@ end 'Holder'
 function main() returns ExitCode
 	let layout = Layout.create()
 	let spare = Layout.create()
-	let holder = Holder.create(layout, spare: spare)
+	var holder = Holder.create(layout, spare: spare)
 	holder.touch(7)
 	print("{layout.names.count()}\n")
 	return 0
@@ -1683,6 +1684,7 @@ end 'main'
 ```
 
 <!-- test: let-escape.a-let-stored-into-a-var-field-and-returned-is-accepted-though-only-a-long-chain-is-written -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 The same store of `made` before it is returned, with the written set five records down a chain: the store is accepted.
 
 ```maxon
@@ -3272,26 +3274,26 @@ type Holder
 		return Holder{items: Layouts.create(0), seen: Seen.create()}
 	end 'create'
 
-	function add(layout Layout)
-		self.items.push(layout)
+	function add(mutates self, layout Layout)
+		self.items.push(layout.clone())
 	end 'add'
 
 	function first() returns Layout
 		return try self.items.get(0) otherwise panic("empty")
 	end 'first'
 
-	function note(id Count)
+	function note(mutates self, id Count)
 		self.seen.upsert(id, value: id)
 	end 'note'
 
 	function grow(id Count)
-		let target = try self.items.get(0) otherwise return
+		var target = try self.items.get(0) otherwise return
 		target.names.insert(id)
 	end 'grow'
 end 'Holder'
 
 function main() returns ExitCode
-	let holder = Holder.create()
+	var holder = Holder.create()
 	holder.add(Layout.create())
 	let layout = holder.first()
 	holder.grow(7)
@@ -3334,20 +3336,20 @@ type Holder
 		return Holder{items: Layouts.create(0), seen: Seen.create()}
 	end 'create'
 
-	function add(layout Layout)
-		self.items.push(layout)
+	function add(mutates self, layout Layout)
+		self.items.push(layout.clone())
 	end 'add'
 
 	function first() returns Layout
 		return try self.items.get(0) otherwise panic("empty")
 	end 'first'
 
-	function note(id Count)
+	function note(mutates self, id Count)
 		self.seen.upsert(id, value: id)
 	end 'note'
 
 	function grow(id Count)
-		let target = try self.items.get(0) otherwise return
+		var target = try self.items.get(0) otherwise return
 		target.names.insert(id)
 	end 'grow'
 end 'Holder'
@@ -3363,7 +3365,7 @@ type Outer
 		return self.inner.first()
 	end 'first'
 
-	function add(layout Layout)
+	function add(mutates self, layout Layout)
 		self.inner.add(layout)
 	end 'add'
 
@@ -3373,7 +3375,7 @@ type Outer
 end 'Outer'
 
 function main() returns ExitCode
-	let holder = Outer.create()
+	var holder = Outer.create()
 	holder.add(Layout.create())
 	let layout = holder.first()
 	holder.grow(7)
@@ -3416,8 +3418,8 @@ type Holder
 		return Holder{items: Layouts.create(0), seen: Seen.create()}
 	end 'create'
 
-	function add(layout Layout)
-		self.items.push(layout)
+	function add(mutates self, layout Layout)
+		self.items.push(layout.clone())
 	end 'add'
 
 	function first() returns Layout
@@ -3425,13 +3427,13 @@ type Holder
 	end 'first'
 
 	function grow(id Count)
-		let target = try self.items.get(0) otherwise return
+		var target = try self.items.get(0) otherwise return
 		target.names.insert(id)
 	end 'grow'
 end 'Holder'
 
 function main() returns ExitCode
-	let holder = Holder.create()
+	var holder = Holder.create()
 	holder.add(Layout.create())
 	let layout = holder.first()
 	holder.grow(7)
@@ -3447,6 +3449,7 @@ end 'main'
 ```
 
 <!-- test: let-escape.a-record-stored-in-a-module-holder-is-written-through-the-module-holder-beside-a-set-of-its-type -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 The `let` record is pushed into a container of the holder and read afterwards: the push is accepted.
 
 ```maxon
@@ -3599,16 +3602,16 @@ type Holder
 	end 'create'
 
 	function grabNames() returns Names
-		return self.names
+		return self.names.clone()
 	end 'grabNames'
 
-	function grow(id Count)
+	function grow(mutates self, id Count)
 		self.names.insert(id)
 	end 'grow'
 end 'Holder'
 
 function main() returns ExitCode
-	let holder = Holder.create()
+	var holder = Holder.create()
 	let names = holder.grabNames()
 	holder.grow(7)
 	print("{names.count()}\n")
@@ -3645,27 +3648,27 @@ type Holder
 	var extra as Layout
 
 	static function create(extra Layout) returns Holder
-		return Holder{items: Layouts.create(0), extra: extra}
+		return Holder{items: Layouts.create(0), extra: extra.clone()}
 	end 'create'
 
-	function add(layout Layout)
-		self.items.push(layout)
+	function add(mutates self, layout Layout)
+		self.items.push(layout.clone())
 	end 'add'
 
-	function touch(id Count)
+	function touch(mutates self, id Count)
 		self.extra.names.insert(id)
 	end 'touch'
 end 'Holder'
 
-function share(source Layout, target Layout)
-	target.names = source.names
+function share(source Layout, mutates target Layout)
+	target.names = source.names.clone()
 end 'share'
 
 function main() returns ExitCode
 	let layout = Layout.create()
-	let other = Layout.create()
+	var other = Layout.create()
 	share(layout, target: other)
-	let holder = Holder.create(other)
+	var holder = Holder.create(other)
 	holder.add(layout)
 	holder.touch(7)
 	print("{layout.names.count()}\n")
@@ -3699,17 +3702,17 @@ type Holder
 	var first as Layout
 
 	static function create(first Layout) returns Holder
-		return Holder{first: first}
+		return Holder{first: first.clone()}
 	end 'create'
 
-	function touch(id Count)
+	function touch(mutates self, id Count)
 		self.first.names.insert(id)
 	end 'touch'
 end 'Holder'
 
 function main() returns ExitCode
 	let layout = Layout.create()
-	let holder = Holder.create(layout)
+	var holder = Holder.create(layout)
 	holder.touch(7)
 	print("{layout.names.count()}\n")
 	return 0
@@ -3742,7 +3745,7 @@ type Inner
 	export var layout as Layout
 
 	static function create(layout Layout) returns Inner
-		return Inner{layout: layout}
+		return Inner{layout: layout.clone()}
 	end 'create'
 end 'Inner'
 
@@ -3753,14 +3756,14 @@ type Holder
 		return Holder{inner: Inner.create(layout)}
 	end 'create'
 
-	function touch(id Count)
+	function touch(mutates self, id Count)
 		self.inner.layout.names.insert(id)
 	end 'touch'
 end 'Holder'
 
 function main() returns ExitCode
 	let layout = Layout.create()
-	let holder = Holder.create(layout)
+	var holder = Holder.create(layout)
 	holder.touch(7)
 	print("{layout.names.count()}\n")
 	return 0
@@ -3794,23 +3797,23 @@ type Holder
 	var second as Layout
 
 	static function create(first Layout, second Layout) returns Holder
-		return Holder{first: first, second: second}
+		return Holder{first: first.clone(), second: second.clone()}
 	end 'create'
 
-	function touch(id Count)
+	function touch(mutates self, id Count)
 		self.second.names.insert(id)
 	end 'touch'
 end 'Holder'
 
-function share(source Layout, target Layout)
-	target.names = source.names
+function share(source Layout, mutates target Layout)
+	target.names = source.names.clone()
 end 'share'
 
 function main() returns ExitCode
 	let layout = Layout.create()
-	let other = Layout.create()
+	var other = Layout.create()
 	share(layout, target: other)
-	let holder = Holder.create(layout, second: other)
+	var holder = Holder.create(layout, second: other)
 	holder.touch(7)
 	print("{layout.names.count()}\n")
 	return 0

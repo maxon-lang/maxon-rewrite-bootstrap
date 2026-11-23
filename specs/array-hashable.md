@@ -148,7 +148,7 @@ typealias ByteVal = int(0 to u8.max)
 typealias ByteArr = Array with ByteVal
 
 function main() returns ExitCode
-	let arr = ByteArr.create(0)
+	var arr = ByteArr.create(0)
 	arr.push(65)
 	arr.push(66)
 	arr.push(67)
@@ -318,8 +318,8 @@ typealias Val = int(i64.min to i64.max)
 typealias StrArr = Array with String
 
 function numbered(first Val, count Val) returns StrArr
-	let arr = StrArr.create(0)
-	for i in first upto first + count 'fill'
+	var arr = StrArr.create(0)
+	for i in first upto try first + count otherwise panic("out of range") 'fill'
 		arr.push("p{i}")
 	end 'fill'
 	return arr
@@ -464,8 +464,8 @@ type Holder uses T where T implements Hashable and Equatable
 	export typealias Items = Array with T
 	var v as T
 
-	static function create(v T) returns Self
-		return Self{v: v}
+	static function create(v T) returns Self where T implements Copyable
+		return Self{v: v.clone()}
 	end 'create'
 
 	function digest(items Items) returns HashValue
@@ -479,7 +479,7 @@ typealias ValArray = Array with Val
 
 function main() returns ExitCode
 	let holder = H.create(1)
-	let items = ValArray.create(0)
+	var items = ValArray.create(0)
 	items.push(41)
 	items.push(1099511627817)
 	items.push(-1099511627817)
@@ -711,7 +711,7 @@ type Tag uses T implements Hashable, Equatable
 	end 'create'
 
 	function hash() returns HashValue
-		return n
+		return try n as HashValue otherwise panic("out of range")
 	end 'hash'
 
 	function equals(other Self) returns bool
@@ -725,7 +725,7 @@ type Holder uses T
 	var tags as Tags
 
 	static function create(tags Tags) returns Self
-		return Self{tags: tags}
+		return Self{tags: tags.clone()}
 	end 'create'
 
 	function hashOf() returns HashValue
@@ -740,7 +740,7 @@ typealias IntTags = Array with IntTag
 typealias H = Holder with Val
 
 function main() returns ExitCode
-	let a = IntTags.create(0)
+	var a = IntTags.create(0)
 	a.push(IntTag.create(7))
 	let expected = a.hash()
 	print("{H.create(a).hashOf() == expected}\n")
@@ -959,16 +959,16 @@ bytes. Every length on either side of the hash's block boundaries, the empty arr
 typealias LengthList = Array with Count
 
 function bytesOf(length Count) returns ByteArray
-	let bytes = ByteArray.create(0)
+	var bytes = ByteArray.create(0)
 	for index in 0 upto length 'eachByte'
-		let mixed = ((index + length * 977 + 1) * 2654435761 + 12345) mod 4294967296
+		let mixed = try ((index + length * 977 + 1) * 2654435761 + 12345) mod 4294967296 otherwise panic("out of range")
 		bytes.push((0x40 + ((mixed shr 11) and 0x3F)) as Byte)
 	end 'eachByte'
 	return bytes
 end 'bytesOf'
 
 function folded(bytes ByteArray) returns HashValue
-	let hasher = Hasher.create()
+	var hasher = Hasher.create()
 	hasher.combineBytes(bytes)
 	return hasher.finalize()
 end 'folded'
@@ -1016,17 +1016,17 @@ typealias Wide = int(i64.min to i64.max)
 typealias WideArray = Array with Wide
 
 function storageOf(values WideArray) returns ByteArray
-	let bytes = ByteArray.create(0)
+	var bytes = ByteArray.create(0)
 	for item in values 'eachElement'
 		for index in 0 upto 8 'eachByte'
-			bytes.push(((item shr (index * 8)) and 0xFF) as Byte)
+			bytes.push(try ((item shr (index * 8)) and 0xFF) as Byte otherwise panic("out of range"))
 		end 'eachByte'
 	end 'eachElement'
 	return bytes
 end 'storageOf'
 
 function storageHash(values WideArray) returns HashValue
-	let hasher = Hasher.create()
+	var hasher = Hasher.create()
 	hasher.combineBytes(storageOf(values))
 	return hasher.finalize()
 end 'storageHash'
@@ -1080,26 +1080,26 @@ function bitsSet(pattern HashValue) returns Count
 	var rest = pattern
 	var count = 0 as Count
 	while rest != 0 'eachBit'
-		count = count + ((rest and 1) as Count)
+		count = try count + ((rest and 1) as Count) otherwise panic("out of range")
 		rest = rest shr 1
 	end 'eachBit'
 	return count
 end 'bitsSet'
 
 function verdict(moved Count, flips Count, unmoved Count) returns String
-	return "mean>=8: {moved >= flips * 8} at most one 0: {unmoved <= 1}"
+	return "mean>=8: {moved >= (try flips * 8 otherwise panic("out of range"))} at most one 0: {unmoved <= 1}"
 end 'verdict'
 
 function intVerdict() returns String
-	let values = WideArray.create(0)
+	var values = WideArray.create(0)
 	for index in 0 upto 8 'eachElement'
 		values.push(((index * 2654435761 + 12345) mod 2147483648) as Wide)
 	end 'eachElement'
-	let masks = WideArray.create(0)
+	var masks = WideArray.create(0)
 	var mask = 1 as Wide
 	for _ in 0 upto 31 'eachBit'
 		masks.push(mask)
-		mask = mask * 2
+		mask = try mask * 2 otherwise panic("out of range")
 	end 'eachBit'
 	let hash = values.hash()
 	var moved = 0 as Count
@@ -1108,13 +1108,13 @@ function intVerdict() returns String
 	for index in 0 upto values.count() 'eachIndex'
 		let original = try values.get(index) otherwise panic("the index is inside the array")
 		for bit in masks 'eachMask'
-			let changed = values.clone()
+			var changed = values.clone()
 			try changed.set(index, value: original xor bit) otherwise panic("the index is inside the array")
 			let distance = bitsSet(hash xor changed.hash())
-			moved = moved + distance
-			flips = flips + 1
+			moved = try moved + distance otherwise panic("out of range")
+			flips = try flips + 1 otherwise panic("out of range")
 			if distance == 0 'unchanged'
-				unmoved = unmoved + 1
+				unmoved = try unmoved + 1 otherwise panic("out of range")
 			end 'unchanged'
 		end 'eachMask'
 	end 'eachIndex'
@@ -1122,7 +1122,7 @@ function intVerdict() returns String
 end 'intVerdict'
 
 function byteVerdict() returns String
-	let bytes = ByteArray.create(0)
+	var bytes = ByteArray.create(0)
 	for index in 0 upto 16 'eachByte'
 		bytes.push((((index * 2654435761 + 12345) mod 4294967296) shr 11 and 0xFF) as Byte)
 	end 'eachByte'
@@ -1134,13 +1134,13 @@ function byteVerdict() returns String
 	for index in 0 upto bytes.count() 'eachIndex'
 		let original = try bytes.get(index) otherwise panic("the index is inside the array")
 		for bit in masks 'eachMask'
-			let changed = bytes.clone()
+			var changed = bytes.clone()
 			try changed.set(index, value: original xor bit) otherwise panic("the index is inside the array")
 			let distance = bitsSet(hash xor changed.hash())
-			moved = moved + distance
-			flips = flips + 1
+			moved = try moved + distance otherwise panic("out of range")
+			flips = try flips + 1 otherwise panic("out of range")
 			if distance == 0 'unchanged'
-				unmoved = unmoved + 1
+				unmoved = try unmoved + 1 otherwise panic("out of range")
 			end 'unchanged'
 		end 'eachMask'
 	end 'eachIndex'

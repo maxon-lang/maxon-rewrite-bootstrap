@@ -2998,7 +2998,7 @@ typealias H = Holder with Val
 typealias ValArray = Array with Val
 
 function main() returns ExitCode
-	let items = ValArray.create(0)
+	var items = ValArray.create(0)
 	items.push(41)
 	print("{H.digestAll(items) == items.hash()}\n")
 	return 0

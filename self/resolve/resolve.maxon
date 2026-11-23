@@ -71,10 +71,14 @@ type Resolver
 	// labels are the labels of the blocks and declarations that enclose the code being resolved, outermost first: an end
 	// label names the innermost one, so a block may not repeat any of them.
 	export var labels as OpenLabels
+	// libraryMembers are the names of the methods that the library's root declares, read when the module first
+	// writes a member, and libraryDone is whether that is settled: the module depends on the root already, or never will.
+	export var libraryMembers as BoolStrMap
+	export var libraryDone as bool
 
 	static function make(modID diag.ModuleID, consumes tree ast.Tree, consumes res ast.Resolution) returns Resolver
 		let spawned = spawnedTypes(tree)
-		return Resolver{modID: modID, tree: tree, res: res, scopes: ScopeStack.create(0), fields: BoolStrMap.new(), typeParams: TypeParamMap.new(), members: ast.DeclRefIndex.new(), expandsMembers: false, whenDepth: 0 as Count, inClosure: false, labels: OpenLabels.create(0), spawned: spawned}
+		return Resolver{modID: modID, tree: tree, res: res, scopes: ScopeStack.create(0), fields: BoolStrMap.new(), typeParams: TypeParamMap.new(), members: ast.DeclRefIndex.new(), expandsMembers: false, whenDepth: 0 as Count, inClosure: false, labels: OpenLabels.create(0), libraryMembers: BoolStrMap.new(), libraryDone: false, spawned: spawned}
 	end 'make'
 end 'Resolver'
 
@@ -923,6 +927,8 @@ function staticConstOf(p ast.Project, ref ast.DeclRef, td ast.TypeDecl, member S
 end 'staticConstOf'
 
 function resolveMemberExpr(mutates r Resolver, p ast.Project, ms ast.ModuleState, id ast.NodeID, mutates errs diag.ErrorList)
+	let written = ast.memberExprName(r.tree, id: id).clone()
+	noteLibraryMember(r, p: p, name: written)
 	var revSegs = SegmentList.create(0)
 	var cur = id
 	while r.tree.kindOf(cur) == ast.NodeKind.memberExpr 'collect'
@@ -1741,6 +1747,36 @@ function refuseCollision(mutates r Resolver, p ast.Project, ref ast.DeclRef, oth
 	let name = ast.declName(p, ref: ref)
 	pushErr(errs, modID: r.modID, off: r.tree.startOf(ast.declNodeID(p, ref: ref)), code: diag.errDuplicateDefinition, msg: "'{name}' is public in {ast.describeModule(p, modID: other.module)} too, and a program names every public declaration of the standard library bare; rename one of them or make it 'export'")
 end 'refuseCollision'
+
+// noteLibraryMember makes a module of the program depend on the library's root when it writes a member that the root declares,
+// by an extension or on a type of its own (`arr.sort()`, `5.hash()`, `m.contains(k)`): the methods of Array, String and the
+// integers belong to types the program writes without naming the library, and a bound that a library type states is met by
+// the conformances that the extensions of the root give, which the calling module must see. A module that writes no such member
+// names nothing of the library and pays nothing for it.
+function noteLibraryMember(mutates r Resolver, p ast.Project, name String)
+	if r.libraryDone 'settled'
+		return
+	end 'settled'
+	let own = ast.modIndex(r.modID)
+	if not p.library.isSome() or p.modules[own].isRuntime or p.modules[own].isLibrary 'excluded'
+		r.libraryDone = true
+		return
+	end 'excluded'
+	let root = p.library.clone().unwrap()
+	if r.libraryMembers.isEmpty() 'unread'
+		let decls = p.modules[ast.modIndex(root)].decls.count()
+		for i in 0 upto decls 'decls'
+			let names = p.modules[ast.modIndex(root)].decls[i].memberNames()
+			for j in 0 upto names.count() 'names'
+				r.libraryMembers.insert(names[j], value: true)
+			end 'names'
+		end 'decls'
+	end 'unread'
+	if r.libraryMembers.has(name) 'declared'
+		r.res.addDep(root, offset: 0)
+		r.libraryDone = true
+	end 'declared'
+end 'noteLibraryMember'
 
 export function resolveModule(mutates ms ast.ModuleState, p ast.Project, mutates errs diag.ErrorList)
 	let modID = ms.module

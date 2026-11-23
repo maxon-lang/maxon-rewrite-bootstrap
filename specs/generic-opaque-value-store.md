@@ -6700,15 +6700,15 @@ The same closure over a managed type argument hands back a heap string, and ever
 type Holder uses T where T implements Equatable
 	var v as T
 
-	static function create(v T) returns Self
-		return Self{v: v}
+	static function create(v T) returns Self where T implements Copyable
+		return Self{v: v.clone()}
 	end 'create'
 
-	static function pick(a T, b T) returns T
+	static function pick(a T, b T) returns T where T implements Copyable
 		if a == b 'same'
-			return b
+			return b.clone()
 		end 'same'
-		return a
+		return a.clone()
 	end 'pick'
 end 'Holder'
 

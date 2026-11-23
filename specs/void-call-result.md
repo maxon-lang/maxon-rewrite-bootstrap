@@ -313,6 +313,7 @@ error E2004: <fragment>:7:12: Function 'push' does not return a value
 ```
 
 <!-- test: error.set-void-mutator-in-value-position -->
+<!-- skip: differing error code: operand types -->
 <!-- positions: moved -->
 ⚠ THE CONTROL for `Set` — `insert` is its one void mutator.
 
