@@ -173,7 +173,7 @@ let cancelled = 1 as Count
 // the sleeps it makes after. A reply's cell is marked too, and changes nothing: its message runs on.
 function asyncCancel(promise Count)
 	requireHeld(promise)
-	__Raw.storeWord(promise, offset: greenCancelOffset, value: cancelled)
+	__Raw.storeRelease(promise, offset: greenCancelOffset, value: cancelled)
 	expireSleep(__Raw.threadContext(), g: promise)
 end 'asyncCancel'
 
@@ -186,7 +186,7 @@ end 'asyncComplete'
 
 // isCancelled is whether the running green thread is a coroutine whose promise was cancelled.
 function isCancelled(g Count) returns bool
-	return __Raw.loadWord(g, offset: greenCancelOffset) == cancelled
+	return __Raw.loadAcquire(g, offset: greenCancelOffset) == cancelled
 end 'isCancelled'
 
 // longestSleepNanos is the most a sleep waits, about 146 years, so that its deadline never passes the clock's word.

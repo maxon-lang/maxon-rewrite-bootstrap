@@ -6,7 +6,8 @@
 // functions for the hash entries (hash.maxon) and also, copied by builtingen to self/interp/hashfold_gen.maxon, the
 // interpreter's, so that one text says what a hash is. A span of bytes is read through a HashInput, which each module
 // declares with hashLoadWord, hashLoadHalf and hashLoadByte: the runtime's is the address of the span's first byte, the
-// interpreter's the bytes themselves.
+// interpreter's the bytes themselves. Each module declares hashMulHigh too, the high word of the 128-bit product of two
+// words: the runtime's is the machine's multiply, the interpreter's its 128-bit product.
 
 // HashWord is a word of the fold, whose arithmetic wraps.
 typealias HashWord = bits(64)
@@ -21,8 +22,6 @@ let hashThirdSecret = 0x8ebc6af09c88c6e3 as HashWord
 let hashFourthSecret = 0x589965cc75374cc3 as HashWord
 
 let hashHalfBits = 32 as HashWord
-
-let hashHalfMask = 0xFFFFFFFF as HashWord
 
 let hashSecondByteShift = 8 as HashWord
 
@@ -65,18 +64,6 @@ let hashLetterFirst = 0x61 as Byte
 let hashLetterLast = 0x66 as Byte
 
 let hashLetterFirstValue = 10 as Byte
-
-// hashMulHigh is the high word of the 128-bit product of two words, made of the products of their halves.
-function hashMulHigh(left HashWord, right HashWord) returns HashWord
-	let leftLow = left and hashHalfMask
-	let leftHigh = left shr hashHalfBits
-	let rightLow = right and hashHalfMask
-	let rightHigh = right shr hashHalfBits
-	let crossLeft = leftHigh * rightLow
-	let crossRight = leftLow * rightHigh
-	let middle = ((leftLow * rightLow) shr hashHalfBits) + (crossLeft and hashHalfMask) + (crossRight and hashHalfMask)
-	return (leftHigh * rightHigh) + (crossLeft shr hashHalfBits) + (crossRight shr hashHalfBits) + (middle shr hashHalfBits)
-end 'hashMulHigh'
 
 // hashFold folds two words into one: both halves of their product, and the words themselves.
 function hashFold(left HashWord, right HashWord) returns HashWord

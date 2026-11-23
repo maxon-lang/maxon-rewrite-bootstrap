@@ -193,7 +193,7 @@
 			let key = __Raw.loadWord(event, offset: linuxEpollEventDataOffset)
 			if key == pollBreakKey 'break'
 				drainEventfd(context, fd: __Raw.loadWord(scheduler, offset: schedPollBreakOffset))
-				__Raw.storeWord(scheduler, offset: schedPollWakeSigOffset, value: unset)
+				__Raw.storeRelease(scheduler, offset: schedPollWakeSigOffset, value: unset)
 			end 'break' else 'descriptor'
 				drainEventfd(context, fd: __Raw.loadWord(key, offset: pollFdOffset))
 				list = pollSignalledInto(key, list: list)

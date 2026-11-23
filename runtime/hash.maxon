@@ -8,6 +8,11 @@
 // HashInput is a span the fold reads (hashfold.maxon): the address of its first byte.
 typealias HashInput = int(0 to u64.max)
 
+// hashMulHigh is the fold's high word of the 128-bit product of two words (hashfold.maxon).
+function hashMulHigh(left HashWord, right HashWord) returns HashWord
+	return __Raw.mulHigh(left as Count, right: right as Count) as HashWord
+end 'hashMulHigh'
+
 // arrayIndexOutOfBounds is the case of ArrayError that a read of an ordered word past the end fails with.
 let arrayIndexOutOfBounds = 0 as Count
 
@@ -52,10 +57,11 @@ function drawHashSeed() returns Count
 end 'drawHashSeed'
 
 // processHashState is the process's hash state, which the first call makes. Two threads may make it at once: the first
-// to publish it wins, and the other gives its own back.
+// to publish it wins, and the other gives its own back. The pointer is read as an acquire, so a thread that finds it
+// published finds the state's words written.
 function processHashState() returns Count
 	let main = mainContext(__Raw.threadContext())
-	let state = __Raw.loadWord(main, offset: contextHashOffset)
+	let state = __Raw.loadAcquire(main, offset: contextHashOffset)
 	if state != noBox 'made'
 		return state
 	end 'made'

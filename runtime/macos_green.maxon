@@ -201,7 +201,7 @@
 		for i in 0 upto got 'events'
 			let key = __Raw.loadWord(event, offset: macosKeventUdataOffset)
 			if key == pollBreakKey 'break'
-				__Raw.storeWord(scheduler, offset: schedPollWakeSigOffset, value: unset)
+				__Raw.storeRelease(scheduler, offset: schedPollWakeSigOffset, value: unset)
 			end 'break' else 'descriptor'
 				list = pollSignalledInto(key, list: list)
 			end 'descriptor'

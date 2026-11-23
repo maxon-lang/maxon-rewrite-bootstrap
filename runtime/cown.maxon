@@ -51,9 +51,9 @@ let behaviourHold = 1 as Count
 // this cown finds the tail moved past prev's slot, so it waits for the link this stores before it hands the cown on and
 // lets the record be freed.
 //
-// x64 keeps plain stores in order and plain loads in order, so a plain store publishes what was written before it, and
-// the exchange and the locked add are full fences. So does the compiled code, which neither reorders nor merges the
-// runtime's raw loads and stores; an optimizer must keep them, and the atomics, in order.
+// The exchange and the locked adds are full fences on every target. The flags and links that cross threads without one
+// are acquires and releases: a slot's blocked flag, which the successor spins on before it links, and the link, which
+// the releaser follows to the successor's record.
 function cownAcquire(record Count)
 	let n = __Raw.loadWord(record, offset: behaviourCownCountOffset)
 	for i in 0 upto n 'sort'
@@ -87,14 +87,14 @@ function cownAcquire(record Count)
 		if prev == notQueued 'idle'
 			acquired = __Raw.wrappingAdd(acquired, right: 1)
 		end 'idle' else 'behind'
-			while __Raw.loadWord(prev, offset: requestBlockedOffset) == queuing 'wait'
+			while __Raw.loadAcquire(prev, offset: requestBlockedOffset) == queuing 'wait'
 				__Raw.spinPause()
 			end 'wait'
-			__Raw.storeWord(prev, offset: requestNextOffset, value: slot)
+			__Raw.storeRelease(prev, offset: requestNextOffset, value: slot)
 		end 'behind'
 	end 'queue'
 	for i in 0 upto n 'unblock'
-		__Raw.storeWord(requestSlot(record, index: i), offset: requestBlockedOffset, value: queued)
+		__Raw.storeRelease(requestSlot(record, index: i), offset: requestBlockedOffset, value: queued)
 	end 'unblock'
 	let step = __Raw.wrappingAdd(acquired, right: beingQueued)
 	if __Raw.atomicAdd(record, offset: behaviourPendingOffset, value: __Raw.wrappingSub(0, right: step)) == step 'runnable'
@@ -122,14 +122,14 @@ function cownRelease(record Count)
 	let n = __Raw.loadWord(record, offset: behaviourCownCountOffset)
 	for i in 0 upto n 'slots'
 		let slot = requestSlot(record, index: i)
-		var next = __Raw.loadWord(slot, offset: requestNextOffset)
+		var next = __Raw.loadAcquire(slot, offset: requestNextOffset)
 		if next == notQueued 'last'
 			if __Raw.compareExchange(__Raw.loadWord(slot, offset: requestCownOffset), offset: cownTailOffset, expected: slot, desired: notQueued) == slot 'idle'
 				continue 'slots'
 			end 'idle'
 			while next == notQueued 'link'
 				__Raw.spinPause()
-				next = __Raw.loadWord(slot, offset: requestNextOffset)
+				next = __Raw.loadAcquire(slot, offset: requestNextOffset)
 			end 'link'
 		end 'last'
 		let owner = __Raw.loadWord(next, offset: requestOwnerOffset)

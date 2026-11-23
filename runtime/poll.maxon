@@ -98,7 +98,7 @@ end 'pollWaitMillis'
 		for i in 0 upto dword(got) 'entries'
 			let key = __Raw.loadWord(entry, offset: windowsEntryKeyOffset)
 			if key == pollBreakKey 'break'
-				__Raw.storeWord(scheduler, offset: schedPollWakeSigOffset, value: unset)
+				__Raw.storeRelease(scheduler, offset: schedPollWakeSigOffset, value: unset)
 			end 'break' else 'descriptor'
 				list = pollSignalledInto(key, list: list)
 			end 'descriptor'

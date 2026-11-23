@@ -617,7 +617,7 @@ function enterBlocking()
 	let proc = __Raw.loadWord(context, offset: contextProcOffset)
 	__Raw.storeWord(context, offset: contextSyscallOffset, value: set)
 	__Raw.storeWord(proc, offset: procSyscallTickOffset, value: __Raw.wrappingAdd(__Raw.loadWord(proc, offset: procSyscallTickOffset), right: 1))
-	__Raw.storeWord(proc, offset: procThreadOffset, value: noThread)
+	__Raw.storeRelease(proc, offset: procThreadOffset, value: noThread)
 	_ = __Raw.atomicExchange(proc, offset: procStatusOffset, value: procSyscall)
 end 'enterBlocking'
 
@@ -630,7 +630,7 @@ function exitBlocking()
 	end 'unbracketed'
 	let proc = __Raw.loadWord(context, offset: contextProcOffset)
 	if __Raw.compareExchange(proc, offset: procStatusOffset, expected: procSyscall, desired: procRunning) == procSyscall 'kept'
-		__Raw.storeWord(proc, offset: procThreadOffset, value: context)
+		__Raw.storeRelease(proc, offset: procThreadOffset, value: context)
 		__Raw.storeWord(context, offset: contextSyscallOffset, value: unset)
 		return
 	end 'kept'
@@ -668,7 +668,7 @@ function stoppable(context Count, g Count, instruction Count, stackPointer Count
 	if g == noGreen or __Raw.loadWord(context, offset: contextGreenOffset) != g 'notRunning'
 		return false
 	end 'notRunning'
-	if __Raw.loadWord(g, offset: greenPreemptOffset) != set or __Raw.loadWord(context, offset: contextSyscallOffset) != unset 'notAsked'
+	if __Raw.loadAcquire(g, offset: greenPreemptOffset) != set or __Raw.loadWord(context, offset: contextSyscallOffset) != unset 'notAsked'
 		return false
 	end 'notAsked'
 	let stack = __Raw.loadWord(g, offset: greenStackOffset)

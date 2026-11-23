@@ -76,6 +76,11 @@ type HashInput
 	end 'make'
 end 'HashInput'
 
+// hashMulHigh is the fold's high word of the 128-bit product of two words (hashfold_gen.maxon).
+function hashMulHigh(left HashWord, right HashWord) returns HashWord
+	return ir.mulWide(left as Count, b: right as Count).hi as HashWord
+end 'hashMulHigh'
+
 function hashLoadWord(input HashInput, at Count) returns HashWord
 	return hashLoadBytes(input, at: at, count: hashWordBytes)
 end 'hashLoadWord'

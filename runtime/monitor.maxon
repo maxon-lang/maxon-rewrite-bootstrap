@@ -32,7 +32,7 @@ let nanosPerMicro = 1000 as Count
 
 // startMonitor starts the monitor's thread once, by whichever thread makes the first behaviour or green thread.
 function startMonitor(scheduler Count)
-	if __Raw.loadWord(scheduler, offset: schedStartedOffset) == set 'started'
+	if __Raw.loadAcquire(scheduler, offset: schedStartedOffset) == set 'started'
 		return
 	end 'started'
 	if __Raw.compareExchange(scheduler, offset: schedStartedOffset, expected: unset, desired: set) != unset 'another'
@@ -68,8 +68,8 @@ function monitorMain(context Count)
 		sleepMicros(context, micros: delay)
 		let now = nanotime(context)
 		pollIfStale(context, scheduler: scheduler, now: now)
-		let next = __Raw.loadWord(scheduler, offset: schedTimerNextOffset)
-		if next != noTimer and next <= now and __Raw.loadWord(scheduler, offset: schedLastPollOffset) != 0 'timer'
+		let next = __Raw.loadAcquire(scheduler, offset: schedTimerNextOffset)
+		if next != noTimer and next <= now and __Raw.loadAcquire(scheduler, offset: schedLastPollOffset) != 0 'timer'
 			startThreadFor(scheduler, proc: noProc, spinning: false)
 		end 'timer'
 		if retake(scheduler, now: now) 'retook'
@@ -83,7 +83,7 @@ end 'monitorMain'
 // pollIfStale is Go's sysmon poll: when no thread has polled for pollStaleNanos, the monitor polls without waiting and
 // puts what that readied on the global run queue, with a thread for each idle processor it can use.
 function pollIfStale(context Count, scheduler Count, now Count)
-	let last = __Raw.loadWord(scheduler, offset: schedLastPollOffset)
+	let last = __Raw.loadAcquire(scheduler, offset: schedLastPollOffset)
 	if last == 0 or __Raw.wrappingAdd(last, right: pollStaleNanos) > now 'fresh'
 		return
 	end 'fresh'
@@ -104,7 +104,7 @@ function pollIfStale(context Count, scheduler Count, now Count)
 	globalPutList(scheduler, list: list)
 	unlockScheduler(scheduler)
 	for i in 0 upto count 'threads'
-		if __Raw.loadWord(scheduler, offset: schedIdleProcCountOffset) == 0 'busy'
+		if __Raw.loadAcquire(scheduler, offset: schedIdleProcCountOffset) == 0 'busy'
 			return
 		end 'busy'
 		startThreadFor(scheduler, proc: noProc, spinning: false)
@@ -118,7 +118,7 @@ function retake(scheduler Count, now Count) returns bool
 	var acted = false
 	for i in 0 upto madeProcs(scheduler) 'procs'
 		let proc = procAt(scheduler, index: i)
-		let status = __Raw.loadWord(proc, offset: procStatusOffset)
+		let status = __Raw.loadAcquire(proc, offset: procStatusOffset)
 		if status == procRunning or status == procSyscall 'held'
 			let tick = __Raw.loadWord(proc, offset: procSchedTickOffset)
 			if __Raw.loadWord(proc, offset: procSeenTickOffset) != tick 'moved'
@@ -137,7 +137,7 @@ function retake(scheduler Count, now Count) returns bool
 				__Raw.storeWord(proc, offset: procSeenSyscallWhenOffset, value: now)
 				continue 'procs'
 			end 'moved'
-			let helpers = __Raw.wrappingAdd(__Raw.loadWord(scheduler, offset: schedSpinningOffset), right: __Raw.loadWord(scheduler, offset: schedIdleProcCountOffset))
+			let helpers = __Raw.wrappingAdd(__Raw.loadAcquire(scheduler, offset: schedSpinningOffset), right: __Raw.loadAcquire(scheduler, offset: schedIdleProcCountOffset))
 			let young = __Raw.wrappingAdd(__Raw.loadWord(proc, offset: procSeenSyscallWhenOffset), right: syscallRetakeNanos) > now
 			if runqEmpty(proc) and helpers > 0 and young 'leave'
 				continue 'procs'
@@ -155,15 +155,15 @@ end 'retake'
 // preemptOne is Go's preemptone: the green thread of the thread that holds the processor is asked to stop, and the thread
 // is stopped where it may be. It says whether there was one to ask.
 function preemptOne(scheduler Count, proc Count) returns bool
-	let thread = __Raw.loadWord(proc, offset: procThreadOffset)
+	let thread = __Raw.loadAcquire(proc, offset: procThreadOffset)
 	if thread == noThread 'none'
 		return false
 	end 'none'
-	let g = __Raw.loadWord(thread, offset: contextGreenOffset)
+	let g = __Raw.loadAcquire(thread, offset: contextGreenOffset)
 	if g == noGreen 'scheduler'
 		return false
 	end 'scheduler'
-	__Raw.storeWord(g, offset: greenPreemptOffset, value: set)
+	__Raw.storeRelease(g, offset: greenPreemptOffset, value: set)
 	preemptThread(scheduler, context: thread, g: g)
 	return true
 end 'preemptOne'

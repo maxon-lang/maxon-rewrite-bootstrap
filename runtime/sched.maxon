@@ -287,7 +287,7 @@ function findRunnable(context Count) returns Count
 				return global
 			end 'found'
 		end 'global'
-		if __Raw.loadWord(scheduler, offset: schedPollWaitersOffset) > 0 and __Raw.loadWord(scheduler, offset: schedLastPollOffset) != 0 'poll'
+		if __Raw.loadAcquire(scheduler, offset: schedPollWaitersOffset) > 0 and __Raw.loadAcquire(scheduler, offset: schedLastPollOffset) != 0 'poll'
 			let polled = pollReadied(context, proc: proc, list: netpoll(context, delay: netpollNoWait))
 			if polled != noGreen 'found'
 				return polled
@@ -333,8 +333,8 @@ function mayStartSpinning(context Count, scheduler Count) returns bool
 	if __Raw.loadWord(context, offset: contextSpinningOffset) == set 'already'
 		return true
 	end 'already'
-	let busy = __Raw.wrappingSub(procCount(scheduler), right: __Raw.loadWord(scheduler, offset: schedIdleProcCountOffset))
-	let spinning = __Raw.loadWord(scheduler, offset: schedSpinningOffset)
+	let busy = __Raw.wrappingSub(procCount(scheduler), right: __Raw.loadAcquire(scheduler, offset: schedIdleProcCountOffset))
+	let spinning = __Raw.loadAcquire(scheduler, offset: schedSpinningOffset)
 	if __Raw.wrappingAdd(spinning, right: spinning) >= busy 'enough'
 		return false
 	end 'enough'
@@ -370,7 +370,7 @@ end 'takeProcForQueued'
 function resetSpinning(context Count)
 	let scheduler = __Raw.loadWord(context, offset: contextSchedulerOffset)
 	__Raw.storeWord(context, offset: contextSpinningOffset, value: unset)
-	if __Raw.atomicAdd(scheduler, offset: schedSpinningOffset, value: stepDown) == 1 and __Raw.loadWord(scheduler, offset: schedIdleProcCountOffset) > 0 'last'
+	if __Raw.atomicAdd(scheduler, offset: schedSpinningOffset, value: stepDown) == 1 and __Raw.loadAcquire(scheduler, offset: schedIdleProcCountOffset) > 0 'last'
 		wakeProc(scheduler)
 	end 'last'
 end 'resetSpinning'
@@ -411,16 +411,16 @@ end 'nextRandom'
 // the earliest timer, or a completion, or a break. Then it takes an idle processor for what the poller readied, and says
 // whether it got one; when there is none, what was readied goes on the global run queue, and the thread stops.
 function waitInPoller(context Count, scheduler Count) returns bool
-	let next = __Raw.loadWord(scheduler, offset: schedTimerNextOffset)
+	let next = __Raw.loadAcquire(scheduler, offset: schedTimerNextOffset)
 	var delay = netpollForever
 	if next != noTimer 'timer'
 		let now = nanotime(context)
 		delay = __Raw.wrappingSub(next, right: now) if next > now else netpollNoWait
 	end 'timer'
-	__Raw.storeWord(scheduler, offset: schedPollUntilOffset, value: next)
+	__Raw.storeRelease(scheduler, offset: schedPollUntilOffset, value: next)
 	let list = netpoll(context, delay: delay)
-	__Raw.storeWord(scheduler, offset: schedPollUntilOffset, value: noTimer)
-	__Raw.storeWord(scheduler, offset: schedLastPollOffset, value: nanotime(context))
+	__Raw.storeRelease(scheduler, offset: schedPollUntilOffset, value: noTimer)
+	__Raw.storeRelease(scheduler, offset: schedLastPollOffset, value: nanotime(context))
 	lockScheduler(scheduler)
 	let proc = idleProcGet(scheduler)
 	if proc == noProc 'none'
@@ -442,7 +442,7 @@ end 'waitInPoller'
 // pollPending is whether a thread should wait in the poller rather than stop: a timer is armed or a green thread waits
 // on a poll descriptor.
 function pollPending(scheduler Count) returns bool
-	return __Raw.loadWord(scheduler, offset: schedTimerNextOffset) != noTimer or __Raw.loadWord(scheduler, offset: schedPollWaitersOffset) > 0
+	return __Raw.loadAcquire(scheduler, offset: schedTimerNextOffset) != noTimer or __Raw.loadAcquire(scheduler, offset: schedPollWaitersOffset) > 0
 end 'pollPending'
 
 // pollReadied puts what a poll that did not wait readied on the thread's processor and gives the first of it to run.
@@ -487,7 +487,7 @@ end 'stopThread'
 
 // drainEnded is whether the thread is the main thread after main and nothing is left.
 function drainEnded(context Count, scheduler Count) returns bool
-	return __Raw.loadWord(context, offset: contextDrainsOffset) == set and __Raw.loadWord(scheduler, offset: schedLiveOffset) == 0
+	return __Raw.loadWord(context, offset: contextDrainsOffset) == set and __Raw.loadAcquire(scheduler, offset: schedLiveOffset) == 0
 end 'drainEnded'
 
 // endDrain is what the finish of the last behaviour or green thread does: it wakes the main thread when it is stopped,
@@ -503,7 +503,7 @@ function endDrain(scheduler Count)
 	if woken 'wake'
 		wakeThread(main)
 	end 'wake'
-	if __Raw.loadWord(scheduler, offset: schedLastPollOffset) == 0 'polling'
+	if __Raw.loadAcquire(scheduler, offset: schedLastPollOffset) == 0 'polling'
 		netpollBreak(scheduler)
 	end 'polling'
 end 'endDrain'
@@ -560,7 +560,7 @@ end 'startThreadFor'
 // wakeProc is Go's wakep: when a processor is idle and no thread spins, a thread starts spinning on it, which steals what
 // was just readied or finds it on the global queue.
 function wakeProc(scheduler Count)
-	if __Raw.loadWord(scheduler, offset: schedIdleProcCountOffset) == 0 or __Raw.loadWord(scheduler, offset: schedSpinningOffset) != 0 'busy'
+	if __Raw.loadAcquire(scheduler, offset: schedIdleProcCountOffset) == 0 or __Raw.loadAcquire(scheduler, offset: schedSpinningOffset) != 0 'busy'
 		return
 	end 'busy'
 	if __Raw.compareExchange(scheduler, offset: schedSpinningOffset, expected: 0, desired: 1) != 0 'another'
@@ -577,7 +577,7 @@ function handOffProc(scheduler Count, proc Count)
 		startThreadFor(scheduler, proc: proc, spinning: false)
 		return
 	end 'work'
-	if __Raw.loadWord(scheduler, offset: schedSpinningOffset) == 0 and __Raw.loadWord(scheduler, offset: schedIdleProcCountOffset) == 0 'nobody'
+	if __Raw.loadAcquire(scheduler, offset: schedSpinningOffset) == 0 and __Raw.loadAcquire(scheduler, offset: schedIdleProcCountOffset) == 0 'nobody'
 		if __Raw.compareExchange(scheduler, offset: schedSpinningOffset, expected: 0, desired: 1) == 0 'spin'
 			startThreadFor(scheduler, proc: proc, spinning: true)
 			return
@@ -589,8 +589,8 @@ function handOffProc(scheduler Count, proc Count)
 		startThreadFor(scheduler, proc: proc, spinning: false)
 		return
 	end 'late'
-	let lastBusy = __Raw.loadWord(scheduler, offset: schedIdleProcCountOffset) == __Raw.wrappingSub(procCount(scheduler), right: 1)
-	if lastBusy and pollPending(scheduler) and __Raw.loadWord(scheduler, offset: schedLastPollOffset) != 0 'poller'
+	let lastBusy = __Raw.loadAcquire(scheduler, offset: schedIdleProcCountOffset) == __Raw.wrappingSub(procCount(scheduler), right: 1)
+	if lastBusy and pollPending(scheduler) and __Raw.loadAcquire(scheduler, offset: schedLastPollOffset) != 0 'poller'
 		unlockScheduler(scheduler)
 		startThreadFor(scheduler, proc: proc, spinning: false)
 		return
@@ -605,22 +605,22 @@ function acquireProc(context Count, proc Count)
 		panic("a thread acquires no processor")
 	end 'none'
 	__Raw.storeWord(context, offset: contextProcOffset, value: proc)
-	__Raw.storeWord(proc, offset: procThreadOffset, value: context)
-	__Raw.storeWord(proc, offset: procStatusOffset, value: procRunning)
+	__Raw.storeRelease(proc, offset: procThreadOffset, value: context)
+	__Raw.storeRelease(proc, offset: procStatusOffset, value: procRunning)
 end 'acquireProc'
 
 // releaseProc is Go's releasep: the thread gives up its processor, which it gives back.
 function releaseProc(context Count) returns Count
 	let proc = __Raw.loadWord(context, offset: contextProcOffset)
 	__Raw.storeWord(context, offset: contextProcOffset, value: noProc)
-	__Raw.storeWord(proc, offset: procThreadOffset, value: noThread)
+	__Raw.storeRelease(proc, offset: procThreadOffset, value: noThread)
 	return proc
 end 'releaseProc'
 
 // idleProcPut is Go's pidleput, under the lock: the processor, whose queue is empty, joins the idle ones.
 function idleProcPut(scheduler Count, proc Count)
-	__Raw.storeWord(proc, offset: procStatusOffset, value: procIdle)
-	__Raw.storeWord(proc, offset: procThreadOffset, value: noThread)
+	__Raw.storeRelease(proc, offset: procStatusOffset, value: procIdle)
+	__Raw.storeRelease(proc, offset: procThreadOffset, value: noThread)
 	__Raw.storeWord(proc, offset: procLinkOffset, value: __Raw.loadWord(scheduler, offset: schedIdleProcsOffset))
 	__Raw.storeWord(scheduler, offset: schedIdleProcsOffset, value: proc)
 	_ = __Raw.atomicAdd(scheduler, offset: schedIdleProcCountOffset, value: 1)
@@ -642,15 +642,15 @@ function idleProcGet(scheduler Count) returns Count
 	return proc
 end 'idleProcGet'
 
-// makeProc makes the processor of the next id, under the lock or before another thread runs. Its slot is written before the
-// count of the made ones grows, so that a thread that reads the count without the lock (madeProcs) finds the slots below it
-// written.
+// makeProc makes the processor of the next id, under the lock or before another thread runs. Its record and slot are
+// written before the count of the made ones grows, which is a release, so that a thread that reads the count without the
+// lock (madeProcs, an acquire) finds the slots below it and their processors written.
 function makeProc(scheduler Count) returns Count
 	let id = madeProcs(scheduler)
 	let proc = keep(procBytes)
 	__Raw.storeWord(proc, offset: procIdOffset, value: id)
 	__Raw.storeWord(scheduler, offset: try schedProcessorsOffset + id * wordBytes otherwise panic("too many processors for memory"), value: proc)
-	__Raw.storeWord(scheduler, offset: schedMadeProcsOffset, value: __Raw.wrappingAdd(id, right: 1))
+	__Raw.storeRelease(scheduler, offset: schedMadeProcsOffset, value: __Raw.wrappingAdd(id, right: 1))
 	return proc
 end 'makeProc'
 
@@ -660,7 +660,7 @@ end 'procCount'
 
 // madeProcs is how many processors are made, those of the ids below it, which a walk of the processors' queues visits.
 function madeProcs(scheduler Count) returns Count
-	return __Raw.loadWord(scheduler, offset: schedMadeProcsOffset)
+	return __Raw.loadAcquire(scheduler, offset: schedMadeProcsOffset)
 end 'madeProcs'
 
 // procAt is the processor of an index.
@@ -670,8 +670,9 @@ end 'procAt'
 
 // The local run queue, Go's runq: the owner writes the tail, and the owner and thieves take from the head by advancing it
 // with a compare-exchange, so a slot is read before the exchange that claims it, and the owner writes a slot again only
-// once the head has passed it. On x64 a plain load is an acquire and a plain store a release, which are the orderings Go
-// asks for.
+// once the head has passed it. As in Go, the tail is stored as a release and read by a thief as an acquire, so a thief
+// that sees an index sees the slot written before it, and the head is read as an acquire, so the owner overwrites a slot
+// only after the thief's reads of it that the head's compare-exchange claimed. The owner reads its own tail plain.
 
 // runqPut is Go's runqput: next makes g the processor's runnext, and the green thread it displaces goes to the tail.
 function runqPut(proc Count, g Count, next bool)
@@ -689,11 +690,11 @@ function runqPut(proc Count, g Count, next bool)
 		end 'swap'
 	end 'next'
 	while true 'retry'
-		let head = __Raw.loadWord(proc, offset: procRunqHeadOffset)
+		let head = __Raw.loadAcquire(proc, offset: procRunqHeadOffset)
 		let tail = __Raw.loadWord(proc, offset: procRunqTailOffset)
 		if __Raw.wrappingSub(tail, right: head) < procRunqSlots 'room'
 			__Raw.storeWord(runqSlot(proc, index: tail), offset: 0, value: put)
-			__Raw.storeWord(proc, offset: procRunqTailOffset, value: __Raw.wrappingAdd(tail, right: 1))
+			__Raw.storeRelease(proc, offset: procRunqTailOffset, value: __Raw.wrappingAdd(tail, right: 1))
 			return
 		end 'room'
 		if runqPutSlow(proc, g: put, head: head, tail: tail) 'spilled'
@@ -737,7 +738,7 @@ function runqGet(proc Count) returns Count
 		return next
 	end 'next'
 	while true 'take'
-		let head = __Raw.loadWord(proc, offset: procRunqHeadOffset)
+		let head = __Raw.loadAcquire(proc, offset: procRunqHeadOffset)
 		let tail = __Raw.loadWord(proc, offset: procRunqTailOffset)
 		if head == tail 'empty'
 			return noGreen
@@ -752,7 +753,7 @@ end 'runqGet'
 
 // runqEmpty is whether a processor has nothing queued.
 function runqEmpty(proc Count) returns bool
-	return __Raw.loadWord(proc, offset: procRunqHeadOffset) == __Raw.loadWord(proc, offset: procRunqTailOffset) and __Raw.loadWord(proc, offset: procRunNextOffset) == noGreen
+	return __Raw.loadAcquire(proc, offset: procRunqHeadOffset) == __Raw.loadAcquire(proc, offset: procRunqTailOffset) and __Raw.loadAcquire(proc, offset: procRunNextOffset) == noGreen
 end 'runqEmpty'
 
 // runqSteal is Go's runqsteal: half of a victim's ring goes onto the thief's, past its tail, and the last of it is given
@@ -768,11 +769,11 @@ function runqSteal(proc Count, victim Count, takesNext bool) returns Count
 	if n == 0 'one'
 		return g
 	end 'one'
-	let head = __Raw.loadWord(proc, offset: procRunqHeadOffset)
+	let head = __Raw.loadAcquire(proc, offset: procRunqHeadOffset)
 	if __Raw.wrappingAdd(__Raw.wrappingSub(tail, right: head), right: n) >= procRunqSlots 'overflow'
 		panic("a steal overflows the thief's run queue")
 	end 'overflow'
-	__Raw.storeWord(proc, offset: procRunqTailOffset, value: __Raw.wrappingAdd(tail, right: n))
+	__Raw.storeRelease(proc, offset: procRunqTailOffset, value: __Raw.wrappingAdd(tail, right: n))
 	return g
 end 'runqSteal'
 
@@ -780,8 +781,8 @@ end 'runqSteal'
 // compare-exchange of the victim's head, or the victim's runnext when the ring is empty, and says how many it took.
 function runqGrab(victim Count, into Count, at Count, takesNext bool) returns Count
 	while true 'grab'
-		let head = __Raw.loadWord(victim, offset: procRunqHeadOffset)
-		let tail = __Raw.loadWord(victim, offset: procRunqTailOffset)
+		let head = __Raw.loadAcquire(victim, offset: procRunqHeadOffset)
+		let tail = __Raw.loadAcquire(victim, offset: procRunqTailOffset)
 		let queued = __Raw.wrappingSub(tail, right: head)
 		let n = __Raw.wrappingSub(queued, right: queued / 2)
 		if n == 0 'empty'
@@ -817,7 +818,7 @@ end 'runqSlot'
 
 // globalQueued is whether the global run queue holds anything, read without the lock to choose whether to take it.
 function globalQueued(scheduler Count) returns bool
-	return __Raw.loadWord(scheduler, offset: schedRunqSizeOffset) > 0
+	return __Raw.loadAcquire(scheduler, offset: schedRunqSizeOffset) > 0
 end 'globalQueued'
 
 function globalPut(scheduler Count, g Count)
@@ -834,7 +835,7 @@ function globalPutBatch(scheduler Count, first Count, last Count, count Count)
 		setEntryLink(tail, next: first)
 	end 'after'
 	__Raw.storeWord(scheduler, offset: schedRunqTailOffset, value: last)
-	__Raw.storeWord(scheduler, offset: schedRunqSizeOffset, value: __Raw.wrappingAdd(__Raw.loadWord(scheduler, offset: schedRunqSizeOffset), right: count))
+	__Raw.storeRelease(scheduler, offset: schedRunqSizeOffset, value: __Raw.wrappingAdd(__Raw.loadWord(scheduler, offset: schedRunqSizeOffset), right: count))
 end 'globalPutBatch'
 
 // globalPutList puts a list of green threads that a poll readied at the tail, under the lock.
@@ -864,7 +865,7 @@ function globalGet(scheduler Count, proc Count, most Count) returns Count
 	if n > procRunqSlots / 2 'half'
 		n = procRunqSlots / 2
 	end 'half'
-	__Raw.storeWord(scheduler, offset: schedRunqSizeOffset, value: __Raw.wrappingSub(size, right: n))
+	__Raw.storeRelease(scheduler, offset: schedRunqSizeOffset, value: __Raw.wrappingSub(size, right: n))
 	let g = globalPop(scheduler)
 	for i in 1 upto n 'rest'
 		runqPutUnspilled(proc, g: globalPop(scheduler))
@@ -887,11 +888,11 @@ end 'globalPop'
 // holds.
 function runqPutUnspilled(proc Count, g Count)
 	let tail = __Raw.loadWord(proc, offset: procRunqTailOffset)
-	if __Raw.wrappingSub(tail, right: __Raw.loadWord(proc, offset: procRunqHeadOffset)) >= procRunqSlots 'full'
+	if __Raw.wrappingSub(tail, right: __Raw.loadAcquire(proc, offset: procRunqHeadOffset)) >= procRunqSlots 'full'
 		panic("the global run queue's share overflows a processor's run queue")
 	end 'full'
 	__Raw.storeWord(runqSlot(proc, index: tail), offset: 0, value: g)
-	__Raw.storeWord(proc, offset: procRunqTailOffset, value: __Raw.wrappingAdd(tail, right: 1))
+	__Raw.storeRelease(proc, offset: procRunqTailOffset, value: __Raw.wrappingAdd(tail, right: 1))
 end 'runqPutUnspilled'
 
 // The scheduler's lock: a word taken by a compare-exchange from 0 to 1 and given back by a store, held for a few loads and
@@ -930,9 +931,10 @@ end 'yieldThread'
 
 // waitStopped waits until a waker clears the context's stopped flag (wakeThread). A wake before the wait makes the wait
 // return at once: on Windows the auto-reset event stays set, on Linux the futex sees the flag already 0, and on macOS the
-// parker reads it under its mutex.
+// parker reads it under its mutex. The flag is read as an acquire, so what the waker stored before its exchange, the
+// processor it hands over among it, is seen after.
 function waitStopped(context Count)
-	while __Raw.loadWord(context, offset: contextStoppedOffset) == set 'wait'
+	while __Raw.loadAcquire(context, offset: contextStoppedOffset) == set 'wait'
 		#if os(Windows)
 			_ = __Raw.callImport2("WaitForSingleObject", arg1: __Raw.loadWord(context, offset: contextParkEventOffset), arg2: waitForever)
 		#endif
