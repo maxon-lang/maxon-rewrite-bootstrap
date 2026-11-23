@@ -35,7 +35,10 @@ let elfIdentPadBytes = 8 as Count
 
 let elfTypeExecutable = 2 as Count
 
+// The machine of the image: EM_X86_64 and EM_AARCH64. Nothing else of the file depends on the processor.
 let elfMachineX64 = 0x3E as Count
+
+let elfMachineArm64 = 0xB7 as Count
 
 let elfProgramLoad = 1 as Count
 
@@ -52,7 +55,7 @@ let elfNoSections = 0 as Count
 // buildElfImage lays out the file for the code and the data of the layout, with the entry point at its offset in the code.
 // The data's pointers hold the image's own addresses, which writePointers fills in, so the layout's pointers need no table
 // here.
-export function buildElfImage(layout ImageLayout) returns Image
+export function buildElfImage(arch ast.TargetArch, layout ImageLayout) returns Image
 	let headersSize = sum(elfHeaderBytes, b: product(elfProgramHeaderBytes, b: elfProgramHeaderCount))
 	let codeOffset = alignUp(headersSize, alignment: codeLineBytes)
 	let codeEnd = sum(codeOffset, b: layout.codeSize)
@@ -66,7 +69,7 @@ export function buildElfImage(layout ImageLayout) returns Image
 	pushU8(w, v: elfAbiSystemV)
 	pushZeros(w, n: elfIdentPadBytes)
 	pushU16(w, v: elfTypeExecutable)
-	pushU16(w, v: elfMachineX64)
+	pushU16(w, v: elfMachineOf(arch))
 	pushU32(w, v: elfVersionCurrent)
 	pushU64(w, v: sum(elfLoadAddress, b: sum(codeOffset, b: layout.entryOffset)))
 	pushU64(w, v: elfHeaderBytes)
@@ -84,6 +87,14 @@ export function buildElfImage(layout ImageLayout) returns Image
 	copyInto(file, at: 0, src: w)
 	return Image.make(file, format: ast.ImageFormat.elf, base: elfLoadAddress, textRva: codeOffset, dataRva: dataOffset, iatRva: 0, importSlots: 0, codeOffset: codeOffset, dataOffset: dataOffset)
 end 'buildElfImage'
+
+// elfMachineOf is the e_machine of an image of an architecture.
+function elfMachineOf(arch ast.TargetArch) returns Count
+	return match arch 'arch'
+		x64 gives elfMachineX64
+		arm64 gives elfMachineArm64
+	end 'arch'
+end 'elfMachineOf'
 
 // pushProgramHeader writes the header of a PT_LOAD segment that maps size bytes of the file from fileOffset at the address
 // that is as far from the load address, with as many bytes in memory as in the file.

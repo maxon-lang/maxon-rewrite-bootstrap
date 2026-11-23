@@ -24,10 +24,6 @@ let exitCodeSymbol = "g.exitCode"
 
 let exitSetSymbol = "g.exitSet"
 
-// startScratch is the register rt.mainAlone and rt.setExitCodeAlone work in besides the convention's argument and result:
-// one that a call may leave holding anything.
-let startScratch = X64Register.rax
-
 // schedulerChoice is how the link decides whether a program runs the scheduler. The witness is rt.stackSwitch: running a
 // green thread and leaving one are the only switches of a stack, so a behaviour, a coroutine, a sleep, a yield and an await
 // each reach it, through the runtime's code that starts or parks a green thread, and nothing else does once the scheduler's
@@ -49,49 +45,53 @@ function emitStartData(mutates u CodeUnit)
 end 'emitStartData'
 
 // emitStartRoutines writes rt.mainGreen, which calls main, and the two ways of running it, each a section that the link keeps
-// only when the program's way names it, with the single-thread forms of the scheduler's routines.
-function emitStartRoutines(mutates u CodeUnit, calls EntryCalls)
-	if startScratch == argWord() or startScratch == resultWord() 'scratch'
-		panic("backend: the start routines' scratch register holds an argument or the result")
-	end 'scratch'
+// only when the program's way names it, with the single-thread forms of the scheduler's routines. Besides the convention's
+// argument and result they work in the routines' work register.
+function emitStartRoutines(mutates u CodeUnit, a ast.TargetArch, calls EntryCalls)
 	u.beginSection()
 	u.defineCode(ir.rtSymbol(ir.Rt.rtMainGreen))
-	emitMainGreen(u, calls: calls)
+	emitMainGreen(u, a: a, calls: calls)
 	u.beginSection()
 	u.defineCode(runMainSymbol)
-	u.asm.leaSymbol(argWord(), symbol: ir.rtSymbol(ir.Rt.rtMainGreen))
-	u.asm.callSymbol(ir.rtSymbol(ir.Rt.rtMainRun))
-	u.asm.ret()
+	rEnterStub(u, a: a)
+	rAddress(u, a: a, dst: rArg, symbol: ir.rtSymbol(ir.Rt.rtMainGreen))
+	rCallSymbol(u, a: a, symbol: ir.rtSymbol(ir.Rt.rtMainRun))
+	rLeaveStub(u, a: a)
+	rRet(u, a: a)
 	u.beginSection()
 	u.defineCode(mainAloneSymbol)
 	let mains = u.asm.newLabel()
-	u.asm.callSymbol(ir.rtSymbol(ir.Rt.rtMainGreen))
-	u.asm.loadSymbol(startScratch, symbol: exitSetSymbol)
-	u.asm.test(startScratch, right: startScratch)
-	u.asm.jcc(MCond.equal, label: mains)
-	u.asm.loadSymbol(resultWord(), symbol: exitCodeSymbol)
+	rEnterStub(u, a: a)
+	rCallSymbol(u, a: a, symbol: ir.rtSymbol(ir.Rt.rtMainGreen))
+	rLoadSymbol(u, a: a, dst: rWork, symbol: exitSetSymbol)
+	rTest(u, a: a, left: rWork, right: rWork)
+	rBranch(u, a: a, cond: MCond.equal, label: mains)
+	rLoadSymbol(u, a: a, dst: rResult, symbol: exitCodeSymbol)
 	u.asm.bind(mains)
-	u.asm.ret()
+	rLeaveStub(u, a: a)
+	rRet(u, a: a)
 	u.beginSection()
 	u.defineCode(setExitCodeAloneSymbol)
-	u.asm.storeSymbol(exitCodeSymbol, src: argWord())
-	u.asm.movImm(startScratch, imm: 1)
-	u.asm.storeSymbol(exitSetSymbol, src: startScratch)
-	u.asm.ret()
+	rStoreSymbol(u, a: a, symbol: exitCodeSymbol, src: rArg)
+	rMovImm(u, a: a, dst: rWork, imm: 1)
+	rStoreSymbol(u, a: a, symbol: exitSetSymbol, src: rWork)
+	rRet(u, a: a)
 	u.beginSection()
 	u.defineCode(unbracketedSymbol)
-	u.asm.ret()
+	rRet(u, a: a)
 end 'emitStartRoutines'
 
 // emitMainGreen writes rt.mainGreen, the code main's green thread runs, which greenMain calls by the internal convention
 // with the green thread, and which rt.mainAlone calls: it calls main, whose result is the exit code, or each test of an
 // executable of tests, after which the code is 0.
-function emitMainGreen(mutates u CodeUnit, calls EntryCalls)
+function emitMainGreen(mutates u CodeUnit, a ast.TargetArch, calls EntryCalls)
+	rEnterStub(u, a: a)
 	for i in 0 upto calls.symbols.count() 'calls'
-		u.asm.callSymbol(calls.symbols[i])
+		rCallSymbol(u, a: a, symbol: calls.symbols[i])
 	end 'calls'
 	if not calls.exitsWithResult 'passed'
-		u.asm.movImm(resultWord(), imm: 0)
+		rMovImm(u, a: a, dst: rResult, imm: 0)
 	end 'passed'
-	u.asm.ret()
+	rLeaveStub(u, a: a)
+	rRet(u, a: a)
 end 'emitMainGreen'

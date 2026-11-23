@@ -116,6 +116,9 @@ func generateModel(targets []target.Target) (string, error) {
 	b.WriteString("export function knownTargets() returns TargetList\n\tvar targets = TargetList.create(0)\n")
 	for _, t := range targets {
 		for _, s := range t.Systems {
+			if s.Pending {
+				continue
+			}
 			fmt.Fprintf(&b, "\ttargets.push(Target.make(TargetArch.%s, system: TargetSystem.%s))\n", t.Name, s.OS.Name)
 		}
 	}

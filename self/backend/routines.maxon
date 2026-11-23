@@ -4,7 +4,7 @@
 // with an array of itself) is a routine that calls itself and not code written out where it is wanted.
 //
 // A routine is called by the internal convention with one argument, the value, which its prologue stores in its frame,
-// and a copy returns the new value in the convention's result register; between calls the routines work in rax and
+// and a copy returns the new value in the convention's result register; between calls the routines work in the registers of routine_asm.maxon and
 // the other registers every call may leave holding anything, so they keep no callee-saved register. A drop of a value
 // that is 0 does nothing, which is how a place that was moved from, or never assigned, is dropped.
 //
@@ -15,7 +15,8 @@
 // routinesPerUnit is how many routines go into one unit.
 let routinesPerUnit = 256
 
-// Frame offsets of the routines below the frame pointer: the argument, and then the locals.
+// Frame offsets of the routines below the frame pointer: the argument, and then the locals, a word each, which every
+// architecture's access of a word holds.
 let routineArg = -8
 
 let routineLocal0 = -16
@@ -27,13 +28,6 @@ let routineLocal2 = -32
 let routineLocal3 = -40
 
 let routineLocal4 = -48
-
-// thunkBase is the register a behaviour's thunk holds the record in while it loads the body's arguments: one that the
-// internal convention passes no value in.
-let thunkBase = r11
-
-// thunkWord is the register a thunk loads an argument the body takes on the stack into before pushing it.
-let thunkWord = r10
 
 // A count of owners (of a closure, a frozen value or a cown) is stepped by one locked add, since the owners may be on
 // other threads: a new owner adds ownerJoins, one let go of adds ownerLeaves, and the one that found lastOwner there
@@ -238,186 +232,184 @@ end 'emitTypeRoutines'
 // kept links as the one its emit made, whatever the compile it links in knows of the module's types. Every unit that asks for
 // a routine defines it, and the link keeps one, as it does of an instance.
 export function carryRoutines(p ast.Project, mutates ms ast.ModuleState, mutates u CodeUnit)
+	let a = p.target.arch
 	var i = 0 as Count
 	while i < u.needed.list.count() 'routines'
 		let routine = u.needed.list[i].clone()
-		emitRoutine(u, p: p, ms: ms, routine: routine)
+		emitRoutine(u, a: a, p: p, ms: ms, routine: routine)
 		i = try i + 1 otherwise panic("backend: more routines than memory")
 	end 'routines'
 	u.needed = RoutineSet.new()
 end 'carryRoutines'
 
 function emitRoutines(p ast.Project, mutates ms ast.ModuleState, routines TypeRoutineList) returns CodeUnit
+	let a = p.target.arch
 	var u = CodeUnit.new()
 	for i in 0 upto routines.count() 'each'
-		emitRoutine(u, p: p, ms: ms, routine: routines[i])
+		emitRoutine(u, a: a, p: p, ms: ms, routine: routines[i])
 	end 'each'
 	return u
 end 'emitRoutines'
 
-// routineCall calls the routine of a type with the value in rax, and leaves a copy's result in rax. A routine that has
+// routineCall calls the routine of a type with the value in the work register, and leaves a copy's result there. A routine that has
 // not been asked for yet is queued.
-function routineCall(mutates u CodeUnit, p ast.Project, mutates ms ast.ModuleState, kind RoutineKind, ty ast.TypeID)
+function routineCall(mutates u CodeUnit, a ast.TargetArch, p ast.Project, mutates ms ast.ModuleState, kind RoutineKind, ty ast.TypeID)
 	let symbol = u.needed.symbol(p, ms: ms, kind: kind, ty: ty)
-	u.asm.mov(argWord(), src: rax)
-	u.asm.callSymbol(symbol)
-	takeResult(u)
+	rMov(u, a: a, dst: rArg, src: rWork)
+	rCallSymbol(u, a: a, symbol: symbol)
+	takeResult(u, a: a)
 end 'routineCall'
 
-// callRuntimeWithRax calls an entry of the runtime with the value in rax as its one argument, and leaves its result in rax.
-function callRuntimeWithRax(mutates u CodeUnit, entry ir.Rt)
-	u.asm.mov(argWord(), src: rax)
-	u.asm.callSymbol(ir.rtSymbol(entry))
-	takeResult(u)
-end 'callRuntimeWithRax'
+// callRuntimeWithWork calls an entry of the runtime with the value in the work register as its one argument, and leaves its
+// result there.
+function callRuntimeWithWork(mutates u CodeUnit, a ast.TargetArch, entry ir.Rt)
+	rMov(u, a: a, dst: rArg, src: rWork)
+	rCallSymbol(u, a: a, symbol: ir.rtSymbol(entry))
+	takeResult(u, a: a)
+end 'callRuntimeWithWork'
 
-// takeResult moves what a call returned into rax.
-function takeResult(mutates u CodeUnit)
-	u.asm.mov(rax, src: resultWord())
+// takeResult moves what a call returned into the work register.
+function takeResult(mutates u CodeUnit, a ast.TargetArch)
+	rMov(u, a: a, dst: rWork, src: rResult)
 end 'takeResult'
 
 // routinePrologue starts a routine that keeps its argument and a number of words of its own below the frame pointer. A
 // routine is called once for each level of a nested value, so a tree that is deep enough would use up the stack: a
 // routine reserves only what it uses.
-function routinePrologue(mutates u CodeUnit, locals Count)
-	u.asm.push(rbp)
-	u.asm.mov(rbp, src: rsp)
-	u.asm.subImm(rsp, imm: imm32Of(try (locals + 1) * wordBytes otherwise panic("a routine with locals past memory")))
-	u.asm.store(rbp, disp: routineArg, src: argWord())
+function routinePrologue(mutates u CodeUnit, a ast.TargetArch, locals Count)
+	rPrologue(u, a: a, words: try locals + 1 otherwise panic("a routine with locals past memory"))
 end 'routinePrologue'
 
-function routineEpilogue(mutates u CodeUnit)
-	u.asm.mov(rsp, src: rbp)
-	u.asm.pop(rbp)
-	u.asm.ret()
+function routineEpilogue(mutates u CodeUnit, a ast.TargetArch)
+	rEpilogue(u, a: a)
 end 'routineEpilogue'
 
-// routineReturn ends a copy routine, which returns the new value that rax holds.
-function routineReturn(mutates u CodeUnit)
-	u.asm.mov(resultWord(), src: rax)
-	routineEpilogue(u)
+// routineReturn ends a copy routine, which returns the new value that the work register holds.
+function routineReturn(mutates u CodeUnit, a ast.TargetArch)
+	rMov(u, a: a, dst: rResult, src: rWork)
+	routineEpilogue(u, a: a)
 end 'routineReturn'
 
 // freeArgument gives back the box that the routine's argument is.
-function freeArgument(mutates u CodeUnit)
-	u.asm.load(rax, base: rbp, disp: routineArg)
-	callRuntimeWithRax(u, entry: ir.Rt.rtFree)
+function freeArgument(mutates u CodeUnit, a ast.TargetArch)
+	rLoad(u, a: a, dst: rWork, base: rFrame, disp: routineArg)
+	callRuntimeWithWork(u, a: a, entry: ir.Rt.rtFree)
 end 'freeArgument'
 
-// allocate calls the allocator for a box of a size, leaving it in rax.
-function allocate(mutates u CodeUnit, bytes Count)
-	u.asm.movImm(rax, imm: try bytes as FullRangeInt otherwise panic("a box past memory"))
-	callRuntimeWithRax(u, entry: ir.Rt.rtAlloc)
+// allocate calls the allocator for a box of a size, leaving it in the work register.
+function allocate(mutates u CodeUnit, a ast.TargetArch, bytes Count)
+	rMovImm(u, a: a, dst: rWork, imm: try bytes as FullRangeInt otherwise panic("a box past memory"))
+	callRuntimeWithWork(u, a: a, entry: ir.Rt.rtAlloc)
 end 'allocate'
 
 // emitRoutine emits the code of one routine.
-function emitRoutine(mutates u CodeUnit, p ast.Project, mutates ms ast.ModuleState, routine TypeRoutine)
+function emitRoutine(mutates u CodeUnit, a ast.TargetArch, p ast.Project, mutates ms ast.ModuleState, routine TypeRoutine)
 	u.beginSection()
 	u.defineFunction(routine.symbol, instance: true)
 	if routine.kind == RoutineKind.dropRoutine 'drop'
-		emitDrop(u, p: p, ms: ms, ty: routine.ty)
+		emitDrop(u, a: a, p: p, ms: ms, ty: routine.ty)
 	end 'drop' else 'copy'
-		emitCopy(u, p: p, ms: ms, ty: routine.ty)
+		emitCopy(u, a: a, p: p, ms: ms, ty: routine.ty)
 	end 'copy'
 end 'emitRoutine'
 
-function emitDrop(mutates u CodeUnit, p ast.Project, mutates ms ast.ModuleState, ty ast.TypeID)
+function emitDrop(mutates u CodeUnit, a ast.TargetArch, p ast.Project, mutates ms ast.ModuleState, ty ast.TypeID)
 	let kind = ast.typeKind(ms.types, reads: p.types, t: ty)
 	if kind == ast.TypeKind.primString 'string'
-		dropString(u)
+		dropString(u, a: a)
 		return
 	end 'string'
 	if kind == ast.TypeKind.record 'record'
-		dropRecord(u, p: p, ms: ms, ty: ty)
+		dropRecord(u, a: a, p: p, ms: ms, ty: ty)
 		return
 	end 'record'
 	if kind == ast.TypeKind.unionTy 'union'
-		dropUnion(u, p: p, ms: ms, ty: ty)
+		dropUnion(u, a: a, p: p, ms: ms, ty: ty)
 		return
 	end 'union'
 	if kind == ast.TypeKind.builtinArray 'array'
 		if ast.packsBytes(ms.types, reads: p.types, b: p.builtins, t: ty) 'bytes'
-			dropBytes(u)
+			dropBytes(u, a: a)
 			return
 		end 'bytes'
-		dropArray(u, p: p, ms: ms, ty: ty)
+		dropArray(u, a: a, p: p, ms: ms, ty: ty)
 		return
 	end 'array'
 	if kind == ast.TypeKind.builtinGroups 'groups'
-		dropArray(u, p: p, ms: ms, ty: ty)
+		dropArray(u, a: a, p: p, ms: ms, ty: ty)
 		return
 	end 'groups'
 	if kind == ast.TypeKind.funcTy 'function'
-		dropClosure(u)
+		dropClosure(u, a: a)
 		return
 	end 'function'
 	if kind == ast.TypeKind.interfaceTy 'interface'
-		dropInterfaceValue(u)
+		dropInterfaceValue(u, a: a)
 		return
 	end 'interface'
 	if kind == ast.TypeKind.builtinFrozen 'frozen'
-		dropFrozen(u, p: p, ms: ms, ty: ty)
+		dropFrozen(u, a: a, p: p, ms: ms, ty: ty)
 		return
 	end 'frozen'
 	if kind == ast.TypeKind.builtinCown or kind == ast.TypeKind.builtinService 'cown'
-		dropCown(u, p: p, ms: ms, ty: ty)
+		dropCown(u, a: a, p: p, ms: ms, ty: ty)
 		return
 	end 'cown'
 	if kind == ast.TypeKind.builtinCursor 'cursor'
-		dropCursor(u)
+		dropCursor(u, a: a)
 		return
 	end 'cursor'
 	if kind == ast.TypeKind.builtinPromise 'promise'
-		dropPromise(u, p: p, ms: ms, ty: ty)
+		dropPromise(u, a: a, p: p, ms: ms, ty: ty)
 		return
 	end 'promise'
 	panic("routines: no drop routine for {ast.typeName(ms.types, reads: p.types, t: ty)}, which the driver should have refused")
 end 'emitDrop'
 
-function emitCopy(mutates u CodeUnit, p ast.Project, mutates ms ast.ModuleState, ty ast.TypeID)
+function emitCopy(mutates u CodeUnit, a ast.TargetArch, p ast.Project, mutates ms ast.ModuleState, ty ast.TypeID)
 	let kind = ast.typeKind(ms.types, reads: p.types, t: ty)
 	if kind == ast.TypeKind.primString 'string'
-		copyString(u)
+		copyString(u, a: a)
 		return
 	end 'string'
 	if kind == ast.TypeKind.record 'record'
-		copyRecord(u, p: p, ms: ms, ty: ty)
+		copyRecord(u, a: a, p: p, ms: ms, ty: ty)
 		return
 	end 'record'
 	if kind == ast.TypeKind.unionTy 'union'
-		copyUnion(u, p: p, ms: ms, ty: ty)
+		copyUnion(u, a: a, p: p, ms: ms, ty: ty)
 		return
 	end 'union'
 	if kind == ast.TypeKind.builtinArray 'array'
 		if ast.packsBytes(ms.types, reads: p.types, b: p.builtins, t: ty) 'bytes'
-			copyBytes(u)
+			copyBytes(u, a: a)
 			return
 		end 'bytes'
-		copyArray(u, p: p, ms: ms, ty: ty)
+		copyArray(u, a: a, p: p, ms: ms, ty: ty)
 		return
 	end 'array'
 	if kind == ast.TypeKind.builtinGroups 'groups'
-		copyArray(u, p: p, ms: ms, ty: ty)
+		copyArray(u, a: a, p: p, ms: ms, ty: ty)
 		return
 	end 'groups'
 	if kind == ast.TypeKind.funcTy 'function'
-		copyShared(u, countOffset: closureCountOffset)
+		copyShared(u, a: a, countOffset: closureCountOffset)
 		return
 	end 'function'
 	if kind == ast.TypeKind.interfaceTy 'interface'
-		copyInterfaceValue(u)
+		copyInterfaceValue(u, a: a)
 		return
 	end 'interface'
 	if kind == ast.TypeKind.builtinFrozen 'frozen'
-		copyShared(u, countOffset: frozenCountOffset)
+		copyShared(u, a: a, countOffset: frozenCountOffset)
 		return
 	end 'frozen'
 	if kind == ast.TypeKind.builtinCown or kind == ast.TypeKind.builtinService 'cown'
-		copyShared(u, countOffset: cownCountOffset)
+		copyShared(u, a: a, countOffset: cownCountOffset)
 		return
 	end 'cown'
 	if kind == ast.TypeKind.builtinCursor 'cursor'
-		copyCursor(u, p: p, ms: ms)
+		copyCursor(u, a: a, p: p, ms: ms)
 		return
 	end 'cursor'
 	panic("routines: no copy routine for {ast.typeName(ms.types, reads: p.types, t: ty)}, which the driver should have refused")
@@ -427,137 +419,137 @@ end 'emitCopy'
 // start or its sleeps end at once, it is waited for, and what its function gave, a value or an error, is dropped. The
 // ownership pass drops no promise a program holds (E3213), so this meets the empty place an await leaves, and a promise
 // that a coroutine cancelled before it started was given to own.
-function dropPromise(mutates u CodeUnit, p ast.Project, mutates ms ast.ModuleState, ty ast.TypeID)
+function dropPromise(mutates u CodeUnit, a ast.TargetArch, p ast.Project, mutates ms ast.ModuleState, ty ast.TypeID)
 	let done = u.asm.newLabel()
-	routinePrologue(u, locals: 1)
-	returnIfEmpty(u, done: done)
-	callRuntimeWithRax(u, entry: ir.Rt.rtAsyncCancel)
+	routinePrologue(u, a: a, locals: 1)
+	returnIfEmpty(u, a: a, done: done)
+	callRuntimeWithWork(u, a: a, entry: ir.Rt.rtAsyncCancel)
 	let result = ast.promiseResult(ms.types, reads: p.types, t: ty)
 	let errTy = ast.promiseError(ms.types, reads: p.types, t: ty)
 	let managed = ast.isManagedType(ms.types, reads: p.types, t: result)
-	u.asm.load(rax, base: rbp, disp: routineArg)
+	rLoad(u, a: a, dst: rWork, base: rFrame, disp: routineArg)
 	if errTy == ast.noType 'plain'
-		callRuntimeWithRax(u, entry: ir.Rt.rtAsyncAwait)
+		callRuntimeWithWork(u, a: a, entry: ir.Rt.rtAsyncAwait)
 		if managed 'value'
-			routineCall(u, p: p, ms: ms, kind: RoutineKind.dropRoutine, ty: result)
+			routineCall(u, a: a, p: p, ms: ms, kind: RoutineKind.dropRoutine, ty: result)
 		end 'value'
 	end 'plain' else 'throws'
-		callRuntimeWithRax(u, entry: ir.Rt.rtAsyncWait)
-		u.asm.load(rax, base: rbp, disp: routineArg)
-		callRuntimeWithRax(u, entry: ir.Rt.rtAsyncError)
-		u.asm.store(rbp, disp: routineLocal0, src: rax)
-		u.asm.load(rax, base: rbp, disp: routineArg)
-		callRuntimeWithRax(u, entry: ir.Rt.rtAsyncTake)
+		callRuntimeWithWork(u, a: a, entry: ir.Rt.rtAsyncWait)
+		rLoad(u, a: a, dst: rWork, base: rFrame, disp: routineArg)
+		callRuntimeWithWork(u, a: a, entry: ir.Rt.rtAsyncError)
+		rStore(u, a: a, base: rFrame, disp: routineLocal0, src: rWork)
+		rLoad(u, a: a, dst: rWork, base: rFrame, disp: routineArg)
+		callRuntimeWithWork(u, a: a, entry: ir.Rt.rtAsyncTake)
 		let returned = u.asm.newLabel()
-		u.asm.load(rcx, base: rbp, disp: routineLocal0)
-		u.asm.test(rcx, right: rcx)
-		u.asm.jcc(MCond.equal, label: returned)
+		rLoad(u, a: a, dst: rSecond, base: rFrame, disp: routineLocal0)
+		rTest(u, a: a, left: rSecond, right: rSecond)
+		rBranch(u, a: a, cond: MCond.equal, label: returned)
 		if ast.isUnionError(ms.types, reads: p.types, t: errTy) 'unionError'
-			u.asm.load(rax, base: rbp, disp: routineLocal0)
-			routineCall(u, p: p, ms: ms, kind: RoutineKind.dropRoutine, ty: errTy)
+			rLoad(u, a: a, dst: rWork, base: rFrame, disp: routineLocal0)
+			routineCall(u, a: a, p: p, ms: ms, kind: RoutineKind.dropRoutine, ty: errTy)
 		end 'unionError'
-		u.asm.jmp(done)
+		rJump(u, a: a, label: done)
 		u.asm.bind(returned)
 		if managed 'value'
-			routineCall(u, p: p, ms: ms, kind: RoutineKind.dropRoutine, ty: result)
+			routineCall(u, a: a, p: p, ms: ms, kind: RoutineKind.dropRoutine, ty: result)
 		end 'value'
 	end 'throws'
 	u.asm.bind(done)
-	routineEpilogue(u)
+	routineEpilogue(u, a: a)
 end 'dropPromise'
 
 // returnIfEmpty is the start of a drop: a value that is 0 holds nothing.
-function returnIfEmpty(mutates u CodeUnit, done LabelID)
-	u.asm.load(rax, base: rbp, disp: routineArg)
-	u.asm.test(rax, right: rax)
-	u.asm.jcc(MCond.equal, label: done)
+function returnIfEmpty(mutates u CodeUnit, a ast.TargetArch, done LabelID)
+	rLoad(u, a: a, dst: rWork, base: rFrame, disp: routineArg)
+	rTest(u, a: a, left: rWork, right: rWork)
+	rBranch(u, a: a, cond: MCond.equal, label: done)
 end 'returnIfEmpty'
 
 // dropWord drops the managed word at an offset of the box that the argument is.
-function dropWord(mutates u CodeUnit, p ast.Project, mutates ms ast.ModuleState, offset Count, ty ast.TypeID)
-	u.asm.load(rax, base: rbp, disp: routineArg)
-	u.asm.load(rax, base: rax, disp: imm32Of(offset))
-	routineCall(u, p: p, ms: ms, kind: RoutineKind.dropRoutine, ty: ty)
+function dropWord(mutates u CodeUnit, a ast.TargetArch, p ast.Project, mutates ms ast.ModuleState, offset Count, ty ast.TypeID)
+	rLoad(u, a: a, dst: rWork, base: rFrame, disp: routineArg)
+	rLoad(u, a: a, dst: rWork, base: rWork, disp: imm32Of(offset))
+	routineCall(u, a: a, p: p, ms: ms, kind: RoutineKind.dropRoutine, ty: ty)
 end 'dropWord'
 
-function dropRecord(mutates u CodeUnit, p ast.Project, mutates ms ast.ModuleState, ty ast.TypeID)
+function dropRecord(mutates u CodeUnit, a ast.TargetArch, p ast.Project, mutates ms ast.ModuleState, ty ast.TypeID)
 	let done = u.asm.newLabel()
-	routinePrologue(u, locals: 0)
-	returnIfEmpty(u, done: done)
+	routinePrologue(u, a: a, locals: 0)
+	returnIfEmpty(u, a: a, done: done)
 	// Each promise a field holds is cancelled before the drop of any of them waits, as an array's are (cancelElements).
 	for i in 0 upto fieldCount(ms.types, reads: p.types, owner: ty) 'promises'
 		let fieldTy = ast.fieldType(ms.types, reads: p.types, owner: ty, index: i)
 		if ast.isPromiseType(ms.types, reads: p.types, t: fieldTy) 'promise'
 			let skip = u.asm.newLabel()
-			u.asm.load(rcx, base: rbp, disp: routineArg)
-			u.asm.load(rax, base: rcx, disp: imm32Of(ir.fieldOffset(i, tagged: false)))
-			u.asm.test(rax, right: rax)
-			u.asm.jcc(MCond.equal, label: skip)
-			callRuntimeWithRax(u, entry: ir.Rt.rtAsyncCancel)
+			rLoad(u, a: a, dst: rSecond, base: rFrame, disp: routineArg)
+			rLoad(u, a: a, dst: rWork, base: rSecond, disp: imm32Of(ir.fieldOffset(i, tagged: false)))
+			rTest(u, a: a, left: rWork, right: rWork)
+			rBranch(u, a: a, cond: MCond.equal, label: skip)
+			callRuntimeWithWork(u, a: a, entry: ir.Rt.rtAsyncCancel)
 			u.asm.bind(skip)
 		end 'promise'
 	end 'promises'
 	for i in 0 upto fieldCount(ms.types, reads: p.types, owner: ty) 'fields'
 		let fieldTy = ast.fieldType(ms.types, reads: p.types, owner: ty, index: i)
 		if ast.isManagedType(ms.types, reads: p.types, t: fieldTy) 'managed'
-			dropWord(u, p: p, ms: ms, offset: ir.fieldOffset(i, tagged: false), ty: fieldTy)
+			dropWord(u, a: a, p: p, ms: ms, offset: ir.fieldOffset(i, tagged: false), ty: fieldTy)
 		end 'managed'
 	end 'fields'
-	freeArgument(u)
+	freeArgument(u, a: a)
 	u.asm.bind(done)
-	routineEpilogue(u)
+	routineEpilogue(u, a: a)
 end 'dropRecord'
 
 // dropCursor frees the box of a cursor (ir.cursorFields), which borrows the buffer it walks and owns nothing else.
-function dropCursor(mutates u CodeUnit)
+function dropCursor(mutates u CodeUnit, a ast.TargetArch)
 	let done = u.asm.newLabel()
-	routinePrologue(u, locals: 0)
-	returnIfEmpty(u, done: done)
-	freeArgument(u)
+	routinePrologue(u, a: a, locals: 0)
+	returnIfEmpty(u, a: a, done: done)
+	freeArgument(u, a: a)
 	u.asm.bind(done)
-	routineEpilogue(u)
+	routineEpilogue(u, a: a)
 end 'dropCursor'
 
 // copyCursor is a new cursor at the same element of the same buffer, which the copy borrows as well.
-function copyCursor(mutates u CodeUnit, p ast.Project, mutates ms ast.ModuleState)
-	routinePrologue(u, locals: 1)
-	allocate(u, bytes: ir.boxBytes(ir.cursorFields, tagged: false))
-	u.asm.store(rbp, disp: routineLocal0, src: rax)
+function copyCursor(mutates u CodeUnit, a ast.TargetArch, p ast.Project, mutates ms ast.ModuleState)
+	routinePrologue(u, a: a, locals: 1)
+	allocate(u, a: a, bytes: ir.boxBytes(ir.cursorFields, tagged: false))
+	rStore(u, a: a, base: rFrame, disp: routineLocal0, src: rWork)
 	for i in 0 upto ir.cursorFields 'words'
-		copyWord(u, p: p, ms: ms, offset: ir.fieldOffset(i, tagged: false), ty: p.builtins.countTy)
+		copyWord(u, a: a, p: p, ms: ms, offset: ir.fieldOffset(i, tagged: false), ty: p.builtins.countTy)
 	end 'words'
-	u.asm.load(rax, base: rbp, disp: routineLocal0)
-	routineReturn(u)
+	rLoad(u, a: a, dst: rWork, base: rFrame, disp: routineLocal0)
+	routineReturn(u, a: a)
 end 'copyCursor'
 
 // dropUnion drops the payload of the case the box holds, and then the box.
-function dropUnion(mutates u CodeUnit, p ast.Project, mutates ms ast.ModuleState, ty ast.TypeID)
+function dropUnion(mutates u CodeUnit, a ast.TargetArch, p ast.Project, mutates ms ast.ModuleState, ty ast.TypeID)
 	let done = u.asm.newLabel()
 	let release = u.asm.newLabel()
-	routinePrologue(u, locals: 0)
-	returnIfEmpty(u, done: done)
+	routinePrologue(u, a: a, locals: 0)
+	returnIfEmpty(u, a: a, done: done)
 	for i in 0 upto caseCount(ms.types, reads: p.types, owner: ty) 'cases'
 		if not anyManagedPayload(ms.types, reads: p.types, owner: ty, caseIndex: i) 'plain'
 			continue 'cases'
 		end 'plain'
 		let next = u.asm.newLabel()
-		u.asm.load(rax, base: rbp, disp: routineArg)
-		u.asm.load(rax, base: rax, disp: imm32Of(ir.tagOffset))
-		u.asm.cmpImm(rax, imm: imm32Of(i))
-		u.asm.jcc(MCond.notEqual, label: next)
+		rLoad(u, a: a, dst: rWork, base: rFrame, disp: routineArg)
+		rLoad(u, a: a, dst: rWork, base: rWork, disp: imm32Of(ir.tagOffset))
+		rCmpImm(u, a: a, left: rWork, imm: imm32Of(i))
+		rBranch(u, a: a, cond: MCond.notEqual, label: next)
 		for j in 0 upto payloadCount(ms.types, reads: p.types, owner: ty, caseIndex: i) 'payload'
 			let payloadTy = ast.payloadType(ms.types, reads: p.types, owner: ty, caseIndex: i, index: j)
 			if ast.isManagedType(ms.types, reads: p.types, t: payloadTy) 'managed'
-				dropWord(u, p: p, ms: ms, offset: ir.fieldOffset(j, tagged: true), ty: payloadTy)
+				dropWord(u, a: a, p: p, ms: ms, offset: ir.fieldOffset(j, tagged: true), ty: payloadTy)
 			end 'managed'
 		end 'payload'
-		u.asm.jmp(release)
+		rJump(u, a: a, label: release)
 		u.asm.bind(next)
 	end 'cases'
 	u.asm.bind(release)
-	freeArgument(u)
+	freeArgument(u, a: a)
 	u.asm.bind(done)
-	routineEpilogue(u)
+	routineEpilogue(u, a: a)
 end 'dropUnion'
 
 // wordColumns are the types of the words of an array box's buffer, which repeat in that order: an array's element, or a
@@ -585,119 +577,119 @@ function anyManagedColumn(tt ast.TypeSlot, reads ast.TypeTable, columns ast.Type
 	return false
 end 'anyManagedColumn'
 
-// wordAddress leaves in rcx the address of the word at an offset in words from the index the local at indexDisp holds, in
-// the buffer of the array box at boxDisp.
-function wordAddress(mutates u CodeUnit, boxDisp Imm32, indexDisp Imm32, offset Count)
-	u.asm.load(rcx, base: rbp, disp: boxDisp)
-	u.asm.load(rcx, base: rcx, disp: arrayDataOffset)
-	u.asm.load(rax, base: rbp, disp: indexDisp)
-	u.asm.movImm(rdx, imm: wordBytes)
-	u.asm.imul(rax, src: rdx)
-	u.asm.add(rcx, src: rax)
+// wordAddress leaves in second the address of the word at an offset in words from the index the local at indexDisp holds,
+// in the buffer of the array box at boxDisp.
+function wordAddress(mutates u CodeUnit, a ast.TargetArch, boxDisp Imm32, indexDisp Imm32, offset Count)
+	rLoad(u, a: a, dst: rSecond, base: rFrame, disp: boxDisp)
+	rLoad(u, a: a, dst: rSecond, base: rSecond, disp: arrayDataOffset)
+	rLoad(u, a: a, dst: rWork, base: rFrame, disp: indexDisp)
+	rMovImm(u, a: a, dst: rThird, imm: wordBytes)
+	rMul(u, a: a, dst: rWork, src: rThird)
+	rAdd(u, a: a, dst: rSecond, src: rWork)
 	if offset != 0 'offset'
-		u.asm.addImm(rcx, imm: imm32Of(try offset * wordBytes otherwise panic("a column past memory")))
+		rAddImm(u, a: a, dst: rSecond, imm: imm32Of(try offset * wordBytes otherwise panic("a column past memory")))
 	end 'offset'
 end 'wordAddress'
 
 // dropArray drops each element of an array, or each word of a buffer of groups, by its type, and then the
 // buffer and the header.
-function dropArray(mutates u CodeUnit, p ast.Project, mutates ms ast.ModuleState, ty ast.TypeID)
+function dropArray(mutates u CodeUnit, a ast.TargetArch, p ast.Project, mutates ms ast.ModuleState, ty ast.TypeID)
 	let done = u.asm.newLabel()
-	routinePrologue(u, locals: 1)
-	returnIfEmpty(u, done: done)
+	routinePrologue(u, a: a, locals: 1)
+	returnIfEmpty(u, a: a, done: done)
 	let columns = wordColumns(p, tt: ms.types, reads: p.types, ty: ty)
 	if columns.count() == 1 and ast.isPromiseType(ms.types, reads: p.types, t: columns[0]) 'promises'
-		cancelElements(u)
+		cancelElements(u, a: a)
 	end 'promises'
 	if anyManagedColumn(ms.types, reads: p.types, columns: columns) 'managed'
 		let top = u.asm.newLabel()
 		let out = u.asm.newLabel()
-		u.asm.bitXor(rax, src: rax)
-		u.asm.store(rbp, disp: routineLocal0, src: rax)
+		rZero(u, a: a, dst: rWork)
+		rStore(u, a: a, base: rFrame, disp: routineLocal0, src: rWork)
 		u.asm.bind(top)
-		u.asm.load(rcx, base: rbp, disp: routineArg)
-		u.asm.load(rdx, base: rcx, disp: arrayLengthOffset)
-		u.asm.load(rax, base: rbp, disp: routineLocal0)
-		u.asm.cmp(rax, right: rdx)
-		u.asm.jcc(MCond.aboveEqual, label: out)
+		rLoad(u, a: a, dst: rSecond, base: rFrame, disp: routineArg)
+		rLoad(u, a: a, dst: rThird, base: rSecond, disp: arrayLengthOffset)
+		rLoad(u, a: a, dst: rWork, base: rFrame, disp: routineLocal0)
+		rCmp(u, a: a, left: rWork, right: rThird)
+		rBranch(u, a: a, cond: MCond.aboveEqual, label: out)
 		for j in 0 upto columns.count() 'columns'
 			if ast.isManagedType(ms.types, reads: p.types, t: columns[j]) 'owning'
-				wordAddress(u, boxDisp: routineArg, indexDisp: routineLocal0, offset: j)
-				u.asm.load(rax, base: rcx, disp: 0)
-				routineCall(u, p: p, ms: ms, kind: RoutineKind.dropRoutine, ty: columns[j])
+				wordAddress(u, a: a, boxDisp: routineArg, indexDisp: routineLocal0, offset: j)
+				rLoad(u, a: a, dst: rWork, base: rSecond, disp: 0)
+				routineCall(u, a: a, p: p, ms: ms, kind: RoutineKind.dropRoutine, ty: columns[j])
 			end 'owning'
 		end 'columns'
-		u.asm.load(rax, base: rbp, disp: routineLocal0)
-		u.asm.addImm(rax, imm: imm32Of(columns.count()))
-		u.asm.store(rbp, disp: routineLocal0, src: rax)
-		u.asm.jmp(top)
+		rLoad(u, a: a, dst: rWork, base: rFrame, disp: routineLocal0)
+		rAddImm(u, a: a, dst: rWork, imm: imm32Of(columns.count()))
+		rStore(u, a: a, base: rFrame, disp: routineLocal0, src: rWork)
+		rJump(u, a: a, label: top)
 		u.asm.bind(out)
 	end 'managed'
-	u.asm.load(rcx, base: rbp, disp: routineArg)
-	u.asm.load(rax, base: rcx, disp: arrayDataOffset)
-	callRuntimeWithRax(u, entry: ir.Rt.rtFree)
-	freeArgument(u)
+	rLoad(u, a: a, dst: rSecond, base: rFrame, disp: routineArg)
+	rLoad(u, a: a, dst: rWork, base: rSecond, disp: arrayDataOffset)
+	callRuntimeWithWork(u, a: a, entry: ir.Rt.rtFree)
+	freeArgument(u, a: a)
 	u.asm.bind(done)
-	routineEpilogue(u)
+	routineEpilogue(u, a: a)
 end 'dropArray'
 
 // cancelElements cancels each promise an array holds, its address in the routine's argument, before the drop of any of
 // them waits for its coroutine: a coroutine that has not started then never starts, where the wait for one before it
 // would otherwise let it run. An element that a take left empty is skipped.
-function cancelElements(mutates u CodeUnit)
+function cancelElements(mutates u CodeUnit, a ast.TargetArch)
 	let top = u.asm.newLabel()
 	let next = u.asm.newLabel()
 	let out = u.asm.newLabel()
-	u.asm.bitXor(rax, src: rax)
-	u.asm.store(rbp, disp: routineLocal0, src: rax)
+	rZero(u, a: a, dst: rWork)
+	rStore(u, a: a, base: rFrame, disp: routineLocal0, src: rWork)
 	u.asm.bind(top)
-	u.asm.load(rcx, base: rbp, disp: routineArg)
-	u.asm.load(rdx, base: rcx, disp: arrayLengthOffset)
-	u.asm.load(rax, base: rbp, disp: routineLocal0)
-	u.asm.cmp(rax, right: rdx)
-	u.asm.jcc(MCond.aboveEqual, label: out)
-	u.asm.load(rcx, base: rcx, disp: arrayDataOffset)
-	u.asm.movImm(rdx, imm: wordBytes)
-	u.asm.imul(rax, src: rdx)
-	u.asm.add(rcx, src: rax)
-	u.asm.load(rax, base: rcx, disp: 0)
-	u.asm.test(rax, right: rax)
-	u.asm.jcc(MCond.equal, label: next)
-	callRuntimeWithRax(u, entry: ir.Rt.rtAsyncCancel)
+	rLoad(u, a: a, dst: rSecond, base: rFrame, disp: routineArg)
+	rLoad(u, a: a, dst: rThird, base: rSecond, disp: arrayLengthOffset)
+	rLoad(u, a: a, dst: rWork, base: rFrame, disp: routineLocal0)
+	rCmp(u, a: a, left: rWork, right: rThird)
+	rBranch(u, a: a, cond: MCond.aboveEqual, label: out)
+	rLoad(u, a: a, dst: rSecond, base: rSecond, disp: arrayDataOffset)
+	rMovImm(u, a: a, dst: rThird, imm: wordBytes)
+	rMul(u, a: a, dst: rWork, src: rThird)
+	rAdd(u, a: a, dst: rSecond, src: rWork)
+	rLoad(u, a: a, dst: rWork, base: rSecond, disp: 0)
+	rTest(u, a: a, left: rWork, right: rWork)
+	rBranch(u, a: a, cond: MCond.equal, label: next)
+	callRuntimeWithWork(u, a: a, entry: ir.Rt.rtAsyncCancel)
 	u.asm.bind(next)
-	u.asm.load(rax, base: rbp, disp: routineLocal0)
-	u.asm.addImm(rax, imm: 1)
-	u.asm.store(rbp, disp: routineLocal0, src: rax)
-	u.asm.jmp(top)
+	rLoad(u, a: a, dst: rWork, base: rFrame, disp: routineLocal0)
+	rAddImm(u, a: a, dst: rWork, imm: 1)
+	rStore(u, a: a, base: rFrame, disp: routineLocal0, src: rWork)
+	rJump(u, a: a, label: top)
 	u.asm.bind(out)
 end 'cancelElements'
 
 // dropClosure lets go of one of the function values that share a closure: the last one drops what the closure owns, by the
 // routine the closure holds, and frees the box.
-function dropClosure(mutates u CodeUnit)
+function dropClosure(mutates u CodeUnit, a ast.TargetArch)
 	let done = u.asm.newLabel()
 	let release = u.asm.newLabel()
-	routinePrologue(u, locals: 0)
-	returnIfEmpty(u, done: done)
-	leaveUnlessLast(u, countOffset: closureCountOffset, done: done)
-	u.asm.load(argWord(), base: rbp, disp: routineArg)
-	u.asm.load(rax, base: argWord(), disp: imm32Of(closureDropOffset))
-	u.asm.test(rax, right: rax)
-	u.asm.jcc(MCond.equal, label: release)
-	u.asm.callRegister(rax)
+	routinePrologue(u, a: a, locals: 0)
+	returnIfEmpty(u, a: a, done: done)
+	leaveUnlessLast(u, a: a, countOffset: closureCountOffset, done: done)
+	rLoad(u, a: a, dst: rArg, base: rFrame, disp: routineArg)
+	rLoad(u, a: a, dst: rWork, base: rArg, disp: imm32Of(closureDropOffset))
+	rTest(u, a: a, left: rWork, right: rWork)
+	rBranch(u, a: a, cond: MCond.equal, label: release)
+	rCallRegister(u, a: a, reg: rWork)
 	u.asm.bind(release)
-	freeArgument(u)
+	freeArgument(u, a: a)
 	u.asm.bind(done)
-	routineEpilogue(u)
+	routineEpilogue(u, a: a)
 end 'dropClosure'
 
 // leaveUnlessLast lets go of one owner of the box that the argument is, and jumps to done unless it was the last.
-function leaveUnlessLast(mutates u CodeUnit, countOffset Count, done LabelID)
-	u.asm.load(rcx, base: rbp, disp: routineArg)
-	u.asm.movImm(rax, imm: ownerLeaves)
-	u.asm.lockXadd(rcx, disp: imm32Of(countOffset), src: rax)
-	u.asm.cmpImm(rax, imm: lastOwner)
-	u.asm.jcc(MCond.notEqual, label: done)
+function leaveUnlessLast(mutates u CodeUnit, a ast.TargetArch, countOffset Count, done LabelID)
+	rLoad(u, a: a, dst: rSecond, base: rFrame, disp: routineArg)
+	rMovImm(u, a: a, dst: rWork, imm: ownerLeaves)
+	rLockAdd(u, a: a, base: rSecond, disp: imm32Of(countOffset), src: rWork)
+	rCmpImm(u, a: a, left: rWork, imm: lastOwner)
+	rBranch(u, a: a, cond: MCond.notEqual, label: done)
 end 'leaveUnlessLast'
 
 // heldType is the type of what a frozen value or a cown holds.
@@ -707,95 +699,96 @@ end 'heldType'
 
 // dropFrozen lets go of one owner of a frozen value: the last frees the box and then drops what it held, in the order
 // the interpreter frees them.
-function dropFrozen(mutates u CodeUnit, p ast.Project, mutates ms ast.ModuleState, ty ast.TypeID)
+function dropFrozen(mutates u CodeUnit, a ast.TargetArch, p ast.Project, mutates ms ast.ModuleState, ty ast.TypeID)
 	let done = u.asm.newLabel()
-	routinePrologue(u, locals: 1)
-	returnIfEmpty(u, done: done)
-	leaveUnlessLast(u, countOffset: frozenCountOffset, done: done)
-	u.asm.load(rax, base: rcx, disp: imm32Of(frozenValueOffset))
-	u.asm.store(rbp, disp: routineLocal0, src: rax)
-	freeArgument(u)
+	routinePrologue(u, a: a, locals: 1)
+	returnIfEmpty(u, a: a, done: done)
+	leaveUnlessLast(u, a: a, countOffset: frozenCountOffset, done: done)
+	rLoad(u, a: a, dst: rWork, base: rSecond, disp: imm32Of(frozenValueOffset))
+	rStore(u, a: a, base: rFrame, disp: routineLocal0, src: rWork)
+	freeArgument(u, a: a)
 	let held = heldType(ms.types, reads: p.types, owner: ty)
 	if ast.isManagedType(ms.types, reads: p.types, t: held) 'managed'
-		u.asm.load(rax, base: rbp, disp: routineLocal0)
-		routineCall(u, p: p, ms: ms, kind: RoutineKind.dropRoutine, ty: held)
+		rLoad(u, a: a, dst: rWork, base: rFrame, disp: routineLocal0)
+		routineCall(u, a: a, p: p, ms: ms, kind: RoutineKind.dropRoutine, ty: held)
 	end 'managed'
 	u.asm.bind(done)
-	routineEpilogue(u)
+	routineEpilogue(u, a: a)
 end 'dropFrozen'
 
 // dropCown lets go of one owner of a cown: the last frees the cown and then ends its value, with the destructor it was
 // made with or else by the drop of the value's type, in the order the interpreter frees them. A destructor is given only
 // a value that is there.
-function dropCown(mutates u CodeUnit, p ast.Project, mutates ms ast.ModuleState, ty ast.TypeID)
+function dropCown(mutates u CodeUnit, a ast.TargetArch, p ast.Project, mutates ms ast.ModuleState, ty ast.TypeID)
 	let done = u.asm.newLabel()
 	let dropped = u.asm.newLabel()
-	routinePrologue(u, locals: 2)
-	returnIfEmpty(u, done: done)
-	leaveUnlessLast(u, countOffset: cownCountOffset, done: done)
-	u.asm.load(rax, base: rcx, disp: imm32Of(cownValueOffset))
-	u.asm.store(rbp, disp: routineLocal0, src: rax)
-	u.asm.load(rax, base: rcx, disp: imm32Of(cownEndingOffset))
-	u.asm.store(rbp, disp: routineLocal1, src: rax)
-	freeArgument(u)
-	u.asm.load(rax, base: rbp, disp: routineLocal1)
-	u.asm.test(rax, right: rax)
-	u.asm.jcc(MCond.equal, label: dropped)
-	u.asm.load(argWord(), base: rbp, disp: routineLocal0)
-	u.asm.test(argWord(), right: argWord())
-	u.asm.jcc(MCond.equal, label: done)
-	u.asm.callRegister(rax)
-	u.asm.jmp(done)
+	routinePrologue(u, a: a, locals: 2)
+	returnIfEmpty(u, a: a, done: done)
+	leaveUnlessLast(u, a: a, countOffset: cownCountOffset, done: done)
+	rLoad(u, a: a, dst: rWork, base: rSecond, disp: imm32Of(cownValueOffset))
+	rStore(u, a: a, base: rFrame, disp: routineLocal0, src: rWork)
+	rLoad(u, a: a, dst: rWork, base: rSecond, disp: imm32Of(cownEndingOffset))
+	rStore(u, a: a, base: rFrame, disp: routineLocal1, src: rWork)
+	freeArgument(u, a: a)
+	rLoad(u, a: a, dst: rWork, base: rFrame, disp: routineLocal1)
+	rTest(u, a: a, left: rWork, right: rWork)
+	rBranch(u, a: a, cond: MCond.equal, label: dropped)
+	rLoad(u, a: a, dst: rArg, base: rFrame, disp: routineLocal0)
+	rTest(u, a: a, left: rArg, right: rArg)
+	rBranch(u, a: a, cond: MCond.equal, label: done)
+	rCallRegister(u, a: a, reg: rWork)
+	rJump(u, a: a, label: done)
 	u.asm.bind(dropped)
 	let held = heldType(ms.types, reads: p.types, owner: ty)
 	if ast.isManagedType(ms.types, reads: p.types, t: held) 'managed'
-		u.asm.load(rax, base: rbp, disp: routineLocal0)
-		routineCall(u, p: p, ms: ms, kind: RoutineKind.dropRoutine, ty: held)
+		rLoad(u, a: a, dst: rWork, base: rFrame, disp: routineLocal0)
+		routineCall(u, a: a, p: p, ms: ms, kind: RoutineKind.dropRoutine, ty: held)
 	end 'managed'
 	u.asm.bind(done)
-	routineEpilogue(u)
+	routineEpilogue(u, a: a)
 end 'dropCown'
 
-// tableEntryAddress puts in rax the address of an entry of the table of the interface value that rcx is.
-function tableEntryAddress(mutates u CodeUnit, entry Count)
-	u.asm.load(rax, base: rcx, disp: imm32Of(ifaceTableOffset))
-	u.asm.addImm(rax, imm: imm32Of(try entry * tableEntryBytes otherwise panic("routines: a table past memory")))
+// tableEntryAddress puts in the work register the address of an entry of the table of the interface value that the second
+// register is.
+function tableEntryAddress(mutates u CodeUnit, a ast.TargetArch, entry Count)
+	rLoad(u, a: a, dst: rWork, base: rSecond, disp: imm32Of(ifaceTableOffset))
+	rAddImm(u, a: a, dst: rWork, imm: imm32Of(try entry * tableEntrySize(a) otherwise panic("routines: a table past memory")))
 end 'tableEntryAddress'
 
 // dropInterfaceValue drops the value the box holds by the entry of its table that drops it, and frees the box. Every
 // interface type has this one routine, since the table knows the type of the value.
-function dropInterfaceValue(mutates u CodeUnit)
+function dropInterfaceValue(mutates u CodeUnit, a ast.TargetArch)
 	let done = u.asm.newLabel()
-	routinePrologue(u, locals: 0)
-	returnIfEmpty(u, done: done)
-	u.asm.load(rcx, base: rbp, disp: routineArg)
-	u.asm.load(rdx, base: rcx, disp: imm32Of(ifaceValueOffset))
-	tableEntryAddress(u, entry: tableDropEntry)
-	u.asm.mov(argWord(), src: rdx)
-	u.asm.callRegister(rax)
-	freeArgument(u)
+	routinePrologue(u, a: a, locals: 0)
+	returnIfEmpty(u, a: a, done: done)
+	rLoad(u, a: a, dst: rSecond, base: rFrame, disp: routineArg)
+	rLoad(u, a: a, dst: rThird, base: rSecond, disp: imm32Of(ifaceValueOffset))
+	tableEntryAddress(u, a: a, entry: tableDropEntry)
+	rMov(u, a: a, dst: rArg, src: rThird)
+	rCallRegister(u, a: a, reg: rWork)
+	freeArgument(u, a: a)
 	u.asm.bind(done)
-	routineEpilogue(u)
+	routineEpilogue(u, a: a)
 end 'dropInterfaceValue'
 
 // copyInterfaceValue is a new box of the same table and a copy of the value, which the entry of the table that copies it
 // makes.
-function copyInterfaceValue(mutates u CodeUnit)
-	routinePrologue(u, locals: 1)
-	allocate(u, bytes: ifaceBoxBytes)
-	u.asm.store(rbp, disp: routineLocal0, src: rax)
-	u.asm.load(rcx, base: rbp, disp: routineArg)
-	u.asm.load(rdx, base: rcx, disp: imm32Of(ifaceTableOffset))
-	u.asm.store(rax, disp: imm32Of(ifaceTableOffset), src: rdx)
-	u.asm.load(rdx, base: rcx, disp: imm32Of(ifaceValueOffset))
-	tableEntryAddress(u, entry: tableCopyEntry)
-	u.asm.mov(argWord(), src: rdx)
-	u.asm.callRegister(rax)
-	takeResult(u)
-	u.asm.load(rcx, base: rbp, disp: routineLocal0)
-	u.asm.store(rcx, disp: imm32Of(ifaceValueOffset), src: rax)
-	u.asm.mov(rax, src: rcx)
-	routineReturn(u)
+function copyInterfaceValue(mutates u CodeUnit, a ast.TargetArch)
+	routinePrologue(u, a: a, locals: 1)
+	allocate(u, a: a, bytes: ifaceBoxBytes)
+	rStore(u, a: a, base: rFrame, disp: routineLocal0, src: rWork)
+	rLoad(u, a: a, dst: rSecond, base: rFrame, disp: routineArg)
+	rLoad(u, a: a, dst: rThird, base: rSecond, disp: imm32Of(ifaceTableOffset))
+	rStore(u, a: a, base: rWork, disp: imm32Of(ifaceTableOffset), src: rThird)
+	rLoad(u, a: a, dst: rThird, base: rSecond, disp: imm32Of(ifaceValueOffset))
+	tableEntryAddress(u, a: a, entry: tableCopyEntry)
+	rMov(u, a: a, dst: rArg, src: rThird)
+	rCallRegister(u, a: a, reg: rWork)
+	takeResult(u, a: a)
+	rLoad(u, a: a, dst: rSecond, base: rFrame, disp: routineLocal0)
+	rStore(u, a: a, base: rSecond, disp: imm32Of(ifaceValueOffset), src: rWork)
+	rMov(u, a: a, dst: rWork, src: rSecond)
+	routineReturn(u, a: a)
 end 'copyInterfaceValue'
 
 // emitTable writes the table of an interface value, a section of code of an entry for each of its routines and methods:
@@ -809,71 +802,75 @@ export function typeNameSymbol(p ast.Project, ms ast.ModuleState, t ast.TypeID) 
 end 'typeNameSymbol'
 
 export function emitTable(mutates u CodeUnit, p ast.Project, mutates ms ast.ModuleState, t ir.WitnessTable, typeSymbol String)
+	let a = p.target.arch
 	u.beginSection()
 	u.defineFunction(t.symbol, instance: true)
 	let managed = ast.isManagedType(ms.types, reads: p.types, t: t.concrete)
 	var start = u.asm.pos()
 	if managed 'drop'
-		u.asm.jmpSymbol(u.needed.symbol(p, ms: ms, kind: RoutineKind.dropRoutine, ty: t.concrete))
+		let drop = u.needed.symbol(p, ms: ms, kind: RoutineKind.dropRoutine, ty: t.concrete)
+		rJumpSymbol(u, a: a, symbol: drop)
 	end 'drop' else 'nothing'
-		u.asm.ret()
+		rRet(u, a: a)
 	end 'nothing'
-	padEntry(u, start: start)
+	padEntry(u, a: a, start: start)
 	start = u.asm.pos()
 	if not ast.reachesInterface(ms.types, reads: p.types, have: t.iface, want: p.builtins.copyableTy) 'uncopied'
-		u.asm.ud2()
+		rTrap(u, a: a)
 	end 'uncopied' else if managed 'copy'
-		u.asm.jmpSymbol(u.needed.symbol(p, ms: ms, kind: RoutineKind.copyRoutine, ty: t.concrete))
+		let copy = u.needed.symbol(p, ms: ms, kind: RoutineKind.copyRoutine, ty: t.concrete)
+		rJumpSymbol(u, a: a, symbol: copy)
 	end 'copy' else 'same'
-		u.asm.mov(resultWord(), src: argWord())
-		u.asm.ret()
+		rMov(u, a: a, dst: rResult, src: rArg)
+		rRet(u, a: a)
 	end 'same'
-	padEntry(u, start: start)
+	padEntry(u, a: a, start: start)
 	start = u.asm.pos()
-	u.asm.leaSymbol(resultWord(), symbol: typeSymbol)
-	u.asm.ret()
-	padEntry(u, start: start)
+	rAddress(u, a: a, dst: rResult, symbol: typeSymbol)
+	rRet(u, a: a)
+	padEntry(u, a: a, start: start)
 	for i in 0 upto t.methods.count() 'methods'
 		start = u.asm.pos()
-		u.asm.jmpSymbol(ast.funcLinkNameIn(p, tt: ms.types, reads: p.types, ft: ms.funcs, funcReads: p.funcs, fid: t.methods[i]))
-		padEntry(u, start: start)
+		rJumpSymbol(u, a: a, symbol: ast.funcLinkNameIn(p, tt: ms.types, reads: p.types, ft: ms.funcs, funcReads: p.funcs, fid: t.methods[i]))
+		padEntry(u, a: a, start: start)
 	end 'methods'
 end 'emitTable'
 
 // padEntry fills an entry of a table that started at start up to tableEntryBytes with returns, which no code
 // reaches.
-function padEntry(mutates u CodeUnit, start Count)
-	let finish = try start + tableEntryBytes otherwise panic("routines: a table past memory")
+function padEntry(mutates u CodeUnit, a ast.TargetArch, start Count)
+	let finish = try start + tableEntrySize(a) otherwise panic("routines: a table past memory")
 	if u.asm.pos() > finish 'long'
-		panic("routines: an entry of a table is longer than tableEntryBytes")
+		panic("routines: an entry of a table is longer than tableEntrySize")
 	end 'long'
 	while u.asm.pos() < finish 'pad'
-		u.asm.ret()
+		rRet(u, a: a)
 	end 'pad'
 end 'padEntry'
 
 // copyShared is another owner of a box that its owners share, a closure, a frozen value or a cown: the same box, with its
 // count raised by 1.
-function copyShared(mutates u CodeUnit, countOffset Count)
-	routinePrologue(u, locals: 0)
-	u.asm.load(rax, base: rbp, disp: routineArg)
-	u.asm.movImm(rcx, imm: ownerJoins)
-	u.asm.lockXadd(rax, disp: imm32Of(countOffset), src: rcx)
-	routineReturn(u)
+function copyShared(mutates u CodeUnit, a ast.TargetArch, countOffset Count)
+	routinePrologue(u, a: a, locals: 0)
+	rLoad(u, a: a, dst: rWork, base: rFrame, disp: routineArg)
+	rMovImm(u, a: a, dst: rSecond, imm: ownerJoins)
+	rLockAdd(u, a: a, base: rWork, disp: imm32Of(countOffset), src: rSecond)
+	routineReturn(u, a: a)
 end 'copyShared'
 
 // emitCaptureDrop writes the routine that drops what a closure of the body owns, which the last function value that shares
 // the closure calls before it frees the box.
 export function emitCaptureDrop(mutates u CodeUnit, p ast.Project, mutates ms ast.ModuleState, symbol String, body ir.IrFunction, instance bool)
+	let a = p.target.arch
 	u.beginSection()
 	u.defineFunction(symbol, instance: instance)
-	routinePrologue(u, locals: 0)
+	routinePrologue(u, a: a, locals: 0)
 	for i in 0 upto body.captureOwned.count() 'captures'
 		if body.captureOwned[i] 'owned'
-			dropWord(u, p: p, ms: ms, offset: try closureCapturesOffset + i * wordBytes otherwise panic("routines: a capture past memory"), ty: body.captureTypes[i])
+			dropWord(u, a: a, p: p, ms: ms, offset: try closureCapturesOffset + i * wordBytes otherwise panic("routines: a capture past memory"), ty: body.captureTypes[i])
 		end 'owned'
 	end 'captures'
-	routineEpilogue(u)
+	routineEpilogue(u, a: a)
 end 'emitCaptureDrop'
 
 // emitBehaviourThunk writes the thunk that the scheduler runs a behaviour's record with, once the behaviour holds every
@@ -883,48 +880,46 @@ end 'emitCaptureDrop'
 // hold on each cown, in source order as the interpreter does, which may end a cown and run its destructor on this
 // thread; and frees the record. The scheduler counts the behaviour finished when the thunk returns.
 export function emitBehaviourThunk(mutates u CodeUnit, p ast.Project, mutates ms ast.ModuleState, symbol String, body ir.IrFunction, bodySymbol String, instance bool)
+	let a = p.target.arch
 	let cowns = body.cownTypes.count()
 	let start = behaviourWordsOffset(cowns)
 	u.beginSection()
 	u.defineFunction(symbol, instance: instance)
-	routinePrologue(u, locals: 0)
-	let inRegisters = internalArgsInRegisters(body.paramCount)
-	let scratch = regMaskOf(thunkBase) or regMaskOf(thunkWord)
-	if (scratch and (internalArgRegs(inRegisters) or not x64InternalCallerSaved())) != 0 'scratch'
-		panic("routines: a thunk's scratch register passes an argument or is one a call keeps")
-	end 'scratch'
-	u.asm.load(thunkBase, base: rbp, disp: routineArg)
+	routinePrologue(u, a: a, locals: 0)
+	let inRegisters = rInternalArgsInRegisters(a, count: body.paramCount)
+	requireThunkScratch(a, count: body.paramCount)
+	rLoad(u, a: a, dst: rThunkBase, base: rFrame, disp: routineArg)
+	let pushed = try body.paramCount - inRegisters otherwise panic("routines: more arguments in registers than a body takes")
+	rOpenArgs(u, a: a, count: pushed)
 	var w = body.paramCount
 	while w > inRegisters 'stack'
 		w = prevCount(w)
-		loadBehaviourWord(u, into: thunkWord, start: start, index: w, cowns: cowns)
-		u.asm.push(thunkWord)
+		loadBehaviourWord(u, a: a, start: start, index: w, cowns: cowns)
+		rPassArg(u, a: a, slot: try w - inRegisters otherwise panic("routines: a word on the stack below the registers"), src: rThunkWord)
 	end 'stack'
 	for i in 0 upto inRegisters 'registers'
-		loadBehaviourWord(u, into: x64InternalArg(i), start: start, index: i, cowns: cowns)
+		loadBehaviourArg(u, a: a, start: start, index: i, cowns: cowns)
 	end 'registers'
-	u.asm.callSymbol(bodySymbol)
-	let pushed = try body.paramCount - inRegisters otherwise panic("routines: more arguments in registers than a body takes")
-	if pushed > 0 'pop'
-		u.asm.addImm(rsp, imm: imm32Of(try pushed * wordBytes otherwise panic("routines: a behaviour past memory")))
-	end 'pop'
-	u.asm.load(rax, base: rbp, disp: routineArg)
-	callRuntimeWithRax(u, entry: ir.Rt.rtCownRelease)
+	rCallSymbol(u, a: a, symbol: bodySymbol)
+	rCloseArgs(u, a: a, count: pushed)
+	rLoad(u, a: a, dst: rWork, base: rFrame, disp: routineArg)
+	callRuntimeWithWork(u, a: a, entry: ir.Rt.rtCownRelease)
 	for i in 0 upto cowns 'holds'
-		u.asm.load(rcx, base: rbp, disp: routineArg)
-		u.asm.load(rax, base: rcx, disp: imm32Of(try start + i * wordBytes otherwise panic("routines: a behaviour past memory")))
-		routineCall(u, p: p, ms: ms, kind: RoutineKind.dropRoutine, ty: body.cownTypes[i])
+		rLoad(u, a: a, dst: rSecond, base: rFrame, disp: routineArg)
+		rLoad(u, a: a, dst: rWork, base: rSecond, disp: imm32Of(try start + i * wordBytes otherwise panic("routines: a behaviour past memory")))
+		routineCall(u, a: a, p: p, ms: ms, kind: RoutineKind.dropRoutine, ty: body.cownTypes[i])
 	end 'holds'
-	freeArgument(u)
-	routineEpilogue(u)
+	freeArgument(u, a: a)
+	routineEpilogue(u, a: a)
 end 'emitBehaviourThunk'
 
 // emitAsyncThunk writes the thunk a coroutine runs, which greenMain calls with the coroutine by the internal convention: it
 // calls the function an async call starts with the coroutine's argument words, each in the place the convention passes
-// its parameter in (a float's bits in an xmm register), keeps what the function failed with in the coroutine for the
+// its parameter in (a float's bits in a vector register), keeps what the function failed with in the coroutine for the
 // await, and gives back what it returned as a word, a float's bits among them. Every unit that starts the function writes
 // it, and the link keeps one, as it does an instance.
 export function emitAsyncThunk(mutates u CodeUnit, p ast.Project, mutates ms ast.ModuleState, symbol String, callee ast.FuncID, calleeSymbol String)
+	let a = p.target.arch
 	let params = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: callee).params.count()
 	let fails = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: callee).errTy != ast.noType
 	let sig = ir.funcSignature(p, ms: ms, fid: callee)
@@ -934,70 +929,60 @@ export function emitAsyncThunk(mutates u CodeUnit, p ast.Project, mutates ms ast
 		floats.push(ir.isFloatAt(sig.args, place: i))
 	end 'floats'
 	var places = CountList.create(0)
-	let stacked = placeArgs(floats, places: places)
+	let stacked = rPlaceArgs(a, floats: floats, places: places)
 	u.beginSection()
 	u.defineFunction(symbol, instance: true)
-	routinePrologue(u, locals: 0)
-	let scratch = regMaskOf(thunkBase) or regMaskOf(thunkWord)
-	if (scratch and (internalArgRegs(internalArgsInRegisters(params)) or not x64InternalCallerSaved())) != 0 'scratch'
-		panic("routines: a thunk's scratch register passes an argument or is one a call keeps")
-	end 'scratch'
+	routinePrologue(u, a: a, locals: 0)
+	requireThunkScratch(a, count: params)
 	let skip = u.asm.newLabel()
 	let join = u.asm.newLabel()
-	u.asm.load(thunkBase, base: rbp, disp: routineArg)
-	u.asm.load(thunkWord, base: thunkBase, disp: imm32Of(greenCancelOffset))
-	u.asm.test(thunkWord, right: thunkWord)
-	u.asm.jcc(MCond.notEqual, label: skip)
+	rLoad(u, a: a, dst: rThunkBase, base: rFrame, disp: routineArg)
+	rLoad(u, a: a, dst: rThunkWord, base: rThunkBase, disp: imm32Of(greenCancelOffset))
+	rTest(u, a: a, left: rThunkWord, right: rThunkWord)
+	rBranch(u, a: a, cond: MCond.notEqual, label: skip)
+	rOpenArgs(u, a: a, count: stacked)
 	var w = params
 	while w > 0 'stack'
 		w = prevCount(w)
-		if isStackPlace(places[w]) 'pushed'
-			u.asm.load(thunkWord, base: thunkBase, disp: coroutineWordDisp(w))
-			u.asm.push(thunkWord)
+		if rIsStackPlace(a, place: places[w]) 'pushed'
+			rLoad(u, a: a, dst: rThunkWord, base: rThunkBase, disp: coroutineWordDisp(w))
+			rPassArg(u, a: a, slot: rStackSlotOf(a, place: places[w]), src: rThunkWord)
 		end 'pushed'
 	end 'stack'
 	for i in 0 upto params 'registers'
-		if isStackPlace(places[i]) 'onStack'
-			continue 'registers'
-		end 'onStack'
-		let number = try places[i] as RegNum otherwise panic("routines: a place past the register file")
-		if floats[i] 'vector'
-			u.asm.loadFloatWord(x64RegisterOf(try (number - x64FirstVector) as RegNum otherwise panic("routines: a float in a general register")), base: thunkBase, disp: coroutineWordDisp(i))
-		end 'vector' else 'word'
-			u.asm.load(x64RegisterOf(number), base: thunkBase, disp: coroutineWordDisp(i))
-		end 'word'
+		if not rIsStackPlace(a, place: places[i]) 'inRegister'
+			rLoadPlace(u, a: a, place: places[i], float: floats[i], base: rThunkBase, disp: coroutineWordDisp(i))
+		end 'inRegister'
 	end 'registers'
-	u.asm.callSymbol(calleeSymbol)
-	if stacked > 0 'pop'
-		u.asm.addImm(rsp, imm: imm32Of(try stacked * wordBytes otherwise panic("routines: a coroutine past memory")))
-	end 'pop'
+	rCallSymbol(u, a: a, symbol: calleeSymbol)
+	rCloseArgs(u, a: a, count: stacked)
 	if sig.result 'floatResult'
-		u.asm.moveFromVector(resultWord(), src: x64RegisterOf(try (x64InternalFloatResult - x64FirstVector) as RegNum otherwise panic("routines: a float result in a general register")))
+		rResultFromFloat(u, a: a)
 	end 'floatResult'
-	u.asm.jmp(join)
+	rJump(u, a: a, label: join)
 	u.asm.bind(skip)
-	dropOwnedArguments(u, p: p, ms: ms, callee: callee)
-	u.asm.movImm(resultWord(), imm: 0)
-	u.asm.movImm(x64InternalError, imm: 0)
+	dropOwnedArguments(u, a: a, p: p, ms: ms, callee: callee)
+	rMovImm(u, a: a, dst: rResult, imm: 0)
+	rMovImm(u, a: a, dst: rError, imm: 0)
 	u.asm.bind(join)
 	if fails 'fails'
-		u.asm.load(thunkBase, base: rbp, disp: routineArg)
-		u.asm.store(thunkBase, disp: imm32Of(greenErrorOffset), src: x64InternalError)
+		rLoad(u, a: a, dst: rThunkBase, base: rFrame, disp: routineArg)
+		rStore(u, a: a, base: rThunkBase, disp: imm32Of(greenErrorOffset), src: rError)
 	end 'fails'
-	routineEpilogue(u)
+	routineEpilogue(u, a: a)
 end 'emitAsyncThunk'
 
 // dropOwnedArguments drops, for a coroutine whose promise was cancelled before it started, the arguments its function would
 // have owned: what a consumes parameter took. The rest the caller lent, and keeps.
-function dropOwnedArguments(mutates u CodeUnit, p ast.Project, mutates ms ast.ModuleState, callee ast.FuncID)
+function dropOwnedArguments(mutates u CodeUnit, a ast.TargetArch, p ast.Project, mutates ms ast.ModuleState, callee ast.FuncID)
 	let params = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: callee).params.count()
 	for i in 0 upto params 'params'
 		let conv = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: callee).params[i].conv
 		let ty = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: callee).paramTypes[i]
 		if (conv == ast.Convention.convConsumes or conv == ast.Convention.convDestructs) and ast.isManagedType(ms.types, reads: p.types, t: ty) 'owned'
-			u.asm.load(thunkBase, base: rbp, disp: routineArg)
-			u.asm.load(rax, base: thunkBase, disp: coroutineWordDisp(i))
-			routineCall(u, p: p, ms: ms, kind: RoutineKind.dropRoutine, ty: ty)
+			rLoad(u, a: a, dst: rThunkBase, base: rFrame, disp: routineArg)
+			rLoad(u, a: a, dst: rWork, base: rThunkBase, disp: coroutineWordDisp(i))
+			routineCall(u, a: a, p: p, ms: ms, kind: RoutineKind.dropRoutine, ty: ty)
 		end 'owned'
 	end 'params'
 end 'dropOwnedArguments'
@@ -1010,217 +995,231 @@ function coroutineWordDisp(index Count) returns Imm32
 	return imm32Of(try greenArgsOffset + index * wordBytes otherwise panic("routines: a coroutine past memory"))
 end 'coroutineWordDisp'
 
-// loadBehaviourWord loads into a register the word of a behaviour's record, which thunkBase holds, that is the body's
-// argument at index: the address of the value of each cown, and then each capture.
-function loadBehaviourWord(mutates u CodeUnit, into X64Register, start Count, index Count, cowns Count)
-	u.asm.load(into, base: thunkBase, disp: imm32Of(try start + index * wordBytes otherwise panic("routines: a behaviour past memory")))
+// loadBehaviourWord loads into thunkWord the word of a behaviour's record, which thunkBase holds, that is the body's
+// argument at index, which the body takes on the stack: the address of the value of each cown, and then each capture.
+function loadBehaviourWord(mutates u CodeUnit, a ast.TargetArch, start Count, index Count, cowns Count)
+	rLoad(u, a: a, dst: rThunkWord, base: rThunkBase, disp: behaviourWordDisp(start, index: index))
 	if index < cowns 'cown'
-		u.asm.addImm(into, imm: imm32Of(cownValueOffset))
+		rAddImm(u, a: a, dst: rThunkWord, imm: imm32Of(cownValueOffset))
 	end 'cown'
 end 'loadBehaviourWord'
 
+// loadBehaviourArg loads the word of a behaviour's record at index into the register the body takes it in, its word
+// argument of the same index.
+function loadBehaviourArg(mutates u CodeUnit, a ast.TargetArch, start Count, index Count, cowns Count)
+	rLoadArgWord(u, a: a, index: index, base: rThunkBase, disp: behaviourWordDisp(start, index: index))
+	if index < cowns 'cown'
+		rAddImmArg(u, a: a, index: index, imm: imm32Of(cownValueOffset))
+	end 'cown'
+end 'loadBehaviourArg'
+
+// behaviourWordDisp is where a behaviour's record holds the word of its body's argument at index.
+function behaviourWordDisp(start Count, index Count) returns Imm32
+	return imm32Of(try start + index * wordBytes otherwise panic("routines: a behaviour past memory"))
+end 'behaviourWordDisp'
+
 // jumpIfImmortal jumps when the string that the argument is lives in the executable's data section, which no one frees:
 // its address is between the bounds the linker defines. A string on the heap is never there.
-function jumpIfImmortal(mutates u CodeUnit, target LabelID)
-	u.asm.load(rax, base: rbp, disp: routineArg)
-	u.asm.leaSymbol(rcx, symbol: ir.rtSymbol(ir.Rt.rtImageDataStart))
-	u.asm.sub(rax, src: rcx)
-	u.asm.leaSymbol(rdx, symbol: ir.rtSymbol(ir.Rt.rtImageDataEnd))
-	u.asm.sub(rdx, src: rcx)
-	u.asm.cmp(rax, right: rdx)
-	u.asm.jcc(MCond.below, label: target)
+function jumpIfImmortal(mutates u CodeUnit, a ast.TargetArch, target LabelID)
+	rLoad(u, a: a, dst: rWork, base: rFrame, disp: routineArg)
+	rAddress(u, a: a, dst: rSecond, symbol: ir.rtSymbol(ir.Rt.rtImageDataStart))
+	rSub(u, a: a, dst: rWork, src: rSecond)
+	rAddress(u, a: a, dst: rThird, symbol: ir.rtSymbol(ir.Rt.rtImageDataEnd))
+	rSub(u, a: a, dst: rThird, src: rSecond)
+	rCmp(u, a: a, left: rWork, right: rThird)
+	rBranch(u, a: a, cond: MCond.below, label: target)
 end 'jumpIfImmortal'
 
-function dropString(mutates u CodeUnit)
+function dropString(mutates u CodeUnit, a ast.TargetArch)
 	let done = u.asm.newLabel()
-	routinePrologue(u, locals: 0)
-	returnIfEmpty(u, done: done)
-	jumpIfImmortal(u, target: done)
-	freeArgument(u)
+	routinePrologue(u, a: a, locals: 0)
+	returnIfEmpty(u, a: a, done: done)
+	jumpIfImmortal(u, a: a, target: done)
+	freeArgument(u, a: a)
 	u.asm.bind(done)
-	routineEpilogue(u)
+	routineEpilogue(u, a: a)
 end 'dropString'
 
-function dropBytes(mutates u CodeUnit)
+function dropBytes(mutates u CodeUnit, a ast.TargetArch)
 	let done = u.asm.newLabel()
-	routinePrologue(u, locals: 0)
-	returnIfEmpty(u, done: done)
-	u.asm.load(rcx, base: rbp, disp: routineArg)
-	u.asm.load(rax, base: rcx, disp: arrayDataOffset)
-	callRuntimeWithRax(u, entry: ir.Rt.rtFree)
-	freeArgument(u)
+	routinePrologue(u, a: a, locals: 0)
+	returnIfEmpty(u, a: a, done: done)
+	rLoad(u, a: a, dst: rSecond, base: rFrame, disp: routineArg)
+	rLoad(u, a: a, dst: rWork, base: rSecond, disp: arrayDataOffset)
+	callRuntimeWithWork(u, a: a, entry: ir.Rt.rtFree)
+	freeArgument(u, a: a)
 	u.asm.bind(done)
-	routineEpilogue(u)
+	routineEpilogue(u, a: a)
 end 'dropBytes'
 
 // copyWord copies the word at an offset of the box that the argument is into the same offset of the new box, which is
 // the first local: a managed word is copied by the routine of its type.
-function copyWord(mutates u CodeUnit, p ast.Project, mutates ms ast.ModuleState, offset Count, ty ast.TypeID)
-	u.asm.load(rcx, base: rbp, disp: routineArg)
-	u.asm.load(rax, base: rcx, disp: imm32Of(offset))
+function copyWord(mutates u CodeUnit, a ast.TargetArch, p ast.Project, mutates ms ast.ModuleState, offset Count, ty ast.TypeID)
+	rLoad(u, a: a, dst: rSecond, base: rFrame, disp: routineArg)
+	rLoad(u, a: a, dst: rWork, base: rSecond, disp: imm32Of(offset))
 	if ast.isManagedType(ms.types, reads: p.types, t: ty) 'managed'
-		routineCall(u, p: p, ms: ms, kind: RoutineKind.copyRoutine, ty: ty)
+		routineCall(u, a: a, p: p, ms: ms, kind: RoutineKind.copyRoutine, ty: ty)
 	end 'managed'
-	u.asm.load(rcx, base: rbp, disp: routineLocal0)
-	u.asm.store(rcx, disp: imm32Of(offset), src: rax)
+	rLoad(u, a: a, dst: rSecond, base: rFrame, disp: routineLocal0)
+	rStore(u, a: a, base: rSecond, disp: imm32Of(offset), src: rWork)
 end 'copyWord'
 
-function copyRecord(mutates u CodeUnit, p ast.Project, mutates ms ast.ModuleState, ty ast.TypeID)
+function copyRecord(mutates u CodeUnit, a ast.TargetArch, p ast.Project, mutates ms ast.ModuleState, ty ast.TypeID)
 	let fields = fieldCount(ms.types, reads: p.types, owner: ty)
-	routinePrologue(u, locals: 1)
-	allocate(u, bytes: ir.boxBytes(fields, tagged: false))
-	u.asm.store(rbp, disp: routineLocal0, src: rax)
+	routinePrologue(u, a: a, locals: 1)
+	allocate(u, a: a, bytes: ir.boxBytes(fields, tagged: false))
+	rStore(u, a: a, base: rFrame, disp: routineLocal0, src: rWork)
 	for i in 0 upto fields 'fields'
 		let fieldTy = ast.fieldType(ms.types, reads: p.types, owner: ty, index: i)
-		copyWord(u, p: p, ms: ms, offset: ir.fieldOffset(i, tagged: false), ty: fieldTy)
+		copyWord(u, a: a, p: p, ms: ms, offset: ir.fieldOffset(i, tagged: false), ty: fieldTy)
 	end 'fields'
-	u.asm.load(rax, base: rbp, disp: routineLocal0)
-	routineReturn(u)
+	rLoad(u, a: a, dst: rWork, base: rFrame, disp: routineLocal0)
+	routineReturn(u, a: a)
 end 'copyRecord'
 
 // copyUnion makes a box for the case the value holds, sized for its payload as lowering sizes it.
-function copyUnion(mutates u CodeUnit, p ast.Project, mutates ms ast.ModuleState, ty ast.TypeID)
+function copyUnion(mutates u CodeUnit, a ast.TargetArch, p ast.Project, mutates ms ast.ModuleState, ty ast.TypeID)
 	let done = u.asm.newLabel()
-	routinePrologue(u, locals: 1)
+	routinePrologue(u, a: a, locals: 1)
 	let cases = caseCount(ms.types, reads: p.types, owner: ty)
 	for i in 0 upto cases 'cases'
 		let payload = payloadCount(ms.types, reads: p.types, owner: ty, caseIndex: i)
 		let last = i + 1 == cases
 		let next = u.asm.newLabel()
 		if not last 'check'
-			u.asm.load(rax, base: rbp, disp: routineArg)
-			u.asm.load(rax, base: rax, disp: imm32Of(ir.tagOffset))
-			u.asm.cmpImm(rax, imm: imm32Of(i))
-			u.asm.jcc(MCond.notEqual, label: next)
+			rLoad(u, a: a, dst: rWork, base: rFrame, disp: routineArg)
+			rLoad(u, a: a, dst: rWork, base: rWork, disp: imm32Of(ir.tagOffset))
+			rCmpImm(u, a: a, left: rWork, imm: imm32Of(i))
+			rBranch(u, a: a, cond: MCond.notEqual, label: next)
 		end 'check'
-		allocate(u, bytes: ir.boxBytes(payload, tagged: true))
-		u.asm.store(rbp, disp: routineLocal0, src: rax)
-		u.asm.movImm(rcx, imm: try i as FullRangeInt otherwise panic("a case index past memory"))
-		u.asm.store(rax, disp: imm32Of(ir.tagOffset), src: rcx)
+		allocate(u, a: a, bytes: ir.boxBytes(payload, tagged: true))
+		rStore(u, a: a, base: rFrame, disp: routineLocal0, src: rWork)
+		rMovImm(u, a: a, dst: rSecond, imm: try i as FullRangeInt otherwise panic("a case index past memory"))
+		rStore(u, a: a, base: rWork, disp: imm32Of(ir.tagOffset), src: rSecond)
 		for j in 0 upto payload 'payload'
 			let payloadTy = ast.payloadType(ms.types, reads: p.types, owner: ty, caseIndex: i, index: j)
-			copyWord(u, p: p, ms: ms, offset: ir.fieldOffset(j, tagged: true), ty: payloadTy)
+			copyWord(u, a: a, p: p, ms: ms, offset: ir.fieldOffset(j, tagged: true), ty: payloadTy)
 		end 'payload'
 		if not last 'skip'
-			u.asm.jmp(done)
+			rJump(u, a: a, label: done)
 			u.asm.bind(next)
 		end 'skip'
 	end 'cases'
 	u.asm.bind(done)
-	u.asm.load(rax, base: rbp, disp: routineLocal0)
-	routineReturn(u)
+	rLoad(u, a: a, dst: rWork, base: rFrame, disp: routineLocal0)
+	routineReturn(u, a: a)
 end 'copyUnion'
 
 // copyArray makes a header and a buffer of exactly the length, with a copy of each element of an array, or of each word of
 // a buffer of groups, by its type.
-function copyArray(mutates u CodeUnit, p ast.Project, mutates ms ast.ModuleState, ty ast.TypeID)
+function copyArray(mutates u CodeUnit, a ast.TargetArch, p ast.Project, mutates ms ast.ModuleState, ty ast.TypeID)
 	let header = routineLocal0
 	let length = routineLocal1
 	let index = routineLocal2
 	let buffer = routineLocal3
 	let done = u.asm.newLabel()
 	let top = u.asm.newLabel()
-	routinePrologue(u, locals: 5)
-	allocate(u, bytes: arrayHeaderBytes)
-	u.asm.store(rbp, disp: header, src: rax)
-	u.asm.load(rcx, base: rbp, disp: routineArg)
-	u.asm.load(rax, base: rcx, disp: arrayLengthOffset)
-	u.asm.store(rbp, disp: length, src: rax)
-	u.asm.test(rax, right: rax)
-	u.asm.jcc(MCond.equal, label: done)
-	u.asm.movImm(rdx, imm: wordBytes)
-	u.asm.imul(rax, src: rdx)
-	callRuntimeWithRax(u, entry: ir.Rt.rtAlloc)
-	u.asm.store(rbp, disp: buffer, src: rax)
-	u.asm.load(rcx, base: rbp, disp: header)
-	u.asm.load(rax, base: rbp, disp: length)
-	u.asm.store(rcx, disp: arrayLengthOffset, src: rax)
-	u.asm.store(rcx, disp: arrayCapacityOffset, src: rax)
-	u.asm.load(rax, base: rbp, disp: buffer)
-	u.asm.store(rcx, disp: arrayDataOffset, src: rax)
-	u.asm.bitXor(rax, src: rax)
-	u.asm.store(rbp, disp: index, src: rax)
+	routinePrologue(u, a: a, locals: 5)
+	allocate(u, a: a, bytes: arrayHeaderBytes)
+	rStore(u, a: a, base: rFrame, disp: header, src: rWork)
+	rLoad(u, a: a, dst: rSecond, base: rFrame, disp: routineArg)
+	rLoad(u, a: a, dst: rWork, base: rSecond, disp: arrayLengthOffset)
+	rStore(u, a: a, base: rFrame, disp: length, src: rWork)
+	rTest(u, a: a, left: rWork, right: rWork)
+	rBranch(u, a: a, cond: MCond.equal, label: done)
+	rMovImm(u, a: a, dst: rThird, imm: wordBytes)
+	rMul(u, a: a, dst: rWork, src: rThird)
+	callRuntimeWithWork(u, a: a, entry: ir.Rt.rtAlloc)
+	rStore(u, a: a, base: rFrame, disp: buffer, src: rWork)
+	rLoad(u, a: a, dst: rSecond, base: rFrame, disp: header)
+	rLoad(u, a: a, dst: rWork, base: rFrame, disp: length)
+	rStore(u, a: a, base: rSecond, disp: arrayLengthOffset, src: rWork)
+	rStore(u, a: a, base: rSecond, disp: arrayCapacityOffset, src: rWork)
+	rLoad(u, a: a, dst: rWork, base: rFrame, disp: buffer)
+	rStore(u, a: a, base: rSecond, disp: arrayDataOffset, src: rWork)
+	rZero(u, a: a, dst: rWork)
+	rStore(u, a: a, base: rFrame, disp: index, src: rWork)
 	u.asm.bind(top)
-	u.asm.load(rax, base: rbp, disp: index)
-	u.asm.load(rdx, base: rbp, disp: length)
-	u.asm.cmp(rax, right: rdx)
-	u.asm.jcc(MCond.aboveEqual, label: done)
+	rLoad(u, a: a, dst: rWork, base: rFrame, disp: index)
+	rLoad(u, a: a, dst: rThird, base: rFrame, disp: length)
+	rCmp(u, a: a, left: rWork, right: rThird)
+	rBranch(u, a: a, cond: MCond.aboveEqual, label: done)
 	let columns = wordColumns(p, tt: ms.types, reads: p.types, ty: ty)
 	for j in 0 upto columns.count() 'columns'
-		wordAddress(u, boxDisp: routineArg, indexDisp: index, offset: j)
-		u.asm.load(rax, base: rcx, disp: 0)
+		wordAddress(u, a: a, boxDisp: routineArg, indexDisp: index, offset: j)
+		rLoad(u, a: a, dst: rWork, base: rSecond, disp: 0)
 		// An empty slot of a managed element, 0, stays empty in the copy (ir.SlotRead).
 		let empty = u.asm.newLabel()
 		if ast.isManagedType(ms.types, reads: p.types, t: columns[j]) 'managed'
-			u.asm.test(rax, right: rax)
-			u.asm.jcc(MCond.equal, label: empty)
-			routineCall(u, p: p, ms: ms, kind: RoutineKind.copyRoutine, ty: columns[j])
+			rTest(u, a: a, left: rWork, right: rWork)
+			rBranch(u, a: a, cond: MCond.equal, label: empty)
+			routineCall(u, a: a, p: p, ms: ms, kind: RoutineKind.copyRoutine, ty: columns[j])
 		end 'managed'
 		u.asm.bind(empty)
-		u.asm.store(rbp, disp: routineLocal4, src: rax)
-		wordAddress(u, boxDisp: header, indexDisp: index, offset: j)
-		u.asm.load(rax, base: rbp, disp: routineLocal4)
-		u.asm.store(rcx, disp: 0, src: rax)
+		rStore(u, a: a, base: rFrame, disp: routineLocal4, src: rWork)
+		wordAddress(u, a: a, boxDisp: header, indexDisp: index, offset: j)
+		rLoad(u, a: a, dst: rWork, base: rFrame, disp: routineLocal4)
+		rStore(u, a: a, base: rSecond, disp: 0, src: rWork)
 	end 'columns'
-	u.asm.load(rax, base: rbp, disp: index)
-	u.asm.addImm(rax, imm: imm32Of(columns.count()))
-	u.asm.store(rbp, disp: index, src: rax)
-	u.asm.jmp(top)
+	rLoad(u, a: a, dst: rWork, base: rFrame, disp: index)
+	rAddImm(u, a: a, dst: rWork, imm: imm32Of(columns.count()))
+	rStore(u, a: a, base: rFrame, disp: index, src: rWork)
+	rJump(u, a: a, label: top)
 	u.asm.bind(done)
-	u.asm.load(rax, base: rbp, disp: header)
-	routineReturn(u)
+	rLoad(u, a: a, dst: rWork, base: rFrame, disp: header)
+	routineReturn(u, a: a)
 end 'copyArray'
 
 // copyString is a new string with the same length and bytes, unless the string is in the executable: that one is never
 // freed and never changes, so its copy is itself.
-function copyString(mutates u CodeUnit)
+function copyString(mutates u CodeUnit, a ast.TargetArch)
 	let immortal = u.asm.newLabel()
-	routinePrologue(u, locals: 1)
-	jumpIfImmortal(u, target: immortal)
-	u.asm.load(rcx, base: rbp, disp: routineArg)
-	u.asm.load(rax, base: rcx, disp: stringLengthOffset)
-	u.asm.addImm(rax, imm: wordBytes)
-	callRuntimeWithRax(u, entry: ir.Rt.rtAlloc)
-	u.asm.store(rbp, disp: routineLocal0, src: rax)
-	u.asm.mov(rdi, src: rax)
-	u.asm.load(rsi, base: rbp, disp: routineArg)
-	u.asm.load(rcx, base: rsi, disp: stringLengthOffset)
-	u.asm.addImm(rcx, imm: wordBytes)
-	u.asm.repMovsb()
-	u.asm.load(rax, base: rbp, disp: routineLocal0)
-	routineReturn(u)
+	routinePrologue(u, a: a, locals: 1)
+	jumpIfImmortal(u, a: a, target: immortal)
+	rLoad(u, a: a, dst: rSecond, base: rFrame, disp: routineArg)
+	rLoad(u, a: a, dst: rWork, base: rSecond, disp: stringLengthOffset)
+	rAddImm(u, a: a, dst: rWork, imm: wordBytes)
+	callRuntimeWithWork(u, a: a, entry: ir.Rt.rtAlloc)
+	rStore(u, a: a, base: rFrame, disp: routineLocal0, src: rWork)
+	rMov(u, a: a, dst: rCopyTo, src: rWork)
+	rLoad(u, a: a, dst: rCopyFrom, base: rFrame, disp: routineArg)
+	rLoad(u, a: a, dst: rSecond, base: rCopyFrom, disp: stringLengthOffset)
+	rAddImm(u, a: a, dst: rSecond, imm: wordBytes)
+	rCopyBytes(u, a: a)
+	rLoad(u, a: a, dst: rWork, base: rFrame, disp: routineLocal0)
+	routineReturn(u, a: a)
 	u.asm.bind(immortal)
-	u.asm.load(rax, base: rbp, disp: routineArg)
-	routineReturn(u)
+	rLoad(u, a: a, dst: rWork, base: rFrame, disp: routineArg)
+	routineReturn(u, a: a)
 end 'copyString'
 
-function copyBytes(mutates u CodeUnit)
+function copyBytes(mutates u CodeUnit, a ast.TargetArch)
 	let header = routineLocal0
 	let length = routineLocal1
 	let buffer = routineLocal2
 	let done = u.asm.newLabel()
-	routinePrologue(u, locals: 3)
-	allocate(u, bytes: arrayHeaderBytes)
-	u.asm.store(rbp, disp: header, src: rax)
-	u.asm.load(rcx, base: rbp, disp: routineArg)
-	u.asm.load(rax, base: rcx, disp: arrayLengthOffset)
-	u.asm.store(rbp, disp: length, src: rax)
-	u.asm.test(rax, right: rax)
-	u.asm.jcc(MCond.equal, label: done)
-	callRuntimeWithRax(u, entry: ir.Rt.rtAlloc)
-	u.asm.store(rbp, disp: buffer, src: rax)
-	u.asm.load(rcx, base: rbp, disp: header)
-	u.asm.load(rax, base: rbp, disp: length)
-	u.asm.store(rcx, disp: arrayLengthOffset, src: rax)
-	u.asm.store(rcx, disp: arrayCapacityOffset, src: rax)
-	u.asm.load(rdx, base: rbp, disp: buffer)
-	u.asm.store(rcx, disp: arrayDataOffset, src: rdx)
-	u.asm.mov(rdi, src: rdx)
-	u.asm.load(rsi, base: rbp, disp: routineArg)
-	u.asm.load(rsi, base: rsi, disp: arrayDataOffset)
-	u.asm.mov(rcx, src: rax)
-	u.asm.repMovsb()
+	routinePrologue(u, a: a, locals: 3)
+	allocate(u, a: a, bytes: arrayHeaderBytes)
+	rStore(u, a: a, base: rFrame, disp: header, src: rWork)
+	rLoad(u, a: a, dst: rSecond, base: rFrame, disp: routineArg)
+	rLoad(u, a: a, dst: rWork, base: rSecond, disp: arrayLengthOffset)
+	rStore(u, a: a, base: rFrame, disp: length, src: rWork)
+	rTest(u, a: a, left: rWork, right: rWork)
+	rBranch(u, a: a, cond: MCond.equal, label: done)
+	callRuntimeWithWork(u, a: a, entry: ir.Rt.rtAlloc)
+	rStore(u, a: a, base: rFrame, disp: buffer, src: rWork)
+	rLoad(u, a: a, dst: rSecond, base: rFrame, disp: header)
+	rLoad(u, a: a, dst: rWork, base: rFrame, disp: length)
+	rStore(u, a: a, base: rSecond, disp: arrayLengthOffset, src: rWork)
+	rStore(u, a: a, base: rSecond, disp: arrayCapacityOffset, src: rWork)
+	rLoad(u, a: a, dst: rThird, base: rFrame, disp: buffer)
+	rStore(u, a: a, base: rSecond, disp: arrayDataOffset, src: rThird)
+	rMov(u, a: a, dst: rCopyTo, src: rThird)
+	rLoad(u, a: a, dst: rCopyFrom, base: rFrame, disp: routineArg)
+	rLoad(u, a: a, dst: rCopyFrom, base: rCopyFrom, disp: arrayDataOffset)
+	rMov(u, a: a, dst: rSecond, src: rWork)
+	rCopyBytes(u, a: a)
 	u.asm.bind(done)
-	u.asm.load(rax, base: rbp, disp: header)
-	routineReturn(u)
+	rLoad(u, a: a, dst: rWork, base: rFrame, disp: header)
+	routineReturn(u, a: a)
 end 'copyBytes'

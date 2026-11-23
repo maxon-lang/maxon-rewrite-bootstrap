@@ -1,5 +1,5 @@
 // Running Windows' programs: cmd.exe and ping.exe; subprocess-on-linux.maxon runs Linux's.
-// unsupported-targets: x64-linux
+// unsupported-targets: x64-linux, arm64-linux
 //> code=3 succeeded=false stdout=true stderr=true
 //> quoted=true code=0 succeeded=true
 //> path=true

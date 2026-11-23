@@ -86,7 +86,7 @@ var goSyntax = map[string]string{
 	"Stlxr": "STLXR {src}, ({base}), {status}", "CasalX0": "CASALD R0, ({base}), {src}",
 	"Ldaddal": "LDADDALD {src}, ({base}), {dest}", "Swpal": "SWPALD {src}, ({base}), {dest}",
 	"DmbIsh": "DMB $0xb", "Isb": "ISB $15", "Yield": "YIELD", "Nop": "NOOP",
-	"Brk": "BRK {imm}", "Svc": "SVC {imm}",
+	"Brk": "BRK {imm}", "Svc": "SVC $0",
 	"MrsTpidr": "MRS TPIDR_EL0, {dest}", "MrsTpidrro": "MRS TPIDRRO_EL0, {dest}", "MsrTpidr": "MSR {src}, TPIDR_EL0",
 	"MrsNzcv": "MRS NZCV, {dest}", "MsrNzcv": "MSR {src}, NZCV",
 }

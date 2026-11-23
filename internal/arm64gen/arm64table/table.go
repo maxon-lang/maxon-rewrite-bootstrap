@@ -518,9 +518,10 @@ func buildForms() []form {
 		form{name: "Yield", mnemonic: "yield", opcode: 0xD503203F, effects: noEffects},
 		form{name: "Nop", mnemonic: "nop", opcode: 0xD503201F, effects: noEffects},
 		form{name: "Brk", mnemonic: "brk", opcode: 0xD4200000, operands: []operand{imm("imm", imm16At, imm16Bits)}},
-		// A system call is a call of the system call convention, which says what it reads and clobbers.
-		form{name: "Svc", mnemonic: "svc", opcode: 0xD4000001, effects: memory, call: true,
-			operands: []operand{imm("imm", imm16At, imm16Bits)}},
+		// A system call is a call of the system call convention, which says what it reads and clobbers: svc #0, Linux's,
+		// whose immediate the kernel ignores. A machine instruction of a call holds the registers of its arguments where an
+		// immediate would be, so the form has none.
+		form{name: "Svc", mnemonic: "svc #0", opcode: 0xD4000001, effects: memory, call: true},
 		// The thread's registers: a read of one reads what the thread it runs on keeps, which a green thread that moves
 		// between threads may not find again, so it is no value to make twice.
 		form{name: "MrsTpidr", mnemonic: "mrs tpidr_el0", opcode: 0xD53BD040, effects: reads, operands: []operand{reg("dest", rdAt, write)}},

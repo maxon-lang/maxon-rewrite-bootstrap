@@ -1,0 +1,248 @@
+// The arm64 encoder of machine IR, as encode_x64.maxon is x64's: an allocated function, every operand physical, into a
+// code unit, with the label uses and fixups of arm64's kinds. The blocks are laid out as a BlockLayout plans
+// (branches.maxon). The frame is maxon's (Arm64PrologueEpilogue.maxon): every function has a frame record, the caller's
+// frame pointer and the return address, which the frame pointer points at; the room for the arguments its calls pass on
+// the stack is below it, at the stack pointer, where AAPCS64 has a callee find them; the slots are above it, the fixed
+// ones and then the spill slots, a word each at [x29 + 16 + slot*8]; and the callee-saved registers its values were given
+// are kept in words above the slots. The stack pointer does not move between the prologue and an epilogue.
+
+// arm64ProbeBytes is how far the stack may grow past the last page it touched: a frame bigger than that touches each
+// page on the way down, so the guard page is met in order. A system of larger pages has a guard of as many 4 KB ones.
+let arm64ProbeBytes = 4096
+
+// arm64PreIndexReach is the largest frame that one stp with a pre-index of the stack pointer opens: the 7 bits of the
+// pair's offset, in words.
+let arm64PreIndexReach = 504
+
+// encodeArm64Function writes a function whose registers are allocated into the unit, as a section of its own, and
+// defines its symbol.
+export function encodeArm64Function(mutates u CodeUnit, fn MirFunction, instance bool, mutates lay BlockLayout)
+	lay.plan(fn)
+	lay.framed = true
+	u.beginSection()
+	u.defineFunction(fn.symbol, instance: instance)
+	for _ in 0 upto fn.blocks.count() 'labels'
+		_ = u.asm.newLabel()
+	end 'labels'
+	for pos in 0 upto lay.order.count() 'blocks'
+		let b = lay.order[pos]
+		u.asm.bind(b as LabelID)
+		var next = noNextBlock
+		if pos + 1 < lay.order.count() 'follows'
+			next = lay.order[pos + 1] as ir.Index
+		end 'follows'
+		var k = fn.blocks[b as Count].first
+		while k < fn.blocks[b as Count].endAt 'instrs'
+			k = arm64EncodeAt(u, fn: fn, lay: lay, k: k, stop: fn.blocks[b as Count].endAt, next: next)
+		end 'instrs'
+	end 'blocks'
+end 'encodeArm64Function'
+
+// arm64EncodeAt encodes instruction k of fn, or it and the jump after it in its block, which ends at stop, as one, and is
+// the instruction after them: a jump to the block laid out next is left out, and a conditional branch to it over a jump
+// becomes one branch the other way.
+function arm64EncodeAt(mutates u CodeUnit, fn MirFunction, lay BlockLayout, k Count, stop Count, next ir.Index) returns Count
+	let after = nextCount(k)
+	if isEdgeJump(fn.instrs[k]) and lay.goesTo(fn, edge: refIndex(fn.instrs[k]), b: next) 'fallsThrough'
+		return after
+	end 'fallsThrough'
+	if after < stop and arm64IsEdgeBranch(fn.instrs[k]) and isEdgeJump(fn.instrs[after]) and lay.goesTo(fn, edge: refIndex(fn.instrs[k]), b: next) 'overJump'
+		var other = fn.instrs[k].clone()
+		other.aux = fn.instrs[after].aux
+		if isArm64Form(other, form: Arm64Form.bCond) 'condition'
+			other.cond = negated(other.cond)
+		end 'condition' else if isArm64Form(other, form: Arm64Form.cbz) 'zero'
+			other.form = arm64FormID(Arm64Form.cbnz)
+		end 'zero' else 'notZero'
+			other.form = arm64FormID(Arm64Form.cbz)
+		end 'notZero'
+		arm64EncodeTarget(u, fn: fn, lay: lay, x: other)
+		return nextCount(after)
+	end 'overJump'
+	arm64EncodeInstr(u, fn: fn, lay: lay, x: fn.instrs[k])
+	return after
+end 'arm64EncodeAt'
+
+// arm64IsEdgeBranch is whether an instruction is a conditional branch along an edge: b.cond, cbz or cbnz.
+function arm64IsEdgeBranch(x MInstr) returns bool
+	return x.ref == MRef.edge and (isArm64Form(x, form: Arm64Form.bCond) or isArm64Form(x, form: Arm64Form.cbz) or isArm64Form(x, form: Arm64Form.cbnz))
+end 'arm64IsEdgeBranch'
+
+function arm64EncodeInstr(mutates u CodeUnit, fn MirFunction, lay BlockLayout, x MInstr)
+	match x.kind 'kind'
+		target then arm64EncodeTarget(u, fn: fn, lay: lay, x: x)
+		copy then arm64EncodeCopy(u, x: x)
+		spill then arm64FrameAccess(u, load: false, r: x.a, disp: arm64SlotDisp(spillSlotOf(x) as Count) as FullRangeInt)
+		reload or
+		restore then arm64FrameAccess(u, load: true, r: x.a, disp: arm64SlotDisp(spillSlotOf(x) as Count) as FullRangeInt)
+		parallelCopy then panic("backend: a parallel copy that allocation left")
+		frameSetup then arm64EncodeFrameSetup(u, fn: fn)
+		frameTeardown then arm64EncodeFrameTeardown(u, fn: fn)
+	end 'kind'
+end 'arm64EncodeInstr'
+
+// arm64EncodeCopy moves a register to another of its class.
+function arm64EncodeCopy(mutates u CodeUnit, x MInstr)
+	if x.a == x.b 'same'
+		return
+	end 'same'
+	match classOfNumber(arm64Arch, number: physicalNumber(x.a)) 'class'
+		gpr then encodeArm64MovRegReg(u.asm.code, dest: arm64GeneralRegister(x.a), src: arm64GeneralRegister(x.b))
+		xmm then encodeArm64FmovDD(u.asm.code, dest: arm64VectorRegister(x.a), src: arm64VectorRegister(x.b))
+	end 'class'
+end 'arm64EncodeCopy'
+
+// arm64FrameAccess loads or stores the register r, of either class, at a displacement from the frame pointer: by the scaled
+// offset where it holds the displacement, and otherwise at the address the address scratch register is given.
+function arm64FrameAccess(mutates u CodeUnit, load bool, r MReg, disp FullRangeInt)
+	var base = arm64FramePointer
+	var offset = disp
+	if not arm64Ldr64OffHolds(disp) 'far'
+		u.asm.arm64AddImm(arm64AddressScratch, src: arm64FramePointer, value: disp)
+		base = arm64AddressScratch
+		offset = 0
+	end 'far'
+	let field = try offset as Imm32 otherwise panic("backend: a frame past 2 GiB")
+	match classOfNumber(arm64Arch, number: physicalNumber(r)) 'class'
+		gpr then arm64EncodeWordAccess(u, load: load, r: arm64GeneralRegister(r), base: base, disp: field)
+		xmm then arm64EncodeVectorAccess(u, load: load, r: arm64VectorRegister(r), base: base, disp: field)
+	end 'class'
+end 'arm64FrameAccess'
+
+function arm64EncodeWordAccess(mutates u CodeUnit, load bool, r Arm64Register, base Arm64Register, disp Imm32)
+	if load 'load'
+		encodeArm64Ldr64Off(u.asm.code, dest: r, base: base, disp: disp)
+	end 'load' else 'store'
+		encodeArm64Str64Off(u.asm.code, src: r, base: base, disp: disp)
+	end 'store'
+end 'arm64EncodeWordAccess'
+
+function arm64EncodeVectorAccess(mutates u CodeUnit, load bool, r Arm64Register, base Arm64Register, disp Imm32)
+	if load 'load'
+		encodeArm64LdrDOff(u.asm.code, dest: r, base: base, disp: disp)
+	end 'load' else 'store'
+		encodeArm64StrDOff(u.asm.code, src: r, base: base, disp: disp)
+	end 'store'
+end 'arm64EncodeVectorAccess'
+
+// arm64OperandRegister is register operand i of a form as its encoder takes it, of the class the form names it, or x0
+// for one the form does not have, which its encoder does not read.
+function arm64OperandRegister(x MInstr, index Count, count Count) returns Arm64Register
+	if index >= count 'absent'
+		return Arm64Register.x0
+	end 'absent'
+	let r = operandAt(x, index: index)
+	return match operandClass(x.form, index: index) 'class'
+		gpr gives arm64GeneralRegister(r)
+		xmm gives arm64VectorRegister(r)
+	end 'class'
+end 'arm64OperandRegister'
+
+// arm64FixupKindOf is the kind of the fixup of a form's patched field: the distance of a branch, an adrp's pages, or the
+// low bits of an address after one, in words for the load and the store of a word.
+function arm64FixupKindOf(x MInstr) returns FixupKind
+	if isArm64Form(x, form: Arm64Form.b) or isArm64Form(x, form: Arm64Form.bl) 'far'
+		return FixupKind.branch26
+	end 'far'
+	if isArm64Form(x, form: Arm64Form.bCond) or isArm64Form(x, form: Arm64Form.cbz) or isArm64Form(x, form: Arm64Form.cbnz) 'near'
+		return FixupKind.branch19
+	end 'near'
+	if isArm64Form(x, form: Arm64Form.adrp) 'page'
+		return FixupKind.page21
+	end 'page'
+	if isArm64Form(x, form: Arm64Form.addPageOff) 'bytes'
+		return FixupKind.pageOffset12
+	end 'bytes'
+	if isArm64Form(x, form: Arm64Form.ldr64PageOff) or isArm64Form(x, form: Arm64Form.str64PageOff) or isArm64Form(x, form: Arm64Form.ldrDPageOff) 'words'
+		return FixupKind.pageOffset12Word
+	end 'words'
+	panic("backend: an arm64 form with a field a reference patches of no fixup kind")
+end 'arm64FixupKindOf'
+
+function arm64EncodeTarget(mutates u CodeUnit, fn MirFunction, lay BlockLayout, x MInstr)
+	if reuses(x) and x.a != x.b 'reuse'
+		panic("backend: a two-address definition in another register than the operand it reuses")
+	end 'reuse'
+	if hasPatchField(x.form) != (x.ref != MRef.none) 'reference'
+		panic("backend: a reference on a form without a field for it, or a field with no reference")
+	end 'reference'
+	let n = machineOperandCount(x.form)
+	encodeArm64MachineForm(u.asm.code, form: x.form, a: arm64OperandRegister(x, index: 0, count: n), b: arm64OperandRegister(x, index: 1, count: n), c: arm64OperandRegister(x, index: 2, count: n), aux: x.aux, imm: x.imm, cond: x.cond)
+	match x.ref 'ref'
+		none then return
+		edge then u.asm.arm64UseLabel(lay.label(fn, edge: refIndex(x)), kind: arm64FixupKindOf(x))
+		symbol then u.asm.arm64NoteSymbol(arm64FixupKindOf(x), symbol: fn.symbols[refIndex(x)])
+		data then u.asm.arm64NoteData(arm64FixupKindOf(x), dataOffset: refIndex(x))
+		importSlot then u.asm.arm64NoteImport(arm64FixupKindOf(x), index: refIndex(x))
+	end 'ref'
+end 'arm64EncodeTarget'
+
+// arm64SavedDisp is where the frame keeps the nth of the callee-saved registers the function's values were given: in the
+// words above its slots.
+function arm64SavedDisp(fn MirFunction, nth Count) returns FullRangeInt
+	return arm64SlotDisp(try fn.slotsGiven() + nth otherwise panic("backend: a frame past memory")) as FullRangeInt
+end 'arm64SavedDisp'
+
+// arm64FrameSize is the bytes a function's frame takes below its caller's stack pointer: the outgoing arguments, the frame
+// record, the slots and the callee-saved registers, a multiple of the stack's alignment.
+function arm64FrameSize(fn MirFunction) returns Count
+	let saved = try maskCount(fn.savedRegs) * wordBytes otherwise panic("backend: a frame past memory")
+	return alignUp(try fn.outgoingBytes + arm64FrameRecordBytes + fn.frameBytes() + saved otherwise panic("backend: a frame past memory"), alignment: arm64StackAlignment)
+end 'arm64FrameSize'
+
+// arm64EncodeFrameSetup is the prologue: the frame made room for below the stack pointer, touching each page of a frame
+// past one, the frame record stored above the outgoing arguments and the frame pointer pointed at it, the callee-saved
+// registers the function's values were given kept above the slots, and for a function that takes arguments on the stack,
+// their address, its caller's stack pointer, in arm64IncomingBase.
+function arm64EncodeFrameSetup(mutates u CodeUnit, fn MirFunction)
+	let size = arm64FrameSize(fn)
+	let sp = Arm64Register.sp
+	if fn.outgoingBytes == 0 and size <= arm64PreIndexReach 'pair'
+		encodeArm64Stp64Pre(u.asm.code, first: arm64FramePointer, second: arm64LinkRegister, base: sp, disp: try (0 - (size as FullRangeInt)) as Imm32 otherwise panic("backend: a frame past 2 GiB"))
+		u.asm.arm64Mov(arm64FramePointer, src: sp)
+	end 'pair' else 'room'
+		var rest = size
+		while rest > arm64ProbeBytes 'pages'
+			u.asm.arm64AddImm(sp, src: sp, value: arm64Negated(arm64Disp(arm64ProbeBytes)))
+			encodeArm64Str64Off(u.asm.code, src: arm64ZeroRegister, base: sp, disp: 0)
+			rest = try rest - arm64ProbeBytes otherwise panic("backend: a frame below zero")
+		end 'pages'
+		u.asm.arm64AddImm(sp, src: sp, value: arm64Negated(arm64Disp(rest)))
+		if size > arm64ProbeBytes 'last'
+			encodeArm64Str64Off(u.asm.code, src: arm64ZeroRegister, base: sp, disp: 0)
+		end 'last'
+		u.asm.arm64AddImm(arm64Scratch, src: sp, value: arm64Disp(fn.outgoingBytes))
+		encodeArm64Stp64(u.asm.code, first: arm64FramePointer, second: arm64LinkRegister, base: arm64Scratch, disp: 0)
+		u.asm.arm64Mov(arm64FramePointer, src: arm64Scratch)
+	end 'room'
+	arm64SaveCallee(u, fn: fn, load: false)
+	if fn.incomingStack 'incoming'
+		u.asm.arm64AddImm(arm64IncomingBase, src: arm64FramePointer, value: arm64Disp(try size - fn.outgoingBytes otherwise panic("backend: a frame below its outgoing arguments")))
+	end 'incoming'
+end 'arm64EncodeFrameSetup'
+
+// arm64SaveCallee stores, or loads back, the callee-saved registers the function's values were given, in the words above
+// its slots, the general ones and then the d ones, each in the order of the register file.
+function arm64SaveCallee(mutates u CodeUnit, fn MirFunction, load bool)
+	var nth = 0 as Count
+	for r in 0 upto arm64RegisterFileSize 'registers'
+		if maskHas(fn.savedRegs, number: regNumOfCount(r)) 'saved'
+			arm64FrameAccess(u, load: load, r: physOfCount(r), disp: arm64SavedDisp(fn, nth: nth))
+			nth = nextCount(nth)
+		end 'saved'
+	end 'registers'
+end 'arm64SaveCallee'
+
+// arm64EncodeFrameTeardown loads back the callee-saved registers and the frame record, and gives the frame back: the stack
+// pointer is the frame's bottom at every epilogue.
+function arm64EncodeFrameTeardown(mutates u CodeUnit, fn MirFunction)
+	arm64SaveCallee(u, fn: fn, load: true)
+	let size = arm64FrameSize(fn)
+	let sp = Arm64Register.sp
+	if fn.outgoingBytes == 0 and size <= arm64PreIndexReach 'pair'
+		encodeArm64Ldp64Post(u.asm.code, first: arm64FramePointer, second: arm64LinkRegister, base: sp, disp: imm32Of(size))
+		return
+	end 'pair'
+	encodeArm64Ldp64(u.asm.code, first: arm64FramePointer, second: arm64LinkRegister, base: arm64FramePointer, disp: 0)
+	u.asm.arm64AddImm(sp, src: sp, value: arm64Disp(size))
+end 'arm64EncodeFrameTeardown'

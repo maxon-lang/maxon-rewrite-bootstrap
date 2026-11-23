@@ -64,7 +64,25 @@ function encodeNops(mutates code ByteArray, bytes Count)
 	end 'length'
 end 'encodeNops'
 
-// encodeInt3s fills bytes of code that nothing runs with the one-byte trap, so that a stray jump into them stops there.
+// encodeTraps fills bytes of code that nothing runs with the architecture's trap, so that a stray jump into them stops there:
+// x64's one-byte int3, and arm64's brk, a word, which every gap between its sections is a whole number of.
+function encodeTraps(mutates code ByteArray, arch ast.TargetArch, bytes Count)
+	match arch 'arch'
+		x64 then encodeInt3s(code, bytes: bytes)
+		arm64 then encodeBrks(code, bytes: bytes)
+	end 'arch'
+end 'encodeTraps'
+
+function encodeBrks(mutates code ByteArray, bytes Count)
+	if bytes mod arm64WordBytes != 0 'part'
+		panic("link: a gap between arm64 sections of a part of a word")
+	end 'part'
+	for _ in 0 upto bytes / arm64WordBytes 'words'
+		encodeArm64Brk(code, imm: 0)
+	end 'words'
+end 'encodeBrks'
+
+// encodeInt3s fills bytes of code that nothing runs with the one-byte trap.
 function encodeInt3s(mutates code ByteArray, bytes Count)
 	for _ in 0 upto bytes 'each'
 		encodeInt3(code)

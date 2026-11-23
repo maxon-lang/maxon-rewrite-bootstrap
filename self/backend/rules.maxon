@@ -1,4 +1,4 @@
-// The helpers that the conditions and expressions of x64.rules call, and the constants they name.
+// The helpers that the conditions and expressions of x64.rules and arm64.rules call, and the constants they name.
 
 // The rounding modes of roundsd's immediate: to the nearest (ties to even), down and up.
 let roundNearest = 0 as Imm8
@@ -101,3 +101,93 @@ function guardFailure(x ir.Instr) returns MCond
 		guardNonZero gives panic("backend: a guard against 0 is compared with no bound")
 	end 'kind'
 end 'guardFailure'
+
+// arm64's helpers.
+
+// arm64Imm12Max is the largest immediate that the 12 bits of an add, a sub and a cmp hold.
+let arm64Imm12Max = 4095
+
+// arm64WordShift is the shift of an index that the offset of its word in a buffer is.
+let arm64WordShift = 3 as ir.Word
+
+// arm64SignShift is the shift that leaves a word's sign alone, and the top bit of a bitfield move of the whole word.
+let arm64SignShift = 63
+
+// arm64FrameRecordBytes is the frame record at the frame pointer, the caller's frame pointer and the return address,
+// which the slots are above.
+let arm64FrameRecordBytes = 16
+
+// arm64TsdMask clears the low bits of tpidrro_el0, which macOS keeps the processor's number in.
+let arm64TsdMask = -8 as ir.Word
+
+// arm64HoldsImm12 is whether a word is an immediate of add, sub and cmp.
+function arm64HoldsImm12(c FullRangeInt) returns bool
+	return c >= 0 and c <= arm64Imm12Max
+end 'arm64HoldsImm12'
+
+// arm64HoldsNegatedImm12 is whether a word is the negation of an immediate of add, sub and cmp other than 0, which the
+// other operation of the two takes.
+function arm64HoldsNegatedImm12(c FullRangeInt) returns bool
+	return c < 0 and c >= 0 - arm64Imm12Max
+end 'arm64HoldsNegatedImm12'
+
+// arm64Disp is an offset in bytes as the helpers of the forms take it.
+function arm64Disp(n Count) returns FullRangeInt
+	return try n as FullRangeInt otherwise panic("backend: an offset past the word")
+end 'arm64Disp'
+
+// arm64Negated is the negation of a word that is not i64.min, which the immediate of the other operation of two takes.
+function arm64Negated(value FullRangeInt) returns FullRangeInt
+	return try 0 - value otherwise panic("backend: the negation of i64.min")
+end 'arm64Negated'
+
+// arm64Field32 is an offset or an immediate that the 32 bits of a machine instruction's aux hold.
+function arm64Field32(value FullRangeInt) returns Imm32
+	return try value as Imm32 otherwise panic("backend: an offset past 32 bits")
+end 'arm64Field32'
+
+// arm64SlotDisp is where a slot of the IR's frame sits above the frame pointer, after the frame record: the slots are the
+// first of the fixed slots, and the spill slots follow them.
+function arm64SlotDisp(slot Count) returns Imm32
+	return imm32Of(try arm64FrameRecordBytes + slot * spillSlotBytes otherwise panic("backend: a slot past 2 GiB"))
+end 'arm64SlotDisp'
+
+// arm64LslImmr and arm64LslImms are the fields of the bitfield move that shifts left by a count within the word.
+function arm64LslImmr(c ir.Word) returns Count
+	return try ((shiftBitCount - c) mod shiftBitCount) as Count otherwise panic("backend: a shift past the word")
+end 'arm64LslImmr'
+
+function arm64LslImms(c ir.Word) returns Count
+	return try (arm64SignShift - c) as Count otherwise panic("backend: a shift past the word")
+end 'arm64LslImms'
+
+// arm64LiveHalfword is the one halfword of a word that its ladder writes, which arm64OneMove says it has, or the first
+// for a word whose ladder writes none.
+function arm64LiveHalfword(c ir.Word) returns Count
+	for hw in 0 upto arm64LadderSteps 'halfwords'
+		if not arm64LadderSkips(c as FullRangeInt, hw: hw) 'live'
+			return hw
+		end 'live'
+	end 'halfwords'
+	return 0
+end 'arm64LiveHalfword'
+
+// arm64OneMove is whether the ladder of a word is one movz or movn.
+function arm64OneMove(c ir.Word) returns bool
+	var live = 0 as Count
+	for hw in 0 upto arm64LadderSteps 'halfwords'
+		if not arm64LadderSkips(c as FullRangeInt, hw: hw) 'live'
+			live = nextCount(live)
+		end 'live'
+	end 'halfwords'
+	return live <= 1
+end 'arm64OneMove'
+
+// arm64OneMoveHalfword and arm64OneMoveShift are the fields of the one move of a word that arm64OneMove says has one.
+function arm64OneMoveHalfword(c ir.Word) returns Arm64Imm16
+	return arm64LadderFirst(c as FullRangeInt, hw: arm64LiveHalfword(c))
+end 'arm64OneMoveHalfword'
+
+function arm64OneMoveShift(c ir.Word) returns Arm64Imm2
+	return arm64LadderShift(arm64LiveHalfword(c))
+end 'arm64OneMoveShift'

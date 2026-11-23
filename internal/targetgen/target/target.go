@@ -107,6 +107,9 @@ type System struct {
 	// ThreadContext names how a thread reads the word of its context on this system: a case of the target's
 	// <Name>ThreadContext enum.
 	ThreadContext string
+	// Pending says that the backend does not compile for the target on this system yet: the system's declarations are
+	// written, and knownTargets does not list the target on it.
+	Pending bool
 }
 
 // Name follows the target's in the names of the system's declarations.
@@ -416,6 +419,8 @@ var Arm64 = Target{
 		},
 		{
 			OS: MacOS,
+			// The backend has no writer of Mach-O executables yet, and the runtime no source for macOS.
+			Pending: true,
 			// A thread's context is in a slot of the thread's TSD array, which tpidrro_el0 points at, at the key that the
 			// entry stub keeps, as Windows' is in a TLS slot of the TEB.
 			ThreadContext: "tlsSlot",
@@ -447,8 +452,8 @@ var (
 )
 
 // Targets are every target's table that the backend compiles for, in the order their declarations are written.
-var Targets = []Target{X64}
+var Targets = []Target{X64, Arm64}
 
 // Pending are the tables of the targets the backend does not compile for yet, whose instruction selection is not
 // written: their declarations are written beside the others', and no architecture of the target model names them.
-var Pending = []Target{Arm64}
+var Pending []Target

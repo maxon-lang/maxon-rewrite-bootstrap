@@ -88,6 +88,22 @@ let arm64ImmhiAt = 5
 
 let arm64AddressBits = 21
 
+let arm64Imm26At = 0
+
+let arm64Imm26Bits = 26
+
+let arm64Imm19At = 5
+
+let arm64Imm19Bits = 19
+
+let arm64Imm12At = 10
+
+let arm64Imm12Bits = 12
+
+let arm64PageOffsetBits = 12
+
+let arm64AddressMask = 0x60FFFFE0 as Arm64Bits
+
 let arm64AddressLow = -1048576
 
 let arm64AddressHigh = 1048575
@@ -963,9 +979,9 @@ export function encodeArm64Brk(mutates code ByteArray, imm Arm64Imm16)
 	arm64Emit(code, word: 0xD4200000 or ((imm as Arm64Bits) shl 5))
 end 'encodeArm64Brk'
 
-// svc imm: 0xD4000001.
-export function encodeArm64Svc(mutates code ByteArray, imm Arm64Imm16)
-	arm64Emit(code, word: 0xD4000001 or ((imm as Arm64Bits) shl 5))
+// svc #0: 0xD4000001.
+export function encodeArm64Svc(mutates code ByteArray)
+	arm64Emit(code, word: 0xD4000001)
 end 'encodeArm64Svc'
 
 // mrs tpidr_el0 dest: 0xD53BD040.
@@ -993,11 +1009,16 @@ export function encodeArm64MsrNzcv(mutates code ByteArray, src Arm64Register)
 	arm64Emit(code, word: 0xD51B4200 or arm64RegisterField(src, at: 0))
 end 'encodeArm64MsrNzcv'
 
-// encodeArm64MovImm sets a register to a word in the fewest moves of a halfword: a movz of its first halfword that is
-// not 0 and a movk of each later one that is not, or, where more of its halfwords are all ones than are 0, a movn of
-// the first that is not all ones and a movk of each later one that is not. A word of halfwords all 0 or all ones is
-// one movz or movn of 0.
-export function encodeArm64MovImm(mutates code ByteArray, dest Arm64Register, value FullRangeInt)
+// The ladder sets a register to a word in the fewest moves of a halfword: a movz of its first halfword that is not 0
+// and a movk of each later one that is not, or, where more of its halfwords are all ones than are 0, a movn of the first
+// that is not all ones and a movk of each later one that is not. A word of halfwords all 0 or all ones is one movz or
+// movn of 0.
+
+// arm64LadderSteps is how many halfwords a word has, each of which is a step of the ladder.
+export let arm64LadderSteps = arm64Halfwords
+
+// arm64LadderInverted is whether the ladder of a word starts with a movn.
+export function arm64LadderInverted(value FullRangeInt) returns bool
 	let word = value as Arm64Bits
 	var zeros = 0 as Count
 	var ones = 0 as Count
@@ -1009,22 +1030,53 @@ export function encodeArm64MovImm(mutates code ByteArray, dest Arm64Register, va
 			ones = ones + 1
 		end 'ones'
 	end 'count'
-	let inverted = ones > zeros
-	var skipped = 0 as Arm64Bits
-	if inverted 'inverted'
-		skipped = arm64HalfwordMask
+	return ones > zeros
+end 'arm64LadderInverted'
+
+// arm64LadderHalfword is the halfword hw of a word, from the lowest.
+export function arm64LadderHalfword(value FullRangeInt, hw Count) returns Arm64Imm16
+	let at = try hw * arm64HalfwordBits otherwise panic("backend: a halfword past a word")
+	let chunk = ((value as Arm64Bits) shr at) and arm64HalfwordMask
+	return try chunk as Arm64Imm16 otherwise panic("backend: a halfword past 16 bits")
+end 'arm64LadderHalfword'
+
+// arm64LadderSkips is whether the ladder of a word writes nothing for its halfword hw: one that the first move leaves as
+// the word has it, 0 after a movz and all ones after a movn.
+export function arm64LadderSkips(value FullRangeInt, hw Count) returns bool
+	let chunk = arm64LadderHalfword(value, hw: hw) as Arm64Bits
+	if arm64LadderInverted(value) 'inverted'
+		return chunk == arm64HalfwordMask
 	end 'inverted'
+	return chunk == 0
+end 'arm64LadderSkips'
+
+// arm64LadderFirst is the halfword of the first move of the ladder at halfword hw: the halfword itself for a movz, and
+// its complement for a movn.
+export function arm64LadderFirst(value FullRangeInt, hw Count) returns Arm64Imm16
+	let chunk = arm64LadderHalfword(value, hw: hw)
+	if arm64LadderInverted(value) 'inverted'
+		return try ((chunk as Arm64Bits) xor arm64HalfwordMask) as Arm64Imm16 otherwise panic("backend: a halfword past 16 bits")
+	end 'inverted'
+	return chunk
+end 'arm64LadderFirst'
+
+// arm64LadderShift is the shift field of the move of halfword hw.
+export function arm64LadderShift(hw Count) returns Arm64Imm2
+	return try hw as Arm64Imm2 otherwise panic("backend: a halfword past a word")
+end 'arm64LadderShift'
+
+// encodeArm64MovImm writes the ladder of a word into a register.
+export function encodeArm64MovImm(mutates code ByteArray, dest Arm64Register, value FullRangeInt)
+	let inverted = arm64LadderInverted(value)
 	var first = true
 	for hw in 0 upto arm64Halfwords 'halfwords'
-		let chunk = (word shr (hw * arm64HalfwordBits)) and arm64HalfwordMask
-		let shift = try hw as Arm64Imm2 otherwise panic("backend: a halfword past a word")
-		if chunk != skipped 'live'
+		if not arm64LadderSkips(value, hw: hw) 'live'
 			if not first 'later'
-				encodeArm64MovkRegImm(code, dest: dest, imm: try chunk as Arm64Imm16 otherwise panic("backend: a halfword past 16 bits"), shift: shift)
+				encodeArm64MovkRegImm(code, dest: dest, imm: arm64LadderHalfword(value, hw: hw), shift: arm64LadderShift(hw))
 			end 'later' else if inverted 'movn'
-				encodeArm64MovnRegImm(code, dest: dest, imm: try (chunk xor arm64HalfwordMask) as Arm64Imm16 otherwise panic("backend: a halfword past 16 bits"), shift: shift)
+				encodeArm64MovnRegImm(code, dest: dest, imm: arm64LadderFirst(value, hw: hw), shift: arm64LadderShift(hw))
 			end 'movn' else 'movz'
-				encodeArm64MovzRegImm(code, dest: dest, imm: try chunk as Arm64Imm16 otherwise panic("backend: a halfword past 16 bits"), shift: shift)
+				encodeArm64MovzRegImm(code, dest: dest, imm: arm64LadderFirst(value, hw: hw), shift: arm64LadderShift(hw))
 			end 'movz'
 			first = false
 		end 'live'
@@ -1527,7 +1579,7 @@ export function encodeArm64MachineForm(mutates code ByteArray, form FormID, a Ar
 		379 then encodeArm64Yield(code)
 		380 then encodeArm64Nop(code)
 		381 then encodeArm64Brk(code, imm: try imm as Arm64Imm16 otherwise panic("backend: the immediate of Brk does not fit it"))
-		382 then encodeArm64Svc(code, imm: try imm as Arm64Imm16 otherwise panic("backend: the immediate of Svc does not fit it"))
+		382 then encodeArm64Svc(code)
 		383 then encodeArm64MrsTpidr(code, dest: a)
 		384 then encodeArm64MrsTpidrro(code, dest: a)
 		385 then encodeArm64MsrTpidr(code, src: a)

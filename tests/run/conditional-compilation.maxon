@@ -1,5 +1,5 @@
 // A program with the directives in every position, whose output is the Windows branches'.
-// unsupported-targets: x64-linux
+// unsupported-targets: x64-linux, arm64-linux
 #if os(Windows)
 	let separator = "\\"
 #else

@@ -267,7 +267,7 @@ end 'LinkUnits'
 // link is the executable of the units for the system, with the code reachable from the entry symbol, and the scheduler
 // only when the program needs it (choice). With mapsSymbols it also gives the map of the code's symbols (see
 // symbolMapText).
-export function link(units LinkUnits, entry String, choice SchedulerChoice, system ast.TargetSystem, mapsSymbols bool) returns Linked
+export function link(units LinkUnits, entry String, choice SchedulerChoice, target ast.Target, mapsSymbols bool) returns Linked
 	var links = LinkUnitList.create(0)
 	for i in 0 upto units.count() 'units'
 		links.push(newLinkUnit(units.at(i)))
@@ -310,14 +310,14 @@ export function link(units LinkUnits, entry String, choice SchedulerChoice, syst
 	let tableAt = alignUp(sizes.data, alignment: linkDataAlignment)
 	let dataSize = try tableAt + table.bytes() otherwise panic("link: data past memory")
 	let pointers = livePointers(links, units: units)
-	var image = buildImage(system, layout: ImageLayout.make(sizes.code, dataSize: dataSize, entryOffset: finalOffset(links, t: start), pointers: pointers.clone()))
+	var image = buildImage(target, layout: ImageLayout.make(sizes.code, dataSize: dataSize, entryOffset: finalOffset(links, t: start), pointers: pointers.clone()))
 	var code = ByteArray.create(0)
 	var data = ByteArray.create(dataSize)
 	for i in 0 upto links.count() 'copy'
-		copyAndPatch(code, data: data, links: links, unit: i, u: units.at(i), defined: defined, image: image, tableAt: tableAt)
+		copyAndPatch(code, data: data, links: links, unit: i, u: units.at(i), defined: defined, image: image, tableAt: tableAt, arch: target.arch)
 	end 'copy'
 	table.write(data, at: tableAt, image: image)
-	writePointers(system, image: image, data: data, pointers: pointers)
+	writePointers(target.system, image: image, data: data, pointers: pointers)
 	placeCode(image, at: 0, bytes: code)
 	placeData(image, at: 0, bytes: data)
 	var symbolMap = ""
@@ -630,8 +630,19 @@ end 'appendRange'
 function linkPatch(mutates code ByteArray, kind FixupKind, pos Count, textRva Count, target Count)
 	match kind 'kind'
 		rel32 then patchLinkRel32(code, pos: pos, textRva: textRva, target: target)
+		branch26 or
+		branch19 then arm64PatchBranch(code, kind: kind, at: pos, distance: linkDistance(pos, textRva: textRva, target: target))
+		page21 then arm64PatchPages(code, at: pos, place: try textRva + pos otherwise panic("link: an address past the image"), target: target)
+		pageOffset12 or
+		pageOffset12Word then arm64PatchPageOffset(code, kind: kind, at: pos, target: target)
 	end 'kind'
 end 'linkPatch'
+
+// linkDistance is how far target is from the instruction at pos of the code, which sits at textRva, in bytes.
+function linkDistance(pos Count, textRva Count, target Count) returns FullRangeInt
+	let place = try textRva + pos otherwise panic("link: an address past the image")
+	return try (target as FullRangeInt) - (place as FullRangeInt) otherwise panic("link: a reference past the range of the image")
+end 'linkDistance'
 
 // patchLinkRel32 makes the 32-bit field at pos, which counts from its own end, reach target.
 function patchLinkRel32(mutates code ByteArray, pos Count, textRva Count, target Count)
@@ -643,7 +654,7 @@ end 'patchLinkRel32'
 // copyAndPatch puts the live sections and pieces of a unit, u at place unit of the layout, into the code and the data of the
 // image and fills in the addresses they refer to. A section moves as a whole, so a fixup keeps its place in it. The units
 // come in the order of their places, so the code is written in that order, with traps in the gaps that align a section.
-function copyAndPatch(mutates code ByteArray, mutates data ByteArray, links LinkUnitList, unit Count, u CodeUnit, defined LinkTargetList, image Image, tableAt Count)
+function copyAndPatch(mutates code ByteArray, mutates data ByteArray, links LinkUnitList, unit Count, u CodeUnit, defined LinkTargetList, image Image, tableAt Count, arch ast.TargetArch)
 	let l = links[unit].clone()
 	for p in 0 upto l.liveData.count() 'data'
 		if l.liveData[p] 'live'
@@ -657,7 +668,7 @@ function copyAndPatch(mutates code ByteArray, mutates data ByteArray, links Link
 		let begin = l.sections[s].clone()
 		let finish = l.sections[s + 1].clone()
 		let at = try l.codeBase + l.codeAt[s] otherwise panic("link: code past memory")
-		encodeInt3s(code, bytes: try at - code.count() otherwise panic("link: sections out of the order of their places"))
+		encodeTraps(code, arch: arch, bytes: try at - code.count() otherwise panic("link: sections out of the order of their places"))
 		appendRange(code, src: u.asm.code, begin: begin.code, finish: finish.code)
 		for j in begin.dataFixups upto finish.dataFixups 'dataFixups'
 			let fixup = u.asm.dataFixups[j].clone()

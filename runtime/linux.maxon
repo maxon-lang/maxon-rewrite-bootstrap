@@ -345,7 +345,11 @@
 	function osRename(source String, destination String, errorAddress Count)
 		let oldPath = cStringOf(source)
 		let newPath = cStringOf(destination)
-		let result = __Raw.syscall2(linuxSysRename, arg1: oldPath, arg2: newPath)
+		#if arch(arm64)
+			let result = __Raw.syscall5(linuxSysRenameat2, arg1: atCwd(), arg2: oldPath, arg3: atCwd(), arg4: newPath, arg5: noFlags)
+		#else
+			let result = __Raw.syscall2(linuxSysRename, arg1: oldPath, arg2: newPath)
+		#endif
 		free(oldPath)
 		free(newPath)
 		endWithError(errorAddress, osError: osErrorOf(result), table: renameFailures())
@@ -354,7 +358,11 @@
 	// osDelete deletes a file, which a directory is not: unlink refuses it.
 	function osDelete(path String, errorAddress Count)
 		let cPath = cStringOf(path)
-		let result = __Raw.syscall1(linuxSysUnlink, arg1: cPath)
+		#if arch(arm64)
+			let result = __Raw.syscall3(linuxSysUnlinkat, arg1: atCwd(), arg2: cPath, arg3: noFlags)
+		#else
+			let result = __Raw.syscall1(linuxSysUnlink, arg1: cPath)
+		#endif
 		free(cPath)
 		endWithError(errorAddress, osError: osErrorOf(result), table: deleteFailures())
 	end 'osDelete'
@@ -434,11 +442,19 @@
 		for i in 1 upto length 'prefixes'
 			if __Raw.loadByte(cPath, offset: i) == slashByte 'separator'
 				__Raw.storeByte(cPath, offset: i, value: terminatorByte)
-				_ = __Raw.syscall2(linuxSysMkdir, arg1: cPath, arg2: linuxDirectoryMode)
+				#if arch(arm64)
+					_ = __Raw.syscall3(linuxSysMkdirat, arg1: atCwd(), arg2: cPath, arg3: linuxDirectoryMode)
+				#else
+					_ = __Raw.syscall2(linuxSysMkdir, arg1: cPath, arg2: linuxDirectoryMode)
+				#endif
 				__Raw.storeByte(cPath, offset: i, value: slashByte)
 			end 'separator'
 		end 'prefixes'
-		_ = __Raw.syscall2(linuxSysMkdir, arg1: cPath, arg2: linuxDirectoryMode)
+		#if arch(arm64)
+			_ = __Raw.syscall3(linuxSysMkdirat, arg1: atCwd(), arg2: cPath, arg3: linuxDirectoryMode)
+		#else
+			_ = __Raw.syscall2(linuxSysMkdir, arg1: cPath, arg2: linuxDirectoryMode)
+		#endif
 		free(cPath)
 		return osIsDirectory(path)
 	end 'osCreateDirectory'

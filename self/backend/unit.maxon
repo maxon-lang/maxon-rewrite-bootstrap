@@ -31,15 +31,28 @@ end 'Label'
 typealias LabelList = Array with Label
 
 // FixupKind is what a field that the link or a label fills in holds: on x64 a 32-bit offset from the field's end to
-// the target (rel32), in a branch, a call or a rip-relative operand.
+// the target (rel32), in a branch, a call or a rip-relative operand; on arm64 a field of the instruction word at the
+// fixup, which holds the distance from the instruction in words, of b and bl (branch26) or of b.cond, cbz and cbnz
+// (branch19), the distance in pages of adrp (page21), or the low 12 bits of the target's address, as they are for an
+// add (pageOffset12) and in words for the load or the store of a word (pageOffset12Word).
 export enum FixupKind
 	rel32
+	branch26
+	branch19
+	page21
+	pageOffset12
+	pageOffset12Word
 end 'FixupKind'
 
 // fixupKindOf is the kind with a number, its rawValue, which a unit kept by the build cache holds.
 function fixupKindOf(number Count) returns FixupKind
 	return match number 'number'
 		0 gives FixupKind.rel32
+		1 gives FixupKind.branch26
+		2 gives FixupKind.branch19
+		3 gives FixupKind.page21
+		4 gives FixupKind.pageOffset12
+		5 gives FixupKind.pageOffset12Word
 		default panic("backend: a kept unit holds a fixup of no kind")
 	end 'number'
 end 'fixupKindOf'
@@ -190,8 +203,18 @@ end 'Asm'
 function patchLabelField(mutates code ByteArray, kind FixupKind, at Count, target Count)
 	match kind 'kind'
 		rel32 then patchRel32(code, at: at, target: target)
+		branch26 or
+		branch19 then arm64PatchBranch(code, kind: kind, at: at, distance: distanceOf(at, target: target))
+		page21 or
+		pageOffset12 or
+		pageOffset12Word then panic("backend: a label of the code is the target of an address's page or its low bits, which only the link fills in")
 	end 'kind'
 end 'patchLabelField'
+
+// distanceOf is how far target is from at, both offsets of one code, in bytes.
+function distanceOf(at Count, target Count) returns FullRangeInt
+	return try (target as FullRangeInt) - (at as FullRangeInt) otherwise panic("backend: a distance past the word")
+end 'distanceOf'
 
 // CodeSection is where a part of a unit's code begins, and where its fixups of each kind begin, which are in the order of
 // their positions, and the boundary the link starts it on: the code in it is aligned from its start, so it is aligned in

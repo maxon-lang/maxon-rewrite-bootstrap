@@ -80,6 +80,16 @@ var constants = []constant{
 	{"arm64ImmloAt", immloAt, false},
 	{"arm64ImmhiAt", immhiAt, false},
 	{"arm64AddressBits", address21, false},
+	// The fields that a label or the link patches: a branch's distance in words, adrp's pages and the low bits of an address
+	// after it, and the immediate of add and sub, which a wide one is split into.
+	{"arm64Imm26At", imm26At, false},
+	{"arm64Imm26Bits", imm26Bits, false},
+	{"arm64Imm19At", imm19At, false},
+	{"arm64Imm19Bits", imm19Bits, false},
+	{"arm64Imm12At", imm12At, false},
+	{"arm64Imm12Bits", imm12Bits, false},
+	{"arm64PageOffsetBits", pageOffsetBits, false},
+	{"arm64AddressMask", uint64(bitsAt(immloAt, immloBits) | bitsAt(immhiAt, address21-immloBits)), true},
 }
 
 func emitConstants(b *strings.Builder) {
@@ -257,12 +267,18 @@ end 'arm64LogicalField'
 
 `
 
-// ladder is the encoder that sets a register to any word, after the forms it writes.
-const ladder = `// encodeArm64MovImm sets a register to a word in the fewest moves of a halfword: a movz of its first halfword that is
-// not 0 and a movk of each later one that is not, or, where more of its halfwords are all ones than are 0, a movn of
-// the first that is not all ones and a movk of each later one that is not. A word of halfwords all 0 or all ones is
-// one movz or movn of 0.
-export function encodeArm64MovImm(mutates code ByteArray, dest Arm64Register, value FullRangeInt)
+// ladder is the encoder that sets a register to any word, after the forms it writes, and the steps of it that
+// instruction selection writes as machine instructions of those forms.
+const ladder = `// The ladder sets a register to a word in the fewest moves of a halfword: a movz of its first halfword that is not 0
+// and a movk of each later one that is not, or, where more of its halfwords are all ones than are 0, a movn of the first
+// that is not all ones and a movk of each later one that is not. A word of halfwords all 0 or all ones is one movz or
+// movn of 0.
+
+// arm64LadderSteps is how many halfwords a word has, each of which is a step of the ladder.
+export let arm64LadderSteps = arm64Halfwords
+
+// arm64LadderInverted is whether the ladder of a word starts with a movn.
+export function arm64LadderInverted(value FullRangeInt) returns bool
 	let word = value as Arm64Bits
 	var zeros = 0 as Count
 	var ones = 0 as Count
@@ -274,22 +290,53 @@ export function encodeArm64MovImm(mutates code ByteArray, dest Arm64Register, va
 			ones = ones + 1
 		end 'ones'
 	end 'count'
-	let inverted = ones > zeros
-	var skipped = 0 as Arm64Bits
-	if inverted 'inverted'
-		skipped = arm64HalfwordMask
+	return ones > zeros
+end 'arm64LadderInverted'
+
+// arm64LadderHalfword is the halfword hw of a word, from the lowest.
+export function arm64LadderHalfword(value FullRangeInt, hw Count) returns Arm64Imm16
+	let at = try hw * arm64HalfwordBits otherwise panic("backend: a halfword past a word")
+	let chunk = ((value as Arm64Bits) shr at) and arm64HalfwordMask
+	return try chunk as Arm64Imm16 otherwise panic("backend: a halfword past 16 bits")
+end 'arm64LadderHalfword'
+
+// arm64LadderSkips is whether the ladder of a word writes nothing for its halfword hw: one that the first move leaves as
+// the word has it, 0 after a movz and all ones after a movn.
+export function arm64LadderSkips(value FullRangeInt, hw Count) returns bool
+	let chunk = arm64LadderHalfword(value, hw: hw) as Arm64Bits
+	if arm64LadderInverted(value) 'inverted'
+		return chunk == arm64HalfwordMask
 	end 'inverted'
+	return chunk == 0
+end 'arm64LadderSkips'
+
+// arm64LadderFirst is the halfword of the first move of the ladder at halfword hw: the halfword itself for a movz, and
+// its complement for a movn.
+export function arm64LadderFirst(value FullRangeInt, hw Count) returns Arm64Imm16
+	let chunk = arm64LadderHalfword(value, hw: hw)
+	if arm64LadderInverted(value) 'inverted'
+		return try ((chunk as Arm64Bits) xor arm64HalfwordMask) as Arm64Imm16 otherwise panic("backend: a halfword past 16 bits")
+	end 'inverted'
+	return chunk
+end 'arm64LadderFirst'
+
+// arm64LadderShift is the shift field of the move of halfword hw.
+export function arm64LadderShift(hw Count) returns Arm64Imm2
+	return try hw as Arm64Imm2 otherwise panic("backend: a halfword past a word")
+end 'arm64LadderShift'
+
+// encodeArm64MovImm writes the ladder of a word into a register.
+export function encodeArm64MovImm(mutates code ByteArray, dest Arm64Register, value FullRangeInt)
+	let inverted = arm64LadderInverted(value)
 	var first = true
 	for hw in 0 upto arm64Halfwords 'halfwords'
-		let chunk = (word shr (hw * arm64HalfwordBits)) and arm64HalfwordMask
-		let shift = try hw as Arm64Imm2 otherwise panic("backend: a halfword past a word")
-		if chunk != skipped 'live'
+		if not arm64LadderSkips(value, hw: hw) 'live'
 			if not first 'later'
-				encodeArm64MovkRegImm(code, dest: dest, imm: try chunk as Arm64Imm16 otherwise panic("backend: a halfword past 16 bits"), shift: shift)
+				encodeArm64MovkRegImm(code, dest: dest, imm: arm64LadderHalfword(value, hw: hw), shift: arm64LadderShift(hw))
 			end 'later' else if inverted 'movn'
-				encodeArm64MovnRegImm(code, dest: dest, imm: try (chunk xor arm64HalfwordMask) as Arm64Imm16 otherwise panic("backend: a halfword past 16 bits"), shift: shift)
+				encodeArm64MovnRegImm(code, dest: dest, imm: arm64LadderFirst(value, hw: hw), shift: arm64LadderShift(hw))
 			end 'movn' else 'movz'
-				encodeArm64MovzRegImm(code, dest: dest, imm: try chunk as Arm64Imm16 otherwise panic("backend: a halfword past 16 bits"), shift: shift)
+				encodeArm64MovzRegImm(code, dest: dest, imm: arm64LadderFirst(value, hw: hw), shift: arm64LadderShift(hw))
 			end 'movz'
 			first = false
 		end 'live'

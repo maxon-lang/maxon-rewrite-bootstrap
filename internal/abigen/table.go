@@ -79,6 +79,8 @@ var layouts = []layoutConst{
 	// what it jumps to, with the arguments as they are.
 	{"tableEntryBytes", 1, false, toSelfBack,
 		"the size of an entry of the table of an interface value."},
+	{"arm64TableEntryBytes", 2, false, toSelfBack,
+		"the size of an entry of the table of an interface value on arm64, where the address of a type's name and the return that give it take three instructions of 4 bytes."},
 	{"tableDropEntry", 0, true, toSelfBack,
 		"the entry of a table that drops the value the box holds."},
 	{"tableCopyEntry", 1, true, toSelfBack,

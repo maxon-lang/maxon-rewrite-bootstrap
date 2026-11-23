@@ -1,16 +1,17 @@
 // Instruction selection: a module's functions, from their IR, into machine IR (mir.maxon), which the allocator gives
 // registers and the encoder of the architecture writes into the module's code unit. The rules of each instruction set
-// (internal/rulegen/x64.rules) select most operations (lower_x64_gen.maxon, generated); the helpers here select the
+// (internal/rulegen/x64.rules, arm64.rules) select most operations (lower_x64_gen.maxon, lower_arm64_gen.maxon, generated);
+// the helpers here select the
 // rest that every architecture selects alike: the calls of functions, function values, interface methods and runtime
 // entries, the boxes, closures, behaviours and coroutines, the drops and copies, a switch and a return. They write the
-// machine through the primitives of the architecture compiled for (isel_x64.maxon), which also holds its half of the
+// machine through the primitives of the architecture compiled for (isel_x64.maxon, isel_arm64.maxon), which also holds its half of the
 // calls (where the convention puts each argument), its prologue and the helpers its rules name for what only it does.
 //
 // Every register of the IR is the virtual register of the same number from firstVirtual, so a block's parameters and an
 // edge's arguments are those registers, and the code of a block may name a register that a block written later defines.
 // IR block b is machine block b, and the blocks that the prologue and a helper's branches need are made after them.
 //
-// Calls use the internal convention of the target table (regs_x64_gen.maxon): the first words in its registers and the
+// Calls use the internal convention of the target table (regs_x64_gen.maxon, regs_arm64_gen.maxon): the first words in its registers and the
 // first floats in its float registers, each class counted apart, and the rest on the stack; the result in its result
 // register, a float's in its float result register, and the error of a function that throws beside it in its error
 // register. Which arguments and results are floats is the call's float signature and the function's
@@ -485,12 +486,13 @@ export type Selector
 	end 'fillBox'
 
 	// The primitives of the architecture: what the shared helpers and the driver ask of the machine, each written by the
-	// architecture's selector (isel_x64.maxon), which is chosen here by the architecture compiled for.
+	// architecture's selector (isel_x64.maxon, isel_arm64.maxon), which is chosen here by the architecture compiled for.
 
 	// constantInto sets dst to a word.
 	function constantInto(mutates self, dst MReg, value FullRangeInt)
 		match arch 'arch'
 			x64 then self.x64ConstantInto(dst, value: value)
+			arm64 then self.arm64ConstantInto(dst, value: value)
 		end 'arch'
 	end 'constantInto'
 
@@ -498,6 +500,7 @@ export type Selector
 	function loadInto(mutates self, dst MReg, base MReg, disp Imm32)
 		match arch 'arch'
 			x64 then self.x64LoadInto(dst, base: base, disp: disp)
+			arm64 then self.arm64LoadInto(dst, base: base, disp: disp)
 		end 'arch'
 	end 'loadInto'
 
@@ -505,6 +508,7 @@ export type Selector
 	function store(mutates self, base MReg, disp Imm32, src MReg)
 		match arch 'arch'
 			x64 then self.x64Store(base, disp: disp, src: src)
+			arm64 then self.arm64StoreWord(base, disp: disp, src: src)
 		end 'arch'
 	end 'store'
 
@@ -512,6 +516,7 @@ export type Selector
 	function storeImm(mutates self, base MReg, disp Imm32, value Imm32)
 		match arch 'arch'
 			x64 then self.x64StoreImm(base, disp: disp, value: value)
+			arm64 then self.arm64StoreImm(base, disp: disp, value: value)
 		end 'arch'
 	end 'storeImm'
 
@@ -519,6 +524,7 @@ export type Selector
 	function addImm(mutates self, src MReg, imm Imm32) returns MReg
 		return match arch 'arch'
 			x64 gives self.x64AddImm(src, imm: imm)
+			arm64 gives self.arm64AddConst(src, value: imm as FullRangeInt)
 		end 'arch'
 	end 'addImm'
 
@@ -526,6 +532,7 @@ export type Selector
 	function offset(mutates self, src MReg, disp Imm32) returns MReg
 		return match arch 'arch'
 			x64 gives self.x64Offset(src, disp: disp)
+			arm64 gives self.arm64AddConst(src, value: disp as FullRangeInt)
 		end 'arch'
 	end 'offset'
 
@@ -533,6 +540,7 @@ export type Selector
 	function address(mutates self, symbol String) returns MReg
 		return match arch 'arch'
 			x64 gives self.x64Address(symbol)
+			arm64 gives self.arm64Address(symbol)
 		end 'arch'
 	end 'address'
 
@@ -540,6 +548,7 @@ export type Selector
 	function wordAddress(mutates self, base MReg, index MReg) returns MReg
 		return match arch 'arch'
 			x64 gives self.x64WordAddress(base, index: index)
+			arm64 gives self.arm64WordAddress(base, index: index)
 		end 'arch'
 	end 'wordAddress'
 
@@ -547,6 +556,7 @@ export type Selector
 	function loadIndexedByte(mutates self, base MReg, index MReg, disp Imm32) returns MReg
 		return match arch 'arch'
 			x64 gives self.x64LoadIndexedByte(base, index: index, disp: disp)
+			arm64 gives self.arm64LoadIndexedByte(base, index: index, disp: disp)
 		end 'arch'
 	end 'loadIndexedByte'
 
@@ -554,6 +564,7 @@ export type Selector
 	function storeIndexedByte(mutates self, base MReg, index MReg, src MReg)
 		match arch 'arch'
 			x64 then self.x64StoreIndexedByte(base, index: index, src: src)
+			arm64 then self.arm64StoreIndexedByte(base, index: index, src: src)
 		end 'arch'
 	end 'storeIndexedByte'
 
@@ -561,6 +572,7 @@ export type Selector
 	function storeIndexedWord(mutates self, base MReg, index MReg, src MReg)
 		match arch 'arch'
 			x64 then self.x64StoreIndexedWord(base, index: index, src: src)
+			arm64 then self.arm64StoreIndexedWord(base, index: index, src: src)
 		end 'arch'
 	end 'storeIndexedWord'
 
@@ -568,6 +580,7 @@ export type Selector
 	function compare(mutates self, a MReg, b MReg)
 		match arch 'arch'
 			x64 then self.x64Compare(a, b: b)
+			arm64 then self.arm64Compare(a, b: b)
 		end 'arch'
 	end 'compare'
 
@@ -575,6 +588,7 @@ export type Selector
 	function compareWith(mutates self, a MReg, value ir.Word)
 		match arch 'arch'
 			x64 then self.x64CompareWith(a, value: value)
+			arm64 then self.arm64CompareWith(a, value: value)
 		end 'arch'
 	end 'compareWith'
 
@@ -582,6 +596,7 @@ export type Selector
 	function flagInto(mutates self, dst ir.Reg, cond MCond)
 		match arch 'arch'
 			x64 then self.x64FlagInto(dst, cond: cond)
+			arm64 then self.arm64FlagInto(dst, cond: cond)
 		end 'arch'
 	end 'flagInto'
 
@@ -589,6 +604,7 @@ export type Selector
 	function zeroInto(mutates self, r MReg, float bool)
 		match arch 'arch'
 			x64 then self.x64ZeroInto(r, float: float)
+			arm64 then self.arm64ZeroInto(r, float: float)
 		end 'arch'
 	end 'zeroInto'
 
@@ -596,6 +612,7 @@ export type Selector
 	function callSymbol(mutates self, symbol String)
 		match arch 'arch'
 			x64 then self.x64CallSymbol(symbol)
+			arm64 then self.arm64CallSymbol(symbol)
 		end 'arch'
 	end 'callSymbol'
 
@@ -604,6 +621,7 @@ export type Selector
 	function callRegister(mutates self, code MReg)
 		match arch 'arch'
 			x64 then self.x64CallRegister(code)
+			arm64 then self.arm64CallRegister(code)
 		end 'arch'
 	end 'callRegister'
 
@@ -611,6 +629,7 @@ export type Selector
 	function jumpTo(mutates self, block MBlockID)
 		match arch 'arch'
 			x64 then self.x64JumpTo(block)
+			arm64 then self.arm64JumpTo(block)
 		end 'arch'
 	end 'jumpTo'
 
@@ -618,6 +637,7 @@ export type Selector
 	function jumpAlong(mutates self, refers Referent)
 		match arch 'arch'
 			x64 then self.x64JumpAlong(refers)
+			arm64 then self.arm64JumpAlong(refers)
 		end 'arch'
 	end 'jumpAlong'
 
@@ -625,6 +645,7 @@ export type Selector
 	function branchAlong(mutates self, cond MCond, refers Referent)
 		match arch 'arch'
 			x64 then self.x64BranchAlong(cond, refers: refers)
+			arm64 then self.arm64BranchAlong(cond, refers: refers)
 		end 'arch'
 	end 'branchAlong'
 
@@ -633,6 +654,7 @@ export type Selector
 	function branchTo(mutates self, cond MCond, block MBlockID)
 		match arch 'arch'
 			x64 then self.x64BranchTo(cond, block: block)
+			arm64 then self.arm64BranchTo(cond, block: block)
 		end 'arch'
 	end 'branchTo'
 
@@ -641,6 +663,7 @@ export type Selector
 	function failTo(mutates self, cond MCond, block ir.BlockID)
 		match arch 'arch'
 			x64 then self.x64FailTo(cond, block: block)
+			arm64 then self.arm64FailTo(cond, block: block)
 		end 'arch'
 	end 'failTo'
 
@@ -648,6 +671,7 @@ export type Selector
 	function leave(mutates self)
 		match arch 'arch'
 			x64 then self.x64Leave()
+			arm64 then self.arm64Leave()
 		end 'arch'
 	end 'leave'
 
@@ -656,6 +680,7 @@ export type Selector
 	function takeParams(mutates self, f ir.IrFunction)
 		match arch 'arch'
 			x64 then self.x64TakeParams(f)
+			arm64 then self.arm64TakeParams(f)
 		end 'arch'
 	end 'takeParams'
 
@@ -664,6 +689,7 @@ export type Selector
 	function zeroManagedSlots(mutates self, f ir.IrFunction)
 		match arch 'arch'
 			x64 then self.x64ZeroManagedSlots(f)
+			arm64 then self.arm64ZeroManagedSlots(f)
 		end 'arch'
 	end 'zeroManagedSlots'
 end 'Selector'
@@ -715,7 +741,7 @@ function emitCallWitness(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
 	let iface = argAt(fn, start: start, index: 0)
 	let value = sel.load(iface, disp: imm32Of(ifaceValueOffset))
 	let table = sel.load(iface, disp: imm32Of(ifaceTableOffset))
-	let entry = sel.addImm(table, imm: imm32Of(try (tableFirstMethod + ir.callWitnessSlot(ins)) * tableEntryBytes otherwise panic("backend: a table past memory")))
+	let entry = sel.addImm(table, imm: imm32Of(try (tableFirstMethod + ir.callWitnessSlot(ins)) * tableEntrySize(sel.arch) otherwise panic("backend: a table past memory")))
 	sel.addArg(value, float: ir.isFloatAt(ir.callFloats(fn, x: ins), place: 0))
 	sel.addArgs(fn, start: try start + 1 otherwise panic("backend: an argument past the pool"), count: try count - 1 otherwise panic("backend: a witness call with no interface value"), floats: ir.callFloats(fn, x: ins), first: 1)
 	sel.callRegister(entry)
@@ -731,7 +757,7 @@ end 'emitCallWitness'
 // with the name of the type the cast wants.
 function emitIsType(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
 	let table = sel.load(vregOf(ir.isTypeSrc(ins)), disp: imm32Of(ifaceTableOffset))
-	let entry = sel.addImm(table, imm: imm32Of(try tableTypeEntry * tableEntryBytes otherwise panic("backend: a table past memory")))
+	let entry = sel.addImm(table, imm: imm32Of(try tableTypeEntry * tableEntrySize(sel.arch) otherwise panic("backend: a table past memory")))
 	sel.callRegister(entry)
 	let named = sel.newTemp()
 	sel.copy(named, src: physOfNumber(internalResultOf(sel.arch)))
@@ -1057,10 +1083,11 @@ function selectFunction(mutates sel Selector, p ast.Project, mutates ms ast.Modu
 end 'selectFunction'
 
 // selectInstruction writes the machine instructions of an instruction by the selection of the architecture compiled
-// for, which its rules generate (lower_x64_gen.maxon).
+// for, which its rules generate (lower_x64_gen.maxon, lower_arm64_gen.maxon).
 function selectInstruction(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
 	match sel.arch 'arch'
 		x64 then x64SelectInstr(sel, fn: fn, ins: ins)
+		arm64 then arm64SelectInstr(sel, fn: fn, ins: ins)
 	end 'arch'
 end 'selectInstruction'
 
@@ -1068,6 +1095,7 @@ end 'selectInstruction'
 function selectTerminator(mutates sel Selector, fn ir.IrFunction, ins ir.Term)
 	match sel.arch 'arch'
 		x64 then x64SelectTerm(sel, fn: fn, ins: ins)
+		arm64 then arm64SelectTerm(sel, fn: fn, ins: ins)
 	end 'arch'
 end 'selectTerminator'
 
@@ -1075,6 +1103,7 @@ end 'selectTerminator'
 function encodeFunction(mutates sel Selector, fn MirFunction, instance bool)
 	match sel.arch 'arch'
 		x64 then encodeX64Function(sel.u, fn: fn, instance: instance, lay: sel.layout)
+		arm64 then encodeArm64Function(sel.u, fn: fn, instance: instance, lay: sel.layout)
 	end 'arch'
 end 'encodeFunction'
 

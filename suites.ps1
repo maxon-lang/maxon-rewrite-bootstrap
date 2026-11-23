@@ -58,19 +58,23 @@ function Test-Behaviours([string[]]$TargetArgs = @()) {
 }
 
 # The x64-linux corpus is compiled for Linux and run under WSL, in its default distribution, so the second target is held to
-# the same programs. A machine without WSL or a distribution fails the step: a gate that skipped it would pass without
-# running Linux's code.
+# the same programs, and so is the arm64-linux corpus, whose static executables WSL runs through the qemu-aarch64 that the
+# distribution registers with binfmt_misc; each of its programs is compiled with --verify-ir, which holds arm64's selection and
+# allocation to the invariants of every function. A machine without WSL or a distribution fails the step: a gate that skipped
+# it would pass without running Linux's code.
 $linuxTarget = '--target=x64-linux'
+
+$arm64LinuxTarget = '--target=arm64-linux'
 
 function Assert-Wsl {
 	if (-not (Get-Command wsl.exe -ErrorAction SilentlyContinue)) {
-		Write-Output 'the x64-linux corpus runs under WSL, and wsl.exe is not installed: install WSL (wsl --install)'
+		Write-Output 'the Linux corpus runs under WSL, and wsl.exe is not installed: install WSL (wsl --install)'
 		$global:LASTEXITCODE = 1
 		return
 	}
 	$null = wsl.exe --exec /bin/true 2>&1
 	if ($LASTEXITCODE -ne 0) {
-		Write-Output 'the x64-linux corpus runs under WSL, and its default distribution cannot run a program: install one (wsl --install -d Ubuntu) and start it once'
+		Write-Output 'the Linux corpus runs under WSL, and its default distribution cannot run a program: install one (wsl --install -d Ubuntu) and start it once'
 		$global:LASTEXITCODE = 1
 	}
 }
@@ -85,6 +89,18 @@ function Test-LinuxBehaviours {
 	Assert-Wsl
 	if ($LASTEXITCODE -ne 0) { return }
 	Test-Behaviours @($linuxTarget)
+}
+
+function Test-Arm64Linux {
+	Assert-Wsl
+	if ($LASTEXITCODE -ne 0) { return }
+	$null | & $compiler test $arm64LinuxTarget --verify-ir @TestArgs
+}
+
+function Test-Arm64LinuxBehaviours {
+	Assert-Wsl
+	if ($LASTEXITCODE -ne 0) { return }
+	Test-Behaviours @($arm64LinuxTarget)
 }
 
 # The build cache must make the executable an uncached build makes. A project whose main inlines a leaf of the module it
@@ -158,10 +174,10 @@ $steps = @(
 	@('selftest', { & $compiler selftest }),
 	# Nothing compiles the runtime's source until a program is built, so this is what holds it to the language and to
 	# the signatures the compiler calls, for each target, whose branches of the source differ.
-	@('runtime', { & $compiler check runtime; if ($LASTEXITCODE -eq 0) { & $compiler check runtime --target=x64-linux } }),
+	@('runtime', { & $compiler check runtime; if ($LASTEXITCODE -eq 0) { & $compiler check runtime --target=x64-linux }; if ($LASTEXITCODE -eq 0) { & $compiler check runtime --target=arm64-linux } }),
 	# A program compiles only the library modules it names, so this is what holds the whole standard library to the language,
 	# for each target.
-	@('stdlib', { & $compiler check stdlib; if ($LASTEXITCODE -eq 0) { & $compiler check stdlib --target=x64-linux } }),
+	@('stdlib', { & $compiler check stdlib; if ($LASTEXITCODE -eq 0) { & $compiler check stdlib --target=x64-linux }; if ($LASTEXITCODE -eq 0) { & $compiler check stdlib --target=arm64-linux } }),
 	# The compiler's own source is a program too: a rule that it breaks would otherwise show only when the seed is renewed.
 	@('self', { & $compiler check self --tests --verify-reads }),
 	@('layout', { & $compiler fmt --check self runtime tests stdlib }),
@@ -170,6 +186,8 @@ $steps = @(
 	@('behaviours', { Test-Behaviours }),
 	@('corpus on linux', { Test-Linux }),
 	@('behaviours on linux', { Test-LinuxBehaviours }),
+	@('corpus on arm64 linux', { Test-Arm64Linux }),
+	@('behaviours on arm64 linux', { Test-Arm64LinuxBehaviours }),
 	@('cache', { Test-Cache }),
 	@('specs', { Test-Specs }),
 	# Every program the generator writes that the checker accepts must run clean under the interpreter: a violation is a

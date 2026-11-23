@@ -10,8 +10,8 @@ import (
 )
 
 // All are the instruction sets, one per target of the target table.
-var All = []isa.ISA{x64table.Table}
+var All = []isa.ISA{x64table.Table, arm64table.Table}
 
 // Pending are the instruction sets of the pending targets (target.Pending), in their order: each has its table and its
 // encoder, and no instruction selection rules yet.
-var Pending = []isa.ISA{arm64table.Table}
+var Pending []isa.ISA

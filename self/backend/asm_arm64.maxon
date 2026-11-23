@@ -1,0 +1,330 @@
+// arm64's assembler, as asm_x64.maxon is x64's: the methods of Asm that write arm64's instructions by the encoder
+// (arm64_gen.maxon) for the routines and the entry stub, the fields of an instruction word that a label, a symbol or data
+// fill in, and the patching of those fields, which the label's binding and the link do.
+
+// arm64ReadWord is the instruction word at an offset of the code, little endian.
+function arm64ReadWord(code ByteArray, at Count) returns Arm64Bits
+	var word = 0 as Arm64Bits
+	for i in 0 upto arm64WordBytes 'bytes'
+		let b = code[try at + i otherwise panic("backend: a word past the code")] as Arm64Bits
+		word = word or (b shl (i * arm64ByteBits))
+	end 'bytes'
+	return word
+end 'arm64ReadWord'
+
+// arm64WriteWord replaces the instruction word at an offset of the code.
+function arm64WriteWord(mutates code ByteArray, at Count, word Arm64Bits)
+	var rest = word
+	for i in 0 upto arm64WordBytes 'bytes'
+		code[try at + i otherwise panic("backend: a word past the code")] = try (rest and arm64ByteMask) as Byte otherwise panic("backend: a byte of an instruction past a byte")
+		rest = rest shr arm64ByteBits
+	end 'bytes'
+end 'arm64WriteWord'
+
+// arm64SetField puts a field into the instruction word at an offset of the code, over the bits of mask.
+function arm64SetField(mutates code ByteArray, at Count, mask Arm64Bits, field Arm64Bits)
+	arm64WriteWord(code, at: at, word: (arm64ReadWord(code, at: at) and not mask) or field)
+end 'arm64SetField'
+
+function arm64FieldMask(at Count, bits Count) returns Arm64Bits
+	return (((1 as Arm64Bits) shl bits) - 1) shl at
+end 'arm64FieldMask'
+
+// arm64PatchBranch makes the branch at an offset of the code go a distance in bytes from it, by its kind's field.
+function arm64PatchBranch(mutates code ByteArray, kind FixupKind, at Count, distance FullRangeInt)
+	var fieldAt = arm64Imm26At as Count
+	var bits = arm64Imm26Bits as Count
+	if kind == FixupKind.branch19 'conditional'
+		fieldAt = arm64Imm19At
+		bits = arm64Imm19Bits
+	end 'conditional' else if kind != FixupKind.branch26 'other'
+		panic("backend: a fixup of kind {kind.name} is no branch")
+	end 'other'
+	let reach = try (1 as FullRangeInt) shl (bits - 1) otherwise panic("backend: a branch field past the word")
+	if not arm64HoldsUnits(distance, scale: arm64WordBytes, low: 0 - reach, high: reach - 1) 'far'
+		panic("backend: an arm64 branch goes {distance} bytes, past the reach of its field")
+	end 'far'
+	arm64SetField(code, at: at, mask: arm64FieldMask(fieldAt, bits: bits), field: arm64UnitsField(distance, scale: arm64WordBytes, low: 0 - reach, high: reach - 1, bits: bits, at: fieldAt))
+end 'arm64PatchBranch'
+
+// arm64PatchPages makes the adrp at an offset of the code, whose address is place, give the page of target.
+function arm64PatchPages(mutates code ByteArray, at Count, place Count, target Count)
+	let pages = try ((target shr arm64PageOffsetBits) as FullRangeInt) - ((place shr arm64PageOffsetBits) as FullRangeInt) otherwise panic("link: a page past the range of the image")
+	arm64SetField(code, at: at, mask: arm64AddressMask, field: arm64AddressField(try pages as Imm32 otherwise panic("link: a page past the reach of adrp")))
+end 'arm64PatchPages'
+
+// arm64PatchPageOffset puts the low 12 bits of target into the add, or in words into the load or the store of a word, at
+// an offset of the code.
+function arm64PatchPageOffset(mutates code ByteArray, kind FixupKind, at Count, target Count)
+	let low = (target and arm64Imm12Max) as FullRangeInt
+	var scale = 1 as FullRangeInt
+	if kind == FixupKind.pageOffset12Word 'word'
+		scale = wordBytes as FullRangeInt
+	end 'word' else if kind != FixupKind.pageOffset12 'other'
+		panic("backend: a fixup of kind {kind.name} is no page offset")
+	end 'other'
+	let high = try (arm64Imm12Max as FullRangeInt) / scale otherwise panic("backend: a page offset of no unit")
+	arm64SetField(code, at: at, mask: arm64FieldMask(arm64Imm12At, bits: arm64PageOffsetBits), field: arm64UnitsField(low, scale: scale, low: 0, high: high, bits: arm64PageOffsetBits, at: arm64Imm12At))
+end 'arm64PatchPageOffset'
+
+// arm64LastWord is where the instruction written last starts.
+function arm64LastWord(code ByteArray) returns Count
+	return try code.count() - arm64WordBytes otherwise panic("backend: no instruction written")
+end 'arm64LastWord'
+
+extension Asm
+	// arm64UseLabel makes the branch written last, of a kind, go to the label.
+	function arm64UseLabel(mutates self, label LabelID, kind FixupKind)
+		self.addLabelUse(label, kind: kind, at: arm64LastWord(code))
+	end 'arm64UseLabel'
+
+	// arm64NoteSymbol, arm64NoteData and arm64NoteImport note the instruction written last as a reference of a kind to a
+	// symbol, to an offset of the data section or to an import slot.
+	function arm64NoteSymbol(mutates self, kind FixupKind, symbol String)
+		self.addSymbolFixup(kind, at: arm64LastWord(code), symbol: symbol)
+	end 'arm64NoteSymbol'
+
+	function arm64NoteData(mutates self, kind FixupKind, dataOffset Count)
+		self.addDataFixup(kind, at: arm64LastWord(code), dataOffset: dataOffset)
+	end 'arm64NoteData'
+
+	function arm64NoteImport(mutates self, kind FixupKind, index Count)
+		self.addImportFixup(kind, at: arm64LastWord(code), index: index)
+	end 'arm64NoteImport'
+
+	export function arm64Mov(mutates self, dst Arm64Register, src Arm64Register)
+		if dst == Arm64Register.sp or src == Arm64Register.sp 'stack'
+			encodeArm64AddRegImm(code, dest: dst, src: src, imm: 0)
+			return
+		end 'stack'
+		encodeArm64MovRegReg(code, dest: dst, src: src)
+	end 'arm64Mov'
+
+	export function arm64MovImm(mutates self, dst Arm64Register, value FullRangeInt)
+		encodeArm64MovImm(code, dest: dst, value: value)
+	end 'arm64MovImm'
+
+	// arm64AddImm adds a constant to src into dst, either of which may be the stack pointer: by the 12 bits of the add or
+	// the sub, by them shifted by 12 and the rest where 24 bits hold it, and otherwise by the address scratch register.
+	export function arm64AddImm(mutates self, dst Arm64Register, src Arm64Register, value FullRangeInt)
+		let word = value as ir.Word
+		if arm64HoldsImm12(value) 'add'
+			encodeArm64AddRegImm(code, dest: dst, src: src, imm: try value as Arm64Imm12 otherwise panic("backend: an immediate past 12 bits"))
+			return
+		end 'add'
+		if arm64HoldsNegatedImm12(value) 'sub'
+			encodeArm64SubRegImm(code, dest: dst, src: src, imm: try arm64Negated(value) as Arm64Imm12 otherwise panic("backend: an immediate past 12 bits"))
+			return
+		end 'sub'
+		let magnitude = value if value >= 0 else arm64Negated(value)
+		if magnitude < arm64WideImmediate 'split'
+			let high = try (magnitude shr arm64Imm12Bits) as Arm64Imm12 otherwise panic("backend: an immediate past 24 bits")
+			let low = try (magnitude and arm64Imm12Max) as Arm64Imm12 otherwise panic("backend: an immediate past 12 bits")
+			if value >= 0 'up'
+				encodeArm64AddRegImmHigh(code, dest: dst, src: src, imm: high)
+				if low != 0 'low'
+					encodeArm64AddRegImm(code, dest: dst, src: dst, imm: low)
+				end 'low'
+			end 'up' else 'down'
+				encodeArm64SubRegImmHigh(code, dest: dst, src: src, imm: high)
+				if low != 0 'low'
+					encodeArm64SubRegImm(code, dest: dst, src: dst, imm: low)
+				end 'low'
+			end 'down'
+			return
+		end 'split'
+		if src == arm64AddressScratch 'scratch'
+			panic("backend: a wide constant added to the address scratch register, which holds it")
+		end 'scratch'
+		encodeArm64MovImm(code, dest: arm64AddressScratch, value: value)
+		if dst == Arm64Register.sp or src == Arm64Register.sp 'stack'
+			panic("backend: a constant past 24 bits added to the stack pointer")
+		end 'stack'
+		encodeArm64AddRegReg(code, dest: dst, left: src, right: arm64AddressScratch)
+	end 'arm64AddImm'
+
+	export function arm64Add(mutates self, dst Arm64Register, left Arm64Register, right Arm64Register)
+		encodeArm64AddRegReg(code, dest: dst, left: left, right: right)
+	end 'arm64Add'
+
+	export function arm64Sub(mutates self, dst Arm64Register, left Arm64Register, right Arm64Register)
+		encodeArm64SubRegReg(code, dest: dst, left: left, right: right)
+	end 'arm64Sub'
+
+	export function arm64Mul(mutates self, dst Arm64Register, left Arm64Register, right Arm64Register)
+		encodeArm64MulRegReg(code, dest: dst, left: left, right: right)
+	end 'arm64Mul'
+
+	export function arm64Cmp(mutates self, left Arm64Register, right Arm64Register)
+		encodeArm64CmpRegReg(code, left: left, right: right)
+	end 'arm64Cmp'
+
+	// arm64CmpImm compares with a constant that 12 bits hold, or whose negation they hold.
+	export function arm64CmpImm(mutates self, left Arm64Register, value FullRangeInt)
+		let word = value as ir.Word
+		if arm64HoldsImm12(value) 'cmp'
+			encodeArm64CmpRegImm(code, left: left, imm: try value as Arm64Imm12 otherwise panic("backend: an immediate past 12 bits"))
+			return
+		end 'cmp'
+		if arm64HoldsNegatedImm12(value) 'cmn'
+			encodeArm64CmnRegImm(code, left: left, imm: try arm64Negated(value) as Arm64Imm12 otherwise panic("backend: an immediate past 12 bits"))
+			return
+		end 'cmn'
+		panic("backend: a comparison of the stub with a constant that no 12 bits hold")
+	end 'arm64CmpImm'
+
+	// arm64Load and arm64Store move the word at base plus disp: by the scaled offset of the access where it holds disp, by
+	// the unscaled one where that does, and otherwise at the address that the address scratch register is given.
+	export function arm64Load(mutates self, dst Arm64Register, base Arm64Register, disp FullRangeInt)
+		if arm64Ldr64OffHolds(disp) 'scaled'
+			encodeArm64Ldr64Off(code, dest: dst, base: base, disp: arm64Field32(disp))
+		end 'scaled' else if arm64Ldr64UnscaledHolds(disp) 'unscaled'
+			encodeArm64Ldr64Unscaled(code, dest: dst, base: base, disp: arm64Field32(disp))
+		end 'unscaled' else 'far'
+			self.arm64AddImm(arm64AddressScratch, src: base, value: disp)
+			encodeArm64Ldr64Off(code, dest: dst, base: arm64AddressScratch, disp: 0)
+		end 'far'
+	end 'arm64Load'
+
+	export function arm64Store(mutates self, base Arm64Register, disp FullRangeInt, src Arm64Register)
+		if arm64Str64OffHolds(disp) 'scaled'
+			encodeArm64Str64Off(code, src: src, base: base, disp: arm64Field32(disp))
+		end 'scaled' else if arm64Str64UnscaledHolds(disp) 'unscaled'
+			encodeArm64Str64Unscaled(code, src: src, base: base, disp: arm64Field32(disp))
+		end 'unscaled' else 'far'
+			self.arm64AddImm(arm64AddressScratch, src: base, value: disp)
+			encodeArm64Str64Off(code, src: src, base: arm64AddressScratch, disp: 0)
+		end 'far'
+	end 'arm64Store'
+
+	// arm64LoadVector and arm64StoreVector move the d register n at base plus disp, which the scaled offset holds.
+	export function arm64LoadVector(mutates self, n Count, base Arm64Register, disp FullRangeInt)
+		encodeArm64LdrDOff(code, dest: arm64VectorOfNumber(n), base: base, disp: try disp as Imm32 otherwise panic("backend: an offset past 32 bits"))
+	end 'arm64LoadVector'
+
+	export function arm64StoreVector(mutates self, base Arm64Register, disp FullRangeInt, n Count)
+		encodeArm64StrDOff(code, src: arm64VectorOfNumber(n), base: base, disp: try disp as Imm32 otherwise panic("backend: an offset past 32 bits"))
+	end 'arm64StoreVector'
+
+	export function arm64LoadWord32(mutates self, dst Arm64Register, base Arm64Register, disp FullRangeInt)
+		encodeArm64Ldr32Off(code, dest: dst, base: base, disp: try disp as Imm32 otherwise panic("backend: an offset past 32 bits"))
+	end 'arm64LoadWord32'
+
+	export function arm64LoadByte(mutates self, dst Arm64Register, base Arm64Register, index Arm64Register)
+		encodeArm64LdrbIdx(code, dest: dst, base: base, index: index)
+	end 'arm64LoadByte'
+
+	export function arm64StoreByte(mutates self, base Arm64Register, index Arm64Register, src Arm64Register)
+		encodeArm64StrbIdx(code, src: src, base: base, index: index)
+	end 'arm64StoreByte'
+
+	// arm64Push and arm64Pop keep two registers below the stack pointer, which moves by 16 bytes as AAPCS64 keeps it
+	// aligned, and take them back.
+	export function arm64Push(mutates self, first Arm64Register, second Arm64Register)
+		encodeArm64Stp64Pre(code, first: first, second: second, base: Arm64Register.sp, disp: 0 - arm64PairBytes)
+	end 'arm64Push'
+
+	export function arm64Pop(mutates self, first Arm64Register, second Arm64Register)
+		encodeArm64Ldp64Post(code, first: first, second: second, base: Arm64Register.sp, disp: arm64PairBytes)
+	end 'arm64Pop'
+
+	// arm64Enter and arm64Leave are the frame record of a routine or a stub that calls: the caller's frame pointer and the
+	// return address pushed, the frame pointer at them, and the two popped back.
+	export function arm64Enter(mutates self)
+		self.arm64Push(arm64FramePointer, second: arm64LinkRegister)
+		self.arm64Mov(arm64FramePointer, src: Arm64Register.sp)
+	end 'arm64Enter'
+
+	export function arm64Leave(mutates self)
+		self.arm64Pop(arm64FramePointer, second: arm64LinkRegister)
+	end 'arm64Leave'
+
+	export function arm64Ret(mutates self)
+		encodeArm64Ret(code)
+	end 'arm64Ret'
+
+	export function arm64Brk(mutates self)
+		encodeArm64Brk(code, imm: 0)
+	end 'arm64Brk'
+
+	export function arm64Svc(mutates self)
+		encodeArm64Svc(code)
+	end 'arm64Svc'
+
+	// arm64Address puts the address of a symbol in dst, its page and then its low bits.
+	export function arm64Address(mutates self, dst Arm64Register, symbol String)
+		encodeArm64Adrp(code, dest: dst, pages: 0)
+		self.arm64NoteSymbol(FixupKind.page21, symbol: symbol)
+		encodeArm64AddPageOff(code, dest: dst, src: dst, offset: 0)
+		self.arm64NoteSymbol(FixupKind.pageOffset12, symbol: symbol)
+	end 'arm64Address'
+
+	// arm64AddressData puts the address of an offset of the data section in dst.
+	export function arm64AddressData(mutates self, dst Arm64Register, dataOffset Count)
+		encodeArm64Adrp(code, dest: dst, pages: 0)
+		self.arm64NoteData(FixupKind.page21, dataOffset: dataOffset)
+		encodeArm64AddPageOff(code, dest: dst, src: dst, offset: 0)
+		self.arm64NoteData(FixupKind.pageOffset12, dataOffset: dataOffset)
+	end 'arm64AddressData'
+
+	// arm64LoadSymbol and arm64StoreSymbol read and write the word a symbol names, through the page of the address scratch
+	// register.
+	export function arm64LoadSymbol(mutates self, dst Arm64Register, symbol String)
+		encodeArm64Adrp(code, dest: arm64AddressScratch, pages: 0)
+		self.arm64NoteSymbol(FixupKind.page21, symbol: symbol)
+		encodeArm64Ldr64PageOff(code, dest: dst, base: arm64AddressScratch, offset: 0)
+		self.arm64NoteSymbol(FixupKind.pageOffset12Word, symbol: symbol)
+	end 'arm64LoadSymbol'
+
+	export function arm64StoreSymbol(mutates self, symbol String, src Arm64Register)
+		if src == arm64AddressScratch 'scratch'
+			panic("backend: the stub stores the address scratch register through itself")
+		end 'scratch'
+		encodeArm64Adrp(code, dest: arm64AddressScratch, pages: 0)
+		self.arm64NoteSymbol(FixupKind.page21, symbol: symbol)
+		encodeArm64Str64PageOff(code, src: src, base: arm64AddressScratch, offset: 0)
+		self.arm64NoteSymbol(FixupKind.pageOffset12Word, symbol: symbol)
+	end 'arm64StoreSymbol'
+
+	// arm64CallSymbol calls, and arm64JumpSymbol jumps to, a function or a routine that this unit or another one defines.
+	export function arm64CallSymbol(mutates self, symbol String)
+		encodeArm64Bl(code, rel: 0)
+		self.arm64NoteSymbol(FixupKind.branch26, symbol: symbol)
+	end 'arm64CallSymbol'
+
+	export function arm64JumpSymbol(mutates self, symbol String)
+		encodeArm64B(code, rel: 0)
+		self.arm64NoteSymbol(FixupKind.branch26, symbol: symbol)
+	end 'arm64JumpSymbol'
+
+	export function arm64CallRegister(mutates self, reg Arm64Register)
+		encodeArm64Blr(code, target: reg)
+	end 'arm64CallRegister'
+
+	export function arm64JumpRegister(mutates self, reg Arm64Register)
+		encodeArm64Br(code, target: reg)
+	end 'arm64JumpRegister'
+
+	export function arm64Jump(mutates self, label LabelID)
+		encodeArm64B(code, rel: 0)
+		self.arm64UseLabel(label, kind: FixupKind.branch26)
+	end 'arm64Jump'
+
+	export function arm64BranchIf(mutates self, cond MCond, label LabelID)
+		encodeArm64BCond(code, cond: cond, rel: 0)
+		self.arm64UseLabel(label, kind: FixupKind.branch19)
+	end 'arm64BranchIf'
+
+	export function arm64BranchIfZero(mutates self, reg Arm64Register, label LabelID)
+		encodeArm64Cbz(code, src: reg, rel: 0)
+		self.arm64UseLabel(label, kind: FixupKind.branch19)
+	end 'arm64BranchIfZero'
+
+	export function arm64BranchIfNotZero(mutates self, reg Arm64Register, label LabelID)
+		encodeArm64Cbnz(code, src: reg, rel: 0)
+		self.arm64UseLabel(label, kind: FixupKind.branch19)
+	end 'arm64BranchIfNotZero'
+end 'Asm'
+
+// arm64PairBytes is the room of a pair of words on the stack.
+let arm64PairBytes = 16

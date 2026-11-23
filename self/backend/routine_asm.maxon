@@ -1,0 +1,505 @@
+// The instructions that the drop and copy routines, the tables of interface values, the thunks and the start routines
+// are written with, each by the assembler of the architecture compiled for (asm_x64.maxon, asm_arm64.maxon): a load, a
+// store, an addition, a comparison, a branch, a call, a frame, the passing of an argument. They name registers by the
+// role the routines give them (RoutineReg), which each architecture's own registers play. Every register they work in is
+// one that every call may leave holding anything, so a routine keeps no callee-saved register. On x64 each of them is the
+// one instruction the routines were first written in, so its code is what it was.
+
+// RoutineReg is a register of the routines by its role.
+enum RoutineReg
+	// work, second and third hold the routine's values between calls; work is the one a routine's call takes its
+	// argument from and gives its result in.
+	work
+	second
+	third
+	// copyTo and copyFrom are the addresses a copy of bytes writes and reads, and second their count, which the copy
+	// leaves holding anything, third among them.
+	copyTo
+	copyFrom
+	// frame points at the routine's frame, whose words below it hold its argument and its locals; stack is the stack
+	// pointer.
+	frame
+	stack
+	// arg, result and error are the internal convention's first argument, result and error registers.
+	arg
+	result
+	error
+	// thunkBase holds the record a thunk passes the words of, and thunkWord a word it passes on the stack, apart from
+	// every argument register.
+	thunkBase
+	thunkWord
+end 'RoutineReg'
+
+let rWork = RoutineReg.work
+
+let rSecond = RoutineReg.second
+
+let rThird = RoutineReg.third
+
+let rCopyTo = RoutineReg.copyTo
+
+let rCopyFrom = RoutineReg.copyFrom
+
+let rFrame = RoutineReg.frame
+
+let rStack = RoutineReg.stack
+
+let rArg = RoutineReg.arg
+
+let rResult = RoutineReg.result
+
+let rError = RoutineReg.error
+
+let rThunkBase = RoutineReg.thunkBase
+
+let rThunkWord = RoutineReg.thunkWord
+
+// x64RoutineRegister is the x64 register of a role: the registers the routines were written in.
+function x64RoutineRegister(r RoutineReg) returns X64Register
+	return match r 'role'
+		work gives rax
+		second gives rcx
+		third gives rdx
+		copyTo gives rdi
+		copyFrom gives rsi
+		frame gives rbp
+		stack gives rsp
+		arg gives argWord()
+		result gives resultWord()
+		error gives x64InternalError
+		thunkBase gives r11
+		thunkWord gives r10
+	end 'role'
+end 'x64RoutineRegister'
+
+// arm64RoutineRegister is the arm64 register of a role: of the registers every call may leave holding anything, the
+// ones the internal convention passes no value in, x8 and x10 to x14. The roles of a copy of bytes share the thunk's
+// registers, since no thunk copies bytes.
+function arm64RoutineRegister(r RoutineReg) returns Arm64Register
+	return match r 'role'
+		work gives Arm64Register.x10
+		second gives Arm64Register.x11
+		third gives Arm64Register.x12
+		copyTo gives Arm64Register.x13
+		copyFrom gives Arm64Register.x14
+		frame gives arm64FramePointer
+		stack gives Arm64Register.sp
+		arg gives arm64ArgWord()
+		result gives arm64ResultWord()
+		error gives arm64InternalError
+		thunkBase gives Arm64Register.x13
+		thunkWord gives Arm64Register.x14
+	end 'role'
+end 'arm64RoutineRegister'
+
+// The frame of a routine: the frame pointer and, on arm64, the return address saved, the frame pointer pointed at them,
+// and room for the argument and the locals below it, where the prologue stores the argument.
+function rPrologue(mutates u CodeUnit, a ast.TargetArch, words Count)
+	let bytes = try words * wordBytes otherwise panic("routines: a routine with locals past memory")
+	match a 'arch'
+		x64 then x64RoutinePrologue(u, bytes: bytes)
+		arm64 then arm64RoutinePrologue(u, bytes: bytes)
+	end 'arch'
+end 'rPrologue'
+
+function x64RoutinePrologue(mutates u CodeUnit, bytes Count)
+	u.asm.push(rbp)
+	u.asm.mov(rbp, src: rsp)
+	u.asm.subImm(rsp, imm: imm32Of(bytes))
+	u.asm.store(rbp, disp: routineArg, src: argWord())
+end 'x64RoutinePrologue'
+
+function arm64RoutinePrologue(mutates u CodeUnit, bytes Count)
+	u.asm.arm64Enter()
+	u.asm.arm64AddImm(Arm64Register.sp, src: Arm64Register.sp, value: arm64Negated(arm64Disp(alignUp(bytes, alignment: arm64StackAlignment))))
+	u.asm.arm64Store(arm64FramePointer, disp: routineArg as FullRangeInt, src: arm64ArgWord())
+end 'arm64RoutinePrologue'
+
+// rEpilogue gives the frame back and returns.
+function rEpilogue(mutates u CodeUnit, a ast.TargetArch)
+	match a 'arch'
+		x64 then x64RoutineEpilogue(u)
+		arm64 then arm64RoutineEpilogue(u)
+	end 'arch'
+end 'rEpilogue'
+
+function x64RoutineEpilogue(mutates u CodeUnit)
+	u.asm.mov(rsp, src: rbp)
+	u.asm.pop(rbp)
+	u.asm.ret()
+end 'x64RoutineEpilogue'
+
+function arm64RoutineEpilogue(mutates u CodeUnit)
+	u.asm.arm64Mov(Arm64Register.sp, src: arm64FramePointer)
+	u.asm.arm64Leave()
+	u.asm.arm64Ret()
+end 'arm64RoutineEpilogue'
+
+// rEnterStub and rLeaveStub bracket a routine with no frame of its own that calls: on arm64 the call writes the link
+// register, which the bracket keeps; x64's call keeps its return address on the stack.
+function rEnterStub(mutates u CodeUnit, a ast.TargetArch)
+	match a 'arch'
+		x64 then return
+		arm64 then u.asm.arm64Enter()
+	end 'arch'
+end 'rEnterStub'
+
+function rLeaveStub(mutates u CodeUnit, a ast.TargetArch)
+	match a 'arch'
+		x64 then return
+		arm64 then u.asm.arm64Leave()
+	end 'arch'
+end 'rLeaveStub'
+
+function rLoad(mutates u CodeUnit, a ast.TargetArch, dst RoutineReg, base RoutineReg, disp Imm32)
+	match a 'arch'
+		x64 then u.asm.load(x64RoutineRegister(dst), base: x64RoutineRegister(base), disp: disp)
+		arm64 then u.asm.arm64Load(arm64RoutineRegister(dst), base: arm64RoutineRegister(base), disp: disp as FullRangeInt)
+	end 'arch'
+end 'rLoad'
+
+function rStore(mutates u CodeUnit, a ast.TargetArch, base RoutineReg, disp Imm32, src RoutineReg)
+	match a 'arch'
+		x64 then u.asm.store(x64RoutineRegister(base), disp: disp, src: x64RoutineRegister(src))
+		arm64 then u.asm.arm64Store(arm64RoutineRegister(base), disp: disp as FullRangeInt, src: arm64RoutineRegister(src))
+	end 'arch'
+end 'rStore'
+
+function rMov(mutates u CodeUnit, a ast.TargetArch, dst RoutineReg, src RoutineReg)
+	match a 'arch'
+		x64 then u.asm.mov(x64RoutineRegister(dst), src: x64RoutineRegister(src))
+		arm64 then u.asm.arm64Mov(arm64RoutineRegister(dst), src: arm64RoutineRegister(src))
+	end 'arch'
+end 'rMov'
+
+function rMovImm(mutates u CodeUnit, a ast.TargetArch, dst RoutineReg, imm FullRangeInt)
+	match a 'arch'
+		x64 then u.asm.movImm(x64RoutineRegister(dst), imm: imm)
+		arm64 then u.asm.arm64MovImm(arm64RoutineRegister(dst), value: imm)
+	end 'arch'
+end 'rMovImm'
+
+// rZero sets a register to 0.
+function rZero(mutates u CodeUnit, a ast.TargetArch, dst RoutineReg)
+	match a 'arch'
+		x64 then u.asm.bitXor(x64RoutineRegister(dst), src: x64RoutineRegister(dst))
+		arm64 then u.asm.arm64MovImm(arm64RoutineRegister(dst), value: 0)
+	end 'arch'
+end 'rZero'
+
+// rAddImm, rAdd, rSub and rMul set dst to itself and the operand.
+function rAddImm(mutates u CodeUnit, a ast.TargetArch, dst RoutineReg, imm Imm32)
+	match a 'arch'
+		x64 then u.asm.addImm(x64RoutineRegister(dst), imm: imm)
+		arm64 then u.asm.arm64AddImm(arm64RoutineRegister(dst), src: arm64RoutineRegister(dst), value: imm as FullRangeInt)
+	end 'arch'
+end 'rAddImm'
+
+function rAdd(mutates u CodeUnit, a ast.TargetArch, dst RoutineReg, src RoutineReg)
+	match a 'arch'
+		x64 then u.asm.add(x64RoutineRegister(dst), src: x64RoutineRegister(src))
+		arm64 then u.asm.arm64Add(arm64RoutineRegister(dst), left: arm64RoutineRegister(dst), right: arm64RoutineRegister(src))
+	end 'arch'
+end 'rAdd'
+
+function rSub(mutates u CodeUnit, a ast.TargetArch, dst RoutineReg, src RoutineReg)
+	match a 'arch'
+		x64 then u.asm.sub(x64RoutineRegister(dst), src: x64RoutineRegister(src))
+		arm64 then u.asm.arm64Sub(arm64RoutineRegister(dst), left: arm64RoutineRegister(dst), right: arm64RoutineRegister(src))
+	end 'arch'
+end 'rSub'
+
+function rMul(mutates u CodeUnit, a ast.TargetArch, dst RoutineReg, src RoutineReg)
+	match a 'arch'
+		x64 then u.asm.imul(x64RoutineRegister(dst), src: x64RoutineRegister(src))
+		arm64 then u.asm.arm64Mul(arm64RoutineRegister(dst), left: arm64RoutineRegister(dst), right: arm64RoutineRegister(src))
+	end 'arch'
+end 'rMul'
+
+// rCmp, rCmpImm and rTest set the flags, which a branch of a condition reads: a comparison, and the and of two registers,
+// which sets them as a comparison of it with 0.
+function rCmp(mutates u CodeUnit, a ast.TargetArch, left RoutineReg, right RoutineReg)
+	match a 'arch'
+		x64 then u.asm.cmp(x64RoutineRegister(left), right: x64RoutineRegister(right))
+		arm64 then u.asm.arm64Cmp(arm64RoutineRegister(left), right: arm64RoutineRegister(right))
+	end 'arch'
+end 'rCmp'
+
+function rCmpImm(mutates u CodeUnit, a ast.TargetArch, left RoutineReg, imm Imm32)
+	match a 'arch'
+		x64 then u.asm.cmpImm(x64RoutineRegister(left), imm: imm)
+		arm64 then u.asm.arm64CmpImm(arm64RoutineRegister(left), value: imm as FullRangeInt)
+	end 'arch'
+end 'rCmpImm'
+
+function rTest(mutates u CodeUnit, a ast.TargetArch, left RoutineReg, right RoutineReg)
+	match a 'arch'
+		x64 then u.asm.test(x64RoutineRegister(left), right: x64RoutineRegister(right))
+		arm64 then encodeArm64TstRegReg(u.asm.code, left: arm64RoutineRegister(left), right: arm64RoutineRegister(right))
+	end 'arch'
+end 'rTest'
+
+function rBranch(mutates u CodeUnit, a ast.TargetArch, cond MCond, label LabelID)
+	match a 'arch'
+		x64 then u.asm.jcc(cond, label: label)
+		arm64 then u.asm.arm64BranchIf(cond, label: label)
+	end 'arch'
+end 'rBranch'
+
+function rJump(mutates u CodeUnit, a ast.TargetArch, label LabelID)
+	match a 'arch'
+		x64 then u.asm.jmp(label)
+		arm64 then u.asm.arm64Jump(label)
+	end 'arch'
+end 'rJump'
+
+function rCallSymbol(mutates u CodeUnit, a ast.TargetArch, symbol String)
+	match a 'arch'
+		x64 then u.asm.callSymbol(symbol)
+		arm64 then u.asm.arm64CallSymbol(symbol)
+	end 'arch'
+end 'rCallSymbol'
+
+function rJumpSymbol(mutates u CodeUnit, a ast.TargetArch, symbol String)
+	match a 'arch'
+		x64 then u.asm.jmpSymbol(symbol)
+		arm64 then u.asm.arm64JumpSymbol(symbol)
+	end 'arch'
+end 'rJumpSymbol'
+
+function rCallRegister(mutates u CodeUnit, a ast.TargetArch, reg RoutineReg)
+	match a 'arch'
+		x64 then u.asm.callRegister(x64RoutineRegister(reg))
+		arm64 then u.asm.arm64CallRegister(arm64RoutineRegister(reg))
+	end 'arch'
+end 'rCallRegister'
+
+// rAddress puts the address of a symbol in a register, and rLoadSymbol and rStoreSymbol read and write the word it names.
+function rAddress(mutates u CodeUnit, a ast.TargetArch, dst RoutineReg, symbol String)
+	match a 'arch'
+		x64 then u.asm.leaSymbol(x64RoutineRegister(dst), symbol: symbol)
+		arm64 then u.asm.arm64Address(arm64RoutineRegister(dst), symbol: symbol)
+	end 'arch'
+end 'rAddress'
+
+function rLoadSymbol(mutates u CodeUnit, a ast.TargetArch, dst RoutineReg, symbol String)
+	match a 'arch'
+		x64 then u.asm.loadSymbol(x64RoutineRegister(dst), symbol: symbol)
+		arm64 then u.asm.arm64LoadSymbol(arm64RoutineRegister(dst), symbol: symbol)
+	end 'arch'
+end 'rLoadSymbol'
+
+function rStoreSymbol(mutates u CodeUnit, a ast.TargetArch, symbol String, src RoutineReg)
+	match a 'arch'
+		x64 then u.asm.storeSymbol(symbol, src: x64RoutineRegister(src))
+		arm64 then u.asm.arm64StoreSymbol(symbol, src: arm64RoutineRegister(src))
+	end 'arch'
+end 'rStoreSymbol'
+
+function rRet(mutates u CodeUnit, a ast.TargetArch)
+	match a 'arch'
+		x64 then u.asm.ret()
+		arm64 then u.asm.arm64Ret()
+	end 'arch'
+end 'rRet'
+
+// rTrap stops the program where no code should run.
+function rTrap(mutates u CodeUnit, a ast.TargetArch)
+	match a 'arch'
+		x64 then u.asm.ud2()
+		arm64 then u.asm.arm64Brk()
+	end 'arch'
+end 'rTrap'
+
+// rLockAdd adds src to the word at base plus disp as one atomic step, a full fence, and leaves the word it found in src.
+function rLockAdd(mutates u CodeUnit, a ast.TargetArch, base RoutineReg, disp Imm32, src RoutineReg)
+	match a 'arch'
+		x64 then u.asm.lockXadd(x64RoutineRegister(base), disp: disp, src: x64RoutineRegister(src))
+		arm64 then arm64LockAdd(u, base: arm64RoutineRegister(base), disp: disp, src: arm64RoutineRegister(src))
+	end 'arch'
+end 'rLockAdd'
+
+function arm64LockAdd(mutates u CodeUnit, base Arm64Register, disp Imm32, src Arm64Register)
+	var at = base
+	if disp != 0 'offset'
+		u.asm.arm64AddImm(arm64AddressScratch, src: base, value: disp as FullRangeInt)
+		at = arm64AddressScratch
+	end 'offset'
+	encodeArm64Ldaddal(u.asm.code, dest: src, src: src, base: at)
+end 'arm64LockAdd'
+
+// rCopyBytes copies as many bytes as second says from copyFrom to copyTo, and leaves the three and third holding anything.
+function rCopyBytes(mutates u CodeUnit, a ast.TargetArch)
+	match a 'arch'
+		x64 then u.asm.repMovsb()
+		arm64 then arm64CopyBytes(u)
+	end 'arch'
+end 'rCopyBytes'
+
+function arm64CopyBytes(mutates u CodeUnit)
+	let count = arm64RoutineRegister(rSecond)
+	let byte = arm64RoutineRegister(rThird)
+	let to = arm64RoutineRegister(rCopyTo)
+	let from = arm64RoutineRegister(rCopyFrom)
+	let top = u.asm.newLabel()
+	let done = u.asm.newLabel()
+	u.asm.arm64BranchIfZero(count, label: done)
+	u.asm.bind(top)
+	encodeArm64LdrbOff(u.asm.code, dest: byte, base: from, disp: 0)
+	encodeArm64StrbOff(u.asm.code, src: byte, base: to, disp: 0)
+	u.asm.arm64AddImm(from, src: from, value: 1)
+	u.asm.arm64AddImm(to, src: to, value: 1)
+	encodeArm64SubsRegImm(u.asm.code, dest: count, src: count, imm: 1)
+	u.asm.arm64BranchIf(MCond.notEqual, label: top)
+	u.asm.bind(done)
+end 'arm64CopyBytes'
+
+// The calls of a thunk, which passes the words of a record as a call's arguments by the internal convention.
+
+// rPlaceArgs gives each argument of a call of the internal convention its place, by whether it is a float.
+function rPlaceArgs(a ast.TargetArch, floats Array with bool, mutates places CountList) returns Count
+	return match a 'arch'
+		x64 gives placeArgs(floats, places: places)
+		arm64 gives arm64PlaceArgs(floats, places: places)
+	end 'arch'
+end 'rPlaceArgs'
+
+function rIsStackPlace(a ast.TargetArch, place Count) returns bool
+	return match a 'arch'
+		x64 gives isStackPlace(place)
+		arm64 gives arm64IsStackPlace(place)
+	end 'arch'
+end 'rIsStackPlace'
+
+// rInternalArgsInRegisters is how many of a call's words, count of them, the internal convention passes in registers.
+function rInternalArgsInRegisters(a ast.TargetArch, count Count) returns Count
+	return match a 'arch'
+		x64 gives internalArgsInRegisters(count)
+		arm64 gives count if count < arm64InternalArgCount else arm64InternalArgCount
+	end 'arch'
+end 'rInternalArgsInRegisters'
+
+// requireThunkScratch holds a thunk's scratch registers to what it asks of them: neither passes one of a call's first
+// count words, and every call may leave both holding anything, so the thunk keeps no register of its caller's.
+function requireThunkScratch(a ast.TargetArch, count Count)
+	let args = match a 'arch'
+		x64 gives internalArgRegs(internalArgsInRegisters(count))
+		arm64 gives arm64InternalArgRegs(rInternalArgsInRegisters(a, count: count))
+	end 'arch'
+	let scratch = match a 'arch'
+		x64 gives regMaskOf(x64RoutineRegister(rThunkBase)) or regMaskOf(x64RoutineRegister(rThunkWord))
+		arm64 gives arm64RegMaskOf(arm64RoutineRegister(rThunkBase)) or arm64RegMaskOf(arm64RoutineRegister(rThunkWord))
+	end 'arch'
+	let lost = match a 'arch'
+		x64 gives x64InternalCallerSaved()
+		arm64 gives arm64InternalCallerSaved()
+	end 'arch'
+	if (scratch and (args or not lost)) != 0 'scratch'
+		panic("routines: a thunk's scratch register passes an argument or is one a call keeps")
+	end 'scratch'
+end 'requireThunkScratch'
+
+// rOpenArgs, rPassArg and rCloseArgs pass the words of a call past the convention's registers, count of them, on the
+// stack: on x64 each is pushed, from the last down, and taken off the stack after the call; on arm64 the stack is moved
+// down for all of them first, each is stored at its place from the stack pointer, and the stack is moved back after.
+function rOpenArgs(mutates u CodeUnit, a ast.TargetArch, count Count)
+	match a 'arch'
+		x64 then return
+		arm64 then arm64OpenArgs(u, count: count)
+	end 'arch'
+end 'rOpenArgs'
+
+function arm64OpenArgs(mutates u CodeUnit, count Count)
+	if count > 0 'room'
+		u.asm.arm64AddImm(Arm64Register.sp, src: Arm64Register.sp, value: arm64Negated(arm64Disp(arm64ArgRoom(count))))
+	end 'room'
+end 'arm64OpenArgs'
+
+function rPassArg(mutates u CodeUnit, a ast.TargetArch, slot Count, src RoutineReg)
+	match a 'arch'
+		x64 then u.asm.push(x64RoutineRegister(src))
+		arm64 then u.asm.arm64Store(Arm64Register.sp, disp: arm64Disp(try slot * wordBytes otherwise panic("routines: an argument past memory")), src: arm64RoutineRegister(src))
+	end 'arch'
+end 'rPassArg'
+
+function rCloseArgs(mutates u CodeUnit, a ast.TargetArch, count Count)
+	if count == 0 'none'
+		return
+	end 'none'
+	match a 'arch'
+		x64 then u.asm.addImm(rsp, imm: imm32Of(try count * wordBytes otherwise panic("routines: a call past memory")))
+		arm64 then u.asm.arm64AddImm(Arm64Register.sp, src: Arm64Register.sp, value: arm64Disp(arm64ArgRoom(count)))
+	end 'arch'
+end 'rCloseArgs'
+
+// arm64ArgRoom is the room on the stack of count words of arguments, which keeps the stack pointer aligned.
+function arm64ArgRoom(count Count) returns Count
+	return alignUp(try count * wordBytes otherwise panic("routines: a call past memory"), alignment: arm64StackAlignment)
+end 'arm64ArgRoom'
+
+// rLoadArgWord loads into the register of the internal convention's word argument i the word at base plus disp.
+function rLoadArgWord(mutates u CodeUnit, a ast.TargetArch, index Count, base RoutineReg, disp Imm32)
+	match a 'arch'
+		x64 then u.asm.load(x64InternalArg(index), base: x64RoutineRegister(base), disp: disp)
+		arm64 then u.asm.arm64Load(arm64InternalArg(index), base: arm64RoutineRegister(base), disp: disp as FullRangeInt)
+	end 'arch'
+end 'rLoadArgWord'
+
+// rAddImmArg adds a constant to the register of the internal convention's word argument i.
+function rAddImmArg(mutates u CodeUnit, a ast.TargetArch, index Count, imm Imm32)
+	match a 'arch'
+		x64 then u.asm.addImm(x64InternalArg(index), imm: imm)
+		arm64 then u.asm.arm64AddImm(arm64InternalArg(index), src: arm64InternalArg(index), value: imm as FullRangeInt)
+	end 'arch'
+end 'rAddImmArg'
+
+// rStackSlotOf is the place among the arguments on the stack of a place there.
+function rStackSlotOf(a ast.TargetArch, place Count) returns Count
+	return match a 'arch'
+		x64 gives stackSlotOf(place)
+		arm64 gives arm64StackSlotOf(place)
+	end 'arch'
+end 'rStackSlotOf'
+
+// rLoadPlace loads into the register of a place in one, by its number in the register file, the word at base plus disp:
+// a float's bits into its vector register.
+function rLoadPlace(mutates u CodeUnit, a ast.TargetArch, place Count, float bool, base RoutineReg, disp Imm32)
+	let number = try place as RegNum otherwise panic("routines: a place past the register file")
+	match a 'arch'
+		x64 then x64LoadPlace(u, number: number, float: float, base: x64RoutineRegister(base), disp: disp)
+		arm64 then arm64LoadPlace(u, number: number, float: float, base: arm64RoutineRegister(base), disp: disp)
+	end 'arch'
+end 'rLoadPlace'
+
+function x64LoadPlace(mutates u CodeUnit, number RegNum, float bool, base X64Register, disp Imm32)
+	if float 'vector'
+		u.asm.loadFloatWord(x64RegisterOf(try (number - x64FirstVector) as RegNum otherwise panic("routines: a float in a general register")), base: base, disp: disp)
+	end 'vector' else 'word'
+		u.asm.load(x64RegisterOf(number), base: base, disp: disp)
+	end 'word'
+end 'x64LoadPlace'
+
+function arm64LoadPlace(mutates u CodeUnit, number RegNum, float bool, base Arm64Register, disp Imm32)
+	if float 'vector'
+		u.asm.arm64LoadVector(try (number as Count) - arm64FirstVector otherwise panic("routines: a float in a general register"), base: base, disp: disp as FullRangeInt)
+	end 'vector' else 'word'
+		u.asm.arm64Load(arm64RegisterOf(number), base: base, disp: disp as FullRangeInt)
+	end 'word'
+end 'arm64LoadPlace'
+
+// rResultFromFloat moves the bits of the convention's float result into its word result.
+function rResultFromFloat(mutates u CodeUnit, a ast.TargetArch)
+	match a 'arch'
+		x64 then u.asm.moveFromVector(resultWord(), src: x64RegisterOf(try (x64InternalFloatResult - x64FirstVector) as RegNum otherwise panic("routines: a float result in a general register")))
+		arm64 then encodeArm64FmovXD(u.asm.code, dest: arm64ResultWord(), src: arm64VectorOfNumber(try (arm64InternalFloatResult as Count) - arm64FirstVector otherwise panic("routines: a float result in a general register")))
+	end 'arch'
+end 'rResultFromFloat'
+
+// tableEntrySize is the size of an entry of the table of an interface value on an architecture: on arm64 the address of
+// a type's name and the return take three instructions.
+function tableEntrySize(a ast.TargetArch) returns Count
+	return match a 'arch'
+		x64 gives tableEntryBytes
+		arm64 gives arm64TableEntryBytes
+	end 'arch'
+end 'tableEntrySize'

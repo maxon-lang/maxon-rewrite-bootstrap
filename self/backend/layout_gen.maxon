@@ -45,6 +45,9 @@ export let ifaceBoxBytes = 16
 // tableEntryBytes is the size of an entry of the table of an interface value.
 export let tableEntryBytes = 8
 
+// arm64TableEntryBytes is the size of an entry of the table of an interface value on arm64, where the address of a type's name and the return that give it take three instructions of 4 bytes.
+export let arm64TableEntryBytes = 16
+
 // tableDropEntry is the entry of a table that drops the value the box holds.
 export let tableDropEntry = 0
 
@@ -240,11 +243,11 @@ export let linuxSignalMaskBytes = 8
 // linuxFaultActionFlags is SA_SIGINFO | SA_ONSTACK | SA_RESTORER: the flags of the fault handler's action, which runs on the thread's signal stack and is handed the siginfo and the context.
 export let linuxFaultActionFlags = 201326596
 
-// linuxUcontextRspOffset is where a ucontext_t holds the stopped code's rsp.
-export let linuxUcontextRspOffset = 160
+// linuxUcontextSpOffset is where a ucontext_t holds the stopped code's stack pointer.
+export let linuxUcontextSpOffset = 160
 
-// linuxUcontextRipOffset is where a ucontext_t holds the stopped code's rip.
-export let linuxUcontextRipOffset = 168
+// linuxUcontextPcOffset is where a ucontext_t holds the address of the stopped code, its program counter.
+export let linuxUcontextPcOffset = 168
 
 // linuxErrnoLimit is one past the largest errno: a result above the word -linuxErrnoLimit is a failure.
 export let linuxErrnoLimit = 4096
@@ -269,3 +272,39 @@ export let linuxArchSetFs = 4098
 
 // linuxCloneWorkerFlags is CLONE_VM | CLONE_FS | CLONE_FILES | CLONE_SIGHAND | CLONE_THREAD | CLONE_SETTLS: a thread of the process with the thread pointer it is given, maxon's worker flags but CLONE_CHILD_CLEARTID, since nothing waits for a worker to end.
 export let linuxCloneWorkerFlags = 593664
+
+// arm64LinuxSysWrite is write(fd, buffer, count), on arm64.
+export let arm64LinuxSysWrite = 64
+
+// arm64LinuxSysMmap is mmap(address, length, protection, flags, fd, offset), on arm64.
+export let arm64LinuxSysMmap = 222
+
+// arm64LinuxSysMprotect is mprotect(address, length, protection), on arm64.
+export let arm64LinuxSysMprotect = 226
+
+// arm64LinuxSysRtSigaction is rt_sigaction(signal, action, old action, size of the signal mask), on arm64.
+export let arm64LinuxSysRtSigaction = 134
+
+// arm64LinuxSysRtSigreturn is rt_sigreturn(), which a signal handler's restorer calls, on arm64.
+export let arm64LinuxSysRtSigreturn = 139
+
+// arm64LinuxSysClone is clone(flags, stack, parent tid, child tid, tls), x86-64's order of the last two, on arm64.
+export let arm64LinuxSysClone = 220
+
+// arm64LinuxSysExit is exit(code), which ends the calling thread alone, on arm64.
+export let arm64LinuxSysExit = 93
+
+// arm64LinuxSysSigaltstack is sigaltstack(stack, old stack), on arm64.
+export let arm64LinuxSysSigaltstack = 132
+
+// arm64LinuxSysExitGroup is exit_group(code), which ends every thread of the process, on arm64.
+export let arm64LinuxSysExitGroup = 94
+
+// arm64LinuxUcontextSpOffset is where a ucontext_t holds the stopped code's stack pointer, on arm64.
+export let arm64LinuxUcontextSpOffset = 432
+
+// arm64LinuxUcontextPcOffset is where a ucontext_t holds the address of the stopped code, its program counter, on arm64.
+export let arm64LinuxUcontextPcOffset = 440
+
+// arm64LinuxCloneThreadFlags is the worker's flags with CLONE_SYSVSEM, glibc's flags of a thread: the thread shares the undo list of System V semaphores, which no thread of the runtime has, and without the flag qemu-user, which runs arm64-linux under WSL, refuses to make a thread.
+export let arm64LinuxCloneThreadFlags = 855808

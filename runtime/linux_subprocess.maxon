@@ -274,6 +274,24 @@
 		__Raw.storeWord(text, offset: stringLengthOffset, value: __Raw.wrappingAdd(length, right: got))
 	end 'drainStream'
 
+	#if arch(arm64)
+		let millisPerSecond = 1000 as Count
+
+		// pollMillis is poll's wait of a timeout in milliseconds, or of none for pollForever, which arm64 has by ppoll of a
+		// timespec.
+		function pollMillis(polls Count, count Count, timeout Count) returns Count
+			if timeout == pollForever 'forever'
+				return __Raw.syscall5(linuxSysPpoll, arg1: polls, arg2: count, arg3: 0, arg4: 0, arg5: linuxSignalMaskBytes)
+			end 'forever'
+			let time = alloc(linuxTimespecBytes)
+			__Raw.storeWord(time, offset: 0, value: timeout / millisPerSecond)
+			__Raw.storeWord(time, offset: wordBytes, value: try (timeout mod millisPerSecond) * nanosPerMilli otherwise panic("a poll's timeout past a word of nanoseconds"))
+			let ready = __Raw.syscall5(linuxSysPpoll, arg1: polls, arg2: count, arg3: time, arg4: 0, arg5: linuxSignalMaskBytes)
+			free(time)
+			return ready
+		end 'pollMillis'
+	#endif
+
 	// pollStreams waits until a stream that is open has something to read or has ended, or the timeout passes, and reads
 	// from each that has.
 	function pollStreams(run Count, timeout Count)
@@ -289,7 +307,11 @@
 				count = __Raw.wrappingAdd(count, right: 1)
 			end 'open'
 		end 'streams'
-		let ready = __Raw.syscall3(linuxSysPoll, arg1: polls, arg2: count, arg3: timeout)
+		#if arch(arm64)
+			let ready = pollMillis(polls, count: count, timeout: timeout)
+		#else
+			let ready = __Raw.syscall3(linuxSysPoll, arg1: polls, arg2: count, arg3: timeout)
+		#endif
 		if failed(ready) or ready == 0 'none'
 			return
 		end 'none'

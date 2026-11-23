@@ -11,6 +11,9 @@ import (
 
 // The parameters of every generated selection function: the selector, which holds the machine IR being written, the IR
 // function, and the instruction or terminator being selected.
+// dispType is the Maxon type of a machine instruction's aux, which holds a displacement.
+const dispType = "Imm32"
+
 const (
 	selectInstrParams = "mutates sel Selector, fn ir.IrFunction, ins ir.Instr"
 	selectTermParams  = "mutates sel Selector, fn ir.IrFunction, ins ir.Term"
@@ -153,7 +156,7 @@ func (e *machineEmitter) findFinal(v *term) {
 // reg is the machine register a variable names at this point.
 func (e *machineEmitter) reg(name string) string {
 	if e.tg.isRegister(name) {
-		return "physReg(" + isa.TypeName(e.tg.machine, "Register") + "." + name + ")"
+		return e.tg.machine.Name() + "PhysReg(" + isa.TypeName(e.tg.machine, "Register") + "." + name + ")"
 	}
 	if c, ok := e.cur[name]; ok {
 		return c
@@ -216,6 +219,12 @@ func (e *machineEmitter) emitForm(k int, res *term) {
 			}
 		case isa.RoleDisp:
 			aux = e.value(a.text, p.Type)
+			// A second immediate, which a form of arm64 holds in aux, is of a narrower type than aux's.
+			if p.Type != dispType {
+				v := e.temp("x")
+				e.line("let %s = %s", v, aux)
+				aux = v + " as " + dispType
+			}
 		case isa.RoleImm:
 			v := e.temp("i")
 			e.line("let %s = %s", v, e.value(a.text, p.Type))
@@ -250,7 +259,7 @@ func (e *machineEmitter) emitForm(k int, res *term) {
 		return
 	}
 	m := e.temp("mi")
-	e.line("var %s = newTarget(%s, a: %s, b: %s, c: %s, aux: %s, imm: %s)", m, form, letters["a"], letters["b"], letters["c"], aux, imm)
+	e.line("var %s = new%s(%s, a: %s, b: %s, c: %s, aux: %s, imm: %s)", m, isa.TypeName(e.tg.machine, "Target"), form, letters["a"], letters["b"], letters["c"], aux, imm)
 	if cond != "" {
 		e.line("%s.cond = %s", m, cond)
 	}

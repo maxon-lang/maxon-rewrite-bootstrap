@@ -88,3 +88,186 @@ test 'arm64 move immediate'
 	encodeArm64MovImm(c, dest: x2, value: -65536)
 	expectEncoded(c, expected: "e2ff9f92", label: "mov -0x10000")
 end 'arm64 move immediate'
+
+// The hand-built functions of the machine IR's tests (mir.maxtest), written in arm64's forms, held to every invariant of
+// allocation and encoded: arithmetic with immediates of each kind, a loop whose header's parameters swap and that leaves
+// along a conditional edge with arguments, a call with values live across it, more values across a call than the
+// convention keeps, a frame of more slots than the pre-indexed record reaches, and a comparison into a flag.
+function a64Gpr(mutates fn MirFunction) returns MReg
+	return fn.newVReg(RegClass.gpr)
+end 'a64Gpr'
+
+function a64Def(mutates fn MirFunction, form Arm64Form, b MReg, c MReg, aux Imm32, imm FullRangeInt) returns MReg
+	let d = a64Gpr(fn)
+	fn.emit(newArm64Target(form, a: d, b: b, c: c, aux: aux, imm: imm))
+	return d
+end 'a64Def'
+
+function a64Const(mutates fn MirFunction, value FullRangeInt) returns MReg
+	return a64Def(fn, form: Arm64Form.movzRegImm, b: noMReg, c: noMReg, aux: 0, imm: value)
+end 'a64Const'
+
+function a64Add(mutates fn MirFunction, left MReg, right MReg) returns MReg
+	return a64Def(fn, form: Arm64Form.addRegReg, b: left, c: right, aux: 0, imm: 0)
+end 'a64Add'
+
+function a64Return(mutates fn MirFunction, value MReg)
+	fn.emit(newCopy(arm64PhysReg(arm64InternalResult), src: value))
+	fn.emit(newFrameTeardown())
+	fn.emit(newArm64Target(Arm64Form.ret, a: noMReg, b: noMReg, c: noMReg, aux: 0, imm: 0))
+end 'a64Return'
+
+function a64Jump(mutates fn MirFunction, target MBlockID, args MRegList)
+	let edge = fn.addEdge(target, args: args)
+	fn.emit(newArm64Referring(Arm64Form.b, a: noMReg, b: noMReg, ref: MRef.edge, aux: edge))
+end 'a64Jump'
+
+function a64Branch(mutates fn MirFunction, cond MCond, target MBlockID, args MRegList)
+	let edge = fn.addEdge(target, args: args)
+	fn.emit(newArm64Conditional(Arm64Form.bCond, cond: cond, a: noMReg, ref: MRef.edge, aux: edge))
+end 'a64Branch'
+
+function a64Call(mutates fn MirFunction, value MReg, symbol String) returns MReg
+	fn.emit(newCopy(arm64PhysReg(arm64InternalArg(0)), src: value))
+	let callee = fn.addSymbol(symbol)
+	fn.emit(newArm64Call(Arm64Form.bl, a: noMReg, ref: MRef.symbol, aux: callee, argRegs: arm64RegMaskOf(arm64InternalArg(0))))
+	let d = a64Gpr(fn)
+	fn.emit(newCopy(d, src: arm64PhysReg(arm64InternalResult)))
+	return d
+end 'a64Call'
+
+function a64Arithmetic() returns MirFunction
+	var fn = MirFunction.new("a64.arithmetic", canThrow: false, arch: ast.TargetArch.arm64)
+	_ = fn.startBlock()
+	fn.emit(newFrameSetup())
+	let seven = a64Const(fn, value: 7)
+	let six = a64Const(fn, value: 6)
+	let product = a64Def(fn, form: Arm64Form.mulRegReg, b: seven, c: six, aux: 0, imm: 0)
+	let less = a64Def(fn, form: Arm64Form.subRegImm, b: product, c: noMReg, aux: 0, imm: 1000)
+	let back = a64Def(fn, form: Arm64Form.addRegImmHigh, b: less, c: noMReg, aux: 0, imm: 1)
+	let masked = a64Def(fn, form: Arm64Form.andRegMask, b: back, c: noMReg, aux: 0, imm: 0xFF)
+	let wide = a64Def(fn, form: Arm64Form.movkRegImm, b: masked, c: noMReg, aux: 1, imm: 0x1234)
+	let total = a64Add(fn, left: wide, right: masked)
+	a64Return(fn, value: total)
+	fn.endBlock()
+	return fn
+end 'a64Arithmetic'
+
+function a64Loop() returns MirFunction
+	var fn = MirFunction.new("a64.loop", canThrow: false, arch: ast.TargetArch.arm64)
+	let header = 1 as MBlockID
+	let body = 2 as MBlockID
+	let exit = 3 as MBlockID
+	_ = fn.startBlock()
+	fn.emit(newFrameSetup())
+	let zero = a64Const(fn, value: 0)
+	let hundred = a64Const(fn, value: 100)
+	a64Jump(fn, target: header, args: mirArgs4(zero, b: zero, c: hundred, d: zero))
+	_ = fn.startBlock()
+	let i = fn.addParam(RegClass.gpr)
+	let s = fn.addParam(RegClass.gpr)
+	let p = fn.addParam(RegClass.gpr)
+	let q = fn.addParam(RegClass.gpr)
+	fn.emit(newArm64Target(Arm64Form.cmpRegImm, a: i, b: noMReg, c: noMReg, aux: 0, imm: 9))
+	a64Branch(fn, cond: MCond.greaterEqual, target: exit, args: mirArgs2(s, b: q))
+	a64Jump(fn, target: body, args: MRegList.create(0))
+	_ = fn.startBlock()
+	let sum = a64Add(fn, left: s, right: i)
+	let next = a64Def(fn, form: Arm64Form.addRegImm, b: i, c: noMReg, aux: 0, imm: 1)
+	a64Jump(fn, target: header, args: mirArgs4(next, b: sum, c: q, d: p))
+	_ = fn.startBlock()
+	let r = fn.addParam(RegClass.gpr)
+	let t = fn.addParam(RegClass.gpr)
+	let total = a64Add(fn, left: r, right: t)
+	a64Return(fn, value: total)
+	fn.endBlock()
+	return fn
+end 'a64Loop'
+
+// a64Calling keeps count values across a call, more than the convention keeps when count is large, which spilling then
+// keeps in the frame, and adds them up after it.
+function a64Calling(symbol String, count Count) returns MirFunction
+	var fn = MirFunction.new(symbol, canThrow: false, arch: ast.TargetArch.arm64)
+	_ = fn.startBlock()
+	fn.emit(newFrameSetup())
+	var held = MRegList.create(0)
+	for k in 0 upto count 'held'
+		held.push(a64Const(fn, value: try (k + 1) as FullRangeInt otherwise panic("a value past 64 bits")))
+	end 'held'
+	var sum = a64Call(fn, value: held[0], symbol: "a64.arithmetic")
+	for k in 0 upto count 'sum'
+		sum = a64Add(fn, left: sum, right: held[k])
+	end 'sum'
+	a64Return(fn, value: sum)
+	fn.endBlock()
+	return fn
+end 'a64Calling'
+
+// a64Flag compares two values into a flag by cset and branches on it with cbz.
+function a64Flag() returns MirFunction
+	var fn = MirFunction.new("a64.flag", canThrow: false, arch: ast.TargetArch.arm64)
+	let other = 1 as MBlockID
+	_ = fn.startBlock()
+	fn.emit(newFrameSetup())
+	let a = a64Const(fn, value: 3)
+	let b = a64Const(fn, value: 5)
+	fn.emit(newArm64Target(Arm64Form.cmpRegReg, a: a, b: b, c: noMReg, aux: 0, imm: 0))
+	let flag = a64Gpr(fn)
+	fn.emit(newArm64Conditional(Arm64Form.csetReg, cond: MCond.less, a: flag, ref: MRef.none, aux: 0))
+	let edge = fn.addEdge(other, args: MRegList.create(0))
+	fn.emit(newArm64Referring(Arm64Form.cbz, a: flag, b: noMReg, ref: MRef.edge, aux: edge))
+	a64Return(fn, value: flag)
+	_ = fn.startBlock()
+	let one = a64Const(fn, value: 1)
+	a64Return(fn, value: one)
+	fn.endBlock()
+	return fn
+end 'a64Flag'
+
+// a64Allocated spills and colours an arm64 function under the internal convention, holds it to verifyPressure and to
+// the checker, and encodes it into u.
+function a64Allocated(mutates u CodeUnit, consumes f MirFunction)
+	var fn = f
+	let target = ast.Target.make(ast.TargetArch.arm64, system: ast.TargetSystem.linux)
+	var s = Spiller.under(Conventions.make(target))
+	let label = fn.symbol.clone()
+	if spillFunction(fn, s: s).refusals.count() > 0 'refused'
+		panic("{label}: refused with E5001")
+	end 'refused'
+	let problems = verifyPressureUnder(fn, convs: Conventions.make(target))
+	if problems.count() > 0 'problems'
+		panic("{label}: {problems[0]}")
+	end 'problems'
+	var c = Colourer.new(ast.TargetArch.arm64)
+	_ = colourFunction(fn, s: s, c: c)
+	let wrong = checkColouring(fn, s: s, c: c)
+	if wrong.count() > 0 'wrong'
+		panic("{label}: {wrong[0]}")
+	end 'wrong'
+	var lay = BlockLayout.new()
+	let before = u.asm.code.count()
+	encodeArm64Function(u, fn: fn, instance: false, lay: lay)
+	let written = try u.asm.code.count() - before otherwise panic("{label}: the code shrank")
+	if written == 0 or written mod arm64WordBytes != 0 'words'
+		panic("{label}: encoded to no whole instruction words")
+	end 'words'
+end 'a64Allocated'
+
+test 'arm64 machine ir'
+	if arm64FormID(Arm64Form.msrNzcv) as Count != formCount - 1 'number'
+		panic("arm64's last form has the FormID {arm64FormID(Arm64Form.msrNzcv)}, and there are {formCount}")
+	end 'number'
+	for i in 0 upto formCount 'forms'
+		let form = try i as FormID otherwise panic("more forms than a FormID names")
+		if machineOperandCount(form) > 3 or (reusesOperand(form) and not definesOperand(form)) 'operands'
+			panic("form {i} has operands the machine IR does not hold")
+		end 'operands'
+	end 'forms'
+	var u = CodeUnit.new()
+	a64Allocated(u, f: a64Arithmetic())
+	a64Allocated(u, f: a64Loop())
+	a64Allocated(u, f: a64Calling("a64.few", count: 4))
+	a64Allocated(u, f: a64Calling("a64.many", count: 40))
+	a64Allocated(u, f: a64Flag())
+	u.asm.endLabels()
+end 'arm64 machine ir'

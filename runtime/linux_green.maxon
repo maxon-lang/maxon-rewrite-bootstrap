@@ -16,6 +16,9 @@
 
 	let microsPerSecond = 1000000 as Count
 
+	// noSignalMask is the mask of a wait that leaves the thread's signals as they are.
+	let noSignalMask = 0 as Count
+
 	// newStack maps a stack whose pages the kernel commits as they are touched, its lowest page the guard, as a worker
 	// thread's (startThread).
 	function newStack() returns Count
@@ -91,12 +94,18 @@
 	// be stopped there, and answers the signal.
 	function preemptSignal(signalContext Count)
 		let context = __Raw.threadContext()
-		let rip = __Raw.loadWord(signalContext, offset: linuxUcontextRipOffset)
-		let rsp = __Raw.loadWord(signalContext, offset: linuxUcontextRspOffset)
+		let rip = __Raw.loadWord(signalContext, offset: linuxUcontextPcOffset)
+		let rsp = __Raw.loadWord(signalContext, offset: linuxUcontextSpOffset)
 		let g = __Raw.loadWord(context, offset: contextGreenOffset)
 		if stoppable(context, g: g, instruction: rip, stackPointer: rsp) 'stop'
-			__Raw.storeWord(signalContext, offset: linuxUcontextRspOffset, value: resumeAt(g, instruction: rip, stackPointer: rsp))
-			__Raw.storeWord(signalContext, offset: linuxUcontextRipOffset, value: __Raw.asyncPreemptAddress())
+			// x64's rt.asyncPreempt returns through the word below the stack pointer, which the stop moves to it; arm64's,
+			// which keeps that word below the stack pointer it was stopped at, branches through it.
+			#if arch(arm64)
+				_ = resumeAt(g, instruction: rip, stackPointer: rsp)
+			#else
+				__Raw.storeWord(signalContext, offset: linuxUcontextSpOffset, value: resumeAt(g, instruction: rip, stackPointer: rsp))
+			#endif
+			__Raw.storeWord(signalContext, offset: linuxUcontextPcOffset, value: __Raw.asyncPreemptAddress())
 		end 'stop'
 		_ = __Raw.atomicExchange(context, offset: contextSignalPendingOffset, value: unset)
 	end 'preemptSignal'
@@ -137,7 +146,11 @@
 	function netpoll(context Count, delay Count) returns Count
 		let scheduler = __Raw.loadWord(context, offset: contextSchedulerOffset)
 		let events = __Raw.wrappingAdd(threadBlockSwitch(context), right: threadBlockEventsOffset)
-		let got = __Raw.syscall4(linuxSysEpollWait, arg1: __Raw.loadWord(scheduler, offset: schedPollerOffset), arg2: events, arg3: pollEventSlots, arg4: pollWaitMillis(delay, forever: pollForeverMillis))
+		#if arch(arm64)
+			let got = __Raw.syscall6(linuxSysEpollPwait, arg1: __Raw.loadWord(scheduler, offset: schedPollerOffset), arg2: events, arg3: pollEventSlots, arg4: pollWaitMillis(delay, forever: pollForeverMillis), arg5: noSignalMask, arg6: linuxSignalMaskBytes)
+		#else
+			let got = __Raw.syscall4(linuxSysEpollWait, arg1: __Raw.loadWord(scheduler, offset: schedPollerOffset), arg2: events, arg3: pollEventSlots, arg4: pollWaitMillis(delay, forever: pollForeverMillis))
+		#endif
 		if failed(got) 'failed'
 			if errnoOf(got) == linuxEintr 'interrupted'
 				return noGreen

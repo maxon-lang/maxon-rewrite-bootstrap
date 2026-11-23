@@ -42,7 +42,9 @@ func main() {
 	}
 }
 
-// generate is the text of one output file.
+// generate is the text of one output file. The runtime's source is compiled for one target, so a row whose value the
+// arm64 kernel differs in is written under `#if arch(arm64)` with that value, and under its `#else` with x64's; the
+// backend writes the code of every target, so it gets the arm64 value of such a row by the row's name after arm64.
 func generate(o output) string {
 	var rows []layoutConst
 	for _, c := range slices.Concat(layouts, linuxABI) {
@@ -50,7 +52,67 @@ func generate(o output) string {
 			rows = append(rows, c)
 		}
 	}
+	switch o.to {
+	case toRuntime:
+		var shared, differing []layoutConst
+		for _, c := range rows {
+			if _, ok := arm64Value(c.name); ok || slices.Contains(linuxArm64Lacks, c.name) {
+				differing = append(differing, c)
+			} else {
+				shared = append(shared, c)
+			}
+		}
+		var arm64 []layoutConst
+		for _, c := range differing {
+			if v, ok := arm64Value(c.name); ok {
+				c.value = v
+				arm64 = append(arm64, c)
+			}
+		}
+		for _, c := range linuxArm64Extra {
+			if c.to&o.to != 0 {
+				arm64 = append(arm64, c)
+			}
+		}
+		return o.gen(shared) + "\n#if arch(arm64)\n" + indented(o.gen(arm64)) + "#else\n" + indented(o.gen(differing)) + "#endif\n"
+	case toSelfBack:
+		var arm64 []layoutConst
+		for _, c := range rows {
+			if v, ok := arm64Value(c.name); ok {
+				arm64 = append(arm64, layoutConst{"arm64" + strings.ToUpper(c.name[:1]) + c.name[1:], v, true, c.to, c.doc[:len(c.doc)-1] + ", on arm64."})
+			}
+		}
+		for _, c := range linuxArm64Extra {
+			if c.to&o.to != 0 {
+				c.name = "arm64" + strings.ToUpper(c.name[:1]) + c.name[1:]
+				arm64 = append(arm64, c)
+			}
+		}
+		return o.gen(rows) + strings.TrimPrefix(o.gen(arm64), "// "+header+"\n")
+	}
 	return o.gen(rows)
+}
+
+// arm64Value is the value of a row of linuxABI on the arm64 kernel where it differs from x64's.
+func arm64Value(name string) (int, bool) {
+	for _, v := range linuxArm64 {
+		if v.name == name {
+			return v.value, true
+		}
+	}
+	return 0, false
+}
+
+// indented is the declarations of a generated file, without its header, as the body of an `#if`.
+func indented(file string) string {
+	var b strings.Builder
+	for line := range strings.SplitSeq(strings.TrimPrefix(strings.TrimPrefix(file, "// "+header+"\n"), "\n"), "\n") {
+		if line != "" {
+			b.WriteString("\t" + line)
+		}
+		b.WriteString("\n")
+	}
+	return strings.TrimSuffix(b.String(), "\n")
 }
 
 // bytes is the value of a row in bytes.

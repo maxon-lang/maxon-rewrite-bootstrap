@@ -51,6 +51,7 @@ end 'CallConvention'
 function keptByConvention(target ast.Target, kind ConventionKind) returns RegMask
 	return match target.arch 'arch'
 		x64 gives x64KeptBy(kind, system: target.system)
+		arm64 gives arm64KeptBy(kind, system: target.system)
 	end 'arch'
 end 'keptByConvention'
 

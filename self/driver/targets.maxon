@@ -37,9 +37,10 @@ function hostTarget() returns ast.Target
 end 'hostTarget'
 
 // TargetRunner is how the test runner starts an executable of a target on the system the compiler runs on, as maxon's
-// targets.tsv names a runner for each target: itself when the target is the host's, and an x64-linux executable on Windows
-// through WSL, in its default distribution, which sees the Windows drives under wslMountRoot. An executable that WSL runs
-// gets the variables of the runner's environment that WSLENV names.
+// targets.tsv names a runner for each target: itself when the target is the host's, and a Linux executable on Windows
+// through WSL, in its default distribution, which sees the Windows drives under wslMountRoot: an x64 one natively, and an
+// arm64 one through the qemu-aarch64 that the distribution registers with binfmt_misc. An executable that WSL runs gets
+// the variables of the runner's environment that WSLENV names.
 enum TargetRunner
 	native
 	wsl
@@ -61,22 +62,19 @@ let wslSeparator = 0x2F as Byte
 // runnerFor is the runner of the target's executables on the system the compiler runs on, or none when there is none.
 function runnerFor(target ast.Target) returns table.Option with TargetRunner
 	let host = hostTarget()
-	if target.arch != host.arch 'foreign'
-		return table.Option.none
-	end 'foreign'
-	if target.system == host.system 'native'
+	if target.arch == host.arch and target.system == host.system 'native'
 		return table.Option.some(TargetRunner.native)
 	end 'native'
 	return match host.system 'host'
-		windows gives runnerOnWindows(target.system)
+		windows gives runnerOnWindows(target)
 		linux or
 		macos gives table.Option.none
 	end 'host'
 end 'runnerFor'
 
-// runnerOnWindows is the runner on Windows of the executables of a system on its processor: WSL runs Linux's.
-function runnerOnWindows(system ast.TargetSystem) returns table.Option with TargetRunner
-	return match system 'system'
+// runnerOnWindows is the runner on Windows of the executables of another target: WSL runs Linux's of every architecture.
+function runnerOnWindows(target ast.Target) returns table.Option with TargetRunner
+	return match target.system 'system'
 		linux gives table.Option.some(TargetRunner.wsl)
 		windows or
 		macos gives table.Option.none

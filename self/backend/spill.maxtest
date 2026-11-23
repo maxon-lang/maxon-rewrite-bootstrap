@@ -421,7 +421,7 @@ function mirNested(symbol String) returns MirFunction
 	for k in 0 upto nestedAccs 'outerParams'
 		outerAcc.push(fn.addParam(RegClass.gpr))
 	end 'outerParams'
-	fn.emit(newTarget(chooseCmpRegImm(outerIterations), a: j, b: noMReg, c: noMReg, aux: 0, imm: outerIterations as FullRangeInt))
+	fn.emit(newX64Target(chooseCmpRegImm(outerIterations), a: j, b: noMReg, c: noMReg, aux: 0, imm: outerIterations as FullRangeInt))
 	mirBranch(fn, cond: MCond.greaterEqual, target: exit, args: MRegList.create(0))
 	var into = MRegList.create(0)
 	into.push(mirConst(fn, value: 0))
@@ -435,7 +435,7 @@ function mirNested(symbol String) returns MirFunction
 	for k in 0 upto nestedAccs 'innerParams'
 		acc.push(fn.addParam(RegClass.gpr))
 	end 'innerParams'
-	fn.emit(newTarget(chooseCmpRegImm(spillIterations), a: i, b: noMReg, c: noMReg, aux: 0, imm: spillIterations as FullRangeInt))
+	fn.emit(newX64Target(chooseCmpRegImm(spillIterations), a: i, b: noMReg, c: noMReg, aux: 0, imm: spillIterations as FullRangeInt))
 	mirBranch(fn, cond: MCond.greaterEqual, target: latch, args: MRegList.create(0))
 	mirJump(fn, target: body, args: MRegList.create(0))
 	_ = fn.startBlock()
@@ -645,7 +645,7 @@ function mirScale(segments Count, straight Count) returns MirFunction
 		for j in 0 upto scaleAccs 'params'
 			acc.push(fn.addParam(RegClass.gpr))
 		end 'params'
-		fn.emit(newTarget(chooseCmpRegImm(spillIterations), a: i, b: noMReg, c: noMReg, aux: 0, imm: spillIterations as FullRangeInt))
+		fn.emit(newX64Target(chooseCmpRegImm(spillIterations), a: i, b: noMReg, c: noMReg, aux: 0, imm: spillIterations as FullRangeInt))
 		mirBranch(fn, cond: MCond.greaterEqual, target: after, args: MRegList.create(0))
 		mirJump(fn, target: body, args: MRegList.create(0))
 		_ = fn.startBlock()

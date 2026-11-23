@@ -247,8 +247,12 @@ end 'testPreempted'
 	// code return into rt.asyncPreempt.
 	function testSignal(signalContext Count)
 		let stop = __Raw.wrappingAdd(__Raw.threadContext(), right: contextBytes)
-		let slot = testResumeAt(stop, instruction: __Raw.loadWord(signalContext, offset: linuxUcontextRipOffset), stackPointer: __Raw.loadWord(signalContext, offset: linuxUcontextRspOffset))
-		__Raw.storeWord(signalContext, offset: linuxUcontextRspOffset, value: slot)
-		__Raw.storeWord(signalContext, offset: linuxUcontextRipOffset, value: __Raw.asyncPreemptAddress())
+		let slot = testResumeAt(stop, instruction: __Raw.loadWord(signalContext, offset: linuxUcontextPcOffset), stackPointer: __Raw.loadWord(signalContext, offset: linuxUcontextSpOffset))
+		// x64's rt.asyncPreempt returns through the slot, which the stop moves the stack pointer to; arm64's branches through
+		// it below the stack pointer it was stopped at.
+		#if arch(x64)
+			__Raw.storeWord(signalContext, offset: linuxUcontextSpOffset, value: slot)
+		#endif
+		__Raw.storeWord(signalContext, offset: linuxUcontextPcOffset, value: __Raw.asyncPreemptAddress())
 	end 'testSignal'
 #endif

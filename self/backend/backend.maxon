@@ -47,7 +47,7 @@ function linkCalling(mutates p ast.Project, consumes modules UnitList, ready fro
 	let routines = emitTypeRoutines(p, ms: ms, units: units)
 	ast.giveBack(p, ms: ms)
 	units.add(routines)
-	return link(units, entry: ir.rtSymbol(ir.Rt.rtEntry), choice: schedulerChoice(), system: p.target.system, mapsSymbols: mapsSymbols)
+	return link(units, entry: ir.rtSymbol(ir.Rt.rtEntry), choice: schedulerChoice(), target: p.target, mapsSymbols: mapsSymbols)
 end 'linkCalling'
 
 // compileProgram writes the executable that linkProgram makes of the modules' units to out, and the map of its code's symbols

@@ -68,8 +68,8 @@ var linuxABI = []layoutConst{
 	{"linuxPreemptActionFlags", 0x1C000004, true, toRuntime, "SA_SIGINFO | SA_ONSTACK | SA_RESTORER | SA_RESTART: the flags of the preemption signal's action, which also has a system call that the signal broke off made again where it can be."},
 	{"linuxSigurg", 23, true, toRuntime, "SIGURG, the signal the monitor stops a thread with, as Go's runtime does: no program of the runtime's asks for it."},
 	// The ucontext_t that a handler is given holds the registers of the code the signal stopped.
-	{"linuxUcontextRspOffset", 160, true, toRuntime | toSelfBack, "where a ucontext_t holds the stopped code's rsp."},
-	{"linuxUcontextRipOffset", 168, true, toRuntime | toSelfBack, "where a ucontext_t holds the stopped code's rip."},
+	{"linuxUcontextSpOffset", 160, true, toRuntime | toSelfBack, "where a ucontext_t holds the stopped code's stack pointer."},
+	{"linuxUcontextPcOffset", 168, true, toRuntime | toSelfBack, "where a ucontext_t holds the address of the stopped code, its program counter."},
 
 	// A system call that fails returns -errno, a word in the last page of the address space.
 	{"linuxErrnoLimit", 4096, true, toRuntime | toSelfBack, "one past the largest errno: a result above the word -linuxErrnoLimit is a failure."},
@@ -138,4 +138,76 @@ var linuxABI = []layoutConst{
 	{"linuxPollRecordBytes", 8, true, toRuntime, "a struct pollfd: the fd and the events asked, then the events that came, 16 bits."},
 	{"linuxPollEventsOffset", 4, true, toRuntime, "where a struct pollfd holds the events asked."},
 	{"linuxPollReturnedOffset", 6, true, toRuntime, "where a struct pollfd holds the events that came."},
+}
+
+// archValue is a row of linuxABI with the value it has on another architecture's kernel.
+type archValue struct {
+	name  string
+	value int
+}
+
+// The arm64 kernel's numbers where they differ from the x64 one's: its system calls by the generic table
+// (include/uapi/asm-generic/unistd.h), and the layouts its records have there. linuxArm64Lacks are the rows of linuxABI
+// that it has no call or flag for, and linuxArm64Extra the calls the runtime makes there in their place, each the one
+// relative to a directory fd of the call it lacks, or the one with a signal mask. The runtime's source for Linux takes
+// each under `#if arch(arm64)`, and the backend's entry stub for arm64 by its name after arm64.
+var linuxArm64 = []archValue{
+	{"linuxSysRead", 63},
+	{"linuxSysWrite", 64},
+	{"linuxSysClose", 57},
+	{"linuxSysFstat", 80},
+	{"linuxSysMmap", 222},
+	{"linuxSysMprotect", 226},
+	{"linuxSysMunmap", 215},
+	{"linuxSysRtSigaction", 134},
+	{"linuxSysRtSigreturn", 139},
+	{"linuxSysSchedYield", 124},
+	{"linuxSysGetpid", 172},
+	{"linuxSysClone", 220},
+	{"linuxSysExecve", 221},
+	{"linuxSysExit", 93},
+	{"linuxSysWait4", 260},
+	{"linuxSysKill", 129},
+	{"linuxSysGetcwd", 17},
+	{"linuxSysSigaltstack", 132},
+	{"linuxSysFutex", 98},
+	{"linuxSysSchedGetaffinity", 123},
+	{"linuxSysGetdents64", 61},
+	{"linuxSysClockGettime", 113},
+	{"linuxSysExitGroup", 94},
+	{"linuxSysOpenat", 56},
+	{"linuxSysNewfstatat", 79},
+	{"linuxSysStatx", 291},
+	{"linuxSysReadlinkat", 78},
+	{"linuxSysDup3", 24},
+	{"linuxSysPipe2", 59},
+	{"linuxSysGettid", 178},
+	{"linuxSysTgkill", 131},
+	{"linuxSysNanosleep", 101},
+	{"linuxSysGetrandom", 278},
+	{"linuxSysEpollCreate1", 20},
+	{"linuxSysEpollCtl", 21},
+	{"linuxSysEventfd2", 19},
+	// arm64 does not pack a struct epoll_event: its 64-bit data word is aligned after the 32-bit events.
+	{"linuxEpollEventDataOffset", 8},
+	{"linuxEpollEventBytes", 16},
+	// The generic struct stat: st_mode after st_dev and st_ino, 128 bytes in all.
+	{"linuxStatBytes", 128},
+	{"linuxStatModeOffset", 16},
+	// O_DIRECTORY is 040000 on arm64.
+	{"linuxOpenDirectory", 0x84000},
+	// The ucontext_t: uc_mcontext, a struct sigcontext, is at 176: the fault address, x0 to x30, then sp and pc.
+	{"linuxUcontextSpOffset", 432},
+	{"linuxUcontextPcOffset", 440},
+}
+
+var linuxArm64Lacks = []string{"linuxSysPoll", "linuxSysRename", "linuxSysMkdir", "linuxSysUnlink", "linuxSysArchPrctl", "linuxSysEpollWait", "linuxArchSetFs"}
+
+var linuxArm64Extra = []layoutConst{
+	{"linuxSysMkdirat", 34, true, toRuntime, "mkdirat(directory fd, path, mode)."},
+	{"linuxSysUnlinkat", 35, true, toRuntime, "unlinkat(directory fd, path, flags), which with no flags refuses a directory."},
+	{"linuxSysRenameat2", 276, true, toRuntime, "renameat2(old directory fd, old, new directory fd, new, flags), which with no flags replaces what is at new."},
+	{"linuxSysPpoll", 73, true, toRuntime, "ppoll(fds, count, timespec of the timeout or 0 for none, signal mask, size of the mask)."},
+	{"linuxSysEpollPwait", 22, true, toRuntime, "epoll_pwait(epoll fd, events, most events, timeout in milliseconds, signal mask, size of the mask)."},
+	{"linuxCloneThreadFlags", 0xD0F00, true, toSelfBack, "the worker's flags with CLONE_SYSVSEM, glibc's flags of a thread: the thread shares the undo list of System V semaphores, which no thread of the runtime has, and without the flag qemu-user, which runs arm64-linux under WSL, refuses to make a thread."},
 }

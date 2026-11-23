@@ -3,12 +3,12 @@ function mirGpr(mutates fn MirFunction) returns MReg
 end 'mirGpr'
 
 function mirPhys(r X64Register) returns MReg
-	return physReg(r)
+	return x64PhysReg(r)
 end 'mirPhys'
 
 // mirOp writes a form with its register operands in machine order and an immediate.
 function mirOp(mutates fn MirFunction, form X64Form, a MReg, b MReg, c MReg, imm FullRangeInt)
-	fn.emit(newTarget(form, a: a, b: b, c: c, aux: 0, imm: imm))
+	fn.emit(newX64Target(form, a: a, b: b, c: c, aux: 0, imm: imm))
 end 'mirOp'
 
 // mirDef is a new register that a form defines from the uses b and c.
@@ -107,7 +107,7 @@ function mirLoop(symbol String) returns MirFunction
 	let s = fn.addParam(RegClass.gpr)
 	let p = fn.addParam(RegClass.gpr)
 	let q = fn.addParam(RegClass.gpr)
-	fn.emit(newTarget(chooseCmpRegImm(9), a: i, b: noMReg, c: noMReg, aux: 0, imm: 9))
+	fn.emit(newX64Target(chooseCmpRegImm(9), a: i, b: noMReg, c: noMReg, aux: 0, imm: 9))
 	mirBranch(fn, cond: MCond.greaterEqual, target: exit, args: mirArgs2(s, b: q))
 	mirJump(fn, target: body, args: MRegList.create(0))
 	_ = fn.startBlock()
@@ -260,10 +260,11 @@ end 'oneMir'
 // allocatable one of its class, neither both a result and a clobber, nor a call's, which its convention says.
 function testMachineForms()
 	let file = allocatable(x64Arch, class: RegClass.gpr) or allocatable(x64Arch, class: RegClass.xmm)
-	if x64FormID(X64Form.nop9) != formCount - 1 'number'
-		panic("x64's last form has the FormID {x64FormID(X64Form.nop9)}, and there are {formCount}")
+	let x64Forms = nextCount(x64FormID(X64Form.nop9) as Count)
+	if x64Forms > arm64FormID(Arm64Form.addRegReg) as Count 'number'
+		panic("x64's last form has the FormID {x64FormID(X64Form.nop9)}, past the first of arm64's")
 	end 'number'
-	for i in 0 upto formCount 'forms'
+	for i in 0 upto x64Forms 'forms'
 		let form = try i as FormID otherwise panic("more forms than a FormID names")
 		let n = machineOperandCount(form)
 		if n > 3 'operands'

@@ -268,8 +268,8 @@ function needsFrame(fn MirFunction) returns bool
 	if fn.slotsGiven() > 0 or (fn.savedRegs and classMask(x64Arch, class: RegClass.xmm)) != 0 'slots'
 		return true
 	end 'slots'
-	let fp = physReg(rbp)
-	let sp = physReg(rsp)
+	let fp = x64PhysReg(rbp)
+	let sp = x64PhysReg(rsp)
 	for k in 0 upto fn.instrs.count() 'instrs'
 		if usesFrame(fn.instrs[k], fp: fp, sp: sp) 'uses'
 			return true

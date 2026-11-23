@@ -424,9 +424,11 @@ type CorpusOptions
 	// target is the target the programs are compiled for, whose executables runner starts.
 	var target as ast.Target
 	var runner as TargetRunner
+	// verifiesIr compiles every program with --verify-ir.
+	var verifiesIr as bool
 
 	static function new() returns CorpusOptions
-		return CorpusOptions{verbose: false, updatePositions: false, behavioursOnly: false, repeats: behaviourRuns, target: hostTarget(), runner: TargetRunner.native}
+		return CorpusOptions{verbose: false, updatePositions: false, behavioursOnly: false, repeats: behaviourRuns, target: hostTarget(), runner: TargetRunner.native, verifiesIr: false}
 	end 'new'
 end 'CorpusOptions'
 
@@ -505,6 +507,7 @@ function testCommand(rest CommandNames, given Options) returns ExitCode
 	end 'specs'
 	corpus.verbose = verbose
 	corpus.target = given.target.clone()
+	corpus.verifiesIr = given.verifyIr
 	let runner = runnerFor(given.target)
 	if not runner.isSome() 'noRunner'
 		printError("test: no runner on {hostTarget().name()} starts the executables of {given.target.name()}\n")
@@ -589,8 +592,9 @@ end 'interpretedTestOptions'
 // compileForTest makes the executable of file at output, as the driver does for every test, so that a test that expects
 // an error the generate stage raises gets it. What it lowered is kept for the interpreter, which runs it as the executable
 // is made from it.
-function compileForTest(shared SharedRuntime, file String, output String, inLibrary bool, mutates errs diag.ErrorList) returns CompiledProgram
+function compileForTest(shared SharedRuntime, file String, output String, inLibrary bool, verifies bool, mutates errs diag.ErrorList) returns CompiledProgram
 	var options = interpretedTestOptions()
+	options.verifyIr = verifies
 	options.stagesInLibrary = inLibrary
 	let compiled = compileProjectWith(shared, path: file, output: output, options: options, errs: errs)
 	diag.sortErrors(errs)
@@ -648,10 +652,11 @@ function stageProgram(shared SharedRuntime, job CorpusJob, index Count, exe Stri
 	if job.expect.runtimeTier 'runtimeTier'
 		var runtimeOptions = interpretedTestOptions()
 		runtimeOptions.target = options.target.clone()
+		runtimeOptions.verifyIr = options.verifiesIr
 		compiled = compileRuntimeTest(job.file, output: exe, options: runtimeOptions, errs: errs)
 		diag.sortErrors(errs)
 	end 'runtimeTier' else 'program'
-		compiled = compileForTest(shared, file: job.file, output: exe, inLibrary: job.expect.libraryTier, errs: errs)
+		compiled = compileForTest(shared, file: job.file, output: exe, inLibrary: job.expect.libraryTier, verifies: options.verifiesIr, errs: errs)
 	end 'program'
 	return checkTest(job.expect, file: job.file, compiled: compiled, errs: errs, index: index, exe: exe, options: options)
 end 'stageProgram'

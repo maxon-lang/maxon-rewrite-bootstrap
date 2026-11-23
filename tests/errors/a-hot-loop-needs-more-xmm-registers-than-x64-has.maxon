@@ -45,3 +45,6 @@ function main() returns ExitCode
 end 'main'
 
 // expect-error: E5001 at 5:1
+
+// arm64 has more registers than x64, which the loop fits.
+// unsupported-targets: arm64-linux

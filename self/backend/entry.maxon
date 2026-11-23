@@ -54,6 +54,7 @@ end 'EntryCalls'
 function emitRuntime(calls EntryCalls, options RuntimeOptions, target ast.Target) returns CodeUnit
 	return match target.arch 'arch'
 		x64 gives emitX64Runtime(calls, options: options, system: target.system)
+		arm64 gives emitArm64Runtime(calls, options: options, system: target.system)
 	end 'arch'
 end 'emitRuntime'
 
@@ -80,7 +81,7 @@ function emitWindowsRuntime(calls EntryCalls, options RuntimeOptions) returns Co
 	u.beginSection()
 	u.defineCode(ir.rtSymbol(ir.Rt.rtEntry))
 	emitEntry(u, count: options.countAllocations)
-	emitStartRoutines(u, calls: calls)
+	emitStartRoutines(u, a: ast.TargetArch.x64, calls: calls)
 	u.beginSection()
 	u.defineCode(ir.rtSymbol(ir.Rt.rtThreadStart))
 	emitThreadStart(u)

@@ -567,123 +567,6 @@ let byteBytes = 1 as Count
 // bytesFirstCapacity is the capacity of an empty byte array's first buffer, which it doubles from.
 let bytesFirstCapacity = 16 as Count
 
-// linuxSysRead is read(fd, buffer, count).
-let linuxSysRead = 0 as Count
-
-// linuxSysWrite is write(fd, buffer, count).
-let linuxSysWrite = 1 as Count
-
-// linuxSysClose is close(fd).
-let linuxSysClose = 3 as Count
-
-// linuxSysFstat is fstat(fd, stat).
-let linuxSysFstat = 5 as Count
-
-// linuxSysPoll is poll(fds, count, timeout in milliseconds).
-let linuxSysPoll = 7 as Count
-
-// linuxSysMmap is mmap(address, length, protection, flags, fd, offset).
-let linuxSysMmap = 9 as Count
-
-// linuxSysMprotect is mprotect(address, length, protection).
-let linuxSysMprotect = 10 as Count
-
-// linuxSysMunmap is munmap(address, length).
-let linuxSysMunmap = 11 as Count
-
-// linuxSysRtSigaction is rt_sigaction(signal, action, old action, size of the signal mask).
-let linuxSysRtSigaction = 13 as Count
-
-// linuxSysSchedYield is sched_yield().
-let linuxSysSchedYield = 24 as Count
-
-// linuxSysGetpid is getpid().
-let linuxSysGetpid = 39 as Count
-
-// linuxSysClone is clone(flags, stack, parent tid, child tid, tls), x86-64's order of the last two.
-let linuxSysClone = 56 as Count
-
-// linuxSysExecve is execve(path, argv, envp).
-let linuxSysExecve = 59 as Count
-
-// linuxSysExit is exit(code), which ends the calling thread alone.
-let linuxSysExit = 60 as Count
-
-// linuxSysWait4 is wait4(pid, status, options, usage).
-let linuxSysWait4 = 61 as Count
-
-// linuxSysKill is kill(pid, signal).
-let linuxSysKill = 62 as Count
-
-// linuxSysGetcwd is getcwd(buffer, size).
-let linuxSysGetcwd = 79 as Count
-
-// linuxSysRename is rename(old, new), which replaces what is at new.
-let linuxSysRename = 82 as Count
-
-// linuxSysMkdir is mkdir(path, mode).
-let linuxSysMkdir = 83 as Count
-
-// linuxSysUnlink is unlink(path), which refuses a directory.
-let linuxSysUnlink = 87 as Count
-
-// linuxSysFutex is futex(address, operation, value, timeout, address2, value3).
-let linuxSysFutex = 202 as Count
-
-// linuxSysSchedGetaffinity is sched_getaffinity(pid, size of the mask, mask).
-let linuxSysSchedGetaffinity = 204 as Count
-
-// linuxSysGetdents64 is getdents64(fd, buffer, size).
-let linuxSysGetdents64 = 217 as Count
-
-// linuxSysClockGettime is clock_gettime(clock, timespec).
-let linuxSysClockGettime = 228 as Count
-
-// linuxSysExitGroup is exit_group(code), which ends every thread of the process.
-let linuxSysExitGroup = 231 as Count
-
-// linuxSysOpenat is openat(directory fd, path, flags, mode).
-let linuxSysOpenat = 257 as Count
-
-// linuxSysNewfstatat is newfstatat(directory fd, path, stat, flags).
-let linuxSysNewfstatat = 262 as Count
-
-// linuxSysStatx is statx(directory fd, path, flags, mask, statx): the times of a file with the one it was made, which stat has no field for.
-let linuxSysStatx = 332 as Count
-
-// linuxSysReadlinkat is readlinkat(directory fd, path, buffer, size).
-let linuxSysReadlinkat = 267 as Count
-
-// linuxSysDup3 is dup3(old fd, new fd, flags).
-let linuxSysDup3 = 292 as Count
-
-// linuxSysPipe2 is pipe2(fds, flags).
-let linuxSysPipe2 = 293 as Count
-
-// linuxSysGettid is gettid(): the calling thread's id, which a signal is sent to.
-let linuxSysGettid = 186 as Count
-
-// linuxSysTgkill is tgkill(process id, thread id, signal): a signal to one thread of a process.
-let linuxSysTgkill = 234 as Count
-
-// linuxSysNanosleep is nanosleep(timespec, remaining).
-let linuxSysNanosleep = 35 as Count
-
-// linuxSysGetrandom is getrandom(buffer, count, flags): bytes of the system's entropy, which a hash secret is drawn from.
-let linuxSysGetrandom = 318 as Count
-
-// linuxSysEpollCreate1 is epoll_create1(flags): the poller.
-let linuxSysEpollCreate1 = 291 as Count
-
-// linuxSysEpollCtl is epoll_ctl(epoll fd, operation, fd, event).
-let linuxSysEpollCtl = 233 as Count
-
-// linuxSysEpollWait is epoll_wait(epoll fd, events, most events, timeout in milliseconds).
-let linuxSysEpollWait = 232 as Count
-
-// linuxSysEventfd2 is eventfd2(initial count, flags): a counter that the poller sees readable while it is above 0.
-let linuxSysEventfd2 = 290 as Count
-
 // linuxEpollCloexec is EPOLL_CLOEXEC: the poller is closed in a child that execs.
 let linuxEpollCloexec = 524288 as Count
 
@@ -695,12 +578,6 @@ let linuxEpollCtlAdd = 1 as Count
 
 // linuxEpollIn is EPOLLIN: an event for an fd that has something to read.
 let linuxEpollIn = 1 as Count
-
-// linuxEpollEventDataOffset is where a struct epoll_event, which x86-64 packs, holds its 64-bit data word, after the 32-bit events.
-let linuxEpollEventDataOffset = 4 as Count
-
-// linuxEpollEventBytes is the size of a packed struct epoll_event.
-let linuxEpollEventBytes = 12 as Count
 
 // linuxSigactionHandlerOffset is where a struct sigaction holds the handler.
 let linuxSigactionHandlerOffset = 0 as Count
@@ -725,12 +602,6 @@ let linuxPreemptActionFlags = 469762052 as Count
 
 // linuxSigurg is SIGURG, the signal the monitor stops a thread with, as Go's runtime does: no program of the runtime's asks for it.
 let linuxSigurg = 23 as Count
-
-// linuxUcontextRspOffset is where a ucontext_t holds the stopped code's rsp.
-let linuxUcontextRspOffset = 160 as Count
-
-// linuxUcontextRipOffset is where a ucontext_t holds the stopped code's rip.
-let linuxUcontextRipOffset = 168 as Count
 
 // linuxErrnoLimit is one past the largest errno: a result above the word -linuxErrnoLimit is a failure.
 let linuxErrnoLimit = 4096 as Count
@@ -777,9 +648,6 @@ let linuxOpenReplace = 524865 as Count
 // linuxOpenCloseOnExec is O_CLOEXEC: an fd that an execve closes, as pipe2 takes it.
 let linuxOpenCloseOnExec = 524288 as Count
 
-// linuxOpenDirectory is O_RDONLY | O_DIRECTORY | O_CLOEXEC.
-let linuxOpenDirectory = 589824 as Count
-
 // linuxFileMode is 0666, which the umask narrows: the mode of a file the runtime makes.
 let linuxFileMode = 438 as Count
 
@@ -788,12 +656,6 @@ let linuxExecutableFileMode = 493 as Count
 
 // linuxDirectoryMode is 0777, which the umask narrows: the mode of a directory the runtime makes.
 let linuxDirectoryMode = 511 as Count
-
-// linuxStatBytes is the size of a struct stat.
-let linuxStatBytes = 144 as Count
-
-// linuxStatModeOffset is where a struct stat holds st_mode, 32 bits.
-let linuxStatModeOffset = 24 as Count
 
 // linuxStatSizeOffset is where a struct stat holds st_size.
 let linuxStatSizeOffset = 48 as Count
@@ -887,3 +749,281 @@ let linuxPollEventsOffset = 4 as Count
 
 // linuxPollReturnedOffset is where a struct pollfd holds the events that came.
 let linuxPollReturnedOffset = 6 as Count
+
+#if arch(arm64)
+	// linuxSysRead is read(fd, buffer, count).
+	let linuxSysRead = 63 as Count
+
+	// linuxSysWrite is write(fd, buffer, count).
+	let linuxSysWrite = 64 as Count
+
+	// linuxSysClose is close(fd).
+	let linuxSysClose = 57 as Count
+
+	// linuxSysFstat is fstat(fd, stat).
+	let linuxSysFstat = 80 as Count
+
+	// linuxSysMmap is mmap(address, length, protection, flags, fd, offset).
+	let linuxSysMmap = 222 as Count
+
+	// linuxSysMprotect is mprotect(address, length, protection).
+	let linuxSysMprotect = 226 as Count
+
+	// linuxSysMunmap is munmap(address, length).
+	let linuxSysMunmap = 215 as Count
+
+	// linuxSysRtSigaction is rt_sigaction(signal, action, old action, size of the signal mask).
+	let linuxSysRtSigaction = 134 as Count
+
+	// linuxSysSchedYield is sched_yield().
+	let linuxSysSchedYield = 124 as Count
+
+	// linuxSysGetpid is getpid().
+	let linuxSysGetpid = 172 as Count
+
+	// linuxSysClone is clone(flags, stack, parent tid, child tid, tls), x86-64's order of the last two.
+	let linuxSysClone = 220 as Count
+
+	// linuxSysExecve is execve(path, argv, envp).
+	let linuxSysExecve = 221 as Count
+
+	// linuxSysExit is exit(code), which ends the calling thread alone.
+	let linuxSysExit = 93 as Count
+
+	// linuxSysWait4 is wait4(pid, status, options, usage).
+	let linuxSysWait4 = 260 as Count
+
+	// linuxSysKill is kill(pid, signal).
+	let linuxSysKill = 129 as Count
+
+	// linuxSysGetcwd is getcwd(buffer, size).
+	let linuxSysGetcwd = 17 as Count
+
+	// linuxSysFutex is futex(address, operation, value, timeout, address2, value3).
+	let linuxSysFutex = 98 as Count
+
+	// linuxSysSchedGetaffinity is sched_getaffinity(pid, size of the mask, mask).
+	let linuxSysSchedGetaffinity = 123 as Count
+
+	// linuxSysGetdents64 is getdents64(fd, buffer, size).
+	let linuxSysGetdents64 = 61 as Count
+
+	// linuxSysClockGettime is clock_gettime(clock, timespec).
+	let linuxSysClockGettime = 113 as Count
+
+	// linuxSysExitGroup is exit_group(code), which ends every thread of the process.
+	let linuxSysExitGroup = 94 as Count
+
+	// linuxSysOpenat is openat(directory fd, path, flags, mode).
+	let linuxSysOpenat = 56 as Count
+
+	// linuxSysNewfstatat is newfstatat(directory fd, path, stat, flags).
+	let linuxSysNewfstatat = 79 as Count
+
+	// linuxSysStatx is statx(directory fd, path, flags, mask, statx): the times of a file with the one it was made, which stat has no field for.
+	let linuxSysStatx = 291 as Count
+
+	// linuxSysReadlinkat is readlinkat(directory fd, path, buffer, size).
+	let linuxSysReadlinkat = 78 as Count
+
+	// linuxSysDup3 is dup3(old fd, new fd, flags).
+	let linuxSysDup3 = 24 as Count
+
+	// linuxSysPipe2 is pipe2(fds, flags).
+	let linuxSysPipe2 = 59 as Count
+
+	// linuxSysGettid is gettid(): the calling thread's id, which a signal is sent to.
+	let linuxSysGettid = 178 as Count
+
+	// linuxSysTgkill is tgkill(process id, thread id, signal): a signal to one thread of a process.
+	let linuxSysTgkill = 131 as Count
+
+	// linuxSysNanosleep is nanosleep(timespec, remaining).
+	let linuxSysNanosleep = 101 as Count
+
+	// linuxSysGetrandom is getrandom(buffer, count, flags): bytes of the system's entropy, which a hash secret is drawn from.
+	let linuxSysGetrandom = 278 as Count
+
+	// linuxSysEpollCreate1 is epoll_create1(flags): the poller.
+	let linuxSysEpollCreate1 = 20 as Count
+
+	// linuxSysEpollCtl is epoll_ctl(epoll fd, operation, fd, event).
+	let linuxSysEpollCtl = 21 as Count
+
+	// linuxSysEventfd2 is eventfd2(initial count, flags): a counter that the poller sees readable while it is above 0.
+	let linuxSysEventfd2 = 19 as Count
+
+	// linuxEpollEventDataOffset is where a struct epoll_event, which x86-64 packs, holds its 64-bit data word, after the 32-bit events.
+	let linuxEpollEventDataOffset = 8 as Count
+
+	// linuxEpollEventBytes is the size of a packed struct epoll_event.
+	let linuxEpollEventBytes = 16 as Count
+
+	// linuxUcontextSpOffset is where a ucontext_t holds the stopped code's stack pointer.
+	let linuxUcontextSpOffset = 432 as Count
+
+	// linuxUcontextPcOffset is where a ucontext_t holds the address of the stopped code, its program counter.
+	let linuxUcontextPcOffset = 440 as Count
+
+	// linuxOpenDirectory is O_RDONLY | O_DIRECTORY | O_CLOEXEC.
+	let linuxOpenDirectory = 540672 as Count
+
+	// linuxStatBytes is the size of a struct stat.
+	let linuxStatBytes = 128 as Count
+
+	// linuxStatModeOffset is where a struct stat holds st_mode, 32 bits.
+	let linuxStatModeOffset = 16 as Count
+
+	// linuxSysMkdirat is mkdirat(directory fd, path, mode).
+	let linuxSysMkdirat = 34 as Count
+
+	// linuxSysUnlinkat is unlinkat(directory fd, path, flags), which with no flags refuses a directory.
+	let linuxSysUnlinkat = 35 as Count
+
+	// linuxSysRenameat2 is renameat2(old directory fd, old, new directory fd, new, flags), which with no flags replaces what is at new.
+	let linuxSysRenameat2 = 276 as Count
+
+	// linuxSysPpoll is ppoll(fds, count, timespec of the timeout or 0 for none, signal mask, size of the mask).
+	let linuxSysPpoll = 73 as Count
+
+	// linuxSysEpollPwait is epoll_pwait(epoll fd, events, most events, timeout in milliseconds, signal mask, size of the mask).
+	let linuxSysEpollPwait = 22 as Count
+#else
+	// linuxSysRead is read(fd, buffer, count).
+	let linuxSysRead = 0 as Count
+
+	// linuxSysWrite is write(fd, buffer, count).
+	let linuxSysWrite = 1 as Count
+
+	// linuxSysClose is close(fd).
+	let linuxSysClose = 3 as Count
+
+	// linuxSysFstat is fstat(fd, stat).
+	let linuxSysFstat = 5 as Count
+
+	// linuxSysPoll is poll(fds, count, timeout in milliseconds).
+	let linuxSysPoll = 7 as Count
+
+	// linuxSysMmap is mmap(address, length, protection, flags, fd, offset).
+	let linuxSysMmap = 9 as Count
+
+	// linuxSysMprotect is mprotect(address, length, protection).
+	let linuxSysMprotect = 10 as Count
+
+	// linuxSysMunmap is munmap(address, length).
+	let linuxSysMunmap = 11 as Count
+
+	// linuxSysRtSigaction is rt_sigaction(signal, action, old action, size of the signal mask).
+	let linuxSysRtSigaction = 13 as Count
+
+	// linuxSysSchedYield is sched_yield().
+	let linuxSysSchedYield = 24 as Count
+
+	// linuxSysGetpid is getpid().
+	let linuxSysGetpid = 39 as Count
+
+	// linuxSysClone is clone(flags, stack, parent tid, child tid, tls), x86-64's order of the last two.
+	let linuxSysClone = 56 as Count
+
+	// linuxSysExecve is execve(path, argv, envp).
+	let linuxSysExecve = 59 as Count
+
+	// linuxSysExit is exit(code), which ends the calling thread alone.
+	let linuxSysExit = 60 as Count
+
+	// linuxSysWait4 is wait4(pid, status, options, usage).
+	let linuxSysWait4 = 61 as Count
+
+	// linuxSysKill is kill(pid, signal).
+	let linuxSysKill = 62 as Count
+
+	// linuxSysGetcwd is getcwd(buffer, size).
+	let linuxSysGetcwd = 79 as Count
+
+	// linuxSysRename is rename(old, new), which replaces what is at new.
+	let linuxSysRename = 82 as Count
+
+	// linuxSysMkdir is mkdir(path, mode).
+	let linuxSysMkdir = 83 as Count
+
+	// linuxSysUnlink is unlink(path), which refuses a directory.
+	let linuxSysUnlink = 87 as Count
+
+	// linuxSysFutex is futex(address, operation, value, timeout, address2, value3).
+	let linuxSysFutex = 202 as Count
+
+	// linuxSysSchedGetaffinity is sched_getaffinity(pid, size of the mask, mask).
+	let linuxSysSchedGetaffinity = 204 as Count
+
+	// linuxSysGetdents64 is getdents64(fd, buffer, size).
+	let linuxSysGetdents64 = 217 as Count
+
+	// linuxSysClockGettime is clock_gettime(clock, timespec).
+	let linuxSysClockGettime = 228 as Count
+
+	// linuxSysExitGroup is exit_group(code), which ends every thread of the process.
+	let linuxSysExitGroup = 231 as Count
+
+	// linuxSysOpenat is openat(directory fd, path, flags, mode).
+	let linuxSysOpenat = 257 as Count
+
+	// linuxSysNewfstatat is newfstatat(directory fd, path, stat, flags).
+	let linuxSysNewfstatat = 262 as Count
+
+	// linuxSysStatx is statx(directory fd, path, flags, mask, statx): the times of a file with the one it was made, which stat has no field for.
+	let linuxSysStatx = 332 as Count
+
+	// linuxSysReadlinkat is readlinkat(directory fd, path, buffer, size).
+	let linuxSysReadlinkat = 267 as Count
+
+	// linuxSysDup3 is dup3(old fd, new fd, flags).
+	let linuxSysDup3 = 292 as Count
+
+	// linuxSysPipe2 is pipe2(fds, flags).
+	let linuxSysPipe2 = 293 as Count
+
+	// linuxSysGettid is gettid(): the calling thread's id, which a signal is sent to.
+	let linuxSysGettid = 186 as Count
+
+	// linuxSysTgkill is tgkill(process id, thread id, signal): a signal to one thread of a process.
+	let linuxSysTgkill = 234 as Count
+
+	// linuxSysNanosleep is nanosleep(timespec, remaining).
+	let linuxSysNanosleep = 35 as Count
+
+	// linuxSysGetrandom is getrandom(buffer, count, flags): bytes of the system's entropy, which a hash secret is drawn from.
+	let linuxSysGetrandom = 318 as Count
+
+	// linuxSysEpollCreate1 is epoll_create1(flags): the poller.
+	let linuxSysEpollCreate1 = 291 as Count
+
+	// linuxSysEpollCtl is epoll_ctl(epoll fd, operation, fd, event).
+	let linuxSysEpollCtl = 233 as Count
+
+	// linuxSysEpollWait is epoll_wait(epoll fd, events, most events, timeout in milliseconds).
+	let linuxSysEpollWait = 232 as Count
+
+	// linuxSysEventfd2 is eventfd2(initial count, flags): a counter that the poller sees readable while it is above 0.
+	let linuxSysEventfd2 = 290 as Count
+
+	// linuxEpollEventDataOffset is where a struct epoll_event, which x86-64 packs, holds its 64-bit data word, after the 32-bit events.
+	let linuxEpollEventDataOffset = 4 as Count
+
+	// linuxEpollEventBytes is the size of a packed struct epoll_event.
+	let linuxEpollEventBytes = 12 as Count
+
+	// linuxUcontextSpOffset is where a ucontext_t holds the stopped code's stack pointer.
+	let linuxUcontextSpOffset = 160 as Count
+
+	// linuxUcontextPcOffset is where a ucontext_t holds the address of the stopped code, its program counter.
+	let linuxUcontextPcOffset = 168 as Count
+
+	// linuxOpenDirectory is O_RDONLY | O_DIRECTORY | O_CLOEXEC.
+	let linuxOpenDirectory = 589824 as Count
+
+	// linuxStatBytes is the size of a struct stat.
+	let linuxStatBytes = 144 as Count
+
+	// linuxStatModeOffset is where a struct stat holds st_mode, 32 bits.
+	let linuxStatModeOffset = 24 as Count
+#endif

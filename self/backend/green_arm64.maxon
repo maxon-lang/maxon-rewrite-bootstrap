@@ -1,0 +1,238 @@
+// The entry stub's code for green threads on arm64, as green.maxon is x64's: the switch from one stack to another, the
+// start of a stack that has not run, the code a green thread that the monitor stops is made to resume in, which keeps
+// every register, and the handler of the preemption signal. Each is a section of its own, so an executable has it only
+// when the runtime's code that names it is linked.
+//
+// A switch record holds the registers the internal convention keeps, x19 to x28 and d8 to d15, and the frame pointer, in
+// the slots of x64's record (switchRbxOffset on): x19, which a stack that has not run starts with the word to pass in,
+// in rbx's; x29 in rbp's; x20, the code it calls, in r12's; x21 to x23 in r13's to r15's; and x24 to x28 and the d
+// registers from switchXmmOffset. A switch pushes its return address on the stack it leaves, as x64's call does, so a
+// stack that has not run, whose top word the runtime made rt.greenStart's address, returns there.
+
+// arm64SwitchGeneralCount is how many general registers a switch record holds: the ten the internal convention keeps and
+// the frame pointer.
+let arm64SwitchGeneralCount = 11
+
+// arm64SwitchGeneralRegister is the general register a switch record holds in slot.
+function arm64SwitchGeneralRegister(slot Count) returns Arm64Register
+	if slot == 0 'x19'
+		return Arm64Register.x19
+	end 'x19'
+	if slot == 1 'x29'
+		return arm64FramePointer
+	end 'x29'
+	if slot == 2 'x20'
+		return Arm64Register.x20
+	end 'x20'
+	if slot < arm64SwitchGeneralCount 'rest'
+		return arm64RegisterOf(try (slot + 18) as RegNum otherwise panic("backend: a switch slot past the register file"))
+	end 'rest'
+	panic("backend: a switch record has no slot {slot} for an arm64 general register")
+end 'arm64SwitchGeneralRegister'
+
+// arm64SwitchFirstExtra is the first slot of the general registers kept from switchXmmOffset, after the six of x64's.
+let arm64SwitchFirstExtra = 6
+
+// arm64SwitchGeneralDisp is where a switch record holds the general register of a slot.
+function arm64SwitchGeneralDisp(slot Count) returns FullRangeInt
+	if slot < arm64SwitchFirstExtra 'x64Slots'
+		return arm64Disp(try switchRbxOffset + slot * wordBytes otherwise panic("backend: a switch record past memory"))
+	end 'x64Slots'
+	return arm64Disp(try switchXmmOffset + (slot - arm64SwitchFirstExtra) * wordBytes otherwise panic("backend: a switch record past memory"))
+end 'arm64SwitchGeneralDisp'
+
+// arm64SwitchVectorDisp is where a switch record holds the nth d register the internal convention keeps, after the
+// general registers past x64's six.
+function arm64SwitchVectorDisp(nth Count) returns FullRangeInt
+	return arm64Disp(try switchXmmOffset + (arm64SwitchGeneralCount - arm64SwitchFirstExtra + nth) * wordBytes otherwise panic("backend: a switch record past memory"))
+end 'arm64SwitchVectorDisp'
+
+// requireArm64SwitchLayout holds the record to the convention: its general slots are the general registers the internal
+// convention keeps and the frame pointer, its d slots as many as the d registers it keeps, and all of them in the record.
+function requireArm64SwitchLayout()
+	let kept = arm64InternalCalleeSaved()
+	var gprs = 0 as Count
+	var vectors = 0 as Count
+	for r in 0 upto arm64RegisterFileSize 'registers'
+		if maskHas(kept, number: regNumOfCount(r)) 'kept'
+			if r < arm64FirstVector 'general'
+				gprs = nextCount(gprs)
+			end 'general' else 'vector'
+				vectors = nextCount(vectors)
+			end 'vector'
+		end 'kept'
+	end 'registers'
+	if nextCount(gprs) != arm64SwitchGeneralCount 'counts'
+		panic("backend: the arm64 switch record does not hold the general registers the internal convention keeps")
+	end 'counts'
+	for slot in 0 upto arm64SwitchGeneralCount 'slots'
+		let r = arm64SwitchGeneralRegister(slot)
+		if r != arm64FramePointer and not maskHas(kept, number: arm64RegNumOf(r)) 'unkept'
+			panic("backend: the arm64 switch record holds a register the internal convention does not keep")
+		end 'unkept'
+	end 'slots'
+	if arm64SwitchVectorDisp(vectors) > arm64Disp(switchBytes) 'room'
+		panic("backend: the arm64 switch record is past the room of a switch record")
+	end 'room'
+end 'requireArm64SwitchLayout'
+
+// The scratch registers of the switch, which the internal convention lets a call change: the record it leaves and the
+// one it goes to, apart from its argument.
+let arm64SwitchFrom = Arm64Register.x9
+
+let arm64SwitchTo = Arm64Register.x10
+
+let arm64SwitchSp = Arm64Register.x11
+
+// emitArm64GreenRoutines writes the stub's code of green threads.
+function emitArm64GreenRoutines(mutates u CodeUnit, system ast.TargetSystem)
+	emitArm64StackSwitch(u)
+	emitArm64GreenStart(u)
+	emitArm64AsyncPreempt(u, system: system)
+end 'emitArm64GreenRoutines'
+
+// emitArm64StackSwitch writes rt.stackSwitch: given the address of a pair of switch records, it pushes its return address
+// on the running stack, saves the registers of the running stack into the first record, goes on the stack of the second
+// with its registers, pops the return address there and returns to it, with the first record.
+function emitArm64StackSwitch(mutates u CodeUnit)
+	requireArm64SwitchLayout()
+	u.beginSection()
+	u.defineCode(ir.rtSymbol(ir.Rt.rtStackSwitch))
+	u.asm.arm64Load(arm64SwitchFrom, base: arm64ArgWord(), disp: 0)
+	u.asm.arm64Load(arm64SwitchTo, base: arm64ArgWord(), disp: wordBytes)
+	u.asm.arm64Push(arm64LinkRegister, second: arm64ZeroRegister)
+	for slot in 0 upto arm64SwitchGeneralCount 'saveGprs'
+		u.asm.arm64Store(arm64SwitchFrom, disp: arm64SwitchGeneralDisp(slot), src: arm64SwitchGeneralRegister(slot))
+	end 'saveGprs'
+	emitArm64SwitchVectors(u, record: arm64SwitchFrom, saves: true)
+	u.asm.arm64Mov(arm64SwitchSp, src: Arm64Register.sp)
+	u.asm.arm64Store(arm64SwitchFrom, disp: arm64Disp(switchSpOffset), src: arm64SwitchSp)
+	u.asm.arm64Load(arm64SwitchSp, base: arm64SwitchTo, disp: arm64Disp(switchSpOffset))
+	u.asm.arm64Mov(Arm64Register.sp, src: arm64SwitchSp)
+	emitArm64SwitchVectors(u, record: arm64SwitchTo, saves: false)
+	for slot in 0 upto arm64SwitchGeneralCount 'loadGprs'
+		u.asm.arm64Load(arm64SwitchGeneralRegister(slot), base: arm64SwitchTo, disp: arm64SwitchGeneralDisp(slot))
+	end 'loadGprs'
+	u.asm.arm64Pop(arm64LinkRegister, second: arm64ZeroRegister)
+	u.asm.arm64Mov(arm64ResultWord(), src: arm64SwitchFrom)
+	u.asm.arm64Ret()
+end 'emitArm64StackSwitch'
+
+// emitArm64SwitchVectors saves the d registers the internal convention keeps into a switch record, or loads them.
+function emitArm64SwitchVectors(mutates u CodeUnit, record Arm64Register, saves bool)
+	let kept = arm64InternalCalleeSaved()
+	var nth = 0 as Count
+	for r in arm64FirstVector upto arm64RegisterFileSize 'vectors'
+		if maskHas(kept, number: regNumOfCount(r)) 'kept'
+			let n = try r - arm64FirstVector otherwise panic("backend: a d register before the first")
+			if saves 'save'
+				u.asm.arm64StoreVector(record, disp: arm64SwitchVectorDisp(nth), n: n)
+			end 'save' else 'load'
+				u.asm.arm64LoadVector(n, base: record, disp: arm64SwitchVectorDisp(nth))
+			end 'load'
+			nth = nextCount(nth)
+		end 'kept'
+	end 'vectors'
+end 'emitArm64SwitchVectors'
+
+// emitArm64GreenStart writes rt.greenStart, where a switch onto a stack that has not run returns to: the runtime seeded
+// the record's x19 with the word to pass and its x20 with the code to call, which never returns.
+function emitArm64GreenStart(mutates u CodeUnit)
+	u.beginSection()
+	u.defineCode(ir.rtSymbol(ir.Rt.rtGreenStart))
+	u.asm.arm64Mov(arm64ArgWord(), src: Arm64Register.x19)
+	u.asm.arm64CallRegister(Arm64Register.x20)
+	u.asm.arm64Brk()
+end 'emitArm64GreenStart'
+
+// The frame of rt.asyncPreempt: a word for each general register by its number, the flags, a word for each d register,
+// and at its top the word below the stack pointer the green thread was stopped at, which asyncPreempted writes the
+// address it was stopped at into (runtime's resumeAt) and rt.asyncPreempt branches through.
+let preemptGeneralSlots = 31
+
+let preemptFlagsDisp = 248
+
+let preemptVectorsDisp = 256
+
+let preemptVectorCount = 32
+
+let preemptFrameBytes = 528
+
+// emitArm64AsyncPreempt writes rt.asyncPreempt, which a green thread the monitor stops resumes in, with the stack pointer
+// it was stopped at: the stopped code is in the middle of whatever it was doing and may be using any register, so this
+// saves the flags and every register but the stack pointer, x15, which no code but this keeps a value in, and x18, which
+// no code writes, calls the code that contextPreemptCodeOffset of the thread's context names with the context, which parks
+// the green thread and comes back when it runs again, perhaps on another thread, and branches to where it was stopped with
+// every register as it was. Nothing keeps a value below the stack pointer, so the frame overwrites nothing.
+function emitArm64AsyncPreempt(mutates u CodeUnit, system ast.TargetSystem)
+	let resume = arm64ResumeRegister
+	let resumeDisp = arm64Disp(try preemptFrameBytes - wordBytes otherwise panic("backend: a frame below zero"))
+	let vectorsEnd = arm64Disp(try preemptVectorsDisp + preemptVectorCount * wordBytes otherwise panic("backend: a frame past memory"))
+	let generalsEnd = arm64Disp(try preemptGeneralSlots * wordBytes otherwise panic("backend: a frame past memory"))
+	if vectorsEnd > resumeDisp or generalsEnd > preemptFlagsDisp 'layout'
+		panic("backend: rt.asyncPreempt's frame does not hold every register")
+	end 'layout'
+	u.beginSection()
+	u.defineCode(ir.rtSymbol(ir.Rt.rtAsyncPreempt))
+	u.asm.arm64AddImm(Arm64Register.sp, src: Arm64Register.sp, value: arm64Negated(arm64Disp(preemptFrameBytes)))
+	for r in 0 upto preemptGeneralSlots 'saveGprs'
+		if arm64Preserved(r) 'saved'
+			u.asm.arm64Store(Arm64Register.sp, disp: arm64Disp(try r * wordBytes otherwise panic("backend: a frame past memory")), src: arm64RegisterOf(regNumOfCount(r)))
+		end 'saved'
+	end 'saveGprs'
+	encodeArm64MrsNzcv(u.asm.code, dest: resume)
+	u.asm.arm64Store(Arm64Register.sp, disp: preemptFlagsDisp, src: resume)
+	for n in 0 upto preemptVectorCount 'saveVectors'
+		u.asm.arm64StoreVector(Arm64Register.sp, disp: arm64Disp(try preemptVectorsDisp + n * wordBytes otherwise panic("backend: a frame past memory")), n: n)
+	end 'saveVectors'
+	emitArm64LoadContext(u, system: system, dst: resume)
+	u.asm.arm64Mov(arm64ArgWord(), src: resume)
+	u.asm.arm64Load(resume, base: resume, disp: arm64Disp(contextPreemptCodeOffset))
+	u.asm.arm64CallRegister(resume)
+	for n in 0 upto preemptVectorCount 'loadVectors'
+		u.asm.arm64LoadVector(n, base: Arm64Register.sp, disp: arm64Disp(try preemptVectorsDisp + n * wordBytes otherwise panic("backend: a frame past memory")))
+	end 'loadVectors'
+	u.asm.arm64Load(resume, base: Arm64Register.sp, disp: preemptFlagsDisp)
+	encodeArm64MsrNzcv(u.asm.code, src: resume)
+	for r in 0 upto preemptGeneralSlots 'loadGprs'
+		if arm64Preserved(r) 'saved'
+			u.asm.arm64Load(arm64RegisterOf(regNumOfCount(r)), base: Arm64Register.sp, disp: arm64Disp(try r * wordBytes otherwise panic("backend: a frame past memory")))
+		end 'saved'
+	end 'loadGprs'
+	u.asm.arm64Load(resume, base: Arm64Register.sp, disp: resumeDisp)
+	u.asm.arm64AddImm(Arm64Register.sp, src: Arm64Register.sp, value: arm64Disp(preemptFrameBytes))
+	u.asm.arm64JumpRegister(resume)
+end 'emitArm64AsyncPreempt'
+
+// arm64Preserved is whether rt.asyncPreempt keeps the general register of a number: every one but x15, its own, and x18,
+// which no code writes.
+function arm64Preserved(r Count) returns bool
+	let n = regNumOfCount(r)
+	return n != arm64RegNumOf(arm64ResumeRegister) and n != arm64RegNumOf(Arm64Register.x18)
+end 'arm64Preserved'
+
+// emitArm64LoadContext reads the running thread's context into a register, as a read of __Raw.threadContext does
+// (arm64.rules).
+function emitArm64LoadContext(mutates u CodeUnit, system ast.TargetSystem, dst Arm64Register)
+	match arm64ThreadContext(system) 'context'
+		threadRegister then encodeArm64MrsTpidr(u.asm.code, dest: dst)
+		tlsSlot then panic("backend: arm64 reads a thread's context from its TSD slot only on macOS, which has no entry stub yet")
+	end 'context'
+end 'emitArm64LoadContext'
+
+// emitArm64PreemptHandler writes rt.preemptHandler, the handler of the Linux preemption signal, which the kernel calls by
+// AAPCS64 with the signal's context in x2 and the restorer as its return address, on the thread's signal stack: it calls
+// the code that contextSignalCodeOffset of the thread's context names with that context, which may make the stopped code
+// resume in rt.asyncPreempt, and returns to the restorer.
+function emitArm64PreemptHandler(mutates u CodeUnit)
+	let code = Arm64Register.x9
+	u.beginSection()
+	u.defineCode(ir.rtSymbol(ir.Rt.rtPreemptHandler))
+	u.asm.arm64Enter()
+	u.asm.arm64Mov(arm64ArgWord(), src: arm64ArgRegister(ConventionKind.host, system: ast.TargetSystem.linux, index: 2))
+	emitArm64LoadContext(u, system: ast.TargetSystem.linux, dst: code)
+	u.asm.arm64Load(code, base: code, disp: arm64Disp(contextSignalCodeOffset))
+	u.asm.arm64CallRegister(code)
+	u.asm.arm64Leave()
+	u.asm.arm64Ret()
+end 'emitArm64PreemptHandler'

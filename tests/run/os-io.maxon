@@ -1,5 +1,5 @@
 // The OS entries on Windows paths, under TEMP; os-io-on-linux.maxon is the same on Linux's.
-// unsupported-targets: x64-linux
+// unsupported-targets: x64-linux, arm64-linux
 //> args=true
 //> unset=variableUnset
 //> exe=true false

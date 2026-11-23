@@ -3,6 +3,7 @@
 // TargetArch is the processor of a target, which picks the backend's instruction set and register file.
 export enum TargetArch
 	x64
+	arm64
 end 'TargetArch'
 
 // TargetSystem is the operating system of a target, by which the backend picks the entry stub, the format of the
@@ -32,6 +33,7 @@ end 'SystemReach'
 export function archName(arch TargetArch) returns String
 	return match arch 'arch'
 		x64 gives "x64"
+		arm64 gives "arm64"
 	end 'arch'
 end 'archName'
 
@@ -77,5 +79,6 @@ export function knownTargets() returns TargetList
 	var targets = TargetList.create(0)
 	targets.push(Target.make(TargetArch.x64, system: TargetSystem.windows))
 	targets.push(Target.make(TargetArch.x64, system: TargetSystem.linux))
+	targets.push(Target.make(TargetArch.arm64, system: TargetSystem.linux))
 	return targets
 end 'knownTargets'

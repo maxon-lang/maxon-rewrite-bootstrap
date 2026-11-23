@@ -1,0 +1,198 @@
+// arm64's register file and calling conventions, as the selector, the encoder and the entry stub ask of them, and the
+// constructors of machine instructions of arm64's forms, as regs_x64.maxon is x64's. What the target-neutral machine IR
+// and the allocator ask of every form is in machine.maxon, over the tables of machine_gen.maxon.
+// arm64Arch is the architecture of the machine IR that arm64's selector, encoder and entry stub write.
+let arm64Arch = ast.TargetArch.arm64
+
+// The registers that arm64's code names for a role of its own (the target table's reserved ones): the frame pointer and
+// the link register of the frame record; the scratch registers of the encoder, x16 for what the frame and a call through
+// a register need and x17 for the address of an offset that a field does not hold; x15, which a green thread the monitor
+// stopped resumes through.
+export let arm64FramePointer = Arm64Register.x29
+
+export let arm64LinkRegister = Arm64Register.x30
+
+export let arm64Scratch = Arm64Register.x16
+
+export let arm64AddressScratch = Arm64Register.x17
+
+export let arm64ResumeRegister = Arm64Register.x15
+
+// arm64IncomingBase is the register the prologue of a function that takes arguments on the stack leaves the address of
+// the first of them in, the stack pointer its caller called it with, which the loads of those arguments right after it
+// read: the frame record and the slots are above the outgoing arguments, so no displacement from the frame pointer is
+// known before the frame is.
+export let arm64IncomingBase = arm64Scratch
+
+// arm64ZeroRegister is register 31 where an operand names no stack: it reads as 0 and a write of it is lost.
+export let arm64ZeroRegister = Arm64Register.sp
+
+export function arm64PhysReg(r Arm64Register) returns MReg
+	return try r.rawValue as MReg otherwise panic("backend: a register past an operand")
+end 'arm64PhysReg'
+
+function arm64RegNumOf(r Arm64Register) returns RegNum
+	return try r.rawValue as RegNum otherwise panic("backend: a register past the register file")
+end 'arm64RegNumOf'
+
+export function arm64RegMaskOf(r Arm64Register) returns RegMask
+	return regBit(arm64RegNumOf(r))
+end 'arm64RegMaskOf'
+
+// newArm64Target is an arm64 form with its register operands, the offset of a memory operand or a second immediate,
+// and an immediate.
+export function newArm64Target(form Arm64Form, a MReg, b MReg, c MReg, aux Imm32, imm FullRangeInt) returns MInstr
+	return newMachine(arm64FormID(form), a: a, b: b, c: c, aux: aux, imm: imm)
+end 'newArm64Target'
+
+// newArm64Referring is an arm64 form whose last field refers to an edge, a symbol, data or an import, after the register
+// operands a and b.
+export function newArm64Referring(form Arm64Form, a MReg, b MReg, ref MRef, aux Imm32) returns MInstr
+	var x = newMachineReferring(arm64FormID(form), a: a, ref: ref, aux: aux)
+	x.b = b
+	return x
+end 'newArm64Referring'
+
+// newArm64Conditional is an arm64 form with a condition: a branch along an edge, or a cset of a.
+export function newArm64Conditional(form Arm64Form, cond MCond, a MReg, ref MRef, aux Imm32) returns MInstr
+	var x = newMachineReferring(arm64FormID(form), a: a, ref: ref, aux: aux)
+	x.cond = cond
+	return x
+end 'newArm64Conditional'
+
+// newArm64Call is a call of an arm64 form whose last field refers to ref and aux (none for a call through a register,
+// a), passing arguments in the registers argRegs.
+export function newArm64Call(form Arm64Form, a MReg, ref MRef, aux Imm32, argRegs RegMask) returns MInstr
+	return newMachineCall(arm64FormID(form), a: a, ref: ref, aux: aux, argRegs: argRegs)
+end 'newArm64Call'
+
+// isArm64Form is whether a machine instruction is the arm64 form form.
+function isArm64Form(x MInstr, form Arm64Form) returns bool
+	return x.kind == MKind.target and x.form == arm64FormID(form)
+end 'isArm64Form'
+
+// arm64GeneralRegister is the general register a physical operand names.
+function arm64GeneralRegister(r MReg) returns Arm64Register
+	let number = physicalNumber(r)
+	if (number as Count) >= arm64FirstVector 'vector'
+		panic("backend: a general operand in a d register")
+	end 'vector'
+	return arm64RegisterOf(number)
+end 'arm64GeneralRegister'
+
+// arm64VectorRegister is the d register a physical operand names, as the general register of the same encoding number,
+// which is how an encoder takes a d register.
+function arm64VectorRegister(r MReg) returns Arm64Register
+	let number = physicalNumber(r)
+	if (number as Count) < arm64FirstVector 'general'
+		panic("backend: a d operand in a general register")
+	end 'general'
+	return arm64RegisterOf(try (number - arm64FirstVector) as RegNum otherwise panic("backend: a d register past the register file"))
+end 'arm64VectorRegister'
+
+// arm64VectorOfNumber is the d register of a number of the register file, as its encoder takes it.
+function arm64VectorOfNumber(n Count) returns Arm64Register
+	return arm64RegisterOf(try n as RegNum otherwise panic("backend: a d register past the register file"))
+end 'arm64VectorOfNumber'
+
+// arm64ArgRegisterCount is how many arguments a convention passes in registers on a system.
+function arm64ArgRegisterCount(kind ConventionKind, system ast.TargetSystem) returns Count
+	return match kind 'kind'
+		internal gives arm64InternalArgCount
+		host gives arm64HostArgCount(system)
+		syscall gives arm64SyscallArgCount(system)
+	end 'kind'
+end 'arm64ArgRegisterCount'
+
+// arm64ArgRegister is the register of an argument that a convention passes in one on a system.
+function arm64ArgRegister(kind ConventionKind, system ast.TargetSystem, index Count) returns Arm64Register
+	return match kind 'kind'
+		internal gives arm64InternalArg(index)
+		host gives arm64HostArg(system, index: index)
+		syscall gives arm64SyscallArg(system, index: index)
+	end 'kind'
+end 'arm64ArgRegister'
+
+// arm64WordArgRegs are the registers of the first count words that a convention passes in registers on a system.
+function arm64WordArgRegs(kind ConventionKind, system ast.TargetSystem, count Count) returns RegMask
+	var mask = 0 as RegMask
+	for i in 0 upto count 'args'
+		mask = mask or arm64RegMaskOf(arm64ArgRegister(kind, system: system, index: i))
+	end 'args'
+	return mask
+end 'arm64WordArgRegs'
+
+// arm64InternalArgRegs are the registers of the first count words that the internal convention passes in registers.
+function arm64InternalArgRegs(count Count) returns RegMask
+	return arm64WordArgRegs(ConventionKind.internal, system: ast.TargetSystem.linux, count: count)
+end 'arm64InternalArgRegs'
+
+// arm64ResultRegister is the register of a call's result on a system.
+function arm64ResultRegister(kind ConventionKind, system ast.TargetSystem) returns Arm64Register
+	return match kind 'kind'
+		internal gives arm64InternalResult
+		host gives arm64HostResult(system)
+		syscall gives arm64SyscallResult(system)
+	end 'kind'
+end 'arm64ResultRegister'
+
+// An argument's place is where a convention passes it: a register, by its number in the register file, or the stack, by
+// its place among the arguments there from arm64StackPlaceBase on, the first at the stack pointer of the call.
+let arm64StackPlaceBase = arm64RegisterFileSize
+
+function arm64StackPlace(slot Count) returns Count
+	return try arm64StackPlaceBase + slot otherwise panic("backend: an argument past memory")
+end 'arm64StackPlace'
+
+function arm64IsStackPlace(place Count) returns bool
+	return place >= arm64StackPlaceBase
+end 'arm64IsStackPlace'
+
+// arm64StackSlotOf is the place among the arguments on the stack of a place there.
+function arm64StackSlotOf(place Count) returns Count
+	return try place - arm64StackPlaceBase otherwise panic("backend: a register taken for a place on the stack")
+end 'arm64StackSlotOf'
+
+// arm64PlaceArgs gives each argument of a call of the internal convention its place, as placeArgs does on x64: each class
+// counts its own arguments into its own registers, and the rest go on the stack in the order of the arguments. It is how
+// many go on the stack.
+function arm64PlaceArgs(floats Array with bool, mutates places CountList) returns Count
+	places.clear()
+	var words = 0 as Count
+	var vectors = 0 as Count
+	var stacked = 0 as Count
+	for i in 0 upto floats.count() 'args'
+		if floats[i] and vectors < arm64InternalFloatArgCount 'vector'
+			places.push(arm64InternalFloatArg(vectors) as Count)
+			vectors = try vectors + 1 otherwise panic("backend: more arguments than memory")
+		end 'vector' else if not floats[i] and words < arm64InternalArgCount 'word'
+			places.push(arm64RegNumOf(arm64InternalArg(words)) as Count)
+			words = try words + 1 otherwise panic("backend: more arguments than memory")
+		end 'word' else 'stack'
+			places.push(arm64StackPlace(stacked))
+			stacked = try stacked + 1 otherwise panic("backend: more arguments than memory")
+		end 'stack'
+	end 'args'
+	return stacked
+end 'arm64PlaceArgs'
+
+// arm64ArgWord is the register of the first argument of the internal convention: the one argument of the routines and
+// the runtime entries that the routines and the entry stub call.
+function arm64ArgWord() returns Arm64Register
+	return arm64InternalArg(0)
+end 'arm64ArgWord'
+
+// arm64ResultWord is the register of the result of the internal convention.
+function arm64ResultWord() returns Arm64Register
+	return arm64InternalResult
+end 'arm64ResultWord'
+
+// arm64KeptBy is the registers a call of a convention keeps on a system: its host convention or its system call's, which a
+// system that does not have it keeps none of, since no call of it is ever made there.
+function arm64KeptBy(kind ConventionKind, system ast.TargetSystem) returns RegMask
+	return match kind 'kind'
+		internal gives arm64InternalCalleeSaved()
+		host gives arm64HostCalleeSaved(system) if ast.systemReach(system) == ast.SystemReach.imports else 0
+		syscall gives arm64SyscallCalleeSaved(system) if ast.systemReach(system) == ast.SystemReach.syscalls else 0
+	end 'kind'
+end 'arm64KeptBy'
