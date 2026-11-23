@@ -75,3 +75,4 @@ neither.
 | 2026-11-23 | 882e693 | read-only literals, ASCII bit, StringBuilder | 127167 | 2291 | 1434 | 1672 | 4361642 | 516.0 | 540.5 |
 | 2026-11-23 | b64577c | debug info behind a flag; one-allocation interpolation, builder and append removed | 129770 | 2305 | 1521 | 1444 | 4355178 | 526.4 | 545.6 |
 | 2026-11-23 | 9dbfc6e | String views, var views, debug-info locals, E3944 removed, seed renewed | 131958 | 1792 | 1684 | 1652 | 4437738 | 526.4 | 546.6 |
+| 2026-11-23 | fc53e85 | page heap, demand-driven imports, debug port (measured with five agents building) | 132425 | 1774 | 1667 | 1680 | 4463530 | 548.6 | 561.8 |
