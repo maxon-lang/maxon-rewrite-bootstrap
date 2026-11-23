@@ -270,7 +270,7 @@ function main() returns ExitCode
 	let hooks = Hooks.create()
 	let h = spawn Calc.create()
 	let t = try await h.total() otherwise 0
-	return (hooks.emitted() + t) as ExitCode
+	return try (hooks.emitted() + t) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```maxoncstderr
@@ -359,7 +359,7 @@ function main() returns ExitCode
 	let hooks = Hooks.create()
 	let h = spawn Calc.create()
 	let t = try await h.total() otherwise 0
-	return (hooks.emitted() + t) as ExitCode
+	return try (hooks.emitted() + t) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```maxoncstderr
@@ -537,7 +537,7 @@ function main() returns ExitCode
 	let hooks = Hooks.create()
 	let h = spawn Calc.create()
 	let t = try await h.total() otherwise 0
-	return (hooks.emitted() + t) as ExitCode
+	return try (hooks.emitted() + t) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```maxoncstderr

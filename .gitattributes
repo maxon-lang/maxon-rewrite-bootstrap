@@ -7,3 +7,5 @@ seed/minimaxon.exe binary
 seed/minimaxon-x64-linux binary
 # The benchmark kit's shell script is embedded in cmd/bench and run by sh, which rejects a carriage return.
 cmd/bench/run.sh text eol=lf
+# A shell script is run by sh, which rejects a carriage return.
+*.sh text eol=lf

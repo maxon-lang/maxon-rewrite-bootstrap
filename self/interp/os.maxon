@@ -374,6 +374,15 @@ let runDirectoryArg = 2 as Count
 // runInShift is how far the arguments of rt.os.runIn after its directory are from where rt.os.run has them.
 let runInShift = 1 as Count
 
+// childOutput runs the child in directory, or in the interpreter's working directory when that is empty.
+function childOutput(executable Executable, arguments ast.StringList, directory String, deadline WaitDeadline) returns CollectedOutput throws SubprocessError
+	if directory == "" 'inherited'
+		return try Subprocess.runWithDeadline(executable, arguments: arguments, deadline: deadline)
+	end 'inherited'
+	let at = try FilePath.from(directory) otherwise panic("interp: the working directory {directory} is not a path")
+	return try Subprocess.runInDirectory(executable, arguments: arguments, directory: at, deadline: deadline)
+end 'childOutput'
+
 // runArg is the index of an argument of rt.os.run in an entry whose arguments are shift past rt.os.run's.
 function runArg(index Count, shift Count) returns Count
 	return try index + shift otherwise panic("interp: an argument of rt.os.run past memory")
@@ -432,16 +441,13 @@ function runChild(mutates vm Vm, f ir.IrFunction, x ir.Instr, directory String, 
 	if isPath(exeText) 'path'
 		executable = Executable.path(pathOf(exeText.clone()))
 	end 'path'
-	if directory != "" 'directory'
-		panic("interp: a child in a working directory of its own needs the compiler's Subprocess.runInDirectory, which the seed does not compile yet")
-	end 'directory'
 	let deadline = deadlineOf(argNum(vm, f: f, x: x, i: runArg(runDeadlineArg, shift: shift)))
 	var word = 0 as ir.Word
 	var stdout = ""
 	var stderr = ""
 	var code = 0 as ir.Word
 	try 'run'
-		let out = Subprocess.runWithDeadline(executable, arguments: args, deadline: deadline)
+		let out = try childOutput(executable, arguments: args, directory: directory, deadline: deadline)
 		stdout = out.stdout.clone()
 		stderr = out.stderr.clone()
 		code = out.exitCode() as ir.Word

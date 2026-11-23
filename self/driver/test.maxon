@@ -451,9 +451,12 @@ type CorpusOptions
 	// of them leaves the executables the environment of the runner.
 	var workerCounts as CountList
 	var envRunner as String
+	// workingDirectory is where the spec tests' programs run (specRunDirectory); the corpus's run in the runner's own
+	// (inheritedDirectory).
+	var workingDirectory as String
 
 	static function new() returns CorpusOptions
-		return CorpusOptions{verbose: false, updatePositions: false, behavioursOnly: false, repeats: behaviourRuns, target: hostTarget(), runner: TargetRunner.native, verifiesIr: false, compilesOnly: false, workerCounts: CountList.create(0), envRunner: ""}
+		return CorpusOptions{verbose: false, updatePositions: false, behavioursOnly: false, repeats: behaviourRuns, target: hostTarget(), runner: TargetRunner.native, verifiesIr: false, compilesOnly: false, workerCounts: CountList.create(0), envRunner: "", workingDirectory: inheritedDirectory}
 	end 'new'
 end 'CorpusOptions'
 
@@ -909,9 +912,12 @@ union ExecutableRun
 	timedOut
 end 'ExecutableRun'
 
-// runExecutable runs the executable at exe with no arguments, through the runner of its target, for no longer than
-// testRunDeadlineMs.
-function runExecutable(exe String, runner TargetRunner, workers Count, envRunner String) returns ExecutableRun
+// inheritedDirectory is the directory of runExecutable that starts the executable in the runner's working directory.
+let inheritedDirectory = ""
+
+// runExecutable runs the executable at exe with no arguments, through the runner of its target, in directory, or in the
+// runner's working directory for inheritedDirectory, for no longer than testRunDeadlineMs.
+function runExecutable(exe String, runner TargetRunner, directory String, workers Count, envRunner String) returns ExecutableRun
 	let exePath = try FilePath.from(exe) otherwise return ExecutableRun.cannotStart
 	let deadline = WaitDeadline.within(testRunDeadlineMs)
 	var started = runnerExecutable(runner, exe: exePath)
@@ -921,7 +927,7 @@ function runExecutable(exe String, runner TargetRunner, workers Count, envRunner
 		started = Executable.name(envRunner.clone())
 	end 'counted'
 	try 'run'
-		let out = Subprocess.runWithDeadline(started, arguments: arguments, deadline: deadline)
+		let out = startExecutable(started, arguments: arguments, directory: directory, deadline: deadline)
 		return ExecutableRun.ran(out)
 	end 'run' otherwise (e) 'failed'
 		match e 'kind'
@@ -939,10 +945,20 @@ function runExecutable(exe String, runner TargetRunner, workers Count, envRunner
 	return ExecutableRun.cannotStart
 end 'runExecutable'
 
+// startExecutable runs the executable with the arguments in directory, or in the runner's working directory for
+// inheritedDirectory, until the deadline.
+function startExecutable(executable Executable, arguments CommandNames, directory String, deadline WaitDeadline) returns CollectedOutput throws SubprocessError
+	if directory == inheritedDirectory 'inherited'
+		return try Subprocess.runWithDeadline(executable, arguments: arguments, deadline: deadline)
+	end 'inherited'
+	let at = try FilePath.from(directory) otherwise panic("test: the working directory {directory} is not a path")
+	return try Subprocess.runInDirectory(executable, arguments: arguments, directory: at, deadline: deadline)
+end 'startExecutable'
+
 // runNative runs the executable and checks its output and exit code against what the program expects. The memory limit
 // of the directive is not enforced.
 function runNative(exe String, expect Expectation, runner TargetRunner, workers Count, envRunner String) returns TestResult
-	match consumes runExecutable(exe, runner: runner, workers: workers, envRunner: envRunner) 'run'
+	match consumes runExecutable(exe, runner: runner, directory: inheritedDirectory, workers: workers, envRunner: envRunner) 'run'
 		ran(out) then return checkNativeOutput(out, exe: exe, expect: expect)
 		cannotStart then return TestResult.failed("cannot run {exe}")
 		timedOut then return TestResult.failed("timed out")
@@ -972,7 +988,7 @@ function runFixTest(file String, expected String) returns TestResult
 	let wanted = withoutCarriageReturns(readText(expected), loneToo: false)
 	let sections = splitSections(text)
 	if sections.count() > 0 'project'
-		let built = fixProgram(FixProgram.make(projectRoot, name: file.clone(), single: false, files: sectionFiles(sections)), expected: table.Option.none, halts: ast.StringList.create(0))
+		let built = fixProgram(FixProgram.make(projectRoot, name: file.clone(), single: false, files: sectionFiles(sections), candidates: ast.knownTargets()), expected: table.Option.none, halts: ast.StringList.create(0))
 		return fixedResult(built, expected: expected, wanted: withoutFinalNewline(wanted), actual: withoutFinalNewline(fixedBlock(text, sections: sections, outcome: built)))
 	end 'project'
 	let outcome = fixSource(file, text: text)

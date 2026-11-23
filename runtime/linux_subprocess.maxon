@@ -192,7 +192,7 @@
 		if directory != noDirectory 'directory'
 			let moved = __Raw.syscall1(linuxSysChdir, arg1: directory)
 			if failed(moved) 'unmoved'
-				failChild(run, errno: errnoOf(moved))
+				failChild(run, errno: errnoOf(moved) or unmovedMark)
 			end 'unmoved'
 		end 'directory'
 		let result = __Raw.syscall3(linuxSysExecve, arg1: path, arg2: vector, arg3: environment())
@@ -208,6 +208,10 @@
 
 	// noDirectory is the directory of a child that starts in the run's working directory.
 	let noDirectory = 0
+
+	// unmovedMark is set in what a child writes down the status pipe when it could not move to its directory, which fails
+	// the spawn whatever the errno, as CreateProcessW fails it on Windows, rather than saying the program was not found.
+	let unmovedMark = 0x100000000
 
 	// execErrno is the errno that the child of a run wrote down the status pipe, or 0 when the pipe closed unwritten, as an
 	// execve that succeeded closes it.
@@ -410,6 +414,14 @@
 		startStream(fieldAt(run, offset: runOutputOffset), pipes: fieldAt(run, offset: runOutputPipeOffset))
 		startStream(fieldAt(run, offset: runErrorOffset), pipes: fieldAt(run, offset: runErrorPipeOffset))
 		let unexecuted = execErrno(run)
+		if (unexecuted and unmovedMark) != 0 'unmoved'
+			_ = reap(run, pid: pid)
+			closeStreams(run)
+			freeTexts(run)
+			free(run)
+			failWith(errorAddress, errorCase: spawnFailed)
+			return 0
+		end 'unmoved'
 		if unexecuted != 0 'unexecuted'
 			_ = reap(run, pid: pid)
 			closeStreams(run)

@@ -1,0 +1,46 @@
+// A child started in a directory of its own (Subprocess.runInDirectory), as subprocess-in-a-directory.maxon starts Windows':
+// pwd prints where it runs, which for ".." is the directory above the runner's, and a directory that is not there fails the
+// spawn.
+// unsupported-targets: x64-windows, arm64-macos
+// native-only
+//> above=true
+//> missing=spawnFailed
+
+typealias Arguments = Array with String
+
+// whereRuns is what pwd prints in directory, or in the program's own working directory for "".
+function whereRuns(directory String) returns String throws SubprocessError
+	let args = Arguments.create(0)
+	if directory == "" 'own'
+		let out = try Subprocess.run(Executable.name("pwd"), arguments: args)
+		return out.stdout.clone()
+	end 'own'
+	let at = try FilePath.from(directory) otherwise panic("not a path")
+	let out = try Subprocess.runInDirectory(Executable.name("pwd"), arguments: args, directory: at, deadline: WaitDeadline.none)
+	return out.stdout.clone()
+end 'whereRuns'
+
+function main() returns ExitCode
+	let own = try whereRuns("") otherwise return 1
+	let above = try whereRuns("..") otherwise return 2
+	// pwd ends its line with a newline, which the directory above is followed by in no other line.
+	let line = try above.byteLength() - 1 otherwise 0
+	print("above={own.startsWith(above.sliceBytes(0, endPos: line)) and above != own}\n")
+	try 'missing'
+		_ = whereRuns("a-directory-that-is-not-there")
+		print("missing=ran\n")
+	end 'missing' otherwise (e) 'failed'
+		match e 'kind'
+			spawnFailed then print("missing=spawnFailed\n")
+			executableNotFound or
+			busy or
+			ioFailed or
+			timeout or
+			treeNotEnded or
+			detachRefused or
+			inputTooLarge or
+			statusLost then print("missing=another failure\n")
+		end 'kind'
+	end 'failed'
+	return 0
+end 'main'

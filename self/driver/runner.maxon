@@ -515,7 +515,7 @@ function runCompiledProgram(bench frozen with Bench, consumes pending CorpusPend
 end 'runCompiledProgram'
 
 function runSpecPending(bench frozen with Bench, consumes pending SpecPending)
-	let result = checkSpecRun(pending.test, text: bench.files[pending.file].text, exe: pending.exe)
+	let result = checkSpecRun(pending.test, text: bench.files[pending.file].text, exe: pending.exe, directory: bench.corpus.workingDirectory)
 	releaseExecutable(bench)
 	var finished = Finished.make(result)
 	finished.left = discarded(pending.exe)

@@ -457,35 +457,61 @@ function fenceSkip(fence SpecFence) returns table.Option with String
 	return table.Option.none
 end 'fenceSkip'
 
-// hostSkip is why the test does not run on the system the compiler runs on, though it may on another: its directive
-// excludes the host's target, or it has a result block for another target. A test of the list skipped so was recorded on
-// another system, and is kept in the list rather than lost.
+// hostSkip is why the test does not run on the system the compiler runs on, though it may on another (targetSkip). A test of
+// the list skipped so was recorded on another system, and is kept in the list rather than lost.
 function hostSkip(test SpecTest) returns table.Option with String
-	let host = hostTarget().name()
+	return targetSkip(test, target: hostTarget())
+end 'hostSkip'
+
+// targetSkip is why the test does not run for a target: its directive excludes the target, or it has a result block for
+// another target.
+function targetSkip(test SpecTest, target ast.Target) returns table.Option with String
+	let name = target.name()
 	for i in 0 upto test.directives.count() 'directives'
-		if directiveKey(test.directives[i]) == targetsDirective and listsTarget(directiveValue(test.directives[i]), target: host) 'excluded'
-			return table.Option.some("unsupported on {host}")
+		if directiveKey(test.directives[i]) == targetsDirective and listsTarget(directiveValue(test.directives[i]), target: name) 'excluded'
+			return table.Option.some("unsupported on {name}")
 		end 'excluded'
 	end 'directives'
 	for i in 0 upto test.fences.count() 'fences'
-		let target = fenceTarget(test.fences[i].name)
-		if target != "" and target != host 'other'
-			return table.Option.some("a result block for the target {target}")
+		let fenced = fenceTarget(test.fences[i].name)
+		if fenced != "" and fenced != name 'other'
+			return table.Option.some("a result block for the target {fenced}")
 		end 'other'
 	end 'fences'
 	return table.Option.none
-end 'hostSkip'
+end 'targetSkip'
+
+// runTargets are the targets the test runs for, in the order of the compiler's targets; the first of them when none is
+// left, as for a test with result blocks for two targets, which runs nowhere.
+function runTargets(test SpecTest) returns ast.TargetList
+	let known = ast.knownTargets()
+	var runs = ast.TargetList.create(0)
+	for i in 0 upto known.count() 'known'
+		if not targetSkip(test, target: known[i]).isSome() 'runs'
+			runs.push(known[i].clone())
+		end 'runs'
+	end 'known'
+	if runs.count() == 0 'nowhere'
+		runs.push(known[0].clone())
+	end 'nowhere'
+	return runs
+end 'runTargets'
 
 // skipReason is why the runner does not run a test, or nothing when it runs it: the conversion's skip, a directive or a
 // block that needs more than this compiler has yet, or a source that stages maxon's own library.
 function skipReason(test SpecTest, text String) returns table.Option with String
+	return skipReasonFor(test, text: text, target: hostTarget())
+end 'skipReason'
+
+// skipReasonFor is skipReason for a run of the test's program for a target.
+function skipReasonFor(test SpecTest, text String, target ast.Target) returns table.Option with String
 	if test.skips.count() > 0 'converted'
 		return table.Option.some(test.skips[0].clone())
 	end 'converted'
-	let onHost = hostSkip(test)
-	if onHost.isSome() 'host'
-		return onHost
-	end 'host'
+	let onTarget = targetSkip(test, target: target)
+	if onTarget.isSome() 'target'
+		return onTarget
+	end 'target'
 	for i in 0 upto test.directives.count() 'directives'
 		let reason = directiveSkip(test.directives[i])
 		if reason.isSome() 'skipped'
@@ -502,7 +528,7 @@ function skipReason(test SpecTest, text String) returns table.Option with String
 		return table.Option.some("stages a stdlib or runtime overlay")
 	end 'overlay'
 	return table.Option.none
-end 'skipReason'
+end 'skipReasonFor'
 
 // sourceHasOverlay is whether a block has a line that stages a private copy of maxon's stdlib or runtime.
 function sourceHasOverlay(source String) returns bool
@@ -927,6 +953,7 @@ end 'SpecRun'
 // and gives the code the run exits with: a run that requires the list fails when a test of it did not pass, and any other
 // that does not record fails when a test failed.
 function finishSpecs(tally SpecRun) returns ExitCode
+	removeTree(specRunDirectory(project.parentDir(tally.listPath)))
 	print("\n")
 	printSummary(tally)
 	if tally.options.record 'record'
@@ -947,6 +974,33 @@ function finishSpecs(tally SpecRun) returns ExitCode
 	end 'clean'
 	return diagnosticsExitCode
 end 'finishSpecs'
+
+// specRunDirectory is the directory every program of a run of the spec tests at root runs in, as maxon's runner runs them:
+// .spec-run-<pid> in the directory that holds the specs, the checkout's root, since the tests' relative paths are written
+// against that depth (`../stdlib` is the checkout's library). It is the run's own, named for its process, so two runs never
+// share one, and it is made empty at the start of the run and removed at its end.
+function specRunDirectory(root String) returns String
+	return project.joinPath(project.parentDir(root), name: "{specRunPrefix}{Process.id()}")
+end 'specRunDirectory'
+
+let specRunPrefix = ".spec-run-"
+
+// removeTree deletes the directory at path and everything in it, when it is there.
+function removeTree(path String)
+	let at = try FilePath.from(path) otherwise return
+	if not Directory.isDirectory(at) 'none'
+		return
+	end 'none'
+	let entries = try Directory.list(at) otherwise panic("test: cannot list {path} to remove it")
+	for i in 0 upto entries.count() 'entries'
+		if Directory.isDirectory(entries[i]) 'directory'
+			removeTree(entries[i].toString())
+		end 'directory' else 'file'
+			try File.delete(entries[i]) otherwise panic("test: cannot delete {entries[i].toString()}")
+		end 'file'
+	end 'entries'
+	try Directory.delete(at) otherwise panic("test: cannot remove {path}")
+end 'removeTree'
 
 // passedKeysOf is the tests that the text of a list names, one for each line.
 function passedKeysOf(text String) returns ast.StringList
@@ -1087,7 +1141,16 @@ function runSpecs(path String, options SpecOptions, width RunWidth) returns Exit
 	if options.results == ResultsMode.resultsReplay 'replay'
 		return replaySpecs(tally, jobs: jobs, path: options.resultsPath)
 	end 'replay'
-	startTests(prepareSharedRuntime(hostTarget()), jobs: jobs, files: files, corpus: CorpusOptions.new(), verbose: options.verbose, scratch: Scratch.make("spec", suffix: executableExtension(hostTarget())), width: width, tally: Tally.spec(tally))
+	let directory = specRunDirectory(root)
+	let made = try FilePath.from(directory) otherwise panic("test: the run's directory {directory} is not a path")
+	removeTree(directory)
+	if not Directory.create(made) 'unmade'
+		printError("test: cannot make the run's directory {directory}\n")
+		return diagnosticsExitCode
+	end 'unmade'
+	var corpus = CorpusOptions.new()
+	corpus.workingDirectory = directory.clone()
+	startTests(prepareSharedRuntime(hostTarget()), jobs: jobs, files: files, corpus: corpus, verbose: options.verbose, scratch: Scratch.make("spec", suffix: executableExtension(hostTarget())), width: width, tally: Tally.spec(tally))
 	return compiledByBehaviours
 end 'runSpecs'
 
@@ -1281,10 +1344,10 @@ function joinLines(lines ast.StringList) returns String
 	return String.from(out)
 end 'joinLines'
 
-// checkSpecRun runs the compiled program and checks its exit code, when the test gives one, and its output, which must be
-// what the blocks say or else nothing.
-function checkSpecRun(test SpecTest, text String, exe String) returns TestResult
-	match consumes runExecutable(exe, runner: TargetRunner.native, workers: 0, envRunner: "") 'run'
+// checkSpecRun runs the compiled program in directory, the run's (specRunDirectory), and checks its exit code, when the test
+// gives one, and its output, which must be what the blocks say or else nothing.
+function checkSpecRun(test SpecTest, text String, exe String, directory String) returns TestResult
+	match consumes runExecutable(exe, runner: TargetRunner.native, directory: directory, workers: 0, envRunner: "") 'run'
 		ran(out) then return checkSpecOutput(test, text: text, out: out)
 		cannotStart then return TestResult.failed("cannot run the executable")
 		timedOut then return TestResult.failed("timed out")

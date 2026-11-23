@@ -182,9 +182,12 @@ type FixProgram
 	var files as project.SourceFiles
 	// inLibrary is whether the program is checked in the library tier, as the runner compiles a spec test marked so.
 	var inLibrary as bool
+	// targets are the targets the program is checked for (fixTargets).
+	var targets as ast.TargetList
 
-	static function make(consumes root String, consumes name String, single bool, consumes files project.SourceFiles) returns FixProgram
-		return FixProgram{root: root, name: name, single: single, files: files, inLibrary: false}
+	static function make(consumes root String, consumes name String, single bool, consumes files project.SourceFiles, candidates ast.TargetList) returns FixProgram
+		let targets = fixTargets(candidates, files: files)
+		return FixProgram{root: root, name: name, single: single, files: files, inLibrary: false, targets: targets}
 	end 'make'
 
 	function fileIndex(path String) returns table.Option with Count
@@ -221,21 +224,63 @@ type FixOutcome
 	end 'anyChanged'
 end 'FixOutcome'
 
-// checkFixing is the diagnostics of the program, located in its files.
+// fixTargets are the targets fix checks a program for, of the candidates it may run on: each of them when a file holds a
+// conditional, whose branches differ by target, so that every branch is fixed whatever system fix runs on, and otherwise
+// the first, since the program then checks the same for each.
+function fixTargets(candidates ast.TargetList, files project.SourceFiles) returns ast.TargetList
+	for i in 0 upto files.count() 'files'
+		if holdsText(files[i].text, needle: conditionalMark) 'conditional'
+			return candidates.clone()
+		end 'conditional'
+	end 'files'
+	var first = ast.TargetList.create(0)
+	first.push(candidates[0].clone())
+	return first
+end 'fixTargets'
+
+// conditionalMark begins a conditional of the source (`#if os(...)`).
+let conditionalMark = "#if"
+
+// checkFixing is the diagnostics of the program for each of its targets, located in its files, each once and in order.
 function checkFixing(prog FixProgram) returns diag.ErrorList
+	var all = diag.ErrorList.create(0)
+	for t in 0 upto prog.targets.count() 'targets'
+		let errs = checkFixingFor(prog, target: prog.targets[t])
+		for i in 0 upto errs.count() 'errors'
+			if not holdsError(all, e: errs[i]) 'new'
+				all.push(errs[i].clone())
+			end 'new'
+		end 'errors'
+	end 'targets'
+	diag.sortErrors(all)
+	return all
+end 'checkFixing'
+
+// holdsError is whether the list has an error of the same code, place and message, which another target's check found.
+function holdsError(errs diag.ErrorList, e diag.CompileError) returns bool
+	for i in 0 upto errs.count() 'errors'
+		if errs[i].code == e.code and errs[i].file == e.file and errs[i].line == e.line and errs[i].col == e.col and errs[i].message == e.message 'same'
+			return true
+		end 'same'
+	end 'errors'
+	return false
+end 'holdsError'
+
+// checkFixingFor is the diagnostics of the program compiled for a target, located in its files.
+function checkFixingFor(prog FixProgram, target ast.Target) returns diag.ErrorList
 	var errs = diag.ErrorList.create(0)
-	var p = ast.Project.new("")
+	var options = Options.new()
+	options.target = target.clone()
+	var p = projectFor(options)
 	if prog.single 'single'
 		project.loadSourceInto(p, path: prog.files[0].path, text: prog.files[0].text, errs: errs)
 	end 'single' else 'project'
 		project.loadFilesInto(p, rootPath: prog.root, files: prog.files, errs: errs)
 	end 'project'
-	var options = Options.new()
-	options.stagesInLibrary = prog.inLibrary
 	compileLoaded(p, first: 0, ready: noReadyUnits(), output: "", options: options, errs: errs)
 	diag.sortErrors(errs)
 	return errs
-end 'checkFixing'
+end 'checkFixingFor'
 
 // editsMeet is whether two edits of one file cannot both be made: they replace text in common, or one inserts inside the
 // text the other replaces, or both insert at one place, which leaves their order open.
@@ -549,7 +594,7 @@ function fixCommand(rest CommandNames) returns ExitCode
 		if isSpecPath(paths[i]) 'specs'
 			unit = "tests"
 			let files = specFiles(paths[i])
-			var shared = prepareSharedRuntime(hostTarget())
+			var shared = prepareSharedRuntimes()
 			var scratch = Scratch.make("fix", suffix: executableExtension(hostTarget()))
 			let skips = codeSkipTable()
 			for f in 0 upto files.count() 'files'
@@ -579,10 +624,10 @@ function programAt(path String) returns FixProgram
 				files.push(project.SourceFile.make(names[i].clone(), text: readText(names[i])))
 			end 'source'
 		end 'files'
-		return FixProgram.make(path.clone(), name: path.clone(), single: false, files: files)
+		return FixProgram.make(path.clone(), name: path.clone(), single: false, files: files, candidates: ast.knownTargets())
 	end 'project'
 	files.push(project.SourceFile.make(path.clone(), text: readText(path)))
-	return FixProgram.make(path.clone(), name: path.clone(), single: true, files: files)
+	return FixProgram.make(path.clone(), name: path.clone(), single: true, files: files, candidates: ast.knownTargets())
 end 'programAt'
 
 // fixProgramAt fixes the program at path and writes the files it changed, or with check names them.
@@ -611,7 +656,7 @@ end 'fixProgramAt'
 function fixSource(path String, text String) returns FixOutcome
 	var files = project.SourceFiles.create(0)
 	files.push(project.SourceFile.make(path.clone(), text: text.clone()))
-	return fixProgram(FixProgram.make(path.clone(), name: path.clone(), single: true, files: files), expected: table.Option.none, halts: ast.StringList.create(0))
+	return fixProgram(FixProgram.make(path.clone(), name: path.clone(), single: true, files: files, candidates: ast.knownTargets()), expected: table.Option.none, halts: ast.StringList.create(0))
 end 'fixSource'
 
 // isFixable is whether fix may change a spec test: one that the conversion did not skip, that runs a program rather than
@@ -673,10 +718,36 @@ type CodeMismatch
 	end 'make'
 end 'CodeMismatch'
 
+// SharedRuntimes are the runtime prepared for each of the compiler's targets, in their order (ast.knownTargets).
+typealias SharedRuntimes = Array with SharedRuntime
+
+function prepareSharedRuntimes() returns SharedRuntimes
+	let known = ast.knownTargets()
+	var shared = SharedRuntimes.create(0)
+	for i in 0 upto known.count() 'targets'
+		shared.push(prepareSharedRuntime(known[i]))
+	end 'targets'
+	return shared
+end 'prepareSharedRuntimes'
+
+// fixTargetOf is the target fix compiles a spec test for when it asks what the test's program reports: the first the test
+// runs for (runTargets), by its place among the compiler's targets, so that the answer is the same on every system.
+function fixTargetOf(test SpecTest) returns Count
+	let target = runTargets(test)[0].name()
+	let known = ast.knownTargets()
+	for i in 0 upto known.count() 'targets'
+		if known[i].name() == target 'found'
+			return i
+		end 'found'
+	end 'targets'
+	panic("fix: {target} is no target of the compiler")
+end 'fixTargetOf'
+
 // codeMismatchOf is the mismatch of a test that the runner would run, that expects a compile error, and whose first error
-// minimaxon reports under another code; nothing for any other test.
-function codeMismatchOf(shared SharedRuntime, mutates scratch Scratch, test SpecTest, text String) returns table.Option with CodeMismatch
-	if not test.hasSource or skipReason(test, text: text).isSome() 'unrun'
+// minimaxon reports under another code, compiled for the test's fix target; nothing for any other test.
+function codeMismatchOf(shared SharedRuntimes, mutates scratch Scratch, test SpecTest, text String) returns table.Option with CodeMismatch
+	let at = fixTargetOf(test)
+	if not test.hasSource or skipReasonFor(test, text: text, target: ast.knownTargets()[at]).isSome() 'unrun'
 		return table.Option.none
 	end 'unrun'
 	let expected = expectedFirstCode(test, text: text)
@@ -686,7 +757,7 @@ function codeMismatchOf(shared SharedRuntime, mutates scratch Scratch, test Spec
 	let source = text.sliceBytes(test.sourceStart, endPos: test.sourceFinish)
 	var errs = diag.ErrorList.create(0)
 	let exe = scratch.nextExecutable()
-	compileSpecSource(shared, exe: exe, test: test, source: source, sections: splitSections(source), errs: errs)
+	compileSpecSource(shared[at], exe: exe, test: test, source: source, sections: splitSections(source), errs: errs)
 	if errs.count() == 0 'compiled'
 		scratch.discard(exe)
 		return table.Option.none
@@ -700,7 +771,7 @@ end 'codeMismatchOf'
 // expectedRuleSkip is the skip line of a test that the runner would run and that the skip table names, or whose first
 // expected code it skips whatever minimaxon reports; nothing for any other test. file is the name of the test's spec file.
 function expectedRuleSkip(skips CodeSkips, file String, test SpecTest, text String) returns table.Option with String
-	if not test.hasSource or skipReason(test, text: text).isSome() 'unrun'
+	if not test.hasSource or skipReasonFor(test, text: text, target: ast.knownTargets()[fixTargetOf(test)]).isSome() 'unrun'
 		return table.Option.none
 	end 'unrun'
 	let named = namedSkipLine(skips, file: file, test: test.name)
@@ -715,7 +786,7 @@ function expectedRuleSkip(skips CodeSkips, file String, test SpecTest, text Stri
 end 'expectedRuleSkip'
 
 // fixSpecFile fixes the tests of one spec file and writes the file, or with check names the tests it would change.
-function fixSpecFile(shared SharedRuntime, mutates scratch Scratch, skips CodeSkips, file String, checkOnly bool, mutates tally FixTally)
+function fixSpecFile(shared SharedRuntimes, mutates scratch Scratch, skips CodeSkips, file String, checkOnly bool, mutates tally FixTally)
 	let text = readText(file)
 	let display = project.lastComponent(file)
 	let tests = parseSpec(text)
@@ -754,11 +825,11 @@ function specProgram(test SpecTest, display String, source String, sections Sour
 	if sections.count() == 0 'single'
 		var files = project.SourceFiles.create(0)
 		files.push(project.SourceFile.make(fragmentToken, text: "{fragmentHeader}{test.name}\n{source}\n"))
-		var prog = FixProgram.make(fragmentToken, name: "{display}: {test.name}", single: true, files: files)
+		var prog = FixProgram.make(fragmentToken, name: "{display}: {test.name}", single: true, files: files, candidates: runTargets(test))
 		prog.inLibrary = stagedInLibrary(test)
 		return prog
 	end 'single'
-	var prog = FixProgram.make(projectRoot, name: "{display}: {test.name}", single: false, files: sectionFiles(sections))
+	var prog = FixProgram.make(projectRoot, name: "{display}: {test.name}", single: false, files: sectionFiles(sections), candidates: runTargets(test))
 	prog.inLibrary = stagedInLibrary(test)
 	return prog
 end 'specProgram'

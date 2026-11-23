@@ -61,10 +61,13 @@ from the seed (`bin\minimaxon.exe`), runs the Go tests, and then has it run `sel
 `fmt --check`, the corpus, the corpus again for `--target=x64-linux` (compiled for Linux and run under WSL, so WSL and
 a distribution must be installed: the step fails without them and never skips), every spec test (failing when one that
 `specs/passed.txt` lists does not pass) and `fuzz`.
-`.\seed.ps1` renews the seed, and is where the compiler is held to reproducing itself (seed builds C1, C1 builds C2, C2
+`.\seed.ps1` renews both seeds, Windows's and Linux's, and is where each is held to reproducing itself (seed builds C1, C1 builds C2, C2
 builds a C3 identical to it).
 
-- **Before a commit, `.\check.ps1` passes.** Nothing else is required: no test written first, no test per change, no
+- **On Linux** the seed is `seed/minimaxon-x64-linux` and the gate is `./check.sh`: both scripts run `go run ./cmd/gate
+  check`, which holds the one list of steps (README, "Building on Linux"). A step is added or changed there, never in a
+  script.
+- **Before a commit, `.\check.ps1` (or `./check.sh`) passes.** Nothing else is required: no test written first, no test per change, no
   timing.
 - **The seed is renewed only when `self/` or `runtime/` is to use a language feature the seed does not compile.**
   Land the feature written without using it, run `.\seed.ps1`, and commit the new seed on its own (`seed/README.md`).

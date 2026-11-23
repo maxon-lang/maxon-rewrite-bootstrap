@@ -1329,7 +1329,7 @@ function main() returns ExitCode
 		argv.push("7")
 	#else
 		let exe = Executable.name("sh")
-		let argv = StringArray.create(0)
+		var argv = StringArray.create(0)
 		argv.push("-c")
 		argv.push("exit 7")
 	#endif

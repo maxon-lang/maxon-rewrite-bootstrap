@@ -65,7 +65,7 @@ function runnerFor(target ast.Target) returns table.Option with TargetRunner
 	end 'native'
 	return match host.system 'host'
 		windows gives runnerOnWindows(target)
-		linux or
+		linux gives runnerOnLinux(target)
 		macos gives table.Option.none
 	end 'host'
 end 'runnerFor'
@@ -78,6 +78,16 @@ function runnerOnWindows(target ast.Target) returns table.Option with TargetRunn
 		macos gives table.Option.none
 	end 'system'
 end 'runnerOnWindows'
+
+// runnerOnLinux is the runner on Linux of the executables of another target: Linux's of another architecture run
+// themselves, through the emulator the system registers with binfmt_misc for their machine, as WSL runs them on Windows.
+function runnerOnLinux(target ast.Target) returns table.Option with TargetRunner
+	return match target.system 'system'
+		linux gives table.Option.some(TargetRunner.native)
+		windows or
+		macos gives table.Option.none
+	end 'system'
+end 'runnerOnLinux'
 
 // runnerExecutable is what a run of the executable at exe starts: the executable, or its runner.
 function runnerExecutable(runner TargetRunner, exe FilePath) returns Executable
