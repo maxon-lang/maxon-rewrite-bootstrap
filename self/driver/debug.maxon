@@ -1,0 +1,511 @@
+// The debug command, maxon's `debug --symbolize` and `--dump-info` (README, "Debug info"): it reads the sidecar that a build
+// with --debug-info wrote beside an executable, refusing one that describes another build of it, and names the source of
+// code offsets or prints the tables. With --verify-ir, a build that keeps spans also holds every span of its IR to the source
+// of the function it is in (verifySpans).
+
+let symbolizeFlag = "--symbolize"
+
+let dumpInfoFlag = "--dump-info"
+
+// ripPrefix starts the address of a fault line (`panic: ... at rip=0x...`), which --symbolize takes as it is.
+let ripPrefix = "rip="
+
+let hexPrefix = "0x"
+
+let debugFailureExit = 1 as ExitCode
+
+let debugSuccessExit = 0 as ExitCode
+
+// debugCommand runs `debug --symbolize <exe> <offset>...` or `debug --dump-info <exe> [section]...`.
+function debugCommand(args CommandNames) returns ExitCode
+	if args.count() < 3 or (args[1] != symbolizeFlag and args[1] != dumpInfoFlag) 'usage'
+		printError(usage())
+		return usageExitCode
+	end 'usage'
+	let exe = args[2].clone()
+	return match consumes loadSidecar(exe) 'loaded'
+		read(reader) gives debugWith(reader, args: args)
+		refused(reason) gives refuseDebug(exe, reason: reason)
+	end 'loaded'
+end 'debugCommand'
+
+function refuseDebug(exe String, reason String) returns ExitCode
+	printError("debug: {exe}: {reason}\n")
+	return debugFailureExit
+end 'refuseDebug'
+
+function debugWith(reader mxdbg.MxdbgReader, args CommandNames) returns ExitCode
+	if args[1] == symbolizeFlag 'symbolize'
+		return symbolizeOffsets(reader, args: args)
+	end 'symbolize'
+	return dumpInfo(reader, args: args)
+end 'debugWith'
+
+// loadSidecar reads the sidecar beside the executable at exe and holds it to the executable's code: its build id must be the
+// digest of the code the sidecar's layout figures place in the image.
+function loadSidecar(exe String) returns mxdbg.MxdbgParse
+	let sidecarPath = backend.sidecarPathOf(exe)
+	let path = try FilePath.from(sidecarPath) otherwise return mxdbg.MxdbgParse.refused("'{sidecarPath}' is not a path")
+	if not File.exists(path.clone()) 'absent'
+		return mxdbg.MxdbgParse.refused("no debug info at {sidecarPath}: build the executable with --debug-info")
+	end 'absent'
+	let text = try File.readText(path) otherwise return mxdbg.MxdbgParse.refused("cannot read {sidecarPath}")
+	return match consumes mxdbg.MxdbgReader.parse(text.toByteArray()) 'parsed'
+		read(reader) gives vouchedSidecar(reader, exe: exe)
+		refused(reason) gives mxdbg.MxdbgParse.refused("{sidecarPath}: {reason}")
+	end 'parsed'
+end 'loadSidecar'
+
+function vouchedSidecar(consumes reader mxdbg.MxdbgReader, exe String) returns mxdbg.MxdbgParse
+	let exePath = try FilePath.from(exe) otherwise return mxdbg.MxdbgParse.refused("'{exe}' is not a path")
+	let image = (try File.readText(exePath) otherwise return mxdbg.MxdbgParse.refused("cannot read the executable")).toByteArray()
+	let code = codeOfImage(image, reader: reader)
+	if not code.isSome() 'unplaced'
+		return mxdbg.MxdbgParse.refused("the debug info does not place the code in this executable: it describes another build of it")
+	end 'unplaced'
+	if not reader.buildIdMatches(backend.codeBuildId(code.unwrap())) 'stale'
+		return mxdbg.MxdbgParse.refused("the debug info describes a different build of this executable: build it again with --debug-info")
+	end 'stale'
+	return mxdbg.MxdbgParse.read(reader)
+end 'vouchedSidecar'
+
+// codeOfImage is the code of an executable, which the sidecar's figures place at ImageTextRva from its base, ImageTextBytes
+// long: in a PE image at the file offset of the section at that address, and in an ELF or Mach-O image, whose code segment
+// maps the file from its start, at that offset of the file.
+function codeOfImage(image ByteArray, reader mxdbg.MxdbgReader) returns table.Option with ByteArray
+	var start = 0 as Count
+	var bytes = 0 as Count
+	match consumes reader.figureCountNamed(mxdbg.ImageTextRvaFigureName) 'rva'
+		some(rva) then start = rva
+		none then return table.Option.none
+	end 'rva'
+	match consumes reader.figureCountNamed(mxdbg.ImageTextBytesFigureName) 'size'
+		some(size) then bytes = size
+		none then return table.Option.none
+	end 'size'
+	if isPeImage(image) 'pe'
+		match peFileOffset(image, rva: start) 'placed'
+			some(at) then start = at
+			none then return table.Option.none
+		end 'placed'
+	end 'pe'
+	let finish = try start + bytes otherwise return table.Option.none
+	if finish > image.count() 'short'
+		return table.Option.none
+	end 'short'
+	var code = ByteArray.create(0)
+	for i in start upto finish 'bytes'
+		code.push(image[i])
+	end 'bytes'
+	return table.Option.some(code)
+end 'codeOfImage'
+
+// The PE fields that place a section: the offset of the PE header, and in it the section count, the optional header's
+// size and where the section table starts after it; in a section's header, its address and its file offset.
+let peSignatureOffsetAt = 60 as Count
+
+let peSectionCountAt = 6 as Count
+
+let peOptionalSizeAt = 20 as Count
+
+let peSectionTableAt = 24 as Count
+
+let peSectionHeaderBytes = 40 as Count
+
+let peSectionAddressAt = 12 as Count
+
+let peSectionFileOffsetAt = 20 as Count
+
+let dosMagic0 = 77 as Byte
+
+let dosMagic1 = 90 as Byte
+
+function isPeImage(image ByteArray) returns bool
+	return image.count() > peSignatureOffsetAt and image[0] == dosMagic0 and image[1] == dosMagic1
+end 'isPeImage'
+
+// peFileOffset is the file offset of the PE section whose address is rva.
+function peFileOffset(image ByteArray, rva Count) returns table.Option with Count
+	let pe = littleEndian(image, at: peSignatureOffsetAt, bytes: 4)
+	let sections = littleEndian(image, at: sumCounts(pe, b: peSectionCountAt), bytes: 2)
+	let optional = littleEndian(image, at: sumCounts(pe, b: peOptionalSizeAt), bytes: 2)
+	let table0 = sumCounts(pe, b: sumCounts(peSectionTableAt, b: optional))
+	for s in 0 upto sections 'sections'
+		let header = sumCounts(table0, b: try s * peSectionHeaderBytes otherwise panic("debug: a section past memory"))
+		if littleEndian(image, at: sumCounts(header, b: peSectionAddressAt), bytes: 4) == rva 'found'
+			return table.Option.some(littleEndian(image, at: sumCounts(header, b: peSectionFileOffsetAt), bytes: 4))
+		end 'found'
+	end 'sections'
+	return table.Option.none
+end 'peFileOffset'
+
+// littleEndian is the word of bytes bytes at at, or 0 past the end of the image.
+function littleEndian(image ByteArray, at Count, bytes Count) returns Count
+	var v = 0 as Count
+	var i = bytes
+	while i > 0 'bytes'
+		i = try i - 1 otherwise panic("debug: a byte before the word")
+		let place = sumCounts(at, b: i)
+		if place >= image.count() 'past'
+			return 0
+		end 'past'
+		v = try (v shl debugByteBits) or (image[place] as Count) otherwise panic("debug: a word past 64 bits")
+	end 'bytes'
+	return v
+end 'littleEndian'
+
+let debugByteBits = 8 as Count
+
+function sumCounts(a Count, b Count) returns Count
+	return try a + b otherwise panic("debug: an offset past memory")
+end 'sumCounts'
+
+// symbolizeOffsets prints, for each code offset (decimal or 0x hexadecimal) or fault address (rip=0x...), where it is in the
+// source, the function it is in, and each inlined call it is in, innermost first.
+function symbolizeOffsets(reader mxdbg.MxdbgReader, args CommandNames) returns ExitCode
+	var code = debugSuccessExit
+	for i in 3 upto args.count() 'offsets'
+		match parseCodeOffset(reader, spelled: args[i]) 'parsed'
+			some(offset) then print(symbolized(reader, offset: offset))
+			none then code = unparsedOffset(args[i])
+		end 'parsed'
+	end 'offsets'
+	return code
+end 'symbolizeOffsets'
+
+function unparsedOffset(spelled String) returns ExitCode
+	printError("Not a code offset: '{spelled}' (use decimal, 0x-prefixed hex, or rip=0x<address> of a fault line).\n")
+	return debugFailureExit
+end 'unparsedOffset'
+
+// parseCodeOffset is the code offset spelled: a number, or a fault line's address, which the image's base and the place of
+// its code take it to.
+function parseCodeOffset(reader mxdbg.MxdbgReader, spelled String) returns table.Option with Count
+	if not hasPrefix(spelled, prefix: ripPrefix) 'offset'
+		return parseNumber(spelled)
+	end 'offset'
+	var address = 0 as Count
+	var textRva = 0 as Count
+	match consumes parseNumber(spelled.sliceBytes(ripPrefix.byteLength(), endPos: spelled.byteLength())) 'address'
+		some(a) then address = a
+		none then return table.Option.none
+	end 'address'
+	match consumes reader.figureCountNamed(mxdbg.ImageTextRvaFigureName) 'rva'
+		some(rva) then textRva = rva
+		none then return table.Option.none
+	end 'rva'
+	let codeStart = try reader.imageBase() + textRva otherwise return table.Option.none
+	let offset = try address - codeStart otherwise return table.Option.none
+	return table.Option.some(offset)
+end 'parseCodeOffset'
+
+let decimalRadix = 10 as Count
+
+let hexRadix = 16 as Count
+
+let digitZero = 48 as Byte
+
+let digitNine = 57 as Byte
+
+let lowerA = 97 as Byte
+
+let lowerF = 102 as Byte
+
+let upperF = 70 as Byte
+
+let letterDigitBase = 10 as Count
+
+// parseNumber is a decimal or 0x-prefixed hexadecimal number, or none.
+function parseNumber(spelled String) returns table.Option with Count
+	var radix = decimalRadix
+	var at = 0 as Count
+	if hasPrefix(spelled, prefix: hexPrefix) 'hex'
+		radix = hexRadix
+		at = hexPrefix.byteLength()
+	end 'hex'
+	if at >= spelled.byteLength() 'empty'
+		return table.Option.none
+	end 'empty'
+	var value = 0 as Count
+	for i in at upto spelled.byteLength() 'digits'
+		let c = spelled.byteAt(i)
+		var digit = radix
+		if c >= digitZero and c <= digitNine 'decimal'
+			digit = (c - digitZero) as Count
+		end 'decimal' else if c >= lowerA and c <= lowerF 'lower'
+			digit = sumCounts((c - lowerA) as Count, b: letterDigitBase)
+		end 'lower' else if c >= upperA and c <= upperF 'upper'
+			digit = sumCounts((c - upperA) as Count, b: letterDigitBase)
+		end 'upper'
+		if digit >= radix 'notDigit'
+			return table.Option.none
+		end 'notDigit'
+		value = try value * radix + digit otherwise return table.Option.none
+	end 'digits'
+	return table.Option.some(value)
+end 'parseNumber'
+
+// symbolized is maxon's line for a code offset, `0x0151  app.maxon:25:15  (in main)`, and a line for each inlined call the
+// code is in, innermost first, `  inlined leaf called at app.maxon:40:3`.
+function symbolized(reader mxdbg.MxdbgReader, offset Count) returns String
+	let fn = reader.functionAt(offset)
+	if not fn.isSome() 'outside'
+		return "{hexOffset(offset)}  <no line>\n"
+	end 'outside'
+	let f = fn.unwrap()
+	var line = "<no line>"
+	match reader.rowAt(f, offset: offset) 'row'
+		some(r) then line = reader.place(reader.lineFile(r), line: reader.lineLine(r), column: reader.lineColumn(r))
+		none then _ = 0
+	end 'row'
+	var out = ByteArray.create(0)
+	out.append("{hexOffset(offset)}  {line}  (in {reader.funcName(f)})\n".toByteArray())
+	var site = reader.siteAt(offset)
+	while site.isSome() 'sites'
+		let s = site.unwrap()
+		out.append("  inlined {reader.siteName(s)} called at {reader.place(reader.siteCallFile(s), line: reader.siteCallLine(s), column: reader.siteCallColumn(s))}\n".toByteArray())
+		let parent = reader.siteParent(s)
+		site = table.Option.none
+		if parent != mxdbg.MxdbgNoInlineSite 'nested'
+			site = table.Option.some(parent as Count)
+		end 'nested'
+	end 'sites'
+	return String.from(out)
+end 'symbolized'
+
+let offsetDigits = 4 as Count
+
+let hexDigitsText = "0123456789abcdef"
+
+let hexDigitBits = 4 as Count
+
+let hexDigitMaskValue = 15 as Count
+
+// hexOffset is 0x and the offset in at least four hexadecimal digits.
+function hexOffset(offset Count) returns String
+	var digits = ByteArray.create(0)
+	var v = offset
+	while v > 0 or digits.count() < offsetDigits 'digits'
+		digits.push(hexDigitsText.byteAt(v and hexDigitMaskValue))
+		v = v shr hexDigitBits
+	end 'digits'
+	var out = ByteArray.create(0)
+	var i = digits.count()
+	while i > 0 'reverse'
+		i = try i - 1 otherwise panic("debug: a digit before the first")
+		out.push(digits[i])
+	end 'reverse'
+	return "{hexPrefix}{String.from(out)}"
+end 'hexOffset'
+
+// The sections of --dump-info, maxon's that the sidecar fills.
+let dumpSections = "header|files|functions|lines|inline|layout"
+
+// dumpInfo prints the sections named after the executable, or every one.
+function dumpInfo(reader mxdbg.MxdbgReader, args CommandNames) returns ExitCode
+	var sections = CommandNames.create(0)
+	for i in 3 upto args.count() 'named'
+		if not isDumpSection(args[i]) 'unknown'
+			printError("debug --dump-info: '{args[i]}' is not a section ({dumpSections}).\n")
+			return debugFailureExit
+		end 'unknown'
+		sections.push(args[i].clone())
+	end 'named'
+	if sections.count() == 0 'all'
+		sections = dumpSectionNames()
+	end 'all'
+	var out = ByteArray.create(0)
+	for i in 0 upto sections.count() 'sections'
+		out.append(dumpSection(reader, name: sections[i]).toByteArray())
+	end 'sections'
+	print(String.from(out))
+	return debugSuccessExit
+end 'dumpInfo'
+
+function dumpSectionNames() returns CommandNames
+	var names = CommandNames.create(0)
+	names.push("header")
+	names.push("files")
+	names.push("functions")
+	names.push("lines")
+	names.push("inline")
+	names.push("layout")
+	return names
+end 'dumpSectionNames'
+
+function isDumpSection(name String) returns bool
+	let names = dumpSectionNames()
+	for i in 0 upto names.count() 'names'
+		if names[i] == name 'known'
+			return true
+		end 'known'
+	end 'names'
+	return false
+end 'isDumpSection'
+
+function dumpSection(reader mxdbg.MxdbgReader, name String) returns String
+	var out = ByteArray.create(0)
+	if name == "header" 'header'
+		out.append("  target:   {reader.target()}\n  build-id: {reader.buildIdHex()}\n  root:     {reader.sourceRoot()}\n  compiler: {reader.compiler()}\n".toByteArray())
+	end 'header' else if name == "files" 'files'
+		out.append("  files ({reader.fileCount()}):\n".toByteArray())
+		for i in 0 upto reader.fileCount() 'each'
+			out.append("    [{i}] {reader.fileName(i)}\n".toByteArray())
+		end 'each'
+	end 'files' else if name == "functions" 'functions'
+		out.append("  functions ({reader.functionCount()}):\n".toByteArray())
+		for i in 0 upto reader.functionCount() 'each'
+			out.append("    {reader.funcName(i)}  [{hexOffset(reader.funcStart(i))}, {hexOffset(reader.funcEnd(i))})  lines={reader.funcLineCount(i)}  origin={mxdbg.mxdbgOriginName(reader.funcOrigin(i))}\n".toByteArray())
+		end 'each'
+	end 'functions' else if name == "lines" 'lines'
+		out.append("  line table ({reader.lineCount()}):\n".toByteArray())
+		for i in 0 upto reader.lineCount() 'each'
+			out.append("    {hexOffset(reader.lineOffset(i))}  {reader.place(reader.lineFile(i), line: reader.lineLine(i), column: reader.lineColumn(i))}{lineFlagTags(reader.lineFlags(i))}\n".toByteArray())
+		end 'each'
+	end 'lines' else if name == "inline" 'inline'
+		out.append("  inline sites ({reader.siteCount()}):\n".toByteArray())
+		for i in 0 upto reader.siteCount() 'sites'
+			var parent = ""
+			if reader.siteParent(i) != mxdbg.MxdbgNoInlineSite 'nested'
+				parent = "  in [{reader.siteParent(i)}]"
+			end 'nested'
+			out.append("    [{i}] {reader.siteName(i)}  called at {reader.place(reader.siteCallFile(i), line: reader.siteCallLine(i), column: reader.siteCallColumn(i))}{parent}  origin={mxdbg.mxdbgOriginName(reader.siteOrigin(i))}\n".toByteArray())
+		end 'sites'
+		out.append("  inline ranges ({reader.rangeCount()}):\n".toByteArray())
+		for i in 0 upto reader.rangeCount() 'ranges'
+			out.append("    [{hexOffset(reader.rangeStart(i))}, {hexOffset(reader.rangeEnd(i))})  [{reader.rangeSite(i)}]\n".toByteArray())
+		end 'ranges'
+	end 'inline' else if name == "layout" 'layout'
+		out.append("  image base: {hexOffset(reader.imageBase())}\n".toByteArray())
+		for i in 0 upto reader.figureCount() 'each'
+			out.append("    {reader.figureName(i)} = {reader.figure(i)}\n".toByteArray())
+		end 'each'
+	end 'layout' else 'unknown'
+		panic("debug: a section that isDumpSection does not know: {name}")
+	end 'unknown'
+	return String.from(out)
+end 'dumpSection'
+
+// lineFlagTags are the flags of a row as maxon's dump spells them.
+function lineFlagTags(flags mxdbg.MxdbgIndex) returns String
+	var tags = ""
+	if (flags and mxdbg.MxdbgLineFlagStatement) != 0 'statement'
+		tags = "statement"
+	end 'statement'
+	if (flags and mxdbg.MxdbgLineFlagLineEntry) != 0 'entry'
+		tags = "line-entry" if tags == "" else "{tags}, line-entry"
+	end 'entry'
+	return "" if tags == "" else "  [{tags}]"
+end 'lineFlagTags'
+
+// verifySpans holds the spans of every lowered function to the source of the function each is in, which --verify-ir asks of a
+// build that keeps them, and stops at the first that is not: an instruction of the function's own body is at a statement of
+// its declaration, from its header down to its end, and one of a copy of a callee at one of the callee's.
+function verifySpans(p ast.Project, lowered opt.LoweredLists)
+	let ms = ast.ModuleState.ofProject()
+	for m in 0 upto lowered.count() 'modules'
+		for i in 0 upto lowered[m].count() 'functions'
+			let own = functionSource(p, ms: ms, fid: lowered[m][i].decl)
+			verifyFunctionSpans(p, ms: ms, f: lowered[m][i], own: own)
+		end 'functions'
+	end 'modules'
+end 'verifySpans'
+
+// SourceRange is the text of a function's declaration in its module, or none for a function no declaration of the source has.
+type SourceRange
+	var held as bool
+	var module as diag.ModuleID
+	var start as diag.U32
+	var finish as diag.U32
+
+	static function none() returns SourceRange
+		return SourceRange{held: false, module: diag.stdlibID, start: 0, finish: 0}
+	end 'none'
+
+	static function make(module diag.ModuleID, start diag.U32, finish diag.U32) returns SourceRange
+		return SourceRange{held: true, module: module, start: start, finish: finish}
+	end 'make'
+
+	function holds(span ir.Word) returns bool
+		return ir.spanModule(span) == module and ir.spanOffset(span) >= start and ir.spanOffset(span) <= finish
+	end 'holds'
+end 'SourceRange'
+
+typealias SourceRangeList = Array with SourceRange
+
+// functionSource is the source of a declared function, an instance's that of its generic: from the start of its header's
+// line to the start of the line of its end, found by the layout (bodyEnd). A function whose node is no header's, a closure's
+// or a behaviour's, has none of its own.
+function functionSource(p ast.Project, ms ast.ModuleState, fid ast.FuncID) returns SourceRange
+	var origin = fid
+	if ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fid).genericOrigin != ast.noFunc 'instance'
+		origin = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fid).genericOrigin
+	end 'instance'
+	let module = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: origin).module
+	let node = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: origin).nodeID
+	if module < 0 or node == 0 or p.modules[ast.modIndex(module)].files.count() == 0 'synthetic'
+		return SourceRange.none()
+	end 'synthetic'
+	let m = ast.modIndex(module)
+	let file = ast.findFileIndex(p.modules[m].files, offset: p.modules[m].tree.startOf(node))
+	return declaredSource(p.modules[m].tree.text, module: module, start: p.modules[m].tree.startOf(node) as Count, fileEnd: p.modules[m].files[file].endOff as Count)
+end 'functionSource'
+
+// declaredSource is functionSource of a declaration that starts at start of text, in a file that ends at fileEnd.
+function declaredSource(text String, module diag.ModuleID, start Count, fileEnd Count) returns SourceRange
+	var lineStart = start
+	while lineStart > 0 and text.byteAt(try lineStart - 1 otherwise 0) != newlineByte 'back'
+		lineStart = try lineStart - 1 otherwise 0
+	end 'back'
+	let lineEnd = endOfLine(text, at: lineStart, finish: fileEnd)
+	let tabs = indentOf(text, at: lineStart, lineEnd: lineEnd)
+	let content = afterModifiers(text, at: try lineStart + tabs otherwise panic("debug: a line past memory"), lineEnd: lineEnd)
+	if not isFunctionHeader(text, at: content) 'notDeclared'
+		return SourceRange.none()
+	end 'notDeclared'
+	let after = try lineEnd + 1 otherwise panic("debug: a line past memory")
+	var finish = bodyEnd(text, after: after, finish: fileEnd, tabs: tabs)
+	if finish == after 'noEnd'
+		finish = fileEnd
+	end 'noEnd'
+	return SourceRange.make(module, start: try lineStart as diag.U32 otherwise panic("debug: an offset past 32 bits"), finish: try finish as diag.U32 otherwise panic("debug: an offset past 32 bits"))
+end 'declaredSource'
+
+// verifyFunctionSpans holds the spans of f, and of its bodies, to own, the source of the function f's body is, and to the
+// sources of the callees of its inline sites.
+function verifyFunctionSpans(p ast.Project, ms ast.ModuleState, f ir.IrFunction, own SourceRange)
+	if f.keepsSpans 'kept'
+		var sources = SourceRangeList.create(0)
+		for s in 0 upto f.sites.count() 'callees'
+			sources.push(functionSource(p, ms: ms, fid: f.sites[s].callee))
+		end 'callees'
+		for k in 0 upto f.spans.count() 'spans'
+			verifySpan(p, f: f, own: own, sources: sources, span: f.spans[k], what: "instruction {k}")
+		end 'spans'
+		for s in 0 upto f.sites.count() 'sites'
+			verifySpan(p, f: f, own: own, sources: sources, span: f.sites[s].call, what: "the call of inline site {s}")
+		end 'sites'
+	end 'kept'
+	for b in 0 upto f.bodies.count() 'bodies'
+		var body = functionSource(p, ms: ms, fid: f.bodies[b].decl)
+		if not body.held 'closure'
+			body = own.clone()
+		end 'closure'
+		verifyFunctionSpans(p, ms: ms, f: f.bodies[b], own: body)
+	end 'bodies'
+end 'verifyFunctionSpans'
+
+// verifySpan holds one span of f to the source it is in: own for its own body's, and sources[s] for site s's.
+function verifySpan(p ast.Project, f ir.IrFunction, own SourceRange, sources SourceRangeList, span ir.Word, what String)
+	if span == ir.noSpan or p.modules[ast.modIndex(ir.spanModule(span))].files.count() == 0 'unplaced'
+		return
+	end 'unplaced'
+	let field = ir.spanSite(span)
+	let inlined = field != ir.ownBody
+	let held = sources[ir.pred(field)].held if inlined else own.held
+	let holds = sources[ir.pred(field)].holds(span) if inlined else own.holds(span)
+	if held and not holds 'outside'
+		let at = ast.locateModuleOffset(p.modules[ast.modIndex(ir.spanModule(span))], offset: ir.spanOffset(span))
+		panic("driver: the span of {what} of {f.name} (site {field}) is at {at.file}:{at.line}:{at.col}, outside the source of the function it is in")
+	end 'outside'
+end 'verifySpan'

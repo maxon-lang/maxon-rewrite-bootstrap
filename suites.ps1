@@ -219,6 +219,82 @@ function Test-SelfCompilesForArm64 {
 	}
 }
 
+# Debug info is written only with --debug-info and must leave the executable as it is: programs are built for every target
+# with and without it, and self for this one, with every span verified (--verify-ir), and the executables compared. A stack
+# overflow's fault line, whose address is in a function of one statement, is then symbolized to that statement on x64
+# Windows (a copy of the executable that the loader keeps at its image base), x64 Linux and arm64 Linux (under WSL and its
+# qemu).
+$debugInfoTargets = 'x64-windows', 'x64-linux', 'arm64-linux', 'arm64-macos'
+$debugInfoPrograms = 'tests\run\arithmetic.maxon', 'tests\run\array-methods.maxon', 'tests\run\generics.maxon'
+$overflowLine = 'overflow.maxon:3:2  (in export::down)'
+$overflowSource = @"
+// The program whose stack overflow the debug info step symbolizes: every instruction of down is its one statement's.
+function down(n Count) returns Count
+	return try down(n + 1) + 1 otherwise 0
+end 'down'
+
+function main() returns ExitCode
+	_ = down(0)
+	return 0
+end 'main'
+"@
+
+function Test-DebugInfo {
+	$root = Join-Path ([IO.Path]::GetTempPath()) "minimaxon-debug-info-$PID"
+	try {
+		$null = New-Item -ItemType Directory -Force $root
+		$overflow = Join-Path $root 'overflow.maxon'
+		[IO.File]::WriteAllText($overflow, $overflowSource.Replace("`r`n", "`n") + "`n")
+		function Build($source, $out, [string[]]$flags) {
+			$text = & $compiler build $source -o $out --no-cache @flags 2>&1 | Out-String
+			if ($LASTEXITCODE -ne 0) { throw "debug info: the build of $source $flags failed: $text" }
+			return (Get-FileHash $out).Hash
+		}
+		# A Mach-O image is signed under its file's name, so both builds of a program have one.
+		$plainRoot = Join-Path $root 'plain'
+		$null = New-Item -ItemType Directory -Force $plainRoot
+		function Same($source, [string[]]$flags, $name) {
+			$plain = Build $source (Join-Path $plainRoot "$name.exe") $flags
+			$described = Build $source (Join-Path $root "$name.exe") ($flags + @('--debug-info', '--verify-ir'))
+			if ($plain -ne $described) { throw "debug info: --debug-info changes the executable of $source $flags" }
+			if (-not (Test-Path (Join-Path $root "$name.exe.mxdbg"))) { throw "debug info: no sidecar beside the build of $source $flags" }
+		}
+		Same (Join-Path $PSScriptRoot 'self') @() 'self'
+		foreach ($t in $debugInfoTargets) {
+			foreach ($p in @($overflow) + $debugInfoPrograms) {
+				Same $p @("--target=$t") "$([IO.Path]::GetFileNameWithoutExtension($p))-$t"
+			}
+		}
+		# The loader keeps an image whose header asks for no move at its image base, where the sidecar places its code.
+		$windows = Join-Path $root 'overflow-x64-windows.exe'
+		$fixed = Join-Path $root 'fixed.exe'
+		$bytes = [IO.File]::ReadAllBytes($windows)
+		$characteristics = [BitConverter]::ToInt32($bytes, 0x3C) + 24 + 70
+		$bytes[$characteristics] = $bytes[$characteristics] -band (-bnot 0x40)
+		[IO.File]::WriteAllBytes($fixed, $bytes)
+		Copy-Item "$windows.mxdbg" "$fixed.mxdbg"
+		$runs = @(, @($fixed, { param($exe) & $exe 2>&1 }))
+		Assert-Wsl
+		if ($LASTEXITCODE -ne 0) { return }
+		foreach ($t in 'x64-linux', 'arm64-linux') {
+			$runs += , @((Join-Path $root "overflow-$t.exe"), { param($exe) wsl.exe --exec ('/mnt/' + $exe.Substring(0, 1).ToLower() + $exe.Substring(2).Replace('\', '/')) 2>&1 })
+		}
+		foreach ($run in $runs) {
+			$exe, $start = $run
+			$fault = (& $start $exe | Out-String)
+			if ($fault -notmatch 'rip=(0x[0-9a-f]+)') { throw "debug info: $exe printed no fault line: $fault" }
+			$named = & $compiler debug --symbolize $exe "rip=$($Matches[1])" 2>&1 | Out-String
+			if ($LASTEXITCODE -ne 0 -or -not $named.Contains($overflowLine)) { throw "debug info: rip=$($Matches[1]) of $exe symbolizes to $named, not $overflowLine" }
+		}
+	} catch {
+		Write-Output $_.Exception.Message
+		$global:LASTEXITCODE = 1
+		return
+	} finally {
+		Remove-Item -Recurse -Force $root -ErrorAction SilentlyContinue
+	}
+	$global:LASTEXITCODE = 0
+}
 # The build cache must make the executable an uncached build makes. A project whose main inlines a leaf of the module it
 # names is built cold and warm, then the leaf's body is edited: the order takes the leaf's module to make the summary it
 # made before, main's entry is linked, the leaf's lower finds another summary and the compile is done again, and the
@@ -308,6 +384,7 @@ $steps = @(
 	@('benchmarks compile', { Test-BenchmarksCompile }),
 	@('self compiles for arm64', { Test-SelfCompilesForArm64 }),
 	@('cache', { Test-Cache }),
+	@('debug info', { Test-DebugInfo }),
 	@('specs', { Test-Specs }),
 	# Every program the generator writes that the checker accepts must run clean under the interpreter: a violation is a
 	# hole in the checker.

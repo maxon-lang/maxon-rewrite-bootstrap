@@ -263,16 +263,24 @@ function legalizeClasses(mutates fn MirFunction)
 		return
 	end 'apart'
 	let old = exchange(fn.instrs, value: MInstrList.create(0))
+	var oldSpans = ir.SpanList.create(0)
+	if fn.keepsSpans 'spans'
+		oldSpans = exchange(fn.spans, value: ir.SpanList.create(0))
+	end 'spans'
 	for o in 0 upto fn.order.count() 'blocks'
 		let b = fn.order[o] as Count
 		let first = fn.blocks[b].first
 		let endAt = fn.blocks[b].endAt
 		fn.blocks[b].first = fn.instrs.count()
 		for k in first upto endAt 'instrs'
+			if fn.keepsSpans 'span'
+				fn.pos = oldSpans[k]
+			end 'span'
 			legalizeInstr(fn, x: old[k].clone())
 		end 'instrs'
 		fn.blocks[b].endAt = fn.instrs.count()
 	end 'blocks'
+	fn.pos = ir.noSpan
 end 'legalizeClasses'
 
 // mixesClasses is whether some operand of fn has a register of another class than it names.

@@ -1,0 +1,140 @@
+// Source positions of the instructions, which a build that writes debug info keeps (README, "Debug info"): a span is one
+// word, the module and the offset in its text of the statement an instruction was lowered for, and the inline site whose
+// copy of a callee holds it. It is a column beside the instructions (IrFunction.spans, by instruction index), never a field
+// of one, so a build without debug info carries none and no pass reads it; a pass that lays instructions out again carries
+// the column with them (keepSpan), and one that makes an instruction gives it the span of what it stands for.
+
+export typealias SpanList = Array with Word
+
+// noSpan is the span of an instruction that no statement of the source made, such as the zero of a slot that SSA
+// construction reads: it belongs to the statement whose code runs before it.
+export let noSpan = -1 as Word
+
+// A span's fields, from the lowest bit: the offset, the site (0 for the function's own body, and s + 1 for sites[s]) and
+// the module.
+let spanOffsetBits = 32 as Count
+
+let spanSiteBits = 16 as Count
+
+let spanFieldBits = 48 as Count
+
+let spanOffsetMask = 4294967295 as Word
+
+let spanSiteMask = 65535 as Word
+
+let spanSiteLimit = 65535 as Count
+
+// spanSiteClear is every bit of a span but its site's.
+let spanSiteClear = -281470681743361 as Word
+
+let spanModuleLimit = 32767 as Count
+
+// ownBody is the site field of an instruction of the function's own body.
+export let ownBody = 0 as Count
+
+// InlineSite is a call that leaf inlining replaced by a copy of its callee: the callee, and the span of the call, whose site
+// field is the site the call itself is in.
+export type InlineSite
+	export var callee as ast.FuncID
+	export var call as Word
+
+	export static function make(callee ast.FuncID, call Word) returns InlineSite
+		return InlineSite{callee: callee, call: call}
+	end 'make'
+end 'InlineSite'
+
+export typealias InlineSiteList = Array with InlineSite
+
+// spanOf is the span of the source at offset in the text of module, in the function's own body; a module of no source (the
+// built-in declarations') has none.
+export function spanOf(module diag.ModuleID, offset diag.U32) returns Word
+	if module < 0 'synthetic'
+		return noSpan
+	end 'synthetic'
+	if module as Count > spanModuleLimit 'wide'
+		panic("ir: module {module} is past the {spanModuleLimit} a span names")
+	end 'wide'
+	let field = try (module as Word) shl spanFieldBits otherwise panic("ir: a module past a span's field")
+	return field or (offset as Word)
+end 'spanOf'
+
+export function spanModule(s Word) returns diag.ModuleID
+	return try (s shr spanFieldBits) as diag.ModuleID otherwise panic("ir: a span of no module")
+end 'spanModule'
+
+export function spanOffset(s Word) returns diag.U32
+	return try (s and spanOffsetMask) as diag.U32 otherwise panic("ir: a span past its offset's field")
+end 'spanOffset'
+
+// spanSite is the site field of a span: ownBody, or s + 1 for the function's site s.
+export function spanSite(s Word) returns Count
+	return try ((s shr spanOffsetBits) and spanSiteMask) as Count otherwise panic("ir: a span past its site's field")
+end 'spanSite'
+
+// withSite is s in the site whose field is site.
+export function withSite(s Word, site Count) returns Word
+	if site > spanSiteLimit 'wide'
+		panic("ir: more inline sites in one function than a span names ({spanSiteLimit})")
+	end 'wide'
+	let cleared = s and spanSiteClear
+	let field = try (site as Word) shl spanOffsetBits otherwise panic("ir: a site past a span's field")
+	return cleared or field
+end 'withSite'
+
+// spanAt is the span of instruction k of f, or noSpan when f keeps none.
+export function spanAt(f IrFunction, k Count) returns Word
+	if not f.keepsSpans 'none'
+		return noSpan
+	end 'none'
+	return f.spans[k]
+end 'spanAt'
+
+// keepSpan puts the span of instruction k of f at the end of out, which a pass lays out beside the instructions it writes
+// again, when f keeps spans.
+export function keepSpan(mutates out SpanList, f IrFunction, k Count)
+	if f.keepsSpans 'kept'
+		out.push(f.spans[k])
+	end 'kept'
+end 'keepSpan'
+
+// addSpan puts the span of an instruction that a pass makes at the end of out, when f keeps spans.
+export function addSpan(mutates out SpanList, f IrFunction, span Word)
+	if f.keepsSpans 'kept'
+		out.push(span)
+	end 'kept'
+end 'addSpan'
+
+// pushSpan gives the instruction a pass has just put at the end of f's instructions its span, when f keeps spans.
+export function pushSpan(mutates f IrFunction, span Word)
+	if f.keepsSpans 'kept'
+		f.spans.push(span)
+	end 'kept'
+end 'pushSpan'
+
+// takeSpans makes laid out, which a pass wrote beside the instructions it has just put in place of f's, the spans of f,
+// when f keeps spans.
+export function takeSpans(mutates f IrFunction, laid SpanList)
+	if f.keepsSpans 'kept'
+		f.spans = laid.clone()
+	end 'kept'
+end 'takeSpans'
+
+// inlinedSpan is a span of a callee as its copy at the site whose field is base has it: the callee's own body is that site,
+// and the callee's site s + 1 is base + s + 1, the sites inlineInto appends after it.
+export function inlinedSpan(s Word, base Count) returns Word
+	if s == noSpan 'none'
+		return noSpan
+	end 'none'
+	return withSite(s, site: try base + spanSite(s) otherwise panic("ir: an inline site past memory"))
+end 'inlinedSpan'
+
+// inlineInto records in f that the call at span call is replaced by a copy of callee, and the calls that callee holds copies
+// of, and gives the site field of the copy, which inlinedSpan reads the callee's spans by.
+export function inlineInto(mutates f IrFunction, callee IrFunction, call Word) returns Count
+	let base = try f.sites.count() + 1 otherwise panic("ir: an inline site past memory")
+	f.sites.push(InlineSite.make(callee.decl, call: call))
+	for s in 0 upto callee.sites.count() 'nested'
+		f.sites.push(InlineSite.make(callee.sites[s].callee, call: inlinedSpan(callee.sites[s].call, base: base)))
+	end 'nested'
+	return base
+end 'inlineInto'

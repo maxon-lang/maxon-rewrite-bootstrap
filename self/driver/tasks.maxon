@@ -848,6 +848,9 @@ function holdProgram(c Compile, p ast.Project, known Known, mutates errs diag.Er
 	end 'emitIr'
 	if c.goal == Goal.executable and c.options.verifyIr 'verifyIr'
 		verifyIr(p, lowered: lowered)
+		if p.keepsSpans 'spans'
+			verifySpans(p, lowered: lowered)
+		end 'spans'
 	end 'verifyIr'
 	refusals(p, lowered: lowered, errs: errs)
 end 'holdProgram'

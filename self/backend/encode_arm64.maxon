@@ -41,6 +41,7 @@ end 'encodeArm64Function'
 // arm64EncodeBlocks writes the blocks of fn in the order of the layout.
 function arm64EncodeBlocks(mutates u CodeUnit, fn MirFunction, mutates lay BlockLayout)
 	lay.site = 0
+	u.startRows()
 	for _ in 0 upto fn.blocks.count() 'labels'
 		_ = u.asm.newLabel()
 	end 'labels'
@@ -53,7 +54,12 @@ function arm64EncodeBlocks(mutates u CodeUnit, fn MirFunction, mutates lay Block
 		end 'follows'
 		var k = fn.blocks[b as Count].first
 		while k < fn.blocks[b as Count].endAt 'instrs'
+			let at = u.asm.pos()
+			let encoded = k
 			k = arm64EncodeAt(u, fn: fn, lay: lay, k: k, stop: fn.blocks[b as Count].endAt, next: next)
+			if fn.keepsSpans 'rows'
+				noteSpans(u, fn: fn, from: encoded, upTo: k, at: at)
+			end 'rows'
 		end 'instrs'
 	end 'blocks'
 end 'arm64EncodeBlocks'

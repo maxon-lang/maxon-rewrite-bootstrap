@@ -1,0 +1,132 @@
+// The lines of a linked executable's code, which a build with --debug-info describes in its sidecar (README, "Debug info"):
+// the functions the link kept, with where each starts and ends in the code, and the rows of their units' line tables
+// (CodeUnit.lineOffsets) at their places in it, with the inline sites they name. Like the map of the code's symbols it
+// observes the layout and changes nothing of it, so the executable is the same with it or without.
+
+// CodeLines are a linked executable's lines: offsets count from the start of its code, which is at textRva from base.
+export type CodeLines
+	export var base as Count
+	export var textRva as Count
+	export var codeSize as Count
+	// buildId is the first eight bytes of the SHA-256 of the code, maxon's build id (outputDigest), in their order.
+	export var buildId as ByteArray
+	// functions are the symbols of the kept functions and routines, each the first its section defines, in the order of the
+	// code, with where each starts and ends.
+	export var functions as ast.StringList
+	export var starts as CountList
+	export var ends as CountList
+	// rows are the offset of each row and its span, whose site field names sites + 1 as an IR function's names its own.
+	export var rowOffsets as CountList
+	export var rowSpans as ir.SpanList
+	// sites are the inline sites that a row, or a site a row is in, names: the callee's symbol and the call's span.
+	export var siteCallees as ast.StringList
+	export var siteCalls as ir.SpanList
+
+	static function new(base Count, textRva Count, codeSize Count, consumes buildId ByteArray) returns CodeLines
+		return CodeLines{base: base, textRva: textRva, codeSize: codeSize, buildId: buildId, functions: ast.StringList.create(0), starts: CountList.create(0), ends: CountList.create(0), rowOffsets: CountList.create(0), rowSpans: ir.SpanList.create(0), siteCallees: ast.StringList.create(0), siteCalls: ir.SpanList.create(0)}
+	end 'new'
+
+	static function none() returns CodeLines
+		return CodeLines.new(0, textRva: 0, codeSize: 0, buildId: ByteArray.create(0))
+	end 'none'
+end 'CodeLines'
+
+// buildIdBytes is how many bytes of the code's digest the build id is.
+let buildIdBytes = 8 as Count
+
+// codeBuildId is maxon's build id of code: the first eight bytes of its SHA-256.
+export function codeBuildId(code ByteArray) returns ByteArray
+	let digest = sha256(code)
+	var id = ByteArray.create(0)
+	for i in 0 upto buildIdBytes 'bytes'
+		id.push(digest[i])
+	end 'bytes'
+	return id
+end 'codeBuildId'
+
+// describeLines is the lines of the code that the link laid out: the live sections of every unit, in the order of the code,
+// and the rows of each that fall in one.
+function describeLines(links LinkUnitList, units LinkUnits, code ByteArray, image Image) returns CodeLines
+	var lines = CodeLines.new(image.base, textRva: image.textRva, codeSize: code.count(), buildId: codeBuildId(code))
+	for u in 0 upto links.count() 'units'
+		describeUnit(lines, l: links[u], u: units.at(u))
+	end 'units'
+	return lines
+end 'describeLines'
+
+typealias SiteIndexes = Array with ir.Index
+
+// noSite is a unit's site that no live row names, which the description leaves out.
+let noSite = -1 as ir.Index
+
+// describeUnit adds the live functions of unit u, the rows of their code and the sites those rows are in.
+function describeUnit(mutates lines CodeLines, l LinkUnit, u CodeUnit)
+	var symbol = 0 as Count
+	let sectionCount = l.liveCode.count()
+	for s in 0 upto sectionCount 'sections'
+		let begin = l.sections[s].code
+		let finish = l.sections[plusCount(s)].code
+		while symbol < u.codeSymbols.count() and u.codeSymbols[symbol].offset < begin 'before'
+			symbol = plusCount(symbol)
+		end 'before'
+		if l.liveCode[s] and symbol < u.codeSymbols.count() and u.codeSymbols[symbol].offset < finish 'named'
+			let at = sectionAt(l, s: s)
+			lines.functions.push(u.codeSymbols[symbol].symbol.clone())
+			lines.starts.push(at)
+			lines.ends.push(try at + (finish - begin) otherwise panic("link: code past memory"))
+		end 'named'
+	end 'sections'
+	var siteAt = SiteIndexes.filled(u.siteCallees.count(), value: noSite)
+	for r in 0 upto u.lineOffsets.count() 'used'
+		let s = containing(l.sectionStarts, offset: u.lineOffsets[r])
+		if s < sectionCount and l.liveCode[s] 'live'
+			useSite(siteAt, u: u, field: ir.spanSite(u.lineSpans[r]))
+		end 'live'
+	end 'used'
+	for t in 0 upto siteAt.count() 'sites'
+		if siteAt[t] != noSite 'kept'
+			siteAt[t] = try (lines.siteCallees.count()) as ir.Index otherwise panic("link: more inline sites than an index names")
+			lines.siteCallees.push(u.siteCallees[t].clone())
+			lines.siteCalls.push(globalSpan(siteAt, span: u.siteCalls[t]))
+		end 'kept'
+	end 'sites'
+	for r in 0 upto u.lineOffsets.count() 'rows'
+		let s = containing(l.sectionStarts, offset: u.lineOffsets[r])
+		if s < sectionCount and l.liveCode[s] 'live'
+			lines.rowOffsets.push(try sectionAt(l, s: s) + (u.lineOffsets[r] - l.sections[s].code) otherwise panic("link: a row before its section"))
+			lines.rowSpans.push(globalSpan(siteAt, span: u.lineSpans[r]))
+		end 'live'
+	end 'rows'
+end 'describeUnit'
+
+// useSite marks the unit's site that a site field names used, and the sites its call is in.
+function useSite(mutates siteAt SiteIndexes, u CodeUnit, field Count)
+	var at = field
+	while at != ir.ownBody 'up'
+		let t = ir.pred(at)
+		if siteAt[t] != noSite 'known'
+			return
+		end 'known'
+		siteAt[t] = 0
+		at = ir.spanSite(u.siteCalls[t])
+	end 'up'
+end 'useSite'
+
+// globalSpan is a span of a unit with its site field naming the site of the description it became.
+function globalSpan(siteAt SiteIndexes, span ir.Word) returns ir.Word
+	let field = ir.spanSite(span)
+	if span == ir.noSpan or field == ir.ownBody 'own'
+		return span
+	end 'own'
+	let global = try siteAt[ir.pred(field)] as Count otherwise panic("link: a row in a site the description left out")
+	return ir.withSite(span, site: ir.succ(global))
+end 'globalSpan'
+
+// sectionAt is where a live section of a unit starts in the code.
+function sectionAt(l LinkUnit, s Count) returns Count
+	return try l.codeBase + l.codeAt[s] otherwise panic("link: code past memory")
+end 'sectionAt'
+
+function plusCount(n Count) returns Count
+	return try n + 1 otherwise panic("link: a count past memory")
+end 'plusCount'

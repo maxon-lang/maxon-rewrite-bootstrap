@@ -1135,6 +1135,15 @@ export type Colourer
 		for e in 0 upto fn.edges.count() 'edges'
 			fn.edges[e].argCount = 0
 		end 'edges'
+		if fn.keepsSpans 'spans'
+			var spans = ir.SpanList.filled(emitted.count(), value: ir.noSpan)
+			for k in 0 upto n 'kept'
+				if outSelf[k] != noDef 'placed'
+					spans[countOfIndex(outSelf[k])] = fn.spans[k]
+				end 'placed'
+			end 'kept'
+			fn.spans = spans
+		end 'spans'
 		fn.instrs = emitted
 		fn.savedRegs = self.savedRegisters(fn)
 	end 'rewrite'

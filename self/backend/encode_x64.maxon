@@ -21,12 +21,14 @@ export function encodeX64Function(mutates u CodeUnit, fn MirFunction, instance b
 		u.alignSection(codeLineBytes)
 	end 'loops'
 	u.defineFunction(fn.symbol, instance: instance)
+	u.startRows()
 	encodeBlocks(u, fn: fn, lay: lay, measure: false)
 end 'encodeX64Function'
 
 // encodeBlocks writes the blocks of fn in the order of the layout. Measuring, it notes where each starts in lay.starts and
 // pads nothing; otherwise it pads before the head of each loop as fitLine says.
 function encodeBlocks(mutates u CodeUnit, fn MirFunction, mutates lay BlockLayout, measure bool)
+	let notes = fn.keepsSpans and not measure
 	for _ in 0 upto fn.blocks.count() 'labels'
 		_ = u.asm.newLabel()
 	end 'labels'
@@ -46,7 +48,12 @@ function encodeBlocks(mutates u CodeUnit, fn MirFunction, mutates lay BlockLayou
 		end 'follows'
 		var k = fn.blocks[b as Count].first
 		while k < fn.blocks[b as Count].endAt 'instrs'
+			let at = u.asm.pos()
+			let encoded = k
 			k = encodeAt(u, fn: fn, lay: lay, k: k, stop: fn.blocks[b as Count].endAt, next: next)
+			if notes 'rows'
+				noteSpans(u, fn: fn, from: encoded, upTo: k, at: at)
+			end 'rows'
 		end 'instrs'
 	end 'blocks'
 	if measure 'end'

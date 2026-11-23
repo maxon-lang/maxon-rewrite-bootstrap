@@ -109,11 +109,12 @@ type SharedRuntime
 end 'SharedRuntime'
 
 // projectFor is a new project of the options' target, which no module is in yet. A build that counts its allocations checks
-// the ASCII bit of each owned String it drops or copies too.
+// the ASCII bit of each owned String it drops or copies too, and one that writes debug info keeps the spans of its code.
 function projectFor(options Options) returns ast.Project
 	var p = ast.Project.new("")
 	p.target = options.target.clone()
 	p.checksStrings = options.countAllocations
+	p.keepsSpans = options.debugInfo
 	return p
 end 'projectFor'
 
@@ -205,6 +206,7 @@ function prepareRuntime(mutates p ast.Project, options Options, mutates errs dia
 	runtimeOptions.verifiesCache = options.verifiesCache
 	runtimeOptions.target = options.target.clone()
 	runtimeOptions.countAllocations = options.countAllocations
+	runtimeOptions.debugInfo = options.debugInfo
 	var run = runStages(p, from: Stage.parse, memory: project.SourceFiles.create(0), first: first, goal: Goal.units, makesProgram: false, output: "", options: runtimeOptions, ready: noReadyUnits(), errs: errs)
 	if errs.count() > 0 'failed'
 		ast.locateAllErrors(p.modules, errs: errs)

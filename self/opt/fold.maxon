@@ -106,11 +106,13 @@ export type Fold
 	var successors as ir.SuccessorVisitor
 	var rewrite as Rewrite
 	var blocks as Count
+	// spans are the spans compact lays out beside the instructions, of a function that keeps them.
+	var spans as ir.SpanList
 	// raising is whether the function being folded is past its fallback, where the rules of pressure.rules apply too.
 	var raising as bool
 
 	export static function new() returns Fold
-		return Fold{instrsBefore: 0, instrsAfter: 0, branchesFolded: 0, paramsRemoved: 0, checksDecided: 0, defs: ir.Defs.new(), repl: ir.RegList.create(0), known: Array.create(0), value: ir.WordList.create(0), useHead: Array.create(0), useTail: Array.create(0), useItem: Array.create(0), useNext: Array.create(0), regLive: Array.create(0), paramOf: Array.create(0), dead: Array.create(0), instrBlock: Array.create(0), queuedInstr: Array.create(0), liveInstr: Array.create(0), chainFirst: Array.create(0), chainLast: Array.create(0), chainNext: Array.create(0), blockDead: Array.create(0), livePreds: Array.create(0), queuedTerm: Array.create(0), predStart: Array.create(0), pred: Array.create(0), newID: ir.BlockIDList.create(0), reached: Array.create(0), paramBlock: Array.create(0), paramGone: Array.create(0), queuedParam: Array.create(0), queue: Array.create(0), head: 0, tail: 0, dying: Array.create(0), dyingTop: 0, walk: Array.create(0), walkTop: 0, into: Array.create(0), marks: ir.RegList.create(0), marksTop: 0, order: Array.create(0), orderCount: 0, useCount: 0, regCount: 0, pairFrom: Array.create(0), pairTo: Array.create(0), regs: ir.RegList.create(0), successors: ir.SuccessorVisitor.new(), rewrite: Rewrite.new(), blocks: 0, raising: false}
+		return Fold{instrsBefore: 0, instrsAfter: 0, branchesFolded: 0, paramsRemoved: 0, checksDecided: 0, defs: ir.Defs.new(), repl: ir.RegList.create(0), known: Array.create(0), value: ir.WordList.create(0), useHead: Array.create(0), useTail: Array.create(0), useItem: Array.create(0), useNext: Array.create(0), regLive: Array.create(0), paramOf: Array.create(0), dead: Array.create(0), instrBlock: Array.create(0), queuedInstr: Array.create(0), liveInstr: Array.create(0), chainFirst: Array.create(0), chainLast: Array.create(0), chainNext: Array.create(0), blockDead: Array.create(0), livePreds: Array.create(0), queuedTerm: Array.create(0), predStart: Array.create(0), pred: Array.create(0), newID: ir.BlockIDList.create(0), reached: Array.create(0), paramBlock: Array.create(0), paramGone: Array.create(0), queuedParam: Array.create(0), queue: Array.create(0), head: 0, tail: 0, dying: Array.create(0), dyingTop: 0, walk: Array.create(0), walkTop: 0, into: Array.create(0), marks: ir.RegList.create(0), marksTop: 0, order: Array.create(0), orderCount: 0, useCount: 0, regCount: 0, pairFrom: Array.create(0), pairTo: Array.create(0), regs: ir.RegList.create(0), successors: ir.SuccessorVisitor.new(), rewrite: Rewrite.new(), blocks: 0, spans: ir.SpanList.create(0), raising: false}
 	end 'new'
 
 	// foldFunction folds the function f, which keeps the verifier's rules, and the bodies of its behaviours and closures;
@@ -673,7 +675,7 @@ export type Fold
 			if ir.instrCanFail(rewrite.pre[i]) 'fails'
 				panic("opt: a rule puts an instruction that can fail before another")
 			end 'fails'
-			let j = self.insert(f, x: rewrite.pre[i].clone(), b: b, anchor: anchorOf(k))
+			let j = self.insert(f, x: rewrite.pre[i].clone(), b: b, anchor: anchorOf(k), span: ir.spanAt(f, k: k))
 			self.addUses(f, k: j)
 		end 'pre'
 		let lastPre = f.instrs.count()
@@ -709,11 +711,13 @@ export type Fold
 		end 'grow'
 	end 'growRegs'
 
-	// insert appends the instruction x, which defines a register, to the chain of anchor in block b, and gives its index.
-	function insert(mutates self, mutates f ir.IrFunction, consumes x ir.Instr, b Count, anchor Count) returns Count
+	// insert appends the instruction x, which defines a register, to the chain of anchor in block b, with the span of what
+	// it stands for, and gives its index.
+	function insert(mutates self, mutates f ir.IrFunction, consumes x ir.Instr, b Count, anchor Count, span ir.Word) returns Count
 		let j = f.instrs.count()
 		let r = regIndex(x.dst)
 		f.instrs.push(x)
+		ir.pushSpan(f, span: span)
 		putFlag(dead, at: j, v: false)
 		putCount(instrBlock, at: j, v: b)
 		putFlag(queuedInstr, at: j, v: false)
@@ -842,7 +846,7 @@ export type Fold
 		end 'varies'
 		paramGone[e] = true
 		paramsRemoved = plusOne(paramsRemoved)
-		_ = self.insert(f, x: ir.newConst(p, value: c), b: b, anchor: b)
+		_ = self.insert(f, x: ir.newConst(p, value: c), b: b, anchor: b, span: ir.noSpan)
 		self.learn(p, v: c)
 	end 'visitParam'
 
@@ -1022,6 +1026,7 @@ export type Fold
 			end 'kept'
 		end 'number'
 		var instrs = ir.InstrList.create(0)
+		spans.clear()
 		var blockList = ir.BlockList.create(0)
 		var blockParams = ir.RegList.create(0)
 		for b in 0 upto blocks 'blocks'
@@ -1039,6 +1044,7 @@ export type Fold
 						ir.setFail(x, fail: newID[ir.blockIndex(fail)])
 					end 'fails'
 					instrs.push(x)
+					ir.keepSpan(spans, f: f, k: k)
 				end 'kept'
 			end 'instrs'
 			let firstParam = blockParams.count()
@@ -1052,6 +1058,7 @@ export type Fold
 			blockList.push(ir.Block.make(first, endAt: instrs.count(), params: firstParam, paramCount: try blockParams.count() - firstParam otherwise panic("opt: parameters out of order"), term: term))
 		end 'blocks'
 		f.instrs = instrs
+		ir.takeSpans(f, laid: spans)
 		f.blocks = blockList
 		f.blockParams = blockParams
 	end 'compact'

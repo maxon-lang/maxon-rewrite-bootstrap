@@ -20,9 +20,12 @@ export type Expander
 	var operands as ir.RegList
 	var out as ir.InstrList
 	var traps as ir.InstrList
+	// The spans of out and of traps, of a function that keeps them: what an instruction expands to has its span.
+	var spans as ir.SpanList
+	var trapSpans as ir.SpanList
 
 	export static function new() returns Expander
-		return Expander{reads: Array.create(0), operands: ir.RegList.create(0), out: ir.InstrList.create(0), traps: ir.InstrList.create(0)}
+		return Expander{reads: Array.create(0), operands: ir.RegList.create(0), out: ir.InstrList.create(0), traps: ir.InstrList.create(0), spans: ir.SpanList.create(0), trapSpans: ir.SpanList.create(0)}
 	end 'new'
 
 	// expandFunction expands the calls of f and of the bodies of its closures and behaviours, and says whether there was one.
@@ -39,13 +42,17 @@ export type Expander
 		self.countReads(f)
 		out.clear()
 		traps.clear()
+		spans.clear()
+		trapSpans.clear()
 		let own = f.blocks.count()
 		for b in 0 upto own 'blocks'
 			let first = out.count()
 			var k = f.blocks[b].first
 			let endAt = f.blocks[b].endAt
 			while k < endAt 'instrs'
+				let from = k
 				k = self.expandAt(f, k: k, endAt: endAt, own: own)
+				self.spanned(f, k: from)
 			end 'instrs'
 			f.blocks[b].first = first
 			f.blocks[b].endAt = out.count()
@@ -53,11 +60,28 @@ export type Expander
 		for t in 0 upto traps.count() 'traps'
 			let first = out.count()
 			out.push(traps[t].clone())
+			if f.keepsSpans 'span'
+				spans.push(trapSpans[t])
+			end 'span'
 			f.blocks.push(ir.Block.make(first, endAt: out.count(), params: f.blockParams.count(), paramCount: 0, term: ir.newTrap()))
 		end 'traps'
 		f.instrs = exchange(out, value: ir.InstrList.create(0))
+		ir.takeSpans(f, laid: spans)
 		return true
 	end 'expandFunction'
+
+	// spanned gives what instruction k of f expanded to, and the trap it made, the span of k, when f keeps spans.
+	function spanned(mutates self, f ir.IrFunction, k Count)
+		if not f.keepsSpans 'none'
+			return
+		end 'none'
+		while spans.count() < out.count() 'out'
+			spans.push(f.spans[k])
+		end 'out'
+		while trapSpans.count() < traps.count() 'traps'
+			trapSpans.push(f.spans[k])
+		end 'traps'
+	end 'spanned'
 
 	// expandAt writes the instruction k of a block that ends at endAt, expanded where it is a call the expansion replaces,
 	// and gives the index of the next instruction it has not written. own is how many blocks f has before the trap blocks.

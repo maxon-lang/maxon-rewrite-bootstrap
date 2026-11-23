@@ -1,0 +1,319 @@
+// The `.mxdbg` sidecar's byte layout, maxon's (maxon-bin/Compiler/Debug/MxdbgFormat.maxon), ported with its names and its
+// figures: position-independent and little-endian, a fixed header of absolute (offset, count) pairs for each section, then
+// arrays of fixed-width records, then one string pool addressed by (offset, length). The line table is a fixed 20-byte stride,
+// not delta-encoded, because a reader binary-searches it. The header's slots are not in the order of the sections: the slots
+// run lines, locals, types, coverage, fields, and the sections lines, types, fields, locals, coverage.
+//
+// minimaxon writes this version's layout whole and fills the sections it describes so far (README, "Debug info"): the header,
+// the files, the functions, the line table, the inline sites and their code ranges, and the layout figures. The types, the
+// fields, the locals, the coverage points, the constant words and the globals are there, each with no record.
+
+// MXDBG and three zero bytes, so that the header stays 4- and 8-byte aligned. A reader that does not see them refuses the file.
+let MxdbgMagicByte0 = 77 as Byte
+
+let MxdbgMagicByte1 = 88 as Byte
+
+let MxdbgMagicByte2 = 68 as Byte
+
+let MxdbgMagicByte3 = 66 as Byte
+
+let MxdbgMagicByte4 = 71 as Byte
+
+let MxdbgMagicBytes = 8 as Count
+
+// MxdbgFormatVersion is maxon's version of what the file means; a reader refuses one it does not know.
+export let MxdbgFormatVersion = 12 as Count
+
+// MxdbgSidecarExtension is appended to the executable's path with its extension still on: foo.exe -> foo.exe.mxdbg.
+export let MxdbgSidecarExtension = ".mxdbg"
+
+let MxdbgOffVersion = 8 as Count
+
+let MxdbgOffReserved = 12 as Count
+
+let MxdbgOffBuildId = 16 as Count
+
+let MxdbgOffTripleOff = 24 as Count
+
+let MxdbgOffTripleLen = 28 as Count
+
+let MxdbgOffStringPoolOff = 32 as Count
+
+let MxdbgOffStringPoolSize = 36 as Count
+
+let MxdbgOffFileTableOff = 40 as Count
+
+let MxdbgOffFileCount = 44 as Count
+
+let MxdbgOffFuncTableOff = 48 as Count
+
+let MxdbgOffFuncCount = 52 as Count
+
+let MxdbgOffLineTableOff = 56 as Count
+
+let MxdbgOffLineCount = 60 as Count
+
+let MxdbgOffLocalTableOff = 64 as Count
+
+let MxdbgOffLocalCount = 68 as Count
+
+let MxdbgOffTypeTableOff = 72 as Count
+
+let MxdbgOffTypeCount = 76 as Count
+
+let MxdbgOffCovTableOff = 80 as Count
+
+let MxdbgOffCovCount = 84 as Count
+
+let MxdbgOffFieldTableOff = 88 as Count
+
+let MxdbgOffFieldCount = 92 as Count
+
+// The inline sites and the code ranges under them.
+let MxdbgOffInlineSiteTableOff = 96 as Count
+
+let MxdbgOffInlineSiteCount = 100 as Count
+
+let MxdbgOffInlineRangeTableOff = 104 as Count
+
+let MxdbgOffInlineRangeCount = 108 as Count
+
+let MxdbgOffConstTableOff = 112 as Count
+
+let MxdbgOffConstCount = 116 as Count
+
+let MxdbgOffSourceRootOff = 120 as Count
+
+let MxdbgOffSourceRootLen = 124 as Count
+
+let MxdbgOffGlobalTableOff = 128 as Count
+
+let MxdbgOffGlobalCount = 132 as Count
+
+let MxdbgOffLayoutTableOff = 136 as Count
+
+let MxdbgOffLayoutCount = 140 as Count
+
+let MxdbgOffImageBase = 144 as Count
+
+let MxdbgOffCompilerOff = 152 as Count
+
+let MxdbgOffCompilerLen = 156 as Count
+
+let MxdbgHeaderSize = 160 as Count
+
+let MxdbgFileEntrySize = 8 as Count
+
+let MxdbgFileNameOff = 0 as Count
+
+let MxdbgFileNameLen = 4 as Count
+
+let MxdbgFuncEntrySize = 56 as Count
+
+let MxdbgLineEntrySize = 20 as Count
+
+let MxdbgTypeEntrySize = 36 as Count
+
+let MxdbgFieldEntrySize = 16 as Count
+
+let MxdbgLocalEntrySize = 36 as Count
+
+let MxdbgCovEntrySize = 36 as Count
+
+let MxdbgInlineSiteEntrySize = 28 as Count
+
+// Disjoint and ascending by codeStart; nesting lives in the site's parent.
+let MxdbgInlineRangeEntrySize = 12 as Count
+
+let MxdbgConstEntrySize = 4 as Count
+
+let MxdbgGlobalEntrySize = 16 as Count
+
+let MxdbgLayoutEntrySize = 12 as Count
+
+let MxdbgLayoutNameOff = 0 as Count
+
+let MxdbgLayoutNameLen = 4 as Count
+
+let MxdbgLayoutFigure = 8 as Count
+
+// MxdbgNoInlineSite is the parent of a site that is in the function's own body; MxdbgNoSourceFile the file of a call that
+// no statement made.
+export let MxdbgNoInlineSite = 4294967295 as MxdbgIndex
+
+export let MxdbgNoSourceFile = 4294967295 as MxdbgIndex
+
+// Line-row flag bits: every row is a statement boundary, and a line entry is where control enters the row's source line from
+// another one. coverage marks a row a --coverage build counts, which no minimaxon build is.
+export let MxdbgLineFlagStatement = 1 as MxdbgIndex
+
+export let MxdbgLineFlagCoverage = 2 as MxdbgIndex
+
+export let MxdbgLineFlagLineEntry = 4 as MxdbgIndex
+
+let MxdbgFuncNameOff = 0 as Count
+
+let MxdbgFuncNameLen = 4 as Count
+
+let MxdbgFuncCodeStart = 8 as Count
+
+let MxdbgFuncCodeEnd = 12 as Count
+
+let MxdbgFuncFrameSize = 16 as Count
+
+let MxdbgFuncParamCount = 20 as Count
+
+let MxdbgFuncLineFirst = 24 as Count
+
+let MxdbgFuncLineCount = 28 as Count
+
+let MxdbgFuncLocalFirst = 32 as Count
+
+let MxdbgFuncLocalCount = 36 as Count
+
+let MxdbgFuncDisplayNameOff = 40 as Count
+
+let MxdbgFuncDisplayNameLen = 44 as Count
+
+let MxdbgFuncOrigin = 48 as Count
+
+let MxdbgFuncPrologueOffset = 52 as Count
+
+let MxdbgInlineSiteNameOff = 0 as Count
+
+let MxdbgInlineSiteNameLen = 4 as Count
+
+let MxdbgInlineSiteParent = 8 as Count
+
+let MxdbgInlineSiteCallFileId = 12 as Count
+
+let MxdbgInlineSiteCallLine = 16 as Count
+
+let MxdbgInlineSiteCallCol = 20 as Count
+
+let MxdbgInlineSiteOrigin = 24 as Count
+
+let MxdbgInlineRangeCodeStart = 0 as Count
+
+let MxdbgInlineRangeCodeEnd = 4 as Count
+
+let MxdbgInlineRangeSite = 8 as Count
+
+let MxdbgLineCodeOffset = 0 as Count
+
+let MxdbgLineFileId = 4 as Count
+
+let MxdbgLineLine = 8 as Count
+
+let MxdbgLineCol = 12 as Count
+
+let MxdbgLineFlags = 16 as Count
+
+// An index into one of the sidecar's tables, a code offset as it records one, or any other of its 32-bit words.
+export typealias MxdbgIndex = int(0 to 4294967295)
+
+// A signed figure a record carries, a layout figure among them, stored as its two's complement.
+export typealias MxdbgRecordFigure = int(-2147483648 to 2147483647)
+
+// ImageTextRvaFigureName is the layout figure of where the image's code is from its base (maxon's DebugContract), and
+// ImageTextBytesFigureName how many bytes of it there are, which the build id is the digest of: minimaxon's, so that a
+// reader finds the code of an image of any format by the place its writer gave it.
+export let ImageTextRvaFigureName = "ImageTextRva"
+
+export let ImageTextBytesFigureName = "ImageTextBytes"
+
+// MxdbgOrigin is where a function or an inlined body came from, maxon's: the program's own source, a test, source the compiler
+// wrote, the standard library, the runtime, or code with no source.
+export enum MxdbgOrigin
+	authored
+	test
+	generated
+	library
+	runtime
+	synthesized
+end 'MxdbgOrigin'
+
+// mxdbgOriginWord is the word an origin is written as.
+export function mxdbgOriginWord(origin MxdbgOrigin) returns MxdbgIndex
+	return match origin 'which'
+		authored gives 0
+		test gives 1
+		generated gives 2
+		library gives 3
+		runtime gives 4
+		synthesized gives 5
+	end 'which'
+end 'mxdbgOriginWord'
+
+// mxdbgOriginName is how a dump spells the origin whose word is word, or the word for one it does not know.
+export function mxdbgOriginName(word MxdbgIndex) returns String
+	for i in 0 upto MxdbgOrigin.allCases.count() 'origins'
+		if mxdbgOriginWord(MxdbgOrigin.allCases[i]) == word 'known'
+			return MxdbgOrigin.allCases[i].name
+		end 'known'
+	end 'origins'
+	return "{word}"
+end 'mxdbgOriginName'
+
+// The magic, written and read.
+function writeMxdbgMagic(mutates buf ByteArray)
+	buf.push(MxdbgMagicByte0)
+	buf.push(MxdbgMagicByte1)
+	buf.push(MxdbgMagicByte2)
+	buf.push(MxdbgMagicByte3)
+	buf.push(MxdbgMagicByte4)
+	buf.push(0)
+	buf.push(0)
+	buf.push(0)
+end 'writeMxdbgMagic'
+
+function mxdbgMagicMatches(image ByteArray) returns bool
+	if image.count() < MxdbgHeaderSize 'tooShort'
+		return false
+	end 'tooShort'
+	return image[0] == MxdbgMagicByte0 and image[1] == MxdbgMagicByte1 and image[2] == MxdbgMagicByte2 and image[3] == MxdbgMagicByte3 and image[4] == MxdbgMagicByte4 and image[5] == 0 and image[6] == 0 and image[7] == 0
+end 'mxdbgMagicMatches'
+
+// The little-endian words of the file.
+let byteBits = 8 as Count
+
+let byteMask = 255 as Count
+
+let dwordBytes = 4 as Count
+
+function patchDword(mutates buf ByteArray, offset Count, value MxdbgIndex)
+	var v = value as Count
+	for i in 0 upto dwordBytes 'bytes'
+		buf[try offset + i otherwise panic("mxdbg: a word past the file")] = try (v and byteMask) as Byte otherwise panic("mxdbg: a byte past a byte")
+		v = v shr byteBits
+	end 'bytes'
+end 'patchDword'
+
+function readDword(buf ByteArray, offset Count) returns MxdbgIndex
+	var v = 0 as Count
+	var i = dwordBytes
+	while i > 0 'bytes'
+		i = try i - 1 otherwise panic("mxdbg: a byte before the word")
+		v = try (v shl byteBits) or (buf[try offset + i otherwise panic("mxdbg: a word past the file")] as Count) otherwise panic("mxdbg: a word past 32 bits")
+	end 'bytes'
+	return try v as MxdbgIndex otherwise panic("mxdbg: a word past 32 bits")
+end 'readDword'
+
+// mxdbgFigureWord is the word a signed figure is stored as, and mxdbgSignedWord the figure a word holds.
+let MxdbgWordModulus = 4294967296 as Count
+
+let MxdbgSignedWordMax = 2147483647 as MxdbgIndex
+
+function mxdbgFigureWord(value MxdbgRecordFigure) returns MxdbgIndex
+	if value < 0 'negative'
+		return try (MxdbgWordModulus - ((0 - value) as Count)) as MxdbgIndex otherwise panic("mxdbg: a figure past 32 bits")
+	end 'negative'
+	return value as MxdbgIndex
+end 'mxdbgFigureWord'
+
+function mxdbgSignedWord(raw MxdbgIndex) returns MxdbgRecordFigure
+	if raw > MxdbgSignedWordMax 'negative'
+		return try (0 - ((MxdbgWordModulus - (raw as Count)) as MxdbgRecordFigure)) as MxdbgRecordFigure otherwise panic("mxdbg: a figure past 32 bits")
+	end 'negative'
+	return raw as MxdbgRecordFigure
+end 'mxdbgSignedWord'

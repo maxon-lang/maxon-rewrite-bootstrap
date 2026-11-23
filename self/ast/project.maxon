@@ -699,6 +699,9 @@ export type Project
 	// checksStrings makes the drop and the copy of an owned String check that its ASCII bit holds of its bytes, which a
 	// build that counts its allocations does (driver.Options.countAllocations).
 	export var checksStrings as bool
+	// keepsSpans makes the lowering keep the source position of each instruction, and the backend the lines of the code it
+	// writes, for the debug info that a build with --debug-info writes (ir.IrFunction.spans).
+	export var keepsSpans as bool
 	export var rootModule as diag.ModuleID
 	// library is the root module of the standard library's source when the project holds it (see "Modules" in the README).
 	export var library as table.Option with diag.ModuleID
@@ -724,7 +727,7 @@ export type Project
 		returnTypeSlot(tt, held: shared)
 		returnFuncSlot(ft, held: sharedFuncs)
 		let bp = PathModMap.new()
-		var p = Project{root: root, target: Target.windowsX64(), checksStrings: false, rootModule: 0 as diag.ModuleID, library: table.Option.none, modules: ModuleList.create(0), stdlib: std, byPath: freeze(bp), types: tt, funcs: ft, builtins: freeze(bs), resolutions: Array.create(0), typings: Array.create(0)}
+		var p = Project{root: root, target: Target.windowsX64(), checksStrings: false, keepsSpans: false, rootModule: 0 as diag.ModuleID, library: table.Option.none, modules: ModuleList.create(0), stdlib: std, byPath: freeze(bp), types: tt, funcs: ft, builtins: freeze(bs), resolutions: Array.create(0), typings: Array.create(0)}
 		for i in 0 upto p.stdlib.decls.count() 'stdReg'
 			let ord = try i as DeclOrdinal otherwise 0 as DeclOrdinal
 			let name = p.stdlib.decls[i].name()
@@ -740,8 +743,8 @@ export type Project
 		return p
 	end 'new'
 
-	static function view(consumes root String, consumes target Target, checksStrings bool, rootModule diag.ModuleID, consumes library table.Option with diag.ModuleID, consumes modules ModuleList, consumes stdlib Module, consumes byPath frozen with PathModMap, consumes types TypeTable, consumes funcs FuncTable, consumes builtins frozen with Builtins, consumes resolutions Array with frozen with Resolution, consumes typings Array with frozen with Typing) returns Project
-		return Project{root: root, target: target, checksStrings: checksStrings, rootModule: rootModule, library: library, modules: modules, stdlib: stdlib, byPath: byPath, types: types, funcs: funcs, builtins: builtins, resolutions: resolutions, typings: typings}
+	static function view(consumes root String, consumes target Target, checksStrings bool, keepsSpans bool, rootModule diag.ModuleID, consumes library table.Option with diag.ModuleID, consumes modules ModuleList, consumes stdlib Module, consumes byPath frozen with PathModMap, consumes types TypeTable, consumes funcs FuncTable, consumes builtins frozen with Builtins, consumes resolutions Array with frozen with Resolution, consumes typings Array with frozen with Typing) returns Project
+		return Project{root: root, target: target, checksStrings: checksStrings, keepsSpans: keepsSpans, rootModule: rootModule, library: library, modules: modules, stdlib: stdlib, byPath: byPath, types: types, funcs: funcs, builtins: builtins, resolutions: resolutions, typings: typings}
 	end 'view'
 end 'Project'
 
@@ -762,7 +765,7 @@ export function baseOf(p Project, first Count) returns Project
 		typings.push(share(p.typings[a]))
 	end 'earlier'
 	let firstSlot = moduleSlot(try first as diag.ModuleID otherwise panic("a module past the handles"))
-	return Project.view(p.root.clone(), target: p.target.clone(), checksStrings: p.checksStrings, rootModule: p.rootModule, library: p.library.clone(), modules: modules, stdlib: stdlib, byPath: share(p.byPath), types: baseTypes(p.types, firstSlot: firstSlot), funcs: baseFuncs(p.funcs, firstSlot: firstSlot), builtins: share(p.builtins), resolutions: resolutions, typings: typings)
+	return Project.view(p.root.clone(), target: p.target.clone(), checksStrings: p.checksStrings, keepsSpans: p.keepsSpans, rootModule: p.rootModule, library: p.library.clone(), modules: modules, stdlib: stdlib, byPath: share(p.byPath), types: baseTypes(p.types, firstSlot: firstSlot), funcs: baseFuncs(p.funcs, firstSlot: firstSlot), builtins: share(p.builtins), resolutions: resolutions, typings: typings)
 end 'baseOf'
 
 export function addModule(mutates p Project, consumes m Module) returns diag.ModuleID

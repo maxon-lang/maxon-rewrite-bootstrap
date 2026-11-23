@@ -1,0 +1,319 @@
+// The writer of a sidecar, maxon's MxdbgWriter (maxon-bin/Compiler/Debug/MxdbgWriter.maxon) ported: the records are added in
+// the order of the code, and build lays them out as format.maxon says, after the checks maxon's writer makes of them. Each
+// table is columns of words rather than an array of records, so a record costs no box.
+
+typealias Words = Array with MxdbgIndex
+
+typealias Figures = Array with MxdbgRecordFigure
+
+export type MxdbgWriter
+	var stringPool as ByteArray
+	// The names: each text interned once, at nameOffs in the pool and nameLens long, by its index, which the tables hold; the
+	// empty name is the first, at 0 and of no length.
+	var interned as table.StringMap with MxdbgIndex
+	var nameOffs as Words
+	var nameLens as Words
+	// files: a name each.
+	var fileNames as Words
+	// functions: a name, the code they hold, and the origin.
+	var funcNames as Words
+	var funcStarts as Words
+	var funcEnds as Words
+	var funcPrologues as Words
+	var funcFrames as Words
+	var funcParams as Words
+	var funcDisplayNames as Words
+	var funcOrigins as Words
+	// lines: the offset, the file, the line, the column and the flags of each row.
+	var lineOffsets as Words
+	var lineFiles as Words
+	var lineLines as Words
+	var lineCols as Words
+	var lineFlags as Words
+	// inline sites: the callee's name, the site the call is in, the call's place and the callee's origin.
+	var siteNames as Words
+	var siteParents as Words
+	var siteFiles as Words
+	var siteLines as Words
+	var siteCols as Words
+	var siteOrigins as Words
+	// inline ranges: the code each site's copy holds, and the site.
+	var rangeStarts as Words
+	var rangeEnds as Words
+	var rangeSites as Words
+	// layout figures: a name and a figure.
+	var figureNames as Words
+	var figures as Figures
+	var imageBase as Count
+
+	export static function create() returns MxdbgWriter
+		var nameOffs = Words.create(0)
+		nameOffs.push(0)
+		var nameLens = Words.create(0)
+		nameLens.push(0)
+		return MxdbgWriter{stringPool: ByteArray.create(0), interned: table.StringMap.new(), nameOffs: nameOffs, nameLens: nameLens, fileNames: Words.create(0), funcNames: Words.create(0), funcStarts: Words.create(0), funcEnds: Words.create(0), funcPrologues: Words.create(0), funcFrames: Words.create(0), funcParams: Words.create(0), funcDisplayNames: Words.create(0), funcOrigins: Words.create(0), lineOffsets: Words.create(0), lineFiles: Words.create(0), lineLines: Words.create(0), lineCols: Words.create(0), lineFlags: Words.create(0), siteNames: Words.create(0), siteParents: Words.create(0), siteFiles: Words.create(0), siteLines: Words.create(0), siteCols: Words.create(0), siteOrigins: Words.create(0), rangeStarts: Words.create(0), rangeEnds: Words.create(0), rangeSites: Words.create(0), figureNames: Words.create(0), figures: Figures.create(0), imageBase: 0}
+	end 'create'
+
+	// intern is the index of the name text: the empty one writes nothing to the pool.
+	function intern(mutates self, text String) returns MxdbgIndex
+		if text.byteLength() == 0 'empty'
+			return 0
+		end 'empty'
+		match interned.get(text) 'held'
+			some(name) then return name
+			none then _ = 0
+		end 'held'
+		let name = mxdbgWord(nameOffs.count())
+		nameOffs.push(mxdbgWord(stringPool.count()))
+		nameLens.push(mxdbgWord(text.byteLength()))
+		stringPool.append(text.toByteArray())
+		interned.insert(text.clone(), value: name)
+		return name
+	end 'intern'
+
+	// addFile registers a source file; its id is its place, which a row names.
+	export function addFile(mutates self, path String)
+		let fileNamesName = self.intern(path)
+		fileNames.push(fileNamesName)
+	end 'addFile'
+
+	export function fileCount() returns Count
+		return fileNames.count()
+	end 'fileCount'
+
+	export function addFunction(mutates self, name String, displayName String, origin MxdbgOrigin, codeStart MxdbgIndex, codeEnd MxdbgIndex, prologueOffset MxdbgIndex, frameSize MxdbgIndex, paramCount MxdbgIndex)
+		let funcNamesName = self.intern(name)
+		funcNames.push(funcNamesName)
+		funcStarts.push(codeStart)
+		funcEnds.push(codeEnd)
+		funcPrologues.push(prologueOffset)
+		funcFrames.push(frameSize)
+		funcParams.push(paramCount)
+		let funcDisplayNamesName = self.intern(displayName)
+		funcDisplayNames.push(funcDisplayNamesName)
+		funcOrigins.push(mxdbgOriginWord(origin))
+	end 'addFunction'
+
+	export function addLine(mutates self, codeOffset MxdbgIndex, fileId MxdbgIndex, line MxdbgIndex, column MxdbgIndex, flags MxdbgIndex)
+		lineOffsets.push(codeOffset)
+		lineFiles.push(fileId)
+		lineLines.push(line)
+		lineCols.push(column)
+		lineFlags.push(flags)
+	end 'addLine'
+
+	// addInlineSite adds one spliced body; its index is its place, which a range and a nested site name.
+	export function addInlineSite(mutates self, name String, parent MxdbgIndex, callFileId MxdbgIndex, callLine MxdbgIndex, callColumn MxdbgIndex, origin MxdbgOrigin)
+		let siteNamesName = self.intern(name)
+		siteNames.push(siteNamesName)
+		siteParents.push(parent)
+		siteFiles.push(callFileId)
+		siteLines.push(callLine)
+		siteCols.push(callColumn)
+		siteOrigins.push(mxdbgOriginWord(origin))
+	end 'addInlineSite'
+
+	export function addInlineRange(mutates self, codeStart MxdbgIndex, codeEnd MxdbgIndex, site MxdbgIndex)
+		if site as Count >= siteNames.count() 'noSuchSite'
+			panic("MxdbgWriter.addInlineRange: a range names site {site} of {siteNames.count()}; every site is added before the ranges under it")
+		end 'noSuchSite'
+		rangeStarts.push(codeStart)
+		rangeEnds.push(codeEnd)
+		rangeSites.push(site)
+	end 'addInlineRange'
+
+	export function placeImageAt(mutates self, base Count)
+		imageBase = base
+	end 'placeImageAt'
+
+	export function addLayoutFigure(mutates self, name String, figure MxdbgRecordFigure)
+		let figureNamesName = self.intern(name)
+		figureNames.push(figureNamesName)
+		figures.push(figure)
+	end 'addLayoutFigure'
+
+	// build is the file: buildId is the eight bytes of the build id in their order (the digest's first), which the header
+	// holds as maxon's writer does, the word they read as big-endian written little-endian.
+	export function build(mutates self, buildId ByteArray, targetTriple String, sourceRoot String, compilerVersion String) returns ByteArray
+		self.requireAscendingTables()
+		let triple = self.intern(targetTriple)
+		let root = self.intern(sourceRoot)
+		let compiler = self.intern(compilerVersion)
+		// Each offset is the one before plus its stride times its count, in the order the sections are written in.
+		let fileTableOff = MxdbgHeaderSize
+		let funcTableOff = after(fileTableOff, stride: MxdbgFileEntrySize, count: fileNames.count())
+		let lineTableOff = after(funcTableOff, stride: MxdbgFuncEntrySize, count: funcNames.count())
+		let typeTableOff = after(lineTableOff, stride: MxdbgLineEntrySize, count: lineOffsets.count())
+		let fieldTableOff = after(typeTableOff, stride: MxdbgTypeEntrySize, count: 0)
+		let localTableOff = after(fieldTableOff, stride: MxdbgFieldEntrySize, count: 0)
+		let covTableOff = after(localTableOff, stride: MxdbgLocalEntrySize, count: 0)
+		let inlineSiteTableOff = after(covTableOff, stride: MxdbgCovEntrySize, count: 0)
+		let inlineRangeTableOff = after(inlineSiteTableOff, stride: MxdbgInlineSiteEntrySize, count: siteNames.count())
+		let constTableOff = after(inlineRangeTableOff, stride: MxdbgInlineRangeEntrySize, count: rangeStarts.count())
+		let globalTableOff = after(constTableOff, stride: MxdbgConstEntrySize, count: 0)
+		let layoutTableOff = after(globalTableOff, stride: MxdbgGlobalEntrySize, count: 0)
+		let stringPoolOff = after(layoutTableOff, stride: MxdbgLayoutEntrySize, count: figures.count())
+		var buf = ByteArray.create(0)
+		writeMxdbgMagic(buf)
+		writeZeros(buf, n: try MxdbgHeaderSize - buf.count() otherwise panic("mxdbg: a header shorter than its magic"))
+		patchDword(buf, offset: MxdbgOffVersion, value: mxdbgWord(MxdbgFormatVersion))
+		patchDword(buf, offset: MxdbgOffReserved, value: 0)
+		for i in 0 upto buildId.count() 'buildId'
+			buf[sumOf(MxdbgOffBuildId, b: i)] = buildId[try buildId.count() - 1 - i otherwise panic("mxdbg: a build id byte before the first")]
+		end 'buildId'
+		self.patchName(buf, at: 0, offset: MxdbgOffTripleOff, length: MxdbgOffTripleLen, name: triple)
+		self.patchName(buf, at: 0, offset: MxdbgOffSourceRootOff, length: MxdbgOffSourceRootLen, name: root)
+		self.patchName(buf, at: 0, offset: MxdbgOffCompilerOff, length: MxdbgOffCompilerLen, name: compiler)
+		patchDword(buf, offset: MxdbgOffStringPoolOff, value: mxdbgWord(stringPoolOff))
+		patchDword(buf, offset: MxdbgOffStringPoolSize, value: mxdbgWord(stringPool.count()))
+		self.patchTable(buf, at: MxdbgOffFileTableOff, offset: fileTableOff, count: fileNames.count())
+		self.patchTable(buf, at: MxdbgOffFuncTableOff, offset: funcTableOff, count: funcNames.count())
+		self.patchTable(buf, at: MxdbgOffLineTableOff, offset: lineTableOff, count: lineOffsets.count())
+		self.patchTable(buf, at: MxdbgOffTypeTableOff, offset: typeTableOff, count: 0)
+		self.patchTable(buf, at: MxdbgOffFieldTableOff, offset: fieldTableOff, count: 0)
+		self.patchTable(buf, at: MxdbgOffLocalTableOff, offset: localTableOff, count: 0)
+		self.patchTable(buf, at: MxdbgOffCovTableOff, offset: covTableOff, count: 0)
+		self.patchTable(buf, at: MxdbgOffInlineSiteTableOff, offset: inlineSiteTableOff, count: siteNames.count())
+		self.patchTable(buf, at: MxdbgOffInlineRangeTableOff, offset: inlineRangeTableOff, count: rangeStarts.count())
+		self.patchTable(buf, at: MxdbgOffConstTableOff, offset: constTableOff, count: 0)
+		self.patchTable(buf, at: MxdbgOffGlobalTableOff, offset: globalTableOff, count: 0)
+		self.patchTable(buf, at: MxdbgOffLayoutTableOff, offset: layoutTableOff, count: figures.count())
+		patchDword(buf, offset: MxdbgOffImageBase, value: mxdbgWord(imageBase and lowWordMask))
+		patchDword(buf, offset: sumOf(MxdbgOffImageBase, b: dwordBytes), value: mxdbgWord(imageBase shr wordBits))
+		for i in 0 upto fileNames.count() 'files'
+			let rec = appendedRecord(buf, stride: MxdbgFileEntrySize)
+			self.patchName(buf, at: rec, offset: MxdbgFileNameOff, length: MxdbgFileNameLen, name: fileNames[i])
+		end 'files'
+		var lineFirst = 0 as Count
+		for i in 0 upto funcNames.count() 'functions'
+			let first = lineFirst
+			while lineFirst < lineOffsets.count() and lineOffsets[lineFirst] < funcEnds[i] 'rows'
+				lineFirst = sumOf(lineFirst, b: 1)
+			end 'rows'
+			let count = try lineFirst - first otherwise panic("mxdbg: a window that ends before it starts")
+			let rec = appendedRecord(buf, stride: MxdbgFuncEntrySize)
+			self.patchName(buf, at: rec, offset: MxdbgFuncNameOff, length: MxdbgFuncNameLen, name: funcNames[i])
+			patchDword(buf, offset: sumOf(rec, b: MxdbgFuncCodeStart), value: funcStarts[i])
+			patchDword(buf, offset: sumOf(rec, b: MxdbgFuncCodeEnd), value: funcEnds[i])
+			patchDword(buf, offset: sumOf(rec, b: MxdbgFuncFrameSize), value: funcFrames[i])
+			patchDword(buf, offset: sumOf(rec, b: MxdbgFuncParamCount), value: funcParams[i])
+			// An empty window says 0 for its first row, as maxon's writer has it.
+			patchDword(buf, offset: sumOf(rec, b: MxdbgFuncLineFirst), value: mxdbgWord(first if count > 0 else 0))
+			patchDword(buf, offset: sumOf(rec, b: MxdbgFuncLineCount), value: mxdbgWord(count))
+			patchDword(buf, offset: sumOf(rec, b: MxdbgFuncLocalFirst), value: 0)
+			patchDword(buf, offset: sumOf(rec, b: MxdbgFuncLocalCount), value: 0)
+			self.patchName(buf, at: rec, offset: MxdbgFuncDisplayNameOff, length: MxdbgFuncDisplayNameLen, name: funcDisplayNames[i])
+			patchDword(buf, offset: sumOf(rec, b: MxdbgFuncOrigin), value: funcOrigins[i])
+			patchDword(buf, offset: sumOf(rec, b: MxdbgFuncPrologueOffset), value: funcPrologues[i])
+		end 'functions'
+		if lineFirst != lineOffsets.count() 'rowsOutside'
+			panic("MxdbgWriter: the functions' windows hold {lineFirst} of the {lineOffsets.count()} line rows; a row outside every function's code is one no reader reaches")
+		end 'rowsOutside'
+		for i in 0 upto lineOffsets.count() 'lines'
+			let rec = appendedRecord(buf, stride: MxdbgLineEntrySize)
+			patchDword(buf, offset: sumOf(rec, b: MxdbgLineCodeOffset), value: lineOffsets[i])
+			patchDword(buf, offset: sumOf(rec, b: MxdbgLineFileId), value: lineFiles[i])
+			patchDword(buf, offset: sumOf(rec, b: MxdbgLineLine), value: lineLines[i])
+			patchDword(buf, offset: sumOf(rec, b: MxdbgLineCol), value: lineCols[i])
+			patchDword(buf, offset: sumOf(rec, b: MxdbgLineFlags), value: lineFlags[i])
+		end 'lines'
+		for i in 0 upto siteNames.count() 'sites'
+			let rec = appendedRecord(buf, stride: MxdbgInlineSiteEntrySize)
+			self.patchName(buf, at: rec, offset: MxdbgInlineSiteNameOff, length: MxdbgInlineSiteNameLen, name: siteNames[i])
+			patchDword(buf, offset: sumOf(rec, b: MxdbgInlineSiteParent), value: siteParents[i])
+			patchDword(buf, offset: sumOf(rec, b: MxdbgInlineSiteCallFileId), value: siteFiles[i])
+			patchDword(buf, offset: sumOf(rec, b: MxdbgInlineSiteCallLine), value: siteLines[i])
+			patchDword(buf, offset: sumOf(rec, b: MxdbgInlineSiteCallCol), value: siteCols[i])
+			patchDword(buf, offset: sumOf(rec, b: MxdbgInlineSiteOrigin), value: siteOrigins[i])
+		end 'sites'
+		for i in 0 upto rangeStarts.count() 'ranges'
+			let rec = appendedRecord(buf, stride: MxdbgInlineRangeEntrySize)
+			patchDword(buf, offset: sumOf(rec, b: MxdbgInlineRangeCodeStart), value: rangeStarts[i])
+			patchDword(buf, offset: sumOf(rec, b: MxdbgInlineRangeCodeEnd), value: rangeEnds[i])
+			patchDword(buf, offset: sumOf(rec, b: MxdbgInlineRangeSite), value: rangeSites[i])
+		end 'ranges'
+		for i in 0 upto figures.count() 'figures'
+			let rec = appendedRecord(buf, stride: MxdbgLayoutEntrySize)
+			self.patchName(buf, at: rec, offset: MxdbgLayoutNameOff, length: MxdbgLayoutNameLen, name: figureNames[i])
+			patchDword(buf, offset: sumOf(rec, b: MxdbgLayoutFigure), value: mxdbgFigureWord(figures[i]))
+		end 'figures'
+		buf.append(stringPool)
+		return buf
+	end 'build'
+
+	// patchTable writes a section's offset and count into the header slots from at.
+	function patchTable(mutates buf ByteArray, at Count, offset Count, count Count)
+		patchDword(buf, offset: at, value: mxdbgWord(offset))
+		patchDword(buf, offset: sumOf(at, b: dwordBytes), value: mxdbgWord(count))
+	end 'patchTable'
+
+	// patchName writes the pool slice of the name whose index is name into the fields of the record at at.
+	function patchName(mutates buf ByteArray, at Count, offset Count, length Count, name MxdbgIndex)
+		patchDword(buf, offset: sumOf(at, b: offset), value: nameOffs[name as Count])
+		patchDword(buf, offset: sumOf(at, b: length), value: nameLens[name as Count])
+	end 'patchName'
+
+	// requireAscendingTables holds the rows, the functions and the inline ranges to the order the reader searches them in, and
+	// each site's parent to one recorded before it.
+	function requireAscendingTables(mutates self)
+		for i in 1 upto lineOffsets.count() 'rows'
+			if lineOffsets[i] < lineOffsets[try i - 1 otherwise 0] 'rowOutOfOrder'
+				panic("MxdbgWriter: line row {i} is at {lineOffsets[i]}, behind the row before it; the table is written in the order of the code")
+			end 'rowOutOfOrder'
+		end 'rows'
+		var previousEnd = 0 as MxdbgIndex
+		for i in 0 upto funcNames.count() 'functions'
+			if funcStarts[i] > funcEnds[i] or funcStarts[i] < previousEnd 'funcOutOfOrder'
+				panic("MxdbgWriter: function {i} is [{funcStarts[i]}, {funcEnds[i]}), inverted or starting before {previousEnd}")
+			end 'funcOutOfOrder'
+			previousEnd = funcEnds[i]
+		end 'functions'
+		for i in 0 upto siteParents.count() 'sites'
+			if siteParents[i] != MxdbgNoInlineSite and siteParents[i] as Count >= i 'notEarlier'
+				panic("MxdbgWriter: inline site {i} names site {siteParents[i]} as its parent, which is not recorded before it")
+			end 'notEarlier'
+			if siteFiles[i] != MxdbgNoSourceFile and siteFiles[i] as Count >= fileNames.count() 'noSuchFile'
+				panic("MxdbgWriter: inline site {i} is called from file {siteFiles[i]}, past the {fileNames.count()} files")
+			end 'noSuchFile'
+		end 'sites'
+		var rangeEnd = 0 as MxdbgIndex
+		for i in 0 upto rangeStarts.count() 'ranges'
+			if rangeStarts[i] >= rangeEnds[i] or rangeStarts[i] < rangeEnd 'rangeOutOfOrder'
+				panic("MxdbgWriter: inline range {i} is [{rangeStarts[i]}, {rangeEnds[i]}), empty or behind {rangeEnd}; the ranges are disjoint and ascending")
+			end 'rangeOutOfOrder'
+			rangeEnd = rangeEnds[i]
+		end 'ranges'
+	end 'requireAscendingTables'
+end 'MxdbgWriter'
+
+let lowWordMask = 4294967295 as Count
+
+let wordBits = 32 as Count
+
+// after is where a section of count records of stride bytes that starts at offset ends.
+function after(offset Count, stride Count, count Count) returns Count
+	return try offset + stride * count otherwise panic("mxdbg: a section past memory")
+end 'after'
+
+function sumOf(a Count, b Count) returns Count
+	return try a + b otherwise panic("mxdbg: an offset past memory")
+end 'sumOf'
+
+// mxdbgWord is a count as a word of the file, which must fit 32 bits.
+export function mxdbgWord(n Count) returns MxdbgIndex
+	return try n as MxdbgIndex otherwise panic("mxdbg: {n} is past a 32-bit word of the sidecar")
+end 'mxdbgWord'
+
+function writeZeros(mutates buf ByteArray, n Count)
+	for _ in 0 upto n 'zeros'
+		buf.push(0)
+	end 'zeros'
+end 'writeZeros'
+
+// appendedRecord appends a record of zeros, which the writer then patches field by field at the offsets the reader reads,
+// and gives where it starts.
+function appendedRecord(mutates buf ByteArray, stride Count) returns Count
+	let rec = buf.count()
+	writeZeros(buf, n: stride)
+	return rec
+end 'appendedRecord'

@@ -141,15 +141,16 @@ function newLinkUnit(u CodeUnit) returns LinkUnit
 	return LinkUnit.make(sections, sectionStarts: sectionStarts, pieces: pieces, liveCode: falses(sectionCount), liveData: falses(pieceCount), readOnly: readOnly, codeAt: zeros(sectionCount), dataAt: zeros(pieceCount), targets: zeros(u.asm.symbolFixups.count()), dataPieces: zeros(u.asm.dataFixups.count()))
 end 'newLinkUnit'
 
-// Linked is the executable of a link, the map of its code's symbols when the link was asked for one, and whether the
-// program runs the scheduler (SchedulerChoice).
+// Linked is the executable of a link, the map of its code's symbols and the lines of its code when the link was asked for
+// them, and whether the program runs the scheduler (SchedulerChoice).
 export type Linked
 	export var image as Image
 	export var symbolMap as String
+	export var lines as CodeLines
 	export var scheduled as bool
 
-	static function make(consumes image Image, consumes symbolMap String, scheduled bool) returns Linked
-		return Linked{image: image, symbolMap: symbolMap, scheduled: scheduled}
+	static function make(consumes image Image, consumes symbolMap String, consumes lines CodeLines, scheduled bool) returns Linked
+		return Linked{image: image, symbolMap: symbolMap, lines: lines, scheduled: scheduled}
 	end 'make'
 end 'Linked'
 
@@ -273,8 +274,8 @@ end 'LinkUnits'
 
 // link is the executable of the units for the system, with the code reachable from the entry symbol, and the scheduler
 // only when the program needs it (choice). With mapsSymbols it also gives the map of the code's symbols (see
-// symbolMapText).
-export function link(units LinkUnits, entry String, choice SchedulerChoice, target ast.Target, mapsSymbols bool) returns Linked
+// symbolMapText), and with describesLines the lines of its code (describeLines).
+export function link(units LinkUnits, entry String, choice SchedulerChoice, target ast.Target, mapsSymbols bool, describesLines bool) returns Linked
 	var links = LinkUnitList.create(0)
 	for i in 0 upto units.count() 'units'
 		links.push(newLinkUnit(units.at(i)))
@@ -320,6 +321,10 @@ export function link(units LinkUnits, entry String, choice SchedulerChoice, targ
 	end 'copy'
 	table.write(parts.data, at: tableAt, image: image)
 	writePointers(target.system, image: image, data: parts.data, pointers: pointers)
+	var lines = CodeLines.none()
+	if describesLines 'lines'
+		lines = describeLines(links, units: units, code: code, image: image)
+	end 'lines'
 	placeCode(image, at: 0, bytes: code)
 	placeConstants(image, bytes: parts.constants)
 	placeData(image, at: 0, bytes: parts.data)
@@ -329,7 +334,7 @@ export function link(units LinkUnits, entry String, choice SchedulerChoice, targ
 		restore(defined, saved: saved)
 		symbolMap = symbolMapText(links, units: units, symbols: symbols, defined: defined, textRva: image.textRva, codeSize: sizes.code)
 	end 'map'
-	return Linked.make(image, symbolMap: symbolMap, scheduled: scheduled)
+	return Linked.make(image, symbolMap: symbolMap, lines: lines, scheduled: scheduled)
 end 'link'
 
 // livePointers are the words of the live data that hold the address of other data, with both where they end up in the data

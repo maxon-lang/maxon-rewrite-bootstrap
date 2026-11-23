@@ -17,6 +17,10 @@ export type Editor
 	var insteadTail as Array with Count
 	var extras as ir.InstrList
 	var extraNext as Array with Count
+	// extraSpans is the span of each appended instruction, the one it was made from, and laidSpans the spans write lays out
+	// beside the instructions, of a function that keeps spans; one put in place of another has that one's.
+	var extraSpans as ir.SpanList
+	var laidSpans as ir.SpanList
 	// By block: the first and last instruction appended to it, and the first block added before it; by added block, the
 	// next one added before the same block.
 	var extraHead as Array with Count
@@ -43,7 +47,7 @@ export type Editor
 	var blocks as ir.BlockList
 
 	export static function new() returns Editor
-		return Editor{removed: Array.create(0), insteadHead: Array.create(0), insteadTail: Array.create(0), extras: ir.InstrList.create(0), extraNext: Array.create(0), extraHead: Array.create(0), extraTail: Array.create(0), addedHead: Array.create(0), addedNext: Array.create(0), original: 0, edges: ir.SuccessorVisitor.new(), changed: false, retargeted: false, reached: Array.create(0), work: Array.create(0), layout: Array.create(0), newID: ir.BlockIDList.create(0), order: Array.create(0), placeOf: Array.create(0), held: Array.create(0), blockParams: ir.RegList.create(0), blocks: ir.BlockList.create(0)}
+		return Editor{removed: Array.create(0), insteadHead: Array.create(0), insteadTail: Array.create(0), extras: ir.InstrList.create(0), extraNext: Array.create(0), extraSpans: ir.SpanList.create(0), laidSpans: ir.SpanList.create(0), extraHead: Array.create(0), extraTail: Array.create(0), addedHead: Array.create(0), addedNext: Array.create(0), original: 0, edges: ir.SuccessorVisitor.new(), changed: false, retargeted: false, reached: Array.create(0), work: Array.create(0), layout: Array.create(0), newID: ir.BlockIDList.create(0), order: Array.create(0), placeOf: Array.create(0), held: Array.create(0), blockParams: ir.RegList.create(0), blocks: ir.BlockList.create(0)}
 	end 'new'
 
 	// begin starts the edits of f.
@@ -53,6 +57,7 @@ export type Editor
 		ir.resetCounts(insteadTail, n: f.instrs.count())
 		extras.clear()
 		extraNext.clear()
+		extraSpans.clear()
 		original = f.blocks.count()
 		ir.resetCounts(extraHead, n: original)
 		ir.resetCounts(extraTail, n: original)
@@ -78,9 +83,11 @@ export type Editor
 		return removed[k]
 	end 'isRemoved'
 
-	// append puts x at the end of block b, after its instructions and what was appended to it before.
-	export function append(mutates self, b Count, consumes x ir.Instr)
+	// append puts x at the end of block b, after its instructions and what was appended to it before. span is the span of
+	// the instruction x is a copy of or moves (ir.spanAt).
+	export function append(mutates self, b Count, consumes x ir.Instr, span ir.Word)
 		let link = self.extra(x)
+		extraSpans.push(span)
 		if extraTail[b] == noChain 'first'
 			extraHead[b] = link
 		end 'first' else 'more'
@@ -113,6 +120,7 @@ export type Editor
 	export function replace(mutates self, k Count, consumes x ir.Instr)
 		removed[k] = true
 		let link = self.extra(x)
+		extraSpans.push(ir.noSpan)
 		if insteadTail[k] == noChain 'first'
 			insteadHead[k] = link
 		end 'first' else 'more'
@@ -247,6 +255,16 @@ export type Editor
 	// compact moves each instruction that stays down over those that go, block after block, by exchanging it with what
 	// the place it goes to holds, which went or was put there by an earlier exchange.
 	function compact(mutates self, mutates f ir.IrFunction)
+		if f.keepsSpans 'spans'
+			var kept = 0 as Count
+			for k in 0 upto f.spans.count() 'each'
+				if not removed[k] 'kept'
+					f.spans[kept] = f.spans[k]
+					kept = plusOne(kept)
+				end 'kept'
+			end 'each'
+			f.spans.truncate(kept)
+		end 'spans'
 		var spare = ir.Instr.make(ir.Opcode.opNone)
 		var next = 0 as Count
 		for b in 0 upto f.blocks.count() 'blocks'
@@ -350,6 +368,7 @@ export type Editor
 			f.instrs.push(extras[e].clone())
 		end 'extras'
 		order.clear()
+		laidSpans.clear()
 		blockParams.clear()
 		blocks.clear()
 		for i in 0 upto layout.count() 'blocks'
@@ -359,13 +378,14 @@ export type Editor
 				for k in f.blocks[b].first upto f.blocks[b].endAt 'instrs'
 					if not removed[k] 'kept'
 						order.push(k)
+						ir.keepSpan(laidSpans, f: f, k: k)
 					end 'kept'
 					let instead = insteadHead[k]
-					self.orderChain(instead, own: own)
+					self.orderChain(f, head: instead, own: own, replaces: true, k: k)
 				end 'instrs'
 			end 'own'
 			let appended = extraHead[b]
-			self.orderChain(appended, own: own)
+			self.orderChain(f, head: appended, own: own, replaces: false, k: 0)
 			let firstParam = blockParams.count()
 			for j in 0 upto f.blocks[b].paramCount 'params'
 				blockParams.push(f.blockParam(b, i: j))
@@ -374,6 +394,7 @@ export type Editor
 			blocks.push(ir.Block.make(first, endAt: order.count(), params: firstParam, paramCount: f.blocks[b].paramCount, term: term))
 		end 'blocks'
 		self.permute(f)
+		ir.takeSpans(f, laid: laidSpans)
 		for k in 0 upto f.instrs.count() 'fails'
 			self.renumberFail(f.instrs[k])
 		end 'fails'
@@ -383,12 +404,18 @@ export type Editor
 		blocks = oldBlocks
 	end 'write'
 
-	// orderChain puts the instructions of a chain of appended ones, own + their index in f, next in order.
-	function orderChain(mutates self, head Count, own Count)
+	// orderChain puts the instructions of a chain of added ones, own + their index in f, next in order, each with its span:
+	// what replaces instruction k has the span of k, and what is appended to a block its own.
+	function orderChain(mutates self, f ir.IrFunction, head Count, own Count, replaces bool, k Count)
 		var link = head
 		while link != noChain 'extras'
 			let e = linkIndex(link)
 			order.push(sum(own, b: e))
+			if replaces 'replaced'
+				ir.keepSpan(laidSpans, f: f, k: k)
+			end 'replaced' else 'appended'
+				ir.addSpan(laidSpans, f: f, span: extraSpans[e])
+			end 'appended'
 			link = extraNext[e]
 		end 'extras'
 	end 'orderChain'

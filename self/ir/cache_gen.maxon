@@ -153,6 +153,23 @@ function loadArrayOfFloatMask(mutates r table.CacheReader) returns Array with Fl
 	return a
 end 'loadArrayOfFloatMask'
 
+function storeArrayOfInlineSite(mutates w table.CacheWriter, v Array with InlineSite)
+	w.word64(v.count() as table.Word64)
+	for i in 0 upto v.count() 'items'
+		storeInlineSite(w, v: v[i])
+	end 'items'
+end 'storeArrayOfInlineSite'
+
+function loadArrayOfInlineSite(mutates r table.CacheReader) returns Array with InlineSite
+	let n = r.items()
+	var a as Array with InlineSite
+	a = Array.create(0)
+	for _ in 0 upto n 'items'
+		a.push(InlineSite.cacheLoad(r))
+	end 'items'
+	return a
+end 'loadArrayOfInlineSite'
+
 function storeArrayOfInstr(mutates w table.CacheWriter, v Array with Instr)
 	w.word64(v.count() as table.Word64)
 	for i in 0 upto v.count() 'items'
@@ -289,6 +306,23 @@ function loadArrayOfWitnessTable(mutates r table.CacheReader) returns Array with
 	return a
 end 'loadArrayOfWitnessTable'
 
+function storeArrayOfWord(mutates w table.CacheWriter, v Array with Word)
+	w.word64(v.count() as table.Word64)
+	for i in 0 upto v.count() 'items'
+		w.word64(v[i] as table.Word64)
+	end 'items'
+end 'storeArrayOfWord'
+
+function loadArrayOfWord(mutates r table.CacheReader) returns Array with Word
+	let n = r.items()
+	var a as Array with Word
+	a = Array.create(0)
+	for _ in 0 upto n 'items'
+		a.push(r.word64() as Word)
+	end 'items'
+	return a
+end 'loadArrayOfWord'
+
 function storeBlock(mutates w table.CacheWriter, v Block)
 	w.word64(v.first as table.Word64)
 	w.word64(v.endAt as table.Word64)
@@ -355,6 +389,19 @@ extension DatumWord
 	end 'cacheLoad'
 end 'DatumWord'
 
+function storeInlineSite(mutates w table.CacheWriter, v InlineSite)
+	w.word64(v.callee as table.Word64)
+	w.word64(v.call as table.Word64)
+end 'storeInlineSite'
+
+extension InlineSite
+	static function cacheLoad(mutates r table.CacheReader) returns InlineSite
+		let theCallee = try (r.word64() as ast.FuncID) otherwise panic("cache: a stored ast.FuncID is out of its range")
+		let theCall = r.word64() as Word
+		return InlineSite{callee: theCallee, call: theCall}
+	end 'cacheLoad'
+end 'InlineSite'
+
 function storeInstr(mutates w table.CacheWriter, v Instr)
 	w.word8(v.op.ordinal as table.Word64)
 	w.word64(v.dst as table.Word64)
@@ -412,6 +459,9 @@ export function storeIrFunction(mutates w table.CacheWriter, v IrFunction)
 	w.flag(v.stringResult)
 	storeArrayOfCount(w, v: v.floatStarts)
 	storeArrayOfFloatMask(w, v: v.floatMasks)
+	w.flag(v.keepsSpans)
+	storeArrayOfWord(w, v: v.spans)
+	storeArrayOfInlineSite(w, v: v.sites)
 end 'storeIrFunction'
 
 extension IrFunction
@@ -447,7 +497,10 @@ extension IrFunction
 		let theStringResult = r.flag()
 		let theFloatStarts = loadArrayOfCount(r)
 		let theFloatMasks = loadArrayOfFloatMask(r)
-		return IrFunction{decl: theDecl, name: theName, paramCount: theParamCount, slots: theSlots, regs: theRegs, frameBoxes: theFrameBoxes, instrs: theInstrs, blocks: theBlocks, args: theArgs, blockParams: theBlockParams, types: theTypes, callees: theCallees, strings: theStrings, cases: theCases, tables: theTables, datums: theDatums, refusals: theRefusals, usesArrays: theUsesArrays, usesBytes: theUsesBytes, usesOs: theUsesOs, bodies: theBodies, captureTypes: theCaptureTypes, captureOwned: theCaptureOwned, cownTypes: theCownTypes, lendsResult: theLendsResult, floatParams: theFloatParams, floatResult: theFloatResult, stringParams: theStringParams, stringResult: theStringResult, floatStarts: theFloatStarts, floatMasks: theFloatMasks}
+		let theKeepsSpans = r.flag()
+		let theSpans = loadArrayOfWord(r)
+		let theSites = loadArrayOfInlineSite(r)
+		return IrFunction{decl: theDecl, name: theName, paramCount: theParamCount, slots: theSlots, regs: theRegs, frameBoxes: theFrameBoxes, instrs: theInstrs, blocks: theBlocks, args: theArgs, blockParams: theBlockParams, types: theTypes, callees: theCallees, strings: theStrings, cases: theCases, tables: theTables, datums: theDatums, refusals: theRefusals, usesArrays: theUsesArrays, usesBytes: theUsesBytes, usesOs: theUsesOs, bodies: theBodies, captureTypes: theCaptureTypes, captureOwned: theCaptureOwned, cownTypes: theCownTypes, lendsResult: theLendsResult, floatParams: theFloatParams, floatResult: theFloatResult, stringParams: theStringParams, stringResult: theStringResult, floatStarts: theFloatStarts, floatMasks: theFloatMasks, keepsSpans: theKeepsSpans, spans: theSpans, sites: theSites}
 	end 'cacheLoad'
 end 'IrFunction'
 

@@ -1219,6 +1219,7 @@ function selectFunction(mutates sel Selector, p ast.Project, mutates ms ast.Modu
 	sel.mir = MirFunction.new(symbol, canThrow: sel.canThrow, arch: sel.arch)
 	sel.mir.floatResult = sel.floatResult
 	sel.mir.stringResult = f.stringResult
+	sel.mir.keepsSpans = f.keepsSpans
 	sel.classes.choose(f, fn: sel.mir)
 	sel.pairStrings(f)
 	sel.mir.fixedSlots = try slotsWords(f) + f.frameBoxes * ifaceBoxWords otherwise panic("backend: a frame past memory")
@@ -1240,9 +1241,11 @@ function selectFunction(mutates sel Selector, p ast.Project, mutates ms ast.Modu
 		sel.irBlock = i
 		for k in f.blocks[i].first upto f.blocks[i].endAt 'instrs'
 			sel.irAt = k
+			sel.mir.pos = ir.spanAt(f, k: k)
 			selectInstruction(sel, fn: f, ins: f.instrs[k])
 		end 'instrs'
 		sel.irAt = f.blocks[i].endAt
+		sel.mir.pos = ir.noSpan
 		selectTerminator(sel, fn: f, ins: f.blocks[i].term)
 		if f.blocks[i].term.kind == ir.TermKind.termTrap 'fails'
 			sel.mir.blocks[i].likelihood = Likelihood.cold
@@ -1257,10 +1260,25 @@ function selectFunction(mutates sel Selector, p ast.Project, mutates ms ast.Modu
 	if refusals.count() > 0 'refused'
 		return refusals
 	end 'refused'
+	if f.keepsSpans 'sites'
+		if mir.spans.count() != mir.instrs.count() 'apart'
+			panic("backend: {symbol} keeps {mir.spans.count()} spans for {mir.instrs.count()} machine instructions")
+		end 'apart'
+		sel.u.addSites(siteCallees(p, ms: ms, f: f), sites: f.sites)
+	end 'sites'
 	encodeFunction(sel, fn: mir, instance: instance)
 	sel.allocator.spiller.clock.lap(EmitPhase.encoding)
 	return refusals
 end 'selectFunction'
+
+// siteCallees are the link names of the callees of f's inline sites.
+function siteCallees(p ast.Project, ms ast.ModuleState, f ir.IrFunction) returns ast.StringList
+	var names = ast.StringList.create(0)
+	for s in 0 upto f.sites.count() 'sites'
+		names.push(ast.funcLinkNameIn(p, tt: ms.types, reads: p.types, ft: ms.funcs, funcReads: p.funcs, fid: f.sites[s].callee))
+	end 'sites'
+	return names
+end 'siteCallees'
 
 // selectInstruction writes the machine instructions of an instruction by the selection of the architecture compiled
 // for, which its rules generate (lower_x64_gen.maxon, lower_arm64_gen.maxon).

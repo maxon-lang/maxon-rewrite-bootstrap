@@ -281,19 +281,35 @@ export type Inliner
 	var writing as Count
 	var writingFirst as Count
 	var edge as ir.RegList
+	// keepsSpans is whether the function being written keeps spans, and then headSpans and tailSpans are the spans of head
+	// and tail: a copy of a callee is the site of its call (ir.inlineInto), and what the copy adds has the call's span.
+	var keepsSpans as bool
+	var headSpans as ir.SpanList
+	var tailSpans as ir.SpanList
 
 	export static function new() returns Inliner
-		return Inliner{sites: 0, head: ir.InstrList.create(0), tail: ir.InstrList.create(0), added: ir.BlockList.create(0), writingAdded: false, writing: 0, writingFirst: 0, edge: ir.RegList.create(0)}
+		return Inliner{sites: 0, head: ir.InstrList.create(0), tail: ir.InstrList.create(0), added: ir.BlockList.create(0), writingAdded: false, writing: 0, writingFirst: 0, edge: ir.RegList.create(0), keepsSpans: false, headSpans: ir.SpanList.create(0), tailSpans: ir.SpanList.create(0)}
 	end 'new'
 
-	// push puts an instruction at the end of the block being written.
-	function push(mutates self, consumes x ir.Instr)
+	// push puts an instruction, whose span is span, at the end of the block being written.
+	function push(mutates self, consumes x ir.Instr, span ir.Word)
 		if writingAdded 'added'
-			tail.push(x)
+			self.pushTail(x, span: span)
 		end 'added' else 'own'
 			head.push(x)
+			if keepsSpans 'span'
+				headSpans.push(span)
+			end 'span'
 		end 'own'
 	end 'push'
+
+	// pushTail puts an instruction, whose span is span, at the end of the blocks added after the function's own.
+	function pushTail(mutates self, consumes x ir.Instr, span ir.Word)
+		tail.push(x)
+		if keepsSpans 'span'
+			tailSpans.push(span)
+		end 'span'
+	end 'pushTail'
 
 	// endBlock ends the block being written with the terminator t.
 	function endBlock(mutates self, mutates f ir.IrFunction, consumes t ir.Term)
@@ -314,6 +330,9 @@ export type Inliner
 		head.clear()
 		tail.clear()
 		added.clear()
+		keepsSpans = f.keepsSpans
+		headSpans.clear()
+		tailSpans.clear()
 		let ownBlocks = f.blocks.count()
 		for b in 0 upto ownBlocks 'blocks'
 			let start = f.blocks[b].first
@@ -331,14 +350,15 @@ export type Inliner
 				let leafCall = findLeaf(f.instrs[k], f: f, own: own, leaves: leaves, reads: reads, first: first, fromOwn: fromOwn, list: list, place: place)
 				if not inCold and leafCall 'leaf'
 					let call = f.instrs[k].clone()
+					let span = ir.spanAt(f, k: k)
 					if fromOwn 'own'
-						self.splice(f, call: call, callee: ownFns[place], ownBlocks: ownBlocks)
+						self.splice(f, call: call, callee: ownFns[place], ownBlocks: ownBlocks, span: span)
 					end 'own' else 'named'
-						self.splice(f, call: call, callee: lowered[list][place], ownBlocks: ownBlocks)
+						self.splice(f, call: call, callee: lowered[list][place], ownBlocks: ownBlocks, span: span)
 					end 'named'
 					sites = try sites + 1 otherwise panic("opt: more calls inlined than memory")
 				end 'leaf' else 'kept'
-					self.push(f.instrs[k].clone())
+					self.push(f.instrs[k].clone(), span: ir.spanAt(f, k: k))
 				end 'kept'
 			end 'instrs'
 			self.endBlock(f, t: term)
@@ -351,14 +371,22 @@ export type Inliner
 		f.instrs = exchange(head, value: ir.InstrList.create(0))
 		f.instrs.append(tail)
 		f.blocks.append(added)
+		if keepsSpans 'spans'
+			f.spans = exchange(headSpans, value: ir.SpanList.create(0))
+			f.spans.append(tailSpans)
+		end 'spans'
 	end 'rebuild'
 
 	// splice puts a copy of callee in place of call, which calls it. A callee of one block that returns a value it makes is
 	// copied into the block being written, its value made in the call's register. Any other ends the block being written
 	// with a jump to the copy and starts the block the copy returns to as the block being written. ownBlocks is how many
-	// blocks f had of its own, which the added ones are numbered after.
-	function splice(mutates self, mutates f ir.IrFunction, call ir.Instr, callee ir.IrFunction, ownBlocks Count)
+	// blocks f had of its own, which the added ones are numbered after. span is the call's, whose site the copy is.
+	function splice(mutates self, mutates f ir.IrFunction, call ir.Instr, callee ir.IrFunction, ownBlocks Count, span ir.Word)
 		let dst = call.dst
+		var site = ir.ownBody
+		if keepsSpans 'site'
+			site = ir.inlineInto(f, callee: callee, call: span)
+		end 'site'
 		var err = ir.noReg
 		if ir.callHasErrReg(call) 'err'
 			err = ir.callErrReg(call).unwrap()
@@ -376,11 +404,11 @@ export type Inliner
 					if callee.instrs[k].op != ir.Opcode.opLoadParam 'copied'
 						var x = callee.instrs[k].clone()
 						ir.relocateInstr(x, at: at)
-						self.push(x)
+						self.push(x, span: ir.inlinedSpan(ir.spanAt(callee, k: k), base: site))
 					end 'copied'
 				end 'instrs'
 				if err != ir.noReg 'noError'
-					self.push(ir.newConst(err, value: 0))
+					self.push(ir.newConst(err, value: 0), span: span)
 				end 'noError'
 				return
 			end 'made'
@@ -401,12 +429,12 @@ export type Inliner
 		if anyThrow and dst != ir.noReg 'noValue'
 			let kind = f.regs[regIndex(dst)]
 			noValue = f.newReg(kind)
-			self.push(ir.newConst(noValue, value: 0))
+			self.push(ir.newConst(noValue, value: 0), span: span)
 		end 'noValue'
 		var noError = ir.noReg
 		if anyRet and err != ir.noReg 'noError'
 			noError = f.newReg(ir.IrKind.kindScalar)
-			self.push(ir.newConst(noError, value: 0))
+			self.push(ir.newConst(noError, value: 0), span: span)
 		end 'noError'
 		self.endBlock(f, t: ir.newJump(ir.blockOf(entry)))
 		freshNames(f, callee: callee, names: names)
@@ -425,7 +453,7 @@ export type Inliner
 				if callee.instrs[k].op != ir.Opcode.opLoadParam 'copied'
 					var x = callee.instrs[k].clone()
 					ir.relocateInstr(x, at: at)
-					tail.push(x)
+					self.pushTail(x, span: ir.inlinedSpan(ir.spanAt(callee, k: k), base: site))
 				end 'copied'
 			end 'instrs'
 			var t = callee.blocks[j].term.clone()

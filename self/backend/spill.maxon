@@ -782,6 +782,17 @@ export type Spiller
 			end 'empty'
 		end 'unreached'
 		spareInstrs = exchange(fn.instrs, value: out)
+		if fn.keepsSpans 'spans'
+			var spans = ir.SpanList.create(0)
+			for i in 0 upto movedFrom.count() 'each'
+				if movedFrom[i] == noDef 'added'
+					spans.push(ir.noSpan)
+				end 'added' else 'moved'
+					spans.push(fn.spans[countOfIndex(movedFrom[i])])
+				end 'moved'
+			end 'each'
+			fn.spans = spans
+		end 'spans'
 		edited = true
 		current = false
 	end 'apply'

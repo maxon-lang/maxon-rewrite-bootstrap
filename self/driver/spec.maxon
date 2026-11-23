@@ -389,9 +389,14 @@ function directiveSkip(directive String) returns table.Option with String
 	if key == "network" or key == "stdin" or key == "Args" or key == "env" 'environment'
 		return table.Option.some("needs a runner feature that is not written yet ({key})")
 	end 'environment'
-	if key == "MmTrace" or key == "LogTrace" or key == "AsyncTrace" or key == "DebugInfo" 'trace'
-		return table.Option.some("needs maxon's memory trace or debug info ({key})")
+	if key == "MmTrace" or key == "LogTrace" or key == "AsyncTrace" 'trace'
+		return table.Option.some("needs maxon's memory trace ({key})")
 	end 'trace'
+	// maxon's walk of the sidecar a case builds holds it to a type table that names some type, which the sidecar does not
+	// have yet (README, "Debug info").
+	if key == "DebugInfo" 'debugInfo'
+		return table.Option.some("needs the debug info's type table ({key})")
+	end 'debugInfo'
 	return table.Option.some("unknown directive {key}")
 end 'directiveSkip'
 

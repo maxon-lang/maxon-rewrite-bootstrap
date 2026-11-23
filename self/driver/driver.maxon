@@ -14,6 +14,12 @@ let traceFlag = "--trace="
 
 let countAllocationsFlag = "--count-allocations"
 
+// debugInfoFlag writes the debug info sidecar beside the executable; noDebugInfoFlag, maxon's, writes none, as a build does
+// by default.
+let debugInfoFlag = "--debug-info"
+
+let noDebugInfoFlag = "--no-debug-info"
+
 let reverseModulesFlag = "--reverse-modules"
 
 let verifyReadsFlag = "--verify-reads"
@@ -35,7 +41,7 @@ let mapExtension = ".map"
 typealias CommandNames = Array with String
 
 export function usage() returns String
-	return "usage:\n  build <file.maxon|dir> [-o out.exe]   compile to an executable of the target\n  run <file.maxon|dir>                  compile and run\n  check [--tests] <file.maxon|dir>      report diagnostics only; --tests also checks the files of tests (.maxtest) of\n                                        every module\n  test [--update-positions] [--compile-only] [dir]\n                                        run the corpus of tests (default: the nearest tests directory); --compile-only compiles\n                                        every program and runs none\n  test <specs> [--require-passed|--skip-passed] [--record-passed]\n                                        run maxon's spec tests: failing if a test of specs/passed.txt does not pass, or leaving\n                                        them out; and writing the list again with the tests that pass\n  interp <file.maxon|dir> [--seed=N]    run under the tracking interpreter (development only)\n  fuzz [--seed=N] [--count=N] [--schedules=N] [--keep=DIR] [--native] [--dump]\n                                        write random programs, check them and run them under the interpreter (development only)\n  rewrite --keyword=old=new <path>...   rename a keyword in the .maxon files and the code in the .md files under the paths\n  fmt [--check] <path>...               put the .maxon files and the Maxon code in the .md files in the one layout\n  fix [--check] <path>...               apply the fix that each diagnostic names, to a fixpoint, in a .maxon file, a project or\n                                        the maxon blocks of the tests of spec files\n  qualify <dir>...                      write the module before each name of another module's declaration in the projects\n  rename [--prelude=f,...] [--rules=file] <rule>... <program>...\n                                        rename built-in types and method calls by what the checker resolved\n  test <module dir>                     run the tests of the modules under the directory (the files of tests, .maxtest)\n  selftest                              run the compiler's own tests: test self\n  cache [trim|clear]                    say where the build cache is and what it holds; delete what was unused for five days,\n                                        or everything\n\n--target=<arch>-<os> compiles for x64-windows, x64-linux or arm64-linux (a static ELF executable that needs no library), and test runs the\ncorpus for it, with --verify-ir verifying each program's compile; the default is the system the compiler runs on. --emit-ir writes the IR beside the executable, as <out>.ir; --verify-ir checks the IR of every function against the verifier's rules\nbefore code is made and its register allocation against its invariants, and stops at the first function that breaks one; --emit-map writes the map of its code symbols, as <out>.map, which\ncmd/sample profiles with. --timings prints the time of each stage and of the slowest modules on standard error. --trace=<file> writes the timeline\nof a build or check's tasks to the file in Chrome's trace format. --count-allocations builds executables that count their live heap boxes and fail at exit with\ncode 99 if any is left (development only). --reverse-modules runs the modules of each stage in another order that keeps each after the\nmodules it names, which must make the same executable (development only). --verify-reads stops a compile at a task's read of a type or function\nentry that a stage it did not wait on made (development only). --update-positions makes test rewrite the position of an expect-error whose code\nwas reported at another place. build and test of modules keep each module's code in the build cache (MINIMAXON_CACHE names its directory, or is off;\n%LOCALAPPDATA%\\minimaxon\\cache otherwise) and link a module whose key is unchanged from it; --no-cache uses none, and --verify-cache compiles every\nmodule and stops at the first whose code or summary differs from the entry under its key (development only).\n"
+	return "usage:\n  build <file.maxon|dir> [-o out.exe]   compile to an executable of the target\n  run <file.maxon|dir>                  compile and run\n  check [--tests] <file.maxon|dir>      report diagnostics only; --tests also checks the files of tests (.maxtest) of\n                                        every module\n  test [--update-positions] [--compile-only] [dir]\n                                        run the corpus of tests (default: the nearest tests directory); --compile-only compiles\n                                        every program and runs none\n  test <specs> [--require-passed|--skip-passed] [--record-passed]\n                                        run maxon's spec tests: failing if a test of specs/passed.txt does not pass, or leaving\n                                        them out; and writing the list again with the tests that pass\n  interp <file.maxon|dir> [--seed=N]    run under the tracking interpreter (development only)\n  fuzz [--seed=N] [--count=N] [--schedules=N] [--keep=DIR] [--native] [--dump]\n                                        write random programs, check them and run them under the interpreter (development only)\n  rewrite --keyword=old=new <path>...   rename a keyword in the .maxon files and the code in the .md files under the paths\n  fmt [--check] <path>...               put the .maxon files and the Maxon code in the .md files in the one layout\n  fix [--check] <path>...               apply the fix that each diagnostic names, to a fixpoint, in a .maxon file, a project or\n                                        the maxon blocks of the tests of spec files\n  qualify <dir>...                      write the module before each name of another module's declaration in the projects\n  rename [--prelude=f,...] [--rules=file] <rule>... <program>...\n                                        rename built-in types and method calls by what the checker resolved\n  test <module dir>                     run the tests of the modules under the directory (the files of tests, .maxtest)\n  selftest                              run the compiler's own tests: test self\n  cache [trim|clear]                    say where the build cache is and what it holds; delete what was unused for five days,\n                                        or everything\n  debug --symbolize <exe> <offset|rip=0xADDR>...\n                                        name the function, file:line:column and inlined calls of code offsets of an executable\n                                        built with --debug-info, or of the address of a fault line\n  debug --dump-info <exe> [header|files|functions|lines|inline|layout]...\n                                        print the debug info that a build with --debug-info wrote beside an executable\n\n--target=<arch>-<os> compiles for x64-windows, x64-linux or arm64-linux (a static ELF executable that needs no library), and test runs the\ncorpus for it, with --verify-ir verifying each program's compile; the default is the system the compiler runs on. --emit-ir writes the IR beside the executable, as <out>.ir; --verify-ir checks the IR of every function against the verifier's rules\nbefore code is made and its register allocation against its invariants, and stops at the first function that breaks one; --emit-map writes the map of its code symbols, as <out>.map, which\ncmd/sample profiles with. --debug-info writes the executable's debug info beside it, as <out>.mxdbg, and leaves the executable as it is (it compiles\nwithout the build cache); --no-debug-info writes none, as a build does by default. --timings prints the time of each stage and of the slowest modules on standard error. --trace=<file> writes the timeline\nof a build or check's tasks to the file in Chrome's trace format. --count-allocations builds executables that count their live heap boxes and fail at exit with\ncode 99 if any is left (development only). --reverse-modules runs the modules of each stage in another order that keeps each after the\nmodules it names, which must make the same executable (development only). --verify-reads stops a compile at a task's read of a type or function\nentry that a stage it did not wait on made (development only). --update-positions makes test rewrite the position of an expect-error whose code\nwas reported at another place. build and test of modules keep each module's code in the build cache (MINIMAXON_CACHE names its directory, or is off;\n%LOCALAPPDATA%\\minimaxon\\cache otherwise) and link a module whose key is unchanged from it; --no-cache uses none, and --verify-cache compiles every\nmodule and stops at the first whose code or summary differs from the entry under its key (development only).\n"
 end 'usage'
 
 // absentFlagPrefixes start the flags that other compilers of the language have and this one does not.
@@ -75,6 +81,8 @@ type Options
 	var emitMap as bool
 	// countAllocations makes the executable count its live heap boxes and fail at exit if any is left.
 	var countAllocations as bool
+	// debugInfo writes the executable's debug info beside it, as <output>.mxdbg (README, "Debug info").
+	var debugInfo as bool
 	// timings prints the time of each stage and of the slowest modules on standard error when the compile ends.
 	var timings as bool
 	// trace is the file that the timeline of a build or check's tasks is written to, or nothing.
@@ -110,7 +118,7 @@ type Options
 	var stagesInLibrary as bool
 
 	static function new() returns Options
-		return Options{emitIr: false, verifyIr: false, emitMap: false, countAllocations: false, keepsLowered: false, timings: false, trace: "", reversesModules: false, verifiesReads: false, runsTests: false, testsUnder: "", checksTests: false, cacheDir: "", compiler: table.Digest.none(), verifiesCache: false, usesCache: true, speculates: false, target: hostTarget(), stagesInLibrary: false}
+		return Options{emitIr: false, verifyIr: false, emitMap: false, countAllocations: false, debugInfo: false, keepsLowered: false, timings: false, trace: "", reversesModules: false, verifiesReads: false, runsTests: false, testsUnder: "", checksTests: false, cacheDir: "", compiler: table.Digest.none(), verifiesCache: false, usesCache: true, speculates: false, target: hostTarget(), stagesInLibrary: false}
 	end 'new'
 
 	// timesTasks is whether a compile reads the clock around each task, for --timings or --trace.
@@ -136,7 +144,11 @@ export function run(args Array with String) returns ExitCode
 			options.emitMap = true
 		end 'emitMap' else if args[i] == countAllocationsFlag 'count'
 			options.countAllocations = true
-		end 'count' else if args[i] == reverseModulesFlag 'reverse'
+		end 'count' else if args[i] == debugInfoFlag 'debugInfo'
+			options.debugInfo = true
+		end 'debugInfo' else if args[i] == noDebugInfoFlag 'noDebugInfo'
+			options.debugInfo = false
+		end 'noDebugInfo' else if args[i] == reverseModulesFlag 'reverse'
 			options.reversesModules = true
 		end 'reverse' else if args[i] == verifyReadsFlag 'verifyReads'
 			options.verifiesReads = true
@@ -195,6 +207,9 @@ export function run(args Array with String) returns ExitCode
 	if command == "cache" 'cache'
 		return cacheCommand(rest)
 	end 'cache'
+	if command == "debug" 'debug'
+		return debugCommand(rest)
+	end 'debug'
 	if rest.count() < 2 'unnamed'
 		printError(usage())
 		return usageExitCode

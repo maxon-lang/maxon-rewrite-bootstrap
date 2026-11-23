@@ -1,0 +1,386 @@
+// The reader of a sidecar, after maxon's MxdbgReader (maxon-bin/Compiler/Debug/MxdbgReader.maxon): parse holds the file to the
+// layout of format.maxon and refuses one whose magic, version or tables are not that, and the accessors read the records
+// where they are, by index.
+
+// MxdbgParse is a sidecar read, or why it was refused.
+export union MxdbgParse
+	read(reader MxdbgReader)
+	refused(reason String)
+end 'MxdbgParse'
+
+// A section of the file: where its records start and how many there are.
+type MxdbgTable
+	var offset as Count
+	var count as Count
+
+	static function make(offset Count, count Count) returns MxdbgTable
+		return MxdbgTable{offset: offset, count: count}
+	end 'make'
+end 'MxdbgTable'
+
+export type MxdbgReader
+	var image as ByteArray
+	var pool as Count
+	var poolSize as Count
+	var files as MxdbgTable
+	var funcs as MxdbgTable
+	var lines as MxdbgTable
+	var types as MxdbgTable
+	var sites as MxdbgTable
+	var ranges as MxdbgTable
+	var figures as MxdbgTable
+
+	// parse reads a sidecar's bytes.
+	export static function parse(consumes image ByteArray) returns MxdbgParse
+		if not mxdbgMagicMatches(image) 'magic'
+			return MxdbgParse.refused("it is not a .mxdbg sidecar")
+		end 'magic'
+		let version = readDword(image, offset: MxdbgOffVersion) as Count
+		if version != MxdbgFormatVersion 'version'
+			return MxdbgParse.refused("it is version {version} of the format, and this compiler reads version {MxdbgFormatVersion}")
+		end 'version'
+		var r = MxdbgReader{image: ByteArray.create(0), pool: readDword(image, offset: MxdbgOffStringPoolOff) as Count, poolSize: readDword(image, offset: MxdbgOffStringPoolSize) as Count, files: tableAt(image, at: MxdbgOffFileTableOff), funcs: tableAt(image, at: MxdbgOffFuncTableOff), lines: tableAt(image, at: MxdbgOffLineTableOff), types: tableAt(image, at: MxdbgOffTypeTableOff), sites: tableAt(image, at: MxdbgOffInlineSiteTableOff), ranges: tableAt(image, at: MxdbgOffInlineRangeTableOff), figures: tableAt(image, at: MxdbgOffLayoutTableOff)}
+		let size = image.count()
+		if not fits(r.pool, count: r.poolSize, stride: 1, size: size) or not fits(r.files.offset, count: r.files.count, stride: MxdbgFileEntrySize, size: size) or not fits(r.funcs.offset, count: r.funcs.count, stride: MxdbgFuncEntrySize, size: size) or not fits(r.lines.offset, count: r.lines.count, stride: MxdbgLineEntrySize, size: size) or not fits(r.sites.offset, count: r.sites.count, stride: MxdbgInlineSiteEntrySize, size: size) or not fits(r.ranges.offset, count: r.ranges.count, stride: MxdbgInlineRangeEntrySize, size: size) or not fits(r.figures.offset, count: r.figures.count, stride: MxdbgLayoutEntrySize, size: size) 'past'
+			return MxdbgParse.refused("a table reaches past the end of the file")
+		end 'past'
+		r.image = image
+		for i in 0 upto r.funcs.count 'windows'
+			if not fits(r.funcLineFirst(i), count: r.funcLineCount(i), stride: 1, size: r.lines.count) 'window'
+				return MxdbgParse.refused("function {i}'s rows reach past the line table")
+			end 'window'
+		end 'windows'
+		for i in 0 upto r.sites.count 'sites'
+			if r.siteParent(i) != MxdbgNoInlineSite and r.siteParent(i) as Count >= i 'parent'
+				return MxdbgParse.refused("inline site {i} names a parent that is not recorded before it")
+			end 'parent'
+		end 'sites'
+		for i in 0 upto r.ranges.count 'ranges'
+			if r.rangeSite(i) as Count >= r.sites.count 'site'
+				return MxdbgParse.refused("inline range {i} names a site past the table")
+			end 'site'
+		end 'ranges'
+		return MxdbgParse.read(r)
+	end 'parse'
+
+	function word(at Count) returns MxdbgIndex
+		return readDword(image, offset: at)
+	end 'word'
+
+	function recordWord(t MxdbgTable, stride Count, i Count, field Count) returns MxdbgIndex
+		return self.word(try t.offset + stride * i + field otherwise panic("mxdbg: a record past memory"))
+	end 'recordWord'
+
+	// text is the pool's text of a name whose slice is at the words off and len.
+	function text(off MxdbgIndex, len MxdbgIndex) returns String
+		if len == 0 'empty'
+			return ""
+		end 'empty'
+		let start = try self.pool + (off as Count) otherwise panic("mxdbg: a name past memory")
+		let stop = try start + (len as Count) otherwise panic("mxdbg: a name past memory")
+		if stop > try self.pool + self.poolSize otherwise panic("mxdbg: a pool past memory") 'past'
+			return "<a name past the pool>"
+		end 'past'
+		var bytes = ByteArray.create(0)
+		for i in start upto stop 'bytes'
+			bytes.push(image[i])
+		end 'bytes'
+		return String.from(bytes)
+	end 'text'
+
+	function headerText(off Count, len Count) returns String
+		return self.text(self.word(off), len: self.word(len))
+	end 'headerText'
+
+	// buildIdHex is the build id as maxon prints it, 0x and sixteen hexadecimal digits.
+	export function buildIdHex() returns String
+		var bytes = ByteArray.create(0)
+		for i in 0 upto buildIdLength 'bytes'
+			bytes.push(image[try MxdbgOffBuildId + buildIdLength - 1 - i otherwise panic("mxdbg: a build id byte before the first")])
+		end 'bytes'
+		return "0x{hexOf(bytes)}"
+	end 'buildIdHex'
+
+	// buildIdMatches is whether the build id is the one whose bytes, in their order, are id.
+	export function buildIdMatches(id ByteArray) returns bool
+		if id.count() != buildIdLength 'length'
+			return false
+		end 'length'
+		for i in 0 upto buildIdLength 'bytes'
+			if image[try MxdbgOffBuildId + buildIdLength - 1 - i otherwise panic("mxdbg: a build id byte before the first")] != id[i] 'differs'
+				return false
+			end 'differs'
+		end 'bytes'
+		return true
+	end 'buildIdMatches'
+
+	export function target() returns String
+		return self.headerText(MxdbgOffTripleOff, len: MxdbgOffTripleLen)
+	end 'target'
+
+	export function sourceRoot() returns String
+		return self.headerText(MxdbgOffSourceRootOff, len: MxdbgOffSourceRootLen)
+	end 'sourceRoot'
+
+	export function compiler() returns String
+		return self.headerText(MxdbgOffCompilerOff, len: MxdbgOffCompilerLen)
+	end 'compiler'
+
+	export function imageBase() returns Count
+		let low = self.word(MxdbgOffImageBase) as Count
+		let high = self.word(try MxdbgOffImageBase + dwordBytes otherwise panic("mxdbg: a header past memory")) as Count
+		return try (high shl readerWordBits) or low otherwise panic("mxdbg: an image base past a word")
+	end 'imageBase'
+
+	export function typeCount() returns Count
+		return types.count
+	end 'typeCount'
+
+	export function fileCount() returns Count
+		return files.count
+	end 'fileCount'
+
+	export function fileName(i Count) returns String
+		return self.text(self.recordWord(files, stride: MxdbgFileEntrySize, i: i, field: MxdbgFileNameOff), len: self.recordWord(files, stride: MxdbgFileEntrySize, i: i, field: MxdbgFileNameLen))
+	end 'fileName'
+
+	export function functionCount() returns Count
+		return funcs.count
+	end 'functionCount'
+
+	function funcWord(i Count, field Count) returns MxdbgIndex
+		return self.recordWord(funcs, stride: MxdbgFuncEntrySize, i: i, field: field)
+	end 'funcWord'
+
+	export function funcName(i Count) returns String
+		return self.text(self.funcWord(i, field: MxdbgFuncNameOff), len: self.funcWord(i, field: MxdbgFuncNameLen))
+	end 'funcName'
+
+	export function funcStart(i Count) returns Count
+		return self.funcWord(i, field: MxdbgFuncCodeStart) as Count
+	end 'funcStart'
+
+	export function funcEnd(i Count) returns Count
+		return self.funcWord(i, field: MxdbgFuncCodeEnd) as Count
+	end 'funcEnd'
+
+	export function funcLineFirst(i Count) returns Count
+		return self.funcWord(i, field: MxdbgFuncLineFirst) as Count
+	end 'funcLineFirst'
+
+	export function funcLineCount(i Count) returns Count
+		return self.funcWord(i, field: MxdbgFuncLineCount) as Count
+	end 'funcLineCount'
+
+	export function funcOrigin(i Count) returns MxdbgIndex
+		return self.funcWord(i, field: MxdbgFuncOrigin)
+	end 'funcOrigin'
+
+	export function lineCount() returns Count
+		return lines.count
+	end 'lineCount'
+
+	function lineWord(i Count, field Count) returns MxdbgIndex
+		return self.recordWord(lines, stride: MxdbgLineEntrySize, i: i, field: field)
+	end 'lineWord'
+
+	export function lineOffset(i Count) returns Count
+		return self.lineWord(i, field: MxdbgLineCodeOffset) as Count
+	end 'lineOffset'
+
+	export function lineFile(i Count) returns MxdbgIndex
+		return self.lineWord(i, field: MxdbgLineFileId)
+	end 'lineFile'
+
+	export function lineLine(i Count) returns MxdbgIndex
+		return self.lineWord(i, field: MxdbgLineLine)
+	end 'lineLine'
+
+	export function lineColumn(i Count) returns MxdbgIndex
+		return self.lineWord(i, field: MxdbgLineCol)
+	end 'lineColumn'
+
+	export function lineFlags(i Count) returns MxdbgIndex
+		return self.lineWord(i, field: MxdbgLineFlags)
+	end 'lineFlags'
+
+	export function siteCount() returns Count
+		return sites.count
+	end 'siteCount'
+
+	function siteWord(i Count, field Count) returns MxdbgIndex
+		return self.recordWord(sites, stride: MxdbgInlineSiteEntrySize, i: i, field: field)
+	end 'siteWord'
+
+	export function siteName(i Count) returns String
+		return self.text(self.siteWord(i, field: MxdbgInlineSiteNameOff), len: self.siteWord(i, field: MxdbgInlineSiteNameLen))
+	end 'siteName'
+
+	export function siteParent(i Count) returns MxdbgIndex
+		return self.siteWord(i, field: MxdbgInlineSiteParent)
+	end 'siteParent'
+
+	export function siteCallFile(i Count) returns MxdbgIndex
+		return self.siteWord(i, field: MxdbgInlineSiteCallFileId)
+	end 'siteCallFile'
+
+	export function siteCallLine(i Count) returns MxdbgIndex
+		return self.siteWord(i, field: MxdbgInlineSiteCallLine)
+	end 'siteCallLine'
+
+	export function siteCallColumn(i Count) returns MxdbgIndex
+		return self.siteWord(i, field: MxdbgInlineSiteCallCol)
+	end 'siteCallColumn'
+
+	export function siteOrigin(i Count) returns MxdbgIndex
+		return self.siteWord(i, field: MxdbgInlineSiteOrigin)
+	end 'siteOrigin'
+
+	export function rangeCount() returns Count
+		return ranges.count
+	end 'rangeCount'
+
+	export function rangeStart(i Count) returns Count
+		return self.recordWord(ranges, stride: MxdbgInlineRangeEntrySize, i: i, field: MxdbgInlineRangeCodeStart) as Count
+	end 'rangeStart'
+
+	export function rangeEnd(i Count) returns Count
+		return self.recordWord(ranges, stride: MxdbgInlineRangeEntrySize, i: i, field: MxdbgInlineRangeCodeEnd) as Count
+	end 'rangeEnd'
+
+	export function rangeSite(i Count) returns MxdbgIndex
+		return self.recordWord(ranges, stride: MxdbgInlineRangeEntrySize, i: i, field: MxdbgInlineRangeSite)
+	end 'rangeSite'
+
+	export function figureCount() returns Count
+		return figures.count
+	end 'figureCount'
+
+	export function figureName(i Count) returns String
+		return self.text(self.recordWord(figures, stride: MxdbgLayoutEntrySize, i: i, field: MxdbgLayoutNameOff), len: self.recordWord(figures, stride: MxdbgLayoutEntrySize, i: i, field: MxdbgLayoutNameLen))
+	end 'figureName'
+
+	export function figure(i Count) returns MxdbgRecordFigure
+		return mxdbgSignedWord(self.recordWord(figures, stride: MxdbgLayoutEntrySize, i: i, field: MxdbgLayoutFigure))
+	end 'figure'
+
+	// figureNamed is the layout figure of the name, or none.
+	export function figureNamed(name String) returns table.Option with MxdbgRecordFigure
+		for i in 0 upto figures.count 'figures'
+			if self.figureName(i) == name 'found'
+				return table.Option.some(self.figure(i))
+			end 'found'
+		end 'figures'
+		return table.Option.none
+	end 'figureNamed'
+
+	// figureCountNamed is the layout figure of the name when there is one and it counts something, which is not below 0.
+	export function figureCountNamed(name String) returns table.Option with Count
+		for i in 0 upto figures.count 'figures'
+			if self.figureName(i) == name 'found'
+				let figure = self.figure(i)
+				if figure < 0 'negative'
+					return table.Option.none
+				end 'negative'
+				return table.Option.some(try figure as Count otherwise panic("mxdbg: a figure past a count"))
+			end 'found'
+		end 'figures'
+		return table.Option.none
+	end 'figureCountNamed'
+
+	// functionAt is the function whose code holds the code offset, or none.
+	export function functionAt(offset Count) returns table.Option with Count
+		var lo = 0 as Count
+		var hi = funcs.count
+		while lo < hi 'search'
+			let mid = try lo + (hi - lo) / 2 otherwise panic("mxdbg: a search past its bounds")
+			if self.funcEnd(mid) <= offset 'after'
+				lo = try mid + 1 otherwise panic("mxdbg: a search past its bounds")
+			end 'after' else 'before'
+				hi = mid
+			end 'before'
+		end 'search'
+		if lo < funcs.count and self.funcStart(lo) <= offset and offset < self.funcEnd(lo) 'held'
+			return table.Option.some(lo)
+		end 'held'
+		return table.Option.none
+	end 'functionAt'
+
+	// rowAt is the line row of function f that holds the code offset: the last at or before it, or none before its first.
+	export function rowAt(f Count, offset Count) returns table.Option with Count
+		let first = self.funcLineFirst(f)
+		var lo = first
+		let stop = try first + self.funcLineCount(f) otherwise panic("mxdbg: a window past memory")
+		var hi = stop as Count
+		while lo < hi 'search'
+			let mid = try lo + (hi - lo) / 2 otherwise panic("mxdbg: a search past its bounds")
+			if self.lineOffset(mid) <= offset 'atOrBefore'
+				lo = try mid + 1 otherwise panic("mxdbg: a search past its bounds")
+			end 'atOrBefore' else 'after'
+				hi = mid
+			end 'after'
+		end 'search'
+		if lo == first 'none'
+			return table.Option.none
+		end 'none'
+		return table.Option.some(try lo - 1 otherwise panic("mxdbg: a row before the first"))
+	end 'rowAt'
+
+	// siteAt is the innermost inline site whose code holds the code offset, or none.
+	export function siteAt(offset Count) returns table.Option with Count
+		var lo = 0 as Count
+		var hi = ranges.count
+		while lo < hi 'search'
+			let mid = try lo + (hi - lo) / 2 otherwise panic("mxdbg: a search past its bounds")
+			if self.rangeEnd(mid) <= offset 'after'
+				lo = try mid + 1 otherwise panic("mxdbg: a search past its bounds")
+			end 'after' else 'before'
+				hi = mid
+			end 'before'
+		end 'search'
+		if lo < ranges.count and self.rangeStart(lo) <= offset and offset < self.rangeEnd(lo) 'held'
+			return table.Option.some(self.rangeSite(lo) as Count)
+		end 'held'
+		return table.Option.none
+	end 'siteAt'
+
+	// place is file:line:column of a row, or of an inline site's call, by its file, line and column words.
+	export function place(file MxdbgIndex, line MxdbgIndex, column MxdbgIndex) returns String
+		if file == MxdbgNoSourceFile or file as Count >= files.count 'none'
+			return "<no source>"
+		end 'none'
+		return "{self.fileName(file as Count)}:{line}:{column}"
+	end 'place'
+end 'MxdbgReader'
+
+let buildIdLength = 8 as Count
+
+let readerWordBits = 32 as Count
+
+function tableAt(image ByteArray, at Count) returns MxdbgTable
+	return MxdbgTable.make(readDword(image, offset: at) as Count, count: readDword(image, offset: try at + dwordBytes otherwise panic("mxdbg: a header past memory")) as Count)
+end 'tableAt'
+
+// fits is whether count records of stride bytes from offset end within size.
+function fits(offset Count, count Count, stride Count, size Count) returns bool
+	let bytes = try count * stride otherwise return false
+	let finish = try offset + bytes otherwise return false
+	return finish <= size
+end 'fits'
+
+let hexDigits = "0123456789abcdef"
+
+let nibbleBits = 4 as Count
+
+let nibbleMask = 15 as Count
+
+// hexOf is the bytes as hexadecimal digits, two to a byte.
+export function hexOf(bytes ByteArray) returns String
+	var out = ByteArray.create(0)
+	for i in 0 upto bytes.count() 'bytes'
+		let b = bytes[i] as Count
+		out.push(hexDigits.byteAt(b shr nibbleBits))
+		out.push(hexDigits.byteAt(b and nibbleMask))
+	end 'bytes'
+	return String.from(out)
+end 'hexOf'

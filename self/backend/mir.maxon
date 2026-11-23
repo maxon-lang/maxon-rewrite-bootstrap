@@ -309,9 +309,16 @@ export type MirFunction
 	// incomingStack is whether the function takes arguments on the stack, whose address its prologue then gives where
 	// the architecture's selection reads them (arm64IncomingBase).
 	export var incomingStack as bool
+	// keepsSpans is whether the function keeps the span of each instruction, by its index, in spans, as its IR did
+	// (ir.IrFunction.spans): selection gives what it writes for an IR instruction that one's span, pos, and a pass that
+	// lays the instructions out again carries them (keepSpan); what allocation adds has none, so it is the code of the
+	// statement whose code it is among.
+	export var keepsSpans as bool
+	export var pos as ir.Word
+	export var spans as ir.SpanList
 
 	export static function new(symbol String, canThrow bool, arch ast.TargetArch) returns MirFunction
-		return MirFunction{symbol: symbol.clone(), arch: arch, instrs: MInstrList.create(0), blocks: MBlockList.create(0), order: MBlockIDList.create(0), blockParams: MRegList.create(0), edges: MEdgeList.create(0), edgeArgs: MRegList.create(0), copies: MCopyList.create(0), symbols: NameList.create(0), classes: RegClassList.create(0), fixedSlots: 0, spillSlots: 0, savedRegs: 0, canThrow: canThrow, floatResult: false, stringResult: false, outgoingBytes: 0, incomingStack: false}
+		return MirFunction{symbol: symbol.clone(), arch: arch, instrs: MInstrList.create(0), blocks: MBlockList.create(0), order: MBlockIDList.create(0), blockParams: MRegList.create(0), edges: MEdgeList.create(0), edgeArgs: MRegList.create(0), copies: MCopyList.create(0), symbols: NameList.create(0), classes: RegClassList.create(0), fixedSlots: 0, spillSlots: 0, savedRegs: 0, canThrow: canThrow, floatResult: false, stringResult: false, outgoingBytes: 0, incomingStack: false, keepsSpans: false, pos: ir.noSpan, spans: ir.SpanList.create(0)}
 	end 'new'
 
 	export function newVReg(mutates self, class RegClass) returns MReg
@@ -423,7 +430,18 @@ export type MirFunction
 
 	export function emit(mutates self, consumes x MInstr)
 		instrs.push(x)
+		if keepsSpans 'span'
+			spans.push(pos)
+		end 'span'
 	end 'emit'
+
+	// spanAt is the span of instruction k, or ir.noSpan when the function keeps none.
+	export function spanAt(k Count) returns ir.Word
+		if not keepsSpans 'none'
+			return ir.noSpan
+		end 'none'
+		return spans[k]
+	end 'spanAt'
 
 	// frameBytes is the size of the slots below the frame pointer, which the callee-saved registers are pushed below.
 	function frameBytes() returns Count
@@ -444,3 +462,29 @@ end 'spillSlotOffset'
 function copyCount(x MInstr) returns Count
 	return try x.imm as Count otherwise panic("backend: a parallel copy of fewer than no copies")
 end 'copyCount'
+
+// keepSpan puts the span of instruction k of fn at the end of out, which a pass lays out beside the instructions it writes
+// again, when fn keeps spans.
+function keepSpan(mutates out ir.SpanList, fn MirFunction, k Count)
+	if fn.keepsSpans 'kept'
+		out.push(fn.spans[k])
+	end 'kept'
+end 'keepSpan'
+
+// padSpans gives the instructions a pass has added since the last whose span it kept, up to count of them, no span, when
+// fn keeps spans: what allocation adds is the code of the statement whose code it is among.
+function padSpans(mutates out ir.SpanList, fn MirFunction, count Count)
+	if fn.keepsSpans 'kept'
+		while out.count() < count 'added'
+			out.push(ir.noSpan)
+		end 'added'
+	end 'kept'
+end 'padSpans'
+
+// noteSpans gives the unit the spans of the instructions of fn from from up to upTo, which it has just written as one from
+// at on.
+function noteSpans(mutates u CodeUnit, fn MirFunction, from Count, upTo Count, at Count)
+	for j in from upto upTo 'each'
+		u.noteSpan(fn.spans[j], at: at)
+	end 'each'
+end 'noteSpans'

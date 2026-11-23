@@ -55,6 +55,9 @@ type Verifier
 		if not self.checkShape(f) 'malformed'
 			return
 		end 'malformed'
+		if f.keepsSpans and f.spans.count() != f.instrs.count() 'spans'
+			self.problem("the function keeps {f.spans.count()} spans for {f.instrs.count()} instructions")
+		end 'spans'
 		flow.build(f)
 		self.definedOnce()
 		self.checkReads(f)

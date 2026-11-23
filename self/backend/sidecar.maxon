@@ -1,0 +1,204 @@
+// The debug info of an executable, the `.mxdbg` sidecar beside it (README, "Debug info"), from the lines of its code that the
+// link described: its files, its functions, its line table, its inline sites and the code under each, and the layout figures
+// by which a reader finds its code. Each row's span is placed in its file here, from the module's text, so the units and the
+// link carry offsets only.
+
+// compilerStamp is the compiler a sidecar says wrote it.
+let compilerStamp = "minimaxon"
+
+// noModule is a site that no row or call places in a module, whose origin is then synthesized code's.
+let noModule = -1 as diag.ModuleID
+
+// writeSidecar writes the sidecar of the executable at out, whose code lines describes, beside it.
+export function writeSidecar(p ast.Project, lines CodeLines, out FilePath) throws FileWriteError
+	var w = mxdbg.MxdbgWriter.create()
+	var firstFile = CountList.create(0)
+	for m in 0 upto p.modules.count() 'modules'
+		firstFile.push(w.fileCount())
+		for j in 0 upto p.modules[m].files.count() 'files'
+			w.addFile(recordedPath(p, m: m, path: p.modules[m].files[j].path))
+		end 'files'
+	end 'modules'
+	let siteModules = siteModulesOf(p, lines: lines)
+	var r = 0 as Count
+	for f in 0 upto lines.functions.count() 'functions'
+		while r < lines.rowOffsets.count() and lines.rowOffsets[r] < lines.starts[f] 'before'
+			r = ir.succ(r)
+		end 'before'
+		var origin = mxdbg.MxdbgOrigin.synthesized
+		if r < lines.rowOffsets.count() and lines.rowOffsets[r] < lines.ends[f] 'placed'
+			origin = originOf(p, module: ir.spanModule(lines.rowSpans[r]))
+		end 'placed'
+		w.addFunction(lines.functions[f], displayName: lines.functions[f], origin: origin, codeStart: mxdbg.mxdbgWord(lines.starts[f]), codeEnd: mxdbg.mxdbgWord(lines.ends[f]), prologueOffset: 0, frameSize: 0, paramCount: 0)
+	end 'functions'
+	writeRows(w, p: p, lines: lines, firstFile: firstFile)
+	for s in 0 upto lines.siteCallees.count() 'sites'
+		let call = lines.siteCalls[s]
+		let field = ir.spanSite(call)
+		var parent = mxdbg.MxdbgNoInlineSite
+		if field != ir.ownBody 'nested'
+			parent = mxdbg.mxdbgWord(ir.pred(field))
+		end 'nested'
+		let place = SourcePlace.of(p, span: call, firstFile: firstFile)
+		w.addInlineSite(lines.siteCallees[s], parent: parent, callFileId: place.file, callLine: place.line, callColumn: place.column, origin: originOf(p, module: siteModules[s]))
+	end 'sites'
+	writeRanges(w, lines: lines)
+	w.placeImageAt(lines.base)
+	w.addLayoutFigure(mxdbg.ImageTextRvaFigureName, figure: figureOf(lines.textRva))
+	w.addLayoutFigure(mxdbg.ImageTextBytesFigureName, figure: figureOf(lines.codeSize))
+	let bytes = w.build(lines.buildId, targetTriple: p.target.name(), sourceRoot: p.root, compilerVersion: compilerStamp)
+	try File.writeBinary(try FilePath.from(sidecarPathOf(out.toString())) otherwise panic("backend: the sidecar of {out.toString()} is not a path"), content: bytes)
+end 'writeSidecar'
+
+// recordedPath is how the sidecar names a file of module m, as maxon's does: one of the runtime or of the standard library by
+// its tier, runtime/<file> or the module's path and the file (stdlib/...), and one of the program relative to its root, which
+// the header names, when it is under it.
+function recordedPath(p ast.Project, m Count, path String) returns String
+	if p.modules[m].isRuntime 'runtime'
+		return "{ast.runtimeQualifier}{portableSeparator}{ast.fileNameOf(path)}"
+	end 'runtime'
+	if p.modules[m].isLibrary 'library'
+		return "{p.modules[m].path}{portableSeparator}{ast.fileNameOf(path)}"
+	end 'library'
+	let root = p.root.byteLength()
+	if root > 0 and path.byteLength() > root and path.sliceBytes(0, endPos: root) == p.root and isSeparatorByte(path.byteAt(root)) 'underRoot'
+		return path.sliceBytes(ir.succ(root), endPos: path.byteLength())
+	end 'underRoot'
+	return path.clone()
+end 'recordedPath'
+
+// portableSeparator joins the parts of a path the sidecar records by tier, maxon's PortablePathSeparator.
+let portableSeparator = "/"
+
+let slashSeparator = 47 as Byte
+
+let backslashSeparator = 92 as Byte
+
+function isSeparatorByte(c Byte) returns bool
+	return c == slashSeparator or c == backslashSeparator
+end 'isSeparatorByte'
+
+// sidecarPathOf is the sidecar of the executable at path: its whole name with the extension appended, maxon's.
+export function sidecarPathOf(path String) returns String
+	return "{path}{mxdbg.MxdbgSidecarExtension}"
+end 'sidecarPathOf'
+
+function figureOf(n Count) returns mxdbg.MxdbgRecordFigure
+	return try n as mxdbg.MxdbgRecordFigure otherwise panic("backend: {n} is past a figure of the sidecar")
+end 'figureOf'
+
+// SourcePlace is where a span is in the sidecar's files, or MxdbgNoSourceFile for one with no source: no statement's, or one
+// of a module whose text the compile no longer holds (the runtime's, under a runner that shares it).
+type SourcePlace
+	var file as mxdbg.MxdbgIndex
+	var line as mxdbg.MxdbgIndex
+	var column as mxdbg.MxdbgIndex
+
+	static function of(p ast.Project, span ir.Word, firstFile CountList) returns SourcePlace
+		if span == ir.noSpan 'none'
+			return SourcePlace{file: mxdbg.MxdbgNoSourceFile, line: 0, column: 0}
+		end 'none'
+		let m = ast.modIndex(ir.spanModule(span))
+		if m >= p.modules.count() or p.modules[m].files.count() == 0 'unheld'
+			return SourcePlace{file: mxdbg.MxdbgNoSourceFile, line: 0, column: 0}
+		end 'unheld'
+		let offset = ir.spanOffset(span)
+		let j = ast.findFileIndex(p.modules[m].files, offset: offset)
+		let at = ast.locateInFile(p.modules[m].tree.text, files: p.modules[m].files, file: j, offset: offset)
+		return SourcePlace{file: mxdbg.mxdbgWord(try firstFile[m] + j otherwise panic("backend: a file past memory")), line: mxdbg.mxdbgWord(at.line), column: mxdbg.mxdbgWord(at.col)}
+	end 'of'
+end 'SourcePlace'
+
+// writeRows writes the line table: a row where control enters a line is a line entry, the first of each function's too.
+function writeRows(mutates w mxdbg.MxdbgWriter, p ast.Project, lines CodeLines, firstFile CountList)
+	var f = 0 as Count
+	var lastFunction = lines.functions.count()
+	var lastFile = mxdbg.MxdbgNoSourceFile
+	var lastLine = 0 as mxdbg.MxdbgIndex
+	for r in 0 upto lines.rowOffsets.count() 'rows'
+		let offset = lines.rowOffsets[r]
+		while f < lines.functions.count() and lines.ends[f] <= offset 'function'
+			f = ir.succ(f)
+		end 'function'
+		let entersFunction = f != lastFunction
+		lastFunction = f
+		let place = SourcePlace.of(p, span: lines.rowSpans[r], firstFile: firstFile)
+		if place.file == mxdbg.MxdbgNoSourceFile 'unplaced'
+			continue 'rows'
+		end 'unplaced'
+		var flags = mxdbg.MxdbgLineFlagStatement
+		if entersFunction or place.file != lastFile or place.line != lastLine 'entry'
+			flags = flags or mxdbg.MxdbgLineFlagLineEntry
+		end 'entry'
+		w.addLine(mxdbg.mxdbgWord(offset), fileId: place.file, line: place.line, column: place.column, flags: flags)
+		lastFile = place.file
+		lastLine = place.line
+	end 'rows'
+end 'writeRows'
+
+// writeRanges writes the code each inline site's copy holds: from a row in it to the next row, or to its function's end, the
+// rows of one site that follow each other making one range.
+function writeRanges(mutates w mxdbg.MxdbgWriter, lines CodeLines)
+	var f = 0 as Count
+	var open = false
+	var site = 0 as Count
+	var start = 0 as Count
+	for r in 0 upto lines.rowOffsets.count() 'rows'
+		let offset = lines.rowOffsets[r]
+		while f < lines.functions.count() and lines.ends[f] <= offset 'function'
+			if open 'close'
+				w.addInlineRange(mxdbg.mxdbgWord(start), codeEnd: mxdbg.mxdbgWord(lines.ends[f]), site: mxdbg.mxdbgWord(site))
+				open = false
+			end 'close'
+			f = ir.succ(f)
+		end 'function'
+		let field = ir.spanSite(lines.rowSpans[r])
+		if open and (field == ir.ownBody or ir.pred(field) != site) 'end'
+			w.addInlineRange(mxdbg.mxdbgWord(start), codeEnd: mxdbg.mxdbgWord(offset), site: mxdbg.mxdbgWord(site))
+			open = false
+		end 'end'
+		if not open and field != ir.ownBody 'begin'
+			open = true
+			site = ir.pred(field)
+			start = offset
+		end 'begin'
+	end 'rows'
+	if open 'last'
+		w.addInlineRange(mxdbg.mxdbgWord(start), codeEnd: mxdbg.mxdbgWord(lines.ends[f]), site: mxdbg.mxdbgWord(site))
+	end 'last'
+end 'writeRanges'
+
+// siteModulesOf is the module of each site's code: that of a row in it, or of a call it holds.
+function siteModulesOf(p ast.Project, lines CodeLines) returns Array with diag.ModuleID
+	var modules as Array with diag.ModuleID
+	modules = Array.filled(lines.siteCallees.count(), value: noModule)
+	for r in 0 upto lines.rowSpans.count() 'rows'
+		noteSiteModule(modules, span: lines.rowSpans[r])
+	end 'rows'
+	for s in 0 upto lines.siteCalls.count() 'calls'
+		noteSiteModule(modules, span: lines.siteCalls[s])
+	end 'calls'
+	return modules
+end 'siteModulesOf'
+
+function noteSiteModule(mutates modules Array with diag.ModuleID, span ir.Word)
+	let field = ir.spanSite(span)
+	if span != ir.noSpan and field != ir.ownBody and modules[ir.pred(field)] == noModule 'first'
+		modules[ir.pred(field)] = ir.spanModule(span)
+	end 'first'
+end 'noteSiteModule'
+
+// originOf is the origin of code of a module: the runtime's, the standard library's or the program's own.
+function originOf(p ast.Project, module diag.ModuleID) returns mxdbg.MxdbgOrigin
+	if module < 0 or ast.modIndex(module) >= p.modules.count() 'none'
+		return mxdbg.MxdbgOrigin.synthesized
+	end 'none'
+	let m = ast.modIndex(module)
+	if p.modules[m].isRuntime 'runtime'
+		return mxdbg.MxdbgOrigin.runtime
+	end 'runtime'
+	if p.modules[m].isLibrary 'library'
+		return mxdbg.MxdbgOrigin.library
+	end 'library'
+	return mxdbg.MxdbgOrigin.authored
+end 'originOf'

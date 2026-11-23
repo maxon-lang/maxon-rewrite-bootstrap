@@ -42,6 +42,8 @@ generator.
 | `minimaxon test <specs-dir\|file.md> [--verbose] [--require-passed\|--skip-passed] [--record-passed] [--executables=N]` | run maxon's spec tests (see "Tests") |
 | `minimaxon test <module dir>` | run the tests of the modules under the directory: the `test` declarations of their files of tests (`.maxtest`), compiled with the modules they name and the runtime into one executable whose entry calls each, which is then run (see "Tests") |
 | `minimaxon selftest` | run the compiler's own tests: `test self`, from the root of the repository |
+| `minimaxon debug --symbolize <exe> <offset\|rip=0x<address>>...` | name the function, `file:line:column` and the inlined calls of code offsets (decimal or `0x` hex) of an executable that `build --debug-info` made, or of the address of a fault line, from the sidecar beside it, refusing one that describes another build (see "Debug info") |
+| `minimaxon debug --dump-info <exe> [header\|files\|functions\|lines\|inline\|layout]...` | print the sidecar's sections, every one when none is named |
 | `minimaxon cache [trim\|clear]` | say where the build cache is and how many files and bytes it holds; `trim` deletes what a trim would (the files unused for five days) whether one is due or not, `clear` every file the cache wrote (see "Build cache") |
 | `minimaxon rewrite --keyword=old=new <path>...` | rename a keyword by token in the `.maxon` files and the Markdown code under the paths (see "Changing the language") |
 | `minimaxon qualify <dir>...` | write the module's path before each bare name of another module's declaration in the projects (see "Changing the language") |
@@ -86,6 +88,7 @@ that needs a proof is asked for before what maxon reports), and otherwise left a
 walks gets `<!-- skip: language difference: a loop holds the collection it walks -->`. `specs.ps1` runs both and then the new tests (see "Tests"); `specs/README.md` has the command, and the directory is
 never edited by hand, except that the runner writes `specs/passed.txt` (see "Tests").
 
+`--debug-info` (on `build`) writes the executable's debug info beside it, as `<out>.mxdbg`, and leaves the executable byte for byte the one a build without it makes; `--no-debug-info`, maxon's spelling, writes none, as a build does by default (see "Debug info").
 `--emit-ir` writes the IR of every function beside the executable, as `<out>.ir`, in SSA form as instruction selection gets it, and `--emit-map` the map of its code,
 as `<out>.map`: a line per function and routine the link kept, in address order, with its RVA and size in hexadecimal
 and its symbol, which `cmd/sample` reads. A profile of `self/` is two commands:
@@ -226,7 +229,7 @@ every program compiled with arm64's selection and allocation held to their invar
 the `qemu-aarch64` that WSL has registered with binfmt_misc), every program of `tests/bench/` compiled, and none run, with `--verify-ir` for each of the four targets (`test testsench --target=<target> --verify-ir --compile-only`), the compiler's own source
 built, and not run, for `arm64-linux` and `arm64-macos` (`build self --target=<target> --verify-ir --no-cache`), the build cache (a project whose main inlines a leaf of the module it names, built cold, warm and after
 an edit of the leaf that the order mispredicts, on every worker and on one, each executable held to the uncached build of the same
-source, and `--verify-cache`), every spec test (`test specs --require-passed`, which fails when a test that `specs/passed.txt` lists does not pass, and
+source, and `--verify-cache`), the debug info (programs built for each target and `self` for x64 Windows with and without `--debug-info`, each executable the same and every span verified, and a stack overflow's `rip=` symbolized to its line on x64 Windows, x64 Linux and arm64 Linux; see "Debug info"), every spec test (`test specs --require-passed`, which fails when a test that `specs/passed.txt` lists does not pass, and
 counts the new passes), and `fuzz` (300 generated programs, each one the checker accepts run clean under the interpreter). It stops at the
 first step that fails. That the compiler reproduces itself (the seed builds C1, C1 builds C2, C2 builds C3, and C3 is
 byte-identical to C2) is checked where the seed is renewed, `.\seed.ps1`, which then runs the same `suites.ps1` on C2.
@@ -458,6 +461,7 @@ layering cannot erode:
 |---|---|---|
 | `diag` | `CompileError` (a code, a message and a place: a `Site`, a module handle and an offset, until the error is located, then file, line and column), `ErrorList`, `sortErrors`, the error codes (generated from `codes.tsv`) and the message functions (from `messages.tsv`) | — |
 | `table` | `StringMap` and `IntMap` (open addressing) and `Option`, which nothing built in provides; `Digest`, `Hasher`, `ByteWriter` and `ByteReader` (`digest.maxon`), which the build cache names its entries by and stores them with, and `CacheWriter` and `CacheReader` (`cache.maxon`), which the generated functions store a module's checked state with | — |
+| `mxdbg` | the `.mxdbg` sidecar's format, maxon's (`format.maxon`), its writer (`MxdbgWriter`) and its reader (`MxdbgReader`), which the backend writes and the `debug` command reads (see "Debug info") | `table` |
 | `ast` | the program model: `Tree`, a module's nodes as flat `Record`s, the generated node kinds, accessors and declaration structs, `Module` and `Project`, the project's `TypeTable` and `FuncTable` of per-module slots and the accessors every read of an entry goes through (`typeEntry`, `funcEntry`), the `ModuleState` a module's task writes, which holds its module's slots (`state.maxon`), the built-in types and functions (generated), `Resolution` and `Typing`, the per-module tables the phases fill in (see "The AST"), link names, locating an error, `I128` | `diag`, `table` |
 | `syntax` | the grammar (`Maxon.g4`), the generated tokens and parser, the lexer loop, the layout rules, the formatter (the parser in a mode that writes the layout instead of checking it) and the edits that rename a keyword | `ast`, `diag`, `table` |
 | `project` | loading a project: discovery, finding the runtime's source (see "The runtime") and the standard library's (see "Modules"), reading and parsing each module, the declaration tables, the module graph and its import-cycle check | `ast`, `diag`, `syntax`, `table` |
@@ -465,7 +469,7 @@ layering cannot erode:
 | `check` | the stages of the type checker (`stages.maxon`), the generic bounds, the range analysis that decides what arithmetic can fail, the ownership pass, and what a behaviour may capture, into the module's `Typing` | `ast`, `diag`, `table` |
 | `ir` | the IR (fixed-size records, with the printer and the visitors generated from the IR table), the graph algorithms (reverse postorder, dominators, natural loops) that its flow and the machine IR share, what its arithmetic computes (`evaluate_gen.maxon`, generated from the IR table: `evalBin`, `evalCmp`, `evalGuard` and the rest, one per operation that computes a word from its operands, which the interpreter and the fold pass both call; `evaluate.maxon` has the algorithms the table names: the 64-bit wraps, the wide product, the shifts, the overflow tests and the float conversions), its builder, finding the generic instances a module needs, lowering (the primitives' operations, where each value is dropped, the body of each behaviour), which reads the `Typing` of every module it follows a call, a constant or a field's default into, and the runtime's symbol names | `ast`, `diag`, `table` |
 | `opt` | the optimizer: leaf inlining (`Leaves`, `Inliner`, `self/opt/inline.maxon`), its analyses (`Analysis`: over `ir.Flow`, the dominator tree, dominance frontiers, loop nesting depth and use counts per register), the rewrite rules' matcher generated from `internal/rulegen/generic.rules` (`rewriteInstr`, reading the definitions of `ir.Defs`) and the helpers the rules call; SSA construction (`Ssa`, `self/opt/ssa.maxon`: the slots nothing takes the address of become registers and block parameters) and the fold pass (`Fold`, `self/opt/fold.maxon`), which `optimizeModule` (`self/opt/optimizer.maxon`) runs in that order on every function a native build compiles; after leaf inlining, loop rotation (`Rotator`, `rotate.maxon`), loop-invariant code motion (`Licm`, `licm.maxon`) and common subexpression elimination (`Cse`, `cse.maxon`), over what may be merged or moved of each operation (`motionOf`, `motion.maxon`), the loops' facts (`LoopFacts`, `loops.maxon`) and the edits they share (`Editor`, `edit.maxon`) | `ast`, `ir`, `table` |
-| `backend` | the x64 and arm64 encoders (generated), the assembler and code unit (`unit.maxon`: labels, fixups of a kind, sections; x64's instructions in `asm_x64.maxon`, arm64's and the patching of their fields in `asm_arm64.maxon`), instruction selection (`isel.maxon`: the module's functions into machine IR by the rules of each instruction set, `internal/rulegen/x64.rules` generated into `lower_x64_gen.maxon` and `arm64.rules` into `lower_arm64_gen.maxon`, the helpers every architecture shares, and the primitives of the machine they call, which `isel_x64.maxon` writes for x64 and `isel_arm64.maxon` for arm64, each with its half of the calls and the helpers only its rules name; `rules.maxon`), the machine IR (`mir.maxon`: forms by `FormID`, conditions by `MCond`), what the allocator asks of every architecture and form (`machine.maxon`, over `machine_gen.maxon`), x64's register file and conventions (`regs_x64.maxon`, over the target table's `regs_x64_gen.maxon`) and arm64's (`regs_arm64.maxon`, over `regs_arm64_gen.maxon`), liveness, register pressure and spilling with the E5001 test (`liveness.maxon`, `pressure.maxon`, `spill.maxon`), block parameters in memory (`params_memory.maxon`), colouring, SSA destruction and the colouring's checker (`regalloc.maxon`, `ssa_destruction.maxon`, `colour_check.maxon`) and each architecture's encoder of the machine IR (`encode_x64.maxon`, `encode_arm64.maxon`, which writes maxon's arm64 frame), the drop and copy routine of each type (`routines.maxon`, written in the instructions of `routine_asm.maxon`, which each architecture's assembler writes, naming its registers by their roles), the entry stub of each system (`entry.maxon`, `entry_linux.maxon`, and arm64's `entry_arm64.maxon`) with the green threads' code (`green.maxon`, `green_arm64.maxon`) and the two ways it starts main (`start.maxon`), the linker, which decides between them by what the program reaches, and the writers of the executable's formats behind one image (`image.maxon`: the PE writer `pe.maxon`, the ELF writer `elf.maxon`, of either machine, and the Mach-O writer `macho.maxon`, with the ad-hoc code signature `codesign.maxon` and the SHA-256 it hashes with, `sha256.maxon`) | `ast`, `diag`, `ir`, `table` |
+| `backend` | the line table of the code it writes and the sidecar of an executable (`lines.maxon`, `sidecar.maxon`; see "Debug info"), the x64 and arm64 encoders (generated), the assembler and code unit (`unit.maxon`: labels, fixups of a kind, sections; x64's instructions in `asm_x64.maxon`, arm64's and the patching of their fields in `asm_arm64.maxon`), instruction selection (`isel.maxon`: the module's functions into machine IR by the rules of each instruction set, `internal/rulegen/x64.rules` generated into `lower_x64_gen.maxon` and `arm64.rules` into `lower_arm64_gen.maxon`, the helpers every architecture shares, and the primitives of the machine they call, which `isel_x64.maxon` writes for x64 and `isel_arm64.maxon` for arm64, each with its half of the calls and the helpers only its rules name; `rules.maxon`), the machine IR (`mir.maxon`: forms by `FormID`, conditions by `MCond`), what the allocator asks of every architecture and form (`machine.maxon`, over `machine_gen.maxon`), x64's register file and conventions (`regs_x64.maxon`, over the target table's `regs_x64_gen.maxon`) and arm64's (`regs_arm64.maxon`, over `regs_arm64_gen.maxon`), liveness, register pressure and spilling with the E5001 test (`liveness.maxon`, `pressure.maxon`, `spill.maxon`), block parameters in memory (`params_memory.maxon`), colouring, SSA destruction and the colouring's checker (`regalloc.maxon`, `ssa_destruction.maxon`, `colour_check.maxon`) and each architecture's encoder of the machine IR (`encode_x64.maxon`, `encode_arm64.maxon`, which writes maxon's arm64 frame), the drop and copy routine of each type (`routines.maxon`, written in the instructions of `routine_asm.maxon`, which each architecture's assembler writes, naming its registers by their roles), the entry stub of each system (`entry.maxon`, `entry_linux.maxon`, and arm64's `entry_arm64.maxon`) with the green threads' code (`green.maxon`, `green_arm64.maxon`) and the two ways it starts main (`start.maxon`), the linker, which decides between them by what the program reaches, and the writers of the executable's formats behind one image (`image.maxon`: the PE writer `pe.maxon`, the ELF writer `elf.maxon`, of either machine, and the Mach-O writer `macho.maxon`, with the ad-hoc code signature `codesign.maxon` and the SHA-256 it hashes with, `sha256.maxon`) | `ast`, `diag`, `ir`, `mxdbg`, `table` |
 | `interp` | the tracking interpreter: runs the IR of a whole program with the primitives written in Maxon and a simulated scheduler of behaviours, and reports a violation of the memory model | `ast`, `ir`, `table` |
 | `fuzz` | the random program generator the `fuzz` command runs | `table` |
 | `driver` | the commands (`driver.maxon` is the command line); `compile.maxon` runs the pipeline as the task graph of `graph.maxon`; `cache.maxon` is the build cache, `unittests.maxon` the compile of a module's tests; the corpus and spec runners, `interp`, `fuzz`, `fmt`, `rewrite`, `qualify`, `rename` and `update_positions` | all of the above |
@@ -1134,6 +1138,58 @@ them, a module that an unsettled one names would load its check and lower instea
 would cost its own module and no more. A language server needs the same: a module's products kept while it does not change (its
 tables are indexed by `NodeID`, which depends only on its text), its diagnostics under its key, and its summary to tell whether
 the modules that name it have to be looked at again.
+## Debug info
+
+The debugger will be commands of the compiler, as maxon's is (`maxon debug`): it reads a sidecar that the build writes
+beside the executable, maxon's `.mxdbg` format, and drives the unmodified executable from outside. What is here is its first
+part: the source positions carried from the lowering to the machine code, the sidecar with its line table, and `debug
+--symbolize` and `--dump-info`, which read it.
+
+- **Only with the flag.** `build --debug-info` writes `<out>.mxdbg` (`foo.exe.mxdbg`, maxon's name) and an executable byte for
+  byte the one a build without the flag makes: every input of the sidecar is an observation of code already laid out, and
+  nothing of it reaches the code, the data or the headers. A build without the flag keeps no position anywhere: the columns
+  below stay empty, a pass that makes or lays out instructions tests a flag of the function that is always false, and a
+  build of `self` takes the time it took before, within the noise (1,411 against 1,414 ms, best of nine). A build with it compiles without the build cache, whose units keep no lines.
+- **Spans in the IR.** The lowering gives every instruction the span of the statement it lowers (`positionAt` in
+  `lowerStmt`), and the code of no statement (the parameters taken, the return at the end) the declaration's, through the
+  builder's `pos`, which `Builder.emit`, the one place instructions are made, writes into the column. A span is one word
+  (`ir.spanOf`): the module, the offset in its text, and the inline site, 0 for the function's own body. The passes carry the
+  column where they lay instructions out again (`ir.keepSpan`, `ir.takeSpans`): SSA construction, whose zeros of slots have
+  no span; the fold, whose rewrites keep the slot and whose instructions put before another take that one's span; the
+  expansion of the primitives, whose operations and trap block take the call's; leaf inlining; and the `opt.Editor` that
+  rotation, code motion and elimination share, where an instruction put in place of another takes its span and one appended
+  to a block takes the span of what it moves or copies. So **hoisted code keeps its own line**, a **merged** one (CSE) keeps
+  the line of the one that stays, which dominates it, and a rotated test is the header's line, as maxon's observing emitter
+  reports them; `--verify-ir` holds the column to the instructions' count.
+- **Inline sites.** Leaf inlining makes the copy of a callee a site of the caller (`ir.inlineInto`): the callee and the
+  span of the call, whose site field is the site the call is in. The copy's instructions keep the callee's spans, their sites
+  moved after it, so nested copies keep their chain, maxon's inline-site table: a row in a copy names the callee's line, and the
+  site says where it was called from.
+- **Spans in the machine IR.** Selection gives what it writes for an IR instruction that instruction's span
+  (`MirFunction.pos`, written by `MirFunction.emit`), and the passes after it carry the column as they lay the instructions out
+  again (`keepSpan`, `padSpans`): the classes' legalization, the dead code removal, the layout, block parameters in memory,
+  spilling's edits and the rewrite out of SSA. What allocation adds (a spill, a reload, a copy, the parallel copy of an edge)
+  has no span, so it is the code of the statement around it, maxon's rule.
+- **Rows.** The encoders note a row where the span of the code changes (`CodeUnit.noteSpan`); the function's first row is at
+  its start, so its prologue is its first statement's code. The link places each unit's rows with its live sections
+  (`describeLines`), and the sidecar writer places each span in its file by the module's line starts (`writeSidecar`).
+- **The sidecar** has maxon's layout (`self/mxdbg/format.maxon`): a 160-byte header (the target, the build id, the root,
+  the image base, the compiler), the files (the runtime's as `runtime/<file>`, the library's by its module's path, the
+  program's relative to its root), the functions with their code ranges, windows of rows and origin (`authored`, `library`,
+  `runtime`, `synthesized`), the line table (20-byte rows with the `statement` and `line-entry` flags), the inline sites
+  and the disjoint code ranges under each, and the layout figures `ImageTextRva` and `ImageTextBytes`. The build id is the
+  first eight bytes of the SHA-256 of the code, maxon's, which `debug` takes again of the executable's code (in a PE image
+  the section at `ImageTextRva`, in an ELF or Mach-O image the file at that offset) and refuses a sidecar of another build.
+  "Where it differs from Maxon" lists what v1 leaves empty.
+- **`debug --symbolize`** takes code offsets or the `rip=0x<address>` of a fault line (from the image base the sidecar
+  records: on Windows the loader may move the image, so an address maps only when it was loaded there) and prints maxon's line
+  for each, `0x1290  main.maxon:6:2  (in export::down)`, and under it each inlined call the code is in, innermost first,
+  `  inlined export::square called at main.maxon:12:3`.
+- **Verified.** `--verify-ir` on a build with the flag holds every span of every function to the source of the function it is
+  in, from its header's line to its end, and a span in an inline site to its callee's (`verifySpans`). The gate's
+  `debug info` step builds programs on the four targets with and without the flag, compares the executables, verifies the
+  spans of `self` and those programs, and symbolizes the `rip=` of a stack overflow on x64 Windows, x64 Linux and arm64 Linux to
+  its line.
 ## The IR
 
 The checker works on the AST, which mirrors what the author wrote. Everything after it works on the IR in `self/ir`, which is
@@ -1294,6 +1350,10 @@ what a later pass such as reference counting or an optimization changes.
   from 0). A failure edge into a block that another edge also enters, such as the two guards of a cast that share one failure,
   gets a block of its own at the end that jumps there, so the verifier's last rule holds of all lowered IR. A `when` body and a closure's body are each an `IrFunction` of its own in `bodies` of the function around it.
 - `--emit-ir` prints a module's IR (`ir.moduleIrText`).
+- **Spans.** A build that writes debug info (`Project.keepsSpans`) keeps the source position of each instruction in a column beside the
+  instructions, `IrFunction.spans`, by instruction index, never in the record: one word, the module, the offset in its text and the
+  inline site (`self/ir/spans.maxon`). Any other build leaves the column empty and no pass touches it. See "Debug info" for how
+  each pass carries it.
 - The verifier (`ir.verifyIr`, `self/ir/verify.maxon`) checks the rules every pass must keep: each register is defined once;
   every definition dominates its uses; an edge passes as many arguments as its target has parameters, each of the parameter's
   kind, and the entry has none; and an edge that leaves its block before its end (an `else`) passes no arguments and is the
@@ -1809,6 +1869,9 @@ one for an import (Win64) and its system call's for a `syscall` (Linux's), whose
 (`isKernelCall`, `callConvention`). A call's `imm` is the
 registers its arguments are in, which `implicitUses` counts as read by it (`newCall`), and a return reads the result
 register of its function's class (`MirFunction.floatResult`).
+
+A build that writes debug info gives a `MirFunction` a column of spans beside its instructions too (`MirFunction.spans`; see
+"Debug info").
 
 Before allocation, `DeadCode` (`dead.maxon`) has every read of a virtual register that a copy of another one defines read
 that one instead (in SSA form the two hold one value wherever the copy's is live, so no point holds more values; a read of
@@ -4176,6 +4239,14 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   different numbers are two types. Not supported: a cast between tuple types (`E3009`, `E3226`), the spelling `t._0` of an element that
   some of Maxon's specs use, a tuple of a type parameter read by field in a generic body, a one-element target list `(x) = e`,
   and the `E3064` lint on a tuple assignment of nothing but `_`.
+- **Debug info is written only with `--debug-info`**, where maxon writes it by default and turns it off with `--no-debug-info`,
+  which minimaxon takes as the default: a build that does not ask for it pays nothing for it (see "Debug info"). Its sidecar
+  is maxon's format, version 12, with these sections empty so far: the types and their fields, the locals, the coverage points,
+  the constant words and the globals of the runtime's contract. A function's frame size, parameter count and prologue offset are
+  0; its display name is its symbol; a row is where the span of the code changes (every statement's start, and the code of
+  inlined bodies), a line entry where its line differs from the row's before it or it starts its function; the layout
+  table adds `ImageTextBytes`, the length of the code the build id hashes, beside maxon's `ImageTextRva`; and the header names
+  the compiler as `minimaxon`.
 - A compiled program frees each value where its owner dies, as the IR says (see "Drops" and "Native freeing"), with one
   free and no reference counting; Maxon counts references. A panic and a fault print no backtrace after their line
   (the spec runner leaves maxon's `Stack trace:` lines out of what it compares). A frozen value, a cown and a function

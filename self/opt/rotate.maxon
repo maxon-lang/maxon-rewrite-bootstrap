@@ -442,7 +442,7 @@ export type Rotator
 				x.dst = names[regIndex(x.dst)]
 			end 'value'
 			ir.instrReads(f, x: x, out: regs)
-			editor.append(latch, x: x)
+			editor.append(latch, x: x, span: ir.spanAt(f, k: k))
 		end 'copy'
 		// The copy's branch: the header's, read through names, each edge passing what the jump passed for the parameters
 		// that its target was given.

@@ -7,6 +7,7 @@ export function begin(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleSta
 	if l.lentElements > 0 'lentTuple'
 		paramCount = succ(paramCount)
 	end 'lentTuple'
+	l.b.keepsSpans = p.keepsSpans
 	l.b.start(fn, name: name, paramCount: paramCount)
 	l.b.f.lendsResult = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fn).result == ast.ResultConv.resultBorrowed
 	l.fn = fn
@@ -17,6 +18,9 @@ export function begin(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleSta
 	l.fnModule = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fn).module
 	let own = l.fnModule
 	setModule(l, m: own)
+	// The code that is no statement's, the parameters taken and the return at the end, is the declaration's.
+	let declared = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: l.origin).nodeID
+	positionAt(l, p: p, node: declared)
 	l.bindParams = bindParams.clone()
 	l.bindArgs = bindArgs.clone()
 	l.bindWitnesses = bindWitnesses.clone()
@@ -230,11 +234,21 @@ end 'lowerBlockOwning'
 // computes for something to take has been taken by then.
 function lowerStmt(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, s ast.NodeID)
 	let mark = l.pending.count()
+	let around = l.b.pos
+	positionAt(l, p: p, node: s)
 	pushScope(l, block: false)
 	visitStmt(l, p: p, ms: ms, s: s)
 	popScope(l, p: p)
 	popPending(l, n: mark)
+	l.b.pos = around
 end 'lowerStmt'
+
+// positionAt makes the source at node the span of the instructions emitted next, when the function keeps spans.
+function positionAt(mutates l Lowerer, p ast.Project, node ast.NodeID)
+	if l.b.keepsSpans and l.module >= 0 'kept'
+		l.b.pos = spanOf(l.module, offset: p.modules[l.mi].tree.startOf(node))
+	end 'kept'
+end 'positionAt'
 
 function visitStmt(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, s ast.NodeID)
 	let k = p.modules[l.mi].tree.kindOf(s)

@@ -449,6 +449,7 @@ function writeLayout(mutates fn MirFunction)
 		return
 	end 'written'
 	var out = MInstrList.create(0)
+	var spans = ir.SpanList.create(0)
 	var placed = BoolList.create(0)
 	ir.resetFlags(placed, n: fn.blocks.count())
 	for o in 0 upto fn.order.count() 'blocks'
@@ -457,6 +458,7 @@ function writeLayout(mutates fn MirFunction)
 		let first = out.count()
 		for k in fn.blocks[b].first upto fn.blocks[b].endAt 'instrs'
 			out.push(fn.instrs[k].clone())
+			keepSpan(spans, fn: fn, k: k)
 		end 'instrs'
 		fn.blocks[b].first = first
 		fn.blocks[b].endAt = out.count()
@@ -468,6 +470,9 @@ function writeLayout(mutates fn MirFunction)
 		end 'empty'
 	end 'unreached'
 	fn.instrs = out
+	if fn.keepsSpans 'spans'
+		fn.spans = spans
+	end 'spans'
 end 'writeLayout'
 
 // inLayout is whether the instructions of fn are in the order of its layout already, each block's following the one

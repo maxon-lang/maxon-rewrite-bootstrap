@@ -137,6 +137,7 @@ end 'lightestParam'
 // reloads of its memory parameters, and each edge into one stores their arguments before its jump.
 function rewriteMemoryParams(mutates fn MirFunction, over BoolList, memory BoolList, slotOf CountList)
 	var out = MInstrList.create(0)
+	var spans = ir.SpanList.create(0)
 	for o in 0 upto fn.order.count() 'blocks'
 		let b = fn.order[o] as Count
 		let first = out.count()
@@ -155,12 +156,18 @@ function rewriteMemoryParams(mutates fn MirFunction, over BoolList, memory BoolL
 					storeMemoryArgs(fn, out: out, edge: edge, memory: memory, slotOf: slotOf)
 				end 'stores'
 			end 'edge'
+			padSpans(spans, fn: fn, count: out.count())
 			out.push(fn.instrs[k].clone())
+			keepSpan(spans, fn: fn, k: k)
 		end 'instrs'
 		fn.blocks[b].first = first
 		fn.blocks[b].endAt = out.count()
 	end 'blocks'
+	padSpans(spans, fn: fn, count: out.count())
 	fn.instrs = out
+	if fn.keepsSpans 'spans'
+		fn.spans = spans
+	end 'spans'
 	for b in 0 upto fn.blocks.count() 'params'
 		if over[b] 'over'
 			let start = fn.blocks[b].params

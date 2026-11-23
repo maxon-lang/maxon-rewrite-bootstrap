@@ -125,9 +125,14 @@ export type Builder
 	// paramRegs are the parameters of the blocks, in the order they were made, and paramBlock the block of each.
 	export var paramRegs as RegList
 	export var paramBlock as BlockIDList
+	// keepsSpans is whether the functions it makes keep their instructions' spans: then pos is the span of what is being
+	// lowered, which emit gives each instruction, in spans.
+	export var keepsSpans as bool
+	export var pos as Word
+	var spans as SpanList
 
 	export static function new() returns Builder
-		return Builder{f: IrFunction.new(ast.noFunc, name: "", paramCount: 0 as Count), instrs: InstrList.create(0), instrBlock: BlockIDList.create(0), terms: TermList.create(0), paramRegs: RegList.create(0), paramBlock: BlockIDList.create(0)}
+		return Builder{f: IrFunction.new(ast.noFunc, name: "", paramCount: 0 as Count), instrs: InstrList.create(0), instrBlock: BlockIDList.create(0), terms: TermList.create(0), paramRegs: RegList.create(0), paramBlock: BlockIDList.create(0), keepsSpans: false, pos: noSpan, spans: SpanList.create(0)}
 	end 'new'
 
 	// start begins a function, forgetting the one before it.
@@ -138,6 +143,11 @@ export type Builder
 		terms = TermList.create(0)
 		paramRegs = RegList.create(0)
 		paramBlock = BlockIDList.create(0)
+		f.keepsSpans = keepsSpans
+		pos = noSpan
+		if keepsSpans 'spans'
+			spans = SpanList.create(0)
+		end 'spans'
 	end 'start'
 
 	// blockParam adds a parameter to the end of a block's parameters, a register that each edge into the block sets.
@@ -159,6 +169,9 @@ export type Builder
 	export function emit(mutates self, block BlockID, consumes i Instr)
 		instrs.push(i)
 		instrBlock.push(block)
+		if keepsSpans 'span'
+			spans.push(pos)
+		end 'span'
 	end 'emit'
 
 	// terminate ends a block.
@@ -625,6 +638,11 @@ export type Builder
 			placed.push(x)
 		end 'place'
 		var done = exchange(f, value: IrFunction.new(ast.noFunc, name: "", paramCount: 0 as Count))
+		if keepsSpans 'spans'
+			for k in 0 upto total 'place'
+				done.spans.push(spans[order[k]])
+			end 'place'
+		end 'spans'
 		done.instrs = placed
 		done.blocks = blocks
 		done.blockParams = blockParams

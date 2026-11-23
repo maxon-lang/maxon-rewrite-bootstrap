@@ -20,12 +20,13 @@ export type DeadCode
 	var flagsPass as BoolList
 	var written as BoolList
 	var out as MInstrList
+	var outSpans as ir.SpanList
 	// alias is the register each virtual register's reads read once copies are propagated: its own, or the one a copy
 	// copied into it.
 	var alias as MRegList
 
 	static function new() returns DeadCode
-		return DeadCode{readCount: CountList.create(0), defAt: CountList.create(0), dead: BoolList.create(0), sweepAt: 0, again: false, flagsLiveIn: BoolList.create(0), flagsPass: BoolList.create(0), written: BoolList.create(0), out: MInstrList.create(0), alias: MRegList.create(0)}
+		return DeadCode{readCount: CountList.create(0), defAt: CountList.create(0), dead: BoolList.create(0), sweepAt: 0, again: false, flagsLiveIn: BoolList.create(0), flagsPass: BoolList.create(0), written: BoolList.create(0), out: MInstrList.create(0), outSpans: ir.SpanList.create(0), alias: MRegList.create(0)}
 	end 'new'
 
 	// remove leaves out the dead instructions of fn, until none is left, and writes its blocks in the order of its layout.
@@ -222,12 +223,14 @@ export type DeadCode
 	// left empty.
 	function compact(mutates self, mutates fn MirFunction)
 		out.clear()
+		outSpans.clear()
 		for o in 0 upto fn.order.count() 'blocks'
 			let b = fn.order[o] as Count
 			let first = out.count()
 			for k in fn.blocks[b].first upto fn.blocks[b].endAt 'instrs'
 				if not dead[k] 'live'
 					out.push(fn.instrs[k].clone())
+					keepSpan(outSpans, fn: fn, k: k)
 				end 'live'
 			end 'instrs'
 			fn.blocks[b].first = first
@@ -245,6 +248,10 @@ export type DeadCode
 		end 'unwritten'
 		let kept = exchange(out, value: MInstrList.create(0))
 		out = exchange(fn.instrs, value: kept)
+		if fn.keepsSpans 'spans'
+			let keptSpans = exchange(outSpans, value: ir.SpanList.create(0))
+			outSpans = exchange(fn.spans, value: keptSpans)
+		end 'spans'
 	end 'compact'
 end 'DeadCode'
 

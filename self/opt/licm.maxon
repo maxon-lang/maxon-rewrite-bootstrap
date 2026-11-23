@@ -416,17 +416,18 @@ export type Licm
 		virtualReg[v] = data
 		var x = virtual[v].clone()
 		x.dst = data
-		self.appendToPreheader(f, x: x, l: l, analysis: analysis, facts: facts)
+		self.appendToPreheader(f, x: x, span: ir.spanAt(f, k: virtualOf[v]), l: l, analysis: analysis, facts: facts)
 	end 'moveBuffer'
 
 	function move(mutates self, mutates f ir.IrFunction, k Count, l Count, analysis Analysis, facts LoopFacts)
-		self.appendToPreheader(f, x: f.instrs[k].clone(), l: l, analysis: analysis, facts: facts)
+		self.appendToPreheader(f, x: f.instrs[k].clone(), span: ir.spanAt(f, k: k), l: l, analysis: analysis, facts: facts)
 		editor.remove(k)
 	end 'move'
 
 	// appendToPreheader writes x, which leaves loop l, in its preheader, after a copy of each constant it reads from inside
-	// l: invariant lets such a read leave, and the constant's own definition stays where it is.
-	function appendToPreheader(mutates self, mutates f ir.IrFunction, consumes x ir.Instr, l Count, analysis Analysis, facts LoopFacts)
+	// l: invariant lets such a read leave, and the constant's own definition stays where it is. Each keeps the span of what
+	// it moves or copies: x's is span.
+	function appendToPreheader(mutates self, mutates f ir.IrFunction, consumes x ir.Instr, span ir.Word, l Count, analysis Analysis, facts LoopFacts)
 		let ph = preheader[l]
 		regs.clear()
 		ir.instrReads(f, x: x, out: regs)
@@ -440,7 +441,7 @@ export type Licm
 				names.push(copy)
 				var c = f.instrs[def].clone()
 				c.dst = copy
-				editor.append(ph, x: c)
+				editor.append(ph, x: c, span: ir.spanAt(f, k: def))
 				names[regIndex(r)] = copy
 				params.push(r)
 			end 'constant'
@@ -453,7 +454,7 @@ export type Licm
 				names[regIndex(r)] = r
 			end 'reset'
 		end 'renamed'
-		editor.append(ph, x: moved)
+		editor.append(ph, x: moved, span: span)
 	end 'appendToPreheader'
 
 	// preheaderOf is the block before the header of loop l that runs once each time the loop is entered: the one block
