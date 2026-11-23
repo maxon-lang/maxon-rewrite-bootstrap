@@ -3751,6 +3751,27 @@ two names stand for one record only where one is a borrow of the other, or both 
 parameter handed `a` twice are true, two records built alike and a `.clone()` are not, and `let b = a` is a move
 (`E3102` where `a` is used again), so nothing like maxon's alias made by `let b = a` exists to compare.
 
+### Source text
+
+A source file is UTF-8, by Zig's rules and two more, each refused where it is:
+
+- Its bytes are well-formed UTF-8: no overlong form, surrogate, code point above U+10FFFF or broken sequence (`E1004`).
+- It holds no control character (U+0000 to U+001F, U+007F) but a tab, a newline, and a carriage return directly before
+  a newline (`E1900`); the layout then refuses that carriage return too (`E2001`).
+- It holds none of the Unicode line terminators NEL (U+0085), LS (U+2028) and PS (U+2029) (`E1901`).
+- A name, and everything outside comments and string literals, is ASCII: a non-ASCII character there is `E1010`, as is
+  each of `?;|&$%~^` and the backtick, which start no token of maxon's either; another ASCII character that starts no
+  token here, as a backslash, is one that maxon lexes and its parser refuses, so it is `E2001`.
+- It holds no bidirectional control (U+202A to U+202E, U+2066 to U+2069), not even in a comment or a literal, where it
+  could make the code read otherwise than it compiles (`E1902`).
+- It does not start with a byte order mark (`E1903`).
+
+A literal writes a character it may not hold as an escape (`"\u001b"`, `b"\x85"`). The rules apply in comments and
+literals as in code, so the lexer checks every character, but a correct file pays nothing measurable: printable ASCII
+and the tab pass on a range check, in code the DFA stops at any other byte, and only then does `syntax.textCharacter`
+decode the character and decide (`self/syntax/encoding.maxon`). Each rule is a set of bytes or of byte sequences, which
+a vector lexer can test as they are.
+
 ### Layout
 
 The layout is part of the syntax: a program has one way to be written, and anything else is a syntax error at the
@@ -3769,7 +3790,7 @@ character that breaks the rule.
   it is the first line of the body; a comment above the function goes after the blank line. An interface lists its
   functions, one signature per line, with no blank lines between them. There are no other blank lines: none between
   fields or cases, none inside a function, none at the start or end of a file. A file ends with one newline, and has no
-  byte order mark.
+  byte order mark (`E1903`, see "Source text").
 
 The lexer checks what does not depend on the grammar (`E2001`). The grammar says where `Indent` and `Dedent` go
 and which tokens join (`-> noSpaceBefore` on a token, `^'('` at a call), and the parser checks each gap and the
@@ -3882,6 +3903,13 @@ the checker reports where Maxon's parser does, as it needs the type of the value
 
 ### Where it differs from Maxon
 
+- **Source text follows Zig's rules and two more** (see "Source text"). As in maxon, a name is ASCII and a non-ASCII
+  character outside comments and string literals is `E1010`. The rest differ: maxon accepts malformed UTF-8 in a comment
+  (in a literal it is `E1004` there too), and control characters, NEL, LS, PS and the bidirectional controls in comments
+  and literals, and reads a lone carriage return as a line end; it accepts a byte order mark at the start of a file. In
+  code maxon reports each of those as `E1010`, where minimaxon gives the rule's own code (`E1004`, `E1900` to `E1903`).
+  The conversion writes such a character of a literal as an escape and of a comment as its code point, and drops a byte
+  order mark, so the spec test that one is accepted is skipped.
 - `Map` is the library's own (`stdlib/Map.maxon`), not converted from maxon's: it is laid out on the design of Go's map (`internal/runtime/maps`),
   groups of eight slots with a control word each, keys beside their values, tables of at most 1024 slots found by a
   directory over the hash's top bits, where maxon's probes linearly over columns of keys, values, states and hashes. Its

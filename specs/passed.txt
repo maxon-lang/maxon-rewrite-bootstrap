@@ -3383,7 +3383,6 @@ let-union-payloads.md: the-binding-of-a-let-payload-passed-to-a-parameter-kept-i
 lexer-edge-cases.md: bare-cr-handling
 lexer-edge-cases.md: bare-hex-prefix-eof
 lexer-edge-cases.md: block-comment-multiline
-lexer-edge-cases.md: byte-order-mark-at-start-is-accepted
 lexer-edge-cases.md: crlf-handling
 lexer-edge-cases.md: empty-block-comment
 lexer-edge-cases.md: empty-dquote-string

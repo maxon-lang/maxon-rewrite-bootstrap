@@ -284,13 +284,7 @@ end 'codepointAt'
 
 // codepointText is a code point as U+ and its hex digits, at least four.
 function codepointText(cp Count) returns String
-	var digits = ByteArray.create(0)
-	var rest = cp
-	while rest > 0 or digits.count() < codepointDigits 'digits'
-		digits.insert(0 as Count, value: hexDigits.byteAt(rest and 15))
-		rest = rest shr 4
-	end 'digits'
-	return "U+{String.from(digits)}"
+	return "U+{hexText(cp, width: codepointDigits)}"
 end 'codepointText'
 
 // appendRune appends the UTF-8 bytes of a code point an escape writes, which is at most four hex digits.
@@ -441,6 +435,9 @@ type Lexer
 		var at = pos
 		var c = src.text.byteAt(at)
 		while c == byteSpace or c == byteTab or c == byteCR 'blanks'
+			if c == byteCR 'cr'
+				_ = try textCharacter(src, errs: errors, file: file, at: at, limit: limit)
+			end 'cr'
 			at = after(at)
 			c = src.text.byteAt(at)
 		end 'blanks'
@@ -469,7 +466,15 @@ type Lexer
 	// comment checks the comment at start, which runs to the end of its line, and returns where the line ends.
 	function comment(mutates self, src Source, start Count) returns Count throws SyntaxError
 		var stop = start
-		while stop < limit and src.text.byteAt(stop) != byteNewline 'scan'
+		while stop < limit 'scan'
+			let c = src.text.byteAt(stop)
+			if c < byteSpace or c >= byteDelete 'checked'
+				if c == byteNewline 'end'
+					break 'scan'
+				end 'end'
+				stop = try textCharacter(src, errs: errors, file: file, at: stop, limit: limit)
+				continue 'scan'
+			end 'checked'
 			stop = after(stop)
 		end 'scan'
 		let last = src.text.byteAt(before(stop))
@@ -547,10 +552,26 @@ type Lexer
 				// A label's or a test name's token is the text between its quotes.
 				start = after(start)
 				i = before(i)
+				if kind == TokenKind.testName 'name'
+					try self.checkText(src, start: start, stop: i)
+				end 'name'
 			end 'label'
 			try self.emit(src, kind: kind, start: start, stop: i)
 		end 'tokens'
 	end 'lexLine'
+
+	// checkText checks the text from start to stop that the DFA read as a test name, which holds any character.
+	function checkText(mutates self, src Source, start Count, stop Count) throws SyntaxError
+		var at = start
+		while at < stop 'chars'
+			let c = src.text.byteAt(at)
+			if c < byteSpace or c >= byteDelete 'checked'
+				at = try textCharacter(src, errs: errors, file: file, at: at, limit: stop)
+				continue 'chars'
+			end 'checked'
+			at = after(at)
+		end 'chars'
+	end 'checkText'
 
 	// opensDirective is whether the line whose first token is the one at first is a `#if`.
 	function opensDirective(first Count) returns bool
@@ -576,12 +597,18 @@ type Lexer
 	// skipped is where lexLine goes on after the whitespace or the comment from start to stop, which are not tokens.
 	// They are checked here, off lexLine's path: whitespace is an error unless it is the one space lexLine steps over,
 	// which never reaches here, and so is a comment inside an interpolation or one that touches the code before it; the
-	// lenient lexer accepts the whitespace and the comment's position.
+	// lenient lexer accepts the whitespace and the comment's position, but not a carriage return that ends no line, which
+	// is no layout to correct.
 	function skipped(mutates self, src Source, kind TokenKind, start Count, stop Count) returns Count throws SyntaxError
 		if kind == TokenKind.whitespace 'space'
 			if not lenient 'strict'
 				throw self.badSpace(src, start: start, stop: stop)
 			end 'strict'
+			for at in start upto stop 'each'
+				if src.text.byteAt(at) == byteCR 'cr'
+					_ = try textCharacter(src, errs: errors, file: file, at: at, limit: limit)
+				end 'cr'
+			end 'each'
 			return stop
 		end 'space'
 		if inline 'interpolation'
@@ -602,6 +629,12 @@ type Lexer
 				return self.fail(src, message: "a tab inside a line; tabs only indent, and tokens are separated by one space", at: at)
 			end 'tab'
 			if c == byteCR 'cr'
+				// A carriage return that ends no line is a control character; one before a newline breaks only the layout.
+				try 'encoding'
+					_ = textCharacter(src, errs: errors, file: file, at: at, limit: limit)
+				end 'encoding' otherwise 'control'
+					return SyntaxError.refused
+				end 'control'
 				return self.fail(src, message: "a carriage return; end lines with a newline alone", at: at)
 			end 'cr'
 		end 'each'
@@ -623,6 +656,11 @@ type Lexer
 		if msg != "" 'named'
 			return self.fail(src, message: msg, at: start)
 		end 'named'
+		if state == dfaStart 'stray'
+			return strayCharacter(src, errs: errors, file: file, start: start, limit: limit)
+		end 'stray'
+		// The start of a token that is not finished, as a '!' with no '=' after it, which maxon reads as a token its
+		// parser refuses.
 		let ch = runeAt(src.text, at: start, limit: limit)
 		return self.fail(src, message: "unexpected character '{ch}'", at: start)
 	end 'unfinished'
@@ -814,7 +852,15 @@ type StringReader
 				end 'text'
 				try self.interpolation(src, errs: errs)
 				added = true
-			end 'interpolation' else 'plain'
+			end 'interpolation' else if c < byteSpace or c >= byteDelete 'checked'
+				let next = try textCharacter(src, errs: errs, file: file, at: pos, limit: limit)
+				if escaped 'kept'
+					for at in pos upto next 'bytes'
+						buf.push(src.text.byteAt(at))
+					end 'bytes'
+				end 'kept'
+				pos = next
+			end 'checked' else 'plain'
 				if escaped 'kept'
 					buf.push(c)
 				end 'kept'
@@ -837,23 +883,24 @@ type StringReader
 				return pos
 			end 'close' else if c == byteBackslash 'escape'
 				try self.escape(src, errs: errs)
-			end 'escape' else if (c as Count) < utf8ContinuationTag 'ascii'
+			end 'escape' else if c >= byteSpace and c < byteDelete 'ascii'
 				if collect 'keep'
 					buf.push(c)
 				end 'keep'
 				pos = after(pos)
-			end 'ascii' else 'multibyte'
-				let n = runeLength(src.text, at: pos, limit: limit)
-				if n == 0 'invalid'
-					throw self.fail(src, errs: errs, message: "invalid UTF-8 in a byte string literal", at: pos)
-				end 'invalid'
-				let cp = codepointAt(src.text, at: pos, n: n)
+			end 'ascii' else 'checked'
+				let next = try textCharacter(src, errs: errs, file: file, at: pos, limit: limit)
+				let n = try next - pos otherwise panic("a character ends before it starts")
+				var cp = c as Count
+				if n > 1 'multibyte'
+					cp = codepointAt(src.text, at: pos, n: n)
+				end 'multibyte'
 				try self.requireByte(src, errs: errs, codepoint: cp)
 				if collect 'keep'
 					buf.push(try cp as Byte otherwise panic("a byte string character exceeds a byte"))
 				end 'keep'
-				pos = try pos + n otherwise panic("a source offset overflows")
-			end 'multibyte'
+				pos = next
+			end 'checked'
 		end 'chars'
 		throw self.fail(src, errs: errs, message: "unterminated string literal", at: open)
 	end 'readBytes'
@@ -955,6 +1002,11 @@ type StringReader
 				specBegin = after(pos)
 				pos = specBegin
 				while pos < limit and src.text.byteAt(pos) != byteNewline and src.text.byteAt(pos) != byteRBrace 'specifier'
+					let s = src.text.byteAt(pos)
+					if s < byteSpace or s >= byteDelete 'checked'
+						pos = try textCharacter(src, errs: errs, file: file, at: pos, limit: limit)
+						continue 'specifier'
+					end 'checked'
 					pos = after(pos)
 				end 'specifier'
 				specified = true

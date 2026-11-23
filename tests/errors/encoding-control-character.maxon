@@ -1,0 +1,6 @@
+function main() returns ExitCode
+	print("[0m")
+	return 0
+end 'main'
+
+// expect-error: E1900 at 2:9

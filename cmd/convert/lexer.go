@@ -1,5 +1,7 @@
 package main
 
+import "unicode/utf8"
+
 type tokKind int
 
 const (
@@ -174,7 +176,9 @@ func lex(src string) []token {
 			toks = append(toks, token{kind: tokPunct, text: src[start:i], start: start, end: i, line: startLine})
 
 		default:
-			i++
+			// A character that starts no token stays whole, so a non-ASCII one is never split into bytes.
+			_, size := utf8.DecodeRuneInString(src[i:])
+			i += size
 			toks = append(toks, token{kind: tokOther, text: src[start:i], start: start, end: i, line: startLine})
 		}
 	}

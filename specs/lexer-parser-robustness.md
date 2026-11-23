@@ -373,7 +373,7 @@ error E2001: specs/lexer-parser-robustness/near-keyword-uppercase.maxon:6:1: Exp
 ### Random bytes: small fixed pseudo-random byte blobs
 
 <!-- test: random-printable-garbage-1 -->
-<!-- skip: minimaxon does not parse the converted source: unexpected character ';' -->
+<!-- skip: minimaxon does not parse the converted source: unexpected character ';'; remove it, or move it into a string literal or a comment -->
 <!-- positions: moved -->
 ```maxon
 q1} ; + (= * foo,) bar
@@ -393,7 +393,7 @@ error E1010: specs/lexer-parser-robustness/random-printable-garbage-2.maxon:2:13
 ```
 
 <!-- test: random-printable-garbage-3 -->
-<!-- skip: minimaxon does not parse the converted source: unexpected character ';' -->
+<!-- skip: minimaxon does not parse the converted source: unexpected character ';'; remove it, or move it into a string literal or a comment -->
 <!-- positions: moved -->
 ```maxon
 foo: bar baz ; qux | zap
@@ -418,7 +418,7 @@ error E2001: specs/lexer-parser-robustness/random-operator-soup-1.maxon:6:1: Exp
 ```
 
 <!-- test: random-operator-soup-2 -->
-<!-- skip: minimaxon does not parse the converted source: unexpected character '&' -->
+<!-- skip: minimaxon does not parse the converted source: unexpected character '&'; remove it, or move it into a string literal or a comment -->
 <!-- positions: moved -->
 ```maxon
 == != <= >= & & | | < < > >
@@ -428,7 +428,7 @@ error E1010: specs/lexer-parser-robustness/random-operator-soup-2.maxon:2:13: Un
 ```
 
 <!-- test: random-operator-soup-3 -->
-<!-- skip: minimaxon does not parse the converted source: unexpected character ';' -->
+<!-- skip: minimaxon does not parse the converted source: unexpected character ';'; remove it, or move it into a string literal or a comment -->
 <!-- positions: moved -->
 ```maxon
 .....,,,, ; ; ; ;

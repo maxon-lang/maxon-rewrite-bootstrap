@@ -350,7 +350,7 @@ error E3001: No 'main' function found
 ### Stray characters
 
 <!-- test: stray-question-mark-after-type -->
-<!-- skip: minimaxon does not parse the converted source: unexpected character '?' -->
+<!-- skip: minimaxon does not parse the converted source: unexpected character '?'; remove it, or move it into a string literal or a comment -->
 <!-- positions: moved -->
 ```maxon
 function f(a Count ?, b Count)
@@ -360,7 +360,7 @@ error E1010: specs/lexer-edge-cases/stray-question-mark-after-type.maxon:2:19: U
 ```
 
 <!-- test: stray-question-mark-after-expression -->
-<!-- skip: minimaxon does not parse the converted source: unexpected character '?' -->
+<!-- skip: minimaxon does not parse the converted source: unexpected character '?'; remove it, or move it into a string literal or a comment -->
 ```maxon
 let x = 5 ?
 ```
@@ -369,7 +369,7 @@ error E1010: specs/lexer-edge-cases/stray-question-mark-after-expression.maxon:2
 ```
 
 <!-- test: stray-question-mark-before-more-source -->
-<!-- skip: minimaxon does not parse the converted source: unexpected character '?' -->
+<!-- skip: minimaxon does not parse the converted source: unexpected character '?'; remove it, or move it into a string literal or a comment -->
 <!-- positions: moved -->
 ```maxon
 let x = 5 ?
@@ -381,7 +381,7 @@ error E1010: specs/lexer-edge-cases/stray-question-mark-before-more-source.maxon
 ```
 
 <!-- test: stray-question-mark-in-interpolation -->
-<!-- skip: minimaxon does not parse the converted source: unexpected character '?' -->
+<!-- skip: minimaxon does not parse the converted source: unexpected character '?'; remove it, or move it into a string literal or a comment -->
 ```maxon
 let s = "n{5 ?}"
 ```
@@ -390,7 +390,7 @@ error E1010: specs/lexer-edge-cases/stray-question-mark-in-interpolation.maxon:2
 ```
 
 <!-- test: stray-question-mark-in-function-body -->
-<!-- skip: minimaxon does not parse the converted source: unexpected character '?' -->
+<!-- skip: minimaxon does not parse the converted source: unexpected character '?'; remove it, or move it into a string literal or a comment -->
 <!-- positions: moved -->
 ```maxon
 function main() returns ExitCode
@@ -403,7 +403,7 @@ error E1010: specs/lexer-edge-cases/stray-question-mark-in-function-body.maxon:3
 ```
 
 <!-- test: stray-semicolon -->
-<!-- skip: minimaxon does not parse the converted source: unexpected character ';' -->
+<!-- skip: minimaxon does not parse the converted source: unexpected character ';'; remove it, or move it into a string literal or a comment -->
 <!-- positions: moved -->
 ```maxon
 let x = 1 ;
@@ -413,7 +413,7 @@ error E1010: specs/lexer-edge-cases/stray-semicolon.maxon:2:10: Unexpected chara
 ```
 
 <!-- test: stray-pipe -->
-<!-- skip: minimaxon does not parse the converted source: unexpected character '|' -->
+<!-- skip: minimaxon does not parse the converted source: unexpected character '|'; remove it, or move it into a string literal or a comment -->
 ```maxon
 let x = a | b
 ```
@@ -422,7 +422,7 @@ error E1010: specs/lexer-edge-cases/stray-pipe.maxon:2:11: Unexpected character 
 ```
 
 <!-- test: stray-ampersand -->
-<!-- skip: minimaxon does not parse the converted source: unexpected character '&' -->
+<!-- skip: minimaxon does not parse the converted source: unexpected character '&'; remove it, or move it into a string literal or a comment -->
 <!-- positions: moved -->
 ```maxon
 let x = a & & b
@@ -432,7 +432,7 @@ error E1010: specs/lexer-edge-cases/stray-ampersand.maxon:2:11: Unexpected chara
 ```
 
 <!-- test: stray-dollar -->
-<!-- skip: minimaxon does not parse the converted source: unexpected character '$' -->
+<!-- skip: minimaxon does not parse the converted source: unexpected character '$'; remove it, or move it into a string literal or a comment -->
 <!-- positions: moved -->
 ```maxon
 let x = $ y
@@ -442,7 +442,7 @@ error E1010: specs/lexer-edge-cases/stray-dollar.maxon:2:9: Unexpected character
 ```
 
 <!-- test: stray-percent -->
-<!-- skip: minimaxon does not parse the converted source: unexpected character '%' -->
+<!-- skip: minimaxon does not parse the converted source: unexpected character '%'; remove it, or move it into a string literal or a comment -->
 ```maxon
 let x = 7 % 2
 ```
@@ -451,7 +451,7 @@ error E1010: specs/lexer-edge-cases/stray-percent.maxon:2:11: Unexpected charact
 ```
 
 <!-- test: stray-tilde -->
-<!-- skip: minimaxon does not parse the converted source: unexpected character '~' -->
+<!-- skip: minimaxon does not parse the converted source: unexpected character '~'; remove it, or move it into a string literal or a comment -->
 <!-- positions: moved -->
 ```maxon
 let x = ~ 1
@@ -461,7 +461,7 @@ error E1010: specs/lexer-edge-cases/stray-tilde.maxon:2:9: Unexpected character 
 ```
 
 <!-- test: stray-caret -->
-<!-- skip: minimaxon does not parse the converted source: unexpected character '^' -->
+<!-- skip: minimaxon does not parse the converted source: unexpected character '^'; remove it, or move it into a string literal or a comment -->
 ```maxon
 let x = 1 ^ 2
 ```
@@ -470,7 +470,7 @@ error E1010: specs/lexer-edge-cases/stray-caret.maxon:2:11: Unexpected character
 ```
 
 <!-- test: stray-backtick -->
-<!-- skip: minimaxon does not parse the converted source: unexpected character '`' -->
+<!-- skip: minimaxon does not parse the converted source: unexpected character '`'; remove it, or move it into a string literal or a comment -->
 <!-- positions: moved -->
 ```maxon
 let x = ` y `
@@ -480,20 +480,19 @@ error E1010: specs/lexer-edge-cases/stray-backtick.maxon:2:9: Unexpected charact
 ```
 
 <!-- test: stray-non-ascii-letter -->
-<!-- skip: minimaxon does not parse the converted source: unexpected character 'ÔøΩ' -->
-<!-- positions: moved -->
+<!-- skip: minimaxon does not parse the converted source: unexpected character '√©': a name is ASCII letters, digits and '_', and any other character goes only in a comment or a string literal -->
 ```maxon
-let x = √ ©
+let x = √©
 ```
 ```maxoncstderr
 error E1010: specs/lexer-edge-cases/stray-non-ascii-letter.maxon:2:9: Unexpected character '√©'
 ```
 
 <!-- test: stray-curly-quote -->
-<!-- skip: minimaxon does not parse the converted source: unexpected character 'ÔøΩ' -->
+<!-- skip: minimaxon does not parse the converted source: unexpected character '‚Äú': a name is ASCII letters, digits and '_', and any other character goes only in a comment or a string literal -->
 <!-- positions: moved -->
 ```maxon
-let x = ‚ Ä ú hello ‚ Ä ù
+let x = ‚Äú hello ‚Äù
 ```
 ```maxoncstderr
 error E1010: specs/lexer-edge-cases/stray-curly-quote.maxon:2:9: Unexpected character '‚Äú'
@@ -520,6 +519,7 @@ why??
 ```
 
 <!-- test: byte-order-mark-at-start-is-accepted -->
+<!-- skip: language difference: a file that starts with a byte order mark is refused, so the conversion removes it and the test tests nothing -->
 ```maxon
 // --- file: main.maxon
 function main() returns ExitCode
@@ -531,11 +531,11 @@ end 'main'
 ```
 
 <!-- test: stray-byte-order-mark-mid-file -->
-<!-- skip: minimaxon does not parse the converted source: unexpected character 'ÔøΩ' -->
+<!-- skip: minimaxon does not parse the converted source: unexpected character 'Ôªø': a name is ASCII letters, digits and '_', and any other character goes only in a comment or a string literal -->
 <!-- positions: moved -->
 ```maxon
 function main() returns ExitCode
-	Ô ª ø return 0
+	Ôªø return 0
 end 'main'
 ```
 ```maxoncstderr

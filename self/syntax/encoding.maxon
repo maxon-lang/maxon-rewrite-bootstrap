@@ -1,0 +1,119 @@
+// The source-encoding rules (README, "Source text"). The lexer reads printable ASCII and the tab freely; any other byte
+// sends it to textCharacter, which is the one place that decides what such a character may be. In code the DFA stops
+// at one, so a correct program pays only in its comments and literals, and there one range check per byte.
+let byteDelete = 127 as Byte
+
+let byteDigits = 2 as Count
+
+let nextLine = 133 as Count
+
+let lineSeparator = 8232 as Count
+
+let paragraphSeparator = 8233 as Count
+
+// The bidirectional controls are the embeddings and overrides U+202A to U+202E and the isolates U+2066 to U+2069.
+let bidiEmbeddingFirst = 8234 as Count
+
+let bidiEmbeddingLast = 8238 as Count
+
+let bidiIsolateFirst = 8294 as Count
+
+let bidiIsolateLast = 8297 as Count
+
+let byteOrderMarkFirst = 239 as Byte
+
+let byteOrderMarkSecond = 187 as Byte
+
+let byteOrderMarkThird = 191 as Byte
+
+// hexText is value in lower-case hex digits, at least width of them.
+function hexText(value Count, width Count) returns String
+	var digits = ByteArray.create(0)
+	var rest = value
+	while rest > 0 or digits.count() < width 'digits'
+		digits.insert(0 as Count, value: hexDigits.byteAt(rest and 15))
+		rest = rest shr 4
+	end 'digits'
+	return String.from(digits)
+end 'hexText'
+
+// escapeText is the escape a literal writes the code point with.
+function escapeText(cp Count) returns String
+	return "'\\u{hexText(cp, width: codepointDigits)}'"
+end 'escapeText'
+
+// refuse records the error at the offset, which the caller then throws.
+function refuse(src Source, mutates errs diag.ErrorList, consumes code String, consumes message String, file Count, at Count) returns SyntaxError
+	errs.push(src.errorAt(code, message: message, file: file, offset: at))
+	return SyntaxError.refused
+end 'refuse'
+
+// textCharacter checks the character at `at`, whose first byte is no printable ASCII, and returns the offset after it:
+// a tab, a carriage return before a newline and any well-formed non-ASCII character but a line terminator and a
+// bidirectional control. Every other control character and every malformed sequence is an error, in code, a comment
+// or a literal alike.
+function textCharacter(src Source, mutates errs diag.ErrorList, file Count, at Count, limit Count) returns Count throws SyntaxError
+	let c = src.text.byteAt(at)
+	if c == byteTab 'tab'
+		return after(at)
+	end 'tab'
+	if c == byteCR and after(at) < limit and src.text.byteAt(after(at)) == byteNewline 'lineEnd'
+		return after(at)
+	end 'lineEnd'
+	if (c as Count) < utf8Max1 'control'
+		throw refuse(src, errs: errs, code: diag.errControlCharacter, message: "control character {codepointText(c as Count)}; a file holds no control character but a tab, a newline and a carriage return before a newline: remove it, or write it in a literal as {escapeText(c as Count)}", file: file, at: at)
+	end 'control'
+	let n = runeLength(src.text, at: at, limit: limit)
+	if n == 0 'malformed'
+		throw refuse(src, errs: errs, code: diag.errInvalidEscape, message: "malformed UTF-8 at byte 0x{hexText(c as Count, width: byteDigits)}: a source file is UTF-8, with no overlong form, surrogate or code point above U+10FFFF; save it as UTF-8", file: file, at: at)
+	end 'malformed'
+	let cp = codepointAt(src.text, at: at, n: n)
+	if cp == nextLine or cp == lineSeparator or cp == paragraphSeparator 'terminator'
+		throw refuse(src, errs: errs, code: diag.errLineSeparator, message: "Unicode line terminator {codepointText(cp)}; a line ends with a newline alone: remove it, or write it in a literal as {escapeText(cp)}", file: file, at: at)
+	end 'terminator'
+	if (cp >= bidiEmbeddingFirst and cp <= bidiEmbeddingLast) or (cp >= bidiIsolateFirst and cp <= bidiIsolateLast) 'bidi'
+		throw refuse(src, errs: errs, code: diag.errBidiControl, message: "bidirectional control character {codepointText(cp)}, which can make the code read otherwise than it compiles: remove it, or write it in a literal as {escapeText(cp)}", file: file, at: at)
+	end 'bidi'
+	return try at + n otherwise panic("a source offset overflows")
+end 'textCharacter'
+
+// strayCharacter is the error for the character at start in code, where it starts no token.
+function strayCharacter(src Source, mutates errs diag.ErrorList, file Count, start Count, limit Count) returns SyntaxError
+	let c = src.text.byteAt(start)
+	if c >= byteSpace and c < byteDelete 'ascii'
+		var code = diag.errUnexpectedToken
+		if isStrayCharacter(c) 'stray'
+			code = diag.errUnexpectedCharacter
+		end 'stray'
+		return refuse(src, errs: errs, code: code, message: "unexpected character '{runeAt(src.text, at: start, limit: limit)}'; remove it, or move it into a string literal or a comment", file: file, at: start)
+	end 'ascii'
+	if start == (src.files[file].start as Count) and startsWithByteOrderMark(src.text, at: start, limit: limit) 'byteOrderMark'
+		return refuse(src, errs: errs, code: diag.errByteOrderMark, message: "the file starts with a byte order mark; remove it, since a source file is UTF-8 without one", file: file, at: start)
+	end 'byteOrderMark'
+	try 'rules'
+		_ = textCharacter(src, errs: errs, file: file, at: start, limit: limit)
+	end 'rules' otherwise 'broken'
+		return SyntaxError.refused
+	end 'broken'
+	return refuse(src, errs: errs, code: diag.errUnexpectedCharacter, message: "unexpected character '{runeAt(src.text, at: start, limit: limit)}': a name is ASCII letters, digits and '_', and any other character goes only in a comment or a string literal", file: file, at: start)
+end 'strayCharacter'
+
+// strayCharacters are the printable ASCII characters that start no token of maxon's, which its lexer refuses (E1010).
+// Another one that starts no token here, as a backslash, is a token there that its parser refuses (E2001), and minimaxon
+// reports it by that code.
+let strayCharacters = "?;|&$%~^`"
+
+function isStrayCharacter(c Byte) returns bool
+	for i in 0 upto strayCharacters.byteLength() 'each'
+		if strayCharacters.byteAt(i) == c 'found'
+			return true
+		end 'found'
+	end 'each'
+	return false
+end 'isStrayCharacter'
+
+function startsWithByteOrderMark(text String, at Count, limit Count) returns bool
+	let second = after(at)
+	let third = after(second)
+	return third < limit and text.byteAt(at) == byteOrderMarkFirst and text.byteAt(second) == byteOrderMarkSecond and text.byteAt(third) == byteOrderMarkThird
+end 'startsWithByteOrderMark'

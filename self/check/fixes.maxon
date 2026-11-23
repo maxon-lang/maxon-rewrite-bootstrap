@@ -158,8 +158,8 @@ export function mutatesSelfFix(t ast.Tree, method ast.NodeID) returns diag.Fix
 	return fixOf(fixKindMutatesSelf, edits: edits)
 end 'mutatesSelfFix'
 
-// borrowedResultFix declares that the method lends its result, which a requirement it meets lends: orrowed after the
-// eturns of its header, the first on the line it starts.
+// borrowedResultFix declares that the method lends its result, which a requirement it meets lends: 'borrowed' after the
+// 'returns' of its header, the first on the line it starts.
 export function borrowedResultFix(t ast.Tree, method ast.NodeID) returns diag.Fix
 	if method == 0 or t.kindOf(method) != ast.NodeKind.funcDecl 'notMethod'
 		return diag.Fix.none()

@@ -2,4 +2,4 @@ function main() returns ExitCode
 	return 1 ? 2
 end 'main'
 
-// expect-error: E2001 at 2:11
+// expect-error: E1010 at 2:11

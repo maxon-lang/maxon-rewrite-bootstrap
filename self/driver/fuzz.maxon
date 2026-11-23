@@ -200,7 +200,7 @@ end 'GeneratedRun'
 
 // isSyntaxCode is whether the diagnostic means the program is not well formed, which the generator must never write.
 function isSyntaxCode(code String) returns bool
-	return code == diag.errUnexpectedToken or code == diag.errUnexpectedEnd or code == diag.errMismatchedEndLabel or code == diag.errExpectedToken or code == diag.errIntegerLiteralRange
+	return code == diag.errUnexpectedToken or code == diag.errUnexpectedCharacter or code == diag.errControlCharacter or code == diag.errLineSeparator or code == diag.errBidiControl or code == diag.errByteOrderMark or code == diag.errUnexpectedEnd or code == diag.errMismatchedEndLabel or code == diag.errExpectedToken or code == diag.errIntegerLiteralRange
 end 'isSyntaxCode'
 
 // runGenerated checks a program and runs it under the interpreter, under as many schedules as the program's behaviours want.

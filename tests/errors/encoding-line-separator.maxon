@@ -1,0 +1,6 @@
+function main() returns ExitCode
+	// one two
+	return 0
+end 'main'
+
+// expect-error: E1901 at 2:8

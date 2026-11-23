@@ -4,12 +4,14 @@ let markdownExtension = ".md"
 
 let testExtension = ".maxtest"
 
-// layoutErrorCodes are the errors of the layout rules. A test that expects one is a program laid out wrongly on purpose,
-// so fmt over a directory leaves it alone: it would put the layout right and the test would no longer test the rule.
+// layoutErrorCodes are the errors of the layout rules, and the byte order mark, which fmt drops. A test that expects one
+// is a program laid out wrongly on purpose, so fmt over a directory leaves it alone: it would put the layout right and
+// the test would no longer test the rule.
 function layoutErrorCodes() returns CommandNames
 	var codes = CommandNames.create(0)
 	codes.push(diag.errUnexpectedToken)
 	codes.push(diag.errExpectedToken)
+	codes.push(diag.errByteOrderMark)
 	return codes
 end 'layoutErrorCodes'
 

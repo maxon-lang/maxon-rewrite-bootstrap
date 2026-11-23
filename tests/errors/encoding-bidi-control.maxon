@@ -1,5 +1,6 @@
-﻿// expect-error: E2001 at 1:1
-
 function main() returns ExitCode
+	print("user‮")
 	return 0
 end 'main'
+
+// expect-error: E1902 at 2:13

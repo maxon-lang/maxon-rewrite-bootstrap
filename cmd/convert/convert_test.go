@@ -459,6 +459,11 @@ end 'f'
 			want: "let a = 1\n\nlet b = 2\n",
 		},
 		{
+			name: "a refused character becomes an escape in a literal and its code point in a comment",
+			in:   "// bell\x07 and \xe2\x80\xae\nlet s = \"a\x1bb\xe2\x80\xa8\"\n\nlet t = b\"\x01\xc2\x85\"\n",
+			want: "// bellU+0007 and U+202E\nlet s = \"a\\u001bb\\u2028\"\n\nlet t = b\"\\x01\\x85\"\n",
+		},
+		{
 			name: "the alternatives of an or chain stand one under another",
 			in:   "function f(x Count) returns Count\n\tmatch x 'm'\n\t\t1 or\n\t\t\t2 or\n\t\t\t3 then return 1\n\t\tdefault then return 0\n\tend 'm'\nend 'f'\n",
 			want: "function f(x Count) returns Count\n\tmatch x 'm'\n\t\t1 or\n\t\t2 or\n\t\t3 then return 1\n\t\tdefault then return 0\n\tend 'm'\nend 'f'\n",

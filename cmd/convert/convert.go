@@ -100,12 +100,13 @@ func Convert(file, src string, kind inputKind) Result {
 	return Result{Text: laid.text, Warnings: warnings, Formatted: laid.formatted, Rejected: laid.rejected}
 }
 
-// normalizeText strips BOM, converts CRLF/CR to LF, converts leading space indentation to tabs, indents each line by
-// its nesting depth, and trims trailing spaces.
+// normalizeText strips BOM, converts CRLF/CR to LF, escapes the characters minimaxon refuses in literals, converts
+// leading space indentation to tabs, indents each line by its nesting depth, and trims trailing spaces.
 func normalizeText(src string) string {
 	src = strings.TrimPrefix(src, utf8BOM)
 	src = strings.ReplaceAll(src, "\r\n", "\n")
 	src = strings.ReplaceAll(src, "\r", "\n")
+	src = escapeRefusedCharacters(src)
 
 	rawLines := strings.Split(src, "\n")
 	spaceUnit := detectSpaceIndent(rawLines)

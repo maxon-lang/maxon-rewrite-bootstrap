@@ -5,8 +5,13 @@
 #   maxon      the case of ErrorCode in maxon-bin/Compiler/ErrorCodeRegistry.maxon that has this number, or - for a code
 #              of minimaxon's own; `diaggen --maxon <maxon repository>` checks both against the registry
 #   meaning    what the compiler refuses
-# A code of minimaxon's own takes a number from E3900 (semantic) or E9900 (internal), which maxon does not use.
-ErrInvalidEscape	E1004	lexerInvalidEscape	An escape in a literal is malformed, or a byte string holds a character that is no byte.
+# A code of minimaxon's own takes a number from E1900 (lexer), E3900 (semantic) or E9900 (internal), which maxon does not use.
+ErrInvalidEscape	E1004	lexerInvalidEscape	An escape in a literal is malformed, a byte string holds a character that is no byte, or the source is not well-formed UTF-8.
+ErrUnexpectedCharacter	E1010	lexerUnexpectedCharacter	A character that starts no token of maxon's is outside a comment and a string literal: one of ?;|&$%~^ and the backtick, or a non-ASCII one, since a name is ASCII.
+ErrControlCharacter	E1900	-	The source holds a control character other than a tab, a newline and a carriage return before a newline.
+ErrLineSeparator	E1901	-	The source holds a Unicode line terminator other than the newline: NEL (U+0085), LS (U+2028) or PS (U+2029).
+ErrBidiControl	E1902	-	The source holds a bidirectional control character (U+202A to U+202E, U+2066 to U+2069), which can make code read otherwise than it compiles.
+ErrByteOrderMark	E1903	-	A file starts with a byte order mark.
 ErrUnexpectedToken	E2001	parserUnexpectedToken	The parser met a token that cannot appear at this point.
 ErrExpectedType	E2003	parserExpectedType	A type is needed of a kind the name does not have: a typealias implements a ranged typealias.
 ErrExpressionError	E2004	parserExpressionError	An expression is not well formed or not usable where it stands.

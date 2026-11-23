@@ -1,0 +1,5 @@
+﻿// expect-error: E1903 at 1:1
+
+function main() returns ExitCode
+	return 0
+end 'main'

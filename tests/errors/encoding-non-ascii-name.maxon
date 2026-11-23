@@ -1,0 +1,6 @@
+function main() returns ExitCode
+	let café = 1
+	return 0
+end 'main'
+
+// expect-error: E1010 at 2:9

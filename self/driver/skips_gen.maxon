@@ -130,5 +130,6 @@ function codeSkipTable() returns CodeSkips
 	skips.push(CodeSkip.naming("map.md", test: "corpus.get-capacity", line: "<!-- skip: language difference: Map is minimaxon's own, on Go's design with maxon's API, so its capacities and its unmarked fields are not maxon's -->\n"))
 	skips.push(CodeSkip.naming("field-visibility-is-directory-scoped.md", test: "error.an-extension-outside-the-types-directory-cannot-read-an-unmarked-field-of-the-extended-type", line: "<!-- skip: language difference: Map is minimaxon's own, on Go's design with maxon's API, so its capacities and its unmarked fields are not maxon's -->\n"))
 	skips.push(CodeSkip.naming("field-visibility-is-directory-scoped.md", test: "error.an-extension-outside-the-types-directory-cannot-write-an-unmarked-field-of-the-extended-type", line: "<!-- skip: language difference: Map is minimaxon's own, on Go's design with maxon's API, so its capacities and its unmarked fields are not maxon's -->\n"))
+	skips.push(CodeSkip.naming("lexer-edge-cases.md", test: "byte-order-mark-at-start-is-accepted", line: "<!-- skip: language difference: a file that starts with a byte order mark is refused, so the conversion removes it and the test tests nothing -->\n"))
 	return skips
 end 'codeSkipTable'
