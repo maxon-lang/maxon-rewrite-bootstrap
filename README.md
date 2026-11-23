@@ -1367,6 +1367,14 @@ what a later pass such as reference counting or an optimization changes.
   reads, such as `rt.streq`, which is quiet: a `mutates` argument is
   the address of the caller's place and a push or an insert is a runtime call that changes its array's length and buffer,
   and the IR keeps no types or conventions to say which box a call may change, so a call ends every read).
+  - **The split of the element accesses** (`self/opt/buffers.maxon`) makes each element read, element address and byte
+    read of a byte array the read of the array's buffer (`buffer`) and the access at the index of it (`elemat`,
+    `elemaddrat`, `byteat`), so the buffer is a value that the passes below merge and move as any read: in
+    `a[i] = a[i] + x` the buffer is read once for the read and the store, and a loop that writes no memory reads it in its
+    preheader. A byte read of a string needs no split: a String's first word is the address of its bytes, which the
+    access indexes as it is. A store of an element changes no array's box, length or buffer, but CSE keeps treating it as
+    any clobber: holding those across the stores of an iteration costs registers that a loop as tight as nbody's on x64
+    does not have, and E5001 then falls back to the expanded code's calls (see "E5001 and the optimizations").
   - **Loop rotation** (`self/opt/rotate.maxon`) turns a loop whose header tests whether to leave, as a `while` is lowered,
     into the test once before the loop and a copy of it at the end of each iteration, so an iteration ends in one
     conditional branch instead of a jump back to the test. It copies only a header of one segment and at most
@@ -1381,10 +1389,7 @@ what a later pass such as reference counting or an optimization changes.
     of the function's slots, which is always there to read; and a check or a
     division only from the header's prefix, the operations before the first that stays, so it fails in the preheader
     exactly when, and after the same effects as, it would have at the start of the first iteration, and only when its
-    failure path reads nothing the loop defines. An element read that stays in such a loop is split into the read of the
-    array's buffer (`buffer`, which leaves) and the access at the index (`elemat`, `byteat`), which only a native build
-    makes. A byte read of a string needs no such split: a String's first word is the address of its bytes, which the
-    access indexes as it is. Loops are taken innermost first, so a value leaves a whole nest; a
+    failure path reads nothing the loop defines. Loops are taken innermost first, so a value leaves a whole nest; a
     constant is copied, not moved.
   - **Common subexpression elimination** (`self/opt/cse.maxon`, maxon's `CommonSubexpressionElimination`) walks the
     dominator tree with a scoped hash table: an operation that computes what an operation dominating it computed goes, a
@@ -1472,7 +1477,7 @@ what a later pass such as reference counting or an optimization changes.
 |---|---|
 | values | `const`, `str`, `datum` (a constant of the executable's data, see "Constants in the data section"), `load` and `store` (a slot; `store ... borrow` for a borrow), `addr` (a slot's address), `param`, `field`, `setfield` (`setfield ... borrow` for a field that borrows what it holds, a buffer cursor's, which its box neither drops nor copies), `fieldaddr`, `loadat`, `storeat`, `global` |
 | arithmetic | `bin` (add, sub, mul, div, mod, and, or, xor, shl, shr; `.u` for unsigned; checked ones have an `else` block), `cmp`, `neg`, `not`, `ctz` (the count of trailing zeros, 64 of 0; `tzcnt` on x64, `rbit` then `clz` on arm64), `guard` |
-| collections | `length.array`, `length.string`, `bounds`, `elemaddr`, `elem`, `byte.array`, `byte.string` (see "The primitives in the IR") |
+| collections | `length.array`, `length.string`, `bounds`, `elemaddr`, `elem`, `byte.array`, `byte.string`, and in a native build's passes after inlining `buffer`, `elemat`, `elemaddrat`, `byteat` (see "The primitives in the IR") |
 | floats | `fadd`, `fsub`, `fmul`, `fdiv`, `fcmp`, `fsqrt`, `fround`, `ffloor`, `fceil`, `itof` (`.u` for unsigned), `ftoi` (see "Floats") |
 | calls | `call`, `runtime` (a runtime entry, with the `routine` a cown's entry stores), `alloc`, `when`, `async` (see "Coroutines: async and await"), `callvalue` (see "Function values in the IR") |
 | function values | `closure`, `funcvalue` (see "Function values in the IR") |
@@ -1584,8 +1589,8 @@ runtime each implement the entries. The element is always visible in the call:
   lowered), each operation on its model of the collection: a `bounds` by the IR's own meaning (`ir.evalBounds`), as the fold
   decides one whose operands are constants, and an element by the cell its entry's address would name, so its checks of a
   stale or freed box and of a borrow a call is still waiting to use (`elemaddr` and `elem` open a window as `loadat` does)
-  are those of the call; none of the passes after inlining run on the interpreter's IR, so the `buffer`, `elemat`
-  and `byteat` that code motion splits an element read into reach only the backend. A native build expands each function after the fold, before leaf inlining; with no call left in
+  are those of the call; none of the passes after inlining run on the interpreter's IR, so the `buffer`, `elemat`,
+  `elemaddrat` and `byteat` that the split of the element accesses makes reach only the backend. A native build expands each function after the fold, before leaf inlining; with no call left in
   a loop, a loop that the call let compile may need more registers than x64 has, so the function's IR before the expansion
   is its fallback (see "E5001 and the optimizations"), whose calls the backend writes in place as it always did.
 - An array whose element is an integer that fits in a byte (`ByteArray`, `Array with Byte`) or an enum of at most 256 cases,

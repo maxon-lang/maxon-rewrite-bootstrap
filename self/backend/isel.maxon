@@ -1024,6 +1024,13 @@ function emitElemAddr(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
 	sel.copy(result, src: at)
 end 'emitElemAddr'
 
+// emitElemAddrAt gives the address of an element of a buffer that a Buffer read gave, of a size an index does not scale by.
+function emitElemAddrAt(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
+	let at = sel.elementAddress(vregOf(ir.elemAddrAtData(ins)), index: vregOf(ir.elemAddrAtIndex(ins)), shift: ir.elemAddrAtShift(ins))
+	let result = sel.resultOf(ins.dst)
+	sel.copy(result, src: at)
+end 'emitElemAddrAt'
+
 // cownNew passes the entry the value and the address of the code of the destructor that ends it, or 0 when it is dropped.
 function emitCownNew(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
 	let routine = match ir.callRuntimeRoutine(fn, x: ins) 'routine'

@@ -64,6 +64,12 @@
 (storeRaw.8 a:(bin.add.!checked x y) v) && sel.fuses(fn, r: a) => (StoreBaseIndex1DispReg8 x y [0] v)
 (storeRaw.64 a:(bin.add.!checked x (const [c])) v) && fitsImm32(c) and sel.fuses(fn, r: a) => (StoreBaseDispReg x [c] v)
 (storeRaw.64 a:(bin.add.!checked x y) v) && sel.fuses(fn, r: a) => (StoreBaseIndex1DispReg x y [0] v)
+// An element's address that only the access right after it reads is the buffer and the index scaled by the word: an
+// element of a word.
+(loadAt a:(elemAddrAt d i [s])) && s == wordElementShift and sel.fuses(fn, r: a) and sel.inXmm(ins.dst) => (MovsdRegBaseIndex8Disp r d i [0])
+(loadAt a:(elemAddrAt d i [s])) && s == wordElementShift and sel.fuses(fn, r: a) => (LoadRegBaseIndex8Disp r d i [0])
+(storeAt a:(elemAddrAt d i [s]) v) && s == wordElementShift and sel.fuses(fn, r: a) and sel.inXmm(v) => (MovsdBaseIndex8DispReg d i [0] v)
+(storeAt a:(elemAddrAt d i [s]) v) && s == wordElementShift and sel.fuses(fn, r: a) => (StoreBaseIndex8DispReg d i [0] v)
 (loadAt a) && sel.inXmm(ins.dst) => (MovsdRegBaseDisp r a [0])
 (loadAt a) => (LoadRegBaseDisp r a [0])
 (storeAt a v) && sel.inXmm(v) => (MovsdBaseDispReg a [0] v)
@@ -119,6 +125,8 @@
 (elemAt d i [_]) && sel.inXmm(ins.dst) => (MovsdRegBaseIndex8Disp r d i [0])
 (elemAt d i [_]) => (LoadRegBaseIndex8Disp r d i [0])
 (byteAt d i) => (MovzxRegByteBaseIndex1Disp r d i [0])
+(elemAddrAt d i [s]) && s == wordElementShift => (LeaRegBaseIndex8Disp r d i [0])
+(elemAddrAt) => (emitElemAddrAt)
 
 // Integer arithmetic. A checked operation goes to its failure block when the result does not fit: the carry flag says
 // so for an unsigned word, and the overflow flag for a signed one.

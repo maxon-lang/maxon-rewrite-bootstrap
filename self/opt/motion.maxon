@@ -69,6 +69,7 @@ export function motionOf(x ir.Instr) returns Motion
 		opStrPtr or
 		opStrWord or
 		opStrMake or
+		opElemAddrAt or
 		opTrailingZeros gives Motion.pure
 		opBin gives binMotion(x)
 		opLength gives lengthMotion(x)

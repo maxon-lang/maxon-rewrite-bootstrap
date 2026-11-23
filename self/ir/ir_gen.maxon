@@ -73,6 +73,7 @@ export enum Opcode
 	opLoadByte
 	opBuffer
 	opElemAt
+	opElemAddrAt
 	opByteAt
 	opStrPtr
 	opStrWord
@@ -768,6 +769,9 @@ export function opEffects(op Opcode) returns Count
 	if op == Opcode.opElemAt 'opElemAt'
 		return 1
 	end 'opElemAt'
+	if op == Opcode.opElemAddrAt 'opElemAddrAt'
+		return 0
+	end 'opElemAddrAt'
 	if op == Opcode.opByteAt 'opByteAt'
 		return 1
 	end 'opByteAt'
@@ -1340,6 +1344,17 @@ export function newElemAt(dst Reg, data Reg, index Reg, shift Count) returns Ins
 	return r
 end 'newElemAt'
 
+// ElemAddrAt gives the address of the element at Index of Data, the elements of an array that Buffer gave, of
+// 1 shl Shift bytes, where a Bounds has checked the index: Data plus the index shifted, which reads no memory.
+export function newElemAddrAt(dst Reg, data Reg, index Reg, shift Count) returns Instr
+	var r = Instr.make(Opcode.opElemAddrAt)
+	r.dst = dst
+	r.a = data
+	r.b = index
+	r.imm = try shift as Word otherwise panic("ir: elemAddrAt shift is out of range")
+	return r
+end 'newElemAddrAt'
+
 // ByteAt reads the byte at Index of Data, the elements of a byte array that Buffer gave, where a Bounds has checked the index.
 export function newByteAt(dst Reg, data Reg, index Reg) returns Instr
 	var r = Instr.make(Opcode.opByteAt)
@@ -1800,6 +1815,9 @@ export function opcodeName(op Opcode) returns String
 	if op == Opcode.opElemAt 'opElemAt'
 		return "ElemAt"
 	end 'opElemAt'
+	if op == Opcode.opElemAddrAt 'opElemAddrAt'
+		return "ElemAddrAt"
+	end 'opElemAddrAt'
 	if op == Opcode.opByteAt 'opByteAt'
 		return "ByteAt"
 	end 'opByteAt'
@@ -2573,6 +2591,27 @@ export function elemAtShift(x Instr) returns Count
 	return try x.imm as Count otherwise panic("ir: elemAt shift is out of range")
 end 'elemAtShift'
 
+export function elemAddrAtData(x Instr) returns Reg
+	if x.op != Opcode.opElemAddrAt 'op'
+		wrongInstr("elemAddrAtData", found: x.op)
+	end 'op'
+	return x.a
+end 'elemAddrAtData'
+
+export function elemAddrAtIndex(x Instr) returns Reg
+	if x.op != Opcode.opElemAddrAt 'op'
+		wrongInstr("elemAddrAtIndex", found: x.op)
+	end 'op'
+	return x.b
+end 'elemAddrAtIndex'
+
+export function elemAddrAtShift(x Instr) returns Count
+	if x.op != Opcode.opElemAddrAt 'op'
+		wrongInstr("elemAddrAtShift", found: x.op)
+	end 'op'
+	return try x.imm as Count otherwise panic("ir: elemAddrAt shift is out of range")
+end 'elemAddrAtShift'
+
 export function byteAtData(x Instr) returns Reg
 	if x.op != Opcode.opByteAt 'op'
 		wrongInstr("byteAtData", found: x.op)
@@ -3279,6 +3318,9 @@ export function instrDef(x Instr) returns table.Option with Reg
 	if x.op == Opcode.opElemAt 'opElemAt'
 		return table.Option.some(x.dst)
 	end 'opElemAt'
+	if x.op == Opcode.opElemAddrAt 'opElemAddrAt'
+		return table.Option.some(x.dst)
+	end 'opElemAddrAt'
 	if x.op == Opcode.opByteAt 'opByteAt'
 		return table.Option.some(x.dst)
 	end 'opByteAt'
@@ -3503,6 +3545,9 @@ export function instrFail(x Instr) returns table.Option with BlockID
 	if x.op == Opcode.opElemAt 'opElemAt'
 		return table.Option.none
 	end 'opElemAt'
+	if x.op == Opcode.opElemAddrAt 'opElemAddrAt'
+		return table.Option.none
+	end 'opElemAddrAt'
 	if x.op == Opcode.opByteAt 'opByteAt'
 		return table.Option.none
 	end 'opByteAt'
@@ -3625,6 +3670,7 @@ export function instrCanFail(x Instr) returns bool
 		opLoadByte gives false
 		opBuffer gives false
 		opElemAt gives false
+		opElemAddrAt gives false
 		opByteAt gives false
 		opStrPtr gives false
 		opStrWord gives false
@@ -3841,6 +3887,11 @@ export function instrReads(f IrFunction, x Instr, mutates out RegList)
 		out.push(elemAtIndex(x))
 		return
 	end 'opElemAt'
+	if x.op == Opcode.opElemAddrAt 'opElemAddrAt'
+		out.push(elemAddrAtData(x))
+		out.push(elemAddrAtIndex(x))
+		return
+	end 'opElemAddrAt'
 	if x.op == Opcode.opByteAt 'opByteAt'
 		out.push(byteAtData(x))
 		out.push(byteAtIndex(x))
@@ -4145,6 +4196,10 @@ export function instrWrites(x Instr, mutates out RegList)
 		out.push(x.dst)
 		return
 	end 'opElemAt'
+	if x.op == Opcode.opElemAddrAt 'opElemAddrAt'
+		out.push(x.dst)
+		return
+	end 'opElemAddrAt'
 	if x.op == Opcode.opByteAt 'opByteAt'
 		out.push(x.dst)
 		return
@@ -4440,6 +4495,11 @@ export function renameInstrReads(mutates x Instr, mutates args RegList, names Re
 		x.b = renamedReg(names, r: x.b)
 		return
 	end 'opElemAt'
+	if x.op == Opcode.opElemAddrAt 'opElemAddrAt'
+		x.a = renamedReg(names, r: x.a)
+		x.b = renamedReg(names, r: x.b)
+		return
+	end 'opElemAddrAt'
 	if x.op == Opcode.opByteAt 'opByteAt'
 		x.a = renamedReg(names, r: x.a)
 		x.b = renamedReg(names, r: x.b)
@@ -4835,6 +4895,12 @@ export function relocateInstr(mutates x Instr, at Relocation)
 		x.b = renamedReg(at.names, r: x.b)
 		return
 	end 'opElemAt'
+	if x.op == Opcode.opElemAddrAt 'opElemAddrAt'
+		x.dst = renamedReg(at.names, r: x.dst)
+		x.a = renamedReg(at.names, r: x.a)
+		x.b = renamedReg(at.names, r: x.b)
+		return
+	end 'opElemAddrAt'
 	if x.op == Opcode.opByteAt 'opByteAt'
 		x.dst = renamedReg(at.names, r: x.dst)
 		x.a = renamedReg(at.names, r: x.a)
@@ -5063,6 +5129,7 @@ export interface InstrVisitor
 	function visitLoadByte(mutates self, f IrFunction, x Instr)
 	function visitBuffer(mutates self, f IrFunction, x Instr)
 	function visitElemAt(mutates self, f IrFunction, x Instr)
+	function visitElemAddrAt(mutates self, f IrFunction, x Instr)
 	function visitByteAt(mutates self, f IrFunction, x Instr)
 	function visitStrPtr(mutates self, f IrFunction, x Instr)
 	function visitStrWord(mutates self, f IrFunction, x Instr)
@@ -5274,6 +5341,10 @@ export function visitInstr(mutates visitor V, f IrFunction, x Instr) uses V wher
 		visitor.visitElemAt(f, x: x)
 		return
 	end 'opElemAt'
+	if x.op == Opcode.opElemAddrAt 'opElemAddrAt'
+		visitor.visitElemAddrAt(f, x: x)
+		return
+	end 'opElemAddrAt'
 	if x.op == Opcode.opByteAt 'opByteAt'
 		visitor.visitByteAt(f, x: x)
 		return
@@ -5578,6 +5649,9 @@ export function instrText(p ast.Project, tt ast.TypeSlot, reads ast.TypeTable, f
 	if x.op == Opcode.opElemAt 'opElemAt'
 		return "{resultText(x.dst)}elemat %{elemAtData(x)}, %{elemAtIndex(x)} shl {elemAtShift(x)}"
 	end 'opElemAt'
+	if x.op == Opcode.opElemAddrAt 'opElemAddrAt'
+		return "{resultText(x.dst)}elemaddrat %{elemAddrAtData(x)}, %{elemAddrAtIndex(x)} shl {elemAddrAtShift(x)}"
+	end 'opElemAddrAt'
 	if x.op == Opcode.opByteAt 'opByteAt'
 		return "{resultText(x.dst)}byteat %{byteAtData(x)}, %{byteAtIndex(x)}"
 	end 'opByteAt'

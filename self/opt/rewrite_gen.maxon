@@ -142,6 +142,9 @@ export function rewriteInstr(mutates fn ir.IrFunction, at Count, defs ir.Defs, m
 	if op == ir.Opcode.opElemAt 'opcodeElemAt'
 		return false
 	end 'opcodeElemAt'
+	if op == ir.Opcode.opElemAddrAt 'opcodeElemAddrAt'
+		return false
+	end 'opcodeElemAddrAt'
 	if op == ir.Opcode.opByteAt 'opcodeByteAt'
 		return false
 	end 'opcodeByteAt'

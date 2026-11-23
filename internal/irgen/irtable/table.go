@@ -337,12 +337,15 @@ var ops = []op{
 	{Name: "LoadByte", Eval: noEval, Doc: "LoadByte reads the byte at Index of Src, a byte array or a string, where a Bounds has checked the index.",
 		Result: valueResult, Operands: []operand{reg("Src", fA), reg("Index", fB), collectionOp}, Effects: []effect{effReads},
 		Text: "byte.{Of} {Src}, {Index}"},
-	// A native build splits an element read in a loop that nothing writes memory in (self/opt/licm.maxon) into the read
-	// of the array's buffer, which then leaves the loop, and the read at the index; the interpreter never sees them.
+	// A native build splits every element access (self/opt/buffers.maxon) into the read of the array's buffer, which
+	// common subexpression elimination and loop-invariant code motion then treat as they treat any read, and the access
+	// at the index; the interpreter never sees them.
 	{Name: "Buffer", Eval: noEval, Doc: "Buffer reads the address of the elements of Src, an array or a byte array, which a push that grows it moves.",
 		Result: valueResult, Operands: []operand{reg("Src", fA)}, Effects: []effect{effReads}, Text: "buffer {Src}"},
 	{Name: "ElemAt", Eval: noEval, Doc: "ElemAt reads the element at Index of Data, the elements of an array that Buffer gave, of 1 shl Shift bytes,\n// where a Bounds has checked the index: a scalar, or a managed element or a String lent as LoadAt lends it.",
 		Result: valueResult, Operands: []operand{reg("Data", fA), reg("Index", fB), num("Shift")}, Effects: []effect{effReads}, Text: "elemat {Data}, {Index} shl {Shift}"},
+	{Name: "ElemAddrAt", Eval: noEval, Doc: "ElemAddrAt gives the address of the element at Index of Data, the elements of an array that Buffer gave, of\n// 1 shl Shift bytes, where a Bounds has checked the index: Data plus the index shifted, which reads no memory.",
+		Result: valueResult, Operands: []operand{reg("Data", fA), reg("Index", fB), num("Shift")}, Text: "elemaddrat {Data}, {Index} shl {Shift}"},
 	{Name: "ByteAt", Eval: noEval, Doc: "ByteAt reads the byte at Index of Data, the elements of a byte array that Buffer gave, where a Bounds has checked the index.",
 		Result: valueResult, Operands: []operand{reg("Data", fA), reg("Index", fB)}, Effects: []effect{effReads}, Text: "byteat {Data}, {Index}"},
 	// A String is two words in one register (README, "The IR"): the address of its bytes and its word, which these give

@@ -186,6 +186,7 @@ export type ClassChoice
 			opLength or
 			opBounds or
 			opElemAddr or
+			opElemAddrAt or
 			opLoadByte or
 			opBuffer or
 			opByteAt or

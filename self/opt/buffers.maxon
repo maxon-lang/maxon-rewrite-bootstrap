@@ -1,0 +1,89 @@
+// The split of a native build's element accesses: an element read, the address of an element and a byte of a byte array
+// each read the address of the array's elements from its box before they reach the element, and each becomes that read
+// (Buffer) and the access at the index of the address it gives (ElemAt, ElemAddrAt, ByteAt). The address is then a value
+// as any read gives: common subexpression elimination reads it once for the accesses of the array that no write outside
+// the elements of arrays separates (motion.maxon), as in `a[i] = a[i] + x`, and loop-invariant code motion moves it out
+// of a loop that changes no array's box. The interpreter runs the accesses whole, as the expansion makes them.
+//
+// The cost is one pass over the instructions of a function that accesses an element, and one copy of them.
+
+export type BufferSplit
+	// The instructions being written, and their spans, of a function that keeps them.
+	var out as ir.InstrList
+	var spans as ir.SpanList
+
+	export static function new() returns BufferSplit
+		return BufferSplit{out: ir.InstrList.create(0), spans: ir.SpanList.create(0)}
+	end 'new'
+
+	// split splits the element accesses of f, and says whether it had one.
+	export function split(mutates self, mutates f ir.IrFunction) returns bool
+		if not accessesElement(f) 'none'
+			return false
+		end 'none'
+		out.clear()
+		spans.clear()
+		for b in 0 upto f.blocks.count() 'blocks'
+			let first = out.count()
+			for k in f.blocks[b].first upto f.blocks[b].endAt 'instrs'
+				self.splitAt(f, k: k)
+				if f.keepsSpans 'spans'
+					while spans.count() < out.count() 'span'
+						spans.push(f.spans[k])
+					end 'span'
+				end 'spans'
+			end 'instrs'
+			f.blocks[b].first = first
+			f.blocks[b].endAt = out.count()
+		end 'blocks'
+		f.instrs = exchange(out, value: ir.InstrList.create(0))
+		ir.takeSpans(f, laid: spans)
+		return true
+	end 'split'
+
+	// splitAt writes instruction k of f, split when it is an element access.
+	function splitAt(mutates self, mutates f ir.IrFunction, k Count)
+		let op = f.instrs[k].op
+		let dst = f.instrs[k].dst
+		let src = f.instrs[k].a
+		let index = f.instrs[k].b
+		if op == ir.Opcode.opElemLoad 'read'
+			let shift = ir.elemLoadShift(f.instrs[k])
+			let data = self.buffer(f, src: src)
+			out.push(ir.newElemAt(dst, data: data, index: index, shift: shift))
+		end 'read' else if op == ir.Opcode.opElemAddr 'address'
+			let shift = ir.elemAddrShift(f.instrs[k])
+			let data = self.buffer(f, src: src)
+			out.push(ir.newElemAddrAt(dst, data: data, index: index, shift: shift))
+		end 'address' else if splitsByte(f.instrs[k]) 'byte'
+			let data = self.buffer(f, src: src)
+			out.push(ir.newByteAt(dst, data: data, index: index))
+		end 'byte' else 'other'
+			out.push(f.instrs[k].clone())
+		end 'other'
+	end 'splitAt'
+
+	// buffer writes the read of the buffer of the array src and gives the register it reads into.
+	function buffer(mutates self, mutates f ir.IrFunction, src ir.Reg) returns ir.Reg
+		let data = f.newReg(ir.IrKind.kindScalar)
+		out.push(ir.newBuffer(data, src: src))
+		return data
+	end 'buffer'
+end 'BufferSplit'
+
+// accessesElement is whether f has an element access that the split splits.
+function accessesElement(f ir.IrFunction) returns bool
+	for k in 0 upto f.instrs.count() 'instrs'
+		let op = f.instrs[k].op
+		if op == ir.Opcode.opElemLoad or op == ir.Opcode.opElemAddr or splitsByte(f.instrs[k]) 'found'
+			return true
+		end 'found'
+	end 'instrs'
+	return false
+end 'accessesElement'
+
+// splitsByte is whether x reads a byte of a byte array, whose buffer is a word of its box; a string's bytes are at the
+// address that is its first word, a register.
+function splitsByte(x ir.Instr) returns bool
+	return x.op == ir.Opcode.opLoadByte and ir.loadByteOf(x) == ir.Collection.collectionArray
+end 'splitsByte'

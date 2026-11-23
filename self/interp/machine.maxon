@@ -213,10 +213,14 @@ type Machine implements ir.InstrVisitor, ir.TermVisitor
 		panic("interp: an elemAt, which only the native optimizer makes")
 	end 'visitElemAt'
 
-	// Only a native build's optimizer makes a byteAt (self/opt/licm.maxon), which the IR the interpreter runs never holds.
+	// Only a native build's optimizer makes a byteAt (self/opt/buffers.maxon), which the IR the interpreter runs never holds.
 	function visitByteAt(mutates self, f ir.IrFunction, x ir.Instr)
 		panic("interp: a byteAt, which only the native optimizer makes")
 	end 'visitByteAt'
+
+	function visitElemAddrAt(mutates self, f ir.IrFunction, x ir.Instr)
+		panic("interp: an elemAddrAt, which only the native optimizer makes")
+	end 'visitElemAddrAt'
 
 	function visitAlloc(mutates self, f ir.IrFunction, x ir.Instr)
 		execAlloc(vm, x: x)

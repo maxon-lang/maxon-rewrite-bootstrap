@@ -11,12 +11,10 @@
 //   iteration, and when the first iteration runs it anyway: its segment dominates every way out of the loop and every
 //   edge back to the header, or it is in the header's prefix (below). A loop that holds a store or a call of any kind,
 //   a push among them, keeps every read where it is. In a loop that holds no clobber, a read of one of the function's
-//   slots may move from anywhere, since the frame is always there to read. The read of an array's buffer may also move when the length of the
-//   same array has moved to the preheader before it: that read proved the box there, and nothing frees a box that the
-//   loop still names, so reading another word of its header cannot fault. An element read that stays in such a loop,
-//   of an array that does not change in it, is split for this into the read of the array's buffer (Buffer), which
-//   leaves, and the read at the index (ElemAt, ByteAt), which stays; where the buffer cannot leave, nothing is split.
-//   A byte read of a string needs no split: the address of its bytes is the string's first word, a register.
+//   slots may move from anywhere, since the frame is always there to read. The read of an array's buffer (buffers.maxon
+//   split it off each element access) may also move when the length of the same array has moved to the preheader
+//   before it: that read proved the box there, and nothing frees a box that the loop still names, so reading another
+//   word of its header cannot fault. The access at the index stays.
 // - A check or a division, only from the prefix of the header: the header's instructions up to the first one that
 //   stays. The header runs whenever the preheader has run, so such an instruction ran first in the iteration after
 //   nothing but what moved with it, which has no effect a program sees: it fails or faults in the preheader exactly when
@@ -38,9 +36,6 @@ let maxFailPathSegments = 8 as Count
 // noTarget is an instruction's target when no loop moved it.
 let noTarget = 0 as Count
 
-// noSplit is an element read's splitOff when no buffer read was split off it.
-let noSplit = 0 as Count
-
 export type Licm
 	// hoisted is how many instructions the pass moved out of a loop, over every function it was given, once for each loop.
 	export var hoisted as Count
@@ -50,19 +45,11 @@ export type Licm
 	var home as Array with Count
 	// By register: the loop plus 1 whose preheader reads the header of the box it holds, or 0.
 	var witness as Array with Count
-	// By instruction, and after them by buffer read split off an element read (virtual[v] is instruction real + v): the
-	// segment it runs first in for the must-run test (the header of the loop it last left), the loop plus 1 that it last
-	// left, and its place plus 1 in order when it left that one.
+	// By instruction: the segment it runs first in for the must-run test (the header of the loop it last left), the loop
+	// plus 1 that it last left, and its place plus 1 in order when it left that one.
 	var runsAt as Array with Count
 	var target as Array with Count
 	var lastAt as Array with Count
-	var real as Count
-	// The addresses split off element reads (a buffer read), the element read each was split
-	// off, and the register each gives once it is placed; by instruction, the address plus 1 split off it, or noSplit.
-	var virtual as ir.InstrList
-	var virtualOf as Array with Count
-	var virtualReg as ir.RegList
-	var splitOff as Array with Count
 	// The instructions in the order they moved, an instruction again each time it leaves another loop.
 	var order as Array with Count
 	// The places in order of what left each loop: from leftFirst[l] (plus 1, or noChain), each one's next in leftNext.
@@ -79,7 +66,7 @@ export type Licm
 	var stack as Array with Count
 
 	export static function new() returns Licm
-		return Licm{hoisted: 0, editor: Editor.new(), home: Array.create(0), witness: Array.create(0), runsAt: Array.create(0), target: Array.create(0), lastAt: Array.create(0), real: 0, virtual: ir.InstrList.create(0), virtualOf: Array.create(0), virtualReg: ir.RegList.create(0), splitOff: Array.create(0), order: Array.create(0), leftFirst: Array.create(0), leftLast: Array.create(0), leftNext: Array.create(0), anyLeft: Array.create(0), preheader: Array.create(0), mustSeg: 0, regs: ir.RegList.create(0), names: ir.RegList.create(0), params: ir.RegList.create(0), stack: Array.create(0)}
+		return Licm{hoisted: 0, editor: Editor.new(), home: Array.create(0), witness: Array.create(0), runsAt: Array.create(0), target: Array.create(0), lastAt: Array.create(0), order: Array.create(0), leftFirst: Array.create(0), leftLast: Array.create(0), leftNext: Array.create(0), anyLeft: Array.create(0), preheader: Array.create(0), mustSeg: 0, regs: ir.RegList.create(0), names: ir.RegList.create(0), params: ir.RegList.create(0), stack: Array.create(0)}
 	end 'new'
 
 	// hoist moves what is invariant out of the loops of f and says whether anything moved. f is in SSA form and keeps the
@@ -107,14 +94,9 @@ export type Licm
 				home[r] = analysis.flow.defs.seg[r]
 			end 'defined'
 		end 'regs'
-		real = f.instrs.count()
-		ir.resetCounts(runsAt, n: real)
-		ir.resetCounts(target, n: real)
-		ir.resetCounts(lastAt, n: real)
-		ir.resetCounts(splitOff, n: real)
-		virtual.clear()
-		virtualOf.clear()
-		virtualReg.clear()
+		ir.resetCounts(runsAt, n: f.instrs.count())
+		ir.resetCounts(target, n: f.instrs.count())
+		ir.resetCounts(lastAt, n: f.instrs.count())
 		for s in 0 upto analysis.flow.segCount() 'segs'
 			for i in analysis.flow.segFirst[s] upto analysis.flow.segEnd[s] 'instrs'
 				runsAt[i] = s
@@ -142,7 +124,6 @@ export type Licm
 			for k in analysis.flow.segFirst[s] upto analysis.flow.segEnd[s] 'instrs'
 				if not self.consider(f, x: f.instrs[k], k: k, l: l, inPrefix: prefix, analysis: analysis, facts: facts) 'stays'
 					prefix = false
-					self.trySplit(f, k: k, l: l, analysis: analysis, facts: facts)
 				end 'stays'
 			end 'instrs'
 		end 'prefix'
@@ -157,9 +138,7 @@ export type Licm
 			end 'innerHeader'
 			for k in analysis.flow.segFirst[s] upto analysis.flow.segEnd[s] 'instrs'
 				if target[k] == noTarget 'inPlace'
-					if not self.consider(f, x: f.instrs[k], k: k, l: l, inPrefix: false, analysis: analysis, facts: facts) 'stays'
-						self.trySplit(f, k: k, l: l, analysis: analysis, facts: facts)
-					end 'stays'
+					_ = self.consider(f, x: f.instrs[k], k: k, l: l, inPrefix: false, analysis: analysis, facts: facts)
 				end 'inPlace'
 			end 'instrs'
 		end 'members'
@@ -174,51 +153,10 @@ export type Licm
 			link = leftNext[i]
 			let k = order[i]
 			if target[k] == mark and lastAt[k] == plusOne(i) 'there'
-				if k < real 'own'
-					_ = self.consider(f, x: f.instrs[k], k: k, l: l, inPrefix: false, analysis: analysis, facts: facts)
-				end 'own' else 'split'
-					let x = virtual[try k - real otherwise panic("opt: a split read before the instructions")].clone()
-					_ = self.consider(f, x: x, k: k, l: l, inPrefix: false, analysis: analysis, facts: facts)
-				end 'split'
+				_ = self.consider(f, x: f.instrs[k], k: k, l: l, inPrefix: false, analysis: analysis, facts: facts)
 			end 'there'
 		end 'moved'
 	end 'fromInner'
-
-	// trySplit splits the address of what it reads off instruction k, an element read that stays in loop l, when that
-	// address can leave l: the buffer read of an array in a loop that writes no memory.
-	function trySplit(mutates self, f ir.IrFunction, k Count, l Count, analysis Analysis, facts LoopFacts)
-		if splitOff[k] != noSplit 'no'
-			return
-		end 'no'
-		let op = f.instrs[k].op
-		let arrayRead = op == ir.Opcode.opElemLoad or (op == ir.Opcode.opLoadByte and ir.loadByteOf(f.instrs[k]) == ir.Collection.collectionArray)
-		if not arrayRead or facts.clobbers[l] 'other'
-			return
-		end 'other'
-		let src = f.instrs[k].a
-		if facts.loops.holds(l, node: home[regIndex(src)]) 'varies'
-			return
-		end 'varies'
-		let x = ir.newBuffer(ir.noReg, src: src)
-		let id = sum(real, b: virtual.count())
-		virtual.push(x.clone())
-		virtualOf.push(k)
-		virtualReg.push(ir.noReg)
-		let at = runsAt[k]
-		runsAt.push(at)
-		target.push(noTarget)
-		lastAt.push(0)
-		if self.consider(f, x: x, k: id, l: l, inPrefix: false, analysis: analysis, facts: facts) 'leaves'
-			splitOff[k] = virtual.count()
-			return
-		end 'leaves'
-		_ = try virtual.pop() otherwise panic("opt: an empty list")
-		_ = try virtualOf.pop() otherwise panic("opt: an empty list")
-		_ = try virtualReg.pop() otherwise panic("opt: an empty list")
-		_ = try runsAt.pop() otherwise panic("opt: an empty list")
-		_ = try target.pop() otherwise panic("opt: an empty list")
-		_ = try lastAt.pop() otherwise panic("opt: an empty list")
-	end 'trySplit'
 
 	// findMustSeg finds the nearest segment that dominates every segment of loop l with an edge out of it or back to its
 	// header: a segment that dominates it runs on every iteration that goes on or leaves.
@@ -365,8 +303,7 @@ export type Licm
 	end 'readsOutside'
 
 	// place makes the preheaders and moves each instruction to the preheader of the last loop it left, in the order it
-	// left that loop, with a copy of each constant it reads from inside that loop; then each element read that a buffer
-	// read was split off, and that stayed, becomes the read at the index of the buffer read's register.
+	// left that loop, with a copy of each constant it reads from inside that loop.
 	function place(mutates self, mutates f ir.IrFunction, analysis Analysis, facts LoopFacts)
 		editor.begin(f)
 		for l in 0 upto facts.loops.loopCount() 'loops'
@@ -383,41 +320,11 @@ export type Licm
 			let k = order[i]
 			if lastAt[k] == plusOne(i) 'last'
 				let l = try target[k] - 1 otherwise panic("opt: an instruction that moved has no loop")
-				if k < real 'own'
-					self.move(f, k: k, l: l, analysis: analysis, facts: facts)
-				end 'own' else 'split'
-					self.moveBuffer(f, v: try k - real otherwise panic("opt: a split read before the instructions"), l: l, analysis: analysis, facts: facts)
-				end 'split'
+				self.move(f, k: k, l: l, analysis: analysis, facts: facts)
 			end 'last'
 		end 'order'
-		for k in 0 upto real 'splits'
-			if splitOff[k] != noSplit and target[k] == noTarget 'split'
-				let data = virtualReg[linkIndex(splitOff[k])]
-				let dst = f.instrs[k].dst
-				let index = f.instrs[k].b
-				if f.instrs[k].op == ir.Opcode.opElemLoad 'word'
-					editor.replace(k, x: ir.newElemAt(dst, data: data, index: index, shift: ir.elemLoadShift(f.instrs[k])))
-				end 'word' else 'byte'
-					editor.replace(k, x: ir.newByteAt(dst, data: data, index: index))
-				end 'byte'
-			end 'split'
-		end 'splits'
 		editor.finish(f)
 	end 'place'
-
-	// moveBuffer writes the address v split off an element read, a buffer read, in the preheader
-	// of loop l, unless the element read it was split off left as a whole.
-	function moveBuffer(mutates self, mutates f ir.IrFunction, v Count, l Count, analysis Analysis, facts LoopFacts)
-		if target[virtualOf[v]] != noTarget 'whole'
-			return
-		end 'whole'
-		let data = f.newReg(ir.IrKind.kindScalar)
-		names.push(data)
-		virtualReg[v] = data
-		var x = virtual[v].clone()
-		x.dst = data
-		self.appendToPreheader(f, x: x, span: ir.spanAt(f, k: virtualOf[v]), l: l, analysis: analysis, facts: facts)
-	end 'moveBuffer'
 
 	function move(mutates self, mutates f ir.IrFunction, k Count, l Count, analysis Analysis, facts LoopFacts)
 		self.appendToPreheader(f, x: f.instrs[k].clone(), span: ir.spanAt(f, k: k), l: l, analysis: analysis, facts: facts)
