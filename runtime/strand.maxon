@@ -79,12 +79,16 @@ function strandAcquire(root Count, g Count)
 	waitForStrand(root, g: g)
 end 'strandAcquire'
 
-// waitForStrand parks the member g, which is in the strand's queue, until a release has made it the holder. A ready of
-// another cause cannot come: a member waits for one thing at a time.
+// waitForStrand parks the member g, which is in the strand's queue, until the release that made it the holder readies it.
+// Only that ready tells it so, never the holder word: the release readies g after it has let go of the lock, so a member
+// that read the hand-over there and ran on would leave the ready to land later, as a permit that ends a wait of another
+// cause early, or on its record once it has finished. One park takes the one ready, which the permit keeps when it comes
+// before the park. A ready of another cause cannot come: a member waits for one thing at a time.
 function waitForStrand(root Count, g Count)
-	while __Raw.atomicAdd(root, offset: greenStrandHolderOffset, value: 0) != g 'handed'
-		parkGreen(__Raw.threadContext(), g: g)
-	end 'handed'
+	parkGreen(__Raw.threadContext(), g: g)
+	if __Raw.atomicAdd(root, offset: greenStrandHolderOffset, value: 0) != g 'early'
+		panic("a member of a strand was readied before the strand was handed to it")
+	end 'early'
 end 'waitForStrand'
 
 // strandYield is a yield of the member g that holds the strand: when another member waits to run, it gets the strand,
