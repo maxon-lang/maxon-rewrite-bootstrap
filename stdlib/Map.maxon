@@ -1,6 +1,8 @@
-/// Hash map with open addressing and linear probing for key-value storage.
+/// Hash map on the design of Go's (`internal/runtime/maps`): slots in groups of eight, each group with a control word that
+/// tells which of its slots hold a key, the keys and their values side by side, and tables found through a directory by
+/// the top bits of the hash, so the map grows one table at a time and never rehashes the whole of it.
 /// @category Collections
-// Map receives managed memory buffers directly for literal initialization via BuiltinDictionaryLiteral.
+// A map literal makes a Map by its static `init`, which the compiler finds by name (BuiltinDictionaryLiteral).
 
 // MapError - errors for dictionary/map operations
 public enum MapError implements Error
@@ -8,39 +10,402 @@ public enum MapError implements Error
 	keyAlreadyExists
 end 'MapError'
 
-// Occupied entries. An entry needs a slot, so this is bounded by the table's capacity and carries the
-// capacity's bound for the reason stated once on `TableCapacity`: 2^63 is the last capacity a doubling
-// from 16 can mint.
+// Occupied entries. An entry needs a slot, so this is bounded by the slots a map can have, which is 2^63 at most.
 public typealias EntryCount = int(0 to 9223372036854775808) implements Count
 
-// The slot vocabulary is `helpers/hashtable/slotScan.maxon`'s, shared with `Set`: `SlotState`,
-// `TableSlotIndex`, `TableCapacity` and the `findNextOccupied` scan both iterators advance through.
-// Two byte-identical copies of a three-state enum fail ASYMMETRICALLY — a fourth state is a compile
-// error at one file's `match`es and silence at the other's — so there is one.
+// MapHash is a key's hash spread over 64 bits under the map's seed: its top bits choose a table, the bits from the eighth
+// up choose the group a probe starts at, and the low seven tell the keys of a group apart.
+typealias MapHash = bits(64)
+
+// ControlWord is a group's control word, a byte for each of its slots from the low byte up: the low seven bits of the
+// hash of the key the slot holds, whose top bit is clear, or the mark of an empty or a deleted slot, whose top bit is set.
+typealias ControlWord = bits(64)
+
+// A table has at most maxTableCapacity slots, so these index its groups (maxTableCapacity / groupSlots of them), the slots
+// of a group and its slots, and count its slots.
+typealias GroupIndex = int(0 to 127) implements Count
+
+typealias SlotInGroup = int(0 to 7) implements Count
+
+typealias TableSlot = int(0 to 1023) implements Count
+
+typealias TableCount = int(0 to 1024) implements Count
+
+// Depth is how many top bits of a hash a directory reads (the map's global depth) or a table is chosen by (its local
+// depth).
+typealias Depth = int(0 to 64) implements Count
+
+let groupSlots = 8
+
+let slotInGroupMask = 7
+
+let maxTableCapacity = 1024
+
+// A table grows when the slots its entries and tombstones take pass maxGroupLoad of every groupSlots.
+let maxGroupLoad = 7
+
+// A table's tombstones are pruned only when they are at least a tenth of its slots, and only when a tenth of its slots
+// can be freed, so that the walk of every entry that pruning is pays for itself.
+let pruneShare = 10
+
+let hashBits = 64
+
+let emptyControl = 0x80 as ControlWord
+
+let deletedControl = 0xFE as ControlWord
+
+let controlLowBits = 0x0101010101010101 as ControlWord
+
+let controlHighBits = 0x8080808080808080 as ControlWord
+
+let emptyGroup = 0x8080808080808080 as ControlWord
+
+let controlByteMask = 0xFF as ControlWord
+
+let controlByteBits = 8
+
+// The shift that brings the bit of an empty mark onto the bit of a full slot's top, which a deleted mark also has set.
+let emptyMarkShift = 6
+
+let hashLowMask = 0x7F as MapHash
+
+// h1Shift drops the low seven bits, which the control bytes hold, from the bits a probe starts at.
+let h1Shift = 7
+
+// A set of hits has the top bit of each matching slot's byte set. The lowest one brought down to its byte's low bit and
+// multiplied by slotIndexMultiplier leaves the slot's index in the product's top byte, so the hits are read with no loop.
+let matchBitShift = 7
+
+let slotIndexMultiplier = 0x0001020304050607 as ControlWord
+
+let slotIndexShift = 56
+
+// spread multiplies a key's hash under the seed by an odd constant and folds the high half of the product onto the low,
+// so every bit of the 64 depends on every bit of the hash: the table, the group and the control byte are all of it.
+let hashMultiplier = 0x9E3779B97F4A7C15 as MapHash
+
+let hashFoldShift = 32
+
+function spread(hash HashValue, seed MapHash) returns MapHash
+	let mixed = ((hash as MapHash) xor seed) * hashMultiplier
+	return mixed xor (mixed shr hashFoldShift)
+end 'spread'
+
+// controlOf is the control byte of a slot that holds a key of hash.
+function controlOf(hash MapHash) returns ControlWord
+	return (hash and hashLowMask) as ControlWord
+end 'controlOf'
+
+// matchControl is the slots of a group whose control byte is control: a set top bit of each one's byte. A byte below a
+// matching one may match falsely, which only costs a comparison of its key.
+function matchControl(group ControlWord, control ControlWord) returns ControlWord
+	let v = group xor (controlLowBits * control)
+	return ((v - controlLowBits) and not v) and controlHighBits
+end 'matchControl'
+
+function matchEmpty(group ControlWord) returns ControlWord
+	return (group and not (group shl emptyMarkShift)) and controlHighBits
+end 'matchEmpty'
+
+function matchEmptyOrDeleted(group ControlWord) returns ControlWord
+	return group and controlHighBits
+end 'matchEmptyOrDeleted'
+
+function matchFull(group ControlWord) returns ControlWord
+	return (not group) and controlHighBits
+end 'matchFull'
+
+// firstMatch is the first slot of a set of hits that is not empty.
+function firstMatch(hits ControlWord) returns SlotInGroup
+	let lowest = hits and (0 - hits)
+	let index = (((lowest shr matchBitShift) * slotIndexMultiplier) shr slotIndexShift) and slotInGroupMask
+	return try index as SlotInGroup otherwise panic("Map: a hit names a slot of its group")
+end 'firstMatch'
+
+function withoutFirst(hits ControlWord) returns ControlWord
+	return hits and (hits - 1)
+end 'withoutFirst'
+
+function controlAt(group ControlWord, slot SlotInGroup) returns ControlWord
+	return (group shr (slot * controlByteBits)) and controlByteMask
+end 'controlAt'
+
+function withControl(group ControlWord, slot SlotInGroup, control ControlWord) returns ControlWord
+	let shift = slot * controlByteBits
+	return (group and not (controlByteMask shl shift)) or (control shl shift)
+end 'withControl'
+
+function groupOf(slot TableSlot) returns GroupIndex
+	return slot / groupSlots
+end 'groupOf'
+
+function slotInGroup(slot TableSlot) returns SlotInGroup
+	return slot and slotInGroupMask
+end 'slotInGroup'
+
+function slotAt(group GroupIndex, index SlotInGroup) returns TableSlot
+	return group * groupSlots + index
+end 'slotAt'
+
+// A probe visits a table's groups in the triangular sequence from the group its hash names: h, h + 1, h + 1 + 2, ...
+// modulo the number of groups, which is a power of two, so the sequence visits every group once in that many steps.
+function firstGroup(hash MapHash, mask GroupIndex) returns GroupIndex
+	return try ((hash shr h1Shift) and (mask as MapHash)) as GroupIndex otherwise panic("Map: a group of the table")
+end 'firstGroup'
+
+function nextGroup(group GroupIndex, step GroupIndex, mask GroupIndex) returns GroupIndex
+	return (group + step) and mask
+end 'nextGroup'
+
+// MapTable is one table of a map: a power of two of groups, each a control word and groupSlots pairs of a key and its
+// value. Its growthLeft is how many empty slots inserts may still take before it grows: an entry and a tombstone both
+// keep a slot from a probe's end, so both count against its load.
+export type MapTable uses Key, Value where Key implements Hashable and Equatable
+	typealias Groups = __GroupMemory with Key, Value
+	var groups as Groups
+	// mask is one less than the number of groups, a power of two, so any bits `and` it are the index of a group.
+	var mask as GroupIndex
+	var used as TableCount
+	var growthLeft as TableCount
+	var localDepth as Depth
+	// firstEntry is the first entry of the map's directory that names the table.
+	var firstEntry as Count
+
+	static function create(capacity TableCount, localDepth Depth, firstEntry Count) returns Self
+		let count = capacity / groupSlots
+		let mask = try (count - 1) as GroupIndex otherwise panic("Map: a table has a group")
+		return Self{groups: Groups.create(count, control: emptyGroup as Count), mask: mask, used: 0, growthLeft: Self.maxGrowth(capacity), localDepth: localDepth, firstEntry: firstEntry}
+	end 'create'
+
+	// small is the one group of a map of at most groupSlots entries, which no probe goes past, so all of its slots fill.
+	static function small() returns Self
+		var table = Self.create(groupSlots, localDepth: 0, firstEntry: 0)
+		table.growthLeft = groupSlots
+		return table
+	end 'small'
+
+	// maxGrowth is how many inserts an empty table of a capacity takes: one group keeps a slot empty to end a probe, and
+	// more keep groupSlots - maxGroupLoad of every groupSlots.
+	static function maxGrowth(capacity TableCount) returns TableCount
+		if capacity <= groupSlots 'oneGroup'
+			return try capacity - 1 otherwise panic("Map: a table has a group")
+		end 'oneGroup'
+		return capacity * maxGroupLoad / groupSlots
+	end 'maxGrowth'
+
+	function capacity() returns TableCount
+		return (mask + 1) * groupSlots
+	end 'capacity'
+
+	function control(group GroupIndex) returns ControlWord
+		return groups.control(group) as ControlWord
+	end 'control'
+
+	function setControl(mutates self, group GroupIndex, word ControlWord)
+		groups.setControl(group, value: word as Count)
+	end 'setControl'
+
+	function tombstones() returns TableCount
+		return try capacity() * maxGroupLoad / groupSlots - used - growthLeft otherwise panic("Map: a table counts its tombstones")
+	end 'tombstones'
+
+	// find is the slot that holds key, whose hash is hash, and throws keyNotFound where none does: a probe ends at a group
+	// with an empty slot, which an insert would have taken, or once it has visited every group.
+	function find(key Key, hash MapHash) returns TableSlot throws MapError
+		let wanted = controlOf(hash)
+		var group = firstGroup(hash, mask: mask)
+		var step = 0 as GroupIndex
+		while true 'probe'
+			let word = control(group)
+			var hits = matchControl(word, control: wanted)
+			while hits != 0 'candidates'
+				let slot = slotAt(group, index: firstMatch(hits))
+				if groups.first(slot) == key 'found'
+					return slot
+				end 'found'
+				hits = withoutFirst(hits)
+			end 'candidates'
+			if matchEmpty(word) != 0 or step >= mask 'absent'
+				throw MapError.keyNotFound
+			end 'absent'
+			step = step + 1
+			group = nextGroup(group, step: step, mask: mask)
+		end 'probe'
+		panic("Map: a probe ends")
+	end 'find'
+
+	// vacancy is the slot an insert of a key of hash takes: the first empty or deleted slot on its probe.
+	function vacancy(hash MapHash) returns TableSlot
+		var group = firstGroup(hash, mask: mask)
+		var step = 0 as GroupIndex
+		while true 'probe'
+			let open = matchEmptyOrDeleted(control(group))
+			if open != 0 'found'
+				return slotAt(group, index: firstMatch(open))
+			end 'found'
+			if step >= mask 'full'
+				panic("Map: a table has an empty or a deleted slot wherever an insert probes")
+			end 'full'
+			step = step + 1
+			group = nextGroup(group, step: step, mask: mask)
+		end 'probe'
+		panic("Map: a probe ends")
+	end 'vacancy'
+
+	function isDeleted(slot TableSlot) returns bool
+		return controlAt(control(groupOf(slot)), slot: slotInGroup(slot)) == deletedControl
+	end 'isDeleted'
+
+	// place moves an entry into a slot that vacancy gave: an empty one takes from growthLeft, a deleted one does not.
+	function place(mutates self, slot TableSlot, consumes key Key, consumes value Value, hash MapHash) where Key implements Droppable, Value implements Droppable
+		let group = groupOf(slot)
+		let at = slotInGroup(slot)
+		if controlAt(control(group), slot: at) == emptyControl 'fresh'
+			growthLeft = try growthLeft - 1 otherwise panic("Map: an insert into a table with no growth left")
+		end 'fresh'
+		setControl(group, word: withControl(control(group), slot: at, control: controlOf(hash)))
+		groups.put(slot, first: key, second: value)
+		used = try used + 1 otherwise panic("Map: a table past its slots")
+	end 'place'
+
+	// erase drops the entry of a slot. Only a full group can be passed by a probe, and a group that is not full stays so
+	// until the table is rebuilt, so the slot of a group with an empty one is empty again; in a full group it is a
+	// tombstone, which keeps the probes through the group going. A map of one group has no probe to keep.
+	function erase(mutates self, slot TableSlot, small bool) where Key implements Droppable, Value implements Droppable
+		let group = groupOf(slot)
+		groups.clear(slot)
+		used = try used - 1 otherwise panic("Map: an erase from an empty table")
+		if small or matchEmpty(control(group)) != 0 'reusable'
+			setControl(group, word: withControl(control(group), slot: slotInGroup(slot), control: emptyControl))
+			growthLeft = try growthLeft + 1 otherwise panic("Map: a table past its slots")
+		end 'reusable' else 'tombstone'
+			setControl(group, word: withControl(control(group), slot: slotInGroup(slot), control: deletedControl))
+		end 'tombstone'
+	end 'erase'
+
+	// drain moves into another table each entry whose hash, under the map's seed, has the bits of side where it has the
+	// bits of split: every entry for a split of 0, and one half of the table for the bit a split divides it by.
+	function drain(mutates self, mutates into Self, seed MapHash, split MapHash, side MapHash) where Key implements Droppable, Value implements Droppable
+		for g in 0 to mask 'groups'
+			let group = try g as GroupIndex otherwise panic("Map: a table past its largest")
+			var full = matchFull(control(group))
+			while full != 0 'entries'
+				let at = firstMatch(full)
+				full = withoutFirst(full)
+				let slot = slotAt(group, index: at)
+				let hash = spread(groups.first(slot).hash(), seed: seed)
+				if (hash and split) == side 'moves'
+					let key = groups.takeFirst(slot)
+					let value = groups.takeSecond(slot)
+					setControl(group, word: withControl(control(group), slot: at, control: emptyControl))
+					used = try used - 1 otherwise panic("Map: a drain of an empty table")
+					into.place(into.vacancy(hash), key: key, value: value, hash: hash)
+				end 'moves'
+			end 'entries'
+		end 'groups'
+	end 'drain'
+
+	// pruneTombstones empties the tombstones that no entry's probe passes, as Go's map does, where they are enough to be
+	// worth it; an entry's probe passes a tombstone only in a group that is full and is not the entry's own.
+	function pruneTombstones(mutates self, seed MapHash)
+		let capacity = capacity()
+		if tombstones() * pruneShare < capacity 'few'
+			return
+		end 'few'
+		var needed = Array.filled(mask + 1, value: false)
+		for g in 0 to mask 'groups'
+			let group = try g as GroupIndex otherwise panic("Map: a table past its largest")
+			var full = matchFull(control(group))
+			while full != 0 'entries'
+				let slot = slotAt(group, index: firstMatch(full))
+				full = withoutFirst(full)
+				let hash = spread(groups.first(slot).hash(), seed: seed)
+				var probe = firstGroup(hash, mask: mask)
+				var step = 0 as GroupIndex
+				while probe != group 'passes'
+					if matchEmptyOrDeleted(control(probe)) != 0 'tombstone'
+						needed[probe] = true
+					end 'tombstone'
+					step = try step + 1 otherwise panic("Map: a probe that misses its entry's group")
+					probe = nextGroup(probe, step: step, mask: mask)
+				end 'passes'
+			end 'entries'
+			if matchEmpty(control(group)) != 0 'open'
+				needed[group] = true
+			end 'open'
+		end 'groups'
+		var freed = 0 as TableCount
+		for g in 0 to mask 'count'
+			if not needed[g] 'spare'
+				var deleted = matchEmptyOrDeleted(control(g))
+				while deleted != 0 'each'
+					freed = try freed + 1 otherwise panic("Map: a table past its slots")
+					deleted = withoutFirst(deleted)
+				end 'each'
+			end 'spare'
+		end 'count'
+		if freed * pruneShare < capacity 'notWorth'
+			return
+		end 'notWorth'
+		for g in 0 to mask 'prune'
+			if not needed[g] 'spare'
+				var deleted = matchEmptyOrDeleted(control(g))
+				while deleted != 0 'each'
+					setControl(g, word: withControl(control(g), slot: firstMatch(deleted), control: emptyControl))
+					growthLeft = try growthLeft + 1 otherwise panic("Map: a table past its slots")
+					deleted = withoutFirst(deleted)
+				end 'each'
+			end 'spare'
+		end 'prune'
+	end 'pruneTombstones'
+
+	// fullFrom is the first slot at or after from that holds an entry, and throws exhausted where none does.
+	function fullFrom(from TableCount) returns TableSlot throws IterationError
+		var g = (from / groupSlots) as Count
+		if g > mask 'past'
+			throw IterationError.exhausted
+		end 'past'
+		let group = try g as GroupIndex otherwise panic("Map: a table past its largest")
+		let below = (from and slotInGroupMask) * controlByteBits
+		var full = matchFull(control(group)) and not ((1 as ControlWord shl below) - 1)
+		if full != 0 'here'
+			return slotAt(group, index: firstMatch(full))
+		end 'here'
+		g = g + 1
+		while g <= mask 'groups'
+			let next = try g as GroupIndex otherwise panic("Map: a table past its largest")
+			full = matchFull(control(next))
+			if full != 0 'found'
+				return slotAt(next, index: firstMatch(full))
+			end 'found'
+			g = g + 1
+		end 'groups'
+		throw IterationError.exhausted
+	end 'fullFrom'
+
+	// fullAfter is the slots of slot's group after it that hold an entry.
+	function fullAfter(slot TableSlot) returns ControlWord
+		let shift = slotInGroup(slot) * controlByteBits
+		let upTo = ((1 as ControlWord shl shift) - 1) or (controlByteMask shl shift)
+		return matchFull(control(groupOf(slot))) and not upTo
+	end 'fullAfter'
+end 'MapTable'
 
 public type Map uses Key, Value implements Iterable with (Entry, MapIterator) where Key implements Hashable and Equatable
-	typealias KeyArray = Array with Key
-	typealias ValueArray = Array with Value
-	typealias StateArray = Array with hashtable.SlotState
-	typealias HashSlotArray = Array with HashValue
 	public typealias Entry = (Key, Value)
 	typealias KeyMemory = __ManagedMemory with Key
 	typealias ValueMemory = __ManagedMemory with Value
-	var keys = KeyArray.create(0) // Key storage
-	var values = ValueArray.create(0) // Value storage
-	var states = StateArray.create(0) // Slot states
-	var hashes = HashSlotArray.create(0) // Cached key hashes, parallel to keys
-	var storedCount = 0 as EntryCount // Number of occupied entries
-	var capacity = 0 as hashtable.TableCapacity // Total slots
-	/// ⭐⭐ **A TOMBSTONE OCCUPIES A PROBE PATH, SO THE LOAD FACTOR HAS TO COUNT IT.** A probe stops at an
-	/// EMPTY slot and walks over a tombstone, and a removal turns an occupied slot into one without ever
-	/// giving an empty slot back — so a table that is inserted into and removed from in turn spends its
-	/// empty slots one at a time and ends up probing its whole capacity for every key it does not hold,
-	/// while `count` never moves and a load factor reading `count` alone never rehashes. `ensureCapacity`
-	/// reads occupancy as `count + removalsSinceRehash` for that reason, and a rehash clears it. An insert
-	/// that takes a tombstone does not give one back, so the churn spec
-	/// `a-churn-of-inserts-and-removes-makes-the-same-allocations-wherever-the-keys-hash` holds.
-	var removalsSinceRehash = 0 as hashtable.TableCapacity
+	typealias Table = MapTable with Key, Value
+	typealias Tables = Array with Table
+	typealias Directory = Array with Count
+	// tables holds each table once, in the order the map made them, and directory names, for each value of a hash's top
+	// globalDepth bits, the index in tables of the table that holds its keys. A map of at most groupSlots entries is one
+	// table of one group and has no directory, and an empty map has no table.
+	var tables = Tables.create(0)
+	var directory = Directory.create(0)
+	var storedCount = 0 as EntryCount
+	var seed = 0 as MapHash
+	var globalDepth = 0 as Depth
 
 	/// Create an empty map
 	public static function create() returns Self
@@ -49,26 +414,8 @@ public type Map uses Key, Value implements Iterable with (Entry, MapIterator) wh
 
 	// Default type for dictionary literals - compiler discovers this via BuiltinDictionaryLiteral interface
 	static function init(initKeys KeyMemory, initValues ValueMemory) returns Self where Key implements Droppable and Copyable, Value implements Droppable and Copyable
-		// Get number of elements in the managed memory buffers
-		let numElements = initKeys.length()
-		// Calculate capacity: at least 16, or next power of 2 above numElements * 2
-		var cap = 16 as hashtable.TableCapacity
-		while cap < (try numElements * 2 otherwise panic("out of range")) 'calc_cap'
-			cap = try cap * 2 otherwise panic("out of range")
-		end 'calc_cap'
-		// Allocate internal arrays with preallocated capacity
-		var ks = KeyArray{}
-		ks.resize(cap)
-		var vs = ValueArray{}
-		vs.resize(cap)
-		var sts = StateArray{}
-		sts.resize(cap)
-		var hs = HashSlotArray{}
-		hs.resize(cap)
-		// Create the map with arrays and preallocated capacity (count defaults to 0)
-		var result = Self{keys: ks, values: vs, states: sts, hashes: hs, capacity: cap}
-		// Insert each key-value pair from the init arrays
-		for i in 0 upto numElements 'insert_loop'
+		var result = Self{}
+		for i in 0 upto initKeys.length() 'insert_loop'
 			let k = try initKeys.get(i) otherwise 'kErr'
 				panic("Map.init: initKeys.get OOB — i < numElements guaranteed")
 			end 'kErr'
@@ -80,111 +427,174 @@ public type Map uses Key, Value implements Iterable with (Entry, MapIterator) wh
 		return result
 	end 'init'
 
-	// Internal: initialize storage when capacity is zero, then rehash when the slots a probe walks —
-	// live entries and the removals since the last rehash — pass 75% of them
-	function ensureCapacity(mutates self) where Key implements Droppable and Copyable, Value implements Droppable and Copyable
-		if capacity == 0 'init_empty'
-			keys = KeyArray{}
-			keys.resize(16)
-			values = ValueArray{}
-			values.resize(16)
-			states = StateArray{}
-			states.resize(16)
-			hashes = HashSlotArray{}
-			hashes.resize(16)
-			capacity = 16
-		end 'init_empty'
-		let loadLimit = trunc(try (capacity * 3) / 4 otherwise panic("out of range"))
-		if storedCount >= loadLimit 'full_of_entries'
-			rehash(try capacity * 2 otherwise panic("out of range"))
-			return
-		end 'full_of_entries'
-		if (try storedCount + removalsSinceRehash otherwise panic("out of range")) < loadLimit 'every_probe_path_still_ends'
-			return
-		end 'every_probe_path_still_ends'
-		// The live entries fit and the tombstones do not, which is churn. Rehash into the capacity the
-		// LIVE count needs: the same one while the entries are under half the limit, twice it otherwise.
-		// Either way the next rehash is a quarter of a table's worth of operations away, so clearing
-		// tombstones stays amortized constant.
-		rehash(capacity if (try storedCount * 2 otherwise panic("out of range")) < loadLimit else (try capacity * 2 otherwise panic("out of range")))
-	end 'ensureCapacity'
+	function hashOf(key Key) returns MapHash
+		return spread(key.hash(), seed: seed)
+	end 'hashOf'
 
-	// Internal: write a key-value pair into the given slot. `hash` is the key's
-	// precomputed hash (from findSlot), cached in the parallel `hashes` array so
-	// probes can skip the full key.equals() when hashes differ.
-	//
-	// The panics name "the probe" rather than `findSlot` because `rehash` also calls this, with an
-	// index from its own inline empty-slot scan; both probes mask with `capacity - 1`, so both
-	// hand over an index in [0, capacity).
-	function insertAtSlot(mutates self, slotIndex hashtable.TableSlotIndex, key Key, value Value, hash HashValue) where Key implements Droppable and Copyable, Value implements Droppable and Copyable
-		try keys.set(slotIndex as ElementIndex, value: key.clone()) otherwise panic("Map.insertAtSlot: keys.set OOB — slot from the probe is always in-bounds")
-		try values.set(slotIndex as ElementIndex, value: value.clone()) otherwise panic("Map.insertAtSlot: values.set OOB — slot from the probe is always in-bounds")
-		try states.set(slotIndex as ElementIndex, value: hashtable.SlotState.Occupied) otherwise panic("Map.insertAtSlot: states.set OOB — slot from the probe is always in-bounds")
-		try hashes.set(slotIndex as ElementIndex, value: hash) otherwise panic("Map.insertAtSlot: hashes.set OOB — slot from the probe is always in-bounds")
-		storedCount = try storedCount + 1 otherwise panic("out of range")
-	end 'insertAtSlot'
+	function isSmall() returns bool
+		return directory.count() == 0
+	end 'isSmall'
+
+	// tableOf is the index in tables of the table that holds the keys of hash.
+	function tableOf(hash MapHash) returns Count
+		if directory.count() <= 1 'one'
+			return 0
+		end 'one'
+		return directory[(hash shr (hashBits - globalDepth)) as Count]
+	end 'tableOf'
+
+	// allocate makes the one group of a map that has none, and draws its seed.
+	function allocate(mutates self)
+		if tables.count() == 0 'none'
+			seed = __Builtins.hashSeed() as MapHash
+			tables.push(Table.small())
+		end 'none'
+	end 'allocate'
 
 	/// Insert a key-value pair into the map
 	/// Throws if the key already exists
-	/// Automatically resizes the map when load factor exceeds 75%
+	/// Grows the table the key goes to when its slots in use pass 7/8 of them
 	public function insert(mutates self, key Key, value Value) throws MapError where Key implements Droppable and Copyable, Value implements Droppable and Copyable
-		ensureCapacity()
-		let hash = key.hash()
-		let slotIndex = try findSlot(key, hash: hash) otherwise panic("Map.insert: findSlot named no slot — ensureCapacity established capacity > 0, which is the only condition findSlot throws on")
-		let state = try states.get(slotIndex as ElementIndex) otherwise panic("Map.insert: states.get OOB — slot from findSlot is always in-bounds")
-		if stateIsOccupied(state) 'found'
-			throw MapError.keyAlreadyExists
-		end 'found'
-		insertAtSlot(slotIndex, key: key, value: value, hash: hash)
+		allocate()
+		let hash = hashOf(key)
+		let t = tableOf(hash)
+		_ = try tables[t].find(key, hash: hash) otherwise 'absent'
+			putAbsent(key.clone(), value: value.clone(), hash: hash)
+			return
+		end 'absent'
+		throw MapError.keyAlreadyExists
 	end 'insert'
 
 	/// Insert or update a key-value pair in the map
 	/// If the key already exists, updates the value
-	/// Automatically resizes the map when load factor exceeds 75%
+	/// Grows the table the key goes to when its slots in use pass 7/8 of them
 	public function upsert(mutates self, key Key, value Value) where Value implements Droppable and Copyable, Key implements Droppable and Copyable
-		ensureCapacity()
-		let hash = key.hash()
-		let slotIndex = try findSlot(key, hash: hash) otherwise panic("Map.upsert: findSlot named no slot — ensureCapacity established capacity > 0, which is the only condition findSlot throws on")
-		let state = try states.get(slotIndex as ElementIndex) otherwise panic("Map.upsert: states.get OOB — slot from findSlot is always in-bounds")
-		if stateIsOccupied(state) 'found'
-			try values.set(slotIndex as ElementIndex, value: value.clone()) otherwise panic("Map.upsert: values.set OOB — slot from findSlot is always in-bounds")
+		allocate()
+		let hash = hashOf(key)
+		let t = tableOf(hash)
+		let slot = try tables[t].find(key, hash: hash) otherwise 'absent'
+			putAbsent(key.clone(), value: value.clone(), hash: hash)
 			return
-		end 'found'
-		insertAtSlot(slotIndex, key: key, value: value, hash: hash)
+		end 'absent'
+		tables[t].groups.setSecond(slot, value: value.clone())
 	end 'upsert'
+
+	// putAbsent moves in an entry whose key the map does not hold. A table with no growth left first prunes its
+	// tombstones, and grows or splits where that frees too few, after which the key's table is looked up again.
+	function putAbsent(mutates self, consumes key Key, consumes value Value, hash MapHash) where Key implements Droppable and Copyable, Value implements Droppable and Copyable
+		while true 'room'
+			let t = tableOf(hash)
+			if isSmall() 'small'
+				if tables[t].used < groupSlots 'fits'
+					tables[t].place(tables[t].vacancy(hash), key: key, value: value, hash: hash)
+					storedCount = try storedCount + 1 otherwise panic("Map: more entries than slots")
+					return
+				end 'fits'
+				growToTable()
+				continue 'room'
+			end 'small'
+			let slot = tables[t].vacancy(hash)
+			if not tables[t].isDeleted(slot) and tables[t].growthLeft == 0 'full'
+				tables[t].pruneTombstones(seed)
+			end 'full'
+			if tables[t].isDeleted(slot) or tables[t].growthLeft > 0 'roomy'
+				tables[t].place(slot, key: key, value: value, hash: hash)
+				storedCount = try storedCount + 1 otherwise panic("Map: more entries than slots")
+				return
+			end 'roomy'
+			rehash(t)
+		end 'room'
+	end 'putAbsent'
+
+	// growToTable moves the entries of a map's one group into a table of two groups, the first table of its directory.
+	function growToTable(mutates self) where Key implements Droppable and Copyable, Value implements Droppable and Copyable
+		var table = Table.create(groupSlots * 2, localDepth: 0, firstEntry: 0)
+		tables[0].drain(table, seed: seed, split: 0, side: 0)
+		_ = exchange(tables[0], value: table)
+		directory.push(0)
+		globalDepth = 0
+	end 'growToTable'
+
+	// rehash makes room in a table with no growth left: twice its slots up to maxTableCapacity, and past that two tables
+	// that each take the half of it that the next bit of the hash names.
+	function rehash(mutates self, t Count) where Key implements Droppable and Copyable, Value implements Droppable and Copyable
+		let capacity = tables[t].capacity()
+		if capacity * 2 <= maxTableCapacity 'grow'
+			let doubled = try (capacity * 2) as TableCount otherwise panic("Map: a table past its largest")
+			var table = Table.create(doubled, localDepth: tables[t].localDepth, firstEntry: tables[t].firstEntry)
+			tables[t].drain(table, seed: seed, split: 0, side: 0)
+			_ = exchange(tables[t], value: table)
+			return
+		end 'grow'
+		split(t)
+	end 'rehash'
+
+	// split replaces a table by the two its keys divide into by the hash's bit below its local depth, as extendible
+	// hashing does: where the table is at the directory's depth, the directory doubles first, each entry twice over.
+	function split(mutates self, t Count) where Key implements Droppable and Copyable, Value implements Droppable and Copyable
+		let depth = try (tables[t].localDepth + 1) as Depth otherwise panic("Map: a table split past the hash's bits")
+		let bit = 1 as MapHash shl (hashBits - depth)
+		var left = Table.create(maxTableCapacity, localDepth: depth, firstEntry: 0)
+		var right = Table.create(maxTableCapacity, localDepth: depth, firstEntry: 0)
+		tables[t].drain(left, seed: seed, split: bit, side: 0)
+		tables[t].drain(right, seed: seed, split: bit, side: bit)
+		if tables[t].localDepth == globalDepth 'deeper'
+			var doubled = Directory.create(0)
+			for i in 0 upto directory.count() 'entries'
+				doubled.push(directory[i])
+				doubled.push(directory[i])
+			end 'entries'
+			directory = doubled
+			for k in 0 upto tables.count() 'reindex'
+				tables[k].firstEntry = try tables[k].firstEntry * 2 otherwise panic("Map: a directory past memory")
+			end 'reindex'
+			globalDepth = try (globalDepth + 1) as Depth otherwise panic("Map: a directory past the hash's bits")
+		end 'deeper'
+		let entries = try (1 as Count) shl (globalDepth - depth) otherwise panic("Map: a table deeper than its directory")
+		left.firstEntry = tables[t].firstEntry
+		right.firstEntry = try left.firstEntry + entries otherwise panic("Map: a directory past memory")
+		let r = tables.count()
+		for j in 0 upto entries 'name'
+			directory[try left.firstEntry + j otherwise panic("Map: a directory past memory")] = t
+			directory[try right.firstEntry + j otherwise panic("Map: a directory past memory")] = r
+		end 'name'
+		_ = exchange(tables[t], value: left)
+		tables.push(right)
+	end 'split'
 
 	/// Get the value for a key, throws if not found
 	public function get(key Key) returns Value throws MapError where Value implements Copyable, Key implements Copyable
-		// findSlot's own `keyNotFound` (the empty table) is exactly this function's answer, so it
-		// propagates rather than being caught and re-thrown.
-		let slotIndex = try findSlot(key, hash: key.hash())
-		if slotHoldsKey(slotIndex) 'found'
-			return try values.get(slotIndex as ElementIndex) otherwise panic("Map.get: values.get OOB — slot from findSlot is always in-bounds")
-		end 'found'
-		throw MapError.keyNotFound
+		if storedCount == 0 'empty'
+			throw MapError.keyNotFound
+		end 'empty'
+		let hash = hashOf(key)
+		let t = tableOf(hash)
+		let slot = try tables[t].find(key, hash: hash)
+		return tables[t].groups.second(slot).clone()
 	end 'get'
 
 	/// Check if key exists in the map
 	public function contains(key Key) returns bool where Key implements Copyable
-		let slotIndex = try findSlot(key, hash: key.hash()) otherwise return false
-		return slotHoldsKey(slotIndex)
+		if storedCount == 0 'empty'
+			return false
+		end 'empty'
+		let hash = hashOf(key)
+		let t = tableOf(hash)
+		_ = try tables[t].find(key, hash: hash) otherwise return false
+		return true
 	end 'contains'
 
 	/// Remove key from map, returns true if key was present
 	public function remove(mutates self, key Key) returns bool where Key implements Droppable and Copyable, Value implements Droppable
-		let slotIndex = try findSlot(key, hash: key.hash()) otherwise return false
-		if slotHoldsKey(slotIndex) 'found'
-			// A tombstone owns nothing: holding the key and value until the map drops would keep them alive and
-			// make the map a second owner of records the caller still holds. The cached hash stays, because the
-			// hash-guard only runs inside findSlot's Occupied branch.
-			try keys.clearSlot(slotIndex as ElementIndex) otherwise panic("Map.remove: keys.clearSlot OOB — slot from findSlot is always in-bounds")
-			try values.clearSlot(slotIndex as ElementIndex) otherwise panic("Map.remove: values.clearSlot OOB — slot from findSlot is always in-bounds")
-			try states.set(slotIndex as ElementIndex, value: hashtable.SlotState.Deleted) otherwise panic("Map.remove: states.set OOB — slot from findSlot is always in-bounds")
-			storedCount = try storedCount - 1 otherwise panic("out of range")
-			removalsSinceRehash = try removalsSinceRehash + 1 otherwise panic("out of range")
-			return true
-		end 'found'
-		return false
+		if storedCount == 0 'empty'
+			return false
+		end 'empty'
+		let hash = hashOf(key)
+		let t = tableOf(hash)
+		let slot = try tables[t].find(key, hash: hash) otherwise return false
+		tables[t].erase(slot, small: isSmall())
+		storedCount = try storedCount - 1 otherwise panic("Map: a removal from an empty map")
+		return true
 	end 'remove'
 
 	/// Get number of entries in the map
@@ -195,205 +605,64 @@ public type Map uses Key, Value implements Iterable with (Entry, MapIterator) wh
 	/// Create a fresh iterator positioned at the first occupied entry.
 	/// Throws IterationError.exhausted if the map is empty.
 	public function createIterator() returns MapIterator throws IterationError
-		return try MapIterator.create(keys, values: values, states: states, capacity: capacity)
+		return try MapIterator.create(tables)
 	end 'createIterator'
 
 	/// Get current capacity (total number of slots)
 	public function getCapacity() returns hashtable.TableCapacity
-		return capacity
+		var total = 0 as hashtable.TableCapacity
+		for t in 0 upto tables.count() 'tables'
+			total = try total + (tables[t].capacity() as hashtable.TableCapacity) otherwise panic("Map: more slots than memory")
+		end 'tables'
+		return total
 	end 'getCapacity'
-
-	// Internal: find the slot for a key using linear probing.
-	// `hash` is the key's precomputed hash (computed once by the caller).
-	//
-	// Returns a REAL slot index, always in [0, capacity): EITHER the slot holding the key OR
-	// the vacancy an insert would take. Callers tell those two apart by re-reading the slot's
-	// state with `slotHoldsKey`, which is exact because a returned vacancy is an Empty slot or
-	// the first tombstone on the probe path — never an Occupied one.
-	//
-	// Throws `MapError.keyNotFound` only when there is no slot to NAME at all, which is the
-	// empty table. "This key is in no slot" is literally true of an empty map, so the existing
-	// error is the right one and no new case is minted.
-	function findSlot(key Key, hash HashValue) returns hashtable.TableSlotIndex throws MapError where Key implements Copyable
-		if capacity == 0 'empty'
-			throw MapError.keyNotFound
-		end 'empty'
-		// capacity is always a power of two (starts at 16, only ever doubled), so
-		// `and (capacity - 1)` selects the low bits — identical to `mod capacity` for the
-		// non-negative HashValue range, but cheaper. It is the SPREAD hash that is masked,
-		// never the raw one: see `spreadHash` for the measured quadratic that costs.
-		let mask = (capacity - 1) as hashtable.TableSlotIndex
-		var index = (spreadHash(hash) and (try mask as HashValue otherwise panic("out of range"))) as hashtable.TableSlotIndex
-		var firstDeleted = 0 as hashtable.TableSlotIndex
-		var sawDeleted = false
-		var probes = 0 as hashtable.TableCapacity
-		while probes < capacity 'probe'
-			let state = try states.get(index as ElementIndex) otherwise panic("Map.findSlot: states.get OOB — index is masked into [0, capacity)")
-			let isEmpty = match state 'se1'
-				Empty gives true
-				Occupied gives false
-				Deleted gives false
-			end 'se1'
-			if isEmpty 'empty_slot'
-				// Key not found — hand back the vacancy an insert should take: the first tombstone
-				// on the probe path if there was one, else this empty slot.
-				return firstDeleted if sawDeleted else index
-			end 'empty_slot'
-			let isDeleted = match state 'sd1'
-				Deleted gives true
-				Empty gives false
-				Occupied gives false
-			end 'sd1'
-			if isDeleted and not sawDeleted 'mark_deleted'
-				firstDeleted = index
-				sawDeleted = true
-			end 'mark_deleted'
-			let isOccupied = match state 'so1'
-				Occupied gives true
-				Empty gives false
-				Deleted gives false
-			end 'so1'
-			if isOccupied 'check_key'
-				// Skip the full key.equals() unless the cached hash matches — this
-				// is the hot-path win for string-keyed maps.
-				let slotHash = try hashes.get(index as ElementIndex) otherwise panic("Map.findSlot: hashes.get OOB — the hash column is parallel to the states")
-				if slotHash == hash 'hash_match'
-					let existing = try keys.get(index as ElementIndex) otherwise panic("Map.findSlot: an occupied slot holds a key")
-					if existing == key 'found'
-						return index
-					end 'found'
-				end 'hash_match'
-			end 'check_key'
-			// Linear probing
-			index = (index + 1) and mask
-			probes = probes + 1
-		end 'probe'
-		// All slots probed without finding the key or an empty slot. A tombstone is still a vacancy
-		// an insert can take, so it is a perfectly good answer.
-		if sawDeleted 'use_deleted_fallback'
-			return firstDeleted
-		end 'use_deleted_fallback'
-		// Falling through means every slot is Occupied — count == capacity — which `ensureCapacity`
-		// forbids by rehashing at 75%. That is a broken invariant, not a runtime condition a caller
-		// could handle, so it panics rather than throwing.
-		panic("Map.findSlot: probed every slot and found neither the key nor a vacancy — the 75% load-factor invariant is broken")
-	end 'findSlot'
-
-	// Internal: does this slot hold a live entry? This is how `findSlot`'s callers tell a hit from
-	// a miss, and it is exact because the vacancy findSlot hands back is always Empty or a
-	// tombstone. It reads the same `states` cache line the probe just touched.
-	function slotHoldsKey(slotIndex hashtable.TableSlotIndex) returns bool
-		return stateIsOccupied(try states.get(slotIndex as ElementIndex) otherwise panic("Map.slotHoldsKey: states.get OOB — slot from findSlot is always in-bounds"))
-	end 'slotHoldsKey'
-
-	function stateIsOccupied(state hashtable.SlotState) returns bool
-		return match state 'occupied'
-			Occupied gives true
-			Empty gives false
-			Deleted gives false
-		end 'occupied'
-	end 'stateIsOccupied'
-
-	// Internal: rebuild the table at `wantedCapacity`, which is twice the current one when the live
-	// entries have filled it and the current one when only tombstones have — the fresh table has none,
-	// which is what a churning map is rehashed for.
-	function rehash(mutates self, wantedCapacity hashtable.TableCapacity) where Key implements Droppable and Copyable, Value implements Droppable and Copyable
-		let oldCapacity = capacity
-		var newCapacity = wantedCapacity
-		if newCapacity == 0 'handle_zero'
-			newCapacity = 16
-		end 'handle_zero'
-		// Allocate new arrays with preallocated capacity
-		var newKeys = KeyArray{}
-		newKeys.resize(newCapacity)
-		var newValues = ValueArray{}
-		newValues.resize(newCapacity)
-		var newStates = StateArray{}
-		newStates.resize(newCapacity)
-		var newHashes = HashSlotArray{}
-		newHashes.resize(newCapacity)
-		// Save old arrays for rehashing, then replace with new ones
-		let oldKeys = keys.clone()
-		let oldValues = values.clone()
-		let oldStates = states.clone()
-		let oldHashes = hashes.clone()
-		keys = newKeys
-		values = newValues
-		states = newStates
-		hashes = newHashes
-		capacity = newCapacity
-		storedCount = 0
-		removalsSinceRehash = 0
-		// newCapacity is a power of two, so masking the SPREAD hash selects the low bits
-		// (see `spreadHash`).
-		let mask = try (capacity - 1) as hashtable.TableSlotIndex otherwise panic("out of range")
-		// Rehash all occupied entries from old arrays. The new table is fresh
-		// (no tombstones), so we can place each entry with a plain empty-slot
-		// probe and reuse the cached hash instead of re-calling key.hash().
-		for i in 0 upto oldCapacity 'eachOldSlot'
-			let state = try oldStates.get(i) otherwise panic("Map.rehash: oldStates.get OOB — i is below the old capacity")
-			let isOccupied = match state 'so1'
-				Occupied gives true
-				Empty gives false
-				Deleted gives false
-			end 'so1'
-			if isOccupied 'occupied'
-				let key = try oldKeys.get(i) otherwise panic("Map.rehash: an occupied slot holds a key")
-				let value = try oldValues.get(i) otherwise panic("Map.rehash: an occupied slot holds a value")
-				let hash = try oldHashes.get(i) otherwise panic("Map.rehash: oldHashes.get OOB — the hash column is parallel to the states")
-				var index = (spreadHash(hash) and (try mask as HashValue otherwise panic("out of range"))) as hashtable.TableSlotIndex
-				var currentState = try states.get(index as ElementIndex) otherwise panic("Map.rehash: states.get OOB — index is masked into [0, capacity)")
-				var isNotEmpty = match currentState 'ns1'
-					Empty gives false
-					Occupied gives true
-					Deleted gives true
-				end 'ns1'
-				while isNotEmpty 'find_slot'
-					index = (index + 1) and mask
-					currentState = try states.get(index as ElementIndex) otherwise panic("Map.rehash: states.get OOB — index is masked into [0, capacity)")
-					isNotEmpty = match currentState 'ns2'
-						Empty gives false
-						Occupied gives true
-						Deleted gives true
-					end 'ns2'
-				end 'find_slot'
-				insertAtSlot(index, key: key, value: value, hash: hash)
-			end 'occupied'
-		end 'eachOldSlot'
-	end 'rehash'
 end 'Map'
 
-/// Iterator for Map — scans hash table slots for occupied entries.
-/// Positioning invariant: iterIndex always points at an occupied slot (or ==
-/// capacity after the final advance throws). current() reads that slot without
-/// a state check.
+/// Iterator for Map: the entries of each table in turn, in the order of its slots.
+/// Positioning invariant: the cursor is at a table and slot holds an entry of it, which current() lends; later holds the
+/// slots of slot's group after it that hold one, so a step within a group reads no control word.
 public type MapIterator uses Key, Value implements Iterator with Entry where Key implements Hashable and Equatable
 	public typealias Entry = (Key, Value)
-	public typealias IterKeyArray = Array with Key
-	public typealias IterValueArray = Array with Value
-	export typealias IterStateArray = Array with hashtable.SlotState
-	typealias KeySlots = hashtable.SlotCursor with Key
-	typealias ValueSlots = hashtable.SlotCursor with Value
-	typealias KeyCursor = __ManagedMemoryCursor with Key
-	typealias ValueCursor = __ManagedMemoryCursor with Value
-	var keys as KeyCursor
-	var values as ValueCursor
-	var states as hashtable.SlotStateCursor
-	var capacity as hashtable.TableCapacity
+	export typealias IterTable = MapTable with Key, Value
+	export typealias IterTables = Array with IterTable
+	typealias TableCursor = __ManagedMemoryCursor with IterTable
+	var tables as TableCursor
+	var slot as TableSlot
+	var later as ControlWord
 
-	export static function create(keys IterKeyArray, values IterValueArray, states IterStateArray, capacity hashtable.TableCapacity) returns Self throws IterationError
-		var stateCursor = try states.managed.createCursor() otherwise throw IterationError.exhausted
-		let first = try hashtable.findNextOccupied(stateCursor, capacity: capacity, from: 0)
-		return Self{keys: KeySlots.over(keys.managed, at: first), values: ValueSlots.over(values.managed, at: first), states: stateCursor, capacity: capacity}
+	export static function create(tables IterTables) returns Self throws IterationError
+		var cursor = try tables.managed.createCursor() otherwise throw IterationError.exhausted
+		let first = try Self.fullFrom(cursor, from: 0)
+		let later = cursor.current().fullAfter(first)
+		return Self{tables: cursor, slot: first, later: later}
 	end 'create'
 
+	// fullFrom is the first slot at or after from in the cursor's table that holds an entry, or in a table after it, to
+	// which it moves the cursor.
+	static function fullFrom(mutates cursor TableCursor, from TableCount) returns TableSlot throws IterationError
+		var start = from
+		while true 'tables'
+			let found = try cursor.current().fullFrom(start) otherwise 'none'
+				try cursor.advance() otherwise throw IterationError.exhausted
+				start = 0
+				continue 'tables'
+			end 'none'
+			return found
+		end 'tables'
+		panic("Map: a walk of the tables ends")
+	end 'fullFrom'
+
 	public function current() returns borrowed Entry
-		return (keys.current(), values.current())
+		return (tables.current().groups.first(slot), tables.current().groups.second(slot))
 	end 'current'
 
 	public function advance(mutates self) throws IterationError
-		let next = try hashtable.findNextOccupied(states, capacity: capacity, from: try (states.index() as hashtable.TableSlotIndex) + 1 otherwise panic("out of range"))
-		KeySlots.move(keys, to: next)
-		ValueSlots.move(values, to: next)
+		if later != 0 'inGroup'
+			slot = slotAt(groupOf(slot), index: firstMatch(later))
+			later = withoutFirst(later)
+			return
+		end 'inGroup'
+		slot = try Self.fullFrom(tables, from: (groupOf(slot) + 1) * groupSlots)
+		later = tables.current().fullAfter(slot)
 	end 'advance'
 end 'MapIterator'

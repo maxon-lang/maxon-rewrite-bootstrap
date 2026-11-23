@@ -119,6 +119,39 @@ export function intrinsicCall(mutates l Lowerer, p ast.Project, mutates ms ast.M
 	if op == ast.Intrinsic.intrCursorPeek 'intrCursorPeek'
 		return lowerCursorPeek(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrCursorPeek'
+	if op == ast.Intrinsic.intrGroupsCreate 'intrGroupsCreate'
+		return lowerGroupsCreate(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrGroupsCreate'
+	if op == ast.Intrinsic.intrGroupsCount 'intrGroupsCount'
+		return lowerGroupsCount(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrGroupsCount'
+	if op == ast.Intrinsic.intrGroupsControl 'intrGroupsControl'
+		return lowerGroupsControl(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrGroupsControl'
+	if op == ast.Intrinsic.intrGroupsSetControl 'intrGroupsSetControl'
+		return lowerGroupsSetControl(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrGroupsSetControl'
+	if op == ast.Intrinsic.intrGroupsFirst 'intrGroupsFirst'
+		return lowerGroupsFirst(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrGroupsFirst'
+	if op == ast.Intrinsic.intrGroupsSecond 'intrGroupsSecond'
+		return lowerGroupsSecond(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrGroupsSecond'
+	if op == ast.Intrinsic.intrGroupsPut 'intrGroupsPut'
+		return lowerGroupsPut(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrGroupsPut'
+	if op == ast.Intrinsic.intrGroupsSetSecond 'intrGroupsSetSecond'
+		return lowerGroupsSetSecond(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrGroupsSetSecond'
+	if op == ast.Intrinsic.intrGroupsTakeFirst 'intrGroupsTakeFirst'
+		return lowerGroupsTakeFirst(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrGroupsTakeFirst'
+	if op == ast.Intrinsic.intrGroupsTakeSecond 'intrGroupsTakeSecond'
+		return lowerGroupsTakeSecond(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrGroupsTakeSecond'
+	if op == ast.Intrinsic.intrGroupsClear 'intrGroupsClear'
+		return lowerGroupsClear(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrGroupsClear'
 	if op == ast.Intrinsic.intrListCreate 'intrListCreate'
 		return lowerListCreate(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrListCreate'
@@ -697,6 +730,39 @@ export function ownsOperands(op ast.Intrinsic) returns bool
 	if op == ast.Intrinsic.intrCursorPeek 'intrCursorPeek'
 		return false
 	end 'intrCursorPeek'
+	if op == ast.Intrinsic.intrGroupsCreate 'intrGroupsCreate'
+		return false
+	end 'intrGroupsCreate'
+	if op == ast.Intrinsic.intrGroupsCount 'intrGroupsCount'
+		return false
+	end 'intrGroupsCount'
+	if op == ast.Intrinsic.intrGroupsControl 'intrGroupsControl'
+		return false
+	end 'intrGroupsControl'
+	if op == ast.Intrinsic.intrGroupsSetControl 'intrGroupsSetControl'
+		return false
+	end 'intrGroupsSetControl'
+	if op == ast.Intrinsic.intrGroupsFirst 'intrGroupsFirst'
+		return false
+	end 'intrGroupsFirst'
+	if op == ast.Intrinsic.intrGroupsSecond 'intrGroupsSecond'
+		return false
+	end 'intrGroupsSecond'
+	if op == ast.Intrinsic.intrGroupsPut 'intrGroupsPut'
+		return false
+	end 'intrGroupsPut'
+	if op == ast.Intrinsic.intrGroupsSetSecond 'intrGroupsSetSecond'
+		return false
+	end 'intrGroupsSetSecond'
+	if op == ast.Intrinsic.intrGroupsTakeFirst 'intrGroupsTakeFirst'
+		return false
+	end 'intrGroupsTakeFirst'
+	if op == ast.Intrinsic.intrGroupsTakeSecond 'intrGroupsTakeSecond'
+		return false
+	end 'intrGroupsTakeSecond'
+	if op == ast.Intrinsic.intrGroupsClear 'intrGroupsClear'
+		return false
+	end 'intrGroupsClear'
 	if op == ast.Intrinsic.intrListCreate 'intrListCreate'
 		return false
 	end 'intrListCreate'

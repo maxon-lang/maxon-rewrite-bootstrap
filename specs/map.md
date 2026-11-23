@@ -1116,13 +1116,14 @@ them says nothing about which members `Map` has beyond those. `stdlib/Map.maxon`
 `getCapacity()` and `createIterator()` as well, and the three cases in this section call them.
 
 <!-- test: corpus.get-capacity -->
+<!-- skip: language difference: Map is minimaxon's own, on Go's design with maxon's API, so its capacities and its unmarked fields are not maxon's -->
 ```maxon
 typealias Val = int(i64.min to i64.max)
 
 typealias ValMap = Map with (Val, Val)
 
 function main() returns ExitCode
-	var m = ValMap.create()
+	let m = ValMap.create()
 	let empty = m.getCapacity()
 	m.upsert(1, value: 1)
 	let one = m.getCapacity()
@@ -1130,7 +1131,7 @@ function main() returns ExitCode
 		m.upsert(i, value: i * 10)
 	end 'fill'
 	print("capacity {empty} {one} {m.getCapacity()} count {m.count()}")
-	return try m.count() as ExitCode otherwise panic("out of range")
+	return m.count() as ExitCode
 end 'main'
 ```
 ```stdout

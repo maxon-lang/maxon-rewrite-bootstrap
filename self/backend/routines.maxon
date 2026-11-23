@@ -26,6 +26,8 @@ let routineLocal2 = -32
 
 let routineLocal3 = -40
 
+let routineLocal4 = -48
+
 // thunkBase is the register a behaviour's thunk holds the record in while it loads the body's arguments: one that the
 // internal convention passes no value in.
 let thunkBase = r11
@@ -341,6 +343,10 @@ function emitDrop(mutates u CodeUnit, p ast.Project, mutates ms ast.ModuleState,
 		dropArray(u, p: p, ms: ms, ty: ty)
 		return
 	end 'array'
+	if kind == ast.TypeKind.builtinGroups 'groups'
+		dropArray(u, p: p, ms: ms, ty: ty)
+		return
+	end 'groups'
 	if kind == ast.TypeKind.funcTy 'function'
 		dropClosure(u)
 		return
@@ -390,6 +396,10 @@ function emitCopy(mutates u CodeUnit, p ast.Project, mutates ms ast.ModuleState,
 		copyArray(u, p: p, ms: ms, ty: ty)
 		return
 	end 'array'
+	if kind == ast.TypeKind.builtinGroups 'groups'
+		copyArray(u, p: p, ms: ms, ty: ty)
+		return
+	end 'groups'
 	if kind == ast.TypeKind.funcTy 'function'
 		copyShared(u, countOffset: closureCountOffset)
 		return
@@ -550,16 +560,56 @@ function dropUnion(mutates u CodeUnit, p ast.Project, mutates ms ast.ModuleState
 	routineEpilogue(u)
 end 'dropUnion'
 
-// dropArray drops each element, and then the buffer and the header.
+// wordColumns are the types of the words of an array box's buffer, which repeat in that order: an array's element, or a
+// group of a buffer of groups, its control word and the two halves of each of its pairs (ir/groups.maxon).
+function wordColumns(p ast.Project, tt ast.TypeSlot, reads ast.TypeTable, ty ast.TypeID) returns ast.TypeIDList
+	var columns = ast.TypeIDList.create(0)
+	if ast.typeKind(tt, reads: reads, t: ty) == ast.TypeKind.builtinGroups 'groups'
+		columns.push(p.builtins.countTy)
+		for i in 0 upto ir.groupPairs as Count 'pairs'
+			columns.push(ast.typeEntry(tt, reads: reads, t: ty).typeArgs[0])
+			columns.push(ast.typeEntry(tt, reads: reads, t: ty).typeArgs[1])
+		end 'pairs'
+		return columns
+	end 'groups'
+	columns.push(elementType(tt, reads: reads, array: ty))
+	return columns
+end 'wordColumns'
+
+function anyManagedColumn(tt ast.TypeSlot, reads ast.TypeTable, columns ast.TypeIDList) returns bool
+	for j in 0 upto columns.count() 'each'
+		if ast.isManagedType(tt, reads: reads, t: columns[j]) 'managed'
+			return true
+		end 'managed'
+	end 'each'
+	return false
+end 'anyManagedColumn'
+
+// wordAddress leaves in rcx the address of the word at an offset in words from the index the local at indexDisp holds, in
+// the buffer of the array box at boxDisp.
+function wordAddress(mutates u CodeUnit, boxDisp Imm32, indexDisp Imm32, offset Count)
+	u.asm.load(rcx, base: rbp, disp: boxDisp)
+	u.asm.load(rcx, base: rcx, disp: arrayDataOffset)
+	u.asm.load(rax, base: rbp, disp: indexDisp)
+	u.asm.movImm(rdx, imm: wordBytes)
+	u.asm.imul(rax, src: rdx)
+	u.asm.add(rcx, src: rax)
+	if offset != 0 'offset'
+		u.asm.addImm(rcx, imm: imm32Of(try offset * wordBytes otherwise panic("a column past memory")))
+	end 'offset'
+end 'wordAddress'
+
+// dropArray drops each element of an array, or each word of a buffer of groups, by its type, and then the
+// buffer and the header.
 function dropArray(mutates u CodeUnit, p ast.Project, mutates ms ast.ModuleState, ty ast.TypeID)
 	let done = u.asm.newLabel()
 	routinePrologue(u, locals: 1)
 	returnIfEmpty(u, done: done)
-	let elem = elementType(ms.types, reads: p.types, array: ty)
-	if ast.isPromiseType(ms.types, reads: p.types, t: elem) 'promises'
+	let columns = wordColumns(p, tt: ms.types, reads: p.types, ty: ty)
+	if columns.count() == 1 and ast.isPromiseType(ms.types, reads: p.types, t: columns[0]) 'promises'
 		cancelElements(u)
 	end 'promises'
-	if ast.isManagedType(ms.types, reads: p.types, t: elem) 'managed'
+	if anyManagedColumn(ms.types, reads: p.types, columns: columns) 'managed'
 		let top = u.asm.newLabel()
 		let out = u.asm.newLabel()
 		u.asm.bitXor(rax, src: rax)
@@ -570,14 +620,15 @@ function dropArray(mutates u CodeUnit, p ast.Project, mutates ms ast.ModuleState
 		u.asm.load(rax, base: rbp, disp: routineLocal0)
 		u.asm.cmp(rax, right: rdx)
 		u.asm.jcc(MCond.aboveEqual, label: out)
-		u.asm.load(rcx, base: rcx, disp: arrayDataOffset)
-		u.asm.movImm(rdx, imm: wordBytes)
-		u.asm.imul(rax, src: rdx)
-		u.asm.add(rcx, src: rax)
-		u.asm.load(rax, base: rcx, disp: 0)
-		routineCall(u, p: p, ms: ms, kind: RoutineKind.dropRoutine, ty: elem)
+		for j in 0 upto columns.count() 'columns'
+			if ast.isManagedType(ms.types, reads: p.types, t: columns[j]) 'owning'
+				wordAddress(u, boxDisp: routineArg, indexDisp: routineLocal0, offset: j)
+				u.asm.load(rax, base: rcx, disp: 0)
+				routineCall(u, p: p, ms: ms, kind: RoutineKind.dropRoutine, ty: columns[j])
+			end 'owning'
+		end 'columns'
 		u.asm.load(rax, base: rbp, disp: routineLocal0)
-		u.asm.addImm(rax, imm: 1)
+		u.asm.addImm(rax, imm: imm32Of(columns.count()))
 		u.asm.store(rbp, disp: routineLocal0, src: rax)
 		u.asm.jmp(top)
 		u.asm.bind(out)
@@ -1060,7 +1111,8 @@ function copyUnion(mutates u CodeUnit, p ast.Project, mutates ms ast.ModuleState
 	routineReturn(u)
 end 'copyUnion'
 
-// copyArray makes a header and a buffer of exactly the length, with a copy of each element.
+// copyArray makes a header and a buffer of exactly the length, with a copy of each element of an array, or of each word of
+// a buffer of groups, by its type.
 function copyArray(mutates u CodeUnit, p ast.Project, mutates ms ast.ModuleState, ty ast.TypeID)
 	let header = routineLocal0
 	let length = routineLocal1
@@ -1068,7 +1120,7 @@ function copyArray(mutates u CodeUnit, p ast.Project, mutates ms ast.ModuleState
 	let buffer = routineLocal3
 	let done = u.asm.newLabel()
 	let top = u.asm.newLabel()
-	routinePrologue(u, locals: 4)
+	routinePrologue(u, locals: 5)
 	allocate(u, bytes: arrayHeaderBytes)
 	u.asm.store(rbp, disp: header, src: rax)
 	u.asm.load(rcx, base: rbp, disp: routineArg)
@@ -1093,29 +1145,25 @@ function copyArray(mutates u CodeUnit, p ast.Project, mutates ms ast.ModuleState
 	u.asm.load(rdx, base: rbp, disp: length)
 	u.asm.cmp(rax, right: rdx)
 	u.asm.jcc(MCond.aboveEqual, label: done)
-	u.asm.load(rcx, base: rbp, disp: routineArg)
-	u.asm.load(rcx, base: rcx, disp: arrayDataOffset)
-	u.asm.movImm(rdx, imm: wordBytes)
-	u.asm.imul(rax, src: rdx)
-	u.asm.add(rcx, src: rax)
-	u.asm.load(rax, base: rcx, disp: 0)
-	let elem = elementType(ms.types, reads: p.types, array: ty)
-	// An empty slot of a managed element, 0, stays empty in the copy (ir.SlotRead).
-	let empty = u.asm.newLabel()
-	if ast.isManagedType(ms.types, reads: p.types, t: elem) 'managed'
-		u.asm.test(rax, right: rax)
-		u.asm.jcc(MCond.equal, label: empty)
-		routineCall(u, p: p, ms: ms, kind: RoutineKind.copyRoutine, ty: elem)
-	end 'managed'
-	u.asm.bind(empty)
-	u.asm.load(rcx, base: rbp, disp: index)
-	u.asm.movImm(rdx, imm: wordBytes)
-	u.asm.imul(rcx, src: rdx)
-	u.asm.load(rdx, base: rbp, disp: buffer)
-	u.asm.add(rcx, src: rdx)
-	u.asm.store(rcx, disp: 0, src: rax)
+	let columns = wordColumns(p, tt: ms.types, reads: p.types, ty: ty)
+	for j in 0 upto columns.count() 'columns'
+		wordAddress(u, boxDisp: routineArg, indexDisp: index, offset: j)
+		u.asm.load(rax, base: rcx, disp: 0)
+		// An empty slot of a managed element, 0, stays empty in the copy (ir.SlotRead).
+		let empty = u.asm.newLabel()
+		if ast.isManagedType(ms.types, reads: p.types, t: columns[j]) 'managed'
+			u.asm.test(rax, right: rax)
+			u.asm.jcc(MCond.equal, label: empty)
+			routineCall(u, p: p, ms: ms, kind: RoutineKind.copyRoutine, ty: columns[j])
+		end 'managed'
+		u.asm.bind(empty)
+		u.asm.store(rbp, disp: routineLocal4, src: rax)
+		wordAddress(u, boxDisp: header, indexDisp: index, offset: j)
+		u.asm.load(rax, base: rbp, disp: routineLocal4)
+		u.asm.store(rcx, disp: 0, src: rax)
+	end 'columns'
 	u.asm.load(rax, base: rbp, disp: index)
-	u.asm.addImm(rax, imm: 1)
+	u.asm.addImm(rax, imm: imm32Of(columns.count()))
 	u.asm.store(rbp, disp: index, src: rax)
 	u.asm.jmp(top)
 	u.asm.bind(done)

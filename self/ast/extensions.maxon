@@ -19,6 +19,7 @@ export function extensionKey(p Project, ms ModuleState, t TypeID) returns table.
 		builtinFrozen gives table.Option.some(originOf(ms.types, reads: p.types, t: t))
 		builtinCown gives table.Option.some(originOf(ms.types, reads: p.types, t: t))
 		builtinCursor gives table.Option.some(originOf(ms.types, reads: p.types, t: t))
+		builtinGroups gives table.Option.some(originOf(ms.types, reads: p.types, t: t))
 		builtinPromise gives table.Option.some(originOf(ms.types, reads: p.types, t: t))
 		builtinService gives table.Option.some(originOf(ms.types, reads: p.types, t: t))
 		primBool gives table.Option.some(p.builtins.boolTy)

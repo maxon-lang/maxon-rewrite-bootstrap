@@ -137,3 +137,6 @@ test	type-name-collision.md	error.two-directories-each-declare-a-type-of-one-nam
 test	type-name-collision.md	error.crossfile-a-service-throws-a-contested-name	language difference: a result may be a less visible type here
 test	typealias-file-scope.md	error.an-exported-interface-instance-over-a-file-private-argument-is-refused	language difference: a result may be a less visible type here
 test	typealias-file-scope.md	error.a-files-own-alias-is-no-generic-base-beside-another-directorys-generic-type	language difference: a result may be a less visible type here
+test	map.md	corpus.get-capacity	language difference: Map is minimaxon's own, on Go's design with maxon's API, so its capacities and its unmarked fields are not maxon's
+test	field-visibility-is-directory-scoped.md	error.an-extension-outside-the-types-directory-cannot-read-an-unmarked-field-of-the-extended-type	language difference: Map is minimaxon's own, on Go's design with maxon's API, so its capacities and its unmarked fields are not maxon's
+test	field-visibility-is-directory-scoped.md	error.an-extension-outside-the-types-directory-cannot-write-an-unmarked-field-of-the-extended-type	language difference: Map is minimaxon's own, on Go's design with maxon's API, so its capacities and its unmarked fields are not maxon's

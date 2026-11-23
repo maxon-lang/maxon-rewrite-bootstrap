@@ -3,7 +3,8 @@
 # for the root) under its own name, or the name the line gives third where two files of a module would share one (names
 # differ only in case at best on Windows), and the compiler's fix command then applies the fixes of what minimaxon's language differences raise in it,
 # as specs.ps1 does for the spec tests: a 'let' that is changed becomes a 'var', and a name of another library module is
-# qualified. A file is listed once it converts with no warning and checks clean; the files are never edited here. The
+# qualified. A file is listed once it converts with no warning and checks clean; the files are never edited here, and a file
+# of stdlib/ that no line names (Map.maxon) is minimaxon's own, which a run leaves alone. The
 # conversion lays out what it writes with bin\minimaxon.exe, the compiler the gate builds from the seed: run .\check.ps1 first
 # to build it. The argument is maxon's stdlib directory.
 $ErrorActionPreference = 'Stop'
@@ -19,7 +20,6 @@ if (-not (Test-Path bin\minimaxon.exe)) {
 }
 $env:MINIMAXON = Join-Path $PSScriptRoot 'bin\minimaxon.exe'
 $listed = Get-Content stdlib\files.txt | Where-Object { $_ -ne '' }
-Get-ChildItem stdlib -Recurse -File -Filter *.maxon | Remove-Item
 $scratch = Join-Path ([IO.Path]::GetTempPath()) "minimaxon-stdlib-$PID"
 try {
 	foreach ($line in $listed) {

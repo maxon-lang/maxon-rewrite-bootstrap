@@ -43,6 +43,7 @@ export enum TypeKind
 	builtinFrozen
 	builtinCown
 	builtinCursor
+	builtinGroups
 	builtinPromise
 	builtinService
 	typeParam
@@ -58,6 +59,7 @@ export enum TypeKind
 			builtinFrozen gives true
 			builtinCown gives true
 			builtinCursor gives true
+			builtinGroups gives true
 			builtinPromise gives true
 			builtinService gives true
 			invalid gives false
@@ -1558,6 +1560,7 @@ export function byteSize(tt TypeSlot, reads TypeTable, t TypeID) returns Count
 		builtinFrozen gives sizeofWord
 		builtinCown gives sizeofWord
 		builtinCursor gives sizeofWord
+		builtinGroups gives sizeofWord
 		builtinPromise gives sizeofWord
 		builtinService gives sizeofWord
 		funcTy gives sizeofWord
@@ -1984,6 +1987,7 @@ export function isManagedType(tt TypeSlot, reads TypeTable, t TypeID) returns bo
 		builtinFrozen gives true
 		builtinCown gives true
 		builtinCursor gives true
+		builtinGroups gives true
 		builtinPromise gives true
 		builtinService gives true
 		typeParam gives true

@@ -769,6 +769,7 @@ export function typeIsNominal(tt ast.TypeSlot, reads ast.TypeTable, t ast.TypeID
 		builtinFrozen gives true
 		builtinCown gives true
 		builtinCursor gives true
+		builtinGroups gives true
 		builtinPromise gives true
 		builtinService gives true
 		invalid gives false
@@ -917,7 +918,16 @@ export function lacksCap(mutates c Checker, p ast.Project, mutates ms ast.Module
 		if sub.missing 'elMiss'
 			res = LackInfo.wrap(LackStep.part(t, partTy: elTy, place: "as its elements"), inner: sub)
 		end 'elMiss'
-	end 'col'
+	end 'col' else if k == ast.TypeKind.builtinGroups 'groups'
+		let halves = ast.typeArgsOf(ms.types, reads: p.types, t: t)
+		for hi in 0 upto halves.count() 'eachHalf'
+			let sub = partLacks(c, p: p, ms: ms, wantCopy: wantCopy, t: halves[hi])
+			if sub.missing 'halfMiss'
+				res = LackInfo.wrap(LackStep.part(t, partTy: halves[hi], place: "as a half of its pairs"), inner: sub)
+				break 'eachHalf'
+			end 'halfMiss'
+		end 'eachHalf'
+	end 'groups'
 	_ = c.capVisiting.remove(key)
 	if res.missing or c.capVisiting.isEmpty() 'cache'
 		c.capKnown.insert(key, value: res.clone())

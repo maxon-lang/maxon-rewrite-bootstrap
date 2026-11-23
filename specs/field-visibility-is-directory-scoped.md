@@ -197,6 +197,7 @@ error E3014: app/<fragment>:21:5: field 'Box.v' is not exported
 ```
 
 <!-- test: error.an-extension-outside-the-types-directory-cannot-read-an-unmarked-field-of-the-extended-type -->
+<!-- skip: language difference: Map is minimaxon's own, on Go's design with maxon's API, so its capacities and its unmarked fields are not maxon's -->
 `Map` is declared in the standard library, so an `extension Map` in a program file is outside its directory:
 `self.keys` is `Map`'s unmarked field.
 
@@ -220,6 +221,7 @@ error E3014: <fragment>:6:15: field 'Map.keys' is not exported
 ```
 
 <!-- test: error.an-extension-outside-the-types-directory-cannot-write-an-unmarked-field-of-the-extended-type -->
+<!-- skip: language difference: Map is minimaxon's own, on Go's design with maxon's API, so its capacities and its unmarked fields are not maxon's -->
 A write of an unmarked field breaks the type's invariants, so it is refused the same way.
 
 ```maxon
@@ -242,7 +244,6 @@ error E3014: <fragment>:6:8: field 'Map.capacity' is not exported
 ```
 
 <!-- test: error.an-extension-outside-the-types-directory-cannot-read-an-unmarked-field-by-its-bare-name -->
-<!-- positions: moved -->
 The bare spelling of the same read.
 
 ```maxon
@@ -257,7 +258,7 @@ end 'Map'
 function main() returns ExitCode
 	var index = Index.create()
 	index.upsert("key", value: 1)
-	return try index.slots() as ExitCode otherwise panic("out of range")
+	return index.slots() as ExitCode
 end 'main'
 ```
 ```maxoncstderr

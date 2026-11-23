@@ -397,6 +397,7 @@ function arrayZeroed(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleStat
 	let a = arrayOfCall(l, p: p, ms: ms, c: c)
 	let out = arrayNew(l, p: p, ms: ms, box: a)
 	if hasZero(p, ms: ms, t: arrayElem(p, ms: ms, box: a)) 'zero'
+		arrayReserve(l, p: p, ms: ms, box: a, arr: out, count: count)
 		let loop = countedLoopBegin(l, limit: count)
 		let i = countedLoopIndex(l, loop: loop)
 		let zero = konst(l, value: 0 as Word)
@@ -576,8 +577,10 @@ function lowerArrayTruncate(mutates l Lowerer, p ast.Project, mutates ms ast.Mod
 	return konst(l, value: 0 as Word)
 end 'lowerArrayTruncate'
 
-// lowerArrayReserve does nothing: the capacity of an array is no part of its value.
-function lowerArrayReserve(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+// lowerArrayReserve makes the buffer hold a number of elements, which changes no part of the array's value.
+function lowerArrayReserve(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	let a = arrayOfCall(l, p: p, ms: ms, c: c)
+	arrayReserve(l, p: p, ms: ms, box: a, arr: recv, count: args[0])
 	return konst(l, value: 0 as Word)
 end 'lowerArrayReserve'
 
@@ -847,6 +850,7 @@ end 'removeHandle'
 function arrayFilled(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, count Reg, value Reg) returns Reg
 	let a = arrayOfCall(l, p: p, ms: ms, c: c)
 	let out = arrayNew(l, p: p, ms: ms, box: a)
+	arrayReserve(l, p: p, ms: ms, box: a, arr: out, count: count)
 	let loop = countedLoopBegin(l, limit: count)
 	let i = countedLoopIndex(l, loop: loop)
 	let copy = copyValue(l, p: p, ms: ms, site: siteOf(l, p: p, node: c.node), v: value, t: arrayElem(p, ms: ms, box: a))
@@ -887,6 +891,10 @@ function holdsInterpreterOnly(p ast.Project, mutates ms ast.ModuleState, t ast.T
 	if kind == ast.TypeKind.builtinArray 'array'
 		return holdsInterpreterOnly(p, ms: ms, t: elementType(p, ms: ms, bt: t), visiting: visiting)
 	end 'array'
+	if kind == ast.TypeKind.builtinGroups 'groups'
+		let halves = ast.typeArgsOf(ms.types, reads: p.types, t: t)
+		return holdsInterpreterOnly(p, ms: ms, t: halves[0], visiting: visiting) or holdsInterpreterOnly(p, ms: ms, t: halves[1], visiting: visiting)
+	end 'groups'
 	if kind == ast.TypeKind.builtinFrozen or kind == ast.TypeKind.builtinCown or kind == ast.TypeKind.builtinService 'shared'
 		return holdsInterpreterOnly(p, ms: ms, t: heldType(p, ms: ms, t: t), visiting: visiting)
 	end 'shared'

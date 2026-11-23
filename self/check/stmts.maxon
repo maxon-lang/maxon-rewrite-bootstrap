@@ -733,6 +733,7 @@ function scalarTag(p ast.Project, ms ast.ModuleState, t ast.TypeID) returns Stri
 		builtinFrozen gives ""
 		builtinCown gives ""
 		builtinCursor gives ""
+		builtinGroups gives ""
 		builtinPromise gives ""
 		builtinService gives ""
 		typeParam gives ""

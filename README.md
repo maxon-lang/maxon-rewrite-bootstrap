@@ -325,7 +325,8 @@ is that of its module (`app::main`), and a project with no `main` in any module 
   another module declares is unknown (`E3004` for a call, `E3011` for a type, `E2004` for a value), and the message names
   the qualified spellings.
 - **The standard library** is Maxon source in `stdlib/`, found as `runtime/` is (the `stdlib` directory of the nearest
-  directory, from the compiler's executable's upward, that has one), converted from maxon's `stdlib/` by `cmd/convert`:
+  directory, from the compiler's executable's upward, that has one), converted from maxon's `stdlib/` by `cmd/convert`
+  but for `Map.maxon`, which is minimaxon's own (see "Where it differs from Maxon") and which no conversion touches:
   `stdlib/files.txt` lists the files converted so far, each with the library module it goes to (its directory under
   `stdlib/`, `.` for the root) and, where two files of one module would share a name, the name it takes (`StringHash.maxon`), and `.\stdlib.ps1` regenerates them, then applies the compiler's `fix` to them as `specs.ps1`
   does to the spec tests (a `let` that is changed becomes a `var`, a name of another library module is qualified); none is
@@ -3207,6 +3208,7 @@ one anywhere.
 | `Pool with T` | `create()`; `count()`, `isEmpty()`, `contains(h)`; `insert(value)` returns `Handle with T`; `remove(h)` returns `T` and throws `ArrayError.emptySlot` for a handle that names no element; `dropEmpty()` |
 | `Handle with T` | no operations; `==` and `!=` |
 | `__ManagedMemory with T` | maxon's raw buffer, which only the library tiers name (`E3185`): the box of an array, seen through maxon's buffer operations, each the array operation that does the same, so there is one implementation of each on either target. `length()`; `get(i)`, a copy of the element, where `T` is `Copyable`, throwing `__ManagedMemoryError.indexOutOfBounds` past the end and `emptySlot` at an empty slot (see `Array.clearSlot`). `xs.managed` is the buffer of an array: the array itself seen as one, so it is borrowed, moved and dropped as `xs` is (`let m = xs.managed` moves `xs`) |
+| `__GroupMemory with (A, B)` | minimaxon's raw buffer of the groups of a swiss table, which only the library tiers name (`E3185`), laid out as Go's map lays out its groups: each group is a control word and then eight pairs, the first half of a pair beside its second. `create(groups, control: w)` makes the groups, each control word `w` and each pair empty; `groups()`; `control(g)` and `setControl(g, value: w)` read and write a group's word as it is; a pair is named by its index over every group, eight to a group: `first(at)` and `second(at)` lend a half (a lent managed half that is empty panics, as an array's empty slot does), `put(at, first: a, second: b)` and `setSecond(at, value: b)` move halves in and drop what they held, `takeFirst(at)` and `takeSecond(at)` move one out and leave it empty, and `clear(at)` drops both. A group or a pair past the end traps. It is an array box of the words (`ir/groups.maxon`), so a read is a load; its drop and its copy go through each half by its type, an empty managed half being 0 |
 | `__Builtins` | maxon's raw intrinsics, which only the library tiers call (`E3185`), each the built-in that does the same: `currentProcessId()` is `Process.id()`, `currentTimeNanos()` `Clock.nowNanos()`; `floatToBits(x)` is the 64 bits of a double as a `FullRangeInt`, a reinterpretation that the library's float hash folds; `hashWord(word, seed)` and `hashBytes(bytes, at, count, seed)` are maxon's seeded hash, its software fold of a word or of a span of a `ByteArray` under a `HashDigest` seed (`runtime/hashfold.maxon`, which the interpreter runs too, as `hashfold_gen.maxon`), a span past the end a panic; `readBigEndian(bytes, at, width)` and `readLittleEndian` the `OrderedWord` of the 2, 4 or 8 bytes at an index, the first the most or the least significant, throwing `ArrayError.indexOutOfBounds` when they are not all inside, and `appendBigEndian(bytes, word, width)` and `appendLittleEndian` the append of a word's low bytes in that order; the width is the literal 2, 4 or 8 (`E3005` otherwise, in maxon's words). `OrderedWord` and `HashDigest` are built-in `bits(64)` aliases, as maxon's library declares them (`stdlib/Builtins.maxon`, `Hasher.maxon`). `hashSeed()` is the fold of no bytes under the process's secret, which a `Hasher` starts from, and `drawHashSeed()` a fresh secret (`HashSeed.random()`): the first call makes the process's hash state, as maxon's runtime does, from the 16 hexadecimal digits that `MAXON_HASH_SEED` pins (a pin that is not exits 1 with maxon's message, an empty one is none) or from 8 bytes of the system's entropy (Windows' `ProcessPrng`, loaded by name only then, and Linux's `getrandom`), and a pinned process draws a fixed sequence of seeds from it; the interpreter draws an unpinned secret from its own random numbers, so a run stays deterministic. A program that never asks for the seed reads neither the variable nor the entropy. The test runners pin `MAXON_HASH_SEED` for every program they start (`hashseed.ps1`), as maxon's harness hands its programs the run's seed |
 | `__ManagedMemoryCursor with T` | maxon's position in a raw buffer, which only the library tiers name (`E3185`), made by a buffer's `createCursor()` at its first element, which fails with `__ManagedMemoryError.indexOutOfBounds` on an empty buffer. It holds a borrow of the buffer (see "Borrowing values"), so the buffer cannot change while it lives and it always names an element: `current()` lends it, `index()` is its index, `advance()`, `retreat()` and `seek(index)` move it (`mutates self`) and fail, leaving it where it was, past either end, and `peek(ahead)` is a copy of the element so many places on, where `T` is `Copyable` |
 | `ArrayError`, `IterationError`, `__ManagedMemoryError` | maxon's error enums: `indexOutOfBounds` and `emptySlot`; `exhausted` and `atStart`, which the iteration protocol throws; a buffer's, whose first two cases are an array's |
@@ -3297,11 +3299,20 @@ dropped, ends after every element was taken out. Nothing built in returns an `Op
   (`E3005`). A `List` hands out the same kind of handle for its nodes, so a cache is a `List` of entries in order of
   use and the library's `Map` from each key to the handle of its entry, and a linked structure is a `Pool` of nodes that name
   each other by handle (see `tests/`).
-- **The Map is the library's**, maxon's `stdlib/Map.maxon` converted (`stdlib/Map.maxon`): `Map with (K, V)` where `K implements Hashable and Equatable`, an open-addressed table that probes linearly over three columns (keys, values, slot
-  states with the keys' cached hashes), with maxon's API: `create()`, `insert(k, value: v)` (`MapError.keyAlreadyExists`),
-  `upsert`, `get(k)` (a copy, `MapError.keyNotFound`), `contains`, `remove`, `count()`, `getCapacity()` and `createIterator()`.
-  Its methods carry the bounds its body needs here, which `fix` wrote: storing, rehashing and reading a value copy it, so
-  `K` and `V` are `Copyable` and `Droppable` for `insert`, `upsert` and `get`. A key is `Hashable` and `Equatable`: an integer
+- **The Map is the library's** (`stdlib/Map.maxon`), on the design of Go's map: `Map with (K, V)` where `K implements Hashable and Equatable`,
+  with maxon's API: `create()`, `insert(k, value: v)` (`MapError.keyAlreadyExists`), `upsert`, `get(k)` (a copy,
+  `MapError.keyNotFound`), `contains`, `remove`, `count()`, `getCapacity()` and `createIterator()`. A key's 32-bit `hash()` is
+  spread to 64 bits under the map's seed (`__Builtins.hashSeed()`, which `MAXON_HASH_SEED` pins). A map of at most eight entries is
+  one group; past that it is tables of at most 1024 slots, each a `__GroupMemory with (K, V)` (see the table above) of groups of a
+  control word and eight pairs of a key and its value, and the directory names, for the hash's top bits, the table that holds
+  the key. A lookup reads one control word, matches the low seven bits of the hash against its eight bytes at once by word
+  arithmetic, and compares the key of each match; a probe goes on through the groups in triangular order until a group with
+  an empty slot. A table grows by doubling when its entries and tombstones pass 7/8 of its slots, and one of 1024 slots
+  splits into two by the next bit of the hash, the directory doubling where it must, so no insert rehashes more than a table.
+  A removal leaves a tombstone only in a full group, and an insert into a table with no growth left first empties the
+  tombstones that no probe passes, as Go's does. Its methods carry the bounds its body needs, which `fix` wrote: storing,
+  growing and reading a value copy or move it, so `K` and `V` are `Copyable` and `Droppable` for `insert`, `upsert` and `get`.
+  A key is `Hashable` and `Equatable`: an integer
   alias and a `float` through `PrimitiveExtensions`, a `String` through the library's extension (its `hash()` folds its bytes
   with `__Builtins.hashBytes`, its `equals` is the built-in one, which meets the requirement in place), and a type of
   the program that declares both (`E3017` otherwise).
@@ -3328,7 +3339,7 @@ dropped, ends after every element was taken out. Nothing built in returns an `Op
   element is: a borrow of the cursor, which the loop holds, so moving it is `E3900` and `.clone()` the fix. A throw of `createIterator()` or `advance()` ends the loop, and a `createIterator()` that
   throws another error is `E2015`, as is a loop over anything else: a string, a list, a pool. A string's `bytes()`,
   `codepoints()` and `utf16()` views are such collections; a loop over the string itself waits for `Character`.
-  A `Map` is walked by its `MapIterator`, in the order of its slots: `current()` lends the entry as a tuple of two
+  A `Map` is walked by its `MapIterator`, table by table in the order the map made them and each in the order of its slots: `current()` lends the entry as a tuple of two
   borrows, the key's and the value's slots (see "Tuples"), so `for (key, value) in m` binds the two as borrows of the
   table, read-only, `_` for one the body does not use, and `for entry in m` binds the pair. The map is held while the
   body runs (`E3186`). The loop is the iteration protocol's: `createIterator()` once, then `current()` and `advance()` per
@@ -3826,7 +3837,12 @@ the checker reports where Maxon's parser does, as it needs the type of the value
 
 ### Where it differs from Maxon
 
-- `Map` is maxon's `stdlib/Map.maxon`, converted, and the built-in map is gone: a map literal makes it by calling its static
+- `Map` is the library's own (`stdlib/Map.maxon`), not converted from maxon's: it is laid out on the design of Go's map (`internal/runtime/maps`),
+  groups of eight slots with a control word each, keys beside their values, tables of at most 1024 slots found by a
+  directory over the hash's top bits, where maxon's probes linearly over columns of keys, values, states and hashes. Its
+  API and its errors are maxon's; its capacities (`getCapacity()` is 8 for a map of one entry, where maxon's is 16), the
+  order its entries are walked in, which maxon leaves unspecified, and its unmarked fields are not, so the spec tests that
+  pin them are skipped (`self/driver/skips.tsv`). The built-in map is gone: a map literal makes it by calling its static
   `init` with an array of the keys and one of the values, the type found by its name at the library's root (`ast.libraryMapName`)
   where maxon's compiler looks for the type that implements `BuiltinDictionaryLiteral`, which the conversion leaves out of
   the header with the other literal markers (`Builtin*Literal`). maxon's `Map` has no subscript, `replace`, `isEmpty` or

@@ -126,6 +126,14 @@ var builtinTypes = []builtinType{
 		Named:   rawSurface{What: "the raw buffer cursor type is nameable", Instead: "walk an 'Array' with 'for'"},
 		Methods: rawSurface{What: "a raw '__ManagedMemoryCursor' is reachable", Instead: "walk an 'Array' with 'for'"},
 	}},
+	// GroupMemory is a raw buffer of the groups of a swiss table, laid out inline: each group is a control word, which the
+	// buffer gives and takes as it is, then eight pairs, two words to a pair. A half holds a value of its type or is empty,
+	// 0 for a managed half, so a table keeps a key and its value side by side, next to the word that says which of the
+	// group's pairs hold one. Its drop and its copy go through every half by its type.
+	{Key: "GroupMemory", Name: "__GroupMemory", Params: []string{"A", "B"}, Kind: "Groups", Managed: true, Raw: &rawType{
+		Named:   rawSurface{What: "the raw buffer of a table's groups is nameable", Instead: "use 'Map'"},
+		Methods: rawSurface{What: "a raw '__GroupMemory' buffer is reachable", Instead: "use 'Map'"},
+	}},
 	{Key: "List", Name: "List", Params: []string{"T"}, Managed: true, Subscriptable: true},
 	{Key: "Pool", Name: "Pool", Params: []string{"T"}, Managed: true, Subscriptable: true},
 	{Key: "Handle", Name: "Handle", Params: []string{"T"}},
@@ -522,8 +530,8 @@ var tableFunctions = []function{
 	{Owner: "Array", Name: "remove", Self: "mutates", Params: []string{"at ElementIndex"}, Result: "T", Throws: "ArrayError", Intrinsic: "ArrayRemove"},
 	{Owner: "Array", Name: "pop", Self: "mutates", Result: "T", Throws: "ArrayError", Intrinsic: "ArrayPop"},
 	{Owner: "Array", Name: "dropEmpty", Self: "consumes", Intrinsic: "ArrayDropEmpty"},
-	// clear and truncate drop the elements they remove; reserve does nothing, since an array's capacity is no part of its value; resize
-	// grows with zero elements, which the checker holds to an element that has one.
+	// clear and truncate drop the elements they remove; reserve makes the buffer hold a count, which no part of the array's value
+	// shows; resize grows with zero elements, which the checker holds to an element that has one.
 	{Owner: "Array", Name: "clear", Self: "mutates", Bounds: []string{"T Droppable"}, Intrinsic: "ArrayClear"},
 	{Owner: "Array", Name: "truncate", Self: "mutates", Params: []string{"newLength ElementIndex"}, Bounds: []string{"T Droppable"}, Intrinsic: "ArrayTruncate"},
 	{Owner: "Array", Name: "reserve", Self: "mutates", Params: []string{"minCapacity ElementIndex"}, Intrinsic: "ArrayReserve"},
@@ -568,6 +576,22 @@ var tableFunctions = []function{
 	{Owner: "ManagedMemoryCursor", Name: "retreat", Self: "mutates", Throws: "ManagedMemoryError", Intrinsic: "CursorRetreat"},
 	{Owner: "ManagedMemoryCursor", Name: "seek", Self: "mutates", Params: []string{"index ElementIndex"}, Throws: "ManagedMemoryError", Intrinsic: "CursorSeek"},
 	{Owner: "ManagedMemoryCursor", Name: "peek", Params: []string{"ahead ElementIndex"}, Result: "T", Bounds: []string{"T Copyable"}, Throws: "ManagedMemoryError", Intrinsic: "CursorPeek"},
+
+	// A buffer of groups is made of empty pairs, each group's control word the one given, and keeps its count of groups. A
+	// pair is named by its index over every group, eight to a group. Each half of a pair is lent, written and taken on its
+	// own; a write drops what the half held, a take leaves it empty, and an index past the groups traps, as a subscript of an
+	// array does.
+	{Owner: "GroupMemory", Name: "create", Static: true, Params: []string{"groups ElementIndex", "control Count"}, Result: "Self", Intrinsic: "GroupsCreate"},
+	{Owner: "GroupMemory", Name: "groups", Result: "Count", Intrinsic: "GroupsCount"},
+	{Owner: "GroupMemory", Name: "control", Params: []string{"group ElementIndex"}, Result: "Count", Intrinsic: "GroupsControl"},
+	{Owner: "GroupMemory", Name: "setControl", Self: "mutates", Params: []string{"group ElementIndex", "value Count"}, Intrinsic: "GroupsSetControl"},
+	{Owner: "GroupMemory", Name: "first", Params: []string{"at ElementIndex"}, Result: "A", Lends: true, Intrinsic: "GroupsFirst"},
+	{Owner: "GroupMemory", Name: "second", Params: []string{"at ElementIndex"}, Result: "B", Lends: true, Intrinsic: "GroupsSecond"},
+	{Owner: "GroupMemory", Name: "put", Self: "mutates", Params: []string{"at ElementIndex", "consumes first A", "consumes second B"}, Bounds: []string{"A Droppable", "B Droppable"}, Intrinsic: "GroupsPut"},
+	{Owner: "GroupMemory", Name: "setSecond", Self: "mutates", Params: []string{"at ElementIndex", "consumes value B"}, Bounds: []string{"B Droppable"}, Intrinsic: "GroupsSetSecond"},
+	{Owner: "GroupMemory", Name: "takeFirst", Self: "mutates", Params: []string{"at ElementIndex"}, Result: "A", Intrinsic: "GroupsTakeFirst"},
+	{Owner: "GroupMemory", Name: "takeSecond", Self: "mutates", Params: []string{"at ElementIndex"}, Result: "B", Intrinsic: "GroupsTakeSecond"},
+	{Owner: "GroupMemory", Name: "clear", Self: "mutates", Params: []string{"at ElementIndex"}, Bounds: []string{"A Droppable", "B Droppable"}, Intrinsic: "GroupsClear"},
 
 	{Owner: "List", Name: "create", Static: true, Result: "Self", Intrinsic: "ListCreate"},
 	{Owner: "List", Name: "count", Result: "Count", Intrinsic: "ListCount"},
@@ -869,6 +893,7 @@ var entries = []entry{
 	{"ArrayElem", "rt.array.elem", "Arrays", roleCall, "(array, index) -> address of the element"},
 	{"ArrayInsert", "rt.array.insert", "Arrays", roleCall, "(array, index, element): moves it in at index, which may be the length"},
 	{"ArrayRemove", "rt.array.remove", "Arrays", roleCall, "(array, index) -> element: moves it out"},
+	{"ArrayReserve", "rt.array.reserve", "Arrays", roleCall, "(array, count): makes the buffer hold count elements, so as many inserts after it never grow it; the length and the elements stay"},
 	{"ArrayShrink", "rt.array.shrink", "Arrays", roleCall, "(array or byte array, length): sets the length to one that is not above it, keeping the buffer; what was above it was moved out or needs no drop"},
 
 	{"ListNew", "rt.list.new", "Interpreter", roleCall, "() -> list"},
@@ -1020,6 +1045,7 @@ var runtimeFunctions = []runtimeFunction{
 	{"ArrayElem", "arrayElem(array Count, index Count) Count"},
 	{"ArrayInsert", "arrayInsert(array Count, index Count, element Count)"},
 	{"ArrayRemove", "arrayRemove(array Count, index Count) Count"},
+	{"ArrayReserve", "arrayReserve(array Count, count Count)"},
 	{"ArrayShrink", "arrayShrink(array Count, length Count)"},
 	{"BytesNew", "bytesNew() Count"},
 	{"BytesLen", "bytesLength(array Count) Count"},

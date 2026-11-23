@@ -231,6 +231,7 @@ test 'main'
 	want.push("b0:")
 	want.push("  %0 = const 3")
 	want.push("  %1 = runtime rt.array.new()")
+	want.push("  runtime rt.array.reserve(%1, %0)")
 	want.push("  %2 = const 0")
 	want.push("  store s2, %2")
 	want.push("  store s3, %0")

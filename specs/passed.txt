@@ -1981,8 +1981,6 @@ field-visibility-is-directory-scoped.md: another-type-in-the-same-file-reads-an-
 field-visibility-is-directory-scoped.md: another-type-in-the-same-file-writes-an-unmarked-field
 field-visibility-is-directory-scoped.md: error.a-type-in-another-directory-cannot-read-an-unmarked-field
 field-visibility-is-directory-scoped.md: error.a-type-in-another-directory-cannot-write-an-unmarked-field
-field-visibility-is-directory-scoped.md: error.an-extension-outside-the-types-directory-cannot-read-an-unmarked-field-of-the-extended-type
-field-visibility-is-directory-scoped.md: error.an-extension-outside-the-types-directory-cannot-write-an-unmarked-field-of-the-extended-type
 field-visibility-is-directory-scoped.md: own-type-reaches-its-own-private-field
 file-info.md: file-info.basic-size
 file-info.md: file-info.empty-file
@@ -3569,7 +3567,6 @@ map.md: clone.writing-the-copy-leaves-the-source-unchanged
 map.md: contains.true
 map.md: corpus.create-iterator
 map.md: corpus.empty-map-iterates-zero-trips
-map.md: corpus.get-capacity
 map.md: empty-map.from-syntax
 map.md: error.a-let-map-for-in-key-outside-a-narrower-alias
 map.md: error.a-let-map-read-after-a-reading-call-outside-a-narrower-alias

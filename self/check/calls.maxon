@@ -90,6 +90,7 @@ function isConstantResult(p ast.Project, ms ast.ModuleState, t ast.TypeID) retur
 		builtinFrozen gives false
 		builtinCown gives false
 		builtinCursor gives false
+		builtinGroups gives false
 		builtinPromise gives false
 		builtinService gives false
 		typeParam gives false

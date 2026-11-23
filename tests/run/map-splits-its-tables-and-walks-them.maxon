@@ -1,0 +1,36 @@
+// A map that grows past one table of 1024 slots splits it, and the directory doubles, while its string keys and values move
+// between tables; removals leave tombstones that a later insert prunes; a clone copies every group; and a walk visits
+// each table once. Under the interpreter every key and value moved, dropped or copied is accounted for.
+typealias Names = Map with (String, String)
+
+let entries = 5000 as Count
+
+function main() returns ExitCode
+	var names = Names.create()
+	for i in 0 upto entries 'fill'
+		names.upsert("key{i}", value: "value{i}")
+	end 'fill'
+	for i in 0 upto entries 'drop'
+		if i mod 3 == 0 'third'
+			_ = names.remove("key{i}")
+		end 'third'
+	end 'drop'
+	for i in 0 upto entries 'refill'
+		if i mod 6 == 0 'sixth'
+			names.upsert("key{i}", value: "again{i}")
+		end 'sixth'
+	end 'refill'
+	let copy = names.clone()
+	var walked = 0 as Count
+	var bytes = 0 as Count
+	for (key, value) in copy 'walk'
+		walked = try walked + 1 otherwise panic("overflow")
+		bytes = try bytes + key.count() + value.count() otherwise panic("overflow")
+	end 'walk'
+	let back = try names.get("key6") otherwise "missing"
+	let gone = names.contains("key3")
+	print("{names.count()} {walked} {bytes} {back} {gone} {names.getCapacity() >= names.count()}\n")
+	return 0
+end 'main'
+
+//> 4167 4167 64824 again6 false true

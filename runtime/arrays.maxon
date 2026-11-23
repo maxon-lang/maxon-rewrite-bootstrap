@@ -33,6 +33,14 @@ function arrayRemove(array Count, index Count) returns Count
 	return element
 end 'arrayRemove'
 
+// arrayReserve makes the buffer of an array hold a count of elements, exactly, where it holds fewer: a caller that knows how
+// many it will insert pays for one buffer rather than for each doubling up to it.
+function arrayReserve(array Count, count Count)
+	if count > __Raw.loadWord(array, offset: arrayCapacityOffset) 'more'
+		collectionMove(array, capacity: count, elementBytes: wordBytes)
+	end 'more'
+end 'arrayReserve'
+
 // arrayShrink makes an array or a byte array a length that is not above its own, and keeps the buffer. The elements
 // above the length are the caller's to have moved out or dropped already, or need no drop.
 function arrayShrink(array Count, length Count)
@@ -68,8 +76,7 @@ function collectionBytes(count Count, elementBytes Count) returns Count
 	return try count * elementBytes otherwise panic("array size overflows")
 end 'collectionBytes'
 
-// collectionReserve makes the buffer hold a number of elements. It grows by doubling from firstCapacity, and frees the
-// buffer it leaves: the elements moved to the new one, so only the buffer goes.
+// collectionReserve makes the buffer hold a number of elements, growing it by doubling from firstCapacity.
 function collectionReserve(box Count, needed Count, elementBytes Count, firstCapacity Count)
 	let capacity = __Raw.loadWord(box, offset: arrayCapacityOffset)
 	if needed <= capacity 'room'
@@ -82,13 +89,19 @@ function collectionReserve(box Count, needed Count, elementBytes Count, firstCap
 	while grown < needed 'double'
 		grown = try grown + grown otherwise panic("array size overflows")
 	end 'double'
-	let buffer = alloc(collectionBytes(grown, elementBytes: elementBytes))
+	collectionMove(box, capacity: grown, elementBytes: elementBytes)
+end 'collectionReserve'
+
+// collectionMove moves the elements into a buffer of a capacity that holds them, and frees the buffer it leaves: the
+// elements moved to the new one, so only the buffer goes.
+function collectionMove(box Count, capacity Count, elementBytes Count)
+	let buffer = alloc(collectionBytes(capacity, elementBytes: elementBytes))
 	let old = collectionData(box)
 	copyBytes(old, target: buffer, count: collectionBytes(collectionLength(box), elementBytes: elementBytes))
 	__Raw.storeWord(box, offset: arrayDataOffset, value: buffer)
-	__Raw.storeWord(box, offset: arrayCapacityOffset, value: grown)
+	__Raw.storeWord(box, offset: arrayCapacityOffset, value: capacity)
 	free(old)
-end 'collectionReserve'
+end 'collectionMove'
 
 // collectionExtend adds room for a number of elements after the last and gives the address of the room, which the
 // caller fills.

@@ -127,5 +127,8 @@ function codeSkipTable() returns CodeSkips
 	skips.push(CodeSkip.naming("type-name-collision.md", test: "error.crossfile-a-service-throws-a-contested-name", line: "<!-- skip: language difference: a result may be a less visible type here -->\n"))
 	skips.push(CodeSkip.naming("typealias-file-scope.md", test: "error.an-exported-interface-instance-over-a-file-private-argument-is-refused", line: "<!-- skip: language difference: a result may be a less visible type here -->\n"))
 	skips.push(CodeSkip.naming("typealias-file-scope.md", test: "error.a-files-own-alias-is-no-generic-base-beside-another-directorys-generic-type", line: "<!-- skip: language difference: a result may be a less visible type here -->\n"))
+	skips.push(CodeSkip.naming("map.md", test: "corpus.get-capacity", line: "<!-- skip: language difference: Map is minimaxon's own, on Go's design with maxon's API, so its capacities and its unmarked fields are not maxon's -->\n"))
+	skips.push(CodeSkip.naming("field-visibility-is-directory-scoped.md", test: "error.an-extension-outside-the-types-directory-cannot-read-an-unmarked-field-of-the-extended-type", line: "<!-- skip: language difference: Map is minimaxon's own, on Go's design with maxon's API, so its capacities and its unmarked fields are not maxon's -->\n"))
+	skips.push(CodeSkip.naming("field-visibility-is-directory-scoped.md", test: "error.an-extension-outside-the-types-directory-cannot-write-an-unmarked-field-of-the-extended-type", line: "<!-- skip: language difference: Map is minimaxon's own, on Go's design with maxon's API, so its capacities and its unmarked fields are not maxon's -->\n"))
 	return skips
 end 'codeSkipTable'

@@ -39,6 +39,14 @@ function arrayNew(mutates l Lowerer, p ast.Project, ms ast.ModuleState, box Arra
 	return entry(l, p: p, site: box.site, symbol: Rt.rtArrayNew, kind: IrKind.kindManaged, args: RegList.create(0))
 end 'arrayNew'
 
+// arrayReserve makes the buffer of an array hold count elements, where a lowering knows how many it is about to push: an
+// array of words reserves them, and an array of bytes grows as it is pushed to.
+function arrayReserve(mutates l Lowerer, p ast.Project, ms ast.ModuleState, box ArrayBox, arr Reg, count Reg)
+	if not arrayPacked(p, ms: ms, box: box) 'words'
+		entryVoid(l, p: p, site: box.site, symbol: Rt.rtArrayReserve, args: argsOf2(arr, b: count))
+	end 'words'
+end 'arrayReserve'
+
 function arrayLength(mutates l Lowerer, p ast.Project, ms ast.ModuleState, box ArrayBox, arr Reg) returns Reg
 	if arrayPacked(p, ms: ms, box: box) 'packed'
 		return entry(l, p: p, site: box.site, symbol: Rt.rtBytesLen, kind: IrKind.kindScalar, args: argsOf1(arr))
@@ -92,20 +100,20 @@ let emptySlotSuffix = " of the array was never filled"
 
 // requireFilled goes on only when the element read from a slot is there: a managed element of an empty slot is 0, and a
 // scalar has no empty slot, since 0 is a value of it.
-function requireFilled(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, box ArrayBox, element Reg, index Reg, read SlotRead)
-	if not ast.isManagedType(ms.types, reads: p.types, t: arrayElem(p, ms: ms, box: box)) 'scalar'
+function requireFilled(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, site diag.Site, elem ast.TypeID, element Reg, index Reg, read SlotRead)
+	if not ast.isManagedType(ms.types, reads: p.types, t: elem) 'scalar'
 		return
 	end 'scalar'
 	let empty = konst(l, value: 0 as Word)
 	let filled = compare(l, op: CmpOp.cmpNe, a: element, b: empty, unsigned: true)
 	match read 'read'
 		slotCopied then failUnless(l, p: p, ms: ms, cond: filled, errorCase: ast.errorEmptySlot)
-		slotLent then panicUnlessFilled(l, p: p, box: box, filled: filled, index: index)
+		slotLent then panicUnlessFilled(l, p: p, site: site, filled: filled, index: index)
 	end 'read'
 end 'requireFilled'
 
 // panicUnlessFilled goes on when the slot is filled, and panics with maxon's message of the slot otherwise.
-function panicUnlessFilled(mutates l Lowerer, p ast.Project, box ArrayBox, filled Reg, index Reg)
+function panicUnlessFilled(mutates l Lowerer, p ast.Project, site diag.Site, filled Reg, index Reg)
 	let ok = l.b.newBlock()
 	let bad = l.b.newBlock()
 	l.b.terminate(l.cur, t: newBranch(filled, ifTrue: ok, ifFalse: bad))
@@ -116,7 +124,7 @@ function panicUnlessFilled(mutates l Lowerer, p ast.Project, box ArrayBox, fille
 	let lead = runtime(l, symbol: Rt.rtConcat, kind: IrKind.kindManaged, args: argsOf2(prefix, b: digits))
 	let suffix = strReg(l, value: emptySlotSuffix)
 	let message = runtime(l, symbol: Rt.rtConcat, kind: IrKind.kindManaged, args: argsOf2(lead, b: suffix))
-	let location = strReg(l, value: ast.panicLocation(p.modules[ast.modIndex(box.site.module)], offset: box.site.offset))
+	let location = strReg(l, value: ast.panicLocation(p.modules[ast.modIndex(site.module)], offset: site.offset))
 	emitCallRuntime(l, dst: noReg, symbol: Rt.rtPanicAt, args: argsOf2(location, b: message), routine: ast.noFunc)
 	seal(l, t: newTrap())
 	l.cur = ok
@@ -133,7 +141,7 @@ function arrayRead(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState,
 	let d = newReg(l, kind: kindOf(l, p: p, ms: ms, t: arrayElem(p, ms: ms, box: box)))
 	let addr = arrayAddress(l, p: p, ms: ms, box: box, arr: arr, index: index, checked: checked)
 	emit(l, i: newLoadAt(d, addr: addr))
-	requireFilled(l, p: p, ms: ms, box: box, element: d, index: index, read: read)
+	requireFilled(l, p: p, ms: ms, site: box.site, elem: arrayElem(p, ms: ms, box: box), element: d, index: index, read: read)
 	return d
 end 'arrayRead'
 

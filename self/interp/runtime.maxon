@@ -375,6 +375,12 @@ function entryArrayRemove(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Hal
 	try moveOutOfCollection(vm, x: x, c: e, what: "the remove")
 end 'entryArrayRemove'
 
+// entryArrayReserve changes nothing the interpreter's model of an array has: a buffer's capacity is no part of it.
+function entryArrayReserve(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let a = try live(vm, o: argRef(vm, f: f, x: x, i: 0), what: "a reserve")
+	_ = try collection(vm, o: a, kind: kindArray, what: "a reserve")
+end 'entryArrayReserve'
+
 // entryArrayShrink sets the length of an array or a byte array. The elements above it were dropped in place by the code
 // before it or hold no value that is owned, which a lowering that left one would show as a leak at the end of the run.
 function entryArrayShrink(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
