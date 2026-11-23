@@ -66,20 +66,25 @@ function binary(mutates l Lowerer, op BinOp, left Reg, right Word) returns Reg
 	return d
 end 'binary'
 
-// groupsWord is the address of the word at index in the buffer arr, where index was computed from position, a group or a
-// pair: the position is held below the words first, so the index cannot pass a word, and the index below them by the
-// array's own check.
-function groupsWord(mutates l Lowerer, p ast.Project, g Groups, arr Reg, position Reg, index Reg) returns Reg
+// groupCount is the number of whole groups of the buffer arr.
+function groupCount(mutates l Lowerer, p ast.Project, g Groups, arr Reg) returns Reg
 	let words = entry(l, p: p, site: g.site, symbol: Rt.rtArrayLen, kind: IrKind.kindScalar, args: argsOf1(arr))
-	let inside = compare(l, op: CmpOp.cmpLt, a: position, b: words, unsigned: true)
+	return binary(l, op: BinOp.binDiv, left: words, right: groupWords)
+end 'groupCount'
+
+// groupsWord is the address of the word at index in the buffer arr, where index is a word of the group position, which is
+// held below bound, the number of whole groups: so the one check of the group proves the index, and no product wraps.
+function groupsWord(mutates l Lowerer, p ast.Project, g Groups, arr Reg, position Reg, bound Reg, index Reg) returns Reg
+	let inside = compare(l, op: CmpOp.cmpLt, a: position, b: bound, unsigned: true)
 	requireOrTrap(l, cond: inside, message: groupsOutOfRange)
-	return elementEntry(l, p: p, site: g.site, symbol: Rt.rtArrayElem, args: argsOf2(arr, b: index), checked: true)
+	return elementEntry(l, p: p, site: g.site, symbol: Rt.rtArrayElem, args: argsOf2(arr, b: index), checked: false)
 end 'groupsWord'
 
 // controlWord is the address of the control word of a group.
 function controlWord(mutates l Lowerer, p ast.Project, g Groups, arr Reg, group Reg) returns Reg
+	let groups = groupCount(l, p: p, g: g, arr: arr)
 	let index = binary(l, op: BinOp.binMul, left: group, right: groupWords)
-	return groupsWord(l, p: p, g: g, arr: arr, position: group, index: index)
+	return groupsWord(l, p: p, g: g, arr: arr, position: group, bound: groups, index: index)
 end 'controlWord'
 
 // pairHalf is the address of a half of the pair at an index over every group.
@@ -91,35 +96,38 @@ function pairHalf(mutates l Lowerer, p ast.Project, g Groups, arr Reg, at Reg, h
 	let pair = newReg(l, kind: IrKind.kindScalar)
 	emit(l, i: newBin(pair, op: BinOp.binAdd, left: start, right: offset, unsigned: true, fail: noBlock))
 	let index = binary(l, op: BinOp.binAdd, left: pair, right: half)
-	return groupsWord(l, p: p, g: g, arr: arr, position: at, index: index)
+	let groups = groupCount(l, p: p, g: g, arr: arr)
+	return groupsWord(l, p: p, g: g, arr: arr, position: group, bound: groups, index: index)
 end 'pairHalf'
 
-// lowerGroupsCreate is a buffer of a count of groups, each the control word given and empty pairs.
+// lowerTrailingZeros is __Builtins.trailingZeros, by which a set of matches of a control word names its first slot.
+function lowerTrailingZeros(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	let d = newReg(l, kind: IrKind.kindScalar)
+	emit(l, i: newTrailingZeros(d, src: args[0]))
+	return d
+end 'lowerTrailingZeros'
+
+// lowerGroupsCreate is a buffer of a count of groups, each the control word given and empty pairs: every word is filled
+// with 0, and then each group's first word with the control word.
 function lowerGroupsCreate(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	let g = groupsOfCall(l, p: p, ms: ms, c: c)
 	let out = entry(l, p: p, site: g.site, symbol: Rt.rtArrayNew, kind: IrKind.kindManaged, args: RegList.create(0))
 	let words = binary(l, op: BinOp.binMul, left: args[0], right: groupWords)
 	entryVoid(l, p: p, site: g.site, symbol: Rt.rtArrayReserve, args: argsOf2(out, b: words))
-	let groups = countedLoopBegin(l, limit: args[0])
-	appendWord(l, p: p, g: g, arr: out, v: args[1])
-	let halves = konst(l, value: groupWords - 1)
-	let pairs = countedLoopBegin(l, limit: halves)
 	let empty = konst(l, value: 0 as Word)
-	appendWord(l, p: p, g: g, arr: out, v: empty)
-	countedLoopEnd(l, loop: pairs)
+	entryVoid(l, p: p, site: g.site, symbol: Rt.rtArrayFill, args: argsOf3(out, b: words, c: empty))
+	let groups = countedLoopBegin(l, limit: args[0])
+	let group = countedLoopIndex(l, loop: groups)
+	let index = binary(l, op: BinOp.binMul, left: group, right: groupWords)
+	let addr = elementEntry(l, p: p, site: g.site, symbol: Rt.rtArrayElem, args: argsOf2(out, b: index), checked: false)
+	emit(l, i: newStoreAt(addr, src: args[1]))
 	countedLoopEnd(l, loop: groups)
 	return out
 end 'lowerGroupsCreate'
 
-function appendWord(mutates l Lowerer, p ast.Project, g Groups, arr Reg, v Reg)
-	let n = entry(l, p: p, site: g.site, symbol: Rt.rtArrayLen, kind: IrKind.kindScalar, args: argsOf1(arr))
-	entryVoid(l, p: p, site: g.site, symbol: Rt.rtArrayInsert, args: argsOf3(arr, b: n, c: v))
-end 'appendWord'
-
 function lowerGroupsCount(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	let g = groupsOfCall(l, p: p, ms: ms, c: c)
-	let words = entry(l, p: p, site: g.site, symbol: Rt.rtArrayLen, kind: IrKind.kindScalar, args: argsOf1(recv))
-	return binary(l, op: BinOp.binDiv, left: words, right: groupWords)
+	return groupCount(l, p: p, g: g, arr: recv)
 end 'lowerGroupsCount'
 
 function lowerGroupsControl(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg

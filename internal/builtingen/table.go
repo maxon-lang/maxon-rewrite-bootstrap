@@ -458,6 +458,8 @@ func rawFunctions() []function {
 		raw("storeWord", append(slices.Clone(at), "value Count"), "", "RawStore64"),
 		raw("wrappingAdd", []string{"left Count", "right Count"}, "Count", "RawWrappingAdd"),
 		raw("wrappingSub", []string{"left Count", "right Count"}, "Count", "RawWrappingSub"),
+		// mulHigh is the high word of the 128-bit product of two words of no sign, which the hash's fold is made of.
+		raw("mulHigh", []string{"left Count", "right Count"}, "Count", "RawMulHigh"),
 		own(raw("addressOf", []string{"mutates word Count"}, "Count", "RawAddressOf")),
 		raw("stringAddress", []string{"text String"}, "Count", "RawStringAddress"),
 		raw("stringAt", []string{"box Count"}, "String", "RawStringAt"),
@@ -747,6 +749,9 @@ var tableFunctions = []function{
 	// The seeded hash of maxon's runtime, its software fold: hashSeed is the fold of no bytes under the process's secret,
 	// which a Hasher starts from; hashWord and hashBytes fold a word or the bytes of a span of an array under a seed;
 	// drawHashSeed draws a fresh secret from the system, or the next of the pinned process's sequence.
+	// trailingZeros is the number of 0 bits of a word below its lowest 1 bit, and 64 for 0: the place of the first match
+	// in a word of matches, one instruction where the machine has one.
+	{Owner: "Builtins", Name: "trailingZeros", Static: true, Params: []string{"_ Count"}, Result: "Count", Intrinsic: "TrailingZeros", Instead: "a loop over the word's bits"},
 	{Owner: "Builtins", Name: "hashSeed", Static: true, Result: "HashDigest", Intrinsic: "HashSeed", Instead: "Hasher.create()"},
 	{Owner: "Builtins", Name: "drawHashSeed", Static: true, Result: "HashDigest", Intrinsic: "HashSeedDraw", Instead: "HashSeed.random()"},
 	{Owner: "Builtins", Name: "hashWord", Static: true, Params: []string{"_ HashDigest", "_ HashDigest"}, Result: "HashDigest", Intrinsic: "HashWord", Instead: "a Hasher's combine(value)"},
@@ -893,6 +898,7 @@ var entries = []entry{
 	{"ArrayElem", "rt.array.elem", "Arrays", roleCall, "(array, index) -> address of the element"},
 	{"ArrayInsert", "rt.array.insert", "Arrays", roleCall, "(array, index, element): moves it in at index, which may be the length"},
 	{"ArrayRemove", "rt.array.remove", "Arrays", roleCall, "(array, index) -> element: moves it out"},
+	{"ArrayFill", "rt.array.fill", "Arrays", roleCall, "(array, count, word): appends count copies of a word that needs no copy of its own, a scalar or the 0 of an empty slot, as as many inserts at the end would"},
 	{"ArrayReserve", "rt.array.reserve", "Arrays", roleCall, "(array, count): makes the buffer hold count elements, so as many inserts after it never grow it; the length and the elements stay"},
 	{"ArrayShrink", "rt.array.shrink", "Arrays", roleCall, "(array or byte array, length): sets the length to one that is not above it, keeping the buffer; what was above it was moved out or needs no drop"},
 
@@ -1045,6 +1051,7 @@ var runtimeFunctions = []runtimeFunction{
 	{"ArrayElem", "arrayElem(array Count, index Count) Count"},
 	{"ArrayInsert", "arrayInsert(array Count, index Count, element Count)"},
 	{"ArrayRemove", "arrayRemove(array Count, index Count) Count"},
+	{"ArrayFill", "arrayFill(array Count, count Count, word Count)"},
 	{"ArrayReserve", "arrayReserve(array Count, count Count)"},
 	{"ArrayShrink", "arrayShrink(array Count, length Count)"},
 	{"BytesNew", "bytesNew() Count"},

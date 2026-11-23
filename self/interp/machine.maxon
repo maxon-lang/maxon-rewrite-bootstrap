@@ -152,6 +152,10 @@ type Machine implements ir.InstrVisitor, ir.TermVisitor
 		execNot(vm, x: x)
 	end 'visitNot'
 
+	function visitTrailingZeros(mutates self, f ir.IrFunction, x ir.Instr)
+		execTrailingZeros(vm, x: x)
+	end 'visitTrailingZeros'
+
 	function visitGuard(mutates self, f ir.IrFunction, x ir.Instr)
 		execGuard(vm, x: x)
 	end 'visitGuard'

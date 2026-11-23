@@ -109,6 +109,9 @@ export function rewriteInstr(mutates fn ir.IrFunction, at Count, defs ir.Defs, m
 	if op == ir.Opcode.opNot 'opcodeNot'
 		return rewriteNot(fn, at: at, defs: defs, out: out, raises: raises)
 	end 'opcodeNot'
+	if op == ir.Opcode.opTrailingZeros 'opcodeTrailingZeros'
+		return false
+	end 'opcodeTrailingZeros'
 	if op == ir.Opcode.opGuard 'opcodeGuard'
 		return false
 	end 'opcodeGuard'

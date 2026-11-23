@@ -375,6 +375,18 @@ function entryArrayRemove(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Hal
 	try moveOutOfCollection(vm, x: x, c: e, what: "the remove")
 end 'entryArrayRemove'
 
+// entryArrayFill appends count copies of a word, each in a place of its own as an insert's element is.
+function entryArrayFill(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let a = try collection(vm, o: argRef(vm, f: f, x: x, i: 0), kind: kindArray, what: "a fill")
+	let count = ir.bitsOfWord(argNum(vm, f: f, x: x, i: 1))
+	let data = vm.h.oData[a]
+	try restructure(vm, o: a)
+	for _ in 0 upto count 'words'
+		let e = try moveIn(vm, f: f, holder: a, src: argAt(f, x: x, i: 2), what: "the fill")
+		vm.h.elements[data].push(e)
+	end 'words'
+end 'entryArrayFill'
+
 // entryArrayReserve changes nothing the interpreter's model of an array has: a buffer's capacity is no part of it.
 function entryArrayReserve(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	let a = try live(vm, o: argRef(vm, f: f, x: x, i: 0), what: "a reserve")

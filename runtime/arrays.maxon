@@ -33,6 +33,18 @@ function arrayRemove(array Count, index Count) returns Count
 	return element
 end 'arrayRemove'
 
+// arrayFill appends count copies of a word that needs no copy of its own, a scalar or the 0 of an empty slot, as as many
+// inserts at the end would, in one pass over the room.
+function arrayFill(array Count, count Count, word Count)
+	let at = collectionExtend(array, count: count, elementBytes: wordBytes, firstCapacity: arrayFirstCapacity)
+	let past = __Raw.wrappingAdd(at, right: collectionBytes(count, elementBytes: wordBytes))
+	var place = at
+	while place != past 'words'
+		__Raw.storeWord(place, offset: 0, value: word)
+		place = __Raw.wrappingAdd(place, right: wordBytes)
+	end 'words'
+end 'arrayFill'
+
 // arrayReserve makes the buffer of an array hold a count of elements, exactly, where it holds fewer: a caller that knows how
 // many it will insert pays for one buffer rather than for each doubling up to it.
 function arrayReserve(array Count, count Count)

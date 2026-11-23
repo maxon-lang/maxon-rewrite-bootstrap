@@ -1457,13 +1457,35 @@ function lowerOperator(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleSt
 	if hasFail(fails, flag: ast.failOverflow) 'wordFail'
 		wordFail = overflow
 	end 'wordFail'
-	emit(l, i: newBin(d, op: binOp, left: left, right: c, unsigned: unsigned, fail: wordFail))
+	emit(l, i: newBin(d, op: binOp, left: left, right: c, unsigned: unsigned or signFree(l, p: p, ms: ms, op: binOp, e: e), fail: wordFail))
 	let ty = exprType(p, module: l.module, node: e)
 	if ast.typeKind(ms.types, reads: p.types, t: ty) == ast.TypeKind.intRange 'range'
 		rangeCheck(l, p: p, ms: ms, v: d, t: ty, unsigned: unsigned, fails: fails, fail: overflow)
 	end 'range'
 	return d
 end 'lowerOperator'
+
+// signFree is whether op, the operator of the binary expression e, gives the same word read as signed or as unsigned: a
+// quotient, a remainder or a right shift of operands that are never negative, which as unsigned is a shift and a mask
+// rather than the adjustment a negative dividend needs. The word the checker computes in is signed wherever an operand's
+// type is narrower than u64, so it is the operands' own types that say.
+function signFree(l Lowerer, p ast.Project, mutates ms ast.ModuleState, op BinOp, e ast.NodeID) returns bool
+	if op != BinOp.binDiv and op != BinOp.binMod and op != BinOp.binShr 'signed'
+		return false
+	end 'signed'
+	let left = applyType(l, p: p, ms: ms, t: exprType(p, module: l.module, node: ast.binaryExprL(p.modules[l.mi].tree, id: e)))
+	let right = applyType(l, p: p, ms: ms, t: exprType(p, module: l.module, node: ast.binaryExprR(p.modules[l.mi].tree, id: e)))
+	return neverNegative(p, ms: ms, t: left) and neverNegative(p, ms: ms, t: right)
+end 'signFree'
+
+// neverNegative is whether every value of the integer type t, a range or a constant, is at least 0.
+function neverNegative(p ast.Project, ms ast.ModuleState, t ast.TypeID) returns bool
+	let kind = ast.typeKind(ms.types, reads: p.types, t: t)
+	if kind != ast.TypeKind.intRange and kind != ast.TypeKind.constInt 'notInt'
+		return false
+	end 'notInt'
+	return not ast.typeEntry(ms.types, reads: p.types, t: t).minVal.isNeg()
+end 'neverNegative'
 
 // overflowTo is where an operation that can fail as fails says goes when its result does not fit, or noBlock when it
 // always fits.

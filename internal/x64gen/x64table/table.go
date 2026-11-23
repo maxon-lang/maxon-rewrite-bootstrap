@@ -55,7 +55,7 @@ const (
 	// fsSegmentPrefix from the base of fs, which on Linux x64 is the thread pointer that arch_prctl and clone set.
 	gsSegmentPrefix = 0x65
 	fsSegmentPrefix = 0x64
-	// repPrefix is also the mandatory prefix of pause, which is a rep nop.
+	// repPrefix is also the mandatory prefix of pause, which is a rep nop, and of tzcnt, which is a rep bsf.
 	repPrefix = 0xF3
 	// nopOpcode is the second byte of the multi-byte nop, 0F 1F /0, and oneByteNop the nop of one byte.
 	nopOpcode  = 0x1F
@@ -373,6 +373,11 @@ func buildForms() []form {
 			name: "ImulRegReg", mnemonic: "imul", operands: []operand{reg("dest", fieldReg, readWrite), reg("src", fieldRM, read)},
 			rexW: true, opcode: []byte{opcodeHigh, 0xAF}, modrm: modOperands, effects: flags,
 		}),
+		// tzcnt is BMI1's: a processor without it runs the encoding as bsf, which gives the same count of every word but 0.
+		form{
+			name: "TzcntRegReg", mnemonic: "tzcnt", operands: []operand{reg("dest", fieldReg, write), reg("src", fieldRM, read)},
+			prefix: []byte{repPrefix}, rexW: true, opcode: []byte{opcodeHigh, 0xBC}, modrm: modOperands, effects: flags,
+		},
 		form{
 			name: "LoadRegBaseDisp", mnemonic: "mov", operands: []operand{reg("dest", fieldReg, write), mem()},
 			rexW: true, opcode: []byte{0x8B}, modrm: modOperands, effects: reads,

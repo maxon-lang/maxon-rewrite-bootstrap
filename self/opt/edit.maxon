@@ -28,6 +28,8 @@ export type Editor
 	// edges holds the edges of the terminator loadEdges read, for storeEdges to write back.
 	export var edges as ir.SuccessorVisitor
 	export var changed as bool
+	// retargeted is whether a terminator lost an edge, which may leave a block unreached.
+	var retargeted as bool
 	var reached as Array with bool
 	var work as Array with Count
 	var layout as Array with Count
@@ -41,7 +43,7 @@ export type Editor
 	var blocks as ir.BlockList
 
 	export static function new() returns Editor
-		return Editor{removed: Array.create(0), insteadHead: Array.create(0), insteadTail: Array.create(0), extras: ir.InstrList.create(0), extraNext: Array.create(0), extraHead: Array.create(0), extraTail: Array.create(0), addedHead: Array.create(0), addedNext: Array.create(0), original: 0, edges: ir.SuccessorVisitor.new(), changed: false, reached: Array.create(0), work: Array.create(0), layout: Array.create(0), newID: ir.BlockIDList.create(0), order: Array.create(0), placeOf: Array.create(0), held: Array.create(0), blockParams: ir.RegList.create(0), blocks: ir.BlockList.create(0)}
+		return Editor{removed: Array.create(0), insteadHead: Array.create(0), insteadTail: Array.create(0), extras: ir.InstrList.create(0), extraNext: Array.create(0), extraHead: Array.create(0), extraTail: Array.create(0), addedHead: Array.create(0), addedNext: Array.create(0), original: 0, edges: ir.SuccessorVisitor.new(), changed: false, retargeted: false, reached: Array.create(0), work: Array.create(0), layout: Array.create(0), newID: ir.BlockIDList.create(0), order: Array.create(0), placeOf: Array.create(0), held: Array.create(0), blockParams: ir.RegList.create(0), blocks: ir.BlockList.create(0)}
 	end 'new'
 
 	// begin starts the edits of f.
@@ -57,7 +59,15 @@ export type Editor
 		ir.resetCounts(addedHead, n: original)
 		ir.resetCounts(addedNext, n: original)
 		changed = false
+		retargeted = false
 	end 'begin'
+
+	// retarget puts t, which goes to fewer blocks, in place of the terminator of block b.
+	export function retarget(mutates self, mutates f ir.IrFunction, b Count, consumes t ir.Term)
+		f.blocks[b].term = t
+		changed = true
+		retargeted = true
+	end 'retarget'
 
 	export function remove(mutates self, k Count)
 		removed[k] = true
@@ -215,7 +225,7 @@ export type Editor
 		if not changed 'none'
 			return
 		end 'none'
-		if extras.count() == 0 and f.blocks.count() == original and inOrder(f) and not self.removesFailing(f) 'inPlace'
+		if extras.count() == 0 and f.blocks.count() == original and not retargeted and inOrder(f) and not self.removesFailing(f) 'inPlace'
 			self.compact(f)
 			return
 		end 'inPlace'

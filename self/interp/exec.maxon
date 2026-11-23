@@ -218,6 +218,10 @@ function execNot(mutates vm Vm, x ir.Instr)
 	vm.setNum(x.dst, n: ir.evalNot(vm.num(x.a)))
 end 'execNot'
 
+function execTrailingZeros(mutates vm Vm, x ir.Instr)
+	vm.setNum(x.dst, n: ir.evalTrailingZeros(vm.num(x.a)))
+end 'execTrailingZeros'
+
 function execGuard(mutates vm Vm, x ir.Instr)
 	if not ir.evalGuard(ir.guardKind(x), a: vm.num(x.a), bound: ir.guardBound(x)) 'failed'
 		vm.failTo = x.c as ir.Word

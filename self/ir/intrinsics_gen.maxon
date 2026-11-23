@@ -479,6 +479,9 @@ export function intrinsicCall(mutates l Lowerer, p ast.Project, mutates ms ast.M
 	if op == ast.Intrinsic.intrFloatToBits 'intrFloatToBits'
 		return lowerFloatToBits(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrFloatToBits'
+	if op == ast.Intrinsic.intrTrailingZeros 'intrTrailingZeros'
+		return lowerTrailingZeros(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrTrailingZeros'
 	if op == ast.Intrinsic.intrHashSeed 'intrHashSeed'
 		return lowerHashSeed(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrHashSeed'
@@ -536,6 +539,9 @@ export function intrinsicCall(mutates l Lowerer, p ast.Project, mutates ms ast.M
 	if op == ast.Intrinsic.intrRawWrappingSub 'intrRawWrappingSub'
 		return lowerRawWrappingSub(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrRawWrappingSub'
+	if op == ast.Intrinsic.intrRawMulHigh 'intrRawMulHigh'
+		return lowerRawMulHigh(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrRawMulHigh'
 	if op == ast.Intrinsic.intrRawAddressOf 'intrRawAddressOf'
 		return lowerRawAddressOf(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrRawAddressOf'
@@ -1090,6 +1096,9 @@ export function ownsOperands(op ast.Intrinsic) returns bool
 	if op == ast.Intrinsic.intrFloatToBits 'intrFloatToBits'
 		return false
 	end 'intrFloatToBits'
+	if op == ast.Intrinsic.intrTrailingZeros 'intrTrailingZeros'
+		return false
+	end 'intrTrailingZeros'
 	if op == ast.Intrinsic.intrHashSeed 'intrHashSeed'
 		return false
 	end 'intrHashSeed'
@@ -1147,6 +1156,9 @@ export function ownsOperands(op ast.Intrinsic) returns bool
 	if op == ast.Intrinsic.intrRawWrappingSub 'intrRawWrappingSub'
 		return false
 	end 'intrRawWrappingSub'
+	if op == ast.Intrinsic.intrRawMulHigh 'intrRawMulHigh'
+		return false
+	end 'intrRawMulHigh'
 	if op == ast.Intrinsic.intrRawAddressOf 'intrRawAddressOf'
 		return true
 	end 'intrRawAddressOf'

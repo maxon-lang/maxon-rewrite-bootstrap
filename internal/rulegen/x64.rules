@@ -147,6 +147,7 @@
 (neg.!checked x) => (NegReg x)
 (neg.checked x [f]) => (NegReg x) (JccRel32 [MCond.overflow] [f])
 (not x) => (NotReg x)
+(trailingZeros x) => (TzcntRegReg r x)
 // A comparison with 0 is a test, which sets the flags as cmp does; a constant that fits is compared as an immediate.
 (cmp x (const [0])) => (TestRegReg x x) (SetccReg [cmpCondition(ins)] b) (MovzxRegReg8 r b)
 (cmp (const [0]) x) => (TestRegReg x x) (SetccReg [swapped(cmpCondition(ins))] b) (MovzxRegReg8 r b)

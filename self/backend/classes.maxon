@@ -179,6 +179,7 @@ export type ClassChoice
 			opCmp or
 			opNeg or
 			opNot or
+			opTrailingZeros or
 			opGuard or
 			opLength or
 			opBounds or

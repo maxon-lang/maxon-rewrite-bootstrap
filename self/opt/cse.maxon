@@ -4,7 +4,9 @@
 // path from the entry, each segment's entries removed when the walk leaves it, so a sibling never sees them.
 //
 // What is merged is what motion.maxon calls keyed: a pure operation, a division, a check and a read, each by its operation,
-// its operands (read through the replacements found so far, so a chain collapses in one walk) and its immediates. A check
+// its operands (read through the replacements found so far, so a chain collapses in one walk) and its immediates. An
+// operand that a constant gives is keyed by its number, not by its register: constants are never merged (motion.maxon), so
+// two uses of one number read two registers, which are one operand. A check
 // that an identical one dominates cannot fail, since the earlier one passed: a redundant bounds check of the same index
 // against the same length goes, with its failure block. A check's entry is made at the start of the segment after it,
 // which is where it is known to have passed and where its value is defined; its failure block does not see it.
@@ -17,6 +19,10 @@
 // any path from the one to the other: the version is new after a write, and is handed on only where every way in agrees,
 // so a path that passed a write carries another version until it reaches the point that made its own. With the earlier
 // point dominating the later one, that is when the later read may take the earlier one's value.
+//
+// A segment that starts a block which only one side of a branch enters knows the branch's condition, true or false,
+// everywhere it dominates, as the table knows what was computed: a branch below it on the same condition becomes a jump to
+// the side it takes, and the editor leaves out the blocks that only the other side reached.
 //
 // The cost is linear: one analysis, one pass over the segments in reverse postorder, the walk with its table (open
 // addressing, its slots stamped by function so it is never cleared), and the copy of the function when something went.
@@ -38,6 +44,16 @@ let cseHalfShift = 32 as Count
 let cseFnvOffset = 2166136261 as Count
 
 let cseFnvPrime = 16777619 as Count
+
+// What the branches above a segment say of a register as a condition: nothing, that it is false, or that it is true.
+let unknownCondition = 0 as Count
+
+let conditionFails = 1 as Count
+
+let conditionHolds = 2 as Count
+
+// cseConstantTag sets the key of a constant operand apart from that of the register of the same number.
+let cseConstantTag = 2863311530 as Count
 
 export type Cse
 	// merged is how many instructions the pass removed, over every function it was given.
@@ -63,9 +79,17 @@ export type Cse
 	var cursor as Array with Count
 	var marks as Array with Count
 	var regs as ir.RegList
+	// By register: whether a constant gives it, and the number it gives.
+	var constant as Array with bool
+	var constantValue as Array with ir.Word
+	// By register: what the branches on the path to the segment being walked say of it as a condition; learned lists the
+	// registers they decided, which the walk forgets back to a mark as it leaves the segment that learned them.
+	var known as Array with Count
+	var learned as ir.RegList
+	var learnedMarks as Array with Count
 
 	export static function new() returns Cse
-		return Cse{merged: 0, editor: Editor.new(), entry: Array.create(0), exit: Array.create(0), versions: 0, repl: ir.RegList.create(0), replaced: false, slotInstr: Array.create(0), slotVersion: Array.create(0), slotStamp: Array.create(0), stamp: 0, mask: 0, filled: Array.create(0), stack: Array.create(0), cursor: Array.create(0), marks: Array.create(0), regs: ir.RegList.create(0)}
+		return Cse{merged: 0, editor: Editor.new(), entry: Array.create(0), exit: Array.create(0), versions: 0, repl: ir.RegList.create(0), replaced: false, slotInstr: Array.create(0), slotVersion: Array.create(0), slotStamp: Array.create(0), stamp: 0, mask: 0, filled: Array.create(0), stack: Array.create(0), cursor: Array.create(0), marks: Array.create(0), regs: ir.RegList.create(0), constant: Array.create(0), constantValue: Array.create(0), known: Array.create(0), learned: ir.RegList.create(0), learnedMarks: Array.create(0)}
 	end 'new'
 
 	// eliminate removes the redundant instructions of f, which is in SSA form and keeps the verifier's rules, and which
@@ -78,6 +102,10 @@ export type Cse
 			repl.push(ir.regOf(r))
 		end 'regs'
 		replaced = false
+		self.findConstants(f)
+		ir.resetCounts(known, n: f.regs.count())
+		learned.clear()
+		learnedMarks.clear()
 		editor.begin(f)
 		self.walk(f, analysis: analysis, facts: facts)
 		if not editor.changed 'none'
@@ -85,6 +113,64 @@ export type Cse
 		end 'none'
 		editor.finish(f)
 	end 'eliminate'
+
+	// findConstants records which registers of f a constant gives.
+	function findConstants(mutates self, f ir.IrFunction)
+		ir.resetFlags(constant, n: f.regs.count())
+		constantValue.clear()
+		for _ in 0 upto f.regs.count() 'regs'
+			constantValue.push(0)
+		end 'regs'
+		for k in 0 upto f.instrs.count() 'instrs'
+			if f.instrs[k].op == ir.Opcode.opConst 'const'
+				constant[regIndex(f.instrs[k].dst)] = true
+				constantValue[regIndex(f.instrs[k].dst)] = ir.constValue(f.instrs[k])
+			end 'const'
+		end 'instrs'
+	end 'findConstants'
+
+	// isConstant is whether a constant gives the register of an operand field, which may hold no register.
+	function isConstant(r ir.Reg) returns bool
+		return r != ir.noReg and regIndex(r) < constant.count() and constant[regIndex(r)]
+	end 'isConstant'
+
+	// sameOperand is whether two operand fields name one value: one register, or two that constants give the same number.
+	function sameOperand(a ir.Reg, b ir.Reg) returns bool
+		if a == b 'same'
+			return true
+		end 'same'
+		return self.isConstant(a) and self.isConstant(b) and constantValue[regIndex(a)] == constantValue[regIndex(b)]
+	end 'sameOperand'
+
+	// operandPart is the bits of an operand field that its key hashes: its constant's number, or its register.
+	function operandPart(r ir.Reg) returns Count
+		if self.isConstant(r) 'constant'
+			let bits = ir.bitsOfWord(constantValue[regIndex(r)])
+			return (bits xor (bits shr cseHalfShift) xor cseConstantTag) and cseLow32Mask
+		end 'constant'
+		return regPart(r)
+	end 'operandPart'
+
+	// sameComputation is whether two keyed instructions compute the same thing: the same operation on the same operands and
+	// immediates. The failure block of a check is not part of what it computes.
+	function sameComputation(a ir.Instr, b ir.Instr) returns bool
+		return a.op == b.op and a.sub == b.sub and a.flags == b.flags and self.sameOperand(a.a, b: b.a) and self.sameOperand(a.b, b: b.b) and a.imm == b.imm
+	end 'sameComputation'
+
+	// hashOf is the slot a keyed instruction that sees memory at version v starts its probe at, before the mask: 32-bit
+	// FNV-1a over its parts, each cut to 32 bits so that no product overflows.
+	function hashOf(x ir.Instr, v Count) returns Count
+		let bits = ir.bitsOfWord(x.imm)
+		var h = cseFnvOffset
+		h = mixHash(h, part: x.op.ordinal)
+		h = mixHash(h, part: x.sub as Count)
+		h = mixHash(h, part: x.flags as Count)
+		h = mixHash(h, part: self.operandPart(x.a))
+		h = mixHash(h, part: self.operandPart(x.b))
+		h = mixHash(h, part: bits and cseLow32Mask)
+		h = mixHash(h, part: bits shr cseHalfShift)
+		return mixHash(h, part: v and cseLow32Mask)
+	end 'hashOf'
 
 	// version gives each segment the version of memory it starts and ends with.
 	function version(mutates self, analysis Analysis, facts LoopFacts)
@@ -169,6 +255,11 @@ export type Cse
 					let slot = try filled.pop() otherwise panic("opt: an empty walk")
 					slotStamp[slot] = 0
 				end 'empty'
+				let learnedMark = try learnedMarks.pop() otherwise panic("opt: an empty walk")
+				while learned.count() > learnedMark 'forget'
+					let r = try learned.pop() otherwise panic("opt: an empty walk")
+					known[regIndex(r)] = unknownCondition
+				end 'forget'
 				_ = try stack.pop() otherwise panic("opt: an empty walk")
 				_ = try cursor.pop() otherwise panic("opt: an empty walk")
 			end 'leave'
@@ -182,6 +273,8 @@ export type Cse
 		cursor.push(children)
 		let height = filled.count()
 		marks.push(height)
+		learnedMarks.push(learned.count())
+		self.learnBranch(f, s: s, analysis: analysis)
 		if s != analysis.flow.segBase[analysis.flow.segBlock[s]] 'afterCheck'
 			// The check that ended the segment before this one passed here.
 			let k = try analysis.flow.segEnd[try s - 1 otherwise panic("opt: a segment before the first")] - 1 otherwise panic("opt: an empty segment ends in a check")
@@ -223,15 +316,56 @@ export type Cse
 			let b = analysis.flow.segBlock[s]
 			ir.renameTermReads(f.blocks[b].term, args: f.args, cases: f.cases, names: repl)
 		end 'term'
+		if not analysis.flow.endsInFailure(s) 'decided'
+			self.takeKnownSide(f, b: analysis.flow.segBlock[s])
+		end 'decided'
 	end 'enter'
+
+	// learnBranch records what the branch into the segment s says of its condition, where s starts a block that the branch
+	// alone enters: the condition holds on its true side and not on its false one, everywhere that s dominates.
+	function learnBranch(mutates self, f ir.IrFunction, s Count, analysis Analysis)
+		if s != analysis.flow.segBase[analysis.flow.segBlock[s]] or plusOne(analysis.flow.predStart[s]) != analysis.flow.predStart[plusOne(s)] 'notOnlyEdge'
+			return
+		end 'notOnlyEdge'
+		let p = analysis.flow.pred[analysis.flow.predStart[s]]
+		if analysis.flow.endsInFailure(p) 'failureEdge'
+			return
+		end 'failureEdge'
+		let from = analysis.flow.segBlock[p]
+		if f.blocks[from].term.kind != ir.TermKind.termBranch 'notBranch'
+			return
+		end 'notBranch'
+		let cond = ir.branchCond(f.blocks[from].term)
+		if known[regIndex(cond)] != unknownCondition 'already'
+			return
+		end 'already'
+		let b = analysis.flow.segBlock[s]
+		known[regIndex(cond)] = conditionHolds if ir.blockIndex(ir.branchIfTrue(f.blocks[from].term)) == b else conditionFails
+		learned.push(cond)
+	end 'learnBranch'
+
+	// takeKnownSide makes a branch of block b on a condition that the branches above it decided a jump to the side it takes.
+	function takeKnownSide(mutates self, mutates f ir.IrFunction, b Count)
+		if f.blocks[b].term.kind != ir.TermKind.termBranch 'notBranch'
+			return
+		end 'notBranch'
+		let fact = known[regIndex(ir.branchCond(f.blocks[b].term))]
+		if fact == conditionHolds 'holds'
+			let jump = ir.newJumpWith(ir.branchIfTrue(f.blocks[b].term), argsStart: ir.indexOf(ir.branchTrueArgsStart(f.blocks[b].term)), argsCount: ir.indexOf(ir.branchTrueArgsCount(f.blocks[b].term)))
+			editor.retarget(f, b: b, t: jump)
+		end 'holds' else if fact == conditionFails 'fails'
+			let jump = ir.newJumpWith(ir.branchIfFalse(f.blocks[b].term), argsStart: ir.indexOf(ir.branchFalseArgsStart(f.blocks[b].term)), argsCount: ir.indexOf(ir.branchFalseArgsCount(f.blocks[b].term)))
+			editor.retarget(f, b: b, t: jump)
+		end 'fails'
+	end 'takeKnownSide'
 
 	// lookup is the instruction plus 1 in the table that computes what instruction k does with memory at version v, or
 	// noEntry.
 	function lookup(f ir.IrFunction, k Count, v Count) returns Count
-		var slot = hashOf(f.instrs[k], v: v) and mask
+		var slot = self.hashOf(f.instrs[k], v: v) and mask
 		while slotStamp[slot] == stamp 'probe'
 			let other = slotInstr[slot]
-			if slotVersion[slot] == v and sameComputation(f.instrs[linkIndex(other)], b: f.instrs[k]) 'hit'
+			if slotVersion[slot] == v and self.sameComputation(f.instrs[linkIndex(other)], b: f.instrs[k]) 'hit'
 				return other
 			end 'hit'
 			slot = (try slot + 1 otherwise panic("opt: a slot past memory")) and mask
@@ -240,7 +374,7 @@ export type Cse
 	end 'lookup'
 
 	function record(mutates self, f ir.IrFunction, k Count, v Count)
-		var slot = hashOf(f.instrs[k], v: v) and mask
+		var slot = self.hashOf(f.instrs[k], v: v) and mask
 		while slotStamp[slot] == stamp 'probe'
 			slot = (try slot + 1 otherwise panic("opt: a slot past memory")) and mask
 		end 'probe'
@@ -250,27 +384,6 @@ export type Cse
 		filled.push(slot)
 	end 'record'
 end 'Cse'
-
-// sameComputation is whether two keyed instructions compute the same thing: the same operation on the same operands and
-// immediates. The failure block of a check is not part of what it computes.
-function sameComputation(a ir.Instr, b ir.Instr) returns bool
-	return a.op == b.op and a.sub == b.sub and a.flags == b.flags and a.a == b.a and a.b == b.b and a.imm == b.imm
-end 'sameComputation'
-
-// hashOf is the slot a keyed instruction that sees memory at version v starts its probe at, before the mask: 32-bit
-// FNV-1a over its parts, each cut to 32 bits so that no product overflows.
-function hashOf(x ir.Instr, v Count) returns Count
-	let bits = ir.bitsOfWord(x.imm)
-	var h = cseFnvOffset
-	h = mixHash(h, part: x.op.ordinal)
-	h = mixHash(h, part: x.sub as Count)
-	h = mixHash(h, part: x.flags as Count)
-	h = mixHash(h, part: regPart(x.a))
-	h = mixHash(h, part: regPart(x.b))
-	h = mixHash(h, part: bits and cseLow32Mask)
-	h = mixHash(h, part: bits shr cseHalfShift)
-	return mixHash(h, part: v and cseLow32Mask)
-end 'hashOf'
 
 // regPart is the bits of a register field, which an operand that is not there holds as 0 or ir.noReg.
 function regPart(r ir.Reg) returns Count

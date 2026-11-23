@@ -432,6 +432,9 @@ func buildForms() []form {
 		threeReg("LsrvRegReg", "lsrv", 0x9AC02400, noEffects),
 		threeReg("AsrvRegReg", "asrv", 0x9AC02800, noEffects),
 		threeReg("RorvRegReg", "rorv", 0x9AC02C00, noEffects),
+		// arm64 counts only leading zeros, so the count of trailing zeros is clz of the bits reversed.
+		twoReg("RbitRegReg", "rbit", 0xDAC00000, reg("dest", rdAt, write), reg("src", rnAt, read)),
+		twoReg("ClzRegReg", "clz", 0xDAC01000, reg("dest", rdAt, write), reg("src", rnAt, read)),
 		{name: "MaddRegRegRegReg", mnemonic: "madd", opcode: 0x9B000000, direct: true, operands: []operand{
 			reg("dest", rdAt, write), reg("left", rnAt, read), reg("right", rmAt, read), reg("addend", raAt, read)}},
 		{name: "MsubRegRegRegReg", mnemonic: "msub", opcode: 0x9B008000, direct: true, operands: []operand{

@@ -72,13 +72,9 @@ let hashLowMask = 0x7F as MapHash
 // h1Shift drops the low seven bits, which the control bytes hold, from the bits a probe starts at.
 let h1Shift = 7
 
-// A set of hits has the top bit of each matching slot's byte set. The lowest one brought down to its byte's low bit and
-// multiplied by slotIndexMultiplier leaves the slot's index in the product's top byte, so the hits are read with no loop.
-let matchBitShift = 7
-
-let slotIndexMultiplier = 0x0001020304050607 as ControlWord
-
-let slotIndexShift = 56
+// A set of hits has the top bit of each matching slot's byte set, so the zeros below the lowest one, shifted down by
+// slotOfBitShift, are that slot's index: the hits are read with no loop.
+let slotOfBitShift = 3
 
 // spread multiplies a key's hash under the seed by an odd constant and folds the high half of the product onto the low,
 // so every bit of the 64 depends on every bit of the hash: the table, the group and the control byte are all of it.
@@ -117,8 +113,7 @@ end 'matchFull'
 
 // firstMatch is the first slot of a set of hits that is not empty.
 function firstMatch(hits ControlWord) returns SlotInGroup
-	let lowest = hits and (0 - hits)
-	let index = (((lowest shr matchBitShift) * slotIndexMultiplier) shr slotIndexShift) and slotInGroupMask
+	let index = (__Builtins.trailingZeros(hits as Count) shr slotOfBitShift) and slotInGroupMask
 	return try index as SlotInGroup otherwise panic("Map: a hit names a slot of its group")
 end 'firstMatch'
 

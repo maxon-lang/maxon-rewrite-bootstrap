@@ -199,6 +199,11 @@ export function evalNot(a Word) returns Word
 	return notWord(a)
 end 'evalNot'
 
+// evalTrailingZeros is what the operation TrailingZeros computes, by trailingZeros.
+export function evalTrailingZeros(a Word) returns Word
+	return trailingZeros(a)
+end 'evalTrailingZeros'
+
 // evalGuard is what the operation Guard computes: the case of its Kind says how.
 export function evalGuard(kind GuardKind, a Word, bound Word) returns bool
 	return match kind 'kind'

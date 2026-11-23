@@ -231,6 +231,20 @@ function notWord(a Word) returns Word
 	return wordOfBits(allBits - bitsOfWord(a))
 end 'notWord'
 
+// trailingZeros is the number of 0 bits below the lowest 1 bit of a, and wordBits when a is 0.
+function trailingZeros(a Word) returns Word
+	var bits = bitsOfWord(a)
+	if bits == 0 'zero'
+		return wordBits as Word
+	end 'zero'
+	var count = 0 as Word
+	while (bits and 1) == 0 'low'
+		bits = bits shr 1
+		count = try count + 1 otherwise panic("ir: a word with more than its bits")
+	end 'low'
+	return count
+end 'trailingZeros'
+
 // roundNearest is the double x rounded to an integer, ties to even.
 function roundNearest(x Count) returns Count
 	return ast.floatRound(x, mode: ast.FloatRounding.nearest)

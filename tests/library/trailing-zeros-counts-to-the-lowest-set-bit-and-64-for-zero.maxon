@@ -1,0 +1,18 @@
+// The words come from an array so that no count is folded: each target's own instructions count them, 0 included.
+typealias Words = Array with Count
+
+function main() returns ExitCode
+	let words = Words from [0, 1, 2, 12, 1099511627776, 4611686018427387904, 4611686018427387905]
+	for w in words 'each'
+		print("{__Builtins.trailingZeros(w)}\n")
+	end 'each'
+	return 0
+end 'main'
+
+//> 64
+//> 0
+//> 1
+//> 2
+//> 40
+//> 62
+//> 0

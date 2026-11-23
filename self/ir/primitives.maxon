@@ -398,11 +398,15 @@ function arrayZeroed(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleStat
 	let out = arrayNew(l, p: p, ms: ms, box: a)
 	if hasZero(p, ms: ms, t: arrayElem(p, ms: ms, box: a)) 'zero'
 		arrayReserve(l, p: p, ms: ms, box: a, arr: out, count: count)
-		let loop = countedLoopBegin(l, limit: count)
-		let i = countedLoopIndex(l, loop: loop)
 		let zero = konst(l, value: 0 as Word)
-		arrayInsert(l, p: p, ms: ms, box: a, arr: out, index: i, v: zero)
-		countedLoopEnd(l, loop: loop)
+		if arrayPacked(p, ms: ms, box: a) 'bytes'
+			let loop = countedLoopBegin(l, limit: count)
+			let i = countedLoopIndex(l, loop: loop)
+			arrayInsert(l, p: p, ms: ms, box: a, arr: out, index: i, v: zero)
+			countedLoopEnd(l, loop: loop)
+		end 'bytes' else 'words'
+			arrayFill(l, p: p, ms: ms, box: a, arr: out, count: count, v: zero)
+		end 'words'
 	end 'zero'
 	return out
 end 'arrayZeroed'
@@ -846,11 +850,15 @@ function removeHandle(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleSta
 end 'removeHandle'
 
 // arrayFilled is an array of count copies of value: the value is copied into every slot and then dropped, so that every
-// element has an owner of its own.
+// element has an owner of its own. A scalar in words is its own copy, which one fill writes.
 function arrayFilled(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, count Reg, value Reg) returns Reg
 	let a = arrayOfCall(l, p: p, ms: ms, c: c)
 	let out = arrayNew(l, p: p, ms: ms, box: a)
 	arrayReserve(l, p: p, ms: ms, box: a, arr: out, count: count)
+	if not arrayPacked(p, ms: ms, box: a) and not ast.isManagedType(ms.types, reads: p.types, t: arrayElem(p, ms: ms, box: a)) 'scalar'
+		arrayFill(l, p: p, ms: ms, box: a, arr: out, count: count, v: value)
+		return out
+	end 'scalar'
 	let loop = countedLoopBegin(l, limit: count)
 	let i = countedLoopIndex(l, loop: loop)
 	let copy = copyValue(l, p: p, ms: ms, site: siteOf(l, p: p, node: c.node), v: value, t: arrayElem(p, ms: ms, box: a))

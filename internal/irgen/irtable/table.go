@@ -308,6 +308,8 @@ var ops = []op{
 		Operands: []operand{reg("Src", fA), checkedOp}, Text: "neg {Src}{Fail}"},
 	{Name: "Not", Eval: call("notWord"), Doc: "Not inverts every bit.", Result: valueResult,
 		Operands: []operand{reg("Src", fA)}, Text: "not {Src}"},
+	{Name: "TrailingZeros", Eval: call("trailingZeros"), Doc: "TrailingZeros is the number of 0 bits below the lowest 1 bit of Src, and 64 when Src is 0.",
+		Result: valueResult, Operands: []operand{reg("Src", fA)}, Text: "ctz {Src}"},
 	{Name: "Guard", Eval: byCase("Kind", overWords), Doc: "Guard goes to Fail unless Src is in the range Kind of Bound.",
 		Operands: []operand{reg("Src", fA), {Name: "Kind", Kind: kEnum, Field: fSub, Enum: "GuardKind"},
 			{Name: "Bound", Kind: kWord, Field: fImm}, {Name: "Fail", Kind: kFail, Field: fC}},

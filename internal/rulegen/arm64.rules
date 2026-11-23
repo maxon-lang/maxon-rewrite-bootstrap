@@ -157,6 +157,8 @@ r:(bin.mul.unsigned.checked x y [f]) => (MulRegReg r x y) (UmulhRegReg h x y) (C
 // 0 less the operand, which overflows for i64.min alone.
 (neg.checked x [f]) => (SubsRegReg r sp x) (BCond [MCond.overflow] [f])
 (not x) => (MvnRegReg r x)
+// clz of 0 is 64, as the count of trailing zeros of 0 is.
+(trailingZeros x) => (RbitRegReg t x) (ClzRegReg r t)
 // A comparison with a constant that 12 bits hold compares with the immediate, and with one whose negation they hold
 // adds the negation, which sets the flags as the subtraction does.
 (cmp x (const [k])) && arm64HoldsImm12(k as FullRangeInt) => (CmpRegImm x [k]) (CsetReg r [cmpCondition(ins)])

@@ -32,7 +32,7 @@ var goSyntax = map[string]string{
 	"UmulhRegReg": "UMULH {right}, {left}, {dest}", "SdivRegReg": "SDIV {right}, {left}, {dest}",
 	"UdivRegReg": "UDIV {right}, {left}, {dest}", "LslvRegReg": "LSL {right}, {left}, {dest}",
 	"LsrvRegReg": "LSR {right}, {left}, {dest}", "AsrvRegReg": "ASR {right}, {left}, {dest}",
-	"RorvRegReg":       "ROR {right}, {left}, {dest}",
+	"RorvRegReg": "ROR {right}, {left}, {dest}", "RbitRegReg": "RBIT {src}, {dest}", "ClzRegReg": "CLZ {src}, {dest}",
 	"MaddRegRegRegReg": "MADD {right}, {addend}, {left}, {dest}", "MsubRegRegRegReg": "MSUB {right}, {minuend}, {left}, {dest}",
 	"AddRegImm": "ADD {imm}, {src}, {dest}", "AddRegImmHigh": "ADD {imm:high}, {src}, {dest}",
 	"SubRegImm": "SUB {imm}, {src}, {dest}", "SubRegImmHigh": "SUB {imm:high}, {src}, {dest}",

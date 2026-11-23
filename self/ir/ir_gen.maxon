@@ -62,6 +62,7 @@ export enum Opcode
 	opFloatToInt
 	opNeg
 	opNot
+	opTrailingZeros
 	opGuard
 	opLength
 	opBounds
@@ -729,6 +730,9 @@ export function opEffects(op Opcode) returns Count
 	if op == Opcode.opNot 'opNot'
 		return 0
 	end 'opNot'
+	if op == Opcode.opTrailingZeros 'opTrailingZeros'
+		return 0
+	end 'opTrailingZeros'
 	if op == Opcode.opGuard 'opGuard'
 		return 64
 	end 'opGuard'
@@ -1212,6 +1216,14 @@ export function newNot(dst Reg, src Reg) returns Instr
 	return r
 end 'newNot'
 
+// TrailingZeros is the number of 0 bits below the lowest 1 bit of Src, and 64 when Src is 0.
+export function newTrailingZeros(dst Reg, src Reg) returns Instr
+	var r = Instr.make(Opcode.opTrailingZeros)
+	r.dst = dst
+	r.a = src
+	return r
+end 'newTrailingZeros'
+
 // Guard goes to Fail unless Src is in the range Kind of Bound.
 export function newGuard(src Reg, kind GuardKind, bound Word, fail BlockID) returns Instr
 	var r = Instr.make(Opcode.opGuard)
@@ -1692,6 +1704,9 @@ export function opcodeName(op Opcode) returns String
 	if op == Opcode.opNot 'opNot'
 		return "Not"
 	end 'opNot'
+	if op == Opcode.opTrailingZeros 'opTrailingZeros'
+		return "TrailingZeros"
+	end 'opTrailingZeros'
 	if op == Opcode.opGuard 'opGuard'
 		return "Guard"
 	end 'opGuard'
@@ -2297,6 +2312,13 @@ export function notSrc(x Instr) returns Reg
 	end 'op'
 	return x.a
 end 'notSrc'
+
+export function trailingZerosSrc(x Instr) returns Reg
+	if x.op != Opcode.opTrailingZeros 'op'
+		wrongInstr("trailingZerosSrc", found: x.op)
+	end 'op'
+	return x.a
+end 'trailingZerosSrc'
 
 export function guardSrc(x Instr) returns Reg
 	if x.op != Opcode.opGuard 'op'
@@ -3076,6 +3098,9 @@ export function instrDef(x Instr) returns table.Option with Reg
 	if x.op == Opcode.opNot 'opNot'
 		return table.Option.some(x.dst)
 	end 'opNot'
+	if x.op == Opcode.opTrailingZeros 'opTrailingZeros'
+		return table.Option.some(x.dst)
+	end 'opTrailingZeros'
 	if x.op == Opcode.opGuard 'opGuard'
 		return table.Option.none
 	end 'opGuard'
@@ -3282,6 +3307,9 @@ export function instrFail(x Instr) returns table.Option with BlockID
 	if x.op == Opcode.opNot 'opNot'
 		return table.Option.none
 	end 'opNot'
+	if x.op == Opcode.opTrailingZeros 'opTrailingZeros'
+		return table.Option.none
+	end 'opTrailingZeros'
 	if x.op == Opcode.opGuard 'opGuard'
 		return table.Option.some(guardFail(x))
 	end 'opGuard'
@@ -3408,6 +3436,7 @@ export function instrCanFail(x Instr) returns bool
 		opFloatToInt gives false
 		opNeg gives negHasFail(x)
 		opNot gives false
+		opTrailingZeros gives false
 		opGuard gives true
 		opLength gives false
 		opBounds gives true
@@ -3579,6 +3608,10 @@ export function instrReads(f IrFunction, x Instr, mutates out RegList)
 		out.push(notSrc(x))
 		return
 	end 'opNot'
+	if x.op == Opcode.opTrailingZeros 'opTrailingZeros'
+		out.push(trailingZerosSrc(x))
+		return
+	end 'opTrailingZeros'
 	if x.op == Opcode.opGuard 'opGuard'
 		out.push(guardSrc(x))
 		return
@@ -3866,6 +3899,10 @@ export function instrWrites(x Instr, mutates out RegList)
 		out.push(x.dst)
 		return
 	end 'opNot'
+	if x.op == Opcode.opTrailingZeros 'opTrailingZeros'
+		out.push(x.dst)
+		return
+	end 'opTrailingZeros'
 	if x.op == Opcode.opGuard 'opGuard'
 		return
 	end 'opGuard'
@@ -4129,6 +4166,10 @@ export function renameInstrReads(mutates x Instr, mutates args RegList, names Re
 		x.a = renamedReg(names, r: x.a)
 		return
 	end 'opNot'
+	if x.op == Opcode.opTrailingZeros 'opTrailingZeros'
+		x.a = renamedReg(names, r: x.a)
+		return
+	end 'opTrailingZeros'
 	if x.op == Opcode.opGuard 'opGuard'
 		x.a = renamedReg(names, r: x.a)
 		return
@@ -4488,6 +4529,11 @@ export function relocateInstr(mutates x Instr, at Relocation)
 		x.a = renamedReg(at.names, r: x.a)
 		return
 	end 'opNot'
+	if x.op == Opcode.opTrailingZeros 'opTrailingZeros'
+		x.dst = renamedReg(at.names, r: x.dst)
+		x.a = renamedReg(at.names, r: x.a)
+		return
+	end 'opTrailingZeros'
 	if x.op == Opcode.opGuard 'opGuard'
 		x.a = renamedReg(at.names, r: x.a)
 		x.c = relocatedBlock(at.blocks, b: x.c as BlockID) as Index
@@ -4734,6 +4780,7 @@ export interface InstrVisitor
 	function visitFloatToInt(mutates self, f IrFunction, x Instr)
 	function visitNeg(mutates self, f IrFunction, x Instr)
 	function visitNot(mutates self, f IrFunction, x Instr)
+	function visitTrailingZeros(mutates self, f IrFunction, x Instr)
 	function visitGuard(mutates self, f IrFunction, x Instr)
 	function visitLength(mutates self, f IrFunction, x Instr)
 	function visitBounds(mutates self, f IrFunction, x Instr)
@@ -4906,6 +4953,10 @@ export function visitInstr(mutates visitor V, f IrFunction, x Instr) uses V wher
 		visitor.visitNot(f, x: x)
 		return
 	end 'opNot'
+	if x.op == Opcode.opTrailingZeros 'opTrailingZeros'
+		visitor.visitTrailingZeros(f, x: x)
+		return
+	end 'opTrailingZeros'
 	if x.op == Opcode.opGuard 'opGuard'
 		visitor.visitGuard(f, x: x)
 		return
@@ -5197,6 +5248,9 @@ export function instrText(p ast.Project, tt ast.TypeSlot, reads ast.TypeTable, f
 	if x.op == Opcode.opNot 'opNot'
 		return "{resultText(x.dst)}not %{notSrc(x)}"
 	end 'opNot'
+	if x.op == Opcode.opTrailingZeros 'opTrailingZeros'
+		return "{resultText(x.dst)}ctz %{trailingZerosSrc(x)}"
+	end 'opTrailingZeros'
 	if x.op == Opcode.opGuard 'opGuard'
 		return "guard %{guardSrc(x)} {guardKindText(guardKind(x))} {guardBound(x)} else b{guardFail(x)}"
 	end 'opGuard'

@@ -82,6 +82,10 @@ function lowerRawWrappingSub(mutates l Lowerer, p ast.Project, ms ast.ModuleStat
 	return wrappingBin(l, op: BinOp.binSub, a: args[0], b: args[1], kind: IrKind.kindScalar)
 end 'lowerRawWrappingSub'
 
+function lowerRawMulHigh(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return wrappingBin(l, op: BinOp.binMulHi, a: args[0], b: args[1], kind: IrKind.kindScalar)
+end 'lowerRawMulHigh'
+
 // lowerRawAddressOf is the address of the local that the call is given as its place. The call evaluates its operand
 // itself, since the value of the place is not what it is given.
 function lowerRawAddressOf(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg

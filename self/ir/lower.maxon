@@ -358,17 +358,22 @@ function visitReturnStmt(mutates l Lowerer, p ast.Project, mutates ms ast.Module
 end 'visitReturnStmt'
 
 // lentTuple writes the tuple that a function lends into the frame area its caller passed, a borrow of each element, and
-// gives the area: the elements of a tuple written in the return, or the words of the tuple box it lends a place of.
+// gives the area: the elements of a tuple written in the return, or the words of the tuple box it lends a place of. The
+// elements of a written tuple are all read before any is stored, since a store ends every read the optimizer could
+// otherwise share between them (motion.maxon), and no element reads the area.
 function lentTuple(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, value ast.NodeID) returns Reg
 	let area = paramReg(l, index: pred(l.b.f.paramCount), kind: IrKind.kindManaged)
 	let declared = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: l.fn).retTy
 	let tuple = applyType(l, p: p, ms: ms, t: declared)
 	if p.modules[l.mi].tree.kindOf(value) == ast.NodeKind.tupleExpr 'written'
 		let lit = structLitInfoAt(p, module: l.module, node: value)
+		var elements = RegList.create(0)
 		for i in 0 upto lit.ordered.count() 'elements'
-			let v = lowerExpr(l, p: p, ms: ms, e: lit.ordered[i])
-			emit(l, i: newStoreField(area, offset: wordOffset(i), src: v, borrow: regKind(l, v: v) == IrKind.kindManaged))
+			elements.push(lowerExpr(l, p: p, ms: ms, e: lit.ordered[i]))
 		end 'elements'
+		for i in 0 upto elements.count() 'stores'
+			emit(l, i: newStoreField(area, offset: wordOffset(i), src: elements[i], borrow: regKind(l, v: elements[i]) == IrKind.kindManaged))
+		end 'stores'
 		return area
 	end 'written'
 	let box = lowerExpr(l, p: p, ms: ms, e: value)
