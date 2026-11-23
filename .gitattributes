@@ -2,7 +2,8 @@
 *.maxon text eol=lf
 # This test holds a carriage return on purpose, so git keeps its bytes as written.
 tests/errors/layout-carriage-return.maxon -text
-# The seed is a compiled executable; git keeps its bytes as they are.
+# The seeds are compiled executables; git keeps their bytes as they are.
 seed/minimaxon.exe binary
+seed/minimaxon-x64-linux binary
 # The benchmark kit's shell script is embedded in cmd/bench and run by sh, which rejects a carriage return.
 cmd/bench/run.sh text eol=lf
