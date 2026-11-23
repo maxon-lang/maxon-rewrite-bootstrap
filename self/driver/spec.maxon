@@ -76,6 +76,11 @@ let skipPassedFlag = "--skip-passed"
 
 let requirePassedFlag = "--require-passed"
 
+// The flags that keep the result of every test in a file, and that replay such a file instead of running the tests.
+let saveResultsFlag = "--save-results="
+
+let replayResultsFlag = "--replay-results="
+
 // The list of the tests that pass, in the specs directory: one `file.md: test name` per line, written only by the run that
 // records it.
 let passedListName = "passed.txt"
@@ -125,16 +130,20 @@ typealias TestSet = table.StringMap with Count
 
 // SpecOptions are the flags of a run over spec files: whether it renews the list of the tests that pass, whether it
 // leaves out the tests that the list has, and whether it fails when one of them does not pass. A run that does none of them
-// is a full run that reads and writes nothing.
+// is a full run that reads and writes nothing. A run may also keep the result of each test in the file at resultsPath, or
+// take the results from it in place of running the tests: the results are of every test, so it leaves none out.
 type SpecOptions
 	var verbose as bool
 	var record as bool
 	var skipPassed as bool
 	var requirePassed as bool
+	var results as ResultsMode
+	var resultsPath as String
 
-	static function make(verbose bool, record bool, skipPassed bool, requirePassed bool) returns SpecOptions
-		return SpecOptions{verbose: verbose, record: record, skipPassed: skipPassed, requirePassed: requirePassed}
-	end 'make'
+	// new is a run that does what a bare `test specs` does.
+	static function new() returns SpecOptions
+		return SpecOptions{verbose: false, record: false, skipPassed: false, requirePassed: false, results: ResultsMode.resultsOff, resultsPath: ""}
+	end 'new'
 
 	// needsList is whether the run reads the list of the tests that passed.
 	function needsList() returns bool
@@ -814,13 +823,15 @@ type SpecRun
 	var lost as Count
 	// listPath is where the list is, which a run that renews it writes.
 	var listPath as String
+	// saved is the line of results of each test taken in, which a run that saves them writes at the end.
+	var saved as ast.StringList
 
 	static function make(consumes options SpecOptions, before ast.StringList, consumes listPath String) returns SpecRun
 		var listed = TestSet.new()
 		for i in 0 upto before.count() 'keys'
 			listed.insert(before[i].clone(), value: setMember)
 		end 'keys'
-		return SpecRun{options: options, passed: 0, failed: 0, skipped: 0, reasons: ast.StringList.create(0), counts: CountList.create(0), indexes: ReasonIndex.new(), listed: listed, keptKeys: ast.StringList.create(0), lost: 0, listPath: listPath}
+		return SpecRun{options: options, passed: 0, failed: 0, skipped: 0, reasons: ast.StringList.create(0), counts: CountList.create(0), indexes: ReasonIndex.new(), listed: listed, keptKeys: ast.StringList.create(0), lost: 0, listPath: listPath, saved: ast.StringList.create(0)}
 	end 'make'
 
 	// countSkip counts a skipped test under its reason.
@@ -864,6 +875,9 @@ type SpecRun
 	// take counts the result of the test of job and prints what the run says of it. A test of the list stays in it unless
 	// the conversion now skips it, which is a change of the language or of the conversion, never a regression.
 	function take(mutates self, job SpecJob, result TestResult)
+		if options.results == ResultsMode.resultsSave 'save'
+			saved.push(resultLine(job.key, result: result))
+		end 'save'
 		let inList = listed.has(job.key)
 		if job.listed 'known'
 			self.countSkip(passedBeforeReason)
@@ -910,6 +924,9 @@ function finishSpecs(tally SpecRun) returns ExitCode
 	if tally.options.record 'record'
 		writePassedList(tally.listPath, tally: tally)
 	end 'record'
+	if tally.options.results == ResultsMode.resultsSave 'save'
+		writeResults(tally.options.resultsPath, lines: tally.saved)
+	end 'save'
 	if tally.options.requirePassed 'required'
 		if tally.lost > 0 'lost'
 			print("{tally.lost} tests of {passedListName} did not pass\n")
@@ -1059,9 +1076,50 @@ function runSpecs(path String, options SpecOptions, width RunWidth) returns Exit
 	for f in 0 upto paths.count() 'files'
 		addSpecJobs(paths[f], file: f, tally: tally, jobs: jobs, files: files)
 	end 'files'
+	if options.results == ResultsMode.resultsReplay 'replay'
+		return replaySpecs(tally, jobs: jobs, path: options.resultsPath)
+	end 'replay'
 	startTests(prepareSharedRuntime(hostTarget()), jobs: jobs, files: files, corpus: CorpusOptions.new(), verbose: options.verbose, scratch: Scratch.make("spec", suffix: executableExtension(hostTarget())), width: width, tally: Tally.spec(tally))
 	return compiledByBehaviours
 end 'runSpecs'
+
+// replaySpecs takes the result of each test from the file of results at path, in place of running the tests, and counts and
+// prints them as a run of the tests does. The file must be of these very tests, in this order: it says so by their keys, and
+// when it does not the run is refused, so that nothing is replayed that was not run.
+function replaySpecs(consumes tally SpecRun, jobs Jobs, path String) returns ExitCode
+	return match consumes readReplayedResults(path) 'read'
+		unreadable(reason) gives refusedReplay(reason)
+		read(kept) gives replayedSpecs(tally, jobs: jobs, kept: kept)
+	end 'read'
+end 'replaySpecs'
+
+function refusedReplay(reason String) returns ExitCode
+	printError("test: {replayResultsFlag}: {reason}\n")
+	return replayRefusedExitCode
+end 'refusedReplay'
+
+function replayedSpecs(consumes tally SpecRun, jobs Jobs, kept ReplayedResults) returns ExitCode
+	var held = tally
+	if kept.keys.count() != jobs.count() 'count'
+		return refusedReplay("the results are of {kept.keys.count()} tests and the run has {jobs.count()}")
+	end 'count'
+	for i in 0 upto jobs.count() 'each'
+		let key = specJobKey(jobs[i])
+		if kept.keys[i] != key 'key'
+			return refusedReplay("the results hold {kept.keys[i]} where the run has {key}")
+		end 'key'
+		held = takenBySpecs(held, job: jobs[i], result: kept.results[i].clone())
+	end 'each'
+	return finishSpecs(held)
+end 'replayedSpecs'
+
+// specJobKey is the key of a test of the spec files.
+function specJobKey(job Job) returns String
+	return match job 'job'
+		corpus(_) panic("test: a program of the corpus in a run of the spec files")
+		spec(value) gives value.key.clone()
+	end 'job'
+end 'specJobKey'
 
 // addSpecJobs reads the spec file at path, which is the run's file numbered file, and adds it to files and its tests to jobs.
 function addSpecJobs(path String, file Count, tally SpecRun, mutates jobs Jobs, mutates files SpecFiles)
@@ -1218,7 +1276,7 @@ end 'joinLines'
 // checkSpecRun runs the compiled program and checks its exit code, when the test gives one, and its output, which must be
 // what the blocks say or else nothing.
 function checkSpecRun(test SpecTest, text String, exe String) returns TestResult
-	match consumes runExecutable(exe, runner: TargetRunner.native) 'run'
+	match consumes runExecutable(exe, runner: TargetRunner.native, workers: 0, envRunner: "") 'run'
 		ran(out) then return checkSpecOutput(test, text: text, out: out)
 		cannotStart then return TestResult.failed("cannot run the executable")
 		timedOut then return TestResult.failed("timed out")

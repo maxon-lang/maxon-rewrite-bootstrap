@@ -262,18 +262,23 @@ end 'readLines'
 
 // splitLines is the lines of a text, which end at each newline; a text that ends in one has an empty last line.
 function splitLines(text String) returns ast.StringList
+	return splitAtByte(text, separator: newlineByte)
+end 'splitLines'
+
+// splitAtByte is the pieces of text between its bytes equal to separator, which are one more than those bytes.
+function splitAtByte(text String, separator Byte) returns ast.StringList
 	var lines = ast.StringList.create(0)
 	var start = 0 as Count
 	let n = text.byteLength()
 	for i in 0 upto n 'scan'
-		if text.byteAt(i) == newlineByte 'cut'
+		if text.byteAt(i) == separator 'cut'
 			lines.push(text.sliceBytes(start, endPos: i).clone())
 			start = i + 1
 		end 'cut'
 	end 'scan'
 	lines.push(text.sliceBytes(start, endPos: n).clone())
 	return lines
-end 'splitLines'
+end 'splitAtByte'
 
 // directiveNumber is the number a directive's text holds, for the directive that file has on one of its lines.
 function directiveNumber(text String, file String, directive String) returns Count
@@ -411,6 +416,13 @@ let compileOnlyFlag = "--compile-only"
 // runnerFlag names the command that starts each executable of the corpus, in place of the target's runner.
 let runnerFlag = "--runner="
 
+// workerCountsFlag lists the worker counts that each executable of a run is run under, one after another, in place of the one
+// its environment gives; envRunnerFlag names cmd/envrun, which sets the count for the executable alone. So the programs that
+// schedule behaviours are compiled once for all the counts, and the runner keeps its own width.
+let workerCountsFlag = "--worker-counts="
+
+let envRunnerFlag = "--env-runner="
+
 // behaviourRuns is how many times the corpus runs the executable of a program that schedules behaviours, unless
 // --repeat says: each run is another schedule, and the gate runs the corpus under three worker counts, so a few runs each
 // are enough there, while a soak asks for hundreds.
@@ -435,25 +447,27 @@ type CorpusOptions
 	var verifiesIr as bool
 	// compilesOnly makes every program one that is only compiled.
 	var compilesOnly as bool
+	// workerCounts are the worker counts each executable runs under, and envRunner the program that sets one for it alone: none
+	// of them leaves the executables the environment of the runner.
+	var workerCounts as CountList
+	var envRunner as String
 
 	static function new() returns CorpusOptions
-		return CorpusOptions{verbose: false, updatePositions: false, behavioursOnly: false, repeats: behaviourRuns, target: hostTarget(), runner: TargetRunner.native, verifiesIr: false, compilesOnly: false}
+		return CorpusOptions{verbose: false, updatePositions: false, behavioursOnly: false, repeats: behaviourRuns, target: hostTarget(), runner: TargetRunner.native, verifiesIr: false, compilesOnly: false, workerCounts: CountList.create(0), envRunner: ""}
 	end 'new'
 end 'CorpusOptions'
 
 // testCommand is `test [dir|file.md] [--verbose] [--update-positions] [--behaviours] [--repeat=N] [--executables=N]
-// [--compile-only] [--skip-passed] [--require-passed] [--record-passed]`: the corpus is the given directory of programs, or the spec files at the given path, or
+// [--compile-only] [--skip-passed] [--require-passed] [--record-passed] [--save-results=file] [--replay-results=file]`: the corpus is the given directory of programs, or the spec files at the given path, or
 // else the nearest tests directory from the executable's upward. With --update-positions a test whose expect-error got its
 // code at another place has the directive rewritten to that place, as after a change that only moves code, such as renaming
 // a keyword. --behaviours runs only the programs that schedule behaviours, natively, and --repeat runs the executable of each
 // such program N times. --executables lets at most N test executables run at once. The last three flags are for the spec
 // files: one leaves out the tests that the list of the tests that pass has, one fails the run when one of them does not
-// pass, and one writes the list.
+// pass, and one writes the list. The last two keep the result of every test in a file and take them from it instead of running the
+// tests (self/driver/specresults.maxon).
 function testCommand(rest CommandNames, given Options) returns ExitCode
-	var verbose = false
-	var record = false
-	var skipPassed = false
-	var requirePassed = false
+	var options = SpecOptions.new()
 	var corpus = CorpusOptions.new()
 	var corpusFlags = false
 	var executables = 0 as Count
@@ -478,8 +492,25 @@ function testCommand(rest CommandNames, given Options) returns ExitCode
 				return usageExitCode
 			end 'empty'
 			commandRunner = table.Option.some(TargetRunner.command(words))
-		end 'runner' else if rest[i] == verboseFlag 'verbose'
-			verbose = true
+		end 'runner' else if hasPrefix(rest[i], prefix: workerCountsFlag) 'workerCounts'
+			let words = runnerWords(afterPrefix(rest[i], prefix: workerCountsFlag))
+			for w in 0 upto words.count() 'counts'
+				let count = match consumes parseCount(words[w]) 'count'
+					some(n) gives n
+					none gives 0
+				end 'count'
+				if count < 1 'malformed'
+					printError("test: {workerCountsFlag} takes worker counts from 1, apart by commas\n")
+					return usageExitCode
+				end 'malformed'
+				corpus.workerCounts.push(count)
+			end 'counts'
+			corpusFlags = true
+		end 'workerCounts' else if hasPrefix(rest[i], prefix: envRunnerFlag) 'envRunner'
+			corpus.envRunner = afterPrefix(rest[i], prefix: envRunnerFlag).clone()
+			corpusFlags = true
+		end 'envRunner' else if rest[i] == verboseFlag 'verbose'
+			options.verbose = true
 		end 'verbose' else if rest[i] == updatePositionsFlag 'positions'
 			corpus.updatePositions = true
 		end 'positions' else if rest[i] == behavioursFlag 'behaviours'
@@ -500,21 +531,30 @@ function testCommand(rest CommandNames, given Options) returns ExitCode
 			corpus.repeats = runs
 			corpusFlags = true
 		end 'repeat' else if rest[i] == recordPassedFlag 'record'
-			record = true
+			options.record = true
 		end 'record' else if rest[i] == skipPassedFlag 'skip'
-			skipPassed = true
+			options.skipPassed = true
 		end 'skip' else if rest[i] == requirePassedFlag 'require'
-			requirePassed = true
-		end 'require' else if not hasPath 'path'
+			options.requirePassed = true
+		end 'require' else if hasPrefix(rest[i], prefix: saveResultsFlag) 'save'
+			options.results = ResultsMode.resultsSave
+			options.resultsPath = afterPrefix(rest[i], prefix: saveResultsFlag).clone()
+		end 'save' else if hasPrefix(rest[i], prefix: replayResultsFlag) 'replay'
+			options.results = ResultsMode.resultsReplay
+			options.resultsPath = afterPrefix(rest[i], prefix: replayResultsFlag).clone()
+		end 'replay' else if not hasPath 'path'
 			path = rest[i].clone()
 			hasPath = true
 		end 'path'
 	end 'arguments'
-	let options = SpecOptions.make(verbose, record: record, skipPassed: skipPassed, requirePassed: requirePassed)
-	if options.needsList() and not (hasPath and isSpecPath(path)) 'listFlags'
-		printError("test: {recordPassedFlag}, {skipPassedFlag} and {requirePassedFlag} are for the spec files: name the specs directory\n")
+	if (options.needsList() or options.results != ResultsMode.resultsOff) and not (hasPath and isSpecPath(path)) 'listFlags'
+		printError("test: {recordPassedFlag}, {skipPassedFlag}, {requirePassedFlag}, {saveResultsFlag} and {replayResultsFlag} are for the spec files: name the specs directory\n")
 		return usageExitCode
 	end 'listFlags'
+	if options.results != ResultsMode.resultsOff and (options.skipPassed or options.resultsPath == "") 'results'
+		printError("test: {saveResultsFlag} and {replayResultsFlag} take the file of the results of every test: give it a path, and not {skipPassedFlag}\n")
+		return usageExitCode
+	end 'results'
 	if hasPath and project.holdsModuleTests(path) 'modules'
 		return moduleTests(path, options: given)
 	end 'modules'
@@ -526,7 +566,11 @@ function testCommand(rest CommandNames, given Options) returns ExitCode
 		end 'corpusFlags'
 		return runSpecs(path, options: options, width: width)
 	end 'specs'
-	corpus.verbose = verbose
+	if corpus.workerCounts.count() > 0 and corpus.envRunner == "" 'envRunnerMissing'
+		printError("test: {workerCountsFlag} needs {envRunnerFlag}, the program that sets the worker count of one executable\n")
+		return usageExitCode
+	end 'envRunnerMissing'
+	corpus.verbose = options.verbose
 	corpus.target = given.target.clone()
 	corpus.verifiesIr = given.verifyIr
 	let runner = commandRunner.clone() if commandRunner.isSome() else runnerFor(given.target)
@@ -728,16 +772,24 @@ end 'checkTest'
 
 // runNativeRuns runs the executable runs times, and each run must give what the program expects; a failure says which run
 // it was and under what worker count, since a program that schedules behaviours runs under another schedule each time.
-function runNativeRuns(exe String, expect Expectation, runs Count, runner TargetRunner) returns TestResult
-	for run in 0 upto runs 'runs'
-		let result = runNative(exe, expect: expect, runner: runner)
-		if result.outcome == TestOutcome.testFailed 'failed'
-			if runs == 1 'once'
-				return result
-			end 'once'
-			return TestResult.failed("run {run + 1} of {runs}, {workerCountText()}: {result.detail}")
-		end 'failed'
-	end 'runs'
+function runNativeRuns(exe String, expect Expectation, runs Count, options CorpusOptions) returns TestResult
+	var counts = options.workerCounts.clone()
+	if counts.count() == 0 'inherited'
+		counts.push(0)
+	end 'inherited'
+	for at in 0 upto counts.count() 'counts'
+		let workers = counts[at]
+		for run in 0 upto runs 'runs'
+			let result = runNative(exe, expect: expect, runner: options.runner, workers: workers, envRunner: options.envRunner)
+			if result.outcome == TestOutcome.testFailed 'failed'
+				if runs == 1 and workers == 0 'once'
+					return result
+				end 'once'
+				let count = "{workerCountVariable}={workers}" if workers > 0 else workerCountText()
+				return TestResult.failed("run {run + 1} of {runs}, {count}: {result.detail}")
+			end 'failed'
+		end 'runs'
+	end 'counts'
 	return TestResult.passed()
 end 'runNativeRuns'
 
@@ -859,11 +911,17 @@ end 'ExecutableRun'
 
 // runExecutable runs the executable at exe with no arguments, through the runner of its target, for no longer than
 // testRunDeadlineMs.
-function runExecutable(exe String, runner TargetRunner) returns ExecutableRun
+function runExecutable(exe String, runner TargetRunner, workers Count, envRunner String) returns ExecutableRun
 	let exePath = try FilePath.from(exe) otherwise return ExecutableRun.cannotStart
 	let deadline = WaitDeadline.within(testRunDeadlineMs)
+	var started = runnerExecutable(runner, exe: exePath)
+	var arguments = runnerArguments(runner, exe: exe)
+	if workers > 0 'counted'
+		arguments = envRunnerArguments(workers, started: started, arguments: arguments)
+		started = Executable.name(envRunner.clone())
+	end 'counted'
 	try 'run'
-		let out = Subprocess.runWithDeadline(runnerExecutable(runner, exe: exePath), arguments: runnerArguments(runner, exe: exe), deadline: deadline)
+		let out = Subprocess.runWithDeadline(started, arguments: arguments, deadline: deadline)
 		return ExecutableRun.ran(out)
 	end 'run' otherwise (e) 'failed'
 		match e 'kind'
@@ -883,8 +941,8 @@ end 'runExecutable'
 
 // runNative runs the executable and checks its output and exit code against what the program expects. The memory limit
 // of the directive is not enforced.
-function runNative(exe String, expect Expectation, runner TargetRunner) returns TestResult
-	match consumes runExecutable(exe, runner: runner) 'run'
+function runNative(exe String, expect Expectation, runner TargetRunner, workers Count, envRunner String) returns TestResult
+	match consumes runExecutable(exe, runner: runner, workers: workers, envRunner: envRunner) 'run'
 		ran(out) then return checkNativeOutput(out, exe: exe, expect: expect)
 		cannotStart then return TestResult.failed("cannot run {exe}")
 		timedOut then return TestResult.failed("timed out")

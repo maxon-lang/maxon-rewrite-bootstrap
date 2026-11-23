@@ -1,0 +1,204 @@
+// The results of a run over spec files, kept in a file so that a later run over the same inputs replays them instead of
+// compiling and running every test again. A run that saves writes one line for each test in the order of the run, between a
+// header and a trailer that counts the lines, so that a file that a run was interrupted in is never read as a whole one.
+
+let resultsHeader = "minimaxon-spec-results 1"
+
+let resultsTrailerPrefix = "end "
+
+let passedTag = "P"
+
+let failedTag = "F"
+
+let unsupportedTag = "U"
+
+let lowerN = 110 as Byte
+
+let lowerR = 114 as Byte
+
+let lowerT = 116 as Byte
+
+// The code of a run that is told to replay results that are not those of its tests, which is not a failure of a test.
+let replayRefusedExitCode = 3 as ExitCode
+
+// A line of results has a tag, the test's key and what the test says of its result, apart by this many tabs.
+let resultFieldCount = 3
+
+// How many lines of a file of results are not a test's: the header, the trailer and the empty line after it.
+let resultsFrameLines = 3
+
+// What a run over spec files does with the results of its tests: keeps them, takes them from a file instead of running the
+// tests, or neither.
+enum ResultsMode
+	resultsOff
+	resultsSave
+	resultsReplay
+end 'ResultsMode'
+
+// The results of a run as a file kept them: the key of each test and what became of it.
+typealias ResultList = Array with TestResult
+
+type ReplayedResults
+	var keys as ast.StringList
+	var results as ResultList
+
+	static function make(consumes keys ast.StringList, consumes results ResultList) returns ReplayedResults
+		return ReplayedResults{keys: keys, results: results}
+	end 'make'
+end 'ReplayedResults'
+
+union ReplayedRead
+	read(value ReplayedResults)
+	unreadable(reason String)
+end 'ReplayedRead'
+
+// resultTag is the tag of a line for the outcome of a test. A test that the run left out has no result to keep.
+function resultTag(outcome TestOutcome) returns String
+	if outcome == TestOutcome.testPassed 'passed'
+		return passedTag
+	end 'passed'
+	if outcome == TestOutcome.testFailed 'failed'
+		return failedTag
+	end 'failed'
+	if outcome == TestOutcome.testUnsupported 'unsupported'
+		return unsupportedTag
+	end 'unsupported'
+	panic("test: the result of a test that the run left out is not kept")
+end 'resultTag'
+
+// resultOf is the result that a line's tag and detail stand for, or nothing for a tag no line has.
+function resultOf(tag String, consumes detail String) returns table.Option with TestResult
+	if tag == passedTag 'passed'
+		return table.Option.some(TestResult.passed())
+	end 'passed'
+	if tag == failedTag 'failed'
+		return table.Option.some(TestResult.failed(detail))
+	end 'failed'
+	if tag == unsupportedTag 'unsupported'
+		return table.Option.some(TestResult.unsupported(detail))
+	end 'unsupported'
+	return table.Option.none
+end 'resultOf'
+
+// escapedField is a field of a line with its backslashes, tabs and line breaks written as escapes, so that it stays on its
+// line and between its tabs.
+function escapedField(text String) returns String
+	var out = ByteArray.create(0)
+	for i in 0 upto text.byteLength() 'each'
+		let c = text.byteAt(i)
+		if c == backslashByte 'backslash'
+			out.push(backslashByte)
+			out.push(backslashByte)
+		end 'backslash' else if c == newlineByte 'newline'
+			out.push(backslashByte)
+			out.push(lowerN)
+		end 'newline' else if c == carriageReturnByte 'carriageReturn'
+			out.push(backslashByte)
+			out.push(lowerR)
+		end 'carriageReturn' else if c == tabByte 'tab'
+			out.push(backslashByte)
+			out.push(lowerT)
+		end 'tab' else 'plain'
+			out.push(c)
+		end 'plain'
+	end 'each'
+	return String.from(out)
+end 'escapedField'
+
+// unescapedField is the field that escapedField wrote, or nothing when the text holds an escape that it never writes.
+function unescapedField(text String) returns table.Option with String
+	var out = ByteArray.create(0)
+	let n = text.byteLength()
+	var at = 0 as Count
+	while at < n 'each'
+		let c = text.byteAt(at)
+		if c != backslashByte 'plain'
+			out.push(c)
+			at = offsetBy(at, by: 1)
+		end 'plain' else 'escape'
+			let escaped = offsetBy(at, by: 1)
+			if escaped >= n 'dangling'
+				return table.Option.none
+			end 'dangling'
+			let e = text.byteAt(escaped)
+			if e == backslashByte 'backslash'
+				out.push(backslashByte)
+			end 'backslash' else if e == lowerN 'newline'
+				out.push(newlineByte)
+			end 'newline' else if e == lowerR 'carriageReturn'
+				out.push(carriageReturnByte)
+			end 'carriageReturn' else if e == lowerT 'tab'
+				out.push(tabByte)
+			end 'tab' else 'unknown'
+				return table.Option.none
+			end 'unknown'
+			at = offsetBy(escaped, by: 1)
+		end 'escape'
+	end 'each'
+	return table.Option.some(String.from(out))
+end 'unescapedField'
+
+// resultLine is the line of results that says what became of the test with this key.
+function resultLine(key String, result TestResult) returns String
+	var out = ByteArray.create(0)
+	out.append(resultTag(result.outcome).toByteArray())
+	out.push(tabByte)
+	out.append(escapedField(key).toByteArray())
+	out.push(tabByte)
+	out.append(escapedField(result.detail).toByteArray())
+	return String.from(out)
+end 'resultLine'
+
+// resultsText is the file of results of a run whose tests gave these lines.
+function resultsText(lines ast.StringList) returns String
+	var all = ast.StringList.create(0)
+	all.push(resultsHeader.clone())
+	for i in 0 upto lines.count() 'each'
+		all.push(lines[i].clone())
+	end 'each'
+	all.push("{resultsTrailerPrefix}{lines.count()}")
+	return "{joinLines(all)}\n"
+end 'resultsText'
+
+// writeResults writes the file of results at path.
+function writeResults(path String, lines ast.StringList)
+	try File.writeText(try FilePath.from(path) otherwise panic("test: {path} is not a path"), content: resultsText(lines)) otherwise panic("test: cannot write {path}")
+end 'writeResults'
+
+// readReplayedResults reads the file of results at path, or says why it is not a whole one that a run wrote.
+function readReplayedResults(path String) returns ReplayedRead
+	let text = project.readTextFile(path)
+	if not text.isSome() 'missing'
+		return ReplayedRead.unreadable("{path} cannot be read")
+	end 'missing'
+	let lines = splitLines(text.unwrap())
+	if lines.count() < resultsFrameLines 'short'
+		return ReplayedRead.unreadable("{path} is not a file of results")
+	end 'short'
+	let tests = try lines.count() - resultsFrameLines otherwise panic("test: a file of results has fewer lines than its frame")
+	let trailerAt = try lines.count() - 2 otherwise panic("test: a file of results has no trailer")
+	if lines[0] != resultsHeader or lines[trailerAt] != "{resultsTrailerPrefix}{tests}" or lines[trailerAt + 1] != "" 'whole'
+		return ReplayedRead.unreadable("{path} is not a whole file of results: the run that wrote it did not end")
+	end 'whole'
+	var keys = ast.StringList.create(0)
+	var results = ResultList.create(0)
+	for i in 0 upto tests 'each'
+		let line = offsetBy(i, by: 2)
+		let fields = splitAtByte(lines[offsetBy(i, by: 1)], separator: tabByte)
+		if fields.count() != resultFieldCount 'fields'
+			return ReplayedRead.unreadable("{path}: line {line} has {fields.count()} fields, not {resultFieldCount}")
+		end 'fields'
+		let key = unescapedField(fields[1])
+		let detail = unescapedField(fields[2])
+		if not key.isSome() or not detail.isSome() 'escapes'
+			return ReplayedRead.unreadable("{path}: line {line} has a field that is not written as results are")
+		end 'escapes'
+		let result = resultOf(fields[0], detail: detail.unwrap())
+		if not result.isSome() 'tag'
+			return ReplayedRead.unreadable("{path}: line {line} has the tag {fields[0]}, which no result has")
+		end 'tag'
+		keys.push(key.unwrap())
+		results.push(result.unwrap())
+	end 'each'
+	return ReplayedRead.read(ReplayedResults.make(keys, results: results))
+end 'readReplayedResults'

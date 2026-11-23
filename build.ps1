@@ -4,8 +4,16 @@
 # so it stays in the tree.
 $ErrorActionPreference = 'Stop'
 Set-Location $PSScriptRoot
+
+. "$PSScriptRoot\lock.ps1"
+# The lock is held to the end of the script (lock.ps1); the body below is not indented, so that the script reads as it did.
+Enter-HeavyLock
+try {
 $null = New-Item -ItemType Directory -Force bin
 seed\minimaxon.exe build self -o bin\c1.exe
 if ($LASTEXITCODE -ne 0) { exit 1 }
 bin\c1.exe build self -o minimaxon.exe
 if ($LASTEXITCODE -ne 0) { exit 1 }
+} finally {
+	Exit-HeavyLock
+}

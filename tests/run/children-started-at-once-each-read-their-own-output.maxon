@@ -3,6 +3,7 @@
 // that the runs overlap when there is more than one worker. The children are cmd.exe's, which WSL runs too; macOS runs the
 // same children of sh (children-started-at-once-each-read-their-own-output-on-posix.maxon).
 // unsupported-targets: arm64-macos
+// schedules: 2
 typealias Arguments = Array with String
 
 type Output

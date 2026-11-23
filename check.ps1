@@ -10,6 +10,14 @@ if (-not (Get-Command go -ErrorAction SilentlyContinue)) {
 }
 Set-Location $PSScriptRoot
 
+. "$PSScriptRoot\lock.ps1"
+# The lock is held to the end of the script (lock.ps1); the body below is not indented, so that the script reads as it did.
+Enter-HeavyLock
+try {
+. "$PSScriptRoot\steptimes.ps1"
+$null = Start-StepTimes
+$gateArgs = $args
+
 # The generated files are named *_gen.*; they are hashed before and after the generators run, so a stale one fails the
 # check even where there is no git to show it.
 function Get-GeneratedHashes {
@@ -42,12 +50,18 @@ $steps = @(
 )
 foreach ($step in $steps) {
 	$name, $run = $step
-	$output = & $run @args 2>&1
+	# suites.ps1 times each of its steps itself.
+	$output = Invoke-Step $name -Group:($name -eq 'suites') { & $run @gateArgs 2>&1 }
 	if ($LASTEXITCODE -ne 0) {
 		$output | Write-Output
 		Write-Output "check failed at: $name"
+		Stop-StepTimes
 		exit 1
 	}
 	if ($name -eq 'suites' -and $output) { $output | Write-Output }
 }
+Stop-StepTimes
 Write-Output 'all checks passed'
+} finally {
+	Exit-HeavyLock
+}

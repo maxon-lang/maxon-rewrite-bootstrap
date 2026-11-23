@@ -1,9 +1,17 @@
 # Runs every suite that holds a compiler to the repository's rules, with the compiler at -Compiler: the Go tests of the
 # generators and tools, then the compiler's own suites. The gate (check.ps1) runs it on the compiler it builds from the
 # seed, and the seed renewal (seed.ps1) on the compiler that would become the seed, so the two cannot disagree about
-# what a compiler must pass. Arguments after -Compiler go to `minimaxon test`. Stops at the first failing suite.
+# what a compiler must pass. Arguments after -Compiler go to `minimaxon test`.
+#
+# The suites are in lanes that share nothing but the compiler and the checkout. By default every suite runs in this process,
+# in the order of the lanes, and stops at the first that fails. -Concurrent (or MINIMAXON_GATE_CONCURRENT set, for check.ps1) runs each lane as a process of its own, all at
+# once, so that the gate takes as long as its longest lane, and the first lane to fail ends the others: it is not the default
+# because a test with a deadline (the arm64 corpus under qemu, a program of timers on one worker) failed now and then when the
+# lanes and other work shared the machine (README, "Tests"). -Lane runs one lane, which is how the lanes are started.
 param(
 	[Parameter(Mandatory)][string]$Compiler,
+	[string]$Lane = '',
+	[switch]$Concurrent,
 	[Parameter(ValueFromRemainingArguments)]$TestArgs
 )
 $ErrorActionPreference = 'Stop'
@@ -12,9 +20,13 @@ if (-not (Get-Command go -ErrorAction SilentlyContinue)) {
 }
 Set-Location $PSScriptRoot
 . "$PSScriptRoot\hashseed.ps1"
+. "$PSScriptRoot\steptimes.ps1"
+# check.ps1 has started the table of times when it runs this script, and prints it itself. A lane's times are the lane
+# starter's, which it is given in a file.
+$ownsStepTimes = (Start-StepTimes) -and -not $Lane
 $compiler = (Resolve-Path $Compiler).Path
 
-# Every spec test runs, and the step fails when a test that specs/passed.txt lists does not pass (the line "LOST file.md:
+# Every spec test runs (or is replayed from the results of an earlier run over the same inputs, see spec-run.ps1), and the step fails when a test that specs/passed.txt lists does not pass (the line "LOST file.md:
 # test: what"). The tests that pass and are not listed are counted (the line "NEW file.md: test"), so that the list can be
 # extended.
 function Test-Specs {
@@ -28,13 +40,17 @@ function Test-Specs {
 	}
 	$counts = $Matches[0]
 	$new = ([regex]::Matches($output, '(?m)^NEW ')).Count
+	# spec-run.ps1 says when it took the results of an earlier run, and from which.
+	$replayed = [regex]::Matches($output, '(?m)^replayed: [^\r\n]*') | ForEach-Object { $_.Value }
 	if ($code -ne 0) {
 		[regex]::Matches($output, '(?m)^(LOST [^\r\n]*|\d+ tests of [^\r\n]* did not pass)') | ForEach-Object { Write-Output $_.Value }
 		Write-Output "specs: $counts"
+		$replayed
 		$global:LASTEXITCODE = 1
 		return
 	}
 	Write-Output "specs: $counts; $new new, to add to specs/passed.txt with: bin\minimaxon.exe test specs --record-passed"
+	$replayed
 	$global:LASTEXITCODE = 0
 }
 
@@ -43,22 +59,25 @@ function Test-Specs {
 $behaviourWorkers = 1, 2, 4
 
 # The corpus runs with the machine's worker count; the programs that schedule behaviours then run again, natively, under
-# each of $behaviourWorkers. The runner cannot give the executables it starts another worker count, but its environment,
-# which they inherit, can: WSL passes on only the variables that WSLENV names, so a Linux run names this one.
+# each of $behaviourWorkers. The programs are compiled once for all the counts and each executable is run under each, one
+# after another (`test --worker-counts=`): cmd/envrun gives an executable its count (and has WSL pass it on, which forwards
+# only the variables that WSLENV names), where the environment of the runner, which its executables inherit, would also
+# narrow the runner and compile everything again for each count.
+$envRunner = Join-Path $PSScriptRoot 'bin\envrun.exe'
+
+function Build-EnvRunner {
+	$null = New-Item -ItemType Directory -Force (Split-Path $envRunner)
+	go build -o $envRunner ./cmd/envrun
+}
+
+function Get-WorkerCountArgs {
+	$counts = @("--worker-counts=$($behaviourWorkers -join ',')", "--env-runner=$envRunner")
+	if ($Lane) { return $counts + "--executables=$behavioursExecutables" }
+	return $counts
+}
+
 function Test-Behaviours([string[]]$TargetArgs = @()) {
-	$before = $env:MAXON_MAX_PROCS
-	$beforeWsl = $env:WSLENV
-	$env:WSLENV = if ($beforeWsl) { "${beforeWsl}:MAXON_MAX_PROCS" } else { 'MAXON_MAX_PROCS' }
-	try {
-		foreach ($procs in $behaviourWorkers) {
-			$env:MAXON_MAX_PROCS = $procs
-			$null | & $compiler test --behaviours @TargetArgs @TestArgs
-			if ($LASTEXITCODE -ne 0) { return }
-		}
-	} finally {
-		$env:MAXON_MAX_PROCS = $before
-		$env:WSLENV = $beforeWsl
-	}
+	$null | & $compiler test --behaviours @TargetArgs @(Get-WorkerCountArgs) @TestArgs
 }
 
 # The x64-linux corpus is compiled for Linux and run under WSL, in its default distribution, so the second target is held to
@@ -124,18 +143,8 @@ function Invoke-MacCorpus([string]$batchrun, [string]$mode, [string]$stage) {
 	$runner = "--runner=$batchrun,$mode,$stage"
 	$null | & $compiler test $macTarget --verify-ir $runner @TestArgs
 	$corpus = $LASTEXITCODE
-	$before = $env:MAXON_MAX_PROCS
-	$behaviours = 0
-	try {
-		foreach ($procs in $behaviourWorkers) {
-			$env:MAXON_MAX_PROCS = $procs
-			$null | & $compiler test --behaviours $macTarget $runner @TestArgs
-			if ($LASTEXITCODE -ne 0) { $behaviours = $LASTEXITCODE }
-		}
-	} finally {
-		$env:MAXON_MAX_PROCS = $before
-	}
-	return [Math]::Max($corpus, $behaviours)
+	$null | & $compiler test --behaviours $macTarget $runner @(Get-WorkerCountArgs) @TestArgs
+	return [Math]::Max($corpus, $LASTEXITCODE)
 }
 
 function Test-Mac {
@@ -446,43 +455,165 @@ function Test-Cache {
 	$global:LASTEXITCODE = 0
 }
 
+# Each step is its name, what it runs and its lane. The lanes: `prelude` is what the others need (it runs first, here), `checks`
+# the compiler's own suites and the generated programs, `builds` what is compiled and not run here, `specs` the spec tests, and one
+# lane for each target whose corpus is run. Within a lane the order is the order here.
+#
+# The lanes are in two phases, the second begins when the first has ended: the reruns of the programs that schedule behaviours
+# under one worker are the one thing here that a loaded machine fails (a timer that fires late reorders what such a program
+# prints), so they run when the other lanes are done, and only beside each other, each with its executables at the cap below.
+$lanePhases = @(
+	@('checks', 'builds', 'specs', 'native', 'x64-linux', 'arm64-linux', 'mac'),
+	@('native-behaviours', 'x64-linux-behaviours', 'arm64-linux-behaviours')
+)
+$laneNames = @($lanePhases | ForEach-Object { $_ })
+# How many executables the runner of a behaviours lane runs at once, where the default (half the workers, at most 8) would run
+# the three lanes' as many.
+$behavioursExecutables = 2
 $steps = @(
+	@('envrun', { Build-EnvRunner }, 'prelude'),
 	# cmd/convert lays out what it converts with the compiler's fmt.
-	@('Go tests', { $env:MINIMAXON = $compiler; go test ./... }),
-	@('selftest', { & $compiler selftest }),
+	@('Go tests', { $env:MINIMAXON = $compiler; go test ./... }, 'checks'),
+	@('selftest', { & $compiler selftest }, 'checks'),
 	# Nothing compiles the runtime's source until a program is built, so this is what holds it to the language and to
 	# the signatures the compiler calls, for each target, whose branches of the source differ.
-	@('runtime', { & $compiler check runtime; foreach ($t in '--target=x64-linux', '--target=arm64-linux', '--target=arm64-macos') { if ($LASTEXITCODE -eq 0) { & $compiler check runtime $t } } }),
+	@('runtime', { & $compiler check runtime; foreach ($t in '--target=x64-linux', '--target=arm64-linux', '--target=arm64-macos') { if ($LASTEXITCODE -eq 0) { & $compiler check runtime $t } } }, 'checks'),
 	# A program compiles only the library modules it names, so this is what holds the whole standard library to the language,
 	# for each target.
-	@('stdlib', { & $compiler check stdlib; foreach ($t in '--target=x64-linux', '--target=arm64-linux', '--target=arm64-macos') { if ($LASTEXITCODE -eq 0) { & $compiler check stdlib $t } } }),
+	@('stdlib', { & $compiler check stdlib; foreach ($t in '--target=x64-linux', '--target=arm64-linux', '--target=arm64-macos') { if ($LASTEXITCODE -eq 0) { & $compiler check stdlib $t } } }, 'checks'),
 	# The compiler's own source is a program too: a rule that it breaks would otherwise show only when the seed is renewed.
-	@('self', { & $compiler check self --tests --verify-reads }),
-	@('layout', { & $compiler fmt --check self runtime tests stdlib }),
-	# Test programs inherit stdin, so one that reads it would wait until the runner's deadline ends it: give it none.
-	@('corpus', { $null | & $compiler test @TestArgs }),
-	@('behaviours', { Test-Behaviours }),
-	@('corpus on linux', { Test-Linux }),
-	@('behaviours on linux', { Test-LinuxBehaviours }),
-	@('corpus on arm64 linux', { Test-Arm64Linux }),
-	@('behaviours on arm64 linux', { Test-Arm64LinuxBehaviours }),
-	@('corpus on arm64 macos', { Test-Mac }),
-	@('benchmarks compile', { Test-BenchmarksCompile }),
-	@('self compiles for arm64', { Test-SelfCompilesForArm64 }),
-	@('cache', { Test-Cache }),
-	@('debug info', { Test-DebugInfo }),
-	@('specs', { Test-Specs }),
+	@('self', { & $compiler check self --tests --verify-reads }, 'checks'),
+	@('layout', { & $compiler fmt --check self runtime tests stdlib }, 'checks'),
 	# Every program the generator writes that the checker accepts must run clean under the interpreter: a violation is a
 	# hole in the checker.
-	@('fuzz', { & $compiler fuzz })
+	@('fuzz', { & $compiler fuzz }, 'checks'),
+	@('benchmarks compile', { Test-BenchmarksCompile }, 'builds'),
+	@('self compiles for arm64', { Test-SelfCompilesForArm64 }, 'builds'),
+	@('cache', { Test-Cache }, 'builds'),
+	@('debug info', { Test-DebugInfo }, 'builds'),
+	@('specs', { Test-Specs }, 'specs'),
+	# Test programs inherit stdin, so one that reads it would wait until the runner's deadline ends it: give it none.
+	@('corpus', { $null | & $compiler test @TestArgs }, 'native'),
+	@('behaviours', { Test-Behaviours }, 'native-behaviours'),
+	@('corpus on linux', { Test-Linux }, 'x64-linux'),
+	@('behaviours on linux', { Test-LinuxBehaviours }, 'x64-linux-behaviours'),
+	@('corpus on arm64 linux', { Test-Arm64Linux }, 'arm64-linux'),
+	@('behaviours on arm64 linux', { Test-Arm64LinuxBehaviours }, 'arm64-linux-behaviours'),
+	@('corpus on arm64 macos', { Test-Mac }, 'mac')
 )
-foreach ($step in $steps) {
-	$name, $run = $step
-	$output = & $run 2>&1
-	if ($LASTEXITCODE -ne 0) {
-		$output | Write-Output
-		Write-Output "check failed at: $name"
-		exit 1
+
+# Invoke-Steps runs the steps of the lanes, in order, in this process, and leaves the code with which they ended in $stepsCode: the
+# first one that fails ends them, with its output and the line that names it. The steps that print what the gate shows are `specs` and the
+# Mac lane's.
+function Invoke-Steps([string[]]$Lanes) {
+	foreach ($step in $steps) {
+		$name, $run, $stepLane = $step
+		if ($stepLane -notin $Lanes) { continue }
+		$output = Invoke-Step $name { & $run 2>&1 }
+		if ($LASTEXITCODE -ne 0) {
+			$output | Write-Output
+			Write-Output "check failed at: $name"
+			$script:stepsCode = 1
+			return
+		}
+		if ($name -in 'specs', 'corpus on arm64 macos' -and $output) { $output | Write-Output }
 	}
-	if ($name -in 'specs', 'corpus on arm64 macos' -and $output) { $output | Write-Output }
+	$script:stepsCode = 0
 }
+
+# The lanes of the gate each run in a process of their own, started from the same PowerShell as this one, with what they print
+# and the times of their steps in files below $laneRoot.
+function Get-LanePath([string]$Root, [string]$Name, [string]$Kind) {
+	return Join-Path $Root "$Name.$Kind"
+}
+
+function Start-LaneProcess([string]$Root, [string]$Name) {
+	$arguments = @('-NoProfile', '-File', "`"$PSScriptRoot\suites.ps1`"", '-Compiler', "`"$compiler`"", '-Lane', $Name)
+	if ($TestArgs) { $arguments += @($TestArgs | ForEach-Object { "`"$_`"" }) }
+	$env:MINIMAXON_LANE_TIMES = Get-LanePath $Root $Name 'times'
+	$process = Start-Process -FilePath (Get-Process -Id $PID).Path -ArgumentList $arguments -NoNewWindow -PassThru `
+		-RedirectStandardOutput (Get-LanePath $Root $Name 'out') -RedirectStandardError (Get-LanePath $Root $Name 'err')
+	# Windows PowerShell 5 reports no exit code for a process whose handle it has not read.
+	$null = $process.Handle
+	return $process
+}
+
+# Stop-LaneProcess ends a lane and the programs it started.
+function Stop-LaneProcess($Process) {
+	if (-not $Process.HasExited) {
+		$null = & taskkill.exe /PID $Process.Id /T /F 2>&1
+	}
+}
+
+# Invoke-Lanes runs the lanes of each phase at once, the phases one after another, and leaves the code the gate ends with in
+# $stepsCode. A lane that fails ends the others, so the run does not go on after it is known to have failed; the output of each
+# lane that ran is then printed in the order of $laneNames, and the times of their steps join the table of this process.
+function Invoke-Lanes {
+	$root = Join-Path ([IO.Path]::GetTempPath()) "minimaxon-lanes-$PID"
+	$null = New-Item -ItemType Directory -Force $root
+	$processes = [ordered]@{}
+	$code = 0
+	$clock = [System.Diagnostics.Stopwatch]::StartNew()
+	try {
+		foreach ($phase in $lanePhases) {
+			if ($code -ne 0) { break }
+			foreach ($name in $phase) { $processes[$name] = Start-LaneProcess $root $name }
+			$ended = @{}
+			while ($ended.Count -lt $phase.Count) {
+				Start-Sleep -Milliseconds 250
+				foreach ($name in $phase) {
+					$process = $processes[$name]
+					if ($ended.ContainsKey($name) -or -not $process.HasExited) { continue }
+					$ended[$name] = $process.ExitCode
+					$ending = if ($process.ExitCode -eq 0) { 'passed' } elseif ($code -ne 0) { 'stopped, as another lane failed' } else { 'failed' }
+					Write-Host "[$(Format-StepSeconds $clock.Elapsed.TotalSeconds)] lane $name $ending"
+					if ($process.ExitCode -ne 0 -and $code -eq 0) {
+						$code = 1
+						foreach ($other in $phase) { Stop-LaneProcess $processes[$other] }
+					}
+				}
+			}
+		}
+		foreach ($name in $laneNames) {
+			if (-not $processes.Contains($name)) { continue }
+			$out = Get-LanePath $root $name 'out'
+			$text = if (Test-Path $out) { [IO.File]::ReadAllText($out).TrimEnd() } else { '' }
+			if ($text) { Write-Output $text }
+			$err = Get-LanePath $root $name 'err'
+			if (Test-Path $err) {
+				$errText = [IO.File]::ReadAllText($err).Trim()
+				if ($errText) { Write-Output "lane $name wrote to its error output:`n$errText" }
+			}
+			$times = Get-LanePath $root $name 'times'
+			if (Test-Path $times) {
+				foreach ($line in [IO.File]::ReadAllLines($times)) {
+					$stepName, $seconds = $line -split "`t"
+					$global:StepTimes.Add([pscustomobject]@{ Name = $stepName; Seconds = [double]::Parse($seconds, [cultureinfo]::InvariantCulture) })
+				}
+			}
+		}
+	} finally {
+		foreach ($name in $processes.Keys) { Stop-LaneProcess $processes[$name] }
+		Remove-Item Env:MINIMAXON_LANE_TIMES -ErrorAction SilentlyContinue
+		Remove-Item -Recurse -Force $root -ErrorAction SilentlyContinue
+	}
+	$script:stepsCode = $code
+}
+
+# A lane tells where its steps' times go, which are printed by the process that started it.
+function Save-LaneTimes {
+	$lines = $global:StepTimes | ForEach-Object { "$($_.Name)`t$($_.Seconds.ToString('R', [cultureinfo]::InvariantCulture))" }
+	[IO.File]::WriteAllLines($env:MINIMAXON_LANE_TIMES, [string[]]@($lines))
+}
+
+if ($Lane) {
+	Invoke-Steps @($Lane)
+	Save-LaneTimes
+	exit $stepsCode
+}
+Invoke-Steps @('prelude')
+if ($stepsCode -eq 0) {
+	if ($Concurrent -or $env:MINIMAXON_GATE_CONCURRENT) { Invoke-Lanes } else { Invoke-Steps $laneNames }
+}
+if ($ownsStepTimes) { Stop-StepTimes }
+exit $stepsCode

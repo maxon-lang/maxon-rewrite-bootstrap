@@ -131,6 +131,31 @@ function commandArguments(words CommandNames, exe String) returns CommandNames
 	return arguments
 end 'commandArguments'
 
+// How much sooner than the runner's own deadline cmd/envrun ends the executable it started, so that it is ended and not left
+// running when the runner ends envrun.
+let envRunnerGraceMs = 1000 as Count
+
+// envRunnerArguments are the arguments of a run through cmd/envrun of what started would start with arguments, under the worker
+// count workers for it alone.
+function envRunnerArguments(workers Count, consumes started Executable, arguments CommandNames) returns CommandNames
+	var wrapped = CommandNames.create(0)
+	wrapped.push("--deadline={testRunDeadlineMs - envRunnerGraceMs}")
+	wrapped.push("{workerCountVariable}={workers}")
+	wrapped.push(executableText(started))
+	for i in 0 upto arguments.count() 'arguments'
+		wrapped.push(arguments[i].clone())
+	end 'arguments'
+	return wrapped
+end 'envRunnerArguments'
+
+// executableText is the command or the path that an executable names.
+function executableText(consumes started Executable) returns String
+	return match consumes started 'started'
+		name(text) gives text
+		path(file) gives file.toString()
+	end 'started'
+end 'executableText'
+
 let runnerWordSeparator = 0x2C as Byte
 
 // runnerWords are the words of a --runner command, separated by commas.

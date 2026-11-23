@@ -5,6 +5,10 @@
 $ErrorActionPreference = 'Stop'
 Set-Location $PSScriptRoot
 
+. "$PSScriptRoot\lock.ps1"
+# The lock is held to the end of the script (lock.ps1); the body below is not indented, so that the script reads as it did.
+Enter-HeavyLock
+try {
 function Invoke-Stage($name, [scriptblock]$run) {
 	$output = & $run 2>&1
 	if ($LASTEXITCODE -ne 0) {
@@ -25,3 +29,6 @@ if ((Get-FileHash bin\c2.exe).Hash -ne (Get-FileHash bin\c3.exe).Hash) {
 Invoke-Stage 'the suites' { & "$PSScriptRoot\suites.ps1" bin\c2.exe }
 Copy-Item bin\c2.exe seed\minimaxon.exe
 Write-Output 'seed renewed from bin\c2.exe'
+} finally {
+	Exit-HeavyLock
+}

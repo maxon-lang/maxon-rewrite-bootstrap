@@ -78,6 +78,8 @@ function Format-Megabytes($bytes) {
 	return '{0:0.0}' -f ($bytes / $bytesPerMegabyte)
 }
 
+. "$PSScriptRoot\lock.ps1"
+Enter-HeavyLock
 try {
 	Push-Location $Tree
 	if ($Commit -eq '') { $Commit = git rev-parse --short HEAD }
@@ -97,6 +99,7 @@ try {
 } finally {
 	Pop-Location
 	if (Test-Path $selfBuilt) { Remove-Item -Recurse -Force $selfBuilt }
+	Exit-HeavyLock
 }
 $row = '| {0} | {1} | {2} | {3} | {4} | {5} | {6} | {7} | {8} | {9} |' -f (Get-Date -Format 'yyyy-MM-dd'), $Commit, $Note, $lines, (Format-Milliseconds (${bySeed}?.Milliseconds)), (Format-Milliseconds (${byC1}?.Milliseconds)), (Format-Milliseconds (${byC2}?.Milliseconds)), (Format-Milliseconds $textBytes), (Format-Megabytes (${byC2}?.PeakWorkingSet)), (Format-Megabytes (${byC2}?.PeakCommit))
 Add-Content $log $row

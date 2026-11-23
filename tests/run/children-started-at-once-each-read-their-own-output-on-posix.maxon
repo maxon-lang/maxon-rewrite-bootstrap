@@ -3,6 +3,7 @@
 // that the runs overlap when there is more than one worker. The children are sh's, as
 // children-started-at-once-each-read-their-own-output.maxon's are cmd.exe's on Windows.
 // unsupported-targets: x64-windows
+// schedules: 2
 typealias Arguments = Array with String
 
 type Output
