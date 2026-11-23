@@ -295,6 +295,7 @@ end 'main'
 ```
 
 <!-- test: a-let-field-base-is-written-through -->
+<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 The other half of the column: the SAME write, through a base field declared `let`. It is accepted: a `let`
 field forbids reassigning `inner`, not writing the record it names, and the write lands in that record.
 Without this case a permission that always answered "read-only" would look correct.
@@ -318,14 +319,14 @@ type Outer
 	end 'writeIt'
 
 	static function create(inner Inner) returns Self
-		return Self{inner: inner.clone()}
+		return Self{inner: inner}
 	end 'create'
 end 'Outer'
 
 function main() returns ExitCode
 	let o = Outer.create(Inner.create(3))
 	o.writeIt(7)
-	return try o.inner.value as ExitCode otherwise panic("out of range")
+	return o.inner.value as ExitCode
 end 'main'
 ```
 ```exitcode

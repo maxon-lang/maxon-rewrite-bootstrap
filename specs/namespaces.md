@@ -212,6 +212,7 @@ end 'main'
 
 
 <!-- test: error.cross-file-bare-name-ambiguous -->
+<!-- skip: language difference: another module's names are always qualified by its path, so a bare name never finds two -->
 When two different directories both export a function with the same bare name, a third file's unqualified call is ambiguous. E3095 instructs the user to qualify the call with the appropriate directory namespace. The compiler emits exactly the message pinned below.
 ```maxon
 // --- file: alpha/dup.maxon

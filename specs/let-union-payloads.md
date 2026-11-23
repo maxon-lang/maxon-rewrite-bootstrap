@@ -99,6 +99,7 @@ end 'main'
 ```
 
 <!-- test: a-still-shared-var-stored-into-a-let-payload -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 `name` is read again after the construction, and the `let` payload names the same record.
 
 ```maxon
@@ -110,12 +111,12 @@ union Op
 end 'Op'
 
 function main() returns ExitCode
-	var name = ByteArray.create(0)
+	let name = ByteArray.create(0)
 	name.push(65)
 	let op = Op.call(name, weight: 1)
 	name.push(66)
 	match op 'shape'
-		call(_, weight) then return try weight as ExitCode otherwise panic("out of range")
+		call(_, weight) then return weight as ExitCode
 		nop then return 0
 	end 'shape'
 end 'main'
@@ -125,6 +126,7 @@ end 'main'
 ```
 
 <!-- test: a-field-write-through-the-binding-of-a-let-payload -->
+<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 `cell` is bound out of a `let` payload; the payload forbids only reassigning, so a field write through `cell` writes the record the union holds.
 
 ```maxon
@@ -157,6 +159,7 @@ end 'main'
 ```
 
 <!-- test: a-writing-method-on-the-binding-of-a-let-payload -->
+<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 `items.push` writes the record bound out of the `let` payload.
 
 ```maxon
@@ -287,6 +290,7 @@ end 'main'
 ```
 
 <!-- test: the-binding-of-a-let-payload-passed-to-a-callee-that-writes-it -->
+<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 `bump` writes its parameter, and the record bound out of the `let` payload may be passed to it.
 
 ```maxon
@@ -305,8 +309,8 @@ union Holder
 	empty
 end 'Holder'
 
-function bump(mutates cell Cell)
-	cell.level = try cell.level + 1 otherwise panic("out of range")
+function bump(cell Cell)
+	cell.level = cell.level + 1
 end 'bump'
 
 function main() returns ExitCode
@@ -505,6 +509,7 @@ end 'main'
 ```
 
 <!-- test: an-all-let-record-and-a-scalar-go-into-let-payloads -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 A record whose fields are all `let` is a value type and a scalar owns no storage, so a `var` of either goes into a
 `let` payload and stays usable afterwards.
 
@@ -529,9 +534,9 @@ function main() returns ExitCode
 	let point = Point.create(3, y: 4)
 	var tick = 5 as Integer
 	let mark = Mark.at(point, tick: tick)
-	tick = try tick + point.x otherwise panic("out of range")
+	tick = tick + point.x
 	return match mark 'read'
-		at(p, t) gives try (p.x + p.y + t + tick) as ExitCode otherwise panic("out of range")
+		at(p, t) gives (p.x + p.y + t + tick) as ExitCode
 		cleared gives 0
 	end 'read'
 end 'main'

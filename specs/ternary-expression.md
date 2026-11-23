@@ -868,6 +868,7 @@ end 'main'
 ```
 
 <!-- test: ternary-expression.ownership.immutable-binding-arms-are-co-owned -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 ### An arm reading an IMMUTABLE binding CO-OWNS it — the binding stays readable
 ⭐⭐ **THE MERGE ASKS THE SAME QUESTION `try … otherwise <binding>` ANSWERS.** An arm whose value IS an immutable binding's own value hands the phi a reference
 the binding still owes a drop for, so the phi must take a SECOND one — exactly what
@@ -903,6 +904,7 @@ the `Array` the standard library declares / the `type Array` this program declar
 ```
 
 <!-- test: ternary-expression.ownership.immutable-arm-merged-with-a-fresh-temp -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 ### One immutable-binding arm, one FRESH arm — one edge increfs, the other transfers
 The two edges owe the phi its single reference by different routes: the binding's edge takes a
 SECOND reference (the binding keeps its own and drops it at scope exit), while the fresh

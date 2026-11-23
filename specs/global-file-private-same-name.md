@@ -109,6 +109,7 @@ end 'main'
 ```
 
 <!-- test: error.a-bare-read-of-a-name-two-directories-export-is-ambiguous -->
+<!-- skip: language difference: another module's names are always qualified by its path, so a bare name never finds two -->
 `app/main.maxon` sees both directories' `LIMIT`, so a bare read of it is ambiguous and is E3095, as a bare call to a
 function two directories export is.
 ```maxon

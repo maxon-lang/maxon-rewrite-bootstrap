@@ -392,6 +392,7 @@ end 'main'
 ```
 
 <!-- test: error.an-immutable-result-choosing-a-parameter-or-a-constant-refuses-mutable-data -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `pick` may hand back `name` itself, and its result is `immutable`, so the caller's `live` has to be frozen: otherwise the result would change when `live` does.
 
@@ -413,6 +414,7 @@ error E3207: <fragment>:8:20: 'pick' needs 'name' frozen (line 3: `return name i
 ```
 
 <!-- test: error.an-immutable-result-rebinding-a-parameter-in-a-loop-refuses-mutable-data -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The same holds when the choice is a variable rebound in a loop.
 
@@ -557,6 +559,7 @@ error E3197: <fragment>:31:2: cannot write 'n' through 'picked', which is read-o
 ```
 
 <!-- test: a-getter-returning-only-its-own-frozen-data-must-declare-the-result-immutable -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 ```maxon
 typealias Tally = int(0 to u64.max)
@@ -715,6 +718,7 @@ end 'main'
 ```
 
 <!-- test: a-mixed-getter-result-is-refused-for-a-mutable-parameter-through-a-local-var -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 ```maxon
 typealias Tally = int(0 to u64.max)
@@ -1126,7 +1130,7 @@ error E3197: <fragment>:29:4: cannot write 'a container' through 'a call result'
 ```
 
 <!-- test: a-mixed-result-passed-straight-to-a-writing-function-is-refused -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 ```maxon
 typealias Digit = int(0 to 9)
@@ -1177,7 +1181,7 @@ error E3197: <fragment>:13:4: cannot write 'a container' through 'a call result'
 ```
 
 <!-- test: a-mixed-result-is-not-isolated -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 A fresh clean call may become `isolated`; the result of `get` may be image data, so it may not.
 
@@ -1358,6 +1362,7 @@ error E3197: <fragment>:25:4: cannot write 'a container' through 'a call result'
 ```
 
 <!-- test: a-closure-built-by-a-clean-call-stays-callable-through-a-var-rebound-to-a-copy -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 `relay` returns the closure `make` builds, so the closure is fresh on every path and a caller that calls it, rebinds a `var` to it or calls the `var` is calling writable data.
 
 ```maxon
@@ -1372,8 +1377,8 @@ type Total
 		return Self{n: 0}
 	end 'create'
 
-	function bump(mutates self) returns Tally
-		self.n = try self.n + 1 otherwise panic("out of range")
+	function bump() returns Tally
+		self.n = self.n + 1
 		return self.n
 	end 'bump'
 end 'Total'
@@ -1388,7 +1393,7 @@ function relay() returns Bump
 end 'relay'
 
 function main() returns ExitCode
-	var b = relay()
+	let b = relay()
 	var h = relay()
 	h = b
 	let first = b()
@@ -1405,6 +1410,7 @@ end 'main'
 ```
 
 <!-- test: a-result-mixing-a-module-let-closure-with-a-fresh-one-is-not-callable-for-its-caller -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `pick` hands back a module `let` closure on one path and a closure `make` builds on the other, so its result is read-only for every caller and a `mutates captures` function cannot be called through it.
 
@@ -1420,8 +1426,8 @@ type Total
 		return Self{n: 0}
 	end 'create'
 
-	function bump(mutates self) returns Tally
-		self.n = try self.n + 1 otherwise panic("out of range")
+	function bump() returns Tally
+		self.n = self.n + 1
 		return self.n
 	end 'bump'
 end 'Total'
@@ -1441,7 +1447,7 @@ function pick(fresh bool) returns Bump
 end 'pick'
 
 function main() returns ExitCode
-	var f = pick(false)
+	let f = pick(false)
 	let n = f()
 	print("{n}\n")
 	return 0

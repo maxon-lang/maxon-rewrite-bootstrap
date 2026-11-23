@@ -1099,6 +1099,7 @@ error E3005: <fragment>:11:4: argument type mismatch for 'source': expected 'Byt
 ```
 
 <!-- test: error.appendMemory-on-a-let-array -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- tier: stdlib -->
 ### It WRITES the receiver, so an immutable array refuses it
 `appendMemory` is a receiver-writing method (`arrayMethodMutatesReceiver`), which is the same answer
@@ -1319,6 +1320,7 @@ error E2004: <fragment>:5:12: Function 'appendMemory' does not return a value
 ```
 
 <!-- test: error.insert-on-a-let-array -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 ### `insert` owes the same two answers
 `appendMemory`'s twins above exist because the omission would be a silent write. `insert` is on the
 same `arrayMethodMutatesReceiver` answer, so it owes the same two cases (and see
@@ -1355,6 +1357,7 @@ end 'main'
 ```
 
 <!-- test: error.set-on-a-let-array -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 ### … and `set` is the THIRD member of that pair
 ⚠ `set` is on the same `arrayMethodMutatesReceiver` answer as `insert`, reached through the same
 `parseArraySet`, so it owes the same two answers, and they are pinned here: a change to how `set` is served
@@ -1393,7 +1396,7 @@ end 'main'
 ```
 
 <!-- test: error.reserve-on-a-let-array -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 ### … and `reserve` is the FOURTH
 ⚠ `reserve` is served by the corpus declaration, whose own write mask carries the rule. `reserve` allocates
 capacity and rewrites `buffer@0`/`capacity@16`, so an immutable array must refuse it exactly as `push`
@@ -1429,7 +1432,7 @@ end 'main'
 ```
 
 <!-- test: error.clear-on-a-let-array -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 ### … and `clear` is the FIFTH
 ⚠ `clear` shortens the array and RELEASES every element on the way out, so an immutable array must refuse
 it exactly as `push` and `set` do.
@@ -3671,7 +3674,7 @@ error E3005: <fragment>:12:10: Value 2000 is outside the range of 'Small' (int(0
 ```
 
 <!-- test: error.an-unnamed-argument-aliasing-a-let-array-is-refused -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 A `let` array literal is an immutable root: an argument that names no binding but returns the same record (`pass(a)`)
 reaches the refusal `grow(a)` does.
 ```maxon
@@ -3904,7 +3907,7 @@ end 'main'
 ```
 
 <!-- test: error.a-let-array-handed-to-a-function-value-that-writes-it-is-refused -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 A `let` array literal is a constant its range columns were read from: handing it to an indirect call is refused.
 ```maxon
 typealias CountArray = Array with Count
@@ -3925,7 +3928,7 @@ error E3207: <fragment>:11:3: 'grow' writes 'a' (line 5: `a.push(2)`); 'a' is im
 ```
 
 <!-- test: error.a-let-fixed-array-handed-to-a-function-value-that-writes-it-is-refused -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 The same for a `FixedArray from` literal.
 ```maxon
 typealias CountVector = FixedArray with 3 Count
@@ -4169,11 +4172,12 @@ error E3197: <fragment>:12:29: cannot write 'v' through the closure that capture
 ```
 
 <!-- test: a-closure-capturing-a-var-array-may-hand-it-to-a-function-value -->
+<!-- skip: language difference: a closure writes what it captured only where its function type mutates captures -->
 An array that is a clone of the literal is writable, so the same closure is accepted.
 ```maxon
 typealias CountArray = Array with Count
 
-function grow(mutates a CountArray) returns Count
+function grow(a CountArray) returns Count
 	a.push(2)
 	return a.count()
 end 'grow'
@@ -4182,7 +4186,7 @@ function main() returns ExitCode
 	let a = [1 as Count].clone()
 	let f = grow
 	let g = function() gives f(a)
-	return try g() as ExitCode otherwise panic("out of range")
+	return g() as ExitCode
 end 'main'
 ```
 ```exitcode

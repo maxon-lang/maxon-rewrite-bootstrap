@@ -358,6 +358,7 @@ end 'main'
 ```
 
 <!-- test: push-on-let-self-field-array-ok -->
+<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 A `let` FIELD forbids only reassigning the field, so the array it holds may be pushed onto.
 
 ```maxon
@@ -377,14 +378,14 @@ type Bag
 	end 'add'
 
 	function size() returns Integer
-		return try items.count() as Integer otherwise panic("out of range")
+		return items.count()
 	end 'size'
 end 'Bag'
 
 function main() returns ExitCode
 	let b = Bag.create()
 	b.add(1)
-	return try b.size() as ExitCode otherwise panic("out of range")
+	return b.size() as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -392,7 +393,7 @@ end 'main'
 ```
 
 <!-- test: error.push-through-a-field-chain-off-a-static-let -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 A chain through a `static let` reaches immutable image data: `Facts.shared.counts` is a chain, so
 the receiver of the push is the field's own record rather than the binding. The push would write a page mapped
@@ -472,6 +473,7 @@ end 'main'
 ```
 
 <!-- test: let-record-written-through-a-returned-container -->
+<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 ### Writing a `let` Array Through a Call That Returns It
 
 The result of `pass(a)` is the record `a` names, so the push lands in it.
@@ -483,13 +485,13 @@ typealias Integer = int(i64.min to i64.max)
 typealias IntArray = Array with Integer
 
 function pass(s IntArray) returns IntArray
-	return s.clone()
+	return s
 end 'pass'
 
 function main() returns ExitCode
 	let a = IntArray.create(0)
 	pass(a).push(9)
-	return try a.count() as ExitCode otherwise panic("out of range")
+	return a.count() as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -524,7 +526,7 @@ abXY
 ```
 
 <!-- test: error.append-to-a-string-field-off-a-static-let -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 ```maxon
 type Holder

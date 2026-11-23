@@ -82,7 +82,6 @@ end 'main'
 ```
 
 <!-- test: a-unique-payload-handed-to-a-consuming-constructor-ends-its-union -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 `Box.wrap` stores the `token` payload, which moves it out of the `var` union `slot`, so `tally(slot)` reads a union whose payload has left.
 
@@ -105,7 +104,7 @@ end 'Slot'
 type Box
 	export var token as Token
 
-	static function wrap(token Token) returns Self
+	static function wrap(consumes token Token) returns Self
 		return Self{token: token}
 	end 'wrap'
 
@@ -117,14 +116,14 @@ end 'Box'
 function tally(slot Slot) returns Tally
 	match slot 'which'
 		empty then return 0
-		filled(token, n) then return n + token.n
+		filled(token, n) then return try n + token.n otherwise panic("out of range")
 	end 'which'
 end 'tally'
 
 function main() returns ExitCode
 	var slot = Slot.empty
 	slot = Slot.filled(Token.create(1), n: 2)
-	match slot 'which'
+	match consumes slot 'which'
 		empty then print("empty\n")
 		filled(token, n) then print("{Box.wrap(token).size()} {n} {tally(slot)}\n")
 	end 'which'

@@ -803,6 +803,10 @@ function matchOwn(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState
 		start = expr(o, p: p, ms: ms, e: subject, s: start)
 	end 'reads'
 	pushFrameOwn(o, target: core)
+	let matchMark = o.borrowingMatches.count()
+	if not consuming 'borrowing'
+		o.borrowingMatches.push(core)
+	end 'borrowing'
 	var subjectPaths = AccessPaths.create(0)
 	var subjectKnown = false
 	var result = OwnState.unreachable()
@@ -848,6 +852,7 @@ function matchOwn(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState
 		end 'leaves'
 	end 'arms'
 	result = join(o, p: p, ms: ms, a: result, b: fell)
+	truncate(o.borrowingMatches, mark: matchMark)
 	let closed = popFrameOwn(o)
 	return join(o, p: p, ms: ms, a: result, b: closed.breaks)
 end 'matchOwn'
@@ -890,6 +895,66 @@ function armBorrows(o Ownership, p ast.Project, ms ast.ModuleState, arm ast.Node
 	end 'patterns'
 	return false
 end 'armBorrows'
+
+// consumingMatchFix is the change that lets an arm move out what a binding of a match that borrows its subject holds: the
+// innermost such match that binds it consumes its subject. Nothing where no match being checked binds it.
+function consumingMatchFix(o Ownership, p ast.Project, ms ast.ModuleState, binding ast.LocalID) returns diag.Fix
+	var i = o.borrowingMatches.count()
+	while i > 0 'matches'
+		i = try i - 1 otherwise panic("ownership: the stack of matches is empty")
+		let core = o.borrowingMatches[i]
+		if bindsInMatch(o, ms: ms, core: core, l: binding) 'found'
+			return subjectConsumesFix(o, p: p, ms: ms, core: core)
+		end 'found'
+	end 'matches'
+	return diag.Fix.none()
+end 'consumingMatchFix'
+
+// bindsInMatch is whether an arm of the match binds the local l.
+function bindsInMatch(o Ownership, ms ast.ModuleState, core ast.NodeID, l ast.LocalID) returns bool
+	let arms = ast.matchCoreArmsRef(ms.tree(), id: core)
+	for i in 0 upto ms.tree().listLen(arms) 'arms'
+		let arm = ms.tree().listAt(arms, index: i) as ast.NodeID
+		let patterns = ast.matchArmPatternsRef(ms.tree(), id: arm)
+		for j in 0 upto ms.tree().listLen(patterns) 'patterns'
+			let pat = ms.tree().listAt(patterns, index: j) as ast.NodeID
+			if ast.patternForm(ms.tree(), id: pat) != ast.PatternKind.patCase 'literal'
+				continue 'patterns'
+			end 'literal'
+			let info = ownPattern(o, node: pat)
+			for k in 0 upto info.bindings.count() 'bindings'
+				if info.bindings[k] == l 'found'
+					return true
+				end 'found'
+			end 'bindings'
+		end 'patterns'
+	end 'arms'
+	return false
+end 'bindsInMatch'
+
+// subjectConsumesFix makes the match consume its subject where the function may give it whole: a value made for the match,
+// a local it owns, or a let parameter, which it takes with consumes first. Nothing for a part of another value or a borrow.
+function subjectConsumesFix(o Ownership, p ast.Project, ms ast.ModuleState, core ast.NodeID) returns diag.Fix
+	let subject = ast.matchCoreSubject(ms.tree(), id: core)
+	let path = pathOf(o, p: p, ms: ms, e: subject)
+	if not path.isPlace() 'fresh'
+		return matchConsumesFix(ms.tree(), subject: subject, param: 0 as ast.NodeID)
+	end 'fresh'
+	if path.steps.count() > 0 'part'
+		return diag.Fix.none()
+	end 'part'
+	let root = o.c.typing.locals[path.root as Count].clone()
+	if root.isSelf or root.isCapture or root.projected 'notGiven'
+		return diag.Fix.none()
+	end 'notGiven'
+	if root.isParam and root.conv == ast.Convention.convLet 'lent'
+		return matchConsumesFix(ms.tree(), subject: subject, param: root.definedAt)
+	end 'lent'
+	if isBorrowed(root) 'borrowed'
+		return diag.Fix.none()
+	end 'borrowed'
+	return matchConsumesFix(ms.tree(), subject: subject, param: 0 as ast.NodeID)
+end 'subjectConsumesFix'
 
 // takeApart is the start of an arm of a match that consumes its subject: each payload the arm names is an owned local of
 // the arm, and the payloads it does not name are dropped with the subject.

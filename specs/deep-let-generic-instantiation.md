@@ -81,6 +81,7 @@ end 'main'
 ```
 
 <!-- test: error.a-generic-body-keeping-its-type-parameter-refuses-a-writable-record -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The same type instantiated with a record that has a `var` field is refused at the call to `Registry.remember`: a `Set` keeps `immutable` elements, so `remember` needs `keys` frozen, and `counters` is mutable.
 
@@ -140,6 +141,7 @@ error E3207: <fragment>:47:20: 'remember' needs 'keys' frozen (it calls 'insert'
 ```
 
 <!-- test: error.a-set-of-writable-records-is-refused-for-an-element-another-array-still-holds -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 A record read out of an array the program still holds is mutable, so it is not handed to a `Set`, whose elements are `immutable`; the refusal is at the `insert` in the program's own loop.
 
@@ -917,6 +919,7 @@ end 'main'
 ```
 
 <!-- test: a-let-view-of-a-vars-field-is-kept-by-a-let-field-keeper -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 A `view` of the record a `var`'s field holds is kept by a `let` field, and the write to the `var`'s field is read through it.
 
 ```maxon
@@ -943,7 +946,7 @@ type Box
 	let kept as Counter
 
 	static function create(item Counter) returns Self
-		return Self{kept: item.clone()}
+		return Self{kept: item}
 	end 'create'
 
 	function peek() returns Integer
@@ -952,12 +955,12 @@ type Box
 end 'Box'
 
 function main() returns ExitCode
-	var holder = Holder.create(1)
+	let holder = Holder.create(1)
 	let view = holder.field
 	let box = Box.create(view)
 	let seen = view.n
 	holder.field.n = 2
-	return try (box.peek() + seen) as ExitCode otherwise panic("out of range")
+	return (box.peek() + seen) as ExitCode
 end 'main'
 ```
 ```exitcode

@@ -373,6 +373,7 @@ end 'main'
 ```
 
 <!-- test: let-binding-capabilities.a-let-of-a-var-a-container-holds-sees-the-write -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 `a` is a `var` the array also holds, and the write through the element reaches the record `b` names.
 
 ```maxon
@@ -389,12 +390,12 @@ type Box
 end 'Box'
 
 function main() returns ExitCode
-	var boxes = Boxes.create(0)
-	var a = Box.create(1)
+	let boxes = Boxes.create(0)
+	let a = Box.create(1)
 	a.n = 2
 	boxes.push(a)
 	let b = a
-	var w = try boxes.get(0) otherwise return 1
+	let w = try boxes.get(0) otherwise return 1
 	w.n = 9
 	print("{b.n}\n")
 	return 0
@@ -865,6 +866,7 @@ end 'main'
 ```
 
 <!-- test: let-binding-capabilities.a-tuple-of-let-fields-is-read-after-it-is-bound-with-let-and-returned-on -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 The tuple a call returns holds the records of the `let` fields: `let (a, b)` and a `let` tuple read it, and a function may hand it on.
 
 ```maxon
@@ -883,12 +885,12 @@ type Pair
 	export let right as Box
 
 	static function create(left Box, right Box) returns Self
-		return Self{left: left.clone(), right: right.clone()}
+		return Self{left: left, right: right}
 	end 'create'
 end 'Pair'
 
 function ends(p Pair) returns (Box, Box)
-	return (p.left.clone(), p.right.clone())
+	return (p.left, p.right)
 end 'ends'
 
 function relay(p Pair) returns (Box, Box)
@@ -912,6 +914,7 @@ end 'main'
 ```
 
 <!-- test: let-binding-capabilities.a-tuple-of-let-fields-destructured-into-a-var-is-accepted -->
+<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 `ends` returns a tuple holding two `let` fields. Destructuring it with `var` makes the first name another name for `p.left`.
 
 ```maxon
@@ -930,12 +933,12 @@ type Pair
 	export let right as Box
 
 	static function create(left Box, right Box) returns Self
-		return Self{left: left.clone(), right: right.clone()}
+		return Self{left: left, right: right}
 	end 'create'
 end 'Pair'
 
 function ends(p Pair) returns (Box, Box)
-	return (p.left.clone(), p.right.clone())
+	return (p.left, p.right)
 end 'ends'
 
 function main() returns ExitCode
@@ -996,6 +999,7 @@ end 'main'
 ```
 
 <!-- test: let-binding-capabilities.a-tuple-literal-of-let-fields-bound-to-a-var-is-accepted -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 A tuple literal of `let` fields bound to a `var`.
 
 ```maxon
@@ -1014,13 +1018,13 @@ type Pair
 	export let right as Box
 
 	static function create(left Box, right Box) returns Self
-		return Self{left: left.clone(), right: right.clone()}
+		return Self{left: left, right: right}
 	end 'create'
 end 'Pair'
 
 function main() returns ExitCode
 	let p = Pair.create(Box.create(1), right: Box.create(2))
-	var t = (p.left, p.right)
+	let t = (p.left, p.right)
 	t.0.n = 9
 	print("{t.0.n} {p.left.n}\n")
 	return 0
@@ -1127,6 +1131,7 @@ end 'main'
 ```
 
 <!-- test: let-binding-capabilities.a-tuple-of-let-fields-passed-to-a-function-that-writes-it-is-accepted -->
+<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 `bump` writes through its tuple parameter, and the tuple holding `p`'s `let` fields may be passed to it.
 
 ```maxon
@@ -1145,15 +1150,15 @@ type Pair
 	export let right as Box
 
 	static function create(left Box, right Box) returns Self
-		return Self{left: left.clone(), right: right.clone()}
+		return Self{left: left, right: right}
 	end 'create'
 end 'Pair'
 
 function ends(p Pair) returns (Box, Box)
-	return (p.left.clone(), p.right.clone())
+	return (p.left, p.right)
 end 'ends'
 
-function bump(mutates t (Box, Box))
+function bump(t (Box, Box))
 	t.0.n = 9
 end 'bump'
 
@@ -1218,6 +1223,7 @@ end 'main'
 ```
 
 <!-- test: let-binding-capabilities.a-let-tuple-with-a-let-field-column-and-a-var-column-is-accepted -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 The first column of the tuple is a `let` field's record. The second is the `var` `p`'s record, which `bump` writes, and the `let` that holds the tuple sees the write.
 
 ```maxon
@@ -1236,21 +1242,21 @@ type Pair
 	export let right as Box
 
 	static function create(left Box, right Box) returns Self
-		return Self{left: left.clone(), right: right.clone()}
+		return Self{left: left, right: right}
 	end 'create'
 end 'Pair'
 
 function id(b Box) returns Box
-	return b.clone()
+	return b
 end 'id'
 
-function bump(mutates b Box)
-	b.n = try b.n + 1 otherwise panic("out of range")
+function bump(b Box)
+	b.n = b.n + 1
 end 'bump'
 
 function main() returns ExitCode
 	let q = Pair.create(Box.create(1), right: Box.create(2))
-	var p = Box.create(5)
+	let p = Box.create(5)
 	let t = (q.left, id(p))
 	bump(p)
 	print("{t.1.n} {q.left.n}\n")
@@ -1265,6 +1271,7 @@ end 'main'
 ```
 
 <!-- test: let-binding-capabilities.a-let-destructure-of-a-tuple-with-a-var-column-is-accepted -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 The same tuple destructured with `let`.
 
 ```maxon
@@ -1283,21 +1290,21 @@ type Pair
 	export let right as Box
 
 	static function create(left Box, right Box) returns Self
-		return Self{left: left.clone(), right: right.clone()}
+		return Self{left: left, right: right}
 	end 'create'
 end 'Pair'
 
 function id(b Box) returns Box
-	return b.clone()
+	return b
 end 'id'
 
-function bump(mutates b Box)
-	b.n = try b.n + 1 otherwise panic("out of range")
+function bump(b Box)
+	b.n = b.n + 1
 end 'bump'
 
 function main() returns ExitCode
 	let q = Pair.create(Box.create(1), right: Box.create(2))
-	var p = Box.create(5)
+	let p = Box.create(5)
 	let (_, y) = (q.left, id(p))
 	bump(p)
 	print("{y.n} {q.left.n}\n")
@@ -1363,6 +1370,7 @@ end 'main'
 ```
 
 <!-- test: let-binding-capabilities.a-tuple-of-let-fields-stored-into-a-let-field-is-accepted -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 Both columns of the tuple are `let` fields' records, and a `let` field holds the tuple.
 
 ```maxon
@@ -1381,7 +1389,7 @@ type Pair
 	export let right as Box
 
 	static function create(left Box, right Box) returns Self
-		return Self{left: left.clone(), right: right.clone()}
+		return Self{left: left, right: right}
 	end 'create'
 end 'Pair'
 
@@ -1389,7 +1397,7 @@ type Frozen
 	export let held as (Box, Box)
 
 	static function create(h (Box, Box)) returns Self
-		return Self{held: h.clone()}
+		return Self{held: h}
 	end 'create'
 end 'Frozen'
 
@@ -1449,6 +1457,7 @@ end 'main'
 ```
 
 <!-- test: let-binding-capabilities.a-writable-column-of-a-local-tuple-with-a-read-only-column-is-destructured-into-a-var -->
+<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 Only the first column of the tuple literal is a `let` field's record. The second column is a fresh box, so `var (_, c)` takes a writable record.
 
 ```maxon
@@ -1467,12 +1476,12 @@ type Pair
 	export let right as Box
 
 	static function create(left Box, right Box) returns Self
-		return Self{left: left.clone(), right: right.clone()}
+		return Self{left: left, right: right}
 	end 'create'
 end 'Pair'
 
 function fresh(p Pair) returns Count
-	let (_, c) = (p.left.clone(), Box.create(3))
+	let (_, c) = (p.left, Box.create(3))
 	c.n = 4
 	return c.n
 end 'fresh'
@@ -1491,6 +1500,7 @@ end 'main'
 ```
 
 <!-- test: let-binding-capabilities.a-writable-column-of-a-tuple-a-call-returns-is-destructured-into-a-var -->
+<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 `mixed` returns a `let` field in its first column and a fresh box in its second. Destructuring only the second column with `var` takes a writable record.
 
 ```maxon
@@ -1509,12 +1519,12 @@ type Pair
 	export let right as Box
 
 	static function create(left Box, right Box) returns Self
-		return Self{left: left.clone(), right: right.clone()}
+		return Self{left: left, right: right}
 	end 'create'
 end 'Pair'
 
 function mixed(p Pair) returns (Box, Box)
-	return (p.left.clone(), Box.create(3))
+	return (p.left, Box.create(3))
 end 'mixed'
 
 function main() returns ExitCode
@@ -1576,6 +1586,7 @@ end 'main'
 ```
 
 <!-- test: let-binding-capabilities.a-let-field-column-of-a-tuple-a-call-returns-is-destructured-into-a-var-beside-a-var-column -->
+<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 The same `mixed` result destructured with `var` takes the first column, which is the `let` field's record, beside the second.
 
 ```maxon
@@ -1594,12 +1605,12 @@ type Pair
 	export let right as Box
 
 	static function create(left Box, right Box) returns Self
-		return Self{left: left.clone(), right: right.clone()}
+		return Self{left: left, right: right}
 	end 'create'
 end 'Pair'
 
 function mixed(p Pair) returns (Box, Box)
-	return (p.left.clone(), Box.create(3))
+	return (p.left, Box.create(3))
 end 'mixed'
 
 function main() returns ExitCode
@@ -1618,6 +1629,7 @@ end 'main'
 ```
 
 <!-- test: let-binding-capabilities.a-record-below-a-let-field-stored-into-a-tuple-column-is-read-back-into-a-var -->
+<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 `m.x.y` lies within the `let` field `x`; the tuple column that holds it is destructured into a `var` and written, and the write reaches `m`.
 
 ```maxon
@@ -1635,7 +1647,7 @@ type Inner
 	export var y as Leaf
 
 	static function create(y Leaf) returns Self
-		return Self{y: y.clone()}
+		return Self{y: y}
 	end 'create'
 end 'Inner'
 
@@ -1643,12 +1655,12 @@ type Outer
 	export let x as Inner
 
 	static function create(x Inner) returns Self
-		return Self{x: x.clone()}
+		return Self{x: x}
 	end 'create'
 end 'Outer'
 
 function run(m Outer) returns Count
-	let (r, _) = (m.x.y.clone(), 1)
+	let (r, _) = (m.x.y, 1)
 	r.z = 5
 	return r.z
 end 'run'
@@ -2160,6 +2172,7 @@ end 'main'
 ```
 
 <!-- test: let-binding-capabilities.a-let-of-a-string-field-of-a-var-keeps-its-value-when-the-field-is-appended-to -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 A `String` is a value: a `let` bound to a `String` field of a `var` holds that string as it was, so appending to the field afterwards changes the field and not the `let`.
 
 ```maxon
@@ -2167,15 +2180,15 @@ type Holder
 	export var name as String
 
 	static function create(name String) returns Self
-		return Self{name: name.clone()}
+		return Self{name: name}
 	end 'create'
 end 'Holder'
 
 function main() returns ExitCode
 	let k = 3
-	var v = Holder.create("ab{k}")
+	let v = Holder.create("ab{k}")
 	let n = v.name
-	v.name = "{v.name}XY"
+	v.name.append("XY")
 	print("{n} {v.name}\n")
 	return 0
 end 'main'

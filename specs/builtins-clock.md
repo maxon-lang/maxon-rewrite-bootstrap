@@ -169,7 +169,7 @@ function main() returns ExitCode
 	while spins < 200000 'burn'
 		spins = spins + 1
 	end 'burn'
-	let elapsed = __Builtins.currentTimeNanos() - start
+	let elapsed = try __Builtins.currentTimeNanos() - start otherwise panic("out of range")
 	if elapsed > 0 'advanced'
 		return 7
 	end 'advanced'

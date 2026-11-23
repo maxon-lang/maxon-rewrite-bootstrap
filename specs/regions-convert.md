@@ -176,6 +176,7 @@ error E3210: <fragment>:20:16: function value for 'Step' may yield (it awaits a 
 ```
 
 <!-- test: mutable-function-called-through-frozen -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 A `mutable function` may write what it captured, so it cannot be called through frozen data.
 
@@ -205,6 +206,7 @@ error E3211: <fragment>:14:23: 'Tallier' mutates captures and cannot be called t
 ```
 
 <!-- test: frozen-argument-to-a-mutable-function-parameter-refused -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `Edit` declares its parameter `mutable`, so the call `edit(pinned)` with a frozen box is refused where it is written.
 
@@ -240,7 +242,7 @@ error E3207: <fragment>:19:6: 'Edit' takes `mutable` parameter; 'pinned' is immu
 ```
 
 <!-- test: isolated-requirement-parameter-refuses-a-mutable-argument -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `Sink.take` declares `items` isolated, so `spare`, a mutable array of this region, cannot be passed to it.
 
@@ -285,6 +287,7 @@ error E3200: <fragment>:27:7: 'spare' is not isolated: only a clean call, a `swa
 ```
 
 <!-- test: isolated-function-type-parameter-refuses-a-mutable-argument -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `Take` declares its parameter isolated, so `spare`, a mutable array of this region, cannot be passed through it.
 
@@ -313,6 +316,7 @@ error E3200: <fragment>:12:6: 'spare' is not isolated: only a clean call, a `swa
 ```
 
 <!-- test: alias-capability-reaches-the-call-whichever-declaration-comes-first -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `IsoBox` is declared after `consume` and names an `isolated` box, so `consume(spare)` with a mutable local is refused as if the parameter were written `isolated Box`.
 
@@ -346,6 +350,7 @@ error E3200: <fragment>:21:18: 'spare' is not isolated: only a clean call, a `sw
 ```
 
 <!-- test: closure-writing-a-capture-runs-when-called-directly -->
+<!-- skip: language difference: a closure writes what it captured only where its function type mutates captures -->
 A closure whose body writes what it captured has an inferred `mutable function` type, so calling `bump` directly needs no cast and writes the `e` it captured.
 
 ```maxon
@@ -360,7 +365,7 @@ type Box
 end 'Box'
 
 function touch(mutates box Box) returns Tally
-	box.n = try box.n + 1 otherwise panic("out of range")
+	box.n = box.n + 1
 	return box.n
 end 'touch'
 
@@ -422,6 +427,7 @@ error E3197: <fragment>:23:37: cannot write 'e' through the closure that capture
 ```
 
 <!-- test: mutable-function-closure-writing-frozen-data-it-captured-is-refused -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `Bump` is a `mutable function`, but `e` holds frozen data, so the closure would write through it.
 

@@ -764,6 +764,7 @@ error E2028: specs/match-statements/error.match-type-mismatch.maxon:5:3: pattern
 ```
 
 <!-- test: error.match-missing-block-id -->
+<!-- skip: differing error code: syntax error -->
 ```maxon
 function main() returns ExitCode
 	let x = 1
@@ -778,6 +779,7 @@ error E2042: specs/match-statements/error.match-missing-block-id.maxon:4:9: miss
 ```
 
 <!-- test: error.match-mismatched-block-id -->
+<!-- skip: differing error code: syntax error -->
 ```maxon
 function main() returns ExitCode
 	let x = 1

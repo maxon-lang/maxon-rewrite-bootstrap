@@ -2659,6 +2659,7 @@ fatal error: runtime abort 118 (promiseSlotConsumedTwice)
 ```
 
 <!-- test: async-promise-drop.a-field-awaited-twice-aborts -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 The first await empties the field, so the second `h.p` is a fresh read of a slot that is already zero: it
 names no thread, and its vacate aborts with **118** (`RuntimeAbort.promiseSlotConsumedTwice`) rather than
 touching a null handle.
@@ -2675,7 +2676,7 @@ end 'plain'
 type Holder
 	public var p as IntPromise
 
-	static function of(consumes p IntPromise) returns Holder
+	static function of(p IntPromise) returns Holder
 		return Holder{p: p}
 	end 'of'
 end 'Holder'
@@ -2684,7 +2685,7 @@ function main() returns ExitCode
 	let h = Holder.of(async plain(7))
 	let a = await h.p
 	let b = await h.p
-	return try (a + b) as ExitCode otherwise panic("out of range")
+	return (a + b) as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -2695,6 +2696,7 @@ fatal error: runtime abort 118 (promiseSlotConsumedTwice)
 ```
 
 <!-- test: async-promise-drop.a-field-cancelled-then-awaited-aborts -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 `cancel` is the other consume door, and it empties the field the same way — so the await behind it finds
 an empty slot and aborts with **118**.
 ```maxon
@@ -2710,7 +2712,7 @@ end 'plain'
 type Holder
 	public var p as IntPromise
 
-	static function of(consumes p IntPromise) returns Holder
+	static function of(p IntPromise) returns Holder
 		return Holder{p: p}
 	end 'of'
 end 'Holder'
@@ -2718,7 +2720,7 @@ end 'Holder'
 function main() returns ExitCode
 	let h = Holder.of(async plain(7))
 	h.p.cancel()
-	return try (await h.p) as ExitCode otherwise panic("out of range")
+	return (await h.p) as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -3225,6 +3227,7 @@ fatal error: runtime abort 118 (promiseSlotConsumedTwice)
 ```
 
 <!-- test: async-promise-drop.a-field-awaited-every-iteration-aborts -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 A field read inside the loop is a fresh read of the same slot on every trip, so the second trip's await finds the
 field emptied by the first and aborts with **118**.
 ```maxon
@@ -3240,7 +3243,7 @@ end 'plain'
 type Holder
 	public var p as IntPromise
 
-	static function of(consumes p IntPromise) returns Holder
+	static function of(p IntPromise) returns Holder
 		return Holder{p: p}
 	end 'of'
 end 'Holder'
@@ -3250,10 +3253,10 @@ function main() returns ExitCode
 	var acc = 0 as Integer
 	var i = 0 as Integer
 	while i < 2 'loop'
-		acc = try acc + (await h.p) otherwise panic("out of range")
+		acc = acc + (await h.p)
 		i = i + 1
 	end 'loop'
-	return try acc as ExitCode otherwise panic("out of range")
+	return acc as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -3264,6 +3267,7 @@ fatal error: runtime abort 118 (promiseSlotConsumedTwice)
 ```
 
 <!-- test: async-promise-drop.a-field-stored-every-iteration-aborts -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 The store twin of the case above: the second trip's read of the emptied field aborts with **118**.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -3280,20 +3284,20 @@ end 'plain'
 type Holder
 	public var p as IntPromise
 
-	static function of(consumes p IntPromise) returns Holder
+	static function of(p IntPromise) returns Holder
 		return Holder{p: p}
 	end 'of'
 end 'Holder'
 
 function main() returns ExitCode
 	let h = Holder.of(async plain(7))
-	var b = IntPromiseArray.create(0)
+	let b = IntPromiseArray.create(0)
 	var i = 0 as Integer
 	while i < 2 'loop'
 		b.push(h.p)
 		i = i + 1
 	end 'loop'
-	return try b.count() as ExitCode otherwise panic("out of range")
+	return b.count() as ExitCode
 end 'main'
 ```
 ```exitcode

@@ -1667,6 +1667,7 @@ end 'main'
 ```
 
 <!-- test: interface-borrowed-field-drop-in-loop -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 ```maxon
 typealias StrArray = Array with String
 
@@ -1706,7 +1707,7 @@ type Allocator
 	export var f4 as StrArray
 	export var f5 as StrArray
 
-	static function create(consumes query Query) returns Allocator
+	static function create(query Query) returns Allocator
 		return Self{query: query, f0: StrArray.create(0), f1: StrArray.create(0), f2: StrArray.create(0), f3: StrArray.create(0), f4: StrArray.create(0), f5: StrArray.create(0)}
 	end 'create'
 
@@ -1715,7 +1716,7 @@ type Allocator
 	end 'run'
 end 'Allocator'
 
-function allocateFor(consumes query Query) returns bool
+function allocateFor(query Query) returns bool
 	let allocator = Allocator.create(query)
 	return allocator.run()
 end 'allocateFor'
@@ -1726,11 +1727,11 @@ function main() returns ExitCode
 	var i = 0 as Count
 	while i < 4 'loop'
 		if allocateFor(concrete) 'ok'
-			trueCount = try trueCount + 1 otherwise panic("out of range")
+			trueCount = trueCount + 1
 		end 'ok'
 		i = i + 1
 	end 'loop'
-	return try trueCount as ExitCode otherwise panic("out of range")
+	return trueCount as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -2881,7 +2882,7 @@ error E2015: specs/interface-dispatch/error.interface-typed-function-type-parame
 ```
 
 <!-- test: error.function-value-of-an-interface-taking-function -->
-<!-- positions: moved -->
+<!-- skip: language difference: an interface value is one word that owns its value, so it may stand where any value may -->
 ⭐⭐ **THE SAME ABI FACT REACHED WITHOUT A FUNCTION TYPE ANYWHERE, WHICH IS WHY THE CASE ABOVE COULD NOT
 REFUSE IT.** `let f = measure` takes a function value off the NAME, so nothing declares a function type for
 `parseTypeReference` to catch — and `measure`'s own parameter list is legal, because a DIRECT call reserves
@@ -2924,7 +2925,7 @@ end 'measure'
 
 function main() returns ExitCode
 	let f = measure
-	return try f(Sq.create(42)) as ExitCode otherwise panic("out of range")
+	return f(Sq.create(42)) as ExitCode
 end 'main'
 ```
 ```maxoncstderr

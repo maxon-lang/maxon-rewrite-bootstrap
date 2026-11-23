@@ -474,6 +474,7 @@ end 'main'
 ```
 
 <!-- test: try-call-inside-loop-body -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 Try-call inside a loop body where the alias source is stable across
 iterations. The alias takes no reference, so no iteration carries an
 incref/decref for it.
@@ -505,9 +506,9 @@ function main() returns ExitCode
 	for _ in 0 upto 3 'loop'
 		let alias = boxed
 		let n = try peek(alias) otherwise 0
-		total = try total + n otherwise panic("out of range")
+		total = total + n
 	end 'loop'
-	return try total as ExitCode otherwise panic("out of range")
+	return total
 end 'main'
 ```
 ```exitcode

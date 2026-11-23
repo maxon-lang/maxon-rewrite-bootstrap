@@ -1666,6 +1666,7 @@ source — otherwise the statement drops it once and the array's element walk dr
 live record.
 
 <!-- test: push-a-popped-opaque-element -->
+<!-- skip: language difference: a place passed mutates, consumes or sets overlaps nothing else the call or the statement holds, where maxon shares the place by a reference count -->
 ```maxon
 typealias ExitCode = int(0 to 125)
 
@@ -1683,11 +1684,11 @@ type Container uses Element
 		return self.items.count()
 	end 'count'
 
-	function push(mutates self, item Element) where Element implements Copyable
-		self.items.push(item.clone())
+	function push(item Element)
+		self.items.push(item)
 	end 'push'
 
-	function rotate(mutates self)
+	function rotate()
 		self.items.push(try self.items.pop() otherwise panic("rotate on an empty container"))
 	end 'rotate'
 end 'Container'
@@ -1695,7 +1696,7 @@ end 'Container'
 typealias StringContainer = Container with String
 
 function main() returns ExitCode
-	var sc = StringContainer.create()
+	let sc = StringContainer.create()
 	sc.push("a string long enough to force a heap allocation")
 	sc.rotate()
 	let c = sc.count()
@@ -2960,6 +2961,7 @@ end 'main'
 ### A closure in a generic method calls a method that needs the layout descriptor through an untyped receiver
 
 <!-- test: a-closure-in-a-generic-method-calls-a-descriptor-reader-through-a-result -->
+<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 The closure calls `self.make().stash(y)`; `make()` returns a typealias instance, so the receiver of `stash` is a call's result. `stash` stores a borrowed element and so reads the descriptor, which the closure takes from its environment and the method forwards from its own.
 ```maxon
 type Inner uses T
@@ -2970,8 +2972,8 @@ type Inner uses T
 		return Self{items: Items.create(0)}
 	end 'create'
 
-	function stash(mutates self, item T) returns Count where T implements Copyable
-		self.items.push(item.clone())
+	function stash(item T) returns Count
+		self.items.push(item)
 		return self.items.count()
 	end 'stash'
 end 'Inner'
@@ -2984,11 +2986,11 @@ type Outer uses T
 		return Self{held: Held.create()}
 	end 'create'
 
-	function make() returns Held where T implements Copyable
-		return held.clone()
+	function make() returns Held
+		return held
 	end 'make'
 
-	function run(x T) returns Count where T implements Copyable
+	function run(x T) returns Count
 		let f = function(y T) gives self.make().stash(y)
 		_ = f(x)
 		return f(x)

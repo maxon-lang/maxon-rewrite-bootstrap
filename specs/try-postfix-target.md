@@ -562,6 +562,7 @@ bumped to 3
 ```
 
 <!-- test: a-parenthesized-try-receiver-reaches-a-method-through-a-field-as-a-statement -->
+<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 `(try boxes.get(i) otherwise fallback).inner.note()` takes the element `try` yields, reads a field of it and calls a method of that, all as one statement.
 
 ```maxon
@@ -576,8 +577,8 @@ type Inner
 		return Self{n: 0}
 	end 'create'
 
-	function note(mutates self)
-		self.n = try self.n + 1 otherwise panic("out of range")
+	function note()
+		self.n = self.n + 1
 		print("noted {self.n}\n")
 	end 'note'
 end 'Inner'
@@ -592,7 +593,7 @@ end 'Box'
 
 function main() returns ExitCode
 	let fallback = Box.create()
-	var boxes = Boxes.create(0)
+	let boxes = Boxes.create(0)
 	boxes.push(Box.create())
 	(try boxes.get(0) otherwise fallback).inner.note()
 	(try boxes.get(5) otherwise fallback).inner.note()

@@ -254,6 +254,7 @@ end 'main'
 ```
 
 <!-- test: error.try-block-no-throws -->
+<!-- skip: language difference: a throws or a try block that nothing can make fail is allowed, so a sharper analysis never breaks a program -->
 <!-- positions: moved -->
 A try block with no throwing calls is a compile error.
 ```maxon
@@ -443,6 +444,7 @@ end 'main'
 ```
 
 <!-- test: error.try-block-ambiguous-bare -->
+<!-- skip: language difference: a try block's handler names one error, not the combined error of several -->
 <!-- positions: moved -->
 Bare case names fail when shared between union members.
 ```maxon
@@ -1289,6 +1291,7 @@ end 'main'
 ```
 
 <!-- test: try-block.inline-managed-arg-throws -->
+<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 A bare throwing call inside a try-block whose argument is an
 inline allocation (`workFunc(IntArray.create(0))`) releases the
 argument's allocation when the call throws. The argument is owned by
@@ -1304,7 +1307,7 @@ enum MyError implements Error
 	failed
 end 'MyError'
 
-function workFunc(mutates arr IntArray) throws MyError
+function workFunc(arr IntArray) throws MyError
 	if arr.count() == 0 'empty'
 		throw MyError.failed
 	end 'empty'

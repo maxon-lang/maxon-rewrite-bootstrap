@@ -1822,6 +1822,7 @@ error E3005: <fragment>:11:2: argument type mismatch for 'k': expected 'Real', g
 ```
 
 <!-- test: pass-by-reference.an-expression-handed-to-a-mutable-record-parameter-reaches-the-shared-record -->
+<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 ### `mutable` on a record parameter is the write-through capability, not a reference to the caller's variable
 The record is shared, not copied, so the callee's field store reaches the caller's object and no variable is needed for the write to land: a call's result is accepted where a `var` is required for a value-type `mutable` parameter.
 ```maxon
@@ -1843,7 +1844,7 @@ type Shelf
 	end 'create'
 
 	function first() returns Row
-		return self.row.clone()
+		return self.row
 	end 'first'
 
 	function total() returns Count
@@ -1870,6 +1871,7 @@ end 'main'
 ```
 
 <!-- test: pass-by-reference.one-record-handed-to-two-mutable-record-parameters-is-not-an-overlap -->
+<!-- skip: language difference: a place passed mutates, consumes or sets overlaps nothing else the call or the statement holds, where maxon shares the place by a reference count -->
 Records alias freely inside a region, so two record parameters naming one object overlap no storage: only the object is shared.
 ```maxon
 typealias Count = int(0 to 1000)
@@ -1883,12 +1885,12 @@ type Row
 end 'Row'
 
 function both(mutates a Row, mutates b Row)
-	a.n = try a.n + 1 otherwise panic("out of range")
-	b.n = try b.n + 10 otherwise panic("out of range")
+	a.n = a.n + 1
+	b.n = b.n + 10
 end 'both'
 
 function main() returns ExitCode
-	var row = Row.create(1)
+	let row = Row.create(1)
 	both(row, b: row)
 	print("{row.n}\n")
 	return 0

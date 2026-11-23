@@ -41,6 +41,7 @@ error E2013: specs/mutable-enums/error.assign-to-let-enum-binding.maxon:12:20: '
 ```
 
 <!-- test: mutable-payload-of-a-parameter -->
+<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 A union-typed PARAMETER is a mutable scrutinee for a field write, so its payload binding takes one — and the
 write lands in the caller's record, which is what the exit code reads back.
 ```maxon
@@ -61,7 +62,7 @@ end 'Slot'
 
 function bump(s Slot)
 	match s 'step'
-		holding(c) then c.n = try c.n + 32 otherwise panic("out of range")
+		holding(c) then c.n = c.n + 32
 		empty then return
 	end 'step'
 end 'bump'
@@ -70,7 +71,7 @@ function main() returns ExitCode
 	let s = Slot.holding(Counter.create(10))
 	bump(s)
 	match s 'read'
-		holding(c) then return try c.n as ExitCode otherwise panic("out of range")
+		holding(c) then return c.n
 		empty then return 0
 	end 'read'
 end 'main'
@@ -80,6 +81,7 @@ end 'main'
 ```
 
 <!-- test: parameter-payload-to-a-writing-callee -->
+<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 The cross-function half of the same rule: the payload is handed to a callee that writes a field of it, which
 is the callee's question rather than the arm's own. A parameter scrutinee's payload may fill that position, for a
 field write only.
@@ -99,8 +101,8 @@ union Slot
 	holding(c Counter)
 end 'Slot'
 
-function raise(mutates c Counter)
-	c.n = try c.n + 32 otherwise panic("out of range")
+function raise(c Counter)
+	c.n = c.n + 32
 end 'raise'
 
 function bump(s Slot)
@@ -114,7 +116,7 @@ function main() returns ExitCode
 	let s = Slot.holding(Counter.create(10))
 	bump(s)
 	match s 'read'
-		holding(c) then return try c.n as ExitCode otherwise panic("out of range")
+		holding(c) then return c.n
 		empty then return 0
 	end 'read'
 end 'main'
@@ -124,6 +126,7 @@ end 'main'
 ```
 
 <!-- test: a-temporary-scrutinee-payload-is-writable -->
+<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 ⚖ A union constructed AT the `match` is a temporary this frame owns and nothing else holds, so its payload
 binding is writable: the callee below writes `c`, and the arm reads the write back.
 ```maxon
@@ -142,14 +145,14 @@ union Slot
 	holding(c Counter)
 end 'Slot'
 
-function raiseAndRead(mutates c Counter) returns Integer
-	c.n = try c.n + 32 otherwise panic("out of range")
+function raiseAndRead(c Counter) returns Integer
+	c.n = c.n + 32
 	return c.n
 end 'raiseAndRead'
 
 function main() returns ExitCode
 	match Slot.holding(Counter.create(10)) 'step'
-		holding(c) then return try raiseAndRead(c) as ExitCode otherwise panic("out of range")
+		holding(c) then return raiseAndRead(c)
 		empty then return 0
 	end 'step'
 end 'main'
@@ -159,6 +162,7 @@ end 'main'
 ```
 
 <!-- test: a-let-scrutinee-payload-record-is-written-by-a-callee -->
+<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 ⚖ A `let` local is NOT a mutable scrutinee, so its payload cannot be REASSIGNED, but `let` forbids only
 reassignment: the payload binding names a record, and a callee that writes the record writes it in place.
 ```maxon
@@ -177,8 +181,8 @@ union Slot
 	holding(c Counter)
 end 'Slot'
 
-function raise(mutates c Counter)
-	c.n = try c.n + 32 otherwise panic("out of range")
+function raise(c Counter)
+	c.n = c.n + 32
 end 'raise'
 
 function makeSlot() returns Slot
@@ -192,7 +196,7 @@ function main() returns ExitCode
 		empty then return 0
 	end 'step'
 	match s 'read'
-		holding(c) then return try c.n as ExitCode otherwise panic("out of range")
+		holding(c) then return c.n
 		empty then return 0
 	end 'read'
 end 'main'
@@ -349,6 +353,7 @@ end 'main'
 ```
 
 <!-- test: a-scalar-payload-union-also-stored-elsewhere-is-kept-too -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 A union pushed into a collection before the call is held by the collection too, and the `let` field takes it all the same.
 
 ```maxon
@@ -365,7 +370,7 @@ type Holder
 	export let settle as Settle
 
 	static function create(settle Settle) returns Self
-		return Self{settle: settle.clone()}
+		return Self{settle: settle}
 	end 'create'
 end 'Holder'
 
@@ -378,13 +383,13 @@ type Registry
 		return Self{held: HolderArray.create(0)}
 	end 'create'
 
-	function keep(mutates self, settle Settle)
+	function keep(settle Settle)
 		self.held.push(Holder.create(settle))
 	end 'keep'
 
-	function run(mutates self, count Integer)
+	function run(count Integer)
 		let settle = Settle.someMoved(count)
-		var spare = SettleArray.create(0)
+		let spare = SettleArray.create(0)
 		spare.push(settle)
 		self.keep(settle)
 		spare.clear()
@@ -392,9 +397,9 @@ type Registry
 end 'Registry'
 
 function main() returns ExitCode
-	var registry = Registry.create()
+	let registry = Registry.create()
 	registry.run(3)
-	return try registry.held.count() as ExitCode otherwise panic("out of range")
+	return registry.held.count() as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -402,6 +407,7 @@ end 'main'
 ```
 
 <!-- test: a-var-scrutinee-from-a-call-writes-through-its-payload-binding -->
+<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 A match binding follows its scrutinee BINDING: a `var` gives writable bindings whatever produced its value, so
 a `var` holding a call's result takes the same payload write a `var` holding a constructed union does.
 
@@ -415,8 +421,8 @@ type Counter
 		return Self{n: n}
 	end 'create'
 
-	function raise(mutates self)
-		self.n = try self.n + 32 otherwise panic("out of range")
+	function raise()
+		self.n = self.n + 32
 	end 'raise'
 end 'Counter'
 
@@ -437,7 +443,7 @@ function main() returns ExitCode
 		empty then seen = 1
 	end 'step'
 	match s 'read'
-		holding(c) then return try c.n + seen otherwise panic("out of range")
+		holding(c) then return c.n + seen
 		empty then return 0
 	end 'read'
 end 'main'
@@ -447,6 +453,7 @@ end 'main'
 ```
 
 <!-- test: a-let-scrutinee-from-a-call-writes-through-its-payload-record -->
+<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 The twin: the same call result bound by a `let` gives bindings that cannot be reassigned, but the record a binding names is written in place all the same.
 
 ```maxon
@@ -459,8 +466,8 @@ type Counter
 		return Self{n: n}
 	end 'create'
 
-	function raise(mutates self)
-		self.n = try self.n + 32 otherwise panic("out of range")
+	function raise()
+		self.n = self.n + 32
 	end 'raise'
 end 'Counter'
 
@@ -481,7 +488,7 @@ function main() returns ExitCode
 		empty then seen = 1
 	end 'step'
 	match s 'read'
-		holding(c) then return try c.n + seen otherwise panic("out of range")
+		holding(c) then return c.n + seen
 		empty then return 0
 	end 'read'
 end 'main'

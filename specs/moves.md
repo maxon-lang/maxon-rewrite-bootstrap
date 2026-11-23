@@ -108,6 +108,7 @@ gate reports as exit 101; zero would be a leak it reports the same way. No refco
 alias is simply not enrolled as an owner.
 
 <!-- test: immutable-rebind-aliases -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -145,6 +146,7 @@ binding-to-binding move and is unaffected by that distinction; the two consuming
 NOT (this one and `call-arg-consumed-at-two-positions`) both show the co-owning side.
 
 <!-- test: consume-through-an-alias-keeps-both-live -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -156,7 +158,7 @@ type Box
 	export var text as String
 
 	static function create(text String) returns Self
-		return Self{text: text.clone()}
+		return Self{text: text}
 	end 'create'
 end 'Box'
 
@@ -991,6 +993,7 @@ spellings that reach the same storage get the same answer. Redundant parentheses
 `(t).field` names, and a tuple's positional member `t.0` is its field `_0` under another spelling.
 
 <!-- test: var-from-a-let-field-through-parens-shares-the-field -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -1006,15 +1009,15 @@ type Outer
 	export var inner as Inner
 
 	static function create(inner Inner) returns Self
-		return Self{inner: inner.clone()}
+		return Self{inner: inner}
 	end 'create'
 end 'Outer'
 
 function main() returns ExitCode
 	let o = Outer.create(Inner.create(5))
-	var i = (o).inner
+	let i = (o).inner
 	i.value = 9
-	return try o.inner.value as ExitCode otherwise panic("out of range")
+	return o.inner.value
 end 'main'
 ```
 ```exitcode

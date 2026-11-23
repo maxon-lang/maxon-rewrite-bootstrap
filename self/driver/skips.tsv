@@ -21,6 +21,8 @@
 #   test    `test`, the name of a spec file, the name of one of its tests, and the reason: a test that minimaxon compiles
 #           and runs to another answer than maxon's, because a language change (README, "Where it differs from Maxon") gives
 #           the program another meaning
+#   cause   `cause`, a case of diag.ErrorCause and the reason: a test is skipped when the first diagnostic left after the fixes
+#           has that cause and is not the code the test expects, where the cause tells apart what its code covers
 code	E2027	a match arm that repeats the pattern of an earlier arm
 code	E2048	a break or continue that names the label of the loop it already leaves
 code	E3010	a cast that converts nothing
@@ -41,16 +43,49 @@ code	E3183	a closure that is stored into what it captures: minimaxon's closure h
 code	E3207	an immutable value that is written: minimaxon meets it as a move out of a borrow or a write to a let
 code	E3214	a unique value that is kept or bound: minimaxon meets it as a move out of a borrow or a write to a let
 code	E3200	a value that crosses into a service and is not the whole of its region: minimaxon moves what crosses, so the sender's name is spent or the value is borrowed
-skip	ErrUseAfterMove,E3223,E3224,ErrFrozenChange	ErrMoveOutOfBorrow,ErrNotDroppable,ErrAssignToImmutable	language difference: ownership is refused by another rule
-skip	E3183,E3207	ErrClosureBorrow	language difference: a closure that borrows what it captures does not escape
-skip	E3207,E3214	ErrMoveOutOfBorrow,ErrAssignToImmutable	language difference: ownership is refused by another rule
-skip	E3200	ErrMoveOutOfBorrow,ErrUseAfterMove,ErrAssignToImmutable	language difference: ownership is refused by another rule
+code	E3196	a value stored into a slot of another capability: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values
+code	E3198	an isolated value read outside a block that opens it: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values
+code	E3199	an isolated value reached through a holder that is not writable: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values
+code	E3201	one statement that opens two isolated regions: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values
+code	E3202	a mutable value that leaves the region a block opens: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values
+code	E3203	a variable replaced while a block or an arm rests on it: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, and a match holds its subject only while an arm binds a part of it
+code	E3205	a wait inside an open region: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values
+code	E3206	a parameter used as mutable and as immutable: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values
+code	E3208	arguments of mutable and immutable data whose result needs one capability: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values
+code	E3209	a return that does not fit the capability of the result: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values
+code	E3211	a mutating function value called through data that is not writable: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values
+code	E3226	a tuple cast that changes the capability of an element: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values
+code	E3168	a throws clause that nothing in the body throws
+code	E3083	a try block that covers nothing that throws
+code	E3087	an if contains whose block gets the same key, which a lint asks to write as one lookup
+code	E3097	a comparison of the name, ordinal or raw value of a case, which a lint asks to write as a match
+code	E3095	a bare name that two directories of the program declare, where no declaration is nearer
+code	E3156	a function whose parameter is an interface, used as a function value
+code	E2042	a match arm whose block has no label
+code	E2043	a match arm whose block label differs from the one it opened
+code	E3085	a bare case name in a match on the combined error of several errors that two of them declare
+skip	ErrUseAfterMove,E3223,ErrFrozenChange	ErrMoveOutOfBorrow,ErrNotDroppable,ErrAssignToImmutable	language difference: ownership is refused by another rule
+skip	E3183	ErrClosureBorrow	language difference: a closure that borrows what it captures does not escape
 skip	ErrUnexpectedToken	ErrExpectedToken	differing error code: syntax error
 skip	ErrExpressionError	ErrTypeMismatch	differing error code: operand types
+skip	E2042	ErrExpectedToken	differing error code: syntax error
+skip	E2043	ErrMismatchedEndLabel	differing error code: syntax error
+skip	E3085	ErrErrorTypeMismatch	language difference: a try block's handler names one error, not the combined error of several
 expect	ErrModuleLetCallsFunction	language difference: a constant may call a literal factory, and E3220 names what it may call
-expect	E2027,E2048,E3010,E3012,E3062,E3064,E3065,E3067,E3077,E3081,E3092,E3219	language difference: style and lint rules are not checked, since the generated code does not depend on them
-expect	E3063	language difference: another module's names are always qualified by its path, so a bare name never finds two
+expect	E2027,E2048,E3010,E3012,E3062,E3064,E3065,E3067,E3077,E3081,E3087,E3092,E3097,E3219	language difference: style and lint rules are not checked, since the generated code does not depend on them
+expect	E3063,E3095	language difference: another module's names are always qualified by its path, so a bare name never finds two
 expect	E3055	language difference: a try that covers nothing that can fail is allowed, so a sharper analysis never breaks a program
+expect	E3083,E3168	language difference: a throws or a try block that nothing can make fail is allowed, so a sharper analysis never breaks a program
+expect	E3196,E3198,E3199,E3200,E3201,E3202,E3203,E3205,E3206,E3207,E3208,E3209,E3211,E3214,E3226	language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist
+expect	E3224	language difference: a linear value is a value with a destructor, which cannot be copied or dropped, so the rules of ownership and the Droppable bound refuse what maxon's linear rules refuse
+expect	E3156	language difference: an interface value is one word that owns its value, so it may stand where any value may
+run	ErrUseAfterMove	language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count
+run	ErrAssignToImmutable	language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name
+run	ErrExclusivity	language difference: a place passed mutates, consumes or sets overlaps nothing else the call or the statement holds, where maxon shares the place by a reference count
+run	ErrNotSendable	language difference: what crosses into a service is moved or frozen, never lent, and a value at an interface type, whose conformer the check does not know, does not cross
+run	ErrCapabilityConversion	language difference: a closure writes what it captured only where its function type mutates captures
+cause	loopHoldsCollection	language difference: a loop holds the collection it walks
+cause	payloadOfBuiltinError	language difference: SendError and SubprocessError are built-in enums whose cases carry no payload, so a failed send gives its arguments no way back
 first	ErrUncheckedFailure	language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports
 run	ErrClosureBorrow	language difference: a closure that borrows what it captures does not escape
 run	ErrLentToCoroutine	language difference: an async call lends its coroutine what it reads until the await, so the caller does not change it while the call is pending

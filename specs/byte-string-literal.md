@@ -671,6 +671,7 @@ end 'main'
 ```
 
 <!-- test: error.byte-string-literal.constant-pushed-into-a-container-is-refused -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 
 ⭐ **THE EIGHT CLONE CASES ABOVE WRITE A HEAP COPY. A LITERAL'S OWN RECORD, INLINE OR BOUND TO A MODULE-LEVEL
@@ -728,6 +729,7 @@ error E3197: <fragment>:14:7: cannot write 'a container' through 'a call result'
 ```
 
 <!-- test: error.byte-string-literal.constant-appended-to-a-corpus-container-is-refused -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 
 `List.append` is a CORPUS member, so the constant reaches storage through a parameter the stdlib body keeps
@@ -752,6 +754,7 @@ error E3196: <fragment>:8:12: cannot store an immutable 'ByteArray' into 'List.a
 ```
 
 <!-- test: error.byte-string-literal.a-var-bound-to-a-literal-is-not-writable -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 
 A `var` bound to a literal holds the literal's `immutable` image data, so writing it is E3207; take a
@@ -760,7 +763,7 @@ A `var` bound to a literal holds the literal's `immutable` image data, so writin
 function main() returns ExitCode
 	var a = b"hi"
 	a.push(88)
-	return try a.count() as ExitCode otherwise panic("out of range")
+	return a.count()
 end 'main'
 ```
 ```maxoncstderr

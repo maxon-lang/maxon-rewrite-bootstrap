@@ -1522,6 +1522,7 @@ end 'main'
 ```
 
 <!-- test: error.an-ambiguous-let-initializer-call-is-ambiguous -->
+<!-- skip: language difference: another module's names are always qualified by its path, so a bare name never finds two -->
 Two sibling directories export `make` and the `let` initializer names neither, so it is ambiguous as a body call
 would be.
 ```maxon
@@ -1675,6 +1676,7 @@ true 8
 
 
 <!-- test: error.contested-bare-function-value-with-two-visible-candidates -->
+<!-- skip: language difference: another module's names are always qualified by its path, so a bare name never finds two -->
 A function value is refused for the ambiguity a call is refused for, rather than bound to either
 declaration.
 ```maxon
@@ -1855,6 +1857,7 @@ error E3095: app/<fragment>:21:14: Ambiguous bare-name call to 'pick': more than
 
 
 <!-- test: error.two-visible-candidates-with-different-results-are-ambiguous -->
+<!-- skip: language difference: another module's names are always qualified by its path, so a bare name never finds two -->
 The candidates disagree about the result, so the call's result is not typed from either of them ahead of
 the ambiguity.
 ```maxon
@@ -2112,6 +2115,7 @@ after
 
 
 <!-- test: error.two-visible-candidates-are-ambiguous-past-an-invisible-third -->
+<!-- skip: language difference: another module's names are always qualified by its path, so a bare name never finds two -->
 Two VISIBLE declarations are still an ambiguity, and the invisible third is neither what makes it one
 nor offered as a way out of it.
 ```maxon
@@ -2317,6 +2321,7 @@ end 'main'
 
 
 <!-- test: error.three-way-ambiguous-bare-call -->
+<!-- skip: language difference: another module's names are always qualified by its path, so a bare name never finds two -->
 E3095's candidate list with THREE competitors, declared in an order the sorted output does not
 preserve (`zulu`, `alpha`, `mid`). The list is rendered lexicographically because the compiler's `Map` is
 open-addressed and its iteration is SLOT order — a function of two file paths' hashes — so an

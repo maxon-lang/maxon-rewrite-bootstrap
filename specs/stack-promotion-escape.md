@@ -385,6 +385,7 @@ end 'main'
 ```
 
 <!-- test: reference-identity-is-never-promoted -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 `is` compares record ADDRESSES, so it is the one operator that can tell a frame slot from a heap box. A
 record reaching an `is` is never promoted, which is what makes the two storage shapes indistinguishable
 here: two separate constructions are never identical, and an alias always is, whichever storage they use.

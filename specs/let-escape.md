@@ -459,6 +459,7 @@ end 'main'
 ```
 
 <!-- test: let-escape.a-let-the-callee-pushes-and-returns-is-accepted-at-the-push-though-the-caller-reads-it-before-the-write -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 `add` pushes `made` and then returns it: the push is accepted, and the `let` that binds the result names the record the container holds.
 
 ```maxon
@@ -481,7 +482,7 @@ type Reg
 		return Self{items: Boxes.create(0)}
 	end 'create'
 
-	function add(mutates self, n Count) returns Box
+	function add(n Count) returns Box
 		let made = Box.create(n)
 		items.push(made)
 		return made
@@ -489,12 +490,12 @@ type Reg
 end 'Reg'
 
 function touch(reg Reg)
-	var w = try reg.items.get(0) otherwise return
+	let w = try reg.items.get(0) otherwise return
 	w.n = 1
 end 'touch'
 
 function main() returns ExitCode
-	var reg = Reg.create()
+	let reg = Reg.create()
 	let b = reg.add(7)
 	print("{b.n}\n")
 	touch(reg)
@@ -509,6 +510,7 @@ end 'main'
 ```
 
 <!-- test: let-escape.error.a-static-lets-record-pushed-into-a-global-container-is-refused -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 A `static let` is `immutable` image data, and an element of a plain `Array with Box` is a place something may write, so pushing the `let`'s record into one is refused; declare the element `immutable Box`, or push a `clone()`.
 
@@ -548,7 +550,7 @@ error E3196: <fragment>:16:16: cannot store an immutable 'Box' into 'an element 
 ```
 
 <!-- test: let-escape.error.a-static-lets-record-handed-to-a-callee-that-keeps-it-is-refused -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `stash` keeps its parameter in a container and in a field, so handing it a `static let` is refused; pass a `clone()`.
 
@@ -635,6 +637,7 @@ error E3197: <fragment>:25:2: cannot write 'n' through 'h.box', which is read-on
 ```
 
 <!-- test: let-escape.error.a-static-lets-record-pushed-into-a-local-array-is-refused -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 A local array's element is a mutable place, so pushing a `static let`'s record into it is refused.
 
@@ -666,6 +669,7 @@ error E3196: <fragment>:18:13: cannot store an immutable 'Box' into 'an element 
 ```
 
 <!-- test: let-escape.error.a-static-lets-record-in-a-literal-a-map-and-a-global-field-is-refused -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 An array literal's element and a field of a `var` holder are each a mutable place, so storing a `static let`'s record into either is refused.
 
@@ -687,7 +691,7 @@ type Holder
 	export var box as Box
 
 	static function create(box Box) returns Self
-		return Self{box: box.clone()}
+		return Self{box: box}
 	end 'create'
 end 'Holder'
 
@@ -720,6 +724,7 @@ error E3196: <fragment>:33:13: cannot store an immutable 'Box' into 'an element 
 ```
 
 <!-- test: let-escape.error.a-static-lets-record-in-a-literal-and-a-map-value-is-refused -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 An array literal's element is a mutable place, so storing a `static let`'s record into it is refused.
 
@@ -754,6 +759,7 @@ error E3196: <fragment>:17:13: cannot store an immutable 'Box' into 'an element 
 ```
 
 <!-- test: let-escape.error.a-static-lets-record-in-a-map-value-is-refused -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 A value handed to `upsert` is stored in a mutable place, so storing a `static let`'s record into a map value is refused.
 
@@ -785,6 +791,7 @@ error E3196: <fragment>:18:21: cannot store an immutable 'Box' into 'Map.upsert.
 ```
 
 <!-- test: let-escape.a-captured-let-pushed-into-a-holder-is-accepted-though-nothing-writes-its-type -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 `install` pushes `b` into the holder's container and then captures it in a closure, and `main` binds the element it reads back to a `let`: all accepted.
 
 ```maxon
@@ -811,14 +818,14 @@ type Reg
 	end 'create'
 end 'Reg'
 
-function install(mutates reg Reg)
+function install(reg Reg)
 	let b = Box.create(1)
 	reg.items.push(b)
 	reg.show = function() gives b.n
 end 'install'
 
 function main() returns ExitCode
-	var reg = Reg.create()
+	let reg = Reg.create()
 	install(reg)
 	let w = try reg.items.get(0) otherwise return 1
 	let f = reg.show
@@ -1413,6 +1420,7 @@ end 'main'
 ```
 
 <!-- test: let-escape.a-let-kept-after-the-write-into-a-holder-an-earlier-call-escaped-is-accepted -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 `attach` keeps its `args` in an edge it pushes into the block, and `carried` is read afterwards: the call is accepted, before or after any write.
 
 ```maxon
@@ -1428,7 +1436,7 @@ type Edge
 	export var args as Args
 
 	static function create(args Args) returns Self
-		return Self{args: args.clone()}
+		return Self{args: args}
 	end 'create'
 end 'Edge'
 
@@ -1464,36 +1472,36 @@ type World
 		return Self{book: Book.create(), routed: Routed.create()}
 	end 'create'
 
-	function open(mutates self) returns Block
+	function open() returns Block
 		let block = Block.create()
 		self.book.blocks.push(block)
 		return block
 	end 'open'
 
-	function scribble(mutates self)
+	function scribble()
 		self.routed.args.push(1)
 	end 'scribble'
 end 'World'
 
-function attach(mutates block Block, args Args)
+function attach(block Block, args Args)
 	block.edges.push(Edge.create(args))
 end 'attach'
 
-function wire(world World, mutates block Block)
+function wire(world World, block Block)
 	attach(block, args: world.routed.args)
 end 'wire'
 
-function run(mutates world World) returns Count
+function run(world World) returns Count
 	let carried = Args.create(0)
-	var block = world.open()
+	let block = world.open()
 	world.scribble()
 	attach(block, args: carried)
-	return try carried.count() as Count otherwise panic("out of range")
+	return carried.count()
 end 'run'
 
 function main() returns ExitCode
-	var world = World.create()
-	var other = world.open()
+	let world = World.create()
+	let other = world.open()
 	wire(world, block: other)
 	print("{run(world)}\n")
 	return 0
@@ -1608,6 +1616,7 @@ end 'main'
 ```
 
 <!-- test: let-escape.a-let-stored-into-a-var-field-and-returned-is-accepted-though-only-another-map-is-written -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 `sigsOf` stores `made` into `world.memo` and then returns it: the store is accepted, whatever `fill` writes.
 
 ```maxon
@@ -1648,18 +1657,18 @@ type World
 	end 'create'
 end 'World'
 
-function sigsOf(mutates world World) returns Sigs
+function sigsOf(world World) returns Sigs
 	let made = Sigs.create()
 	world.memo.sigs = made
 	return made
 end 'sigsOf'
 
-function fill(mutates world World)
+function fill(world World)
 	world.cache.names.upsert("k", value: 1)
 end 'fill'
 
 function main() returns ExitCode
-	var world = World.create()
+	let world = World.create()
 	let sigs = sigsOf(world)
 	fill(world)
 	print("{sigs.names.count()}\n")
@@ -1772,6 +1781,7 @@ end 'main'
 ```
 
 <!-- test: let-escape.a-let-bound-to-a-record-the-callee-also-stored-in-the-world-is-accepted-though-it-holds-copies -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 `sigsOf` stores the `var` it returns into `world.memo`, and the `let` that binds the record it hands back is accepted, whatever the record holds.
 
 ```maxon
@@ -1801,7 +1811,7 @@ type Decl
 	export var layout as Layout
 
 	static function create(layout Layout) returns Self
-		return Self{layout: layout.clone()}
+		return Self{layout: layout}
 	end 'create'
 end 'Decl'
 
@@ -1809,7 +1819,7 @@ type Artifact
 	export var layouts as Layouts
 
 	static function create() returns Self
-		var made = Layouts.create(0)
+		let made = Layouts.create(0)
 		made.push(Layout.create())
 		return Self{layouts: made}
 	end 'create'
@@ -1840,10 +1850,10 @@ type World
 	end 'create'
 end 'World'
 
-function sigsOf(mutates world World) returns Sigs
-	var made = Sigs.create()
+function sigsOf(world World) returns Sigs
+	let made = Sigs.create()
 	for layout in world.artifact.layouts 'each'
-		var copy = Layout.create()
+		let copy = Layout.create()
 		copy.detail.size = layout.detail.size
 		made.decls.push(Decl.create(copy))
 	end 'each'
@@ -1852,12 +1862,12 @@ function sigsOf(mutates world World) returns Sigs
 end 'sigsOf'
 
 function measure(world World)
-	var layout = try world.artifact.layouts.get(0) otherwise return
+	let layout = try world.artifact.layouts.get(0) otherwise return
 	layout.detail.size = 8
 end 'measure'
 
 function main() returns ExitCode
-	var world = World.create()
+	let world = World.create()
 	let sigs = sigsOf(world)
 	measure(world)
 	print("{sigs.decls.count()}\n")
@@ -1906,6 +1916,7 @@ end 'main'
 ```
 
 <!-- test: let-escape.a-let-held-by-a-local-holder-that-holds-copies-of-the-worlds-layouts-is-accepted -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 The same program with `made` holding copies of the layouts, so `measure` writes only records `made` does not hold.
 
 ```maxon
@@ -1935,7 +1946,7 @@ type Decl
 	export var layout as Layout
 
 	static function create(layout Layout) returns Self
-		return Self{layout: layout.clone()}
+		return Self{layout: layout}
 	end 'create'
 end 'Decl'
 
@@ -1943,7 +1954,7 @@ type Artifact
 	export var layouts as Layouts
 
 	static function create() returns Self
-		var made = Layouts.create(0)
+		let made = Layouts.create(0)
 		made.push(Layout.create())
 		return Self{layouts: made}
 	end 'create'
@@ -1975,15 +1986,15 @@ type World
 end 'World'
 
 function measure(world World)
-	var layout = try world.artifact.layouts.get(0) otherwise return
+	let layout = try world.artifact.layouts.get(0) otherwise return
 	layout.detail.size = 8
 end 'measure'
 
 function main() returns ExitCode
-	var world = World.create()
-	var made = Sigs.create()
+	let world = World.create()
+	let made = Sigs.create()
 	for layout in world.artifact.layouts 'each'
-		var copy = Layout.create()
+		let copy = Layout.create()
 		copy.detail.size = layout.detail.size
 		made.decls.push(Decl.create(copy))
 	end 'each'
@@ -2472,6 +2483,7 @@ end 'main'
 ```
 
 <!-- test: let-escape.a-record-the-callee-creates-and-stores-is-written-through-its-holder -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 `add` pushes `made` and then returns it: the `let` that binds the result names the record the container holds, and `touch` writes it.
 
 ```maxon
@@ -2494,7 +2506,7 @@ type Reg
 		return Self{items: Boxes.create(0)}
 	end 'create'
 
-	function add(mutates self, n Count) returns Box
+	function add(n Count) returns Box
 		let made = Box.create(n)
 		items.push(made)
 		return made
@@ -2502,12 +2514,12 @@ type Reg
 end 'Reg'
 
 function touch(reg Reg)
-	var w = try reg.items.get(0) otherwise return
+	let w = try reg.items.get(0) otherwise return
 	w.n = 1
 end 'touch'
 
 function main() returns ExitCode
-	var reg = Reg.create()
+	let reg = Reg.create()
 	let b = reg.add(7)
 	touch(reg)
 	print("{b.n}\n")
@@ -2522,6 +2534,7 @@ end 'main'
 ```
 
 <!-- test: let-escape.a-var-the-callee-pushed-and-returned-is-written-through-its-holder -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 `add` pushes its `var` `made` and returns it, and `touch` writes the pushed element: the record the caller binds with a `let` reads the write.
 
 ```maxon
@@ -2544,7 +2557,7 @@ type Reg
 		return Self{items: Boxes.create(0)}
 	end 'create'
 
-	function add(mutates self, n Count) returns Box
+	function add(n Count) returns Box
 		let made = Box.create(n)
 		items.push(made)
 		return made
@@ -2552,12 +2565,12 @@ type Reg
 end 'Reg'
 
 function touch(reg Reg)
-	var w = try reg.items.get(0) otherwise return
+	let w = try reg.items.get(0) otherwise return
 	w.n = 1
 end 'touch'
 
 function main() returns ExitCode
-	var reg = Reg.create()
+	let reg = Reg.create()
 	let b = reg.add(7)
 	touch(reg)
 	print("{b.n}\n")
@@ -2572,6 +2585,7 @@ end 'main'
 ```
 
 <!-- test: let-escape.a-record-the-callee-creates-and-makes-current-is-written-through-the-cursor -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 `open` stores `made` in the cursor's `current` field and then returns it: the `let` that binds the result names the record the cursor holds, and `touch` writes it.
 
 ```maxon
@@ -2589,22 +2603,22 @@ type Cursor
 	export var current as Box
 
 	static function create(seed Box) returns Self
-		return Self{current: seed.clone()}
+		return Self{current: seed}
 	end 'create'
 
-	function open(mutates self, n Count) returns Box
+	function open(n Count) returns Box
 		let made = Box.create(n)
 		current = made
 		return made
 	end 'open'
 
-	function touch(mutates self)
-		current.n = try current.n + 1 otherwise panic("out of range")
+	function touch()
+		current.n = current.n + 1
 	end 'touch'
 end 'Cursor'
 
 function main() returns ExitCode
-	var c = Cursor.create(Box.create(0))
+	let c = Cursor.create(Box.create(0))
 	let b = c.open(5)
 	c.touch()
 	print("{b.n}\n")
@@ -2880,6 +2894,7 @@ end 'main'
 ```
 
 <!-- test: let-escape.a-captured-let-stored-in-a-container-is-written-after-the-closure-outlives-the-function -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 `install` pushes `b` into the holder's container and then captures it in a closure: both are accepted, and the closure reads the write `main` makes through the container.
 
 ```maxon
@@ -2906,16 +2921,16 @@ type Reg
 	end 'create'
 end 'Reg'
 
-function install(mutates reg Reg)
+function install(reg Reg)
 	let b = Box.create(1)
 	reg.items.push(b)
 	reg.show = function() gives b.n
 end 'install'
 
 function main() returns ExitCode
-	var reg = Reg.create()
+	let reg = Reg.create()
 	install(reg)
-	var w = try reg.items.get(0) otherwise return 1
+	let w = try reg.items.get(0) otherwise return 1
 	w.n = 5
 	let f = reg.show
 	print("{f()}\n")
@@ -2987,6 +3002,7 @@ end 'main'
 ```
 
 <!-- test: let-escape.a-string-let-stored-in-a-field-is-a-value-the-append-does-not-reach -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 A `String` is a value type, so storing the `let` in a `var` field stores a value: the append extends the field's copy and the `let` still reads `a7`.
 
 ```maxon
@@ -2996,12 +3012,12 @@ type H
 	export var s as String
 
 	static function create(s String) returns Self
-		return Self{s: s.clone()}
+		return Self{s: s}
 	end 'create'
 end 'H'
 
-function grow(mutates h H)
-	h.s = "{h.s}x"
+function grow(h H)
+	h.s.append("x")
 end 'grow'
 
 function runtimeText(n Count) returns String
@@ -3010,7 +3026,7 @@ end 'runtimeText'
 
 function main() returns ExitCode
 	let s = "a{runtimeText(7)}"
-	var h = H.create("")
+	let h = H.create("")
 	h.s = s
 	grow(h)
 	print("{s}\n")
@@ -3025,6 +3041,7 @@ a7
 ```
 
 <!-- test: let-escape.error.a-static-lets-record-a-call-hands-back-cannot-be-stored-where-it-is-written -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `pick` returns a `static let`, which is `immutable`, so its result is declared `immutable`; storing the call's result into a `var` field is refused and asks for a `clone()`.
 
@@ -3073,6 +3090,7 @@ error E3196: <fragment>:28:10: cannot store an immutable 'Box' into 'box', which
 ```
 
 <!-- test: let-escape.a-callee-two-calls-down-writes-the-module-holder -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 The `let` record is pushed into a container and read afterwards, and the write comes two calls down: the push is accepted.
 
 ```maxon
@@ -3097,7 +3115,7 @@ type Holder
 end 'Holder'
 
 function g(mutates holder Holder)
-	var w = try holder.items.get(0) otherwise return
+	let w = try holder.items.get(0) otherwise return
 	w.n = 5
 end 'g'
 
@@ -3106,7 +3124,7 @@ function f(mutates holder Holder)
 end 'f'
 
 function main() returns ExitCode
-	var holder = Holder.create()
+	let holder = Holder.create()
 	let b = Box.create(1)
 	holder.items.push(b)
 	f(holder)
@@ -3176,6 +3194,7 @@ end 'main'
 ```
 
 <!-- test: let-escape.a-record-cast-to-an-alias-of-its-instance -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 `k` is `b` cast to an alias of its instance, another name for the same record; pushing it is accepted.
 
 ```maxon
@@ -3192,8 +3211,8 @@ end 'S0'
 type Box uses T
 	export var item as T
 
-	static function create(v T) returns Self where T implements Copyable
-		return Self{item: v.clone()}
+	static function create(v T) returns Self
+		return Self{item: v}
 	end 'create'
 end 'Box'
 
@@ -3204,12 +3223,12 @@ typealias ViaAlias = Box with N0
 typealias Holder = Array with ViaAlias
 
 function clobber(mutates holder Holder)
-	var w = try holder.get(0) otherwise return
+	let w = try holder.get(0) otherwise return
 	w.item.item.n = 5
 end 'clobber'
 
 function main() returns ExitCode
-	var holder = Holder.create(0)
+	let holder = Holder.create(0)
 	let b = Box.create(Box.create(S0.create(1)))
 	let k = b as ViaAlias
 	holder.push(k)
@@ -3805,6 +3824,7 @@ end 'main'
 ```
 
 <!-- test: let-escape.a-record-stored-before-the-write-into-a-holder-an-earlier-call-escaped-is-written -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 `attach` keeps its `args` in an edge it pushes into the block, and `carried` is read afterwards: the call is accepted.
 
 ```maxon
@@ -3820,7 +3840,7 @@ type Edge
 	export var args as Args
 
 	static function create(args Args) returns Self
-		return Self{args: args.clone()}
+		return Self{args: args}
 	end 'create'
 end 'Edge'
 
@@ -3856,36 +3876,36 @@ type World
 		return Self{book: Book.create(), routed: Routed.create()}
 	end 'create'
 
-	function open(mutates self) returns Block
+	function open() returns Block
 		let block = Block.create()
 		self.book.blocks.push(block)
 		return block
 	end 'open'
 
-	function scribble(mutates self)
+	function scribble()
 		self.routed.args.push(1)
 	end 'scribble'
 end 'World'
 
-function attach(mutates block Block, args Args)
+function attach(block Block, args Args)
 	block.edges.push(Edge.create(args))
 end 'attach'
 
-function wire(world World, mutates block Block)
+function wire(world World, block Block)
 	attach(block, args: world.routed.args)
 end 'wire'
 
-function run(mutates world World) returns Count
+function run(world World) returns Count
 	let carried = Args.create(0)
-	var block = world.open()
+	let block = world.open()
 	attach(block, args: carried)
 	world.scribble()
-	return try carried.count() as Count otherwise panic("out of range")
+	return carried.count()
 end 'run'
 
 function main() returns ExitCode
-	var world = World.create()
-	var other = world.open()
+	let world = World.create()
+	let other = world.open()
 	wire(world, block: other)
 	print("{run(world)}\n")
 	return 0
@@ -4094,6 +4114,7 @@ end 'main'
 ```
 
 <!-- test: let-escape.a-write-through-a-slot-the-let-record-also-holds-is-accepted -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 `Sigs.create` keeps the map `world.cache` holds, `made` binds the result with a `let`, and `fill` writes the map through the cache: the program is accepted.
 
 ```maxon
@@ -4105,7 +4126,7 @@ type Sigs
 	export var names as Names
 
 	static function create(names Names) returns Self
-		return Self{names: names.clone()}
+		return Self{names: names}
 	end 'create'
 end 'Sigs'
 
@@ -4134,18 +4155,18 @@ type World
 	end 'create'
 end 'World'
 
-function sigsOf(mutates world World) returns Sigs
+function sigsOf(world World) returns Sigs
 	let made = Sigs.create(world.cache.names)
 	world.memo.sigs = made
 	return made
 end 'sigsOf'
 
-function fill(mutates world World)
+function fill(world World)
 	world.cache.names.upsert("k", value: 1)
 end 'fill'
 
 function main() returns ExitCode
-	var world = World.create()
+	let world = World.create()
 	let sigs = sigsOf(world)
 	fill(world)
 	print("{sigs.names.count()}\n")
@@ -4160,6 +4181,7 @@ end 'main'
 ```
 
 <!-- test: let-escape.a-write-to-a-record-another-holder-shares-with-the-let-is-accepted -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 `sigsOf` builds a record around layouts something else may write and stores it into `world`: the `let` that binds the record it hands back is accepted.
 
 ```maxon
@@ -4197,7 +4219,7 @@ type Artifact
 	export var layouts as Layouts
 
 	static function create() returns Self
-		var made = Layouts.create(0)
+		let made = Layouts.create(0)
 		made.push(Layout.create())
 		return Self{layouts: made}
 	end 'create'
@@ -4228,11 +4250,11 @@ type World
 	end 'create'
 end 'World'
 
-function sigsOf(mutates world World) returns Sigs
-	var made = Sigs.create()
+function sigsOf(world World) returns Sigs
+	let made = Sigs.create()
 	for layout in world.artifact.layouts 'each'
-		var decl = Decl.create()
-		decl.layout = layout.clone()
+		let decl = Decl.create()
+		decl.layout = layout
 		made.decls.push(decl)
 	end 'each'
 	world.memo.sigs = made
@@ -4240,12 +4262,12 @@ function sigsOf(mutates world World) returns Sigs
 end 'sigsOf'
 
 function measure(world World)
-	var layout = try world.artifact.layouts.get(0) otherwise return
+	let layout = try world.artifact.layouts.get(0) otherwise return
 	layout.detail.size = 8
 end 'measure'
 
 function main() returns ExitCode
-	var world = World.create()
+	let world = World.create()
 	let sigs = sigsOf(world)
 	measure(world)
 	print("{sigs.decls.count()}\n")
@@ -4260,6 +4282,7 @@ end 'main'
 ```
 
 <!-- test: let-escape.a-write-to-a-record-a-callee-built-into-the-let-from-its-argument-is-accepted -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 `sigsOf` builds a record around layouts something else may write and stores it into `world`: the `let` that binds the record it hands back is accepted.
 
 ```maxon
@@ -4289,7 +4312,7 @@ type Decl
 	export var layout as Layout
 
 	static function create(layout Layout) returns Self
-		return Self{layout: layout.clone()}
+		return Self{layout: layout}
 	end 'create'
 end 'Decl'
 
@@ -4297,7 +4320,7 @@ type Artifact
 	export var layouts as Layouts
 
 	static function create() returns Self
-		var made = Layouts.create(0)
+		let made = Layouts.create(0)
 		made.push(Layout.create())
 		return Self{layouts: made}
 	end 'create'
@@ -4328,8 +4351,8 @@ type World
 	end 'create'
 end 'World'
 
-function sigsOf(mutates world World) returns Sigs
-	var made = Sigs.create()
+function sigsOf(world World) returns Sigs
+	let made = Sigs.create()
 	for layout in world.artifact.layouts 'each'
 		made.decls.push(Decl.create(layout))
 	end 'each'
@@ -4338,12 +4361,12 @@ function sigsOf(mutates world World) returns Sigs
 end 'sigsOf'
 
 function measure(world World)
-	var layout = try world.artifact.layouts.get(0) otherwise return
+	let layout = try world.artifact.layouts.get(0) otherwise return
 	layout.detail.size = 8
 end 'measure'
 
 function main() returns ExitCode
-	var world = World.create()
+	let world = World.create()
 	let sigs = sigsOf(world)
 	measure(world)
 	print("{sigs.decls.count()}\n")
@@ -4358,6 +4381,7 @@ end 'main'
 ```
 
 <!-- test: let-escape.a-write-through-a-path-longer-than-the-recorded-hops-reaches-a-record-the-let-holds -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 `sigsOf` builds a record around layouts reached through a long path and stores it into `world`: the `let` that binds the record it hands back is accepted.
 
 ```maxon
@@ -4387,7 +4411,7 @@ type Decl
 	export var layout as Layout
 
 	static function create(layout Layout) returns Self
-		return Self{layout: layout.clone()}
+		return Self{layout: layout}
 	end 'create'
 end 'Decl'
 
@@ -4395,7 +4419,7 @@ type Artifact
 	export var layouts as Layouts
 
 	static function create() returns Self
-		var made = Layouts.create(0)
+		let made = Layouts.create(0)
 		made.push(Layout.create())
 		return Self{layouts: made}
 	end 'create'
@@ -4474,8 +4498,8 @@ type World
 	end 'create'
 end 'World'
 
-function sigsOf(mutates world World) returns Sigs
-	var made = Sigs.create()
+function sigsOf(world World) returns Sigs
+	let made = Sigs.create()
 	for layout in world.deep.next.next.next.next.next.next.layouts 'each'
 		made.decls.push(Decl.create(layout))
 	end 'each'
@@ -4484,12 +4508,12 @@ function sigsOf(mutates world World) returns Sigs
 end 'sigsOf'
 
 function measure(world World)
-	var layout = try world.deep.next.next.next.next.next.next.layouts.get(0) otherwise return
+	let layout = try world.deep.next.next.next.next.next.next.layouts.get(0) otherwise return
 	layout.detail.size = 8
 end 'measure'
 
 function main() returns ExitCode
-	var world = World.create()
+	let world = World.create()
 	let sigs = sigsOf(world)
 	measure(world)
 	print("{sigs.decls.count()}\n")
@@ -4504,6 +4528,7 @@ end 'main'
 ```
 
 <!-- test: let-escape.a-write-through-a-global-reaches-a-record-the-let-holds-though-the-let-is-stored-in-a-local -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 `sigsOf` builds a record around layouts something else may write and stores it into `memo`: the `let` that binds the record it hands back is accepted.
 
 ```maxon
@@ -4533,7 +4558,7 @@ type Decl
 	export var layout as Layout
 
 	static function create(layout Layout) returns Self
-		return Self{layout: layout.clone()}
+		return Self{layout: layout}
 	end 'create'
 end 'Decl'
 
@@ -4553,8 +4578,8 @@ type Memo
 	end 'create'
 end 'Memo'
 
-function sigsOf(mutates memo Memo, layouts Layouts) returns Sigs
-	var made = Sigs.create()
+function sigsOf(memo Memo, layouts Layouts) returns Sigs
+	let made = Sigs.create()
 	for layout in layouts 'each'
 		made.decls.push(Decl.create(layout))
 	end 'each'
@@ -4563,14 +4588,14 @@ function sigsOf(mutates memo Memo, layouts Layouts) returns Sigs
 end 'sigsOf'
 
 function measure(mutates layouts Layouts)
-	var layout = try layouts.get(0) otherwise return
+	let layout = try layouts.get(0) otherwise return
 	layout.detail.size = 8
 end 'measure'
 
 function main() returns ExitCode
-	var layouts = Layouts.create(0)
+	let layouts = Layouts.create(0)
 	layouts.push(Layout.create())
-	var memo = Memo.create()
+	let memo = Memo.create()
 	let sigs = sigsOf(memo, layouts: layouts)
 	measure(layouts)
 	print("{sigs.decls.count()}\n")
@@ -4585,6 +4610,7 @@ end 'main'
 ```
 
 <!-- test: let-escape.a-field-assigned-a-global-record-in-the-let-is-written-through-the-global-is-accepted -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 `sigsOf` assigns a layout into a field of a record it builds and stores that record into `memo`: the `let` that binds the record it hands back is accepted.
 
 ```maxon
@@ -4614,7 +4640,7 @@ type Decl
 	export var layout as Layout
 
 	static function create(layout Layout) returns Self
-		return Self{layout: layout.clone()}
+		return Self{layout: layout}
 	end 'create'
 end 'Decl'
 
@@ -4634,11 +4660,11 @@ type Memo
 	end 'create'
 end 'Memo'
 
-function sigsOf(mutates memo Memo, layouts Layouts) returns Sigs
-	var made = Sigs.create()
+function sigsOf(memo Memo, layouts Layouts) returns Sigs
+	let made = Sigs.create()
 	for layout in layouts 'each'
-		var decl = Decl.create(Layout.create())
-		decl.layout = layout.clone()
+		let decl = Decl.create(Layout.create())
+		decl.layout = layout
 		made.decls.push(decl)
 	end 'each'
 	memo.sigs = made
@@ -4646,14 +4672,14 @@ function sigsOf(mutates memo Memo, layouts Layouts) returns Sigs
 end 'sigsOf'
 
 function measure(mutates layouts Layouts)
-	var layout = try layouts.get(0) otherwise return
+	let layout = try layouts.get(0) otherwise return
 	layout.detail.size = 8
 end 'measure'
 
 function main() returns ExitCode
-	var layouts = Layouts.create(0)
+	let layouts = Layouts.create(0)
 	layouts.push(Layout.create())
-	var memo = Memo.create()
+	let memo = Memo.create()
 	let sigs = sigsOf(memo, layouts: layouts)
 	measure(layouts)
 	print("{sigs.decls.count()}\n")
@@ -4668,6 +4694,7 @@ end 'main'
 ```
 
 <!-- test: let-escape.a-let-held-by-a-local-holder-that-a-local-world-also-holds-is-written-through-the-world-after-both-are-stored -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 `made` is a `let`: pushing into its declarations writes through it, and storing it into the world while it is read afterwards is accepted too.
 
 ```maxon
@@ -4697,7 +4724,7 @@ type Decl
 	export var layout as Layout
 
 	static function create(layout Layout) returns Self
-		return Self{layout: layout.clone()}
+		return Self{layout: layout}
 	end 'create'
 end 'Decl'
 
@@ -4705,7 +4732,7 @@ type Artifact
 	export var layouts as Layouts
 
 	static function create() returns Self
-		var made = Layouts.create(0)
+		let made = Layouts.create(0)
 		made.push(Layout.create())
 		return Self{layouts: made}
 	end 'create'
@@ -4737,13 +4764,13 @@ type World
 end 'World'
 
 function measure(world World)
-	var layout = try world.artifact.layouts.get(0) otherwise return
+	let layout = try world.artifact.layouts.get(0) otherwise return
 	layout.detail.size = 8
 end 'measure'
 
 function main() returns ExitCode
-	var world = World.create()
-	var made = Sigs.create()
+	let world = World.create()
+	let made = Sigs.create()
 	for layout in world.artifact.layouts 'each'
 		made.decls.push(Decl.create(layout))
 	end 'each'
@@ -4761,6 +4788,7 @@ end 'main'
 ```
 
 <!-- test: let-escape.an-interface-typed-let-is-written-through-a-record-it-holds -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 `Holder.create` keeps the layout `world` holds, and `made` binds the result with a `let` at an interface type: the program is accepted, and `sized` reads the write.
 
 ```maxon
@@ -4790,7 +4818,7 @@ type Holder implements Sized
 	export var layout as Layout
 
 	static function create(layout Layout) returns Self
-		return Self{layout: layout.clone()}
+		return Self{layout: layout}
 	end 'create'
 
 	function size() returns Count
@@ -4815,18 +4843,18 @@ type World
 	end 'create'
 end 'World'
 
-function sizedOf(mutates world World) returns Sized
+function sizedOf(world World) returns Sized
 	let made = Holder.create(world.layout)
 	world.memo.sized = made
 	return made
 end 'sizedOf'
 
-function measure(mutates world World)
+function measure(world World)
 	world.layout.detail.size = 8
 end 'measure'
 
 function main() returns ExitCode
-	var world = World.create()
+	let world = World.create()
 	let sized = sizedOf(world)
 	measure(world)
 	print("{sized.size()}\n")
@@ -4841,6 +4869,7 @@ end 'main'
 ```
 
 <!-- test: let-escape.a-named-let-holding-a-record-read-from-a-world-is-written-through-the-world -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 `Holder.create` keeps the layout `world` holds, and `made` binds the result with a `let`: the program is accepted, and `sized` reads the write.
 
 ```maxon
@@ -4870,7 +4899,7 @@ type Holder implements Sized
 	export var layout as Layout
 
 	static function create(layout Layout) returns Self
-		return Self{layout: layout.clone()}
+		return Self{layout: layout}
 	end 'create'
 
 	function size() returns Count
@@ -4895,18 +4924,18 @@ type World
 	end 'create'
 end 'World'
 
-function sizedOf(mutates world World) returns Holder
+function sizedOf(world World) returns Holder
 	let made = Holder.create(world.layout)
 	world.memo.sized = made
 	return made
 end 'sizedOf'
 
-function measure(mutates world World)
+function measure(world World)
 	world.layout.detail.size = 8
 end 'measure'
 
 function main() returns ExitCode
-	var world = World.create()
+	let world = World.create()
 	let sized = sizedOf(world)
 	measure(world)
 	print("{sized.size()}\n")
@@ -4921,6 +4950,7 @@ end 'main'
 ```
 
 <!-- test: let-escape.an-interface-typed-let-is-written-through-a-deep-path-to-a-record-it-holds -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 `sigsOf` builds a record around layouts something else may write and stores it into `world` at an interface type: the `let` that binds it is accepted.
 
 ```maxon
@@ -4950,7 +4980,7 @@ type Decl
 	export var layout as Layout
 
 	static function create(layout Layout) returns Self
-		return Self{layout: layout.clone()}
+		return Self{layout: layout}
 	end 'create'
 end 'Decl'
 
@@ -4958,7 +4988,7 @@ type Artifact
 	export var layouts as Layouts
 
 	static function create() returns Self
-		var made = Layouts.create(0)
+		let made = Layouts.create(0)
 		made.push(Layout.create())
 		return Self{layouts: made}
 	end 'create'
@@ -4972,7 +5002,7 @@ type Sigs implements Counted
 	export var decls as Decls
 
 	function count() returns Count
-		return try self.decls.count() as Count otherwise panic("out of range")
+		return self.decls.count() as Count
 	end 'count'
 
 	static function create() returns Self
@@ -4997,8 +5027,8 @@ type World
 	end 'create'
 end 'World'
 
-function sigsOf(mutates world World) returns Counted
-	var made = Sigs.create()
+function sigsOf(world World) returns Counted
+	let made = Sigs.create()
 	for layout in world.artifact.layouts 'each'
 		made.decls.push(Decl.create(layout))
 	end 'each'
@@ -5007,12 +5037,12 @@ function sigsOf(mutates world World) returns Counted
 end 'sigsOf'
 
 function measure(world World)
-	var layout = try world.artifact.layouts.get(0) otherwise return
+	let layout = try world.artifact.layouts.get(0) otherwise return
 	layout.detail.size = 8
 end 'measure'
 
 function main() returns ExitCode
-	var world = World.create()
+	let world = World.create()
 	let sigs = sigsOf(world)
 	measure(world)
 	print("{sigs.count()}\n")
@@ -5027,6 +5057,7 @@ end 'main'
 ```
 
 <!-- test: let-escape.a-record-handed-to-a-generic-method-is-written-through-the-world-in-the-same-call -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 `keep` stores its argument in the keeper's container and writes the world in the same call: the program is accepted, and `layout` reads the write.
 
 ```maxon
@@ -5072,8 +5103,8 @@ type Keeper uses T
 		return Self{items: Items.create(0)}
 	end 'create'
 
-	function keep(mutates self, item T, mutates world World) where T implements Copyable
-		let kept = item.clone()
+	function keep(item T, world World)
+		let kept = item
 		self.items.push(kept)
 		world.artifact.layout.detail.size = 8
 	end 'keep'
@@ -5082,8 +5113,8 @@ end 'Keeper'
 typealias LayoutKeeper = Keeper with Layout
 
 function main() returns ExitCode
-	var world = World.create()
-	var keeper = LayoutKeeper.create()
+	let world = World.create()
+	let keeper = LayoutKeeper.create()
 	let layout = world.artifact.layout
 	keeper.keep(layout, world: world)
 	print("{layout.detail.size}\n")

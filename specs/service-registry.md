@@ -2974,6 +2974,7 @@ error E3197: <fragment>:30:2: cannot write 'x' through 'w.inner', which is immut
 ```
 
 <!-- test: error.a-mutating-method-through-a-shared-value-read -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 A method that writes its receiver is a write too, on anything reached through the read.
 ```maxon
@@ -3034,6 +3035,7 @@ error E3207: <fragment>:17:25: 'push' needs a writable receiver; 'items' is immu
 ```
 
 <!-- test: error.a-shared-value-read-passed-to-a-writing-parameter -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `bump` writes its parameter, so handing it a record reached through the read is refused at the call.
 ```maxon
@@ -3447,6 +3449,7 @@ error E3207: <fragment>:29:7: 'bump' writes 'i' (line 25: `i.x = 9`); 'read' is 
 ```
 
 <!-- test: error.a-shared-value-read-stored-into-a-var-field-is-refused-at-the-store -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 A `var` field may be written by any function the record reaches, and the function that writes it cannot
 see where the field's value came from. So storing a record reached through a read into a `var` field is

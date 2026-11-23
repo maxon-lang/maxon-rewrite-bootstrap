@@ -1359,6 +1359,7 @@ end 'main'
 ```
 
 <!-- test: duplicate-owned-element-co-owns -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 One owned value CAN fill two slots of one record: each slot is a durable sink and takes its own reference,
 so the tuple's drop cascade releases exactly the two it took and `s` releases the one it
 holds.
@@ -2698,6 +2699,7 @@ end 'main'
 ```
 
 <!-- test: a-nested-tuple-and-an-array-of-tuples-fill-function-typed-columns -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 A tuple nested in a tuple, and a tuple written as an element of an array literal, each take the function-typed
 column its position declares.
 ```maxon
@@ -3424,6 +3426,7 @@ end 'main'
 ```
 
 <!-- test: a-trivial-tuple-read-out-of-a-field-is-sent-as-a-copy -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 A trivial tuple read out of a field is sent to a service as a copy: the message carries its own value and the
 field keeps the caller's. Returns 43.
 ```maxon
@@ -3435,7 +3438,7 @@ type Spot
 	export var pair as Pair
 
 	static function create(pair Pair) returns Self
-		return Self{pair: pair.clone()}
+		return Self{pair: pair}
 	end 'create'
 end 'Spot'
 
@@ -3446,8 +3449,8 @@ type Tally
 		return Self{sum: 0}
 	end 'create'
 
-	export function take(mutates self, pair Pair)
-		self.sum = try pair.0 + pair.1 otherwise panic("out of range")
+	export function take(pair Pair)
+		self.sum = pair.0 + pair.1
 	end 'take'
 
 	export function total() returns Num
@@ -3461,7 +3464,7 @@ function main() returns ExitCode
 	try t.take(spot.pair) otherwise panic("an open mailbox with room takes the send")
 	let sum = try await t.total() otherwise panic("the tally is running")
 	t.shutdown()
-	return try sum + spot.pair.0 - 3 otherwise panic("out of range")
+	return sum + spot.pair.0 - 3
 end 'main'
 ```
 ```exitcode
@@ -3639,6 +3642,7 @@ end 'main'
 ```
 
 <!-- test: a-trivial-tuple-a-call-handed-back-is-sent-as-a-copy -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 `echo` hands back a tuple the compiler cannot prove this frame owns alone; a trivial tuple has no identity,
 so it is sent as a copy and `b` keeps its value. Returns 43.
 ```maxon
@@ -3647,7 +3651,7 @@ typealias Num = int(0 to 1000)
 typealias Pair = (Num, Num)
 
 function echo(p Pair) returns Pair
-	return p.clone()
+	return p
 end 'echo'
 
 type Tally
@@ -3657,8 +3661,8 @@ type Tally
 		return Self{sum: 0}
 	end 'create'
 
-	export function take(mutates self, pair Pair)
-		self.sum = try pair.0 + pair.1 otherwise panic("out of range")
+	export function take(pair Pair)
+		self.sum = pair.0 + pair.1
 	end 'take'
 
 	export function total() returns Num
@@ -3673,7 +3677,7 @@ function main() returns ExitCode
 	try t.take(b) otherwise panic("an open mailbox with room takes the send")
 	let sum = try await t.total() otherwise panic("the tally is running")
 	t.shutdown()
-	return try sum + b.0 - 3 otherwise panic("out of range")
+	return sum + b.0 - 3
 end 'main'
 ```
 ```exitcode
@@ -5079,6 +5083,7 @@ end 'main'
 ```
 
 <!-- test: a-tuple-cast-whose-elements-differ-only-by-brand-shares-its-record -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 A cast whose elements all denote the same type, here differing only by the brand of a container, is a retag: the two names share the record.
 ```maxon
 typealias Item = int(0 to 1000)
@@ -5092,14 +5097,14 @@ typealias XPair = (Xs, Item)
 typealias YPair = (Ys, Item)
 
 function pairOf(n Item) returns XPair
-	var xs = Xs.create(0)
+	let xs = Xs.create(0)
 	xs.push(n)
 	return (xs, n)
 end 'pairOf'
 
 function main() returns ExitCode
-	var source = pairOf(7)
-	var result = source as YPair
+	let source = pairOf(7)
+	let result = source as YPair
 	source.1 = 8
 	result.1 = 9
 	print("{source.1} {result.1}\n")
@@ -5137,6 +5142,7 @@ error E3009: <fragment>:10:12: Cannot cast from a tuple of 2 elements to a tuple
 ```
 
 <!-- test: error.a-tuple-cast-refuses-to-freeze-an-element -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 A tuple cast keeps each element's capability: changing one would let a write through the other name reach a frozen element, or a frozen element be written.
 ```maxon
@@ -5170,6 +5176,7 @@ error E3226: <fragment>:16:22: Cannot cast element 0 of a tuple from 'Box' to 'i
 ```
 
 <!-- test: error.a-tuple-cast-refuses-to-thaw-an-element -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 ```maxon
 typealias Wide = int(0 to 1000)
@@ -5202,6 +5209,7 @@ error E3226: <fragment>:16:22: Cannot cast element 0 of a tuple from 'immutable 
 ```
 
 <!-- test: error.a-tuple-cast-refuses-to-freeze-an-element-of-a-nested-tuple -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 ```maxon
 typealias Wide = int(0 to 1000)
@@ -5234,6 +5242,7 @@ error E3226: <fragment>:16:22: Cannot cast element 0.1 of a tuple from 'Box' to 
 ```
 
 <!-- test: error.a-tuple-literal-cast-refuses-to-freeze-a-mutable-element -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 ```maxon
 typealias Wide = int(0 to 1000)
@@ -5323,6 +5332,7 @@ end 'main'
 ```
 
 <!-- test: error.a-tuple-literal-cast-refuses-to-freeze-a-freshly-built-element -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 ```maxon
 typealias Wide = int(0 to 1000)
@@ -5436,6 +5446,7 @@ end 'main'
 ```
 
 <!-- test: error.a-tuple-cast-refuses-to-freeze-a-generic-service-handle-element -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 ```maxon
 typealias Wide = int(0 to 1000)
@@ -5474,6 +5485,7 @@ error E3226: <fragment>:20:22: Cannot cast element 0 of a tuple from 'WideBoxHan
 ```
 
 <!-- test: error.a-tuple-cast-refuses-to-freeze-a-shared-value-element -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 ```maxon
 typealias Wide = int(0 to 1000)

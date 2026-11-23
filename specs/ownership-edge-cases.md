@@ -1001,6 +1001,7 @@ end 'main'
 ```
 
 <!-- test: rc-multiple-aliases-freed-once -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 Three aliases to the same object; the object is freed exactly once when the last alias leaves scope.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -1017,7 +1018,7 @@ function main() returns ExitCode
 	@heap let a = Data.create(7)
 	let b = a
 	let c = a
-	return try a.n + b.n + c.n otherwise panic("out of range")
+	return a.n + b.n + c.n
 end 'main'
 ```
 ```exitcode

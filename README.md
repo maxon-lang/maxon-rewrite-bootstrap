@@ -72,7 +72,7 @@ the rest, with line endings made LF. A test whose conversion warned, or whose so
 `<!-- skip: kind -->` line per kind of warning after its test marker; the runner skips and counts it, and every other test
 runs. `--check` over the specs, and the summary at the end of a conversion, give the tests converted cleanly and skipped and
 the kinds by tests blocked, most blocking first. Then `fix specs` applies the fixes that minimaxon's language differences
-name (a `try`, a cast, `.clone()`, `consumes`, `mutates`, `mutates self`, `var`, `borrowed` on a result that a requirement lends, the bound `where T implements Copyable` or `Droppable` that a generic body needs, written in the function's header, the module written before a bare name that means one declaration of another module, as `qualify` writes it) to every test that runs a program; a test
+name (a `try`, a cast, `.clone()`, `consumes`, `match consumes`, `mutates`, `mutates self`, `var`, `borrowed` on a result that a requirement lends, the bound `where T implements Copyable` or `Droppable` that a generic body needs, written in the function's header, the module written before a bare name that means one declaration of another module, as `qualify` writes it) to every test that runs a program; a test
 that expects maxon's run-time trap where the fix adds a `try` gets a `<!-- skip: language difference: ... -->` line
 instead, and so does a test that expects a compile error which minimaxon reports first under another code for a known reason
 (the pairs of `self/driver/skips.tsv`, generated into `codeSkipTable`: ownership refused by another rule, the syntax error, operand
@@ -85,8 +85,9 @@ IEEE's). A test that expects a compile error and is first refused under another 
 expected one, round by round, until the first error is the expected one, and a `<!-- positions: moved -->` line, since the
 fixes move text; if that is never reached, it is skipped when the code left after the fixes and the expected one are a
 pair of the table, or when the first code left after the fixes is one of the table's `first` rows (`E3057`: arithmetic
-that needs a proof is asked for before what maxon reports), and otherwise left as it was; a program that checks clean after the fixes is never skipped: it gets the fixes and a `<!-- positions: moved -->` line, and the test fails for the diagnostic that minimaxon lacks. A test whose program changes the collection that its `for`
-walks gets `<!-- skip: language difference: a loop holds the collection it walks -->`. `specs.ps1` runs both and then the new tests (see "Tests"); `specs/README.md` has the command, and the directory is
+that needs a proof is asked for before what maxon reports), and otherwise left as it was; a program that checks clean after the fixes is never skipped: it gets the fixes and a `<!-- positions: moved -->` line, and the test fails for the diagnostic that minimaxon lacks. A test whose first diagnostic left after the fixes has a cause that the table's `cause` rows name, and is not the
+code it expects, is skipped with that row's reason: a program that changes the collection its `for` walks (a loop holds
+the collection it walks), or a handler that binds a payload of `SendError` or `SubprocessError`. `specs.ps1` runs both and then the new tests (see "Tests"); `specs/README.md` has the command, and the directory is
 never edited by hand, except that the runner writes `specs/passed.txt` (see "Tests").
 
 `--debug-info` (on `build`) writes the executable's debug info beside it, as `<out>.mxdbg`, and leaves the executable byte for byte the one a build without it makes; `--no-debug-info`, maxon's spelling, writes none, as a build does by default (see "Debug info").
@@ -4496,7 +4497,8 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   never waits on another party (the spec tests that run one are skipped with that reason). A
   factory that throws runs on the spawner's green thread, where maxon's runs on the service's while the spawner waits.
   A send's error is the built-in `SendError` (`mailboxFull`, `serviceStopped`) and gives the arguments no way back,
-  where maxon's `<Service>.<message>.sendError` carries them. Not yet: `sendTimeout:`, interface handles (`I.handle`),
+  where maxon's `<Service>.<message>.sendError` carries them (the spec tests whose handler binds them are skipped with
+  that reason). Not yet: `sendTimeout:`, interface handles (`I.handle`),
   `T.request`, `acquire`, `reply.later()`, `SharedValue`, `default`, a generic service, a message with type parameters,
   one `try await h.m()` over a message that throws, and services in the interpreter.
 - No alias subtyping (an alias implementing another), characters, region capabilities (`isolated` and `immutable` of a
@@ -4505,7 +4507,24 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   "Immutable values, cowns and behaviours"), with an interpreter that runs all of it and a native backend that runs
   all but the list and the pool. `freeze` is a function here, `when` is a statement that takes cowns and gives names to their values,
   and a frozen value is a type, `frozen with T`, where Maxon recovers immutability from facts about a value's history.
-  The grammar has none of the rest, so each is a syntax error.
+  The grammar has none of the rest, so each is a syntax error. Maxon's codes for the rules of its regions (`E3196`,
+  `E3198` to `E3203`, `E3205` to `E3209`, `E3211`, `E3214`, `E3226`) are not raised, and the spec tests that expect one
+  are skipped with that reason.
+- **A value has one owner** (see "Ownership"): binding a place (`let b = a`), storing it, returning it and passing it
+  to `consumes` or into an interface value move it, and using the old name afterwards is `E3102`, where maxon's names
+  share one record by a reference count and each sees the other's writes; `.clone()` gives a copy that changes alone. A
+  plain `match` borrows its subject, so an arm that moves a payload out (into a destructor or a `consumes` parameter)
+  needs `match consumes`, which `fix` writes, taking a `let` parameter that is the subject `consumes` too, where maxon's
+  arm takes the payload. The spec tests that use a value after it moved are skipped with that reason.
+- **A `let` is a read-only place**: a `let` local, a `let` field, a `let` parameter and a match binding are not changed
+  through, by a store into a field of it, a `mutates` method or a `mutates` argument (`E2013`), where maxon's `let`
+  only forbids rebinding the name and the record it names is written through it. `fix` declares a `let` local `var`
+  where that is enough; the spec tests that write through a match binding, a `let` field or a parameter are skipped
+  with that reason.
+- **No two names reach one place in a call** (see "Ownership"): a place passed `mutates`, `consumes` or `sets` overlaps
+  no other argument, and a place that a call, an operand or an assignment holds while the rest of it is evaluated is
+  not changed meanwhile (`E3186`), where maxon's call shares the place by its reference count. The spec tests that
+  hand one place to a call twice, or change it while it is held, are skipped with that reason.
 - Array and map literals (see "Primitives") are the maxon literals without a literal spread over several
   lines or constant image data: a `let` literal is a fresh `Array` or library `Map` like any other value, not an immutable image shared by its
   uses, and its bare numbers keep their range as the element type of that one array instead of fitting any alias at each use, so
@@ -4593,7 +4612,7 @@ the checker reports where Maxon's parser does, as it needs the type of the value
 - It checks only the rules that the generated code depends on. The style rules are left out: an unused
   name (`E3012`) or typealias (`E3062`), a `var` that is never reassigned (`E3077`), a label naming the innermost block (`E2048`),
   an unneeded cast (`E3010`, so a cast to the type a value has is accepted), self-assignment or `_ =` on a non-call (`E3067`), a one-value range pattern
-  (`E2027`), all bindings discarded (`E3081`), and the lint rules (`E3064`, `E3065`, `E3092`, `E3219`).
+  (`E2027`), all bindings discarded (`E3081`), and the lint rules (`E3064`, `E3065`, `E3087`, `E3092`, `E3097`, `E3219`).
 - A diagnostic with a maxon code has maxon's code and position, except where the language differs; its text is
   minimaxon's own, and the spec runner compares a diagnostic by its code, line and column alone. The text keeps
   minimaxon's own words where it names a keyword or a form that maxon spells otherwise (`mutates` for `mutable`, so a

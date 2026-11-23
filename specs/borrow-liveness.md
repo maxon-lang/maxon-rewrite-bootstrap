@@ -1842,6 +1842,7 @@ end 'main'
 ```
 
 <!-- test: a-managed-field-handed-to-the-method-that-writes-its-owner -->
+<!-- skip: language difference: a place passed mutates, consumes or sets overlaps nothing else the call or the statement holds, where maxon shares the place by a reference count -->
 ### The receiver and one of its fields, handed to a method that replaces the field
 `replace` stores over `self.s`, the field its argument was read out of. The argument holds its own
 reference, so the store releases only the field's, and `other` still names the bytes `fill` built.
@@ -1855,7 +1856,7 @@ type Cell
 		return Cell{s: ""}
 	end 'create'
 
-	function fill(mutates self, n Count)
+	function fill(n Count)
 		var t = ""
 		for _ in 0 upto n 'grow'
 			t = "{t}x"
@@ -1863,14 +1864,14 @@ type Cell
 		self.s = t
 	end 'fill'
 
-	function replace(mutates self, other String) returns String
+	function replace(other String) returns String
 		self.s = "replaced"
 		return "[{other}]"
 	end 'replace'
 end 'Cell'
 
 function main() returns ExitCode
-	var a = Cell.create()
+	let a = Cell.create()
 	a.fill(10)
 	let out = a.replace(a.s)
 	print("{out} {a.s}\n")
@@ -1885,6 +1886,7 @@ end 'main'
 ```
 
 <!-- test: a-managed-field-handed-to-a-free-callee-beside-its-owner -->
+<!-- skip: language difference: a place passed mutates, consumes or sets overlaps nothing else the call or the statement holds, where maxon shares the place by a reference count -->
 ### The free-function spelling: the owner and its field, in two argument columns
 `clobber` is handed `b` for `c` together with `b.s`, and stores over `c.s`; `borrowed` holds its own
 reference to the record the store replaces.
@@ -1898,7 +1900,7 @@ type Cell
 		return Cell{s: ""}
 	end 'create'
 
-	function fill(mutates self, n Count)
+	function fill(n Count)
 		var t = ""
 		for _ in 0 upto n 'grow'
 			t = "{t}x"
@@ -1907,13 +1909,13 @@ type Cell
 	end 'fill'
 end 'Cell'
 
-function clobber(mutates c Cell, borrowed String) returns String
+function clobber(c Cell, borrowed String) returns String
 	c.s = "clobbered"
 	return "[{borrowed}]"
 end 'clobber'
 
 function main() returns ExitCode
-	var b = Cell.create()
+	let b = Cell.create()
 	b.fill(10)
 	let out = clobber(b, borrowed: b.s)
 	print("{out} {b.s}\n")
@@ -2234,6 +2236,7 @@ total 5
 ```
 
 <!-- test: a-borrowed-field-survives-its-root-handed-to-a-consuming-constructor -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 ### A consuming argument co-owns the root, so a field read out of it stays alive
 `Holder.create(b)` stores `b` and takes a reference of its own; `b` keeps its own, so `inner` names a live record.
 ```maxon
@@ -2259,7 +2262,7 @@ type Holder
 	export var box as Outer
 
 	static function create(box Outer) returns Self
-		return Self{box: box.clone()}
+		return Self{box: box}
 	end 'create'
 end 'Holder'
 
@@ -2279,6 +2282,7 @@ end 'main'
 ```
 
 <!-- test: a-borrowed-field-survives-the-co-owner-of-its-root-letting-go -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 ### The record a consuming constructor co-owns outlives that co-owner
 Replacing `h.box` releases the holder's reference; `b`'s own still keeps the record and the field `inner` names.
 ```maxon
@@ -2304,14 +2308,14 @@ type Holder
 	export var box as Outer
 
 	static function create(box Outer) returns Self
-		return Self{box: box.clone()}
+		return Self{box: box}
 	end 'create'
 end 'Holder'
 
 function main() returns ExitCode
 	let b = Outer.create(1)
 	let inner = b.inner
-	var h = Holder.create(b)
+	let h = Holder.create(b)
 	h.box = Outer.create(5)
 	print("{inner.label.byteLength()} {h.box.inner.label.byteLength()} {b.inner.label.byteLength()}\n")
 	return 0
@@ -2325,6 +2329,7 @@ end 'main'
 ```
 
 <!-- test: a-borrowed-field-survives-the-field-its-root-was-stored-into-being-replaced -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 ### A field store co-owns the root, so replacing that field frees nothing a field read names
 `h.box = b` takes a reference of its own, so replacing `h.box` again releases only that one.
 ```maxon
@@ -2350,14 +2355,14 @@ type Holder
 	export var box as Outer
 
 	static function create(box Outer) returns Self
-		return Self{box: box.clone()}
+		return Self{box: box}
 	end 'create'
 end 'Holder'
 
 function main() returns ExitCode
 	let b = Outer.create(1)
 	let inner = b.inner
-	var h = Holder.create(Outer.create(0))
+	let h = Holder.create(Outer.create(0))
 	h.box = b
 	h.box = Outer.create(5)
 	print("{inner.label.byteLength()} {b.inner.label.byteLength()}\n")
@@ -2372,6 +2377,7 @@ end 'main'
 ```
 
 <!-- test: a-borrowed-field-survives-its-root-pushed-into-a-cleared-container -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 ### A container store co-owns the root, so clearing the container frees nothing a field read names
 `xs.push(b)` takes a reference of its own, so clearing `xs` releases only that one.
 ```maxon
@@ -2398,7 +2404,7 @@ typealias Outers = Array with Outer
 function main() returns ExitCode
 	let b = Outer.create(1)
 	let inner = b.inner
-	var xs = Outers.create(0)
+	let xs = Outers.create(0)
 	xs.push(b)
 	xs.clear()
 	print("{inner.label.byteLength()} {xs.count()} {b.inner.label.byteLength()}\n")
@@ -2413,6 +2419,7 @@ end 'main'
 ```
 
 <!-- test: a-captured-borrowed-field-survives-the-co-owner-of-its-root-letting-go -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 ### A closure holding a field read out of the root still reads a live record after the root's co-owner lets go
 The closure reads `inner` after the holder lets go of its reference to `b`'s record, which `b` still keeps.
 ```maxon
@@ -2438,7 +2445,7 @@ type Holder
 	export var box as Outer
 
 	static function create(box Outer) returns Self
-		return Self{box: box.clone()}
+		return Self{box: box}
 	end 'create'
 end 'Holder'
 
@@ -2446,7 +2453,7 @@ function main() returns ExitCode
 	let b = Outer.create(1)
 	let inner = b.inner
 	let peek = function() gives inner.label.byteLength()
-	var h = Holder.create(b)
+	let h = Holder.create(b)
 	h.box = Outer.create(5)
 	print("{peek()} {h.box.inner.label.byteLength()}\n")
 	return 0
@@ -2460,6 +2467,7 @@ end 'main'
 ```
 
 <!-- test: a-field-read-survives-a-move-of-its-root-into-a-nested-block -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 ### The binding a root moves into is dropped at its block's end, and a field read out of the root survives
 `let r = b` moves the record into `r`, which is dropped at the end of `nested`; `inner` holds its own reference.
 ```maxon
@@ -2501,6 +2509,7 @@ end 'main'
 ```
 
 <!-- test: a-field-read-survives-a-match-give-of-its-root -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 ### A match arm that gives the root away, to a binding then rebound
 The `first` arm moves `b` into the match's result, which `r = Outer.create(3)` then releases; `inner` holds its own reference.
 ```maxon
@@ -2588,6 +2597,7 @@ end 'main'
 ```
 
 <!-- test: a-field-read-survives-a-rebind-of-the-binding-its-root-moved-into -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 ### A reassignment that moves the root, then a rebind of the binding it moved into
 `c = b` moves the record into `c`, and rebinding `c` releases that reference; `inner` holds its own.
 ```maxon
@@ -2947,6 +2957,7 @@ end 'main'
 ```
 
 <!-- test: a-borrowed-field-follows-its-root-into-a-binding-of-the-same-block -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 ### A move of the root into a binding of the same block
 `r` owns the record from `let r = b` until the end of `main`, which outlives every read of `inner`.
 ```maxon
@@ -3143,6 +3154,7 @@ end 'main'
 ```
 
 <!-- test: a-field-read-as-a-left-operand-survives-the-right-operand-reassigning-the-field -->
+<!-- skip: language difference: a place passed mutates, consumes or sets overlaps nothing else the call or the statement holds, where maxon shares the place by a reference count -->
 ### A field read as a comparison's LEFT operand survives a right operand that reassigns the field
 `self.name` is read before `self.swapName()` runs; the comparison sees the original name, which
 equals the text `swapName` returns.
@@ -3151,25 +3163,25 @@ type Person
 	var name as String
 
 	static function create(name String) returns Self
-		return Self{name: name.clone()}
+		return Self{name: name}
 	end 'create'
 
 	function current() returns String
-		return name.clone()
+		return name
 	end 'current'
 
-	function swapName(mutates self) returns String
+	function swapName() returns String
 		self.name = "swapped {40 + 2} value long enough for a heap record"
 		return "original {40 + 2} value long enough for a heap record"
 	end 'swapName'
 
-	function keptOriginal(mutates self) returns bool
+	function keptOriginal() returns bool
 		return self.name == self.swapName()
 	end 'keptOriginal'
 end 'Person'
 
 function main() returns ExitCode
-	var p = Person.create("original {40 + 2} value long enough for a heap record")
+	let p = Person.create("original {40 + 2} value long enough for a heap record")
 	print("{p.keptOriginal()}\n")
 	print("[{p.current()}]\n")
 	return 0
@@ -3333,6 +3345,7 @@ end 'main'
 ```
 
 <!-- test: an-argument-read-through-a-var-field-survives-the-callee-rebinding-that-field -->
+<!-- skip: language difference: a place passed mutates, consumes or sets overlaps nothing else the call or the statement holds, where maxon shares the place by a reference count -->
 ### … and as an argument, beside the record the callee rebinds the field of
 `c.inner.name` is read through the `var` field `inner` and handed to `clobber` beside `c`; `clobber`
 replaces `o.inner`, and `name` still holds its own reference.
@@ -3341,7 +3354,7 @@ type Inner
 	export var name as String
 
 	static function create(name String) returns Self
-		return Self{name: name.clone()}
+		return Self{name: name}
 	end 'create'
 end 'Inner'
 
@@ -3353,14 +3366,14 @@ type Outer
 	end 'create'
 end 'Outer'
 
-function clobber(mutates o Outer, name String) returns String
+function clobber(o Outer, name String) returns String
 	o.inner = Inner.create("replacement {9} padded out long enough for the heap")
 	let filler = "filler {3} padded out long enough for the heap"
 	return "[{name}] [{o.inner.name}] [{filler}]"
 end 'clobber'
 
 function main() returns ExitCode
-	var c = Outer.create("third {40 + 4} padded out long enough for the heap")
+	let c = Outer.create("third {40 + 4} padded out long enough for the heap")
 	print("{clobber(c, name: c.inner.name)}\n")
 	return 0
 end 'main'
@@ -3373,6 +3386,7 @@ end 'main'
 ```
 
 <!-- test: a-field-write-resolves-its-target-after-the-right-hand-side-rebinds-the-chain -->
+<!-- skip: language difference: a place passed mutates, consumes or sets overlaps nothing else the call or the statement holds, where maxon shares the place by a reference count -->
 ### A field write resolves its target after the right-hand side, which may rebind the record it writes into
 The right-hand side runs first and the target path is resolved afterwards: `x.dropInner()` replaces
 `x.inner`, then `x.inner` names the new `Inner` and the store lands in it, so the new `x.inner` holds the
@@ -3382,7 +3396,7 @@ type Inner
 	export var name as String
 
 	static function create(name String) returns Self
-		return Self{name: name.clone()}
+		return Self{name: name}
 	end 'create'
 end 'Inner'
 
@@ -3393,14 +3407,14 @@ type Outer
 		return Self{inner: Inner.create(name)}
 	end 'create'
 
-	function dropInner(mutates self) returns String
+	function dropInner() returns String
 		self.inner = Inner.create("replacement {7} padded out long enough for the heap")
 		return "stored {5} padded out long enough for the heap"
 	end 'dropInner'
 end 'Outer'
 
 function main() returns ExitCode
-	var x = Outer.create("original {40 + 2} padded out long enough for the heap")
+	let x = Outer.create("original {40 + 2} padded out long enough for the heap")
 	x.inner.name = x.dropInner()
 	let filler = Inner.create("filler {1} padded out long enough for the heap")
 	let filler2 = Inner.create("filler {2} padded out long enough for the heap")
@@ -3416,6 +3430,7 @@ end 'main'
 ```
 
 <!-- test: a-two-hop-field-write-resolves-its-target-after-the-right-hand-side-rebinds-the-middle-hop -->
+<!-- skip: language difference: a place passed mutates, consumes or sets overlaps nothing else the call or the statement holds, where maxon shares the place by a reference count -->
 ### … and through two hops, when the right-hand side rebinds the middle one
 `x.dropLeaf()` replaces `x.middle.leaf` first; `x.middle.leaf.name` is resolved afterwards, so the store
 lands in the new `Leaf`.
@@ -3424,7 +3439,7 @@ type Leaf
 	export var name as String
 
 	static function create(name String) returns Self
-		return Self{name: name.clone()}
+		return Self{name: name}
 	end 'create'
 end 'Leaf'
 
@@ -3443,14 +3458,14 @@ type Outer
 		return Self{middle: Middle.create(name)}
 	end 'create'
 
-	function dropLeaf(mutates self) returns String
+	function dropLeaf() returns String
 		self.middle.leaf = Leaf.create("replacement {7} padded out long enough for the heap")
 		return "stored {5} padded out long enough for the heap"
 	end 'dropLeaf'
 end 'Outer'
 
 function main() returns ExitCode
-	var x = Outer.create("original {40 + 2} padded out long enough for the heap")
+	let x = Outer.create("original {40 + 2} padded out long enough for the heap")
 	x.middle.leaf.name = x.dropLeaf()
 	let filler = Leaf.create("filler {1} padded out long enough for the heap")
 	let filler2 = Leaf.create("filler {2} padded out long enough for the heap")
@@ -3466,6 +3481,7 @@ end 'main'
 ```
 
 <!-- test: a-union-payload-read-survives-a-later-payload-reassigning-the-field -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 ### A field read as a union payload survives a later payload that reassigns the field
 `x.label` is read before `x.reset()` runs; the payload holds its own reference, so the reassignment's
 release of the old label leaves the case's first payload intact.
@@ -3479,10 +3495,10 @@ type Holder
 	export var label as String
 
 	static function create(label String) returns Self
-		return Self{label: label.clone()}
+		return Self{label: label}
 	end 'create'
 
-	function reset(mutates self) returns String
+	function reset() returns String
 		self.label = "replacement {7} padded out long enough for the heap"
 		return "second {5} padded out long enough for the heap"
 	end 'reset'
@@ -3496,7 +3512,7 @@ function describe(p Pair) returns String
 end 'describe'
 
 function main() returns ExitCode
-	var x = Holder.create("original {40 + 2} padded out long enough for the heap")
+	let x = Holder.create("original {40 + 2} padded out long enough for the heap")
 	let p = Pair.both(x.label, second: x.reset())
 	let filler = "filler {1} padded out long enough for the heap"
 	print("{describe(p)} [{x.label}] [{filler}]\n")
@@ -3551,23 +3567,24 @@ end 'main'
 ```
 
 <!-- test: a-tuple-element-read-survives-a-later-element-reassigning-the-field -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 ### … as a tuple element, beside a later element that reassigns it
 ```maxon
 type Holder
 	export var label as String
 
 	static function create(label String) returns Self
-		return Self{label: label.clone()}
+		return Self{label: label}
 	end 'create'
 
-	function reset(mutates self) returns String
+	function reset() returns String
 		self.label = "replacement {7} padded out long enough for the heap"
 		return "second {5} padded out long enough for the heap"
 	end 'reset'
 end 'Holder'
 
 function main() returns ExitCode
-	var x = Holder.create("original {40 + 2} padded out long enough for the heap")
+	let x = Holder.create("original {40 + 2} padded out long enough for the heap")
 	let pair = (x.label, x.reset())
 	let filler = "filler {1} padded out long enough for the heap"
 	print("[{pair.0}] [{pair.1}] [{x.label}] [{filler}]\n")
@@ -3582,6 +3599,7 @@ end 'main'
 ```
 
 <!-- test: an-indirect-call-argument-read-survives-a-later-argument-reassigning-the-field -->
+<!-- skip: language difference: a place passed mutates, consumes or sets overlaps nothing else the call or the statement holds, where maxon shares the place by a reference count -->
 ### … as an argument of a call through a function value, beside a later argument that reassigns it
 ```maxon
 typealias Joiner = function(String, String) returns String
@@ -3590,10 +3608,10 @@ type Holder
 	export var label as String
 
 	static function create(label String) returns Self
-		return Self{label: label.clone()}
+		return Self{label: label}
 	end 'create'
 
-	function reset(mutates self) returns String
+	function reset() returns String
 		self.label = "replacement {7} padded out long enough for the heap"
 		return "second {5} padded out long enough for the heap"
 	end 'reset'
@@ -3604,12 +3622,12 @@ function join(first String, second String) returns String
 	return "[{first}] [{second}] [{filler}]"
 end 'join'
 
-function combine(mutates x Holder, f Joiner) returns String
+function combine(x Holder, f Joiner) returns String
 	return f(x.label, x.reset())
 end 'combine'
 
 function main() returns ExitCode
-	var x = Holder.create("original {40 + 2} padded out long enough for the heap")
+	let x = Holder.create("original {40 + 2} padded out long enough for the heap")
 	print("{combine(x, f: join)} [{x.label}]\n")
 	return 0
 end 'main'
@@ -3658,16 +3676,17 @@ end 'main'
 ```
 
 <!-- test: a-service-send-argument-read-survives-a-later-argument-reassigning-the-field -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 ### … as an argument of a message to a service, beside a later argument that reassigns it
 ```maxon
 type Holder
 	export var label as String
 
 	static function create(label String) returns Self
-		return Self{label: label.clone()}
+		return Self{label: label}
 	end 'create'
 
-	function reset(mutates self) returns String
+	function reset() returns String
 		self.label = "replacement {7} padded out long enough for the heap"
 		return "second {5} padded out long enough for the heap"
 	end 'reset'
@@ -3688,7 +3707,7 @@ end 'Joiner'
 
 function main() returns ExitCode
 	let h = spawn Joiner.create()
-	var x = Holder.create("original {40 + 2} padded out long enough for the heap")
+	let x = Holder.create("original {40 + 2} padded out long enough for the heap")
 	let text = try await h.take(x.label, second: x.reset()) otherwise "failed"
 	print("{text} [{x.label}]\n")
 	return 0
@@ -3702,6 +3721,7 @@ end 'main'
 ```
 
 <!-- test: a-field-read-as-an-equals-receiver-survives-its-argument-reassigning-the-field -->
+<!-- skip: language difference: a place passed mutates, consumes or sets overlaps nothing else the call or the statement holds, where maxon shares the place by a reference count -->
 ### A field read as the receiver of `equals` survives an argument that reassigns the field
 `self.name` is read before `self.swapName()` runs; the comparison sees the original name, which differs
 from the text `swapName` returns.
@@ -3710,25 +3730,25 @@ type Person
 	var name as String
 
 	static function create(name String) returns Self
-		return Self{name: name.clone()}
+		return Self{name: name}
 	end 'create'
 
 	function current() returns String
-		return name.clone()
+		return name
 	end 'current'
 
-	function swapName(mutates self) returns String
+	function swapName() returns String
 		self.name = "swapped {40 + 2} value long enough for a heap record"
 		return "returned {40 + 2} value long enough for a heap record"
 	end 'swapName'
 
-	function keptOriginal(mutates self) returns bool
+	function keptOriginal() returns bool
 		return self.name.equals(self.swapName())
 	end 'keptOriginal'
 end 'Person'
 
 function main() returns ExitCode
-	var p = Person.create("original {40 + 2} value long enough for a heap record")
+	let p = Person.create("original {40 + 2} value long enough for a heap record")
 	print("{p.keptOriginal()}\n")
 	let filler = "filler {1} value long enough for a heap record"
 	print("[{p.current()}] [{filler}]\n")
@@ -3744,6 +3764,7 @@ false
 ```
 
 <!-- test: an-indirect-call-last-argument-read-survives-the-callee-reassigning-the-field -->
+<!-- skip: language difference: a place passed mutates, consumes or sets overlaps nothing else the call or the statement holds, where maxon shares the place by a reference count -->
 ### A field read as the last argument of a call through a function value survives the callee reassigning the field
 `x.label` is the last argument, so no later argument frees it; the callee does, by resetting
 `h.label` before it reads `s`. The argument holds its own reference, so `s` is still the original label.
@@ -3754,10 +3775,10 @@ type Holder
 	export var label as String
 
 	static function create(label String) returns Self
-		return Self{label: label.clone()}
+		return Self{label: label}
 	end 'create'
 
-	function reset(mutates self)
+	function reset()
 		self.label = "replacement {7} padded out long enough for the heap"
 	end 'reset'
 end 'Holder'
@@ -3768,12 +3789,12 @@ function clobberThenRead(mutates h Holder, s String) returns String
 	return "[{s}] [{filler}]"
 end 'clobberThenRead'
 
-function readThrough(mutates x Holder, f Reader) returns String
+function readThrough(x Holder, f Reader) returns String
 	return f(x, x.label)
 end 'readThrough'
 
 function main() returns ExitCode
-	var x = Holder.create("original {40 + 2} padded out long enough for the heap")
+	let x = Holder.create("original {40 + 2} padded out long enough for the heap")
 	print("{readThrough(x, f: clobberThenRead)} [{x.label}]\n")
 	return 0
 end 'main'
@@ -3829,23 +3850,24 @@ end 'main'
 ```
 
 <!-- test: a-map-literal-key-read-survives-its-value-reassigning-the-field -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 ### A field read as a map literal's key survives its value reassigning the field
 ```maxon
 type Holder
 	export var label as String
 
 	static function create(label String) returns Self
-		return Self{label: label.clone()}
+		return Self{label: label}
 	end 'create'
 
-	function reset(mutates self) returns String
+	function reset() returns String
 		self.label = "replacement {7} padded out long enough for the heap"
 		return "second {5} padded out long enough for the heap"
 	end 'reset'
 end 'Holder'
 
 function main() returns ExitCode
-	var x = Holder.create("original {40 + 2} padded out long enough for the heap")
+	let x = Holder.create("original {40 + 2} padded out long enough for the heap")
 	let m = [x.label: x.reset()]
 	let filler = "filler {1} padded out long enough for the heap"
 	let found = try m.get("original {40 + 2} padded out long enough for the heap") otherwise "missing"
@@ -3861,6 +3883,7 @@ end 'main'
 ```
 
 <!-- test: an-array-push-resolves-its-receiver-after-its-argument-reassigns-the-field -->
+<!-- skip: language difference: a place passed mutates, consumes or sets overlaps nothing else the call or the statement holds, where maxon shares the place by a reference count -->
 ### A call resolves its receiver path after its arguments, so `push` goes to the array an argument installed
 `x.reset()` runs first and installs a fresh array in `x.items`; `x.items` is resolved afterwards, so the
 pushed text lands in the new array beside the one `reset` put there.
@@ -3871,13 +3894,13 @@ type Holder
 	export var items as StringArray
 
 	static function create() returns Self
-		var items = StringArray.create(0)
+		let items = StringArray.create(0)
 		items.push("original {40 + 2} padded out long enough for the heap")
 		return Self{items: items}
 	end 'create'
 
-	function reset(mutates self) returns String
-		var fresh = StringArray.create(0)
+	function reset() returns String
+		let fresh = StringArray.create(0)
 		fresh.push("replacement {7} padded out long enough for the heap")
 		self.items = fresh
 		return "pushed {5} padded out long enough for the heap"
@@ -3885,9 +3908,9 @@ type Holder
 end 'Holder'
 
 function main() returns ExitCode
-	var x = Holder.create()
+	let x = Holder.create()
 	x.items.push(x.reset())
-	var filler = StringArray.create(0)
+	let filler = StringArray.create(0)
 	filler.push("filler {1} padded out long enough for the heap")
 	filler.push("filler {2} padded out long enough for the heap")
 	print("{x.items.count()} [{try x.items.get(0) otherwise "none"}] [{try filler.get(0) otherwise "none"}]\n")
@@ -3902,6 +3925,7 @@ end 'main'
 ```
 
 <!-- test: a-user-method-called-on-a-field-path-resolves-its-receiver-after-its-argument-replaces-the-field -->
+<!-- skip: language difference: a place passed mutates, consumes or sets overlaps nothing else the call or the statement holds, where maxon shares the place by a reference count -->
 ### … and a method the program declares, called on a field path, goes to the record an argument installed
 `x.dropInner()` runs first and replaces `x.inner`; `x.inner` is resolved afterwards, so `rename` is called
 on the new `Inner` and the new `x.inner` holds the text it was given.
@@ -3910,11 +3934,11 @@ type Inner
 	export var name as String
 
 	static function create(name String) returns Self
-		return Self{name: name.clone()}
+		return Self{name: name}
 	end 'create'
 
-	function rename(mutates self, text String)
-		self.name = text.clone()
+	function rename(text String)
+		self.name = text
 	end 'rename'
 end 'Inner'
 
@@ -3925,14 +3949,14 @@ type Outer
 		return Self{inner: Inner.create(name)}
 	end 'create'
 
-	function dropInner(mutates self) returns String
+	function dropInner() returns String
 		self.inner = Inner.create("replacement {7} padded out long enough for the heap")
 		return "stored {5} padded out long enough for the heap"
 	end 'dropInner'
 end 'Outer'
 
 function main() returns ExitCode
-	var x = Outer.create("original {40 + 2} padded out long enough for the heap")
+	let x = Outer.create("original {40 + 2} padded out long enough for the heap")
 	x.inner.rename(x.dropInner())
 	let filler = Inner.create("filler {1} padded out long enough for the heap")
 	let filler2 = Inner.create("filler {2} padded out long enough for the heap")
@@ -4249,6 +4273,7 @@ t.1=99 p.1=2
 ```
 
 <!-- test: a-let-field-array-through-a-merge-into-a-writing-callee-is-written -->
+<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 ### A `let` field's array handed through a merge to a callee that writes it is written, as the bare read is
 
 ```maxon
@@ -4264,7 +4289,7 @@ type Holder
 	end 'create'
 end 'Holder'
 
-function grow(mutates a CountArray)
+function grow(a CountArray)
 	a.push(2)
 end 'grow'
 
@@ -4285,6 +4310,7 @@ end 'main'
 ```
 
 <!-- test: a-let-fields-record-merged-into-a-var-is-writable -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 ### A `let` field's record merged into a `var` is a writable name for it
 
 ```maxon
@@ -4313,7 +4339,7 @@ end 'fresh'
 function main() returns ExitCode
 	let h = Outer.create()
 	let c = h.inner.n == 1
-	var t = h.inner if c else fresh()
+	let t = h.inner if c else fresh()
 	t.n = 5
 	print("{h.inner.n}\n")
 	return 0
@@ -4421,13 +4447,14 @@ end 'main'
 ```
 
 <!-- test: a-let-fields-string-merged-into-a-var-is-a-writable-copy -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 ### A `let` field's `String` merged into a `var` is a copy the `var` may grow
 ```maxon
 type Holder
 	export let text as String
 
 	static function create(text String) returns Self
-		return Self{text: text.clone()}
+		return Self{text: text}
 	end 'create'
 end 'Holder'
 
@@ -4436,16 +4463,16 @@ function fresh() returns String
 end 'fresh'
 
 function pick(h Holder, c bool) returns String
-	return h.text.clone() if c else fresh()
+	return h.text if c else fresh()
 end 'pick'
 
 function main() returns ExitCode
 	let h = Holder.create("original {42}")
 	let c = h.text.byteLength() > 0
 	var s = h.text if c else fresh()
-	s = "{s}!"
+	s.append("!")
 	var r = pick(h, c: c)
-	r = "{r}?"
+	r.append("?")
 	print("{s} {r} {h.text}\n")
 	return 0
 end 'main'
@@ -4458,13 +4485,14 @@ original 42! original 42? original 42
 ```
 
 <!-- test: let-field-string-rebound-into-a-by-reference-var-may-grow -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 ### a `let` field's `String` rebound into a by-reference `var` is a copy the `var` may grow
 ```maxon
 type Holder
 	export let text as String
 
 	static function create(text String) returns Self
-		return Self{text: text.clone()}
+		return Self{text: text}
 	end 'create'
 end 'Holder'
 
@@ -4477,7 +4505,7 @@ function main() returns ExitCode
 	var s = "start {0}"
 	replace(s)
 	s = h.text
-	s = "{s}!"
+	s.append("!")
 	replace(s)
 	print("{s} {h.text}\n")
 	return 0
@@ -4491,18 +4519,19 @@ original 42!+ original 42
 ```
 
 <!-- test: let-field-string-in-one-arm-of-a-by-reference-var-grown-by-a-callee -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 ### a `let` field's `String` stored into a by-reference `var` on the LATER arm is a copy a callee may grow
 ```maxon
 type Holder
 	export let text as String
 
 	static function create(text String) returns Self
-		return Self{text: text.clone()}
+		return Self{text: text}
 	end 'create'
 end 'Holder'
 
 function grow(mutates s String)
-	s = "{s}+"
+	s.append("+")
 end 'grow'
 
 function main() returns ExitCode
@@ -4528,18 +4557,19 @@ original 42 padded out long enough for the heap+ | original 42 padded out long e
 ```
 
 <!-- test: let-field-string-in-the-earlier-arm-of-a-by-reference-var-grown-by-a-callee -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 ### … and on the EARLIER arm, with a clean store after it
 ```maxon
 type Holder
 	export let text as String
 
 	static function create(text String) returns Self
-		return Self{text: text.clone()}
+		return Self{text: text}
 	end 'create'
 end 'Holder'
 
 function grow(mutates s String)
-	s = "{s}+"
+	s.append("+")
 end 'grow'
 
 function main() returns ExitCode
@@ -4795,6 +4825,7 @@ error E3197: <fragment>:28:2: cannot write 'n' through 'q', which is immutable
 ```
 
 <!-- test: an-argument-read-out-of-a-union-field-survives-the-callee-overwriting-the-field -->
+<!-- skip: language difference: a place passed mutates, consumes or sets overlaps nothing else the call or the statement holds, where maxon shares the place by a reference count -->
 `go` hands `use` the union in `slot` together with `self.reset()`, whose store replaces the field. The argument is a
 read of the box the field holds, so it is counted: the store frees the old box, and the payload `use` binds out of
 its parameter is still the string it read. `reuse` allocates over the freed record before it reads the length, so the
@@ -4811,15 +4842,15 @@ type VarHolder
 	export var slot as LSlot
 
 	static function create(slot LSlot) returns Self
-		return Self{slot: slot.clone()}
+		return Self{slot: slot}
 	end 'create'
 
-	function reset(mutates self) returns Integer
+	function reset() returns Integer
 		slot = LSlot.lempty(1)
 		return 1
 	end 'reset'
 
-	function go(mutates self) returns Integer
+	function go() returns Integer
 		return use(slot, k: self.reset())
 	end 'go'
 end 'VarHolder'
@@ -4831,18 +4862,18 @@ end 'text'
 function reuse(borrowed String) returns Integer
 	let refill = "r{borrowed.byteLength()} a fresh allocation of its own, reusing the freed record, yes"
 	let again = "q{refill.byteLength()} another allocation of its own, reusing the freed record, ok"
-	return try (borrowed.byteLength() * 1000 + again.byteLength()) as Integer otherwise panic("out of range")
+	return (borrowed.byteLength() * 1000 + again.byteLength()) as Integer
 end 'reuse'
 
 function use(u LSlot, k Integer) returns Integer
 	return match u 'm'
-		lfilled(s) gives try reuse(s) + k otherwise panic("out of range")
+		lfilled(s) gives reuse(s) + k
 		lempty(n) gives n
 	end 'm'
 end 'use'
 
 function main() returns ExitCode
-	var vh = VarHolder.create(LSlot.lfilled(text(5)))
+	let vh = VarHolder.create(LSlot.lfilled(text(5)))
 	let d = vh.go()
 	print("d={d}")
 	return 0
@@ -4856,6 +4887,7 @@ d=68064
 ```
 
 <!-- test: an-argument-read-out-of-a-struct-field-survives-the-callee-overwriting-the-field -->
+<!-- skip: language difference: a place passed mutates, consumes or sets overlaps nothing else the call or the statement holds, where maxon shares the place by a reference count -->
 `go` hands `use` the record in `inner` together with `self.reset()`, whose store replaces the field with a record of
 its own. The argument is counted, so `use` still reads the label of the record it was handed, and the answer is
 `68064`.
@@ -4866,7 +4898,7 @@ type Inner
 	export let label as String
 
 	static function create(label String) returns Self
-		return Self{label: label.clone()}
+		return Self{label: label}
 	end 'create'
 end 'Inner'
 
@@ -4874,15 +4906,15 @@ type Holder
 	export var inner as Inner
 
 	static function create(inner Inner) returns Self
-		return Self{inner: inner.clone()}
+		return Self{inner: inner}
 	end 'create'
 
-	function reset(mutates self) returns Integer
+	function reset() returns Integer
 		inner = Inner.create("short")
 		return 1
 	end 'reset'
 
-	function go(mutates self) returns Integer
+	function go() returns Integer
 		return use(inner, k: self.reset())
 	end 'go'
 end 'Holder'
@@ -4894,17 +4926,17 @@ end 'text'
 function churn(n Integer) returns Integer
 	let a = "r{n} a fresh allocation of its own, reusing the freed record, yes"
 	let b = "q{a.byteLength()} another allocation of its own, reusing the freed record, ok"
-	return try b.byteLength() as Integer otherwise panic("out of range")
+	return b.byteLength() as Integer
 end 'churn'
 
 function use(i Inner, k Integer) returns Integer
-	let len = try i.label.byteLength() as Integer otherwise panic("out of range")
+	let len = i.label.byteLength() as Integer
 	let c = churn(len)
-	return try len * 1000 + c + k otherwise panic("out of range")
+	return len * 1000 + c + k
 end 'use'
 
 function main() returns ExitCode
-	var h = Holder.create(Inner.create(text(5)))
+	let h = Holder.create(Inner.create(text(5)))
 	let d = h.go()
 	print("d={d}")
 	return 0
@@ -4918,6 +4950,7 @@ d=68064
 ```
 
 <!-- test: an-argument-read-out-of-a-tuple-field-survives-the-callee-overwriting-the-field -->
+<!-- skip: language difference: a place passed mutates, consumes or sets overlaps nothing else the call or the statement holds, where maxon shares the place by a reference count -->
 `go` hands `use` the tuple in `pair` together with `self.reset()`, whose store replaces the field. The argument is
 counted, so `use` still reads the first element of the tuple it was handed, and the answer is `68064`.
 ```maxon
@@ -4929,15 +4962,15 @@ type Holder
 	export var pair as Pair
 
 	static function create(pair Pair) returns Self
-		return Self{pair: pair.clone()}
+		return Self{pair: pair}
 	end 'create'
 
-	function reset(mutates self) returns Integer
+	function reset() returns Integer
 		pair = ("short", 1)
 		return 1
 	end 'reset'
 
-	function go(mutates self) returns Integer
+	function go() returns Integer
 		return use(pair, k: self.reset())
 	end 'go'
 end 'Holder'
@@ -4949,17 +4982,17 @@ end 'text'
 function churn(n Integer) returns Integer
 	let a = "r{n} a fresh allocation of its own, reusing the freed record, yes"
 	let b = "q{a.byteLength()} another allocation of its own, reusing the freed record, ok"
-	return try b.byteLength() as Integer otherwise panic("out of range")
+	return b.byteLength() as Integer
 end 'churn'
 
 function use(p Pair, k Integer) returns Integer
-	let len = try p.0.byteLength() as Integer otherwise panic("out of range")
+	let len = p.0.byteLength() as Integer
 	let c = churn(len)
-	return try len * 1000 + c + k otherwise panic("out of range")
+	return len * 1000 + c + k
 end 'use'
 
 function main() returns ExitCode
-	var h = Holder.create((text(5), 2))
+	let h = Holder.create((text(5), 2))
 	let d = h.go()
 	print("d={d}")
 	return 0
@@ -4973,6 +5006,7 @@ d=68064
 ```
 
 <!-- test: an-argument-read-out-of-a-function-field-survives-the-callee-overwriting-the-field -->
+<!-- skip: language difference: a place passed mutates, consumes or sets overlaps nothing else the call or the statement holds, where maxon shares the place by a reference count -->
 `go` hands `use` the closure in `op` together with `self.reset()`, whose store replaces the field. The argument is
 counted, so the environment holding the captured string outlives the store, and `use` calls the closure it was handed:
 the answer is `68064`.
@@ -4984,16 +5018,16 @@ typealias Op = function(Integer) returns Integer
 type Holder
 	export var op as Op
 
-	static function create(consumes op Op) returns Self
+	static function create(op Op) returns Self
 		return Self{op: op}
 	end 'create'
 
-	function reset(mutates self) returns Integer
+	function reset() returns Integer
 		op = function(n) gives n
 		return 1
 	end 'reset'
 
-	function go(mutates self) returns Integer
+	function go() returns Integer
 		return use(op, k: self.reset())
 	end 'go'
 end 'Holder'
@@ -5005,21 +5039,21 @@ end 'text'
 function churn(n Integer) returns Integer
 	let a = "r{n} a fresh allocation of its own, reusing the freed record, yes"
 	let b = "q{a.byteLength()} another allocation of its own, reusing the freed record, ok"
-	return try b.byteLength() as Integer otherwise panic("out of range")
+	return b.byteLength() as Integer
 end 'churn'
 
 function makeOp() returns Op
 	let captured = text(5)
-	return function(n) gives try n + (captured.byteLength() as Integer) otherwise panic("out of range")
+	return function(n) gives n + (captured.byteLength() as Integer)
 end 'makeOp'
 
 function use(f Op, k Integer) returns Integer
 	let c = churn(7)
-	return try f(0) * 1000 + c + k otherwise panic("out of range")
+	return f(0) * 1000 + c + k
 end 'use'
 
 function main() returns ExitCode
-	var h = Holder.create(makeOp())
+	let h = Holder.create(makeOp())
 	let d = h.go()
 	print("d={d}")
 	return 0
@@ -5033,6 +5067,7 @@ d=68064
 ```
 
 <!-- test: an-argument-read-out-of-an-interface-field-survives-the-callee-overwriting-the-field -->
+<!-- skip: language difference: a place passed mutates, consumes or sets overlaps nothing else the call or the statement holds, where maxon shares the place by a reference count -->
 `go` hands `use` the value in the interface-typed field `item` together with `self.reset()`, whose store replaces
 it. The argument is counted, so `use` still asks the value it was handed for its label, and the answer is `68064`.
 ```maxon
@@ -5046,27 +5081,27 @@ type Tag implements Labeled
 	export let text as String
 
 	static function create(text String) returns Self
-		return Self{text: text.clone()}
+		return Self{text: text}
 	end 'create'
 
 	function label() returns String
-		return self.text.clone()
+		return self.text
 	end 'label'
 end 'Tag'
 
 type Holder
 	export var item as Labeled
 
-	static function create(consumes item Labeled) returns Self
+	static function create(item Labeled) returns Self
 		return Self{item: item}
 	end 'create'
 
-	function reset(mutates self) returns Integer
+	function reset() returns Integer
 		item = Tag.create("short")
 		return 1
 	end 'reset'
 
-	function go(mutates self) returns Integer
+	function go() returns Integer
 		return use(item, k: self.reset())
 	end 'go'
 end 'Holder'
@@ -5078,17 +5113,17 @@ end 'text'
 function churn(n Integer) returns Integer
 	let a = "r{n} a fresh allocation of its own, reusing the freed record, yes"
 	let b = "q{a.byteLength()} another allocation of its own, reusing the freed record, ok"
-	return try b.byteLength() as Integer otherwise panic("out of range")
+	return b.byteLength() as Integer
 end 'churn'
 
 function use(i Labeled, k Integer) returns Integer
 	let c = churn(7)
-	let len = try i.label().byteLength() as Integer otherwise panic("out of range")
-	return try len * 1000 + c + k otherwise panic("out of range")
+	let len = i.label().byteLength() as Integer
+	return len * 1000 + c + k
 end 'use'
 
 function main() returns ExitCode
-	var h = Holder.create(Tag.create(text(5)))
+	let h = Holder.create(Tag.create(text(5)))
 	let d = h.go()
 	print("d={d}")
 	return 0
@@ -5102,6 +5137,7 @@ d=68064
 ```
 
 <!-- test: an-argument-read-out-of-an-interface-field-survives-its-replacement-by-an-inline-conformer -->
+<!-- skip: language difference: a place passed mutates, consumes or sets overlaps nothing else the call or the statement holds, where maxon shares the place by a reference count -->
 `go` hands `use` the value in the interface-typed field `item` together with `self.reset()`, whose store replaces a
 heap `Tag` conformer with a `Plain`, a conformer small enough to pack into one word. What the store writes owns no
 heap, and the field is stored as two plain words, but the slot it overwrites held a record: the argument is counted
@@ -5119,11 +5155,11 @@ type Tag implements Labeled
 	export let text as String
 
 	static function create(text String) returns Self
-		return Self{text: text.clone()}
+		return Self{text: text}
 	end 'create'
 
 	function label() returns String
-		return self.text.clone()
+		return self.text
 	end 'label'
 end 'Tag'
 
@@ -5142,16 +5178,16 @@ end 'Plain'
 type Holder
 	export var item as Labeled
 
-	static function create(consumes item Labeled) returns Self
+	static function create(item Labeled) returns Self
 		return Self{item: item}
 	end 'create'
 
-	function reset(mutates self) returns Integer
+	function reset() returns Integer
 		item = Plain.create(1)
 		return 1
 	end 'reset'
 
-	function go(mutates self) returns Integer
+	function go() returns Integer
 		return use(item, k: self.reset())
 	end 'go'
 end 'Holder'
@@ -5163,17 +5199,17 @@ end 'text'
 function churn(n Integer) returns Integer
 	let a = "r{n} a fresh allocation of its own, reusing the freed record, yes"
 	let b = "q{a.byteLength()} another allocation of its own, reusing the freed record, ok"
-	return try b.byteLength() as Integer otherwise panic("out of range")
+	return b.byteLength() as Integer
 end 'churn'
 
 function use(i Labeled, k Integer) returns Integer
 	let c = churn(7)
-	let len = try i.label().byteLength() as Integer otherwise panic("out of range")
-	return try len * 1000 + c + k otherwise panic("out of range")
+	let len = i.label().byteLength() as Integer
+	return len * 1000 + c + k
 end 'use'
 
 function main() returns ExitCode
-	var h = Holder.create(Tag.create(text(5)))
+	let h = Holder.create(Tag.create(text(5)))
 	let d = h.go()
 	print("d={d}")
 	return 0

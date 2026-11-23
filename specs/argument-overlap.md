@@ -49,19 +49,20 @@ they name one record.
 ## Tests
 
 <!-- test: an-array-handed-twice-to-a-callee-that-clears-one-parameter -->
+<!-- skip: language difference: a place passed mutates, consumes or sets overlaps nothing else the call or the statement holds, where maxon shares the place by a reference count -->
 `look` reads an element out of `a` and clears `b`, and both are `x`. The element is counted, so it
 survives the clear, and both parameters and the caller see the one array emptied.
 ```maxon
 typealias StringArray = Array with String
 
-function look(a StringArray, mutates b StringArray)
+function look(a StringArray, b StringArray)
 	let s = try a.get(0) otherwise ""
 	b.clear()
 	print("[{s}] {a.count()} {b.count()}\n")
 end 'look'
 
 function main() returns ExitCode
-	var x = StringArray.create(0)
+	let x = StringArray.create(0)
 	x.push("hello {40 + 2} world, long enough for the heap")
 	look(x, b: x)
 	print("{x.count()}\n")
@@ -77,6 +78,7 @@ end 'main'
 ```
 
 <!-- test: a-record-handed-beside-a-field-the-callee-clears -->
+<!-- skip: language difference: a place passed mutates, consumes or sets overlaps nothing else the call or the statement holds, where maxon shares the place by a reference count -->
 `readThenClear` reads `r.ids` through `r` and clears `log`, which is `r.ids`. The element it read keeps
 its value, and the caller's `r.ids` is the array the callee cleared.
 ```maxon
@@ -101,15 +103,15 @@ type Rec
 	end 'create'
 end 'Rec'
 
-function readThenClear(r Rec, mutates log InnerArray) returns Coord
+function readThenClear(r Rec, log InnerArray) returns Coord
 	let s = try r.ids.get(0) otherwise panic("present")
 	log.clear()
 	let filler = Inner.create(77)
-	return try s.v + filler.v - 77 otherwise panic("out of range")
+	return s.v + filler.v - 77
 end 'readThenClear'
 
 function main() returns ExitCode
-	var r = Rec.create()
+	let r = Rec.create()
 	r.ids.push(Inner.create(1234))
 	let got = readThenClear(r, log: r.ids)
 	print("{got} {r.ids.count()}\n")
@@ -124,6 +126,7 @@ end 'main'
 ```
 
 <!-- test: one-record-handed-to-a-callee-that-stores-a-field-of-one-parameter -->
+<!-- skip: language difference: a place passed mutates, consumes or sets overlaps nothing else the call or the statement holds, where maxon shares the place by a reference count -->
 `assign` stores a field of `dst` and reads `src`, and both are `a`: the store puts the array back where
 it was read from, element intact.
 ```maxon
@@ -139,12 +142,12 @@ type Blk
 	end 'create'
 end 'Blk'
 
-function assign(mutates dst Blk, src Blk)
-	dst.args = src.args.clone()
+function assign(dst Blk, src Blk)
+	dst.args = src.args
 end 'assign'
 
 function main() returns ExitCode
-	var a = Blk.create()
+	let a = Blk.create()
 	a.args.push(7)
 	assign(a, src: a)
 	let v = try a.args.get(0) otherwise 0
@@ -160,6 +163,7 @@ end 'main'
 ```
 
 <!-- test: a-receiver-handed-to-its-own-method-that-writes-its-fields -->
+<!-- skip: language difference: a place passed mutates, consumes or sets overlaps nothing else the call or the statement holds, where maxon shares the place by a reference count -->
 `absorb` stores a field of its receiver and reads `other`, and both are `a`.
 ```maxon
 typealias Num = int(i64.min to i64.max)
@@ -173,13 +177,13 @@ type Blk
 		return Self{args: NumArray.create(0)}
 	end 'create'
 
-	function absorb(mutates self, other Blk)
-		self.args = other.args.clone()
+	function absorb(other Blk)
+		self.args = other.args
 	end 'absorb'
 end 'Blk'
 
 function main() returns ExitCode
-	var a = Blk.create()
+	let a = Blk.create()
 	a.args.push(7)
 	a.absorb(a)
 	let v = try a.args.get(0) otherwise 0

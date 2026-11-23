@@ -73,7 +73,7 @@ end 'main'
 ```
 
 <!-- test: writer-on-frozen-receiver-refused -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `add` writes its receiver, which the call site's frozen table cannot allow.
 
@@ -110,7 +110,7 @@ error E3207: <fragment>:23:2: 'add' writes its receiver (line 17: `self.rows.pus
 ```
 
 <!-- test: transitive-writer-refused -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `stamp` writes `table` only by calling `add`, and the refusal still names the chain.
 
@@ -151,6 +151,7 @@ error E3207: <fragment>:27:8: 'stamp' writes 'table' (it calls 'add', which writ
 ```
 
 <!-- test: immutable-only-param-given-mutable -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `relay` sends `t` to a service whose message takes `immutable Table`, so `t` is immutable only and a mutable argument is refused.
 
@@ -202,6 +203,7 @@ error E3207: <fragment>:39:8: 'relay' needs 't' frozen (line 32: `try auditor.ch
 ```
 
 <!-- test: param-needed-both-refused -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `both` writes `t` and also hands it to a parameter declared `immutable`, so no single capability fits the parameter.
 
@@ -246,6 +248,7 @@ error E3206: <fragment>:25:17: parameter 't' is used as mutable (it calls 'add',
 ```
 
 <!-- test: pick-classes-disagree -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `pick` returns `a` or `b`, so a call must give both the same capability, and `mine` is mutable while `frozen` is not.
 
@@ -254,12 +257,12 @@ type Row
 	export var text as String
 
 	static function create(text String) returns Self
-		return Self{text: text.clone()}
+		return Self{text: text}
 	end 'create'
 end 'Row'
 
 function pick(a Row, b Row, first bool) returns Row
-	return a.clone() if first else b.clone()
+	return a if first else b
 end 'pick'
 
 function main() returns ExitCode
@@ -276,6 +279,7 @@ error E3208: <fragment>:18:15: 'pick' returns 'a' or 'b'; they must both be muta
 ```
 
 <!-- test: result-path-disagrees -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The declared result is `immutable Row`; the first return gives a fresh mutable row, so that path does not fit it.
 
@@ -482,7 +486,7 @@ error E3197: <fragment>:14:2: cannot write 'text' through 'first', which is immu
 ```
 
 <!-- test: writer-through-an-element-read-needs-a-mutable-argument -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `rewrite` writes the element it read from `rows`, so `rows` is mutable only and the frozen array is refused at the call.
 
@@ -513,7 +517,7 @@ error E3207: <fragment>:19:10: 'rewrite' writes 'rows' (line 14: `first.text = "
 ```
 
 <!-- test: writer-through-a-returned-parameter-needs-a-mutable-argument -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `edit` writes the record `same` handed back, which is its own parameter `b`, so `b` is mutable only and the frozen box is refused.
 
@@ -847,6 +851,7 @@ error E3197: <fragment>:15:2: cannot write 'n' through 'e', which is immutable
 ```
 
 <!-- test: ternary-joining-isolated-data-with-mutable-data-is-refused -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `a` is isolated and `b` is mutable data of this region, so a ternary over them has no one capability.
 
@@ -1274,6 +1279,7 @@ error E3197: <fragment>:21:3: cannot write 'n' through 'e', which is read-only, 
 ```
 
 <!-- test: loop-store-of-a-variable-the-back-edge-assigns-frozen-data -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `h.box = e` stores the carried `e` into a mutable field, and the next trip stores frozen data there, so the store is judged against the header join of `e`.
 
@@ -1318,6 +1324,7 @@ error E3196: <fragment>:26:11: cannot store a read-only 'Box' into 'box', as it 
 ```
 
 <!-- test: loop-call-of-a-writer-on-a-variable-the-back-edge-assigns-frozen-data -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `e.bump()` writes its receiver, and the next trip's receiver is the frozen box, so the call is refused.
 
@@ -2068,6 +2075,7 @@ error E3200: <fragment>:25:7: 'fresh' is not isolated: only a clean call, a `swa
 ```
 
 <!-- test: loop-freeze-of-an-isolated-variable-the-back-edge-assigns-data -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `freeze e` needs an isolated region on every trip, but `e = fresh` assigns mutable data of this region to a variable that holds an isolated region, which is refused where it is assigned.
 
@@ -2091,7 +2099,7 @@ function drain(rounds Tally) returns Tally
 	var sum = 0 as Tally
 	var i = 0 as Tally
 	while i < rounds 'again'
-		sum = try sum + read(freeze(e)) otherwise panic("out of range")
+		sum = sum + read(freeze(e))
 		let fresh = Box.create(i)
 		print("{fresh.n}\n")
 		e = fresh
@@ -2151,6 +2159,7 @@ error E3200: <fragment>:23:7: 'fresh' is not isolated: only a clean call, a `swa
 ```
 
 <!-- test: branch-assigning-data-to-an-isolated-variable-is-refused-at-the-assignment -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `var e = a` holds an isolated region, and one branch assigns mutable data to it, which is refused where it is assigned.
 
@@ -2283,6 +2292,7 @@ end 'main'
 ```
 
 <!-- test: returning-an-isolated-parameter-as-a-plain-result-is-refused -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `pass` declares no `isolated` result, so `return box` would hand a closed region to the caller as ordinary mutable data; it is merged where it is returned.
 
@@ -2314,6 +2324,7 @@ error E3209: <fragment>:13:9: a return does not fit the declared result: 'box' i
 ```
 
 <!-- test: returning-an-isolated-local-as-a-plain-result-is-refused -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The same for an `isolated` local: the result is ordinary data of the caller's region, so the region is merged first.
 
@@ -2916,6 +2927,7 @@ end 'main'
 ```
 
 <!-- test: immutable-parameter-stored-into-a-mutable-field-is-refused -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `create` declares `held` `immutable`, but the field is an ordinary mutable `Box`, so storing it would let `h.held.n = 7` write the frozen record `pinned` names.
 
@@ -2987,7 +2999,7 @@ error E3197: <fragment>:23:2: cannot write 'n' through 'h.held', which is read-o
 ```
 
 <!-- test: frozen-argument-to-a-method-parameter-assigned-to-a-mutable-field-is-refused -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `adopt` assigns `item` to a mutable field of its receiver, which makes `item` mutable only.
 
@@ -3068,7 +3080,7 @@ error E3197: <fragment>:27:2: cannot write 'n' through 'h.held', which is read-o
 ```
 
 <!-- test: frozen-argument-to-a-parameter-pushed-into-an-array-is-refused -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `stash` pushes `item` into an array of mutable records, so `item` is mutable only.
 
@@ -3102,7 +3114,7 @@ error E3207: <fragment>:20:15: 'stash' writes 'item' (line 14: `items.push(item)
 ```
 
 <!-- test: mutable-argument-to-a-parameter-stored-in-an-immutable-field-is-refused -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `Shelf.build` keeps `item` in an `immutable` field, which makes `item` immutable only: a mutable record another name may still write cannot be handed to it.
 
@@ -3228,7 +3240,7 @@ end 'main'
 ```
 
 <!-- test: frozen-argument-to-an-async-call-of-a-writer-is-refused -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The coroutine takes a reference of its own to what it is handed, and that reference is the frozen record `pinned` names, so `bump` writing it is refused as it is at a direct call.
 
@@ -3262,6 +3274,7 @@ error E3207: <fragment>:20:21: 'bump' writes 'item' (line 14: `item.n = item.n +
 ```
 
 <!-- test: struct-literal-storing-a-mutable-value-into-an-immutable-field-is-refused -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 A struct literal judges each field against its slot as an assignment does: `local` is mutable and `held` is `immutable`.
 
@@ -3297,7 +3310,7 @@ error E3196: <fragment>:18:21: cannot store a mutable 'Box' into 'Wrong.held', w
 ```
 
 <!-- test: struct-literal-storing-a-parameter-into-an-isolated-field-is-refused -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 A parameter is outer data, which an `isolated` field takes only as a value, immutable data or a moved `isolated` one.
 
@@ -3333,6 +3346,7 @@ error E3200: <fragment>:16:21: 'item' is not isolated: only a clean call, a `swa
 ```
 
 <!-- test: frozen-value-stored-in-a-union-payload-is-refused -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 A union payload is a mutable slot unless it is declared `immutable`, so a frozen record cannot be built into a plain one.
 
@@ -3368,7 +3382,7 @@ error E3196: <fragment>:19:22: cannot store an immutable 'Box' into 'Slot.filled
 ```
 
 <!-- test: frozen-argument-to-a-parameter-built-into-a-union-payload-is-refused -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `wrap` keeps `item` in a union payload, which makes `item` mutable only.
 
@@ -3408,6 +3422,7 @@ error E3207: <fragment>:23:15: 'wrap' writes 'item' (line 18: `return Slot.fille
 ```
 
 <!-- test: loop-store-of-a-variable-the-back-edge-assigns-frozen-data-into-a-mutable-array -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `items.push(e)` stores the carried `e` into a mutable-element array, and the next trip stores frozen data there, so the store is judged against the header join of `e`.
 
@@ -3446,6 +3461,7 @@ error E3196: <fragment>:19:14: cannot store a read-only 'Box' into 'an element o
 ```
 
 <!-- test: loop-store-of-a-variable-the-back-edge-assigns-frozen-data-into-a-struct-literal -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `Self{box: e}` stores the carried `e` into a mutable field, and the next trip stores frozen data there.
 
@@ -3488,6 +3504,7 @@ error E3196: <fragment>:21:18: cannot store a read-only 'Box' into 'Holder.box',
 ```
 
 <!-- test: loop-store-of-a-variable-the-back-edge-assigns-frozen-data-into-a-tuple-literal -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The tuple `(e, Box.create(1))` types its first item from the first trip's `e`, and the next trip's frozen `e` would sit in a mutable item.
 
@@ -3525,6 +3542,7 @@ error E3196: <fragment>:18:11: cannot store a read-only 'Box' into 'an item of t
 ```
 
 <!-- test: loop-store-of-a-variable-the-back-edge-assigns-frozen-data-into-a-map-literal -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `["k": e]` stores the carried `e` as a map value, and the next trip stores frozen data there.
 
@@ -3563,6 +3581,7 @@ error E3196: <fragment>:18:13: cannot store a read-only 'Box' into 'a value of t
 ```
 
 <!-- test: loop-store-of-a-variable-the-back-edge-assigns-frozen-data-into-a-declared-generic -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `stack.push(e)` is a store into the `T` slot of a mutable instance, and the next trip pushes frozen data.
 
@@ -3618,7 +3637,7 @@ error E3196: <fragment>:38:14: cannot store a read-only 'Box' into 'Stack.push.i
 ```
 
 <!-- test: a-parameter-joined-with-local-data-and-stored-is-mutable-only -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `c` is `p` on one path and a fresh box on the other, so storing `c` into the mutable field needs `p` writable and the frozen argument is refused at the call.
 
@@ -3661,7 +3680,7 @@ error E3207: <fragment>:33:7: 'bump' writes 'p' (line 28: `h.item = c`); 'frozen
 ```
 
 <!-- test: a-parameter-joined-with-local-data-and-pushed-is-mutable-only -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The same join pushed into a mutable-element array pins `p` mutable-only.
 
@@ -3698,7 +3717,7 @@ error E3207: <fragment>:26:7: 'bump' writes 'p' (line 21: `items.push(c)`); 'fro
 ```
 
 <!-- test: loop-store-of-a-variable-the-back-edge-assigns-a-parameter-pins-it-mutable-only -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The back edge hands `p` to the carried `e`, which `items.push(e)` stores into a mutable-element array on the next trip, so `p` is inferred mutable-only and the frozen argument is refused at the call.
 
@@ -3806,7 +3825,7 @@ error E3197: <fragment>:23:2: cannot write 'n' through 'r', which is read-only
 ```
 
 <!-- test: writer-through-a-mixed-return-needs-a-mutable-argument -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `edit` writes the record `pick` may hand back, which may be its own parameter `b`, so `b` is mutable only and the frozen box is refused.
 
@@ -4010,7 +4029,7 @@ error E3197: <fragment>:19:2: cannot write 'n' through 'r', which is read-only
 ```
 
 <!-- test: a-parameter-joined-with-local-data-and-written-through-the-join-is-mutable-only -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 Writing through the join writes `p` on the path that took it, so `p` is mutable only and the frozen argument is refused at the call.
 
@@ -4044,7 +4063,7 @@ error E3207: <fragment>:24:7: 'bump' writes 'p' (line 19: `c.n = 5`); 'frozen' i
 ```
 
 <!-- test: a-parameter-joined-with-local-data-and-handed-to-a-writer-is-mutable-only -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `grow` writes the record `c` names, which may be `p`, so `p` is mutable only and the frozen argument is refused at the call.
 
@@ -4082,7 +4101,7 @@ error E3207: <fragment>:28:7: 'bump' writes 'p' (it calls 'grow', which writes '
 ```
 
 <!-- test: a-conditional-of-a-parameter-and-fresh-data-handed-to-a-writer-is-mutable-only -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The same hand-off with the join spelled as a conditional expression.
 
@@ -4116,7 +4135,7 @@ error E3207: <fragment>:22:7: 'bump' writes 'p' (it calls 'grow', which writes '
 ```
 
 <!-- test: a-parameter-joined-with-local-data-and-returned-then-written-by-the-caller-is-mutable-only -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `edit` writes the record `pick` may hand back, which may be its own parameter `b`, so `b` is mutable only and the frozen box is refused.
 
@@ -4225,7 +4244,7 @@ end 'main'
 ```
 
 <!-- test: a-join-of-two-parameters-returned-and-written-by-the-caller-is-mutable-only -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `edit` writes the record `pick` may hand back, which may be `x` or `y`, so both are mutable only and the frozen box is refused.
 
@@ -4265,7 +4284,7 @@ error E3207: <fragment>:30:13: 'edit' writes 'y'; 'frozen' is immutable
 ```
 
 <!-- test: a-join-of-two-parameters-written-through-the-join-is-mutable-only -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 Writing through the join writes `a` or `b`, so both are mutable only and the frozen argument is refused at the call.
 
@@ -4374,6 +4393,7 @@ end 'main'
 ```
 
 <!-- test: a-join-of-two-parameters-returned-given-one-frozen-argument-is-not-written-through -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `pick` may hand back either box, so one frozen argument makes the result unwritable, whichever argument is mutable.
 
@@ -4389,9 +4409,9 @@ type Box
 end 'Box'
 
 function pick(a Box, b Box, flag bool) returns Box
-	var c = a.clone()
+	var c = a
 	if flag 'useSecond'
-		c = b.clone()
+		c = b
 	end 'useSecond'
 	return c
 end 'pick'
@@ -4411,6 +4431,7 @@ error E3197: <fragment>:26:2: cannot write 'n' through 'r', which is immutable
 ```
 
 <!-- test: a-conditional-of-two-parameters-returned-given-one-frozen-argument-is-not-written-through -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The same result spelled as a conditional expression.
 
@@ -4426,7 +4447,7 @@ type Box
 end 'Box'
 
 function pick(a Box, b Box, flag bool) returns Box
-	return a.clone() if flag else b.clone()
+	return a if flag else b
 end 'pick'
 
 function main() returns ExitCode
@@ -4444,7 +4465,7 @@ error E3197: <fragment>:20:2: cannot write 'n' through 'r', which is immutable
 ```
 
 <!-- test: a-join-of-two-parameters-returned-and-handed-to-a-writer-by-the-caller-is-mutable-only -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `grow` writes the record `pick` may hand back, so both arguments must be mutable.
 
@@ -4584,7 +4605,7 @@ error E3197: <fragment>:22:2: cannot write 'n' through 'r', which is read-only
 ```
 
 <!-- test: a-holder-method-writing-through-an-element-read-is-refused-for-a-frozen-array -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `bump` writes `.n` through an element of the array `holder` holds, so the frozen array must not be given to the holder.
 
@@ -4633,7 +4654,7 @@ error E3207: <fragment>:38:2: 'bump' writes its receiver (line 23: `box.n = 5`);
 ```
 
 <!-- test: a-holder-method-reaching-through-a-wrapper-is-refused-for-a-frozen-array -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The same write one method deeper: `run` hands the holder to `bump`, which writes through an element.
 

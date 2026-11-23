@@ -48,6 +48,7 @@ and these three cases go on passing while the release is gone.**
 ## Tests
 
 <!-- test: field-store-aliasing-through-two-parameters -->
+<!-- skip: language difference: a place passed mutates, consumes or sets overlaps nothing else the call or the statement holds, where maxon shares the place by a reference count -->
 ### One Record Passed As Both Parameters of a Field-Store Helper
 `assign(a, src: a)` hands the same struct to both parameters, so `dst` and `src`
 name one heap box and `dst.args = src.args` stores an array onto itself. The
@@ -66,12 +67,12 @@ type Blk
 	end 'create'
 end 'Blk'
 
-function assign(mutates dst Blk, src Blk)
-	dst.args = src.args.clone()
+function assign(dst Blk, src Blk)
+	dst.args = src.args
 end 'assign'
 
 function main() returns ExitCode
-	var a = Blk.create()
+	let a = Blk.create()
 	a.args.push(7)
 	assign(a, src: a)
 	let n = a.args.count()
@@ -88,6 +89,7 @@ n=1 v=7
 ```
 
 <!-- test: self-field-store-aliasing-its-own-receiver -->
+<!-- skip: language difference: a place passed mutates, consumes or sets overlaps nothing else the call or the statement holds, where maxon shares the place by a reference count -->
 ### A Self-Field Store Whose Argument Is the Receiver Itself
 The same hazard through the OTHER parser door: `self.args = other.args` inside a
 method, invoked as `a.absorb(a)` so the receiver and the argument are one box.
@@ -105,13 +107,13 @@ type Blk
 		return Self{args: NumArray.create(0)}
 	end 'create'
 
-	function absorb(mutates self, other Blk)
-		self.args = other.args.clone()
+	function absorb(other Blk)
+		self.args = other.args
 	end 'absorb'
 end 'Blk'
 
 function main() returns ExitCode
-	var a = Blk.create()
+	let a = Blk.create()
 	a.args.push(7)
 	a.absorb(a)
 	let n = a.args.count()
@@ -128,6 +130,7 @@ n=1 v=7
 ```
 
 <!-- test: string-field-store-aliasing-through-two-parameters -->
+<!-- skip: language difference: a place passed mutates, consumes or sets overlaps nothing else the call or the statement holds, where maxon shares the place by a reference count -->
 ### A `String` Field Stored Onto Itself Must Acquire Before It Releases
 The acquire is `retainBorrowedByteRecord` (`__str_retain`), not `__mm_alloc` + `__str_copy`: a
 borrowed `String` reaching a DURABLE sink is CO-OWNED, for the reason the struct/union arm beside it
@@ -143,16 +146,16 @@ type Rec
 	export var name as String
 
 	static function create(n String) returns Rec
-		return Self{name: n.clone()}
+		return Self{name: n}
 	end 'create'
 end 'Rec'
 
-function copyName(mutates dst Rec, src Rec)
-	dst.name = src.name.clone()
+function copyName(dst Rec, src Rec)
+	dst.name = src.name
 end 'copyName'
 
 function main() returns ExitCode
-	var r = Rec.create("hello {40 + 2}")
+	let r = Rec.create("hello {40 + 2}")
 	copyName(r, src: r)
 	print("name={r.name}")
 	return 0

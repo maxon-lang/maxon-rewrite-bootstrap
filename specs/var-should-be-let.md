@@ -993,6 +993,7 @@ end 'main'
 ```
 
 <!-- test: let-record-pushed-into-a-var-container -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 A push stores `a`'s record in the container, so an element read back out is it: a `var` made from the element writes the record `a` names.
 
 ```maxon
@@ -1011,11 +1012,11 @@ typealias PointArray = Array with Point
 
 function main() returns ExitCode
 	let a = Point.create(1)
-	var arr = PointArray.create(0)
+	let arr = PointArray.create(0)
 	arr.push(a)
-	var e = try arr.get(0) otherwise panic("an element was pushed")
+	let e = try arr.get(0) otherwise panic("an element was pushed")
 	e.x = 99
-	return try a.x as ExitCode otherwise panic("out of range")
+	return a.x
 end 'main'
 ```
 ```exitcode
@@ -1023,6 +1024,7 @@ end 'main'
 ```
 
 <!-- test: let-record-stored-into-a-var-field -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 A store into a field of a `var` co-owns `a`'s record, so a write through the field is read through `a`.
 
 ```maxon
@@ -1041,16 +1043,16 @@ type Box
 	export var item as Point
 
 	static function create(item Point) returns Self
-		return Self{item: item.clone()}
+		return Self{item: item}
 	end 'create'
 end 'Box'
 
 function main() returns ExitCode
 	let a = Point.create(1)
-	var box = Box.create(Point.create(0))
+	let box = Box.create(Point.create(0))
 	box.item = a
 	box.item.x = 99
-	return try a.x as ExitCode otherwise panic("out of range")
+	return a.x
 end 'main'
 ```
 ```exitcode
@@ -1085,6 +1087,7 @@ error E3102: <fragment>:17:9: use of moved value 'p': its ownership moved to ano
 ```
 
 <!-- test: let-record-pushed-and-popped-while-still-read -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 `a` is read after the push, and popping the record back out gives the `var` the record `a` names: the write through it is read through `a`.
 
 ```maxon
@@ -1103,11 +1106,11 @@ typealias PointArray = Array with Point
 
 function main() returns ExitCode
 	let a = Point.create(1)
-	var arr = PointArray.create(0)
+	let arr = PointArray.create(0)
 	arr.push(a)
-	var e = try arr.pop() otherwise panic("one element was pushed")
+	let e = try arr.pop() otherwise panic("one element was pushed")
 	e.x = 99
-	return try a.x as ExitCode otherwise panic("out of range")
+	return a.x
 end 'main'
 ```
 ```exitcode
@@ -1145,6 +1148,7 @@ end 'main'
 ```
 
 <!-- test: a-let-of-a-field-of-a-var-written-through-the-var-reads-the-write -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 A field of a `var` is a record the write through `box` reaches, and a `let` bound to it reads the write.
 
 ```maxon
@@ -1163,15 +1167,15 @@ type Box
 	export var item as Point
 
 	static function create(item Point) returns Self
-		return Self{item: item.clone()}
+		return Self{item: item}
 	end 'create'
 end 'Box'
 
 function main() returns ExitCode
-	var box = Box.create(Point.create(1))
+	let box = Box.create(Point.create(1))
 	let p = box.item
 	box.item.x = 99
-	return try p.x as ExitCode otherwise panic("out of range")
+	return p.x
 end 'main'
 ```
 ```exitcode
@@ -1179,6 +1183,7 @@ end 'main'
 ```
 
 <!-- test: let-record-written-through-an-interface-call -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 A method called through an interface writes whichever conformer's record the value holds: `relay` hands `a` back at the interface type, `b.bump()` writes the record, and `a` reads the write.
 
 ```maxon
@@ -1196,20 +1201,20 @@ type Point implements Bumpable
 		return Self{x: x}
 	end 'create'
 
-	function bump(mutates self)
-		self.x = try self.x + 1 otherwise panic("out of range")
+	function bump()
+		self.x = self.x + 1
 	end 'bump'
 end 'Point'
 
-function relay(consumes p Bumpable) returns Bumpable
+function relay(p Bumpable) returns Bumpable
 	return p
 end 'relay'
 
 function main() returns ExitCode
 	let a = Point.create(1)
-	var b = relay(a)
+	let b = relay(a)
 	b.bump()
-	return try a.x as ExitCode otherwise panic("out of range")
+	return a.x
 end 'main'
 ```
 ```exitcode
@@ -1397,6 +1402,7 @@ end 'main'
 ```
 
 <!-- test: one-record-stored-into-two-fields-aliases-them -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 The same when the program stores the one record into both fields itself.
 ```maxon
 
@@ -1415,18 +1421,18 @@ type Pair
 	export var right as Point
 
 	static function create(left Point, right Point) returns Self
-		return Self{left: left.clone(), right: right.clone()}
+		return Self{left: left, right: right}
 	end 'create'
 end 'Pair'
 
 function main() returns ExitCode
 	let p = Point.create(1)
-	var pair = Pair.create(Point.create(0), right: Point.create(0))
+	let pair = Pair.create(Point.create(0), right: Point.create(0))
 	pair.left = p
 	pair.right = p
 	let l = pair.left
 	pair.right.x = 9
-	return try l.x as ExitCode otherwise panic("out of range")
+	return l.x
 end 'main'
 ```
 ```exitcode
@@ -1542,6 +1548,7 @@ end 'main'
 ```
 
 <!-- test: a-var-written-only-through-a-for-element-is-needed -->
+<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 A `var` collection whose elements a loop hands to a writing parameter is written through, so it is not E3077.
 
 ```maxon
@@ -1560,13 +1567,13 @@ end 'Bag'
 typealias BagArray = Array with Bag
 
 function makeBags() returns BagArray
-	var bags = BagArray.create(0)
+	let bags = BagArray.create(0)
 	bags.push(Bag.create())
 	bags.push(Bag.create())
 	return bags
 end 'makeBags'
 
-function fill(mutates bag Bag)
+function fill(bag Bag)
 	bag.items.push(1)
 end 'fill'
 
@@ -1575,9 +1582,9 @@ function main() returns ExitCode
 	var total = 0 as Count
 	for bag in bags 'eachBag'
 		fill(bag)
-		total = try total + bag.items.count() otherwise panic("out of range")
+		total = total + bag.items.count()
 	end 'eachBag'
-	return try total as ExitCode otherwise panic("out of range")
+	return total as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -1585,6 +1592,7 @@ end 'main'
 ```
 
 <!-- test: a-let-written-only-through-a-for-element-is-written -->
+<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 The same program with `let` iterates the same elements, so the loop's write reaches them.
 
 ```maxon
@@ -1603,13 +1611,13 @@ end 'Bag'
 typealias BagArray = Array with Bag
 
 function makeBags() returns BagArray
-	var bags = BagArray.create(0)
+	let bags = BagArray.create(0)
 	bags.push(Bag.create())
 	bags.push(Bag.create())
 	return bags
 end 'makeBags'
 
-function fill(mutates bag Bag)
+function fill(bag Bag)
 	bag.items.push(1)
 end 'fill'
 
@@ -1618,9 +1626,9 @@ function main() returns ExitCode
 	var total = 0 as Count
 	for bag in bags 'eachBag'
 		fill(bag)
-		total = try total + bag.items.count() otherwise panic("out of range")
+		total = total + bag.items.count()
 	end 'eachBag'
-	return try total as ExitCode otherwise panic("out of range")
+	return total as ExitCode
 end 'main'
 ```
 ```exitcode

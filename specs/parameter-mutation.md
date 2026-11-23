@@ -393,6 +393,7 @@ end 'main'
 ```
 
 <!-- test: temporary-arg-to-mutating-param-ok -->
+<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 A temporary has no binding to be immutable: it may be written freely.
 
 ```maxon
@@ -400,13 +401,13 @@ typealias Integer = int(i64.min to i64.max)
 
 typealias IntArray = Array with Integer
 
-function grow(mutates d IntArray) returns Integer
+function grow(d IntArray) returns Integer
 	d.push(9)
-	return try d.count() as Integer otherwise panic("out of range")
+	return d.count()
 end 'grow'
 
 function main() returns ExitCode
-	return try grow(IntArray.create(0)) as ExitCode otherwise panic("out of range")
+	return grow(IntArray.create(0)) as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -1253,7 +1254,7 @@ end 'main'
 ```
 
 <!-- test: error.function-value-call-with-a-literal-container-is-refused -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 A call through a function VALUE may still not carry a LITERAL container: `a` is a `let` array literal, a
 constant the compiler read its range columns from, and the call may write it.
@@ -1374,6 +1375,7 @@ end 'main'
 ```
 
 <!-- test: a-closure-literal-callee-that-writes-its-parameter-accepts-a-let -->
+<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 A closure literal is the exact callee, and its body's write lands in the `let` array.
 
 ```maxon
@@ -1381,7 +1383,7 @@ typealias Integer = int(i64.min to i64.max)
 
 typealias IntArray = Array with Integer
 
-function growAndCount(mutates d IntArray) returns Count
+function growAndCount(d IntArray) returns Count
 	d.push(9)
 	return d.count()
 end 'growAndCount'
@@ -1389,7 +1391,7 @@ end 'growAndCount'
 function main() returns ExitCode
 	let a = IntArray.create(0)
 	let f = function(d IntArray) gives growAndCount(d)
-	return try f(a) as ExitCode otherwise panic("out of range")
+	return f(a) as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -1531,6 +1533,7 @@ end 'main'
 ```
 
 <!-- test: let-self-field-passed-to-mutating-param-ok -->
+<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 The `let` half of the same pair: a `let` field forbids only reassigning the field, so handing it to a callee
 that writes it is legal. The receiver half of this (`items.push(v)`) is `immutable-method-call.md`'s
 `push-on-let-self-field-array`.
@@ -1540,7 +1543,7 @@ typealias Integer = int(i64.min to i64.max)
 
 typealias IntArray = Array with Integer
 
-function grow(mutates d IntArray)
+function grow(d IntArray)
 	d.push(9)
 end 'grow'
 
@@ -1556,14 +1559,14 @@ type Bag
 	end 'add'
 
 	function size() returns Integer
-		return try items.count() as Integer otherwise panic("out of range")
+		return items.count()
 	end 'size'
 end 'Bag'
 
 function main() returns ExitCode
 	let b = Bag.create()
 	b.add()
-	return try b.size() as ExitCode otherwise panic("out of range")
+	return b.size() as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -1911,7 +1914,7 @@ abXY
 ```
 
 <!-- test: constant-let-array-to-mutating-param-error -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 A `let` bound to an array literal is immutable image data, so a callee that pushes onto its parameter is refused.
 

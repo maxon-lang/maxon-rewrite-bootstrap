@@ -18,6 +18,7 @@ cannot write through the returned value (E3197). A copy made with `clone()` is a
 ## Tests
 
 <!-- test: error.a-method-returning-an-immutable-element-declares-its-result-immutable -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `at` returns `try self.items.get(i)`, an element of the `immutable` array `items`. A plain `Counter` result would hand
 the caller a writable name for the record the shelf holds.
@@ -64,6 +65,7 @@ error E3209: <fragment>:26:10: a return does not fit the declared result: 'self.
 
 
 <!-- test: a-generic-method-returning-its-item-type-over-an-immutable-instance-runs -->
+<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 The same through a generic shelf: `Shelf with immutable Counter` stores and returns frozen counters, and the item
 type it returns is `immutable` by the instance.
 
@@ -86,11 +88,11 @@ type Shelf uses Item
 		return Self{items: Items.create(0)}
 	end 'create'
 
-	function add(item Item) where Item implements Copyable
-		self.items.push(item.clone())
+	function add(item Item)
+		self.items.push(item)
 	end 'add'
 
-	function at(i ElementIndex) returns Item throws ArrayError where Item implements Copyable
+	function at(i ElementIndex) returns Item throws ArrayError
 		return try self.items.get(i)
 	end 'at'
 end 'Shelf'
@@ -102,7 +104,7 @@ function main() returns ExitCode
 	let shelf = CounterShelf.create()
 	shelf.add(shared)
 	let first = try shelf.at(0) otherwise return 1
-	return try first.n as ExitCode otherwise panic("out of range")
+	return first.n as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -158,6 +160,7 @@ error E3197: <fragment>:35:2: cannot write 'n' through 'first', which is read-on
 
 
 <!-- test: error.a-method-returning-an-immutable-map-value-declares-its-result-immutable -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The value side of `Map with String, immutable Counter` is `immutable` when a method returns it.
 

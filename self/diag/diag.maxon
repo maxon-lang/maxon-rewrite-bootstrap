@@ -58,6 +58,8 @@ end 'Fix'
 export enum ErrorCause
 	none
 	loopHoldsCollection
+	// payloadOfBuiltinError is a binding of a payload of a case of SendError or SubprocessError, whose cases carry none here.
+	payloadOfBuiltinError
 end 'ErrorCause'
 
 export type CompileError

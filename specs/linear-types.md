@@ -214,6 +214,7 @@ fin 2
 ```
 
 <!-- test: operands-bound-before-the-try-let-a-send-hand-the-value-back -->
+<!-- skip: language difference: SendError and SubprocessError are built-in enums whose cases carry no payload, so a failed send gives its arguments no way back -->
 The throwing operand is bound before the `Resp` exists and before the `try`, so no linear value is live at a throw point.
 ```maxon
 typealias Code = int(0 to 999)
@@ -283,6 +284,7 @@ fin 1
 ```
 
 <!-- test: a-failed-send-hands-a-linear-argument-back-to-the-handler -->
+<!-- skip: language difference: SendError and SubprocessError are built-in enums whose cases carry no payload, so a failed send gives its arguments no way back -->
 The send queues `r`, which the service consumes. A failed send would carry it back in `mailboxFull` or `serviceStopped`, and each arm of the handler consumes it.
 ```maxon
 typealias Code = int(0 to 999)
@@ -374,18 +376,18 @@ end 'viaPropagate'
 function main() returns ExitCode
 	let r = Resp.create(1)
 	try trySend(r, flag: true) otherwise (e) 'h'
-		match e 'k'
+		match consumes e 'k'
 			refused(back) then back.fin()
 		end 'k'
 	end 'h'
 	let q = Resp.create(2)
 	try viaPropagate(q, flag: true) otherwise (e) 'h2'
-		match e 'k2'
+		match consumes e 'k2'
 			refused(back) then back.fin()
 		end 'k2'
 	end 'h2'
 	try viaPropagate(Resp.create(3), flag: false) otherwise (e) 'h3'
-		match e 'k3'
+		match consumes e 'k3'
 			refused(back) then back.fin()
 		end 'k3'
 	end 'h3'
@@ -427,8 +429,8 @@ union Maybe
 	nothing
 end 'Maybe'
 
-function settle(m Maybe)
-	match m 'which'
+function settle(consumes m Maybe)
+	match consumes m 'which'
 		some(r) then r.fin()
 		nothing then print("nothing\n")
 	end 'which'
@@ -1085,6 +1087,7 @@ error E3224: <fragment>:29:3: `destruct self` is written in a method that takes 
 ```
 
 <!-- test: consuming-self-on-a-type-with-no-finalizer-is-refused -->
+<!-- skip: language difference: a linear value is a value with a destructor, which cannot be copied or dropped, so the rules of ownership and the Droppable bound refuse what maxon's linear rules refuse -->
 <!-- positions: moved -->
 
 ```maxon
@@ -1127,7 +1130,7 @@ error E3224: <fragment>:28:11: `consuming self` belongs to a method of a `type` 
 ```
 
 <!-- test: a-method-that-does-not-take-consuming-self-cannot-consume-its-receiver -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: a linear value is a value with a destructor, which cannot be copied or dropped, so the rules of ownership and the Droppable bound refuse what maxon's linear rules refuse -->
 <!-- positions: moved -->
 
 ```maxon
@@ -1175,6 +1178,7 @@ error E3224: <fragment>:33:8: this linear value is only lent to this code (a par
 ```
 
 <!-- test: a-linear-value-cannot-be-cloned -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 
 ```maxon
@@ -1209,7 +1213,7 @@ error E3214: <fragment>:23:10: 'Resp' is unique and cannot be cloned
 ```
 
 <!-- test: a-linear-value-is-refused-in-a-field -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: a linear value is a value with a destructor, which cannot be copied or dropped, so the rules of ownership and the Droppable bound refuse what maxon's linear rules refuse -->
 <!-- positions: moved -->
 
 ```maxon
@@ -1255,7 +1259,7 @@ error E3224: <fragment>:22:6: the field 'r' holds a linear value, and a linear v
 ```
 
 <!-- test: a-union-carrying-a-linear-value-is-refused-in-a-field -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: a linear value is a value with a destructor, which cannot be copied or dropped, so the rules of ownership and the Droppable bound refuse what maxon's linear rules refuse -->
 <!-- positions: moved -->
 
 ```maxon
@@ -1305,7 +1309,7 @@ error E3224: <fragment>:27:6: the field 'slot' holds a linear value, and a linea
 ```
 
 <!-- test: a-linear-value-is-refused-as-a-type-argument -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: a linear value is a value with a destructor, which cannot be copied or dropped, so the rules of ownership and the Droppable bound refuse what maxon's linear rules refuse -->
 <!-- positions: moved -->
 
 ```maxon
@@ -1340,7 +1344,7 @@ error E3224: <fragment>:21:11: 'Resp' is a linear value and cannot be a type arg
 ```
 
 <!-- test: a-linear-value-is-refused-as-a-type-argument-of-an-instance-written-inline -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: a linear value is a value with a destructor, which cannot be copied or dropped, so the rules of ownership and the Droppable bound refuse what maxon's linear rules refuse -->
 <!-- positions: moved -->
 
 ```maxon
@@ -1383,7 +1387,7 @@ error E3224: <fragment>:29:31: 'Resp' is a linear value and cannot be a type arg
 ```
 
 <!-- test: a-closure-cannot-capture-a-linear-value -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: a linear value is a value with a destructor, which cannot be copied or dropped, so the rules of ownership and the Droppable bound refuse what maxon's linear rules refuse -->
 <!-- positions: moved -->
 
 ```maxon
@@ -1418,7 +1422,7 @@ error E3224: <fragment>:23:30: a closure cannot capture 'r', a linear value: a l
 ```
 
 <!-- test: a-tuple-item-cannot-be-a-linear-value -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: a linear value is a value with a destructor, which cannot be copied or dropped, so the rules of ownership and the Droppable bound refuse what maxon's linear rules refuse -->
 <!-- positions: moved -->
 
 ```maxon
@@ -1451,6 +1455,7 @@ error E3224: <fragment>:22:14: a tuple holds no linear value: a linear value liv
 ```
 
 <!-- test: an-async-call-takes-no-linear-argument -->
+<!-- skip: language difference: a linear value is a value with a destructor, which cannot be copied or dropped, so the rules of ownership and the Droppable bound refuse what maxon's linear rules refuse -->
 <!-- positions: moved -->
 
 ```maxon
@@ -1487,6 +1492,7 @@ error E3224: <fragment>:26:16: an `async` call takes no linear argument: a corou
 ```
 
 <!-- test: an-async-call-of-a-function-with-a-linear-result-is-refused -->
+<!-- skip: language difference: a linear value is a value with a destructor, which cannot be copied or dropped, so the rules of ownership and the Droppable bound refuse what maxon's linear rules refuse -->
 <!-- positions: moved -->
 
 ```maxon
@@ -1605,7 +1611,7 @@ error E3217: <fragment>:34:10: the message `Factory.make` returns a linear value
 ```
 
 <!-- test: a-linear-value-is-not-passed-through-an-interface-method -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: a linear value is a value with a destructor, which cannot be copied or dropped, so the rules of ownership and the Droppable bound refuse what maxon's linear rules refuse -->
 <!-- positions: moved -->
 
 ```maxon
@@ -2031,7 +2037,7 @@ error E3223: <fragment>:28:3: this drops 'r', a linear value that was never cons
 ```
 
 <!-- test: a-match-arm-that-binds-no-name-for-a-linear-payload-is-refused -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: a linear value is a value with a destructor, which cannot be copied or dropped, so the rules of ownership and the Droppable bound refuse what maxon's linear rules refuse -->
 <!-- positions: moved -->
 
 ```maxon
@@ -2075,7 +2081,7 @@ error E3224: <fragment>:28:3: the case 'some' carries the linear value 'r', and 
 ```
 
 <!-- test: a-default-arm-cannot-cover-a-case-with-a-linear-payload -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: a linear value is a value with a destructor, which cannot be copied or dropped, so the rules of ownership and the Droppable bound refuse what maxon's linear rules refuse -->
 <!-- positions: moved -->
 
 ```maxon
@@ -3218,7 +3224,7 @@ error E3201: <fragment>:46:8: an isolated value from outside 'w' cannot be moved
 ```
 
 <!-- test: a-linear-value-is-refused-in-an-array-literal -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: a linear value is a value with a destructor, which cannot be copied or dropped, so the rules of ownership and the Droppable bound refuse what maxon's linear rules refuse -->
 <!-- positions: moved -->
 A bare array literal infers `Array with Resp`, an instance whose drop frees its records with no finalizer, so the literal is refused like the written type argument is.
 ```maxon
@@ -3251,6 +3257,7 @@ error E3224: <fragment>:22:12: 'Resp' is a linear value and cannot be a type arg
 ```
 
 <!-- test: a-linear-value-is-refused-in-a-map-literal -->
+<!-- skip: language difference: a linear value is a value with a destructor, which cannot be copied or dropped, so the rules of ownership and the Droppable bound refuse what maxon's linear rules refuse -->
 <!-- positions: moved -->
 
 ```maxon
@@ -3283,7 +3290,7 @@ error E3224: <fragment>:22:11: 'Resp' is a linear value and cannot be a type arg
 ```
 
 <!-- test: a-generic-record-instance-inferred-from-a-linear-argument-is-refused -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: a linear value is a value with a destructor, which cannot be copied or dropped, so the rules of ownership and the Droppable bound refuse what maxon's linear rules refuse -->
 <!-- positions: moved -->
 
 ```maxon
@@ -3363,7 +3370,7 @@ error E3005: <fragment>:24:35: Cannot return 'Resp' from function declared to re
 ```
 
 <!-- test: a-linear-argument-to-a-generic-function-is-refused -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: a linear value is a value with a destructor, which cannot be copied or dropped, so the rules of ownership and the Droppable bound refuse what maxon's linear rules refuse -->
 <!-- positions: moved -->
 Each copy of a generic function is checked against its concrete type, but a linear type argument is refused at the call for the reason a written one is: no generic holds a linear value.
 ```maxon
@@ -3401,6 +3408,7 @@ error E3224: <fragment>:27:10: 'Resp' is a linear value and cannot be a type arg
 ```
 
 <!-- test: a-module-let-of-a-linear-type-is-refused -->
+<!-- skip: language difference: a linear value is a value with a destructor, which cannot be copied or dropped, so the rules of ownership and the Droppable bound refuse what maxon's linear rules refuse -->
 <!-- positions: moved -->
 A module-level `let` lives for the whole program and any function can call its finalizer, so it could be consumed twice.
 ```maxon
@@ -3435,6 +3443,7 @@ error E3224: <fragment>:21:14: 'shared' holds a linear value, and a module-level
 ```
 
 <!-- test: a-static-let-of-a-linear-type-is-refused -->
+<!-- skip: language difference: a linear value is a value with a destructor, which cannot be copied or dropped, so the rules of ownership and the Droppable bound refuse what maxon's linear rules refuse -->
 <!-- positions: moved -->
 
 ```maxon
@@ -3472,7 +3481,7 @@ error E3224: <fragment>:7:22: 'Resp.shared' holds a linear value, and a module-l
 ```
 
 <!-- test: a-linear-value-cannot-be-passed-to-an-interface-typed-parameter -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: a linear value is a value with a destructor, which cannot be copied or dropped, so the rules of ownership and the Droppable bound refuse what maxon's linear rules refuse -->
 <!-- positions: moved -->
 
 ```maxon
@@ -3514,7 +3523,7 @@ error E3224: <fragment>:31:10: Cannot pass a value as 'd', which is declared at 
 ```
 
 <!-- test: a-linear-value-cannot-be-returned-as-an-interface-value -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: a linear value is a value with a destructor, which cannot be copied or dropped, so the rules of ownership and the Droppable bound refuse what maxon's linear rules refuse -->
 <!-- positions: moved -->
 
 ```maxon
@@ -3661,6 +3670,7 @@ error E3210: <fragment>:44:11: 'Waiting.ask' may wait (it awaits a reply from 'D
 ```
 
 <!-- test: a-timed-send-takes-no-linear-argument -->
+<!-- skip: language difference: a linear value is a value with a destructor, which cannot be copied or dropped, so the rules of ownership and the Droppable bound refuse what maxon's linear rules refuse -->
 <!-- positions: moved -->
 
 ```maxon
@@ -3712,7 +3722,7 @@ error E3224: <fragment>:38:8: a linear value is never sent with a `sendTimeout:`
 ```
 
 <!-- test: a-spawn-of-a-factory-that-throws-takes-no-linear-argument -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: a linear value is a value with a destructor, which cannot be copied or dropped, so the rules of ownership and the Droppable bound refuse what maxon's linear rules refuse -->
 <!-- positions: moved -->
 A factory that throws may not start the service, and then it would drop the linear value.
 ```maxon
@@ -4339,8 +4349,8 @@ union Msg
 	nothing
 end 'Msg'
 
-function handle(m Msg)
-	match m 'k'
+function handle(consumes m Msg)
+	match consumes m 'k'
 		data(r) then r.fin()
 		default panic("not data")
 	end 'k'
@@ -4389,8 +4399,8 @@ union Msg
 	nothing
 end 'Msg'
 
-function handle(m Msg) throws HandleError
-	match m 'k'
+function handle(consumes m Msg) throws HandleError
+	match consumes m 'k'
 		data(r) then r.fin()
 		default throws HandleError.notData
 	end 'k'
@@ -4447,6 +4457,7 @@ error E3223: <fragment>:20:11: this drops 'self', a linear value that was never 
 ```
 
 <!-- test: a-linear-message-queued-when-the-service-shuts-down-is-consumed-by-the-service -->
+<!-- skip: language difference: SendError and SubprocessError are built-in enums whose cases carry no payload, so a failed send gives its arguments no way back -->
 <!-- procs: 1 -->
 One processor and no yield in `main` keep the service from running while two sends queue behind its start. `shutdown()` closes the mailbox once it has drained, so both queued messages still reach `take`, which consumes each, and a send after the shutdown hands its value back in `serviceStopped`. The refused send is consumed first because the service has not run yet.
 ```maxon
@@ -4803,8 +4814,8 @@ union Maybe
 	nothing
 end 'Maybe'
 
-function settle(m Maybe)
-	match m 'which'
+function settle(consumes m Maybe)
+	match consumes m 'which'
 		some(r) then r.fin()
 		nothing then print("nothing\n")
 	end 'which'
@@ -4846,8 +4857,8 @@ union Maybe
 	nothing
 end 'Maybe'
 
-function settle(m Maybe)
-	match m 'which'
+function settle(consumes m Maybe)
+	match consumes m 'which'
 		some(r) then r.fin()
 		nothing then print("nothing\n")
 	end 'which'
@@ -4895,8 +4906,8 @@ union Maybe
 	nothing
 end 'Maybe'
 
-function settle(m Maybe)
-	match m 'which'
+function settle(consumes m Maybe)
+	match consumes m 'which'
 		some(r) then r.fin()
 		nothing then print("nothing\n")
 	end 'which'
@@ -4946,8 +4957,8 @@ union Maybe
 	nothing
 end 'Maybe'
 
-function settle(m Maybe)
-	match m 'which'
+function settle(consumes m Maybe)
+	match consumes m 'which'
 		some(r) then r.fin()
 		nothing then print("nothing\n")
 	end 'which'
@@ -4993,8 +5004,8 @@ union Maybe
 	nothing
 end 'Maybe'
 
-function settle(m Maybe)
-	match m 'which'
+function settle(consumes m Maybe)
+	match consumes m 'which'
 		some(r) then r.fin()
 		nothing then print("nothing\n")
 	end 'which'
@@ -5192,8 +5203,8 @@ union Maybe
 	nothing
 end 'Maybe'
 
-function settle(m Maybe)
-	match m 'which'
+function settle(consumes m Maybe)
+	match consumes m 'which'
 		some(r) then r.fin()
 		nothing then print("nothing\n")
 	end 'which'
@@ -5245,8 +5256,8 @@ union Maybe
 	nothing
 end 'Maybe'
 
-function settle(m Maybe)
-	match m 'which'
+function settle(consumes m Maybe)
+	match consumes m 'which'
 		some(r) then r.fin()
 		nothing then print("nothing\n")
 	end 'which'
@@ -5274,6 +5285,7 @@ nothing
 ```
 
 <!-- test: an-isolated-value-is-not-merged-into-a-variable-one-branch-leaves-holding-the-linear-case -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The `then` branch leaves `m` holding the linear case, so `m` may hold a linear value when `filled` is assigned to it.
 ```maxon
@@ -5325,6 +5337,7 @@ error E3196: <fragment>:43:6: cannot store an isolated 'Maybe' into 'm', which h
 ```
 
 <!-- test: an-isolated-value-is-not-merged-into-a-variable-the-previous-lap-left-holding-it -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The lap ends with `m` holding the `filled` it was given, so the next lap's `filled` is assigned to a variable that may hold a linear value.
 ```maxon
@@ -5390,8 +5403,8 @@ union Maybe
 	nothing
 end 'Maybe'
 
-function settle(m Maybe)
-	match m 'which'
+function settle(consumes m Maybe)
+	match consumes m 'which'
 		some(r) then r.fin()
 		nothing then print("nothing\n")
 	end 'which'
@@ -5404,7 +5417,7 @@ end 'recycle'
 
 function main() returns ExitCode
 	var m = Maybe.some(Resp.create(1))
-	match m 'which'
+	match consumes m 'which'
 		some(r) then m = recycle(r)
 		nothing then m = Maybe.some(Resp.create(4))
 	end 'which'
@@ -5442,8 +5455,8 @@ union Maybe
 	nothing
 end 'Maybe'
 
-function settle(m Maybe)
-	match m 'which'
+function settle(consumes m Maybe)
+	match consumes m 'which'
 		some(r) then r.fin()
 		nothing then print("nothing\n")
 	end 'which'
@@ -5455,7 +5468,7 @@ end 'rewrap'
 
 function main() returns ExitCode
 	var m = Maybe.some(Resp.create(1))
-	match m 'which'
+	match consumes m 'which'
 		some(r) then m = rewrap(r)
 		nothing then m = Maybe.nothing
 	end 'which'
@@ -5588,8 +5601,8 @@ union Maybe
 	nothing
 end 'Maybe'
 
-function settle(m Maybe)
-	match m 'which'
+function settle(consumes m Maybe)
+	match consumes m 'which'
 		some(r) then r.fin()
 		nothing then print("nothing\n")
 	end 'which'
@@ -5603,7 +5616,7 @@ end 'recycle'
 function main() returns ExitCode
 	var m = Maybe.some(Resp.create(1))
 	for _ in 0 upto 2 'lap'
-		match m 'm'
+		match consumes m 'm'
 			some(r) then m = recycle(r)
 			nothing then m = Maybe.nothing
 		end 'm'
@@ -5746,8 +5759,8 @@ union Maybe
 	nothing
 end 'Maybe'
 
-function settle(m Maybe)
-	match m 'which'
+function settle(consumes m Maybe)
+	match consumes m 'which'
 		some(r) then r.fin()
 		nothing then print("nothing\n")
 	end 'which'
@@ -5761,7 +5774,7 @@ end 'recycle'
 function main() returns ExitCode
 	var m = Maybe.some(Resp.create(1))
 	for i in 0 upto 3 'lap'
-		match m 'm'
+		match consumes m 'm'
 			some(r) then m = recycle(r)
 			nothing then m = Maybe.nothing
 		end 'm'
@@ -5808,8 +5821,8 @@ union Maybe
 	nothing
 end 'Maybe'
 
-function settle(m Maybe)
-	match m 'which'
+function settle(consumes m Maybe)
+	match consumes m 'which'
 		some(r) then r.fin()
 		nothing then print("nothing\n")
 	end 'which'
@@ -5824,7 +5837,7 @@ function main() returns ExitCode
 	var m = Maybe.some(Resp.create(1))
 	var laps = 0 as Code
 	while laps < 2 'again'
-		match m 'm'
+		match consumes m 'm'
 			some(r) then m = recycle(r)
 			nothing then m = Maybe.nothing
 		end 'm'
@@ -5919,8 +5932,8 @@ union Maybe
 	nothing
 end 'Maybe'
 
-function settle(m Maybe)
-	match m 'which'
+function settle(consumes m Maybe)
+	match consumes m 'which'
 		some(r) then r.fin()
 		nothing then print("nothing\n")
 	end 'which'
@@ -5935,7 +5948,7 @@ function main() returns ExitCode
 	var m = Maybe.some(Resp.create(1))
 	for _ in 0 upto 2 'outer'
 		for _ in 0 upto 2 'inner'
-			match m 'm'
+			match consumes m 'm'
 				some(r) then m = recycle(r)
 				nothing then m = Maybe.nothing
 			end 'm'
@@ -6087,7 +6100,7 @@ end 'Wrapped'
 function main() returns ExitCode
 	let r = Wrapped.filled(Resp.create(0)) as Wrapped
 	let a = r as Wrapped
-	match a 'which'
+	match consumes a 'which'
 		empty then print("empty\n")
 		filled(held) then held.fin()
 	end 'which'
@@ -6401,7 +6414,7 @@ error E3102: <fragment>:13:3: use of moved value 'self': its ownership moved to 
 ```
 
 <!-- test: a-method-that-does-not-take-consuming-self-cannot-return-it -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: a linear value is a value with a destructor, which cannot be copied or dropped, so the rules of ownership and the Droppable bound refuse what maxon's linear rules refuse -->
 <!-- positions: moved -->
 `self` of a method that does not take `consuming self` is only lent, so returning it would give the caller a second owner of a value one finalizer ends.
 ```maxon
@@ -6434,7 +6447,7 @@ error E3224: <fragment>:12:10: this linear value is only lent to this code (a pa
 ```
 
 <!-- test: a-method-that-does-not-take-consuming-self-cannot-build-a-union-around-it -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: a linear value is a value with a destructor, which cannot be copied or dropped, so the rules of ownership and the Droppable bound refuse what maxon's linear rules refuse -->
 <!-- positions: moved -->
 A union literal holding the lent receiver moves it into the union, which only the code that owns it may do.
 ```maxon
@@ -6475,6 +6488,7 @@ error E3224: <fragment>:17:27: this linear value is only lent to this code (a pa
 ```
 
 <!-- test: a-union-carrying-a-linear-value-cannot-be-cloned -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 A union with a linear payload is linear and unique, so `clone()` is refused as it is for the record.
 ```maxon
@@ -6612,8 +6626,8 @@ union Maybe
 	some(r Resp)
 end 'Maybe'
 
-function settle(m Maybe)
-	match m 'which'
+function settle(consumes m Maybe)
+	match consumes m 'which'
 		nothing then break
 		some(r) then r.fin()
 	end 'which'
@@ -6626,7 +6640,7 @@ end 'ready'
 function main() returns ExitCode
 	let m = Maybe.some(Resp.create(1))
 	if ready(0) 'pick'
-		match m 'direct'
+		match consumes m 'direct'
 			nothing then break
 			some(r) then r.fin()
 		end 'direct'
@@ -6672,12 +6686,12 @@ end 'ready'
 function main() returns ExitCode
 	let m = Maybe.some(Resp.create(2))
 	if ready(1) 'pick'
-		match m 'first'
+		match consumes m 'first'
 			nothing then break
 			some(r) then r.fin()
 		end 'first'
 	end 'pick' else 'other'
-		match m 'second'
+		match consumes m 'second'
 			nothing then break
 			some(r) then r.fin()
 		end 'second'
@@ -6809,12 +6823,12 @@ end 'ready'
 function main() returns ExitCode
 	let m = Maybe.some(Resp.create(4)) as Maybe
 	if ready(1) 'pick'
-		match m 'direct'
+		match consumes m 'direct'
 			nothing then break
 			some(r) then r.fin()
 		end 'direct'
 	end 'pick' else 'other'
-		match m 'again'
+		match consumes m 'again'
 			nothing then break
 			some(r) then r.fin()
 		end 'again'
@@ -6830,6 +6844,7 @@ fin 4
 ```
 
 <!-- test: a-behaviour-matches-its-own-linear-union-parameter-in-both-branches -->
+<!-- skip: language difference: SendError and SubprocessError are built-in enums whose cases carry no payload, so a failed send gives its arguments no way back -->
 The message parameter `m` is owned by the behaviour, which consumes it on whichever branch runs.
 ```maxon
 typealias Code = int(0 to 999)
@@ -6926,8 +6941,8 @@ function trouble() throws Oops
 	throw Oops.bad
 end 'trouble'
 
-function settle(m Maybe)
-	match m 'which'
+function settle(consumes m Maybe)
+	match consumes m 'which'
 		nothing then break
 		some(r) then r.fin()
 	end 'which'
@@ -7038,8 +7053,8 @@ function giveS(consumes r Rl) returns Sn
 	return Sn.notSent(r)
 end 'giveS'
 
-function useS(s Sn)
-	match s 'm'
+function useS(consumes s Sn)
+	match consumes s 'm'
 		ok then return
 		notSent(r) then r.fin(1)
 	end 'm'
@@ -7095,8 +7110,8 @@ function giveS(consumes r Rl) returns Sn
 	return Sn.notSent(r)
 end 'giveS'
 
-function useS(s Sn)
-	match s 'm'
+function useS(consumes s Sn)
+	match consumes s 'm'
 		ok then return
 		notSent(r) then r.fin(1)
 	end 'm'
@@ -7126,6 +7141,7 @@ end 'main'
 ```
 
 <!-- test: a-non-linear-isolated-local-into-an-unmarked-parameter-beside-an-opened-receiver-is-refused -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 An unmarked parameter of a record type lends its argument, so `v` would be a second region opened by the call.
 ```maxon
@@ -7184,6 +7200,7 @@ error E3201: <fragment>:49:9: one statement reaches through two isolated values,
 ```
 
 <!-- test: a-plain-linear-local-beside-an-opened-receiver-is-refused -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `v` is ordinary data of the caller's region, which a call into `bx`'s region does not take.
 ```maxon
@@ -7352,7 +7369,7 @@ poke 3
 ```
 
 <!-- test: a-linear-factory-argument-of-a-type-that-is-not-closed-does-not-cross -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `Mp` holds the plain payload `y`, which `b` still names after the spawn.
 ```maxon
@@ -7450,7 +7467,7 @@ end 'main'
 ```
 
 <!-- test: a-local-refilled-with-an-alias-is-not-recovered-in-the-loop -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 After `takeIso` recovers `w`, the variable takes only isolated values, and `keep` is a record another name holds.
 ```maxon
@@ -7486,7 +7503,7 @@ error E3200: <fragment>:22:7: 'keep' is not isolated: only a clean call, a `swap
 ```
 
 <!-- test: a-unique-local-sent-on-every-lap-is-refused-when-a-lap-reads-the-value-it-refills -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `t` crosses whole only because the value it holds at the header is fresh, and the value each lap assigns is read by `h.k = t.b` before the next lap sends it, so `h` would still name a part of what the service holds.
 ```maxon
@@ -7548,7 +7565,7 @@ error E3200: <fragment>:47:15: 't' is recovered into an isolated position inside
 ```
 
 <!-- test: a-unique-local-sent-in-an-inner-loop-is-refused-when-an-outer-lap-reads-the-value-it-refills -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The inner loop's header holds the value the outer loop's header holds, so relying on it in the inner loop relies on the outer header too: `h.k = t.b` reads what the last inner lap assigned, and the next outer lap sends it.
 ```maxon
@@ -7683,7 +7700,7 @@ end 'main'
 ```
 
 <!-- test: a-unique-local-sent-on-every-lap-of-a-for-loop-is-refused-when-a-lap-reads-the-value-it-refills -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 A `for` loop's header joins `t` the way a `while` loop's does.
 ```maxon
@@ -7792,6 +7809,7 @@ end 'main'
 ```
 
 <!-- test: a-vacant-linear-union-is-copied-into-a-callee-that-sends-it -->
+<!-- skip: language difference: SendError and SubprocessError are built-in enums whose cases carry no payload, so a failed send gives its arguments no way back -->
 `s` holds the payload-free case on every path, so it owes nothing: each call takes a copy, and `relay` sends its parameter, whose type is closed.
 ```maxon
 typealias Num = int(i64.min to i64.max)
@@ -7858,6 +7876,7 @@ end 'main'
 ```
 
 <!-- test: a-vacant-linear-union-local-is-passed-twice-to-a-callee-that-sends-it -->
+<!-- skip: language difference: SendError and SubprocessError are built-in enums whose cases carry no payload, so a failed send gives its arguments no way back -->
 The same with an unmarked `let`.
 ```maxon
 typealias Num = int(i64.min to i64.max)
@@ -7924,6 +7943,7 @@ end 'main'
 ```
 
 <!-- test: a-failed-sends-hand-back-goes-to-an-isolated-parameter-whatever-its-closure -->
+<!-- skip: language difference: SendError and SubprocessError are built-in enums whose cases carry no payload, so a failed send gives its arguments no way back -->
 `Reply` holds a plain `Box`, so its type is not closed, yet the binding a failed send hands back is an `isolated` one (ruling 45) and goes to an `isolated` parameter.
 ```maxon
 typealias Count = int(0 to 1000)
@@ -8004,8 +8024,8 @@ union Maybe
 	nothing
 end 'Maybe'
 
-function settle(m Maybe)
-	match m 'which'
+function settle(consumes m Maybe)
+	match consumes m 'which'
 		some(r) then r.fin() and fallthrough
 		nothing then print("settled\n")
 	end 'which'

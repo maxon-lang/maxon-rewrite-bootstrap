@@ -1009,6 +1009,7 @@ error E3016: <fragment>:10:6: Partial interface implementation: type 'Sack' has 
 ### `as` — a re-brand costs nothing, and a different element layout is still not a cast target
 
 <!-- test: as-rebrands-both-ways -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 The cast changes the brand and nothing else — the emitted code shows no operation surviving for either `as`.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -1020,7 +1021,7 @@ typealias Ys = Array with Integer
 function sumXs(xs Xs) returns Integer
 	var t = 0 as Integer
 	for x in xs 'each'
-		t = try t + x otherwise panic("out of range")
+		t = t + x
 	end 'each'
 	return t
 end 'sumXs'
@@ -1028,13 +1029,13 @@ end 'sumXs'
 function sumYs(ys Ys) returns Integer
 	var t = 0 as Integer
 	for y in ys 'each'
-		t = try t + y otherwise panic("out of range")
+		t = t + y
 	end 'each'
 	return t
 end 'sumYs'
 
 function main() returns ExitCode
-	var xs = Xs.create(0)
+	let xs = Xs.create(0)
 	xs.push(20)
 	xs.push(22)
 	let ys = xs as Ys
@@ -1295,8 +1296,8 @@ typealias Other = Array with Byte
 
 function pick(k Integer, bytes Bytes, other Other) returns ExitCode
 	let m = match k 'm'
-		0 gives bytes.managed
-		default gives other.managed
+		0 gives bytes.managed.clone()
+		default gives other.managed.clone()
 	end 'm'
 	return (try m.get(0) otherwise 0) as ExitCode
 end 'pick'

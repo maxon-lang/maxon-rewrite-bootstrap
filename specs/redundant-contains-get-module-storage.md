@@ -25,6 +25,7 @@ rather than merely equivalent to it.
 ## Tests
 
 <!-- test: error.let-global-key-is-linted -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 The receiver is a parameter and the key is a top-level `let`, so neither can be rewritten between the two
 lookups.
 ```maxon

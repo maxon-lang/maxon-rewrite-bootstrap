@@ -855,6 +855,7 @@ end 'main'
 ```
 
 <!-- test: stdlib-user-shadows.error.an-unthrown-clause-names-the-library-type-as-written -->
+<!-- skip: language difference: a throws or a try block that nothing can make fail is allowed, so a sharper analysis never breaks a program -->
 A diagnostic names a moved library type as the author writes it, `stdlib.ParseError`, never by the
 `__ParseError` the shadow moved it to.
 ```maxon

@@ -374,6 +374,7 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: async-linearity.await-aliased-in-ternary-arms -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 The same, through an ALIAS: `p` and `q` are one green thread under two names, and the two arms await it
 through different names. Linearity keys on the THREAD, so it sees one thread awaited in each of two
 exclusive arms — one await per path, and legal. This is the intersection of the two facts that must both
@@ -393,7 +394,7 @@ function main() returns ExitCode
 	let p = async makeValue()
 	let q = p
 	let v = (await p) if no() else (await q)
-	return try (v + 1) as ExitCode otherwise panic("out of range")
+	return (v + 1) as ExitCode
 end 'main'
 
 typealias Integer = int(i64.min to i64.max)

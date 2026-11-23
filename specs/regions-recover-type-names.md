@@ -52,7 +52,7 @@ end 'consume'
 
 function main() returns ExitCode
 	let parcel = Parcel.box(Box.create(7)) as Parcel
-	match parcel 'unpack'
+	match consumes parcel 'unpack'
 		pad(p) then p.fin()
 		box(b) then consume(b.clone())
 	end 'unpack'
@@ -113,7 +113,7 @@ end 'consume'
 function main() returns ExitCode
 	_ = Filler.create()
 	let parcel = Parcel.box(Box.create(7)) as Parcel
-	match parcel 'unpack'
+	match consumes parcel 'unpack'
 		pad(p) then p.fin()
 		box(b) then consume(b.clone())
 	end 'unpack'
@@ -177,7 +177,7 @@ end 'consume'
 function main() returns ExitCode
 	_ = Filler.create()
 	let parcel = Parcel.box(Box.create(7)) as Parcel
-	match parcel 'unpack'
+	match consumes parcel 'unpack'
 		pad(p) then p.fin()
 		box(b) then consume(b.clone())
 	end 'unpack'
@@ -244,7 +244,7 @@ end 'consume'
 function main() returns ExitCode
 	_ = Filler.create()
 	let parcel = Parcel.box(Box.create(7)) as Parcel
-	match parcel 'unpack'
+	match consumes parcel 'unpack'
 		pad(p) then p.fin()
 		box(b) then consume(b.clone())
 	end 'unpack'
@@ -314,7 +314,7 @@ end 'consume'
 function main() returns ExitCode
 	_ = Filler.create()
 	let parcel = Parcel.box(Box.create(7)) as Parcel
-	match parcel 'unpack'
+	match consumes parcel 'unpack'
 		pad(p) then p.fin()
 		box(b) then consume(b.clone())
 	end 'unpack'
@@ -387,7 +387,7 @@ end 'consume'
 function main() returns ExitCode
 	_ = Filler.create()
 	let parcel = Parcel.box(Box.create(7)) as Parcel
-	match parcel 'unpack'
+	match consumes parcel 'unpack'
 		pad(p) then p.fin()
 		box(b) then consume(b.clone())
 	end 'unpack'
@@ -463,7 +463,7 @@ end 'consume'
 function main() returns ExitCode
 	_ = Filler.create()
 	let parcel = Parcel.box(Box.create(7)) as Parcel
-	match parcel 'unpack'
+	match consumes parcel 'unpack'
 		pad(p) then p.fin()
 		box(b) then consume(b.clone())
 	end 'unpack'
@@ -542,7 +542,7 @@ end 'consume'
 function main() returns ExitCode
 	_ = Filler.create()
 	let parcel = Parcel.box(Box.create(7)) as Parcel
-	match parcel 'unpack'
+	match consumes parcel 'unpack'
 		pad(p) then p.fin()
 		box(b) then consume(b.clone())
 	end 'unpack'
@@ -624,7 +624,7 @@ end 'consume'
 function main() returns ExitCode
 	_ = Filler.create()
 	let parcel = Parcel.box(Box.create(7)) as Parcel
-	match parcel 'unpack'
+	match consumes parcel 'unpack'
 		pad(p) then p.fin()
 		box(b) then consume(b.clone())
 	end 'unpack'
@@ -709,7 +709,7 @@ end 'consume'
 function main() returns ExitCode
 	_ = Filler.create()
 	let parcel = Parcel.box(Box.create(7)) as Parcel
-	match parcel 'unpack'
+	match consumes parcel 'unpack'
 		pad(p) then p.fin()
 		box(b) then consume(b.clone())
 	end 'unpack'
@@ -797,7 +797,7 @@ end 'consume'
 function main() returns ExitCode
 	_ = Filler.create()
 	let parcel = Parcel.box(Box.create(7)) as Parcel
-	match parcel 'unpack'
+	match consumes parcel 'unpack'
 		pad(p) then p.fin()
 		box(b) then consume(b.clone())
 	end 'unpack'
@@ -888,7 +888,7 @@ end 'consume'
 function main() returns ExitCode
 	_ = Filler.create()
 	let parcel = Parcel.box(Box.create(7)) as Parcel
-	match parcel 'unpack'
+	match consumes parcel 'unpack'
 		pad(p) then p.fin()
 		box(b) then consume(b.clone())
 	end 'unpack'
@@ -982,7 +982,7 @@ end 'consume'
 function main() returns ExitCode
 	_ = Filler.create()
 	let parcel = Parcel.box(Box.create(7)) as Parcel
-	match parcel 'unpack'
+	match consumes parcel 'unpack'
 		pad(p) then p.fin()
 		box(b) then consume(b.clone())
 	end 'unpack'
@@ -1079,7 +1079,7 @@ end 'consume'
 function main() returns ExitCode
 	_ = Filler.create()
 	let parcel = Parcel.box(Box.create(7)) as Parcel
-	match parcel 'unpack'
+	match consumes parcel 'unpack'
 		pad(p) then p.fin()
 		box(b) then consume(b.clone())
 	end 'unpack'
@@ -1179,7 +1179,7 @@ end 'consume'
 function main() returns ExitCode
 	_ = Filler.create()
 	let parcel = Parcel.box(Box.create(7)) as Parcel
-	match parcel 'unpack'
+	match consumes parcel 'unpack'
 		pad(p) then p.fin()
 		box(b) then consume(b.clone())
 	end 'unpack'
@@ -1282,7 +1282,7 @@ end 'consume'
 function main() returns ExitCode
 	_ = Filler.create()
 	let parcel = Parcel.box(Box.create(7)) as Parcel
-	match parcel 'unpack'
+	match consumes parcel 'unpack'
 		pad(p) then p.fin()
 		box(b) then consume(b.clone())
 	end 'unpack'
@@ -1388,7 +1388,7 @@ end 'consume'
 function main() returns ExitCode
 	_ = Filler.create()
 	let parcel = Parcel.box(Box.create(7)) as Parcel
-	match parcel 'unpack'
+	match consumes parcel 'unpack'
 		pad(p) then p.fin()
 		box(b) then consume(b.clone())
 	end 'unpack'
@@ -1497,7 +1497,7 @@ end 'consume'
 function main() returns ExitCode
 	_ = Filler.create()
 	let parcel = Parcel.box(Box.create(7)) as Parcel
-	match parcel 'unpack'
+	match consumes parcel 'unpack'
 		pad(p) then p.fin()
 		box(b) then consume(b.clone())
 	end 'unpack'
@@ -1609,7 +1609,7 @@ end 'consume'
 function main() returns ExitCode
 	_ = Filler.create()
 	let parcel = Parcel.box(Box.create(7)) as Parcel
-	match parcel 'unpack'
+	match consumes parcel 'unpack'
 		pad(p) then p.fin()
 		box(b) then consume(b.clone())
 	end 'unpack'
@@ -1724,7 +1724,7 @@ end 'consume'
 function main() returns ExitCode
 	_ = Filler.create()
 	let parcel = Parcel.box(Box.create(7)) as Parcel
-	match parcel 'unpack'
+	match consumes parcel 'unpack'
 		pad(p) then p.fin()
 		box(b) then consume(b.clone())
 	end 'unpack'
@@ -1842,7 +1842,7 @@ end 'consume'
 function main() returns ExitCode
 	_ = Filler.create()
 	let parcel = Parcel.box(Box.create(7)) as Parcel
-	match parcel 'unpack'
+	match consumes parcel 'unpack'
 		pad(p) then p.fin()
 		box(b) then consume(b.clone())
 	end 'unpack'
@@ -1963,7 +1963,7 @@ end 'consume'
 function main() returns ExitCode
 	_ = Filler.create()
 	let parcel = Parcel.box(Box.create(7)) as Parcel
-	match parcel 'unpack'
+	match consumes parcel 'unpack'
 		pad(p) then p.fin()
 		box(b) then consume(b.clone())
 	end 'unpack'
@@ -2087,7 +2087,7 @@ end 'consume'
 function main() returns ExitCode
 	_ = Filler.create()
 	let parcel = Parcel.box(Box.create(7)) as Parcel
-	match parcel 'unpack'
+	match consumes parcel 'unpack'
 		pad(p) then p.fin()
 		box(b) then consume(b.clone())
 	end 'unpack'
@@ -2214,7 +2214,7 @@ end 'consume'
 function main() returns ExitCode
 	_ = Filler.create()
 	let parcel = Parcel.box(Box.create(7)) as Parcel
-	match parcel 'unpack'
+	match consumes parcel 'unpack'
 		pad(p) then p.fin()
 		box(b) then consume(b.clone())
 	end 'unpack'
@@ -2344,7 +2344,7 @@ end 'consume'
 function main() returns ExitCode
 	_ = Filler.create()
 	let parcel = Parcel.box(Box.create(7)) as Parcel
-	match parcel 'unpack'
+	match consumes parcel 'unpack'
 		pad(p) then p.fin()
 		box(b) then consume(b.clone())
 	end 'unpack'
@@ -2477,7 +2477,7 @@ end 'consume'
 function main() returns ExitCode
 	_ = Filler.create()
 	let parcel = Parcel.box(Box.create(7)) as Parcel
-	match parcel 'unpack'
+	match consumes parcel 'unpack'
 		pad(p) then p.fin()
 		box(b) then consume(b.clone())
 	end 'unpack'
@@ -2613,7 +2613,7 @@ end 'consume'
 function main() returns ExitCode
 	_ = Filler.create()
 	let parcel = Parcel.box(Box.create(7)) as Parcel
-	match parcel 'unpack'
+	match consumes parcel 'unpack'
 		pad(p) then p.fin()
 		box(b) then consume(b.clone())
 	end 'unpack'
@@ -2752,7 +2752,7 @@ end 'consume'
 function main() returns ExitCode
 	_ = Filler.create()
 	let parcel = Parcel.box(Box.create(7)) as Parcel
-	match parcel 'unpack'
+	match consumes parcel 'unpack'
 		pad(p) then p.fin()
 		box(b) then consume(b.clone())
 	end 'unpack'
@@ -2894,7 +2894,7 @@ end 'consume'
 function main() returns ExitCode
 	_ = Filler.create()
 	let parcel = Parcel.box(Box.create(7)) as Parcel
-	match parcel 'unpack'
+	match consumes parcel 'unpack'
 		pad(p) then p.fin()
 		box(b) then consume(b.clone())
 	end 'unpack'
@@ -3039,7 +3039,7 @@ end 'consume'
 function main() returns ExitCode
 	_ = Filler.create()
 	let parcel = Parcel.box(Box.create(7)) as Parcel
-	match parcel 'unpack'
+	match consumes parcel 'unpack'
 		pad(p) then p.fin()
 		box(b) then consume(b.clone())
 	end 'unpack'
@@ -3187,7 +3187,7 @@ end 'consume'
 function main() returns ExitCode
 	_ = Filler.create()
 	let parcel = Parcel.box(Box.create(7)) as Parcel
-	match parcel 'unpack'
+	match consumes parcel 'unpack'
 		pad(p) then p.fin()
 		box(b) then consume(b.clone())
 	end 'unpack'
@@ -3338,7 +3338,7 @@ end 'consume'
 function main() returns ExitCode
 	_ = Filler.create()
 	let parcel = Parcel.box(Box.create(7)) as Parcel
-	match parcel 'unpack'
+	match consumes parcel 'unpack'
 		pad(p) then p.fin()
 		box(b) then consume(b.clone())
 	end 'unpack'
@@ -3492,7 +3492,7 @@ end 'consume'
 function main() returns ExitCode
 	_ = Filler.create()
 	let parcel = Parcel.box(Box.create(7)) as Parcel
-	match parcel 'unpack'
+	match consumes parcel 'unpack'
 		pad(p) then p.fin()
 		box(b) then consume(b.clone())
 	end 'unpack'
@@ -3649,7 +3649,7 @@ end 'consume'
 function main() returns ExitCode
 	_ = Filler.create()
 	let parcel = Parcel.box(Box.create(7)) as Parcel
-	match parcel 'unpack'
+	match consumes parcel 'unpack'
 		pad(p) then p.fin()
 		box(b) then consume(b.clone())
 	end 'unpack'
@@ -3809,7 +3809,7 @@ end 'consume'
 function main() returns ExitCode
 	_ = Filler.create()
 	let parcel = Parcel.box(Box.create(7)) as Parcel
-	match parcel 'unpack'
+	match consumes parcel 'unpack'
 		pad(p) then p.fin()
 		box(b) then consume(b.clone())
 	end 'unpack'
@@ -3972,7 +3972,7 @@ end 'consume'
 function main() returns ExitCode
 	_ = Filler.create()
 	let parcel = Parcel.box(Box.create(7)) as Parcel
-	match parcel 'unpack'
+	match consumes parcel 'unpack'
 		pad(p) then p.fin()
 		box(b) then consume(b.clone())
 	end 'unpack'
@@ -4138,7 +4138,7 @@ end 'consume'
 function main() returns ExitCode
 	_ = Filler.create()
 	let parcel = Parcel.box(Box.create(7)) as Parcel
-	match parcel 'unpack'
+	match consumes parcel 'unpack'
 		pad(p) then p.fin()
 		box(b) then consume(b.clone())
 	end 'unpack'
@@ -4307,7 +4307,7 @@ end 'consume'
 function main() returns ExitCode
 	_ = Filler.create()
 	let parcel = Parcel.box(Box.create(7)) as Parcel
-	match parcel 'unpack'
+	match consumes parcel 'unpack'
 		pad(p) then p.fin()
 		box(b) then consume(b.clone())
 	end 'unpack'
@@ -4479,7 +4479,7 @@ end 'consume'
 function main() returns ExitCode
 	_ = Filler.create()
 	let parcel = Parcel.box(Box.create(7)) as Parcel
-	match parcel 'unpack'
+	match consumes parcel 'unpack'
 		pad(p) then p.fin()
 		box(b) then consume(b.clone())
 	end 'unpack'
@@ -4654,7 +4654,7 @@ end 'consume'
 function main() returns ExitCode
 	_ = Filler.create()
 	let parcel = Parcel.box(Box.create(7)) as Parcel
-	match parcel 'unpack'
+	match consumes parcel 'unpack'
 		pad(p) then p.fin()
 		box(b) then consume(b.clone())
 	end 'unpack'
@@ -4832,7 +4832,7 @@ end 'consume'
 function main() returns ExitCode
 	_ = Filler.create()
 	let parcel = Parcel.box(Box.create(7)) as Parcel
-	match parcel 'unpack'
+	match consumes parcel 'unpack'
 		pad(p) then p.fin()
 		box(b) then consume(b.clone())
 	end 'unpack'

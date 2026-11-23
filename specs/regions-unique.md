@@ -44,6 +44,7 @@ error E3102: <fragment>:16:14: use of moved value 'first': its ownership moved t
 ```
 
 <!-- test: unique-clone-refused -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 A copy of a unique value would be a second owner, so `clone()` is refused.
 
@@ -70,6 +71,7 @@ error E3214: <fragment>:14:13: 'Ticket' is unique and cannot be cloned
 ```
 
 <!-- test: holder-of-unique-is-unique -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `Wallet` declares nothing, but its field holds a unique `Ticket`, so `Wallet` is unique and has no `clone()`.
 
@@ -109,7 +111,7 @@ error E3214: <fragment>:26:13: 'Wallet' is unique (its field 'ticket' holds a un
 
 
 <!-- test: a-unique-union-kept-by-a-call-while-its-match-binding-is-read-is-refused -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The `filled` arm lends `slot` to its `token` binding, so handing `slot` to `keep`, which keeps it, is refused whatever the call reads of `token`.
 
@@ -151,7 +153,7 @@ error E3214: <fragment>:31:33: cannot pass 'slot' to parameter 'slot' of 'keep':
 ```
 
 <!-- test: a-match-binding-read-after-its-subject-is-moved-is-refused -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The `filled` arm lends `slot` to its `token` binding, so handing `slot` to `keep`, which keeps it, is refused whatever the call reads of the payload binding `n`.
 
@@ -459,6 +461,7 @@ end 'main'
 ```
 
 <!-- test: a-unique-parameter-handed-to-a-mutable-parameter-stays-readable -->
+<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 Handing a unique parameter to a `mutable` parameter lends it for the call, so the parameter is read again afterwards, including in the handler of the `try` that made the call.
 
 ```maxon
@@ -499,7 +502,7 @@ function report(token Token, fault Fault) returns Tally
 	return token.peek()
 end 'report'
 
-function dispatch(mutates token Token, handler Handler) returns Tally
+function dispatch(token Token, handler Handler) returns Tally
 	try handler.handle(token) otherwise (fault) 'threw'
 		return report(token, fault: fault)
 	end 'threw'
@@ -748,7 +751,7 @@ error E3102: <fragment>:30:8: use of moved value 'slot': its ownership moved to 
 ```
 
 <!-- test: a-unique-field-read-handed-to-a-keeping-parameter-is-refused -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `keep` stores its argument, which would move the unique `token` out of `holder`'s field, and a field cannot be moved out.
 
@@ -792,6 +795,7 @@ error E3214: <fragment>:32:14: cannot pass 'holder.token' to parameter 'token' o
 ```
 
 <!-- test: a-unique-element-read-handed-to-a-keeping-parameter-is-refused -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 An element read from an array names a slot the array goes on owning, so a keeping parameter cannot take it; `pop` moves one out.
 
@@ -1012,7 +1016,6 @@ error E3102: <fragment>:25:18: use of moved value 'pair': its ownership moved to
 ```
 
 <!-- test: error.a-unique-payload-of-a-var-union-kept-by-a-call -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The `filled` arm moves the payload of `slot` into `token`, so handing `slot` to `tally` after `keep(token)` in the same arm is a use of a moved value.
 
@@ -1034,8 +1037,8 @@ end 'Slot'
 
 typealias TokenArray = Array with Token
 
-function keep(token Token) returns Tally
-	let kept = TokenArray.create(0)
+function keep(consumes token Token) returns Tally
+	var kept = TokenArray.create(0)
 	kept.push(token)
 	return 1
 end 'keep'
@@ -1043,13 +1046,13 @@ end 'keep'
 function tally(slot Slot) returns Tally
 	match slot 'which'
 		empty then return 0
-		filled(token, n) then return n + token.n
+		filled(token, n) then return try n + token.n otherwise panic("out of range")
 	end 'which'
 end 'tally'
 
 function main() returns ExitCode
 	let slot = Slot.filled(Token.create(1), n: 2)
-	match slot 'which'
+	match consumes slot 'which'
 		empty then print("empty\n")
 		filled(token, n) then print("{keep(token)} {n} {tally(slot)}\n")
 	end 'which'
@@ -1107,6 +1110,7 @@ error E3102: <fragment>:34:61: use of moved value 'token': its ownership moved t
 ```
 
 <!-- test: a-var-bound-to-a-unique-field-read-is-refused -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `alias` would name the unique `token` while `holder` still holds it, and a unique value has one name.
 
@@ -1142,6 +1146,7 @@ error E3214: <fragment>:22:6: cannot bind 'alias' to a unique value read out of 
 ```
 
 <!-- test: a-let-bound-to-a-unique-element-read-is-refused -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 An element read from an array names a slot the array goes on owning, so a name cannot alias it.
 
@@ -1171,7 +1176,7 @@ error E3214: <fragment>:17:6: cannot bind 'alias' to a unique value read out of 
 ```
 
 <!-- test: a-conditional-with-a-unique-field-read-arm-is-refused -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The conditional hands back the field's unique, which would then have two names.
 
@@ -1212,6 +1217,7 @@ error E3214: <fragment>:21:28: cannot join a unique value read out of a field or
 ```
 
 <!-- test: a-let-bound-to-a-unique-tuple-element-read-is-refused -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 A tuple element read is a read out of a slot the tuple goes on owning.
 
@@ -1275,6 +1281,7 @@ end 'main'
 ```
 
 <!-- test: error.a-unique-field-bound-to-a-view-is-refused -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `view` is another spelling of `let`, and a `let` names the unique it is bound to, so the field is no longer the only name for it.
 
@@ -1309,7 +1316,7 @@ error E3214: <fragment>:22:6: cannot bind 'lent' to a unique value read out of a
 ```
 
 <!-- test: a-for-binding-over-uniques-handed-to-a-keeping-parameter-is-refused -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The loop lends each element of `tokens`, so `keep` cannot take it.
 
@@ -1382,7 +1389,7 @@ end 'main'
 ```
 
 <!-- test: a-tuple-element-binding-handed-to-a-keeping-parameter-is-refused -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 Destructuring lends the tuple's element, so `keep` cannot take it.
 
@@ -1417,6 +1424,7 @@ error E3214: <fragment>:24:10: cannot pass 'token' to parameter 'token' of 'keep
 ```
 
 <!-- test: a-record-holding-an-array-of-uniques-is-unique-and-cannot-be-cloned -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `Wallet`'s only field is an `Array with Ticket`, an instance rather than a named record, and the one walk that decides uniqueness reaches the `Ticket` inside it, so `clone()` is refused.
 
@@ -1459,6 +1467,7 @@ error E3214: <fragment>:29:13: 'Wallet' is unique (its field 'tickets' holds a u
 ```
 
 <!-- test: a-record-holding-an-array-of-uniques-is-unique-and-cannot-be-frozen -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The same `Wallet` is unique, so `freeze` is refused for the reason `clone()` is.
 
@@ -1500,7 +1509,7 @@ error E3214: <fragment>:28:22: 'Wallet' is unique (its field 'tickets' holds a u
 ```
 
 <!-- test: a-for-binding-over-uniques-assigned-to-a-field-is-refused -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The loop only lends each element of `tokens`, so storing it in `holder.token` would give a unique value two owners.
 
@@ -1541,7 +1550,7 @@ error E3214: <fragment>:28:18: cannot store into 'token' a unique value read out
 ```
 
 <!-- test: a-for-binding-over-uniques-returned-from-the-function-is-refused -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 Returning the lent element would hand a unique value the array still owns to the caller.
 
@@ -1578,7 +1587,7 @@ error E3214: <fragment>:16:10: cannot return a unique value read out of a field 
 ```
 
 <!-- test: a-for-binding-over-uniques-pushed-into-another-array-is-refused -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 Pushing the lent element into `kept` would give a unique value to a second array.
 
@@ -1611,7 +1620,7 @@ error E3214: <fragment>:20:13: cannot store into 'an element of the container pu
 ```
 
 <!-- test: a-for-binding-over-uniques-bound-to-a-var-is-refused -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 Binding the lent element to a `var` would make a second name for a unique value.
 
@@ -1683,6 +1692,7 @@ error E3197: <fragment>:29:9: cannot write through a read-only value while 'each
 ```
 
 <!-- test: freezing-an-array-of-uniques-is-refused -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 An array holding `Ticket`s is itself unique, so it cannot be frozen, as a record holding the same array cannot.
 
@@ -1815,6 +1825,7 @@ error E3102: <fragment>:15:3: use of moved value 'pending': its ownership moved 
 ```
 
 <!-- test: a-unique-union-copied-in-the-arm-that-lends-it-is-refused -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `match slot` lends the unique union to its arm, whose `token` binding views it, so `let copy = slot` in that arm gives the union a second name while it is lent.
 ```maxon
@@ -1847,7 +1858,7 @@ error E3214: <fragment>:22:33: cannot move or copy the unique value matched by '
 ```
 
 <!-- test: a-unique-union-kept-by-a-call-in-the-arm-that-lends-it-is-refused -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `keep` stores its argument, which moves `slot` out from under the `token` binding the arm reads, so the call is refused even though `token` is read before it.
 ```maxon
@@ -1888,7 +1899,7 @@ error E3214: <fragment>:31:40: cannot pass 'slot' to parameter 'slot' of 'keep':
 ```
 
 <!-- test: a-unique-union-stored-in-a-field-in-the-arm-that-lends-it-is-refused -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 Storing `slot` into a field in its own arm moves it, which the arm refuses.
 ```maxon
@@ -1930,6 +1941,7 @@ error E3214: <fragment>:31:36: cannot move or copy the unique value matched by '
 ```
 
 <!-- test: a-closure-capturing-the-matched-unique-union-in-its-arm-is-refused -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 A closure made in the arm captures `slot`, which moves it into the closure.
 ```maxon
@@ -1975,7 +1987,7 @@ error E3214: <fragment>:35:60: cannot move or copy the unique value matched by '
 ```
 
 <!-- test: a-record-holding-the-matched-unique-union-kept-in-the-arm-is-refused -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The arm of `match holder.slot` lends the record `holder` that owns the union, so a call that keeps `holder` is refused.
 ```maxon
@@ -2025,7 +2037,7 @@ error E3207: <fragment>:39:51: 'keepHolder' needs a writable parameter 'holder' 
 ```
 
 <!-- test: an-operand-of-a-cond-scrutinee-kept-in-the-arm-is-refused -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 Either operand of a `cond` scrutinee may be the union the arm views, so keeping `other` in the arm is refused as keeping `slot` is.
 ```maxon
@@ -2069,7 +2081,7 @@ error E3207: <fragment>:33:45: 'keep' needs a writable parameter 'slot' at line 
 ```
 
 <!-- test: a-by-reference-unique-union-kept-in-its-own-arm-is-refused -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 A `mutable` parameter that is matched is lent to its arms the same way a local is.
 ```maxon
@@ -2478,6 +2490,7 @@ error E3102: <fragment>:15:16: use of moved value 'r': its ownership moved to an
 ```
 
 <!-- test: a-union-holding-a-unique-cannot-be-cloned -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 A union whose payload is unique holds a unique, so its `clone()` would give the payload a second owner.
 ```maxon
@@ -2605,7 +2618,7 @@ error E3214: <fragment>:35:30: cannot hand 't' to argument `held` of the message
 ```
 
 <!-- test: a-unique-element-of-an-array-field-is-not-handed-to-a-service -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 Sending the array a record's field holds is a read of storage too: the record keeps the array and every unique in it.
 ```maxon
@@ -2734,7 +2747,7 @@ error E3197: <fragment>:29:3: cannot write 'n' through 'h', which is read-only w
 ```
 
 <!-- test: the-holder-of-an-array-of-uniques-passed-to-a-writing-parameter-in-a-for-over-it-is-refused -->
-<!-- skip: language difference: a loop holds the collection it walks -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `bump` writes `h`, which is read-only in the body of a `for` over `h.xs`.
 ```maxon
@@ -2867,6 +2880,7 @@ error E3102: <fragment>:33:14: use of moved value 't': its ownership moved to th
 ```
 
 <!-- test: a-cond-of-unique-locals-passed-to-a-call-lends-them -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 A `cond` handed straight to a call lends its operands for the call, so both stay usable afterwards.
 ```maxon
 typealias Num = int(i64.min to i64.max)
@@ -2887,13 +2901,13 @@ function readN(t Tk) returns Num
 	return t.n
 end 'readN'
 
-function bump(mutates t Tk)
-	t.n = try t.n + 1 otherwise panic("out of range")
+function bump(t Tk)
+	t.n = t.n + 1
 end 'bump'
 
 function main() returns ExitCode
-	var q = Tk.create(1)
-	var q2 = Tk.create(2)
+	let q = Tk.create(1)
+	let q2 = Tk.create(2)
 	let z = readN(q if chosen(1) else q2)
 	bump(q)
 	bump(q2)
@@ -2906,6 +2920,7 @@ end 'main'
 ```
 
 <!-- test: a-cond-of-one-unique-local-passed-to-a-call-lends-it -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 Both arms may name the same local: the call borrows it once.
 ```maxon
 typealias Num = int(i64.min to i64.max)
@@ -2927,7 +2942,7 @@ function readN(t Tk) returns Num
 end 'readN'
 
 function main() returns ExitCode
-	var q = Tk.create(4)
+	let q = Tk.create(4)
 	let z = readN(q if chosen(1) else q)
 	q.n = 5
 	print("{z} {q.n}\n")
@@ -2939,6 +2954,7 @@ end 'main'
 ```
 
 <!-- test: a-cond-of-unique-locals-as-a-receiver-lends-them -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 A `cond` that is the receiver of a call lends its operands for the call.
 ```maxon
 typealias Num = int(i64.min to i64.max)
@@ -2951,7 +2967,7 @@ type Tk is noncopyable
 	end 'create'
 
 	function doubled() returns Num
-		return try self.n * 2 otherwise panic("out of range")
+		return self.n * 2
 	end 'doubled'
 end 'Tk'
 
@@ -2960,7 +2976,7 @@ function chosen(n Num) returns bool
 end 'chosen'
 
 function main() returns ExitCode
-	var q = Tk.create(1)
+	let q = Tk.create(1)
 	let q2 = Tk.create(2)
 	let z = (q if chosen(0) else q2).doubled()
 	q.n = 7
@@ -2973,6 +2989,7 @@ end 'main'
 ```
 
 <!-- test: a-cond-of-unique-unions-as-a-match-subject-lends-them -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 A `cond` that is a `match` subject lends its operands to the `match`, so both unions are matched again afterwards.
 ```maxon
 typealias Num = int(i64.min to i64.max)
@@ -3239,6 +3256,7 @@ error E3102: <fragment>:24:43: 'q' is passed at two arguments of this call, and 
 ```
 
 <!-- test: a-nested-cond-of-unique-locals-passed-to-a-call-lends-them -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 A `cond` in an arm of another is looked through: the call borrows all three locals.
 ```maxon
 typealias Num = int(i64.min to i64.max)
@@ -3260,9 +3278,9 @@ function readN(t Tk) returns Num
 end 'readN'
 
 function main() returns ExitCode
-	var q = Tk.create(1)
-	var q2 = Tk.create(2)
-	var q3 = Tk.create(3)
+	let q = Tk.create(1)
+	let q2 = Tk.create(2)
+	let q3 = Tk.create(3)
 	let z = readN(q if chosen(0) else (q2 if chosen(0) else q3))
 	q.n = 4
 	q2.n = 5
@@ -3375,6 +3393,7 @@ error E3102: <fragment>:28:10: use of moved value 'q': its ownership moved to an
 ```
 
 <!-- test: a-try-fallback-of-a-unique-local-passed-to-a-call-lends-it -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 A value `try` handed straight to a call lends its fallback for the call, so the local stays usable afterwards.
 ```maxon
 typealias Num = int(i64.min to i64.max)
@@ -3403,7 +3422,7 @@ function readN(t Tk) returns Num
 end 'readN'
 
 function main() returns ExitCode
-	var q = Tk.create(1)
+	let q = Tk.create(1)
 	let z = readN(try mk(0) otherwise q)
 	let w = readN(try mk(7) otherwise q)
 	q.n = 5
@@ -3841,6 +3860,7 @@ tk3 tk4
 ```
 
 <!-- test: a-fresh-result-holding-a-unique-crosses-whole -->
+<!-- skip: language difference: what crosses into a service is moved or frozen, never lent, and a value at an interface type, whose conformer the check does not know, does not cross -->
 `fresh` builds the `Conn` it returns, so its result is the whole of its region and crosses to the service.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -3865,8 +3885,8 @@ type Conn
 	var tk as Tk
 	var data as Data
 
-	static function create(consumes tk Tk, data Data) returns Self
-		return Self{tk: tk, data: data.clone()}
+	static function create(tk Tk, data Data) returns Self
+		return Self{tk: tk, data: data}
 	end 'create'
 end 'Conn'
 
@@ -3877,16 +3897,16 @@ type Sink
 		return Self{total: 0}
 	end 'create'
 
-	export function take(mutates c Conn) returns Integer
-		c.data.n = try c.data.n + 100 otherwise panic("out of range")
-		self.total = try self.total + c.tk.n + c.data.n otherwise panic("out of range")
+	export function take(c Conn) returns Integer
+		c.data.n = c.data.n + 100
+		self.total = self.total + c.tk.n + c.data.n
 		return self.total
 	end 'take'
 end 'Sink'
 
 function fresh(n Integer) returns Conn
-	var c = Conn.create(Tk.create(n), data: Data.create(n))
-	c.data.n = try c.data.n + 1 otherwise panic("out of range")
+	let c = Conn.create(Tk.create(n), data: Data.create(n))
+	c.data.n = c.data.n + 1
 	return c
 end 'fresh'
 
@@ -3904,7 +3924,7 @@ end 'main'
 ```
 
 <!-- test: a-result-sharing-a-part-with-the-sender-does-not-cross -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `sharing` returns a `Conn` holding the caller's `d`, so the local bound from it is not the whole of its region and does not cross.
 ```maxon
@@ -3970,7 +3990,7 @@ error E3200: <fragment>:53:31: 'c' crosses to the service it is sent to only as 
 ```
 
 <!-- test: a-try-fallback-of-a-loop-element-is-refused -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 A loop element stays owned by its array, so a value `try` whose fallback is one would give a second name to a unique value the array goes on owning, as `let r = t` would.
 ```maxon
@@ -4015,7 +4035,7 @@ error E3214: <fragment>:31:11: cannot join a unique value read out of a field or
 ```
 
 <!-- test: a-cond-of-a-loop-element-and-a-fresh-value-is-refused -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The fresh arm makes the `cond` own its result, and the loop element's arm is still a second name for a value the array owns.
 ```maxon
@@ -4227,7 +4247,7 @@ error E3102: <fragment>:55:25: 'q' is named at two payloads of this case, and a 
 ```
 
 <!-- test: a-cond-of-unique-unions-as-a-match-subject-lends-each-to-the-arms -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 A `match` over a `cond` lends every union the `cond` names to its arms, as a `match` over one of them does, so an arm cannot hand `u` to a callee that keeps it.
 ```maxon
@@ -4279,7 +4299,7 @@ error E3207: <fragment>:40:29: 'keep' needs a writable parameter 's' at line 25;
 ```
 
 <!-- test: a-cond-of-unique-arrays-as-a-loop-source-keeps-each-read-only -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 A loop over a `cond` holds every array the `cond` names, as a loop over one of them does, so the body cannot clear `xs`.
 ```maxon
@@ -4320,6 +4340,7 @@ error E3207: <fragment>:30:3: 'clear' needs a writable receiver at line 306; 'xs
 ```
 
 <!-- test: a-try-fallback-beside-a-unique-element-read-is-refused -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 A `try` whose result is an element read out of an array of unique values and whose fallback is fresh would give the merge a second name for the element the array still owns.
 ```maxon
@@ -4415,7 +4436,7 @@ error E3102: <fragment>:57:7: use of moved value 't': its ownership moved to the
 ```
 
 <!-- test: a-field-path-over-a-cond-lends-every-holder-the-cond-names -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 A loop over a field read through a `cond`, and a `match` on one, hold every holder the `cond` names read-only, whichever arm ran, as reading the field through one holder does.
 ```maxon
@@ -4546,7 +4567,7 @@ error E3102: <fragment>:27:15: 'h' is passed at two arguments of this call, and 
 ```
 
 <!-- test: error.a-container-reassigned-inside-a-for-that-lends-from-it-is-refused -->
-<!-- skip: language difference: a loop holds the collection it walks -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The loop lends `tokens`' unique elements, so the variable holding the container stays put in the body.
 ```maxon
@@ -4577,6 +4598,7 @@ error E3203: <fragment>:18:3: 'tokens' roots what 'each' lends or iterates and c
 ```
 
 <!-- test: a-plain-part-beside-its-unique-root-in-one-call -->
+<!-- skip: language difference: a place passed mutates, consumes or sets overlaps nothing else the call or the statement holds, where maxon shares the place by a reference count -->
 `h.data` is a plain part of `h`, not a second name for the unique value, so `h` is lent once in either order (ruling 44).
 ```maxon
 typealias Count = int(0 to 1000)
@@ -4594,20 +4616,20 @@ type Holder is noncopyable
 	var n as Count
 
 	static function create(data Box, n Count) returns Self
-		return Self{data: data.clone(), n: n}
+		return Self{data: data, n: n}
 	end 'create'
 end 'Holder'
 
-function partFirst(d Box, mutates h Holder)
-	h.n = try h.n + d.n otherwise panic("out of range")
+function partFirst(d Box, h Holder)
+	h.n = h.n + d.n
 end 'partFirst'
 
-function rootFirst(mutates h Holder, d Box)
-	h.n = try h.n + d.n otherwise panic("out of range")
+function rootFirst(h Holder, d Box)
+	h.n = h.n + d.n
 end 'rootFirst'
 
 function main() returns ExitCode
-	var h = Holder.create(Box.create(2), n: 0)
+	let h = Holder.create(Box.create(2), n: 0)
 	partFirst(h.data, h: h)
 	rootFirst(h, d: h.data)
 	print("{h.n}\n")

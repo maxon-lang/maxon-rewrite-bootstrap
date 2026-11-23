@@ -28,6 +28,7 @@ Binding a `var` from a `let` local moves the record, and reading the
 ## Tests
 
 <!-- test: a-let-field-array-grows-through-a-let-local -->
+<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 The plan's first sample: `columns` is a `let` field and `report` a `let` local, and both are written through.
 
 ```maxon
@@ -53,7 +54,7 @@ type Report
 		return Self{columns: ColumnArray.create(0)}
 	end 'create'
 
-	function addColumn(consumes column Column)
+	function addColumn(column Column)
 		self.columns.push(column)
 	end 'addColumn'
 
@@ -173,6 +174,7 @@ end 'main'
 ```
 
 <!-- test: a-match-binding-of-a-let-payload-is-written-through -->
+<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 ```maxon
 union Holder
 	held(items ByteArray)
@@ -189,7 +191,7 @@ end 'grow'
 
 function size(holder Holder) returns ExitCode
 	return match holder 'innerSize'
-		held(items) gives try items.count() as ExitCode otherwise panic("out of range")
+		held(items) gives items.count() as ExitCode
 		empty gives 99
 	end 'innerSize'
 end 'size'
@@ -209,6 +211,7 @@ end 'main'
 ```
 
 <!-- test: a-var-bound-from-a-field-of-a-let-aliases-it -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 `c` names the record the `let` holder's field names, so the write through `c` is seen through `h`.
 
 ```maxon
@@ -232,7 +235,7 @@ end 'Holder'
 
 function main() returns ExitCode
 	let h = Holder.create()
-	var c = h.box
+	let c = h.box
 	c.n = 7
 	print("{h.box.n}\n")
 	return 0
@@ -246,6 +249,7 @@ end 'main'
 ```
 
 <!-- test: a-let-bound-from-a-field-of-a-var-sees-a-later-write -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 ```maxon
 typealias Count = int(0 to 1000)
 
@@ -266,7 +270,7 @@ type Holder
 end 'Holder'
 
 function main() returns ExitCode
-	var h = Holder.create()
+	let h = Holder.create()
 	let b = h.box
 	h.box.n = 7
 	print("{b.n}\n")
@@ -314,7 +318,7 @@ end 'main'
 ```
 
 <!-- test: error.a-frozen-argument-is-refused-where-the-parameter-is-written-through-a-let-alias -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The write through the alias counts as a write of `p`, so a frozen record cannot be passed.
 
@@ -581,6 +585,7 @@ error E2013: <fragment>:10:2: 'n' is a let and cannot be passed to the `mutable`
 ```
 
 <!-- test: error.a-module-let-array-is-still-read-only -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 ```maxon
 let fixed = [4, 5, 6]
 
@@ -614,6 +619,7 @@ error E2013: <fragment>:10:5: 'k' is a let and cannot be passed to the `mutable`
 ```
 
 <!-- test: a-let-bound-to-a-field-is-written-through-like-a-let -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 ```maxon
 typealias Count = int(0 to 1000)
 
@@ -635,7 +641,7 @@ end 'Holder'
 
 function main() returns ExitCode
 	let h = Holder.create()
-	var v = h.box
+	let v = h.box
 	v.n = 9
 	print("{h.box.n}\n")
 	return 0
@@ -672,6 +678,7 @@ error E2013: <fragment>:14:2: 'v' is a let and cannot be reassigned
 ```
 
 <!-- test: a-frozen-let-is-sent-to-a-service-twice -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 Sharing a frozen value rests on `freeze`, not on the `let` that names it.
 
 ```maxon
@@ -692,8 +699,8 @@ type Sink
 		return Self{total: 0}
 	end 'create'
 
-	export function take(mutates self, cfg frozen with Cfg) returns Count
-		self.total = try self.total + cfg.n otherwise panic("out of range")
+	export function take(cfg frozen with Cfg) returns Count
+		self.total = self.total + cfg.n
 		return self.total
 	end 'take'
 end 'Sink'
@@ -751,6 +758,7 @@ end 'main'
 ```
 
 <!-- test: error.an-all-let-record-holding-an-array-is-not-immutable -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 Every field of `Bag` is a `let`, but `items` is an array: the record is not frozen data, so it is not sent as `immutable` without `freeze`.
 

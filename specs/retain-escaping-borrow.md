@@ -354,6 +354,7 @@ end 'main'
 ```
 
 <!-- test: reassign-co-owned-trivial-from-a-binding-and-from-the-displaced-element -->
+<!-- skip: language difference: a place passed mutates, consumes or sets overlaps nothing else the call or the statement holds, where maxon shares the place by a reference count -->
 A shared-body reassignment from a binding the caller keeps takes a second reference, so the binding stays
 readable after the box lets go of the element, and a reassignment from the displaced element itself
 retains it before the old reference is released.
@@ -371,15 +372,15 @@ end 'Point'
 type Box uses Element
 	export var saved as Element
 
-	static function create(first Element) returns Self where Element implements Copyable
-		return Self{saved: first.clone()}
+	static function create(first Element) returns Self
+		return Self{saved: first}
 	end 'create'
 
-	function replace(mutates self, next Element) where Element implements Droppable and Copyable
-		self.saved = next.clone()
+	function replace(next Element)
+		self.saved = next
 	end 'replace'
 
-	function keep(mutates self) where Element implements Droppable and Copyable
+	function keep()
 		self.replace(self.saved)
 	end 'keep'
 end 'Box'
@@ -388,7 +389,7 @@ typealias PointBox = Box with Point
 
 function main() returns ExitCode
 	let kept = Point.create(4)
-	var b = PointBox.create(Point.create(1))
+	let b = PointBox.create(Point.create(1))
 	b.replace(kept)
 	b.replace(Point.create(2))
 	b.replace(kept)

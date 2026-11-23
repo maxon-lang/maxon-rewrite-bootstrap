@@ -116,6 +116,7 @@ end 'main'
 ```
 
 <!-- test: a-result-through-an-interface-over-frozen-data-cannot-be-written -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `Bag.open` returns a `Cursor` that holds the bag's `items`, and `first` answers through the `Cursors` interface, so its
 result is never fresh: it takes the capability of the interface value it was reached through. A bag frozen before it
@@ -223,6 +224,7 @@ end 'main'
 ```
 
 <!-- test: a-result-through-an-interface-written-in-its-function-pins-the-interface-parameter -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `poke` writes the cursor `source.open()` handed back, so `source` is mutable-only and the frozen bag cannot be passed.
 
@@ -275,6 +277,7 @@ error E3207: <fragment>:40:7: 'poke' writes 'source' (it calls 'grow', which wri
 ```
 
 <!-- test: a-result-through-an-interface-passed-to-a-writing-function-pins-the-interface-parameter -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `grower` writes the cursor it is handed, so `poke` passing it `source.open()` makes `source` mutable-only.
 
@@ -385,6 +388,7 @@ end 'main'
 ```
 
 <!-- test: a-conformer-returning-its-receiver-field-hands-back-read-only-data-through-an-interface -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `Shelf.part` returns a bare field of its receiver. `through` answers through the `Parts` interface, so the part a frozen
 shelf hands back is read-only and `bump` would write the frozen shelf's field.

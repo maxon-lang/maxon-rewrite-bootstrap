@@ -208,6 +208,7 @@ error E2010: specs/lexer-parser-robustness/truncated-after-while.maxon:3:12: Exp
 ```
 
 <!-- test: truncated-after-match -->
+<!-- skip: differing error code: syntax error -->
 ```maxon
 function main() returns ExitCode
 	match 1

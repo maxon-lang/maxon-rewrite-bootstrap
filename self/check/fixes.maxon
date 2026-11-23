@@ -22,6 +22,8 @@ export let fixKindBound = "bound"
 
 export let fixKindInterpolation = "interpolation"
 
+export let fixKindMatchConsumes = "match consumes"
+
 // fixPanicText is what the panic of a try that a fix writes says: the failure it stands for, which the program never
 // expected.
 let fixPanicText = "out of range"
@@ -123,6 +125,24 @@ export function conventionFix(t ast.Tree, param ast.NodeID, consumes keyword Str
 	edits.push(diag.FixEdit.insert(t.module, at: t.startOf(param), text: "{keyword} "))
 	return fixOf(keyword, edits: edits)
 end 'conventionFix'
+
+// matchConsumesFix makes a match consume its subject, so that each arm owns the payloads it binds, and first takes the
+// parameter param with consumes, when there is one, for the match to have it to give.
+export function matchConsumesFix(t ast.Tree, subject ast.NodeID, param ast.NodeID) returns diag.Fix
+	let found = ast.exprExtent(t, e: subject)
+	if not found.isSome() 'unknown'
+		return diag.Fix.none()
+	end 'unknown'
+	var edits = diag.FixEdits.create(0)
+	if param != 0 'param'
+		if t.kindOf(param) != ast.NodeKind.param 'notParam'
+			return diag.Fix.none()
+		end 'notParam'
+		edits.push(diag.FixEdit.insert(t.module, at: t.startOf(param), text: "{fixKindConsumes} "))
+	end 'param'
+	edits.push(diag.FixEdit.insert(t.module, at: found.unwrap().begin, text: "{fixKindConsumes} "))
+	return fixOf(fixKindMatchConsumes, edits: edits)
+end 'matchConsumesFix'
 
 // varFix declares the local of a let statement with var.
 export function varFix(t ast.Tree, stmt ast.NodeID) returns diag.Fix

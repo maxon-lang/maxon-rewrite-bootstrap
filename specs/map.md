@@ -1553,6 +1553,7 @@ error E3005: <fragment>:11:11: Value 700 is outside the range of 'Small' (int(0 
 ```
 
 <!-- test: error.a-let-map-mutation-is-refused -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 A `let` map literal is constant data, so a write through it is refused.
 ```maxon
 function main() returns ExitCode
@@ -1611,6 +1612,7 @@ error E3005: <fragment>:12:10: Value 400 is outside the range of 'Small' (int(0 
 ```
 
 <!-- test: error.a-top-level-let-map-mutation-is-refused -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 A top-level `let` map literal is immutable, so a write through its name is refused.
 ```maxon
 let TABLE = [1: 10]
@@ -1625,7 +1627,7 @@ error E3207: <fragment>:5:2: 'upsert' writes its receiver (line 170: `try values
 ```
 
 <!-- test: error.a-let-map-passed-to-a-mutating-parameter-is-refused -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 A `let` map literal handed to a parameter its callee writes is refused at the call, so no callee can change what the literal's range was read from.
 ```maxon
 typealias CountMap = Map with (Count, Count)
@@ -1690,7 +1692,7 @@ error E3005: <fragment>:12:18: Value 400 is outside the range of 'Small' (int(0 
 ```
 
 <!-- test: error.an-unnamed-argument-aliasing-a-let-map-is-refused -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 A `let` map literal is an immutable ROOT: an argument that names no binding but returns the very same record
 (`pass(m)`) reaches the same refusal `grow(m)` does, so no spelling of the argument can write what the range
 column was read from.
@@ -1716,7 +1718,7 @@ error E3207: <fragment>:14:7: 'grow' writes 'm' (it calls 'upsert', which writes
 ```
 
 <!-- test: error.an-unnamed-receiver-aliasing-a-let-map-is-refused -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 The receiver spelling of the same route: a call whose receiver is an expression that returns the `let` map's own
 record is a write through the `let`.
 ```maxon
@@ -1754,7 +1756,7 @@ error E3197: <fragment>:4:27: cannot write 'm' through the closure that captures
 ```
 
 <!-- test: error.a-let-map-stored-in-a-var-struct-field-cannot-be-written-through-it -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 A `let` map literal stored into a field of a `var` record stays constant, so a write through that field is refused
 and the range column read from the `let` stays true.
 ```maxon
@@ -1780,7 +1782,7 @@ error E3207: <fragment>:15:5: 'upsert' writes its receiver (line 170: `try value
 ```
 
 <!-- test: error.a-let-map-handed-to-a-function-value-that-writes-it-is-refused -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 A function value has no callee to summarise, but a `let` map literal is a constant its range columns were read from: handing it to an indirect call is refused, because nothing may write it.
 ```maxon
 typealias CountMap = Map with (Count, Count)
@@ -1851,11 +1853,12 @@ error E3197: <fragment>:12:29: cannot write 'm' through the closure that capture
 ```
 
 <!-- test: a-closure-capturing-a-var-map-may-hand-it-to-a-function-value -->
+<!-- skip: language difference: a closure writes what it captured only where its function type mutates captures -->
 A `var` map is writable, so the same closure is accepted.
 ```maxon
 typealias CountMap = Map with (Count, Count)
 
-function grow(mutates m CountMap) returns Count
+function grow(m CountMap) returns Count
 	m.upsert(2, value: 20)
 	return m.count()
 end 'grow'
@@ -1864,7 +1867,7 @@ function main() returns ExitCode
 	let m = [1 as Count: 10 as Count].clone()
 	let f = grow
 	let g = function() gives f(m)
-	return try g() as ExitCode otherwise panic("out of range")
+	return g() as ExitCode
 end 'main'
 ```
 ```exitcode

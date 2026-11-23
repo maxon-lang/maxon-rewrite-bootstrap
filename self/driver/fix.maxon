@@ -12,10 +12,6 @@ let trapSkipLine = "<!-- skip: language difference: arithmetic that can fail nee
 
 let panicWord = "panic"
 
-// loopSkipLine is what a spec test gets whose program changes the collection that its for walks: maxon lets the loop and its
-// body share it, and here the loop holds it for the body.
-let loopSkipLine = "<!-- skip: language difference: a loop holds the collection it walks -->\n"
-
 // positionsMovedLine tells the runner to compare the diagnostics of a fixed test without their positions, which the fixes moved.
 let positionsMovedLine = "<!-- positions: moved -->\n"
 
@@ -31,6 +27,8 @@ enum CodeSkipKind
 	reportedFirst
 	// namedTest is one test, by its spec file and its name, whose program runs to another answer by a language change.
 	namedTest
+	// byCause is the cause of the first diagnostic left after the fixes, where its code covers several.
+	byCause
 end 'CodeSkipKind'
 
 // CodeSkip is a row of the skip table: the codes of a test that minimaxon refuses or reports for a known reason, as its kind
@@ -42,27 +40,32 @@ type CodeSkip
 	var reported as String
 	var file as String
 	var test as String
+	var cause as diag.ErrorCause
 	var line as String
 
 	static function make(consumes expected String, consumes reported String, consumes line String) returns CodeSkip
-		return CodeSkip{kind: CodeSkipKind.pair, expected: expected, reported: reported, file: "", test: "", line: line}
+		return CodeSkip{kind: CodeSkipKind.pair, expected: expected, reported: reported, file: "", test: "", cause: diag.ErrorCause.none, line: line}
 	end 'make'
 
 	static function expecting(consumes expected String, consumes line String) returns CodeSkip
-		return CodeSkip{kind: CodeSkipKind.expectedOnly, expected: expected, reported: "", file: "", test: "", line: line}
+		return CodeSkip{kind: CodeSkipKind.expectedOnly, expected: expected, reported: "", file: "", test: "", cause: diag.ErrorCause.none, line: line}
 	end 'expecting'
 
 	static function refusing(consumes reported String, consumes line String) returns CodeSkip
-		return CodeSkip{kind: CodeSkipKind.refusedRun, expected: "", reported: reported, file: "", test: "", line: line}
+		return CodeSkip{kind: CodeSkipKind.refusedRun, expected: "", reported: reported, file: "", test: "", cause: diag.ErrorCause.none, line: line}
 	end 'refusing'
 
 	static function reportingFirst(consumes reported String, consumes line String) returns CodeSkip
-		return CodeSkip{kind: CodeSkipKind.reportedFirst, expected: "", reported: reported, file: "", test: "", line: line}
+		return CodeSkip{kind: CodeSkipKind.reportedFirst, expected: "", reported: reported, file: "", test: "", cause: diag.ErrorCause.none, line: line}
 	end 'reportingFirst'
 
 	static function naming(consumes file String, consumes test String, consumes line String) returns CodeSkip
-		return CodeSkip{kind: CodeSkipKind.namedTest, expected: "", reported: "", file: file, test: test, line: line}
+		return CodeSkip{kind: CodeSkipKind.namedTest, expected: "", reported: "", file: file, test: test, cause: diag.ErrorCause.none, line: line}
 	end 'naming'
+
+	static function causing(cause diag.ErrorCause, consumes line String) returns CodeSkip
+		return CodeSkip{kind: CodeSkipKind.byCause, expected: "", reported: "", file: "", test: "", cause: cause, line: line}
+	end 'causing'
 end 'CodeSkip'
 
 typealias CodeSkips = Array with CodeSkip
@@ -154,6 +157,20 @@ function namedSkipLine(skips CodeSkips, file String, test String) returns table.
 	return table.Option.none
 end 'namedSkipLine'
 
+// causeSkipLine is the skip line of a test whose first diagnostic left after the fixes has a cause that the table skips, or
+// nothing.
+function causeSkipLine(skips CodeSkips, cause diag.ErrorCause) returns table.Option with String
+	if cause == diag.ErrorCause.none 'none'
+		return table.Option.none
+	end 'none'
+	for i in 0 upto skips.count() 'rows'
+		if skips[i].kind == CodeSkipKind.byCause and skips[i].cause == cause 'found'
+			return table.Option.some(skips[i].line.clone())
+		end 'found'
+	end 'rows'
+	return table.Option.none
+end 'causeSkipLine'
+
 typealias Flags = Array with bool
 
 // FixProgram is a program being fixed, in memory: one file, or the files of a project's directory at root.
@@ -163,9 +180,11 @@ type FixProgram
 	var name as String
 	var single as bool
 	var files as project.SourceFiles
+	// inLibrary is whether the program is checked in the library tier, as the runner compiles a spec test marked so.
+	var inLibrary as bool
 
 	static function make(consumes root String, consumes name String, single bool, consumes files project.SourceFiles) returns FixProgram
-		return FixProgram{root: root, name: name, single: single, files: files}
+		return FixProgram{root: root, name: name, single: single, files: files, inLibrary: false}
 	end 'make'
 
 	function fileIndex(path String) returns table.Option with Count
@@ -211,7 +230,9 @@ function checkFixing(prog FixProgram) returns diag.ErrorList
 	end 'single' else 'project'
 		project.loadFilesInto(p, rootPath: prog.root, files: prog.files, errs: errs)
 	end 'project'
-	compileLoaded(p, first: 0, ready: noReadyUnits(), output: "", options: Options.new(), errs: errs)
+	var options = Options.new()
+	options.stagesInLibrary = prog.inLibrary
+	compileLoaded(p, first: 0, ready: noReadyUnits(), output: "", options: options, errs: errs)
 	diag.sortErrors(errs)
 	return errs
 end 'checkFixing'
@@ -409,12 +430,11 @@ function fixProgram(consumes prog FixProgram, expected table.Option with String,
 end 'fixProgram'
 
 // FixTally counts what a run of fix did: the programs or tests it changed, by kind of fix, the spec tests it skipped for a
-// trap, for another code or for a loop that holds its collection, and those left with a diagnostic, by its code.
+// trap or for a code or a cause that the skip table names, and those left with a diagnostic, by its code.
 type FixTally
 	var changed as Count
 	var trapSkips as Count
 	var codeSkips as Count
-	var loopSkips as Count
 	var broken as Count
 	var kinds as ast.StringList
 	var kindCounts as CountList
@@ -422,7 +442,7 @@ type FixTally
 	var codeCounts as CountList
 
 	static function new() returns FixTally
-		return FixTally{changed: 0, trapSkips: 0, codeSkips: 0, loopSkips: 0, broken: 0, kinds: ast.StringList.create(0), kindCounts: CountList.create(0), codes: ast.StringList.create(0), codeCounts: CountList.create(0)}
+		return FixTally{changed: 0, trapSkips: 0, codeSkips: 0, broken: 0, kinds: ast.StringList.create(0), kindCounts: CountList.create(0), codes: ast.StringList.create(0), codeCounts: CountList.create(0)}
 	end 'new'
 
 	function count(mutates self, outcome FixOutcome)
@@ -494,11 +514,8 @@ function printFixSummary(tally FixTally, checkOnly bool, unit String)
 		print("skipped {tally.trapSkips} tests that expect maxon's run-time trap where a fix would add a try\n")
 	end 'traps'
 	if tally.codeSkips > 0 'codes'
-		print("skipped {tally.codeSkips} tests whose codes the skip table names: an expected error that minimaxon reports otherwise, or a program that it refuses, for a known reason\n")
+		print("skipped {tally.codeSkips} tests whose codes or causes the skip table names: an expected error that minimaxon reports otherwise, or a program that it refuses, for a known reason\n")
 	end 'codes'
-	if tally.loopSkips > 0 'loops'
-		print("skipped {tally.loopSkips} tests whose program changes the collection that a for loop is walking\n")
-	end 'loops'
 	if tally.broken > 0 'broken'
 		print("{tally.broken} {unit} had a round undone because a fix left them unparsable\n")
 	end 'broken'
@@ -737,9 +754,13 @@ function specProgram(test SpecTest, display String, source String, sections Sour
 	if sections.count() == 0 'single'
 		var files = project.SourceFiles.create(0)
 		files.push(project.SourceFile.make(fragmentToken, text: "{fragmentHeader}{test.name}\n{source}\n"))
-		return FixProgram.make(fragmentToken, name: "{display}: {test.name}", single: true, files: files)
+		var prog = FixProgram.make(fragmentToken, name: "{display}: {test.name}", single: true, files: files)
+		prog.inLibrary = stagedInLibrary(test)
+		return prog
 	end 'single'
-	return FixProgram.make(projectRoot, name: "{display}: {test.name}", single: false, files: sectionFiles(sections))
+	var prog = FixProgram.make(projectRoot, name: "{display}: {test.name}", single: false, files: sectionFiles(sections))
+	prog.inLibrary = stagedInLibrary(test)
+	return prog
 end 'specProgram'
 
 // fixSpecTest adds to edits what fixing one test comes to. A test that expects a compile error is changed only when its fixes
@@ -752,11 +773,12 @@ function fixSpecTest(test SpecTest, text String, display String, skips CodeSkips
 	let sections = splitSections(source)
 	let outcome = fixProgram(specProgram(test, display: display, source: source, sections: sections), expected: expected, halts: ast.StringList.create(0))
 	tally.count(outcome)
-	if outcome.leftCause == diag.ErrorCause.loopHoldsCollection 'loop'
-		tally.loopSkips = increment(tally.loopSkips)
-		edits.push(syntax.Edit.make(test.markerEnd, until: test.markerEnd, replacement: loopSkipLine))
+	let caused = causeSkipLine(skips, cause: outcome.leftCause)
+	if caused.isSome() and not isExpectedCode(outcome.left, expected: expected) 'caused'
+		tally.codeSkips = increment(tally.codeSkips)
+		edits.push(syntax.Edit.make(test.markerEnd, until: test.markerEnd, replacement: caused.unwrap()))
 		return
-	end 'loop'
+	end 'caused'
 	if not expected.isSome() 'runs'
 		let refused = refusedRunSkipLine(skips, left: outcome.left)
 		if refused.isSome() 'refused'

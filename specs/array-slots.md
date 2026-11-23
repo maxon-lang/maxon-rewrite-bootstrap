@@ -387,6 +387,7 @@ Stack trace:
 ```
 
 <!-- test: for-over-an-empty-slot-in-a-generic-body-panics -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 <!-- tier: stdlib -->
 ### A `for` element read of an empty slot panics in a body compiled once for every element type
 `Bag` is generic, so `visit` is one compiled body for every `Element`, and its loop cannot ask at compile time

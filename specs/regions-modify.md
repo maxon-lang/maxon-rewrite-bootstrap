@@ -273,6 +273,7 @@ end 'main'
 ```
 
 <!-- test: call-into-isolated-with-mutable-argument-refused -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `self.index.absorb(spare)` opens `index` for the call, and `spare` is a mutable `WordIndex` of this region, so the region would point out.
 
@@ -288,15 +289,15 @@ type WordIndex
 		return Self{counts: WordCounts.create()}
 	end 'create'
 
-	function add(mutates self, word String)
+	function add(word String)
 		let seen = try self.counts.get(word) otherwise 0
-		self.counts.upsert(word, value: try seen + 1 otherwise panic("out of range"))
+		self.counts.upsert(word, value: seen + 1)
 	end 'add'
 
-	function absorb(mutates self, other WordIndex)
+	function absorb(other WordIndex)
 		for (word, seen) in other.counts 'eachWord'
 			let mine = try self.counts.get(word) otherwise 0
-			self.counts.upsert(word, value: try mine + seen otherwise panic("out of range"))
+			self.counts.upsert(word, value: mine + seen)
 		end 'eachWord'
 	end 'absorb'
 end 'WordIndex'
@@ -308,7 +309,7 @@ type Indexer
 		return Self{index: WordIndex.create()}
 	end 'create'
 
-	function absorbSpare(mutates self)
+	function absorbSpare()
 		var spare = WordIndex.create()
 		spare.add("x")
 		self.index.absorb(spare)
@@ -744,6 +745,7 @@ end 'main'
 ```
 
 <!-- test: thrown-region-contents-leaving-the-statement-that-opens-refused -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 A payload built from the one-statement open's region data leaves with the error just as a returned one does.
 
@@ -771,7 +773,7 @@ union PageFault implements Error
 end 'PageFault'
 
 function check(holder Holder) throws PageFault
-	throw PageFault.named(holder.page.lines.clone())
+	throw PageFault.named(holder.page.lines)
 end 'check'
 
 function main() returns ExitCode
@@ -1043,7 +1045,7 @@ error E3197: <fragment>:31:17: cannot write 'n' through 'h', which is read-only 
 ```
 
 <!-- test: a-match-arm-lending-an-isolated-payload-refuses-a-call-that-writes-outer-data -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 A call that needs a writable receiver is refused on outer data inside the arm.
 
@@ -1090,6 +1092,7 @@ error E3207: <fragment>:34:16: 'bump' needs a writable receiver at line 25; 'b' 
 ```
 
 <!-- test: a-match-arm-lending-an-isolated-payload-leaves-what-it-owns-writable -->
+<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 An arm of a case with no `isolated` payload writes outer data, the payload is writable through its binding, outer data is read, and a counter that holds a number is written, so none of them is the window's business.
 
 ```maxon
@@ -1117,7 +1120,7 @@ type Bx
 end 'Bx'
 
 function main() returns ExitCode
-	var b = Bx.create(0)
+	let b = Bx.create(0)
 	let u = Sh.held(Bk.create(1))
 	let v = Sh.none
 	var total = 0 as Num
@@ -1142,6 +1145,7 @@ end 'main'
 ```
 
 <!-- test: isolated-part-read-outside-block-refused -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `self.part` is an `isolated` field, and binding it with `let` is neither a move, an open nor a `swap`.
 
@@ -1168,7 +1172,7 @@ type Holder
 	end 'create'
 
 	function peek() returns Tally
-		let alias = self.part.clone()
+		let alias = self.part
 		return alias.size()
 	end 'peek'
 end 'Holder'
@@ -1212,6 +1216,7 @@ error E3197: <fragment>:15:2: cannot write 'numeric' through 'pinned', which is 
 ```
 
 <!-- test: capability-mismatch-at-store -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 Storing needs equal capabilities: `row` is mutable data of this region, and `pinned` holds frozen data.
 
@@ -1331,6 +1336,7 @@ done
 ```
 
 <!-- test: declared-isolated-slot-is-checked-in-a-file-with-no-region-word -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `b.maxon` spells no region word, but `a.maxon` declares `part` isolated, so the store of a mutable local into it is refused there too.
 
@@ -1401,6 +1407,7 @@ bag
 ```
 
 <!-- test: one-statement-open-refuses-outer-mutable-data-stored-into-the-region -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `holder.page.lines = outer` writes through the isolated `page`, which a statement opens for itself, and `outer` is mutable data of this region.
 
@@ -1436,6 +1443,7 @@ error E3201: <fragment>:24:22: 'outer' is mutable outside 'holder.page'; a store
 ```
 
 <!-- test: one-statement-open-refuses-region-data-bound-outside-the-statement -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `holder.page.lines` is mutable data of the isolated region, and a `var` binds outside the statement that opened it.
 
@@ -1644,6 +1652,7 @@ error E3207: <fragment>:28:11: the closure at <fragment>:28:19 writes data it ca
 ```
 
 <!-- test: one-statement-open-refuses-two-isolated-values-of-different-holders -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `a.part.n + b.part.n` reads through the isolated `part` of two holders, and one statement opens one isolated value, even though only numbers leave.
 
@@ -1669,7 +1678,7 @@ end 'Pair'
 function main() returns ExitCode
 	let a = Pair.create()
 	let b = Pair.create()
-	let total = try a.part.n + b.part.n otherwise panic("out of range")
+	let total = a.part.n + b.part.n
 	print("{total}\n")
 	return 0
 end 'main'
@@ -1679,6 +1688,7 @@ error E3201: <fragment>:23:25: one statement reaches through two isolated values
 ```
 
 <!-- test: one-statement-open-refuses-two-isolated-fields-of-one-holder -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `a.left.n + a.right.n` reads through two isolated fields of one holder, which are two regions.
 
@@ -1704,7 +1714,7 @@ end 'Pair'
 
 function main() returns ExitCode
 	let a = Pair.create()
-	let total = try a.left.n + a.right.n otherwise panic("out of range")
+	let total = a.left.n + a.right.n
 	print("{total}\n")
 	return 0
 end 'main'
@@ -1714,6 +1724,7 @@ error E3201: <fragment>:23:25: one statement reaches through two isolated values
 ```
 
 <!-- test: one-statement-open-refuses-a-one-call-open-beside-a-read-through-another-region -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `a.part.twice()` opens `a.part` for the call, and `b.part.n` reads through a second region in the same statement.
 
@@ -1728,7 +1739,7 @@ type Part
 	end 'create'
 
 	function twice() returns Tally
-		return try self.n + self.n otherwise panic("out of range")
+		return self.n + self.n
 	end 'twice'
 end 'Part'
 
@@ -1743,7 +1754,7 @@ end 'Pair'
 function main() returns ExitCode
 	let a = Pair.create()
 	let b = Pair.create()
-	let total = try a.part.twice() + b.part.n otherwise panic("out of range")
+	let total = a.part.twice() + b.part.n
 	print("{total}\n")
 	return 0
 end 'main'
@@ -1753,6 +1764,7 @@ error E3201: <fragment>:27:31: one statement reaches through two isolated values
 ```
 
 <!-- test: one-statement-open-refuses-a-read-through-a-region-beside-a-one-call-open-of-another -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `a.part.n` reads through a region, and `b.part.twice()` opens a second one for the call in the same statement.
 
@@ -1767,7 +1779,7 @@ type Part
 	end 'create'
 
 	function twice() returns Tally
-		return try self.n + self.n otherwise panic("out of range")
+		return self.n + self.n
 	end 'twice'
 end 'Part'
 
@@ -1782,7 +1794,7 @@ end 'Pair'
 function main() returns ExitCode
 	let a = Pair.create()
 	let b = Pair.create()
-	let total = try a.part.n + b.part.twice() otherwise panic("out of range")
+	let total = a.part.n + b.part.twice()
 	print("{total}\n")
 	return 0
 end 'main'
@@ -1835,6 +1847,7 @@ end 'main'
 ```
 
 <!-- test: call-with-an-isolated-argument-refuses-mutable-data-beside-it -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `link(iso, b: outer)` passes the isolated `iso` in an unmarked position, which opens it for the call, so the mutable `outer` of this region may not ride along.
 
@@ -1849,7 +1862,7 @@ type Bag
 	end 'create'
 end 'Bag'
 
-function link(mutates a Bag, b Bag)
+function link(a Bag, b Bag)
 	a.n = b.n
 end 'link'
 
@@ -1865,6 +1878,7 @@ error E3201: <fragment>:19:15: 'outer' is mutable outside 'iso'; a call into an 
 ```
 
 <!-- test: call-with-two-isolated-arguments-is-refused -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 Both arguments of `link` are isolated and sit in unmarked positions, so the one call would open two regions.
 
@@ -1879,7 +1893,7 @@ type Bag
 	end 'create'
 end 'Bag'
 
-function link(mutates a Bag, b Bag)
+function link(a Bag, b Bag)
 	a.n = b.n
 end 'link'
 
@@ -1968,6 +1982,7 @@ end 'main'
 ```
 
 <!-- test: call-with-two-isolated-fields-as-arguments-is-refused -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `link(h.part, second: g.part)` opens the isolated field of two holders in one call.
 
@@ -1990,7 +2005,7 @@ type Holder
 	end 'create'
 end 'Holder'
 
-function link(mutates first Part, second Part)
+function link(first Part, second Part)
 	first.n = second.n
 end 'link'
 
@@ -2006,6 +2021,7 @@ error E3201: <fragment>:27:23: one statement reaches through two isolated values
 ```
 
 <!-- test: loop-swap-out-of-a-holder-the-back-edge-assigns-frozen-data -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The first trip swaps the region out of a fresh holder, but `h = pinned` hands the next trip a frozen holder, so at the loop header `h` is read-only and the swap is refused.
 
@@ -2096,6 +2112,7 @@ error E3199: <fragment>:25:10: 'h.part' cannot be opened: the value that holds i
 ```
 
 <!-- test: async-call-with-an-isolated-argument-in-an-unmarked-position-is-refused -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 An `async` call keeps its arguments alive while another coroutine runs, so it takes an isolated value only in an `isolated` parameter, never as a one-call open.
 
@@ -2128,6 +2145,7 @@ error E3207: <fragment>:19:28: 'count' is spawned with `async`, and 'iso' is iso
 ```
 
 <!-- test: call-with-an-isolated-argument-refuses-a-record-result -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `pick(iso)` opens `iso` for the call and answers a `Bag` that may be the region's own, so the result may not leave the call.
 
@@ -2143,7 +2161,7 @@ type Bag
 end 'Bag'
 
 function pick(bag Bag) returns Bag
-	return bag.clone()
+	return bag
 end 'pick'
 
 function main() returns ExitCode
@@ -2158,6 +2176,7 @@ error E3201: <fragment>:18:13: 'pick' hands back mutable data of the isolated re
 ```
 
 <!-- test: assignment-of-mutable-data-to-an-isolated-variable-is-refused -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `e` took `a`'s region, so it is an isolated variable for good, and `spare` is mutable data of this region.
 
@@ -2187,6 +2206,7 @@ error E3200: <fragment>:17:6: 'spare' is not isolated: only a clean call, a `swa
 ```
 
 <!-- test: assignment-of-isolated-data-to-a-mutable-variable-is-refused -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `e` holds mutable data of this region, so an isolated region is merged into it, never assigned over it.
 
@@ -2215,6 +2235,7 @@ error E3196: <fragment>:16:6: cannot store an isolated 'Box' into 'e', which hol
 ```
 
 <!-- test: container-store-of-frozen-data-into-a-mutable-array-is-refused -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `BoxArray` holds mutable `Box` elements, so frozen data stored by `push` would be written through the element.
 
@@ -2244,6 +2265,7 @@ error E3196: <fragment>:16:13: cannot store an immutable 'Box' into 'an element 
 ```
 
 <!-- test: container-store-of-isolated-data-into-a-mutable-array-is-refused -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `BoxArray` holds mutable `Box` elements, so an isolated region stored by `push` would be shared with the array while `a` still names it.
 
@@ -2273,6 +2295,7 @@ error E3196: <fragment>:16:13: cannot store an isolated 'Box' into 'an element o
 ```
 
 <!-- test: array-literal-element-of-isolated-data-is-refused -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The literal's elements are mutable `Box` slots of the new array, so an isolated region written into one would be shared with `a`.
 
@@ -2392,6 +2415,7 @@ error E3205: <fragment>:26:3: cannot call 'push' inside 'edit'; it may wait (it 
 ```
 
 <!-- test: a-one-call-open-of-an-isolated-argument-to-a-generic-callee-counts-as-a-region -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `count` is generic, so `count(1, part: a.part)` opens `a.part` for the call, and `b.part.n` reads through a second region in the same statement.
 
@@ -2431,6 +2455,7 @@ error E3201: <fragment>:27:39: one statement reaches through two isolated values
 ```
 
 <!-- test: an-async-call-to-a-generic-callee-with-an-isolated-argument-in-an-unmarked-position-is-refused -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `take` is generic, so the `async` call is to an instance of it, and the isolated `a.part` is refused in its unmarked `part` position as it is for a plain callee.
 
@@ -2471,6 +2496,7 @@ error E3207: <fragment>:27:36: 'take' is spawned with `async`, and 'a' is isolat
 ```
 
 <!-- test: a-swap-through-a-two-source-call-result-holder-is-judged-once-the-call-settles -->
+<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 `either` may hand back `a` or `b`, so `swap` through its result is judged by what the call settles: both arguments are mutable locals, so the swap is accepted.
 
 ```maxon
@@ -2493,7 +2519,7 @@ type Pair
 end 'Pair'
 
 function either(a Pair, b Pair, flag bool) returns Pair
-	return a.clone() if flag else b.clone()
+	return a if flag else b
 end 'either'
 
 function main() returns ExitCode

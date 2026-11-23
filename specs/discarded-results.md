@@ -1659,6 +1659,7 @@ probe 2
 ```
 
 <!-- test: a-search-whose-predicate-writes-captured-state-keeps-its-result-droppable -->
+<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 A predicate that writes the receiver it captured writes state the caller can see.
 ```maxon
 typealias Position = int(0 to 1000)
@@ -1671,7 +1672,7 @@ enum SearchError implements Error
 	absent
 end 'SearchError'
 
-function firstWhere(limit Position, mutates test PositionTest) returns Position throws SearchError
+function firstWhere(limit Position, test PositionTest) returns Position throws SearchError
 	for i in 0 upto limit 'each'
 		if test(i) 'hit'
 			return i
@@ -1687,7 +1688,7 @@ type Recorder
 		return Recorder{seen: PositionArray.create(0)}
 	end 'create'
 
-	function record(mutates self, position Position) returns bool
+	function record(position Position) returns bool
 		self.seen.push(position)
 		return position > 1
 	end 'record'
@@ -1697,7 +1698,7 @@ type Recorder
 	end 'firstRecorded'
 
 	function recorded() returns Position
-		return try self.seen.count() as Position otherwise panic("out of range")
+		return self.seen.count() as Position
 	end 'recorded'
 end 'Recorder'
 
@@ -1715,6 +1716,7 @@ end 'main'
 ```
 
 <!-- test: a-let-whose-method-hands-a-closure-writing-its-captured-self-is-written -->
+<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 The same program with the recorder bound by `let`: the closure writes the receiver it captured, and a `let` forbids only reassigning `recorder`, so the call is accepted and the writes land in the recorder.
 ```maxon
 typealias Position = int(0 to 1000)
@@ -1727,7 +1729,7 @@ enum SearchError implements Error
 	absent
 end 'SearchError'
 
-function firstWhere(limit Position, mutates test PositionTest) returns Position throws SearchError
+function firstWhere(limit Position, test PositionTest) returns Position throws SearchError
 	for i in 0 upto limit 'each'
 		if test(i) 'hit'
 			return i
@@ -1743,7 +1745,7 @@ type Recorder
 		return Recorder{seen: PositionArray.create(0)}
 	end 'create'
 
-	function record(mutates self, position Position) returns bool
+	function record(position Position) returns bool
 		self.seen.push(position)
 		return position > 1
 	end 'record'
@@ -1753,7 +1755,7 @@ type Recorder
 	end 'firstRecorded'
 
 	function recorded() returns Position
-		return try self.seen.count() as Position otherwise panic("out of range")
+		return self.seen.count() as Position
 	end 'recorded'
 end 'Recorder'
 
@@ -1850,6 +1852,7 @@ error E3064: specs/discarded-results/error.a-closure-handed-down-through-two-hel
 ```
 
 <!-- test: a-registering-factory-keeps-writes-to-its-product-visible -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 A function that registers the record it creates in a module-level array and then writes it changes state the caller can see,
 whatever it returns.
 ```maxon
@@ -1862,8 +1865,8 @@ type Box
 		return Box{total: 0}
 	end 'create'
 
-	function bump(mutates self) returns Integer
-		self.total = try self.total + 1 otherwise panic("out of range")
+	function bump() returns Integer
+		self.total = self.total + 1
 		return self.total
 	end 'bump'
 
@@ -1881,12 +1884,12 @@ function enroll(mutates registry BoxArray) returns Box
 end 'enroll'
 
 function tamper(mutates registry BoxArray) returns Integer
-	var box = enroll(registry)
+	let box = enroll(registry)
 	return box.bump()
 end 'tamper'
 
 function main() returns ExitCode
-	var registry = BoxArray.create(0)
+	let registry = BoxArray.create(0)
 	_ = tamper(registry)
 	if (try registry.get(0) otherwise return 2).read() != 1 'wrong'
 		return 1

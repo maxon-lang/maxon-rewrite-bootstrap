@@ -149,6 +149,7 @@ frozen 6
 ```
 
 <!-- test: a-local-read-before-the-isolated-position-is-not-fresh -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The `print` already read the local, so it is ordinary mutable data when `consume` wants an `isolated` value.
 ```maxon
@@ -207,7 +208,7 @@ error E3102: <fragment>:19:10: use of moved value 'fresh': its ownership moved t
 ```
 
 <!-- test: a-local-an-enclosing-loop-reads-again-is-not-fresh -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The loop reads `fresh` on every lap, so the one textual read is not the first read of a value nobody else names.
 ```maxon
@@ -240,7 +241,7 @@ error E3200: <fragment>:21:11: 'fresh' is not isolated: only a clean call, a `sw
 ```
 
 <!-- test: a-local-with-a-second-name-is-not-fresh -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `alias` is a second read of `fresh`, so the read that wants an `isolated` value is not the first.
 ```maxon
@@ -314,6 +315,7 @@ consumed 2
 ```
 
 <!-- test: a-local-a-match-arm-reads-is-not-fresh-after-the-match -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The `right` arm reads `fresh`, so after the `match` it may have been read before the `isolated` parameter reads it.
 ```maxon
@@ -434,7 +436,7 @@ end 'consume'
 
 function main() returns ExitCode
 	let parcel = Parcel.box(Box.create(7)) as Parcel
-	match parcel 'unpack'
+	match consumes parcel 'unpack'
 		pad(p) then p.fin()
 		box(b) then consume(b.clone())
 	end 'unpack'
@@ -590,6 +592,7 @@ end 'main'
 ```
 
 <!-- test: a-behaviour-stores-the-plain-payload-of-its-message-in-an-isolated-slot -->
+<!-- skip: language difference: SendError and SubprocessError are built-in enums whose cases carry no payload, so a failed send gives its arguments no way back -->
 The behaviour owns its `isolated` message parameter `p`, matches it, and stores the payload in the `isolated` field `item`.
 ```maxon
 typealias Count = int(0 to 1000)
@@ -657,6 +660,7 @@ end 'main'
 ```
 
 <!-- test: a-handed-back-linear-argument-goes-to-an-isolated-parameter -->
+<!-- skip: language difference: SendError and SubprocessError are built-in enums whose cases carry no payload, so a failed send gives its arguments no way back -->
 The failed send hands `back` over as an owned value, so the handler passes it to a function that takes an `isolated` union.
 ```maxon
 typealias Count = int(0 to 1000)
@@ -720,6 +724,7 @@ fin 2
 ```
 
 <!-- test: a-linear-union-with-a-plain-payload-does-not-cross-from-a-literal-over-a-live-local -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `Mp.m1(b)` is no fresh value, because `b` is a local the sender writes after the send, and `Mp` is not closed: its payload `y` is a plain `Bx`.
 ```maxon
@@ -790,6 +795,7 @@ error E3200: <fragment>:52:13: 'Mp.m1(b)' crosses to the service it is sent to o
 ```
 
 <!-- test: a-linear-union-local-with-a-plain-payload-does-not-cross -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `m` is an owned linear value, but `Mp` holds the plain part `y`, which `b` still names, so `m` is not the whole of its region.
 ```maxon
@@ -861,7 +867,7 @@ error E3200: <fragment>:53:13: 'm' crosses to the service it is sent to only as 
 ```
 
 <!-- test: a-unique-local-whose-type-holds-a-plain-part-does-not-cross -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `Tp` is `unique` and holds the plain `Bx` field `b`; `h.k` keeps a second name for it, so `t` is not the whole of its region.
 ```maxon
@@ -918,7 +924,7 @@ error E3200: <fragment>:44:13: 't' crosses to the service it is sent to only as 
 ```
 
 <!-- test: a-unique-parameter-whose-type-holds-a-plain-part-does-not-cross -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 A parameter is no fresh value, so `t` crosses only if `Tp` is closed, and it is not.
 ```maxon
@@ -979,7 +985,7 @@ error E3200: <fragment>:39:13: 't' crosses to the service it is sent to only as 
 ```
 
 <!-- test: a-unique-message-parameter-whose-type-holds-a-plain-part-is-not-sent-on -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The behaviour keeps `t.b` in its own state and then sends `t` on: the message parameter is owned, but `Tp` is not closed.
 ```maxon
@@ -1050,7 +1056,7 @@ error E3200: <fragment>:48:21: 't' crosses to the service it is sent to only as 
 ```
 
 <!-- test: a-unique-spawn-factory-argument-whose-type-holds-a-plain-part-does-not-cross -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 A factory argument crosses to the service's thread under the same rule as a message argument; a fresh `Tp` crosses.
 ```maxon
@@ -1121,7 +1127,7 @@ error E3200: <fragment>:54:30: 't' crosses to the service the `spawn` starts onl
 ```
 
 <!-- test: a-unique-reply-whose-type-holds-a-plain-part-does-not-cross -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The behaviour keeps `t.b` and replies with `t`, which is then not the whole of its region.
 ```maxon
@@ -1479,6 +1485,7 @@ error E3200: <fragment>:33:13: 'u' crosses to the service it is sent to only as 
 ```
 
 <!-- test: the-payload-of-a-message-parameter-whose-union-is-not-closed-is-not-isolated -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `Parcel` holds the plain payload `b`, so the behaviour's unmarked message parameter `p` is owned plain data and its payload goes to no `isolated` slot.
 ```maxon
@@ -1547,6 +1554,7 @@ error E3200: <fragment>:45:28: 'b' is not isolated: only a clean call, a `swap` 
 ```
 
 <!-- test: a-linear-local-of-a-closed-type-crosses-in-a-message -->
+<!-- skip: language difference: SendError and SubprocessError are built-in enums whose cases carry no payload, so a failed send gives its arguments no way back -->
 `Rl` holds only a value, so the owned linear local `r` is the whole of its region and crosses.
 ```maxon
 typealias Num = int(i64.min to i64.max)
@@ -1597,6 +1605,7 @@ fin 1
 ```
 
 <!-- test: a-linear-union-whose-payloads-are-values-or-isolated-crosses-in-a-message -->
+<!-- skip: language difference: SendError and SubprocessError are built-in enums whose cases carry no payload, so a failed send gives its arguments no way back -->
 Every payload of `Mq` is linear and closed or declared `isolated`, so `Mq` is closed.
 ```maxon
 typealias Num = int(i64.min to i64.max)
@@ -1669,6 +1678,7 @@ fin 2
 ```
 
 <!-- test: a-linear-union-declared-isolated-crosses-though-its-type-is-not-closed -->
+<!-- skip: language difference: SendError and SubprocessError are built-in enums whose cases carry no payload, so a failed send gives its arguments no way back -->
 `m` is declared `isolated`, so it is the whole of its region whatever `Mp` holds.
 ```maxon
 typealias Num = int(i64.min to i64.max)
@@ -1825,7 +1835,7 @@ union Mq
 end 'Mq'
 
 function takeIso(consumes m Mq)
-	match m 'taken'
+	match consumes m 'taken'
 		q0(x) then x.fin()
 		q1(y) then print("took {y.n}\n")
 	end 'taken'
@@ -1850,7 +1860,7 @@ took 2
 ```
 
 <!-- test: an-owned-linear-parameter-of-a-type-that-is-not-closed-stays-plain -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `Mp` holds the plain payload `y`, which the caller's `b` still names, so `m` is ordinary data of its region.
 ```maxon
@@ -2473,7 +2483,7 @@ end 'main'
 ```
 
 <!-- test: a-call-lent-a-unique-local-whose-type-holds-a-plain-part-is-not-a-clean-call -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `Tq` is not closed, so the lent `q` is no clean input even though nothing read it before, and the result, which holds `q.b`, cannot become isolated.
 ```maxon
@@ -2534,7 +2544,7 @@ error E3200: <fragment>:47:10: 'stash(q) as isolated Ko' is not isolated: only a
 ```
 
 <!-- test: a-call-lent-a-unique-local-whose-type-holds-a-plain-part-is-not-sent -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The same call handed straight to a message's `isolated` parameter is refused for the same reason.
 ```maxon

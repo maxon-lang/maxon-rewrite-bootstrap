@@ -458,6 +458,7 @@ error E3054: specs/error-handling/error.main-cannot-throw.maxon:7:10: main canno
 ```
 
 <!-- test: error.throws-but-can-never-throw -->
+<!-- skip: language difference: a throws or a try block that nothing can make fail is allowed, so a sharper analysis never breaks a program -->
 A function that declares `throws` must be able to throw. This one only returns, so every caller is made to
 handle an error that can never arrive.
 ```maxon
@@ -480,6 +481,7 @@ error E3168: <fragment>:8:10: 'throws Failure' is declared but nothing in the bo
 ```
 
 <!-- test: error.throws-but-every-call-it-makes-is-handled -->
+<!-- skip: language difference: a throws or a try block that nothing can make fail is allowed, so a sharper analysis never breaks a program -->
 Calling a throwing function is not throwing. `careful`'s one throwing call handles its error with
 `otherwise`, so nothing leaves the body.
 ```maxon
@@ -509,6 +511,7 @@ error E3168: <fragment>:15:10: 'throws Failure' is declared but nothing in the b
 ```
 
 <!-- test: error.throws-but-its-only-throw-is-caught-by-a-try-block -->
+<!-- skip: language difference: a throws or a try block that nothing can make fail is allowed, so a sharper analysis never breaks a program -->
 <!-- positions: moved -->
 A `throw` inside a block-form `try` goes to that block's handler, not to the caller. The handler here
 returns, so the function's error can never reach a caller.
@@ -541,6 +544,7 @@ error E3168: <fragment>:8:10: 'throws Failure' is declared but nothing in the bo
 ```
 
 <!-- test: error.throws-method-can-never-throw -->
+<!-- skip: language difference: a throws or a try block that nothing can make fail is allowed, so a sharper analysis never breaks a program -->
 The rule covers methods as well as top-level functions.
 ```maxon
 enum Failure implements Error
@@ -571,7 +575,7 @@ error E3168: <fragment>:15:11: 'throws Failure' is declared but nothing in the b
 ```
 
 <!-- test: error.throws-service-message-can-never-throw -->
-<!-- positions: moved -->
+<!-- skip: language difference: a throws or a try block that nothing can make fail is allowed, so a sharper analysis never breaks a program -->
 A service message is checked like any other function. A `throws` clause gives the message a reply slot, but a
 body that cannot throw still makes the clause false.
 ```maxon
@@ -588,7 +592,7 @@ type Store
 		return Self{n: 0}
 	end 'create'
 
-	export function wipe(mutates self) throws Failure
+	export function wipe() throws Failure
 		self.n = 0
 	end 'wipe'
 end 'Store'
@@ -2080,6 +2084,7 @@ kept 9
 ```
 
 <!-- test: throw-sole-owned-field-to-a-try-block-leaves-the-field -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 ```maxon
 typealias Tally = int(0 to 1000)
 
@@ -2104,7 +2109,7 @@ type Holder
 			end 'fault'
 		end 'handler'
 		match holder.fault 'again'
-			bad(text, _) then return try caught + text.byteLength() as Tally otherwise panic("out of range")
+			bad(text, _) then return caught + text.byteLength() as Tally
 		end 'again'
 	end 'probe'
 end 'Holder'

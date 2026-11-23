@@ -196,6 +196,7 @@ end 'main'
 ```
 
 <!-- test: error.a-var-pushed-and-written-afterwards-is-refused -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 A mutable record has another writer, so an `immutable` element refuses it until it is frozen: E3196.
 
@@ -225,6 +226,7 @@ error E3196: specs/readonly-element-types/error.a-var-pushed-and-written-afterwa
 ```
 
 <!-- test: error.a-map-value-upserted-and-written-afterwards-is-refused -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The same refusal for a `Map`'s `immutable` value.
 
@@ -246,7 +248,7 @@ function main() returns ExitCode
 	var counter = Counter.create(1)
 	index.upsert("a", value: counter)
 	counter.n = 2
-	return try index.count() as ExitCode otherwise panic("out of range")
+	return index.count() as ExitCode
 end 'main'
 ```
 ```maxoncstderr
@@ -342,6 +344,7 @@ error E3197: specs/readonly-element-types/error.an-element-is-not-bound-to-a-var
 ```
 
 <!-- test: error.an-element-is-not-pushed-into-a-plain-array -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 Storing an element into an array of writable elements would give it a second, writable holder.
 
@@ -642,7 +645,7 @@ end 'main'
 ```
 
 <!-- test: error.a-wrapper-storing-into-a-plain-element-refuses-an-immutable-argument -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The same wrappers over an `Array with ByteArray` keep the value where something may write it, so the read-only
 `source.title` is refused for `register`.
@@ -727,6 +730,7 @@ end 'main'
 ```
 
 <!-- test: error.a-map-key-read-by-for-is-not-stored-into-a-var-field -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 A key read back out of a `Map` is read-only, so it cannot be stored into a `var` field, where it would have a
 second writer.
@@ -767,6 +771,7 @@ error E3196: specs/readonly-element-types/error.a-map-key-read-by-for-is-not-sto
 ```
 
 <!-- test: error.a-set-element-read-by-for-is-not-stored-into-a-var-field -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 An element read back out of a `Set` is read-only, so it cannot be stored into a `var` field, where it would have a
 second writer.

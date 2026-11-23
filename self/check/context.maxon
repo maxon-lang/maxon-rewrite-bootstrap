@@ -256,6 +256,13 @@ export function checkFail(modID diag.ModuleID, off diag.U32, consumes code Strin
 	diag.pushSiteError(errs, code: code, message: msg, module: modID, offset: off)
 end 'checkFail'
 
+// checkFailCaused is checkFail for an error whose cause a tool tells apart from the others of its code.
+export function checkFailCaused(modID diag.ModuleID, off diag.U32, consumes code String, consumes msg String, cause diag.ErrorCause, mutates errs diag.ErrorList)
+	var err = diag.CompileError.atSite(code, message: msg, site: diag.Site.make(modID, offset: off))
+	err.cause = cause
+	errs.push(err)
+end 'checkFailCaused'
+
 // checkFailFixed is checkFail for an error whose message names the change that fix makes.
 export function checkFailFixed(modID diag.ModuleID, off diag.U32, consumes code String, consumes msg String, consumes fix diag.Fix, mutates errs diag.ErrorList)
 	diag.pushFixedError(errs, code: code, message: msg, module: modID, offset: off, fix: fix)

@@ -117,6 +117,7 @@ end 'main'
 ```
 
 <!-- test: a-field-read-send-argument-survives-a-later-operand-that-replaces-the-field -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 `sink.take` reads `shelf.label` for its first argument and then runs `replace`, which gives the shelf a new label. The text the message carries is still alive when the service reads it.
 
 ```maxon
@@ -137,19 +138,19 @@ type Sink
 		return Self{seen: 0}
 	end 'create'
 
-	export function take(mutates self, label String, tag Tally) returns Tally
-		self.seen = try self.seen + 1 otherwise panic("out of range")
-		return try (label.count() as Tally) + tag otherwise panic("out of range")
+	export function take(label String, tag Tally) returns Tally
+		self.seen = self.seen + 1
+		return (label.count() as Tally) + tag
 	end 'take'
 end 'Sink'
 
-function replace(mutates shelf Shelf) returns Tally
+function replace(shelf Shelf) returns Tally
 	shelf.label = "x"
 	return 1
 end 'replace'
 
 function main() returns ExitCode
-	var shelf = Shelf.create(1)
+	let shelf = Shelf.create(1)
 	let sink = spawn Sink.create()
 	let n = try await sink.take(shelf.label, tag: replace(shelf)) otherwise 0
 	print("{n}\n")
@@ -164,6 +165,7 @@ end 'main'
 ```
 
 <!-- test: a-field-read-spawn-argument-survives-a-later-operand-that-replaces-the-field -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 `spawn Holder.create` reads `shelf.label` for the factory and then runs `replace`; the text the factory keeps is still alive.
 
 ```maxon
@@ -182,21 +184,21 @@ type Holder
 	var tag as Tally
 
 	static function create(label String, tag Tally) returns Self
-		return Self{label: label.clone(), tag: tag}
+		return Self{label: label, tag: tag}
 	end 'create'
 
 	export function total() returns Tally
-		return try (self.label.count() as Tally) + self.tag otherwise panic("out of range")
+		return (self.label.count() as Tally) + self.tag
 	end 'total'
 end 'Holder'
 
-function replace(mutates shelf Shelf) returns Tally
+function replace(shelf Shelf) returns Tally
 	shelf.label = "x"
 	return 1
 end 'replace'
 
 function main() returns ExitCode
-	var shelf = Shelf.create(1)
+	let shelf = Shelf.create(1)
 	let holder = spawn Holder.create(shelf.label, tag: replace(shelf))
 	let n = try await holder.total() otherwise 0
 	print("{n}\n")
@@ -211,6 +213,7 @@ end 'main'
 ```
 
 <!-- test: a-field-read-async-argument-survives-a-later-operand-that-replaces-the-field -->
+<!-- skip: language difference: a place passed mutates, consumes or sets overlaps nothing else the call or the statement holds, where maxon shares the place by a reference count -->
 `async total` reads `shelf.items` for its first argument and then runs `replace`; the array the coroutine receives is still alive.
 
 ```maxon
@@ -222,15 +225,15 @@ type Shelf
 	export var items as TallyArray
 
 	static function create() returns Self
-		var items = TallyArray.create(0)
+		let items = TallyArray.create(0)
 		items.push(11)
 		items.push(22)
 		return Self{items: items}
 	end 'create'
 end 'Shelf'
 
-function replace(mutates shelf Shelf) returns Tally
-	var fresh = TallyArray.create(0)
+function replace(shelf Shelf) returns Tally
+	let fresh = TallyArray.create(0)
 	fresh.push(99)
 	shelf.items = fresh
 	return 1
@@ -238,11 +241,11 @@ end 'replace'
 
 function total(items TallyArray, tag Tally) returns Tally
 	sleep(1)
-	return try (items.count() as Tally) + tag otherwise panic("out of range")
+	return (items.count() as Tally) + tag
 end 'total'
 
 function main() returns ExitCode
-	var shelf = Shelf.create()
+	let shelf = Shelf.create()
 	let later = async total(shelf.items, tag: replace(shelf))
 	let n = await later
 	print("{n}\n")
@@ -257,6 +260,7 @@ end 'main'
 ```
 
 <!-- test: a-match-subject-survives-an-arm-that-replaces-the-field-it-was-read-from -->
+<!-- skip: language difference: a place passed mutates, consumes or sets overlaps nothing else the call or the statement holds, where maxon shares the place by a reference count -->
 The arm writes `holder.slot` back while it still reads the payload it bound, so the subject is held for the whole match.
 
 ```maxon
@@ -273,16 +277,16 @@ type Holder
 	export var slot as Slot
 
 	static function create() returns Self
-		var items = TallyArray.create(0)
+		let items = TallyArray.create(0)
 		items.push(11)
 		items.push(22)
 		return Self{slot: Slot.filled(items)}
 	end 'create'
 end 'Holder'
 
-function readAfterReplacing(mutates holder Holder, items TallyArray)
+function readAfterReplacing(holder Holder, items TallyArray)
 	holder.slot = Slot.empty
-	var other = TallyArray.create(0)
+	let other = TallyArray.create(0)
 	other.push(7)
 	other.push(8)
 	other.push(9)
@@ -290,7 +294,7 @@ function readAfterReplacing(mutates holder Holder, items TallyArray)
 end 'readAfterReplacing'
 
 function main() returns ExitCode
-	var holder = Holder.create()
+	let holder = Holder.create()
 	match holder.slot 'slot'
 		empty then print("empty\n")
 		filled(items) then readAfterReplacing(holder, items: items)

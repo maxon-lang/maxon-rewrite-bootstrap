@@ -18,6 +18,7 @@ caller's own parameter makes the result read-only unless that parameter is mutab
 ## Tests
 
 <!-- test: a-mixed-return-given-frozen-data-is-read-only-where-immutable-is-required -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `pick` returns its parameter on one path and a fresh box on the other, so given frozen data its result may be fresh and writable: it is read-only, and `take` needs it immutable.
 
@@ -161,6 +162,7 @@ end 'main'
 ```
 
 <!-- test: a-result-sourced-from-the-callers-own-undecided-parameter-is-read-only -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `viaParam`'s parameter is only read, so it stays undecided, and a result sourced from it is read-only: `take` needs it immutable.
 

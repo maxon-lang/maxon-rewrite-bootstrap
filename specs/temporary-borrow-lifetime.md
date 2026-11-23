@@ -631,6 +631,7 @@ end 'main'
 ```
 
 <!-- test: control-pop-out-of-a-temporary-is-an-owned-move-out -->
+<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 **CONTROL.** `pop()` MOVES the element out — the runtime nulls the slot, so the element outlives the
 container by construction and the result is already OWNED: a promotion that fired here would keep a container alive for a value it no longer
 holds.
@@ -638,8 +639,8 @@ holds.
 typealias Bytes = Array with ByteArray
 
 function make() returns Bytes
-	var outer = Bytes.create(0)
-	var inner = ByteArray.create(0)
+	let outer = Bytes.create(0)
+	let inner = ByteArray.create(0)
 	inner.push(1)
 	inner.push(2)
 	inner.push(3)
@@ -651,7 +652,7 @@ end 'make'
 
 function main() returns ExitCode
 	let n = try make().pop() otherwise ByteArray.create(0)
-	return try n.count() as ExitCode otherwise panic("out of range")
+	return n.count()
 end 'main'
 ```
 ```exitcode

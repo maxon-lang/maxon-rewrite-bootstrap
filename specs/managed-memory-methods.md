@@ -238,13 +238,13 @@ typealias Int = int(i64.min to i64.max)
 typealias IntArray = Array with Int
 
 function main() returns ExitCode
-	let arr = IntArray.create(0)
+	var arr = IntArray.create(0)
 	arr.push(1)
 	arr.push(2)
 	arr.push(3)
 	arr.push(4)
 	let v = try arr.managed.get(10) otherwise 42
-	return v
+	return try v as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -2614,10 +2614,10 @@ typealias Byte = int(0 to u8.max)
 typealias ByteArray = Array with Byte
 
 function main() returns ExitCode
-	let arr = ByteArray.create(0)
+	var arr = ByteArray.create(0)
 	arr.push(1 as Byte)
 	arr.push(2 as Byte)
-	return arr.managed.length() as ExitCode
+	return try arr.managed.length() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -2728,7 +2728,7 @@ not the `Array`'s.
 ```maxon
 function main() returns ExitCode
 	let m = "abcd".toByteArray().managed
-	return m.length() as ExitCode
+	return try m.length() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -4130,7 +4130,7 @@ end 'arrayWidth'
 function main() returns ExitCode
 	let xs = B.create(0)
 	xs.push(7 as Int2)
-	return ((textWidth("hello") as Int2) + arrayWidth(xs)) as ExitCode
+	return ((buffer.textWidth("hello") as Int2) + arrayWidth(xs)) as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -4185,7 +4185,7 @@ function main() returns ExitCode
 	let xs = Nums.create(0)
 	xs.push(7 as Int2)
 	let b = Bag.create(xs)
-	return (seed() + (b.items.count() as Int)) as ExitCode
+	return (buffer.seed() + (b.items.count() as buffer.Int)) as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -4225,7 +4225,7 @@ end 'textWidth'
 // --- file: shapes/main.maxon
 function main() returns ExitCode
 	let made = B.make()
-	let w = textWidth("hello")
+	let w = export.textWidth("hello")
 	print("{w}\n")
 	return w + made.n
 end 'main'

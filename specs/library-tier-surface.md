@@ -404,7 +404,7 @@ function firstOf(c IntCursor) returns Integer
 end 'firstOf'
 
 function main() returns ExitCode
-	let xs = IntArray.create(0)
+	var xs = IntArray.create(0)
 	xs.push(7)
 	let c = try xs.managed.createCursor() otherwise return 1
 	print("{firstOf(c)}\n")
@@ -456,7 +456,7 @@ typealias Integer = int(i64.min to i64.max)
 typealias IntArray = Array with Integer
 
 function main() returns ExitCode
-	let xs = IntArray.create(0)
+	var xs = IntArray.create(0)
 	xs.push(7)
 	let c = cursorOf(xs)
 	print("{c.current()}\n")
@@ -514,7 +514,7 @@ typealias Integer = int(i64.min to i64.max)
 typealias IntArray = Array with Integer
 
 function main() returns ExitCode
-	let xs = IntArray.create(0)
+	var xs = IntArray.create(0)
 	xs.push(7)
 	xs.push(8)
 	let m = bufferOf(xs)
@@ -523,7 +523,7 @@ function main() returns ExitCode
 end 'main'
 
 function bufferOf(xs IntArray) returns IntBuffer
-	return xs.managed
+	return xs.managed.clone()
 end 'bufferOf'
 
 typealias IntBuffer = __ManagedMemory with Integer
@@ -909,8 +909,8 @@ The same program in the library tier.
 
 ```maxon
 extension Array
-	function probe() returns bool
-		let m = self.managed
+	function probe() returns bool where T implements Copyable
+		let m = self.managed.clone()
 		return m is self.managed
 	end 'probe'
 end 'Array'

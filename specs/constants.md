@@ -1247,6 +1247,7 @@ rather than silently slipping through. The accessors remain available to
 *observe* a case's name/position/backing as data (print, serialize, etc.).
 
 <!-- test: error.enum-accessor-comparison -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 ```maxon
 enum Color
 	red

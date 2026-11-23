@@ -65,6 +65,7 @@ none
 ```
 
 <!-- test: a-copy-of-the-union-shares-the-payload-and-both-drop -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 Two names for one union each own a reference, and the payload is released once both are gone.
 ```maxon
 typealias Mass = int(0 to 100)
@@ -533,6 +534,7 @@ end 'main'
 ```
 
 <!-- test: an-all-let-union-with-a-mutable-struct-payload-is-shared-with-a-service -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 `Shape`'s payloads are `let`, but the struct they hold has a `var` field, so the payload walk meets its record as owned state while the word is shared with the service and viewed by `w`.
 ```maxon
 typealias Coord = int(0 to 1000)
@@ -542,7 +544,7 @@ type Cell
 	export let label as String
 
 	static function create(n Coord, label String) returns Self
-		return Self{n: n, label: label.clone()}
+		return Self{n: n, label: label}
 	end 'create'
 end 'Cell'
 
@@ -558,10 +560,10 @@ type Store
 		return Self{}
 	end 'create'
 
-	export function keep(mutates self, s frozen with Shape) returns Coord
-		self.seen = try self.seen + 1 otherwise panic("out of range")
+	export function keep(s frozen with Shape) returns Coord
+		self.seen = self.seen + 1
 		return match s 'shape'
-			cell(c) gives try c.n + c.label.byteLength() as Coord otherwise panic("out of range")
+			cell(c) gives c.n + c.label.byteLength() as Coord
 			nothing gives 0
 		end 'shape'
 	end 'keep'
@@ -573,7 +575,7 @@ function main() returns ExitCode
 	let w = s
 	let r = try await h.keep(s) otherwise 0
 	let mine = match w 'shape'
-		cell(c) gives try c.n + c.label.byteLength() as Coord otherwise panic("out of range")
+		cell(c) gives c.n + c.label.byteLength() as Coord
 		nothing gives 0
 	end 'shape'
 	print("{r} {mine}\n")
@@ -588,6 +590,7 @@ end 'main'
 ```
 
 <!-- test: an-all-let-union-is-shared-while-several-words-hold-a-mutable-struct-payload -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 Three words hold one `Shape` payload while a fourth reference travels with the send. The share walk meets the payload record once, as a view of an immutable union, and the owners outside the graph are tolerated exactly as they were when the payload sat behind a box.
 ```maxon
 typealias Coord = int(0 to 1000)
@@ -597,7 +600,7 @@ type Cell
 	export let label as String
 
 	static function create(n Coord, label String) returns Self
-		return Self{n: n, label: label.clone()}
+		return Self{n: n, label: label}
 	end 'create'
 end 'Cell'
 
@@ -613,10 +616,10 @@ type Store
 		return Self{}
 	end 'create'
 
-	export function keep(mutates self, s frozen with Shape) returns Coord
-		self.seen = try self.seen + 1 otherwise panic("out of range")
+	export function keep(s frozen with Shape) returns Coord
+		self.seen = self.seen + 1
 		return match s 'shape'
-			cell(c) gives try c.n + c.label.byteLength() as Coord otherwise panic("out of range")
+			cell(c) gives c.n + c.label.byteLength() as Coord
 			nothing gives 0
 		end 'shape'
 	end 'keep'
@@ -624,7 +627,7 @@ end 'Store'
 
 function weigh(s Shape) returns Coord
 	return match s 'shape'
-		cell(c) gives try c.n + c.label.byteLength() as Coord otherwise panic("out of range")
+		cell(c) gives c.n + c.label.byteLength() as Coord
 		nothing gives 0
 	end 'shape'
 end 'weigh'

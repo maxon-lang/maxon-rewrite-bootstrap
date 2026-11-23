@@ -203,15 +203,15 @@ typealias Int = int(i64.min to i64.max)
 typealias IntArray = Array with Int
 
 function readAt(a IntArray, i Int) returns Int
-	return try a.managed.get(i) otherwise -7
+	return try a.managed.get(i as ElementIndex) otherwise -7
 end 'readAt'
 
 function main() returns ExitCode
-	let a = IntArray.create(0)
+	var a = IntArray.create(0)
 	a.push(11)
 	a.push(22)
 	a.push(33)
-	let n = a.count() as Int
+	let n = try a.count() as Int otherwise panic("out of range")
 	if readAt(a, i: -n) != -7 'minusCount'
 		return 1
 	end 'minusCount'
@@ -377,6 +377,7 @@ end 'main'
 ```
 
 <!-- test: a-laundered-negative-is-a-panic-at-the-array-door-and-a-throw-at-the-buffers -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 <!-- tier: stdlib -->
 ⭐⭐ **THE TWO SURFACES, IN ONE PROGRAM, DISAGREEING ON PURPOSE.** The same laundered `-1` is a
 CATCHABLE `indexOutOfBounds` at `a.managed.get` — which is this row's guard doing its job — and an

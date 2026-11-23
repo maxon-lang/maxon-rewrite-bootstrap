@@ -132,6 +132,7 @@ error E3212: <fragment>:29:21: the promise of this `async` call is tied to the m
 ```
 
 <!-- test: a-mutable-isolated-parameter-moved-out-of-the-callee-is-refused -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 A `mutable isolated` parameter is by reference, so the callee may not move it out: the caller's variable would name a region another owner holds.
 
@@ -147,7 +148,7 @@ type Box
 end 'Box'
 
 function takeOut(mutates box Box) returns Box
-	return box.clone()
+	return box
 end 'takeOut'
 
 function main() returns ExitCode
@@ -399,7 +400,7 @@ error E3212: <fragment>:22:2: this exit leaves the tied promise of the `async` c
 ```
 
 <!-- test: a-function-that-writes-the-drained-array-is-refused -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `grow` pushes to the array `drain` is draining, so the call inside the body is refused.
 
@@ -435,6 +436,7 @@ error E3207: <fragment>:20:8: 'grow' needs a writable parameter 'items' at line 
 ```
 
 <!-- test: clearing-the-drained-array-is-refused -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The body clears the array it drains, which is a write the loop does not allow.
 
@@ -466,6 +468,7 @@ error E3207: <fragment>:16:3: 'clear' needs a writable receiver at line 306; 'pe
 ```
 
 <!-- test: a-mutable-isolated-parameter-aliased-by-a-let-is-refused -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 A `mutable isolated` parameter is by reference, so binding it to a second name aliases a region the caller still owns.
 
@@ -481,7 +484,7 @@ type Box
 end 'Box'
 
 function alias(mutates box Box) returns Tally
-	let other = box.clone()
+	let other = box
 	return other.n
 end 'alias'
 
@@ -496,6 +499,7 @@ error E3202: <fragment>:13:14: a `mutable isolated` parameter is by reference: t
 ```
 
 <!-- test: a-mutable-isolated-parameter-pushed-into-an-array-is-refused -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 Pushing the `mutable isolated` parameter into an array moves it out of the caller's variable.
 
@@ -512,8 +516,8 @@ end 'Box'
 
 typealias BoxArray = Array with Box
 
-function stash(mutates box Box, mutates all BoxArray)
-	all.push(box.clone())
+function stash(mutates box Box, all BoxArray)
+	all.push(box)
 end 'stash'
 
 function main() returns ExitCode
@@ -528,6 +532,7 @@ error E3202: <fragment>:15:11: a `mutable isolated` parameter is by reference: t
 ```
 
 <!-- test: a-mutable-isolated-parameter-passed-to-a-keeping-parameter-is-refused -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `adopt` takes its `isolated` parameter by move, so handing it the caller's by-reference region would give two owners.
 
@@ -547,7 +552,7 @@ function adopt(consumes box Box) returns Tally
 end 'adopt'
 
 function relay(mutates box Box) returns Tally
-	return adopt(box.clone())
+	return adopt(box)
 end 'relay'
 
 function main() returns ExitCode
@@ -561,6 +566,7 @@ error E3202: <fragment>:17:15: a `mutable isolated` parameter is by reference: t
 ```
 
 <!-- test: a-mutable-isolated-parameter-stored-in-a-field-is-refused -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 Storing the `mutable isolated` parameter in a field leaves the caller's variable naming a region the field now owns.
 
@@ -582,8 +588,8 @@ type Shelf
 		return Self{held: Box.create(0)}
 	end 'create'
 
-	function keep(mutates self, mutates box Box)
-		self.held = box.clone()
+	function keep(mutates box Box)
+		self.held = box
 	end 'keep'
 end 'Shelf'
 
@@ -705,6 +711,7 @@ end 'main'
 ```
 
 <!-- test: a-mutable-isolated-method-parameter-passed-to-an-isolated-method-parameter-is-refused -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 A method parameter that is not by reference takes the region, so the caller's variable would then name a region another owner holds.
 
@@ -727,11 +734,11 @@ type Desk
 	end 'create'
 
 	function adopt(consumes box Box) returns Tally
-		return try box.n + self.floor otherwise panic("out of range")
+		return box.n + self.floor
 	end 'adopt'
 
 	function relay(mutates box Box) returns Tally
-		return self.adopt(box.clone())
+		return self.adopt(box)
 	end 'relay'
 end 'Desk'
 
@@ -747,6 +754,7 @@ error E3202: <fragment>:24:21: a `mutable isolated` parameter is by reference: t
 ```
 
 <!-- test: a-tied-promise-may-live-in-a-local-while-the-caller-keeps-using-the-shared-data -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 Sharing is legal in locals: the caller keeps using `row`, cancels the promise before it returns early on one path, and awaits it on the other.
 
 ```maxon
@@ -760,14 +768,14 @@ type Row
 	end 'create'
 end 'Row'
 
-function bump(mutates row Row) returns Tally
+function bump(row Row) returns Tally
 	sleep(1)
-	row.n = try row.n + 1 otherwise panic("out of range")
+	row.n = row.n + 1
 	return row.n
 end 'bump'
 
 function main() returns ExitCode
-	var row = Row.create(1)
+	let row = Row.create(1)
 	let later = async bump(row)
 	let before = row.n
 	if before > 100 'tooBig'

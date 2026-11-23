@@ -184,6 +184,7 @@ end 'main'
 ```
 
 <!-- test: error.a-writable-element-read-through-a-method-is-refused-by-a-immutable-container -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The twin of the case above with elements that are not `immutable`: `Table.nameOf` hands back a mutable
 element, so storing the result into a `immutable` container is refused until it is frozen.
@@ -197,13 +198,13 @@ type Table
 	var names as Names
 
 	static function create() returns Self
-		var names = Names.create(0)
+		let names = Names.create(0)
 		names.push("alpha".toByteArray())
 		return Self{names: names}
 	end 'create'
 
-	function register(mutates self, name ByteArray)
-		self.names.push(name.clone())
+	function register(name ByteArray)
+		self.names.push(name)
 	end 'register'
 
 	function nameOf(index ElementIndex) returns ByteArray
@@ -212,11 +213,11 @@ type Table
 end 'Table'
 
 function main() returns ExitCode
-	var table = Table.create()
+	let table = Table.create()
 	table.register("gamma".toByteArray())
-	var roster = Roster.create(0)
+	let roster = Roster.create(0)
 	roster.push(table.nameOf(1))
-	return try roster.count() as ExitCode otherwise panic("out of range")
+	return roster.count() as ExitCode
 end 'main'
 ```
 ```maxoncstderr
@@ -435,6 +436,7 @@ end 'main'
 ```
 
 <!-- test: error.a-lookup-or-the-argument-is-refused-when-the-argument-may-be-written -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The same `spell` handed a mutable `var` that is read again is refused: `spell` takes an `immutable` name, and
 `scratch` is still writable.

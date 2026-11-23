@@ -281,6 +281,7 @@ end 'main'
 ```
 
 <!-- test: a-clone-through-another-name-clears-the-facts -->
+<!-- skip: language difference: a place passed mutates, consumes or sets overlaps nothing else the call or the statement holds, where maxon shares the place by a reference count -->
 Control for the clearing rule's breadth. `a` and `b` name one record; the clone through `b` shares the
 buffer `a`'s facts were about, so a rule that cleared only the callee's own record would let the second
 write through `a` land in the share.
@@ -289,7 +290,7 @@ typealias Word = int(i64.min to i64.max)
 
 typealias WordArray = Array with Word
 
-function rewrite(mutates a WordArray, b WordArray) returns WordArray
+function rewrite(a WordArray, b WordArray) returns WordArray
 	try a.set(0, value: 10) otherwise panic("rewrite: a holds two elements")
 	let kept = b.clone()
 	try a.set(1, value: 20) otherwise panic("rewrite: a holds two elements")
@@ -297,7 +298,7 @@ function rewrite(mutates a WordArray, b WordArray) returns WordArray
 end 'rewrite'
 
 function main() returns ExitCode
-	var a = WordArray.create(0)
+	let a = WordArray.create(0)
 	a.push(1)
 	a.push(2)
 	let kept = rewrite(a, b: a)

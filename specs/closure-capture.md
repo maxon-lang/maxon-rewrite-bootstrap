@@ -946,6 +946,7 @@ end 'main'
 ```
 
 <!-- test: closure-capture.a-self-let-field-in-a-closure-is-written -->
+<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 The spelled-out twin of the case above, accepted identically.
 
 ```maxon
@@ -960,13 +961,13 @@ type Held
 		return Self{names: NameArray.create(0)}
 	end 'create'
 
-	function hold(mutates self, key String) returns bool
-		self.names.push(key.clone())
+	function hold(key String) returns bool
+		self.names.push(key)
 		return true
 	end 'hold'
 end 'Held'
 
-function perform(mutates action Action) returns bool
+function perform(action Action) returns bool
 	return action()
 end 'perform'
 
@@ -1495,6 +1496,7 @@ error E3102: <fragment>:16:25: use of moved value 'word': its ownership moved to
 ```
 
 <!-- test: closure-capture.a-capture-beside-a-borrowing-argument -->
+<!-- skip: language difference: a place passed mutates, consumes or sets overlaps nothing else the call or the statement holds, where maxon shares the place by a reference count -->
 A call that only borrows `word` may take, in the same argument list, a closure that captures it: the closure
 owns the record for as long as the call runs.
 ```maxon
@@ -1503,12 +1505,12 @@ typealias Integer = int(i64.min to i64.max)
 typealias Thunk = function() returns Integer
 
 function sum(text String, measure Thunk) returns Integer
-	return try (text.byteLength() as Integer) + measure() otherwise panic("out of range")
+	return (text.byteLength() as Integer) + measure()
 end 'sum'
 
 function main() returns ExitCode
 	let word = "a word padded long enough to heap allocate {1}"
-	print("{sum(word, measure: function() gives try word.byteLength() as Integer otherwise panic("out of range"))}\n")
+	print("{sum(word, measure: function() gives word.byteLength() as Integer)}\n")
 	return 0
 end 'main'
 ```
@@ -2187,6 +2189,7 @@ end 'main'
 ### A closure called out of a slot it can rewrite
 
 <!-- test: closure-capture.a-field-closure-that-replaces-itself-keeps-its-captures-while-it-runs -->
+<!-- skip: language difference: a place passed mutates, consumes or sets overlaps nothing else the call or the statement holds, where maxon shares the place by a reference count -->
 The call holds a reference to the closure it reads out of a field for as long as it runs, so a body that
 replaces the field's closure still reads its own captures.
 ```maxon
@@ -2197,23 +2200,23 @@ typealias Step = function(mutates Holder) returns Integer
 type Holder
 	export var step as Step
 
-	static function create(consumes step Step) returns Self
+	static function create(step Step) returns Self
 		return Self{step: step}
 	end 'create'
 
-	export function swap(mutates self)
+	export function swap()
 		self.step = function(mutates _ Holder) gives 0
 	end 'swap'
 end 'Holder'
 
-function swapThenMeasure(mutates h Holder, text String) returns Integer
+function swapThenMeasure(h Holder, text String) returns Integer
 	h.swap()
-	return try text.byteLength() as Integer otherwise panic("out of range")
+	return text.byteLength() as Integer
 end 'swapThenMeasure'
 
 function main() returns ExitCode
 	let word = "a word padded long enough to heap allocate {1}"
-	var h = Holder.create(function(mutates other Holder) gives swapThenMeasure(other, text: word))
+	let h = Holder.create(function(mutates other Holder) gives swapThenMeasure(other, text: word))
 	print("{h.step(h)} {h.step(h)}\n")
 	return 0
 end 'main'
@@ -2226,6 +2229,7 @@ end 'main'
 ```
 
 <!-- test: closure-capture.a-field-closure-replaced-by-its-own-argument-runs-as-read -->
+<!-- skip: language difference: a place passed mutates, consumes or sets overlaps nothing else the call or the statement holds, where maxon shares the place by a reference count -->
 The call holds the closure it reads out of a field before it evaluates its arguments, so an argument that replaces the field's closure does not free the one being called.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -2235,19 +2239,19 @@ typealias Step = function(Integer) returns Integer
 type Holder
 	export var step as Step
 
-	static function create(consumes step Step) returns Self
+	static function create(step Step) returns Self
 		return Self{step: step}
 	end 'create'
 
-	function swap(mutates self, by Integer) returns Integer
-		self.step = function(n Integer) gives try n + by otherwise panic("out of range")
+	function swap(by Integer) returns Integer
+		self.step = function(n Integer) gives n + by
 		return 1
 	end 'swap'
 end 'Holder'
 
 function main() returns ExitCode
 	let word = "a word padded long enough to heap allocate {1}"
-	var h = Holder.create(function(n Integer) gives try n + (word.byteLength() as Integer) otherwise panic("out of range"))
+	let h = Holder.create(function(n Integer) gives n + (word.byteLength() as Integer))
 	print("{h.step(h.swap(100))} {h.step(2)}\n")
 	return 0
 end 'main'
@@ -3918,6 +3922,7 @@ error E3102: <fragment>:20:2: use of moved value 'h': its ownership moved to the
 ```
 
 <!-- test: closure-capture.a-closure-writing-a-captured-parameter-writes-the-functions-parameter -->
+<!-- skip: language difference: a closure writes what it captured only where its function type mutates captures -->
 A parameter a closure captures is the caller's record, retained: a write through it in the closure's body is a write of the parameter, so the `let` handed to `bump` is written.
 
 ```maxon
@@ -3931,7 +3936,7 @@ type Box
 	end 'create'
 end 'Box'
 
-function zero(mutates b Box) returns Count
+function zero(b Box) returns Count
 	b.n = 0
 	return 0
 end 'zero'
@@ -3956,6 +3961,7 @@ end 'main'
 ```
 
 <!-- test: closure-capture.a-captured-parameter-written-through-a-closure-handed-to-a-callee-or-nested-in-another -->
+<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 The write happens wherever the closure is called, so a closure handed to a callee that calls it, and a closure written inside another closure, write the captured parameter alike.
 
 ```maxon
@@ -3971,12 +3977,12 @@ type Box
 	end 'create'
 end 'Box'
 
-function zero(mutates b Box) returns Count
+function zero(b Box) returns Count
 	b.n = 0
 	return 0
 end 'zero'
 
-function apply(mutates g Thunk) returns Count
+function apply(g Thunk) returns Count
 	return g()
 end 'apply'
 
@@ -4040,7 +4046,7 @@ end 'main'
 ```
 
 <!-- test: closure-capture.error.a-closure-writing-within-a-captured-parameter-writes-a-frozen-record -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 A closure that writes the record a captured parameter's field holds writes the graph the parameter denotes, which a frozen record is refused by.
 
@@ -4085,7 +4091,7 @@ error E3207: <fragment>:32:15: 'bump' writes 'o' (line 26: `let f = function() g
 ```
 
 <!-- test: closure-capture.error.a-captured-parameter-written-within-by-a-closure-handed-to-a-callee-writes-a-frozen-record -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The closure is handed to a callee that calls it; the write is the same wherever the closure runs.
 
@@ -4136,6 +4142,7 @@ error E3207: <fragment>:38:15: 'bump' writes 'o' (line 32: `let f = function() g
 ```
 
 <!-- test: closure-capture.a-closure-writing-within-a-captured-parameter-writes-a-local-let -->
+<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 A closure that writes inside the record a captured `let` holds writes it, as the same write in the body does.
 
 ```maxon
@@ -4157,7 +4164,7 @@ type Outer
 	end 'create'
 end 'Outer'
 
-function zero(mutates i Inner) returns Count
+function zero(i Inner) returns Count
 	i.n = 0
 	return 0
 end 'zero'
@@ -4741,6 +4748,7 @@ error E3183: <fragment>:51:16: this value holds a closure that captures 'pocket'
 Two capturing closures of one shape, `writer` and `reader`, are both bound with `let`. A call through a local `let` closure value is judged against the one closure the value names, so `reader(box)` is accepted over a frozen `box` although the sibling `writer` writes its parameter, and `writer(box)` is refused. A value that was reassigned, or that a branch or a loop merged, may name any closure of its shape, so a call through it is judged against all of them.
 
 <!-- test: closure-capture.a-call-through-a-local-closure-is-judged-against-the-closure-it-names -->
+<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 `reader` only reads `box`, so `reader(box)` is accepted with the `let` `box`. `writer` writes through its parameter and is called on a `var`.
 ```maxon
 typealias Tally = int(0 to 1000000)
@@ -4753,8 +4761,8 @@ type Box
 	end 'create'
 end 'Box'
 
-function bump(mutates b Box, step Tally) returns Tally
-	b.weight = try b.weight + step otherwise panic("out of range")
+function bump(b Box, step Tally) returns Tally
+	b.weight = b.weight + step
 	return b.weight
 end 'bump'
 
@@ -4778,7 +4786,7 @@ end 'main'
 ```
 
 <!-- test: closure-capture.error.a-call-through-a-local-closure-that-writes-its-parameter-refuses-a-frozen-argument -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `writer` writes through its parameter, so handing it the frozen `box` is refused at the call.
 ```maxon
@@ -4814,6 +4822,7 @@ error E3207: <fragment>:24:16: the closure at <fragment>:21:15 writes 'b' (it ca
 ```
 
 <!-- test: closure-capture.a-call-through-a-local-closure-that-only-reads-takes-a-frozen-argument-beside-a-writer -->
+<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 `reader(box)` reaches only `reader`, which reads its parameter, so the frozen `box` is accepted though a closure of the same shape beside it writes its own parameter.
 ```maxon
 typealias Tally = int(0 to 1000000)
@@ -4826,8 +4835,8 @@ type Box
 	end 'create'
 end 'Box'
 
-function bump(mutates b Box, step Tally) returns Tally
-	b.weight = try b.weight + step otherwise panic("out of range")
+function bump(b Box, step Tally) returns Tally
+	b.weight = b.weight + step
 	return b.weight
 end 'bump'
 
@@ -4851,7 +4860,7 @@ end 'main'
 ```
 
 <!-- test: closure-capture.error.a-call-through-a-reassigned-closure-value-is-judged-against-every-closure-of-its-shape -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `f` names `reader` or `writer` depending on the branch, so the call through it is judged against both.
 ```maxon
@@ -4889,7 +4898,7 @@ error E3207: <fragment>:26:11: the closure at <fragment>:20:15 writes 'b' (it ca
 ```
 
 <!-- test: closure-capture.error.a-call-through-a-loop-carried-closure-value-is-judged-against-every-closure-of-its-shape -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The loop assigns a writing closure to `f`, so the call at the top of the next trip may reach it.
 ```maxon
@@ -4927,7 +4936,7 @@ error E3207: <fragment>:24:20: the closure at <fragment>:25:7 writes 'b' (it cal
 ```
 
 <!-- test: closure-capture.error.a-call-through-a-merged-closure-value-is-judged-against-the-whole-shape-even-when-only-readers-reach-it -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 Every closure `f` is assigned in the loop only reads, but the value is merged across the loop's back edge, so it is judged against the whole shape, including the `writer` that is called elsewhere.
 ```maxon
@@ -4971,7 +4980,7 @@ error E3207: <fragment>:26:20: the closure at <fragment>:21:15 writes 'b' (it ca
 A closure that hands its parameter to a `Holder` keeps it in an `immutable` field. A call that lands on such a closure and hands it a mutable value is refused, and the message names the closure the call reaches that keeps the argument, in the lifted closure's own name: the first closure in source order that keeps it when several do. A closure that only reads the argument is not named.
 
 <!-- test: closure-capture.error.a-refused-kept-argument-of-a-local-closure-call-names-that-closure -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `reader(v)` reaches only `reader`, which keeps nothing. `keeper(v)` reaches only `keeper`, the second closure literal of `main`, which keeps `b` in an `immutable` field of a `Holder`, so only it is refused and the refusal names it.
 ```maxon
@@ -5014,7 +5023,7 @@ error E3207: <fragment>:30:16: the closure at <fragment>:27:15 needs 'b' frozen 
 ```
 
 <!-- test: closure-capture.error.a-refused-kept-argument-of-a-merged-closure-call-names-the-closure-that-keeps-it -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `f` names `reader` or `keeper`. Only `keeper` keeps `b`, so the refusal names `keeper`, the second closure literal, though `reader` is the first member of the shape.
 ```maxon
@@ -5060,6 +5069,7 @@ error E3207: <fragment>:33:11: the closure at <fragment>:27:15 needs 'b' frozen 
 ```
 
 <!-- test: closure-capture.error.a-refused-kept-argument-of-a-merged-closure-call-names-the-first-closure-that-keeps-it -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `f` names `reader`, `keeperA` or `keeperB`. Both keepers keep `b`, and the refusal names the first of them in source order.
 ```maxon
@@ -5113,7 +5123,7 @@ error E3207: <fragment>:39:11: the closure at <fragment>:27:16 needs 'b' frozen 
 Two closures of one shape reach one call through a parameter. One of them also pushes onto a module-level `let` array, which is refused for the write, and the cycle the other closure closes through the parameter is reported once, at the call.
 
 <!-- test: closure-capture.error.a-closure-pushing-onto-a-module-let-beside-a-plain-closure-of-its-shape -->
-<!-- skip: language difference: a closure that borrows what it captures does not escape -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `storePlain` and `storeAndStash` share the shape `Wire`; `storeAndStash` also pushes onto the module-level `Hub` array. The cycle both close when `drive` hands them one record twice is found at the call in `drive`.
 ```maxon
@@ -5168,7 +5178,7 @@ error E3183: <fragment>:34:10: this value holds a closure that captures 'c' and 
 ```
 
 <!-- test: closure-capture.error.a-closure-pushing-onto-a-module-let-before-a-plain-closure-of-its-shape -->
-<!-- skip: language difference: a closure that borrows what it captures does not escape -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The same two closures called in the other order.
 ```maxon
@@ -5397,6 +5407,7 @@ error E3183: <fragment>:43:34: this value holds a closure that captures 'x' and 
 `var g = b` and `g = b` hold the one closure `b` names, whatever the type of `b` says about its captures.
 
 <!-- test: closure-capture.a-mutates-captures-closure-held-in-a-local-let-is-copied-into-a-var -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 ```maxon
 typealias Tally = int(0 to 1000)
 
@@ -5409,8 +5420,8 @@ type Total
 		return Self{n: 0}
 	end 'create'
 
-	function bump(mutates self) returns Tally
-		self.n = try self.n + 1 otherwise panic("out of range")
+	function bump() returns Tally
+		self.n = self.n + 1
 		return self.n
 	end 'bump'
 end 'Total'
@@ -5421,7 +5432,7 @@ function make() returns Bump
 end 'make'
 
 function main() returns ExitCode
-	var b = make()
+	let b = make()
 	var g = b
 	g = make()
 	let first = g()

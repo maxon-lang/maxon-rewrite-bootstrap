@@ -494,7 +494,11 @@ function bindCase(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, 
 		payloadCount = ast.typeEntry(ms.types, reads: p.types, t: orig).cases[caseIdx].payload.count()
 	end 'union'
 	if bindingCount != payloadCount 'count'
-		checkFail(c.modID, off: off, code: diag.errEnumWrongBindingCount, msg: diag.enumWrongBindingCount(caseName, expected: "{payloadCount}", got: "{bindingCount}"), errs: errs)
+		var cause = diag.ErrorCause.none
+		if orig == p.builtins.sendErrorTy or orig == p.builtins.subprocessErrorTy 'builtin'
+			cause = diag.ErrorCause.payloadOfBuiltinError
+		end 'builtin'
+		checkFailCaused(c.modID, off: off, code: diag.errEnumWrongBindingCount, msg: diag.enumWrongBindingCount(caseName, expected: "{payloadCount}", got: "{bindingCount}"), cause: cause, errs: errs)
 		return false
 	end 'count'
 	if altCount > 1 'alternatives'

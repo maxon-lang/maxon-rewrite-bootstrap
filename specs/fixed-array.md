@@ -814,6 +814,7 @@ error E3005: <fragment>:13:10: argument type mismatch for 'v': expected 'Vec3', 
 ```
 
 <!-- test: same-size-aliases-cross-through-as -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 The legal twin: `t as Vec3` re-brands the same three slots, and separating the sizes has not separated
 two spellings of one size.
 ```maxon
@@ -828,9 +829,9 @@ function first(v Vec3) returns Int
 end 'first'
 
 function main() returns ExitCode
-	var t = Triple.create()
+	let t = Triple.create()
 	t.set(0, value: 21)
-	return try (first(t as Vec3) + (t.count() as Int)) as ExitCode otherwise panic("out of range")
+	return (first(t as Vec3) + (t.count() as Int)) as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -1097,7 +1098,7 @@ end 'main'
 ```
 
 <!-- test: error.a-write-through-a-let-fixed-array-literal-is-refused-off-the-declaration -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 ```maxon
 typealias Int = int(i64.min to i64.max)
@@ -3702,6 +3703,7 @@ true
 ```
 
 <!-- test: fixed-array.a-slice-deep-copies-a-fixed-array-held-in-a-field-and-in-a-union-payload -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 A `FixedArray`'s record is an `Array`'s, so `slice` copies it like one: writing the original cells after the
 slice — replacing the union and setting a flag in the fixed array field — leaves the copies as they were.
 ```maxon
@@ -3719,7 +3721,7 @@ type Cell
 	var mask as Flags
 
 	static function create(content Content) returns Self
-		return Self{content: content.clone(), mask: Flags.create()}
+		return Self{content: content, mask: Flags.create()}
 	end 'create'
 
 	function firstFlag() returns bool
@@ -3733,16 +3735,16 @@ type Cell
 		return self.mask.get(1)
 	end 'secondMaskBit'
 
-	function overwrite(mutates self)
+	function overwrite()
 		self.content = Content.empty
 		self.mask.set(1, value: true)
 	end 'overwrite'
 end 'Cell'
 
 function main() returns ExitCode
-	var flags = Flags.create()
+	let flags = Flags.create()
 	flags.set(0, value: true)
-	var cells = CellArray.create(0)
+	let cells = CellArray.create(0)
 	cells.push(Cell.create(Content.marked(flags)))
 	cells.push(Cell.create(Content.marked(flags)))
 	let copies = try cells.slice(0, endIndex: 2) otherwise return 1
@@ -3899,6 +3901,7 @@ error E3005: <fragment>:11:10: Value 2000 is outside the range of 'Small' (int(0
 ```
 
 <!-- test: error.a-let-fixed-array-mutation-is-refused -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 A `let` fixed array literal is immutable, so a write through it is refused as a `let` array's is.
 ```maxon
 function main() returns ExitCode

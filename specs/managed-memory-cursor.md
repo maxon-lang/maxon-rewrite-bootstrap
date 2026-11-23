@@ -53,7 +53,7 @@ typealias Byte = int(0 to u8.max)
 typealias ByteArray = Array with Byte
 
 function main() returns ExitCode
-	let arr = ByteArray.create(0)
+	var arr = ByteArray.create(0)
 	arr.push(10)
 	arr.push(20)
 	arr.push(30)
@@ -73,16 +73,16 @@ typealias Byte = int(0 to u8.max)
 typealias ByteArray = Array with Byte
 
 function main() returns ExitCode
-	let arr = ByteArray.create(0)
+	var arr = ByteArray.create(0)
 	arr.push(10)
 	arr.push(20)
 	arr.push(30)
-	let cursor = try arr.managed.createCursor() otherwise return 99
+	var cursor = try arr.managed.createCursor() otherwise return 99
 	var total = cursor.current()
 	try cursor.advance() otherwise return 98
-	total = total + cursor.current()
+	total = try total + cursor.current() otherwise panic("out of range")
 	try cursor.advance() otherwise return 97
-	total = total + cursor.current()
+	total = try total + cursor.current() otherwise panic("out of range")
 	return total
 end 'main'
 ```
@@ -98,14 +98,14 @@ typealias Byte = int(0 to u8.max)
 typealias ByteArray = Array with Byte
 
 function main() returns ExitCode
-	let arr = ByteArray.create(0)
+	var arr = ByteArray.create(0)
 	arr.push(10)
 	arr.push(20)
 	arr.push(30)
-	let cursor = try arr.managed.createCursor() otherwise return 99
+	var cursor = try arr.managed.createCursor() otherwise return 99
 	try cursor.advance() otherwise return 98
 	try cursor.advance() otherwise return 97
-	return cursor.index()
+	return try cursor.index() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -145,11 +145,11 @@ typealias Byte = int(0 to u8.max)
 typealias ByteArray = Array with Byte
 
 function main() returns ExitCode
-	let arr = ByteArray.create(0)
+	var arr = ByteArray.create(0)
 	arr.push(10)
 	arr.push(20)
 	arr.push(30)
-	let cursor = try arr.managed.createCursor() otherwise return 99
+	var cursor = try arr.managed.createCursor() otherwise return 99
 	try cursor.advance() otherwise return 98
 	try cursor.advance() otherwise return 97
 	try cursor.retreat() otherwise return 96
@@ -168,10 +168,10 @@ typealias Byte = int(0 to u8.max)
 typealias ByteArray = Array with Byte
 
 function main() returns ExitCode
-	let arr = ByteArray.create(0)
+	var arr = ByteArray.create(0)
 	arr.push(10)
 	arr.push(20)
-	let cursor = try arr.managed.createCursor() otherwise return 99
+	var cursor = try arr.managed.createCursor() otherwise return 99
 	try cursor.retreat() otherwise return 5
 	return 0
 end 'main'
@@ -210,10 +210,10 @@ typealias Byte = int(0 to u8.max)
 typealias ByteArray = Array with Byte
 
 function main() returns ExitCode
-	let arr = ByteArray.create(0)
+	var arr = ByteArray.create(0)
 	arr.push(10)
 	arr.push(20)
-	let cursor = try arr.managed.createCursor() otherwise return 99
+	var cursor = try arr.managed.createCursor() otherwise return 99
 	try cursor.seek(2) otherwise return 5
 	return 0
 end 'main'
@@ -251,7 +251,7 @@ typealias Byte = int(0 to u8.max)
 typealias ByteArray = Array with Byte
 
 function main() returns ExitCode
-	let arr = ByteArray.create(0)
+	var arr = ByteArray.create(0)
 	arr.push(10)
 	arr.push(20)
 	let cursor = try arr.managed.createCursor() otherwise return 99
@@ -320,13 +320,13 @@ typealias Int = int(i64.min to i64.max)
 typealias IntArray = Array with Int
 
 function main() returns ExitCode
-	let arr = IntArray.create(0)
+	var arr = IntArray.create(0)
 	arr.push(1000)
 	arr.push(2000)
 	arr.push(3000)
-	let cursor = try arr.managed.createCursor() otherwise return 99
+	var cursor = try arr.managed.createCursor() otherwise return 99
 	try cursor.seek(2) otherwise return 98
-	return (cursor.current() / 1000) as ExitCode
+	return try (cursor.current() / 1000) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -341,14 +341,14 @@ is dropped. The buffer still owns every element, and the run is leak-gated.
 typealias StrArray = Array with String
 
 function main() returns ExitCode
-	let xs = StrArray.create(0)
+	var xs = StrArray.create(0)
 	xs.push("alpha heap string long enough to require an allocation")
 	xs.push("beta heap string long enough to require an allocation")
-	let cursor = try xs.managed.createCursor() otherwise return 99
+	var cursor = try xs.managed.createCursor() otherwise return 99
 	print("{cursor.current()}\n")
 	try cursor.advance() otherwise return 98
 	print("{cursor.current()}\n")
-	return xs.count()
+	return try xs.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```stdout
@@ -372,7 +372,7 @@ typealias Byte = int(0 to u8.max)
 typealias ByteArray = Array with Byte
 
 function makeBuffer() returns ByteArray
-	let arr = ByteArray.create(0)
+	var arr = ByteArray.create(0)
 	arr.push(4)
 	arr.push(9)
 	return arr
@@ -382,9 +382,9 @@ function main() returns ExitCode
 	let cursor = try makeBuffer().managed.createCursor() otherwise return 99
 	var churn = 0 as Count
 	for _ in 0 upto 500 'churn'
-		let scratch = ByteArray.create(0)
+		var scratch = ByteArray.create(0)
 		scratch.push(200)
-		churn = churn + scratch.count()
+		churn = try churn + scratch.count() otherwise panic("out of range")
 	end 'churn'
 	return cursor.current() + (try cursor.peek(1) otherwise 0)
 end 'main'
@@ -418,6 +418,7 @@ error E2015: <fragment>:9:16: Unsupported: `__ManagedMemoryCursor` member 'frobn
 ```
 
 <!-- test: current-after-the-source-is-cleared-panics -->
+<!-- skip: language difference: a place passed mutates, consumes or sets overlaps nothing else the call or the statement holds, where maxon shares the place by a reference count -->
 <!-- tier: stdlib -->
 ⭐⭐ **THE RETAIN KEEPS THE RECORD ALIVE, NOT UNCHANGED.** `clear()` releases every element and
 shortens the buffer to nothing while the cursor still names position 0. `current()` reads the
@@ -450,6 +451,7 @@ Stack trace:
 ```
 
 <!-- test: pushing-to-the-source-under-a-live-cursor-is-seen -->
+<!-- skip: language difference: a place passed mutates, consumes or sets overlaps nothing else the call or the statement holds, where maxon shares the place by a reference count -->
 <!-- tier: stdlib -->
 Sixty-four pushes past a one-element buffer reallocate it more than once; the cursor reads `buffer@0` and
 `length` live rather than snapshotting them, so it reads the element it named before the pushes and can
@@ -476,6 +478,7 @@ end 'main'
 ```
 
 <!-- test: a-value-read-from-the-cursor-outlives-a-clear-of-its-source -->
+<!-- skip: language difference: a place passed mutates, consumes or sets overlaps nothing else the call or the statement holds, where maxon shares the place by a reference count -->
 <!-- tier: stdlib -->
 ⭐ A value read from the cursor holds its own reference, so clearing the source afterwards releases only
 the array's references and leaves the value intact. The strings are built at run time, so each is a heap
@@ -559,15 +562,15 @@ type SeqIterator uses Element
 		return Self{raw: cursor}
 	end 'create'
 
-	function current() returns Element
-		return raw.current()
+	function current() returns Element where Element implements Copyable
+		return raw.current().clone()
 	end 'current'
 
 	function index() returns Integer
-		return raw.index()
+		return try raw.index() as Integer otherwise panic("out of range")
 	end 'index'
 
-	function advance() throws ArrayError
+	function advance(mutates self) throws ArrayError
 		try raw.advance() otherwise throw ArrayError.indexOutOfBounds
 	end 'advance'
 end 'SeqIterator'
@@ -575,18 +578,18 @@ end 'SeqIterator'
 typealias ByteIter = SeqIterator with Byte
 
 function main() returns ExitCode
-	let arr = ByteArray.create(0)
+	var arr = ByteArray.create(0)
 	arr.push(10)
 	arr.push(20)
 	arr.push(30)
-	let it = try ByteIter.create(arr.managed) otherwise return 99
+	var it = try ByteIter.create(arr.managed) otherwise return 99
 	var total = 0 as Count
 	total = total + (it.current() as Count)
 	try it.advance() otherwise return 98
 	total = total + (it.current() as Count)
 	try it.advance() otherwise return 97
 	total = total + (it.current() as Count)
-	return ((total as Integer) + it.index()) as ExitCode
+	return try ((total as Integer) + it.index()) as ExitCode otherwise panic("out of range")
 end 'main'
 
 typealias Integer = int(i64.min to i64.max)
@@ -613,11 +616,11 @@ type SeqIterator uses Element
 		return Self{raw: cursor}
 	end 'create'
 
-	function current() returns Element
-		return raw.current()
+	function current() returns Element where Element implements Copyable
+		return raw.current().clone()
 	end 'current'
 
-	function advance() throws ArrayError
+	function advance(mutates self) throws ArrayError
 		try raw.advance() otherwise throw ArrayError.indexOutOfBounds
 	end 'advance'
 end 'SeqIterator'
@@ -625,14 +628,14 @@ end 'SeqIterator'
 typealias StrIter = SeqIterator with String
 
 function main() returns ExitCode
-	let xs = StrArray.create(0)
+	var xs = StrArray.create(0)
 	xs.push("alpha heap string long enough to require an allocation")
 	xs.push("beta heap string long enough to require an allocation")
-	let it = try StrIter.create(xs.managed) otherwise return 99
+	var it = try StrIter.create(xs.managed) otherwise return 99
 	print("{it.current()}\n")
 	try it.advance() otherwise return 98
 	print("{it.current()}\n")
-	return xs.count()
+	return try xs.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```stdout
@@ -653,7 +656,7 @@ typealias Byte = int(0 to u8.max)
 typealias ByteArray = Array with Byte
 
 function main() returns ExitCode
-	let arr = ByteArray.create(0)
+	var arr = ByteArray.create(0)
 	arr.push(1)
 	arr.push(2)
 	var total = 0 as Count

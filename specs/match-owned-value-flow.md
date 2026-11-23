@@ -373,6 +373,7 @@ error E3004: specs/match-owned-value-flow/gives-owned-string-arm-undeclared-call
 ```
 
 <!-- test: gives-immutable-binding-is-co-owned -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 ⭐⭐ **AN ARM GIVING AN IMMUTABLE BINDING'S OWN VALUE CO-OWNS IT, IT DOES NOT MOVE IT.**
 The two constructs share one door (`Parser.settleArmGive`), so this is the ternary case's twin and the
 reason the rule is written down once: `let u = t` from an immutable `t` ALIASES at a rebind, and a

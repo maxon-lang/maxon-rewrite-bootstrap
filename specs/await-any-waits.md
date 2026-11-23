@@ -109,6 +109,7 @@ error E3205: <fragment>:24:18: cannot wait inside 'edit'; another coroutine coul
 ```
 
 <!-- test: await-any-waits.error.a-one-call-open-around-a-method-that-selects-is-refused -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `spin` selects over its helper coroutines, which could not run while `slot` is open for the call.
 

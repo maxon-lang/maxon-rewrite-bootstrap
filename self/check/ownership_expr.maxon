@@ -200,8 +200,10 @@ function changesProjection(mutates o Ownership, p ast.Project, ms ast.ModuleStat
 end 'changesProjection'
 
 // borrowedMoveFix is the change that lets a borrowed value be stored: a copy when its type can be copied, the bound that
-// lets it be copied when only a type parameter's lack of one stops it, which keeps maxon's copy and the caller's value, and
-// otherwise, for a parameter given whole, taking it with consumes, which is the move of the whole value the message asks for.
+// lets it be copied when only a type parameter's lack of one stops it, which keeps maxon's copy and the caller's value, for
+// a binding of a match that borrows its subject, the match consuming it, which gives each arm the payloads it binds, and
+// otherwise, for a parameter given whole, taking it with consumes, which is the move of the whole value the
+// message asks for.
 // In a method of an extension of an interface consumes comes first: a bound there withholds the method from every conformer
 // that binds the associated type to an interface value, which cannot be copied.
 function borrowedMoveFix(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, t ast.TypeID, path AccessPath) returns diag.Fix
@@ -218,6 +220,10 @@ function borrowedMoveFix(mutates o Ownership, p ast.Project, mutates ms ast.Modu
 	if bound.isSome() 'bound'
 		return bound
 	end 'bound'
+	let consuming = consumingMatchFix(o, p: p, ms: ms, binding: path.root)
+	if consuming.isSome() 'match'
+		return consuming
+	end 'match'
 	if whole 'whole'
 		return conventionFix(ms.tree(), param: root.definedAt, keyword: fixKindConsumes)
 	end 'whole'

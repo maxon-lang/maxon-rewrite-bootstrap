@@ -303,6 +303,7 @@ original word long enough for a heap record and a tail
 ```
 
 <!-- test: clone-of-union-array-copies-the-payload -->
+<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 ### Cloning an Array of UNIONS copies each live case's payload
 A union with a payload is a heap box holding heap pointers, so a copied element slot is a second
 name for the SAME box and the same payload record; uncopied, a write through the clone's payload
@@ -312,11 +313,11 @@ type Item
 	export var label as String
 
 	static function create(label String) returns Item
-		return Self{label: label.clone()}
+		return Self{label: label}
 	end 'create'
 
-	function rename(mutates self, to String)
-		self.label = to.clone()
+	function rename(to String)
+		self.label = to
 	end 'rename'
 end 'Item'
 
@@ -328,7 +329,7 @@ end 'Op'
 typealias Ops = Array with Op
 
 function main() returns ExitCode
-	var a = Ops.create(0)
+	let a = Ops.create(0)
 	a.push(Op.holds(Item.create("original label long enough for a heap record")))
 	let b = a.clone()
 	let bOp = try b.get(0) otherwise Op.none
@@ -436,6 +437,7 @@ filled with a heap record|empty
 ```
 
 <!-- test: clone-of-a-union-value-is-independent -->
+<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 ### `.clone()` on a union value hands back an independent box
 Auto-conformance is what makes `u.clone()` resolve at all, so the method it resolves TO has to
 exist and has to deep-copy: a clone sharing the payload would make the two boxes one value.
@@ -444,7 +446,7 @@ type Item
 	export var label as String
 
 	static function create(label String) returns Item
-		return Self{label: label.clone()}
+		return Self{label: label}
 	end 'create'
 end 'Item'
 
@@ -453,7 +455,7 @@ union Op
 	none
 end 'Op'
 
-function mutate(mutates item Item)
+function mutate(item Item)
 	item.label = "MUTATED"
 end 'mutate'
 
@@ -899,6 +901,7 @@ error E2015: <fragment>:51:12: Unsupported: `clone` on `Holder`, whose field `sh
 ```
 
 <!-- test: clone-of-struct-with-union-field-copies-the-payload -->
+<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 ### Cloning a struct whose FIELD is a union copies that union
 A struct auto-conforms once every field does, so a union field is what carries the conformance
 into the struct — and the struct's own cloner has to reach through it. Copying the field by
@@ -908,11 +911,11 @@ type Item
 	export var label as String
 
 	static function create(label String) returns Item
-		return Self{label: label.clone()}
+		return Self{label: label}
 	end 'create'
 
-	function rename(mutates self, to String)
-		self.label = to.clone()
+	function rename(to String)
+		self.label = to
 	end 'rename'
 end 'Item'
 
@@ -925,7 +928,7 @@ type Decl
 	export var op as Op
 
 	static function create(op Op) returns Decl
-		return Self{op: op.clone()}
+		return Self{op: op}
 	end 'create'
 end 'Decl'
 
@@ -951,6 +954,7 @@ a holds: original label long enough for a heap record
 ```
 
 <!-- test: a-match-over-the-union-field-of-a-let-clone-is-written -->
+<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 The twin of the case above: the match binding names the record the payload holds, and a `let` clone forbids only
 reassigning `b`, so over a `let` clone `rename` writes the payload as it does over a `var` clone.
 ```maxon
@@ -958,11 +962,11 @@ type Item
 	export var label as String
 
 	static function create(label String) returns Item
-		return Self{label: label.clone()}
+		return Self{label: label}
 	end 'create'
 
-	function rename(mutates self, to String)
-		self.label = to.clone()
+	function rename(to String)
+		self.label = to
 	end 'rename'
 end 'Item'
 
@@ -975,7 +979,7 @@ type Decl
 	export var op as Op
 
 	static function create(op Op) returns Decl
-		return Self{op: op.clone()}
+		return Self{op: op}
 	end 'create'
 end 'Decl'
 
@@ -987,7 +991,7 @@ function main() returns ExitCode
 		none then return 3
 	end 'mut'
 	match b.op 'read'
-		holds(it) then return try it.label.byteLength() as ExitCode otherwise panic("out of range")
+		holds(it) then return it.label.byteLength() as ExitCode
 		none then return 4
 	end 'read'
 end 'main'
@@ -1206,6 +1210,7 @@ handle is DEAD at the write, not merely that it is the only one visible from whe
 written. In the second case the handle is not even bound to a name: it is an argument.
 
 <!-- test: field-record-is-seen-through-a-binding-taken-before-the-write -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -1218,13 +1223,13 @@ type Holder
 		return Self{sites: IntArray.create(0)}
 	end 'create'
 
-	function add(mutates self, x Integer)
+	function add(x Integer)
 		sites.push(x)
 	end 'add'
 end 'Holder'
 
 function main() returns ExitCode
-	var h = Holder.create()
+	let h = Holder.create()
 	let borrowed = h.sites
 	h.add(1)
 	print("borrowed={borrowed.count()} field={h.sites.count()} same={borrowed is h.sites}")
@@ -1239,6 +1244,7 @@ borrowed=1 field=1 same=true
 ```
 
 <!-- test: field-record-is-seen-through-a-parameter-across-the-write -->
+<!-- skip: language difference: a place passed mutates, consumes or sets overlaps nothing else the call or the statement holds, where maxon shares the place by a reference count -->
 `through` is handed the column and the holder separately, and writes through the holder. The column it
 was given is the very record that write lands on, so it reads the new count — and nothing in `through`
 or in `add` names the column and the field together.
@@ -1254,18 +1260,18 @@ type Holder
 		return Self{sites: IntArray.create(0)}
 	end 'create'
 
-	function add(mutates self, x Integer)
+	function add(x Integer)
 		sites.push(x)
 	end 'add'
 end 'Holder'
 
-function through(col IntArray, mutates holder Holder) returns Integer
+function through(col IntArray, holder Holder) returns Integer
 	holder.add(1)
-	return try col.count() as Integer otherwise panic("out of range")
+	return col.count()
 end 'through'
 
 function main() returns ExitCode
-	var h = Holder.create()
+	let h = Holder.create()
 	let seen = through(h.sites, holder: h)
 	print("param saw={seen} field={h.sites.count()}")
 	return 0

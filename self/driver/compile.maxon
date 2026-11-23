@@ -221,9 +221,6 @@ end 'prepareRuntime'
 // that p started with, from their parse, and gives back what the generate stage lowered. memory holds the files that the
 // parse reads from memory rather than disk; ready are the units the program is linked with.
 function compileDiscovered(mutates p ast.Project, memory project.SourceFiles, first Count, ready frozen with backend.UnitList, output String, options Options, mutates errs diag.ErrorList) returns Generated
-	if options.stagesInLibrary 'staged'
-		stageInLibrary(p, first: first)
-	end 'staged'
 	return compileFrom(p, from: Stage.parse, memory: memory, first: first, ready: ready, output: output, options: options, errs: errs)
 end 'compileDiscovered'
 
@@ -240,8 +237,11 @@ function compileLoaded(mutates p ast.Project, first Count, ready frozen with bac
 end 'compileLoaded'
 
 // compileFrom is the compile of compileDiscovered and compileLoaded: with an output, to the executable there, and without one
-// as far as the diagnostics, which it locates.
+// as far as the diagnostics, which it locates. With options.stagesInLibrary the program's modules are in the library tier.
 function compileFrom(mutates p ast.Project, from Stage, memory project.SourceFiles, first Count, ready frozen with backend.UnitList, output String, options Options, mutates errs diag.ErrorList) returns Generated
+	if options.stagesInLibrary 'staged'
+		stageInLibrary(p, first: first)
+	end 'staged'
 	var run = runStages(p, from: from, memory: memory, first: first, goal: goalOf(output), makesProgram: output != "", output: output, options: options, ready: ready, errs: errs)
 	let generated = run.generated()
 	ast.locateAllErrors(p.modules, errs: errs)

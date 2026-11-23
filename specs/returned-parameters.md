@@ -277,6 +277,7 @@ end 'main'
 ```
 
 <!-- test: two-parameters-naming-one-record-return-the-first-counted -->
+<!-- skip: language difference: a place passed mutates, consumes or sets overlaps nothing else the call or the statement holds, where maxon shares the place by a reference count -->
 `first` returns its first parameter and is called with one record as both arguments, so the one record is
 returned counted and each parameter name is a borrow.
 ```maxon
@@ -284,13 +285,13 @@ typealias Tally = int(0 to u64.max)
 
 typealias TallyArray = Array with Tally
 
-function first(a TallyArray, mutates b TallyArray) returns TallyArray
+function first(a TallyArray, b TallyArray) returns TallyArray
 	b.push(a.count() as Tally)
-	return a.clone()
+	return a
 end 'first'
 
 function main() returns ExitCode
-	var cells = TallyArray.create(0)
+	let cells = TallyArray.create(0)
 	cells.push(4)
 	var out = first(cells, b: cells)
 	out = first(out, b: out)
@@ -439,6 +440,7 @@ end 'main'
 ```
 
 <!-- test: a-call-nested-in-a-call-of-the-same-function-balances -->
+<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 `touch(touch(last))` hands the record of the inner call to the outer one, and `last` takes the outer
 result; every step of the chain is a counted reference to one record.
 ```maxon
@@ -446,15 +448,15 @@ typealias Tally = int(0 to u64.max)
 
 typealias TallyArray = Array with Tally
 
-function fill(mutates cells TallyArray, count Tally)
+function fill(cells TallyArray, count Tally)
 	for i in 0 upto count 'each'
 		cells.push(i)
 	end 'each'
 end 'fill'
 
-function touch(mutates cells TallyArray) returns TallyArray
+function touch(cells TallyArray) returns TallyArray
 	fill(cells, count: 1)
-	return cells.clone()
+	return cells
 end 'touch'
 
 function main() returns ExitCode
@@ -571,6 +573,7 @@ end 'main'
 ```
 
 <!-- test: a-closure-that-returns-its-argument-through-a-returning-function-balances -->
+<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 A closure calls `touch` and a free function value is built from `touch` itself, so both a direct call
 inside a lifted body and a call through a pointer reach the function.
 ```maxon
@@ -582,7 +585,7 @@ typealias Step = function(mutates TallyArray) returns TallyArray
 
 function touch(mutates cells TallyArray) returns TallyArray
 	cells.push(1)
-	return cells.clone()
+	return cells
 end 'touch'
 
 function main() returns ExitCode

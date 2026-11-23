@@ -192,6 +192,7 @@ end 'main'
 ```
 
 <!-- test: otherwise-live-binding-not-double-freed -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 When the `otherwise` fallback is a live owned BINDING that is read again after the `try`, the error edge ALIASES it rather than moving it — so the merge binding `r` and the source binding `fallback` name the SAME box. If the phi is made owned by moving (the temporary rule), both `r` and `fallback` decref that one box at scope exit — a double-free the leak count catches as exit 101. The cure is the error-edge twin of the ok-edge borrow incref: incref the aliased binding so `r` owns its own reference and `fallback` keeps its own. Unlike the poison-only guard above, getting this wrong exits **101**, and it needs no poison, because a double-free drives the leak count NEGATIVE. `fallback` must still read `99` after the try.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -207,11 +208,11 @@ end 'Node'
 typealias NodeArray = Array with Node
 
 function main() returns ExitCode
-	var a = NodeArray.create(0)
+	let a = NodeArray.create(0)
 	a.push(Node.create(10))
 	let fallback = Node.create(99)
 	let r = try a.get(9) otherwise fallback
-	return try r.value + fallback.value otherwise panic("out of range")
+	return r.value + fallback.value
 end 'main'
 ```
 ```exitcode
@@ -219,6 +220,7 @@ end 'main'
 ```
 
 <!-- test: otherwise-live-binding-owned-result -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 The same aliased-binding double-free reached through the OTHER arm — an OWNED try-result (`pop` moves the element out) merged with a live-binding fallback. It also exits **101** without the incref, and it exercises a program that would compile with no array-slice site, so it also pins that `__mm_incref` installs whenever the parser emits it (not only under the array runtime). `fallback` reads `99` after the try; `pop` on an empty array takes the error edge.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -234,10 +236,10 @@ end 'Node'
 typealias NodeArray = Array with Node
 
 function main() returns ExitCode
-	var a = NodeArray.create(0)
+	let a = NodeArray.create(0)
 	let fallback = Node.create(99)
 	let r = try a.pop() otherwise fallback
-	return try r.value + fallback.value otherwise panic("out of range")
+	return r.value + fallback.value
 end 'main'
 ```
 ```exitcode

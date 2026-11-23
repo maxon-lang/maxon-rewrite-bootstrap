@@ -16,6 +16,7 @@ path.
 ## Tests
 
 <!-- test: a-method-receiver-path-is-resolved-after-the-arguments-run -->
+<!-- skip: language difference: a place passed mutates, consumes or sets overlaps nothing else the call or the statement holds, where maxon shares the place by a reference count -->
 `self.current.bump(self.advance())`: `advance` replaces `current`, and the call goes to the object the path names once the arguments have run.
 
 ```maxon
@@ -29,8 +30,8 @@ type Stage
 		return Self{generation: generation}
 	end 'create'
 
-	function bump(mutates self, by Tally)
-		self.total = try self.total + by otherwise panic("out of range")
+	function bump(by Tally)
+		self.total = self.total + by
 	end 'bump'
 end 'Stage'
 
@@ -41,19 +42,19 @@ type Pipeline
 		return Self{current: Stage.create(0)}
 	end 'create'
 
-	function advance(mutates self) returns Tally
-		self.current = Stage.create(try self.current.generation + 1 otherwise panic("out of range"))
+	function advance() returns Tally
+		self.current = Stage.create(self.current.generation + 1)
 		return 1
 	end 'advance'
 
-	function step(mutates self) returns String
+	function step() returns String
 		self.current.bump(self.advance())
 		return "{self.current.generation} {self.current.total}"
 	end 'step'
 end 'Pipeline'
 
 function main() returns ExitCode
-	var pipeline = Pipeline.create()
+	let pipeline = Pipeline.create()
 	print("{pipeline.step()}\n")
 	return 0
 end 'main'
@@ -66,6 +67,7 @@ end 'main'
 ```
 
 <!-- test: an-assignment-target-path-is-resolved-after-the-right-hand-side-runs -->
+<!-- skip: language difference: a place passed mutates, consumes or sets overlaps nothing else the call or the statement holds, where maxon shares the place by a reference count -->
 `self.current.total = self.advance()`: the total lands on the object the path names once the right-hand side has run.
 
 ```maxon
@@ -79,8 +81,8 @@ type Stage
 		return Self{generation: generation}
 	end 'create'
 
-	function bump(mutates self, by Tally)
-		self.total = try self.total + by otherwise panic("out of range")
+	function bump(by Tally)
+		self.total = self.total + by
 	end 'bump'
 end 'Stage'
 
@@ -91,19 +93,19 @@ type Pipeline
 		return Self{current: Stage.create(0)}
 	end 'create'
 
-	function advance(mutates self) returns Tally
-		self.current = Stage.create(try self.current.generation + 1 otherwise panic("out of range"))
+	function advance() returns Tally
+		self.current = Stage.create(self.current.generation + 1)
 		return 1
 	end 'advance'
 
-	function step(mutates self) returns String
+	function step() returns String
 		self.current.total = self.advance()
 		return "{self.current.generation} {self.current.total}"
 	end 'step'
 end 'Pipeline'
 
 function main() returns ExitCode
-	var pipeline = Pipeline.create()
+	let pipeline = Pipeline.create()
 	print("{pipeline.step()}\n")
 	return 0
 end 'main'

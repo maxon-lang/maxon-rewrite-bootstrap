@@ -75,6 +75,7 @@ end 'main'
 ```
 
 <!-- test: assignment-creates-alias -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -354,6 +355,7 @@ red green blue | green | 3
 ```
 
 <!-- test: a-durable-store-of-a-constant-is-refused -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 ⭐ **BINDING A CONSTANT KEEPS ITS IDENTITY; STORING ONE INTO A MUTABLE CONTAINER IS REFUSED, AND THE
 DIFFERENCE IS THE POINT.** A module-level `let` is image data on a read-only page. `let b = A` is a borrow

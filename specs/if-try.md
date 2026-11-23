@@ -486,6 +486,7 @@ end 'main'
 ```
 
 <!-- test: error.if-try-redundant-contains-get -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 Pattern `if x.contains(k) ... try x.get(k) otherwise ...` performs two lookups when one
 suffices via `if let`/`if var`. Flagged as a compile-time error to push users toward the
 single-lookup form.
@@ -509,6 +510,7 @@ error E3087: specs/if-try/error.if-try-redundant-contains-get.maxon:8:7: redunda
 ```
 
 <!-- test: error.if-try-redundant-contains-get-field-receiver -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 The double-lookup lint matches receivers structurally, so field-access chains
 (e.g. `holder.cache.contains(k)` paired with `holder.cache.get(k)`) are flagged
 the same as bare-local receivers.

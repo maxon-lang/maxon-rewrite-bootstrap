@@ -263,13 +263,14 @@ error E3005: <fragment>:3:21: '__Builtins.bitsToFloat' requires an argument of t
 ```
 
 <!-- test: builtins-type.error.float-to-bits-int-arg -->
+<!-- positions: moved -->
 <!-- tier: stdlib -->
 The wording divergence is `bits-to-float-float-arg`'s, one case up.
 The mirror rejection: `floatToBits` takes the float, not the pattern.
 ```maxon
 function main() returns ExitCode
 	let v = __Builtins.floatToBits(7)
-	return v
+	return try v as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```maxoncstderr

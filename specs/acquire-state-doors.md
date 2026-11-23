@@ -266,6 +266,7 @@ error E3202: <fragment>:39:10: 't.peekR()' is mutable and cannot leave the state
 ```
 
 <!-- test: error.a-view-bound-through-a-try-with-a-handler-is-refused-at-the-binding -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The handler's statements are parsed inside the `let`, and the `let` is still judged as the statement that opened the isolated value.
 
@@ -300,6 +301,7 @@ error E3202: <fragment>:17:11: 'try j.items.createIterator() otherwise return 0'
 ```
 
 <!-- test: error.a-throwing-view-bound-through-a-try-with-a-handler-is-refused -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 A user view wrapper that can throw is judged the same way with or without a handler.
 
@@ -319,7 +321,7 @@ type View
 		if items.isEmpty() 'none'
 			throw ViewError.empty
 		end 'none'
-		return Self{items: items.clone()}
+		return Self{items: items}
 	end 'over'
 
 	function first() returns Num
@@ -331,7 +333,7 @@ type Holder
 	export var items as NumArray
 
 	static function create() returns Self
-		var items = NumArray.create(0)
+		let items = NumArray.create(0)
 		items.push(1)
 		return Self{items: items}
 	end 'create'

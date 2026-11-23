@@ -564,6 +564,7 @@ error E2027: specs/match-simple/error.match-duplicate-pattern.maxon:6:3: duplica
 ```
 
 <!-- test: error.match-missing-block-id -->
+<!-- skip: differing error code: syntax error -->
 ```maxon
 function main() returns ExitCode
 	let x = 1
@@ -578,6 +579,7 @@ error E2042: specs/match-simple/error.match-missing-block-id.maxon:4:9: missing 
 ```
 
 <!-- test: error.match-mismatched-block-id -->
+<!-- skip: differing error code: syntax error -->
 ```maxon
 function main() returns ExitCode
 	let x = 1

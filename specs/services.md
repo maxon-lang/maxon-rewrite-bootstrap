@@ -952,6 +952,7 @@ error E3217: <fragment>:32:10: parameter `h` of the factory `Sink.create` is a `
 ```
 
 <!-- test: services.a-message-may-carry-a-value-at-an-interface-type -->
+<!-- skip: language difference: what crosses into a service is moved or frozen, never lent, and a value at an interface type, whose conformer the check does not know, does not cross -->
 A value held at an interface type crosses a message whole: its witness names the conformer's own ownership
 walk and release, so the service becomes the one owner of the conformer and dispatches through it.
 ```maxon
@@ -1530,6 +1531,7 @@ seen=19 misplaced=0 m0 m1 m17 m18
 ```
 
 <!-- test: a-send-to-a-shut-down-service-hands-every-argument-back -->
+<!-- skip: language difference: SendError and SubprocessError are built-in enums whose cases carry no payload, so a failed send gives its arguments no way back -->
 ⭐ **A BACKLOG SENT AFTER `shutdown()`, EVERY MESSAGE CARRYING A HEAP `String`.** `shutdown()` closes the
 mailbox, so each of 100 `keep` sends is refused with `serviceStopped` and hands its `String` back, in send
 order: the handler never runs, no `kept` line prints, and `misplaced` counts any returned `String` that is not
@@ -1905,6 +1907,7 @@ acc=3
 ```
 
 <!-- test: a-let-sent-after-shutdown-is-handed-back-and-released -->
+<!-- skip: language difference: SendError and SubprocessError are built-in enums whose cases carry no payload, so a failed send gives its arguments no way back -->
 <!-- procs: 1 -->
 <!-- preempt: off -->
 ⭐⭐ **A `let` THE REFUSED SEND MOVED COMES BACK, AND IS RELEASED EXACTLY ONCE.** The second `keep` is sent
@@ -1957,6 +1960,7 @@ Every send throws at the send when the mailbox is full or the service has stoppe
 `<Svc>.<msg>.sendError`: `mailboxFull(…)` and `serviceStopped(…)`, each carrying the arguments the send was given.
 
 <!-- test: a-full-mailbox-refuses-a-send-and-hands-its-arguments-back -->
+<!-- skip: language difference: SendError and SubprocessError are built-in enums whose cases carry no payload, so a failed send gives its arguments no way back -->
 <!-- procs: 1 -->
 <!-- preempt: off -->
 At one processor with preemption off the service runs nothing until `main` returns, so the first two sends
@@ -2002,6 +2006,7 @@ kept s1
 ```
 
 <!-- test: a-handed-back-argument-can-be-resent -->
+<!-- skip: language difference: SendError and SubprocessError are built-in enums whose cases carry no payload, so a failed send gives its arguments no way back -->
 <!-- procs: 1 -->
 <!-- preempt: off -->
 The `String` a refused send hands back is the caller's own, so it can be sent again. A capacity of one
@@ -2061,6 +2066,7 @@ store1 kept s2
 ```
 
 <!-- test: a-send-after-shutdown-fails-stopped-with-its-arguments -->
+<!-- skip: language difference: SendError and SubprocessError are built-in enums whose cases carry no payload, so a failed send gives its arguments no way back -->
 <!-- procs: 1 -->
 <!-- preempt: off -->
 A send after `shutdown()` is refused with `serviceStopped` and gets its `String` back; the message sent before the
@@ -2269,6 +2275,7 @@ error E3190: <fragment>:16:2: `Store.value` returns or throws, so a send of it d
 ```
 
 <!-- test: shutdown-of-a-full-mailbox-runs-what-is-queued -->
+<!-- skip: language difference: SendError and SubprocessError are built-in enums whose cases carry no payload, so a failed send gives its arguments no way back -->
 <!-- procs: 1 -->
 <!-- preempt: off -->
 `shutdown()` takes no slot, so it succeeds on a full mailbox: both queued messages still run, and the send
@@ -2313,6 +2320,7 @@ kept b2
 ```
 
 <!-- test: the-default-capacity-queues-1024-messages -->
+<!-- skip: language difference: SendError and SubprocessError are built-in enums whose cases carry no payload, so a failed send gives its arguments no way back -->
 <!-- procs: 1 -->
 <!-- preempt: off -->
 A bare `spawn` takes `DefaultMailboxCapacity`: 1024 sends queue before the service runs, the 1025th is
@@ -2412,6 +2420,7 @@ kept s1
 ```
 
 <!-- test: a-shared-argument-handed-back-leaves-the-callers-value-intact -->
+<!-- skip: language difference: SendError and SubprocessError are built-in enums whose cases carry no payload, so a failed send gives its arguments no way back -->
 <!-- procs: 1 -->
 <!-- preempt: off -->
 A read-only parameter is shared with the service rather than moved into the message, and a refused send hands
@@ -2694,6 +2703,7 @@ kept s1
 ```
 
 <!-- test: error.a-throws-clause-over-a-send-whose-error-is-handled-never-throws -->
+<!-- skip: language difference: a throws or a try block that nothing can make fail is allowed, so a sharper analysis never breaks a program -->
 <!-- positions: moved -->
 A send's error caught with `otherwise` leaves nothing for the declared clause to carry, so the clause is
 refused as one the body can never throw.
@@ -5090,6 +5100,7 @@ kept hello padded out long enough to heap allocate 1
 ```
 
 <!-- test: a-string-a-container-also-holds-is-sent-with-its-owners-counted -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 A String a container also holds has a second owner on this green thread, and a send of it is correct: the box
 counts its owners, so the service and the sender each hold a counted reference to one String.
 ```maxon
@@ -5100,16 +5111,16 @@ type Store
 		return Self{n: 0}
 	end 'create'
 
-	export function keep(mutates self, s String) returns Integer
-		self.n = try self.n + 1 otherwise panic("out of range")
-		return try s.byteLength() as Integer otherwise panic("out of range")
+	export function keep(s String) returns Integer
+		self.n = self.n + 1
+		return s.byteLength()
 	end 'keep'
 end 'Store'
 
 function main() returns ExitCode
 	let h = spawn Store.create()
 	let buf = "hello {1}"
-	var held = Strings.create(0)
+	let held = Strings.create(0)
 	held.push(buf)
 	let got = try await h.keep(buf) otherwise panic("an open mailbox with room takes the send")
 	print("{got} {held.count()}\n")
@@ -5177,7 +5188,7 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: error.a-borrowed-parameter-the-sender-writes-may-not-be-sent -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `forward` writes `p`, so the record is not read-only for the thread that sends it: the service would read it
 while `forward` changes it.
@@ -5311,6 +5322,7 @@ error E3102: <fragment>:31:18: use of moved value 'p': its ownership moved to an
 ```
 
 <!-- test: a-module-let-record-is-shared-with-the-service -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 A module-level `let` is read-only for the whole program, so a message may carry it directly. The sender does not own
 the record, nothing can write it, and the handler only reads it: the graph is marked shared, every count in it steps
 atomically, and both threads read the one record.
@@ -5330,8 +5342,8 @@ type Store
 		return Self{seen: 0}
 	end 'create'
 
-	export function keep(mutates self, p frozen with Payload) returns Integer
-		self.seen = try self.seen + 1 otherwise panic("out of range")
+	export function keep(p frozen with Payload) returns Integer
+		self.seen = self.seen + 1
 		return p.n
 	end 'keep'
 end 'Store'
@@ -5339,7 +5351,7 @@ end 'Store'
 function main() returns ExitCode
 	let h = spawn Store.create()
 	let shared = freeze(Payload.create(7))
-	let total = try (try await h.keep(shared) otherwise 0) + shared.n otherwise panic("out of range")
+	let total = (try await h.keep(shared) otherwise 0) + shared.n
 	print("{total}\n")
 	return 0
 end 'main'
@@ -5761,6 +5773,7 @@ note 4
 ```
 
 <!-- test: deepmove.error.a-reply-holding-a-shared-record-is-refused -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 An `isolated` value is one no other name reaches, so a graph the sender still owns a part of is refused at the argument.
 
@@ -5796,7 +5809,7 @@ end 'Store'
 function main() returns ExitCode
 	let h = spawn Store.create()
 	let got = try await h.snapshot() otherwise CellArray.create(0)
-	return try got.count() as ExitCode otherwise panic("out of range")
+	return got.count() as ExitCode
 end 'main'
 
 typealias Integer = int(i64.min to i64.max)
@@ -5863,7 +5876,7 @@ sum 2
 ```
 
 <!-- test: deepmove.error.a-container-holding-a-shared-record-is-refused-at-the-send -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 An `isolated` value is one no other name reaches, so a graph the sender still owns a part of is refused at the argument.
 
@@ -6245,7 +6258,7 @@ svc b 2
 ```
 
 <!-- test: deepmove.error.a-chain-holding-a-shared-record-is-refused -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 An `isolated` value is one no other name reaches, so a graph the sender still owns a part of is refused at the argument.
 
@@ -6331,6 +6344,7 @@ got x 2
 ```
 
 <!-- test: deepmove.error.a-map-holding-a-shared-value-is-refused -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 An `isolated` value is one no other name reaches, so a graph the sender still owns a part of is refused at the argument.
 
@@ -6363,7 +6377,7 @@ function main() returns ExitCode
 	m.upsert("k {1}", value: cell)
 	let h = spawn Svc.create()
 	try h.take(m) otherwise panic("an open mailbox with room takes the send")
-	return try cell.n as ExitCode otherwise panic("out of range")
+	return cell.n as ExitCode
 end 'main'
 
 typealias Integer = int(i64.min to i64.max)
@@ -6674,7 +6688,7 @@ labelled heap 2
 ```
 
 <!-- test: deepmove.error.a-union-payload-with-a-second-owner-is-refused -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 An `isolated` value is one no other name reaches, so a graph the sender still owns a part of is refused at the argument.
 
@@ -7524,6 +7538,7 @@ held 7
 ```
 
 <!-- test: deepmove.dag.a-reply-holding-one-record-twice-crosses -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 The reply road admits the same shape: the handler mints a `Pair` whose two fields hold one `Bag`, and the
 awaiter's write through `left` is what `right` reads.
 ```maxon
@@ -7542,7 +7557,7 @@ type Bag
 	export var cells as CellArray
 
 	static function create() returns Self
-		var cells = CellArray.create(0)
+		let cells = CellArray.create(0)
 		cells.push(Cell.create())
 		cells.push(Cell.create())
 		return Self{n: 1, cells: cells}
@@ -7573,7 +7588,7 @@ end 'Maker'
 
 function main() returns ExitCode
 	let h = spawn Maker.create()
-	var p = try await h.make() otherwise Pair.create()
+	let p = try await h.make() otherwise Pair.create()
 	p.left.n = 5
 	print("{p.right.n} {p.right.cells.count()}\n")
 	return 0
@@ -7589,7 +7604,7 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: deepmove.dag.an-outside-owner-of-a-record-reached-twice-is-refused -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 An `isolated` value is one no other name reaches, so a graph the sender still owns a part of is refused at the argument.
 
@@ -7859,6 +7874,7 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: deepmove.dag.an-outside-owner-among-many-records-reached-twice-is-refused -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 An `isolated` value is one no other name reaches, so a graph the sender still owns a part of is refused at the argument.
 
@@ -8387,6 +8403,7 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: borrow.dag.a-graph-reaching-one-record-twice-is-sent -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 A sent graph may reach one record through two fields: the second owner is inside the graph the service
 owns, not outside it, so the send's walk admits it.
 ```maxon
@@ -8405,7 +8422,7 @@ type Bag
 	export var cells as CellArray
 
 	static function create() returns Self
-		var cells = CellArray.create(0)
+		let cells = CellArray.create(0)
 		cells.push(Cell.create())
 		cells.push(Cell.create())
 		return Self{n: 3, cells: cells}
@@ -8431,7 +8448,7 @@ type Svc
 
 	export function look(consumes target Pair) returns Integer
 		print("service reads {target.right.n}\n")
-		return try target.right.cells.count() as Integer otherwise panic("out of range")
+		return target.right.cells.count() as Integer
 	end 'look'
 end 'Svc'
 
@@ -8454,6 +8471,7 @@ service counted 2 cells
 ```
 
 <!-- test: borrow.dag.a-graph-reaching-one-record-twice-is-sent-twice -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 A clone of that graph is sent first and the graph itself second; each send's walk admits what it meets.
 ```maxon
 type Cell
@@ -8471,7 +8489,7 @@ type Bag
 	export var cells as CellArray
 
 	static function create() returns Self
-		var cells = CellArray.create(0)
+		let cells = CellArray.create(0)
 		cells.push(Cell.create())
 		cells.push(Cell.create())
 		return Self{n: 3, cells: cells}
@@ -8497,7 +8515,7 @@ type Svc
 
 	export function look(consumes target Pair) returns Integer
 		print("service reads {target.right.n}\n")
-		return try target.right.cells.count() as Integer otherwise panic("out of range")
+		return target.right.cells.count() as Integer
 	end 'look'
 end 'Svc'
 
@@ -8506,7 +8524,7 @@ function main() returns ExitCode
 	let p = Pair.create() as Pair
 	let first = try await h.look(p.clone()) otherwise 0
 	let second = try await h.look(p) otherwise 0
-	print("service counted {try first + second otherwise panic("out of range")} cells\n")
+	print("service counted {first + second} cells\n")
 	return 0
 end 'main'
 
@@ -8580,7 +8598,7 @@ service read 1
 ```
 
 <!-- test: borrow.dag.an-outside-owner-of-a-record-reached-twice-is-refused -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 An `isolated` value is one no other name reaches, so a graph the sender still owns a part of is refused at the argument.
 
@@ -8686,6 +8704,7 @@ n=20
 ```
 
 <!-- test: borrow.dag.an-outside-owner-of-a-viewed-string-is-refused -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 An `isolated` value is one no other name reaches, so a graph the sender still owns a part of is refused at the argument.
 
@@ -8730,6 +8749,7 @@ error E3200: <fragment>:28:27: 'holder' is not isolated: only a clean call, a `s
 ```
 
 <!-- test: borrow.dag.an-outside-owner-of-a-string-its-bytes-reach-first-is-refused -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 An `isolated` value is one no other name reaches, so a graph the sender still owns a part of is refused at the argument.
 
@@ -9568,6 +9588,7 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: borrow.a-let-sent-to-a-handler-that-writes-it -->
+<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 A handler may write a parameter a send moved to it: the sender's binding is gone, so nothing else sees the
 record.
 ```maxon
@@ -9587,7 +9608,7 @@ type Svc
 	end 'create'
 
 	export function bump(consumes target Box)
-		target.n = try target.n + 1 otherwise panic("out of range")
+		target.n = target.n + 1
 	end 'bump'
 end 'Svc'
 
@@ -9605,6 +9626,7 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: borrow.a-handler-may-write-its-sent-parameter-through-a-self-writing-method -->
+<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 A method that writes its own receiver may write a parameter the send moved to the handler.
 ```maxon
 type Box
@@ -9614,8 +9636,8 @@ type Box
 		return Self{n: 1}
 	end 'create'
 
-	function bump(mutates self)
-		self.n = try self.n + 1 otherwise panic("out of range")
+	function bump()
+		self.n = self.n + 1
 	end 'bump'
 end 'Box'
 
@@ -9645,6 +9667,7 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: borrow.a-handler-may-write-a-record-inside-its-sent-parameter-through-a-self-writing-method -->
+<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 The moved graph is everything the parameter reaches, so the handler may write `target.inner` too.
 ```maxon
 type Box
@@ -9654,8 +9677,8 @@ type Box
 		return Self{n: 1}
 	end 'create'
 
-	function bump(mutates self)
-		self.n = try self.n + 1 otherwise panic("out of range")
+	function bump()
+		self.n = self.n + 1
 	end 'bump'
 end 'Box'
 
@@ -9693,6 +9716,7 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: borrow.a-handler-may-write-a-record-inside-its-sent-parameter-one-frame-down-through-a-self-writing-method -->
+<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 The same write one frame down: `nudge` writes what the handler was sent.
 ```maxon
 type Box
@@ -9702,8 +9726,8 @@ type Box
 		return Self{n: 1}
 	end 'create'
 
-	function bump(mutates self)
-		self.n = try self.n + 1 otherwise panic("out of range")
+	function bump()
+		self.n = self.n + 1
 	end 'bump'
 end 'Box'
 
@@ -9715,7 +9739,7 @@ type Holder
 	end 'create'
 end 'Holder'
 
-function nudge(mutates t Holder)
+function nudge(t Holder)
 	t.inner.bump()
 end 'nudge'
 
@@ -10040,6 +10064,7 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: error.a-reply-may-not-alias-service-state -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 A handler must not return a value this frame does not solely own, or the caller ends up aliasing a box the
 service still names — two green threads naming one box, with a plain refcount between them. `return self` is
@@ -10115,6 +10140,7 @@ end 'main'
 ```
 
 <!-- test: error.a-read-of-the-field-between-the-swap-load-and-store-keeps-the-reply-aliased -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 A read of `self.items` between the load and the store may hand the record to a second holder, so the swap no
 longer proves `old` is the only one and the reply is refused.
@@ -10451,6 +10477,7 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: error.an-ambiguous-bare-arm-over-a-merged-reply-error-is-refused -->
+<!-- skip: language difference: a try block's handler names one error, not the combined error of several -->
 <!-- positions: moved -->
 Merging the send's error with the handler's into one dispatch table can collide on a bare case name: `Halt`
 declares a `serviceStopped` of its own, so `serviceStopped` in the `match` names both
@@ -13271,6 +13298,7 @@ end 'main'
 ```
 
 <!-- test: error.reply-forwarded-from-a-sibling-that-returns-state-refused -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 A reply forwarded from a sibling is only as fresh as what the sibling returns, and `current` returns the
 service's own `report` — the caller would hold a second reference to it.
@@ -13314,6 +13342,7 @@ error E3209: <fragment>:20:3: a return does not fit the declared result: the ret
 ```
 
 <!-- test: error.reply-forwarded-through-a-function-returning-its-parameter-refused -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `pass` builds nothing: it hands back the record it was given, which is the service's own `report`.
 ```maxon
@@ -13356,6 +13385,7 @@ error E3209: <fragment>:24:3: a return does not fit the declared result: the ret
 ```
 
 <!-- test: error.reply-forwarded-from-a-sibling-that-keeps-the-record-refused -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `build` constructs the record but also stores it in the service's `history`, so the record it returns has
 a second owner.
@@ -13403,6 +13433,7 @@ error E3209: <fragment>:21:3: a return does not fit the declared result: the ret
 ```
 
 <!-- test: error.reply-forwarded-to-a-local-closure-named-like-a-fresh-function-refused -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The `buildReport` that `build` calls is its own local closure, which hands back the service's `report`,
 not the free function of that name that builds one — so `build` is not fresh, and neither is the reply.
@@ -13690,6 +13721,7 @@ end 'main'
 ```
 
 <!-- test: error.reply-forwarded-through-a-local-named-like-a-type-refused -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 Inside `build`, `Report` is a local holding the service's own record, so `Report.echo(1)` calls the INSTANCE
 `echo` on it — which returns that record — and not the static `make` that builds one.
@@ -14166,6 +14198,7 @@ end 'main'
 ```
 
 <!-- test: error.reply-a-sibling-builds-in-a-local-it-also-keeps-refused -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `summarize` builds its record in a local but pushes the local into the service's `history` before
 returning it, so the record has a second owner.
@@ -14213,6 +14246,7 @@ error E3209: <fragment>:21:3: a return does not fit the declared result: the ret
 ```
 
 <!-- test: error.reply-a-sibling-returns-a-local-another-local-aliases-refused -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `copy` names the same record as `report`, so returning `report` does not hand back the only reference.
 ```maxon
@@ -14258,6 +14292,7 @@ error E3209: <fragment>:20:3: a return does not fit the declared result: the ret
 ```
 
 <!-- test: error.reply-a-sibling-returns-a-local-its-own-method-stored-refused -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `keepIn` is an instance method, so it is handed the record itself — and it pushes `self` into the service's
 `history`. A method called on the local may keep it, so the local is not fresh.
@@ -14309,6 +14344,7 @@ error E3209: <fragment>:25:3: a return does not fit the declared result: the ret
 ```
 
 <!-- test: error.reply-a-sibling-returns-a-local-it-keys-a-map-with-refused -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `summarize` writes its local as a KEY of the map literal it stores in the service's `ranks`. After a `,` a key
 is spelled exactly like a named argument's label, but it stores the record, so the local is not fresh.
@@ -14365,7 +14401,7 @@ error E3209: <fragment>:29:3: a return does not fit the declared result: the ret
 ```
 
 <!-- test: services.a-reply-whose-local-shares-a-field-with-the-state-is-refused -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 An `isolated` value is one no other name reaches, so a graph the sender still owns a part of is refused at the argument.
 
@@ -14513,6 +14549,7 @@ end 'main'
 ```
 
 <!-- test: services.a-sent-interface-argument-crosses-through-its-witness -->
+<!-- skip: language difference: what crosses into a service is moved or frozen, never lent, and a value at an interface type, whose conformer the check does not know, does not cross -->
 A `let` binding held at an interface type is moved by the send, exactly as a `let` record is: the send walks it
 through its witness, and the service dispatches through it.
 ```maxon
@@ -14570,6 +14607,7 @@ end 'main'
 ```
 
 <!-- test: services.a-second-owner-inside-a-conformer-is-refused -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 An `isolated` value is one no other name reaches, so a graph the sender still owns a part of is refused at the argument.
 
@@ -14633,6 +14671,7 @@ error E3200: <fragment>:52:13: 'shape' is not isolated: only a clean call, a `sw
 ```
 
 <!-- test: services.a-conformer-holding-a-string-crosses -->
+<!-- skip: language difference: what crosses into a service is moved or frozen, never lent, and a value at an interface type, whose conformer the check does not know, does not cross -->
 A conformer whose record holds a `String` is walked into that record as a field of it is, and crosses whole.
 ```maxon
 typealias Tally = int(0 to u64.max)
@@ -14896,6 +14935,7 @@ end 'main'
 ```
 
 <!-- test: services.interface-arguments-each-take-their-own-payload-slot -->
+<!-- skip: language difference: what crosses into a service is moved or frozen, never lent, and a value at an interface type, whose conformer the check does not know, does not cross -->
 Each interface-typed parameter of a message takes its witness half in the payload slot after its own, so a
 scalar parameter between two of them still reads its own slot, and a moved binding and a moved temporary cross in
 one send.
@@ -14966,6 +15006,7 @@ end 'main'
 ```
 
 <!-- test: borrow.a-handler-may-write-a-sent-interface-argument -->
+<!-- skip: language difference: what crosses into a service is moved or frozen, never lent, and a value at an interface type, whose conformer the check does not know, does not cross -->
 A handler may write an interface-typed parameter through its witness: the send moved the conformer to it.
 ```maxon
 typealias Tally = int(0 to u64.max)
@@ -14982,7 +15023,7 @@ type Tick implements Counter
 		return Self{n: 0}
 	end 'create'
 
-	function bump(mutates self)
+	function bump()
 		self.n = self.n + 1
 	end 'bump'
 
@@ -15213,6 +15254,7 @@ error E3217: <fragment>:33:10: parameter `s` of the message `Calc.measure` is a 
 ```
 
 <!-- test: error.a-reply-may-not-alias-an-interface-value-the-state-holds -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 A reply held at an interface type that the service's state still holds would hand the caller a second
 reference to the conformer's box on another green thread, exactly as returning a state record would.
@@ -16002,7 +16044,7 @@ error E3102: <fragment>:33:23: use of moved value 'b': its ownership moved to an
 ```
 
 <!-- test: error.a-var-the-loop-iterates-is-not-sent-inside-the-loop -->
-<!-- skip: language difference: a loop holds the collection it walks -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The loop holds a counted reference to the array it iterates, so the `var` `items` is no longer the record's only
 owner inside the loop body, and the send, which would move it to the service while the loop still reads it, is
@@ -17301,6 +17343,7 @@ end 'main'
 ```
 
 <!-- test: services.error.a-viewed-var-sent-and-read-afterwards-reports-the-send -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `w` views the array that holds `b`'s record, so the send is refused; the read of `b` after it is not reported as a use of a moved value, because a refused send moves nothing.
 
@@ -17515,6 +17558,7 @@ end 'main'
 ```
 
 <!-- test: a-message-parameter-spelled-through-its-directory-as-a-struct-an-enum-and-an-interface -->
+<!-- skip: language difference: what crosses into a service is moved or frozen, never lent, and a value at an interface type, whose conformer the check does not know, does not cross -->
 <!-- process: own -->
 Message parameters spelled `lib.Item`, `lib.Mode` and `lib.Named`, a struct, an enum and an interface declared in `lib/`, resolve through their declaring directory, so each message is sent, handled and answered: 3 + 10 + 5.
 ```maxon
@@ -18405,6 +18449,7 @@ end 'main'
 ```
 
 <!-- test: services.a-factory-takes-ten-arguments-of-mixed-kinds-on-the-service -->
+<!-- skip: language difference: what crosses into a service is moved or frozen, never lent, and a value at an interface type, whose conformer the check does not know, does not cross -->
 Ten arguments — integers, floats and a value held at an interface type — travel to the service's thread in the order and
 register class the factory declares them in, and the interface value is released with its own witness.
 ```maxon
@@ -18798,6 +18843,7 @@ refused
 ```
 
 <!-- test: services.a-throwing-factory-takes-ten-arguments-of-mixed-kinds-on-the-service -->
+<!-- skip: language difference: what crosses into a service is moved or frozen, never lent, and a value at an interface type, whose conformer the check does not know, does not cross -->
 The spawner's wait costs the start record nothing: ten arguments — integers, floats and a value held at an interface
 type — reach a throwing factory in the order and register class it declares them in, and one that fails releases the
 interface value with its own witness.

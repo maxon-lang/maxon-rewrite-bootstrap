@@ -2617,6 +2617,7 @@ end 'main'
 ```
 
 <!-- test: async-await.linear.await-aliased-in-ternary-arms -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 The same, through an ALIAS: `p` and `q` are one green thread under two names, and the two arms
 await it through different names. Linearity keys on the THREAD, so it sees one thread awaited in
 each of two exclusive arms — which is one await per path, and legal. This is the intersection of
@@ -2635,7 +2636,7 @@ function main() returns ExitCode
 	let q = p
 	let flag = File.exists(FilePath from "definitely-not-here.txt")
 	let v = (await p) if flag else (await q)
-	return try (v + 1) as ExitCode otherwise panic("out of range")
+	return (v + 1) as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -4465,6 +4466,7 @@ end 'main'
 ```
 
 <!-- test: async-await.a-let-and-its-alias-handed-to-one-async-call-are-shared -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 `c` names the record `b` holds, and both are read-only, so the coroutine shares the record under both parameters.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -4479,14 +4481,14 @@ end 'Box'
 
 function pair(a Box, other Box) returns Integer
 	Scheduler.yield()
-	return try a.n + other.n otherwise panic("out of range")
+	return a.n + other.n
 end 'pair'
 
 function main() returns ExitCode
 	let b = Box.create()
 	let c = b
 	let p = async pair(b, other: c)
-	return try (await p) as ExitCode otherwise panic("out of range")
+	return (await p) as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -4494,6 +4496,7 @@ end 'main'
 ```
 
 <!-- test: async-await.a-match-payload-of-a-let-union-may-be-written-by-a-coroutine -->
+<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 `b` is bound out of `w`, which is a `let`; a `let` only forbids reassignment, so a coroutine that writes its parameter may be handed `b`.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -4511,7 +4514,7 @@ union Wrap
 	empty
 end 'Wrap'
 
-function poke(mutates p Box) returns Integer
+function poke(p Box) returns Integer
 	Scheduler.yield()
 	p.n = 99
 	return p.n
@@ -4703,7 +4706,7 @@ end 'main'
 ```
 
 <!-- test: async-await.error.a-frozen-record-cannot-be-written-by-a-coroutine -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `b` names a frozen record, so a coroutine that writes its parameter may not be handed it.
 ```maxon
@@ -4811,6 +4814,7 @@ end 'main'
 ```
 
 <!-- test: async-await.a-value-a-closure-holds-a-field-of-is-shared-with-async -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 `inner` is a field of `b`; the closure holds a reference of its own to it, so `b` is shared with the coroutine.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -4842,7 +4846,7 @@ function main() returns ExitCode
 	let peek = function() gives inner.n
 	let p = async consume(b)
 	let r = await p
-	return try (r + peek()) as ExitCode otherwise panic("out of range")
+	return (r + peek()) as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -4850,6 +4854,7 @@ end 'main'
 ```
 
 <!-- test: async-await.a-value-whose-field-is-read-after-the-call-is-shared-with-async -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 `inner` holds its own reference to a field of `b`, so `b` is shared with the coroutine and `inner` is still
 readable after the coroutine has released `b`.
 ```maxon

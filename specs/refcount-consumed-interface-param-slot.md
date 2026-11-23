@@ -51,6 +51,7 @@ there is no slot whose content must survive a call.
 ## Tests
 
 <!-- test: pre-loop-borrow-then-loop-consume -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 A consumed interface param borrowed before a loop and consumed inside it must
 survive the borrow's last use — the owned `+1` is released once at scope exit,
 not at the pre-loop borrow (which would free it before the loop re-reads the
@@ -80,7 +81,7 @@ end 'Desc'
 type Holder
 	export var p as Payload
 
-	static function create(consumes p Payload) returns Holder
+	static function create(p Payload) returns Holder
 		return Holder{p: p}
 	end 'create'
 
@@ -93,29 +94,29 @@ end 'Holder'
 function borrowCount(p Payload, base Integer) returns Integer
 	var acc = base
 	for _ in 0 upto 2 'r'
-		acc = try acc + p.tag() otherwise panic("out of range")
+		acc = acc + p.tag()
 	end 'r'
 	return acc
 end 'borrowCount'
 
 // Consumes `p` (mirrors allocateRegistersForFunc storing into FunctionRegAllocator).
-function forFunc(item Integer, consumes p Payload) returns Integer
+function forFunc(item Integer, p Payload) returns Integer
 	let h = Holder.create(p)
-	return try h.run() + item otherwise panic("out of range")
+	return h.run() + item
 end 'forFunc'
 
 // Pre-loop borrow + early-return guard + per-item loop consume
 // (mirrors allocateRegistersWithTarget).
-function withTarget(items ItemArray, consumes p Payload) returns Integer
-	let n = borrowCount(p, base: try items.count() as Integer otherwise panic("out of range"))
+function withTarget(items ItemArray, p Payload) returns Integer
+	let n = borrowCount(p, base: items.count() as Integer)
 	if n == 0 'empty'
 		return 0
 	end 'empty'
 	var total = 0 as Integer
 	for item in items 'each'
-		total = try total + forFunc(item, p: p) otherwise panic("out of range")
+		total = total + forFunc(item, p: p)
 	end 'each'
-	return try total + n otherwise panic("out of range")
+	return total + n
 end 'withTarget'
 
 function withX64(items ItemArray) returns Integer
@@ -124,11 +125,11 @@ function withX64(items ItemArray) returns Integer
 end 'withX64'
 
 function main() returns ExitCode
-	var items = ItemArray.create(0)
+	let items = ItemArray.create(0)
 	items.push(1)
 	items.push(2)
 	items.push(3)
-	return try withX64(items) as ExitCode otherwise panic("out of range")
+	return withX64(items)
 end 'main'
 ```
 ```exitcode
@@ -136,6 +137,7 @@ end 'main'
 ```
 
 <!-- test: straight-line-multiple-consume -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 A consumed interface param moved into two separate containers must copy its `+1`
 for all but the last consume, so the single owned reference is not transferred
 twice (an over-release at the second destructor).
@@ -161,7 +163,7 @@ end 'Desc'
 type Holder
 	export var p as Payload
 
-	static function create(consumes p Payload) returns Holder
+	static function create(p Payload) returns Holder
 		return Holder{p: p}
 	end 'create'
 
@@ -170,12 +172,12 @@ type Holder
 	end 'run'
 end 'Holder'
 
-function twice(item Integer, consumes p Payload) returns Integer
+function twice(item Integer, p Payload) returns Integer
 	let h1 = Holder.create(p)
 	let a = h1.run()
 	let h2 = Holder.create(p)
 	let b = h2.run()
-	return try a + b + item otherwise panic("out of range")
+	return a + b + item
 end 'twice'
 
 function driver() returns Integer
@@ -184,7 +186,7 @@ function driver() returns Integer
 end 'driver'
 
 function main() returns ExitCode
-	return try driver() as ExitCode otherwise panic("out of range")
+	return driver()
 end 'main'
 ```
 ```exitcode

@@ -422,6 +422,7 @@ end 'main'
 ```
 
 <!-- test: a-bare-field-reassignment-reserves-the-descriptor-it-releases-through -->
+<!-- skip: language difference: a place passed mutates, consumes or sets overlaps nothing else the call or the statement holds, where maxon shares the place by a reference count -->
 ### …and so does the bare spelling of the reassignment
 `one = b` names the field without `self.`; the method it is written in carries the layout descriptor the displaced
 record is released through, exactly as `self.one = b` does.
@@ -431,12 +432,12 @@ typealias Integer = int(i64.min to i64.max)
 type Inner uses U
 	let x as U
 
-	function value() returns U where U implements Copyable
-		return x.clone()
+	function value() returns U
+		return x
 	end 'value'
 
-	static function create(x U) returns Self where U implements Copyable
-		return Self{x: x.clone()}
+	static function create(x U) returns Self
+		return Self{x: x}
 	end 'create'
 end 'Inner'
 
@@ -445,11 +446,11 @@ type Box uses T
 	let inner as TInner
 	export let tag as Integer
 
-	function value() returns T where T implements Copyable
+	function value() returns T
 		return inner.value()
 	end 'value'
 
-	static function create(x T, tag Integer) returns Self where T implements Copyable
+	static function create(x T, tag Integer) returns Self
 		return Self{inner: TInner.create(x), tag: tag}
 	end 'create'
 end 'Box'
@@ -460,35 +461,35 @@ type Bag uses Element
 	var items as BoxArray
 	export var one as EBox
 
-	function add(mutates self, x Element, tag Integer) where Element implements Copyable
+	function add(x Element, tag Integer)
 		items.push(EBox.create(x, tag: tag))
 	end 'add'
 
-	function first() returns Element throws ArrayError where Element implements Copyable
+	function first() returns Element throws ArrayError
 		let slot = try self.items.first() otherwise 'e'
 			throw ArrayError.indexOutOfBounds
 		end 'e'
 		return slot.value()
 	end 'first'
 
-	static function create(x Element) returns Self where Element implements Copyable
+	static function create(x Element) returns Self
 		return Self{items: BoxArray{}, one: EBox.create(x, tag: 0)}
 	end 'create'
 
-	function replaceWith(mutates self, b EBox) where Element implements Droppable and Copyable
-		one = b.clone()
+	function replaceWith(b EBox)
+		one = b
 	end 'replaceWith'
 
-	function probe(mutates self, x Element) returns Integer where Element implements Droppable and Copyable
+	function probe(x Element) returns Integer
 		let b = EBox.create(x, tag: 3)
 		self.one = EBox.create(x, tag: 4)
-		return try b.tag + self.one.tag otherwise panic("out of range")
+		return b.tag + self.one.tag
 	end 'probe'
 end 'Bag'
 
 typealias StrBag = Bag with String
 
-function fill(mutates b StrBag)
+function fill(b StrBag)
 	var sb = ""
 	sb = "{sb}hello "
 	sb = "{sb}heap world"
@@ -497,7 +498,7 @@ function fill(mutates b StrBag)
 end 'fill'
 
 function main() returns ExitCode
-	var b = StrBag.create("seed")
+	let b = StrBag.create("seed")
 	fill(b)
 	let got = try b.first() otherwise 'e'
 		return 9
@@ -506,7 +507,7 @@ function main() returns ExitCode
 	for i in 0 upto 50 'eachRound'
 		var sb = ""
 		sb = "{sb}a heap string of some length {i}"
-		total = try total + b.probe(sb) otherwise panic("out of range")
+		total = total + b.probe(sb)
 	end 'eachRound'
 	b.replaceWith(b.one)
 	print("{got} {total} {b.one.value()}\n")

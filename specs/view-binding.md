@@ -21,6 +21,7 @@ where the message takes `immutable` data and `E3200` where it takes `isolated` d
 ## Tests
 
 <!-- test: view-binding.a-let-sees-a-write-through-the-var-it-names -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 `v` names the record `h.box` holds, so the write through `h` is read back through `v`.
 
 ```maxon
@@ -38,12 +39,12 @@ type Holder
 	export var box as Box
 
 	static function create(box Box) returns Self
-		return Self{box: box.clone()}
+		return Self{box: box}
 	end 'create'
 end 'Holder'
 
 function main() returns ExitCode
-	var h = Holder.create(Box.create(1))
+	let h = Holder.create(Box.create(1))
 	let v = h.box
 	h.box.n = 5
 	print("{v.n}\n")
@@ -82,6 +83,7 @@ end 'main'
 ```
 
 <!-- test: view-binding.a-let-live-across-an-await-sees-the-coroutines-write -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 The coroutine `bump` writes the record `v` names while `main` waits, and the read after the `await` sees it.
 
 ```maxon
@@ -99,18 +101,18 @@ type Holder
 	export var box as Box
 
 	static function create(box Box) returns Self
-		return Self{box: box.clone()}
+		return Self{box: box}
 	end 'create'
 end 'Holder'
 
-function bump(mutates box Box) returns Count
+function bump(box Box) returns Count
 	sleep(1)
 	box.n = 5
 	return 1
 end 'bump'
 
 function main() returns ExitCode
-	var holder = Holder.create(Box.create(1))
+	let holder = Holder.create(Box.create(1))
 	let v = holder.box
 	let task = async bump(holder.box)
 	let r = await task
@@ -126,6 +128,7 @@ end 'main'
 ```
 
 <!-- test: view-binding.a-write-through-a-let-is-legal -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 A `let` may be written through; the write lands in the record `h.box` names.
 
 ```maxon
@@ -143,14 +146,14 @@ type Holder
 	export var box as Box
 
 	static function create(box Box) returns Self
-		return Self{box: box.clone()}
+		return Self{box: box}
 	end 'create'
 end 'Holder'
 
 function main() returns ExitCode
-	var h = Holder.create(Box.create(1))
+	let h = Holder.create(Box.create(1))
 	h.box.n = 3
-	var v = h.box
+	let v = h.box
 	v.n = 2
 	print("{h.box.n}\n")
 	return 0
@@ -164,6 +167,7 @@ end 'main'
 ```
 
 <!-- test: view-binding.a-let-stored-into-a-field-or-pushed-is-legal -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 A `let` may be stored into a `var` field and pushed onto an array.
 
 ```maxon
@@ -183,14 +187,14 @@ type Holder
 	export var box as Box
 
 	static function create(box Box) returns Self
-		return Self{box: box.clone()}
+		return Self{box: box}
 	end 'create'
 end 'Holder'
 
 function main() returns ExitCode
-	var h = Holder.create(Box.create(1))
-	var other = Holder.create(Box.create(2))
-	var boxes = Boxes.create(0)
+	let h = Holder.create(Box.create(1))
+	let other = Holder.create(Box.create(2))
+	let boxes = Boxes.create(0)
 	h.box.n = 3
 	let v = h.box
 	other.box = v
@@ -338,6 +342,7 @@ end 'main'
 ```
 
 <!-- test: view-binding.a-let-handed-to-a-function-that-writes-its-parameter-is-legal -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 `bump` writes its parameter, and a `let` may be handed to it.
 
 ```maxon
@@ -355,18 +360,18 @@ type Holder
 	export var box as Box
 
 	static function create(box Box) returns Self
-		return Self{box: box.clone()}
+		return Self{box: box}
 	end 'create'
 end 'Holder'
 
-function bump(mutates b Box)
+function bump(b Box)
 	b.n = 9
 end 'bump'
 
 function main() returns ExitCode
-	var h = Holder.create(Box.create(1))
+	let h = Holder.create(Box.create(1))
 	h.box.n = 3
-	var v = h.box
+	let v = h.box
 	bump(v)
 	print("{h.box.n}\n")
 	return 0
@@ -506,6 +511,7 @@ end 'main'
 ```
 
 <!-- test: view-binding.error.a-let-sent-to-a-service-is-refused -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 A `let` names data its own green thread may write, so it is mutable data of its region: it cannot be frozen for a
 message that takes `immutable` data, and it cannot be given away to one that takes `isolated` data.

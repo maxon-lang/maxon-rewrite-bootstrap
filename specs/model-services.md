@@ -556,6 +556,7 @@ error E3214: <fragment>:34:12: cannot hand 'h.tk' to argument `tV` of the messag
 ```
 
 <!-- test: model-finding-ad-swap-field-self-state -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-ISOREAD`; the compiler refuses it with E3198. Model program `swap-field-self-state` of redteamAD/t3.txt, in capmodel `reggio/REPORTRTAD.txt`.
 
@@ -578,8 +579,8 @@ type S
 		return Self{k: k, b: b}
 	end 'create'
 
-	export function go(mutates self)
-		_ = exchange(self.b, value: self.b.clone())
+	export function go()
+		_ = exchange(self.b, value: self.b)
 	end 'go'
 end 'S'
 
@@ -1098,6 +1099,7 @@ error E3197: <fragment>:30:16: cannot write 'h' through 'self', which is read-on
 ```
 
 <!-- test: model-hand-ag-u1-none -->
+<!-- skip: language difference: what crosses into a service is moved or frozen, never lent, and a value at an interface type, whose conformer the check does not know, does not cross -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `u1-none` of redteamAG.hand_ag6, in capmodel `reggio/REPORTRTAG.txt`.
 
 ```maxon
@@ -1132,7 +1134,7 @@ type Tj is noncopyable
 	var n as Num
 	var t as Tk
 
-	static function create(n Num, consumes t Tk) returns Self
+	static function create(n Num, t Tk) returns Self
 		return Self{n: n, t: t}
 	end 'create'
 end 'Tj'
@@ -1140,7 +1142,7 @@ end 'Tj'
 type Holdu
 	var u as UT
 
-	static function create(consumes u UT) returns Self
+	static function create(u UT) returns Self
 		return Self{u: u}
 	end 'create'
 end 'Holdu'
@@ -1173,7 +1175,7 @@ type Su
 		end 'x1'
 	end 'takeJ'
 
-	export function takeK(mutates tV Tk)
+	export function takeK(tV Tk)
 		tV.n = 3
 	end 'takeK'
 
@@ -1199,6 +1201,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ag-u2-none -->
+<!-- skip: language difference: what crosses into a service is moved or frozen, never lent, and a value at an interface type, whose conformer the check does not know, does not cross -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `u2-none` of redteamAG.hand_ag6, in capmodel `reggio/REPORTRTAG.txt`.
 
 ```maxon
@@ -1233,7 +1236,7 @@ type Tj is noncopyable
 	var n as Num
 	var t as Tk
 
-	static function create(n Num, consumes t Tk) returns Self
+	static function create(n Num, t Tk) returns Self
 		return Self{n: n, t: t}
 	end 'create'
 end 'Tj'
@@ -1241,7 +1244,7 @@ end 'Tj'
 type Holdu
 	var u as UT
 
-	static function create(consumes u UT) returns Self
+	static function create(u UT) returns Self
 		return Self{u: u}
 	end 'create'
 end 'Holdu'
@@ -1274,7 +1277,7 @@ type Su
 		end 'x1'
 	end 'takeJ'
 
-	export function takeK(mutates tV Tk)
+	export function takeK(tV Tk)
 		tV.n = 3
 	end 'takeK'
 
@@ -1306,6 +1309,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ag-u3-none -->
+<!-- skip: language difference: what crosses into a service is moved or frozen, never lent, and a value at an interface type, whose conformer the check does not know, does not cross -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `u3-none` of redteamAG.hand_ag6, in capmodel `reggio/REPORTRTAG.txt`.
 
 ```maxon
@@ -1340,7 +1344,7 @@ type Tj is noncopyable
 	var n as Num
 	var t as Tk
 
-	static function create(n Num, consumes t Tk) returns Self
+	static function create(n Num, t Tk) returns Self
 		return Self{n: n, t: t}
 	end 'create'
 end 'Tj'
@@ -1348,7 +1352,7 @@ end 'Tj'
 type Holdu
 	var u as UT
 
-	static function create(consumes u UT) returns Self
+	static function create(u UT) returns Self
 		return Self{u: u}
 	end 'create'
 end 'Holdu'
@@ -1381,7 +1385,7 @@ type Su
 		end 'x1'
 	end 'takeJ'
 
-	export function takeK(mutates tV Tk)
+	export function takeK(tV Tk)
 		tV.n = 3
 	end 'takeK'
 
@@ -1406,6 +1410,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ag-u1-copy -->
+<!-- skip: language difference: what crosses into a service is moved or frozen, never lent, and a value at an interface type, whose conformer the check does not know, does not cross -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `u1-copy` of redteamAG.hand_ag6, in capmodel `reggio/REPORTRTAG.txt`.
 
 ```maxon
@@ -1440,7 +1445,7 @@ type Tj is noncopyable
 	var n as Num
 	var t as Tk
 
-	static function create(n Num, consumes t Tk) returns Self
+	static function create(n Num, t Tk) returns Self
 		return Self{n: n, t: t}
 	end 'create'
 end 'Tj'
@@ -1448,7 +1453,7 @@ end 'Tj'
 type Holdu
 	var u as UT
 
-	static function create(consumes u UT) returns Self
+	static function create(u UT) returns Self
 		return Self{u: u}
 	end 'create'
 end 'Holdu'
@@ -1481,7 +1486,7 @@ type Su
 		end 'x1'
 	end 'takeJ'
 
-	export function takeK(mutates tV Tk)
+	export function takeK(tV Tk)
 		tV.n = 3
 	end 'takeK'
 
@@ -1507,6 +1512,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ag-u2-copy -->
+<!-- skip: language difference: what crosses into a service is moved or frozen, never lent, and a value at an interface type, whose conformer the check does not know, does not cross -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `u2-copy` of redteamAG.hand_ag6, in capmodel `reggio/REPORTRTAG.txt`.
 
 ```maxon
@@ -1541,7 +1547,7 @@ type Tj is noncopyable
 	var n as Num
 	var t as Tk
 
-	static function create(n Num, consumes t Tk) returns Self
+	static function create(n Num, t Tk) returns Self
 		return Self{n: n, t: t}
 	end 'create'
 end 'Tj'
@@ -1549,7 +1555,7 @@ end 'Tj'
 type Holdu
 	var u as UT
 
-	static function create(consumes u UT) returns Self
+	static function create(u UT) returns Self
 		return Self{u: u}
 	end 'create'
 end 'Holdu'
@@ -1582,7 +1588,7 @@ type Su
 		end 'x1'
 	end 'takeJ'
 
-	export function takeK(mutates tV Tk)
+	export function takeK(tV Tk)
 		tV.n = 3
 	end 'takeK'
 
@@ -1614,7 +1620,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ag-u3-copy -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R18-UNIQUE`; the compiler refuses it with E3214. Model program `u3-copy` of redteamAG.hand_ag6, in capmodel `reggio/REPORTRTAG.txt`.
 
@@ -1716,6 +1722,7 @@ error E3214: <fragment>:88:17: cannot bind '_' to a unique value read out of a f
 ```
 
 <!-- test: model-hand-ag-u1-call -->
+<!-- skip: language difference: what crosses into a service is moved or frozen, never lent, and a value at an interface type, whose conformer the check does not know, does not cross -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `u1-call` of redteamAG.hand_ag6, in capmodel `reggio/REPORTRTAG.txt`.
 
 ```maxon
@@ -1750,7 +1757,7 @@ type Tj is noncopyable
 	var n as Num
 	var t as Tk
 
-	static function create(n Num, consumes t Tk) returns Self
+	static function create(n Num, t Tk) returns Self
 		return Self{n: n, t: t}
 	end 'create'
 end 'Tj'
@@ -1758,7 +1765,7 @@ end 'Tj'
 type Holdu
 	var u as UT
 
-	static function create(consumes u UT) returns Self
+	static function create(u UT) returns Self
 		return Self{u: u}
 	end 'create'
 end 'Holdu'
@@ -1791,7 +1798,7 @@ type Su
 		end 'x1'
 	end 'takeJ'
 
-	export function takeK(mutates tV Tk)
+	export function takeK(tV Tk)
 		tV.n = 3
 	end 'takeK'
 
@@ -1824,6 +1831,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ag-u2-call -->
+<!-- skip: language difference: what crosses into a service is moved or frozen, never lent, and a value at an interface type, whose conformer the check does not know, does not cross -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `u2-call` of redteamAG.hand_ag6, in capmodel `reggio/REPORTRTAG.txt`.
 
 ```maxon
@@ -1858,7 +1866,7 @@ type Tj is noncopyable
 	var n as Num
 	var t as Tk
 
-	static function create(n Num, consumes t Tk) returns Self
+	static function create(n Num, t Tk) returns Self
 		return Self{n: n, t: t}
 	end 'create'
 end 'Tj'
@@ -1866,7 +1874,7 @@ end 'Tj'
 type Holdu
 	var u as UT
 
-	static function create(consumes u UT) returns Self
+	static function create(u UT) returns Self
 		return Self{u: u}
 	end 'create'
 end 'Holdu'
@@ -1899,7 +1907,7 @@ type Su
 		end 'x1'
 	end 'takeJ'
 
-	export function takeK(mutates tV Tk)
+	export function takeK(tV Tk)
 		tV.n = 3
 	end 'takeK'
 
@@ -1938,6 +1946,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ag-u3-call -->
+<!-- skip: language difference: what crosses into a service is moved or frozen, never lent, and a value at an interface type, whose conformer the check does not know, does not cross -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `u3-call` of redteamAG.hand_ag6, in capmodel `reggio/REPORTRTAG.txt`.
 
 ```maxon
@@ -1972,7 +1981,7 @@ type Tj is noncopyable
 	var n as Num
 	var t as Tk
 
-	static function create(n Num, consumes t Tk) returns Self
+	static function create(n Num, t Tk) returns Self
 		return Self{n: n, t: t}
 	end 'create'
 end 'Tj'
@@ -1980,7 +1989,7 @@ end 'Tj'
 type Holdu
 	var u as UT
 
-	static function create(consumes u UT) returns Self
+	static function create(u UT) returns Self
 		return Self{u: u}
 	end 'create'
 end 'Holdu'
@@ -2013,7 +2022,7 @@ type Su
 		end 'x1'
 	end 'takeJ'
 
-	export function takeK(mutates tV Tk)
+	export function takeK(tV Tk)
 		tV.n = 3
 	end 'takeK'
 
@@ -2045,6 +2054,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ag-j1-none -->
+<!-- skip: language difference: what crosses into a service is moved or frozen, never lent, and a value at an interface type, whose conformer the check does not know, does not cross -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `j1-none` of redteamAG.hand_ag6, in capmodel `reggio/REPORTRTAG.txt`.
 
 ```maxon
@@ -2077,7 +2087,7 @@ type Tj is noncopyable
 	var n as Num
 	var t as Tk
 
-	static function create(n Num, consumes t Tk) returns Self
+	static function create(n Num, t Tk) returns Self
 		return Self{n: n, t: t}
 	end 'create'
 end 'Tj'
@@ -2110,7 +2120,7 @@ type Su
 		end 'x1'
 	end 'takeJ'
 
-	export function takeK(mutates tV Tk)
+	export function takeK(tV Tk)
 		tV.n = 3
 	end 'takeK'
 
@@ -2134,6 +2144,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ag-j1-inner-read -->
+<!-- skip: language difference: what crosses into a service is moved or frozen, never lent, and a value at an interface type, whose conformer the check does not know, does not cross -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `j1-inner-read` of redteamAG.hand_ag6, in capmodel `reggio/REPORTRTAG.txt`.
 
 ```maxon
@@ -2166,7 +2177,7 @@ type Tj is noncopyable
 	var n as Num
 	var t as Tk
 
-	static function create(n Num, consumes t Tk) returns Self
+	static function create(n Num, t Tk) returns Self
 		return Self{n: n, t: t}
 	end 'create'
 end 'Tj'
@@ -2199,7 +2210,7 @@ type Su
 		end 'x1'
 	end 'takeJ'
 
-	export function takeK(mutates tV Tk)
+	export function takeK(tV Tk)
 		tV.n = 3
 	end 'takeK'
 
@@ -2223,6 +2234,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ag-j1-inner-write -->
+<!-- skip: language difference: what crosses into a service is moved or frozen, never lent, and a value at an interface type, whose conformer the check does not know, does not cross -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `j1-inner-write` of redteamAG.hand_ag6, in capmodel `reggio/REPORTRTAG.txt`.
 
 ```maxon
@@ -2255,7 +2267,7 @@ type Tj is noncopyable
 	var n as Num
 	var t as Tk
 
-	static function create(n Num, consumes t Tk) returns Self
+	static function create(n Num, t Tk) returns Self
 		return Self{n: n, t: t}
 	end 'create'
 end 'Tj'
@@ -2288,7 +2300,7 @@ type Su
 		end 'x1'
 	end 'takeJ'
 
-	export function takeK(mutates tV Tk)
+	export function takeK(tV Tk)
 		tV.n = 3
 	end 'takeK'
 
@@ -2312,7 +2324,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ag-j1-inner-move -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R18-UNIQUE`; the compiler refuses it with E3214. Model program `j1-inner-move` of redteamAG.hand_ag6, in capmodel `reggio/REPORTRTAG.txt`.
 
@@ -2403,6 +2415,7 @@ error E3214: <fragment>:78:20: cannot bind '_' to a unique value read out of a f
 ```
 
 <!-- test: model-hand-ag-f1-none -->
+<!-- skip: language difference: what crosses into a service is moved or frozen, never lent, and a value at an interface type, whose conformer the check does not know, does not cross -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `f1-none` of redteamAG.hand_ag6, in capmodel `reggio/REPORTRTAG.txt`.
 
 ```maxon
@@ -2425,7 +2438,7 @@ type Sa
 		return Self{n: n}
 	end 'create'
 
-	export function takeA(mutates xs TkArray)
+	export function takeA(xs TkArray)
 		for x in xs 'f1'
 			x.n = 1
 		end 'f1'
@@ -2434,7 +2447,7 @@ end 'Sa'
 
 function main() returns ExitCode
 	_ = spawn Sa.create(0)
-	var xs = TkArray.create(0)
+	let xs = TkArray.create(0)
 	xs.push(Tk.create(1))
 	for _ in xs 'f1'
 		_ = 0 as Num
@@ -2447,6 +2460,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ag-f2-none -->
+<!-- skip: language difference: what crosses into a service is moved or frozen, never lent, and a value at an interface type, whose conformer the check does not know, does not cross -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `f2-none` of redteamAG.hand_ag6, in capmodel `reggio/REPORTRTAG.txt`.
 
 ```maxon
@@ -2465,7 +2479,7 @@ end 'Tk'
 type Hs2
 	var xs as TkArray
 
-	static function create(consumes xs TkArray) returns Self
+	static function create(xs TkArray) returns Self
 		return Self{xs: xs}
 	end 'create'
 end 'Hs2'
@@ -2477,7 +2491,7 @@ type Sa
 		return Self{n: n}
 	end 'create'
 
-	export function takeA(mutates xsV TkArray)
+	export function takeA(xsV TkArray)
 		for x in xsV 'f1'
 			x.n = 1
 		end 'f1'
@@ -2486,7 +2500,7 @@ end 'Sa'
 
 function main() returns ExitCode
 	_ = spawn Sa.create(0)
-	var h = Hs2.create(TkArray.create(0))
+	let h = Hs2.create(TkArray.create(0))
 	h.xs.push(Tk.create(1))
 	for _ in h.xs 'f1'
 		_ = 0 as Num
@@ -2545,7 +2559,7 @@ error E3102: <fragment>:32:11: use of moved value 'xs': it was moved in an earli
 ```
 
 <!-- test: model-hand-ag-f2-copy -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R18-UNIQUE`; the compiler refuses it with E3214. Model program `f2-copy` of redteamAG.hand_ag6, in capmodel `reggio/REPORTRTAG.txt`.
 
@@ -2646,7 +2660,7 @@ error E3102: <fragment>:32:11: use of moved value 'xs': it was moved in an earli
 ```
 
 <!-- test: model-hand-ag-f2-copy-read -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R18-UNIQUE`; the compiler refuses it with E3214. Model program `f2-copy-read` of redteamAG.hand_ag6, in capmodel `reggio/REPORTRTAG.txt`.
 
@@ -2748,7 +2762,7 @@ error E3102: <fragment>:32:11: use of moved value 'xs': it was moved in an earli
 ```
 
 <!-- test: model-hand-ag-f2-copy-write -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R18-UNIQUE`; the compiler refuses it with E3214. Model program `f2-copy-write` of redteamAG.hand_ag6, in capmodel `reggio/REPORTRTAG.txt`.
 
@@ -2803,7 +2817,7 @@ error E3214: <fragment>:40:7: cannot bind '_' to a unique value read out of a fi
 ```
 
 <!-- test: model-hand-ag-f1-call -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R4-ARG`; the compiler refuses it with E3207. Model program `f1-call` of redteamAG.hand_ag6, in capmodel `reggio/REPORTRTAG.txt`.
 
@@ -2855,7 +2869,7 @@ error E3207: <fragment>:38:10: 'eatArr' needs a writable parameter 'xs' at line 
 ```
 
 <!-- test: model-hand-ag-f2-call -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R4-ARG`; the compiler refuses it with E3207. Model program `f2-call` of redteamAG.hand_ag6, in capmodel `reggio/REPORTRTAG.txt`.
 
@@ -2915,7 +2929,7 @@ error E3207: <fragment>:46:10: 'eatArr' needs a writable parameter 'xsV' at line
 ```
 
 <!-- test: model-hand-ag-f1-call-write -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R4-ARG`; the compiler refuses it with E3207. Model program `f1-call-write` of redteamAG.hand_ag6, in capmodel `reggio/REPORTRTAG.txt`.
 
@@ -2968,7 +2982,7 @@ error E3207: <fragment>:38:10: 'eatArr' needs a writable parameter 'xs' at line 
 ```
 
 <!-- test: model-hand-ag-f2-call-write -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R4-ARG`; the compiler refuses it with E3207. Model program `f2-call-write` of redteamAG.hand_ag6, in capmodel `reggio/REPORTRTAG.txt`.
 
@@ -3081,7 +3095,7 @@ error E3102: <fragment>:32:16: use of moved value 'xs': it was moved in an earli
 ```
 
 <!-- test: model-hand-ag-f2-send -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3214. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `f2-send` of redteamAG.hand_ag6, in capmodel `reggio/REPORTRTAG.txt`.
 
@@ -3141,6 +3155,7 @@ error E3214: <fragment>:40:16: cannot hand 'h.xs' to argument `xsV` of the messa
 ```
 
 <!-- test: model-hand-ag-f1-assign -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-SLOT`; the compiler refuses it with E3203. Model program `f1-assign` of redteamAG.hand_ag6, in capmodel `reggio/REPORTRTAG.txt`.
 
@@ -3419,7 +3434,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ai-a7-lend-result-sent -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3200. Model program `a7-lend-result-sent` of redteamAI.hand_ai1, in capmodel `reggio/REPORTRTAI.txt`.
 
@@ -3471,7 +3486,7 @@ error E3200: <fragment>:39:24: 'idUT(u)' crosses to the service it is sent to on
 ```
 
 <!-- test: model-hand-ai-c6-send-payload -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3214. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `c6-send-payload` of redteamAI.hand_ai1, in capmodel `reggio/REPORTRTAI.txt`.
 
@@ -3523,7 +3538,7 @@ error E3214: <fragment>:39:27: cannot hand 't' to argument `x` of the message `S
 ```
 
 <!-- test: model-hand-ai-c7-spawn-payload -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3214. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `c7-spawn-payload` of redteamAI.hand_ai1, in capmodel `reggio/REPORTRTAI.txt`.
 
@@ -3565,6 +3580,7 @@ error E3214: <fragment>:29:41: cannot hand 'tV' to argument `x` of `spawn Sq.cre
 ```
 
 <!-- test: model-hand-ai-p-none-none-none -->
+<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `p-none-none-none` of redteamAI.hand_ai3, in capmodel `reggio/REPORTRTAI.txt`.
 
 ```maxon
@@ -3590,7 +3606,7 @@ type Wo
 	var item as Bx
 
 	static function create(keep Bx, consumes item Bx) returns Self
-		return Self{keep: keep.clone(), item: item}
+		return Self{keep: keep, item: item}
 	end 'create'
 end 'Wo'
 
@@ -3636,6 +3652,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ai-p-none-none-fb -->
+<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `p-none-none-fb` of redteamAI.hand_ai3, in capmodel `reggio/REPORTRTAI.txt`.
 
 ```maxon
@@ -3661,7 +3678,7 @@ type Wo
 	var item as Bx
 
 	static function create(keep Bx, consumes item Bx) returns Self
-		return Self{keep: keep.clone(), item: item}
+		return Self{keep: keep, item: item}
 	end 'create'
 end 'Wo'
 
@@ -3691,7 +3708,7 @@ type Sv3
 end 'Sv3'
 
 function main() returns ExitCode
-	var fb = Bx.create(7)
+	let fb = Bx.create(7)
 	_ = Wo.create(Bx.create(8), item: Bx.create(9))
 	_ = spawn Sv3.create(0)
 	let u = Pq.q1(Wo.create(Bx.create(0), item: Bx.create(1))) as Pq
@@ -3708,6 +3725,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ai-p-none-none-fr -->
+<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `p-none-none-fr` of redteamAI.hand_ai3, in capmodel `reggio/REPORTRTAI.txt`.
 
 ```maxon
@@ -3733,7 +3751,7 @@ type Wo
 	var item as Bx
 
 	static function create(keep Bx, consumes item Bx) returns Self
-		return Self{keep: keep.clone(), item: item}
+		return Self{keep: keep, item: item}
 	end 'create'
 end 'Wo'
 
@@ -3764,7 +3782,7 @@ end 'Sv3'
 
 function main() returns ExitCode
 	_ = Bx.create(7)
-	var fr = Wo.create(Bx.create(8), item: Bx.create(9))
+	let fr = Wo.create(Bx.create(8), item: Bx.create(9))
 	_ = spawn Sv3.create(0)
 	let u = Pq.q1(Wo.create(Bx.create(0), item: Bx.create(1))) as Pq
 	match u 'x1'
@@ -3780,6 +3798,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ai-p-keepin-none-none -->
+<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `p-keepin-none-none` of redteamAI.hand_ai3, in capmodel `reggio/REPORTRTAI.txt`.
 
 ```maxon
@@ -3805,7 +3824,7 @@ type Wo
 	var item as Bx
 
 	static function create(keep Bx, consumes item Bx) returns Self
-		return Self{keep: keep.clone(), item: item}
+		return Self{keep: keep, item: item}
 	end 'create'
 end 'Wo'
 
@@ -3851,6 +3870,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ai-p-keepin-none-fb -->
+<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `p-keepin-none-fb` of redteamAI.hand_ai3, in capmodel `reggio/REPORTRTAI.txt`.
 
 ```maxon
@@ -3876,79 +3896,7 @@ type Wo
 	var item as Bx
 
 	static function create(keep Bx, consumes item Bx) returns Self
-		return Self{keep: keep.clone(), item: item}
-	end 'create'
-end 'Wo'
-
-type Sv3
-	var n as Num
-
-	static function create(n Num) returns Self
-		return Self{n: n}
-	end 'create'
-
-	export function takeW(consumes w Wo)
-		_ = w
-		_ = 1 as Num
-	end 'takeW'
-
-	export function takeA(consumes a BxArray)
-		_ = a
-		_ = 1 as Num
-	end 'takeA'
-
-	export function eatPq(consumes u Pq)
-		match u 'x1'
-			q0 then break
-			q1(o) then o.keep.n = 3
-		end 'x1'
-	end 'eatPq'
-end 'Sv3'
-
-function main() returns ExitCode
-	var fb = Bx.create(7)
-	_ = Wo.create(Bx.create(8), item: Bx.create(9))
-	_ = spawn Sv3.create(0)
-	let u = Pq.q1(Wo.create(Bx.create(0), item: Bx.create(1))) as Pq
-	match u 'x1'
-		q0 then break
-		q1(o) then o.keep = fb
-	end 'x1'
-	fb.n = 2
-	return 0
-end 'main'
-```
-```exitcode
-0
-```
-
-<!-- test: model-hand-ai-p-keepin-none-fr -->
-The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `p-keepin-none-fr` of redteamAI.hand_ai3, in capmodel `reggio/REPORTRTAI.txt`.
-
-```maxon
-typealias Num = int(i64.min to i64.max)
-
-typealias BxArray = Array with Bx
-
-union Pq
-	q0
-	q1(w Wo)
-end 'Pq'
-
-type Bx
-	var n as Num
-
-	static function create(n Num) returns Self
-		return Self{n: n}
-	end 'create'
-end 'Bx'
-
-type Wo
-	var keep as Bx
-	var item as Bx
-
-	static function create(keep Bx, consumes item Bx) returns Self
-		return Self{keep: keep.clone(), item: item}
+		return Self{keep: keep, item: item}
 	end 'create'
 end 'Wo'
 
@@ -3979,7 +3927,80 @@ end 'Sv3'
 
 function main() returns ExitCode
 	let fb = Bx.create(7)
-	var fr = Wo.create(Bx.create(8), item: Bx.create(9))
+	_ = Wo.create(Bx.create(8), item: Bx.create(9))
+	_ = spawn Sv3.create(0)
+	let u = Pq.q1(Wo.create(Bx.create(0), item: Bx.create(1))) as Pq
+	match u 'x1'
+		q0 then break
+		q1(o) then o.keep = fb
+	end 'x1'
+	fb.n = 2
+	return 0
+end 'main'
+```
+```exitcode
+0
+```
+
+<!-- test: model-hand-ai-p-keepin-none-fr -->
+<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
+The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `p-keepin-none-fr` of redteamAI.hand_ai3, in capmodel `reggio/REPORTRTAI.txt`.
+
+```maxon
+typealias Num = int(i64.min to i64.max)
+
+typealias BxArray = Array with Bx
+
+union Pq
+	q0
+	q1(w Wo)
+end 'Pq'
+
+type Bx
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+end 'Bx'
+
+type Wo
+	var keep as Bx
+	var item as Bx
+
+	static function create(keep Bx, consumes item Bx) returns Self
+		return Self{keep: keep, item: item}
+	end 'create'
+end 'Wo'
+
+type Sv3
+	var n as Num
+
+	static function create(n Num) returns Self
+		return Self{n: n}
+	end 'create'
+
+	export function takeW(consumes w Wo)
+		_ = w
+		_ = 1 as Num
+	end 'takeW'
+
+	export function takeA(consumes a BxArray)
+		_ = a
+		_ = 1 as Num
+	end 'takeA'
+
+	export function eatPq(consumes u Pq)
+		match u 'x1'
+			q0 then break
+			q1(o) then o.keep.n = 3
+		end 'x1'
+	end 'eatPq'
+end 'Sv3'
+
+function main() returns ExitCode
+	let fb = Bx.create(7)
+	let fr = Wo.create(Bx.create(8), item: Bx.create(9))
 	_ = spawn Sv3.create(0)
 	let u = Pq.q1(Wo.create(Bx.create(0), item: Bx.create(1))) as Pq
 	match u 'x1'
@@ -3995,6 +4016,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ai-p-keepin-fr-none-none -->
+<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `p-keepin-fr-none-none` of redteamAI.hand_ai3, in capmodel `reggio/REPORTRTAI.txt`.
 
 ```maxon
@@ -4020,7 +4042,7 @@ type Wo
 	var item as Bx
 
 	static function create(keep Bx, consumes item Bx) returns Self
-		return Self{keep: keep.clone(), item: item}
+		return Self{keep: keep, item: item}
 	end 'create'
 end 'Wo'
 
@@ -4066,6 +4088,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ai-p-keepin-fr-none-fb -->
+<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `p-keepin-fr-none-fb` of redteamAI.hand_ai3, in capmodel `reggio/REPORTRTAI.txt`.
 
 ```maxon
@@ -4091,7 +4114,7 @@ type Wo
 	var item as Bx
 
 	static function create(keep Bx, consumes item Bx) returns Self
-		return Self{keep: keep.clone(), item: item}
+		return Self{keep: keep, item: item}
 	end 'create'
 end 'Wo'
 
@@ -4121,7 +4144,7 @@ type Sv3
 end 'Sv3'
 
 function main() returns ExitCode
-	var fb = Bx.create(7)
+	let fb = Bx.create(7)
 	let fr = Wo.create(Bx.create(8), item: Bx.create(9))
 	_ = spawn Sv3.create(0)
 	let u = Pq.q1(Wo.create(Bx.create(0), item: Bx.create(1))) as Pq
@@ -4138,6 +4161,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ai-p-keepin-fr-none-fr -->
+<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `p-keepin-fr-none-fr` of redteamAI.hand_ai3, in capmodel `reggio/REPORTRTAI.txt`.
 
 ```maxon
@@ -4163,7 +4187,7 @@ type Wo
 	var item as Bx
 
 	static function create(keep Bx, consumes item Bx) returns Self
-		return Self{keep: keep.clone(), item: item}
+		return Self{keep: keep, item: item}
 	end 'create'
 end 'Wo'
 
@@ -4194,7 +4218,7 @@ end 'Sv3'
 
 function main() returns ExitCode
 	_ = Bx.create(7)
-	var fr = Wo.create(Bx.create(8), item: Bx.create(9))
+	let fr = Wo.create(Bx.create(8), item: Bx.create(9))
 	_ = spawn Sv3.create(0)
 	let u = Pq.q1(Wo.create(Bx.create(0), item: Bx.create(1))) as Pq
 	match u 'x1'
@@ -4210,6 +4234,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ai-p-out-none-none -->
+<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `p-out-none-none` of redteamAI.hand_ai3, in capmodel `reggio/REPORTRTAI.txt`.
 
 ```maxon
@@ -4235,7 +4260,7 @@ type Wo
 	var item as Bx
 
 	static function create(keep Bx, consumes item Bx) returns Self
-		return Self{keep: keep.clone(), item: item}
+		return Self{keep: keep, item: item}
 	end 'create'
 end 'Wo'
 
@@ -4281,6 +4306,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ai-p-out-none-fb -->
+<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `p-out-none-fb` of redteamAI.hand_ai3, in capmodel `reggio/REPORTRTAI.txt`.
 
 ```maxon
@@ -4306,7 +4332,7 @@ type Wo
 	var item as Bx
 
 	static function create(keep Bx, consumes item Bx) returns Self
-		return Self{keep: keep.clone(), item: item}
+		return Self{keep: keep, item: item}
 	end 'create'
 end 'Wo'
 
@@ -4336,7 +4362,7 @@ type Sv3
 end 'Sv3'
 
 function main() returns ExitCode
-	var fb = Bx.create(7)
+	let fb = Bx.create(7)
 	_ = Wo.create(Bx.create(8), item: Bx.create(9))
 	_ = spawn Sv3.create(0)
 	let u = Pq.q1(Wo.create(Bx.create(0), item: Bx.create(1))) as Pq
@@ -4353,6 +4379,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ai-p-out-none-fr -->
+<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `p-out-none-fr` of redteamAI.hand_ai3, in capmodel `reggio/REPORTRTAI.txt`.
 
 ```maxon
@@ -4378,7 +4405,7 @@ type Wo
 	var item as Bx
 
 	static function create(keep Bx, consumes item Bx) returns Self
-		return Self{keep: keep.clone(), item: item}
+		return Self{keep: keep, item: item}
 	end 'create'
 end 'Wo'
 
@@ -4409,7 +4436,7 @@ end 'Sv3'
 
 function main() returns ExitCode
 	_ = Bx.create(7)
-	var fr = Wo.create(Bx.create(8), item: Bx.create(9))
+	let fr = Wo.create(Bx.create(8), item: Bx.create(9))
 	_ = spawn Sv3.create(0)
 	let u = Pq.q1(Wo.create(Bx.create(0), item: Bx.create(1))) as Pq
 	match u 'x1'
@@ -4425,6 +4452,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ai-p-out-fr-none-none -->
+<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `p-out-fr-none-none` of redteamAI.hand_ai3, in capmodel `reggio/REPORTRTAI.txt`.
 
 ```maxon
@@ -4450,7 +4478,7 @@ type Wo
 	var item as Bx
 
 	static function create(keep Bx, consumes item Bx) returns Self
-		return Self{keep: keep.clone(), item: item}
+		return Self{keep: keep, item: item}
 	end 'create'
 end 'Wo'
 
@@ -4481,12 +4509,12 @@ end 'Sv3'
 
 function main() returns ExitCode
 	_ = Bx.create(7)
-	var fr = Wo.create(Bx.create(8), item: Bx.create(9))
+	let fr = Wo.create(Bx.create(8), item: Bx.create(9))
 	_ = spawn Sv3.create(0)
 	let u = Pq.q1(Wo.create(Bx.create(0), item: Bx.create(1))) as Pq
 	match u 'x1'
 		q0 then break
-		q1(o) then fr.keep = o.keep.clone()
+		q1(o) then fr.keep = o.keep
 	end 'x1'
 	return 0
 end 'main'
@@ -4496,6 +4524,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ai-p-out-fr-none-fb -->
+<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `p-out-fr-none-fb` of redteamAI.hand_ai3, in capmodel `reggio/REPORTRTAI.txt`.
 
 ```maxon
@@ -4521,7 +4550,7 @@ type Wo
 	var item as Bx
 
 	static function create(keep Bx, consumes item Bx) returns Self
-		return Self{keep: keep.clone(), item: item}
+		return Self{keep: keep, item: item}
 	end 'create'
 end 'Wo'
 
@@ -4551,13 +4580,13 @@ type Sv3
 end 'Sv3'
 
 function main() returns ExitCode
-	var fb = Bx.create(7)
-	var fr = Wo.create(Bx.create(8), item: Bx.create(9))
+	let fb = Bx.create(7)
+	let fr = Wo.create(Bx.create(8), item: Bx.create(9))
 	_ = spawn Sv3.create(0)
 	let u = Pq.q1(Wo.create(Bx.create(0), item: Bx.create(1))) as Pq
 	match u 'x1'
 		q0 then break
-		q1(o) then fr.keep = o.keep.clone()
+		q1(o) then fr.keep = o.keep
 	end 'x1'
 	fb.n = 2
 	return 0
@@ -4568,6 +4597,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ai-p-out-fr-none-fr -->
+<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `p-out-fr-none-fr` of redteamAI.hand_ai3, in capmodel `reggio/REPORTRTAI.txt`.
 
 ```maxon
@@ -4593,7 +4623,7 @@ type Wo
 	var item as Bx
 
 	static function create(keep Bx, consumes item Bx) returns Self
-		return Self{keep: keep.clone(), item: item}
+		return Self{keep: keep, item: item}
 	end 'create'
 end 'Wo'
 
@@ -4624,12 +4654,12 @@ end 'Sv3'
 
 function main() returns ExitCode
 	_ = Bx.create(7)
-	var fr = Wo.create(Bx.create(8), item: Bx.create(9))
+	let fr = Wo.create(Bx.create(8), item: Bx.create(9))
 	_ = spawn Sv3.create(0)
 	let u = Pq.q1(Wo.create(Bx.create(0), item: Bx.create(1))) as Pq
 	match u 'x1'
 		q0 then break
-		q1(o) then fr.keep = o.keep.clone()
+		q1(o) then fr.keep = o.keep
 	end 'x1'
 	fr.keep.n = 4
 	return 0
@@ -4640,6 +4670,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ai-p-newin-none-none -->
+<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `p-newin-none-none` of redteamAI.hand_ai3, in capmodel `reggio/REPORTRTAI.txt`.
 
 ```maxon
@@ -4665,7 +4696,7 @@ type Wo
 	var item as Bx
 
 	static function create(keep Bx, consumes item Bx) returns Self
-		return Self{keep: keep.clone(), item: item}
+		return Self{keep: keep, item: item}
 	end 'create'
 end 'Wo'
 
@@ -4711,6 +4742,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ai-p-newin-none-fb -->
+<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `p-newin-none-fb` of redteamAI.hand_ai3, in capmodel `reggio/REPORTRTAI.txt`.
 
 ```maxon
@@ -4736,7 +4768,7 @@ type Wo
 	var item as Bx
 
 	static function create(keep Bx, consumes item Bx) returns Self
-		return Self{keep: keep.clone(), item: item}
+		return Self{keep: keep, item: item}
 	end 'create'
 end 'Wo'
 
@@ -4766,7 +4798,7 @@ type Sv3
 end 'Sv3'
 
 function main() returns ExitCode
-	var fb = Bx.create(7)
+	let fb = Bx.create(7)
 	_ = Wo.create(Bx.create(8), item: Bx.create(9))
 	_ = spawn Sv3.create(0)
 	let u = Pq.q1(Wo.create(Bx.create(0), item: Bx.create(1))) as Pq
@@ -4783,6 +4815,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ai-p-newin-none-fr -->
+<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `p-newin-none-fr` of redteamAI.hand_ai3, in capmodel `reggio/REPORTRTAI.txt`.
 
 ```maxon
@@ -4808,7 +4841,7 @@ type Wo
 	var item as Bx
 
 	static function create(keep Bx, consumes item Bx) returns Self
-		return Self{keep: keep.clone(), item: item}
+		return Self{keep: keep, item: item}
 	end 'create'
 end 'Wo'
 
@@ -4839,7 +4872,7 @@ end 'Sv3'
 
 function main() returns ExitCode
 	_ = Bx.create(7)
-	var fr = Wo.create(Bx.create(8), item: Bx.create(9))
+	let fr = Wo.create(Bx.create(8), item: Bx.create(9))
 	_ = spawn Sv3.create(0)
 	let u = Pq.q1(Wo.create(Bx.create(0), item: Bx.create(1))) as Pq
 	match u 'x1'
@@ -4855,6 +4888,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ai-p-fieldint-none-none -->
+<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `p-fieldint-none-none` of redteamAI.hand_ai3, in capmodel `reggio/REPORTRTAI.txt`.
 
 ```maxon
@@ -4880,7 +4914,7 @@ type Wo
 	var item as Bx
 
 	static function create(keep Bx, consumes item Bx) returns Self
-		return Self{keep: keep.clone(), item: item}
+		return Self{keep: keep, item: item}
 	end 'create'
 end 'Wo'
 
@@ -4926,6 +4960,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ai-p-fieldint-none-fb -->
+<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `p-fieldint-none-fb` of redteamAI.hand_ai3, in capmodel `reggio/REPORTRTAI.txt`.
 
 ```maxon
@@ -4951,7 +4986,7 @@ type Wo
 	var item as Bx
 
 	static function create(keep Bx, consumes item Bx) returns Self
-		return Self{keep: keep.clone(), item: item}
+		return Self{keep: keep, item: item}
 	end 'create'
 end 'Wo'
 
@@ -4981,7 +5016,7 @@ type Sv3
 end 'Sv3'
 
 function main() returns ExitCode
-	var fb = Bx.create(7)
+	let fb = Bx.create(7)
 	_ = Wo.create(Bx.create(8), item: Bx.create(9))
 	_ = spawn Sv3.create(0)
 	let u = Pq.q1(Wo.create(Bx.create(0), item: Bx.create(1))) as Pq
@@ -4998,6 +5033,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ai-p-fieldint-none-fr -->
+<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `p-fieldint-none-fr` of redteamAI.hand_ai3, in capmodel `reggio/REPORTRTAI.txt`.
 
 ```maxon
@@ -5023,7 +5059,7 @@ type Wo
 	var item as Bx
 
 	static function create(keep Bx, consumes item Bx) returns Self
-		return Self{keep: keep.clone(), item: item}
+		return Self{keep: keep, item: item}
 	end 'create'
 end 'Wo'
 
@@ -5054,7 +5090,7 @@ end 'Sv3'
 
 function main() returns ExitCode
 	_ = Bx.create(7)
-	var fr = Wo.create(Bx.create(8), item: Bx.create(9))
+	let fr = Wo.create(Bx.create(8), item: Bx.create(9))
 	_ = spawn Sv3.create(0)
 	let u = Pq.q1(Wo.create(Bx.create(0), item: Bx.create(1))) as Pq
 	match u 'x1'
@@ -5070,6 +5106,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ai-i-none-none-none -->
+<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `i-none-none-none` of redteamAI.hand_ai3, in capmodel `reggio/REPORTRTAI.txt`.
 
 ```maxon
@@ -5100,7 +5137,7 @@ type Wo
 	var item as Bx
 
 	static function create(keep Bx, consumes item Bx) returns Self
-		return Self{keep: keep.clone(), item: item}
+		return Self{keep: keep, item: item}
 	end 'create'
 end 'Wo'
 
@@ -5146,6 +5183,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ai-i-none-none-fb -->
+<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `i-none-none-fb` of redteamAI.hand_ai3, in capmodel `reggio/REPORTRTAI.txt`.
 
 ```maxon
@@ -5176,7 +5214,7 @@ type Wo
 	var item as Bx
 
 	static function create(keep Bx, consumes item Bx) returns Self
-		return Self{keep: keep.clone(), item: item}
+		return Self{keep: keep, item: item}
 	end 'create'
 end 'Wo'
 
@@ -5206,7 +5244,7 @@ type Sv3
 end 'Sv3'
 
 function main() returns ExitCode
-	var fb = Bx.create(7)
+	let fb = Bx.create(7)
 	_ = Wo.create(Bx.create(8), item: Bx.create(9))
 	_ = spawn Sv3.create(0)
 	let u = Iq.i1(Wo.create(Bx.create(0), item: Bx.create(1))) as Iq
@@ -5223,6 +5261,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ai-i-none-none-fr -->
+<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `i-none-none-fr` of redteamAI.hand_ai3, in capmodel `reggio/REPORTRTAI.txt`.
 
 ```maxon
@@ -5253,7 +5292,7 @@ type Wo
 	var item as Bx
 
 	static function create(keep Bx, consumes item Bx) returns Self
-		return Self{keep: keep.clone(), item: item}
+		return Self{keep: keep, item: item}
 	end 'create'
 end 'Wo'
 
@@ -5284,7 +5323,7 @@ end 'Sv3'
 
 function main() returns ExitCode
 	_ = Bx.create(7)
-	var fr = Wo.create(Bx.create(8), item: Bx.create(9))
+	let fr = Wo.create(Bx.create(8), item: Bx.create(9))
 	_ = spawn Sv3.create(0)
 	let u = Iq.i1(Wo.create(Bx.create(0), item: Bx.create(1))) as Iq
 	match u 'x1'
@@ -5300,7 +5339,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ai-i-swap-item-fb-none-none -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3200. Model program `i-swap-item-fb-none-none` of redteamAI.hand_ai3, in capmodel `reggio/REPORTRTAI.txt`.
 
@@ -5378,7 +5417,7 @@ error E3200: <fragment>:64:39: 'fb' is not isolated: only a clean call, a `swap`
 ```
 
 <!-- test: model-hand-ai-i-swap-item-fb-none-fb -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3200. Model program `i-swap-item-fb-none-fb` of redteamAI.hand_ai3, in capmodel `reggio/REPORTRTAI.txt`.
 
@@ -5457,7 +5496,7 @@ error E3200: <fragment>:64:39: 'fb' is not isolated: only a clean call, a `swap`
 ```
 
 <!-- test: model-hand-ai-i-swap-item-fb-none-fr -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3200. Model program `i-swap-item-fb-none-fr` of redteamAI.hand_ai3, in capmodel `reggio/REPORTRTAI.txt`.
 
@@ -5536,6 +5575,7 @@ error E3200: <fragment>:64:39: 'fb' is not isolated: only a clean call, a `swap`
 ```
 
 <!-- test: model-hand-ai-a-none-none-none -->
+<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `a-none-none-none` of redteamAI.hand_ai3, in capmodel `reggio/REPORTRTAI.txt`.
 
 ```maxon
@@ -5566,7 +5606,7 @@ type Wo
 	var item as Bx
 
 	static function create(keep Bx, consumes item Bx) returns Self
-		return Self{keep: keep.clone(), item: item}
+		return Self{keep: keep, item: item}
 	end 'create'
 end 'Wo'
 
@@ -5613,6 +5653,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ai-a-none-none-fb -->
+<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `a-none-none-fb` of redteamAI.hand_ai3, in capmodel `reggio/REPORTRTAI.txt`.
 
 ```maxon
@@ -5643,7 +5684,7 @@ type Wo
 	var item as Bx
 
 	static function create(keep Bx, consumes item Bx) returns Self
-		return Self{keep: keep.clone(), item: item}
+		return Self{keep: keep, item: item}
 	end 'create'
 end 'Wo'
 
@@ -5673,7 +5714,7 @@ type Sv3
 end 'Sv3'
 
 function main() returns ExitCode
-	var fb = Bx.create(7)
+	let fb = Bx.create(7)
 	_ = Wo.create(Bx.create(8), item: Bx.create(9))
 	_ = spawn Sv3.create(0)
 	_ = BxArray.create(0)
@@ -5691,6 +5732,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ai-a-push-fb-none-none -->
+<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `a-push-fb-none-none` of redteamAI.hand_ai3, in capmodel `reggio/REPORTRTAI.txt`.
 
 ```maxon
@@ -5721,7 +5763,7 @@ type Wo
 	var item as Bx
 
 	static function create(keep Bx, consumes item Bx) returns Self
-		return Self{keep: keep.clone(), item: item}
+		return Self{keep: keep, item: item}
 	end 'create'
 end 'Wo'
 
@@ -5768,6 +5810,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ai-a-push-fb-none-fb -->
+<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `a-push-fb-none-fb` of redteamAI.hand_ai3, in capmodel `reggio/REPORTRTAI.txt`.
 
 ```maxon
@@ -5798,7 +5841,7 @@ type Wo
 	var item as Bx
 
 	static function create(keep Bx, consumes item Bx) returns Self
-		return Self{keep: keep.clone(), item: item}
+		return Self{keep: keep, item: item}
 	end 'create'
 end 'Wo'
 
@@ -5828,7 +5871,7 @@ type Sv3
 end 'Sv3'
 
 function main() returns ExitCode
-	var fb = Bx.create(7)
+	let fb = Bx.create(7)
 	_ = Wo.create(Bx.create(8), item: Bx.create(9))
 	_ = spawn Sv3.create(0)
 	_ = BxArray.create(0)
@@ -5846,6 +5889,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ai-a-push-new-none-none -->
+<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `a-push-new-none-none` of redteamAI.hand_ai3, in capmodel `reggio/REPORTRTAI.txt`.
 
 ```maxon
@@ -5876,7 +5920,7 @@ type Wo
 	var item as Bx
 
 	static function create(keep Bx, consumes item Bx) returns Self
-		return Self{keep: keep.clone(), item: item}
+		return Self{keep: keep, item: item}
 	end 'create'
 end 'Wo'
 
@@ -5923,6 +5967,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ai-a-push-new-none-fb -->
+<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `a-push-new-none-fb` of redteamAI.hand_ai3, in capmodel `reggio/REPORTRTAI.txt`.
 
 ```maxon
@@ -5953,7 +5998,7 @@ type Wo
 	var item as Bx
 
 	static function create(keep Bx, consumes item Bx) returns Self
-		return Self{keep: keep.clone(), item: item}
+		return Self{keep: keep, item: item}
 	end 'create'
 end 'Wo'
 
@@ -5983,7 +6028,7 @@ type Sv3
 end 'Sv3'
 
 function main() returns ExitCode
-	var fb = Bx.create(7)
+	let fb = Bx.create(7)
 	_ = Wo.create(Bx.create(8), item: Bx.create(9))
 	_ = spawn Sv3.create(0)
 	_ = BxArray.create(0)
@@ -6001,6 +6046,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ai-ia-none-none-none -->
+<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `ia-none-none-none` of redteamAI.hand_ai3, in capmodel `reggio/REPORTRTAI.txt`.
 
 ```maxon
@@ -6031,7 +6077,7 @@ type Wo
 	var item as Bx
 
 	static function create(keep Bx, consumes item Bx) returns Self
-		return Self{keep: keep.clone(), item: item}
+		return Self{keep: keep, item: item}
 	end 'create'
 end 'Wo'
 
@@ -6078,6 +6124,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ai-ia-none-none-fb -->
+<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `ia-none-none-fb` of redteamAI.hand_ai3, in capmodel `reggio/REPORTRTAI.txt`.
 
 ```maxon
@@ -6108,7 +6155,7 @@ type Wo
 	var item as Bx
 
 	static function create(keep Bx, consumes item Bx) returns Self
-		return Self{keep: keep.clone(), item: item}
+		return Self{keep: keep, item: item}
 	end 'create'
 end 'Wo'
 
@@ -6138,7 +6185,7 @@ type Sv3
 end 'Sv3'
 
 function main() returns ExitCode
-	var fb = Bx.create(7)
+	let fb = Bx.create(7)
 	_ = Wo.create(Bx.create(8), item: Bx.create(9))
 	_ = spawn Sv3.create(0)
 	_ = BxArray.create(0)
@@ -6156,6 +6203,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ai-p-loop-carry-out -->
+<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `p-loop-carry-out` of redteamAI.hand_ai3, in capmodel `reggio/REPORTRTAI.txt`.
 
 ```maxon
@@ -6181,7 +6229,7 @@ type Wo
 	var item as Bx
 
 	static function create(keep Bx, consumes item Bx) returns Self
-		return Self{keep: keep.clone(), item: item}
+		return Self{keep: keep, item: item}
 	end 'create'
 end 'Wo'
 
@@ -6223,13 +6271,13 @@ function main() returns ExitCode
 	_ = Bx.create(7)
 	_ = Wo.create(Bx.create(8), item: Bx.create(9))
 	_ = spawn Sv3.create(0)
-	var keepc = Bx.create(1)
+	let keepc = Bx.create(1)
 	var i = 2 as Num
 	while i != 0 'w1'
 		let u = Pq.q1(Wo.create(Bx.create(0), item: Bx.create(1))) as Pq
 		match u 'x2'
 			q0 then break
-			q1(o) then takeWo(o.clone())
+			q1(o) then takeWo(o)
 		end 'x2'
 		keepc.n = 3
 		i = lg(0)
@@ -6307,7 +6355,7 @@ error E3102: <fragment>:53:10: use of moved value 't': its ownership moved to th
 ```
 
 <!-- test: model-hand-aj-spawn-rename-2 -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3214. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `spawn-rename` of redteamAJ.hand_aj3, in capmodel `reggio/REPORTRTAJ.txt`.
 
@@ -6357,6 +6405,7 @@ error E3214: <fragment>:31:27: cannot hand 'u' to argument `x` of `spawn Sk4.cre
 ```
 
 <!-- test: model-hand-aj-ipm-factory-iso-store -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-STORE`; the compiler refuses it with E3196. Model program `ipm-factory-iso-store` of redteamAJ.hand_aj5, in capmodel `reggio/REPORTRTAJ.txt`.
 
@@ -6596,7 +6645,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-al-u-unique-result -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3200. Model program `u-unique-result` of redteamAL/hand_al1.txt, in capmodel `reggio/REPORTRTAL.txt`.
 
@@ -6667,7 +6716,7 @@ error E3200: <fragment>:58:14: 'r' crosses to the service it is sent to only as 
 ```
 
 <!-- test: model-hand-al-u-union-result -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3200. Model program `u-union-result` of redteamAL/hand_al1.txt, in capmodel `reggio/REPORTRTAL.txt`.
 
@@ -6746,7 +6795,7 @@ error E3200: <fragment>:66:14: 'r' crosses to the service it is sent to only as 
 ```
 
 <!-- test: model-hand-an-c3-unique-move-h-send-nb -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3214. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `c3-unique-move-h-send-nb` of redteamAN.hand_an2, in capmodel `reggio/REPORTRTAN.txt`.
 
@@ -6979,7 +7028,7 @@ error E3102: <fragment>:41:8: use of moved value 't': its ownership moved to the
 ```
 
 <!-- test: model-hand-ap-a1-param-rename-send -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3214. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `a1-param-rename-send` of redteamAP.hand_ap1, in capmodel `reggio/REPORTRTAP.txt`.
 
@@ -7043,7 +7092,7 @@ error E3214: <fragment>:46:14: cannot hand 'y' to argument `x` of the message `S
 ```
 
 <!-- test: model-hand-ap-a1-forbind-idcall -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-LEND`; the compiler refuses it with E3214. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `a1-forbind-idcall` of redteamAP.hand_ap1, in capmodel `reggio/REPORTRTAP.txt`.
 
@@ -7099,7 +7148,7 @@ error E3214: <fragment>:38:11: cannot pass 'e' to parameter 'x' of 'idTk': it ke
 ```
 
 <!-- test: model-hand-ap-a1-forbind-direct -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3214. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `a1-forbind-direct` of redteamAP.hand_ap1, in capmodel `reggio/REPORTRTAP.txt`.
 
@@ -7208,7 +7257,7 @@ error E3102: <fragment>:52:17: use of moved value 'v': its ownership moved to th
 ```
 
 <!-- test: model-hand-ap-g1-generic-arr-plain -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3200. Model program `g1-generic-arr-plain` of redteamAP.hand_ap1, in capmodel `reggio/REPORTRTAP.txt`.
 
@@ -7504,6 +7553,7 @@ error E3200: <fragment>:49:13: 'l' crosses to the service it is sent to only as 
 ```
 
 <!-- test: model-hand-ap-g1-union-plain-case -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3200. Model program `g1-union-plain-case` of redteamAP.hand_ap1, in capmodel `reggio/REPORTRTAP.txt`.
 
@@ -7563,7 +7613,7 @@ error E3200: <fragment>:48:13: 'u' crosses to the service it is sent to only as 
 ```
 
 <!-- test: model-hand-ap-g1-union-plain-case-kept -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3200. Model program `g1-union-plain-case-kept` of redteamAP.hand_ap1, in capmodel `reggio/REPORTRTAP.txt`.
 
@@ -7683,7 +7733,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ap-g1-int-array-plain -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3200. Model program `g1-int-array-plain` of redteamAP.hand_ap1, in capmodel `reggio/REPORTRTAP.txt`.
 
@@ -7843,6 +7893,7 @@ error E3102: <fragment>:43:8: use of moved value 'v': its ownership moved to the
 ```
 
 <!-- test: model-hand-ap-h8-cond-subject-other -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3214. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `h8-cond-subject-other` of redteamAP.hand_ap2, in capmodel `reggio/REPORTRTAP.txt`.
 
@@ -7895,6 +7946,7 @@ error E3214: <fragment>:40:24: cannot hand 'u' to the service it is sent to: 'u'
 ```
 
 <!-- test: model-hand-ap-h8-cond-in-arm -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3214. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `h8-cond-in-arm` of redteamAP.hand_ap2, in capmodel `reggio/REPORTRTAP.txt`.
 
@@ -7947,6 +7999,7 @@ error E3214: <fragment>:40:24: cannot hand '(v if lg(1) != 0 else u)' to the ser
 ```
 
 <!-- test: model-hand-ap-h8-cond-in-arm-first -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3214. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `h8-cond-in-arm-first` of redteamAP.hand_ap2, in capmodel `reggio/REPORTRTAP.txt`.
 
@@ -8617,7 +8670,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ap-w1-method-self -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R18-UNIQUE`; the compiler refuses it with E3214. Model program `w1-method-self` of redteamAP.hand_ap4, in capmodel `reggio/REPORTRTAP.txt`.
 
@@ -8733,6 +8786,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ap-m1-cond-subject-same -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3214. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `m1-cond-subject-same` of redteamAP.hand_ap4, in capmodel `reggio/REPORTRTAP.txt`.
 
@@ -9951,7 +10005,7 @@ error E3102: <fragment>:45:17: use of moved value 'u': its ownership moved to an
 ```
 
 <!-- test: model-hand-ar-i5-iso-payload-bind-send -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-LEND`; the compiler refuses it with E3214. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `i5-iso-payload-bind-send` of redteamAR.hand_ar3, in capmodel `reggio/REPORTRTAR.txt`.
 
@@ -10046,6 +10100,7 @@ error E3196: <fragment>:20:12: cannot store an isolated 'Bx' into 'b', which hol
 ```
 
 <!-- test: model-hand-fa14-m-factory-param-store -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-STORE`; the compiler refuses it with E3196. Model program `m-factory-param-store` of redteamFA14.hand_fa14b, in capmodel `reggio/REPORTFA14.txt`.
 
@@ -10209,6 +10264,7 @@ error E3196: <fragment>:27:25: cannot store an isolated 'Bx' into 'b', which hol
 ```
 
 <!-- test: model-hand-fa14-m-store-into-local-record -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-STORE`; the compiler refuses it with E3196. Model program `m-store-into-local-record` of redteamFA14.hand_fa14b, in capmodel `reggio/REPORTFA14.txt`.
 
@@ -10227,7 +10283,7 @@ type Zp
 	var b as Bx
 
 	static function create(b Bx) returns Self
-		return Self{b: b.clone()}
+		return Self{b: b}
 	end 'create'
 end 'Zp'
 
@@ -10239,7 +10295,7 @@ type Zm7
 	end 'create'
 
 	export function put(consumes bV Bx)
-		var h = Zp.create(Bx.create(0))
+		let h = Zp.create(Bx.create(0))
 		h.b = bV
 	end 'put'
 end 'Zm7'
@@ -10254,7 +10310,7 @@ error E3196: <fragment>:29:9: cannot store an isolated 'Bx' into 'b', which hold
 ```
 
 <!-- test: model-hand-fa14-l-nonlinear-param-send -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3200. Model program `l-nonlinear-param-send` of redteamFA14.hand_fa14b, in capmodel `reggio/REPORTFA14.txt`.
 
@@ -20408,7 +20464,7 @@ end 'Sk'
 
 function main() returns ExitCode
 	let u = UT.have(Tk.create(1)) as UT
-	match u 'x1'
+	match consumes u 'x1'
 		none then break
 		have(tV) then _ = spawn Sk.create(tV)
 	end 'x1'
@@ -20457,7 +20513,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-fa17-r-send -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3214. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `r-send` of redteamFA17.hand_fa17a, in capmodel `reggio/REPORTFA17.txt`.
 
@@ -20513,6 +20569,7 @@ error E3214: <fragment>:37:11: cannot hand 'u' to argument `t` of the message `S
 ```
 
 <!-- test: model-hand-fa17-w-send -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3214. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `w-send` of redteamFA17.hand_fa17a, in capmodel `reggio/REPORTFA17.txt`.
 
@@ -20560,7 +20617,7 @@ error E3214: <fragment>:35:24: cannot hand 'u' to the service it is sent to: 'u'
 ```
 
 <!-- test: model-hand-fa17-w-spawn -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3214. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `w-spawn` of redteamFA17.hand_fa17a, in capmodel `reggio/REPORTFA17.txt`.
 
@@ -20835,6 +20892,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-fa17-i-factory-store -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-STORE`; the compiler refuses it with E3196. Model program `i-factory-store` of redteamFA17.hand_fa17a, in capmodel `reggio/REPORTFA17.txt`.
 
@@ -20900,6 +20958,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-fa17-i-msg-local -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-STORE`; the compiler refuses it with E3196. Model program `i-msg-local` of redteamFA17.hand_fa17a, in capmodel `reggio/REPORTFA17.txt`.
 
@@ -22140,7 +22199,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-fa19-x-arm-stored-then-holder-sent -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3200. Model program `x-arm-stored-then-holder-sent` of redteamFA19.hand_fa19, in capmodel `reggio/REPORTFA19.txt`.
 
@@ -22211,7 +22270,7 @@ error E3200: <fragment>:58:14: 'u' crosses to the service it is sent to only as 
 ```
 
 <!-- test: model-hand-fa19-x-arm-outer-into-binding-then-sent -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3200. Model program `x-arm-outer-into-binding-then-sent` of redteamFA19.hand_fa19, in capmodel `reggio/REPORTFA19.txt`.
 
@@ -22273,7 +22332,7 @@ error E3200: <fragment>:49:14: 'u' crosses to the service it is sent to only as 
 ```
 
 <!-- test: model-hand-fa19-x-arm-param-then-sent -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3200. Model program `x-arm-param-then-sent` of redteamFA19.hand_fa19, in capmodel `reggio/REPORTFA19.txt`.
 
@@ -22348,7 +22407,7 @@ error E3200: <fragment>:62:14: 'u' crosses to the service it is sent to only as 
 ```
 
 <!-- test: model-hand-fa19-x-arm-callee-local-holder-returned -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3200. Model program `x-arm-callee-local-holder-returned` of redteamFA19.hand_fa19, in capmodel `reggio/REPORTFA19.txt`.
 
@@ -22424,7 +22483,7 @@ error E3200: <fragment>:63:14: 'u' crosses to the service it is sent to only as 
 ```
 
 <!-- test: model-hand-fa19-x-for-stored-then-holder-sent -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3200. Model program `x-for-stored-then-holder-sent` of redteamFA19.hand_fa19, in capmodel `reggio/REPORTFA19.txt`.
 
@@ -22491,7 +22550,7 @@ error E3200: <fragment>:53:14: 'xs' crosses to the service it is sent to only as
 ```
 
 <!-- test: model-hand-fa19-x-for-callee-container-returned -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3200. Model program `x-for-callee-container-returned` of redteamFA19.hand_fa19, in capmodel `reggio/REPORTFA19.txt`.
 
@@ -24482,7 +24541,7 @@ error E3102: <fragment>:42:13: use of moved value 'u': its ownership moved to an
 ```
 
 <!-- test: model-hand-fa25-c-plain-part-send -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3200. Model program `c-plain-part-send` of redteamFA25.hand_fa25, in capmodel `reggio/REPORTFA25.txt`.
 
@@ -24543,6 +24602,7 @@ error E3200: <fragment>:49:13: 'u' crosses to the service it is sent to only as 
 ```
 
 <!-- test: model-hand-fa25-c-arm-binding-send -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3214. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `c-arm-binding-send` of redteamFA25.hand_fa25, in capmodel `reggio/REPORTFA25.txt`.
 
@@ -24590,7 +24650,7 @@ error E3214: <fragment>:35:24: cannot hand 'u' to the service it is sent to: 'u'
 ```
 
 <!-- test: model-hand-fa25-c-arm-binding-spawn -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3214. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `c-arm-binding-spawn` of redteamFA25.hand_fa25, in capmodel `reggio/REPORTFA25.txt`.
 
@@ -24632,7 +24692,7 @@ error E3214: <fragment>:29:37: cannot hand 'uV' to the service the `spawn` start
 ```
 
 <!-- test: model-hand-fa25-c-arm-field-root -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3214. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `c-arm-field-root` of redteamFA25.hand_fa25, in capmodel `reggio/REPORTFA25.txt`.
 
@@ -24688,6 +24748,7 @@ error E3214: <fragment>:43:25: cannot hand 'h' to the service it is sent to: 'h'
 ```
 
 <!-- test: model-hand-fa25-c-arm-cond-subject -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3214. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `c-arm-cond-subject` of redteamFA25.hand_fa25, in capmodel `reggio/REPORTFA25.txt`.
 
@@ -25345,7 +25406,7 @@ error E3102: <fragment>:43:36: use of moved value 'u': its ownership moved to an
 ```
 
 <!-- test: model-hand-fa25-c-kept-part-send -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3200. Model program `c-kept-part-send` of redteamFA25.hand_fa25, in capmodel `reggio/REPORTFA25.txt`.
 
@@ -25401,7 +25462,7 @@ error E3200: <fragment>:43:14: 'u' crosses to the service it is sent to only as 
 ```
 
 <!-- test: model-hand-fa25-c-kept-part-after-arm -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3200. Model program `c-kept-part-after-arm` of redteamFA25.hand_fa25, in capmodel `reggio/REPORTFA25.txt`.
 
@@ -25475,6 +25536,7 @@ error E3200: <fragment>:61:14: 'u' crosses to the service it is sent to only as 
 ```
 
 <!-- test: model-hand-fa25-c-arm-nobind-send-then-read -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3214. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `c-arm-nobind-send-then-read` of redteamFA25.hand_fa25, in capmodel `reggio/REPORTFA25.txt`.
 
@@ -25530,6 +25592,7 @@ error E3214: <fragment>:42:24: cannot hand 'u' to the service it is sent to: 'u'
 ```
 
 <!-- test: model-hand-fa25-c-arm-nobind-send-binding-sibling -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3214. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `c-arm-nobind-send-binding-sibling` of redteamFA25.hand_fa25, in capmodel `reggio/REPORTFA25.txt`.
 

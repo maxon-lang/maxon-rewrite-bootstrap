@@ -1914,6 +1914,7 @@ reassign first payload string long enough to be a real heap allocationreassign s
 ```
 
 <!-- test: construct-co-owns-string-source -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 Storing a String binding into a union payload CO-OWNS it: the payload slot takes its own
 reference, `msg` stays live, and its scope-exit drop releases the reference it always held. The record is
 freed exactly once, by whichever of the two owners drops last. A durable store takes a reference rather
@@ -1947,6 +1948,7 @@ textv1
 ```
 
 <!-- test: construct-co-owns-struct-source -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 The struct spelling of the case above. `Shape.solid(b)` gives the payload slot its own reference to `b`'s
 box; `b` stays readable and drops its own reference at scope exit, so the box is released once by the
 union's destructor and once by `b` — matching the two references taken.
@@ -1970,7 +1972,7 @@ function main() returns ExitCode
 	let b = Body.create(5)
 	let s = Shape.solid(b)
 	print("{s}")
-	return try b.mass as ExitCode otherwise panic("out of range")
+	return b.mass
 end 'main'
 ```
 ```exitcode
@@ -2591,6 +2593,7 @@ error E3005: <fragment>:20:30: type mismatch: 'expected Inner, got Other'
 ```
 
 <!-- test: co-owned-container-field-bind-then-the-field-is-read-again -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 ⭐⭐ **CO-OWNERSHIP IS THE THIRD STATE, AND A MOVE-OUT OF A CO-OWNED BOX IS A THEFT.** `let borrowed = h.ty`
 reads a union out of a MUTABLE struct field, and a value read out of a rebindable slot is promoted by
 `__mm_retain` — so `borrowed` carries the owned-heap bit while `h.ty` still points at the SAME box.
@@ -2611,13 +2614,13 @@ type Holder
 	export var ty as Ty
 
 	static function create(ty Ty) returns Self
-		return Self{ty: ty.clone()}
+		return Self{ty: ty}
 	end 'create'
 end 'Holder'
 
 function tyLen(ty Ty) returns Integer
 	return match ty 'l'
-		concrete(name) gives try name.byteLength() as Integer otherwise panic("out of range")
+		concrete(name) gives name.byteLength() as Integer
 		stringy gives 0
 	end 'l'
 end 'tyLen'
@@ -2626,7 +2629,7 @@ function main() returns ExitCode
 	let h = Holder.create(Ty.concrete("a co-owned payload string, long enough to be a real heap allocation"))
 	let borrowed = h.ty
 	let first = match borrowed 'b'
-		concrete(name) gives try name.byteLength() as ExitCode otherwise panic("out of range")
+		concrete(name) gives name.byteLength() as ExitCode
 		stringy gives 0
 	end 'b'
 	let second = tyLen(h.ty)
@@ -3173,6 +3176,7 @@ n=56 again=56
 ```
 
 <!-- test: a-borrowed-payload-outlives-a-callee-that-frees-its-box -->
+<!-- skip: language difference: a place passed mutates, consumes or sets overlaps nothing else the call or the statement holds, where maxon shares the place by a reference count -->
 ⭐⭐ **THE RETAIN IS LOAD-BEARING, AND THIS IS THE PROGRAM THAT SAYS SO.** `retainBorrowedPayload`'s
 `__mm_incref` is unconditional for the writable binding this `var` scrutinee gives the arm, and the
 question is whether an arm that consumes its payload ONCE —
@@ -3198,20 +3202,20 @@ type Cell
 	export var slot as Slot
 
 	static function create(slot Slot) returns Self
-		return Self{slot: slot.clone()}
+		return Self{slot: slot}
 	end 'create'
 
 	// Frees the box its argument was borrowed out of, BEFORE reading the argument. The
 	// `refill` allocation is what makes the freed record's reuse observable rather than benign.
-	function replaceThenMeasure(mutates self, borrowed String) returns Integer
+	function replaceThenMeasure(borrowed String) returns Integer
 		self.slot = Slot.empty(7)
 		let refill = "a fresh allocation of its own, reusing the freed record"
-		return try (borrowed.byteLength() * 1000 + refill.byteLength()) as Integer otherwise panic("out of range")
+		return (borrowed.byteLength() * 1000 + refill.byteLength()) as Integer
 	end 'replaceThenMeasure'
 end 'Cell'
 
 function main() returns ExitCode
-	var cell = Cell.create(Slot.filled("the borrowed payload, long enough to be a real heap allocation"))
+	let cell = Cell.create(Slot.filled("the borrowed payload, long enough to be a real heap allocation"))
 	let measured = match cell.slot 'm'
 		filled(s) gives cell.replaceThenMeasure(s)
 		empty(n) gives n
@@ -3433,6 +3437,7 @@ celsius 21.5
 ```
 
 <!-- test: a-read-only-payload-outlives-the-replacement-of-its-owner -->
+<!-- skip: language difference: a place passed mutates, consumes or sets overlaps nothing else the call or the statement holds, where maxon shares the place by a reference count -->
 A payload bound out of a union that no name can write, here a `let` field, is still borrowed from the box that holds
 it, and the box from the record that holds that. `measure` binds `s` and makes one call with it; the call
 replaces the `Holder` a `Shelf` holds, which frees the box and drives the payload's count to zero, and the
@@ -3453,7 +3458,7 @@ type Holder
 	export let slot as Slot
 
 	static function create(slot Slot) returns Self
-		return Self{slot: slot.clone()}
+		return Self{slot: slot}
 	end 'create'
 end 'Holder'
 
@@ -3461,11 +3466,11 @@ type Shelf
 	export var holder as Holder
 
 	static function create(holder Holder) returns Self
-		return Self{holder: holder.clone()}
+		return Self{holder: holder}
 	end 'create'
 end 'Shelf'
 
-function measure(mutates shelf Shelf) returns Integer
+function measure(shelf Shelf) returns Integer
 	return match shelf.holder.slot 'm'
 		filled(s) gives replaceThenMeasure(s, shelf: shelf)
 		empty(n) gives n
@@ -3479,16 +3484,16 @@ end 'text'
 function reuse(borrowed String) returns Integer
 	let refill = "r{borrowed.byteLength()} a fresh allocation of its own, reusing the freed record, yes"
 	let again = "q{refill.byteLength()} another allocation of its own, reusing the freed record, ok"
-	return try (borrowed.byteLength() * 1000 + again.byteLength()) as Integer otherwise panic("out of range")
+	return (borrowed.byteLength() * 1000 + again.byteLength()) as Integer
 end 'reuse'
 
-function replaceThenMeasure(borrowed String, mutates shelf Shelf) returns Integer
+function replaceThenMeasure(borrowed String, shelf Shelf) returns Integer
 	shelf.holder = Holder.create(Slot.empty(7))
 	return reuse(borrowed)
 end 'replaceThenMeasure'
 
 function main() returns ExitCode
-	var shelf = Shelf.create(Holder.create(Slot.filled(text(5))))
+	let shelf = Shelf.create(Holder.create(Slot.filled(text(5))))
 	let measured = measure(shelf)
 	print("measured={measured}")
 	return 0
@@ -3502,6 +3507,7 @@ measured=68063
 ```
 
 <!-- test: a-read-only-payload-outlives-the-overwrite-of-the-union-field-that-holds-it -->
+<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 A `match` on a `var` union field binds a payload nothing can write through, so the binding is borrowed from the box
 the field holds. `measure` binds `s` and makes one call; the call assigns the field, which frees the old box and
 drives the payload's count to zero. `reuse` then reads the payload's length and allocates, so the answer is `68063`
@@ -3518,10 +3524,10 @@ type VarHolder
 	export var slot as LSlot
 
 	static function create(slot LSlot) returns Self
-		return Self{slot: slot.clone()}
+		return Self{slot: slot}
 	end 'create'
 
-	function measure(mutates self) returns Integer
+	function measure() returns Integer
 		return match slot 'm'
 			lfilled(s) gives resetThenLen(self, s: s)
 			lempty(n) gives n
@@ -3536,16 +3542,16 @@ end 'text'
 function reuse(borrowed String) returns Integer
 	let refill = "r{borrowed.byteLength()} a fresh allocation of its own, reusing the freed record, yes"
 	let again = "q{refill.byteLength()} another allocation of its own, reusing the freed record, ok"
-	return try (borrowed.byteLength() * 1000 + again.byteLength()) as Integer otherwise panic("out of range")
+	return (borrowed.byteLength() * 1000 + again.byteLength()) as Integer
 end 'reuse'
 
-function resetThenLen(mutates h VarHolder, s String) returns Integer
+function resetThenLen(h VarHolder, s String) returns Integer
 	h.slot = LSlot.lempty(1)
 	return reuse(s)
 end 'resetThenLen'
 
 function main() returns ExitCode
-	var vh = VarHolder.create(LSlot.lfilled(text(5)))
+	let vh = VarHolder.create(LSlot.lfilled(text(5)))
 	let d = vh.measure()
 	print("d={d}")
 	return 0
@@ -3559,6 +3565,7 @@ d=68063
 ```
 
 <!-- test: a-read-only-payload-outlives-a-reassignment-through-a-by-reference-parameter -->
+<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 A `mutable` parameter is handed the caller's storage, not a value, so the callee's store replaces whatever slot the
 argument names. `wipeThenLen` passes `h.slot` to `wipe`, which assigns it, while the arm of the `match` on
 that same field still holds `s`. The binding is counted across the call, so `reuse` reads the payload it bound and the
@@ -3575,10 +3582,10 @@ type VarHolder
 	export var slot as LSlot
 
 	static function create(slot LSlot) returns Self
-		return Self{slot: slot.clone()}
+		return Self{slot: slot}
 	end 'create'
 
-	function measure(mutates self) returns Integer
+	function measure() returns Integer
 		return match slot 'm'
 			lfilled(s) gives wipeThenLen(self, s: s)
 			lempty(n) gives n
@@ -3593,20 +3600,20 @@ end 'text'
 function reuse(borrowed String) returns Integer
 	let refill = "r{borrowed.byteLength()} a fresh allocation of its own, reusing the freed record, yes"
 	let again = "q{refill.byteLength()} another allocation of its own, reusing the freed record, ok"
-	return try (borrowed.byteLength() * 1000 + again.byteLength()) as Integer otherwise panic("out of range")
+	return (borrowed.byteLength() * 1000 + again.byteLength()) as Integer
 end 'reuse'
 
 function wipe(mutates u LSlot)
 	u = LSlot.lempty(1)
 end 'wipe'
 
-function wipeThenLen(mutates h VarHolder, s String) returns Integer
+function wipeThenLen(h VarHolder, s String) returns Integer
 	wipe(h.slot)
 	return reuse(s)
 end 'wipeThenLen'
 
 function main() returns ExitCode
-	var vh = VarHolder.create(LSlot.lfilled(text(5)))
+	let vh = VarHolder.create(LSlot.lfilled(text(5)))
 	let d = vh.measure()
 	print("d={d}")
 	return 0

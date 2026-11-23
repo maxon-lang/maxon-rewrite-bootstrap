@@ -55,6 +55,7 @@ end 'main'
 ```
 
 <!-- test: freeze-of-a-mutable-local-refused -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 `cursor` is read as ordinary mutable data before the `freeze`, so other code may still name it: it belongs to the current region and cannot be frozen in place.
 

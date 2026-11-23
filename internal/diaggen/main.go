@@ -37,6 +37,7 @@ var (
 	maxonName    = regexp.MustCompile(`^[a-z][A-Za-z0-9]*$`)
 	registryCase = regexp.MustCompile(`^\s*([A-Za-z][A-Za-z0-9]*)\s*=\s*"(E[0-9]{4})"\s*$`)
 	messageName  = regexp.MustCompile(`^[a-z][A-Za-z0-9]*$`)
+	causeText    = regexp.MustCompile(`^[a-z][A-Za-z0-9]*$`)
 	placeholder  = regexp.MustCompile(`\{([^{}]*)\}`)
 )
 

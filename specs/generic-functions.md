@@ -1175,6 +1175,7 @@ end 'main'
 
 
 <!-- test: error.a-bare-call-to-a-generic-two-directories-export-is-ambiguous -->
+<!-- skip: language difference: another module's names are always qualified by its path, so a bare name never finds two -->
 <!-- positions: moved -->
 Two directories export a generic `larger` and a third file calls it bare, which is the ambiguity two exported non-generic functions of one name make.
 ```maxon

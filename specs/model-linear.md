@@ -57,8 +57,8 @@ function giveS(consumes r Rl) returns Sn
 	return Sn.notSent(r)
 end 'giveS'
 
-function useS(s Sn)
-	match s 'x1'
+function useS(consumes s Sn)
+	match consumes s 'x1'
 		ok then break
 		notSent(r) then r.fin(1)
 	end 'x1'
@@ -122,8 +122,8 @@ function giveS(consumes r Rl) returns Sn
 	return Sn.notSent(r)
 end 'giveS'
 
-function useS(s Sn)
-	match s 'x1'
+function useS(consumes s Sn)
+	match consumes s 'x1'
 		ok then break
 		notSent(r) then r.fin(1)
 	end 'x1'
@@ -144,6 +144,7 @@ end 'main'
 ```
 
 <!-- test: model-finding-ad-state-window-reply-union-state -->
+<!-- skip: language difference: SendError and SubprocessError are built-in enums whose cases carry no payload, so a failed send gives its arguments no way back -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `state-window-reply-union-state` of redteamAD/t10.txt, in capmodel `reggio/REPORTRTAD.txt`.
 
 ```maxon
@@ -209,6 +210,7 @@ end 'main'
 ```
 
 <!-- test: model-finding-ad-lit-no-window -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-STORE`; the compiler refuses it with E3196. Model program `lit-no-window` of redteamAD/t13.txt, in capmodel `reggio/REPORTRTAD.txt`.
 
@@ -276,8 +278,8 @@ function giveS(consumes r Rl) returns Sn
 	return Sn.notSent(r)
 end 'giveS'
 
-function useS(s Sn)
-	match s 'x1'
+function useS(consumes s Sn)
+	match consumes s 'x1'
 		ok then break
 		notSent(r) then r.fin(1)
 	end 'x1'
@@ -395,8 +397,8 @@ function giveS(consumes r Rl) returns Sn
 	return Sn.notSent(r)
 end 'giveS'
 
-function useS(s Sn)
-	match s 'x1'
+function useS(consumes s Sn)
+	match consumes s 'x1'
 		ok then break
 		notSent(r) then r.fin(1)
 	end 'x1'
@@ -490,8 +492,8 @@ type Bx
 	end 'eat'
 end 'Bx'
 
-function useS(s Sn)
-	match s 'x1'
+function useS(consumes s Sn)
+	match consumes s 'x1'
 		ok then break
 		notSent(r) then r.fin(1)
 	end 'x1'
@@ -509,6 +511,7 @@ end 'main'
 ```
 
 <!-- test: model-finding-ad-oneopen-state-field-path -->
+<!-- skip: language difference: SendError and SubprocessError are built-in enums whose cases carry no payload, so a failed send gives its arguments no way back -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `oneopen-state-field-path` of redteamAD/t7.txt, in capmodel `reggio/REPORTRTAD.txt`.
 
 ```maxon
@@ -667,7 +670,7 @@ error E3224: <fragment>:30:3: the case 'a1' carries the linear value 'b', and th
 ```
 
 <!-- test: model-finding-ae-union-method-plain -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: a linear value is a value with a destructor, which cannot be copied or dropped, so the rules of ownership and the Droppable bound refuse what maxon's linear rules refuse -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-SELF`; the compiler refuses it with E3224. Model program `union-method-plain` of redteamAE/p11.txt, in capmodel `reggio/REPORTRTAE.txt`.
 
@@ -750,7 +753,7 @@ end 'Bx'
 function main() returns ExitCode
 	var b = Bx.create(0)
 	let u = Mx.m1(Bk.create(1))
-	match u 'x1'
+	match consumes u 'x1'
 		m0(x) then x.fin(1)
 		m1 then b.n = 3
 	end 'x1'
@@ -798,7 +801,7 @@ end 'takeI'
 
 function main() returns ExitCode
 	let u = Mx.m1(Bk.create(1))
-	match u 'x1'
+	match consumes u 'x1'
 		m0(x) then x.fin(1)
 		m1(y) then takeI(y.clone())
 	end 'x1'
@@ -810,6 +813,7 @@ end 'main'
 ```
 
 <!-- test: model-finding-ae-w-match-consume-in-one-call-open -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-ONECALL`; the compiler refuses it with E3201. Model program `w-match-consume-in-one-call-open` of redteamAE/p14.txt, in capmodel `reggio/REPORTRTAE.txt`.
 
@@ -897,14 +901,14 @@ function main() returns ExitCode
 	var u = Sn.notSent(Rl.create(0))
 	var i = 2 as Num
 	while i != 0 'w1'
-		match u 'x2'
+		match consumes u 'x2'
 			ok then break
 			notSent(r) then r.fin(1)
 		end 'x2'
 		u = Sn.notSent(Rl.create(3))
 		i = 0
 	end 'w1'
-	match u 'x3'
+	match consumes u 'x3'
 		ok then break
 		notSent(r) then r.fin(2)
 	end 'x3'
@@ -943,7 +947,7 @@ function mkS() returns Sn
 end 'mkS'
 
 function main() returns ExitCode
-	match mkS() 'x1'
+	match consumes mkS() 'x1'
 		ok then break
 		notSent(r) then r.fin(1)
 	end 'x1'
@@ -987,7 +991,7 @@ end 'useI'
 
 function main() returns ExitCode
 	let v = giveH(Rl.create(3))
-	match v 'x1'
+	match consumes v 'x1'
 		none then break
 		held(q) then useI(q)
 	end 'x1'
@@ -999,7 +1003,7 @@ end 'main'
 ```
 
 <!-- test: model-finding-ae-linear-union-method-self-twice -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: a linear value is a value with a destructor, which cannot be copied or dropped, so the rules of ownership and the Droppable bound refuse what maxon's linear rules refuse -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-SELF`; the compiler refuses it with E3224. Model program `linear-union-method-self-twice` of redteamAE/p23.txt, in capmodel `reggio/REPORTRTAE.txt`.
 
@@ -1127,7 +1131,7 @@ end 'use2'
 
 function main() returns ExitCode
 	let u = Tw.both(Rl.create(1), b: Rl.create(2))
-	match u 'x1'
+	match consumes u 'x1'
 		none then break
 		both(a, b) then use2(a, b: b)
 	end 'x1'
@@ -1163,7 +1167,7 @@ end 'Rl'
 
 function main() returns ExitCode
 	let u = Sh.held(Rl.create(0))
-	match u 'x1'
+	match consumes u 'x1'
 		none then break
 		held(r) then r.fin(1)
 	end 'x1'
@@ -1199,7 +1203,7 @@ end 'Rl'
 
 function main() returns ExitCode
 	let u = Sh.held(Rl.create(0)) as Sh
-	match u 'x1'
+	match consumes u 'x1'
 		none then break
 		held(r) then r.fin(1)
 	end 'x1'
@@ -1211,7 +1215,7 @@ end 'main'
 ```
 
 <!-- test: model-finding-ae-iso-payload-drop -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: a linear value is a value with a destructor, which cannot be copied or dropped, so the rules of ownership and the Droppable bound refuse what maxon's linear rules refuse -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3224. Model program `iso-payload-drop` of redteamAE/p5.txt, in capmodel `reggio/REPORTRTAE.txt`.
 
@@ -1313,8 +1317,8 @@ type Rl
 	end 'fin'
 end 'Rl'
 
-function unwrap(u Sh) returns Rl
-	match u 'x1'
+function unwrap(consumes u Sh) returns Rl
+	match consumes u 'x1'
 		none then return Rl.create(0)
 		held(r) then return r
 	end 'x1'
@@ -1372,7 +1376,7 @@ error E3223: <fragment>:31:2: this drops '_', a linear value that was never cons
 ```
 
 <!-- test: model-finding-ae-iso-payload-break -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: a linear value is a value with a destructor, which cannot be copied or dropped, so the rules of ownership and the Droppable bound refuse what maxon's linear rules refuse -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3224. Model program `iso-payload-break` of redteamAE/p5.txt, in capmodel `reggio/REPORTRTAE.txt`.
 
@@ -1414,7 +1418,7 @@ error E3224: <fragment>:28:4: the case 'held' carries the linear value 'r', and 
 ```
 
 <!-- test: model-finding-ae-iso-payload-array-of-union -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: a linear value is a value with a destructor, which cannot be copied or dropped, so the rules of ownership and the Droppable bound refuse what maxon's linear rules refuse -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-WHERE`; the compiler refuses it with E3224. Model program `iso-payload-array-of-union` of redteamAE/p5.txt, in capmodel `reggio/REPORTRTAE.txt`.
 
@@ -1529,7 +1533,7 @@ end 'use'
 
 function main() returns ExitCode
 	let v = Sh.held(Rl.create(3))
-	match v 'x1'
+	match consumes v 'x1'
 		none then break
 		held(q) then use(q)
 	end 'x1'
@@ -1615,7 +1619,7 @@ end 'giveH'
 
 function main() returns ExitCode
 	let v = giveH(Rl.create(3))
-	match v 'x1'
+	match consumes v 'x1'
 		none then break
 		held(q) then q.fin(1)
 	end 'x1'
@@ -1649,8 +1653,8 @@ type Rl
 	end 'fin'
 end 'Rl'
 
-function unwrap(h Sh) returns Rl
-	match h 'x1'
+function unwrap(consumes h Sh) returns Rl
+	match consumes h 'x1'
 		none then return Rl.create(0)
 		held(q) then return q
 	end 'x1'
@@ -1697,8 +1701,8 @@ function useI(consumes r Rl)
 	r.fin(1)
 end 'useI'
 
-function eat(h Sh)
-	match h 'x1'
+function eat(consumes h Sh)
+	match consumes h 'x1'
 		none then break
 		held(q) then useI(q)
 	end 'x1'
@@ -1751,7 +1755,7 @@ end 'main'
 ```
 
 <!-- test: model-finding-ae-array-linear-inferred -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: a linear value is a value with a destructor, which cannot be copied or dropped, so the rules of ownership and the Droppable bound refuse what maxon's linear rules refuse -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-WHERE`; the compiler refuses it with E3224. Model program `array-linear-inferred` of redteamAE/p9.txt, in capmodel `reggio/REPORTRTAE.txt`.
 
@@ -1782,6 +1786,7 @@ error E3224: <fragment>:3:11: 'Rl' is a linear value and cannot be a type argume
 ```
 
 <!-- test: model-finding-ae-clone-linear-union -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R18-UNIQUE`; the compiler refuses it with E3214. Model program `clone-linear-union` of redteamAE/p9.txt, in capmodel `reggio/REPORTRTAE.txt`.
 
@@ -1824,6 +1829,7 @@ error E3214: <fragment>:24:10: 'Sh' is unique (its field 'r' holds a unique 'Rl'
 ```
 
 <!-- test: model-finding-ae-freeze-linear-union -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R18-UNIQUE`; the compiler refuses it with E3214. Model program `freeze-linear-union` of redteamAE/p9.txt, in capmodel `reggio/REPORTRTAE.txt`.
 
@@ -1988,6 +1994,7 @@ error E3102: <fragment>:32:27: use of moved value 'r': its ownership moved to an
 ```
 
 <!-- test: model-finding-ae-freeze-linear-record -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R18-UNIQUE`; the compiler refuses it with E3214. Model program `freeze-linear-record` of redteamAE/p9.txt, in capmodel `reggio/REPORTRTAE.txt`.
 
@@ -2017,6 +2024,7 @@ error E3214: <fragment>:19:17: 'Rl' is unique and cannot be frozen
 ```
 
 <!-- test: model-finding-ae-clone-linear-record -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R18-UNIQUE`; the compiler refuses it with E3214. Model program `clone-linear-record` of redteamAE/p9.txt, in capmodel `reggio/REPORTRTAE.txt`.
 
@@ -2048,6 +2056,7 @@ error E3214: <fragment>:19:10: 'Rl' is unique and cannot be cloned
 ```
 
 <!-- test: model-hand-ab-t-send-arg-then-throw -->
+<!-- skip: language difference: SendError and SubprocessError are built-in enums whose cases carry no payload, so a failed send gives its arguments no way back -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `t-send-arg-then-throw` of redteamAB.hand_ab1, in capmodel `reggio/REPORTRTAB.txt`.
 
 ```maxon
@@ -2101,6 +2110,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ab-m-peek-in-arg -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `m-peek-in-arg` of redteamAB.hand_ab1, in capmodel `reggio/REPORTRTAB.txt`.
 
 ```maxon
@@ -2254,6 +2264,7 @@ error E3223: <fragment>:28:11: this drops 'o', a linear value that was never con
 ```
 
 <!-- test: model-hand-ab-m-fin-recv-moved-then-arg -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `m-fin-recv-moved-then-arg` of redteamAB.hand_ab1, in capmodel `reggio/REPORTRTAB.txt`.
 
 ```maxon
@@ -2465,7 +2476,7 @@ error E3102: <fragment>:17:12: use of moved value 'self': its ownership moved to
 ```
 
 <!-- test: model-hand-ab-u-nested-union-dropped -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: a linear value is a value with a destructor, which cannot be copied or dropped, so the rules of ownership and the Droppable bound refuse what maxon's linear rules refuse -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3224. Model program `u-nested-union-dropped` of redteamAB.hand_ab1, in capmodel `reggio/REPORTRTAB.txt`.
 
@@ -2512,7 +2523,7 @@ error E3224: <fragment>:35:3: the case 'a' carries the linear value 's', and thi
 ```
 
 <!-- test: model-hand-ab-u-array-of-union -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: a linear value is a value with a destructor, which cannot be copied or dropped, so the rules of ownership and the Droppable bound refuse what maxon's linear rules refuse -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-WHERE`; the compiler refuses it with E3224. Model program `u-array-of-union` of redteamAB.hand_ab1, in capmodel `reggio/REPORTRTAB.txt`.
 
@@ -2585,7 +2596,7 @@ end 'Resp'
 function main() returns ExitCode
 	let w = W.full(Resp.create(0))
 	let z = w.isFull()
-	match w 'x1'
+	match consumes w 'x1'
 		empty then break
 		full(r) then r.fin(z)
 	end 'x1'
@@ -2640,7 +2651,7 @@ error E3223: <fragment>:32:2: this drops 'w', a linear value that was never cons
 ```
 
 <!-- test: model-hand-ab-u-match-in-loop-break -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: a linear value is a value with a destructor, which cannot be copied or dropped, so the rules of ownership and the Droppable bound refuse what maxon's linear rules refuse -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3224. Model program `u-match-in-loop-break` of redteamAB.hand_ab1, in capmodel `reggio/REPORTRTAB.txt`.
 
@@ -2720,7 +2731,7 @@ function giveS(consumes r Resp) returns Sent
 end 'giveS'
 
 function main() returns ExitCode
-	match giveS(Resp.create(0)) 'x1'
+	match consumes giveS(Resp.create(0)) 'x1'
 		ok then break
 		notSent(r) then r.fin(1)
 	end 'x1'
@@ -2732,7 +2743,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ab-u-match-scrut-expr-bare -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: a linear value is a value with a destructor, which cannot be copied or dropped, so the rules of ownership and the Droppable bound refuse what maxon's linear rules refuse -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3224. Model program `u-match-scrut-expr-bare` of redteamAB.hand_ab1, in capmodel `reggio/REPORTRTAB.txt`.
 
@@ -2807,8 +2818,8 @@ function giveS(consumes r Resp) returns Sent
 	return Sent.notSent(r)
 end 'giveS'
 
-function g(s Sent)
-	match s 'x1'
+function g(consumes s Sent)
+	match consumes s 'x1'
 		ok then break
 		notSent(r) then r.fin(1)
 	end 'x1'
@@ -2900,15 +2911,15 @@ function giveS(consumes r Resp) returns Sent
 	return Sent.notSent(r)
 end 'giveS'
 
-function useS(s Sent)
-	match s 'x1'
+function useS(consumes s Sent)
+	match consumes s 'x1'
 		ok then break
 		notSent(r) then r.fin(1)
 	end 'x1'
 end 'useS'
 
-function g(s Sent) returns Sent
-	match s 'x1'
+function g(consumes s Sent) returns Sent
+	match consumes s 'x1'
 		ok then return Sent.ok
 		notSent(r) then return Sent.notSent(r)
 	end 'x1'
@@ -2955,7 +2966,7 @@ function mkOk() returns Sent
 end 'mkOk'
 
 function main() returns ExitCode
-	match mkOk() 'x1'
+	match consumes mkOk() 'x1'
 		ok then break
 		notSent(r) then r.fin(1)
 	end 'x1'
@@ -2967,7 +2978,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ab-u-union-two-payloads-one -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: a linear value is a value with a destructor, which cannot be copied or dropped, so the rules of ownership and the Droppable bound refuse what maxon's linear rules refuse -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3224. Model program `u-union-two-payloads-one` of redteamAB.hand_ab1, in capmodel `reggio/REPORTRTAB.txt`.
 
@@ -3037,7 +3048,7 @@ end 'Resp'
 
 function main() returns ExitCode
 	let t = Tw.l(Resp.create(0))
-	match t 'x1'
+	match consumes t 'x1'
 		l(a) then a.fin(1)
 		r(a) then a.fin(2)
 	end 'x1'
@@ -3049,6 +3060,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ab-y-try-handler-var -->
+<!-- skip: language difference: SendError and SubprocessError are built-in enums whose cases carry no payload, so a failed send gives its arguments no way back -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `y-try-handler-var` of redteamAB.hand_ab1, in capmodel `reggio/REPORTRTAB.txt`.
 
 ```maxon
@@ -3103,6 +3115,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ab-y-try-handback-original-after -->
+<!-- skip: language difference: SendError and SubprocessError are built-in enums whose cases carry no payload, so a failed send gives its arguments no way back -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `y-try-handback-original-after` of redteamAB.hand_ab1, in capmodel `reggio/REPORTRTAB.txt`.
 
@@ -3159,6 +3172,7 @@ error E3102: <fragment>:46:2: use of moved value 'r': its ownership moved to ano
 ```
 
 <!-- test: model-hand-ab-y-try-handback-other-linear -->
+<!-- skip: language difference: SendError and SubprocessError are built-in enums whose cases carry no payload, so a failed send gives its arguments no way back -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `y-try-handback-other-linear` of redteamAB.hand_ab1, in capmodel `reggio/REPORTRTAB.txt`.
 
 ```maxon
@@ -3215,6 +3229,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ab-y-try-handback-in-loop -->
+<!-- skip: language difference: SendError and SubprocessError are built-in enums whose cases carry no payload, so a failed send gives its arguments no way back -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `y-try-handback-in-loop` of redteamAB.hand_ab1, in capmodel `reggio/REPORTRTAB.txt`.
 
 ```maxon
@@ -3277,6 +3292,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ab-y-try-handback-loop-carried -->
+<!-- skip: language difference: SendError and SubprocessError are built-in enums whose cases carry no payload, so a failed send gives its arguments no way back -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `y-try-handback-loop-carried` of redteamAB.hand_ab1, in capmodel `reggio/REPORTRTAB.txt`.
 
@@ -3448,6 +3464,7 @@ error E3223: <fragment>:32:2: this drops '_', a linear value that was never cons
 ```
 
 <!-- test: model-hand-ab-k-ret-immutable -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R4-RESULT`; the compiler refuses it with E3209. Model program `k-ret-immutable` of redteamAB.hand_ab10, in capmodel `reggio/REPORTRTAB.txt`.
 
@@ -3588,7 +3605,7 @@ error E3223: <fragment>:24:2: this drops '_', a linear value that was never cons
 ```
 
 <!-- test: model-hand-ab-s-slot-param-var -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: a linear value is a value with a destructor, which cannot be copied or dropped, so the rules of ownership and the Droppable bound refuse what maxon's linear rules refuse -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-LEND`; the compiler refuses it with E3224. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `s-slot-param-var` of redteamAB.hand_ab12, in capmodel `reggio/REPORTRTAB.txt`.
 
@@ -3626,7 +3643,7 @@ error E3224: <fragment>:22:4: this linear value is only lent to this code (a par
 ```
 
 <!-- test: model-hand-ab-s-slot-param-var-after -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: a linear value is a value with a destructor, which cannot be copied or dropped, so the rules of ownership and the Droppable bound refuse what maxon's linear rules refuse -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-LEND`; the compiler refuses it with E3224. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `s-slot-param-var-after` of redteamAB.hand_ab12, in capmodel `reggio/REPORTRTAB.txt`.
 
@@ -3666,7 +3683,7 @@ error E3224: <fragment>:28:4: this linear value is only lent to this code (a par
 ```
 
 <!-- test: model-hand-ab-s-slot-param-refill -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: a linear value is a value with a destructor, which cannot be copied or dropped, so the rules of ownership and the Droppable bound refuse what maxon's linear rules refuse -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-LEND`; the compiler refuses it with E3224. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `s-slot-param-refill` of redteamAB.hand_ab12, in capmodel `reggio/REPORTRTAB.txt`.
 
@@ -3706,7 +3723,7 @@ error E3224: <fragment>:22:4: this linear value is only lent to this code (a par
 ```
 
 <!-- test: model-hand-ab-s-slot-param-two -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: a linear value is a value with a destructor, which cannot be copied or dropped, so the rules of ownership and the Droppable bound refuse what maxon's linear rules refuse -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-LEND`; the compiler refuses it with E3102, E3224. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `s-slot-param-two` of redteamAB.hand_ab12, in capmodel `reggio/REPORTRTAB.txt`.
 
@@ -4449,7 +4466,7 @@ error E3223: <fragment>:31:4: this drops 'r', a linear value that was never cons
 ```
 
 <!-- test: model-hand-ab-f-match-arm-in-loop-continue -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: a linear value is a value with a destructor, which cannot be copied or dropped, so the rules of ownership and the Droppable bound refuse what maxon's linear rules refuse -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3224. Model program `f-match-arm-in-loop-continue` of redteamAB.hand_ab3, in capmodel `reggio/REPORTRTAB.txt`.
 
@@ -4503,6 +4520,7 @@ error E3224: <fragment>:41:4: the case 'notSent' carries the linear value 'r', a
 ```
 
 <!-- test: model-hand-ab-s-handback-twice-one-full -->
+<!-- skip: language difference: SendError and SubprocessError are built-in enums whose cases carry no payload, so a failed send gives its arguments no way back -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `s-handback-twice-one-full` of redteamAB.hand_ab5, in capmodel `reggio/REPORTRTAB.txt`.
 
 ```maxon
@@ -4608,6 +4626,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ab-s-handback-fresh-nested -->
+<!-- skip: language difference: SendError and SubprocessError are built-in enums whose cases carry no payload, so a failed send gives its arguments no way back -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `s-handback-fresh-nested` of redteamAB.hand_ab5, in capmodel `reggio/REPORTRTAB.txt`.
 
 ```maxon
@@ -4709,6 +4728,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ab-s-handback-in-message-body -->
+<!-- skip: language difference: SendError and SubprocessError are built-in enums whose cases carry no payload, so a failed send gives its arguments no way back -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `s-handback-in-message-body` of redteamAB.hand_ab5, in capmodel `reggio/REPORTRTAB.txt`.
 
 ```maxon
@@ -4806,6 +4826,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ab-s-handback-send-to-stopped -->
+<!-- skip: language difference: SendError and SubprocessError are built-in enums whose cases carry no payload, so a failed send gives its arguments no way back -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `s-handback-send-to-stopped` of redteamAB.hand_ab5, in capmodel `reggio/REPORTRTAB.txt`.
 
 ```maxon
@@ -4906,6 +4927,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ab-s-state-method-eat -->
+<!-- skip: language difference: SendError and SubprocessError are built-in enums whose cases carry no payload, so a failed send gives its arguments no way back -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `s-state-method-eat` of redteamAB.hand_ab5, in capmodel `reggio/REPORTRTAB.txt`.
 
 ```maxon
@@ -4998,6 +5020,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ab-s-state-method-mk -->
+<!-- skip: language difference: SendError and SubprocessError are built-in enums whose cases carry no payload, so a failed send gives its arguments no way back -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `s-state-method-mk` of redteamAB.hand_ab5, in capmodel `reggio/REPORTRTAB.txt`.
 
 ```maxon
@@ -5196,6 +5219,7 @@ error E3223: <fragment>:24:2: this drops '_', a linear value that was never cons
 ```
 
 <!-- test: model-hand-ab-s-freeze-union -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R18-UNIQUE`; the compiler refuses it with E3214. Model program `s-freeze-union` of redteamAB.hand_ab5, in capmodel `reggio/REPORTRTAB.txt`.
 
@@ -5786,7 +5810,7 @@ error E3223: <fragment>:22:2: this drops 'r', a linear value that was never cons
 ```
 
 <!-- test: model-hand-ab-r-return-self -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: a linear value is a value with a destructor, which cannot be copied or dropped, so the rules of ownership and the Droppable bound refuse what maxon's linear rules refuse -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-SELF`; the compiler refuses it with E3224. Model program `r-return-self` of redteamAB.hand_ab8, in capmodel `reggio/REPORTRTAB.txt`.
 
@@ -6730,6 +6754,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ab-fz-linear-record-with-int-fields-clone -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R18-UNIQUE`; the compiler refuses it with E3214. Model program `fz-linear-record-with-int-fields-clone` of redteamAB.hand_ab8, in capmodel `reggio/REPORTRTAB.txt`.
 
@@ -6880,7 +6905,7 @@ type Fz
 
 	function f(consumes self)
 		let s = Hs.h(self)
-		match s 'x1'
+		match consumes s 'x1'
 			none then break
 			h(q) then q.g()
 		end 'x1'
@@ -7007,6 +7032,7 @@ error E3223: <fragment>:20:10: this drops 't', a linear value that was never con
 ```
 
 <!-- test: model-hand-ac-fin-self-send -->
+<!-- skip: language difference: SendError and SubprocessError are built-in enums whose cases carry no payload, so a failed send gives its arguments no way back -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `fin-self-send` of redteamAC.hand_ac1, in capmodel `reggio/REPORTRTAC.txt`.
 
 ```maxon
@@ -7055,7 +7081,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ac-fin-self-send-drop-handler -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: a linear value is a value with a destructor, which cannot be copied or dropped, so the rules of ownership and the Droppable bound refuse what maxon's linear rules refuse -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3224. Model program `fin-self-send-drop-handler` of redteamAC.hand_ac1, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -7259,6 +7285,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ac-hb-two-linear-two-names -->
+<!-- skip: language difference: a linear value is a value with a destructor, which cannot be copied or dropped, so the rules of ownership and the Droppable bound refuse what maxon's linear rules refuse -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3224. Model program `hb-two-linear-two-names` of redteamAC.hand_ac1, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -7310,6 +7337,7 @@ error E3224: <fragment>:38:4: the case 'mailboxFull' carries the linear value 'b
 ```
 
 <!-- test: model-hand-ac-hb-nonlinear-first-one-name -->
+<!-- skip: language difference: SendError and SubprocessError are built-in enums whose cases carry no payload, so a failed send gives its arguments no way back -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `hb-nonlinear-first-one-name` of redteamAC.hand_ac1, in capmodel `reggio/REPORTRTAC.txt`.
 
 ```maxon
@@ -7360,6 +7388,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ac-hb-refill-var-in-handler -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-STORE`; the compiler refuses it with E3196. Model program `hb-refill-var-in-handler` of redteamAC.hand_ac1, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -7412,6 +7441,7 @@ error E3196: <fragment>:38:28: cannot store an isolated 'Resp' into 'r', which h
 ```
 
 <!-- test: model-hand-ac-hb-refill-var-in-handler-no-use -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-STORE`; the compiler refuses it with E3196. Model program `hb-refill-var-in-handler-no-use` of redteamAC.hand_ac1, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -7463,6 +7493,7 @@ error E3196: <fragment>:38:28: cannot store an isolated 'Resp' into 'r', which h
 ```
 
 <!-- test: model-hand-ac-hb-loop-refill -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-STORE`; the compiler refuses it with E3196. Model program `hb-loop-refill` of redteamAC.hand_ac1, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -7522,6 +7553,7 @@ error E3196: <fragment>:44:29: cannot store an isolated 'Resp' into 'r', which h
 ```
 
 <!-- test: model-hand-ac-hb-send-in-loop-fresh -->
+<!-- skip: language difference: SendError and SubprocessError are built-in enums whose cases carry no payload, so a failed send gives its arguments no way back -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `hb-send-in-loop-fresh` of redteamAC.hand_ac1, in capmodel `reggio/REPORTRTAC.txt`.
 
 ```maxon
@@ -7579,7 +7611,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ac-hb-handler-breaks -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: a linear value is a value with a destructor, which cannot be copied or dropped, so the rules of ownership and the Droppable bound refuse what maxon's linear rules refuse -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3224. Model program `hb-handler-breaks` of redteamAC.hand_ac1, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -7638,7 +7670,7 @@ error E3224: <fragment>:43:5: the case 'mailboxFull' carries the linear value 't
 ```
 
 <!-- test: model-hand-ac-hb-handler-returns -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: a linear value is a value with a destructor, which cannot be copied or dropped, so the rules of ownership and the Droppable bound refuse what maxon's linear rules refuse -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3224. Model program `hb-handler-returns` of redteamAC.hand_ac1, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -7693,6 +7725,7 @@ error E3224: <fragment>:36:4: the case 'mailboxFull' carries the linear value 't
 ```
 
 <!-- test: model-hand-ac-hb-union-arg -->
+<!-- skip: language difference: SendError and SubprocessError are built-in enums whose cases carry no payload, so a failed send gives its arguments no way back -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `hb-union-arg` of redteamAC.hand_ac1, in capmodel `reggio/REPORTRTAC.txt`.
 
 ```maxon
@@ -7761,7 +7794,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ac-hb-union-arg-handler-drops -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: a linear value is a value with a destructor, which cannot be copied or dropped, so the rules of ownership and the Droppable bound refuse what maxon's linear rules refuse -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3224. Model program `hb-union-arg-handler-drops` of redteamAC.hand_ac1, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -7824,6 +7857,7 @@ error E3224: <fragment>:49:4: the case 'mailboxFull' carries the linear value 's
 ```
 
 <!-- test: model-hand-ac-hb-send-twice-same-var -->
+<!-- skip: language difference: SendError and SubprocessError are built-in enums whose cases carry no payload, so a failed send gives its arguments no way back -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `hb-send-twice-same-var` of redteamAC.hand_ac1, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -7881,6 +7915,7 @@ error E3102: <fragment>:42:13: use of moved value 'r': its ownership moved to an
 ```
 
 <!-- test: model-hand-ac-hb-send-var-then-peek -->
+<!-- skip: language difference: SendError and SubprocessError are built-in enums whose cases carry no payload, so a failed send gives its arguments no way back -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `hb-send-var-then-peek` of redteamAC.hand_ac1, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -7933,6 +7968,7 @@ error E3102: <fragment>:42:10: use of moved value 'r': its ownership moved to an
 ```
 
 <!-- test: model-hand-ac-hb-send-in-behaviour -->
+<!-- skip: language difference: SendError and SubprocessError are built-in enums whose cases carry no payload, so a failed send gives its arguments no way back -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `hb-send-in-behaviour` of redteamAC.hand_ac1, in capmodel `reggio/REPORTRTAC.txt`.
 
 ```maxon
@@ -7995,6 +8031,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ac-hb-send-param-in-behaviour -->
+<!-- skip: language difference: SendError and SubprocessError are built-in enums whose cases carry no payload, so a failed send gives its arguments no way back -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `hb-send-param-in-behaviour` of redteamAC.hand_ac1, in capmodel `reggio/REPORTRTAC.txt`.
 
 ```maxon
@@ -8062,6 +8099,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ac-hb-forward-param-no-handler-consume -->
+<!-- skip: language difference: a linear value is a value with a destructor, which cannot be copied or dropped, so the rules of ownership and the Droppable bound refuse what maxon's linear rules refuse -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3224. Model program `hb-forward-param-no-handler-consume` of redteamAC.hand_ac1, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -8555,8 +8593,8 @@ function giveS(consumes r Resp) returns Sent
 	return Sent.notSent(r)
 end 'giveS'
 
-function useS(s Sent)
-	match s 'x1'
+function useS(consumes s Sent)
+	match consumes s 'x1'
 		ok then break
 		notSent(r) then r.fin(1)
 	end 'x1'
@@ -8576,7 +8614,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ac-ub-array-of-linear -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: a linear value is a value with a destructor, which cannot be copied or dropped, so the rules of ownership and the Droppable bound refuse what maxon's linear rules refuse -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-WHERE`; the compiler refuses it with E3224. Model program `ub-array-of-linear` of redteamAC.hand_ac1, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -8612,7 +8650,7 @@ error E3224: <fragment>:3:11: 'Resp' is a linear value and cannot be a type argu
 ```
 
 <!-- test: model-hand-ac-ub-array-of-linear-union -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: a linear value is a value with a destructor, which cannot be copied or dropped, so the rules of ownership and the Droppable bound refuse what maxon's linear rules refuse -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-WHERE`; the compiler refuses it with E3224. Model program `ub-array-of-linear-union` of redteamAC.hand_ac1, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -8653,7 +8691,7 @@ error E3224: <fragment>:3:11: 'Sent' is a linear value and cannot be a type argu
 ```
 
 <!-- test: model-hand-ac-wc-underscore-binding -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: a linear value is a value with a destructor, which cannot be copied or dropped, so the rules of ownership and the Droppable bound refuse what maxon's linear rules refuse -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3224. Model program `wc-underscore-binding` of redteamAC.hand_ac11, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -8699,7 +8737,7 @@ error E3224: <fragment>:34:3: the case 'notSent' carries the linear value 'r', a
 ```
 
 <!-- test: model-hand-ac-wc-underscore-binding-two -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: a linear value is a value with a destructor, which cannot be copied or dropped, so the rules of ownership and the Droppable bound refuse what maxon's linear rules refuse -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3224. Model program `wc-underscore-binding-two` of redteamAC.hand_ac11, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -8741,7 +8779,7 @@ error E3224: <fragment>:30:3: the case 'both' carries the linear value 'a', and 
 ```
 
 <!-- test: model-hand-ac-wc-underscore-handler -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: a linear value is a value with a destructor, which cannot be copied or dropped, so the rules of ownership and the Droppable bound refuse what maxon's linear rules refuse -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3224. Model program `wc-underscore-handler` of redteamAC.hand_ac11, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -8982,7 +9020,7 @@ end 'giveS'
 
 function main() returns ExitCode
 	let s = giveS(Resp.create(0))
-	match s 'x1'
+	match consumes s 'x1'
 		notSent(r) then r.fin(1)
 		ok then break
 	end 'x1'
@@ -9022,7 +9060,7 @@ end 'Resp'
 
 function main() returns ExitCode
 	let s = Sent.ok
-	match s 'x1'
+	match consumes s 'x1'
 		notSent(r) then r.fin(1)
 		ok then break
 	end 'x1'
@@ -9071,7 +9109,7 @@ end 'giveS'
 function main() returns ExitCode
 	var i = 3 as Num
 	while i != 0 'w1'
-		match giveS(Resp.create(0)) 'x2'
+		match consumes giveS(Resp.create(0)) 'x2'
 			ok then break
 			notSent(r) then r.fin(1)
 		end 'x2'
@@ -9222,7 +9260,7 @@ end 'giveS'
 function main() returns ExitCode
 	let r = Resp.create(5)
 	let s = giveS(Resp.create(0))
-	match s 'x1'
+	match consumes s 'x1'
 		ok then break
 		notSent(r) then r.fin(1)
 	end 'x1'
@@ -9265,8 +9303,8 @@ function giveS(consumes r Resp) returns Sent
 	return Sent.notSent(r)
 end 'giveS'
 
-function unwrap(s Sent) returns Resp
-	match s 'x1'
+function unwrap(consumes s Sent) returns Resp
+	match consumes s 'x1'
 		ok then return Resp.create(0)
 		notSent(r) then return r
 	end 'x1'
@@ -9522,6 +9560,7 @@ error E3223: <fragment>:33:2: this drops '_', a linear value that was never cons
 ```
 
 <!-- test: model-hand-ac-sw-clone-union -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R18-UNIQUE`; the compiler refuses it with E3214. Model program `sw-clone-union` of redteamAC.hand_ac15, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -9573,6 +9612,7 @@ error E3214: <fragment>:39:10: 'Sent' is unique (its field 'r' holds a unique 'R
 ```
 
 <!-- test: model-hand-ac-ua-spawn-and-exit-with-pending-handback -->
+<!-- skip: language difference: SendError and SubprocessError are built-in enums whose cases carry no payload, so a failed send gives its arguments no way back -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `ua-spawn-and-exit-with-pending-handback` of redteamAC.hand_ac18, in capmodel `reggio/REPORTRTAC.txt`.
 
 ```maxon
@@ -10188,6 +10228,7 @@ error E3102: <fragment>:40:8: use of moved value 's': its ownership moved to ano
 ```
 
 <!-- test: model-hand-ac-hb-iso-var -->
+<!-- skip: language difference: SendError and SubprocessError are built-in enums whose cases carry no payload, so a failed send gives its arguments no way back -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `hb-iso-var` of redteamAC.hand_ac2, in capmodel `reggio/REPORTRTAC.txt`.
 
 ```maxon
@@ -10238,6 +10279,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ac-hb-iso-var-twice -->
+<!-- skip: language difference: SendError and SubprocessError are built-in enums whose cases carry no payload, so a failed send gives its arguments no way back -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `hb-iso-var-twice` of redteamAC.hand_ac2, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -10295,6 +10337,7 @@ error E3102: <fragment>:42:13: use of moved value 'r': its ownership moved to an
 ```
 
 <!-- test: model-hand-ac-hb-iso-var-use-after -->
+<!-- skip: language difference: SendError and SubprocessError are built-in enums whose cases carry no payload, so a failed send gives its arguments no way back -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `hb-iso-var-use-after` of redteamAC.hand_ac2, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -10347,6 +10390,7 @@ error E3102: <fragment>:42:10: use of moved value 'r': its ownership moved to an
 ```
 
 <!-- test: model-hand-ac-hb-iso-refill -->
+<!-- skip: language difference: SendError and SubprocessError are built-in enums whose cases carry no payload, so a failed send gives its arguments no way back -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `hb-iso-refill` of redteamAC.hand_ac2, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -10399,6 +10443,7 @@ error E3102: <fragment>:42:2: use of moved value 'r': its ownership moved to ano
 ```
 
 <!-- test: model-hand-ac-hb-iso-refill-no-use -->
+<!-- skip: language difference: SendError and SubprocessError are built-in enums whose cases carry no payload, so a failed send gives its arguments no way back -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3223. Model program `hb-iso-refill-no-use` of redteamAC.hand_ac2, in capmodel `reggio/REPORTRTAC.txt`.
@@ -10451,6 +10496,7 @@ error E3223: <fragment>:36:2: this drops a linear value that was never consumed:
 ```
 
 <!-- test: model-hand-ac-hb-iso-loop-refill -->
+<!-- skip: language difference: SendError and SubprocessError are built-in enums whose cases carry no payload, so a failed send gives its arguments no way back -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `hb-iso-loop-refill` of redteamAC.hand_ac2, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -10510,6 +10556,7 @@ error E3102: <fragment>:42:14: use of moved value 'r': it was moved in an earlie
 ```
 
 <!-- test: model-hand-ac-hb-iso-loop-refill-final -->
+<!-- skip: language difference: SendError and SubprocessError are built-in enums whose cases carry no payload, so a failed send gives its arguments no way back -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `hb-iso-loop-refill-final` of redteamAC.hand_ac2, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -10570,6 +10617,7 @@ error E3102: <fragment>:42:14: use of moved value 'r': it was moved in an earlie
 ```
 
 <!-- test: model-hand-ac-hb-iso-handler-consume-then-sender-consume -->
+<!-- skip: language difference: SendError and SubprocessError are built-in enums whose cases carry no payload, so a failed send gives its arguments no way back -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `hb-iso-handler-consume-then-sender-consume` of redteamAC.hand_ac2, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -10622,6 +10670,7 @@ error E3102: <fragment>:42:2: use of moved value 'r': its ownership moved to ano
 ```
 
 <!-- test: model-hand-ac-hb-iso-handler-names-shadow -->
+<!-- skip: language difference: SendError and SubprocessError are built-in enums whose cases carry no payload, so a failed send gives its arguments no way back -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `hb-iso-handler-names-shadow` of redteamAC.hand_ac2, in capmodel `reggio/REPORTRTAC.txt`.
 
 ```maxon
@@ -10672,6 +10721,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ac-hb-iso-handler-shadow-then-use -->
+<!-- skip: language difference: SendError and SubprocessError are built-in enums whose cases carry no payload, so a failed send gives its arguments no way back -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `hb-iso-handler-shadow-then-use` of redteamAC.hand_ac2, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -10810,6 +10860,7 @@ error E3102: <fragment>:32:2: use of moved value 'r': its ownership moved to ano
 ```
 
 <!-- test: model-hand-ac-min-h1-behaviour -->
+<!-- skip: language difference: SendError and SubprocessError are built-in enums whose cases carry no payload, so a failed send gives its arguments no way back -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `min-h1-behaviour` of redteamAC.hand_ac20, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -11661,6 +11712,7 @@ error E3102: <fragment>:27:7: use of moved value 'r': its ownership moved to ano
 ```
 
 <!-- test: model-hand-ac-ld-behaviour-param-twice -->
+<!-- skip: language difference: SendError and SubprocessError are built-in enums whose cases carry no payload, so a failed send gives its arguments no way back -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `ld-behaviour-param-twice` of redteamAC.hand_ac3, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -11769,6 +11821,7 @@ error E3102: <fragment>:39:8: use of moved value 'r': it was moved in an earlier
 ```
 
 <!-- test: model-hand-ac-sm-behaviour-self-method -->
+<!-- skip: language difference: SendError and SubprocessError are built-in enums whose cases carry no payload, so a failed send gives its arguments no way back -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `sm-behaviour-self-method` of redteamAC.hand_ac6, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -11838,6 +11891,7 @@ error E3102: <fragment>:43:11: use of moved value 'r': its ownership moved to an
 ```
 
 <!-- test: model-hand-ac-sm-behaviour-self-method-once -->
+<!-- skip: language difference: SendError and SubprocessError are built-in enums whose cases carry no payload, so a failed send gives its arguments no way back -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `sm-behaviour-self-method-once` of redteamAC.hand_ac6, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -11907,6 +11961,7 @@ error E3102: <fragment>:43:11: use of moved value 'r': its ownership moved to an
 ```
 
 <!-- test: model-hand-ac-sm-behaviour-use-then-peek -->
+<!-- skip: language difference: SendError and SubprocessError are built-in enums whose cases carry no payload, so a failed send gives its arguments no way back -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `sm-behaviour-use-then-peek` of redteamAC.hand_ac6, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -12124,8 +12179,8 @@ function giveS(consumes r Resp) returns Sent
 	return Sent.notSent(r)
 end 'giveS'
 
-function useS(s Sent)
-	match s 'x1'
+function useS(consumes s Sent)
+	match consumes s 'x1'
 		ok then break
 		notSent(r) then r.fin(1)
 	end 'x1'
@@ -12283,7 +12338,7 @@ end 'giveS'
 
 function main() returns ExitCode
 	let r = Resp.create(0)
-	match giveS(Resp.create(1)) 'x1'
+	match consumes giveS(Resp.create(1)) 'x1'
 		ok then break
 		notSent(r) then r.fin(1)
 	end 'x1'
@@ -12342,6 +12397,7 @@ error E3223: <fragment>:32:2: this drops a linear value that was never consumed:
 ```
 
 <!-- test: model-hand-ac-sh-handler-name-shadow -->
+<!-- skip: language difference: SendError and SubprocessError are built-in enums whose cases carry no payload, so a failed send gives its arguments no way back -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `sh-handler-name-shadow` of redteamAC.hand_ac6, in capmodel `reggio/REPORTRTAC.txt`.
 
 ```maxon
@@ -12393,6 +12449,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ac-sh-handler-name-shadow-live-outer-dropped -->
+<!-- skip: language difference: SendError and SubprocessError are built-in enums whose cases carry no payload, so a failed send gives its arguments no way back -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3223. Model program `sh-handler-name-shadow-live-outer-dropped` of redteamAC.hand_ac6, in capmodel `reggio/REPORTRTAC.txt`.
@@ -12645,7 +12702,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ac-un-two-linear-payloads-one-consumed -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: a linear value is a value with a destructor, which cannot be copied or dropped, so the rules of ownership and the Droppable bound refuse what maxon's linear rules refuse -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3224. Model program `un-two-linear-payloads-one-consumed` of redteamAC.hand_ac6, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -12716,8 +12773,8 @@ type Resp
 	end 'peek'
 end 'Resp'
 
-function useMx(p Mx)
-	match p 'x1'
+function useMx(consumes p Mx)
+	match consumes p 'x1'
 		none then break
 		m(k, x) then x.fin(k)
 	end 'x1'
@@ -12768,15 +12825,15 @@ function giveS(consumes r Resp) returns Sent
 	return Sent.notSent(r)
 end 'giveS'
 
-function useS2(s Sent)
-	match s 'x1'
+function useS2(consumes s Sent)
+	match consumes s 'x1'
 		ok then break
 		notSent(r) then r.fin(1)
 	end 'x1'
 end 'useS2'
 
-function useO(p Outer)
-	match p 'x1'
+function useO(consumes p Outer)
+	match consumes p 'x1'
 		n then break
 		o(s) then useS2(s)
 	end 'x1'
@@ -12792,7 +12849,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ac-un-nested-wrap-arm-ignores -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: a linear value is a value with a destructor, which cannot be copied or dropped, so the rules of ownership and the Droppable bound refuse what maxon's linear rules refuse -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3224. Model program `un-nested-wrap-arm-ignores` of redteamAC.hand_ac6, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -12896,6 +12953,7 @@ error E3102: <fragment>:36:8: use of moved value 's': its ownership moved to ano
 ```
 
 <!-- test: model-hand-ac-ul-union-literal-iso -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-STORE`; the compiler refuses it with E3196. Model program `ul-union-literal-iso` of redteamAC.hand_ac7, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -12943,6 +13001,7 @@ error E3196: <fragment>:35:23: cannot store an isolated 'Resp' into 'Sent.notSen
 ```
 
 <!-- test: model-hand-ac-ul-union-literal-iso-return -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-STORE`; the compiler refuses it with E3196. Model program `ul-union-literal-iso-return` of redteamAC.hand_ac7, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -12994,6 +13053,7 @@ error E3196: <fragment>:35:23: cannot store an isolated 'Resp' into 'Sent.notSen
 ```
 
 <!-- test: model-hand-ac-ul-union-literal-iso-dropped-s -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-STORE`; the compiler refuses it with E3196. Model program `ul-union-literal-iso-dropped-s` of redteamAC.hand_ac7, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -13280,6 +13340,7 @@ error E3102: <fragment>:28:10: use of moved value 'r': its ownership moved to an
 ```
 
 <!-- test: model-hand-ac-ul-iso-handback-after-lend -->
+<!-- skip: language difference: SendError and SubprocessError are built-in enums whose cases carry no payload, so a failed send gives its arguments no way back -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `ul-iso-handback-after-lend` of redteamAC.hand_ac7, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -14059,6 +14120,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ac-hq-fin-only -->
+<!-- skip: language difference: SendError and SubprocessError are built-in enums whose cases carry no payload, so a failed send gives its arguments no way back -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `hq-fin-only` of redteamAC.hand_ac9, in capmodel `reggio/REPORTRTAC.txt`.
 
 ```maxon
@@ -14120,6 +14182,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ac-hq-use-only -->
+<!-- skip: language difference: SendError and SubprocessError are built-in enums whose cases carry no payload, so a failed send gives its arguments no way back -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `hq-use-only` of redteamAC.hand_ac9, in capmodel `reggio/REPORTRTAC.txt`.
 
 ```maxon
@@ -14185,6 +14248,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ac-hq-union-sent -->
+<!-- skip: language difference: SendError and SubprocessError are built-in enums whose cases carry no payload, so a failed send gives its arguments no way back -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `hq-union-sent` of redteamAC.hand_ac9, in capmodel `reggio/REPORTRTAC.txt`.
 
 ```maxon
@@ -14301,8 +14365,8 @@ function lg(x Num) returns Num
 	return x
 end 'lg'
 
-function useS(s Sent)
-	match s 'x1'
+function useS(consumes s Sent)
+	match consumes s 'x1'
 		ok then break
 		notSent(r) then r.fin(1)
 	end 'x1'
@@ -14312,8 +14376,8 @@ function mkW() returns Wrap
 	return Wrap.w1(Sent.notSent(Resp.create(0)))
 end 'mkW'
 
-function useW(w Wrap)
-	match w 'x1'
+function useW(consumes w Wrap)
+	match consumes w 'x1'
 		w0 then break
 		w1(s) then useS(s)
 	end 'x1'
@@ -14456,7 +14520,7 @@ error E3102: <fragment>:60:7: use of moved value 'w': its ownership moved to ano
 ```
 
 <!-- test: model-hand-ad-n-wrap-match-leak-payload -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: a linear value is a value with a destructor, which cannot be copied or dropped, so the rules of ownership and the Droppable bound refuse what maxon's linear rules refuse -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3224. Model program `n-wrap-match-leak-payload` of redteamAD.hand_ad1, in capmodel `reggio/REPORTRTAD.txt`.
 
@@ -14589,7 +14653,7 @@ error E3102: <fragment>:63:7: use of moved value 'w': its ownership moved to ano
 ```
 
 <!-- test: model-hand-ad-n-two-pair -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: a linear value is a value with a destructor, which cannot be copied or dropped, so the rules of ownership and the Droppable bound refuse what maxon's linear rules refuse -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3224. Model program `n-two-pair` of redteamAD.hand_ad1, in capmodel `reggio/REPORTRTAD.txt`.
 
@@ -16149,7 +16213,7 @@ error E3223: <fragment>:31:13: this drops a linear value that was never consumed
 ```
 
 <!-- test: model-hand-ad-o-iter-array -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: a linear value is a value with a destructor, which cannot be copied or dropped, so the rules of ownership and the Droppable bound refuse what maxon's linear rules refuse -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-WHERE`; the compiler refuses it with E3224. Model program `o-iter-array` of redteamAD.hand_ad1, in capmodel `reggio/REPORTRTAD.txt`.
 
@@ -16202,7 +16266,7 @@ error E3224: <fragment>:3:11: 'Sent' is a linear value and cannot be a type argu
 ```
 
 <!-- test: model-hand-ad-o-record-method-returns-self -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: a linear value is a value with a destructor, which cannot be copied or dropped, so the rules of ownership and the Droppable bound refuse what maxon's linear rules refuse -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-SELF`; the compiler refuses it with E3224. Model program `o-record-method-returns-self` of redteamAD.hand_ad1, in capmodel `reggio/REPORTRTAD.txt`.
 
@@ -16236,7 +16300,7 @@ error E3224: <fragment>:12:10: this linear value is only lent to this code (a pa
 ```
 
 <!-- test: model-hand-ad-o-record-method-passes-self -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: a linear value is a value with a destructor, which cannot be copied or dropped, so the rules of ownership and the Droppable bound refuse what maxon's linear rules refuse -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-SELF`; the compiler refuses it with E3224. Model program `o-record-method-passes-self` of redteamAD.hand_ad1, in capmodel `reggio/REPORTRTAD.txt`.
 
@@ -16368,7 +16432,7 @@ end 'Rs'
 function main() returns ExitCode
 	let r = Rs.create(0)
 	let a = r.go()
-	match a 'x1'
+	match consumes a 'x1'
 		u0 then break
 		u1(x) then x.fin()
 	end 'x1'
@@ -16544,6 +16608,7 @@ error E3102: <fragment>:17:10: use of moved value 'self': its ownership moved to
 ```
 
 <!-- test: model-hand-ad-n-handler-shadows-outer -->
+<!-- skip: language difference: SendError and SubprocessError are built-in enums whose cases carry no payload, so a failed send gives its arguments no way back -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3223. Model program `n-handler-shadows-outer` of redteamAD.hand_ad4, in capmodel `reggio/REPORTRTAD.txt`.
@@ -16628,6 +16693,7 @@ error E3223: <fragment>:74:2: this drops 'r', a linear value that was never cons
 ```
 
 <!-- test: model-hand-ad-n-handler-shadows-outer-fin -->
+<!-- skip: language difference: SendError and SubprocessError are built-in enums whose cases carry no payload, so a failed send gives its arguments no way back -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `n-handler-shadows-outer-fin` of redteamAD.hand_ad4, in capmodel `reggio/REPORTRTAD.txt`.
 
 ```maxon
@@ -16705,6 +16771,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ad-n-handler-name-is-sent-var -->
+<!-- skip: language difference: SendError and SubprocessError are built-in enums whose cases carry no payload, so a failed send gives its arguments no way back -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `n-handler-name-is-sent-var` of redteamAD.hand_ad4, in capmodel `reggio/REPORTRTAD.txt`.
 
 ```maxon
@@ -16781,6 +16848,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ad-n-handler-name-is-sent-var-use-after -->
+<!-- skip: language difference: SendError and SubprocessError are built-in enums whose cases carry no payload, so a failed send gives its arguments no way back -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `n-handler-name-is-sent-var-use-after` of redteamAD.hand_ad4, in capmodel `reggio/REPORTRTAD.txt`.
 
@@ -16859,6 +16927,7 @@ error E3102: <fragment>:68:2: use of moved value 'r': its ownership moved to ano
 ```
 
 <!-- test: model-hand-ad-n-handler-name-int-mixed -->
+<!-- skip: language difference: SendError and SubprocessError are built-in enums whose cases carry no payload, so a failed send gives its arguments no way back -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `n-handler-name-int-mixed` of redteamAD.hand_ad4, in capmodel `reggio/REPORTRTAD.txt`.
 
 ```maxon
@@ -16967,7 +17036,7 @@ end 'giveS'
 
 function main() returns ExitCode
 	let s = giveS(Resp.create(0))
-	match s 'x1'
+	match consumes s 'x1'
 		ok then break
 		notSent(s) then s.fin(1)
 	end 'x1'
@@ -17066,7 +17135,7 @@ end 'giveS'
 function main() returns ExitCode
 	let r = Resp.create(7)
 	let s = giveS(Resp.create(0))
-	match s 'x1'
+	match consumes s 'x1'
 		ok then break
 		notSent(r) then r.fin(1)
 	end 'x1'
@@ -17079,7 +17148,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ad-n-arm-name-is-outer-linear-drop -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: a linear value is a value with a destructor, which cannot be copied or dropped, so the rules of ownership and the Droppable bound refuse what maxon's linear rules refuse -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3224. Model program `n-arm-name-is-outer-linear-drop` of redteamAD.hand_ad4, in capmodel `reggio/REPORTRTAD.txt`.
 
@@ -17174,7 +17243,7 @@ error E3223: <fragment>:33:2: this drops a linear value that was never consumed:
 ```
 
 <!-- test: model-hand-ad-j-break-in-arm -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: a linear value is a value with a destructor, which cannot be copied or dropped, so the rules of ownership and the Droppable bound refuse what maxon's linear rules refuse -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3224. Model program `j-break-in-arm` of redteamAD.hand_ad4, in capmodel `reggio/REPORTRTAD.txt`.
 
@@ -17228,7 +17297,7 @@ error E3224: <fragment>:40:4: the case 'notSent' carries the linear value 'r', a
 ```
 
 <!-- test: model-hand-ad-j-return-in-arm -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: a linear value is a value with a destructor, which cannot be copied or dropped, so the rules of ownership and the Droppable bound refuse what maxon's linear rules refuse -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3224. Model program `j-return-in-arm` of redteamAD.hand_ad4, in capmodel `reggio/REPORTRTAD.txt`.
 
@@ -17278,7 +17347,7 @@ error E3224: <fragment>:34:3: the case 'notSent' carries the linear value 'r', a
 ```
 
 <!-- test: model-hand-ad-j-handler-return -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: a linear value is a value with a destructor, which cannot be copied or dropped, so the rules of ownership and the Droppable bound refuse what maxon's linear rules refuse -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3224. Model program `j-handler-return` of redteamAD.hand_ad4, in capmodel `reggio/REPORTRTAD.txt`.
 
@@ -17361,6 +17430,7 @@ error E3224: <fragment>:62:4: the case 'mailboxFull' carries the linear value 'r
 ```
 
 <!-- test: model-hand-ad-j-handler-in-loop-refill -->
+<!-- skip: language difference: SendError and SubprocessError are built-in enums whose cases carry no payload, so a failed send gives its arguments no way back -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `j-handler-in-loop-refill` of redteamAD.hand_ad4, in capmodel `reggio/REPORTRTAD.txt`.
 
 ```maxon
@@ -17447,6 +17517,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ad-j-handler-in-loop-no-refill -->
+<!-- skip: language difference: SendError and SubprocessError are built-in enums whose cases carry no payload, so a failed send gives its arguments no way back -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `j-handler-in-loop-no-refill` of redteamAD.hand_ad4, in capmodel `reggio/REPORTRTAD.txt`.
 
@@ -17532,6 +17603,7 @@ error E3102: <fragment>:68:14: use of moved value 'r': it was moved in an earlie
 ```
 
 <!-- test: model-hand-ad-j-handler-in-loop-refill-both -->
+<!-- skip: language difference: SendError and SubprocessError are built-in enums whose cases carry no payload, so a failed send gives its arguments no way back -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `j-handler-in-loop-refill-both` of redteamAD.hand_ad4, in capmodel `reggio/REPORTRTAD.txt`.
 
 ```maxon
@@ -18065,8 +18137,8 @@ type Resp
 	end 'peek'
 end 'Resp'
 
-function later2(s Sn)
-	match s 'x1'
+function later2(consumes s Sn)
+	match consumes s 'x1'
 		ok then break
 		notSent(r) then r.fin(1)
 	end 'x1'
@@ -18083,6 +18155,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ad-k-forward-keeper-union-fn-peek -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `k-forward-keeper-union-fn-peek` of redteamAD.hand_ad7, in capmodel `reggio/REPORTRTAD.txt`.
 
 ```maxon
@@ -18167,8 +18240,8 @@ function giveS(consumes r Rl) returns Sn
 	return Sn.notSent(r)
 end 'giveS'
 
-function useS(s Sn)
-	match s 'x1'
+function useS(consumes s Sn)
+	match consumes s 'x1'
 		ok then break
 		notSent(r) then r.fin(1)
 	end 'x1'
@@ -18227,8 +18300,8 @@ function giveS(consumes r Rl) returns Sn
 	return Sn.notSent(r)
 end 'giveS'
 
-function useS(s Sn)
-	match s 'x1'
+function useS(consumes s Sn)
+	match consumes s 'x1'
 		ok then break
 		notSent(r) then r.fin(1)
 	end 'x1'
@@ -18246,7 +18319,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-af-b1-byref-union-param -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: a linear value is a value with a destructor, which cannot be copied or dropped, so the rules of ownership and the Droppable bound refuse what maxon's linear rules refuse -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-LEND`; the compiler refuses it with E3224. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `b1-byref-union-param` of redteamAF.hand_af1, in capmodel `reggio/REPORTRTAF.txt`.
 
@@ -18310,7 +18383,7 @@ error E3224: <fragment>:50:3: this linear value is only lent to this code (a par
 ```
 
 <!-- test: model-hand-af-b2-byref-union-param-once -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: a linear value is a value with a destructor, which cannot be copied or dropped, so the rules of ownership and the Droppable bound refuse what maxon's linear rules refuse -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-LEND`; the compiler refuses it with E3224. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `b2-byref-union-param-once` of redteamAF.hand_af1, in capmodel `reggio/REPORTRTAF.txt`.
 
@@ -18369,7 +18442,7 @@ error E3224: <fragment>:41:3: this linear value is only lent to this code (a par
 ```
 
 <!-- test: model-hand-af-b3-byref-union-param-refilled -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: a linear value is a value with a destructor, which cannot be copied or dropped, so the rules of ownership and the Droppable bound refuse what maxon's linear rules refuse -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-LEND`; the compiler refuses it with E3224. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `b3-byref-union-param-refilled` of redteamAF.hand_af1, in capmodel `reggio/REPORTRTAF.txt`.
 
@@ -18430,7 +18503,7 @@ error E3224: <fragment>:41:3: this linear value is only lent to this code (a par
 ```
 
 <!-- test: model-hand-af-r1-record-field-union-match -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: a linear value is a value with a destructor, which cannot be copied or dropped, so the rules of ownership and the Droppable bound refuse what maxon's linear rules refuse -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-WHERE`; the compiler refuses it with E3224. Model program `r1-record-field-union-match` of redteamAF.hand_af1, in capmodel `reggio/REPORTRTAF.txt`.
 
@@ -18540,7 +18613,7 @@ end 'Rl'
 function main() returns ExitCode
 	let x = Rl.create(9)
 	let u = Sh.held(Rl.create(1))
-	match u 'x1'
+	match consumes u 'x1'
 		none then break
 		held(x) then x.fin(1)
 	end 'x1'
@@ -18599,7 +18672,7 @@ end 'useI'
 function main() returns ExitCode
 	let q = Rl.create(9) as Rl
 	let u = Sh.held(Rl.create(1))
-	match u 'x1'
+	match consumes u 'x1'
 		none then break
 		held(q) then useI(q)
 	end 'x1'
@@ -18669,6 +18742,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-af-sh5-inner-let-send -->
+<!-- skip: language difference: SendError and SubprocessError are built-in enums whose cases carry no payload, so a failed send gives its arguments no way back -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `sh5-inner-let-send` of redteamAF.hand_af16, in capmodel `reggio/REPORTRTAF.txt`.
 
 ```maxon
@@ -18857,7 +18931,7 @@ end 'takeB'
 function main() returns ExitCode
 	let y = Bx.create(9) as Bx
 	let m = Mq.m1(Bx.create(1))
-	match m 'x1'
+	match consumes m 'x1'
 		m0(x) then x.fin(1)
 		m1(y) then takeB(y.clone())
 	end 'x1'
@@ -18921,8 +18995,8 @@ function takeB(consumes b Bx)
 	_ = b.n
 end 'takeB'
 
-function f(consumes y Bx, m Mq)
-	match m 'x1'
+function f(consumes y Bx, consumes m Mq)
+	match consumes m 'x1'
 		m0(x) then x.fin(1)
 		m1(y) then takeB(y.clone())
 	end 'x1'
@@ -18999,7 +19073,7 @@ function main() returns ExitCode
 	var i = 2 as Num
 	while i != 0 'w1'
 		let m = Mq.m1(Bx.create(1))
-		match m 'x2'
+		match consumes m 'x2'
 			m0(x) then x.fin(1)
 			m1(y) then takeB(y.clone())
 		end 'x2'
@@ -19014,6 +19088,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-af-c4-clone-mixed-union -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R18-UNIQUE`; the compiler refuses it with E3214. Model program `c4-clone-mixed-union` of redteamAF.hand_af21, in capmodel `reggio/REPORTRTAF.txt`.
 
@@ -19454,7 +19529,7 @@ function main() returns ExitCode
 	var u = Sh.held(Rl.create(1))
 	var i = 2 as Num
 	while i != 0 'w1'
-		match u 'x2'
+		match consumes u 'x2'
 			none then break
 			held(q) then q.fin(1)
 		end 'x2'
@@ -19462,7 +19537,7 @@ function main() returns ExitCode
 		i = lg(0)
 		continue
 	end 'w1'
-	match u 'x3'
+	match consumes u 'x3'
 		none then break
 		held(q) then q.fin(1)
 	end 'x3'
@@ -19780,7 +19855,7 @@ end 'Rl'
 function main() returns ExitCode
 	let q = Rl.create(9) as Rl
 	let u = Sh.held(Rl.create(1))
-	match u 'x1'
+	match consumes u 'x1'
 		none then break
 		held(q) then q.fin(1)
 	end 'x1'
@@ -19835,7 +19910,7 @@ end 'Rl'
 function main() returns ExitCode
 	let q = Rl.create(9)
 	let u = Sh.held(Rl.create(1))
-	match u 'x1'
+	match consumes u 'x1'
 		none then break
 		held(q) then q.fin(1)
 	end 'x1'
@@ -19889,7 +19964,7 @@ end 'Rl'
 
 function main() returns ExitCode
 	let u = Sh.held(Rl.create(1))
-	match u 'x1'
+	match consumes u 'x1'
 		none then break
 		held(u) then u.fin(1)
 	end 'x1'
@@ -19954,7 +20029,7 @@ end 'takeB'
 
 function main() returns ExitCode
 	let u = Mx.m1(Bx.create(1))
-	match u 'x1'
+	match consumes u 'x1'
 		m0(x) then x.fin(1)
 		m1(x) then takeB(x.clone())
 	end 'x1'
@@ -20007,7 +20082,7 @@ end 'Rl'
 
 function main() returns ExitCode
 	let u = Sh.held(Rl.create(1))
-	match u 'x1'
+	match consumes u 'x1'
 		none then break
 		held(q) then q.fin(1)
 	end 'x1'
@@ -20118,8 +20193,8 @@ type Rl
 	end 'wrap'
 end 'Rl'
 
-function f(consumes q Rl, u Sh)
-	match u 'x1'
+function f(consumes q Rl, consumes u Sh)
+	match consumes u 'x1'
 		none then break
 		held(q) then q.fin(1)
 	end 'x1'
@@ -20183,7 +20258,7 @@ function main() returns ExitCode
 	var q = Rl.create(9) as Rl
 	useI(q)
 	let u = Sh.held(Rl.create(1))
-	match u 'x1'
+	match consumes u 'x1'
 		none then break
 		held(q) then q.fin(1)
 	end 'x1'
@@ -20197,6 +20272,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-af-s15-plain-payload-binder-shadow -->
+<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `s15-plain-payload-binder-shadow` of redteamAF.hand_af3, in capmodel `reggio/REPORTRTAF.txt`.
 
 ```maxon
@@ -20227,7 +20303,7 @@ type Rl
 		return self.code
 	end 'peek'
 
-	function set(mutates self, c Num)
+	function set(c Num)
 		self.code = c
 	end 'set'
 
@@ -20245,7 +20321,7 @@ type Bx
 end 'Bx'
 
 function main() returns ExitCode
-	var y = Bx.create(5)
+	let y = Bx.create(5)
 	let u = Mp.m1(Bx.create(1))
 	match u 'x1'
 		m0(x) then x.fin(1)
@@ -20260,6 +20336,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-af-p1-plain-mixed-in-fn -->
+<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `p1-plain-mixed-in-fn` of redteamAF.hand_af3, in capmodel `reggio/REPORTRTAF.txt`.
 
 ```maxon
@@ -20290,7 +20367,7 @@ type Rl
 		return self.code
 	end 'peek'
 
-	function set(mutates self, c Num)
+	function set(c Num)
 		self.code = c
 	end 'set'
 
@@ -20325,6 +20402,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-af-p4-plain-mixed-share-payload -->
+<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `p4-plain-mixed-share-payload` of redteamAF.hand_af3, in capmodel `reggio/REPORTRTAF.txt`.
 
 ```maxon
@@ -20355,7 +20433,7 @@ type Rl
 		return self.code
 	end 'peek'
 
-	function set(mutates self, c Num)
+	function set(c Num)
 		self.code = c
 	end 'set'
 
@@ -20373,7 +20451,7 @@ type Bx
 end 'Bx'
 
 function main() returns ExitCode
-	var b = Bx.create(1)
+	let b = Bx.create(1)
 	let u = Mp.m1(b)
 	match u 'x1'
 		m0(x) then x.fin(1)
@@ -20388,6 +20466,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-af-p6-plain-mixed-readonly-payload-in-union-from-param -->
+<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `p6-plain-mixed-readonly-payload-in-union-from-param` of redteamAF.hand_af3, in capmodel `reggio/REPORTRTAF.txt`.
 
 ```maxon
@@ -20418,7 +20497,7 @@ type Rl
 		return self.code
 	end 'peek'
 
-	function set(mutates self, c Num)
+	function set(c Num)
 		self.code = c
 	end 'set'
 
@@ -20436,7 +20515,7 @@ type Bx
 end 'Bx'
 
 function buildw(b Bx) returns Mp
-	return Mp.m1(b.clone())
+	return Mp.m1(b)
 end 'buildw'
 
 function main() returns ExitCode
@@ -20453,6 +20532,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-af-p7-plain-mixed-frozen-payload -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-STORE`; the compiler refuses it with E3196. Model program `p7-plain-mixed-frozen-payload` of redteamAF.hand_af3, in capmodel `reggio/REPORTRTAF.txt`.
 
@@ -20628,8 +20708,8 @@ type Own
 		r.fin(1)
 	end 'eatI'
 
-	function eatU(u Sh)
-		match u 'x1'
+	function eatU(consumes u Sh)
+		match consumes u 'x1'
 			none then break
 			held(q) then q.fin(1)
 		end 'x1'
@@ -20638,7 +20718,7 @@ end 'Own'
 
 function main() returns ExitCode
 	let o = Own.create(0)
-	match Sh.held(Rl.create(1)) 'x1'
+	match consumes Sh.held(Rl.create(1)) 'x1'
 		none then break
 		held(q) then o.eatI(q)
 	end 'x1'
@@ -20700,8 +20780,8 @@ type Own
 		r.fin(1)
 	end 'eatI'
 
-	function eatU(u Sh)
-		match u 'x1'
+	function eatU(consumes u Sh)
+		match consumes u 'x1'
 			none then break
 			held(q) then q.fin(1)
 		end 'x1'
@@ -20719,7 +20799,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-af-w10-two-cases-two-sinks -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3200. Model program `w10-two-cases-two-sinks` of redteamAF.hand_af8, in capmodel `reggio/REPORTRTAF.txt`.
 
@@ -20790,6 +20870,7 @@ error E3200: <fragment>:58:19: 'x' is not isolated: only a clean call, a `swap` 
 ```
 
 <!-- test: model-hand-af-w11-mixed-nonlinear-moved-to-send -->
+<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `w11-mixed-nonlinear-moved-to-send` of redteamAF.hand_af8, in capmodel `reggio/REPORTRTAF.txt`.
 
 ```maxon
@@ -20820,7 +20901,7 @@ type Rl
 		return self.code
 	end 'peek'
 
-	function set(mutates self, c Num)
+	function set(c Num)
 		self.code = c
 	end 'set'
 
@@ -20854,7 +20935,7 @@ function main() returns ExitCode
 	let m = Mx.m1(Bx.create(1))
 	match m 'x1'
 		m0(x) then x.fin(1)
-		m1(y) then try k.takeB(y.clone()) otherwise ignore
+		m1(y) then try k.takeB(y) otherwise ignore
 	end 'x1'
 	return 0
 end 'main'
@@ -20903,8 +20984,8 @@ type Rl
 	end 'wrap'
 end 'Rl'
 
-function first(u Sh, c Num)
-	match u 'x1'
+function first(consumes u Sh, c Num)
+	match consumes u 'x1'
 		none then return
 		held(q) then q.fin(c)
 	end 'x1'
@@ -20970,7 +21051,7 @@ function main() returns ExitCode
 	end 'i1' else 'e2'
 		u = Sh.held(Rl.create(2))
 	end 'e2'
-	match u 'x3'
+	match consumes u 'x3'
 		none then break
 		held(q) then q.fin(1)
 	end 'x3'
@@ -21227,8 +21308,8 @@ type Rl
 	end 'wrap'
 end 'Rl'
 
-function eat(u Sh)
-	match u 'x1'
+function eat(consumes u Sh)
+	match consumes u 'x1'
 		none then break
 		held(q) then q.fin(1)
 	end 'x1'
@@ -21295,8 +21376,8 @@ type Kx
 	end 'go'
 end 'Kx'
 
-function eat(u Sh)
-	match u 'x1'
+function eat(consumes u Sh)
+	match consumes u 'x1'
 		none then break
 		held(q) then q.fin(1)
 	end 'x1'
@@ -21361,7 +21442,7 @@ type Kx
 
 	export function go()
 		let u = Sh.held(Rl.create(1))
-		match u 'x1'
+		match consumes u 'x1'
 			none then break
 			held(q) then q.fin(1)
 		end 'x1'
@@ -21606,6 +21687,7 @@ error E3223: <fragment>:65:2: this drops a linear value that was never consumed:
 ```
 
 <!-- test: model-hand-ag-t8-wo-payload -->
+<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `t8-wo-payload` of redteamAG.hand_ag1, in capmodel `reggio/REPORTRTAG.txt`.
 
 ```maxon
@@ -21636,7 +21718,7 @@ type Rl
 		return self.code
 	end 'peek'
 
-	function set(mutates self, c Num)
+	function set(c Num)
 		self.code = c
 	end 'set'
 
@@ -21658,7 +21740,7 @@ type Wo
 	var item as Bx
 
 	static function create(keep Bx, consumes item Bx) returns Self
-		return Self{keep: keep.clone(), item: item}
+		return Self{keep: keep, item: item}
 	end 'create'
 end 'Wo'
 
@@ -22072,7 +22154,7 @@ end 'keepIn'
 function main() returns ExitCode
 	var h = Wo.create(Bx.create(0), item: Bx.create(1))
 	let u = Mp.m1(Bx.create(1)) as Mp
-	match u 'x1'
+	match consumes u 'x1'
 		m0(x) then x.fin(1)
 		m1(y) then keepIn(y, w: h)
 	end 'x1'
@@ -22084,6 +22166,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ag-s1-beh-if-else-match-both -->
+<!-- skip: language difference: SendError and SubprocessError are built-in enums whose cases carry no payload, so a failed send gives its arguments no way back -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `s1-beh-if-else-match-both` of redteamAG.hand_ag17, in capmodel `reggio/REPORTRTAG.txt`.
 
 ```maxon
@@ -22172,6 +22255,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ag-s2-beh-if-match-else-call -->
+<!-- skip: language difference: SendError and SubprocessError are built-in enums whose cases carry no payload, so a failed send gives its arguments no way back -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `s2-beh-if-match-else-call` of redteamAG.hand_ag17, in capmodel `reggio/REPORTRTAG.txt`.
 
 ```maxon
@@ -22300,8 +22384,8 @@ function lg(x Num) returns Num
 	return x
 end 'lg'
 
-function eatSh(p Sh)
-	match p 'x1'
+function eatSh(consumes p Sh)
+	match consumes p 'x1'
 		none then break
 		held(q) then q.fin(1)
 	end 'x1'
@@ -22310,7 +22394,7 @@ end 'eatSh'
 function main() returns ExitCode
 	let u = Sh.held(Rl.create(1)) as Sh
 	if lg(1) != 0 'i1'
-		match u 'x2'
+		match consumes u 'x2'
 			none then break
 			held(q) then q.fin(1)
 		end 'x2'
@@ -22368,8 +22452,8 @@ function lg(x Num) returns Num
 	return x
 end 'lg'
 
-function eatSh(p Sh)
-	match p 'x1'
+function eatSh(consumes p Sh)
+	match consumes p 'x1'
 		none then break
 		held(q) then q.fin(1)
 	end 'x1'
@@ -22434,8 +22518,8 @@ function lg(x Num) returns Num
 	return x
 end 'lg'
 
-function eatSh(p Sh)
-	match p 'x1'
+function eatSh(consumes p Sh)
+	match consumes p 'x1'
 		none then break
 		held(q) then q.fin(1)
 	end 'x1'
@@ -22501,8 +22585,8 @@ function lg(x Num) returns Num
 	return x
 end 'lg'
 
-function eatSh(p Sh)
-	match p 'x1'
+function eatSh(consumes p Sh)
+	match consumes p 'x1'
 		none then break
 		held(q) then q.fin(1)
 	end 'x1'
@@ -22510,7 +22594,7 @@ end 'eatSh'
 
 function f(consumes u Sh)
 	if lg(1) != 0 'i1'
-		match u 'x2'
+		match consumes u 'x2'
 			none then break
 			held(q) then q.fin(1)
 		end 'x2'
@@ -22529,6 +22613,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ag-s10-w3-local-from-plain-local -->
+<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `s10-w3-local-from-plain-local` of redteamAG.hand_ag17, in capmodel `reggio/REPORTRTAG.txt`.
 
 ```maxon
@@ -22559,7 +22644,7 @@ type Rl
 		return self.code
 	end 'peek'
 
-	function set(mutates self, c Num)
+	function set(c Num)
 		self.code = c
 	end 'set'
 
@@ -22581,7 +22666,7 @@ type Wo
 	var item as Bx
 
 	static function create(keep Bx, consumes item Bx) returns Self
-		return Self{keep: keep.clone(), item: item}
+		return Self{keep: keep, item: item}
 	end 'create'
 end 'Wo'
 
@@ -22600,6 +22685,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ag-s11-w3-local-inline-new -->
+<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `s11-w3-local-inline-new` of redteamAG.hand_ag17, in capmodel `reggio/REPORTRTAG.txt`.
 
 ```maxon
@@ -22630,7 +22716,7 @@ type Rl
 		return self.code
 	end 'peek'
 
-	function set(mutates self, c Num)
+	function set(c Num)
 		self.code = c
 	end 'set'
 
@@ -22652,7 +22738,7 @@ type Wo
 	var item as Bx
 
 	static function create(keep Bx, consumes item Bx) returns Self
-		return Self{keep: keep.clone(), item: item}
+		return Self{keep: keep, item: item}
 	end 'create'
 end 'Wo'
 
@@ -22670,6 +22756,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ag-s13-w1-match-then-send-state-method -->
+<!-- skip: language difference: SendError and SubprocessError are built-in enums whose cases carry no payload, so a failed send gives its arguments no way back -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `s13-w1-match-then-send-state-method` of redteamAG.hand_ag17, in capmodel `reggio/REPORTRTAG.txt`.
 
 ```maxon
@@ -22790,8 +22877,8 @@ type Rl
 	end 'wrap'
 end 'Rl'
 
-function eatSh(p Sh)
-	match p 'x1'
+function eatSh(consumes p Sh)
+	match consumes p 'x1'
 		none then break
 		held(q) then q.fin(1)
 	end 'x1'
@@ -22803,7 +22890,7 @@ end 'again'
 
 function main() returns ExitCode
 	var u = Sh.held(Rl.create(1))
-	match u 'x1'
+	match consumes u 'x1'
 		none then u = Sh.none
 		held(q) then u = again(q)
 	end 'x1'
@@ -22816,6 +22903,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ag-h8-handback-vacant-literal -->
+<!-- skip: language difference: SendError and SubprocessError are built-in enums whose cases carry no payload, so a failed send gives its arguments no way back -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `h8-handback-vacant-literal` of redteamAG.hand_ag18, in capmodel `reggio/REPORTRTAG.txt`.
 
 ```maxon
@@ -22962,6 +23050,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ag-h9-handback-overwrite-vacant -->
+<!-- skip: language difference: SendError and SubprocessError are built-in enums whose cases carry no payload, so a failed send gives its arguments no way back -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3223. Model program `h9-handback-overwrite-vacant` of redteamAG.hand_ag18, in capmodel `reggio/REPORTRTAG.txt`.
@@ -23997,7 +24086,7 @@ end 'Tk'
 function main() returns ExitCode
 	var u = Uk.k(Tk.create(1))
 	u = Uk.a(Rl.create(1))
-	match u 'x1'
+	match consumes u 'x1'
 		a(x) then x.fin(1)
 		k then break
 	end 'x1'
@@ -24059,7 +24148,7 @@ end 'Tk'
 function main() returns ExitCode
 	var u = Ui.k(Tk.create(1))
 	u = Ui.a(Rl.create(1))
-	match u 'x1'
+	match consumes u 'x1'
 		a(x) then x.fin(1)
 		k then break
 	end 'x1'
@@ -24267,8 +24356,8 @@ function takeB(consumes b Bx)
 	_ = b.n
 end 'takeB'
 
-function eatUh(p Uh)
-	match p 'x1'
+function eatUh(consumes p Uh)
+	match consumes p 'x1'
 		a(x) then x.fin(1)
 		h(b) then takeB(b.clone())
 		z then break
@@ -24287,6 +24376,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ag-v10-no-payload-case-of-three -->
+<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `v10-no-payload-case-of-three` of redteamAG.hand_ag4, in capmodel `reggio/REPORTRTAG.txt`.
 
 ```maxon
@@ -24318,7 +24408,7 @@ type Rl
 		return self.code
 	end 'peek'
 
-	function set(mutates self, c Num)
+	function set(c Num)
 		self.code = c
 	end 'set'
 
@@ -24355,6 +24445,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ag-v11-plain-payload-case -->
+<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `v11-plain-payload-case` of redteamAG.hand_ag4, in capmodel `reggio/REPORTRTAG.txt`.
 
 ```maxon
@@ -24386,7 +24477,7 @@ type Rl
 		return self.code
 	end 'peek'
 
-	function set(mutates self, c Num)
+	function set(c Num)
 		self.code = c
 	end 'set'
 
@@ -24423,6 +24514,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ag-v12-plain-payload-aliased -->
+<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `v12-plain-payload-aliased` of redteamAG.hand_ag4, in capmodel `reggio/REPORTRTAG.txt`.
 
 ```maxon
@@ -24454,7 +24546,7 @@ type Rl
 		return self.code
 	end 'peek'
 
-	function set(mutates self, c Num)
+	function set(c Num)
 		self.code = c
 	end 'set'
 
@@ -24480,7 +24572,7 @@ function eatUq(p Uq)
 end 'eatUq'
 
 function main() returns ExitCode
-	var b = Bx.create(1)
+	let b = Bx.create(1)
 	var u = Uq.s(b)
 	u = Uq.r(Rl.create(1))
 	b.n = 3
@@ -24818,8 +24910,8 @@ function lg(x Num) returns Num
 	return x
 end 'lg'
 
-function eatSh(p Sh)
-	match p 'x1'
+function eatSh(consumes p Sh)
+	match consumes p 'x1'
 		none then break
 		held(q) then q.fin(1)
 	end 'x1'
@@ -25441,8 +25533,8 @@ type Rl
 	end 'wrap'
 end 'Rl'
 
-function eatSh(p Sh)
-	match p 'x1'
+function eatSh(consumes p Sh)
+	match consumes p 'x1'
 		none then break
 		held(q) then q.fin(1)
 	end 'x1'
@@ -25450,7 +25542,7 @@ end 'eatSh'
 
 function main() returns ExitCode
 	var u = Sh.held(Rl.create(1))
-	match u 'x1'
+	match consumes u 'x1'
 		none then u = Sh.none
 		held(q) then u = Sh.held(q)
 	end 'x1'
@@ -25510,8 +25602,8 @@ type Bx
 	end 'create'
 end 'Bx'
 
-function useS(s Sn)
-	match s 'x1'
+function useS(consumes s Sn)
+	match consumes s 'x1'
 		ok then break
 		notSent(r) then r.fin(1)
 	end 'x1'
@@ -25523,7 +25615,7 @@ end 'takeB'
 
 function main() returns ExitCode
 	let u = Mx.m0(Rl.create(1)) as Mx
-	match u 'x1'
+	match consumes u 'x1'
 		m0(x) then useS(x.wrap())
 		m1(y) then takeB(y.clone())
 	end 'x1'
@@ -25535,6 +25627,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ah-i1-handback-in-loop -->
+<!-- skip: language difference: SendError and SubprocessError are built-in enums whose cases carry no payload, so a failed send gives its arguments no way back -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `i1-handback-in-loop` of redteamAH.hand_ah2, in capmodel `reggio/REPORTRTAH.txt`.
 
 ```maxon
@@ -25680,7 +25773,7 @@ type Wo
 end 'Wo'
 
 function f(mutates w Wo, consumes u Mp)
-	match u 'x1'
+	match consumes u 'x1'
 		m0(x) then x.fin(1)
 		m1(y) then w.keep = y.clone()
 	end 'x1'
@@ -25697,6 +25790,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ah-w-call-arg-match -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-ONECALL`; the compiler refuses it with E3201. Model program `w-call-arg-match` of redteamAH.hand_ah4, in capmodel `reggio/REPORTRTAH.txt`.
 
@@ -25773,6 +25867,7 @@ error E3201: <fragment>:65:24: 'y' is mutable outside 'h'; a call into an isolat
 ```
 
 <!-- test: model-hand-ah-i3-value-read-in-init-path -->
+<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `i3-value-read-in-init-path` of redteamAH.hand_ah5, in capmodel `reggio/REPORTRTAH.txt`.
 
 ```maxon
@@ -25803,7 +25898,7 @@ type Rl
 		return self.code
 	end 'peek'
 
-	function set(mutates self, c Num)
+	function set(c Num)
 		self.code = c
 	end 'set'
 
@@ -25821,7 +25916,7 @@ type Bx
 end 'Bx'
 
 function main() returns ExitCode
-	var w = Bx.create(1)
+	let w = Bx.create(1)
 	let u = Mp.m1(Bx.create(w.n)) as Mp
 	w.n = 3
 	match u 'x1'
@@ -25836,6 +25931,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ah-i3-call-keeping-fresh -->
+<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `i3-call-keeping-fresh` of redteamAH.hand_ah5, in capmodel `reggio/REPORTRTAH.txt`.
 
 ```maxon
@@ -25866,7 +25962,7 @@ type Rl
 		return self.code
 	end 'peek'
 
-	function set(mutates self, c Num)
+	function set(c Num)
 		self.code = c
 	end 'set'
 
@@ -25884,7 +25980,7 @@ type Bx
 end 'Bx'
 
 function mkMpFrom(b Bx) returns Mp
-	return Mp.m1(b.clone())
+	return Mp.m1(b)
 end 'mkMpFrom'
 
 function main() returns ExitCode
@@ -25902,6 +25998,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ah-i3-call-keeping-fresh-wo -->
+<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `i3-call-keeping-fresh-wo` of redteamAH.hand_ah5, in capmodel `reggio/REPORTRTAH.txt`.
 
 ```maxon
@@ -25932,7 +26029,7 @@ type Rl
 		return self.code
 	end 'peek'
 
-	function set(mutates self, c Num)
+	function set(c Num)
 		self.code = c
 	end 'set'
 
@@ -25954,12 +26051,12 @@ type Wo
 	var item as Bx
 
 	static function create(keep Bx, consumes item Bx) returns Self
-		return Self{keep: keep.clone(), item: item}
+		return Self{keep: keep, item: item}
 	end 'create'
 end 'Wo'
 
 function mkMqFrom(w Wo) returns Mq
-	return Mq.m1(w.clone())
+	return Mq.m1(w)
 end 'mkMqFrom'
 
 function main() returns ExitCode
@@ -25977,7 +26074,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ah-i3-peek-before -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3200. Model program `i3-peek-before` of redteamAH.hand_ah5, in capmodel `reggio/REPORTRTAH.txt`.
 
@@ -26046,6 +26143,7 @@ error E3200: <fragment>:54:10: 'Mp.m1(w) as isolated Mp' is not isolated: only a
 ```
 
 <!-- test: model-hand-ah-i3-assign-before -->
+<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `i3-assign-before` of redteamAH.hand_ah5, in capmodel `reggio/REPORTRTAH.txt`.
 
 ```maxon
@@ -26076,7 +26174,7 @@ type Rl
 		return self.code
 	end 'peek'
 
-	function set(mutates self, c Num)
+	function set(c Num)
 		self.code = c
 	end 'set'
 
@@ -26109,6 +26207,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ah-i3-field-write-before -->
+<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `i3-field-write-before` of redteamAH.hand_ah5, in capmodel `reggio/REPORTRTAH.txt`.
 
 ```maxon
@@ -26139,7 +26238,7 @@ type Rl
 		return self.code
 	end 'peek'
 
-	function set(mutates self, c Num)
+	function set(c Num)
 		self.code = c
 	end 'set'
 
@@ -26161,12 +26260,12 @@ type Wo
 	var item as Bx
 
 	static function create(keep Bx, consumes item Bx) returns Self
-		return Self{keep: keep.clone(), item: item}
+		return Self{keep: keep, item: item}
 	end 'create'
 end 'Wo'
 
 function main() returns ExitCode
-	var w = Wo.create(Bx.create(0), item: Bx.create(1))
+	let w = Wo.create(Bx.create(0), item: Bx.create(1))
 	w.keep.n = 4
 	let u = Mq.m1(w) as Mq
 	match u 'x1'
@@ -26181,7 +26280,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ah-i3-field-replace-before -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3200. Model program `i3-field-replace-before` of redteamAH.hand_ah5, in capmodel `reggio/REPORTRTAH.txt`.
 
@@ -26307,7 +26406,7 @@ function takeBx(consumes b Bx)
 end 'takeBx'
 
 function f(consumes u Mp)
-	match u 'x1'
+	match consumes u 'x1'
 		m0(x) then x.fin(1)
 		m1(y) then takeBx(y.clone())
 	end 'x1'
@@ -26323,7 +26422,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ah-b-array-push-clean -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3200. Model program `b-array-push-clean` of redteamAH.hand_ah8, in capmodel `reggio/REPORTRTAH.txt`.
 
@@ -26391,7 +26490,7 @@ error E3200: <fragment>:52:10: 'Ma.m1(a) as isolated Ma' is not isolated: only a
 ```
 
 <!-- test: model-hand-ah-b-record-field-store -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3200. Model program `b-record-field-store` of redteamAH.hand_ah8, in capmodel `reggio/REPORTRTAH.txt`.
 
@@ -26465,7 +26564,7 @@ error E3200: <fragment>:59:10: 'Mq.m1(w) as isolated Mq' is not isolated: only a
 ```
 
 <!-- test: model-hand-ah-b-record-two-stores -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3200. Model program `b-record-two-stores` of redteamAH.hand_ah8, in capmodel `reggio/REPORTRTAH.txt`.
 
@@ -26540,7 +26639,7 @@ error E3200: <fragment>:60:10: 'Mr.m1(w) as isolated Mr' is not isolated: only a
 ```
 
 <!-- test: model-hand-ah-b-record-push-into-field-array-union -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3200. Model program `b-record-push-into-field-array-union` of redteamAH.hand_ah8, in capmodel `reggio/REPORTRTAH.txt`.
 
@@ -26616,7 +26715,7 @@ error E3200: <fragment>:60:10: 'Mb.m1(b) as isolated Mb' is not isolated: only a
 ```
 
 <!-- test: model-hand-ah-b-record-method-call -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3200. Model program `b-record-method-call` of redteamAH.hand_ah8, in capmodel `reggio/REPORTRTAH.txt`.
 
@@ -26689,7 +26788,7 @@ error E3200: <fragment>:58:10: 'Mc.m1(c) as isolated Mc' is not isolated: only a
 ```
 
 <!-- test: model-hand-ah-b-two-phase -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3200. Model program `b-two-phase` of redteamAH.hand_ah8, in capmodel `reggio/REPORTRTAH.txt`.
 
@@ -26759,6 +26858,7 @@ error E3200: <fragment>:59:10: 'Mr.m1(b) as isolated Mr' is not isolated: only a
 ```
 
 <!-- test: model-hand-ah-hb-handle-read-after-try -->
+<!-- skip: language difference: SendError and SubprocessError are built-in enums whose cases carry no payload, so a failed send gives its arguments no way back -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `hb-handle-read-after-try` of redteamAH.hand_ah9, in capmodel `reggio/REPORTRTAH.txt`.
 
 ```maxon
@@ -26881,6 +26981,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ah-hb-handle-not-read -->
+<!-- skip: language difference: SendError and SubprocessError are built-in enums whose cases carry no payload, so a failed send gives its arguments no way back -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `hb-handle-not-read` of redteamAH.hand_ah9, in capmodel `reggio/REPORTRTAH.txt`.
 
 ```maxon
@@ -27002,7 +27103,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ai-a5-iso-mp-aliased -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3200. Model program `a5-iso-mp-aliased` of redteamAI.hand_ai6, in capmodel `reggio/REPORTRTAI.txt`.
 
@@ -27072,7 +27173,7 @@ error E3200: <fragment>:48:10: 'm as isolated Mp' is not isolated: only a clean 
 ```
 
 <!-- test: model-hand-ai-a6-take-mp-iso-param-aliased -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3200. Model program `a6-take-mp-iso-param-aliased` of redteamAI.hand_ai6, in capmodel `reggio/REPORTRTAI.txt`.
 
@@ -27141,7 +27242,7 @@ error E3200: <fragment>:57:10: 'm' is not isolated: only a clean call, a `swap` 
 ```
 
 <!-- test: model-hand-ai-a10-iso-rp-aliased -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3200. Model program `a10-iso-rp-aliased` of redteamAI.hand_ai6, in capmodel `reggio/REPORTRTAI.txt`.
 
@@ -27187,7 +27288,7 @@ error E3200: <fragment>:27:10: 'r as isolated RpL' is not isolated: only a clean
 ```
 
 <!-- test: model-hand-ai-a11-take-rp-iso-param -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3200. Model program `a11-take-rp-iso-param` of redteamAI.hand_ai6, in capmodel `reggio/REPORTRTAI.txt`.
 
@@ -27232,6 +27333,7 @@ error E3200: <fragment>:33:10: 'r' is not isolated: only a clean call, a `swap` 
 ```
 
 <!-- test: model-hand-ai-a18-consuming-self-send -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3200. Model program `a18-consuming-self-send` of redteamAI.hand_ai6, in capmodel `reggio/REPORTRTAI.txt`.
 
@@ -27291,7 +27393,7 @@ error E3200: <fragment>:20:15: 'self' crosses to the service it is sent to only 
 ```
 
 <!-- test: model-hand-ai-a20-consuming-self-isolate -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3200. Model program `a20-consuming-self-isolate` of redteamAI.hand_ai6, in capmodel `reggio/REPORTRTAI.txt`.
 
@@ -27331,6 +27433,7 @@ error E3200: <fragment>:20:11: 'self as isolated Rs' is not isolated: only a cle
 ```
 
 <!-- test: model-hand-ai-h1-send-from-owned-param -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3200. Model program `h1-send-from-owned-param` of redteamAI.hand_ai7, in capmodel `reggio/REPORTRTAI.txt`.
 
@@ -27424,7 +27527,7 @@ error E3200: <fragment>:70:14: 'm' is not isolated: only a clean call, a `swap` 
 ```
 
 <!-- test: model-hand-ai-h1-relay-to-isolated-param -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3200. Model program `h1-relay-to-isolated-param` of redteamAI.hand_ai7, in capmodel `reggio/REPORTRTAI.txt`.
 
@@ -27497,7 +27600,7 @@ error E3200: <fragment>:55:10: 'm' is not isolated: only a clean call, a `swap` 
 ```
 
 <!-- test: model-hand-ai-h1-record-isolated-result -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3200. Model program `h1-record-isolated-result` of redteamAI.hand_ai7, in capmodel `reggio/REPORTRTAI.txt`.
 
@@ -27550,7 +27653,7 @@ error E3200: <fragment>:32:10: 'r as isolated RpL' is not isolated: only a clean
 ```
 
 <!-- test: model-hand-ai-h1-consuming-self-result -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3200. Model program `h1-consuming-self-result` of redteamAI.hand_ai7, in capmodel `reggio/REPORTRTAI.txt`.
 
@@ -27597,6 +27700,7 @@ error E3200: <fragment>:26:11: 'self as isolated RpL' is not isolated: only a cl
 ```
 
 <!-- test: model-hand-ai-h1-union-isolated-result -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3200. Model program `h1-union-isolated-result` of redteamAI.hand_ai7, in capmodel `reggio/REPORTRTAI.txt`.
 
@@ -27692,6 +27796,7 @@ error E3200: <fragment>:70:10: 'm as isolated Mp' is not isolated: only a clean 
 ```
 
 <!-- test: model-hand-ai-h1-control-fresh -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3200. Model program `h1-control-fresh` of redteamAI.hand_ai7, in capmodel `reggio/REPORTRTAI.txt`.
 
@@ -27783,7 +27888,7 @@ error E3200: <fragment>:70:14: 'm' is not isolated: only a clean call, a `swap` 
 ```
 
 <!-- test: model-hand-aj-rn-let -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3200. Model program `rn-let` of redteamAJ.hand_aj1, in capmodel `reggio/REPORTRTAJ.txt`.
 
@@ -27861,7 +27966,7 @@ error E3200: <fragment>:60:10: 'u' is not isolated: only a clean call, a `swap` 
 ```
 
 <!-- test: model-hand-aj-rn-assign -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3200. Model program `rn-assign` of redteamAJ.hand_aj1, in capmodel `reggio/REPORTRTAJ.txt`.
 
@@ -27941,7 +28046,7 @@ error E3200: <fragment>:62:10: 'u' is not isolated: only a clean call, a `swap` 
 ```
 
 <!-- test: model-hand-aj-rn-chain -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3200. Model program `rn-chain` of redteamAJ.hand_aj1, in capmodel `reggio/REPORTRTAJ.txt`.
 
@@ -28093,7 +28198,7 @@ error E3200: <fragment>:56:10: 'u' is not an isolated value; `merge` moves an is
 ```
 
 <!-- test: model-hand-aj-rn-cond -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-COND`; the compiler refuses it with E3200. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `rn-cond` of redteamAJ.hand_aj1, in capmodel `reggio/REPORTRTAJ.txt`.
 
@@ -28175,7 +28280,7 @@ error E3200: <fragment>:63:10: '(m if lg(1) != 0 else m2)' is not isolated: only
 ```
 
 <!-- test: model-hand-aj-ret-direct -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3200. Model program `ret-direct` of redteamAJ.hand_aj1, in capmodel `reggio/REPORTRTAJ.txt`.
 
@@ -28257,7 +28362,7 @@ error E3200: <fragment>:59:9: 'm' is not isolated: only a clean call, a `swap` o
 ```
 
 <!-- test: model-hand-aj-ret-rename -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3200. Model program `ret-rename` of redteamAJ.hand_aj1, in capmodel `reggio/REPORTRTAJ.txt`.
 
@@ -28340,7 +28445,7 @@ error E3200: <fragment>:60:9: 'u' is not isolated: only a clean call, a `swap` o
 ```
 
 <!-- test: model-hand-aj-recv-direct -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3200. Model program `recv-direct` of redteamAJ.hand_aj1, in capmodel `reggio/REPORTRTAJ.txt`.
 
@@ -28386,7 +28491,7 @@ error E3200: <fragment>:26:10: 'self' is not isolated: only a clean call, a `swa
 ```
 
 <!-- test: model-hand-aj-spawn-iso -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3200. Model program `spawn-iso` of redteamAJ.hand_aj1, in capmodel `reggio/REPORTRTAJ.txt`.
 
@@ -28472,7 +28577,7 @@ error E3200: <fragment>:68:26: 'm' is not isolated: only a clean call, a `swap` 
 ```
 
 <!-- test: model-hand-aj-spawn-plain -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3200. Model program `spawn-plain` of redteamAJ.hand_aj1, in capmodel `reggio/REPORTRTAJ.txt`.
 
@@ -28558,7 +28663,7 @@ error E3200: <fragment>:68:27: 'm' crosses to the service the `spawn` starts onl
 ```
 
 <!-- test: model-hand-aj-spawn-rename -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3200. Model program `spawn-rename` of redteamAJ.hand_aj1, in capmodel `reggio/REPORTRTAJ.txt`.
 
@@ -28645,6 +28750,7 @@ error E3200: <fragment>:69:26: 'u' is not isolated: only a clean call, a `swap` 
 ```
 
 <!-- test: model-hand-aj-send-rename -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3200. Model program `send-rename` of redteamAJ.hand_aj1, in capmodel `reggio/REPORTRTAJ.txt`.
 
@@ -28740,6 +28846,7 @@ error E3200: <fragment>:73:14: 'u' is not isolated: only a clean call, a `swap` 
 ```
 
 <!-- test: model-hand-aj-send-plain-rename -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3200. Model program `send-plain-rename` of redteamAJ.hand_aj1, in capmodel `reggio/REPORTRTAJ.txt`.
 
@@ -28835,6 +28942,7 @@ error E3200: <fragment>:73:13: 'u' crosses to the service it is sent to only as 
 ```
 
 <!-- test: model-hand-aj-handback-iso -->
+<!-- skip: language difference: SendError and SubprocessError are built-in enums whose cases carry no payload, so a failed send gives its arguments no way back -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `handback-iso` of redteamAJ.hand_aj1, in capmodel `reggio/REPORTRTAJ.txt`.
 
 ```maxon
@@ -28933,7 +29041,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-aj-arr-unique-plain -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3200. Model program `arr-unique-plain` of redteamAJ.hand_aj1, in capmodel `reggio/REPORTRTAJ.txt`.
 
@@ -29070,6 +29178,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-aj-svc-leaf -->
+<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `svc-leaf` of redteamAJ.hand_aj1, in capmodel `reggio/REPORTRTAJ.txt`.
 
 ```maxon
@@ -29105,7 +29214,7 @@ type Rl
 		return self.code
 	end 'peek'
 
-	function set(mutates self, c Num)
+	function set(c Num)
 		self.code = c
 	end 'set'
 
@@ -29152,7 +29261,7 @@ function eatLs(m Ls)
 	end 'x1'
 end 'eatLs'
 
-function f(consumes m Ls)
+function f(m Ls)
 	let u = m as Ls
 	eatLs(u)
 end 'f'
@@ -29168,7 +29277,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-aj-lmb-forward-plain -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: a linear value is a value with a destructor, which cannot be copied or dropped, so the rules of ownership and the Droppable bound refuse what maxon's linear rules refuse -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-LEND`; the compiler refuses it with E3224. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `lmb-forward-plain` of redteamAJ.hand_aj5, in capmodel `reggio/REPORTRTAJ.txt`.
 
@@ -29237,7 +29346,7 @@ error E3224: <fragment>:57:2: this linear value is only lent to this code (a par
 ```
 
 <!-- test: model-hand-aj-lmb-match-consume -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: a linear value is a value with a destructor, which cannot be copied or dropped, so the rules of ownership and the Droppable bound refuse what maxon's linear rules refuse -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-LEND`; the compiler refuses it with E3224. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `lmb-match-consume` of redteamAJ.hand_aj5, in capmodel `reggio/REPORTRTAJ.txt`.
 
@@ -29309,7 +29418,7 @@ error E3224: <fragment>:60:2: this linear value is only lent to this code (a par
 ```
 
 <!-- test: model-hand-ak-byref-linear-control -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: a linear value is a value with a destructor, which cannot be copied or dropped, so the rules of ownership and the Droppable bound refuse what maxon's linear rules refuse -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-LEND`; the compiler refuses it with E3224. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `byref-linear-control` of redteamAK.hand_ak2, in capmodel `reggio/REPORTRTAK.txt`.
 
@@ -29440,6 +29549,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ap-g1-lin-with-closed-record-field -->
+<!-- skip: language difference: SendError and SubprocessError are built-in enums whose cases carry no payload, so a failed send gives its arguments no way back -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `g1-lin-with-closed-record-field` of redteamAP.hand_ap1, in capmodel `reggio/REPORTRTAP.txt`.
 
 ```maxon
@@ -29498,6 +29608,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ap-g1-lin-with-plain-field -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3200. Model program `g1-lin-with-plain-field` of redteamAP.hand_ap1, in capmodel `reggio/REPORTRTAP.txt`.
 
@@ -29558,6 +29669,7 @@ error E3200: <fragment>:45:13: 'r' crosses to the service it is sent to only as 
 ```
 
 <!-- test: model-hand-ap-g1-lin-closed-then-alias -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R18-UNIQUE`; the compiler refuses it with E3214. Model program `g1-lin-closed-then-alias` of redteamAP.hand_ap1, in capmodel `reggio/REPORTRTAP.txt`.
 
@@ -29622,7 +29734,7 @@ error E3214: <fragment>:46:6: cannot bind 'a' to a unique value read out of a fi
 ```
 
 <!-- test: model-hand-ap-s5-linear-swap -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: a linear value is a value with a destructor, which cannot be copied or dropped, so the rules of ownership and the Droppable bound refuse what maxon's linear rules refuse -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-WHERE`; the compiler refuses it with E3224. Model program `s5-linear-swap` of redteamAP.hand_ap3, in capmodel `reggio/REPORTRTAP.txt`.
 
@@ -30023,6 +30135,7 @@ error E3223: <fragment>:47:2: this drops 'r', a linear value that was never cons
 ```
 
 <!-- test: model-hand-fa14-v-fill-nonvacant -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3196. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `v-fill-nonvacant` of redteamFA14.hand_fa14b, in capmodel `reggio/REPORTFA14.txt`.
 
@@ -30086,6 +30199,7 @@ error E3196: <fragment>:48:6: cannot store an isolated 'Sh' into 'v', which hold
 ```
 
 <!-- test: model-hand-fa14-v-fill-vacant-one-path -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3196. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `v-fill-vacant-one-path` of redteamFA14.hand_fa14b, in capmodel `reggio/REPORTFA14.txt`.
 
@@ -30221,6 +30335,7 @@ error E3223: <fragment>:49:2: this drops a linear value that was never consumed:
 ```
 
 <!-- test: model-hand-fa14-l-fn-param-send-twice -->
+<!-- skip: language difference: SendError and SubprocessError are built-in enums whose cases carry no payload, so a failed send gives its arguments no way back -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `l-fn-param-send-twice` of redteamFA14.hand_fa14b, in capmodel `reggio/REPORTFA14.txt`.
 
@@ -30305,6 +30420,7 @@ error E3102: <fragment>:64:13: use of moved value 'r': its ownership moved to an
 ```
 
 <!-- test: model-hand-fa14-l-borrowed-self-send -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3214. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `l-borrowed-self-send` of redteamFA14.hand_fa14b, in capmodel `reggio/REPORTFA14.txt`.
 
@@ -30355,6 +30471,7 @@ error E3214: <fragment>:12:14: cannot hand 'self' to argument `t` of the message
 ```
 
 <!-- test: model-hand-fa14-l-self-then-self -->
+<!-- skip: language difference: SendError and SubprocessError are built-in enums whose cases carry no payload, so a failed send gives its arguments no way back -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `l-self-then-self` of redteamFA14.hand_fa14b, in capmodel `reggio/REPORTFA14.txt`.
 
@@ -30501,6 +30618,7 @@ error E3223: <fragment>:34:10: this drops 'r', a linear value that was never con
 ```
 
 <!-- test: model-hand-fa14-own-consuming-self-send -->
+<!-- skip: language difference: SendError and SubprocessError are built-in enums whose cases carry no payload, so a failed send gives its arguments no way back -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `own-consuming-self-send` of redteamFA14.hand_fa14c, in capmodel `reggio/REPORTFA14.txt`.
 
 ```maxon
@@ -30562,6 +30680,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-fa14-own-consuming-self-send-in-loop -->
+<!-- skip: language difference: SendError and SubprocessError are built-in enums whose cases carry no payload, so a failed send gives its arguments no way back -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `own-consuming-self-send-in-loop` of redteamFA14.hand_fa14c, in capmodel `reggio/REPORTFA14.txt`.
 
 ```maxon
@@ -30755,8 +30874,8 @@ type Rl
 	end 'wrap'
 end 'Rl'
 
-function eatU(s Sn)
-	match s 'x1'
+function eatU(consumes s Sn)
+	match consumes s 'x1'
 		ok then break
 		notSent(r) then r.fin(1)
 	end 'x1'
@@ -30821,6 +30940,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-fa14-own-fn-param-sent-in-loop -->
+<!-- skip: language difference: SendError and SubprocessError are built-in enums whose cases carry no payload, so a failed send gives its arguments no way back -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `own-fn-param-sent-in-loop` of redteamFA14.hand_fa14c, in capmodel `reggio/REPORTFA14.txt`.
 
 ```maxon
@@ -30955,6 +31075,7 @@ error E3102: <fragment>:45:9: use of moved value 'v': its ownership moved to ano
 ```
 
 <!-- test: model-hand-fa14-a-lp-sent-then-peeked -->
+<!-- skip: language difference: SendError and SubprocessError are built-in enums whose cases carry no payload, so a failed send gives its arguments no way back -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `a-lp-sent-then-peeked` of redteamFA14.hand_fa14d, in capmodel `reggio/REPORTFA14.txt`.
 
@@ -31023,6 +31144,7 @@ error E3102: <fragment>:53:10: use of moved value 'r': its ownership moved to an
 ```
 
 <!-- test: model-hand-fa14-a-lp-union-param-sent-twice -->
+<!-- skip: language difference: SendError and SubprocessError are built-in enums whose cases carry no payload, so a failed send gives its arguments no way back -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `a-lp-union-param-sent-twice` of redteamFA14.hand_fa14d, in capmodel `reggio/REPORTFA14.txt`.
 
@@ -31166,6 +31288,7 @@ error E3102: <fragment>:40:10: use of moved value 'r': its ownership moved to an
 ```
 
 <!-- test: model-hand-fa14-a-lp-param-assigned-then-sent -->
+<!-- skip: language difference: SendError and SubprocessError are built-in enums whose cases carry no payload, so a failed send gives its arguments no way back -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3223. Model program `a-lp-param-assigned-then-sent` of redteamFA14.hand_fa14d, in capmodel `reggio/REPORTFA14.txt`.
@@ -31419,6 +31542,7 @@ error E3200: <fragment>:74:13: 'm' crosses to the service it is sent to only as 
 ```
 
 <!-- test: model-hand-fa16-msg-send-isolated-param -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3200. Model program `msg-send-isolated-param` of redteamFA16.hand_fa16c, in capmodel `reggio/REPORTFA16.txt`.
 
@@ -31595,6 +31719,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-fa16-msg-param-handed-on -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3200. Model program `msg-param-handed-on` of redteamFA16.hand_fa16c, in capmodel `reggio/REPORTFA16.txt`.
 
@@ -31869,7 +31994,7 @@ error E3200: <fragment>:71:13: 'm' crosses to the service it is sent to only as 
 ```
 
 <!-- test: model-hand-fa16-relay-fresh -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3200. Model program `relay-fresh` of redteamFA16.hand_fa16c, in capmodel `reggio/REPORTFA16.txt`.
 
@@ -31939,7 +32064,7 @@ error E3200: <fragment>:55:10: 'm' is not isolated: only a clean call, a `swap` 
 ```
 
 <!-- test: model-hand-fa16-record-isolated-result -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3200. Model program `record-isolated-result` of redteamFA16.hand_fa16c, in capmodel `reggio/REPORTFA16.txt`.
 
@@ -31985,7 +32110,7 @@ error E3200: <fragment>:27:10: 'r as isolated RpL' is not isolated: only a clean
 ```
 
 <!-- test: model-hand-fa16-consuming-self-result -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3200. Model program `consuming-self-result` of redteamFA16.hand_fa16c, in capmodel `reggio/REPORTFA16.txt`.
 
@@ -32104,6 +32229,7 @@ error E3200: <fragment>:55:10: 'm' is not an isolated value; `merge` moves an is
 ```
 
 <!-- test: model-hand-fa16-plain-finalize -->
+<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `plain-finalize` of redteamFA16.hand_fa16c, in capmodel `reggio/REPORTFA16.txt`.
 
 ```maxon
@@ -32134,7 +32260,7 @@ type Rl
 		return self.code
 	end 'peek'
 
-	function set(mutates self, c Num)
+	function set(c Num)
 		self.code = c
 	end 'set'
 
@@ -32163,7 +32289,7 @@ function fin2(m Mp)
 end 'fin2'
 
 function main() returns ExitCode
-	var b = Bx.create(1)
+	let b = Bx.create(1)
 	fin2(Mp.m1(b))
 	b.n = 5
 	return 0
@@ -32174,6 +32300,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-fa16-plain-relay -->
+<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `plain-relay` of redteamFA16.hand_fa16c, in capmodel `reggio/REPORTFA16.txt`.
 
 ```maxon
@@ -32204,7 +32331,7 @@ type Rl
 		return self.code
 	end 'peek'
 
-	function set(mutates self, c Num)
+	function set(c Num)
 		self.code = c
 	end 'set'
 
@@ -32237,7 +32364,7 @@ function relay2(m Mp)
 end 'relay2'
 
 function main() returns ExitCode
-	var b = Bx.create(1)
+	let b = Bx.create(1)
 	relay2(Mp.m1(b))
 	b.n = 5
 	return 0
@@ -32299,8 +32426,8 @@ function takeB(consumes b Bx)
 	_ = b.n
 end 'takeB'
 
-function eatMx2(m Mx)
-	match m 'x1'
+function eatMx2(consumes m Mx)
+	match consumes m 'x1'
 		m0(x) then x.fin(1)
 		m1(y) then takeB(y.clone())
 	end 'x1'
@@ -32419,7 +32546,7 @@ error E3102: <fragment>:42:10: use of moved value 'r': its ownership moved to an
 ```
 
 <!-- test: model-hand-fa17-m-consume -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: a linear value is a value with a destructor, which cannot be copied or dropped, so the rules of ownership and the Droppable bound refuse what maxon's linear rules refuse -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-LEND`; the compiler refuses it with E3224. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `m-consume` of redteamFA17.hand_fa17a, in capmodel `reggio/REPORTFA17.txt`.
 
@@ -32470,7 +32597,7 @@ error E3224: <fragment>:35:4: this linear value is only lent to this code (a par
 ```
 
 <!-- test: model-hand-fa17-m-send -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-SEND`; the compiler refuses it with E3214, E3224. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `m-send` of redteamFA17.hand_fa17a, in capmodel `reggio/REPORTFA17.txt`.
 
@@ -32540,7 +32667,7 @@ error E3224: <fragment>:58:4: this linear value is only lent to this code (a par
 ```
 
 <!-- test: model-hand-fa17-m-relay-owned -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: a linear value is a value with a destructor, which cannot be copied or dropped, so the rules of ownership and the Droppable bound refuse what maxon's linear rules refuse -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-LEND`; the compiler refuses it with E3224. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `m-relay-owned` of redteamFA17.hand_fa17a, in capmodel `reggio/REPORTFA17.txt`.
 
@@ -32697,7 +32824,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-fa17-m-union -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: a linear value is a value with a destructor, which cannot be copied or dropped, so the rules of ownership and the Droppable bound refuse what maxon's linear rules refuse -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-LEND`; the compiler refuses it with E3224. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `m-union` of redteamFA17.hand_fa17a, in capmodel `reggio/REPORTFA17.txt`.
 
@@ -32808,6 +32935,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-fa23-p3-msg-to-iso-param -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3200. Model program `p3-msg-to-iso-param` of redteamFA23.hand_fa23, in capmodel `reggio/REPORTFA23.txt`.
 
@@ -33007,6 +33135,7 @@ error E3200: <fragment>:73:14: 'm' crosses to the service it is sent to only as 
 ```
 
 <!-- test: model-hand-fa23-p3-msg-iso-local -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3200. Model program `p3-msg-iso-local` of redteamFA23.hand_fa23, in capmodel `reggio/REPORTFA23.txt`.
 
@@ -33091,6 +33220,7 @@ error E3200: <fragment>:55:11: 'm as isolated Mp' is not isolated: only a clean 
 ```
 
 <!-- test: model-hand-fa23-p3-msg-rename -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3200. Model program `p3-msg-rename` of redteamFA23.hand_fa23, in capmodel `reggio/REPORTFA23.txt`.
 
@@ -33268,6 +33398,7 @@ error E3200: <fragment>:55:11: 'm' is not an isolated value; `merge` moves an is
 ```
 
 <!-- test: model-hand-fa23-p3-msg-payload-iso -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3200. Model program `p3-msg-payload-iso` of redteamFA23.hand_fa23, in capmodel `reggio/REPORTFA23.txt`.
 
@@ -33358,6 +33489,7 @@ error E3200: <fragment>:57:21: 'y' is not isolated: only a clean call, a `swap` 
 ```
 
 <!-- test: model-hand-fa23-p3-msg-record -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3200. Model program `p3-msg-record` of redteamFA23.hand_fa23, in capmodel `reggio/REPORTFA23.txt`.
 
@@ -33417,7 +33549,7 @@ error E3200: <fragment>:34:10: 'r' is not isolated: only a clean call, a `swap` 
 ```
 
 <!-- test: model-hand-fa23-p3-factory -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3200. Model program `p3-factory` of redteamFA23.hand_fa23, in capmodel `reggio/REPORTFA23.txt`.
 
@@ -33496,6 +33628,7 @@ error E3200: <fragment>:51:11: 'm' is not isolated: only a clean call, a `swap` 
 ```
 
 <!-- test: model-hand-fa23-p3-ok-local-use -->
+<!-- skip: language difference: SendError and SubprocessError are built-in enums whose cases carry no payload, so a failed send gives its arguments no way back -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `p3-ok-local-use` of redteamFA23.hand_fa23, in capmodel `reggio/REPORTFA23.txt`.
 
 ```maxon
@@ -33666,6 +33799,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-fa23-p3-ok-marked -->
+<!-- skip: language difference: SendError and SubprocessError are built-in enums whose cases carry no payload, so a failed send gives its arguments no way back -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `p3-ok-marked` of redteamFA23.hand_fa23, in capmodel `reggio/REPORTFA23.txt`.
 
 ```maxon
@@ -33755,6 +33889,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-fa23-p3-ok-closed -->
+<!-- skip: language difference: SendError and SubprocessError are built-in enums whose cases carry no payload, so a failed send gives its arguments no way back -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `p3-ok-closed` of redteamFA23.hand_fa23, in capmodel `reggio/REPORTFA23.txt`.
 
 ```maxon
@@ -34056,6 +34191,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-fa23-p4-hb-closed -->
+<!-- skip: language difference: SendError and SubprocessError are built-in enums whose cases carry no payload, so a failed send gives its arguments no way back -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `p4-hb-closed` of redteamFA23.hand_fa23, in capmodel `reggio/REPORTFA23.txt`.
 
 ```maxon
@@ -34126,6 +34262,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-fa25-o-lin-r0-send -->
+<!-- skip: language difference: SendError and SubprocessError are built-in enums whose cases carry no payload, so a failed send gives its arguments no way back -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `o-lin-r0-send` of redteamFA25.hand_fa25, in capmodel `reggio/REPORTFA25.txt`.
 
 ```maxon
@@ -34331,8 +34468,8 @@ type Rl
 	end 'wrap'
 end 'Rl'
 
-function eatSh(p Sh)
-	match p 'x1'
+function eatSh(consumes p Sh)
+	match consumes p 'x1'
 		none then break
 		held(q) then q.fin(1)
 	end 'x1'
@@ -34398,6 +34535,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-fa25-o-lin-r1-send -->
+<!-- skip: language difference: SendError and SubprocessError are built-in enums whose cases carry no payload, so a failed send gives its arguments no way back -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `o-lin-r1-send` of redteamFA25.hand_fa25, in capmodel `reggio/REPORTFA25.txt`.
 
 ```maxon
@@ -34466,6 +34604,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-fa25-o-lin-r2-send -->
+<!-- skip: language difference: SendError and SubprocessError are built-in enums whose cases carry no payload, so a failed send gives its arguments no way back -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `o-lin-r2-send` of redteamFA25.hand_fa25, in capmodel `reggio/REPORTFA25.txt`.
 
 ```maxon
@@ -34535,6 +34674,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-fa25-o-lin-rl-send -->
+<!-- skip: language difference: SendError and SubprocessError are built-in enums whose cases carry no payload, so a failed send gives its arguments no way back -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `o-lin-rl-send` of redteamFA25.hand_fa25, in capmodel `reggio/REPORTFA25.txt`.
 
 ```maxon
@@ -34611,6 +34751,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-fa25-c-plain-part-linear -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3200. Model program `c-plain-part-linear` of redteamFA25.hand_fa25, in capmodel `reggio/REPORTFA25.txt`.
 
@@ -34672,7 +34813,7 @@ error E3200: <fragment>:46:13: 'r' crosses to the service it is sent to only as 
 ```
 
 <!-- test: model-hand-fa25-c-plain-part-linear-isoparam -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3200. Model program `c-plain-part-linear-isoparam` of redteamFA25.hand_fa25, in capmodel `reggio/REPORTFA25.txt`.
 
@@ -35031,6 +35172,7 @@ error E3223: <fragment>:41:36: this drops a linear value that was never consumed
 ```
 
 <!-- test: model-hand-fa25-c-kept-part-linear-send -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3200. Model program `c-kept-part-linear-send` of redteamFA25.hand_fa25, in capmodel `reggio/REPORTFA25.txt`.
 
@@ -35093,7 +35235,7 @@ error E3200: <fragment>:46:13: 'r' crosses to the service it is sent to only as 
 ```
 
 <!-- test: model-hand-fa25-c-kept-part-linear-isoparam -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3200. Model program `c-kept-part-linear-isoparam` of redteamFA25.hand_fa25, in capmodel `reggio/REPORTFA25.txt`.
 
@@ -35194,6 +35336,7 @@ error E3223: <fragment>:40:24: this drops a linear value that was never consumed
 ```
 
 <!-- test: model-hand-fa25-a-cond-linear-temp-beside-nested-sent -->
+<!-- skip: language difference: SendError and SubprocessError are built-in enums whose cases carry no payload, so a failed send gives its arguments no way back -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-COND`; the compiler refuses it with E3223. Model program `a-cond-linear-temp-beside-nested-sent` of redteamFA25.hand_fa25, in capmodel `reggio/REPORTFA25.txt`.

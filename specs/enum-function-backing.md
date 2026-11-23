@@ -246,6 +246,7 @@ end 'main'
 ```
 
 <!-- test: function-backing.error.contested-name-with-two-visible-candidates -->
+<!-- skip: language difference: another module's names are always qualified by its path, so a bare name never finds two -->
 Two visible declarations of the case's function name are an ambiguity at the enum's declaration, and
 the case is refused rather than bound to either.
 
@@ -278,6 +279,7 @@ error E3095: api/<fragment>:16:13: Ambiguous bare function name 'doubleFn' backi
 ```
 
 <!-- test: function-backing.error.contested-name-with-different-results-is-called-from-another-file -->
+<!-- skip: language difference: another module's names are always qualified by its path, so a bare name never finds two -->
 When the candidates disagree about the result, calling the refused case's value from another file reports
 the ambiguity alone — the call's result is not typed from either candidate.
 
