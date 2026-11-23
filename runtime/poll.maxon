@@ -63,6 +63,26 @@ function pollWaitMillis(delay Count, forever Count) returns Count
 	return millis
 end 'pollWaitMillis'
 
+// netpollBreak ends the wait of the thread in the poller, once for any number of breaks before it takes one.
+function netpollBreak(scheduler Count)
+	if __Raw.compareExchange(scheduler, offset: schedPollWakeSigOffset, expected: unset, desired: set) != unset 'sent'
+		return
+	end 'sent'
+	sendBreak(scheduler)
+end 'netpollBreak'
+
+// tookBreak is what a poll does with a break it took, as Go's netpoll does. A poll that waited had its wait broken, and the
+// next break is sent again. One that did not wait may have taken it from the thread that waits in the poller, since a
+// claim of schedLastPollOffset read before that thread's does not keep it from polling while that thread waits; it passes
+// the break on, or that thread would wait out its old deadline past an earlier timer.
+function tookBreak(scheduler Count, delay Count)
+	if delay == netpollNoWait 'passOn'
+		sendBreak(scheduler)
+		return
+	end 'passOn'
+	__Raw.storeRelease(scheduler, offset: schedPollWakeSigOffset, value: unset)
+end 'tookBreak'
+
 #if os(Windows)
 	// The Win32 values of the poller.
 	let anyConcurrency = 0 as Count
@@ -98,7 +118,7 @@ end 'pollWaitMillis'
 		for i in 0 upto dword(got) 'entries'
 			let key = __Raw.loadWord(entry, offset: windowsEntryKeyOffset)
 			if key == pollBreakKey 'break'
-				__Raw.storeRelease(scheduler, offset: schedPollWakeSigOffset, value: unset)
+				tookBreak(scheduler, delay: delay)
 			end 'break' else 'descriptor'
 				list = pollSignalledInto(key, list: list)
 			end 'descriptor'
@@ -107,13 +127,10 @@ end 'pollWaitMillis'
 		return list
 	end 'netpoll'
 
-	// netpollBreak ends the wait of the thread in the poller, once for any number of breaks before it takes one.
-	function netpollBreak(scheduler Count)
-		if __Raw.compareExchange(scheduler, offset: schedPollWakeSigOffset, expected: unset, desired: set) != unset 'sent'
-			return
-		end 'sent'
+	// sendBreak breaks the wait of the thread in the poller.
+	function sendBreak(scheduler Count)
 		postCompletion(scheduler, key: pollBreakKey)
-	end 'netpollBreak'
+	end 'sendBreak'
 
 	function postCompletion(scheduler Count, key Count)
 		if __Raw.callImport4("PostQueuedCompletionStatus", arg1: __Raw.loadWord(scheduler, offset: schedPollerOffset), arg2: 0, arg3: key, arg4: 0) == 0 'failed'

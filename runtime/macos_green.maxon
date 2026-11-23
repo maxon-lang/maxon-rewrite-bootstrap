@@ -201,7 +201,7 @@
 		for i in 0 upto got 'events'
 			let key = __Raw.loadWord(event, offset: macosKeventUdataOffset)
 			if key == pollBreakKey 'break'
-				__Raw.storeRelease(scheduler, offset: schedPollWakeSigOffset, value: unset)
+				tookBreak(scheduler, delay: delay)
 			end 'break' else 'descriptor'
 				list = pollSignalledInto(key, list: list)
 			end 'descriptor'
@@ -210,13 +210,10 @@
 		return list
 	end 'netpoll'
 
-	// netpollBreak ends the wait of the thread in the poller, once for any number of breaks before it takes one.
-	function netpollBreak(scheduler Count)
-		if __Raw.compareExchange(scheduler, offset: schedPollWakeSigOffset, expected: unset, desired: set) != unset 'sent'
-			return
-		end 'sent'
+	// sendBreak breaks the wait of the thread in the poller.
+	function sendBreak(scheduler Count)
 		changeUserEvent(__Raw.loadWord(scheduler, offset: schedPollerOffset), ident: pollBreakKey, flags: 0, fflags: macosNoteTrigger, key: pollBreakKey)
-	end 'netpollBreak'
+	end 'sendBreak'
 
 	// pollNew is a poll descriptor with a user event of its own, its address the event's ident and its key, which pollFree
 	// deletes.

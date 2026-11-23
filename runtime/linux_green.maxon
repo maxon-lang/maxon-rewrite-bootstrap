@@ -193,7 +193,7 @@
 			let key = __Raw.loadWord(event, offset: linuxEpollEventDataOffset)
 			if key == pollBreakKey 'break'
 				drainEventfd(context, fd: __Raw.loadWord(scheduler, offset: schedPollBreakOffset))
-				__Raw.storeRelease(scheduler, offset: schedPollWakeSigOffset, value: unset)
+				tookBreak(scheduler, delay: delay)
 			end 'break' else 'descriptor'
 				drainEventfd(context, fd: __Raw.loadWord(key, offset: pollFdOffset))
 				list = pollSignalledInto(key, list: list)
@@ -214,13 +214,10 @@
 		_ = __Raw.syscall3(linuxSysWrite, arg1: fd, arg2: __Raw.addressOf(one), arg3: eventfdWordBytes)
 	end 'signalEventfd'
 
-	// netpollBreak ends the wait of the thread in the poller, once for any number of breaks before it takes one.
-	function netpollBreak(scheduler Count)
-		if __Raw.compareExchange(scheduler, offset: schedPollWakeSigOffset, expected: unset, desired: set) != unset 'sent'
-			return
-		end 'sent'
+	// sendBreak breaks the wait of the thread in the poller.
+	function sendBreak(scheduler Count)
 		signalEventfd(__Raw.loadWord(scheduler, offset: schedPollBreakOffset))
-	end 'netpollBreak'
+	end 'sendBreak'
 
 	// pollNew is a poll descriptor with an eventfd of its own, registered with the poller, which pollFree closes.
 	function pollNew() returns Count
