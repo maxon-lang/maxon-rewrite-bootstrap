@@ -196,8 +196,8 @@ type Pair uses T where T implements Comparable
 	export var a as T
 	export var b as T
 
-	static function create(a T, b T) returns Self
-		return Self{a: a, b: b}
+	static function create(a T, b T) returns Self where T implements Copyable
+		return Self{a: a.clone(), b: b.clone()}
 	end 'create'
 
 	function lt() returns bool
@@ -267,8 +267,8 @@ type Pair uses T where T implements Comparable
 	export var a as T
 	export var b as T
 
-	static function create(a T, b T) returns Self
-		return Self{a: a, b: b}
+	static function create(a T, b T) returns Self where T implements Copyable
+		return Self{a: a.clone(), b: b.clone()}
 	end 'create'
 
 	function forwardLess() returns bool
@@ -345,8 +345,8 @@ type Pair uses T where T implements Comparable
 	export var a as T
 	export var b as T
 
-	static function create(a T, b T) returns Self
-		return Self{a: a, b: b}
+	static function create(a T, b T) returns Self where T implements Copyable
+		return Self{a: a.clone(), b: b.clone()}
 	end 'create'
 
 	function isLess() returns bool
@@ -372,10 +372,10 @@ function main() returns ExitCode
 	while i < 100 'loop'
 		let p = CountPair.create(3, b: 9)
 		if p.isLess() 'ok'
-			acc = acc + 1
+			acc = try acc + 1 otherwise panic("out of range")
 		end 'ok'
 		if p.opLess() 'ok2'
-			acc = acc + 1
+			acc = try acc + 1 otherwise panic("out of range")
 		end 'ok2'
 		i = i + 1
 	end 'loop'

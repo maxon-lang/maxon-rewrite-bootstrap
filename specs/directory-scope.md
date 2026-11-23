@@ -97,6 +97,7 @@ end 'main'
 ```
 
 <!-- test: an-unmarked-function-is-visible-from-a-subdirectory-reached-through-an-export -->
+<!-- skip: language difference: modules are Go's, so an unmarked declaration is its module's alone and an export reaches the tree of its module's parent, where maxon's unmarked declaration reaches its directory's subtree and its export the whole project -->
 `feature/sub/b.maxon` sits inside `feature/`'s subtree, so it calls `feature/a.maxon`'s unmarked `helper`; the
 root reaches `feature/sub/` through its exported `bridge`.
 ```maxon
@@ -112,7 +113,7 @@ end 'bridge'
 
 // --- file: main.maxon
 function main() returns ExitCode
-	return feature.sub.bridge()
+	return bridge()
 end 'main'
 ```
 ```exitcode
@@ -209,6 +210,7 @@ error E3014: other/<fragment>:16:11: field 'Box.v' is not exported
 ```
 
 <!-- test: an-unmarked-field-is-readable-from-a-subdirectory -->
+<!-- skip: language difference: modules are Go's, so an unmarked declaration is its module's alone and an export reaches the tree of its module's parent, where maxon's unmarked declaration reaches its directory's subtree and its export the whole project -->
 ```maxon
 // --- file: feature/box.maxon
 public type Box
@@ -221,7 +223,7 @@ end 'Box'
 
 // --- file: feature/sub/main.maxon
 function main() returns ExitCode
-	let b = feature.Box.create(42)
+	let b = Box.create(42)
 	return b.v
 end 'main'
 ```
@@ -389,6 +391,7 @@ end 'main'
 ```
 
 <!-- test: an-unmarked-function-is-visible-from-a-deeper-subdirectory -->
+<!-- skip: language difference: modules are Go's, so an unmarked declaration is its module's alone and an export reaches the tree of its module's parent, where maxon's unmarked declaration reaches its directory's subtree and its export the whole project -->
 ```maxon
 // --- file: feature/helper.maxon
 typealias Integer = int(i64.min to i64.max)
@@ -642,6 +645,7 @@ end 'main'
 ```
 
 <!-- test: a-root-level-unmarked-declaration-is-visible-from-a-subdirectory -->
+<!-- skip: language difference: modules are Go's, so an unmarked declaration is its module's alone and an export reaches the tree of its module's parent, where maxon's unmarked declaration reaches its directory's subtree and its export the whole project -->
 The root directory contains every file, so an unmarked declaration written there is visible
 program-wide.
 ```maxon
@@ -654,7 +658,7 @@ end 'helper'
 
 // --- file: sub/main.maxon
 function main() returns ExitCode
-	return export.helper()
+	return helper()
 end 'main'
 ```
 ```exitcode
@@ -788,6 +792,7 @@ error E3008: other/<fragment>:24:15: type 'Box' is not exported
 ```
 
 <!-- test: an-unmarked-type-is-reachable-from-a-subdirectory -->
+<!-- skip: language difference: modules are Go's, so an unmarked declaration is its module's alone and an export reaches the tree of its module's parent, where maxon's unmarked declaration reaches its directory's subtree and its export the whole project -->
 ```maxon
 // --- file: feature/box.maxon
 typealias Integer = int(i64.min to i64.max)

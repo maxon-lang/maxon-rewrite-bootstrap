@@ -380,7 +380,9 @@ is that of its module (`app::main`), and a project with no `main` in any module 
   declaration of the standard library's root (below), and nothing else, so adding a declaration to one module never changes
   how another resolves, and resolving a module reads only the declarations of the modules it names. A bare name that only
   another module declares is unknown (`E3004` for a call, `E3011` for a type, `E2004` for a value), and the message names
-  the qualified spellings.
+  the qualified spellings; where the visibility of each such declaration keeps it from the module, it is `E3008` at the
+  name instead, as maxon refuses a declaration it may not name, except for a module-level `let` or `var`, which stays
+  unknown (`E2004`) as in maxon.
 - **The standard library** is Maxon source in `stdlib/`, found as `runtime/` is (the `stdlib` directory of the nearest
   directory, from the compiler's executable's upward, that has one), converted from maxon's `stdlib/` by `cmd/convert`
   but for `Map.maxon`, which is minimaxon's own (see "Where it differs from Maxon") and which no conversion touches; maxon's
@@ -3050,7 +3052,11 @@ end 'wrap'
   place is `E3016`, as is the other way round); as in maxon it has no receiver to dispatch on, so a call of it through a
   type parameter, `T.make()` or `x.make()`, is `E3116`, and `T.make` as a value is `E2078`: it is called on a concrete
   type. `a == b` and `a != b` of two values of a type parameter call the `equals` that a bound of it declares
-  (`Equatable`'s), as maxon's do, and are `E3005` where none declares one that is a method returning `bool`. A type parameter's name stands for the parameter in an expression, over a declaration of that name. A method
+  (`Equatable`'s), and `<`, `<=`, `>` and `>=` the `compare` (`Comparable`'s), testing the case of the `Ordering` it
+  returns, as maxon's do; each is `E3005` where no bound declares a method of one parameter that returns `bool` or an
+  `Ordering`. Two values of one record type or one array type compare the same way through the type's own `equals` or
+  `compare`, which it need not declare a conformance for (an array's `equals` is the built-in one, element by element), and
+  a type without one cannot be compared (`E3005`), as in maxon. A type parameter's name stands for the parameter in an expression, over a declaration of that name. A method
   uses its type's parameters and takes none of its own (`E3907`). `Self` inside a generic type is the type at its own
   parameters, and a literal of it is `Self{...}`.
 - **Inheritance.** `interface Derived extends Base, Other` (before or after its `uses`) has the requirements of the

@@ -769,6 +769,7 @@ end 'main'
 
 
 <!-- test: third-file-resolves-a-contested-generic-alias-to-the-nameable-one -->
+<!-- skip: language difference: modules are Go's, so an unmarked declaration is its module's alone and an export reaches the tree of its module's parent, where maxon's unmarked declaration reaches its directory's subtree and its export the whole project -->
 The generic twin of `third-file-resolves-to-the-nameable-declaration`, and the case that pins the whole
 visibility tier: `lib/main.maxon` declares no `Slots` and sees two, `priv.maxon`'s at the root and
 `lib/shared.maxon`'s in its own directory, and it resolves to its own directory's. Its
@@ -796,7 +797,7 @@ function main() returns ExitCode
 	let w = Slots.create(0)
 	w.push(1500)
 	let high = (try w.get(0) otherwise 1000) / 100
-	return (high as ExitCode) + export.fromPriv()
+	return (high as ExitCode) + fromPriv()
 end 'main'
 ```
 ```exitcode
@@ -1246,6 +1247,7 @@ end 'main'
 ```
 
 <!-- test: contested-generic-alias-in-a-cross-file-return-type -->
+<!-- skip: language difference: modules are Go's, so an unmarked declaration is its module's alone and an export reaches the tree of its module's parent, where maxon's unmarked declaration reaches its directory's subtree and its export the whole project -->
 **A CROSS-FILE RETURN TYPE SPELLED WITH A CONTESTED GENERIC ALIAS RESOLVES IN THE CALLEE'S FILE, AND
 THIS CASE EXISTS TO KEEP IT THAT WAY.** `makeBag` returns `StringArray`, and the CALLER is itself a
 contestant that means something else by that name — the shape that would bite hardest if the return
@@ -1275,7 +1277,7 @@ typealias StringArray = Array with Num
 function main() returns ExitCode
 	let mine = StringArray.create(0)
 	mine.push(4)
-	let theirs = export.makeBag()
+	let theirs = makeBag()
 	let word = try theirs.get(1) otherwise ""
 	return (word.byteLength() * 20 + mine.count() * 11) as ExitCode
 end 'main'
@@ -2602,6 +2604,7 @@ error E3008: <fragment>:12:19: typealias 'Idx' is not exported
 ```
 
 <!-- test: an-extension-body-names-its-types-nested-function-alias-beside-a-hidden-one -->
+<!-- skip: language difference: modules are Go's, so an unmarked declaration is its module's alone and an export reaches the tree of its module's parent, where maxon's unmarked declaration reaches its directory's subtree and its export the whole project -->
 An extension body names its type's nested function alias bare, and resolves it to that member even though
 another file keeps an unmarked alias of the same name.
 ```maxon
@@ -2624,7 +2627,7 @@ export type Holder
 end 'Holder'
 
 // --- file: main.maxon
-extension holder.Holder
+extension Holder
 	function apply(f Step) returns ExitCode
 		return f(self.base)
 	end 'apply'

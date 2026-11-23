@@ -361,7 +361,7 @@ typealias Byte = int(0 to u8.max)
 typealias Bytes = Array with Byte
 
 function main() returns ExitCode
-	let made = Bytes.create(0)
+	var made = Bytes.create(0)
 	made.push(65)
 	made.append(b"CD")
 	return 0 if made.count() == 3 and (try made.get(1) otherwise 0) == 67 and (try made.get(2) otherwise 0) == 68 else 1
@@ -512,7 +512,7 @@ typealias Byte = int(0 to 100)
 typealias Bytes = Array with Byte
 
 function takes(b Bytes) returns ExitCode
-	return b.count() as ExitCode
+	return try b.count() as ExitCode otherwise panic("out of range")
 end 'takes'
 
 function main() returns ExitCode
@@ -1014,6 +1014,7 @@ error E2015: <fragment>:6:10: Unsupported: a `b"…"` byte-string literal in a p
 ```
 
 <!-- test: a-buffer-field-strides-its-declaring-directorys-byte -->
+<!-- skip: language difference: modules are Go's, so an unmarked declaration is its module's alone and an export reaches the tree of its module's parent, where maxon's unmarked declaration reaches its directory's subtree and its export the whole project -->
 <!-- tier: stdlib -->
 ### A `__ManagedMemory` FIELD strides its DECLARING directory's `Byte`, not its reader's
 `ProgramSignatures.declaredSlotType` resolves a slot's compiler-minted alias against the file that
@@ -1039,7 +1040,7 @@ typealias Integer = int(i64.min to i64.max)
 // --- file: app/main.maxon
 typealias Byte = int(0 to 1000)
 
-function widen(b Byte) returns export.Integer
+function widen(b Byte) returns Integer
 	return b
 end 'widen'
 

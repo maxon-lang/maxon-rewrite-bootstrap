@@ -1200,6 +1200,7 @@ error E2013: <fragment>:11:3: 'v' is a let and cannot be passed to a `mutable` p
 ```
 
 <!-- test: pass-by-reference.a-ranged-var-handed-to-a-function-value-keeps-its-range-guard -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 A `var` handed to a function value that takes the position by reference lives in a cell; the guard its sum owes is still run, before the cell is ever handed over.
 ```maxon
 typealias Wide = int(0 to 5000)

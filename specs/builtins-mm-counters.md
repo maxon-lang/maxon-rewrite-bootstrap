@@ -650,7 +650,7 @@ function main() returns ExitCode
 	let b = try await c.next(a) otherwise 0
 	let afterSecond = __Builtins.mmRawAllocTotal()
 	let bytesAfterSecond = __Builtins.mmRawAllocBytes()
-	var score = b - 3
+	var score = try (b - 3) as Integer otherwise panic("out of range")
 	if before > 0 'theSchedulerIsInstalledBeforeMain'
 		score = score + 1
 	end 'theSchedulerIsInstalledBeforeMain'

@@ -274,6 +274,7 @@ error E3005: <fragment>:17:3: cannot assign a value of type 'Ys' to variable 'a'
 ```
 
 <!-- test: error.comparing-two-brands-of-one-instance-is-refused -->
+<!-- skip: language difference: every typealias of a generic instance is that one type, so a value carries no brand of its own -->
 <!-- positions: moved -->
 An equality passes its right operand to a `Self`-typed parameter, and that parameter takes the receiver's brand.
 ```maxon
@@ -586,6 +587,7 @@ error E3005: <fragment>:15:9: argument type mismatch for 'rows': expected 'Rows'
 ```
 
 <!-- test: error.a-two-segment-qualified-generic-alias-parameter-refuses-another-alias -->
+<!-- skip: language difference: modules are Go's, so an unmarked declaration is its module's alone and an export reaches the tree of its module's parent, where maxon's unmarked declaration reaches its directory's subtree and its export the whole project -->
 The same parameter spelled through two directories, `lib.inner.Xs`. It names the same alias as the bare
 spelling, so a `Ys` is refused the same way.
 ```maxon

@@ -162,13 +162,40 @@ function checkStrLit(mutates c Checker, p ast.Project, mutates ms ast.ModuleStat
 	return p.builtins.stringTy
 end 'checkStrLit'
 
-// checkByteStrLit types a byte string: a new ByteArray of its bytes, which the program may write.
+// checkByteStrLit types a byte string: a new ByteArray of its bytes, which the program may write. Where the context expects
+// an array of another integer type that holds every byte of it in one byte each, the literal is that array, as maxon's
+// adopts the element type it is written for.
 function checkByteStrLit(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
+	if adoptsBytes(p, ms: ms, e: e, want: c.expect) 'adopted'
+		return c.expect
+	end 'adopted'
 	var args = ast.TypeIDList.create(0)
 	args.push(p.builtins.byteTy)
 	let origin = p.builtins.arrayOrigin
 	return instantiateGeneric(c, p: p, ms: ms, off: offsetOf(c, p: p, ms: ms, node: e), orig: origin, args: args, errs: errs)
 end 'checkByteStrLit'
+
+// adoptsBytes is whether the byte string e can be an array of the type want: an array of an integer type that packs one byte
+// to an element and whose range holds each byte of the literal.
+function adoptsBytes(p ast.Project, ms ast.ModuleState, e ast.NodeID, want ast.TypeID) returns bool
+	if want == ast.noType or ast.typeKind(ms.types, reads: p.types, t: want) != ast.TypeKind.builtinArray or ast.originOf(ms.types, reads: p.types, t: want) != p.builtins.arrayOrigin 'notArray'
+		return false
+	end 'notArray'
+	let elem = ast.typeEntry(ms.types, reads: p.types, t: want).typeArgs[0]
+	if ast.typeKind(ms.types, reads: p.types, t: elem) != ast.TypeKind.intRange or not ast.packsByte(ms.types, reads: p.types, b: p.builtins, elem: elem) 'notBytes'
+		return false
+	end 'notBytes'
+	let lo = ast.typeEntry(ms.types, reads: p.types, t: elem).minVal.clone()
+	let hi = ast.typeEntry(ms.types, reads: p.types, t: elem).maxVal.clone()
+	let text = ast.strPartsText(ms.tree(), partsRef: ast.byteStrLitPartsRef(ms.tree(), id: e))
+	for i in 0 upto text.byteLength() 'bytes'
+		let b = ast.I128.fromCount(text.byteAt(i) as Count)
+		if b.lt(lo) or b.gt(hi) 'outside'
+			return false
+		end 'outside'
+	end 'bytes'
+	return true
+end 'adoptsBytes'
 
 function checkInterpolation(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, part ast.NodeID, mutates errs diag.ErrorList) returns bool
 	let typed = checkExpr(c, p: p, ms: ms, e: part, errs: errs)
@@ -644,14 +671,14 @@ function checkComparison(mutates c Checker, p ast.Project, mutates ms ast.Module
 		setOperand(c, node: e, operand: l)
 		return p.builtins.boolTy
 	end 'comparable'
-	if equality and l == r and typeHasKind(p, ms: ms, t: l, kind: ast.TypeKind.typeParam) 'equatable'
-		setOperand(c, node: e, operand: l)
-		return equalsCall(c, p: p, ms: ms, e: e, op: op, param: l, errs: errs)
-	end 'equatable'
 	if l == r and typeHasKind(p, ms: ms, t: l, kind: ast.TypeKind.typeParam) 'parameter'
-		checkFail(c.modID, off: off, code: diag.errTypeMismatch, msg: diag.operatorRequiresConformance(op, typeParamName: nameOfType(p, ms: ms, t: l), interfaceName: "Comparable"), errs: errs)
-		return ast.noType
+		setOperand(c, node: e, operand: l)
+		return boundOperatorCall(c, p: p, ms: ms, e: e, op: op, param: l, errs: errs)
 	end 'parameter'
+	if l == r and (typeHasKind(p, ms: ms, t: l, kind: ast.TypeKind.record) or typeHasKind(p, ms: ms, t: l, kind: ast.TypeKind.builtinArray)) 'method'
+		setOperand(c, node: e, operand: l)
+		return methodOperatorCall(c, p: p, ms: ms, e: e, op: op, t: l, errs: errs)
+	end 'method'
 	checkFail(c.modID, off: off, code: diag.errTypeMismatch, msg: diag.comparisonTypeMismatch(gotName(p, ms: ms, t: l), right: gotName(p, ms: ms, t: r)), errs: errs)
 	return ast.noType
 end 'checkComparison'

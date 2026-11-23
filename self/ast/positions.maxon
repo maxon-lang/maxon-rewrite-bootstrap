@@ -159,10 +159,7 @@ end 'NameOwner'
 
 // isExportedBy is whether the module declares an exported declaration of the name.
 function isExportedBy(module Module, name String) returns bool
-	return match module.names.get(name) 'declared'
-		some(ordinal) gives module.decls[ordinal as Count].level() != Visibility.unexported
-		none gives false
-	end 'declared'
+	return module.names.has(name) and levelOf(module, name: name) != Visibility.unexported
 end 'isExportedBy'
 
 // owningModule is the qualifier of the declaration a bare name in module m means, as Maxon's bare lookup finds it: the root
@@ -236,10 +233,63 @@ function qualifyHint(mods ModuleList, e diag.CompileError) returns String
 	return ": a declaration of another module is named with its module, as {String.from(buf)}"
 end 'qualifyHint'
 
+// hiddenElsewhere is why a bare name that an error did not find cannot name what the other modules of the program declare
+// under it, when each such declaration is one that its visibility keeps from the module of the error, or "" when another
+// module declares none or one that the module could name qualified. That module names it from where the name is written,
+// as maxon refuses a declaration that its visibility does not reach (E3008).
+function hiddenElsewhere(mods ModuleList, e diag.CompileError) returns String
+	let m = e.site.module
+	if e.unqualified == "" or m == diag.stdlibID or modIndex(m) >= mods.count() or mods[modIndex(m)].isLibrary 'notProgram'
+		return ""
+	end 'notProgram'
+	let from = modIndex(m)
+	var why = ""
+	for i in 0 upto mods.count() 'each'
+		if i == from or mods[i].isLibrary 'self'
+			continue 'each'
+		end 'self'
+		if not mods[i].names.has(e.unqualified) 'undeclared'
+			continue 'each'
+		end 'undeclared'
+		let level = levelOf(mods[i], name: e.unqualified)
+		if declaresConstant(mods[i], name: e.unqualified) or isVisible(level, owner: mods[i].id, ownerPath: mods[i].path, from: m, fromPath: mods[from].path) 'reached'
+			return ""
+		end 'reached'
+		if why == "" 'first'
+			why = notVisibleText(e.unqualified, v: level, ownerWord: describeModuleOf(mods[i]), tree: parentPath(mods[i].path), fromWord: describeModuleOf(mods[from]))
+		end 'first'
+	end 'each'
+	return why
+end 'hiddenElsewhere'
+
+// declaresConstant is whether what the module declares under the name is a module-level 'let' or 'var', which maxon does not
+// find from where its visibility does not reach, so its bare name stays unknown there.
+function declaresConstant(module Module, name String) returns bool
+	return match module.names.get(name) 'declared'
+		some(ordinal) gives module.decls[ordinal as Count].isConst()
+		none gives false
+	end 'declared'
+end 'declaresConstant'
+
+// levelOf is the visibility of the declaration that the module declares under the name.
+function levelOf(module Module, name String) returns Visibility
+	return match module.names.get(name) 'declared'
+		some(ordinal) gives module.decls[ordinal as Count].level()
+		none panic("positions: module '{module.path}' declares no '{name}'")
+	end 'declared'
+end 'levelOf'
+
 export function locateError(mods ModuleList, mutates e diag.CompileError)
 	if e.located 'already'
 		return
 	end 'already'
+	let hidden = hiddenElsewhere(mods, e: e)
+	if hidden != "" 'hidden'
+		e.code = diag.errNotExported
+		e.message = hidden
+		e.site.offset = e.unqualifiedAt
+		e.unqualified = ""
+	end 'hidden'
 	e.message = "{e.message}{qualifyHint(mods, e: e)}"
 	if e.unqualified != "" and not e.fix.isSome() 'bare'
 		e.fix = qualifyFix(mods, e: e)

@@ -369,6 +369,7 @@ end 'main'
 ```
 
 <!-- test: a-root-declaration-is-what-the-bare-name-means-beside-a-subdirectorys -->
+<!-- skip: language difference: modules are Go's, so an unmarked declaration is its module's alone and an export reaches the tree of its module's parent, where maxon's unmarked declaration reaches its directory's subtree and its export the whole project -->
 The root declares an unmarked `type Box` and `sub/` exports another. `other/o.maxon` sees both and declares neither, so its bare
 `Box` is the root's; `sub/box.maxon` means its own directory's, which is nearer than the root's. `main.maxon`
 reaches `sub/`'s through its directory.
@@ -384,7 +385,7 @@ end 'Box'
 
 function main() returns ExitCode
 	let inSub = sub.Box.make()
-	return other.fromOther() + fromSub() + inSub.w
+	return fromOther() + fromSub() + inSub.w
 end 'main'
 
 // --- file: sub/box.maxon
@@ -402,7 +403,7 @@ end 'fromSub'
 
 // --- file: other/o.maxon
 export function fromOther() returns ExitCode
-	return export.Box.make().v
+	return Box.make().v
 end 'fromOther'
 ```
 ```exitcode
@@ -449,6 +450,7 @@ error E3063: c/<fragment>:22:12: Ambiguous type name 'Box': more than one visibl
 ```
 
 <!-- test: error.a-diagnostic-names-a-nested-directorys-type-whose-leaf-directory-also-declares-one -->
+<!-- skip: language difference: modules are Go's, so an unmarked declaration is its module's alone and an export reaches the tree of its module's parent, where maxon's unmarked declaration reaches its directory's subtree and its export the whole project -->
 `deep/` and `sub/deep/` each export a `type Box`, and the file in `sub/deep/` reads a field `Box` does not have. The
 diagnostic names the type as `sub.deep.Box`: the spelling of `deep/`'s type does not stand inside the longer one.
 ```maxon

@@ -794,7 +794,12 @@ function checkLet(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, 
 		return
 	end 'noValue'
 	if isVar and (isConstInt(p, ms: ms, t: t) or typeIsAnonInt(ms.types, reads: p.types, t: t) or holdsBareNumbers(p, ms: ms, t: t)) 'bareNumber'
-		failAt(c, p: p, ms: ms, node: initNode, code: diag.errExpressionError, msg: diag.varStartsFromBareNumber(), errs: errs)
+		var fix = diag.Fix.none()
+		let alias = operandAlias(c, p: p, ms: ms, e: initNode)
+		if typeIsAnonInt(ms.types, reads: p.types, t: t) and alias != ast.noType 'named'
+			fix = returnFix(ms.tree(), e: initNode, target: nameOfType(p, ms: ms, t: alias))
+		end 'named'
+		checkFailFixed(c.modID, off: offsetOf(c, p: p, ms: ms, node: initNode), code: diag.errExpressionError, msg: diag.varStartsFromBareNumber(), fix: fix, errs: errs)
 		bindLet(c, p: p, ms: ms, s: s, name: name, t: ast.noType, isVar: isVar, off: off, errs: errs)
 		return
 	end 'bareNumber'
@@ -807,6 +812,28 @@ function checkLet(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, 
 		c.typing.locals[local as Count].projected = true
 	end 'lent'
 end 'checkLet'
+
+// operandAlias is the integer alias of the first operand of the arithmetic e that has one, which maxon gives the result of
+// the arithmetic, or none: the type a var bound to it is cast to by the fix of starting from an anonymous range.
+function operandAlias(c Checker, p ast.Project, ms ast.ModuleState, e ast.NodeID) returns ast.TypeID
+	let node = ast.through(ms.tree(), e: e)
+	let k = ms.tree().kindOf(node)
+	if k == ast.NodeKind.binaryExpr and isArithmeticOp(ast.binaryExprOp(ms.tree(), id: node)) 'binary'
+		let left = operandAlias(c, p: p, ms: ms, e: ast.binaryExprL(ms.tree(), id: node))
+		if left != ast.noType 'left'
+			return left
+		end 'left'
+		return operandAlias(c, p: p, ms: ms, e: ast.binaryExprR(ms.tree(), id: node))
+	end 'binary'
+	if k == ast.NodeKind.unaryExpr and ast.unaryExprOp(ms.tree(), id: node) == "-" 'negation'
+		return operandAlias(c, p: p, ms: ms, e: ast.unaryExprE(ms.tree(), id: node))
+	end 'negation'
+	let t = ast.nodeType(c.typing, node: node)
+	if typeIsNamedInt(ms.types, reads: p.types, t: t) 'named'
+		return t
+	end 'named'
+	return ast.noType
+end 'operandAlias'
 
 // bindsLent is whether a let or a var bound to e borrows it rather than owning it: e is a call that returns a borrowed
 // place of a managed type, such as a view of a String's bytes that a slicing method lends, so the binding holds what the

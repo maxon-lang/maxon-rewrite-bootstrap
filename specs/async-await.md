@@ -3794,6 +3794,7 @@ end 'main'
 ```
 
 <!-- test: async-await.qualified-spawn-of-a-nested-directory-free-function -->
+<!-- skip: language difference: modules are Go's, so an unmarked declaration is its module's alone and an export reaches the tree of its module's parent, where maxon's unmarked declaration reaches its directory's subtree and its export the whole project -->
 A free function two directories down is spawned through its whole qualifier, `outer.inner.six`.
 ```maxon
 // --- file: outer/inner/math.maxon

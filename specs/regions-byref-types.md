@@ -927,7 +927,7 @@ end 'inside'
 
 // --- file: app/main.maxon
 function main() returns ExitCode
-	var x = inside()
+	var x = lib.inside()
 	relay(x, other: 5)
 	print("{x}\n")
 	return 0
@@ -957,7 +957,7 @@ end 'inside'
 
 // --- file: app/main.maxon
 function main() returns ExitCode
-	var x = inside()
+	var x = lib.inside()
 	widen(x)
 	print("{x}\n")
 	return 0

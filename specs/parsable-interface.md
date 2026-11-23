@@ -531,6 +531,7 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: another-files-bare-byte-is-the-library-byte-past-a-file-private-author-byte -->
+<!-- skip: language difference: modules are Go's, so an unmarked declaration is its module's alone and an export reaches the tree of its module's parent, where maxon's unmarked declaration reaches its directory's subtree and its export the whole project -->
 A declaration a file cannot see never counts in its name resolution, so `b/`'s bare `byte` is the library's while `a/` keeps its own unmarked `type byte`.
 ```maxon
 // --- file: a/a.maxon
@@ -556,8 +557,8 @@ end 'runB'
 
 // --- file: main.maxon
 function main() returns ExitCode
-	a.runA()
-	b.runB()
+	runA()
+	runB()
 	return 0
 end 'main'
 ```

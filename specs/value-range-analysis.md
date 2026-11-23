@@ -135,9 +135,9 @@ typealias Word = int(i64.min to i64.max)
 
 typealias WordArray = Array with Word
 
-function reverseMiddle(a WordArray, first Word)
+function reverseMiddle(mutates a WordArray, first Word)
 	var low = 1 as Word
-	var high = first - 1
+	var high = try (first - 1) as Word otherwise panic("out of range")
 	while low < high 'swap'
 		let atLow = try a.get(low as ElementIndex) otherwise panic("reverseMiddle: low < high < first <= a.count()")
 		let atHigh = try a.get(high as ElementIndex) otherwise panic("reverseMiddle: high < first <= a.count()")
@@ -149,7 +149,7 @@ function reverseMiddle(a WordArray, first Word)
 end 'reverseMiddle'
 
 function main() returns ExitCode
-	let a = WordArray.create(0)
+	var a = WordArray.create(0)
 	for i in 0 upto 8 'seed'
 		a.push(i)
 	end 'seed'

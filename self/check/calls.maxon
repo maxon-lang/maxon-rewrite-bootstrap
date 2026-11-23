@@ -892,36 +892,122 @@ function uniqueBoundRequirement(mutates c Checker, p ast.Project, ms ast.ModuleS
 	return req
 end 'uniqueBoundRequirement'
 
-// equalsCall types '==' or '!=' on two values of the type parameter param as maxon's: a call of the 'equals' that a bound
-// of it declares, a method of one parameter that returns bool, recorded at the operator with the left operand as its
-// receiver and the right as its argument.
-function equalsCall(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, op String, param ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
+// boundOperatorCall types a comparison on two values of the type parameter param as maxon's: a call of the 'equals' (for
+// '==' and '!=') or the 'compare' (for an ordering) that a bound of it declares.
+function boundOperatorCall(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, op String, param ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
 	let bounds = boundsOfParam(p, ms: ms, boundedFn: c.boundedFn, paramTy: param)
+	let name = operatorMethod(op)
 	let mark = errs.count()
-	let req = uniqueBoundRequirement(c, p: p, ms: ms, node: e, param: param, bounds: bounds, name: equalsMethod, errs: errs)
+	let req = uniqueBoundRequirement(c, p: p, ms: ms, node: e, param: param, bounds: bounds, name: name, errs: errs)
 	if failedSince(errs, mark: mark) 'ambiguousBound'
 		return ast.noType
 	end 'ambiguousBound'
-	if req.sig == ast.noFunc or ast.funcEntry(ms.funcs, funcReads: p.funcs, f: req.sig).isStatic or ast.funcEntry(ms.funcs, funcReads: p.funcs, f: req.sig).params.count() != 1 or ast.funcEntry(ms.funcs, funcReads: p.funcs, f: req.sig).retTy != p.builtins.boolTy 'notEquatable'
-		failAt(c, p: p, ms: ms, node: e, code: diag.errTypeMismatch, msg: diag.operatorRequiresConformance(op, typeParamName: nameOfType(p, ms: ms, t: param), interfaceName: "Equatable"), errs: errs)
+	if req.sig == ast.noFunc or not meetsOperator(p, ms: ms, f: req.sig, op: op) 'notMet'
+		failAt(c, p: p, ms: ms, node: e, code: diag.errTypeMismatch, msg: diag.operatorRequiresConformance(op, typeParamName: nameOfType(p, ms: ms, t: param), interfaceName: operatorInterface(op)), errs: errs)
 		return ast.noType
-	end 'notEquatable'
+	end 'notMet'
 	let specs = applySpecs(p, ms: ms, specs: ast.funcEntry(ms.funcs, funcReads: p.funcs, f: req.sig).params.clone(), params: requirementParams(p, ms: ms, iface: req.iface), args: requirementBindings(param, req: req))
-	var info = requirementCall(p, ms: ms, sig: req.sig, receiver: param, specs: specs)
+	let info = requirementCall(p, ms: ms, sig: req.sig, receiver: param, specs: specs)
+	return recordOperatorCall(c, p: p, ms: ms, e: e, callee: "{nameOfType(p, ms: ms, t: param)}.{name}", info: info, errs: errs)
+end 'boundOperatorCall'
+
+// methodOperatorCall types a comparison on two values of the type t, a record or an array, as maxon's: a call of the type's
+// own 'equals' (for '==' and '!=') or 'compare' (for an ordering), which it need not declare a conformance for. A type
+// with no such method cannot be compared.
+function methodOperatorCall(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, op String, t ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
+	let name = operatorMethod(op)
+	let mark = errs.count()
+	let method = methodOf(c, p: p, ms: ms, t: t, name: name, node: e, errs: errs)
+	if failedSince(errs, mark: mark) 'ambiguous'
+		return ast.noType
+	end 'ambiguous'
+	if method == ast.noFunc or ast.funcEntry(ms.funcs, funcReads: p.funcs, f: method).extendedIface != ast.noType or not meetsOperator(p, ms: ms, f: method, op: op) 'none'
+		failAt(c, p: p, ms: ms, node: e, code: diag.errTypeMismatch, msg: diag.comparisonTypeMismatch(gotName(p, ms: ms, t: t), right: gotName(p, ms: ms, t: t)), errs: errs)
+		return ast.noType
+	end 'none'
+	if not requireVisible(c, p: p, ms: ms, node: e, target: method, errs: errs) 'hidden'
+		return ast.noType
+	end 'hidden'
+	let generics = ast.cloneTypeArgs(ast.funcEntry(ms.funcs, funcReads: p.funcs, f: method).generics)
+	var specs = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: method).params.clone()
+	var info = ast.CallInfo.make(ast.CallKind.callMethod, fn: method, receiverTy: ast.noType)
+	if generics.count() > 0 'generic'
+		let given = ast.typeEntry(ms.types, reads: p.types, t: t).typeArgs.clone()
+		specs = applySpecs(p, ms: ms, specs: specs, params: generics, args: given)
+		queueMethodBounds(c, p: p, ms: ms, off: offsetOf(c, p: p, ms: ms, node: e), method: method, args: given)
+		info.typeArgs = given
+	end 'generic'
+	info.paramSpecs = specs
+	info.selfConv = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: method).selfConv
+	info.intrinsic = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: method).intrinsic
+	info.result = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: method).result
+	return recordOperatorCall(c, p: p, ms: ms, e: e, callee: "{nameOfType(p, ms: ms, t: t)}.{name}", info: info, errs: errs)
+end 'methodOperatorCall'
+
+// recordOperatorCall binds the right operand of the comparison e to the one parameter of the method that info calls, and
+// records the call at the operator, with the left operand as its receiver.
+function recordOperatorCall(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, callee String, consumes info ast.CallInfo, mutates errs diag.ErrorList) returns ast.TypeID
 	let right = ast.binaryExprR(ms.tree(), id: e)
-	if not coerceArg(c, p: p, ms: ms, call: e, value: right, callee: "{nameOfType(p, ms: ms, t: param)}.{equalsMethod}", spec: specs[0], payload: false, errs: errs) 'badArg'
+	if not coerceArg(c, p: p, ms: ms, call: e, value: right, callee: callee, spec: info.paramSpecs[0], payload: false, errs: errs) 'badArg'
 		return ast.noType
 	end 'badArg'
+	var call = info
 	var ordered = ast.NodeIDList.create(0)
 	ordered.push(right)
-	info.ordered = ordered
-	c.typing.calls.insert(e as Count, value: info)
+	call.ordered = ordered.clone()
+	let intrinsic = call.intrinsic
+	let target = call.fn
+	c.typing.calls.insert(e as Count, value: call)
+	if intrinsic != ast.Intrinsic.intrNone 'builtIn'
+		let mark = errs.count()
+		checkIntrinsicArgs(c, p: p, ms: ms, call: e, target: target, ordered: ordered, errs: errs)
+		if failedSince(errs, mark: mark) 'refused'
+			return ast.noType
+		end 'refused'
+		return p.builtins.boolTy
+	end 'builtIn'
 	recordUse(c, call: e)
 	return p.builtins.boolTy
-end 'equalsCall'
+end 'recordOperatorCall'
 
-// equalsMethod is the requirement of Equatable that '==' on a type parameter calls.
+// meetsOperator is whether the method f is what the comparison op calls: an instance method of one parameter that returns
+// bool for '==' and '!=', and an Ordering for an ordering.
+function meetsOperator(p ast.Project, ms ast.ModuleState, f ast.FuncID, op String) returns bool
+	let entry = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: f)
+	if entry.isStatic or entry.params.count() != 1 'shape'
+		return false
+	end 'shape'
+	if isEqualityOp(op) 'equality'
+		return entry.retTy == p.builtins.boolTy
+	end 'equality'
+	return ast.isOrdering(ms.types, reads: p.types, t: entry.retTy)
+end 'meetsOperator'
+
+function isEqualityOp(op String) returns bool
+	return op == "==" or op == "!="
+end 'isEqualityOp'
+
+// operatorMethod is the method that the comparison op calls on a type that is no primitive.
+function operatorMethod(op String) returns String
+	if isEqualityOp(op) 'equality'
+		return equalsMethod
+	end 'equality'
+	return compareMethod
+end 'operatorMethod'
+
+// operatorInterface is the interface whose requirement the comparison op calls on a type parameter.
+function operatorInterface(op String) returns String
+	if isEqualityOp(op) 'equality'
+		return "Equatable"
+	end 'equality'
+	return "Comparable"
+end 'operatorInterface'
+
+// equalsMethod is the method that '==' calls on a type that is no primitive, Equatable's requirement.
 let equalsMethod = "equals"
+
+// compareMethod is the method that an ordering operator calls on a type that is no primitive, Comparable's requirement.
+let compareMethod = "compare"
 
 // requirementCall is a call through the requirement sig of an interface, on a receiver of a type parameter or of the
 // interface: it runs the method of whatever type stands there, and its result is a value or a borrowed place as the

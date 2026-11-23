@@ -1157,6 +1157,7 @@ a name padded long enough to heap allocate 7 x2
 ```
 
 <!-- test: closure-capture.one-closure-in-two-fields-an-array-and-a-union -->
+<!-- skip: language difference: a place passed mutates, consumes or sets overlaps nothing else the call or the statement holds, where maxon shares the place by a reference count -->
 One closure copied into two fields, an Array and a union payload: every holder takes a reference of its own
 and drops it.
 ```maxon

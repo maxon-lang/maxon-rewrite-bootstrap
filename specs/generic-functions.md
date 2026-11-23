@@ -430,11 +430,11 @@ type Version implements Comparable
 	end 'compare'
 end 'Version'
 
-function smaller(a T, b T) uses T returns T where T implements Comparable
+function smaller(a T, b T) uses T returns T where T implements Comparable and Copyable
 	if a < b 'first'
-		return a
+		return a.clone()
 	end 'first'
-	return b
+	return b.clone()
 end 'smaller'
 
 function main() returns ExitCode
@@ -496,11 +496,11 @@ end 'main'
 <!-- test: an-exported-generic-function-is-called-from-another-file -->
 ```maxon
 // --- file: lib/lib.maxon
-export function larger(a T, b T) uses T returns T where T implements Comparable
+export function larger(a T, b T) uses T returns T where T implements Comparable and Copyable
 	if a > b 'first'
-		return a
+		return a.clone()
 	end 'first'
-	return b
+	return b.clone()
 end 'larger'
 
 // --- file: main.maxon
@@ -555,11 +555,11 @@ end 'main'
 // --- file: lib/lib.maxon
 typealias Point = int(0 to 10)
 
-export function smaller(a T, b T) uses T returns T where T implements Comparable
+export function smaller(a T, b T) uses T returns T where T implements Comparable and Copyable
 	if a < b 'first'
-		return a
+		return a.clone()
 	end 'first'
-	return b
+	return b.clone()
 end 'smaller'
 
 export function libraryPoint() returns String
@@ -601,11 +601,11 @@ end 'main'
 <!-- test: an-exported-requirement-reached-only-through-an-instance-is-used -->
 ```maxon
 // --- file: lib/lib.maxon
-export function smaller(a T, b T) uses T returns T where T implements Comparable
+export function smaller(a T, b T) uses T returns T where T implements Comparable and Copyable
 	if a < b 'first'
-		return a
+		return a.clone()
 	end 'first'
-	return b
+	return b.clone()
 end 'smaller'
 
 // --- file: point/point.maxon
@@ -683,6 +683,7 @@ error E3008: <fragment>:5:12: type 'Point' is not exported
 ```
 
 <!-- test: an-instance-calls-a-requirement-of-a-type-its-file-may-not-name -->
+<!-- skip: language difference: modules are Go's, so an unmarked declaration is its module's alone and an export reaches the tree of its module's parent, where maxon's unmarked declaration reaches its directory's subtree and its export the whole project -->
 A requirement the `where` clause names is the constraining interface's surface, so a copy calls it by name even
 where the type that satisfies it is hidden.
 ```maxon
@@ -716,7 +717,7 @@ type Point implements Comparable
 end 'Point'
 
 function main() returns ExitCode
-	let p = export.smaller(Point.create(9), b: Point.create(3))
+	let p = smaller(Point.create(9), b: Point.create(3))
 	print("{p.rank}\n")
 	return 0
 end 'main'
@@ -726,6 +727,7 @@ end 'main'
 ```
 
 <!-- test: a-closure-in-an-instance-calls-a-requirement-of-a-type-its-file-may-not-name -->
+<!-- skip: language difference: modules are Go's, so an unmarked declaration is its module's alone and an export reaches the tree of its module's parent, where maxon's unmarked declaration reaches its directory's subtree and its export the whole project -->
 A closure written in a generic function belongs to the copy it is written in, so it calls the requirement too.
 ```maxon
 // --- file: lib.maxon
@@ -759,7 +761,7 @@ type Point implements Comparable
 end 'Point'
 
 function main() returns ExitCode
-	let p = export.smallerVia(Point.make(9), b: Point.make(3))
+	let p = smallerVia(Point.make(9), b: Point.make(3))
 	print("{p.rank}\n")
 	return 0
 end 'main'
@@ -769,6 +771,7 @@ end 'main'
 ```
 
 <!-- test: an-instance-calls-an-extension-method-of-its-constraint-on-a-type-its-file-may-not-name -->
+<!-- skip: language difference: modules are Go's, so an unmarked declaration is its module's alone and an export reaches the tree of its module's parent, where maxon's unmarked declaration reaches its directory's subtree and its export the whole project -->
 An `extension` of the constraining interface is that interface's surface too, so a copy calls its methods on a
 type it may not name.
 ```maxon
@@ -790,14 +793,14 @@ function doubled(a T) uses T returns Score where T implements Ranked
 end 'doubled'
 
 // --- file: app/main.maxon
-type Point implements export.Ranked
+type Point implements Ranked
 	var value as Score
 
-	static function make(value export.Score) returns Self
+	static function make(value Score) returns Self
 		return Self{value: value}
 	end 'make'
 
-	function rank() returns export.Score
+	function rank() returns Score
 		return self.value
 	end 'rank'
 end 'Point'
@@ -812,6 +815,7 @@ end 'main'
 ```
 
 <!-- test: an-extension-method-calls-an-unmarked-requirement-of-a-conformer-in-a-subdirectory -->
+<!-- skip: language difference: modules are Go's, so an unmarked declaration is its module's alone and an export reaches the tree of its module's parent, where maxon's unmarked declaration reaches its directory's subtree and its export the whole project -->
 An `extension` body calls a requirement through the interface's surface, so the conformer's implementation may be
 unmarked in a directory the extension cannot see.
 ```maxon
@@ -829,14 +833,14 @@ extension Ranked
 end 'Ranked'
 
 // --- file: app/main.maxon
-type Point implements export.Ranked
+type Point implements Ranked
 	var value as Score
 
-	static function make(value export.Score) returns Self
+	static function make(value Score) returns Self
 		return Self{value: value}
 	end 'make'
 
-	function rank() returns export.Score
+	function rank() returns Score
 		return self.value
 	end 'rank'
 end 'Point'
@@ -1482,6 +1486,7 @@ end 'main'
 ```
 
 <!-- test: a-generic-in-another-file-interpolates-the-callers-file-private-enum -->
+<!-- skip: language difference: modules are Go's, so an unmarked declaration is its module's alone and an export reaches the tree of its module's parent, where maxon's unmarked declaration reaches its directory's subtree and its export the whole project -->
 ```maxon
 // --- file: l.maxon
 function describe(a T) uses T returns String
@@ -1495,7 +1500,7 @@ enum Shade
 end 'Shade'
 
 function main() returns ExitCode
-	print("{export.describe(Shade.dark)}\n")
+	print("{describe(Shade.dark)}\n")
 	return 0
 end 'main'
 ```
@@ -1507,6 +1512,7 @@ dark
 ```
 
 <!-- test: a-generic-in-another-file-quotes-the-callers-file-private-stringable-type -->
+<!-- skip: language difference: modules are Go's, so an unmarked declaration is its module's alone and an export reaches the tree of its module's parent, where maxon's unmarked declaration reaches its directory's subtree and its export the whole project -->
 ```maxon
 // --- file: l.maxon
 function describe(a T) uses T returns String
@@ -1529,7 +1535,7 @@ type Tag implements Stringable
 end 'Tag'
 
 function main() returns ExitCode
-	print("{export.describe(Tag.create(7))}\n")
+	print("{describe(Tag.create(7))}\n")
 	return 0
 end 'main'
 ```
@@ -1541,7 +1547,6 @@ tag7
 ```
 
 <!-- test: error.a-generic-in-another-file-matching-the-callers-file-private-enum-cases-is-refused -->
-<!-- positions: moved -->
 The case names in `code`'s `match` are written by the generic's author, in `l.maxon`, outside the directory
 `Shade` is visible in: they are names crossing the directory boundary, and they stay refused.
 ```maxon
@@ -1560,7 +1565,7 @@ enum Shade
 end 'Shade'
 
 function main() returns ExitCode
-	return export.code(Shade.dark)
+	return code(Shade.dark)
 end 'main'
 ```
 ```maxoncstderr

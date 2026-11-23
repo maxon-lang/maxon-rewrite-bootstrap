@@ -450,7 +450,7 @@ function main() returns ExitCode
 	let b = await second
 	let workers = __Builtins.schedMaxActiveWorkers()
 	let monitorActions = __Builtins.schedPreemptCount() + __Builtins.schedRetakeCount() + __Builtins.schedTimerStartCount()
-	var score = a + b
+	var score = try (a + b) as ExitCode otherwise panic("out of range")
 	if workers == 1 or monitorActions > 0 'singleMUnlessTheMonitorActed'
 		score = score + 2
 	end 'singleMUnlessTheMonitorActed'

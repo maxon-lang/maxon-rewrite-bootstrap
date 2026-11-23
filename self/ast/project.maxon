@@ -1077,14 +1077,19 @@ end 'modulePath'
 
 // describeModule names a module in a sentence.
 export function describeModule(p Project, modID diag.ModuleID) returns String
-	if modID != diag.stdlibID and p.modules[modIndex(modID)].path == "" 'rt'
-		return "the project root"
-	end 'rt'
 	if modID == diag.stdlibID 'std'
 		return "module {p.stdlib.display()}"
 	end 'std'
-	return "module {p.modules[modIndex(modID)].display()}"
+	return describeModuleOf(p.modules[modIndex(modID)])
 end 'describeModule'
+
+// describeModuleOf names the module m in a sentence.
+export function describeModuleOf(m Module) returns String
+	if m.path == "" 'rt'
+		return "the project root"
+	end 'rt'
+	return "module {m.display()}"
+end 'describeModuleOf'
 
 // isVisibleFrom is whether something that the module owner declares with the visibility v can be named from the module
 // from. A program staged in the library tier is compiled as maxon's runner compiles it, as a file of the library's root,
@@ -1131,16 +1136,21 @@ end 'qualifierRoot'
 // notVisible is the message for naming, from the module from, something named name that owner declares with the
 // visibility v, which isVisibleFrom refused.
 export function notVisible(p Project, name String, v Visibility, owner diag.ModuleID, from diag.ModuleID) returns String
-	let fromWord = describeModule(p, modID: from)
-	if v == Visibility.unexported 'priv'
-		return "'{name}' is not exported from {describeModule(p, modID: owner)}: mark it 'export' to use it from {fromWord}"
-	end 'priv'
 	var tree = parentPath(modulePath(p, modID: owner)).clone()
 	if owner != diag.stdlibID and p.modules[modIndex(owner)].isLibrary 'library'
 		tree = libraryTreeOf(modulePath(p, modID: owner))
 	end 'library'
-	return "'{name}' is exported only to module {tree} and the modules under it: mark it 'public' to use it from {fromWord}"
+	return notVisibleText(name, v: v, ownerWord: describeModule(p, modID: owner), tree: tree, fromWord: describeModule(p, modID: from))
 end 'notVisible'
+
+// notVisibleText says that the declaration name, of the visibility v in the module ownerWord, whose export reaches the
+// modules under tree, cannot be named from the module fromWord, and which modifier would reach it.
+export function notVisibleText(name String, v Visibility, ownerWord String, tree String, fromWord String) returns String
+	if v == Visibility.unexported 'priv'
+		return "'{name}' is not exported from {ownerWord}: mark it 'export' to use it from {fromWord}"
+	end 'priv'
+	return "'{name}' is exported only to module {tree} and the modules under it: mark it 'public' to use it from {fromWord}"
+end 'notVisibleText'
 
 // functionNamed is the function that a module declares by name at its top level, or noFunc when the name is not one.
 export function functionNamed(p Project, ms ModuleState, module diag.ModuleID, name String) returns FuncID

@@ -284,25 +284,25 @@ lands in the loop body — still correct, and visible only in the emitted code.
 sum to 66. So `15 + 66 = 81`.
 ```maxon
 function loopReuse(p Integer) returns Integer
-	let k1 = p + 1
-	let k2 = p + 2
-	let k3 = p + 3
-	let k4 = p + 4
-	let k5 = p + 5
-	let k6 = p + 6
-	let k7 = p + 7
-	let k8 = p + 8
-	let k9 = p + 9
-	let k10 = p + 10
-	let k11 = p + 11
-	let a = p + 20
-	var b = p + 5
+	let k1 = try p + 1 otherwise panic("out of range")
+	let k2 = try p + 2 otherwise panic("out of range")
+	let k3 = try p + 3 otherwise panic("out of range")
+	let k4 = try p + 4 otherwise panic("out of range")
+	let k5 = try p + 5 otherwise panic("out of range")
+	let k6 = try p + 6 otherwise panic("out of range")
+	let k7 = try p + 7 otherwise panic("out of range")
+	let k8 = try p + 8 otherwise panic("out of range")
+	let k9 = try p + 9 otherwise panic("out of range")
+	let k10 = try p + 10 otherwise panic("out of range")
+	let k11 = try p + 11 otherwise panic("out of range")
+	let a = try p + 20 otherwise panic("out of range")
+	var b = try (p + 5) as Integer otherwise panic("out of range")
 	var i = 0 as Integer
 	while i < 3 'loop'
-		b = a - b
+		b = try a - b otherwise panic("out of range")
 		i = i + 1
 	end 'loop'
-	return b + k1 + k2 + k3 + k4 + k5 + k6 + k7 + k8 + k9 + k10 + k11
+	return try b + k1 + k2 + k3 + k4 + k5 + k6 + k7 + k8 + k9 + k10 + k11 otherwise panic("out of range")
 end 'loopReuse'
 
 function main() returns ExitCode

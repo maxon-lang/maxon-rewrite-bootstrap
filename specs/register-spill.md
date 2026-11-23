@@ -692,28 +692,28 @@ refused and the peak is relieved by a forced bracket on an accumulator instead.
 where `3 mod 7 = 3` is not `< 3`), leaving `a1..a6 = 8, 19, 40, 76, 133, 218` — a sum of 494.
 ```maxon
 function leaf(x Integer) returns Integer
-	return x + 1
+	return try x + 1 otherwise panic("out of range")
 end 'leaf'
 
 function loopDivisor(p Integer) returns Integer
 	let c = 7
-	var a1 = p + 1
-	var a2 = p + 2
-	var a3 = p + 3
-	var a4 = p + 4
-	var a5 = p + 5
-	var a6 = p + 6
+	var a1 = try (p + 1) as Integer otherwise panic("out of range")
+	var a2 = try (p + 2) as Integer otherwise panic("out of range")
+	var a3 = try (p + 3) as Integer otherwise panic("out of range")
+	var a4 = try (p + 4) as Integer otherwise panic("out of range")
+	var a5 = try (p + 5) as Integer otherwise panic("out of range")
+	var a6 = try (p + 6) as Integer otherwise panic("out of range")
 	var i = 0 as Integer
 	while i mod c < 3 'loop'
-		a1 = a1 + leaf(i)
-		a2 = a2 + a1
-		a3 = a3 + a2
-		a4 = a4 + a3
-		a5 = a5 + a4
-		a6 = a6 + a5
-		i = i + 1
+		a1 = try a1 + leaf(i) otherwise panic("out of range")
+		a2 = try a2 + a1 otherwise panic("out of range")
+		a3 = try a3 + a2 otherwise panic("out of range")
+		a4 = try a4 + a3 otherwise panic("out of range")
+		a5 = try a5 + a4 otherwise panic("out of range")
+		a6 = try a6 + a5 otherwise panic("out of range")
+		i = try i + 1 otherwise panic("out of range")
 	end 'loop'
-	return a1 + a2 + a3 + a4 + a5 + a6
+	return try a1 + a2 + a3 + a4 + a5 + a6 otherwise panic("out of range")
 end 'loopDivisor'
 
 function main() returns ExitCode

@@ -349,24 +349,24 @@ pins it: the program would still compute the right answer, and only the emitted 
 `7, 8, 9, 10`, summing to 34.
 ```maxon
 function bump(x Integer) returns Integer
-	return x + 1
+	return try x + 1 otherwise panic("out of range")
 end 'bump'
 
 function fourAcross(p Integer) returns Integer
-	var a1 = p + 1
-	var a2 = p + 2
-	var a3 = p + 3
-	var a4 = p + 4
+	var a1 = try (p + 1) as Integer otherwise panic("out of range")
+	var a2 = try (p + 2) as Integer otherwise panic("out of range")
+	var a3 = try (p + 3) as Integer otherwise panic("out of range")
+	var a4 = try (p + 4) as Integer otherwise panic("out of range")
 	var i = 0 as Integer
 	while i < 3 'loop'
 		let d = bump(i)
-		a1 = a1 + d
-		a2 = a2 + d
-		a3 = a3 + d
-		a4 = a4 + d
+		a1 = try a1 + d otherwise panic("out of range")
+		a2 = try a2 + d otherwise panic("out of range")
+		a3 = try a3 + d otherwise panic("out of range")
+		a4 = try a4 + d otherwise panic("out of range")
 		i = i + 1
 	end 'loop'
-	return a1 + a2 + a3 + a4
+	return try a1 + a2 + a3 + a4 otherwise panic("out of range")
 end 'fourAcross'
 
 function main() returns ExitCode
@@ -394,30 +394,30 @@ body are the correct answer here, and the emitted code shows them.
 `7..13`, summing to 70.
 ```maxon
 function bump(x Integer) returns Integer
-	return x + 1
+	return try x + 1 otherwise panic("out of range")
 end 'bump'
 
 function sevenAcross(p Integer) returns Integer
-	var a1 = p + 1
-	var a2 = p + 2
-	var a3 = p + 3
-	var a4 = p + 4
-	var a5 = p + 5
-	var a6 = p + 6
-	var a7 = p + 7
+	var a1 = try (p + 1) as Integer otherwise panic("out of range")
+	var a2 = try (p + 2) as Integer otherwise panic("out of range")
+	var a3 = try (p + 3) as Integer otherwise panic("out of range")
+	var a4 = try (p + 4) as Integer otherwise panic("out of range")
+	var a5 = try (p + 5) as Integer otherwise panic("out of range")
+	var a6 = try (p + 6) as Integer otherwise panic("out of range")
+	var a7 = try (p + 7) as Integer otherwise panic("out of range")
 	var i = 0 as Integer
 	while i < 3 'loop'
 		let d = bump(i)
-		a1 = a1 + d
-		a2 = a2 + d
-		a3 = a3 + d
-		a4 = a4 + d
-		a5 = a5 + d
-		a6 = a6 + d
-		a7 = a7 + d
+		a1 = try a1 + d otherwise panic("out of range")
+		a2 = try a2 + d otherwise panic("out of range")
+		a3 = try a3 + d otherwise panic("out of range")
+		a4 = try a4 + d otherwise panic("out of range")
+		a5 = try a5 + d otherwise panic("out of range")
+		a6 = try a6 + d otherwise panic("out of range")
+		a7 = try a7 + d otherwise panic("out of range")
 		i = i + 1
 	end 'loop'
-	return a1 + a2 + a3 + a4 + a5 + a6 + a7
+	return try a1 + a2 + a3 + a4 + a5 + a6 + a7 otherwise panic("out of range")
 end 'sevenAcross'
 
 function main() returns ExitCode

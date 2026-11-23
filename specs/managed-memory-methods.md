@@ -4225,7 +4225,7 @@ end 'textWidth'
 // --- file: shapes/main.maxon
 function main() returns ExitCode
 	let made = B.make()
-	let w = export.textWidth("hello")
+	let w = textWidth("hello")
 	print("{w}\n")
 	return w + made.n
 end 'main'

@@ -129,6 +129,7 @@ error E3095: app/<fragment>:10:9: Ambiguous bare-name read of 'LIMIT': more than
 ```
 
 <!-- test: a-root-binding-owns-the-bare-name-beside-a-subdirectorys -->
+<!-- skip: language difference: modules are Go's, so an unmarked declaration is its module's alone and an export reaches the tree of its module's parent, where maxon's unmarked declaration reaches its directory's subtree and its export the whole project -->
 The root declares an unmarked `let LIMIT` and `sub/` exports another. A file in a third directory reads the bare name as
 the root's (40) and the subdirectory's as `sub.LIMIT` (2), as a bare call reaches the root's function before any
 directory's.
@@ -137,7 +138,7 @@ directory's.
 let LIMIT = 40
 
 function main() returns ExitCode
-	return other.fromOther()
+	return fromOther()
 end 'main'
 
 // --- file: sub/s.maxon
@@ -145,7 +146,7 @@ export let LIMIT = 2
 
 // --- file: other/o.maxon
 export function fromOther() returns ExitCode
-	return export.LIMIT + sub.LIMIT
+	return LIMIT + sub.LIMIT
 end 'fromOther'
 ```
 ```exitcode

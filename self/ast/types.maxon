@@ -2509,8 +2509,32 @@ export function ownsValue(conv Convention) returns bool
 	return conv == Convention.convConsumes or conv == Convention.convDestructs
 end 'ownsValue'
 
+// The cases of the Ordering that a 'compare' returns, which an ordering operator that calls 'compare' tests.
+export let orderingLessThan = "lessThan"
+
+export let orderingEqualTo = "equalTo"
+
+export let orderingGreaterThan = "greaterThan"
+
+// isOrdering is whether t is an enum of the three cases of an Ordering, which a 'compare' that an operator calls returns.
+export function isOrdering(tt TypeSlot, reads TypeTable, t TypeID) returns bool
+	if typeKind(tt, reads: reads, t: t) != TypeKind.enumTy 'notEnum'
+		return false
+	end 'notEnum'
+	let entry = typeEntry(tt, reads: reads, t: t)
+	return entry.findCase(orderingLessThan).isSome() and entry.findCase(orderingEqualTo).isSome() and entry.findCase(orderingGreaterThan).isSome()
+end 'isOrdering'
+
+// orderingCase is the ordinal of the case of the Ordering t named name.
+export function orderingCase(tt TypeSlot, reads TypeTable, t TypeID, name String) returns Count
+	return match typeEntry(tt, reads: reads, t: t).findCase(name) 'case'
+		some(i) gives i
+		none panic("ast: the Ordering '{typeName(tt, reads: reads, t: t)}' has no case '{name}'")
+	end 'case'
+end 'orderingCase'
+
 // callReceiver is the object a call of a method names before its dot, the left operand of an operator that calls a method
-// (an '==' of a type parameter calls 'equals'), or 0 for a call that has none.
+// (an '==' of a record calls 'equals'), or 0 for a call that has none.
 export function callReceiver(tree Tree, e NodeID, kind CallKind) returns NodeID
 	if tree.kindOf(e) == NodeKind.binaryExpr 'operator'
 		return binaryExprL(tree, id: e)

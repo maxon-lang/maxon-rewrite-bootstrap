@@ -88,11 +88,11 @@ typealias Byte = int(0 to u8.max)
 typealias Bytes = Array with Byte
 
 function main() returns ExitCode
-	let n = NarrowCol.create(0)
+	var n = NarrowCol.create(0)
 	n.push(1)
 	n.push(2)
 	n.push(3)
-	let w = WideCol.create(0)
+	var w = WideCol.create(0)
 	w.push(9)
 	let c = n.clone()
 	let c0 = try c.get(0) otherwise 0
@@ -101,9 +101,9 @@ function main() returns ExitCode
 	let s = try n.slice(1, endIndex: 3) otherwise panic("slice 1..3 is in bounds")
 	let s0 = try s.get(0) otherwise 0
 	let s1 = try s.get(1) otherwise 0
-	let b = Bytes.create(0)
+	var b = Bytes.create(0)
 	b.push(65)
-	let bc = b.clone()
+	var bc = b.clone()
 	bc.append(b"CD")
 	let b0 = try bc.get(0) otherwise 0
 	let b1 = try bc.get(1) otherwise 0

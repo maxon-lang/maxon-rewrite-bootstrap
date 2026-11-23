@@ -323,6 +323,7 @@ end 'main'
 ```
 
 <!-- test: a-spawn-of-a-nested-directory-type-by-its-qualified-name -->
+<!-- skip: language difference: modules are Go's, so an unmarked declaration is its module's alone and an export reaches the tree of its module's parent, where maxon's unmarked declaration reaches its directory's subtree and its export the whole project -->
 `Calc` is declared two directories down, in `outer/inner/`, so `main` names it `outer.inner.Calc`, and the
 spawn starts that type as a service exactly as it does for a one-segment qualifier.
 ```maxon

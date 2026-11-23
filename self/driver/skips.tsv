@@ -30,6 +30,7 @@ code	E3012	a local, parameter or name that is declared and never read
 code	E3055	a try that covers nothing that can fail
 code	E3062	a typealias that is declared and never used
 code	E3063	a bare name that two directories of the program declare, where no declaration is nearer
+code	E3095	a bare-name call or read that more than one visible declaration of the program matches
 code	E3064	the result of a pure function that is discarded
 code	E3065	the result of an impure function that is discarded without an explicit discard
 code	E3067	a self-assignment, or a discard of something that is no call
@@ -59,7 +60,6 @@ code	E3168	a throws clause that nothing in the body throws
 code	E3083	a try block that covers nothing that throws
 code	E3087	an if contains whose block gets the same key, which a lint asks to write as one lookup
 code	E3097	a comparison of the name, ordinal or raw value of a case, which a lint asks to write as a match
-code	E3095	a bare name that two directories of the program declare, where no declaration is nearer
 code	E3156	a function whose parameter is an interface, used as a function value
 code	E2042	a match arm whose block has no label
 code	E2043	a match arm whose block label differs from the one it opened
@@ -87,6 +87,8 @@ run	ErrCapabilityConversion	language difference: a closure writes what it captur
 cause	loopHoldsCollection	language difference: a loop holds the collection it walks
 cause	payloadOfBuiltinError	language difference: SendError and SubprocessError are built-in enums whose cases carry no payload, so a failed send gives its arguments no way back
 first	ErrUncheckedFailure	language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports
+run	ErrNotExported,ErrFieldNotExported	language difference: modules are Go's, so an unmarked declaration is its module's alone and an export reaches the tree of its module's parent, where maxon's unmarked declaration reaches its directory's subtree and its export the whole project
+first	ErrNotExported,ErrFieldNotExported	language difference: modules are Go's, so an unmarked declaration is its module's alone and an export reaches the tree of its module's parent, where maxon's unmarked declaration reaches its directory's subtree and its export the whole project
 run	ErrClosureBorrow	language difference: a closure that borrows what it captures does not escape
 run	ErrLentToCoroutine	language difference: an async call lends its coroutine what it reads until the await, so the caller does not change it while the call is pending
 first	ErrLentToCoroutine	language difference: an async call lends its coroutine what it reads until the await, so the caller does not change it while the call is pending
@@ -100,6 +102,7 @@ test	nominal-generic-alias.md	error.an-unbranded-var-adopts-the-brand-of-its-fir
 test	nominal-generic-alias.md	error.an-adopted-brand-is-the-brand-every-later-read-has	language difference: every typealias of a generic instance is that one type, so a value carries no brand of its own
 test	nominal-generic-alias.md	error.branches-storing-different-brands-are-refused-at-the-second	language difference: every typealias of a generic instance is that one type, so a value carries no brand of its own
 test	nominal-generic-alias.md	error.equals-with-another-brand-is-refused	language difference: every typealias of a generic instance is that one type, so a value carries no brand of its own
+test	nominal-generic-alias.md	error.comparing-two-brands-of-one-instance-is-refused	language difference: every typealias of a generic instance is that one type, so a value carries no brand of its own
 test	nominal-generic-alias.md	error.a-self-parameter-of-a-declared-generic-takes-the-receivers-brand	language difference: every typealias of a generic instance is that one type, so a value carries no brand of its own
 test	nominal-generic-alias.md	error.a-field-of-an-inner-alias-holds-that-alias-as-its-brand	language difference: every typealias of a generic instance is that one type, so a value carries no brand of its own
 test	nominal-generic-alias.md	error.otherwise-across-brands	language difference: every typealias of a generic instance is that one type, so a value carries no brand of its own

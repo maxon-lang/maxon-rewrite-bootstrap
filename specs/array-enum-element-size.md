@@ -595,11 +595,11 @@ end 'Byte'
 typealias Bs = Array with Byte
 
 function main() returns ExitCode
-	let a = Bs.create(0)
+	var a = Bs.create(0)
 	a.push(Byte.c299)
 	a.push(Byte.c0)
 	a.push(Byte.c260)
-	let b = Bs.create(0)
+	var b = Bs.create(0)
 	b.push(Byte.c299)
 	b.push(Byte.c0)
 	b.push(Byte.c260)
@@ -630,11 +630,11 @@ end 'Byte'
 typealias Bs = Array with Byte
 
 function main() returns ExitCode
-	let a = Bs.create(0)
+	var a = Bs.create(0)
 	a.push(Byte.high)
 	a.push(Byte.low)
 	a.push(Byte.mid)
-	let b = Bs.create(0)
+	var b = Bs.create(0)
 	b.push(Byte.high)
 	b.push(Byte.low)
 	b.push(Byte.mid)

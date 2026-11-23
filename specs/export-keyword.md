@@ -1171,6 +1171,7 @@ error E3008: specs/export-keyword/error.non-exported-enum-cross-file.maxon:10:10
 ```
 
 <!-- test: error.a-non-exported-unions-case-spawned-across-files -->
+<!-- skip: language difference: modules are Go's, so an unmarked declaration is its module's alone and an export reaches the tree of its module's parent, where maxon's unmarked declaration reaches its directory's subtree and its export the whole project -->
 ```maxon
 // --- file: lib/shape.maxon
 typealias Radius = int(0 to 100)

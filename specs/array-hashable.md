@@ -384,8 +384,8 @@ typealias Val = int(i64.min to i64.max)
 typealias StrArr = Array with String
 
 function numbered(first Val, count Val) returns StrArr
-	let arr = StrArr.create(0)
-	for i in first upto first + count 'fill'
+	var arr = StrArr.create(0)
+	for i in first upto try first + count otherwise panic("out of range") 'fill'
 		arr.push("p{i}")
 	end 'fill'
 	return arr

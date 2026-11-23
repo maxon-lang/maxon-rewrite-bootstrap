@@ -299,7 +299,7 @@ type Cell uses T implements Equatable
 		return Self{n: n}
 	end 'create'
 
-	function equals(other Self) returns bool
+	function equals(other Self) returns bool where T implements Droppable
 		let scratch = Items.create(0)
 		return n == other.n and scratch.count() == 0
 	end 'equals'
@@ -311,7 +311,7 @@ type Holder uses T
 	var b as C
 
 	static function create(a C, b C) returns Self
-		return Self{a: a, b: b}
+		return Self{a: a.clone(), b: b.clone()}
 	end 'create'
 
 	function same() returns bool

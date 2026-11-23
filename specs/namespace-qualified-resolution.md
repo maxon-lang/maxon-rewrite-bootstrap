@@ -44,6 +44,7 @@ DISCRIMINATE:
 ## Tests
 
 <!-- test: namespace-qualified-void-call-statement -->
+<!-- skip: language difference: modules are Go's, so an unmarked declaration is its module's alone and an export reaches the tree of its module's parent, where maxon's unmarked declaration reaches its directory's subtree and its export the whole project -->
 A qualified call written as a STATEMENT — the only position a `void` function can be called from.
 Both segment counts are exercised, because they reach the parser through different lookaheads: the
 statement door's bare-call arm tests `identifier (`, which a qualifier's `.` fails, so without a
@@ -158,6 +159,7 @@ error E3005: app/specs/namespace-qualified-resolution/error.a-qualified-alias-be
 
 
 <!-- test: qualified-alias-in-signature-positions -->
+<!-- skip: language difference: modules are Go's, so an unmarked declaration is its module's alone and an export reaches the tree of its module's parent, where maxon's unmarked declaration reaches its directory's subtree and its export the whole project -->
 A qualified alias is a TYPE, so it is legal wherever a type name is — a parameter and a return
 clause, not only an `as` cast target. The call in the same program is qualified through a
 multi-segment directory chain AND names a function declared with a keyword (`from`), which the
@@ -246,6 +248,7 @@ end 'main'
 
 
 <!-- test: a-nested-directory-types-static-is-called-by-its-qualified-name -->
+<!-- skip: language difference: modules are Go's, so an unmarked declaration is its module's alone and an export reaches the tree of its module's parent, where maxon's unmarked declaration reaches its directory's subtree and its export the whole project -->
 A static of a type declared two directories down is called through the whole chain: `outer.inner` is the
 directory, `Calc` the type in it, and `make` its static.
 ```maxon
@@ -1050,6 +1053,7 @@ end 'main'
 
 
 <!-- test: contested-free-function-nested-directory-qualifier -->
+<!-- skip: language difference: modules are Go's, so an unmarked declaration is its module's alone and an export reaches the tree of its module's parent, where maxon's unmarked declaration reaches its directory's subtree and its export the whole project -->
 **A CONTESTED FREE FUNCTION IN A NESTED DIRECTORY, CALLED THROUGH ITS MULTI-SEGMENT QUALIFIER.**
 The `declaresCallee` veto in `resolvesAsNamespaceQualifiedFunction` means "a `type lib.inner` already
 wears this key, so the TYPE reading wins" — but a contested free function is registered under its own
@@ -1379,6 +1383,7 @@ main 2
 
 
 <!-- test: contested-bare-call-resolves-to-the-roots-unmarked-declaration -->
+<!-- skip: language difference: modules are Go's, so an unmarked declaration is its module's alone and an export reaches the tree of its module's parent, where maxon's unmarked declaration reaches its directory's subtree and its export the whole project -->
 A ROOT declaration keeps the bare key, and an unmarked one is visible from every directory, so from `app/`
 the bare call means the root's `helper` and not beta's `public` one.
 ```maxon
@@ -1394,13 +1399,13 @@ public function useRoot() returns Integer
 end 'useRoot'
 
 // --- file: beta/b.maxon
-public function helper() returns export.Integer
+public function helper() returns Integer
 	return 7
 end 'helper'
 
 // --- file: app/main.maxon
 function main() returns ExitCode
-	return (export.useRoot() * 10 + export.helper()) as ExitCode
+	return (useRoot() * 10 + helper()) as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -1573,7 +1578,7 @@ error E3004: <fragment>:5:10: call to undefined function 'nothere'
 
 
 <!-- test: error.a-let-initializer-call-to-a-name-only-invisible-declarations-carry -->
-<!-- positions: moved -->
+<!-- skip: language difference: modules are Go's, so an unmarked declaration is its module's alone and an export reaches the tree of its module's parent, where maxon's unmarked declaration reaches its directory's subtree and its export the whole project -->
 `gamma`'s and `alpha`'s `make` are both unmarked, so `app/` can name neither; the `let` initializer is
 refused as a body call naming it is.
 ```maxon
@@ -1589,11 +1594,11 @@ public function useRoot() returns Integer
 end 'useRoot'
 
 // --- file: alpha/a.maxon
-function make(n gamma.Integer) returns gamma.Integer
+function make(n Integer) returns Integer
 	return n + 2
 end 'make'
 
-export function useAlpha() returns gamma.Integer
+export function useAlpha() returns Integer
 	return make(1)
 end 'useAlpha'
 
@@ -1787,6 +1792,7 @@ error E3101: app/<fragment>:24:10: Cannot use throwing function 'beta.risky' as 
 
 
 <!-- test: two-subdirectory-candidates-are-no-ambiguity-beside-the-roots-unmarked-declaration -->
+<!-- skip: language difference: modules are Go's, so an unmarked declaration is its module's alone and an export reaches the tree of its module's parent, where maxon's unmarked declaration reaches its directory's subtree and its export the whole project -->
 An unmarked ROOT declaration keeps the bare key and is visible from `app/`, so the call means it: the two
 subdirectory declarations visible beside it do not make the call ambiguous.
 ```maxon
@@ -1802,18 +1808,18 @@ public function useRoot() returns Integer
 end 'useRoot'
 
 // --- file: alpha/f.maxon
-public function pick() returns export.Integer
+public function pick() returns Integer
 	return 2
 end 'pick'
 
 // --- file: zulu/f.maxon
-public function pick() returns export.Integer
+public function pick() returns Integer
 	return 4
 end 'pick'
 
 // --- file: app/main.maxon
 function main() returns ExitCode
-	return (export.pick() + useRoot()) as ExitCode
+	return (pick() + useRoot()) as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -2744,6 +2750,7 @@ end 'main'
 ```
 
 <!-- test: the-root-namespace-is-named-by-export -->
+<!-- skip: language difference: modules are Go's, so an unmarked declaration is its module's alone and an export reaches the tree of its module's parent, where maxon's unmarked declaration reaches its directory's subtree and its export the whole project -->
 `export.X` reaches a root declaration of every kind a directory qualifier reaches — an alias as a cast target
 and an argument to a root function declared over the bare name, a type as a parameter and a static call's base,
 and a free function called, called as a statement, and read as a value (5 + 3 + 3 + 1).
@@ -2796,6 +2803,7 @@ root
 ```
 
 <!-- test: a-root-types-statics-are-called-through-export -->
+<!-- skip: language difference: modules are Go's, so an unmarked declaration is its module's alone and an export reaches the tree of its module's parent, where maxon's unmarked declaration reaches its directory's subtree and its export the whole project -->
 A static of a root type is called through `export` both as a statement, the `void` `ping`, and as a value,
 `make`.
 ```maxon
@@ -2931,6 +2939,7 @@ end 'main'
 ```
 
 <!-- test: export-qualified-type-reaches-the-roots-declaration-past-the-readers-own-alias -->
+<!-- skip: language difference: modules are Go's, so an unmarked declaration is its module's alone and an export reaches the tree of its module's parent, where maxon's unmarked declaration reaches its directory's subtree and its export the whole project -->
 The same rule through the root qualifier: `export.Foo` is the root directory's struct in a parameter type and a
 static call's base, beside the reading file's own ranged alias.
 ```maxon

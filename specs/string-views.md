@@ -382,7 +382,7 @@ typealias Byte = int(0 to u8.max)
 typealias ByteSeq = Array with Byte
 
 function show(label String, bytes ByteSeq)
-	let s = String.from(bytes as ByteArray)
+	let s = String.from(bytes.clone() as ByteArray)
 	var cps = ""
 	for c in s.codepoints() 'eachCp'
 		cps = "{cps}{c},"

@@ -95,39 +95,39 @@ type Tbl uses Key where Key implements Hashable and Equatable
 		return count
 	end 'entries'
 
-	function insertAtSlot(slotIndex Cap, key Key, value Integer, hash HashValue)
-		try keys.set(slotIndex, value: key) otherwise panic("k")
+	function insertAtSlot(mutates self, slotIndex Cap, key Key, value Integer, hash HashValue) where Key implements Droppable and Copyable
+		try keys.set(slotIndex, value: key.clone()) otherwise panic("k")
 		try values.set(slotIndex, value: value) otherwise panic("v")
 		try states.set(slotIndex, value: SlotState.Occupied) otherwise panic("s")
 		try hashes.set(slotIndex, value: hash) otherwise panic("h")
-		count = count + 1
+		count = try count + 1 otherwise panic("out of range")
 	end 'insertAtSlot'
 
-	function grow()
+	function grow(mutates self) where Key implements Droppable and Copyable
 		let oldCapacity = capacity
-		var newCapacity = oldCapacity * 2
+		var newCapacity = try (oldCapacity * 2) as Cap otherwise panic("out of range")
 		if newCapacity == 0 'handle_zero'
 			newCapacity = 16
 		end 'handle_zero'
-		let newKeys = KeyArray{}
+		var newKeys = KeyArray{}
 		newKeys.resize(newCapacity)
-		let newValues = ValueArray{}
+		var newValues = ValueArray{}
 		newValues.resize(newCapacity)
-		let newStates = StateArray{}
+		var newStates = StateArray{}
 		newStates.resize(newCapacity)
-		let newHashes = HashSlotArray{}
+		var newHashes = HashSlotArray{}
 		newHashes.resize(newCapacity)
-		let oldKeys = keys
-		let oldValues = values
-		let oldStates = states
-		let oldHashes = hashes
+		let oldKeys = keys.clone()
+		let oldValues = values.clone()
+		let oldStates = states.clone()
+		let oldHashes = hashes.clone()
 		keys = newKeys
 		values = newValues
 		states = newStates
 		hashes = newHashes
 		capacity = newCapacity
 		count = 0
-		let mask = (newCapacity - 1) as HashValue
+		let mask = try (newCapacity - 1) as HashValue otherwise panic("out of range")
 		for i in 0 upto oldCapacity 'rehash'
 			let state = try oldStates.get(i) otherwise SlotState.Empty
 			let isOccupied = match state 'so1'
@@ -170,7 +170,7 @@ end 'Tbl'
 typealias T = Tbl with String
 
 function main() returns ExitCode
-	let t = T.create()
+	var t = T.create()
 	t.grow()
 	if t.slots() != 16 'wrongCapacity'
 		return 90
@@ -206,7 +206,7 @@ typealias Integer = int(i64.min to i64.max)
 typealias IntKey = int(0 to u32.max)
 
 function bump(x Integer) returns Integer
-	return x + 1
+	return try x + 1 otherwise panic("out of range")
 end 'bump'
 
 type Mixer uses T where T implements Hashable and Equatable
@@ -217,41 +217,41 @@ type Mixer uses T where T implements Hashable and Equatable
 	end 'create'
 
 	function mix(key T) returns Integer
-		var a1 = base + 1
-		var a2 = base + 2
-		var a3 = base + 3
-		var a4 = base + 4
-		var a5 = base + 5
-		var a6 = base + 6
-		var a7 = base + 7
-		var a8 = base + 8
-		var a9 = base + 9
-		var a10 = base + 10
-		var a11 = base + 11
-		var a12 = base + 12
+		var a1 = try (base + 1) as Integer otherwise panic("out of range")
+		var a2 = try (base + 2) as Integer otherwise panic("out of range")
+		var a3 = try (base + 3) as Integer otherwise panic("out of range")
+		var a4 = try (base + 4) as Integer otherwise panic("out of range")
+		var a5 = try (base + 5) as Integer otherwise panic("out of range")
+		var a6 = try (base + 6) as Integer otherwise panic("out of range")
+		var a7 = try (base + 7) as Integer otherwise panic("out of range")
+		var a8 = try (base + 8) as Integer otherwise panic("out of range")
+		var a9 = try (base + 9) as Integer otherwise panic("out of range")
+		var a10 = try (base + 10) as Integer otherwise panic("out of range")
+		var a11 = try (base + 11) as Integer otherwise panic("out of range")
+		var a12 = try (base + 12) as Integer otherwise panic("out of range")
 		var i = 0 as Integer
 		while i < 3 'loop'
 			let d = bump(i)
 			let h = key.hash()
 			var step = d
 			if key.equals(key) 'sameKey'
-				step = d + (h as Integer)
+				step = try d + (h as Integer) otherwise panic("out of range")
 			end 'sameKey'
-			a1 = a1 + step
-			a2 = a2 + step
-			a3 = a3 + step
-			a4 = a4 + step
-			a5 = a5 + step
-			a6 = a6 + step
-			a7 = a7 + step
-			a8 = a8 + step
-			a9 = a9 + step
-			a10 = a10 + step
-			a11 = a11 + step
-			a12 = a12 + step
+			a1 = try a1 + step otherwise panic("out of range")
+			a2 = try a2 + step otherwise panic("out of range")
+			a3 = try a3 + step otherwise panic("out of range")
+			a4 = try a4 + step otherwise panic("out of range")
+			a5 = try a5 + step otherwise panic("out of range")
+			a6 = try a6 + step otherwise panic("out of range")
+			a7 = try a7 + step otherwise panic("out of range")
+			a8 = try a8 + step otherwise panic("out of range")
+			a9 = try a9 + step otherwise panic("out of range")
+			a10 = try a10 + step otherwise panic("out of range")
+			a11 = try a11 + step otherwise panic("out of range")
+			a12 = try a12 + step otherwise panic("out of range")
 			i = i + 1
 		end 'loop'
-		return a1 + a2 + a3 + a4 + a5 + a6 + a7 + a8 + a9 + a10 + a11 + a12
+		return try a1 + a2 + a3 + a4 + a5 + a6 + a7 + a8 + a9 + a10 + a11 + a12 otherwise panic("out of range")
 	end 'mix'
 end 'Mixer'
 

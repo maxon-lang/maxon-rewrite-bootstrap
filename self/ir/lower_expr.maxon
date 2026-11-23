@@ -586,20 +586,58 @@ function lowerCall(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState,
 	return callOn(l, p: p, ms: ms, c: c, recv: recv, mark: mark, places: places)
 end 'lowerCall'
 
-// lowerEquals lowers an '==' or a '!=' that the check made a call of 'equals' on the left operand, lowered to left.
-function lowerEquals(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, op String, left Reg) returns Reg
+// lowerOperatorCall lowers a comparison that the check made a call of 'equals' or 'compare' on the left operand, lowered to
+// left: an ordering tests the case of the Ordering that 'compare' returns.
+function lowerOperatorCall(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, op String, left Reg) returns Reg
 	var info = callInfoAt(p, module: l.module, node: e)
+	var sig = info.fn
+	if info.kind == ast.CallKind.callBound 'bound'
+		sig = info.method
+	end 'bound'
+	let ordering = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: sig).retTy
 	let ordered = info.ordered.clone()
 	let c = CallSite.make(e, info: info, receiver: ast.binaryExprL(p.modules[l.mi].tree, id: e), ordered: ordered)
+	let result = operatorCallResult(l, p: p, ms: ms, c: c, left: left)
+	if op == "==" 'equal'
+		return result
+	end 'equal'
+	if op == "!=" 'notEqual'
+		let zero = konst(l, value: 0 as Word)
+		return compare(l, op: CmpOp.cmpEq, a: result, b: zero, unsigned: true)
+	end 'notEqual'
+	// a < b is lessThan and a <= b is not greaterThan, and so on.
+	var test = CmpOp.cmpEq
+	var caseName = ast.orderingLessThan
+	if op == "<=" or op == ">=" 'inclusive'
+		test = CmpOp.cmpNe
+	end 'inclusive'
+	if op == ">" or op == "<=" 'greater'
+		caseName = ast.orderingGreaterThan
+	end 'greater'
+	let ordinal = ast.orderingCase(ms.types, reads: p.types, t: ordering, name: caseName)
+	let tested = konst(l, value: try ordinal as Word otherwise panic("lower: an Ordering has more cases than a word holds"))
+	return compare(l, op: test, a: result, b: tested, unsigned: true)
+end 'lowerOperatorCall'
+
+// operatorCallResult is the result of the call c that a comparison makes on its left operand, lowered to left: a built-in
+// method is lowered in place, on the right operand, as a call of it is.
+function operatorCallResult(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, left Reg) returns Reg
+	let op = c.info.intrinsic
+	if c.info.kind != ast.CallKind.callBound and op != ast.Intrinsic.intrNone 'builtIn'
+		if ownsOperands(op) 'owns'
+			panic("lower: the built-in {op.name} that a comparison calls lowers its own operands")
+		end 'owns'
+		let mark = l.pending.count()
+		var args = RegList.create(0)
+		args.push(lowerExpr(l, p: p, ms: ms, e: c.ordered[0]))
+		let result = intrinsicCall(l, p: p, ms: ms, op: op, c: c, recv: left, args: args)
+		popPending(l, n: mark)
+		return result
+	end 'builtIn'
 	let mark = l.pending.count()
 	let places = l.writeBacks.count()
-	let equal = callOn(l, p: p, ms: ms, c: c, recv: left, mark: mark, places: places)
-	if op == "!=" 'negated'
-		let zero = konst(l, value: 0 as Word)
-		return compare(l, op: CmpOp.cmpEq, a: equal, b: zero, unsigned: true)
-	end 'negated'
-	return equal
-end 'lowerEquals'
+	return callOn(l, p: p, ms: ms, c: c, recv: left, mark: mark, places: places)
+end 'operatorCallResult'
 
 // lowerBuiltinWitness lowers a call through a bound that a built-in method meets (instances.witnessFor), as a call of that
 // method lowers: in place, on the receiver and the arguments already lowered from base on.
@@ -1420,9 +1458,9 @@ function lowerOperator(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleSt
 		goTo(l, target: frame.join)
 		return load(l, slot: frame.result)
 	end 'logical'
-	if p.typings[l.mi].calls.has(e as Count) 'equals'
-		return lowerEquals(l, p: p, ms: ms, e: e, op: op, left: left)
-	end 'equals'
+	if p.typings[l.mi].calls.has(e as Count) 'method'
+		return lowerOperatorCall(l, p: p, ms: ms, e: e, op: op, left: left)
+	end 'method'
 	if op == "is" 'identity'
 		var test = CmpOp.cmpEq
 		if ast.binaryExprNegated(p.modules[l.mi].tree, id: e) 'negated'

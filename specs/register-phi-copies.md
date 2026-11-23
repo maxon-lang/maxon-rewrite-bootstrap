@@ -67,8 +67,8 @@ Three iterations (an ODD count, so the swap is observable — an even count woul
 the original and prove nothing): `(1,2)` → `(2,1)` → `(1,2)` → `(2,1)`, so `a*10 + b = 21`.
 ```maxon
 function swapLoop(p Integer) returns Integer
-	var a = p + 1
-	var b = p + 2
+	var a = try (p + 1) as Integer otherwise panic("out of range")
+	var b = try (p + 2) as Integer otherwise panic("out of range")
 	var i = 0 as Integer
 	while i < 3 'loop'
 		let t = a
@@ -76,7 +76,7 @@ function swapLoop(p Integer) returns Integer
 		b = t
 		i = i + 1
 	end 'loop'
-	return a * 10 + b
+	return try a * 10 + b otherwise panic("out of range")
 end 'swapLoop'
 
 function main() returns ExitCode
@@ -103,9 +103,9 @@ observable): `(1,2,3)` → `(2,3,1)` → `(3,1,2)` → `(1,2,3)` → `(2,3,1)`, 
 `a*100 + b*10 + c = 231`.
 ```maxon
 function rotate3(p Integer) returns Integer
-	var a = p + 1
-	var b = p + 2
-	var c = p + 3
+	var a = try (p + 1) as Integer otherwise panic("out of range")
+	var b = try (p + 2) as Integer otherwise panic("out of range")
+	var c = try (p + 3) as Integer otherwise panic("out of range")
 	var i = 0 as Integer
 	while i < 4 'loop'
 		let t = a
@@ -114,7 +114,7 @@ function rotate3(p Integer) returns Integer
 		c = t
 		i = i + 1
 	end 'loop'
-	return a * 100 + b * 10 + c
+	return try a * 100 + b * 10 + c otherwise panic("out of range")
 end 'rotate3'
 
 function main() returns ExitCode
@@ -141,11 +141,11 @@ index after `removeMoveAt` shifts the columns) survives a 2-cycle and dies here.
 `4*10000 + 5*1000 + 1*100 + 2*10 + 3 = 45123`.
 ```maxon
 function rotate5(p Integer) returns Integer
-	var a = p + 1
-	var b = p + 2
-	var c = p + 3
-	var d = p + 4
-	var e = p + 5
+	var a = try (p + 1) as Integer otherwise panic("out of range")
+	var b = try (p + 2) as Integer otherwise panic("out of range")
+	var c = try (p + 3) as Integer otherwise panic("out of range")
+	var d = try (p + 4) as Integer otherwise panic("out of range")
+	var e = try (p + 5) as Integer otherwise panic("out of range")
 	var i = 0 as Integer
 	while i < 3 'loop'
 		let t = a
@@ -156,7 +156,7 @@ function rotate5(p Integer) returns Integer
 		e = t
 		i = i + 1
 	end 'loop'
-	return a * 10000 + b * 1000 + c * 100 + d * 10 + e
+	return try a * 10000 + b * 1000 + c * 100 + d * 10 + e otherwise panic("out of range")
 end 'rotate5'
 
 function main() returns ExitCode
@@ -186,9 +186,9 @@ Four iterations from `(1,2,3)` with `d` trailing `a`: `d` takes 1, 2, 3, 1 while
 so `a*1000 + b*100 + c*10 + d = 2311`.
 ```maxon
 function cycleAndLeaf(p Integer) returns Integer
-	var a = p + 1
-	var b = p + 2
-	var c = p + 3
+	var a = try (p + 1) as Integer otherwise panic("out of range")
+	var b = try (p + 2) as Integer otherwise panic("out of range")
+	var c = try (p + 3) as Integer otherwise panic("out of range")
 	var d = p
 	var i = 0 as Integer
 	while i < 4 'loop'
@@ -199,7 +199,7 @@ function cycleAndLeaf(p Integer) returns Integer
 		c = t
 		i = i + 1
 	end 'loop'
-	return a * 1000 + b * 100 + c * 10 + d
+	return try a * 1000 + b * 100 + c * 10 + d otherwise panic("out of range")
 end 'cycleAndLeaf'
 
 function main() returns ExitCode
@@ -229,9 +229,9 @@ swap.
 → `(3,2,1)`; `i=3` odd, swap b/c → `(3,1,2)`. So `a*100 + b*10 + c = 312`.
 ```maxon
 function twoPerms(p Integer) returns Integer
-	var a = p + 1
-	var b = p + 2
-	var c = p + 3
+	var a = try (p + 1) as Integer otherwise panic("out of range")
+	var b = try (p + 2) as Integer otherwise panic("out of range")
+	var c = try (p + 3) as Integer otherwise panic("out of range")
 	var i = 0 as Integer
 	while i < 4 'loop'
 		if i mod 2 == 0 'even'
@@ -245,7 +245,7 @@ function twoPerms(p Integer) returns Integer
 		end 'odd'
 		i = i + 1
 	end 'loop'
-	return a * 100 + b * 10 + c
+	return try a * 100 + b * 10 + c otherwise panic("out of range")
 end 'twoPerms'
 
 function main() returns ExitCode
@@ -274,20 +274,20 @@ rather than in the body next to the `xchg`.
 `a*100 + b*10 + 78 = 200 + 10 + 78 = 288`.
 ```maxon
 function permutePressure(p Integer) returns Integer
-	let k1 = p + 1
-	let k2 = p + 2
-	let k3 = p + 3
-	let k4 = p + 4
-	let k5 = p + 5
-	let k6 = p + 6
-	let k7 = p + 7
-	let k8 = p + 8
-	let k9 = p + 9
-	let k10 = p + 10
-	let k11 = p + 11
-	let k12 = p + 12
-	var a = p + 1
-	var b = p + 2
+	let k1 = try p + 1 otherwise panic("out of range")
+	let k2 = try p + 2 otherwise panic("out of range")
+	let k3 = try p + 3 otherwise panic("out of range")
+	let k4 = try p + 4 otherwise panic("out of range")
+	let k5 = try p + 5 otherwise panic("out of range")
+	let k6 = try p + 6 otherwise panic("out of range")
+	let k7 = try p + 7 otherwise panic("out of range")
+	let k8 = try p + 8 otherwise panic("out of range")
+	let k9 = try p + 9 otherwise panic("out of range")
+	let k10 = try p + 10 otherwise panic("out of range")
+	let k11 = try p + 11 otherwise panic("out of range")
+	let k12 = try p + 12 otherwise panic("out of range")
+	var a = try (p + 1) as Integer otherwise panic("out of range")
+	var b = try (p + 2) as Integer otherwise panic("out of range")
 	var i = 0 as Integer
 	while i < 3 'loop'
 		let t = a
@@ -295,7 +295,7 @@ function permutePressure(p Integer) returns Integer
 		b = t
 		i = i + 1
 	end 'loop'
-	return a * 100 + b * 10 + k1 + k2 + k3 + k4 + k5 + k6 + k7 + k8 + k9 + k10 + k11 + k12
+	return try a * 100 + b * 10 + k1 + k2 + k3 + k4 + k5 + k6 + k7 + k8 + k9 + k10 + k11 + k12 otherwise panic("out of range")
 end 'permutePressure'
 
 function main() returns ExitCode
@@ -327,16 +327,16 @@ function sink(x Integer) returns Integer
 end 'sink'
 
 function swapAcrossCall(p Integer) returns Integer
-	var a = p + 1
-	var b = p + 2
+	var a = try (p + 1) as Integer otherwise panic("out of range")
+	var b = try (p + 2) as Integer otherwise panic("out of range")
 	var i = 0 as Integer
 	while i < 3 'loop'
 		let t = a
 		a = b
 		b = t
-		i = i + sink(1)
+		i = try i + sink(1) otherwise panic("out of range")
 	end 'loop'
-	return a * 10 + b
+	return try a * 10 + b otherwise panic("out of range")
 end 'swapAcrossCall'
 
 function main() returns ExitCode

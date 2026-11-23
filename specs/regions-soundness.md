@@ -8062,7 +8062,7 @@ type Blob
 	end 'create'
 
 	function inner() returns ByteArray
-		return self.data
+		return self.data.clone()
 	end 'inner'
 end 'Blob'
 
@@ -9169,11 +9169,11 @@ type Blob
 	end 'create'
 
 	function me() returns Blob
-		return self
+		return self.clone()
 	end 'me'
 
-	function equals(other Blob) returns bool
-		self.sink.held = other.data
+	function equals(mutates self, other Blob) returns bool
+		self.sink.held = other.data.clone()
 		return true
 	end 'equals'
 end 'Blob'
@@ -9217,7 +9217,7 @@ type Blob
 	end 'create'
 
 	function me() returns Blob
-		return self
+		return self.clone()
 	end 'me'
 
 	function equals(other Blob) returns bool

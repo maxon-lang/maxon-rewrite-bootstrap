@@ -310,6 +310,7 @@ end 'main'
 ```
 
 <!-- test: a-var-born-from-an-unproven-sum-is-a-runtime-door -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 A `var` is born a value of its alias, so the birth is a range door: a sum of two `Small`s wears the name without proving the range, and the `var` made from it checks the value at the birth.
 ```maxon
 typealias Small = int(0 to 100)

@@ -3568,8 +3568,8 @@ type Runner uses D where D implements Comparable
 	export typealias PD = Pair with D
 	var d as D
 
-	static function make(d D) returns Self
-		return Self{d: d}
+	static function make(d D) returns Self where D implements Copyable
+		return Self{d: d.clone()}
 	end 'make'
 
 	static function run(a D, b D) returns bool
@@ -3782,7 +3782,7 @@ type Holder uses T where T implements Comparable
 	export typealias Items = Array with T
 	var v as T
 
-	static function firstBelowSecond(items Items) returns bool
+	static function firstBelowSecond(items Items) returns bool where T implements Copyable
 		let a = try items.get(0) otherwise return false
 		let b = try items.get(1) otherwise return false
 		return a < b
@@ -3798,10 +3798,10 @@ typealias IntArray = Array with Integer
 typealias RevArray = Array with Rev
 
 function main() returns ExitCode
-	let rising = IntArray.create(0)
+	var rising = IntArray.create(0)
 	rising.push(1)
 	rising.push(2)
-	let reversed = RevArray.create(0)
+	var reversed = RevArray.create(0)
 	reversed.push(Rev.create(1))
 	reversed.push(Rev.create(2))
 	print("{IntHolder.firstBelowSecond(rising)} {RevHolder.firstBelowSecond(reversed)}\n")

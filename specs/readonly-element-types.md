@@ -90,7 +90,7 @@ end 'Counter'
 typealias Index = Map with String, Counter
 
 function main() returns ExitCode
-	let index = Index.create()
+	var index = Index.create()
 	let shared = freeze(Counter.create(5))
 	index.upsert("a", value: shared)
 	index.upsert("b", value: freeze(Counter.create(6)))
@@ -99,11 +99,11 @@ function main() returns ExitCode
 	index.upsert("a", value: freeze(Counter.create(7)))
 	let seen = try index.get("a") otherwise return 1
 	let gone = index.remove("b")
-	var total = seen.n + shared.n
+	var total = try (seen.n + shared.n) as Integer otherwise panic("out of range")
 	if gone 'removed'
-		total = total + 1
+		total = try total + 1 otherwise panic("out of range")
 	end 'removed'
-	return (total + (index.count() as Integer)) as ExitCode
+	return try (total + (index.count() as Integer)) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

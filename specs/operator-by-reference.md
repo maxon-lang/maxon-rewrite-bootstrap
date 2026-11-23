@@ -140,6 +140,7 @@ error E3210: <fragment>:19:11: 'Tagged.equals' writes its parameter 'other', but
 ```
 
 <!-- test: operator-by-reference.error.a-method-named-equals-is-judged-with-or-without-a-conformance -->
+<!-- positions: moved -->
 ```maxon
 typealias Count = int(i64.min to i64.max)
 
@@ -150,7 +151,7 @@ type Plain
 		return Self{tag: tag}
 	end 'create'
 
-	function equals(other Self) returns bool
+	function equals(mutates other Self) returns bool
 		other.tag = 0
 		return true
 	end 'equals'
@@ -220,7 +221,7 @@ type Slot
 	export var held as Tagged
 
 	static function create(held Tagged) returns Self
-		return Self{held: held}
+		return Self{held: held.clone()}
 	end 'create'
 end 'Slot'
 

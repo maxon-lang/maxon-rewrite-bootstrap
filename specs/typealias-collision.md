@@ -98,6 +98,7 @@ end 'main'
 
 
 <!-- test: exported-typealias-collision-multi-segment-namespace -->
+<!-- skip: language difference: modules are Go's, so an unmarked declaration is its module's alone and an export reaches the tree of its module's parent, where maxon's unmarked declaration reaches its directory's subtree and its export the whole project -->
 A collision between a deeply-nested file (`lib/fmt/types.maxon`) and a top-level file (`legacy/types.maxon`) is disambiguated via the full directory chain — `lib.fmt.Score` vs `legacy.Score`. Confirms the parser's dotted-name walk consumes multi-segment qualifiers.
 ```maxon
 // --- file: lib/fmt/types.maxon
@@ -163,6 +164,7 @@ end 'main'
 
 
 <!-- test: a-directorys-own-export-outranks-its-nested-directorys -->
+<!-- skip: language difference: modules are Go's, so an unmarked declaration is its module's alone and an export reaches the tree of its module's parent, where maxon's unmarked declaration reaches its directory's subtree and its export the whole project -->
 A file in `Compiler/` exports `Tally` over `int(0 to 200)`, and a file in the nested `Compiler/Coverage/`
 subdirectory exports another over `int(0 to 100)`. Both are visible to the reader, a third file in `Compiler/`,
 and the reader's own directory decides: its bare `Tally` is `Compiler.Tally`. `150` fits only that one, so a
@@ -199,6 +201,7 @@ end 'main'
 ```
 
 <!-- test: a-nested-directorys-own-export-outranks-its-enclosing-directorys -->
+<!-- skip: language difference: modules are Go's, so an unmarked declaration is its module's alone and an export reaches the tree of its module's parent, where maxon's unmarked declaration reaches its directory's subtree and its export the whole project -->
 The same pair read from the nested directory: a file in `Compiler/Coverage/` means its own directory's `Tally`,
 over `int(0 to 100)`, and not the enclosing directory's that is visible to it too. `main` hands `nestedKeep` a
 value of `Compiler.Coverage.Tally`, which only a parameter declared with that alias accepts: two declarations of

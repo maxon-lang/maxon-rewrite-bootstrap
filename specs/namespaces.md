@@ -192,6 +192,7 @@ end 'main'
 
 
 <!-- test: multi-segment-namespace-resolves -->
+<!-- skip: language difference: modules are Go's, so an unmarked declaration is its module's alone and an export reaches the tree of its module's parent, where maxon's unmarked declaration reaches its directory's subtree and its export the whole project -->
 A function declared in a nested user directory `lib/inner/leaf.maxon` is reachable via its full multi-segment qualified name `lib.inner.deepHelper`. The parser walks the dotted chain greedily and resolves against the registered function name; if the qualified callee matches `funcReturnTypes` it routes through the qualified-call path without first looking for a struct or local variable.
 ```maxon
 // --- file: lib/inner/leaf.maxon

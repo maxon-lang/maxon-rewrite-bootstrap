@@ -769,7 +769,7 @@ function main() returns ExitCode
 	xs.push("three heap string long enough to require an allocation")
 	xs.push("four heap string long enough to require an allocation")
 	var lo = 0 as Count
-	var hi = xs.count() - 1
+	var hi = try (xs.count() - 1) as Count otherwise panic("out of range")
 	while lo < hi 'reverse'
 		try xs.managed.swap(lo, j: hi) otherwise return 99
 		lo = lo + 1

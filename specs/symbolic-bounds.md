@@ -97,7 +97,7 @@ typealias Word = int(i64.min to i64.max)
 
 typealias WordArray = Array with Word
 
-function flips(p WordArray) returns Word
+function flips(mutates p WordArray) returns Word
 	var count = 1 as Word
 	var first = try p.get(0) otherwise panic("flips: p is not empty")
 	while (try p.get(first as ElementIndex) otherwise panic("flips: first is an element, so an index into p")) > 0 'flip'
@@ -105,7 +105,7 @@ function flips(p WordArray) returns Word
 		try p.set(first as ElementIndex, value: first) otherwise panic("flips: first < p.count()")
 		if first > 2 'reverseMiddle'
 			var low = 1 as Word
-			var high = first - 1
+			var high = try (first - 1) as Word otherwise panic("out of range")
 			while low < high 'swap'
 				let atLow = try p.get(low as ElementIndex) otherwise panic("flips: low < high < first < p.count()")
 				let atHigh = try p.get(high as ElementIndex) otherwise panic("flips: high < first < p.count()")
@@ -116,13 +116,13 @@ function flips(p WordArray) returns Word
 			end 'swap'
 		end 'reverseMiddle'
 		first = next
-		count = count + 1
+		count = try count + 1 otherwise panic("out of range")
 	end 'flip'
 	return count
 end 'flips'
 
 function main() returns ExitCode
-	let p = WordArray.create(0)
+	var p = WordArray.create(0)
 	p.push(4)
 	p.push(1)
 	p.push(2)
