@@ -226,49 +226,15 @@ function fieldIsFunction(p ast.Project, mutates ms ast.ModuleState, owner ast.Ty
 	return typeHasKind(p, ms: ms, t: ft, kind: ast.TypeKind.funcTy)
 end 'fieldIsFunction'
 
-function unknownFunction(c Checker, p ast.Project, ms ast.ModuleState, call ast.NodeID, name String, qualifiers Count, mutates errs diag.ErrorList) returns ast.TypeID
+function unknownFunction(c Checker, p ast.Project, ms ast.ModuleState, call ast.NodeID, name String, qualifiers Count, consumes fix diag.Fix, mutates errs diag.ErrorList) returns ast.TypeID
 	let off = offsetOf(c, p: p, ms: ms, node: call)
-	if name == stringAppendName 'append'
-		failStringAppend(c, p: p, ms: ms, call: call, errs: errs)
-		return ast.noType
-	end 'append'
 	if qualifiers == 0 'bare'
-		pushUnknownName(errs, code: diag.errUnknownFunction, message: undefinedFunctionText(name), module: c.modID, offset: off, name: name)
+		diag.pushUnqualifiedError(errs, code: diag.errUnknownFunction, message: undefinedFunctionText(name), module: c.modID, offset: off, name: name.clone())
 		return ast.noType
 	end 'bare'
-	checkFail(c.modID, off: off, code: diag.errUnknownFunction, msg: undefinedFunctionText(name), errs: errs)
+	checkFailFixed(c.modID, off: off, code: diag.errUnknownFunction, msg: undefinedFunctionText(name), fix: fix, errs: errs)
 	return ast.noType
 end 'unknownFunction'
-
-// stringAppendName and builderName are what maxon builds a String with and minimaxon leaves out (README, "Where it differs
-// from Maxon"): an interpolation assigned back to the String it starts with appends in place.
-let stringAppendName = "String.append"
-
-let builderName = "StringBuilder"
-
-// failStringAppend refuses a call of a String's append, with the interpolation that replaces it as its fix.
-function failStringAppend(c Checker, p ast.Project, ms ast.ModuleState, call ast.NodeID, mutates errs diag.ErrorList)
-	var instead = "s = \"\{s\}\{x\}\""
-	var fix = diag.Fix.none()
-	let text = appendText(ms.tree(), call: call)
-	if text.isSome() 'found'
-		instead = text.unwrap()
-		fix = interpolationFix(ms.tree(), call: call, text: instead.clone())
-	end 'found'
-	let msg = "a String has no 'append': write the interpolation assigned back to it, '{instead}', which appends in place"
-	checkFailFixed(c.modID, off: offsetOf(c, p: p, ms: ms, node: call), code: diag.errBuiltByInterpolation, msg: msg, fix: fix, errs: errs)
-end 'failStringAppend'
-
-// pushUnknownName reports a bare name that nothing the module sees declares, under code with message, which locating may
-// turn into the qualified name of another module's declaration. StringBuilder, which maxon has, is reported as what to
-// write instead.
-function pushUnknownName(mutates errs diag.ErrorList, consumes code String, consumes message String, module diag.ModuleID, offset diag.U32, name String)
-	if name == builderName 'builder'
-		diag.pushUnqualifiedError(errs, code: diag.errBuiltByInterpolation, message: "there is no {builderName}: build the String with an interpolation assigned back to it, 's = \"\{s\}\{part\}\"', which appends in place", module: module, offset: offset, name: name.clone())
-		return
-	end 'builder'
-	diag.pushUnqualifiedError(errs, code: code, message: message, module: module, offset: offset, name: name.clone())
-end 'pushUnknownName'
 
 // callNamed types a call of a name that no local stands for: print, a function, or the cown type.
 function callNamed(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, call ast.NodeID, callee ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
@@ -280,7 +246,7 @@ function callNamed(mutates c Checker, p ast.Project, mutates ms ast.ModuleState,
 	if name == "print" or name == "printError" 'print'
 		return callPrint(c, p: p, ms: ms, call: call, name: name, errs: errs)
 	end 'print'
-	return unknownFunction(c, p: p, ms: ms, call: call, name: name, qualifiers: 0 as Count, errs: errs)
+	return unknownFunction(c, p: p, ms: ms, call: call, name: name, qualifiers: 0 as Count, fix: diag.Fix.none(), errs: errs)
 end 'callNamed'
 
 function callDeclared(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, call ast.NodeID, ref ast.DeclRef, name String, mutates errs diag.ErrorList) returns ast.TypeID
@@ -294,7 +260,7 @@ function callDeclared(mutates c Checker, p ast.Project, mutates ms ast.ModuleSta
 	if ast.declIsConst(p, ref: ref) 'constant'
 		return callValue(c, p: p, ms: ms, call: call, callee: ast.callExprCallee(ms.tree(), id: call), errs: errs)
 	end 'constant'
-	return unknownFunction(c, p: p, ms: ms, call: call, name: name, qualifiers: 0 as Count, errs: errs)
+	return unknownFunction(c, p: p, ms: ms, call: call, name: name, qualifiers: 0 as Count, fix: diag.Fix.none(), errs: errs)
 end 'callDeclared'
 
 // declaredFunction is the function that a declaration is, or none for a declaration of another kind.
@@ -444,7 +410,7 @@ function callStringStatic(mutates c Checker, p ast.Project, mutates ms ast.Modul
 	if sf != ast.noFunc and ast.funcEntry(ms.funcs, funcReads: p.funcs, f: sf).isStatic 'static'
 		return callFunction(c, p: p, ms: ms, call: call, kind: ast.CallKind.callStatic, target: sf, hasGiven: false, given: ast.TypeIDList.create(0), errs: errs)
 	end 'static'
-	return unknownFunction(c, p: p, ms: ms, call: call, name: "String.{name}", qualifiers: 1 as Count, errs: errs)
+	return unknownFunction(c, p: p, ms: ms, call: call, name: "String.{name}", qualifiers: 1 as Count, fix: diag.Fix.none(), errs: errs)
 end 'callStringStatic'
 
 // typeParamNamed is the type parameter that the expression e names, or none: a type parameter's name outranks a
@@ -468,7 +434,7 @@ function callOnTypeParam(mutates c Checker, p ast.Project, ms ast.ModuleState, c
 		failAt(c, p: p, ms: ms, node: call, code: diag.errStaticRequirementNotDispatchable, msg: diag.staticRequirementNotDispatchable("{paramName}.{name}", reacher: "the type parameter '{paramName}'"), errs: errs)
 		return ast.noType
 	end 'static'
-	return unknownFunction(c, p: p, ms: ms, call: call, name: "{paramName}.{name}", qualifiers: 1 as Count, errs: errs)
+	return unknownFunction(c, p: p, ms: ms, call: call, name: "{paramName}.{name}", qualifiers: 1 as Count, fix: diag.Fix.none(), errs: errs)
 end 'callOnTypeParam'
 
 // boundRequirement is the first requirement of that name among the bounds of the type parameter param, or one whose sig
@@ -545,7 +511,7 @@ function unknownTypeFunction(c Checker, p ast.Project, ms ast.ModuleState, call 
 			return ast.noType
 		end 'builtIn'
 	end 'member'
-	return unknownFunction(c, p: p, ms: ms, call: call, name: written, qualifiers: 1 as Count, errs: errs)
+	return unknownFunction(c, p: p, ms: ms, call: call, name: written, qualifiers: 1 as Count, fix: diag.Fix.none(), errs: errs)
 end 'unknownTypeFunction'
 
 // callOnValue types 'value.method(...)'.
@@ -577,7 +543,11 @@ function callOnValue(mutates c Checker, p ast.Project, mutates ms ast.ModuleStat
 	if method != ast.noFunc and not ast.funcEntry(ms.funcs, funcReads: p.funcs, f: method).isStatic 'instance'
 		return callMethod(c, p: p, ms: ms, call: call, receiver: receiver, content: content, method: method, name: name, errs: errs)
 	end 'instance'
-	return unknownFunction(c, p: p, ms: ms, call: call, name: "{nameOfType(p, ms: ms, t: receiver)}.{name}", qualifiers: 1 as Count, errs: errs)
+	var fix = diag.Fix.none()
+	if name == "append" and content == p.builtins.stringTy 'stringAppend'
+		fix = stringAppendFix(ms.tree(), call: call)
+	end 'stringAppend'
+	return unknownFunction(c, p: p, ms: ms, call: call, name: "{nameOfType(p, ms: ms, t: receiver)}.{name}", qualifiers: 1 as Count, fix: fix, errs: errs)
 end 'callOnValue'
 
 function callMethod(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, call ast.NodeID, receiver ast.TypeID, content ast.TypeID, method ast.FuncID, name String, mutates errs diag.ErrorList) returns ast.TypeID

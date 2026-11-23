@@ -3620,8 +3620,8 @@ them, and `sliceBytes(start, endPos: end)` by bytes, `contains`, `startsWith`, `
 bytes that owns none, made in place with no allocation (`rt.str.view`: the address, and a word of the length, the
 receiver's ASCII bit and the view bit), which the call lends as a function that `returns borrowed` lends a place (see
 "Ownership"), so it is kept only by a copy, `.clone()`; the copy of a view copies its bytes, where the copy of a literal is
-the literal. A String is built by interpolation: there is no `append` and no `StringBuilder` (`E3944`, whose fix writes
-the interpolation; see "Where it differs from Maxon"). An interpolation measures its parts (a String's length, a literal's
+the literal. A String is built by interpolation: there is no `append` and no `StringBuilder` (see
+"Where it differs from Maxon"). An interpolation measures its parts (a String's length, a literal's
 known one, an integer's digit count by `rt.decimalLength`), allocates once (`rt.str.joinRoom`) and puts each part in place
 (`rt.str.joinPut`, and `rt.str.joinDigits`, which writes an integer's digits into the buffer with no String of their own),
 its ASCII bit the AND of the parts'; an interpolation that is a part of another with no format of its own gives the outer
@@ -4080,12 +4080,11 @@ the checker reports where Maxon's parser does, as it needs the type of the value
 
 ### Where it differs from Maxon
 
-- **A String is built by interpolation.** There is no `StringBuilder` and no `String.append` (`E3944`, whose fix writes
-  `s = "{s}{x}"`): an interpolation assigned back to the String it starts with appends in place, and an interpolation is
-  one allocation with each part written into place (see "Text"). `fix` (which `specs.ps1` and `stdlib.ps1` run) rewrites
-  an `append` of a String to the interpolation, `cmd/convert` writes a builder that only gathers text (made by
-  `StringBuilder.create()`, then statements `b.append(x)` and one `b.build()`, its last use) as that String, and a spec test
-  whose program uses a builder any other way is skipped as a language difference (`self/driver/skips.tsv`).
+- **A String is built by interpolation.** There is no `StringBuilder` and no `String.append`: an interpolation assigned
+  back to the String it starts with, `s = "{s}{x}"`, appends in place, and an interpolation is one allocation with each
+  part written into place (see "Text"). `fix` (which `specs.ps1` and `stdlib.ps1` run) writes a statement `place.append(x)`
+  of maxon's String as that interpolation, and `cmd/convert` writes a builder that only gathers text (made by
+  `StringBuilder.create()`, then statements `b.append(x)` and one `b.build()`, its last use) as that String.
 - **Source text follows Zig's rules and two more** (see "Source text"). As in maxon, a name is ASCII and a non-ASCII
   character outside comments and string literals is `E1010`. The rest differ: maxon accepts malformed UTF-8 in a comment
   (in a literal it is `E1004` there too), and control characters, NEL, LS, PS and the bidirectional controls in comments

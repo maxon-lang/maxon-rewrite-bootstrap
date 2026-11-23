@@ -1,6 +1,6 @@
-// A hot loop that holds as many values as the target has registers and calls a leaf compiles as it did with the call:
-// with the call, the values live across it were in memory across it, and where the copies of the leaf would make the
-// loop need more registers than there are (E5001), the function is compiled as it was before inlining.
+// A hot loop that holds as many values as the target has registers and calls a leaf compiles with the call: the values
+// live across it are in memory across it, and where the copies of the leaf would make the loop need more registers
+// than there are (E5001), the function is compiled without inlining.
 function mix(a Count, b Count) returns Count
 	return ((a and 1023) * 31 + (b and 1023)) and 65535
 end 'mix'

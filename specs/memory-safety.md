@@ -1115,7 +1115,6 @@ error E3005: specs/memory-safety/eq-requires-equatable.maxon:16:7: type mismatch
 ```
 
 <!-- test: shared-record-not-written-through-a-field-assign -->
-<!-- skip: language difference: a String is built by an interpolation assigned back to it, which appends in place; there is no StringBuilder and no String.append -->
 `StringBuilder.build()` hands its buffer to the finished `String` and resets itself with an empty one.
 If that empty buffer were the shared record, two builders would share it, and appending to either
 would publish the other's length.

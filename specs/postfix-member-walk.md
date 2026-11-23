@@ -578,7 +578,7 @@ then dropped at statement end, so a leak here is exit 101 and the untouched `s` 
 
 function main() returns ExitCode
 	let s = "abc"
-	s.clone() = "{s.clone()}XYZ"
+	s.clone().append("XYZ")
 	return s.byteLength()
 end 'main'
 ```

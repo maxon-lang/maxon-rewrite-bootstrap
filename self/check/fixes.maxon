@@ -34,6 +34,12 @@ let closeParenByte = 41 as Byte
 
 let newlineByte = 10 as Byte
 
+let carriageReturnByte = 13 as Byte
+
+let tabByte = 9 as Byte
+
+let spaceByte = 32 as Byte
+
 let returnsKeyword = "returns"
 
 let borrowedKeyword = "borrowed"
@@ -180,46 +186,88 @@ export function borrowedResultFix(t ast.Tree, method ast.NodeID) returns diag.Fi
 	return diag.Fix.none()
 end 'borrowedResultFix'
 
-// appendText is the interpolation that the call `place.append(value)` of a String is written as, `place = "{place}{value}"`,
-// where a literal value's text goes in as it is written: what "write the interpolation" asks for. It is nothing for a call
-// whose text it cannot find.
-export function appendText(t ast.Tree, call ast.NodeID) returns table.Option with String
+// stringAppendFix is the repair for the call `place.append(value)` of a String that stands alone as a statement on an
+// assignable place: converted maxon code is repaired by fix, and a String is built here by the interpolation assigned
+// back to it, `place = "{place}{value}"`, where a literal value's text goes in as it is written. It is no fix for a call
+// in any other position, on a place that is no name, or whose text it cannot find.
+export function stringAppendFix(t ast.Tree, call ast.NodeID) returns diag.Fix
 	let callee = ast.callExprCallee(t, id: call)
 	let argsRef = ast.callExprArgsRef(t, id: call)
 	if t.kindOf(callee) != ast.NodeKind.memberExpr or t.listLen(argsRef) != 1 'shape'
-		return table.Option.none
+		return diag.Fix.none()
 	end 'shape'
 	let arg = ast.argValue(t, id: t.listAt(argsRef, index: 0 as Count) as ast.NodeID)
 	let value = ast.exprExtent(t, e: arg)
-	if not value.isSome() 'unknown'
-		return table.Option.none
+	let whole = ast.exprExtent(t, e: call)
+	if not value.isSome() or not whole.isSome() 'unknown'
+		return diag.Fix.none()
 	end 'unknown'
 	let valueExtent = value.unwrap()
+	let extent = whole.unwrap()
+	if not aloneOnItsLine(t, begin: extent.begin as Count, until: extent.until as Count) 'notStatement'
+		return diag.Fix.none()
+	end 'notStatement'
 	// The place is the text before the member's dot, which is where a member node starts: the extent of a bare name runs on
 	// through the dotted words after it, as a qualified name's does.
 	let placeText = t.text.sliceBytes(ast.exprStart(t, e: ast.memberExprObj(t, id: callee)), endPos: t.startOf(callee) as Count).trimEnd()
+	if not isDottedName(placeText) 'notPlace'
+		return diag.Fix.none()
+	end 'notPlace'
 	var part = "\{{t.text.sliceBytes(valueExtent.begin as Count, endPos: valueExtent.until as Count)}\}"
 	if t.kindOf(arg) == ast.NodeKind.strLit 'literal'
 		part = t.text.sliceBytes(nextOf(valueExtent.begin as Count), endPos: try (valueExtent.until as Count) - 1 otherwise panic("fixes: a string literal with no quotes")).clone()
 	end 'literal'
-	return table.Option.some("{placeText} = \"\{{placeText}\}{part}\"")
-end 'appendText'
+	var edits = diag.FixEdits.create(0)
+	edits.push(diag.FixEdit.make(t.module, begin: extent.begin, until: extent.until, text: "{placeText} = \"\{{placeText}\}{part}\""))
+	return fixOf(fixKindInterpolation, edits: edits)
+end 'stringAppendFix'
 
 function nextOf(at Count) returns Count
 	return try at + 1 otherwise panic("fixes: an offset past a module")
 end 'nextOf'
 
-// interpolationFix replaces the call of a String's append with appendText.
-export function interpolationFix(t ast.Tree, call ast.NodeID, consumes text String) returns diag.Fix
-	let found = ast.exprExtent(t, e: call)
-	if not found.isSome() 'unknown'
-		return diag.Fix.none()
-	end 'unknown'
-	let extent = found.unwrap()
-	var edits = diag.FixEdits.create(0)
-	edits.push(diag.FixEdit.make(t.module, begin: extent.begin, until: extent.until, text: text))
-	return fixOf(fixKindInterpolation, edits: edits)
-end 'interpolationFix'
+// aloneOnItsLine is whether only blanks stand on the line of the text from begin until until, before and after it.
+function aloneOnItsLine(t ast.Tree, begin Count, until Count) returns bool
+	var at = begin
+	while at > 0 'before'
+		let prev = try at - 1 otherwise panic("fixes: an offset before a module")
+		let b = t.text.byteAt(prev)
+		if b == newlineByte 'line'
+			break 'before'
+		end 'line'
+		if not isBlank(b) 'blank'
+			return false
+		end 'blank'
+		at = prev
+	end 'before'
+	at = until
+	while at < t.text.byteLength() and t.text.byteAt(at) != newlineByte 'after'
+		if not isBlank(t.text.byteAt(at)) 'blank'
+			return false
+		end 'blank'
+		at = nextOf(at)
+	end 'after'
+	return true
+end 'aloneOnItsLine'
+
+function isBlank(b Byte) returns bool
+	return b == tabByte or b == spaceByte or b == carriageReturnByte
+end 'isBlank'
+
+// isDottedName is whether text is names joined by dots: a local, a field of one, or a static field of a type.
+function isDottedName(text String) returns bool
+	if text.byteLength() == 0 'empty'
+		return false
+	end 'empty'
+	for i in 0 upto text.byteLength() 'each'
+		let b = text.byteAt(i)
+		let word = (b >= 97 and b <= 122) or (b >= 65 and b <= 90) or (b >= 48 and b <= 57) or b == 95 or b == 46
+		if not word 'other'
+			return false
+		end 'other'
+	end 'each'
+	return true
+end 'isDottedName'
 
 // boundFix gives the type parameter named param the bound in the where clause of the function declared at decl, a type
 // parameter of its own or of the type it is a method of: what "add the bound 'where T implements Copyable'" asks for.

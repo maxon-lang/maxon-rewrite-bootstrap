@@ -435,9 +435,6 @@ export let errAmbiguousExtension = "E3942"
 // A place that an async call lent its coroutine to read is changed or moved before the promise is awaited (README, "Where it differs from Maxon").
 export let errLentToCoroutine = "E3943"
 
-// A String is built with StringBuilder or String.append, which minimaxon leaves out: an interpolation assigned back to the String appends in place (README, "Where it differs from Maxon").
-export let errBuiltByInterpolation = "E3944"
-
 // A member is used that its type does not have: allCases on a union, or a method of a conditional extension on a value whose type arguments do not meet its 'where'.
 export let errInvalidFieldAccess = "E4006"
 

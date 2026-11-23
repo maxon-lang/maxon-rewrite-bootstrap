@@ -1,6 +1,6 @@
 // A loop whose values are one over the general-purpose pool, around an element read whose index a check before it
-// proved in range, compiles: its fallback reads the element through the entry's call, as it did before reads were
-// operations, and the values that cross that call are in memory across it.
+// proved in range, compiles: its fallback reads the element through the entry's call, and the values that cross that
+// call are in memory across it.
 typealias Word = int(i64.min to i64.max)
 
 typealias WordArray = Array with Word

@@ -6,7 +6,7 @@ import "strings"
 // (README, "Where it differs from Maxon"). rewriteStringBuilders writes a builder that only gathers text as that String:
 // a local made by `StringBuilder.create()` whose every later use in its scope is a statement `b.append(x)` or the one
 // `b.build()`, which is its last, becomes a String local that each append extends, `b = "{b}x"`, and the build becomes
-// the local itself. A builder used any other way is left as it is, and the compiler refuses it (E3944).
+// the local itself. A builder used any other way is left as it is.
 func rewriteStringBuilders(lines []sourceLine) {
 	for i := range lines {
 		if lines[i].removed {

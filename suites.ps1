@@ -279,6 +279,9 @@ function Test-DebugInfo {
 		foreach ($t in 'x64-linux', 'arm64-linux') {
 			$runs += , @((Join-Path $root "overflow-$t.exe"), { param($exe) wsl.exe --exec ('/mnt/' + $exe.Substring(0, 1).ToLower() + $exe.Substring(2).Replace('\', '/')) 2>&1 })
 		}
+		# The program that overflows its stack writes its fault line to stderr, which Windows PowerShell 5 raises as an error
+		# under 'Stop' where pwsh does not.
+		$ErrorActionPreference = 'Continue'
 		foreach ($run in $runs) {
 			$exe, $start = $run
 			$fault = (& $start $exe | Out-String)
