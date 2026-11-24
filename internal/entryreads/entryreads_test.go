@@ -134,6 +134,7 @@ var entryWriters = map[string]bool{
 	"check/members.maxon":    true,
 	"check/functions.maxon":  true,
 	"check/extensions.maxon": true,
+	"check/enums.maxon":      true,
 	"check/closures.maxon":   true,
 	"check/behaviours.maxon": true,
 }

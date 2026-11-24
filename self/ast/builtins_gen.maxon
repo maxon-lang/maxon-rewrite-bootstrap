@@ -461,6 +461,8 @@ export enum Intrinsic
 	intrRawProcessStartAddress
 	intrRawPreemptHandlerAddress
 	intrRawSignalReturnAddress
+	intrEnumHash
+	intrEnumEquals
 end 'Intrinsic'
 
 // intrinsicRuntimeOnly is whether only the runtime module may call the intrinsic (E3152).

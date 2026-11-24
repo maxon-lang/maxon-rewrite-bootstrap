@@ -492,6 +492,10 @@ type function struct {
 	Raw *rawSurface
 }
 
+// synthesizedIntrinsics are what the methods that the checker gives a declaration of the program lower to, which no row
+// declares: a payload-free enum's hash() and equals(other), on its ordinal (check/enums.maxon).
+var synthesizedIntrinsics = []string{"EnumHash", "EnumEquals"}
+
 // maxImportArgs is the most words a DLL import of the runtime takes: CreateProcessA's ten.
 const maxImportArgs = 10
 

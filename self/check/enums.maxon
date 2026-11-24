@@ -1,0 +1,53 @@
+// A payload-free enum is a key, as maxon makes every such enum: it implements Hashable and Equatable, with a hash() that is
+// its ordinal and an equals(other) that compares the two ordinals (ir/hash.maxon). A method the enum declares itself is the
+// one it has, and the enum is then as its declaration says. The library's root names the interfaces (ast.KeyNames, which
+// resolve recorded); a compile with no library gives none.
+
+// hashMethod is Hashable's requirement.
+let hashMethod = "hash"
+
+// otherParam is the parameter of the equals(other) an enum is given.
+let otherParam = "other"
+
+// giveEnumKeys gives the payload-free enum ed, of type tid, the methods and the conformances of a key that it does not
+// declare.
+function giveEnumKeys(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, ed ast.EnumDecl, tid ast.TypeID)
+	match consumes ast.resolutionOf(p, ms: ms).keys.get(ed.id as Count) 'keys'
+		some(keys) then giveKeysOf(c, p: p, ms: ms, keys: keys, tid: tid)
+		none then return
+	end 'keys'
+end 'giveEnumKeys'
+
+function giveKeysOf(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, keys ast.KeyNames, tid ast.TypeID)
+	let hashValue = declTypeOf(p, ms: ms, ref: keys.hashValue)
+	giveKeyMethod(c, p: p, ms: ms, tid: tid, iface: declTypeOf(p, ms: ms, ref: keys.hashable), name: hashMethod.clone(), op: ast.Intrinsic.intrEnumHash, ret: hashValue, params: ast.ParamSpecList.create(0))
+	var params = ast.ParamSpecList.create(0)
+	params.push(ast.ParamSpec.make(otherParam.clone(), ty: tid, conv: ast.Convention.convLet))
+	giveKeyMethod(c, p: p, ms: ms, tid: tid, iface: declTypeOf(p, ms: ms, ref: keys.equatable), name: equalsMethod.clone(), op: ast.Intrinsic.intrEnumEquals, ret: p.builtins.boolTy, params: params)
+end 'giveKeysOf'
+
+// giveKeyMethod gives the enum tid the method name, which lowers to op, and the interface iface it meets, unless the enum
+// declares a method of that name.
+function giveKeyMethod(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, tid ast.TypeID, iface ast.TypeID, consumes name String, op ast.Intrinsic, ret ast.TypeID, consumes params ast.ParamSpecList)
+	if ast.typeEntry(ms.types, reads: p.types, t: tid).findMethod(name).isSome() 'declared'
+		return
+	end 'declared'
+	var fn = ast.FuncEntry.make(name.clone(), visibility: publicVisibility.clone(), module: c.modID, nodeID: 0 as ast.NodeID)
+	fn.ownerTy = tid
+	fn.hasReceiver = true
+	fn.selfConv = ast.Convention.convLet
+	fn.retTy = ret
+	fn.intrinsic = op
+	for i in 0 upto params.count() 'params'
+		fn.paramTypes.push(params[i].ty)
+		fn.params.push(params[i].clone())
+	end 'params'
+	let fid = ast.allocFunc(ms.funcs, module: c.modID, f: fn)
+	ms.types.lists[ast.typeList(ms.types, t: tid)][ast.typeIndex(ms.types, t: tid)].methods.push(ast.MethodRef.make(name, func: fid))
+	if not ast.reachesInterface(ms.types, reads: p.types, have: tid, want: iface) 'conform'
+		ms.types.lists[ast.typeList(ms.types, t: tid)][ast.typeIndex(ms.types, t: tid)].conforms.push(iface)
+	end 'conform'
+end 'giveKeyMethod'
+
+// publicVisibility is the visibility of a method an enum is given: wherever the enum is seen.
+let publicVisibility = "public"

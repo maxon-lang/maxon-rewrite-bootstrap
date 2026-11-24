@@ -1191,7 +1191,7 @@ function digest(value T) uses T returns HashValue where T implements Hashable
 end 'digest'
 
 function main() returns ExitCode
-	let seen = Seen.create()
+	var seen = Seen.create()
 	seen.upsert(Color.red, value: 1)
 	seen.upsert(Color.green, value: 2)
 	let sameHash = digest(Color.red) == digest(Color.green)

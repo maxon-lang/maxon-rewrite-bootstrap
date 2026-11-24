@@ -4259,20 +4259,20 @@ typealias SignalMap = Map with (Signal, Count)
 
 function wordLookup(n Count) returns Count
 	sleep(1)
-	let map = WordMap.create()
+	var map = WordMap.create()
 	map.upsert(7, value: 3)
 	map.upsert(9, value: 4)
 	let found = try map.get(9) otherwise return 0
-	return n + found
+	return try n + found otherwise panic("out of range")
 end 'wordLookup'
 
 function signalLookup(n Count) returns Count
 	sleep(1)
-	let map = SignalMap.create()
+	var map = SignalMap.create()
 	map.upsert(Signal.minus, value: 3)
 	map.upsert(Signal.plus, value: 4)
 	let found = try map.get(Signal.minus) otherwise return 0
-	return n + found
+	return try n + found otherwise panic("out of range")
 end 'signalLookup'
 
 function main() returns ExitCode

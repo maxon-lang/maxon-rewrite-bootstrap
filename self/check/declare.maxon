@@ -573,6 +573,7 @@ end 'declareTypeDecl'
 function declareEnumDecl(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, ed ast.EnumDecl, tid ast.TypeID, mutates declared ast.FuncIDList, mutates errs diag.ErrorList)
 	declareEnumMembers(c, p: p, ms: ms, ed: ed, tid: tid, errs: errs)
 	addMethods(c, p: p, ms: ms, methods: ed.methods, nt: tid, declared: declared, errs: errs)
+	giveEnumKeys(c, p: p, ms: ms, ed: ed, tid: tid)
 end 'declareEnumDecl'
 
 function declareUnionDecl(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, ud ast.UnionDecl, tid ast.TypeID, paramsOk bool, mutates declared ast.FuncIDList, mutates errs diag.ErrorList)

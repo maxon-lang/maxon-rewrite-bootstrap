@@ -236,6 +236,12 @@ func load() table {
 		seen[f.Intrinsic] = len(t.intrinsics)
 		t.intrinsics = append(t.intrinsics, intrinsic{f.Intrinsic, f.Checked, f.OwnsOperands, f.RuntimeOnly, f.MayOverlap})
 	}
+	for _, name := range synthesizedIntrinsics {
+		if _, ok := seen[name]; ok {
+			fail("the synthesized intrinsic %s is also a row's", name)
+		}
+		t.intrinsics = append(t.intrinsics, intrinsic{name: name})
+	}
 	for _, a := range typeAliases {
 		fn{Name: a.Name}.checkType(parseType(a.Type))
 	}

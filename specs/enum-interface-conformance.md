@@ -296,12 +296,12 @@ typealias Tally = int(i64.min to i64.max)
 typealias ColorMap = Map with (Color, Tally)
 
 function main() returns ExitCode
-	let m = ColorMap.create()
+	var m = ColorMap.create()
 	try m.insert(Color.red, value: 10) otherwise ignore
 	try m.insert(Color.blue, value: 32) otherwise ignore
 	let a = try m.get(Color.red) otherwise 0
 	let b = try m.get(Color.blue) otherwise 0
-	return a + b
+	return try a + b otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

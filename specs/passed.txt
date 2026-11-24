@@ -198,6 +198,7 @@ arrays.md: a-let-array-element-u64-max-renders-and-compares-as-u64-max
 arrays.md: a-let-array-holding-u64-max-reads-back-u64-max
 arrays.md: a-let-array-read-is-range-known-through-get-first-and-last
 arrays.md: a-literal-arrays-that-each-keep-to-one-sign-class-are-accepted
+arrays.md: a-map-keyed-by-an-enum-whose-raw-values-exclude-zero-still-compiles
 arrays.md: a-match-gives-over-an-unsigned-column-is-range-known
 arrays.md: a-merge-of-let-array-reads-is-range-known
 arrays.md: a-ternary-over-an-unsigned-column-is-range-known
@@ -1137,6 +1138,7 @@ closure-capture.md: closure-capture.a-bare-struct-backed-enum-field-reads-its-re
 closure-capture.md: closure-capture.a-bare-union-field-answers-its-name-and-ordinal
 closure-capture.md: closure-capture.a-capture-two-frames-out
 closure-capture.md: closure-capture.a-captured-enum-self-answers-its-members
+closure-capture.md: closure-capture.a-captured-enum-value-answers-its-granted-equals
 closure-capture.md: closure-capture.a-captured-enum-value-answers-its-name-ordinal-and-record
 closure-capture.md: closure-capture.a-captured-enum-value-answers-its-raw-value
 closure-capture.md: closure-capture.a-captured-enum-value-calls-its-method
@@ -1933,6 +1935,14 @@ enum-function-backing.md: function-backing.forward-reference
 enum-function-backing.md: function-backing.multi-case-dispatch
 enum-function-backing.md: function-backing.through-variable
 enum-function-backing.md: function-backing.two-args
+enum-hashable.md: enum-equals-direct
+enum-hashable.md: enum-hash-direct
+enum-hashable.md: enum-map-for-in-insert
+enum-hashable.md: enum-map-remove
+enum-hashable.md: global-enum-map
+enum-hashable.md: int-backed-enum-as-map-key
+enum-hashable.md: simple-enum-as-map-key
+enum-hashable.md: string-backed-enum-as-map-key
 enum-interface-conformance.md: a-payload-carrying-enum-conformer-widens-and-drops
 enum-interface-conformance.md: a-union-conformer-is-passed-as-the-interface
 enum-interface-conformance.md: an-enum-conformer-is-passed-as-the-interface
@@ -1940,6 +1950,7 @@ enum-interface-conformance.md: an-enum-conformer-is-returned-as-the-interface
 enum-interface-conformance.md: an-enum-conformer-is-stored-in-an-interface-field
 enum-interface-conformance.md: an-enum-conformer-writing-a-let-argument-is-written
 enum-interface-conformance.md: an-enum-conformer-writing-a-var-argument-is-allowed
+enum-interface-conformance.md: an-enum-declaring-a-granted-protocol-is-satisfied-by-the-grant
 enum-interface-conformance.md: error.an-enum-conformer-missing-a-requirement
 enum-match-exhaustive.md: cross-file-range-no-false-overlap
 enum-match-exhaustive.md: cross-file-shadowed-union
@@ -1971,6 +1982,7 @@ enum-match-only.md: default-throws-associated-value
 enum-match-only.md: default-throws-expression
 enum-match-only.md: default-throws-no-match
 enum-match-only.md: default-throws-statement
+enum-match-only.md: enum-map-key-still-works
 enum-match-only.md: error.callarg-int-cast-to-union
 enum-match-only.md: error.callarg-int-to-union
 enum-match-only.md: error.callarg-wrong-union-borrowed
@@ -2883,6 +2895,7 @@ functions.md: zero-arg-call
 generic-born-array-stride.md: a-map-over-a-narrow-key-stores-its-keys-at-the-keys-width
 generic-functions.md: a-comparable-record-is-ordered-by-less-than
 generic-functions.md: a-record-argument-is-its-callers-own-type
+generic-functions.md: an-enum-argument-is-its-callers-own-type
 generic-functions.md: an-exported-generic-and-another-directorys-exported-non-generic-of-one-name-both-stand
 generic-functions.md: an-exported-non-generic-and-another-directorys-exported-generic-of-one-name-both-stand
 generic-functions.md: an-exported-requirement-reached-only-through-an-instance-is-used
@@ -3734,6 +3747,7 @@ interface-extensions.md: extension-with-internal-closure
 interface-extensions.md: extension-with-params
 interface-extensions.md: extension-with-self
 interface-extensions.md: interface-extensions.a-conformers-own-declaration-still-shadows-an-extensions
+interface-extensions.md: interface-extensions.a-payload-free-enum-keeps-the-hash-and-equals-the-compiler-grants
 interface-extensions.md: stdlib-map-on-map
 interface-extensions.md: stdlib-map-on-map-with-function
 interfaces.md: a-struct-literal-stores-a-conformer-into-an-interface-typed-field
@@ -8175,6 +8189,7 @@ type-name-collision.md: an-authors-comparable-leaves-the-library-sort-on-ints
 type-name-collision.md: an-authors-comparable-with-the-librarys-shape-orders-its-own-type
 type-name-collision.md: an-authors-enum-named-like-a-library-alias-is-read-in-a-constant
 type-name-collision.md: an-authors-equatable-leaves-the-library-contains-on-ints
+type-name-collision.md: an-authors-hashable-leaves-library-map-keys-hashing
 type-name-collision.md: an-authors-type-named-comparable-leaves-the-library-sort
 type-name-collision.md: an-enum-case-beside-the-librarys-type-names-the-authors-at-top-level
 type-name-collision.md: an-exported-enum-named-like-a-library-alias-is-read-in-a-constant
@@ -8582,6 +8597,7 @@ where-clauses.md: a-where-constraint-names-an-interface-through-its-directory
 where-clauses.md: error.a-where-constraint-is-checked-at-an-INFERRED-instantiation
 where-clauses.md: where-clauses.a-call-missing-its-descriptor-and-its-tables-is-refused-once
 where-clauses.md: where-clauses.a-child-requirement-and-an-inherited-one-reach-different-impls
+where-clauses.md: where-clauses.a-spawned-function-looks-up-a-signed-enum-key-in-a-shared-map-body
 where-clauses.md: where-clauses.a-static-at-the-argument-ceiling-with-conditional-witnesses-is-not-a-carrier
 where-clauses.md: where-clauses.a-static-calling-a-conditional-extension-method-on-a-type-parameter-instance
 where-clauses.md: where-clauses.a-static-calls-a-descriptor-method-on-a-run-instance

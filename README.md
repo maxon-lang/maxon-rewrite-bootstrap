@@ -4540,8 +4540,10 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   `init` with an array of the keys and one of the values, the type found by its name at the library's root (`ast.libraryMapName`)
   where maxon's compiler looks for the type that implements `BuiltinDictionaryLiteral`, which the conversion leaves out of
   the header with the other literal markers (`Builtin*Literal`). maxon's `Map` has no subscript, `replace`, `isEmpty` or
-  `dropEmpty`, which the built-in had, and a `Handle` is no key, since it is not `Hashable`. maxon makes a payload-free enum
-  `Hashable` and `Equatable` itself; here such an enum declares both, with its methods, to be a key (not yet synthesized).
+  `dropEmpty`, which the built-in had, and a `Handle` is no key, since it is not `Hashable`. A payload-free enum is a key,
+  as maxon makes it: the declare stage gives it `Hashable` and `Equatable`, with a `hash()` that is its ordinal and an
+  `equals(other)` that compares the ordinals, unless it declares the method itself (`check/enums.maxon`). An enum of a module
+  of the library other than its root, which the root depends on, is given neither.
 - **A `Map` or `Set` insert consumes what it stores.** maxon's `insert` and `upsert` take `key immutable Key` and keep it by a
   retain; here a value has one owner and a `String` no count, so a borrowed key that the table keeps would have to be
   copied, out of sight of the program. `Map.insert`, `Map.upsert` and `Set.insert` take the key, the value and the element

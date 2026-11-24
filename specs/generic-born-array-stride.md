@@ -633,13 +633,13 @@ type Bag uses Element
 	end 'create'
 
 	static function wrapping(source Items) returns Self where Element implements Copyable
-		let own = Items.create(0)
+		var own = Items.create(0)
 		own.append(source)
 		return Self{items: own}
 	end 'wrapping'
 
-	function add(value Element)
-		items.push(value)
+	function add(mutates self, value Element) where Element implements Copyable
+		items.push(value.clone())
 	end 'add'
 
 	function at(i ElementIndex) returns Element where Element implements Copyable
@@ -663,35 +663,35 @@ type Bag uses Element
 		return try cursor.peek(ahead) otherwise panic("Bag.peekedAt: past the end")
 	end 'peekedAt'
 
-	function dropLast() returns Element
+	function dropLast(mutates self) returns Element
 		return try items.pop() otherwise panic("Bag.dropLast: empty")
 	end 'dropLast'
 
-	function removeAt(i ElementIndex) returns Element
+	function removeAt(mutates self, i ElementIndex) returns Element
 		return try items.remove(i) otherwise panic("Bag.removeAt: index out of range")
 	end 'removeAt'
 
-	function replayed() returns Self
-		let out = Self{items: Items.create(0)}
+	function replayed() returns Self where Element implements Copyable
+		var out = Self{items: Items.create(0)}
 		for value in items 'each'
 			out.add(value)
 		end 'each'
 		return out
 	end 'replayed'
 
-	function insertAt(i ElementIndex, value Element)
-		items.insert(i, value: value)
+	function insertAt(mutates self, i ElementIndex, value Element) where Element implements Copyable
+		items.insert(i, value: value.clone())
 	end 'insertAt'
 
-	function grownTo(length ElementIndex, value Element) where Element implements Copyable
+	function grownTo(mutates self, length ElementIndex, value Element) where Element implements Copyable
 		items.growFilled(length, value: value)
 	end 'grownTo'
 
-	function refilled(length ElementIndex, value Element) where Element implements Copyable
+	function refilled(mutates self, length ElementIndex, value Element) where Element implements Copyable
 		items.refill(length, value: value)
 	end 'refilled'
 
-	function addAll(other Self) where Element implements Copyable
+	function addAll(mutates self, other Self) where Element implements Copyable
 		items.append(other.items)
 	end 'addAll'
 end 'Bag'
@@ -715,7 +715,7 @@ typealias SignalSet = Set with Signal
 function sumOf(bag SignalBag) returns Integer
 	var total = 0 as Integer
 	for signal in bag.items 'walk'
-		total = total + (signal.rawValue as Integer)
+		total = try total + (signal.rawValue as Integer) otherwise panic("out of range")
 	end 'walk'
 	return total
 end 'sumOf'
@@ -724,7 +724,7 @@ function sumOfArray(items SignalArray) returns Integer
 	var total = 0 as Integer
 	for at in 0 upto items.count() 'each'
 		let signal = try items.get(at) otherwise panic("sumOfArray: index out of range")
-		total = total + (signal.rawValue as Integer)
+		total = try total + (signal.rawValue as Integer) otherwise panic("out of range")
 	end 'each'
 	return total
 end 'sumOfArray'
@@ -732,13 +732,13 @@ end 'sumOfArray'
 function sumSignal(bag SignalBag) returns Integer
 	var total = 0 as Integer
 	for element in bag.items 'walk'
-		total = total + (element.rawValue as Integer)
+		total = try total + (element.rawValue as Integer) otherwise panic("out of range")
 	end 'walk'
 	return total
 end 'sumSignal'
 
 function probeSignal()
-	let bag = SignalBag.create()
+	var bag = SignalBag.create()
 	bag.add(Signal.plus)
 	bag.insertAt(0, value: Signal.minus)
 	bag.grownTo(4, value: Signal.minus)
@@ -747,12 +747,12 @@ function probeSignal()
 	print("signal refilled count {bag.items.count()} sum {sumSignal(bag)}\n")
 	bag.addAll(SignalBag.wrapping([Signal.minus, Signal.plus]))
 	print("signal appended literal count {bag.items.count()} third {bag.at(2).rawValue as Integer} sum {sumSignal(bag)}\n")
-	let concrete = SignalArray.create(0)
+	var concrete = SignalArray.create(0)
 	concrete.push(Signal.plus)
 	concrete.append([Signal.minus, Signal.plus])
 	var total = 0 as Integer
 	for element in concrete 'walkConcrete'
-		total = total + (element.rawValue as Integer)
+		total = try total + (element.rawValue as Integer) otherwise panic("out of range")
 	end 'walkConcrete'
 	print("signal appended onto concrete count {concrete.count()} sum {total}\n")
 end 'probeSignal'
@@ -760,13 +760,13 @@ end 'probeSignal'
 function sumMid(bag MidBag) returns Integer
 	var total = 0 as Integer
 	for element in bag.items 'walk'
-		total = total + (element.rawValue as Integer)
+		total = try total + (element.rawValue as Integer) otherwise panic("out of range")
 	end 'walk'
 	return total
 end 'sumMid'
 
 function probeMid()
-	let bag = MidBag.create()
+	var bag = MidBag.create()
 	bag.add(Mid.high)
 	bag.insertAt(0, value: Mid.low)
 	bag.grownTo(4, value: Mid.low)
@@ -775,12 +775,12 @@ function probeMid()
 	print("mid refilled count {bag.items.count()} sum {sumMid(bag)}\n")
 	bag.addAll(MidBag.wrapping([Mid.low, Mid.high]))
 	print("mid appended literal count {bag.items.count()} third {bag.at(2).rawValue as Integer} sum {sumMid(bag)}\n")
-	let concrete = MidArray.create(0)
+	var concrete = MidArray.create(0)
 	concrete.push(Mid.high)
 	concrete.append([Mid.low, Mid.high])
 	var total = 0 as Integer
 	for element in concrete 'walkConcrete'
-		total = total + (element.rawValue as Integer)
+		total = try total + (element.rawValue as Integer) otherwise panic("out of range")
 	end 'walkConcrete'
 	print("mid appended onto concrete count {concrete.count()} sum {total}\n")
 end 'probeMid'
@@ -788,13 +788,13 @@ end 'probeMid'
 function sumBig(bag BigBag) returns Integer
 	var total = 0 as Integer
 	for element in bag.items 'walk'
-		total = total + (element.rawValue as Integer)
+		total = try total + (element.rawValue as Integer) otherwise panic("out of range")
 	end 'walk'
 	return total
 end 'sumBig'
 
 function probeBig()
-	let bag = BigBag.create()
+	var bag = BigBag.create()
 	bag.add(Big.high)
 	bag.insertAt(0, value: Big.low)
 	bag.grownTo(4, value: Big.low)
@@ -803,18 +803,18 @@ function probeBig()
 	print("big refilled count {bag.items.count()} sum {sumBig(bag)}\n")
 	bag.addAll(BigBag.wrapping([Big.low, Big.high]))
 	print("big appended literal count {bag.items.count()} third {bag.at(2).rawValue as Integer} sum {sumBig(bag)}\n")
-	let concrete = BigArray.create(0)
+	var concrete = BigArray.create(0)
 	concrete.push(Big.high)
 	concrete.append([Big.low, Big.high])
 	var total = 0 as Integer
 	for element in concrete 'walkConcrete'
-		total = total + (element.rawValue as Integer)
+		total = try total + (element.rawValue as Integer) otherwise panic("out of range")
 	end 'walkConcrete'
 	print("big appended onto concrete count {concrete.count()} sum {total}\n")
 end 'probeBig'
 
 function main() returns ExitCode
-	let bag = SignalBag.create()
+	var bag = SignalBag.create()
 	bag.add(Signal.minus)
 	bag.add(Signal.zero)
 	bag.add(Signal.plus)
@@ -824,7 +824,7 @@ function main() returns ExitCode
 	let replay = bag.replayed()
 	print("signal {bag.items.managed.elementSize()} first {first.rawValue as Integer} sum {sumOf(bag)} clone {sumOf(copy)} replay {sumOf(replay)}\n")
 	print("first {bag.firstOne().rawValue as Integer} peek {bag.peekedAt(3).rawValue as Integer} {bag.peekedAt(2).rawValue as Integer}\n")
-	let concrete = SignalArray.create(0)
+	var concrete = SignalArray.create(0)
 	concrete.push(Signal.minus)
 	concrete.push(Signal.plus)
 	try bag.items.set(2, value: Signal.minus) otherwise return 3
@@ -836,7 +836,7 @@ function main() returns ExitCode
 	let popped = bag.dropLast()
 	let removed = bag.removeAt(1)
 	print("ends {last.rawValue as Integer} {popped.rawValue as Integer} {removed.rawValue as Integer} count {bag.items.count()}\n")
-	let map = SignalMap.create()
+	var map = SignalMap.create()
 	map.upsert(Signal.minus, value: 10)
 	map.upsert(Signal.plus, value: 20)
 	map.upsert(Signal.zero, value: 30)
@@ -847,11 +847,11 @@ function main() returns ExitCode
 	var keySum = 0 as Integer
 	var valueSum = 0 as Integer
 	for (key, value) in map 'entries'
-		keySum = keySum + (key.rawValue as Integer)
-		valueSum = valueSum + value
+		keySum = try keySum + (key.rawValue as Integer) otherwise panic("out of range")
+		valueSum = try valueSum + value otherwise panic("out of range")
 	end 'entries'
 	print("entries keys {keySum} values {valueSum}\n")
-	let set = SignalSet.create()
+	var set = SignalSet.create()
 	set.insert(Signal.minus)
 	set.insert(Signal.minus)
 	set.insert(Signal.plus)

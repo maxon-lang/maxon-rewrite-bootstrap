@@ -1580,12 +1580,43 @@ function resolveEnumDecl(mutates r Resolver, p ast.Project, ms ast.ModuleState, 
 	for i in 0 upto ed.cases.count() 'cs'
 		resolveRawValue(r, p: p, ms: ms, raw: ed.cases[i].raw, errs: errs)
 	end 'cs'
+	resolveEnumKeys(r, p: p, ed: ed)
 	let emptyFields = BoolStrMap.new()
 	for i in 0 upto ed.methods.count() 'meths'
 		let surface = methodSurface(r, owner: ed.name, m: ed.methods[i])
 		resolveFuncDecl(r, p: p, ms: ms, f: ed.methods[i].clone(), s: surface, fieldNames: emptyFields, hasReceiver: not ed.methods[i].isStatic, errs: errs)
 	end 'meths'
 end 'resolveEnumDecl'
+
+// resolveEnumKeys records the declarations of the library's root that a payload-free enum is a key by (ast.KeyNames), which
+// the declare stage gives it, as maxon makes every such enum Hashable and Equatable. Naming them makes the module depend on
+// the root, as a written name would. A compile with no library, or a root that does not declare them all, gives none, and so
+// does a module of the library other than its root, which the root depends on.
+function resolveEnumKeys(mutates r Resolver, p ast.Project, ed ast.EnumDecl)
+	var root = diag.stdlibID
+	match p.library 'library'
+		some(m) then root = m
+		none then return
+	end 'library'
+	if r.modID != root and p.modules[ast.modIndex(r.modID)].isLibrary 'helper'
+		return
+	end 'helper'
+	let hashable = libraryModuleLookup(r, p: p, module: root, name: hashableName)
+	let equatable = libraryModuleLookup(r, p: p, module: root, name: equatableName)
+	let hashValue = libraryModuleLookup(r, p: p, module: root, name: hashValueName)
+	if not hashable.found or not equatable.found or not hashValue.found 'absent'
+		return
+	end 'absent'
+	let off = r.tree.startOf(ed.id)
+	noteDependency(r, ref: hashable.decl, off: off)
+	r.res.keys.insert(ed.id as Count, value: ast.KeyNames.make(hashable.decl.clone(), equatable: equatable.decl.clone(), hashValue: hashValue.decl.clone()))
+end 'resolveEnumKeys'
+
+let hashableName = "Hashable"
+
+let equatableName = "Equatable"
+
+let hashValueName = "HashValue"
 
 function resolveUnionDecl(mutates r Resolver, p ast.Project, ms ast.ModuleState, ud ast.UnionDecl, s Surface, mutates errs diag.ErrorList)
 	checkEnd(r, label: ud.name, endNode: ud.endRef, errs: errs)

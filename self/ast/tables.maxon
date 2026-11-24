@@ -295,6 +295,20 @@ export typealias NodeStrMap = table.IntMap with String
 
 export typealias NodeStrListMap = table.IntMap with StringList
 
+// KeyNames are the declarations of the standard library that a payload-free enum is a key by: the interfaces Hashable and
+// Equatable, which it is given, and HashValue, which its hash() gives (check/enums.maxon).
+export type KeyNames
+	export var hashable as DeclRef
+	export var equatable as DeclRef
+	export var hashValue as DeclRef
+
+	export static function make(consumes hashable DeclRef, consumes equatable DeclRef, consumes hashValue DeclRef) returns KeyNames
+		return KeyNames{hashable: hashable, equatable: equatable, hashValue: hashValue}
+	end 'make'
+end 'KeyNames'
+
+export typealias NodeKeyNamesMap = table.IntMap with KeyNames
+
 // NodeTypes is the type of each node, indexed by the node as Go's Typing.types is, so that a lookup is an index and no
 // hash; noType is a node the checker never typed, which no type the checker gives is.
 export type NodeTypes
@@ -408,6 +422,8 @@ export type Resolution
 	export var captures as NodeStrListMap
 	export var unbound as UnboundNameList
 	export var memberRefs as MemberRefList
+	// keys are, by enum, the declarations it is a key by, where the library declares them all.
+	export var keys as NodeKeyNamesMap
 
 	export static function new(module diag.ModuleID) returns Resolution
 		let dm = NodeDeclMap.new()
@@ -418,7 +434,7 @@ export type Resolution
 		let eps = NodeSlotMap.new()
 		let ds = NodeBoolMap.new()
 		let cm = NodeStrListMap.new()
-		return Resolution{module: module, decls: dm, modules: mm, becomeNames: bm, typeParams: tps, typeParamSlots: tpsm, extParams: eps, deps: ModuleDepList.create(0), depSeen: ds, captures: cm, unbound: UnboundNameList.create(0), memberRefs: MemberRefList.create(0)}
+		return Resolution{module: module, decls: dm, modules: mm, becomeNames: bm, typeParams: tps, typeParamSlots: tpsm, extParams: eps, deps: ModuleDepList.create(0), depSeen: ds, captures: cm, unbound: UnboundNameList.create(0), memberRefs: MemberRefList.create(0), keys: NodeKeyNamesMap.new()}
 	end 'new'
 
 	export function addTypeParam(mutates self, consumes tp TypeParam) returns Count

@@ -791,6 +791,12 @@ export function intrinsicCall(mutates l Lowerer, p ast.Project, mutates ms ast.M
 	if op == ast.Intrinsic.intrRawSignalReturnAddress 'intrRawSignalReturnAddress'
 		return lowerRawSignalReturnAddress(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrRawSignalReturnAddress'
+	if op == ast.Intrinsic.intrEnumHash 'intrEnumHash'
+		return lowerEnumHash(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrEnumHash'
+	if op == ast.Intrinsic.intrEnumEquals 'intrEnumEquals'
+		return lowerEnumEquals(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrEnumEquals'
 	panic("lower: a call names no intrinsic")
 end 'intrinsicCall'
 
@@ -1585,5 +1591,11 @@ export function ownsOperands(op ast.Intrinsic) returns bool
 	if op == ast.Intrinsic.intrRawSignalReturnAddress 'intrRawSignalReturnAddress'
 		return false
 	end 'intrRawSignalReturnAddress'
+	if op == ast.Intrinsic.intrEnumHash 'intrEnumHash'
+		return false
+	end 'intrEnumHash'
+	if op == ast.Intrinsic.intrEnumEquals 'intrEnumEquals'
+		return false
+	end 'intrEnumEquals'
 	panic("lower: a call names no intrinsic")
 end 'ownsOperands'

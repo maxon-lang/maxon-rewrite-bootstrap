@@ -5190,11 +5190,11 @@ end 'Level'
 typealias LevelMap = Map with (Level, Integer)
 
 function main() returns ExitCode
-	let m = LevelMap.create()
+	var m = LevelMap.create()
 	m.upsert(Level.high, value: 7)
 	m.upsert(Level.low, value: 3)
-	let sum = (try m.get(Level.high) otherwise 0) + (try m.get(Level.low) otherwise 0)
-	return sum as ExitCode
+	let sum = try (try m.get(Level.high) otherwise 0) + (try m.get(Level.low) otherwise 0) otherwise panic("out of range")
+	return try sum as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

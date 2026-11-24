@@ -4268,11 +4268,11 @@ typealias CountsByWord = Map with (String, Count)
 typealias CountsByColor = Map with (Color, Count)
 
 function main() returns ExitCode
-	let byNumber = CountsByNumber.create()
+	var byNumber = CountsByNumber.create()
 	byNumber.upsert(3, value: 1)
-	let byWord = CountsByWord.create()
+	var byWord = CountsByWord.create()
 	byWord.upsert("a", value: 2)
-	let byColor = CountsByColor.create()
+	var byColor = CountsByColor.create()
 	byColor.upsert(Color.green, value: 3)
 	let n = try byNumber.get(3) otherwise return 3
 	let w = try byWord.get("a") otherwise return 3

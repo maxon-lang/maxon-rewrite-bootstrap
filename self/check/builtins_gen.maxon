@@ -258,7 +258,7 @@ function checkIntrinsicArgs(mutates c Checker, p ast.Project, mutates ms ast.Mod
 	if op == ast.Intrinsic.intrRawPreemptibleCodeAddress or op == ast.Intrinsic.intrRawSyscall or op == ast.Intrinsic.intrRawProcessStartAddress or op == ast.Intrinsic.intrRawPreemptHandlerAddress 'signature60'
 		return
 	end 'signature60'
-	if op == ast.Intrinsic.intrRawSignalReturnAddress 'signature61'
+	if op == ast.Intrinsic.intrRawSignalReturnAddress or op == ast.Intrinsic.intrEnumHash or op == ast.Intrinsic.intrEnumEquals 'signature61'
 		return
 	end 'signature61'
 	panic("check: {op.name} is no intrinsic")
