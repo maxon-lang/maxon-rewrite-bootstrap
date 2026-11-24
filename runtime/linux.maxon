@@ -383,15 +383,21 @@
 
 	// writeFile replaces a file with bytes at an address, and gives the errno that stopped it, or 0. The mode applies to a
 	// file that it creates; one that is there keeps its own.
+	// The file is open for writing only while the write holds the fork lock shared.
 	function writeFile(path String, data Count, length Count, executable bool) returns Count
-		let fd = openPath(path, flags: linuxOpenReplace, mode: linuxExecutableFileMode if executable else linuxFileMode)
-		if failed(fd) 'open'
-			return errnoOf(fd)
-		end 'open'
+		let cPath = cStringOf(path)
+		let lock = forkLock()
 		enterBlocking()
-		let errno = writeAll(fd, data: data, length: length)
+		holdForkShared(lock)
+		let fd = __Raw.syscall4(linuxSysOpenat, arg1: atCwd(), arg2: cPath, arg3: linuxOpenReplace, arg4: linuxExecutableFileMode if executable else linuxFileMode)
+		var errno = osErrorOf(fd)
+		if errno == 0 'opened'
+			errno = writeAll(fd, data: data, length: length)
+			closeFd(fd)
+		end 'opened'
+		releaseForkShared(lock)
 		exitBlocking()
-		closeFd(fd)
+		free(cPath)
 		return errno
 	end 'writeFile'
 
@@ -618,6 +624,98 @@
 	function futexWakeOne(address Count)
 		_ = __Raw.syscall3(linuxSysFutex, arg1: address, arg2: linuxFutexWakePrivate, arg3: wakeOneSleeper)
 	end 'futexWakeOne'
+
+	function futexWakeAll(address Count)
+		_ = __Raw.syscall3(linuxSysFutex, arg1: address, arg2: linuxFutexWakePrivate, arg3: wakeEverySleeper)
+	end 'futexWakeAll'
+
+	// wakeEverySleeper is INT_MAX, the count of a futex wake that wakes every thread that sleeps on the word.
+	let wakeEverySleeper = 0x7FFFFFFF as Count
+
+	// The fork lock, Go's syscall.ForkLock. A child that clone makes gets a copy of every fd the process has open at that
+	// moment and keeps it until its execve closes it, close-on-exec as every fd of the runtime is. So a file that one thread
+	// has open for writing while another clones is open for writing in that child too, and a run of the file started in that
+	// time fails with ETXTBSY, however soon the writer closes its own fd. A write of a file holds the lock shared from its open
+	// to its close and a clone holds it alone, so that no child is made holding such an fd. The lock is the scheduler's word
+	// (schedForkLockOffset): a process with no scheduler has one thread, which has nothing to order. Both sides wait in a futex
+	// on the word, inside a blocking call's bracket, which the caller makes.
+	let forkHeldBit = 0x40000000 as Count
+
+	// noForkLock is the lock of a process that has no scheduler.
+	let noForkLock = 0 as Count
+
+	// forkLock is the address of the fork lock, or noForkLock.
+	function forkLock() returns Count
+		let scheduler = __Raw.loadWord(__Raw.threadContext(), offset: contextSchedulerOffset)
+		if scheduler == 0 'single'
+			return noForkLock
+		end 'single'
+		return __Raw.wrappingAdd(scheduler, right: schedForkLockOffset)
+	end 'forkLock'
+
+	// holdForkShared takes the fork lock as one of the writes that may hold it at once, once no clone holds it or waits to.
+	function holdForkShared(lock Count)
+		if lock == noForkLock 'single'
+			return
+		end 'single'
+		while true 'take'
+			let state = __Raw.loadAcquire(lock, offset: 0)
+			if (state and forkHeldBit) != 0 'cloning'
+				futexWait(lock, value: state)
+			end 'cloning' else if __Raw.compareExchange(lock, offset: 0, expected: state, desired: __Raw.wrappingAdd(state, right: 1)) == state 'taken'
+				return
+			end 'taken'
+		end 'take'
+	end 'holdForkShared'
+
+	// releaseForkShared gives back a write's hold, and wakes a clone that waits for the last write to end.
+	function releaseForkShared(lock Count)
+		if lock == noForkLock 'single'
+			return
+		end 'single'
+		while true 'give'
+			let state = __Raw.loadAcquire(lock, offset: 0)
+			let left = __Raw.wrappingSub(state, right: 1)
+			if __Raw.compareExchange(lock, offset: 0, expected: state, desired: left) == state 'given'
+				if left == forkHeldBit 'last'
+					futexWakeAll(lock)
+				end 'last'
+				return
+			end 'given'
+		end 'give'
+	end 'releaseForkShared'
+
+	// holdForkAlone takes the fork lock for a clone: it sets forkHeldBit, which keeps new writes out, and then waits for the
+	// writes that hold the lock to end.
+	function holdForkAlone(lock Count)
+		if lock == noForkLock 'single'
+			return
+		end 'single'
+		while true 'take'
+			let state = __Raw.loadAcquire(lock, offset: 0)
+			if (state and forkHeldBit) != 0 'cloning'
+				futexWait(lock, value: state)
+			end 'cloning' else if __Raw.compareExchange(lock, offset: 0, expected: state, desired: state or forkHeldBit) == state 'taken'
+				break 'take'
+			end 'taken'
+		end 'take'
+		while true 'drain'
+			let state = __Raw.loadAcquire(lock, offset: 0)
+			if state == forkHeldBit 'drained'
+				return
+			end 'drained'
+			futexWait(lock, value: state)
+		end 'drain'
+	end 'holdForkAlone'
+
+	// releaseForkAlone gives back a clone's hold, and wakes the writes and clones that wait for it.
+	function releaseForkAlone(lock Count)
+		if lock == noForkLock 'single'
+			return
+		end 'single'
+		_ = __Raw.atomicExchange(lock, offset: 0, value: 0)
+		futexWakeAll(lock)
+	end 'releaseForkAlone'
 
 	// startThread starts a worker's thread at once, on a stack of the main thread's reserve that the kernel maps and
 	// commits a page at a time, its lowest page the guard. The top word of the stack holds the thread's context, and is the

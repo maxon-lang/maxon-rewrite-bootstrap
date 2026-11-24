@@ -1,0 +1,121 @@
+// Children started at the same time each from a file written just before run, however their writes and starts interleave:
+// a child that another run starts while a file is open for writing must not hold the file open past its own start, which
+// would make the start of the file's run fail as busy (ETXTBSY on Linux). Each behaviour writes and runs its own files one
+// after another, so that with more than one worker the writes of some overlap the starts of others.
+// unsupported-targets: x64-windows
+// native-only
+typealias Arguments = Array with String
+
+// How many behaviours write and run files at once, and how many files each writes and runs.
+let writers = 8
+
+let rounds = 40
+
+// A script that exits with exitCode, padded with a comment so that each write takes a while.
+let exitCode = 7
+
+let paddingLines = 512
+
+function scriptText() returns String
+	var text = "#!/bin/sh\nexit {exitCode}\n".toByteArray()
+	for i in 0 upto paddingLines 'padding'
+		text.append("# the run of a file written just before must not find the file busy: line {i}\n".toByteArray())
+	end 'padding'
+	return String.from(text)
+end 'scriptText'
+
+type Tally
+	export var failures as Count
+	export var first as String
+
+	static function make() returns Tally
+		return Tally{failures: 0, first: ""}
+	end 'make'
+end 'Tally'
+
+function path(text String) returns FilePath
+	return try FilePath.from(text) otherwise panic("not a path: {text}")
+end 'path'
+
+// outcome runs the file and says how the run ended.
+function outcome(file FilePath) returns String
+	try 'run'
+		let out = Subprocess.run(Executable.path(file.clone()), arguments: Arguments.create(0))
+		return "ran {out.exitCode()}"
+	end 'run' otherwise (e) 'failed'
+		match e 'kind'
+			executableNotFound then return "executableNotFound"
+			spawnFailed then return "spawnFailed"
+			busy then return "busy"
+			ioFailed then return "ioFailed"
+			timeout then return "timeout"
+			treeNotEnded then return "treeNotEnded"
+			detachRefused then return "detachRefused"
+			inputTooLarge then return "inputTooLarge"
+			statusLost then return "statusLost"
+		end 'kind'
+	end 'failed'
+	return "unreachable"
+end 'outcome'
+
+function writeAndRun(label Count, dir String, slot cown with Tally)
+	let own = dir.clone()
+	when slot as tally 'files'
+		let script = scriptText()
+		for round in 0 upto rounds 'rounds'
+			let name = "{own}/child-{label}-{round}"
+			let file = path(name)
+			try File.writeText(file, content: script, mode: FilePermission.executable) otherwise panic("cannot write {name}")
+			let ended = outcome(file)
+			if ended != "ran {exitCode}" 'failed'
+				if tally.failures == 0 'first'
+					tally.first = ended.clone()
+				end 'first'
+				tally.failures = try tally.failures + 1 otherwise panic("too many failures")
+			end 'failed'
+			try File.delete(file) otherwise panic("cannot delete {name}")
+		end 'rounds'
+	end 'files'
+end 'writeAndRun'
+
+// earlier is the first of two failures that is one, or "" when neither is.
+function earlier(first String, later String) returns String
+	if first != "" 'first'
+		return first.clone()
+	end 'first'
+	return later.clone()
+end 'earlier'
+
+function main() returns ExitCode
+	let dir = "/tmp/minimaxon_children_from_written_files_{Process.id()}"
+	_ = Directory.create(path(dir))
+	let a = cown(Tally.make())
+	let b = cown(Tally.make())
+	let c = cown(Tally.make())
+	let d = cown(Tally.make())
+	let e = cown(Tally.make())
+	let f = cown(Tally.make())
+	let g = cown(Tally.make())
+	let h = cown(Tally.make())
+	writeAndRun(0, dir: dir, slot: share(a))
+	writeAndRun(1, dir: dir, slot: share(b))
+	writeAndRun(2, dir: dir, slot: share(c))
+	writeAndRun(3, dir: dir, slot: share(d))
+	writeAndRun(4, dir: dir, slot: share(e))
+	writeAndRun(5, dir: dir, slot: share(f))
+	writeAndRun(6, dir: dir, slot: share(g))
+	writeAndRun(7, dir: dir, slot: share(h))
+	when a, b, c, d, e, f, g, h as ta, tb, tc, td, te, tf, tg, th 'report'
+		let failures = try ta.failures + tb.failures + tc.failures + td.failures + te.failures + tf.failures + tg.failures + th.failures otherwise panic("too many failures")
+		let first = earlier(earlier(earlier(ta.first, later: tb.first), later: earlier(tc.first, later: td.first)), later: earlier(earlier(te.first, later: tf.first), later: earlier(tg.first, later: th.first)))
+		if failures == 0 'clean'
+			print("every run ran\n")
+		end 'clean' else 'failed'
+			print("{failures} of {writers * rounds} runs failed, the first: {first}\n")
+		end 'failed'
+		try Directory.delete(path(dir)) otherwise panic("cannot remove the directory")
+	end 'report'
+	return 0
+end 'main'
+
+//> every run ran

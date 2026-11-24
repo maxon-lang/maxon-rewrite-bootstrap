@@ -336,8 +336,11 @@ let schedPinnedOffset = 272 as Count
 // schedPreemptAsksOffset is where the scheduler's record holds how many times the monitor has asked a green thread to stop (preemptOne), which only the monitor writes and a test of its pace reads.
 let schedPreemptAsksOffset = 280 as Count
 
+// schedForkLockOffset is where the scheduler's record holds the fork lock on Linux (Go's syscall.ForkLock): how many writes of a file hold it shared, with forkHeldBit set while a clone holds it or waits to; a futex word.
+let schedForkLockOffset = 288 as Count
+
 // schedProcessorsOffset is where the scheduler's record holds the address of each processor (Go's allp), a word each, by its id, 0 until it is made.
-let schedProcessorsOffset = 288 as Count
+let schedProcessorsOffset = 296 as Count
 
 // procIdOffset is where a processor holds its index among the processors.
 let procIdOffset = 0 as Count

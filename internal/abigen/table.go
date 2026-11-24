@@ -289,7 +289,7 @@ var layouts = []layoutConst{
 
 	// The scheduler's record (Go's sched), made when the first behaviour or green thread is made or an exit code set: the
 	// counts every thread reads, the global run queue, the idle processors and threads, the free green threads and stacks,
-	// the timers, the poller, then the address of each processor, the main thread's first. The words that several fields
+	// the timers, the poller, the fork lock, then the address of each processor, the main thread's first. The words that several fields
 	// change together are under its lock.
 	{"schedProcsOffset", 0, false, toRuntime,
 		"where the scheduler's record holds how many processors there are (Go's gomaxprocs): the processors of the machine, or what MAXON_MAX_PROCS asks."},
@@ -363,7 +363,9 @@ var layouts = []layoutConst{
 		"where the scheduler's record holds how many green threads are pinned to their threads, stepped atomically, so a scheduler with none never reads a green thread's pin."},
 	{"schedPreemptAsksOffset", 35, false, toRuntime,
 		"where the scheduler's record holds how many times the monitor has asked a green thread to stop (preemptOne), which only the monitor writes and a test of its pace reads."},
-	{"schedProcessorsOffset", 36, false, toRuntime,
+	{"schedForkLockOffset", 36, false, toRuntime,
+		"where the scheduler's record holds the fork lock on Linux (Go's syscall.ForkLock): how many writes of a file hold it shared, with forkHeldBit set while a clone holds it or waits to; a futex word."},
+	{"schedProcessorsOffset", 37, false, toRuntime,
 		"where the scheduler's record holds the address of each processor (Go's allp), a word each, by its id, 0 until it is made."},
 
 	// A processor (Go's P): what a thread must hold to run green threads, its local run queue (a ring that its owner puts

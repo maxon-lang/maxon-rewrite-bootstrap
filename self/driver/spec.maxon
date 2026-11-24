@@ -1351,7 +1351,7 @@ end 'joinLines'
 function checkSpecRun(test SpecTest, text String, exe String, directory String) returns TestResult
 	match consumes runExecutable(exe, runner: TargetRunner.native, directory: directory, workers: 0, envRunner: "", input: "") 'run'
 		ran(out) then return checkSpecOutput(test, text: text, out: out)
-		cannotStart then return TestResult.failed("cannot run the executable")
+		cannotStart(reason) then return TestResult.failed("cannot run the executable: {reason}")
 		timedOut then return TestResult.failed("timed out")
 	end 'run'
 end 'checkSpecRun'

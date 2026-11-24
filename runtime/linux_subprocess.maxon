@@ -1,6 +1,7 @@
 // Running a program on Linux, which has no call that spawns one: the run clones the process as fork does, and the child
 // puts the write ends of two pipes in place of its standard output and error and executes the program (execve), as
-// maxon's runtime builds a child out of clone, pipe2, dup3 and execve. A third pipe, closed on exec, tells the run whether
+// maxon's runtime builds a child out of clone, pipe2, dup3 and execve. The clone holds the fork lock (linux.maxon), so that
+// the child never gets a copy of a file that a write has open and makes the run of that file fail as busy. A third pipe, closed on exec, tells the run whether
 // the execve failed and with what errno: a child that executed the program closes it unwritten. The run reads both
 // output pipes as the child goes on, waiting in poll, so that a child that fills one cannot block waiting for the run to
 // read the other. The child's environment is the run's own, and so is its standard input but in a run with input, where it is
@@ -528,10 +529,15 @@
 		if __Raw.stringLength(directory) != 0 'directory'
 			start = cStringOf(directory)
 		end 'directory'
+		let lock = forkLock()
+		enterBlocking()
+		holdForkAlone(lock)
 		let pid = __Raw.syscall5(linuxSysClone, arg1: linuxCloneChildFlags, arg2: 0, arg3: 0, arg4: 0, arg5: 0)
 		if pid == 0 'child'
 			execChild(run, path: path, vector: vector, directory: start, hasInput: hasInput)
 		end 'child'
+		releaseForkAlone(lock)
+		exitBlocking()
 		if start != noDirectory 'started'
 			free(start)
 		end 'started'
