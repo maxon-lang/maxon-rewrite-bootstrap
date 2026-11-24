@@ -1900,14 +1900,21 @@ function addModuleDeps(mutates r Resolver, p ast.Project, modules ModuleIndexes)
 end 'addModuleDeps'
 
 // libraryMembersOf is, by the name of each method that a module of the library declares, the modules that declare it, in
-// the order of the project's modules.
+// the order of the project's modules: every method of its extensions, and the methods of its types only where its extensions
+// give a conformance. A module that gives none gives a module that names it nothing it would not see through what gave it a
+// value of one of its types, which names the module itself, so a program pays nothing for writing a name that one of its
+// types also declares.
 function libraryMembersOf(p ast.Project) returns LibraryMemberMap
 	var members = LibraryMemberMap.new()
 	for m in 0 upto p.modules.count() 'modules'
 		if not p.modules[m].isLibrary 'program'
 			continue 'modules'
 		end 'program'
+		let conforms = givesConformance(p.modules[m])
 		for i in 0 upto p.modules[m].decls.count() 'decls'
+			if not conforms and not p.modules[m].decls[i].isExtension() 'ownType'
+				continue 'decls'
+			end 'ownType'
 			let names = p.modules[m].decls[i].memberNames()
 			for j in 0 upto names.count() 'names'
 				var modules = ModuleIndexes.create(0)
@@ -1924,6 +1931,27 @@ function libraryMembersOf(p ast.Project) returns LibraryMemberMap
 	end 'modules'
 	return members
 end 'libraryMembersOf'
+
+// givesConformance is whether an extension of the module says that a type implements an interface, which a bound met by it
+// sees only from a module that names this one.
+function givesConformance(m ast.Module) returns bool
+	for i in 0 upto m.decls.count() 'decls'
+		let conforms = match m.decls[i] 'd'
+			extensionDecl(e) gives e.conforms != 0
+			funcDecl(_) gives false
+			constDecl(_) gives false
+			typeDecl(_) gives false
+			enumDecl(_) gives false
+			unionDecl(_) gives false
+			aliasDecl(_) gives false
+			interfaceDecl(_) gives false
+		end 'd'
+		if conforms 'conforms'
+			return true
+		end 'conforms'
+	end 'decls'
+	return false
+end 'givesConformance'
 
 export function resolveModule(mutates ms ast.ModuleState, p ast.Project, mutates errs diag.ErrorList)
 	let modID = ms.module

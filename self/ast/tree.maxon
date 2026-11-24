@@ -21,7 +21,7 @@ end 'Record'
 
 export typealias RecordList = Array with Record
 
-function isIdentByte(b Byte) returns bool
+export function isIdentByte(b Byte) returns bool
 	if b >= 65 and b <= 90 'upper'
 		return true
 	end 'upper'

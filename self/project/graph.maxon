@@ -4,7 +4,7 @@ export typealias ModDepArray = Array with ast.ModuleDepList
 
 export typealias ModIDListArray = Array with ModIDList
 
-typealias CountList = Array with Count
+export typealias CountList = Array with Count
 
 typealias BoolList = Array with bool
 

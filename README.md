@@ -541,9 +541,12 @@ is that of its module (`app::main`), and a project with no `main` in any module 
   names and that names the root, `Hash.maxon`, is a file of the root, with its `public` made `export` all the same. A
   program the spec runner stages in the library is compiled as a file of the library's root, so it sees the library's
   `export` declarations too, bare. Only the library modules a program names, directly or through others, are compiled past
-  their resolve (`reachedModules`), so a program pays for no other, and a program that names none resolves none of them
-  either: in a program's compile the library's resolves wait for the program's and run only when one of them named a module
-  of the library (`resolvesModule`); each is a module of the build cache like any other,
+  their resolve (`reachedModules`), so a program pays for no other, and resolves only those it reaches: in a program's compile
+  the library's resolves wait for the program's, and a library module resolves only when a module of the program names it or
+  names a library module whose source may name it, directly or through others (`resolvesModule`; what a library module may
+  name is read from its text when it is parsed, `project.libraryModulesNamedIn`: each module whose qualifier's first name it
+  writes before a dot and a name, comments included, a superset of what its resolve records). Every library module is still
+  parsed, since a program names the public declarations of every one of them bare; each is a module of the build cache like any other,
   with its own key, and is compiled for the compile's target. A project that is the runtime's source or `stdlib/` itself is
   compiled without a second library, and the compiler's own source, `self/` (found as `runtime/` is,
   `project.isCompilerDirectory`), without any: it names nothing of the library, so its build never reads `stdlib/` and a
@@ -923,7 +926,7 @@ The driver runs each module's stages, from parse to emit, as tasks of one graph 
 does. A task is a stage of one module (`Task`: the stage, the module and a range of the graph's flat list of inputs), or a
 stage of the project as a whole: `parsed` joins the parses, since resolve may read the declaration table of any module that a
 qualified name passes through, and in a program's compile the resolve of each module of the standard library waits for the
-program's resolves too, and runs only when one of them named the library; `order` makes the module graph and refuses a cycle, and only then adds the tasks of the check
+program's resolves too, and runs only for a library module the program reaches (`resolvesModule`); `order` makes the module graph and refuses a cycle, and only then adds the tasks of the check
 and after it, since a module's dependencies are known once it is resolved; `entry` reports a program with no `main`;
 `endCheck` waits on every module's verify and on `entry`, and the program waits on it, so that no code is made of a program
 whose check failed, while no module's lower waits for the check of a module it does not reach;
@@ -3698,9 +3701,9 @@ extension is `E3006` where the type's body declares a member of its name (a meth
 module's extensions a method or another static let of it.
 
 An extension's declarations belong to the module that writes it, never to the extended type's module, so each module's
-stages stay independent. A module of a program that writes a member which a module of the library declares, by an extension or on one of its types
+stages stay independent. A module of a program that writes a member which a module of the library declares, by an extension, or on one of its types where an extension of that module gives a conformance
 (`arr.sort()`, `5.hash()`, `m.contains(k)`: its resolve reads the names of those methods), names each library module that declares one from there on, so the extensions of `Array`, `String`
-and the integers are the program's without naming anything of the library, and a module pays for the library modules whose members it writes and for no other. As in Hylo, an extension and the conformances it declares are scoped: they are seen from the
+and the integers are the program's without naming anything of the library, and a module pays for the library modules whose members it writes and for no other. A method of a type of a module whose extensions give no conformance names nothing: a value of that type comes from a declaration that names its module, which the module that writes the method reaches through it, and it sees nothing more by naming it. As in Hylo, an extension and the conformances it declares are scoped: they are seen from the
 module that writes the extension and from the modules that name it (the ones its resolve recorded as dependencies), and
 the standard library sees none. A call `x.m()` finds the type's own method, then the methods that the extensions seen
 from the module of the call add. Two of those that add one name are ambiguous, `E3942` at the call, whichever module

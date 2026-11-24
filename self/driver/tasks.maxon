@@ -78,10 +78,14 @@ type ModuleWork
 	var checkedKey as table.Digest
 	var checkedFound as table.Option with CheckedEntry
 	var restored as Restored
+	// named are, for a module of the standard library that the compile parsed, the modules of the library its source may name
+	// (project.libraryModulesNamedIn), and namesRead whether they were read.
+	var named as project.CountList
+	var namesRead as bool
 
 	static function make(consumes home ast.ModuleHome) returns ModuleWork
 		let module = home.module
-		return ModuleWork{home: home, checkState: check.ModuleState.make(check.Checker.make(module, typing: ast.Typing.new(module)), entryRole: check.EntryRole.none), checked: check.ModuleChecked.none(), checkEnded: false, lowered: ir.IrFunctionList.create(0), kept: ir.IrFunctionList.create(0), code: freeze(ir.IrFunctionList.create(0)), leaves: freeze(opt.Leaves.empty()), unit: backend.CodeUnit.new(), reach: Reach.whole, digests: ModuleDigests.none(), key: table.Digest.none(), found: FoundEntry.none, speculated: false, mispredicted: false, checkedState: ByteArray.create(0), checkedKey: table.Digest.none(), checkedFound: FoundChecked.none, restored: Restored.none()}
+		return ModuleWork{home: home, checkState: check.ModuleState.make(check.Checker.make(module, typing: ast.Typing.new(module)), entryRole: check.EntryRole.none), checked: check.ModuleChecked.none(), checkEnded: false, lowered: ir.IrFunctionList.create(0), kept: ir.IrFunctionList.create(0), code: freeze(ir.IrFunctionList.create(0)), leaves: freeze(opt.Leaves.empty()), unit: backend.CodeUnit.new(), reach: Reach.whole, digests: ModuleDigests.none(), key: table.Digest.none(), found: FoundEntry.none, speculated: false, mispredicted: false, checkedState: ByteArray.create(0), checkedKey: table.Digest.none(), checkedFound: FoundChecked.none, restored: Restored.none(), named: project.CountList.create(0), namesRead: false}
 	end 'make'
 
 	// startCheck starts the module's check as the order decided it (start).
@@ -115,7 +119,7 @@ type ModuleWork
 
 	// product is what the module's stages made, up to the first segments, which a task that waits on the last of them reads.
 	function product(segments Count) returns frozen with Product
-		return freeze(Product.make(freeze(ast.publish(home, segments: segments)), code: share(code), leaves: share(leaves), entry: checked.entry, tests: checked.tests.clone(), digests: digests.clone(), mispredicted: mispredicted))
+		return freeze(Product.make(freeze(ast.publish(home, segments: segments)), code: share(code), leaves: share(leaves), entry: checked.entry, tests: checked.tests.clone(), digests: digests.clone(), mispredicted: mispredicted, named: named.clone(), namesRead: namesRead))
 	end 'product'
 end 'ModuleWork'
 
@@ -180,9 +184,11 @@ type Product
 	var tests as ast.FuncIDList
 	var digests as ModuleDigests
 	var mispredicted as bool
+	var named as project.CountList
+	var namesRead as bool
 
-	static function make(consumes model frozen with ast.ModuleProducts, consumes code frozen with ir.IrFunctionList, consumes leaves frozen with opt.Leaves, entry ast.FuncID, consumes tests ast.FuncIDList, consumes digests ModuleDigests, mispredicted bool) returns Product
-		return Product{model: model, code: code, leaves: leaves, entry: entry, tests: tests, digests: digests, mispredicted: mispredicted}
+	static function make(consumes model frozen with ast.ModuleProducts, consumes code frozen with ir.IrFunctionList, consumes leaves frozen with opt.Leaves, entry ast.FuncID, consumes tests ast.FuncIDList, consumes digests ModuleDigests, mispredicted bool, consumes named project.CountList, namesRead bool) returns Product
+		return Product{model: model, code: code, leaves: leaves, entry: entry, tests: tests, digests: digests, mispredicted: mispredicted, named: named, namesRead: namesRead}
 	end 'make'
 
 	function segments() returns Count
@@ -354,6 +360,10 @@ function parseTask(c Compile, mutates work ModuleWork, known Known, inputs ast.I
 	var view as ast.Project
 	var ms = lendTask(c, work: work, stage: Stage.parse, lent: ast.Lent.source, known: known, inputs: inputs, view: view)
 	project.parseModule(ms, p: view, memory: memory, errs: errs)
+	if c.libraryLater[c.slotOf(ast.modIndex(work.home.module))] 'library'
+		work.named = project.libraryModulesNamedIn(view, text: ms.parsed.tree.text)
+		work.namesRead = true
+	end 'library'
 	if c.cache.enabled() 'digests'
 		work.digests.source = sourceDigest(ms.source.path, text: ms.parsed.tree.text, files: ms.parsed.files)
 		work.digests.shown = publicDigest(ms.source.path, text: ms.parsed.tree.text, files: ms.parsed.files)
@@ -397,7 +407,7 @@ end 'restoredTask'
 function resolveTask(c Compile, mutates work ModuleWork, known Known, inputs ast.Inputs, mutates errs diag.ErrorList) returns frozen with Product
 	var view as ast.Project
 	var ms = lendTask(c, work: work, stage: Stage.resolve, lent: ast.Lent.resolution, known: known, inputs: inputs, view: view)
-	if resolvesModule(c, p: view, m: ast.modIndex(work.home.module)) 'named'
+	if resolvesModule(c, p: view, known: known, m: ast.modIndex(work.home.module)) 'named'
 		resolve.resolveModule(ms, p: view, errs: errs)
 	end 'named'
 	return giveTask(work, ms: ms, stage: Stage.resolve)
@@ -420,31 +430,49 @@ function libraryLaterOf(p ast.Project, first Count) returns Placed
 end 'libraryLaterOf'
 
 // resolvesModule is whether the resolve of module m runs. A module of the library resolves, in a program's compile, only when
-// a module of the program names a module of the library, whose resolves it waited on, so a program that names nothing of the
-// library pays for none of its resolve and compiles none of it (reachedModules). Which modules of the library the others name
-// is known only once they resolved, so a program that names one resolves them all.
-function resolvesModule(c Compile, p ast.Project, m Count) returns bool
+// the program reaches it: a module of the program, whose resolves it waited on, names it, or names a module of the library
+// whose source may name it, directly or through others (Product.named, read from the text of each when it was parsed, since
+// what the library's modules name is known only once they resolved). So a program pays for the resolve of no library module
+// it does not reach, and compiles none of them (reachedModules). Where a module of the library was not parsed by this compile,
+// what it names is not known, and every module of the library resolves for a program that names one.
+function resolvesModule(c Compile, p ast.Project, known Known, m Count) returns bool
 	if not c.libraryLater[c.slotOf(m)] 'program'
 		return true
 	end 'program'
-	for slot in 0 upto c.modules 'modules'
+	var reached = Placed.create(0)
+	for _ in 0 upto c.modules 'none'
+		reached.push(false)
+	end 'none'
+	var pending = TaskIDs.create(0)
+	for slot in 0 upto c.modules 'program'
 		let k = c.moduleOf(slot)
-		if not p.modules[k].isLibrary and namesLibrary(p, m: k) 'named'
-			return true
-		end 'named'
-	end 'modules'
-	return false
-end 'resolvesModule'
-
-// namesLibrary is whether the resolve of module m recorded a module of the library among those it names.
-function namesLibrary(p ast.Project, m Count) returns bool
-	for j in 0 upto p.resolutions[m].deps.count() 'deps'
-		if p.modules[ast.modIndex(p.resolutions[m].deps[j].module)].isLibrary 'library'
-			return true
+		if p.modules[k].isLibrary 'library'
+			continue 'program'
 		end 'library'
-	end 'deps'
-	return false
-end 'namesLibrary'
+		for j in 0 upto p.resolutions[k].deps.count() 'deps'
+			let d = ast.modIndex(p.resolutions[k].deps[j].module)
+			if d >= c.first and c.libraryLater[c.slotOf(d)] and not reached[c.slotOf(d)] 'library'
+				reached[c.slotOf(d)] = true
+				pending.push(d)
+			end 'library'
+		end 'deps'
+	end 'program'
+	while pending.count() > 0 'closure'
+		let d = try pending.pop() otherwise panic("driver: the pending modules ran out")
+		let slot = c.slotOf(d)
+		if not known[slot].namesRead 'unread'
+			return true
+		end 'unread'
+		for j in 0 upto known[slot].named.count() 'named'
+			let e = known[slot].named[j]
+			if e >= c.first and c.libraryLater[c.slotOf(e)] and not reached[c.slotOf(e)] 'new'
+				reached[c.slotOf(e)] = true
+				pending.push(e)
+			end 'new'
+		end 'named'
+	end 'closure'
+	return reached[c.slotOf(m)]
+end 'resolvesModule'
 
 // lendTask lends a task of stage what its stage writes of the module's home, with what lent says of the module, and sets view
 // to its view of the project (taskView). giveTask ends it.
