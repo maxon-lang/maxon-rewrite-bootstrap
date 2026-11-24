@@ -5,8 +5,8 @@
 //
 // A value is held wherever a value is (a register, a slot, a field, an element, a payload, a capture) in its form: a word
 // of nothing to drop, a managed word (the address of a box it owns or counts, where 0 is the empty place a move leaves), or
-// a String's two words. A record, and a union, is a managed word: the address of its box of values, one after another,
-// each in its form, after a union's case index.
+// a String's two words. A record is a managed word: the address of its box of values, one after another, each in its form.
+// A union is held as its UnionForm says: a box of its case index and payload, or a word of nothing to drop.
 
 // ValueForm is how a value is held.
 export enum ValueForm
@@ -26,11 +26,24 @@ export enum Niche
 	nicheBool
 end 'Niche'
 
+// UnionForm is how a value of a union is held: the address of a box of its case index and its payload; its case index
+// alone, where no case carries a payload; or, where one case carries one integer, enum or bool that has a niche and the
+// only other case carries nothing, that payload, with the niche standing for the other case. The two word forms hold
+// nothing to drop, so Option.none and an Option of a number allocate nothing.
+export enum UnionForm
+	unionBoxed
+	unionCases
+	unionNiche
+end 'UnionForm'
+
 // valueForm is how a value of the type is held.
 export function valueForm(tt ast.TypeSlot, reads ast.TypeTable, t ast.TypeID) returns ValueForm
 	if ast.isStringType(tt, reads: reads, t: t) 'string'
 		return ValueForm.formString
 	end 'string'
+	if ast.typeKind(tt, reads: reads, t: t) == ast.TypeKind.unionTy and unionForm(tt, reads: reads, t: t) != UnionForm.unionBoxed 'word'
+		return ValueForm.formScalar
+	end 'word'
 	if ast.isManagedType(tt, reads: reads, t: t) 'managed'
 		return ValueForm.formManaged
 	end 'managed'
@@ -65,6 +78,12 @@ export function nicheOf(tt ast.TypeSlot, reads ast.TypeTable, t ast.TypeID) retu
 	if form == ValueForm.formString 'string'
 		return Niche.nicheNone
 	end 'string'
+	return scalarNiche(tt, reads: reads, t: t)
+end 'nicheOf'
+
+// scalarNiche is the niche of a scalar of the type: an integer's whose least value is no further from 0 than an immediate
+// reaches, so that a test of the niche is one compare with an immediate, an enum's and a bool's.
+function scalarNiche(tt ast.TypeSlot, reads ast.TypeTable, t ast.TypeID) returns Niche
 	let kind = ast.typeKind(tt, reads: reads, t: t)
 	if kind == ast.TypeKind.primBool 'bool'
 		return Niche.nicheBool
@@ -76,21 +95,139 @@ export function nicheOf(tt ast.TypeSlot, reads ast.TypeTable, t ast.TypeID) retu
 		return Niche.nicheBelow
 	end 'below'
 	return Niche.nicheNone
-end 'nicheOf'
+end 'scalarNiche'
 
-// signBitWord is the word whose sign bit alone is set, the least signed word.
-let signBitWord = 9223372036854775808 as Count
+// leastImmediate and greatestImmediate bound the niche of an integer: the words an immediate of a compare reaches.
+let leastImmediate = -2147483648 as Word
+
+let greatestImmediate = 2147483647 as Word
 
 // greatestSignedWord is the greatest signed word.
 let greatestSignedWord = 9223372036854775807 as Count
 
-// hasWordBelow is whether a ranged integer is held as a signed word and has a least value above the least signed word, so
-// the word below it is a value of none.
+// hasWordBelow is whether a ranged integer is held as a signed word whose least value has a word below it that an
+// immediate reaches.
 function hasWordBelow(entry ast.TypeEntry) returns bool
-	let leastAbove = entry.minVal.hi >= 0 or (entry.minVal.hi == -1 and entry.minVal.lo > signBitWord)
 	let mostSigned = entry.maxVal.hi < 0 or (entry.maxVal.hi == 0 and entry.maxVal.lo <= greatestSignedWord)
-	return leastAbove and mostSigned
+	let leastSigned = (entry.minVal.hi == 0 and entry.minVal.lo <= greatestSignedWord) or (entry.minVal.hi == -1 and entry.minVal.lo > greatestSignedWord)
+	if not mostSigned or not leastSigned 'unsigned'
+		return false
+	end 'unsigned'
+	let least = wordOf(entry.minVal)
+	return least > leastImmediate and least <= greatestImmediate
 end 'hasWordBelow'
+
+// nicheWord is the word of the niche of a scalar of the type.
+export function nicheWord(tt ast.TypeSlot, reads ast.TypeTable, t ast.TypeID) returns Word
+	return match scalarNiche(tt, reads: reads, t: t) 'niche'
+		nicheBelow gives try wordOf(ast.typeEntry(tt, reads: reads, t: t).minVal) - 1 otherwise panic("ir: a niche below the least word")
+		nicheEnum gives try ast.typeEntry(tt, reads: reads, t: t).cases.count() as Word otherwise panic("ir: an enum past a word")
+		nicheBool gives 2 as Word
+		nicheNone gives panic("ir: a niche of a type that has none")
+		nicheNull gives panic("ir: the niche of a scalar is never null")
+	end 'niche'
+end 'nicheWord'
+
+// leastWord is the least word a scalar of the type, or its niche, can be: what a thrown error's word is counted from
+// (errorBias).
+export function leastWord(tt ast.TypeSlot, reads ast.TypeTable, t ast.TypeID) returns Word
+	if scalarNiche(tt, reads: reads, t: t) == Niche.nicheBelow 'below'
+		return nicheWord(tt, reads: reads, t: t)
+	end 'below'
+	return 0 as Word
+end 'leastWord'
+
+// unionForm is how a value of the union t is held. A case that carries more than one value, or one value in a union of
+// more cases than two, makes it a box at once, so most unions are decided by their first cases.
+export function unionForm(tt ast.TypeSlot, reads ast.TypeTable, t ast.TypeID) returns UnionForm
+	let origin = ast.originOf(tt, reads: reads, t: t)
+	let cases = ast.typeEntry(tt, reads: reads, t: origin).cases.count()
+	var carrier = cases
+	for c in 0 upto cases 'cases'
+		let payloads = ast.typeEntry(tt, reads: reads, t: origin).cases[c].payload.count()
+		if payloads > 1 or (payloads == 1 and cases != 2) 'box'
+			return UnionForm.unionBoxed
+		end 'box'
+		if payloads == 1 'one'
+			if carrier != cases 'second'
+				return UnionForm.unionBoxed
+			end 'second'
+			carrier = c
+		end 'one'
+	end 'cases'
+	if carrier == cases 'bare'
+		return UnionForm.unionCases
+	end 'bare'
+	let declared = ast.typeEntry(tt, reads: reads, t: origin).cases[carrier].payload[0].ty
+	if scalarNiche(tt, reads: reads, t: boundType(tt, reads: reads, owner: t, declared: declared)) != Niche.nicheNone 'scalar'
+		return UnionForm.unionNiche
+	end 'scalar'
+	return UnionForm.unionBoxed
+end 'unionForm'
+
+// boundType is the type a member of owner declared as declared has where that is the type's own form: a type parameter's
+// argument in an instance, and otherwise the declared type itself. A declared instance of other types (Array with T) is
+// left as it is, which is enough for what the layout asks of it here (whether it is a String, whether it has a scalar
+// niche), and costs no substitution.
+function boundType(tt ast.TypeSlot, reads ast.TypeTable, owner ast.TypeID, declared ast.TypeID) returns ast.TypeID
+	if ast.typeKind(tt, reads: reads, t: declared) != ast.TypeKind.typeParam 'declared'
+		return declared
+	end 'declared'
+	let origin = ast.originOf(tt, reads: reads, t: owner)
+	let params = ast.typeEntry(tt, reads: reads, t: origin).typeParams.count()
+	for i in 0 upto params 'params'
+		if ast.typeEntry(tt, reads: reads, t: origin).typeParams[i] == declared and i < ast.typeEntry(tt, reads: reads, t: owner).typeArgs.count() 'bound'
+			return ast.typeEntry(tt, reads: reads, t: owner).typeArgs[i]
+		end 'bound'
+	end 'params'
+	return declared
+end 'boundType'
+
+// nichePayload is the type of the one payload of the case caseIndex of the union owner, as boundType gives it.
+function nichePayload(tt ast.TypeSlot, reads ast.TypeTable, owner ast.TypeID, caseIndex Count) returns ast.TypeID
+	let declared = ast.typeEntry(tt, reads: reads, t: ast.originOf(tt, reads: reads, t: owner)).cases[caseIndex].payload[0].ty
+	return boundType(tt, reads: reads, owner: owner, declared: declared)
+end 'nichePayload'
+
+// payloadCase is the case of a union in the niche form that carries the payload, and emptyCase the one the niche stands for.
+export function payloadCase(tt ast.TypeSlot, reads ast.TypeTable, t ast.TypeID) returns Count
+	if payloadsOf(tt, reads: reads, owner: t, caseIndex: 0) == 1 'first'
+		return 0
+	end 'first'
+	return 1
+end 'payloadCase'
+
+export function emptyCase(tt ast.TypeSlot, reads ast.TypeTable, t ast.TypeID) returns Count
+	if payloadCase(tt, reads: reads, t: t) == 0 'second'
+		return 1
+	end 'second'
+	return 0
+end 'emptyCase'
+
+// unionNicheWord is the word that stands for the empty case of a union in the niche form: its payload's niche.
+export function unionNicheWord(tt ast.TypeSlot, reads ast.TypeTable, t ast.TypeID) returns Word
+	return nicheWord(tt, reads: reads, t: nichePayload(tt, reads: reads, owner: t, caseIndex: payloadCase(tt, reads: reads, t: t)))
+end 'unionNicheWord'
+
+// errorInBox is whether a thrown error of the type t is the address of a box, which the failure hands to its caller to own:
+// a union held in a box. Any other error is a word plus its errorBias.
+export function errorInBox(tt ast.TypeSlot, reads ast.TypeTable, t ast.TypeID) returns bool
+	return ast.isUnionError(tt, reads: reads, t: t) and unionForm(tt, reads: reads, t: t) == UnionForm.unionBoxed
+end 'errorInBox'
+
+// errorBias is what a thrown error of the union or enum t adds to its word, so that the word a failure hands on is never 0,
+// which says no failure: 1 for a case index, and past the least word of a union held as a word. It is 0 for a union held in
+// a box, whose address is never 0.
+export function errorBias(tt ast.TypeSlot, reads ast.TypeTable, t ast.TypeID) returns Word
+	if ast.typeKind(tt, reads: reads, t: t) != ast.TypeKind.unionTy 'cases'
+		return 1
+	end 'cases'
+	return match unionForm(tt, reads: reads, t: t) 'form'
+		unionBoxed gives 0 as Word
+		unionCases gives 1 as Word
+		unionNiche gives try 1 - leastWord(tt, reads: reads, t: nichePayload(tt, reads: reads, owner: t, caseIndex: payloadCase(tt, reads: reads, t: t))) otherwise panic("ir: an error bias past a word")
+	end 'form'
+end 'errorBias'
 
 // boxBytes is the size of a box of a number of words of values (one for a box of none), and a first word for a union's
 // case index when tagged.
@@ -130,20 +267,22 @@ export function payloadsOf(tt ast.TypeSlot, reads ast.TypeTable, owner ast.TypeI
 end 'payloadsOf'
 
 // fieldWordsBefore is how many words the fields of the record owner before index take.
-function fieldWordsBefore(mutates tt ast.TypeSlot, reads ast.TypeTable, owner ast.TypeID, index Count) returns Count
+function fieldWordsBefore(tt ast.TypeSlot, reads ast.TypeTable, owner ast.TypeID, index Count) returns Count
+	let origin = ast.originOf(tt, reads: reads, t: owner)
 	var words = 0 as Count
 	for i in 0 upto index 'each'
-		let field = ast.fieldType(tt, reads: reads, owner: owner, index: i)
+		let field = boundType(tt, reads: reads, owner: owner, declared: ast.typeEntry(tt, reads: reads, t: origin).fields[i].ty)
 		words = try words + valueWords(tt, reads: reads, t: field) otherwise panic("ir: a box past memory")
 	end 'each'
 	return words
 end 'fieldWordsBefore'
 
 // payloadWordsBefore is how many words the payload of the case caseIndex of the union owner before index takes.
-function payloadWordsBefore(mutates tt ast.TypeSlot, reads ast.TypeTable, owner ast.TypeID, caseIndex Count, index Count) returns Count
+function payloadWordsBefore(tt ast.TypeSlot, reads ast.TypeTable, owner ast.TypeID, caseIndex Count, index Count) returns Count
+	let origin = ast.originOf(tt, reads: reads, t: owner)
 	var words = 0 as Count
 	for i in 0 upto index 'each'
-		let payload = ast.payloadType(tt, reads: reads, owner: owner, caseIndex: caseIndex, index: i)
+		let payload = boundType(tt, reads: reads, owner: owner, declared: ast.typeEntry(tt, reads: reads, t: origin).cases[caseIndex].payload[i].ty)
 		words = try words + valueWords(tt, reads: reads, t: payload) otherwise panic("ir: a box past memory")
 	end 'each'
 	return words

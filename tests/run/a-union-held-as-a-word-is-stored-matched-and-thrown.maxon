@@ -1,0 +1,146 @@
+typealias Small = int(0 to 1000)
+
+typealias Reg = int(-1 to 2147483647)
+
+typealias Maybes = Array with (Maybe with Small)
+
+enum Color
+	red
+	green
+end 'Color'
+
+union Maybe uses T
+	some(value T)
+	none
+end 'Maybe'
+
+union Light
+	off
+	dim
+	bright
+end 'Light'
+
+union Lookup
+	missing
+	found(at Small)
+end 'Lookup'
+
+union Fail
+	gone
+	code(n Small)
+end 'Fail'
+
+type Holder
+	export var a as Maybe with Small
+	export var b as Maybe with Color
+	export var c as Maybe with bool
+	export var d as Light
+
+	export static function make() returns Self
+		return Self{a: Maybe.some(3 as Small), b: Maybe.some(Color.green), c: Maybe.some(false), d: Light.dim}
+	end 'make'
+end 'Holder'
+
+function printLine(s String)
+	print("{s}\n")
+end 'printLine'
+
+let noneConst = Maybe.none as Maybe with Small
+
+function find(at Small) returns Lookup
+	if at > 5 'far'
+		return Lookup.missing
+	end 'far'
+	return Lookup.found(at)
+end 'find'
+
+function risky(n Small) throws Fail
+	if n == 0 'zero'
+		throw Fail.gone
+	end 'zero'
+	if n > 3 'big'
+		throw Fail.code(n)
+	end 'big'
+end 'risky'
+
+function show(m Maybe with Small) returns String
+	return match m 'm'
+		some(v) gives "some {v}"
+		none gives "none"
+	end 'm'
+end 'show'
+
+function showReg(m Maybe with Reg) returns String
+	return match m 'm'
+		some(v) gives "some {v}"
+		none gives "none"
+	end 'm'
+end 'showReg'
+
+function main() returns ExitCode
+	var xs = Maybes.create(0)
+	for i in 0 upto 4 'fill'
+		if i == 0 or i == 2 'even'
+			xs.push(Maybe.some(i as Small))
+		end 'even' else 'odd'
+			xs.push(Maybe.none)
+		end 'odd'
+	end 'fill'
+	for i in 0 upto xs.count() 'each'
+		printLine(show(xs[i].clone()))
+	end 'each'
+	var h = Holder.make()
+	printLine(show(h.a.clone()))
+	match h.b 'b'
+		some(c) then printLine("color {c}")
+		none then printLine("no color")
+	end 'b'
+	match h.c 'c'
+		some(f) then printLine("flag {f}")
+		none then printLine("no flag")
+	end 'c'
+	h.c = Maybe.none
+	match h.c 'c2'
+		some(f) then printLine("flag {f}")
+		none then printLine("no flag now")
+	end 'c2'
+	printLine("light {h.d}")
+	printLine(show(noneConst.clone()))
+	printLine(showReg(Maybe.some(-1 as Reg)))
+	printLine(showReg(Maybe.none))
+	match find(2) 'f'
+		found(at) then printLine("found {at}")
+		missing then printLine("missing")
+	end 'f'
+	match consumes find(9) 'f2'
+		found(at) then printLine("found {at}")
+		missing then printLine("missing")
+	end 'f2'
+	for n in 0 upto 6 'tries'
+		try risky(n as Small) otherwise (e) 'r'
+			match e 'e'
+				gone then printLine("{n}: gone")
+				code(k) then printLine("{n}: code {k}")
+			end 'e'
+		end 'r'
+	end 'tries'
+	return 0
+end 'main'
+
+//> some 0
+//> none
+//> some 2
+//> none
+//> some 3
+//> color green
+//> flag false
+//> no flag now
+//> light dim
+//> none
+//> some -1
+//> none
+//> found 2
+//> missing
+//> 0: gone
+//> 4: code 4
+//> 5: code 5

@@ -435,7 +435,7 @@ function dropPromise(mutates u CodeUnit, a ast.TargetArch, p ast.Project, mutate
 		rLoad(u, a: a, dst: rSecond, base: rFrame, disp: routineLocal0)
 		rTest(u, a: a, left: rSecond, right: rSecond)
 		rBranch(u, a: a, cond: MCond.equal, label: returned)
-		if ast.isUnionError(ms.types, reads: p.types, t: errTy) 'unionError'
+		if ir.errorInBox(ms.types, reads: p.types, t: errTy) 'unionError'
 			rLoad(u, a: a, dst: rWork, base: rFrame, disp: routineLocal0)
 			routineCall(u, a: a, p: p, ms: ms, kind: RoutineKind.dropRoutine, ty: errTy)
 		end 'unionError'

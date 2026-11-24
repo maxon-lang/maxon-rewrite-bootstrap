@@ -711,7 +711,8 @@ function callOn(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c 
 		writeBack(l, p: p, ms: ms, mark: places)
 	end 'plain' else 'throwing'
 		var errKind = IrKind.kindScalar
-		if ast.isUnionError(ms.types, reads: p.types, t: errTy) 'union'
+		let errApplied = applyType(l, p: p, ms: ms, t: errTy)
+		if errorInBox(ms.types, reads: p.types, t: errApplied) 'union'
 			errKind = IrKind.kindManaged
 		end 'union'
 		let err = newReg(l, kind: errKind)
@@ -726,7 +727,7 @@ function callOn(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c 
 		let zero = konst(l, value: 0 as Word)
 		let failed = compare(l, op: CmpOp.cmpNe, a: err, b: zero, unsigned: false)
 		let errDrop = errorDropType(l, p: p, ms: ms, t: errTy)
-		let stub = failure(l, p: p, ms: ms, errorCase: 0 as Count, err: err, errDrop: errDrop)
+		let stub = failureBiased(l, p: p, ms: ms, errorCase: 0 as Count, err: err, errDrop: errDrop, bias: errorBias(ms.types, reads: p.types, t: errApplied))
 		l.b.terminate(l.cur, t: newBranch(failed, ifTrue: stub, ifFalse: ok))
 		l.cur = ok
 	end 'throwing'
@@ -900,6 +901,9 @@ function record(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, t 
 	var bytes = 0 as Count
 	if tagged 'union'
 		caseIndex = try tag as Count otherwise panic("ir: a case index is out of range")
+		if unionForm(ms.types, reads: p.types, t: applied) != UnionForm.unionBoxed 'word'
+			return unionWord(l, p: p, ms: ms, t: applied, caseIndex: caseIndex, values: values)
+		end 'word'
 		bytes = caseBoxBytes(ms.types, reads: p.types, owner: applied, caseIndex: caseIndex)
 	end 'union' else 'fields'
 		bytes = recordBoxBytes(ms.types, reads: p.types, owner: applied)
@@ -943,11 +947,54 @@ function copyValue(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState,
 	return d
 end 'copyValue'
 
-function tagReg(mutates l Lowerer, box Reg) returns Reg
+// unionWord is a value of the union t that is held as a word (UnionForm): the case's index, or the payload of the case
+// that carries one, or the niche for the case that does not.
+function unionWord(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, t ast.TypeID, caseIndex Count, values ExprRefList) returns Reg
+	return match unionForm(ms.types, reads: p.types, t: t) 'form'
+		unionCases gives konst(l, value: try caseIndex as Word otherwise panic("ir: a case index is out of range"))
+		unionNiche gives nicheCaseWord(l, p: p, ms: ms, t: t, caseIndex: caseIndex, values: values)
+		unionBoxed gives panic("ir: a boxed union is no word")
+	end 'form'
+end 'unionWord'
+
+function nicheCaseWord(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, t ast.TypeID, caseIndex Count, values ExprRefList) returns Reg
+	if caseIndex == payloadCase(ms.types, reads: p.types, t: t) 'payload'
+		return exprIn(l, p: p, ms: ms, e: values[0])
+	end 'payload'
+	return konst(l, value: unionNicheWord(ms.types, reads: p.types, t: t))
+end 'nicheCaseWord'
+
+// tagReg is the case index of v, a value of the union t: read from its box, the word itself, or whether the word is the
+// niche.
+function tagReg(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, t ast.TypeID, v Reg) returns Reg
+	let applied = applyType(l, p: p, ms: ms, t: t)
+	let form = unionForm(ms.types, reads: p.types, t: applied)
+	if form == UnionForm.unionCases 'cases'
+		return v
+	end 'cases'
+	if form == UnionForm.unionNiche 'niche'
+		let niche = konst(l, value: unionNicheWord(ms.types, reads: p.types, t: applied))
+		if emptyCase(ms.types, reads: p.types, t: applied) == 1 'emptySecond'
+			return compare(l, op: CmpOp.cmpEq, a: v, b: niche, unsigned: false)
+		end 'emptySecond'
+		return compare(l, op: CmpOp.cmpNe, a: v, b: niche, unsigned: false)
+	end 'niche'
 	let d = newReg(l, kind: IrKind.kindScalar)
-	emit(l, i: newLoadField(d, obj: box, offset: tagOffset))
+	emit(l, i: newLoadField(d, obj: v, offset: tagOffset))
 	return d
 end 'tagReg'
+
+// unionPayload is the payload at index of the case caseIndex of v, a value of the union t, read as a register of kind:
+// lent from its box, or the word itself where the union is held in the niche form.
+function unionPayload(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, t ast.TypeID, v Reg, caseIndex Count, index Count, kind IrKind) returns Reg
+	let applied = applyType(l, p: p, ms: ms, t: t)
+	if unionForm(ms.types, reads: p.types, t: applied) == UnionForm.unionNiche 'niche'
+		return v
+	end 'niche'
+	let d = newReg(l, kind: kind)
+	emit(l, i: newLoadField(d, obj: v, offset: payloadOffset(ms.types, reads: p.types, owner: applied, caseIndex: caseIndex, index: index)))
+	return d
+end 'unionPayload'
 
 // caseNames are the names of the cases of an enum or a union, in the order of their indexes.
 function caseNames(p ast.Project, ms ast.ModuleState, t ast.TypeID) returns ast.StringList
@@ -997,7 +1044,7 @@ function visitMemberExpr(mutates l Lowerer, p ast.Project, mutates ms ast.Module
 	if kind == ast.MemberKind.memberUnionRaw 'unionRaw'
 		let ut = exprType(p, module: l.module, node: obj)
 		let u = lowerExpr(l, p: p, ms: ms, e: obj)
-		let tag = tagReg(l, box: u)
+		let tag = tagReg(l, p: p, ms: ms, t: ut, v: u)
 		return rawValueOf(l, p: p, ms: ms, t: ut, index: tag)
 	end 'unionRaw'
 	if kind == ast.MemberKind.memberRawField 'rawField'
@@ -1005,7 +1052,7 @@ function visitMemberExpr(mutates l Lowerer, p ast.Project, mutates ms ast.Module
 		let v = lowerExpr(l, p: p, ms: ms, e: obj)
 		var index = v
 		if ast.typeKind(ms.types, reads: p.types, t: ot) == ast.TypeKind.unionTy 'union'
-			index = tagReg(l, box: v)
+			index = tagReg(l, p: p, ms: ms, t: ot, v: v)
 		end 'union'
 		return rawFieldOf(l, p: p, ms: ms, t: ot, index: index, field: member.fieldIndex, ft: exprType(p, module: l.module, node: e))
 	end 'rawField'
@@ -1014,11 +1061,11 @@ function visitMemberExpr(mutates l Lowerer, p ast.Project, mutates ms ast.Module
 	end 'caseRead'
 	if kind == ast.MemberKind.memberUnionOrdinal 'unionOrdinal'
 		let u = lowerExpr(l, p: p, ms: ms, e: obj)
-		return tagReg(l, box: u)
+		return tagReg(l, p: p, ms: ms, t: exprType(p, module: l.module, node: obj), v: u)
 	end 'unionOrdinal'
 	if kind == ast.MemberKind.memberUnionName 'unionName'
 		let u = lowerExpr(l, p: p, ms: ms, e: obj)
-		let t = tagReg(l, box: u)
+		let t = tagReg(l, p: p, ms: ms, t: exprType(p, module: l.module, node: obj), v: u)
 		return names(l, index: t, names: caseNames(p, ms: ms, t: exprType(p, module: l.module, node: obj)))
 	end 'unionName'
 	panic("lower: unresolved member")
@@ -1326,7 +1373,7 @@ function strPart(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, p
 		return TextPart.make(names(l, index: v, names: caseNames(p, ms: ms, t: t)), owner: TextOwner.textImmortal)
 	end 'enum'
 	if kind == ast.TypeKind.unionTy 'union'
-		let tag = tagReg(l, box: v)
+		let tag = tagReg(l, p: p, ms: ms, t: t, v: v)
 		return TextPart.make(names(l, index: tag, names: caseNames(p, ms: ms, t: t)), owner: TextOwner.textImmortal)
 	end 'union'
 	if t == p.builtins.filePathTy 'path'

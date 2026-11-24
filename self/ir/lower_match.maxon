@@ -93,6 +93,12 @@ function payloadAt(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState,
 	return payloadOffset(ms.types, reads: p.types, owner: applied, caseIndex: caseIndex, index: index)
 end 'payloadAt'
 
+// heldAsWord is whether the subject of a match, of type st, is a union held as a word, whose payload is the word itself.
+function heldAsWord(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, st ast.TypeID) returns bool
+	let applied = applyType(l, p: p, ms: ms, t: st)
+	return ast.typeKind(ms.types, reads: p.types, t: applied) == ast.TypeKind.unionTy and unionForm(ms.types, reads: p.types, t: applied) != UnionForm.unionBoxed
+end 'heldAsWord'
+
 // borrowPayloads binds the payload an arm names to a borrow of the subject's box.
 function borrowPayloads(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, arm ast.NodeID, subject Reg, st ast.TypeID)
 	let patternsRef = ast.matchArmPatternsRef(p.modules[l.mi].tree, id: arm)
@@ -103,9 +109,7 @@ function borrowPayloads(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleS
 			if info.bindings[j] != ast.noLocal 'named'
 				let local = localEntry(p, module: l.fnModule, id: info.bindings[j])
 				let kind = kindOf(l, p: p, ms: ms, t: local.ty)
-				let d = newReg(l, kind: kind)
-				let offset = payloadAt(l, p: p, ms: ms, st: st, caseIndex: info.caseIdx, index: j)
-				emit(l, i: newLoadField(d, obj: subject, offset: offset))
+				let d = unionPayload(l, p: p, ms: ms, t: st, v: subject, caseIndex: info.caseIdx, index: j, kind: kind)
 				emit(l, i: newStoreSlot(slotOf(local), src: d, borrow: owning(kind)))
 			end 'named'
 		end 'bindings'
@@ -123,8 +127,13 @@ function takeApart(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState,
 		for j in 0 upto info.bindings.count() 'bindings'
 			if info.bindings[j] != ast.noLocal 'named'
 				let local = localEntry(p, module: l.fnModule, id: info.bindings[j])
-				let offset = payloadAt(l, p: p, ms: ms, st: st, caseIndex: info.caseIdx, index: j)
 				let kind = kindOf(l, p: p, ms: ms, t: local.ty)
+				if heldAsWord(l, p: p, ms: ms, st: st) 'word'
+					emit(l, i: newStoreSlot(slotOf(local), src: subject, borrow: false))
+					ownLocal(l, p: p, ms: ms, slot: slotOf(local), t: local.ty)
+					continue 'bindings'
+				end 'word'
+				let offset = payloadAt(l, p: p, ms: ms, st: st, caseIndex: info.caseIdx, index: j)
 				let d = newReg(l, kind: kind)
 				if owning(kind) 'managed'
 					let addr = newReg(l, kind: IrKind.kindScalar)
@@ -148,7 +157,7 @@ function testPattern(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleStat
 	if form == ast.PatternKind.patCase 'case'
 		var scrutinee = subject
 		if ast.typeKind(ms.types, reads: p.types, t: st) == ast.TypeKind.unionTy 'union'
-			scrutinee = tagReg(l, box: subject)
+			scrutinee = tagReg(l, p: p, ms: ms, t: st, v: subject)
 		end 'union'
 		let idx = konst(l, value: try patternInfoAt(p, module: l.module, node: pat).caseIdx as Word otherwise panic("ir: a case index is out of range"))
 		let cmp = compare(l, op: CmpOp.cmpEq, a: scrutinee, b: idx, unsigned: false)

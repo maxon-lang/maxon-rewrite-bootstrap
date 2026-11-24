@@ -112,7 +112,8 @@ function lowerServiceBody(mutates l Lowerer, p ast.Project, mutates ms ast.Modul
 	var err = noReg
 	if fn.errTy != ast.noType 'throws'
 		var errKind = IrKind.kindScalar
-		if ast.isUnionError(ms.types, reads: p.types, t: fn.errTy) 'union'
+		let errApplied = applyType(l, p: p, ms: ms, t: fn.errTy)
+		if errorInBox(ms.types, reads: p.types, t: errApplied) 'union'
 			errKind = IrKind.kindManaged
 		end 'union'
 		err = newReg(inner, kind: errKind)

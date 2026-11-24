@@ -405,35 +405,34 @@ function lowerSubprocessRun(mutates l Lowerer, p ast.Project, mutates ms ast.Mod
 end 'lowerSubprocessRun'
 
 function lowerSubprocessRunWithDeadline(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
-	let millis = deadlineMs(l, p: p, deadline: args[2])
+	let millis = deadlineMs(l, p: p, ms: ms, deadline: args[2])
 	return runSubprocess(l, p: p, ms: ms, c: c, executable: args[0], arguments: args[1], directory: noReg, input: noReg, deadlineMs: millis)
 end 'lowerSubprocessRunWithDeadline'
 
 function lowerSubprocessRunInDirectory(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
-	let millis = deadlineMs(l, p: p, deadline: args[3])
+	let millis = deadlineMs(l, p: p, ms: ms, deadline: args[3])
 	let directory = pathText(l, path: args[2])
 	return runSubprocess(l, p: p, ms: ms, c: c, executable: args[0], arguments: args[1], directory: directory, input: noReg, deadlineMs: millis)
 end 'lowerSubprocessRunInDirectory'
 
 function lowerSubprocessRunWithInput(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
-	let millis = deadlineMs(l, p: p, deadline: args[3])
+	let millis = deadlineMs(l, p: p, ms: ms, deadline: args[3])
 	return runSubprocess(l, p: p, ms: ms, c: c, executable: args[0], arguments: args[1], directory: noReg, input: args[2], deadlineMs: millis)
 end 'lowerSubprocessRunWithInput'
 
 // deadlineMs is the milliseconds a WaitDeadline gives, noDeadline for none.
-function deadlineMs(mutates l Lowerer, p ast.Project, deadline Reg) returns Reg
+function deadlineMs(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, deadline Reg) returns Reg
 	let millis = l.b.f.newSlot(IrKind.kindScalar)
 	let never = konst(l, value: noDeadline)
 	emit(l, i: newStoreSlot(millis, src: never, borrow: false))
 	let within = l.b.newBlock()
 	let join = l.b.newBlock()
-	let tag = tagReg(l, box: deadline)
+	let tag = tagReg(l, p: p, ms: ms, t: p.builtins.waitDeadlineTy, v: deadline)
 	let withinCase = konst(l, value: try ast.waitDeadlineWithin as Word otherwise panic("ir: a case index is out of range"))
 	let isWithin = compare(l, op: CmpOp.cmpEq, a: tag, b: withinCase, unsigned: false)
 	l.b.terminate(l.cur, t: newBranch(isWithin, ifTrue: within, ifFalse: join))
 	l.cur = within
-	let payload = newReg(l, kind: IrKind.kindScalar)
-	emit(l, i: newLoadField(payload, obj: deadline, offset: fieldOffset(payloadField, tagged: true)))
+	let payload = unionPayload(l, p: p, ms: ms, t: p.builtins.waitDeadlineTy, v: deadline, caseIndex: ast.waitDeadlineWithin, index: payloadField, kind: IrKind.kindScalar)
 	emit(l, i: newStoreSlot(millis, src: payload, borrow: false))
 	goTo(l, target: join)
 	return load(l, slot: millis)
@@ -447,7 +446,7 @@ function runSubprocess(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleSt
 	let stdout = l.b.f.newSlot(IrKind.kindString)
 	let stderr = l.b.f.newSlot(IrKind.kindString)
 	let dst = newReg(l, kind: IrKind.kindScalar)
-	let exe = executableText(l, p: p, exe: executable)
+	let exe = executableText(l, p: p, ms: ms, exe: executable)
 	var all = RegList.create(0)
 	all.push(exe)
 	all.push(arguments)
@@ -475,24 +474,22 @@ function runSubprocess(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleSt
 end 'runSubprocess'
 
 // executableText is the String an Executable names, a name or a path's, lent for as long as the Executable is.
-function executableText(mutates l Lowerer, p ast.Project, exe Reg) returns Reg
+function executableText(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, exe Reg) returns Reg
 	let text = l.b.f.newSlot(IrKind.kindString)
 	let path = l.b.newBlock()
 	let name = l.b.newBlock()
 	let join = l.b.newBlock()
-	let tag = tagReg(l, box: exe)
+	let tag = tagReg(l, p: p, ms: ms, t: p.builtins.executableTy, v: exe)
 	let pathCase = konst(l, value: try ast.executablePath as Word otherwise panic("ir: a case index is out of range"))
 	let isPath = compare(l, op: CmpOp.cmpEq, a: tag, b: pathCase, unsigned: false)
 	l.b.terminate(l.cur, t: newBranch(isPath, ifTrue: path, ifFalse: name))
 	l.cur = path
-	let filePath = newReg(l, kind: IrKind.kindManaged)
-	emit(l, i: newLoadField(filePath, obj: exe, offset: fieldOffset(payloadField, tagged: true)))
+	let filePath = unionPayload(l, p: p, ms: ms, t: p.builtins.executableTy, v: exe, caseIndex: ast.executablePath, index: payloadField, kind: IrKind.kindManaged)
 	let pathString = pathText(l, path: filePath)
 	emit(l, i: newStoreSlot(text, src: pathString, borrow: true))
 	goTo(l, target: join)
 	l.cur = name
-	let nameString = newReg(l, kind: IrKind.kindString)
-	emit(l, i: newLoadField(nameString, obj: exe, offset: fieldOffset(payloadField, tagged: true)))
+	let nameString = unionPayload(l, p: p, ms: ms, t: p.builtins.executableTy, v: exe, caseIndex: ast.executableName, index: payloadField, kind: IrKind.kindString)
 	emit(l, i: newStoreSlot(text, src: nameString, borrow: true))
 	goTo(l, target: join)
 	l.cur = join
@@ -522,7 +519,7 @@ end 'lowerSchedulerUnpinFromMachine'
 
 // The debug port's functions call their entries with their words, byte arrays and the executable's text as they are.
 function lowerDebuggeeLaunch(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
-	let exe = executableText(l, p: p, exe: args[0])
+	let exe = executableText(l, p: p, ms: ms, exe: args[0])
 	let dst = newReg(l, kind: IrKind.kindScalar)
 	return failing(l, p: p, ms: ms, site: siteOf(l, p: p, node: c.node), dst: dst, symbol: Rt.rtDebugLaunch, args: argsOf3(exe, b: args[1], c: args[2]))
 end 'lowerDebuggeeLaunch'

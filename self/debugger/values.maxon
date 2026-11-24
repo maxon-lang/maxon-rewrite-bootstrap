@@ -15,7 +15,7 @@ let nullDisplay = "<null>"
 
 let structDisplay = "\{…\}"
 
-let voidPayloadName = "Void"
+let voidPayloadName = "void"
 
 let boolTypeName = "Bool"
 
@@ -236,6 +236,9 @@ function renderTyped(mutates tree ValueTree, host WindowsHost, reader mxdbg.Mxdb
 	if kindWord == mxdbg.MxdbgTypeKindUnion 'union'
 		return renderUnion(tree, host: host, reader: reader, name: name, typeId: typeId, kind: kind, box: raw)
 	end 'union'
+	if kindWord == mxdbg.MxdbgTypeKindUnionWord 'unionWord'
+		return renderUnionWord(tree, host: host, reader: reader, name: name, typeId: typeId, kind: kind, raw: raw)
+	end 'unionWord'
 	if kindWord == mxdbg.MxdbgTypeKindArray 'array'
 		return renderArray(tree, host: host, reader: reader, name: name, typeId: typeId, kind: kind, box: raw)
 	end 'array'
@@ -340,6 +343,45 @@ function renderUnion(mutates tree ValueTree, host WindowsHost, reader mxdbg.Mxdb
 	end 'cases'
 	return rendered(tree, name: name, typeName: typeName, kind: kind, display: "<tag {tag}>")
 end 'renderUnion'
+
+// highOffsetBits is the high half of a word whose low half is an offset with its sign bit set: an offset is 32 bits, and
+// the word that stands for a case of a union held as a word may be negative.
+let highOffsetBits = 0xFFFFFFFF00000000 as Count
+
+let offsetSignBit = 0x80000000 as Count
+
+// renderUnionWord is the case a union held as a word holds (UnionWord): a case with no payload where the word is the one its
+// field's offset gives, and else the case that carries a payload, which is the word itself.
+function renderUnionWord(mutates tree ValueTree, host WindowsHost, reader mxdbg.MxdbgReader, name String, typeId Count, kind String, raw Count) returns Count
+	let typeName = reader.typeName(typeId)
+	let first = reader.typeFieldFirst(typeId)
+	var carrier = table.Option.none as table.Option with Count
+	for k in first upto plus(first, by: reader.typeFieldCount(typeId)) 'cases'
+		if reader.typeName(reader.fieldType(k) as Count) != voidPayloadName 'carries'
+			carrier = table.Option.some(k)
+			continue 'cases'
+		end 'carries'
+		var word = reader.fieldOffset(k) as Count
+		if word >= offsetSignBit 'negative'
+			word = word or highOffsetBits
+		end 'negative'
+		if word == raw 'this'
+			return rendered(tree, name: name, typeName: typeName, kind: kind, display: reader.fieldName(k))
+		end 'this'
+	end 'cases'
+	if not carrier.isSome() 'bare'
+		return rendered(tree, name: name, typeName: typeName, kind: kind, display: "<tag {raw}>")
+	end 'bare'
+	let k = carrier.unwrap()
+	let children = payloadChild(tree, host: host, reader: reader, field: k, raw: raw)
+	return withChildren(tree, name: name, typeName: typeName, kind: kind, display: reader.fieldName(k), children: children)
+end 'renderUnionWord'
+
+function payloadChild(mutates tree ValueTree, host WindowsHost, reader mxdbg.MxdbgReader, field Count, raw Count) returns CountList
+	var children = CountList.create(0)
+	children.push(renderTyped(tree, host: host, reader: reader, name: reader.fieldName(field), typeId: reader.fieldType(field) as Count, source: Source.words(raw, second: 0)))
+	return children
+end 'payloadChild'
 
 // renderArray is an array's length and its first elements as children.
 function renderArray(mutates tree ValueTree, host WindowsHost, reader mxdbg.MxdbgReader, name String, typeId Count, kind String, box Count) returns Count

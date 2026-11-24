@@ -203,7 +203,7 @@ function datumWord(mutates b DatumBuild, p ast.Project, ms ast.ModuleState, modu
 			return true
 		end 'enumCase'
 		if member.kind == ast.MemberKind.memberUnionCase 'unionCase'
-			return datumRecord(b, p: p, ms: ms, tag: indexOf(member.enumCase), module: module, values: ExprRefList.create(0), w: w)
+			return datumRecord(b, p: p, ms: ms, t: ty, tag: indexOf(member.enumCase), module: module, values: ExprRefList.create(0), w: w)
 		end 'unionCase'
 		// A field, a raw value or a name read off another value is read where the constant is.
 		return false
@@ -229,7 +229,7 @@ function datumWord(mutates b DatumBuild, p ast.Project, ms ast.ModuleState, modu
 				values.push(ExprRef.make(ast.typeEntry(ms.types, reads: p.types, t: origin).decl.module, node: ast.typeEntry(ms.types, reads: p.types, t: origin).fields[i].defaultExpr))
 			end 'default'
 		end 'each'
-		return datumRecord(b, p: p, ms: ms, tag: noTag, module: module, values: values, w: w)
+		return datumRecord(b, p: p, ms: ms, t: lit.ty, tag: noTag, module: module, values: values, w: w)
 	end 'structLitExpr'
 	if k == ast.NodeKind.collectionLitExpr 'collectionLitExpr'
 		return datumArray(b, p: p, ms: ms, module: module, e: e, ty: ty, w: w)
@@ -303,7 +303,7 @@ function datumCall(mutates b DatumBuild, p ast.Project, ms ast.ModuleState, modu
 			end 'defaulted'
 			values.push(ExprRef.make(module, node: info.ordered[i]))
 		end 'each'
-		return datumRecord(b, p: p, ms: ms, tag: indexOf(info.unionCase), module: module, values: values, w: w)
+		return datumRecord(b, p: p, ms: ms, t: exprType(p, module: module, node: e), tag: indexOf(info.unionCase), module: module, values: values, w: w)
 	end 'ctor'
 	if info.kind != ast.CallKind.callStatic 'notFactory'
 		return false
@@ -348,10 +348,25 @@ function datumCall(mutates b DatumBuild, p ast.Project, ms ast.ModuleState, modu
 	return known
 end 'datumCall'
 
-// datumRecord lays out a box of words: the case index first when tag is one, then a word for each value, padded to the
-// size lowering gives the box.
-function datumRecord(mutates b DatumBuild, p ast.Project, ms ast.ModuleState, tag Index, module diag.ModuleID, values ExprRefList, mutates w DatumWord) returns bool
+// datumRecord lays out a box of words of the type t: the case index first when tag is one, then a word for each value,
+// padded to the size lowering gives the box. A union held as a word is that word (UnionForm).
+function datumRecord(mutates b DatumBuild, p ast.Project, ms ast.ModuleState, t ast.TypeID, tag Index, module diag.ModuleID, values ExprRefList, mutates w DatumWord) returns bool
 	let tagged = tag != noTag
+	if tagged and ast.typeKind(ms.types, reads: p.types, t: t) == ast.TypeKind.unionTy 'union'
+		let caseIndex = try tag as Count otherwise panic("ir: a case index past a word")
+		let form = unionForm(ms.types, reads: p.types, t: t)
+		if form == UnionForm.unionCases 'cases'
+			w = DatumWord.make(DatumPart.scalar, value: try caseIndex as Word otherwise panic("ir: a case index past a word"))
+			return true
+		end 'cases'
+		if form == UnionForm.unionNiche 'niche'
+			if caseIndex == payloadCase(ms.types, reads: p.types, t: t) 'payload'
+				return datumWord(b, p: p, ms: ms, module: values[0].module, e: values[0].node, w: w)
+			end 'payload'
+			w = DatumWord.make(DatumPart.scalar, value: unionNicheWord(ms.types, reads: p.types, t: t))
+			return true
+		end 'niche'
+	end 'union'
 	let at = b.d.boxes.count()
 	b.d.boxes.push(DatumBox.make(DatumShape.words, first: 0, count: 0))
 	var parts = DatumWordList.create(0)

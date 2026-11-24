@@ -108,7 +108,7 @@ type DebugTypes
 			constFloat then self.begin(t, name: name, kind: mxdbg.MxdbgTypeKindFloatRanged, size: wordSize, align: wordSize, flag: mxdbg.MxdbgTypeFlagSigned)
 			record then self.describeRecord(p, ms: ms, t: t, name: name)
 			enumTy then self.describeCases(p, ms: ms, t: t, name: name, kind: mxdbg.MxdbgTypeKindEnum)
-			unionTy then self.describeCases(p, ms: ms, t: t, name: name, kind: mxdbg.MxdbgTypeKindUnion)
+			unionTy then self.describeCases(p, ms: ms, t: t, name: name, kind: unionKind(p, ms: ms, t: t))
 			builtinArray then self.describeArray(p, ms: ms, t: t, name: name)
 			builtinHandle then self.begin(t, name: name, kind: mxdbg.MxdbgTypeKindPrimitive, size: wordSize, align: wordSize, flag: 0)
 			builtinList or
@@ -180,7 +180,7 @@ type DebugTypes
 		end 'cases'
 		self.begin(t, name: name.clone(), kind: kind, size: size, align: wordSize, flag: 0)
 		for c in 0 upto cases 'fields'
-			self.addField(ast.typeEntry(ms.types, reads: p.types, t: origin).cases[c].name.clone(), offset: c, t: payloads[c])
+			self.addField(ast.typeEntry(ms.types, reads: p.types, t: origin).cases[c].name.clone(), offset: caseWord(p, ms: ms, t: t, kind: kind, caseIndex: c), t: payloads[c])
 		end 'fields'
 	end 'describeCases'
 
@@ -259,3 +259,27 @@ function sortByName(mutates order CountList, mutates scratch CountList, names as
 		order[x] = scratch[x]
 	end 'copy'
 end 'sortByName'
+
+// unionKind is the debug kind of the union t: a box, or a word where the union is held as one (ir.UnionForm).
+function unionKind(p ast.Project, ms ast.ModuleState, t ast.TypeID) returns mxdbg.MxdbgIndex
+	if ir.unionForm(ms.types, reads: p.types, t: t) == ir.UnionForm.unionBoxed 'box'
+		return mxdbg.MxdbgTypeKindUnion
+	end 'box'
+	return mxdbg.MxdbgTypeKindUnionWord
+end 'unionKind'
+
+// wordOffsetBits is how many bits a field's offset has, which the word that stands for a case is truncated to.
+let wordOffsetModulus = 4294967296 as ir.Word
+
+// caseWord is the offset the debug info gives the case caseIndex of t: its case index, except in a union held in the niche
+// form, whose case with no payload is at its niche, truncated to the 32 bits of an offset (an immediate reaches it).
+function caseWord(p ast.Project, ms ast.ModuleState, t ast.TypeID, kind mxdbg.MxdbgIndex, caseIndex Count) returns Count
+	if kind != mxdbg.MxdbgTypeKindUnionWord or ir.unionForm(ms.types, reads: p.types, t: t) != ir.UnionForm.unionNiche or caseIndex != ir.emptyCase(ms.types, reads: p.types, t: t) 'index'
+		return caseIndex
+	end 'index'
+	let niche = ir.unionNicheWord(ms.types, reads: p.types, t: t)
+	if niche < 0 'negative'
+		return try (niche + wordOffsetModulus) as Count otherwise panic("backend: a niche past an offset")
+	end 'negative'
+	return try niche as Count otherwise panic("backend: a niche past an offset")
+end 'caseWord'

@@ -1345,8 +1345,9 @@ where each local is, `debug --symbolize` and `--dump-info`, which read it, and t
   caller's stack pointer, its parameters, and where its prologue ends.
 - **Types** (`self/backend/debugtypes.maxon`, maxon's `MxdbgTypeTable`) are every type a local has, closed over their
   fields, cases and elements, numbered in the order of their names: a value is a word and a String two in place (`stringValueBytes`,
-  kind `string`, no fields: a reader takes its words by the layout's constants), a record, a union and an array the address of a box (`struct` with its fields at their
-  offsets, `union` with a field per case at its case index typed by its payload, `array` with its element type), an enum
+  kind `string`, no fields: a reader takes its words by the layout's constants), a record, a union held in a box and an array the address of a box (`struct` with its fields at their
+  offsets, `union` with a field per case at its case index typed by its payload, `array` with its element type), a union held as a word
+  that word (`unionWord`, its cases without a payload at the word that stands for each: the case index, or the niche), an enum
   its case index (its cases' offsets), an integer alias 8 bytes and signed when its range is, a bool one byte.
 - **The sidecar** has maxon's layout (`self/mxdbg/format.maxon`): a 160-byte header (the target, the build id, the root,
   the image base, the compiler), the files (the runtime's as `runtime/<file>`, the library's by its module's path, the
@@ -1678,7 +1679,7 @@ parameter passed by address (`mutates`, `sets`) and a result that `returns borro
 takes words, as its thunk passes the words of the behaviour's record, and so do a runtime entry (`runtime`), whose
 signature `check runtime` holds to words, `callcode`, the drop and copy routines, the thread start and the entry stub.
 
-Records and union values are heap boxes of 8-byte words (a union's first word is its case index), allocated by the running
+Records, and unions held in a box, are heap boxes of 8-byte words (a union's first word is its case index), allocated by the running
 thread's heap (`runtime::alloc`, see "Native freeing") and freed by it (`runtime::free`) where their owner dies (see "Drops"); a box is
 zeroed when it is allocated. A String is two words (see "The IR"): a literal's bytes live in the executable's read-only data
 and are never freed, and any other string's bytes are a buffer on the heap. An enum value is its case index. A constant
@@ -1694,6 +1695,16 @@ niche (a bit pattern no value has: a managed word's 0, a ranged integer's word b
 last case, a bool's past true), and the size of a record's or a union case's box and the offset of each field and payload.
 Lowering, the drop and copy routines, the datums, a map's groups, the register kinds and the debug info all ask it, and it
 computes each answer from the declarations without allocating, so a change of layout is a change of its answers.
+
+A union is held as its form says (`ir.UnionForm`): where no case carries a payload, as its case index, a word like an enum's;
+where one case carries one integer, enum or bool that has a niche and the only other case carries nothing (`Option with
+Count`, an Option of a handle, `Option with bool`), as that payload, with the niche standing for the other case (a `Count`'s
+-1, an enum's case count, a bool's 2; an integer's niche is the word below its least value where an immediate reaches it, so
+the test of the case is one compare); and otherwise as a box. A union held as a word holds nothing to drop, so it is a
+scalar of the IR: `Option.none` and an Option of a number allocate nothing, an array of them is an array of words, and a
+match reads the case from the word. A thrown error of such a union is its word plus a bias that makes it nonzero, as an
+enum's case plus 1 is (`ir.errorBias`), and the debug info gives it the kind `unionWord`, each case without a payload at
+the word that stands for it.
 
 ### Constants in the data section
 

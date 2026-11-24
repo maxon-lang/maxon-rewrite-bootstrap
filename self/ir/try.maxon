@@ -22,10 +22,15 @@ export function leaveTry(mutates l Lowerer)
 end 'leaveTry'
 
 // failure is the block an operation goes to when it fails with the error errorCase, or with the error in the register err
-// when that is not noReg: a case plus 1, as a function that throws an enum gives it, or the box of an error union, whose
-// drop type is then errDrop (noType for an enum, see errorDropType). The box is the failure's own, which a handler that
-// names no error drops.
+// when that is not noReg: a word plus its bias (errorBias), as a function that throws an enum or a union held as a word
+// gives it, or the box of an error union, whose drop type is then errDrop (noType for a word, see errorDropType). bias is
+// the bias of the error the handler binds. The box is the failure's own, which a handler that names no error drops.
 export function failure(mutates l Lowerer, p ast.Project, ms ast.ModuleState, errorCase Count, err Reg, errDrop ast.TypeID) returns BlockID
+	return failureBiased(l, p: p, ms: ms, errorCase: errorCase, err: err, errDrop: errDrop, bias: 1 as Word)
+end 'failure'
+
+// failureBiased is failure of an error whose word is counted from bias.
+export function failureBiased(mutates l Lowerer, p ast.Project, ms ast.ModuleState, errorCase Count, err Reg, errDrop ast.TypeID, bias Word) returns BlockID
 	if l.handlers.count() == 0 'unhandled'
 		panic("lower: an operation of {funcSymbol(p, tt: ms.types, reads: p.types, ft: ms.funcs, funcReads: p.funcs, fid: l.fn)} that can fail is outside every try; the range analysis should have refused it")
 	end 'unhandled'
@@ -55,9 +60,8 @@ export function failure(mutates l Lowerer, p ast.Project, ms ast.ModuleState, er
 			if error == noReg 'literal'
 				v = konst(l, value: try errorCase as Word otherwise panic("ir: an error case is out of range"))
 			end 'literal' else 'register'
-				v = newReg(l, kind: IrKind.kindScalar)
-				let one = konst(l, value: 1 as Word)
-				emit(l, i: newBin(v, op: BinOp.binSub, left: error, right: one, unsigned: false, fail: noBlock))
+				let biasReg = konst(l, value: bias)
+				v = wrappingBin(l, op: BinOp.binSub, a: error, b: biasReg, kind: IrKind.kindScalar)
 			end 'register'
 			emit(l, i: newStoreSlot(slotIndex(h.binding), src: v, borrow: false))
 		end 'binding'
@@ -65,7 +69,7 @@ export function failure(mutates l Lowerer, p ast.Project, ms ast.ModuleState, er
 	end 'handled'
 	l.cur = resume
 	return stub
-end 'failure'
+end 'failureBiased'
 
 // dropPending drops the values in flight from index from to index to, newest first.
 function dropPending(mutates l Lowerer, first Count, past Count)
@@ -97,14 +101,14 @@ function visitThrowStmt(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleS
 	// The throw takes the value: a failure from here on hands it to the caller or to a handler, and drops nothing of it.
 	popPending(l, n: mark)
 	var err = value
-	if not ast.isUnionError(ms.types, reads: p.types, t: thrown) 'case'
-		err = newReg(l, kind: IrKind.kindScalar)
-		let one = konst(l, value: 1 as Word)
-		emit(l, i: newBin(err, op: BinOp.binAdd, left: value, right: one, unsigned: false, fail: noBlock))
-	end 'case'
+	let applied = applyType(l, p: p, ms: ms, t: thrown)
+	if not errorInBox(ms.types, reads: p.types, t: applied) 'word'
+		let biasReg = konst(l, value: errorBias(ms.types, reads: p.types, t: applied))
+		err = wrappingBin(l, op: BinOp.binAdd, a: value, b: biasReg, kind: IrKind.kindScalar)
+	end 'word'
 	let added = enterPropagating(l)
 	let errDrop = errorDropType(l, p: p, ms: ms, t: thrown)
-	let stub = failure(l, p: p, ms: ms, errorCase: 0 as Count, err: err, errDrop: errDrop)
+	let stub = failureBiased(l, p: p, ms: ms, errorCase: 0 as Count, err: err, errDrop: errDrop, bias: errorBias(ms.types, reads: p.types, t: applied))
 	seal(l, t: newJump(stub))
 	if added 'leave'
 		leaveTry(l)
@@ -113,10 +117,11 @@ end 'visitThrowStmt'
 
 // errorDropType is the type that drops the error of the type t, which is noType for an enum: its errors are numbers.
 export function errorDropType(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, t ast.TypeID) returns ast.TypeID
-	if not ast.isUnionError(ms.types, reads: p.types, t: t) 'enum'
+	let ty = dropType(l, p: p, ms: ms, t: t)
+	if not errorInBox(ms.types, reads: p.types, t: ty) 'word'
 		return ast.noType
-	end 'enum'
-	return dropType(l, p: p, ms: ms, t: t)
+	end 'word'
+	return ty
 end 'errorDropType'
 
 // tryBindingSlot is the slot of the error that the handler of the try at node names, noSlot for one that names none.
