@@ -46,6 +46,10 @@ func gate() {
 		fmt.Fprint(os.Stderr, usage)
 		os.Exit(2)
 	}
+	// Set once for the gate's own process: everything it starts inherits it, and a waiting gate holds no core.
+	if err := lowerPriority(); err != nil {
+		fail(err)
+	}
 	root, err := repoRoot()
 	if err != nil {
 		fail(err)

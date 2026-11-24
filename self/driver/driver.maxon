@@ -183,6 +183,9 @@ export function run(args Array with String) returns ExitCode
 		printError("the command '{command}' does not exist in this compiler\n{usage()}")
 		return usageExitCode
 	end 'absentCommand'
+	if runsAtBackgroundPriority(command) 'background'
+		_ = Process.enterBackgroundPriority()
+	end 'background'
 	if command == "test" 'test'
 		return testCommand(rest, given: options)
 	end 'test'
@@ -247,6 +250,13 @@ function isAbsentCommand(name String) returns bool
 	end 'each'
 	return false
 end 'isAbsentCommand'
+
+// runsAtBackgroundPriority is whether a command is one that keeps every core busy: it puts the compiler's own process at
+// background priority before it starts anything, so a foreground job preempts it, and the compilers and executables it
+// starts inherit that. `run` is not one, since the program it starts is the user's.
+function runsAtBackgroundPriority(command String) returns bool
+	return command == "test" or command == "selftest" or command == "fuzz" or command == "build" or command == "check"
+end 'runsAtBackgroundPriority'
 
 // defaultOutput is the executable a build of path makes when no -o names one: the path without its extension and with the
 // executable's.

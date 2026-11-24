@@ -39,6 +39,12 @@ runs every check (see "Tests"). The generators and the tools need Go 1.27; `go g
 generator. The scripts only call `cmd/gate`, which holds the gate's steps, the seeds' renewal, the regeneration of
 `specs/` and the build (`go run ./cmd/gate check|suites|seed|specs|build`), so that every host runs the same steps.
 
+The commands that keep every core busy, `test`, `selftest`, `fuzz`, `build` and `check`, put the compiler's own process at
+background priority first (`Process.enterBackgroundPriority()`), so a foreground job preempts them and the compilers and
+executables they start inherit it; a lowered process still gets every idle core, so the runtime goes on using all of them.
+`run` keeps the priority it was started with, and so does the program it starts. The gate does the same for its own process
+(below-normal class on Windows, nice 10 on Linux and macOS), so everything it starts runs at background priority.
+
 ### Building on Linux
 
 On x64 Linux the compiler is built and gated from `seed/minimaxon-x64-linux`, with Go 1.27 and a POSIX shell and nothing
@@ -4406,6 +4412,9 @@ the checker reports where Maxon's parser does, as it needs the type of the value
 
 ### Where it differs from Maxon
 
+- **More commands run at background priority.** Maxon lowers only `spec-test`, which puts itself at background priority
+  (`Process.enterBackgroundPriority()`) once its worker branch is past, so its workers and test binaries inherit it.
+  minimaxon does so for `test`, `selftest`, `fuzz`, `build` and `check` as well, and its gate lowers itself the same way.
 - **A String is built by interpolation.** There is no `StringBuilder` and no `String.append`: an interpolation assigned
   back to the String it starts with, `s = "{s}{x}"`, appends in place, and an interpolation is one allocation with each
   part written into place (see "Text"). `fix` (which `specs.ps1` and `stdlib.ps1` run) writes a statement `place.append(x)`
