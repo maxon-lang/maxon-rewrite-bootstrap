@@ -271,6 +271,7 @@ function checkFixingFor(prog FixProgram, target ast.Target) returns diag.ErrorLi
 	var errs = diag.ErrorList.create(0)
 	var options = Options.new()
 	options.target = target.clone()
+	options.stagesInLibrary = prog.inLibrary
 	var p = projectFor(options)
 	if prog.single 'single'
 		project.loadSourceInto(p, path: prog.files[0].path, text: prog.files[0].text, errs: errs)
