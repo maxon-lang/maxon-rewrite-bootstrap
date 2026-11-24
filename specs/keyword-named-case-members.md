@@ -927,7 +927,6 @@ end 'main'
 ```
 
 <!-- test: a-keyword-named-function-after-a-case-list-spelling-match -->
-<!-- skip: 'gives' is a keyword in minimaxon and cannot be used as a name; rename it -->
 <!-- skip: for loops over graphemes(), characters(), split() or lines() of a string are not supported in minimaxon; loop over the string itself, whose elements are its grapheme clusters, or a view -->
 The other thing a leaked `match` opener would cost: a function NAMED with an arm separator, declared
 after such an enum, is a declaration — not a case-name arm — because the case list closed at its `end`.
@@ -942,7 +941,6 @@ enum Kw
 	omega
 end 'Kw'
 
-// TODO: 'gives' is a keyword in minimaxon and cannot be used as a name; rename it
 function gives(x Idx) returns Idx
 	return x * 10
 end 'gives'

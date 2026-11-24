@@ -129,6 +129,8 @@ end 'ParenScan'
 
 // Parser holds what the generated parse functions (parser_gen.maxon) share: the module's source, its token stream, the
 // position in it, and the file the parser is in.
+typealias NameWords = Array with diag.U32
+
 type Parser
 	var src as Source
 	var toks as Tokens
@@ -157,6 +159,9 @@ type Parser
 	var libraryTier as bool
 	// initializer is the name of the module-level or static let whose initializer is being parsed, or empty outside one.
 	var initializer as String
+	// nameWords is where each keyword that the parser took as a name starts, in text order: a rename of the keyword leaves
+	// these alone.
+	var nameWords as NameWords
 
 	static function new(consumes src Source, consumes toks Tokens, module diag.ModuleID) returns Parser
 		let text = src.text.clone()
@@ -164,7 +169,7 @@ type Parser
 		if src.files.count() > 0 'first'
 			prevEnd = src.files[0].start as Count
 		end 'first'
-		return Parser{src: src, toks: toks, tree: ast.Tree.new(module, text: text), lists: ListStacks.new(), pos: 0 as Count, fileIndex: 0 as Count, errors: diag.ErrorList.create(0), prevEnd: prevEnd, prevKind: TokenKind.fileEnd, joinNext: false, blanks: BlankRule.firstInFile, format: Formatter.new(), formatting: false, layoutOnly: false, directives: ast.StringList.create(0), directiveNext: 0 as Count, libraryTier: false, initializer: ""}
+		return Parser{src: src, toks: toks, tree: ast.Tree.new(module, text: text), lists: ListStacks.new(), pos: 0 as Count, fileIndex: 0 as Count, errors: diag.ErrorList.create(0), prevEnd: prevEnd, prevKind: TokenKind.fileEnd, joinNext: false, blanks: BlankRule.firstInFile, format: Formatter.new(), formatting: false, layoutOnly: false, directives: ast.StringList.create(0), directiveNext: 0 as Count, libraryTier: false, initializer: "", nameWords: NameWords.create(0)}
 	end 'new'
 
 	function fileNumber() returns Count
@@ -709,6 +714,13 @@ type Parser
 			throw SyntaxError.refused
 		end 'prefixed'
 	end 'declares'
+
+	// nameWord notes t where it is one of keywords, those that its place takes as a name.
+	function nameWord(mutates self, t Token, keywords String)
+		if t.kind != TokenKind.name and inTokenSet(keywords, kind: t.kind) 'keyword'
+			nameWords.push(t.start)
+		end 'keyword'
+	end 'nameWord'
 
 	// initializes is declares for a module-level or static let, whose initializer is parsed next.
 	function initializes(mutates self, t Token) throws SyntaxError

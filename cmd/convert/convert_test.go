@@ -669,14 +669,9 @@ func TestConvertUnsupportedConstructsEmitTodosAndWarnings(t *testing.T) {
 			wantTodo: "'Type from value' takes an array literal or a string literal",
 		},
 		{
-			name:     "keyword as a function name",
-			in:       "type Attr\n\tstatic function int(key String) returns Attr\n\t\treturn Attr{}\n\tend 'int'\nend 'Attr'\n",
-			wantTodo: "'int' is a keyword in minimaxon",
-		},
-		{
-			name:     "keyword as a parameter name",
-			in:       "function f(otherwise Count) returns Count\n\treturn otherwise\nend 'f'\n",
-			wantTodo: "'otherwise' is a keyword in minimaxon",
+			name:     "a parameter named by a keyword that starts a statement",
+			in:       "function f(return Count) returns Count\n\treturn 0\nend 'f'\n",
+			wantTodo: "a parameter named 'return' cannot be read",
 		},
 		{
 			name:     "extension of a library type with no counterpart",

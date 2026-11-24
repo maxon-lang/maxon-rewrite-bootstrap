@@ -29,20 +29,18 @@ binding like any other word.
 ## Tests
 
 <!-- test: type-as-parameter-name-crossfile -->
-<!-- skip: 'type' is a keyword in minimaxon and cannot be used as a name; rename it -->
 ```maxon
 // --- file: api/shared.maxon
 export typealias StdType = int(i64.min to i64.max)
 
 // --- file: api/helper.maxon
-// TODO: 'type' is a keyword in minimaxon and cannot be used as a name; rename it
 export function identity(type StdType) returns StdType
 	return type
 end 'identity'
 
 // --- file: app/main.maxon
 function main() returns ExitCode
-	return identity(42)
+	return try api.identity(42) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -50,20 +48,18 @@ end 'main'
 ```
 
 <!-- test: enum-as-parameter-name-crossfile -->
-<!-- skip: 'enum' is a keyword in minimaxon and cannot be used as a name; rename it -->
 ```maxon
 // --- file: api/shared.maxon
 export typealias StdType = int(i64.min to i64.max)
 
 // --- file: api/helper.maxon
-// TODO: 'enum' is a keyword in minimaxon and cannot be used as a name; rename it
 export function pickOne(enum StdType) returns StdType
 	return enum
 end 'pickOne'
 
 // --- file: app/main.maxon
 function main() returns ExitCode
-	return pickOne(7)
+	return try api.pickOne(7) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -71,20 +67,18 @@ end 'main'
 ```
 
 <!-- test: union-as-parameter-name-crossfile -->
-<!-- skip: 'union' is a keyword in minimaxon and cannot be used as a name; rename it -->
 ```maxon
 // --- file: api/shared.maxon
 export typealias StdType = int(i64.min to i64.max)
 
 // --- file: api/helper.maxon
-// TODO: 'union' is a keyword in minimaxon and cannot be used as a name; rename it
 export function asis(union StdType) returns StdType
 	return union
 end 'asis'
 
 // --- file: app/main.maxon
 function main() returns ExitCode
-	return asis(3)
+	return try api.asis(3) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -92,20 +86,18 @@ end 'main'
 ```
 
 <!-- test: interface-as-parameter-name-crossfile -->
-<!-- skip: 'interface' is a keyword in minimaxon and cannot be used as a name; rename it -->
 ```maxon
 // --- file: api/shared.maxon
 export typealias StdType = int(i64.min to i64.max)
 
 // --- file: api/helper.maxon
-// TODO: 'interface' is a keyword in minimaxon and cannot be used as a name; rename it
 export function passthrough(interface StdType) returns StdType
 	return interface
 end 'passthrough'
 
 // --- file: app/main.maxon
 function main() returns ExitCode
-	return passthrough(5)
+	return try api.passthrough(5) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

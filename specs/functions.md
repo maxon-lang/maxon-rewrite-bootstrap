@@ -933,7 +933,6 @@ error E3004: <fragment>:4:25: call to undefined function 'missing'
 ```
 
 <!-- test: unknown-function-result-chained-method-call-argument-calls-an-undefined-function -->
-<!-- skip: minimaxon does not parse the converted source: Expected an integer or a name but got 'then' -->
 The arguments of every link of the chain are compiled, not only the first link's.
 ```maxon
 function main() returns ExitCode

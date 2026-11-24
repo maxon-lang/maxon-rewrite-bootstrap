@@ -1,0 +1,9 @@
+function last(end Count) returns Count
+	return 1 + end
+end 'last'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// expect-error: E2004 at 2:13

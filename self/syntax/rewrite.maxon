@@ -22,16 +22,44 @@ function requireKeyword(word String)
 	end 'reserved'
 end 'requireKeyword'
 
+// nameWordsOf is where each keyword starts that the program of src, lexed into toks, takes as a name, or nothing where the
+// program does not parse, whose keywords are then all renamed.
+function nameWordsOf(src Source, toks Tokens) returns NameWords
+	var errs = diag.ErrorList.create(0)
+	var resolved = Resolved.make(Tokens.create(0), lines: ast.StringList.create(0))
+	try 'directives'
+		resolved = resolveDirectives(src, toks: toks.clone(), target: ast.Target.windowsX64(), formatting: true, errs: errs)
+	end 'directives' otherwise 'unresolved'
+		return NameWords.create(0)
+	end 'unresolved'
+	var p = Parser.new(src.clone(), toks: exchange(resolved.toks, value: Tokens.create(0)), module: 0 as diag.ModuleID)
+	p.layoutOnly = true
+	_ = parseProgram(p)
+	if p.errors.count() > 0 'refused'
+		return NameWords.create(0)
+	end 'refused'
+	return exchange(p.nameWords, value: NameWords.create(0))
+end 'nameWordsOf'
+
+function holdsWord(words NameWords, start diag.U32) returns bool
+	for i in 0 upto words.count() 'each'
+		if words[i] == start 'found'
+			return true
+		end 'found'
+	end 'each'
+	return false
+end 'holdsWord'
+
 // collectKeyword appends an edit for every keyword token in toks, which start in the file of the index, that reads old,
-// looking into interpolations.
-function collectKeyword(src Source, file Count, toks Tokens, old String, replacement String, mutates edits Edits, mutates errs diag.ErrorList) throws SyntaxError
+// looking into interpolations, apart from the keywords that start where names says a name does.
+function collectKeyword(src Source, file Count, toks Tokens, names NameWords, old String, replacement String, mutates edits Edits, mutates errs diag.ErrorList) throws SyntaxError
 	var current = file
 	let kindName = "{keywordKindPrefix}{old}"
 	for i in 0 upto toks.count() 'tokens'
 		let kind = toks[i].kind
 		if kind == TokenKind.fileEnd 'fileEnd'
 			current = after(current)
-		end 'fileEnd' else if kind.name == kindName 'keyword'
+		end 'fileEnd' else if kind.name == kindName and not holdsWord(names, start: toks[i].start) 'keyword'
 			edits.push(Edit.make(toks[i].start as Count, until: toks[i].endOffset(), replacement: replacement.clone()))
 		end 'keyword' else if kind == TokenKind.string 'string'
 			var reader = stringReaderAt(src, file: current, open: toks[i].start as Count, collect: true)
@@ -39,7 +67,7 @@ function collectKeyword(src Source, file Count, toks Tokens, old String, replace
 			for p in 0 upto reader.parts.count() 'parts'
 				match reader.parts[p] 'part'
 					text(run, begin, raw) then _ = 0
-					expr(begin, until, _, _) then try collectInterpolation(src, file: current, begin: begin, until: until, old: old, replacement: replacement, edits: edits, errs: errs)
+					expr(begin, until, _, _) then try collectInterpolation(src, file: current, begin: begin, until: until, names: names, old: old, replacement: replacement, edits: edits, errs: errs)
 				end 'part'
 			end 'parts'
 		end 'string'
@@ -47,19 +75,21 @@ function collectKeyword(src Source, file Count, toks Tokens, old String, replace
 end 'collectKeyword'
 
 // collectInterpolation is collectKeyword for the expression of an interpolation, which stands from begin until until.
-function collectInterpolation(src Source, file Count, begin Count, until Count, old String, replacement String, mutates edits Edits, mutates errs diag.ErrorList) throws SyntaxError
+function collectInterpolation(src Source, file Count, begin Count, until Count, names NameWords, old String, replacement String, mutates edits Edits, mutates errs diag.ErrorList) throws SyntaxError
 	let toks = try lexInterpolation(src, errs: errs, file: file, begin: begin, until: until, lenient: false)
-	try collectKeyword(src, file: file, toks: toks, old: old, replacement: replacement, edits: edits, errs: errs)
+	try collectKeyword(src, file: file, toks: toks, names: names, old: old, replacement: replacement, edits: edits, errs: errs)
 end 'collectInterpolation'
 
 // keywordEdits renames every use of the keyword old in src to replacement, in text order. It works on tokens, so a name, a
 // label, a comment or a string's text that happens to read old is left alone, while a keyword inside an interpolation is
-// renamed. A file the lexer refuses throws, with its error in errs.
+// renamed. Where the file parses, a keyword that the parser takes as a name, as a function or a parameter may be named, is
+// left alone too. A file the lexer refuses throws, with its error in errs.
 export function keywordEdits(src Source, old String, replacement String, mutates errs diag.ErrorList) returns Edits throws SyntaxError
 	requireKeyword(old)
 	var edits = Edits.create(0)
 	let toks = try lexSource(src, errs: errs, lenient: false)
-	try collectKeyword(src, file: 0, toks: toks, old: old, replacement: replacement, edits: edits, errs: errs)
+	let names = nameWordsOf(src, toks: toks)
+	try collectKeyword(src, file: 0, toks: toks, names: names, old: old, replacement: replacement, edits: edits, errs: errs)
 	return edits
 end 'keywordEdits'
 
@@ -68,7 +98,7 @@ end 'keywordEdits'
 export function keywordEditsInLine(src Source, file Count, begin Count, until Count, old String, replacement String, mutates errs diag.ErrorList) returns Edits throws SyntaxError
 	requireKeyword(old)
 	var edits = Edits.create(0)
-	try collectInterpolation(src, file: file, begin: begin, until: until, old: old, replacement: replacement, edits: edits, errs: errs)
+	try collectInterpolation(src, file: file, begin: begin, until: until, names: NameWords.create(0), old: old, replacement: replacement, edits: edits, errs: errs)
 	return edits
 end 'keywordEditsInLine'
 

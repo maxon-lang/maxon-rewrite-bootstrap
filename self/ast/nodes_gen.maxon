@@ -85,8 +85,6 @@ export function isReserved(word String) returns bool
 		"public" or
 		"static" or
 		"function" or
-		"from" or
-		"to" or
 		"mutates" or
 		"consumes" or
 		"destructs" or
@@ -96,6 +94,8 @@ export function isReserved(word String) returns bool
 		"sets" or
 		"_" or
 		"let" or
+		"from" or
+		"to" or
 		"type" or
 		"is" or
 		"noncopyable" or

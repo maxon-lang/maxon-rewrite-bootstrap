@@ -806,8 +806,7 @@ error E2010: <fragment>:3:6: Expected identifier but got 'Self'
 ```
 
 <!-- test: parameter-named-Self-does-not-capture-a-static-call -->
-<!-- skip: 'Self' is a keyword in minimaxon and cannot be used as a name; rename it -->
-<!-- positions: moved -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 ### A PARAMETER named `Self` does not capture `Self.` — and `Self{…}` agrees with it
 ⚠ **A parameter named `Self` — which the keyword-as-a-declared-name rule admits — is not consulted.**
 Were `Self` to reach `parseDottedPrimary`'s value-based arms as a raw token, the scope test would find the
@@ -832,7 +831,6 @@ type Gate
 		return Self{n: v}
 	end 'make'
 
-	// TODO: 'Self' is a keyword in minimaxon and cannot be used as a name; rename it
 	function twin(Self Num) returns Num
 		return Self.make(41).n + Self{n: 1}.n
 	end 'twin'
@@ -847,8 +845,7 @@ error E3012: <fragment>:11:16: unused variable: 'Self'
 ```
 
 <!-- test: parameter-named-Self-does-not-capture-an-enum-case -->
-<!-- skip: 'Self' is a keyword in minimaxon and cannot be used as a name; rename it -->
-<!-- positions: moved -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 ### A parameter named `Self` does not capture `Self.<case>` either
 The enum-side face of the same rule, through a different arm: an enum case reference is not a call, so
 a misread would fall to the FIELD-ACCESS arm and report *"a field access on 'Self', which is declared
@@ -867,7 +864,6 @@ enum Toggle
 	off
 	on
 
-	// TODO: 'Self' is a keyword in minimaxon and cannot be used as a name; rename it
 	function pick(Self Num) returns Toggle
 		return Self.on
 	end 'pick'
@@ -886,8 +882,7 @@ error E3012: <fragment>:8:16: unused variable: 'Self'
 ```
 
 <!-- test: closure-parameter-named-Self-does-not-capture-Self -->
-<!-- skip: 'Self' is a keyword in minimaxon and cannot be used as a name; rename it -->
-<!-- positions: moved -->
+<!-- skip: minimaxon does not parse the converted source: Expected ')' but got 'Self' -->
 ### A CLOSURE parameter named `Self` does not capture `Self.`
 A third door onto the same scope test — the closure's own parameter scope rather than the method's — so a
 guard placed on the method path alone would leave this one misreading.
@@ -907,7 +902,6 @@ type Gate
 	end 'make'
 
 	function twin() returns Num
-		// TODO: 'Self' is a keyword in minimaxon and cannot be used as a name; rename it
 		let f = function(Self Num) gives Self.make(35).n + 7
 		return f(7)
 	end 'twin'
@@ -922,8 +916,7 @@ error E3012: <fragment>:12:20: unused variable: 'Self'
 ```
 
 <!-- test: managed-payload-through-Self-under-a-Self-named-parameter -->
-<!-- skip: 'Self' is a keyword in minimaxon and cannot be used as a name; rename it -->
-<!-- positions: moved -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 ### A MANAGED payload through `Self` while a parameter shadows the name
 The refcount half: a misread base would build the box through a different arm, so the drop site has to
 be confirmed under the shadow too.
@@ -941,7 +934,6 @@ union Msg
 	text(s String)
 	silent
 
-	// TODO: 'Self' is a keyword in minimaxon and cannot be used as a name; rename it
 	function shout(Self Num) returns Msg
 		return Self.text("hi")
 	end 'shout'
@@ -993,8 +985,6 @@ end 'main'
 ```
 
 <!-- test: error.bare-Self-read-under-a-Self-named-parameter -->
-<!-- skip: 'Self' is a keyword in minimaxon and cannot be used as a name; rename it -->
-<!-- positions: moved -->
 ### A bare `Self` read is still refused when a parameter is named `Self`
 The other half of the rule, and the one that makes the parameter harmless rather than merely
 unreachable: `Self` alone is a TYPE in every expression position, so a parameter spelled that way can be
@@ -1005,7 +995,6 @@ typealias Num = int(0 to 1000)
 type Gate
 	export var n as Num
 
-	// TODO: 'Self' is a keyword in minimaxon and cannot be used as a name; rename it
 	function bad(Self Num) returns Num
 		return Self
 	end 'bad'
@@ -1049,7 +1038,6 @@ end 'main'
 ```
 
 <!-- test: static-method-named-Self-through-Self -->
-<!-- skip: 'Self' is a keyword in minimaxon and cannot be used as a name; rename it -->
 ### A STATIC METHOD named `Self`, called through `Self`
 The call-shaped twin of the case above: the base resolves to `Gate` and the callee mangles to
 `Gate.Self`, so the member reader and the base reader disagree about the same word by design.
@@ -1063,7 +1051,6 @@ type Gate
 		return Self{n: v}
 	end 'make'
 
-	// TODO: 'Self' is a keyword in minimaxon and cannot be used as a name; rename it
 	static function Self(v Num) returns Num
 		return v
 	end 'Self'
@@ -1082,8 +1069,6 @@ end 'main'
 ```
 
 <!-- test: error.store-through-Self-is-not-captured-by-a-Self-named-parameter -->
-<!-- skip: 'Self' is a keyword in minimaxon and cannot be used as a name; rename it -->
-<!-- positions: moved -->
 ### A STORE through `Self.` is refused the same way whether or not a parameter shadows the name
 The third door onto the shadowing rule: a chain store RESOLVES its base (it wants the binding's
 `VarInfo`, not a yes/no), so it carries its own copy of the scope test. Resolved to the PARAMETER under
@@ -1100,7 +1085,6 @@ type Gate
 		return Self{n: v}
 	end 'make'
 
-	// TODO: 'Self' is a keyword in minimaxon and cannot be used as a name; rename it
 	function bad(Self Gate) returns Num
 		Self.n = 5
 		return 1

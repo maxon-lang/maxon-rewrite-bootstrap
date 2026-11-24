@@ -328,17 +328,22 @@ func (g *pgen) once(e *elem, c cont, tg target) {
 		// enterTest has tested it.
 	case ekGroup:
 		if e.label != "" && g.m.groupType(e) == "string" {
-			var terms []string
+			var terms, named, words []string
 			for _, a := range e.group {
-				terms = append(terms, g.m.terminal(a.elems[0]))
+				t := g.m.terminal(a.elems[0])
+				terms = append(terms, t)
+				if !a.elems[0].fromKeywordSet {
+					named = append(named, t)
+				}
+				if a.elems[0].fromKeywordSet || a.elems[0].kind == ekLiteral && slices.Contains(nameKeywords, a.elems[0].text) {
+					words = append(words, t)
+				}
 			}
 			sort.Strings(terms)
-			var named []string
-			for _, t := range terms {
-				if e.anyKeyword && strings.HasPrefix(t, keywordPrefix) {
-					continue
-				}
-				named = append(named, t)
+			sort.Strings(named)
+			sort.Strings(words)
+			if !slices.Contains(terms, nameTerminal) {
+				words = nil
 			}
 			g.l.ifOpen(g.l.not(g.atAny(terms)))
 			g.l.refuse(joinOr(g.m.describeTerminals(named)))
@@ -356,6 +361,12 @@ func (g *pgen) once(e *elem, c cont, tg target) {
 				if a.elems[0].joinAfter {
 					joinsAfter = append(joinsAfter, g.m.terminal(a.elems[0]))
 				}
+			}
+			if len(joinsAfter) == 0 && len(words) > 0 {
+				tok := g.l.bind(g.l.next())
+				g.l.line(g.l.nameWord(tok, g.tokenSet(words)))
+				g.assignToken(tg, e, tok)
+				return
 			}
 			if len(joinsAfter) == 0 {
 				g.assignToken(tg, e, g.l.next())
@@ -999,6 +1010,9 @@ type lang interface {
 	// call of it with nothing, once the rule before it is parsed.
 	action(name, tok string) string
 	afterRule(name string) string
+	// nameWord is a call of the hand-written parser method that notes the token tok where it is a keyword of the set
+	// that its place takes as a name.
+	nameWord(tok, set string) string
 	or(parts []cond) string
 	not(c string) string
 	less(prec int, v string) string

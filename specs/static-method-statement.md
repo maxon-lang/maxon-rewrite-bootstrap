@@ -123,8 +123,6 @@ error E3004: <fragment>:9:9: call to undefined function 'Helper.nope'
 ```
 
 <!-- test: static-method-statement.keyword-named-static-is-a-statement -->
-<!-- skip: 'match' is a keyword in minimaxon and cannot be used as a name; rename it -->
-<!-- skip: 'upto' is a keyword in minimaxon and cannot be used as a name; rename it -->
 ⭐⭐ A static DECLARED UNDER A KEYWORD (D8), called as a bare statement. The statement door's shape check asks `namesMemberAt` for the member, the
 predicate `methodCallsAt`, `memberCallFollows` and `fieldAssignsAt` share, so a member-naming token is
 taught to all four at once. A check that asked a raw `TokenKind.identifier` would refuse `Helper.to()` as
@@ -132,12 +130,10 @@ taught to all four at once. A check that asked a raw `TokenKind.identifier` woul
 name (`let x = Helper.to()`). Prints `mut`.
 ```maxon
 type Helper
-	// TODO: 'match' is a keyword in minimaxon and cannot be used as a name; rename it
 	static function match()
 		print("m")
 	end 'match'
 
-	// TODO: 'upto' is a keyword in minimaxon and cannot be used as a name; rename it
 	static function upto()
 		print("u")
 	end 'upto'
@@ -162,7 +158,6 @@ mut
 ```
 
 <!-- test: static-method-statement.error.unknown-keyword-named-static-names-the-callee -->
-<!-- skip: minimaxon does not parse the converted source: Expected an integer or a name but got 'while' -->
 The typo half of the case above, and what keeps the widened shape check from swallowing a name. A
 keyword-spelled member that no file declares is claimed by the same base-is-a-declared-struct arm an
 identifier-spelled one is, so it earns the positioned E3004 naming the callee rather than the shape

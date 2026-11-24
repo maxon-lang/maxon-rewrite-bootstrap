@@ -24,12 +24,12 @@ If you need a name that suggests "this thing," pick `me`, `it`, `instance`, or a
 ## Tests
 
 <!-- test: function-param-named-self -->
-<!-- skip: 'self' is a keyword in minimaxon and cannot be used as a name; rename it -->
+<!-- skip: a parameter named 'self' cannot be read in minimaxon, where the keyword keeps its meaning at the start of an operand; rename it -->
 <!-- positions: moved -->
 ### Free-function parameter named `self` is rejected
 Function parameter parsing accepts keyword-shaped tokens as names, so the rejection happens in the semantic-name check (`E2051`), not the lexer.
 ```maxon
-// TODO: 'self' is a keyword in minimaxon and cannot be used as a name; rename it
+// TODO: a parameter named 'self' cannot be read in minimaxon, where the keyword keeps its meaning at the start of an operand; rename it
 function configure(self Integer) returns ExitCode
 	return 0
 end 'configure'

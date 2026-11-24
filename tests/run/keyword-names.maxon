@@ -1,0 +1,46 @@
+typealias Digit = int(0 to 100)
+
+interface Bounded
+	function end() returns Count
+end 'Bounded'
+
+type Log
+	static function int(key String, value Count) returns String
+		return "{key}={value}"
+	end 'int'
+
+	static function default(n Digit) returns Count
+		return n + 1
+	end 'default'
+end 'Log'
+
+type Reader implements Bounded
+	var base as Digit
+
+	static function create(base Digit) returns Reader
+		return Reader{base: base}
+	end 'create'
+
+	function with(extension Digit) returns Count
+		return base + extension
+	end 'with'
+
+	function end() returns Count
+		return base * 10
+	end 'end'
+end 'Reader'
+
+function in(type Digit, enum Digit) returns Count
+	return type * enum
+end 'in'
+
+function main() returns ExitCode
+	let r = Reader.create(2)
+	let line = Log.int("n", value: r.with(3))
+	print("{line}\n")
+	print("{in(4, enum: 6)} {Log.default(5)} {r.end()}\n")
+	return 0
+end 'main'
+
+//> n=5
+//> 24 6 20

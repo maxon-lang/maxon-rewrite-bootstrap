@@ -119,7 +119,6 @@ level=WARN+2 msg=six
 ```
 
 <!-- test: typed-attrs-in-text -->
-<!-- skip: minimaxon does not parse the converted source: Expected an integer or a name but got 'int' -->
 A text value is quoted when it holds a space, an `=`, a `"` or a control byte, with `Json.quote`'s escapes; a
 float prints its shortest round-trip form; a group's attrs print with dotted keys.
 ```maxon
@@ -139,7 +138,6 @@ level=INFO msg=request path="/a b" status=200 delta=-3 ratio=0.5 ok=true req.met
 ```
 
 <!-- test: typed-attrs-in-json -->
-<!-- skip: minimaxon does not parse the converted source: Expected an integer or a name but got 'int' -->
 The same record through `JsonLogHandler`: one object per line, a group nested as an object.
 ```maxon
 function main() returns ExitCode
@@ -158,7 +156,6 @@ end 'main'
 ```
 
 <!-- test: with-attrs-and-with-group -->
-<!-- skip: minimaxon does not parse the converted source: Expected an integer or a name but got 'default' -->
 `withAttrs` binds attrs before the record's own; after `withGroup("req")` every following attr, bound or
 passed, is qualified by `req`.
 ```maxon
@@ -181,7 +178,6 @@ level=INFO msg=again service=api req.id=7
 ```
 
 <!-- test: with-attrs-and-with-group-in-json -->
-<!-- skip: minimaxon does not parse the converted source: Expected an integer or a name but got 'default' -->
 The same loggers through `JsonLogHandler`: the group nests the attrs that follow it.
 ```maxon
 function main() returns ExitCode
@@ -203,7 +199,6 @@ end 'main'
 ```
 
 <!-- test: add-source-names-the-callers-line -->
-<!-- skip: minimaxon does not parse the converted source: Expected an integer or a name but got 'default' -->
 With `addSource`, the record names the file and line of the call that logged it, in text and in JSON.
 ```maxon
 // --- file: main.maxon
@@ -234,7 +229,6 @@ level=ERROR source=main.maxon:9 msg=fourth
 ```
 
 <!-- test: a-group-level-override -->
-<!-- skip: minimaxon does not parse the converted source: Expected an integer or a name but got 'default' -->
 A group's own level overrides the minimum for loggers in that group and for no other.
 ```maxon
 function main() returns ExitCode
@@ -383,7 +377,6 @@ g7=WARN
 ```
 
 <!-- test: levels-belong-to-the-handler -->
-<!-- skip: minimaxon does not parse the converted source: Expected an integer or a name but got 'default' -->
 Each sink carries its own `LogLevelVar`, so `setLevel` through a logger on one sink changes nothing a logger
 on the other writes. `Scheduler.quiesce()` waits for `la`'s line, which orders the two handlers' output.
 ```maxon
@@ -414,7 +407,6 @@ level=DEBUG msg=shown via=b
 ```
 
 <!-- test: a-logger-built-before-set-level-obeys-it -->
-<!-- skip: minimaxon does not parse the converted source: Expected an integer or a name but got 'default' -->
 ```maxon
 function main() returns ExitCode
 	let options = LogHandlerOptions.create(LogStream.standardOutput, addTime: false, addSource: false)
@@ -435,7 +427,6 @@ level=DEBUG msg=after
 ```
 
 <!-- test: a-new-default-brings-its-own-levels -->
-<!-- skip: minimaxon does not parse the converted source: Expected an integer or a name but got 'default' -->
 The new sink writes to stderr at DEBUG; a logger built on the old one keeps writing to stdout at INFO.
 ```maxon
 function main() returns ExitCode

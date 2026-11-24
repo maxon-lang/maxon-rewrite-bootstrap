@@ -78,3 +78,11 @@ test 'format markdown'
 	let crlfExpected = "text\r\n```maxon\r\nlet a = 1\r\n```\r\n"
 	table.assertEqStr(formatMarkdown("a.md", text: crlfDoc), expected: crlfExpected, label: "markdown carriage returns")
 end 'format markdown'
+
+test 'a keyword as a name'
+	expectLayout("a function, a parameter and a call named by keywords", input: "function with(n Count, extension Count) returns Count\n\treturn n+extension\nend 'with'\n\nlet a = Box . default (1)\n", expected: "function with(n Count, extension Count) returns Count\n\treturn n + extension\nend 'with'\n\nlet a = Box.default(1)\n")
+	var errs = diag.ErrorList.create(0)
+	let text = "function with(extension Count) returns Count\n\treturn extension\nend 'with'\n\ntypealias Counts = Array with Count\n"
+	let edits = try keywordEdits(sourceOf(text.clone(), path: "names.maxon"), old: "with", replacement: "using", errs: errs) otherwise panic("a keyword as a name: the lexer refused the program")
+	table.assertEqStr(applyEdits(text, edits: edits), expected: "function with(extension Count) returns Count\n\treturn extension\nend 'with'\n\ntypealias Counts = Array using Count\n", label: "a rename of a keyword leaves the names it spells")
+end 'a keyword as a name'

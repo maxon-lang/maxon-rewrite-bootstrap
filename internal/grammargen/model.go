@@ -289,7 +289,7 @@ func (m *model) collectKeywords() {
 	seen := map[string]bool{}
 	for _, r := range m.g.rules {
 		m.walkElems(r.alts, func(e *elem) {
-			if e.kind == ekLiteral && m.punctuation[e.text] == nil && !seen[e.text] {
+			if e.kind == ekLiteral && !e.excluded && m.punctuation[e.text] == nil && !seen[e.text] {
 				seen[e.text] = true
 				m.keywords = append(m.keywords, e.text)
 			}
@@ -621,10 +621,13 @@ func (m *model) describeTerminal(id string) string {
 // not list them.
 var nameKeywords = []string{"from", "to"}
 
+// nameTerminal is the terminal of the token Name.
+const nameTerminal = "TName"
+
 // describeTerminals names the token kinds that a syntax error expects, leaving out the keyword that a name already
 // stands for.
 func (m *model) describeTerminals(ids []string) []string {
-	namesAllowed := slices.Contains(ids, "TName")
+	namesAllowed := slices.Contains(ids, nameTerminal)
 	var parts []string
 	for _, id := range ids {
 		if namesAllowed && slices.ContainsFunc(nameKeywords, func(word string) bool { return id == keywordConst(word) }) {
@@ -674,13 +677,21 @@ func (m *model) expandKeywordSets() {
 				return
 			}
 			named := map[string]bool{}
+			hasSet := false
 			for _, a := range e.group {
 				if len(a.elems) == 1 && a.elems[0].kind == ekLiteral {
 					named[a.elems[0].text] = true
 				}
+				hasSet = hasSet || len(a.elems) == 1 && a.elems[0].kind == ekToken && a.elems[0].text == keywordSet
 			}
 			var alts []*alt
 			for _, a := range e.group {
+				if len(a.elems) == 1 && a.elems[0].excluded {
+					if !hasSet || !slices.Contains(m.keywords, a.elems[0].text) {
+						m.fail(a.line, "~'%s' leaves a keyword out of %s, so it belongs in a group that holds %s and names a keyword", a.elems[0].text, keywordSet, keywordSet)
+					}
+					continue
+				}
 				if len(a.elems) != 1 || a.elems[0].kind != ekToken || a.elems[0].text != keywordSet {
 					alts = append(alts, a)
 					continue
@@ -688,7 +699,7 @@ func (m *model) expandKeywordSets() {
 				e.anyKeyword = true
 				for _, k := range m.keywords {
 					if !named[k] {
-						alts = append(alts, &alt{elems: []*elem{{kind: ekLiteral, text: k, line: a.line}}, line: a.line})
+						alts = append(alts, &alt{elems: []*elem{{kind: ekLiteral, text: k, line: a.line, fromKeywordSet: true}}, line: a.line})
 					}
 				}
 			}

@@ -335,7 +335,7 @@ end 'main'
 ```
 
 <!-- test: a-keyword-case-arm-with-a-parenthesized-value-keeps-the-next-union -->
-<!-- skip: 'gives' is a keyword in minimaxon and cannot be used as a name; rename it -->
+<!-- skip: minimaxon does not parse the converted source: Expected a name but got '\n' -->
 ```maxon
 typealias Idx = int(0 to 100)
 
@@ -346,7 +346,6 @@ end 'Marker'
 
 function classify(m Marker) returns Idx
 	return match m 'm'
-		// TODO: 'gives' is a keyword in minimaxon and cannot be used as a name; rename it
 		function gives(1 + 1)
 		other gives 3
 	end 'm'
@@ -373,7 +372,7 @@ end 'main'
 ```
 
 <!-- test: a-keyword-case-arm-with-a-parenthesized-value-keeps-the-next-top-level-binding -->
-<!-- skip: 'gives' is a keyword in minimaxon and cannot be used as a name; rename it -->
+<!-- skip: minimaxon does not parse the converted source: Expected a name but got '\n' -->
 ```maxon
 enum Marker
 	function
@@ -382,7 +381,6 @@ end 'Marker'
 
 function classify(m Marker) returns Idx
 	return match m 'm'
-		// TODO: 'gives' is a keyword in minimaxon and cannot be used as a name; rename it
 		function gives(1 + 1)
 		other gives 3
 	end 'm'
@@ -404,7 +402,7 @@ typealias Idx = int(0 to 100)
 ```
 
 <!-- test: a-function-named-gives-beside-the-arm-that-spells-it -->
-<!-- skip: 'gives' is a keyword in minimaxon and cannot be used as a name; rename it -->
+<!-- skip: minimaxon does not parse the converted source: Expected a name but got '\n' -->
 Both directions of the discriminator in one file: the arm is a case name, and the function NAMED `gives`
 declared after it is a declaration — a lost one would leave `main`'s call with no callee.
 ```maxon
@@ -417,13 +415,11 @@ end 'Marker'
 
 function classify(m Marker) returns Idx
 	return match m 'm'
-		// TODO: 'gives' is a keyword in minimaxon and cannot be used as a name; rename it
 		function gives(1 + 1)
 		other gives 3
 	end 'm'
 end 'classify'
 
-// TODO: 'gives' is a keyword in minimaxon and cannot be used as a name; rename it
 function gives(x Idx) returns Idx
 	return x * 10
 end 'gives'
@@ -449,7 +445,7 @@ end 'main'
 ```
 
 <!-- test: the-keyword-case-arm-inside-a-type-method-body -->
-<!-- skip: 'gives' is a keyword in minimaxon and cannot be used as a name; rename it -->
+<!-- skip: minimaxon does not parse the converted source: Expected a name but got '\n' -->
 Inside a type body the same miscount swallows the NEXT declaration into this type's member list.
 ```maxon
 typealias Idx = int(0 to 100)
@@ -468,7 +464,6 @@ type Holder
 
 	function classify(m Marker) returns Idx
 		let extra = match m 'm'
-			// TODO: 'gives' is a keyword in minimaxon and cannot be used as a name; rename it
 			function gives(1 + 1)
 			other gives 3
 		end 'm'
@@ -498,8 +493,7 @@ end 'main'
 ```
 
 <!-- test: a-closure-with-a-block-keyword-parameter-inside-an-arm-body -->
-<!-- skip: 'function' is a keyword in minimaxon and cannot be used as a name; rename it -->
-<!-- skip: 'gives' is a keyword in minimaxon and cannot be used as a name; rename it -->
+<!-- skip: a parameter named 'function' cannot be read in minimaxon, where the keyword keeps its meaning at the start of an operand; rename it -->
 A closure literal inside a match arm spells `function (…) gives`, which is the shape of a payload-carrying
 case arm — so the walk's name verdict for that `function` token is "a name", and it must STILL record the
 closure's parameters as declared names: `if` here is a parameter, not the opener of a block that never
@@ -523,8 +517,7 @@ end 'apply'
 
 function classify(m Marker, seed Idx) returns Idx
 	var total = match m 'm'
-		// TODO: 'gives' is a keyword in minimaxon and cannot be used as a name; rename it
-		// TODO: 'function' is a keyword in minimaxon and cannot be used as a name; rename it
+		// TODO: a parameter named 'function' cannot be read in minimaxon, where the keyword keeps its meaning at the start of an operand; rename it
 		function gives apply(function(if Idx) gives 33 + if, x: seed)
 		other gives 0
 	end 'm'

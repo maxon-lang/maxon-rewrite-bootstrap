@@ -25,8 +25,8 @@ ordinal in the runtime range check).
 ### Keyword case access and contiguous range match across files
 
 <!-- test: cross-file-keyword-case-and-range -->
-<!-- skip: 'or' is a keyword in minimaxon and cannot be used as a name; rename it -->
 <!-- skip: minimaxon does not parse the converted source: Expected a name but got '\n' -->
+<!-- skip: minimaxon does not parse the converted source: Expected a pattern but got 'function' -->
 ```maxon
 // --- file: kind.maxon
 enum Kind
@@ -47,7 +47,6 @@ function isScalar(k Kind) returns bool
 		integer or
 		float gives true
 		named or
-		// TODO: 'or' is a keyword in minimaxon and cannot be used as a name; rename it
 		function or
 		unresolved or
 		other gives false

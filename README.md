@@ -628,7 +628,7 @@ run.
 
 | Generator | Source of truth | Writes |
 |---|---|---|
-| `internal/grammargen` | `self/syntax/Maxon.g4` | `self/syntax/parser_gen.maxon`, `self/syntax/tokens_gen.maxon`, `self/ast/nodes_gen.maxon`, and the keywords `cmd/convert` reserves (`cmd/convert/reserved_gen.go`) |
+| `internal/grammargen` | `self/syntax/Maxon.g4` | `self/syntax/parser_gen.maxon`, `self/syntax/tokens_gen.maxon`, `self/ast/nodes_gen.maxon`, and the keywords `cmd/convert` reserves, with those an operand may be (`cmd/convert/reserved_gen.go`) |
 | `internal/builtingen` | `internal/builtingen/table.go` | `self/ast/builtins_gen.maxon`, `self/ast/builtins_record_gen.maxon` (the `Builtins` record, its `empty()` and `isCapability`: a field for each type row, function handle and primitive of the table, and the few fields `extraFields` lists), `self/ir/runtime_gen.maxon`, `self/ir/intrinsics_gen.maxon`, `self/check/builtins_gen.maxon`, `self/interp/builtins_gen.maxon`, and the top-level names of the built-ins, which `cmd/convert` leaves out of a converted library file (`cmd/convert/builtins_gen.go`) |
 | `internal/diaggen` | `self/diag/codes.tsv`, `self/diag/messages.tsv`, `self/driver/skips.tsv` (the code pairs and the tests `fix specs` skips; it names codes of the first) | `self/diag/codes_gen.maxon`, `self/diag/messages_gen.maxon`, `self/driver/skips_gen.maxon` |
 | `internal/irgen` | `internal/irgen/irtable/table.go` and `semantics.go` | `self/ir/ir_gen.maxon`, `self/ir/evaluate_gen.maxon` |
@@ -2692,8 +2692,17 @@ edit to `runtime/` rebuilds everything.
   comparisons, `a is b` and `a is not b` (see "Identity"), `and`/`or`/`xor`/`not`, `x if c else y`, range values `a to b`
   and `a upto b` (see "Iteration"), `as` casts, error enums, `throw`, `throws E`, `try e`,
   `try e otherwise ...` and `try` blocks (see "Errors of the program"), calls with Maxon's
-  positional-then-labelled arguments (a label, and a parameter name, may be a keyword: `File.rename(from, to: dest)`), parameter conventions (`mutates`, `consumes`, `sets`), `x.clone()`,
+  positional-then-labelled arguments (a label may be a keyword: `File.rename(from, to: dest)`), parameter conventions (`mutates`, `consumes`, `sets`), `x.clone()`,
   `.name`/`.ordinal`/`.rawValue`, subscripts `a[i]`, `match consumes x`.
+- A keyword may be a name where Maxon takes one as a declared name and nothing else can stand: the name of a function, a
+  method or an interface's requirement, a parameter's name, an argument's label and a member after `.`, so `function with(...)`,
+  `static function int(...)`, `x.with(n)` and `Log.int(key, value: v)` are code. An operand may be one too, which reads
+  a parameter or calls a function so named, except a keyword that starts an expression or a statement (`true`, `false`,
+  `self`, `panic`, `match`, `function`, `sizeof`, `countof`, `not`, `async`, `await`, `try`, `let`, `var`, `if`, `while`,
+  `for`, `when`, `throw`, `return`, `break`, `continue`, `_`), which keeps that meaning there, and `end`, which a reader
+  could not tell from the end of a block: a parameter named by one of these is declared but not read. A variable, a
+  field, a type and a case are not named by a keyword, as in Maxon, apart from `from` and `to`, which are names wherever
+  a name is.
 - Built in: `print`, `printError`, `panic` (which takes a string literal or an interpolated string), `freeze`, `share`, `thaw`, `cown` (also `cown(x, dropWith: d)`), `exchange`, the OS functions of maxon's stdlib (see "The OS"), the float functions (see "Floats"), the aliases `ExitCode`, `Count`,
   `ElementIndex` (an index that a `Count` goes where one is taken, and the other way only by `as`), `FullRangeInt`, `FullRangeFloat`, `Byte`, `ByteArray` (`Array with Byte`), `ByteArrays` (`Array with ByteArray`), `StringArray` (`Array with String`), the limits of the sized integers as constants (`u64.max`, `i32.min`, ...), the `String` methods `byteLength()`, `byteAt(index)`, `sliceBytes(start, endPos: end)` and `toByteArray()` and the static `String.from(bytes)`, and maxon's `isEmpty`, `equals`, `append`, `count`, `contains`, `startsWith`, `endsWith`, `findFirst`, `findLast`, `startIndex`, `endIndex`, `slice`, `sliceLength`, `replace`, `replaceFirst`, `trim`, `trimStart`, `trimEnd`, `toLower` and `toUpper` with the type `StringIndex` (`charIndex()`, `bytePos()`) and the error `StringError`, the enums `ArithmeticError`, `ArrayError`, `MapError` and `IterationError`, the interface `Error`, and the generic types `Array`, `FixedArray`, `Map`, `List`, `Pool`, `Handle` (see "Primitives") with `sizeof(T)` and `countof(T)`,
   `frozen` and `cown` (see "Immutable values, cowns and behaviours"). Every built-in is public, so a public signature names
@@ -4940,7 +4949,8 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   maxon; a generic function that its call does not fix is `E3179`.
 - The reserved words are exactly the keywords the grammar uses, so a word Maxon reserves for a feature minimaxon
   lacks is an ordinary name, and a word that could be read by context, such as `mutates`, `consumes` or `sets`, is
-  reserved, except `from` and `to`, which Maxon's programs use as names.
+  reserved where Maxon reserves it, except `from` and `to`, which Maxon's programs use as names and are names wherever a
+  name is.
 - A parameter convention is a verb written before the parameter's name, with the function as its subject:
   `push(consumes item T)`, `swap(mutates a T, mutates b T)`, `parse(sets result Ast)`, and `mutates self` or
   `consumes self` for a receiver, and `destructs self` for a destructor.
@@ -5002,6 +5012,10 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   `create`, `delete` and `currentPath` are built in over the runtime, not over `__ManagedDirectory`. `Json`, and the `Url` and
   string helpers it is written on, are not in the library yet: it needs `float.fromString`, which minimaxon lacks, and the
   coercion of a byte-valued enum case to a `Byte`.
+- An operand is never `if`, `let`, `var`, `when`, `throw`, `return`, `break` or `continue`, which Maxon reads there as the
+  name of a parameter or a function (`return 1 + if(5)`): each starts a statement here, so it keeps that meaning at the
+  start of every operand, and a free function named by one cannot be called. A bare read of `while`, `for`, `match` or
+  `end`, which Maxon refuses with `E2015`, is the parser's syntax error here.
 
 ## Changing the language
 
@@ -5011,7 +5025,8 @@ differs from Maxon" in the same change. A change to the syntax touches many prog
 
 - **`minimaxon rewrite --keyword=old=new <path>...`** renames a keyword. It lexes each file and changes only keyword
   tokens, so a name, a label, a comment or a string's text that reads the same is left alone, and a keyword inside an
-  interpolation is renamed. Run it before editing `Maxon.g4`: once the grammar stops reserving the word, a use of it
+  interpolation is renamed. Where the file parses, a keyword that stands as a name (a function or a parameter named by it,
+  a call or a read of one) is left alone too. Run it before editing `Maxon.g4`: once the grammar stops reserving the word, a use of it
   cannot be told from a name, and the command refuses. A file the lexer refuses, such as a test of a lexer error, is
   left alone and listed if it contains the word. In a Markdown file it renames the code: inline code spans, and fenced
   blocks tagged `maxon` or not tagged; prose, and a span or block that does not lex (IR text, a command), are left

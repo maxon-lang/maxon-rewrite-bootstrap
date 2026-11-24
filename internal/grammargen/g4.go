@@ -225,6 +225,11 @@ type elem struct {
 	joinAfter  bool
 	// anyKeyword is set on a group that held the Keyword placeholder, which stands for every keyword of the grammar.
 	anyKeyword bool
+	// excluded (written ~'word', an alternative of a group that holds Keyword) leaves the keyword out of what Keyword
+	// stands for there.
+	excluded bool
+	// fromKeywordSet is set on a keyword that Keyword stands for in its group, which is there a name.
+	fromKeywordSet bool
 	// action (written elem{name}) is the hand-written parser method that takes the token a token element consumed, before
 	// a label stores it, or that is called with nothing once a rule element is parsed; it may refuse what it was given.
 	action string
@@ -496,6 +501,8 @@ func (p *grammarParser) elem() *elem {
 	switch {
 	case t.kind == tkLiteral:
 		e.kind, e.text = ekLiteral, t.text
+	case t.kind == tkPunct && t.text == "~" && p.cur().kind == tkLiteral:
+		e.kind, e.text, e.excluded = ekLiteral, p.next().text, true
 	case t.kind == tkIdent && isUpper(t.text):
 		e.kind, e.text = ekToken, t.text
 	case t.kind == tkIdent:

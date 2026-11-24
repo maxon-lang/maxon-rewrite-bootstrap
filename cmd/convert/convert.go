@@ -1769,9 +1769,6 @@ func transformWhereInSlice(toks []token, from int, line *sourceLine, warn func(*
 
 func transformFunctionHeader(line *sourceLine, fnIdx int, typeParams []string, warn func(*sourceLine, string)) {
 	toks := line.code
-	if fnIdx+1 < len(toks) && isKeywordName(toks[fnIdx+1].text) {
-		warn(line, keywordNameMessage(toks[fnIdx+1].text))
-	}
 	lp := findToken(toks, fnIdx+1, "(")
 	if lp < 0 {
 		return
@@ -1922,8 +1919,8 @@ func rewriteParamList(params []token, typeParams []string, line *sourceLine, war
 				warn(line, fmt.Sprintf("parameter capability '%s' is not supported in minimaxon", g[k].text))
 			}
 		}
-		if nameIdx < len(g) && g[nameIdx].kind == tokIdent && isKeywordName(g[nameIdx].text) {
-			warn(line, keywordNameMessage(g[nameIdx].text))
+		if nameIdx < len(g) && g[nameIdx].kind == tokIdent && isKeywordName(g[nameIdx].text) && !operandWords[g[nameIdx].text] {
+			warn(line, unreadParameterMessage(g[nameIdx].text))
 		}
 		out = append(out, g...)
 	}
@@ -2444,10 +2441,15 @@ func isKeywordName(word string) bool {
 // type only to write `Type from value`, and `to` follows a bound or an expression only to close a range.
 var nameKeywords = []string{"from", "to"}
 
-// keywordNameMessage words the warning for a name that minimaxon reserves and Maxon does not. A parameter may be
-// declared with one, but its body cannot read it.
+// keywordNameMessage words the warning for a name that minimaxon reserves and Maxon does not.
 func keywordNameMessage(word string) string {
 	return fmt.Sprintf("'%s' is a keyword in minimaxon and cannot be used as a name; rename it", word)
+}
+
+// unreadParameterMessage words the warning for a parameter named by a keyword that starts an expression or a statement, or
+// by `end`, which minimaxon declares but does not read as a name.
+func unreadParameterMessage(word string) string {
+	return fmt.Sprintf("a parameter named '%s' cannot be read in minimaxon, where the keyword keeps its meaning at the start of an operand; rename it", word)
 }
 
 func hasToken(toks []token, text string) bool {

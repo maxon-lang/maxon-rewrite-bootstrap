@@ -18,6 +18,7 @@
 //   rule builds Node   A second way to write the node of another rule, where a context takes a different form of it:
 //                      the rule parses into that node, and its labels are fields of it.
 //   Keyword            In a group, every keyword of the grammar not named in it: (Name | Keyword) is any word.
+//   ~'word'            In a group that holds Keyword, leaves that keyword out of it: (Name | Keyword | ~'end').
 //   @ast::Node {...}   Fields of a node that parsing does not set, written `Name Type` or `Name Type = initial`;
 //                      a field with a label's name gives that label its type instead. @ast::SetBase holds the
 //                      fields every member of the set shares. A token label whose field is not a string is
@@ -111,9 +112,10 @@ testDecl builds FuncDecl
     ;
 
 // `returns borrowed T` gives a place of type T that the function borrows from its parameters instead of a value it makes.
-// `borrowed` is a word only between `returns` and a type, so it stays a name everywhere else.
+// `borrowed` is a word only between `returns` and a type, so it stays a name everywhere else. A function's name, as a
+// parameter's, may be any keyword, since nothing else stands there.
 funcDecl
-    : visibility=('export' | 'public')? isStatic='static'? 'function' name=(Name | 'from' | 'to'){declares}
+    : visibility=('export' | 'public')? isStatic='static'? 'function' name=(Name | Keyword){declares}
       ^'(' ( receiver=('mutates' | 'consumes' | 'destructs') 'self' (',' params+=param)*
           | params+=param (',' params+=param)*
           )?
@@ -302,7 +304,7 @@ interfaceDecl
     ;
 
 funcSig
-    : isStatic='static'? 'function' name=(Name | 'from' | 'to'){declares}
+    : isStatic='static'? 'function' name=(Name | Keyword){declares}
       ^'(' ( receiver=('mutates' | 'consumes' | 'destructs') 'self' (',' params+=param)*
           | params+=param (',' params+=param)*
           )?
@@ -580,7 +582,7 @@ expr
     | typeQueryExpr
     | {atTuple}? tupleExpr
     | '(' expr ')'
-    | obj=expr '.' name=(Name | 'from' | 'to' | Integer)                    # MemberExpr
+    | obj=expr '.' name=(Name | Integer | Keyword)                   # MemberExpr
     | obj=expr ^'[' args+=expr (',' args+=expr)* ']'                 # IndexExpr
     | callee=expr ^'(' (args+=arg (',' args+=arg)*)? ')'               # CallExpr
     | head=expr 'from' value=expr                                    # FromExpr
@@ -675,9 +677,13 @@ charLit
 }
 
 // 'export' is a name only as the start of a qualified name, where it is the root module, and 'int' only as the head of
-// one, where it names the type of an integer's static functions.
+// one, where it names the type of an integer's static functions. A function or a parameter named by a keyword is read
+// through it, but a keyword that starts an expression or a statement keeps that meaning at the start of an operand, and
+// `end` is never read: a reader of the line could not tell it from the end of a block.
 nameExpr
-    : name=(Name | 'from' | 'to' | 'Self' | 'export' | 'int')
+    : name=(Name | 'Self' | 'export' | 'int' | Keyword | ~'true' | ~'false' | ~'self' | ~'panic' | ~'match' | ~'function' | ~'sizeof' | ~'countof'
+      | ~'not' | ~'async' | ~'await' | ~'try' | ~'let' | ~'var' | ~'if' | ~'while' | ~'for' | ~'when' | ~'throw'
+      | ~'return' | ~'break' | ~'continue' | ~'_' | ~'end')
     ;
 
 @ast::NameExpr {

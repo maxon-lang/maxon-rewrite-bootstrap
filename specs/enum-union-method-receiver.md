@@ -499,7 +499,6 @@ typealias Integer = int(i64.min to i64.max)
 
 <!-- test: keyword-named-cases-interleaved-with-methods -->
 <!-- skip: 'end' is a keyword in minimaxon and cannot be used as a name; rename it -->
-<!-- skip: 'gives' is a keyword in minimaxon and cannot be used as a name; rename it -->
 ```maxon
 enum Weird
 	alpha
@@ -528,7 +527,6 @@ enum Weird
 	function tag() returns Integer
 		return match self 'w'
 			alpha gives 1
-			// TODO: 'gives' is a keyword in minimaxon and cannot be used as a name; rename it
 			function gives 2
 			// TODO: 'end' is a keyword in minimaxon and cannot be used as a name; rename it
 			end gives 3

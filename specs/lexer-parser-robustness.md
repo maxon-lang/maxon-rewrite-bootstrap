@@ -702,14 +702,11 @@ end 'main'
 ```
 
 <!-- test: repeated-keyword -->
-<!-- skip: 'function' is a keyword in minimaxon and cannot be used as a name; rename it -->
-<!-- positions: moved -->
 ```maxon
 function main() returns ExitCode
 	return 0
 end 'main'
 
-// TODO: 'function' is a keyword in minimaxon and cannot be used as a name; rename it
 function function function function
 ```
 ```maxoncstderr

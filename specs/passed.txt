@@ -3751,13 +3751,22 @@ iterator-element-provenance.md: a-let-array-is-read-and-a-var-cursor-over-it-mov
 jcc-erratum-padding.md: a-tight-loops-back-edge-never-straddles-a-32-byte-boundary
 keyword-as-a-declared-name.md: a-function-named-from-beside-a-set-from-construction
 keyword-as-a-declared-name.md: a-keyword-as-a-free-function-name
+keyword-as-a-declared-name.md: a-keyword-as-a-parameter-name-read-in-the-body
 keyword-as-a-declared-name.md: a-keyword-as-a-static-method-name
 keyword-as-a-declared-name.md: a-keyword-as-an-instance-method-name
 keyword-as-a-declared-name.md: a-keyword-as-an-interface-METHOD-name
+keyword-as-a-declared-name.md: a-keyword-named-METHOD-CALL-ending-a-block-HEADER
 keyword-as-a-declared-name.md: a-keyword-named-parameter-AS-THE-FIRST-TOKEN-OF-A-CONDITION
 keyword-as-a-declared-name.md: a-keyword-named-parameter-that-a-CONSTRUCTOR-CONSUMES
+keyword-as-a-declared-name.md: a-parameter-named-type-beside-a-real-type-declaration
+keyword-as-a-declared-name.md: four-different-keywords-as-parameter-names
+keyword-as-a-declared-name.md: keyword-named-INTERFACE-REQUIREMENTS-among-others
 keyword-named-case-members.md: a-parenthesized-condition-with-or-past-the-group
 keyword-parameter-names.md: array-and-of-are-ordinary-identifiers
+keyword-parameter-names.md: enum-as-parameter-name-crossfile
+keyword-parameter-names.md: interface-as-parameter-name-crossfile
+keyword-parameter-names.md: type-as-parameter-name-crossfile
+keyword-parameter-names.md: union-as-parameter-name-crossfile
 lazy-static-observable.md: a-global-built-through-a-constraint-reads-a-global-declared-later
 lazy-static-observable.md: a-managed-static-is-released-after-main
 lazy-static-observable.md: a-static-initializer-that-reads-itself-is-refused
@@ -3918,6 +3927,7 @@ lexer-parser-robustness.md: random-operator-soup-2
 lexer-parser-robustness.md: random-operator-soup-3
 lexer-parser-robustness.md: random-printable-garbage-1
 lexer-parser-robustness.md: random-printable-garbage-3
+lexer-parser-robustness.md: repeated-keyword
 lexer-parser-robustness.md: truncated-after-binary-op
 lexer-parser-robustness.md: truncated-after-close-paren
 lexer-parser-robustness.md: truncated-after-dot
@@ -6182,6 +6192,7 @@ regions-byref-order.md: if-body-reads-after-the-condition
 regions-byref-order.md: if-condition-after
 regions-byref-order.md: if-condition-before
 regions-byref-order.md: inner-call-writes-while-the-outer-lends
+regions-byref-order.md: keyword-named-root-before
 regions-byref-order.md: let-alias-moved-var-aliased-again
 regions-byref-order.md: let-alias-source-moved-to-a-var-and-rebound-nested-path
 regions-byref-order.md: let-alias-source-rebound-through-a-call-on-the-source
@@ -6834,6 +6845,7 @@ self-type-member-expression.md: static-call-through-Self-from-another-static
 self-type-member-expression.md: static-call-through-Self-in-a-generic-type
 self-type-member-expression.md: static-call-through-Self-inside-a-closure
 self-type-member-expression.md: static-call-through-Self-with-labelled-arguments
+self-type-member-expression.md: static-method-named-Self-through-Self
 self-type-member-expression.md: throwing-static-through-Self-under-try
 self-type-member-expression.md: union-payload-case-through-Self
 service-handle-cycles.md: a-generic-that-expands-with-every-instantiation-is-refused-in-a-services-state-without-walking-it
@@ -7179,8 +7191,10 @@ stack-promotion.md: stack-local-field-mutation
 stack-promotion.md: stack-local-primitive-struct
 stack-promotion.md: stack-when-aliased
 stack-promotion.md: stack-when-passed-to-readonly-function
+static-method-statement.md: static-method-statement.error.unknown-keyword-named-static-names-the-callee
 static-method-statement.md: static-method-statement.error.unknown-static-names-the-callee
 static-method-statement.md: static-method-statement.error.unknown-static-through-an-inner-generic-alias
+static-method-statement.md: static-method-statement.keyword-named-static-is-a-statement
 static-method-statement.md: static-method-statement.void-static-for-effect
 static-method-statement.md: static-method-statement.void-static-runs-for-its-side-effect
 static-method-statement.md: static-method-statement.void-static-through-an-inner-generic-alias

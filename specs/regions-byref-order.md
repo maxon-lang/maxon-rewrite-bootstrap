@@ -4612,7 +4612,6 @@ end 'main'
 ```
 
 <!-- test: keyword-named-root-before -->
-<!-- skip: 'type' is a keyword in minimaxon and cannot be used as a name; rename it -->
 <!-- positions: moved -->
 The by-reference cell is a parameter named by a keyword, read by an earlier operand.
 
@@ -4625,10 +4624,9 @@ function put(mutates text String) returns Tally
 end 'put'
 
 function two(text String, k Tally) returns Tally
-	return (text.byteLength() as Tally) + k
+	return try (text.byteLength() as Tally) + k otherwise panic("out of range")
 end 'two'
 
-// TODO: 'type' is a keyword in minimaxon and cannot be used as a name; rename it
 function drive(mutates type String) returns Tally
 	return two(type, k: put(type))
 end 'drive'

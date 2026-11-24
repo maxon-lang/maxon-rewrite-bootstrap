@@ -418,7 +418,6 @@ end 'TokenType'
 function main() returns ExitCode
 	let t = TokenType.function
 	let result = match t 'check'
-		// TODO: 'gives' is a keyword in minimaxon and cannot be used as a name; rename it
 		function gives 1
 		return gives 0
 		// TODO: 'end' is a keyword in minimaxon and cannot be used as a name; rename it

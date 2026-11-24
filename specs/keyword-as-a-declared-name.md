@@ -145,18 +145,16 @@ end 'main'
 ```
 
 <!-- test: a-keyword-as-a-parameter-name-read-in-the-body -->
-<!-- skip: 'type' is a keyword in minimaxon and cannot be used as a name; rename it -->
 The single-file form of `keyword-parameter-names.md`'s `type-as-parameter-name-crossfile`.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: 'type' is a keyword in minimaxon and cannot be used as a name; rename it
 function identity(type Integer) returns Integer
 	return type
 end 'identity'
 
 function main() returns ExitCode
-	return identity(42)
+	return try identity(42) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -164,10 +162,6 @@ end 'main'
 ```
 
 <!-- test: four-different-keywords-as-parameter-names -->
-<!-- skip: 'enum' is a keyword in minimaxon and cannot be used as a name; rename it -->
-<!-- skip: 'interface' is a keyword in minimaxon and cannot be used as a name; rename it -->
-<!-- skip: 'type' is a keyword in minimaxon and cannot be used as a name; rename it -->
-<!-- skip: 'union' is a keyword in minimaxon and cannot be used as a name; rename it -->
 `type`, `enum`, `union` and `interface` — the four `keyword-parameter-names.md` names — in ONE
 parameter list, each read in the body. The second and later parameters are LABELLED with their own
 keyword spelling, so the argument-label position accepts a keyword too; a parameter that cannot be
@@ -175,16 +169,12 @@ labelled cannot be passed.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: 'type' is a keyword in minimaxon and cannot be used as a name; rename it
-// TODO: 'enum' is a keyword in minimaxon and cannot be used as a name; rename it
-// TODO: 'union' is a keyword in minimaxon and cannot be used as a name; rename it
-// TODO: 'interface' is a keyword in minimaxon and cannot be used as a name; rename it
 function combine(type Integer, enum Integer, union Integer, interface Integer) returns Integer
-	return type + enum + union + interface
+	return try type + enum + union + interface otherwise panic("out of range")
 end 'combine'
 
 function main() returns ExitCode
-	return combine(1, enum: 2, union: 4, interface: 35)
+	return try combine(1, enum: 2, union: 4, interface: 35) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -194,11 +184,7 @@ end 'main'
 ### The block-structure keywords, beside their real role
 
 <!-- test: block-keywords-as-function-names-beside-real-blocks -->
-<!-- skip: 'end' is a keyword in minimaxon and cannot be used as a name; rename it -->
-<!-- skip: 'for' is a keyword in minimaxon and cannot be used as a name; rename it -->
-<!-- skip: 'if' is a keyword in minimaxon and cannot be used as a name; rename it -->
-<!-- skip: 'match' is a keyword in minimaxon and cannot be used as a name; rename it -->
-<!-- skip: 'while' is a keyword in minimaxon and cannot be used as a name; rename it -->
+<!-- skip: minimaxon does not parse the converted source: Expected ':' but got '(' -->
 `while`, `for`, `end`, `match` and `if` are declared as function NAMES in a program that also runs a
 real `while` loop, a real `for` loop, a real `if`/`else` chain and a real `match` — so a token scan
 that read any of those names as block structure would mis-predict a construct's `end` and take the
@@ -216,28 +202,23 @@ enum Grade
 end 'Grade'
 
 type Ops
-	// TODO: 'while' is a keyword in minimaxon and cannot be used as a name; rename it
 	static function while(n Integer) returns Integer
 		return n * 2
 	end 'while'
 
-	// TODO: 'for' is a keyword in minimaxon and cannot be used as a name; rename it
 	static function for(n Integer) returns Integer
 		return n + 3
 	end 'for'
 
-	// TODO: 'end' is a keyword in minimaxon and cannot be used as a name; rename it
 	static function end(n Integer) returns Integer
 		return n - 1
 	end 'end'
 end 'Ops'
 
-// TODO: 'match' is a keyword in minimaxon and cannot be used as a name; rename it
 function match(n Integer) returns Integer
 	return n + 1
 end 'match'
 
-// TODO: 'if' is a keyword in minimaxon and cannot be used as a name; rename it
 function if(n Integer) returns Integer
 	if n > 4 'big'
 		return 2
@@ -279,9 +260,9 @@ end 'main'
 ```
 
 <!-- test: block-keywords-as-parameter-names-beside-real-blocks -->
-<!-- skip: 'for' is a keyword in minimaxon and cannot be used as a name; rename it -->
-<!-- skip: 'match' is a keyword in minimaxon and cannot be used as a name; rename it -->
-<!-- skip: 'while' is a keyword in minimaxon and cannot be used as a name; rename it -->
+<!-- skip: a parameter named 'for' cannot be read in minimaxon, where the keyword keeps its meaning at the start of an operand; rename it -->
+<!-- skip: a parameter named 'match' cannot be read in minimaxon, where the keyword keeps its meaning at the start of an operand; rename it -->
+<!-- skip: a parameter named 'while' cannot be read in minimaxon, where the keyword keeps its meaning at the start of an operand; rename it -->
 <!-- positions: moved -->
 The same keywords in the PARAMETER position, which is the shape whose miscount is a spurious closer
 rather than a spurious opener, and LABELLED at the call site, which is the shape whose miscount is a
@@ -300,9 +281,9 @@ tested one stage before any exit code could test it: `E3012 … unused variable:
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: 'while' is a keyword in minimaxon and cannot be used as a name; rename it
-// TODO: 'for' is a keyword in minimaxon and cannot be used as a name; rename it
-// TODO: 'match' is a keyword in minimaxon and cannot be used as a name; rename it
+// TODO: a parameter named 'while' cannot be read in minimaxon, where the keyword keeps its meaning at the start of an operand; rename it
+// TODO: a parameter named 'for' cannot be read in minimaxon, where the keyword keeps its meaning at the start of an operand; rename it
+// TODO: a parameter named 'match' cannot be read in minimaxon, where the keyword keeps its meaning at the start of an operand; rename it
 function weigh(while Integer, for Integer, match Integer, from Integer, to Integer) returns Integer
 	var acc = 0 as Integer
 	var k = 0 as Integer
@@ -331,7 +312,7 @@ error E3012: specs/keyword-as-a-declared-name/block-keywords-as-parameter-names-
 ```
 
 <!-- test: error.a-bare-read-of-a-block-keyword-parameter -->
-<!-- skip: 'while' is a keyword in minimaxon and cannot be used as a name; rename it -->
+<!-- skip: a parameter named 'while' cannot be read in minimaxon, where the keyword keeps its meaning at the start of an operand; rename it -->
 <!-- positions: moved -->
 ⛔ **THE ONE SHAPE OF THIS RULE THE COMPILER REFUSES, and it is refused rather than mis-compiled.** A bare
 read of a binding named `while`/`match`/`for`/`end` is a NAME to the expression parser and BLOCK
@@ -349,7 +330,7 @@ right without anyone maintaining it; no fixed list of exempt keywords summarises
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: 'while' is a keyword in minimaxon and cannot be used as a name; rename it
+// TODO: a parameter named 'while' cannot be read in minimaxon, where the keyword keeps its meaning at the start of an operand; rename it
 function weigh(while Integer) returns Integer
 	return 1 + while
 end 'weigh'
@@ -395,7 +376,6 @@ end 'main'
 ```
 
 <!-- test: a-keyword-case-arm-whose-value-is-a-PARENTHESIZED-match -->
-<!-- skip: 'gives' is a keyword in minimaxon and cannot be used as a name; rename it -->
 <!-- skip: a block inside brackets is not supported in minimaxon: a line break inside parentheses is a syntax error; bind the block's value on a line of its own -->
 ⚠⚠ **`function gives (…)` SPELLS `function <name> (` CHARACTER FOR CHARACTER**, because `function` is a
 legal case NAME and `gives` is word-shaped. Taken at its word, a match ARM reads as a function declaration
@@ -423,7 +403,6 @@ end 'Pick'
 function classify(k Kw, p Pick) returns Integer
 	return match k 'outer'
 		// TODO: a block inside brackets is not supported in minimaxon: a line break inside parentheses is a syntax error; bind the block's value on a line of its own
-		// TODO: 'gives' is a keyword in minimaxon and cannot be used as a name; rename it
 		function gives(match p 'inner'
 			one gives 40
 			two gives 2
@@ -448,7 +427,6 @@ is what makes a raw-token scan reachable. The cure in both places is to ask the 
 test the raw token, not to add a case to the raw test.
 
 <!-- test: a-keyword-named-METHOD-CALL-ending-a-block-HEADER -->
-<!-- skip: 'otherwise' is a keyword in minimaxon and cannot be used as a name; rename it -->
 ⛔ **`opensBlockAt` asks the keyword-as-a-name exclusion ONCE, ahead of every arm, and the `otherwise`
 arm is why.** `otherwiseOpensBlockIn`'s caught-error handler form is `otherwise ( <ident> ) <label>` — which a
 keyword-named METHOD CALL at the end of a block header spells character for character, `.otherwise`
@@ -461,7 +439,6 @@ block, and whether the token is block structure AT ALL is not an arm's business.
 typealias Integer = int(i64.min to i64.max)
 
 type Ops
-	// TODO: 'otherwise' is a keyword in minimaxon and cannot be used as a name; rename it
 	static function otherwise(n Integer) returns bool
 		return n < 3
 	end 'otherwise'
@@ -470,12 +447,12 @@ end 'Ops'
 function main() returns ExitCode
 	var i = 0 as Integer
 	while Ops.otherwise(i) 'loop'
-		i = i + 1
+		i = try i + 1 otherwise panic("out of range")
 	end 'loop'
 	if Ops.otherwise(i) 'lbl'
 		i = 99
 	end 'lbl'
-	return (i * 14) as ExitCode
+	return try (i * 14) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -483,9 +460,6 @@ end 'main'
 ```
 
 <!-- test: keyword-named-INTERFACE-REQUIREMENTS-among-others -->
-<!-- skip: 'end' is a keyword in minimaxon and cannot be used as a name; rename it -->
-<!-- skip: 'match' is a keyword in minimaxon and cannot be used as a name; rename it -->
-<!-- skip: 'while' is a keyword in minimaxon and cannot be used as a name; rename it -->
 ⛔ **THE DECLARATION SWEEP MUST NOT CLOSE AN `interface` BODY ON A RAW `end`, WHICH IS A LEGAL
 REQUIREMENT NAME.** `recordScannedInterface` must consume the whole declaration itself — its
 bodiless signatures would otherwise trip the sweep's `function` arm and leave `depth` permanently one too
@@ -503,11 +477,8 @@ this clean.
 typealias Integer = int(i64.min to i64.max)
 
 interface Bounded
-	// TODO: 'end' is a keyword in minimaxon and cannot be used as a name; rename it
 	function end(k Integer) returns Integer
-	// TODO: 'while' is a keyword in minimaxon and cannot be used as a name; rename it
 	function while(k Integer) returns Integer
-	// TODO: 'match' is a keyword in minimaxon and cannot be used as a name; rename it
 	function match(k Integer) returns Integer
 end 'Bounded'
 
@@ -518,17 +489,14 @@ type Span implements Bounded
 		return Self{lo: k}
 	end 'from'
 
-	// TODO: 'end' is a keyword in minimaxon and cannot be used as a name; rename it
 	function end(k Integer) returns Integer
-		return lo + k
+		return try lo + k otherwise panic("out of range")
 	end 'end'
 
-	// TODO: 'while' is a keyword in minimaxon and cannot be used as a name; rename it
 	function while(k Integer) returns Integer
 		return k
 	end 'while'
 
-	// TODO: 'match' is a keyword in minimaxon and cannot be used as a name; rename it
 	function match(k Integer) returns Integer
 		return k
 	end 'match'
@@ -536,7 +504,7 @@ end 'Span'
 
 function main() returns ExitCode
 	let s = Span.from(40)
-	return s.end(2) as ExitCode
+	return try s.end(2) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -565,7 +533,6 @@ end 'main'
 ```
 
 <!-- test: a-parameter-named-type-beside-a-real-type-declaration -->
-<!-- skip: 'type' is a keyword in minimaxon and cannot be used as a name; rename it -->
 `type` declares a type. A parameter named `type` in the same program must not be read as one — a
 token pre-scanner that read `type StdType` inside a parameter list as a top-level `type StdType`
 declaration would shadow the real one.
@@ -580,13 +547,12 @@ type Holder
 	end 'create'
 end 'Holder'
 
-// TODO: 'type' is a keyword in minimaxon and cannot be used as a name; rename it
 function unwrap(type Holder) returns Integer
 	return type.n
 end 'unwrap'
 
 function main() returns ExitCode
-	return unwrap(Holder.create(42))
+	return try unwrap(Holder.create(42)) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -647,7 +613,6 @@ end 'main'
 
 <!-- test: a-keyword-named-condition-BESIDE-keyword-named-match-arms -->
 <!-- skip: 'end' is a keyword in minimaxon and cannot be used as a name; rename it -->
-<!-- skip: 'gives' is a keyword in minimaxon and cannot be used as a name; rename it -->
 ⭐⭐ **THE DISCRIMINATING CASE: both readings of the same lookahead, alive in one program.** The scoping
 above is only right if the arm lookahead still FIRES where an arm really stands, and the two shapes are
 spelled with the same two tokens. `end gives 4` inside the match body is a keyword-named case name whose
@@ -668,7 +633,6 @@ end 'Kw'
 
 function score(k Kw) returns Integer
 	return match k 'classify'
-		// TODO: 'gives' is a keyword in minimaxon and cannot be used as a name; rename it
 		function gives 1
 		// TODO: 'end' is a keyword in minimaxon and cannot be used as a name; rename it
 		end gives 4
@@ -764,7 +728,7 @@ a=7 b=5 c=2
 ```
 
 <!-- test: error.a-bare-read-of-end-in-a-first-method-is-the-only-diagnostic -->
-<!-- skip: 'end' is a keyword in minimaxon and cannot be used as a name; rename it -->
+<!-- skip: a parameter named 'end' cannot be read in minimaxon, where the keyword keeps its meaning at the start of an operand; rename it -->
 <!-- positions: moved -->
 ```maxon
 // --- file: span.maxon
@@ -775,7 +739,7 @@ type Span
 		return Span{start: start}
 	end 'create'
 
-	// TODO: 'end' is a keyword in minimaxon and cannot be used as a name; rename it
+	// TODO: a parameter named 'end' cannot be read in minimaxon, where the keyword keeps its meaning at the start of an operand; rename it
 	function endsBefore(position SpanPos, end SpanPos) returns bool
 		return position < end and start < end
 	end 'endsBefore'
@@ -808,12 +772,11 @@ error E2015: specs/keyword-as-a-declared-name/error.a-bare-read-of-end-in-a-firs
 
 
 <!-- test: a-keyword-named-function-call-split-over-lines -->
-<!-- skip: 'if' is a keyword in minimaxon and cannot be used as a name; rename it -->
+<!-- skip: minimaxon does not parse the converted source: Expected expression but got 'if' -->
 A call to a function named by a block keyword takes a split argument list like any other call, at the top level of an expression and nested inside another call.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: 'if' is a keyword in minimaxon and cannot be used as a name; rename it
 function if(n Integer) returns Integer
 	if n > 4 'big'
 		return 20
