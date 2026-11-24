@@ -59,7 +59,8 @@ export function compileProgram(mutates p ast.Project, consumes modules UnitList,
 	if not runsTests 'main'
 		entries.push(entry)
 	end 'main'
-	let linked = linkCalling(p, modules: modules, ready: ready, entries: entries, exitsWithResult: not runsTests, options: options, mapsSymbols: symbolMap != "")
+	var linked = linkCalling(p, modules: modules, ready: ready, entries: entries, exitsWithResult: not runsTests, options: options, mapsSymbols: symbolMap != "")
+	stampBuildId(linked.image.file)
 	try writeImage(linked.image, path: out)
 	if symbolMap != "" 'map'
 		let mapPath = try FilePath.from(symbolMap) otherwise panic("backend: the symbol map {symbolMap} is not a path")

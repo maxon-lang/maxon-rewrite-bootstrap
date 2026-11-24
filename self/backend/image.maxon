@@ -94,6 +94,73 @@ export function placeData(mutates image Image, at Count, bytes ByteArray)
 	copyInto(image.file, at: sum(image.dataOffset, b: at), src: bytes)
 end 'placeData'
 
+// The build ID, Go's: an image that holds the build ID's field, the text buildIdPrefix followed by buildIdDigits zeros, which
+// the compiler's own source declares (driver.buildIdField), gets in place of the zeros the hexadecimal digest of the image as
+// it is with them, before Mach-O signs it. So the ID is the same for the same image on every machine (c2 == c3 holds), and the
+// compiler reads its own identity from its constant instead of hashing its executable. An image without the field, any
+// program's, is written as it is. The search reads the image once, and the digest is taken only of an image with the field.
+export let buildIdPrefix = "minimaxon build id "
+
+export let buildIdDigits = 32 as Count
+
+let zeroDigit = 48 as Byte
+
+// stampBuildId writes the build ID into the field of the image's file, when it has one.
+export function stampBuildId(mutates file ByteArray)
+	let at = buildIdField(file)
+	if at == noBuildIdField 'none'
+		return
+	end 'none'
+	var h = table.Hasher.new()
+	h.addBytes(file)
+	let digits = h.digest().hex()
+	for i in 0 upto buildIdDigits 'digits'
+		file[sum(at, b: i)] = digits.byteAt(i)
+	end 'digits'
+end 'stampBuildId'
+
+let noBuildIdField = 0xFFFFFFFFFFFFFFFF as Count
+
+// buildIdField is the offset of the zeros of the build ID's field in file: the first place where buildIdPrefix is followed
+// by buildIdDigits zeros, or noBuildIdField.
+function buildIdField(file ByteArray) returns Count
+	let prefix = buildIdPrefix
+	let width = prefix.byteLength()
+	let first = prefix.byteAt(0)
+	let n = file.count()
+	if n < sum(width, b: buildIdDigits) 'short'
+		return noBuildIdField
+	end 'short'
+	let last = try n - width - buildIdDigits otherwise return noBuildIdField
+	for i in 0 upto sum(last, b: 1) 'scan'
+		if file[i] != first 'other'
+			continue 'scan'
+		end 'other'
+		var matches = true
+		for k in 1 upto width 'prefix'
+			if file[sum(i, b: k)] != prefix.byteAt(k) 'differs'
+				matches = false
+				break 'prefix'
+			end 'differs'
+		end 'prefix'
+		if not matches 'next'
+			continue 'scan'
+		end 'next'
+		let digits = sum(i, b: width)
+		var zeros = true
+		for k in 0 upto buildIdDigits 'zeros'
+			if file[sum(digits, b: k)] != zeroDigit 'digit'
+				zeros = false
+				break 'zeros'
+			end 'digit'
+		end 'zeros'
+		if zeros 'found'
+			return digits
+		end 'found'
+	end 'scan'
+	return noBuildIdField
+end 'buildIdField'
+
 // writeImage replaces the file at path with the image, which for Mach-O is signed under the file's name first.
 export function writeImage(image Image, path FilePath) throws FileWriteError
 	match image.format 'format'

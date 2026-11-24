@@ -4,7 +4,7 @@
 // key(M)     = digest(base, M's path, M's source: every file's name and bytes, and the summary of each module M names)
 // summary(M) = digest(M's public text, the IR of M's leaves, and the summary of each module M names)
 //
-// base is the compiler (the digest of its executable), the target, the options that change what a module compiles to and,
+// base is the compiler (its build ID, or the digest of its executable), the target, the options that change what a module compiles to and,
 // for a program, the runtime's source. A module's public text is its source with the body of each function that no other
 // module copies left out (publicDigest): what another module reads of M is its declarations, its constants, its generics'
 // and extensions' bodies and the IR of its leaves, which a caller inlines, so an edit of any other body changes M's key and
@@ -82,14 +82,55 @@ function makeDirectories(dir String) returns bool
 end 'makeDirectories'
 
 // compilerIdentity is the digest of the compiler's own executable, which every key holds, so that a compiler never reads what
-// another made.
+// another made: its build ID, which the link that made it wrote into buildIdField (backend.stampBuildId), or, for a compiler
+// whose link wrote none, as the seeds', the digest of its executable, hashed whole.
 function compilerIdentity() returns table.Digest
+	match builtId() 'stamped'
+		some(id) then return id.clone()
+		none then _ = 0
+	end 'stamped'
 	let exe = try Process.executablePath() otherwise panic("driver: the compiler's own path is unavailable")
 	let bytes = try File.readText(exe) otherwise panic("driver: the compiler cannot read its own executable")
 	var h = table.Hasher.new()
 	h.addText(bytes)
 	return h.digest()
 end 'compilerIdentity'
+
+// buildIdField is the compiler's build ID's field: the link of the compiler's executable writes the hexadecimal digest of the
+// image in place of the zeros (backend.stampBuildId).
+let buildIdField = "minimaxon build id 00000000000000000000000000000000"
+
+// builtId is the build ID the link wrote into buildIdField, or none where the zeros are still there.
+function builtId() returns table.Option with table.Digest
+	let field = buildIdField
+	let start = backend.buildIdPrefix.byteLength()
+	var hi = 0 as table.Word64
+	var lo = 0 as table.Word64
+	var any = false
+	for i in 0 upto backend.buildIdDigits 'digits'
+		let c = field.byteAt(try start + i otherwise return table.Option.none)
+		var v = 0 as table.Word64
+		if c >= 48 and c <= 57 'decimal'
+			v = (c - 48) as table.Word64
+		end 'decimal' else if c >= 97 and c <= 102 'letter'
+			v = (c - 87) as table.Word64
+		end 'letter' else 'other'
+			return table.Option.none
+		end 'other'
+		if c != 48 'nonzero'
+			any = true
+		end 'nonzero'
+		if i < 16 'high'
+			hi = (hi shl 4) or v
+		end 'high' else 'low'
+			lo = (lo shl 4) or v
+		end 'low'
+	end 'digits'
+	if not any 'zeros'
+		return table.Option.none
+	end 'zeros'
+	return table.Option.some(table.Digest.make(hi, lo: lo))
+end 'builtId'
 
 // CacheSetup is how a compile uses the cache: its directory (none when the compile uses no cache), the digest of what every
 // key of the compile holds, and whether the compile compiles every module and holds what it makes to the entries it finds

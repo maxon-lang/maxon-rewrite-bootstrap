@@ -1235,9 +1235,14 @@ the test runners and a compile with `--emit-ir` or `--verify-ir`, which need eve
   IR printer's text, which names functions and types by link name) and of the summaries of the modules it names: what another
   module copies of it, its declarations, layouts, constants, generic and extension bodies and the leaves it inlines, and,
   folded in, what those depend on. Editing any other body changes the module's key and not its summary.
-- **The key** of a module (`keyOf`) is the digest of the compile's base (the digest of the compiler's own executable, the target,
+- **The key** of a module (`keyOf`) is the digest of the compile's base (the compiler's identity, the target,
   `--count-allocations`, and for a program the runtime's source), the module's path, its source and the summary of each module it
   names. Handles, the project's directory, the schedule and the number of workers are in no key.
+- **The compiler's identity** (`compilerIdentity`) is its build ID, Go's: the link writes into every image that holds the
+  build ID's field (the text `minimaxon build id ` and 32 zeros, which only the compiler's source declares) the digest of the image
+  as it is with the zeros, before Mach-O signs it (`backend.stampBuildId`), so the compiler reads its identity from a constant
+  instead of hashing its executable, a tenth of a warm build. It is the same for the same image on every machine, so C2 == C3
+  holds. A compiler whose link wrote none, as the seeds', hashes its executable whole.
 - **An entry** (`<key>.entry`) holds a magic text, the layout's version, the key, the module's summary, the digest of the unit's
   bytes and the unit (`backend.writeUnit`: its code, fixups, data, pieces, pointers, symbols and sections, each array written
   straight). A unit carries its drop and copy routines (`backend.carryRoutines`), so it holds no handle and nothing is relocated
