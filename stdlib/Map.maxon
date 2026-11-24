@@ -229,6 +229,32 @@ export type MapTable uses Key, Value where Key implements Hashable and Equatable
 		panic("Map: a probe ends")
 	end 'find'
 
+	// valueOf is the value of key, whose hash is hash, and throws keyNotFound where the table holds no such key. It probes as
+	// find does but reads the value in the slot where the key matches, as Go's mapaccess does in its own loop: a lookup
+	// that took find's slot would walk back from the map to the table and the slot for the value.
+	function valueOf(key Key, hash MapHash) returns Value throws MapError where Value implements Copyable
+		let wanted = controlOf(hash)
+		var group = firstGroup(hash, mask: mask)
+		var step = 0 as GroupIndex
+		while true 'probe'
+			let word = control(group)
+			var hits = matchControl(word, control: wanted)
+			while hits != 0 'candidates'
+				let slot = slotAt(group, index: firstMatch(hits))
+				if groups.first(slot) == key 'found'
+					return groups.second(slot).clone()
+				end 'found'
+				hits = withoutFirst(hits)
+			end 'candidates'
+			if matchEmpty(word) != 0 or step >= mask 'absent'
+				throw MapError.keyNotFound
+			end 'absent'
+			step = step + 1
+			group = nextGroup(group, step: step, mask: mask)
+		end 'probe'
+		panic("Map: a probe ends")
+	end 'valueOf'
+
 	// vacancy is the slot an insert of a key of hash takes: the first empty or deleted slot on its probe.
 	function vacancy(hash MapHash) returns TableSlot
 		var group = firstGroup(hash, mask: mask)
@@ -564,8 +590,7 @@ public type Map uses Key, Value implements Iterable with (Entry, MapIterator) wh
 		end 'empty'
 		let hash = hashOf(key)
 		let t = tableOf(hash)
-		let slot = try tables[t].find(key, hash: hash)
-		return tables[t].groups.second(slot).clone()
+		return try tables[t].valueOf(key, hash: hash)
 	end 'get'
 
 	/// Check if key exists in the map
