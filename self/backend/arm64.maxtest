@@ -231,7 +231,7 @@ function a64Allocated(mutates u CodeUnit, consumes f MirFunction)
 	let target = ast.Target.make(ast.TargetArch.arm64, system: ast.TargetSystem.linux)
 	var s = Spiller.under(Conventions.make(target))
 	let label = fn.symbol.clone()
-	if spillFunction(fn, s: s).refusals.count() > 0 'refused'
+	if spillFunction(fn, s: s, rule: HotLoops.refuse).refusals.count() > 0 'refused'
 		panic("{label}: refused with E5001")
 	end 'refused'
 	let problems = verifyPressureUnder(fn, convs: Conventions.make(target))

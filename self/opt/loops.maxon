@@ -1,7 +1,8 @@
 // The facts about a function's loops that common subexpression elimination and loop-invariant code motion read, over the
 // segments of ir.Flow: the natural loops (ir.GraphLoops), the loop each segment heads, the members of each loop in
 // reverse postorder, where each segment's last instruction that may write memory is (motion.maxon), and whether each loop
-// holds one. Every part is linear in the segments and the instructions, or in the sum of the loops' sizes for the members.
+// holds one; and the same of the instructions that may write memory outside the elements of arrays, every one but a store
+// of an element (motion.maxon, storesElement). Every part is linear in the segments and the instructions, or in the sum of the loops' sizes for the members.
 
 // noClobber is a segment's lastClobber when no instruction of it may write memory.
 let noClobber = 0 as Count
@@ -14,6 +15,10 @@ export type LoopFacts
 	export var clobbers as Array with bool
 	// lastClobber is, by segment, the index of its last instruction that may write memory plus 1, or noClobber.
 	export var lastClobber as Array with Count
+	// clobbersOutside and lastOutside are clobbers and lastClobber of the instructions that may write memory outside the
+	// elements of arrays.
+	export var clobbersOutside as Array with bool
+	export var lastOutside as Array with Count
 	// The members of loop l are member[memberStart[l]] up to member[memberStart[l + 1]], in reverse postorder.
 	export var memberStart as Array with Count
 	export var member as Array with Count
@@ -22,7 +27,7 @@ export type LoopFacts
 	var pairTo as Array with Count
 
 	export static function new() returns LoopFacts
-		return LoopFacts{loops: ir.GraphLoops.new(), headerOf: Array.create(0), clobbers: Array.create(0), lastClobber: Array.create(0), memberStart: Array.create(0), member: Array.create(0), walk: ir.GraphWalk.new(), pairFrom: Array.create(0), pairTo: Array.create(0)}
+		return LoopFacts{loops: ir.GraphLoops.new(), headerOf: Array.create(0), clobbers: Array.create(0), lastClobber: Array.create(0), clobbersOutside: Array.create(0), lastOutside: Array.create(0), memberStart: Array.create(0), member: Array.create(0), walk: ir.GraphWalk.new(), pairFrom: Array.create(0), pairTo: Array.create(0)}
 	end 'new'
 
 	// find finds the facts of f, whose flow is built.
@@ -38,32 +43,28 @@ export type LoopFacts
 		end 'heads'
 		ir.resetCounts(lastClobber, n: segs)
 		ir.resetFlags(clobbers, n: loops.loopCount())
+		ir.resetCounts(lastOutside, n: segs)
+		ir.resetFlags(clobbersOutside, n: loops.loopCount())
 		for s in 0 upto segs 'segs'
 			for k in flow.segFirst[s] upto flow.segEnd[s] 'instrs'
 				if motionOf(f.instrs[k]) == Motion.clobber 'clobber'
 					lastClobber[s] = plusOne(k)
+					if not storesElement(f, defs: flow.defs, x: f.instrs[k]) 'outside'
+						lastOutside[s] = plusOne(k)
+					end 'outside'
 				end 'clobber'
 			end 'instrs'
-			if lastClobber[s] != noClobber and flow.reached[s] 'marks'
-				self.markClobbering(s)
+			if flow.reached[s] 'marks'
+				if lastClobber[s] != noClobber 'any'
+					markLoops(loops, s: s, marks: clobbers)
+				end 'any'
+				if lastOutside[s] != noClobber 'outside'
+					markLoops(loops, s: s, marks: clobbersOutside)
+				end 'outside'
 			end 'marks'
 		end 'segs'
 		self.members(flow)
 	end 'find'
-
-	// markClobbering marks every loop that holds the segment s as one that may write memory. Marking a loop marks the loops
-	// around it, so the walk up stops at the first loop marked already.
-	function markClobbering(mutates self, s Count)
-		var l = loops.loopOf[s]
-		while l != ir.noLoop 'up'
-			let at = try l as Count otherwise panic("opt: a loop below 0")
-			if clobbers[at] 'marked'
-				return
-			end 'marked'
-			clobbers[at] = true
-			l = loops.parent[at]
-		end 'up'
-	end 'markClobbering'
 
 	function members(mutates self, flow ir.Flow)
 		pairFrom.clear()
@@ -85,4 +86,27 @@ export type LoopFacts
 	export function clobberAt(s Count) returns Count
 		return lastClobber[s]
 	end 'clobberAt'
+
+	// clobbersFor is whether loop l holds an instruction that may write what x, a read of f, reads. defs is where f defines
+	// each register.
+	export function clobbersFor(l Count, f ir.IrFunction, defs ir.Defs, x ir.Instr) returns bool
+		if readsBeyondElements(f, defs: defs, x: x) 'outside'
+			return clobbersOutside[l]
+		end 'outside'
+		return clobbers[l]
+	end 'clobbersFor'
 end 'LoopFacts'
+
+// markLoops marks in marks every loop of loops that holds the segment s. Marking a loop marks the loops around it, so the
+// walk up stops at the first loop marked already.
+function markLoops(loops ir.GraphLoops, s Count, mutates marks Array with bool)
+	var l = loops.loopOf[s]
+	while l != ir.noLoop 'up'
+		let at = try l as Count otherwise panic("opt: a loop below 0")
+		if marks[at] 'marked'
+			return
+		end 'marked'
+		marks[at] = true
+		l = loops.parent[at]
+	end 'up'
+end 'markLoops'

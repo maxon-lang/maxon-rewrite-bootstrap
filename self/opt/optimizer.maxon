@@ -1,11 +1,11 @@
-// The optimizer's passes in the order a native build runs them, in two parts on either side of the fallback of a function
-// that may loop (fallbackOf), the IR it has between them, which the backend compiles where it refuses a hot loop of the
-// optimized IR (E5001). A pass before the fallback never makes an instruction hold more values at once than the code it
-// replaces, so the fallback needs no more registers than the program as written; a pass after it may, so a loop that
-// would compile without it always compiles.
+// The optimizer's passes in the order a native build runs them, in two parts on either side of the source form of a
+// function (sourceOf), the IR it has between them, which holds no more values at once than the program as written: a pass
+// before it never makes an instruction hold more values at once than the code it replaces, and a pass after it may. The
+// backend tests the source form's loops where a hot loop of the optimized IR does not fit, since E5001 is whether the
+// program's own loop fits, and compiles the optimized IR either way (README, "E5001 and the optimizations").
 //
-// Before the fallback, on each function (optimizeFunction): SSA construction, jump threading (thread.maxon), then the fold
-// pass with the rules of generic.rules.
+// Before the source form, on each function (optimizeFunction): SSA construction, jump threading (thread.maxon), then the
+// fold pass with the rules of generic.rules.
 // After it, on the module (inline.maxon): the expansion of the primitives (expand.maxon), whose operations hold no call
 // that values were in memory across; the fold again with the rules of pressure.rules, on each function that holds an
 // instruction they rewrite (a division by a constant, whose multiply holds x beside the high word); leaf inlining, which
@@ -13,7 +13,9 @@
 // array's buffer and the access at the index (buffers.maxon), loop rotation (rotate.maxon), loop-invariant code motion
 // (licm.maxon), which finds a preheader on the guard that rotation leaves, common subexpression elimination
 // (cse.maxon), which merges what moved out of a loop with what was computed before it, and copy elision (copies.maxon),
-// which needs the reads of one place merged to see that a copy of it is a move.
+// which needs the reads of one place merged to see that a copy of it is a move. Code motion and elimination record each
+// value they make live where the program did not hold it (ir.IrFunction.lengthened), which register allocation reloads
+// in a loop that has no room for it.
 
 // OptPhase is a part of the lower stage that --timings times on its own.
 export enum OptPhase
@@ -75,7 +77,7 @@ export function optimizeModule(mutates o Optimizer, mutates fns ir.IrFunctionLis
 	end 'each'
 end 'optimizeModule'
 
-// optimizeFunction runs the passes before the fallback on f.
+// optimizeFunction runs the passes before the source form on f.
 function optimizeFunction(mutates o Optimizer, mutates f ir.IrFunction)
 	o.ssa.construct(f)
 	o.lap(OptPhase.ssa)
@@ -91,11 +93,11 @@ function threadAndFold(mutates o Optimizer, mutates f ir.IrFunction, raises bool
 	o.lap(OptPhase.fold)
 end 'threadAndFold'
 
-// fallbackOf is the fallback of the function at place at of fns, a module's functions as lowerModule lowered them and the
-// optimizer then changed: the function lowered again from its declaration and taken through the passes before the
-// fallback, which give the same IR each time, so no function keeps a copy that its emit may never ask for. A function that
-// may hold no loop has none, and has no hot loop to refuse.
-export function fallbackOf(p ast.Project, mutates ms ast.ModuleState, fns ir.IrFunctionList, at Count) returns table.Option with ir.IrFunction
+// sourceOf is the source form of the function at place at of fns, a module's functions as lowerModule lowered them and
+// the optimizer then changed: the function lowered again from its declaration and taken through the passes before the
+// source form, which give the same IR each time, so no function keeps a copy that its emit may never ask for. A function
+// that may hold no loop has none, and has no hot loop to refuse.
+export function sourceOf(p ast.Project, mutates ms ast.ModuleState, fns ir.IrFunctionList, at Count) returns table.Option with ir.IrFunction
 	var instances = ir.instancesOf(p, ms: ms, fns: fns)
 	var f = ir.lowerFunction(p, ms: ms, fn: fns[at].decl, instances: instances)
 	var o = Optimizer.new()
@@ -104,7 +106,7 @@ export function fallbackOf(p ast.Project, mutates ms ast.ModuleState, fns ir.IrF
 		return table.Option.none
 	end 'straight'
 	return table.Option.some(f)
-end 'fallbackOf'
+end 'sourceOf'
 
 // refine runs the passes that come after leaf inlining on f and the bodies of its closures and behaviours. A function
 // with a refusal is never compiled, so it is left as it is.

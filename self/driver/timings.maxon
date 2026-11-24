@@ -73,7 +73,7 @@ export type Timings
 	export function addTask(mutates self, lowered table.PhaseClock, emitted backend.EmitClock, inlined Count)
 		lower.add(lowered)
 		emit.phases.add(emitted.phases)
-		emit.fallbacks = try emit.fallbacks + emitted.fallbacks otherwise panic("driver: more fallbacks taken than memory")
+		emit.spilledLoops = try emit.spilledLoops + emitted.spilledLoops otherwise panic("driver: more functions spilled than memory")
 		inlinedCalls = try inlinedCalls + inlined otherwise panic("driver: more calls inlined than memory")
 	end 'addTask'
 
@@ -97,8 +97,8 @@ export type Timings
 		text = "{text}{rule()}{row("total", time: millisText(whole), share: shareText(whole, whole: whole))}"
 		text = "{text}{phasesReport("lower phases", clock: lower, names: opt.OptPhase.allCaseNames)}"
 		text = "{text}{phasesReport("emit phases", clock: emit.phases, names: backend.EmitPhase.allCaseNames)}"
-		if inlinedCalls > 0 or emit.fallbacks > 0 'inlined'
-			text = "{text}\ncalls inlined: {inlinedCalls}\nfallbacks taken: {emit.fallbacks}\n"
+		if inlinedCalls > 0 or emit.spilledLoops > 0 'inlined'
+			text = "{text}\ncalls inlined: {inlinedCalls}\nfunctions with hot loops spilled: {emit.spilledLoops}\n"
 		end 'inlined'
 		text = "{text}\nslowest modules\n{row("module", time: "ms", share: "%")}{rule()}"
 		var listed = TimeTotals.create(0)

@@ -28,10 +28,10 @@
 //
 // A copy must not make a loop fail to compile: a loop that needs more registers than the target has is E5001, and with the
 // call, the values live across it were in memory across it, which they need not be across the copy, nor across the
-// expansion of a primitive, nor across what the passes after inlining merge or move out of a loop. So a function that may
-// hold a loop has the IR it had before its expansions, its copies and those passes as its fallback (fallbackOf), which
-// the backend compiles in its place where it refuses a hot loop of the optimized one: such a function compiles exactly as
-// it would have without any of them.
+// expansion of a primitive, nor across what the passes after inlining merge or move out of a loop. So E5001 is decided
+// by the function's source form, the IR it had before its expansions, its copies and those passes (sourceOf), which the
+// backend tests where a hot loop of the optimized one does not fit, and the optimized function is compiled with that loop
+// spilled where the source form's fits: a function that compiles without any of them compiles with all of them.
 
 // maxLeafOps is the most instructions and terminators the hot path of a leaf with no cold block has: maxon's measured
 // budget, which admits accessors and small helpers and keeps the code a copy adds small.
@@ -591,11 +591,11 @@ function inlineInto(mutates o Optimizer, mutates f ir.IrFunction, own Leaves, ow
 	return true
 end 'inlineInto'
 
-// inlineModule runs the passes after the fallback (optimizer.maxon) on the functions of a module, fns, once the optimizer
+// inlineModule runs the passes after the source form (optimizer.maxon) on the functions of a module, fns, once the optimizer
 // has run on them: it expands their primitives (expand.maxon) and folds with the rules that may raise register pressure,
 // then replaces their calls of leaves, folds again each function that got a copy, and runs the passes after inlining; a
-// function that may hold a loop has the IR it had before all of them as its fallback (fallbackOf), since each can make a
-// loop need more registers. Every function is expanded and folded before any is copied, so every copy of a leaf is the
+// function's source form is the IR it had before all of them (sourceOf), since each can make a loop need more
+// registers. Every function is expanded and folded before any is copied, so every copy of a leaf is the
 // same body. own are the module's leaves, and ownPreemptible those that a function preemptible marks may copy;
 // lowered and leaves are the
 // functions and leaves of the modules this compile lowers, by their index from first, of which the module may read those
@@ -639,7 +639,7 @@ export function inlineModule(mutates o Optimizer, mutates fns ir.IrFunctionList,
 end 'inlineModule'
 
 // holdsRaising is whether f, or a body of its closures and behaviours, holds an instruction that a rule which may raise
-// register pressure could rewrite (pressure.rules), which only a fold past the fallback applies.
+// register pressure could rewrite (pressure.rules), which only a fold past the source form applies.
 function holdsRaising(f ir.IrFunction) returns bool
 	for i in 0 upto f.bodies.count() 'bodies'
 		if holdsRaising(f.bodies[i]) 'body'

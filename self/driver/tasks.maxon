@@ -595,8 +595,8 @@ function emitModule(c Compile, mutates work ModuleWork, known Known, inputs ast.
 			return giveTask(work, ms: ms, stage: Stage.emit)
 		end 'hit'
 	end 'probe'
-	var fallbacks = Relowering.new()
-	work.unit = backend.emitModule(view, ms: ms, fns: work.code, fallbacks: fallbacks, verifies: c.options.verifyIr, clock: timing.emit, errs: errs)
+	var forms = Relowering.new()
+	work.unit = backend.emitModule(view, ms: ms, fns: work.code, forms: forms, verifies: c.options.verifyIr, clock: timing.emit, errs: errs)
 	backend.carryRoutines(view, ms: ms, u: work.unit)
 	if c.cache.enabled() and errs.count() == 0 'keep'
 		if work.found.isSome() 'verify'
@@ -609,16 +609,19 @@ function emitModule(c Compile, mutates work ModuleWork, known Known, inputs ast.
 	return giveTask(work, ms: ms, stage: Stage.emit)
 end 'emitModule'
 
-// Relowering is the source of the fallbacks of a module's functions that the lower of this compile optimized: each lowered
-// and optimized again where its emit asks for it (opt.fallbackOf).
-type Relowering implements backend.FallbackSource
+// Relowering is the source of the source forms of a module's functions that the lower of this compile optimized: each
+// lowered again where its emit asks for it (opt.sourceOf).
+type Relowering implements backend.SourceForms
 	static function new() returns Relowering
 		return Relowering{}
 	end 'new'
 
-	function fallbackOf(mutates self, p ast.Project, mutates ms ast.ModuleState, fns ir.IrFunctionList, at Count) returns table.Option with ir.IrFunction
-		return opt.fallbackOf(p, ms: ms, fns: fns, at: at)
-	end 'fallbackOf'
+	function sourceOf(mutates self, p ast.Project, mutates ms ast.ModuleState, fns ir.IrFunctionList, at Count) returns backend.SourceForm
+		match consumes opt.sourceOf(p, ms: ms, fns: fns, at: at) 'source'
+			some(f) then return backend.SourceForm.lowered(f)
+			none then return backend.SourceForm.straight
+		end 'source'
+	end 'sourceOf'
 end 'Relowering'
 
 // Ordered is what the order decides: the order the stages that read the modules a module names visit them in, the modules

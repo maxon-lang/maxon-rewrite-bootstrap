@@ -1335,11 +1335,11 @@ export type Allocator
 	end 'new'
 
 	// allocate gives every virtual register of fn a physical register, spilling first where the registers do not
-	// suffice, after which every operand is physical, no edge has arguments and no parallel copy is left. It gives the
-	// hot loops E5001 refuses instead, leaving fn unallocated.
-	export function allocate(mutates self, mutates fn MirFunction) returns PressureRefusalList
-		var spilled = spillFunction(fn, s: spiller)
-		if spilled.refusals.count() > 0 'refused'
+	// suffice, after which every operand is physical, no edge has arguments and no parallel copy is left. By rule, it
+	// gives the hot loops E5001 refuses instead, leaving fn unallocated, and only those when it tests.
+	export function allocate(mutates self, mutates fn MirFunction, rule HotLoops) returns PressureRefusalList
+		var spilled = spillFunction(fn, s: spiller, rule: rule)
+		if spilled.refusals.count() > 0 or rule == HotLoops.test 'refused'
 			return exchange(spilled.refusals, value: PressureRefusalList.create(0))
 		end 'refused'
 		if verifies 'pressure'

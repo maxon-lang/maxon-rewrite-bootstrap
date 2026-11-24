@@ -9,8 +9,8 @@
 //
 // It runs on the IR the interpreter runs, as lowered, and on the IR a native build compiles, after the fold and before leaf
 // inlining, so the two run one form. Its operations hold no call, so a loop the call let compile may need more registers
-// than the target has once it is expanded: a function that may hold a loop has the IR it had before as its fallback
-// (opt.fallbackOf), which the backend compiles where it refuses a hot loop of the expanded one (inline.maxon).
+// than the target has once it is expanded: the backend then tests the function's source form, the IR it had before
+// (opt.sourceOf), and spills the expanded loop where the source form's fits (inline.maxon).
 
 // Expander is the state of the expansion, kept from one function to the next so that its arrays keep their capacity: how
 // many times each register is read, the operands of one operation, the instructions being written, and the call each

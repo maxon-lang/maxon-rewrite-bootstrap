@@ -21,6 +21,16 @@
 // - A read of what another thread may write (a global of the runtime, a raw word, the thread's context) is never merged
 //   or moved, since a loop that waits on such a word would then wait forever.
 //
+// One write is narrower: a store through the address of an element (storesElement) writes inside an array's buffer,
+// where a bounds check proved the index, and an element is a word or a String. So it changes no word outside the elements
+// of arrays, and a read that reads none (readsBeyondElements) keeps its value across it: the length and the buffer of an
+// array, which are words of its box, a slot, and a word at an address that is no element's. Such an address is a slot's,
+// or a value the function was given or read from memory, which is a box (a buffer's address is a word of its array's box
+// that only Buffer reads), or a place a `mutates` or `sets` parameter lends. That place may be an element of the caller's
+// array, but no argument may overlap it (E3186), so no element the function writes is it: an array that holds it is
+// reached only through the place's own owner. So in `a[i] = a[i] + x` the array's box, length and buffer are read once,
+// and a loop that writes only elements keeps the reads of its arrays' boxes, lengths and buffers out of it.
+//
 // Faults. An operation that goes to a failure block (a guard, a bounds check, checked arithmetic) or that the hardware
 // stops on (an unchecked division or remainder, which a guard before it makes safe) runs only where it ran: it is merged
 // with an earlier identical one, which already passed, and moved only to a point where it ran first anyway.
@@ -142,6 +152,51 @@ function binMotion(x ir.Instr) returns Motion
 	end 'faults'
 	return Motion.pure
 end 'binMotion'
+
+// storesElement is whether x, a clobber of f, writes only an element of an array: a store through the address of an
+// element. defs is where f defines each register.
+export function storesElement(f ir.IrFunction, defs ir.Defs, x ir.Instr) returns bool
+	if x.op != ir.Opcode.opStoreAt 'other'
+		return false
+	end 'other'
+	let op = definingOp(f, defs: defs, r: ir.storeAtAddr(x))
+	return op == ir.Opcode.opElemAddr or op == ir.Opcode.opElemAddrAt
+end 'storesElement'
+
+// readsBeyondElements is whether x, a read of f, reads no element of an array, so that no store of an element changes
+// what it gives (see the top of this file). defs is where f defines each register.
+export function readsBeyondElements(f ir.IrFunction, defs ir.Defs, x ir.Instr) returns bool
+	let op = x.op
+	if op == ir.Opcode.opLength or op == ir.Opcode.opBuffer or op == ir.Opcode.opElemAddr or op == ir.Opcode.opLoadSlot 'box'
+		return true
+	end 'box'
+	if op == ir.Opcode.opLoadAt 'at'
+		return outsideElements(f, defs: defs, r: ir.loadAtAddr(x))
+	end 'at'
+	if op == ir.Opcode.opLoadField 'field'
+		return outsideElements(f, defs: defs, r: ir.loadFieldObj(x))
+	end 'field'
+	if op == ir.Opcode.opElemLoad or op == ir.Opcode.opElemAt or op == ir.Opcode.opLoadByte or op == ir.Opcode.opByteAt 'element'
+		return false
+	end 'element'
+	panic("opt: readsBeyondElements of {ir.opcodeName(op)}, which is no read")
+end 'readsBeyondElements'
+
+// outsideElements is whether the address r of f is never inside the elements of an array that f writes: a slot's, a
+// parameter (a box, or a place that no other argument overlaps), or a value read from memory, which is a box.
+function outsideElements(f ir.IrFunction, defs ir.Defs, r ir.Reg) returns bool
+	let op = definingOp(f, defs: defs, r: r)
+	return op == ir.Opcode.opLoadParam or op == ir.Opcode.opSlotAddr or op == ir.Opcode.opLoadSlot or op == ir.Opcode.opLoadAt or op == ir.Opcode.opLoadField or op == ir.Opcode.opElemLoad or op == ir.Opcode.opElemAt or op == ir.Opcode.opAlloc
+end 'outsideElements'
+
+// definingOp is the operation of the instruction of f that defines r, or opNone for a block parameter.
+function definingOp(f ir.IrFunction, defs ir.Defs, r ir.Reg) returns ir.Opcode
+	let at = defs.instr[regIndex(r)]
+	if at == ir.noDef 'param'
+		return ir.Opcode.opNone
+	end 'param'
+	return f.instrs[try at as Count otherwise panic("opt: a definition before the instructions")].op
+end 'definingOp'
 
 // keyed is whether an instruction of the motion m is merged with an earlier identical one: what it gives, or whether it
 // passes, depends on its operands alone, and on memory for a read.

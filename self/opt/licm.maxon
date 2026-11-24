@@ -7,11 +7,12 @@
 //
 // - A pure operation, from anywhere in the loop: it cannot fail or fault, so running it when the loop body would not
 //   have changes nothing a program sees.
-// - A read, when nothing in the loop may write memory (the loop holds no clobber), so it reads the same on every
-//   iteration, and when the first iteration runs it anyway: its segment dominates every way out of the loop and every
-//   edge back to the header, or it is in the header's prefix (below). A loop that holds a store or a call of any kind,
-//   a push among them, keeps every read where it is. In a loop that holds no clobber, a read of one of the function's
-//   slots may move from anywhere, since the frame is always there to read. The read of an array's buffer (buffers.maxon
+// - A read, when nothing in the loop may write what it reads (the loop holds no clobber, or holds only stores of
+//   elements and the read reads no element: motion.maxon), so it reads the same on every iteration, and when the first
+//   iteration runs it anyway: its segment dominates every way out of the loop and every edge back to the header, or it
+//   is in the header's prefix (below). A loop that holds a call of any kind, a push among them, or a store other than of
+//   an element, keeps every read where it is; one that stores elements keeps its element reads. Where no write reaches
+//   it, a read of one of the function's slots may move from anywhere, since the frame is always there to read. The read of an array's buffer (buffers.maxon
 //   split it off each element access) may also move when the length of the same array has moved to the preheader
 //   before it: that read proved the box there, and nothing frees a box that the loop still names, so reading another
 //   word of its header cannot fault. The access at the index stays.
@@ -189,7 +190,7 @@ export type Licm
 			pure gives true
 			divides gives inPrefix
 			check gives inPrefix and self.failStaysOut(f, x: x, l: l, analysis: analysis, facts: facts)
-			read gives not facts.clobbers[l] and (inPrefix or analysis.flow.dominates(runsAt[k], b: mustSeg) or self.witnessed(x, l: l) or x.op == ir.Opcode.opLoadSlot)
+			read gives not facts.clobbersFor(l, f: f, defs: analysis.flow.defs, x: x) and (inPrefix or analysis.flow.dominates(runsAt[k], b: mustSeg) or self.witnessed(x, l: l) or x.op == ir.Opcode.opLoadSlot)
 			sharedRead or
 			quiet or
 			clobber gives false
@@ -326,7 +327,15 @@ export type Licm
 		editor.finish(f)
 	end 'place'
 
+	// move moves instruction k to the preheader of loop l, whose values then live across the loop.
 	function move(mutates self, mutates f ir.IrFunction, k Count, l Count, analysis Analysis, facts LoopFacts)
+		regs.clear()
+		ir.instrWrites(f.instrs[k], out: regs)
+		for i in 0 upto regs.count() 'writes'
+			if regs[i] != ir.noReg 'named'
+				f.lengthen(regs[i])
+			end 'named'
+		end 'writes'
 		self.appendToPreheader(f, x: f.instrs[k].clone(), span: ir.spanAt(f, k: k), l: l, analysis: analysis, facts: facts)
 		editor.remove(k)
 	end 'move'

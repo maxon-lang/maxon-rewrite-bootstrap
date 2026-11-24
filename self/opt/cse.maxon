@@ -18,7 +18,10 @@
 // Each instruction that may write memory starts a new one. Two points that share a version have no write between them on
 // any path from the one to the other: the version is new after a write, and is handed on only where every way in agrees,
 // so a path that passed a write carries another version until it reaches the point that made its own. With the earlier
-// point dominating the later one, that is when the later read may take the earlier one's value.
+// point dominating the later one, that is when the later read may take the earlier one's value. The memory outside the
+// elements of arrays has versions of its own, given the same way, which a store of an element does not change
+// (motion.maxon): a read that reads no element (a box's length or buffer, a slot, a parameter's place, a field) is keyed
+// by those, so the box, length and buffer of an array are read once around the stores of its elements.
 //
 // A segment that starts a block which only one side of a branch enters knows the branch's condition, true or false,
 // everywhere it dominates, as the table knows what was computed: a branch below it on the same condition becomes a jump to
@@ -66,9 +69,11 @@ export type Cse
 	// merged is how many instructions the pass removed, over every function it was given.
 	export var merged as Count
 	var editor as Editor
-	// By segment: the version of memory it starts and ends with.
+	// By segment: the version of memory it starts and ends with, and of the memory outside the elements of arrays.
 	var entry as Array with Count
 	var exit as Array with Count
+	var outsideEntry as Array with Count
+	var outsideExit as Array with Count
 	var versions as Count
 	// The register each register is read as, and whether any is read as another.
 	var repl as ir.RegList
@@ -101,7 +106,7 @@ export type Cse
 	var provenMarks as Array with Count
 
 	export static function new() returns Cse
-		return Cse{merged: 0, editor: Editor.new(), entry: Array.create(0), exit: Array.create(0), versions: 0, repl: ir.RegList.create(0), replaced: false, slotInstr: Array.create(0), slotVersion: Array.create(0), slotStamp: Array.create(0), stamp: 0, mask: 0, filled: Array.create(0), stack: Array.create(0), cursor: Array.create(0), marks: Array.create(0), regs: ir.RegList.create(0), constant: Array.create(0), constantValue: Array.create(0), known: Array.create(0), learned: ir.RegList.create(0), learnedMarks: Array.create(0), provenIndex: ir.RegList.create(0), provenLength: ir.RegList.create(0), provenMarks: Array.create(0)}
+		return Cse{merged: 0, editor: Editor.new(), entry: Array.create(0), exit: Array.create(0), outsideEntry: Array.create(0), outsideExit: Array.create(0), versions: 0, repl: ir.RegList.create(0), replaced: false, slotInstr: Array.create(0), slotVersion: Array.create(0), slotStamp: Array.create(0), stamp: 0, mask: 0, filled: Array.create(0), stack: Array.create(0), cursor: Array.create(0), marks: Array.create(0), regs: ir.RegList.create(0), constant: Array.create(0), constantValue: Array.create(0), known: Array.create(0), learned: ir.RegList.create(0), learnedMarks: Array.create(0), provenIndex: ir.RegList.create(0), provenLength: ir.RegList.create(0), provenMarks: Array.create(0)}
 	end 'new'
 
 	// eliminate removes the redundant instructions of f, which is in SSA form and keeps the verifier's rules, and which
@@ -190,33 +195,20 @@ export type Cse
 		return mixHash(h, part: v and cseLow32Mask)
 	end 'hashOf'
 
-	// version gives each segment the version of memory it starts and ends with.
+	// version gives each segment the version of memory it starts and ends with, and of the memory outside the elements of
+	// arrays, which only the writes that are not stores of elements change.
 	function version(mutates self, analysis Analysis, facts LoopFacts)
 		let segs = analysis.flow.segCount()
 		ir.resetCounts(entry, n: segs)
 		ir.resetCounts(exit, n: segs)
+		ir.resetCounts(outsideEntry, n: segs)
+		ir.resetCounts(outsideExit, n: segs)
 		versions = noVersion
 		for i in 0 upto analysis.flow.order.count() 'order'
 			let s = analysis.flow.order[i]
-			var v = noVersion
 			let head = facts.headerOf[s]
-			if s != 0 'entered'
-				var agreed = true
-				for e in analysis.flow.predStart[s] upto analysis.flow.predStart[plusOne(s)] 'preds'
-					let p = analysis.flow.pred[e]
-					if not analysis.flow.reached[p] or (head != ir.noLoop and facts.loops.holds(loopIndex(head), node: p)) 'skip'
-						continue 'preds'
-					end 'skip'
-					if v == noVersion 'first'
-						v = exit[p]
-					end 'first' else if exit[p] != v 'differs'
-						agreed = false
-					end 'differs'
-				end 'preds'
-				if not agreed or (head != ir.noLoop and facts.clobbers[loopIndex(head)]) 'changes'
-					v = noVersion
-				end 'changes'
-			end 'entered'
+			let looped = head != ir.noLoop
+			var v = agreedVersion(s, exits: exit, loopWrites: looped and facts.clobbers[loopIndex(head)], analysis: analysis, facts: facts)
 			if v == noVersion 'new'
 				v = self.newVersion()
 			end 'new'
@@ -226,6 +218,16 @@ export type Cse
 				let after = self.newVersion()
 				exit[s] = after
 			end 'writes'
+			var w = agreedVersion(s, exits: outsideExit, loopWrites: looped and facts.clobbersOutside[loopIndex(head)], analysis: analysis, facts: facts)
+			if w == noVersion 'newOutside'
+				w = self.newVersion()
+			end 'newOutside'
+			outsideEntry[s] = w
+			outsideExit[s] = w
+			if facts.lastOutside[s] != noClobber 'writesOutside'
+				let after = self.newVersion()
+				outsideExit[s] = after
+			end 'writesOutside'
 		end 'order'
 	end 'version'
 
@@ -308,7 +310,9 @@ export type Cse
 			end 'record'
 		end 'afterCheck'
 		var v = entry[s]
+		var w = outsideEntry[s]
 		let last = facts.clobberAt(s)
+		let lastOutside = facts.lastOutside[s]
 		for k in analysis.flow.segFirst[s] upto analysis.flow.segEnd[s] 'instrs'
 			if replaced 'rename'
 				ir.renameInstrReads(f.instrs[k], args: f.args, names: repl)
@@ -321,19 +325,27 @@ export type Cse
 			let m = motionOf(f.instrs[k])
 			if m == Motion.clobber 'clobber'
 				v = exit[s] if plusOne(k) == last else self.newVersion()
+				if not storesElement(f, defs: analysis.flow.defs, x: f.instrs[k]) 'outside'
+					w = outsideExit[s] if plusOne(k) == lastOutside else self.newVersion()
+				end 'outside'
 				continue 'instrs'
 			end 'clobber'
 			if not keyed(m) 'unkeyed'
 				continue 'instrs'
 			end 'unkeyed'
-			let seen = v if m == Motion.read else noVersion
+			var seen = noVersion
+			if m == Motion.read 'read'
+				seen = w if readsBeyondElements(f, defs: analysis.flow.defs, x: f.instrs[k]) else v
+			end 'read'
 			let earlier = self.lookup(f, k: k, v: seen)
 			if earlier != noEntry 'redundant'
 				editor.remove(k)
 				merged = plusOne(merged)
 				let dst = f.instrs[k].dst
 				if dst != ir.noReg 'value'
-					repl[regIndex(dst)] = f.instrs[linkIndex(earlier)].dst
+					let kept = f.instrs[linkIndex(earlier)].dst
+					repl[regIndex(dst)] = kept
+					f.lengthen(kept)
 					replaced = true
 				end 'value'
 			end 'redundant' else if not ir.instrCanFail(f.instrs[k]) 'record'
@@ -611,6 +623,29 @@ type BelowPair
 		return BelowPair{index: index, length: length}
 	end 'make'
 end 'BelowPair'
+
+// agreedVersion is the version that segment s starts with when every predecessor the entry reaches (for a loop's header,
+// every one outside the loop) ends with the same one in exits and loopWrites says the loop it heads leaves it as it is;
+// otherwise it is noVersion, and s starts a new one.
+function agreedVersion(s Count, exits Array with Count, loopWrites bool, analysis Analysis, facts LoopFacts) returns Count
+	if s == 0 or loopWrites 'entry'
+		return noVersion
+	end 'entry'
+	let head = facts.headerOf[s]
+	var v = noVersion
+	for e in analysis.flow.predStart[s] upto analysis.flow.predStart[plusOne(s)] 'preds'
+		let p = analysis.flow.pred[e]
+		if not analysis.flow.reached[p] or (head != ir.noLoop and facts.loops.holds(loopIndex(head), node: p)) 'skip'
+			continue 'preds'
+		end 'skip'
+		if v == noVersion 'first'
+			v = exits[p]
+		end 'first' else if exits[p] != v 'differs'
+			return noVersion
+		end 'differs'
+	end 'preds'
+	return v
+end 'agreedVersion'
 
 // edgeArg is the argument that block from passes to the parameter j of block to along its one edge to it, if it has one.
 function edgeArg(f ir.IrFunction, from Count, to Count, j Count) returns table.Option with ir.Reg

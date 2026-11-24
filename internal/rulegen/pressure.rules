@@ -1,7 +1,7 @@
 // The rewrite rules that may raise register pressure, which the fold pass applies only to the IR after a function's
-// fallback is taken (ir.Fallbacks, self/opt/inline.maxon): a rewrite that holds more values at once than the instruction
-// it replaces could make a hot loop need more registers than the target has (E5001), and the fallback, compiled where the
-// optimized function is refused, is the function without it. generic.rules says how a rule is written and the invariant
+// source form is taken (opt.sourceOf, self/opt/inline.maxon): a rewrite that holds more values at once than the
+// instruction it replaces could make a hot loop need more registers than the target has, and E5001 is decided by the
+// source form, which is the function without it. generic.rules says how a rule is written and the invariant
 // every rule keeps; these come after its rules for the same operation. rulegen makes them part of
 // self/opt/rewrite_gen.maxon.
 

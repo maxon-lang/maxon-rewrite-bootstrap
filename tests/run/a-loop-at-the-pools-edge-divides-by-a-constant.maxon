@@ -1,6 +1,6 @@
 // A loop whose values fill the general-purpose pool, with a division and a remainder by a constant, compiles: the
-// multiply that a division by a constant becomes holds more values at once than the division, so the fallback is the
-// loop with the division, which fits. Each answer is the one the same rounds give with the values in an array and the
+// multiply that a division by a constant becomes holds more values at once than the division, and the loop with the
+// division fits, so the loop with the multiply is spilled rather than refused. Each answer is the one the same rounds give with the values in an array and the
 // divisor read from it, which is no constant.
 typealias Word = int(i64.min to i64.max)
 

@@ -316,9 +316,13 @@ export type MirFunction
 	export var keepsSpans as bool
 	export var pos as ir.Word
 	export var spans as ir.SpanList
+	// lengthened is, by virtual register, whether the optimizer made the value live where the program as written did not
+	// hold it (ir.IrFunction.lengthened), which spilling may reload in a loop with no room for it before it refuses the
+	// loop. A register past its end, which selection made, was not.
+	export var lengthened as Array with bool
 
 	export static function new(symbol String, canThrow bool, arch ast.TargetArch) returns MirFunction
-		return MirFunction{symbol: symbol.clone(), arch: arch, instrs: MInstrList.create(0), blocks: MBlockList.create(0), order: MBlockIDList.create(0), blockParams: MRegList.create(0), edges: MEdgeList.create(0), edgeArgs: MRegList.create(0), copies: MCopyList.create(0), symbols: NameList.create(0), classes: RegClassList.create(0), fixedSlots: 0, spillSlots: 0, savedRegs: 0, canThrow: canThrow, floatResult: false, stringResult: false, outgoingBytes: 0, incomingStack: false, keepsSpans: false, pos: ir.noSpan, spans: ir.SpanList.create(0)}
+		return MirFunction{symbol: symbol.clone(), arch: arch, instrs: MInstrList.create(0), blocks: MBlockList.create(0), order: MBlockIDList.create(0), blockParams: MRegList.create(0), edges: MEdgeList.create(0), edgeArgs: MRegList.create(0), copies: MCopyList.create(0), symbols: NameList.create(0), classes: RegClassList.create(0), fixedSlots: 0, spillSlots: 0, savedRegs: 0, canThrow: canThrow, floatResult: false, stringResult: false, outgoingBytes: 0, incomingStack: false, keepsSpans: false, pos: ir.noSpan, spans: ir.SpanList.create(0), lengthened: Array.create(0)}
 	end 'new'
 
 	export function newVReg(mutates self, class RegClass) returns MReg

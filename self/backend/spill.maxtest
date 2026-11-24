@@ -39,7 +39,7 @@ end 'spillOf'
 // spillUnder is spillOf under the conventions convs.
 function spillUnder(label String, mutates fn MirFunction, convs Conventions) returns SpillResult
 	var s = Spiller.under(convs.clone())
-	let result = spillFunction(fn, s: s)
+	let result = spillFunction(fn, s: s, rule: HotLoops.refuse)
 	if result.refusals.count() > 0 'refused'
 		panic("{label}: refused with E5001: {pressureRefusalMessage(result.refusals[0], place: label, target: "x64")}")
 	end 'refused'
@@ -310,7 +310,7 @@ end 'runSpilledLoop'
 function refusalOfShape(label String, shape LoopShape) returns PressureRefusal
 	var fn = mirShapedLoop("refused", shape: shape)
 	var s = Spiller.new(ast.Target.windowsX64())
-	let result = spillFunction(fn, s: s)
+	let result = spillFunction(fn, s: s, rule: HotLoops.refuse)
 	if result.refusals.count() != 1 'one'
 		panic("{label}: {result.refusals.count()} refusals, not one")
 	end 'one'
@@ -694,7 +694,7 @@ end 'mirScale'
 function testSpillScale()
 	var fn = mirScale(scaleSegments, straight: scaleStraight)
 	var s = Spiller.new(ast.Target.windowsX64())
-	let result = spillFunction(fn, s: s)
+	let result = spillFunction(fn, s: s, rule: HotLoops.refuse)
 	if result.refusals.count() > 0 'refused'
 		panic("scale: refused")
 	end 'refused'

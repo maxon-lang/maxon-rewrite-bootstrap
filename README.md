@@ -1319,7 +1319,7 @@ what a later pass such as reference counting or an optimization changes.
   `default` arm takes its last arm untested, since the checker holds it to name every value.
 - The fold pass (`opt.Fold`, `self/opt/fold.maxon`) runs next, on every function of a native build: one worklist that
   folds constants (by the IR's own meaning, `ir.evalBin` and the rest in `self/ir/evaluate_gen.maxon`, which the interpreter
-  runs too), propagates copies, applies the rules of `generic.rules` (and, run again past a function's fallback, those of
+  runs too), propagates copies, applies the rules of `generic.rules` (and, run again past a function's source form, those of
   `pressure.rules`, which may make an instruction hold more values at once than the one it replaces: maxon's
   `strengthReduceDivision`, where a division or a remainder by a constant other than 0, 1 and -1 is a shift for a power of
   two, with the bias that makes a signed one truncate, and otherwise the high word of a product with a multiplier that
@@ -1372,9 +1372,9 @@ what a later pass such as reference counting or an optimization changes.
     `elemaddrat`, `byteat`), so the buffer is a value that the passes below merge and move as any read: in
     `a[i] = a[i] + x` the buffer is read once for the read and the store, and a loop that writes no memory reads it in its
     preheader. A byte read of a string needs no split: a String's first word is the address of its bytes, which the
-    access indexes as it is. A store of an element changes no array's box, length or buffer, but CSE keeps treating it as
-    any clobber: holding those across the stores of an iteration costs registers that a loop as tight as nbody's on x64
-    does not have, and E5001 then falls back to the expanded code's calls (see "E5001 and the optimizations").
+    access indexes as it is. A store of an element changes no array's box, length or buffer (`opt.storesElement`), so
+    the passes below keep those reads across the stores of elements: in nbody's inner loop, which writes only elements,
+    each array's box, length and buffer are read once an iteration for its two elements' reads and stores.
   - **Loop rotation** (`self/opt/rotate.maxon`) turns a loop whose header tests whether to leave, as a `while` is lowered,
     into the test once before the loop and a copy of it at the end of each iteration, so an iteration ends in one
     conditional branch instead of a jump back to the test. It copies only a header of one segment and at most
@@ -1384,7 +1384,8 @@ what a later pass such as reference counting or an optimization changes.
     is in, and a loop with a read anywhere else is left as it is. `for` loops are lowered rotated already.
   - **Loop-invariant code motion** (`self/opt/licm.maxon`, maxon's `LoopInvariantCodeMotion`) moves to a loop's preheader
     (the block that enters it, or one made on the edges that enter its header) a pure operation whose operands do not
-    change in the loop; a read, when the loop holds no clobber and the first iteration runs it anyway (its segment
+    change in the loop; a read, when the loop holds no clobber, or holds only stores of elements and the read reads no
+    element (a length, a buffer, a slot, a word of a box: `opt.readsBeyondElements`), and the first iteration runs it anyway (its segment
     dominates every exit and every edge back), when a read of the same array's box moved before it, or when it reads one
     of the function's slots, which is always there to read; and a check or a
     division only from the header's prefix, the operations before the first that stays, so it fails in the preheader
@@ -1395,7 +1396,9 @@ what a later pass such as reference counting or an optimization changes.
     dominator tree with a scoped hash table: an operation that computes what an operation dominating it computed goes, a
     check that an identical dominating one passed goes with its failure block, and a read is merged only with one that
     sees the same version of memory, a number that changes at each clobber, at a join whose ways in disagree and at the
-    header of a loop that holds a clobber, so no read is merged across a write on any path. An operand that a constant
+    header of a loop that holds a clobber, so no read is merged across a write on any path; the memory outside the
+    elements of arrays has versions of its own, which a store of an element does not change, and a read of no element is
+    keyed by those. An operand that a constant
     gives is keyed by its number, since constants are never merged and two uses of one number read two registers. A
     block that only one side of a branch enters knows the branch's condition everywhere it dominates, so a branch below it
     on the same condition becomes a jump to the side it takes, and the blocks only the other side reached go. What the
@@ -1414,22 +1417,38 @@ what a later pass such as reference counting or an optimization changes.
   for each loop an operation leaves) and remove 62,900, for about 150 ms of the build's task time (the analyses 50, rotation
   20, code motion 45, elimination 40), which the emit stage of the compiler they build gives back
   in part; the instruction selection's push also reads an array's length once when the index is that length.
-- **E5001 and the optimizations.** A copy must not make a loop fail to compile: with the call, the values live across it
-  were in memory across it (the call tier of spilling), across the copy they are not, and a value moved out of a loop or
-  merged with one before it lives across the loop. Maxon checks a pressure budget only for its wrapper and called-once
-  rules and none for leaves. Here a function that may hold a loop (an edge to a block not after its own) has as its
-  fallback the IR it had before the expansion, the rules of `pressure.rules`, the copies and the passes after them
-  (`self/opt/optimizer.maxon` says which passes run before the fallback, which never make an instruction hold more values
-  at once than the code it replaces, and which after), and the emit compiles that in its place where it refuses a hot
-  loop of the optimized one (`selectOrFallBack`), so a program that compiles without them compiles with them, exactly.
-  No copy is kept: only where the emit refuses a hot loop does it ask the driver (`backend.FallbackSource`) for the
-  fallback, which `opt.fallbackOf` makes by lowering the function again from its declaration and running the passes
-  before the fallback on it, which give the IR they gave at the lower (a cache hit links a unit and runs no emit, so an
-  emit always has its module's checked state). `--timings` prints how many fallbacks were taken.
-  `tests/run/a-hot-loop-that-calls-a-leaf-compiles-as-with-the-call.maxon` is a loop that needs the fallback, and so is a
-  loop of the `main` of `tests/run/array-methods.maxon`, which holds fifteen values once its element reads are expanded,
-  and the loops of `tests/run/a-loop-at-the-pools-edge-divides-by-a-constant.maxon`, which fit with the division and not
-  with its multiply.
+- **E5001 and the optimizations.** E5001 is a property of the program as written: a hot loop that needs more registers
+  than the target has with its calls as calls. A function compiles in one of two ways, optimized or refused with E5001,
+  and an optimization never makes a loop fail: with a call, the values live across it were in memory across it (the call
+  tier of spilling), across a copy of a leaf or an expanded primitive they are not, a value moved out of a loop or merged
+  with one before it lives across the loop, and a rule of `pressure.rules` holds one more value than the division it
+  replaces. Maxon checks a pressure budget only for its wrapper and called-once rules and none for leaves. Here two steps
+  keep the optimizations within the registers:
+  - Code motion and elimination record each value they make live where the program did not hold it
+    (`ir.IrFunction.lengthened`: one moved out of a loop, one that a later computation of it was merged into), and
+    spilling reloads those first in a hot loop over its pool, before its E5001 test (tier 4 of "Liveness, spilling and
+    E5001"). A reload stands where the program computed the value, as one load in place of the program's own read or the
+    operation it took out, so a hoist or a merge that does not fit is undone in that loop alone, and the other loops and
+    the straight-line code keep theirs. That decision is the allocator's own count of the machine code, so no estimate
+    at the IR can disagree with it.
+  - Where a hot loop is still over its pool, its function's source form decides: the IR it had before the expansion,
+    the rules of `pressure.rules`, the copies and the passes after them, which `opt.sourceOf` makes where the emit asks
+    the driver for it (`backend.SourceForms`) by lowering the function again from its declaration and running the passes
+    before it, which never make an instruction hold more values at once than the code they replace
+    (`self/opt/optimizer.maxon`) and give the IR they gave at the lower (a cache hit links a unit and runs no emit, so an
+    emit always has its module's checked state). The emit selects and spills the same body of it only as far as the
+    E5001 test, writing nothing (`HotLoops.test`, `selectOrRefuse`): where that refuses a loop, the refusal is the E5001
+    reported, which counts the program's own variables; where it does not, the optimized function is compiled with its
+    loops spilled as any other code (`HotLoops.spill`), which `--timings` counts as a function with hot loops spilled.
+
+  So a function is refused only where its source form is refused by the same test (`refuseHotLoops`), and a program that
+  compiles without the optimizations compiles with them, optimized: no other form of a function is ever compiled, and
+  the invariant needs no check of its own. `tests/run/a-hot-loop-that-fits-with-its-calls-compiles-with-their-copies.maxon`
+  is a loop whose copies of a leaf need more registers than the loop with its calls, and so is a loop of the `main` of
+  `tests/run/array-methods.maxon`, which holds fifteen values once its element reads are expanded, and the loops of
+  `tests/run/a-loop-at-the-pools-edge-divides-by-a-constant.maxon`, which fit with the division and not with its
+  multiply: each is spilled where the source form fits. On `self`, tier 4 reloads values in the loops of seven
+  functions, and no function needs its source form.
 - Every slot and register is `scalar` or `managed`, so a pass can find every reference to a heap object.
 - Checks are explicit, and only the ones the range analysis could not rule out are there (see "Checked arithmetic"): a range
   check, a divisor that may be 0 and a shift count that may be negative are each a `guard` with its bound, an index of an
@@ -1585,14 +1604,14 @@ runtime each implement the entries. The element is always visible in the call:
   other entry stays a call: growth, insertion, removal, the byte write, lists and pools. Where an index is proved
   (inside a `FixedArray` by the checker, or by the test of a `try` around `get` and `set`), lowering writes the entry's call
   `proven` (`runtime rt.array.elem(%a, %i) proven`), which the expansion makes the access alone, with no `length` or
-  `bounds`: lowering writes calls only, so the fallback holds every call the expansion takes out. The interpreter runs the expanded form (the driver expands the IR it keeps for it, as
+  `bounds`: lowering writes calls only, so the source form holds every call the expansion takes out. The interpreter runs the expanded form (the driver expands the IR it keeps for it, as
   lowered), each operation on its model of the collection: a `bounds` by the IR's own meaning (`ir.evalBounds`), as the fold
   decides one whose operands are constants, and an element by the cell its entry's address would name, so its checks of a
   stale or freed box and of a borrow a call is still waiting to use (`elemaddr` and `elem` open a window as `loadat` does)
   are those of the call; none of the passes after inlining run on the interpreter's IR, so the `buffer`, `elemat`,
   `elemaddrat` and `byteat` that the split of the element accesses makes reach only the backend. A native build expands each function after the fold, before leaf inlining; with no call left in
   a loop, a loop that the call let compile may need more registers than x64 has, so the function's IR before the expansion
-  is its fallback (see "E5001 and the optimizations"), whose calls the backend writes in place as it always did.
+  is its source form, whose loops decide E5001 (see "E5001 and the optimizations").
 - An array whose element is an integer that fits in a byte (`ByteArray`, `Array with Byte`) or an enum of at most 256 cases,
   whose value is its ordinal, packs one byte to an element, so it
   calls the `rt.bytes.*` entries instead of `rt.array.*`: `rt.bytes.get` and `rt.bytes.set` in place of the address of an
@@ -2096,7 +2115,13 @@ colouring then finishes and which run.
   (3) on a hot path, the values live across a call past the registers of their class its convention keeps are spilled
   at the call, or at a point over the whole pool before the call where their next use is past it (a later call in the
   loop, by the layout) while more of them are in registers than the call keeps: they are in memory across the call
-  whatever the program does, so that spill code costs nothing the call does not and is no reason to refuse; (4) the E5001 test; (5) everywhere, a point still over its free registers spills by
+  whatever the program does, so that spill code costs nothing the call does not and is no reason to refuse; (4) on a hot
+  path, at a point over its class's whole pool, the values the optimizer made live there (`MirFunction.lengthened`, from
+  `ir.IrFunction.lengthened`: moved out of a loop by code motion, or kept by elimination for a later computation merged
+  into it) are split, farthest next use first, which reloads them before their uses in the loop: the program as written
+  computed each there, so a hoist or a merge that does not fit is undone in that loop alone and no reason to refuse; (5)
+  the E5001 test, which the caller may skip (`HotLoops.spill`) where it knows that the loop as the program wrote it fits
+  (see "E5001 and the optimizations"), or ask for alone (`HotLoops.test`); (6) everywhere, a point still over its free registers spills by
   farthest next use, constants first, then values already stored or defined outside the loop; in a cold block, a value
   live across a call, or one the loop's hot path reads, is bracketed instead: stored before the point and restored into
   its own register after it, which lends its register to the instructions between, so the hot path keeps it.
@@ -2114,7 +2139,7 @@ colouring then finishes and which run.
   no deeper than its uses.
 - **E5001** (`refuseHotLoops`, a `PressureRefusal` per loop nest and class, which the emit stage reports as a compile error
   at the function's declaration, since the IR keeps no place of a loop, and an instance's at its generic's): after tiers 1
-  to 3, a point of a loop's hot path over its class's whole pool. It names the loop,
+  to 4, a point of a loop's hot path over its class's whole pool. It names the loop,
   the target, the class's register count, the registers over at the worst point, and how many of the source's variables
   (values joined by edges) must leave the loop: found by taking out, one at a time, the variable that relieves the most
   excess, where a variable out of registers still needs one at each instruction that reads or writes it. That can be

@@ -16,7 +16,7 @@ function colourChecked(label String, mutates fn MirFunction, calleeSaved RegMask
 	if spilled 'adopt'
 		s.adopt(fn)
 	end 'adopt' else 'spill'
-		let result = spillFunction(fn, s: s)
+		let result = spillFunction(fn, s: s, rule: HotLoops.refuse)
 		if result.refusals.count() > 0 'refused'
 			panic("{label}: refused with E5001")
 		end 'refused'

@@ -476,6 +476,7 @@ export function storeIrFunction(mutates w table.CacheWriter, v IrFunction)
 	w.flag(v.keepsSpans)
 	storeArrayOfWord(w, v: v.spans)
 	storeArrayOfDebugEntry(w, v: v.debug)
+	storeArrayOfBool(w, v: v.lengthened)
 end 'storeIrFunction'
 
 extension IrFunction
@@ -514,7 +515,8 @@ extension IrFunction
 		let theKeepsSpans = r.flag()
 		let theSpans = loadArrayOfWord(r)
 		let theDebug = loadArrayOfDebugEntry(r)
-		return IrFunction{decl: theDecl, name: theName, paramCount: theParamCount, slots: theSlots, regs: theRegs, frameBoxes: theFrameBoxes, instrs: theInstrs, blocks: theBlocks, args: theArgs, blockParams: theBlockParams, types: theTypes, callees: theCallees, strings: theStrings, cases: theCases, tables: theTables, datums: theDatums, refusals: theRefusals, usesArrays: theUsesArrays, usesBytes: theUsesBytes, usesOs: theUsesOs, bodies: theBodies, captureTypes: theCaptureTypes, captureOwned: theCaptureOwned, cownTypes: theCownTypes, lendsResult: theLendsResult, floatParams: theFloatParams, floatResult: theFloatResult, stringParams: theStringParams, stringResult: theStringResult, floatStarts: theFloatStarts, floatMasks: theFloatMasks, keepsSpans: theKeepsSpans, spans: theSpans, debug: theDebug}
+		let theLengthened = loadArrayOfBool(r)
+		return IrFunction{decl: theDecl, name: theName, paramCount: theParamCount, slots: theSlots, regs: theRegs, frameBoxes: theFrameBoxes, instrs: theInstrs, blocks: theBlocks, args: theArgs, blockParams: theBlockParams, types: theTypes, callees: theCallees, strings: theStrings, cases: theCases, tables: theTables, datums: theDatums, refusals: theRefusals, usesArrays: theUsesArrays, usesBytes: theUsesBytes, usesOs: theUsesOs, bodies: theBodies, captureTypes: theCaptureTypes, captureOwned: theCaptureOwned, cownTypes: theCownTypes, lendsResult: theLendsResult, floatParams: theFloatParams, floatResult: theFloatResult, stringParams: theStringParams, stringResult: theStringResult, floatStarts: theFloatStarts, floatMasks: theFloatMasks, keepsSpans: theKeepsSpans, spans: theSpans, debug: theDebug, lengthened: theLengthened}
 	end 'cacheLoad'
 end 'IrFunction'
 

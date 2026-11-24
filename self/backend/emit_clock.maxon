@@ -23,18 +23,19 @@ export enum EmitPhase
 	encoding
 end 'EmitPhase'
 
-// EmitClock times the phases of the emit stage. It also counts the functions whose fallback, the IR they had before the
-// optimizations that can raise a loop's pressure, was compiled because the optimized one was refused.
+// EmitClock times the phases of the emit stage. It also counts the functions whose optimized hot loops were spilled as
+// any other code: a loop that the optimizations made need more registers than the target has, even with what they made
+// live in it reloaded, where the loop as the program wrote it fits (isel.maxon, selectOrRefuse).
 export type EmitClock
 	export var phases as table.PhaseClock
-	export var fallbacks as Count
+	export var spilledLoops as Count
 
 	export static function off() returns EmitClock
-		return EmitClock{phases: table.PhaseClock.off(), fallbacks: 0}
+		return EmitClock{phases: table.PhaseClock.off(), spilledLoops: 0}
 	end 'off'
 
 	export static function start() returns EmitClock
-		return EmitClock{phases: table.PhaseClock.start(EmitPhase.allCaseNames.count()), fallbacks: 0}
+		return EmitClock{phases: table.PhaseClock.start(EmitPhase.allCaseNames.count()), spilledLoops: 0}
 	end 'start'
 
 	// restart drops the time since the last lap, which was of no phase.

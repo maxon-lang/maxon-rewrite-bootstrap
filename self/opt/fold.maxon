@@ -1,6 +1,6 @@
 // The fold pass, which every native build runs on each function once it is in SSA form: one worklist over the function
 // that folds constants, propagates copies, folds branches and switches on constants, decides guards and checks whose
-// operands are constants, applies the rules of generic.rules and, past a function's fallback, of pressure.rules
+// operands are constants, applies the rules of generic.rules and, past a function's source form, of pressure.rules
 // (rewrite_gen.maxon), and drops the drops of a known 0; then it removes the blocks nothing reaches, the parameters that
 // are trivial (every edge passes one value, or the parameter itself) and those nothing reads, and every instruction whose
 // value nothing reads.
@@ -108,7 +108,7 @@ export type Fold
 	var blocks as Count
 	// spans are the spans compact lays out beside the instructions, of a function that keeps them.
 	var spans as ir.SpanList
-	// raising is whether the function being folded is past its fallback, where the rules of pressure.rules apply too.
+	// raising is whether the function being folded is past its source form, where the rules of pressure.rules apply too.
 	var raising as bool
 
 	export static function new() returns Fold
@@ -116,7 +116,7 @@ export type Fold
 	end 'new'
 
 	// foldFunction folds the function f, which keeps the verifier's rules, and the bodies of its behaviours and closures;
-	// with raises, which only IR past its fallback may take (optimizer.maxon), it applies the rules that may raise register
+	// with raises, which only IR past its source form may take (optimizer.maxon), it applies the rules that may raise register
 	// pressure too. A function with a refusal is never compiled, so it is left as it is.
 	export function foldFunction(mutates self, mutates f ir.IrFunction, raises bool)
 		if f.refusals.count() > 0 'refused'
