@@ -2542,11 +2542,14 @@ so the code at `run` must have released and freed what the behaviour holds by th
   park, to be requeued (a yield or a preemption, onto the global queue as Go's are), to wait for a processor it lost in a
   blocking call, or to finish, which its thread's scheduler then does on its own stack.
 - **The monitor** (Go's sysmon) is a thread of its own that holds no processor and allocates nothing. It wakes every 20 µs
-  to 10 ms; asks a green thread that has run 10 ms to stop and stops its thread from outside, on Windows by
+  to 10 ms, the sleep short again only after it took a processor (Go's sysmon); asks a green thread that has run 10 ms on
+  one schedule tick to stop, once a slice where Go asks every round (a stop asked in the runtime's code or in an unbracketed
+  system call is not taken, and a signal into the call only breaks it off), and stops its thread from outside, on Windows by
   `SuspendThread`, `GetThreadContext` and `SetThreadContext`, on Linux and macOS by SIGURG, which every thread that runs
   green threads unblocks for itself as it starts (Go's `minitSignalMask`), when the thread is in the program's code,
   on the green thread's stack and not in a blocking call; takes a processor from a thread in a bracketed blocking call
-  (`enterBlocking`, `exitBlocking`, Go's entersyscall and exitsyscall, around file I/O, `write` and the wait for a child)
+  (`enterBlocking`, `exitBlocking`, Go's entersyscall and exitsyscall, around file I/O, path and directory calls, `write`
+  and the wait for a child)
   and hands it to another thread; and polls a poller no thread has polled for 10 ms. On Windows it holds the exit claim
   while a thread it stopped is suspended, which a thread that ends the process takes for good first (the runtime's
   `exitProcess`, `schedDrain` and the stub's fault handler), so `ExitProcess` never meets a suspended thread (Go's

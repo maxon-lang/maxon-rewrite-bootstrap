@@ -408,7 +408,9 @@ let nanosPerSecond = 1000000000 as Count
 	// osExecutablePath is the full path of the running executable, which Windows may not be able to give.
 	function osExecutablePath(errorAddress Count) returns String
 		let buffer = alloc(longPathUnits * wideUnitBytes)
+		enterBlocking()
 		let units = dword(__Raw.callImport3("GetModuleFileNameW", arg1: noBytes, arg2: buffer, arg3: longPathUnits))
+		exitBlocking()
 		if units == 0 or units == longPathUnits 'failed'
 			free(buffer)
 			failWith(errorAddress, errorCase: pathUnavailable)
@@ -423,7 +425,9 @@ let nanosPerSecond = 1000000000 as Count
 	// osCurrentPath is the working directory, which stops the program when Windows cannot give it.
 	function osCurrentPath() returns String
 		let buffer = alloc(longPathUnits * wideUnitBytes)
+		enterBlocking()
 		let units = dword(__Raw.callImport2("GetCurrentDirectoryW", arg1: longPathUnits, arg2: buffer))
+		exitBlocking()
 		if units == 0 or units >= longPathUnits 'failed'
 			free(buffer)
 			panic("Directory.currentPath: GetCurrentDirectory failed")
@@ -494,13 +498,16 @@ let nanosPerSecond = 1000000000 as Count
 	end 'osPathFrom'
 
 	// openFile is the handle of a file that CreateFileW opened, or invalidHandle with the Win32 error stored at win32Address.
-	// The error is read before anything else runs, since another call would replace it.
+	// The error is read before anything else runs, since another call would replace it, and before exitBlocking, which may
+	// move the green thread to another thread, whose last error is its own; every call that may block reads it so.
 	function openFile(path String, access Count, share Count, disposition Count, win32Address Count) returns Count
 		let widePath = wideOf(path)
+		enterBlocking()
 		let file = __Raw.callImport7("CreateFileW", arg1: widePath, arg2: access, arg3: share, arg4: noSecurity, arg5: disposition, arg6: fileAttributeNormal, arg7: noTemplate)
 		if file == invalidHandle 'failed'
 			__Raw.storeWord(win32Address, offset: 0, value: win32Error())
 		end 'failed'
+		exitBlocking()
 		free(widePath)
 		return file
 	end 'openFile'
@@ -535,8 +542,14 @@ let nanosPerSecond = 1000000000 as Count
 			return noString()
 		end 'open'
 		var size = 0 as Count
-		if dword(__Raw.callImport2("GetFileSizeEx", arg1: file, arg2: __Raw.addressOf(size))) == 0 'sized'
-			let sizeError = win32Error()
+		var sizeError = 0 as Count
+		enterBlocking()
+		let sized = dword(__Raw.callImport2("GetFileSizeEx", arg1: file, arg2: __Raw.addressOf(size))) != 0
+		if not sized 'unsized'
+			sizeError = win32Error()
+		end 'unsized'
+		exitBlocking()
+		if not sized 'sized'
 			closeHandle(file)
 			endWithError(errorAddress, osError: sizeError, table: readFailures())
 			return noString()
@@ -622,9 +635,11 @@ end 'osWriteBinary'
 		let wideSource = wideOf(source)
 		let wideDestination = wideOf(destination)
 		var win32 = 0 as Count
+		enterBlocking()
 		if dword(__Raw.callImport3("MoveFileExW", arg1: wideSource, arg2: wideDestination, arg3: moveFileReplaceExisting)) == 0 'failed'
 			win32 = win32Error()
 		end 'failed'
+		exitBlocking()
 		free(wideSource)
 		free(wideDestination)
 		endWithError(errorAddress, osError: win32, table: renameFailures())
@@ -634,9 +649,11 @@ end 'osWriteBinary'
 	function osDelete(path String, errorAddress Count)
 		let widePath = wideOf(path)
 		var win32 = 0 as Count
+		enterBlocking()
 		if dword(__Raw.callImport1("DeleteFileW", arg1: widePath)) == 0 'failed'
 			win32 = win32Error()
 		end 'failed'
+		exitBlocking()
 		free(widePath)
 		endWithError(errorAddress, osError: win32, table: deleteFailures())
 	end 'osDelete'
@@ -645,9 +662,11 @@ end 'osWriteBinary'
 	function osDeleteDirectory(path String, errorAddress Count)
 		let widePath = wideOf(path)
 		var win32 = 0 as Count
+		enterBlocking()
 		if dword(__Raw.callImport1("RemoveDirectoryW", arg1: widePath)) == 0 'failed'
 			win32 = win32Error()
 		end 'failed'
+		exitBlocking()
 		free(widePath)
 		endWithError(errorAddress, osError: win32, table: directoryDeleteFailures())
 	end 'osDeleteDirectory'
@@ -667,9 +686,9 @@ end 'osWriteBinary'
 	function osFileInfo(path String, size Count, created Count, accessed Count, attributes Count, errorAddress Count) returns Count
 		let widePath = wideOf(path)
 		let findData = alloc(findDataBytes)
-		let search = __Raw.callImport2("FindFirstFileW", arg1: widePath, arg2: findData)
+		var win32 = 0 as Count
+		let search = findFirst(widePath, findData: findData, win32Address: __Raw.addressOf(win32))
 		if search == invalidHandle 'missing'
-			let win32 = win32Error()
 			free(widePath)
 			free(findData)
 			endWithError(errorAddress, osError: win32, table: infoFailures())
@@ -698,9 +717,29 @@ end 'osWriteBinary'
 		return modified
 	end 'osFileInfo'
 
+	// findFirst is the search handle of the first file a zero-terminated UTF-16 pattern names, its record at findData, or
+	// invalidHandle with the Win32 error stored at win32Address.
+	function findFirst(widePattern Count, findData Count, win32Address Count) returns Count
+		enterBlocking()
+		let search = __Raw.callImport2("FindFirstFileW", arg1: widePattern, arg2: findData)
+		if search == invalidHandle 'failed'
+			__Raw.storeWord(win32Address, offset: 0, value: win32Error())
+		end 'failed'
+		exitBlocking()
+		return search
+	end 'findFirst'
+
+	// attributesAt is the attributes of what a zero-terminated UTF-16 path names, or invalidFileAttributes.
+	function attributesAt(widePath Count) returns Count
+		enterBlocking()
+		let attributes = dword(__Raw.callImport1("GetFileAttributesW", arg1: widePath))
+		exitBlocking()
+		return attributes
+	end 'attributesAt'
+
 	// directoryAt is whether a zero-terminated UTF-16 path names a directory.
 	function directoryAt(widePath Count) returns bool
-		let attributes = dword(__Raw.callImport1("GetFileAttributesW", arg1: widePath))
+		let attributes = attributesAt(widePath)
 		return attributes != invalidFileAttributes and (attributes and fileAttributeDirectory) != 0
 	end 'directoryAt'
 
@@ -714,14 +753,16 @@ end 'osWriteBinary'
 	// osExists is whether a file or a directory is at a path: it has attributes.
 	function osExists(path String) returns bool
 		let widePath = wideOf(path)
-		let attributes = dword(__Raw.callImport1("GetFileAttributesW", arg1: widePath))
+		let attributes = attributesAt(widePath)
 		free(widePath)
 		return attributes != invalidFileAttributes
 	end 'osExists'
 
 	// createDirectoryAt makes the directory that a zero-terminated UTF-16 path names, if it is not there.
 	function createDirectoryAt(widePath Count)
+		enterBlocking()
 		_ = __Raw.callImport2("CreateDirectoryW", arg1: widePath, arg2: noSecurity)
+		exitBlocking()
 	end 'createDirectoryAt'
 
 	// osCreateDirectory makes a directory and the parents it is missing, each prefix that ends before a separator first,
@@ -776,9 +817,9 @@ end 'osWriteBinary'
 		let pattern = concat(path, right: listPatternSuffix)
 		let widePattern = wideOf(pattern)
 		let findData = alloc(findDataBytes)
-		let search = __Raw.callImport2("FindFirstFileW", arg1: widePattern, arg2: findData)
+		var win32 = 0 as Count
+		let search = findFirst(widePattern, findData: findData, win32Address: __Raw.addressOf(win32))
 		if search == invalidHandle 'open'
-			let win32 = win32Error()
 			free(widePattern)
 			free(findData)
 			endWithError(errorAddress, osError: win32, table: listFailures())
@@ -793,7 +834,9 @@ end 'osWriteBinary'
 			if not isDotEntry(name, units: units) 'entry'
 				pushEntryPath(entries, path: path, name: name, units: units)
 			end 'entry'
+			enterBlocking()
 			more = dword(__Raw.callImport2("FindNextFileW", arg1: search, arg2: findData)) != 0
+			exitBlocking()
 		end 'entries'
 		_ = __Raw.callImport1("FindClose", arg1: search)
 		free(findData)

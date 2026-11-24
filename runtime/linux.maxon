@@ -205,7 +205,9 @@
 	function osExecutablePath(errorAddress Count) returns String
 		let link = cStringOf(selfExecutable)
 		let buffer = alloc(linuxPathBytes)
+		enterBlocking()
 		let length = __Raw.syscall4(linuxSysReadlinkat, arg1: atCwd(), arg2: link, arg3: buffer, arg4: linuxPathBytes)
+		exitBlocking()
 		free(link)
 		if failed(length) or length == linuxPathBytes 'failed'
 			free(buffer)
@@ -221,7 +223,9 @@
 	// osCurrentPath is the working directory, which stops the program when the kernel cannot give it.
 	function osCurrentPath() returns String
 		let buffer = alloc(linuxPathBytes)
+		enterBlocking()
 		let size = __Raw.syscall2(linuxSysGetcwd, arg1: buffer, arg2: linuxPathBytes)
+		exitBlocking()
 		if failed(size) or size == 0 'failed'
 			free(buffer)
 			panic("Directory.currentPath: getcwd failed")
@@ -282,18 +286,28 @@
 	// openPath is the fd of the file a path names, opened with flags, or -errno.
 	function openPath(path String, flags Count, mode Count) returns Count
 		let cPath = cStringOf(path)
+		enterBlocking()
 		let fd = __Raw.syscall4(linuxSysOpenat, arg1: atCwd(), arg2: cPath, arg3: flags, arg4: mode)
+		exitBlocking()
 		free(cPath)
 		return fd
 	end 'openPath'
 
-	// statPath fills a struct stat of the file a path names and gives 0, or gives -errno.
+	// statPath fills a struct stat of the file a path names and gives 0, or gives -errno, as statCString does for a
+	// zero-terminated path.
 	function statPath(path String, stat Count) returns Count
 		let cPath = cStringOf(path)
-		let result = __Raw.syscall4(linuxSysNewfstatat, arg1: atCwd(), arg2: cPath, arg3: stat, arg4: noFlags)
+		let result = statCString(cPath, stat: stat)
 		free(cPath)
 		return result
 	end 'statPath'
+
+	function statCString(cPath Count, stat Count) returns Count
+		enterBlocking()
+		let result = __Raw.syscall4(linuxSysNewfstatat, arg1: atCwd(), arg2: cPath, arg3: stat, arg4: noFlags)
+		exitBlocking()
+		return result
+	end 'statCString'
 
 	// osReadText is the whole content of a file.
 	function osReadText(path String, errorAddress Count) returns String
@@ -303,7 +317,9 @@
 			return noString()
 		end 'open'
 		let stat = alloc(linuxStatBytes)
+		enterBlocking()
 		let statted = __Raw.syscall2(linuxSysFstat, arg1: fd, arg2: stat)
+		exitBlocking()
 		let size = __Raw.loadWord(stat, offset: linuxStatSizeOffset)
 		free(stat)
 		if failed(statted) 'sized'
@@ -358,11 +374,13 @@
 	function osRename(source String, destination String, errorAddress Count)
 		let oldPath = cStringOf(source)
 		let newPath = cStringOf(destination)
+		enterBlocking()
 		#if arch(arm64)
 			let result = __Raw.syscall5(linuxSysRenameat2, arg1: atCwd(), arg2: oldPath, arg3: atCwd(), arg4: newPath, arg5: noFlags)
 		#else
 			let result = __Raw.syscall2(linuxSysRename, arg1: oldPath, arg2: newPath)
 		#endif
+		exitBlocking()
 		free(oldPath)
 		free(newPath)
 		endWithError(errorAddress, osError: osErrorOf(result), table: renameFailures())
@@ -371,11 +389,13 @@
 	// osDelete deletes a file, which a directory is not: unlink refuses it.
 	function osDelete(path String, errorAddress Count)
 		let cPath = cStringOf(path)
+		enterBlocking()
 		#if arch(arm64)
 			let result = __Raw.syscall3(linuxSysUnlinkat, arg1: atCwd(), arg2: cPath, arg3: noFlags)
 		#else
 			let result = __Raw.syscall1(linuxSysUnlink, arg1: cPath)
 		#endif
+		exitBlocking()
 		free(cPath)
 		endWithError(errorAddress, osError: osErrorOf(result), table: deleteFailures())
 	end 'osDelete'
@@ -383,11 +403,13 @@
 	// osDeleteDirectory removes an empty directory: rmdir, which arm64's kernel has as unlinkat with AT_REMOVEDIR.
 	function osDeleteDirectory(path String, errorAddress Count)
 		let cPath = cStringOf(path)
+		enterBlocking()
 		#if arch(arm64)
 			let result = __Raw.syscall3(linuxSysUnlinkat, arg1: atCwd(), arg2: cPath, arg3: linuxAtRemoveDirectory)
 		#else
 			let result = __Raw.syscall1(linuxSysRmdir, arg1: cPath)
 		#endif
+		exitBlocking()
 		free(cPath)
 		endDirectoryDelete(errorAddress, osError: osErrorOf(result), notDirectory: linuxEnotdir)
 	end 'osDeleteDirectory'
@@ -411,7 +433,9 @@
 	function osFileInfo(path String, size Count, created Count, accessed Count, attributes Count, errorAddress Count) returns Count
 		let cPath = cStringOf(path)
 		let record = alloc(linuxStatxBytes)
+		enterBlocking()
 		let result = __Raw.syscall5(linuxSysStatx, arg1: atCwd(), arg2: cPath, arg3: noFlags, arg4: linuxStatxWanted, arg5: record)
+		exitBlocking()
 		free(cPath)
 		let osError = osErrorOf(result)
 		if osError == 0 and (__Raw.loadWord32(record, offset: linuxStatxMaskOffset) and linuxStatxBirthTime) == 0 'noBirthTime'
@@ -464,6 +488,7 @@
 	function osCreateDirectory(path String) returns bool
 		let cPath = cStringOf(path)
 		let length = cLength(cPath)
+		enterBlocking()
 		for i in 1 upto length 'prefixes'
 			if __Raw.loadByte(cPath, offset: i) == slashByte 'separator'
 				__Raw.storeByte(cPath, offset: i, value: terminatorByte)
@@ -480,6 +505,7 @@
 		#else
 			_ = __Raw.syscall2(linuxSysMkdir, arg1: cPath, arg2: linuxDirectoryMode)
 		#endif
+		exitBlocking()
 		free(cPath)
 		return osIsDirectory(path)
 	end 'osCreateDirectory'
@@ -527,7 +553,9 @@
 		var listing = true
 		var listError = 0 as Count
 		while listing 'batches'
+			enterBlocking()
 			let filled = __Raw.syscall3(linuxSysGetdents64, arg1: fd, arg2: buffer, arg3: directoryBufferBytes)
+			exitBlocking()
 			if failed(filled) 'failed'
 				listError = errnoOf(filled)
 				listing = false

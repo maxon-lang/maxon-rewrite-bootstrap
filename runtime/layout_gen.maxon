@@ -333,8 +333,11 @@ let schedFreeStackCountOffset = 264 as Count
 // schedPinnedOffset is where the scheduler's record holds how many green threads are pinned to their threads, stepped atomically, so a scheduler with none never reads a green thread's pin.
 let schedPinnedOffset = 272 as Count
 
+// schedPreemptAsksOffset is where the scheduler's record holds how many times the monitor has asked a green thread to stop (preemptOne), which only the monitor writes and a test of its pace reads.
+let schedPreemptAsksOffset = 280 as Count
+
 // schedProcessorsOffset is where the scheduler's record holds the address of each processor (Go's allp), a word each, by its id, 0 until it is made.
-let schedProcessorsOffset = 280 as Count
+let schedProcessorsOffset = 288 as Count
 
 // procIdOffset is where a processor holds its index among the processors.
 let procIdOffset = 0 as Count

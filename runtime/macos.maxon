@@ -153,7 +153,9 @@
 			return noString()
 		end 'open'
 		let stat = newStat()
+		enterBlocking()
 		let statted = sysFstat(fd, stat: stat)
+		exitBlocking()
 		let size = statSize(stat)
 		free(stat)
 		if failed(statted) 'sized'
@@ -396,10 +398,13 @@
 	end 'statIsDirectory'
 
 	// openPath is the fd of the file a path names, opened with flags, or -errno; open is variadic, so the mode is passed
-	// on the stack.
+	// on the stack. A call that may block reads errno before exitBlocking, which may move the green thread to another
+	// thread, whose errno is its own.
 	function openPath(path String, flags Count, mode Count) returns Count
 		let cPath = cStringOf(path)
+		enterBlocking()
 		let fd = checkedInt(__Raw.callImport3("open", arg1: cPath, arg2: flags, arg3: mode))
+		exitBlocking()
 		free(cPath)
 		return fd
 	end 'openPath'
@@ -424,12 +429,17 @@
 	end 'statPath'
 
 	function statCString(cPath Count, stat Count) returns Count
-		return checkedInt(__Raw.callImport2("stat", arg1: cPath, arg2: stat))
+		enterBlocking()
+		let result = checkedInt(__Raw.callImport2("stat", arg1: cPath, arg2: stat))
+		exitBlocking()
+		return result
 	end 'statCString'
 
 	// makeDirectory makes the directory of a zero-terminated path, which may fail.
 	function makeDirectory(cPath Count)
+		enterBlocking()
 		_ = __Raw.callImport2("mkdir", arg1: cPath, arg2: macosDirectoryMode)
+		exitBlocking()
 	end 'makeDirectory'
 
 	// The page heap's part of the system (pages.maxon): reservePages maps address space read-write with no reserve of
@@ -466,7 +476,9 @@
 			failWith(errorAddress, errorCase: pathUnavailable)
 			return noString()
 		end 'long'
+		enterBlocking()
 		let real = __Raw.callImport2("realpath", arg1: buffer, arg2: nullPointer)
+		exitBlocking()
 		free(buffer)
 		if real == nullPointer 'unreal'
 			failWith(errorAddress, errorCase: pathUnavailable)
@@ -481,7 +493,10 @@
 	// osCurrentPath is the working directory, which stops the program when libSystem cannot give it.
 	function osCurrentPath() returns String
 		let buffer = alloc(macosPathBytes)
-		if __Raw.callImport2("getcwd", arg1: buffer, arg2: macosPathBytes) == nullPointer 'failed'
+		enterBlocking()
+		let found = __Raw.callImport2("getcwd", arg1: buffer, arg2: macosPathBytes)
+		exitBlocking()
+		if found == nullPointer 'failed'
 			free(buffer)
 			panic("Directory.currentPath: getcwd failed")
 		end 'failed'
@@ -515,7 +530,9 @@
 	function osRename(source String, destination String, errorAddress Count)
 		let oldPath = cStringOf(source)
 		let newPath = cStringOf(destination)
+		enterBlocking()
 		let result = checkedInt(__Raw.callImport2("rename", arg1: oldPath, arg2: newPath))
+		exitBlocking()
 		free(oldPath)
 		free(newPath)
 		endWithError(errorAddress, osError: osErrorOf(result), table: renameFailures())
@@ -524,7 +541,9 @@
 	// osDelete deletes a file, which a directory is not: unlink refuses it.
 	function osDelete(path String, errorAddress Count)
 		let cPath = cStringOf(path)
+		enterBlocking()
 		let result = checkedInt(__Raw.callImport1("unlink", arg1: cPath))
+		exitBlocking()
 		free(cPath)
 		endWithError(errorAddress, osError: osErrorOf(result), table: deleteFailures())
 	end 'osDelete'
@@ -532,7 +551,9 @@
 	// osDeleteDirectory removes an empty directory.
 	function osDeleteDirectory(path String, errorAddress Count)
 		let cPath = cStringOf(path)
+		enterBlocking()
 		let result = checkedInt(__Raw.callImport1("rmdir", arg1: cPath))
+		exitBlocking()
 		free(cPath)
 		endDirectoryDelete(errorAddress, osError: osErrorOf(result), notDirectory: macosEnotdir)
 	end 'osDeleteDirectory'
@@ -570,20 +591,26 @@
 	// gives. readdir gives no entry at the end and on a failure alike, which errno, cleared before it, tells apart.
 	function osList(path String, errorAddress Count) returns Count
 		let cPath = cStringOf(path)
+		enterBlocking()
 		let directory = __Raw.callImport1("opendir", arg1: cPath)
+		let openError = errno()
+		exitBlocking()
 		free(cPath)
 		if directory == nullPointer 'open'
-			endWithError(errorAddress, osError: errno(), table: listFailures())
+			endWithError(errorAddress, osError: openError, table: listFailures())
 			return noBox
 		end 'open'
 		let entries = stringArrayNew()
 		var listError = 0 as Count
 		var listing = true
 		while listing 'entries'
+			enterBlocking()
 			__Raw.storeWord32(__Raw.callImport0("__error"), offset: 0, value: 0)
 			let entry = __Raw.callImport1("readdir", arg1: directory)
+			let readError = errno()
+			exitBlocking()
 			if entry == nullPointer 'done'
-				listError = errno()
+				listError = readError
 				listing = false
 			end 'done' else 'entry'
 				let name = __Raw.wrappingAdd(entry, right: macosDirentNameOffset)

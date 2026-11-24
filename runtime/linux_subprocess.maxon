@@ -101,7 +101,7 @@
 	// isProgramAt is whether a zero-terminated path names a file that is not a directory.
 	function isProgramAt(cPath Count) returns bool
 		let stat = alloc(linuxStatBytes)
-		let result = __Raw.syscall4(linuxSysNewfstatat, arg1: atCwd(), arg2: cPath, arg3: stat, arg4: noFlags)
+		let result = statCString(cPath, stat: stat)
 		let mode = __Raw.loadWord32(stat, offset: linuxStatModeOffset)
 		free(stat)
 		return not failed(result) and (mode and linuxModeTypeMask) != linuxModeDirectory

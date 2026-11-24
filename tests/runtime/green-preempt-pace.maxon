@@ -1,0 +1,126 @@
+// The monitor's pace of preemption (schedPreemptAsksOffset counts its asks): a green thread that sits in a system call it
+// did not bracket holds its processor on one schedule tick, and is asked to stop once a slice, not on every round of the
+// monitor, since the call never takes the stop; it is asked at least once. Then as many spinners as there are processors
+// hold every processor while a ticker sleeps testTicks times, which it does only as the monitor stops spinners, and the
+// asks stay within one a slice for each processor.
+//> a raw call was asked to stop once a slice, and the ticker ran while every processor spun
+
+let testBlockMillis = 300 as Count
+
+let testTicks = 5 as Count
+
+let testTickNanos = 1000000 as Count
+
+// The record the green threads share: the flag that ends the spinners, and how many spin.
+let testFlagOffset = 0 as Count
+
+let testSpinningOffset = 8 as Count
+
+let testRecordBytes = 16 as Count
+
+function main() returns ExitCode
+	greenReady(greenSpawn(__Raw.codeAddress("testCoordinator")))
+	return 0
+end 'main'
+
+function testCoordinator(g Count) returns Count
+	let scheduler = __Raw.loadWord(__Raw.threadContext(), offset: contextSchedulerOffset)
+	var asks = testAsks(scheduler)
+	var start = osClockNanos()
+	let blocker = greenSpawn(__Raw.codeAddress("testBlocker"))
+	greenReady(blocker)
+	_ = greenAwait(blocker)
+	let blockAsks = __Raw.wrappingSub(testAsks(scheduler), right: asks)
+	testCheckPace(blockAsks, elapsed: __Raw.wrappingSub(osClockNanos(), right: start), procs: 1, what: "the raw call")
+	if blockAsks == 0 'unasked'
+		panic("a green thread in a raw call for {testBlockMillis} ms was never asked to stop")
+	end 'unasked'
+	let shared = alloc(testRecordBytes)
+	let spinners = osProcessorCount()
+	let list = alloc(try spinners * wordBytes otherwise panic("too many processors"))
+	asks = testAsks(scheduler)
+	start = osClockNanos()
+	for i in 0 upto spinners 'spawn'
+		let spinner = greenSpawn(__Raw.codeAddress("testSpinner"))
+		greenSetArgument(spinner, index: 0, value: shared)
+		__Raw.storeWord(list, offset: try i * wordBytes otherwise panic("too many processors"), value: spinner)
+		greenReady(spinner)
+	end 'spawn'
+	let ticker = greenSpawn(__Raw.codeAddress("testTicker"))
+	greenSetArgument(ticker, index: 0, value: shared)
+	greenReady(ticker)
+	_ = greenAwait(ticker)
+	for i in 0 upto spinners 'await'
+		_ = greenAwait(__Raw.loadWord(list, offset: try i * wordBytes otherwise panic("too many processors")))
+	end 'await'
+	testCheckPace(__Raw.wrappingSub(testAsks(scheduler), right: asks), elapsed: __Raw.wrappingSub(osClockNanos(), right: start), procs: spinners, what: "the spinners")
+	free(list)
+	free(shared)
+	testWrite("a raw call was asked to stop once a slice, and the ticker ran while every processor spun\n")
+	return 0
+end 'testCoordinator'
+
+function testAsks(scheduler Count) returns Count
+	return __Raw.loadAcquire(scheduler, offset: schedPreemptAsksOffset)
+end 'testAsks'
+
+// testCheckPace stops the test when the monitor asked more often than once a slice for each busy processor, and one more
+// each for the slice a window cuts at either end.
+function testCheckPace(asks Count, elapsed Count, procs Count, what String)
+	let most = try procs * (elapsed / preemptNanos + 2) otherwise panic("too many processors")
+	if asks > most 'fast'
+		panic("the monitor asked {what} to stop {asks} times in {elapsed / nanosPerMilli} ms, more than once a slice: at most {most}")
+	end 'fast'
+end 'testCheckPace'
+
+// testBlocker sleeps in the system with no bracket, so it holds its processor and the monitor sees it running.
+function testBlocker(g Count) returns Count
+	testBlock()
+	return 0
+end 'testBlocker'
+
+function testSpinner(g Count) returns Count
+	let shared = greenArgument(g, index: 0)
+	_ = __Raw.atomicAdd(shared, offset: testSpinningOffset, value: 1)
+	while __Raw.loadWord(shared, offset: testFlagOffset) == 0 'spin'
+		__Raw.spinPause()
+	end 'spin'
+	return 0
+end 'testSpinner'
+
+// testTicker sleeps until every spinner spins, then testTicks times more, each wake one that only a stop of a spinner lets
+// it run, and ends the spinners.
+function testTicker(g Count) returns Count
+	let shared = greenArgument(g, index: 0)
+	while __Raw.loadWord(shared, offset: testSpinningOffset) != osProcessorCount() 'started'
+		greenSleep(testTickNanos)
+	end 'started'
+	for i in 0 upto testTicks 'ticks'
+		greenSleep(testTickNanos)
+	end 'ticks'
+	__Raw.storeWord(shared, offset: testFlagOffset, value: 1)
+	return 0
+end 'testTicker'
+
+// testTimespecBytes is a timespec, its seconds and its nanoseconds, a word each on Linux and macOS.
+let testTimespecBytes = 16 as Count
+
+// testBlock sleeps in the system for testBlockMillis, through the signals that break the sleep off.
+function testBlock()
+	#if os(Windows)
+		_ = __Raw.callImport1("Sleep", arg1: testBlockMillis)
+	#else
+		let time = alloc(testTimespecBytes)
+		__Raw.storeWord(time, offset: 0, value: 0)
+		__Raw.storeWord(time, offset: wordBytes, value: testBlockMillis * nanosPerMilli)
+		var slept = sysNanosleep(time, remaining: time)
+		while slept != 0 'again'
+			slept = sysNanosleep(time, remaining: time)
+		end 'again'
+		free(time)
+	#endif
+end 'testBlock'
+
+function testWrite(text String)
+	write(__Raw.loadWord(__Raw.stdoutAddress(), offset: 0), text: text)
+end 'testWrite'

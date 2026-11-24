@@ -1,9 +1,9 @@
 // The monitor, Go's sysmon: a thread of its own that holds no processor, runs no green thread and allocates nothing, and
 // wakes every monitorFirstMicros, sleeping longer while it finds nothing to do, up to monitorLongestMicros. Each round it
 // polls when no thread has for pollStaleNanos, starts a thread for a timer that is due when no thread waits in the
-// poller, and retakes processors: a processor whose green thread has run for preemptNanos is asked to stop it, and one
-// whose thread has been in a blocking call since the monitor's last look, while there is other work or no thread to do
-// it, is taken and handed to another thread. It runs the page heap's release pass when one is due (pagesTick), as Go's
+// poller, and retakes processors: a processor whose green thread has run for preemptNanos is asked to stop it, once a
+// slice, and one whose thread has been in a blocking call since the monitor's last look, while there is other work or no
+// thread to do it, is taken and handed to another thread. Only a processor taken makes the monitor's next sleep short. It runs the page heap's release pass when one is due (pagesTick), as Go's
 // sysmon wakes the scavenger, so an idle program gives its free pages back.
 //
 // Preemption is asynchronous only, Go's since 1.14, with no check in the compiled code: on Windows the monitor suspends
@@ -113,28 +113,34 @@ function pollIfStale(context Count, scheduler Count, now Count)
 	end 'threads'
 end 'pollIfStale'
 
-// retake is Go's: for each processor, a green thread running since the monitor's look preemptNanos ago is asked to stop,
-// and a processor in a blocking call since the monitor's last look is taken from it, unless it has nothing queued, a
-// thread spins or a processor is idle, and the call is younger than syscallRetakeNanos. It says whether it did anything.
+// retake is Go's: for each processor, a green thread that has run on the same schedule tick for preemptNanos is asked to
+// stop, and a processor in a blocking call since the monitor's last look, or on a tick that old, is taken from it, unless
+// it has nothing queued, a thread spins or a processor is idle, and the call is younger than syscallRetakeNanos. It says
+// whether it took a processor, the only thing that keeps the monitor waking often, as Go's sysmon counts only retake's n.
+//
+// Where Go asks again every round until the tick moves, its sleep growing meanwhile, the monitor asks again only a whole
+// slice later: a stop asked for while the thread is in the runtime's code, which is never stopped, or in a system call
+// is not taken, and each further signal into such a call only breaks it off for nothing.
 function retake(scheduler Count, now Count) returns bool
-	var acted = false
+	var retook = false
 	for i in 0 upto madeProcs(scheduler) 'procs'
 		let proc = procAt(scheduler, index: i)
 		let status = __Raw.loadAcquire(proc, offset: procStatusOffset)
+		var sliceOver = false
 		if status == procRunning or status == procSyscall 'held'
 			let tick = __Raw.loadWord(proc, offset: procSchedTickOffset)
 			if __Raw.loadWord(proc, offset: procSeenTickOffset) != tick 'moved'
 				__Raw.storeWord(proc, offset: procSeenTickOffset, value: tick)
 				__Raw.storeWord(proc, offset: procSeenWhenOffset, value: now)
 			end 'moved' else if __Raw.wrappingAdd(__Raw.loadWord(proc, offset: procSeenWhenOffset), right: preemptNanos) <= now 'long'
-				if preemptOne(scheduler, proc: proc) 'asked'
-					acted = true
-				end 'asked'
+				_ = preemptOne(scheduler, proc: proc)
+				__Raw.storeWord(proc, offset: procSeenWhenOffset, value: now)
+				sliceOver = true
 			end 'long'
 		end 'held'
 		if status == procSyscall 'blocked'
 			let tick = __Raw.loadWord(proc, offset: procSyscallTickOffset)
-			if __Raw.loadWord(proc, offset: procSeenSyscallTickOffset) != tick 'moved'
+			if not sliceOver and __Raw.loadWord(proc, offset: procSeenSyscallTickOffset) != tick 'moved'
 				__Raw.storeWord(proc, offset: procSeenSyscallTickOffset, value: tick)
 				__Raw.storeWord(proc, offset: procSeenSyscallWhenOffset, value: now)
 				continue 'procs'
@@ -147,15 +153,16 @@ function retake(scheduler Count, now Count) returns bool
 			if __Raw.compareExchange(proc, offset: procStatusOffset, expected: procSyscall, desired: procIdle) == procSyscall 'taken'
 				__Raw.storeWord(proc, offset: procSyscallTickOffset, value: __Raw.wrappingAdd(tick, right: 1))
 				handOffProc(scheduler, proc: proc)
-				acted = true
+				retook = true
 			end 'taken'
 		end 'blocked'
 	end 'procs'
-	return acted
+	return retook
 end 'retake'
 
 // preemptOne is Go's preemptone: the green thread of the thread that holds the processor is asked to stop, and the thread
-// is stopped where it may be. It says whether there was one to ask.
+// is stopped where it may be. A thread in a blocking call holds no processor's thread word, so it is never asked: retake
+// takes its processor instead. It says whether there was one to ask, and counts each ask in the scheduler's record.
 function preemptOne(scheduler Count, proc Count) returns bool
 	let thread = __Raw.loadAcquire(proc, offset: procThreadOffset)
 	if thread == noThread 'none'
@@ -167,6 +174,7 @@ function preemptOne(scheduler Count, proc Count) returns bool
 	end 'scheduler'
 	__Raw.storeRelease(g, offset: greenPreemptOffset, value: set)
 	preemptThread(scheduler, context: thread, g: g)
+	__Raw.storeRelease(scheduler, offset: schedPreemptAsksOffset, value: __Raw.wrappingAdd(__Raw.loadWord(scheduler, offset: schedPreemptAsksOffset), right: 1))
 	return true
 end 'preemptOne'
 

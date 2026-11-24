@@ -68,10 +68,15 @@ the root README's section "The runtime". `minimaxon check runtime` checks it, an
   (`internal/abigen/imports.go`, which generates `self/backend/imports_gen.maxon`), which says how a variadic one is called;
   `self/backend` panics on one that is not.
 - **A system call that may block is bracketed** by `enterBlocking` and `exitBlocking` (Go's entersyscall and exitsyscall),
-  so that the monitor can hand the thread's processor to another thread meanwhile: file reads and writes, `write`, a read of
-  standard input, and the wait for a child. The bracket's exit may move the green thread to another thread, so a function that brackets a call
-  holds nothing of the running thread (its context, its heap's record) across it. A panic writes with `writeHandle`, which
-  brackets nothing, since it may come from code that holds the scheduler's lock.
+  so that the monitor can hand the thread's processor to another thread meanwhile, as Go brackets every call of its syscall
+  package: file reads and writes, `write`, a read of standard input, the wait for a child, and every call that walks a path or
+  reads a directory (open, stat, readlink, getcwd, rename, unlink, mkdir, getdents and their libSystem and `W` twins). The
+  bracket's exit may move the green thread to another thread, so a function that brackets a call holds nothing of the running
+  thread (its context, its heap's record, its errno or last error, read inside the bracket) across it, and allocates nothing
+  inside it. A panic writes with `writeHandle`, which brackets nothing, since it may come from code that holds the scheduler's
+  lock; `close` and a child's calls between fork and exec are not bracketed either, the one on paths that run inside another
+  bracket or in the poller, the other in a child that shares the parent's memory. A thread in an unbracketed call holds its
+  processor and is asked to stop once a slice, which the call does not take.
 - **Runtime code is never stopped by the monitor** (the link's table of preemptible code leaves it out), so an allocation,
   a queue operation or a lock's hold always ends on the thread it began on. The monitor allocates nothing and holds no
   processor.
