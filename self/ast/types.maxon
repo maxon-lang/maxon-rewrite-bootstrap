@@ -879,6 +879,13 @@ export function typeKind(tt TypeSlot, reads TypeTable, t TypeID) returns TypeKin
 	return typeEntry(tt, reads: reads, t: t).kind
 end 'typeKind'
 
+// isLiteralCollection is whether t is an array or a list, the types that `Type from [a, b]` builds from the literal
+// itself; any other type is built by a call of its init.
+export function isLiteralCollection(tt TypeSlot, reads TypeTable, t TypeID) returns bool
+	let kind = typeKind(tt, reads: reads, t: t)
+	return kind == TypeKind.builtinArray or kind == TypeKind.builtinList
+end 'isLiteralCollection'
+
 // typeEntry is the entry of the type t, read in place: in tt, the slot the task holds, or in another slot of the project's
 // table, reads. Every read of an entry goes through it and funcEntry, so only they know where the entry of a handle is.
 export function typeEntry(tt TypeSlot, reads TypeTable, t TypeID) returns borrowed TypeEntry

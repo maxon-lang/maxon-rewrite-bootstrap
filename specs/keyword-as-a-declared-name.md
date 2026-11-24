@@ -546,20 +546,18 @@ end 'main'
 ### The keyword keeps its own role in the same program
 
 <!-- test: a-function-named-from-beside-a-set-from-construction -->
-<!-- skip: 'Set' is not supported in minimaxon -->
 `from` opens a `Set from […]` construction. Declaring a function named `from` in the same program
 must not disturb it, and calling that function must not be read as one.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
 function from(n Integer) returns Integer
-	return n * 7
+	return try n * 7 otherwise panic("out of range")
 end 'from'
 
 function main() returns ExitCode
-	// TODO: 'Set' is not supported in minimaxon
 	let s = Set from [10, 20, 30, 40, 50, 60]
-	return from(s.count() as Integer)
+	return try from(try s.count() as Integer otherwise panic("out of range")) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

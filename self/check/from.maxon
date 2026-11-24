@@ -1,10 +1,13 @@
 // The conversion `Type from value`. An array or a list is written from an array literal, which takes the element type its
 // head states (`Ages from [1, 2]`) or, over the bare name, the one its elements give. Any other type is written from a
-// string literal by its static `init`, as `Type.init("text")`, and says so with `implements InitableFromStringLiteral`.
+// literal by its static `init`, as `Type.init("text")` or `Type.init([a, b])`, and says so with `implements
+// InitableFromStringLiteral` or `implements InitableFromArrayLiteral with Element`.
 
 let initName = "init"
 
 let stringLiteralInterface = "InitableFromStringLiteral"
+
+let arrayLiteralInterface = "InitableFromArrayLiteral"
 
 // checkFromExpr types `Type from value`. The head is the name of the type, and the value a literal of the shape that type
 // is written from.
@@ -28,10 +31,12 @@ function checkFromExpr(mutates c Checker, p ast.Project, mutates ms ast.ModuleSt
 		failAt(c, p: p, ms: ms, node: head, code: diag.errUnknownType, msg: "'{placeText(ms.tree(), e: head)}' names no type: 'from' follows the name of the type that is written from the value", errs: errs)
 		return ast.noType
 	end 'unnamed'
-	let kind = ast.typeKind(ms.types, reads: p.types, t: ty)
-	if kind == ast.TypeKind.builtinArray or kind == ast.TypeKind.builtinList 'collection'
+	if ast.isLiteralCollection(ms.types, reads: p.types, t: ty) 'collection'
 		return checkFromCollection(c, p: p, ms: ms, e: e, ty: ty, value: value, errs: errs)
 	end 'collection'
+	if ms.tree().kindOf(value) == ast.NodeKind.collectionLitExpr 'arrayLiteral'
+		return checkFromArrayLiteral(c, p: p, ms: ms, head: head, e: e, ty: ty, value: value, errs: errs)
+	end 'arrayLiteral'
 	return checkFromString(c, p: p, ms: ms, head: head, e: e, ty: ty, value: value, errs: errs)
 end 'checkFromExpr'
 
@@ -113,23 +118,115 @@ function checkFromFixedArray(mutates c Checker, p ast.Project, mutates ms ast.Mo
 	return ast.countedType(ms.types, reads: p.types, unsized: unsized, count: written)
 end 'checkFromFixedArray'
 
-// implementsNamed is whether the declaration of t says it implements an interface of that name, whichever declaration of
-// the name that is: Maxon finds a type's conformance to the literal interfaces by their names.
-function implementsNamed(p ast.Project, ms ast.ModuleState, t ast.TypeID, name String) returns bool
+// conformedNamed is the interface of that name that the declaration of t says it implements, as it is written there,
+// whichever declaration of the name that is: Maxon finds a type's conformance to the literal interfaces by their names.
+function conformedNamed(p ast.Project, ms ast.ModuleState, t ast.TypeID, name String) returns ast.TypeID
 	let conforms = ast.cloneTypeArgs(ast.typeEntry(ms.types, reads: p.types, t: ast.originOf(ms.types, reads: p.types, t: t)).conforms)
 	for i in 0 upto conforms.count() 'each'
 		if ast.typeEntry(ms.types, reads: p.types, t: conforms[i]).name == name 'named'
-			return true
+			return conforms[i]
 		end 'named'
 	end 'each'
-	return false
+	return ast.noType
+end 'conformedNamed'
+
+// implementsNamed is whether the declaration of t says it implements an interface of that name.
+function implementsNamed(p ast.Project, ms ast.ModuleState, t ast.TypeID, name String) returns bool
+	return conformedNamed(p, ms: ms, t: t, name: name) != ast.noType
 end 'implementsNamed'
+
+// checkFromArrayLiteral types a type written from an array literal, which is a call of its `init` with the literal as the
+// array it takes. The type says `implements InitableFromArrayLiteral with Element` and its `init` takes `Array with
+// Element`. A head that is an instance states the element, which each of the literal's elements must fit; the bare name
+// of a generic type takes its type arguments from the literal's elements through `init`'s parameter.
+function checkFromArrayLiteral(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, head ast.NodeID, e ast.NodeID, ty ast.TypeID, value ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
+	let name = nameOfType(p, ms: ms, t: ty)
+	let declared = conformedNamed(p, ms: ms, t: ty, name: arrayLiteralInterface)
+	if declared == ast.noType 'doesNotConform'
+		failAt(c, p: p, ms: ms, node: head, code: diag.errTypeMismatch, msg: diag.typeDoesNotConform(name, interfaceName: arrayLiteralInterface), errs: errs)
+		return ast.noType
+	end 'doesNotConform'
+	if ms.tree().listLen(ast.collectionLitExprValuesRef(ms.tree(), id: value)) > 0 'map'
+		failAt(c, p: p, ms: ms, node: value, code: diag.errTypeMismatch, msg: "'{name} from' takes an array literal, and this one gives keys: '{name} from [a, b]'", errs: errs)
+		return ast.noType
+	end 'map'
+	let init = methodNamed(p, ms: ms, t: ty, name: initName)
+	if init == ast.noFunc or not ast.funcEntry(ms.funcs, funcReads: p.funcs, f: init).isStatic or ast.funcEntry(ms.funcs, funcReads: p.funcs, f: init).params.count() != 1 'missing'
+		failAt(c, p: p, ms: ms, node: e, code: diag.errUnknownFunction, msg: diag.undefinedFunction("{name}.{initName}"), errs: errs)
+		return ast.noType
+	end 'missing'
+	if not requireOwnedResult(c, p: p, ms: ms, node: e, target: init, use: "'{name} from'", errs: errs) 'borrowed'
+		return ast.noType
+	end 'borrowed'
+	let generics = ast.cloneTypeArgs(ast.funcEntry(ms.funcs, funcReads: p.funcs, f: init).generics)
+	let specs = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: init).params.clone()
+	let off = offsetOf(c, p: p, ms: ms, node: e)
+	var made = ty
+	var args = ast.cloneTypeArgs(ast.typeArgsOf(ms.types, reads: p.types, t: ty))
+	if ast.typeEntry(ms.types, reads: p.types, t: ty).typeParams.count() > 0 'bare'
+		if checkExpecting(c, p: p, ms: ms, e: value, want: ast.noType, errs: errs) == ast.noType 'badLiteral'
+			return ast.noType
+		end 'badLiteral'
+		args = openArgs(generics.count())
+		let element = ast.typeArgAt(ms.types, reads: p.types, t: ast.nodeType(c.typing, node: value), index: 0)
+		match consumes indexOfType(generics, t: ast.typeArgAt(ms.types, reads: p.types, t: declared, index: 0)) 'elementParam'
+			some(i) then args[i] = element
+			none then _ = 0
+		end 'elementParam'
+		let mark = errs.count()
+		args = inferRest(c, p: p, ms: ms, node: e, callee: "{name}.{initName}", params: generics, args: args, result: ast.funcEntry(ms.funcs, funcReads: p.funcs, f: init).retTy, code: diag.errCannotInfer, errs: errs)
+		if failedSince(errs, mark: mark) 'cannotInfer'
+			return ast.noType
+		end 'cannotInfer'
+		made = instantiateGeneric(c, p: p, ms: ms, off: off, orig: ty, args: args, errs: errs)
+		if made == ast.noType 'refused'
+			return ast.noType
+		end 'refused'
+	end 'bare'
+	let given = applySpecs(p, ms: ms, specs: specs, params: generics, args: args)
+	let conformance = conformanceTo(p, ms: ms, t: made, iface: ast.originOf(ms.types, reads: p.types, t: declared))
+	var elementArgs = ast.TypeIDList.create(0)
+	elementArgs.push(ast.typeArgAt(ms.types, reads: p.types, t: conformance, index: 0))
+	let want = instantiateGeneric(c, p: p, ms: ms, off: off, orig: p.builtins.arrayOrigin, args: elementArgs, errs: errs)
+	if given[0].ty != want 'otherElement'
+		failAt(c, p: p, ms: ms, node: head, code: diag.errTypeMismatch, msg: "'{name}.{initName}' takes '{nameOfType(p, ms: ms, t: given[0].ty)}', where 'implements {arrayLiteralInterface}' states '{nameOfType(p, ms: ms, t: want)}'", errs: errs)
+		return ast.noType
+	end 'otherElement'
+	if checkExpecting(c, p: p, ms: ms, e: value, want: want, errs: errs) == ast.noType 'badElement'
+		return ast.noType
+	end 'badElement'
+	recordInitCall(c, p: p, ms: ms, e: e, init: init, args: args, specs: given, value: value)
+	return made
+end 'checkFromArrayLiteral'
+
+// recordInitCall records `Type from value` as the static call of the type's init that it is, with the literal as its
+// argument. An init of a generic type is an instance that the function being checked needs.
+function recordInitCall(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, init ast.FuncID, args ast.TypeIDList, specs ast.ParamSpecList, value ast.NodeID)
+	var info = ast.CallInfo.make(ast.CallKind.callStatic, fn: init, receiverTy: ast.noType)
+	var ordered = ast.NodeIDList.create(0)
+	ordered.push(value)
+	info.typeArgs = args.clone()
+	info.paramSpecs = specs.clone()
+	info.ordered = ordered.clone()
+	info.selfConv = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: init).selfConv
+	info.intrinsic = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: init).intrinsic
+	info.result = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: init).result
+	c.typing.calls.insert(e as Count, value: info)
+	if args.count() > 0 'generic'
+		queueMethodBounds(c, p: p, ms: ms, off: offsetOf(c, p: p, ms: ms, node: e), method: init, args: args)
+		recordUse(c, call: e)
+	end 'generic'
+end 'recordInitCall'
 
 // checkFromString types a type written from a string literal, which is a call of its `init` with the literal.
 function checkFromString(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, head ast.NodeID, e ast.NodeID, ty ast.TypeID, value ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
 	let name = nameOfType(p, ms: ms, t: ty)
 	if ms.tree().kindOf(value) != ast.NodeKind.strLit 'notLiteral'
-		failAt(c, p: p, ms: ms, node: value, code: diag.errTypeMismatch, msg: "'{name} from' takes a string literal: '{name} from \"text\"'", errs: errs)
+		var expected = "a string literal: '{name} from \"text\"'"
+		if implementsNamed(p, ms: ms, t: ty, name: arrayLiteralInterface) and not implementsNamed(p, ms: ms, t: ty, name: stringLiteralInterface) 'array'
+			expected = "an array literal: '{name} from [a, b]'"
+		end 'array'
+		failAt(c, p: p, ms: ms, node: value, code: diag.errTypeMismatch, msg: "'{name} from' takes {expected}", errs: errs)
 		return ast.noType
 	end 'notLiteral'
 	if not implementsNamed(p, ms: ms, t: ty, name: stringLiteralInterface) 'doesNotConform'
@@ -151,8 +248,7 @@ function checkFromString(mutates c Checker, p ast.Project, mutates ms ast.Module
 	if checkExpecting(c, p: p, ms: ms, e: value, want: stringTy, errs: errs) == ast.noType 'failed'
 		return ast.noType
 	end 'failed'
-	var info = ast.CallInfo.make(ast.CallKind.callStatic, fn: init, receiverTy: ast.noType)
-	info.intrinsic = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: init).intrinsic
-	c.typing.calls.insert(e as Count, value: info)
+	let specs = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: init).params.clone()
+	recordInitCall(c, p: p, ms: ms, e: e, init: init, args: ast.TypeIDList.create(0), specs: specs, value: value)
 	return ty
 end 'checkFromString'

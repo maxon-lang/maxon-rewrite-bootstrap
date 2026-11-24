@@ -350,14 +350,11 @@ end 'lowerCollectionLit'
 function visitFromExpr(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID) returns Reg
 	let value = ast.fromExprValue(p.modules[l.mi].tree, id: e)
 	let ty = exprType(p, module: l.module, node: e)
-	if p.modules[l.mi].tree.kindOf(value) == ast.NodeKind.collectionLitExpr 'literal'
+	if ast.isLiteralCollection(ms.types, reads: p.types, t: ty) 'collection'
 		return lowerCollectionLit(l, p: p, ms: ms, e: value, ty: ty)
-	end 'literal'
-	var info = callInfoAt(p, module: l.module, node: e)
-	info.paramSpecs = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: info.fn).params.clone()
-	var ordered = ast.NodeIDList.create(0)
-	ordered.push(value)
-	info.ordered = ordered.clone()
+	end 'collection'
+	let info = callInfoAt(p, module: l.module, node: e)
+	let ordered = info.ordered.clone()
 	let c = CallSite.make(e, info: info, receiver: 0 as ast.NodeID, ordered: ordered)
 	return lowerCall(l, p: p, ms: ms, c: c)
 end 'visitFromExpr'

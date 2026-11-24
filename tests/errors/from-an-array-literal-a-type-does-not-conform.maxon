@@ -1,0 +1,11 @@
+type Plain
+	export let n as Count
+end 'Plain'
+
+function main() returns ExitCode
+	let p = Plain from [1, 2]
+	print("{p.n}\n")
+	return 0
+end 'main'
+
+// expect-error: E3005 at 6:10

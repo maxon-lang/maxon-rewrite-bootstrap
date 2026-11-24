@@ -42,12 +42,10 @@ end 'main'
 ```
 
 <!-- test: basic.creation -->
-<!-- skip: 'Set' is not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: 'Set' is not supported in minimaxon
 	let s = Set from [1, 2, 3]
-	return s.count()
+	return try s.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -55,10 +53,8 @@ end 'main'
 ```
 
 <!-- test: basic.contains-true -->
-<!-- skip: 'Set' is not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: 'Set' is not supported in minimaxon
 	let s = Set from [10, 20, 30]
 	if s.contains(20) 'check'
 		return 1
@@ -71,10 +67,8 @@ end 'main'
 ```
 
 <!-- test: basic.contains-false -->
-<!-- skip: 'Set' is not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: 'Set' is not supported in minimaxon
 	let s = Set from [10, 20, 30]
 	if s.contains(99) 'check'
 		return 1
@@ -87,10 +81,8 @@ end 'main'
 ```
 
 <!-- test: insert.new-element -->
-<!-- skip: 'Set' is not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: 'Set' is not supported in minimaxon
 	let s = Set from [1, 2, 3]
 	s.insert(4)
 	return s.count()
@@ -101,13 +93,11 @@ end 'main'
 ```
 
 <!-- test: insert.duplicate -->
-<!-- skip: 'Set' is not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: 'Set' is not supported in minimaxon
-	let s = Set from [1, 2, 3]
+	var s = Set from [1, 2, 3]
 	s.insert(2)
-	return s.count()
+	return try s.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -115,10 +105,8 @@ end 'main'
 ```
 
 <!-- test: insert.then-contains -->
-<!-- skip: 'Set' is not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: 'Set' is not supported in minimaxon
 	let s = Set from [1, 2, 3]
 	s.insert(5)
 	if s.contains(5) 'check'
@@ -132,14 +120,12 @@ end 'main'
 ```
 
 <!-- test: remove.existing -->
-<!-- skip: 'Set' is not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: 'Set' is not supported in minimaxon
-	let s = Set from [1, 2, 3]
+	var s = Set from [1, 2, 3]
 	let removed = s.remove(2)
 	if removed 'check'
-		return s.count()
+		return try s.count() as ExitCode otherwise panic("out of range")
 	end 'check'
 	return 1
 end 'main'
@@ -149,10 +135,8 @@ end 'main'
 ```
 
 <!-- test: remove.nonexistent -->
-<!-- skip: 'Set' is not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: 'Set' is not supported in minimaxon
 	let s = Set from [1, 2, 3]
 	let removed = s.remove(99)
 	if removed 'check'
@@ -166,11 +150,9 @@ end 'main'
 ```
 
 <!-- test: remove.then-contains -->
-<!-- skip: 'Set' is not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: 'Set' is not supported in minimaxon
-	let s = Set from [1, 2, 3]
+	var s = Set from [1, 2, 3]
 	_ = s.remove(2)
 	if s.contains(2) 'check'
 		return 1
@@ -183,15 +165,13 @@ end 'main'
 ```
 
 <!-- test: grow.preserves-elements -->
-<!-- skip: 'Set' is not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: 'Set' is not supported in minimaxon
 	let s = Set from [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
 	var allPresent = 1 as FullRangeInt
 	var i = 1 as FullRangeInt
 	while i <= 15 'check'
-		if not s.contains(i) 'missing'
+		if not s.contains(i as int(1 to 15)) 'missing'
 			allPresent = 0
 		end 'missing'
 		i = i + 1
@@ -204,12 +184,10 @@ end 'main'
 ```
 
 <!-- test: empty.single-element -->
-<!-- skip: 'Set' is not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: 'Set' is not supported in minimaxon
 	let s = Set from [42]
-	return s.count()
+	return try s.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -217,15 +195,13 @@ end 'main'
 ```
 
 <!-- test: remove-reinsert -->
-<!-- skip: 'Set' is not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: 'Set' is not supported in minimaxon
-	let s = Set from [1, 2, 3]
+	var s = Set from [1, 2, 3]
 	_ = s.remove(2)
 	s.insert(2)
 	if s.contains(2) 'check'
-		return s.count()
+		return try s.count() as ExitCode otherwise panic("out of range")
 	end 'check'
 	return 1
 end 'main'
@@ -235,13 +211,11 @@ end 'main'
 ```
 
 <!-- test: negative-values -->
-<!-- skip: 'Set' is not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: 'Set' is not supported in minimaxon
 	let s = Set from [-5, -3, -1, 0, 1, 3, 5]
 	if s.contains(-3) 'check'
-		return s.count()
+		return try s.count() as ExitCode otherwise panic("out of range")
 	end 'check'
 	return 1
 end 'main'
@@ -438,7 +412,6 @@ end 'main'
 ```
 
 <!-- test: from-a-call-result-infers-the-element -->
-<!-- skip: 'Set' is not supported in minimaxon -->
 <!-- skip: 'Type from value' takes an array literal or a string literal in minimaxon, not another value -->
 A bare `Set` head takes its element type from the array a call returns.
 ```maxon
@@ -455,7 +428,6 @@ end 'makeCodes'
 
 function main() returns ExitCode
 	// TODO: 'Type from value' takes an array literal or a string literal in minimaxon, not another value
-	// TODO: 'Set' is not supported in minimaxon
 	let s = Set from makeCodes()
 	print("{s.count()} {s.contains(40)} {s.contains(2)}\n")
 	return 0
@@ -566,7 +538,6 @@ error E3005: <fragment>:9:21: argument type mismatch for 'source': expected 'Arr
 ```
 
 <!-- test: from-a-function-declared-later -->
-<!-- skip: 'Set' is not supported in minimaxon -->
 <!-- skip: 'Type from value' takes an array literal or a string literal in minimaxon, not another value -->
 A source call to a function declared further down the file is a valid source.
 ```maxon
@@ -576,7 +547,6 @@ typealias Codes = Array with Code
 
 function main() returns ExitCode
 	// TODO: 'Type from value' takes an array literal or a string literal in minimaxon, not another value
-	// TODO: 'Set' is not supported in minimaxon
 	let s = Set from laterCodes()
 	print("{s.count()} {s.contains(6)}\n")
 	return 0
@@ -598,7 +568,6 @@ end 'laterCodes'
 ```
 
 <!-- test: from-a-struct-array-infers-the-key -->
-<!-- skip: 'Set' is not supported in minimaxon -->
 <!-- skip: 'Type from value' takes an array literal or a string literal in minimaxon, not another value -->
 A bare `Set` head over an array of a user `Hashable` struct builds a set of that struct.
 ```maxon
@@ -629,7 +598,6 @@ function main() returns ExitCode
 	points.push(Point.create(3, y: 4))
 	points.push(Point.create(1, y: 2))
 	// TODO: 'Type from value' takes an array literal or a string literal in minimaxon, not another value
-	// TODO: 'Set' is not supported in minimaxon
 	let s = Set from points
 	print("{s.count()} {s.contains(Point.create(3, y: 4))}\n")
 	return 0
@@ -643,7 +611,6 @@ end 'main'
 ```
 
 <!-- test: error.from-an-array-of-an-unhashable-element -->
-<!-- skip: 'Set' is not supported in minimaxon -->
 <!-- skip: 'Type from value' takes an array literal or a string literal in minimaxon, not another value -->
 <!-- positions: moved -->
 A bare `Set` head over an array whose element is not `Hashable` and `Equatable` is refused by `Set`'s `where` clause, at the head.
@@ -664,7 +631,6 @@ function main() returns ExitCode
 	var spots = Spots.create(0)
 	spots.push(Spot.create(1))
 	// TODO: 'Type from value' takes an array literal or a string literal in minimaxon, not another value
-	// TODO: 'Set' is not supported in minimaxon
 	let s = Set from spots
 	return s.count()
 end 'main'
@@ -675,14 +641,12 @@ error E3017: <fragment>:17:10: Type 'Spot' does not satisfy constraint 'Equatabl
 ```
 
 <!-- test: two-files-each-build-the-same-inferred-instance -->
-<!-- skip: 'Set' is not supported in minimaxon -->
 <!-- skip: 'Type from value' takes an array literal or a string literal in minimaxon, not another value -->
 Two files that each build a bare `Set from` over the same element mint one instance between them.
 ```maxon
 // --- file: a.maxon
 function countA(codes Codes) returns Count
 	// TODO: 'Type from value' takes an array literal or a string literal in minimaxon, not another value
-	// TODO: 'Set' is not supported in minimaxon
 	let s = Set from codes
 	return s.count()
 end 'countA'
@@ -698,7 +662,6 @@ function main() returns ExitCode
 	codes.push(2)
 	codes.push(9)
 	// TODO: 'Type from value' takes an array literal or a string literal in minimaxon, not another value
-	// TODO: 'Set' is not supported in minimaxon
 	let s = Set from codes
 	print("{s.count()} {countA(codes)}\n")
 	return 0
@@ -712,7 +675,6 @@ end 'main'
 ```
 
 <!-- test: from-a-character-array-under-an-alias-or-a-bare-head -->
-<!-- skip: 'Set' is not supported in minimaxon -->
 <!-- skip: 'Type from value' takes an array literal or a string literal in minimaxon, not another value -->
 <!-- skip: character literals are not supported in minimaxon -->
 A `Character` array is a source like any other: an alias head of `Set with Character` and a bare `Set` head both take one.
@@ -732,7 +694,6 @@ function main() returns ExitCode
 	// TODO: 'Type from value' takes an array literal or a string literal in minimaxon, not another value
 	let named = CharSet from chars
 	// TODO: 'Type from value' takes an array literal or a string literal in minimaxon, not another value
-	// TODO: 'Set' is not supported in minimaxon
 	let bare = Set from chars
 	print("{named.count()} {named.contains('b')} {bare.count()} {bare.contains('c')}\n")
 	return 0
@@ -817,7 +778,6 @@ end 'main'
 ```
 
 <!-- test: a-bare-head-literal-of-struct-members-infers-the-key -->
-<!-- skip: 'Set' is not supported in minimaxon -->
 A bare `Set` head over a literal of user `Hashable` struct members infers the key from the first member, as it does over an array of them.
 ```maxon
 typealias Coord = int(0 to 1000)
@@ -839,7 +799,6 @@ type Tile implements Hashable, Equatable
 end 'Tile'
 
 function main() returns ExitCode
-	// TODO: 'Set' is not supported in minimaxon
 	let s = Set from [Tile.create(1), Tile.create(1), Tile.create(2)]
 	print("{s.count()} {s.contains(Tile.create(2))}\n")
 	return 0

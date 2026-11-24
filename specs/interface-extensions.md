@@ -321,20 +321,18 @@ end 'main'
 
 
 <!-- test: stdlib-map-on-set -->
-<!-- skip: 'Set' is not supported in minimaxon -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
 function main() returns ExitCode
-	// TODO: 'Set' is not supported in minimaxon
 	let s = Set from [10, 20, 30]
-	let mapped = s.map(function(x Integer) gives x + 1)
+	let mapped = s.map(function(x Integer) gives try x + 1 otherwise panic("out of range"))
 	var sum = 0 as Integer
 	for n in mapped 'loop'
-		sum = sum + n
+		sum = try sum + n otherwise panic("out of range")
 	end 'loop'
 	// 11 + 21 + 31 = 63 (order may vary but sum is same)
-	return sum
+	return try sum as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -818,24 +816,22 @@ end 'main'
 The extension bodies walk an iterator instance over the collection's own parameters, and `map` and `filter` forward the descriptor they are handed to that iterator.
 
 <!-- test: iterable-extension-methods-run-on-a-map-and-a-set -->
-<!-- skip: 'Set' is not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
 	let m = ["a": 1, "b": 2]
-	// TODO: 'Set' is not supported in minimaxon
 	let s = Set from [1, 2]
 	var total = 0 as Count
 	for (_, p) in m.enumerated() 'eachPair'
-		total = total + p.1
+		total = try total + p.1 otherwise panic("out of range")
 	end 'eachPair'
 	for (_, x) in s.enumerated() 'eachElement'
-		total = total + x
+		total = try total + x otherwise panic("out of range")
 	end 'eachElement'
-	let pairs = m.map(function(p) gives p)
+	let pairs = m.map(function(p) gives p.clone())
 	let kept = m.filter(function(p) gives p.1 == 2)
-	let doubled = s.map(function(x) gives x + x)
+	let doubled = s.map(function(x) gives try x + x otherwise panic("out of range"))
 	let big = s.filter(function(x) gives x == 2)
-	return (total + pairs.count() + kept.count() + doubled.count() + big.count()) as ExitCode
+	return try (total + pairs.count() + kept.count() + doubled.count() + big.count()) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

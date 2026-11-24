@@ -199,15 +199,13 @@ end 'main'
 ```
 
 <!-- test: from-literal-distinct -->
-<!-- skip: 'Set' is not supported in minimaxon -->
 `Set from ["…"]` builds a set by MOVING each key out of the source array literal — the array is the caller's
 owned temp, borrowed by `__set_from`, and each moved-out slot is nulled so the array's own drop double-frees
 nothing. Three distinct keys → count 3.
 ```maxon
 function main() returns ExitCode
-	// TODO: 'Set' is not supported in minimaxon
 	let s = Set from ["x", "y", "z"]
-	return s.count()
+	return try s.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -215,15 +213,13 @@ end 'main'
 ```
 
 <!-- test: from-literal-dedup -->
-<!-- skip: 'Set' is not supported in minimaxon -->
 The dedup case: `Set from ["a", "b", "a", "c"]` — the second `"a"` is a distinct allocation that
 duplicates the first by content, so it is dropped by the insert dup-path (and its source array slot nulled).
 Three unique members; no double-free between the set's key drops and the array's element drop.
 ```maxon
 function main() returns ExitCode
-	// TODO: 'Set' is not supported in minimaxon
 	let s = Set from ["a", "b", "a", "c"]
-	return s.count()
+	return try s.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -231,11 +227,9 @@ end 'main'
 ```
 
 <!-- test: from-literal-contains -->
-<!-- skip: 'Set' is not supported in minimaxon -->
 A `Set from ["…"]` value answers `contains` by content and owns its keys to scope exit.
 ```maxon
 function main() returns ExitCode
-	// TODO: 'Set' is not supported in minimaxon
 	let s = Set from ["apple", "banana", "cherry"]
 	if not s.contains("banana") 'miss'
 		return 1
@@ -383,7 +377,6 @@ alice
 ```
 
 <!-- test: bare-from-a-string-array-call-result -->
-<!-- skip: 'Set' is not supported in minimaxon -->
 <!-- skip: 'Type from value' takes an array literal or a string literal in minimaxon, not another value -->
 A bare `Set` head over a call's `String` array owns the keys and drops the temporary array.
 ```maxon
@@ -399,7 +392,6 @@ end 'makeNames'
 
 function main() returns ExitCode
 	// TODO: 'Type from value' takes an array literal or a string literal in minimaxon, not another value
-	// TODO: 'Set' is not supported in minimaxon
 	let s = Set from makeNames()
 	print("{s.count()} {s.contains("x1")}\n")
 	return 0

@@ -3,9 +3,10 @@
 /// @category Collections
 // maxon's Set is its own open-addressing table; here there is one table implementation, the Map's.
 
-public type Set uses Element implements Iterable with (Element, SetIterator) where Element implements Hashable and Equatable
+public type Set uses Element implements Iterable with (Element, SetIterator), InitableFromArrayLiteral with Element where Element implements Hashable and Equatable
 	public typealias SetIter = SetIterator with Element
 	typealias Members = Map with (Element, bool)
+	typealias Elements = Array with Element
 	var members = Members.create()
 
 	/// Create an empty set
@@ -20,6 +21,23 @@ public type Set uses Element implements Iterable with (Element, SetIterator) whe
 		end 'present'
 		try members.insert(element, value: true) otherwise panic("Set.insert: the member is absent")
 	end 'insert'
+
+	/// Create a set of the elements of `Set from [a, b, c]`, each moved in, in order: of two equal elements the first stays.
+	static function init(consumes value Elements) returns Self where Element implements Droppable and Copyable
+		var pending = value
+		var reversed = Elements.create(0)
+		reversed.reserve(pending.count())
+		while pending.count() > 0 'reverse'
+			reversed.push(try pending.pop() otherwise panic("Set.init: the pending elements are counted"))
+		end 'reverse'
+		pending.dropEmpty()
+		var result = Self{}
+		while reversed.count() > 0 'insert'
+			result.insert(try reversed.pop() otherwise panic("Set.init: the reversed elements are counted"))
+		end 'insert'
+		reversed.dropEmpty()
+		return result
+	end 'init'
 
 	public function contains(element Element) returns bool where Element implements Copyable
 		return members.contains(element)

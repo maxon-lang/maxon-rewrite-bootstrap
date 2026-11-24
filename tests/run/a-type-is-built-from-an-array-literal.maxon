@@ -1,0 +1,36 @@
+typealias Digit = int(0 to 9)
+
+typealias Digits = Array with Digit
+
+typealias Code = int(0 to 100)
+
+typealias Codes = Set with Code
+
+typealias Names = Set with String
+
+type Number implements InitableFromArrayLiteral with Digit
+	export var last as Digit
+	export var length as Count
+
+	static function init(digits Digits) returns Self
+		var last = 0 as Digit
+		for d in digits 'each'
+			last = d
+		end 'each'
+		return Self{last: last, length: digits.count()}
+	end 'init'
+end 'Number'
+
+function main() returns ExitCode
+	let n = Number from [4, 0, 7]
+	let bare = Set from [1, 2, 3, 2]
+	let codes = Codes from [5, 6, 5]
+	let first = "a".clone()
+	let second = "b".clone()
+	let names = Names from [first, second, "a"]
+	let words = Set from ["x", "y"]
+	print("{n.last} {n.length} {bare.count()} {bare.contains(2)} {codes.count()} {codes.contains(6)} {names.count()} {names.contains("b")} {words.count()}\n")
+	return 0
+end 'main'
+
+//> 7 3 3 true 2 true 2 true 2

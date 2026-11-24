@@ -341,9 +341,9 @@ type Digits implements InitableFromArrayLiteral with Digit
 	static function init(digits DigitArray) returns Self
 		var total = 0 as Number
 		for d in digits 'each'
-			total = total * 10 + (d as Number)
+			total = try total * 10 + (d as Number) otherwise panic("out of range")
 		end 'each'
-		return Self{value: total, length: digits.count() as Number}
+		return Self{value: total, length: try digits.count() as Number otherwise panic("out of range")}
 	end 'init'
 end 'Digits'
 
@@ -377,9 +377,9 @@ type Digits implements InitableFromArrayLiteral with Digit
 	static function init(digits DigitArray) returns Self
 		var total = 0 as Number
 		for d in digits 'each'
-			total = total * 10 + (d as Number)
+			total = try total * 10 + (d as Number) otherwise panic("out of range")
 		end 'each'
-		return Self{value: total, length: digits.count() as Number}
+		return Self{value: total, length: try digits.count() as Number otherwise panic("out of range")}
 	end 'init'
 end 'Digits'
 

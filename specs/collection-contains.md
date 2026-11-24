@@ -176,10 +176,8 @@ end 'main'
 ```
 
 <!-- test: set-contains -->
-<!-- skip: 'Set' is not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: 'Set' is not supported in minimaxon
 	let s = Set from [1, 2, 3, 4, 5]
 	if s.contains(3) 'check'
 		print("found\n")

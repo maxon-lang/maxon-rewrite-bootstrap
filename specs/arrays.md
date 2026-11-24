@@ -4363,12 +4363,9 @@ error E2004: <fragment>:4:10: A let cannot start from a number whose range is un
 ```
 
 <!-- test: error.a-set-from-a-mixed-sign-literal-is-refused -->
-<!-- skip: 'Set' is not supported in minimaxon -->
-<!-- positions: moved -->
 The same for a `Set from` literal.
 ```maxon
 function main() returns ExitCode
-	// TODO: 'Set' is not supported in minimaxon
 	let s = Set from [-1, u64.max]
 	return s.count() as ExitCode
 end 'main'

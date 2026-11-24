@@ -1,0 +1,21 @@
+typealias Digit = int(0 to 9)
+
+typealias Letter = int(0 to 25)
+
+typealias Letters = Array with Letter
+
+type Wrong implements InitableFromArrayLiteral with Digit
+	export var n as Count
+
+	static function init(letters Letters) returns Self
+		return Self{n: letters.count()}
+	end 'init'
+end 'Wrong'
+
+function main() returns ExitCode
+	let w = Wrong from [1, 2]
+	print("{w.n}\n")
+	return 0
+end 'main'
+
+// expect-error: E3005 at 16:10

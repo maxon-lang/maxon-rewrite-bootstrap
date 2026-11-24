@@ -552,7 +552,10 @@ function visitExprOwn(mutates o Ownership, p ast.Project, mutates ms ast.ModuleS
 		return collectionLitOwn(o, p: p, ms: ms, e: e, s: s)
 	end 'collectionLit'
 	if k == ast.NodeKind.fromExpr 'from'
-		return expr(o, p: p, ms: ms, e: ast.fromExprValue(ms.tree(), id: e), s: s)
+		if ast.isLiteralCollection(ms.types, reads: p.types, t: ownType(o, node: e)) 'literal'
+			return expr(o, p: p, ms: ms, e: ast.fromExprValue(ms.tree(), id: e), s: s)
+		end 'literal'
+		return userCall(o, p: p, ms: ms, site: offsetOfOwn(o, p: p, ms: ms, node: e), call: ownCall(o, node: e), receiver: 0 as ast.NodeID, s: s)
 	end 'from'
 	if k == ast.NodeKind.rangeExpr 'range'
 		// The bounds are integers, which the range's create takes as values.

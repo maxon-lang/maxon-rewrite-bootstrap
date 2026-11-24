@@ -3697,7 +3697,15 @@ written anywhere (a field it names is `E3011`).
 (`Ages from [1, 2]` over `typealias Ages = Array with Age`), so each element must fit it, a `var` may hold it, and the
 elements are checked as an argument is. Over a `List` alias (or the bare `List`) it is the list that the literal builds, with
 each element appended in order; the bare `Array from [...]` and `List from [...]` take the element type from the elements, as
-a bare literal does. Any other type is written from a string literal, `Type from "text"`, which is `Type.init("text")`:
+a bare literal does. Any other type is written from an array literal or a string literal. `Type from [a, b]` is `Type.init([a, b])`:
+the type says `implements InitableFromArrayLiteral with Element` (`E3005`, "Type 'T' does not conform to InitableFromArrayLiteral", at
+the type's name, when it does not) and its static `init` takes the array of that element (`E3005` at the type's name when it
+takes another). The elements are moved into the array `init` takes, `Set` and a user's type alike, so none is copied. The element
+type comes from the head where it states the type's arguments (`Codes from [5, 6]` over `typealias Codes = Set with Code`),
+and over the bare name of a generic type from the literal's elements, through the type argument that `with Element` names
+(`Set from ["a", "b"]` is a `Set with String`; bare numbers keep their range as they do in a bare array literal), so a type
+whose other arguments the literal leaves open is `E3179`. The empty literal gives no element, here as for an array
+(`E2015`). A type is written from a string literal, `Type from "text"`, which is `Type.init("text")`:
 the type says `implements InitableFromStringLiteral` (`E3005`, "Type 'T' does not conform to InitableFromStringLiteral",
 at the type's name, when it does not) and declares `static function init(value String) returns Self`. `FilePath` is one:
 `FilePath from "a/b"` is `FilePath.from` that stops the program with "FilePath: invalid path" where `FilePath.from` would
@@ -3771,7 +3779,8 @@ dropped, ends after every element was taken out. Nothing built in returns an `Op
   `Map with (Element, bool)` whose every value is true, so it shares the map's table and its probing, growth and
   tombstones instead of maxon's own open-addressing table. It has `create()`, `insert`, `contains`, `remove` (whether the
   element was there), `count()`, `getCapacity()` and `createIterator()`, and `for x in set` walks it in the map's order.
-  `Set from [...]` is not supported (see "Where it differs from Maxon", `Type from value`).
+  `Set from [...]` is `Set.init` over the literal (see "Primitives", `Type from value`): the elements are moved into the table in
+  order, so of two equal elements the first stays, as `insert` leaves it.
 - **`Math`** is maxon's (`stdlib/Math.maxon`, converted), over `__Builtins.bitsToFloat` and `floatToBits` for the non-finite doubles.
 - **Generic code** over a primitive is checked once, as in "Generics": a value of type `T` held by an `Array with T` is
   owned and movable, so a generic container gives an element out with `remove` or `pop`, or `.clone()`.
@@ -4808,9 +4817,9 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   value is already moved and never aliased here, so what is left of it is a value that cannot be copied or forgotten.
   `Copyable` and `Droppable` are structural bounds, not interfaces a declaration implements (see "Capabilities and
   destructors"). `exchange(place, value: v)` takes the label `value`.
-- `Type from value` (see "Primitives") is written from a literal only: an array literal for an `Array` or a `List`, a string
-  literal for a type with `init`. Not supported: `Set` and `FixedArray`, `List from <an array value>` and `Set from <an array
-  value>` (the elements are written as a literal), `Type from [...]` through `InitableFromArrayLiteral`, a map literal under an
+- `Type from value` (see "Primitives") is written from a literal only: an array literal for an `Array`, a `List`, or a type that implements `InitableFromArrayLiteral`, a string
+  literal for a type with `init`. Not supported: `FixedArray`, `List from <an array value>` and `Set from <an array
+  value>` (the elements are written as a literal), a map literal under an
   alias, and `Type from 'c'`, since there are no character literals. The expression after `from` is a postfix expression,
   where Maxon takes a literal whole: `Alias from [1, 2].count()` is `E3005`, since a call on the literal is not an array
   literal, and the conversion is parenthesized to call on it: `(Alias from [1, 2]).count()`. `from` is still a name where a

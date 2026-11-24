@@ -1,0 +1,5 @@
+/// A type that `Type from [a, b, c]` builds: it declares `static function init(value Array with Element) returns Self`,
+/// which the literal is handed to, its elements moved into the array.
+/// @category Collections
+public interface InitableFromArrayLiteral uses Element
+end 'InitableFromArrayLiteral'

@@ -29,7 +29,7 @@ typealias NameSet = Set with String
 function main() returns ExitCode
 	let names = NameSet from ["a", "b", "a"]
 	if names.contains("a") 'has'
-		return names.count() as ExitCode
+		return try names.count() as ExitCode otherwise panic("out of range")
 	end 'has'
 	return 0
 end 'main'

@@ -277,7 +277,6 @@ end 'main'
 ```
 
 <!-- test: every-collection-count-is-a-count -->
-<!-- skip: 'Set' is not supported in minimaxon -->
 Every collection's `count()` is a `Count`, so each goes to a `Count` parameter with no cast.
 ```maxon
 typealias Narrow = int(0 to 1000)
@@ -289,11 +288,10 @@ function takesCount(n Count) returns Count
 end 'takesCount'
 
 function main() returns ExitCode
-	let arr = NarrowArray.create(0)
+	var arr = NarrowArray.create(0)
 	arr.push(4)
 	let list = List from [10, 20]
 	let map = [1: 10, 2: 20, 3: 30]
-	// TODO: 'Set' is not supported in minimaxon
 	let set = Set from [5, 6, 7, 8]
 	let vec = FixedArray from [1, 2, 3, 4, 5]
 	let text = "a😀b"

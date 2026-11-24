@@ -2056,9 +2056,6 @@ func transformStmtAndExpr(line *sourceLine, warn func(*sourceLine, string)) {
 				if isTypeFromValue(toks, i) {
 					warn(line, "'Type from value' takes an array literal or a string literal in minimaxon, not another value")
 				}
-				if i > 0 && toks[i-1].text == "Set" {
-					warn(line, fmt.Sprintf("'%s' is not supported in minimaxon", toks[i-1].text))
-				}
 			case "otherwise":
 				if label := handlerLabelIndex(toks, i); toks[0].text != "end" && label >= 0 && label != len(toks)-1 {
 					warn(line, "a block handler ('otherwise (e) 'label'') inside brackets is not supported in minimaxon; bind the value on a line of its own")
