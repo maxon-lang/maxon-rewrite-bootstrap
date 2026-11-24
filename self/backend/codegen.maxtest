@@ -338,16 +338,17 @@ end 'routinesMain'
 // through its address, reads it back at each width, writes one byte of it, and writes a line through the system as its
 // programs reach it (rawWrite). It returns 42 when every value is what it should be.
 // rawWrite writes length bytes at bytes to handle and gives a word that is not zero when it wrote: by WriteFile, a DLL
-// import of five words, on a system whose programs import its functions, and by the write system call on one whose
-// programs call the kernel.
+// import of five words, on Windows, by libSystem's write, an import of three words, on macOS, and by the write system call
+// on Linux, whose programs call the kernel.
 function rawWrite(mutates b ir.FnBuilder, system ast.TargetSystem, handle ir.Reg, bytes ir.Reg, length ir.Reg, written Count) returns ir.Reg
-	return match ast.systemReach(system) 'reach'
-		imports gives rawWriteImport(b, handle: handle, bytes: bytes, length: length, written: written)
-		syscalls gives rawWriteSyscall(b, handle: handle, bytes: bytes, length: length)
-	end 'reach'
+	return match system 'system'
+		windows gives rawWriteFile(b, handle: handle, bytes: bytes, length: length, written: written)
+		macos gives rawWriteLibSystem(b, handle: handle, bytes: bytes, length: length)
+		linux gives rawWriteSyscall(b, handle: handle, bytes: bytes, length: length)
+	end 'system'
 end 'rawWrite'
 
-function rawWriteImport(mutates b ir.FnBuilder, handle ir.Reg, bytes ir.Reg, length ir.Reg, written Count) returns ir.Reg
+function rawWriteFile(mutates b ir.FnBuilder, handle ir.Reg, bytes ir.Reg, length ir.Reg, written Count) returns ir.Reg
 	let writtenAddr = b.reg()
 	b.emit(ir.newSlotAddr(writtenAddr, slot: written))
 	var args = ir.RegList.create(0)
@@ -356,13 +357,27 @@ function rawWriteImport(mutates b ir.FnBuilder, handle ir.Reg, bytes ir.Reg, len
 	args.push(length)
 	args.push(writtenAddr)
 	args.push(b.constant(0))
+	return rawImport(b, name: "WriteFile", args: args)
+end 'rawWriteFile'
+
+function rawWriteLibSystem(mutates b ir.FnBuilder, handle ir.Reg, bytes ir.Reg, length ir.Reg) returns ir.Reg
+	var args = ir.RegList.create(0)
+	args.push(handle)
+	args.push(bytes)
+	args.push(length)
+	return rawImport(b, name: "write", args: args)
+end 'rawWriteLibSystem'
+
+// rawImport calls the imported function of a name with the arguments, and gives its result.
+function rawImport(mutates b ir.FnBuilder, consumes name String, args ir.RegList) returns ir.Reg
+	let count = try args.count() as ir.Reg otherwise panic("too many arguments")
 	let start = b.pushArgs(args)
-	let wrote = b.reg()
-	let name = try b.f.strings.count() as ir.Index otherwise panic("too many strings")
-	b.f.strings.push("WriteFile")
-	b.emit(ir.newCallImport(wrote, name: name, argsStart: start, argsCount: 5))
-	return wrote
-end 'rawWriteImport'
+	let result = b.reg()
+	let index = try b.f.strings.count() as ir.Index otherwise panic("too many strings")
+	b.f.strings.push(name)
+	b.emit(ir.newCallImport(result, name: index, argsStart: start, argsCount: count))
+	return result
+end 'rawImport'
 
 function rawWriteSyscall(mutates b ir.FnBuilder, handle ir.Reg, bytes ir.Reg, length ir.Reg) returns ir.Reg
 	var args = ir.RegList.create(0)

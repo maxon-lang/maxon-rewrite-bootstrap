@@ -79,6 +79,18 @@ echo 1 | sudo tee /proc/sys/fs/binfmt_misc/WSLInterop
 With interop on, a Linux program that starts `cmd.exe` works under WSL and fails on any other Linux, which the gate would
 then miss.
 
+### Building on macOS
+
+On an arm64 Mac the compiler is built and gated from `seed/minimaxon-arm64-macos` in the same way, with Go 1.27 and nothing
+else: `./check.sh` is the gate, ending `all checks passed`, and `go run ./cmd/gate build` builds `./minimaxon`. The native
+lanes run the `arm64-macos` corpus (with `--verify-ir`, as every arm64 corpus is compiled) and its reruns, so the Mac lane
+that Windows runs through the share is not a step here. The gate says of each step it skips that it skips it and why: the
+`x64-windows`, `x64-linux` and `arm64-linux` corpus and reruns, which macOS has no way to run, the debugger's batch session,
+and the fault lines of those three targets' programs. `selftest` runs the tests that build and run a program on the host
+with the arm64 test runtime (`arm64RuntimeUnit`); the machine IR's tests of hand-written x64 functions are linked into an
+x64 Linux executable and not run. The compiler reads the directory of temporary files from `TMPDIR`, which macOS sets; a
+Mac never renews the seeds, but proves the macOS one when they are renewed (see `seed/README.md`).
+
 | Command | What it does |
 |---|---|
 | `minimaxon build <file\|dir> [-o out.exe] [--target=<arch>-<os>]` | compile; the path given is the project's root, and a directory is a project, one module per directory (see "Modules"); `--target` names the target, `x64-windows`, `x64-linux` or `arm64-linux` (see "Targets"), the system the compiler runs on by default |
@@ -268,10 +280,11 @@ from the page starts, and the signature's hashes.
 
 ### Tests
 
-`.\check.ps1` on Windows and `./check.sh` on Linux are the gate, both `go run ./cmd/gate check`, whose step list is the
-one both hosts run; a step a host cannot run is skipped with a line that says so and why (see "Building on Linux"). In
+`.\check.ps1` on Windows and `./check.sh` on Linux and macOS are the gate, all `go run ./cmd/gate check`, whose step list
+is the one every host runs; a step a host cannot run is skipped with a line that says so and why (see "Building on Linux"
+and "Building on macOS"). In
 order, it formats, `go fix`es and vets the Go of the generators and tools; runs the generators and fails if a generated
-file (`*_gen.*`) changed; has the host's seed build `bin\minimaxon.exe` (`bin/minimaxon` on Linux); and then runs the
+file (`*_gen.*`) changed; has the host's seed build `bin\minimaxon.exe` (`bin/minimaxon` on Linux and macOS); and then runs the
 suites on it (`go run ./cmd/gate suites`), which run the Go tests of the generators and tools (`go test ./...`, with that compiler as
 `cmd/convert`'s formatter) and, with the compiler: `selftest`, `check runtime` for each target, `check self --tests` (the compiler's own source and its files of tests under the rules it has just been given), `fmt --check self runtime tests`, the corpus (`test`, with no standard
 input), the programs that schedule behaviours again under one, two and four workers (`test --behaviours --worker-counts=`, one compile for the
@@ -286,7 +299,7 @@ source, and `--verify-cache`), the debug info (programs built for each target an
 counts the new passes), and `fuzz` (300 generated programs, each one the checker accepts run clean under the interpreter). It stops at the
 first step that fails. That the compiler reproduces itself (the seed builds C1, C1 builds C2, C2 builds C3, and C3 is
 byte-identical to C2) is checked where the seeds are renewed, `.\seed.ps1`, which then runs the same suites on C2 and
-proves the Linux seed under WSL (`seed/README.md`).
+proves the Linux seed under WSL and the macOS seed on the Mac (`seed/README.md`).
 
 The suites (`cmd/gate`) group their steps in lanes that share nothing but the compiler and the checkout: `checks` (the Go tests, `selftest`, `check runtime`
 and `check stdlib`, `check self`, the layout and `fuzz`), `builds` (the benchmarks and `self` for arm64, the cache, the debug info), `specs`, the
@@ -2147,7 +2160,8 @@ where it lands went from 48 ms to 3 ms.
 The first half of the register allocator (`liveness.maxon`, `pressure.maxon`, `spill.maxon`) brings every instruction of a
 function under the registers free there, which the second half, colouring in dominance order, needs. Every function a
 native build compiles goes through it; `selftest` also runs it on hand-built functions (`self/backend/spill.maxtest`), which
-colouring then finishes and which run.
+colouring then finishes and which run: those functions are x64's code, so on a host of another architecture they are linked
+into an x64 Linux executable and not run.
 
 - **Blocks** (`prepareBlocks`): the block laid out first, selection's prologue, becomes block 0, the graph's entry; the
   layout becomes the reverse postorder, which keeps it first and leaves each block's instructions as they are, so a

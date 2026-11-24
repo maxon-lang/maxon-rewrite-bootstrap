@@ -44,8 +44,13 @@ func cacheRun(h host, compiler, testCase, procs string) error {
 	if procs != "" {
 		env = append(env, "MAXON_MAX_PROCS="+procs)
 	}
+	// Every build is under one file name, each in a directory of its own: a Mach-O image is signed under its file's name.
+	exeOf := func(name string) string { return filepath.Join(root, name, "program"+h.exe) }
 	build := func(name string, flags ...string) ([]byte, error) {
-		exe := filepath.Join(root, name+h.exe)
+		exe := exeOf(name)
+		if err := os.MkdirAll(filepath.Dir(exe), 0o755); err != nil {
+			return nil, err
+		}
 		if out, err := output(env, "", compiler, append([]string{"build", project, "-o", exe}, flags...)...); err != nil {
 			return nil, fmt.Errorf("the %s build failed: %s%w", name, out, err)
 		}
@@ -93,7 +98,7 @@ func cacheRun(h host, compiler, testCase, procs string) error {
 	if err := same("edited-warm", editedUncached, "the warm build of the edited source differs from the uncached one"); err != nil {
 		return err
 	}
-	printed, err := output(nil, "", filepath.Join(root, "edited"+h.exe))
+	printed, err := output(nil, "", exeOf("edited"))
 	if err != nil {
 		return err
 	}

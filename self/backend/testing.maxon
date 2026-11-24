@@ -67,21 +67,25 @@ export function runImageOutput(image Image, name String, expectedCode ExitCode) 
 end 'runImageOutput'
 
 // runtimeUnit is the entries of the runtime that the test programs and the entry stub call, for the target the programs
-// run on, written in assembly by the internal convention (the first two arguments in rcx and rdx, the result in r8): alloc,
-// free, write, a stand-in for itoa, checkLeaks, which exits with the runtime's leak code and writes no report, and panic,
-// which exits with the panic code and writes nothing. A test program uses no scheduler, so its entry calls main itself
-// (start.maxon) and needs nothing of the scheduler's.
+// run on, written in assembly by the internal convention: alloc, free, write, a stand-in for itoa, checkLeaks, which exits
+// with the runtime's leak code and writes no report, and panic, which exits with the panic code and writes nothing. A test
+// program uses no scheduler, so its entry calls main itself (start.maxon) and needs nothing of the scheduler's.
 export function runtimeUnit(target ast.Target, count bool) returns CodeUnit
-	let system = match target.arch 'arch'
-		x64 gives target.system
-		arm64 gives panic("backend: the test runtime is written for x64 alone, not for {target.name()}")
+	return match target.arch 'arch'
+		x64 gives x64RuntimeUnit(target.system, count: count)
+		arm64 gives arm64RuntimeUnit(target.system, count: count)
 	end 'arch'
+end 'runtimeUnit'
+
+// x64RuntimeUnit is the test runtime of an x64 system, whose internal convention passes the first two arguments in rcx and
+// rdx and gives the result in r8.
+function x64RuntimeUnit(system ast.TargetSystem, count bool) returns CodeUnit
 	return match system 'system'
 		windows gives windowsRuntimeUnit(count)
 		linux gives linuxRuntimeUnit(count)
-		macos gives panic("backend: the test runtime has no entries for {target.name()}")
+		macos gives panic("backend: x64 runs no macOS")
 	end 'system'
-end 'runtimeUnit'
+end 'x64RuntimeUnit'
 
 // windowsRuntimeUnit is the test runtime of x64 Windows, whose entries call Windows by Win64.
 function windowsRuntimeUnit(count bool) returns CodeUnit
@@ -194,6 +198,71 @@ function linuxRuntimeUnit(count bool) returns CodeUnit
 	stubSyscall(u, number: linuxSysExitGroup)
 	return u
 end 'linuxRuntimeUnit'
+
+// arm64RuntimeUnit is the test runtime of an arm64 system, whose internal convention passes the arguments in x0 up and gives
+// the result in x0: its entries call the system by the entry stub's calls (emitArm64StubCall), libSystem's functions on
+// macOS and system calls on Linux. As on x64 Linux, alloc maps each box on pages of its own, which free leaves mapped.
+function arm64RuntimeUnit(system ast.TargetSystem, count bool) returns CodeUnit
+	let result = arm64InternalResult
+	var u = CodeUnit.new()
+	u.defineData(testLiveSymbol, size: wordBytes)
+	u.defineCode(ir.rtSymbol(ir.Rt.rtAlloc))
+	u.asm.arm64Enter()
+	u.asm.arm64Mov(arm64StubArg(1), src: arm64InternalArg(0))
+	u.asm.arm64MovImm(arm64StubArg(0), value: noAddress)
+	u.asm.arm64MovImm(arm64StubArg(2), value: arm64ProtReadWrite(system))
+	u.asm.arm64MovImm(arm64StubArg(3), value: arm64MapFlags(system, reserve: false))
+	u.asm.arm64MovImm(arm64StubArg(4), value: noFile)
+	u.asm.arm64MovImm(arm64StubArg(5), value: noOffset)
+	emitArm64StubCall(u, system: system, call: Arm64StubCall.stubMap)
+	if count 'allocCount'
+		arm64CountLive(u, delta: 1)
+	end 'allocCount'
+	u.asm.arm64Mov(result, src: arm64LinuxSyscallResult)
+	u.asm.arm64Leave()
+	u.asm.arm64Ret()
+	u.defineCode(ir.rtSymbol(ir.Rt.rtFree))
+	let freed = u.asm.newLabel()
+	u.asm.arm64BranchIfZero(arm64InternalArg(0), label: freed)
+	if count 'freeCount'
+		arm64CountLive(u, delta: -1)
+	end 'freeCount'
+	u.asm.bind(freed)
+	u.asm.arm64Ret()
+	u.defineCode(ir.rtSymbol(ir.Rt.rtWrite))
+	u.asm.arm64Enter()
+	u.asm.arm64ShrImm(arm64StubArg(2), src: arm64InternalArg(2), shift: stringLengthShift as Arm64Imm6)
+	u.asm.arm64Mov(arm64StubArg(1), src: arm64InternalArg(1))
+	u.asm.arm64Mov(arm64StubArg(0), src: arm64InternalArg(0))
+	emitArm64StubCall(u, system: system, call: Arm64StubCall.stubWrite)
+	u.asm.arm64Leave()
+	u.asm.arm64Ret()
+	u.defineCode(ir.rtSymbol(ir.Rt.rtItoa))
+	u.asm.arm64AddressData(result, dataOffset: u.data.textOffset("?"))
+	u.asm.arm64MovImm(arm64InternalSecondResult, value: literalWord("?"))
+	u.asm.arm64Ret()
+	u.defineCode(ir.rtSymbol(ir.Rt.rtCheckLeaks))
+	let clean = u.asm.newLabel()
+	u.asm.arm64Mov(result, src: arm64InternalArg(0))
+	u.asm.arm64LoadSymbol(stubTemp, symbol: testLiveSymbol)
+	u.asm.arm64BranchIfZero(stubTemp, label: clean)
+	u.asm.arm64MovImm(arm64StubArg(0), value: testLeakExitCode)
+	emitArm64StubCall(u, system: system, call: Arm64StubCall.stubExit)
+	u.asm.bind(clean)
+	u.asm.arm64Ret()
+	u.defineCode(ir.rtSymbol(ir.Rt.rtPanic))
+	u.asm.arm64MovImm(arm64StubArg(0), value: testPanicExitCode)
+	emitArm64StubCall(u, system: system, call: Arm64StubCall.stubExit)
+	return u
+end 'arm64RuntimeUnit'
+
+// arm64CountLive adds to the number of live boxes, keeping every register but the stub's temporary and the address scratch
+// register.
+function arm64CountLive(mutates u CodeUnit, delta FullRangeInt)
+	u.asm.arm64LoadSymbol(stubTemp, symbol: testLiveSymbol)
+	u.asm.arm64AddImm(stubTemp, src: stubTemp, value: delta)
+	u.asm.arm64StoreSymbol(testLiveSymbol, src: stubTemp)
+end 'arm64CountLive'
 
 // emitTestItoa writes the stand-in for itoa, which gives "?" for every number.
 function emitTestItoa(mutates u CodeUnit)

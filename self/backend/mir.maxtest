@@ -234,7 +234,8 @@ function runAllocated(mutates p ast.Project, consumes fns MirFunctionList, entry
 end 'runAllocated'
 
 // linkAndRun encodes allocated functions into one unit, links it with the entry stub and the test runtime, and runs
-// the executable.
+// the executable. The functions are x64's code, which only an x64 host runs: on another host they are linked into an
+// executable of x64 Linux, which holds them to the link, and not run.
 function linkAndRun(mutates p ast.Project, fns MirFunctionList, entry ast.FuncID, name String, expectedCode ExitCode)
 	var u = CodeUnit.new()
 	var lay = BlockLayout.new()
@@ -244,10 +245,18 @@ function linkAndRun(mutates p ast.Project, fns MirFunctionList, entry ast.FuncID
 	u.asm.endLabels()
 	var units = UnitList.create(0)
 	units.push(u)
+	let host = p.target.clone()
+	let runs = host.arch == ast.TargetArch.x64
+	if not runs 'foreign'
+		p.target = ast.Target.linuxX64()
+	end 'foreign'
 	var ready = UnitList.create(0)
 	ready.push(runtimeUnit(p.target, count: false))
 	let linked = linkProgram(p, modules: units, ready: freeze(ready), entry: entry, options: RuntimeOptions.make(false), mapsSymbols: false)
-	runImage(linked.image, name: name, expectedCode: expectedCode, expectedOutput: "")
+	p.target = host
+	if runs 'run'
+		runImage(linked.image, name: name, expectedCode: expectedCode, expectedOutput: "")
+	end 'run'
 end 'linkAndRun'
 
 function oneMir(consumes fn MirFunction) returns MirFunctionList

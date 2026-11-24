@@ -8,16 +8,17 @@ import (
 	"strings"
 )
 
-// renewSeeds renews both seeds from self/, and refuses unless each reproduces itself. On x64 Windows the Windows seed builds
-// C1, C1 builds C2 and C2 builds C3, which must be C2's bytes; C2 must pass the suites. C2 then builds the Linux compiler by
-// cross-compilation, and that compiler is proven under WSL: it builds C1, which must be its own bytes, so that a compile does
-// not depend on the host it runs on, C1 builds C2, and C2 builds C3, which must be C2's bytes. Only then are both seeds
-// replaced, C2 as the Windows seed and the cross-built compiler as the Linux one, so the two always come from one commit of
-// self/. The gate never builds a C3: this is the only place that checks that a compiler reproduces itself, so a compiler that
-// does not is never committed. seed/README.md says when a renewal is needed.
+// renewSeeds renews the three seeds from self/, and refuses unless each reproduces itself. On x64 Windows the Windows seed
+// builds C1, C1 builds C2 and C2 builds C3, which must be C2's bytes; C2 must pass the suites. C2 then builds the Linux
+// compiler by cross-compilation, and that compiler is proven under WSL: it builds C1, which must be its own bytes, so that a
+// compile does not depend on the host it runs on, C1 builds C2, and C2 builds C3, which must be C2's bytes. C2 builds the
+// macOS compiler the same way, which the Mac proves the same way (proveMacSeed). Only then are the seeds replaced, C2 as the
+// Windows seed and the cross-built compilers as the others, so the three always come from one commit of self/. The gate
+// never builds a C3: this is the only place that checks that a compiler reproduces itself, so a compiler that does not is
+// never committed. seed/README.md says when a renewal is needed.
 func renewSeeds(h host) error {
 	if !h.windows() {
-		return errors.New("seed: the seeds are renewed on x64 Windows with WSL, which runs and proves both; a Linux host cannot run the Windows seed")
+		return errors.New("seed: the seeds are renewed on x64 Windows with WSL and the Mac's share, which run and prove all three; another host cannot run the Windows seed")
 	}
 	if err := os.MkdirAll("bin", 0o755); err != nil {
 		return err
@@ -43,13 +44,27 @@ func renewSeeds(h host) error {
 	if same, err := sameBytes(linuxSeed, l1); err != nil || !same {
 		return errors.Join(err, errors.New("seed not renewed: the Linux compiler that Windows built differs from the one it builds of itself on Linux, so a compile depends on its host"))
 	}
+	// Under the seed's own name, which a Mach-O executable is signed under.
+	macSeed := filepath.Join("bin", "seed-arm64-macos", macosSeedName)
+	if err := os.MkdirAll(filepath.Dir(macSeed), 0o755); err != nil {
+		return err
+	}
+	if err := stage("the macOS compiler", abs(c2), "build", "self", "--target=arm64-macos", "--no-cache", "-o", macSeed); err != nil {
+		return err
+	}
+	if err := proveMacSeed(macSeed); err != nil {
+		return err
+	}
 	if err := copyFile(c2, h.seed); err != nil {
 		return err
 	}
 	if err := copyFile(linuxSeed, seeds["x64-linux"]); err != nil {
 		return err
 	}
-	fmt.Printf("seeds renewed: %s from %s, %s from %s\n", h.seed, c2, seeds["x64-linux"], linuxSeed)
+	if err := copyFile(macSeed, seeds["arm64-macos"]); err != nil {
+		return err
+	}
+	fmt.Printf("seeds renewed: %s from %s, %s from %s, %s from %s\n", h.seed, c2, seeds["x64-linux"], linuxSeed, seeds["arm64-macos"], macSeed)
 	return nil
 }
 

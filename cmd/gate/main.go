@@ -1,8 +1,8 @@
 // Command gate holds the repository's checks in one place for every host the compiler is built on: the gate (check), the
 // suites it runs on a compiler (suites), the renewal of the seeds (seed), the regeneration of specs/ (specs) and the
 // day-to-day build (build), each with the one compiler bin/minimaxon (compiler.go). check.ps1, seed.ps1, specs.ps1 and
-// build.ps1 on Windows and check.sh on Linux only call it,
-// so the two hosts cannot drift apart in what they check. A step that cannot run on the host says so and why, and is
+// build.ps1 on Windows and check.sh on Linux and macOS only call it, so the hosts cannot drift apart in what they check.
+// A step that cannot run on the host says so and why, and is
 // skipped; every other step that fails stops the command.
 //
 //	go run ./cmd/gate check [test args...]
@@ -59,7 +59,7 @@ func gate() {
 	}
 	// The compiler finds the directory of temporary files by the variable maxon reads (TEMP on Windows, TMPDIR elsewhere),
 	// and refuses to guess one; a container that sets none gets the system's, which Go knows.
-	if h.linux() && os.Getenv("TMPDIR") == "" {
+	if !h.windows() && os.Getenv("TMPDIR") == "" {
 		os.Setenv("TMPDIR", os.TempDir())
 	}
 	args := os.Args[2:]
@@ -153,12 +153,17 @@ type host struct {
 	seed string
 }
 
-// seeds are the committed compilers, one per host target the repository is built on, each built from self/ by the other
-// or by itself (gate seed).
+// seeds are the committed compilers, one per host target the repository is built on, all built from self/ by the Windows
+// one's renewal (gate seed).
 var seeds = map[string]string{
 	"x64-windows": filepath.Join("seed", "minimaxon.exe"),
 	"x64-linux":   filepath.Join("seed", "minimaxon-x64-linux"),
+	"arm64-macos": filepath.Join("seed", macosSeedName),
 }
+
+// macosSeedName is the macOS seed's file name. A Mach-O executable is signed under the name it is built as, so every
+// compiler that is compared with it is built under this name too, each in a directory of its own (gate seed).
+const macosSeedName = "minimaxon-arm64-macos"
 
 func currentHost() (host, error) {
 	var name string
@@ -167,8 +172,10 @@ func currentHost() (host, error) {
 		name = "x64-windows"
 	case "linux/amd64":
 		name = "x64-linux"
+	case "darwin/arm64":
+		name = "arm64-macos"
 	default:
-		return host{}, fmt.Errorf("gate: no seed runs on %s/%s; the hosts are x64 Windows and x64 Linux", runtime.GOOS, runtime.GOARCH)
+		return host{}, fmt.Errorf("gate: no seed runs on %s/%s; the hosts are x64 Windows, x64 Linux and arm64 macOS", runtime.GOOS, runtime.GOARCH)
 	}
 	h := host{target: name, seed: seeds[name]}
 	if runtime.GOOS == "windows" {
@@ -180,6 +187,8 @@ func currentHost() (host, error) {
 func (h host) windows() bool { return h.target == "x64-windows" }
 
 func (h host) linux() bool { return h.target == "x64-linux" }
+
+func (h host) macos() bool { return h.target == "arm64-macos" }
 
 // compiler is the path of a compiler called name that the gate builds into bin/.
 func (h host) compiler(name string) string {

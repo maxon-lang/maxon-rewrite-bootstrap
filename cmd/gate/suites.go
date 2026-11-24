@@ -126,7 +126,9 @@ func (r suiteRun) steps() ([]laneStep, [][]string) {
 		{step{"debug info", func() error { return debugInfo(r.h, r.compiler) }}, "builds"},
 		{step{"specs", func() error { return specsRequired(r.compiler) }}, "specs"},
 		// Test programs inherit stdin, so one that reads it would wait until the runner's deadline ends it: run gives none.
-		{step{"corpus", func() error { return quiet(nil, r.compiler, append([]string{"test"}, r.testArgs...)...) }}, "native"},
+		{step{"corpus", func() error {
+			return quiet(nil, r.compiler, slices.Concat([]string{"test"}, verifyFlags(r.h.target), r.testArgs)...)
+		}}, "native"},
 		{step{"behaviours", func() error { return r.behaviours() }}, "native-behaviours"},
 	}
 	first := []string{"checks", "builds", "specs", "native"}
@@ -141,8 +143,11 @@ func (r suiteRun) steps() ([]laneStep, [][]string) {
 		first = append(first, t)
 		second = append(second, t+"-behaviours")
 	}
-	steps = append(steps, laneStep{step{"corpus on arm64-macos", func() error { return macLane(r.h, r.compiler, r.behavioursArgs(), r.testArgs) }}, "mac"})
-	first = append(first, "mac")
+	// On the Mac the corpus of arm64-macos is the native lanes'.
+	if !r.h.macos() {
+		steps = append(steps, laneStep{step{"corpus on arm64-macos", func() error { return macLane(r.h, r.compiler, r.behavioursArgs(), r.testArgs) }}, "mac"})
+		first = append(first, "mac")
+	}
 	return steps, [][]string{first, second}
 }
 
@@ -291,14 +296,17 @@ func passToWsl(name string) {
 
 // runsTarget is why the host cannot run the executables of a target, or "" when it can: Windows runs Linux's under WSL,
 // in its default distribution, an x64 one natively and an arm64 one through the qemu-aarch64 that the distribution
-// registers with binfmt_misc; Linux runs an arm64 one through the qemu-aarch64 it registers itself. A Windows machine
-// without WSL or a distribution fails the step instead: the Windows gate has always run Linux's code, and does not skip it.
+// registers with binfmt_misc; Linux runs an arm64 one through the qemu-aarch64 it registers itself; macOS runs only its own.
+// A Windows machine without WSL or a distribution fails the step instead: the Windows gate has always run Linux's code, and
+// does not skip it.
 func runsTarget(h host, t string) (string, error) {
 	switch {
 	case h.windows() && strings.HasSuffix(t, "-linux"):
 		return "", assertWsl()
-	case h.linux() && t == "x64-windows":
+	case !h.windows() && t == "x64-windows":
 		return "Windows executables run only on Windows", nil
+	case h.macos() && strings.HasSuffix(t, "-linux"):
+		return "Linux executables run on Linux or under WSL, and macOS has no way to run them", nil
 	case h.linux() && t == "arm64-linux":
 		if !isFile(qemuAarch64) {
 			return "no qemu-aarch64 is registered with binfmt_misc (" + qemuAarch64 + "): install qemu-user-static, or qemu-user and binfmt-support, to run arm64-linux", nil
@@ -320,14 +328,18 @@ func assertWsl() error {
 	return nil
 }
 
-// corpusFlags are what the corpus of a target adds: every program for arm64 is compiled with --verify-ir, which holds arm64's
-// selection and allocation to the invariants of every function.
+// corpusFlags are what the corpus of another target than the host's adds.
 func corpusFlags(t string) []string {
-	flags := []string{"--target=" + t}
+	return append([]string{"--target=" + t}, verifyFlags(t)...)
+}
+
+// verifyFlags are what the corpus of a target adds, the host's included: every program for arm64 is compiled with
+// --verify-ir, which holds arm64's selection and allocation to the invariants of every function.
+func verifyFlags(t string) []string {
 	if strings.HasPrefix(t, "arm64-") {
-		flags = append(flags, "--verify-ir")
+		return []string{"--verify-ir"}
 	}
-	return flags
+	return nil
 }
 
 func (r suiteRun) otherCorpus(t string) error {

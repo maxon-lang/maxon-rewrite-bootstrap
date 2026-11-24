@@ -976,11 +976,13 @@ function finishSpecs(tally SpecRun) returns ExitCode
 end 'finishSpecs'
 
 // specRunDirectory is the directory every program of a run of the spec tests at root runs in, as maxon's runner runs them:
-// .spec-run-<pid> in the directory that holds the specs, the checkout's root, since the tests' relative paths are written
-// against that depth (`../stdlib` is the checkout's library). It is the run's own, named for its process, so two runs never
-// share one, and it is made empty at the start of the run and removed at its end.
+// .spec-run-<pid> in the directory that holds the specs directory, the checkout's root, since the tests' relative paths are
+// written against that depth (`../stdlib` is the checkout's library), whether the run is of the directory or of one file
+// of it. It is the run's own, named for its process, so two runs never share one, and it is made empty at the start of the
+// run and removed at its end.
 function specRunDirectory(root String) returns String
-	return project.joinPath(project.parentDir(root), name: "{specRunPrefix}{Process.id()}")
+	let specs = root.clone() if project.isDirectoryPath(root) else project.parentDir(root)
+	return project.joinPath(project.parentDir(specs), name: "{specRunPrefix}{Process.id()}")
 end 'specRunDirectory'
 
 let specRunPrefix = ".spec-run-"
