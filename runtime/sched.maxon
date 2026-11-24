@@ -4,7 +4,7 @@
 // runs next, so the work a green thread just made runs on the core that has its data; a full ring sends half of itself to
 // the global run queue, which every processor takes from once in fairnessTicks schedules and when its own is empty. A
 // thread with nothing to run steals half of another processor's ring, and a thread that still finds nothing gives up its
-// processor and stops, or waits in the poller when a timer or a poll descriptor is pending. Threads are started by work,
+// processor and stops, or waits in the event queue when a timer or an event entry is pending. Threads are started by work,
 // not by the processor count: a green thread readied while a processor is idle and no thread is spinning starts one
 // (wakep), and the monitor (monitor.maxon) starts one for a processor it takes from a blocking call.
 //
@@ -341,7 +341,7 @@ function startPinned(context Count, g Count)
 end 'startPinned'
 
 // findRunnable is Go's: the next green thread for the thread's processor, from its timers, its run queue, the global run
-// queue, the poller and the other processors' queues, or else the processor goes idle and the thread waits, in the poller
+// queue, the event queue and the other processors' queues, or else the processor goes idle and the thread waits, in the event queue
 // when something is pending there, until it is handed a processor. It gives noGreen only on the main thread's drain,
 // once nothing is left.
 function findRunnable(context Count) returns Count
@@ -369,12 +369,12 @@ function findRunnable(context Count) returns Count
 				return global
 			end 'found'
 		end 'global'
-		if __Raw.loadAcquire(scheduler, offset: schedPollWaitersOffset) > 0 and __Raw.loadAcquire(scheduler, offset: schedLastPollOffset) != 0 'poll'
-			let polled = pollReadied(context, proc: proc, list: netpoll(context, delay: netpollNoWait))
-			if polled != noGreen 'found'
-				return polled
+		if __Raw.loadAcquire(scheduler, offset: schedEventWaitersOffset) > 0 and __Raw.loadAcquire(scheduler, offset: schedLastTakeOffset) != 0 'take'
+			let taken = eventsReadied(context, proc: proc, list: takeEvents(context, delay: takeEventsNoWait))
+			if taken != noGreen 'found'
+				return taken
 			end 'found'
-		end 'poll'
+		end 'take'
 		if mayStartSpinning(context, scheduler: scheduler) 'steal'
 			let stolen = stealWork(context, proc: proc)
 			if stolen != noGreen 'found'
@@ -399,8 +399,8 @@ function findRunnable(context Count) returns Count
 				continue 'top'
 			end 'again'
 		end 'wasSpinning'
-		if pollPending(scheduler) and __Raw.atomicExchange(scheduler, offset: schedLastPollOffset, value: 0) != 0 'wait'
-			if waitInPoller(context, scheduler: scheduler) 'handed'
+		if eventsPending(scheduler) and __Raw.atomicExchange(scheduler, offset: schedLastTakeOffset, value: 0) != 0 'wait'
+			if waitInEventQueue(context, scheduler: scheduler) 'handed'
 				continue 'top'
 			end 'handed'
 		end 'wait'
@@ -492,20 +492,20 @@ function nextRandom(context Count) returns Count
 	return state shr randomShift
 end 'nextRandom'
 
-// waitInPoller is the wait of the one thread in the poller, which has stored 0 in schedLastPollOffset to claim it: until
-// the earliest timer, or a completion, or a break. Then it takes an idle processor for what the poller readied, and says
+// waitInEventQueue is the wait of the one thread in the event queue, which has stored 0 in schedLastTakeOffset to claim it: until
+// the earliest timer, or a completion, or a break. Then it takes an idle processor for what the event queue readied, and says
 // whether it got one; when there is none, what was readied goes on the global run queue, and the thread stops.
-function waitInPoller(context Count, scheduler Count) returns bool
+function waitInEventQueue(context Count, scheduler Count) returns bool
 	let next = __Raw.loadAcquire(scheduler, offset: schedTimerNextOffset)
-	var delay = netpollForever
+	var delay = takeEventsForever
 	if next != noTimer 'timer'
 		let now = nanotime(context)
-		delay = __Raw.wrappingSub(next, right: now) if next > now else netpollNoWait
+		delay = __Raw.wrappingSub(next, right: now) if next > now else takeEventsNoWait
 	end 'timer'
-	__Raw.storeRelease(scheduler, offset: schedPollUntilOffset, value: next)
-	let list = netpoll(context, delay: delay)
-	__Raw.storeRelease(scheduler, offset: schedPollUntilOffset, value: noTimer)
-	__Raw.storeRelease(scheduler, offset: schedLastPollOffset, value: nanotime(context))
+	__Raw.storeRelease(scheduler, offset: schedTakeUntilOffset, value: next)
+	let list = takeEvents(context, delay: delay)
+	__Raw.storeRelease(scheduler, offset: schedTakeUntilOffset, value: noTimer)
+	__Raw.storeRelease(scheduler, offset: schedLastTakeOffset, value: nanotime(context))
 	lockScheduler(scheduler)
 	let proc = idleProcGet(scheduler)
 	if proc == noProc 'none'
@@ -522,16 +522,16 @@ function waitInPoller(context Count, scheduler Count) returns bool
 		g = after
 	end 'readied'
 	return true
-end 'waitInPoller'
+end 'waitInEventQueue'
 
-// pollPending is whether a thread should wait in the poller rather than stop: a timer is armed or a green thread waits
-// on a poll descriptor.
-function pollPending(scheduler Count) returns bool
-	return __Raw.loadAcquire(scheduler, offset: schedTimerNextOffset) != noTimer or __Raw.loadAcquire(scheduler, offset: schedPollWaitersOffset) > 0
-end 'pollPending'
+// eventsPending is whether a thread should wait in the event queue rather than stop: a timer is armed or a green thread waits
+// on an event entry.
+function eventsPending(scheduler Count) returns bool
+	return __Raw.loadAcquire(scheduler, offset: schedTimerNextOffset) != noTimer or __Raw.loadAcquire(scheduler, offset: schedEventWaitersOffset) > 0
+end 'eventsPending'
 
-// pollReadied puts what a poll that did not wait readied on the thread's processor and gives the first of it to run.
-function pollReadied(context Count, proc Count, list Count) returns Count
+// eventsReadied puts what a take that did not wait readied on the thread's processor and gives the first of it to run.
+function eventsReadied(context Count, proc Count, list Count) returns Count
 	if list == noGreen 'none'
 		return noGreen
 	end 'none'
@@ -542,7 +542,7 @@ function pollReadied(context Count, proc Count, list Count) returns Count
 		g = next
 	end 'rest'
 	return list
-end 'pollReadied'
+end 'eventsReadied'
 
 // stopThread is Go's stopm: the thread, holding no processor, waits on the list of idle threads until a thread that
 // starts work hands it a processor (startThreadFor), which it takes. It says false on the main thread's drain when
@@ -592,7 +592,7 @@ function nothingLeft(scheduler Count) returns bool
 end 'nothingLeft'
 
 // endDrain is what the thread that puts the last processor on the idle list does once nothing is left: it wakes the main
-// thread when it is stopped, taking it off the idle list, and breaks the poller's wait, where the main thread may wait,
+// thread when it is stopped, taking it off the idle list, and breaks the event queue's wait, where the main thread may wait,
 // so that schedDrain returns.
 function endDrain(scheduler Count)
 	let main = __Raw.loadWord(scheduler, offset: schedMainThreadOffset)
@@ -605,9 +605,9 @@ function endDrain(scheduler Count)
 	if woken 'wake'
 		wakeThread(main)
 	end 'wake'
-	if __Raw.loadAcquire(scheduler, offset: schedLastPollOffset) == 0 'polling'
-		netpollBreak(scheduler)
-	end 'polling'
+	if __Raw.loadAcquire(scheduler, offset: schedLastTakeOffset) == 0 'waiting'
+		breakEventWait(scheduler)
+	end 'waiting'
 end 'endDrain'
 
 // takeIdleThread takes a thread off the idle list, under the lock, and says whether it was on it.
@@ -684,7 +684,7 @@ end 'wakeProc'
 
 // handOffProc is Go's handoffp, for a processor the monitor took from a thread in a blocking call: a thread runs it when
 // it has work or work waits globally, or when no thread spins and none is idle; otherwise it goes idle, but the last one
-// to go idle while a timer or a poll descriptor is pending and no thread waits in the poller gets a thread to wait there.
+// to go idle while a timer or an event entry is pending and no thread waits in the event queue gets a thread to wait there.
 function handOffProc(scheduler Count, proc Count)
 	if not runqEmpty(proc) or globalQueued(scheduler) 'work'
 		startThreadFor(scheduler, proc: proc, spinning: false)
@@ -703,11 +703,11 @@ function handOffProc(scheduler Count, proc Count)
 		return
 	end 'late'
 	let lastBusy = __Raw.loadAcquire(scheduler, offset: schedIdleProcCountOffset) == __Raw.wrappingSub(procCount(scheduler), right: 1)
-	if lastBusy and pollPending(scheduler) and __Raw.loadAcquire(scheduler, offset: schedLastPollOffset) != 0 'poller'
+	if lastBusy and eventsPending(scheduler) and __Raw.loadAcquire(scheduler, offset: schedLastTakeOffset) != 0 'eventQueue'
 		unlockScheduler(scheduler)
 		startThreadFor(scheduler, proc: proc, spinning: false)
 		return
-	end 'poller'
+	end 'eventQueue'
 	let drained = idleProcPut(scheduler, proc: proc)
 	unlockScheduler(scheduler)
 	if drained 'drained'
@@ -989,7 +989,7 @@ function globalPutBatch(scheduler Count, first Count, last Count, count Count)
 	__Raw.storeRelease(scheduler, offset: schedRunqSizeOffset, value: __Raw.wrappingAdd(__Raw.loadWord(scheduler, offset: schedRunqSizeOffset), right: count))
 end 'globalPutBatch'
 
-// globalPutList puts a list of green threads that a poll readied at the tail, under the lock.
+// globalPutList puts a list of green threads that a take of events readied at the tail, under the lock.
 function globalPutList(scheduler Count, list Count)
 	var g = list
 	while g != noGreen 'each'
@@ -1121,19 +1121,19 @@ function wakeThread(context Count)
 	#endif
 end 'wakeThread'
 
-// makeScheduler makes the scheduler's record and the processors, the poller, and the main thread's part as thread 0 with
+// makeScheduler makes the scheduler's record and the processors, the event queue, and the main thread's part as thread 0 with
 // processor 0.
 function makeScheduler(mainContext Count) returns Count
 	let procs = workerCount()
 	let scheduler = keep(try schedProcessorsOffset + procs * wordBytes otherwise panic("too many processors for memory"))
 	__Raw.storeWord(scheduler, offset: schedProcsOffset, value: procs)
 	__Raw.storeWord(scheduler, offset: schedMainThreadOffset, value: mainContext)
-	__Raw.storeWord(scheduler, offset: schedLastPollOffset, value: 1)
+	__Raw.storeWord(scheduler, offset: schedLastTakeOffset, value: 1)
 	__Raw.storeWord(scheduler, offset: schedIdleProcCountOffset, value: __Raw.wrappingSub(procs, right: 1))
 	let main = makeProc(scheduler)
 	initThread(scheduler, context: mainContext)
 	setThreadIdentity(mainContext)
-	initPoller(scheduler)
+	initEventQueue(scheduler)
 	initPreemption()
 	acquireProc(mainContext, proc: main)
 	return scheduler

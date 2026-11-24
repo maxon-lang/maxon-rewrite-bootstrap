@@ -1,14 +1,14 @@
 // The Linux part of green threads and the scheduler, by system calls: a green thread's stack, the clock and the
 // monitor's sleep through the thread's block, the thread id the monitor signals, the preemption signal's action and its
-// handler's code, and the poller, epoll with an eventfd that breaks its wait and an eventfd for each user event's poll
-// descriptor.
+// handler's code, and the event queue, epoll with an eventfd that breaks its wait and an eventfd for each user event's event
+// entry.
 
 #if os(Linux)
 	// stackGuardBytes is the guard page at the bottom of a stack's reserve.
 	let stackGuardBytes = linuxPageBytes
 
-	// pollForeverMillis is epoll_wait's timeout of a wait with no end, -1.
-	let pollForeverMillis = 0xFFFFFFFFFFFFFFFF as Count
+	// eventWaitForeverMillis is epoll_wait's timeout of a wait with no end, -1.
+	let eventWaitForeverMillis = 0xFFFFFFFFFFFFFFFF as Count
 
 	// eventfdWordBytes is what a read or a write of an eventfd moves, its 64-bit count.
 	let eventfdWordBytes = 8 as Count
@@ -139,17 +139,17 @@
 		return __Raw.syscall2(linuxSysNanosleep, arg1: time, arg2: remaining)
 	end 'sysNanosleep'
 
-	// initPoller makes the epoll fd and the eventfd that breaks its wait.
-	function initPoller(scheduler Count)
-		let poller = __Raw.syscall1(linuxSysEpollCreate1, arg1: linuxEpollCloexec)
-		if failed(poller) 'poller'
-			panic("cannot make the poller")
-		end 'poller'
-		__Raw.storeWord(scheduler, offset: schedPollerOffset, value: poller)
+	// initEventQueue makes the epoll fd and the eventfd that breaks its wait.
+	function initEventQueue(scheduler Count)
+		let eventQueue = __Raw.syscall1(linuxSysEpollCreate1, arg1: linuxEpollCloexec)
+		if failed(eventQueue) 'eventQueue'
+			panic("cannot make the event queue")
+		end 'eventQueue'
+		__Raw.storeWord(scheduler, offset: schedEventQueueOffset, value: eventQueue)
 		let breaker = newEventfd()
-		__Raw.storeWord(scheduler, offset: schedPollBreakOffset, value: breaker)
-		registerEventfd(scheduler, fd: breaker, key: pollBreakKey)
-	end 'initPoller'
+		__Raw.storeWord(scheduler, offset: schedEventBreakOffset, value: breaker)
+		registerEventfd(scheduler, fd: breaker, key: eventBreakKey)
+	end 'initEventQueue'
 
 	function newEventfd() returns Count
 		let fd = __Raw.syscall2(linuxSysEventfd2, arg1: 0, arg2: linuxEventfdFlags)
@@ -159,65 +159,65 @@
 		return fd
 	end 'newEventfd'
 
-	// register has the poller report an fd with a key, for events of a mask, through an event in the running thread's
+	// register has the event queue report an fd with a key, for events of a mask, through an event in the running thread's
 	// block, and says whether it took the fd.
 	function register(scheduler Count, fd Count, key Count, events Count) returns bool
 		let event = __Raw.wrappingAdd(threadBlockSwitch(__Raw.threadContext()), right: threadBlockClockOffset)
 		__Raw.storeWord32(event, offset: 0, value: events)
 		__Raw.storeWord(event, offset: linuxEpollEventDataOffset, value: key)
-		return not failed(__Raw.syscall4(linuxSysEpollCtl, arg1: __Raw.loadWord(scheduler, offset: schedPollerOffset), arg2: linuxEpollCtlAdd, arg3: fd, arg4: event))
+		return not failed(__Raw.syscall4(linuxSysEpollCtl, arg1: __Raw.loadWord(scheduler, offset: schedEventQueueOffset), arg2: linuxEpollCtlAdd, arg3: fd, arg4: event))
 	end 'register'
 
-	// registerEventfd has the poller report an eventfd of its own readable with a key, for as long as it is readable.
+	// registerEventfd has the event queue report an eventfd of its own readable with a key, for as long as it is readable.
 	function registerEventfd(scheduler Count, fd Count, key Count)
 		if not register(scheduler, fd: fd, key: key, events: linuxEpollIn) 'refused'
-			panic("cannot register an eventfd with the poller")
+			panic("cannot register an eventfd with the event queue")
 		end 'refused'
 	end 'registerEventfd'
 
-	// netpoll takes what is ready, waiting up to delay nanoseconds for something when nothing is, into the thread's block,
+	// takeEvents takes what is ready, waiting up to delay nanoseconds for something when nothing is, into the thread's block,
 	// and gives the list of the green threads it readied. A user event's eventfd that was readable is read, so it is not
 	// reported again; a handle's event readies a wait to read, to write, or both, an error or a hang-up both.
-	function netpoll(context Count, delay Count) returns Count
+	function takeEvents(context Count, delay Count) returns Count
 		let scheduler = __Raw.loadWord(context, offset: contextSchedulerOffset)
 		let events = __Raw.wrappingAdd(threadBlockSwitch(context), right: threadBlockEventsOffset)
 		#if arch(arm64)
-			let got = __Raw.syscall6(linuxSysEpollPwait, arg1: __Raw.loadWord(scheduler, offset: schedPollerOffset), arg2: events, arg3: pollEventSlots, arg4: pollWaitMillis(delay, forever: pollForeverMillis), arg5: noSignalMask, arg6: linuxSignalMaskBytes)
+			let got = __Raw.syscall6(linuxSysEpollPwait, arg1: __Raw.loadWord(scheduler, offset: schedEventQueueOffset), arg2: events, arg3: eventSlots, arg4: eventWaitMillis(delay, forever: eventWaitForeverMillis), arg5: noSignalMask, arg6: linuxSignalMaskBytes)
 		#else
-			let got = __Raw.syscall4(linuxSysEpollWait, arg1: __Raw.loadWord(scheduler, offset: schedPollerOffset), arg2: events, arg3: pollEventSlots, arg4: pollWaitMillis(delay, forever: pollForeverMillis))
+			let got = __Raw.syscall4(linuxSysEpollWait, arg1: __Raw.loadWord(scheduler, offset: schedEventQueueOffset), arg2: events, arg3: eventSlots, arg4: eventWaitMillis(delay, forever: eventWaitForeverMillis))
 		#endif
 		if failed(got) 'failed'
 			if errnoOf(got) == linuxEintr 'interrupted'
 				return noGreen
 			end 'interrupted'
-			panic("the poller's wait failed")
+			panic("the event queue's wait failed")
 		end 'failed'
 		var list = noGreen
 		var event = events
 		for i in 0 upto got 'events'
 			let key = __Raw.loadWord(event, offset: linuxEpollEventDataOffset)
-			if key == pollBreakKey 'break'
-				drainEventfd(context, fd: __Raw.loadWord(scheduler, offset: schedPollBreakOffset))
+			if key == eventBreakKey 'break'
+				drainEventfd(context, fd: __Raw.loadWord(scheduler, offset: schedEventBreakOffset))
 				tookBreak(scheduler, delay: delay)
-			end 'break' else 'descriptor'
-				let kind = __Raw.loadAcquire(key, offset: pollKindOffset)
-				if kind == pollKindUser 'user'
-					drainEventfd(context, fd: __Raw.loadWord(key, offset: pollFdOffset))
-					list = pollSignalledInto(key, mode: pollRead, list: list)
-				end 'user' else if kind == pollKindHandle 'handle'
+			end 'break' else 'entry'
+				let kind = __Raw.loadAcquire(key, offset: entryKindOffset)
+				if kind == entryKindUser 'user'
+					drainEventfd(context, fd: __Raw.loadWord(key, offset: entryHandleOffset))
+					list = eventQueuedInto(key, mode: eventRead, list: list)
+				end 'user' else if kind == entryKindHandle 'handle'
 					let mask = __Raw.loadWord32(event, offset: 0)
 					if (mask and (linuxEpollIn or linuxEpollRdhup or linuxEpollHup or linuxEpollErr)) != 0 'readable'
-						list = pollSignalledInto(key, mode: pollRead, list: list)
+						list = eventQueuedInto(key, mode: eventRead, list: list)
 					end 'readable'
 					if (mask and (linuxEpollOut or linuxEpollHup or linuxEpollErr)) != 0 'writable'
-						list = pollSignalledInto(key, mode: pollWrite, list: list)
+						list = eventQueuedInto(key, mode: eventWrite, list: list)
 					end 'writable'
 				end 'handle'
-			end 'descriptor'
+			end 'entry'
 			event = __Raw.wrappingAdd(event, right: linuxEpollEventBytes)
 		end 'events'
 		return list
-	end 'netpoll'
+	end 'takeEvents'
 
 	// drainEventfd reads an eventfd's count to 0, into the thread's block.
 	function drainEventfd(context Count, fd Count)
@@ -230,36 +230,36 @@
 		_ = __Raw.syscall3(linuxSysWrite, arg1: fd, arg2: __Raw.addressOf(one), arg3: eventfdWordBytes)
 	end 'signalEventfd'
 
-	// sendBreak breaks the wait of the thread in the poller.
+	// sendBreak breaks the wait of the thread in the event queue.
 	function sendBreak(scheduler Count)
-		signalEventfd(__Raw.loadWord(scheduler, offset: schedPollBreakOffset))
+		signalEventfd(__Raw.loadWord(scheduler, offset: schedEventBreakOffset))
 	end 'sendBreak'
 
-	// pollRegister has the poller report a handle's fd edge-triggered, as it becomes readable or writable or hangs up; the
+	// entryRegister has the event queue report a handle's fd edge-triggered, as it becomes readable or writable or hangs up; the
 	// kernel refuses an fd that cannot be waited on, such as a regular file's.
-	function pollRegister(scheduler Count, descriptor Count) returns bool
-		return register(scheduler, fd: __Raw.loadWord(descriptor, offset: pollFdOffset), key: descriptor, events: linuxEpollIn or linuxEpollOut or linuxEpollRdhup or linuxEpollEt)
-	end 'pollRegister'
+	function entryRegister(scheduler Count, entry Count) returns bool
+		return register(scheduler, fd: __Raw.loadWord(entry, offset: entryHandleOffset), key: entry, events: linuxEpollIn or linuxEpollOut or linuxEpollRdhup or linuxEpollEt)
+	end 'entryRegister'
 
-	// pollUnregister takes a handle's fd off the poller, which its close does too unless it was duplicated.
-	function pollUnregister(scheduler Count, descriptor Count)
-		_ = __Raw.syscall4(linuxSysEpollCtl, arg1: __Raw.loadWord(scheduler, offset: schedPollerOffset), arg2: linuxEpollCtlDel, arg3: __Raw.loadWord(descriptor, offset: pollFdOffset), arg4: 0)
-	end 'pollUnregister'
+	// entryUnregister takes a handle's fd off the event queue, which its close does too unless it was duplicated.
+	function entryUnregister(scheduler Count, entry Count)
+		_ = __Raw.syscall4(linuxSysEpollCtl, arg1: __Raw.loadWord(scheduler, offset: schedEventQueueOffset), arg2: linuxEpollCtlDel, arg3: __Raw.loadWord(entry, offset: entryHandleOffset), arg4: 0)
+	end 'entryUnregister'
 
-	// pollUserNew gives a user event's descriptor an eventfd of its own, registered with the poller, which pollUserFree
+	// entryUserNew gives a user event's entry an eventfd of its own, registered with the event queue, which entryUserFree
 	// closes.
-	function pollUserNew(scheduler Count, descriptor Count)
+	function entryUserNew(scheduler Count, entry Count)
 		let fd = newEventfd()
-		__Raw.storeWord(descriptor, offset: pollFdOffset, value: fd)
-		registerEventfd(scheduler, fd: fd, key: descriptor)
-	end 'pollUserNew'
+		__Raw.storeWord(entry, offset: entryHandleOffset, value: fd)
+		registerEventfd(scheduler, fd: fd, key: entry)
+	end 'entryUserNew'
 
-	function pollUserFree(scheduler Count, descriptor Count)
-		closeFd(__Raw.loadWord(descriptor, offset: pollFdOffset))
-	end 'pollUserFree'
+	function entryUserFree(scheduler Count, entry Count)
+		closeFd(__Raw.loadWord(entry, offset: entryHandleOffset))
+	end 'entryUserFree'
 
-	// pollSignal signals a user event's descriptor through its eventfd, from any thread.
-	function pollSignal(descriptor Count)
-		signalEventfd(__Raw.loadWord(descriptor, offset: pollFdOffset))
-	end 'pollSignal'
+	// eventSignal signals a user event's entry through its eventfd, from any thread.
+	function eventSignal(entry Count)
+		signalEventfd(__Raw.loadWord(entry, offset: entryHandleOffset))
+	end 'eventSignal'
 #endif

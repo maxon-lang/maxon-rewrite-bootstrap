@@ -91,7 +91,7 @@ var macosABI = []layoutConst{
 	{"macosMcontextSpOffset", 0x108, true, toRuntime | toSelfBack, "where an mcontext64 holds the stopped code's stack pointer: __ss, after the 16 bytes of __es, holds x0 to x28, fp, lr, sp and pc."},
 	{"macosMcontextPcOffset", 0x110, true, toRuntime | toSelfBack, "where an mcontext64 holds the address of the stopped code, its program counter."},
 
-	// kqueue: a struct kevent, and the user event that the poller's wait is broken off and a poll descriptor signalled by.
+	// kqueue: a struct kevent, and the user event that the event queue's wait is broken off and an event entry signalled by.
 	{"macosKeventBytes", 32, true, toRuntime, "the size of a struct kevent: ident, filter (16 bits), flags (16 bits), fflags (32 bits), data and udata."},
 	{"macosKeventFilterOffset", 8, true, toRuntime, "where a struct kevent holds its filter, 16 bits."},
 	{"macosKeventFlagsOffset", 10, true, toRuntime, "where a struct kevent holds its flags, 16 bits."},

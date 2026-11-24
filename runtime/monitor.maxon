@@ -1,7 +1,7 @@
 // The monitor, Go's sysmon: a thread of its own that holds no processor, runs no green thread and allocates nothing, and
 // wakes every monitorFirstMicros, sleeping longer while it finds nothing to do, up to monitorLongestMicros. Each round it
-// polls when no thread has for pollStaleNanos, starts a thread for a timer that is due when no thread waits in the
-// poller, and retakes processors: a processor whose green thread has run for preemptNanos is asked to stop it, and asked
+// takes events when no thread has for eventsStaleNanos, starts a thread for a timer that is due when no thread waits in the
+// event queue, and retakes processors: a processor whose green thread has run for preemptNanos is asked to stop it, and asked
 // again until it does (askAgain), and one whose thread has been in a blocking call since the monitor's last look, while
 // there is other work or no thread to do it, is taken and handed to another thread. Only a processor taken makes the
 // monitor's next sleep short, and an ask again due sooner cuts it. It runs the page heap's release pass when one is due (pagesTick), as Go's
@@ -29,8 +29,8 @@ let reaskFirstNanos = 100000 as Count
 
 let reaskLongestNanos = 1000000 as Count
 
-// pollStaleNanos is how long the poller may go unpolled before the monitor polls it.
-let pollStaleNanos = 10000000 as Count
+// eventsStaleNanos is how long the event queue may go untaken before the monitor takes them.
+let eventsStaleNanos = 10000000 as Count
 
 // syscallRetakeNanos is how long a thread may stay in a blocking call with its processor while there is nothing else to
 // do and a thread to do it, Go's 10 ms.
@@ -82,9 +82,9 @@ function monitorMain(context Count)
 		end 'reask'
 		sleepMicros(context, micros: sleep)
 		let now = nanotime(context)
-		pollIfStale(context, scheduler: scheduler, now: now)
+		takeEventsIfStale(context, scheduler: scheduler, now: now)
 		let next = __Raw.loadAcquire(scheduler, offset: schedTimerNextOffset)
-		if next != noTimer and next <= now and __Raw.loadAcquire(scheduler, offset: schedLastPollOffset) != 0 'timer'
+		if next != noTimer and next <= now and __Raw.loadAcquire(scheduler, offset: schedLastTakeOffset) != 0 'timer'
 			startThreadFor(scheduler, proc: noProc, spinning: false)
 		end 'timer'
 		nap = preemptNanos
@@ -97,17 +97,17 @@ function monitorMain(context Count)
 	end 'rounds'
 end 'monitorMain'
 
-// pollIfStale is Go's sysmon poll: when no thread has polled for pollStaleNanos, the monitor polls without waiting and
+// takeEventsIfStale is Go's sysmon poll: when no thread has taken events for eventsStaleNanos, the monitor takes them without waiting and
 // puts what that readied on the global run queue, with a thread for each idle processor it can use.
-function pollIfStale(context Count, scheduler Count, now Count)
-	let last = __Raw.loadAcquire(scheduler, offset: schedLastPollOffset)
-	if last == 0 or __Raw.wrappingAdd(last, right: pollStaleNanos) > now 'fresh'
+function takeEventsIfStale(context Count, scheduler Count, now Count)
+	let last = __Raw.loadAcquire(scheduler, offset: schedLastTakeOffset)
+	if last == 0 or __Raw.wrappingAdd(last, right: eventsStaleNanos) > now 'fresh'
 		return
 	end 'fresh'
-	if __Raw.compareExchange(scheduler, offset: schedLastPollOffset, expected: last, desired: now) != last 'raced'
+	if __Raw.compareExchange(scheduler, offset: schedLastTakeOffset, expected: last, desired: now) != last 'raced'
 		return
 	end 'raced'
-	let list = netpoll(context, delay: netpollNoWait)
+	let list = takeEvents(context, delay: takeEventsNoWait)
 	if list == noGreen 'none'
 		return
 	end 'none'
@@ -126,7 +126,7 @@ function pollIfStale(context Count, scheduler Count, now Count)
 		end 'busy'
 		startThreadFor(scheduler, proc: noProc, spinning: false)
 	end 'threads'
-end 'pollIfStale'
+end 'takeEventsIfStale'
 
 // retake is Go's: for each processor, a green thread that has run on the same schedule tick for preemptNanos is asked to
 // stop, and asked again while the tick does not move (askAgain), and a processor in a blocking call since the monitor's

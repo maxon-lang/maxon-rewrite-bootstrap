@@ -267,8 +267,8 @@ stack of the reserve, gives each thread a `sigaltstack` and the fault handler (`
 libSystem's `sigaction`, whose trampoline the handlers return through, and exits by `_exit`. A worker starts in
 `rt.threadStart`, which `pthread_create` runs on a stack of the reserve (`pthread_attr_setstacksize`); a parked thread
 waits on a mutex and a condition of its own (macOS 13, maxon's floor, has no futex); preemption is `SIGURG` through
-`pthread_kill`, as on Linux; the poller is a kqueue whose user events (`EVFILT_USER`) break its wait and signal each user
-event's poll descriptor, and whose read and write filters (`EV_CLEAR`) report a handle's; a run of a program is `posix_spawn` with `POSIX_SPAWN_CLOEXEC_DEFAULT`.
+`pthread_kill`, as on Linux; the event queue is a kqueue whose user events (`EVFILT_USER`) break its wait and signal each user
+event's event entry, and whose read and write filters (`EV_CLEAR`) report a handle's; a run of a program is `posix_spawn` with `POSIX_SPAWN_CLOEXEC_DEFAULT`.
 
 The Mac is not on the gate's machine, so `test --target=arm64-macos` takes `--runner=command,word,...`, which starts each
 executable through a command in place of the target's runner: `cmd/batchrun` (plain Go, cross-built for darwin/arm64)
@@ -2521,7 +2521,7 @@ processors by its affinity mask (`sched_getaffinity`), as maxon's does. The proc
 **Green threads.** The compiler holds what green threads need of it, and the runtime schedules them (`runtime/README.md`,
 "The scheduler and Go's"). A thread's context is Go's M, the OS thread: beside its scheduler, the link of every such
 thread, its event, heap and random state it has the processor it runs (Go's P), the green thread it runs, its block (the
-switch record of its scheduler, Go's g0, and the room its clock and its poll go through), the pair of switch records a
+switch record of its scheduler, Go's g0, and the room its clock and its take of events go through), the pair of switch records a
 switch is given, whether it is in a blocking call, whether it spins, whether it is the main thread's drain, the pending
 preemption, what stops the thread (a handle on Windows, the thread id on Linux), the code `rt.asyncPreempt` and the
 preemption signal call, the processor it is handed, the idle list's link, and the code a thread the runtime starts runs
@@ -2563,7 +2563,7 @@ table they are, sections next to each other in the layout as one range, which th
 stopped a thread at. `tests/runtime/stack-switch.maxon` switches between two stacks by hand, reads the table, and stops
 on both systems a thread of its own, which holds no processor and so is never stopped by the monitor.
 
-**The scheduler** (`runtime/sched.maxon`, `green.maxon`, `monitor.maxon`, `timers.maxon`, `poll.maxon`) is Go's: green
+**The scheduler** (`runtime/sched.maxon`, `green.maxon`, `monitor.maxon`, `timers.maxon`, `eventqueue.maxon`) is Go's: green
 threads (G) run by threads (M) that each hold a processor (P) while they run one. There are as many processors as
 `GetActiveProcessorCount(ALL_PROCESSOR_GROUPS)` says (1 when it says 0) or as `MAXON_MAX_PROCS` asks (a decimal count from 1
 to 2^31 - 1 with an optional `+`, as maxon reads it; any other value is ignored); `Scheduler.processorCount()` is that count
@@ -2579,8 +2579,8 @@ so the code at `run` must have released and freed what the behaviour holds by th
   next, so the work a green thread just made runs on the core that has its data; a full ring sends half of itself to the
   global run queue, under the scheduler's lock, which a processor takes from once in 61 schedules and when its own is
   empty. A thread with nothing to run spins, stealing half of another processor's ring (at most half the busy processors'
-  worth of threads spin), and then gives its processor back and stops on its event, or waits in the poller when a timer
-  or a poll descriptor is pending. A green thread readied while a processor is idle and no thread spins starts one.
+  worth of threads spin), and then gives its processor back and stops on its event, or waits in the event queue when a timer
+  or an event entry is pending. A green thread readied while a processor is idle and no thread spins starts one.
 - **Stacks.** A green thread takes a stack from a pool when it first runs and gives it back when it finishes: a reserve of
   256 MB that the system commits a page at a time, with a guard page, never moved. A thread runs one by `rt.stackSwitch`
   from its own stack (its scheduler's, Go's g0), and the green thread comes back by the same switch with what it asks: to
@@ -2595,7 +2595,7 @@ so the code at `run` must have released and freed what the behaviour holds by th
   on the green thread's stack and not in a blocking call; takes a processor from a thread in a bracketed blocking call
   (`enterBlocking`, `exitBlocking`, Go's entersyscall and exitsyscall, around file I/O, path and directory calls, `write`,
   the wait for a child and the clocks a program reads)
-  and hands it to another thread; and polls a poller no thread has polled for 10 ms. A stop asked while the thread is in
+  and hands it to another thread; and takes the events no thread has taken for 10 ms. A stop asked while the thread is in
   the runtime's code, a DLL's or libSystem's is not taken, and nothing in the compiled code takes it later, so while the tick
   does not move the monitor asks again 100 µs later, then after twice as long each time up to 1 ms (Go re-signals every
   round, its sleep growing): a green thread that spends nearly all its time in the runtime's calls still gives up its
@@ -2607,21 +2607,29 @@ so the code at `run` must have released and freed what the behaviour holds by th
   while a thread it stopped is suspended, which a thread that ends the process takes for good first (the runtime's
   `exitProcess`, `schedDrain` and the stub's fault handler), so `ExitProcess` never meets a suspended thread (Go's
   suspendLock).
-- **Timers and the poller.** A sleeping green thread (`greenSleep`) is on one heap under the scheduler's lock; the thread
-  that waits in the poller waits until the earliest timer, and a new earlier one breaks its wait. The poller is a
+- **Timers and the event queue.** A sleeping green thread (`greenSleep`) is on one heap under the scheduler's lock; the thread
+  that waits in the event queue waits until the earliest timer, and a new earlier one breaks its wait. The event queue is a
   completion port on Windows (`GetQueuedCompletionStatusEx`, broken by `PostQueuedCompletionStatus`), epoll with an
-  eventfd on Linux and a kqueue on macOS; a completion whose key is a poll descriptor readies the green thread that
-  waits on it. A poll descriptor (Go's pollDesc) is a user event's (`pollNew`, signalled from any thread) or a handle's
-  (`pollOpen`): an fd or a HANDLE registered once, edge-triggered for reading and writing on Linux and macOS, and on
+  eventfd on Linux and a kqueue on macOS; a completion whose key is an event entry readies the green thread that
+  waits on it. An event entry (Go's pollDesc) is a user event's (`eventUserNew`, signalled from any thread) or a handle's
+  (`eventRegister`): an fd or a HANDLE registered once, edge-triggered for reading and writing on Linux and macOS, and on
   Windows with an OVERLAPPED of its own for each, an operation that completes at once posting nothing. A wait
-  (`pollWait`) ends at an event, at its deadline (a timer of the same heap, which a wait whose event came first takes
-  off it, so a wait allocates nothing), at an eviction (`pollEvict`, which `pollClose` does before it waits out the
-  waits in progress and takes the handle off the poller) or at its coroutine's cancel; on Windows a wait that ends
+  (`eventWait`) ends at an event, at its deadline (a timer of the same heap, which a wait whose event came first takes
+  off it, so a wait allocates nothing), at an eviction (`eventEvict`, which `eventForget` does before it waits out the
+  waits in progress and takes the handle off the event queue) or at its coroutine's cancel; on Windows a wait that ends
   otherwise than by the completion cancels its operation and waits for the completion, so no operation is pending once
-  the wait returns. Descriptors are kept for good on a free list, so an event the poller took for one that was closed
-  meanwhile finds a descriptor still, and is at worst a wake whose call finds nothing. `pollTransfer` reads or writes
-  through one, and `pollPipe` makes a pipe whose ends it takes (on Windows a named pipe, the one pipe that overlapped
+  the wait returns. Descriptors are kept for good on a free list, so an event the event queue took for one that was closed
+  meanwhile finds an entry still, and is at worst a wake whose call finds nothing. `eventTransfer` reads or writes
+  through one, and `eventPipe` makes a pipe whose ends it takes (on Windows a named pipe, the one pipe that overlapped
   I/O works on).
+
+**The event queue** is how a green thread waits for the system. Nothing in it polls: a handle is registered once
+(`eventRegister`), a green thread that waits on it parks (`eventWait`), and the kernel queues an event, a completion
+packet on Windows, an epoll event on Linux, a kqueue event on macOS. A thread with nothing to run blocks in the kernel's
+wait until an event comes or the earliest timer is due, takes what was queued (`takeEvents`) and readies the waiters; the
+monitor takes the events that no thread has taken for 10 ms, without waiting. The runtime never busy-polls, with one
+exception: a run of a child process on Windows (`runChild` in `runtime/subprocess.maxon`) peeks at its pipes and waits on
+the child 1 ms at a time, until the subprocess primitives move it onto the event queue.
 
 **Main with or without the scheduler** (`self/backend/start.maxon`). The link decides by reachability, with no flag,
 whether a program runs the scheduler (`SchedulerChoice`): it marks the live code from the entry as for a program of one
@@ -2640,7 +2648,7 @@ bracket costs a call to a `ret` around a write, and the scheduler's code is not 
 
 - **Without the scheduler** it is `rt.mainAlone`, which calls `main` (or each test of an executable of tests) by
   `rt.mainGreen` on the main thread's own stack, as the entry did before green threads, and gives its code, or the code
-  `Process.setExitCode` set last. The process has one thread; no scheduler, processor, monitor, poller or green stack is
+  `Process.setExitCode` set last. The process has one thread; no scheduler, processor, monitor, event queue or green stack is
   made, the main thread's context never names a scheduler, and a panic, a fault, the leak count (`liveBoxes`) and the exit
   read nothing of one. An empty program is about 5 KB, its code about 1.3 KB.
 - **With it**, `rt.runMain` calls the runtime's `mainRun` with the address of `rt.mainGreen`, and `main` runs as a green
@@ -2658,8 +2666,8 @@ trap on any thread writes its line and exits with 1 at once.
 - **Strands.** The coroutines that `async` starts run in strands, as maxon's do (`runtime/strand.maxon`): a strand is a
   green thread that started a coroutine, its root, and the coroutines it and they start, and only the member that holds the
   strand runs program code. A member gives the strand to the member that waits to run first where it parks (an await, a
-  sleep, the poller) or yields, and when it finishes; a preemption and a blocking call keep it. A member readied by a timer,
-  a finish or the poller takes the strand again before it goes on, on whatever thread readied it, so a strand moves between
+  sleep, the event queue) or yields, and when it finishes; a preemption and a blocking call keep it. A member readied by a timer,
+  a finish or the event queue takes the strand again before it goes on, on whatever thread readied it, so a strand moves between
   threads between its waits and its coroutines never run at once. The strand is the root's record (its holder, the queue of
   members that wait to run and their lock), which outlives every member, since each coroutine is awaited in a frame of the
   strand. An async call makes the coroutine's green thread with the address of the thunk of its function
@@ -2668,7 +2676,7 @@ trap on any thread writes its line and exits with 1 at once.
   what it returned. The tests of `tests/runtime/` that start
 with `green-` hold the scheduler to many green threads ping-ponging, a busy loop stopped for another, a loop in the runtime's calls (the clock, allocation) giving way
 about once a slice, the float state
-across a preemption, a blocking call handed off, timers and a completion of the poller.
+across a preemption, a blocking call handed off, timers and a completion of the event queue.
 
 **Faults and the stack.** The executable's main thread has a 256 MB stack reserve (`peStackReserve` in
 `self/backend/pe.maxon`): the compiler's passes recurse once per level of nesting of an expression, except down a chain of
@@ -4356,7 +4364,7 @@ maxon's surface, on the green threads of the runtime (see "Green threads"):
   (`E3221` in a message or a factory), as maxon has it; on an array of anything else it is `E3004`.
 - Not yet: `get(i)`, `first()` and `last()` of an array of promises as reads of a slot (maxon's), which want `T`
   `Copyable` here (`E3017`), an async call of a built-in such as `File.readText`, `sendTimeout:`, the deadlock exit 92,
-  and I/O on the poller.
+  and I/O on the event queue.
 
 ### Services
 

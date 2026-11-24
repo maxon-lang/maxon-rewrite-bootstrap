@@ -1,0 +1,462 @@
+// The event queue, Go's netpoll: one per process, an I/O completion port on Windows (GetQueuedCompletionStatusEx), epoll
+// with an eventfd to break its wait on Linux (linux_green.maxon) and a kqueue with a user event on macOS
+// (macos_green.maxon). At most one thread waits in it at a time, the one that took schedLastTakeOffset to 0, until the
+// earliest timer; others take its events without waiting. A completion's key names what it completes: the break of a wait, or a
+// event entry, which readies the green thread that waits on it.
+//
+// An event entry (Go's pollDesc) is what a green thread waits on, a word of state for each way it is waited on (its
+// mode: eventRead or eventWrite, the offset of the state word). It is one of two kinds:
+//
+// - A handle's (eventRegister), an fd or a HANDLE registered with the event queue once, for good, until eventForget: on Linux and
+//   macOS edge-triggered for both modes (EPOLLET, EV_CLEAR), so a wait's return says the handle may be ready and the
+//   caller makes its call again, waiting again on EAGAIN; on Windows each operation is overlapped, through the
+//   entry's OVERLAPPED of its mode (eventOverlapped), and a wait follows an operation that is pending: its return
+//   says the operation completed, its OVERLAPPED holding the status and the count. An operation that completes at once
+//   posts no completion (FILE_SKIP_COMPLETION_PORT_ON_SUCCESS) and is not waited for. A handle the event queue refuses, such
+//   as a regular file on Linux, has no entry (noEntry), and its caller makes its calls blocking.
+// - A user event's (eventUserNew), which eventSignal signals from any thread, as a completion of the system's reaches a green
+//   thread: a packet posted to the port, an eventfd of its own, a user event of the kqueue. Its mode is eventRead.
+//
+// An event that comes while no green thread waits is kept in the state word (eventQueued), and the next wait takes it
+// at once. A wait (eventWait) ends with a status: eventReady, or, its wake claimed in the state word before an event's,
+// eventExpired at its deadline (a timer of the scheduler's heap, so a wait allocates nothing), eventClosed once the
+// entry is evicted (eventEvict, which eventForget does first), or eventCancelled once its coroutine is cancelled (as
+// its sleeps end). On Windows a wait that ends otherwise than by the completion cancels its operation and waits on for
+// the completion, so no operation of an entry is pending once its wait has returned; one that completed before the
+// cancel took hold makes the wait's status eventReady. A close waits until no wait is in progress, then takes the handle
+// off the event queue and gives the entry back: an entry is never given back to the system, so an event the event queue
+// took for one before it was given back finds an entry still, free or reused, and is at worst a wake whose call
+// finds nothing. The caller starts no operation, and no wait, of an entry it is closing.
+
+// takeEventsForever and takeEventsNoWait are the delays of a take that waits until something comes and of one that does not wait.
+let takeEventsForever = 0xFFFFFFFFFFFFFFFF as Count
+
+let takeEventsNoWait = 0 as Count
+
+// eventBreakKey is the key of a break of the event queue's wait: no entry's address.
+let eventBreakKey = 1 as Count
+
+// noEntry is eventRegister's result for a handle that the event queue refuses.
+let noEntry = 0 as Count
+
+// The modes of a wait, each the offset of its state word.
+let eventRead = entryReadStateOffset
+
+let eventWrite = entryWriteStateOffset
+
+// A state word holds a green thread's address while it waits, or one of these, below any address: nobody, an event not
+// yet taken, and what claimed the wake of a waiter.
+let eventNobody = 0 as Count
+
+let eventQueued = 1 as Count
+
+let eventClaimedByDeadline = 2 as Count
+
+let eventClaimedByClose = 3 as Count
+
+let eventClaimedByCancel = 4 as Count
+
+// The statuses of a wait.
+let eventReady = 0 as Count
+
+let eventExpired = 1 as Count
+
+let eventClosed = 2 as Count
+
+let eventCancelled = 3 as Count
+
+// eventNoDeadline is a wait's deadline when it has none.
+let eventNoDeadline = 0 as Count
+
+// An entry's kind (entryKindOffset).
+let entryKindFree = 0 as Count
+
+let entryKindUser = 1 as Count
+
+let entryKindHandle = 2 as Count
+
+let nanosPerMilli = 1000000 as Count
+
+// eventRegister registers a handle with the event queue and gives its event entry, or noEntry when the event queue refuses
+// it.
+function eventRegister(handle Count) returns Count
+	let scheduler = schedulerOf(__Raw.threadContext())
+	let entry = entryTake(scheduler, kind: entryKindHandle, handle: handle)
+	if not entryRegister(scheduler, entry: entry) 'refused'
+		entryGive(scheduler, entry: entry)
+		return noEntry
+	end 'refused'
+	return entry
+end 'eventRegister'
+
+// eventForget evicts a handle's entry, waits until no wait on it is in progress, takes the handle off the event queue and
+// gives the entry back. The handle is the caller's to close after.
+function eventForget(entry Count)
+	eventEvict(entry)
+	while __Raw.atomicAdd(entry, offset: entryWaitingOffset, value: 0) != 0 'waits'
+		greenYield()
+	end 'waits'
+	let scheduler = schedulerOf(__Raw.threadContext())
+	entryUnregister(scheduler, entry: entry)
+	entryGive(scheduler, entry: entry)
+end 'eventForget'
+
+// eventEvict ends the waits on an entry with eventClosed, and every wait after it at once (Go's pollUnblock).
+function eventEvict(entry Count)
+	_ = __Raw.atomicExchange(entry, offset: entryClosingOffset, value: set)
+	let context = __Raw.threadContext()
+	claimWaiter(context, slot: __Raw.wrappingAdd(entry, right: eventRead), claim: eventClaimedByClose)
+	claimWaiter(context, slot: __Raw.wrappingAdd(entry, right: eventWrite), claim: eventClaimedByClose)
+end 'eventEvict'
+
+// eventDeadline is the deadline of a wait a number of nanoseconds from now.
+function eventDeadline(nanoseconds Count) returns Count
+	return try nanotime(__Raw.threadContext()) + nanoseconds otherwise panic("a deadline past the end of the clock")
+end 'eventDeadline'
+
+// eventUserNew is a user event's event entry, which eventUserFree gives back.
+function eventUserNew() returns Count
+	let scheduler = schedulerOf(__Raw.threadContext())
+	let entry = entryTake(scheduler, kind: entryKindUser, handle: 0)
+	entryUserNew(scheduler, entry: entry)
+	return entry
+end 'eventUserNew'
+
+function eventUserFree(entry Count)
+	let scheduler = schedulerOf(__Raw.threadContext())
+	entryUserFree(scheduler, entry: entry)
+	entryGive(scheduler, entry: entry)
+end 'eventUserFree'
+
+// eventWait parks the running green thread until an event of a mode of the entry, its deadline (eventNoDeadline for
+// none), its eviction or its coroutine's cancel, and gives which.
+function eventWait(entry Count, mode Count, deadline Count) returns Count
+	let context = __Raw.threadContext()
+	let g = greenCurrent()
+	let scheduler = __Raw.loadWord(context, offset: contextSchedulerOffset)
+	_ = __Raw.atomicAdd(entry, offset: entryWaitingOffset, value: 1)
+	_ = __Raw.atomicAdd(scheduler, offset: schedEventWaitersOffset, value: 1)
+	var status = eventWaitOnce(scheduler, g: g, entry: entry, mode: mode, deadline: deadline, ending: true)
+	#if os(Windows)
+		if status != eventReady and __Raw.loadWord(entry, offset: entryKindOffset) == entryKindHandle 'pending'
+			status = cancelPending(scheduler, g: g, entry: entry, mode: mode, status: status)
+		end 'pending'
+	#endif
+	_ = __Raw.atomicAdd(scheduler, offset: schedEventWaitersOffset, value: stepDown)
+	_ = __Raw.atomicAdd(entry, offset: entryWaitingOffset, value: stepDown)
+	return status
+end 'eventWait'
+
+// eventWaitOnce is one wait of eventWait: an event already kept is taken at once; otherwise the green thread is the state
+// word's, with a timer for its deadline, until an event readies it or a claim of its wake does. Where ending, an
+// eviction and a cancel end it too, as they do before it parks; the wait for a cancelled operation's completion is not
+// ended so.
+function eventWaitOnce(scheduler Count, g Count, entry Count, mode Count, deadline Count, ending bool) returns Count
+	let context = __Raw.threadContext()
+	if ending 'early'
+		if __Raw.loadAcquire(entry, offset: entryClosingOffset) == set 'closing'
+			return eventClosed
+		end 'closing'
+		if isCancelled(g) 'cancelled'
+			return eventCancelled
+		end 'cancelled'
+	end 'early'
+	if __Raw.compareExchange(entry, offset: mode, expected: eventQueued, desired: eventNobody) == eventQueued 'kept'
+		return eventReady
+	end 'kept'
+	if deadline != eventNoDeadline and deadline <= nanotime(context) 'past'
+		return eventExpired
+	end 'past'
+	_ = __Raw.atomicExchange(g, offset: greenEventOffset, value: __Raw.wrappingAdd(entry, right: mode))
+	if deadline != eventNoDeadline 'timer'
+		lockScheduler(scheduler)
+		__Raw.storeWord(g, offset: greenWhenOffset, value: deadline)
+		timerPush(scheduler, g: g)
+		let earliest = __Raw.loadWord(scheduler, offset: schedTimerNextOffset) == deadline
+		unlockScheduler(scheduler)
+		if earliest 'earliest'
+			wakeEventQueue(scheduler, at: deadline)
+		end 'earliest'
+	end 'timer'
+	if __Raw.compareExchange(entry, offset: mode, expected: eventNobody, desired: g) == eventNobody 'wait'
+		// An eviction or a cancel that came before the state word was the green thread's found no waiter to ready, and is
+		// seen now: the green thread claims its own wake, or parks for the ready of the claim that came first.
+		if ending and (__Raw.loadAcquire(entry, offset: entryClosingOffset) == set or isCancelled(g)) 'late'
+			if __Raw.compareExchange(entry, offset: mode, expected: g, desired: eventClaimedByClose) != g 'claimed'
+				park(context)
+			end 'claimed'
+		end 'late' else 'park'
+			park(context)
+		end 'park'
+		if __Raw.loadAcquire(entry, offset: mode) == g 'early'
+			panic("a green thread that waits on an event entry was readied before its wake")
+		end 'early'
+	end 'wait'
+	if deadline != eventNoDeadline 'untimer'
+		lockScheduler(scheduler)
+		if __Raw.loadWord(g, offset: greenWhenOffset) != noTimer 'onHeap'
+			timerRemove(scheduler, g: g)
+			__Raw.storeWord(g, offset: greenWhenOffset, value: noTimer)
+		end 'onHeap'
+		__Raw.storeWord(g, offset: greenEventOffset, value: 0)
+		unlockScheduler(scheduler)
+	end 'untimer' else 'untimed'
+		__Raw.storeRelease(g, offset: greenEventOffset, value: 0)
+	end 'untimed'
+	let state = __Raw.atomicExchange(entry, offset: mode, value: eventNobody)
+	if ending and isCancelled(g) 'cancelledWait'
+		return eventCancelled
+	end 'cancelledWait'
+	if state == eventClaimedByDeadline 'expired'
+		return eventExpired
+	end 'expired'
+	if state == eventClaimedByClose 'closed'
+		return eventClosed
+	end 'closed'
+	if state == eventClaimedByCancel 'cancelled'
+		return eventCancelled
+	end 'cancelled'
+	return eventReady
+end 'eventWaitOnce'
+
+// claimEventWake is whether a timer that fell due may ready its green thread, under the scheduler's lock: a sleeper may,
+// and a waiter on an event entry may once the claim is in its state word, before an event's ready or another claim.
+// Its state word's address is read plainly: a waiter with a deadline writes it before its timer is pushed and clears it
+// after its timer is taken off, under the lock both times.
+function claimEventWake(g Count, claim Count) returns bool
+	let slot = __Raw.loadWord(g, offset: greenEventOffset)
+	if slot == 0 'none'
+		return true
+	end 'none'
+	return __Raw.compareExchange(slot, offset: 0, expected: g, desired: claim) == g
+end 'claimEventWake'
+
+// claimWaiter readies the green thread that waits in a state word, once the claim of its wake is in it.
+function claimWaiter(context Count, slot Count, claim Count)
+	let waiter = __Raw.atomicAdd(slot, offset: 0, value: 0)
+	if waiter <= eventClaimedByCancel 'nobody'
+		return
+	end 'nobody'
+	if __Raw.compareExchange(slot, offset: 0, expected: waiter, desired: claim) == waiter 'claimed'
+		ready(context, g: waiter)
+	end 'claimed'
+end 'claimWaiter'
+
+// cancelEventWait ends the wait of a cancelled coroutine on an event entry, if it waits on one (asyncCancel).
+function cancelEventWait(context Count, g Count)
+	let slot = __Raw.atomicAdd(g, offset: greenEventOffset, value: 0)
+	if slot == 0 'none'
+		return
+	end 'none'
+	if __Raw.compareExchange(slot, offset: 0, expected: g, desired: eventClaimedByCancel) == g 'claimed'
+		ready(context, g: g)
+	end 'claimed'
+end 'cancelEventWait'
+
+// eventQueuedInto is what an event of a mode of an entry does: the state word is signalled, and the green thread
+// that waits in it, when one does and it was parked, joins the list of what the take readied, which it gives back. A
+// entry given back has no waiter, and the event is kept for nobody, or for its next owner, whose call finds
+// nothing.
+function eventQueuedInto(entry Count, mode Count, list Count) returns Count
+	let waiter = __Raw.atomicExchange(entry, offset: mode, value: eventQueued)
+	if waiter <= eventClaimedByCancel 'nobody'
+		return list
+	end 'nobody'
+	if not markReady(waiter) 'running'
+		return list
+	end 'running'
+	__Raw.storeWord(waiter, offset: greenLinkOffset, value: list)
+	return waiter
+end 'eventQueuedInto'
+
+// entryTake is an entry of a kind from the free list, or a new one, carved for good.
+function entryTake(scheduler Count, kind Count, handle Count) returns Count
+	lockScheduler(scheduler)
+	var entry = __Raw.loadWord(scheduler, offset: schedEntryFreeOffset)
+	if entry != noEntry 'reused'
+		__Raw.storeWord(scheduler, offset: schedEntryFreeOffset, value: __Raw.loadWord(entry, offset: entryLinkOffset))
+	end 'reused'
+	unlockScheduler(scheduler)
+	if entry == noEntry 'carved'
+		entry = carve(scheduler, bytes: eventEntryBytes)
+	end 'carved'
+	__Raw.storeWord(entry, offset: entryHandleOffset, value: handle)
+	__Raw.storeWord(entry, offset: entryClosingOffset, value: unset)
+	__Raw.storeWord(entry, offset: entryWaitingOffset, value: 0)
+	__Raw.storeWord(entry, offset: entryLinkOffset, value: noEntry)
+	__Raw.storeRelease(entry, offset: entryKindOffset, value: kind)
+	return entry
+end 'entryTake'
+
+// entryGive puts an entry on the free list. Its state words keep what came: a wait of its next owner may take an
+// event of its last as a wake whose call finds nothing.
+function entryGive(scheduler Count, entry Count)
+	__Raw.storeRelease(entry, offset: entryKindOffset, value: entryKindFree)
+	lockScheduler(scheduler)
+	__Raw.storeWord(entry, offset: entryLinkOffset, value: __Raw.loadWord(scheduler, offset: schedEntryFreeOffset))
+	__Raw.storeWord(scheduler, offset: schedEntryFreeOffset, value: entry)
+	unlockScheduler(scheduler)
+end 'entryGive'
+
+// eventWaitMillis is a take's delay in nanoseconds as the milliseconds the system waits, rounded up so that a timer is never
+// woken for early, below the system's forever.
+function eventWaitMillis(delay Count, forever Count) returns Count
+	if delay == takeEventsForever 'forever'
+		return forever
+	end 'forever'
+	let millis = __Raw.wrappingAdd(delay, right: nanosPerMilli - 1) / nanosPerMilli
+	if millis >= forever 'long'
+		return __Raw.wrappingSub(forever, right: 1)
+	end 'long'
+	return millis
+end 'eventWaitMillis'
+
+// breakEventWait ends the wait of the thread in the event queue, once for any number of breaks before it takes one.
+function breakEventWait(scheduler Count)
+	if __Raw.compareExchange(scheduler, offset: schedEventWakeSigOffset, expected: unset, desired: set) != unset 'sent'
+		return
+	end 'sent'
+	sendBreak(scheduler)
+end 'breakEventWait'
+
+// tookBreak is what a take does with a break it took, as Go's netpoll does. A take that waited had its wait broken, and the
+// next break is sent again. One that did not wait may have taken it from the thread that waits in the event queue, since a
+// claim of schedLastTakeOffset read before that thread's does not keep it from taking events while that thread waits; it passes
+// the break on, or that thread would wait out its old deadline past an earlier timer.
+function tookBreak(scheduler Count, delay Count)
+	if delay == takeEventsNoWait 'passOn'
+		sendBreak(scheduler)
+		return
+	end 'passOn'
+	__Raw.storeRelease(scheduler, offset: schedEventWakeSigOffset, value: unset)
+end 'tookBreak'
+
+#if os(Windows)
+	// The Win32 values of the event queue.
+	let anyConcurrency = 0 as Count
+
+	let waitTimeout = 258 as Count
+
+	let notAlertable = 0 as Count
+
+	// skipOnSuccess is FILE_SKIP_COMPLETION_PORT_ON_SUCCESS | FILE_SKIP_SET_EVENT_ON_HANDLE: an operation that completes
+	// at once posts no completion, and sets no event of the handle.
+	let skipOnSuccess = 3 as Count
+
+	// statusCancelled is STATUS_CANCELLED, the status an OVERLAPPED holds of an operation that a cancel ended.
+	let statusCancelled = 0xC0000120 as Count
+
+	let overlappedBytes = 32 as Count
+
+	// initEventQueue makes the completion port.
+	function initEventQueue(scheduler Count)
+		let port = __Raw.callImport4("CreateIoCompletionPort", arg1: invalidHandle, arg2: 0, arg3: 0, arg4: anyConcurrency)
+		if port == 0 'failed'
+			panic("cannot make the event queue's completion port")
+		end 'failed'
+		__Raw.storeWord(scheduler, offset: schedEventQueueOffset, value: port)
+	end 'initEventQueue'
+
+	// takeEvents takes what has completed, waiting up to delay nanoseconds for something when nothing has, into the thread's
+	// block, and gives the list of the green threads it readied. A completion of a handle's operation names the OVERLAPPED
+	// of its mode; a posted packet, a user event's, none.
+	function takeEvents(context Count, delay Count) returns Count
+		let scheduler = __Raw.loadWord(context, offset: contextSchedulerOffset)
+		let entries = __Raw.wrappingAdd(threadBlockSwitch(context), right: threadBlockEventsOffset)
+		var got = 0 as Count
+		let wait = eventWaitMillis(delay, forever: waitForever)
+		if __Raw.callImport6("GetQueuedCompletionStatusEx", arg1: __Raw.loadWord(scheduler, offset: schedEventQueueOffset), arg2: entries, arg3: eventSlots, arg4: __Raw.addressOf(got), arg5: wait, arg6: notAlertable) == 0 'none'
+			if dword(__Raw.callImport0("GetLastError")) == waitTimeout 'timedOut'
+				return noGreen
+			end 'timedOut'
+			panic("the event queue's wait failed")
+		end 'none'
+		var list = noGreen
+		var entry = entries
+		for i in 0 upto dword(got) 'entries'
+			let key = __Raw.loadWord(entry, offset: windowsEntryKeyOffset)
+			if key == eventBreakKey 'break'
+				tookBreak(scheduler, delay: delay)
+			end 'break' else if __Raw.loadWord(entry, offset: windowsEntryOverlappedOffset) == __Raw.wrappingAdd(key, right: entryWriteOverlappedOffset) 'write'
+				list = eventQueuedInto(key, mode: eventWrite, list: list)
+			end 'write' else 'read'
+				list = eventQueuedInto(key, mode: eventRead, list: list)
+			end 'read'
+			entry = __Raw.wrappingAdd(entry, right: windowsEntryBytes)
+		end 'entries'
+		return list
+	end 'takeEvents'
+
+	// sendBreak breaks the wait of the thread in the event queue.
+	function sendBreak(scheduler Count)
+		postCompletion(scheduler, key: eventBreakKey)
+	end 'sendBreak'
+
+	function postCompletion(scheduler Count, key Count)
+		if __Raw.callImport4("PostQueuedCompletionStatus", arg1: __Raw.loadWord(scheduler, offset: schedEventQueueOffset), arg2: 0, arg3: key, arg4: 0) == 0 'failed'
+			panic("cannot post a completion to the event queue")
+		end 'failed'
+	end 'postCompletion'
+
+	// entryRegister associates a handle with the port, its completions keyed by its entry, an operation that completes
+	// at once posting none; a handle that cannot be so is refused before it is associated, since a handle is associated
+	// for as long as it is open.
+	function entryRegister(scheduler Count, entry Count) returns bool
+		let handle = __Raw.loadWord(entry, offset: entryHandleOffset)
+		if __Raw.callImport2("SetFileCompletionNotificationModes", arg1: handle, arg2: skipOnSuccess) == 0 'modes'
+			return false
+		end 'modes'
+		return __Raw.callImport4("CreateIoCompletionPort", arg1: handle, arg2: __Raw.loadWord(scheduler, offset: schedEventQueueOffset), arg3: entry, arg4: anyConcurrency) != 0
+	end 'entryRegister'
+
+	// entryUnregister has nothing to do: a handle leaves the port when it is closed, and no operation of it is pending.
+	function entryUnregister(scheduler Count, entry Count)
+	end 'entryUnregister'
+
+	// eventOverlapped is the OVERLAPPED of a mode of a handle's entry, cleared, for its next operation, which the
+	// caller starts at a file's position by its Offset and OffsetHigh, and reads the status (Internal) and the count
+	// (InternalHigh) of once it completed.
+	function eventOverlapped(entry Count, mode Count) returns Count
+		var overlapped = __Raw.wrappingAdd(entry, right: entryReadOverlappedOffset)
+		if mode == eventWrite 'write'
+			overlapped = __Raw.wrappingAdd(entry, right: entryWriteOverlappedOffset)
+		end 'write'
+		var offset = 0 as Count
+		while offset < overlappedBytes 'clear'
+			__Raw.storeWord(overlapped, offset: offset, value: 0)
+			offset = __Raw.wrappingAdd(offset, right: wordBytes)
+		end 'clear'
+		return overlapped
+	end 'eventOverlapped'
+
+	// cancelPending is what a wait on a handle's operation that ended otherwise than by its completion does: it cancels
+	// the operation and waits for its completion, which comes whether the cancel took hold or the operation had completed,
+	// and gives the wait's status, eventReady when the operation completed all the same.
+	function cancelPending(scheduler Count, g Count, entry Count, mode Count, status Count) returns Count
+		var overlapped = __Raw.wrappingAdd(entry, right: entryReadOverlappedOffset)
+		if mode == eventWrite 'write'
+			overlapped = __Raw.wrappingAdd(entry, right: entryWriteOverlappedOffset)
+		end 'write'
+		_ = __Raw.callImport2("CancelIoEx", arg1: __Raw.loadWord(entry, offset: entryHandleOffset), arg2: overlapped)
+		var completed = eventWaitOnce(scheduler, g: g, entry: entry, mode: mode, deadline: eventNoDeadline, ending: false)
+		while completed != eventReady 'completion'
+			completed = eventWaitOnce(scheduler, g: g, entry: entry, mode: mode, deadline: eventNoDeadline, ending: false)
+		end 'completion'
+		if dword(__Raw.loadWord(overlapped, offset: 0)) == statusCancelled 'cancelled'
+			return status
+		end 'cancelled'
+		return eventReady
+	end 'cancelPending'
+
+	// entryUserNew has nothing to make: a user event is a packet posted to the port, keyed by its entry.
+	function entryUserNew(scheduler Count, entry Count)
+	end 'entryUserNew'
+
+	function entryUserFree(scheduler Count, entry Count)
+	end 'entryUserFree'
+
+	// eventSignal signals a user event's entry with a completion packet whose key is the entry, from any thread.
+	function eventSignal(entry Count)
+		postCompletion(__Raw.loadWord(__Raw.threadContext(), offset: contextSchedulerOffset), key: entry)
+	end 'eventSignal'
+#endif

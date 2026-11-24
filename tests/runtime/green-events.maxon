@@ -1,5 +1,5 @@
-// The poller: a green thread waits on a poll descriptor until another, after a sleep, signals it (a completion packet on
-// Windows, the descriptor's eventfd on Linux), and the poller readies the waiter; then a signal that comes before the wait
+// The event queue: a green thread waits on an event entry until another, after a sleep, signals it (a completion packet on
+// Windows, the entry's eventfd on Linux), and the event queue readies the waiter; then a signal that comes before the wait
 // is taken by the wait at once.
 //> a completion readied its waiter
 //> a completion before the wait was taken
@@ -12,30 +12,30 @@ function main() returns ExitCode
 end 'main'
 
 function testCoordinator(g Count) returns Count
-	let descriptor = pollNew()
+	let entry = eventUserNew()
 	let signaller = greenSpawn(__Raw.codeAddress("testSignaller"))
-	greenSetArgument(signaller, index: 0, value: descriptor)
+	greenSetArgument(signaller, index: 0, value: entry)
 	greenReady(signaller)
-	testReady(pollWait(descriptor, mode: pollRead, deadline: pollNoDeadline))
+	testReady(eventWait(entry, mode: eventRead, deadline: eventNoDeadline))
 	testWrite("a completion readied its waiter\n")
 	_ = greenAwait(signaller)
-	pollSignal(descriptor)
+	eventSignal(entry)
 	greenSleep(testSleepNanos)
-	testReady(pollWait(descriptor, mode: pollRead, deadline: pollNoDeadline))
+	testReady(eventWait(entry, mode: eventRead, deadline: eventNoDeadline))
 	testWrite("a completion before the wait was taken\n")
-	pollFree(descriptor)
+	eventUserFree(entry)
 	return 0
 end 'testCoordinator'
 
 function testSignaller(g Count) returns Count
 	greenSleep(testSleepNanos)
-	pollSignal(greenArgument(g, index: 0))
+	eventSignal(greenArgument(g, index: 0))
 	return 0
 end 'testSignaller'
 
 function testReady(status Count)
-	if status != pollReady 'other'
-		panic("a wait on a signalled descriptor ended otherwise")
+	if status != eventReady 'other'
+		panic("a wait on a signalled entry ended otherwise")
 	end 'other'
 end 'testReady'
 

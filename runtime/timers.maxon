@@ -1,6 +1,6 @@
 // Timers: the sleeping green threads, on one heap under the scheduler's lock, ordered by when each wakes (greenWhenOffset),
 // as maxon's runtime keeps its timer store under __sched_lock. A thread that looks for work runs the timers that are due
-// (findRunnable), and a thread with nothing to run waits in the poller until the earliest (waitInPoller), which a new
+// (findRunnable), and a thread with nothing to run waits in the event queue until the earliest (waitInEventQueue), which a new
 // earlier timer breaks the wait of, as Go's wakeNetPoller does.
 
 // noTimer is a green thread's wake while it is not on the heap, and the scheduler's next timer while there is none.
@@ -29,7 +29,7 @@ function greenSleep(nanoseconds Count)
 	let earliest = __Raw.loadWord(scheduler, offset: schedTimerNextOffset) == wake
 	unlockScheduler(scheduler)
 	if earliest 'earliest'
-		wakePoller(scheduler, at: wake)
+		wakeEventQueue(scheduler, at: wake)
 	end 'earliest'
 	park(context)
 	if __Raw.loadWord(g, offset: greenWhenOffset) != noTimer 'early'
@@ -56,25 +56,25 @@ function expireSleep(context Count, g Count)
 	timerSiftUp(scheduler, at: __Raw.loadWord(g, offset: greenTimerIndexOffset), g: g)
 	__Raw.storeRelease(scheduler, offset: schedTimerNextOffset, value: timerWhen(scheduler, index: 0))
 	unlockScheduler(scheduler)
-	wakePoller(scheduler, at: now)
+	wakeEventQueue(scheduler, at: now)
 end 'expireSleep'
 
-// wakePoller is Go's wakeNetPoller for a timer due at when: the thread that waits in the poller is woken when it waits
+// wakeEventQueue is Go's wakeNetPoller for a timer due at when: the thread that waits in the event queue is woken when it waits
 // past when, and when none waits a thread is woken for an idle processor, which waits for the timer in its turn.
-function wakePoller(scheduler Count, at Count)
-	if __Raw.loadAcquire(scheduler, offset: schedLastPollOffset) == 0 'polling'
-		let until = __Raw.loadAcquire(scheduler, offset: schedPollUntilOffset)
+function wakeEventQueue(scheduler Count, at Count)
+	if __Raw.loadAcquire(scheduler, offset: schedLastTakeOffset) == 0 'waiting'
+		let until = __Raw.loadAcquire(scheduler, offset: schedTakeUntilOffset)
 		if until == noTimer or until > at 'later'
-			netpollBreak(scheduler)
+			breakEventWait(scheduler)
 		end 'later'
 		return
-	end 'polling'
+	end 'waiting'
 	wakeProc(scheduler)
-end 'wakePoller'
+end 'wakeEventQueue'
 
 // runTimers readies the green threads whose timers are due, onto the running thread's processor. The timer of a
-// deadline of a wait on a poll descriptor readies its green thread only when it claims the wake before the descriptor's
-// event does (claimPollWake).
+// deadline of a wait on an event entry readies its green thread only when it claims the wake before the entry's
+// event does (claimEventWake).
 function runTimers(context Count, proc Count)
 	let scheduler = __Raw.loadWord(context, offset: contextSchedulerOffset)
 	let next = __Raw.loadAcquire(scheduler, offset: schedTimerNextOffset)
@@ -90,7 +90,7 @@ function runTimers(context Count, proc Count)
 	while __Raw.loadWord(scheduler, offset: schedTimerCountOffset) > 0 and __Raw.loadWord(timerAt(scheduler, index: 0), offset: greenWhenOffset) <= now 'due'
 		let g = timerPop(scheduler)
 		__Raw.storeWord(g, offset: greenWhenOffset, value: noTimer)
-		if not claimPollWake(g, claim: pollClaimedByDeadline) 'taken'
+		if not claimEventWake(g, claim: eventClaimedByDeadline) 'taken'
 			continue 'due'
 		end 'taken'
 		__Raw.storeWord(g, offset: greenLinkOffset, value: due)

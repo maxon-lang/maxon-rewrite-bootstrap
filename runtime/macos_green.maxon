@@ -1,7 +1,7 @@
 // The macOS part of green threads and the scheduler, through libSystem: a green thread's stack's pages, the clock and the
 // monitor's sleep, the thread the monitor signals, the preemption signal's action and where its context holds the
-// stopped code's registers, and the poller, a kqueue with a user event that breaks its wait and one for each poll
-// descriptor, which any thread triggers. The rest is green.maxon's and sched.maxon's, which every system shares.
+// stopped code's registers, and the event queue, a kqueue with a user event that breaks its wait and one for each event
+// entry, which any thread triggers. The rest is green.maxon's and sched.maxon's, which every system shares.
 
 #if os(macOS)
 	// stackGuardBytes is the guard page at the bottom of a stack's reserve.
@@ -154,26 +154,26 @@
 		return __Raw.wrappingAdd(__Raw.loadWord(signalContext, offset: macosUcontextMcontextOffset), right: macosMcontextSpOffset)
 	end 'signalSpAddress'
 
-	// initPoller makes the kqueue and the user event that breaks its wait.
-	function initPoller(scheduler Count)
-		let poller = checkedInt(__Raw.callImport0("kqueue"))
-		if failed(poller) 'poller'
-			panic("cannot make the poller")
-		end 'poller'
-		__Raw.storeWord(scheduler, offset: schedPollerOffset, value: poller)
-		changeUserEvent(poller, ident: pollBreakKey, flags: macosEvAddClear, fflags: 0, key: pollBreakKey)
-	end 'initPoller'
+	// initEventQueue makes the kqueue and the user event that breaks its wait.
+	function initEventQueue(scheduler Count)
+		let eventQueue = checkedInt(__Raw.callImport0("kqueue"))
+		if failed(eventQueue) 'eventQueue'
+			panic("cannot make the event queue")
+		end 'eventQueue'
+		__Raw.storeWord(scheduler, offset: schedEventQueueOffset, value: eventQueue)
+		changeUserEvent(eventQueue, ident: eventBreakKey, flags: macosEvAddClear, fflags: 0, key: eventBreakKey)
+	end 'initEventQueue'
 
 	// changeUserEvent makes one change of the user event of an ident of the kqueue, which reports it with a key.
-	function changeUserEvent(poller Count, ident Count, flags Count, fflags Count, key Count)
+	function changeUserEvent(eventQueue Count, ident Count, flags Count, fflags Count, key Count)
 		let change = alloc(macosKeventBytes)
 		__Raw.storeWord(change, offset: 0, value: ident)
 		__Raw.storeWord16(change, offset: macosKeventFilterOffset, value: macosEvfiltUser)
 		__Raw.storeWord16(change, offset: macosKeventFlagsOffset, value: flags)
 		__Raw.storeWord32(change, offset: macosKeventFflagsOffset, value: fflags)
 		__Raw.storeWord(change, offset: macosKeventUdataOffset, value: key)
-		if failed(checkedInt(__Raw.callImport6("kevent", arg1: poller, arg2: change, arg3: oneChange, arg4: noEvents, arg5: 0, arg6: noTimeout))) 'refused'
-			panic("cannot change a user event of the poller")
+		if failed(checkedInt(__Raw.callImport6("kevent", arg1: eventQueue, arg2: change, arg3: oneChange, arg4: noEvents, arg5: 0, arg6: noTimeout))) 'refused'
+			panic("cannot change a user event of the event queue")
 		end 'refused'
 		free(change)
 	end 'changeUserEvent'
@@ -181,67 +181,67 @@
 	// keventDataOffset is where a struct kevent holds data, the word its filter reports with.
 	let keventDataOffset = 16 as Count
 
-	// netpoll takes what is ready, waiting up to delay nanoseconds for something when nothing is, into the thread's block,
+	// takeEvents takes what is ready, waiting up to delay nanoseconds for something when nothing is, into the thread's block,
 	// whose timespec holds the wait, and gives the list of the green threads it readied. An event that came was reset as
 	// it was reported (EV_CLEAR); a handle's read filter readies a wait to read and its write filter a wait to write, an
 	// end of file or an error either.
-	function netpoll(context Count, delay Count) returns Count
+	function takeEvents(context Count, delay Count) returns Count
 		let scheduler = __Raw.loadWord(context, offset: contextSchedulerOffset)
 		let events = __Raw.wrappingAdd(threadBlockSwitch(context), right: threadBlockEventsOffset)
 		var timeout = noTimeout
-		if delay != netpollForever 'bounded'
+		if delay != takeEventsForever 'bounded'
 			timeout = __Raw.wrappingAdd(threadBlockSwitch(context), right: threadBlockClockOffset)
 			__Raw.storeWord(timeout, offset: 0, value: delay / nanosPerSecond)
 			__Raw.storeWord(timeout, offset: wordBytes, value: delay mod nanosPerSecond)
 		end 'bounded'
-		let got = checkedInt(__Raw.callImport6("kevent", arg1: __Raw.loadWord(scheduler, offset: schedPollerOffset), arg2: noChanges, arg3: 0, arg4: events, arg5: pollEventSlots, arg6: timeout))
+		let got = checkedInt(__Raw.callImport6("kevent", arg1: __Raw.loadWord(scheduler, offset: schedEventQueueOffset), arg2: noChanges, arg3: 0, arg4: events, arg5: eventSlots, arg6: timeout))
 		if failed(got) 'failed'
 			if interrupted(got) 'interrupted'
 				return noGreen
 			end 'interrupted'
-			panic("the poller's wait failed")
+			panic("the event queue's wait failed")
 		end 'failed'
 		var list = noGreen
 		var event = events
 		for i in 0 upto got 'events'
 			let key = __Raw.loadWord(event, offset: macosKeventUdataOffset)
-			if key == pollBreakKey 'break'
+			if key == eventBreakKey 'break'
 				tookBreak(scheduler, delay: delay)
-			end 'break' else if __Raw.loadAcquire(key, offset: pollKindOffset) != pollKindFree 'descriptor'
+			end 'break' else if __Raw.loadAcquire(key, offset: entryKindOffset) != entryKindFree 'entry'
 				if __Raw.loadWord16(event, offset: macosKeventFilterOffset) == macosEvfiltWrite 'write'
-					list = pollSignalledInto(key, mode: pollWrite, list: list)
+					list = eventQueuedInto(key, mode: eventWrite, list: list)
 				end 'write' else 'read'
-					list = pollSignalledInto(key, mode: pollRead, list: list)
+					list = eventQueuedInto(key, mode: eventRead, list: list)
 				end 'read'
-			end 'descriptor'
+			end 'entry'
 			event = __Raw.wrappingAdd(event, right: macosKeventBytes)
 		end 'events'
 		return list
-	end 'netpoll'
+	end 'takeEvents'
 
-	// sendBreak breaks the wait of the thread in the poller.
+	// sendBreak breaks the wait of the thread in the event queue.
 	function sendBreak(scheduler Count)
-		changeUserEvent(__Raw.loadWord(scheduler, offset: schedPollerOffset), ident: pollBreakKey, flags: 0, fflags: macosNoteTrigger, key: pollBreakKey)
+		changeUserEvent(__Raw.loadWord(scheduler, offset: schedEventQueueOffset), ident: eventBreakKey, flags: 0, fflags: macosNoteTrigger, key: eventBreakKey)
 	end 'sendBreak'
 
-	// pollRegister adds a handle's read and write filters to the kqueue, reset as they are reported, through two changes
+	// entryRegister adds a handle's read and write filters to the kqueue, reset as they are reported, through two changes
 	// in the running thread's block, and says whether the kqueue took both: it refuses an fd that cannot be waited on.
-	function pollRegister(scheduler Count, descriptor Count) returns bool
-		return changeHandle(scheduler, descriptor: descriptor, flags: macosEvAddClear)
-	end 'pollRegister'
+	function entryRegister(scheduler Count, entry Count) returns bool
+		return changeHandle(scheduler, entry: entry, flags: macosEvAddClear)
+	end 'entryRegister'
 
-	// pollUnregister takes a handle's filters off the kqueue, which its close does too.
-	function pollUnregister(scheduler Count, descriptor Count)
-		_ = changeHandle(scheduler, descriptor: descriptor, flags: macosEvDelete)
-	end 'pollUnregister'
+	// entryUnregister takes a handle's filters off the kqueue, which its close does too.
+	function entryUnregister(scheduler Count, entry Count)
+		_ = changeHandle(scheduler, entry: entry, flags: macosEvDelete)
+	end 'entryUnregister'
 
 	// changeHandle makes a change of flags to both filters of a handle's fd.
-	function changeHandle(scheduler Count, descriptor Count, flags Count) returns bool
+	function changeHandle(scheduler Count, entry Count, flags Count) returns bool
 		let changes = __Raw.wrappingAdd(threadBlockSwitch(__Raw.threadContext()), right: threadBlockEventsOffset)
 		let second = __Raw.wrappingAdd(changes, right: macosKeventBytes)
-		fillKevent(changes, ident: __Raw.loadWord(descriptor, offset: pollFdOffset), filter: macosEvfiltRead, flags: flags, key: descriptor)
-		fillKevent(second, ident: __Raw.loadWord(descriptor, offset: pollFdOffset), filter: macosEvfiltWrite, flags: flags, key: descriptor)
-		return not failed(checkedInt(__Raw.callImport6("kevent", arg1: __Raw.loadWord(scheduler, offset: schedPollerOffset), arg2: changes, arg3: 2, arg4: noEvents, arg5: 0, arg6: noTimeout)))
+		fillKevent(changes, ident: __Raw.loadWord(entry, offset: entryHandleOffset), filter: macosEvfiltRead, flags: flags, key: entry)
+		fillKevent(second, ident: __Raw.loadWord(entry, offset: entryHandleOffset), filter: macosEvfiltWrite, flags: flags, key: entry)
+		return not failed(checkedInt(__Raw.callImport6("kevent", arg1: __Raw.loadWord(scheduler, offset: schedEventQueueOffset), arg2: changes, arg3: 2, arg4: noEvents, arg5: 0, arg6: noTimeout)))
 	end 'changeHandle'
 
 	function fillKevent(change Count, ident Count, filter Count, flags Count, key Count)
@@ -253,19 +253,19 @@
 		__Raw.storeWord(change, offset: macosKeventUdataOffset, value: key)
 	end 'fillKevent'
 
-	// pollUserNew gives a user event's descriptor a user event of its own, its address the event's ident and its key,
-	// which pollUserFree deletes.
-	function pollUserNew(scheduler Count, descriptor Count)
-		__Raw.storeWord(descriptor, offset: pollFdOffset, value: __Raw.loadWord(scheduler, offset: schedPollerOffset))
-		changeUserEvent(__Raw.loadWord(descriptor, offset: pollFdOffset), ident: descriptor, flags: macosEvAddClear, fflags: 0, key: descriptor)
-	end 'pollUserNew'
+	// entryUserNew gives a user event's entry a user event of its own, its address the event's ident and its key,
+	// which entryUserFree deletes.
+	function entryUserNew(scheduler Count, entry Count)
+		__Raw.storeWord(entry, offset: entryHandleOffset, value: __Raw.loadWord(scheduler, offset: schedEventQueueOffset))
+		changeUserEvent(__Raw.loadWord(entry, offset: entryHandleOffset), ident: entry, flags: macosEvAddClear, fflags: 0, key: entry)
+	end 'entryUserNew'
 
-	function pollUserFree(scheduler Count, descriptor Count)
-		changeUserEvent(__Raw.loadWord(descriptor, offset: pollFdOffset), ident: descriptor, flags: macosEvDelete, fflags: 0, key: descriptor)
-	end 'pollUserFree'
+	function entryUserFree(scheduler Count, entry Count)
+		changeUserEvent(__Raw.loadWord(entry, offset: entryHandleOffset), ident: entry, flags: macosEvDelete, fflags: 0, key: entry)
+	end 'entryUserFree'
 
-	// pollSignal signals a user event's descriptor through its user event, from any thread.
-	function pollSignal(descriptor Count)
-		changeUserEvent(__Raw.loadWord(descriptor, offset: pollFdOffset), ident: descriptor, flags: 0, fflags: macosNoteTrigger, key: descriptor)
-	end 'pollSignal'
+	// eventSignal signals a user event's entry through its user event, from any thread.
+	function eventSignal(entry Count)
+		changeUserEvent(__Raw.loadWord(entry, offset: entryHandleOffset), ident: entry, flags: 0, fflags: macosNoteTrigger, key: entry)
+	end 'eventSignal'
 #endif
