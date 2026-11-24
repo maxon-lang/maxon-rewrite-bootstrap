@@ -1,6 +1,8 @@
-// The monitor's pace of preemption (schedPreemptAsksOffset counts its asks): a green thread that sits in a system call it
-// did not bracket holds its processor on one schedule tick, and is asked to stop once a slice, not on every round of the
-// monitor, since the call never takes the stop; it is asked at least once. Then as many spinners as there are processors
+// The monitor's pace of preemption (schedPreemptAsksOffset counts its asks, one a slice, and schedPreemptStopsOffset its
+// signals, the asks again among them): a green thread that sits in a system call it did not bracket holds its processor on
+// one schedule tick, and is asked to stop once a slice, not on every round of the monitor, and signalled at most once each
+// reaskLongestNanos once the gaps between the asks again have grown, since the call never takes the stop; it is asked at
+// least once. Then as many spinners as there are processors
 // hold every processor while a ticker sleeps testTicks times, which it does only as the monitor stops spinners, and the
 // asks stay within one a slice for each processor.
 //
@@ -20,6 +22,10 @@ let testChunkMillis = 20 as Count
 let testDeadlineNanos = 4000000000 as Count
 
 let testTicks = 5 as Count
+
+// testReaskSlack is how many more signals than one each reaskLongestNanos the raw call may get: its first ask, the asks
+// again before the gap has grown to reaskLongestNanos, and the gap a window cuts at either end.
+let testReaskSlack = 10 as Count
 
 let testTickNanos = 1000000 as Count
 
@@ -48,6 +54,7 @@ function testCoordinator(g Count) returns Count
 	let scheduler = __Raw.loadWord(__Raw.threadContext(), offset: contextSchedulerOffset)
 	let shared = alloc(testRecordBytes)
 	var asks = testAsks(scheduler)
+	let stops = __Raw.loadAcquire(scheduler, offset: schedPreemptStopsOffset)
 	var start = osClockNanos()
 	__Raw.storeWord(shared, offset: testBaselineOffset, value: asks)
 	__Raw.storeWord(shared, offset: testMinimumOffset, value: __Raw.wrappingAdd(start, right: testBlockMillis * nanosPerMilli))
@@ -57,7 +64,13 @@ function testCoordinator(g Count) returns Count
 	greenReady(blocker)
 	_ = greenAwait(blocker)
 	let blockAsks = __Raw.wrappingSub(testAsks(scheduler), right: asks)
-	testCheckPace(blockAsks, elapsed: __Raw.wrappingSub(osClockNanos(), right: start), procs: 1, what: "the raw call")
+	let blockElapsed = __Raw.wrappingSub(osClockNanos(), right: start)
+	testCheckPace(blockAsks, elapsed: blockElapsed, procs: 1, what: "the raw call")
+	let blockStops = __Raw.wrappingSub(__Raw.loadAcquire(scheduler, offset: schedPreemptStopsOffset), right: stops)
+	let mostStops = __Raw.wrappingAdd(blockElapsed / reaskLongestNanos, right: testReaskSlack)
+	if blockStops > mostStops 'flooded'
+		panic("the monitor signalled the raw call {blockStops} times in {blockElapsed / nanosPerMilli} ms, more than once each {reaskLongestNanos / nanosPerMicro} us: at most {mostStops}")
+	end 'flooded'
 	if blockAsks == 0 'unasked'
 		panic("a green thread in a raw call for {testDeadlineNanos / nanosPerMilli} ms was never asked to stop")
 	end 'unasked'

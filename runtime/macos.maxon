@@ -507,23 +507,38 @@
 
 	// osClockNanos is the monotonic clock in nanoseconds.
 	function osClockNanos() returns Count
-		return clockNanosOf(macosClockUptimeRaw)
+		return programClockNanos(macosClockUptimeRaw)
 	end 'osClockNanos'
 
 	// osTickMillis is the milliseconds since the machine booted, the time it slept included.
 	function osTickMillis() returns Count
-		return clockNanosOf(macosClockMonotonic) / nanosPerMilli
+		return programClockNanos(macosClockMonotonic) / nanosPerMilli
 	end 'osTickMillis'
 
 	// osThreadCpuTicks is the CPU time the calling thread has used, in nanoseconds.
 	function osThreadCpuTicks() returns Count
-		return clockNanosOf(macosClockThreadCpu)
+		return programClockNanos(macosClockThreadCpu)
 	end 'osThreadCpuTicks'
 
 	// osUnixNanos is the nanoseconds since 1970-01-01 UTC.
 	function osUnixNanos() returns Count
-		return clockNanosOf(macosClockRealtime)
+		return programClockNanos(macosClockRealtime)
 	end 'osUnixNanos'
+
+	// programClockNanos is a clock that a program reads, in nanoseconds, its call into libSystem bracketed: the monitor never
+	// stops a thread in libSystem's code, so a green thread that reads the clock over and over would seldom take its ask,
+	// and in the bracket the monitor takes its processor instead once it has held it for a slice (retake).
+	function programClockNanos(clock Count) returns Count
+		enterBlocking()
+		let nanos = clockNanosOf(clock)
+		exitBlocking()
+		return nanos
+	end 'programClockNanos'
+
+	// monotonicNanos is the monotonic clock in nanoseconds as the runtime's own code reads it, outside any bracket.
+	function monotonicNanos() returns Count
+		return clockNanosOf(macosClockUptimeRaw)
+	end 'monotonicNanos'
 
 	// clockNanosOf is the clock that the system numbers clock, in nanoseconds.
 	function clockNanosOf(clock Count) returns Count

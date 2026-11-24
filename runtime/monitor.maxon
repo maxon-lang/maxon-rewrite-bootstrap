@@ -1,9 +1,10 @@
 // The monitor, Go's sysmon: a thread of its own that holds no processor, runs no green thread and allocates nothing, and
 // wakes every monitorFirstMicros, sleeping longer while it finds nothing to do, up to monitorLongestMicros. Each round it
 // polls when no thread has for pollStaleNanos, starts a thread for a timer that is due when no thread waits in the
-// poller, and retakes processors: a processor whose green thread has run for preemptNanos is asked to stop it, once a
-// slice, and one whose thread has been in a blocking call since the monitor's last look, while there is other work or no
-// thread to do it, is taken and handed to another thread. Only a processor taken makes the monitor's next sleep short. It runs the page heap's release pass when one is due (pagesTick), as Go's
+// poller, and retakes processors: a processor whose green thread has run for preemptNanos is asked to stop it, and asked
+// again until it does (askAgain), and one whose thread has been in a blocking call since the monitor's last look, while
+// there is other work or no thread to do it, is taken and handed to another thread. Only a processor taken makes the
+// monitor's next sleep short, and an ask again due sooner cuts it. It runs the page heap's release pass when one is due (pagesTick), as Go's
 // sysmon wakes the scavenger, so an idle program gives its free pages back.
 //
 // Preemption is asynchronous only, Go's since 1.14, with no check in the compiled code: on Windows the monitor suspends
@@ -21,6 +22,12 @@ let monitorIdleRounds = 50 as Count
 
 // preemptNanos is how long a green thread runs before the monitor stops it, Go's forcePreemptNS.
 let preemptNanos = 10000000 as Count
+
+// reaskFirstNanos is how long the monitor waits before it asks again a green thread that has not taken its ask, and
+// reaskLongestNanos the longest it waits between two asks again (askAgain).
+let reaskFirstNanos = 100000 as Count
+
+let reaskLongestNanos = 1000000 as Count
 
 // pollStaleNanos is how long the poller may go unpolled before the monitor polls it.
 let pollStaleNanos = 10000000 as Count
@@ -45,6 +52,7 @@ function startMonitor(scheduler Count)
 	__Raw.storeWord(context, offset: contextStartCodeOffset, value: __Raw.codeAddress("monitorMain"))
 	#if os(Windows)
 		__Raw.storeWord(scheduler, offset: schedRegistersOffset, value: keep(__Raw.wrappingAdd(windowsContextBytes, right: windowsContextAlignment)))
+		__Raw.storeWord(scheduler, offset: schedMonitorTimerOffset, value: __Raw.callImport4("CreateWaitableTimerExW", arg1: 0, arg2: 0, arg3: createWaitableTimerHighResolution, arg4: timerAllAccess))
 	#else
 		__Raw.storeWord(context, offset: contextSignalCodeOffset, value: __Raw.codeAddress("preemptSignal"))
 	#endif
@@ -57,6 +65,7 @@ function monitorMain(context Count)
 	let scheduler = __Raw.loadWord(context, offset: contextSchedulerOffset)
 	var idle = 0 as Count
 	var delay = monitorFirstMicros
+	var nap = preemptNanos
 	while true 'rounds'
 		if idle == 0 'busy'
 			delay = monitorFirstMicros
@@ -66,14 +75,20 @@ function monitorMain(context Count)
 		if delay > monitorLongestMicros 'longest'
 			delay = monitorLongestMicros
 		end 'longest'
-		sleepMicros(context, micros: delay)
+		var sleep = delay
+		let napMicros = __Raw.wrappingAdd(nap, right: nanosPerMicro - 1) / nanosPerMicro
+		if napMicros < sleep 'reask'
+			sleep = napMicros
+		end 'reask'
+		sleepMicros(context, micros: sleep)
 		let now = nanotime(context)
 		pollIfStale(context, scheduler: scheduler, now: now)
 		let next = __Raw.loadAcquire(scheduler, offset: schedTimerNextOffset)
 		if next != noTimer and next <= now and __Raw.loadAcquire(scheduler, offset: schedLastPollOffset) != 0 'timer'
 			startThreadFor(scheduler, proc: noProc, spinning: false)
 		end 'timer'
-		if retake(scheduler, now: now) 'retook'
+		nap = preemptNanos
+		if retake(scheduler, now: now, nap: nap) 'retook'
 			idle = 0
 		end 'retook' else 'none'
 			idle = __Raw.wrappingAdd(idle, right: 1)
@@ -114,14 +129,11 @@ function pollIfStale(context Count, scheduler Count, now Count)
 end 'pollIfStale'
 
 // retake is Go's: for each processor, a green thread that has run on the same schedule tick for preemptNanos is asked to
-// stop, and a processor in a blocking call since the monitor's last look, or on a tick that old, is taken from it, unless
-// it has nothing queued, a thread spins or a processor is idle, and the call is younger than syscallRetakeNanos. It says
-// whether it took a processor, the only thing that keeps the monitor waking often, as Go's sysmon counts only retake's n.
-//
-// Where Go asks again every round until the tick moves, its sleep growing meanwhile, the monitor asks again only a whole
-// slice later: a stop asked for while the thread is in the runtime's code, which is never stopped, or in a system call
-// is not taken, and each further signal into such a call only breaks it off for nothing.
-function retake(scheduler Count, now Count) returns bool
+// stop, and asked again while the tick does not move (askAgain), and a processor in a blocking call since the monitor's
+// last look, or on a tick a slice old, is taken from it, unless it has nothing queued, a thread spins or a processor is
+// idle, and the call is younger than syscallRetakeNanos. It says whether it took a processor, the only thing that keeps
+// the monitor waking often, as Go's sysmon counts only retake's n, and lowers nap to how soon an ask again is due.
+function retake(scheduler Count, now Count, mutates nap Count) returns bool
 	var retook = false
 	for i in 0 upto madeProcs(scheduler) 'procs'
 		let proc = procAt(scheduler, index: i)
@@ -132,11 +144,10 @@ function retake(scheduler Count, now Count) returns bool
 			if __Raw.loadWord(proc, offset: procSeenTickOffset) != tick 'moved'
 				__Raw.storeWord(proc, offset: procSeenTickOffset, value: tick)
 				__Raw.storeWord(proc, offset: procSeenWhenOffset, value: now)
-			end 'moved' else if __Raw.wrappingAdd(__Raw.loadWord(proc, offset: procSeenWhenOffset), right: preemptNanos) <= now 'long'
-				_ = preemptOne(scheduler, proc: proc)
-				__Raw.storeWord(proc, offset: procSeenWhenOffset, value: now)
-				sliceOver = true
-			end 'long'
+				__Raw.storeWord(proc, offset: procAskGapOffset, value: 0)
+			end 'moved' else 'same'
+				sliceOver = askAgain(scheduler, proc: proc, now: now, nap: nap)
+			end 'same'
 		end 'held'
 		if status == procSyscall 'blocked'
 			let tick = __Raw.loadWord(proc, offset: procSyscallTickOffset)
@@ -160,10 +171,61 @@ function retake(scheduler Count, now Count) returns bool
 	return retook
 end 'retake'
 
+// askAgain asks the green thread of a processor whose schedule tick has not moved to stop, when it has held it for a
+// slice since the monitor first saw the tick, and asks it again when it has not stopped reaskFirstNanos later, and again
+// each time after twice as long as before, up to reaskLongestNanos. It says whether the tick is a slice old, and lowers nap
+// to how soon the next ask again is due.
+//
+// Go asks only once a round, its sleep growing to 10 ms while it finds nothing to retake, since a goroutine that does not
+// take the signal stops at its next call, whose prologue checks the ask. Here nothing checks it: the runtime's code is
+// never stopped and the stop is asynchronous only, so a green thread that spends most of its time in the runtime's calls
+// (one that allocates and frees in a loop takes about one ask in ten) would hold its processor for many slices if asked
+// once a slice. A call into the system takes no ask at all, a signal that comes during it being handled as it returns, in
+// the runtime's code: the calls a program makes in a loop, the clocks among them, are bracketed, so that retake takes the
+// processor once the slice is over (sliceOver) rather than asking. The gap grows so that a thread
+// in a long call that no signal ends, an unbracketed system call or a long stretch of the runtime's code, is signalled at
+// most once each reaskLongestNanos once the first gaps are spent.
+function askAgain(scheduler Count, proc Count, now Count, mutates nap Count) returns bool
+	let gap = __Raw.loadWord(proc, offset: procAskGapOffset)
+	var wait = gap
+	if gap == 0 'unasked'
+		wait = preemptNanos
+	end 'unasked'
+	var due = __Raw.wrappingAdd(__Raw.loadWord(proc, offset: procSeenWhenOffset), right: wait)
+	var sliceOver = gap != 0
+	if due <= now 'due'
+		var next = 0 as Count
+		if preemptOne(scheduler, proc: proc, again: gap != 0) 'asked'
+			next = reaskFirstNanos
+			if gap != 0 'again'
+				next = __Raw.wrappingAdd(gap, right: gap)
+			end 'again'
+			if next > reaskLongestNanos 'longest'
+				next = reaskLongestNanos
+			end 'longest'
+		end 'asked'
+		__Raw.storeWord(proc, offset: procAskGapOffset, value: next)
+		__Raw.storeWord(proc, offset: procSeenWhenOffset, value: now)
+		sliceOver = true
+		if next == 0 'unasked'
+			return sliceOver
+		end 'unasked'
+		due = __Raw.wrappingAdd(now, right: next)
+	end 'due' else if gap == 0 'slice'
+		return sliceOver
+	end 'slice'
+	let left = __Raw.wrappingSub(due, right: now)
+	if left < nap 'sooner'
+		nap = left
+	end 'sooner'
+	return sliceOver
+end 'askAgain'
+
 // preemptOne is Go's preemptone: the green thread of the thread that holds the processor is asked to stop, and the thread
 // is stopped where it may be. A thread in a blocking call holds no processor's thread word, so it is never asked: retake
-// takes its processor instead. It says whether there was one to ask, and counts each ask in the scheduler's record.
-function preemptOne(scheduler Count, proc Count) returns bool
+// takes its processor instead. It says whether there was one to ask, and counts in the scheduler's record each ask that is
+// not an ask again.
+function preemptOne(scheduler Count, proc Count, again bool) returns bool
 	let thread = __Raw.loadAcquire(proc, offset: procThreadOffset)
 	if thread == noThread 'none'
 		return false
@@ -174,9 +236,17 @@ function preemptOne(scheduler Count, proc Count) returns bool
 	end 'scheduler'
 	__Raw.storeRelease(g, offset: greenPreemptOffset, value: set)
 	preemptThread(scheduler, context: thread, g: g)
-	__Raw.storeRelease(scheduler, offset: schedPreemptAsksOffset, value: __Raw.wrappingAdd(__Raw.loadWord(scheduler, offset: schedPreemptAsksOffset), right: 1))
+	if not again 'first'
+		countMonitorWord(scheduler, offset: schedPreemptAsksOffset)
+	end 'first'
 	return true
 end 'preemptOne'
+
+// countMonitorWord steps a count of the scheduler's record that only the monitor writes, by a whole word that a test may
+// read at any time.
+function countMonitorWord(scheduler Count, offset Count)
+	__Raw.storeRelease(scheduler, offset: offset, value: __Raw.wrappingAdd(__Raw.loadWord(scheduler, offset: offset), right: 1))
+end 'countMonitorWord'
 
 // The exit claim, Go's suspendLock on Windows: a thread the monitor has suspended may hold a lock of the system's that
 // ExitProcess takes, so the monitor suspends a thread only while it holds the claim, and a thread that ends the process
@@ -211,6 +281,7 @@ end 'takeExitClaim'
 		end 'exiting'
 		let handle = __Raw.loadWord(context, offset: contextThreadOffset)
 		if handle != 0 and dword(__Raw.callImport1("SuspendThread", arg1: handle)) != suspendFailed 'suspended'
+			countMonitorWord(scheduler, offset: schedPreemptStopsOffset)
 			let buffer = __Raw.loadWord(scheduler, offset: schedRegistersOffset)
 			let registers = __Raw.wrappingAdd(buffer, right: __Raw.wrappingSub(windowsContextAlignment, right: buffer mod windowsContextAlignment))
 			__Raw.storeWord32(registers, offset: windowsContextFlagsOffset, value: windowsContextControl)
@@ -230,9 +301,27 @@ end 'takeExitClaim'
 		_ = __Raw.atomicExchange(scheduler, offset: schedExitClaimOffset, value: noThread)
 	end 'preemptThread'
 
-	// sleepMicros sleeps the monitor for at least a number of microseconds: Sleep counts milliseconds, at the system's
-	// timer resolution.
+	// createWaitableTimerHighResolution is CREATE_WAITABLE_TIMER_HIGH_RESOLUTION, and timerAllAccess TIMER_ALL_ACCESS.
+	let createWaitableTimerHighResolution = 2 as Count
+
+	let timerAllAccess = 0x1F0003 as Count
+
+	// hundredNanosPerMicro is how many of a waitable timer's units a microsecond is.
+	let hundredNanosPerMicro = 10 as Count
+
+	// sleepMicros sleeps the monitor for at least a number of microseconds, as Go's usleep2HighRes does: on a waitable
+	// timer of high resolution, set to a relative time (a negative count of 100 ns), where the system makes one (Windows 10
+	// 1803 on), and otherwise by Sleep, which counts milliseconds at the system's timer resolution, by default 15.6 ms, so
+	// that the monitor's short sleeps and its asks again would come no faster than that.
 	function sleepMicros(context Count, micros Count)
+		let timer = __Raw.loadWord(__Raw.loadWord(context, offset: contextSchedulerOffset), offset: schedMonitorTimerOffset)
+		if timer != 0 'precise'
+			var due = __Raw.wrappingSub(0, right: try micros * hundredNanosPerMicro otherwise panic("a sleep past a word of 100 ns"))
+			if __Raw.callImport6("SetWaitableTimer", arg1: timer, arg2: __Raw.addressOf(due), arg3: 0, arg4: 0, arg5: 0, arg6: 0) != 0 'set'
+				_ = __Raw.callImport2("WaitForSingleObject", arg1: timer, arg2: waitForever)
+				return
+			end 'set'
+		end 'precise'
 		var millis = (__Raw.wrappingAdd(micros, right: nanosPerMicro - 1) / nanosPerMicro) as Count
 		if millis == 0 'least'
 			millis = 1
@@ -242,7 +331,7 @@ end 'takeExitClaim'
 
 	// nanotime is the monotonic clock in nanoseconds.
 	function nanotime(context Count) returns Count
-		return osClockNanos()
+		return monotonicNanos()
 	end 'nanotime'
 
 	// setThreadIdentity keeps what the monitor stops the running thread by: a handle of its own, with the access to

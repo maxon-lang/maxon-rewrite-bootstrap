@@ -458,9 +458,22 @@ let nanosPerFileTimeStep = 100 as Count
 		return text
 	end 'osCurrentPath'
 
-	// osClockNanos is the monotonic clock in nanoseconds, from the performance counter. The seconds and the remainder of
-	// a second are scaled apart so that neither product passes a word whatever the counter's rate is.
+	// The clocks that a program reads bracket their calls into kernel32: the monitor never stops a thread in a DLL's code, so
+	// a green thread that reads the clock over and over would seldom take its ask, and in the bracket the monitor takes its
+	// processor instead once it has held it for a slice (retake).
+
+	// osClockNanos is the monotonic clock in nanoseconds.
 	function osClockNanos() returns Count
+		enterBlocking()
+		let nanos = monotonicNanos()
+		exitBlocking()
+		return nanos
+	end 'osClockNanos'
+
+	// monotonicNanos is the monotonic clock in nanoseconds as the runtime's own code reads it, outside any bracket, from the
+	// performance counter. The seconds and the remainder of a second are scaled apart so that neither product passes a word
+	// whatever the counter's rate is.
+	function monotonicNanos() returns Count
 		var ticks = 0 as Count
 		var frequency = 0 as Count
 		_ = __Raw.callImport1("QueryPerformanceFrequency", arg1: __Raw.addressOf(frequency))
@@ -473,24 +486,31 @@ let nanosPerFileTimeStep = 100 as Count
 		let wholeNanos = try wholeSeconds * nanosPerSecond otherwise panic("the monotonic clock is past a word of nanoseconds")
 		let partNanos = try remainder * nanosPerSecond otherwise panic("the performance counter's rate is past a word of nanoseconds")
 		return try wholeNanos + partNanos / frequency otherwise panic("the monotonic clock is past a word of nanoseconds")
-	end 'osClockNanos'
+	end 'monotonicNanos'
 
 	// osTickMillis is the milliseconds since the machine booted.
 	function osTickMillis() returns Count
-		return __Raw.callImport0("GetTickCount64")
+		enterBlocking()
+		let millis = __Raw.callImport0("GetTickCount64")
+		exitBlocking()
+		return millis
 	end 'osTickMillis'
 
 	// osThreadCpuTicks is the CPU cycles the calling thread has used, which is the unit that maxon's gives on Windows.
 	function osThreadCpuTicks() returns Count
 		var cycles = 0 as Count
+		enterBlocking()
 		_ = __Raw.callImport2("QueryThreadCycleTime", arg1: __Raw.callImport0("GetCurrentThread"), arg2: __Raw.addressOf(cycles))
+		exitBlocking()
 		return cycles
 	end 'osThreadCpuTicks'
 
 	// osUnixNanos is the nanoseconds since 1970-01-01 UTC, from the calendar's FILETIME, the 100 ns steps since 1601.
 	function osUnixNanos() returns Count
 		var fileTime = 0 as Count
+		enterBlocking()
 		_ = __Raw.callImport1("GetSystemTimePreciseAsFileTime", arg1: __Raw.addressOf(fileTime))
+		exitBlocking()
 		return try (__Raw.wrappingSub(fileTime, right: fileTimeAtUnixEpoch)) * nanosPerFileTimeStep otherwise panic("the calendar is past a word of nanoseconds")
 	end 'osUnixNanos'
 

@@ -1,0 +1,142 @@
+// A green thread that spends nearly all its time in the runtime's calls, where the monitor never stops it, still gives up
+// its processor about once a slice. As many spinners as there are processors hold every processor while a ticker sleeps
+// testTicks times, which it does only as spinners give way: in one half each spinner reads the clock every round, a call
+// into the system that the runtime brackets, so that the monitor takes the processor from it; in the other it allocates
+// and frees every round, the runtime's own code, where an ask is taken only when it finds the spinner between two calls,
+// so that the monitor asks again until it is.
+//
+// The test never assumes how long a sleep or a slice takes: each half gives up only at testDeadlineNanos, and then fails
+// when the ticker did not run testTicks times, and otherwise when the monitor asked more than testAsksPerTick times a
+// processor for each wake, which a monitor that asks once a slice and does not ask again or take the processor does for a
+// spinner that takes one ask in tens or thousands.
+//> the ticker ran while every processor spun in the clock and in allocations
+
+// testDeadlineNanos is how long each half waits for the ticker before the test fails, within the runner's 10 seconds.
+let testDeadlineNanos = 4000000000 as Count
+
+let testTicks = 20 as Count
+
+let testTickNanos = 1000000 as Count
+
+// testAsksPerTick is how many asks a processor each wake of the ticker may cost: one a slice, a wake that a slice ends
+// before its sleep does, and room for a monitor or a ticker that the machine's load holds up.
+let testAsksPerTick = 4 as Count
+
+// testSpinsPerClock is how many rounds the allocating spinner makes between two reads of the clock, so that it spends
+// nearly all its time allocating.
+let testSpinsPerClock = 4096 as Count
+
+let testAllocationBytes = 48 as Count
+
+// The record the green threads share: the flag that ends the spinners, how many spin, how many times the ticker woke, the
+// time the half gives up at, and how the spinners spin.
+let testFlagOffset = 0 as Count
+
+let testSpinningOffset = 8 as Count
+
+let testTicksOffset = 16 as Count
+
+let testGiveUpOffset = 24 as Count
+
+let testModeOffset = 32 as Count
+
+let testRecordBytes = 40 as Count
+
+let testModeClock = 0 as Count
+
+let testModeAllocate = 1 as Count
+
+function main() returns ExitCode
+	greenReady(greenSpawn(__Raw.codeAddress("testCoordinator")))
+	return 0
+end 'main'
+
+function testCoordinator(g Count) returns Count
+	testHalf(testModeClock, what: "read the clock")
+	testHalf(testModeAllocate, what: "allocated")
+	testWrite("the ticker ran while every processor spun in the clock and in allocations\n")
+	return 0
+end 'testCoordinator'
+
+// testHalf runs the spinners of a mode and the ticker, and stops the test when the ticker was starved.
+function testHalf(mode Count, what String)
+	let scheduler = __Raw.loadWord(__Raw.threadContext(), offset: contextSchedulerOffset)
+	let shared = alloc(testRecordBytes)
+	__Raw.storeWord(shared, offset: testFlagOffset, value: 0)
+	__Raw.storeWord(shared, offset: testSpinningOffset, value: 0)
+	__Raw.storeWord(shared, offset: testTicksOffset, value: 0)
+	__Raw.storeWord(shared, offset: testModeOffset, value: mode)
+	let spinners = osProcessorCount()
+	let list = alloc(try spinners * wordBytes otherwise panic("too many processors"))
+	let asks = __Raw.loadAcquire(scheduler, offset: schedPreemptAsksOffset)
+	__Raw.storeWord(shared, offset: testGiveUpOffset, value: __Raw.wrappingAdd(osClockNanos(), right: testDeadlineNanos))
+	for i in 0 upto spinners 'spawn'
+		let spinner = greenSpawn(__Raw.codeAddress("testSpinner"))
+		greenSetArgument(spinner, index: 0, value: shared)
+		__Raw.storeWord(list, offset: try i * wordBytes otherwise panic("too many processors"), value: spinner)
+		greenReady(spinner)
+	end 'spawn'
+	let ticker = greenSpawn(__Raw.codeAddress("testTicker"))
+	greenSetArgument(ticker, index: 0, value: shared)
+	greenReady(ticker)
+	_ = greenAwait(ticker)
+	for i in 0 upto spinners 'await'
+		_ = greenAwait(__Raw.loadWord(list, offset: try i * wordBytes otherwise panic("too many processors")))
+	end 'await'
+	let made = __Raw.wrappingSub(__Raw.loadAcquire(scheduler, offset: schedPreemptAsksOffset), right: asks)
+	let ticks = __Raw.loadWord(shared, offset: testTicksOffset)
+	if ticks != testTicks 'starved'
+		panic("the ticker ran {ticks} of {testTicks} times in {testDeadlineNanos / nanosPerMilli} ms while every processor {what} every round")
+	end 'starved'
+	let most = try procCount(scheduler) * testTicks * testAsksPerTick otherwise panic("too many processors")
+	if made > most 'untaken'
+		panic("the monitor asked {made} times for {testTicks} wakes of the ticker while every processor {what} every round: at most {most}")
+	end 'untaken'
+	free(list)
+	free(shared)
+end 'testHalf'
+
+function testSpinner(g Count) returns Count
+	let shared = greenArgument(g, index: 0)
+	let giveUp = __Raw.loadWord(shared, offset: testGiveUpOffset)
+	let allocates = __Raw.loadWord(shared, offset: testModeOffset) == testModeAllocate
+	_ = __Raw.atomicAdd(shared, offset: testSpinningOffset, value: 1)
+	var spins = 0 as Count
+	while __Raw.loadWord(shared, offset: testFlagOffset) == 0 'spin'
+		if allocates 'allocate'
+			free(alloc(testAllocationBytes))
+			spins = __Raw.wrappingAdd(spins, right: 1)
+			if spins != testSpinsPerClock 'more'
+				continue 'spin'
+			end 'more'
+			spins = 0
+		end 'allocate'
+		if osClockNanos() >= giveUp 'late'
+			break 'spin'
+		end 'late'
+	end 'spin'
+	return 0
+end 'testSpinner'
+
+// testTicker sleeps until every spinner spins, then testTicks times more, each wake one that only a spinner giving way
+// lets it run, and ends the spinners. It counts its wakes, and stops counting at the time to give up, when the spinners end.
+function testTicker(g Count) returns Count
+	let shared = greenArgument(g, index: 0)
+	let giveUp = __Raw.loadWord(shared, offset: testGiveUpOffset)
+	while __Raw.loadWord(shared, offset: testSpinningOffset) != osProcessorCount() and osClockNanos() < giveUp 'started'
+		greenSleep(testTickNanos)
+	end 'started'
+	for i in 0 upto testTicks 'ticks'
+		greenSleep(testTickNanos)
+		if osClockNanos() >= giveUp 'late'
+			break 'ticks'
+		end 'late'
+		__Raw.storeWord(shared, offset: testTicksOffset, value: __Raw.wrappingAdd(__Raw.loadWord(shared, offset: testTicksOffset), right: 1))
+	end 'ticks'
+	__Raw.storeWord(shared, offset: testFlagOffset, value: 1)
+	return 0
+end 'testTicker'
+
+function testWrite(text String)
+	write(__Raw.loadWord(__Raw.stdoutAddress(), offset: 0), text: text)
+end 'testWrite'

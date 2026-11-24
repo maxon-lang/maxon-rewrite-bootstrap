@@ -176,7 +176,7 @@ function pagesClock(pages Count) returns Count
 	#if os(Linux)
 		return clockNanosInto(__Raw.wrappingAdd(pages, right: pagesClockOffset))
 	#else
-		return osClockNanos()
+		return monotonicNanos()
 	#endif
 end 'pagesClock'
 

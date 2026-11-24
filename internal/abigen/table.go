@@ -364,10 +364,14 @@ var layouts = []layoutConst{
 	{"schedPinnedOffset", 34, false, toRuntime,
 		"where the scheduler's record holds how many green threads are pinned to their threads, stepped atomically, so a scheduler with none never reads a green thread's pin."},
 	{"schedPreemptAsksOffset", 35, false, toRuntime,
-		"where the scheduler's record holds how many times the monitor has asked a green thread to stop (preemptOne), which only the monitor writes and a test of its pace reads."},
+		"where the scheduler's record holds how many times the monitor has asked a green thread to stop (preemptOne), once for each slice it held a processor on one schedtick and not again for an ask it repeats, which only the monitor writes and the tests of its pace read."},
 	{"schedForkLockOffset", 36, false, toRuntime,
 		"where the scheduler's record holds the fork lock on Linux (Go's syscall.ForkLock): how many writes of a file hold it shared, with forkHeldBit set while a clone holds it or waits to; a futex word."},
-	{"schedProcessorsOffset", 37, false, toRuntime,
+	{"schedPreemptStopsOffset", 37, false, toRuntime,
+		"where the scheduler's record holds how many times the monitor has signalled or suspended a thread to stop its green thread, an ask or an ask again, which only the monitor writes and the tests of its pace read."},
+	{"schedMonitorTimerOffset", 38, false, toRuntime,
+		"where the scheduler's record holds the high-resolution waitable timer the monitor sleeps on, on Windows, 0 where the system makes none."},
+	{"schedProcessorsOffset", 39, false, toRuntime,
 		"where the scheduler's record holds the address of each processor (Go's allp), a word each, by its id, 0 until it is made."},
 
 	// A processor (Go's P): what a thread must hold to run green threads, its local run queue (a ring that its owner puts
@@ -415,7 +419,10 @@ var layouts = []layoutConst{
 		"where a processor's run queue begins, procRunqSlots green threads; index i is slot i modulo procRunqSlots."},
 	{"procRunqSlots", 256, true, toRuntime,
 		"how many green threads a processor's run queue holds, Go's: a full one sends half of them to the global run queue."},
-	{"procBytes", 274, false, toRuntime,
+	// The monitor's word past the run queue, which it writes only while a green thread holds the processor past its slice.
+	{"procAskGapOffset", 274, false, toRuntime,
+		"where a processor holds how long the monitor waits before it asks again the green thread it asked to stop on the schedtick it saw last, 0 while it has not asked on that tick, which only the monitor reads and writes."},
+	{"procBytes", 275, false, toRuntime,
 		"the size of a processor."},
 
 	// A green thread (Go's g): its state, the code it runs and the word it runs it with, the arguments the code reads, the

@@ -91,7 +91,7 @@
 	// nanotime is the monotonic clock in nanoseconds, which clock_gettime_nsec_np gives with no record, so it allocates
 	// nothing.
 	function nanotime(context Count) returns Count
-		return osClockNanos()
+		return monotonicNanos()
 	end 'nanotime'
 
 	// sysNanosleep sleeps for the timespec at an address, and gives 0, or -errno with what is left of the sleep in the
@@ -140,6 +140,7 @@
 		if __Raw.compareExchange(context, offset: contextSignalPendingOffset, expected: unset, desired: set) != unset 'pending'
 			return
 		end 'pending'
+		countMonitorWord(scheduler, offset: schedPreemptStopsOffset)
 		signalThread(__Raw.loadWord(context, offset: contextThreadOffset))
 	end 'preemptThread'
 

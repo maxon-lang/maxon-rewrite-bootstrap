@@ -92,6 +92,7 @@
 		if __Raw.compareExchange(context, offset: contextSignalPendingOffset, expected: unset, desired: set) != unset 'pending'
 			return
 		end 'pending'
+		countMonitorWord(scheduler, offset: schedPreemptStopsOffset)
 		_ = __Raw.syscall3(linuxSysTgkill, arg1: __Raw.syscall0(linuxSysGetpid), arg2: __Raw.loadWord(context, offset: contextThreadOffset), arg3: linuxSigurg)
 	end 'preemptThread'
 

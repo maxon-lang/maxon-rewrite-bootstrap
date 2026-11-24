@@ -237,23 +237,44 @@
 
 	// osClockNanos is the monotonic clock in nanoseconds.
 	function osClockNanos() returns Count
-		return clockNanosOf(linuxClockMonotonic)
+		return programClockNanos(linuxClockMonotonic)
 	end 'osClockNanos'
 
 	// osTickMillis is the milliseconds since the machine booted.
 	function osTickMillis() returns Count
-		return clockNanosOf(linuxClockBoottime) / nanosPerMilli
+		return programClockNanos(linuxClockBoottime) / nanosPerMilli
 	end 'osTickMillis'
 
 	// osThreadCpuTicks is the CPU time the calling thread has used, in nanoseconds.
 	function osThreadCpuTicks() returns Count
-		return clockNanosOf(linuxClockThreadCpu)
+		return programClockNanos(linuxClockThreadCpu)
 	end 'osThreadCpuTicks'
 
 	// osUnixNanos is the nanoseconds since 1970-01-01 UTC.
 	function osUnixNanos() returns Count
-		return clockNanosOf(linuxClockRealtime)
+		return programClockNanos(linuxClockRealtime)
 	end 'osUnixNanos'
+
+	// programClockNanos is a clock that a program reads, in nanoseconds: its system call is bracketed, as Go brackets every
+	// call of its syscall package. The runtime reads the clock by a raw clock_gettime, and a preemption signal that comes
+	// while a thread is in a system call is handled as the call returns, in the runtime's code, which is never stopped, so a
+	// green thread that reads the clock over and over would almost never take the monitor's ask; in the bracket the monitor
+	// takes its processor instead once it has held it for a slice (retake). The runtime's own reads, which may hold the
+	// running thread or a bracket of their own, are monotonicNanos, clockNanosOf and clockNanosInto.
+	function programClockNanos(clock Count) returns Count
+		let time = alloc(linuxTimespecBytes)
+		enterBlocking()
+		_ = __Raw.syscall2(linuxSysClockGettime, arg1: clock, arg2: time)
+		exitBlocking()
+		let nanos = timespecNanos(time)
+		free(time)
+		return nanos
+	end 'programClockNanos'
+
+	// monotonicNanos is the monotonic clock in nanoseconds as the runtime's own code reads it, outside any bracket.
+	function monotonicNanos() returns Count
+		return clockNanosOf(linuxClockMonotonic)
+	end 'monotonicNanos'
 
 	// clockNanosOf is the clock that the system numbers clock, in nanoseconds.
 	function clockNanosOf(clock Count) returns Count
@@ -271,9 +292,14 @@
 	// clockNanosFrom is a clock in nanoseconds, read through a timespec at an address.
 	function clockNanosFrom(clock Count, time Count) returns Count
 		_ = __Raw.syscall2(linuxSysClockGettime, arg1: clock, arg2: time)
+		return timespecNanos(time)
+	end 'clockNanosFrom'
+
+	// timespecNanos is the time a timespec at an address holds, in nanoseconds.
+	function timespecNanos(time Count) returns Count
 		let wholeNanos = try __Raw.loadWord(time, offset: 0) * nanosPerSecond otherwise panic("the clock is past a word of nanoseconds")
 		return try wholeNanos + __Raw.loadWord(time, offset: wordBytes) otherwise panic("the clock is past a word of nanoseconds")
-	end 'clockNanosFrom'
+	end 'timespecNanos'
 
 	function osProcessId() returns Count
 		return __Raw.syscall0(linuxSysGetpid)

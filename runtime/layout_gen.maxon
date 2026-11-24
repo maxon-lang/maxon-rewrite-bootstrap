@@ -342,14 +342,20 @@ let schedFreeStackCountOffset = 264 as Count
 // schedPinnedOffset is where the scheduler's record holds how many green threads are pinned to their threads, stepped atomically, so a scheduler with none never reads a green thread's pin.
 let schedPinnedOffset = 272 as Count
 
-// schedPreemptAsksOffset is where the scheduler's record holds how many times the monitor has asked a green thread to stop (preemptOne), which only the monitor writes and a test of its pace reads.
+// schedPreemptAsksOffset is where the scheduler's record holds how many times the monitor has asked a green thread to stop (preemptOne), once for each slice it held a processor on one schedtick and not again for an ask it repeats, which only the monitor writes and the tests of its pace read.
 let schedPreemptAsksOffset = 280 as Count
 
 // schedForkLockOffset is where the scheduler's record holds the fork lock on Linux (Go's syscall.ForkLock): how many writes of a file hold it shared, with forkHeldBit set while a clone holds it or waits to; a futex word.
 let schedForkLockOffset = 288 as Count
 
+// schedPreemptStopsOffset is where the scheduler's record holds how many times the monitor has signalled or suspended a thread to stop its green thread, an ask or an ask again, which only the monitor writes and the tests of its pace read.
+let schedPreemptStopsOffset = 296 as Count
+
+// schedMonitorTimerOffset is where the scheduler's record holds the high-resolution waitable timer the monitor sleeps on, on Windows, 0 where the system makes none.
+let schedMonitorTimerOffset = 304 as Count
+
 // schedProcessorsOffset is where the scheduler's record holds the address of each processor (Go's allp), a word each, by its id, 0 until it is made.
-let schedProcessorsOffset = 296 as Count
+let schedProcessorsOffset = 312 as Count
 
 // procIdOffset is where a processor holds its index among the processors.
 let procIdOffset = 0 as Count
@@ -411,8 +417,11 @@ let procRunqOffset = 144 as Count
 // procRunqSlots is how many green threads a processor's run queue holds, Go's: a full one sends half of them to the global run queue.
 let procRunqSlots = 256 as Count
 
+// procAskGapOffset is where a processor holds how long the monitor waits before it asks again the green thread it asked to stop on the schedtick it saw last, 0 while it has not asked on that tick, which only the monitor reads and writes.
+let procAskGapOffset = 2192 as Count
+
 // procBytes is the size of a processor.
-let procBytes = 2192 as Count
+let procBytes = 2200 as Count
 
 // greenStatusOffset is where a green thread holds its status (greenIdle, greenRunnable, ...), changed with compare-exchanges where a reader of another thread may race.
 let greenStatusOffset = 0 as Count

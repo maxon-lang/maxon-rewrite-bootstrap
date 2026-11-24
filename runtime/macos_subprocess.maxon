@@ -430,11 +430,11 @@
 		if hasInput 'feed'
 			feedInput(run, text: input)
 		end 'feed'
-		let startedAt = osClockNanos()
+		let startedAt = monotonicNanos()
 		while running(run) 'drain'
 			var timeout = pollForever
 			if deadlineMs != noDeadline 'deadline'
-				let elapsedMs = __Raw.wrappingSub(osClockNanos(), right: startedAt) / nanosPerMilli
+				let elapsedMs = __Raw.wrappingSub(monotonicNanos(), right: startedAt) / nanosPerMilli
 				if elapsedMs >= deadlineMs 'late'
 					killChild(pid)
 					closeInput(run)

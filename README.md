@@ -2565,15 +2565,23 @@ so the code at `run` must have released and freed what the behaviour holds by th
   park, to be requeued (a yield or a preemption, onto the global queue as Go's are), to wait for a processor it lost in a
   blocking call, or to finish, which its thread's scheduler then does on its own stack.
 - **The monitor** (Go's sysmon) is a thread of its own that holds no processor and allocates nothing. It wakes every 20 µs
-  to 10 ms, the sleep short again only after it took a processor (Go's sysmon); asks a green thread that has run 10 ms on
-  one schedule tick to stop, once a slice where Go asks every round (a stop asked in the runtime's code or in an unbracketed
-  system call is not taken, and a signal into the call only breaks it off), and stops its thread from outside, on Windows by
+  to 10 ms, the sleep short again only after it took a processor (Go's sysmon), and on Windows sleeps on a high-resolution
+  waitable timer as Go's does, since `Sleep` counts in the system's 15.6 ms ticks; asks a green thread that has run 10 ms on
+  one schedule tick to stop, and stops its thread from outside, on Windows by
   `SuspendThread`, `GetThreadContext` and `SetThreadContext`, on Linux and macOS by SIGURG, which every thread that runs
   green threads unblocks for itself as it starts (Go's `minitSignalMask`), when the thread is in the program's code,
   on the green thread's stack and not in a blocking call; takes a processor from a thread in a bracketed blocking call
-  (`enterBlocking`, `exitBlocking`, Go's entersyscall and exitsyscall, around file I/O, path and directory calls, `write`
-  and the wait for a child)
-  and hands it to another thread; and polls a poller no thread has polled for 10 ms. On Windows it holds the exit claim
+  (`enterBlocking`, `exitBlocking`, Go's entersyscall and exitsyscall, around file I/O, path and directory calls, `write`,
+  the wait for a child and the clocks a program reads)
+  and hands it to another thread; and polls a poller no thread has polled for 10 ms. A stop asked while the thread is in
+  the runtime's code, a DLL's or libSystem's is not taken, and nothing in the compiled code takes it later, so while the tick
+  does not move the monitor asks again 100 µs later, then after twice as long each time up to 1 ms (Go re-signals every
+  round, its sleep growing): a green thread that spends nearly all its time in the runtime's calls still gives up its
+  processor within a few slices, a thread that takes its first ask costs one signal a slice, and one in a long call that
+  no signal ends gets at most about 1,000 a second. A program's clock read is a system call on Linux (a signal that comes
+  during one is handled as it returns, in the runtime's code, so a loop of them takes about one ask in thousands) and a call
+  into kernel32 or libSystem elsewhere, so the runtime brackets it and the monitor takes the processor instead (Go's
+  sysretake). On Windows it holds the exit claim
   while a thread it stopped is suspended, which a thread that ends the process takes for good first (the runtime's
   `exitProcess`, `schedDrain` and the stub's fault handler), so `ExitProcess` never meets a suspended thread (Go's
   suspendLock).
@@ -2625,7 +2633,8 @@ trap on any thread writes its line and exits with 1 at once.
   (`rt.async.new`), writes its argument words, and queues it last in the strand (`rt.async.start`), so it runs once the
   caller waits; the thunk calls the function with the words, keeps what it failed with (`greenErrorOffset`) and gives back
   what it returned. The tests of `tests/runtime/` that start
-with `green-` hold the scheduler to many green threads ping-ponging, a busy loop stopped for another, the float state
+with `green-` hold the scheduler to many green threads ping-ponging, a busy loop stopped for another, a loop in the runtime's calls (the clock, allocation) giving way
+about once a slice, the float state
 across a preemption, a blocking call handed off, timers and a completion of the poller.
 
 **Faults and the stack.** The executable's main thread has a 256 MB stack reserve (`peStackReserve` in
@@ -4797,7 +4806,8 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   scheduler"), with `MAXON_MAX_PROCS` and its acquire of several cowns in address order, which minimaxon does with no
   lock per cown. Stacks never move, since a borrow is an
   address in a frame: a green thread's stack is a fixed reserve with a guard page, where maxon's grow by moving up to 1
-  GiB. Preemption is asynchronous only, with no check in the compiled code, where maxon's prologues test a guard word.
+  GiB. Preemption is asynchronous only, with no check in the compiled code, where maxon's prologues test a guard word:
+  the monitor asks again a thread that did not take its ask, and the clocks a program reads are bracketed calls.
   The interpreter schedules behaviours too, and fails a program that leaks a value. A native program that is not built with `--count-allocations` cannot
   tell that it leaked, and a program that panics or traps does not free what it holds.
 - Errors (see "Errors of the program"): a `try` block's handler names
