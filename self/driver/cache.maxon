@@ -628,13 +628,21 @@ end 'writeSpeculation'
 // writeWhole writes bytes to a file of its own beside path and renames it over path, so that no reader meets half of it; a
 // file that another compile wrote there first holds the same bytes, and is kept.
 function writeWhole(path String, bytes ByteArray)
-	let temporary = "{path}.{Process.id()}{temporaryExtension}"
+	let temporary = "{path}{temporarySuffix()}"
 	let temporaryPath = try FilePath.from(temporary) otherwise return
 	let finalPath = try FilePath.from(path) otherwise return
 	try File.writeBinary(temporaryPath.clone(), content: bytes) otherwise return
 	try File.rename(temporaryPath.clone(), to: finalPath) otherwise ignore
 	try File.delete(temporaryPath) otherwise ignore
 end 'writeWhole'
+
+// temporarySuffix ends the name of a file that one write makes and renames or deletes: the process's id and the clock's
+// nanoseconds, so that two writes share one only when they are of one process and start within one tick of its clock, as two
+// compiles of one process at once, the workers of a run of tests, otherwise would every time. A write that met another in its
+// tick could only lose its entry, which a read refuses when it is not whole and of its key.
+function temporarySuffix() returns String
+	return ".{Process.id()}-{Clock.nowNanos()}{temporaryExtension}"
+end 'temporarySuffix'
 
 // fileTime is the time the file at path was last written, in seconds on the file system's clock, or none where there is no
 // such file or it cannot be read.
@@ -645,12 +653,12 @@ function fileTime(path String) returns table.Option with Count
 end 'fileTime'
 
 // fileSystemNow is the file system's time now, as the time of a file of the cache at dir that this process writes and
-// deletes, or none where it cannot: each process names its own, so two compiles never write one.
+// deletes, or none where it cannot: each call names its own (temporarySuffix), so two compiles never write one.
 function fileSystemNow(dir String) returns table.Option with Count
 	if dir == "" 'off'
 		return table.Option.none
 	end 'off'
-	let path = project.joinPath(dir, name: "{clockName}.{Process.id()}{temporaryExtension}")
+	let path = project.joinPath(dir, name: "{clockName}{temporarySuffix()}")
 	let at = try FilePath.from(path) otherwise return table.Option.none
 	try File.writeText(at.clone(), content: "") otherwise return table.Option.none
 	let now = fileTime(path)

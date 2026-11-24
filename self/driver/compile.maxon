@@ -89,17 +89,21 @@ end 'noReadyUnits'
 type SharedRuntime
 	var p as frozen with ast.Project
 	var ready as frozen with backend.UnitList
+	// cacheDir and compiler are the build cache that the programs compiled on the runtime use, or none, and the digest of
+	// the compiler that its keys hold, which the run reads once.
+	var cacheDir as String
+	var compiler as table.Digest
 
 	static function prepare(options Options, mutates errs diag.ErrorList) returns SharedRuntime
 		var p = projectFor(options)
 		let ready = prepareRuntime(p, options: options, errs: errs)
 		_ = ast.takeBody(p, module: runtimeModule)
-		return SharedRuntime{p: freeze(p), ready: freeze(ready)}
+		return SharedRuntime{p: freeze(p), ready: freeze(ready), cacheDir: options.cacheDir.clone(), compiler: options.compiler.clone()}
 	end 'prepare'
 
 	// none is the runtime of a run that compiles no executable: nothing is loaded or checked.
 	static function none() returns SharedRuntime
-		return SharedRuntime{p: freeze(ast.Project.new("")), ready: noReadyUnits()}
+		return SharedRuntime{p: freeze(ast.Project.new("")), ready: noReadyUnits(), cacheDir: "", compiler: table.Digest.none()}
 	end 'none'
 
 	// projectForProgram is a copy of the project for one program to be added to.

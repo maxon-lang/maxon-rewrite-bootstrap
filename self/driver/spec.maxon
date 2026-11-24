@@ -987,6 +987,23 @@ end 'specRunDirectory'
 
 let specRunPrefix = ".spec-run-"
 
+// specCacheDirectory is the build cache of the run's compiles: a directory in the run's own, so that it starts empty and goes
+// with it, and the stdlib's modules, which every test names and which are the most of each compile, are compiled once for each
+// variant of the library and options the tests have rather than once for each test. It is nothing when MINIMAXON_CACHE turns
+// the cache off.
+function specCacheDirectory(runDirectory String) returns String
+	if (try Process.environmentVariable(cacheVariable) otherwise "") == cacheOff 'off'
+		return ""
+	end 'off'
+	let dir = project.joinPath(runDirectory, name: specCacheName)
+	if not makeDirectories(dir) 'unmade'
+		return ""
+	end 'unmade'
+	return dir
+end 'specCacheDirectory'
+
+let specCacheName = ".build-cache"
+
 // removeTree deletes the directory at path and everything in it, when it is there.
 function removeTree(path String)
 	let at = try FilePath.from(path) otherwise return
@@ -1152,7 +1169,7 @@ function runSpecs(path String, options SpecOptions, width RunWidth) returns Exit
 	end 'unmade'
 	var corpus = CorpusOptions.new()
 	corpus.workingDirectory = directory.clone()
-	startTests(prepareSharedRuntime(hostTarget()), jobs: jobs, files: files, corpus: corpus, verbose: options.verbose, scratch: Scratch.make("spec", suffix: executableExtension(hostTarget())), width: width, tally: Tally.spec(tally))
+	startTests(prepareCachedRuntime(hostTarget(), cacheDir: specCacheDirectory(directory)), jobs: jobs, files: files, corpus: corpus, verbose: options.verbose, scratch: Scratch.make("spec", suffix: executableExtension(hostTarget())), width: width, tally: Tally.spec(tally))
 	return compiledByBehaviours
 end 'runSpecs'
 
@@ -1255,6 +1272,11 @@ function compileSpecSource(shared SharedRuntime, exe String, test SpecTest, sour
 	var options = testOptions()
 	options.stagesInLibrary = stagedInLibrary(test)
 	options.debugInfo = buildsDebugInfo(test)
+	if not options.debugInfo 'cached'
+		options.cacheDir = shared.cacheDir.clone()
+		options.compiler = shared.compiler.clone()
+		options.speculates = shared.cacheDir != ""
+	end 'cached'
 	if sections.count() == 0 'single'
 		let fragment = "{fragmentHeader}{test.name}\n{source}\n"
 		compileSourceWith(shared, path: fragmentToken, text: fragment, output: exe, options: options, errs: errs)

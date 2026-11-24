@@ -648,15 +648,26 @@ end 'runTests'
 // prepareSharedRuntime is the runtime of the target that every compile of a run of tests links with, checked and compiled
 // once. It panics when the runtime does not compile, since no test could then say anything about the program it compiles.
 function prepareSharedRuntime(target ast.Target) returns SharedRuntime
+	return prepareCachedRuntime(target, cacheDir: "")
+end 'prepareSharedRuntime'
+
+// prepareCachedRuntime is prepareSharedRuntime for programs compiled with the build cache at cacheDir, or with none when it is
+// empty: the compiler's digest, which every key holds, is read once for the run.
+function prepareCachedRuntime(target ast.Target, cacheDir String) returns SharedRuntime
 	var errs = diag.ErrorList.create(0)
 	var options = testOptions()
 	options.target = target.clone()
+	if cacheDir != "" 'cached'
+		options.cacheDir = cacheDir.clone()
+		options.compiler = compilerIdentity()
+		options.speculates = true
+	end 'cached'
 	let shared = SharedRuntime.prepare(options, errs: errs)
 	if errs.count() > 0 'broken'
 		panic("test: the runtime does not compile: {joinErrors(errs)}")
 	end 'broken'
 	return shared
-end 'prepareSharedRuntime'
+end 'prepareCachedRuntime'
 
 // testOptions are the options every test is compiled with: the executables count their live heap boxes, so that a test
 // that leaks fails.
