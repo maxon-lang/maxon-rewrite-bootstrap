@@ -280,7 +280,7 @@ end 'setTo99'
 function main() returns ExitCode
 	var pair = (1 as Integer, 2 as Integer)
 	setTo99(pair.0)
-	setTo99(pair._1)
+	setTo99(pair.1)
 	print("{pair.0} {pair.1}")
 	return 0
 end 'main'

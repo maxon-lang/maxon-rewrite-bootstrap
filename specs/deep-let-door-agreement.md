@@ -224,6 +224,7 @@ end 'main'
 ```
 
 <!-- test: a-let-kept-by-a-let-field-is-moved-into-a-var -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 `wrap` keeps the record `cell` names in a `let` field, and `cell` is moved into a `var` that writes it: `wrap` reads the write.
 
 ```maxon
@@ -241,16 +242,16 @@ type Wrap
 	export let cell as Cell
 
 	static function create(cell Cell) returns Self
-		return Self{cell: cell.clone()}
+		return Self{cell: cell}
 	end 'create'
 end 'Wrap'
 
 function main() returns ExitCode
 	let cell = Cell.create()
 	let wrap = Wrap.create(cell)
-	var mine = cell
+	let mine = cell
 	mine.n = 7
-	return try wrap.cell.n as ExitCode otherwise panic("out of range")
+	return wrap.cell.n as ExitCode
 end 'main'
 ```
 ```exitcode

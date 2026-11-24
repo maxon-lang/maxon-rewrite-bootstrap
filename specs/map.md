@@ -143,6 +143,7 @@ end 'main'
 ```
 
 <!-- test: contains.false -->
+<!-- skip: language difference: the bare numbers of an array or map literal keep their range as the element type of that one literal -->
 ```maxon
 function main() returns ExitCode
 	let m = [10: 100, 20: 200, 30: 300]
@@ -169,6 +170,7 @@ end 'main'
 ```
 
 <!-- test: get.missing -->
+<!-- skip: language difference: the bare numbers of an array or map literal keep their range as the element type of that one literal -->
 ```maxon
 function main() returns ExitCode
 	let m = [1: 10, 2: 20]

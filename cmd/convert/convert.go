@@ -2057,6 +2057,7 @@ func transformStmtAndExpr(line *sourceLine, warn func(*sourceLine, string)) {
 	toks = rewriteArmThrows(toks)
 	toks = rewriteDiscards(toks)
 	toks = rewriteClosureParams(toks, line, warn)
+	toks = rewriteTupleElements(toks)
 	line.code = toks
 
 	// Statement-head checks.
@@ -2230,6 +2231,26 @@ func rewriteDiscards(toks []token) []token {
 	}
 	return toks
 }
+
+// rewriteTupleElements writes maxon's second spelling of a tuple's element, `t._0`, as `t.0`, the one minimaxon has.
+func rewriteTupleElements(toks []token) []token {
+	var out []token
+	for i, t := range toks {
+		if t.kind == tokIdent && i > 0 && toks[i-1].text == "." && tupleElementName.MatchString(t.text) {
+			if out == nil {
+				out = slices.Clone(toks)
+			}
+			out[i].kind = tokInt
+			out[i].text = t.text[1:]
+		}
+	}
+	if out == nil {
+		return toks
+	}
+	return out
+}
+
+var tupleElementName = regexp.MustCompile(`^_[0-9]+$`)
 
 func rewriteArmThrows(toks []token) []token {
 	if toks[0].text == "end" || hasToken(toks, "function") {

@@ -33,7 +33,7 @@ type Entry
 	export var weight as Integer
 
 	static function create(name frozen with ByteArray) returns Self
-		return Self{name: name, weight: 0}
+		return Self{name: thaw(name), weight: 0}
 	end 'create'
 end 'Entry'
 
@@ -52,20 +52,20 @@ type Registry
 		return Self{entries: EntryArray.create(0)}
 	end 'create'
 
-	function add(name frozen with ByteArray)
+	function add(mutates self, name frozen with ByteArray)
 		self.entries.push(Entry.create(name))
 	end 'add'
 
 	function total() returns Integer
-		return self.entries.count() as Integer
+		return try self.entries.count() as Integer otherwise panic("out of range")
 	end 'total'
 end 'Registry'
 
 function main() returns ExitCode
-	let registry = Registry.create()
+	var registry = Registry.create()
 	let source = Source.create()
-	registry.add(source.title)
-	return registry.total() as ExitCode
+	registry.add(freeze(source.title))
+	return try registry.total() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

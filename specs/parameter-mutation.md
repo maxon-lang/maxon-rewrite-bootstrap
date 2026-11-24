@@ -1176,6 +1176,7 @@ end 'main'
 1
 ```
 <!-- test: function-value-call-keeps-its-argument-in-a-let-field -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 The same judgement covers what a function value KEEPS: `shelve` stores its parameter in a `let` field, so the
 call through `build`'s `Maker` keeps `v`, which is read again afterwards. The `let` field names the same array
 as `v`, so the later push is seen through the shelf.
@@ -1189,7 +1190,7 @@ type Shelf
 	export let items as IntArray
 
 	static function create(items IntArray) returns Self
-		return Self{items: items.clone()}
+		return Self{items: items}
 	end 'create'
 end 'Shelf'
 
@@ -1204,11 +1205,11 @@ function build(m Maker, mutates d IntArray) returns Shelf
 end 'build'
 
 function main() returns ExitCode
-	var v = IntArray.create(0)
+	let v = IntArray.create(0)
 	v.push(1)
 	let shelf = build(shelve, d: v)
 	v.push(2)
-	return try shelf.items.count() as ExitCode otherwise panic("out of range")
+	return shelf.items.count() as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -1606,6 +1607,7 @@ lit7
 ```
 
 <!-- test: let-record-written-through-an-alias-in-the-callee -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 A container method called through a mutable name made from a call's result writes every parameter
 that result may be, so `tag` writes `p`, and a `let` argument takes the write.
 
@@ -1615,18 +1617,18 @@ typealias Integer = int(i64.min to i64.max)
 typealias IntArray = Array with Integer
 
 function pass(s IntArray) returns IntArray
-	return s.clone()
+	return s
 end 'pass'
 
 function tag(p IntArray)
-	var x = pass(p)
+	let x = pass(p)
 	x.push(9)
 end 'tag'
 
 function main() returns ExitCode
 	let a = IntArray.create(0)
 	tag(a)
-	return try a.count() as ExitCode otherwise panic("out of range")
+	return a.count() as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -1634,6 +1636,7 @@ end 'main'
 ```
 
 <!-- test: a-write-through-a-var-bound-to-a-parameter-writes-that-parameter -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 A `var` made from a parameter names the caller's record, so writing a field of it writes the parameter and a
 `let` argument takes the write.
 
@@ -1649,14 +1652,14 @@ type Blk
 end 'Blk'
 
 function retarget(block Blk, id Integer)
-	var target = block.clone()
+	let target = block
 	target.id = id
 end 'retarget'
 
 function main() returns ExitCode
 	let a = Blk.create(1)
 	retarget(a, id: 5)
-	return try a.id as ExitCode otherwise panic("out of range")
+	return a.id as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -1664,6 +1667,7 @@ end 'main'
 ```
 
 <!-- test: a-write-through-a-var-bound-to-a-parameter-accepts-a-var-argument -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 The same call with a `var` argument writes it.
 
 ```maxon
@@ -1678,14 +1682,14 @@ type Blk
 end 'Blk'
 
 function retarget(block Blk, id Integer)
-	var target = block.clone()
+	let target = block
 	target.id = id
 end 'retarget'
 
 function main() returns ExitCode
 	let a = Blk.create(1)
 	retarget(a, id: 5)
-	return try a.id as ExitCode otherwise panic("out of range")
+	return a.id as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -1693,6 +1697,7 @@ end 'main'
 ```
 
 <!-- test: a-write-through-a-var-bound-to-a-field-of-a-parameter-writes-that-parameter -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 A `var` made from a field of a parameter names a record inside the caller's, so writing it writes the
 parameter, and a `let` argument takes the write.
 
@@ -1716,14 +1721,14 @@ type Outer
 end 'Outer'
 
 function retargetInner(outer Outer, id Integer)
-	var target = outer.inner.clone()
+	let target = outer.inner
 	target.id = id
 end 'retargetInner'
 
 function main() returns ExitCode
 	let o = Outer.create(2)
 	retargetInner(o, id: 6)
-	return try o.inner.id as ExitCode otherwise panic("out of range")
+	return o.inner.id as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -1731,6 +1736,7 @@ end 'main'
 ```
 
 <!-- test: a-write-through-a-var-bound-to-a-field-of-a-parameter-accepts-a-var-argument -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 The same call with a `var` argument writes it.
 
 ```maxon
@@ -1753,14 +1759,14 @@ type Outer
 end 'Outer'
 
 function retargetInner(outer Outer, id Integer)
-	var target = outer.inner.clone()
+	let target = outer.inner
 	target.id = id
 end 'retargetInner'
 
 function main() returns ExitCode
 	let o = Outer.create(2)
 	retargetInner(o, id: 6)
-	return try o.inner.id as ExitCode otherwise panic("out of range")
+	return o.inner.id as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -1768,6 +1774,7 @@ end 'main'
 ```
 
 <!-- test: a-write-through-a-merge-of-two-parameters-writes-both -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 A `var` that is one parameter or the other writes whichever it is, and a `let` argument at either takes the write.
 
 ```maxon
@@ -1782,7 +1789,7 @@ type Blk
 end 'Blk'
 
 function retargetEither(first Blk, second Blk, which bool, id Integer)
-	var target = first.clone() if which else second.clone()
+	let target = first if which else second
 	target.id = id
 end 'retargetEither'
 
@@ -1790,7 +1797,7 @@ function main() returns ExitCode
 	let c = Blk.create(4)
 	let b = Blk.create(3)
 	retargetEither(c, second: b, which: false, id: 7)
-	return try b.id as ExitCode otherwise panic("out of range")
+	return b.id as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -1798,6 +1805,7 @@ end 'main'
 ```
 
 <!-- test: a-write-through-a-merge-of-two-parameters-accepts-var-arguments -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 The same call with `var` arguments writes the one the merge picks.
 
 ```maxon
@@ -1812,7 +1820,7 @@ type Blk
 end 'Blk'
 
 function retargetEither(first Blk, second Blk, which bool, id Integer)
-	var target = first.clone() if which else second.clone()
+	let target = first if which else second
 	target.id = id
 end 'retargetEither'
 
@@ -1820,7 +1828,7 @@ function main() returns ExitCode
 	let c = Blk.create(4)
 	let b = Blk.create(3)
 	retargetEither(c, second: b, which: false, id: 7)
-	return try b.id as ExitCode otherwise panic("out of range")
+	return b.id as ExitCode
 end 'main'
 ```
 ```exitcode

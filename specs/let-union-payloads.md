@@ -546,6 +546,7 @@ end 'main'
 ```
 
 <!-- test: a-var-read-again-after-a-wrapper-that-stores-into-a-let-payload -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 `wrapOp` hands its parameter on to a function that stores it in a `let` payload, and a `var` that is read again names the same record.
 
 ```maxon
@@ -555,7 +556,7 @@ union Op
 end 'Op'
 
 function makeOp(callee ByteArray) returns Op
-	return Op.call(callee.clone())
+	return Op.call(callee)
 end 'makeOp'
 
 function wrapOp(callee ByteArray) returns Op
@@ -563,12 +564,12 @@ function wrapOp(callee ByteArray) returns Op
 end 'wrapOp'
 
 function main() returns ExitCode
-	var scratch = ByteArray.create(0)
+	let scratch = ByteArray.create(0)
 	scratch.push(1)
 	let op = wrapOp(scratch)
 	scratch.push(2)
 	return match op 'shape'
-		call(callee) gives try callee.count() as ExitCode otherwise panic("out of range")
+		call(callee) gives callee.count() as ExitCode
 		nop gives 0
 	end 'shape'
 end 'main'
@@ -643,6 +644,7 @@ end 'names'
 ```
 
 <!-- test: a-var-read-again-after-a-wrapper-that-stores-it-into-a-let-payload-of-an-alias-over-an-alias -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 The payload's type `Grid` is an array of `Row`, which is itself an alias of an instance, so the payload's kind is spelled through both aliases; a `var` stored into it by a wrapper and read again names the same record.
 
 ```maxon
@@ -656,7 +658,7 @@ union Op
 end 'Op'
 
 function makeOp(grid Grid) returns Op
-	return Op.call(grid.clone())
+	return Op.call(grid)
 end 'makeOp'
 
 function wrapOp(grid Grid) returns Op
@@ -664,12 +666,12 @@ function wrapOp(grid Grid) returns Op
 end 'wrapOp'
 
 function main() returns ExitCode
-	var scratch = Grid.create(0)
+	let scratch = Grid.create(0)
 	scratch.push(Row.create(0))
 	let op = wrapOp(scratch)
 	scratch.push(Row.create(0))
 	return match op 'shape'
-		call(grid) gives try grid.count() as ExitCode otherwise panic("out of range")
+		call(grid) gives grid.count() as ExitCode
 		nop gives 0
 	end 'shape'
 end 'main'

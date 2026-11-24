@@ -33,6 +33,7 @@ a wrong answer and not merely a slower one.
 ### A managed aggregate argument is SHARED by the record the shared body builds
 
 <!-- test: aggregate-argument-is-shared-not-copied -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -45,8 +46,8 @@ type Cell
 		return Self{n: n}
 	end 'create'
 
-	function bump(mutates self, by Integer)
-		n = try n + by otherwise panic("out of range")
+	function bump(by Integer)
+		n = n + by
 	end 'bump'
 end 'Cell'
 
@@ -59,11 +60,11 @@ type Holder uses Element
 		return Self{}
 	end 'create'
 
-	function add(mutates self, item Element) where Element implements Copyable
-		items.push(item.clone())
+	function add(item Element)
+		items.push(item)
 	end 'add'
 
-	function entryAt(i Index) returns Entry where Element implements Copyable
+	function entryAt(i Index) returns Entry
 		let v = try items.get(i) otherwise panic("Holder.entryAt: out of range")
 		return (v, 1)
 	end 'entryAt'
@@ -72,12 +73,12 @@ end 'Holder'
 typealias CellHolder = Holder with Cell
 
 function main() returns ExitCode
-	var h = CellHolder.create()
+	let h = CellHolder.create()
 	h.add(Cell.create(40))
-	var e = h.entryAt(0)
+	let e = h.entryAt(0)
 	e.0.bump(2)
 	let again = h.entryAt(0)
-	return try again.0.n as ExitCode otherwise panic("out of range")
+	return again.0.n
 end 'main'
 ```
 ```exitcode
@@ -87,6 +88,7 @@ end 'main'
 ### A `String` argument outlives the container the shared body read it from
 
 <!-- test: a-parameter-held-in-a-map-field-is-shared -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 A record stored under the type parameter in a `Map with (String, Value)` field is shared: writes through the record read back out show in the map.
 ```maxon
 typealias Count = int(0 to 1000)
@@ -101,8 +103,8 @@ type Box
 		return Self{n: n, names: NameArray.create(0)}
 	end 'create'
 
-	function bump(mutates self)
-		self.n = try self.n + 1 otherwise panic("out of range")
+	function bump()
+		self.n = self.n + 1
 		self.names.push("x{self.n}")
 	end 'bump'
 end 'Box'
@@ -115,11 +117,11 @@ type Held uses Value
 		return Self{values: ValueMap.create()}
 	end 'create'
 
-	function hold(mutates self, key String, value Value) where Value implements Droppable and Copyable
-		self.values.upsert(key.clone(), value: value.clone())
+	function hold(key String, value Value)
+		self.values.upsert(key, value: value)
 	end 'hold'
 
-	function get(key String) returns Value throws MapError where Value implements Copyable
+	function get(key String) returns Value throws MapError
 		return try self.values.get(key)
 	end 'get'
 end 'Held'
@@ -127,10 +129,10 @@ end 'Held'
 typealias HeldBoxes = Held with Box
 
 function main() returns ExitCode
-	var held = HeldBoxes.create()
+	let held = HeldBoxes.create()
 	held.hold("a", value: Box.create(1))
 	for _ in 0 upto 3 'eachRound'
-		var b = try held.get("a") otherwise panic("absent")
+		let b = try held.get("a") otherwise panic("absent")
 		b.bump()
 	end 'eachRound'
 	let c = try held.get("a") otherwise panic("absent")
@@ -146,6 +148,7 @@ end 'main'
 ```
 
 <!-- test: a-parameter-held-in-a-map-field-behind-a-sibling-call-is-shared -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 The same store beside a sibling method that reads the same map.
 ```maxon
 typealias Count = int(0 to 1000)
@@ -160,8 +163,8 @@ type Box
 		return Self{n: n, names: NameArray.create(0)}
 	end 'create'
 
-	function bump(mutates self)
-		self.n = try self.n + 1 otherwise panic("out of range")
+	function bump()
+		self.n = self.n + 1
 		self.names.push("x{self.n}")
 	end 'bump'
 end 'Box'
@@ -174,8 +177,8 @@ type Held uses Value
 		return Self{values: ValueMap.create()}
 	end 'create'
 
-	function hold(mutates self, key String, value Value) where Value implements Droppable and Copyable
-		self.values.upsert(key.clone(), value: value.clone())
+	function hold(key String, value Value)
+		self.values.upsert(key, value: value)
 		self.touch(key)
 	end 'hold'
 
@@ -185,7 +188,7 @@ type Held uses Value
 		end 'absent'
 	end 'touch'
 
-	function get(key String) returns Value throws MapError where Value implements Copyable
+	function get(key String) returns Value throws MapError
 		return try self.values.get(key)
 	end 'get'
 end 'Held'
@@ -193,10 +196,10 @@ end 'Held'
 typealias HeldBoxes = Held with Box
 
 function main() returns ExitCode
-	var held = HeldBoxes.create()
+	let held = HeldBoxes.create()
 	held.hold("a", value: Box.create(1))
 	for _ in 0 upto 3 'eachRound'
-		var b = try held.get("a") otherwise panic("absent")
+		let b = try held.get("a") otherwise panic("absent")
 		b.bump()
 	end 'eachRound'
 	let c = try held.get("a") otherwise panic("absent")
@@ -212,6 +215,7 @@ end 'main'
 ```
 
 <!-- test: a-parameter-replaced-in-a-map-field-releases-the-old-record -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 Replacing the stored record releases the old one exactly once, and the new one is the record read back out.
 ```maxon
 typealias Count = int(0 to 1000)
@@ -226,8 +230,8 @@ type Box
 		return Self{n: n, names: NameArray.create(0)}
 	end 'create'
 
-	function bump(mutates self)
-		self.n = try self.n + 1 otherwise panic("out of range")
+	function bump()
+		self.n = self.n + 1
 		self.names.push("x{self.n}")
 	end 'bump'
 end 'Box'
@@ -240,11 +244,11 @@ type Held uses Value
 		return Self{values: ValueMap.create()}
 	end 'create'
 
-	function hold(mutates self, key String, value Value) where Value implements Droppable and Copyable
-		self.values.upsert(key.clone(), value: value.clone())
+	function hold(key String, value Value)
+		self.values.upsert(key, value: value)
 	end 'hold'
 
-	function get(key String) returns Value throws MapError where Value implements Copyable
+	function get(key String) returns Value throws MapError
 		return try self.values.get(key)
 	end 'get'
 end 'Held'
@@ -252,11 +256,11 @@ end 'Held'
 typealias HeldBoxes = Held with Box
 
 function main() returns ExitCode
-	var held = HeldBoxes.create()
+	let held = HeldBoxes.create()
 	let first = Box.create(1)
 	held.hold("a", value: first)
 	held.hold("a", value: Box.create(7))
-	var b = try held.get("a") otherwise panic("absent")
+	let b = try held.get("a") otherwise panic("absent")
 	b.bump()
 	let c = try held.get("a") otherwise panic("absent")
 	print("{c.n} {c.names.count()}\n")
@@ -271,6 +275,7 @@ end 'main'
 ```
 
 <!-- test: a-parameter-read-out-of-a-map-field-by-a-generic-accessor-is-shared -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 The same sharing through a second generic layer that holds the first and forwards to it.
 ```maxon
 typealias Count = int(0 to 1000)
@@ -285,8 +290,8 @@ type Box
 		return Self{n: n, names: NameArray.create(0)}
 	end 'create'
 
-	function bump(mutates self)
-		self.n = try self.n + 1 otherwise panic("out of range")
+	function bump()
+		self.n = self.n + 1
 		self.names.push("x{self.n}")
 	end 'bump'
 end 'Box'
@@ -299,11 +304,11 @@ type Held uses Value
 		return Self{values: ValueMap.create()}
 	end 'create'
 
-	function hold(mutates self, key String, value Value) where Value implements Droppable and Copyable
-		self.values.upsert(key.clone(), value: value.clone())
+	function hold(key String, value Value)
+		self.values.upsert(key, value: value)
 	end 'hold'
 
-	function get(key String) returns Value throws MapError where Value implements Copyable
+	function get(key String) returns Value throws MapError
 		return try self.values.get(key)
 	end 'get'
 end 'Held'
@@ -316,11 +321,11 @@ type Registry uses Item
 		return Self{held: ItemHeld.create()}
 	end 'create'
 
-	function put(mutates self, key String, item Item) where Item implements Droppable and Copyable
+	function put(key String, item Item)
 		self.held.hold(key, value: item)
 	end 'put'
 
-	function get(key String) returns Item throws MapError where Item implements Copyable
+	function get(key String) returns Item throws MapError
 		return try self.held.get(key)
 	end 'get'
 end 'Registry'
@@ -328,10 +333,10 @@ end 'Registry'
 typealias BoxRegistry = Registry with Box
 
 function main() returns ExitCode
-	var registry = BoxRegistry.create()
+	let registry = BoxRegistry.create()
 	registry.put("a", item: Box.create(1))
 	for _ in 0 upto 3 'eachRound'
-		var b = try registry.get("a") otherwise panic("absent")
+		let b = try registry.get("a") otherwise panic("absent")
 		b.bump()
 	end 'eachRound'
 	let c = try registry.get("a") otherwise panic("absent")
@@ -1211,6 +1216,7 @@ end 'main'
 ```
 
 <!-- test: a-container-of-tuples-over-the-parameter-returned-releases-its-records -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 Returning the array field hands back the array itself, so an entry added afterwards is in it, and every record it holds is released.
 ```maxon
 typealias Count = int(0 to 100000)
@@ -1236,12 +1242,12 @@ type Holder uses Value
 		return Self{pairs: Pairs.create(0)}
 	end 'create'
 
-	function put(mutates self, key String, value Value) where Value implements Copyable
-		self.pairs.push((key.clone(), value.clone()))
+	function put(key String, value Value)
+		self.pairs.push((key, value))
 	end 'put'
 
-	function snapshot() returns Pairs where Value implements Copyable
-		return self.pairs.clone()
+	function snapshot() returns Pairs
+		return self.pairs
 	end 'snapshot'
 
 	function apply(copier Copier) returns Pairs
@@ -1252,14 +1258,14 @@ end 'Holder'
 typealias BoxHolder = Holder with Box
 
 function main() returns ExitCode
-	var h = BoxHolder.create()
+	let h = BoxHolder.create()
 	h.put("x", value: Box.create(5))
 	h.put("y", value: Box.create(6))
 	let snap = h.snapshot()
 	h.put("z", value: Box.create(7))
 	var total = 0 as Count
 	for pair in snap 'eachPair'
-		total = try total + pair.1.n otherwise panic("out of range")
+		total = total + pair.1.n
 	end 'eachPair'
 	print("{total} {snap.count()}\n")
 	return 0

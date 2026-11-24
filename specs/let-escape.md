@@ -951,24 +951,24 @@ type Holder
 	export var box as Box
 
 	static function create(box Box) returns Self
-		return Self{box: box}
+		return Self{box: box.clone()}
 	end 'create'
 end 'Holder'
 
 function pick() returns frozen with Box
-	return Box.shared
+	return freeze(Box.shared)
 end 'pick'
 
-function adopt(h Holder)
-	h.box = pick().clone()
+function adopt(mutates h Holder)
+	h.box = thaw(pick().clone())
 end 'adopt'
 
-function bump(h Holder)
+function bump(mutates h Holder)
 	h.box.n = 99
 end 'bump'
 
 function main() returns ExitCode
-	let h = Holder.create(Box.create(0))
+	var h = Holder.create(Box.create(0))
 	adopt(h)
 	bump(h)
 	print("{Box.shared.n} {h.box.n}\n")
@@ -2011,6 +2011,7 @@ end 'main'
 ```
 
 <!-- test: let-escape.a-record-stored-in-a-global-container-is-written-through-the-global -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 `register` keeps its parameter in a container and `a` is read after the call: the call is accepted, and `a` reads the write made through the container.
 
 ```maxon
@@ -2027,16 +2028,16 @@ type Box
 end 'Box'
 
 function register(b Box, mutates registry Boxes)
-	registry.push(b.clone())
+	registry.push(b)
 end 'register'
 
 function clobber(mutates registry Boxes)
-	var w = try registry.get(0) otherwise return
+	let w = try registry.get(0) otherwise return
 	w.n = 99
 end 'clobber'
 
 function main() returns ExitCode
-	var registry = Boxes.create(0)
+	let registry = Boxes.create(0)
 	let a = Box.create(2)
 	register(a, registry: registry)
 	clobber(registry)
@@ -2052,6 +2053,7 @@ end 'main'
 ```
 
 <!-- test: let-escape.a-record-stored-into-a-parameters-container-is-written-through-the-parameter -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 `stash` keeps its parameter in a container its first parameter holds, and `a` is read afterwards: the call is accepted, and `a` reads the write.
 
 ```maxon
@@ -2075,17 +2077,17 @@ type Reg
 	end 'create'
 end 'Reg'
 
-function stash(mutates reg Reg, b Box)
-	reg.items.push(b.clone())
+function stash(reg Reg, b Box)
+	reg.items.push(b)
 end 'stash'
 
 function zeroFirst(reg Reg)
-	var w = try reg.items.get(0) otherwise return
+	let w = try reg.items.get(0) otherwise return
 	w.n = 0
 end 'zeroFirst'
 
 function main() returns ExitCode
-	var reg = Reg.create()
+	let reg = Reg.create()
 	let a = Box.create(2)
 	stash(reg, b: a)
 	zeroFirst(reg)
@@ -2101,6 +2103,7 @@ end 'main'
 ```
 
 <!-- test: let-escape.a-record-stored-two-fields-down-is-written-through-the-holder -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 `stash` keeps its parameter two fields below its first parameter, and `a` is read afterwards: the call is accepted, and `a` reads the write.
 
 ```maxon
@@ -2132,17 +2135,17 @@ type Outer
 	end 'create'
 end 'Outer'
 
-function stash(mutates o Outer, b Box)
-	o.inner.items.push(b.clone())
+function stash(o Outer, b Box)
+	o.inner.items.push(b)
 end 'stash'
 
 function zeroFirst(o Outer)
-	var w = try o.inner.items.get(0) otherwise return
+	let w = try o.inner.items.get(0) otherwise return
 	w.n = 0
 end 'zeroFirst'
 
 function main() returns ExitCode
-	var o = Outer.create()
+	let o = Outer.create()
 	let a = Box.create(2)
 	stash(o, b: a)
 	zeroFirst(o)
@@ -2158,6 +2161,7 @@ end 'main'
 ```
 
 <!-- test: let-escape.a-record-stored-three-fields-down-through-a-loaded-record-is-written -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 `stash` keeps its parameter in a container reached through a record it loads from its first parameter, and `a` is read afterwards: the call is accepted, and `a` reads the write.
 
 ```maxon
@@ -2198,12 +2202,12 @@ type Top
 end 'Top'
 
 function stash(t Top, b Box)
-	var o = t.outer.clone()
-	o.inner.items.push(b.clone())
+	let o = t.outer
+	o.inner.items.push(b)
 end 'stash'
 
 function zeroFirst(t Top)
-	var w = try t.outer.inner.items.get(0) otherwise return
+	let w = try t.outer.inner.items.get(0) otherwise return
 	w.n = 0
 end 'zeroFirst'
 
@@ -2224,6 +2228,7 @@ end 'main'
 ```
 
 <!-- test: let-escape.a-record-stored-by-a-callee-into-a-field-container-is-written -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 `stash` hands its parameter to `put`, which keeps it in a container, so `stash` keeps it too, and `a` is read afterwards: the call is accepted, and `a` reads the write.
 
 ```maxon
@@ -2247,21 +2252,21 @@ type Reg
 	end 'create'
 end 'Reg'
 
-function put(mutates items Boxes, b Box)
-	items.push(b.clone())
+function put(items Boxes, b Box)
+	items.push(b)
 end 'put'
 
-function stash(mutates reg Reg, b Box)
+function stash(reg Reg, b Box)
 	put(reg.items, b: b)
 end 'stash'
 
 function zeroFirst(reg Reg)
-	var w = try reg.items.get(0) otherwise return
+	let w = try reg.items.get(0) otherwise return
 	w.n = 0
 end 'zeroFirst'
 
 function main() returns ExitCode
-	var reg = Reg.create()
+	let reg = Reg.create()
 	let a = Box.create(2)
 	stash(reg, b: a)
 	zeroFirst(reg)
@@ -2434,6 +2439,7 @@ error E3210: <fragment>:52:11: 'ListSink.take' writes its receiver, but 'Sink.ta
 ```
 
 <!-- test: let-escape.a-record-stored-in-a-sibling-record-is-written-by-the-siblings-method -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 `attach` keeps its parameter in the cursor's `var` field and `a` is read afterwards: the call is accepted, and the cursor's `wipe` writes the record `a` names.
 
 ```maxon
@@ -2452,20 +2458,20 @@ type Cursor
 	export var steps as Count
 
 	static function create(b Box) returns Self
-		return Self{current: b.clone(), steps: 0}
+		return Self{current: b, steps: 0}
 	end 'create'
 
-	function attach(mutates self, b Box)
-		current = b.clone()
+	function attach(b Box)
+		current = b
 	end 'attach'
 
-	function wipe(mutates self)
+	function wipe()
 		current.n = 0
 	end 'wipe'
 end 'Cursor'
 
 function main() returns ExitCode
-	var c = Cursor.create(Box.create(1))
+	let c = Cursor.create(Box.create(1))
 	let a = Box.create(2)
 	c.attach(a)
 	c.wipe()
@@ -2481,6 +2487,7 @@ end 'main'
 ```
 
 <!-- test: let-escape.a-record-the-callee-creates-and-stores-is-written-through-its-holder -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 `add` pushes `made` and then returns it: the `let` that binds the result names the record the container holds, and `touch` writes it.
 
 ```maxon
@@ -2503,20 +2510,20 @@ type Reg
 		return Self{items: Boxes.create(0)}
 	end 'create'
 
-	function add(mutates self, n Count) returns Box
+	function add(n Count) returns Box
 		let made = Box.create(n)
-		items.push(made.clone())
+		items.push(made)
 		return made
 	end 'add'
 end 'Reg'
 
 function touch(reg Reg)
-	var w = try reg.items.get(0) otherwise return
+	let w = try reg.items.get(0) otherwise return
 	w.n = 1
 end 'touch'
 
 function main() returns ExitCode
-	var reg = Reg.create()
+	let reg = Reg.create()
 	let b = reg.add(7)
 	touch(reg)
 	print("{b.n}\n")
@@ -2531,6 +2538,7 @@ end 'main'
 ```
 
 <!-- test: let-escape.a-var-the-callee-pushed-and-returned-is-written-through-its-holder -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 `add` pushes its `var` `made` and returns it, and `touch` writes the pushed element: the record the caller binds with a `let` reads the write.
 
 ```maxon
@@ -2553,20 +2561,20 @@ type Reg
 		return Self{items: Boxes.create(0)}
 	end 'create'
 
-	function add(mutates self, n Count) returns Box
+	function add(n Count) returns Box
 		let made = Box.create(n)
-		items.push(made.clone())
+		items.push(made)
 		return made
 	end 'add'
 end 'Reg'
 
 function touch(reg Reg)
-	var w = try reg.items.get(0) otherwise return
+	let w = try reg.items.get(0) otherwise return
 	w.n = 1
 end 'touch'
 
 function main() returns ExitCode
-	var reg = Reg.create()
+	let reg = Reg.create()
 	let b = reg.add(7)
 	touch(reg)
 	print("{b.n}\n")
@@ -2629,6 +2637,7 @@ end 'main'
 ```
 
 <!-- test: let-escape.a-let-stored-in-a-local-map-is-written-through-the-map -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 A value handed to `upsert` is stored in a mutable place, and `a` is read afterwards: the store is accepted, and `a` reads the write made through the map.
 
 ```maxon
@@ -2645,10 +2654,10 @@ type Box
 end 'Box'
 
 function main() returns ExitCode
-	var m = BoxMap.create()
+	let m = BoxMap.create()
 	let a = Box.create(2)
-	m.upsert(1, value: a.clone())
-	var w = try m.get(1) otherwise return 1
+	m.upsert(1, value: a)
+	let w = try m.get(1) otherwise return 1
 	w.n = 9
 	print("{a.n}\n")
 	return 0
@@ -2662,6 +2671,7 @@ end 'main'
 ```
 
 <!-- test: let-escape.a-let-stored-in-an-array-inside-an-array-is-written-through-the-holder -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 `fill` keeps its parameter in an array it pushes into the holder's array of arrays, and `a` is read afterwards: the call is accepted, and `a` reads the write.
 
 ```maxon
@@ -2679,20 +2689,20 @@ type Box
 	end 'create'
 end 'Box'
 
-function fill(mutates rows Rows, b Box)
-	var inner = Boxes.create(0)
-	inner.push(b.clone())
+function fill(rows Rows, b Box)
+	let inner = Boxes.create(0)
+	inner.push(b)
 	rows.push(inner)
 end 'fill'
 
 function wipe(rows Rows)
 	let r = try rows.get(0) otherwise return
-	var w = try r.get(0) otherwise return
+	let w = try r.get(0) otherwise return
 	w.n = 0
 end 'wipe'
 
 function main() returns ExitCode
-	var rows = Rows.create(0)
+	let rows = Rows.create(0)
 	let a = Box.create(2)
 	fill(rows, b: a)
 	wipe(rows)
@@ -2708,6 +2718,7 @@ end 'main'
 ```
 
 <!-- test: let-escape.a-let-stored-in-an-array-inside-a-map-is-written-through-the-holder -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 `fill` keeps its parameter in an array it stores as a value of the holder's map, and `a` is read afterwards: the call is accepted, and `a` reads the write.
 
 ```maxon
@@ -2733,20 +2744,20 @@ type Table
 	end 'create'
 end 'Table'
 
-function fill(mutates t Table, b Box)
-	var inner = Boxes.create(0)
-	inner.push(b.clone())
+function fill(t Table, b Box)
+	let inner = Boxes.create(0)
+	inner.push(b)
 	t.rows.upsert(7, value: inner)
 end 'fill'
 
 function wipe(t Table)
 	let r = try t.rows.get(7) otherwise return
-	var w = try r.get(0) otherwise return
+	let w = try r.get(0) otherwise return
 	w.n = 0
 end 'wipe'
 
 function main() returns ExitCode
-	var t = Table.create()
+	let t = Table.create()
 	let a = Box.create(2)
 	fill(t, b: a)
 	wipe(t)
@@ -2762,6 +2773,7 @@ end 'main'
 ```
 
 <!-- test: let-escape.a-let-stored-three-containers-down-is-written-through-the-holder -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 `place` keeps its parameter three containers below the holder, and `a` is read afterwards: the call is accepted, and `a` reads the write.
 
 ```maxon
@@ -2789,10 +2801,10 @@ type Board
 	end 'create'
 end 'Board'
 
-function place(mutates board Board, b Box)
-	var inner = Boxes.create(0)
-	inner.push(b.clone())
-	var rows = Rows.create(0)
+function place(board Board, b Box)
+	let inner = Boxes.create(0)
+	inner.push(b)
+	let rows = Rows.create(0)
 	rows.push(inner)
 	board.grid.push(rows)
 end 'place'
@@ -2800,12 +2812,12 @@ end 'place'
 function wipe(board Board)
 	let rows = try board.grid.get(0) otherwise return
 	let inner = try rows.get(0) otherwise return
-	var w = try inner.get(0) otherwise return
+	let w = try inner.get(0) otherwise return
 	w.n = 0
 end 'wipe'
 
 function main() returns ExitCode
-	var board = Board.create()
+	let board = Board.create()
 	let a = Box.create(2)
 	place(board, b: a)
 	wipe(board)
@@ -2821,6 +2833,7 @@ end 'main'
 ```
 
 <!-- test: let-escape.a-record-stored-in-a-function-typed-field-record-is-written-deep-by-a-callee -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 `stash` keeps its parameter in a `var` field of the holder, and `s` is read afterwards: the call is accepted, a function-typed field beside it changes nothing, and `s` reads the write.
 
 ```maxon
@@ -2835,8 +2848,8 @@ type Point
 		return Self{x: x}
 	end 'create'
 
-	function move(mutates self)
-		x = try x + 1 otherwise panic("out of range")
+	function move()
+		x = x + 1
 	end 'move'
 end 'Point'
 
@@ -2844,7 +2857,7 @@ type Mid
 	export var leaf as Point
 
 	static function create(leaf Point) returns Self
-		return Self{leaf: leaf.clone()}
+		return Self{leaf: leaf}
 	end 'create'
 end 'Mid'
 
@@ -2852,8 +2865,8 @@ type Outer
 	export var hook as Hook
 	export var mid as Mid
 
-	static function create(consumes hook Hook, mid Mid) returns Self
-		return Self{hook: hook, mid: mid.clone()}
+	static function create(hook Hook, mid Mid) returns Self
+		return Self{hook: hook, mid: mid}
 	end 'create'
 end 'Outer'
 
@@ -2861,20 +2874,20 @@ type Holder
 	export var slot as Outer
 
 	static function create(slot Outer) returns Self
-		return Self{slot: slot.clone()}
+		return Self{slot: slot}
 	end 'create'
 end 'Holder'
 
-function stash(mutates p Holder, s Outer)
-	p.slot = s.clone()
+function stash(p Holder, s Outer)
+	p.slot = s
 end 'stash'
 
-function nudge(mutates p Holder)
+function nudge(p Holder)
 	p.slot.mid.leaf.move()
 end 'nudge'
 
 function main() returns ExitCode
-	var p = Holder.create(Outer.create(function() gives 0, mid: Mid.create(Point.create(0))))
+	let p = Holder.create(Outer.create(function() gives 0, mid: Mid.create(Point.create(0))))
 	let s = Outer.create(function() gives 1, mid: Mid.create(Point.create(1)))
 	stash(p, s: s)
 	nudge(p)
@@ -2890,6 +2903,7 @@ end 'main'
 ```
 
 <!-- test: let-escape.a-captured-let-stored-in-a-container-is-written-after-the-closure-outlives-the-function -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 `install` pushes `b` into the holder's container and then captures it in a closure: both are accepted, and the closure reads the write `main` makes through the container.
 
 ```maxon
@@ -2916,16 +2930,16 @@ type Reg
 	end 'create'
 end 'Reg'
 
-function install(mutates reg Reg)
+function install(reg Reg)
 	let b = Box.create(1)
-	reg.items.push(b.clone())
+	reg.items.push(b)
 	reg.show = function() gives b.n
 end 'install'
 
 function main() returns ExitCode
-	var reg = Reg.create()
+	let reg = Reg.create()
 	install(reg)
-	var w = try reg.items.get(0) otherwise return 1
+	let w = try reg.items.get(0) otherwise return 1
 	w.n = 5
 	let f = reg.show
 	print("{f()}\n")
@@ -2940,6 +2954,7 @@ end 'main'
 ```
 
 <!-- test: let-escape.a-record-stashed-two-fields-down-is-written-by-a-callee-handed-the-middle-record -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 `stash` keeps its parameter two fields below its first parameter, and `a` is read afterwards: the call is accepted, whichever callee writes later.
 
 ```maxon
@@ -2971,17 +2986,17 @@ type Outer
 	end 'create'
 end 'Outer'
 
-function stash(mutates o Outer, b Box)
-	o.inner.items.push(b.clone())
+function stash(o Outer, b Box)
+	o.inner.items.push(b)
 end 'stash'
 
 function wipeFirst(r Reg)
-	var w = try r.items.get(0) otherwise return
+	let w = try r.items.get(0) otherwise return
 	w.n = 0
 end 'wipeFirst'
 
 function main() returns ExitCode
-	var o = Outer.create()
+	let o = Outer.create()
 	let a = Box.create(2)
 	stash(o, b: a)
 	wipeFirst(o.inner)
@@ -3085,6 +3100,7 @@ error E3196: <fragment>:28:10: cannot store an immutable 'Box' into 'box', which
 ```
 
 <!-- test: let-escape.a-callee-two-calls-down-writes-the-module-holder -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 The `let` record is pushed into a container and read afterwards, and the write comes two calls down: the push is accepted.
 
 ```maxon
@@ -3109,7 +3125,7 @@ type Holder
 end 'Holder'
 
 function g(mutates holder Holder)
-	var w = try holder.items.get(0) otherwise return
+	let w = try holder.items.get(0) otherwise return
 	w.n = 5
 end 'g'
 
@@ -3118,9 +3134,9 @@ function f(mutates holder Holder)
 end 'f'
 
 function main() returns ExitCode
-	var holder = Holder.create()
+	let holder = Holder.create()
 	let b = Box.create(1)
-	holder.items.push(b.clone())
+	holder.items.push(b)
 	f(holder)
 	print("{b.n}\n")
 	return 0
@@ -3134,6 +3150,7 @@ end 'main'
 ```
 
 <!-- test: let-escape.a-record-handed-through-a-function-typed-by-an-alias-of-its-instance -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 `keep` hands back the `let` it is given, so `k` is another name for `b`'s record; pushing it is accepted, and the alias spelling changes nothing.
 
 ```maxon
@@ -3150,8 +3167,8 @@ end 'S0'
 type Box uses T
 	export var item as T
 
-	static function create(v T) returns Self where T implements Copyable
-		return Self{item: v.clone()}
+	static function create(v T) returns Self
+		return Self{item: v}
 	end 'create'
 end 'Box'
 
@@ -3162,16 +3179,16 @@ typealias ViaAlias = Box with N0
 typealias Holder = Array with ViaAlias
 
 function keep(b ViaAlias) returns ViaAlias
-	return b.clone()
+	return b
 end 'keep'
 
 function clobber(mutates holder Holder)
-	var w = try holder.get(0) otherwise return
+	let w = try holder.get(0) otherwise return
 	w.item.item.n = 5
 end 'clobber'
 
 function main() returns ExitCode
-	var holder = Holder.create(0)
+	let holder = Holder.create(0)
 	let b = Box.create(Box.create(S0.create(1)))
 	let k = keep(b)
 	holder.push(k)
@@ -3239,6 +3256,7 @@ end 'main'
 ```
 
 <!-- test: let-escape.a-write-to-the-set-a-let-record-holds-through-its-holder -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 `first` hands back an element of a container the `var` holder keeps, the `let` of it is accepted, and `grow` writes the set that record holds.
 
 ```maxon
@@ -3266,26 +3284,26 @@ type Holder
 		return Holder{items: Layouts.create(0), seen: Seen.create()}
 	end 'create'
 
-	function add(mutates self, layout Layout)
-		self.items.push(layout.clone())
+	function add(layout Layout)
+		self.items.push(layout)
 	end 'add'
 
 	function first() returns Layout
 		return try self.items.get(0) otherwise panic("empty")
 	end 'first'
 
-	function note(mutates self, id Count)
+	function note(id Count)
 		self.seen.upsert(id, value: id)
 	end 'note'
 
 	function grow(id Count)
-		var target = try self.items.get(0) otherwise return
+		let target = try self.items.get(0) otherwise return
 		target.names.insert(id)
 	end 'grow'
 end 'Holder'
 
 function main() returns ExitCode
-	var holder = Holder.create()
+	let holder = Holder.create()
 	holder.add(Layout.create())
 	let layout = holder.first()
 	holder.grow(7)
@@ -3301,6 +3319,7 @@ end 'main'
 ```
 
 <!-- test: let-escape.a-write-to-the-set-a-let-record-holds-through-a-nested-holder -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 The same through a holder that reaches the inner holder: the `let` of what `first` hands back is accepted, and `grow` writes the set that record holds.
 
 ```maxon
@@ -3328,20 +3347,20 @@ type Holder
 		return Holder{items: Layouts.create(0), seen: Seen.create()}
 	end 'create'
 
-	function add(mutates self, layout Layout)
-		self.items.push(layout.clone())
+	function add(layout Layout)
+		self.items.push(layout)
 	end 'add'
 
 	function first() returns Layout
 		return try self.items.get(0) otherwise panic("empty")
 	end 'first'
 
-	function note(mutates self, id Count)
+	function note(id Count)
 		self.seen.upsert(id, value: id)
 	end 'note'
 
 	function grow(id Count)
-		var target = try self.items.get(0) otherwise return
+		let target = try self.items.get(0) otherwise return
 		target.names.insert(id)
 	end 'grow'
 end 'Holder'
@@ -3357,7 +3376,7 @@ type Outer
 		return self.inner.first()
 	end 'first'
 
-	function add(mutates self, layout Layout)
+	function add(layout Layout)
 		self.inner.add(layout)
 	end 'add'
 
@@ -3367,7 +3386,7 @@ type Outer
 end 'Outer'
 
 function main() returns ExitCode
-	var holder = Outer.create()
+	let holder = Outer.create()
 	holder.add(Layout.create())
 	let layout = holder.first()
 	holder.grow(7)
@@ -3383,6 +3402,7 @@ end 'main'
 ```
 
 <!-- test: let-escape.a-write-to-the-set-of-its-type-a-let-record-holds-through-its-holder -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 `first` hands back an element of a container the `var` holder keeps, with a second `Set` of the same type beside it: the `let` of the element is accepted, and `grow` writes the set that record holds.
 
 ```maxon
@@ -3410,8 +3430,8 @@ type Holder
 		return Holder{items: Layouts.create(0), seen: Seen.create()}
 	end 'create'
 
-	function add(mutates self, layout Layout)
-		self.items.push(layout.clone())
+	function add(layout Layout)
+		self.items.push(layout)
 	end 'add'
 
 	function first() returns Layout
@@ -3419,13 +3439,13 @@ type Holder
 	end 'first'
 
 	function grow(id Count)
-		var target = try self.items.get(0) otherwise return
+		let target = try self.items.get(0) otherwise return
 		target.names.insert(id)
 	end 'grow'
 end 'Holder'
 
 function main() returns ExitCode
-	var holder = Holder.create()
+	let holder = Holder.create()
 	holder.add(Layout.create())
 	let layout = holder.first()
 	holder.grow(7)
@@ -3441,6 +3461,7 @@ end 'main'
 ```
 
 <!-- test: let-escape.a-record-stored-in-a-module-holder-is-written-through-the-module-holder-beside-a-set-of-its-type -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 The `let` record is pushed into a container of the holder and read afterwards: the push is accepted.
 
 ```maxon
@@ -3470,14 +3491,14 @@ type Holder
 end 'Holder'
 
 function grow(mutates holder Holder, id Count)
-	var target = try holder.items.get(0) otherwise return
+	let target = try holder.items.get(0) otherwise return
 	target.names.insert(id)
 end 'grow'
 
 function main() returns ExitCode
-	var holder = Holder.create()
+	let holder = Holder.create()
 	let layout = Layout.create()
-	holder.items.push(layout.clone())
+	holder.items.push(layout)
 	grow(holder, id: 7)
 	print("{layout.names.count()}\n")
 	return 0
@@ -3491,6 +3512,7 @@ end 'main'
 ```
 
 <!-- test: let-escape.a-record-a-factory-minted-into-its-holder-is-written-through-the-holder-after-a-getter-hands-it-back -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 The getter hands back the field the `var` holder keeps, the `let` of it is accepted, and `grow` writes it.
 
 ```maxon
@@ -3512,16 +3534,16 @@ type Holder
 	end 'create'
 
 	function grab() returns Box
-		return self.box.clone()
+		return self.box
 	end 'grab'
 
-	function grow(mutates self)
+	function grow()
 		self.box.n = 5
 	end 'grow'
 end 'Holder'
 
 function main() returns ExitCode
-	var holder = Holder.create()
+	let holder = Holder.create()
 	let box = holder.grab()
 	holder.grow()
 	print("{box.n}\n")
@@ -3536,6 +3558,7 @@ end 'main'
 ```
 
 <!-- test: let-escape.an-array-a-factory-minted-into-its-holder-is-written-through-the-holder-after-a-getter-hands-it-back -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 The getter hands back the array the `var` holder keeps, the `let` of it is accepted, and `grow` writes it.
 
 ```maxon
@@ -3551,16 +3574,16 @@ type Holder
 	end 'create'
 
 	function grab() returns Names
-		return self.names.clone()
+		return self.names
 	end 'grab'
 
-	function grow(mutates self)
+	function grow()
 		self.names.push(5)
 	end 'grow'
 end 'Holder'
 
 function main() returns ExitCode
-	var holder = Holder.create()
+	let holder = Holder.create()
 	let names = holder.grab()
 	holder.grow()
 	print("{names.count()}\n")
@@ -3575,6 +3598,7 @@ end 'main'
 ```
 
 <!-- test: let-escape.a-set-a-factory-minted-into-its-holder-is-written-through-the-holder-after-a-getter-hands-it-back -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 The getter hands back the set the `var` holder keeps, the `let` of it is accepted, and `grow` writes it.
 
 ```maxon
@@ -3593,16 +3617,16 @@ type Holder
 	end 'create'
 
 	function grabNames() returns Names
-		return self.names.clone()
+		return self.names
 	end 'grabNames'
 
-	function grow(mutates self, id Count)
+	function grow(id Count)
 		self.names.insert(id)
 	end 'grow'
 end 'Holder'
 
 function main() returns ExitCode
-	var holder = Holder.create()
+	let holder = Holder.create()
 	let names = holder.grabNames()
 	holder.grow(7)
 	print("{names.count()}\n")
@@ -3617,6 +3641,7 @@ end 'main'
 ```
 
 <!-- test: let-escape.a-field-record-shared-with-another-holders-field-is-written-through-that-holder -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 `share` keeps the set its `source` holds in another record's field, and `Holder.add` keeps its parameter in the holder's container; `layout` is read after both calls, and both calls are accepted.
 
 ```maxon
@@ -3639,27 +3664,27 @@ type Holder
 	var extra as Layout
 
 	static function create(extra Layout) returns Holder
-		return Holder{items: Layouts.create(0), extra: extra.clone()}
+		return Holder{items: Layouts.create(0), extra: extra}
 	end 'create'
 
-	function add(mutates self, layout Layout)
-		self.items.push(layout.clone())
+	function add(layout Layout)
+		self.items.push(layout)
 	end 'add'
 
-	function touch(mutates self, id Count)
+	function touch(id Count)
 		self.extra.names.insert(id)
 	end 'touch'
 end 'Holder'
 
-function share(source Layout, mutates target Layout)
-	target.names = source.names.clone()
+function share(source Layout, target Layout)
+	target.names = source.names
 end 'share'
 
 function main() returns ExitCode
 	let layout = Layout.create()
-	var other = Layout.create()
+	let other = Layout.create()
 	share(layout, target: other)
-	var holder = Holder.create(other)
+	let holder = Holder.create(other)
 	holder.add(layout)
 	holder.touch(7)
 	print("{layout.names.count()}\n")
@@ -3674,6 +3699,7 @@ end 'main'
 ```
 
 <!-- test: let-escape.a-let-handed-to-a-factory-that-stores-it-is-written-through-the-holder -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 `Holder.create` keeps its argument in a `var` field of the record it returns, and `layout` is read afterwards: the call is accepted, and `touch` writes the record `layout` names.
 
 ```maxon
@@ -3693,17 +3719,17 @@ type Holder
 	var first as Layout
 
 	static function create(first Layout) returns Holder
-		return Holder{first: first.clone()}
+		return Holder{first: first}
 	end 'create'
 
-	function touch(mutates self, id Count)
+	function touch(id Count)
 		self.first.names.insert(id)
 	end 'touch'
 end 'Holder'
 
 function main() returns ExitCode
 	let layout = Layout.create()
-	var holder = Holder.create(layout)
+	let holder = Holder.create(layout)
 	holder.touch(7)
 	print("{layout.names.count()}\n")
 	return 0
@@ -3717,6 +3743,7 @@ end 'main'
 ```
 
 <!-- test: let-escape.a-let-stored-two-factories-down-is-written-through-the-outer-holder -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 `Holder.create` hands `layout` to `Inner.create`, which keeps it in a `var` field, and `layout` is read afterwards: the call is accepted.
 
 ```maxon
@@ -3736,7 +3763,7 @@ type Inner
 	export var layout as Layout
 
 	static function create(layout Layout) returns Inner
-		return Inner{layout: layout.clone()}
+		return Inner{layout: layout}
 	end 'create'
 end 'Inner'
 
@@ -3747,14 +3774,14 @@ type Holder
 		return Holder{inner: Inner.create(layout)}
 	end 'create'
 
-	function touch(mutates self, id Count)
+	function touch(id Count)
 		self.inner.layout.names.insert(id)
 	end 'touch'
 end 'Holder'
 
 function main() returns ExitCode
 	let layout = Layout.create()
-	var holder = Holder.create(layout)
+	let holder = Holder.create(layout)
 	holder.touch(7)
 	print("{layout.names.count()}\n")
 	return 0
@@ -3768,6 +3795,7 @@ end 'main'
 ```
 
 <!-- test: let-escape.a-let-and-another-record-sharing-a-set-are-both-held-by-a-factory-and-written-through-the-holder -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 `share` keeps the set its `source` holds in another record's field, and `Holder.create` keeps both its arguments in `var` fields; `layout` is read after both calls, and both calls are accepted.
 
 ```maxon
@@ -3788,23 +3816,23 @@ type Holder
 	var second as Layout
 
 	static function create(first Layout, second Layout) returns Holder
-		return Holder{first: first.clone(), second: second.clone()}
+		return Holder{first: first, second: second}
 	end 'create'
 
-	function touch(mutates self, id Count)
+	function touch(id Count)
 		self.second.names.insert(id)
 	end 'touch'
 end 'Holder'
 
-function share(source Layout, mutates target Layout)
-	target.names = source.names.clone()
+function share(source Layout, target Layout)
+	target.names = source.names
 end 'share'
 
 function main() returns ExitCode
 	let layout = Layout.create()
-	var other = Layout.create()
+	let other = Layout.create()
 	share(layout, target: other)
-	var holder = Holder.create(layout, second: other)
+	let holder = Holder.create(layout, second: other)
 	holder.touch(7)
 	print("{layout.names.count()}\n")
 	return 0
@@ -3912,6 +3940,7 @@ end 'main'
 ```
 
 <!-- test: let-escape.a-let-bound-to-a-record-read-out-of-a-holder-is-written-by-another-name -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 `holder` is a `let`, and `holder.grow()` writes through it: `box`, bound to the record `holder.grab()` hands back, reads the write.
 
 ```maxon
@@ -3933,16 +3962,16 @@ type Holder
 	end 'create'
 
 	function grab() returns Box
-		return self.box.clone()
+		return self.box
 	end 'grab'
 
-	function grow(mutates self)
+	function grow()
 		self.box.n = 5
 	end 'grow'
 end 'Holder'
 
 function main() returns ExitCode
-	var holder = Holder.create()
+	let holder = Holder.create()
 	let box = holder.grab()
 	holder.grow()
 	print("{box.n}\n")
@@ -3957,6 +3986,7 @@ end 'main'
 ```
 
 <!-- test: let-escape.one-call-writing-the-records-of-two-live-lets-writes-both -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 `register` keeps its parameter in a container, and `a` and `b` are both read afterwards: both calls are accepted, and `clobberAll` writes both records.
 
 ```maxon
@@ -3973,18 +4003,18 @@ type Box
 end 'Box'
 
 function register(b Box, mutates registry Boxes)
-	registry.push(b.clone())
+	registry.push(b)
 end 'register'
 
 function clobberAll(mutates registry Boxes)
 	for i in 0 upto registry.count() 'each'
-		var w = try registry.get(i) otherwise return
+		let w = try registry.get(i) otherwise return
 		w.n = 99
 	end 'each'
 end 'clobberAll'
 
 function main() returns ExitCode
-	var registry = Boxes.create(0)
+	let registry = Boxes.create(0)
 	let a = Box.create(1)
 	let b = Box.create(2)
 	register(a, registry: registry)
@@ -4002,6 +4032,7 @@ end 'main'
 ```
 
 <!-- test: let-escape.a-let-lent-a-record-minted-before-the-loop-is-written-on-a-later-trip-through-storage-an-earlier-trip-filled -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 `same` hands back the record `outer` names, `r` binds it with a `let`, and a later trip writes the record an earlier trip stored: the program is accepted.
 
 ```maxon
@@ -4018,20 +4049,20 @@ type Box
 end 'Box'
 
 function register(b Box, mutates registry Boxes)
-	registry.push(b.clone())
+	registry.push(b)
 end 'register'
 
 function same(b Box) returns Box
-	return b.clone()
+	return b
 end 'same'
 
 function clobber(mutates registry Boxes)
-	var w = try registry.get(0) otherwise return
+	let w = try registry.get(0) otherwise return
 	w.n = 99
 end 'clobber'
 
 function main() returns ExitCode
-	var registry = Boxes.create(0)
+	let registry = Boxes.create(0)
 	let outer = Box.create(2)
 	var i = 0 as Count
 	while i < 2 'trips'
@@ -4053,6 +4084,7 @@ end 'main'
 ```
 
 <!-- test: let-escape.a-callee-handed-the-let-and-its-holder-writes-the-let-through-the-holder -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 `stash` keeps `a` in the container and `a` is read afterwards, and `touchBoth` writes the `let` it is handed through the container and through a method called on it: both calls are accepted.
 
 ```maxon
@@ -4067,8 +4099,8 @@ type Box
 		return Self{n: n}
 	end 'create'
 
-	function bump(mutates self)
-		n = try n + 1 otherwise panic("out of range")
+	function bump()
+		n = n + 1
 	end 'bump'
 end 'Box'
 
@@ -4080,19 +4112,19 @@ type Reg
 	end 'create'
 end 'Reg'
 
-function stash(mutates reg Reg, b Box)
-	reg.items.push(b.clone())
+function stash(reg Reg, b Box)
+	reg.items.push(b)
 end 'stash'
 
-function touchBoth(reg Reg, mutates b Box)
-	var w = try reg.items.get(0) otherwise return
+function touchBoth(reg Reg, b Box)
+	let w = try reg.items.get(0) otherwise return
 	w.n = 5
 	b.bump()
 end 'touchBoth'
 
 function main() returns ExitCode
-	var reg = Reg.create()
-	var a = Box.create(2)
+	let reg = Reg.create()
+	let a = Box.create(2)
 	stash(reg, b: a)
 	touchBoth(reg, b: a)
 	print("{a.n}\n")

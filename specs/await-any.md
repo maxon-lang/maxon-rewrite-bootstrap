@@ -193,6 +193,7 @@ end 'main'
 ```
 
 <!-- test: await-any.no-park-when-one-is-already-complete -->
+<!-- skip: language difference: a door that copies its element bounds it Copyable, so a promise is refused by the bound, where maxon refuses it at the door -->
 ⭐ **AN ALREADY-COMPLETE SLOT IS ANSWERED BY THE SCAN, BEFORE ANY PARK.** The promise runs to completion
 under `main`'s own `Scheduler.yield()` loop before `awaitAny` is called, and it is the only one in the
 program — so at the moment of the call nothing else is runnable, no timer is pending and no child is
@@ -436,6 +437,7 @@ end 'main'
 ```
 
 <!-- test: await-any.a-consumed-slot-is-skipped -->
+<!-- skip: language difference: a door that copies its element bounds it Copyable, so a promise is refused by the bound, where maxon refuses it at the door -->
 ⭐ **THE NULL-SLOT GUARD, AND IT IS REACHABLE RATHER THAN DEFENSIVE.** Awaiting a promise read out of an
 array slot (`await first` after `arr.get(0)`) finishes the move out of that slot: the array stops naming the
 thread, and the slot inside `[0, length)` holds `0`. A zero in a promise column is an ABSENCE, not a handle:
@@ -499,6 +501,7 @@ fatal error: runtime abort 92 (schedulerDeadlock)
 ```
 
 <!-- test: await-any.the-losers-are-dropped-when-the-array-dies -->
+<!-- skip: language difference: a door that copies its element bounds it Copyable, so a promise is refused by the bound, where maxon refuses it at the door -->
 ⭐ The composition: select, serve the winner, and let the array die with the losers still in it. Exit 0
 is what a container that drops its promise elements gives; a container that did not would leave the losers
 live and exit **75**.

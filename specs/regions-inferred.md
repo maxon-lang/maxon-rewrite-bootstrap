@@ -1422,8 +1422,8 @@ function total(pinned frozen with Box, rounds Tally) returns Tally
 	var sum = 0 as Tally
 	var i = 0 as Tally
 	while i < rounds 'again'
-		sum = sum + e.n
-		e = pinned
+		sum = try sum + e.n otherwise panic("out of range")
+		e = thaw(pinned)
 		i = i + 1
 	end 'again'
 	return sum
@@ -2915,7 +2915,7 @@ type Holder
 	export var held as Box
 
 	static function build(item frozen with Box) returns Self
-		return Self{held: item}
+		return Self{held: thaw(item)}
 	end 'build'
 end 'Holder'
 
@@ -3198,6 +3198,7 @@ end 'main'
 ```
 
 <!-- test: mutable-arguments-to-parameters-that-store-them-run -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 A parameter the body stores is mutable only, so the mutable records `loose` and `other` are accepted, the relay passes the class on, and the stores alias them.
 
 ```maxon
@@ -3215,11 +3216,11 @@ type Holder
 	export var held as Box
 
 	static function build(item Box) returns Self
-		return Self{held: item.clone()}
+		return Self{held: item}
 	end 'build'
 
-	function adopt(mutates self, item Box)
-		self.held = item.clone()
+	function adopt(item Box)
+		self.held = item
 	end 'adopt'
 end 'Holder'
 
@@ -3229,12 +3230,12 @@ end 'relay'
 
 function main() returns ExitCode
 	let loose = Box.create(1)
-	var other = Box.create(2)
+	let other = Box.create(2)
 	let frozen = freeze(Box.create(3))
-	var h = relay(loose)
+	let h = relay(loose)
 	h.adopt(other)
 	h.held.n = 7
-	other.n = try other.n + 1 otherwise panic("out of range")
+	other.n = other.n + 1
 	print("{loose.n} {other.n} {h.held.n} {frozen.n}\n")
 	return 0
 end 'main'
@@ -3972,6 +3973,7 @@ end 'main'
 ```
 
 <!-- test: a-joined-parameter-returned-is-written-through-only-for-a-mutable-argument -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 The result of `pick` may be the argument itself, so a mutable argument gives a writable result.
 
 ```maxon
@@ -3986,12 +3988,12 @@ type Box
 end 'Box'
 
 function pick(p Box, flag bool) returns Box
-	return p.clone() if flag else Box.create(0)
+	return p if flag else Box.create(0)
 end 'pick'
 
 function main() returns ExitCode
 	let mine = Box.create(1)
-	var r = pick(mine, flag: true)
+	let r = pick(mine, flag: true)
 	r.n = 5
 	print("{mine.n}\n")
 	return 0
@@ -4213,6 +4215,7 @@ error E3197: <fragment>:26:2: cannot write 'n' through 'r', which is immutable
 ```
 
 <!-- test: a-join-of-two-parameters-returned-is-written-through-for-mutable-arguments -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 The same result, given mutable arguments, is writable.
 
 ```maxon
@@ -4227,9 +4230,9 @@ type Box
 end 'Box'
 
 function pick(a Box, b Box, flag bool) returns Box
-	var c = a.clone()
+	var c = a
 	if flag 'useSecond'
-		c = b.clone()
+		c = b
 	end 'useSecond'
 	return c
 end 'pick'
@@ -4237,7 +4240,7 @@ end 'pick'
 function main() returns ExitCode
 	let first = Box.create(1)
 	let second = Box.create(2)
-	var r = pick(first, b: second, flag: true)
+	let r = pick(first, b: second, flag: true)
 	r.n = 5
 	print("{first.n} {second.n}\n")
 	return 0

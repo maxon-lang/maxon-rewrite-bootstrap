@@ -26,6 +26,8 @@ export let fixKindMatchConsumes = "match consumes"
 
 let fixKindThaw = "thaw"
 
+let fixKindFreeze = "freeze"
+
 // fixPanicText is what the panic of a try that a fix writes says: the failure it stands for, which the program never
 // expected.
 let fixPanicText = "out of range"
@@ -122,6 +124,11 @@ end 'cloneFix'
 function thawFix(t ast.Tree, e ast.NodeID) returns diag.Fix
 	return wrapFix(t, kind: fixKindThaw, e: e, before: "thaw(", after: ")")
 end 'thawFix'
+
+// freezeFix gives up the value of e to a frozen value of it, where a frozen value of its type is wanted.
+function freezeFix(t ast.Tree, e ast.NodeID) returns diag.Fix
+	return wrapFix(t, kind: fixKindFreeze, e: e, before: "freeze(", after: ")")
+end 'freezeFix'
 
 // conventionFix writes a convention before a parameter that has none.
 export function conventionFix(t ast.Tree, param ast.NodeID, consumes keyword String) returns diag.Fix

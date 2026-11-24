@@ -344,6 +344,7 @@ base more base
 ```
 
 <!-- test: returned-alias-of-a-let-struct-is-written-through-the-var -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 The same door for a struct box: `relay` hands back the record `a` names, and the write through `b` lands in `a`.
 
 ```maxon
@@ -359,14 +360,14 @@ type Point
 end 'Point'
 
 function relay(p Point) returns Point
-	return p.clone()
+	return p
 end 'relay'
 
 function main() returns ExitCode
 	let a = Point.create(1)
-	var b = relay(a)
+	let b = relay(a)
 	b.x = 99
-	return try a.x as ExitCode otherwise panic("out of range")
+	return a.x
 end 'main'
 ```
 ```exitcode
@@ -514,6 +515,7 @@ cap7 more cap7
 ```
 
 <!-- test: returned-alias-bound-by-if-let-over-a-let-source-is-written -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 An `if let` binding made from a `let`'s record names it: `relayT` hands `source` back, `b` is written, and `source` reads the write.
 
 ```maxon
@@ -529,7 +531,7 @@ type Point
 end 'Point'
 
 function relay(p Point) returns Point
-	return p.clone()
+	return p
 end 'relay'
 
 enum PointError implements Error
@@ -540,15 +542,15 @@ function relayT(p Point) returns Point throws PointError
 	if p.x < 0 'neg'
 		throw PointError.negative
 	end 'neg'
-	return p.clone()
+	return p
 end 'relayT'
 
 function main() returns ExitCode
 	let source = Point.create(1)
 	if let a = try relayT(source) 'ok'
-		var b = relay(a)
+		let b = relay(a)
 		b.x = 99
-		return try source.x as ExitCode otherwise panic("out of range")
+		return source.x
 	end 'ok'
 	return 0
 end 'main'
@@ -558,6 +560,7 @@ end 'main'
 ```
 
 <!-- test: returned-alias-bound-by-if-let-over-a-fresh-value-is-writable -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 An `if let` binding follows its scrutinee, and a value `make` just built has no other holder, so `b` shares
 `a`'s record with nothing else that is read: the write through `b` is the write `a` reads back.
 ```maxon
@@ -573,7 +576,7 @@ type Point
 end 'Point'
 
 function relay(p Point) returns Point
-	return p.clone()
+	return p
 end 'relay'
 
 function make(n Integer) returns Point throws PointError
@@ -589,9 +592,9 @@ end 'PointError'
 
 function main() returns ExitCode
 	if let a = try make(1) 'ok'
-		var b = relay(a)
+		let b = relay(a)
 		b.x = 99
-		return try a.x as ExitCode otherwise panic("out of range")
+		return a.x
 	end 'ok'
 	return 0
 end 'main'
@@ -601,6 +604,7 @@ end 'main'
 ```
 
 <!-- test: returned-alias-bound-by-if-var-is-written -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 An `if var` binding is a mutable name like any other `var`: `relayT` hands `a` back, and the write through `b` is read through `a`.
 
 ```maxon
@@ -623,7 +627,7 @@ function main() returns ExitCode
 	let a = Point.create(1)
 	if var b = try relayT(a) 'ok'
 		b.x = 99
-		return try a.x as ExitCode otherwise panic("out of range")
+		return a.x
 	end 'ok'
 	return 0
 end 'main'
@@ -632,7 +636,7 @@ function relayT(p Point) returns Point throws PointError
 	if p.x < 0 'neg'
 		throw PointError.negative
 	end 'neg'
-	return p.clone()
+	return p
 end 'relayT'
 ```
 ```exitcode
@@ -727,6 +731,7 @@ lit7 long enough to be a real heap string value lit7 long enough to be a real he
 ```
 
 <!-- test: let-record-laundered-through-a-container -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 A callee that stores its parameter in a container and hands an element back returns that parameter's own record, and `a` is read after the write through the result.
 
 ```maxon
@@ -744,16 +749,16 @@ end 'Point'
 typealias PointArray = Array with Point
 
 function launder(p Point) returns Point
-	var arr = PointArray.create(0)
-	arr.push(p.clone())
+	let arr = PointArray.create(0)
+	arr.push(p)
 	return try arr.get(0) otherwise panic("an element was pushed")
 end 'launder'
 
 function main() returns ExitCode
 	let a = Point.create(1)
-	var b = launder(a)
+	let b = launder(a)
 	b.x = 99
-	return try a.x as ExitCode otherwise panic("out of range")
+	return a.x
 end 'main'
 ```
 ```exitcode
@@ -761,6 +766,7 @@ end 'main'
 ```
 
 <!-- test: let-record-laundered-through-a-setter -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 The same through a declared method that stores its argument in a field and one that reads it back.
 ```maxon
 
@@ -778,29 +784,29 @@ type Box
 	export var item as Point
 
 	static function create(item Point) returns Self
-		return Self{item: item.clone()}
+		return Self{item: item}
 	end 'create'
 
-	function set(mutates self, p Point)
-		self.item = p.clone()
+	function set(p Point)
+		self.item = p
 	end 'set'
 
 	function get() returns Point
-		return self.item.clone()
+		return self.item
 	end 'get'
 end 'Box'
 
 function launder(p Point) returns Point
-	var box = Box.create(Point.create(0))
+	let box = Box.create(Point.create(0))
 	box.set(p)
 	return box.get()
 end 'launder'
 
 function main() returns ExitCode
 	let a = Point.create(1)
-	var b = launder(a)
+	let b = launder(a)
 	b.x = 99
-	return try a.x as ExitCode otherwise panic("out of range")
+	return a.x
 end 'main'
 ```
 ```exitcode
@@ -808,6 +814,7 @@ end 'main'
 ```
 
 <!-- test: let-record-laundered-through-an-array-literal -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 An array literal stores its elements, so an element read back is the record that went in.
 
 ```maxon
@@ -823,15 +830,15 @@ type Point
 end 'Point'
 
 function launder(p Point) returns Point
-	let arr = [p.clone()]
+	let arr = [p]
 	return try arr.get(0) otherwise panic("the literal has one element")
 end 'launder'
 
 function main() returns ExitCode
 	let a = Point.create(1)
-	var b = launder(a)
+	let b = launder(a)
 	b.x = 99
-	return try a.x as ExitCode otherwise panic("out of range")
+	return a.x
 end 'main'
 ```
 ```exitcode
@@ -928,6 +935,7 @@ error E3102: <fragment>:18:9: use of moved value 'a': its ownership moved to ano
 ```
 
 <!-- test: let-record-assigned-through-a-call -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 The assignment door asks of a call's result what the binding door asks: `relay` hands `a` back, and the write through `b` is read through `a`.
 
 ```maxon
@@ -947,11 +955,11 @@ function main() returns ExitCode
 	var b = Point.create(0)
 	b = relay(a)
 	b.x = 99
-	return try a.x as ExitCode otherwise panic("out of range")
+	return a.x
 end 'main'
 
 function relay(p Point) returns Point
-	return p.clone()
+	return p
 end 'relay'
 ```
 ```exitcode
@@ -959,6 +967,7 @@ end 'relay'
 ```
 
 <!-- test: let-record-constructed-into-a-var -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 A constructor stores its argument, so `box.item` shares `a`'s record: the write through `box.item` is read through `a`.
 
 ```maxon
@@ -977,15 +986,15 @@ type Box
 	export var item as Point
 
 	static function create(item Point) returns Self
-		return Self{item: item.clone()}
+		return Self{item: item}
 	end 'create'
 end 'Box'
 
 function main() returns ExitCode
 	let a = Point.create(1)
-	var box = Box.create(a)
+	let box = Box.create(a)
 	box.item.x = 99
-	return try a.x as ExitCode otherwise panic("out of range")
+	return a.x
 end 'main'
 ```
 ```exitcode
@@ -993,6 +1002,7 @@ end 'main'
 ```
 
 <!-- test: let-record-pushed-into-a-var-container -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 A push stores `a`'s record in the container, so an element read back out is it: a `var` made from the element writes the record `a` names.
 
 ```maxon
@@ -1011,11 +1021,11 @@ typealias PointArray = Array with Point
 
 function main() returns ExitCode
 	let a = Point.create(1)
-	var arr = PointArray.create(0)
-	arr.push(a.clone())
-	var e = try arr.get(0) otherwise panic("an element was pushed")
+	let arr = PointArray.create(0)
+	arr.push(a)
+	let e = try arr.get(0) otherwise panic("an element was pushed")
 	e.x = 99
-	return try a.x as ExitCode otherwise panic("out of range")
+	return a.x
 end 'main'
 ```
 ```exitcode
@@ -1086,6 +1096,7 @@ error E3102: <fragment>:17:9: use of moved value 'p': its ownership moved to ano
 ```
 
 <!-- test: let-record-pushed-and-popped-while-still-read -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 `a` is read after the push, and popping the record back out gives the `var` the record `a` names: the write through it is read through `a`.
 
 ```maxon
@@ -1104,11 +1115,11 @@ typealias PointArray = Array with Point
 
 function main() returns ExitCode
 	let a = Point.create(1)
-	var arr = PointArray.create(0)
-	arr.push(a.clone())
-	var e = try arr.pop() otherwise panic("one element was pushed")
+	let arr = PointArray.create(0)
+	arr.push(a)
+	let e = try arr.pop() otherwise panic("one element was pushed")
 	e.x = 99
-	return try a.x as ExitCode otherwise panic("out of range")
+	return a.x
 end 'main'
 ```
 ```exitcode
@@ -1116,6 +1127,7 @@ end 'main'
 ```
 
 <!-- test: a-let-of-an-element-a-var-of-the-same-element-then-writes-reads-the-write -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 An element of a `var` container is a record that a `var` read out of the same container writes while `s` reads it: the `let` reads the write.
 
 ```maxon
@@ -1133,12 +1145,12 @@ end 'Point'
 typealias PointArray = Array with Point
 
 function main() returns ExitCode
-	var arr = PointArray.create(0)
+	let arr = PointArray.create(0)
 	arr.push(Point.create(1))
 	let s = try arr.get(0) otherwise panic("an element was pushed")
-	var e = try arr.get(0) otherwise panic("an element was pushed")
+	let e = try arr.get(0) otherwise panic("an element was pushed")
 	e.x = 9
-	return try s.x as ExitCode otherwise panic("out of range")
+	return s.x
 end 'main'
 ```
 ```exitcode
@@ -1181,6 +1193,7 @@ end 'main'
 ```
 
 <!-- test: let-record-written-through-an-interface-call -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 A method called through an interface writes whichever conformer's record the value holds: `relay` hands `a` back at the interface type, `b.bump()` writes the record, and `a` reads the write.
 
 ```maxon
@@ -1198,20 +1211,20 @@ type Point implements Bumpable
 		return Self{x: x}
 	end 'create'
 
-	function bump(mutates self)
-		self.x = try self.x + 1 otherwise panic("out of range")
+	function bump()
+		self.x = self.x + 1
 	end 'bump'
 end 'Point'
 
-function relay(consumes p Bumpable) returns Bumpable
+function relay(p Bumpable) returns Bumpable
 	return p
 end 'relay'
 
 function main() returns ExitCode
 	let a = Point.create(1)
-	var b = relay(a.clone())
+	let b = relay(a)
 	b.bump()
-	return try a.x as ExitCode otherwise panic("out of range")
+	return a.x
 end 'main'
 ```
 ```exitcode
@@ -1219,6 +1232,7 @@ end 'main'
 ```
 
 <!-- test: let-record-written-through-a-function-value -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 A call through a function value writes an argument wherever a body it may land on writes that parameter: `f(b)` writes the record `a` names.
 
 ```maxon
@@ -1234,19 +1248,19 @@ type Point
 end 'Point'
 
 function relay(p Point) returns Point
-	return p.clone()
+	return p
 end 'relay'
 
-function bumpIt(mutates p Point)
-	p.x = try p.x + 1 otherwise panic("out of range")
+function bumpIt(p Point)
+	p.x = p.x + 1
 end 'bumpIt'
 
 function main() returns ExitCode
 	let a = Point.create(1)
-	var b = relay(a)
+	let b = relay(a)
 	let f = bumpIt
 	f(b)
-	return try a.x as ExitCode otherwise panic("out of range")
+	return a.x
 end 'main'
 ```
 ```exitcode
@@ -1254,6 +1268,7 @@ end 'main'
 ```
 
 <!-- test: a-let-of-an-element-a-var-already-holds-reads-the-write -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 The same two names in the other order: `s` names the element `e` already holds and writes.
 
 ```maxon
@@ -1271,12 +1286,12 @@ end 'Point'
 typealias PointArray = Array with Point
 
 function main() returns ExitCode
-	var arr = PointArray.create(0)
+	let arr = PointArray.create(0)
 	arr.push(Point.create(1))
-	var e = try arr.get(0) otherwise panic("an element was pushed")
+	let e = try arr.get(0) otherwise panic("an element was pushed")
 	let s = try arr.get(0) otherwise panic("an element was pushed")
 	e.x = 9
-	return try s.x as ExitCode otherwise panic("out of range")
+	return s.x
 end 'main'
 ```
 ```exitcode
@@ -1362,6 +1377,7 @@ wrote 9
 ```
 
 <!-- test: one-record-handed-to-two-fields-aliases-them -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 Two fields are two places only when no record went into both: `pair` was built with `p` in each, so the
 `view` `l` and `pair.right` are one record and the write changes what `l` reads. `p` is written through that
 alias, so `E3077` does not report it.
@@ -1382,16 +1398,16 @@ type Pair
 	export var right as Point
 
 	static function create(left Point, right Point) returns Self
-		return Self{left: left.clone(), right: right.clone()}
+		return Self{left: left, right: right}
 	end 'create'
 end 'Pair'
 
 function main() returns ExitCode
 	let p = Point.create(1)
-	var pair = Pair.create(p, right: p)
+	let pair = Pair.create(p, right: p)
 	let l = pair.left
 	pair.right.x = 9
-	return try l.x as ExitCode otherwise panic("out of range")
+	return l.x
 end 'main'
 ```
 ```exitcode

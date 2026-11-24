@@ -4106,7 +4106,9 @@ end 'transfer'
   the contents (`d.title`, `d.total()`, `describe(d)`). Anything else is refused: assigning through it, a `mutates`
   argument, a method that takes `mutates self` or `consumes self`, or a `consumes` parameter is `E3197` (whose `fix`
   for a `consumes` parameter passes `thaw(...)`, when the contents can be copied), and taking a
-  part out of it is `E3901`. The type system tells a frozen value from its contents by the type `frozen with T`, so a
+  part out of it is `E3901`. The type system tells a frozen value from its contents by the type `frozen with T`: a value
+  where `frozen with T` is wanted, or the reverse, is `E3005`, whose `fix` writes `freeze(...)`, or `thaw(...)` when the
+  contents can be copied. A
   place's path gains a step into the contents (`self/check/paths.maxon`), and every rule about places, borrows and exclusivity applies
   to it as it does to a field. `clone()` of a frozen value, of a cown reference, and of anything that holds one, is a
   `share`: the copy is another owner of the same value, never a new value; `thaw` is how to get a mutable copy of the
@@ -4679,8 +4681,9 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   in two registers). Destructuring a managed element out of a borrowed tuple, which Maxon shares, is `E3900` and takes
   `.clone()`, and so does naming it in a `for (a, b) in xs` over a collection of them. A tuple of bare numbers has the ranges of
   its numbers (`(int(1 to 1), int(2 to 2))`, for the messages that name it), not `(int, int)`, and two tuple literals of
-  different numbers are two types. Not supported: a cast between tuple types (`E3009`, `E3226`), the spelling `t._0` of an element that
-  some of Maxon's specs use, a tuple of a type parameter read by field in a generic body, a one-element target list `(x) = e`,
+  different numbers are two types. The spelling `t._0` of an element that some of Maxon's specs use is written `t.0` by
+  `cmd/convert`. Not supported: a cast between tuple types (`E3009`, `E3226`), a tuple of a type parameter read by field in a
+  generic body, a one-element target list `(x) = e`,
   and the `E3064` lint on a tuple assignment of nothing but `_`.
 - **The debugger** is maxon's batch mode on x64 Windows only; its interactive REPL, which reads the commands from standard
   input, waits for a built-in that reads it (minimaxon has none yet), and `until`, `pause`, `detach`, the green-thread
@@ -4964,6 +4967,9 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   shared buffer detaches it, and `Array.init(buffer)` adopts a buffer that other names still hold. A spec test whose subject is
   one of these is skipped, by the cause `rawSurface`, which is an error that names `__Managed...` something that is not
   provided; a test that uses a mapped operation as a tool runs.
+- **A shift past the width overflows.** `shl` whose result is past the range of its type fails with `overflow`, as `+`
+  does (see "Checked arithmetic"), so `7 shl 65` is a failure a `try` handles, where maxon's gives 0. The spec tests that
+  shift past the width are skipped with that reason.
 
 ## Changing the language
 

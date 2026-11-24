@@ -714,6 +714,7 @@ end 'main'
 ```
 
 <!-- test: promise-read-out-of-a-temporary-array -->
+<!-- skip: language difference: a door that copies its element bounds it Copyable, so a promise is refused by the bound, where maxon refuses it at the door -->
 A promise element is a bare word, so the accessor hands it back through the TRIVIAL arm — and the
 array's destructor still reclaims it (`__gt_promise_drop`). A temporary that hands one out must
 therefore live to the borrower's scope exactly as one holding a managed element does.
@@ -745,6 +746,7 @@ end 'main'
 ```
 
 <!-- test: promise-first-out-of-a-temporary-array -->
+<!-- skip: language difference: a door that copies its element bounds it Copyable, so a promise is refused by the bound, where maxon refuses it at the door -->
 `first()` takes that same trivial arm and names slot 0 without an index argument, and it owes the
 promotion for the same reason.
 ```maxon

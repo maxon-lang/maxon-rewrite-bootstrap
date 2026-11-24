@@ -480,6 +480,7 @@ end 'main'
 ```
 
 <!-- test: shift-by-parameter-count -->
+<!-- skip: language difference: a shift whose result is past the range of its type fails with overflow, where maxon's gives 0 -->
 The same, with a count the PARSER cannot see: a parameter. This is the case the GUARD exists for —
 unguarded, 65 masks to 1 and `7 shl 65` is 14; 100 masks to 36. Every answer here matches the
 constant-folded one above, which is the whole point: one rule, two readings.
@@ -495,11 +496,11 @@ this case pins are both present, in ONE program.
 typealias Num = int(i64.min to i64.max)
 
 function shiftLeft(value Num, count Num) returns Num
-	return try value shl count otherwise panic("out of range")
+	return value shl count
 end 'shiftLeft'
 
 function shiftRight(value Num, count Num) returns Num
-	return try value shr count otherwise panic("out of range")
+	return value shr count
 end 'shiftRight'
 
 function main() returns ExitCode
@@ -977,6 +978,7 @@ end 'main'
 ```
 
 <!-- test: shift-ranged-operand-is-64-bit -->
+<!-- skip: language difference: a shift whose result is past the range of its type fails with overflow, where maxon's gives 0 -->
 ⭐ **A RANGED LEFT OPERAND DECIDES A SHIFT'S FILL, NEVER ITS WIDTH.** A shift whose operands fit a
 narrow ranged type is still a 64-bit op, because a **32-bit** lowering truncates the shift's *value*:
 `(0-8) shl 29` on an `int(-2147483648 to 2147483647)` needs 61 bits to hold its answer, and at 32 it
@@ -994,21 +996,21 @@ typealias U32 = int(0 to 4294967295)
 typealias Num = int(i64.min to i64.max)
 
 function shlBy(v Num, d Num) returns Num
-	return try v shl d otherwise panic("out of range")
+	return v shl d
 end 'shlBy'
 
 function shrBy(v Num, d Num) returns Num
-	return try v shr d otherwise panic("out of range")
+	return v shr d
 end 'shrBy'
 
 function main() returns ExitCode
 	// NARROW SIGNED. The shift moves bits out of the declared type's width; that is legal, and the
 	// answer needs all 64.
 	let narrow = -8 as I32
-	if (try (narrow shl 29) as Num otherwise panic("out of range")) != shlBy(-8, d: 29) 'signedFoldVsEmitted'
+	if (narrow shl 29) as Num != shlBy(-8, d: 29) 'signedFoldVsEmitted'
 		return 1
 	end 'signedFoldVsEmitted'
-	if (try (narrow shl 29) as Num otherwise panic("out of range")) != -4294967296 'signedValue'
+	if (narrow shl 29) as Num != -4294967296 'signedValue'
 		return 2
 	end 'signedValue'
 	// A count above the narrow type's width. A 32-bit shift instruction takes its count mod 32, so
@@ -1021,7 +1023,7 @@ function main() returns ExitCode
 	end 'signedCountValue'
 	// NARROW UNSIGNED. Zero-filling, and still 64 bits wide.
 	let wide = 4294967295 as U32
-	if (try (wide shl 33) as Num otherwise panic("out of range")) != shlBy(4294967295, d: 33) 'unsignedFoldVsEmitted'
+	if (wide shl 33) as Num != shlBy(4294967295, d: 33) 'unsignedFoldVsEmitted'
 		return 5
 	end 'unsignedFoldVsEmitted'
 	if (wide shr 4) as Num != shrBy(4294967295, d: 4) 'unsignedShrFoldVsEmitted'
@@ -1033,7 +1035,7 @@ function main() returns ExitCode
 	// A bare `int`, which never narrowed and so was always right. Here to show the ranged cases now
 	// agree with it rather than merely with each other.
 	let plain = -8 as Num
-	if plain shl 29 != (try (narrow shl 29) as Num otherwise panic("out of range")) 'rangedAgreesWithPlain'
+	if plain shl 29 != (narrow shl 29) as Num 'rangedAgreesWithPlain'
 		return 8
 	end 'rangedAgreesWithPlain'
 	return 42
@@ -1256,6 +1258,7 @@ Stack trace:
 ```
 
 <!-- test: proven-count-at-the-boundary -->
+<!-- skip: language difference: a shift whose result is past the range of its type fails with overflow, where maxon's gives 0 -->
 ⭐ **A COUNT WHOSE DECLARED TYPE CANNOT PUT IT OUT OF RANGE NEEDS NO RUNTIME GUARD — AND MUST STILL
 ANSWER THE SAME.** The saturation a shift by an unfoldable count carries exists to fold a count
 outside `0..63` back to the answer the folded form gives. A count declared `int(0 to 63)` can never
@@ -1277,7 +1280,7 @@ typealias Word = bits(64)
 typealias Bits = int(0 to 63)
 
 function shlBy(value Num, n Bits) returns Num
-	return try value shl n otherwise panic("out of range")
+	return value shl n
 end 'shlBy'
 
 function shrBy(value Num, n Bits) returns Num
@@ -1289,7 +1292,7 @@ function shrWordBy(value Word, n Bits) returns Word
 end 'shrWordBy'
 
 function boundary(step Num) returns Bits
-	return try (step * 63) as Bits otherwise panic("out of range")
+	return (step * 63) as Bits
 end 'boundary'
 
 function main() returns ExitCode
@@ -1321,6 +1324,7 @@ end 'main'
 ```
 
 <!-- test: a-count-whose-alias-reaches-64-keeps-the-guard -->
+<!-- skip: language difference: a shift whose result is past the range of its type fails with overflow, where maxon's gives 0 -->
 ⚠ **THE BOUND IS `0..63`, NOT "SOMETHING SMALL", AND ONE PAST IT IS THE WHOLE DIFFERENCE.** `int(0
 to 64)` differs from `int(0 to 63)` by exactly one value, and that value is the one the hardware
 masks: unguarded, `7 shl 64` is `7 shl 0` — **7**, the operand UNCHANGED — and `u64.max shr 64` is
@@ -1337,7 +1341,7 @@ typealias Word = bits(64)
 typealias UpTo64 = int(0 to 64)
 
 function shlBy(value Num, n UpTo64) returns Num
-	return try value shl n otherwise panic("out of range")
+	return value shl n
 end 'shlBy'
 
 function shrBy(value Num, n UpTo64) returns Num
@@ -1349,7 +1353,7 @@ function shrWordBy(value Word, n UpTo64) returns Word
 end 'shrWordBy'
 
 function widen(step Num) returns UpTo64
-	return try (step * 64) as UpTo64 otherwise panic("out of range")
+	return (step * 64) as UpTo64
 end 'widen'
 
 function main() returns ExitCode
@@ -1371,6 +1375,7 @@ end 'main'
 ```
 
 <!-- test: a-bare-int-count-keeps-the-guard -->
+<!-- skip: language difference: a shift whose result is past the range of its type fails with overflow, where maxon's gives 0 -->
 **A VALUE THAT DECLARES NO BOUNDS PROVES NOTHING**, and a loop counter is the commonest one: `n`
 here is a bare `int`, so nothing states where it can reach and the guard stays exactly where it was.
 Masked, `7 shl 68` would be `7 shl 4` = **112** and `1024 shr 68` would be `1024 shr 4` = **64**;
@@ -1383,7 +1388,7 @@ takes. Two different arms of one question, and neither implies the other.
 function main() returns ExitCode
 	var seen = 0 as Count
 	for n in 68 upto 72 'each'
-		if (try 7 shl n otherwise panic("out of range")) != 0 'shl'
+		if 7 shl n != 0 'shl'
 			return 1
 		end 'shl'
 		if 1024 shr n != 0 'shr'
@@ -1402,6 +1407,7 @@ end 'main'
 ```
 
 <!-- test: a-byte-operand-with-a-proven-count-is-still-64-bit -->
+<!-- skip: language difference: a shift whose result is past the range of its type fails with overflow, where maxon's gives 0 -->
 ⭐ **A PROVEN COUNT CHANGES THE COUNT'S OPS, NEVER THE SHIFT'S WIDTH.**
 `shift-ranged-operand-is-64-bit` pins that a narrow ranged LEFT operand decides a shift's fill and
 never its width; this is that rule under a count whose declared type let the compiler drop the
@@ -1416,12 +1422,12 @@ typealias Bits = int(0 to 63)
 
 function shlLowByte(n Bits) returns Num
 	let b = 200 as Byte
-	return try b shl n otherwise panic("out of range")
+	return b shl n
 end 'shlLowByte'
 
 function shlTopByte(n Bits) returns Num
 	let b = 255 as Byte
-	return try b shl n otherwise panic("out of range")
+	return b shl n
 end 'shlTopByte'
 
 function shrLowByte(n Bits) returns Num
@@ -1430,7 +1436,7 @@ function shrLowByte(n Bits) returns Num
 end 'shrLowByte'
 
 function bits(step Num) returns Bits
-	return try step as Bits otherwise panic("out of range")
+	return step as Bits
 end 'bits'
 
 function main() returns ExitCode
@@ -1451,6 +1457,7 @@ end 'main'
 ```
 
 <!-- test: a-proven-count-through-a-cast-site -->
+<!-- skip: language difference: a shift whose result is past the range of its type fails with overflow, where maxon's gives 0 -->
 **THE CAST SITE IS THE PROOF.** A parameter is guarded at the callee's entry; an `as` is guarded at
 the cast. Both leave a value that denotes its alias and is inside it, so a count minted by `i as
 Bits` inside a loop is as proven as one that arrived declared — and if it were not, the cast's own
@@ -1473,7 +1480,7 @@ function main() returns ExitCode
 	var top = 0 as FullRangeInt
 	for i in 0 upto 2 'boundary'
 		let n = (i * 63) as Bits
-		top = try top + (1 shl n) otherwise panic("out of range")
+		top = top + (1 shl n)
 	end 'boundary'
 	if top != -9223372036854775807 'topSum'
 		return 2
@@ -1601,6 +1608,7 @@ Stack trace:
 ```
 
 <!-- test: a-merged-count-is-not-proven-through-a-fallback -->
+<!-- skip: language difference: a shift whose result is past the range of its type fails with overflow, where maxon's gives 0 -->
 ⚠ **A MERGE THAT CAN CARRY A COUNT ITS ALIAS NEVER ADMITTED: `try … otherwise <computed value>`.**
 The ok edge is the callee's own guarded `return`, so a `try f() otherwise 0` merge IS provable and
 keeps its elision — but a computed fallback is not range-checked, so the merge below denotes `Bits`
@@ -1633,7 +1641,7 @@ function main() returns ExitCode
 	if n != 100 'reached'
 		return 1
 	end 'reached'
-	if (try 1 shl n otherwise panic("out of range")) != 0 'shl'
+	if 1 shl n != 0 'shl'
 		return 2
 	end 'shl'
 	let negative = -4
@@ -1648,6 +1656,7 @@ end 'main'
 ```
 
 <!-- test: a-runtime-narrow-operand-under-a-proven-count -->
+<!-- skip: language difference: a shift whose result is past the range of its type fails with overflow, where maxon's gives 0 -->
 ⚠ **THE OPERAND THE COMPILER CANNOT FOLD, WHICH IS THE HALF EVERY OTHER WIDTH CASE HERE MISSES.**
 `shift-ranged-operand-is-64-bit` and `a-byte-operand-with-a-proven-count-is-still-64-bit` both hold a
 narrow ranged operand the parser can FOLD (`let b = 200 as Byte`), so both are answered by the
@@ -1662,7 +1671,7 @@ typealias Byte = int(0 to u8.max)
 typealias Bits = int(0 to 63)
 
 function shlByteByBits(b Byte, n Bits) returns Num
-	return try b shl n otherwise panic("out of range")
+	return b shl n
 end 'shlByteByBits'
 
 function shrByteByBits(b Byte, n Bits) returns Num
@@ -1670,11 +1679,11 @@ function shrByteByBits(b Byte, n Bits) returns Num
 end 'shrByteByBits'
 
 function byteOf(step Num) returns Byte
-	return try (step * 100) as Byte otherwise panic("out of range")
+	return (step * 100) as Byte
 end 'byteOf'
 
 function bitsOf(step Num) returns Bits
-	return try (step * 5) as Bits otherwise panic("out of range")
+	return (step * 5) as Bits
 end 'bitsOf'
 
 function main() returns ExitCode
@@ -1696,6 +1705,7 @@ end 'main'
 
 
 <!-- test: bitwise-operators.a-counted-loop-count-is-proven -->
+<!-- skip: language difference: a shift whose result is past the range of its type fails with overflow, where maxon's gives 0 -->
 A counted loop's counter denotes no alias, but the loop proves it an interval, and `i` here is `0 … 63`,
 exactly the counts the instruction takes as written. The shift is emitted bare, and the answer is the
 same one the saturating form gives: all 64 bits set.
@@ -1705,7 +1715,7 @@ typealias Integer = int(i64.min to i64.max)
 function main() returns ExitCode
 	var t = 0 as Integer
 	for i in 0 upto 64 'l'
-		t = try t + (1 shl i) otherwise panic("out of range")
+		t = t + (1 shl i)
 	end 'l'
 	print("t={t}\n")
 	return 0
@@ -1716,6 +1726,7 @@ t=-1
 ```
 
 <!-- test: bitwise-operators.a-count-computed-from-ranged-operands-is-proven-by-their-ranges -->
+<!-- skip: language difference: a shift whose result is past the range of its type fails with overflow, where maxon's gives 0 -->
 A count that is a product, sum or difference of ranged operands lies in the interval their ranges give, and the shift is bare exactly when that interval is inside `0 … 63`. `row * 16` is `16 … 48`, `16 - nibbles * 4` is `4 … 12` and `a + b` is `0 … 40`: all three run bare and give the plain answers. `a * 4` over `0 … 20` reaches 80, so its guard stays and a count of 80 or 64 shifts every bit out (masked, `1 shl 80` would be `1 shl 16` and `1 shl 64` would be 1).
 ```maxon
 typealias Num = int(i64.min to i64.max)
@@ -1727,7 +1738,7 @@ typealias Nibbles = int(1 to 3)
 typealias Steps = int(0 to 20)
 
 function rowShift(value Num, row Row) returns Num
-	return try value shl (row * 16) otherwise panic("out of range")
+	return value shl (row * 16)
 end 'rowShift'
 
 function nibbleShift(value Num, nibbles Nibbles) returns Num
@@ -1735,11 +1746,11 @@ function nibbleShift(value Num, nibbles Nibbles) returns Num
 end 'nibbleShift'
 
 function sumShift(value Num, a Steps, b Steps) returns Num
-	return try value shl (a + b) otherwise panic("out of range")
+	return value shl (a + b)
 end 'sumShift'
 
 function pastShift(value Num, a Steps) returns Num
-	return try value shl (a * 4) otherwise panic("out of range")
+	return value shl (a * 4)
 end 'pastShift'
 
 function main() returns ExitCode

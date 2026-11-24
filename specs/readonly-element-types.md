@@ -706,7 +706,7 @@ type Credit
 	export let name as ByteArray
 
 	static function create(name frozen with ByteArray) returns Self
-		return Self{name: name}
+		return Self{name: thaw(name)}
 	end 'create'
 end 'Credit'
 
@@ -719,7 +719,7 @@ function main() returns ExitCode
 	reached.insert(b"a")
 	let credits = CreditArray.create(0)
 	for name in reached 'eachReached'
-		note(credits, name: name)
+		note(credits, name: freeze(name))
 	end 'eachReached'
 	return credits.count() as ExitCode
 end 'main'

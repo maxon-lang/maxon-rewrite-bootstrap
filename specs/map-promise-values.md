@@ -23,6 +23,7 @@ is where the promises' own strand drops them.
 ## Tests
 
 <!-- test: a-map-upserted-promise-is-reclaimed-at-scope-exit -->
+<!-- skip: language difference: a promise owns the coroutine that one owner awaits, so it is not Droppable and no Map holds one as a value -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -46,6 +47,7 @@ end 'main'
 ```
 
 <!-- test: a-map-literal-promise-is-reclaimed-at-scope-exit -->
+<!-- skip: language difference: a promise owns the coroutine that one owner awaits, so it is not Droppable and no Map holds one as a value -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -67,6 +69,7 @@ end 'main'
 ```
 
 <!-- test: a-map-literal-bound-promise-is-reclaimed-at-scope-exit -->
+<!-- skip: language difference: a promise owns the coroutine that one owner awaits, so it is not Droppable and no Map holds one as a value -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 

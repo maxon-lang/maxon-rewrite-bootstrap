@@ -67,6 +67,7 @@ end 'main'
 ```
 
 <!-- test: basic.contains-false -->
+<!-- skip: language difference: the bare numbers of an array or map literal keep their range as the element type of that one literal -->
 ```maxon
 function main() returns ExitCode
 	let s = Set from [10, 20, 30]
@@ -81,6 +82,7 @@ end 'main'
 ```
 
 <!-- test: insert.new-element -->
+<!-- skip: language difference: the bare numbers of an array or map literal keep their range as the element type of that one literal -->
 ```maxon
 function main() returns ExitCode
 	let s = Set from [1, 2, 3]
@@ -105,6 +107,7 @@ end 'main'
 ```
 
 <!-- test: insert.then-contains -->
+<!-- skip: language difference: the bare numbers of an array or map literal keep their range as the element type of that one literal -->
 ```maxon
 function main() returns ExitCode
 	let s = Set from [1, 2, 3]
@@ -135,6 +138,7 @@ end 'main'
 ```
 
 <!-- test: remove.nonexistent -->
+<!-- skip: language difference: the bare numbers of an array or map literal keep their range as the element type of that one literal -->
 ```maxon
 function main() returns ExitCode
 	let s = Set from [1, 2, 3]

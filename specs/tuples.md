@@ -285,12 +285,12 @@ typealias Num = int(0 to 1000)
 typealias PairOp = function(Num, Num) returns (Num, Num)
 
 function pair(a Num, b Num) returns (Num, Num)
-	return (a + 1, b + 2)
+	return (try a + 1 otherwise panic("out of range"), try b + 2 otherwise panic("out of range"))
 end 'pair'
 
 function apply(f PairOp) returns Num
 	let r = f(10, 20)
-	return r._0 + r._1
+	return try r.0 + r.1 otherwise panic("out of range")
 end 'apply'
 
 function main() returns ExitCode
@@ -316,7 +316,7 @@ typealias Num = int(0 to 1000)
 typealias PairOp = function(Num, Num) returns (Num, Num)
 
 function pair(a Num, b Num) returns (Num, Num)
-	return (a + 1, b + 2)
+	return (try a + 1 otherwise panic("out of range"), try b + 2 otherwise panic("out of range"))
 end 'pair'
 
 function forward(a Num, b Num) returns (Num, Num)
@@ -325,7 +325,7 @@ end 'forward'
 
 function apply(f PairOp) returns Num
 	let r = f(10, 20)
-	return r._0 + r._1
+	return try r.0 + r.1 otherwise panic("out of range")
 end 'apply'
 
 function main() returns ExitCode
@@ -347,7 +347,7 @@ either end. Returns 33.
 typealias Num = int(0 to 1000)
 
 function pair(a Num, b Num) returns (Num, Num)
-	return (a + 1, b + 2)
+	return (try a + 1 otherwise panic("out of range"), try b + 2 otherwise panic("out of range"))
 end 'pair'
 
 function forward(a Num, b Num) returns (Num, Num)
@@ -356,7 +356,7 @@ end 'forward'
 
 function main() returns ExitCode
 	let f = forward(10, b: 20)
-	return f._0 + f._1
+	return f.0 + f.1
 end 'main'
 ```
 ```exitcode
@@ -376,12 +376,12 @@ so it is elided and the two halves leave in the registers instead. The one alloc
 typealias Num = int(0 to 1000)
 
 function echo(t (Num, Num)) returns (Num, Num)
-	return t
+	return t.clone()
 end 'echo'
 
 function main() returns ExitCode
 	let e = echo((5, 6))
-	return e._0 + e._1
+	return e.0 + e.1
 end 'main'
 ```
 ```exitcode
@@ -404,20 +404,20 @@ typealias Pair = (Num, Num)
 typealias PairArray = Array with Pair
 
 function pair(a Num, b Num) returns (Num, Num)
-	return (a + 1, b + 2)
+	return (try a + 1 otherwise panic("out of range"), try b + 2 otherwise panic("out of range"))
 end 'pair'
 
-function stash(xs PairArray) returns (Num, Num)
+function stash(mutates xs PairArray) returns (Num, Num)
 	let p = pair(10, b: 20)
-	xs.push(p)
+	xs.push(p.clone())
 	return p
 end 'stash'
 
 function main() returns ExitCode
-	let xs = PairArray.create(0)
+	var xs = PairArray.create(0)
 	let r = stash(xs)
 	let q = try xs.get(0) otherwise panic("element 0 was just pushed")
-	return r._0 + r._1 + q._0 + q._1
+	return r.0 + r.1 + q.0 + q.1
 end 'main'
 ```
 ```exitcode
@@ -441,12 +441,12 @@ function pairThrows(a Num, b Num) returns (Num, Num) throws Err
 	if a > 900 'guard'
 		throw Err.bad
 	end 'guard'
-	return (a + 1, b + 2)
+	return (a + 1, try b + 2 otherwise panic("out of range"))
 end 'pairThrows'
 
 function run(a Num) returns Num throws Err
 	let t = try pairThrows(a, b: 20)
-	return t._0 + t._1
+	return try t.0 + t.1 otherwise panic("out of range")
 end 'run'
 
 function main() returns ExitCode
@@ -573,14 +573,14 @@ exit code. Returns 42.
 typealias Num = int(0 to 1000)
 
 function probe(x Num) returns (bool, Num)
-	return (x > 500, x - 500)
+	return (x > 500, try x - 500 otherwise panic("out of range"))
 end 'probe'
 
 function main() returns ExitCode
 	let hit = probe(542)
 	let miss = probe(500)
-	let value = hit._1 if hit._0 else 100
-	let bonus = 200 if miss._0 else 0
+	let value = hit.1 if hit.0 else 100
+	let bonus = 200 if miss.0 else 0
 	return value + bonus
 end 'main'
 ```
@@ -1379,6 +1379,7 @@ hellohellohello
 ```
 
 <!-- test: returned-tuple-copies-only-when-trivial -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 ⭐ **THE TWO HALVES OF `return t` ON A TUPLE PARAMETER, PINNED SIDE BY SIDE, BECAUSE THEY DIFFER.** A
 TRIVIAL tuple gets its own record — the caller's `a` keeps its `2` after the returned `b` is written — and
 that is what a tuple is for. A MANAGED-element tuple gets an `__mm_retain` instead, because a shallow copy
@@ -1394,11 +1395,11 @@ apart, and this one nearly did.
 typealias Num = int(i64.min to i64.max)
 
 function echoTrivial(t (Num, Num)) returns (Num, Num)
-	return t.clone()
+	return t
 end 'echoTrivial'
 
 function echoManaged(t (String, Num)) returns (String, Num)
-	return t.clone()
+	return t
 end 'echoManaged'
 
 function seedTrivial() returns (Num, Num)
@@ -1414,10 +1415,10 @@ function main() returns ExitCode
 	var b = echoTrivial(a)
 	b.1 = 99
 	let m = seedManaged()
-	var n = echoManaged(m)
+	let n = echoManaged(m)
 	n.1 = 99
 	print("trivial a.1={a.1} b.1={b.1} managed m.1={m.1} n.1={n.1}")
-	return try (a.1 + m.1 + 7) as ExitCode otherwise panic("out of range")
+	return (a.1 + m.1 + 7) as ExitCode
 end 'main'
 ```
 ```stdout
@@ -1428,6 +1429,7 @@ trivial a.1=2 b.1=99 managed m.1=99 n.1=99
 ```
 
 <!-- test: merged-tuple-copies-at-every-hand-off -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 ⭐⭐ **THE VALUE-SEMANTICS ANSWER BELONGS TO THE HAND-OFF, NOT TO THE `return` KEYWORD.** The case
 above pins `return t`; this one pins the two doors that reach the caller through a MERGE first — a ternary arm
 and a `try … otherwise` fallback — and a BINDING as the negative control. A borrowed trivial tuple is copied at
@@ -1453,15 +1455,15 @@ function risky(ok bool) returns (Num, Num) throws Fail
 end 'risky'
 
 function viaMerge(t (Num, Num), c bool) returns (Num, Num)
-	return t.clone() if c else (7, 8)
+	return t if c else (7, 8)
 end 'viaMerge'
 
 function viaFallback(t (Num, Num)) returns (Num, Num)
-	return try risky(false) otherwise t.clone()
+	return try risky(false) otherwise t
 end 'viaFallback'
 
 function viaBinding(t (Num, Num)) returns Num
-	var q = t.clone()
+	var q = t
 	q.1 = 55
 	return 0
 end 'viaBinding'
@@ -1480,7 +1482,7 @@ function main() returns ExitCode
 	let g = seedTrivial()
 	let z = viaBinding(g)
 	print("merged a.1={a.1} fallback m.1={m.1} binding g.1={g.1} z={z}")
-	return try (a.1 + m.1 + g.1 + 9) as ExitCode otherwise panic("out of range")
+	return (a.1 + m.1 + g.1 + 9) as ExitCode
 end 'main'
 ```
 ```stdout
@@ -3533,6 +3535,7 @@ end 'main'
 ```
 
 <!-- test: a-closure-capturing-a-borrowed-tuple-sees-a-write-through-an-alias -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 A closure that captures a borrowed tuple holds a reference to the caller's record, as a binding does, so a
 write through `var q = t` is what the closure reads. Returns 55.
 ```maxon
@@ -3540,14 +3543,14 @@ typealias Num = int(i64.min to i64.max)
 
 function capture(t (Num, Num)) returns Num
 	let r = function() gives t.1
-	var q = t.clone()
+	var q = t
 	q.1 = 55
 	return r()
 end 'capture'
 
 function main() returns ExitCode
 	let g = (1 as Num, 2 as Num)
-	return try capture(g) as ExitCode otherwise panic("out of range")
+	return capture(g) as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -4221,8 +4224,8 @@ function flagged(a Word, b Word) returns Flagged
 end 'flagged'
 
 function inspect(t Flagged, k Word) returns Word
-	var acc = churn(t._1 xor k)
-	if t._0 'up'
+	var acc = churn(t.1 xor k)
+	if t.0 'up'
 		acc = acc + (acc shl 3)
 		acc = acc xor (acc shr 5)
 		acc = acc + (acc shl 7)
@@ -4313,7 +4316,7 @@ function named(a Word, b Word) returns Named
 end 'named'
 
 function describe(t Named, k Word) returns Word
-	var acc = churn(t._1 xor k)
+	var acc = churn(t.1 xor k)
 	acc = acc + (acc shl 3)
 	acc = acc xor (acc shr 5)
 	acc = acc + (acc shl 7)
@@ -4330,7 +4333,7 @@ function describe(t Named, k Word) returns Word
 	acc = acc + (acc shl 5)
 	acc = acc xor (acc shr 7)
 	acc = acc + (acc shl 11)
-	return acc + (t._0.byteLength() as Word)
+	return acc + (t.0.byteLength() as Word)
 end 'describe'
 
 function main() returns ExitCode
@@ -4426,7 +4429,7 @@ function twin(a Word, b Word) returns WordPair
 end 'twin'
 
 function inspect(t WordPair, k Word) returns Word
-	var acc = churn(t._0 xor k)
+	var acc = churn(t.0 xor k)
 	acc = acc + (acc shl 3)
 	acc = acc xor (acc shr 5)
 	acc = acc + (acc shl 7)
@@ -4443,7 +4446,7 @@ function inspect(t WordPair, k Word) returns Word
 	acc = acc + (acc shl 5)
 	acc = acc xor (acc shr 7)
 	acc = acc + (acc shl 11)
-	return acc xor t._1
+	return acc xor t.1
 end 'inspect'
 
 function relay(flag Word, a Word, b Word) returns WordPair
@@ -5292,7 +5295,7 @@ typealias Frozen = (Box, Wide)
 
 function main() returns ExitCode
 	let f = freeze(Box.create(1))
-	let t = (f, 2) as Frozen
+	let t = (thaw(f), 2) as Frozen
 	print("{t.0.n} {t.1}\n")
 	return 0
 end 'main'
@@ -5424,7 +5427,7 @@ type R
 	export let f as Box
 
 	static function create(n Wide) returns Self
-		return Self{f: freeze(Box.create(n))}
+		return Self{f: thaw(freeze(Box.create(n)))}
 	end 'create'
 end 'R'
 
@@ -5433,7 +5436,7 @@ typealias PlainR = (R, Wide)
 typealias FrozenR = (R, Wide)
 
 function total(pair PlainR) returns Wide
-	return pair.0.f.n + pair.1
+	return try pair.0.f.n + pair.1 otherwise panic("out of range")
 end 'total'
 
 function frozenOf(n Wide) returns FrozenR

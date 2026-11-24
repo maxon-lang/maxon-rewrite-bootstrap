@@ -3645,6 +3645,7 @@ other replaced
 ```
 
 <!-- test: let-alias-source-reassigned-in-a-loop -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 The source of a `let` alias of a parameter is reassigned later in the loop. `h2` reads the record `start` named: the first lap reads it before the write of `h.f`, the second lap reads what that write left.
 
 ```maxon
@@ -3664,7 +3665,7 @@ type PA
 	export var second as Tally
 
 	static function build(first String, second Tally) returns Self
-		return Self{first: first.clone(), second: second}
+		return Self{first: first, second: second}
 	end 'build'
 end 'PA'
 
@@ -3674,8 +3675,8 @@ function put(mutates text String) returns Tally
 end 'put'
 
 function run(start Holder) returns ExitCode
-	var h = start.clone()
-	let h2 = start.clone()
+	var h = start
+	let h2 = start
 	var i = 0 as Tally
 	while i < 2 'loop'
 		let p = PA.build(h2.f, second: put(h.f))

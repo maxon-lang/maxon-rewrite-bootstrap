@@ -559,6 +559,14 @@ func TestConvertEarlyDestructIsWarned(t *testing.T) {
 	}
 }
 
+func TestConvertTupleElementSpelling(t *testing.T) {
+	in := "function f(p (Count, Count)) returns Count\n\treturn p._0 + p._1\nend 'f'\n"
+	want := "function f(p (Count, Count)) returns Count\n\treturn p.0 + p.1\nend 'f'\n"
+	if got := Convert("test.maxon", in, sourceFile).Text; got != want {
+		t.Fatalf("got:\n%q\nwant:\n%q", got, want)
+	}
+}
+
 func TestConvertHelperPublicIsExport(t *testing.T) {
 	in := "public type Cursor\n\tpublic static function over() returns Count\n\t\treturn 0\n\tend 'over'\nend 'Cursor'\n"
 	want := "export type Cursor\n\texport static function over() returns Count\n\t\treturn 0\n\tend 'over'\nend 'Cursor'\n"

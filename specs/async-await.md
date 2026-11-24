@@ -556,6 +556,7 @@ error E3073: specs/async-await/async-await.error.no-yield.maxon:9:11: 'async hea
 ```
 
 <!-- test: async-await.storage.bind-error-through-storage -->
+<!-- skip: language difference: a door that copies its element bounds it Copyable, so a promise is refused by the bound, where maxon refuses it at the door -->
 The error type SURVIVES storage, so an `otherwise (e)` binding on a promise pulled back out of
 an array binds the error the thunk actually throws — a `TaskError`, matched case by case. The
 storage type `Promise with (T, E)` names the error type, so `e` is typed exactly as for a direct await.
@@ -594,6 +595,7 @@ end 'main'
 ```
 
 <!-- test: async-await.storage.release-union-payload-through-storage -->
+<!-- skip: language difference: a door that copies its element bounds it Copyable, so a promise is refused by the bound, where maxon refuses it at the door -->
 The error carried back out of storage is an associated-value union, so its flag IS a heap pointer
 to the payload. The binding takes ownership and scope-end releases it exactly once. Only a worker that DIES
 runs this path, so nothing else in the suite shows a leak here: a flag reading "not a heap pointer" (a
@@ -970,6 +972,7 @@ end 'main'
 ```
 
 <!-- test: async-await.a-promise-a-helper-returned-can-be-stored-in-a-map -->
+<!-- skip: language difference: a promise owns the coroutine that one owner awaits, so it is not Droppable and no Map holds one as a value -->
 A map keeps the promises it is given and drops the ones nobody took out. A map has no slot a read could name, so the promise stays in it and the run is leak-free.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -1489,6 +1492,7 @@ end 'main'
 ```
 
 <!-- test: async-await.a-user-generic-type-over-a-promise-owns-it -->
+<!-- skip: language difference: a door that copies its element bounds it Copyable, so a promise is refused by the bound, where maxon refuses it at the door -->
 A generic type instantiated at a promise owns the thread it is given: its constructor takes the promise, a reassignment of the field drops the thread it held, and the box's destructor drops the last one. The run is leak-free.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -1507,11 +1511,11 @@ end 'ask'
 type Box uses T
 	public var value as T
 
-	static function create(v T) returns Self where T implements Copyable
+	static function create(v T) returns Self
 		return Self{value: v}
 	end 'create'
 
-	function replace(mutates self, v T) where T implements Droppable
+	function replace(v T)
 		self.value = v
 	end 'replace'
 end 'Box'
@@ -1681,6 +1685,7 @@ end 'main'
 ```
 
 <!-- test: async-await.a-promise-parameter-can-be-stored-in-a-map -->
+<!-- skip: language difference: a promise owns the coroutine that one owner awaits, so it is not Droppable and no Map holds one as a value -->
 A map takes a promise parameter through `upsert`.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -2001,6 +2006,7 @@ end 'main'
 ```
 
 <!-- test: async-await.a-promise-parameter-handed-to-an-aliased-generic-constructor-is-handed-on -->
+<!-- skip: language difference: a door that copies its element bounds it Copyable, so a promise is refused by the bound, where maxon refuses it at the door -->
 A generic alias names the constructor of its base type, so handing a parameter to `PromiseBox.create` hands it to `Box.create`.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -2015,7 +2021,7 @@ end 'work'
 type Box uses T
 	public var value as T
 
-	static function create(v T) returns Self where T implements Copyable
+	static function create(v T) returns Self
 		return Self{value: v}
 	end 'create'
 end 'Box'
@@ -5019,6 +5025,7 @@ error E3186: <fragment>:17:36: argument 'word' is read by another operand of thi
 ```
 
 <!-- test: async-await.storage.a-record-result-with-a-thrown-error-releases-both -->
+<!-- skip: language difference: a door that copies its element bounds it Copyable, so a promise is refused by the bound, where maxon refuses it at the door -->
 A promise stored as `Promise with (Box, WorkError)` carries a record result and an error whose payload is a heap String. The success path hands the record to the awaiter and the failure path hands it the error; neither leaks.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -5078,6 +5085,7 @@ caught: negative input
 ```
 
 <!-- test: async-await.storage.a-record-holding-an-array-with-a-thrown-error-releases-both -->
+<!-- skip: language difference: a door that copies its element bounds it Copyable, so a promise is refused by the bound, where maxon refuses it at the door -->
 The result record holds a heap array next to the awaited error whose payload is a heap String. Both the success value and the error are released exactly once, which a leak check at exit would otherwise turn into exit 101.
 ```maxon
 typealias Integer = int(i64.min to i64.max)

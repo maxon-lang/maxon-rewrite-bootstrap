@@ -71,7 +71,7 @@ type Label
 	export let text as ByteArray
 
 	static function create(text ByteArray) returns Self
-		return Self{text: text}
+		return Self{text: text.clone()}
 	end 'create'
 end 'Label'
 
@@ -79,25 +79,25 @@ type Table
 	var names as Names
 
 	static function create() returns Self
-		let names = Names.create(0)
+		var names = Names.create(0)
 		names.push(b"alpha")
 		return Self{names: names}
 	end 'create'
 
-	function register(name frozen with ByteArray)
+	function register(mutates self, name frozen with ByteArray)
 		self.names.push(thaw(name))
 	end 'register'
 
 	function nameOf(index ElementIndex) returns frozen with ByteArray
-		return try self.names.get(index) otherwise panic("nameOf: no such name")
+		return freeze(try self.names.get(index) otherwise panic("nameOf: no such name"))
 	end 'nameOf'
 end 'Table'
 
 function main() returns ExitCode
-	let table = Table.create()
-	table.register(b"gamma")
+	var table = Table.create()
+	table.register(freeze(b"gamma"))
 	let label = Label.create(table.nameOf(1))
-	return label.text.count() as ExitCode
+	return try label.text.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -114,7 +114,7 @@ type Label
 	export let text as ByteArray
 
 	static function create(text ByteArray) returns Self
-		return Self{text: text}
+		return Self{text: text.clone()}
 	end 'create'
 end 'Label'
 
@@ -122,25 +122,25 @@ type Table
 	var names as Names
 
 	static function create() returns Self
-		let names = Names.create(0)
+		var names = Names.create(0)
 		names.push(b"alpha")
 		return Self{names: names}
 	end 'create'
 
-	function register(name frozen with ByteArray)
+	function register(mutates self, name frozen with ByteArray)
 		self.names.push(thaw(name))
 	end 'register'
 
 	function nameOf(index ElementIndex) returns frozen with ByteArray
-		return try self.names.get(index) otherwise panic("nameOf: no such name")
+		return freeze(try self.names.get(index) otherwise panic("nameOf: no such name"))
 	end 'nameOf'
 end 'Table'
 
 function main() returns ExitCode
-	let table = Table.create()
-	table.register(b"gamma")
+	var table = Table.create()
+	table.register(freeze(b"gamma"))
 	let label = Label.create(table.nameOf(1).clone())
-	return label.text.count() as ExitCode
+	return try label.text.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -157,26 +157,26 @@ type Table
 	var names as Names
 
 	static function create() returns Self
-		let names = Names.create(0)
+		var names = Names.create(0)
 		names.push(b"alpha")
 		return Self{names: names}
 	end 'create'
 
-	function register(name frozen with ByteArray)
+	function register(mutates self, name frozen with ByteArray)
 		self.names.push(thaw(name))
 	end 'register'
 
 	function nameOf(index ElementIndex) returns frozen with ByteArray
-		return try self.names.get(index) otherwise panic("nameOf: no such name")
+		return freeze(try self.names.get(index) otherwise panic("nameOf: no such name"))
 	end 'nameOf'
 end 'Table'
 
 function main() returns ExitCode
-	let table = Table.create()
-	table.register(b"gamma")
-	let roster = Names.create(0)
+	var table = Table.create()
+	table.register(freeze(b"gamma"))
+	var roster = Names.create(0)
 	roster.push(thaw(table.nameOf(1)))
-	return roster.count() as ExitCode
+	return try roster.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -234,17 +234,17 @@ type Label
 	export let text as ByteArray
 
 	static function create(text frozen with ByteArray) returns Self
-		return Self{text: text}
+		return Self{text: thaw(text)}
 	end 'create'
 end 'Label'
 
 function banner() returns frozen with ByteArray
-	return Banner
+	return freeze(Banner)
 end 'banner'
 
 function main() returns ExitCode
 	let label = Label.create(banner())
-	return label.text.count() as ExitCode
+	return try label.text.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -427,7 +427,7 @@ function main() returns ExitCode
 	let names = Names.create()
 	let roster = Roster.create(0)
 	roster.push(b"first")
-	let labelled = Labelled.create(names.spell(try roster.get(0) otherwise panic("the roster holds one name")))
+	let labelled = Labelled.create(names.spell(freeze(try roster.get(0) otherwise panic("the roster holds one name"))))
 	return labelled.size() as ExitCode
 end 'main'
 ```

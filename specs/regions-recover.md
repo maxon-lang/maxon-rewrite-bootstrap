@@ -2433,6 +2433,7 @@ error E3199: <fragment>:45:3: 'g' cannot be opened: the value that holds it is r
 ```
 
 <!-- test: a-plain-part-read-out-of-a-lent-unique-parameter-is-not-a-keep -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 `stash` stores `t.b`, a part read out of `t`, and never `t` itself, so `q` is only lent to the call and stays the caller's to write.
 ```maxon
 typealias Num = int(i64.min to i64.max)
@@ -2449,7 +2450,7 @@ type Tq is noncopyable
 	var b as Bx
 
 	static function create(b Bx) returns Self
-		return Self{b: b.clone()}
+		return Self{b: b}
 	end 'create'
 end 'Tq'
 
@@ -2457,18 +2458,18 @@ type Ko
 	var keep as Bx
 
 	static function create(keep Bx) returns Self
-		return Self{keep: keep.clone()}
+		return Self{keep: keep}
 	end 'create'
 end 'Ko'
 
 function stash(t Tq) returns Ko
-	var o = Ko.create(Bx.create(0))
-	o.keep = t.b.clone()
+	let o = Ko.create(Bx.create(0))
+	o.keep = t.b
 	return o
 end 'stash'
 
 function main() returns ExitCode
-	var q = Tq.create(Bx.create(2))
+	let q = Tq.create(Bx.create(2))
 	let o = stash(q)
 	q.b.n = 3
 	print("{q.b.n} {o.keep.n}\n")

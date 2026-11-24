@@ -650,6 +650,7 @@ end 'main'
 ### Slice
 
 <!-- test: slice-basic -->
+<!-- skip: language difference: the bare numbers of an array or map literal keep their range as the element type of that one literal -->
 ```maxon
 function main() returns ExitCode
 	let arr = [10, 20, 30, 40, 50]
@@ -665,6 +666,7 @@ end 'main'
 ```
 
 <!-- test: slice-from-start -->
+<!-- skip: language difference: the bare numbers of an array or map literal keep their range as the element type of that one literal -->
 ```maxon
 function main() returns ExitCode
 	let arr = [10, 20, 30, 40, 50]
@@ -677,6 +679,7 @@ end 'main'
 ```
 
 <!-- test: slice-to-end -->
+<!-- skip: language difference: the bare numbers of an array or map literal keep their range as the element type of that one literal -->
 ```maxon
 function main() returns ExitCode
 	let arr = [10, 20, 30, 40, 50]
@@ -691,6 +694,7 @@ end 'main'
 ```
 
 <!-- test: slice-empty -->
+<!-- skip: language difference: the bare numbers of an array or map literal keep their range as the element type of that one literal -->
 ```maxon
 function main() returns ExitCode
 	let arr = [10, 20, 30]
@@ -703,6 +707,7 @@ end 'main'
 ```
 
 <!-- test: slice-full -->
+<!-- skip: language difference: the bare numbers of an array or map literal keep their range as the element type of that one literal -->
 ```maxon
 function main() returns ExitCode
 	let arr = [10, 20, 30]
@@ -3402,6 +3407,7 @@ error E3008: <fragment>:13:11: typealias 'Smalls' is not exported
 ```
 
 <!-- test: a-consumed-promise-slot-read-by-a-for-reaches-the-consume-abort -->
+<!-- skip: language difference: a door that copies its element bounds it Copyable, so a promise is refused by the bound, where maxon refuses it at the door -->
 A promise read out of an array and awaited leaves its slot empty: the await vacates it, so the array no
 longer owns the thread. An empty slot of a managed element is a panic when it is read, but a CONSUMED
 promise slot is not that — it is a promise already given away, and awaiting it again is the
@@ -3439,6 +3445,7 @@ fatal error: runtime abort 118 (promiseSlotConsumedTwice)
 ```
 
 <!-- test: a-consumed-promise-slot-read-by-get-reaches-the-consume-abort -->
+<!-- skip: language difference: a door that copies its element bounds it Copyable, so a promise is refused by the bound, where maxon refuses it at the door -->
 `at(0)` is 0 at run time and a fresh value to the compiler, so the second `get` is a read the compiler
 cannot match to the first. It is not refused as an empty slot: it hands back the vacated handle, and the
 await aborts.
@@ -3478,6 +3485,7 @@ fatal error: runtime abort 118 (promiseSlotConsumedTwice)
 ```
 
 <!-- test: a-consumed-promise-slot-read-by-a-cursor-reaches-the-consume-abort -->
+<!-- skip: language difference: a door that copies its element bounds it Copyable, so a promise is refused by the bound, where maxon refuses it at the door -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 

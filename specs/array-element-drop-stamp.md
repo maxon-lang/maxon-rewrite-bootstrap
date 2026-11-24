@@ -24,6 +24,7 @@ still runs, which is where the promises' own strand drops them.
 ## Tests
 
 <!-- test: a-local-array-of-promises-reclaims-an-unawaited-element -->
+<!-- skip: language difference: a promise owns the coroutine that one owner awaits, so it is not Droppable and no Map holds one as a value -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -48,6 +49,7 @@ end 'main'
 ```
 
 <!-- test: a-local-array-of-throwing-promises-reclaims-an-unawaited-element -->
+<!-- skip: language difference: a promise owns the coroutine that one owner awaits, so it is not Droppable and no Map holds one as a value -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -111,6 +113,7 @@ end 'main'
 ```
 
 <!-- test: a-local-array-of-generic-instances-over-a-promise-reclaims-an-unawaited-element -->
+<!-- skip: language difference: a door that copies its element bounds it Copyable, so a promise is refused by the bound, where maxon refuses it at the door -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -119,7 +122,7 @@ typealias IntPromise = Promise with Integer
 type Box uses Item
 	var item as Item
 
-	static function wrap(item Item) returns Self where Item implements Copyable
+	static function wrap(item Item) returns Self
 		return Self{item: item}
 	end 'wrap'
 end 'Box'
@@ -134,7 +137,7 @@ function work(n Integer) returns Integer
 end 'work'
 
 function main() returns ExitCode
-	var held = PromiseBoxArray.create(0)
+	let held = PromiseBoxArray.create(0)
 	held.push(PromiseBox.wrap(async work(1)))
 	held.clear()
 	return 0

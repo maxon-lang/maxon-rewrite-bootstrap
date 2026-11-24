@@ -51,6 +51,7 @@ end 'main'
 ```
 
 <!-- test: the-result-is-the-argument-whichever-name-holds-it -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 `let` and `var` names bound to the result of `touch(a)` share `a`'s record: a write through any of them is
 seen through all, and the record is released once when the last name goes.
 ```maxon
@@ -59,14 +60,14 @@ typealias Tally = int(0 to u64.max)
 typealias TallyArray = Array with Tally
 
 function touch(cells TallyArray) returns TallyArray
-	return cells.clone()
+	return cells
 end 'touch'
 
 function main() returns ExitCode
-	var a = TallyArray.create(0)
+	let a = TallyArray.create(0)
 	a.push(1)
 	let b = touch(a)
-	var c = touch(b)
+	let c = touch(b)
 	c.push(2)
 	print("{a.count()} {b.count()} {c.count()}\n")
 	return 0
@@ -80,6 +81,7 @@ end 'main'
 ```
 
 <!-- test: a-returned-parameter-also-stored-in-a-field-is-counted-for-both -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 `keep` stores its parameter in a field and also returns it, so the one record has the field, the returned
 name and the caller's name as owners. Releasing them in any order frees it once.
 ```maxon
@@ -94,17 +96,17 @@ type Shelf
 		return Self{held: TallyArray.create(0)}
 	end 'create'
 
-	function keep(mutates self, cells TallyArray) returns TallyArray
-		self.held = cells.clone()
-		return cells.clone()
+	function keep(cells TallyArray) returns TallyArray
+		self.held = cells
+		return cells
 	end 'keep'
 end 'Shelf'
 
 function main() returns ExitCode
-	var shelf = Shelf.create()
+	let shelf = Shelf.create()
 	var cells = TallyArray.create(0)
 	cells.push(5)
-	var again = shelf.keep(cells)
+	let again = shelf.keep(cells)
 	again.push(6)
 	cells = TallyArray.create(0)
 	print("{shelf.held.count()} {again.count()} {cells.count()}\n")
@@ -841,6 +843,7 @@ end 'main'
 ```
 
 <!-- test: a-parameter-stored-in-a-container-and-returned-keeps-one-owner-per-holder -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 `stash` pushes its parameter into a container and returns it, so the record is owned by the container, by the
 returned reference and by the caller's name. Rebinding the name through `stash` repeatedly must leave every
 slot of the container naming the one record.
@@ -851,13 +854,13 @@ typealias TallyArray = Array with Tally
 
 typealias TallyArrays = Array with TallyArray
 
-function stash(mutates holder TallyArrays, cells TallyArray) returns TallyArray
-	holder.push(cells.clone())
-	return cells.clone()
+function stash(holder TallyArrays, cells TallyArray) returns TallyArray
+	holder.push(cells)
+	return cells
 end 'stash'
 
 function main() returns ExitCode
-	var holder = TallyArrays.create(0)
+	let holder = TallyArrays.create(0)
 	var last = TallyArray.create(0)
 	for _ in 0 upto 3 'each'
 		last = stash(holder, cells: last)
@@ -885,7 +888,7 @@ typealias PairOp = function(Num, Num) returns (Num, Num)
 
 function apply(op PairOp, a Num, b Num) returns Num
 	let pair = op(a, b)
-	return pair._0 + pair._1
+	return pair.0 + pair.1
 end 'apply'
 
 function main() returns ExitCode
@@ -930,20 +933,21 @@ end 'main'
 ```
 
 <!-- test: a-recursive-function-that-returns-its-parameter-balances -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 `descend` recurses and returns the parameter its caller handed it, so the references it takes unwind to one.
 ```maxon
 typealias Tally = int(0 to u64.max)
 
 typealias TallyArray = Array with Tally
 
-function descend(mutates cells TallyArray, depth Tally) returns TallyArray
+function descend(cells TallyArray, depth Tally) returns TallyArray
 	if depth == 0 'bottom'
-		return cells.clone()
+		return cells
 	end 'bottom'
 	cells.push(depth)
-	var inner = descend(cells, depth: depth - 1)
+	let inner = descend(cells, depth: depth - 1)
 	inner.push(0)
-	return cells.clone()
+	return cells
 end 'descend'
 
 function main() returns ExitCode

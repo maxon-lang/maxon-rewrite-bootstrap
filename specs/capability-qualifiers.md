@@ -261,27 +261,27 @@ type Holder
 	var pair as (Box, Box)
 
 	static function create(first frozen with Box, second Box) returns Self
-		return Self{pair: (first, second)}
+		return Self{pair: (thaw(first), second.clone())}
 	end 'create'
 
-	function weigh() returns Tally
-		self.pair.1.n = self.pair.1.n + 1
-		return self.pair.0.n + self.pair.1.n
+	function weigh(mutates self) returns Tally
+		self.pair.1.n = try self.pair.1.n + 1 otherwise panic("out of range")
+		return try self.pair.0.n + self.pair.1.n otherwise panic("out of range")
 	end 'weigh'
 end 'Holder'
 
 function pairOf(first frozen with Box, second Box) returns (Box, Box)
-	return (first, second)
+	return (thaw(first), second.clone())
 end 'pairOf'
 
 function total(pair (Box, Box)) returns Tally
-	return pair.0.n + pair.1.n
+	return try pair.0.n + pair.1.n otherwise panic("out of range")
 end 'total'
 
 function main() returns ExitCode
 	let frozen = freeze(Box.create(1))
 	let live = Box.create(2)
-	let holder = Holder.create(frozen, second: live)
+	var holder = Holder.create(frozen, second: live)
 	print("{total(pairOf(frozen, second: live))} {holder.weigh()} {live.n}\n")
 	return 0
 end 'main'

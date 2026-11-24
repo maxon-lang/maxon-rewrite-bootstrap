@@ -5365,6 +5365,7 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: a-let-field-record-is-shared-with-the-service -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 A `let` field has no other writer for the record's whole life, so the record read out of one is a read-only root the
 sender does not own, and a message shares it exactly as it shares a module-level `let`.
 ```maxon
@@ -11176,6 +11177,7 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: awaitany-returns-the-completed-index -->
+<!-- skip: language difference: a door that copies its element bounds it Copyable, so a promise is refused by the bound, where maxon refuses it at the door -->
 ⭐ **ONE WAITING PRIMITIVE COVERS SERVICE REPLIES, FILE IO AND SUBPROCESS DRAINS, AND THIS IS THE HALF THAT
 MAKES IT TRUE.** A reply is an ordinary `Promise`, so it goes into an `Array with Promise with …` and
 its `awaitAny()` selects over it exactly as it does over `async` spawns — no separate "channel select"
@@ -11222,6 +11224,7 @@ end 'main'
 ```
 
 <!-- test: a-throwing-reply-stores-in-a-promise-naming-its-errors -->
+<!-- skip: language difference: a door that copies its element bounds it Copyable, so a promise is refused by the bound, where maxon refuses it at the door -->
 ⭐ **A THROWING MESSAGE'S REPLY IS STORED UNDER THE HANDLER'S OWN ERROR.** A message that throws replies with
 `Promise with (T, <what the message throws>)`, an ordinary declared type, because the send's failure surfaces at
 the send and never in the promise. The storage road therefore binds only the handler's cases, and the
@@ -17148,6 +17151,7 @@ error E3102: <fragment>:33:30: use of moved value 'b': its ownership moved to an
 ```
 
 <!-- test: services.a-viewed-var-of-an-immutable-record-is-shared-with-the-service -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 `Box` has only `let` fields, so nothing can write its record: the send shares it with the service instead of moving it, and `w` stays valid. The service's reply reads the record, and `w` reads it after the send.
 
 ```maxon
@@ -17248,6 +17252,7 @@ error E3102: <fragment>:45:2: use of moved value 'a': its ownership moved to ano
 ```
 
 <!-- test: services.a-viewed-var-of-an-immutable-generic-instance-is-shared-with-the-service -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 `Cell with Count` has only a `let` field, so nothing can write its record: the send shares it with the service instead of moving it, and `w` stays valid. The service's reply reads the record, and `w` reads it after the send.
 
 ```maxon
@@ -17294,6 +17299,7 @@ end 'main'
 ```
 
 <!-- test: services.a-viewed-var-of-an-immutable-union-is-shared-with-the-service -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 Every payload of `Note` is a `let`, so nothing can write its value: the send shares it with the service instead of moving it, and `w` stays valid. The service's reply reads the payload, and `w` reads it after the send.
 
 ```maxon

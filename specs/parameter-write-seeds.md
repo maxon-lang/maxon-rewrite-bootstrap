@@ -444,6 +444,7 @@ end 'main'
 ```
 
 <!-- test: a-writing-callee-accepts-a-variable-for-each-alias-shape -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 A write the callee makes through an alias, a call result or a merge is a write of the parameter, so it is accepted for a `var` the caller owns, and the caller sees every push.
 
 ```maxon
@@ -452,23 +453,23 @@ typealias Integer = int(i64.min to i64.max)
 typealias IntArray = Array with Integer
 
 function viaAlias(d IntArray)
-	var alias = d.clone()
+	let alias = d
 	alias.push(1)
 end 'viaAlias'
 
 function pass(d IntArray) returns IntArray
-	return d.clone()
+	return d
 end 'pass'
 
 function viaResult(d IntArray)
-	var r = pass(d)
+	let r = pass(d)
 	r.push(2)
 end 'viaResult'
 
 function viaMerge(d IntArray, flag bool)
 	var target = IntArray.create(0)
 	if flag 'useParameter'
-		target = d.clone()
+		target = d
 	end 'useParameter'
 	target.push(3)
 end 'viaMerge'

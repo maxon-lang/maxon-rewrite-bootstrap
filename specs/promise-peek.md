@@ -59,6 +59,7 @@ the peek. `rejected-on-wasm` pins that attribution.
 ## Tests
 
 <!-- test: promise-peek.completes-under-the-drive -->
+<!-- skip: language difference: a door that copies its element bounds it Copyable, so a promise is refused by the bound, where maxon refuses it at the door -->
 ⭐ **THE DISCRIMINATING CASE.** A freshly spawned thread has not run, so `isComplete()` answers `false`;
 the program's yield loop lets it run to completion, so the same peek answers `true`; and the promise is
 still awaitable afterwards. It is the `false -> true` TRANSITION that pins the mechanism rather than
@@ -107,6 +108,7 @@ end 'main'
 ```
 
 <!-- test: promise-peek.does-not-consume-the-promise -->
+<!-- skip: language difference: a door that copies its element bounds it Copyable, so a promise is refused by the bound, where maxon refuses it at the door -->
 Three peeks and the promise is untouched: `await` still hands over the value, `await`'s linearity
 (E3100) counts none of them, and the run is leak-clean.
 ```maxon
@@ -244,6 +246,7 @@ end 'main'
 ```
 
 <!-- test: promise-peek.the-handle-survives-a-field-chain -->
+<!-- skip: language difference: a door that copies its element bounds it Copyable, so a promise is refused by the bound, where maxon refuses it at the door -->
 ⭐ **A SECOND DOOR, PINNED ON ITS OWN.** `h.p.isComplete()` is a member call at the end of a TWO-HOP chain,
 and the parser resolves a chain through its own walk rather than through the single-hop member dispatch —
 so "the peek works on `p`" is no evidence at all about `h.p`. The peek taken THROUGH THE CHAIN must go

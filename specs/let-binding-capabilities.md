@@ -25,6 +25,7 @@ name one record, and a write through the holder is seen through the `let`.
 ## Tests
 
 <!-- test: let-binding-capabilities.a-let-of-a-field-of-a-writable-receiver-sees-the-later-write -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 `bump` writes `self`, so `self.box` is writable state, and the `let` sees the write made one line later.
 
 ```maxon
@@ -45,15 +46,15 @@ type Holder
 		return Self{box: Box.create(1)}
 	end 'create'
 
-	function bump(mutates self) returns Count
-		let b = self.box.clone()
-		self.box.n = try self.box.n + 1 otherwise panic("out of range")
+	function bump() returns Count
+		let b = self.box
+		self.box.n = self.box.n + 1
 		return b.n
 	end 'bump'
 end 'Holder'
 
 function main() returns ExitCode
-	var holder = Holder.create()
+	let holder = Holder.create()
 	print("{holder.bump()}\n")
 	return 0
 end 'main'
@@ -66,6 +67,7 @@ end 'main'
 ```
 
 <!-- test: let-binding-capabilities.a-let-of-an-element-of-a-var-array-sees-the-write -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 An element of a `var` array is writable state: `again` names the same record and writes it, and `w` sees the write.
 
 ```maxon
@@ -82,10 +84,10 @@ type Box
 end 'Box'
 
 function main() returns ExitCode
-	var boxes = Boxes.create(0)
+	let boxes = Boxes.create(0)
 	boxes.push(Box.create(1))
 	let w = try boxes.get(0) otherwise return 1
-	var again = try boxes.get(0) otherwise return 2
+	let again = try boxes.get(0) otherwise return 2
 	again.n = 5
 	print("{w.n}\n")
 	return 0
@@ -99,6 +101,7 @@ end 'main'
 ```
 
 <!-- test: let-binding-capabilities.a-let-of-a-getter-result-on-a-var-sees-the-write -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 `grab` hands back the record `holder` stores, and `grow` writes the record the `let` names.
 
 ```maxon
@@ -120,16 +123,16 @@ type Holder
 	end 'create'
 
 	function grab() returns Box
-		return self.box.clone()
+		return self.box
 	end 'grab'
 
-	function grow(mutates self)
+	function grow()
 		self.box.n = 5
 	end 'grow'
 end 'Holder'
 
 function main() returns ExitCode
-	var holder = Holder.create()
+	let holder = Holder.create()
 	let b = holder.grab()
 	holder.grow()
 	print("{b.n}\n")
@@ -240,6 +243,7 @@ end 'main'
 ```
 
 <!-- test: let-binding-capabilities.a-fresh-let-kept-by-a-callee-and-read-again-sees-the-write -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 `register` keeps its parameter in a module holder and `clobber` writes it there, so `a` reads 99 after the call: both names are the one record.
 
 ```maxon
@@ -257,12 +261,12 @@ type Holder
 	export var box as Box
 
 	static function create(box Box) returns Self
-		return Self{box: box.clone()}
+		return Self{box: box}
 	end 'create'
 end 'Holder'
 
 function register(mutates holder Holder, b Box)
-	holder.box = b.clone()
+	holder.box = b
 end 'register'
 
 function clobber(mutates holder Holder)
@@ -270,7 +274,7 @@ function clobber(mutates holder Holder)
 end 'clobber'
 
 function main() returns ExitCode
-	var holder = Holder.create(Box.create(0))
+	let holder = Holder.create(Box.create(0))
 	let a = Box.create(1)
 	register(holder, b: a)
 	clobber(holder)
@@ -332,6 +336,7 @@ end 'main'
 ```
 
 <!-- test: let-binding-capabilities.a-fresh-let-pushed-by-a-callee-and-read-again-sees-the-write -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 `stash` pushes its parameter into a module array and `bump` writes the element, so `a`, read after the push, sees the write.
 
 ```maxon
@@ -348,16 +353,16 @@ type Box
 end 'Box'
 
 function stash(mutates kept Boxes, b Box)
-	kept.push(b.clone())
+	kept.push(b)
 end 'stash'
 
 function bump(mutates kept Boxes)
-	var w = try kept.get(0) otherwise return
+	let w = try kept.get(0) otherwise return
 	w.n = 99
 end 'bump'
 
 function main() returns ExitCode
-	var kept = Boxes.create(0)
+	let kept = Boxes.create(0)
 	let a = Box.create(1)
 	stash(kept, b: a)
 	bump(kept)
@@ -373,6 +378,7 @@ end 'main'
 ```
 
 <!-- test: let-binding-capabilities.a-let-of-a-var-a-container-holds-sees-the-write -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 `a` is a `var` the array also holds, and the write through the element reaches the record `b` names.
 
 ```maxon
@@ -389,12 +395,12 @@ type Box
 end 'Box'
 
 function main() returns ExitCode
-	var boxes = Boxes.create(0)
-	var a = Box.create(1)
+	let boxes = Boxes.create(0)
+	let a = Box.create(1)
 	a.n = 2
-	boxes.push(a.clone())
+	boxes.push(a)
 	let b = a
-	var w = try boxes.get(0) otherwise return 1
+	let w = try boxes.get(0) otherwise return 1
 	w.n = 9
 	print("{b.n}\n")
 	return 0
@@ -408,6 +414,7 @@ end 'main'
 ```
 
 <!-- test: let-binding-capabilities.a-let-of-a-callees-result-that-is-its-written-parameter-sees-the-write -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 `touch` writes its parameter and returns it, so its result is `a`'s record and `x` names it.
 
 ```maxon
@@ -421,13 +428,13 @@ type Box
 	end 'create'
 end 'Box'
 
-function touch(mutates b Box) returns Box
+function touch(b Box) returns Box
 	b.n = 1
-	return b.clone()
+	return b
 end 'touch'
 
 function main() returns ExitCode
-	var a = Box.create(3)
+	let a = Box.create(3)
 	let x = touch(a)
 	a.n = 5
 	print("{x.n}\n")
@@ -442,6 +449,7 @@ end 'main'
 ```
 
 <!-- test: let-binding-capabilities.a-let-of-a-parameter-a-later-call-writes-sees-the-write -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 `id` hands back `p` itself and `bump` writes `p`, so `x` reads the write.
 
 ```maxon
@@ -456,21 +464,21 @@ type Box
 end 'Box'
 
 function id(b Box) returns Box
-	return b.clone()
+	return b
 end 'id'
 
-function bump(mutates b Box)
+function bump(b Box)
 	b.n = 9
 end 'bump'
 
-function f(mutates p Box) returns Count
+function f(p Box) returns Count
 	let x = id(p)
 	bump(p)
 	return x.n
 end 'f'
 
 function main() returns ExitCode
-	var a = Box.create(1)
+	let a = Box.create(1)
 	print("{f(a)}\n")
 	return 0
 end 'main'
@@ -527,6 +535,7 @@ error E3102: <fragment>:30:47: use of moved value 'b': its ownership moved to an
 ```
 
 <!-- test: let-binding-capabilities.an-element-of-a-lent-parameter-kept-in-a-let-field-is-accepted -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 `ms` is lent for the call, so its elements are the caller's records; a `let` field keeps one past the call, and `main`'s write through `w` is seen through it.
 
 ```maxon
@@ -548,12 +557,12 @@ type H
 	export let m as Box
 
 	static function create(m Box) returns Self
-		return Self{m: m.clone()}
+		return Self{m: m}
 	end 'create'
 end 'H'
 
 function wrap(ms Boxes) returns Hs
-	var hs = Hs.create(0)
+	let hs = Hs.create(0)
 	for m in ms 'each'
 		hs.push(H.create(m))
 	end 'each'
@@ -561,10 +570,10 @@ function wrap(ms Boxes) returns Hs
 end 'wrap'
 
 function main() returns ExitCode
-	var ms = Boxes.create(0)
+	let ms = Boxes.create(0)
 	ms.push(Box.create(1))
 	let hs = wrap(ms)
-	var w = try ms.get(0) otherwise return 1
+	let w = try ms.get(0) otherwise return 1
 	w.n = 7
 	let h = try hs.get(0) otherwise return 2
 	print("{h.m.n}\n")
@@ -752,6 +761,7 @@ end 'main'
 ```
 
 <!-- test: let-binding-capabilities.a-fresh-let-pushed-on-an-else-arm-that-falls-through-and-read-again-sees-the-write -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 The `then` arm returns, but the `else` arm falls through to the read after the `if`, so `stash(a)` is not `a`'s last use on that path, and the read sees the write.
 
 ```maxon
@@ -768,16 +778,16 @@ type Box
 end 'Box'
 
 function stash(mutates kept Boxes, b Box)
-	kept.push(b.clone())
+	kept.push(b)
 end 'stash'
 
 function bump(mutates kept Boxes)
-	var w = try kept.get(0) otherwise return
+	let w = try kept.get(0) otherwise return
 	w.n = 99
 end 'bump'
 
 function main() returns ExitCode
-	var kept = Boxes.create(0)
+	let kept = Boxes.create(0)
 	let a = Box.create(1)
 	if kept.count() > 5 'never'
 		return 1
@@ -831,6 +841,7 @@ end 'main'
 ```
 
 <!-- test: let-binding-capabilities.a-let-destructure-that-names-a-writable-record-is-accepted -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 The same call with the record element named `x`: `x` is bound to `a`'s record, which `a` goes on to write.
 
 ```maxon
@@ -844,13 +855,13 @@ type Box
 	end 'create'
 end 'Box'
 
-function touchPair(mutates b Box) returns (Box, Count)
+function touchPair(b Box) returns (Box, Count)
 	b.n = 1
-	return (b.clone(), 0)
+	return (b, 0)
 end 'touchPair'
 
 function main() returns ExitCode
-	var a = Box.create(3)
+	let a = Box.create(3)
 	let (x, k) = touchPair(a)
 	a.n = 5
 	print("{x.n} {k}\n")
@@ -956,6 +967,7 @@ end 'main'
 ```
 
 <!-- test: let-binding-capabilities.a-tuple-of-let-fields-returned-by-a-call-and-bound-to-a-var-is-accepted -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 The whole tuple a call returns is bound to a `var`.
 
 ```maxon
@@ -974,17 +986,17 @@ type Pair
 	export let right as Box
 
 	static function create(left Box, right Box) returns Self
-		return Self{left: left.clone(), right: right.clone()}
+		return Self{left: left, right: right}
 	end 'create'
 end 'Pair'
 
 function ends(p Pair) returns (Box, Box)
-	return (p.left.clone(), p.right.clone())
+	return (p.left, p.right)
 end 'ends'
 
 function main() returns ExitCode
 	let p = Pair.create(Box.create(1), right: Box.create(2))
-	var t = ends(p)
+	let t = ends(p)
 	t.0.n = 9
 	print("{t.0.n} {p.left.n}\n")
 	return 0
@@ -1037,6 +1049,7 @@ end 'main'
 ```
 
 <!-- test: let-binding-capabilities.a-tuple-of-let-fields-assigned-to-existing-vars-is-accepted -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 A tuple assignment to existing `var` names.
 
 ```maxon
@@ -1055,12 +1068,12 @@ type Pair
 	export let right as Box
 
 	static function create(left Box, right Box) returns Self
-		return Self{left: left.clone(), right: right.clone()}
+		return Self{left: left, right: right}
 	end 'create'
 end 'Pair'
 
 function ends(p Pair) returns (Box, Box)
-	return (p.left.clone(), p.right.clone())
+	return (p.left, p.right)
 end 'ends'
 
 function main() returns ExitCode
@@ -1318,6 +1331,7 @@ end 'main'
 ```
 
 <!-- test: let-binding-capabilities.a-let-destructure-of-a-tuple-a-call-returns-with-a-var-column-is-accepted -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 `ends2` returns a tuple of a `let` field and its second argument. The argument is the `var` `p`'s record, and the second column is bound with `let`.
 
 ```maxon
@@ -1336,25 +1350,25 @@ type Pair
 	export let right as Box
 
 	static function create(left Box, right Box) returns Self
-		return Self{left: left.clone(), right: right.clone()}
+		return Self{left: left, right: right}
 	end 'create'
 end 'Pair'
 
 function id(b Box) returns Box
-	return b.clone()
+	return b
 end 'id'
 
-function bump(mutates b Box)
-	b.n = try b.n + 1 otherwise panic("out of range")
+function bump(b Box)
+	b.n = b.n + 1
 end 'bump'
 
 function ends2(a Pair, b Box) returns (Box, Box)
-	return (a.left.clone(), b.clone())
+	return (a.left, b)
 end 'ends2'
 
 function main() returns ExitCode
 	let q = Pair.create(Box.create(1), right: Box.create(2))
-	var p = Box.create(5)
+	let p = Box.create(5)
 	let (_, y) = ends2(q, b: id(p))
 	bump(p)
 	print("{y.n} {q.left.n}\n")
@@ -1678,6 +1692,7 @@ end 'main'
 ```
 
 <!-- test: let-binding-capabilities.a-result-within-a-tuple-argument-is-written -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 `first` returns the first column of the tuple it is passed. The tuple holds a `let` field's record, so the result is that record and writing it writes the field's record.
 
 ```maxon
@@ -1695,16 +1710,16 @@ type Holder
 	export let r as Rec
 
 	static function create(r Rec) returns Self
-		return Self{r: r.clone()}
+		return Self{r: r}
 	end 'create'
 end 'Holder'
 
 function first(t (Rec, Count)) returns Rec
-	return t.0.clone()
+	return t.0
 end 'first'
 
 function run(h Holder) returns Count
-	var r = first((h.r.clone(), 1))
+	let r = first((h.r, 1))
 	r.v = 5
 	return r.v
 end 'run'
@@ -1723,6 +1738,7 @@ end 'main'
 ```
 
 <!-- test: let-binding-capabilities.a-fresh-tuple-holding-a-writable-record-is-accepted-by-a-let-field -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 The tuple is fresh, and its second column is the record `id(p)` hands back, which is `p`'s; `bump` writes `p` after the `let` field has been given the tuple.
 
 ```maxon
@@ -1740,20 +1756,20 @@ type Frozen
 	export let held as (Box, Box)
 
 	static function create(h (Box, Box)) returns Self
-		return Self{held: h.clone()}
+		return Self{held: h}
 	end 'create'
 end 'Frozen'
 
 function id(b Box) returns Box
-	return b.clone()
+	return b
 end 'id'
 
-function bump(mutates b Box)
-	b.n = try b.n + 1 otherwise panic("out of range")
+function bump(b Box)
+	b.n = b.n + 1
 end 'bump'
 
 function main() returns ExitCode
-	var p = Box.create(5)
+	let p = Box.create(5)
 	let fr = Frozen.create((Box.create(1), id(p)))
 	bump(p)
 	print("{fr.held.1.n}\n")
@@ -1768,6 +1784,7 @@ end 'main'
 ```
 
 <!-- test: let-binding-capabilities.a-fresh-record-holding-a-writable-record-is-accepted-by-a-let-field -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 The `Wrap` is fresh, and its `b` field is the record `id(p)` hands back, which is `p`'s; `bump` writes `p` after the `let` field has been given the `Wrap`.
 
 ```maxon
@@ -1786,7 +1803,7 @@ type Wrap
 	export var b as Box
 
 	static function create(a Box, b Box) returns Self
-		return Self{a: a.clone(), b: b.clone()}
+		return Self{a: a, b: b}
 	end 'create'
 end 'Wrap'
 
@@ -1794,20 +1811,20 @@ type Frozen
 	export let held as Wrap
 
 	static function create(h Wrap) returns Self
-		return Self{held: h.clone()}
+		return Self{held: h}
 	end 'create'
 end 'Frozen'
 
 function id(b Box) returns Box
-	return b.clone()
+	return b
 end 'id'
 
-function bump(mutates b Box)
-	b.n = try b.n + 1 otherwise panic("out of range")
+function bump(b Box)
+	b.n = b.n + 1
 end 'bump'
 
 function main() returns ExitCode
-	var p = Box.create(5)
+	let p = Box.create(5)
 	let fr = Frozen.create(Wrap.create(Box.create(1), b: id(p)))
 	bump(p)
 	print("{fr.held.b.n}\n")
@@ -1857,6 +1874,7 @@ end 'main'
 ```
 
 <!-- test: let-binding-capabilities.a-fresh-tuple-holding-a-writable-record-is-accepted-by-a-let-field-literal -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 The factory stores the fresh tuple into its own `let` field directly, and `bump` writes `p` after the store.
 
 ```maxon
@@ -1874,7 +1892,7 @@ type Frozen
 	export let held as (Box, Box)
 
 	static function build() returns Self
-		var p = Box.create(5)
+		let p = Box.create(5)
 		let f = Self{held: (Box.create(1), id(p))}
 		bump(p)
 		return f
@@ -1882,11 +1900,11 @@ type Frozen
 end 'Frozen'
 
 function id(b Box) returns Box
-	return b.clone()
+	return b
 end 'id'
 
-function bump(mutates b Box)
-	b.n = try b.n + 1 otherwise panic("out of range")
+function bump(b Box)
+	b.n = b.n + 1
 end 'bump'
 
 function main() returns ExitCode

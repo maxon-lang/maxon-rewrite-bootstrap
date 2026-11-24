@@ -1485,6 +1485,7 @@ error E3065: specs/discarded-results/error.a-function-writing-an-array-it-was-ha
 ```
 
 <!-- test: a-function-that-stores-a-fresh-array-into-its-argument-then-writes-it-is-impure -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 An array stored into a record the caller holds has left the function, so the later write is visible.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -1498,24 +1499,24 @@ type Sink
 		return Sink{items: IntArray.create(0)}
 	end 'create'
 
-	function attach(mutates self, extra IntArray)
-		self.items = extra.clone()
+	function attach(extra IntArray)
+		self.items = extra
 	end 'attach'
 
 	function size() returns Integer
-		return try self.items.count() as Integer otherwise panic("out of range")
+		return self.items.count() as Integer
 	end 'size'
 end 'Sink'
 
-function stash(mutates sink Sink, count Integer) returns Integer
-	var extra = IntArray.create(0)
+function stash(sink Sink, count Integer) returns Integer
+	let extra = IntArray.create(0)
 	sink.attach(extra)
 	extra.push(count)
 	return count
 end 'stash'
 
 function main() returns ExitCode
-	var sink = Sink.create()
+	let sink = Sink.create()
 	_ = stash(sink, count: 4)
 	if sink.size() != 1 'wrong'
 		return 1
@@ -1852,6 +1853,7 @@ error E3064: specs/discarded-results/error.a-closure-handed-down-through-two-hel
 ```
 
 <!-- test: a-registering-factory-keeps-writes-to-its-product-visible -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 A function that registers the record it creates in a module-level array and then writes it changes state the caller can see,
 whatever it returns.
 ```maxon
@@ -1864,8 +1866,8 @@ type Box
 		return Box{total: 0}
 	end 'create'
 
-	function bump(mutates self) returns Integer
-		self.total = try self.total + 1 otherwise panic("out of range")
+	function bump() returns Integer
+		self.total = self.total + 1
 		return self.total
 	end 'bump'
 
@@ -1878,17 +1880,17 @@ typealias BoxArray = Array with Box
 
 function enroll(mutates registry BoxArray) returns Box
 	let box = Box.create()
-	registry.push(box.clone())
+	registry.push(box)
 	return box
 end 'enroll'
 
 function tamper(mutates registry BoxArray) returns Integer
-	var box = enroll(registry)
+	let box = enroll(registry)
 	return box.bump()
 end 'tamper'
 
 function main() returns ExitCode
-	var registry = BoxArray.create(0)
+	let registry = BoxArray.create(0)
 	_ = tamper(registry)
 	if (try registry.get(0) otherwise return 2).read() != 1 'wrong'
 		return 1
@@ -2707,6 +2709,7 @@ error E3064: specs/discarded-results/error.a-record-holding-a-cursor-over-an-arg
 ```
 
 <!-- test: a-record-holding-a-cursor-over-an-argument-keeps-a-write-through-the-cursor-visible -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 A write through the cursor to the argument it reads is an effect.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -2717,10 +2720,10 @@ type Cursor
 	var data as IntArray
 
 	static function over(data IntArray) returns Cursor
-		return Cursor{data: data.clone()}
+		return Cursor{data: data}
 	end 'over'
 
-	function wipe(mutates self)
+	function wipe()
 		self.data.clear()
 	end 'wipe'
 end 'Cursor'
@@ -2732,19 +2735,19 @@ type Walker
 		return Walker{cursor: Cursor.over(data)}
 	end 'over'
 
-	function wipe(mutates self)
+	function wipe()
 		self.cursor.wipe()
 	end 'wipe'
 end 'Walker'
 
 function wiped(data IntArray) returns Integer
-	var walker = Walker.over(data)
+	let walker = Walker.over(data)
 	walker.wipe()
 	return 1
 end 'wiped'
 
 function main() returns ExitCode
-	var values = IntArray.create(0)
+	let values = IntArray.create(0)
 	values.push(4)
 	_ = wiped(values)
 	if values.count() != 0 'wrong'
@@ -2758,6 +2761,7 @@ end 'main'
 ```
 
 <!-- test: a-record-another-call-handed-a-foreign-record-keeps-a-write-through-it-visible -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 A record stored below a record the function made is foreign afterwards, wherever it was reached from.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -2777,8 +2781,8 @@ type Child
 		return Child{box: Box.create(0)}
 	end 'create'
 
-	function bump(mutates self)
-		self.box.number = try self.box.number + 1 otherwise panic("out of range")
+	function bump()
+		self.box.number = self.box.number + 1
 	end 'bump'
 end 'Child'
 
@@ -2786,17 +2790,17 @@ type Parent
 	var child as Child
 
 	static function over(child Child) returns Parent
-		return Parent{child: child.clone()}
+		return Parent{child: child}
 	end 'over'
 
-	function adopt(mutates self, box Box)
-		self.child.box = box.clone()
+	function adopt(box Box)
+		self.child.box = box
 	end 'adopt'
 end 'Parent'
 
 function bumped(target Box) returns Integer
-	var child = Child.create()
-	var parent = Parent.over(child)
+	let child = Child.create()
+	let parent = Parent.over(child)
 	parent.adopt(target)
 	child.bump()
 	return 1
@@ -2862,6 +2866,7 @@ error E3064: specs/discarded-results/error.a-record-no-call-handed-a-foreign-rec
 ```
 
 <!-- test: a-write-two-levels-below-a-record-made-here-keeps-its-result-droppable -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 A record the function made holds an argument two levels down; a write that reaches it is an effect.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -2872,7 +2877,7 @@ type Child
 	export var data as IntArray
 
 	static function over(data IntArray) returns Child
-		return Child{data: data.clone()}
+		return Child{data: data}
 	end 'over'
 end 'Child'
 
@@ -2883,13 +2888,13 @@ type Parent
 		return Parent{child: Child.over(data)}
 	end 'over'
 
-	function grow(mutates self)
+	function grow()
 		self.child.data.push(1)
 	end 'grow'
 end 'Parent'
 
 function grown(target IntArray) returns Integer
-	var parent = Parent.over(target)
+	let parent = Parent.over(target)
 	parent.grow()
 	return 1
 end 'grown'
@@ -2905,6 +2910,7 @@ end 'main'
 ```
 
 <!-- test: a-call-two-levels-below-a-record-made-here-keeps-its-result-droppable -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 The same, reached through a call on the argument held two levels down.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -2915,7 +2921,7 @@ type Child
 	export var data as IntArray
 
 	static function over(data IntArray) returns Child
-		return Child{data: data.clone()}
+		return Child{data: data}
 	end 'over'
 end 'Child'
 
@@ -2926,19 +2932,19 @@ type Parent
 		return Parent{child: Child.over(data)}
 	end 'over'
 
-	function shorten(mutates self)
+	function shorten()
 		self.child.data.truncate(1)
 	end 'shorten'
 end 'Parent'
 
 function shortened(target IntArray) returns Integer
-	var parent = Parent.over(target)
+	let parent = Parent.over(target)
 	parent.shorten()
 	return 1
 end 'shortened'
 
 function main() returns ExitCode
-	var values = IntArray.create(0)
+	let values = IntArray.create(0)
 	values.push(2)
 	values.push(1)
 	_ = shortened(values)
@@ -2950,6 +2956,7 @@ end 'main'
 ```
 
 <!-- test: a-closure-calling-a-method-that-writes-two-levels-down-keeps-its-result-droppable -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 The same, reached from a closure that captured the record.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -2962,7 +2969,7 @@ type Child
 	export var data as IntArray
 
 	static function over(data IntArray) returns Child
-		return Child{data: data.clone()}
+		return Child{data: data}
 	end 'over'
 end 'Child'
 
@@ -2973,13 +2980,13 @@ type Parent
 		return Parent{child: Child.over(data)}
 	end 'over'
 
-	function growCount(mutates self) returns Integer
+	function growCount() returns Integer
 		self.child.data.push(1)
 		return 1
 	end 'growCount'
 end 'Parent'
 
-function run(mutates action Action) returns Integer
+function run(action Action) returns Integer
 	return action()
 end 'run'
 
@@ -2999,6 +3006,7 @@ end 'main'
 ```
 
 <!-- test: a-write-through-records-holding-records-keeps-its-result-droppable -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 The same shape over records instead of arrays.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -3015,7 +3023,7 @@ type Child
 	export var box as Box
 
 	static function over(box Box) returns Child
-		return Child{box: box.clone()}
+		return Child{box: box}
 	end 'over'
 end 'Child'
 
@@ -3023,16 +3031,16 @@ type Parent
 	var child as Child
 
 	static function over(child Child) returns Parent
-		return Parent{child: child.clone()}
+		return Parent{child: child}
 	end 'over'
 
-	function bump(mutates self)
-		self.child.box.number = try self.child.box.number + 1 otherwise panic("out of range")
+	function bump()
+		self.child.box.number = self.child.box.number + 1
 	end 'bump'
 end 'Parent'
 
 function bumped(target Box) returns Integer
-	var parent = Parent.over(Child.over(target))
+	let parent = Parent.over(Child.over(target))
 	parent.bump()
 	return 1
 end 'bumped'
@@ -3048,6 +3056,7 @@ end 'main'
 ```
 
 <!-- test: an-argument-adopted-through-a-chain-of-calls-keeps-its-result-droppable -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 A record that adopts an argument several calls down is no longer made of what the function made, whatever else the chain does.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -3061,11 +3070,11 @@ type Holder
 		return Holder{items: IntArray.create(0)}
 	end 'make'
 
-	function adopt(mutates self, fresh IntArray)
-		self.items = fresh.clone()
+	function adopt(fresh IntArray)
+		self.items = fresh
 	end 'adopt'
 
-	function grow(mutates self)
+	function grow()
 		self.items.push(1)
 	end 'grow'
 end 'Holder'
@@ -3077,23 +3086,23 @@ type Wrapper
 		return Wrapper{items: IntArray.create(0)}
 	end 'make'
 
-	function touchChild(mutates self)
+	function touchChild()
 		self.items.push(1)
 	end 'touchChild'
 end 'Wrapper'
 
-function relay(mutates target Holder, items IntArray)
+function relay(target Holder, items IntArray)
 	target.adopt(items)
 end 'relay'
 
-function hand(mutates target Holder, items IntArray)
-	var scratch = Wrapper.make()
+function hand(target Holder, items IntArray)
+	let scratch = Wrapper.make()
 	scratch.touchChild()
 	relay(target, items: items)
 end 'hand'
 
 function grown(items IntArray) returns Integer
-	var holder = Holder.make()
+	let holder = Holder.make()
 	hand(holder, items: items)
 	holder.grow()
 	return 1
@@ -3110,6 +3119,7 @@ end 'main'
 ```
 
 <!-- test: a-record-adopting-an-argument-through-a-chain-keeps-a-later-write-visible -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 The same shape over records instead of arrays.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -3129,12 +3139,12 @@ type Holder
 		return Holder{box: Box.create(0)}
 	end 'make'
 
-	function adopt(mutates self, fresh Box)
-		self.box = fresh.clone()
+	function adopt(fresh Box)
+		self.box = fresh
 	end 'adopt'
 
-	function bumpBox(mutates self)
-		self.box.number = try self.box.number + 1 otherwise panic("out of range")
+	function bumpBox()
+		self.box.number = self.box.number + 1
 	end 'bumpBox'
 end 'Holder'
 
@@ -3145,23 +3155,23 @@ type Wrapper
 		return Wrapper{box: Box.create(0)}
 	end 'make'
 
-	function touchChild(mutates self)
+	function touchChild()
 		self.box.number = 1
 	end 'touchChild'
 end 'Wrapper'
 
-function relay(mutates target Holder, box Box)
+function relay(target Holder, box Box)
 	target.adopt(box)
 end 'relay'
 
-function hand(mutates target Holder, box Box)
-	var scratch = Wrapper.make()
+function hand(target Holder, box Box)
+	let scratch = Wrapper.make()
 	scratch.touchChild()
 	relay(target, box: box)
 end 'hand'
 
 function bumped(box Box) returns Integer
-	var holder = Holder.make()
+	let holder = Holder.make()
 	hand(holder, box: box)
 	holder.bumpBox()
 	return 1
@@ -3178,6 +3188,7 @@ end 'main'
 ```
 
 <!-- test: an-adoption-through-a-function-parameter-keeps-a-later-write-visible -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 A record handed an argument by a function the caller passed in holds that argument afterwards, so a later write reaches it.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -3193,11 +3204,11 @@ type Holder
 		return Holder{items: IntArray.create(0)}
 	end 'create'
 
-	function adopt(mutates self, fresh IntArray)
-		self.items = fresh.clone()
+	function adopt(fresh IntArray)
+		self.items = fresh
 	end 'adopt'
 
-	function grow(mutates self)
+	function grow()
 		self.items.push(1)
 	end 'grow'
 end 'Holder'
@@ -3206,24 +3217,24 @@ function adoptInto(mutates holder Holder, mutates items IntArray)
 	holder.adopt(items)
 end 'adoptInto'
 
-function apply(mutates holder Holder, mutates items IntArray, action Adopt)
+function apply(holder Holder, items IntArray, action Adopt)
 	action(holder, items)
 end 'apply'
 
-function made(mutates items IntArray, action Adopt) returns Holder
-	var holder = Holder.create()
+function made(items IntArray, action Adopt) returns Holder
+	let holder = Holder.create()
 	apply(holder, items: items, action: action)
 	return holder
 end 'made'
 
-function grown(mutates target IntArray) returns Integer
-	var holder = made(target, action: adoptInto)
+function grown(target IntArray) returns Integer
+	let holder = made(target, action: adoptInto)
 	holder.grow()
 	return 1
 end 'grown'
 
 function main() returns ExitCode
-	var values = IntArray.create(0)
+	let values = IntArray.create(0)
 	_ = grown(values)
 	return 0 if values.count() == 1 else 1
 end 'main'
@@ -3233,6 +3244,7 @@ end 'main'
 ```
 
 <!-- test: an-adoption-through-a-function-parameter-keeps-a-later-write-visible-over-records -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 The same shape over records instead of arrays.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -3254,33 +3266,33 @@ type Holder
 		return Holder{box: Box.create(0)}
 	end 'create'
 
-	function bump(mutates self)
-		self.box.number = try self.box.number + 1 otherwise panic("out of range")
+	function bump()
+		self.box.number = self.box.number + 1
 	end 'bump'
 end 'Holder'
 
 function adoptInto(mutates holder Holder, mutates box Box)
-	holder.box = box.clone()
+	holder.box = box
 end 'adoptInto'
 
-function apply(mutates holder Holder, mutates box Box, action Adopt)
+function apply(holder Holder, box Box, action Adopt)
 	action(holder, box)
 end 'apply'
 
-function made(mutates box Box, action Adopt) returns Holder
-	var holder = Holder.create()
+function made(box Box, action Adopt) returns Holder
+	let holder = Holder.create()
 	apply(holder, box: box, action: action)
 	return holder
 end 'made'
 
-function bumped(mutates target Box) returns Integer
-	var holder = made(target, action: adoptInto)
+function bumped(target Box) returns Integer
+	let holder = made(target, action: adoptInto)
 	holder.bump()
 	return 1
 end 'bumped'
 
 function main() returns ExitCode
-	var target = Box.create(5)
+	let target = Box.create(5)
 	_ = bumped(target)
 	return 0 if target.number == 6 else 1
 end 'main'
@@ -3290,6 +3302,7 @@ end 'main'
 ```
 
 <!-- test: an-adoption-in-a-generic-method-that-stops-at-a-drop-keeps-a-later-write-visible -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 A generic method whose body, read without its type arguments, stops at the drop of a local it may not own still stores its argument.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -3305,23 +3318,23 @@ type Shelf uses T
 		return Self{items: IntArray.create(0), flagged: false}
 	end 'create'
 
-	function adopt(mutates self, fresh IntArray, scratchy bool) where T implements Droppable
+	function adopt(fresh IntArray, scratchy bool)
 		if scratchy 'scratch'
 			let scratch = TArray.create(0)
 			if scratch.isEmpty() 'empty'
 				self.flagged = true
 			end 'empty'
 		end 'scratch'
-		self.items = fresh.clone()
+		self.items = fresh
 	end 'adopt'
 
-	static function filled(fresh IntArray) returns Self where T implements Droppable
-		var made = Self.create()
+	static function filled(fresh IntArray) returns Self
+		let made = Self.create()
 		made.adopt(fresh, scratchy: false)
 		return made
 	end 'filled'
 
-	function grow(mutates self)
+	function grow()
 		self.items.push(1)
 	end 'grow'
 end 'Shelf'
@@ -3329,7 +3342,7 @@ end 'Shelf'
 typealias IntShelf = Shelf with Integer
 
 function grown(target IntArray) returns Integer
-	var shelf = IntShelf.filled(target)
+	let shelf = IntShelf.filled(target)
 	shelf.grow()
 	return 1
 end 'grown'
@@ -3401,6 +3414,7 @@ end 'main'
 ```
 
 <!-- test: a-loop-that-reaches-a-global-through-a-co-owned-copy-keeps-its-result-droppable -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 A record the first trip made and a later trip swapped for a global is not made by the function, however many names it passes through.
 ```maxon
 typealias Small = int(0 to 100)
@@ -3423,14 +3437,14 @@ function scribble(mutates shared Box) returns Small
 		let pick = fresh if i < 2 else b
 		other = pick
 		other.n = 7
-		held = shared.clone()
+		held = shared
 		i = i + 1
 	end 'loop'
 	return other.n
 end 'scribble'
 
 function main() returns ExitCode
-	var shared = Box.create(0)
+	let shared = Box.create(0)
 	_ = scribble(shared)
 	return 0 if shared.n == 7 else 1
 end 'main'
@@ -3577,6 +3591,7 @@ error E3064: specs/discarded-results/error.a-record-holding-only-what-the-functi
 ```
 
 <!-- test: a-record-holding-an-argument-keeps-a-deep-write-visible -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -3586,22 +3601,22 @@ type Cursor
 	var data as IntArray
 
 	static function over(data IntArray) returns Cursor
-		return Cursor{data: data.clone()}
+		return Cursor{data: data}
 	end 'over'
 
-	function drop(mutates self)
+	function drop()
 		self.data.clear()
 	end 'drop'
 end 'Cursor'
 
 function wipe(values IntArray) returns Integer
-	var cursor = Cursor.over(values)
+	let cursor = Cursor.over(values)
 	cursor.drop()
 	return 1
 end 'wipe'
 
 function main() returns ExitCode
-	var values = IntArray.create(0)
+	let values = IntArray.create(0)
 	values.push(4)
 	_ = wipe(values)
 	if values.count() != 0 'wrong'
@@ -3615,6 +3630,7 @@ end 'main'
 ```
 
 <!-- test: a-record-given-an-argument-after-it-was-made-keeps-a-deep-write-visible -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -3624,27 +3640,27 @@ type Cursor
 	var data as IntArray
 
 	static function over(data IntArray) returns Cursor
-		return Cursor{data: data.clone()}
+		return Cursor{data: data}
 	end 'over'
 
-	function adopt(mutates self, extra IntArray)
-		self.data = extra.clone()
+	function adopt(extra IntArray)
+		self.data = extra
 	end 'adopt'
 
-	function drop(mutates self)
+	function drop()
 		self.data.clear()
 	end 'drop'
 end 'Cursor'
 
 function reset(extra IntArray) returns Integer
-	var cursor = Cursor.over(IntArray.create(0))
+	let cursor = Cursor.over(IntArray.create(0))
 	cursor.adopt(extra)
 	cursor.drop()
 	return 1
 end 'reset'
 
 function main() returns ExitCode
-	var values = IntArray.create(0)
+	let values = IntArray.create(0)
 	values.push(4)
 	_ = reset(values)
 	if values.count() != 0 'wrong'

@@ -53,7 +53,7 @@ let cachedBase = ["first base item", "second base item", "third base item"]
 let cachedMerged = ["merged item"]
 
 function loadBase() returns frozen with Names
-	return cachedBase
+	return freeze(cachedBase)
 end 'loadBase'
 
 function buildFor(wantMerged bool) returns frozen with Names
@@ -61,12 +61,12 @@ function buildFor(wantMerged bool) returns frozen with Names
 	if not wantMerged 'native'
 		return base
 	end 'native'
-	return cachedMerged
+	return freeze(cachedMerged)
 end 'buildFor'
 
 function augment(wantMerged bool) returns Count
 	let rt = buildFor(wantMerged)
-	return rt.count()
+	return try rt.count() as Count otherwise panic("out of range")
 end 'augment'
 
 function main() returns ExitCode

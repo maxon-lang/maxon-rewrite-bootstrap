@@ -206,6 +206,7 @@ error E3209: <fragment>:26:10: a return does not fit the declared result: 'self.
 
 
 <!-- test: a-method-returning-an-immutable-element-is-read-through-a-let -->
+<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 The accepted twin: the result is declared `immutable` and the caller binds the returned element with `let` and
 reads it.
 
@@ -229,7 +230,7 @@ type Shelf
 	end 'create'
 
 	function add(item frozen with Counter)
-		self.items.push(thaw(item))
+		self.items.push(item)
 	end 'add'
 
 	function at(i ElementIndex) returns frozen with Counter throws ArrayError
@@ -297,6 +298,7 @@ error E3197: <fragment>:35:2: cannot write 'n' through 'first', which is immutab
 
 
 <!-- test: a-method-returning-an-immutable-element-is-copied-with-clone -->
+<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 The accepted twin: a `clone()` of the returned element is a new record, so the caller's `var` writes the copy and
 the shelf's record keeps its value.
 
@@ -320,7 +322,7 @@ type Shelf
 	end 'create'
 
 	function add(item frozen with Counter)
-		self.items.push(thaw(item))
+		self.items.push(item)
 	end 'add'
 
 	function at(i ElementIndex) returns frozen with Counter throws ArrayError

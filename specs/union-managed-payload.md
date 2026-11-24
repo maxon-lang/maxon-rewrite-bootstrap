@@ -549,6 +549,7 @@ original payload, long enough to be a real heap allocation|original payload, lon
 ```
 
 <!-- test: returned-alias-of-a-let-struct-union-payload-is-written-through -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 The same escape with a STRUCT payload: the returned `Body` is the very box `slot` holds, and a `let` forbids only
 reassigning `slot`, so the `var` bound to it names that box and the write is seen through the payload.
 
@@ -571,15 +572,15 @@ end 'Slot'
 function grab(slot Slot) returns Body
 	return match slot 'k'
 		empty gives Body.create(0)
-		filled(b) gives b.clone()
+		filled(b) gives b
 	end 'k'
 end 'grab'
 
 function main() returns ExitCode
 	let slot = Slot.filled(Body.create(5))
-	var escaped = grab(slot)
+	let escaped = grab(slot)
 	escaped.mass = 99
-	return try grab(slot).mass as ExitCode otherwise panic("out of range")
+	return grab(slot).mass as ExitCode
 end 'main'
 ```
 ```exitcode

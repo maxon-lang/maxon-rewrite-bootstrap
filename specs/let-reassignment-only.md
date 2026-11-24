@@ -285,6 +285,7 @@ end 'main'
 ```
 
 <!-- test: a-let-alias-of-a-parameter-writes-the-callers-record -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 `a` names the record `p` names, so `retarget` writes its parameter through the alias.
 
 ```maxon
@@ -299,7 +300,7 @@ type Box
 end 'Box'
 
 function retarget(p Box)
-	var a = p.clone()
+	let a = p
 	a.n = 3
 end 'retarget'
 
@@ -374,6 +375,7 @@ end 'main'
 ```
 
 <!-- test: a-let-is-stored-into-let-and-var-fields-and-an-array-and-written-after -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 `a`, `b` and `c` are stored into a `let` field, a `var` field and an array, and each is read and written again after the store.
 
 ```maxon
@@ -395,19 +397,19 @@ type Shelf
 	export var all as Boxes
 
 	static function create(kept Box, spare Box) returns Self
-		return Self{kept: kept.clone(), spare: spare.clone(), all: Boxes.create(0)}
+		return Self{kept: kept, spare: spare, all: Boxes.create(0)}
 	end 'create'
 
-	function stock(mutates self, item Box)
-		self.all.push(item.clone())
+	function stock(item Box)
+		self.all.push(item)
 	end 'stock'
 end 'Shelf'
 
 function main() returns ExitCode
-	var a = Box.create(1)
-	var b = Box.create(2)
-	var c = Box.create(3)
-	var shelf = Shelf.create(a, spare: b)
+	let a = Box.create(1)
+	let b = Box.create(2)
+	let c = Box.create(3)
+	let shelf = Shelf.create(a, spare: b)
 	shelf.stock(c)
 	a.n = 10
 	b.n = 20
@@ -815,14 +817,14 @@ type Sink
 	end 'create'
 
 	export function take(point frozen with Point) returns Count
-		return point.x + point.y
+		return try point.x + point.y otherwise panic("out of range")
 	end 'take'
 end 'Sink'
 
 function main() returns ExitCode
 	let sink = spawn Sink.create()
 	let point = Point.create(1, y: 2)
-	let n = try await sink.take(point) otherwise 0
+	let n = try await sink.take(freeze(point)) otherwise 0
 	sink.shutdown()
 	print("{n}\n")
 	return 0

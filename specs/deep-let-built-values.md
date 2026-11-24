@@ -208,7 +208,7 @@ type Told
 		return Self{names: NameList.create(0)}
 	end 'create'
 
-	function note(name frozen with ByteArray)
+	function note(mutates self, name frozen with ByteArray)
 		self.names.push(thaw(name))
 	end 'note'
 end 'Told'
@@ -225,7 +225,7 @@ type KeepLog
 	export let log as Log
 
 	static function create(log Log) returns Self
-		return Self{log: log}
+		return Self{log: log.clone()}
 	end 'create'
 end 'KeepLog'
 
@@ -236,22 +236,22 @@ type Holder
 		return Self{log: Log.create()}
 	end 'create'
 
-	function note(name frozen with ByteArray)
+	function note(mutates self, name frozen with ByteArray)
 		self.log.told.note(name)
 	end 'note'
 
-	function closeWhole() returns KeepLog
-		let old = self.log
+	function closeWhole(mutates self) returns KeepLog
+		let old = self.log.clone()
 		self.log = Log.create()
 		return KeepLog.create(old)
 	end 'closeWhole'
 end 'Holder'
 
 function main() returns ExitCode
-	let holder = Holder.create()
-	holder.note(b"a")
+	var holder = Holder.create()
+	holder.note(freeze(b"a"))
 	let kept = holder.closeWhole()
-	return kept.log.told.names.count() as ExitCode
+	return try kept.log.told.names.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -274,7 +274,7 @@ type Told
 		return Self{names: NameList.create(0)}
 	end 'create'
 
-	function note(name frozen with ByteArray)
+	function note(mutates self, name frozen with ByteArray)
 		self.names.push(thaw(name))
 	end 'note'
 end 'Told'
@@ -291,7 +291,7 @@ type KeepLog
 	export let log as Log
 
 	static function create(log Log) returns Self
-		return Self{log: log}
+		return Self{log: log.clone()}
 	end 'create'
 end 'KeepLog'
 
@@ -303,24 +303,24 @@ type Holder
 		return Self{log: Log.create(), generation: 0}
 	end 'create'
 
-	function note(name frozen with ByteArray)
+	function note(mutates self, name frozen with ByteArray)
 		self.log.told.note(name)
 	end 'note'
 
-	function closeWhole() returns KeepLog
-		let old = self.log
+	function closeWhole(mutates self) returns KeepLog
+		let old = self.log.clone()
 		let next = self.generation + 1
-		self.generation = next as Count
+		self.generation = try next as Count otherwise panic("out of range")
 		self.log = Log.create()
 		return KeepLog.create(old)
 	end 'closeWhole'
 end 'Holder'
 
 function main() returns ExitCode
-	let holder = Holder.create()
-	holder.note(b"a")
+	var holder = Holder.create()
+	holder.note(freeze(b"a"))
 	let kept = holder.closeWhole()
-	return kept.log.told.names.count() as ExitCode
+	return try kept.log.told.names.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -340,7 +340,7 @@ type Told
 		return Self{names: NameList.create(0)}
 	end 'create'
 
-	function note(name frozen with ByteArray)
+	function note(mutates self, name frozen with ByteArray)
 		self.names.push(thaw(name))
 	end 'note'
 end 'Told'
@@ -357,7 +357,7 @@ type KeepLog
 	export let log as Log
 
 	static function create(log Log) returns Self
-		return Self{log: log}
+		return Self{log: log.clone()}
 	end 'create'
 end 'KeepLog'
 
@@ -365,27 +365,27 @@ type Holder
 	var log as Log
 
 	static function create(log Log) returns Self
-		return Self{log: log}
+		return Self{log: log.clone()}
 	end 'create'
 
-	function note(name frozen with ByteArray)
+	function note(mutates self, name frozen with ByteArray)
 		self.log.told.note(name)
 	end 'note'
 
-	function closeWhole() returns KeepLog
-		let old = self.log
+	function closeWhole(mutates self) returns KeepLog
+		let old = self.log.clone()
 		self.log = Log.create()
 		return KeepLog.create(old)
 	end 'closeWhole'
 end 'Holder'
 
 function main() returns ExitCode
-	let shared = Log.create()
-	let holder = Holder.create(shared)
-	holder.note(b"a")
+	var shared = Log.create()
+	var holder = Holder.create(shared)
+	holder.note(freeze(b"a"))
 	let kept = holder.closeWhole()
-	shared.told.note(b"b")
-	return kept.log.told.names.count() as ExitCode
+	shared.told.note(freeze(b"b"))
+	return try kept.log.told.names.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

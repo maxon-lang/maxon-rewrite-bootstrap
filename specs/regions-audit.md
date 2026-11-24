@@ -456,7 +456,7 @@ end 'look'
 
 function main() returns ExitCode
 	let frozen = freeze(Part.create())
-	print("{look(function() gives frozen)}\n")
+	print("{look(function() gives thaw(frozen))}\n")
 	return 0
 end 'main'
 ```

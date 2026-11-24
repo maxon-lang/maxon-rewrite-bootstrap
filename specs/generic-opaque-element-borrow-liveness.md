@@ -1518,6 +1518,7 @@ error E2015: <fragment>:10:12: Unsupported: interpolating a value of type 'type 
 ```
 
 <!-- test: a-let-read-of-an-element-record-is-written-through -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 The counted element read of the cases above does not make the element read-only: `first` is a `let` naming the
 record the container holds in slot 0, and a `let` forbids reassigning `first`, not writing the record, so the
 write reaches the record slot 0 holds.
@@ -1530,11 +1531,11 @@ typealias Row = Array with Count
 typealias Rows = Array with Row
 
 function main() returns ExitCode
-	var rows = Rows.create(0)
+	let rows = Rows.create(0)
 	rows.push(Row.create(0))
-	var first = try rows.get(0) otherwise Row.create(0)
+	let first = try rows.get(0) otherwise Row.create(0)
 	first.push(1)
-	return try ((try rows.get(0) otherwise Row.create(0)).count() as ExitCode) + (rows.count() as ExitCode) otherwise panic("out of range")
+	return ((try rows.get(0) otherwise Row.create(0)).count() as ExitCode) + (rows.count() as ExitCode)
 end 'main'
 ```
 ```exitcode

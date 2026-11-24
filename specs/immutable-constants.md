@@ -558,7 +558,7 @@ function needs(name frozen with ByteArray) returns Count
 end 'needs'
 
 function main() returns ExitCode
-	print("{reads(Name)} {needs(Name)}\n")
+	print("{reads(Name)} {needs(freeze(Name))}\n")
 	return 0
 end 'main'
 ```
@@ -612,14 +612,14 @@ error E3209: <fragment>:5:9: a return does not fit the declared result: 'Name' i
 let Name = b"abc"
 
 function nameOf() returns frozen with ByteArray
-	return Name
+	return freeze(Name)
 end 'nameOf'
 
 type Tok
 	export let value as ByteArray
 
 	static function create(value ByteArray) returns Self
-		return Self{value: value}
+		return Self{value: value.clone()}
 	end 'create'
 end 'Tok'
 
@@ -1094,7 +1094,7 @@ type Tok
 	export let value as ByteArray
 
 	static function create(value ByteArray) returns Self
-		return Self{value: value}
+		return Self{value: value.clone()}
 	end 'create'
 end 'Tok'
 
@@ -1105,16 +1105,16 @@ type Sink
 		return Self{}
 	end 'create'
 
-	export function keep(tok frozen with Tok) returns Count
-		self.seen = self.seen + tok.value.count()
+	export function keep(mutates self, tok frozen with Tok) returns Count
+		self.seen = try self.seen + tok.value.count() otherwise panic("out of range")
 		return self.seen
 	end 'keep'
 end 'Sink'
 
 function main() returns ExitCode
 	let sink = spawn Sink.create()
-	let first = try await sink.keep(Tok.create(Label)) otherwise panic("main: a fresh sink answers keep")
-	let second = try await sink.keep(Tok.create(Label)) otherwise panic("main: a fresh sink answers keep")
+	let first = try await sink.keep(freeze(Tok.create(Label))) otherwise panic("main: a fresh sink answers keep")
+	let second = try await sink.keep(freeze(Tok.create(Label))) otherwise panic("main: a fresh sink answers keep")
 	sink.shutdown()
 	print("{first} {second} {Label.count()}\n")
 	return 0
@@ -1305,11 +1305,11 @@ typealias NameArray = Array with ByteArray
 typealias NameMap = Map with (ByteArray, ByteArray)
 
 function firstOf(names NameArray) returns frozen with ByteArray
-	return try names.get(0) otherwise panic("firstOf: the caller passes a name")
+	return freeze(try names.get(0) otherwise panic("firstOf: the caller passes a name"))
 end 'firstOf'
 
 function lookup(byPath NameMap, path ByteArray) returns frozen with ByteArray
-	return try byPath.get(path) otherwise panic("lookup: the caller passes a stored path")
+	return freeze(try byPath.get(path) otherwise panic("lookup: the caller passes a stored path"))
 end 'lookup'
 
 function copyAll(names NameArray) returns NameArray
@@ -1373,18 +1373,18 @@ call that returns `immutable` data, and an `immutable` parameter takes them as w
 let Preset = b"abc"
 
 function standard() returns frozen with ByteArray
-	return Preset
+	return freeze(Preset)
 end 'standard'
 
 function lengthOf(name ByteArray = Preset) returns Count
 	return name.count()
 end 'lengthOf'
 
-function lengthOfCall(name ByteArray = standard()) returns Count
+function lengthOfCall(name ByteArray = thaw(standard())) returns Count
 	return name.count()
 end 'lengthOfCall'
 
-function lengthOfFrozen(name frozen with ByteArray = Preset) returns Count
+function lengthOfFrozen(name frozen with ByteArray = freeze(Preset)) returns Count
 	return name.count()
 end 'lengthOfFrozen'
 
@@ -1418,13 +1418,13 @@ function takes(name frozen with ByteArray) returns Count
 	return name.count()
 end 'takes'
 
-function measure(sigs Sigs) returns Count
-	sigs.hits = sigs.hits + 1
-	return takes(sigs.label)
+function measure(mutates sigs Sigs) returns Count
+	sigs.hits = try sigs.hits + 1 otherwise panic("out of range")
+	return takes(freeze(sigs.label.clone()))
 end 'measure'
 
 function main() returns ExitCode
-	let sigs = Sigs.create()
+	var sigs = Sigs.create()
 	let size = measure(sigs)
 	print("{size} {sigs.hits}\n")
 	return 0
@@ -1456,12 +1456,12 @@ type Sigs
 		return Self{hits: 0, last: Member.one(b"payload")}
 	end 'create'
 
-	export function memberOf(qualified frozen with ByteArray) returns Member
+	export function memberOf(mutates self, qualified frozen with ByteArray) returns Member
 		if qualified.isEmpty() 'empty'
-			return self.last
+			return self.last.clone()
 		end 'empty'
-		self.hits = self.hits + 1
-		return self.last
+		self.hits = try self.hits + 1 otherwise panic("out of range")
+		return self.last.clone()
 	end 'memberOf'
 end 'Sigs'
 
@@ -1469,25 +1469,25 @@ type Chain
 	export let name as ByteArray
 
 	static function create(name frozen with ByteArray) returns Self
-		return Self{name: name}
+		return Self{name: thaw(name)}
 	end 'create'
 end 'Chain'
 
-function lookup(sigs Sigs, written frozen with ByteArray) returns Chain
+function lookup(mutates sigs Sigs, written frozen with ByteArray) returns Chain
 	match sigs.memberOf(written) 'claims'
-		one(name) then return Chain.create(name)
+		one(name) then return Chain.create(freeze(name.clone()))
 		none then return Chain.create(written)
 	end 'claims'
 end 'lookup'
 
-function outer(sigs Sigs, written frozen with ByteArray) returns Chain
+function outer(mutates sigs Sigs, written frozen with ByteArray) returns Chain
 	sigs.hits = 5
 	return lookup(sigs, written: written)
 end 'outer'
 
 function main() returns ExitCode
-	let sigs = Sigs.create()
-	let chain = outer(sigs, written: b"abc")
+	var sigs = Sigs.create()
+	let chain = outer(sigs, written: freeze(b"abc"))
 	print("{chain.name.count()} {sigs.hits}\n")
 	return 0
 end 'main'
@@ -1515,27 +1515,27 @@ type Table
 	end 'create'
 
 	export function nameAt(index ElementIndex) returns frozen with ByteArray
-		return try self.names.get(index) otherwise b"none"
+		return freeze(try self.names.get(index) otherwise b"none")
 	end 'nameAt'
 
-	export function intern(name frozen with ByteArray)
+	export function intern(mutates self, name frozen with ByteArray)
 		self.names.push(thaw(name))
-		self.hits = self.hits + 1
+		self.hits = try self.hits + 1 otherwise panic("out of range")
 	end 'intern'
 end 'Table'
 
 function canon(name frozen with ByteArray) returns frozen with ByteArray
-	return name
+	return name.clone()
 end 'canon'
 
-function reframe(table Table) returns frozen with ByteArray
-	table.hits = table.hits + 10
+function reframe(mutates table Table) returns frozen with ByteArray
+	table.hits = try table.hits + 10 otherwise panic("out of range")
 	return canon(table.nameAt(0))
 end 'reframe'
 
 function main() returns ExitCode
-	let table = Table.create()
-	table.intern(b"xy")
+	var table = Table.create()
+	table.intern(freeze(b"xy"))
 	let name = reframe(table)
 	print("{name.count()} {table.hits}\n")
 	return 0
@@ -1561,9 +1561,9 @@ type Sigs
 		return Self{hits: 0, label: b"label"}
 	end 'create'
 
-	export function labelOf() returns frozen with ByteArray
-		self.hits = self.hits + 1
-		return self.label
+	export function labelOf(mutates self) returns frozen with ByteArray
+		self.hits = try self.hits + 1 otherwise panic("out of range")
+		return freeze(self.label.clone())
 	end 'labelOf'
 end 'Sigs'
 
@@ -1571,16 +1571,16 @@ type Chain
 	export let name as ByteArray
 
 	static function create(name frozen with ByteArray) returns Self
-		return Self{name: name}
+		return Self{name: thaw(name)}
 	end 'create'
 end 'Chain'
 
-function lookup(sigs Sigs) returns Chain
+function lookup(mutates sigs Sigs) returns Chain
 	return Chain.create(sigs.labelOf())
 end 'lookup'
 
 function main() returns ExitCode
-	let sigs = Sigs.create()
+	var sigs = Sigs.create()
 	let chain = lookup(sigs)
 	print("{chain.name.count()} {sigs.hits}\n")
 	return 0
@@ -1642,15 +1642,15 @@ type Window
 	export let depth as Count
 
 	static function create(label frozen with ByteArray, depth Count) returns Self
-		return Self{label: label, depth: depth}
+		return Self{label: thaw(label), depth: depth}
 	end 'create'
 end 'Window'
 
 function main() returns ExitCode
-	let names = NameList.create(0)
+	var names = NameList.create(0)
 	names.push(b"outer")
 	let first = try names.get(0) otherwise panic("main: one name was pushed")
-	let window = Window.create(first, depth: 1)
+	let window = Window.create(freeze(first), depth: 1)
 	print("{window.label.count()} {window.depth}\n")
 	return 0
 end 'main'
@@ -1681,7 +1681,7 @@ type Holder
 		return Self{source: Source.file}
 	end 'create'
 
-	export function keep(name frozen with ByteArray)
+	export function keep(mutates self, name frozen with ByteArray)
 		self.source = Source.body(thaw(name))
 	end 'keep'
 
@@ -1694,11 +1694,11 @@ type Holder
 end 'Holder'
 
 function main() returns ExitCode
-	let names = NameList.create(0)
+	var names = NameList.create(0)
 	names.push(b"unit")
 	let first = try names.get(0) otherwise panic("main: one name was pushed")
-	let holder = Holder.create()
-	holder.keep(first)
+	var holder = Holder.create()
+	holder.keep(freeze(first))
 	print("{holder.size()}\n")
 	return 0
 end 'main'
@@ -1762,7 +1762,7 @@ type Func
 	let name as ByteArray
 
 	static function create(name frozen with ByteArray) returns Func
-		return Self{name: name}
+		return Self{name: thaw(name)}
 	end 'create'
 
 	static function namesOf(functions FuncArray) returns NameSet
@@ -1782,7 +1782,7 @@ end 'Func'
 
 function main() returns ExitCode
 	let functions = FuncArray.create(0)
-	functions.push(Func.create(b"alpha"))
+	functions.push(Func.create(freeze(b"alpha")))
 	print("{Func.namesOf(functions).count()} {Func.countsOf(functions).count()}\n")
 	return 0
 end 'main'
@@ -1932,12 +1932,12 @@ type Holder
 	export let name as ByteArray
 
 	static function create(name frozen with ByteArray) returns Holder
-		return Self{name: name}
+		return Self{name: thaw(name)}
 	end 'create'
 end 'Holder'
 
 function wrap(name ByteArray) returns Holder
-	return Holder.create(name)
+	return Holder.create(freeze(name.clone()))
 end 'wrap'
 
 function main() returns ExitCode
@@ -1989,7 +1989,7 @@ union Kind
 end 'Kind'
 
 function constant() returns frozen with ByteArray
-	return b"retain"
+	return freeze(b"retain")
 end 'constant'
 
 function pick(kind Kind) returns frozen with ByteArray
@@ -2199,7 +2199,7 @@ type Token
 	export let value as ByteArray
 
 	static function create(value frozen with ByteArray) returns Token
-		return Self{value: value}
+		return Self{value: thaw(value)}
 	end 'create'
 end 'Token'
 
@@ -2215,8 +2215,8 @@ end 'collect'
 
 function main() returns ExitCode
 	let tokens = TokenArray.create(0)
-	tokens.push(Token.create(b"a"))
-	tokens.push(Token.create(b"a"))
+	tokens.push(Token.create(freeze(b"a")))
+	tokens.push(Token.create(freeze(b"a")))
 	print("{collect(tokens).count()}\n")
 	return 0
 end 'main'
@@ -2252,7 +2252,7 @@ function lookup(flag bool) returns Lookup
 end 'lookup'
 
 function constant() returns frozen with ByteArray
-	return b"abc"
+	return freeze(b"abc")
 end 'constant'
 
 function viaMatch() returns frozen with ByteArray
@@ -2291,8 +2291,8 @@ end 'Bag'
 function pick() returns frozen with ByteArray
 	let first = Bag.create()
 	let second = Bag.create()
-	print("{first.items.count() + second.items.count()}\n")
-	return b"picked"
+	print("{try first.items.count() + second.items.count() otherwise panic("out of range")}\n")
+	return freeze(b"picked")
 end 'pick'
 
 function main() returns ExitCode
@@ -2318,7 +2318,7 @@ type Frozen
 	export let texts as NameRoster
 
 	static function of(texts NameRoster) returns Frozen
-		return Self{texts: texts}
+		return Self{texts: texts.clone()}
 	end 'of'
 end 'Frozen'
 
@@ -2331,23 +2331,23 @@ type Holder
 	let base as Base
 
 	static function create(base Base) returns Holder
-		return Self{base: base}
+		return Self{base: base.clone()}
 	end 'create'
 
 	function names() returns Frozen
 		return match self.base 'base'
 			none panic("not an overlay")
-			over(frozen) gives frozen
+			over(frozen) gives frozen.clone()
 		end 'base'
 	end 'names'
 
 	function nameOf(id ElementIndex) returns frozen with ByteArray
-		return try self.names().texts.get(id) otherwise panic("oob")
+		return freeze(try self.names().texts.get(id) otherwise panic("oob"))
 	end 'nameOf'
 end 'Holder'
 
 function main() returns ExitCode
-	let texts = NameRoster.create(1, zeroed: false)
+	var texts = NameRoster.create(1, zeroed: false)
 	texts.push(b"a")
 	let h = Holder.create(Base.over(Frozen.of(texts)))
 	let n = h.nameOf(0)
@@ -2433,7 +2433,7 @@ type Token
 	export let value as ByteArray
 
 	static function create(value frozen with ByteArray) returns Token
-		return Self{value: value}
+		return Self{value: thaw(value)}
 	end 'create'
 end 'Token'
 
@@ -2449,8 +2449,8 @@ end 'frozenCopyOf'
 
 function main() returns ExitCode
 	let tokens = Tokens.create(0)
-	tokens.push(Token.create(b"generateRung"))
-	tokens.push(Token.create(b"abc"))
+	tokens.push(Token.create(freeze(b"generateRung")))
+	tokens.push(Token.create(freeze(b"abc")))
 	let counts = Counts.create()
 	counts.upsert(b"generateRung", value: 1)
 	counts.upsert(b"abc", value: 2)

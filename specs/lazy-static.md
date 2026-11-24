@@ -320,7 +320,7 @@ type Pair
 	static let origin = Pair{a: 1, b: 2}
 
 	static function get() returns frozen with Pair
-		return Pair.origin
+		return freeze(Pair.origin)
 	end 'get'
 end 'Pair'
 
@@ -349,7 +349,7 @@ type Holder
 	static let greeting = Holder{name: "hi"}
 
 	static function get() returns frozen with Holder
-		return Holder.greeting
+		return freeze(Holder.greeting)
 	end 'get'
 end 'Holder'
 
@@ -380,7 +380,7 @@ type Pair
 	static let origin = Pair{a: SEED, b: 2}
 
 	static function get() returns frozen with Pair
-		return Pair.origin
+		return freeze(Pair.origin)
 	end 'get'
 end 'Pair'
 
@@ -410,7 +410,7 @@ type Holder
 	static let seeded = Holder{xs: [1, 2, 3]}
 
 	static function get() returns frozen with Holder
-		return Holder.seeded
+		return freeze(Holder.seeded)
 	end 'get'
 end 'Holder'
 
@@ -475,7 +475,7 @@ type Pair
 	static let origin = Pair{a: 1}
 
 	static function get() returns frozen with Pair
-		return Pair.origin
+		return freeze(Pair.origin)
 	end 'get'
 end 'Pair'
 
@@ -503,7 +503,7 @@ type A
 	static let one = A{n: 1}
 
 	static function get() returns frozen with A
-		return A.one
+		return freeze(A.one)
 	end 'get'
 end 'A'
 
@@ -512,7 +512,7 @@ type B
 	static let two = B{n: 2}
 
 	static function get() returns frozen with B
-		return B.two
+		return freeze(B.two)
 	end 'get'
 end 'B'
 

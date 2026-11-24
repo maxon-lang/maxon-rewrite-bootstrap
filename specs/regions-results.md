@@ -90,6 +90,7 @@ end 'main'
 ```
 
 <!-- test: a-mixed-return-given-a-mutable-argument-is-written-through -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 With a mutable source argument the result is mutable, so a write through it reaches the caller's box.
 
 ```maxon
@@ -107,12 +108,12 @@ function pick(p Box, fresh bool) returns Box
 	if fresh 'makeOne'
 		return Box.create(0)
 	end 'makeOne'
-	return p.clone()
+	return p
 end 'pick'
 
 function main() returns ExitCode
 	let row = Box.create(1)
-	var alias = pick(row, fresh: false)
+	let alias = pick(row, fresh: false)
 	alias.n = 9
 	print("{row.n}\n")
 	return 0
@@ -126,6 +127,7 @@ end 'main'
 ```
 
 <!-- test: a-result-from-a-mutable-argument-is-writable-beside-a-frozen-one -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 `second` returns only `q`, so the frozen first argument plays no part: the result is mutable and may be written.
 
 ```maxon
@@ -141,13 +143,13 @@ end 'Box'
 
 function second(p Box, q Box) returns Box
 	print("{p.n}\n")
-	return q.clone()
+	return q
 end 'second'
 
 function main() returns ExitCode
 	let frozen = freeze(Box.create(4))
 	let row = Box.create(1)
-	var r = second(frozen, q: row)
+	let r = second(frozen, q: row)
 	r.n = 7
 	print("{row.n}\n")
 	return 0

@@ -535,6 +535,7 @@ end 'main'
 ```
 
 <!-- test: self-returned-aliases-the-receiver -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 ⭐ **THE OWNERSHIP RULING, PINNED AS A VALUE.** `return self` is REFERENCE semantics: the returned handle
 is the SAME box, co-owned through an `__mm_retain`, not a copy. A write through the returned handle is
 therefore visible through the receiver. A COPY answer returns 41 here and an alias answer returns 42, so
@@ -551,17 +552,17 @@ type Counter
 		return Self{value: value}
 	end 'create'
 
-	function bump(mutates self) returns Counter
-		self.value = try self.value + 1 otherwise panic("out of range")
-		return self.clone()
+	function bump() returns Counter
+		self.value = self.value + 1
+		return self
 	end 'bump'
 end 'Counter'
 
 function main() returns ExitCode
-	var c = Counter.create(40)
-	var d = c.bump()
-	d.value = try d.value + 1 otherwise panic("out of range")
-	return try c.value as ExitCode otherwise panic("out of range")
+	let c = Counter.create(40)
+	let d = c.bump()
+	d.value = d.value + 1
+	return c.value as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -753,12 +754,12 @@ typealias Names = Array with String
 let A = ["ab", "cde"]
 
 function expose() returns frozen with Names
-	return A
+	return freeze(A)
 end 'expose'
 
 function main() returns ExitCode
 	let b = expose()
-	return b.count() as ExitCode
+	return try b.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

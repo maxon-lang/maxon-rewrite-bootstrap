@@ -21,6 +21,7 @@ neither write nor keep its operand or receiver (`E3187`).
 ## Tests
 
 <!-- test: write-through-a-holder.a-parameter-stored-in-a-struct-is-written-by-the-holders-method -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 `bump` stores its parameter into a `var` field of a struct, so it keeps the parameter, and a `let` handed to it and read afterwards names the record the holder writes.
 
 ```maxon
@@ -33,7 +34,7 @@ type Box
 		return Self{n: n}
 	end 'create'
 
-	function clear(mutates self) returns Count
+	function clear() returns Count
 		n = 0
 		return 0
 	end 'clear'
@@ -44,20 +45,20 @@ type Env
 	export var hits as Count
 
 	static function create(b Box) returns Self
-		return Self{b: b.clone(), hits: 0}
+		return Self{b: b, hits: 0}
 	end 'create'
 
-	function run(mutates self) returns Count
+	function run() returns Count
 		return self.b.clear()
 	end 'run'
 
-	function bumpHits(mutates self)
-		hits = try hits + 1 otherwise panic("out of range")
+	function bumpHits()
+		hits = hits + 1
 	end 'bumpHits'
 end 'Env'
 
 function bump(b Box) returns Count
-	var e = Env.create(b)
+	let e = Env.create(b)
 	return e.run()
 end 'bump'
 
@@ -76,6 +77,7 @@ end 'main'
 ```
 
 <!-- test: write-through-a-holder.a-parameter-stored-in-a-struct-is-written-through-its-field-by-a-callee -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 The holder reaches a callee whole; `bump` keeps its parameter in the holder all the same.
 
 ```maxon
@@ -88,13 +90,13 @@ type Box
 		return Self{n: n}
 	end 'create'
 
-	function clear(mutates self) returns Count
+	function clear() returns Count
 		n = 0
 		return 0
 	end 'clear'
 end 'Box'
 
-function zero(mutates b Box) returns Count
+function zero(b Box) returns Count
 	b.n = 0
 	return 0
 end 'zero'
@@ -104,24 +106,24 @@ type Env
 	export var hits as Count
 
 	static function create(b Box) returns Self
-		return Self{b: b.clone(), hits: 0}
+		return Self{b: b, hits: 0}
 	end 'create'
 
-	function run(mutates self) returns Count
+	function run() returns Count
 		return self.b.clear()
 	end 'run'
 
-	function bumpHits(mutates self)
-		hits = try hits + 1 otherwise panic("out of range")
+	function bumpHits()
+		hits = hits + 1
 	end 'bumpHits'
 end 'Env'
 
-function zeroHeld(mutates e Env) returns Count
+function zeroHeld(e Env) returns Count
 	return zero(e.b)
 end 'zeroHeld'
 
 function bump(b Box) returns Count
-	var e = Env.create(b)
+	let e = Env.create(b)
 	return zeroHeld(e)
 end 'bump'
 
@@ -140,6 +142,7 @@ end 'main'
 ```
 
 <!-- test: write-through-a-holder.a-parameter-stored-in-a-tuple-is-written-by-a-callee -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 A tuple holds what it was built from, so `bump` keeps its parameter in the tuple.
 
 ```maxon
@@ -152,23 +155,23 @@ type Box
 		return Self{n: n}
 	end 'create'
 
-	function clear(mutates self) returns Count
+	function clear() returns Count
 		n = 0
 		return 0
 	end 'clear'
 end 'Box'
 
-function zero(mutates b Box) returns Count
+function zero(b Box) returns Count
 	b.n = 0
 	return 0
 end 'zero'
 
-function zeroFirst(mutates t (Box, Count)) returns Count
+function zeroFirst(t (Box, Count)) returns Count
 	return zero(t.0)
 end 'zeroFirst'
 
 function bump(b Box) returns Count
-	var t = (b.clone(), 1 as Count)
+	let t = (b, 1 as Count)
 	return zeroFirst(t)
 end 'bump'
 
@@ -187,6 +190,7 @@ end 'main'
 ```
 
 <!-- test: write-through-a-holder.a-parameter-held-by-a-record-another-function-returned-is-written -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 The holder comes back from a factory function that keeps its parameter, so `bump` keeps its own.
 
 ```maxon
@@ -199,13 +203,13 @@ type Box
 		return Self{n: n}
 	end 'create'
 
-	function clear(mutates self) returns Count
+	function clear() returns Count
 		n = 0
 		return 0
 	end 'clear'
 end 'Box'
 
-function zero(mutates b Box) returns Count
+function zero(b Box) returns Count
 	b.n = 0
 	return 0
 end 'zero'
@@ -215,15 +219,15 @@ type Env
 	export var hits as Count
 
 	static function create(b Box) returns Self
-		return Self{b: b.clone(), hits: 0}
+		return Self{b: b, hits: 0}
 	end 'create'
 
-	function run(mutates self) returns Count
+	function run() returns Count
 		return self.b.clear()
 	end 'run'
 
-	function bumpHits(mutates self)
-		hits = try hits + 1 otherwise panic("out of range")
+	function bumpHits()
+		hits = hits + 1
 	end 'bumpHits'
 end 'Env'
 
@@ -232,7 +236,7 @@ function make(b Box) returns Env
 end 'make'
 
 function bump(b Box) returns Count
-	var e = make(b)
+	let e = make(b)
 	return zero(e.b)
 end 'bump'
 
@@ -251,6 +255,7 @@ end 'main'
 ```
 
 <!-- test: write-through-a-holder.a-parameter-attached-to-a-holder-by-a-method-is-written -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 A method that stores its argument into the holder's field keeps it as a constructor does, so `bump` keeps its parameter.
 
 ```maxon
@@ -263,7 +268,7 @@ type Box
 		return Self{n: n}
 	end 'create'
 
-	function clear(mutates self) returns Count
+	function clear() returns Count
 		n = 0
 		return 0
 	end 'clear'
@@ -276,17 +281,17 @@ type Slot
 		return Self{held: Box.create(0)}
 	end 'create'
 
-	function attach(mutates self, b Box)
-		held = b.clone()
+	function attach(b Box)
+		held = b
 	end 'attach'
 
-	function run(mutates self) returns Count
+	function run() returns Count
 		return self.held.clear()
 	end 'run'
 end 'Slot'
 
 function bump(b Box) returns Count
-	var s = Slot.create()
+	let s = Slot.create()
 	s.attach(b)
 	return s.run()
 end 'bump'
@@ -306,6 +311,7 @@ end 'main'
 ```
 
 <!-- test: write-through-a-holder.a-parameter-held-two-frames-down-is-written -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 The holder passes through an intermediate function; `bump` keeps its parameter in the holder all the same.
 
 ```maxon
@@ -318,7 +324,7 @@ type Box
 		return Self{n: n}
 	end 'create'
 
-	function clear(mutates self) returns Count
+	function clear() returns Count
 		n = 0
 		return 0
 	end 'clear'
@@ -329,24 +335,24 @@ type Env
 	export var hits as Count
 
 	static function create(b Box) returns Self
-		return Self{b: b.clone(), hits: 0}
+		return Self{b: b, hits: 0}
 	end 'create'
 
-	function run(mutates self) returns Count
+	function run() returns Count
 		return self.b.clear()
 	end 'run'
 
-	function bumpHits(mutates self)
-		hits = try hits + 1 otherwise panic("out of range")
+	function bumpHits()
+		hits = hits + 1
 	end 'bumpHits'
 end 'Env'
 
-function relay(mutates e Env) returns Count
+function relay(e Env) returns Count
 	return e.run()
 end 'relay'
 
 function bump(b Box) returns Count
-	var e = Env.create(b)
+	let e = Env.create(b)
 	return relay(e)
 end 'bump'
 
@@ -365,6 +371,7 @@ end 'main'
 ```
 
 <!-- test: write-through-a-holder.a-local-let-stored-in-a-struct-is-written-by-the-holders-method -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 `Env.create` keeps its parameter in a `var` field, and `a` is read afterwards: the holder and `a` name one record.
 
 ```maxon
@@ -377,7 +384,7 @@ type Box
 		return Self{n: n}
 	end 'create'
 
-	function clear(mutates self) returns Count
+	function clear() returns Count
 		n = 0
 		return 0
 	end 'clear'
@@ -388,21 +395,21 @@ type Env
 	export var hits as Count
 
 	static function create(b Box) returns Self
-		return Self{b: b.clone(), hits: 0}
+		return Self{b: b, hits: 0}
 	end 'create'
 
-	function run(mutates self) returns Count
+	function run() returns Count
 		return self.b.clear()
 	end 'run'
 
-	function bumpHits(mutates self)
-		hits = try hits + 1 otherwise panic("out of range")
+	function bumpHits()
+		hits = hits + 1
 	end 'bumpHits'
 end 'Env'
 
 function main() returns ExitCode
 	let a = Box.create(2)
-	var e = Env.create(a)
+	let e = Env.create(a)
 	let r = e.run()
 	print("{a.n}{r}\n")
 	return 0
@@ -416,6 +423,7 @@ end 'main'
 ```
 
 <!-- test: write-through-a-holder.a-local-let-stored-in-a-var-field-is-written-by-a-method-of-the-holder -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 The holder is a `var`, so it may be written, and `Env.create` keeps the `let`'s record in a `var` field while `a` is read afterwards.
 
 ```maxon
@@ -433,17 +441,17 @@ type Env
 	export var b as Box
 
 	static function create(b Box) returns Self
-		return Self{b: b.clone()}
+		return Self{b: b}
 	end 'create'
 
-	function bump(mutates self)
+	function bump()
 		self.b.n = 5
 	end 'bump'
 end 'Env'
 
 function main() returns ExitCode
 	let a = Box.create(2)
-	var e = Env.create(a)
+	let e = Env.create(a)
 	e.bump()
 	print("{a.n}\n")
 	return 0
@@ -862,6 +870,7 @@ end 'main'
 ```
 
 <!-- test: write-through-a-holder.a-parameter-stored-in-a-holders-container-and-then-written-by-the-same-function-is-written -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 `stashAndZero` stores `b` into the container its holder parameter holds, so it keeps `b`, and a `let` handed to it and read afterwards names the kept record.
 
 ```maxon
@@ -886,17 +895,17 @@ type Reg
 end 'Reg'
 
 function zeroFirst(reg Reg)
-	var w = try reg.items.get(0) otherwise return
+	let w = try reg.items.get(0) otherwise return
 	w.n = 0
 end 'zeroFirst'
 
-function stashAndZero(mutates reg Reg, b Box)
-	reg.items.push(b.clone())
+function stashAndZero(reg Reg, b Box)
+	reg.items.push(b)
 	zeroFirst(reg)
 end 'stashAndZero'
 
 function main() returns ExitCode
-	var reg = Reg.create()
+	let reg = Reg.create()
 	let a = Box.create(2)
 	stashAndZero(reg, b: a)
 	print("{a.n}\n")
@@ -911,6 +920,7 @@ end 'main'
 ```
 
 <!-- test: write-through-a-holder.a-write-earlier-in-a-loop-body-follows-the-store-of-the-next-trip -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 `stashLoop` pushes `b` into the holder's container on every trip, so it keeps `b`, and a `let` handed to it and read afterwards names the kept record.
 
 ```maxon
@@ -935,21 +945,21 @@ type Reg
 end 'Reg'
 
 function zeroFirst(reg Reg)
-	var w = try reg.items.get(0) otherwise return
+	let w = try reg.items.get(0) otherwise return
 	w.n = 0
 end 'zeroFirst'
 
-function stashLoop(mutates reg Reg, b Box, times Count)
+function stashLoop(reg Reg, b Box, times Count)
 	var left = times
 	while left > 0 'each'
 		zeroFirst(reg)
-		reg.items.push(b.clone())
+		reg.items.push(b)
 		left = left - 1
 	end 'each'
 end 'stashLoop'
 
 function main() returns ExitCode
-	var reg = Reg.create()
+	let reg = Reg.create()
 	let a = Box.create(2)
 	stashLoop(reg, b: a, times: 3)
 	print("{a.n}\n")

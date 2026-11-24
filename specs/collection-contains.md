@@ -56,6 +56,7 @@ end 'main'
 ```
 
 <!-- test: array-int-not-found -->
+<!-- skip: language difference: the bare numbers of an array or map literal keep their range as the element type of that one literal -->
 ```maxon
 function main() returns ExitCode
 	let arr = [10, 20, 30]
@@ -176,6 +177,7 @@ end 'main'
 ```
 
 <!-- test: set-contains -->
+<!-- skip: language difference: the bare numbers of an array or map literal keep their range as the element type of that one literal -->
 ```maxon
 function main() returns ExitCode
 	let s = Set from [1, 2, 3, 4, 5]
@@ -254,6 +256,7 @@ end 'main'
 ```
 
 <!-- test: array-subsequence-longer-than-array -->
+<!-- skip: language difference: the bare numbers of an array or map literal keep their range as the element type of that one literal -->
 ```maxon
 function main() returns ExitCode
 	let arr = [1, 2]
@@ -300,6 +303,7 @@ end 'main'
 ```
 
 <!-- test: array-subsequence-equal-length-mismatch -->
+<!-- skip: language difference: the bare numbers of an array or map literal keep their range as the element type of that one literal -->
 ```maxon
 function main() returns ExitCode
 	let arr = [1, 2, 3]

@@ -3046,6 +3046,7 @@ end 'main'
 ```
 
 <!-- test: an-element-survives-a-clear-through-a-second-binding-of-its-array -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 ### An element survives a clear reached through a SECOND binding of the same array
 `Holder.create(x)` stores the record `x` names, so `h.items` and `x` are one array. The clear through
 `h.items` empties `x` too, and `s` keeps the element it read.
@@ -3056,14 +3057,14 @@ type Holder
 	export var items as StringArray
 
 	static function create(items StringArray) returns Holder
-		return Holder{items: items.clone()}
+		return Holder{items: items}
 	end 'create'
 end 'Holder'
 
 function main() returns ExitCode
-	var x = StringArray.create(0)
+	let x = StringArray.create(0)
 	x.push("hello {40 + 2} world, long enough for the heap")
-	var h = Holder.create(x)
+	let h = Holder.create(x)
 	let s = try x.get(0) otherwise ""
 	h.items.clear()
 	print("[{s}] {x.count()}\n")
@@ -3078,6 +3079,7 @@ end 'main'
 ```
 
 <!-- test: an-element-survives-a-holder-growing-and-clearing-the-shared-array -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 ### … and a method of the second holder that grows the array past many reallocations, then clears it
 The element was read before the holder existed; it is neither a slot of the buffer the pushes
 reallocate nor released by the clear.
@@ -3088,10 +3090,10 @@ type Holder
 	var items as Words
 
 	static function create(items Words) returns Self
-		return Self{items: items.clone()}
+		return Self{items: items}
 	end 'create'
 
-	function grow(mutates self)
+	function grow()
 		for i in 0 upto 300 'g'
 			items.push("holder-filler-{i}-pppppppppppppppp")
 		end 'g'
@@ -3102,7 +3104,7 @@ end 'Holder'
 function main() returns ExitCode
 	let arr = ["first {1} padded out long enough for the heap", "second {2} padded out long enough for the heap"]
 	let s = try arr.get(0) otherwise "none"
-	var h = Holder.create(arr)
+	let h = Holder.create(arr)
 	h.grow()
 	print("[{s}] {s.byteLength()} {arr.count()}\n")
 	return 0
@@ -4177,6 +4179,7 @@ end 'main'
 ```
 
 <!-- test: a-bound-read-only-struct-field-is-shared-with-a-service -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 ### … the struct-typed twin
 ```maxon
 type Tag
@@ -4358,6 +4361,7 @@ end 'main'
 ```
 
 <!-- test: a-let-fields-record-returned-through-a-merge-is-writable-by-the-caller -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 ### A `let` field's record returned through a merge is writable by the caller
 
 ```maxon
@@ -4384,12 +4388,12 @@ function fresh() returns Inner
 end 'fresh'
 
 function pick(h Outer, c bool) returns Inner
-	return h.inner.clone() if c else fresh()
+	return h.inner if c else fresh()
 end 'pick'
 
 function main() returns ExitCode
 	let h = Outer.create()
-	var r = pick(h, c: true)
+	let r = pick(h, c: true)
 	r.n = 5
 	print("{h.inner.n}\n")
 	return 0
@@ -4636,6 +4640,7 @@ fresh 7 padded out long enough for the heap replacement 8 padded out long enough
 ```
 
 <!-- test: let-payload-record-into-a-plain-var-then-written -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 ### a `let` field's union payload record assigned to a plain `var` in a `match` arm, then written through the `var`
 ```maxon
 typealias Num = int(i64.min to i64.max)
@@ -4665,7 +4670,7 @@ function main() returns ExitCode
 	let h = Holder.create()
 	var q = Point.create(0)
 	match h.slot 'slot'
-		full(point) then q = point.clone()
+		full(point) then q = point
 		empty then q = Point.create(2)
 	end 'slot'
 	q.n = 9
@@ -4736,7 +4741,7 @@ typealias Points = List with Point
 
 function pick(ps Points, fallback frozen with Point) returns frozen with Point
 	for p in ps 'each'
-		return p
+		return freeze(p)
 	end 'each'
 	return fallback
 end 'pick'

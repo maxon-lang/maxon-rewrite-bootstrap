@@ -485,7 +485,7 @@ type Point
 	export let label as String
 
 	static function create(x Coord, y Coord, label String) returns Self
-		return Self{x: x, y: y, label: label}
+		return Self{x: x, y: y, label: label.clone()}
 	end 'create'
 end 'Point'
 
@@ -501,10 +501,10 @@ type Store
 		return Self{}
 	end 'create'
 
-	export function keep(s frozen with Shape) returns Coord
-		self.seen = self.seen + 1
+	export function keep(mutates self, s frozen with Shape) returns Coord
+		self.seen = try self.seen + 1 otherwise panic("out of range")
 		return match s 'shape'
-			dot(at) gives at.x + at.y + at.label.byteLength() as Coord
+			dot(at) gives try at.x + at.y + at.label.byteLength() as Coord otherwise panic("out of range")
 			nothing gives 0
 		end 'shape'
 	end 'keep'
@@ -512,7 +512,7 @@ end 'Store'
 
 function weigh(s Shape) returns Coord
 	return match s 'shape'
-		dot(at) gives at.x + at.y + at.label.byteLength() as Coord
+		dot(at) gives try at.x + at.y + at.label.byteLength() as Coord otherwise panic("out of range")
 		nothing gives 0
 	end 'shape'
 end 'weigh'
@@ -521,7 +521,7 @@ function main() returns ExitCode
 	let h = spawn Store.create()
 	let s = Shape.dot(Point.create(10, y: 20, label: "cde{2}"))
 	let mine = weigh(s)
-	let r = try await h.keep(s) otherwise 0
+	let r = try await h.keep(freeze(s)) otherwise 0
 	print("{r} {mine}\n")
 	return 0
 end 'main'
@@ -650,6 +650,7 @@ end 'main'
 ```
 
 <!-- test: an-all-let-union-is-shared-while-several-words-hold-a-string-payload -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 ```maxon
 typealias Count = int(0 to 1000)
 
@@ -1650,7 +1651,7 @@ type Point
 	export let label as String
 
 	static function create(x Weight, label String) returns Self
-		return Self{x: x, label: label}
+		return Self{x: x, label: label.clone()}
 	end 'create'
 end 'Point'
 
@@ -1673,11 +1674,11 @@ type Store
 		return Self{}
 	end 'create'
 
-	export function keep(w frozen with Wide) returns Weight
-		self.seen = self.seen + 1
+	export function keep(mutates self, w frozen with Wide) returns Weight
+		self.seen = try self.seen + 1 otherwise panic("out of range")
 		return match w 'wide'
-			spot(at) gives at.x + at.label.byteLength() as Weight
-			text(value) gives value.byteLength() as Weight
+			spot(at) gives try at.x + at.label.byteLength() as Weight otherwise panic("out of range")
+			text(value) gives try value.byteLength() as Weight otherwise panic("out of range")
 			idle or
 			done or
 			failed or
@@ -1699,11 +1700,11 @@ function main() returns ExitCode
 	first = Wide.idle
 	var broken = Wide.nine
 	broken = Wide.failed
-	let a = try await h.keep(last) otherwise 0
-	let b = try await h.keep(spotted) otherwise 0
-	let c = try await h.keep(first) otherwise 0
-	let d = try await h.keep(texted) otherwise 0
-	let e = try await h.keep(broken) otherwise 0
+	let a = try await h.keep(freeze(last)) otherwise 0
+	let b = try await h.keep(freeze(spotted)) otherwise 0
+	let c = try await h.keep(freeze(first)) otherwise 0
+	let d = try await h.keep(freeze(texted)) otherwise 0
+	let e = try await h.keep(freeze(broken)) otherwise 0
 	print("{a} {b} {c} {d} {e}\n")
 	return 0
 end 'main'

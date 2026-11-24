@@ -1650,7 +1650,7 @@ type Box
 end 'Box'
 
 function pick(a Box, b Box) returns Box
-	return a if a.n > b.n else b
+	return a.clone() if a.n > b.n else b.clone()
 end 'pick'
 
 function reads(item frozen with Box) returns Tally
@@ -1658,9 +1658,9 @@ function reads(item frozen with Box) returns Tally
 end 'reads'
 
 function relay(p Box) returns Tally
-	let first = reads(p)
+	let first = reads(freeze(p.clone()))
 	let chosen = pick(p, b: Box.create(0))
-	return first + chosen.n
+	return try first + chosen.n otherwise panic("out of range")
 end 'relay'
 
 function main() returns ExitCode

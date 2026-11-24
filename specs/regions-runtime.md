@@ -203,12 +203,12 @@ type Shelf
 	export var cell as Cell
 
 	static function create(label Tally) returns Self
-		return Self{cell: freeze(Cell.create("old {label}"))}
+		return Self{cell: thaw(freeze(Cell.create("old {label}")))}
 	end 'create'
 end 'Shelf'
 
 function replace(shelf Shelf) returns Tally
-	shelf.cell = freeze(Cell.create("new"))
+	shelf.cell = thaw(freeze(Cell.create("new")))
 	return 1
 end 'replace'
 

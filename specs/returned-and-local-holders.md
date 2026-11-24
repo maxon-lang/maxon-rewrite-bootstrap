@@ -79,6 +79,7 @@ end 'main'
 ```
 
 <!-- test: returned-holder-built-from-a-mutable-argument-writes-through -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 The same factory over a mutable `Box` hands back a record whose referent is writable, and the write is seen through the argument.
 
 ```maxon
@@ -94,13 +95,13 @@ type Holder
 	export var box as Box
 
 	static function make(box Box) returns Self
-		return Self{box: box.clone()}
+		return Self{box: box}
 	end 'make'
 end 'Holder'
 
 function main() returns ExitCode
 	let b = Box.create()
-	var h = Holder.make(b)
+	let h = Holder.make(b)
 	h.box.count = 5
 	print("{b.count}\n")
 	return 0

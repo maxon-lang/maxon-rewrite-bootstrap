@@ -44,7 +44,7 @@ type Info
 	export var kind as Slot
 
 	static function create(name frozen with ByteArray, kind Slot) returns Info
-		return Self{name: name, kind: kind}
+		return Self{name: thaw(name), kind: kind}
 	end 'create'
 end 'Info'
 
@@ -55,7 +55,7 @@ type Scope
 		return Self{infos: InfoArray.create(0, zeroed: false)}
 	end 'create'
 
-	function declare(name frozen with ByteArray, kind Slot) returns Info
+	function declare(mutates self, name frozen with ByteArray, kind Slot) returns Info
 		let made = Info.create(name, kind: kind)
 		self.infos.push(made.clone())
 		return made
@@ -67,7 +67,7 @@ type Candidate
 	export let line as Slot
 
 	static function create(binding Info, line Slot) returns Candidate
-		return Self{binding: binding, line: line}
+		return Self{binding: binding.clone(), line: line}
 	end 'create'
 end 'Candidate'
 
@@ -79,15 +79,15 @@ type Walker
 		return Self{scope: Scope.create(), candidates: CandidateArray.create(0, zeroed: false)}
 	end 'create'
 
-	function declareParam(name frozen with ByteArray, kind Slot, line Slot)
+	function declareParam(mutates self, name frozen with ByteArray, kind Slot, line Slot)
 		let binding = self.scope.declare(name, kind: kind)
 		self.candidates.push(Candidate.create(binding, line: line))
 	end 'declareParam'
 end 'Walker'
 
 function main() returns ExitCode
-	let walker = Walker.create()
-	walker.declareParam(b"a", kind: 1, line: 2)
+	var walker = Walker.create()
+	walker.declareParam(freeze(b"a"), kind: 1, line: 2)
 	print("{walker.candidates.count()}\n")
 	return 0
 end 'main'
@@ -114,7 +114,7 @@ type Info
 	export var kind as Slot
 
 	static function create(name frozen with ByteArray, kind Slot) returns Info
-		return Self{name: name, kind: kind}
+		return Self{name: thaw(name), kind: kind}
 	end 'create'
 end 'Info'
 
@@ -125,9 +125,9 @@ type Scope
 		return Self{infos: InfoArray.create(0, zeroed: false)}
 	end 'create'
 
-	function declare(name frozen with ByteArray, kind Slot) returns Info
+	function declare(mutates self, name frozen with ByteArray, kind Slot) returns Info
 		let made = Info.create(name, kind: kind)
-		self.infos.push(made)
+		self.infos.push(made.clone())
 		return made
 	end 'declare'
 end 'Scope'
@@ -137,7 +137,7 @@ type Candidate
 	export let line as Slot
 
 	static function create(binding Info, line Slot) returns Candidate
-		return Self{binding: binding, line: line}
+		return Self{binding: binding.clone(), line: line}
 	end 'create'
 end 'Candidate'
 
@@ -149,15 +149,15 @@ type Walker
 		return Self{scope: Scope.create(), candidates: CandidateArray.create(0, zeroed: false)}
 	end 'create'
 
-	function declareParam(name frozen with ByteArray, kind Slot, line Slot)
+	function declareParam(mutates self, name frozen with ByteArray, kind Slot, line Slot)
 		let binding = self.scope.declare(name, kind: kind)
 		self.candidates.push(Candidate.create(binding, line: line))
 	end 'declareParam'
 end 'Walker'
 
 function main() returns ExitCode
-	let walker = Walker.create()
-	walker.declareParam(b"a", kind: 1, line: 2)
+	var walker = Walker.create()
+	walker.declareParam(freeze(b"a"), kind: 1, line: 2)
 	print("{walker.candidates.count()}\n")
 	return 0
 end 'main'
@@ -183,11 +183,11 @@ type Block
 	export var hits as Count
 
 	static function create(id Count, label frozen with ByteArray) returns Block
-		return Self{id: id, label: label, hits: 0}
+		return Self{id: id, label: thaw(label), hits: 0}
 	end 'create'
 
-	function touch()
-		self.hits = self.hits + 1
+	function touch(mutates self)
+		self.hits = try self.hits + 1 otherwise panic("out of range")
 	end 'touch'
 end 'Block'
 
@@ -198,13 +198,13 @@ type Module
 		return Self{blocks: BlockArray.create(0, zeroed: false)}
 	end 'create'
 
-	function add(label frozen with ByteArray) returns Block
-		let made = Block.create(self.blocks.count() as Count, label: label)
-		self.blocks.push(made)
+	function add(mutates self, label frozen with ByteArray) returns Block
+		let made = Block.create(try self.blocks.count() as Count otherwise panic("out of range"), label: label)
+		self.blocks.push(made.clone())
 		return made
 	end 'add'
 
-	function append(block Block)
+	function append(mutates block Block)
 		block.touch()
 	end 'append'
 end 'Module'
@@ -216,14 +216,14 @@ type Pass
 		return Self{module: Module.create()}
 	end 'create'
 
-	function cascade(head Block, rounds Count)
-		var current = head
+	function cascade(mutates self, head Block, rounds Count)
+		var current = head.clone()
 		for i in 0 upto rounds 'eachRound'
 			self.module.append(current)
 			if i == 1 'repeat'
 				self.module.append(current)
 			end 'repeat' else 'advance'
-				let next = self.module.add(b"next")
+				let next = self.module.add(freeze(b"next"))
 				current = next
 			end 'advance'
 		end 'eachRound'
@@ -231,8 +231,8 @@ type Pass
 end 'Pass'
 
 function main() returns ExitCode
-	let pass = Pass.create()
-	let head = pass.module.add(b"head")
+	var pass = Pass.create()
+	let head = pass.module.add(freeze(b"head"))
 	pass.cascade(head, rounds: 3)
 	print("{head.hits}\n")
 	return 0
@@ -259,7 +259,7 @@ type Block
 	export var hits as Count
 
 	static function create(id Count, label frozen with ByteArray) returns Block
-		return Self{id: id, label: label, hits: 0}
+		return Self{id: id, label: thaw(label), hits: 0}
 	end 'create'
 end 'Block'
 
@@ -270,9 +270,9 @@ type Module
 		return Self{blocks: BlockArray.create(0, zeroed: false)}
 	end 'create'
 
-	function add(label frozen with ByteArray) returns Block
-		let made = Block.create(self.blocks.count() as Count, label: label)
-		self.blocks.push(made)
+	function add(mutates self, label frozen with ByteArray) returns Block
+		let made = Block.create(try self.blocks.count() as Count otherwise panic("out of range"), label: label)
+		self.blocks.push(made.clone())
 		return made
 	end 'add'
 end 'Module'
@@ -284,14 +284,14 @@ type Pass
 		return Self{module: Module.create()}
 	end 'create'
 
-	function mark(head Block, rounds Count)
-		var current = head
+	function mark(mutates self, head Block, rounds Count)
+		var current = head.clone()
 		for i in 0 upto rounds 'eachRound'
 			current.hits = 5
 			if i == 1 'repeat'
 				current.hits = 6
 			end 'repeat' else 'advance'
-				let next = self.module.add(b"next")
+				let next = self.module.add(freeze(b"next"))
 				current = next
 			end 'advance'
 		end 'eachRound'
@@ -299,8 +299,8 @@ type Pass
 end 'Pass'
 
 function main() returns ExitCode
-	let pass = Pass.create()
-	let head = pass.module.add(b"head")
+	var pass = Pass.create()
+	let head = pass.module.add(freeze(b"head"))
 	pass.mark(head, rounds: 3)
 	print("{head.hits}\n")
 	return 0
@@ -322,7 +322,7 @@ type Join
 	export let alias as ByteArray
 
 	static function create(alias frozen with ByteArray) returns Self
-		return Self{alias: alias}
+		return Self{alias: thaw(alias)}
 	end 'create'
 end 'Join'
 
@@ -335,9 +335,9 @@ function step(joined Join, baseline frozen with ByteArray, give frozen with Byte
 end 'step'
 
 function main() returns ExitCode
-	var joined = Join.create(b"")
+	var joined = Join.create(freeze(b""))
 	for _ in 0 upto 3 'eachPass'
-		joined = step(joined, baseline: b"ab", give: b"abc")
+		joined = step(joined, baseline: freeze(b"ab"), give: freeze(b"abc"))
 	end 'eachPass'
 	print("{joined.alias.count()}\n")
 	return 0
@@ -353,7 +353,7 @@ end 'main'
 <!-- test: a-ternary-of-a-parameter-and-a-constant-fits-an-immutable-result -->
 ```maxon
 function pick(name ByteArray) returns frozen with ByteArray
-	return name if name.count() > 3 else b"default"
+	return freeze(name.clone() if name.count() > 3 else b"default")
 end 'pick'
 
 function main() returns ExitCode
@@ -442,15 +442,15 @@ error E3207: <fragment>:14:20: 'pick' needs 'name' frozen (line 9: `return chose
 <!-- test: an-immutable-result-choosing-a-parameter-accepts-frozen-data-through-a-branch-and-a-loop -->
 ```maxon
 function pickBranch(name ByteArray, long bool) returns frozen with ByteArray
-	return name if long else b"default"
+	return freeze(name.clone() if long else b"default")
 end 'pickBranch'
 
 function pickLoop(name ByteArray, rounds Count) returns frozen with ByteArray
-	var chosen = name
+	var chosen = name.clone()
 	for _ in 0 upto rounds 'rebind'
 		chosen = b"default"
 	end 'rebind'
-	return chosen
+	return freeze(chosen)
 end 'pickLoop'
 
 function main() returns ExitCode
@@ -485,14 +485,14 @@ type Holder
 	var own as Box
 
 	static function create() returns Self
-		return Self{shared: freeze(Box.create(7)), own: Box.create(1)}
+		return Self{shared: thaw(freeze(Box.create(7))), own: Box.create(1)}
 	end 'create'
 
 	function pick(flag bool) returns Box
 		if flag 'sharedOne'
-			return self.shared
+			return self.shared.clone()
 		end 'sharedOne'
-		return self.own
+		return self.own.clone()
 	end 'pick'
 end 'Holder'
 
@@ -655,14 +655,14 @@ type Holder
 	var own as Box
 
 	static function create() returns Self
-		return Self{shared: freeze(Box.create(7)), own: Box.create(1)}
+		return Self{shared: thaw(freeze(Box.create(7))), own: Box.create(1)}
 	end 'create'
 
 	function pick(flag bool) returns Box
 		if flag 'sharedOne'
-			return self.shared
+			return self.shared.clone()
 		end 'sharedOne'
-		return self.own
+		return self.own.clone()
 	end 'pick'
 end 'Holder'
 
@@ -681,6 +681,7 @@ end 'main'
 ```
 
 <!-- test: a-getter-of-only-writable-data-stays-writable-through-a-local-var -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 ```maxon
 typealias Tally = int(0 to u64.max)
 
@@ -700,13 +701,13 @@ type Holder
 	end 'create'
 
 	function mine() returns Box
-		return self.own.clone()
+		return self.own
 	end 'mine'
 end 'Holder'
 
 function main() returns ExitCode
 	let holder = Holder.create()
-	var picked = holder.mine()
+	let picked = holder.mine()
 	picked.n = 9
 	print("{holder.mine().n}\n")
 	return 0

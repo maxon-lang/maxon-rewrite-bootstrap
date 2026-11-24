@@ -1003,6 +1003,7 @@ error E3197: <fragment>:17:2: cannot write 'n' through 'pair.0', which is immuta
 ```
 
 <!-- test: a-tuple-parameter-with-an-immutable-item-takes-a-frozen-item-and-runs -->
+<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 `(immutable Box, Box)` spells the item capabilities; the first item reads, the second item is written.
 
 ```maxon
@@ -1149,7 +1150,7 @@ function main() returns ExitCode
 	let a = freeze(Box.create(1))
 	let b = Box.create(2)
 	let mixed = MixedList.create()
-	mixed.append((a, b))
+	mixed.append((thaw(a), b))
 	let found = try mixed.get(0) otherwise panic("empty")
 	found.1.n = 5
 	print("{found.0.n} {b.n} {mixed.count()}\n")
@@ -1279,11 +1280,11 @@ type Box
 end 'Box'
 
 function weigh(pair (Box, Box)) returns Tally
-	return pair.0.n + pair.1.n
+	return try pair.0.n + pair.1.n otherwise panic("out of range")
 end 'weigh'
 
 function pairOf(first frozen with Box, second Box) returns (Box, Box)
-	return (first, second)
+	return (thaw(first), second.clone())
 end 'pairOf'
 
 function main() returns ExitCode
@@ -1463,9 +1464,9 @@ type Bag uses T
 		return Self{items: Items.create(0)}
 	end 'create'
 
-	function absorb(pair (T, T))
-		self.items.push(pair.0)
-		self.items.push(pair.1)
+	function absorb(mutates self, pair (T, T)) where T implements Copyable
+		self.items.push(pair.0.clone())
+		self.items.push(pair.1.clone())
 	end 'absorb'
 
 	function size() returns Tally
@@ -1476,10 +1477,10 @@ end 'Bag'
 typealias FrozenBag = Bag with Box
 
 function main() returns ExitCode
-	let bag = FrozenBag.create()
+	var bag = FrozenBag.create()
 	let a = freeze(Box.create(1))
 	let b = freeze(Box.create(2))
-	bag.absorb((a, b))
+	bag.absorb((thaw(a), thaw(b)))
 	print("{bag.size()}\n")
 	return 0
 end 'main'
@@ -1630,7 +1631,7 @@ type Key implements Hashable, Equatable
 	end 'create'
 
 	function hash() returns HashValue
-		return self.n as HashValue
+		return try self.n as HashValue otherwise panic("out of range")
 	end 'hash'
 
 	function equals(other Key) returns bool
@@ -1640,7 +1641,7 @@ end 'Key'
 
 function main() returns ExitCode
 	let a = freeze(Key.create(1))
-	let keys = Keys from [a]
+	let keys = Keys from [thaw(a)]
 	print("{keys.count()}\n")
 	return 0
 end 'main'
@@ -2434,8 +2435,8 @@ end 'Job'
 type Holder uses T
 	export var held as T
 
-	static function wrap(item T) returns Self
-		return Self{held: item}
+	static function wrap(item T) returns Self where T implements Copyable
+		return Self{held: item.clone()}
 	end 'wrap'
 end 'Holder'
 
@@ -2446,10 +2447,10 @@ typealias PlainHolder = Holder with Job
 function main() returns ExitCode
 	let pinned = freeze(Job.create(1))
 	let other = freeze(Job.create(3))
-	let holder = FrozenHolder.wrap(pinned)
-	holder.held = other
+	var holder = FrozenHolder.wrap(pinned)
+	holder.held = thaw(other)
 	let loose = Job.create(2)
-	let plain = PlainHolder.wrap(loose)
+	var plain = PlainHolder.wrap(loose)
 	let next = Job.create(4)
 	plain.held = next
 	print("{holder.held.number} {plain.held.number}\n")

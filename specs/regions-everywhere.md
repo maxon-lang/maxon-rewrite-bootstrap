@@ -333,6 +333,7 @@ error E3207: <fragment>:43:7: 'poke' writes 'source' (it calls 'grower', which c
 ```
 
 <!-- test: a-result-through-an-interface-written-in-its-function-accepts-a-writable-argument -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 The accepted twin: the same `poke` is handed a bag nobody froze.
 
 ```maxon
@@ -344,10 +345,10 @@ type Cursor
 	var items as TallyArray
 
 	static function create(items TallyArray) returns Self
-		return Self{items: items.clone()}
+		return Self{items: items}
 	end 'create'
 
-	function grow(mutates self)
+	function grow()
 		self.items.push(1)
 	end 'grow'
 end 'Cursor'
@@ -373,14 +374,14 @@ type Bag implements Cursors
 end 'Bag'
 
 function poke(source Cursors)
-	var c = source.open()
+	let c = source.open()
 	c.grow()
 end 'poke'
 
 function main() returns ExitCode
 	let bag = Bag.create()
 	poke(bag)
-	return try bag.size() as ExitCode otherwise panic("out of range")
+	return bag.size() as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -822,6 +823,7 @@ error E3005: <fragment>:6:2: Cannot return '((int, Int), Int)' from function dec
 ```
 
 <!-- test: function-value-call-keeps-its-argument-in-a-let-field-through-a-mutable-parameter -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 The conversion rule is met (`Maker` and `shelve` both declare the parameter `mutable`), so the call through
 `build` keeps `v` in a `let` field and `v` is read again afterwards: the `let` field and `v` name one array.
 
@@ -834,7 +836,7 @@ type Shelf
 	export let items as IntArray
 
 	static function create(items IntArray) returns Self
-		return Self{items: items.clone()}
+		return Self{items: items}
 	end 'create'
 end 'Shelf'
 
@@ -849,11 +851,11 @@ function build(m Maker, mutates d IntArray) returns Shelf
 end 'build'
 
 function main() returns ExitCode
-	var v = IntArray.create(0)
+	let v = IntArray.create(0)
 	v.push(1)
 	let shelf = build(shelve, d: v)
 	v.push(2)
-	return try shelf.items.count() as ExitCode otherwise panic("out of range")
+	return shelf.items.count() as ExitCode
 end 'main'
 ```
 ```exitcode

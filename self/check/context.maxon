@@ -498,6 +498,19 @@ export union Mismatch
 	end 'shapeWords'
 end 'Mismatch'
 
+// frozenFix converts between a value and a frozen value of its type, which a type of its own tells apart: a value given up to
+// freeze where the frozen value is wanted, and an owned copy of the contents (thaw) where the value is, when it can be
+// copied. Nothing for other types.
+function frozenFix(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, node ast.NodeID, src ast.TypeID, target ast.TypeID) returns diag.Fix
+	if isFrozenType(p, ms: ms, t: target) and assignable(p, ms: ms, src: src, dst: ast.contentType(ms.types, reads: p.types, t: target)) 'freeze'
+		return freezeFix(ms.tree(), e: node)
+	end 'freeze'
+	if isFrozenType(p, ms: ms, t: src) and assignable(p, ms: ms, src: ast.contentType(ms.types, reads: p.types, t: src), dst: target) and not lacksCap(c, p: p, ms: ms, wantCopy: true, t: target).missing 'thaw'
+		return thawFix(ms.tree(), e: node)
+	end 'thaw'
+	return diag.Fix.none()
+end 'frozenFix'
+
 // coerce requires the value of node, of type src, where a target is needed, and reports a refusal at the offset at, which is
 // where maxon points for the place that needs the value. An integer of another type is fixed by a cast
 // to the target, which is what the language converts with.
@@ -557,7 +570,9 @@ export function coerce(mutates c Checker, p ast.Project, mutates ms ast.ModuleSt
 	let integers = sk == ast.TypeKind.intRange and dk == ast.TypeKind.intRange
 	if integers 'cast'
 		fix = castFix(ms.tree(), e: node, target: castTarget)
-	end 'cast'
+	end 'cast' else 'frozen'
+		fix = frozenFix(c, p: p, ms: ms, node: node, src: src, target: target)
+	end 'frozen'
 	checkFailFixed(c.modID, off: at, code: diag.errTypeMismatch, msg: wrong.words(clashName(p, ms: ms, t: target, other: src), got: clashName(p, ms: ms, t: src, other: target), castable: integers), fix: fix, errs: errs)
 	let reported = try errs.count() - 1 otherwise panic("the mismatch was reported")
 	errs[reported].cause = rawSurfaceCauseOfTypes(p, ms: ms, a: target, b: src)

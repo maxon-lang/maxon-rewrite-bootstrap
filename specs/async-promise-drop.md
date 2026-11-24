@@ -948,6 +948,7 @@ error E3005: <fragment>:11:2: cannot assign a value of type 'int' to variable 'p
 ```
 
 <!-- test: async-promise-drop.branch-store-into-a-container-on-both-arms -->
+<!-- skip: language difference: a promise owns the coroutine that one owner awaits, so it is not Droppable and no Map holds one as a value -->
 ⭐ **STORING THE SPAWN IS A CONSUMING MOVE ON *EVERY* ARM THAT DOES IT, INCLUDING THE SECOND ONE THE PARSER
 READS.** A dispatcher arms a slot through two doors — `push` the first time a slot exists, `set` every time
 after — so ONE `async` spawn reaches a merge having been given to the container on both paths, and the merge
@@ -1015,6 +1016,7 @@ end 'main'
 ```
 
 <!-- test: async-promise-drop.branch-store-into-a-container-reads-the-doors-in-either-order -->
+<!-- skip: language difference: a promise owns the coroutine that one owner awaits, so it is not Droppable and no Map holds one as a value -->
 The mirror of the case above, and a second case rather than a second assertion because what it pins is
 ORDER-DEPENDENT: every store door consumes the thread it stores, whichever door the parser reads first. So the
 arms are written the other way round here, `set` first and `push` second, which makes `push` the door that is
@@ -1308,6 +1310,7 @@ error E3141: <fragment>:14:17: a promise cannot be borrowed through 'last': it o
 ```
 
 <!-- test: async-promise-drop.error.a-promise-element-handed-out-by-a-static-through-an-instance-alias -->
+<!-- skip: language difference: a door that copies its element bounds it Copyable, so a promise is refused by the bound, where maxon refuses it at the door -->
 <!-- positions: moved -->
 A static of a generic type that returns the element of the instance it is handed reads a promise out of the box that holds it, exactly as a method does, so it is refused where the instance is concrete.
 ```maxon
@@ -1345,6 +1348,7 @@ error E3141: <fragment>:26:21: a promise cannot be borrowed through 'first': it 
 ```
 
 <!-- test: async-promise-drop.error.a-promise-element-handed-out-by-a-static-on-an-inferred-instance -->
+<!-- skip: language difference: a door that copies its element bounds it Copyable, so a promise is refused by the bound, where maxon refuses it at the door -->
 <!-- positions: moved -->
 The same read through a bare generic name, where the call infers the instance from its argument.
 ```maxon
@@ -1382,6 +1386,7 @@ error E3141: <fragment>:26:14: a promise cannot be borrowed through 'first': it 
 ```
 
 <!-- test: async-promise-drop.error.a-promise-element-handed-out-by-a-static-through-a-later-argument -->
+<!-- skip: language difference: a door that copies its element bounds it Copyable, so a promise is refused by the bound, where maxon refuses it at the door -->
 <!-- positions: moved -->
 The instance a static reads from need not be its first argument: any argument that is an instance of the generic type holds the promise the static would hand out.
 ```maxon
@@ -1422,6 +1427,7 @@ error E3141: <fragment>:30:21: a promise cannot be borrowed through 'second': it
 ```
 
 <!-- test: async-promise-drop.error.a-promise-element-handed-out-by-a-static-through-an-array-of-instances -->
+<!-- skip: language difference: a door that copies its element bounds it Copyable, so a promise is refused by the bound, where maxon refuses it at the door -->
 <!-- positions: moved -->
 An argument that holds the generic type's instances, here an array of boxes, can carry the promise out just as one box can.
 ```maxon
@@ -1467,6 +1473,7 @@ error E3141: <fragment>:35:21: a promise cannot be borrowed through 'firstOf': i
 ```
 
 <!-- test: async-promise-drop.error.a-user-generics-pop-that-returns-a-borrowed-promise-is-refused -->
+<!-- skip: language difference: a door that copies its element bounds it Copyable, so a promise is refused by the bound, where maxon refuses it at the door -->
 <!-- positions: moved -->
 The move-out exemption belongs to the library's `pop`/`remove` doors, which take the element out of the container. A user generic that gives its own method one of those names and returns the element it still holds is refused like any other accessor.
 ```maxon
@@ -1504,6 +1511,7 @@ error E3141: <fragment>:26:12: a promise cannot be borrowed through 'pop': it ow
 ```
 
 <!-- test: async-promise-drop.error.a-promise-element-handed-out-by-a-static-through-nested-arrays -->
+<!-- skip: language difference: a door that copies its element bounds it Copyable, so a promise is refused by the bound, where maxon refuses it at the door -->
 <!-- positions: moved -->
 A holder is any argument whose type graph reaches a promise, however deep: an array of arrays of the generic type's element holds the thread the static would hand out.
 ```maxon
@@ -1552,6 +1560,7 @@ error E3141: <fragment>:38:21: a promise cannot be borrowed through 'firstOf': i
 ```
 
 <!-- test: async-promise-drop.error.a-promise-element-handed-out-by-a-static-through-a-map -->
+<!-- skip: language difference: a promise owns the coroutine that one owner awaits, so it is not Droppable and no Map holds one as a value -->
 <!-- positions: moved -->
 A map whose values are the generic type's element holds the thread just as an array does.
 ```maxon
@@ -1596,6 +1605,7 @@ error E3141: <fragment>:34:21: a promise cannot be borrowed through 'fromMap': i
 ```
 
 <!-- test: async-promise-drop.error.a-promise-element-handed-out-by-a-static-through-a-tuple -->
+<!-- skip: language difference: a door that copies its element bounds it Copyable, so a promise is refused by the bound, where maxon refuses it at the door -->
 <!-- positions: moved -->
 A tuple argument that carries an instance of the generic type is a holder.
 ```maxon
@@ -1637,6 +1647,7 @@ error E3141: <fragment>:30:21: a promise cannot be borrowed through 'fromPair': 
 ```
 
 <!-- test: async-promise-drop.error.a-promise-element-handed-out-by-a-static-through-a-struct-holding-an-instance -->
+<!-- skip: language difference: a door that copies its element bounds it Copyable, so a promise is refused by the bound, where maxon refuses it at the door -->
 <!-- positions: moved -->
 A struct with a field of the generic type's instance is a holder.
 ```maxon
@@ -1736,6 +1747,7 @@ end 'main'
 ```
 
 <!-- test: async-promise-drop.a-user-generics-pop-that-moves-the-element-out-is-accepted -->
+<!-- skip: language difference: a door that copies its element bounds it Copyable, so a promise is refused by the bound, where maxon refuses it at the door -->
 A user generic's `pop` is decided from its body: this one returns what `Array.pop` took out of its array, a value nothing else holds, so the caller owns the promise and awaits it.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -1750,11 +1762,11 @@ type Stack uses T
 		return Self{items: Items.create(0)}
 	end 'create'
 
-	function push(mutates self, v T) where T implements Copyable
+	function push(v T)
 		self.items.push(v)
 	end 'push'
 
-	function pop(mutates self) returns T
+	function pop() returns T
 		return try self.items.pop() otherwise panic("empty")
 	end 'pop'
 end 'Stack'
@@ -1770,7 +1782,7 @@ function main() returns ExitCode
 	let s = PromiseStack.create()
 	s.push(async plain())
 	let p = s.pop()
-	return try (await p) as ExitCode otherwise panic("out of range")
+	return (await p) as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -1778,6 +1790,7 @@ end 'main'
 ```
 
 <!-- test: async-promise-drop.error.a-user-generics-pop-that-returns-a-borrow-of-its-array-is-refused -->
+<!-- skip: language difference: a door that copies its element bounds it Copyable, so a promise is refused by the bound, where maxon refuses it at the door -->
 <!-- positions: moved -->
 The same `pop` that returns `self.items.last()` hands back an element its array still holds, so the name earns it nothing.
 ```maxon
@@ -1821,6 +1834,7 @@ error E3141: <fragment>:33:12: a promise cannot be borrowed through 'pop': it ow
 ```
 
 <!-- test: async-promise-drop.a-user-generics-pop-forwarded-through-a-nested-user-type-that-moves-out-is-accepted -->
+<!-- skip: language difference: a door that copies its element bounds it Copyable, so a promise is refused by the bound, where maxon refuses it at the door -->
 The field's declared type is read: `Outer.pop` returns `self.inner.pop()`, `inner` is an `Inner`, and `Inner.pop` is itself a move-out of its array, so the promise is handed on and the caller awaits it.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -1835,11 +1849,11 @@ type Inner uses T
 		return Self{items: Items.create(0)}
 	end 'create'
 
-	function push(mutates self, v T) where T implements Copyable
+	function push(v T)
 		self.items.push(v)
 	end 'push'
 
-	function pop(mutates self) returns T
+	function pop() returns T
 		return try self.items.pop() otherwise panic("empty")
 	end 'pop'
 end 'Inner'
@@ -1852,7 +1866,7 @@ type Outer uses T
 		return Self{inner: Wrapped.create()}
 	end 'create'
 
-	function push(v T) where T implements Copyable
+	function push(v T)
 		self.inner.push(v)
 	end 'push'
 
@@ -1872,7 +1886,7 @@ function main() returns ExitCode
 	let o = PromiseOuter.create()
 	o.push(async plain())
 	let p = o.pop()
-	return try (await p) as ExitCode otherwise panic("out of range")
+	return (await p) as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -1880,6 +1894,7 @@ end 'main'
 ```
 
 <!-- test: async-promise-drop.error.a-user-generics-pop-through-a-nested-user-type-whose-pop-borrows-is-refused -->
+<!-- skip: language difference: a door that copies its element bounds it Copyable, so a promise is refused by the bound, where maxon refuses it at the door -->
 <!-- positions: moved -->
 The name `pop` on a field earns nothing: `inner` is a user type whose `pop` returns what its array still holds, so the outer `pop` hands back a borrow and is refused like any accessor.
 ```maxon
@@ -1940,6 +1955,7 @@ error E3141: <fragment>:51:12: a promise cannot be borrowed through 'pop': it ow
 ```
 
 <!-- test: async-promise-drop.a-method-that-returns-a-parameter-it-consumes-hands-it-on -->
+<!-- skip: language difference: a door that copies its element bounds it Copyable, so a promise is refused by the bound, where maxon refuses it at the door -->
 A method returning a type-parameter value that is its own consumed parameter hands on what the caller moved in, not what the receiver holds, so the call is not a borrow.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -1949,11 +1965,11 @@ typealias IntPromise = Promise with Integer
 type Box uses T
 	var v as T
 
-	static function create(v T) returns Self where T implements Copyable
+	static function create(v T) returns Self
 		return Self{v: v}
 	end 'create'
 
-	function echo(w T) returns T where T implements Copyable
+	function echo(w T) returns T
 		return w
 	end 'echo'
 end 'Box'
@@ -1968,7 +1984,7 @@ end 'plain'
 function main() returns ExitCode
 	let bx = PromiseBox.create(async plain())
 	let p = bx.echo(async plain())
-	return try (await p) as ExitCode otherwise panic("out of range")
+	return (await p) as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -1976,6 +1992,7 @@ end 'main'
 ```
 
 <!-- test: async-promise-drop.a-static-that-returns-a-parameter-it-consumes-beside-an-unconsumed-holder-hands-it-on -->
+<!-- skip: language difference: a door that copies its element bounds it Copyable, so a promise is refused by the bound, where maxon refuses it at the door -->
 The same for a static: the holder `a` is only read, and the value returned is the consumed `w`, so nothing is borrowed.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -1985,11 +2002,11 @@ typealias IntPromise = Promise with Integer
 type Box uses T
 	var v as T
 
-	static function create(v T) returns Self where T implements Copyable
+	static function create(v T) returns Self
 		return Self{v: v}
 	end 'create'
 
-	static function other(a Self, w T) returns T where T implements Copyable
+	static function other(a Self, w T) returns T
 		if not a.ready() 'notReady'
 			panic("not ready")
 		end 'notReady'
@@ -2011,7 +2028,7 @@ end 'plain'
 function main() returns ExitCode
 	let a = PromiseBox.create(async plain())
 	let p = PromiseBox.other(a, w: async plain())
-	return try ((await p) + (3 if a.ready() else 0)) as ExitCode otherwise panic("out of range")
+	return ((await p) + (3 if a.ready() else 0)) as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -2058,6 +2075,7 @@ error E3141: <fragment>:27:26: a promise cannot be borrowed through 'relay': it 
 ```
 
 <!-- test: async-promise-drop.a-user-pop-moving-out-through-a-local-hands-the-thread-over -->
+<!-- skip: language difference: a door that copies its element bounds it Copyable, so a promise is refused by the bound, where maxon refuses it at the door -->
 `Stack.pop` binds the element it moves out of its field to a local and returns that local, which is the same move-out as returning the call itself, so the popped promise is the caller's to await.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -2072,11 +2090,11 @@ type Stack uses T
 		return Self{items: Items.create(0)}
 	end 'create'
 
-	function push(mutates self, v T) where T implements Copyable
+	function push(v T)
 		self.items.push(v)
 	end 'push'
 
-	function pop(mutates self) returns T
+	function pop() returns T
 		let v = try self.items.pop() otherwise panic("empty")
 		return v
 	end 'pop'
@@ -2093,7 +2111,7 @@ function main() returns ExitCode
 	let s = PromiseStack.create()
 	s.push(async plain())
 	let p = s.pop()
-	return try (await p) as ExitCode otherwise panic("out of range")
+	return (await p) as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -2101,6 +2119,7 @@ end 'main'
 ```
 
 <!-- test: async-promise-drop.a-user-method-forwarding-a-field-remove-hands-the-thread-over -->
+<!-- skip: language difference: a door that copies its element bounds it Copyable, so a promise is refused by the bound, where maxon refuses it at the door -->
 The library `remove` takes one positional argument, and a user method that forwards `self.items.remove(0)` moves the element out exactly as the library door does.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -2115,11 +2134,11 @@ type Stack uses T
 		return Self{items: Items.create(0)}
 	end 'create'
 
-	function push(mutates self, v T) where T implements Copyable
+	function push(v T)
 		self.items.push(v)
 	end 'push'
 
-	function take(mutates self) returns T
+	function take() returns T
 		return try self.items.remove(0) otherwise panic("empty")
 	end 'take'
 end 'Stack'
@@ -2135,7 +2154,7 @@ function main() returns ExitCode
 	let s = PromiseStack.create()
 	s.push(async plain())
 	let p = s.take()
-	return try (await p) as ExitCode otherwise panic("out of range")
+	return (await p) as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -2472,6 +2491,7 @@ end 'main'
 ```
 
 <!-- test: async-promise-drop.a-cursor-peek-over-a-container-of-promises-names-its-slot -->
+<!-- skip: language difference: a door that copies its element bounds it Copyable, so a promise is refused by the bound, where maxon refuses it at the door -->
 A cursor's `peek(n)` reads the slot `n` past where it stands, and that is the slot the read names: awaiting it
 empties slot 1, `get(0)` still names slot 0, and each thread is reclaimed exactly once. Returns 5 + 37.
 ```maxon
@@ -2596,6 +2616,7 @@ fatal error: runtime abort 118 (promiseSlotConsumedTwice)
 ```
 
 <!-- test: async-promise-drop.a-get-and-a-cursor-read-of-one-slot-abort -->
+<!-- skip: language difference: a door that copies its element bounds it Copyable, so a promise is refused by the bound, where maxon refuses it at the door -->
 `get(0)` and a cursor standing at 0 name the same slot through two different doors, so the two reads name one
 green thread and the second await aborts with **118**.
 ```maxon
@@ -2627,6 +2648,7 @@ fatal error: runtime abort 118 (promiseSlotConsumedTwice)
 ```
 
 <!-- test: async-promise-drop.a-get-read-twice-at-one-runtime-index-aborts -->
+<!-- skip: language difference: a door that copies its element bounds it Copyable, so a promise is refused by the bound, where maxon refuses it at the door -->
 Two `get(i)` reads whose index is one value at run time but two to the compiler name one slot, so the second
 await aborts with **118**.
 ```maxon
@@ -2768,6 +2790,7 @@ end 'main'
 ```
 
 <!-- test: async-promise-drop.a-promise-read-out-of-one-container-and-stored-into-another-moves -->
+<!-- skip: language difference: a door that copies its element bounds it Copyable, so a promise is refused by the bound, where maxon refuses it at the door -->
 Reading a promise out of one container and storing it into another is a MOVE between two slots: the store
 empties the source slot, so exactly one container owns the thread and exactly one holder may reclaim it.
 The await through the destination answers, and the source's element walk finds an empty slot.
@@ -2866,6 +2889,7 @@ error E3141: <fragment>:22:4: a promise cannot be borrowed through 'push': it ow
 ```
 
 <!-- test: async-promise-drop.a-slot-read-stored-in-exclusive-arms-is-owned-once -->
+<!-- skip: language difference: a door that copies its element bounds it Copyable, so a promise is refused by the bound, where maxon refuses it at the door -->
 **CONTROL.** Two stores of one slot read in MUTUALLY EXCLUSIVE arms are each the only store on their own
 path, so exactly one container ends up owning the thread and `a`'s slot is vacated whichever way the branch
 goes. The move state must therefore be rewound at the arm boundary rather than carried into the sibling
@@ -3167,6 +3191,7 @@ error E3102: <fragment>:24:11: use of moved value 'p': it was moved in an earlie
 ```
 
 <!-- test: async-promise-drop.a-get-awaited-at-one-index-every-iteration-aborts -->
+<!-- skip: language difference: a door that copies its element bounds it Copyable, so a promise is refused by the bound, where maxon refuses it at the door -->
 A `get(0)` INSIDE the loop is a fresh read on every trip, so the compiler has no name that was moved twice; the
 first trip's await empties the slot and the second trip's read finds it empty at run time, which aborts with
 **118** (`RuntimeAbort.promiseSlotConsumedTwice`) before anything is awaited, reclaimed or leaked.
@@ -3203,6 +3228,7 @@ fatal error: runtime abort 118 (promiseSlotConsumedTwice)
 ```
 
 <!-- test: async-promise-drop.a-get-stored-at-one-index-every-iteration-aborts -->
+<!-- skip: language difference: a door that copies its element bounds it Copyable, so a promise is refused by the bound, where maxon refuses it at the door -->
 The store twin of the case above: the first trip moves the thread into `b` and empties `a`'s slot, so the second
 trip's read of it aborts with **118** rather than storing a second reference to one thread.
 ```maxon
@@ -3318,6 +3344,7 @@ fatal error: runtime abort 118 (promiseSlotConsumedTwice)
 ```
 
 <!-- test: async-promise-drop.a-slot-rearmed-between-moves-in-a-loop-answers-every-trip -->
+<!-- skip: language difference: a door that copies its element bounds it Copyable, so a promise is refused by the bound, where maxon refuses it at the door -->
 **CONTROL for the four aborts above.** A slot written again between two moves holds a NEW thread, so a loop that
 awaits `a.get(0)` and an array slot, and a field, and re-arms each before the next trip, answers every trip:
 (1 + 10) + (1 + 10) + (2 + 10) = 34.
@@ -3363,6 +3390,7 @@ end 'main'
 ```
 
 <!-- test: async-promise-drop.a-distinct-slot-moved-on-every-nested-iteration-answers-every-trip -->
+<!-- skip: language difference: a door that copies its element bounds it Copyable, so a promise is refused by the bound, where maxon refuses it at the door -->
 **CONTROL.** A nested loop whose inner body reads a DIFFERENT slot on every trip, and both awaits it and
 hands another on, moves every thread exactly once: 7 + 8 + 9 + 10 awaited, four more handed to `b`.
 ```maxon
@@ -4068,6 +4096,7 @@ error E3141: <fragment>:29:22: a promise cannot be borrowed through 'watch': it 
 ```
 
 <!-- test: async-promise-drop.a-peek-of-an-emptied-slot-aborts-instead-of-reading-null -->
+<!-- skip: language difference: a door that copies its element bounds it Copyable, so a promise is refused by the bound, where maxon refuses it at the door -->
 Another read consumed the slot, so this read names no thread. A peek is not a consume, so it never reaches the
 vacate that aborts a consume of such a read: it aborts with **118** itself rather than loading through a null
 handle.

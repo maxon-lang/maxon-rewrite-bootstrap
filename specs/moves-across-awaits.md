@@ -135,6 +135,7 @@ error E3102: <fragment>:42:68: use of moved value 'slot': its ownership moved to
 ```
 
 <!-- test: a-let-bound-to-a-borrowed-call-result-is-written-like-a-var -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 `memo` hands back a field of its parameter; the `let` takes the record and writes through it, and the parameter stays writable.
 
 ```maxon
@@ -159,20 +160,20 @@ type Db
 	end 'create'
 end 'Db'
 
-function memo(mutates db Db) returns Index
-	db.hits = try db.hits + 1 otherwise panic("out of range")
-	return db.cache.clone()
+function memo(db Db) returns Index
+	db.hits = db.hits + 1
+	return db.cache
 end 'memo'
 
-function fill(mutates db Db) returns Tally
-	var index = memo(db)
+function fill(db Db) returns Tally
+	let index = memo(db)
 	index.items.push(7)
 	index.items.push(8)
 	return index.items.count()
 end 'fill'
 
 function main() returns ExitCode
-	var db = Db.create()
+	let db = Db.create()
 	print("{fill(db)} {db.cache.items.count()} {db.hits}\n")
 	return 0
 end 'main'
