@@ -2,13 +2,32 @@
 // and never owns, and the index of the element it is at. It is made only over a buffer that has an element, and a move
 // that would leave the elements fails and leaves it where it was, so the index always names one: the checker holds the
 // buffer unchanged while the cursor lives (README, "Borrowing values"), so its length is the one the cursor last saw.
+// A list's cursor, `__ListCursor with T`, is the same two words, the list and the handle of an element of it, and a
+// String's, `__StringCursor`, is the String's two words and the byte positions where the cluster it is at starts and ends.
 
 let cursorSourceField = 0 as Count
 
 let cursorPositionField = 1 as Count
 
-// cursorFields is the number of words of a cursor's box, which its drop and copy routines know too.
-export let cursorFields = 2 as Count
+// cursorFields is the number of words of the box of a buffer's or a list's cursor.
+let cursorFields = 2 as Count
+
+let stringCursorTextField = 0 as Count
+
+let stringCursorStartField = 2 as Count
+
+let stringCursorEndField = 3 as Count
+
+// stringCursorFields is the number of words of the box of a String's cursor.
+let stringCursorFields = 4 as Count
+
+// cursorWords is the number of words of the box of a cursor of the type t, which its drop and copy routines know too.
+export function cursorWords(p ast.Project, ms ast.ModuleState, t ast.TypeID) returns Count
+	if ast.originOf(ms.types, reads: p.types, t: t) == p.builtins.stringCursorTy 'string'
+		return stringCursorFields
+	end 'string'
+	return cursorFields
+end 'cursorWords'
 
 // cursorBuffer is the array box of the buffer that a cursor of the type t walks.
 function cursorBuffer(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, site diag.Site, t ast.TypeID) returns ArrayBox
@@ -127,3 +146,104 @@ function lowerCursorPeek(mutates l Lowerer, p ast.Project, mutates ms ast.Module
 	let element = arrayRead(l, p: p, ms: ms, box: box, arr: buffer, index: target, checked: false, read: SlotRead.slotCopied)
 	return copyValue(l, p: p, ms: ms, site: box.site, v: element, t: arrayElem(p, ms: ms, box: box))
 end 'lowerCursorPeek'
+
+// lowerListCursorCreate is a cursor at the first element of the list args[0], which fails with indexOutOfBounds where it has
+// none.
+function lowerListCursorCreate(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	let site = siteOf(l, p: p, node: c.node)
+	let list = args[0]
+	let first = entry(l, p: p, site: site, symbol: Rt.rtListFirst, kind: IrKind.kindScalar, args: argsOf1(list))
+	let present = nonZero(l, v: first)
+	failUnless(l, p: p, ms: ms, cond: present, errorCase: ast.errorBufferIndexOutOfBounds)
+	let cursor = newReg(l, kind: IrKind.kindManaged)
+	emit(l, i: newAlloc(cursor, bytes: boxBytes(cursorFields, tagged: false)))
+	emit(l, i: newStoreField(cursor, offset: fieldOffset(cursorSourceField, tagged: false), src: list, borrow: true))
+	setCursorPosition(l, cursor: cursor, position: first)
+	return cursor
+end 'lowerListCursorCreate'
+
+// lowerListCursorCurrent lends the element the cursor is at, which is always one of the list's.
+function lowerListCursorCurrent(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	let site = siteOf(l, p: p, node: c.node)
+	let cursorTy = applyType(l, p: p, ms: ms, t: exprType(p, module: l.module, node: c.receiver))
+	let element = ast.typeArgAt(ms.types, reads: p.types, t: cursorTy, index: 0)
+	let list = cursorSource(l, cursor: recv)
+	let at = cursorPosition(l, cursor: recv)
+	let addr = entry(l, p: p, site: site, symbol: Rt.rtListElem, kind: IrKind.kindScalar, args: argsOf2(list, b: at))
+	let elem = newReg(l, kind: kindOfType(p, ms: ms, t: element))
+	emit(l, i: newLoadAt(elem, addr: addr))
+	return elem
+end 'lowerListCursorCurrent'
+
+// lowerListCursorAdvance moves the cursor to the next element, and fails where it is at the last.
+function lowerListCursorAdvance(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	let site = siteOf(l, p: p, node: c.node)
+	let list = cursorSource(l, cursor: recv)
+	let at = cursorPosition(l, cursor: recv)
+	let next = entry(l, p: p, site: site, symbol: Rt.rtListNext, kind: IrKind.kindScalar, args: argsOf2(list, b: at))
+	let present = nonZero(l, v: next)
+	failUnless(l, p: p, ms: ms, cond: present, errorCase: ast.errorBufferIndexOutOfBounds)
+	setCursorPosition(l, cursor: recv, position: next)
+	return konst(l, value: 0 as Word)
+end 'lowerListCursorAdvance'
+
+function stringCursorText(mutates l Lowerer, cursor Reg) returns Reg
+	let d = newReg(l, kind: IrKind.kindString)
+	emit(l, i: newLoadField(d, obj: cursor, offset: fieldOffset(stringCursorTextField, tagged: false)))
+	return d
+end 'stringCursorText'
+
+function stringCursorWord(mutates l Lowerer, cursor Reg, field Count) returns Reg
+	let d = newReg(l, kind: IrKind.kindScalar)
+	emit(l, i: newLoadField(d, obj: cursor, offset: fieldOffset(field, tagged: false)))
+	return d
+end 'stringCursorWord'
+
+function setStringCursorWord(mutates l Lowerer, cursor Reg, field Count, value Reg)
+	emit(l, i: newStoreField(cursor, offset: fieldOffset(field, tagged: false), src: value, borrow: false))
+end 'setStringCursorWord'
+
+// clusterEnd is the byte position where the grapheme cluster of text that starts at the byte position from ends, as a for
+// over a String finds it.
+function clusterEnd(mutates l Lowerer, text Reg, from Reg) returns Reg
+	let one = konst(l, value: 1 as Word)
+	return runtime(l, symbol: Rt.rtStrGraphemeBytePos, kind: IrKind.kindScalar, args: argsOf3(text, b: from, c: one))
+end 'clusterEnd'
+
+// lowerStringCursorCreate is a cursor at the first grapheme cluster of the String args[0], which it borrows, and fails with
+// indexOutOfBounds where the String is empty.
+function lowerStringCursorCreate(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	let text = args[0]
+	let size = runtime(l, symbol: Rt.rtStrLen, kind: IrKind.kindScalar, args: argsOf1(text))
+	let present = nonZero(l, v: size)
+	failUnless(l, p: p, ms: ms, cond: present, errorCase: ast.errorBufferIndexOutOfBounds)
+	let cursor = newReg(l, kind: IrKind.kindManaged)
+	emit(l, i: newAlloc(cursor, bytes: boxBytes(stringCursorFields, tagged: false)))
+	emit(l, i: newStoreField(cursor, offset: fieldOffset(stringCursorTextField, tagged: false), src: text, borrow: true))
+	let start = konst(l, value: 0 as Word)
+	setStringCursorWord(l, cursor: cursor, field: stringCursorStartField, value: start)
+	let stop = clusterEnd(l, text: text, from: start)
+	setStringCursorWord(l, cursor: cursor, field: stringCursorEndField, value: stop)
+	return cursor
+end 'lowerStringCursorCreate'
+
+// lowerStringCursorCurrent lends the cluster the cursor is at as a view of the String's bytes, as a for over it does.
+function lowerStringCursorCurrent(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	let text = stringCursorText(l, cursor: recv)
+	let start = stringCursorWord(l, cursor: recv, field: stringCursorStartField)
+	let stop = stringCursorWord(l, cursor: recv, field: stringCursorEndField)
+	return stringView(l, text: text, from: start, until: stop, checked: false)
+end 'lowerStringCursorCurrent'
+
+// lowerStringCursorAdvance moves the cursor to the next cluster, and fails where it is at the last.
+function lowerStringCursorAdvance(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	let text = stringCursorText(l, cursor: recv)
+	let stop = stringCursorWord(l, cursor: recv, field: stringCursorEndField)
+	let size = runtime(l, symbol: Rt.rtStrLen, kind: IrKind.kindScalar, args: argsOf1(text))
+	let inside = compare(l, op: CmpOp.cmpLt, a: stop, b: size, unsigned: true)
+	failUnless(l, p: p, ms: ms, cond: inside, errorCase: ast.errorBufferIndexOutOfBounds)
+	setStringCursorWord(l, cursor: recv, field: stringCursorStartField, value: stop)
+	let next = clusterEnd(l, text: text, from: stop)
+	setStringCursorWord(l, cursor: recv, field: stringCursorEndField, value: next)
+	return konst(l, value: 0 as Word)
+end 'lowerStringCursorAdvance'

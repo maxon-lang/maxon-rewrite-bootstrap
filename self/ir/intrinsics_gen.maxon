@@ -122,6 +122,24 @@ export function intrinsicCall(mutates l Lowerer, p ast.Project, mutates ms ast.M
 	if op == ast.Intrinsic.intrCursorPeek 'intrCursorPeek'
 		return lowerCursorPeek(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrCursorPeek'
+	if op == ast.Intrinsic.intrListCursorCreate 'intrListCursorCreate'
+		return lowerListCursorCreate(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrListCursorCreate'
+	if op == ast.Intrinsic.intrListCursorCurrent 'intrListCursorCurrent'
+		return lowerListCursorCurrent(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrListCursorCurrent'
+	if op == ast.Intrinsic.intrListCursorAdvance 'intrListCursorAdvance'
+		return lowerListCursorAdvance(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrListCursorAdvance'
+	if op == ast.Intrinsic.intrStringCursorCreate 'intrStringCursorCreate'
+		return lowerStringCursorCreate(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrStringCursorCreate'
+	if op == ast.Intrinsic.intrStringCursorCurrent 'intrStringCursorCurrent'
+		return lowerStringCursorCurrent(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrStringCursorCurrent'
+	if op == ast.Intrinsic.intrStringCursorAdvance 'intrStringCursorAdvance'
+		return lowerStringCursorAdvance(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrStringCursorAdvance'
 	if op == ast.Intrinsic.intrGroupsCreate 'intrGroupsCreate'
 		return lowerGroupsCreate(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrGroupsCreate'
@@ -826,6 +844,24 @@ export function ownsOperands(op ast.Intrinsic) returns bool
 	if op == ast.Intrinsic.intrCursorPeek 'intrCursorPeek'
 		return false
 	end 'intrCursorPeek'
+	if op == ast.Intrinsic.intrListCursorCreate 'intrListCursorCreate'
+		return false
+	end 'intrListCursorCreate'
+	if op == ast.Intrinsic.intrListCursorCurrent 'intrListCursorCurrent'
+		return false
+	end 'intrListCursorCurrent'
+	if op == ast.Intrinsic.intrListCursorAdvance 'intrListCursorAdvance'
+		return false
+	end 'intrListCursorAdvance'
+	if op == ast.Intrinsic.intrStringCursorCreate 'intrStringCursorCreate'
+		return false
+	end 'intrStringCursorCreate'
+	if op == ast.Intrinsic.intrStringCursorCurrent 'intrStringCursorCurrent'
+		return false
+	end 'intrStringCursorCurrent'
+	if op == ast.Intrinsic.intrStringCursorAdvance 'intrStringCursorAdvance'
+		return false
+	end 'intrStringCursorAdvance'
 	if op == ast.Intrinsic.intrGroupsCreate 'intrGroupsCreate'
 		return false
 	end 'intrGroupsCreate'

@@ -275,6 +275,18 @@ function lowerMapLiteral(mutates l Lowerer, p ast.Project, mutates ms ast.Module
 	return made
 end 'lowerMapLiteral'
 
+// visitRangeExpr makes the library's Range or OpenRange of a range value by the call of its create that the check chose, as
+// maxon's does, with the two bounds converted to its parameters.
+function visitRangeExpr(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID) returns Reg
+	let info = callInfoAt(p, module: l.module, node: e)
+	let target = callee(l, p: p, ms: ms, node: e, info: info, receiver: 0 as ast.NodeID)
+	let low = lowerConverted(l, p: p, ms: ms, e: info.ordered[0], target: info.paramSpecs[0].ty)
+	let high = lowerConverted(l, p: p, ms: ms, e: info.ordered[1], target: info.paramSpecs[1].ty)
+	let made = newReg(l, kind: kindOf(l, p: p, ms: ms, t: exprType(p, module: l.module, node: e)))
+	emitCall(l, p: p, ms: ms, dst: made, target: target, args: argsOf2(low, b: high))
+	return made
+end 'visitRangeExpr'
+
 // arrayTypeOf is the type of an array of element.
 function arrayTypeOf(mutates ms ast.ModuleState, p ast.Project, element ast.TypeID) returns ast.TypeID
 	var args = ast.TypeIDList.create(0)

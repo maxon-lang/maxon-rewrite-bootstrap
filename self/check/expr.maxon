@@ -110,6 +110,9 @@ function visitExpr(mutates c Checker, p ast.Project, mutates ms ast.ModuleState,
 	if k == ast.NodeKind.fromExpr 'fromExpr'
 		return checkFromExpr(c, p: p, ms: ms, e: e, errs: errs)
 	end 'fromExpr'
+	if k == ast.NodeKind.rangeExpr 'rangeExpr'
+		return checkRangeExpr(c, p: p, ms: ms, e: e, errs: errs)
+	end 'rangeExpr'
 	if k == ast.NodeKind.memberExpr 'memberExpr'
 		return checkMember(c, p: p, ms: ms, e: e, errs: errs)
 	end 'memberExpr'

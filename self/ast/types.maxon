@@ -2491,6 +2491,20 @@ end 'leadingParams'
 // BuiltinDictionaryLiteral (README, "Where it differs from Maxon").
 export let libraryMapName = "Map"
 
+// libraryRangeName and libraryOpenRangeName are the types a range value makes, `a to b` and `a upto b`, the standard library
+// root's, as maxon's are.
+export let libraryRangeName = "Range"
+
+export let libraryOpenRangeName = "OpenRange"
+
+// rangeTypeName is the library type a range value makes: Range for an inclusive one, OpenRange for a half-open one.
+export function rangeTypeName(inclusive bool) returns String
+	return libraryRangeName if inclusive else libraryOpenRangeName
+end 'rangeTypeName'
+
+// rangeCreateName is the static function of a range type that a range value calls with its two bounds, as maxon's does.
+export let rangeCreateName = "create"
+
 // lentTupleElements is how many elements the tuple has that a function lends, 0 for one that lends no tuple. A tuple it
 // lends is a box of borrows, one word for each element, in the caller's frame: the caller passes its address after the
 // parameters, and the function writes the borrows there and returns it (README, "Tuples"). An instance has its types

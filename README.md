@@ -2585,7 +2585,7 @@ edit to `runtime/` rebuilds everything.
 - `extension` blocks (see "Extensions"): methods, static functions of a type and conformances added to a type, an enum, a
   union, `Array`, `Map`, `List`, `String`, `bool` or `int` from outside its body.
 - `let`, `var` (with a value, or `var x as T` without one), assignment to a variable, a field or an element,
-  `_ = call()`, `if`/`else if`/`else`, `if let x = try call()` and `if try call()` with an `else`, `while`, `for i in a to|upto b`, `for x in xs` over an array, a `List`, the grapheme clusters of a `String`, or any value
+  `_ = call()`, `if`/`else if`/`else`, `if let x = try call()` and `if try call()` with an `else`, `while`, `for i in a to|upto b`, `for x in xs` over an array, a `List`, the grapheme clusters of a `String`, a range value, or any value
   whose type has maxon's iteration protocol (a type of the program, a type parameter through its bounds, an interface
   value through what its interface requires), `for (i, x) in xs.enumerated()` over an array with its indexes, `for (k, v) in m` over the library's `Map`, whose iterator lends each entry, and `for c in E.allCases` (see "Primitives"), `match` as a statement or expression
   (case, literal, range and string patterns, `or` alternatives, `default`, `panic` arms, `default throws E`, and `stmt and fallthrough`), `break`/`continue`
@@ -2607,7 +2607,8 @@ edit to `runtime/` rebuilds everything.
 - Tuples (see "Tuples"): the type `(A, B)`, the value `(a, b)`, `t.0`, `typealias Span = (A, B)`, a tuple as a parameter, a result or a
   field, `let (a, b) = t`, `(a, let b) = t` and `for (a, b) in xs`.
 - Integer, float, bool, string and byte string literals (`b"..."`, a new `ByteArray` of the characters up to U+00FF, one byte each, with `\xNN` for a raw byte; a character above U+00FF is `E1004`), array literals `[a, b]`, map literals `[k: v, k: w]` and `Type from value` over a literal (see "Primitives"), interpolation, arithmetic and bitwise operators, `shl`/`shr`,
-  comparisons, `a is b` and `a is not b` (see "Identity"), `and`/`or`/`xor`/`not`, `x if c else y`, `as` casts, error enums, `throw`, `throws E`, `try e`,
+  comparisons, `a is b` and `a is not b` (see "Identity"), `and`/`or`/`xor`/`not`, `x if c else y`, range values `a to b`
+  and `a upto b` (see "Iteration"), `as` casts, error enums, `throw`, `throws E`, `try e`,
   `try e otherwise ...` and `try` blocks (see "Errors of the program"), calls with Maxon's
   positional-then-labelled arguments (a label, and a parameter name, may be a keyword: `File.rename(from, to: dest)`), parameter conventions (`mutates`, `consumes`, `sets`), `x.clone()`,
   `.name`/`.ordinal`/`.rawValue`, subscripts `a[i]`, `match consumes x`.
@@ -3004,7 +3005,11 @@ type-parameter type has one owner; every other access is a borrow that cannot ou
 ### Borrowing values
 
 A cursor of a raw buffer, `__ManagedMemoryCursor with T` (see "Primitives"), points into the buffer it was made from: it
-borrows it. So does every value of a type that holds one: a record with a field of such a type, a union with such a payload,
+borrows it. So do a list's cursor, `__ListCursor with T` (the list and the handle of an element of it, made by its static
+`create(list)`), and a String's, `__StringCursor` (the String's two words and the byte positions of a grapheme cluster,
+made by `create(text)`), each of which `current()` lends an element of, a list's element or a cluster's view, and
+`advance()` moves on; the library's `ListIterator` and `StringIterator` hold them as `ArrayIterator` holds a buffer's. So
+does every value of a type that holds one: a record with a field of such a type, a union with such a payload,
 a tuple or a collection of such elements. Holding a borrow is a property of the type, structural as `Copyable` and
 `Droppable` are (`check.holdsBorrow`), as Swift's non-escapable types and Hylo's remote parts are, and it is checked in the
 ownership pass (`self/check/ownership_borrows.maxon`), so a correct program pays nothing at run time: a cursor is the buffer
@@ -3752,6 +3757,10 @@ dropped, ends after every element was taken out. Nothing built in returns an `Op
   it is `E2015`.
   A `List` is walked the same way, front to back: each element is lent to `x`, and the list is held while the body runs
   (`E3186`). The lowering walks its handles, `first` and then `next` until there is none, reading each element in place.
+  A `List` also implements the library's `Iterable with (T, ListIterator with T)` (`stdlib/ListIterator.maxon`,
+  minimaxon's own), so a type parameter bound by `Iterable` and an `Iterable` interface value walk it too: its
+  `createIterator()` gives a `ListIterator` that holds a list cursor (`__ListCursor with T`, see "Borrowing values"), which
+  borrows the list, and lends each element with `current()`, as the loop does.
   A `String` is walked by grapheme cluster, as `count()` counts them (see "Text"): each cluster is lent to `x` as a view
   of the String's bytes, a `String` that owns none, so keeping one is `.clone()` (`E3900` otherwise), and the String is
   held while the body runs (`E3186`). The lowering is a loop over byte positions that reads the String's ASCII bit once:
@@ -3776,6 +3785,18 @@ dropped, ends after every element was taken out. Nothing built in returns an `Op
   table, read-only, `_` for one the body does not use, and `for entry in m` binds the pair. The map is held while the
   body runs (`E3186`). The loop is the iteration protocol's: `createIterator()` once, then `current()` and `advance()` per
   entry, `current()` writing the two borrows into two words of the loop's frame, so a pass allocates nothing.
+  A range value is maxon's: `a to b` makes the library's `Range` and `a upto b` its `OpenRange` (`stdlib/Range.maxon`,
+  converted), by a call of the type's static `create` with the two bounds, which are `RangeBound`s
+  (`int(i64.min to i64.max)`), so a float or a wider integer bound is refused as an argument of the wrong type is. The
+  operator binds looser than `or` and tighter than `x if c else y`, so `1 upto n + 1` is one range over a computed bound
+  and `r if c else s` picks one of two ranges; it is the node `RangeExpr`, which resolve binds to the library's type, as a
+  map literal is bound to `Map`, so a type of the program named `Range` does not shadow it. Both types implement
+  `Iterable` with a `RangeIterator` (`current()`, `index()`, `advance()`, `retreat()`), and have what maxon's library
+  gives every `Iterable` (`map`, `filter`, `containsWhere`); maxon's have no `contains`, `count` or clamping either. A
+  `for` walks one through the iteration protocol, as any other value whose type has it. At the top of a `for` header, after
+  its `in` and outside any bracket, `to` and `upto` are the counted loop's own (the parser's `rangeIsValue`): that loop
+  makes no range and is lowered to the plain loop over a counter, so `for i in 0 upto n` costs what it always did, and
+  `for i in (0 upto n)` walks a range value.
   `E.allCases` is a new `Array` of an enum's cases and `E.allCaseNames` one of the names of the cases of an enum or a
   union, `Array with String`, in declaration order; both are read before a case of the same name. `allCases` of a union
   is `E4006`. A loop over either walks the array as any other (`for c in E.allCases` is a loop over a fresh array).
@@ -3884,8 +3905,9 @@ changing the string leaves them as they were. A view is no `Array`, as in maxon.
 A `String` is walked by `for c in s` cluster by cluster, each a view of its bytes (see "Iteration"), and implements the
 library's `Iterable with (String, StringIterator)` (`stdlib/StringIterator.maxon`, minimaxon's own), so a type parameter
 bound by `Iterable` and an `Iterable` interface value walk it too: its `createIterator()` gives a `StringIterator` that
-holds a copy of the String and lends each cluster with `current()`, as the loop does, finding where each ends with
-`sliceLength`.
+holds a String cursor (`__StringCursor`, see "Borrowing values"): the String's two words, which it borrows and does not
+copy, and where the cluster it is at starts and ends. `current()` lends that cluster as a view, as the loop does, and
+`advance()` finds where the next one ends with `rt.str.graphemeBytePos`.
 
 ### The OS
 
@@ -4692,11 +4714,7 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   traps on a miss, where only `get` and `set` throw, as maxon's do; `Pool`, `Handle` and the list's handle API (`prepend`
   and `append` return a `Handle`, `first` and `last` return one, `remove(h)`, `next`, `prev`, `moveToFront`) stand where
   maxon has pointers and indexes; `filled` and `dropEmpty` are minimaxon's own; the loop holds the array or the list it walks, so a body that pushes to it or reassigns it is
-  refused (`E3186`) where maxon re-reads the live count; a `List` does not implement the library's `Iterable`, so it is
-  walked only where its type is known, not through a bound or an interface value; there is no range value (maxon's library `Range` and `OpenRange`,
-  which `a to b` and `a upto b` make outside a `for` header): a range is written only in a `for` header, a ranged type and a
-  pattern;
-  `sort`, `sortUnstable`, `sortBy`, `sortUnstableBy`, `cursor`, `createIterator`, `map`, `filter` and `hash()` are the library's extensions of `Array` (`stdlib/Array.maxon`, converted, and `stdlib/Sort.maxon`, ours: both sorts are one stable merge sort that moves elements with `pop` and `push`, where maxon's are driftsort and pdqsort over the raw buffer, so the compare counts differ and the unstable sorts are stable; `appendMemory` and `withIterator` are not there), `Array` implements `Iterable` there but not `Hashable` (minimaxon has no conditional conformance, so `hash()` is a method of the arrays whose element is `Hashable`, and an array is no `Map` key), `reserve` does nothing, since a capacity is no part of an array's value here (there is no `capacity()`), and `clear`, `truncate`, `resize`, `slice`, `first` and `last` are maxon's, and `clearSlot(at)` too, which only the library tiers call (`E3185`): it drops the element at an index and leaves the slot empty, a hash table's tombstone. A slot is empty where a library tier grew an array of its type parameter with `resize` (outside the library tiers that is `E3106`, as maxon refuses it) or cleared it; it is maxon's: an empty slot of a managed element is 0, the empty place a drop does nothing with, so dropping the array drops only the full slots, and a copy keeps an empty slot empty, while over a scalar a grown or cleared slot is the element 0. `get`, `first`, `last` and a buffer's `get` or a cursor's `peek` of an empty slot throw `emptySlot`, and a read that lends it (a subscript, a `for`, a cursor's `current()`) panics with maxon's `empty slot: element N of the array was never filled`, so no element that is not there is ever lent; the indexes and counts they take are `ElementIndex`; `create(n)` and `resize` refuse an enum element
+  refused (`E3186`) where maxon re-reads the live count; `sort`, `sortUnstable`, `sortBy`, `sortUnstableBy`, `cursor`, `createIterator`, `map`, `filter` and `hash()` are the library's extensions of `Array` (`stdlib/Array.maxon`, converted, and `stdlib/Sort.maxon`, ours: both sorts are one stable merge sort that moves elements with `pop` and `push`, where maxon's are driftsort and pdqsort over the raw buffer, so the compare counts differ and the unstable sorts are stable; `appendMemory` and `withIterator` are not there), `Array` implements `Iterable` there but not `Hashable` (minimaxon has no conditional conformance, so `hash()` is a method of the arrays whose element is `Hashable`, and an array is no `Map` key), `reserve` does nothing, since a capacity is no part of an array's value here (there is no `capacity()`), and `clear`, `truncate`, `resize`, `slice`, `first` and `last` are maxon's, and `clearSlot(at)` too, which only the library tiers call (`E3185`): it drops the element at an index and leaves the slot empty, a hash table's tombstone. A slot is empty where a library tier grew an array of its type parameter with `resize` (outside the library tiers that is `E3106`, as maxon refuses it) or cleared it; it is maxon's: an empty slot of a managed element is 0, the empty place a drop does nothing with, so dropping the array drops only the full slots, and a copy keeps an empty slot empty, while over a scalar a grown or cleared slot is the element 0. `get`, `first`, `last` and a buffer's `get` or a cursor's `peek` of an empty slot throw `emptySlot`, and a read that lends it (a subscript, a `for`, a cursor's `current()`) panics with maxon's `empty slot: element N of the array was never filled`, so no element that is not there is ever lent; the indexes and counts they take are `ElementIndex`; `create(n)` and `resize` refuse an enum element
   some case of which writes a raw value or carries a payload, since a slot holds a case's ordinal and its zero is the first case, which is maxon's case of raw value 0 only where no case writes one, and take no `zeroed:`; and `String` has the byte operations `byteLength`, `byteAt`, `sliceBytes`, `toByteArray`, the static `String.from(bytes)`, and maxon's text methods (see "Text").
   There is no built-in `Option`, which maxon's stdlib has no more of either: an
   operation that can miss throws.

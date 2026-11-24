@@ -1263,7 +1263,7 @@ function main() returns ExitCode
 	let r = Range.create(3, finish: 7)
 	var total = 0 as RangeBound
 	for v in r 'loop'
-		total = total + v
+		total = try total + v otherwise panic("out of range")
 	end 'loop'
 	print("{total}\n")
 	return 0
@@ -1284,15 +1284,14 @@ always was, which is why this case binds the range instead. Pinned here because 
 module's own documentation advertises, and a load that did not deliver it would be a load of a name alone.
 
 <!-- test: stdlib-loading.range-is-constructible-from-to-in-expression-position -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'to' -->
 ```maxon
 function main() returns ExitCode
 	let r = 3 to 7
 	var sum = 0 as RangeBound
 	for x in r 'walk'
-		sum = sum + x
+		sum = try sum + x otherwise panic("out of range")
 	end 'walk'
-	return sum as ExitCode
+	return try sum as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

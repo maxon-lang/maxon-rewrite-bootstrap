@@ -846,12 +846,14 @@ function resolveMatchCore(mutates r Resolver, p ast.Project, ms ast.ModuleState,
 	closeBlock(r, labelRef: ast.matchCoreLabelRef(r.tree, id: mc))
 end 'resolveMatchCore'
 
-// resolveMapLiteral binds a map literal to the type it makes, the library's Map (ast.libraryMapName), which it names as a
-// written name would: the module depends on the library's root from here on.
-function resolveMapLiteral(mutates r Resolver, p ast.Project, id ast.NodeID, mutates errs diag.ErrorList)
+// resolveLibraryType binds an expression that makes a type of the standard library's root, the type named name, to it:
+// a map literal makes Map (ast.libraryMapName) and a range value Range or OpenRange. It names the type as a written name
+// would, so the module depends on the library's root from here on, and a declaration of the program with the same name
+// does not shadow it, since the program wrote no name. what is the expression, for the messages.
+function resolveLibraryType(mutates r Resolver, p ast.Project, id ast.NodeID, name String, what String, mutates errs diag.ErrorList)
 	let off = r.tree.startOf(id)
 	if not p.library.isSome() 'none'
-		pushErr(errs, modID: r.modID, off: off, code: diag.errExpressionError, msg: "a map literal makes the standard library's '{ast.libraryMapName}', and this compile has no library: build the map with code")
+		pushErr(errs, modID: r.modID, off: off, code: diag.errExpressionError, msg: "{what} makes the standard library's '{name}', and this compile has no library: build the value with code")
 		return
 	end 'none'
 	var root = diag.stdlibID
@@ -859,11 +861,11 @@ function resolveMapLiteral(mutates r Resolver, p ast.Project, id ast.NodeID, mut
 		some(m) then root = m
 		none then return
 	end 'library'
-	match consumes takeLookup(r, p: p, lr: libraryModuleLookup(r, p: p, module: root, name: ast.libraryMapName), off: off, errs: errs) 'hit'
+	match consumes takeLookup(r, p: p, lr: libraryModuleLookup(r, p: p, module: root, name: name), off: off, errs: errs) 'hit'
 		some(ref) then r.res.bindDecl(id, d: ref)
-		none then pushErr(errs, modID: r.modID, off: off, code: diag.errExpressionError, msg: "a map literal makes the standard library's '{ast.libraryMapName}', which its root does not declare publicly")
+		none then pushErr(errs, modID: r.modID, off: off, code: diag.errExpressionError, msg: "{what} makes the standard library's '{name}', which its root does not declare publicly")
 	end 'hit'
-end 'resolveMapLiteral'
+end 'resolveLibraryType'
 
 function resolveNameExpr(mutates r Resolver, p ast.Project, id ast.NodeID, mutates errs diag.ErrorList)
 	let n = ast.nameExprName(r.tree, id: id).clone()
@@ -1094,7 +1096,7 @@ function resolveExpr(mutates r Resolver, p ast.Project, ms ast.ModuleState, id a
 		resolveExprList(r, p: p, ms: ms, list: ast.collectionLitExprElemsRef(r.tree, id: id), errs: errs)
 		resolveExprList(r, p: p, ms: ms, list: ast.collectionLitExprValuesRef(r.tree, id: id), errs: errs)
 		if r.tree.listLen(ast.collectionLitExprValuesRef(r.tree, id: id)) > 0 'map'
-			resolveMapLiteral(r, p: p, id: id, errs: errs)
+			resolveLibraryType(r, p: p, id: id, name: ast.libraryMapName, what: "a map literal", errs: errs)
 		end 'map'
 	end 'coll' else if k == ast.NodeKind.tupleExpr 'tup'
 		resolveExprList(r, p: p, ms: ms, list: ast.tupleExprElemsRef(r.tree, id: id), errs: errs)
@@ -1104,7 +1106,11 @@ function resolveExpr(mutates r Resolver, p ast.Project, ms ast.ModuleState, id a
 	end 'cast' else if k == ast.NodeKind.fromExpr 'from'
 		resolveExpr(r, p: p, ms: ms, id: ast.fromExprHead(r.tree, id: id), errs: errs)
 		resolveExpr(r, p: p, ms: ms, id: ast.fromExprValue(r.tree, id: id), errs: errs)
-	end 'from' else if k == ast.NodeKind.matchExpr 'me'
+	end 'from' else if k == ast.NodeKind.rangeExpr 'range'
+		resolveExpr(r, p: p, ms: ms, id: ast.rangeExprLow(r.tree, id: id), errs: errs)
+		resolveExpr(r, p: p, ms: ms, id: ast.rangeExprHigh(r.tree, id: id), errs: errs)
+		resolveLibraryType(r, p: p, id: id, name: ast.rangeTypeName(ast.rangeExprInclusive(r.tree, id: id)), what: "a range value", errs: errs)
+	end 'range' else if k == ast.NodeKind.matchExpr 'me'
 		resolveMatchCore(r, p: p, ms: ms, mc: ast.matchExprMatch(r.tree, id: id), errs: errs)
 	end 'me' else if k == ast.NodeKind.panicExpr 'pe'
 		resolveExpr(r, p: p, ms: ms, id: ast.panicExprMessage(r.tree, id: id), errs: errs)

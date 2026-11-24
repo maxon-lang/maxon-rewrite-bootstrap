@@ -532,6 +532,11 @@ function visitExprOwn(mutates o Ownership, p ast.Project, mutates ms ast.ModuleS
 	if k == ast.NodeKind.fromExpr 'from'
 		return expr(o, p: p, ms: ms, e: ast.fromExprValue(ms.tree(), id: e), s: s)
 	end 'from'
+	if k == ast.NodeKind.rangeExpr 'range'
+		// The bounds are integers, which the range's create takes as values.
+		let low = expr(o, p: p, ms: ms, e: ast.rangeExprLow(ms.tree(), id: e), s: s)
+		return expr(o, p: p, ms: ms, e: ast.rangeExprHigh(ms.tree(), id: e), s: low)
+	end 'range'
 	if k == ast.NodeKind.matchExpr 'match'
 		return matchOwn(o, p: p, ms: ms, core: ast.matchExprMatch(ms.tree(), id: e), s: s)
 	end 'match'

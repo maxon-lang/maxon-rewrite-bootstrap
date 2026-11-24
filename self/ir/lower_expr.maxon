@@ -210,6 +210,9 @@ function visitExpr(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState,
 	if k == ast.NodeKind.fromExpr 'fromExpr'
 		return visitFromExpr(l, p: p, ms: ms, e: e)
 	end 'fromExpr'
+	if k == ast.NodeKind.rangeExpr 'rangeExpr'
+		return visitRangeExpr(l, p: p, ms: ms, e: e)
+	end 'rangeExpr'
 	if k == ast.NodeKind.memberExpr 'memberExpr'
 		return visitMemberExpr(l, p: p, ms: ms, e: e)
 	end 'memberExpr'

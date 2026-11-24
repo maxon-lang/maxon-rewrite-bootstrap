@@ -433,7 +433,6 @@ error E3005: <fragment>:21:31: Value 12 is outside the range of 'Digit' (int(0 t
 ```
 
 <!-- test: an-array-alias-reaches-its-static-from -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'to' -->
 `from` is a keyword and also the name of `Array`'s static constructor over any iterable; after a `.` it
 is the member name, so an `Array` alias reaches it. The alias's element is `RangeBound`, the element a
 `Range` iterates: the iterable must bind `Element` to the array's own element (E3127).

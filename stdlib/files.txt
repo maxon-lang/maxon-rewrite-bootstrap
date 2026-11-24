@@ -9,3 +9,4 @@ helpers/string/hash.maxon . StringHash.maxon
 String.maxon .
 Array.maxon .
 Math.maxon .
+Range.maxon .

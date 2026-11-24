@@ -1,5 +1,6 @@
 // A String implements the library's Iterable, so code that knows it only through the protocol walks its grapheme
-// clusters too: a type parameter bound by Iterable, an Iterable interface value, and its createIterator() called by hand.
+// clusters too: a type parameter bound by Iterable, an Iterable interface value, and its createIterator() called by hand,
+// whose iterator borrows the String.
 typealias Texts = Iterable with (String, StringIterator)
 
 function lengths(source T) uses T where T implements Iterable with (String, StringIterator)
@@ -19,11 +20,13 @@ end 'show'
 function main() returns ExitCode
 	lengths("añb\r\n")
 	show("xy" as Texts)
-	var cursor = try "pq".createIterator() otherwise panic("the string is empty")
+	let pq = "pq"
+	var cursor = try pq.createIterator() otherwise panic("the string is empty")
 	print("{cursor.current()}")
 	try cursor.advance() otherwise panic("one cluster is left")
 	print("{cursor.current()}\n")
-	let empty = try "".createIterator() otherwise 'none'
+	let nothing = ""
+	let empty = try nothing.createIterator() otherwise 'none'
 		print("empty\n")
 		return 0
 	end 'none'

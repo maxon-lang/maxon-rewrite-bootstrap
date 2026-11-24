@@ -6682,7 +6682,7 @@ typealias IntHolder = Holder with Integer
 
 function main() returns ExitCode
 	let xs = [1, 2]
-	let ys = xs.map(function(n) gives IntHolder.pick(n, b: 1))
+	let ys = xs.map(function(n) gives try IntHolder.pick(n, b: 1) as int(1 to 2) otherwise panic("out of range"))
 	print("{try ys.get(0) otherwise 0} {try ys.get(1) otherwise 0}\n")
 	return 0
 end 'main'

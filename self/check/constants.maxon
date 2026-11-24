@@ -119,7 +119,10 @@ function constRefsOfOperands(p ast.Project, ms ast.ModuleState, tree ast.Tree, r
 		constRefs(p, ms: ms, tree: tree, res: res, e: ast.castExprE(tree, id: e), out: out)
 	end 'cast' else if k == ast.NodeKind.fromExpr 'from'
 		constRefs(p, ms: ms, tree: tree, res: res, e: ast.fromExprValue(tree, id: e), out: out)
-	end 'from' else if k == ast.NodeKind.memberExpr 'member'
+	end 'from' else if k == ast.NodeKind.rangeExpr 'range'
+		constRefs(p, ms: ms, tree: tree, res: res, e: ast.rangeExprLow(tree, id: e), out: out)
+		constRefs(p, ms: ms, tree: tree, res: res, e: ast.rangeExprHigh(tree, id: e), out: out)
+	end 'range' else if k == ast.NodeKind.memberExpr 'member'
 		constRefs(p, ms: ms, tree: tree, res: res, e: ast.memberExprObj(tree, id: e), out: out)
 	end 'member' else if k == ast.NodeKind.panicExpr 'panic'
 		out.runs = true

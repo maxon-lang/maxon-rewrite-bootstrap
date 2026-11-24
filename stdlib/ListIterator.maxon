@@ -1,0 +1,32 @@
+// A List's elements through the iteration protocol, for code that reaches it through Iterable: a type parameter it stands
+// for, or an interface value. A for over a List the code knows walks its handles in place, with no iterator (README,
+// "Iteration"), and lends each element as this one's current() does.
+extension List implements Iterable with (T, ListIter)
+	public typealias ListIter = ListIterator with T
+
+	/// Create a fresh iterator positioned at the first element, which borrows the list.
+	/// Throws IterationError.exhausted if the list is empty.
+	public function createIterator() returns ListIter throws IterationError
+		return try ListIter.create(self)
+	end 'createIterator'
+end 'List'
+
+/// Iterator for List: its elements from the first to the last, each lent, through a cursor that borrows the list.
+public type ListIterator uses Element implements Iterator with Element
+	public typealias ElementList = List with Element
+	typealias RawCursor = __ListCursor with Element
+	var raw as RawCursor
+
+	public static function create(list ElementList) returns Self throws IterationError
+		let cursor = try RawCursor.create(list) otherwise throw IterationError.exhausted
+		return Self{raw: cursor}
+	end 'create'
+
+	public function current() returns borrowed Element
+		return raw.current()
+	end 'current'
+
+	public function advance(mutates self) throws IterationError
+		try raw.advance() otherwise throw IterationError.exhausted
+	end 'advance'
+end 'ListIterator'

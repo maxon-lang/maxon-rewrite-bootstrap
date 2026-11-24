@@ -256,6 +256,11 @@ function rangeEval(mutates r Ranges, p ast.Project, ms ast.ModuleState, e ast.No
 		_ = rangeEval(r, p: p, ms: ms, e: ast.fromExprValue(ms.tree(), id: e))
 		return noSpan()
 	end 'from'
+	if k == ast.NodeKind.rangeExpr 'range'
+		_ = rangeEval(r, p: p, ms: ms, e: ast.rangeExprLow(ms.tree(), id: e))
+		_ = rangeEval(r, p: p, ms: ms, e: ast.rangeExprHigh(ms.tree(), id: e))
+		return noSpan()
+	end 'range'
 	if k == ast.NodeKind.condExpr 'cond'
 		return rangeCondExpr(r, p: p, ms: ms, e: e)
 	end 'cond'

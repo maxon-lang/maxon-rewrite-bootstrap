@@ -4346,7 +4346,7 @@ type Holder uses T where T implements Hashable and Equatable
 	end 'create'
 
 	static function width(n Count) returns Count
-		return n + sizeof(T)
+		return try n + sizeof(T) otherwise panic("out of range")
 	end 'width'
 end 'Holder'
 
@@ -4356,7 +4356,7 @@ typealias SmallHolder = Holder with Small
 
 function main() returns ExitCode
 	let xs = [1, 2]
-	let ys = xs.map(function(n) gives SmallHolder.width(n))
+	let ys = xs.map(function(n) gives try SmallHolder.width(n) as int(1 to 2) otherwise panic("out of range"))
 	print("{try ys.get(0) otherwise 0} {try ys.get(1) otherwise 0}\n")
 	return 0
 end 'main'
@@ -4388,7 +4388,7 @@ typealias IntHolder = Holder with Integer
 
 function main() returns ExitCode
 	let xs = [1, 2]
-	let ys = xs.map(function(n) gives IntHolder.agree(n, b: 1))
+	let ys = xs.map(function(n) gives try IntHolder.agree(n, b: 1) as int(1 to 2) otherwise panic("out of range"))
 	print("{try ys.get(0) otherwise 0} {try ys.get(1) otherwise 0}\n")
 	return 0
 end 'main'

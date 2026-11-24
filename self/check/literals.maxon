@@ -132,6 +132,45 @@ function checkMapLit(mutates c Checker, p ast.Project, mutates ms ast.ModuleStat
 	return t
 end 'checkMapLit'
 
+// rangeBounds is the number of bounds a range value gives its type's create, the first and the last or the end.
+let rangeBounds = 2 as Count
+
+// checkRangeExpr types a range value, `a to b` or `a upto b`, which makes the standard library's Range or OpenRange, the
+// type that resolve bound it to: a call of the type's static create with the two bounds, as maxon's range value is, each
+// converted to its parameter, so what a range is and which bounds it takes are the library's to say.
+function checkRangeExpr(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
+	var t = ast.noType
+	match consumes p.resolutions[ast.modIndex(c.modID)].decls.get(e as Count) 'range'
+		some(ref) then t = declTypeOf(p, ms: ms, ref: ref)
+		none then return ast.noType
+	end 'range'
+	let create = methodNamed(p, ms: ms, t: t, name: ast.rangeCreateName)
+	if create == ast.noFunc or not ast.funcEntry(ms.funcs, funcReads: p.funcs, f: create).isStatic or ast.funcEntry(ms.funcs, funcReads: p.funcs, f: create).params.count() != rangeBounds 'noCreate'
+		failAt(c, p: p, ms: ms, node: e, code: diag.errExpressionError, msg: "a range value makes the standard library's '{nameOfType(p, ms: ms, t: t)}' through its static '{ast.rangeCreateName}' of the two bounds, which it does not declare", errs: errs)
+		return ast.noType
+	end 'noCreate'
+	let specs = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: create).params.clone()
+	var bounds = ast.NodeIDList.create(0)
+	bounds.push(ast.rangeExprLow(ms.tree(), id: e))
+	bounds.push(ast.rangeExprHigh(ms.tree(), id: e))
+	for i in 0 upto rangeBounds 'bounds'
+		let bound = bounds[i]
+		let bt = checkExpecting(c, p: p, ms: ms, e: bound, want: specs[i].ty, errs: errs)
+		if bt == ast.noType 'failed'
+			return ast.noType
+		end 'failed'
+		if not coerce(c, p: p, ms: ms, node: bound, at: exprOffset(c, p: p, ms: ms, node: bound), src: bt, target: specs[i].ty, wrong: Mismatch.argument(argumentLabel(specs[i].name)), errs: errs) 'wrong'
+			return ast.noType
+		end 'wrong'
+	end 'bounds'
+	var info = ast.CallInfo.make(ast.CallKind.callStatic, fn: create, receiverTy: ast.noType)
+	info.paramSpecs = specs.clone()
+	info.ordered = bounds.clone()
+	info.result = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: create).result
+	c.typing.calls.insert(e as Count, value: info)
+	return ast.funcEntry(ms.funcs, funcReads: p.funcs, f: create).retTy
+end 'checkRangeExpr'
+
 // addToColumn types an element and folds its type into the column, which gives whether it could.
 function addToColumn(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, mutates col Column, node ast.NodeID, mutates errs diag.ErrorList) returns bool
 	var wanted = col.ty

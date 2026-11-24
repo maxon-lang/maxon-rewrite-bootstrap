@@ -928,7 +928,7 @@ type Holder
 	typealias Range = int(0 to 9)
 
 	function widened() returns Range
-		return self.n
+		return try self.n as Holder.Range otherwise panic("out of range")
 	end 'widened'
 end 'Holder'
 
@@ -936,9 +936,9 @@ function main() returns ExitCode
 	let span = Range.create(1, finish: 4)
 	var total = 0 as ExitCode
 	for v in span 'each'
-		total = total + (v as ExitCode)
+		total = try total + (v as ExitCode) otherwise panic("out of range")
 	end 'each'
-	return total + (Holder.make().widened() as ExitCode) + (Holder.make().held() as ExitCode)
+	return try total + (Holder.make().widened() as ExitCode) + (Holder.make().held() as ExitCode) otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

@@ -54,6 +54,7 @@ export enum NodeKind
 	awaitExpr
 	castExpr
 	binaryExpr
+	rangeExpr
 	condExpr
 	tryExpr
 	intLit
@@ -1892,6 +1893,35 @@ end 'binaryExprNegated'
 export function setBinaryExprNegated(mutates t Tree, id NodeID)
 	t.records[id as Count].flags = t.records[id as Count].flags or (1 as Byte)
 end 'setBinaryExprNegated'
+
+export function newRangeExpr(mutates t Tree, start diag.U32) returns NodeID
+	let id = t.alloc(NodeKind.rangeExpr, start: start)
+	return id
+end 'newRangeExpr'
+
+export function rangeExprLow(t Tree, id NodeID) returns NodeID
+	return t.records[id as Count].a as NodeID
+end 'rangeExprLow'
+
+export function setRangeExprLow(mutates t Tree, id NodeID, value NodeID)
+	t.records[id as Count].a = value as diag.U32
+end 'setRangeExprLow'
+
+export function rangeExprInclusive(t Tree, id NodeID) returns bool
+	return (t.records[id as Count].flags and (1 as Byte)) != 0
+end 'rangeExprInclusive'
+
+export function setRangeExprInclusive(mutates t Tree, id NodeID)
+	t.records[id as Count].flags = t.records[id as Count].flags or (1 as Byte)
+end 'setRangeExprInclusive'
+
+export function rangeExprHigh(t Tree, id NodeID) returns NodeID
+	return t.records[id as Count].b as NodeID
+end 'rangeExprHigh'
+
+export function setRangeExprHigh(mutates t Tree, id NodeID, value NodeID)
+	t.records[id as Count].b = value as diag.U32
+end 'setRangeExprHigh'
 
 export function newCondExpr(mutates t Tree, start diag.U32) returns NodeID
 	let id = t.alloc(NodeKind.condExpr, start: start)

@@ -298,16 +298,15 @@ e
 ```
 
 <!-- test: ranges.create-iterator -->
-<!-- skip: minimaxon does not parse the converted source: Expected ')' but got 'upto' -->
 A range used outside a for-in header is a first-class value with `createIterator()`.
 ```maxon
 function main() returns ExitCode
-	let it = try (1 upto 4).createIterator() otherwise return 99
+	var it = try (1 upto 4).createIterator() otherwise return 99
 	var sum = 0 as RangeBound
 	for v in it 'loop'
-		sum = sum + v
+		sum = try sum + v otherwise panic("out of range")
 	end 'loop'
-	return sum as ExitCode
+	return try sum as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -315,16 +314,15 @@ end 'main'
 ```
 
 <!-- test: ranges.inclusive-create-iterator -->
-<!-- skip: minimaxon does not parse the converted source: Expected ')' but got 'to' -->
 `to` produces an inclusive Range — `createIterator()` visits the endpoint.
 ```maxon
 function main() returns ExitCode
-	let it = try (1 to 4).createIterator() otherwise return 99
+	var it = try (1 to 4).createIterator() otherwise return 99
 	var sum = 0 as RangeBound
 	for v in it 'loop'
-		sum = sum + v
+		sum = try sum + v otherwise panic("out of range")
 	end 'loop'
-	return sum as ExitCode
+	return try sum as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -332,7 +330,6 @@ end 'main'
 ```
 
 <!-- test: ranges.with-iterator -->
-<!-- skip: minimaxon does not parse the converted source: Expected ')' but got 'upto' -->
 `(start upto end).withIterator()` exposes the underlying iterator inside the loop.
 ```maxon
 function main() returns ExitCode
@@ -352,12 +349,11 @@ end 'main'
 ```
 
 <!-- test: ranges.empty-create-iterator-throws -->
-<!-- skip: minimaxon does not parse the converted source: Expected ')' but got 'upto' -->
 An empty exclusive range fails to construct an iterator.
 ```maxon
 function main() returns ExitCode
 	let it = try (5 upto 5).createIterator() otherwise return 7
-	return it.current()
+	return try it.current() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -365,12 +361,11 @@ end 'main'
 ```
 
 <!-- test: ranges.empty-inclusive-create-iterator-throws -->
-<!-- skip: minimaxon does not parse the converted source: Expected ')' but got 'to' -->
 An empty inclusive range (end < start) also throws.
 ```maxon
 function main() returns ExitCode
 	let it = try (5 to 3).createIterator() otherwise return 7
-	return it.current()
+	return try it.current() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -378,16 +373,15 @@ end 'main'
 ```
 
 <!-- test: ranges.let-binding -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'upto' -->
 A range can be bound to a variable and iterated via the standard for-in path.
 ```maxon
 function main() returns ExitCode
 	let r = 1 upto 5
 	var sum = 0 as RangeBound
 	for x in r 'loop'
-		sum = sum + x
+		sum = try sum + x otherwise panic("out of range")
 	end 'loop'
-	return sum as ExitCode
+	return try sum as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

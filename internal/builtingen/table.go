@@ -130,6 +130,18 @@ var builtinTypes = []builtinType{
 		Named:   rawSurface{What: "the raw buffer cursor type is nameable", Instead: "walk an 'Array' with 'for'"},
 		Methods: rawSurface{What: "a raw '__ManagedMemoryCursor' is reachable", Instead: "walk an 'Array' with 'for'"},
 	}},
+	// ListCursor is a position in a list, as a buffer's cursor is in a buffer: the list it borrows and the handle of an
+	// element of it, from the first to the last. It holds a borrow, as a buffer's cursor does.
+	{Key: "ListCursor", Name: "__ListCursor", Params: []string{"T"}, Kind: "Cursor", Managed: true, Raw: &rawType{
+		Named:   rawSurface{What: "the raw list cursor type is nameable", Instead: "walk a 'List' with 'for'"},
+		Methods: rawSurface{What: "a raw '__ListCursor' is reachable", Instead: "walk a 'List' with 'for'"},
+	}},
+	// StringCursor is a position in a String's grapheme clusters: a view of the String, which it borrows, and the byte
+	// positions where the cluster it is at starts and ends. It holds a borrow, as a buffer's cursor does.
+	{Key: "StringCursor", Name: "__StringCursor", Kind: "Cursor", Managed: true, Raw: &rawType{
+		Named:   rawSurface{What: "the raw string cursor type is nameable", Instead: "walk a 'String' with 'for'"},
+		Methods: rawSurface{What: "a raw '__StringCursor' is reachable", Instead: "walk a 'String' with 'for'"},
+	}},
 	// GroupMemory is a raw buffer of the groups of a swiss table, laid out inline: each group is a control word, which the
 	// buffer gives and takes as it is, then eight pairs, two words to a pair. A half holds a value of its type or is empty,
 	// 0 for a managed half, so a table keeps a key and its value side by side, next to the word that says which of the
@@ -623,6 +635,12 @@ var tableFunctions = []function{
 	{Owner: "ManagedMemoryCursor", Name: "retreat", Self: "mutates", Throws: "ManagedMemoryError", Intrinsic: "CursorRetreat"},
 	{Owner: "ManagedMemoryCursor", Name: "seek", Self: "mutates", Params: []string{"index ElementIndex"}, Throws: "ManagedMemoryError", Intrinsic: "CursorSeek"},
 	{Owner: "ManagedMemoryCursor", Name: "peek", Params: []string{"ahead ElementIndex"}, Result: "T", Bounds: []string{"T Copyable"}, Throws: "ManagedMemoryError", Intrinsic: "CursorPeek"},
+	{Owner: "ListCursor", Name: "create", Static: true, Params: []string{"list List with T"}, Result: "Self", Throws: "ManagedMemoryError", Intrinsic: "ListCursorCreate"},
+	{Owner: "ListCursor", Name: "current", Result: "T", Lends: true, Intrinsic: "ListCursorCurrent"},
+	{Owner: "ListCursor", Name: "advance", Self: "mutates", Throws: "ManagedMemoryError", Intrinsic: "ListCursorAdvance"},
+	{Owner: "StringCursor", Name: "create", Static: true, Params: []string{"text String"}, Result: "Self", Throws: "ManagedMemoryError", Intrinsic: "StringCursorCreate"},
+	{Owner: "StringCursor", Name: "current", Result: "String", Lends: true, Intrinsic: "StringCursorCurrent"},
+	{Owner: "StringCursor", Name: "advance", Self: "mutates", Throws: "ManagedMemoryError", Intrinsic: "StringCursorAdvance"},
 
 	// A buffer of groups is made of empty pairs, each group's control word the one given, and keeps its count of groups. A
 	// pair is named by its index over every group, eight to a group. Each half of a pair is lent, written and taken on its

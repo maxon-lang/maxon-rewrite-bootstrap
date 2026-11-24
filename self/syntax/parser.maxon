@@ -339,6 +339,31 @@ type Parser
 		return not self.peekIs(TokenKind.kw_fallthrough)
 	end 'notFallthrough'
 
+	// rangeIsValue is whether the 'to' or 'upto' here makes a range value. At the top of a for header, outside any bracket
+	// after its 'in', the operator is the counted loop's own, which the header reads, so that loop makes no range; everywhere
+	// else, inside a bracket of the header too, it makes the library's Range or OpenRange, as maxon's does.
+	function rangeIsValue() returns bool
+		var depth = 0 as Count
+		var i = pos
+		while i > 0 'scan'
+			i = before(i)
+			let kind = toks[i].kind
+			if kind == TokenKind.rParen or kind == TokenKind.rBracket or kind == TokenKind.rBrace 'close'
+				depth = after(depth)
+			end 'close' else if kind == TokenKind.lParen or kind == TokenKind.lBracket or kind == TokenKind.lBrace 'open'
+				if depth == 0 'inside'
+					return true
+				end 'inside'
+				depth = before(depth)
+			end 'open' else if kind == TokenKind.kw_in and depth == 0 'header'
+				return false
+			end 'header' else if kind == TokenKind.newline or kind == TokenKind.indent or kind == TokenKind.dedent 'lineStart'
+				return true
+			end 'lineStart'
+		end 'scan'
+		return true
+	end 'rangeIsValue'
+
 	// atSpawn is whether a spawn starts here: `spawn` before the type its factory is named through, or before the
 	// parenthesis of `spawn(capacity: n)`. A name never follows another name in an expression, and a call of a function
 	// named spawn labels no argument `capacity`.

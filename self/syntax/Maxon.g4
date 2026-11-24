@@ -593,6 +593,8 @@ expr
     | l=expr op='and' {notFallthrough}? r=expr                       # BinaryExpr
     | l=expr op='xor' r=expr                                         # BinaryExpr
     | l=expr op='or' r=expr                                          # BinaryExpr
+    // A range value, the library's Range or OpenRange, everywhere but at the top of a for header, which reads the operator.
+    | low=expr (inclusive='to' | 'upto') {rangeIsValue}? high=expr  # RangeExpr
     | <assoc=right> then=expr 'if' cond=expr 'else' else=expr        # CondExpr
     | 'try' e=expr ('otherwise' (ignore='ignore' | value=expr ({atHandlerBinding}? handler=handlerBlock)? | handler=handlerBlock | ret=returnStmt | brk=breakStmt | cont=continueStmt | thr=throwStmt))? # TryExpr
     ;

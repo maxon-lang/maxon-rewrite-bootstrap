@@ -1,0 +1,44 @@
+// A List implements the library's Iterable, so code that knows it only through the protocol walks its elements too: a type
+// parameter bound by Iterable, an Iterable interface value, and its createIterator() called by hand. The iterator borrows
+// the list and lends each element.
+typealias Names = List with String
+
+typealias NameIter = ListIterator with String
+
+typealias Texts = Iterable with (String, NameIter)
+
+function lengths(source T) uses T where T implements Iterable with (String, NameIter)
+	for name in source 'each'
+		print("{name.byteLength()};")
+	end 'each'
+	print("\n")
+end 'lengths'
+
+function show(source Texts)
+	for name in source 'each'
+		print("[{name}]")
+	end 'each'
+	print("\n")
+end 'show'
+
+function main() returns ExitCode
+	let names = Names from ["a", "bb", "ccc"]
+	lengths(names)
+	show(Names from ["x", "y"] as Texts)
+	var cursor = try names.createIterator() otherwise panic("the list is empty")
+	print("{cursor.current()}")
+	try cursor.advance() otherwise panic("two names are left")
+	print("{cursor.current()}\n")
+	let none = Names.create()
+	let empty = try none.createIterator() otherwise 'none'
+		print("empty\n")
+		return 0
+	end 'none'
+	print("{empty.current()}\n")
+	return 1
+end 'main'
+
+//> 1;2;3;
+//> [x][y]
+//> abb
+//> empty

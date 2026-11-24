@@ -5599,10 +5599,15 @@ ranges.md: ranges.basic-exclusive
 ranges.md: ranges.basic-inclusive
 ranges.md: ranges.break-in-range
 ranges.md: ranges.continue-in-range
+ranges.md: ranges.create-iterator
+ranges.md: ranges.empty-create-iterator-throws
 ranges.md: ranges.empty-exclusive
 ranges.md: ranges.empty-inclusive
+ranges.md: ranges.empty-inclusive-create-iterator-throws
 ranges.md: ranges.expression-bounds
+ranges.md: ranges.inclusive-create-iterator
 ranges.md: ranges.large-range
+ranges.md: ranges.let-binding
 ranges.md: ranges.negative-bounds
 ranges.md: ranges.nested-ranges
 ranges.md: ranges.single-element-exclusive
@@ -6753,6 +6758,8 @@ stdlib-loading.md: stdlib-loading.both-print-modules-from-stdlib
 stdlib-loading.md: stdlib-loading.error.print-arity-comes-from-the-stdlib-declaration
 stdlib-loading.md: stdlib-loading.nanos-from-stdlib
 stdlib-loading.md: stdlib-loading.no-clock-is-byte-neutral
+stdlib-loading.md: stdlib-loading.range-is-constructible-from-to-in-expression-position
+stdlib-loading.md: stdlib-loading.range-iterates-through-its-iterable-conformance
 stdlib-loading.md: stdlib-loading.unicode-is-whitespace-from-stdlib
 stdlib-user-shadows.md: stdlib-user-shadows.a-cast-of-a-library-float-alias-to-the-programs-own-alias-of-that-name-is-not-unneeded
 stdlib-user-shadows.md: stdlib-user-shadows.a-field-of-a-value-of-the-moved-declaration
@@ -6761,6 +6768,7 @@ stdlib-user-shadows.md: stdlib-user-shadows.a-library-file-is-unaffected-by-an-a
 stdlib-user-shadows.md: stdlib-user-shadows.a-library-method-keeps-the-librarys-answer-past-an-authors-extension-method-of-the-same-signature
 stdlib-user-shadows.md: stdlib-user-shadows.a-librarys-count-and-the-programs-own-count-do-not-mix
 stdlib-user-shadows.md: stdlib-user-shadows.a-masked-count-cast-to-the-programs-own-count-is-not-unneeded
+stdlib-user-shadows.md: stdlib-user-shadows.a-member-typealias-after-a-method-stays-a-member
 stdlib-user-shadows.md: stdlib-user-shadows.a-user-container-over-the-shadowed-name
 stdlib-user-shadows.md: stdlib-user-shadows.an-authors-array-beside-an-extension-alias-leaves-the-librarys-alias-the-librarys
 stdlib-user-shadows.md: stdlib-user-shadows.another-files-private-function-leaves-the-library-one-visible

@@ -412,7 +412,7 @@ function emitCopy(mutates u CodeUnit, a ast.TargetArch, p ast.Project, mutates m
 		return
 	end 'cown'
 	if kind == ast.TypeKind.builtinCursor 'cursor'
-		copyCursor(u, a: a, p: p, ms: ms)
+		copyCursor(u, a: a, p: p, ms: ms, ty: ty)
 		return
 	end 'cursor'
 	panic("routines: no copy routine for {ast.typeName(ms.types, reads: p.types, t: ty)}, which the driver should have refused")
@@ -548,7 +548,7 @@ function dropRecord(mutates u CodeUnit, a ast.TargetArch, p ast.Project, mutates
 	routineEpilogue(u, a: a)
 end 'dropRecord'
 
-// dropCursor frees the box of a cursor (ir.cursorFields), which borrows the buffer it walks and owns nothing else.
+// dropCursor frees the box of a cursor (ir.cursorWords), which borrows what it walks and owns nothing else.
 function dropCursor(mutates u CodeUnit, a ast.TargetArch)
 	let done = u.asm.newLabel()
 	routinePrologue(u, a: a, locals: 0)
@@ -558,12 +558,14 @@ function dropCursor(mutates u CodeUnit, a ast.TargetArch)
 	routineEpilogue(u, a: a)
 end 'dropCursor'
 
-// copyCursor is a new cursor at the same element of the same buffer, which the copy borrows as well.
-function copyCursor(mutates u CodeUnit, a ast.TargetArch, p ast.Project, mutates ms ast.ModuleState)
+// copyCursor is a new cursor of the type ty at the same element of what the cursor walks, which the copy borrows as well:
+// every word is copied as it is, the borrowed ones too.
+function copyCursor(mutates u CodeUnit, a ast.TargetArch, p ast.Project, mutates ms ast.ModuleState, ty ast.TypeID)
+	let words = ir.cursorWords(p, ms: ms, t: ty)
 	routinePrologue(u, a: a, locals: 1)
-	allocate(u, a: a, bytes: ir.boxBytes(ir.cursorFields, tagged: false))
+	allocate(u, a: a, bytes: ir.boxBytes(words, tagged: false))
 	rStore(u, a: a, base: rFrame, disp: routineLocal0, src: rWork)
-	for i in 0 upto ir.cursorFields 'words'
+	for i in 0 upto words 'words'
 		copyWord(u, a: a, p: p, ms: ms, offset: ir.fieldOffset(i, tagged: false), ty: p.builtins.countTy)
 	end 'words'
 	rLoad(u, a: a, dst: rWork, base: rFrame, disp: routineLocal0)

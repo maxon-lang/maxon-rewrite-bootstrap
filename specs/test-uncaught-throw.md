@@ -728,7 +728,6 @@ end 'main'
 ```
 
 <!-- test: implied-try-bounds-of-a-parenthesized-range-target -->
-<!-- skip: minimaxon does not parse the converted source: Expected ')' but got 'upto' -->
 An explicit `try` on `(a upto b).createIterator()` covers the chain's last call. The range's BOUNDS are
 operands of the range operator, so a throwing call in either takes the test body's implied handler.
 ```maxon
