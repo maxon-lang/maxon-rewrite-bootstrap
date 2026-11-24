@@ -61,7 +61,13 @@ var linuxABI = []layoutConst{
 	{"linuxEpollCloexec", 0x80000, true, toRuntime, "EPOLL_CLOEXEC: the poller is closed in a child that execs."},
 	{"linuxEventfdFlags", 0x80800, true, toRuntime, "EFD_CLOEXEC | EFD_NONBLOCK: an eventfd closed in a child that execs, whose read of a count of 0 fails at once."},
 	{"linuxEpollCtlAdd", 1, true, toRuntime, "EPOLL_CTL_ADD: registers an fd with the poller."},
+	{"linuxEpollCtlDel", 2, true, toRuntime, "EPOLL_CTL_DEL: takes an fd off the poller."},
 	{"linuxEpollIn", 1, true, toRuntime, "EPOLLIN: an event for an fd that has something to read."},
+	{"linuxEpollOut", 4, true, toRuntime, "EPOLLOUT: an event for an fd that has room to write."},
+	{"linuxEpollErr", 8, true, toRuntime, "EPOLLERR: an fd with an error, which a read and a write both see."},
+	{"linuxEpollHup", 0x10, true, toRuntime, "EPOLLHUP: an fd whose other end has hung up, which a read and a write both see."},
+	{"linuxEpollRdhup", 0x2000, true, toRuntime, "EPOLLRDHUP: an fd whose other end has closed its writing half, which a read sees."},
+	{"linuxEpollEt", 0x80000000, true, toRuntime, "EPOLLET: an event reported once as the fd becomes ready, not while it stays so."},
 	{"linuxEpollEventDataOffset", 4, true, toRuntime, "where a struct epoll_event, which x86-64 packs, holds its 64-bit data word, after the 32-bit events."},
 	{"linuxEpollEventBytes", 12, true, toRuntime, "the size of a packed struct epoll_event."},
 

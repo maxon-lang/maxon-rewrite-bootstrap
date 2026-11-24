@@ -371,7 +371,11 @@ var layouts = []layoutConst{
 		"where the scheduler's record holds how many times the monitor has signalled or suspended a thread to stop its green thread, an ask or an ask again, which only the monitor writes and the tests of its pace read."},
 	{"schedMonitorTimerOffset", 38, false, toRuntime,
 		"where the scheduler's record holds the high-resolution waitable timer the monitor sleeps on, on Windows, 0 where the system makes none."},
-	{"schedProcessorsOffset", 39, false, toRuntime,
+	{"schedPollFreeOffset", 39, false, toRuntime,
+		"where the scheduler's record holds the first free poll descriptor, linked through pollLinkOffset, under the lock: a descriptor is never given back to the system, so an event the poller took for one before it was freed finds a descriptor still, as Go keeps its pollDescs."},
+	{"schedPipeSerialOffset", 40, false, toRuntime,
+		"where the scheduler's record holds the serial of the next pipe that pollPipe names, on Windows, stepped atomically."},
+	{"schedProcessorsOffset", 41, false, toRuntime,
 		"where the scheduler's record holds the address of each processor (Go's allp), a word each, by its id, 0 until it is made."},
 
 	// A processor (Go's P): what a thread must hold to run green threads, its local run queue (a ring that its owner puts
@@ -488,7 +492,11 @@ var layouts = []layoutConst{
 		"where a green thread holds 1 once it has read its CPU clock, from when each switch keeps greenCpuClockOffset; only its own thread reads and writes it."},
 	{"greenCpuClockOffset", 61, false, toRuntime,
 		"where a green thread holds what its CPU clock adds to the CPU time of the thread it runs on: the time of the threads it ran on before, less what the thread it runs on had used when it came to it; only its own thread reads and writes it."},
-	{"greenBytes", 62, false, toRuntime,
+	{"greenTimerIndexOffset", 62, false, toRuntime,
+		"where a green thread holds its index in the timers' heap while it is on it, under the scheduler's lock, so it is taken off in a logarithmic time."},
+	{"greenPollOffset", 63, false, toRuntime,
+		"where a green thread holds the address of the state word of the poll descriptor it waits on, 0 while it waits on none: a timer that falls due for it and a cancel claim its wake there."},
+	{"greenBytes", 64, false, toRuntime,
 		"the size of a green thread's record."},
 
 	// A selector: the record of an awaitAny that waits, which every promise it waits on names as its waiter, tagged, as the
@@ -530,17 +538,35 @@ var layouts = []layoutConst{
 	{"threadBlockBytes", 289, false, toRuntime,
 		"the size of a thread's block: room for pollEventSlots events of windowsEntryBytes each, the larger of the two systems', and the pinned green thread."},
 
-	// A poll descriptor: what a green thread waits on in the poller, readied by a completion whose key is the descriptor.
+	// A poll descriptor: what a green thread waits on in the poller, a system handle registered with it (pollOpen) or a user
+	// event (pollNew), with a state word for each way it is waited on, reading and writing, readied by an event or a
+	// completion whose key is the descriptor.
 	{"pollStateOffset", 0, false, toRuntime,
-		"where a poll descriptor holds the green thread that waits on it, or pollSignalled once a completion came and was not yet taken, exchanged atomically."},
+		"where a poll descriptor holds the state of a wait to read, or of a user event: the green thread that waits, pollSignalled once an event came that no wait has taken, or what claimed the wake of the waiter (a deadline, a close, a cancel), exchanged atomically."},
 	{"pollFdOffset", 1, false, toRuntime,
-		"where a poll descriptor holds the eventfd that signals it, on Linux, and the kqueue whose user event of the descriptor signals it, on macOS."},
-	{"pollDescriptorBytes", 2, false, toRuntime,
+		"where a poll descriptor holds its handle: the fd or the HANDLE registered, or for a user event the eventfd that signals it, on Linux, and the kqueue whose user event of the descriptor signals it, on macOS."},
+	{"pollWriteStateOffset", 2, false, toRuntime,
+		"where a poll descriptor holds the state of a wait to write, as pollStateOffset's."},
+	{"pollKindOffset", 3, false, toRuntime,
+		"where a poll descriptor holds what it is: free, a user event, or a handle."},
+	{"pollClosingOffset", 4, false, toRuntime,
+		"where a poll descriptor holds 1 once it is evicted, so its waits end and a wait after ends at once."},
+	{"pollWaitingOffset", 5, false, toRuntime,
+		"where a poll descriptor holds how many green threads are in a wait on it, stepped atomically: a close waits until none is."},
+	{"pollLinkOffset", 6, false, toRuntime,
+		"where a free poll descriptor holds the next of the scheduler's free list."},
+	{"pollReadOverlappedOffset", 7, false, toRuntime,
+		"where a poll descriptor holds the OVERLAPPED of a read of its handle, on Windows, four words, whose completion readies the wait to read."},
+	{"pollWriteOverlappedOffset", 11, false, toRuntime,
+		"where a poll descriptor holds the OVERLAPPED of a write of its handle, on Windows, four words, whose completion readies the wait to write."},
+	{"pollDescriptorBytes", 15, false, toRuntime,
 		"the size of a poll descriptor."},
 
 	// A Windows OVERLAPPED_ENTRY, which GetQueuedCompletionStatusEx fills one of for each completion.
 	{"windowsEntryKeyOffset", 0, false, toRuntime,
 		"where an OVERLAPPED_ENTRY holds the completion key."},
+	{"windowsEntryOverlappedOffset", 1, false, toRuntime,
+		"where an OVERLAPPED_ENTRY holds the address of the OVERLAPPED that completed, 0 for a posted packet."},
 	{"windowsEntryBytes", 4, false, toRuntime,
 		"the size of an OVERLAPPED_ENTRY."},
 

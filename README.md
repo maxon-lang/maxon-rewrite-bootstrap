@@ -267,8 +267,8 @@ stack of the reserve, gives each thread a `sigaltstack` and the fault handler (`
 libSystem's `sigaction`, whose trampoline the handlers return through, and exits by `_exit`. A worker starts in
 `rt.threadStart`, which `pthread_create` runs on a stack of the reserve (`pthread_attr_setstacksize`); a parked thread
 waits on a mutex and a condition of its own (macOS 13, maxon's floor, has no futex); preemption is `SIGURG` through
-`pthread_kill`, as on Linux; the poller is a kqueue whose user events (`EVFILT_USER`) break its wait and signal each poll
-descriptor; a run of a program is `posix_spawn` with `POSIX_SPAWN_CLOEXEC_DEFAULT`.
+`pthread_kill`, as on Linux; the poller is a kqueue whose user events (`EVFILT_USER`) break its wait and signal each user
+event's poll descriptor, and whose read and write filters (`EV_CLEAR`) report a handle's; a run of a program is `posix_spawn` with `POSIX_SPAWN_CLOEXEC_DEFAULT`.
 
 The Mac is not on the gate's machine, so `test --target=arm64-macos` takes `--runner=command,word,...`, which starts each
 executable through a command in place of the target's runner: `cmd/batchrun` (plain Go, cross-built for darwin/arm64)
@@ -2606,8 +2606,19 @@ so the code at `run` must have released and freed what the behaviour holds by th
   suspendLock).
 - **Timers and the poller.** A sleeping green thread (`greenSleep`) is on one heap under the scheduler's lock; the thread
   that waits in the poller waits until the earliest timer, and a new earlier one breaks its wait. The poller is a
-  completion port on Windows (`GetQueuedCompletionStatusEx`, broken by `PostQueuedCompletionStatus`) and epoll with an
-  eventfd on Linux; a completion whose key is a poll descriptor readies the green thread that waits on it.
+  completion port on Windows (`GetQueuedCompletionStatusEx`, broken by `PostQueuedCompletionStatus`), epoll with an
+  eventfd on Linux and a kqueue on macOS; a completion whose key is a poll descriptor readies the green thread that
+  waits on it. A poll descriptor (Go's pollDesc) is a user event's (`pollNew`, signalled from any thread) or a handle's
+  (`pollOpen`): an fd or a HANDLE registered once, edge-triggered for reading and writing on Linux and macOS, and on
+  Windows with an OVERLAPPED of its own for each, an operation that completes at once posting nothing. A wait
+  (`pollWait`) ends at an event, at its deadline (a timer of the same heap, which a wait whose event came first takes
+  off it, so a wait allocates nothing), at an eviction (`pollEvict`, which `pollClose` does before it waits out the
+  waits in progress and takes the handle off the poller) or at its coroutine's cancel; on Windows a wait that ends
+  otherwise than by the completion cancels its operation and waits for the completion, so no operation is pending once
+  the wait returns. Descriptors are kept for good on a free list, so an event the poller took for one that was closed
+  meanwhile finds a descriptor still, and is at worst a wake whose call finds nothing. `pollTransfer` reads or writes
+  through one, and `pollPipe` makes a pipe whose ends it takes (on Windows a named pipe, the one pipe that overlapped
+  I/O works on).
 
 **Main with or without the scheduler** (`self/backend/start.maxon`). The link decides by reachability, with no flag,
 whether a program runs the scheduler (`SchedulerChoice`): it marks the live code from the entry as for a program of one

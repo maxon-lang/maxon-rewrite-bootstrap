@@ -16,12 +16,12 @@ function testCoordinator(g Count) returns Count
 	let signaller = greenSpawn(__Raw.codeAddress("testSignaller"))
 	greenSetArgument(signaller, index: 0, value: descriptor)
 	greenReady(signaller)
-	pollWait(descriptor)
+	testReady(pollWait(descriptor, mode: pollRead, deadline: pollNoDeadline))
 	testWrite("a completion readied its waiter\n")
 	_ = greenAwait(signaller)
 	pollSignal(descriptor)
 	greenSleep(testSleepNanos)
-	pollWait(descriptor)
+	testReady(pollWait(descriptor, mode: pollRead, deadline: pollNoDeadline))
 	testWrite("a completion before the wait was taken\n")
 	pollFree(descriptor)
 	return 0
@@ -32,6 +32,12 @@ function testSignaller(g Count) returns Count
 	pollSignal(greenArgument(g, index: 0))
 	return 0
 end 'testSignaller'
+
+function testReady(status Count)
+	if status != pollReady 'other'
+		panic("a wait on a signalled descriptor ended otherwise")
+	end 'other'
+end 'testReady'
 
 function testWrite(text String)
 	write(__Raw.loadWord(__Raw.stdoutAddress(), offset: 0), text: text)

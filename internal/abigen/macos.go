@@ -43,6 +43,8 @@ var macosABI = []layoutConst{
 	{"macosEpipe", 32, true, toRuntime, "EPIPE: a write to a pipe whose reader has closed it."},
 	{"macosFcntlGetFlags", 3, true, toRuntime, "F_GETFL."},
 	{"macosFcntlSetFlags", 4, true, toRuntime, "F_SETFL."},
+	{"macosFcntlSetFd", 2, true, toRuntime, "F_SETFD."},
+	{"macosFdCloexec", 1, true, toRuntime, "FD_CLOEXEC: an fd that an exec closes."},
 	{"macosOpenNonblock", 4, true, toRuntime, "O_NONBLOCK: a write that would wait writes what fits, or fails with EAGAIN."},
 	{"macosFcntlSetNoSigpipe", 73, true, toRuntime, "F_SETNOSIGPIPE: a write to the fd whose reader has closed it fails with EPIPE and sends no SIGPIPE."},
 	{"macosPollRecordBytes", 8, true, toRuntime, "a struct pollfd: the fd and the events asked, then the events that came, 16 bits."},
@@ -98,6 +100,8 @@ var macosABI = []layoutConst{
 	{"macosEvfiltUser", 0xFFF6, true, toRuntime, "EVFILT_USER, -10 in 16 bits: an event that a kevent call triggers, of no fd."},
 	{"macosEvAddClear", 0x21, true, toRuntime, "EV_ADD | EV_CLEAR: registers an event that its report resets, so it is reported once for any number of triggers before it."},
 	{"macosEvDelete", 0x2, true, toRuntime, "EV_DELETE: takes an event off the kqueue."},
+	{"macosEvfiltRead", 0xFFFF, true, toRuntime, "EVFILT_READ, -1 in 16 bits: an event of an fd that has something to read."},
+	{"macosEvfiltWrite", 0xFFFE, true, toRuntime, "EVFILT_WRITE, -2 in 16 bits: an event of an fd that has room to write."},
 	{"macosNoteTrigger", 0x1000000, true, toRuntime, "NOTE_TRIGGER: the fflags that trigger a user event."},
 
 	// Threads and parking.

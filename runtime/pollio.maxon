@@ -1,0 +1,233 @@
+// Reads and writes through the poller (poll.maxon): pollTransfer reads or writes a handle's descriptor, parking the green
+// thread while the handle is not ready, and pollPipe makes a pipe whose two ends the poller takes. A transfer gives the
+// count it moved, 0 for a read at the end of the data, or what ended its wait (transferExpired, transferClosed,
+// transferCancelled), or transferFailed when the system refused the call; a transfer of an evicted descriptor starts
+// nothing and gives transferClosed. A write may move less than it was given, as the system's does, and its caller writes
+// the rest.
+
+// The results of a transfer that moved nothing: above any count.
+let transferFailed = 0xFFFFFFFFFFFFFFFF as Count
+
+let transferExpired = 0xFFFFFFFFFFFFFFFE as Count
+
+let transferClosed = 0xFFFFFFFFFFFFFFFD as Count
+
+let transferCancelled = 0xFFFFFFFFFFFFFFFC as Count
+
+// transferOf is the result of a transfer whose wait ended with a status other than pollReady.
+function transferOf(status Count) returns Count
+	if status == pollExpired 'expired'
+		return transferExpired
+	end 'expired'
+	if status == pollClosed 'closed'
+		return transferClosed
+	end 'closed'
+	return transferCancelled
+end 'transferOf'
+
+// lowHalfMask is the low 32 bits of a word, where pipe writes its first int.
+let lowHalfMask = 0xFFFFFFFF as Count
+
+// evicted is whether a descriptor was evicted, so a transfer starts no operation of it.
+function evicted(descriptor Count) returns bool
+	return __Raw.loadAcquire(descriptor, offset: pollClosingOffset) == set
+end 'evicted'
+
+// pipeEndBytes is the room of pollPipe's two ends, a word each: the read end, then the write end.
+let pipeEndBytes = 16 as Count
+
+#if os(Linux) or os(macOS)
+	// pollTransfer reads up to length bytes of a handle into buffer, or writes them from it, for a mode, waiting for the
+	// handle, until a deadline (pollNoDeadline for none), as long as the call would wait (EAGAIN). A write to a pipe whose
+	// reader has closed it sends the process SIGPIPE on Linux, as a blocking write's does.
+	function pollTransfer(descriptor Count, mode Count, buffer Count, length Count, deadline Count) returns Count
+		if evicted(descriptor) 'evicted'
+			return transferClosed
+		end 'evicted'
+		let fd = __Raw.loadWord(descriptor, offset: pollFdOffset)
+		while true 'attempt'
+			let result = transferCall(fd, mode: mode, buffer: buffer, length: length)
+			if not failed(result) 'moved'
+				return result
+			end 'moved'
+			let errno = errnoOf(result)
+			if errno == eintr 'interrupted'
+				continue 'attempt'
+			end 'interrupted'
+			if errno != eagain 'refused'
+				return transferFailed
+			end 'refused'
+			let status = pollWait(descriptor, mode: mode, deadline: deadline)
+			if status != pollReady 'ended'
+				return transferOf(status)
+			end 'ended'
+		end 'attempt'
+		return transferFailed
+	end 'pollTransfer'
+
+	// pollPipeClose closes an end of a pipe that pollPipe made, after pollClose of its descriptor.
+	function pollPipeClose(handle Count)
+		closeFd(handle)
+	end 'pollPipeClose'
+#endif
+
+#if os(Linux)
+	let eintr = linuxEintr
+
+	let eagain = linuxEagain
+
+	// transferCall is one read or write of an fd, its count or -errno.
+	function transferCall(fd Count, mode Count, buffer Count, length Count) returns Count
+		if mode == pollWrite 'write'
+			return __Raw.syscall3(linuxSysWrite, arg1: fd, arg2: buffer, arg3: length)
+		end 'write'
+		return __Raw.syscall3(linuxSysRead, arg1: fd, arg2: buffer, arg3: length)
+	end 'transferCall'
+
+	// pollPipe makes a pipe whose ends do not wait (O_NONBLOCK) and close in a child that execs, into ends.
+	function pollPipe(ends Count) returns bool
+		var pair = 0 as Count
+		if failed(__Raw.syscall2(linuxSysPipe2, arg1: __Raw.addressOf(pair), arg2: linuxOpenNonblock or linuxOpenCloseOnExec)) 'refused'
+			return false
+		end 'refused'
+		__Raw.storeWord(ends, offset: 0, value: pair and lowHalfMask)
+		__Raw.storeWord(ends, offset: wordBytes, value: pair shr 32)
+		return true
+	end 'pollPipe'
+#endif
+
+#if os(macOS)
+	let eintr = macosEintr
+
+	let eagain = macosEagain
+
+	// transferCall is one read or write of an fd, its count or -errno.
+	function transferCall(fd Count, mode Count, buffer Count, length Count) returns Count
+		if mode == pollWrite 'write'
+			return sysWrite(fd, data: buffer, length: length)
+		end 'write'
+		return sysRead(fd, buffer: buffer, length: length)
+	end 'transferCall'
+
+	// pollPipe makes a pipe whose ends do not wait (O_NONBLOCK) and close in a child that execs, into ends; a write to it
+	// once its reader closed it fails with EPIPE, and sends no SIGPIPE.
+	function pollPipe(ends Count) returns bool
+		var pair = 0 as Count
+		if failed(checkedInt(__Raw.callImport1("pipe", arg1: __Raw.addressOf(pair)))) 'refused'
+			return false
+		end 'refused'
+		let reader = pair and lowHalfMask
+		let writer = pair shr 32
+		pipeEndFlags(reader)
+		pipeEndFlags(writer)
+		_ = __Raw.callImport3("fcntl", arg1: writer, arg2: macosFcntlSetNoSigpipe, arg3: 1)
+		__Raw.storeWord(ends, offset: 0, value: reader)
+		__Raw.storeWord(ends, offset: wordBytes, value: writer)
+		return true
+	end 'pollPipe'
+
+	// pipeEndFlags makes an end of a pipe one that does not wait and that an exec closes.
+	function pipeEndFlags(fd Count)
+		let flags = intResult(__Raw.callImport3("fcntl", arg1: fd, arg2: macosFcntlGetFlags, arg3: 0))
+		_ = __Raw.callImport3("fcntl", arg1: fd, arg2: macosFcntlSetFlags, arg3: flags or macosOpenNonblock)
+		_ = __Raw.callImport3("fcntl", arg1: fd, arg2: macosFcntlSetFd, arg3: macosFdCloexec)
+	end 'pipeEndFlags'
+#endif
+
+#if os(Windows)
+	// The Win32 values of a transfer and of a pipe.
+	let errorIoPending = 997 as Count
+
+	let errorBrokenPipe = 109 as Count
+
+	let errorHandleEof = 38 as Count
+
+	let statusSuccess = 0 as Count
+
+	let statusEndOfFile = 0xC0000011 as Count
+
+	let statusPipeBroken = 0xC000014B as Count
+
+	// pipeOpenMode is PIPE_ACCESS_INBOUND | FILE_FLAG_OVERLAPPED | FILE_FLAG_FIRST_PIPE_INSTANCE: the server's end reads,
+	// overlapped, and the pipe is made, not one of another's name opened.
+	let pipeOpenMode = 0x40080001 as Count
+
+	// pipeMode is PIPE_TYPE_BYTE | PIPE_READMODE_BYTE | PIPE_WAIT | PIPE_REJECT_REMOTE_CLIENTS.
+	let pipeMode = 8 as Count
+
+	let onePipeInstance = 1 as Count
+
+	let pipeBufferBytes = 65536 as Count
+
+	let defaultPipeTimeout = 0 as Count
+
+	let fileFlagOverlapped = 0x40000000 as Count
+
+	// pollTransfer reads up to length bytes of a handle into buffer, or writes them from it, for a mode, through the
+	// descriptor's OVERLAPPED of the mode: an operation that completes at once gives its count, and one that is pending is
+	// waited for until a deadline (pollNoDeadline for none). A read at the end of the data or of a pipe whose writer has closed
+	// it gives 0.
+	function pollTransfer(descriptor Count, mode Count, buffer Count, length Count, deadline Count) returns Count
+		if evicted(descriptor) 'evicted'
+			return transferClosed
+		end 'evicted'
+		let handle = __Raw.loadWord(descriptor, offset: pollFdOffset)
+		let overlapped = pollOverlapped(descriptor, mode: mode)
+		var done = 0 as Count
+		if mode == pollWrite 'write'
+			done = __Raw.callImport5("WriteFile", arg1: handle, arg2: buffer, arg3: dword(length), arg4: 0, arg5: overlapped)
+		end 'write' else 'read'
+			done = __Raw.callImport5("ReadFile", arg1: handle, arg2: buffer, arg3: dword(length), arg4: 0, arg5: overlapped)
+		end 'read'
+		if dword(done) == 0 'notDone'
+			let error = dword(win32Error())
+			if error != errorIoPending 'refused'
+				if mode == pollRead and (error == errorBrokenPipe or error == errorHandleEof) 'end'
+					return 0
+				end 'end'
+				return transferFailed
+			end 'refused'
+			let status = pollWait(descriptor, mode: mode, deadline: deadline)
+			if status != pollReady 'ended'
+				return transferOf(status)
+			end 'ended'
+		end 'notDone'
+		let result = dword(__Raw.loadWord(overlapped, offset: 0))
+		if result == statusSuccess 'moved'
+			return __Raw.loadWord(overlapped, offset: wordBytes)
+		end 'moved'
+		if mode == pollRead and (result == statusEndOfFile or result == statusPipeBroken) 'end'
+			return 0
+		end 'end'
+		return transferFailed
+	end 'pollTransfer'
+
+	// pollPipe makes a pipe of two overlapped ends, which no child inherits, into ends: a named pipe, the one Windows pipe
+	// that overlapped I/O works on, of a name of the process's and a serial, whose server end reads and whose client end
+	// writes.
+	function pollPipe(ends Count) returns bool
+		let scheduler = schedulerOf(__Raw.threadContext())
+		let serial = __Raw.atomicAdd(scheduler, offset: schedPipeSerialOffset, value: 1)
+		let process = dword(__Raw.callImport0("GetCurrentProcessId"))
+		let name = wideOf("\\\\.\\pipe\\minimaxon-{process}-{serial}")
+		let reader = __Raw.callImport8("CreateNamedPipeW", arg1: name, arg2: pipeOpenMode, arg3: pipeMode, arg4: onePipeInstance, arg5: pipeBufferBytes, arg6: pipeBufferBytes, arg7: defaultPipeTimeout, arg8: noSecurity)
+		if reader == invalidHandle 'refused'
+			free(name)
+			return false
+		end 'refused'
+		let writer = __Raw.callImport7("CreateFileW", arg1: name, arg2: genericWrite, arg3: noSharing, arg4: noSecurity, arg5: openExisting, arg6: fileFlagOverlapped, arg7: noTemplate)
+		free(name)
+		if writer == invalidHandle 'unopened'
+			closeHandle(reader)
+			return false
+		end 'unopened'
+		__Raw.storeWord(ends, offset: 0, value: reader)
+		__Raw.storeWord(ends, offset: wordBytes, value: writer)
+		return true
+	end 'pollPipe'
+
+	// pollPipeClose closes an end of a pipe that pollPipe made, after pollClose of its descriptor.
+	function pollPipeClose(handle Count)
+		closeHandle(handle)
+	end 'pollPipeClose'
+#endif

@@ -169,12 +169,14 @@ end 'asyncTake'
 let cancelled = 1 as Count
 
 // asyncCancel is the first half of a promise's cancel, which the compiled code follows with an await of it: the coroutine is
-// marked cancelled, so its thunk does not start a function that has not started, and a sleep it is in ends at once, as do
-// the sleeps it makes after. A reply's cell is marked too, and changes nothing: its message runs on.
+// marked cancelled, so its thunk does not start a function that has not started, and a sleep or a wait on a poll
+// descriptor it is in ends at once, as do the ones it makes after. A reply's cell is marked too, and changes nothing: its
+// message runs on.
 function asyncCancel(promise Count)
 	requireHeld(promise)
 	__Raw.storeRelease(promise, offset: greenCancelOffset, value: cancelled)
 	expireSleep(__Raw.threadContext(), g: promise)
+	cancelPollWait(__Raw.threadContext(), g: promise)
 end 'asyncCancel'
 
 // asyncComplete is whether the coroutine or the reply of a promise has finished, which its finish publishes by the exchange

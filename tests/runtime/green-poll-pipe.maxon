@@ -1,0 +1,201 @@
+// The poller's handles: a pipe's ends, each registered once (pollOpen), read and written through it (pollTransfer). A read
+// of an empty pipe parks until a write; a read with a deadline that passes ends at it, no earlier, and one whose data
+// comes first leaves no timer behind to wake its green thread later; a coroutine's parked read ends once it is cancelled;
+// a read parked when its descriptor is evicted ends, as does a read after; a writer that fills the pipe parks until the
+// reader drains it, and the reader sees every byte, then the end once the writer closes its end.
+//> a read parked until a write: hello
+//> a read expired at its deadline
+//> a read whose data came first left no timer
+//> a cancel ended a coroutine's parked read
+//> an eviction ended a parked read, and a read after it
+//> 1048576 bytes went through a full pipe, then its end
+
+let testSleepNanos = 20000000 as Count
+
+let testDeadlineNanos = 30000000 as Count
+
+// testFarNanos is a deadline far past testSleepNanos, so the data comes first however loaded the machine, and
+// testPastFarNanos a sleep past it.
+let testFarNanos = 1000000000 as Count
+
+let testPastFarNanos = 1200000000 as Count
+
+let testChunkBytes = 4096 as Count
+
+let testChunks = 256 as Count
+
+function main() returns ExitCode
+	greenReady(greenSpawn(__Raw.codeAddress("testCoordinator")))
+	return 0
+end 'main'
+
+function testCoordinator(g Count) returns Count
+	let ends = alloc(pipeEndBytes)
+	testOpenPipe(ends)
+	let reader = testOpen(__Raw.loadWord(ends, offset: 0))
+	let writer = testOpen(__Raw.loadWord(ends, offset: wordBytes))
+	let buffer = alloc(testChunkBytes)
+	// A read of an empty pipe parks until a write.
+	let sender = greenSpawn(__Raw.codeAddress("testSender"))
+	greenSetArgument(sender, index: 0, value: writer)
+	greenReady(sender)
+	let got = pollTransfer(reader, mode: pollRead, buffer: buffer, length: testChunkBytes, deadline: pollNoDeadline)
+	if got != 5 'short'
+		panic("a read after a write of 5 bytes moved {got}")
+	end 'short'
+	testWrite("a read parked until a write: ")
+	write(__Raw.loadWord(__Raw.stdoutAddress(), offset: 0), text: "hello\n")
+	_ = greenAwait(sender)
+	// A deadline that passes ends the read at it, no earlier.
+	let start = osClockNanos()
+	if pollTransfer(reader, mode: pollRead, buffer: buffer, length: testChunkBytes, deadline: pollDeadline(testDeadlineNanos)) != transferExpired 'notExpired'
+		panic("a read of an empty pipe did not expire")
+	end 'notExpired'
+	if __Raw.wrappingSub(osClockNanos(), right: start) < testDeadlineNanos 'early'
+		panic("a read expired before its deadline")
+	end 'early'
+	testWrite("a read expired at its deadline\n")
+	// Data that comes before the deadline takes the timer off the heap: a sleep past the deadline is not woken by it.
+	let second = greenSpawn(__Raw.codeAddress("testSender"))
+	greenSetArgument(second, index: 0, value: writer)
+	greenReady(second)
+	let far = pollTransfer(reader, mode: pollRead, buffer: buffer, length: testChunkBytes, deadline: pollDeadline(testFarNanos))
+	if far != 5 'missed'
+		panic("a read with a far deadline moved {far}, not its 5 bytes")
+	end 'missed'
+	_ = greenAwait(second)
+	greenSleep(testPastFarNanos)
+	testWrite("a read whose data came first left no timer\n")
+	// A cancel of a coroutine ends its parked read.
+	let coroutine = asyncNew(__Raw.codeAddress("testCancelledReader"))
+	greenSetArgument(coroutine, index: 0, value: reader)
+	asyncStart(coroutine)
+	greenSleep(testSleepNanos)
+	asyncCancel(coroutine)
+	if asyncAwait(coroutine) != transferCancelled 'notCancelled'
+		panic("a cancel did not end a coroutine's parked read")
+	end 'notCancelled'
+	testWrite("a cancel ended a coroutine's parked read\n")
+	// An eviction ends a parked read, and a read after it at once.
+	let evictor = greenSpawn(__Raw.codeAddress("testEvictor"))
+	greenSetArgument(evictor, index: 0, value: reader)
+	greenReady(evictor)
+	if pollTransfer(reader, mode: pollRead, buffer: buffer, length: testChunkBytes, deadline: pollNoDeadline) != transferClosed 'notClosed'
+		panic("an eviction did not end a parked read")
+	end 'notClosed'
+	_ = greenAwait(evictor)
+	if pollTransfer(reader, mode: pollRead, buffer: buffer, length: testChunkBytes, deadline: pollNoDeadline) != transferClosed 'open'
+		panic("a read after an eviction did not end at once")
+	end 'open'
+	pollClose(reader)
+	testWrite("an eviction ended a parked read, and a read after it\n")
+	free(buffer)
+	pollClose(writer)
+	pollPipeClose(__Raw.loadWord(ends, offset: 0))
+	pollPipeClose(__Raw.loadWord(ends, offset: wordBytes))
+	// A writer that fills the pipe parks until the reader drains it.
+	testOpenPipe(ends)
+	let drained = testOpen(__Raw.loadWord(ends, offset: 0))
+	let filler = greenSpawn(__Raw.codeAddress("testFiller"))
+	greenSetArgument(filler, index: 0, value: testOpen(__Raw.loadWord(ends, offset: wordBytes)))
+	greenSetArgument(filler, index: 1, value: __Raw.loadWord(ends, offset: wordBytes))
+	greenReady(filler)
+	let room = alloc(testChunkBytes)
+	var total = 0 as Count
+	while true 'drain'
+		let read = pollTransfer(drained, mode: pollRead, buffer: room, length: testChunkBytes, deadline: pollNoDeadline)
+		if read == 0 'end'
+			break 'drain'
+		end 'end'
+		if read > testChunkBytes 'failed'
+			panic("a read of a filled pipe failed")
+		end 'failed'
+		for i in 0 upto read 'bytes'
+			if __Raw.loadByte(room, offset: i) != __Raw.wrappingAdd(total, right: i) mod 251 'wrong'
+				panic("a byte through the pipe changed")
+			end 'wrong'
+		end 'bytes'
+		total = __Raw.wrappingAdd(total, right: read)
+	end 'drain'
+	_ = greenAwait(filler)
+	free(room)
+	pollClose(drained)
+	pollPipeClose(__Raw.loadWord(ends, offset: 0))
+	free(ends)
+	testWrite("{total} bytes went through a full pipe, then its end\n")
+	return 0
+end 'testCoordinator'
+
+// testSender writes "hello" to a descriptor after a sleep.
+function testSender(g Count) returns Count
+	greenSleep(testSleepNanos)
+	let text = alloc(8)
+	__Raw.storeByte(text, offset: 0, value: 104)
+	__Raw.storeByte(text, offset: 1, value: 101)
+	__Raw.storeByte(text, offset: 2, value: 108)
+	__Raw.storeByte(text, offset: 3, value: 108)
+	__Raw.storeByte(text, offset: 4, value: 111)
+	if pollTransfer(greenArgument(g, index: 0), mode: pollWrite, buffer: text, length: 5, deadline: pollNoDeadline) != 5 'short'
+		panic("a write of 5 bytes to an empty pipe was short")
+	end 'short'
+	free(text)
+	return 0
+end 'testSender'
+
+// testCancelledReader reads a descriptor of an empty pipe, a coroutine that its cancel ends, and gives the read's result.
+function testCancelledReader(g Count) returns Count
+	let buffer = alloc(testChunkBytes)
+	let result = pollTransfer(greenArgument(g, index: 0), mode: pollRead, buffer: buffer, length: testChunkBytes, deadline: pollNoDeadline)
+	free(buffer)
+	return result
+end 'testCancelledReader'
+
+// testEvictor evicts a descriptor after a sleep.
+function testEvictor(g Count) returns Count
+	greenSleep(testSleepNanos)
+	pollEvict(greenArgument(g, index: 0))
+	return 0
+end 'testEvictor'
+
+// testFiller writes testChunks chunks to a descriptor, far past what the pipe holds, then closes its end.
+function testFiller(g Count) returns Count
+	let descriptor = greenArgument(g, index: 0)
+	let chunk = alloc(testChunkBytes)
+	var sent = 0 as Count
+	for c in 0 upto testChunks 'chunks'
+		for i in 0 upto testChunkBytes 'fill'
+			__Raw.storeByte(chunk, offset: i, value: __Raw.wrappingAdd(sent, right: i) mod 251)
+		end 'fill'
+		var done = 0 as Count
+		while done < testChunkBytes 'rest'
+			let wrote = pollTransfer(descriptor, mode: pollWrite, buffer: __Raw.wrappingAdd(chunk, right: done), length: __Raw.wrappingSub(testChunkBytes, right: done), deadline: pollNoDeadline)
+			if wrote > testChunkBytes 'failed'
+				panic("a write to a filled pipe failed")
+			end 'failed'
+			done = __Raw.wrappingAdd(done, right: wrote)
+		end 'rest'
+		sent = __Raw.wrappingAdd(sent, right: testChunkBytes)
+	end 'chunks'
+	free(chunk)
+	pollClose(descriptor)
+	pollPipeClose(greenArgument(g, index: 1))
+	return 0
+end 'testFiller'
+
+function testOpenPipe(ends Count)
+	if not pollPipe(ends) 'refused'
+		panic("cannot make a pipe")
+	end 'refused'
+end 'testOpenPipe'
+
+function testOpen(handle Count) returns Count
+	let descriptor = pollOpen(handle)
+	if descriptor == noDescriptor 'refused'
+		panic("the poller refused a pipe's end")
+	end 'refused'
+	return descriptor
+end 'testOpen'
+
+function testWrite(text String)
+	write(__Raw.loadWord(__Raw.stdoutAddress(), offset: 0), text: text)
+end 'testWrite'
