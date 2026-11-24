@@ -392,7 +392,9 @@ function parseTask(c Compile, mutates work ModuleWork, known Known, inputs ast.I
 	end 'program'
 	if c.cache.enabled() 'digests'
 		work.digests.source = sourceDigest(ms.source.path, text: ms.parsed.tree.text, files: ms.parsed.files)
-		work.digests.shown = publicDigest(ms.source.path, text: ms.parsed.tree.text, files: ms.parsed.files)
+		if not view.modules[m].isRuntime 'shown'
+			work.digests.shown = publicDigest(ms.source.path, text: ms.parsed.tree.text, files: ms.parsed.files)
+		end 'shown'
 	end 'digests'
 	return giveTask(work, ms: ms, stage: Stage.parse)
 end 'parseTask'
