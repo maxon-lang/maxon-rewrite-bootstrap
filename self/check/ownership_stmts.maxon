@@ -409,7 +409,7 @@ function runNested(mutates o Ownership, p ast.Project, mutates ms ast.ModuleStat
 	let found = exchange(o.errs, value: diag.ErrorList.create(0))
 	var inner = Ownership.make(checker, errs: found)
 	inner.closureTy = closureTy
-	inner.comparison = o.comparison
+	inner.guarded = o.guarded
 	inner.borrowing = exchange(o.borrowing, value: BoolIntMap.new())
 	run(inner, p: p, ms: ms, fid: fid, body: body, paramSites: sites)
 	o.errs = exchange(inner.errs, value: diag.ErrorList.create(0))

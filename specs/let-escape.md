@@ -2391,7 +2391,7 @@ type Top
 	end 'create'
 end 'Top'
 
-function zeroBox(w Box)
+function zeroBox(mutates w Box)
 	w.n = 0
 end 'zeroBox'
 
@@ -2407,7 +2407,7 @@ type ListSink implements Sink
 	end 'create'
 
 	function take(b Box)
-		items.push(b)
+		items.push(b.clone())
 	end 'take'
 
 	function zeroFirst()

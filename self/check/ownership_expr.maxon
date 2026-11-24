@@ -260,14 +260,14 @@ end 'requireWritable'
 // requireWritableFor is requireWritable for a change that is a call of the value at path, of the function type call that
 // mutates its captures, or for a plain change when call is none.
 function requireWritableFor(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState, site diag.U32, path AccessPath, call ast.TypeID)
-	if refusesComparisonWrite(o, p: p, ms: ms, path: path) 'comparison'
+	if refusesGuardedWrite(o, p: p, ms: ms, path: path) 'guarded'
 		return
-	end 'comparison'
+	end 'guarded'
 	requireRebindable(o, p: p, ms: ms, site: site, path: path, call: call)
 end 'requireWritableFor'
 
-// requireRebindable is requireWritableFor for an assignment of the whole of a variable, which a comparison method may make
-// of its operand as any function may of a parameter: it is refused as a let parameter's reassignment, and changes no
+// requireRebindable is requireWritableFor for an assignment of the whole of a variable, which a guarded method may make
+// of a parameter as any function may: it is refused as a let parameter's reassignment, and changes no
 // caller's value.
 function requireRebindable(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState, site diag.U32, path AccessPath, call ast.TypeID)
 	if requireMutable(o, p: p, ms: ms, site: site, path: path, call: call) 'mutable'
@@ -275,45 +275,77 @@ function requireRebindable(mutates o Ownership, p ast.Project, mutates ms ast.Mo
 	end 'mutable'
 end 'requireRebindable'
 
-// refusesComparisonWrite refuses a change of the receiver or the operand of an equals or a compare method that neither
-// declares writable, made in its body or in a closure there that captures them, and says whether it did. The operators pass
-// both sides by value, so it is the method that may not change them, wherever it writes them: a field, an element or a call
-// that writes, which maxon reports at the method (E3187), and where a conformance requires the method, as a write that the
-// requirement does not declare (E3210).
-function refusesComparisonWrite(mutates o Ownership, p ast.Project, ms ast.ModuleState, path AccessPath) returns bool
-	if o.comparison == ast.noFunc 'notComparison'
+// refusesGuardedWrite refuses a change of a read-only receiver or parameter of the guarded method, made in its body or in a
+// closure there that captures them, and says whether it did. It is the method that may not change them, wherever it writes
+// them: a field, an element or a call that writes. The comparison operators pass both sides of an equals or a compare by
+// value (E3187), and a call through an interface reaches a conformer as its requirement declares it, so a write that the
+// requirement does not declare is the conformer's (E3210). Both are reported at the method.
+function refusesGuardedWrite(mutates o Ownership, p ast.Project, ms ast.ModuleState, path AccessPath) returns bool
+	if o.guarded == ast.noFunc 'notGuarded'
 		return false
-	end 'notComparison'
+	end 'notGuarded'
 	let root = o.c.typing.locals[path.root as Count].clone()
 	if isMutableLocal(root) 'writable'
 		return false
 	end 'writable'
-	let f = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: o.comparison)
-	let inMethod = o.fn == o.comparison
+	let f = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: o.guarded)
+	let comparison = isComparisonMethod(f)
+	let inMethod = o.fn == o.guarded
 	let receiver = (inMethod and root.isSelf) or (root.isCapture and root.name == "self")
-	let operand = root.isParam and not root.isSelf and root.name == f.params[0].name and (inMethod or root.isCapture)
+	let operand = root.isParam and not root.isSelf and (inMethod or root.isCapture) and isGuardedParam(f, name: root.name, comparison: comparison)
 	if not receiver and not operand 'other'
 		return false
 	end 'other'
 	let owner = ast.originOf(ms.types, reads: p.types, t: f.ownerTy)
 	let method = "{ast.typeName(ms.types, reads: p.types, t: owner)}.{f.name}"
 	let site = offsetOfOwn(o, p: p, ms: ms, node: f.nodeID)
-	let required = requirementNamed(p, ms: ms, nt: owner, name: f.name)
+	let required = requirementNamed(p, ms: ms, from: o.c.modID, nt: owner, name: f.name)
 	if receiver 'receiver'
-		fail(o, p: p, site: site, code: diag.errComparisonMethodWrites, msg: diag.comparisonWritesReceiver(method))
+		if comparison 'comparison'
+			fail(o, p: p, site: site, code: diag.errComparisonMethodWrites, msg: diag.comparisonWritesReceiver(method))
+		end 'comparison'
 		match consumes required 'required'
 			some(requirement) then fail(o, p: p, site: site, code: diag.errCapabilityConversion, msg: diag.requirementWritesReceiver(method, requirement: requirement))
 			none then _ = 0
 		end 'required'
 		return true
 	end 'receiver'
-	fail(o, p: p, site: site, code: diag.errComparisonMethodWrites, msg: diag.comparisonWritesParameter(method, param: root.name))
+	if comparison 'comparison'
+		fail(o, p: p, site: site, code: diag.errComparisonMethodWrites, msg: diag.comparisonWritesParameter(method, param: root.name))
+	end 'comparison'
 	match consumes required 'required'
 		some(requirement) then fail(o, p: p, site: site, code: diag.errCapabilityConversion, msg: diag.requirementWritesParameter(method, param: root.name, requirement: requirement))
 		none then _ = 0
 	end 'required'
 	return true
-end 'refusesComparisonWrite'
+end 'refusesGuardedWrite'
+
+// isGuardedParam is whether the parameter of the name is one that the guarded method f may not change: the operand of a
+// comparison method, or any parameter of a conformer.
+function isGuardedParam(f ast.FuncEntry, name String, comparison bool) returns bool
+	if comparison 'comparison'
+		return name == f.params[0].name
+	end 'comparison'
+	for i in 0 upto f.params.count() 'params'
+		if f.params[i].name == name 'found'
+			return true
+		end 'found'
+	end 'params'
+	return false
+end 'isGuardedParam'
+
+// isGuardedMethod is whether f may not change its read-only receiver or parameters wherever it writes them
+// (refusesGuardedWrite): a comparison method, or an instance's method that a conformance of its type, as the module from
+// sees them, requires.
+function isGuardedMethod(p ast.Project, ms ast.ModuleState, from diag.ModuleID, f ast.FuncEntry) returns bool
+	if isComparisonMethod(f) 'comparison'
+		return true
+	end 'comparison'
+	if f.isStatic or f.isClosure or f.ownerTy == ast.noType 'notMethod'
+		return false
+	end 'notMethod'
+	return conformanceRequires(p, ms: ms, from: from, nt: f.ownerTy, name: f.name)
+end 'isGuardedMethod'
 
 // isComparisonMethod is whether f is a method that the comparison operators call: an instance's equals or compare of one
 // operand.

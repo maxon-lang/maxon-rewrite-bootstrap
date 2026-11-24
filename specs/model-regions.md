@@ -546,7 +546,6 @@ error E3197: <fragment>:25:2: cannot write 'b' through 'v', which is read-only, 
 ```
 
 <!-- test: model-finding-s-u1-unique-into-holder-then-reuse-a-callee-moves-its-unique-parameter-i -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `U1-unique-into-holder-then-reuse: a callee moves its unique parameter into a holder; the caller uses the token after` of redteamS/h_uniq.txt, in capmodel `reggio/REPORTRTS.txt`.
 
@@ -565,13 +564,13 @@ type Th
 	var t as Tk
 	var pos as Num
 
-	static function create(t Tk, pos Num) returns Self
+	static function create(consumes t Tk, pos Num) returns Self
 		return Self{t: t, pos: pos}
 	end 'create'
 end 'Th'
 
-function view(tV Tk) returns Num
-	let h = Th.create(tV, pos: 0)
+function view(consumes tV Tk) returns Num
+	var h = Th.create(tV, pos: 0)
 	h.pos = 1
 	return 0
 end 'view'
@@ -617,7 +616,6 @@ end 'main'
 ```
 
 <!-- test: model-finding-s-u3-unique-in-holder-two-calls-two-calls-each-moving-the-token-into-a-h -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `U3-unique-in-holder-two-calls: two calls, each moving the token into a holder` of redteamS/h_uniq.txt, in capmodel `reggio/REPORTRTS.txt`.
 
@@ -636,13 +634,13 @@ type Th
 	var t as Tk
 	var pos as Num
 
-	static function create(t Tk, pos Num) returns Self
+	static function create(consumes t Tk, pos Num) returns Self
 		return Self{t: t, pos: pos}
 	end 'create'
 end 'Th'
 
-function view(tV Tk) returns Num
-	let h = Th.create(tV, pos: 0)
+function view(consumes tV Tk) returns Num
+	var h = Th.create(tV, pos: 0)
 	h.pos = 1
 	return 0
 end 'view'
@@ -1133,7 +1131,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-ad-k-arr -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `k-arr` of redteamAD.hand_ad3, in capmodel `reggio/REPORTRTAD.txt`.
 
@@ -1150,8 +1147,8 @@ type Tok is noncopyable
 	end 'create'
 end 'Tok'
 
-function keepArr(t Tok)
-	let xs = TokArray.create(0)
+function keepArr(consumes t Tok)
+	var xs = TokArray.create(0)
 	xs.push(t)
 end 'keepArr'
 
@@ -1167,7 +1164,6 @@ error E3102: <fragment>:21:10: use of moved value 't': its ownership moved to th
 ```
 
 <!-- test: model-hand-ad-k-cell -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `k-cell` of redteamAD.hand_ad3, in capmodel `reggio/REPORTRTAD.txt`.
 
@@ -1185,12 +1181,12 @@ end 'Tok'
 type Cell
 	var t as Tok
 
-	static function create(t Tok) returns Self
+	static function create(consumes t Tok) returns Self
 		return Self{t: t}
 	end 'create'
 end 'Cell'
 
-function keepCell(tV Tok)
+function keepCell(consumes tV Tok)
 	_ = Cell.create(tV)
 end 'keepCell'
 
@@ -2573,7 +2569,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-aj-id-call -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `id-call` of redteamAJ.hand_aj3, in capmodel `reggio/REPORTRTAJ.txt`.
 
@@ -2591,23 +2586,23 @@ end 'Tk'
 type Kp
 	var k as Tk
 
-	static function create(k Tk) returns Self
+	static function create(consumes k Tk) returns Self
 		return Self{k: k}
 	end 'create'
 end 'Kp'
 
-function idTk(x Tk) returns Tk
+function idTk(consumes x Tk) returns Tk
 	return x
 end 'idTk'
 
-function f(t Tk, h Kp)
+function f(consumes t Tk, mutates h Kp)
 	let u = t
 	let w = idTk(u)
 	h.k = w
 end 'f'
 
 function main() returns ExitCode
-	let h = Kp.create(Tk.create(0))
+	var h = Kp.create(Tk.create(0))
 	let t = Tk.create(1)
 	f(t, h: h)
 	_ = t.n
@@ -2619,7 +2614,6 @@ error E3102: <fragment>:34:10: use of moved value 't': its ownership moved to th
 ```
 
 <!-- test: model-hand-aj-id-call-rename -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `id-call-rename` of redteamAJ.hand_aj3, in capmodel `reggio/REPORTRTAJ.txt`.
 
@@ -2637,23 +2631,23 @@ end 'Tk'
 type Kp
 	var k as Tk
 
-	static function create(k Tk) returns Self
+	static function create(consumes k Tk) returns Self
 		return Self{k: k}
 	end 'create'
 end 'Kp'
 
-function idTk(x Tk) returns Tk
+function idTk(consumes x Tk) returns Tk
 	return x
 end 'idTk'
 
-function f(t Tk, h Kp)
+function f(consumes t Tk, mutates h Kp)
 	let w = idTk(t)
 	let u = w
 	h.k = u
 end 'f'
 
 function main() returns ExitCode
-	let h = Kp.create(Tk.create(0))
+	var h = Kp.create(Tk.create(0))
 	let t = Tk.create(1)
 	f(t, h: h)
 	_ = t.n
@@ -2665,7 +2659,6 @@ error E3102: <fragment>:34:10: use of moved value 't': its ownership moved to th
 ```
 
 <!-- test: model-hand-aj-pass2-store -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `pass2-store` of redteamAJ.hand_aj3, in capmodel `reggio/REPORTRTAJ.txt`.
 
@@ -2683,24 +2676,24 @@ end 'Tk'
 type Kp
 	var k as Tk
 
-	static function create(k Tk) returns Self
+	static function create(consumes k Tk) returns Self
 		return Self{k: k}
 	end 'create'
 end 'Kp'
 
-function pass2(x Tk, h Kp) returns Tk
+function pass2(consumes x Tk, h Kp) returns Tk
 	_ = h
 	let y = x
 	return y
 end 'pass2'
 
-function f(t Tk, h Kp)
+function f(consumes t Tk, mutates h Kp)
 	let u = t
 	h.k = pass2(u, h: h)
 end 'f'
 
 function main() returns ExitCode
-	let h = Kp.create(Tk.create(0))
+	var h = Kp.create(Tk.create(0))
 	let t = Tk.create(1)
 	f(t, h: h)
 	_ = t.n
@@ -2712,7 +2705,6 @@ error E3102: <fragment>:35:10: use of moved value 't': its ownership moved to th
 ```
 
 <!-- test: model-hand-aj-keep2 -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `keep2` of redteamAJ.hand_aj3, in capmodel `reggio/REPORTRTAJ.txt`.
 
@@ -2730,27 +2722,27 @@ end 'Tk'
 type Kp
 	var k as Tk
 
-	static function create(k Tk) returns Self
+	static function create(consumes k Tk) returns Self
 		return Self{k: k}
 	end 'create'
 end 'Kp'
 
-function keepTk(x Tk, h Kp)
+function keepTk(consumes x Tk, mutates h Kp)
 	h.k = x
 end 'keepTk'
 
-function keepTk2(x Tk, h Kp)
+function keepTk2(consumes x Tk, mutates h Kp)
 	let y = x
 	keepTk(y, h: h)
 end 'keepTk2'
 
-function f(t Tk, h Kp)
+function f(consumes t Tk, mutates h Kp)
 	let u = t
 	keepTk2(u, h: h)
 end 'f'
 
 function main() returns ExitCode
-	let h = Kp.create(Tk.create(0))
+	var h = Kp.create(Tk.create(0))
 	let t = Tk.create(1)
 	f(t, h: h)
 	_ = t.n
@@ -2762,7 +2754,6 @@ error E3102: <fragment>:38:10: use of moved value 't': its ownership moved to th
 ```
 
 <!-- test: model-hand-aj-push -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `push` of redteamAJ.hand_aj3, in capmodel `reggio/REPORTRTAJ.txt`.
 
@@ -2779,13 +2770,13 @@ type Tk is noncopyable
 	end 'create'
 end 'Tk'
 
-function f(t Tk, a TkArray)
+function f(consumes t Tk, mutates a TkArray)
 	let u = t
 	a.push(u)
 end 'f'
 
 function main() returns ExitCode
-	let a = TkArray.create(0)
+	var a = TkArray.create(0)
 	let t = Tk.create(1)
 	f(t, a: a)
 	_ = t.n
@@ -2797,7 +2788,6 @@ error E3102: <fragment>:22:10: use of moved value 't': its ownership moved to th
 ```
 
 <!-- test: model-hand-aj-record-literal-field -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `record-literal-field` of redteamAJ.hand_aj3, in capmodel `reggio/REPORTRTAJ.txt`.
 
@@ -2816,7 +2806,7 @@ type Tw2 is noncopyable
 	var n as Num
 	var t as Tk
 
-	static function create(n Num, t Tk) returns Self
+	static function create(n Num, consumes t Tk) returns Self
 		return Self{n: n, t: t}
 	end 'create'
 end 'Tw2'
@@ -2824,18 +2814,18 @@ end 'Tw2'
 type Kw2
 	var w as Tw2
 
-	static function create(w Tw2) returns Self
+	static function create(consumes w Tw2) returns Self
 		return Self{w: w}
 	end 'create'
 end 'Kw2'
 
-function f(tV Tk, h Kw2)
+function f(consumes tV Tk, mutates h Kw2)
 	let u = tV
 	h.w = Tw2.create(1, t: u)
 end 'f'
 
 function main() returns ExitCode
-	let h = Kw2.create(Tw2.create(0, t: Tk.create(0)))
+	var h = Kw2.create(Tw2.create(0, t: Tk.create(0)))
 	let tV = Tk.create(1)
 	f(tV, h: h)
 	_ = tV.n
@@ -2847,7 +2837,6 @@ error E3102: <fragment>:38:10: use of moved value 'tV': its ownership moved to t
 ```
 
 <!-- test: model-hand-aj-cond-store -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `cond-store` of redteamAJ.hand_aj3, in capmodel `reggio/REPORTRTAJ.txt`.
 
@@ -2865,7 +2854,7 @@ end 'Tk'
 type Kp
 	var k as Tk
 
-	static function create(k Tk) returns Self
+	static function create(consumes k Tk) returns Self
 		return Self{k: k}
 	end 'create'
 end 'Kp'
@@ -2874,14 +2863,14 @@ function lg(x Num) returns Num
 	return x
 end 'lg'
 
-function f(t Tk, h Kp)
+function f(consumes t Tk, mutates h Kp)
 	let u = t
 	let w = Tk.create(0)
 	h.k = (u if lg(1) != 0 else w)
 end 'f'
 
 function main() returns ExitCode
-	let h = Kp.create(Tk.create(0))
+	var h = Kp.create(Tk.create(0))
 	let t = Tk.create(1)
 	f(t, h: h)
 	_ = t.n
@@ -2893,7 +2882,6 @@ error E3102: <fragment>:34:10: use of moved value 't': its ownership moved to th
 ```
 
 <!-- test: model-hand-aj-cond-rename-store -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `cond-rename-store` of redteamAJ.hand_aj3, in capmodel `reggio/REPORTRTAJ.txt`.
 
@@ -2911,7 +2899,7 @@ end 'Tk'
 type Kp
 	var k as Tk
 
-	static function create(k Tk) returns Self
+	static function create(consumes k Tk) returns Self
 		return Self{k: k}
 	end 'create'
 end 'Kp'
@@ -2920,13 +2908,13 @@ function lg(x Num) returns Num
 	return x
 end 'lg'
 
-function f2(t Tk, t2 Tk, h Kp)
+function f2(consumes t Tk, consumes t2 Tk, mutates h Kp)
 	let u = (t if lg(1) != 0 else t2)
 	h.k = u
 end 'f2'
 
 function main() returns ExitCode
-	let h = Kp.create(Tk.create(0))
+	var h = Kp.create(Tk.create(0))
 	let t = Tk.create(1)
 	f2(t, t2: Tk.create(2), h: h)
 	_ = t.n
@@ -2938,7 +2926,6 @@ error E3102: <fragment>:33:10: use of moved value 't': its ownership moved to th
 ```
 
 <!-- test: model-hand-aj-loop-store-then-rename -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `loop-store-then-rename` of redteamAJ.hand_aj3, in capmodel `reggio/REPORTRTAJ.txt`.
 
@@ -2956,12 +2943,12 @@ end 'Tk'
 type Kp
 	var k as Tk
 
-	static function create(k Tk) returns Self
+	static function create(consumes k Tk) returns Self
 		return Self{k: k}
 	end 'create'
 end 'Kp'
 
-function f(t Tk, h Kp)
+function f(consumes t Tk, mutates h Kp)
 	var u = Tk.create(0)
 	var go = 1 as Num
 	var once = 1 as Num
@@ -2991,7 +2978,6 @@ error E3102: <fragment>:40:10: use of moved value 't': its ownership moved to th
 ```
 
 <!-- test: model-hand-aj-loop-break -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `loop-break` of redteamAJ.hand_aj3, in capmodel `reggio/REPORTRTAJ.txt`.
 
@@ -3009,7 +2995,7 @@ end 'Tk'
 type Kp
 	var k as Tk
 
-	static function create(k Tk) returns Self
+	static function create(consumes k Tk) returns Self
 		return Self{k: k}
 	end 'create'
 end 'Kp'
@@ -3018,7 +3004,7 @@ function lg(x Num) returns Num
 	return x
 end 'lg'
 
-function f(t Tk, h Kp)
+function f(consumes t Tk, mutates h Kp)
 	var u = Tk.create(0)
 	var i = 0 as Num
 	while lg(1) != 0 'w1'
@@ -3045,7 +3031,6 @@ error E3102: <fragment>:41:10: use of moved value 't': its ownership moved to th
 ```
 
 <!-- test: model-hand-aj-loop-for -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `loop-for` of redteamAJ.hand_aj3, in capmodel `reggio/REPORTRTAJ.txt`.
 
@@ -3065,12 +3050,12 @@ end 'Tk'
 type Kp
 	var k as Tk
 
-	static function create(k Tk) returns Self
+	static function create(consumes k Tk) returns Self
 		return Self{k: k}
 	end 'create'
 end 'Kp'
 
-function f(t Tk, h Kp, xs NumArray)
+function f(consumes t Tk, mutates h Kp, xs NumArray)
 	var u = Tk.create(0)
 	for _ in xs 'f1'
 		h.k = u
@@ -3081,7 +3066,7 @@ end 'f'
 function main() returns ExitCode
 	let h = Kp.create(Tk.create(0))
 	let t = Tk.create(1)
-	let xs = NumArray.create(0)
+	var xs = NumArray.create(0)
 	xs.push(1)
 	xs.push(2)
 	f(t, h: h, xs: xs)
@@ -3095,7 +3080,6 @@ error E3102: <fragment>:36:10: use of moved value 't': its ownership moved to th
 ```
 
 <!-- test: model-hand-aj-recursion -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `recursion` of redteamAJ.hand_aj3, in capmodel `reggio/REPORTRTAJ.txt`.
 
@@ -3113,7 +3097,7 @@ end 'Tk'
 type Kp
 	var k as Tk
 
-	static function create(k Tk) returns Self
+	static function create(consumes k Tk) returns Self
 		return Self{k: k}
 	end 'create'
 end 'Kp'
@@ -3122,7 +3106,7 @@ function lg(x Num) returns Num
 	return x
 end 'lg'
 
-function r1(t Tk, h Kp, nV Num)
+function r1(consumes t Tk, mutates h Kp, nV Num)
 	let u = t
 	if nV != 0 'i1'
 		r1(u, h: h, nV: lg(0))
@@ -3131,12 +3115,12 @@ function r1(t Tk, h Kp, nV Num)
 	end 'e2'
 end 'r1'
 
-function f(t Tk, h Kp)
+function f(consumes t Tk, mutates h Kp)
 	r1(t, h: h, nV: 2)
 end 'f'
 
 function main() returns ExitCode
-	let h = Kp.create(Tk.create(0))
+	var h = Kp.create(Tk.create(0))
 	let t = Tk.create(1)
 	f(t, h: h)
 	_ = t.n
@@ -3148,7 +3132,6 @@ error E3102: <fragment>:41:10: use of moved value 't': its ownership moved to th
 ```
 
 <!-- test: model-hand-aj-mutual -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `mutual` of redteamAJ.hand_aj3, in capmodel `reggio/REPORTRTAJ.txt`.
 
@@ -3166,7 +3149,7 @@ end 'Tk'
 type Kp
 	var k as Tk
 
-	static function create(k Tk) returns Self
+	static function create(consumes k Tk) returns Self
 		return Self{k: k}
 	end 'create'
 end 'Kp'
@@ -3175,7 +3158,7 @@ function lg(x Num) returns Num
 	return x
 end 'lg'
 
-function ra(t Tk, h Kp, nV Num)
+function ra(consumes t Tk, mutates h Kp, nV Num)
 	let u = t
 	if nV != 0 'i1'
 		rb(u, h: h, nV: lg(0))
@@ -3184,7 +3167,7 @@ function ra(t Tk, h Kp, nV Num)
 	end 'e2'
 end 'ra'
 
-function rb(t Tk, h Kp, nV Num)
+function rb(consumes t Tk, mutates h Kp, nV Num)
 	let w = t
 	if nV != 0 'i1'
 		ra(w, h: h, nV: lg(0))
@@ -3193,12 +3176,12 @@ function rb(t Tk, h Kp, nV Num)
 	end 'e2'
 end 'rb'
 
-function f(t Tk, h Kp)
+function f(consumes t Tk, mutates h Kp)
 	ra(t, h: h, nV: 3)
 end 'f'
 
 function main() returns ExitCode
-	let h = Kp.create(Tk.create(0))
+	var h = Kp.create(Tk.create(0))
 	let t = Tk.create(1)
 	f(t, h: h)
 	_ = t.n
@@ -3210,7 +3193,6 @@ error E3102: <fragment>:50:10: use of moved value 't': its ownership moved to th
 ```
 
 <!-- test: model-hand-aj-fits-local-two-vars -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `fits-local-two-vars` of redteamAJ.hand_aj3, in capmodel `reggio/REPORTRTAJ.txt`.
 
@@ -3228,12 +3210,12 @@ end 'Tk'
 type Kp
 	var k as Tk
 
-	static function create(k Tk) returns Self
+	static function create(consumes k Tk) returns Self
 		return Self{k: k}
 	end 'create'
 end 'Kp'
 
-function f(t Tk, h Kp)
+function f(consumes t Tk, mutates h Kp)
 	var a = Tk.create(0)
 	var b = Tk.create(0)
 	a = t
@@ -3242,7 +3224,7 @@ function f(t Tk, h Kp)
 end 'f'
 
 function main() returns ExitCode
-	let h = Kp.create(Tk.create(0))
+	var h = Kp.create(Tk.create(0))
 	let t = Tk.create(1)
 	f(t, h: h)
 	_ = t.n
@@ -3344,7 +3326,6 @@ error E3200: <fragment>:27:10: 'u as isolated Tk' is not isolated: only a clean 
 ```
 
 <!-- test: model-hand-aj-lend-then-keep-alias -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `lend-then-keep-alias` of redteamAJ.hand_aj3, in capmodel `reggio/REPORTRTAJ.txt`.
 
@@ -3362,22 +3343,22 @@ end 'Tk'
 type Kp
 	var k as Tk
 
-	static function create(k Tk) returns Self
+	static function create(consumes k Tk) returns Self
 		return Self{k: k}
 	end 'create'
 end 'Kp'
 
-function idTk(x Tk) returns Tk
+function idTk(consumes x Tk) returns Tk
 	return x
 end 'idTk'
 
-function f(t Tk, h Kp)
+function f(consumes t Tk, mutates h Kp)
 	let u = t
 	h.k = idTk(u)
 end 'f'
 
 function main() returns ExitCode
-	let h = Kp.create(Tk.create(0))
+	var h = Kp.create(Tk.create(0))
 	let t = Tk.create(1)
 	f(t, h: h)
 	_ = t.n
@@ -3476,7 +3457,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-al-ca-let-cond-alias -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `ca-let-cond-alias` of redteamAL/hand_al3.txt, in capmodel `reggio/REPORTRTAL.txt`.
 
@@ -3496,13 +3476,13 @@ type Tq is noncopyable
 	var b as Bx
 
 	static function create(n Num, b Bx) returns Self
-		return Self{n: n, b: b}
+		return Self{n: n, b: b.clone()}
 	end 'create'
 end 'Tq'
 
 function main() returns ExitCode
-	let q = Tq.create(1, b: Bx.create(2))
-	let q2 = (q if 1 != 0 else q)
+	var q = Tq.create(1, b: Bx.create(2))
+	var q2 = (q if 1 != 0 else q)
 	q2.n = 5
 	q.n = 6
 	return 0
@@ -3513,7 +3493,6 @@ error E3102: <fragment>:25:2: use of moved value 'q': its ownership moved to ano
 ```
 
 <!-- test: model-hand-al-ca-push-cond -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `ca-push-cond` of redteamAL/hand_al3.txt, in capmodel `reggio/REPORTRTAL.txt`.
 
@@ -3535,13 +3514,13 @@ type Tq is noncopyable
 	var b as Bx
 
 	static function create(n Num, b Bx) returns Self
-		return Self{n: n, b: b}
+		return Self{n: n, b: b.clone()}
 	end 'create'
 end 'Tq'
 
 function main() returns ExitCode
-	let q = Tq.create(1, b: Bx.create(2))
-	let xs = TqArray.create(0)
+	var q = Tq.create(1, b: Bx.create(2))
+	var xs = TqArray.create(0)
 	xs.push((q if 1 != 0 else q))
 	q.n = 6
 	return 0
@@ -5299,7 +5278,6 @@ error E3214: <fragment>:28:2: cannot pass 'h.k' to parameter 't' of 'fs2': it ke
 ```
 
 <!-- test: model-hand-fa17-r-store -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `r-store` of redteamFA17.hand_fa17a, in capmodel `reggio/REPORTFA17.txt`.
 
@@ -5317,18 +5295,18 @@ end 'Tk'
 type Kp
 	var k as Tk
 
-	static function create(k Tk) returns Self
+	static function create(consumes k Tk) returns Self
 		return Self{k: k}
 	end 'create'
 end 'Kp'
 
-function f(t Tk, h Kp)
+function f(consumes t Tk, mutates h Kp)
 	let u = t
 	h.k = u
 end 'f'
 
 function main() returns ExitCode
-	let h = Kp.create(Tk.create(0))
+	var h = Kp.create(Tk.create(0))
 	let t = Tk.create(1)
 	f(t, h: h)
 	_ = t.n
@@ -5340,7 +5318,6 @@ error E3102: <fragment>:29:10: use of moved value 't': its ownership moved to th
 ```
 
 <!-- test: model-hand-fa17-r-chain-store -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `r-chain-store` of redteamFA17.hand_fa17a, in capmodel `reggio/REPORTFA17.txt`.
 
@@ -5358,19 +5335,19 @@ end 'Tk'
 type Kp
 	var k as Tk
 
-	static function create(k Tk) returns Self
+	static function create(consumes k Tk) returns Self
 		return Self{k: k}
 	end 'create'
 end 'Kp'
 
-function f(t Tk, h Kp)
+function f(consumes t Tk, mutates h Kp)
 	let u = t
 	let w = u
 	h.k = w
 end 'f'
 
 function main() returns ExitCode
-	let h = Kp.create(Tk.create(0))
+	var h = Kp.create(Tk.create(0))
 	let t = Tk.create(1)
 	f(t, h: h)
 	_ = t.n
@@ -5382,7 +5359,6 @@ error E3102: <fragment>:30:10: use of moved value 't': its ownership moved to th
 ```
 
 <!-- test: model-hand-fa17-r-assign-store -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `r-assign-store` of redteamFA17.hand_fa17a, in capmodel `reggio/REPORTFA17.txt`.
 
@@ -5400,19 +5376,19 @@ end 'Tk'
 type Kp
 	var k as Tk
 
-	static function create(k Tk) returns Self
+	static function create(consumes k Tk) returns Self
 		return Self{k: k}
 	end 'create'
 end 'Kp'
 
-function f(t Tk, h Kp)
+function f(consumes t Tk, mutates h Kp)
 	var u = Tk.create(0)
 	u = t
 	h.k = u
 end 'f'
 
 function main() returns ExitCode
-	let h = Kp.create(Tk.create(0))
+	var h = Kp.create(Tk.create(0))
 	let t = Tk.create(1)
 	f(t, h: h)
 	_ = t.n
@@ -5424,7 +5400,6 @@ error E3102: <fragment>:30:10: use of moved value 't': its ownership moved to th
 ```
 
 <!-- test: model-hand-fa17-r-var2-assign-store -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `r-var2-assign-store` of redteamFA17.hand_fa17a, in capmodel `reggio/REPORTFA17.txt`.
 
@@ -5442,19 +5417,19 @@ end 'Tk'
 type Kp
 	var k as Tk
 
-	static function create(k Tk) returns Self
+	static function create(consumes k Tk) returns Self
 		return Self{k: k}
 	end 'create'
 end 'Kp'
 
-function f2(t Tk, t2 Tk, h Kp)
+function f2(consumes t Tk, consumes t2 Tk, mutates h Kp)
 	var u = t2
 	u = t
 	h.k = u
 end 'f2'
 
 function main() returns ExitCode
-	let h = Kp.create(Tk.create(0))
+	var h = Kp.create(Tk.create(0))
 	let t = Tk.create(1)
 	f2(t, t2: Tk.create(2), h: h)
 	_ = t.n
@@ -5466,7 +5441,6 @@ error E3102: <fragment>:30:10: use of moved value 't': its ownership moved to th
 ```
 
 <!-- test: model-hand-fa17-r-return -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `r-return` of redteamFA17.hand_fa17a, in capmodel `reggio/REPORTFA17.txt`.
 
@@ -5484,12 +5458,12 @@ end 'Tk'
 type Kp
 	var k as Tk
 
-	static function create(k Tk) returns Self
+	static function create(consumes k Tk) returns Self
 		return Self{k: k}
 	end 'create'
 end 'Kp'
 
-function f(t Tk, h Kp) returns Tk
+function f(consumes t Tk, h Kp) returns Tk
 	_ = h
 	let u = t
 	return u
@@ -5508,7 +5482,6 @@ error E3102: <fragment>:30:10: use of moved value 't': its ownership moved to th
 ```
 
 <!-- test: model-hand-fa17-r-record-literal -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `r-record-literal` of redteamFA17.hand_fa17a, in capmodel `reggio/REPORTFA17.txt`.
 
@@ -5526,12 +5499,12 @@ end 'Tk'
 type Kp
 	var k as Tk
 
-	static function create(k Tk) returns Self
+	static function create(consumes k Tk) returns Self
 		return Self{k: k}
 	end 'create'
 end 'Kp'
 
-function f(t Tk, h Kp)
+function f(consumes t Tk, h Kp)
 	_ = h
 	let u = t
 	_ = Kp.create(u)
@@ -5550,7 +5523,6 @@ error E3102: <fragment>:30:10: use of moved value 't': its ownership moved to th
 ```
 
 <!-- test: model-hand-fa17-r-keeping-callee -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `r-keeping-callee` of redteamFA17.hand_fa17a, in capmodel `reggio/REPORTFA17.txt`.
 
@@ -5568,22 +5540,22 @@ end 'Tk'
 type Kp
 	var k as Tk
 
-	static function create(k Tk) returns Self
+	static function create(consumes k Tk) returns Self
 		return Self{k: k}
 	end 'create'
 end 'Kp'
 
-function keepTk(x Tk, h Kp)
+function keepTk(consumes x Tk, mutates h Kp)
 	h.k = x
 end 'keepTk'
 
-function f(t Tk, h Kp)
+function f(consumes t Tk, mutates h Kp)
 	let u = t
 	keepTk(u, h: h)
 end 'f'
 
 function main() returns ExitCode
-	let h = Kp.create(Tk.create(0))
+	var h = Kp.create(Tk.create(0))
 	let t = Tk.create(1)
 	f(t, h: h)
 	_ = t.n
@@ -5595,7 +5567,6 @@ error E3102: <fragment>:33:10: use of moved value 't': its ownership moved to th
 ```
 
 <!-- test: model-hand-fa17-r-method-store -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `r-method-store` of redteamFA17.hand_fa17a, in capmodel `reggio/REPORTFA17.txt`.
 
@@ -5613,7 +5584,7 @@ end 'Tk'
 type Kp
 	var k as Tk
 
-	static function create(k Tk) returns Self
+	static function create(consumes k Tk) returns Self
 		return Self{k: k}
 	end 'create'
 end 'Kp'
@@ -5625,7 +5596,7 @@ type Mm
 		return Self{n: n}
 	end 'create'
 
-	function g(t Tk, h Kp)
+	function g(consumes t Tk, mutates h Kp)
 		let u = t
 		h.k = u
 	end 'g'
@@ -5633,7 +5604,7 @@ end 'Mm'
 
 function main() returns ExitCode
 	let m = Mm.create(0)
-	let h = Kp.create(Tk.create(0))
+	var h = Kp.create(Tk.create(0))
 	let t = Tk.create(1)
 	m.g(t, h: h)
 	_ = t.n

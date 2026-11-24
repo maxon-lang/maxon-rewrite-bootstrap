@@ -742,7 +742,6 @@ that would both free it. The shared body move-tracks the opaque element for ever
 is uniform and needs no codegen (parse-time, so every target agrees).
 
 <!-- test: reuse-moved-out-opaque-element -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 ```maxon
 typealias ExitCode = int(0 to 125)
@@ -755,11 +754,11 @@ type Container uses Element
 		return Self{items: ElementArray.create(0)}
 	end 'create'
 
-	function push(item Element)
-		self.items.push(item)
+	function push(mutates self, item Element) where Element implements Copyable
+		self.items.push(item.clone())
 	end 'push'
 
-	function reinsertTwice()
+	function reinsertTwice(mutates self)
 		let x = try self.items.pop() otherwise return
 		self.items.push(x)
 		self.items.push(x)

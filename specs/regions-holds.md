@@ -459,7 +459,6 @@ end 'main'
 ```
 
 <!-- test: a-let-alias-of-the-holder-moves-it-so-no-operand-reads-the-cell-under-two-names -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 `let g = h` moves `h` into `g`, so the cell cannot be read under another name: the first operand's read of `h` is a use after the move.
 
@@ -479,7 +478,7 @@ type Pair
 	export var second as Tally
 
 	static function build(first String, second Tally) returns Self
-		return Self{first: first, second: second}
+		return Self{first: first.clone(), second: second}
 	end 'build'
 end 'Pair'
 
@@ -490,7 +489,7 @@ end 'put'
 
 function main() returns ExitCode
 	var h = Holder.create()
-	let g = h
+	var g = h
 	let pair = Pair.build(h.f, second: put(g.f))
 	print("{pair.first} {pair.second}\n")
 	return 0

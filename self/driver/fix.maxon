@@ -917,13 +917,10 @@ function fixSpecTestAt(shared SharedRuntimes, libraries FixLibraries, exe String
 	end 'ruleSkipped'
 	let mismatch = codeMismatchOf(shared, exe: exe, test: test, text: text, left: result.left)
 	if mismatch.isSome() 'mismatched'
+		// A code that the table pairs with the expected one skips the test only where fixing does not get past it
+		// (unreachedSkipLine): a fix of an earlier diagnostic that reaches the expected error is the test's to run.
 		let pair = mismatch.unwrap()
-		let codeSkip = codeSkipLine(skips, expected: pair.expected, reported: pair.reported)
-		if codeSkip.isSome() 'codeSkipped'
-			skipSpecTest(result, test: test, line: codeSkip.unwrap())
-		end 'codeSkipped' else 'fixing'
-			fixSpecTest(libraries, test: test, text: text, display: display, skips: skips, expected: table.Option.some(pair.expected.clone()), checkOnly: checkOnly, result: result)
-		end 'fixing'
+		fixSpecTest(libraries, test: test, text: text, display: display, skips: skips, expected: table.Option.some(pair.expected.clone()), checkOnly: checkOnly, result: result)
 		return result
 	end 'mismatched'
 	if isFixable(test, text: text) 'runs'

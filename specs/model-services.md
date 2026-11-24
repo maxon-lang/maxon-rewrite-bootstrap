@@ -688,7 +688,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-ad-k-send-iso-via-fn -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `k-send-iso-via-fn` of redteamAD.hand_ad3, in capmodel `reggio/REPORTRTAD.txt`.
 
@@ -711,7 +710,7 @@ type Hr2
 		return Self{n: n, t: t}
 	end 'create'
 
-	export function take(consumes x Tok)
+	export function take(mutates self, consumes x Tok)
 		self.t = x
 	end 'take'
 end 'Hr2'
@@ -6290,7 +6289,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-aj-send-closure -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-STORE`; the compiler refuses it with E3102. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `send-closure` of redteamAJ.hand_aj3, in capmodel `reggio/REPORTRTAJ.txt`.
 
@@ -6313,7 +6311,7 @@ end 'Tk'
 type Kp
 	var k as Tk
 
-	static function create(k Tk) returns Self
+	static function create(consumes k Tk) returns Self
 		return Self{k: k}
 	end 'create'
 end 'Kp'
@@ -6335,7 +6333,7 @@ type Sw
 	end 'putT'
 end 'Sw'
 
-function f(t Tk, h Kp)
+function f(consumes t Tk, h Kp)
 	_ = h
 	let u = t
 	let s = spawn Sw.create(0)
@@ -6913,7 +6911,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-ap-a1-param-idcall-send -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3102. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `a1-param-idcall-send` of redteamAP.hand_ap1, in capmodel `reggio/REPORTRTAP.txt`.
 
@@ -6953,11 +6950,11 @@ function peekUT(x UT) returns Num
 	end 'x1'
 end 'peekUT'
 
-function idUT(x UT) returns UT
+function idUT(consumes x UT) returns UT
 	return x
 end 'idUT'
 
-function fwdSend(x UT)
+function fwdSend(consumes x UT)
 	let y = idUT(x)
 	let s = spawn Sy.create(0)
 	try s.take(y) otherwise ignore
@@ -6975,7 +6972,6 @@ error E3102: <fragment>:50:17: use of moved value 'u': its ownership moved to th
 ```
 
 <!-- test: model-hand-ap-a1-param-idcall-send-tk -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3102. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `a1-param-idcall-send-tk` of redteamAP.hand_ap1, in capmodel `reggio/REPORTRTAP.txt`.
 
@@ -7006,11 +7002,11 @@ function eatTk(x Tk)
 	_ = x.n
 end 'eatTk'
 
-function idTk(x Tk) returns Tk
+function idTk(consumes x Tk) returns Tk
 	return x
 end 'idTk'
 
-function fwdSendTk(x Tk)
+function fwdSendTk(consumes x Tk)
 	let y = idTk(x)
 	let s = spawn Sv3.create(0)
 	try s.tk(y) otherwise ignore
@@ -7192,7 +7188,6 @@ error E3214: <fragment>:30:12: cannot hand 'e' to argument `t` of the message `S
 ```
 
 <!-- test: model-hand-ap-a1-pick-send -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `a1-pick-send` of redteamAP.hand_ap1, in capmodel `reggio/REPORTRTAP.txt`.
 
@@ -7236,7 +7231,7 @@ function peekUT(x UT) returns Num
 	end 'x1'
 end 'peekUT'
 
-function pickUT(x UT, y UT) returns UT
+function pickUT(consumes x UT, consumes y UT) returns UT
 	return (x if lg(1) != 0 else y)
 end 'pickUT'
 
@@ -7372,7 +7367,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-ap-g1-closed-arr-local-kept -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `g1-closed-arr-local-kept` of redteamAP.hand_ap1, in capmodel `reggio/REPORTRTAP.txt`.
 
@@ -7392,7 +7386,7 @@ end 'Tk'
 type Ar is noncopyable
 	var xs as TkArray
 
-	static function create(xs TkArray) returns Self
+	static function create(consumes xs TkArray) returns Self
 		return Self{xs: xs}
 	end 'create'
 end 'Ar'
@@ -7416,7 +7410,7 @@ function peekAr(x Ar)
 end 'peekAr'
 
 function main() returns ExitCode
-	let a = TkArray.create(0)
+	var a = TkArray.create(0)
 	a.push(Tk.create(1))
 	let g = Ar.create(a)
 	peekAr(g)
@@ -7782,7 +7776,6 @@ error E3200: <fragment>:36:13: 'h' crosses to the service it is sent to only as 
 ```
 
 <!-- test: model-hand-ap-h7-before-alias -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `h7-before-alias` of redteamAP.hand_ap2, in capmodel `reggio/REPORTRTAP.txt`.
 
@@ -7815,7 +7808,7 @@ type Sy
 	end 'take'
 end 'Sy'
 
-function idUT(x UT) returns UT
+function idUT(consumes x UT) returns UT
 	return x
 end 'idUT'
 
@@ -7835,7 +7828,6 @@ error E3102: <fragment>:38:8: use of moved value 'u': its ownership moved to the
 ```
 
 <!-- test: model-hand-ap-h7-before-alias-v -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `h7-before-alias-v` of redteamAP.hand_ap2, in capmodel `reggio/REPORTRTAP.txt`.
 
@@ -7872,7 +7864,7 @@ function lg(x Num) returns Num
 	return x
 end 'lg'
 
-function pickUT(x UT, y UT) returns UT
+function pickUT(consumes x UT, consumes y UT) returns UT
 	return (x if lg(1) != 0 else y)
 end 'pickUT'
 
@@ -8052,7 +8044,6 @@ error E3214: <fragment>:40:24: cannot hand '(u if lg(1) != 0 else v)' to the ser
 ```
 
 <!-- test: model-hand-ap-h14-for-lend-root -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3102. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `h14-for-lend-root` of redteamAP.hand_ap2, in capmodel `reggio/REPORTRTAP.txt`.
 
@@ -8083,7 +8074,7 @@ type SaT
 end 'SaT'
 
 function main() returns ExitCode
-	let a = TkArray.create(0)
+	var a = TkArray.create(0)
 	a.push(Tk.create(1))
 	let t = spawn SaT.create(0)
 	for _ in a 'f1'
@@ -8097,7 +8088,6 @@ error E3102: <fragment>:31:14: use of moved value 'a': it was moved in an earlie
 ```
 
 <!-- test: model-hand-ap-h14-for-lend-other -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `h14-for-lend-other` of redteamAP.hand_ap2, in capmodel `reggio/REPORTRTAP.txt`.
 
@@ -8134,7 +8124,7 @@ end 'Sy'
 
 function main() returns ExitCode
 	let u = UT.have(Tk.create(1))
-	let a = TkArray.create(0)
+	var a = TkArray.create(0)
 	a.push(Tk.create(1))
 	let s = spawn Sy.create(0)
 	for _ in a 'f1'
@@ -8250,7 +8240,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-ap-h14-for-two-arrays -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `h14-for-two-arrays` of redteamAP.hand_ap2, in capmodel `reggio/REPORTRTAP.txt`.
 
@@ -8281,7 +8270,7 @@ type SaT
 end 'SaT'
 
 function main() returns ExitCode
-	let a = TkArray.create(0)
+	var a = TkArray.create(0)
 	a.push(Tk.create(1))
 	let b = TkArray.create(0)
 	let t = spawn SaT.create(0)
@@ -8296,7 +8285,6 @@ error E3102: <fragment>:32:14: use of moved value 'b': it was moved in an earlie
 ```
 
 <!-- test: model-hand-ap-h14-for-over-cond -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3102. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `h14-for-over-cond` of redteamAP.hand_ap2, in capmodel `reggio/REPORTRTAP.txt`.
 
@@ -8331,9 +8319,9 @@ function lg(x Num) returns Num
 end 'lg'
 
 function main() returns ExitCode
-	let a = TkArray.create(0)
+	var a = TkArray.create(0)
 	a.push(Tk.create(1))
-	let b = TkArray.create(0)
+	var b = TkArray.create(0)
 	b.push(Tk.create(2))
 	let t = spawn SaT.create(0)
 	for _ in (a if lg(1) != 0 else b) 'f1'
@@ -8347,7 +8335,6 @@ error E3102: <fragment>:37:14: use of moved value 'b': it was moved in an earlie
 ```
 
 <!-- test: model-hand-ap-h14-for-in-holder -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-RECOVER`; the compiler refuses it with E3102. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `h14-for-in-holder` of redteamAP.hand_ap2, in capmodel `reggio/REPORTRTAP.txt`.
 
@@ -8367,7 +8354,7 @@ end 'Tk'
 type Ta is noncopyable
 	var arr as TkArray
 
-	static function create(arr TkArray) returns Self
+	static function create(consumes arr TkArray) returns Self
 		return Self{arr: arr}
 	end 'create'
 end 'Ta'
@@ -8386,7 +8373,7 @@ type SAr2
 end 'SAr2'
 
 function main() returns ExitCode
-	let h = Ta.create(TkArray.create(0))
+	var h = Ta.create(TkArray.create(0))
 	h.arr.push(Tk.create(1))
 	let t = spawn SAr2.create(0)
 	for _ in h.arr 'f1'
@@ -8899,7 +8886,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-ap-m1-cond-lend-leaf -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `m1-cond-lend-leaf` of redteamAP.hand_ap4, in capmodel `reggio/REPORTRTAP.txt`.
 
@@ -8943,7 +8929,7 @@ function peekUT(x UT) returns Num
 	end 'x1'
 end 'peekUT'
 
-function idUT(x UT) returns UT
+function idUT(consumes x UT) returns UT
 	return x
 end 'idUT'
 
@@ -8961,7 +8947,6 @@ error E3102: <fragment>:50:17: use of moved value 'u': its ownership moved to an
 ```
 
 <!-- test: model-hand-ap-m1-cond-lend-both -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `m1-cond-lend-both` of redteamAP.hand_ap4, in capmodel `reggio/REPORTRTAP.txt`.
 
@@ -9005,7 +8990,7 @@ function peekUT(x UT) returns Num
 	end 'x1'
 end 'peekUT'
 
-function idUT(x UT) returns UT
+function idUT(consumes x UT) returns UT
 	return x
 end 'idUT'
 
@@ -9270,7 +9255,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-ap-k1-cond-two-args-same-sent -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `k1-cond-two-args-same-sent` of redteamAP.hand_ap5, in capmodel `reggio/REPORTRTAP.txt`.
 
@@ -9293,7 +9277,7 @@ end 'Tk'
 type Hd is noncopyable
 	var u as UT
 
-	static function create(u UT) returns Self
+	static function create(consumes u UT) returns Self
 		return Self{u: u}
 	end 'create'
 end 'Hd'
@@ -9315,7 +9299,7 @@ function lg(x Num) returns Num
 	return x
 end 'lg'
 
-function keep2(x UT, y UT, h Hd, g Hd)
+function keep2(consumes x UT, consumes y UT, mutates h Hd, mutates g Hd)
 	h.u = x
 	g.u = y
 end 'keep2'
@@ -9464,7 +9448,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-ar-m7-cond-arm-moves-and-reads -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `m7-cond-arm-moves-and-reads` of redteamAR.hand_ar1, in capmodel `reggio/REPORTRTAR.txt`.
 
@@ -9508,7 +9491,7 @@ function peekUT(x UT) returns Num
 	end 'x1'
 end 'peekUT'
 
-function idUT(x UT) returns UT
+function idUT(consumes x UT) returns UT
 	return x
 end 'idUT'
 
@@ -9626,7 +9609,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-ar-m10-cond-arm-twice-in-arm -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `m10-cond-arm-twice-in-arm` of redteamAR.hand_ar1, in capmodel `reggio/REPORTRTAR.txt`.
 
@@ -9663,7 +9645,7 @@ function lg(x Num) returns Num
 	return x
 end 'lg'
 
-function two(x UT, y UT) returns UT
+function two(consumes x UT, y UT) returns UT
 	_ = y
 	return x
 end 'two'
@@ -9680,7 +9662,6 @@ error E3102: <fragment>:42:24: 'u' is passed at two arguments of this call, and 
 ```
 
 <!-- test: model-hand-ar-m11-cond-read-then-arm -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `m11-cond-read-then-arm` of redteamAR.hand_ar1, in capmodel `reggio/REPORTRTAR.txt`.
 
@@ -9724,7 +9705,7 @@ function peekUT(x UT) returns Num
 	end 'x1'
 end 'peekUT'
 
-function idUT(x UT) returns UT
+function idUT(consumes x UT) returns UT
 	return x
 end 'idUT'
 
@@ -24069,7 +24050,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-fa25-o-id-call-then-read -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `o-id-call-then-read` of redteamFA25.hand_fa25, in capmodel `reggio/REPORTFA25.txt`.
 
@@ -24109,7 +24089,7 @@ function peekUT(x UT) returns Num
 	end 'x1'
 end 'peekUT'
 
-function idUT(x UT) returns UT
+function idUT(consumes x UT) returns UT
 	return x
 end 'idUT'
 
@@ -24129,7 +24109,6 @@ error E3102: <fragment>:48:17: use of moved value 'u': its ownership moved to th
 ```
 
 <!-- test: model-hand-fa25-o-id-call-read-first -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `o-id-call-read-first` of redteamFA25.hand_fa25, in capmodel `reggio/REPORTFA25.txt`.
 
@@ -24169,7 +24148,7 @@ function peekUT(x UT) returns Num
 	end 'x1'
 end 'peekUT'
 
-function idUT(x UT) returns UT
+function idUT(consumes x UT) returns UT
 	return x
 end 'idUT'
 
@@ -24188,7 +24167,6 @@ error E3102: <fragment>:44:17: use of moved value 'u': its ownership moved to th
 ```
 
 <!-- test: model-hand-fa25-o-id-result-sent-first -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `o-id-result-sent-first` of redteamFA25.hand_fa25, in capmodel `reggio/REPORTFA25.txt`.
 
@@ -24228,7 +24206,7 @@ function peekUT(x UT) returns Num
 	end 'x1'
 end 'peekUT'
 
-function idUT(x UT) returns UT
+function idUT(consumes x UT) returns UT
 	return x
 end 'idUT'
 
@@ -24247,7 +24225,6 @@ error E3102: <fragment>:46:13: use of moved value 'u': its ownership moved to th
 ```
 
 <!-- test: model-hand-fa25-o-keep-then-read-sent -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `o-keep-then-read-sent` of redteamFA25.hand_fa25, in capmodel `reggio/REPORTFA25.txt`.
 
@@ -24270,7 +24247,7 @@ end 'Tk'
 type Hd is noncopyable
 	var u as UT
 
-	static function create(u UT) returns Self
+	static function create(consumes u UT) returns Self
 		return Self{u: u}
 	end 'create'
 end 'Hd'
@@ -24288,7 +24265,7 @@ type Sh3
 	end 'takeH'
 end 'Sh3'
 
-function keepUT(x UT, h Hd)
+function keepUT(consumes x UT, mutates h Hd)
 	h.u = x
 end 'keepUT'
 
@@ -24298,7 +24275,7 @@ function readHd(x Hd)
 end 'readHd'
 
 function main() returns ExitCode
-	let h = Hd.create(UT.none)
+	var h = Hd.create(UT.none)
 	let uV = UT.have(Tk.create(1))
 	keepUT(uV, h: h)
 	readHd(h)
@@ -24313,7 +24290,6 @@ error E3102: <fragment>:54:9: use of moved value 'h': its ownership moved to ano
 ```
 
 <!-- test: model-hand-fa25-o-spawn-local-twice -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `o-spawn-local-twice` of redteamFA25.hand_fa25, in capmodel `reggio/REPORTFA25.txt`.
 
@@ -24349,7 +24325,7 @@ end 'Sy'
 type Sk
 	var u as UT
 
-	static function create(x UT) returns Self
+	static function create(consumes x UT) returns Self
 		return Self{u: x}
 	end 'create'
 end 'Sk'

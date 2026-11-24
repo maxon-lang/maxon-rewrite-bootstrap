@@ -755,7 +755,6 @@ error E3197: <fragment>:18:2: cannot write 'n' through 'e', which is read-only, 
 ```
 
 <!-- test: ternary-joining-two-frozen-values-stays-immutable -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 Both arms of the ternary are frozen, so the merge is frozen and the write through it is refused as a write through immutable data.
 
@@ -771,7 +770,7 @@ type Box
 end 'Box'
 
 function edit(first frozen with Box, second frozen with Box, flag bool)
-	var e = first if flag else second
+	var e = first.clone() if flag else second.clone()
 	e.n = 5
 end 'edit'
 

@@ -291,6 +291,7 @@ ok
 ```
 
 <!-- test: call-field-read-before -->
+<!-- skip: language difference: an operand is evaluated to a value before a later operand's `mutates` access begins, left to right, where maxon refuses a read of the place that a hold cannot protect -->
 <!-- positions: moved -->
 A call takes a field read of the local and the by-reference call's result. The read runs before the write.
 
@@ -306,7 +307,7 @@ function keep(_ T) uses T
 end 'keep'
 
 function sum(a Tally, b Tally) returns Tally
-	return try a + b otherwise panic("out of range")
+	return a + b
 end 'sum'
 
 function main() returns ExitCode
@@ -641,6 +642,7 @@ ok
 ```
 
 <!-- test: ternary-condition-before -->
+<!-- skip: language difference: an operand is evaluated to a value before a later operand's `mutates` access begins, left to right, where maxon refuses a read of the place that a hold cannot protect -->
 <!-- positions: moved -->
 A ternary wrapping the call has a condition reading the local. The read runs before the write.
 
@@ -697,6 +699,7 @@ ok
 ```
 
 <!-- test: ternary-two-levels-before -->
+<!-- skip: language difference: an operand is evaluated to a value before a later operand's `mutates` access begins, left to right, where maxon refuses a read of the place that a hold cannot protect -->
 <!-- positions: moved -->
 A ternary wraps a ternary that wraps the call. The read runs before the write.
 
@@ -753,6 +756,7 @@ ok
 ```
 
 <!-- test: ternary-three-levels-before -->
+<!-- skip: language difference: an operand is evaluated to a value before a later operand's `mutates` access begins, left to right, where maxon refuses a read of the place that a hold cannot protect -->
 <!-- positions: moved -->
 Three nested ternaries, the read in the outermost condition. The read runs before the write.
 
@@ -873,6 +877,7 @@ ok
 ```
 
 <!-- test: ternary-chained-else-arm-before -->
+<!-- skip: language difference: an operand is evaluated to a value before a later operand's `mutates` access begins, left to right, where maxon refuses a read of the place that a hold cannot protect -->
 <!-- positions: moved -->
 The inner ternary sits in the outer one's else arm, and the outer then arm reads the local beside the call: the arms are numbered in order, so the read runs before the write.
 
@@ -880,7 +885,7 @@ The inner ternary sits in the outer one's else arm, and the outer then arm reads
 typealias Tally = int(0 to u64.max)
 
 function bump(mutates n Tally) returns bool
-	n = try n + 1 otherwise panic("out of range")
+	n = n + 1
 	return true
 end 'bump'
 
@@ -931,6 +936,7 @@ ok
 ```
 
 <!-- test: ternary-arms-before -->
+<!-- skip: language difference: an operand is evaluated to a value before a later operand's `mutates` access begins, left to right, where maxon refuses a read of the place that a hold cannot protect -->
 <!-- positions: moved -->
 The arms of a ternary count in order: the arm that reads the local runs beside the arm that writes it. The read runs before the write.
 
@@ -1141,6 +1147,7 @@ ok
 ```
 
 <!-- test: nested-outer-call-writes -->
+<!-- skip: language difference: an operand is evaluated to a value before a later operand's `mutates` access begins, left to right, where maxon refuses a read of the place that a hold cannot protect -->
 <!-- positions: moved -->
 The writing call reads the local in its own later operand, which runs before the write.
 
@@ -1346,6 +1353,7 @@ error E3186: <fragment>:21:15: argument 'label' is read by another operand of th
 ```
 
 <!-- test: read-between-sibling-writes -->
+<!-- skip: language difference: an operand is evaluated to a value before a later operand's `mutates` access begins, left to right, where maxon refuses a read of the place that a hold cannot protect -->
 <!-- positions: moved -->
 A read between two sibling writes of the local.
 
@@ -1365,7 +1373,7 @@ function keep(_ T) uses T
 end 'keep'
 
 function sum3(a Tally, b Tally, c Tally) returns Tally
-	return try a + b + c otherwise panic("out of range")
+	return a + b + c
 end 'sum3'
 
 function main() returns ExitCode
@@ -1612,6 +1620,7 @@ ok
 ```
 
 <!-- test: two-locals-read-before-each-write -->
+<!-- skip: language difference: an operand is evaluated to a value before a later operand's `mutates` access begins, left to right, where maxon refuses a read of the place that a hold cannot protect -->
 <!-- positions: moved -->
 Each local is read before the other's rewrite, one of them rewritten twice.
 
@@ -1631,7 +1640,7 @@ function keep(_ T) uses T
 end 'keep'
 
 function sum3(a Tally, b Tally, c Tally) returns Tally
-	return try a + b + c otherwise panic("out of range")
+	return a + b + c
 end 'sum3'
 
 function main() returns ExitCode
@@ -1756,6 +1765,7 @@ ok
 ```
 
 <!-- test: field-cell-two-levels-sibling-read-before -->
+<!-- skip: language difference: a field that a `mutates` argument does not reach is a place of its own, where maxon's hold covers the whole root -->
 <!-- positions: moved -->
 A two-level field cell is handed by reference and a sibling of its parent is read before the write.
 
@@ -1771,11 +1781,11 @@ type Holder
 	end 'create'
 
 	function mix(text String, k Tally) returns Tally
-		return try (text.byteLength() as Tally) + k otherwise panic("out of range")
+		return (text.byteLength() as Tally) + k
 	end 'mix'
 
 	function mix2(k Tally, text String) returns Tally
-		return try (text.byteLength() as Tally) + k otherwise panic("out of range")
+		return (text.byteLength() as Tally) + k
 	end 'mix2'
 end 'Holder'
 
@@ -1792,7 +1802,7 @@ type PA
 	export var second as Tally
 
 	static function build(first String, second Tally) returns Self
-		return Self{first: first.clone(), second: second}
+		return Self{first: first, second: second}
 	end 'build'
 end 'PA'
 
@@ -1928,6 +1938,7 @@ ok
 ```
 
 <!-- test: field-cell-sibling-read-before -->
+<!-- skip: language difference: a field that a `mutates` argument does not reach is a place of its own, where maxon's hold covers the whole root -->
 <!-- positions: moved -->
 A field is handed by reference and a sibling field read before the write.
 
@@ -1943,11 +1954,11 @@ type Holder
 	end 'create'
 
 	function mix(text String, k Tally) returns Tally
-		return try (text.byteLength() as Tally) + k otherwise panic("out of range")
+		return (text.byteLength() as Tally) + k
 	end 'mix'
 
 	function mix2(k Tally, text String) returns Tally
-		return try (text.byteLength() as Tally) + k otherwise panic("out of range")
+		return (text.byteLength() as Tally) + k
 	end 'mix2'
 end 'Holder'
 
@@ -1956,7 +1967,7 @@ type PA
 	export var second as Tally
 
 	static function build(first String, second Tally) returns Self
-		return Self{first: first.clone(), second: second}
+		return Self{first: first, second: second}
 	end 'build'
 end 'PA'
 
@@ -2079,6 +2090,7 @@ ok
 ```
 
 <!-- test: field-cell-ternary-before -->
+<!-- skip: language difference: an operand is evaluated to a value before a later operand's `mutates` access begins, left to right, where maxon refuses a read of the place that a hold cannot protect -->
 <!-- positions: moved -->
 A ternary condition reads the field its arm hands by reference. The read runs before the write.
 
@@ -2094,11 +2106,11 @@ type Holder
 	end 'create'
 
 	function mix(text String, k Tally) returns Tally
-		return try (text.byteLength() as Tally) + k otherwise panic("out of range")
+		return (text.byteLength() as Tally) + k
 	end 'mix'
 
 	function mix2(k Tally, text String) returns Tally
-		return try (text.byteLength() as Tally) + k otherwise panic("out of range")
+		return (text.byteLength() as Tally) + k
 	end 'mix2'
 end 'Holder'
 
@@ -2169,6 +2181,7 @@ ok
 ```
 
 <!-- test: field-cell-twice-between -->
+<!-- skip: language difference: an operand is evaluated to a value before a later operand's `mutates` access begins, left to right, where maxon refuses a read of the place that a hold cannot protect -->
 <!-- positions: moved -->
 A read of the field between two writes of it.
 
@@ -2184,11 +2197,11 @@ type Holder
 	end 'create'
 
 	function mix(text String, k Tally) returns Tally
-		return try (text.byteLength() as Tally) + k otherwise panic("out of range")
+		return (text.byteLength() as Tally) + k
 	end 'mix'
 
 	function mix2(k Tally, text String) returns Tally
-		return try (text.byteLength() as Tally) + k otherwise panic("out of range")
+		return (text.byteLength() as Tally) + k
 	end 'mix2'
 end 'Holder'
 
@@ -2205,7 +2218,7 @@ function keep(_ T) uses T
 end 'keep'
 
 function sum3(a Tally, b Tally, c Tally) returns Tally
-	return try a + b + c otherwise panic("out of range")
+	return a + b + c
 end 'sum3'
 
 function main() returns ExitCode
@@ -2221,6 +2234,7 @@ error E3186: <fragment>:40:44: argument 'h.f' is read by another operand of this
 ```
 
 <!-- test: write-between-reads -->
+<!-- skip: language difference: an operand is evaluated to a value before a later operand's `mutates` access begins, left to right, where maxon refuses a read of the place that a hold cannot protect -->
 <!-- positions: moved -->
 A read before and a read after the write: the one before decides.
 
@@ -2240,7 +2254,7 @@ function keep(_ T) uses T
 end 'keep'
 
 function sum3(a Tally, b Tally, c Tally) returns Tally
-	return try a + b + c otherwise panic("out of range")
+	return a + b + c
 end 'sum3'
 
 function main() returns ExitCode
@@ -2371,6 +2385,7 @@ ok
 ```
 
 <!-- test: returned-alias-before -->
+<!-- skip: language difference: an operand is evaluated to a value before a later operand's `mutates` access begins, left to right, where maxon refuses a read of the place that a hold cannot protect -->
 <!-- positions: moved -->
 An operand returns the local's own value. The read runs before the write.
 
@@ -2382,7 +2397,7 @@ type PA
 	export var second as Tally
 
 	static function build(first String, second Tally) returns Self
-		return Self{first: first.clone(), second: second}
+		return Self{first: first, second: second}
 	end 'build'
 end 'PA'
 
@@ -2395,7 +2410,7 @@ function keep(_ T) uses T
 end 'keep'
 
 function id(text String) returns String
-	return text.clone()
+	return text
 end 'id'
 
 function main() returns ExitCode
@@ -2759,6 +2774,7 @@ ok
 ```
 
 <!-- test: async-holds-the-cell-by-reference -->
+<!-- skip: language difference: an operand is evaluated to a value before a later operand's `mutates` access begins, left to right, where maxon refuses a read of the place that a hold cannot protect -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
 The `async` call hands the local by reference, and a reading operand precedes it in the statement: the coroutine's write is not ordered against any read of the statement.
@@ -2789,6 +2805,7 @@ error E3186: <fragment>:16:63: argument 'label' is read by another operand of th
 ```
 
 <!-- test: nested-outer-call-with-an-alias-argument -->
+<!-- skip: language difference: an operand is evaluated to a value before a later operand's `mutates` access begins, left to right, where maxon refuses a read of the place that a hold cannot protect -->
 <!-- positions: moved -->
 The writing call's own later operand returns the local's value.
 
@@ -2808,7 +2825,7 @@ function keep(_ T) uses T
 end 'keep'
 
 function id(text String) returns String
-	return text.clone()
+	return text
 end 'id'
 
 function main() returns ExitCode
@@ -2824,6 +2841,7 @@ error E3186: <fragment>:23:15: argument 'label' is read by another operand of th
 ```
 
 <!-- test: await-of-an-async-then-a-read -->
+<!-- skip: language difference: an operand is evaluated to a value before a later operand's `mutates` access begins, left to right, where maxon refuses a read of the place that a hold cannot protect -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
 An `async` started and awaited inside one operand, the local read by the next operand of the same statement.
@@ -2835,7 +2853,7 @@ function keep(_ T) uses T
 end 'keep'
 
 function two2(k Tally, text String) returns Tally
-	return try (text.byteLength() as Tally) + k otherwise panic("out of range")
+	return (text.byteLength() as Tally) + k
 end 'two2'
 
 function slow(mutates text String) returns Tally
@@ -3187,6 +3205,7 @@ ok
 ```
 
 <!-- test: function-value-ternary-condition -->
+<!-- skip: language difference: an operand is evaluated to a value before a later operand's `mutates` access begins, left to right, where maxon refuses a read of the place that a hold cannot protect -->
 <!-- positions: moved -->
 A ternary condition reads the local before the indirect call writes it.
 
@@ -3777,7 +3796,6 @@ a replaced
 ```
 
 <!-- test: error.let-alias-of-a-var-rebound-on-one-path-is-moved-after-the-branch -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 `let h2 = h` moves `h`, so rebinding `h` in only one branch leaves it moved on the path that skipped the branch.
 
@@ -3798,7 +3816,7 @@ type PA
 	export var second as Tally
 
 	static function build(first String, second Tally) returns Self
-		return Self{first: first, second: second}
+		return Self{first: first.clone(), second: second}
 	end 'build'
 end 'PA'
 
@@ -4630,6 +4648,7 @@ error E3186: <fragment>:15:26: argument 'type' is read by another operand of thi
 ```
 
 <!-- test: map-literal-key-reads-the-root -->
+<!-- skip: language difference: an operand is evaluated to a value before a later operand's `mutates` access begins, left to right, where maxon refuses a read of the place that a hold cannot protect -->
 <!-- positions: moved -->
 A map literal's key is an operand that reads the local before the call rewrites it.
 
@@ -4639,12 +4658,12 @@ typealias Tally = int(0 to u64.max)
 typealias CountMap = Map with (Tally, Tally)
 
 function bump(mutates n Tally) returns Tally
-	n = try n + 1 otherwise panic("out of range")
+	n = n + 1
 	return n
 end 'bump'
 
 function tally(m CountMap, k Tally) returns Tally
-	return try (m.count() as Tally) + k otherwise panic("out of range")
+	return (m.count() as Tally) + k
 end 'tally'
 
 function keep(_ T) uses T
@@ -5034,6 +5053,7 @@ error E3186: <fragment>:33:35: argument 'self.inner.f' is read by another operan
 ```
 
 <!-- test: self-field-sibling-field-before -->
+<!-- skip: language difference: a field that a `mutates` argument does not reach is a place of its own, where maxon's hold covers the whole root -->
 <!-- positions: moved -->
 Another field of `self` read by an earlier operand is a read of the same root, as a sibling field of a local record is.
 
@@ -5049,7 +5069,7 @@ function keep(_ T) uses T
 end 'keep'
 
 function two(text String, k Tally) returns Tally
-	return try (text.byteLength() as Tally) + k otherwise panic("out of range")
+	return (text.byteLength() as Tally) + k
 end 'two'
 
 type Holder
@@ -5060,7 +5080,7 @@ type Holder
 		return Self{label: "original", other: "other"}
 	end 'create'
 
-	function run(mutates self) returns Tally
+	function run() returns Tally
 		return two(other, k: put(label))
 	end 'run'
 end 'Holder'
@@ -5077,6 +5097,7 @@ error E3186: <fragment>:26:28: argument 'label' is read by another operand of th
 ```
 
 <!-- test: self-field-method-receiver-before -->
+<!-- skip: language difference: an operand is evaluated to a value before a later operand's `mutates` access begins, left to right, where maxon refuses a read of the place that a hold cannot protect -->
 <!-- positions: moved -->
 A method called on a field of `self` reads the root before a later operand's write.
 
@@ -5092,7 +5113,7 @@ function keep(_ T) uses T
 end 'keep'
 
 function sum(a Tally, b Tally) returns Tally
-	return try a + b otherwise panic("out of range")
+	return a + b
 end 'sum'
 
 type Holder
@@ -5102,7 +5123,7 @@ type Holder
 		return Self{label: "original"}
 	end 'create'
 
-	function run(mutates self) returns Tally
+	function run() returns Tally
 		return sum(label.byteLength() as Tally, b: put(label))
 	end 'run'
 end 'Holder'
@@ -5222,6 +5243,7 @@ error E3186: <fragment>:27:31: argument 'holder.f' is read by another operand of
 ```
 
 <!-- test: local-var-method-receiver-before -->
+<!-- skip: language difference: an operand is evaluated to a value before a later operand's `mutates` access begins, left to right, where maxon refuses a read of the place that a hold cannot protect -->
 <!-- positions: moved -->
 A method called on a local `var` reads it before a later operand's write.
 
@@ -5237,7 +5259,7 @@ function keep(_ T) uses T
 end 'keep'
 
 function sum(a Tally, b Tally) returns Tally
-	return try a + b otherwise panic("out of range")
+	return a + b
 end 'sum'
 
 function main() returns ExitCode
@@ -5314,6 +5336,7 @@ error E3186: <fragment>:21:15: argument 's' is read by another operand of this s
 ```
 
 <!-- test: leading-sibling-method-call-before -->
+<!-- skip: language difference: an operand is evaluated to a value before a later operand's `mutates` access begins, left to right, where maxon refuses a read of the place that a hold cannot protect -->
 <!-- positions: moved -->
 A later argument that leads with the local but is not the whole local is read before the call's write; only a whole local beside a cell is the argument-overlap check's.
 
@@ -5341,6 +5364,7 @@ error E3186: <fragment>:15:15: argument 'label' is read by another operand of th
 ```
 
 <!-- test: call-receiver-write-then-argument-read -->
+<!-- skip: language difference: an operand is evaluated to a value before a later operand's `mutates` access begins, left to right, where maxon refuses a read of the place that a hold cannot protect -->
 <!-- positions: moved -->
 The compiler runs a receiver call before the arguments of the method call, and the program is refused anyway: the order the rule is stated in evaluates a method call's arguments before its receiver, so the receiver call's write follows the argument's read, which no hold can protect.
 
@@ -5355,7 +5379,7 @@ type Meter
 	end 'create'
 
 	function add(text String) returns Tally
-		return try self.n + (text.byteLength() as Tally) otherwise panic("out of range")
+		return self.n + (text.byteLength() as Tally)
 	end 'add'
 end 'Meter'
 
@@ -5556,6 +5580,7 @@ error E3186: <fragment>:12:15: argument 's' is read by another operand of this s
 ```
 
 <!-- test: self-field-receiver-beside-a-field-cell -->
+<!-- skip: language difference: a field that a `mutates` argument does not reach is a place of its own, where maxon's hold covers the whole root -->
 <!-- positions: moved -->
 A method called on one field of `self` reads the root before the call that takes another field of `self` by reference writes it.
 
@@ -5570,7 +5595,7 @@ type Gauge
 	end 'create'
 
 	function bump(mutates by Tally)
-		by = try by + self.n otherwise panic("out of range")
+		by = by + self.n
 	end 'bump'
 end 'Gauge'
 
@@ -5582,7 +5607,7 @@ type Holder
 		return Self{gauge: Gauge.create(), level: 4}
 	end 'create'
 
-	function run(mutates self)
+	function run()
 		gauge.bump(level)
 	end 'run'
 end 'Holder'
@@ -5643,6 +5668,7 @@ end 'main'
 ```
 
 <!-- test: record-method-result-beside-a-field-cell-before -->
+<!-- skip: language difference: an operand is evaluated to a value before a later operand's `mutates` access begins, left to right, where maxon refuses a read of the place that a hold cannot protect -->
 <!-- positions: moved -->
 A later argument that is a method call on the record whose field the call hands by reference reads the record before the write, whatever the call returns.
 
@@ -5662,7 +5688,7 @@ type Holder
 end 'Holder'
 
 function bump(mutates n Coord, h Holder) returns Coord
-	n = try n + 1 otherwise panic("out of range")
+	n = n + 1
 	return h.n
 end 'bump'
 
@@ -5826,6 +5852,7 @@ error E3186: <fragment>:9:13: argument 's' is read by another operand of this st
 ```
 
 <!-- test: cure-names-the-other-operand-a-sibling-field -->
+<!-- skip: language difference: a field that a `mutates` argument does not reach is a place of its own, where maxon's hold covers the whole root -->
 <!-- positions: moved -->
 The cure names the operand that reads the local, which is not the cell's own path.
 
@@ -5842,8 +5869,8 @@ type Holder
 end 'Holder'
 
 function bump(mutates n Coord, text String) returns Coord
-	n = try n + 1 otherwise panic("out of range")
-	return try (text.byteLength() as Coord) + n otherwise panic("out of range")
+	n = n + 1
+	return (text.byteLength() as Coord) + n
 end 'bump'
 
 function main() returns ExitCode
@@ -6000,6 +6027,7 @@ end 'main'
 ```
 
 <!-- test: two-cells-of-one-root-the-cure-is-a-var -->
+<!-- skip: language difference: a field that a `mutates` argument does not reach is a place of its own, where maxon's hold covers the whole root -->
 <!-- positions: moved -->
 Two `mutable` positions that name fields of one record are two cells of one root; the cure for a cell is a `var` copy stored back, since a `let` at a `mutable` position is refused.
 
@@ -6682,6 +6710,7 @@ ab
 ```
 
 <!-- test: a-send-after-an-operand-read-of-the-cell-and-a-writing-hand-over-is-refused -->
+<!-- skip: language difference: an operand is evaluated to a value before a later operand's `mutates` access begins, left to right, where maxon refuses a read of the place that a hold cannot protect -->
 <!-- positions: moved -->
 A message operand reads a cell-resident `var`, and a later operand hands the same cell to a callee that overwrites it. The send would take the record the first operand read out of a cell that was stored into in between, so the statement is refused at the hand-over and never reaches the take.
 
@@ -6695,8 +6724,8 @@ type Store
 		return Self{seen: 0}
 	end 'create'
 
-	export function keep(mutates self, text String, n Tally) returns Tally
-		self.seen = try self.seen + n otherwise panic("out of range")
+	export function keep(text String, n Tally) returns Tally
+		self.seen = self.seen + n
 		return text.byteLength() as Tally
 	end 'keep'
 end 'Store'
@@ -6709,7 +6738,7 @@ end 'put'
 function main() returns ExitCode
 	let sink = spawn Store.create()
 	var a = "original"
-	let n = try await sink.keep(a.clone(), n: put(a)) otherwise 0
+	let n = try await sink.keep(a, n: put(a)) otherwise 0
 	print("{n} {a}\n")
 	return 0
 end 'main'
@@ -6757,6 +6786,7 @@ end 'main'
 ```
 
 <!-- test: a-spawn-after-an-operand-read-of-the-cell-and-a-writing-hand-over-is-refused -->
+<!-- skip: language difference: an operand is evaluated to a value before a later operand's `mutates` access begins, left to right, where maxon refuses a read of the place that a hold cannot protect -->
 <!-- positions: moved -->
 A service factory operand takes a cell-resident `var` the same way a message does, so a later operand that overwrites the cell is refused before the take.
 
@@ -6767,7 +6797,7 @@ type Store
 	var seen as Tally
 
 	static function create(text String, n Tally) returns Self
-		return Self{seen: try (text.byteLength() as Tally) + n otherwise panic("out of range")}
+		return Self{seen: (text.byteLength() as Tally) + n}
 	end 'create'
 
 	export function total() returns Tally
@@ -6782,7 +6812,7 @@ end 'put'
 
 function main() returns ExitCode
 	var a = "original"
-	let sink = spawn Store.create(a.clone(), n: put(a))
+	let sink = spawn Store.create(a, n: put(a))
 	let n = try await sink.total() otherwise 0
 	print("{n} {a}\n")
 	return 0
@@ -7511,6 +7541,7 @@ end 'main'
 ```
 
 <!-- test: write-based-ternary-arms-are-both-operands-of-the-statement -->
+<!-- skip: language difference: an operand is evaluated to a value before a later operand's `mutates` access begins, left to right, where maxon refuses a read of the place that a hold cannot protect -->
 <!-- positions: moved -->
 The arms of a conditional expression are numbered as operands in source order, whichever is taken, so a read in one arm and a by-reference write in the other are refused.
 

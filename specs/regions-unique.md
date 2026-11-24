@@ -195,7 +195,6 @@ error E3214: <fragment>:31:33: cannot pass 'slot' to parameter 'slot' of 'keep':
 ```
 
 <!-- test: a-unique-local-kept-by-a-call-is-refused-when-read-afterwards -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 `keep` stores its argument, which moves `ticket`, so reading it afterwards is a use of a moved value.
 
@@ -212,8 +211,8 @@ end 'Token'
 
 typealias TokenArray = Array with Token
 
-function keep(token Token) returns Tally
-	let kept = TokenArray.create(0)
+function keep(consumes token Token) returns Tally
+	var kept = TokenArray.create(0)
 	kept.push(token)
 	return 1
 end 'keep'
@@ -268,7 +267,6 @@ error E3102: <fragment>:24:17: use of moved value 'token': its ownership moved t
 ```
 
 <!-- test: a-unique-parameter-pushed-twice-is-refused -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 A parameter the function itself keeps is moved by the first `push`, so the second reads a moved value.
 
@@ -285,7 +283,7 @@ end 'Token'
 
 typealias TokenArray = Array with Token
 
-function keepTwice(token Token, shelf TokenArray)
+function keepTwice(consumes token Token, mutates shelf TokenArray)
 	shelf.push(token)
 	shelf.push(token)
 end 'keepTwice'
@@ -301,7 +299,6 @@ error E3102: <fragment>:16:13: use of moved value 'token': its ownership moved t
 ```
 
 <!-- test: a-unique-parameter-bound-to-a-second-name-twice-is-refused -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 `let first = token` moves a unique parameter exactly as it moves a local, so `let second = token` reads a moved value.
 
@@ -316,7 +313,7 @@ type Token is noncopyable
 	end 'create'
 end 'Token'
 
-function rebind(token Token) returns Tally
+function rebind(consumes token Token) returns Tally
 	let first = token
 	let second = token
 	return 1
@@ -399,7 +396,6 @@ end 'main'
 ```
 
 <!-- test: a-lent-unique-parameter-read-after-its-rebind-is-refused -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The new name is live, and the parameter it was taken from is not.
 
@@ -414,7 +410,7 @@ type Tk is noncopyable
 	end 'create'
 end 'Tk'
 
-function rebind(a Tk)
+function rebind(consumes a Tk)
 	let b = a
 	print("{b.n} {a.n}\n")
 end 'rebind'
@@ -522,7 +518,6 @@ end 'main'
 ```
 
 <!-- test: a-unique-local-kept-by-a-call-in-a-loop-is-refused-on-the-next-lap -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The second lap hands `ticket` over again after the first lap moved it.
 
@@ -539,8 +534,8 @@ end 'Token'
 
 typealias TokenArray = Array with Token
 
-function keep(token Token) returns Tally
-	let kept = TokenArray.create(0)
+function keep(consumes token Token) returns Tally
+	var kept = TokenArray.create(0)
 	kept.push(token)
 	return 1
 end 'keep'
@@ -708,7 +703,6 @@ end 'main'
 ```
 
 <!-- test: a-unique-union-kept-by-a-call-is-refused-when-matched-afterwards -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 `keep` stores the union, which moves `slot`, so matching it afterwards is a use of a moved value.
 
@@ -730,8 +724,8 @@ end 'Slot'
 
 typealias SlotArray = Array with Slot
 
-function keep(slot Slot) returns Tally
-	let kept = SlotArray.create(0)
+function keep(consumes slot Slot) returns Tally
+	var kept = SlotArray.create(0)
 	kept.push(slot)
 	return 1
 end 'keep'
@@ -907,7 +901,6 @@ end 'main'
 ```
 
 <!-- test: an-array-of-uniques-kept-by-a-call-is-refused-when-read-afterwards -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 An array holding a unique is unique-holding, so `keep` storing it moves `tokens`.
 
@@ -926,14 +919,14 @@ typealias TokenArray = Array with Token
 
 typealias TokenArrays = Array with TokenArray
 
-function keep(tokens TokenArray) returns Tally
-	let kept = TokenArrays.create(0)
+function keep(consumes tokens TokenArray) returns Tally
+	var kept = TokenArrays.create(0)
 	kept.push(tokens)
 	return 1
 end 'keep'
 
 function main() returns ExitCode
-	let tokens = TokenArray.create(0)
+	var tokens = TokenArray.create(0)
 	tokens.push(Token.create(1))
 	let moved = keep(tokens)
 	print("{moved} {tokens.count()}\n")
@@ -979,7 +972,6 @@ false 1
 ```
 
 <!-- test: a-tuple-holding-a-unique-kept-by-a-call-is-refused-when-read-afterwards -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 A tuple holding a unique is unique-holding, so `keep` storing it moves `pair`.
 
@@ -998,8 +990,8 @@ typealias Pair = (Token, Tally)
 
 typealias Pairs = Array with Pair
 
-function keep(pair Pair) returns Tally
-	let kept = Pairs.create(0)
+function keep(consumes pair Pair) returns Tally
+	var kept = Pairs.create(0)
 	kept.push(pair)
 	return 1
 end 'keep'
@@ -2793,7 +2785,6 @@ error E3207: <fragment>:34:8: 'bump' needs a writable parameter 'h' at line 26; 
 ```
 
 <!-- test: a-cond-of-lent-parameters-stored-keeps-the-then-arm -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 `stash` stores a `cond` of its two unique parameters, so it keeps both, and the caller's `t` moves into the call.
 ```maxon
@@ -2810,7 +2801,7 @@ end 'Tk'
 type Kp
 	var k as Tk
 
-	static function create(k Tk) returns Self
+	static function create(consumes k Tk) returns Self
 		return Self{k: k}
 	end 'create'
 end 'Kp'
@@ -2819,13 +2810,13 @@ function chosen(n Num) returns bool
 	return n != 0
 end 'chosen'
 
-function stash(t Tk, t2 Tk, h Kp)
+function stash(consumes t Tk, consumes t2 Tk, mutates h Kp)
 	let u = (t if chosen(1) else t2)
 	h.k = u
 end 'stash'
 
 function main() returns ExitCode
-	let h = Kp.create(Tk.create(0))
+	var h = Kp.create(Tk.create(0))
 	let t = Tk.create(1)
 	stash(t, t2: Tk.create(2), h: h)
 	h.k.n = 5
@@ -2837,7 +2828,6 @@ error E3102: <fragment>:34:14: use of moved value 't': its ownership moved to th
 ```
 
 <!-- test: a-cond-of-lent-parameters-stored-keeps-the-else-arm -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The `else` arm of the stored `cond` is kept as the `then` arm is, so the caller's `t` passed at `t2` moves into the call.
 ```maxon
@@ -2854,7 +2844,7 @@ end 'Tk'
 type Kp
 	var k as Tk
 
-	static function create(k Tk) returns Self
+	static function create(consumes k Tk) returns Self
 		return Self{k: k}
 	end 'create'
 end 'Kp'
@@ -2863,12 +2853,12 @@ function chosen(n Num) returns bool
 	return n != 0
 end 'chosen'
 
-function stash(t Tk, t2 Tk, h Kp)
+function stash(consumes t Tk, consumes t2 Tk, mutates h Kp)
 	h.k = t if chosen(0) else t2
 end 'stash'
 
 function main() returns ExitCode
-	let h = Kp.create(Tk.create(0))
+	var h = Kp.create(Tk.create(0))
 	let t = Tk.create(1)
 	stash(Tk.create(2), t2: t, h: h)
 	h.k.n = 5
@@ -3067,7 +3057,6 @@ error E3102: <fragment>:20:16: use of moved value 'q2': its ownership moved to a
 ```
 
 <!-- test: a-cond-of-one-unique-local-bound-moves-it -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 A `cond` that names one unique local in both arms moves it when bound: `r` would otherwise be a second name for `q`.
 ```maxon
@@ -3087,7 +3076,7 @@ end 'chosen'
 
 function main() returns ExitCode
 	let q = Tk.create(1)
-	let r = q if chosen(1) else q
+	var r = q if chosen(1) else q
 	r.n = 5
 	print("{q.n}\n")
 	return 0
@@ -3143,7 +3132,6 @@ end 'main'
 ```
 
 <!-- test: a-cond-of-unique-locals-stored-moves-them -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 Storing a `cond` into a field moves the unique locals it names.
 ```maxon
@@ -3160,7 +3148,7 @@ end 'Tk'
 type Kp
 	var k as Tk
 
-	static function create(k Tk) returns Self
+	static function create(consumes k Tk) returns Self
 		return Self{k: k}
 	end 'create'
 end 'Kp'
@@ -3170,7 +3158,7 @@ function chosen(n Num) returns bool
 end 'chosen'
 
 function main() returns ExitCode
-	let h = Kp.create(Tk.create(0))
+	var h = Kp.create(Tk.create(0))
 	let q = Tk.create(1)
 	let q2 = Tk.create(2)
 	h.k = q if chosen(1) else q2
@@ -3184,7 +3172,6 @@ error E3102: <fragment>:30:10: use of moved value 'q': its ownership moved to an
 ```
 
 <!-- test: a-cond-of-unique-locals-passed-to-a-keeping-callee-moves-them -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 A callee that keeps its parameter takes every unique local of the `cond` passed there.
 ```maxon
@@ -3204,12 +3191,12 @@ function chosen(n Num) returns bool
 	return n != 0
 end 'chosen'
 
-function keep(t Tk, into TkArray)
+function keep(consumes t Tk, mutates into TkArray)
 	into.push(t)
 end 'keep'
 
 function main() returns ExitCode
-	let kept = TkArray.create(0)
+	var kept = TkArray.create(0)
 	let q = Tk.create(1)
 	let q2 = Tk.create(2)
 	keep(q if chosen(1) else q2, into: kept)
@@ -3355,7 +3342,6 @@ error E3102: <fragment>:21:16: use of moved value 'q3': its ownership moved to a
 ```
 
 <!-- test: a-try-fallback-of-a-unique-local-bound-moves-it -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 Binding a value `try` whose fallback is a unique local moves the local, whichever edge ran: `r` would otherwise be a second name for `q`.
 ```maxon
@@ -3382,7 +3368,7 @@ end 'mk'
 
 function main() returns ExitCode
 	let q = Tk.create(1)
-	let r = try mk(0) otherwise q
+	var r = try mk(0) otherwise q
 	r.n = 5
 	print("{q.n}\n")
 	return 0
@@ -3435,7 +3421,6 @@ end 'main'
 ```
 
 <!-- test: a-match-expression-naming-one-unique-local-in-every-arm-moves-it -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 A `match` expression whose every arm names `q` moves it once when bound, nested or not: `r` would otherwise be a second name for `q`.
 ```maxon
@@ -3456,7 +3441,7 @@ end 'Tk'
 
 function viaMatch(p Pick) returns Num
 	let q = Tk.create(1)
-	let r = match p 'k'
+	var r = match p 'k'
 		first gives q
 		second gives q
 	end 'k'
@@ -3466,7 +3451,7 @@ end 'viaMatch'
 
 function viaNestedMatch(p Pick, inner bool) returns Num
 	let q = Tk.create(2)
-	let r = match p 'k'
+	var r = match p 'k'
 		first gives q
 		second gives q if inner else q
 	end 'k'
@@ -3485,7 +3470,6 @@ error E3102: <fragment>:34:9: use of moved value 'q': its ownership moved to ano
 ```
 
 <!-- test: a-try-fallback-in-a-cond-of-a-unique-local-bound-moves-it -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 A conditional whose arms are a value `try` falling back to `q` and `q` itself moves `q` when bound, whichever edge ran.
 ```maxon
@@ -3516,7 +3500,7 @@ end 'chosen'
 
 function main() returns ExitCode
 	let q = Tk.create(1)
-	let r = (try mk(0) otherwise q) if chosen(1) else q
+	var r = (try mk(0) otherwise q) if chosen(1) else q
 	r.n = 5
 	print("{q.n}\n")
 	return 0
@@ -4370,7 +4354,6 @@ error E3214: <fragment>:17:10: cannot join a unique value read out of a field or
 ```
 
 <!-- test: a-try-fallback-of-a-matched-payload-handed-to-a-keeping-call-moves-it -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 A `try` whose fallback is a payload the arm binds, handed to a call that keeps it, moves the payload out of the union as handing over the payload itself does, so the union is not read again.
 ```maxon
@@ -4400,7 +4383,7 @@ type Keeper
 		return Self{held: Token.create(0)}
 	end 'create'
 
-	function keep(t Token)
+	function keep(mutates self, consumes t Token)
 		self.held = t
 	end 'keep'
 end 'Keeper'
@@ -4420,9 +4403,9 @@ function show(s Slot)
 end 'show'
 
 function main() returns ExitCode
-	let k = Keeper.create()
+	var k = Keeper.create()
 	let s = Slot.filled(Token.create(3))
-	match s 'which'
+	match consumes s 'which'
 		empty then print("empty\n")
 		filled(t) then k.keep(try mk(0) otherwise t)
 	end 'which'

@@ -902,7 +902,6 @@ error E3102: <fragment>:24:2: use of moved value 'r': its ownership moved to ano
 ```
 
 <!-- test: a-finalizer-called-twice-on-a-parameter-is-refused -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 
 ```maxon
@@ -924,7 +923,7 @@ type Resp
 	end 'fin'
 end 'Resp'
 
-function settle(r Resp)
+function settle(consumes r Resp)
 	r.fin()
 	r.fin()
 end 'settle'
@@ -2125,7 +2124,6 @@ error E3224: <fragment>:30:2: `default` covers the case 'some', which carries th
 ```
 
 <!-- test: an-isolated-linear-variable-handed-to-a-consuming-callee-is-moved-not-lent -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 
 ```maxon
@@ -2147,7 +2145,7 @@ type Resp
 	end 'fin'
 end 'Resp'
 
-function use(r Resp)
+function use(consumes r Resp)
 	r.fin()
 end 'use'
 
@@ -5687,7 +5685,6 @@ error E3102: <fragment>:38:9: use of moved value 'm': it was moved in an earlier
 ```
 
 <!-- test: a-loop-continues-before-refilling-the-union-it-matched -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The `continue` leaves the lap with `m` consumed, and the refill below it is skipped.
 ```maxon
@@ -5710,8 +5707,8 @@ union Maybe
 	nothing
 end 'Maybe'
 
-function settle(m Maybe)
-	match m 'which'
+function settle(consumes m Maybe)
+	match consumes m 'which'
 		some(r) then r.fin()
 		nothing then print("nothing\n")
 	end 'which'
@@ -5720,7 +5717,7 @@ end 'settle'
 function main() returns ExitCode
 	var m = Maybe.some(Resp.create(1))
 	for i in 0 upto 3 'lap'
-		match m 'm'
+		match consumes m 'm'
 			some(r) then r.fin()
 			nothing then print("nothing\n")
 		end 'm'

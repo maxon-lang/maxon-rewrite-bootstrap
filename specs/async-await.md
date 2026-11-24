@@ -1127,7 +1127,6 @@ end 'main'
 ```
 
 <!-- test: async-await.error.a-promise-used-after-it-was-pushed-by-a-callee-is-use-after-move -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The caller handed the promise to a function that stores it, so the caller's name for it is spent.
 ```maxon
@@ -1142,7 +1141,7 @@ function work() returns Integer
 	return 7
 end 'work'
 
-function park(pending IntPromiseArray, p IntPromise)
+function park(mutates pending IntPromiseArray, consumes p IntPromise)
 	pending.push(p)
 end 'park'
 

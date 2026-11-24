@@ -1328,17 +1328,17 @@ refused
 The body is checked once for an unbounded `Item` that may own, so reading `a` after `var b = a` is E3102 even when the only instantiation is a scalar.
 
 <!-- test: error.a-var-bound-from-an-owned-var-is-moved -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- positions: moved -->
 ```maxon
 type Holder uses Item
 	var latest as Item
 
-	static function create(start Item) returns Self
-		return Self{latest: start}
+	static function create(start Item) returns Self where Item implements Copyable
+		return Self{latest: start.clone()}
 	end 'create'
 
-	function rebind(first Item) returns Item
-		var a = first
+	function rebind(mutates self, first Item) returns Item where Item implements Copyable
+		var a = first.clone()
 		var b = a
 		self.latest = b
 		return a
@@ -1348,7 +1348,7 @@ end 'Holder'
 typealias CountHolder = Holder with Count
 
 function main() returns ExitCode
-	let holder = CountHolder.create(1)
+	var holder = CountHolder.create(1)
 	_ = holder.rebind(2)
 	return 0
 end 'main'
@@ -1362,17 +1362,17 @@ error E3102: <fragment>:13:10: use of moved value 'a': its ownership moved to an
 Reading `a` after `let b = a` is E3102 in the body even when the only instantiation is a scalar.
 
 <!-- test: error.a-let-bound-from-an-owned-var-is-moved -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- positions: moved -->
 ```maxon
 type Holder uses Item
 	var latest as Item
 
-	static function create(start Item) returns Self
-		return Self{latest: start}
+	static function create(start Item) returns Self where Item implements Copyable
+		return Self{latest: start.clone()}
 	end 'create'
 
-	function rebind(first Item) returns Item
-		var a = first
+	function rebind(mutates self, first Item) returns Item where Item implements Copyable
+		var a = first.clone()
 		let b = a
 		self.latest = b
 		return a
@@ -1382,7 +1382,7 @@ end 'Holder'
 typealias CountHolder = Holder with Count
 
 function main() returns ExitCode
-	let holder = CountHolder.create(1)
+	var holder = CountHolder.create(1)
 	_ = holder.rebind(2)
 	return 0
 end 'main'
@@ -1396,18 +1396,18 @@ error E3102: <fragment>:13:10: use of moved value 'a': its ownership moved to an
 Reading `a` after `b = a` is E3102 in the body even when the only instantiation is a scalar.
 
 <!-- test: error.an-owned-var-assigned-to-another-var-is-moved -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- positions: moved -->
 ```maxon
 type Holder uses Item
 	var latest as Item
 
-	static function create(start Item) returns Self
-		return Self{latest: start}
+	static function create(start Item) returns Self where Item implements Copyable
+		return Self{latest: start.clone()}
 	end 'create'
 
-	function rebind(first Item, second Item) returns Item
-		var a = first
-		var b = second
+	function rebind(mutates self, first Item, second Item) returns Item where Item implements Copyable
+		var a = first.clone()
+		var b = second.clone()
 		b = a
 		self.latest = b
 		return a
@@ -1417,7 +1417,7 @@ end 'Holder'
 typealias CountHolder = Holder with Count
 
 function main() returns ExitCode
-	let holder = CountHolder.create(1)
+	var holder = CountHolder.create(1)
 	_ = holder.rebind(2, second: 3)
 	return 0
 end 'main'

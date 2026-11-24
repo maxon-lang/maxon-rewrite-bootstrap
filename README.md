@@ -3044,7 +3044,9 @@ type-parameter type has one owner; every other access is a borrow that cannot ou
   argument that names a place, scalars too, except that a value a `consumes` parameter copies (a scalar, a frozen value
   or a cown) is read there as a `let` argument is, so `m.upsert(i, value: i)` is fine. An argument that is a borrowed place stays borrowed while the later
   arguments are evaluated, and so does the target of an assignment while its value is, so a call nested there that
-  changes an overlapping place is refused too (`E3186`).
+  changes an overlapping place is refused too (`E3186`). An operand is evaluated to a value before a later operand's
+  `mutates` access begins, left to right, so an operand that only reads the place first, `sum(s.byteLength(), b: put(s))`
+  or `f(s.clone(), n: put(s))`, sees it as it was and is not refused (see "Where it differs from Maxon").
 - **Initialisation.** `var x as T` declares a variable with no value. Reading it before every path has assigned
   it is `E3902`. A `sets` parameter starts without a value and must have one on every path that returns
   (`E3903`); its argument must be such a variable, which has a value after the call (`E3904`), and not before:
@@ -4426,6 +4428,12 @@ the checker reports where Maxon's parser does, as it needs the type of the value
 - **More commands run at background priority.** Maxon lowers only `spec-test`, which puts itself at background priority
   (`Process.enterBackgroundPriority()`) once its worker branch is past, so its workers and test binaries inherit it.
   minimaxon does so for `test`, `selftest`, `fuzz`, `build` and `check` as well, and its gate lowers itself the same way.
+- **An operand read before a write in the same statement is a value.** Operands are evaluated left to right, and an
+  operand that reads a place, `s.byteLength()` or `s.clone()`, is a value of its own before a later operand's `mutates`
+  access to the place begins, as a field that the `mutates` argument does not reach is a place of its own; maxon refuses
+  both (`E3186`), since its hold of the root cannot protect a value that the by-reference cell overwrites. An operand that
+  still borrows the place when it is written, a `let` argument or the receiver of the enclosing call, is refused here too
+  (see "Exclusivity").
 - **A String is built by interpolation.** There is no `StringBuilder` and no `String.append`: an interpolation assigned
   back to the String it starts with, `s = "{s}{x}"`, appends in place, and an interpolation is one allocation with each
   part written into place (see "Text"). `fix` (which `specs.ps1` and `stdlib.ps1` run) writes a statement `place.append(x)`

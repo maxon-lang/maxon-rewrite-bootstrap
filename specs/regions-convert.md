@@ -61,6 +61,7 @@ error E3210: <fragment>:28:16: function value for 'Look' writes its parameter 'c
 ```
 
 <!-- test: conformer-writing-receiver-needs-mutable-self -->
+<!-- positions: moved -->
 `Bag.grow` writes its receiver, and `Grows.grow` is read-only unless declared `mutable self`.
 
 ```maxon
@@ -78,7 +79,7 @@ type Bag implements Grows
 	end 'create'
 
 	function grow(by Tally)
-		self.total = self.total + by
+		self.total = try self.total + by otherwise panic("out of range")
 	end 'grow'
 
 	function size() returns Tally

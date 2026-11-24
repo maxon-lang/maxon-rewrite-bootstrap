@@ -1046,7 +1046,6 @@ error E3224: <fragment>:9:4: this linear value is only lent to this code (a para
 ```
 
 <!-- test: model-finding-ae-record-method-linear-self-field-via-match -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `record-method-linear-self-field-via-match` of redteamAE/p23.txt, in capmodel `reggio/REPORTRTAE.txt`.
 
@@ -1077,8 +1076,8 @@ type Hs
 		return Self{n: n}
 	end 'create'
 
-	function eat(s Sn)
-		match s 'x1'
+	function eat(consumes s Sn)
+		match consumes s 'x1'
 			ok then break
 			notSent(q) then q.fin(1)
 		end 'x1'
@@ -1253,7 +1252,6 @@ error E3224: <fragment>:26:3: the case 'held' carries the linear value 'r', and 
 ```
 
 <!-- test: model-finding-ae-iso-payload-two-matches -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `iso-payload-two-matches` of redteamAE/p5.txt, in capmodel `reggio/REPORTRTAE.txt`.
 
@@ -1279,11 +1277,11 @@ end 'Rl'
 
 function main() returns ExitCode
 	let u = Sh.held(Rl.create(0))
-	match u 'x1'
+	match consumes u 'x1'
 		none then break
 		held(r) then r.fin(1)
 	end 'x1'
-	match u 'x2'
+	match consumes u 'x2'
 		none then break
 		held(r) then r.fin(2)
 	end 'x2'
@@ -1455,7 +1453,6 @@ error E3224: <fragment>:3:11: 'Sh' is a linear value and cannot be a type argume
 ```
 
 <!-- test: model-finding-ae-varpayload-iso-param-twice -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `varpayload-iso-param-twice` of redteamAE/p7.txt, in capmodel `reggio/REPORTRTAE.txt`.
 
@@ -1489,11 +1486,11 @@ end 'useI'
 
 function main() returns ExitCode
 	let v = giveH(Rl.create(3))
-	match v 'x1'
+	match consumes v 'x1'
 		none then break
 		held(q) then useI(q)
 	end 'x1'
-	match v 'x2'
+	match consumes v 'x2'
 		none then break
 		held(q) then useI(q)
 	end 'x2'
@@ -1545,7 +1542,6 @@ end 'main'
 ```
 
 <!-- test: model-finding-ae-varpayload-plain-param-twice -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `varpayload-plain-param-twice` of redteamAE/p7.txt, in capmodel `reggio/REPORTRTAE.txt`.
 
@@ -1569,17 +1565,17 @@ type Rl
 	end 'fin'
 end 'Rl'
 
-function use(r Rl)
+function use(consumes r Rl)
 	r.fin(1)
 end 'use'
 
 function main() returns ExitCode
 	let v = Sh.held(Rl.create(3))
-	match v 'x1'
+	match consumes v 'x1'
 		none then break
 		held(q) then use(q)
 	end 'x1'
-	match v 'x2'
+	match consumes v 'x2'
 		none then break
 		held(q) then use(q)
 	end 'x2'
@@ -3907,7 +3903,6 @@ error E3223: <fragment>:35:3: this drops '_', a linear value that was never cons
 ```
 
 <!-- test: model-hand-ab-f-for-outer-consume -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `f-for-outer-consume` of redteamAB.hand_ab3, in capmodel `reggio/REPORTRTAB.txt`.
 
@@ -3941,7 +3936,7 @@ type Box
 end 'Box'
 
 function main() returns ExitCode
-	let a = BoxArray.create(0)
+	var a = BoxArray.create(0)
 	a.push(Box.create(1))
 	let r = Resp.create(0)
 	for _ in a 'f1'
@@ -5474,7 +5469,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-ab-s-two-vars-aliased-by-union -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `s-two-vars-aliased-by-union` of redteamAB.hand_ab5, in capmodel `reggio/REPORTRTAB.txt`.
 
@@ -5502,12 +5496,12 @@ type Resp
 	end 'peek'
 end 'Resp'
 
-function giveS(r Resp) returns Sent
+function giveS(consumes r Resp) returns Sent
 	return Sent.notSent(r)
 end 'giveS'
 
-function useS(s Sent)
-	match s 'x1'
+function useS(consumes s Sent)
+	match consumes s 'x1'
 		ok then break
 		notSent(r) then r.fin(1)
 	end 'x1'
@@ -5952,7 +5946,6 @@ error E3223: <fragment>:23:13: this drops a linear value that was never consumed
 ```
 
 <!-- test: model-hand-ab-d-two-args-same -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `d-two-args-same` of redteamAB.hand_ab8, in capmodel `reggio/REPORTRTAB.txt`.
 
@@ -5975,7 +5968,7 @@ type Resp
 	end 'peek'
 end 'Resp'
 
-function twoR(a Resp, b Resp)
+function twoR(consumes a Resp, consumes b Resp)
 	a.fin(1)
 	b.fin(2)
 end 'twoR'
@@ -6136,7 +6129,6 @@ error E3102: <fragment>:24:2: use of moved value 'r': its ownership moved to ano
 ```
 
 <!-- test: model-hand-ab-d-param-alias-callee -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `d-param-alias-callee` of redteamAB.hand_ab8, in capmodel `reggio/REPORTRTAB.txt`.
 
@@ -6164,12 +6156,12 @@ type Resp
 	end 'peek'
 end 'Resp'
 
-function giveS(r Resp) returns Sent
+function giveS(consumes r Resp) returns Sent
 	return Sent.notSent(r)
 end 'giveS'
 
-function useS(s Sent)
-	match s 'x1'
+function useS(consumes s Sent)
+	match consumes s 'x1'
 		ok then break
 		notSent(r) then r.fin(1)
 	end 'x1'
@@ -9668,7 +9660,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-ac-li-use-then-fin -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `li-use-then-fin` of redteamAC.hand_ac2, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -9691,7 +9682,7 @@ type Resp
 	end 'peek'
 end 'Resp'
 
-function useR(r Resp)
+function useR(consumes r Resp)
 	r.fin(1)
 end 'useR'
 
@@ -9707,7 +9698,6 @@ error E3102: <fragment>:28:2: use of moved value 'r': its ownership moved to ano
 ```
 
 <!-- test: model-hand-ac-li-use-twice -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `li-use-twice` of redteamAC.hand_ac2, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -9730,7 +9720,7 @@ type Resp
 	end 'peek'
 end 'Resp'
 
-function useR(r Resp)
+function useR(consumes r Resp)
 	r.fin(1)
 end 'useR'
 
@@ -9977,7 +9967,6 @@ error E3102: <fragment>:30:2: use of moved value 'r': its ownership moved to ano
 ```
 
 <!-- test: model-hand-ac-li-in-loop -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `li-in-loop` of redteamAC.hand_ac2, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -10004,7 +9993,7 @@ function lg(x Num) returns Num
 	return x
 end 'lg'
 
-function useR(r Resp)
+function useR(consumes r Resp)
 	r.fin(1)
 end 'useR'
 
@@ -10102,7 +10091,6 @@ error E3102: <fragment>:28:16: 'r' is passed at two arguments of this call, and 
 ```
 
 <!-- test: model-hand-ac-li-param-forward -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `li-param-forward` of redteamAC.hand_ac2, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -10125,7 +10113,7 @@ type Resp
 	end 'peek'
 end 'Resp'
 
-function useR(r Resp)
+function useR(consumes r Resp)
 	r.fin(1)
 end 'useR'
 
@@ -10183,7 +10171,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-ac-li-union-lend -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `li-union-lend` of redteamAC.hand_ac2, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -10211,12 +10198,12 @@ type Resp
 	end 'peek'
 end 'Resp'
 
-function giveS(r Resp) returns Sent
+function giveS(consumes r Resp) returns Sent
 	return Sent.notSent(r)
 end 'giveS'
 
 function useSI(consumes s Sent)
-	match s 'x1'
+	match consumes s 'x1'
 		ok then break
 		notSent(r) then r.fin(1)
 	end 'x1'
@@ -10780,7 +10767,6 @@ error E3102: <fragment>:42:2: use of moved value 'r': its ownership moved to ano
 ```
 
 <!-- test: model-hand-ac-min-h1-loop -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `min-h1-loop` of redteamAC.hand_ac20, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -10803,7 +10789,7 @@ type Resp
 	end 'peek'
 end 'Resp'
 
-function useR(r Resp)
+function useR(consumes r Resp)
 	r.fin(1)
 end 'useR'
 
@@ -10823,7 +10809,6 @@ error E3102: <fragment>:29:8: use of moved value 'r': it was moved in an earlier
 ```
 
 <!-- test: model-hand-ac-min-h1-call-result -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `min-h1-call-result` of redteamAC.hand_ac20, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -10846,7 +10831,7 @@ type Resp
 	end 'peek'
 end 'Resp'
 
-function useR(r Resp)
+function useR(consumes r Resp)
 	r.fin(1)
 end 'useR'
 
@@ -10922,7 +10907,6 @@ error E3102: <fragment>:30:3: use of moved value 'r': its ownership moved to ano
 ```
 
 <!-- test: model-hand-ac-min-h1-finalizer -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `min-h1-finalizer` of redteamAC.hand_ac20, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -10958,7 +10942,7 @@ type Fz
 	end 'f'
 end 'Fz'
 
-function useR(r Resp)
+function useR(consumes r Resp)
 	r.fin(1)
 end 'useR'
 
@@ -11020,7 +11004,6 @@ error E3102: <fragment>:36:2: use of moved value 'r': its ownership moved to ano
 ```
 
 <!-- test: model-hand-ac-min-h1-control-plain -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `min-h1-control-plain` of redteamAC.hand_ac20, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -11043,7 +11026,7 @@ type Resp
 	end 'peek'
 end 'Resp'
 
-function useR(r Resp)
+function useR(consumes r Resp)
 	r.fin(1)
 end 'useR'
 
@@ -11097,7 +11080,6 @@ error E3102: <fragment>:28:2: use of moved value 'r': its ownership moved to ano
 ```
 
 <!-- test: model-hand-ac-ld-call-result-iso -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `ld-call-result-iso` of redteamAC.hand_ac3, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -11120,7 +11102,7 @@ type Resp
 	end 'peek'
 end 'Resp'
 
-function useR(r Resp)
+function useR(consumes r Resp)
 	r.fin(1)
 end 'useR'
 
@@ -11140,7 +11122,6 @@ error E3102: <fragment>:32:2: use of moved value 'r': its ownership moved to ano
 ```
 
 <!-- test: model-hand-ac-ld-method-arg -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `ld-method-arg` of redteamAC.hand_ac3, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -11175,20 +11156,20 @@ type Eat
 		return Self{n: n}
 	end 'create'
 
-	function eat(r Resp)
+	function eat(consumes r Resp)
 		r.fin(1)
 	end 'eat'
 
-	function eat2(r Resp, x Num)
+	function eat2(consumes r Resp, x Num)
 		r.fin(x)
 	end 'eat2'
 
-	function wrap(r Resp) returns Sent
+	function wrap(consumes r Resp) returns Sent
 		return giveS(r)
 	end 'wrap'
 end 'Eat'
 
-function giveS(r Resp) returns Sent
+function giveS(consumes r Resp) returns Sent
 	return Sent.notSent(r)
 end 'giveS'
 
@@ -11205,7 +11186,6 @@ error E3102: <fragment>:54:2: use of moved value 'r': its ownership moved to ano
 ```
 
 <!-- test: model-hand-ac-ld-method-arg2 -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `ld-method-arg2` of redteamAC.hand_ac3, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -11240,20 +11220,20 @@ type Eat
 		return Self{n: n}
 	end 'create'
 
-	function eat(r Resp)
+	function eat(consumes r Resp)
 		r.fin(1)
 	end 'eat'
 
-	function eat2(r Resp, x Num)
+	function eat2(consumes r Resp, x Num)
 		r.fin(x)
 	end 'eat2'
 
-	function wrap(r Resp) returns Sent
+	function wrap(consumes r Resp) returns Sent
 		return giveS(r)
 	end 'wrap'
 end 'Eat'
 
-function giveS(r Resp) returns Sent
+function giveS(consumes r Resp) returns Sent
 	return Sent.notSent(r)
 end 'giveS'
 
@@ -11270,7 +11250,6 @@ error E3102: <fragment>:54:2: use of moved value 'r': its ownership moved to ano
 ```
 
 <!-- test: model-hand-ac-ld-method-wrap-union -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `ld-method-wrap-union` of redteamAC.hand_ac3, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -11305,25 +11284,25 @@ type Eat
 		return Self{n: n}
 	end 'create'
 
-	function eat(r Resp)
+	function eat(consumes r Resp)
 		r.fin(1)
 	end 'eat'
 
-	function eat2(r Resp, x Num)
+	function eat2(consumes r Resp, x Num)
 		r.fin(x)
 	end 'eat2'
 
-	function wrap(r Resp) returns Sent
+	function wrap(consumes r Resp) returns Sent
 		return giveS(r)
 	end 'wrap'
 end 'Eat'
 
-function giveS(r Resp) returns Sent
+function giveS(consumes r Resp) returns Sent
 	return Sent.notSent(r)
 end 'giveS'
 
-function useS(s Sent)
-	match s 'x1'
+function useS(consumes s Sent)
+	match consumes s 'x1'
 		ok then break
 		notSent(r) then r.fin(1)
 	end 'x1'
@@ -11343,7 +11322,6 @@ error E3102: <fragment>:62:2: use of moved value 'r': its ownership moved to ano
 ```
 
 <!-- test: model-hand-ac-ld-wrap-fn-union -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `ld-wrap-fn-union` of redteamAC.hand_ac3, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -11371,14 +11349,14 @@ type Resp
 	end 'peek'
 end 'Resp'
 
-function useS(s Sent)
-	match s 'x1'
+function useS(consumes s Sent)
+	match consumes s 'x1'
 		ok then break
 		notSent(r) then r.fin(1)
 	end 'x1'
 end 'useS'
 
-function wrapI(r Resp) returns Sent
+function wrapI(consumes r Resp) returns Sent
 	return Sent.notSent(r)
 end 'wrapI'
 
@@ -11395,7 +11373,6 @@ error E3102: <fragment>:41:2: use of moved value 'r': its ownership moved to ano
 ```
 
 <!-- test: model-hand-ac-ld-wrap-fn-union-twice -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `ld-wrap-fn-union-twice` of redteamAC.hand_ac3, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -11423,14 +11400,14 @@ type Resp
 	end 'peek'
 end 'Resp'
 
-function useS(s Sent)
-	match s 'x1'
+function useS(consumes s Sent)
+	match consumes s 'x1'
 		ok then break
 		notSent(r) then r.fin(1)
 	end 'x1'
 end 'useS'
 
-function wrapI(r Resp) returns Sent
+function wrapI(consumes r Resp) returns Sent
 	return Sent.notSent(r)
 end 'wrapI'
 
@@ -11448,7 +11425,6 @@ error E3102: <fragment>:40:16: use of moved value 'r': its ownership moved to an
 ```
 
 <!-- test: model-hand-ac-ld-union-var -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `ld-union-var` of redteamAC.hand_ac3, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -11476,12 +11452,12 @@ type Resp
 	end 'peek'
 end 'Resp'
 
-function giveS(r Resp) returns Sent
+function giveS(consumes r Resp) returns Sent
 	return Sent.notSent(r)
 end 'giveS'
 
-function useS2(s Sent)
-	match s 'x1'
+function useS2(consumes s Sent)
+	match consumes s 'x1'
 		ok then break
 		notSent(r) then r.fin(1)
 	end 'x1'
@@ -11499,7 +11475,6 @@ error E3102: <fragment>:40:8: use of moved value 's': its ownership moved to ano
 ```
 
 <!-- test: model-hand-ac-ld-union-var-match-after -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `ld-union-var-match-after` of redteamAC.hand_ac3, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -11527,12 +11502,12 @@ type Resp
 	end 'peek'
 end 'Resp'
 
-function giveS(r Resp) returns Sent
+function giveS(consumes r Resp) returns Sent
 	return Sent.notSent(r)
 end 'giveS'
 
-function useS2(s Sent)
-	match s 'x1'
+function useS2(consumes s Sent)
+	match consumes s 'x1'
 		ok then break
 		notSent(r) then r.fin(1)
 	end 'x1'
@@ -11541,7 +11516,7 @@ end 'useS2'
 function main() returns ExitCode
 	let s = giveS(Resp.create(0)) as Sent
 	useS2(s)
-	match s 'x1'
+	match consumes s 'x1'
 		ok then break
 		notSent(r) then r.fin(1)
 	end 'x1'
@@ -11633,7 +11608,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-ac-ld-in-if-lent-else-fin-after -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `ld-in-if-lent-else-fin-after` of redteamAC.hand_ac3, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -11656,7 +11630,7 @@ type Resp
 	end 'peek'
 end 'Resp'
 
-function useR(r Resp)
+function useR(consumes r Resp)
 	r.fin(1)
 end 'useR'
 
@@ -11676,7 +11650,6 @@ error E3102: <fragment>:32:2: use of moved value 'r': its ownership moved to ano
 ```
 
 <!-- test: model-hand-ac-ld-param-forward-twice -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `ld-param-forward-twice` of redteamAC.hand_ac3, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -11699,7 +11672,7 @@ type Resp
 	end 'peek'
 end 'Resp'
 
-function useR(r Resp)
+function useR(consumes r Resp)
 	r.fin(1)
 end 'useR'
 
@@ -11774,7 +11747,6 @@ error E3102: <fragment>:30:8: use of moved value 'r': its ownership moved to ano
 ```
 
 <!-- test: model-hand-ac-ld-for-array-lend -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `ld-for-array-lend` of redteamAC.hand_ac3, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -11807,12 +11779,12 @@ type Box
 	end 'create'
 end 'Box'
 
-function useR(r Resp)
+function useR(consumes r Resp)
 	r.fin(1)
 end 'useR'
 
 function main() returns ExitCode
-	let a = BoxArray.create(0)
+	var a = BoxArray.create(0)
 	a.push(Box.create(1))
 	let r = Resp.create(0) as Resp
 	for _ in a 'f1'
@@ -12037,7 +12009,6 @@ error E3102: <fragment>:43:11: use of moved value 'r': its ownership moved to an
 ```
 
 <!-- test: model-hand-ac-sm-main-var-iso-fn-result -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `sm-main-var-iso-fn-result` of redteamAC.hand_ac6, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -12060,7 +12031,7 @@ type Resp
 	end 'peek'
 end 'Resp'
 
-function useR(r Resp)
+function useR(consumes r Resp)
 	r.fin(1)
 end 'useR'
 
@@ -12909,7 +12880,6 @@ error E3224: <fragment>:38:3: the case 'o' carries the linear value 's', and thi
 ```
 
 <!-- test: model-hand-ac-un-match-twice-same-var -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `un-match-twice-same-var` of redteamAC.hand_ac6, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -12937,17 +12907,17 @@ type Resp
 	end 'peek'
 end 'Resp'
 
-function giveS(r Resp) returns Sent
+function giveS(consumes r Resp) returns Sent
 	return Sent.notSent(r)
 end 'giveS'
 
 function main() returns ExitCode
 	let s = giveS(Resp.create(0))
-	match s 'x1'
+	match consumes s 'x1'
 		ok then break
 		notSent(r) then r.fin(1)
 	end 'x1'
-	match s 'x2'
+	match consumes s 'x2'
 		ok then break
 		notSent(r) then r.fin(1)
 	end 'x2'
@@ -13098,7 +13068,6 @@ error E3196: <fragment>:28:23: cannot store an isolated 'Resp' into 'Sent.notSen
 ```
 
 <!-- test: model-hand-ac-ul-union-literal-plain -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `ul-union-literal-plain` of redteamAC.hand_ac7, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -13126,8 +13095,8 @@ type Resp
 	end 'peek'
 end 'Resp'
 
-function useS(s Sent)
-	match s 'x1'
+function useS(consumes s Sent)
+	match consumes s 'x1'
 		ok then break
 		notSent(r) then r.fin(1)
 	end 'x1'
@@ -13220,7 +13189,6 @@ error E3102: <fragment>:24:9: use of moved value 'r': its ownership moved to ano
 ```
 
 <!-- test: model-hand-ac-ul-iso-iso-param-conversion -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `ul-iso-iso-param-conversion` of redteamAC.hand_ac7, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -13243,7 +13211,7 @@ type Resp
 	end 'peek'
 end 'Resp'
 
-function useR(r Resp)
+function useR(consumes r Resp)
 	r.fin(1)
 end 'useR'
 
@@ -13263,7 +13231,6 @@ error E3102: <fragment>:32:7: use of moved value 'r': its ownership moved to ano
 ```
 
 <!-- test: model-hand-ac-ul-iso-plain-then-iso-param -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `ul-iso-plain-then-iso-param` of redteamAC.hand_ac7, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -13286,7 +13253,7 @@ type Resp
 	end 'peek'
 end 'Resp'
 
-function useR(r Resp)
+function useR(consumes r Resp)
 	r.fin(1)
 end 'useR'
 
@@ -13306,7 +13273,6 @@ error E3102: <fragment>:32:9: use of moved value 'r': its ownership moved to ano
 ```
 
 <!-- test: model-hand-ac-ul-iso-peek-in-fn-after -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `ul-iso-peek-in-fn-after` of redteamAC.hand_ac7, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -13329,7 +13295,7 @@ type Resp
 	end 'peek'
 end 'Resp'
 
-function useR(r Resp)
+function useR(consumes r Resp)
 	r.fin(1)
 end 'useR'
 
@@ -13403,7 +13369,6 @@ error E3102: <fragment>:41:13: use of moved value 'r': its ownership moved to an
 ```
 
 <!-- test: model-hand-ac-ul-iso-then-return -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `ul-iso-then-return` of redteamAC.hand_ac7, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -13426,7 +13391,7 @@ type Resp
 	end 'peek'
 end 'Resp'
 
-function useR(r Resp)
+function useR(consumes r Resp)
 	r.fin(1)
 end 'useR'
 
@@ -13447,7 +13412,6 @@ error E3102: <fragment>:28:9: use of moved value 'r': its ownership moved to ano
 ```
 
 <!-- test: model-hand-ac-ul-iso-lend-in-while-cond -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `ul-iso-lend-in-while-cond` of redteamAC.hand_ac7, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -13470,7 +13434,7 @@ type Resp
 	end 'peek'
 end 'Resp'
 
-function consuming(r Resp) returns Num
+function consuming(consumes r Resp) returns Num
 	r.fin(1)
 	return 0
 end 'consuming'
@@ -13617,7 +13581,6 @@ error E3102: <fragment>:36:2: use of moved value 'r': its ownership moved to ano
 ```
 
 <!-- test: model-hand-ac-rec-self-plain -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `rec-self-plain` of redteamAC.hand_ac8, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -13640,7 +13603,7 @@ type Resp
 	end 'peek'
 end 'Resp'
 
-function h1(r Resp, c Num)
+function h1(consumes r Resp, c Num)
 	if c != 0 'i1'
 		h1(r, c: 0)
 	end 'i1' else 'e2'
@@ -13660,7 +13623,6 @@ error E3102: <fragment>:32:2: use of moved value 'r': its ownership moved to ano
 ```
 
 <!-- test: model-hand-ac-rec-self-iso -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `rec-self-iso` of redteamAC.hand_ac8, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -13683,7 +13645,7 @@ type Resp
 	end 'peek'
 end 'Resp'
 
-function h1(r Resp, c Num)
+function h1(consumes r Resp, c Num)
 	if c != 0 'i1'
 		h1(r, c: 0)
 	end 'i1' else 'e2'
@@ -13703,7 +13665,6 @@ error E3102: <fragment>:32:2: use of moved value 'r': its ownership moved to ano
 ```
 
 <!-- test: model-hand-ac-rec-chain-plain -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `rec-chain-plain` of redteamAC.hand_ac8, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -13726,7 +13687,7 @@ type Resp
 	end 'peek'
 end 'Resp'
 
-function k1(r Resp, c Num)
+function k1(consumes r Resp, c Num)
 	if c != 0 'i1'
 		k2(r, c: 0)
 	end 'i1' else 'e2'
@@ -13734,7 +13695,7 @@ function k1(r Resp, c Num)
 	end 'e2'
 end 'k1'
 
-function k2(r Resp, c Num)
+function k2(consumes r Resp, c Num)
 	if c != 0 'i1'
 		r.fin(1)
 	end 'i1' else 'e2'
@@ -13754,7 +13715,6 @@ error E3102: <fragment>:40:2: use of moved value 'r': its ownership moved to ano
 ```
 
 <!-- test: model-hand-ac-rec-chain-iso -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `rec-chain-iso` of redteamAC.hand_ac8, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -13777,7 +13737,7 @@ type Resp
 	end 'peek'
 end 'Resp'
 
-function k1(r Resp, c Num)
+function k1(consumes r Resp, c Num)
 	if c != 0 'i1'
 		k2(r, c: 0)
 	end 'i1' else 'e2'
@@ -13785,7 +13745,7 @@ function k1(r Resp, c Num)
 	end 'e2'
 end 'k1'
 
-function k2(r Resp, c Num)
+function k2(consumes r Resp, c Num)
 	if c != 0 'i1'
 		r.fin(1)
 	end 'i1' else 'e2'
@@ -13805,7 +13765,6 @@ error E3102: <fragment>:40:2: use of moved value 'r': its ownership moved to ano
 ```
 
 <!-- test: model-hand-ac-rec-forward-ref -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `rec-forward-ref` of redteamAC.hand_ac8, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -13828,12 +13787,12 @@ type Resp
 	end 'peek'
 end 'Resp'
 
-function early(r Resp)
+function early(consumes r Resp)
 	late(r)
 	r.fin(1)
 end 'early'
 
-function late(r Resp)
+function late(consumes r Resp)
 	r.fin(1)
 end 'late'
 
@@ -14455,7 +14414,6 @@ error E3223: <fragment>:45:2: this drops '_', a linear value that was never cons
 ```
 
 <!-- test: model-hand-ad-n-wrap-twice -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `n-wrap-twice` of redteamAD.hand_ad1, in capmodel `reggio/REPORTRTAD.txt`.
 
@@ -14487,7 +14445,7 @@ type Resp
 		return self.code
 	end 'peek'
 
-	function bump()
+	function bump(mutates self)
 		self.code = lg(1)
 	end 'bump'
 end 'Resp'
@@ -14496,8 +14454,8 @@ function lg(x Num) returns Num
 	return x
 end 'lg'
 
-function useS(s Sent)
-	match s 'x1'
+function useS(consumes s Sent)
+	match consumes s 'x1'
 		ok then break
 		notSent(r) then r.fin(1)
 	end 'x1'
@@ -14507,8 +14465,8 @@ function mkW() returns Wrap
 	return Wrap.w1(Sent.notSent(Resp.create(0)))
 end 'mkW'
 
-function useW(w Wrap)
-	match w 'x1'
+function useW(consumes w Wrap)
+	match consumes w 'x1'
 		w0 then break
 		w1(s) then useS(s)
 	end 'x1'
@@ -14585,7 +14543,6 @@ error E3224: <fragment>:47:3: the case 'w1' carries the linear value 's', and th
 ```
 
 <!-- test: model-hand-ad-n-wrap-match-s-and-w -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `n-wrap-match-s-and-w` of redteamAD.hand_ad1, in capmodel `reggio/REPORTRTAD.txt`.
 
@@ -14617,7 +14574,7 @@ type Resp
 		return self.code
 	end 'peek'
 
-	function bump()
+	function bump(mutates self)
 		self.code = lg(1)
 	end 'bump'
 end 'Resp'
@@ -14626,8 +14583,8 @@ function lg(x Num) returns Num
 	return x
 end 'lg'
 
-function useS(s Sent)
-	match s 'x1'
+function useS(consumes s Sent)
+	match consumes s 'x1'
 		ok then break
 		notSent(r) then r.fin(1)
 	end 'x1'
@@ -14637,8 +14594,8 @@ function mkW() returns Wrap
 	return Wrap.w1(Sent.notSent(Resp.create(0)))
 end 'mkW'
 
-function useW(w Wrap)
-	match w 'x1'
+function useW(consumes w Wrap)
+	match consumes w 'x1'
 		w0 then break
 		w1(s) then useS(s)
 	end 'x1'
@@ -14646,7 +14603,7 @@ end 'useW'
 
 function main() returns ExitCode
 	let w = mkW()
-	match w 'x1'
+	match consumes w 'x1'
 		w0 then break
 		w1(s) then useS(s)
 	end 'x1'
@@ -14904,7 +14861,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-ad-c-loop-consume-outer -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `c-loop-consume-outer` of redteamAD.hand_ad1, in capmodel `reggio/REPORTRTAD.txt`.
 
@@ -14926,7 +14882,7 @@ type Resp
 		return self.code
 	end 'peek'
 
-	function bump()
+	function bump(mutates self)
 		self.code = lg(1)
 	end 'bump'
 end 'Resp'
@@ -15385,7 +15341,6 @@ error E3102: <fragment>:37:13: use of moved value 'r': it was moved in an earlie
 ```
 
 <!-- test: model-hand-ad-c-if-cond-consume -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `c-if-cond-consume` of redteamAD.hand_ad1, in capmodel `reggio/REPORTRTAD.txt`.
 
@@ -15407,7 +15362,7 @@ type Resp
 		return self.code
 	end 'peek'
 
-	function bump()
+	function bump(mutates self)
 		self.code = lg(1)
 	end 'bump'
 end 'Resp'
@@ -15416,7 +15371,7 @@ function lg(x Num) returns Num
 	return x
 end 'lg'
 
-function fin2(r Resp) returns Num
+function fin2(consumes r Resp) returns Num
 	r.fin(1)
 	return 1
 end 'fin2'
@@ -15747,7 +15702,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-ad-s-let-from-var -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `s-let-from-var` of redteamAD.hand_ad1, in capmodel `reggio/REPORTRTAD.txt`.
 
@@ -15769,7 +15723,7 @@ type Resp
 		return self.code
 	end 'peek'
 
-	function bump()
+	function bump(mutates self)
 		self.code = lg(1)
 	end 'bump'
 end 'Resp'
@@ -15837,7 +15791,6 @@ error E3102: <fragment>:35:2: use of moved value 'r': its ownership moved to ano
 ```
 
 <!-- test: model-hand-ad-s-alias-in-loop -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `s-alias-in-loop` of redteamAD.hand_ad1, in capmodel `reggio/REPORTRTAD.txt`.
 
@@ -15859,7 +15812,7 @@ type Resp
 		return self.code
 	end 'peek'
 
-	function bump()
+	function bump(mutates self)
 		self.code = lg(1)
 	end 'bump'
 end 'Resp'
@@ -15929,7 +15882,6 @@ error E3102: <fragment>:34:2: use of moved value 'r': its ownership moved to ano
 ```
 
 <!-- test: model-hand-ad-w-one-call-open-consume -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `w-one-call-open-consume` of redteamAD.hand_ad1, in capmodel `reggio/REPORTRTAD.txt`.
 
@@ -15951,7 +15903,7 @@ type Resp
 		return self.code
 	end 'peek'
 
-	function bump()
+	function bump(mutates self)
 		self.code = lg(1)
 	end 'bump'
 end 'Resp'
@@ -17061,7 +17013,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-ad-n-arm-name-is-scrutinee-after -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `n-arm-name-is-scrutinee-after` of redteamAD.hand_ad4, in capmodel `reggio/REPORTRTAD.txt`.
 
@@ -17089,12 +17040,12 @@ type Resp
 	end 'peek'
 end 'Resp'
 
-function giveS(r Resp) returns Sent
+function giveS(consumes r Resp) returns Sent
 	return Sent.notSent(r)
 end 'giveS'
 
-function useS(s Sent)
-	match s 'x1'
+function useS(consumes s Sent)
+	match consumes s 'x1'
 		ok then break
 		notSent(r) then r.fin(1)
 	end 'x1'
@@ -17102,7 +17053,7 @@ end 'useS'
 
 function main() returns ExitCode
 	let s = giveS(Resp.create(0))
-	match s 'x1'
+	match consumes s 'x1'
 		ok then break
 		notSent(s) then s.fin(1)
 	end 'x1'
@@ -17703,7 +17654,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-ad-k-forward-keeper -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `k-forward-keeper` of redteamAD.hand_ad7, in capmodel `reggio/REPORTRTAD.txt`.
 
@@ -17726,7 +17676,7 @@ type Resp
 	end 'peek'
 end 'Resp'
 
-function later1(r Resp)
+function later1(consumes r Resp)
 	r.fin(1)
 end 'later1'
 
@@ -17742,7 +17692,6 @@ error E3102: <fragment>:28:2: use of moved value 'r': its ownership moved to ano
 ```
 
 <!-- test: model-hand-ad-k-forward-keeper-chain -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `k-forward-keeper-chain` of redteamAD.hand_ad7, in capmodel `reggio/REPORTRTAD.txt`.
 
@@ -17765,15 +17714,15 @@ type Resp
 	end 'peek'
 end 'Resp'
 
-function c1(r Resp)
+function c1(consumes r Resp)
 	c2(r)
 end 'c1'
 
-function c2(r Resp)
+function c2(consumes r Resp)
 	c3(r)
 end 'c2'
 
-function c3(r Resp)
+function c3(consumes r Resp)
 	r.fin(1)
 end 'c3'
 
@@ -17840,7 +17789,6 @@ error E3102: <fragment>:40:2: use of moved value 'r': its ownership moved to ano
 ```
 
 <!-- test: model-hand-ad-k-forward-keeper-self -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `k-forward-keeper-self` of redteamAD.hand_ad7, in capmodel `reggio/REPORTRTAD.txt`.
 
@@ -17867,7 +17815,7 @@ function lg(x Num) returns Num
 	return x
 end 'lg'
 
-function m1(r Resp, n Num)
+function m1(consumes r Resp, n Num)
 	if n != 0 'i1'
 		m1(r, n: lg(0))
 	end 'i1' else 'e2'
@@ -17931,7 +17879,6 @@ error E3102: <fragment>:34:2: use of moved value 'r': its ownership moved to ano
 ```
 
 <!-- test: model-hand-ad-k-forward-keeper-through-method -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `k-forward-keeper-through-method` of redteamAD.hand_ad7, in capmodel `reggio/REPORTRTAD.txt`.
 
@@ -17961,17 +17908,17 @@ type Hd
 		return Self{k: k}
 	end 'create'
 
-	function eat(r Resp)
+	function eat(consumes r Resp)
 		r.fin(1)
 	end 'eat'
 
-	function eatBoth(r Resp, s Resp)
+	function eatBoth(consumes r Resp, consumes s Resp)
 		r.fin(1)
 		s.fin(1)
 	end 'eatBoth'
 end 'Hd'
 
-function viaH(h Hd, r Resp)
+function viaH(h Hd, consumes r Resp)
 	h.eat(r)
 end 'viaH'
 
@@ -17988,7 +17935,6 @@ error E3102: <fragment>:46:2: use of moved value 'r': its ownership moved to ano
 ```
 
 <!-- test: model-hand-ad-k-forward-keeper-in-spawn -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `k-forward-keeper-in-spawn` of redteamAD.hand_ad7, in capmodel `reggio/REPORTRTAD.txt`.
 
@@ -18014,7 +17960,7 @@ end 'Resp'
 type Kf
 	var n as Num
 
-	static function create(r Resp) returns Self
+	static function create(consumes r Resp) returns Self
 		r.fin(1)
 		return Self{n: 1}
 	end 'create'
@@ -18077,7 +18023,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-ad-k-forward-keeper-union-fn -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `k-forward-keeper-union-fn` of redteamAD.hand_ad7, in capmodel `reggio/REPORTRTAD.txt`.
 
@@ -18105,8 +18050,8 @@ type Resp
 	end 'peek'
 end 'Resp'
 
-function later2(s Sn)
-	match s 'x1'
+function later2(consumes s Sn)
+	match consumes s 'x1'
 		ok then break
 		notSent(r) then r.fin(1)
 	end 'x1'
@@ -19169,7 +19114,6 @@ error E3214: <fragment>:49:10: 'Mp' is unique (its field 'x' holds a unique 'Rl'
 ```
 
 <!-- test: model-hand-af-l1-continue-after-consume -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `l1-continue-after-consume` of redteamAF.hand_af22, in capmodel `reggio/REPORTRTAF.txt`.
 
@@ -19201,7 +19145,7 @@ type Rl
 		return self.code
 	end 'peek'
 
-	function set(c Num)
+	function set(mutates self, c Num)
 		self.code = c
 	end 'set'
 
@@ -19218,7 +19162,7 @@ function main() returns ExitCode
 	let u = Sh.held(Rl.create(1))
 	var i = 2 as Num
 	while i != 0 'w1'
-		match u 'x2'
+		match consumes u 'x2'
 			none then break
 			held(q) then q.fin(1)
 		end 'x2'
@@ -19233,7 +19177,6 @@ error E3102: <fragment>:47:9: use of moved value 'u': it was moved in an earlier
 ```
 
 <!-- test: model-hand-af-l2-conditional-continue-after-consume -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `l2-conditional-continue-after-consume` of redteamAF.hand_af22, in capmodel `reggio/REPORTRTAF.txt`.
 
@@ -19265,7 +19208,7 @@ type Rl
 		return self.code
 	end 'peek'
 
-	function set(c Num)
+	function set(mutates self, c Num)
 		self.code = c
 	end 'set'
 
@@ -19282,7 +19225,7 @@ function main() returns ExitCode
 	let u = Sh.held(Rl.create(1))
 	let i = 2 as Num
 	while i != 0 'w1'
-		match u 'x2'
+		match consumes u 'x2'
 			none then break
 			held(q) then q.fin(1)
 		end 'x2'
@@ -19763,7 +19706,6 @@ error E3223: <fragment>:45:2: this drops a linear value that was never consumed:
 ```
 
 <!-- test: model-hand-af-l12-for-continue-consume -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `l12-for-continue-consume` of redteamAF.hand_af22, in capmodel `reggio/REPORTRTAF.txt`.
 
@@ -19797,7 +19739,7 @@ type Rl
 		return self.code
 	end 'peek'
 
-	function set(c Num)
+	function set(mutates self, c Num)
 		self.code = c
 	end 'set'
 
@@ -19808,11 +19750,11 @@ end 'Rl'
 
 function main() returns ExitCode
 	let u = Sh.held(Rl.create(1))
-	let xs = NumArray.create(0)
+	var xs = NumArray.create(0)
 	xs.push(1)
 	xs.push(2)
 	for _ in xs 'f1'
-		match u 'x2'
+		match consumes u 'x2'
 			none then break
 			held(q) then q.fin(1)
 		end 'x2'
@@ -32506,7 +32448,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-fa17-r-linear -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `r-linear` of redteamFA17.hand_fa17a, in capmodel `reggio/REPORTFA17.txt`.
 
@@ -32533,7 +32474,7 @@ type Rl
 		return self.code
 	end 'peek'
 
-	function set(c Num)
+	function set(mutates self, c Num)
 		self.code = c
 	end 'set'
 
@@ -32542,7 +32483,7 @@ type Rl
 	end 'wrap'
 end 'Rl'
 
-function fr(r Rl)
+function fr(consumes r Rl)
 	let u = r
 	u.fin(1)
 end 'fr'
@@ -34924,7 +34865,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-fa25-a-cond-linear-same-then-use -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `a-cond-linear-same-then-use` of redteamFA25.hand_fa25, in capmodel `reggio/REPORTFA25.txt`.
 
@@ -34951,7 +34891,7 @@ type Rl
 		return self.code
 	end 'peek'
 
-	function set(c Num)
+	function set(mutates self, c Num)
 		self.code = c
 	end 'set'
 
