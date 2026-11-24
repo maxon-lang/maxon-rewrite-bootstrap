@@ -71,6 +71,8 @@ builds a C3 identical to it).
   `seed/minimaxon-arm64-macos` and the gate is the same `./check.sh`: every script runs `go run ./cmd/gate check`, which
   holds the one list of steps (README, "Building on Linux" and "Building on macOS"). A step is added or changed there, never
   in a script.
+- **CI** (`.github/workflows/ci.yml`, README, "Continuous integration") runs the Linux and macOS gates and, natively on GitHub's
+  arm64 Linux runner, the `arm64-linux` lanes (`go run ./cmd/gate suites <compiler>`) on every push.
 - **Before a commit, `.\check.ps1` (or `./check.sh`) passes.** Nothing else is required: no test written first, no test per change, no
   timing.
 - **The seed is renewed only when `self/` or `runtime/` is to use a language feature the seed does not compile.**

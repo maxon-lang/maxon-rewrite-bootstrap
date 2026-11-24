@@ -1,0 +1,74 @@
+# The gate on the hosts GitHub runs: x64 Linux and arm64 macOS run `./check.sh`, and arm64 Linux, which has no seed, runs
+# natively the lanes of a compiler that the x64 Linux job cross-built (README, "Continuous integration"). There is no Windows
+# job: the Windows gate needs WSL for its Linux corpus.
+name: ci
+
+on:
+  push:
+    branches: [main, "cloud/**", "eric-pc/**"]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  linux-x64:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          # The module has no dependencies and so no go.sum; the build cache is keyed by go.mod instead.
+          cache-dependency-path: go.mod
+      - name: Gate
+        run: ./check.sh
+      # The compiler the gate built (bin/minimaxon) builds itself for arm64 Linux; the arm64 job runs it, and finds runtime/
+      # and stdlib/ in its own checkout, as the compiler finds them by walking up from its executable.
+      - name: Cross-build the compiler for arm64 Linux
+        run: ./bin/minimaxon build self --target=arm64-linux --no-cache -o bin/minimaxon-arm64-linux
+      - uses: actions/upload-artifact@v4
+        with:
+          name: minimaxon-arm64-linux
+          path: bin/minimaxon-arm64-linux
+          if-no-files-found: error
+          retention-days: 7
+
+  linux-arm64:
+    needs: linux-x64
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: go.mod
+      - uses: actions/download-artifact@v4
+        with:
+          name: minimaxon-arm64-linux
+          path: bin
+      # An artifact keeps no file mode.
+      - name: Make the compiler executable
+        run: chmod +x bin/minimaxon-arm64-linux
+      # The compiler's own suites, and the corpus and the behaviours reruns for arm64-linux, run natively (cmd/gate, armLinuxLanes).
+      - name: Lanes
+        run: go run ./cmd/gate suites bin/minimaxon-arm64-linux
+
+  macos-arm64:
+    runs-on: macos-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: go.mod
+      - name: Gate
+        run: ./check.sh

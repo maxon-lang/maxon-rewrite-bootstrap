@@ -99,6 +99,19 @@ with the arm64 test runtime (`arm64RuntimeUnit`); the machine IR's tests of hand
 x64 Linux executable and not run. The compiler reads the directory of temporary files from `TMPDIR`, which macOS sets; a
 Mac never renews the seeds, but proves the macOS one when they are renewed (see `seed/README.md`).
 
+### Continuous integration
+
+`.github/workflows/ci.yml` runs on every push to `main`, `cloud/**` and `eric-pc/**`, on every pull request and on demand, in three
+jobs. `linux-x64` (`ubuntu-latest`) runs `./check.sh`, the whole x64 Linux gate, then has the compiler the gate built
+(`bin/minimaxon`) build itself for `arm64-linux` and keeps that executable as an artifact. `linux-arm64` (`ubuntu-24.04-arm`,
+GitHub's native arm64 Linux runner) starts when it has ended, and runs that compiler natively with
+`go run ./cmd/gate suites bin/minimaxon-arm64-linux`: arm64 Linux has no seed, so `gate check`, `build` and `compiler` refuse there,
+and `suites` runs the lanes in `armLinuxLanes` (`checks`, `native` and `native-behaviours`: the compiler's own suites, and the corpus and the
+behaviours reruns for `arm64-linux` with `--verify-ir`), each step the same as on every other host, instead of under qemu. The
+compiler finds `runtime/` and `stdlib/` by walking up from its executable, which sits in `bin/` of that job's checkout. `macos-arm64`
+(`macos-latest`) runs `./check.sh`, the arm64 macOS gate. There is no Windows job, since the Windows gate needs WSL. A job fails on
+the step that fails, with the gate's own output.
+
 | Command | What it does |
 |---|---|
 | `minimaxon build <file\|dir> [-o out.exe] [--target=<arch>-<os>]` | compile; the path given is the project's root, and a directory is a project, one module per directory (see "Modules"); `--target` names the target, `x64-windows`, `x64-linux` or `arm64-linux` (see "Targets"), the system the compiler runs on by default |

@@ -82,6 +82,9 @@ func suites(h host, compilerPath string, args []string) error {
 	// WSL passes on only the variables that WSLENV names.
 	passToWsl("MAXON_HASH_SEED")
 	steps, phases := run.steps()
+	if h.lanes != nil && run.lane == "" {
+		fmt.Printf("%s runs the lanes %s only: the compiler is another host's build, and the other lanes are that host's\n", h.target, strings.Join(h.lanes, ", "))
+	}
 	if run.lane != "" {
 		err := runLaneSteps(steps, []string{run.lane})
 		if path := os.Getenv(laneTimesVariable); path != "" {
@@ -148,6 +151,12 @@ func (r suiteRun) steps() ([]laneStep, [][]string) {
 	if !r.h.macos() {
 		steps = append(steps, laneStep{step{"corpus on arm64-macos", func() error { return macLane(r.h, r.compiler, r.behavioursArgs(), r.testArgs) }}, "mac"})
 		first = append(first, "mac")
+	}
+	if r.h.lanes != nil {
+		keep := func(lanes []string) []string {
+			return slices.DeleteFunc(lanes, func(l string) bool { return !slices.Contains(r.h.lanes, l) })
+		}
+		first, second = keep(first), keep(second)
 	}
 	return steps, [][]string{first, second}
 }
@@ -297,7 +306,8 @@ func passToWsl(name string) {
 
 // runsTarget is why the host cannot run the executables of a target, or "" when it can: Windows runs Linux's under WSL,
 // in its default distribution, an x64 one natively and an arm64 one through the qemu-aarch64 that the distribution
-// registers with binfmt_misc; Linux runs an arm64 one through the qemu-aarch64 it registers itself; macOS runs only its own.
+// registers with binfmt_misc; x64 Linux runs an arm64 one through the qemu-aarch64 it registers itself, and arm64 Linux an
+// x64 one not at all; macOS runs only its own.
 // A Windows machine without WSL or a distribution fails the step instead: the Windows gate has always run Linux's code, and
 // does not skip it.
 func runsTarget(h host, t string) (string, error) {
@@ -306,6 +316,8 @@ func runsTarget(h host, t string) (string, error) {
 		return "", assertWsl()
 	case !h.windows() && t == "x64-windows":
 		return "Windows executables run only on Windows", nil
+	case h.armLinux() && t == "x64-linux":
+		return "an arm64 Linux host has no emulator for x64 executables, and x64 Linux's gate runs that corpus natively", nil
 	case h.macos() && strings.HasSuffix(t, "-linux"):
 		return "Linux executables run on Linux or under WSL, and macOS has no way to run them", nil
 	case h.linux() && t == "arm64-linux":

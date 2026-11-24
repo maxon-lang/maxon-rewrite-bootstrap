@@ -29,7 +29,7 @@ import (
 
 const usage = `usage:
   gate check [test args...]          the gate: Go checks, generators, a compiler from the seed and the suites on it
-  gate suites <compiler> [args...]   the suites a compiler must pass
+  gate suites <compiler> [args...]   the suites a compiler must pass (on arm64 Linux, which has no seed, the lanes it runs natively)
   gate seed                          renew the seeds, each proven to reproduce itself
   gate specs <maxon specs dir>       regenerate specs/ from maxon's spec tests and write specs/passed.txt again
   gate stdlib [--check] <maxon stdlib dir>
@@ -70,6 +70,9 @@ func gate() {
 		os.Setenv("TMPDIR", os.TempDir())
 	}
 	args := os.Args[2:]
+	if h.seed == "" && os.Args[1] != "suites" {
+		fail(fmt.Errorf("%s: %s has no committed seed to build the compiler from; it runs the lanes of a compiler that another host built: gate suites <compiler> (README, \"Continuous integration\")", os.Args[1], h.target))
+	}
 	if os.Args[1] != "suites" || !slices.ContainsFunc(args, func(a string) bool { return strings.HasPrefix(a, "--lane=") }) {
 		release, err := holdHeavy()
 		if err != nil {
@@ -169,8 +172,11 @@ type host struct {
 	target string
 	// exe ends the name of an executable of the host.
 	exe string
-	// seed is the committed compiler that builds self/ on this host.
+	// seed is the committed compiler that builds self/ on this host, "" where there is none (arm64 Linux).
 	seed string
+	// lanes are the only lanes of the suites that this host runs, nil for all of them. A host without a seed gets its
+	// compiler from another host, and runs the lanes that only it can: the other lanes are that host's.
+	lanes []string
 }
 
 // seeds are the committed compilers, one per host target the repository is built on, all built from self/ by the Windows
@@ -180,6 +186,11 @@ var seeds = map[string]string{
 	"x64-linux":   filepath.Join("seed", "minimaxon-x64-linux"),
 	"arm64-macos": filepath.Join("seed", macosSeedName),
 }
+
+// armLinuxLanes are the lanes that arm64 Linux runs natively on a compiler that x64 Linux cross-built (gate suites): the
+// compiler's own suites, and the corpus and the reruns of the programs that schedule behaviours for arm64-linux, which an
+// x64 host can run only under qemu and does not.
+var armLinuxLanes = []string{"checks", "native", "native-behaviours"}
 
 // macosSeedName is the macOS seed's file name. A Mach-O executable is signed under the name it is built as, so every
 // compiler that is compared with it is built under this name too, each in a directory of its own (gate seed).
@@ -194,10 +205,15 @@ func currentHost() (host, error) {
 		name = "x64-linux"
 	case "darwin/arm64":
 		name = "arm64-macos"
+	case "linux/arm64":
+		name = "arm64-linux"
 	default:
-		return host{}, fmt.Errorf("gate: no seed runs on %s/%s; the hosts are x64 Windows, x64 Linux and arm64 macOS", runtime.GOOS, runtime.GOARCH)
+		return host{}, fmt.Errorf("gate: no host is %s/%s; the hosts are x64 Windows, x64 Linux, arm64 macOS and (without a seed) arm64 Linux", runtime.GOOS, runtime.GOARCH)
 	}
 	h := host{target: name, seed: seeds[name]}
+	if name == "arm64-linux" {
+		h.lanes = armLinuxLanes
+	}
 	if runtime.GOOS == "windows" {
 		h.exe = ".exe"
 	}
@@ -209,6 +225,8 @@ func (h host) windows() bool { return h.target == "x64-windows" }
 func (h host) linux() bool { return h.target == "x64-linux" }
 
 func (h host) macos() bool { return h.target == "arm64-macos" }
+
+func (h host) armLinux() bool { return h.target == "arm64-linux" }
 
 // compiler is the path of a compiler called name that the gate builds into bin/.
 func (h host) compiler(name string) string {
