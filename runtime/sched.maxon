@@ -106,22 +106,37 @@ let plusSign = 0x2B as Byte
 let digitNine = 0x39 as Byte
 
 // schedPush makes a behaviour runnable: its record goes next on the running thread's processor as a run queue's entry, as
-// Go's goready puts a goroutine in runnext, and a thread is woken for the processors that are idle. It takes a green thread
-// only when a processor starts it (execute).
+// Go's goready puts a goroutine in runnext, and a thread is woken for the processors that are idle (Go's ready calls
+// wakep). It takes a green thread only when a processor starts it (execute).
 function schedPush(record Count)
-	behaviourRunnable(record, next: true)
+	let context = __Raw.threadContext()
+	behaviourQueued(context, record: record, next: true)
+	wakeProc(__Raw.loadWord(context, offset: contextSchedulerOffset))
 end 'schedPush'
 
-// behaviourRunnable queues a behaviour that holds every cown it names on the running thread's processor, next or at the
-// tail, and counts it among the live ones (stepLive). A behaviour counts from when it is runnable, not from its `when`: one
-// queued behind another on a cown is kept by the one ahead, which counts until it has handed the cown on, so the count
-// is above 0 while anything is left, and a send to a busy service counts nothing.
-function behaviourRunnable(record Count, next bool)
+// behaviourYields queues the behaviour that a turn hands on past its end (runTurn) at the tail of the running thread's
+// processor. A turn that ran its share of behaviours, or whose behaviour made a coroutine, yields as Go's goyield does:
+// the behaviour goes on the thread's own processor and no thread is woken, since the thread that queues it is about to
+// look for work there, so it waits only behind what was queued before it. A wake would start an idle thread at each such
+// turn's end that takes the behaviour to another core, and the service's data with it, only to stop again when the turn
+// ends there. A turn that the monitor preempted wakes one, as Go's goschedImpl calls wakep for a preempted goroutine: its
+// thread was asked to stop because others wait, so the behaviour may be run elsewhere.
+function behaviourYields(record Count, preempted bool)
 	let context = __Raw.threadContext()
+	behaviourQueued(context, record: record, next: false)
+	if preempted 'preempted'
+		wakeProc(__Raw.loadWord(context, offset: contextSchedulerOffset))
+	end 'preempted'
+end 'behaviourYields'
+
+// behaviourQueued queues a behaviour that holds every cown it names on the processor of the running thread, whose context
+// is context, next or at the tail, and counts it among the live ones (stepLive). A behaviour counts from when it is
+// runnable, not from its `when`: one queued behind another on a cown is kept by the one ahead, which counts until it has
+// handed the cown on, so the count is above 0 while anything is left, and a send to a busy service counts nothing.
+function behaviourQueued(context Count, record Count, next bool)
 	stepLive(context, change: 1)
 	runqPut(__Raw.loadWord(context, offset: contextProcOffset), g: behaviourEntry(record), next: next)
-	wakeProc(__Raw.loadWord(context, offset: contextSchedulerOffset))
-end 'behaviourRunnable'
+end 'behaviourQueued'
 
 // stepLive changes the count of live behaviours and green threads by 1 or stepDown, on the processor the running thread
 // holds: only that thread writes the processor's count, so the step is a plain one, and no word that every core writes

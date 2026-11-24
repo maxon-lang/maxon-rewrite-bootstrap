@@ -553,8 +553,9 @@ function runTurn(g Count)
 			return
 		end 'done'
 		__Raw.storeWord(g, offset: greenHandedOffset, value: noBehaviour)
-		if ran >= turnBehaviours or __Raw.loadAcquire(g, offset: greenPreemptOffset) == set or __Raw.loadWord(g, offset: greenStrandOffset) != noGreen 'ended'
-			behaviourRunnable(record, next: false)
+		let preempted = __Raw.loadAcquire(g, offset: greenPreemptOffset) == set
+		if ran >= turnBehaviours or preempted or __Raw.loadWord(g, offset: greenStrandOffset) != noGreen 'ended'
+			behaviourYields(record, preempted: preempted)
 			return
 		end 'ended'
 		ran = __Raw.wrappingAdd(ran, right: 1)
