@@ -128,9 +128,9 @@ function addCallBorrows(o Ownership, p ast.Project, mutates ms ast.ModuleState, 
 end 'addCallBorrows'
 
 // addArgumentBorrows adds what a value a call makes may borrow through one argument: what it borrows itself, if it holds a
-// borrow, and the place, if it is a managed value the call is lent that a cursor could point into. A scalar or a value the
-// call owns lends nothing, and a value of a type that holds a borrow is no buffer; a value of a type parameter may be
-// either, so it lends both.
+// borrow, and the place, if it is a managed value the call is lent that a cursor could point into. A scalar, a value the
+// call owns or a String literal, which lasts the whole run, lends nothing, and a value of a type that holds a borrow is no
+// buffer; a value of a type parameter may be either, so it lends both.
 function addArgumentBorrows(o Ownership, p ast.Project, mutates ms ast.ModuleState, arg ast.NodeID, conv ast.Convention, mutates out OwnBorrows)
 	let t = ownType(o, node: arg)
 	if holdsBorrow(p, ms: ms, t: t) 'holds'
@@ -139,7 +139,7 @@ function addArgumentBorrows(o Ownership, p ast.Project, mutates ms ast.ModuleSta
 			return
 		end 'concrete'
 	end 'holds'
-	if ast.ownsValue(conv) or not isManagedOwn(p, ms: ms, t: t) 'lendsNothing'
+	if ast.ownsValue(conv) or not isManagedOwn(p, ms: ms, t: t) or isStaticString(ms, e: arg) 'lendsNothing'
 		return
 	end 'lendsNothing'
 	let path = pathOf(o, p: p, ms: ms, e: arg)

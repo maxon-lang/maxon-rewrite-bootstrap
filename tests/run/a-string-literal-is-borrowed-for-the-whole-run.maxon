@@ -1,0 +1,27 @@
+// A String literal lasts the whole run, so what is made of it borrows nothing that ends: a view of it is returned borrowed,
+// and a cursor made of it is bound and returned.
+function greeting() returns borrowed String
+	return "  hello  ".trim()
+end 'greeting'
+
+function name() returns borrowed String
+	return "ada"
+end 'name'
+
+function walk() returns StringIterator throws IterationError
+	return try ("abc").createIterator()
+end 'walk'
+
+function main() returns ExitCode
+	let word = "  hi  ".trim()
+	print("{word} {greeting()} {name()}\n")
+	let letters = try "xyz".createIterator() otherwise return 1
+	print("{letters.current()}\n")
+	let other = try walk() otherwise return 1
+	print("{other.current()}\n")
+	return 0
+end 'main'
+
+//> hi hello ada
+//> x
+//> a

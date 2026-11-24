@@ -5719,6 +5719,7 @@ ranges.md: ranges.nested-ranges
 ranges.md: ranges.single-element-exclusive
 ranges.md: ranges.single-element-inclusive
 ranges.md: ranges.variable-bounds
+ranges.md: ranges.with-iterator
 ranges.md: ranges.zero-start
 raw-bit-patterns.md: a-dynamic-shift-count-carries-an-unsigned-quantity-into-bit-63
 raw-bit-patterns.md: a-full-unsigned-quantity-parameter-admits-u64-max

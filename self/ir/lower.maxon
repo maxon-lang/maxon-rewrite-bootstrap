@@ -690,6 +690,7 @@ function visitForClusters(mutates l Lowerer, p ast.Project, mutates ms ast.Modul
 	let bit = runtime(l, symbol: Rt.rtStrAscii, kind: IrKind.kindScalar, args: argsOf1(text))
 	let isAscii = nonZero(l, v: bit)
 	emit(l, i: newStoreSlot(simple, src: isAscii, borrow: false))
+	startCount(l, p: p, s: s)
 	goTo(l, target: top)
 	let whole = load(l, slot: held)
 	let size = runtime(l, symbol: Rt.rtStrLen, kind: IrKind.kindScalar, args: argsOf1(whole))
@@ -723,11 +724,36 @@ function visitForClusters(mutates l Lowerer, p ast.Project, mutates ms ast.Modul
 	lowerBlock(l, p: p, ms: ms, ref: ast.forStmtBodyRef(p.modules[l.mi].tree, id: s))
 	goTo(l, target: cont)
 	popJumps(l)
+	countPass(l, p: p, s: s)
 	let next = load(l, slot: after)
 	emit(l, i: newStoreSlot(position, src: next, borrow: false))
 	goTo(l, target: top)
 	l.cur = exit
 end 'visitForClusters'
+
+// startCount and countPass keep the index of a `for (i, x) in xs.enumerated()` over a collection whose loop walks no
+// indexes, a String's, a List's or a cursor's: its variable is 0 before the first pass and counts each pass that ends.
+function startCount(mutates l Lowerer, p ast.Project, s ast.NodeID)
+	let index = indexLocalOf(p, module: l.module, node: s)
+	if index == ast.noLocal 'none'
+		return
+	end 'none'
+	let zero = konst(l, value: 0 as Word)
+	emit(l, i: newStoreSlot(slotOf(localEntry(p, module: l.fnModule, id: index)), src: zero, borrow: false))
+end 'startCount'
+
+function countPass(mutates l Lowerer, p ast.Project, s ast.NodeID)
+	let index = indexLocalOf(p, module: l.module, node: s)
+	if index == ast.noLocal 'none'
+		return
+	end 'none'
+	let slot = slotOf(localEntry(p, module: l.fnModule, id: index))
+	let passed = load(l, slot: slot)
+	let one = konst(l, value: 1 as Word)
+	let next = newReg(l, kind: IrKind.kindScalar)
+	emit(l, i: newBin(next, op: BinOp.binAdd, left: passed, right: one, unsigned: true, fail: noBlock))
+	emit(l, i: newStoreSlot(slot, src: next, borrow: false))
+end 'countPass'
 
 // visitForList lowers a for over a List to a walk of its handles, from the first to the one with no next. The list is read
 // once, and the ownership pass keeps the body from changing it. Each element is lent to the variable, as a subscript lends
@@ -746,6 +772,7 @@ function visitForList(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleSta
 	emit(l, i: newStoreSlot(held, src: list, borrow: true))
 	let first = entry(l, p: p, site: site, symbol: Rt.rtListFirst, kind: IrKind.kindScalar, args: argsOf1(list))
 	emit(l, i: newStoreSlot(handle, src: first, borrow: false))
+	startCount(l, p: p, s: s)
 	goTo(l, target: top)
 	let at = load(l, slot: handle)
 	let more = nonZero(l, v: at)
@@ -761,6 +788,7 @@ function visitForList(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleSta
 	lowerBlock(l, p: p, ms: ms, ref: ast.forStmtBodyRef(p.modules[l.mi].tree, id: s))
 	goTo(l, target: cont)
 	popJumps(l)
+	countPass(l, p: p, s: s)
 	let walked = load(l, slot: held)
 	let passed = load(l, slot: handle)
 	let next = entry(l, p: p, site: site, symbol: Rt.rtListNext, kind: IrKind.kindScalar, args: argsOf2(walked, b: passed))
@@ -792,6 +820,7 @@ function visitForCursor(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleS
 	end 'factory' else 'itself'
 		emit(l, i: newStoreSlot(cursor, src: collection, borrow: true))
 	end 'itself'
+	startCount(l, p: p, s: s)
 	goTo(l, target: body)
 	pushJumps(l, node: s, brk: exit, cont: cont)
 	pushScope(l, block: true)
@@ -808,6 +837,7 @@ function visitForCursor(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleS
 	popScope(l, p: p)
 	goTo(l, target: cont)
 	popJumps(l)
+	countPass(l, p: p, s: s)
 	let moving = load(l, slot: cursor)
 	_ = protocolCall(l, p: p, ms: ms, s: s, info: info.advance, recv: moving, dst: noReg, resultTy: ast.noType, exit: exit)
 	goTo(l, target: body)

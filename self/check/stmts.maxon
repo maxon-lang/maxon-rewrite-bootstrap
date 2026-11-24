@@ -411,35 +411,48 @@ function checkForEach(mutates c Checker, p ast.Project, mutates ms ast.ModuleSta
 		checkEnumerated(c, p: p, ms: ms, s: s, receiver: receiver, errs: errs)
 		return
 	end 'enumerated'
+	var lent as bool
+	let elem = forElement(c, p: p, ms: ms, s: s, source: source, lent: lent, errs: errs)
+	if elem == ast.noType 'notIterable'
+		return
+	end 'notIterable'
+	checkForBody(c, p: p, ms: ms, s: s, varType: elem, borrows: lent, errs: errs)
+end 'checkForEach'
+
+// forElement types the collection source that the for s walks and gives the type of the element each pass binds, or none,
+// with an error, where the for cannot walk it. It sets lent where the element is lent to the variable rather than owned by
+// it.
+function forElement(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, s ast.NodeID, source ast.NodeID, sets lent bool, mutates errs diag.ErrorList) returns ast.TypeID
+	lent = false
 	let typed = checkExpr(c, p: p, ms: ms, e: source, errs: errs)
 	if typed == ast.noType 'badSource'
-		return
+		return ast.noType
 	end 'badSource'
 	let t = ast.contentType(ms.types, reads: p.types, t: typed)
 	if not requireNotCown(c, p: p, ms: ms, off: offsetOf(c, p: p, ms: ms, node: source), t: t, use: "a 'for' over its elements", errs: errs) 'cown'
-		return
+		return ast.noType
 	end 'cown'
 	let kind = kindOfType(p, ms: ms, t: t)
 	if kind == ast.TypeKind.builtinArray or kind == ast.TypeKind.builtinList 'inPlace'
 		let elem = typeElemType(p, ms: ms, ownerTy: t)
-		checkForBody(c, p: p, ms: ms, s: s, varType: elem, borrows: ast.isManagedType(ms.types, reads: p.types, t: elem), errs: errs)
-		return
+		lent = ast.isManagedType(ms.types, reads: p.types, t: elem)
+		return elem
 	end 'inPlace'
 	// Each grapheme cluster of a String is lent to the variable as a view of the String's bytes.
 	if kind == ast.TypeKind.primString 'clusters'
-		checkForBody(c, p: p, ms: ms, s: s, varType: p.builtins.stringTy, borrows: true, errs: errs)
-		return
+		lent = true
+		return p.builtins.stringTy
 	end 'clusters'
 	let elem = checkIteration(c, p: p, ms: ms, s: s, t: t, typed: typed, errs: errs)
 	if elem == ast.noType 'notIterable'
-		return
+		return ast.noType
 	end 'notIterable'
 	// A cursor whose current() lends its element lends it to the variable, as an array's loop does.
-	let lent = iterationOf(c, s: s).current.result == ast.ResultConv.resultBorrowed
-	checkForBody(c, p: p, ms: ms, s: s, varType: elem, borrows: lent and ast.isManagedType(ms.types, reads: p.types, t: elem), errs: errs)
-end 'checkForEach'
+	lent = iterationOf(c, s: s).current.result == ast.ResultConv.resultBorrowed and ast.isManagedType(ms.types, reads: p.types, t: elem)
+	return elem
+end 'forElement'
 
-// enumeratedMethod is the call that a for walks an array through with the index of each element, `for (i, x) in
+// enumeratedMethod is the call that a for walks a collection through with the index of each element, `for (i, x) in
 // xs.enumerated()`, where maxon's loop is `for (iter, x) in xs.withIterator()` and asks the iterator for `iter.index()`
 // (README, "Where it differs from Maxon").
 let enumeratedMethod = "enumerated"
@@ -456,31 +469,21 @@ function enumeratedReceiver(tree ast.Tree, source ast.NodeID) returns ast.NodeID
 	return ast.memberExprObj(tree, id: callee)
 end 'enumeratedReceiver'
 
-// checkEnumerated types `for (i, x) in xs.enumerated()`: the for over the elements of the array xs, which also binds each
-// one's index to the first name. The loop walks xs itself from here on, and the lowering gives the index it counts to the
-// variable recorded for the loop, so no pair is made. Only an array's elements have an index: a map's entries and the
-// elements a cursor gives have none.
+// checkEnumerated types `for (i, x) in xs.enumerated()`: the for over the elements of xs, which also binds the index of
+// each, from 0, to the first name. It walks whatever a for walks, as that for would. The loop walks xs itself from here on,
+// and the lowering gives the index it counts to the variable recorded for the loop, so no pair and no iterator is made.
 function checkEnumerated(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, s ast.NodeID, receiver ast.NodeID, mutates errs diag.ErrorList)
-	let source = ast.forStmtFrom(ms.tree(), id: s)
-	let typed = checkExpr(c, p: p, ms: ms, e: receiver, errs: errs)
-	if typed == ast.noType 'badSource'
+	var lent as bool
+	let elem = forElement(c, p: p, ms: ms, s: s, source: receiver, lent: lent, errs: errs)
+	if elem == ast.noType 'notIterable'
 		return
-	end 'badSource'
-	let t = ast.contentType(ms.types, reads: p.types, t: typed)
-	if not requireNotCown(c, p: p, ms: ms, off: offsetOf(c, p: p, ms: ms, node: receiver), t: t, use: "a 'for' over its elements", errs: errs) 'cown'
-		return
-	end 'cown'
-	if kindOfType(p, ms: ms, t: t) != ast.TypeKind.builtinArray 'notArray'
-		failAt(c, p: p, ms: ms, node: source, code: diag.errUnsupportedFeature, msg: "Unsupported: `{enumeratedMethod}()` of a `{nameOfType(p, ms: ms, t: t)}` value — only the elements of an `Array` or a `FixedArray` have an index for `for (i, x) in xs.{enumeratedMethod}()` to bind; walk a map's entries with `for (key, value) in m`, and count the elements of anything else in a variable", errs: errs)
-		return
-	end 'notArray'
+	end 'notIterable'
 	let namesRef = ast.forStmtVarsRef(ms.tree(), id: s)
 	if ms.tree().listLen(namesRef) != 2 'notPair'
 		failAt(c, p: p, ms: ms, node: s, code: diag.errUnsupportedFeature, msg: "Unsupported: a `for` over `{enumeratedMethod}()` names the index and the element, `for (i, x) in xs.{enumeratedMethod}()`, with `_` for the one the body does not use", errs: errs)
 		return
 	end 'notPair'
 	ast.setForStmtFrom(ms.ownTree, id: s, value: receiver)
-	let elem = typeElemType(p, ms: ms, ownerTy: t)
 	enterForBody(c, p: p, ms: ms, s: s)
 	let indexAt = ms.tree().listAt(namesRef, index: 0) as ast.NodeID
 	let indexName = ast.bindNameName(ms.tree(), id: indexAt).clone()
@@ -501,7 +504,7 @@ function checkEnumerated(mutates c Checker, p ast.Project, mutates ms ast.Module
 		element = declareLocal(c, p: p, ms: ms, name: elementName, t: elem, isVar: false, definedAt: s, off: offsetOf(c, p: p, ms: ms, node: elementAt), errs: errs)
 	end 'named'
 	if element != ast.noLocal 'declared'
-		c.typing.locals[element as Count].projected = ast.isManagedType(ms.types, reads: p.types, t: elem)
+		c.typing.locals[element as Count].projected = lent
 		c.typing.nodeLocals.insert(s as Count, value: element)
 		checkStmts(c, p: p, ms: ms, body: ast.forStmtBodyRef(ms.tree(), id: s), errs: errs)
 	end 'declared'

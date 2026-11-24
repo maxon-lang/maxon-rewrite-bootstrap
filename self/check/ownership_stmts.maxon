@@ -263,11 +263,15 @@ function outlivesStatement(o Ownership, p ast.Project, ms ast.ModuleState, e ast
 	if k == ast.NodeKind.indexExpr 'element'
 		return outlivesStatement(o, p: p, ms: ms, e: ast.indexExprObj(ms.tree(), id: n))
 	end 'element'
-	if k == ast.NodeKind.strLit 'literal'
-		return ms.tree().strIsPlain(ast.strLitPartsRef(ms.tree(), id: n))
-	end 'literal'
-	return false
+	return isStaticString(ms, e: n)
 end 'outlivesStatement'
+
+// isStaticString is whether e is a String literal with nothing interpolated, also in parentheses: its bytes are in the
+// executable's data for the whole run, so a borrow of it is a borrow of nothing that ends.
+function isStaticString(ms ast.ModuleState, e ast.NodeID) returns bool
+	let n = ast.through(ms.tree(), e: e)
+	return ms.tree().kindOf(n) == ast.NodeKind.strLit and ms.tree().strIsPlain(ast.strLitPartsRef(ms.tree(), id: n))
+end 'isStaticString'
 
 function assignStmtOwn(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState, st ast.NodeID, consumes s OwnState) returns OwnState
 	let target = ast.assignStmtTarget(ms.tree(), id: st)
@@ -631,7 +635,9 @@ function requireLentByParameters(mutates o Ownership, p ast.Project, mutates ms 
 	end 'projection'
 	let path = pathOf(o, p: p, ms: ms, e: e)
 	if not path.isPlace() 'fresh'
-		fail(o, p: p, site: site, code: diag.errBorrowedReturn, msg: "'{fnName}' returns a borrowed place, and this is a value made here, which nothing owns once it returns; return a parameter, or a field or an element of one, or declare 'returns T' to give a value")
+		if not isStaticString(ms, e: e) 'made'
+			fail(o, p: p, site: site, code: diag.errBorrowedReturn, msg: "'{fnName}' returns a borrowed place, and this is a value made here, which nothing owns once it returns; return a parameter, or a field or an element of one, or declare 'returns T' to give a value")
+		end 'made'
 		return
 	end 'fresh'
 	let root = o.c.typing.locals[path.root as Count].clone()

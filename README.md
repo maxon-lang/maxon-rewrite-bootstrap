@@ -2613,7 +2613,7 @@ edit to `runtime/` rebuilds everything.
 - `let`, `var` (with a value, or `var x as T` without one), assignment to a variable, a field or an element,
   `_ = call()`, `if`/`else if`/`else`, `if let x = try call()` and `if try call()` with an `else`, `while`, `for i in a to|upto b`, `for x in xs` over an array, a `List`, the grapheme clusters of a `String`, a range value, or any value
   whose type has maxon's iteration protocol (a type of the program, a type parameter through its bounds, an interface
-  value through what its interface requires), `for (i, x) in xs.enumerated()` over an array with its indexes, `for (k, v) in m` over the library's `Map`, whose iterator lends each entry, and `for c in E.allCases` (see "Primitives"), `match` as a statement or expression
+  value through what its interface requires), `for (i, x) in xs.enumerated()` over any of these with the index of each element, `for (k, v) in m` over the library's `Map`, whose iterator lends each entry, and `for c in E.allCases` (see "Primitives"), `match` as a statement or expression
   (case, literal, range and string patterns, `or` alternatives, `default`, `panic` arms, `default throws E`, and `stmt and fallthrough`), `break`/`continue`
   with labels, `return`, `when` (a behaviour, see "Immutable values, cowns and behaviours"), `await p` of a promise of a
   function that returns nothing, and a `try` block with or without a handler (see "Checked arithmetic").
@@ -3053,6 +3053,9 @@ and an index, and nothing counts references.
   borrows). It is assigned to a variable or a field, or passed to a call beside a `mutates` argument of a type that holds a
   borrow, only where that place borrows the same already, or is a parameter and it borrows only what the caller lends
   (`E3927`).
+- **A String literal is no temporary.** One with nothing interpolated, also in parentheses, is bytes of the executable's
+  data, which last the whole run: a value or a view made of it, a cursor, an iterator or a slice, borrows nothing, so it
+  may be bound, kept and returned as freely as an owned value. An interpolated String is made by its statement, and is one.
 - **What it may not do** (`E3927`): borrow a temporary, which ends with its statement; be taken over by a closure or a
   behaviour, be put in an interface value, be bound by `if try` or `match consumes`; or stand for a type parameter. A type
   parameter stands only for a type that holds no borrow, so that code over it, checked once, may store and return its values,
@@ -3779,9 +3782,10 @@ dropped, ends after every element was taken out. Nothing built in returns an `Op
   `for x in a.clone()` is the fix. The lowering is a loop over the indexes, reading the element in place.
   `for (i, x) in a.enumerated()` walks it the same way and also binds each element's index, an `ElementIndex`, to `i`
   (`_` for the one the body does not use): the loop is the one over `a` with the index it counts given to `i`, so no
-  pair and no iterator is made. `enumerated()` is a form of the `for` and not a method: it names the elements of an
-  `Array` or a `FixedArray`, the only collections whose elements have an index, and over anything else, or with one name,
-  it is `E2015`.
+  pair and no iterator is made. `enumerated()` is a form of the `for` and not a method, and it walks whatever a `for`
+  walks, each the way its own loop does: a `List`, a `String`, a `Map`, a `Set`, a range value and anything else with the
+  iteration protocol, also through a type parameter's bounds or an interface value. There `i` counts the passes from 0,
+  in a variable the loop adds one to as each pass ends. With one name it is `E2015`.
   A `List` is walked the same way, front to back: each element is lent to `x`, and the list is held while the body runs
   (`E3186`). The lowering walks its handles, `first` and then `next` until there is none, reading each element in place.
   A `List` also implements the library's `Iterable with (T, ListIterator with T)` (`stdlib/ListIterator.maxon`,
@@ -4552,7 +4556,8 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   and `E.allCaseNames` are a new array each time they are read, since an array has one owner, and `Shape.unionCases` is not
   supported. Not supported, and skipped by the converter: a loop over `graphemes()`, `characters()`, `split()` or `lines()`. maxon's `for (iter, x) in xs.withIterator()`, whose iterator the
   body asks for `iter.index()`, is `for (i, x) in xs.enumerated()` here, as in Hylo and Swift: the loop binds the index
-  itself and there is no iterator object, so an array is walked with its indexes at the cost of the plain loop. The
+  itself and there is no iterator object, so an array is walked with its indexes at the cost of the plain loop, and any
+  other collection with the count of its passes, which is what a range's `index()` gives in maxon. The
   converter rewrites the one form into the other, `iter.index()` into the name; a test whose body uses the iterator for
   anything else is skipped.
 - Match arms name the case of an enum or a union by its bare name; a qualified `Color.red` is `E3075`, once for the match as

@@ -1,0 +1,50 @@
+// `enumerated()` walks whatever a for walks, each the way its own loop does, and binds the count of the passes before the
+// element: a String's clusters, a Set's elements, a Map's entries, a range value, and a type parameter bound by Iterable.
+typealias Int = int(i64.min to i64.max)
+
+typealias Ints = Set with Int
+
+typealias Ages = Map with (String, Int)
+
+function show(items T) uses T where T implements Iterable with (RangeBound, RangeIterator)
+	for (i, x) in items.enumerated() 'each'
+		print("[{i}={x}]")
+	end 'each'
+	print("\n")
+end 'show'
+
+function main() returns ExitCode
+	for (i, c) in "héllo".enumerated() 'clusters'
+		if i == 3 'skip'
+			continue 'clusters'
+		end 'skip'
+		print("[{i}{c}]")
+	end 'clusters'
+	print("\n")
+	var xs = Ints.create()
+	try xs.insert(10) otherwise panic("full")
+	for (i, x) in xs.enumerated() 'set'
+		print("{i}:{x}\n")
+	end 'set'
+	var ages = Ages.create()
+	try ages.insert("ada", value: 36) otherwise panic("full")
+	for (i, entry) in ages.enumerated() 'map'
+		let (name, age) = entry
+		print("{i} {name} {age}\n")
+	end 'map'
+	let r = 5 to 7
+	for (i, n) in r.enumerated() 'range'
+		print("[{i}->{n}]")
+	end 'range'
+	print("\n")
+	show(1 upto 3)
+	show(r)
+	return 0
+end 'main'
+
+//> [0h][1é][2l][4o]
+//> 0:10
+//> 0 ada 36
+//> [0->5][1->6][2->7]
+//> [0=1][1=2]
+//> [0=5][1=6][2=7]
