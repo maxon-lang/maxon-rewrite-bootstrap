@@ -366,6 +366,10 @@ function datumRecord(mutates b DatumBuild, p ast.Project, ms ast.ModuleState, t 
 			w = DatumWord.make(DatumPart.scalar, value: unionNicheWord(ms.types, reads: p.types, t: t))
 			return true
 		end 'niche'
+		if form == UnionForm.unionNull 'null'
+			// Its empty case is the word 0, which the data does not hold as a value; it is built where it is read.
+			return false
+		end 'null'
 	end 'union'
 	let at = b.d.boxes.count()
 	b.d.boxes.push(DatumBox.make(DatumShape.words, first: 0, count: 0))

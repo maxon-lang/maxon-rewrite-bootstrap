@@ -953,9 +953,24 @@ function unionWord(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState,
 	return match unionForm(ms.types, reads: p.types, t: t) 'form'
 		unionCases gives konst(l, value: try caseIndex as Word otherwise panic("ir: a case index is out of range"))
 		unionNiche gives nicheCaseWord(l, p: p, ms: ms, t: t, caseIndex: caseIndex, values: values)
+		unionNull gives nullCaseWord(l, p: p, ms: ms, t: t, caseIndex: caseIndex, values: values)
 		unionBoxed gives panic("ir: a boxed union is no word")
 	end 'form'
 end 'unionWord'
+
+// nullCaseWord is a value of the union t in the null form: the payload, which the value takes over from whatever would have
+// dropped it, or 0 for the case that carries none.
+function nullCaseWord(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, t ast.TypeID, caseIndex Count, values ExprRefList) returns Reg
+	if caseIndex == payloadCase(ms.types, reads: p.types, t: t) 'payload'
+		let mark = l.pending.count()
+		let v = exprIn(l, p: p, ms: ms, e: values[0])
+		popPending(l, n: mark)
+		return v
+	end 'payload'
+	let d = newReg(l, kind: IrKind.kindManaged)
+	emit(l, i: newConst(d, value: 0 as Word))
+	return d
+end 'nullCaseWord'
 
 function nicheCaseWord(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, t ast.TypeID, caseIndex Count, values ExprRefList) returns Reg
 	if caseIndex == payloadCase(ms.types, reads: p.types, t: t) 'payload'
@@ -979,6 +994,13 @@ function tagReg(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, t 
 		end 'emptySecond'
 		return compare(l, op: CmpOp.cmpNe, a: v, b: niche, unsigned: false)
 	end 'niche'
+	if form == UnionForm.unionNull 'null'
+		let zero = konst(l, value: 0 as Word)
+		if emptyCase(ms.types, reads: p.types, t: applied) == 0 'emptyFirst'
+			return compare(l, op: CmpOp.cmpNe, a: v, b: zero, unsigned: false)
+		end 'emptyFirst'
+		return compare(l, op: CmpOp.cmpEq, a: v, b: zero, unsigned: false)
+	end 'null'
 	let d = newReg(l, kind: IrKind.kindScalar)
 	emit(l, i: newLoadField(d, obj: v, offset: tagOffset))
 	return d
@@ -988,9 +1010,10 @@ end 'tagReg'
 // lent from its box, or the word itself where the union is held in the niche form.
 function unionPayload(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, t ast.TypeID, v Reg, caseIndex Count, index Count, kind IrKind) returns Reg
 	let applied = applyType(l, p: p, ms: ms, t: t)
-	if unionForm(ms.types, reads: p.types, t: applied) == UnionForm.unionNiche 'niche'
+	let form = unionForm(ms.types, reads: p.types, t: applied)
+	if form == UnionForm.unionNiche or form == UnionForm.unionNull 'word'
 		return v
-	end 'niche'
+	end 'word'
 	let d = newReg(l, kind: kind)
 	emit(l, i: newLoadField(d, obj: v, offset: payloadOffset(ms.types, reads: p.types, owner: applied, caseIndex: caseIndex, index: index)))
 	return d

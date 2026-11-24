@@ -122,6 +122,13 @@ export type RoutineSet
 			self.remember(kind, ty: ty, symbol: free)
 			return free
 		end 'frees'
+		if kind == RoutineKind.dropRoutine and ir.heldAsNull(ms.types, reads: p.types, t: ty) 'null'
+			// A union held in the null form is its payload, whose drop skips the 0 of the other case.
+			let payloadTy = nullPayload(ms, p: p, ty: ty)
+			let payload = self.symbol(p, ms: ms, kind: kind, ty: payloadTy)
+			self.remember(kind, ty: ty, symbol: payload)
+			return payload
+		end 'null'
 		let name = routineSymbol(kind, typeLinkName: ast.typeLinkNameIn(p, tt: ms.types, reads: p.types, t: ty))
 		self.remember(kind, ty: ty, symbol: name)
 		list.push(TypeRoutine.make(kind, ty: ty, symbol: name.clone()))
@@ -368,6 +375,10 @@ function emitCopy(mutates u CodeUnit, a ast.TargetArch, p ast.Project, mutates m
 		return
 	end 'record'
 	if kind == ast.TypeKind.unionTy 'union'
+		if ir.heldAsNull(ms.types, reads: p.types, t: ty) 'null'
+			copyNullUnion(u, a: a, p: p, ms: ms, ty: ty)
+			return
+		end 'null'
 		copyUnion(u, a: a, p: p, ms: ms, ty: ty)
 		return
 	end 'union'
@@ -448,6 +459,22 @@ function dropPromise(mutates u CodeUnit, a ast.TargetArch, p ast.Project, mutate
 	u.asm.bind(done)
 	routineEpilogue(u, a: a)
 end 'dropPromise'
+
+// nullPayload is the type of the payload of the union ty held in the null form, which the value is.
+function nullPayload(mutates ms ast.ModuleState, p ast.Project, ty ast.TypeID) returns ast.TypeID
+	return ast.payloadType(ms.types, reads: p.types, owner: ty, caseIndex: ir.payloadCase(ms.types, reads: p.types, t: ty), index: 0)
+end 'nullPayload'
+
+// copyNullUnion copies a union held in the null form as its payload, and its 0 as 0.
+function copyNullUnion(mutates u CodeUnit, a ast.TargetArch, p ast.Project, mutates ms ast.ModuleState, ty ast.TypeID)
+	let payload = nullPayload(ms, p: p, ty: ty)
+	let done = u.asm.newLabel()
+	routinePrologue(u, a: a, locals: 0)
+	returnIfEmpty(u, a: a, done: done)
+	routineCall(u, a: a, p: p, ms: ms, kind: RoutineKind.copyRoutine, ty: payload)
+	u.asm.bind(done)
+	routineReturn(u, a: a)
+end 'copyNullUnion'
 
 // returnIfEmpty is the start of a drop: a value that is 0 holds nothing.
 function returnIfEmpty(mutates u CodeUnit, a ast.TargetArch, done LabelID)

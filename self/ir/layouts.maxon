@@ -27,13 +27,16 @@ export enum Niche
 end 'Niche'
 
 // UnionForm is how a value of a union is held: the address of a box of its case index and its payload; its case index
-// alone, where no case carries a payload; or, where one case carries one integer, enum or bool that has a niche and the
-// only other case carries nothing, that payload, with the niche standing for the other case. The two word forms hold
-// nothing to drop, so Option.none and an Option of a number allocate nothing.
+// alone, where no case carries a payload; where one case carries one integer, enum or bool that has a niche and the only
+// other case carries nothing, that payload, with the niche standing for the other case; or, where that one payload is of
+// the union's type parameter and a record or an array in the instance, the payload's address, with 0 standing for the
+// other case. The two word forms hold nothing to drop,
+// and the null form drops and copies as its payload, so Option.none and an Option of a number or of a box allocate nothing.
 export enum UnionForm
 	unionBoxed
 	unionCases
 	unionNiche
+	unionNull
 end 'UnionForm'
 
 // valueForm is how a value of the type is held.
@@ -41,7 +44,7 @@ export function valueForm(tt ast.TypeSlot, reads ast.TypeTable, t ast.TypeID) re
 	if ast.isStringType(tt, reads: reads, t: t) 'string'
 		return ValueForm.formString
 	end 'string'
-	if ast.typeKind(tt, reads: reads, t: t) == ast.TypeKind.unionTy and unionForm(tt, reads: reads, t: t) != UnionForm.unionBoxed 'word'
+	if ast.typeKind(tt, reads: reads, t: t) == ast.TypeKind.unionTy and heldAsScalar(unionForm(tt, reads: reads, t: t)) 'word'
 		return ValueForm.formScalar
 	end 'word'
 	if ast.isManagedType(tt, reads: reads, t: t) 'managed'
@@ -49,6 +52,16 @@ export function valueForm(tt ast.TypeSlot, reads ast.TypeTable, t ast.TypeID) re
 	end 'managed'
 	return ValueForm.formScalar
 end 'valueForm'
+
+// heldAsScalar is whether a union of the form is held as a word of nothing to drop.
+export function heldAsScalar(form UnionForm) returns bool
+	return match form 'form'
+		unionBoxed gives false
+		unionCases gives true
+		unionNiche gives true
+		unionNull gives false
+	end 'form'
+end 'heldAsScalar'
 
 // holdsManaged is whether a value of the type holds something to drop and to copy: a managed word or a String.
 export function holdsManaged(tt ast.TypeSlot, reads ast.TypeTable, t ast.TypeID) returns bool
@@ -64,15 +77,24 @@ export function valueWords(tt ast.TypeSlot, reads ast.TypeTable, t ast.TypeID) r
 end 'valueWords'
 
 // zeroIsEmpty is whether the value whose words are all 0 is no value of the type, so that an empty slot of an array, which
-// is zeroed, can be told from a filled one: true of a managed word and a String, false of a scalar, whose 0 is a value.
+// is zeroed, can be told from a filled one: true of a managed word and a String, false of a scalar, whose 0 is a value, and
+// of a union in the null form, whose 0 is its case without a payload.
 export function zeroIsEmpty(tt ast.TypeSlot, reads ast.TypeTable, t ast.TypeID) returns bool
-	return holdsManaged(tt, reads: reads, t: t)
+	return holdsManaged(tt, reads: reads, t: t) and not heldAsNull(tt, reads: reads, t: t)
 end 'zeroIsEmpty'
+
+// heldAsNull is whether t is a union held in the null form.
+export function heldAsNull(tt ast.TypeSlot, reads ast.TypeTable, t ast.TypeID) returns bool
+	return ast.typeKind(tt, reads: reads, t: t) == ast.TypeKind.unionTy and unionForm(tt, reads: reads, t: t) == UnionForm.unionNull
+end 'heldAsNull'
 
 // nicheOf is the niche of a value of the type.
 export function nicheOf(tt ast.TypeSlot, reads ast.TypeTable, t ast.TypeID) returns Niche
 	let form = valueForm(tt, reads: reads, t: t)
 	if form == ValueForm.formManaged 'managed'
+		if heldAsNull(tt, reads: reads, t: t) 'null'
+			return Niche.nicheNone
+		end 'null'
 		return Niche.nicheNull
 	end 'managed'
 	if form == ValueForm.formString 'string'
@@ -159,9 +181,17 @@ export function unionForm(tt ast.TypeSlot, reads ast.TypeTable, t ast.TypeID) re
 		return UnionForm.unionCases
 	end 'bare'
 	let declared = ast.typeEntry(tt, reads: reads, t: origin).cases[carrier].payload[0].ty
-	if scalarNiche(tt, reads: reads, t: boundType(tt, reads: reads, owner: t, declared: declared)) != Niche.nicheNone 'scalar'
+	let payload = boundType(tt, reads: reads, owner: t, declared: declared)
+	if scalarNiche(tt, reads: reads, t: payload) != Niche.nicheNone 'scalar'
 		return UnionForm.unionNiche
 	end 'scalar'
+	// The null form is a container's, an Option: a payload of the union's type parameter. A union that names its payload's
+	// type may be thrown, and the error channel's 0 says no failure.
+	let kind = ast.typeKind(tt, reads: reads, t: payload)
+	let generic = ast.typeKind(tt, reads: reads, t: declared) == ast.TypeKind.typeParam
+	if generic and (kind == ast.TypeKind.record or kind == ast.TypeKind.builtinArray) 'box'
+		return UnionForm.unionNull
+	end 'box'
 	return UnionForm.unionBoxed
 end 'unionForm'
 
@@ -212,7 +242,15 @@ end 'unionNicheWord'
 // errorInBox is whether a thrown error of the type t is the address of a box, which the failure hands to its caller to own:
 // a union held in a box. Any other error is a word plus its errorBias.
 export function errorInBox(tt ast.TypeSlot, reads ast.TypeTable, t ast.TypeID) returns bool
-	return ast.isUnionError(tt, reads: reads, t: t) and unionForm(tt, reads: reads, t: t) == UnionForm.unionBoxed
+	if not ast.isUnionError(tt, reads: reads, t: t) 'enum'
+		return false
+	end 'enum'
+	return match unionForm(tt, reads: reads, t: t) 'form'
+		unionBoxed gives true
+		unionCases gives false
+		unionNiche gives false
+		unionNull gives panic("ir: an error of {ast.typeName(tt, reads: reads, t: t)}, a union held as its payload's address, whose 0 would say no failure")
+	end 'form'
 end 'errorInBox'
 
 // errorBias is what a thrown error of the union or enum t adds to its word, so that the word a failure hands on is never 0,
@@ -226,6 +264,7 @@ export function errorBias(tt ast.TypeSlot, reads ast.TypeTable, t ast.TypeID) re
 		unionBoxed gives 0 as Word
 		unionCases gives 1 as Word
 		unionNiche gives try 1 - leastWord(tt, reads: reads, t: nichePayload(tt, reads: reads, owner: t, caseIndex: payloadCase(tt, reads: reads, t: t))) otherwise panic("ir: an error bias past a word")
+		unionNull gives panic("ir: an error bias of a union held as its payload's address")
 	end 'form'
 end 'errorBias'
 

@@ -224,10 +224,28 @@ function constantWordRef(mutates vm Vm, d ir.Datum, word ir.DatumWord, objects C
 end 'constantWordRef'
 
 // isConstant is whether an object is part of a constant of the executable's data, which is never written or dropped: an
-// immortal object that is no string.
+// immortal object that is no string and no empty case.
 function isConstant(vm Vm, o Count) returns bool
-	return vm.h.oImmortal[o] and vm.h.oKind[o] != kindString
+	return vm.h.oImmortal[o] and vm.h.oKind[o] != kindString and vm.h.oKind[o] != kindNone
 end 'isConstant'
+
+// noneObject is the one object of kindNone.
+function noneObject(mutates vm Vm) returns Count
+	if vm.h.none == 0 'first'
+		let o = vm.h.newObject(kindNone, site: 0)
+		vm.h.oImmortal[o] = true
+		vm.h.none = o
+	end 'first'
+	return vm.h.none
+end 'noneObject'
+
+// nullOf is the handle a comparison sees of the object o: 0 for the empty case, which native code holds as 0.
+function nullOf(vm Vm, o Count) returns Count
+	if o != 0 and o == vm.h.none 'none'
+		return 0
+	end 'none'
+	return o
+end 'nullOf'
 
 // requireWritable refuses a write to, or a move out of, a place of a constant.
 function requireWritable(mutates vm Vm, c Count, what String) throws Halt

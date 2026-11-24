@@ -12,7 +12,7 @@ type Machine implements ir.InstrVisitor, ir.TermVisitor
 	end 'new'
 
 	function visitConst(mutates self, f ir.IrFunction, x ir.Instr)
-		execConst(vm, x: x)
+		execConst(vm, f: f, x: x)
 	end 'visitConst'
 
 	function visitStr(mutates self, f ir.IrFunction, x ir.Instr)

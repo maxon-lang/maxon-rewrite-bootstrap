@@ -873,6 +873,9 @@ function copyObject(mutates vm Vm, o Count) returns Count throws Halt
 		vm.h.shareds[data].count = try vm.h.shareds[data].count + 1 otherwise panic("interp: a count past a word")
 		return o
 	end 'shared'
+	if kind == kindNone 'none'
+		return o
+	end 'none'
 	if kind == kindString 'string'
 		if vm.h.oImmortal[o] 'immortal'
 			return o

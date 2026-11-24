@@ -17,6 +17,10 @@ let kindString = 1 as Count
 
 let kindArray = 2 as Count
 
+// kindNone is the empty case of a union held as its payload's address (ir.UnionForm), which native code holds as 0: one
+// object that no one owns and nothing frees, so a managed register that holds it holds a value, where 0 says it holds none.
+let kindNone = 3 as Count
+
 let kindList = 4 as Count
 
 let kindPool = 5 as Count
@@ -50,6 +54,7 @@ function kindName(kind Count) returns String
 		0 gives "record"
 		1 gives "string"
 		2 gives "array"
+		3 gives "empty case"
 		4 gives "list"
 		5 gives "pool"
 		6 gives "frozen value"
@@ -243,10 +248,12 @@ type Heap
 	// literals are the strings that are in the executable, by their text, and constants the constants that are, by their
 	// symbol.
 	var literals as table.StringMap with Count
+	// none is the object of kindNone, once it is made.
+	var none as Count
 	var constants as table.StringMap with Count
 
 	static function new() returns Heap
-		var h = Heap{cellN: ir.WordList.create(0), cellR: ir.WordList.create(0), cellHolder: CountList.create(0), cellFrame: CountList.create(0), cellIndex: CountList.create(0), cellLent: BoolList.create(0), oKind: CountList.create(0), oFreed: BoolList.create(0), oImmortal: BoolList.create(0), oFrameArea: BoolList.create(0), oOwner: CountList.create(0), oVersion: CountList.create(0), oData: CountList.create(0), oSize: CountList.create(0), oAlloc: CountList.create(0), oFreedAt: CountList.create(0), texts: ast.StringList.create(0), buffers: ByteArrays.create(0), elements: CountLists.create(0), tables: Tables.create(0), shareds: SharedDatas.create(0), literals: table.StringMap.new(), constants: table.StringMap.new()}
+		var h = Heap{cellN: ir.WordList.create(0), cellR: ir.WordList.create(0), cellHolder: CountList.create(0), cellFrame: CountList.create(0), cellIndex: CountList.create(0), cellLent: BoolList.create(0), oKind: CountList.create(0), oFreed: BoolList.create(0), oImmortal: BoolList.create(0), oFrameArea: BoolList.create(0), oOwner: CountList.create(0), oVersion: CountList.create(0), oData: CountList.create(0), oSize: CountList.create(0), oAlloc: CountList.create(0), oFreedAt: CountList.create(0), texts: ast.StringList.create(0), buffers: ByteArrays.create(0), elements: CountLists.create(0), tables: Tables.create(0), shareds: SharedDatas.create(0), literals: table.StringMap.new(), constants: table.StringMap.new(), none: 0}
 		// Handle 0 names nothing, so every column starts with a row that is never used.
 		_ = h.newCell(0)
 		h.oKind.push(0)

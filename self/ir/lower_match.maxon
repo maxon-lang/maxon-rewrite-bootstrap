@@ -121,6 +121,8 @@ end 'borrowPayloads'
 // drops the payloads the arm does not name.
 function takeApart(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, arm ast.NodeID, subject Reg, st ast.TypeID)
 	let patternsRef = ast.matchArmPatternsRef(p.modules[l.mi].tree, id: arm)
+	// A union held as its payload's address is that payload, which a binding takes whole, leaving nothing to drop.
+	var taken = false
 	for i in 0 upto p.modules[l.mi].tree.listLen(patternsRef) 'patterns'
 		let pat = p.modules[l.mi].tree.listAt(patternsRef, index: i) as ast.NodeID
 		let info = patternInfoAt(p, module: l.module, node: pat)
@@ -131,6 +133,7 @@ function takeApart(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState,
 				if heldAsWord(l, p: p, ms: ms, st: st) 'word'
 					emit(l, i: newStoreSlot(slotOf(local), src: subject, borrow: false))
 					ownLocal(l, p: p, ms: ms, slot: slotOf(local), t: local.ty)
+					taken = owning(kind)
 					continue 'bindings'
 				end 'word'
 				let offset = payloadAt(l, p: p, ms: ms, st: st, caseIndex: info.caseIdx, index: j)
@@ -147,7 +150,9 @@ function takeApart(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState,
 			end 'named'
 		end 'bindings'
 	end 'patterns'
-	dropValue(l, p: p, ms: ms, v: subject, t: st)
+	if not taken 'drop'
+		dropValue(l, p: p, ms: ms, v: subject, t: st)
+	end 'drop'
 end 'takeApart'
 
 function testPattern(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, pat ast.NodeID, st ast.TypeID, subject Reg, body BlockID)

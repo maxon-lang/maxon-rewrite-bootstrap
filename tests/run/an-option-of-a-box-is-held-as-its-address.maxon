@@ -1,0 +1,108 @@
+typealias Small = int(0 to 1000)
+
+typealias Smalls = Array with Small
+
+union Maybe uses T
+	none
+	some(value T)
+end 'Maybe'
+
+union Either uses T
+	got(value T)
+	nothing
+end 'Either'
+
+type Point
+	var x as Small
+	var name as String
+
+	static function make(x Small, consumes name String) returns Self
+		return Self{x: x, name: name}
+	end 'make'
+end 'Point'
+
+typealias Points = Array with (Maybe with Point)
+
+type Holder
+	var p as Maybe with Point
+	var xs as Either with Smalls
+
+	static function make(consumes p Maybe with Point, consumes xs Either with Smalls) returns Self
+		return Self{p: p, xs: xs}
+	end 'make'
+end 'Holder'
+
+function printLine(s String)
+	print("{s}\n")
+end 'printLine'
+
+function show(m Maybe with Point) returns String
+	return match m 'm'
+		some(p) gives "some {p.name} {p.x}"
+		none gives "none"
+	end 'm'
+end 'show'
+
+function find(at Small) returns Maybe with Point
+	if at > 5 'far'
+		return Maybe.none
+	end 'far'
+	return Maybe.some(Point.make(at, name: "p{at}"))
+end 'find'
+
+function sum(xs Smalls) returns Small
+	var s = 0 as Small
+	for x in xs 'each'
+		s = try s + x otherwise 1000
+	end 'each'
+	return s
+end 'sum'
+
+function total(e Either with Smalls) returns Small
+	return match e 'e'
+		got(xs) gives sum(xs)
+		nothing gives 0
+	end 'e'
+end 'total'
+
+function main() returns ExitCode
+	var ps = Points.create(0)
+	for i in 0 upto 4 'fill'
+		ps.push(find((i * 3) as Small))
+	end 'fill'
+	for i in 0 upto ps.count() 'each'
+		printLine(show(ps[i].clone()))
+	end 'each'
+	var h = Holder.make(find(1), xs: Either.got([1 as Small, 2, 3]))
+	printLine(show(h.p.clone()))
+	printLine("total {total(h.xs.clone())}")
+	h.p = Maybe.none
+	printLine(show(h.p.clone()))
+	h.xs = Either.nothing
+	printLine("total {total(h.xs.clone())}")
+	match consumes find(4) 'taken'
+		some(p) then printLine("took {p.name}")
+		none then printLine("took nothing")
+	end 'taken'
+	match consumes find(9) 'missed'
+		some(p) then printLine("took {p.name}")
+		none then printLine("took nothing")
+	end 'missed'
+	match consumes find(2) 'ignored'
+		some(_) then printLine("ignored one")
+		none then printLine("ignored nothing")
+	end 'ignored'
+	return 0
+end 'main'
+
+//> some p0 0
+//> some p3 3
+//> none
+//> none
+//> some p1 1
+//> total 6
+//> none
+//> total 0
+//> took p4
+//> took nothing
+//> ignored one

@@ -274,9 +274,16 @@ let wordOffsetModulus = 4294967296 as ir.Word
 // caseWord is the offset the debug info gives the case caseIndex of t: its case index, except in a union held in the niche
 // form, whose case with no payload is at its niche, truncated to the 32 bits of an offset (an immediate reaches it).
 function caseWord(p ast.Project, ms ast.ModuleState, t ast.TypeID, kind mxdbg.MxdbgIndex, caseIndex Count) returns Count
-	if kind != mxdbg.MxdbgTypeKindUnionWord or ir.unionForm(ms.types, reads: p.types, t: t) != ir.UnionForm.unionNiche or caseIndex != ir.emptyCase(ms.types, reads: p.types, t: t) 'index'
+	if kind != mxdbg.MxdbgTypeKindUnionWord or caseIndex != ir.emptyCase(ms.types, reads: p.types, t: t) 'index'
 		return caseIndex
 	end 'index'
+	let form = ir.unionForm(ms.types, reads: p.types, t: t)
+	if form == ir.UnionForm.unionNull 'null'
+		return 0
+	end 'null'
+	if form != ir.UnionForm.unionNiche 'cases'
+		return caseIndex
+	end 'cases'
 	let niche = ir.unionNicheWord(ms.types, reads: p.types, t: t)
 	if niche < 0 'negative'
 		return try (niche + wordOffsetModulus) as Count otherwise panic("backend: a niche past an offset")

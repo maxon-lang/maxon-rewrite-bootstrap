@@ -13,7 +13,17 @@ end 'copyToReg'
 // The exec functions run one operation each. An operation whose check fails leaves
 // the block it goes to in failTo.
 
-function execConst(mutates vm Vm, x ir.Instr)
+// execConst gives a number, or, in a managed register, the empty case of a union held as its payload's address: lowering
+// writes no other constant there.
+function execConst(mutates vm Vm, f ir.IrFunction, x ir.Instr)
+	if isManaged(f, r: x.dst) 'none'
+		if x.imm != 0 'value'
+			panic("interp: a managed register is given the number {x.imm}")
+		end 'value'
+		let none = noneObject(vm)
+		vm.setRef(x.dst, o: none)
+		return
+	end 'none'
 	vm.setNum(x.dst, n: x.imm)
 end 'execConst'
 
@@ -196,8 +206,8 @@ end 'execBin'
 function execCmp(mutates vm Vm, x ir.Instr)
 	var a = vm.num(x.a)
 	var b = vm.num(x.b)
-	let objectA = vm.ref(x.a)
-	let objectB = vm.ref(x.b)
+	let objectA = nullOf(vm, o: vm.ref(x.a))
+	let objectB = nullOf(vm, o: vm.ref(x.b))
 	if objectA != 0 or objectB != 0 'objects'
 		a = try objectA as ir.Word otherwise panic("interp: a handle past a word")
 		b = try objectB as ir.Word otherwise panic("interp: a handle past a word")

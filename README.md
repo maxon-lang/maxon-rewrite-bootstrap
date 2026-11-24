@@ -1703,7 +1703,13 @@ A union is held as its form says (`ir.UnionForm`): where no case carries a paylo
 where one case carries one integer, enum or bool that has a niche and the only other case carries nothing (`Option with
 Count`, an Option of a handle, `Option with bool`), as that payload, with the niche standing for the other case (a `Count`'s
 -1, an enum's case count, a bool's 2; an integer's niche is the word below its least value where an immediate reaches it, so
-the test of the case is one compare); and otherwise as a box. A union held as a word holds nothing to drop, so it is a
+the test of the case is one compare); where that one payload is of the union's type parameter and a record or an array in the instance
+(`Option with Place`, an Option of an array), as the payload's address, with 0 for the other case (the null form, `ir.heldAsNull`): it is a managed word that
+drops as its payload, whose drop skips 0, and copies as it (`copyNullUnion`, which keeps 0), so `Option.some` of a box is
+the box and `Option.none` is 0, and the interpreter holds that 0 as one object of its own (`kindNone`, which a comparison
+sees as 0), since a managed register that holds 0 holds no value there; a union that names its payload's type keeps its box,
+since it may be thrown and the error channel's 0 says no failure (a thrown union in the null form, a generic one, stops
+the compile in `ir.errorInBox` with an internal error); and otherwise as a box. A union held as a word holds nothing to drop, so it is a
 scalar of the IR: `Option.none` and an Option of a number allocate nothing, an array of them is an array of words, and a
 match reads the case from the word. A thrown error of such a union is its word plus a bias that makes it nonzero, as an
 enum's case plus 1 is (`ir.errorBias`), and the debug info gives it the kind `unionWord`, each case without a payload at
