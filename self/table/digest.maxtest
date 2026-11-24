@@ -1,0 +1,35 @@
+// addRange and addBytes take whole words once the word being filled is empty: its digest must be the one that adding the same bytes one at
+// a time makes, from every alignment and for every length about a word's.
+test 'addRange and addBytes are addByte a byte at a time'
+	let text = "the quick brown fox jumps over the lazy dog, 0123456789"
+	for lead in 0 upto 9 'leads'
+		for length in 0 upto 30 'lengths'
+			var words = Hasher.new()
+			var bytes = Hasher.new()
+			for k in 0 upto lead 'lead'
+				words.addByte(k as Byte)
+				bytes.addByte(k as Byte)
+			end 'lead'
+			words.addRange(text, begin: 3, finish: 3 + length)
+			var run = Hasher.new()
+			var held = ByteArray.create(0)
+			for k in 0 upto lead 'leadRun'
+				run.addByte(k as Byte)
+			end 'leadRun'
+			for i in 3 upto 3 + length 'held'
+				held.push(text.byteAt(i))
+			end 'held'
+			run.addBytes(held)
+			bytes.addCount(length)
+			for i in 3 upto 3 + length 'each'
+				bytes.addByte(text.byteAt(i))
+			end 'each'
+			if not words.digest().equals(bytes.digest()) 'differs'
+				panic("addRange differs from addByte after {lead} bytes, for {length} bytes")
+			end 'differs'
+			if not run.digest().equals(bytes.digest()) 'runDiffers'
+				panic("addBytes differs from addByte after {lead} bytes, for {length} bytes")
+			end 'runDiffers'
+		end 'lengths'
+	end 'leads'
+end 'addRange and addBytes are addByte a byte at a time'

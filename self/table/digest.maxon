@@ -68,6 +68,17 @@ function rotateLeft(x Word64, by Word64) returns Word64
 	return (x shl by) or (x shr (64 - by))
 end 'rotateLeft'
 
+// littleWordAt is the eight bytes of text from at as a word, the first the lowest.
+function littleWordAt(text String, at Count) returns Word64
+	var w = 0 as Word64
+	var shift = 0 as Word64
+	for k in 0 upto bytesPerWord 'bytes'
+		w = w or ((text.byteAt(try at + k otherwise panic("table: a word past the text")) as Word64) shl shift)
+		shift = shift + bitsPerByte
+	end 'bytes'
+	return w
+end 'littleWordAt'
+
 function finish64(x Word64) returns Word64
 	var h = x xor (x shr 33)
 	h = h * fmix1
@@ -128,19 +139,50 @@ export type Hasher
 	end 'addText'
 
 	// addRange adds the bytes of text from begin up to finish, after their count.
+	// Once the word being filled is empty, the bytes go in eight at a time, as the word that addByte would have made of them.
 	export function addRange(mutates self, text String, begin Count, finish Count)
 		self.addCount(try finish - begin otherwise panic("table: a range of bytes that ends before it begins"))
-		for i in begin upto finish 'bytes'
+		var i = begin
+		while i < finish and shift != 0 'align'
 			self.addByte(text.byteAt(i))
-		end 'bytes'
+			i = i + 1
+		end 'align'
+		while i < finish and (try finish - i otherwise 0) >= bytesPerWord 'words'
+			word = littleWordAt(text, at: i)
+			length = length + 8
+			self.take()
+			i = try i + bytesPerWord otherwise panic("table: a word past the text")
+		end 'words'
+		while i < finish 'rest'
+			self.addByte(text.byteAt(i))
+			i = i + 1
+		end 'rest'
 	end 'addRange'
 
 	// addBytes adds bytes as their count and themselves, as addText adds a text of the same bytes.
 	export function addBytes(mutates self, bytes ByteArray)
 		self.addCount(bytes.count())
-		for i in 0 upto bytes.count() 'bytes'
+		var i = 0 as Count
+		while i < bytes.count() and shift != 0 'align'
 			self.addByte(bytes[i])
-		end 'bytes'
+			i = i + 1
+		end 'align'
+		while i < bytes.count() and (try bytes.count() - i otherwise 0) >= bytesPerWord 'words'
+			var w = 0 as Word64
+			var at = 0 as Word64
+			for k in 0 upto bytesPerWord 'word'
+				w = w or ((bytes[try i + k otherwise panic("table: a word past the bytes")] as Word64) shl at)
+				at = at + bitsPerByte
+			end 'word'
+			word = w
+			length = length + 8
+			self.take()
+			i = try i + bytesPerWord otherwise panic("table: a word past the bytes")
+		end 'words'
+		while i < bytes.count() 'rest'
+			self.addByte(bytes[i])
+			i = i + 1
+		end 'rest'
 	end 'addBytes'
 
 	export function addDigest(mutates self, d Digest)
