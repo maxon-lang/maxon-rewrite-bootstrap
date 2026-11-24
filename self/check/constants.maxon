@@ -387,6 +387,7 @@ function checkConst(mutates c Checker, p ast.Project, mutates ms ast.ModuleState
 		return
 	end 'failed'
 	if checkConstantType(c, p: p, ms: ms, name: cd.name, node: cd.id, value: cd.value, t: t, errs: errs) 'typed'
+		refuseHiddenConstantType(c, p: p, ms: ms, cd: cd, t: t, errs: errs)
 		var value = constantValue(p, ms: ms, t: t)
 		let s = rangeConstant(c, p: p, ms: ms, value: cd.value, errs: errs)
 		if ast.isIntType(ms.types, reads: p.types, t: t) 'int'
@@ -396,6 +397,53 @@ function checkConst(mutates c Checker, p ast.Project, mutates ms ast.ModuleState
 		ast.setDeclConst(ms, ref: ast.DeclRef.make(c.modID, ordinal: ord), value: value)
 	end 'typed'
 end 'checkConst'
+
+// refuseHiddenConstantType refuses an exported or public constant whose type, written or inferred from its value, names a
+// declaration less visible than the constant: a reader of the constant would hold a value of a type it cannot name.
+function refuseHiddenConstantType(mutates c Checker, p ast.Project, ms ast.ModuleState, cd ast.ConstDecl, t ast.TypeID, mutates errs diag.ErrorList)
+	let tier = ast.visibilityOf(cd.visibility)
+	if tier == ast.Visibility.unexported 'unexported'
+		return
+	end 'unexported'
+	match hiddenDeclIn(p, ms: ms, t: t, tier: tier) 'hidden'
+		some(ref) then checkFail(c.modID, off: ms.tree().reportStartOf(cd.id), code: diag.errExposesHiddenType, msg: diag.exposesLessVisibleType(ast.visibilityWord(tier), noun: "constant", name: ast.inModule(p, modID: c.modID, name: cd.name), typeTier: ast.visibilityWord(ast.declLevel(p, ref: ref)), typeNoun: declNoun(p, ref: ref), typeName: ast.declName(p, ref: ref), position: "in its type"), errs: errs)
+		none then _ = 0
+	end 'hidden'
+end 'refuseHiddenConstantType'
+
+// hiddenDeclIn is the first declaration less visible than tier that the type t names, itself or through its type arguments,
+// or none.
+function hiddenDeclIn(p ast.Project, ms ast.ModuleState, t ast.TypeID, tier ast.Visibility) returns table.Option with ast.DeclRef
+	if t == ast.noType 'none'
+		return table.Option.none
+	end 'none'
+	let e = ast.typeEntry(ms.types, reads: p.types, t: t)
+	if e.hasDecl and e.decl.module != diag.stdlibID and ast.declLevel(p, ref: e.decl).ordinal < tier.ordinal 'hidden'
+		return table.Option.some(e.decl.clone())
+	end 'hidden'
+	let args = ast.cloneTypeArgs(e.typeArgs)
+	for i in 0 upto args.count() 'args'
+		let inner = hiddenDeclIn(p, ms: ms, t: args[i], tier: tier)
+		if inner.isSome() 'found'
+			return inner
+		end 'found'
+	end 'args'
+	return table.Option.none
+end 'hiddenDeclIn'
+
+// declNoun names the kind of the type declaration ref in a message.
+function declNoun(p ast.Project, ref ast.DeclRef) returns String
+	return match ast.moduleDecl(p, ref: ref) 'k'
+		typeDecl(_) gives "type"
+		enumDecl(_) gives "enum"
+		unionDecl(_) gives "union"
+		aliasDecl(_) gives "typealias"
+		interfaceDecl(_) gives "interface"
+		extensionDecl(_) gives "extension"
+		funcDecl(_) gives "function"
+		constDecl(_) gives "constant"
+	end 'k'
+end 'declNoun'
 
 // checkConstants types the module's constants and the raw values of its enums and unions in the order constantOrder gave.
 export function checkConstants(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, order OrdinalList, mutates errs diag.ErrorList)

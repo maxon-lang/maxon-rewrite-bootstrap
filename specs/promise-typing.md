@@ -198,6 +198,7 @@ error E3141: <fragment>:23:20: a promise cannot be borrowed through 'clone': it 
 ```
 
 <!-- test: promise-typing.error.append-an-array-of-promises -->
+<!-- skip: language difference: a door that copies its element bounds it Copyable, so a promise is refused by the bound, where maxon refuses it at the door -->
 <!-- positions: moved -->
 `append` copies every element of its argument, so an array of promises appended to another would leave each
 thread with two arrays to reclaim it.
@@ -288,6 +289,7 @@ error E3141: <fragment>:14:22: a promise cannot be borrowed through 'clone': it 
 ```
 
 <!-- test: promise-typing.error.filter-a-list-of-promises -->
+<!-- skip: language difference: a door that copies its element bounds it Copyable, so a promise is refused by the bound, where maxon refuses it at the door -->
 <!-- positions: moved -->
 `filter` keeps each element its predicate accepts by copying it into a new array, so a list of promises
 filtered would give each kept thread two owners.

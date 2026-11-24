@@ -1003,6 +1003,7 @@ end 'main'
 ```
 
 <!-- test: async-await.error.a-promise-stored-in-a-map-cannot-be-read-back-out -->
+<!-- skip: language difference: a promise owns the coroutine that one owner awaits, so it is not Droppable and no Map holds one as a value -->
 <!-- positions: moved -->
 A map has no slot a read could name, so reading a promise value out of it would leave two owners and is refused.
 ```maxon

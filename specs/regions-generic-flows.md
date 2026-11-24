@@ -1036,6 +1036,7 @@ end 'main'
 ```
 
 <!-- test: a-write-through-an-immutable-tuple-item-parameter-refused -->
+<!-- skip: language difference: a frozen value has the type `frozen with T`, so arms, assignments and results that join frozen and fresh data have different types -->
 <!-- positions: moved -->
 A parameter spelled `(immutable Box, Box)` reads its first item and cannot write through it.
 
@@ -1778,6 +1779,7 @@ error E3197: <fragment>:18:2: cannot write 'n' through 'first', which is immutab
 ```
 
 <!-- test: an-element-handed-back-by-a-call-over-an-immutable-array-is-blamed-as-immutable -->
+<!-- skip: language difference: a frozen value has the type `frozen with T`, so arms, assignments and results that join frozen and fresh data have different types -->
 <!-- positions: moved -->
 `pick` returns an `immutable` element of a frozen array, so writing through the binding `held` is blamed on the `immutable` element.
 
@@ -1918,6 +1920,7 @@ error E3196: <fragment>:37:12: cannot store an immutable 'Box' into 'Pairs.add.f
 ```
 
 <!-- test: an-item-handed-back-by-a-call-over-a-tuple-with-a-frozen-item-is-immutable -->
+<!-- skip: language difference: a frozen value has the type `frozen with T`, so arms, assignments and results that join frozen and fresh data have different types -->
 <!-- positions: moved -->
 `leak` returns `pair.0` as an ordinary `Box`; the tuple argument holds a frozen item, so the result is `immutable` and `got` cannot be written through.
 

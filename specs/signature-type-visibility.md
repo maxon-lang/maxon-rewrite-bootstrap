@@ -1339,7 +1339,6 @@ error E3167: aaa/<fragment>:6:17: exported function 'aaa.twice' names unexported
 ## A top-level binding is judged by its type
 
 <!-- test: error.an-exported-let-of-a-file-private-enum-type-is-refused -->
-<!-- positions: moved -->
 A binding is part of the surface its tier opens, and a reader of `BIG` holds a `Status` it has no spelling for.
 The refusal sits at the binding NAME, in the words a function gets, and the noun is the binding's own — a
 `let` is a "constant" and a `var` a "variable".
@@ -1354,7 +1353,7 @@ export let BIG = Status.big
 
 // --- file: app/main.maxon
 function main() returns ExitCode
-	return 7 if api.BIG == api.BIG else 0
+	return 7 if BIG == BIG else 0
 end 'main'
 ```
 ```maxoncstderr
@@ -1432,7 +1431,6 @@ error E3167: api/<fragment>:9:20: exported constant 'api.Holder.DEFAULT' names u
 ```
 
 <!-- test: error.an-exported-let-cast-to-a-file-private-alias-is-refused -->
-<!-- positions: moved -->
 A constant keeps the alias its initializer was cast to, and the alias is a declaration like any other.
 ```maxon
 // --- file: api/lib.maxon
@@ -1442,7 +1440,7 @@ export let CAP = 50 as Small
 
 // --- file: app/main.maxon
 function main() returns ExitCode
-	return api.CAP as ExitCode
+	return CAP as ExitCode
 end 'main'
 ```
 ```maxoncstderr

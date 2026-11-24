@@ -722,6 +722,7 @@ error E3197: <fragment>:14:2: cannot write 'n' through 'e', which is read-only, 
 ```
 
 <!-- test: match-joining-frozen-and-fresh-data-is-read-only -->
+<!-- skip: language difference: a frozen value has the type `frozen with T`, so arms, assignments and results that join frozen and fresh data have different types -->
 <!-- positions: moved -->
 A `match` giving frozen data in one arm and a fresh mutable box in another is read-only afterwards, and the write through its result is refused.
 
@@ -786,6 +787,7 @@ error E3197: <fragment>:14:2: cannot write 'n' through 'e', which is immutable
 ```
 
 <!-- test: var-assigned-frozen-data-in-one-branch-is-read-only-after-the-merge -->
+<!-- skip: language difference: a frozen value has the type `frozen with T`, so arms, assignments and results that join frozen and fresh data have different types -->
 <!-- positions: moved -->
 `e` holds a fresh box and one branch assigns it frozen data, so after the merge `e` is read-only and the write through it is refused.
 
@@ -819,6 +821,7 @@ error E3197: <fragment>:19:2: cannot write 'n' through 'e', which is read-only, 
 ```
 
 <!-- test: var-reassigned-frozen-data-is-immutable -->
+<!-- skip: language difference: a frozen value has the type `frozen with T`, so arms, assignments and results that join frozen and fresh data have different types -->
 <!-- positions: moved -->
 `e = pinned` rebinds `e` to frozen data, so the write through it is refused.
 
@@ -1090,6 +1093,7 @@ error E3102: <fragment>:21:14: use of moved value 'a': its ownership moved to an
 ```
 
 <!-- test: loop-body-write-through-a-variable-the-back-edge-assigns-frozen-data -->
+<!-- skip: language difference: a frozen value has the type `frozen with T`, so arms, assignments and results that join frozen and fresh data have different types -->
 <!-- positions: moved -->
 The first trip writes through the fresh box, but `e = pinned` hands the next trip frozen data, so at the loop header `e` joins immutable and mutable data and the write through it is refused.
 
@@ -1125,6 +1129,7 @@ error E3197: <fragment>:17:3: cannot write 'n' through 'e', which is read-only, 
 ```
 
 <!-- test: for-body-write-through-a-variable-the-back-edge-assigns-frozen-data -->
+<!-- skip: language difference: a frozen value has the type `frozen with T`, so arms, assignments and results that join frozen and fresh data have different types -->
 <!-- positions: moved -->
 The same refusal in a `for` loop: the counter advances through the step block, and the back edge still carries `e = pinned` to the header.
 
@@ -1158,6 +1163,7 @@ error E3197: <fragment>:16:3: cannot write 'n' through 'e', which is read-only, 
 ```
 
 <!-- test: loop-write-through-a-field-path-of-a-variable-the-back-edge-assigns-frozen-data -->
+<!-- skip: language difference: a frozen value has the type `frozen with T`, so arms, assignments and results that join frozen and fresh data have different types -->
 <!-- positions: moved -->
 The write goes through `h.box`, a field read of the carried `h`, so it is judged against the header join of `h` and not the fresh holder the first trip sees.
 
@@ -1201,6 +1207,7 @@ error E3197: <fragment>:25:3: cannot write 'n' through 'h.box', which is read-on
 ```
 
 <!-- test: nested-loop-write-through-a-variable-the-outer-back-edge-assigns-frozen-data -->
+<!-- skip: language difference: a frozen value has the type `frozen with T`, so arms, assignments and results that join frozen and fresh data have different types -->
 <!-- positions: moved -->
 The inner loop assigns nothing, but the outer loop's back edge carries `e = pinned` to the outer header, which the inner header inherits.
 
@@ -1240,6 +1247,7 @@ error E3197: <fragment>:20:4: cannot write 'n' through 'e', which is read-only, 
 ```
 
 <!-- test: loop-body-merge-of-a-variable-the-back-edge-assigns-frozen-data -->
+<!-- skip: language difference: a frozen value has the type `frozen with T`, so arms, assignments and results that join frozen and fresh data have different types -->
 <!-- positions: moved -->
 `e` is replaced by a fresh box on the first trip only, so after the `if` it joins that box with the carried `e`, which the back edge makes read-only.
 

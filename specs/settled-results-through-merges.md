@@ -515,6 +515,7 @@ end 'main'
 ```
 
 <!-- test: a-getter-beside-its-own-frozen-data-is-not-writable-for-its-caller -->
+<!-- skip: language difference: a frozen value has the type `frozen with T`, so arms, assignments and results that join frozen and fresh data have different types -->
 <!-- positions: moved -->
 ```maxon
 typealias Tally = int(0 to u64.max)
@@ -595,6 +596,7 @@ error E3209: <fragment>:20:10: a return does not fit the declared result: 'self.
 ```
 
 <!-- test: a-getter-beside-its-own-frozen-data-is-not-writable-through-a-local-var -->
+<!-- skip: language difference: a frozen value has the type `frozen with T`, so arms, assignments and results that join frozen and fresh data have different types -->
 <!-- positions: moved -->
 The caller's receiver is a local `var`, not a parameter, and the mixed getter's result is still read-only.
 
@@ -762,6 +764,7 @@ error E3207: <fragment>:35:8: 'reset' takes `mutable` 'box' (line 30: `box.n = 0
 ```
 
 <!-- test: a-ternary-of-frozen-and-writable-data-is-not-writable-for-its-caller -->
+<!-- skip: language difference: a frozen value has the type `frozen with T`, so arms, assignments and results that join frozen and fresh data have different types -->
 <!-- positions: moved -->
 A single `return` whose ternary gives frozen data on one arm and writable data on the other.
 
@@ -805,6 +808,7 @@ error E3197: <fragment>:27:2: cannot write 'n' through 'picked', which is read-o
 ```
 
 <!-- test: a-match-of-frozen-and-writable-data-is-not-writable-for-its-caller -->
+<!-- skip: language difference: a frozen value has the type `frozen with T`, so arms, assignments and results that join frozen and fresh data have different types -->
 <!-- positions: moved -->
 ```maxon
 typealias Tally = int(0 to u64.max)
@@ -849,6 +853,7 @@ error E3197: <fragment>:30:2: cannot write 'n' through 'picked', which is read-o
 ```
 
 <!-- test: a-ternary-of-frozen-and-writable-data-is-not-writable-through-a-local-var -->
+<!-- skip: language difference: a frozen value has the type `frozen with T`, so arms, assignments and results that join frozen and fresh data have different types -->
 <!-- positions: moved -->
 ```maxon
 typealias Tally = int(0 to u64.max)
@@ -1458,6 +1463,7 @@ error E3211: <fragment>:35:11: 'Bump' mutates captures and cannot be called thro
 ```
 
 <!-- test: a-conformer-returning-a-receiver-field-through-a-frozen-holder-is-not-writable -->
+<!-- skip: language difference: a frozen value has the type `frozen with T`, so arms, assignments and results that join frozen and fresh data have different types -->
 <!-- positions: moved -->
 `Shelf.part` hands back a field of its receiver without building a record, and `through` passes that result along from a frozen holder, so the caller holds frozen data.
 

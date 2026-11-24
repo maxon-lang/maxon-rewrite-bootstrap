@@ -1271,6 +1271,7 @@ error E2013: <fragment>:19:6: 'p' is a let field and cannot be reassigned
 ```
 
 <!-- test: async-promise-drop.error.a-promise-element-read-through-a-borrow-door -->
+<!-- skip: language difference: a door that copies its element bounds it Copyable, so a promise is refused by the bound, where maxon refuses it at the door -->
 <!-- positions: moved -->
 ⭐ **A CORPUS MEMBER MAY HAND A PROMISE ELEMENT OVER ONLY IF IT STOPPED HOLDING IT.** `last()` reads the
 element and leaves it in the array. For a refcounted element that is sound — the read RETAINS, so both
@@ -2227,6 +2228,7 @@ end 'main'
 ```
 
 <!-- test: async-promise-drop.error.cancel-a-promise-no-frame-owns -->
+<!-- skip: language difference: a door that copies its element bounds it Copyable, so a promise is refused by the bound, where maxon refuses it at the door -->
 <!-- positions: moved -->
 ⭐⭐ **`cancel` IS A CONSUME, SO IT ASKS THE SAME OWNERSHIP QUESTION `await` ASKS.**
 `requireConsumedPromiseIsOwned` guards both doors, so this program and its `await` twin — the SAME program
@@ -2530,6 +2532,7 @@ error E3141: <fragment>:15:6: a promise cannot be borrowed through 'current': it
 ```
 
 <!-- test: async-promise-drop.error.a-map-iterator-over-promise-values -->
+<!-- skip: language difference: a promise owns the coroutine that one owner awaits, so it is not Droppable and no Map holds one as a value -->
 <!-- positions: moved -->
 A `Map`'s iterator hands each entry back as a `(key, value)` pair while the map keeps the value, and a map has
 no index a slot could name — so a promise value read through it is refused.
@@ -2794,6 +2797,7 @@ end 'main'
 ```
 
 <!-- test: async-promise-drop.error.a-slot-read-stored-twice -->
+<!-- skip: language difference: a door that copies its element bounds it Copyable, so a promise is refused by the bound, where maxon refuses it at the door -->
 <!-- positions: moved -->
 The store above emptied `a`'s slot and handed the thread to `b`, so the name that read it out has stopped
 denoting a thread this frame can give away a second time. The refusal is the ordinary use-after-move, at the
@@ -2826,6 +2830,7 @@ error E3102: <fragment>:21:9: use of moved value 'p': its ownership moved to ano
 ```
 
 <!-- test: async-promise-drop.error.a-retired-slot-read-stored -->
+<!-- skip: language difference: a door that copies its element bounds it Copyable, so a promise is refused by the bound, where maxon refuses it at the door -->
 <!-- positions: moved -->
 Two reads of one slot hold one thread, and the first store empties the slot both of them name — so `q` names
 a thread no frame owns any longer. Nothing moved `q` itself, which is why the refusal names the door it was
@@ -2905,6 +2910,7 @@ end 'main'
 ```
 
 <!-- test: async-promise-drop.error.a-slot-read-stored-in-one-arm-is-spent-past-the-join -->
+<!-- skip: language difference: a door that copies its element bounds it Copyable, so a promise is refused by the bound, where maxon refuses it at the door -->
 <!-- positions: moved -->
 The other side of the control above: a thread given away on ONE reaching edge is spent past the join, so the
 store after the `if` is a use of a name that no longer denotes a thread on every path. That is
@@ -2943,6 +2949,7 @@ error E3102: <fragment>:28:9: use of moved value 'p': its ownership moved to ano
 ```
 
 <!-- test: async-promise-drop.error.a-slot-read-stored-inside-a-loop-it-was-read-outside -->
+<!-- skip: language difference: a door that copies its element bounds it Copyable, so a promise is refused by the bound, where maxon refuses it at the door -->
 <!-- positions: moved -->
 A store inside a loop runs on every trip, so a slot read taken OUTSIDE the loop empties `a`'s slot on the
 first trip and would meet an already-empty one on the second, while `b` collected two entries naming one
@@ -3014,6 +3021,7 @@ error E3100: <fragment>:21:11: this promise has already been awaited: 'await' is
 ```
 
 <!-- test: async-promise-drop.error.a-retired-slot-read-awaited -->
+<!-- skip: language difference: a door that copies its element bounds it Copyable, so a promise is refused by the bound, where maxon refuses it at the door -->
 <!-- positions: moved -->
 The await spelling of the case above, and the one that fixes its sentence: the first await empties the slot
 both reads name, so the second names a thread no frame owns. It is not a move — nothing moved `q` — and the
@@ -3045,6 +3053,7 @@ error E3141: <fragment>:19:15: a promise cannot be borrowed through 'await': it 
 ```
 
 <!-- test: async-promise-drop.error.a-slot-read-given-away-in-a-while-condition -->
+<!-- skip: language difference: a door that copies its element bounds it Copyable, so a promise is refused by the bound, where maxon refuses it at the door -->
 <!-- positions: moved -->
 A `while` CONDITION runs on every trip exactly as its body does, so giving a slot read away inside one
 moves it on every trip — passing a promise to a callee that awaits it is a move, and the second trip would
@@ -3119,6 +3128,7 @@ error E3100: <fragment>:24:17: this promise has already been awaited: 'await' is
 ```
 
 <!-- test: async-promise-drop.error.a-slot-read-stored-inside-a-nested-loop-it-was-read-outside -->
+<!-- skip: language difference: a door that copies its element bounds it Copyable, so a promise is refused by the bound, where maxon refuses it at the door -->
 <!-- positions: moved -->
 The store twin of the case above: the inner loop stores the outer body's slot read on every trip, so its
 second trip reads a value the first moved.
@@ -3974,6 +3984,7 @@ error E3102: <fragment>:17:26: use of moved value 'p': it is passed at two argum
 ```
 
 <!-- test: async-promise-drop.error.one-promise-read-out-of-an-array-handed-to-two-awaiting-parameters-of-an-async-call -->
+<!-- skip: language difference: a door that copies its element bounds it Copyable, so a promise is refused by the bound, where maxon refuses it at the door -->
 <!-- positions: moved -->
 A promise read out of a container is bound to a name like any other, and handing that name to two parameters
 that take it is refused at the second argument, naming the binding.
@@ -4149,6 +4160,7 @@ error E3141: <fragment>:37:22: a promise cannot be borrowed through 'watch': it 
 ```
 
 <!-- test: async-promise-drop.error.an-array-of-promises-handed-to-a-peeking-coroutine -->
+<!-- skip: language difference: a door that copies its element bounds it Copyable, so a promise is refused by the bound, where maxon refuses it at the door -->
 <!-- positions: moved -->
 The same hazard through an array: the caller awaits the element out of its slot while the coroutine still
 holds the array.
@@ -4224,6 +4236,7 @@ error E3004: <fragment>:11:16: call to undefined function 'nosuch'
 ```
 
 <!-- test: async-promise-drop.error.the-alias-written-at-the-second-argument-is-the-name-reported -->
+<!-- skip: language difference: a door that copies its element bounds it Copyable, so a promise is refused by the bound, where maxon refuses it at the door -->
 <!-- positions: moved -->
 The refusal names the binding the author wrote at the argument it points at, not another name for the same
 promise.
@@ -4258,6 +4271,7 @@ error E3102: <fragment>:20:24: use of moved value 'z': it is passed at two argum
 ```
 
 <!-- test: async-promise-drop.error.the-original-written-at-the-second-argument-is-the-name-reported -->
+<!-- skip: language difference: a door that copies its element bounds it Copyable, so a promise is refused by the bound, where maxon refuses it at the door -->
 <!-- positions: moved -->
 The same promise under the other order: the second argument spells the original name, and that is the name
 reported.

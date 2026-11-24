@@ -546,8 +546,9 @@ is that of its module (`app::main`), and a project with no `main` in any module 
   says which modifier would reach.
 - **A signature may not name a less visible type, except in a result** (`E3167`): each type that the parameters,
   `throws` clause, `where` clause or `implements` clause of an `export` or `public` declaration name, the type of a
-  field (at the narrower of the field's and its type's visibility), a payload (at its union's) and a typealias's target
-  (the result of a function type too) must be at least as visible. A method is held to its own visibility, a requirement of
+  field (at the narrower of the field's and its type's visibility), a payload (at its union's), a typealias's target
+  (the result of a function type too) and the type of an `export` or `public` constant, whether written or inferred
+  from its value (`export let BIG = Status.big`), must be at least as visible. A method is held to its own visibility, a requirement of
   an interface to the interface's. The result of a function, a method or a requirement is not held to it, as a function
   of Go may return a type that is not exported, and neither is a type nested in the result (`returns Array with
   Hidden`, `returns (Hidden, Count)`, `returns borrowed Hidden`, `Promise with Hidden`). A module that the type's
@@ -4428,6 +4429,12 @@ the checker reports where Maxon's parser does, as it needs the type of the value
 - **More commands run at background priority.** Maxon lowers only `spec-test`, which puts itself at background priority
   (`Process.enterBackgroundPriority()`) once its worker branch is past, so its workers and test binaries inherit it.
   minimaxon does so for `test`, `selftest`, `fuzz`, `build` and `check` as well, and its gate lowers itself the same way.
+- **A copying door bounds its element Copyable.** A method of a collection that hands out a copy of an element (`get`,
+  `first`, `last`, `append`, `filter`) takes the element type Copyable, so a promise there is refused by the bound
+  (`E3017`), where maxon refuses it at the door (`E3141`). Both refuse the same programs.
+- **Frozen and fresh data are different types.** A frozen value has the type `frozen with T` (see "Immutable values, cowns and behaviours"), so a
+  match, a ternary, an assignment or a result that joins frozen and fresh data is a type error (`E3005`), where maxon gives
+  the joined value the read-only side and refuses a write through it (`E3197`).
 - **An operand read before a write in the same statement is a value.** Operands are evaluated left to right, and an
   operand that reads a place, `s.byteLength()` or `s.clone()`, is a value of its own before a later operand's `mutates`
   access to the place begins, as a field that the `mutates` argument does not reach is a place of its own; maxon refuses
