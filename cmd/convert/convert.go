@@ -256,13 +256,7 @@ func convertBlockComments(src string) string {
 		}
 
 		lineToks := toks[lineStart:lineEnd]
-		hasBlock := false
-		for _, t := range lineToks {
-			if t.kind == tokBlockComment {
-				hasBlock = true
-				break
-			}
-		}
+		hasBlock := slices.ContainsFunc(lineToks, closedBlockComment)
 		if !hasBlock {
 			for _, t := range lineToks {
 				out.WriteString(t.text)
@@ -280,7 +274,7 @@ func convertBlockComments(src string) string {
 
 		hasCode := false
 		for _, t := range lineToks {
-			if t.kind != tokSpace && t.kind != tokBlockComment && t.kind != tokLineComment {
+			if t.kind != tokSpace && !closedBlockComment(t) && t.kind != tokLineComment {
 				hasCode = true
 				break
 			}
@@ -288,7 +282,7 @@ func convertBlockComments(src string) string {
 
 		if !hasCode {
 			for _, t := range lineToks {
-				if t.kind == tokBlockComment {
+				if closedBlockComment(t) {
 					for _, cl := range blockCommentLines(t.text) {
 						out.WriteString(indent)
 						out.WriteString(cl)
@@ -306,7 +300,7 @@ func convertBlockComments(src string) string {
 		var hoisted []string
 		var codeBuf strings.Builder
 		for idx, t := range lineToks {
-			if t.kind != tokBlockComment {
+			if !closedBlockComment(t) {
 				codeBuf.WriteString(t.text)
 				continue
 			}
@@ -343,6 +337,12 @@ func convertBlockComments(src string) string {
 	return out.String()
 }
 
+// closedBlockComment reports whether t is a block comment that its */ ends. One that runs to the end of the source is
+// left as it is, since it is the error maxon's lexer reports (E1007) and no comment to rewrite.
+func closedBlockComment(t token) bool {
+	return t.kind == tokBlockComment && len(t.text) >= len("/**/") && strings.HasSuffix(t.text, "*/")
+}
+
 func blockCommentLines(raw string) []string {
 	inner := strings.TrimPrefix(raw, "/*")
 	inner = strings.TrimSuffix(inner, "*/")
@@ -377,6 +377,7 @@ func joinBracketLines(src string) string {
 
 	bracketDepth := 0
 	blockInBracket := 0
+	unclosedString := false
 	var hoistedComments []string
 	stmtStartPos := 0
 	stmtIndent := ""
@@ -430,14 +431,18 @@ func joinBracketLines(src string) string {
 			}
 		}
 
+		if t.kind == tokString && t.unclosed {
+			unclosedString = true
+		}
 		if bracketDepth > 0 && blockInBracket == 0 {
 			switch t.kind {
 			case tokLineComment:
 				hoistedComments = append(hoistedComments, strings.TrimSpace(t.text))
 				continue
 			case tokNewline:
-				if opensWithEnd(toks, i+1) {
-					// A line that ends a block cannot continue an expression, so the bracket was never closed.
+				if opensWithEnd(toks, i+1) || unclosedString {
+					// A line that ends a block, or one whose string literal its end leaves open (maxon's lexer refuses it
+					// there), continues no expression, so the bracket was never closed.
 					bracketDepth = 0
 					break
 				}
@@ -459,6 +464,7 @@ func joinBracketLines(src string) string {
 
 		out.WriteString(t.text)
 		if t.kind == tokNewline {
+			unclosedString = false
 			if bracketDepth == 0 {
 				flushHoisted()
 			}

@@ -421,7 +421,7 @@ type Clock
 end 'Clock'
 
 function main() returns ExitCode
-	return try Clock.make().y as ExitCode otherwise panic("out of range")
+	return Clock.make().y as ExitCode
 end 'main'
 
 typealias Integer = int(i64.min to i64.max)

@@ -81,7 +81,7 @@ end 'main'
 ```
 
 <!-- test: marker-contents-are-never-read -->
-<!-- skip: minimaxon does not parse the converted source: incomplete directive -->
+<!-- skip: minimaxon does not parse the converted source: Unknown compiler directive '#' -->
 The marker is a flag. Its text here is a plausible-looking negation of exactly the file it excludes,
 and it selects nothing: reading the contents at all would make this program stop compiling.
 ```maxon

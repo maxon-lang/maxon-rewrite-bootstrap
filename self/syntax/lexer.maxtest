@@ -101,8 +101,8 @@ test 'errors'
 	expectError("let  x = 1\n", expectedMessage: "tokens are separated by one space, not several", label: "doubleSpace")
 	expectError("let x = (\n1)\n", expectedMessage: "a line breaks inside parentheses; keep what they hold on one line", label: "breakInParens")
 	expectError("let x = 0x\n", expectedMessage: "incomplete integer", label: "incompleteHex")
-	expectError("let s = \"oops\n", expectedMessage: "unterminated string literal", label: "unterminatedStr")
-	expectError("let s = \"\{x:04x\"\n", expectedMessage: "unterminated interpolation in string literal", label: "unterminatedFormatSpec")
+	expectError("let s = \"oops\n", expectedMessage: "Unterminated string literal", label: "unterminatedStr")
+	expectError("let s = \"\{x:04x\"\n", expectedMessage: "Unescaped '\{' in string literal — use '\\\{' for a literal brace", label: "unterminatedFormatSpec")
 	expectError("let s = \"\}\"\n", expectedMessage: "a '\}' in a string is written '\\\}'", label: "bareBrace")
 end 'errors'
 
@@ -164,7 +164,7 @@ test 'positions and diag'
 	var texts = ast.StringList.create(0)
 	texts.push("function one()\n\treturn\nend 'one'\n")
 	texts.push("function two()\n\tlet x = 1\n\treturn\nend 'two'\n")
-	let pr = parseModuleFiles(0 as diag.ModuleID, path: "m", filePaths: paths, fileTexts: texts, target: ast.Target.windowsX64())
+	let pr = parseModuleFiles(0 as diag.ModuleID, path: "m", filePaths: paths, fileTexts: texts, target: ast.Target.windowsX64(), libraryTier: false)
 	var m as ast.ParsedModule
 	match consumes pr 'r'
 		ok(modVal) then m = modVal

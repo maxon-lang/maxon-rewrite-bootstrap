@@ -1,4 +1,4 @@
-// expect-error: E3179 at 3:16
+// expect-error: E3162 at 3:16
 function main() returns ExitCode
 	let a = Array.create(0)
 	return 0

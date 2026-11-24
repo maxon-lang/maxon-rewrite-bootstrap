@@ -241,8 +241,8 @@ error E3001: No 'main' function found
 <!-- test: unterminated-block-comment -->
 <!-- positions: moved -->
 ```maxon
-// no close
-//
+/* no close
+
 ```
 ```maxoncstderr
 error E1007: specs/lexer-edge-cases/unterminated-block-comment.maxon:2:1: Unterminated block comment

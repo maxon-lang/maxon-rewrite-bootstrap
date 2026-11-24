@@ -163,16 +163,15 @@ error E2051: specs/reserved-double-underscore/enum-case.maxon:4:2: identifier '_
 ```
 
 <!-- test: closure-parameter -->
-<!-- positions: moved -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
 function apply(f Integer, n Integer) returns Integer
-	return try f + n otherwise panic("out of range")
+	return f + n
 end 'apply'
 
 function main() returns ExitCode
-	let f = function(__n Integer) gives try __n + 1 otherwise panic("out of range")
+	let f = function(__n Integer) gives __n + 1
 	_ = f(0)
 	return 0
 end 'main'

@@ -299,10 +299,13 @@ func (g *pgen) once(e *elem, c cont, tg target) {
 		if e.joinBefore {
 			g.l.setJoin()
 		}
-		if e.label == "" {
-			g.l.stmt(call)
-		} else {
+		switch {
+		case e.label != "":
 			g.assignToken(tg, e, call)
+		case e.action != "":
+			g.l.line(g.l.action(e.action, g.l.bind(call)))
+		default:
+			g.l.stmt(call)
 		}
 		if e.joinAfter {
 			g.l.setJoin()
@@ -317,6 +320,9 @@ func (g *pgen) once(e *elem, c cont, tg target) {
 			g.l.assign(tg.pass, g.convert(g.l.bind(call), r, tg.passSet))
 		default:
 			g.l.stmt(call)
+		}
+		if e.action != "" {
+			g.l.line(g.l.afterRule(e.action))
 		}
 	case ekPredicate:
 		// enterTest has tested it.
@@ -432,6 +438,11 @@ func (m *model) inSet(n *node, name string) bool {
 }
 
 func (g *pgen) assignToken(tg target, e *elem, call string) {
+	if e.action != "" {
+		tok := g.l.bind(call)
+		g.l.line(g.l.action(e.action, tok))
+		call = tok
+	}
 	if tg.helper != nil {
 		g.checkHelperLabel(tg.helper, e)
 		tok := g.l.bind(call)
@@ -984,6 +995,10 @@ type lang interface {
 	and(a, b string) string
 	// predicate is a call of the hand-written parser method name, which gives whether the parser is where a {name}? stands.
 	predicate(name string) string
+	// action is a call of the hand-written parser method name with the token tok, which may refuse it; afterRule is a
+	// call of it with nothing, once the rule before it is parsed.
+	action(name, tok string) string
+	afterRule(name string) string
 	or(parts []cond) string
 	not(c string) string
 	less(prec int, v string) string

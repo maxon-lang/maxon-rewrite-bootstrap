@@ -150,6 +150,10 @@ type Parser
 	// stands; directiveNext is the next one it writes.
 	var directives as ast.StringList
 	var directiveNext as Count
+	// libraryTier is whether the module is in the library tier, whose declarations may take the names reserved for it.
+	var libraryTier as bool
+	// initializer is the name of the module-level or static let whose initializer is being parsed, or empty outside one.
+	var initializer as String
 
 	static function new(consumes src Source, consumes toks Tokens, module diag.ModuleID) returns Parser
 		let text = src.text.clone()
@@ -157,7 +161,7 @@ type Parser
 		if src.files.count() > 0 'first'
 			prevEnd = src.files[0].start as Count
 		end 'first'
-		return Parser{src: src, toks: toks, tree: ast.Tree.new(module, text: text), lists: ListStacks.new(), pos: 0 as Count, fileIndex: 0 as Count, errors: diag.ErrorList.create(0), prevEnd: prevEnd, prevKind: TokenKind.fileEnd, joinNext: false, blanks: BlankRule.firstInFile, format: Formatter.new(), formatting: false, layoutOnly: false, directives: ast.StringList.create(0), directiveNext: 0 as Count}
+		return Parser{src: src, toks: toks, tree: ast.Tree.new(module, text: text), lists: ListStacks.new(), pos: 0 as Count, fileIndex: 0 as Count, errors: diag.ErrorList.create(0), prevEnd: prevEnd, prevKind: TokenKind.fileEnd, joinNext: false, blanks: BlankRule.firstInFile, format: Formatter.new(), formatting: false, layoutOnly: false, directives: ast.StringList.create(0), directiveNext: 0 as Count, libraryTier: false, initializer: ""}
 	end 'new'
 
 	function fileNumber() returns Count
@@ -683,6 +687,37 @@ type Parser
 	end 'endSegment'
 
 	// refuse is the syntax error for a gap that breaks the layout.
+	// declares refuses the name t that a declaration takes where it is reserved: one that starts with the prefix of the
+	// names of the compiler and the library tier, outside that tier. The formatter reads layout only, and refuses none.
+	function declares(mutates self, t Token) throws SyntaxError
+		if layoutOnly or libraryTier 'open'
+			return
+		end 'open'
+		let name = self.text(t)
+		if name.startsWith(reservedPrefix) 'prefixed'
+			errors.push(src.errorAt(diag.errReservedIdentifier, message: diag.reservedIdentifier(name), file: self.fileNumber(), offset: t.start as Count))
+			throw SyntaxError.refused
+		end 'prefixed'
+	end 'declares'
+
+	// initializes is declares for a module-level or static let, whose initializer is parsed next.
+	function initializes(mutates self, t Token) throws SyntaxError
+		try self.declares(t)
+		initializer = self.text(t)
+	end 'initializes'
+
+	function initialized(mutates self) throws SyntaxError
+		initializer = ""
+	end 'initialized'
+
+	// leavesFunction refuses a return in the initializer of a module-level or static let, which is in no function to leave.
+	function leavesFunction(mutates self, t Token) throws SyntaxError
+		if initializer != "" 'initializing'
+			errors.push(src.errorAt(diag.errReturnInInitializer, message: diag.returnInInitializer(initializer), file: self.fileNumber(), offset: t.start as Count))
+			throw SyntaxError.refused
+		end 'initializing'
+	end 'leavesFunction'
+
 	function refuse(mutates self, consumes message String, at Count) returns SyntaxError
 		let file = self.fileNumber()
 		errors.push(src.errorAt(diag.errExpectedToken, message: message, file: file, offset: at))
@@ -1168,8 +1203,12 @@ function blanksBefore(count Count) returns BlankRule
 	return BlankRule.firstInFile
 end 'blanksBefore'
 
-// parseSourceInto parses the module of the handle from its source.
-function parseSourceInto(module diag.ModuleID, consumes path String, consumes src Source, target ast.Target) returns ParseResult
+// reservedPrefix starts the names that only the library tier declares, as maxon reserves them.
+let reservedPrefix = "__"
+
+// parseSourceInto parses the module of the handle from its source; a module of the library tier may declare its reserved
+// names.
+function parseSourceInto(module diag.ModuleID, consumes path String, consumes src Source, target ast.Target, libraryTier bool) returns ParseResult
 	var errs = diag.ErrorList.create(0)
 	var toks = Tokens.create(0)
 	var failed = false
@@ -1192,6 +1231,7 @@ function parseSourceInto(module diag.ModuleID, consumes path String, consumes sr
 	end 'directiveError'
 	let files = src.files.clone()
 	var p = Parser.new(src, toks: exchange(resolved.toks, value: Tokens.create(0)), module: module)
+	p.libraryTier = libraryTier
 	let decls = parseProgram(p)
 	if p.errors.count() > 0 'syntaxErrors'
 		return ParseResult.err(exchange(p.errors, value: diag.ErrorList.create(0)))
@@ -1203,10 +1243,10 @@ function parseSourceInto(module diag.ModuleID, consumes path String, consumes sr
 end 'parseSourceInto'
 
 export function parseSource(module diag.ModuleID, path String, consumes src String) returns ParseResult
-	return parseSourceInto(module, path: path.clone(), src: sourceOf(src, path: path), target: ast.Target.windowsX64())
+	return parseSourceInto(module, path: path.clone(), src: sourceOf(src, path: path), target: ast.Target.windowsX64(), libraryTier: false)
 end 'parseSource'
 
-export function parseModuleFiles(module diag.ModuleID, consumes path String, consumes filePaths ast.StringList, consumes fileTexts ast.StringList, target ast.Target) returns ParseResult
+export function parseModuleFiles(module diag.ModuleID, consumes path String, consumes filePaths ast.StringList, consumes fileTexts ast.StringList, target ast.Target, libraryTier bool) returns ParseResult
 	var buf = ByteArray.create(0)
 	var files = ast.FileSpanList.create(0)
 	var spans as Array with Count
@@ -1222,5 +1262,5 @@ export function parseModuleFiles(module diag.ModuleID, consumes path String, con
 		files.push(ast.FileSpan.make(filePaths[i].clone(), text: text, start: startOff, endOff: endOff))
 		startOff = endOff
 	end 'spans'
-	return parseSourceInto(module, path: path, src: Source.make(text, files: files), target: target)
+	return parseSourceInto(module, path: path, src: Source.make(text, files: files), target: target, libraryTier: libraryTier)
 end 'parseModuleFiles'

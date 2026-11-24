@@ -16,6 +16,8 @@ let byteLParen = 40 as Byte
 
 let byteRParen = 41 as Byte
 
+let byteStar = 42 as Byte
+
 let byteDot = 46 as Byte
 
 let byteSlash = 47 as Byte
@@ -57,6 +59,8 @@ let byteLowerT = 116 as Byte
 let byteLowerU = 117 as Byte
 
 let byteLowerX = 120 as Byte
+
+let byteLowerZ = 122 as Byte
 
 let byteLBrace = 123 as Byte
 
@@ -326,9 +330,13 @@ type Lexer
 
 	// fail records the error at the offset, which is what the lexer then throws.
 	function fail(mutates self, src Source, consumes message String, at Count) returns SyntaxError
-		errors.push(src.errorAt(diag.errUnexpectedToken, message: message, file: file, offset: at))
-		return SyntaxError.refused
+		return self.failWith(src, code: diag.errUnexpectedToken, message: message, at: at)
 	end 'fail'
+
+	function failWith(mutates self, src Source, consumes code String, consumes message String, at Count) returns SyntaxError
+		errors.push(src.errorAt(code, message: message, file: file, offset: at))
+		return SyntaxError.refused
+	end 'failWith'
 
 	function finish(mutates self, src Source, at Count) throws SyntaxError
 		try self.emit(src, kind: TokenKind.eof, start: at, stop: at)
@@ -648,6 +656,18 @@ type Lexer
 
 	// unfinished is the error for input that stops in a state accepting no token.
 	function unfinished(mutates self, src Source, state Count, start Count) returns SyntaxError
+		// A directive and a block comment are known by their first bytes, and maxon names what is wrong with each.
+		let first = src.text.byteAt(start)
+		if first == byteHash 'directive'
+			var nameEnd = after(start)
+			while nameEnd < limit and src.text.byteAt(nameEnd) >= byteLowerA and src.text.byteAt(nameEnd) <= byteLowerZ 'name'
+				nameEnd = after(nameEnd)
+			end 'name'
+			return self.failWith(src, code: diag.errUnknownDirective, message: diag.unknownDirective(src.text.sliceBytes(after(start), endPos: nameEnd).clone()), at: start)
+		end 'directive'
+		if first == byteSlash and after(start) < limit and src.text.byteAt(after(start)) == byteStar 'blockComment'
+			return self.failWith(src, code: diag.errUnterminatedBlockComment, message: diag.unterminatedBlockComment(), at: start)
+		end 'blockComment'
 		let msg = dfaIncomplete(state)
 		if msg != "" 'named'
 			return self.fail(src, message: msg, at: start)
@@ -661,6 +681,16 @@ type Lexer
 		return self.fail(src, message: "unexpected character '{ch}'", at: start)
 	end 'unfinished'
 end 'Lexer'
+
+// holdsQuote says whether a quote is among the bytes of text from begin up to until.
+function holdsQuote(text String, begin Count, until Count) returns bool
+	for at in begin upto until 'bytes'
+		if text.byteAt(at) == byteQuote 'quote'
+			return true
+		end 'quote'
+	end 'bytes'
+	return false
+end 'holdsQuote'
 
 // scanString reads the string literal at start in the file of the index, which the DFA only starts, returning its end.
 function scanString(src Source, mutates errs diag.ErrorList, file Count, start Count) returns Count throws SyntaxError
@@ -823,6 +853,12 @@ type StringReader
 		return SyntaxError.refused
 	end 'fail'
 
+	// unterminated is the error of a literal that its line or the source ends, at its quote.
+	function unterminated(src Source, mutates errs diag.ErrorList) returns SyntaxError
+		errs.push(src.errorAt(diag.errUnterminatedString, message: diag.unterminatedString(), file: file, offset: open))
+		return SyntaxError.refused
+	end 'unterminated'
+
 	// read reads the literal, returning its end.
 	function read(mutates self, src Source, mutates errs diag.ErrorList) returns Count throws SyntaxError
 		if bytes 'bytes'
@@ -863,7 +899,7 @@ type StringReader
 				pos = after(pos)
 			end 'plain'
 		end 'chars'
-		throw self.fail(src, errs: errs, message: "unterminated string literal", at: open)
+		throw self.unterminated(src, errs: errs)
 	end 'read'
 
 	// readBytes reads a byte string, returning its end. Its bytes are kept in buf as they are read, since a character that
@@ -898,7 +934,7 @@ type StringReader
 				pos = next
 			end 'checked'
 		end 'chars'
-		throw self.fail(src, errs: errs, message: "unterminated string literal", at: open)
+		throw self.unterminated(src, errs: errs)
 	end 'readBytes'
 
 	// requireByte refuses a code point that has no byte of its own.
@@ -938,10 +974,10 @@ type StringReader
 		escaped = true
 		pos = after(pos)
 		let at = pos
-		var e = 0 as Byte
-		if pos < limit 'has'
-			e = src.text.byteAt(pos)
-		end 'has'
+		if pos >= limit or src.text.byteAt(pos) == byteNewline 'ended'
+			throw self.unterminated(src, errs: errs)
+		end 'ended'
+		let e = src.text.byteAt(pos)
 		pos = after(pos)
 		var ch = 0 as Count
 		if e == byteLowerN 'newline'
@@ -1032,7 +1068,14 @@ type StringReader
 			end 'next'
 		end 'scan'
 		if pos >= limit or src.text.byteAt(pos) != byteRBrace 'unterminated'
-			throw self.fail(src, errs: errs, message: "unterminated interpolation in string literal", at: start)
+			// A quote in what the brace opened was the string's own end, so the brace was meant as text, as maxon judges.
+			let brace = before(start)
+			if holdsQuote(src.text, begin: start, until: pos) 'text'
+				errs.push(src.errorAt(diag.errUnescapedBrace, message: "Unescaped '\{' in string literal — use '\\\{' for a literal brace", file: file, offset: brace))
+				throw SyntaxError.refused
+			end 'text'
+			errs.push(src.errorAt(diag.errUnterminatedString, message: diag.unterminatedString(), file: file, offset: brace))
+			throw SyntaxError.refused
 		end 'unterminated'
 		if not specified 'whole'
 			exprEnd = pos

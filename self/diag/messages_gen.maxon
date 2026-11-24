@@ -470,6 +470,56 @@ export function byteStringCodepointRange(codepoint String, escape String) return
 	return "Codepoint {codepoint} exceeds the byte range 0-255 in byte string literal; use a {escape} hex escape to embed a raw byte"
 end 'byteStringCodepointRange'
 
+// The text of errReturnInInitializer for: `return` has no function to leave in the initializer of '{binding}' — end a handler there with `panic(…)`, or give the `try` a fallback value with `otherwise <expr>`
+export function returnInInitializer(binding String) returns String
+	return "`return` has no function to leave in the initializer of '{binding}' — end a handler there with `panic(…)`, or give the `try` a fallback value with `otherwise <expr>`"
+end 'returnInInitializer'
+
+// The text of errBareTypeArgument for: Cannot use bare type '{name}' as a type argument; use a ranged typealias instead (e.g. typealias MyType = {name}(...))
+export function bareTypeArgument(name String) returns String
+	return "Cannot use bare type '{name}' as a type argument; use a ranged typealias instead (e.g. typealias MyType = {name}(...))"
+end 'bareTypeArgument'
+
+// The text of errBaseNotGeneric for: Type '{name}' has no associated types
+export function baseNotGeneric(name String) returns String
+	return "Type '{name}' has no associated types"
+end 'baseNotGeneric'
+
+// The text of errPromiseStorageMismatch for: a promise of {held} cannot be stored in '{slot}', which holds {claim}
+export function promiseStorageMismatch(held String, slot String, claim String) returns String
+	return "a promise of {held} cannot be stored in '{slot}', which holds {claim}"
+end 'promiseStorageMismatch'
+
+// The text of errComparisonMethodWrites for: '{method}' writes its parameter '{param}', but a method behind the comparison operators may not modify its operand — `==`, `!=`, `<`, `<=`, `>` and `>=` pass it by value
+export function comparisonWritesParameter(method String, param String) returns String
+	return "'{method}' writes its parameter '{param}', but a method behind the comparison operators may not modify its operand — `==`, `!=`, `<`, `<=`, `>` and `>=` pass it by value"
+end 'comparisonWritesParameter'
+
+// The text of errComparisonMethodWrites for: '{method}' writes its receiver, but a method behind the comparison operators may not modify its receiver — `==`, `!=`, `<`, `<=`, `>` and `>=` pass it by value
+export function comparisonWritesReceiver(method String) returns String
+	return "'{method}' writes its receiver, but a method behind the comparison operators may not modify its receiver — `==`, `!=`, `<`, `<=`, `>` and `>=` pass it by value"
+end 'comparisonWritesReceiver'
+
+// The text of errReservedIdentifier for: identifier '{name}' is reserved: declarations starting with '__' are reserved for compiler internals
+export function reservedIdentifier(name String) returns String
+	return "identifier '{name}' is reserved: declarations starting with '__' are reserved for compiler internals"
+end 'reservedIdentifier'
+
+// The text of errUnterminatedString for: Unterminated string literal
+export function unterminatedString() returns String
+	return "Unterminated string literal"
+end 'unterminatedString'
+
+// The text of errUnterminatedBlockComment for: Unterminated block comment
+export function unterminatedBlockComment() returns String
+	return "Unterminated block comment"
+end 'unterminatedBlockComment'
+
+// The text of errUnknownDirective for: Unknown compiler directive '#{name}'
+export function unknownDirective(name String) returns String
+	return "Unknown compiler directive '#{name}'"
+end 'unknownDirective'
+
 // The text of errInvalidEscape for: Malformed UTF-8 in string interpolation: a surrogate (U+D800 to U+DFFF) or an invalid byte sequence is not a Unicode scalar value
 export function surrogateEscape() returns String
 	return "Malformed UTF-8 in string interpolation: a surrogate (U+D800 to U+DFFF) or an invalid byte sequence is not a Unicode scalar value"

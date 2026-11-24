@@ -714,7 +714,11 @@ function callGeneric(mutates c Checker, p ast.Project, mutates ms ast.ModuleStat
 	let off = offsetOf(c, p: p, ms: ms, node: call)
 	if not hasGiven 'infer'
 		let result = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: target).retTy
-		args = infer(c, p: p, ms: ms, node: call, callee: callee, params: generics, specs: declared, ordered: ordered, result: result, errs: errs)
+		// A static of a generic type called through the type's bare name names no instance of it, which maxon refuses under a
+		// code of its own; a generic function that its call does not fix is the inference's refusal.
+		let ofType = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: target).ownerTy != ast.noType
+		let code = diag.errBareGenericSubjectUnbound if ofType else diag.errCannotInfer
+		args = infer(c, p: p, ms: ms, node: call, callee: callee, params: generics, specs: declared, ordered: ordered, result: result, code: code, errs: errs)
 		if failedSince(errs, mark: mark) 'cannotInfer'
 			return ast.noType
 		end 'cannotInfer'
@@ -778,7 +782,7 @@ function unionConstructor(mutates c Checker, p ast.Project, mutates ms ast.Modul
 		end 'badArgs'
 		let params = ast.cloneTypeArgs(ast.typeEntry(ms.types, reads: p.types, t: ut).typeParams)
 		let own = ast.selfType(ms.types, reads: p.types, declTy: ut)
-		let args = infer(c, p: p, ms: ms, node: call, callee: unionName, params: params, specs: specs, ordered: ordered, result: own, errs: errs)
+		let args = infer(c, p: p, ms: ms, node: call, callee: unionName, params: params, specs: specs, ordered: ordered, result: own, code: diag.errCannotInfer, errs: errs)
 		if failedSince(errs, mark: mark) 'cannotInfer'
 			return ast.noType
 		end 'cannotInfer'

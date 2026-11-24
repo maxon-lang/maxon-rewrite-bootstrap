@@ -101,6 +101,20 @@ function addFunction(mutates c Checker, p ast.Project, mutates ms ast.ModuleStat
 		checkFail(c.modID, off: off, code: diag.errUnexpectedToken, msg: "only an instance method takes a receiver parameter", errs: errs)
 		return
 	end 'receiver'
+	if nt != ast.noType and not f.isStatic and (f.name == equalsMethod or f.name == compareMethod) and f.params.count() == 1 and not conformanceRequires(p, ms: ms, nt: nt, name: f.name) 'comparison'
+		// The operators pass both sides by value, so the method they call only reads them: a convention that lets it change
+		// the receiver or the operand is refused, as maxon refuses a write of either. A method that a conformance requires
+		// is held to the requirement's signature there instead.
+		let method = "{ast.typeName(ms.types, reads: p.types, t: nt)}.{f.name}"
+		if f.receiver != "" 'receiverWritten'
+			checkFail(c.modID, off: off, code: diag.errComparisonMethodWrites, msg: diag.comparisonWritesReceiver(method), errs: errs)
+			return
+		end 'receiverWritten'
+		if f.params[0].convention != "" 'operandWritten'
+			checkFail(c.modID, off: off, code: diag.errComparisonMethodWrites, msg: diag.comparisonWritesParameter(method, param: f.params[0].name), errs: errs)
+			return
+		end 'operandWritten'
+	end 'comparison'
 	var selfTy = ast.noType
 	if nt != ast.noType 'owned'
 		selfTy = ast.selfType(ms.types, reads: p.types, declTy: nt)
@@ -145,6 +159,20 @@ function addFunction(mutates c Checker, p ast.Project, mutates ms ast.ModuleStat
 	ms.funcs.lists[ast.funcList(ms.funcs, f: fid)][ast.funcIndex(ms.funcs, f: fid)].errTy = err
 	declared.push(fid)
 end 'addFunction'
+
+// conformanceRequires is whether an interface that the type nt says it implements requires a method of the name.
+function conformanceRequires(p ast.Project, ms ast.ModuleState, nt ast.TypeID, name String) returns bool
+	let conforms = ast.cloneTypeArgs(ast.typeEntry(ms.types, reads: p.types, t: ast.originOf(ms.types, reads: p.types, t: nt)).conforms)
+	for i in 0 upto conforms.count() 'interfaces'
+		let reqs = ast.requirementsOf(ms.types, reads: p.types, iface: conforms[i])
+		for j in 0 upto reqs.count() 'requirements'
+			if ast.funcEntry(ms.funcs, funcReads: p.funcs, f: reqs[j].sig).name == name 'required'
+				return true
+			end 'required'
+		end 'requirements'
+	end 'interfaces'
+	return false
+end 'conformanceRequires'
 
 // addMethods declares the methods of a type, a union or an enum.
 function addMethods(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, methods ast.FuncDeclList, nt ast.TypeID, mutates declared ast.FuncIDList, mutates errs diag.ErrorList)

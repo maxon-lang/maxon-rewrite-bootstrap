@@ -61,7 +61,7 @@ function total(a T, b T) uses T returns Score where T implements Shape
 	return a.area() if a.area() > b.area() else b.area()
 end 'total'
 
-// expect-error: E2056 at 65:14
+// expect-error: E2055 at 65:14
 function f(p Plain with Score)
 	print("x")
 end 'f'

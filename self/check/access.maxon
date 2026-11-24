@@ -500,7 +500,7 @@ function instantiateInferred(mutates c Checker, p ast.Project, mutates ms ast.Mo
 	let own = ast.selfType(ms.types, reads: p.types, declTy: ut)
 	let callee = "{nameOfType(p, ms: ms, t: ut)}.{member}"
 	let mark = errs.count()
-	let args = inferRest(c, p: p, ms: ms, node: obj, callee: callee, params: params, args: openArgs(params.count()), result: own, errs: errs)
+	let args = inferRest(c, p: p, ms: ms, node: obj, callee: callee, params: params, args: openArgs(params.count()), result: own, code: diag.errCannotInfer, errs: errs)
 	if failedSince(errs, mark: mark) 'cannotInfer'
 		return ast.noType
 	end 'cannotInfer'

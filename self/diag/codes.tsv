@@ -6,7 +6,11 @@
 #              of minimaxon's own; `diaggen --maxon <maxon repository>` checks both against the registry
 #   meaning    what the compiler refuses
 # A code of minimaxon's own takes a number from E1900 (lexer), E3900 (semantic) or E9900 (internal), which maxon does not use.
+ErrUnterminatedString	E1002	lexerUnterminatedString	A string literal, or an interpolation in one, is not closed before its line or the source ends.
 ErrInvalidEscape	E1004	lexerInvalidEscape	An escape in a literal is malformed, a byte string holds a character that is no byte, or the source is not well-formed UTF-8.
+ErrUnescapedBrace	E1006	lexerUnescapedBrace	An interpolation is not closed on its line and a quote follows its brace, so the brace was meant as text and is written escaped.
+ErrUnterminatedBlockComment	E1007	lexerUnterminatedBlockComment	A block comment is not closed before the source ends.
+ErrUnknownDirective	E1009	lexerUnknownDirective	A '#' starts no directive the language has, as a shebang line anywhere but at the start of the file.
 ErrUnexpectedCharacter	E1010	lexerUnexpectedCharacter	A character that starts no token of maxon's is outside a comment and a string literal: one of ?;|&$%~^ and the backtick, or a non-ASCII one, since a name is ASCII.
 ErrControlCharacter	E1900	-	The source holds a control character other than a tab, a newline and a carriage return before a newline.
 ErrLineSeparator	E1901	-	The source holds a Unicode line terminator other than the newline: NEL (U+0085), LS (U+2028) or PS (U+2029).
@@ -29,12 +33,15 @@ ErrMatchDefaultNotLast	E2029	matchDefaultNotLast	A match has an arm after its 'd
 ErrNonConstantInitializer	E2045	parserNonConstantInitializer	A constant's initializer is not known at compile time.
 ErrMatchDefaultEnumMustThrow	E2046	matchDefaultEnumMustThrow	The default arm of a match over an enum or union does not panic.
 ErrMatchBlockStatement	E2049	matchBlockStatement	A match arm's action is a block statement.
+ErrReservedIdentifier	E2051	reservedIdentifier	A declaration outside the library tier takes a name that starts with __, which the compiler and the library tier keep for their own.
 ErrCallFirstArgNamed	E2052	callFirstArgNamed	A call labels its first argument.
 ErrCallArgMissingLabel	E2053	callArgMissingLabel	A call leaves a later argument without its label.
 ErrShiftCountNegative	E2054	shiftCountNegative	A shift's count is a negative constant.
+ErrBaseNotGeneric	E2055	genericBaseNotGeneric	A 'Base with Args' names a base that has no type parameters: a type that is not generic, or no type at all.
 ErrTypeArgumentCount	E2056	genericArityMismatch	A generic instance names the wrong number of type arguments.
 ErrTestOutsideTestFile	E2058	parserTestOutsideTestFile	A 'test' declaration is in a file whose name does not end in '.maxtest'.
 ErrTestEmptyName	E2059	parserTestEmptyName	A 'test' declaration has an empty name.
+ErrBareTypeArgument	E2061	genericBarePrimitiveArg	A type argument is a bare int or float, which names no range; a ranged typealias does.
 ErrDirectiveUnbalanced	E2063	directiveUnbalanced	A '#if' has no '#endif', or an '#else' or '#endif' has no '#if'.
 ErrDirectiveUnknownPredicate	E2064	directiveUnknownPredicate	A '#if' condition calls a function that is not 'os', 'arch', 'testing', 'rcSanitize', 'leakReport' or 'debugstream'.
 ErrDirectiveMalformedCondition	E2065	directiveMalformedCondition	A '#if' condition is not a combination of predicate calls, or text follows it on its line.
@@ -44,6 +51,7 @@ ErrUnknownStaticMember	E2073	unknownStaticMember	A qualified name names a member
 ErrNestedProjectFile	E2074	nestedProjectFile	A project file lies below another project's directory, and projects do not nest.
 ErrMethodAsFunctionValue	E2078	methodAsFunctionValue	A method or a requirement is named where a function value is needed.
 ErrCastOperandIsACast	E2079	castOperandIsACast	A cast's operand is itself a cast, written with or without parentheses.
+ErrReturnInInitializer	E2080	returnInInitializer	A return stands in the initializer of a module-level or static let, which is in no function to leave.
 ErrBlockLabelReused	E2081	blockLabelReused	A block is labelled with the label of a block that encloses it, or with the name of the function, method or type that holds it.
 ErrNoMainFunction	E3001	noMainFunction	The program declares no 'main' function.
 ErrMainWrongReturnType	E3002	mainWrongReturnType	'main' returns a type other than ExitCode.
@@ -80,6 +88,7 @@ ErrEmptyBlock	E3082	semanticEmptyBlock	A block other than a function body holds 
 ErrTryBlockBindingNotMatched	E3084	tryBlockBindingNotMatched	The handler of a try block names the error but never matches on it.
 ErrFieldNotInitialized	E3086	semanticFieldNotInitialized	A struct literal omits a field that has no default.
 ErrResolutionCycle	E3091	semanticTypeResolutionCycle	A typealias refers back to itself through the aliases it implements, or an interface through the interfaces it extends.
+ErrPromiseStorageMismatch	E3098	promiseStorageMismatch	A promise is stored, passed or returned where a promise of another result or error is expected.
 ErrPromiseAlreadyAwaited	E3100	promiseAlreadyAwaited	A promise started outside a loop is awaited inside it, which would await it again on the next iteration.
 ErrFunctionValueThrows	E3101	throwingFunctionAsValue	A function that throws is used as a value, which no function type can hold.
 ErrUseAfterMove	E3102	useAfterMove	A name is read after its value was moved out of it.
@@ -90,6 +99,7 @@ ErrThrowsNotAnErrorEnum	E3113	throwsTypeNotAnErrorEnum	A 'throws' clause names s
 ErrAmbiguousBound	E3114	semanticAmbiguousWitnessDispatch	A method call on a type parameter names a method that more than one of its bounds declares.
 ErrStaticRequirementNotDispatchable	E3116	semanticStaticRequirementNotDispatchable	A static requirement of an interface is called through a type parameter, which has no receiver to dispatch on.
 ErrIfTryDiscardsResult	E3124	ifTryDiscardsResult	An 'if try' with no binding tests a call that returns a value, which it discards.
+ErrMatchArmPayloadBindingConflict	E3129	matchArmPayloadBindingConflict	An arm that binds a payload covers more than one case, so on another case's path the arm would read a value no pattern bound.
 ErrCastTargetIsAContainer	E3131	castTargetIsAContainer	A cast to an instance of a generic that the value's type does not retag to: the elements have a layout of their own.
 ErrBoundBindingDisagrees	E3133	semanticWhereConstraintBindingDisagreement	A type argument implements its bound's interface, but binds an associated type to another type than the bound names.
 ErrSpawnTarget	E3134	semanticServiceNotASpawnTarget	A spawn names no static factory of a type that returns the type.
@@ -99,6 +109,7 @@ ErrPromiseBorrowed	E3141	semanticPromiseCannotBeBorrowed	A promise is lent where
 ErrPromiseConsumed	E3142	semanticPromiseAlreadyConsumed	A promise is used after an await consumed it.
 ErrIllegalBitWidth	E3148	semanticIllegalBitWidth	A bits(n) typealias has a width the language does not have.
 ErrRawIntrinsicOutsideRuntime	E3152	rawIntrinsicOutsideRuntimeTier	A source file outside the runtime calls a __Raw intrinsic.
+ErrBareGenericSubjectUnbound	E3162	bareGenericSubjectUnbound	A static function is called through the bare name of its generic type, and neither its arguments nor where its result goes fix the type's parameters.
 ErrExposesHiddenType	E3167	semanticSignatureTypeLessVisibleThanDeclaration	A declaration's signature names a type less visible than the declaration.
 ErrValueNotShareable	E3171	registryValueNotShareable	A value that more than one thread reaches, a frozen value or a cown's, holds what cannot cross between threads.
 ErrAliasRangeDoesNotFit	E3178	aliasImplementsRangeDoesNotFit	A typealias implements one whose range does not hold its own, or that is over another primitive or signedness.
@@ -107,6 +118,7 @@ ErrBadModuleName	E3182	namespaceDirectoryNotNameable	A directory of the program 
 ErrGenericGrowsWithoutBound	E3184	genericTypeGrowsWithoutBound	A field of a generic type holds that type again over a type built from its own parameters, so its instances never end.
 ErrRawSurfaceOutsideLibrary	E3185	rawSurfaceOutsideLibraryTier	A source file outside the library tiers names a part of the raw surface: a __Builtins call, a .managed read, a __ManagedMemory type or a method of one.
 ErrExclusivity	E3186	argumentOverlapsWrittenParameter	An argument handed to a written parameter overlaps another operand of the call.
+ErrComparisonMethodWrites	E3187	comparisonMethodWritesItsParameter	A method that the comparison operators call (equals, compare) writes its operand or its receiver, which the operators pass by value.
 ErrReplyDropped	E3190	semanticServiceReplyDropped	A message that replies is sent as a statement, so its reply is neither awaited, kept nor dropped on purpose.
 ErrSendTimeoutReserved	E3192	semanticServiceSendTimeoutReserved	A message declares a parameter named sendTimeout, which every send keeps.
 ErrInstanceMethodWithoutReceiver	E3193	semanticInstanceMethodCalledWithoutReceiver	An instance method is called by its type's name or, in a static method, by its bare name, with no value to call it on.

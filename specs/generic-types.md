@@ -3302,8 +3302,8 @@ wants.
 type Box uses T
 	export var value as T
 
-	static function create(v T) returns Self where T implements Copyable
-		return Self{value: v.clone()}
+	static function create(v T) returns Self
+		return Self{value: v}
 	end 'create'
 end 'Box'
 
@@ -3332,8 +3332,8 @@ is none.
 type Box uses T
 	export var value as T
 
-	static function create(v T) returns Self where T implements Copyable
-		return Self{value: v.clone()}
+	static function create(v T) returns Self
+		return Self{value: v}
 	end 'create'
 end 'Box'
 
@@ -3498,8 +3498,8 @@ wrong and not merely that one of them is.
 type Box uses T
 	export var value as T
 
-	static function create(v T) returns Self where T implements Copyable
-		return Self{value: v.clone()}
+	static function create(v T) returns Self
+		return Self{value: v}
 	end 'create'
 end 'Box'
 

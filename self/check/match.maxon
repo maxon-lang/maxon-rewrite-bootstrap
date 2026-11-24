@@ -274,10 +274,11 @@ function checkArm(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, 
 	for i in 0 upto altCount 'patterns'
 		let pattern = ms.tree().listAt(patternsRef, index: i) as ast.NodeID
 		checkPattern(c, p: p, ms: ms, pattern: pattern, st: st, owned: owned, altCount: altCount, state: state, errs: errs)
-		if failedSince(errs, mark: mark) 'badPattern'
-			return
-		end 'badPattern'
 	end 'patterns'
+	// Every alternative is checked, so a refused one leaves the cases of the others covered.
+	if failedSince(errs, mark: mark) 'badPattern'
+		return
+	end 'badPattern'
 	let form = ast.matchArmForm(ms.tree(), id: arm)
 	let off = offsetOf(c, p: p, ms: ms, node: arm)
 	let value = ast.matchArmValue(ms.tree(), id: arm)
@@ -502,8 +503,7 @@ function bindCase(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, 
 		return false
 	end 'count'
 	if altCount > 1 'alternatives'
-		checkFail(c.modID, off: off, code: diag.errEnumWrongBindingCount, msg: "an arm that binds a payload covers exactly one case", errs: errs)
-		return false
+		checkFail(c.modID, off: off, code: diag.errMatchArmPayloadBindingConflict, msg: "an arm that binds a payload covers exactly one case, since on another case's path it would read a value no pattern bound; give each case an arm of its own", errs: errs)
 	end 'alternatives'
 	for i in 0 upto payloadCount 'payload'
 		let bindingName = ms.tree().nameAt(ms.tree().listAt(bindingsRef, index: i)).clone()

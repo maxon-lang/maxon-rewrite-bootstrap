@@ -810,7 +810,7 @@ function parseSingleModule(mutates ms ast.ModuleState, p ast.Project, memory Sou
 		return
 	end 'ioFail'
 	let modID = ms.source.id
-	let res = syntax.parseModuleFiles(modID, path: mPath, filePaths: fPaths, fileTexts: fTexts, target: p.target)
+	let res = syntax.parseModuleFiles(modID, path: mPath, filePaths: fPaths, fileTexts: fTexts, target: p.target, libraryTier: ms.source.inLibraryTier())
 	match consumes res 'pr'
 		ok(parsedMod) then copyParsedIntoModule(ms, p: p, parsedMod: parsedMod)
 		err(found) then appendErrors(errs, found: found)

@@ -112,9 +112,11 @@ func (l *maxonLang) and(a, b string) string {
 	}
 	return a + " and " + b
 }
-func (l *maxonLang) predicate(name string) string { return "p." + name + "()" }
-func (l *maxonLang) or(parts []cond) string       { return joinConds(parts, " or ") }
-func (l *maxonLang) not(c string) string          { return "not " + c }
+func (l *maxonLang) predicate(name string) string   { return "p." + name + "()" }
+func (l *maxonLang) action(name, tok string) string { return "try p." + name + "(" + tok + ")" }
+func (l *maxonLang) afterRule(name string) string   { return "try p." + name + "()" }
+func (l *maxonLang) or(parts []cond) string         { return joinConds(parts, " or ") }
+func (l *maxonLang) not(c string) string            { return "not " + c }
 
 func (l *maxonLang) less(prec int, v string) string { return fmt.Sprintf("%d < %s", prec, v) }
 

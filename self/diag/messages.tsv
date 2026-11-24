@@ -100,6 +100,16 @@ throwMismatch	ErrErrorTypeMismatch	type mismatch: 'throw of '{errorType}' but th
 unionNotComparable	ErrEnumNotComparable	cannot compare union values using '{op}', use 'match' instead
 constructorRestricted	ErrConstructorRestriction	type '{typeName}' can only be constructed from within its own methods; use a static factory method instead
 byteStringCodepointRange	ErrInvalidEscape	Codepoint {codepoint} exceeds the byte range 0-255 in byte string literal; use a {escape} hex escape to embed a raw byte
+returnInInitializer	ErrReturnInInitializer	`return` has no function to leave in the initializer of '{binding}' — end a handler there with `panic(…)`, or give the `try` a fallback value with `otherwise <expr>`
+bareTypeArgument	ErrBareTypeArgument	Cannot use bare type '{name}' as a type argument; use a ranged typealias instead (e.g. typealias MyType = {name}(...))
+baseNotGeneric	ErrBaseNotGeneric	Type '{name}' has no associated types
+promiseStorageMismatch	ErrPromiseStorageMismatch	a promise of {held} cannot be stored in '{slot}', which holds {claim}
+comparisonWritesParameter	ErrComparisonMethodWrites	'{method}' writes its parameter '{param}', but a method behind the comparison operators may not modify its operand — `==`, `!=`, `<`, `<=`, `>` and `>=` pass it by value
+comparisonWritesReceiver	ErrComparisonMethodWrites	'{method}' writes its receiver, but a method behind the comparison operators may not modify its receiver — `==`, `!=`, `<`, `<=`, `>` and `>=` pass it by value
+reservedIdentifier	ErrReservedIdentifier	identifier '{name}' is reserved: declarations starting with '__' are reserved for compiler internals
+unterminatedString	ErrUnterminatedString	Unterminated string literal
+unterminatedBlockComment	ErrUnterminatedBlockComment	Unterminated block comment
+unknownDirective	ErrUnknownDirective	Unknown compiler directive '#{name}'
 surrogateEscape	ErrInvalidEscape	Malformed UTF-8 in string interpolation: a surrogate (U+D800 to U+DFFF) or an invalid byte sequence is not a Unicode scalar value
 callReturnsNoValue	ErrErrorTypeMismatch	type mismatch: ''{callee}' does not return a value'
 ifTryDiscardsResult	ErrIfTryDiscardsResult	'if try' discards the result of '{callee}': only a call that returns nothing may be tested bare — bind the result with 'if let'

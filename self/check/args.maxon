@@ -312,8 +312,9 @@ function openArgs(count Count) returns ast.TypeIDList
 end 'openArgs'
 
 // infer chooses the type arguments of a call from its arguments' types, and the ones they leave open from the type the
-// context expects of result, the type the call gives before its type arguments are known.
-function infer(c Checker, p ast.Project, mutates ms ast.ModuleState, node ast.NodeID, callee String, params ast.TypeIDList, specs ast.ParamSpecList, ordered ast.NodeIDList, result ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeIDList
+// context expects of result, the type the call gives before its type arguments are known. code is the refusal of a call
+// that fixes some of them by neither.
+function infer(c Checker, p ast.Project, mutates ms ast.ModuleState, node ast.NodeID, callee String, params ast.TypeIDList, specs ast.ParamSpecList, ordered ast.NodeIDList, result ast.TypeID, code String, mutates errs diag.ErrorList) returns ast.TypeIDList
 	var args = openArgs(params.count())
 	for i in 0 upto specs.count() 'each'
 		if ordered[i] == 0 'defaulted'
@@ -322,18 +323,18 @@ function infer(c Checker, p ast.Project, mutates ms ast.ModuleState, node ast.No
 		unifyType(p, ms: ms, param: specs[i].ty, arg: ast.nodeType(c.typing, node: ordered[i]), params: params, args: args)
 	end 'each'
 	unifyBounds(p, ms: ms, params: params, args: args)
-	return inferRest(c, p: p, ms: ms, node: node, callee: callee, params: params, args: args, result: result, errs: errs)
+	return inferRest(c, p: p, ms: ms, node: node, callee: callee, params: params, args: args, result: result, code: code, errs: errs)
 end 'infer'
 
 // inferRest fills the type arguments that are still open from the type the context expects of result.
-function inferRest(c Checker, p ast.Project, ms ast.ModuleState, node ast.NodeID, callee String, params ast.TypeIDList, args ast.TypeIDList, result ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeIDList
+function inferRest(c Checker, p ast.Project, ms ast.ModuleState, node ast.NodeID, callee String, params ast.TypeIDList, args ast.TypeIDList, result ast.TypeID, code String, mutates errs diag.ErrorList) returns ast.TypeIDList
 	var filled = args.clone()
 	if c.expect != ast.noType 'expected'
 		unifyType(p, ms: ms, param: result, arg: c.expect, params: params, args: filled)
 	end 'expected'
 	for i in 0 upto filled.count() 'each'
 		if filled[i] == ast.noType 'open'
-			failAt(c, p: p, ms: ms, node: node, code: diag.errCannotInfer, msg: "the type argument '{ast.typeEntry(ms.types, reads: p.types, t: params[i]).name}' of '{callee}' is fixed neither by the arguments nor by where the result goes: pass an argument whose type names it, use the result where its type is declared (a return, an argument, an assignment), or call it through a typealias of the instance", errs: errs)
+			failAt(c, p: p, ms: ms, node: node, code: code.clone(), msg: "the type argument '{ast.typeEntry(ms.types, reads: p.types, t: params[i]).name}' of '{callee}' is fixed neither by the arguments nor by where the result goes: pass an argument whose type names it, use the result where its type is declared (a return, an argument, an assignment), or call it through a typealias of the instance", errs: errs)
 			return filled
 		end 'open'
 	end 'each'

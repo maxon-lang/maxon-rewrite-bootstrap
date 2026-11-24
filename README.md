@@ -4230,6 +4230,12 @@ A source file is UTF-8, by Zig's rules and two more, each refused where it is:
   could make the code read otherwise than it compiles (`E1902`).
 - It does not start with a byte order mark (`E1903`).
 
+A literal or a token that the source leaves unfinished is refused as maxon refuses it: a string literal, or an
+interpolation in one, that its line or the file ends (`E1002`, at the quote, or at the brace of the interpolation), and
+an interpolation whose brace a quote follows on its line, which was meant as text and is written `\{` (`E1006`, at the
+brace); a block comment that the file ends (`E1007`); and a `#` that starts no directive, as a shebang line anywhere but
+at the start of the file (`E1009`).
+
 A literal writes a character it may not hold as an escape (`"\u001b"`, `b"\x85"`). The rules apply in comments and
 literals as in code, so the lexer checks every character, but a correct file pays nothing measurable: printable ASCII
 and the tab pass on a range check, in code the DFA stops at any other byte, and only then does `syntax.textCharacter`
@@ -4248,7 +4254,7 @@ character that breaks the rule.
   There is no trailing whitespace, no tab inside a line, and no carriage return.
 - A line break is only where the grammar has one, never inside parentheses.
 - A comment is a `//` comment: on its own line, indented like the line after it, or after code, separated from
-  it by one space. A `/* */` comment is an error.
+  it by one space. A `/* */` comment is an error (`E2001`), and one that the file ends `E1007`.
 - Exactly one blank line separates two top-level declarations, and a comment block after the last one. Inside a
   type, an enum or a union, exactly one blank line comes before each function (a method or a static function), unless
   it is the first line of the body; a comment above the function goes after the blank line. An interface lists its
@@ -4781,6 +4787,14 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   name is required or an operand is (`function from()`, a parameter read as `from`, `String.from(bytes)`), as in Maxon, and
   starts `Type from value` only after an expression. So is `to` (`move(cursor, to: next)`), which closes a range only after a
   bound, a pattern value or the start of a `for`'s range.
+- A declaration outside the library tier may not take a name that starts with `__` (`E2051`), as in maxon, and the
+  parser refuses it where it reads the name (each name a declaration takes is marked `{declares}` in the grammar). maxon
+  reserves `maxon_force_segfault` for a free function too, because its runtime's fault probe has that name; minimaxon's
+  runtime has no fault probe, so the name is free.
+- A generic type named without its type arguments where a type is written (`returns Inner` for `type Inner uses U`) is
+  `E2056`, where maxon reads it as the bare base and refuses only a call on it that needs an instance (`E3162`). A static
+  called through a generic type's bare name that neither its arguments nor where its result goes fix is `E3162`, as in
+  maxon; a generic function that its call does not fix is `E3179`.
 - The reserved words are exactly the keywords the grammar uses, so a word Maxon reserves for a feature minimaxon
   lacks is an ordinary name, and a word that could be read by context, such as `mutates`, `consumes` or `sets`, is
   reserved, except `from` and `to`, which Maxon's programs use as names.

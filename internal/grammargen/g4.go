@@ -225,6 +225,9 @@ type elem struct {
 	joinAfter  bool
 	// anyKeyword is set on a group that held the Keyword placeholder, which stands for every keyword of the grammar.
 	anyKeyword bool
+	// action (written elem{name}) is the hand-written parser method that takes the token a token element consumed, before
+	// a label stores it, or that is called with nothing once a rule element is parsed; it may refuse what it was given.
+	action string
 }
 
 type astBlock struct {
@@ -517,6 +520,14 @@ func (p *grammarParser) elem() *elem {
 	}
 	if (e.joinBefore || e.joinAfter) && e.kind != ekLiteral && e.kind != ekToken {
 		p.fail(e.line, "^ joins a token to its neighbour; put it on a literal or a token")
+	}
+	// A brace after an element is its action; one followed by ? is the predicate that starts the next element.
+	if p.cur().kind == tkBrace && !(p.peek().kind == tkPunct && p.peek().text == "?") {
+		t := p.next()
+		if e.kind == ekPredicate || e.kind == ekGroup && e.label == "" {
+			p.fail(t.line, "an action {%s} follows a token, a label of tokens or a rule", strings.TrimSpace(t.text))
+		}
+		e.action = strings.TrimSpace(t.text)
 	}
 	if p.cur().kind == tkPunct && (p.cur().text == "?" || p.cur().text == "*" || p.cur().text == "+") {
 		e.suffix = p.next().text[0]

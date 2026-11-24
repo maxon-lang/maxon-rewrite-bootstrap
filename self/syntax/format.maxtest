@@ -67,7 +67,7 @@ test 'format refusals'
 	expectRefusal("a line break inside parentheses", input: "let a = f(1,\n2)\n", expectedMessage: "a line breaks inside parentheses; keep what they hold on one line")
 	expectRefusal("a block comment", input: "/* no */\nlet a = 1\n", expectedMessage: "a block comment is not allowed; write // comments on their own lines or after code")
 	expectRefusal("a syntax error", input: "let = 1\n", expectedMessage: "Expected a name but got '='")
-	expectRefusal("an unterminated string", input: "let a = \"x\n", expectedMessage: "unterminated string literal")
+	expectRefusal("an unterminated string", input: "let a = \"x\n", expectedMessage: "Unterminated string literal")
 end 'format refusals'
 
 test 'format markdown'

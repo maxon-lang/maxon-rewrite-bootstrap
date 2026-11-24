@@ -61,7 +61,7 @@ function total(a T, b T) uses T returns Score where T implements Shape
 	return a.area() if a.area() > b.area() else b.area()
 end 'total'
 
-// expect-error: E3179 at 66:14
+// expect-error: E3162 at 66:14
 function main() returns ExitCode
 	let b = Box.make(1, tag: 1)
 	return 0

@@ -42,6 +42,8 @@
 //                      token that is not regular. `-> noSpaceBefore`, `-> noSpaceAfter` and `-> noSpace` join the
 //                      token to its neighbours wherever it appears.
 //   ^x, x^             Join a literal or token to the one before or after it, here only: a call's `^'('`.
+//   x=elem{name}       An action: the hand-written parser method name takes the token the label stores before it is
+//                      stored, and may refuse it, as `declares` refuses a name that no declaration may take.
 //   {name}?           A predicate: at the start of the only alternative of an optional group, the group is entered only where the
 //                      hand-written parser method name is also true, as `atHandlerBinding` decides what the tokens cannot; at the
 //                      start of an alternative of a set rule, that alternative is chosen only where it is true, and it does not
@@ -111,7 +113,7 @@ testDecl builds FuncDecl
 // `returns borrowed T` gives a place of type T that the function borrows from its parameters instead of a value it makes.
 // `borrowed` is a word only between `returns` and a type, so it stays a name everywhere else.
 funcDecl
-    : visibility=('export' | 'public')? isStatic='static'? 'function' name=(Name | 'from' | 'to')
+    : visibility=('export' | 'public')? isStatic='static'? 'function' name=(Name | 'from' | 'to'){declares}
       ^'(' ( receiver=('mutates' | 'consumes' | 'destructs') 'self' (',' params+=param)*
           | params+=param (',' params+=param)*
           )?
@@ -142,11 +144,11 @@ funcDecl
 
 /** a parameter */
 param
-    : convention=('mutates' | 'consumes' | 'sets')? name=(Name | '_' | Keyword) type=typeRef ('=' default=expr)?
+    : convention=('mutates' | 'consumes' | 'sets')? name=(Name | '_' | Keyword){declares} type=typeRef ('=' default=expr)?
     ;
 
 constDecl
-    : visibility=('export' | 'public')? 'let' name=(Name | 'from' | 'to') '=' value=expr
+    : visibility=('export' | 'public')? 'let' name=(Name | 'from' | 'to'){initializes} '=' value=expr{initialized}
     ;
 
 @ast::ConstDecl {
@@ -156,18 +158,18 @@ constDecl
 }
 
 typeDecl
-    : visibility=('export' | 'public')? 'type' name=Name ('is' noncopyable='noncopyable')? typeParams=usesClause? conforms=conformsClause? where=whereClause? Newline
+    : visibility=('export' | 'public')? 'type' name=Name{declares} ('is' noncopyable='noncopyable')? typeParams=usesClause? conforms=conformsClause? where=whereClause? Newline
       (Indent ((aliases+=aliasDecl | fields+=fieldDecl | {atStaticLet}? statics+=staticLetDecl | methods+=funcDecl) Newline)+ Dedent)?
       'end' end=endLabel?
     ;
 
 // A static let is one constant of its type, which the rest of the program names as Type.name.
 staticLetDecl builds ConstDecl
-    : visibility=('export' | 'public')? 'static' 'let' name=(Name | 'from' | 'to') '=' value=expr
+    : visibility=('export' | 'public')? 'static' 'let' name=(Name | 'from' | 'to'){initializes} '=' value=expr{initialized}
     ;
 
 fieldDecl
-    : visibility=('export' | 'public')? ('let' | isVar='var') name=(Name | 'from' | 'to') ('as' type=typeRef | '=' default=expr)
+    : visibility=('export' | 'public')? ('let' | isVar='var') name=(Name | 'from' | 'to'){declares} ('as' type=typeRef | '=' default=expr)
     ;
 
 // An extension adds methods, typealiases and conformances to a type another declaration names: a type, an enum, a union, a
@@ -180,27 +182,27 @@ extensionDecl
     ;
 
 enumDecl
-    : visibility=('export' | 'public')? 'enum' name=Name conforms=conformsClause? Newline
+    : visibility=('export' | 'public')? 'enum' name=Name{declares} conforms=conformsClause? Newline
       (Indent ((cases+=enumCaseDecl | methods+=funcDecl) Newline)+ Dedent)?
       'end' end=endLabel?
     ;
 
 enumCaseDecl
-    : name=(Name | 'from' | 'to') ('=' raw=expr)?
+    : name=(Name | 'from' | 'to'){declares} ('=' raw=expr)?
     ;
 
 unionDecl
-    : visibility=('export' | 'public')? 'union' name=Name ('is' noncopyable='noncopyable')? typeParams=usesClause? conforms=conformsClause? where=whereClause? Newline
+    : visibility=('export' | 'public')? 'union' name=Name{declares} ('is' noncopyable='noncopyable')? typeParams=usesClause? conforms=conformsClause? where=whereClause? Newline
       (Indent ((cases+=unionCaseDecl | methods+=funcDecl) Newline)+ Dedent)?
       'end' end=endLabel?
     ;
 
 unionCaseDecl
-    : name=(Name | 'from' | 'to') (^'(' (fields+=param (',' fields+=param)*)? ')')? ('=' raw=expr)?
+    : name=(Name | 'from' | 'to'){declares} (^'(' (fields+=param (',' fields+=param)*)? ')')? ('=' raw=expr)?
     ;
 
 aliasDecl
-    : visibility=('export' | 'public')? 'typealias' name=Name '='
+    : visibility=('export' | 'public')? 'typealias' name=Name{declares} '='
       ( ('int' | number=Name) ^'(' low=bound ((inclusive='to' | 'upto') high=bound)? ')' ('implements' parent=typeRef)?
       | fn=funcType
       | instance=aliasInstance
@@ -268,7 +270,7 @@ usesClause returns [[]*TypeParam params]
     ;
 
 typeParam
-    : name=Name
+    : name=Name{declares}
     ;
 
 @ast::TypeParam {
@@ -294,13 +296,13 @@ extendsClause returns [[]*TypeRef interfaces]
     ;
 
 interfaceDecl
-    : visibility=('export' | 'public')? 'interface' name=Name (typeParams=usesClause parents=extendsClause? | parents=extendsClause typeParams=usesClause?)? where=whereClause? Newline
+    : visibility=('export' | 'public')? 'interface' name=Name{declares} (typeParams=usesClause parents=extendsClause? | parents=extendsClause typeParams=usesClause?)? where=whereClause? Newline
       (Indent ((aliases+=aliasDecl | methods+=funcSig) Newline)+ Dedent)?
       'end' end=endLabel?
     ;
 
 funcSig
-    : isStatic='static'? 'function' name=(Name | 'from' | 'to')
+    : isStatic='static'? 'function' name=(Name | 'from' | 'to'){declares}
       ^'(' ( receiver=('mutates' | 'consumes' | 'destructs') 'self' (',' params+=param)*
           | params+=param (',' params+=param)*
           )?
@@ -354,8 +356,8 @@ stmt
 // The checker refuses another word after the `@`, and a value that owns no heap.
 letStmt
     : (isHeap='@' annotation=Name)?
-      ( 'let' name=(Name | 'from' | 'to') '=' init=expr
-      | isVar='var' name=(Name | 'from' | 'to') ('=' init=expr | 'as' type=typeRef)
+      ( 'let' name=(Name | 'from' | 'to'){declares} '=' init=expr
+      | isVar='var' name=(Name | 'from' | 'to'){declares} ('=' init=expr | 'as' type=typeRef)
       )
     ;
 
@@ -370,7 +372,7 @@ destructStmt
 
 // bindName is a name that a destructuring or a loop over tuples declares; _ declares none.
 bindName
-    : name=(Name | '_')
+    : name=(Name | '_'){declares}
     ;
 
 @ast::BindName {
@@ -420,7 +422,7 @@ ifStmt
 // A conditional try runs its block only when its call succeeds, binding the result, and its else block only when the call
 // fails, naming the error.
 ifTryStmt
-    : 'if' (isLet='let' name=Name '=' | isVar='var' name=Name '=')? 'try' call=expr label=Label
+    : 'if' (isLet='let' name=Name{declares} '=' | isVar='var' name=Name{declares} '=')? 'try' call=expr label=Label
       then=block
       'end' end=endLabel?
       ( hasElse='else' ('(' errName=Name ')')? elseLabel=Label else=block 'end' elseEnd=endLabel? )?
@@ -476,7 +478,7 @@ throwStmt
     ;
 
 returnStmt
-    : 'return' value=expr?
+    : 'return'{leavesFunction} value=expr?
     ;
 
 breakStmt
@@ -733,7 +735,7 @@ closureExpr
 
 /** a closure parameter */
 closureParam
-    : convention=('mutates' | 'consumes' | 'sets')? name=(Name | '_') type=typeRef?
+    : convention=('mutates' | 'consumes' | 'sets')? name=(Name | '_'){declares} type=typeRef?
     ;
 
 closureBody builds ReturnStmt

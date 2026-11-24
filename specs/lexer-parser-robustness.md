@@ -767,13 +767,13 @@ error E2004: specs/lexer-parser-robustness/unterminated-interp-mid-expr.maxon:3:
 <!-- test: unterminated-block-comment-with-newlines -->
 <!-- positions: moved -->
 ```maxon
-// line1
-// line2
-// line3
-// function main() returns ExitCode
-// return 0
-// end 'main'
-//
+/* line1
+line2
+line3
+function main() returns ExitCode
+	return 0
+end 'main'
+
 ```
 ```maxoncstderr
 error E1007: specs/lexer-parser-robustness/unterminated-block-comment-with-newlines.maxon:2:1: Unterminated block comment

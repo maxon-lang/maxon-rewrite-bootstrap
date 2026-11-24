@@ -28,6 +28,8 @@ type token struct {
 	start int
 	end   int
 	line  int // 1-based line number where the token starts
+	// unclosed marks a string literal that its line ends, which maxon's lexer refuses there.
+	unclosed bool
 }
 
 // lex tokenizes an existing Maxon source file losslessly (after CRLF/BOM normalization).
@@ -109,8 +111,9 @@ func lex(src string) []token {
 			toks = append(toks, token{kind: tokByteString, text: src[start:i], start: start, end: i, line: startLine})
 
 		case c == '"':
-			i = scanString(src, i)
-			toks = append(toks, token{kind: tokString, text: src[start:i], start: start, end: i, line: startLine})
+			var closed bool
+			i, closed = scanLiteral(src, i)
+			toks = append(toks, token{kind: tokString, text: src[start:i], start: start, end: i, line: startLine, unclosed: !closed})
 
 		case c == '\'':
 			i++
@@ -188,6 +191,12 @@ func lex(src string) []token {
 
 // scanString scans a string literal starting at the opening '"' at i, handling escapes and nested {...} interpolations.
 func scanString(src string, i int) int {
+	end, _ := scanLiteral(src, i)
+	return end
+}
+
+// scanLiteral is scanString, and reports whether the literal's closing quote ended it rather than its line.
+func scanLiteral(src string, i int) (int, bool) {
 	n := len(src)
 	i++ // skip opening '"'
 	for i < n && src[i] != '\n' {
@@ -199,14 +208,14 @@ func scanString(src string, i int) int {
 				i++
 			}
 		case '"':
-			return i + 1
+			return i + 1, true
 		case '{':
 			i = scanInterp(src, i)
 		default:
 			i++
 		}
 	}
-	return i
+	return i, false
 }
 
 // scanInterp scans from '{' to its matching '}' inside a string literal, respecting nested braces and strings.

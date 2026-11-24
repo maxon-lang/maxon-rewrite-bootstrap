@@ -2091,10 +2091,10 @@ a=10 b=20
 An unescaped `{` in a string literal that is not part of an interpolation expression produces a clear error. Use `\{` for literal braces.
 
 <!-- test: error.unescaped-brace -->
-<!-- positions: moved -->
 ```maxon
 function main() returns ExitCode
-	print("Expected '{' here") return 0
+	print("Expected '{' here")
+	return 0
 end 'main'
 ```
 ```maxoncstderr
@@ -2116,12 +2116,13 @@ code, position and message (it reaches `scanInterp`'s own newline handling inste
 a format specifier is not a place where a missing brace becomes invisible.
 
 <!-- test: error.unclosed-format-spec -->
-<!-- positions: moved -->
 ```maxon
 function main() returns ExitCode
 	let x = 1
 	let y = 2
-	print("a{x:") print("b{y}") return 0
+	print("a{x:")
+	print("b{y}")
+	return 0
 end 'main'
 ```
 ```maxoncstderr

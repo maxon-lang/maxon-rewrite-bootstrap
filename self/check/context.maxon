@@ -549,6 +549,10 @@ export function coerce(mutates c Checker, p ast.Project, mutates ms ast.ModuleSt
 		checkFail(c.modID, off: at, code: diag.errTypeMismatch, msg: words, errs: errs)
 		return false
 	end 'function'
+	if ast.isPromiseType(ms.types, reads: p.types, t: src) and ast.isPromiseType(ms.types, reads: p.types, t: target) 'promise'
+		checkFail(c.modID, off: at, code: diag.errPromiseStorageMismatch, msg: diag.promiseStorageMismatch(promiseClaim(p, ms: ms, t: src), slot: tName, claim: promiseClaim(p, ms: ms, t: target)), errs: errs)
+		return false
+	end 'promise'
 	var fix = diag.Fix.none()
 	let integers = sk == ast.TypeKind.intRange and dk == ast.TypeKind.intRange
 	if integers 'cast'
@@ -559,6 +563,16 @@ export function coerce(mutates c Checker, p ast.Project, mutates ms ast.ModuleSt
 	errs[reported].cause = rawSurfaceCauseOfTypes(p, ms: ms, a: target, b: src)
 	return false
 end 'coerce'
+
+// promiseClaim is what a promise type says it gives: its result, and the error it throws if it throws.
+function promiseClaim(p ast.Project, ms ast.ModuleState, t ast.TypeID) returns String
+	let result = "'{ast.typeName(ms.types, reads: p.types, t: ast.promiseResult(ms.types, reads: p.types, t: t))}'"
+	let failure = ast.promiseError(ms.types, reads: p.types, t: t)
+	if failure == ast.noType 'plain'
+		return result
+	end 'plain'
+	return "{result} throwing '{ast.typeName(ms.types, reads: p.types, t: failure)}'"
+end 'promiseClaim'
 
 // castName is how a cast to the integer type target is written: an anonymous 64-bit signed range, the type of `Self` in an
 // extension of `int`, has no spelling of its own, and its alias is FullRangeInt.
@@ -1158,15 +1172,25 @@ end 'resolveBoundTypeRef'
 
 // failUnknownType reports a type reference that names no type. A bare name may name a declaration of another module, which
 // is always qualified, so the error is marked for locating to say how.
+// failUnknownType refuses a type reference that names no type. With type arguments it names a base that is not generic, as
+// maxon words it.
 function failUnknownType(c Checker, p ast.Project, ms ast.ModuleState, tr ast.NodeID, mutates errs diag.ErrorList)
 	let off = ms.tree().startOf(tr)
 	let tName = ast.typeRefName(ms.tree(), id: tr)
+	let applied = ms.tree().listLen(ast.typeRefTypeArgsRef(ms.tree(), id: tr)) > 0
+	let code = diag.errBaseNotGeneric if applied else diag.errUnknownType
+	let message = diag.baseNotGeneric(tName) if applied else diag.unknownType(tName)
 	if ms.tree().listLen(ast.typeRefQualifierRef(ms.tree(), id: tr)) == 0 'bare'
-		diag.pushUnqualifiedError(errs, code: diag.errUnknownType, message: diag.unknownType(tName), module: c.modID, offset: off, name: tName.clone())
+		diag.pushUnqualifiedError(errs, code: code, message: message, module: c.modID, offset: off, name: tName.clone())
 		return
 	end 'bare'
-	checkFailCaused(c.modID, off: off, code: diag.errUnknownType, msg: diag.unknownType(tName), cause: diag.rawSurfaceCause(tName), errs: errs)
+	checkFailCaused(c.modID, off: off, code: code, msg: message, cause: diag.rawSurfaceCause(tName), errs: errs)
 end 'failUnknownType'
+
+// failNotGeneric refuses type arguments given to the type of the name, which has no type parameters.
+function failNotGeneric(c Checker, off diag.U32, name String, mutates errs diag.ErrorList)
+	checkFail(c.modID, off: off, code: diag.errBaseNotGeneric, msg: diag.baseNotGeneric(name), errs: errs)
+end 'failNotGeneric'
 
 function checkInterfaceRef(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, tr ast.NodeID, off diag.U32, tName String, ref ast.DeclRef, isBound bool, selfTy ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
 	match ast.declType(p, ms: ms, ref: ref) 'dt'
@@ -1187,7 +1211,7 @@ function verifyInterfaceTarget(mutates c Checker, p ast.Project, mutates ms ast.
 	let params = ast.cloneTypeArgs(ast.typeEntry(ms.types, reads: p.types, t: tid).typeParams)
 	if params.count() == 0 'plain'
 		if argCount > 0 'hasArgs'
-			checkFail(c.modID, off: off, code: diag.errTypeArgumentCount, msg: "the interface '{tName}' is not generic and takes no type arguments", errs: errs)
+			failNotGeneric(c, off: off, name: tName, errs: errs)
 			return ast.noType
 		end 'hasArgs'
 		return tid
@@ -1205,7 +1229,7 @@ function verifyInterfaceTarget(mutates c Checker, p ast.Project, mutates ms ast.
 	end 'badCount'
 	var args = ast.TypeIDList.create(0)
 	for i in 0 upto argCount 'args'
-		let at = resolveTypeRef(c, p: p, ms: ms, tr: ms.tree().listAt(argsRef, index: i) as ast.NodeID, selfTy: selfTy, errs: errs)
+		let at = resolveTypeArg(c, p: p, ms: ms, tr: ms.tree().listAt(argsRef, index: i) as ast.NodeID, selfTy: selfTy, errs: errs)
 		if at == ast.noType 'failed'
 			return ast.noType
 		end 'failed'
@@ -1243,6 +1267,17 @@ function resolveTupleTypeRef(mutates c Checker, p ast.Project, mutates ms ast.Mo
 	return ast.tupleType(ms.types, reads: p.types, elems: elems)
 end 'resolveTupleTypeRef'
 
+// resolveTypeArg resolves a type argument. A bare 'int' or 'float' names no range, and a type argument is no place where it
+// means the full range of its kind, not even on the right side of a typealias.
+function resolveTypeArg(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, tr ast.NodeID, selfTy ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
+	let bare = bareNumberName(p, ms: ms, tr: tr)
+	if bare != "" 'bare'
+		checkFail(c.modID, off: ms.tree().startOf(tr), code: diag.errBareTypeArgument, msg: diag.bareTypeArgument(bare), errs: errs)
+		return ast.noType
+	end 'bare'
+	return resolveTypeRef(c, p: p, ms: ms, tr: tr, selfTy: selfTy, errs: errs)
+end 'resolveTypeArg'
+
 // bareNumberName is "int" or "float" when a type reference is that word alone, and "" for any other.
 function bareNumberName(p ast.Project, ms ast.ModuleState, tr ast.NodeID) returns String
 	let qualified = ms.tree().listLen(ast.typeRefQualifierRef(ms.tree(), id: tr)) > 0
@@ -1270,13 +1305,13 @@ function resolveNamedTypeRef(mutates c Checker, p ast.Project, mutates ms ast.Mo
 	if qualCount == 0 'unqual'
 		if tName == "bool" 'bl'
 			if hasArgs 'badA'
-				checkFail(c.modID, off: off, code: diag.errTypeArgumentCount, msg: "'bool' is not generic and takes no type arguments", errs: errs)
+				failNotGeneric(c, off: off, name: "bool", errs: errs)
 			end 'badA'
 			return p.builtins.boolTy
 		end 'bl'
 		if tName == "String" 'str'
 			if hasArgs 'badA'
-				checkFail(c.modID, off: off, code: diag.errTypeArgumentCount, msg: "'String' is not generic and takes no type arguments", errs: errs)
+				failNotGeneric(c, off: off, name: "String", errs: errs)
 			end 'badA'
 			return p.builtins.stringTy
 		end 'str'
@@ -1286,7 +1321,7 @@ function resolveNamedTypeRef(mutates c Checker, p ast.Project, mutates ms ast.Mo
 				return ast.noType
 			end 'noS'
 			if hasArgs 'badA'
-				checkFail(c.modID, off: off, code: diag.errTypeArgumentCount, msg: "'Self' is not generic and takes no type arguments", errs: errs)
+				failNotGeneric(c, off: off, name: "Self", errs: errs)
 			end 'badA'
 			return selfTy
 		end 'slf'
@@ -1321,7 +1356,7 @@ end 'resolveNamedTypeRef'
 
 function resolveBoundTP(c Checker, p ast.Project, ms ast.ModuleState, off diag.U32, name String, slot Count, hasArgs bool, mutates errs diag.ErrorList) returns ast.TypeID
 	if hasArgs 'badA'
-		checkFail(c.modID, off: off, code: diag.errTypeArgumentCount, msg: "'{name}' is not generic and takes no type arguments", errs: errs)
+		failNotGeneric(c, off: off, name: name, errs: errs)
 	end 'badA'
 	let tpNode = ast.resolutionOf(p, ms: ms).typeParams[slot].id
 	match ast.paramType(p, ms: ms, module: c.modID, node: tpNode) 'tid'
@@ -1379,7 +1414,7 @@ function applyTypeArgs(mutates c Checker, p ast.Project, mutates ms ast.ModuleSt
 	let argCount = ms.tree().listLen(argsRef)
 	if ast.typeEntry(ms.types, reads: p.types, t: target).typeParams.count() == 0 'nonGen'
 		if argCount > 0 'badA'
-			checkFail(c.modID, off: off, code: diag.errTypeArgumentCount, msg: "'{tName}' is not generic and takes no type arguments", errs: errs)
+			failNotGeneric(c, off: off, name: tName, errs: errs)
 		end 'badA'
 		return target
 	end 'nonGen'
@@ -1389,7 +1424,7 @@ function applyTypeArgs(mutates c Checker, p ast.Project, mutates ms ast.ModuleSt
 	end 'bare'
 	for i in 0 upto argCount 'eachA'
 		let aNode = ms.tree().listAt(argsRef, index: i) as ast.NodeID
-		let at = resolveTypeRef(c, p: p, ms: ms, tr: aNode, selfTy: selfTy, errs: errs)
+		let at = resolveTypeArg(c, p: p, ms: ms, tr: aNode, selfTy: selfTy, errs: errs)
 		if at == ast.noType 'fail'
 			return ast.noType
 		end 'fail'
