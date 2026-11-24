@@ -499,6 +499,9 @@ function callOnType(mutates c Checker, p ast.Project, mutates ms ast.ModuleState
 	if failedSince(errs, mark: mark) 'ambiguous'
 		return ast.noType
 	end 'ambiguous'
+	if sm != ast.noFunc and hiddenOnBuiltin(c, p: p, ms: ms, nt: nt, f: sm) 'hidden'
+		return unknownTypeFunction(c, p: p, ms: ms, call: call, nt: nt, name: name, errs: errs)
+	end 'hidden'
 	if sm != ast.noFunc and ast.funcEntry(ms.funcs, funcReads: p.funcs, f: sm).isStatic 'static'
 		var target = overloadByFirstArgument(c, p: p, ms: ms, call: call, declared: sm, errs: errs)
 		if ast.funcEntry(ms.funcs, funcReads: p.funcs, f: target).intrinsic == ast.Intrinsic.intrArrayCreate and ms.tree().listLen(ast.callExprArgsRef(ms.tree(), id: call)) == 2 'zeroed'
@@ -511,6 +514,18 @@ function callOnType(mutates c Checker, p ast.Project, mutates ms ast.ModuleState
 	end 'instance'
 	return unknownTypeFunction(c, p: p, ms: ms, call: call, nt: nt, name: name, errs: errs)
 end 'callOnType'
+
+// hiddenOnBuiltin is whether f is a function that the library's extension of a built-in type nt declares and keeps from the
+// module of the call: as far as that module is concerned the built-in has no such function, so a call of it is one of a
+// function the type lacks (unknownTypeFunction), which a type of that name in another module of the program may have.
+function hiddenOnBuiltin(c Checker, p ast.Project, ms ast.ModuleState, nt ast.TypeID, f ast.FuncID) returns bool
+	let origin = ast.typeEntry(ms.types, reads: p.types, t: ast.originOf(ms.types, reads: p.types, t: nt))
+	if (origin.hasDecl and origin.decl.module != diag.stdlibID) or declares(c, p: p, ms: ms, f: f) 'declared'
+		return false
+	end 'declared'
+	let entry = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: f)
+	return not ast.isVisibleFrom(p, v: ast.visibilityOf(entry.visibility), owner: entry.module, from: c.modID)
+end 'hiddenOnBuiltin'
 
 // unknownTypeFunction refuses a call of a function that the type it is written on does not have. A bare type name that the
 // module does not declare is a built-in, and where another module declares a type of that name, maxon's bare lookup finds
