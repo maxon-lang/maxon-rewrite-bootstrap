@@ -5238,6 +5238,9 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   `panic` does: code after it in its block is `E3071`, and a function that ends with it needs no return. The ordinary way to end
   a program is still to return from `main`, with `Process.setExitCode` for the code when behaviours run after it. maxon's
   library has none.
+- **`is` on a record is `E3068`.** A record is a value with one owner whose words may be held in place, so the address of
+  its words says nothing of which value it is; maxon compares the references of two heap records, and refuses `is` only on
+  an inline record. Compare the fields instead.
 
 ## Changing the language
 

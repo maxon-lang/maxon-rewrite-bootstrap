@@ -222,7 +222,7 @@ export let errDuplicateTypeAlias = "E3061"
 // A union is compared with '==' or '!='.
 export let errEnumNotComparable = "E3066"
 
-// An operand of 'is' or 'is not' has no object identity: a number, a bool, an enum case, a union, a function or a type parameter.
+// An operand of 'is' or 'is not' has no object identity: a number, a bool, an enum case, a record, a union, a function or a type parameter.
 export let errRefIdentityOnPrimitive = "E3068"
 
 // A statement follows a 'return', 'throw', 'break', 'continue' or 'panic' in its block, so it never runs.

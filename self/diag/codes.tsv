@@ -80,7 +80,7 @@ ErrUncheckedFailure	E3057	throwingFunctionRequiresTry	A call that can fail is ma
 ErrErrorTypeMismatch	E3059	errorTypeMismatch	An error goes where nothing takes an error of its type: a 'try' or 'throw' with no caller to pass it to, or one that throws another.
 ErrDuplicateTypeAlias	E3061	semanticDuplicateTypeAlias	A typealias is declared twice for one type, in its body or in the extensions of one module, or in its body and an extension.
 ErrEnumNotComparable	E3066	semanticEnumNotComparable	A union is compared with '==' or '!='.
-ErrRefIdentityOnPrimitive	E3068	refIdentityOnPrimitive	An operand of 'is' or 'is not' has no object identity: a number, a bool, an enum case, a union, a function or a type parameter.
+ErrRefIdentityOnPrimitive	E3068	refIdentityOnPrimitive	An operand of 'is' or 'is not' has no object identity: a number, a bool, an enum case, a record, a union, a function or a type parameter.
 ErrUnreachableCode	E3071	semanticUnreachableCode	A statement follows a 'return', 'throw', 'break', 'continue' or 'panic' in its block, so it never runs.
 ErrAsyncNonYielding	E3073	asyncNonYielding	An async call starts a function that never waits, so there is nothing for the coroutine to overlap.
 ErrMatchQualifiedCaseName	E3075	matchQualifiedCaseName	A match arm names a case of an enum or union with its type's name, which the subject already gives.

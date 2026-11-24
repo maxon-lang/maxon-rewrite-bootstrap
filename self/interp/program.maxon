@@ -12,14 +12,10 @@ function convsOf(p ast.Project, decl ast.FuncID) returns CountList
 	for i in 0 upto ast.funcEntry(ast.FuncSlot.none(), funcReads: p.funcs, f: decl).params.count() 'params'
 		convs.push(ast.funcEntry(ast.FuncSlot.none(), funcReads: p.funcs, f: decl).params[i].conv.ordinal)
 	end 'params'
-	// The frame area of a lent tuple, which the caller lends to be filled.
-	if ast.lentTupleElements(ast.TypeSlot.none(), reads: p.types, f: ast.funcEntry(ast.FuncSlot.none(), funcReads: p.funcs, f: decl)) > 0 'lentTuple'
+	// The area of the result, which the caller lends to be written.
+	for _ in 0 upto ir.resultAreas(ast.TypeSlot.none(), reads: p.types, f: ast.funcEntry(ast.FuncSlot.none(), funcReads: p.funcs, f: decl)) 'area'
 		convs.push(ast.Convention.convLet.ordinal)
-	end 'lentTuple'
-	// The area of a result held in place, which the caller lends to be written.
-	if ir.resultWords(ast.TypeSlot.none(), reads: p.types, f: ast.funcEntry(ast.FuncSlot.none(), funcReads: p.funcs, f: decl)) > 0 'inPlace'
-		convs.push(ast.Convention.convLet.ordinal)
-	end 'inPlace'
+	end 'area'
 	return convs
 end 'convsOf'
 

@@ -1026,6 +1026,9 @@ function moveReceiverWordThroughFrame(mutates u CodeUnit, p ast.Project, ms ast.
 			methodFloats.push(false)
 		end 'string'
 	end 'places'
+	for _ in 0 upto resultAreasOf(p, ms: ms, fid: fid) 'area'
+		methodFloats.push(false)
+	end 'area'
 	let count = methodFloats.count()
 	var callerFloats as Array with bool
 	callerFloats = Array.create(0)
@@ -1110,12 +1113,17 @@ function frameLocal(i Count) returns Imm32
 	return try routineLocal0 - depth otherwise panic("routines: a local past memory")
 end 'frameLocal'
 
+// resultAreasOf is how many words the method fid takes after its parameters for the area of its result (ir.resultAreas).
+function resultAreasOf(p ast.Project, ms ast.ModuleState, fid ast.FuncID) returns Count
+	return ir.resultAreas(ms.types, reads: p.types, f: ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fid))
+end 'resultAreasOf'
+
 // wordsAfterReceiver is how many words the method fid takes in general registers past its receiver: a word for each
-// parameter, two for a String, none for a float.
+// parameter, two for a String, none for a float, and the area of its result.
 function wordsAfterReceiver(p ast.Project, ms ast.ModuleState, fid ast.FuncID) returns Count
 	let sig = ir.funcSignature(p, ms: ms, fid: fid)
 	let places = addCounts(ast.leadingParams(ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fid)), b: ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fid).params.count())
-	var words = 0 as Count
+	var words = resultAreasOf(p, ms: ms, fid: fid)
 	for place in 1 upto places 'places'
 		if ir.isFloatAt(sig.strings, place: place) 'string'
 			words = addCounts(words, b: stringValueBytes / wordBytes)

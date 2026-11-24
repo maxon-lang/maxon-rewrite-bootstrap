@@ -1,0 +1,21 @@
+type Point
+	var x as Count
+
+	static function make(x Count) returns Self
+		return Self{x: x}
+	end 'make'
+end 'Point'
+
+function same(a Point, b Point) returns bool
+	return a is not b
+end 'same'
+
+function main() returns ExitCode
+	let a = Point.make(1)
+	if same(a, b: a) 'check'
+		return 1
+	end 'check'
+	return 0
+end 'main'
+
+// expect-error: E3068 at 10:11

@@ -106,6 +106,7 @@ end 'main'
 ```
 
 <!-- test: auto-cloneable -->
+<!-- skip: language difference: a record is a value whose words may be held in place, so it has no identity for 'is' to compare -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -120,10 +121,10 @@ end 'Point'
 
 function main() returns ExitCode
 	let a = Point.create(10, y: 20)
-	var b = a.clone()
+	let b = a.clone()
 	b.x = 99
 	if a is not b 'diff'
-		return try a.x + a.y otherwise panic("out of range")
+		return a.x + a.y
 	end 'diff'
 	return 0
 end 'main'

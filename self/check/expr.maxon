@@ -635,11 +635,12 @@ function codepointTyped(mutates c Checker, p ast.Project, ms ast.ModuleState, e 
 	return p.builtins.codepointTy
 end 'codepointTyped'
 
-// hasIdentity is whether a value of the type is an object that two names can stand for: a record, a string or a collection.
-// A number, a bool, an enum case, a union, a function and a type parameter are values with no object to name.
+// hasIdentity is whether a value of the type is an object that two names can stand for: a string or a collection. A
+// number, a bool, an enum case, a union, a function and a type parameter are values with no object to name, and so is a
+// record, whose words may be held in place, where an address says nothing of which value it is.
 function hasIdentity(p ast.Project, ms ast.ModuleState, t ast.TypeID) returns bool
 	return match ast.typeKind(ms.types, reads: p.types, t: t) 'kind'
-		record gives true
+		record gives false
 		primString gives true
 		primCharacter gives false
 		builtinArray gives true
@@ -668,14 +669,17 @@ function hasIdentity(p ast.Project, ms ast.ModuleState, t ast.TypeID) returns bo
 	end 'kind'
 end 'hasIdentity'
 
-// checkIdentity types 'a is b' and 'a is not b': whether two names stand for one object. A record has one owner, so the
-// answer is true only where one operand borrows the other, or both borrow one owner.
+// checkIdentity types 'a is b' and 'a is not b': whether two names stand for one object.
 function checkIdentity(mutates c Checker, p ast.Project, ms ast.ModuleState, e ast.NodeID, l ast.TypeID, r ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
 	let off = offsetOf(c, p: p, ms: ms, node: e)
 	var op = "is"
 	if ast.binaryExprNegated(ms.tree(), id: e) 'negated'
 		op = "is not"
 	end 'negated'
+	if ast.typeKind(ms.types, reads: p.types, t: l) == ast.TypeKind.record or ast.typeKind(ms.types, reads: p.types, t: r) == ast.TypeKind.record 'record'
+		checkFail(c.modID, off: off, code: diag.errRefIdentityOnPrimitive, msg: "'{op}' has no meaning for a record, which is a value with no identity: compare its fields instead", errs: errs)
+		return ast.noType
+	end 'record'
 	if not hasIdentity(p, ms: ms, t: l) or not hasIdentity(p, ms: ms, t: r) 'primitive'
 		checkFail(c.modID, off: off, code: diag.errRefIdentityOnPrimitive, msg: diag.refIdentityOnPrimitive(op), errs: errs)
 		return ast.noType

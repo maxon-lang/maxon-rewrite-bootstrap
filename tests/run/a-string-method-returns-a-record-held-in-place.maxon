@@ -1,0 +1,49 @@
+// A String method whose result is held in place writes it to the area its caller passes after its arguments, called
+// directly and through an interface value, whose call moves the receiver's second word into place: with the words in
+// registers, and with more of them than the registers hold.
+type Pair
+	var a as Count
+	var b as Count
+
+	static function make(a Count, b Count) returns Self
+		return Self{a: a, b: b}
+	end 'make'
+end 'Pair'
+
+interface Measured
+	function measure(by Count) returns Pair
+	function spread(a Count, b Count, c Count, d Count, e Count, f Count) returns Pair
+end 'Measured'
+
+extension String implements Measured
+	function measure(by Count) returns Pair
+		let length = self.byteLength()
+		return Pair.make(length, b: try length + by otherwise 0)
+	end 'measure'
+
+	function spread(a Count, b Count, c Count, d Count, e Count, f Count) returns Pair
+		let length = self.byteLength()
+		return Pair.make(try length + a + b + c otherwise 0, b: try d + e + f otherwise 0)
+	end 'spread'
+end 'String'
+
+function show(p Pair) returns String
+	return "({p.a}, {p.b})"
+end 'show'
+
+function measured(m Measured) returns String
+	let one = m.measure(10)
+	let six = m.spread(1, b: 2, c: 3, d: 4, e: 5, f: 6)
+	return "{show(one)} {show(six)}"
+end 'measured'
+
+function main() returns ExitCode
+	let word = "four"
+	print("{show(word.measure(1))} {show(word.spread(1, b: 2, c: 3, d: 4, e: 5, f: 6))}\n")
+	let held = "seven!!" as Measured
+	print("{measured(held)}\n")
+	return 0
+end 'main'
+
+//> (4, 5) (10, 15)
+//> (7, 17) (13, 15)

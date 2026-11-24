@@ -137,3 +137,13 @@ export function resultWords(tt ast.TypeSlot, reads ast.TypeTable, f ast.FuncEntr
 	end 'none'
 	return inPlaceWords(tt, reads: reads, t: f.retTy)
 end 'resultWords'
+
+// resultAreas is how many words the function f takes after its parameters for the address of an area its caller passes
+// for the result, a lent tuple's (ast.lentTupleElements) or one held in place (resultWords): 1 or 0. Every convention that
+// places a function's words beyond its parameters counts it from here.
+export function resultAreas(tt ast.TypeSlot, reads ast.TypeTable, f ast.FuncEntry) returns Count
+	if ast.lentTupleElements(tt, reads: reads, f: f) > 0 or resultWords(tt, reads: reads, f: f) > 0 'area'
+		return 1
+	end 'area'
+	return 0
+end 'resultAreas'
