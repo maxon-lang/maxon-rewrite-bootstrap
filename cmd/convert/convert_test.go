@@ -543,6 +543,22 @@ end 'f'
 	}
 }
 
+// TestConvertEarlyDestructIsWarned covers a `destruct self` that is not the last statement of its destructor: a destructor
+// ends its receiver when it returns, so removing the statement would leave the code after it, or the next lap of its loop,
+// with nothing to test.
+func TestConvertEarlyDestructIsWarned(t *testing.T) {
+	cases := map[string]string{
+		"code after it": "type Q\n\tvar n as Count\n\n\tfunction fin(consuming self)\n\t\tdestruct self\n\t\tprint(\"{self.n}\")\n\tend 'fin'\nend 'Q'\n",
+		"in a loop":     "type Q\n\tvar n as Count\n\n\tfunction fin(consuming self)\n\t\twhile n != 0 'w'\n\t\t\tdestruct self\n\t\tend 'w'\n\tend 'fin'\nend 'Q'\n",
+	}
+	for name, in := range cases {
+		res := Convert("test.maxon", in, sourceFile)
+		if len(res.Warnings) != 1 || res.Warnings[0].Line != 4 || !strings.Contains(res.Warnings[0].Message, "destruct self") {
+			t.Errorf("%s: warnings %v", name, res.Warnings)
+		}
+	}
+}
+
 func TestConvertHelperPublicIsExport(t *testing.T) {
 	in := "public type Cursor\n\tpublic static function over() returns Count\n\t\treturn 0\n\tend 'over'\nend 'Cursor'\n"
 	want := "export type Cursor\n\texport static function over() returns Count\n\t\treturn 0\n\tend 'over'\nend 'Cursor'\n"

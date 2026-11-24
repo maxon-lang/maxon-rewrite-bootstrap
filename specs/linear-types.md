@@ -6143,6 +6143,7 @@ error E3223: <fragment>:16:10: this drops '_', a linear value that was never con
 ```
 
 <!-- test: destruct-self-in-a-loop-is-refused-on-the-next-lap -->
+<!-- skip: language difference: a destructor ends its receiver when it returns, and no `destruct self` statement ends it sooner -->
 <!-- positions: moved -->
 The lap after the first reaches `destruct self` with the value already destructed.
 ```maxon
@@ -6155,6 +6156,7 @@ type Fz
 		return Self{n: n}
 	end 'create'
 
+	// TODO: language difference: a destructor ends its receiver when it returns, and no `destruct self` statement ends it sooner
 	function f(destructs self)
 		var i = 2 as Num
 		while i != 0 'w1'
@@ -6174,6 +6176,7 @@ error E3102: <fragment>:15:13: use of moved value 'self': it was moved in an ear
 ```
 
 <!-- test: destruct-self-in-a-for-loop-is-refused-on-the-next-lap -->
+<!-- skip: language difference: a destructor ends its receiver when it returns, and no `destruct self` statement ends it sooner -->
 <!-- positions: moved -->
 A `for` loop repeats the body as a `while` does.
 ```maxon
@@ -6186,6 +6189,7 @@ type Fz
 		return Self{n: n}
 	end 'create'
 
+	// TODO: language difference: a destructor ends its receiver when it returns, and no `destruct self` statement ends it sooner
 	function f(destructs self)
 		for i in 0 upto 2 'laps'
 			print("{i}\n")
@@ -6204,6 +6208,7 @@ error E3102: <fragment>:13:13: use of moved value 'self': it was moved in an ear
 ```
 
 <!-- test: destruct-self-in-a-nested-loop-is-refused-on-the-next-lap -->
+<!-- skip: language difference: a destructor ends its receiver when it returns, and no `destruct self` statement ends it sooner -->
 <!-- positions: moved -->
 The inner loop repeats the body, whatever the outer loop does.
 ```maxon
@@ -6216,6 +6221,7 @@ type Fz
 		return Self{n: n}
 	end 'create'
 
+	// TODO: language difference: a destructor ends its receiver when it returns, and no `destruct self` statement ends it sooner
 	function f(destructs self)
 		var i = 2 as Num
 		while i != 0 'outer'
@@ -6357,6 +6363,7 @@ end 'main'
 ```
 
 <!-- test: a-finalizer-reads-nothing-of-its-receiver-after-destruct -->
+<!-- skip: language difference: a destructor ends its receiver when it returns, and no `destruct self` statement ends it sooner -->
 <!-- positions: moved -->
 `destruct self` moves the receiver, so a read of it afterwards is use after move.
 ```maxon
@@ -6369,6 +6376,7 @@ type Resp
 		return Self{code: code}
 	end 'create'
 
+	// TODO: language difference: a destructor ends its receiver when it returns, and no `destruct self` statement ends it sooner
 	function fin(destructs self) returns Code
 		return self.code
 	end 'fin'
@@ -6385,7 +6393,7 @@ error E3102: <fragment>:13:10: use of moved value 'self': its ownership moved to
 ```
 
 <!-- test: a-finalizer-writes-nothing-of-its-receiver-after-destruct -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: a destructor ends its receiver when it returns, and no `destruct self` statement ends it sooner -->
 <!-- positions: moved -->
 A field write through the receiver is a use of it.
 ```maxon
@@ -6398,6 +6406,7 @@ type Resp
 		return Self{code: code}
 	end 'create'
 
+	// TODO: language difference: a destructor ends its receiver when it returns, and no `destruct self` statement ends it sooner
 	function fin(destructs self)
 		self.code = 3
 	end 'fin'

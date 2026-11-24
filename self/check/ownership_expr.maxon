@@ -260,10 +260,66 @@ end 'requireWritable'
 // requireWritableFor is requireWritable for a change that is a call of the value at path, of the function type call that
 // mutates its captures, or for a plain change when call is none.
 function requireWritableFor(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState, site diag.U32, path AccessPath, call ast.TypeID)
+	if refusesComparisonWrite(o, p: p, ms: ms, path: path) 'comparison'
+		return
+	end 'comparison'
+	requireRebindable(o, p: p, ms: ms, site: site, path: path, call: call)
+end 'requireWritableFor'
+
+// requireRebindable is requireWritableFor for an assignment of the whole of a variable, which a comparison method may make
+// of its operand as any function may of a parameter: it is refused as a let parameter's reassignment, and changes no
+// caller's value.
+function requireRebindable(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState, site diag.U32, path AccessPath, call ast.TypeID)
 	if requireMutable(o, p: p, ms: ms, site: site, path: path, call: call) 'mutable'
 		requireNotProjected(o, p: p, ms: ms, path: path, site: site)
 	end 'mutable'
-end 'requireWritableFor'
+end 'requireRebindable'
+
+// refusesComparisonWrite refuses a change of the receiver or the operand of an equals or a compare method that neither
+// declares writable, made in its body or in a closure there that captures them, and says whether it did. The operators pass
+// both sides by value, so it is the method that may not change them, wherever it writes them: a field, an element or a call
+// that writes, which maxon reports at the method (E3187), and where a conformance requires the method, as a write that the
+// requirement does not declare (E3210).
+function refusesComparisonWrite(mutates o Ownership, p ast.Project, ms ast.ModuleState, path AccessPath) returns bool
+	if o.comparison == ast.noFunc 'notComparison'
+		return false
+	end 'notComparison'
+	let root = o.c.typing.locals[path.root as Count].clone()
+	if isMutableLocal(root) 'writable'
+		return false
+	end 'writable'
+	let f = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: o.comparison)
+	let inMethod = o.fn == o.comparison
+	let receiver = (inMethod and root.isSelf) or (root.isCapture and root.name == "self")
+	let operand = root.isParam and not root.isSelf and root.name == f.params[0].name and (inMethod or root.isCapture)
+	if not receiver and not operand 'other'
+		return false
+	end 'other'
+	let owner = ast.originOf(ms.types, reads: p.types, t: f.ownerTy)
+	let method = "{ast.typeName(ms.types, reads: p.types, t: owner)}.{f.name}"
+	let site = offsetOfOwn(o, p: p, ms: ms, node: f.nodeID)
+	let required = requirementNamed(p, ms: ms, nt: owner, name: f.name)
+	if receiver 'receiver'
+		fail(o, p: p, site: site, code: diag.errComparisonMethodWrites, msg: diag.comparisonWritesReceiver(method))
+		match consumes required 'required'
+			some(requirement) then fail(o, p: p, site: site, code: diag.errCapabilityConversion, msg: diag.requirementWritesReceiver(method, requirement: requirement))
+			none then _ = 0
+		end 'required'
+		return true
+	end 'receiver'
+	fail(o, p: p, site: site, code: diag.errComparisonMethodWrites, msg: diag.comparisonWritesParameter(method, param: root.name))
+	match consumes required 'required'
+		some(requirement) then fail(o, p: p, site: site, code: diag.errCapabilityConversion, msg: diag.requirementWritesParameter(method, param: root.name, requirement: requirement))
+		none then _ = 0
+	end 'required'
+	return true
+end 'refusesComparisonWrite'
+
+// isComparisonMethod is whether f is a method that the comparison operators call: an instance's equals or compare of one
+// operand.
+function isComparisonMethod(f ast.FuncEntry) returns bool
+	return not f.isStatic and not f.isClosure and f.ownerTy != ast.noType and f.params.count() == 1 and (f.name == equalsMethod or f.name == compareMethod)
+end 'isComparisonMethod'
 
 // requireMutable refuses a change to a place that is not mutable, and says whether it is. A part of the variable of a for
 // is a part of the element it borrows, so it is as mutable as that part of the collection. A call of a value whose type

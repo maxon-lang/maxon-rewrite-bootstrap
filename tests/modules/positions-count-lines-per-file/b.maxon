@@ -1,4 +1,4 @@
 let b = 2
 
 let c = )
-// expect-error: E2010 at 3:9
+// expect-error: E2004 at 3:9

@@ -3328,14 +3328,13 @@ Stack trace:
 ```
 
 <!-- test: range-check-panic.a-carry-out-of-bit-63-on-folded-operands-is-refused -->
-<!-- positions: moved -->
 The pair above with both operands known to the compiler. A result the compiler can compute that leaves the alias is E3005, as a literal outside it is: the program is refused at the operator, and nothing reaches run time.
 ```maxon
 typealias Slot = int(0 to u64.max)
 
 function main() returns ExitCode
 	let half = 9223372036854775808 as Slot
-	let sum = try half + half otherwise panic("out of range")
+	let sum = half + half
 	print("{sum}\n")
 	return 0
 end 'main'
@@ -3371,7 +3370,6 @@ Stack trace:
 ```
 
 <!-- test: range-check-panic.a-borrow-across-the-signed-midpoint-on-folded-operands-is-refused -->
-<!-- positions: moved -->
 The pair above with both operands known to the compiler: E3005 at the operator, naming the operands.
 ```maxon
 typealias Slot = int(0 to u64.max)
@@ -3379,7 +3377,7 @@ typealias Slot = int(0 to u64.max)
 function main() returns ExitCode
 	let half = 9223372036854775808 as Slot
 	let below = half - 1
-	let difference = try below - half otherwise panic("out of range")
+	let difference = below - half
 	print("{difference}\n")
 	return 0
 end 'main'
@@ -3640,14 +3638,13 @@ Stack trace:
 ```
 
 <!-- test: range-check-panic.a-product-over-the-top-of-folded-operands-is-refused -->
-<!-- positions: moved -->
 The factors known to the compiler: the product is E3005 at the operator.
 ```maxon
 typealias Slot = int(0 to u64.max)
 
 function main() returns ExitCode
 	let word = 4294967296 as Slot
-	let product = try word * word otherwise panic("out of range")
+	let product = word * word
 	print("{product}\n")
 	return 0
 end 'main'

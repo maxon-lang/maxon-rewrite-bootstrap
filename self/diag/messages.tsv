@@ -54,6 +54,7 @@ builtinArgNamed	ErrBuiltinArgNamed	a builtin's arguments are all positional and 
 floatOutOfRange	ErrTypeMismatch	Value {value} is outside the range of '{alias}' (float({low} to {high}))
 lossyFloatConversion	ErrUnsafeCast	cannot implicitly convert 'float' to '{alias}': the conversion is lossy and must be explicit — use trunc(x) to truncate toward zero (or round/floor/ceil)
 literalOutOfRange	ErrTypeMismatch	Value {value} is outside the range of '{alias}' (int({low} to {high}))
+resultOutOfRange	ErrTypeMismatch	The result of {operation} is outside the range of '{alias}' (int({low} to {high}))
 patternLiteralOutOfRange	ErrTypeMismatch	Value {value} is outside the range of '{alias}' (bits({width}))
 otherwiseOutOfRange	ErrTypeMismatch	otherwise value {value} is outside the range of '{alias}' (int({low} to {high}))
 otherwisePatternOutOfRange	ErrTypeMismatch	otherwise value {value} is outside the range of '{alias}' (bits({width}))
@@ -106,6 +107,8 @@ baseNotGeneric	ErrBaseNotGeneric	Type '{name}' has no associated types
 promiseStorageMismatch	ErrPromiseStorageMismatch	a promise of {held} cannot be stored in '{slot}', which holds {claim}
 comparisonWritesParameter	ErrComparisonMethodWrites	'{method}' writes its parameter '{param}', but a method behind the comparison operators may not modify its operand — `==`, `!=`, `<`, `<=`, `>` and `>=` pass it by value
 comparisonWritesReceiver	ErrComparisonMethodWrites	'{method}' writes its receiver, but a method behind the comparison operators may not modify its receiver — `==`, `!=`, `<`, `<=`, `>` and `>=` pass it by value
+requirementWritesParameter	ErrCapabilityConversion	'{method}' writes its parameter '{param}', but '{requirement}' does not declare it `mutable`
+requirementWritesReceiver	ErrCapabilityConversion	'{method}' writes its receiver, but '{requirement}' does not declare `mutable self`
 reservedIdentifier	ErrReservedIdentifier	identifier '{name}' is reserved: declarations starting with '__' are reserved for compiler internals
 unterminatedString	ErrUnterminatedString	Unterminated string literal
 unterminatedBlockComment	ErrUnterminatedBlockComment	Unterminated block comment

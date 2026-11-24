@@ -619,7 +619,8 @@ closed set of them. From it:
 
 The parser decides with one token of lookahead, or two where one is not enough. Where two alternatives start with the same
 rule, as an assignment and an expression statement both start with an expression, it parses that rule once and the token
-after it decides. A syntax error names what the grammar allows at that point, such as `Expected an expression but got ')'`.
+after it decides. A syntax error names what the grammar allows at that point, such as `Expected newline but got ')'`; where it
+allows an expression and finds none, the error is maxon's `E2004`, `Expected expression but got ')'`.
 The loop that runs the DFA, the scanner for a string literal (`-> scan`, since interpolations nest), the loop over a module's
 declarations and the conversion of a token to a field that is not its text are hand-written in `self/syntax` (`lexer.maxon`,
 `parser.maxon`, `lists.maxon`, `source.maxon`).

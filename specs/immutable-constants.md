@@ -481,7 +481,7 @@ error E3207: <fragment>:11:21: 'create' needs 'value' frozen (line 6: `return Se
 ```
 
 <!-- test: a-slice-of-an-immutable-source-is-frozen-into-an-immutable-field -->
-<!-- skip: minimaxon does not parse the converted source: Expected an expression but got ')' -->
+<!-- skip: minimaxon does not parse the converted source: Expected expression but got ')' -->
 `src` is `immutable`, so a slice of it is a clean call and `freeze` takes it.
 
 ```maxon
@@ -514,7 +514,7 @@ end 'main'
 ```
 
 <!-- test: error.a-slice-of-a-mutable-source-cannot-be-frozen -->
-<!-- skip: minimaxon does not parse the converted source: Expected an expression but got ')' -->
+<!-- skip: minimaxon does not parse the converted source: Expected expression but got ')' -->
 <!-- positions: moved -->
 `src` is ordinary mutable data, so its slice is part of its region.
 

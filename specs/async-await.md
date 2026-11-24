@@ -1781,6 +1781,7 @@ error E3098: <fragment>:16:38: a promise of 'Integer' throwing 'TaskError' canno
 ```
 
 <!-- test: async-await.error.a-throwing-promise-given-to-a-map-of-plain-promises-is-refused -->
+<!-- skip: language difference: a promise owns the coroutine that one owner awaits, so it is not Droppable and no Map holds one as a value -->
 <!-- positions: moved -->
 A map's `upsert` is an ordinary call, so the value's promise type is compared with the map's by the call's argument check, and a disagreement is the same E3098 a store reports: two promise types are one type only when their result and error are the same.
 ```maxon

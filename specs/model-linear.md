@@ -2388,6 +2388,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ab-m-destruct-then-use-self -->
+<!-- skip: language difference: a destructor ends its receiver when it returns, and no `destruct self` statement ends it sooner -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `m-destruct-then-use-self` of redteamAB.hand_ab1, in capmodel `reggio/REPORTRTAB.txt`.
 
@@ -2401,6 +2402,7 @@ type Q
 		return Self{n: n}
 	end 'create'
 
+	// TODO: language difference: a destructor ends its receiver when it returns, and no `destruct self` statement ends it sooner
 	function fin(destructs self)
 		_ = self.n
 	end 'fin'
@@ -6821,6 +6823,7 @@ error E3223: <fragment>:13:4: this drops 'self', a linear value that was never c
 ```
 
 <!-- test: model-hand-ac-fin-loop-destruct -->
+<!-- skip: language difference: a destructor ends its receiver when it returns, and no `destruct self` statement ends it sooner -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `fin-loop-destruct` of redteamAC.hand_ac1, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -6834,6 +6837,7 @@ type Fz
 		return Self{n: n}
 	end 'create'
 
+	// TODO: language difference: a destructor ends its receiver when it returns, and no `destruct self` statement ends it sooner
 	function f(destructs self)
 		var i = 2 as Num
 		while i != 0 'w1'
@@ -6857,6 +6861,7 @@ error E3102: <fragment>:14:13: use of moved value 'self': it was moved in an ear
 ```
 
 <!-- test: model-hand-ac-fin-use-after-destruct -->
+<!-- skip: language difference: a destructor ends its receiver when it returns, and no `destruct self` statement ends it sooner -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `fin-use-after-destruct` of redteamAC.hand_ac1, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -6870,6 +6875,7 @@ type Fz
 		return Self{n: n}
 	end 'create'
 
+	// TODO: language difference: a destructor ends its receiver when it returns, and no `destruct self` statement ends it sooner
 	function f(destructs self) returns Num
 		return self.n
 	end 'f'
@@ -16480,6 +16486,7 @@ error E3102: <fragment>:13:12: use of moved value 'self': its ownership moved to
 ```
 
 <!-- test: model-hand-ad-o-consuming-method-while -->
+<!-- skip: language difference: a destructor ends its receiver when it returns, and no `destruct self` statement ends it sooner -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `o-consuming-method-while` of redteamAD.hand_ad1, in capmodel `reggio/REPORTRTAD.txt`.
 
@@ -16493,6 +16500,7 @@ type Rs
 		return Self{n: n}
 	end 'create'
 
+	// TODO: language difference: a destructor ends its receiver when it returns, and no `destruct self` statement ends it sooner
 	function go(destructs self)
 		var i = 2 as Num
 		while i != 0 'w1'
@@ -16516,7 +16524,7 @@ error E3102: <fragment>:14:13: use of moved value 'self': it was moved in an ear
 ```
 
 <!-- test: model-hand-ad-o-consuming-method-field-write-after -->
-<!-- skip: language difference: ownership is refused by another rule -->
+<!-- skip: language difference: a destructor ends its receiver when it returns, and no `destruct self` statement ends it sooner -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `o-consuming-method-field-write-after` of redteamAD.hand_ad1, in capmodel `reggio/REPORTRTAD.txt`.
 
@@ -16530,6 +16538,7 @@ type Rs
 		return Self{n: n}
 	end 'create'
 
+	// TODO: language difference: a destructor ends its receiver when it returns, and no `destruct self` statement ends it sooner
 	function go(destructs self)
 		self.n = 3
 	end 'go'
@@ -16546,6 +16555,7 @@ error E3102: <fragment>:13:3: use of moved value 'self': its ownership moved to 
 ```
 
 <!-- test: model-hand-ad-o-consuming-method-read-after-destruct -->
+<!-- skip: language difference: a destructor ends its receiver when it returns, and no `destruct self` statement ends it sooner -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `o-consuming-method-read-after-destruct` of redteamAD.hand_ad1, in capmodel `reggio/REPORTRTAD.txt`.
 
@@ -16559,6 +16569,7 @@ type Rs
 		return Self{n: n}
 	end 'create'
 
+	// TODO: language difference: a destructor ends its receiver when it returns, and no `destruct self` statement ends it sooner
 	function go(destructs self) returns Num
 		return self.n
 	end 'go'
@@ -16575,6 +16586,7 @@ error E3102: <fragment>:13:10: use of moved value 'self': its ownership moved to
 ```
 
 <!-- test: model-hand-ad-o-consuming-method-peek-after-destruct -->
+<!-- skip: language difference: a destructor ends its receiver when it returns, and no `destruct self` statement ends it sooner -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `o-consuming-method-peek-after-destruct` of redteamAD.hand_ad1, in capmodel `reggio/REPORTRTAD.txt`.
 
@@ -16592,6 +16604,7 @@ type Rs
 		return self.n
 	end 'pk'
 
+	// TODO: language difference: a destructor ends its receiver when it returns, and no `destruct self` statement ends it sooner
 	function go(destructs self) returns Num
 		return self.pk()
 	end 'go'

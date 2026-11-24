@@ -509,9 +509,12 @@ export type Ownership
 	export var closureTy as ast.TypeID
 	// borrowing holds by type whether a value of it holds a borrow, as far as the pass has asked (holdsBorrowOf).
 	export var borrowing as BoolIntMap
+	// comparison is the equals or compare method whose body, or a closure in it, is being checked: neither may change the
+	// method's receiver or operand (refusesComparisonWrite). None in any other function.
+	export var comparison as ast.FuncID
 
 	export static function make(consumes c Checker, consumes errs diag.ErrorList) returns Ownership
-		return Ownership{c: c, errs: errs, fn: ast.noFunc, frames: OwnFrames.create(0), projections: OwnProjections.create(0), setParams: ast.LocalIDList.create(0), initialising: ast.LocalIDList.create(0), accesses: CallAccesses.create(0), obliged: OwnObligedList.create(0), partials: 0 as Count, catches: OwnCatches.create(0), inFlight: ast.NodeIDList.create(0), lenders: OwnLenders.create(0), borrowingMatches: ast.NodeIDList.create(0), holders: OwnHolders.create(0), mutableHeld: false, closureTy: ast.noType, borrowing: BoolIntMap.new()}
+		return Ownership{c: c, errs: errs, fn: ast.noFunc, frames: OwnFrames.create(0), projections: OwnProjections.create(0), setParams: ast.LocalIDList.create(0), initialising: ast.LocalIDList.create(0), accesses: CallAccesses.create(0), obliged: OwnObligedList.create(0), partials: 0 as Count, catches: OwnCatches.create(0), inFlight: ast.NodeIDList.create(0), lenders: OwnLenders.create(0), borrowingMatches: ast.NodeIDList.create(0), holders: OwnHolders.create(0), mutableHeld: false, closureTy: ast.noType, borrowing: BoolIntMap.new(), comparison: ast.noFunc}
 	end 'make'
 end 'Ownership'
 
@@ -598,6 +601,7 @@ function checkFunctionOwn(mutates o Ownership, p ast.Project, mutates ms ast.Mod
 	if ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fid).bounds.count() > 0 'bounded'
 		o.c.boundedFn = fid
 	end 'bounded'
+	o.comparison = fid if isComparisonMethod(ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fid)) else ast.noFunc
 	run(o, p: p, ms: ms, fid: fid, body: body, paramSites: paramSites)
 end 'checkFunctionOwn'
 

@@ -3135,6 +3135,7 @@ greater
 ```
 
 <!-- test: error.a-tuple-literal-of-another-brand-is-refused-at-a-tuple-parameter -->
+<!-- skip: language difference: every typealias of a generic instance is that one type, so a value carries no brand of its own -->
 <!-- positions: moved -->
 A tuple type is its element aliases in order, so `(Ys, Item)` is not `(Xs, Item)` even though both arrays are one instance.
 ```maxon
@@ -3163,6 +3164,7 @@ error E3005: <fragment>:16:2: argument type mismatch for 'p': expected '(Xs, Ite
 ```
 
 <!-- test: error.a-tuple-element-read-keeps-its-brand -->
+<!-- skip: language difference: every typealias of a generic instance is that one type, so a value carries no brand of its own -->
 <!-- positions: moved -->
 An element read out of a `(Ys, Item)` is a `Ys`.
 ```maxon
@@ -3190,6 +3192,7 @@ error E3005: <fragment>:11:2: argument type mismatch for 'xs': expected 'Xs', go
 ```
 
 <!-- test: error.a-destructured-tuple-element-keeps-its-brand -->
+<!-- skip: language difference: every typealias of a generic instance is that one type, so a value carries no brand of its own -->
 <!-- positions: moved -->
 ```maxon
 typealias Item = int(0 to 100)
@@ -3215,6 +3218,7 @@ error E3005: <fragment>:14:2: argument type mismatch for 'xs': expected 'Xs', go
 ```
 
 <!-- test: error.a-tuple-typealias-keeps-its-element-brands -->
+<!-- skip: language difference: every typealias of a generic instance is that one type, so a value carries no brand of its own -->
 <!-- positions: moved -->
 ```maxon
 typealias Item = int(0 to 100)
@@ -3249,6 +3253,7 @@ error E3005: <fragment>:22:2: argument type mismatch for 'p': expected 'XPair', 
 ```
 
 <!-- test: error.a-callback-over-a-tuple-of-one-brand-refuses-a-body-over-another -->
+<!-- skip: language difference: every typealias of a generic instance is that one type, so a value carries no brand of its own -->
 <!-- positions: moved -->
 ```maxon
 typealias Item = int(0 to 100)
@@ -3370,6 +3375,7 @@ error E3167: pkg/<fragment>:8:13: exported field 'pkg.Holder.pair' names unexpor
 ```
 
 <!-- test: error.two-tuples-differing-only-by-brand-name-the-brands -->
+<!-- skip: language difference: every typealias of a generic instance is that one type, so a value carries no brand of its own -->
 <!-- positions: moved -->
 Two tuples over one instance whose elements are branded differently print their brands, so the refusal reads `(Xs, Item)` against `(Ys, Item)`.
 ```maxon

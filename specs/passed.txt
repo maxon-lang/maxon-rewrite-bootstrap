@@ -2033,6 +2033,7 @@ exp.md: exp-two
 exp.md: exp-zero
 exp.md: int-promotion
 exp.md: negative
+expected-expression-error.md: let-rhs-missing
 export-keyword.md: a-hidden-type-answers-through-an-exported-interface
 export-keyword.md: a-hidden-types-values-sort-through-the-librarys-comparable-witness
 export-keyword.md: error.a-hidden-generic-typealias-written-in-a-parameter-is-refused-once
@@ -3749,11 +3750,14 @@ lexer-parser-robustness.md: random-operator-soup-2
 lexer-parser-robustness.md: random-operator-soup-3
 lexer-parser-robustness.md: random-printable-garbage-1
 lexer-parser-robustness.md: random-printable-garbage-3
+lexer-parser-robustness.md: truncated-after-binary-op
 lexer-parser-robustness.md: truncated-after-close-paren
 lexer-parser-robustness.md: truncated-after-dot
 lexer-parser-robustness.md: truncated-after-function-name
 lexer-parser-robustness.md: truncated-after-if-cond
+lexer-parser-robustness.md: truncated-after-if-keyword
 lexer-parser-robustness.md: truncated-after-let
+lexer-parser-robustness.md: truncated-after-let-eq
 lexer-parser-robustness.md: truncated-after-let-name
 lexer-parser-robustness.md: truncated-after-return-type
 lexer-parser-robustness.md: truncated-after-returns
@@ -5036,7 +5040,11 @@ operator-by-reference.md: operator-by-reference.error.a-comparison-method-may-no
 operator-by-reference.md: operator-by-reference.error.a-comparison-method-may-not-hand-its-operand-to-a-writer
 operator-by-reference.md: operator-by-reference.error.a-comparison-method-may-not-write-a-field-of-its-operand
 operator-by-reference.md: operator-by-reference.error.a-comparison-method-may-not-write-a-field-of-its-receiver
+operator-by-reference.md: operator-by-reference.error.a-comparison-method-may-not-write-its-operand-through-a-closure
+operator-by-reference.md: operator-by-reference.error.a-comparison-method-may-not-write-its-receiver-through-a-closure
+operator-by-reference.md: operator-by-reference.error.a-conformer-through-an-extending-interface-may-not-write-its-operand
 operator-by-reference.md: operator-by-reference.error.a-method-named-equals-is-judged-with-or-without-a-conformance
+operator-by-reference.md: operator-by-reference.error.a-write-through-a-helper-is-refused
 operator-by-reference.md: operator-by-reference.error.an-enum-conformer-marking-its-operand-mutable-does-not-conform
 operator-by-reference.md: operator-by-reference.error.an-enum-conformer-may-not-reassign-its-operand
 optimizer-refcount.md: multi-exit-match-arm-brackets
@@ -5192,6 +5200,8 @@ param-default-list-walks.md: a-destructured-discard-of-a-managed-element-leaks-n
 param-default-list-walks.md: a-discard-binds-nothing-in-every-other-position
 param-default-list-walks.md: a-match-payload-discard-leaves-a-discarded-parameter-alone
 param-default-list-walks.md: default-holding-commas-does-not-split-the-list
+param-default-list-walks.md: error.a-declaring-assignment-discard-names-nothing-to-read
+param-default-list-walks.md: error.a-destructured-discard-names-nothing-to-read
 param-default-list-walks.md: generic-feed-without-default-control
 param-default-refusals.md: error-default-on-a-duplicate-in-a-directory-a-second-directory-contests
 param-default-refusals.md: error-default-on-a-name-declared-twice
@@ -5545,6 +5555,8 @@ range-check-panic.md: a-large-count-through-a-generic-instances-function-field
 range-check-panic.md: a-negative-value-into-a-generic-cell-is-refused-where-it-enters
 range-check-panic.md: a-negative-value-through-a-closure-is-refused-at-the-call
 range-check-panic.md: error.an-integer-constant-cast-to-a-float-alias-outside-its-range
+range-check-panic.md: range-check-panic.a-borrow-across-the-signed-midpoint-on-folded-operands-is-refused
+range-check-panic.md: range-check-panic.a-carry-out-of-bit-63-on-folded-operands-is-refused
 range-check-panic.md: range-check-panic.a-constant-bound-at-the-signed-top-leaves-room-for-one
 range-check-panic.md: range-check-panic.a-constant-factor-at-its-limit-does-not-panic
 range-check-panic.md: range-check-panic.a-contained-field-store-and-element-store-emit-no-guard
@@ -5566,6 +5578,7 @@ range-check-panic.md: range-check-panic.a-merge-fed-by-a-counted-loop-denotes-th
 range-check-panic.md: range-check-panic.a-merged-operand-sum-above-the-signed-top-does-not-panic
 range-check-panic.md: range-check-panic.a-nested-full-unsigned-alias-parameter-admits-its-top-value
 range-check-panic.md: range-check-panic.a-nested-full-unsigned-alias-parameter-through-an-interface-takes-a-large-unsigned-word
+range-check-panic.md: range-check-panic.a-product-over-the-top-of-folded-operands-is-refused
 range-check-panic.md: range-check-panic.a-ranged-parameter-proves-a-callees-parameter
 range-check-panic.md: range-check-panic.a-runtime-limit-still-proves-the-floor
 range-check-panic.md: range-check-panic.a-signed-runtime-limit-proves-no-floor
@@ -5746,6 +5759,7 @@ raw-bit-patterns.md: a-word-sourced-value-is-free-at-a-return-door-and-at-a-bind
 raw-bit-patterns.md: a-word-sourced-value-is-free-at-an-unsigned-quantity-parameter
 raw-bit-patterns.md: a-wrapping-sum-over-bits-64-reaches-an-unsigned-quantity-parameter
 raw-bit-patterns.md: an-accumulation-in-a-loop-carries-a-bit-63-unsigned-value
+raw-bit-patterns.md: an-unsigned-difference-that-borrows-is-refused-when-folded
 raw-bit-patterns.md: an-unsigned-difference-without-a-borrow-is-admitted-folded-and-at-run-time
 raw-bit-patterns.md: an-unsigned-quantity-parameter-admits-an-unsigned-bit-63-value
 raw-bit-patterns.md: an-unsigned-subtraction-without-a-borrow-reaches-every-unsigned-quantity-door

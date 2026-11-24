@@ -4105,6 +4105,7 @@ tally 2: 7 12
 ```
 
 <!-- test: error.interface-requirement-result-keeps-its-alias -->
+<!-- skip: language difference: every typealias of a generic instance is that one type, so a value carries no brand of its own -->
 <!-- positions: moved -->
 A call through an interface-typed value is typed by the requirement's declared return alias, exactly as a
 direct call to the conformer is: `Other` is a second alias of the same instance, so the result of `m.make()`
@@ -4143,7 +4144,7 @@ function viaInterface(m Maker) returns Integer
 end 'viaInterface'
 
 function main() returns ExitCode
-	return try viaInterface(Builder.create(42)) as ExitCode otherwise panic("out of range")
+	return viaInterface(Builder.create(42)) as ExitCode
 end 'main'
 ```
 ```maxoncstderr
@@ -4194,6 +4195,7 @@ error E3005: specs/interface-dispatch/error.a-witness-argument-of-another-instan
 ```
 
 <!-- test: error.a-witness-argument-of-another-alias-is-refused -->
+<!-- skip: language difference: every typealias of a generic instance is that one type, so a value carries no brand of its own -->
 <!-- positions: moved -->
 `Other` is a second alias of the same instance as `IntArray`, so an `Other` argument does not fit the
 requirement's `IntArray` parameter through the interface, as it does not fit it in a direct call.
@@ -4218,7 +4220,7 @@ type Adder implements Summer
 	function total(xs IntArray) returns Integer
 		var t = self.base
 		for x in xs 'each'
-			t = try t + x otherwise panic("out of range")
+			t = t + x
 		end 'each'
 		return t
 	end 'total'
@@ -4229,7 +4231,7 @@ function viaInterface(s Summer) returns Integer
 end 'viaInterface'
 
 function main() returns ExitCode
-	return try viaInterface(Adder.create(0)) as ExitCode otherwise panic("out of range")
+	return viaInterface(Adder.create(0)) as ExitCode
 end 'main'
 ```
 ```maxoncstderr

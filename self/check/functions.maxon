@@ -162,17 +162,24 @@ end 'addFunction'
 
 // conformanceRequires is whether an interface that the type nt says it implements requires a method of the name.
 function conformanceRequires(p ast.Project, ms ast.ModuleState, nt ast.TypeID, name String) returns bool
+	return requirementNamed(p, ms: ms, nt: nt, name: name).isSome()
+end 'conformanceRequires'
+
+// requirementNamed is the method of the name that an interface the type nt says it implements requires, written with the
+// interface that declares it ('Equatable.equals'), or none.
+function requirementNamed(p ast.Project, ms ast.ModuleState, nt ast.TypeID, name String) returns table.Option with String
 	let conforms = ast.cloneTypeArgs(ast.typeEntry(ms.types, reads: p.types, t: ast.originOf(ms.types, reads: p.types, t: nt)).conforms)
 	for i in 0 upto conforms.count() 'interfaces'
 		let reqs = ast.requirementsOf(ms.types, reads: p.types, iface: conforms[i])
 		for j in 0 upto reqs.count() 'requirements'
 			if ast.funcEntry(ms.funcs, funcReads: p.funcs, f: reqs[j].sig).name == name 'required'
-				return true
+				let iface = ast.originOf(ms.types, reads: p.types, t: reqs[j].iface)
+				return table.Option.some("{ast.typeName(ms.types, reads: p.types, t: iface)}.{name}")
 			end 'required'
 		end 'requirements'
 	end 'interfaces'
-	return false
-end 'conformanceRequires'
+	return table.Option.none
+end 'requirementNamed'
 
 // addMethods declares the methods of a type, a union or an enum.
 function addMethods(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, methods ast.FuncDeclList, nt ast.TypeID, mutates declared ast.FuncIDList, mutates errs diag.ErrorList)

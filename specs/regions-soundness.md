@@ -9173,7 +9173,7 @@ type Blob
 		return self.clone()
 	end 'me'
 
-	function equals(mutates self, other Blob) returns bool
+	function equals(other Blob) returns bool
 		self.sink.held = other.data.clone()
 		return true
 	end 'equals'

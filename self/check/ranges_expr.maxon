@@ -655,7 +655,14 @@ function rangeOperate(mutates r Ranges, p ast.Project, ms ast.ModuleState, e ast
 	if op == "-" and not isDead(r, s: r.st) and not ast.isWordPattern(ms.types, reads: p.types, t: arithOf(r, e: e).operand) 'difference'
 		exact.lo = rangeDifferenceLow(r, p: p, ms: ms, e: e, low: exact.lo)
 	end 'difference'
-	return rangeResult(r, p: p, ms: ms, e: e, op: op, exact: exact, fails: fails, word: word)
+	var known = ""
+	let leftTy = typeOf(r, e: ast.binaryExprL(ms.tree(), id: e))
+	let rightTy = typeOf(r, e: ast.binaryExprR(ms.tree(), id: e))
+	let aliased = checkedAtOperation(p, ms: ms, op: op, operand: leftTy) or checkedAtOperation(p, ms: ms, op: op, operand: rightTy)
+	if aliased and isOneValue(l) and isOneValue(rs) 'known'
+		known = "{l.lo.toString()} {op} {rs.lo.toString()}"
+	end 'known'
+	return rangeResult(r, p: p, ms: ms, e: e, op: op, exact: exact, fails: fails, word: word, known: known)
 end 'rangeOperate'
 
 // wraps is whether an operation on a bits(64) pattern is computed modulo 2^64, as against failing past the word: an
@@ -705,10 +712,14 @@ function arithOf(r Ranges, e ast.NodeID) returns ast.ArithInfo
 end 'arithOf'
 
 // rangeResult judges an operation whose exact result has the span exact: it fails where that leaves the word it computes
-// in or the range of its type, and gives the span of the values it can give.
-function rangeResult(mutates r Ranges, p ast.Project, ms ast.ModuleState, e ast.NodeID, op String, exact Span, fails Byte, word Span) returns Span
+// in or the range of its type, and gives the span of the values it can give. known writes the operation with its operands
+// where the analysis knows each to be one value, and is empty elsewhere.
+function rangeResult(mutates r Ranges, p ast.Project, ms ast.ModuleState, e ast.NodeID, op String, exact Span, fails Byte, word Span, known String) returns Span
 	let ty = typeOf(r, e: e)
 	let t = typeSpan(ms.types, reads: p.types, t: ty)
+	if refusesKnownValue(r, p: p, ms: ms, e: e, v: exact, ty: ty, known: known) 'refused'
+		return exact.clamp(t)
+	end 'refused'
 	var f = fails
 	if not exact.isEmpty() 'reached'
 		if not exact.within(word) 'pastWord'
@@ -725,6 +736,42 @@ function rangeResult(mutates r Ranges, p ast.Project, ms ast.ModuleState, e ast.
 	rangeFail(r, p: p, ms: ms, e: e, fails: f, why: Unchecked.operation(op.clone(), fails: f, node: e, ty: ty))
 	return exact.clamp(t)
 end 'rangeResult'
+
+// refusesKnownValue refuses an operation checked at the operation whose operands the analysis knows, as known writes
+// them, and whose result v, one value, its integer type ty does not hold, where no try covers it, and says whether it did:
+// it can only fail, which maxon refuses as it does a literal outside the type (E3005), where a failure it may not make is
+// the missing try's (E3057). Under a try the failure is the handler's, as any other is. An operation that is not checked
+// there, or whose operands are not known, has an empty known and is judged as any other.
+function refusesKnownValue(mutates r Ranges, p ast.Project, ms ast.ModuleState, e ast.NodeID, v Span, ty ast.TypeID, known String) returns bool
+	if known == "" or r.handlers.count() > 0 or r.probing or isDead(r, s: r.st) or not isOneValue(v) or ast.isWordPattern(ms.types, reads: p.types, t: ty) 'unknown'
+		return false
+	end 'unknown'
+	if typeSpan(ms.types, reads: p.types, t: ty).has(v.lo) 'holds'
+		return false
+	end 'holds'
+	let low = ast.typeEntry(ms.types, reads: p.types, t: ty).minVal.toString()
+	let high = ast.typeEntry(ms.types, reads: p.types, t: ty).maxVal.toString()
+	rangeRaise(r, p: p, ms: ms, node: e, code: diag.errTypeMismatch, msg: diag.resultOutOfRange(known, alias: nameOfType(p, ms: ms, t: ty), low: low, high: high))
+	return true
+end 'refusesKnownValue'
+
+// checkedAtOperation is whether the operator op over operands of the type operand is checked where it is computed, so that
+// a result outside the range is the operation's failure: an addition, a subtraction, a product or a negation over an alias
+// whose range is a whole word, which no wider word holds the result of. Over a narrower alias, a constant or a value of no
+// alias, a loop's counter, the result is computed in a word and checked where it is used, and a shift is computed in a
+// word whatever its operand.
+function checkedAtOperation(p ast.Project, ms ast.ModuleState, op String, operand ast.TypeID) returns bool
+	if not (op == "+" or op == "-" or op == "*") or not typeIsNamedInt(ms.types, reads: p.types, t: operand) or ast.isWordPattern(ms.types, reads: p.types, t: operand) 'other'
+		return false
+	end 'other'
+	let t = typeSpan(ms.types, reads: p.types, t: operand)
+	return t.same(signedWord()) or t.same(unsignedWord())
+end 'checkedAtOperation'
+
+// isOneValue is whether the span holds a single value.
+function isOneValue(v Span) returns bool
+	return not v.isEmpty() and v.lo.eq(v.hi)
+end 'isOneValue'
 
 // failureText says how an operation can fail, for the error that it is not caught.
 function failureText(p ast.Project, ms ast.ModuleState, op String, fails Byte, ty ast.TypeID) returns String
@@ -918,7 +965,11 @@ function rangeUnaryExpr(mutates r Ranges, p ast.Project, ms ast.ModuleState, e a
 			exact = Span.make(v.hi.neg().sub(ast.I128.one()), hi: v.lo.neg().sub(ast.I128.one()))
 		end 'signedNot'
 	end 'not'
-	return rangeResult(r, p: p, ms: ms, e: e, op: op, exact: exact, fails: ast.failNone, word: word)
+	var known = ""
+	if op == "-" and checkedAtOperation(p, ms: ms, op: op, operand: typeOf(r, e: operand)) and isOneValue(v) 'known'
+		known = "-{v.lo.toString()}"
+	end 'known'
+	return rangeResult(r, p: p, ms: ms, e: e, op: op, exact: exact, fails: ast.failNone, word: word, known: known)
 end 'rangeUnaryExpr'
 
 // rangeCastExpr fails where the value may lie outside the target's range.

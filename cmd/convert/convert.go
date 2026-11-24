@@ -93,7 +93,7 @@ func Convert(file, src string, kind inputKind) Result {
 		dropSelfClones(lines)
 	}
 	joinEndOtherwise(lines)
-	rewriteDestructors(lines)
+	rewriteDestructors(lines, addWarn)
 	rewriteStringBuilders(lines)
 	rewriteWithIterator(lines, addWarn)
 	transformLines(lines, addWarn)
@@ -612,8 +612,10 @@ func nextCodeLine(lines []sourceLine, from int) int {
 }
 
 // rewriteDestructors turns `consuming self` into `destructs self` and removes `destruct self` statements
-// inside methods that call `destruct self`.
-func rewriteDestructors(lines []sourceLine) {
+// inside methods that call `destruct self`. A destructor here ends its receiver when it returns, so a `destruct self`
+// that ends it sooner, before code that reads `self` or on a lap of a loop that goes on, leaves maxon's test of that code
+// with nothing to test, and is warned about.
+func rewriteDestructors(lines []sourceLine, warn func(*sourceLine, string)) {
 	for i := range lines {
 		if lines[i].removed || len(lines[i].code) == 0 {
 			continue
@@ -632,25 +634,85 @@ func rewriteDestructors(lines []sourceLine) {
 
 		// Scan body up to the matching `end` at the same indentation.
 		fnIndent := lines[i].indent
-		hasDestruct := false
+		end := len(lines)
 		for j := i + 1; j < len(lines); j++ {
-			if lines[j].removed || len(lines[j].code) == 0 {
-				continue
-			}
-			if lines[j].indent == fnIndent && lines[j].code[0].text == "end" {
+			if !lines[j].removed && len(lines[j].code) > 0 && lines[j].indent == fnIndent && lines[j].code[0].text == "end" {
+				end = j
 				break
 			}
-			if len(lines[j].code) == 2 && lines[j].code[0].text == "destruct" && lines[j].code[1].text == "self" {
-				hasDestruct = true
-				lines[j].removed = true
+		}
+		hasDestruct := false
+		early := false
+		for j := i + 1; j < end; j++ {
+			if lines[j].removed || !isDestructSelf(lines[j]) {
+				continue
 			}
+			hasDestruct = true
+			lines[j].removed = true
+			early = early || readsSelf(lines[j+1:end]) || lapGoesOn(lines, i, j)
 		}
 		if hasDestruct {
 			lines[i].code[lp+1].text = "destructs"
 		} else {
 			lines[i].code[lp+1].text = "consumes"
 		}
+		if early {
+			warn(&lines[i], "language difference: a destructor ends its receiver when it returns, and no `destruct self` statement ends it sooner")
+		}
 	}
+}
+
+// isDestructSelf is whether a line is maxon's `destruct self` statement.
+func isDestructSelf(l sourceLine) bool {
+	return len(l.code) == 2 && l.code[0].text == "destruct" && l.code[1].text == "self"
+}
+
+// readsSelf is whether a line that is still to be converted, other than another `destruct self`, names `self`, in its code
+// or in a string's interpolation.
+func readsSelf(lines []sourceLine) bool {
+	for _, l := range lines {
+		if l.removed || isDestructSelf(l) {
+			continue
+		}
+		for _, t := range l.code {
+			if t.text == "self" || t.kind == tokString && interpolatesSelf.MatchString(t.text) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// interpolatesSelf finds `self` named in an interpolation of a string literal.
+var interpolatesSelf = regexp.MustCompile(`\{[^}]*\bself\b`)
+
+// lapGoesOn is whether the statement at j, in the function whose header is at fn, is in a loop and is not followed by a
+// return, a throw or a break that leaves the lap.
+func lapGoesOn(lines []sourceLine, fn, j int) bool {
+	inLoop := false
+	indent := lines[j].indent
+	for k := j - 1; k > fn; k-- {
+		if lines[k].removed || len(lines[k].code) == 0 || len(lines[k].indent) >= len(indent) {
+			continue
+		}
+		indent = lines[k].indent
+		if w := lines[k].code[0].text; w == "while" || w == "for" {
+			inLoop = true
+			break
+		}
+	}
+	if !inLoop {
+		return false
+	}
+	next := nextCodeLine(lines, j+1)
+	if next < 0 || lines[next].indent != lines[j].indent {
+		return true
+	}
+	switch lines[next].code[0].text {
+	case "return", "throw", "break":
+		return false
+	}
+	return true
 }
 
 func transformLines(lines []sourceLine, warn func(*sourceLine, string)) {

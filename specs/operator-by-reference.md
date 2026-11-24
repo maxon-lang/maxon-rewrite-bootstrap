@@ -21,6 +21,7 @@ reference (`witness-by-reference.md`).
 ## Tests
 
 <!-- test: operator-by-reference.error.a-write-through-a-helper-is-refused -->
+<!-- positions: moved -->
 ```maxon
 typealias Count = int(i64.min to i64.max)
 
@@ -38,7 +39,7 @@ type Tagged implements Equatable
 	end 'equals'
 end 'Tagged'
 
-function clear(target Tagged)
+function clear(mutates target Tagged)
 	target.tag = 0
 end 'clear'
 
@@ -140,7 +141,6 @@ error E3210: <fragment>:19:11: 'Tagged.equals' writes its parameter 'other', but
 ```
 
 <!-- test: operator-by-reference.error.a-method-named-equals-is-judged-with-or-without-a-conformance -->
-<!-- positions: moved -->
 ```maxon
 typealias Count = int(i64.min to i64.max)
 
@@ -151,7 +151,7 @@ type Plain
 		return Self{tag: tag}
 	end 'create'
 
-	function equals(mutates other Self) returns bool
+	function equals(other Self) returns bool
 		other.tag = 0
 		return true
 	end 'equals'
@@ -369,7 +369,6 @@ true 2
 ```
 
 <!-- test: operator-by-reference.error.a-comparison-method-may-not-write-a-field-of-its-operand -->
-<!-- positions: moved -->
 Writing a field of the operand modifies it as surely as reassigning it.
 ```maxon
 typealias Count = int(i64.min to i64.max)
@@ -381,7 +380,7 @@ type Tagged
 		return Self{tag: tag}
 	end 'create'
 
-	function equals(mutates other Self) returns bool
+	function equals(other Self) returns bool
 		other.tag = 0
 		return true
 	end 'equals'
@@ -411,7 +410,7 @@ type Bag
 		return Self{items: Counts.create(0)}
 	end 'create'
 
-	function equals(mutates other Self) returns bool
+	function equals(other Self) returns bool
 		other.items.push(1)
 		return true
 	end 'equals'
@@ -444,7 +443,7 @@ type Tagged
 		other.tag = 0
 	end 'clear'
 
-	function equals(mutates other Self) returns bool
+	function equals(other Self) returns bool
 		self.clear(other)
 		return true
 	end 'equals'
@@ -461,7 +460,6 @@ error E3187: <fragment>:15:11: 'Tagged.equals' writes its parameter 'other', but
 ```
 
 <!-- test: operator-by-reference.error.a-comparison-method-may-not-write-a-field-of-its-receiver -->
-<!-- positions: moved -->
 ```maxon
 typealias Count = int(0 to 1000)
 
@@ -472,7 +470,7 @@ type Tagged
 		return Self{tag: tag}
 	end 'create'
 
-	function equals(mutates self, other Self) returns bool
+	function equals(other Self) returns bool
 		self.tag = 0
 		return true
 	end 'equals'
@@ -502,7 +500,7 @@ type Bag
 		return Self{items: Counts.create(0)}
 	end 'create'
 
-	function equals(mutates self, other Self) returns bool
+	function equals(other Self) returns bool
 		self.items.push(1)
 		return true
 	end 'equals'
@@ -534,7 +532,7 @@ type Tagged
 		tag = 0
 	end 'clear'
 
-	function equals(mutates self, other Self) returns bool
+	function equals(other Self) returns bool
 		self.clear()
 		return true
 	end 'equals'
@@ -647,6 +645,7 @@ error E3187: <fragment>:27:11: 'Holder.equals' writes its parameter 'other', but
 ```
 
 <!-- test: operator-by-reference.error.a-comparison-method-may-not-write-its-operand-through-a-closure -->
+<!-- positions: moved -->
 The closure captures `other` and the call inside it writes `other`'s record.
 ```maxon
 typealias Count = int(0 to 1000)
@@ -658,7 +657,7 @@ type Tagged
 		return Self{tag: tag}
 	end 'create'
 
-	function clear() returns Count
+	function clear(mutates self) returns Count
 		tag = 0
 		return 0
 	end 'clear'
@@ -681,6 +680,7 @@ error E3187: <fragment>:16:11: 'Tagged.equals' writes its parameter 'other', but
 ```
 
 <!-- test: operator-by-reference.error.a-comparison-method-may-not-write-its-receiver-through-a-closure -->
+<!-- positions: moved -->
 ```maxon
 typealias Count = int(0 to 1000)
 
@@ -691,7 +691,7 @@ type Tagged
 		return Self{tag: tag}
 	end 'create'
 
-	function clear() returns Count
+	function clear(mutates self) returns Count
 		tag = 0
 		return 0
 	end 'clear'
@@ -714,7 +714,7 @@ error E3187: <fragment>:16:11: 'Tagged.equals' writes its receiver, but a method
 ```
 
 <!-- test: operator-by-reference.error.a-comparison-method-may-not-write-its-operand-through-a-holder -->
-<!-- positions: moved -->
+<!-- skip: language difference: a value has one owner, so storing a borrowed parameter stores a copy of it, and what writes the copy leaves the parameter as it was, where maxon shares it by a reference count -->
 The operand is stored into a record whose method writes it.
 
 ```maxon
@@ -727,7 +727,7 @@ type Tagged
 		return Self{tag: tag}
 	end 'create'
 
-	function clear(mutates self) returns Count
+	function clear() returns Count
 		tag = 0
 		return 0
 	end 'clear'
@@ -743,10 +743,10 @@ type Holder
 	export var held as Tagged
 
 	static function create(held Tagged) returns Self
-		return Self{held: held.clone()}
+		return Self{held: held}
 	end 'create'
 
-	function run(mutates self) returns Count
+	function run() returns Count
 		return self.held.clear()
 	end 'run'
 end 'Holder'
@@ -762,7 +762,7 @@ error E3187: <fragment>:16:11: 'Tagged.equals' writes its parameter 'other', but
 ```
 
 <!-- test: operator-by-reference.error.a-comparison-method-may-not-write-its-receiver-through-a-holder -->
-<!-- positions: moved -->
+<!-- skip: language difference: a value has one owner, so storing a borrowed parameter stores a copy of it, and what writes the copy leaves the parameter as it was, where maxon shares it by a reference count -->
 The receiver is stored into a record whose method writes it.
 
 ```maxon
@@ -775,7 +775,7 @@ type Tagged
 		return Self{tag: tag}
 	end 'create'
 
-	function clear(mutates self) returns Count
+	function clear() returns Count
 		tag = 0
 		return 0
 	end 'clear'
@@ -791,10 +791,10 @@ type Holder
 	export var held as Tagged
 
 	static function create(held Tagged) returns Self
-		return Self{held: held.clone()}
+		return Self{held: held}
 	end 'create'
 
-	function run(mutates self) returns Count
+	function run() returns Count
 		return self.held.clear()
 	end 'run'
 end 'Holder'

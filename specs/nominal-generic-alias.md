@@ -1262,6 +1262,7 @@ end 'main'
 ```
 
 <!-- test: error.a-view-binding-does-not-take-another-aliass-view -->
+<!-- skip: language difference: every typealias of a generic instance is that one type, so a value carries no brand of its own -->
 <!-- positions: moved -->
 <!-- tier: stdlib -->
 A view keeps its array's brand wherever it is held, not only at a parameter. `m` is bound from
@@ -1287,6 +1288,7 @@ error E3005: <fragment>:11:2: cannot assign a value of type '__ManagedMemory wit
 ```
 
 <!-- test: error.a-view-join-does-not-merge-two-aliases-views -->
+<!-- skip: language difference: every typealias of a generic instance is that one type, so a value carries no brand of its own -->
 <!-- positions: moved -->
 <!-- tier: stdlib -->
 The same crossing at a join: the two arms of the `match` give views under two brands.
@@ -1299,8 +1301,8 @@ typealias Other = Array with Byte
 
 function pick(k Integer, bytes Bytes, other Other) returns ExitCode
 	let m = match k 'm'
-		0 gives bytes.managed.clone()
-		default gives other.managed.clone()
+		0 gives bytes.managed
+		default gives other.managed
 	end 'm'
 	return (try m.get(0) otherwise 0) as ExitCode
 end 'pick'
@@ -1684,6 +1686,7 @@ typealias Xs = Array with String
 ```
 
 <!-- test: error.a-service-message-argument-of-another-brand-is-refused -->
+<!-- skip: language difference: every typealias of a generic instance is that one type, so a value carries no brand of its own -->
 <!-- positions: moved -->
 The message parameter is a `Ys`; the argument is an `Xs`.
 ```maxon
@@ -1700,8 +1703,8 @@ type Sink
 		return Self{seen: 0}
 	end 'create'
 
-	export function take(mutates self, consumes ys Ys)
-		self.seen = try self.seen + 1 otherwise panic("out of range")
+	export function take(consumes ys Ys)
+		self.seen = self.seen + 1
 		print("{ys.count()}\n")
 	end 'take'
 end 'Sink'

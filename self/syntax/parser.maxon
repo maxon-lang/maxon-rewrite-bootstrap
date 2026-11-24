@@ -108,6 +108,9 @@ let testFileExtension = ".maxtest"
 // capturesWord is the word after `mutates` that ends a function type which mutates its captures.
 let capturesWord = "captures"
 
+// expressionWanted is what Maxon.g4 says its expression rule is, which a syntax error names where one is missing.
+let expressionWanted = "an expression"
+
 let blankInBody = "a blank line is only allowed between declarations, and before a function of a type, an enum or a union"
 
 let blankBeforeFunction = "expected a blank line before this function, which is not the first line of its type, enum or union"
@@ -782,6 +785,13 @@ type Parser
 		end 'annotation'
 		let t = self.cur()
 		let file = self.fileNumber()
+		if what == expressionWanted 'expression'
+			// Where an operand is missing maxon reports E2004, as it does a name that names nothing, '_' among them: a
+			// discard is no variable to read.
+			let msg = diag.undefinedVariable("_") if t.kind == TokenKind.kw__ else diag.expectedExpression(self.describe(t))
+			errors.push(src.errorAt(diag.errExpressionError, message: msg, file: file, offset: t.start as Count))
+			return SyntaxError.refused
+		end 'expression'
 		if self.atEndOfInput() 'end'
 			errors.push(src.errorAt(diag.errUnexpectedEnd, message: diag.unexpectedEof(), file: file, offset: t.start as Count))
 			return SyntaxError.refused

@@ -807,7 +807,7 @@ end 'main'
 ```
 
 <!-- test: a-character-literal-receiver-is-not-a-try-block-label -->
-<!-- skip: minimaxon does not parse the converted source: Expected an expression but got 'A' -->
+<!-- skip: minimaxon does not parse the converted source: Expected expression but got 'A' -->
 ### `try 'A'.asciiValue()` is a call, not a block-form `try`
 
 A block LABEL and a character literal are the same `TokenKind.charLiteral`; only grammatical position tells

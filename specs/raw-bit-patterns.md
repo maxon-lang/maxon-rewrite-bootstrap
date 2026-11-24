@@ -1467,7 +1467,6 @@ end 'main'
 ```
 
 <!-- test: error.a-wrapping-unsigned-fold-is-refused -->
-<!-- positions: moved -->
 ### A fold over full-width unsigned operands that wraps is refused
 `+` and `-` over a full-width unsigned alias are checked at the operation, so a constant expression whose result
 leaves the range is E3005. Arithmetic meant to wrap is written over `bits(64)`.
@@ -1479,8 +1478,8 @@ function take(c Count) returns Count
 end 'take'
 
 function main() returns ExitCode
-	print("{take(try (0xFFFFFFFFFFFFFFFF as Count) + 1 otherwise panic("out of range"))}\n")
-	print("{take(try 0 - (0xFFFFFFFFFFFFFFFF as Count) otherwise panic("out of range"))}\n")
+	print("{take((0xFFFFFFFFFFFFFFFF as Count) + 1)}\n")
+	print("{take(0 - (0xFFFFFFFFFFFFFFFF as Count))}\n")
 	return 0
 end 'main'
 ```
@@ -1690,7 +1689,6 @@ end 'main'
 ```
 
 <!-- test: an-unsigned-difference-that-borrows-is-refused-when-folded -->
-<!-- positions: moved -->
 ### …and a borrow is refused, folded
 ```maxon
 typealias Count = int(0 to u64.max)
@@ -1700,7 +1698,7 @@ function take(c Count) returns Count
 end 'take'
 
 function main() returns ExitCode
-	print("{take(try (0 as Count) - (1 as Count) otherwise panic("out of range"))}\n")
+	print("{take((0 as Count) - (1 as Count))}\n")
 	return 0
 end 'main'
 ```

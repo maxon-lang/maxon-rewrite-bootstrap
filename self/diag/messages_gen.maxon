@@ -240,6 +240,11 @@ export function literalOutOfRange(value String, alias String, low String, high S
 	return "Value {value} is outside the range of '{alias}' (int({low} to {high}))"
 end 'literalOutOfRange'
 
+// The text of errTypeMismatch for: The result of {operation} is outside the range of '{alias}' (int({low} to {high}))
+export function resultOutOfRange(operation String, alias String, low String, high String) returns String
+	return "The result of {operation} is outside the range of '{alias}' (int({low} to {high}))"
+end 'resultOutOfRange'
+
 // The text of errTypeMismatch for: Value {value} is outside the range of '{alias}' (bits({width}))
 export function patternLiteralOutOfRange(value String, alias String, width String) returns String
 	return "Value {value} is outside the range of '{alias}' (bits({width}))"
@@ -499,6 +504,16 @@ end 'comparisonWritesParameter'
 export function comparisonWritesReceiver(method String) returns String
 	return "'{method}' writes its receiver, but a method behind the comparison operators may not modify its receiver — `==`, `!=`, `<`, `<=`, `>` and `>=` pass it by value"
 end 'comparisonWritesReceiver'
+
+// The text of errCapabilityConversion for: '{method}' writes its parameter '{param}', but '{requirement}' does not declare it `mutable`
+export function requirementWritesParameter(method String, param String, requirement String) returns String
+	return "'{method}' writes its parameter '{param}', but '{requirement}' does not declare it `mutable`"
+end 'requirementWritesParameter'
+
+// The text of errCapabilityConversion for: '{method}' writes its receiver, but '{requirement}' does not declare `mutable self`
+export function requirementWritesReceiver(method String, requirement String) returns String
+	return "'{method}' writes its receiver, but '{requirement}' does not declare `mutable self`"
+end 'requirementWritesReceiver'
 
 // The text of errReservedIdentifier for: identifier '{name}' is reserved: declarations starting with '__' are reserved for compiler internals
 export function reservedIdentifier(name String) returns String

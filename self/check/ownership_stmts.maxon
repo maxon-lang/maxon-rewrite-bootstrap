@@ -287,7 +287,7 @@ function assignStmtOwn(mutates o Ownership, p ast.Project, mutates ms ast.Module
 		end 'view'
 		if name.kind == ast.NameKind.nameLocal 'local'
 			let out = consume(o, p: p, ms: ms, e: value, dest: OwnDest.make(OwnDestKind.destVariable, name: targetName), s: s)
-			requireWritable(o, p: p, ms: ms, site: site, path: AccessPath.at(name.local))
+			requireRebindable(o, p: p, ms: ms, site: site, path: AccessPath.at(name.local), call: ast.noType)
 			requireUnlent(o, p: p, ms: ms, root: name.local, site: site, s: out)
 			if not out.dead 'live'
 				requireHeld(o, p: p, ms: ms, site: site, ob: OwnObliged.make(name.local, site: 0 as diag.U32, destroys: false), s: out, kind: OwnDropKind.dropOverwrite)
@@ -409,6 +409,7 @@ function runNested(mutates o Ownership, p ast.Project, mutates ms ast.ModuleStat
 	let found = exchange(o.errs, value: diag.ErrorList.create(0))
 	var inner = Ownership.make(checker, errs: found)
 	inner.closureTy = closureTy
+	inner.comparison = o.comparison
 	inner.borrowing = exchange(o.borrowing, value: BoolIntMap.new())
 	run(inner, p: p, ms: ms, fid: fid, body: body, paramSites: sites)
 	o.errs = exchange(inner.errs, value: diag.ErrorList.create(0))
