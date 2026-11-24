@@ -279,7 +279,6 @@ end 'main'
 ```
 
 <!-- test: two-parameters-naming-one-record-return-the-first-counted -->
-<!-- skip: language difference: a place passed mutates, consumes or sets overlaps nothing else the call or the statement holds, where maxon shares the place by a reference count -->
 `first` returns its first parameter and is called with one record as both arguments, so the one record is
 returned counted and each parameter name is a borrow.
 ```maxon
@@ -287,16 +286,16 @@ typealias Tally = int(0 to u64.max)
 
 typealias TallyArray = Array with Tally
 
-function first(a TallyArray, b TallyArray) returns TallyArray
+function first(a TallyArray, mutates b TallyArray) returns TallyArray
 	b.push(a.count() as Tally)
-	return a
+	return a.clone()
 end 'first'
 
 function main() returns ExitCode
-	let cells = TallyArray.create(0)
+	var cells = TallyArray.create(0)
 	cells.push(4)
-	var out = first(cells, b: cells)
-	out = first(out, b: out)
+	var out = first(cells.clone(), b: cells)
+	out = first(out.clone(), b: out)
 	print("{out.count()} {cells.count()}\n")
 	return 0
 end 'main'

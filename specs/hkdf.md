@@ -31,18 +31,18 @@ function digit(symbol Byte) returns Byte
 	if symbol >= 0x61 'letter'
 		return symbol - 0x57
 	end 'letter'
-	return symbol - 0x30
+	return try symbol - 0x30 otherwise panic("out of range")
 end 'digit'
 
 function fromHex(hex String) returns ByteArray
-	let bytes = ByteArray.create(0)
+	var bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
 		end 'first' else 'second'
-			bytes.push(high * 16 + digit(symbol))
+			bytes.push(try high * 16 + digit(symbol) otherwise panic("out of range"))
 		end 'second'
 		isHigh = not isHigh
 	end 'eachSymbol'
@@ -52,7 +52,7 @@ end 'fromHex'
 function toHex(bytes ByteArray) returns String
 	var text = ""
 	for byte in bytes 'eachByte'
-		text.append("{byte:02x}")
+		text = "{text}{byte:02x}"
 	end 'eachByte'
 	return text
 end 'toHex'
@@ -86,18 +86,18 @@ function digit(symbol Byte) returns Byte
 	if symbol >= 0x61 'letter'
 		return symbol - 0x57
 	end 'letter'
-	return symbol - 0x30
+	return try symbol - 0x30 otherwise panic("out of range")
 end 'digit'
 
 function fromHex(hex String) returns ByteArray
-	let bytes = ByteArray.create(0)
+	var bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
 		end 'first' else 'second'
-			bytes.push(high * 16 + digit(symbol))
+			bytes.push(try high * 16 + digit(symbol) otherwise panic("out of range"))
 		end 'second'
 		isHigh = not isHigh
 	end 'eachSymbol'
@@ -107,7 +107,7 @@ end 'fromHex'
 function toHex(bytes ByteArray) returns String
 	var text = ""
 	for byte in bytes 'eachByte'
-		text.append("{byte:02x}")
+		text = "{text}{byte:02x}"
 	end 'eachByte'
 	return text
 end 'toHex'
@@ -151,18 +151,18 @@ function digit(symbol Byte) returns Byte
 	if symbol >= 0x61 'letter'
 		return symbol - 0x57
 	end 'letter'
-	return symbol - 0x30
+	return try symbol - 0x30 otherwise panic("out of range")
 end 'digit'
 
 function fromHex(hex String) returns ByteArray
-	let bytes = ByteArray.create(0)
+	var bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
 		end 'first' else 'second'
-			bytes.push(high * 16 + digit(symbol))
+			bytes.push(try high * 16 + digit(symbol) otherwise panic("out of range"))
 		end 'second'
 		isHigh = not isHigh
 	end 'eachSymbol'
@@ -172,7 +172,7 @@ end 'fromHex'
 function toHex(bytes ByteArray) returns String
 	var text = ""
 	for byte in bytes 'eachByte'
-		text.append("{byte:02x}")
+		text = "{text}{byte:02x}"
 	end 'eachByte'
 	return text
 end 'toHex'
@@ -214,18 +214,18 @@ function digit(symbol Byte) returns Byte
 	if symbol >= 0x61 'letter'
 		return symbol - 0x57
 	end 'letter'
-	return symbol - 0x30
+	return try symbol - 0x30 otherwise panic("out of range")
 end 'digit'
 
 function fromHex(hex String) returns ByteArray
-	let bytes = ByteArray.create(0)
+	var bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
 		end 'first' else 'second'
-			bytes.push(high * 16 + digit(symbol))
+			bytes.push(try high * 16 + digit(symbol) otherwise panic("out of range"))
 		end 'second'
 		isHigh = not isHigh
 	end 'eachSymbol'
@@ -235,7 +235,7 @@ end 'fromHex'
 function toHex(bytes ByteArray) returns String
 	var text = ""
 	for byte in bytes 'eachByte'
-		text.append("{byte:02x}")
+		text = "{text}{byte:02x}"
 	end 'eachByte'
 	return text
 end 'toHex'
@@ -307,18 +307,18 @@ function digit(symbol Byte) returns Byte
 	if symbol >= 0x61 'letter'
 		return symbol - 0x57
 	end 'letter'
-	return symbol - 0x30
+	return try symbol - 0x30 otherwise panic("out of range")
 end 'digit'
 
 function fromHex(hex String) returns ByteArray
-	let bytes = ByteArray.create(0)
+	var bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
 		end 'first' else 'second'
-			bytes.push(high * 16 + digit(symbol))
+			bytes.push(try high * 16 + digit(symbol) otherwise panic("out of range"))
 		end 'second'
 		isHigh = not isHigh
 	end 'eachSymbol'
@@ -328,7 +328,7 @@ end 'fromHex'
 function toHex(bytes ByteArray) returns String
 	var text = ""
 	for byte in bytes 'eachByte'
-		text.append("{byte:02x}")
+		text = "{text}{byte:02x}"
 	end 'eachByte'
 	return text
 end 'toHex'
@@ -370,18 +370,18 @@ function digit(symbol Byte) returns Byte
 	if symbol >= 0x61 'letter'
 		return symbol - 0x57
 	end 'letter'
-	return symbol - 0x30
+	return try symbol - 0x30 otherwise panic("out of range")
 end 'digit'
 
 function fromHex(hex String) returns ByteArray
-	let bytes = ByteArray.create(0)
+	var bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
 		end 'first' else 'second'
-			bytes.push(high * 16 + digit(symbol))
+			bytes.push(try high * 16 + digit(symbol) otherwise panic("out of range"))
 		end 'second'
 		isHigh = not isHigh
 	end 'eachSymbol'
@@ -391,7 +391,7 @@ end 'fromHex'
 function toHex(bytes ByteArray) returns String
 	var text = ""
 	for byte in bytes 'eachByte'
-		text.append("{byte:02x}")
+		text = "{text}{byte:02x}"
 	end 'eachByte'
 	return text
 end 'toHex'

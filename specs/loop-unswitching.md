@@ -370,7 +370,6 @@ end 'main'
 ```
 
 <!-- test: two-names-for-one-record -->
-<!-- skip: language difference: a place passed mutates, consumes or sets overlaps nothing else the call or the statement holds, where maxon shares the place by a reference count -->
 Control for aliasing. `a` and `b` are one record, not a view: a hoisted length or buffer read through
 one name must be the record's, so writes through `a` are read back through `b`.
 ```maxon
@@ -378,19 +377,19 @@ typealias Word = int(i64.min to i64.max)
 
 typealias WordArray = Array with Word
 
-function crossWrite(a WordArray, b WordArray, n Count) returns Word
+function crossWrite(mutates a WordArray, b WordArray, n Count) returns Word
 	var t = 0 as Word
 	for i in 0 upto n 'each'
 		try a.set(i, value: (i + 10) as Word) otherwise panic("crossWrite: i < n")
-		t = t + (try b.get(i) otherwise panic("crossWrite: i < n"))
+		t = try t + (try b.get(i) otherwise panic("crossWrite: i < n")) otherwise panic("out of range")
 	end 'each'
 	return t
 end 'crossWrite'
 
 function main() returns ExitCode
-	let a = WordArray.create(0)
+	var a = WordArray.create(0)
 	a.resize(4)
-	if crossWrite(a, b: a, n: 4) != 46 'sum'
+	if crossWrite(a, b: a.clone(), n: 4) != 46 'sum'
 		return 1
 	end 'sum'
 	return 0

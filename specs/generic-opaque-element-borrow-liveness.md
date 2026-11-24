@@ -1333,7 +1333,6 @@ alpha 42 value long enough for a heap record
 ```
 
 <!-- test: a-bare-field-read-in-a-method-with-no-other-opaque-signal-is-counted -->
-<!-- skip: language difference: a place passed mutates, consumes or sets overlaps nothing else the call or the statement holds, where maxon shares the place by a reference count -->
 ### A bare field read bound to a name, and a bare field read passed on, are counted
 Neither `look` nor `lookSelf` stores, reassigns or moves an element, so the field read is the only reason either owes a layout
 descriptor.
@@ -1342,28 +1341,28 @@ type Slot uses T where T implements Equatable
 	var current as T
 	var seen as Count
 
-	static function create(first T) returns Self
-		return Self{current: first, seen: 0}
+	static function create(first T) returns Self where T implements Copyable
+		return Self{current: first.clone(), seen: 0}
 	end 'create'
 
-	function observe(item T) returns Count
+	function observe(mutates self, item T) returns Count
 		if item == item 'same'
-			self.seen = self.seen + 1
+			self.seen = try self.seen + 1 otherwise panic("out of range")
 		end 'same'
 		return self.seen
 	end 'observe'
 
-	function look() returns Count
-		let held = current
+	function look(mutates self) returns Count where T implements Copyable
+		let held = current.clone()
 		return observe(held)
 	end 'look'
 
-	function pass() returns Count
-		return observe(current)
+	function pass(mutates self) returns Count where T implements Copyable
+		return observe(current.clone())
 	end 'pass'
 
-	function lookSelf() returns Count
-		let held = self.current
+	function lookSelf(mutates self) returns Count where T implements Copyable
+		let held = self.current.clone()
 		return observe(held)
 	end 'lookSelf'
 end 'Slot'
@@ -1371,7 +1370,7 @@ end 'Slot'
 typealias StrSlot = Slot with String
 
 function main() returns ExitCode
-	let s = StrSlot.create("alpha {40 + 2} value long enough for a heap record")
+	var s = StrSlot.create("alpha {40 + 2} value long enough for a heap record")
 	print("{s.look()} {s.pass()} {s.lookSelf()}\n")
 	return 0
 end 'main'
@@ -1642,7 +1641,6 @@ end 'main'
 ```
 
 <!-- test: a-field-read-through-a-nested-instance-field-is-counted -->
-<!-- skip: language difference: a place passed mutates, consumes or sets overlaps nothing else the call or the statement holds, where maxon shares the place by a reference count -->
 ### A type-parameter field read through a field holding an instance over the same parameter is counted
 `Wrapper.nestedLook` reads `Slot.current` through `self.inner`, a `Slot with T`; the read is the only reason it owes a layout descriptor.
 ```maxon
@@ -1650,8 +1648,8 @@ type Slot uses T where T implements Equatable
 	export var current as T
 	var seen as Count
 
-	static function create(first T) returns Self
-		return Self{current: first, seen: 0}
+	static function create(first T) returns Self where T implements Copyable
+		return Self{current: first.clone(), seen: 0}
 	end 'create'
 end 'Slot'
 
@@ -1660,31 +1658,31 @@ type Wrapper uses T where T implements Equatable
 	var inner as Inner
 	var seen as Count
 
-	static function create(first T) returns Self
+	static function create(first T) returns Self where T implements Copyable
 		return Self{inner: Inner.create(first), seen: 0}
 	end 'create'
 
-	function observe(item T) returns Count
+	function observe(mutates self, item T) returns Count
 		if item == item 'same'
-			self.seen = self.seen + 1
+			self.seen = try self.seen + 1 otherwise panic("out of range")
 		end 'same'
 		return self.seen
 	end 'observe'
 
-	function nestedLook() returns Count
-		let held = self.inner.current
+	function nestedLook(mutates self) returns Count where T implements Copyable
+		let held = self.inner.current.clone()
 		return observe(held)
 	end 'nestedLook'
 
-	function nestedPass() returns Count
-		return observe(self.inner.current)
+	function nestedPass(mutates self) returns Count where T implements Copyable
+		return observe(self.inner.current.clone())
 	end 'nestedPass'
 end 'Wrapper'
 
 typealias StrWrapper = Wrapper with String
 
 function main() returns ExitCode
-	let w = StrWrapper.create("alpha {40 + 2} value long enough for a heap record")
+	var w = StrWrapper.create("alpha {40 + 2} value long enough for a heap record")
 	print("{w.nestedLook()} {w.nestedPass()}\n")
 	return 0
 end 'main'
@@ -1910,38 +1908,37 @@ end 'main'
 ```
 
 <!-- test: a-parenthesized-field-read-is-counted -->
-<!-- skip: language difference: a place passed mutates, consumes or sets overlaps nothing else the call or the statement holds, where maxon shares the place by a reference count -->
 ### A field read inside parentheses, bare and through `self`, is counted
 ```maxon
 type Slot uses T where T implements Equatable
 	var current as T
 	var seen as Count
 
-	static function create(first T) returns Self
-		return Self{current: first, seen: 0}
+	static function create(first T) returns Self where T implements Copyable
+		return Self{current: first.clone(), seen: 0}
 	end 'create'
 
-	function observe(item T) returns Count
+	function observe(mutates self, item T) returns Count
 		if item == item 'same'
-			self.seen = self.seen + 1
+			self.seen = try self.seen + 1 otherwise panic("out of range")
 		end 'same'
 		return self.seen
 	end 'observe'
 
-	function groupedLook() returns Count
-		let held = (current)
+	function groupedLook(mutates self) returns Count where T implements Copyable
+		let held = (current.clone())
 		return observe(held)
 	end 'groupedLook'
 
-	function groupedSelfPass() returns Count
-		return observe((self.current))
+	function groupedSelfPass(mutates self) returns Count where T implements Copyable
+		return observe((self.current.clone()))
 	end 'groupedSelfPass'
 end 'Slot'
 
 typealias StrSlot = Slot with String
 
 function main() returns ExitCode
-	let s = StrSlot.create("alpha {40 + 2} value long enough for a heap record")
+	var s = StrSlot.create("alpha {40 + 2} value long enough for a heap record")
 	print("{s.groupedLook()} {s.groupedSelfPass()}\n")
 	return 0
 end 'main'

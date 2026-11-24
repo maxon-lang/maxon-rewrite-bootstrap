@@ -5807,7 +5807,6 @@ error E3186: <fragment>:9:10: argument 's' is read by another operand of this st
 ```
 
 <!-- test: same-call-sibling-of-a-record-parameter-the-callee-only-writes -->
-<!-- skip: language difference: a place passed mutates, consumes or sets overlaps nothing else the call or the statement holds, where maxon shares the place by a reference count -->
 `mutable` on a record parameter is the write-through capability and lends no cell, so the same two arguments are legal: nothing overwrites what the sibling read.
 
 ```maxon
@@ -5818,8 +5817,8 @@ function fill(mutates a StringArray, b StringArray)
 end 'fill'
 
 function main() returns ExitCode
-	let x = StringArray.create(0)
-	fill(x, b: x)
+	var x = StringArray.create(0)
+	fill(x, b: x.clone())
 	print("{x.count()}\n")
 	return 0
 end 'main'
@@ -6245,19 +6244,18 @@ aba
 ```
 
 <!-- test: write-based-callee-never-writes-its-cell -->
-<!-- skip: language difference: a place passed mutates, consumes or sets overlaps nothing else the call or the statement holds, where maxon shares the place by a reference count -->
 A `mutable` position lends its cell only if the callee writes the parameter. `look` never writes `a`, so a sibling argument that reads the same local reads a value nothing overwrites.
 
 ```maxon
 typealias Tally = int(0 to u64.max)
 
 function look(mutates a String, b String) returns Tally
-	return (a.byteLength() as Tally) + (b.byteLength() as Tally)
+	return try (a.byteLength() as Tally) + (b.byteLength() as Tally) otherwise panic("out of range")
 end 'look'
 
 function main() returns ExitCode
 	var s = "abc"
-	print("{look(s, b: s)}\n")
+	print("{look(s, b: s.clone())}\n")
 	return 0
 end 'main'
 ```
@@ -6317,7 +6315,6 @@ error E3186: <fragment>:16:16: argument 's' is read by another operand of this s
 ```
 
 <!-- test: write-based-forwarded-to-a-reader -->
-<!-- skip: language difference: a place passed mutates, consumes or sets overlaps nothing else the call or the statement holds, where maxon shares the place by a reference count -->
 Forwarding to a `mutable` parameter that is never written writes nothing.
 
 ```maxon
@@ -6328,12 +6325,12 @@ function inner(mutates x String) returns Tally
 end 'inner'
 
 function outer(mutates a String, b String) returns Tally
-	return inner(a) + (b.byteLength() as Tally)
+	return try inner(a) + (b.byteLength() as Tally) otherwise panic("out of range")
 end 'outer'
 
 function main() returns ExitCode
 	var s = "abc"
-	print("{outer(s, b: s)}\n")
+	print("{outer(s, b: s.clone())}\n")
 	return 0
 end 'main'
 ```
@@ -6375,7 +6372,6 @@ error E3186: <fragment>:20:16: argument 's' is read by another operand of this s
 ```
 
 <!-- test: write-based-mutual-recursion-neither-writes-ping-first -->
-<!-- skip: language difference: a place passed mutates, consumes or sets overlaps nothing else the call or the statement holds, where maxon shares the place by a reference count -->
 Two `mutable` parameters that forward to each other and are never written are never written, whichever is declared first.
 
 ```maxon
@@ -6392,12 +6388,12 @@ function pong(mutates a String, b String, again bool) returns Tally
 	if again 'forward'
 		return ping(a, b: b, again: false)
 	end 'forward'
-	return (a.byteLength() as Tally) + (b.byteLength() as Tally)
+	return try (a.byteLength() as Tally) + (b.byteLength() as Tally) otherwise panic("out of range")
 end 'pong'
 
 function main() returns ExitCode
 	var s = "abc"
-	print("{ping(s, b: s, again: true)}\n")
+	print("{ping(s, b: s.clone(), again: true)}\n")
 	return 0
 end 'main'
 ```
@@ -6409,7 +6405,6 @@ end 'main'
 ```
 
 <!-- test: write-based-mutual-recursion-neither-writes-pong-first -->
-<!-- skip: language difference: a place passed mutates, consumes or sets overlaps nothing else the call or the statement holds, where maxon shares the place by a reference count -->
 The same pair declared in the other order.
 
 ```maxon
@@ -6419,7 +6414,7 @@ function pong(mutates a String, b String, again bool) returns Tally
 	if again 'forward'
 		return ping(a, b: b, again: false)
 	end 'forward'
-	return (a.byteLength() as Tally) + (b.byteLength() as Tally)
+	return try (a.byteLength() as Tally) + (b.byteLength() as Tally) otherwise panic("out of range")
 end 'pong'
 
 function ping(mutates a String, b String, again bool) returns Tally
@@ -6431,7 +6426,7 @@ end 'ping'
 
 function main() returns ExitCode
 	var s = "abc"
-	print("{ping(s, b: s, again: true)}\n")
+	print("{ping(s, b: s.clone(), again: true)}\n")
 	return 0
 end 'main'
 ```
@@ -6568,19 +6563,18 @@ error E3186: <fragment>:22:17: argument 's' is read by another operand of this s
 ```
 
 <!-- test: write-based-callee-in-another-file -->
-<!-- skip: language difference: a place passed mutates, consumes or sets overlaps nothing else the call or the statement holds, where maxon shares the place by a reference count -->
 The written fact crosses files: the callee's file is parsed apart from the caller's.
 
 ```maxon
 // --- file: lib/look.maxon
 export function look(mutates a String, b String)
-	print("{a.byteLength() + b.byteLength()}\n")
+	print("{try a.byteLength() + b.byteLength() otherwise panic("out of range")}\n")
 end 'look'
 
 // --- file: app/main.maxon
 function main() returns ExitCode
 	var s = "abc"
-	lib.look(s, b: s)
+	lib.look(s, b: s.clone())
 	return 0
 end 'main'
 ```
@@ -6614,7 +6608,6 @@ error E3186: app/<fragment>:11:14: argument 's' is read by another operand of th
 ```
 
 <!-- test: write-based-async-callee-never-writes -->
-<!-- skip: language difference: a place passed mutates, consumes or sets overlaps nothing else the call or the statement holds, where maxon shares the place by a reference count -->
 An `async` call lends its cell only if the coroutine writes the parameter.
 
 ```maxon
@@ -6622,12 +6615,12 @@ typealias Tally = int(0 to u64.max)
 
 function look(mutates a String, b String) returns Tally
 	sleep(1)
-	return (a.byteLength() as Tally) + (b.byteLength() as Tally)
+	return try (a.byteLength() as Tally) + (b.byteLength() as Tally) otherwise panic("out of range")
 end 'look'
 
 function main() returns ExitCode
 	var s = "abc"
-	let promise = async look(s, b: s)
+	let promise = async look(s, b: s.clone())
 	let k = await promise
 	print("{k}\n")
 	return 0
@@ -6918,7 +6911,6 @@ end 'main'
 ```
 
 <!-- test: write-based-generic-template-never-writing-its-parameter-is-accepted -->
-<!-- skip: language difference: a place passed mutates, consumes or sets overlaps nothing else the call or the statement holds, where maxon shares the place by a reference count -->
 A generic body never reassigns a `mutable T` parameter, so a template whose body does not write it through anything else lends nothing, and a sibling argument may read the same local.
 
 ```maxon
@@ -6928,7 +6920,7 @@ end 'look'
 
 function main() returns ExitCode
 	var s = "ab"
-	let same = look(s, b: s)
+	let same = look(s, b: s.clone())
 	print("{same} {s}\n")
 	return 0
 end 'main'
@@ -6966,7 +6958,6 @@ error E3186: <fragment>:14:18: argument 's' is read by another operand of this s
 ```
 
 <!-- test: write-based-generic-template-second-position-is-judged-at-its-own-position -->
-<!-- skip: language difference: a place passed mutates, consumes or sets overlaps nothing else the call or the statement holds, where maxon shares the place by a reference count -->
 The fact is per parameter position of the template: the first parameter is read and the second, which is `mutable`, is never written.
 
 ```maxon
@@ -6976,7 +6967,7 @@ end 'look'
 
 function main() returns ExitCode
 	var s = "ab"
-	let same = look(s, b: s, c: s)
+	let same = look(s.clone(), b: s, c: s.clone())
 	print("{same} {s}\n")
 	return 0
 end 'main'
@@ -7051,7 +7042,6 @@ end 'main'
 ```
 
 <!-- test: write-based-field-write-through-a-mutable-unique-parameter-is-accepted -->
-<!-- skip: language difference: a place passed mutates, consumes or sets overlaps nothing else the call or the statement holds, where maxon shares the place by a reference count -->
 A `unique` record behaves as an isolated one: a field write through the by-reference parameter leaves the caller's variable bound to the same record.
 
 ```maxon
@@ -7066,13 +7056,13 @@ type Token is noncopyable
 end 'Token'
 
 function bump(mutates token Token, seen Tally) returns Tally
-	token.n = token.n + seen
+	token.n = try token.n + seen otherwise panic("out of range")
 	return seen
 end 'bump'
 
 function main() returns ExitCode
 	var t = Token.create(1)
-	let k = bump(t, seen: t.n)
+	let k = bump(t, seen: t.n.clone())
 	print("{k} {t.n}\n")
 	return 0
 end 'main'
@@ -7139,7 +7129,6 @@ error E3186: <fragment>:17:16: argument 's' is read by another operand of this s
 ```
 
 <!-- test: write-based-forwarding-to-a-by-value-position-of-a-function-value-writes-nothing -->
-<!-- skip: language difference: a place passed mutates, consumes or sets overlaps nothing else the call or the statement holds, where maxon shares the place by a reference count -->
 A by-value position of a function value cannot write the caller's cell, whatever body the value names.
 
 ```maxon
@@ -7162,7 +7151,7 @@ end 'outer'
 
 function main() returns ExitCode
 	var s = "abc"
-	print("{outer(s, read: pick(), b: s)}\n")
+	print("{outer(s, read: pick(), b: s.clone())}\n")
 	return 0
 end 'main'
 ```
@@ -7475,7 +7464,6 @@ end 'main'
 ```
 
 <!-- test: write-based-write-through-keeps-a-pending-field-read-alive -->
-<!-- skip: language difference: a place passed mutates, consumes or sets overlaps nothing else the call or the statement holds, where maxon shares the place by a reference count -->
 A callee that replaces a String field of a unique record while a sibling argument still reads that field leaves the read intact: the call holds the old text until it returns.
 
 ```maxon
@@ -7485,7 +7473,7 @@ type Token is noncopyable
 	export var label as String
 
 	static function create(label String) returns Self
-		return Self{label: label}
+		return Self{label: label.clone()}
 	end 'create'
 end 'Token'
 
@@ -7496,7 +7484,7 @@ end 'rename'
 
 function main() returns ExitCode
 	var t = Token.create("original")
-	let k = rename(t, seen: t.label)
+	let k = rename(t, seen: t.label.clone())
 	print("{k} {t.label}\n")
 	return 0
 end 'main'
@@ -7509,7 +7497,6 @@ end 'main'
 ```
 
 <!-- test: write-based-method-by-reference-parameter-reading-twin-is-accepted -->
-<!-- skip: language difference: a place passed mutates, consumes or sets overlaps nothing else the call or the statement holds, where maxon shares the place by a reference count -->
 A method whose `mutable` parameter is only read lends nothing, so a sibling argument may name the same variable; the receiver offset leaves the parameter position unchanged.
 
 ```maxon
@@ -7523,14 +7510,14 @@ type Gauge
 	end 'create'
 
 	function look(mutates by Tally, other Tally) returns Tally
-		return by + other + self.n
+		return try by + other + self.n otherwise panic("out of range")
 	end 'look'
 end 'Gauge'
 
 function main() returns ExitCode
 	let g = Gauge.create()
 	var level = 4 as Tally
-	print("{g.look(level, other: level)}\n")
+	print("{g.look(level, other: level.clone())}\n")
 	return 0
 end 'main'
 ```

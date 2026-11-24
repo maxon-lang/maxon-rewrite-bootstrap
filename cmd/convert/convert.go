@@ -86,6 +86,7 @@ func Convert(file, src string, kind inputKind) Result {
 			dropLiteralMarkers(lines)
 		}
 		dropBuiltinDeclarations(lines)
+		dropHardwareRegions(lines)
 		rewriteBuiltinExtensions(lines)
 		addInterfaceWheres(lines)
 		lendRequirements(lines)

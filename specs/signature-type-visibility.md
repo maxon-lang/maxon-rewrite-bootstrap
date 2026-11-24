@@ -1043,9 +1043,9 @@ end 'widest'
 // --- file: app/main.maxon
 function main() returns ExitCode
 	let digest = sha256("hi".toByteArray())
-	let tallies = api.ByteArray.create(0)
+	var tallies = api.ByteArray.create(0)
 	tallies.push(900)
-	return ((api.widest(tallies) - 900) + (digest.count() as api.Tally)) as ExitCode
+	return try ((api.widest(tallies) - 900) + (digest.count() as api.Tally)) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

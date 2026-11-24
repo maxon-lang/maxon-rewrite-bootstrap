@@ -184,6 +184,8 @@ type typeAlias struct {
 var typeAliases = []typeAlias{
 	// ByteArray is maxon's name for an array of bytes, whose box holds one byte to an element (ast.BuiltinTy.PacksBytes).
 	{Name: "ByteArray", Type: "Array with Byte"},
+	// ByteArrays is maxon's name for an array of byte arrays (stdlib/X509.maxon declares it; the hash functions take a list of messages).
+	{Name: "ByteArrays", Type: "Array with Array with Byte"},
 	// StringArray is maxon's name for an array of strings (stdlib/Json.maxon declares it, but programs use it everywhere).
 	{Name: "StringArray", Type: "Array with String"},
 	// FullRangeIntArray and FilePathArray are the stdlib's names for arrays of those elements.

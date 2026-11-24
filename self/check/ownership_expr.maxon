@@ -1081,7 +1081,15 @@ function requireExclusive(mutates o Ownership, p ast.Project, mutates ms ast.Mod
 				continue 'earlier'
 			end 'apart'
 			let msg = overlapMessage(o, p: p, ms: ms, a: a, b: b)
-			fail(o, p: p, site: offsetOfOwn(o, p: p, ms: ms, node: b.expr), code: diag.errExclusivity, msg: msg)
+			let site = offsetOfOwn(o, p: p, ms: ms, node: b.expr)
+			let borrowed = a.clone() if a.conv == ast.Convention.convLet else b.clone()
+			let changing = b.clone() if a.conv == ast.Convention.convLet else a.clone()
+			if changing.conv != ast.Convention.convLet and borrowed.conv == ast.Convention.convLet 'copyable'
+				let fix = cloneFixIf(o, p: p, ms: ms, e: borrowed.expr, t: ownType(o, node: borrowed.expr))
+				failFixed(o, p: p, site: site, code: diag.errExclusivity, msg: msg, fix: fix)
+				continue 'earlier'
+			end 'copyable'
+			fail(o, p: p, site: site, code: diag.errExclusivity, msg: msg)
 		end 'earlier'
 	end 'later'
 end 'requireExclusive'

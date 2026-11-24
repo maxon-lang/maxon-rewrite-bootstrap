@@ -1846,7 +1846,6 @@ end 'main'
 ```
 
 <!-- test: a-managed-field-handed-to-the-method-that-writes-its-owner -->
-<!-- skip: language difference: a place passed mutates, consumes or sets overlaps nothing else the call or the statement holds, where maxon shares the place by a reference count -->
 ### The receiver and one of its fields, handed to a method that replaces the field
 `replace` stores over `self.s`, the field its argument was read out of. The argument holds its own
 reference, so the store releases only the field's, and `other` still names the bytes `fill` built.
@@ -1860,7 +1859,7 @@ type Cell
 		return Cell{s: ""}
 	end 'create'
 
-	function fill(n Count)
+	function fill(mutates self, n Count)
 		var t = ""
 		for _ in 0 upto n 'grow'
 			t = "{t}x"
@@ -1868,16 +1867,16 @@ type Cell
 		self.s = t
 	end 'fill'
 
-	function replace(other String) returns String
+	function replace(mutates self, other String) returns String
 		self.s = "replaced"
 		return "[{other}]"
 	end 'replace'
 end 'Cell'
 
 function main() returns ExitCode
-	let a = Cell.create()
+	var a = Cell.create()
 	a.fill(10)
-	let out = a.replace(a.s)
+	let out = a.replace(a.s.clone())
 	print("{out} {a.s}\n")
 	return 0
 end 'main'
@@ -1890,7 +1889,6 @@ end 'main'
 ```
 
 <!-- test: a-managed-field-handed-to-a-free-callee-beside-its-owner -->
-<!-- skip: language difference: a place passed mutates, consumes or sets overlaps nothing else the call or the statement holds, where maxon shares the place by a reference count -->
 ### The free-function spelling: the owner and its field, in two argument columns
 `clobber` is handed `b` for `c` together with `b.s`, and stores over `c.s`; `borrowed` holds its own
 reference to the record the store replaces.
@@ -1904,7 +1902,7 @@ type Cell
 		return Cell{s: ""}
 	end 'create'
 
-	function fill(n Count)
+	function fill(mutates self, n Count)
 		var t = ""
 		for _ in 0 upto n 'grow'
 			t = "{t}x"
@@ -1913,15 +1911,15 @@ type Cell
 	end 'fill'
 end 'Cell'
 
-function clobber(c Cell, borrowed String) returns String
+function clobber(mutates c Cell, borrowed String) returns String
 	c.s = "clobbered"
 	return "[{borrowed}]"
 end 'clobber'
 
 function main() returns ExitCode
-	let b = Cell.create()
+	var b = Cell.create()
 	b.fill(10)
-	let out = clobber(b, borrowed: b.s)
+	let out = clobber(b, borrowed: b.s.clone())
 	print("{out} {b.s}\n")
 	return 0
 end 'main'
@@ -3352,7 +3350,6 @@ end 'main'
 ```
 
 <!-- test: an-argument-read-through-a-var-field-survives-the-callee-rebinding-that-field -->
-<!-- skip: language difference: a place passed mutates, consumes or sets overlaps nothing else the call or the statement holds, where maxon shares the place by a reference count -->
 ### … and as an argument, beside the record the callee rebinds the field of
 `c.inner.name` is read through the `var` field `inner` and handed to `clobber` beside `c`; `clobber`
 replaces `o.inner`, and `name` still holds its own reference.
@@ -3361,7 +3358,7 @@ type Inner
 	export var name as String
 
 	static function create(name String) returns Self
-		return Self{name: name}
+		return Self{name: name.clone()}
 	end 'create'
 end 'Inner'
 
@@ -3373,15 +3370,15 @@ type Outer
 	end 'create'
 end 'Outer'
 
-function clobber(o Outer, name String) returns String
+function clobber(mutates o Outer, name String) returns String
 	o.inner = Inner.create("replacement {9} padded out long enough for the heap")
 	let filler = "filler {3} padded out long enough for the heap"
 	return "[{name}] [{o.inner.name}] [{filler}]"
 end 'clobber'
 
 function main() returns ExitCode
-	let c = Outer.create("third {40 + 4} padded out long enough for the heap")
-	print("{clobber(c, name: c.inner.name)}\n")
+	var c = Outer.create("third {40 + 4} padded out long enough for the heap")
+	print("{clobber(c, name: c.inner.name.clone())}\n")
 	return 0
 end 'main'
 ```
@@ -3771,7 +3768,6 @@ false
 ```
 
 <!-- test: an-indirect-call-last-argument-read-survives-the-callee-reassigning-the-field -->
-<!-- skip: language difference: a place passed mutates, consumes or sets overlaps nothing else the call or the statement holds, where maxon shares the place by a reference count -->
 ### A field read as the last argument of a call through a function value survives the callee reassigning the field
 `x.label` is the last argument, so no later argument frees it; the callee does, by resetting
 `h.label` before it reads `s`. The argument holds its own reference, so `s` is still the original label.
@@ -3782,10 +3778,10 @@ type Holder
 	export var label as String
 
 	static function create(label String) returns Self
-		return Self{label: label}
+		return Self{label: label.clone()}
 	end 'create'
 
-	function reset()
+	function reset(mutates self)
 		self.label = "replacement {7} padded out long enough for the heap"
 	end 'reset'
 end 'Holder'
@@ -3796,12 +3792,12 @@ function clobberThenRead(mutates h Holder, s String) returns String
 	return "[{s}] [{filler}]"
 end 'clobberThenRead'
 
-function readThrough(x Holder, f Reader) returns String
-	return f(x, x.label)
+function readThrough(mutates x Holder, f Reader) returns String
+	return f(x, x.label.clone())
 end 'readThrough'
 
 function main() returns ExitCode
-	let x = Holder.create("original {40 + 2} padded out long enough for the heap")
+	var x = Holder.create("original {40 + 2} padded out long enough for the heap")
 	print("{readThrough(x, f: clobberThenRead)} [{x.label}]\n")
 	return 0
 end 'main'

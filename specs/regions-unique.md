@@ -4581,7 +4581,6 @@ error E3203: <fragment>:18:3: 'tokens' roots what 'each' lends or iterates and c
 ```
 
 <!-- test: a-plain-part-beside-its-unique-root-in-one-call -->
-<!-- skip: language difference: a place passed mutates, consumes or sets overlaps nothing else the call or the statement holds, where maxon shares the place by a reference count -->
 `h.data` is a plain part of `h`, not a second name for the unique value, so `h` is lent once in either order (ruling 44).
 ```maxon
 typealias Count = int(0 to 1000)
@@ -4599,22 +4598,22 @@ type Holder is noncopyable
 	var n as Count
 
 	static function create(data Box, n Count) returns Self
-		return Self{data: data, n: n}
+		return Self{data: data.clone(), n: n}
 	end 'create'
 end 'Holder'
 
-function partFirst(d Box, h Holder)
-	h.n = h.n + d.n
+function partFirst(d Box, mutates h Holder)
+	h.n = try h.n + d.n otherwise panic("out of range")
 end 'partFirst'
 
-function rootFirst(h Holder, d Box)
-	h.n = h.n + d.n
+function rootFirst(mutates h Holder, d Box)
+	h.n = try h.n + d.n otherwise panic("out of range")
 end 'rootFirst'
 
 function main() returns ExitCode
-	let h = Holder.create(Box.create(2), n: 0)
-	partFirst(h.data, h: h)
-	rootFirst(h, d: h.data)
+	var h = Holder.create(Box.create(2), n: 0)
+	partFirst(h.data.clone(), h: h)
+	rootFirst(h, d: h.data.clone())
 	print("{h.n}\n")
 	return 0
 end 'main'

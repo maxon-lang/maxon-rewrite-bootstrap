@@ -82,6 +82,7 @@ var builtinNames = map[string]bool{
 	"Error":                     true,
 	"InitableFromStringLiteral": true,
 	"ByteArray":                 true,
+	"ByteArrays":                true,
 	"StringArray":               true,
 	"FullRangeIntArray":         true,
 	"FilePathArray":             true,

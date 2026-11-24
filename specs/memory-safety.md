@@ -1244,7 +1244,6 @@ borrowed=1 field=1 same=true
 ```
 
 <!-- test: field-record-is-seen-through-a-parameter-across-the-write -->
-<!-- skip: language difference: a place passed mutates, consumes or sets overlaps nothing else the call or the statement holds, where maxon shares the place by a reference count -->
 `through` is handed the column and the holder separately, and writes through the holder. The column it
 was given is the very record that write lands on, so it reads the new count — and nothing in `through`
 or in `add` names the column and the field together.
@@ -1260,19 +1259,19 @@ type Holder
 		return Self{sites: IntArray.create(0)}
 	end 'create'
 
-	function add(x Integer)
+	function add(mutates self, x Integer)
 		sites.push(x)
 	end 'add'
 end 'Holder'
 
-function through(col IntArray, holder Holder) returns Integer
+function through(col IntArray, mutates holder Holder) returns Integer
 	holder.add(1)
-	return col.count()
+	return try col.count() as Integer otherwise panic("out of range")
 end 'through'
 
 function main() returns ExitCode
-	let h = Holder.create()
-	let seen = through(h.sites, holder: h)
+	var h = Holder.create()
+	let seen = through(h.sites.clone(), holder: h)
 	print("param saw={seen} field={h.sites.count()}")
 	return 0
 end 'main'
