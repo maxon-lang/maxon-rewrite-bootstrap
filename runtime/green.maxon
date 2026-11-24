@@ -10,7 +10,8 @@
 // that the system commits a page at a time, its lowest page a guard, so a stack overflow faults as a thread's does.
 //
 // Park and ready are Go's gopark and goready with a permit, so a ready that comes before its green thread has parked is
-// not lost: ready makes a running green thread greenNotified, and its next park returns at once, consuming it.
+// not lost: ready makes a running green thread greenNotified, as it does one that a yield or a preemption queued, and its
+// next park returns at once, consuming it.
 //
 // The API, which a test of the runtime calls and the language's async and await lower to (strand.maxon): greenSpawn(code)
 // makes a green thread that runs code with itself as its one argument, greenSetArgument and greenArgument write and read
@@ -314,10 +315,14 @@ function queueReady(context Count, g Count) returns bool
 end 'queueReady'
 
 // markReady moves a green thread's status for a ready and says whether the caller is to queue it: from parked or new to
-// runnable, it is; from running to notified, or when a ready already came, it is not. The status is read by a locked add of
-// 0, a full fence: what the readier stored before the ready (the condition the green thread waits on) must be seen by the
-// green thread whenever the readier finds it runnable and leaves it so. A plain load could pass those stores on x64, see a
-// runnable green thread that then starts, reads the old condition and parks, and the ready would be lost.
+// runnable, it is; from running or runnable to notified, or when a ready already came, it is not. A runnable green thread
+// is notified as a running one is: one that a yield, a preemption or a lost processor put on a run queue goes on from
+// where it stopped, which may be after it read its condition and before it parks on it, so only the permit ends that
+// park; one that a ready queued has not run since, and a park takes one ready, so no second ready of it comes. The status
+// is read by a locked add of 0, a full fence: what the readier stored before the ready (the condition the green thread
+// waits on) must be seen by the green thread whenever the readier finds a permit already there and leaves it so. A plain
+// load could pass those stores on x64, and the green thread could take the permit, read the old condition and park, and
+// the ready would be lost.
 function markReady(g Count) returns bool
 	while true 'status'
 		let status = __Raw.atomicAdd(g, offset: greenStatusOffset, value: 0)
@@ -325,11 +330,11 @@ function markReady(g Count) returns bool
 			if __Raw.compareExchange(g, offset: greenStatusOffset, expected: status, desired: greenRunnable) == status 'made'
 				return true
 			end 'made'
-		end 'parked' else if status == greenRunning 'running'
-			if __Raw.compareExchange(g, offset: greenStatusOffset, expected: greenRunning, desired: greenNotified) == greenRunning 'notified'
+		end 'parked' else if status == greenRunning or status == greenRunnable 'unparked'
+			if __Raw.compareExchange(g, offset: greenStatusOffset, expected: status, desired: greenNotified) == status 'notified'
 				return false
 			end 'notified'
-		end 'running' else if status == greenNotified or status == greenRunnable 'already'
+		end 'unparked' else if status == greenNotified 'already'
 			return false
 		end 'already' else 'dead'
 			panic("a green thread that finished is readied")
@@ -392,7 +397,7 @@ function execute(context Count, entry Count)
 	let proc = __Raw.loadWord(context, offset: contextProcOffset)
 	__Raw.storeWord(proc, offset: procSchedTickOffset, value: __Raw.wrappingAdd(__Raw.loadWord(proc, offset: procSchedTickOffset), right: 1))
 	if __Raw.atomicExchange(g, offset: greenStatusOffset, value: greenRunning) == greenNotified 'permit'
-		// A ready that came before the green thread was requeued is still its permit (requeue).
+		// A ready that came while the green thread ran or waited on a queue is still its permit (markReady, requeue).
 		_ = __Raw.compareExchange(g, offset: greenStatusOffset, expected: greenRunning, desired: greenNotified)
 	end 'permit'
 	__Raw.storeWord(g, offset: greenPreemptOffset, value: unset)
@@ -438,8 +443,8 @@ end 'parked'
 
 // requeue is Go's goschedImpl, for a yield, a preemption, and a green thread whose thread lost its processor in a blocking
 // call: the green thread goes to the global run queue, and a thread is woken for an idle processor. One that a ready made
-// notified while it ran stays so on the queue and when it runs again: it may have read its condition before the ready and
-// be about to park on it, which only the permit then ends.
+// notified while it ran stays so on the queue and when it runs again, as one that a ready finds on the queue is made so
+// (markReady): it may have read its condition before the ready and be about to park on it, which only the permit then ends.
 function requeue(context Count, g Count)
 	let scheduler = __Raw.loadWord(context, offset: contextSchedulerOffset)
 	_ = __Raw.compareExchange(g, offset: greenStatusOffset, expected: greenRunning, desired: greenRunnable)

@@ -290,10 +290,9 @@ corpus of `native`, `x64-linux`, `arm64-linux` and `mac`, and the reruns of the 
 (`*-behaviours`). The gate runs them one after another. `--concurrent` on `gate suites`, or `MINIMAXON_GATE_CONCURRENT=1` for the gate, runs
 each lane as a process of its own, all at once (the behaviours lanes in a second phase, with two executables at a time each), so that the gate
 takes as long as its longest lane of each phase (about 70 s here against about 190 s one after another) and a lane that fails ends the others. It
-is not the default because two tests with deadlines failed in it now and then when other work shared the machine: a program of timers run on one
-worker (`async-a-cancelled-coroutine...`, when the behaviours reruns shared the machine with the other lanes: since moved to the second phase) and
-`runtime\green-ping-pong.maxon` in the arm64 corpus under qemu (10 s deadline; one failure in six gates on a machine that other builds kept at
-100%), and a gate that fails now and then costs more than the minutes it saves. A program whose interpreter runs would each cost seconds says so
+is not the default because a test with a deadline failed in it now and then when other work shared the machine: a program of timers run on one
+worker (`async-a-cancelled-coroutine...`, when the behaviours reruns shared the machine with the other lanes: since moved to the second phase),
+and a gate that fails now and then costs more than the minutes it saves. A program whose interpreter runs would each cost seconds says so
 with `// schedules: N` (the two programs that wait for four children); that keeps the gate from spending a minute and a half on twenty schedules of them.
 
 Every command of `cmd/gate` (and `selftime.ps1`, through `lock.ps1`) takes the machine-wide lock for its whole run: on Windows the named mutex

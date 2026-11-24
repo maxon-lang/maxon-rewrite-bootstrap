@@ -1,0 +1,64 @@
+// A ready that comes while its green thread waits on a run queue after a yield is its permit: a green thread that a yield
+// or a preemption queued goes on from where it stopped, which may be after it read its condition, so its next park returns
+// at once. The waiter yields until the readier has readied it, so the ready finds it running or queued after a yield and
+// never parked, and then parks once without looking at the condition again.
+//> the ready of a queued green thread was its permit
+
+// The record the two share: whether the waiter has yielded yet, and whether the readier has readied it.
+let testYieldedOffset = 0 as Count
+
+let testReadiedOffset = 8 as Count
+
+let testRecordBytes = 16 as Count
+
+// The arguments: the record, and the readier's waiter.
+let testRecordArgument = 0 as Count
+
+let testWaiterArgument = 1 as Count
+
+function main() returns ExitCode
+	greenReady(greenSpawn(__Raw.codeAddress("testCoordinator")))
+	return 0
+end 'main'
+
+function testCoordinator(g Count) returns Count
+	let record = alloc(testRecordBytes)
+	let waiter = greenSpawn(__Raw.codeAddress("testWaiter"))
+	greenSetArgument(waiter, index: testRecordArgument, value: record)
+	let readier = greenSpawn(__Raw.codeAddress("testReadier"))
+	greenSetArgument(readier, index: testRecordArgument, value: record)
+	greenSetArgument(readier, index: testWaiterArgument, value: waiter)
+	greenReady(waiter)
+	greenReady(readier)
+	_ = greenAwait(waiter)
+	_ = greenAwait(readier)
+	free(record)
+	testWrite("the ready of a queued green thread was its permit\n")
+	return 0
+end 'testCoordinator'
+
+// testWaiter yields until it has been readied, then parks on that ready, which came while it ran or was queued.
+function testWaiter(g Count) returns Count
+	let record = greenArgument(g, index: testRecordArgument)
+	_ = __Raw.atomicAdd(record, offset: testYieldedOffset, value: 1)
+	while __Raw.atomicAdd(record, offset: testReadiedOffset, value: 0) == 0 'yield'
+		greenYield()
+	end 'yield'
+	greenPark()
+	return 0
+end 'testWaiter'
+
+// testReadier readies the waiter once it has started yielding.
+function testReadier(g Count) returns Count
+	let record = greenArgument(g, index: testRecordArgument)
+	while __Raw.atomicAdd(record, offset: testYieldedOffset, value: 0) == 0 'start'
+		greenYield()
+	end 'start'
+	greenReady(greenArgument(g, index: testWaiterArgument))
+	_ = __Raw.atomicAdd(record, offset: testReadiedOffset, value: 1)
+	return 0
+end 'testReadier'
+
+function testWrite(text String)
+	write(__Raw.loadWord(__Raw.stdoutAddress(), offset: 0), text: text)
+end 'testWrite'
