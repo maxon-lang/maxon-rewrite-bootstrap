@@ -7,8 +7,10 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strconv"
 	"strings"
+	"sync"
 )
 
 // The compiler's fmt command is minimaxon's one formatter, so converted source is put in its layout by running the
@@ -73,13 +75,41 @@ func (l *layout) collect(convert func()) {
 	l.collecting = false
 	pending := l.pending
 	l.pending = nil
-	for start := 0; start < len(pending); start += layoutBatch {
-		l.run(pending[start:min(start+layoutBatch, len(pending))])
+	// fmt runs on one core, so the batches run at once, one for each processor, and no more than layoutBatch texts each.
+	size := min(layoutBatch, max(1, (len(pending)+runtime.NumCPU()-1)/runtime.NumCPU()))
+	var batches [][]string
+	for start := 0; start < len(pending); start += size {
+		batches = append(batches, pending[start:min(start+size, len(pending))])
+	}
+	compilerPath()
+	done := make([][]laidOut, len(batches))
+	var wg sync.WaitGroup
+	slots := make(chan struct{}, runtime.NumCPU())
+	for i, batch := range batches {
+		wg.Go(func() {
+			slots <- struct{}{}
+			done[i] = formatBatch(batch)
+			<-slots
+		})
+	}
+	wg.Wait()
+	for i, batch := range batches {
+		for j, text := range batch {
+			l.results[text] = done[i][j]
+		}
 	}
 }
 
-// run formats texts in one run of the compiler, each as a file of its own in a scratch directory.
+// run formats texts in one run of the compiler and keeps what each became.
 func (l *layout) run(texts []string) {
+	for i, out := range formatBatch(texts) {
+		l.results[texts[i]] = out
+	}
+}
+
+// formatBatch formats texts in one run of the compiler, each as a file of its own in a scratch directory, and gives what
+// each became, in their order.
+func formatBatch(texts []string) []laidOut {
 	dir, err := os.MkdirTemp("", "convert-layout-")
 	if err != nil {
 		fail(err)
@@ -114,17 +144,19 @@ func (l *layout) run(texts []string) {
 			rejected[n] = strings.TrimSuffix(report[m[1]:end], "\n")
 		}
 	}
+	outs := make([]laidOut, len(texts))
 	for i, text := range texts {
 		if message, ok := rejected[i]; ok {
-			l.results[text] = laidOut{text: text, rejected: message}
+			outs[i] = laidOut{text: text, rejected: message}
 			continue
 		}
 		out, err := os.ReadFile(filepath.Join(dir, names[i]))
 		if err != nil {
 			fail(err)
 		}
-		l.results[text] = laidOut{text: string(out), formatted: true}
+		outs[i] = laidOut{text: string(out), formatted: true}
 	}
+	return outs
 }
 
 var compiler string

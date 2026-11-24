@@ -110,7 +110,10 @@ fixes move text; if that is never reached, it is skipped when the code left afte
 pair of the table, or when the first code left after the fixes is one of the table's `first` rows (`E3057`: arithmetic
 that needs a proof is asked for before what maxon reports), and otherwise left as it was; a program that checks clean after the fixes is never skipped: it gets the fixes and a `<!-- positions: moved -->` line, and the test fails for the diagnostic that minimaxon lacks. A test whose first diagnostic left after the fixes has a cause that the table's `cause` rows name, and is not the
 code it expects, is skipped with that row's reason: a program that changes the collection its `for` walks (a loop holds
-the collection it walks), or a handler that binds a payload of `SendError` or `SubprocessError`. `specs.ps1` runs both and then the new tests (see "Tests"); `specs/README.md` has the command, and the directory is
+the collection it walks), or a handler that binds a payload of `SendError` or `SubprocessError`. `fix` over spec files fixes
+each test as a behaviour, on every core, as the runner runs them (`self/driver/fixrun.maxon`); each check adds the test to a
+copy of the library checked once for its target, and the results are taken in in the order of the tests, so the files written
+and the lines printed are those of one test after another. `specs.ps1` runs both and then the new tests (see "Tests"); `specs/README.md` has the command, and the directory is
 never edited by hand, except that the runner writes `specs/passed.txt` (see "Tests").
 
 `--debug-info` (on `build`) writes the executable's debug info beside it, as `<out>.mxdbg`, and leaves the executable byte for byte the one a build without it makes; `--no-debug-info`, maxon's spelling, writes none, as a build does by default (see "Debug info").

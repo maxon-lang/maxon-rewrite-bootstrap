@@ -200,8 +200,10 @@ type FixProgram
 	end 'fileIndex'
 end 'FixProgram'
 
-// FixOutcome is what fixing a program came to: its files, which files changed, the kinds of fix it applied, each once, and
-// the code and the cause of the first diagnostic that is left, or nothing when it checks clean.
+// FixOutcome is what fixing a program came to: its files, which files changed, the kinds of fix it applied, each once, the
+// code and the cause of the first diagnostic that is left, or nothing when it checks clean, what it says of a round it undid,
+// and the first watched code that was the first diagnostic of a round, where fixing that halts at those codes would have
+// stopped.
 type FixOutcome
 	var files as project.SourceFiles
 	var changed as Flags
@@ -209,10 +211,21 @@ type FixOutcome
 	var left as String
 	var leftCause as diag.ErrorCause
 	var broken as bool
+	var said as String
+	var watched as table.Option with String
 
-	static function make(consumes files project.SourceFiles, consumes changed Flags, consumes kinds ast.StringList, consumes left String, leftCause diag.ErrorCause, broken bool) returns FixOutcome
-		return FixOutcome{files: files, changed: changed, kinds: kinds, left: left, leftCause: leftCause, broken: broken}
+	static function make(consumes files project.SourceFiles, consumes changed Flags, consumes kinds ast.StringList, consumes left String, leftCause diag.ErrorCause, broken bool, consumes said String, consumes watched table.Option with String) returns FixOutcome
+		return FixOutcome{files: files, changed: changed, kinds: kinds, left: left, leftCause: leftCause, broken: broken, said: said, watched: watched}
 	end 'make'
+
+	// haltedLeft is the code left by fixing that halts at the watched codes: the first of them that was the first diagnostic of a
+	// round, or else what is left, since such fixing goes through the very same rounds.
+	function haltedLeft() returns String
+		return match watched 'watched'
+			some(code) gives code.clone()
+			none gives left.clone()
+		end 'watched'
+	end 'haltedLeft'
 
 	function anyChanged() returns bool
 		for i in 0 upto changed.count() 'each'
@@ -241,11 +254,50 @@ end 'fixTargets'
 // conditionalMark begins a conditional of the source (`#if os(...)`).
 let conditionalMark = "#if"
 
+// SharedLibraryOption is the library checked once for a target, or nothing when each check checks it again.
+typealias SharedLibraryOption = table.Option with SharedLibrary
+
+// FixLibraries are the libraries that the checks of a run of fix share, by the place of their target among the compiler's
+// (ast.knownTargets), or none, where every check checks the library itself: a run that fixes one program checks it once for
+// a round, and preparing the library is worth it only for many programs.
+typealias FixLibraries = Array with SharedLibraryOption
+
+function noFixLibraries() returns FixLibraries
+	return FixLibraries.create(0)
+end 'noFixLibraries'
+
+// prepareFixLibraries prepares the library for each of the compiler's targets that needed says a check is for.
+function prepareFixLibraries(needed Flags) returns FixLibraries
+	let known = ast.knownTargets()
+	var libraries = FixLibraries.create(0)
+	for i in 0 upto known.count() 'targets'
+		if needed[i] 'needed'
+			var options = Options.new()
+			options.target = known[i].clone()
+			libraries.push(SharedLibrary.prepare(options))
+		end 'needed' else 'unneeded'
+			libraries.push(table.Option.none)
+		end 'unneeded'
+	end 'targets'
+	return libraries
+end 'prepareFixLibraries'
+
+// knownTargetIndex is the place of a target among the compiler's.
+function knownTargetIndex(target ast.Target) returns Count
+	let known = ast.knownTargets()
+	for i in 0 upto known.count() 'targets'
+		if known[i].name() == target.name() 'found'
+			return i
+		end 'found'
+	end 'targets'
+	panic("fix: {target.name()} is no target of the compiler")
+end 'knownTargetIndex'
+
 // checkFixing is the diagnostics of the program for each of its targets, located in its files, each once and in order.
-function checkFixing(prog FixProgram) returns diag.ErrorList
+function checkFixing(prog FixProgram, libraries FixLibraries) returns diag.ErrorList
 	var all = diag.ErrorList.create(0)
 	for t in 0 upto prog.targets.count() 'targets'
-		let errs = checkFixingFor(prog, target: prog.targets[t])
+		let errs = checkFixingFor(prog, libraries: libraries, target: prog.targets[t])
 		for i in 0 upto errs.count() 'errors'
 			if not holdsError(all, e: errs[i]) 'new'
 				all.push(errs[i].clone())
@@ -266,19 +318,27 @@ function holdsError(errs diag.ErrorList, e diag.CompileError) returns bool
 	return false
 end 'holdsError'
 
-// checkFixingFor is the diagnostics of the program compiled for a target, located in its files.
-function checkFixingFor(prog FixProgram, target ast.Target) returns diag.ErrorList
+// checkFixingFor is the diagnostics of the program compiled for a target, located in its files, on the library the run shares
+// for the target when there is one and the program gets the library.
+function checkFixingFor(prog FixProgram, libraries FixLibraries, target ast.Target) returns diag.ErrorList
 	var errs = diag.ErrorList.create(0)
 	var options = Options.new()
 	options.target = target.clone()
 	options.stagesInLibrary = prog.inLibrary
 	var p = projectFor(options)
+	if libraries.count() > 0 and project.getsLibrary(prog.root) 'shared'
+		match libraries[knownTargetIndex(target)] 'library'
+			some(library) then p = library.projectForProgram()
+			none then _ = 0
+		end 'library'
+	end 'shared'
+	let first = p.modules.count()
 	if prog.single 'single'
 		project.loadSourceInto(p, path: prog.files[0].path, text: prog.files[0].text, errs: errs)
 	end 'single' else 'project'
 		project.loadFilesInto(p, rootPath: prog.root, files: prog.files, errs: errs)
 	end 'project'
-	compileLoaded(p, first: 0, ready: noReadyUnits(), output: "", options: options, errs: errs)
+	compileLoaded(p, first: first, ready: noReadyUnits(), output: "", options: options, errs: errs)
 	diag.sortErrors(errs)
 	return errs
 end 'checkFixingFor'
@@ -403,7 +463,7 @@ end 'editsOfFile'
 
 // applyChoice makes the chosen edits in the program's files and puts each file they change in the one layout. A round that
 // leaves a file unparsable is a fix that is wrong: it is undone, said, and false.
-function applyChoice(mutates prog FixProgram, choice Choice, mutates changed Flags) returns bool
+function applyChoice(mutates prog FixProgram, choice Choice, mutates changed Flags, mutates said String) returns bool
 	var files = prog.files.clone()
 	for i in 0 upto files.count() 'files'
 		let edits = editsOfFile(choice.edits, file: files[i].path)
@@ -417,7 +477,7 @@ function applyChoice(mutates prog FixProgram, choice Choice, mutates changed Fla
 			refused(errors) then refusal = errors.clone()
 		end 'layout'
 		if refusal.count() > 0 'broken'
-			print("broken  a fix left {prog.name} unparsable, so its round is undone: {refusal[0].format()}\n")
+			said = "broken  a fix left {prog.name} unparsable, so its round is undone: {refusal[0].format()}\n"
 			return false
 		end 'broken'
 		changed[i] = true
@@ -429,8 +489,8 @@ end 'applyChoice'
 // fixProgram applies the fixes of the program's diagnostics, round by round, until it checks clean, no diagnostic left has
 // a fix that can be made, or the rounds run out. A round that leaves a file unparsable is undone, and the outcome says so. For
 // a test that expects a compile error it stops as soon as the first diagnostic has the expected code, or has no fix, and leaves the
-// diagnostics of that code alone.
-function fixProgram(consumes prog FixProgram, expected table.Option with String, halts ast.StringList) returns FixOutcome
+// diagnostics of that code alone. The first of the watched codes to be a round's first diagnostic is kept (FixOutcome.watched).
+function fixProgram(consumes prog FixProgram, libraries FixLibraries, expected table.Option with String, watches ast.StringList) returns FixOutcome
 	var current = prog
 	var changed = Flags.create(0)
 	for i in 0 upto current.files.count() 'unchanged'
@@ -440,8 +500,10 @@ function fixProgram(consumes prog FixProgram, expected table.Option with String,
 	var left = ""
 	var leftCause = diag.ErrorCause.none
 	var broken = false
+	var said = ""
+	var watched = table.Option.none as table.Option with String
 	for round in 0 upto increment(maxFixRounds) 'rounds'
-		let errs = checkFixing(current)
+		let errs = checkFixing(current, libraries: libraries)
 		if errs.count() == 0 'clean'
 			left = ""
 			leftCause = diag.ErrorCause.none
@@ -449,9 +511,12 @@ function fixProgram(consumes prog FixProgram, expected table.Option with String,
 		end 'clean'
 		left = errs[0].code.clone()
 		leftCause = errs[0].cause
-		if isExpectedCode(left, expected: expected) or holdsKind(halts, kind: left) 'reached'
+		if isExpectedCode(left, expected: expected) 'reached'
 			break 'rounds'
 		end 'reached'
+		if not watched.isSome() and holdsKind(watches, kind: left) 'watched'
+			watched = table.Option.some(left.clone())
+		end 'watched'
 		if expected.isSome() and not errs[0].fix.isSome() 'unfixable'
 			break 'rounds'
 		end 'unfixable'
@@ -463,7 +528,7 @@ function fixProgram(consumes prog FixProgram, expected table.Option with String,
 			break 'rounds'
 		end 'stuck'
 		var roundChanged = changed.clone()
-		if not applyChoice(current, choice: choice, changed: roundChanged) 'undone'
+		if not applyChoice(current, choice: choice, changed: roundChanged, said: said) 'undone'
 			broken = true
 			break 'rounds'
 		end 'undone'
@@ -472,7 +537,7 @@ function fixProgram(consumes prog FixProgram, expected table.Option with String,
 			addKind(kinds, kind: choice.kinds[k])
 		end 'kinds'
 	end 'rounds'
-	return FixOutcome.make(current.files, changed: changed, kinds: kinds, left: left, leftCause: leftCause, broken: broken)
+	return FixOutcome.make(current.files, changed: changed, kinds: kinds, left: left, leftCause: leftCause, broken: broken, said: said, watched: watched)
 end 'fixProgram'
 
 // FixTally counts what a run of fix did: the programs or tests it changed, by kind of fix, the spec tests it skipped for a
@@ -496,27 +561,41 @@ type FixTally
 			broken = increment(broken)
 		end 'broken'
 		if outcome.left != "" 'left'
-			countIn(codes, counts: codeCounts, key: outcome.left)
+			countIn(codes, counts: codeCounts, key: outcome.left, by: 1)
 		end 'left'
 	end 'count'
 
 	function countChange(mutates self, outcome FixOutcome)
 		changed = increment(changed)
 		for i in 0 upto outcome.kinds.count() 'kinds'
-			countIn(kinds, counts: kindCounts, key: outcome.kinds[i])
+			countIn(kinds, counts: kindCounts, key: outcome.kinds[i], by: 1)
 		end 'kinds'
 	end 'countChange'
+
+	// add counts what another tally counted.
+	function add(mutates self, other FixTally)
+		changed = offsetBy(changed, by: other.changed)
+		trapSkips = offsetBy(trapSkips, by: other.trapSkips)
+		codeSkips = offsetBy(codeSkips, by: other.codeSkips)
+		broken = offsetBy(broken, by: other.broken)
+		for i in 0 upto other.kinds.count() 'kinds'
+			countIn(kinds, counts: kindCounts, key: other.kinds[i], by: other.kindCounts[i])
+		end 'kinds'
+		for i in 0 upto other.codes.count() 'codes'
+			countIn(codes, counts: codeCounts, key: other.codes[i], by: other.codeCounts[i])
+		end 'codes'
+	end 'add'
 end 'FixTally'
 
-function countIn(mutates keys ast.StringList, mutates counts CountList, key String)
+function countIn(mutates keys ast.StringList, mutates counts CountList, key String, by Count)
 	for i in 0 upto keys.count() 'known'
 		if keys[i] == key 'same'
-			counts[i] = increment(counts[i])
+			counts[i] = offsetBy(counts[i], by: by)
 			return
 		end 'same'
 	end 'known'
 	keys.push(key.clone())
-	counts.push(1)
+	counts.push(by)
 end 'countIn'
 
 // countsText is the keys with their counts, the most first and then by key.
@@ -589,29 +668,61 @@ function fixCommand(rest CommandNames) returns ExitCode
 			return diagnosticsExitCode
 		end 'unreadable'
 	end 'readable'
+	for i in 0 upto paths.count() 'specs'
+		if isSpecPath(paths[i]) 'spec'
+			startFixes(paths, checkOnly: checkOnly)
+			return compiledByBehaviours
+		end 'spec'
+	end 'specs'
 	var tally = FixTally.new()
-	var unit = "programs"
 	for i in 0 upto paths.count() 'paths'
-		if isSpecPath(paths[i]) 'specs'
-			unit = "tests"
-			let files = specFiles(paths[i])
-			var shared = prepareSharedRuntimes()
-			var scratch = Scratch.make("fix", suffix: executableExtension(hostTarget()))
-			let skips = codeSkipTable()
-			for f in 0 upto files.count() 'files'
-				fixSpecFile(shared, scratch: scratch, skips: skips, file: files[f], checkOnly: checkOnly, tally: tally)
-			end 'files'
-			scratch.finish()
-		end 'specs' else 'program'
-			fixProgramAt(paths[i], checkOnly: checkOnly, tally: tally)
-		end 'program'
+		takeFixResult(tally, result: fixProgramAt(paths[i], libraries: noFixLibraries(), checkOnly: checkOnly))
 	end 'paths'
-	printFixSummary(tally, checkOnly: checkOnly, unit: unit)
+	printFixSummary(tally, checkOnly: checkOnly, unit: "programs")
+	return fixExitCode(tally, checkOnly: checkOnly)
+end 'fixCommand'
+
+// fixExitCode is the code a run of fix exits with: with check, whether it would change anything.
+function fixExitCode(tally FixTally, checkOnly bool) returns ExitCode
 	if checkOnly and tally.changed > 0 'differs'
 		return diagnosticsExitCode
 	end 'differs'
 	return 0
-end 'fixCommand'
+end 'fixExitCode'
+
+// FixResult is what fixing one program or one spec test came to: what it prints, the files of a program it writes, the edits
+// of a spec test's file, what it adds to the tally, and its executable when the system kept it from being deleted.
+type FixResult
+	var out as String
+	var writes as project.SourceFiles
+	var edits as syntax.Edits
+	var tally as FixTally
+	var left as LeftExecutable
+
+	static function new() returns FixResult
+		return FixResult{out: "", writes: project.SourceFiles.create(0), edits: syntax.Edits.create(0), tally: FixTally.new(), left: table.Option.none}
+	end 'new'
+
+	function say(mutates self, text String)
+		if text != "" 'said'
+			out = "{out}{text}"
+		end 'said'
+	end 'say'
+end 'FixResult'
+
+// takeFixResult prints what a fix said, writes the files it fixed, and counts it, as each fix is taken in, in the order of the
+// programs and the tests.
+function takeFixResult(mutates tally FixTally, result FixResult)
+	print(result.out)
+	for i in 0 upto result.writes.count() 'writes'
+		writeFixed(result.writes[i].path, text: result.writes[i].text)
+	end 'writes'
+	tally.add(result.tally)
+end 'takeFixResult'
+
+function writeFixed(file String, text String)
+	try File.writeText(try FilePath.from(file) otherwise panic("fix: {file} is not a path"), content: text) otherwise panic("fix: cannot write {file}")
+end 'writeFixed'
 
 // programAt is the program at path, a .maxon file or a project's directory, as its files read.
 function programAt(path String) returns FixProgram
@@ -631,33 +742,36 @@ function programAt(path String) returns FixProgram
 	return FixProgram.make(path.clone(), name: path.clone(), single: true, files: files, candidates: ast.knownTargets())
 end 'programAt'
 
-// fixProgramAt fixes the program at path and writes the files it changed, or with check names them.
-function fixProgramAt(path String, checkOnly bool, mutates tally FixTally)
-	let outcome = fixProgram(programAt(path), expected: table.Option.none, halts: ast.StringList.create(0))
-	tally.count(outcome)
+// fixProgramAt fixes the program at path: the files it changed are to be written, or with check named.
+function fixProgramAt(path String, libraries FixLibraries, checkOnly bool) returns FixResult
+	var result = FixResult.new()
+	let outcome = fixProgram(programAt(path), libraries: libraries, expected: table.Option.none, watches: ast.StringList.create(0))
+	result.say(outcome.said)
+	result.tally.count(outcome)
 	if not outcome.anyChanged() 'unchanged'
-		return
+		return result
 	end 'unchanged'
-	tally.countChange(outcome)
+	result.tally.countChange(outcome)
 	for i in 0 upto outcome.files.count() 'files'
 		if not outcome.changed[i] 'untouched'
 			continue 'files'
 		end 'untouched'
 		let file = outcome.files[i].path.clone()
 		if checkOnly 'listed'
-			print("would fix  {file}\n")
+			result.say("would fix  {file}\n")
 			continue 'files'
 		end 'listed'
-		try File.writeText(try FilePath.from(file) otherwise panic("fix: {file} is not a path"), content: outcome.files[i].text) otherwise panic("fix: cannot write {file}")
-		print("fixed  {file}\n")
+		result.writes.push(project.SourceFile.make(file.clone(), text: outcome.files[i].text.clone()))
+		result.say("fixed  {file}\n")
 	end 'files'
+	return result
 end 'fixProgramAt'
 
 // fixSource is the text that fix makes of one program file, path naming it in the diagnostics, and what fixing it came to.
 function fixSource(path String, text String) returns FixOutcome
 	var files = project.SourceFiles.create(0)
 	files.push(project.SourceFile.make(path.clone(), text: text.clone()))
-	return fixProgram(FixProgram.make(path.clone(), name: path.clone(), single: true, files: files, candidates: ast.knownTargets()), expected: table.Option.none, halts: ast.StringList.create(0))
+	return fixProgram(FixProgram.make(path.clone(), name: path.clone(), single: true, files: files, candidates: ast.knownTargets()), libraries: noFixLibraries(), expected: table.Option.none, watches: ast.StringList.create(0))
 end 'fixSource'
 
 // isFixable is whether fix may change a spec test: one that the conversion did not skip, that runs a program rather than
@@ -722,11 +836,17 @@ end 'CodeMismatch'
 // SharedRuntimes are the runtime prepared for each of the compiler's targets, in their order (ast.knownTargets).
 typealias SharedRuntimes = Array with SharedRuntime
 
-function prepareSharedRuntimes() returns SharedRuntimes
+// prepareSharedRuntimes prepares the runtime of each of the compiler's targets that needed says a test compiles for, and none
+// for the others.
+function prepareSharedRuntimes(needed Flags) returns SharedRuntimes
 	let known = ast.knownTargets()
 	var shared = SharedRuntimes.create(0)
 	for i in 0 upto known.count() 'targets'
-		shared.push(prepareSharedRuntime(known[i]))
+		if needed[i] 'needed'
+			shared.push(prepareSharedRuntime(known[i]))
+		end 'needed' else 'unneeded'
+			shared.push(SharedRuntime.none())
+		end 'unneeded'
 	end 'targets'
 	return shared
 end 'prepareSharedRuntimes'
@@ -745,8 +865,9 @@ function fixTargetOf(test SpecTest) returns Count
 end 'fixTargetOf'
 
 // codeMismatchOf is the mismatch of a test that the runner would run, that expects a compile error, and whose first error
-// minimaxon reports under another code, compiled for the test's fix target; nothing for any other test.
-function codeMismatchOf(shared SharedRuntimes, mutates scratch Scratch, test SpecTest, text String) returns table.Option with CodeMismatch
+// minimaxon reports under another code, compiled for the test's fix target to the executable at exe; nothing for any other
+// test. left is that executable when the system kept it from being deleted.
+function codeMismatchOf(shared SharedRuntimes, exe String, test SpecTest, text String, mutates left LeftExecutable) returns table.Option with CodeMismatch
 	let at = fixTargetOf(test)
 	if not test.hasSource or skipReasonFor(test, text: text, target: ast.knownTargets()[at]).isSome() 'unrun'
 		return table.Option.none
@@ -757,10 +878,9 @@ function codeMismatchOf(shared SharedRuntimes, mutates scratch Scratch, test Spe
 	end 'noError'
 	let source = text.sliceBytes(test.sourceStart, endPos: test.sourceFinish)
 	var errs = diag.ErrorList.create(0)
-	let exe = scratch.nextExecutable()
 	compileSpecSource(shared[at], exe: exe, test: test, source: source, sections: splitSections(source), errs: errs)
 	if errs.count() == 0 'compiled'
-		scratch.discard(exe)
+		left = discarded(exe)
 		return table.Option.none
 	end 'compiled'
 	if isExpectedCode(errs[0].code, expected: expected) 'agrees'
@@ -786,40 +906,37 @@ function expectedRuleSkip(skips CodeSkips, file String, test SpecTest, text Stri
 	return expectedSkipLine(skips, expected: expected.unwrap())
 end 'expectedRuleSkip'
 
-// fixSpecFile fixes the tests of one spec file and writes the file, or with check names the tests it would change.
-function fixSpecFile(shared SharedRuntimes, mutates scratch Scratch, skips CodeSkips, file String, checkOnly bool, mutates tally FixTally)
-	let text = readText(file)
-	let display = project.lastComponent(file)
-	let tests = parseSpec(text)
-	var edits = syntax.Edits.create(0)
-	for i in 0 upto tests.count() 'tests'
-		let expectSkip = expectedRuleSkip(skips, file: display, test: tests[i], text: text)
-		if expectSkip.isSome() 'ruleSkipped'
-			tally.codeSkips = increment(tally.codeSkips)
-			edits.push(syntax.Edit.make(tests[i].markerEnd, until: tests[i].markerEnd, replacement: expectSkip.unwrap()))
-			continue 'tests'
-		end 'ruleSkipped'
-		let mismatch = codeMismatchOf(shared, scratch: scratch, test: tests[i], text: text)
-		if mismatch.isSome() 'mismatched'
-			let pair = mismatch.unwrap()
-			let codeSkip = codeSkipLine(skips, expected: pair.expected, reported: pair.reported)
-			if codeSkip.isSome() 'codeSkipped'
-				tally.codeSkips = increment(tally.codeSkips)
-				edits.push(syntax.Edit.make(tests[i].markerEnd, until: tests[i].markerEnd, replacement: codeSkip.unwrap()))
-			end 'codeSkipped' else 'fixing'
-				fixSpecTest(tests[i], text: text, display: display, skips: skips, expected: table.Option.some(pair.expected.clone()), checkOnly: checkOnly, tally: tally, edits: edits)
-			end 'fixing'
-			continue 'tests'
-		end 'mismatched'
-		if isFixable(tests[i], text: text) 'runs'
-			fixSpecTest(tests[i], text: text, display: display, skips: skips, expected: table.Option.none, checkOnly: checkOnly, tally: tally, edits: edits)
-		end 'runs'
-	end 'tests'
-	if checkOnly or edits.count() == 0 'unwritten'
-		return
-	end 'unwritten'
-	try File.writeText(try FilePath.from(file) otherwise panic("fix: {file} is not a path"), content: syntax.applyEdits(text, edits: edits)) otherwise panic("fix: cannot write {file}")
-end 'fixSpecFile'
+// fixSpecTestAt is what fixing one test of a spec file comes to, display naming the file and text its text: the edits of the
+// file, which with check are only counted and named. exe is where a compile of the test may make its executable.
+function fixSpecTestAt(shared SharedRuntimes, libraries FixLibraries, exe String, skips CodeSkips, display String, text String, test SpecTest, checkOnly bool) returns FixResult
+	var result = FixResult.new()
+	let expectSkip = expectedRuleSkip(skips, file: display, test: test, text: text)
+	if expectSkip.isSome() 'ruleSkipped'
+		skipSpecTest(result, test: test, line: expectSkip.unwrap())
+		return result
+	end 'ruleSkipped'
+	let mismatch = codeMismatchOf(shared, exe: exe, test: test, text: text, left: result.left)
+	if mismatch.isSome() 'mismatched'
+		let pair = mismatch.unwrap()
+		let codeSkip = codeSkipLine(skips, expected: pair.expected, reported: pair.reported)
+		if codeSkip.isSome() 'codeSkipped'
+			skipSpecTest(result, test: test, line: codeSkip.unwrap())
+		end 'codeSkipped' else 'fixing'
+			fixSpecTest(libraries, test: test, text: text, display: display, skips: skips, expected: table.Option.some(pair.expected.clone()), checkOnly: checkOnly, result: result)
+		end 'fixing'
+		return result
+	end 'mismatched'
+	if isFixable(test, text: text) 'runs'
+		fixSpecTest(libraries, test: test, text: text, display: display, skips: skips, expected: table.Option.none, checkOnly: checkOnly, result: result)
+	end 'runs'
+	return result
+end 'fixSpecTestAt'
+
+// skipSpecTest skips a test for a code or a cause that the skip table names, with the table's line after its marker.
+function skipSpecTest(mutates result FixResult, test SpecTest, line String)
+	result.tally.codeSkips = increment(result.tally.codeSkips)
+	result.edits.push(syntax.Edit.make(test.markerEnd, until: test.markerEnd, replacement: line.clone()))
+end 'skipSpecTest'
 
 // specProgram is the program of a spec test's source: the fragment, or the files of its sections.
 function specProgram(test SpecTest, display String, source String, sections SourceSections) returns FixProgram
@@ -840,31 +957,33 @@ end 'specProgram'
 // fixes did; otherwise it is skipped when the table names why for the first code the fixes leave (unreachedSkipLine), the
 // fixes stopping at a code that makes a pair of the table with the expected one. A program that is clean after the fixes is
 // changed so that the test fails for the one thing missing: the diagnostic.
-function fixSpecTest(test SpecTest, text String, display String, skips CodeSkips, expected table.Option with String, checkOnly bool, mutates tally FixTally, mutates edits syntax.Edits)
+function fixSpecTest(libraries FixLibraries, test SpecTest, text String, display String, skips CodeSkips, expected table.Option with String, checkOnly bool, mutates result FixResult)
 	let source = text.sliceBytes(test.sourceStart, endPos: test.sourceFinish)
 	let sections = splitSections(source)
-	let outcome = fixProgram(specProgram(test, display: display, source: source, sections: sections), expected: expected, halts: ast.StringList.create(0))
-	tally.count(outcome)
+	let outcome = fixProgram(specProgram(test, display: display, source: source, sections: sections), libraries: libraries, expected: expected, watches: haltCodes(skips, expected: expected))
+	result.say(outcome.said)
+	result.tally.count(outcome)
 	let caused = causeSkipLine(skips, cause: outcome.leftCause)
 	if caused.isSome() and not isExpectedCode(outcome.left, expected: expected) 'caused'
-		tally.codeSkips = increment(tally.codeSkips)
-		edits.push(syntax.Edit.make(test.markerEnd, until: test.markerEnd, replacement: caused.unwrap()))
+		skipSpecTest(result, test: test, line: caused.unwrap())
 		return
 	end 'caused'
 	if not expected.isSome() 'runs'
 		let refused = refusedRunSkipLine(skips, left: outcome.left)
 		if refused.isSome() 'refused'
-			tally.codeSkips = increment(tally.codeSkips)
-			edits.push(syntax.Edit.make(test.markerEnd, until: test.markerEnd, replacement: refused.unwrap()))
+			skipSpecTest(result, test: test, line: refused.unwrap())
 			return
 		end 'refused'
 	end 'runs'
 	if expected.isSome() and not isExpectedCode(outcome.left, expected: expected) 'unreached'
-		let halted = fixProgram(specProgram(test, display: display, source: source, sections: sections), expected: expected, halts: haltCodes(skips, expected: expected))
-		let unreached = unreachedSkipLine(skips, expected: expected, left: halted.left)
+		// Fixing that halts at the codes paired with the expected one goes through the same rounds, and says again what it
+		// undid when no such code stopped it first.
+		if not outcome.watched.isSome() 'sameRounds'
+			result.say(outcome.said)
+		end 'sameRounds'
+		let unreached = unreachedSkipLine(skips, expected: expected, left: outcome.haltedLeft())
 		if unreached.isSome() 'skipped'
-			tally.codeSkips = increment(tally.codeSkips)
-			edits.push(syntax.Edit.make(test.markerEnd, until: test.markerEnd, replacement: unreached.unwrap()))
+			skipSpecTest(result, test: test, line: unreached.unwrap())
 			return
 		end 'skipped'
 		if outcome.left != "" 'refused'
@@ -875,18 +994,18 @@ function fixSpecTest(test SpecTest, text String, display String, skips CodeSkips
 		return
 	end 'unchanged'
 	if holdsKind(outcome.kinds, kind: check.fixKindTry) and expectsTrap(test, text: text) 'trap'
-		tally.trapSkips = increment(tally.trapSkips)
-		edits.push(syntax.Edit.make(test.markerEnd, until: test.markerEnd, replacement: trapSkipLine))
+		result.tally.trapSkips = increment(result.tally.trapSkips)
+		result.edits.push(syntax.Edit.make(test.markerEnd, until: test.markerEnd, replacement: trapSkipLine))
 		return
 	end 'trap'
-	tally.countChange(outcome)
+	result.tally.countChange(outcome)
 	if checkOnly 'listed'
-		print("would fix  {display}: {test.name}\n")
+		result.say("would fix  {display}: {test.name}\n")
 	end 'listed'
 	if expected.isSome() and not test.positionsMoved 'moved'
-		edits.push(syntax.Edit.make(test.markerEnd, until: test.markerEnd, replacement: positionsMovedLine))
+		result.edits.push(syntax.Edit.make(test.markerEnd, until: test.markerEnd, replacement: positionsMovedLine))
 	end 'moved'
-	edits.push(syntax.Edit.make(test.sourceStart, until: test.sourceFinish, replacement: fixedBlock(source, sections: sections, outcome: outcome)))
+	result.edits.push(syntax.Edit.make(test.sourceStart, until: test.sourceFinish, replacement: fixedBlock(source, sections: sections, outcome: outcome)))
 end 'fixSpecTest'
 
 function holdsKind(kinds ast.StringList, kind String) returns bool

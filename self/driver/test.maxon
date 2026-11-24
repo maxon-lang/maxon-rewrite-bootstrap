@@ -988,10 +988,12 @@ function runFixTest(file String, expected String) returns TestResult
 	let wanted = withoutCarriageReturns(readText(expected), loneToo: false)
 	let sections = splitSections(text)
 	if sections.count() > 0 'project'
-		let built = fixProgram(FixProgram.make(projectRoot, name: file.clone(), single: false, files: sectionFiles(sections), candidates: ast.knownTargets()), expected: table.Option.none, halts: ast.StringList.create(0))
+		let built = fixProgram(FixProgram.make(projectRoot, name: file.clone(), single: false, files: sectionFiles(sections), candidates: ast.knownTargets()), libraries: noFixLibraries(), expected: table.Option.none, watches: ast.StringList.create(0))
+		print(built.said)
 		return fixedResult(built, expected: expected, wanted: withoutFinalNewline(wanted), actual: withoutFinalNewline(fixedBlock(text, sections: sections, outcome: built)))
 	end 'project'
 	let outcome = fixSource(file, text: text)
+	print(outcome.said)
 	return fixedResult(outcome, expected: expected, wanted: wanted, actual: outcome.files[0].text)
 end 'runFixTest'
 

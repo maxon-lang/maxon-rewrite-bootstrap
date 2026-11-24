@@ -108,6 +108,42 @@ type SharedRuntime
 	end 'projectForProgram'
 end 'SharedRuntime'
 
+// SharedLibrary is the standard library of a run of many checks of programs that no executable is made of: its project alone,
+// checked once and frozen. Each check adds its program to a copy of the project, after the library's modules, which it reads
+// as checked rather than parsing and checking them again. A compiler with no library beside it shares an empty project.
+type SharedLibrary
+	var p as frozen with ast.Project
+
+	// prepare is the library checked for the options' target, or nothing when it has an error, which a check that shares it
+	// would not report.
+	static function prepare(options Options) returns table.Option with SharedLibrary
+		var p = projectFor(options)
+		var errs = diag.ErrorList.create(0)
+		match consumes project.libraryDirectory() 'found'
+			some(dir) then _ = compileLibrary(p, dir: dir, options: options, errs: errs)
+			none then _ = 0
+		end 'found'
+		if errs.count() > 0 'broken'
+			return table.Option.none
+		end 'broken'
+		return table.Option.some(SharedLibrary{p: freeze(p)})
+	end 'prepare'
+
+	// projectForProgram is a copy of the project for one program to be added to.
+	function projectForProgram() returns ast.Project
+		return copyOfProject(p)
+	end 'projectForProgram'
+end 'SharedLibrary'
+
+// compileLibrary checks the library's source at dir as the project p, which is empty, as far as a check without an output
+// goes.
+function compileLibrary(mutates p ast.Project, dir String, options Options, mutates errs diag.ErrorList) returns Generated
+	match consumes project.discoverProjectInto(p, rootPath: dir, errs: errs) 'found'
+		some(memory) then return compileDiscovered(p, memory: memory, first: 0, ready: noReadyUnits(), output: "", options: options, errs: errs)
+		none then return Generated.nothing()
+	end 'found'
+end 'compileLibrary'
+
 // projectFor is a new project of the options' target, which no module is in yet. A build that counts its allocations checks
 // the ASCII bit of each owned String it drops or copies too, and one that writes debug info keeps the spans of its code.
 function projectFor(options Options) returns ast.Project

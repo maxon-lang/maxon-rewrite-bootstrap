@@ -1,0 +1,217 @@
+// A run of fix over spec files fixes each test, and each program given beside them, as behaviours, so that the run uses every
+// core, as a run of tests does (runner.maxon). What every behaviour reads is frozen (FixBench): the runtimes, the skip table,
+// the spec files and the jobs. The board, a cown, holds a slot for the result of each job, starts jobs while fewer than the
+// window are under way, and takes each result in once every result before it was taken in: it prints what the fix said,
+// counts it, and writes a spec file when the last of its tests is taken in, so that the output and the files are those of a run
+// of one fix after another at any number of workers. The last result taken in prints the summary and sets the exit code.
+
+// FixJob is one fix of a run: a test of a spec file, or a program or project.
+union FixJob
+	spec(value FixSpecJob)
+	program(path String)
+end 'FixJob'
+
+typealias FixJobs = Array with FixJob
+
+// FixSpecJob is a test of a spec file, the run's file numbered file, and whether it is the last test of that file.
+type FixSpecJob
+	var file as Count
+	var test as SpecTest
+	var last as bool
+
+	static function make(file Count, consumes test SpecTest, last bool) returns FixSpecJob
+		return FixSpecJob{file: file, test: test, last: last}
+	end 'make'
+end 'FixSpecJob'
+
+// FixFile is a spec file whose tests a run fixes: its path, its name in the output and the skip table, and its text, which
+// its tests are ranges of.
+type FixFile
+	var path as String
+	var display as String
+	var text as String
+
+	static function make(consumes path String, consumes display String, consumes text String) returns FixFile
+		return FixFile{path: path, display: display, text: text}
+	end 'make'
+end 'FixFile'
+
+typealias FixFiles = Array with FixFile
+
+// FixBench is what every behaviour of a run of fix reads, frozen.
+type FixBench
+	var shared as SharedRuntimes
+	var libraries as FixLibraries
+	var skips as CodeSkips
+	var files as FixFiles
+	var jobs as FixJobs
+	var checkOnly as bool
+	var unit as String
+	var scratch as Scratch
+	var window as Count
+	var board as cown with FixBoard
+
+	static function make(consumes shared SharedRuntimes, consumes libraries FixLibraries, consumes skips CodeSkips, consumes files FixFiles, consumes jobs FixJobs, checkOnly bool, consumes unit String, consumes scratch Scratch, window Count, consumes board cown with FixBoard) returns FixBench
+		return FixBench{shared: shared, libraries: libraries, skips: skips, files: files, jobs: jobs, checkOnly: checkOnly, unit: unit, scratch: scratch, window: window, board: board}
+	end 'make'
+end 'FixBench'
+
+typealias FixSlot = table.Option with FixResult
+
+typealias FixSlots = Array with FixSlot
+
+// FixBoard is what the cown of a run of fix holds: the slot of each job's result, the next job to start, how many are under
+// way, how many results were taken in, the tally, the edits of the spec file whose tests are being taken in, and the
+// executables that could not be deleted.
+type FixBoard
+	var results as FixSlots
+	var next as Count
+	var underWay as Count
+	var taken as Count
+	var ended as bool
+	var tally as FixTally
+	var edits as syntax.Edits
+	var scratch as Scratch
+
+	static function make(jobs Count, consumes scratch Scratch) returns FixBoard
+		var results = FixSlots.create(0)
+		for _ in 0 upto jobs 'slots'
+			results.push(table.Option.none)
+		end 'slots'
+		return FixBoard{results: results, next: 0, underWay: 0, taken: 0, ended: false, tally: FixTally.new(), edits: syntax.Edits.create(0), scratch: scratch}
+	end 'make'
+
+	// fill starts the jobs after the last one started while fewer than the window are under way.
+	function fill(mutates self, bench frozen with FixBench)
+		while next < results.count() and underWay < bench.window 'start'
+			let index = next
+			next = offsetBy(next, by: 1)
+			underWay = offsetBy(underWay, by: 1)
+			startFix(bench, index: index)
+		end 'start'
+		takeReady(bench)
+	end 'fill'
+
+	// settle takes in the result of the job at index, and starts the next.
+	function settle(mutates self, bench frozen with FixBench, index Count, consumes result FixResult)
+		results[index] = table.Option.some(result)
+		underWay = try underWay - 1 otherwise panic("fix: a job ends that never started")
+		fill(bench)
+	end 'settle'
+
+	// takeReady takes in, in job order, the results that every result before them was taken in before, and ends the run with
+	// the last.
+	function takeReady(mutates self, bench frozen with FixBench)
+		while taken < results.count() and results[taken].isSome() 'ready'
+			let index = taken
+			var result = exchange(results[index], value: FixSlot.none).unwrap()
+			taken = offsetBy(taken, by: 1)
+			match consumes exchange(result.left, value: LeftExecutable.none) 'left'
+				some(path) then scratch.left.push(path)
+				none then _ = 0
+			end 'left'
+			takeFixResult(tally, result: result)
+			match bench.jobs[index] 'job'
+				spec(value) then takeSpecEdits(bench, job: value, result: result)
+				program(_) then _ = 0
+			end 'job'
+		end 'ready'
+		if taken == results.count() and not ended 'last'
+			ended = true
+			printFixSummary(tally, checkOnly: bench.checkOnly, unit: bench.unit)
+			scratch.finish()
+			Process.setExitCode(fixExitCode(tally, checkOnly: bench.checkOnly))
+		end 'last'
+	end 'takeReady'
+
+	// takeSpecEdits adds the edits of a test to those of its file, and writes the file with them after its last test, unless
+	// the run only checks.
+	function takeSpecEdits(mutates self, bench frozen with FixBench, job FixSpecJob, result FixResult)
+		for i in 0 upto result.edits.count() 'edits'
+			edits.push(result.edits[i].clone())
+		end 'edits'
+		if not job.last 'more'
+			return
+		end 'more'
+		if not bench.checkOnly and edits.count() > 0 'write'
+			let file = bench.files[job.file].path.clone()
+			writeFixed(file, text: syntax.applyEdits(bench.files[job.file].text, edits: edits))
+		end 'write'
+		edits = syntax.Edits.create(0)
+	end 'takeSpecEdits'
+end 'FixBoard'
+
+// startFixes fixes the programs and the tests of the spec files at paths, in their order, as behaviours, and ends the run in
+// the last of them, which sets the code the process exits with.
+function startFixes(paths ast.StringList, checkOnly bool)
+	var files = FixFiles.create(0)
+	var jobs = FixJobs.create(0)
+	var unit = "programs"
+	let known = ast.knownTargets()
+	var needed = Flags.create(0)
+	var checked = Flags.create(0)
+	for _ in 0 upto known.count() 'targets'
+		needed.push(false)
+		checked.push(false)
+	end 'targets'
+	for i in 0 upto paths.count() 'paths'
+		if not isSpecPath(paths[i]) 'program'
+			jobs.push(FixJob.program(paths[i].clone()))
+			continue 'paths'
+		end 'program'
+		unit = "tests"
+		let specs = specFiles(paths[i])
+		for f in 0 upto specs.count() 'files'
+			let text = readText(specs[f])
+			let tests = parseSpec(text)
+			let file = files.count()
+			for t in 0 upto tests.count() 'tests'
+				needed[fixTargetOf(tests[t])] = true
+				markTargets(checked, targets: runTargets(tests[t]))
+				jobs.push(FixJob.spec(FixSpecJob.make(file, test: tests[t].clone(), last: offsetBy(t, by: 1) == tests.count())))
+			end 'tests'
+			files.push(FixFile.make(specs[f].clone(), display: project.lastComponent(specs[f]).clone(), text: text))
+		end 'files'
+	end 'paths'
+	var window = 0 as Count
+	window = try runWorkers() * testsPerWorker otherwise panic("fix: more workers than memory")
+	let scratch = Scratch.make("fix", suffix: executableExtension(hostTarget()))
+	let board = cown(FixBoard.make(jobs.count(), scratch: scratch.clone()))
+	let bench = freeze(FixBench.make(prepareSharedRuntimes(needed), libraries: prepareFixLibraries(checked), skips: codeSkipTable(), files: files, jobs: jobs, checkOnly: checkOnly, unit: unit, scratch: scratch, window: window, board: share(board)))
+	when board as b 'start'
+		b.fill(bench)
+	end 'start'
+end 'startFixes'
+
+// startFix fixes the job at index on a lane of its own, and gives the board what it came to.
+function startFix(bench frozen with FixBench, index Count)
+	let k = share(bench)
+	let lane = cown(Lane.make(index))
+	when lane as l 'fix'
+		let result = fixJob(k, index: l.index)
+		settleFix(k, index: l.index, result: result)
+	end 'fix'
+end 'startFix'
+
+function settleFix(bench frozen with FixBench, index Count, consumes result FixResult)
+	let k = share(bench)
+	let board = share(bench.board)
+	when board as b 'settle'
+		b.settle(k, index: index, result: result)
+	end 'settle'
+end 'settleFix'
+
+// fixJob is what the job at index comes to.
+function fixJob(bench frozen with FixBench, index Count) returns FixResult
+	return match bench.jobs[index] 'job'
+		spec(value) gives fixSpecTestAt(bench.shared, libraries: bench.libraries, exe: bench.scratch.executableAt(index), skips: bench.skips, display: bench.files[value.file].display, text: bench.files[value.file].text, test: value.test, checkOnly: bench.checkOnly)
+		program(path) gives fixProgramAt(path, libraries: bench.libraries, checkOnly: bench.checkOnly)
+	end 'job'
+end 'fixJob'
+
+// markTargets marks the targets among the compiler's, by their place, that a check may be for.
+function markTargets(mutates marks Flags, targets ast.TargetList)
+	for i in 0 upto targets.count() 'targets'
+		marks[knownTargetIndex(targets[i])] = true
+	end 'targets'
+end 'markTargets'
