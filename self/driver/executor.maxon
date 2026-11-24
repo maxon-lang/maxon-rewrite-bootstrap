@@ -410,7 +410,7 @@ end 'extendedBy'
 function projectTask(ctx frozen with Context, mutates station ProjectStation, stage Stage, known Known, mutates errs diag.ErrorList)
 	match stage 's'
 		parse then panic("driver: the parse is a stage of a module")
-		parsed then return
+		parsed then writeIndexWhenMissing(ctx.compile, p: station.p, known: known)
 		resolve then panic("driver: the resolve is a stage of a module")
 		order then panic("driver: the order is run by orderProject")
 		aliases then panic("driver: the aliases are a stage of a module")

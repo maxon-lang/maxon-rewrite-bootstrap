@@ -21,9 +21,13 @@ type Compile
 	// libraryLater is, by slot, whether the module is the standard library's in a program's compile, whose resolve waits for
 	// the program's (resolvesModule).
 	var libraryLater as Placed
+	// indexSetup is where the library's names index is kept for this compile, and index the index it found there: with one,
+	// a module of the library that the program does not reach is never parsed (libindex.maxon).
+	var indexSetup as IndexSetup
+	var index as LibraryIndex
 
-	static function make(goal Goal, first Count, modules Count, begun Count, makesProgram bool, consumes options Options, consumes output String, consumes base frozen with ast.Project, consumes cache CacheSetup, consumes libraryLater Placed) returns Compile
-		return Compile{goal: goal, first: first, modules: modules, begun: begun, makesProgram: makesProgram, options: options, output: output, base: base, cache: cache, libraryLater: libraryLater}
+	static function make(goal Goal, first Count, modules Count, begun Count, makesProgram bool, consumes options Options, consumes output String, consumes base frozen with ast.Project, consumes cache CacheSetup, consumes libraryLater Placed, consumes indexSetup IndexSetup, consumes index LibraryIndex) returns Compile
+		return Compile{goal: goal, first: first, modules: modules, begun: begun, makesProgram: makesProgram, options: options, output: output, base: base, cache: cache, libraryLater: libraryLater, indexSetup: indexSetup, index: index}
 	end 'make'
 
 	// slotOf is the place among the modules the compile compiles of module m.
@@ -82,13 +86,16 @@ type ModuleWork
 	// (project.libraryModulesNamedIn), and namesRead whether they were read.
 	var named as project.CountList
 	var namesRead as bool
+	// words are what the module gives the library's names index: for a module of the program, the words its text writes
+	// (wordsIn), which reach the library's modules, and for one of the library, the words that reach it (wordsOfParsed).
+	var words as ast.StringList
 	// calls are the functions of other modules that the module's lower named, for a compile that lowers the library's modules
 	// on demand (lowersOnDemand), whose lowers are given them.
 	var calls as ast.FuncIDList
 
 	static function make(consumes home ast.ModuleHome) returns ModuleWork
 		let module = home.module
-		return ModuleWork{home: home, checkState: check.ModuleState.make(check.Checker.make(module, typing: ast.Typing.new(module)), entryRole: check.EntryRole.none), checked: check.ModuleChecked.none(), checkEnded: false, lowered: ir.IrFunctionList.create(0), kept: ir.IrFunctionList.create(0), code: freeze(ir.IrFunctionList.create(0)), leaves: freeze(opt.Leaves.empty()), unit: backend.CodeUnit.new(), reach: Reach.whole, digests: ModuleDigests.none(), key: table.Digest.none(), found: FoundEntry.none, speculated: false, mispredicted: false, checkedState: ByteArray.create(0), checkedKey: table.Digest.none(), checkedFound: FoundChecked.none, restored: Restored.none(), named: project.CountList.create(0), namesRead: false, calls: ast.FuncIDList.create(0)}
+		return ModuleWork{home: home, checkState: check.ModuleState.make(check.Checker.make(module, typing: ast.Typing.new(module)), entryRole: check.EntryRole.none), checked: check.ModuleChecked.none(), checkEnded: false, lowered: ir.IrFunctionList.create(0), kept: ir.IrFunctionList.create(0), code: freeze(ir.IrFunctionList.create(0)), leaves: freeze(opt.Leaves.empty()), unit: backend.CodeUnit.new(), reach: Reach.whole, digests: ModuleDigests.none(), key: table.Digest.none(), found: FoundEntry.none, speculated: false, mispredicted: false, checkedState: ByteArray.create(0), checkedKey: table.Digest.none(), checkedFound: FoundChecked.none, restored: Restored.none(), named: project.CountList.create(0), namesRead: false, words: ast.StringList.create(0), calls: ast.FuncIDList.create(0)}
 	end 'make'
 
 	// startCheck starts the module's check as the order decided it (start).
@@ -122,7 +129,7 @@ type ModuleWork
 
 	// product is what the module's stages made, up to the first segments, which a task that waits on the last of them reads.
 	function product(segments Count) returns frozen with Product
-		return freeze(Product.make(freeze(ast.publish(home, segments: segments)), code: share(code), leaves: share(leaves), entry: checked.entry, tests: checked.tests.clone(), digests: digests.clone(), mispredicted: mispredicted, named: named.clone(), namesRead: namesRead, calls: calls.clone()))
+		return freeze(Product.make(freeze(ast.publish(home, segments: segments)), code: share(code), leaves: share(leaves), entry: checked.entry, tests: checked.tests.clone(), digests: digests.clone(), mispredicted: mispredicted, named: named.clone(), namesRead: namesRead, words: words.clone(), calls: calls.clone()))
 	end 'product'
 end 'ModuleWork'
 
@@ -189,10 +196,11 @@ type Product
 	var mispredicted as bool
 	var named as project.CountList
 	var namesRead as bool
+	var words as ast.StringList
 	var calls as ast.FuncIDList
 
-	static function make(consumes model frozen with ast.ModuleProducts, consumes code frozen with ir.IrFunctionList, consumes leaves frozen with opt.Leaves, entry ast.FuncID, consumes tests ast.FuncIDList, consumes digests ModuleDigests, mispredicted bool, consumes named project.CountList, namesRead bool, consumes calls ast.FuncIDList) returns Product
-		return Product{model: model, code: code, leaves: leaves, entry: entry, tests: tests, digests: digests, mispredicted: mispredicted, named: named, namesRead: namesRead, calls: calls}
+	static function make(consumes model frozen with ast.ModuleProducts, consumes code frozen with ir.IrFunctionList, consumes leaves frozen with opt.Leaves, entry ast.FuncID, consumes tests ast.FuncIDList, consumes digests ModuleDigests, mispredicted bool, consumes named project.CountList, namesRead bool, consumes words ast.StringList, consumes calls ast.FuncIDList) returns Product
+		return Product{model: model, code: code, leaves: leaves, entry: entry, tests: tests, digests: digests, mispredicted: mispredicted, named: named, namesRead: namesRead, words: words, calls: calls}
 	end 'make'
 
 	function segments() returns Count
@@ -363,17 +371,87 @@ end 'moduleTask'
 function parseTask(c Compile, mutates work ModuleWork, known Known, inputs ast.Inputs, memory project.SourceFiles, mutates errs diag.ErrorList) returns frozen with Product
 	var view as ast.Project
 	var ms = lendTask(c, work: work, stage: Stage.parse, lent: ast.Lent.source, known: known, inputs: inputs, view: view)
+	let m = ast.modIndex(work.home.module)
+	let ofLibrary = c.libraryLater[c.slotOf(m)]
+	if ofLibrary and c.index.present and not reachedByProgram(c, p: view, known: known, m: m) 'unreached'
+		work.namesRead = true
+		return giveTask(work, ms: ms, stage: Stage.parse)
+	end 'unreached'
 	project.parseModule(ms, p: view, memory: memory, errs: errs)
-	if c.libraryLater[c.slotOf(ast.modIndex(work.home.module))] 'library'
+	if ofLibrary 'library'
 		work.named = project.libraryModulesNamedIn(view, text: ms.parsed.tree.text)
 		work.namesRead = true
-	end 'library'
+		if c.indexSetup.enabled() and not c.index.present 'indexing'
+			work.words = wordsOfParsed(ms.parsed)
+		end 'indexing'
+	end 'library' else if c.index.present 'program'
+		work.words = wordsIn(ms.parsed.tree.text)
+	end 'program'
 	if c.cache.enabled() 'digests'
 		work.digests.source = sourceDigest(ms.source.path, text: ms.parsed.tree.text, files: ms.parsed.files)
 		work.digests.shown = publicDigest(ms.source.path, text: ms.parsed.tree.text, files: ms.parsed.files)
 	end 'digests'
 	return giveTask(work, ms: ms, stage: Stage.parse)
 end 'parseTask'
+
+// reachedByProgram is whether the program reaches library module m by the library's names index: the words of the program's
+// modules, whose parses the parse of m waited on, reach the root, each library module one of whose words they are, and what
+// those may name (reachedQualifiers).
+function reachedByProgram(c Compile, p ast.Project, known Known, m Count) returns bool
+	var words = WordSet.new()
+	for slot in 0 upto c.modules 'program'
+		if c.libraryLater[slot] 'library'
+			continue 'program'
+		end 'library'
+		for j in 0 upto known[slot].words.count() 'words'
+			if not words.has(known[slot].words[j]) 'new'
+				words.insert(known[slot].words[j].clone(), value: 1)
+			end 'new'
+		end 'words'
+	end 'program'
+	let root = match p.library 'root'
+		some(id) gives libraryKey(c, m: ast.modIndex(id))
+		none gives ""
+	end 'root'
+	let reached = reachedQualifiers(c.index, words: words, root: root)
+	return reached.has(libraryKey(c, m: m))
+end 'reachedByProgram'
+
+// libraryKey is what the index names library module m by: its place among the library's modules, in the project's order,
+// which the files the index is keyed by decide.
+function libraryKey(c Compile, m Count) returns String
+	var k = 0 as Count
+	for slot in 0 upto c.slotOf(m) 'before'
+		if c.libraryLater[slot] 'library'
+			k = k + 1
+		end 'library'
+	end 'before'
+	return "{k}"
+end 'libraryKey'
+
+// writeIndexWhenMissing writes the library's names index once a compile that has none parsed every module of the library:
+// the words of each, from its parse, and the qualifiers of the library modules it may name.
+function writeIndexWhenMissing(c Compile, p ast.Project, known Known)
+	if not c.indexSetup.enabled() or c.index.present 'kept'
+		return
+	end 'kept'
+	var modules = IndexedModules.create(0)
+	for slot in 0 upto c.modules 'library'
+		if not c.libraryLater[slot] 'program'
+			continue 'library'
+		end 'program'
+		let m = c.moduleOf(slot)
+		if not known[slot].namesRead 'unparsed'
+			return
+		end 'unparsed'
+		var named = ast.StringList.create(0)
+		for j in 0 upto known[slot].named.count() 'named'
+			named.push(libraryKey(c, m: known[slot].named[j]))
+		end 'named'
+		modules.push(IndexedModule.make(libraryKey(c, m: m), words: known[slot].words.clone(), named: named))
+	end 'library'
+	writeIndex(c.indexSetup, modules: modules)
+end 'writeIndexWhenMissing'
 
 // endLoadedCheck ends the check of a module whose unit the cache holds where its constants ended: what the link reads of its
 // check, the entry function and the tests, is what its declare found.

@@ -202,6 +202,23 @@ type TaskGraph
 		groupOfModules = true
 	end 'addLowerTasks'
 
+	// addParseTasks adds the parse of each module of program and then of library, each waiting for the tasks of the stage
+	// added before (none, at the start of a compile), and each of library for the parses of program as well: with the
+	// library's names index, a module of the library is parsed only when the program's words reach it (reachedByProgram).
+	function addParseTasks(mutates self, program check.ModuleOrder, library check.ModuleOrder)
+		let before = group.clone()
+		var added = TaskIDs.create(0)
+		for i in 0 upto program.count() 'program'
+			added.push(addTaskAfter(Stage.parse, module: ast.modIndex(program[i]), before: before, also: TaskIDs.create(0)))
+		end 'program'
+		let programTasks = added.clone()
+		for i in 0 upto library.count() 'library'
+			added.push(addTaskAfter(Stage.parse, module: ast.modIndex(library[i]), before: before, also: programTasks))
+		end 'library'
+		group = added
+		groupOfModules = true
+	end 'addParseTasks'
+
 	// addResolveTasks adds the resolve of each module of program and then of library, each waiting for the task of the project
 	// added before it (the join of the parses), and each of library for the resolves of program as well: it resolves only for a
 	// program that names the library (resolvesModule).
@@ -476,7 +493,14 @@ function compileOf(mutates p ast.Project, from Stage, first Count, goal Goal, ma
 		panic("driver: a compile starts at parse or resolve, not at {from}")
 	end 'from'
 	let modules = try p.modules.count() - first otherwise panic("driver: a compile from past the modules")
-	return Compile.make(goal, first: first, modules: modules, begun: begun, makesProgram: makesProgram, options: options.clone(), output: output.clone(), base: freeze(ast.baseOf(p, first: first)), cache: cacheSetupOf(p, first: first, options: options), libraryLater: libraryLaterOf(p, first: first))
+	let libraryLater = libraryLaterOf(p, first: first)
+	var indexSetup = IndexSetup.off()
+	var index = LibraryIndex.absent()
+	if from == Stage.parse 'parsing'
+		indexSetup = indexSetupOf(p, libraryLater: libraryLater, first: first, options: options)
+		index = readIndex(indexSetup)
+	end 'parsing'
+	return Compile.make(goal, first: first, modules: modules, begun: begun, makesProgram: makesProgram, options: options.clone(), output: output.clone(), base: freeze(ast.baseOf(p, first: first)), cache: cacheSetupOf(p, first: first, options: options), libraryLater: libraryLater, indexSetup: indexSetup, index: index)
 end 'compileOf'
 
 // startGraph adds the tasks of the compile c up to the order, from the stage from: those that every compile has, before it
@@ -485,7 +509,7 @@ function startGraph(mutates graph TaskGraph, c Compile, from Stage)
 	let modules = independentOrder(c)
 	let none = ModuleDeps.create(0)
 	if from == Stage.parse 'parse'
-		graph.addModuleTasks(Stage.parse, order: modules, deps: none, first: c.first)
+		graph.addParseTasks(modulesOf(c, order: modules, library: false), library: modulesOf(c, order: modules, library: true))
 		graph.addProjectTask(Stage.parsed, also: TaskIDs.create(0))
 	end 'parse'
 	graph.addResolveTasks(modulesOf(c, order: modules, library: false), library: modulesOf(c, order: modules, library: true))
@@ -631,7 +655,7 @@ function runTask(mutates run Run, mutates p ast.Project, task Count, mutates out
 	end 'ofModule'
 	match stage 's'
 		parse then panic("driver: the parse is a stage of a module")
-		parsed then return
+		parsed then writeIndexWhenMissing(run.compile, p: p, known: outcome.known)
 		resolve then panic("driver: the resolve is a stage of a module")
 		order then orderModules(run, known: outcome.known, errs: errs)
 		aliases then panic("driver: the aliases are a stage of a module")

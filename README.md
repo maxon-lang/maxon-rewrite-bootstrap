@@ -545,8 +545,12 @@ is that of its module (`app::main`), and a project with no `main` in any module 
   the library's resolves wait for the program's, and a library module resolves only when a module of the program names it or
   names a library module whose source may name it, directly or through others (`resolvesModule`; what a library module may
   name is read from its text when it is parsed, `project.libraryModulesNamedIn`: each module whose qualifier's first name it
-  writes before a dot and a name, comments included, a superset of what its resolve records). Every library module is still
-  parsed, since a program names the public declarations of every one of them bare; each is a module of the build cache like any other,
+  writes before a dot and a name, comments included, a superset of what its resolve records). With the build cache, a library module the
+  program does not reach is not parsed either: the library's names index (`libindex.maxon`), kept in the cache under the digest of
+  the compiler and every file of the library, gives each module the words that reach it (its declared names and the members
+  `libraryMembersOf` counts) and the modules its source may name, and a library module's parse waits for the program's parses and
+  runs only when a word the program's text writes reaches it, closed over what those name (`reachedByProgram`), a superset of what
+  the resolves name; a compile that has no index parses every library module and writes the index; each is a module of the build cache like any other,
   with its own key, and is compiled for the compile's target. A project that is the runtime's source or `stdlib/` itself is
   compiled without a second library, and the compiler's own source, `self/` (found as `runtime/` is,
   `project.isCompilerDirectory`), without any: it names nothing of the library, so its build never reads `stdlib/` and a
