@@ -9,9 +9,11 @@ on:
   pull_request:
   workflow_dispatch:
 
+# Every commit of main is run to its end, since several machines push there and a superseded run would never finish;
+# on any other branch a newer push replaces the run of an older one.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  group: ${{ github.workflow }}-${{ github.ref == 'refs/heads/main' && github.sha || github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 permissions:
   contents: read
