@@ -735,8 +735,8 @@ let linuxMapNoReserve = 16384 as Count
 // linuxMadvDontNeed is MADV_DONTNEED: the kernel frees the memory of private anonymous pages, which read zero when next touched.
 let linuxMadvDontNeed = 4 as Count
 
-// linuxCloneChildFlags is SIGCHLD alone: clone makes a child process with a copy of the memory, as fork does, which signals the parent when it ends.
-let linuxCloneChildFlags = 17 as Count
+// linuxCloneChildFlags is CLONE_VM | CLONE_VFORK | SIGCHLD, posix_spawn's and Go's: clone makes a child process that runs in the parent's memory, on its stack, while the calling thread waits until the child executes a program or exits, so that a start costs the same whatever the parent's size; the child signals the parent when it ends.
+let linuxCloneChildFlags = 16657 as Count
 
 // linuxFutexWaitPrivate is FUTEX_WAIT | FUTEX_PRIVATE_FLAG: sleep while the 32-bit word holds the value.
 let linuxFutexWaitPrivate = 128 as Count

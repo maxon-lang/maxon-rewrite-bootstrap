@@ -97,7 +97,7 @@ var linuxABI = []layoutConst{
 	// arch_prctl and clone: the thread pointer, which fs addresses, and a worker's thread.
 	{"linuxArchSetFs", 0x1002, true, toSelfBack, "ARCH_SET_FS: arch_prctl sets the base that fs addresses from."},
 	{"linuxCloneWorkerFlags", 0x90F00, true, toSelfBack, "CLONE_VM | CLONE_FS | CLONE_FILES | CLONE_SIGHAND | CLONE_THREAD | CLONE_SETTLS: a thread of the process with the thread pointer it is given, maxon's worker flags but CLONE_CHILD_CLEARTID, since nothing waits for a worker to end."},
-	{"linuxCloneChildFlags", 17, true, toRuntime, "SIGCHLD alone: clone makes a child process with a copy of the memory, as fork does, which signals the parent when it ends."},
+	{"linuxCloneChildFlags", 0x4111, true, toRuntime, "CLONE_VM | CLONE_VFORK | SIGCHLD, posix_spawn's and Go's: clone makes a child process that runs in the parent's memory, on its stack, while the calling thread waits until the child executes a program or exits, so that a start costs the same whatever the parent's size; the child signals the parent when it ends."},
 
 	// futex.
 	{"linuxFutexWaitPrivate", 128, true, toRuntime, "FUTEX_WAIT | FUTEX_PRIVATE_FLAG: sleep while the 32-bit word holds the value."},

@@ -664,7 +664,9 @@
 	// time fails with ETXTBSY, however soon the writer closes its own fd. A write of a file holds the lock shared from its open
 	// to its close and a clone holds it alone, so that no child is made holding such an fd. The lock is the scheduler's word
 	// (schedForkLockOffset): a process with no scheduler has one thread, which has nothing to order. Both sides wait in a futex
-	// on the word, inside a blocking call's bracket, which the caller makes.
+	// on the word, inside a blocking call's bracket, which the caller makes. A clone that makes its child as vfork does holds the lock until
+	// the child has executed its program, since the clone returns only then; the child's copy of the fds is the table at the
+	// clone all the same.
 	let forkHeldBit = 0x40000000 as Count
 
 	// noForkLock is the lock of a process that has no scheduler.

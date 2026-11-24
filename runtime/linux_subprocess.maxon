@@ -1,6 +1,9 @@
-// Running a program on Linux, which has no call that spawns one: the run clones the process as fork does, and the child
+// Running a program on Linux, which has no call that spawns one: the run clones the process as vfork does, and the child
 // puts the write ends of two pipes in place of its standard output and error and executes the program (execve), as
-// maxon's runtime builds a child out of clone, pipe2, dup3 and execve. The clone holds the fork lock (linux.maxon), so that
+// maxon's runtime builds a child out of clone, pipe2, dup3 and execve. The child runs in the run's memory, on its stack,
+// while the run's thread waits in the clone until the child has executed the program or exited (CLONE_VM | CLONE_VFORK, as
+// glibc's posix_spawn and Go's forkExec make a child), so a start copies no page tables and costs the same however large
+// the run's process is; what the child may do in that time is execChild's. The clone holds the fork lock (linux.maxon), so that
 // the child never gets a copy of a file that a write has open and makes the run of that file fail as busy. A third pipe, closed on exec, tells the run whether
 // the execve failed and with what errno: a child that executed the program closes it unwritten. The run reads both
 // output pipes as the child goes on, waiting in poll, so that a child that fills one cannot block waiting for the run to
@@ -56,7 +59,15 @@
 
 	let runSignalMaskOffset = (runSigpipeSetOffset + wordBytes) as Count
 
-	let runRecordBytes = (runSignalMaskOffset + wordBytes) as Count
+	// Around the clone: every signal as a set, the thread's mask from before the clone blocked them, and a struct sigaction
+	// of SIG_DFL, all zero, which the child gives the preemption signal.
+	let runAllSignalsOffset = (runSignalMaskOffset + wordBytes) as Count
+
+	let runCloneMaskOffset = (runAllSignalsOffset + wordBytes) as Count
+
+	let runDefaultActionOffset = (runCloneMaskOffset + wordBytes) as Count
+
+	let runRecordBytes = (runDefaultActionOffset + linuxSigactionBytes) as Count
 
 	let pipeFdsBytes = 8
 
@@ -210,7 +221,20 @@
 	// error, and in a run with input the read end of the input pipe in place of its standard input, which dup3 leaves open on
 	// exec, moves to the zero-terminated directory unless that is noDirectory, and executes the program. When a step fails it
 	// writes the errno down the status pipe and exits.
+	//
+	// The child shares the run's memory and runs on the run's stack below the frame of runChild, while the run's thread
+	// waits in the clone, as Go's forkAndExecInChild1 does. So it makes only raw system calls and reads what the run made
+	// for it before the clone: it allocates nothing, takes no lock, touches no state of the scheduler, and returns from
+	// nothing (execve or exit_group ends it), so no frame of the run's is used again. The words it writes to the run's frame
+	// past the clone are the ones the run writes itself when it resumes (the compiler takes the call of execChild for one
+	// that returns, so a value the run holds across the clone keeps its place on the child's path too), and its own frames are
+	// below the run's stack pointer. Every signal is blocked from before the clone, so that no handler runs on the shared
+	// memory: the child gives the preemption signal, the one signal with a handler, its default action, in its own table of
+	// actions, which clone without CLONE_SIGHAND copies, and gives itself the run's mask back just before the execve, which
+	// keeps the mask, as a forked child had it. qemu-user, which runs arm64-linux under WSL, makes such a clone a fork, in
+	// which the same steps are as safe as they were.
 	function execChild(run Count, path Count, vector Count, directory Count, hasInput bool)
+		_ = __Raw.syscall4(linuxSysRtSigaction, arg1: linuxSigurg, arg2: fieldAt(run, offset: runDefaultActionOffset), arg3: 0, arg4: linuxSignalMaskBytes)
 		if hasInput 'input'
 			_ = __Raw.syscall3(linuxSysDup3, arg1: pipeFd(fieldAt(run, offset: runInputPipeOffset), writeEnd: false), arg2: stdinFd, arg3: noFlags)
 		end 'input'
@@ -222,6 +246,7 @@
 				failChild(run, errno: errnoOf(moved) or unmovedMark)
 			end 'unmoved'
 		end 'directory'
+		_ = __Raw.syscall4(linuxSysRtSigprocmask, arg1: linuxSigSetMask, arg2: fieldAt(run, offset: runCloneMaskOffset), arg3: 0, arg4: linuxSignalMaskBytes)
 		let result = __Raw.syscall3(linuxSysExecve, arg1: path, arg2: vector, arg3: environment())
 		failChild(run, errno: errnoOf(result))
 	end 'execChild'
@@ -502,6 +527,15 @@
 		_ = __Raw.syscall4(linuxSysRtSigprocmask, arg1: linuxSigSetMask, arg2: fieldAt(run, offset: runSignalMaskOffset), arg3: 0, arg4: linuxSignalMaskBytes)
 	end 'releaseSigpipe'
 
+	// prepareClone fills what the clone and its child read of the run's record: the set of every signal, and SIG_DFL's
+	// struct sigaction.
+	function prepareClone(run Count)
+		__Raw.storeWord(run, offset: runAllSignalsOffset, value: 0xFFFFFFFFFFFFFFFF as Count)
+		for at in 0 upto linuxSigactionBytes / wordBytes 'action'
+			__Raw.storeWord(fieldAt(run, offset: runDefaultActionOffset), offset: try at * wordBytes otherwise panic("a sigaction past the run's record"), value: 0)
+		end 'action'
+	end 'prepareClone'
+
 	// running is whether a run still has an output stream to read or an input to write.
 	function running(run Count) returns bool
 		return wordAt(fieldAt(run, offset: runOutputOffset), offset: streamOpenOffset) != 0 or wordAt(fieldAt(run, offset: runErrorOffset), offset: streamOpenOffset) != 0 or inputOpen(run)
@@ -533,13 +567,16 @@
 		if __Raw.stringLength(directory) != 0 'directory'
 			start = cStringOf(directory)
 		end 'directory'
+		prepareClone(run)
 		let lock = forkLock()
 		enterBlocking()
 		holdForkAlone(lock)
+		_ = __Raw.syscall4(linuxSysRtSigprocmask, arg1: linuxSigSetMask, arg2: fieldAt(run, offset: runAllSignalsOffset), arg3: fieldAt(run, offset: runCloneMaskOffset), arg4: linuxSignalMaskBytes)
 		let pid = __Raw.syscall5(linuxSysClone, arg1: linuxCloneChildFlags, arg2: 0, arg3: 0, arg4: 0, arg5: 0)
 		if pid == 0 'child'
 			execChild(run, path: path, vector: vector, directory: start, hasInput: hasInput)
 		end 'child'
+		_ = __Raw.syscall4(linuxSysRtSigprocmask, arg1: linuxSigSetMask, arg2: fieldAt(run, offset: runCloneMaskOffset), arg3: 0, arg4: linuxSignalMaskBytes)
 		releaseForkAlone(lock)
 		exitBlocking()
 		if start != noDirectory 'started'
