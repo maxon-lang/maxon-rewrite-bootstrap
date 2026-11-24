@@ -20,11 +20,15 @@ seed:
 .\build.ps1
 ```
 
-which has the seed build `bin\c1.exe` and C1 build `minimaxon.exe` in the root of the repository: `self/` compiled by
-itself, with today's code generator even where the seed's is older. It finds `runtime/` by walking up from its own executable, so it stays in the tree.
+which has the seed build `bin\c1.exe` and C1 build `bin\minimaxon.exe`: `self/` compiled by itself, with today's code
+generator even where the seed's is older. It is the one compiler every command of the gate uses: the gate builds it from the
+seed, and `go run ./cmd/gate compiler` builds it from the seed unless it is already built from `self/`, `runtime/`, `stdlib/`
+and the seed as they are (`bin\minimaxon.stamp` records what it was built from), which the regenerations (`specs.ps1`,
+`stdlib.ps1`) do first, so that nothing is regenerated with a compiler of other code; `build.ps1` does nothing when it is
+already that build through C1. It finds `runtime/` by walking up from its own executable, so it stays in the tree.
 
 ```powershell
-.\minimaxon.exe run tests/run/arithmetic.maxon
+.\bin\minimaxon.exe run tests/run/arithmetic.maxon
 ```
 
 ```powershell
@@ -44,7 +48,7 @@ from Windows:
 ./check.sh
 ```
 
-is the gate (`go run ./cmd/gate check`), ending `all checks passed`, and `go run ./cmd/gate build` builds `./minimaxon`.
+is the gate (`go run ./cmd/gate check`), ending `all checks passed`, and `go run ./cmd/gate build` builds `./bin/minimaxon`.
 `go run ./cmd/gate specs <maxon's specs directory>` regenerates `specs/` and writes the same files as on Windows: the
 conversion's fixes are made on every target's branches of a test (see "Tests"). The gate runs every step there that a
 Linux host can: the corpus natively for `x64-linux` and, when a `qemu-aarch64` is registered with binfmt_misc
@@ -94,7 +98,7 @@ then miss.
 | `minimaxon fmt [--check] <path>...` | put the `.maxon` files and the Maxon code blocks of the `.md` files under the paths in the one layout; `--check` changes nothing and exits 1 listing the files that are not in it (see "Layout" and "Changing the language") |
 | `minimaxon interp <file\|dir> [--seed=N] [--frees]` | development only: run under the tracking interpreter, which runs a list, a pool, a frozen value, a cown and a behaviour, and reports a violation of the memory model; `--frees` lists the values freed, in order |
 | `minimaxon fuzz [--seed=N] [--count=N] [--schedules=N] [--keep=DIR] [--native] [--dump]` | development only: write random programs, check them and run them under the interpreter (`self/fuzz`); `--native` also runs the executable of each that compiles and compares it with the interpreter (see "Tests") |
-| `go run ./cmd/convert [--specs] [--write] [--check] [--out=DIR] [<path>...]` | convert existing Maxon `.maxon` source files to minimaxon syntax and layout, marking unsupported constructs with `// TODO` comments and warnings on stderr; `--check` writes nothing and prints each kind of warning with its count and files, most frequent first (run `minimaxon qualify` after converting a project of several modules); `--specs` converts maxon's spec files, which is how `specs/` is made. A source file's top-level declaration of a name that minimaxon has built in (`internal/builtingen`'s table, which writes `cmd/convert/builtins_gen.go`) is left out, with the comment above it, since the built-in is the declaration every other module uses; a spec test's program keeps one, as a program may declare such a name. A capability word before a type argument (`Array with immutable Key`) is left out (see "Where it differs from Maxon"). It lays out what it converts with the compiler's `fmt`: `minimaxon.exe` in the root of the repository, or the compiler the environment variable `MINIMAXON` names |
+| `go run ./cmd/convert [--specs] [--write] [--check] [--out=DIR] [<path>...]` | convert existing Maxon `.maxon` source files to minimaxon syntax and layout, marking unsupported constructs with `// TODO` comments and warnings on stderr; `--check` writes nothing and prints each kind of warning with its count and files, most frequent first (run `minimaxon qualify` after converting a project of several modules); `--specs` converts maxon's spec files, which is how `specs/` is made. A source file's top-level declaration of a name that minimaxon has built in (`internal/builtingen`'s table, which writes `cmd/convert/builtins_gen.go`) is left out, with the comment above it, since the built-in is the declaration every other module uses; a spec test's program keeps one, as a program may declare such a name. A capability word before a type argument (`Array with immutable Key`) is left out (see "Where it differs from Maxon"). It lays out what it converts with the compiler's `fmt`: the gate's, `bin\minimaxon.exe` in the repository, or the compiler the environment variable `MINIMAXON` names |
 | `go run ./cmd/sample [-interval D] [-threads] [-top N] [-callers N] [-focus TEXT,...] [-o FILE] <exe> [arg...]` | profile an executable that `build --emit-map` made: runs it, samples its main thread's instruction pointer and its `rbp` frames (1 ms by default), and prints the functions by self and by total samples, with the callers of the top ones and of those whose symbol contains a `-focus` text, and the wall time; code outside the image (a Windows DLL) is charged to the function that called it, found by scanning the stack, and exits with the program's code |
 
 `build` and `test <module dir>` keep each module's code in the build cache and link the code of a module whose key did not
@@ -139,7 +143,7 @@ never edited by hand, except that the runner writes `specs/passed.txt` (see "Tes
 `--emit-ir` writes the IR of every function beside the executable, as `<out>.ir`, in SSA form as instruction selection gets it, and `--emit-map` the map of its code,
 as `<out>.map`: a line per function and routine the link kept, in address order, with its RVA and size in hexadecimal
 and its symbol, which `cmd/sample` reads. A profile of `self/` is two commands:
-`.\minimaxon.exe build self -o bin\prof.exe --emit-map`, then `go run ./cmd/sample bin\prof.exe check self`.
+`.\bin\minimaxon.exe build self -o bin\prof.exe --emit-map`, then `go run ./cmd/sample bin\prof.exe check self`.
 `--verify-ir` checks the IR of every function with the IR verifier (see "The IR") as lowered and again in SSA form, before code is made, and holds
 the register allocation of every function to its invariants (spilling's to `verifyPressure`, colouring's to `checkColouring`), and stops the compile
 with an internal error naming the rules the first broken function breaks. `--timings` (on `build`, `run` and `check`) prints on standard error, once the stages have run, a table with one line for

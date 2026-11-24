@@ -97,7 +97,7 @@ A standing rule, applied after every task or workflow round and before merging.
 - State the working directory, the shell (PowerShell is primary; Bash is Git Bash) and that Go is at
   `C:\Program Files\Go\bin` if not on `PATH`, so agents do not repeat `cd` or rediscover.
 - State the standard facts: the `self/` modules (re-list with Glob before briefing), the gates (`.\check.ps1`, and
-  `.\build.ps1` then `.\minimaxon.exe check self`, which compiles `self` without writing an executable and exits 0
+  `.\build.ps1` then `.\bin\minimaxon.exe check self`, which compiles `self` without writing an executable and exits 0
   silently when clean), and that the Write tool creates missing directories.
 - Ask agents to prefer Read with offset/limit and Grep over `cat`/`sed`/`grep` through the shell. An auto-mode reminder
   tells them otherwise; following it works but costs more output.

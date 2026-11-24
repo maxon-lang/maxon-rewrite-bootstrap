@@ -16,7 +16,7 @@ for a missing feature, to `self/`), then the file is regenerated.
 ## Running the tool
 
 Go may not be on `PATH`; it is at `C:\Program Files\Go\bin`. The tool lays out what it converts with the compiler's
-`fmt`, so build `minimaxon.exe` first (`.\build.ps1`), or name a compiler in the environment variable `MINIMAXON`. Run
+`fmt`, so build `bin\minimaxon.exe` first (`.\build.ps1`), or name a compiler in the environment variable `MINIMAXON`. Run
 from `c:\Users\Eric\Dev\minimaxon`:
 
 ```powershell

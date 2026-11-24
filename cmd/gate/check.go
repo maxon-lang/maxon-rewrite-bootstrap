@@ -26,12 +26,7 @@ func check(h host, testArgs []string) error {
 		{"go fix", func() error { return quiet(nil, "go", "fix", "./...") }},
 		{"vet", func() error { return quiet(nil, "go", "vet", "./...") }},
 		{"generators", checkGenerated},
-		{"compiler from the seed", func() error {
-			if err := os.MkdirAll("bin", 0o755); err != nil {
-				return err
-			}
-			return quiet(nil, abs(h.seed), "build", "self", "-o", compiler)
-		}},
+		{"compiler from the seed", func() error { return buildCompiler(h, bySeed) }},
 	}
 	if err := runSteps(steps); err != nil {
 		return err

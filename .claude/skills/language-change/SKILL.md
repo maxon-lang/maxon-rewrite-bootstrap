@@ -33,7 +33,7 @@ choosing a spelling, rule or message, see how maxon does it, and follow maxon un
   `runtime/`, and the code spans and untagged or `maxon` blocks of the docs:
 
   ```powershell
-  .\build.ps1 ; .\minimaxon.exe rewrite --keyword=old=new tests self runtime docs README.md
+  .\build.ps1 ; .\bin\minimaxon.exe rewrite --keyword=old=new tests self runtime docs README.md
   ```
 
   It changes only keyword tokens (not names, labels, comments, string text or Markdown prose) and names what it could
@@ -44,7 +44,7 @@ choosing a spelling, rule or message, see how maxon does it, and follow maxon un
   formatter rewrite every program in the new layout, and check:
 
   ```powershell
-  .\build.ps1 ; .\minimaxon.exe fmt tests self runtime docs README.md ; .\minimaxon.exe fmt --check tests self runtime docs README.md
+  .\build.ps1 ; .\bin\minimaxon.exe fmt tests self runtime docs README.md ; .\bin\minimaxon.exe fmt --check tests self runtime docs README.md
   ```
 
   `fmt` reads the old layout through the lenient lexer, so a rule the lexer enforces (`E2001`) may need its lenient case

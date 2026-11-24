@@ -1,6 +1,7 @@
 // Command gate holds the repository's checks in one place for every host the compiler is built on: the gate (check), the
 // suites it runs on a compiler (suites), the renewal of the seeds (seed), the regeneration of specs/ (specs) and the
-// day-to-day build (build). check.ps1, seed.ps1, specs.ps1 and build.ps1 on Windows and check.sh on Linux only call it,
+// day-to-day build (build), each with the one compiler bin/minimaxon (compiler.go). check.ps1, seed.ps1, specs.ps1 and
+// build.ps1 on Windows and check.sh on Linux only call it,
 // so the two hosts cannot drift apart in what they check. A step that cannot run on the host says so and why, and is
 // skipped; every other step that fails stops the command.
 //
@@ -9,6 +10,7 @@
 //	go run ./cmd/gate seed
 //	go run ./cmd/gate specs <maxon specs dir>
 //	go run ./cmd/gate build
+//	go run ./cmd/gate compiler
 package main
 
 import (
@@ -29,7 +31,8 @@ const usage = `usage:
   gate suites <compiler> [args...]   the suites a compiler must pass
   gate seed                          renew the seeds, each proven to reproduce itself
   gate specs <maxon specs dir>       regenerate specs/ from maxon's spec tests and write specs/passed.txt again
-  gate build                         build the day-to-day compiler: the seed builds C1, C1 builds self/
+  gate build                         build bin/minimaxon, the day-to-day compiler: the seed builds C1, C1 builds self/
+  gate compiler                      build bin/minimaxon from the seed unless it is built from the sources as they are
 `
 
 func main() {
@@ -92,6 +95,8 @@ func gate() {
 		err = regenerateSpecs(h, args[0])
 	case "build":
 		err = build(h)
+	case "compiler":
+		_, err = currentCompiler(h)
 	default:
 		fmt.Fprint(os.Stderr, usage)
 		os.Exit(2)
@@ -275,18 +280,4 @@ func sameBytes(a, b string) (bool, error) {
 		return false, err
 	}
 	return bytes.Equal(x, y), nil
-}
-
-// build makes the day-to-day compiler, minimaxon in the root of the repository: the seed builds C1 into bin/, and C1 builds
-// self/ again, so that the compiler in the root carries today's code generator. It finds runtime/ by walking up from its own
-// executable, so it stays in the tree.
-func build(h host) error {
-	if err := os.MkdirAll("bin", 0o755); err != nil {
-		return err
-	}
-	c1 := h.compiler("c1")
-	if err := run(nil, h.seed, "build", "self", "-o", c1); err != nil {
-		return err
-	}
-	return run(nil, c1, "build", "self", "-o", "minimaxon"+h.exe)
 }

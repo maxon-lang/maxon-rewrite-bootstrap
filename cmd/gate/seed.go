@@ -98,8 +98,8 @@ func wslCommand(compiler string, args ...string) (string, []string) {
 
 // regenerateSpecs regenerates specs/ from maxon's spec tests: cmd/convert converts their syntax, then the compiler's fix
 // command applies the fix of each diagnostic that minimaxon's language differences raise (README, "Where it differs from
-// Maxon"), on every target's branches of a test. The compiler is bin/minimaxon, the one the gate builds from the seed, so run
-// the gate first. The run at the end runs every test (replayed when it can, specRun) and writes specs/passed.txt again: the
+// Maxon"), on every target's branches of a test. The compiler is bin/minimaxon, built first when it is not of the sources
+// as they are (currentCompiler). The run at the end runs every test (replayed when it can, specRun) and writes specs/passed.txt again: the
 // new passes are added, a listed test that the conversion now skips is dropped (the line "DROPPED"), and a listed test that
 // fails stays, so the gate goes on failing until it is fixed.
 //
@@ -108,9 +108,9 @@ func wslCommand(compiler string, args ...string) (string, []string) {
 // finds beside itself and the skip table, and the specs they wrote, which anything may have edited since. Whatever differs,
 // or if the last conversion did not end, they run, and the stamp is written last.
 func regenerateSpecs(h host, maxonSpecs string) error {
-	compiler := abs(h.compiler("minimaxon"))
-	if !isFile(compiler) {
-		return fmt.Errorf("%s is missing: run the gate to build it", compiler)
+	compiler, err := currentCompiler(h)
+	if err != nil {
+		return err
 	}
 	conversionStamp := filepath.Join("bin", "specs-conversion.stamp")
 	inputs := []string{maxonSpecs, filepath.Join("cmd", "convert"), "go.mod", compiler, "runtime", "stdlib", filepath.Join("self", "driver", "skips.tsv")}
@@ -157,7 +157,7 @@ func regenerateSpecs(h host, maxonSpecs string) error {
 
 // convertSpecs writes specs/ again: maxon's spec files converted, then fixed.
 func convertSpecs(compiler, maxonSpecs string) error {
-	// The conversion lays out what it writes with the same compiler, not with whatever minimaxon is in the root.
+	// The conversion lays out what it writes with the same compiler, whatever the environment names.
 	env := []string{"MINIMAXON=" + compiler}
 	old, err := filepath.Glob(filepath.Join("specs", "*.md"))
 	if err != nil {

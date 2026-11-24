@@ -10,7 +10,7 @@
 # program from the distribution's own /tmp, so neither the start of WSL nor its view of the Windows drives is timed.
 #
 #   .\bench.ps1
-#   .\bench.ps1 -Compiler minimaxon.exe -Target x64-linux -Runs 11
+#   .\bench.ps1 -Compiler bin\c1.exe -Target x64-linux -Runs 11
 param(
 	[string]$Compiler = 'bin\minimaxon.exe',
 	[ValidateSet('x64-windows', 'x64-linux')][string]$Target = 'x64-windows',

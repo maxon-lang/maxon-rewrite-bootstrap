@@ -49,8 +49,9 @@ generators (`internal/`) and the tools (`cmd/`) only; it may not be on `PATH` in
 .\build.ps1
 ```
 
-builds the day-to-day compiler, `minimaxon.exe` in the root: the seed builds C1 into `bin\`, and C1 builds `self/`, so
-it carries today's code generator.
+builds the day-to-day compiler, `bin\minimaxon.exe`: the seed builds C1 into `bin\`, and C1 builds `self/`, so it
+carries today's code generator. It is the one compiler of the gate and its regenerations, which build it first when it is
+not built from the sources as they are.
 
 ```powershell
 .\check.ps1

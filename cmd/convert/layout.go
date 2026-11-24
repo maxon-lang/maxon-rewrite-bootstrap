@@ -17,14 +17,14 @@ import (
 // compiler. A run costs far more than formatting one text, so a conversion of many files first collects every text it
 // will format, formats them all in a few runs, and then converts again with the results at hand.
 
-// compilerVar names the compiler whose fmt lays out converted source; without it, the compiler is minimaxon.exe in the
-// root of the repository, the directory that holds go.mod, found upward from the working directory.
+// compilerVar names the compiler whose fmt lays out converted source; without it, the compiler is the gate's, bin/minimaxon
+// in the repository, the directory that holds go.mod, found upward from the working directory.
 const compilerVar = "MINIMAXON"
 
 const (
-	compilerName = "minimaxon.exe"
-	moduleFile   = "go.mod"
-	layoutExt    = ".maxon"
+	compilerDir = "bin"
+	moduleFile  = "go.mod"
+	layoutExt   = ".maxon"
 	// layoutBatch is how many files one run of fmt is given, which keeps its command line within what Windows allows.
 	layoutBatch = 1000
 	// fmtRefused is fmt's exit code when a file it was named does not parse; every other file is still formatted.
@@ -161,7 +161,15 @@ func formatBatch(texts []string) []laidOut {
 
 var compiler string
 
-// compilerPath is the compiler that formats, from compilerVar or else the root of the repository.
+// executableSuffix ends the name of an executable of the system convert runs on.
+func executableSuffix() string {
+	if runtime.GOOS == "windows" {
+		return ".exe"
+	}
+	return ""
+}
+
+// compilerPath is the compiler that formats, from compilerVar or else the gate's in the repository.
 func compilerPath() string {
 	if compiler != "" {
 		return compiler
@@ -180,13 +188,13 @@ func compilerPath() string {
 		}
 		parent := filepath.Dir(dir)
 		if parent == dir {
-			fail(fmt.Errorf("no %s above the working directory, so no %s to format with: set %s to a compiler", moduleFile, compilerName, compilerVar))
+			fail(fmt.Errorf("no %s above the working directory, so no compiler to format with: set %s to a compiler", moduleFile, compilerVar))
 		}
 		dir = parent
 	}
-	compiler = filepath.Join(dir, compilerName)
+	compiler = filepath.Join(dir, compilerDir, "minimaxon"+executableSuffix())
 	if _, err := os.Stat(compiler); err != nil {
-		fail(fmt.Errorf("%s formats converted source, and there is none: build it with .\\build.ps1, or set %s to a compiler", compiler, compilerVar))
+		fail(fmt.Errorf("%s formats converted source, and there is none: build it with go run ./cmd/gate compiler, or set %s to a compiler", compiler, compilerVar))
 	}
 	return compiler
 }

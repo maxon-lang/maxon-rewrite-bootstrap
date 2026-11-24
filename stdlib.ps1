@@ -5,8 +5,8 @@
 # as specs.ps1 does for the spec tests: a 'let' that is changed becomes a 'var', and a name of another library module is
 # qualified. A file is listed once it converts with no warning and checks clean; the files are never edited here, and a file
 # of stdlib/ that no line names (Map.maxon) is minimaxon's own, which a run leaves alone. The
-# conversion lays out what it writes with bin\minimaxon.exe, the compiler the gate builds from the seed: run .\check.ps1 first
-# to build it. The argument is maxon's stdlib directory.
+# conversion lays out what it writes with bin\minimaxon.exe, the gate's compiler, which `go run ./cmd/gate compiler` builds
+# first when it is not of the sources as they are. The argument is maxon's stdlib directory.
 $ErrorActionPreference = 'Stop'
 if (-not (Get-Command go -ErrorAction SilentlyContinue)) {
 	$env:PATH += ';C:\Program Files\Go\bin'
@@ -14,8 +14,8 @@ if (-not (Get-Command go -ErrorAction SilentlyContinue)) {
 Set-Location $PSScriptRoot
 
 $maxonStdlib = if ($args.Count -gt 0) { $args[0] } else { 'C:\Users\Eric\Dev\maxon\stdlib' }
-if (-not (Test-Path bin\minimaxon.exe)) {
-	Write-Output 'bin\minimaxon.exe is missing: run .\check.ps1 to build it'
+go run ./cmd/gate compiler
+if ($LASTEXITCODE -ne 0) {
 	exit 1
 }
 $env:MINIMAXON = Join-Path $PSScriptRoot 'bin\minimaxon.exe'

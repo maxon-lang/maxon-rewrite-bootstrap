@@ -1,5 +1,5 @@
 # Regenerates specs/ from maxon's spec tests, whose directory is the argument, and writes specs/passed.txt again:
-# cmd/gate's, as on Linux. Run the gate first, which builds the compiler it uses.
+# cmd/gate's, as on Linux, with bin\minimaxon.exe, which it builds first when it is not of the sources as they are.
 $ErrorActionPreference = 'Stop'
 if (-not (Get-Command go -ErrorAction SilentlyContinue)) {
 	$env:PATH += ';C:\Program Files\Go\bin'
