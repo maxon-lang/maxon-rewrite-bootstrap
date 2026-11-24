@@ -129,27 +129,15 @@ export type RoutineSet
 	end 'symbol'
 end 'RoutineSet'
 
-function fieldCount(tt ast.TypeSlot, reads ast.TypeTable, owner ast.TypeID) returns Count
-	return ast.typeEntry(tt, reads: reads, t: ast.originOf(tt, reads: reads, t: owner)).fields.count()
-end 'fieldCount'
-
-function caseCount(tt ast.TypeSlot, reads ast.TypeTable, owner ast.TypeID) returns Count
-	return ast.typeEntry(tt, reads: reads, t: ast.originOf(tt, reads: reads, t: owner)).cases.count()
-end 'caseCount'
-
-function payloadCount(tt ast.TypeSlot, reads ast.TypeTable, owner ast.TypeID, caseIndex Count) returns Count
-	return ast.typeEntry(tt, reads: reads, t: ast.originOf(tt, reads: reads, t: owner)).cases[caseIndex].payload.count()
-end 'payloadCount'
-
 // elementType is the type of what an array holds.
 function elementType(tt ast.TypeSlot, reads ast.TypeTable, array ast.TypeID) returns ast.TypeID
 	return ast.typeEntry(tt, reads: reads, t: array).typeArgs[0]
 end 'elementType'
 
 function anyManagedPayload(mutates tt ast.TypeSlot, reads ast.TypeTable, owner ast.TypeID, caseIndex Count) returns bool
-	for j in 0 upto payloadCount(tt, reads: reads, owner: owner, caseIndex: caseIndex) 'each'
+	for j in 0 upto ir.payloadsOf(tt, reads: reads, owner: owner, caseIndex: caseIndex) 'each'
 		let payloadTy = ast.payloadType(tt, reads: reads, owner: owner, caseIndex: caseIndex, index: j)
-		if ast.isManagedType(tt, reads: reads, t: payloadTy) 'managed'
+		if ir.holdsManaged(tt, reads: reads, t: payloadTy) 'managed'
 			return true
 		end 'managed'
 	end 'each'
@@ -161,16 +149,16 @@ end 'anyManagedPayload'
 function onlyFrees(p ast.Project, mutates ms ast.ModuleState, ty ast.TypeID) returns bool
 	let kind = ast.typeKind(ms.types, reads: p.types, t: ty)
 	if kind == ast.TypeKind.record 'record'
-		for i in 0 upto fieldCount(ms.types, reads: p.types, owner: ty) 'fields'
+		for i in 0 upto ir.fieldsOf(ms.types, reads: p.types, owner: ty) 'fields'
 			let fieldTy = ast.fieldType(ms.types, reads: p.types, owner: ty, index: i)
-			if ast.isManagedType(ms.types, reads: p.types, t: fieldTy) 'managed'
+			if ir.holdsManaged(ms.types, reads: p.types, t: fieldTy) 'managed'
 				return false
 			end 'managed'
 		end 'fields'
 		return true
 	end 'record'
 	if kind == ast.TypeKind.unionTy 'union'
-		for i in 0 upto caseCount(ms.types, reads: p.types, owner: ty) 'cases'
+		for i in 0 upto ir.casesOf(ms.types, reads: p.types, owner: ty) 'cases'
 			if anyManagedPayload(ms.types, reads: p.types, owner: ty, caseIndex: i) 'managed'
 				return false
 			end 'managed'
@@ -429,7 +417,7 @@ function dropPromise(mutates u CodeUnit, a ast.TargetArch, p ast.Project, mutate
 	callRuntimeWithWork(u, a: a, entry: ir.Rt.rtAsyncCancel)
 	let result = ast.promiseResult(ms.types, reads: p.types, t: ty)
 	let errTy = ast.promiseError(ms.types, reads: p.types, t: ty)
-	let managed = ast.isManagedType(ms.types, reads: p.types, t: result)
+	let managed = ir.holdsManaged(ms.types, reads: p.types, t: result)
 	rLoad(u, a: a, dst: rWork, base: rFrame, disp: routineArg)
 	if errTy == ast.noType 'plain'
 		callRuntimeWithWork(u, a: a, entry: ir.Rt.rtAsyncAwait)
@@ -506,7 +494,7 @@ function copyValueInto(mutates u CodeUnit, a ast.TargetArch, p ast.Project, muta
 		return
 	end 'string'
 	rLoad(u, a: a, dst: rWork, base: rSecond, disp: imm32Of(offset))
-	if ast.isManagedType(ms.types, reads: p.types, t: ty) 'managed'
+	if ir.holdsManaged(ms.types, reads: p.types, t: ty) 'managed'
 		routineCall(u, a: a, p: p, ms: ms, kind: RoutineKind.copyRoutine, ty: ty)
 	end 'managed'
 end 'copyValueInto'
@@ -524,7 +512,7 @@ function dropRecord(mutates u CodeUnit, a ast.TargetArch, p ast.Project, mutates
 	routinePrologue(u, a: a, locals: 0)
 	returnIfEmpty(u, a: a, done: done)
 	// Each promise a field holds is cancelled before the drop of any of them waits, as an array's are (cancelElements).
-	for i in 0 upto fieldCount(ms.types, reads: p.types, owner: ty) 'promises'
+	for i in 0 upto ir.fieldsOf(ms.types, reads: p.types, owner: ty) 'promises'
 		let fieldTy = ast.fieldType(ms.types, reads: p.types, owner: ty, index: i)
 		if ast.isPromiseType(ms.types, reads: p.types, t: fieldTy) 'promise'
 			let skip = u.asm.newLabel()
@@ -536,9 +524,9 @@ function dropRecord(mutates u CodeUnit, a ast.TargetArch, p ast.Project, mutates
 			u.asm.bind(skip)
 		end 'promise'
 	end 'promises'
-	for i in 0 upto fieldCount(ms.types, reads: p.types, owner: ty) 'fields'
+	for i in 0 upto ir.fieldsOf(ms.types, reads: p.types, owner: ty) 'fields'
 		let fieldTy = ast.fieldType(ms.types, reads: p.types, owner: ty, index: i)
-		if ast.isManagedType(ms.types, reads: p.types, t: fieldTy) 'managed'
+		if ir.holdsManaged(ms.types, reads: p.types, t: fieldTy) 'managed'
 			let offset = ir.recordFieldOffset(ms.types, reads: p.types, owner: ty, index: i)
 			dropWord(u, a: a, p: p, ms: ms, offset: offset, ty: fieldTy)
 		end 'managed'
@@ -578,7 +566,7 @@ function dropUnion(mutates u CodeUnit, a ast.TargetArch, p ast.Project, mutates 
 	let release = u.asm.newLabel()
 	routinePrologue(u, a: a, locals: 0)
 	returnIfEmpty(u, a: a, done: done)
-	for i in 0 upto caseCount(ms.types, reads: p.types, owner: ty) 'cases'
+	for i in 0 upto ir.casesOf(ms.types, reads: p.types, owner: ty) 'cases'
 		if not anyManagedPayload(ms.types, reads: p.types, owner: ty, caseIndex: i) 'plain'
 			continue 'cases'
 		end 'plain'
@@ -587,9 +575,9 @@ function dropUnion(mutates u CodeUnit, a ast.TargetArch, p ast.Project, mutates 
 		rLoad(u, a: a, dst: rWork, base: rWork, disp: imm32Of(ir.tagOffset))
 		rCmpImm(u, a: a, left: rWork, imm: imm32Of(i))
 		rBranch(u, a: a, cond: MCond.notEqual, label: next)
-		for j in 0 upto payloadCount(ms.types, reads: p.types, owner: ty, caseIndex: i) 'payload'
+		for j in 0 upto ir.payloadsOf(ms.types, reads: p.types, owner: ty, caseIndex: i) 'payload'
 			let payloadTy = ast.payloadType(ms.types, reads: p.types, owner: ty, caseIndex: i, index: j)
-			if ast.isManagedType(ms.types, reads: p.types, t: payloadTy) 'managed'
+			if ir.holdsManaged(ms.types, reads: p.types, t: payloadTy) 'managed'
 				let offset = ir.payloadOffset(ms.types, reads: p.types, owner: ty, caseIndex: i, index: j)
 				dropWord(u, a: a, p: p, ms: ms, offset: offset, ty: payloadTy)
 			end 'managed'
@@ -621,7 +609,7 @@ end 'wordColumns'
 
 function anyManagedColumn(tt ast.TypeSlot, reads ast.TypeTable, columns ast.TypeIDList) returns bool
 	for j in 0 upto columns.count() 'each'
-		if ast.isManagedType(tt, reads: reads, t: columns[j]) 'managed'
+		if ir.holdsManaged(tt, reads: reads, t: columns[j]) 'managed'
 			return true
 		end 'managed'
 	end 'each'
@@ -697,7 +685,7 @@ function dropArray(mutates u CodeUnit, a ast.TargetArch, p ast.Project, mutates 
 		rCmp(u, a: a, left: rWork, right: rThird)
 		rBranch(u, a: a, cond: MCond.aboveEqual, label: out)
 		for j in 0 upto columns.count() 'columns'
-			if ast.isManagedType(ms.types, reads: p.types, t: columns[j]) 'owning'
+			if ir.holdsManaged(ms.types, reads: p.types, t: columns[j]) 'owning'
 				wordAddress(u, a: a, boxDisp: routineArg, indexDisp: routineLocal0, offset: starts[j])
 				dropValueAt(u, a: a, p: p, ms: ms, base: rSecond, offset: 0, ty: columns[j])
 			end 'owning'
@@ -807,7 +795,7 @@ function dropFrozen(mutates u CodeUnit, a ast.TargetArch, p ast.Project, mutates
 	keepHeld(u, a: a, offset: frozenValueOffset)
 	freeArgument(u, a: a)
 	let held = heldType(ms.types, reads: p.types, owner: ty)
-	if ast.isManagedType(ms.types, reads: p.types, t: held) 'managed'
+	if ir.holdsManaged(ms.types, reads: p.types, t: held) 'managed'
 		dropKept(u, a: a, p: p, ms: ms, ty: held)
 	end 'managed'
 	u.asm.bind(done)
@@ -838,7 +826,7 @@ function dropCown(mutates u CodeUnit, a ast.TargetArch, p ast.Project, mutates m
 	rJump(u, a: a, label: done)
 	u.asm.bind(dropped)
 	let held = heldType(ms.types, reads: p.types, owner: ty)
-	if ast.isManagedType(ms.types, reads: p.types, t: held) 'managed'
+	if ir.holdsManaged(ms.types, reads: p.types, t: held) 'managed'
 		dropKept(u, a: a, p: p, ms: ms, ty: held)
 	end 'managed'
 	u.asm.bind(done)
@@ -910,7 +898,7 @@ export function emitTable(mutates u CodeUnit, p ast.Project, mutates ms ast.Modu
 	let a = p.target.arch
 	u.beginSection()
 	u.defineFunction(t.symbol, instance: true)
-	let managed = ast.isManagedType(ms.types, reads: p.types, t: t.concrete)
+	let managed = ir.holdsManaged(ms.types, reads: p.types, t: t.concrete)
 	var start = u.asm.pos()
 	if managed 'drop'
 		let drop = u.needed.symbol(p, ms: ms, kind: RoutineKind.dropRoutine, ty: t.concrete)
@@ -1309,7 +1297,7 @@ function dropOwnedArguments(mutates u CodeUnit, a ast.TargetArch, p ast.Project,
 	for i in 0 upto params 'params'
 		let conv = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: callee).params[i].conv
 		let ty = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: callee).paramTypes[i]
-		if (conv == ast.Convention.convConsumes or conv == ast.Convention.convDestructs) and ast.isManagedType(ms.types, reads: p.types, t: ty) 'owned'
+		if (conv == ast.Convention.convConsumes or conv == ast.Convention.convDestructs) and ir.holdsManaged(ms.types, reads: p.types, t: ty) 'owned'
 			rLoad(u, a: a, dst: rThunkBase, base: rFrame, disp: routineArg)
 			let at = try (greenArgsOffset as Count) + word * wordBytes otherwise panic("routines: a coroutine past memory")
 			dropValueAt(u, a: a, p: p, ms: ms, base: rThunkBase, offset: at, ty: ty)
@@ -1417,10 +1405,9 @@ function copyWord(mutates u CodeUnit, a ast.TargetArch, p ast.Project, mutates m
 end 'copyWord'
 
 function copyRecord(mutates u CodeUnit, a ast.TargetArch, p ast.Project, mutates ms ast.ModuleState, ty ast.TypeID)
-	let fields = fieldCount(ms.types, reads: p.types, owner: ty)
+	let fields = ir.fieldsOf(ms.types, reads: p.types, owner: ty)
 	routinePrologue(u, a: a, locals: 1)
-	let types = ir.fieldTypes(ms.types, reads: p.types, owner: ty)
-	allocate(u, a: a, bytes: ir.valuesBytes(ms.types, reads: p.types, types: types, tagged: false))
+	allocate(u, a: a, bytes: ir.recordBoxBytes(ms.types, reads: p.types, owner: ty))
 	rStore(u, a: a, base: rFrame, disp: routineLocal0, src: rWork)
 	for i in 0 upto fields 'fields'
 		let fieldTy = ast.fieldType(ms.types, reads: p.types, owner: ty, index: i)
@@ -1435,9 +1422,9 @@ end 'copyRecord'
 function copyUnion(mutates u CodeUnit, a ast.TargetArch, p ast.Project, mutates ms ast.ModuleState, ty ast.TypeID)
 	let done = u.asm.newLabel()
 	routinePrologue(u, a: a, locals: 1)
-	let cases = caseCount(ms.types, reads: p.types, owner: ty)
+	let cases = ir.casesOf(ms.types, reads: p.types, owner: ty)
 	for i in 0 upto cases 'cases'
-		let payload = payloadCount(ms.types, reads: p.types, owner: ty, caseIndex: i)
+		let payload = ir.payloadsOf(ms.types, reads: p.types, owner: ty, caseIndex: i)
 		let last = i + 1 == cases
 		let next = u.asm.newLabel()
 		if not last 'check'
@@ -1446,8 +1433,7 @@ function copyUnion(mutates u CodeUnit, a ast.TargetArch, p ast.Project, mutates 
 			rCmpImm(u, a: a, left: rWork, imm: imm32Of(i))
 			rBranch(u, a: a, cond: MCond.notEqual, label: next)
 		end 'check'
-		let types = ir.payloadTypes(ms.types, reads: p.types, owner: ty, caseIndex: i)
-		allocate(u, a: a, bytes: ir.valuesBytes(ms.types, reads: p.types, types: types, tagged: true))
+		allocate(u, a: a, bytes: ir.caseBoxBytes(ms.types, reads: p.types, owner: ty, caseIndex: i))
 		rStore(u, a: a, base: rFrame, disp: routineLocal0, src: rWork)
 		rMovImm(u, a: a, dst: rSecond, imm: try i as FullRangeInt otherwise panic("a case index past memory"))
 		rStore(u, a: a, base: rWork, disp: imm32Of(ir.tagOffset), src: rSecond)
@@ -1512,7 +1498,7 @@ function copyArray(mutates u CodeUnit, a ast.TargetArch, p ast.Project, mutates 
 			copyValueInto(u, a: a, p: p, ms: ms, offset: 0, ty: columns[j])
 		end 'string' else 'word'
 			rLoad(u, a: a, dst: rWork, base: rSecond, disp: 0)
-			if ast.isManagedType(ms.types, reads: p.types, t: columns[j]) 'managed'
+			if ir.holdsManaged(ms.types, reads: p.types, t: columns[j]) 'managed'
 				rTest(u, a: a, left: rWork, right: rWork)
 				rBranch(u, a: a, cond: MCond.equal, label: empty)
 				routineCall(u, a: a, p: p, ms: ms, kind: RoutineKind.copyRoutine, ty: columns[j])

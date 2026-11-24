@@ -1687,6 +1687,14 @@ and holds no address, the bytes of literals and of the entry stub's texts and th
 data: PE's `.rdata`, a read-only ELF `PT_LOAD` between the code's and the data's, and Mach-O's `__TEXT,__const`; the link
 lays out each piece of a unit's data (`DataSection.readOnly`) in one or the other, so a write through a literal faults.
 
+**The layout table** (`self/ir/layouts.maxon`) is the one place that says how a value of a type is held and where the parts
+of a box lie: a value's form (a word of nothing to drop, a managed word whose 0 is the empty place, or a String's two
+words), how many words it takes, whether its all-zero value is no value of the type (so an empty slot can be told), its
+niche (a bit pattern no value has: a managed word's 0, a ranged integer's word below its least value, an enum's past its
+last case, a bool's past true), and the size of a record's or a union case's box and the offset of each field and payload.
+Lowering, the drop and copy routines, the datums, a map's groups, the register kinds and the debug info all ask it, and it
+computes each answer from the declarations without allocating, so a change of layout is a change of its answers.
+
 ### Constants in the data section
 
 A constant whose value is a box built only of what is known before the program runs (a top-level or `static let`, and each

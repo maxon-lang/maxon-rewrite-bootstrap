@@ -1,63 +1,170 @@
-// Where the parts of a box lie (README, "The IR"): a value takes a word, and a String two, the address of its bytes and
-// its word, held inline wherever a value is, so a field, a payload or a capture lies after the words of the ones before
-// it. Lowering, the backend's routines and the datums lay out every box with these, so they agree.
+// The layout table (README, "Layouts"): the one place that says how a value of a type is held and where the parts of a
+// box lie. Lowering, the backend's routines, the datums, the groups of a map and the debug info all ask it, so they agree,
+// and a change of layout is a change of its answers. Every answer is computed from the type's declaration as it is asked
+// for, and allocates nothing.
+//
+// A value is held wherever a value is (a register, a slot, a field, an element, a payload, a capture) in its form: a word
+// of nothing to drop, a managed word (the address of a box it owns or counts, where 0 is the empty place a move leaves), or
+// a String's two words. A record, and a union, is a managed word: the address of its box of values, one after another,
+// each in its form, after a union's case index.
 
-// valueWords is how many words a value of the type takes in memory.
-export function valueWords(tt ast.TypeSlot, reads ast.TypeTable, t ast.TypeID) returns Count
+// ValueForm is how a value is held.
+export enum ValueForm
+	formScalar
+	formManaged
+	formString
+end 'ValueForm'
+
+// Niche is the spare bit pattern of a value's form that no value of the type has, which a layout may give a meaning of its
+// own: the 0 of a managed word, a ranged integer's word below its least value, an enum's word past its last case, a bool's
+// word past true.
+export enum Niche
+	nicheNone
+	nicheNull
+	nicheBelow
+	nicheEnum
+	nicheBool
+end 'Niche'
+
+// valueForm is how a value of the type is held.
+export function valueForm(tt ast.TypeSlot, reads ast.TypeTable, t ast.TypeID) returns ValueForm
 	if ast.isStringType(tt, reads: reads, t: t) 'string'
+		return ValueForm.formString
+	end 'string'
+	if ast.isManagedType(tt, reads: reads, t: t) 'managed'
+		return ValueForm.formManaged
+	end 'managed'
+	return ValueForm.formScalar
+end 'valueForm'
+
+// holdsManaged is whether a value of the type holds something to drop and to copy: a managed word or a String.
+export function holdsManaged(tt ast.TypeSlot, reads ast.TypeTable, t ast.TypeID) returns bool
+	return valueForm(tt, reads: reads, t: t) != ValueForm.formScalar
+end 'holdsManaged'
+
+// valueWords is how many words a value of the type takes where it is held.
+export function valueWords(tt ast.TypeSlot, reads ast.TypeTable, t ast.TypeID) returns Count
+	if valueForm(tt, reads: reads, t: t) == ValueForm.formString 'string'
 		return stringValueBytes / wordBytes
 	end 'string'
 	return 1
 end 'valueWords'
 
-// wordsBefore is how many words the values of the first count of the types take.
-export function wordsBefore(tt ast.TypeSlot, reads ast.TypeTable, types ast.TypeIDList, count Count) returns Count
+// zeroIsEmpty is whether the value whose words are all 0 is no value of the type, so that an empty slot of an array, which
+// is zeroed, can be told from a filled one: true of a managed word and a String, false of a scalar, whose 0 is a value.
+export function zeroIsEmpty(tt ast.TypeSlot, reads ast.TypeTable, t ast.TypeID) returns bool
+	return holdsManaged(tt, reads: reads, t: t)
+end 'zeroIsEmpty'
+
+// nicheOf is the niche of a value of the type.
+export function nicheOf(tt ast.TypeSlot, reads ast.TypeTable, t ast.TypeID) returns Niche
+	let form = valueForm(tt, reads: reads, t: t)
+	if form == ValueForm.formManaged 'managed'
+		return Niche.nicheNull
+	end 'managed'
+	if form == ValueForm.formString 'string'
+		return Niche.nicheNone
+	end 'string'
+	let kind = ast.typeKind(tt, reads: reads, t: t)
+	if kind == ast.TypeKind.primBool 'bool'
+		return Niche.nicheBool
+	end 'bool'
+	if kind == ast.TypeKind.enumTy 'enum'
+		return Niche.nicheEnum
+	end 'enum'
+	if kind == ast.TypeKind.intRange and hasWordBelow(ast.typeEntry(tt, reads: reads, t: t)) 'below'
+		return Niche.nicheBelow
+	end 'below'
+	return Niche.nicheNone
+end 'nicheOf'
+
+// signBitWord is the word whose sign bit alone is set, the least signed word.
+let signBitWord = 9223372036854775808 as Count
+
+// greatestSignedWord is the greatest signed word.
+let greatestSignedWord = 9223372036854775807 as Count
+
+// hasWordBelow is whether a ranged integer is held as a signed word and has a least value above the least signed word, so
+// the word below it is a value of none.
+function hasWordBelow(entry ast.TypeEntry) returns bool
+	let leastAbove = entry.minVal.hi >= 0 or (entry.minVal.hi == -1 and entry.minVal.lo > signBitWord)
+	let mostSigned = entry.maxVal.hi < 0 or (entry.maxVal.hi == 0 and entry.maxVal.lo <= greatestSignedWord)
+	return leastAbove and mostSigned
+end 'hasWordBelow'
+
+// boxBytes is the size of a box of a number of words of values (one for a box of none), and a first word for a union's
+// case index when tagged.
+export function boxBytes(values Count, tagged bool) returns Count
+	var words = values
+	if words < 1 'one'
+		words = 1
+	end 'one'
+	if tagged 'tag'
+		words = succ(words)
+	end 'tag'
+	return wordOffset(words)
+end 'boxBytes'
+
+// fieldOffset is where a value sits in a box after a number of words of the values before it: after the case index when
+// the box is a union's.
+export function fieldOffset(word Count, tagged bool) returns Count
+	if tagged 'tag'
+		return wordOffset(succ(word))
+	end 'tag'
+	return wordOffset(word)
+end 'fieldOffset'
+
+// fieldsOf is how many fields the record owner has, an instance's as its origin declares them.
+export function fieldsOf(tt ast.TypeSlot, reads ast.TypeTable, owner ast.TypeID) returns Count
+	return ast.typeEntry(tt, reads: reads, t: ast.originOf(tt, reads: reads, t: owner)).fields.count()
+end 'fieldsOf'
+
+// casesOf is how many cases the union owner has.
+export function casesOf(tt ast.TypeSlot, reads ast.TypeTable, owner ast.TypeID) returns Count
+	return ast.typeEntry(tt, reads: reads, t: ast.originOf(tt, reads: reads, t: owner)).cases.count()
+end 'casesOf'
+
+// payloadsOf is how many values the case caseIndex of the union owner carries.
+export function payloadsOf(tt ast.TypeSlot, reads ast.TypeTable, owner ast.TypeID, caseIndex Count) returns Count
+	return ast.typeEntry(tt, reads: reads, t: ast.originOf(tt, reads: reads, t: owner)).cases[caseIndex].payload.count()
+end 'payloadsOf'
+
+// fieldWordsBefore is how many words the fields of the record owner before index take.
+function fieldWordsBefore(mutates tt ast.TypeSlot, reads ast.TypeTable, owner ast.TypeID, index Count) returns Count
 	var words = 0 as Count
-	for i in 0 upto count 'each'
-		words = try words + valueWords(tt, reads: reads, t: types[i]) otherwise panic("ir: a box past memory")
+	for i in 0 upto index 'each'
+		let field = ast.fieldType(tt, reads: reads, owner: owner, index: i)
+		words = try words + valueWords(tt, reads: reads, t: field) otherwise panic("ir: a box past memory")
 	end 'each'
 	return words
-end 'wordsBefore'
+end 'fieldWordsBefore'
 
-// valuesBytes is the size of a box of values of the types: a word for a box of none, and a first word for a union's case
-// index when tagged.
-export function valuesBytes(tt ast.TypeSlot, reads ast.TypeTable, types ast.TypeIDList, tagged bool) returns Count
-	return boxBytes(wordsBefore(tt, reads: reads, types: types, count: types.count()), tagged: tagged)
-end 'valuesBytes'
+// payloadWordsBefore is how many words the payload of the case caseIndex of the union owner before index takes.
+function payloadWordsBefore(mutates tt ast.TypeSlot, reads ast.TypeTable, owner ast.TypeID, caseIndex Count, index Count) returns Count
+	var words = 0 as Count
+	for i in 0 upto index 'each'
+		let payload = ast.payloadType(tt, reads: reads, owner: owner, caseIndex: caseIndex, index: i)
+		words = try words + valueWords(tt, reads: reads, t: payload) otherwise panic("ir: a box past memory")
+	end 'each'
+	return words
+end 'payloadWordsBefore'
 
-// valueOffset is where the value at index of a box of values of the types sits: after the case index when tagged.
-export function valueOffset(tt ast.TypeSlot, reads ast.TypeTable, types ast.TypeIDList, index Count, tagged bool) returns Count
-	return fieldOffset(wordsBefore(tt, reads: reads, types: types, count: index), tagged: tagged)
-end 'valueOffset'
+// recordBoxBytes is the size of the box of the record owner, an instance's with its arguments applied.
+export function recordBoxBytes(mutates tt ast.TypeSlot, reads ast.TypeTable, owner ast.TypeID) returns Count
+	return boxBytes(fieldWordsBefore(tt, reads: reads, owner: owner, index: fieldsOf(tt, reads: reads, owner: owner)), tagged: false)
+end 'recordBoxBytes'
 
-// fieldTypes is the types of the fields of the record owner, an instance's with its arguments applied.
-export function fieldTypes(mutates tt ast.TypeSlot, reads ast.TypeTable, owner ast.TypeID) returns ast.TypeIDList
-	var types = ast.TypeIDList.create(0)
-	let count = ast.typeEntry(tt, reads: reads, t: ast.originOf(tt, reads: reads, t: owner)).fields.count()
-	for i in 0 upto count 'fields'
-		types.push(ast.fieldType(tt, reads: reads, owner: owner, index: i))
-	end 'fields'
-	return types
-end 'fieldTypes'
-
-// payloadTypes is the types of the payload of a case of the union owner.
-export function payloadTypes(mutates tt ast.TypeSlot, reads ast.TypeTable, owner ast.TypeID, caseIndex Count) returns ast.TypeIDList
-	var types = ast.TypeIDList.create(0)
-	let count = ast.typeEntry(tt, reads: reads, t: ast.originOf(tt, reads: reads, t: owner)).cases[caseIndex].payload.count()
-	for i in 0 upto count 'payload'
-		types.push(ast.payloadType(tt, reads: reads, owner: owner, caseIndex: caseIndex, index: i))
-	end 'payload'
-	return types
-end 'payloadTypes'
+// caseBoxBytes is the size of the box of the case caseIndex of the union owner.
+export function caseBoxBytes(mutates tt ast.TypeSlot, reads ast.TypeTable, owner ast.TypeID, caseIndex Count) returns Count
+	return boxBytes(payloadWordsBefore(tt, reads: reads, owner: owner, caseIndex: caseIndex, index: payloadsOf(tt, reads: reads, owner: owner, caseIndex: caseIndex)), tagged: true)
+end 'caseBoxBytes'
 
 // recordFieldOffset is where the field at index of a box of the record owner sits.
 export function recordFieldOffset(mutates tt ast.TypeSlot, reads ast.TypeTable, owner ast.TypeID, index Count) returns Count
-	let types = fieldTypes(tt, reads: reads, owner: owner)
-	return valueOffset(tt, reads: reads, types: types, index: index, tagged: false)
+	return fieldOffset(fieldWordsBefore(tt, reads: reads, owner: owner, index: index), tagged: false)
 end 'recordFieldOffset'
 
 // payloadOffset is where the payload at index of a box of the case caseIndex of the union owner sits.
 export function payloadOffset(mutates tt ast.TypeSlot, reads ast.TypeTable, owner ast.TypeID, caseIndex Count, index Count) returns Count
-	let types = payloadTypes(tt, reads: reads, owner: owner, caseIndex: caseIndex)
-	return valueOffset(tt, reads: reads, types: types, index: index, tagged: true)
+	return fieldOffset(payloadWordsBefore(tt, reads: reads, owner: owner, caseIndex: caseIndex, index: index), tagged: true)
 end 'payloadOffset'

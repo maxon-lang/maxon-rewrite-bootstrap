@@ -261,13 +261,11 @@ end 'regKind'
 
 // kindOfType is the kind of a value of a type.
 function kindOfType(p ast.Project, ms ast.ModuleState, t ast.TypeID) returns IrKind
-	if ast.isStringType(ms.types, reads: p.types, t: t) 'string'
-		return IrKind.kindString
-	end 'string'
-	if ast.isManagedType(ms.types, reads: p.types, t: t) 'managed'
-		return IrKind.kindManaged
-	end 'managed'
-	return IrKind.kindScalar
+	return match valueForm(ms.types, reads: p.types, t: t) 'form'
+		formScalar gives IrKind.kindScalar
+		formManaged gives IrKind.kindManaged
+		formString gives IrKind.kindString
+	end 'form'
 end 'kindOfType'
 
 // applyType is a type of the body with the type parameters of the function replaced by their arguments.

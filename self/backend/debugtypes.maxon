@@ -142,15 +142,16 @@ type DebugTypes
 				fieldNamesOf.push("{i}")
 			end 'places'
 		end 'tuple' else 'record'
-			types = ir.fieldTypes(ms.types, reads: p.types, owner: t)
+			types = ast.TypeIDList.create(0)
 			let origin = ast.originOf(ms.types, reads: p.types, t: t)
-			for i in 0 upto types.count() 'fields'
+			for i in 0 upto ir.fieldsOf(ms.types, reads: p.types, owner: t) 'fields'
+				types.push(ast.fieldType(ms.types, reads: p.types, owner: t, index: i))
 				fieldNamesOf.push(ast.typeEntry(ms.types, reads: p.types, t: origin).fields[i].name.clone())
 			end 'fields'
 		end 'record'
-		self.begin(t, name: name.clone(), kind: mxdbg.MxdbgTypeKindStruct, size: ir.valuesBytes(ms.types, reads: p.types, types: types, tagged: false), align: wordSize, flag: 0)
+		self.begin(t, name: name.clone(), kind: mxdbg.MxdbgTypeKindStruct, size: ir.recordBoxBytes(ms.types, reads: p.types, owner: t), align: wordSize, flag: 0)
 		for i in 0 upto types.count() 'fields'
-			self.addField(fieldNamesOf[i].clone(), offset: ir.valueOffset(ms.types, reads: p.types, types: types, index: i, tagged: false), t: types[i])
+			self.addField(fieldNamesOf[i].clone(), offset: ir.recordFieldOffset(ms.types, reads: p.types, owner: t, index: i), t: types[i])
 		end 'fields'
 	end 'describeRecord'
 
@@ -164,8 +165,7 @@ type DebugTypes
 		for c in 0 upto cases 'cases'
 			let count = ast.typeEntry(ms.types, reads: p.types, t: origin).cases[c].payload.count()
 			if kind == mxdbg.MxdbgTypeKindUnion 'box'
-				let types = ir.payloadTypes(ms.types, reads: p.types, owner: t, caseIndex: c)
-				let bytes = ir.valuesBytes(ms.types, reads: p.types, types: types, tagged: true)
+				let bytes = ir.caseBoxBytes(ms.types, reads: p.types, owner: t, caseIndex: c)
 				if bytes > size 'larger'
 					size = bytes
 				end 'larger'

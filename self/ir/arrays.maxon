@@ -132,14 +132,14 @@ export function emptySlotMessage(index Count) returns String
 	return "empty slot: element {index} of the array was never filled"
 end 'emptySlotMessage'
 
-// requireFilled goes on only when the element read from a slot is there: a managed element of an empty slot is 0, and a
-// scalar has no empty slot, since 0 is a value of it.
+// requireFilled goes on only when the element read from a slot is there: an empty slot is zeroed, which tells where the
+// zero value is no value of the element's type (zeroIsEmpty), and is a value otherwise.
 function requireFilled(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, site diag.Site, elem ast.TypeID, element Reg, index Reg, read SlotRead)
-	if not ast.isManagedType(ms.types, reads: p.types, t: elem) 'scalar'
+	if not zeroIsEmpty(ms.types, reads: p.types, t: elem) 'value'
 		return
-	end 'scalar'
+	end 'value'
 	var word = element
-	if ast.isStringType(ms.types, reads: p.types, t: elem) 'string'
+	if valueForm(ms.types, reads: p.types, t: elem) == ValueForm.formString 'string'
 		// A String that holds its bytes in its words may have a first word of 0, but never a word of 0 then.
 		let first = newReg(l, kind: IrKind.kindScalar)
 		emit(l, i: newStrPtr(first, src: element))

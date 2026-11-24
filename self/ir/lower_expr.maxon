@@ -890,43 +890,22 @@ function checkedCallee(l Lowerer, p ast.Project, ms ast.ModuleState, target ast.
 	return target
 end 'checkedCallee'
 
-// boxBytes is the size of a record or union box of a number of words of values (one for a box with none), and a first
-// word for a union's case index (layouts.maxon). The backend sizes the boxes it copies with it, so a copy has the layout
-// lowering gives a value.
-export function boxBytes(values Count, tagged bool) returns Count
-	var words = values
-	if words < 1 'one'
-		words = 1
-	end 'one'
-	if tagged 'tag'
-		words = succ(words)
-	end 'tag'
-	return wordOffset(words)
-end 'boxBytes'
-
-// fieldOffset is where a value sits in a box after a number of words of the values before it: after the case index when
-// the box is a union's.
-export function fieldOffset(word Count, tagged bool) returns Count
-	if tagged 'tag'
-		return wordOffset(succ(word))
-	end 'tag'
-	return wordOffset(word)
-end 'fieldOffset'
-
 // record is a new box of the fields of the type t, which the tag, when it has one, makes a union: values are the
 // expression of each field. The box is in flight while its fields are computed, and owns each one once it is stored.
 function record(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, t ast.TypeID, tag Index, values ExprRefList) returns Reg
 	let tagged = tag != noTag
 	let count = values.count()
 	let applied = applyType(l, p: p, ms: ms, t: t)
-	var types = ast.TypeIDList.create(0)
+	var caseIndex = 0 as Count
+	var bytes = 0 as Count
 	if tagged 'union'
-		types = payloadTypes(ms.types, reads: p.types, owner: applied, caseIndex: try tag as Count otherwise panic("ir: a case index is out of range"))
+		caseIndex = try tag as Count otherwise panic("ir: a case index is out of range")
+		bytes = caseBoxBytes(ms.types, reads: p.types, owner: applied, caseIndex: caseIndex)
 	end 'union' else 'fields'
-		types = fieldTypes(ms.types, reads: p.types, owner: applied)
+		bytes = recordBoxBytes(ms.types, reads: p.types, owner: applied)
 	end 'fields'
 	let box = newReg(l, kind: IrKind.kindManaged)
-	emit(l, i: newAlloc(box, bytes: valuesBytes(ms.types, reads: p.types, types: types, tagged: tagged)))
+	emit(l, i: newAlloc(box, bytes: bytes))
 	if tagged 'tagStore'
 		let tagReg = konst(l, value: try tag as Word otherwise panic("ir: a case index is out of range"))
 		emit(l, i: newStoreField(box, offset: tagOffset, src: tagReg, borrow: false))
@@ -938,7 +917,13 @@ function record(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, t 
 	end 'owned'
 	for i in 0 upto count 'each'
 		let v = exprIn(l, p: p, ms: ms, e: values[i])
-		emit(l, i: newStoreField(box, offset: valueOffset(ms.types, reads: p.types, types: types, index: i, tagged: tagged), src: v, borrow: false))
+		var offset = 0 as Count
+		if tagged 'payload'
+			offset = payloadOffset(ms.types, reads: p.types, owner: applied, caseIndex: caseIndex, index: i)
+		end 'payload' else 'field'
+			offset = recordFieldOffset(ms.types, reads: p.types, owner: applied, index: i)
+		end 'field'
+		emit(l, i: newStoreField(box, offset: offset, src: v, borrow: false))
 		popPending(l, n: succ(mark))
 	end 'each'
 	popPending(l, n: mark)
