@@ -1,0 +1,45 @@
+// A String's grapheme clusters through the iteration protocol, for code that reaches it through Iterable: a type parameter
+// it stands for, or an interface value. A for over a String the code knows walks it in place, with no iterator (README,
+// "Iteration"), and gives each cluster as this one's current() does.
+extension String implements Iterable with (String, StringIterator)
+	/// Create a fresh iterator over the grapheme clusters, which holds a copy of the String.
+	/// Throws IterationError.exhausted if the string is empty.
+	public function createIterator() returns StringIterator throws IterationError
+		return try StringIterator.create(self.clone())
+	end 'createIterator'
+end 'String'
+
+/// Iterator for String: its grapheme clusters in order, each lent as a view of the String it holds.
+/// Positioning invariant: the cluster at `at` ends at `stop`, which `current()` lends without looking again.
+public type StringIterator implements Iterator with String
+	let text as String
+	var at as Count
+	var stop as Count
+
+	export static function create(consumes text String) returns Self throws IterationError
+		if text.byteLength() == 0 'empty'
+			throw IterationError.exhausted
+		end 'empty'
+		let stop = Self.clusterEnd(text, at: 0)
+		return Self{text: text, at: 0, stop: stop}
+	end 'create'
+
+	// clusterEnd is the byte position where the grapheme cluster that starts at a position of the text ends.
+	static function clusterEnd(text String, at Count) returns Count
+		let rest = text.sliceBytes(at, endPos: text.byteLength())
+		let size = rest.sliceLength(rest.startIndex(), length: 1).byteLength()
+		return try at + size otherwise panic("StringIterator: a cluster past the end of the text")
+	end 'clusterEnd'
+
+	public function current() returns borrowed String
+		return text.sliceBytes(at, endPos: stop)
+	end 'current'
+
+	public function advance(mutates self) throws IterationError
+		if stop >= text.byteLength() 'done'
+			throw IterationError.exhausted
+		end 'done'
+		at = stop
+		stop = Self.clusterEnd(text, at: at)
+	end 'advance'
+end 'StringIterator'

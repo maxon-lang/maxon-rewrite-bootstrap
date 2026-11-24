@@ -188,6 +188,12 @@ function entryStrOwned(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	giveFlag(vm, x: x, b: not vm.h.oImmortal[o])
 end 'entryStrOwned'
 
+// entryStrAscii is a String's ASCII bit, which the interpreter keeps none of, so it says nothing is known (strKnownSimple).
+function entryStrAscii(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	_ = try textIndex(vm, o: argRef(vm, f: f, x: x, i: 0), what: "an ASCII bit")
+	giveFlag(vm, x: x, b: false)
+end 'entryStrAscii'
+
 function entryStrExtend(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	let at = try textIndex(vm, o: argRef(vm, f: f, x: x, i: 0), what: "an extended string")
 	let made = newString(vm, text: vm.h.texts[at].clone())

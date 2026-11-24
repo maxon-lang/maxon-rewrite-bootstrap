@@ -1,0 +1,51 @@
+typealias ItemList = List with Item
+
+typealias Counts = List with Count
+
+type Item
+	export var name as String
+	export var weight as Count
+
+	static function make(consumes name String, weight Count) returns Item
+		return Item{name: name, weight: weight}
+	end 'make'
+end 'Item'
+
+function main() returns ExitCode
+	var l = ItemList.create()
+	_ = l.append(Item.make("b", weight: 2))
+	_ = l.prepend(Item.make("a", weight: 1))
+	_ = l.append(Item.make("c", weight: 3))
+	for item in l 'items'
+		print("{item.name}:{item.weight};")
+	end 'items'
+	print("\n")
+	var total = 0 as Count
+	for item in l 'outer'
+		for other in l 'inner'
+			if other.weight == item.weight 'self'
+				continue 'inner'
+			end 'self'
+			total = try total + other.weight otherwise panic("overflow")
+		end 'inner'
+		if item.name == "b" 'stop'
+			break 'outer'
+		end 'stop'
+	end 'outer'
+	print("{total}\n")
+	let empty = Counts.create()
+	for _ in empty 'none'
+		print("never\n")
+	end 'none'
+	let numbers = Counts from [4, 5, 6]
+	var sum = 0 as Count
+	for n in numbers 'sum'
+		sum = try sum + n otherwise panic("overflow")
+	end 'sum'
+	print("{sum}\n")
+	return 0
+end 'main'
+
+//> a:1;b:2;c:3;
+//> 9
+//> 15

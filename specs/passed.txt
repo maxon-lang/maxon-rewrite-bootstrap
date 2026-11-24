@@ -375,6 +375,7 @@ assignment.md: error.wrong-enum-into-an-enum-field
 assignment.md: multiple-assignments
 associated-type-held-at-an-interface.md: a-use-site-binding-a-type-parameter-is-a-claim-about-each-instantiation
 associated-type-held-at-an-interface.md: error.held-binding-whose-conformer-holds-a-function-value-is-frozen
+associated-type-held-at-an-interface.md: held.the-element-is-the-enclosing-types-own-parameter
 associated-types.md: a-conformance-declared-by-an-extension-binds-its-own-associated-type
 associated-types.md: a-constraint-bound-result-crosses-from-the-owner-types-file
 associated-types.md: a-written-binding-spelled-qualified-matches-its-conformers
@@ -998,9 +999,14 @@ challenge-struct-field-assign.md: struct-field-reassignment
 challenge-struct-lifetime.md: multiple-struct-returns
 challenge-struct-lifetime.md: pass-struct-to-function-and-return
 challenge-struct-lifetime.md: return-struct-with-computed-fields
+character-ownership.md: crlf-iterates-once
+character-ownership.md: empty-string-iterates-zero-times
+character-ownership.md: for-in-string-drops-every-cluster
+character-ownership.md: four-byte-cluster-at-end
 character-ownership.md: grapheme-count-of-ascii-matches-byte-length
 character-ownership.md: lone-combining-mark-is-one-cluster
 character-ownership.md: lone-zero-width-joiner-is-one-cluster
+character-ownership.md: unpaired-regional-indicator-trails
 character-set.md: trim-end-all-match
 character-set.md: trim-in-a-loop
 character-set.md: trim-result-discarded
@@ -2608,6 +2614,9 @@ for-destructuring-pattern.md: discard-a-position
 for-destructuring-pattern.md: non-tuple-element
 for-in-existential.md: error.existential-requires-no-traversal
 for-in-existential.md: existential.constrained-type-parameter
+for-in-existential.md: existential.every-producer-of-one
+for-in-existential.md: existential.iterable-factory
+for-in-existential.md: existential.merge-phi-two-conformers
 for-in-iterable.md: error.a-factory-throwing-another-error-is-refused
 for-in-iterable.md: for-in-iterable.a-cursor-that-is-also-a-factory-is-walked-as-a-cursor
 for-in-iterable.md: for-in-iterable.an-empty-collection-runs-zero-trips-and-drops-nothing
@@ -3171,6 +3180,7 @@ global-file-private-same-name.md: global-file-private-same-name.two-directories-
 global-file-private-same-name.md: global-file-private-same-name.two-private-helpers-of-one-name-in-two-directories-returning-different-managed-types
 grapheme-clusters.md: grapheme-boundary-ascii
 grapheme-clusters.md: grapheme-boundary-combining-accent
+grapheme-clusters.md: grapheme-boundary-combining-iteration
 grapheme-clusters.md: grapheme-boundary-crlf
 grapheme-clusters.md: grapheme-boundary-emoji
 grapheme-clusters.md: grapheme-boundary-flag
@@ -4828,6 +4838,7 @@ nominal-function-alias.md: error.handler-into-callback-parameter
 nominal-function-alias.md: error.nested-alias-position-is-nominal
 nominal-function-alias.md: error.ternary-of-an-alias-typed-parameter-and-a-different-shape
 nominal-function-alias.md: error.ternary-over-two-function-aliases
+nominal-generic-alias.md: a-call-result-of-a-qualified-existential-return-is-iterated
 nominal-generic-alias.md: a-cast-between-a-library-and-an-authors-same-layout-element-is-a-rebrand
 nominal-generic-alias.md: a-cast-between-nested-instances-over-one-declaration-is-a-rebrand
 nominal-generic-alias.md: a-clone-of-a-declared-generics-instance-is-a-record-of-its-own
@@ -5195,6 +5206,7 @@ parameter-write-seeds.md: a-callee-that-pushes-into-a-fresh-array-leaves-the-par
 parameter-write-seeds.md: a-callee-that-writes-an-array-held-by-a-fresh-record-leaves-the-parameter-alone
 parameterized-existential.md: a-call-result-carries-the-instance-its-declared-return-names
 parameterized-existential.md: a-generic-alias-binding-agrees-with-the-conformers-instance
+parameterized-existential.md: parameterized.every-producer-of-one
 parentheses.md: complex-expression
 parentheses.md: grouping-parenthesis-split-after-an-operator
 parentheses.md: grouping-parenthesis-split-before-an-operator
@@ -5632,6 +5644,7 @@ raw-bit-patterns.md: xor-over-a-top-bit-variable-reaches-an-unsigned-quantity-pa
 readonly-element-returns.md: error.a-method-returning-an-immutable-element-or-a-fresh-record-hands-back-a-read-only-value
 readonly-element-types.md: a-map-stores-frozen-values-and-stays-mutable
 readonly-element-types.md: a-wrapper-storing-into-an-immutable-element-takes-a-frozen-argument
+readonly-element-types.md: error.a-for-variable-over-an-immutable-list-is-not-written
 readonly-element-types.md: error.a-for-variable-over-immutable-elements-is-not-written
 readonly-element-types.md: error.an-element-an-iterator-pair-yields-is-not-written
 readonly-element-types.md: error.an-element-is-not-bound-to-a-var
@@ -6933,6 +6946,9 @@ string-type-2.md: codepoints-view
 string-type-2.md: count-graphemes
 string-type-2.md: count-vs-bytes-count
 string-type-2.md: cow-slice-independent
+string-type-2.md: grapheme-iteration-emoji
+string-type-2.md: grapheme-iteration-flag
+string-type-2.md: grapheme-iteration-zwj
 string-type-2.md: heap-string-byteview
 string-type-2.md: heap-string-data-access
 string-type-2.md: heap-string-equality
@@ -6946,6 +6962,7 @@ string-type-2.md: reassigned-var-equality-not-const-folded
 string-type-2.md: slice-basic
 string-type-2.md: slice-empty
 string-type-2.md: slice-full
+string-type-2.md: slice-iteration
 string-type-2.md: string-append-basic
 string-type-2.md: string-append-empty
 string-type-2.md: string-append-implicit-loop
@@ -6954,6 +6971,7 @@ string-type-2.md: string-append-loop
 string-type-2.md: string-append-multi-parts
 string-type-2.md: string-append-self
 string-type-2.md: string-append-variable
+string-type-2.md: string-double-iteration
 string-type-2.md: string-reassignment
 string-type-2.md: toLower
 string-type-2.md: tobytearray-is-independent-of-a-literal-source
@@ -6971,6 +6989,7 @@ string-type.md: find-last-basic
 string-type.md: find-last-not-found
 string-type.md: find-last-overlapping
 string-type.md: find-last-single
+string-type.md: for-in-string
 string-type.md: inequality
 string-type.md: isEmpty-method
 string-type.md: long-string

@@ -642,7 +642,7 @@ type Collector uses Element
 	end 'create'
 
 	static function from(source ElementBag) returns Self
-		let result = ElementArray.create(0)
+		var result = ElementArray.create(0)
 		for item in source 'collect'
 			result.push(item)
 		end 'collect'
@@ -653,7 +653,7 @@ end 'Collector'
 typealias IntCollector = Collector with Integer
 
 function main() returns ExitCode
-	let c = IntCollector.create()
+	var c = IntCollector.create()
 	c.items.push(7)
 	print("{c.items.count()}\n")
 	return 0

@@ -47,6 +47,10 @@ function runtimeEntry(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 		try entryStrOwned(vm, f: f, x: x)
 		return
 	end 'rtStrOwned'
+	if symbol == ir.Rt.rtStrAscii 'rtStrAscii'
+		try entryStrAscii(vm, f: f, x: x)
+		return
+	end 'rtStrAscii'
 	if symbol == ir.Rt.rtStrExtend 'rtStrExtend'
 		try entryStrExtend(vm, f: f, x: x)
 		return

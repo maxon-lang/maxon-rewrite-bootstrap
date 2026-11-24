@@ -1383,7 +1383,7 @@ tls12 dropped: reply=gnip protocol=tls12 suite=tls12/ecdheEcdsaChaCha20Poly1305S
 ```
 
 <!-- test: tls-interop.listener-against-openssl-s_client-tls13 -->
-<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines are not supported in minimaxon; loop over an array or a view -->
+<!-- skip: for loops over graphemes(), characters(), split() or lines() of a string are not supported in minimaxon; loop over the string itself, whose elements are its grapheme clusters, or a view -->
 <!-- unsupported-targets: wasm32-wasi -->
 A `TlsListener` accepts a live `openssl s_client` over loopback in TLS 1.3 under each of the three suites, the client restricted to one with `-ciphersuites`. `s_client` verifies the server's chain and name (`-verify_return_error`, `-verify_hostname`, at the case's fixed time), sends `ping` and prints the answer; the listener ends its stream with `shutdownWrite` and reads the client's close_notify as the end of the stream. A line prints what the listener negotiated, how its stream ended, and the client's exit code, verification, negotiated suite and answer.
 ```maxon
@@ -1611,7 +1611,7 @@ function attemptClient(directory String, port NetworkPort, options StringArray) 
 		return ClientOutcome.observed("s_client: {error.displayReason()}")
 	end 'failed'
 	let lines = StringArray.create(0)
-	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines are not supported in minimaxon; loop over an array or a view
+	// TODO: for loops over graphemes(), characters(), split() or lines() of a string are not supported in minimaxon; loop over the string itself, whose elements are its grapheme clusters, or a view
 	for line in result.stdout.split("\n") 'eachLine'
 		lines.push(line.trim())
 	end 'eachLine'
@@ -1663,7 +1663,7 @@ TLS_CHACHA20_POLY1305_SHA256: server[heard=ping protocol=tls13 suite=tls13/chaCh
 ```
 
 <!-- test: tls-interop.listener-against-openssl-s_client-tls12 -->
-<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines are not supported in minimaxon; loop over an array or a view -->
+<!-- skip: for loops over graphemes(), characters(), split() or lines() of a string are not supported in minimaxon; loop over the string itself, whose elements are its grapheme clusters, or a view -->
 <!-- unsupported-targets: wasm32-wasi -->
 The same in TLS 1.2 under each of the six suites: the listener holds the P-256 identity for the ECDSA suites and the RSA identity for the RSA ones.
 ```maxon
@@ -1891,7 +1891,7 @@ function attemptClient(directory String, port NetworkPort, options StringArray) 
 		return ClientOutcome.observed("s_client: {error.displayReason()}")
 	end 'failed'
 	let lines = StringArray.create(0)
-	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines are not supported in minimaxon; loop over an array or a view
+	// TODO: for loops over graphemes(), characters(), split() or lines() of a string are not supported in minimaxon; loop over the string itself, whose elements are its grapheme clusters, or a view
 	for line in result.stdout.split("\n") 'eachLine'
 		lines.push(line.trim())
 	end 'eachLine'
@@ -1956,7 +1956,7 @@ ECDHE-RSA-CHACHA20-POLY1305: server[heard=ping protocol=tls12 suite=tls12/ecdheR
 ```
 
 <!-- test: tls-interop.listener-against-openssl-s_client-mutual-tls -->
-<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines are not supported in minimaxon; loop over an array or a view -->
+<!-- skip: for loops over graphemes(), characters(), split() or lines() of a string are not supported in minimaxon; loop over the string itself, whose elements are its grapheme clusters, or a view -->
 <!-- unsupported-targets: wasm32-wasi -->
 Mutual TLS with the listener requiring a client certificate under the client root and `openssl s_client` presenting its P-256 leaf (`-cert`, `-key`), in TLS 1.3 and in TLS 1.2: the listener sees one peer certificate.
 ```maxon
@@ -2184,7 +2184,7 @@ function attemptClient(directory String, port NetworkPort, options StringArray) 
 		return ClientOutcome.observed("s_client: {error.displayReason()}")
 	end 'failed'
 	let lines = StringArray.create(0)
-	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines are not supported in minimaxon; loop over an array or a view
+	// TODO: for loops over graphemes(), characters(), split() or lines() of a string are not supported in minimaxon; loop over the string itself, whose elements are its grapheme clusters, or a view
 	for line in result.stdout.split("\n") 'eachLine'
 		lines.push(line.trim())
 	end 'eachLine'
@@ -2243,7 +2243,7 @@ tls12: server[heard=ping protocol=tls12 suite=tls12/ecdheEcdsaChaCha20Poly1305Sh
 
 <!-- test: tls-interop.http-client-against-openssl-s_server -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines are not supported in minimaxon; loop over an array or a view -->
+<!-- skip: for loops over graphemes(), characters(), split() or lines() of a string are not supported in minimaxon; loop over the string itself, whose elements are its grapheme clusters, or a view -->
 <!-- unsupported-targets: wasm32-wasi -->
 <!-- procs: 1 -->
 `HttpClient` fetches `https://localhost:<port>/` from a live `openssl s_server`, verifying its chain (the case's root, the name `localhost` taken from the URL) in TLS 1.3 and in TLS 1.2. `-www` answers with its status page, which has no `Content-Length` and ends with the connection, so the body is read to the server's close_notify; `-WWW` serves a staged file the same way and the body must arrive byte for byte. A client that trusts another root refuses the chain with the typed `HttpError.tlsFailed`.
@@ -2479,7 +2479,7 @@ end 'sentCloseNotify'
 
 function negotiatedProtocol(body String) returns String
 	let lines = StringArray.create(0)
-	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines are not supported in minimaxon; loop over an array or a view
+	// TODO: for loops over graphemes(), characters(), split() or lines() of a string are not supported in minimaxon; loop over the string itself, whose elements are its grapheme clusters, or a view
 	for line in body.split("\n") 'eachLine'
 		lines.push(line.trim())
 	end 'eachLine'
@@ -2568,7 +2568,7 @@ untrusted root: error tlsFailed(certificateRejected(unknownAuthority))
 ```
 
 <!-- test: tls-interop.http-server-against-openssl-s_client -->
-<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines are not supported in minimaxon; loop over an array or a view -->
+<!-- skip: for loops over graphemes(), characters(), split() or lines() of a string are not supported in minimaxon; loop over the string itself, whose elements are its grapheme clusters, or a view -->
 <!-- unsupported-targets: wasm32-wasi -->
 <!-- procs: 1 -->
 `HttpServer.bindTls` answers a live `openssl s_client` that sends a raw request, in TLS 1.3 and TLS 1.2, with a POST, with and without ALPN `http/1.1`, and with a client that offers only `h2` (the handshake is refused and the server goes on). A server that requires client certificates reads the chain `s_client` presents from `exchange.security()`, refuses the client that has none, and serves the next one. `s_client` verifies the server's chain and the name `localhost`.
@@ -2804,7 +2804,7 @@ function attemptClient(directory String, port NetworkPort, request String, optio
 		return ClientOutcome.observed("s_client: {error.displayReason()}")
 	end 'failed'
 	let lines = StringArray.create(0)
-	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines are not supported in minimaxon; loop over an array or a view
+	// TODO: for loops over graphemes(), characters(), split() or lines() of a string are not supported in minimaxon; loop over the string itself, whose elements are its grapheme clusters, or a view
 	for line in result.stdout.split("\n") 'eachLine'
 		lines.push(line.trim())
 	end 'eachLine'

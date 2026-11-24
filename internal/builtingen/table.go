@@ -904,6 +904,7 @@ var entries = []entry{
 	{"StrJoinPut", "rt.str.joinPut", "Runtime", roleCall, "(String, part String) -> String: the String with the part's bytes after its own, in the room it has for them, its ASCII bit kept where both have it"},
 	{"StrJoinDigits", "rt.str.joinDigits", "Runtime", roleCall, "(String, n, unsigned, length) -> String: the String with the length bytes of the decimal text of n after its own, in the room it has for them"},
 	{"StrOwned", "rt.str.owned", "Runtime", roleCall, "(String) -> whether it owns its bytes, its owned bit, which the backend reads in place"},
+	{"StrAscii", "rt.str.ascii", "Runtime", roleCall, "(String) -> whether each of its grapheme clusters is one byte, its ASCII bit, which the backend reads in place"},
 	{"StrExtend", "rt.str.extend", "Runtime", roleCall, "(String, owned, extra) -> String: the String's bytes with room for extra more after them, in its own buffer where it owns one with the room and else in one the growth policy sizes, the old buffer kept for rt.str.release"},
 	{"StrRelease", "rt.str.release", "Runtime", roleCall, "(old String, owned, grown String): frees the old String's buffer where it owned one and grown's bytes are elsewhere"},
 	{"StrAppend", "rt.str.append", "Runtime", roleCall, "(String, owned, part String) -> String: rt.str.extend, rt.str.joinPut and rt.str.release of one part"},

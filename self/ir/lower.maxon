@@ -547,6 +547,16 @@ function visitForStmt(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleSta
 		return
 	end 'cursor'
 	if not ast.forStmtIsRange(p.modules[l.mi].tree, id: s) 'forEach'
+		let collection = builtinOf(l, p: p, ms: ms, collection: exprType(p, module: l.module, node: ast.forStmtFrom(p.modules[l.mi].tree, id: s)))
+		let walked = ast.typeKind(ms.types, reads: p.types, t: collection)
+		if walked == ast.TypeKind.primString 'clusters'
+			visitForClusters(l, p: p, ms: ms, s: s)
+			return
+		end 'clusters'
+		if walked == ast.TypeKind.builtinList 'list'
+			visitForList(l, p: p, ms: ms, s: s)
+			return
+		end 'list'
 		visitForEach(l, p: p, ms: ms, s: s)
 		return
 	end 'forEach'
@@ -655,6 +665,110 @@ function visitForEach(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleSta
 	l.cur = exit
 end 'visitForEach'
 
+// visitForClusters lowers a for over the grapheme clusters of a String to a loop over byte positions. The String is read
+// once, and the ownership pass keeps the body from changing it. Each cluster is lent to the variable as a view of the
+// String's bytes, so a pass allocates nothing. Where the String's ASCII bit says that every cluster is one byte, read once
+// before the loop, a cluster ends at the next byte; elsewhere the runtime finds where it ends, as count() does.
+function visitForClusters(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, s ast.NodeID)
+	let source = ast.forStmtFrom(p.modules[l.mi].tree, id: s)
+	let sym = localEntry(p, module: l.fnModule, id: localOfNode(p, module: l.module, node: s))
+	let held = l.b.f.newSlot(IrKind.kindString)
+	let position = l.b.f.newSlot(IrKind.kindScalar)
+	let after = l.b.f.newSlot(IrKind.kindScalar)
+	let simple = l.b.f.newSlot(IrKind.kindScalar)
+	let top = l.b.newBlock()
+	let body = l.b.newBlock()
+	let byByte = l.b.newBlock()
+	let byCluster = l.b.newBlock()
+	let lend = l.b.newBlock()
+	let cont = l.b.newBlock()
+	let exit = l.b.newBlock()
+	let text = lowerRead(l, p: p, ms: ms, e: source)
+	emit(l, i: newStoreSlot(held, src: text, borrow: true))
+	let zero = konst(l, value: 0 as Word)
+	emit(l, i: newStoreSlot(position, src: zero, borrow: false))
+	let bit = runtime(l, symbol: Rt.rtStrAscii, kind: IrKind.kindScalar, args: argsOf1(text))
+	let isAscii = nonZero(l, v: bit)
+	emit(l, i: newStoreSlot(simple, src: isAscii, borrow: false))
+	goTo(l, target: top)
+	let whole = load(l, slot: held)
+	let size = runtime(l, symbol: Rt.rtStrLen, kind: IrKind.kindScalar, args: argsOf1(whole))
+	let at = load(l, slot: position)
+	let below = compare(l, op: CmpOp.cmpLt, a: at, b: size, unsigned: true)
+	l.b.terminate(l.cur, t: newBranch(below, ifTrue: body, ifFalse: exit))
+	l.cur = body
+	let isSimple = load(l, slot: simple)
+	l.b.terminate(l.cur, t: newBranch(isSimple, ifTrue: byByte, ifFalse: byCluster))
+	l.cur = byByte
+	let from = load(l, slot: position)
+	let one = konst(l, value: 1 as Word)
+	let nextByte = newReg(l, kind: IrKind.kindScalar)
+	emit(l, i: newBin(nextByte, op: BinOp.binAdd, left: from, right: one, unsigned: true, fail: noBlock))
+	emit(l, i: newStoreSlot(after, src: nextByte, borrow: false))
+	goTo(l, target: lend)
+	l.cur = byCluster
+	let all = load(l, slot: held)
+	let start = load(l, slot: position)
+	let count = konst(l, value: 1 as Word)
+	let clusterEnd = runtime(l, symbol: Rt.rtStrGraphemeBytePos, kind: IrKind.kindScalar, args: argsOf3(all, b: start, c: count))
+	emit(l, i: newStoreSlot(after, src: clusterEnd, borrow: false))
+	goTo(l, target: lend)
+	l.cur = lend
+	let lending = load(l, slot: held)
+	let first = load(l, slot: position)
+	let last = load(l, slot: after)
+	let cluster = stringView(l, text: lending, from: first, until: last, checked: false)
+	emit(l, i: newStoreSlot(slotOf(sym), src: cluster, borrow: true))
+	pushJumps(l, node: s, brk: exit, cont: cont)
+	lowerBlock(l, p: p, ms: ms, ref: ast.forStmtBodyRef(p.modules[l.mi].tree, id: s))
+	goTo(l, target: cont)
+	popJumps(l)
+	let next = load(l, slot: after)
+	emit(l, i: newStoreSlot(position, src: next, borrow: false))
+	goTo(l, target: top)
+	l.cur = exit
+end 'visitForClusters'
+
+// visitForList lowers a for over a List to a walk of its handles, from the first to the one with no next. The list is read
+// once, and the ownership pass keeps the body from changing it. Each element is lent to the variable, as a subscript lends
+// it.
+function visitForList(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, s ast.NodeID)
+	let source = ast.forStmtFrom(p.modules[l.mi].tree, id: s)
+	let site = siteOf(l, p: p, node: s)
+	let sym = localEntry(p, module: l.fnModule, id: localOfNode(p, module: l.module, node: s))
+	let held = l.b.f.newSlot(IrKind.kindManaged)
+	let handle = l.b.f.newSlot(IrKind.kindScalar)
+	let top = l.b.newBlock()
+	let body = l.b.newBlock()
+	let cont = l.b.newBlock()
+	let exit = l.b.newBlock()
+	let list = lowerRead(l, p: p, ms: ms, e: source)
+	emit(l, i: newStoreSlot(held, src: list, borrow: true))
+	let first = entry(l, p: p, site: site, symbol: Rt.rtListFirst, kind: IrKind.kindScalar, args: argsOf1(list))
+	emit(l, i: newStoreSlot(handle, src: first, borrow: false))
+	goTo(l, target: top)
+	let at = load(l, slot: handle)
+	let more = nonZero(l, v: at)
+	l.b.terminate(l.cur, t: newBranch(more, ifTrue: body, ifFalse: exit))
+	l.cur = body
+	let whole = load(l, slot: held)
+	let current = load(l, slot: handle)
+	let addr = entry(l, p: p, site: site, symbol: Rt.rtListElem, kind: IrKind.kindScalar, args: argsOf2(whole, b: current))
+	let elem = newReg(l, kind: kindOf(l, p: p, ms: ms, t: sym.ty))
+	emit(l, i: newLoadAt(elem, addr: addr))
+	emit(l, i: newStoreSlot(slotOf(sym), src: elem, borrow: owning(regKind(l, v: elem))))
+	pushJumps(l, node: s, brk: exit, cont: cont)
+	lowerBlock(l, p: p, ms: ms, ref: ast.forStmtBodyRef(p.modules[l.mi].tree, id: s))
+	goTo(l, target: cont)
+	popJumps(l)
+	let walked = load(l, slot: held)
+	let passed = load(l, slot: handle)
+	let next = entry(l, p: p, site: site, symbol: Rt.rtListNext, kind: IrKind.kindScalar, args: argsOf2(walked, b: passed))
+	emit(l, i: newStoreSlot(handle, src: next, borrow: false))
+	goTo(l, target: top)
+	l.cur = exit
+end 'visitForList'
+
 // visitForCursor lowers a for over a type with the iteration protocol. The cursor is made once, by the collection's
 // createIterator(), and owned by the statement, or is the collection itself, borrowed. Each pass reads the element with
 // current() into the variable, which owns it until the pass ends, and advance() moves the cursor on. A throw of either
@@ -711,14 +825,36 @@ function protocolCall(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleSta
 	if op != ast.Intrinsic.intrNone 'intrinsic'
 		return lowerViewMethod(l, p: p, ms: ms, op: op, site: siteOf(l, p: p, node: s), t: resultTy, recv: recv, exit: exit)
 	end 'intrinsic'
-	let target = callee(l, p: p, ms: ms, node: s, info: info, receiver: 0 as ast.NodeID)
-	let args = argsOf1(recv)
-	if ast.funcEntry(ms.funcs, funcReads: p.funcs, f: target).errTy == ast.noType 'plain'
-		emitCall(l, p: p, ms: ms, dst: dst, target: target, args: args)
+	let iface = dispatchedInterface(p, ms: ms, info: info, bindParams: l.bindParams, bindArgs: l.bindArgs)
+	let dispatched = iface != ast.noType
+	var target = ast.noFunc
+	var fails = false
+	if dispatched 'witness'
+		fails = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: info.method).errTy != ast.noType
+	end 'witness' else 'direct'
+		target = callee(l, p: p, ms: ms, node: s, info: info, receiver: 0 as ast.NodeID)
+		fails = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: target).errTy != ast.noType
+	end 'direct'
+	var err = noReg
+	if fails 'fails'
+		err = newReg(l, kind: IrKind.kindScalar)
+	end 'fails'
+	if dispatched 'table'
+		// An interface value walks through the table it carries: each call is an indirect call of the slot of the requirement.
+		let lends = info.result == ast.ResultConv.resultBorrowed
+		let given = applyType(l, p: p, ms: ms, t: resultTy)
+		let sig = FloatSignature.make(0 as FloatMask, result: not lends and ast.isFloatType(ms.types, reads: p.types, t: given))
+		let slot = ast.requirementSlot(ms.types, reads: p.types, iface: iface, sig: info.method)
+		let call = l.b.callWitness(dst, conv: receiverConv(info.selfConv), slot: slot, recv: recv, args: RegList.create(0), err: err, sig: sig)
+		emit(l, i: call)
+	end 'table' else if not fails 'plain'
+		emitCall(l, p: p, ms: ms, dst: dst, target: target, args: argsOf1(recv))
+	end 'plain' else 'throwing'
+		emitThrowingCall(l, p: p, ms: ms, dst: dst, target: target, args: argsOf1(recv), err: err)
+	end 'throwing'
+	if not fails 'done'
 		return dst
-	end 'plain'
-	let err = newReg(l, kind: IrKind.kindScalar)
-	emitThrowingCall(l, p: p, ms: ms, dst: dst, target: target, args: args, err: err)
+	end 'done'
 	let ok = l.b.newBlock()
 	let zero = konst(l, value: 0 as Word)
 	let failed = compare(l, op: CmpOp.cmpNe, a: err, b: zero, unsigned: false)

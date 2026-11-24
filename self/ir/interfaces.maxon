@@ -161,10 +161,25 @@ export function witnessInterface(p ast.Project, mutates ms ast.ModuleState, modu
 	if info.kind != ast.CallKind.callBound 'other'
 		return ast.noType
 	end 'other'
-	let received = ast.substituteType(ms.types, reads: p.types, t: exprType(p, module: module, node: receiver), params: bindParams, args: bindArgs)
+	return interfaceOfReceiver(p, ms: ms, t: exprType(p, module: module, node: receiver), bindParams: bindParams, args: bindArgs)
+end 'witnessInterface'
+
+// dispatchedInterface is witnessInterface for a call that no node of the source writes, which a for makes of the iteration
+// protocol: its receiver is a value of the type the call records.
+function dispatchedInterface(p ast.Project, mutates ms ast.ModuleState, info ast.CallInfo, bindParams ast.TypeIDList, bindArgs ast.TypeIDList) returns ast.TypeID
+	if info.kind != ast.CallKind.callBound 'other'
+		return ast.noType
+	end 'other'
+	return interfaceOfReceiver(p, ms: ms, t: info.receiverTy, bindParams: bindParams, args: bindArgs)
+end 'dispatchedInterface'
+
+// interfaceOfReceiver is the interface of a receiver of the type t, with the code's type parameters bound, where it is an
+// interface value, or none.
+function interfaceOfReceiver(p ast.Project, mutates ms ast.ModuleState, t ast.TypeID, bindParams ast.TypeIDList, args ast.TypeIDList) returns ast.TypeID
+	let received = ast.substituteType(ms.types, reads: p.types, t: t, params: bindParams, args: args)
 	let recv = ast.contentType(ms.types, reads: p.types, t: received)
 	if standsForInterface(p, ms: ms, t: recv) 'interface'
 		return recv
 	end 'interface'
 	return ast.noType
-end 'witnessInterface'
+end 'interfaceOfReceiver'

@@ -1818,9 +1818,9 @@ end 'makeSeq'
 function main() returns ExitCode
 	var sum = 0 as alpha.Integer
 	for item in alpha.makeSeq(4) 'walk'
-		sum = sum + item
+		sum = try sum + item otherwise panic("out of range")
 	end 'walk'
-	return sum as ExitCode
+	return try sum as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

@@ -2182,18 +2182,18 @@ type OpBuffer
 	end 'create'
 end 'OpBuffer'
 
-function rewrap(buf OpBuffer) returns Integer
-	let old = buf.ops
+function rewrap(mutates buf OpBuffer) returns Integer
+	let old = buf.ops.clone()
 	buf.ops = IntList.create()
 	var total = 0 as Integer
 	for x in old 'each'
-		total = total + x
+		total = try total + x otherwise panic("out of range")
 	end 'each'
 	return total
 end 'rewrap'
 
 function main() returns ExitCode
-	let buf = OpBuffer.create()
+	var buf = OpBuffer.create()
 	buf.ops.append(1)
 	buf.ops.append(2)
 	buf.ops.append(3)

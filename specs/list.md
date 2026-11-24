@@ -497,15 +497,15 @@ typealias Integer = int(i64.min to i64.max)
 typealias IntList = List with Integer
 
 function main() returns ExitCode
-	let list = IntList.create()
+	var list = IntList.create()
 	for i in 1 to 100 'build'
 		list.append(i)
 	end 'build'
 	var sum = 0 as Integer
 	for item in list 'loop'
-		sum = sum + item
+		sum = try sum + item otherwise panic("out of range")
 	end 'loop'
-	return sum - 5050
+	return try sum - 5050 otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -518,11 +518,11 @@ function main() returns ExitCode
 	let list = List from [1, 2, 3]
 	var sum1 = 0 as FullRangeInt
 	for item in list 'loop1'
-		sum1 = sum1 + item
+		sum1 = try sum1 + item otherwise panic("out of range")
 	end 'loop1'
 	var sum2 = 0 as FullRangeInt
 	for item in list 'loop2'
-		sum2 = sum2 + item
+		sum2 = try sum2 + item otherwise panic("out of range")
 	end 'loop2'
 	if sum1 == sum2 'check'
 		return 0

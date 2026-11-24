@@ -1,0 +1,14 @@
+typealias Names = Array with String
+
+function main() returns ExitCode
+	var text = "ada"
+	var kept = Names.create(0)
+	for c in text 'each'
+		kept.push(c)
+		text = "{text}{c}"
+	end 'each'
+	return 0
+end 'main'
+
+// expect-error: E3900 at 7:13
+// expect-error: E3186 at 8:3

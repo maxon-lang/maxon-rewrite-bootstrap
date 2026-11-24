@@ -1034,7 +1034,7 @@ end 'main'
 ```
 
 <!-- test: implied-try-for-source-rebranded-cursor-is-absorbed -->
-<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines are not supported in minimaxon; loop over an array or a view -->
+<!-- skip: for loops over graphemes(), characters(), split() or lines() of a string are not supported in minimaxon; loop over the string itself, whose elements are its grapheme clusters, or a view -->
 A cursor-producing call renamed to another brand of the same instance is still the call that hands the loop
 its cursor: the rebrand emits no op, so the loop absorbs the empty collection's `IterationError`.
 ```maxon
@@ -1047,7 +1047,7 @@ typealias Walk = ArrayIterator with Integer
 
 test 'an empty rebranded traversal runs no trips'
 	var total = 0 as Integer
-	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines are not supported in minimaxon; loop over an array or a view
+	// TODO: for loops over graphemes(), characters(), split() or lines() of a string are not supported in minimaxon; loop over the string itself, whose elements are its grapheme clusters, or a view
 	for x in IntArray.create(0).cursor() as Walk 'each'
 		total = total + x
 	end 'each'

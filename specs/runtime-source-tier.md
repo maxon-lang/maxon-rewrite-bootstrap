@@ -691,7 +691,6 @@ end 'main'
 ```
 
 <!-- test: runtime-file-may-not-bind-a-managed-value-in-a-loop -->
-<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines are not supported in minimaxon; loop over an array or a view -->
 <!-- positions: moved -->
 ⛔⛔ **R1's VALUE HALF IS ASKED OF THE VALUE, NOT OF THE BINDING FORM — AND A LOOP IS WHY IT HAS TO BE.**
 A `for` element is bound by neither `declareInitializedBinding` nor `bindParameters`, so a rule stated at
@@ -706,7 +705,6 @@ is the construct the author has to remove, and the element goes with it.
 // --- runtime-file: Probe.maxon
 function probeWalk() returns MachineWord
 	var seen = 0 as MachineWord
-	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines are not supported in minimaxon; loop over an array or a view
 	for c in "abc" 'eachByte'
 		seen = seen + (c.byteLength() as MachineWord)
 	end 'eachByte'

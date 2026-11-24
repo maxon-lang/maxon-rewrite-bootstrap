@@ -32,9 +32,9 @@ function shapeOf(text String) returns String
 	for c in text 'eachCharacter'
 		let spelled = "{c}"
 		if "0123456789".contains(spelled) 'digit'
-			shape.append("D")
+			shape = "{shape}D"
 		end 'digit' else 'other'
-			shape.append(spelled)
+			shape = "{shape}{spelled}"
 		end 'other'
 	end 'eachCharacter'
 	return shape

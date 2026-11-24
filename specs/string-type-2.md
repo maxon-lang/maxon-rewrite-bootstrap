@@ -141,11 +141,11 @@ function main() returns ExitCode
 	let s = "Hello"
 	var count1 = 0 as FullRangeInt
 	for _ in s 'loop1'
-		count1 = count1 + 1
+		count1 = try count1 + 1 otherwise panic("out of range")
 	end 'loop1'
 	var count2 = 0 as FullRangeInt
 	for _ in s 'loop2'
-		count2 = count2 + 1
+		count2 = try count2 + 1 otherwise panic("out of range")
 	end 'loop2'
 	if count1 == 5 and count2 == 5 'ok'
 		return 0
@@ -392,7 +392,7 @@ function main() returns ExitCode
 	var count = 0 as FullRangeInt
 	for c in s 'loop'
 		print("{c}") // Use c to avoid unused warning
-		count = count + 1
+		count = try count + 1 otherwise panic("out of range")
 	end 'loop'
 	print("\n{count}\n")
 	return 0
@@ -414,7 +414,7 @@ function main() returns ExitCode
 	var count = 0 as FullRangeInt
 	for c in s 'loop'
 		print("{c}") // Use c to avoid unused warning
-		count = count + 1
+		count = try count + 1 otherwise panic("out of range")
 	end 'loop'
 	print("\n{count}\n")
 	return 0
@@ -436,7 +436,7 @@ function main() returns ExitCode
 	var count = 0 as FullRangeInt
 	for c in s 'loop'
 		print("{c}") // Use c to avoid unused warning
-		count = count + 1
+		count = try count + 1 otherwise panic("out of range")
 	end 'loop'
 	print("\n{count}\n")
 	return 0

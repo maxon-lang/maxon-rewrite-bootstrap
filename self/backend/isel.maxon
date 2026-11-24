@@ -896,6 +896,12 @@ function emitCallRuntime(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
 		sel.maskInto(result, src: word, mask: stringOwnedBit)
 		return
 	end 'stringOwned'
+	if symbol == ir.Rt.rtStrAscii 'stringAscii'
+		let result = sel.resultOf(ins.dst)
+		let word = sel.secondOf(fn.args[start])
+		sel.maskInto(result, src: word, mask: stringAsciiBit)
+		return
+	end 'stringAscii'
 	if symbol == ir.Rt.rtArrayLen or symbol == ir.Rt.rtBytesLen or symbol == ir.Rt.rtFrozenGet 'load'
 		var offset = imm32Of(arrayLengthOffset)
 		if symbol == ir.Rt.rtFrozenGet 'frozen'

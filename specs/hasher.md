@@ -1780,7 +1780,7 @@ no draw keys the process fold: true
 ```
 
 <!-- test: concurrent-pinned-draws-never-repeat-an-index -->
-<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines are not supported in minimaxon; loop over an array or a view -->
+<!-- skip: for loops over graphemes(), characters(), split() or lines() of a string are not supported in minimaxon; loop over the string itself, whose elements are its grapheme clusters, or a view -->
 <!-- procs: 4 -->
 <!-- env: MAXON_HASH_SEED=0123456789abcdef -->
 Under a pin the n-th draw of a process is the n-th seed of the pin's sequence, and the n is one counter the whole
@@ -1845,7 +1845,7 @@ function main() returns ExitCode
 	var spelled = true
 	for reply in replies 'collect'
 		let text = await reply
-		// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines are not supported in minimaxon; loop over an array or a view
+		// TODO: for loops over graphemes(), characters(), split() or lines() of a string are not supported in minimaxon; loop over the string itself, whose elements are its grapheme clusters, or a view
 		for line in text.split("\n") 'eachLine'
 			if line != "" 'aDraw'
 				spelled = spelled and line.count() == SpelledSeedLength

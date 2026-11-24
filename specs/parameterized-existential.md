@@ -70,10 +70,10 @@ end 'Upto'
 
 typealias IntegerSeq = Seq with Integer
 
-function total(source IntegerSeq) returns Integer
+function total(mutates source IntegerSeq) returns Integer
 	var sum = 0 as Integer
 	for item in source 'walk'
-		sum = sum + item
+		sum = try sum + item otherwise panic("out of range")
 	end 'walk'
 	return sum
 end 'total'
@@ -144,10 +144,10 @@ end 'Down'
 
 typealias IntegerSeq = Seq with Integer
 
-function total(source IntegerSeq) returns Integer
+function total(mutates source IntegerSeq) returns Integer
 	var sum = 0 as Integer
 	for item in source 'walk'
-		sum = sum + item
+		sum = try sum + item otherwise panic("out of range")
 	end 'walk'
 	return sum
 end 'total'
@@ -171,7 +171,7 @@ end 'pick'
 function main() returns ExitCode
 	print("{pick(true)}\n")
 	print("{pick(false)}\n")
-	print("{total(Upto.create(2)) + total(Down.create(2))}\n")
+	print("{try total(Upto.create(2)) + total(Down.create(2)) otherwise panic("out of range")}\n")
 	return 0
 end 'main'
 ```
@@ -223,12 +223,12 @@ end 'Numbered'
 
 typealias IntegerLines = Lines with Integer
 
-function widthOf(source IntegerLines) returns Integer
+function widthOf(mutates source IntegerLines) returns Integer
 	var total = 0 as Integer
 	for text in source 'walk'
-		total = total + (text.byteLength() as Integer)
+		total = try total + (text.byteLength() as Integer) otherwise panic("out of range")
 	end 'walk'
-	return total + source.tag()
+	return try total + source.tag() otherwise panic("out of range")
 end 'widthOf'
 
 function main() returns ExitCode
@@ -288,19 +288,19 @@ end 'Numbered'
 
 typealias IntegerLines = Lines with Integer
 
-function returnsOutOfTheBody(source IntegerLines) returns Integer
+function returnsOutOfTheBody(mutates source IntegerLines) returns Integer
 	for text in source 'walk'
 		if text.byteLength() > 0 'theFirst'
-			return text.byteLength() as Integer
+			return try text.byteLength() as Integer otherwise panic("out of range")
 		end 'theFirst'
 	end 'walk'
 	return 0
 end 'returnsOutOfTheBody'
 
-function breaksOutOfTheBody(source IntegerLines) returns Integer
+function breaksOutOfTheBody(mutates source IntegerLines) returns Integer
 	var total = 0 as Integer
 	for text in source 'walk'
-		total = total + (text.byteLength() as Integer)
+		total = try total + (text.byteLength() as Integer) otherwise panic("out of range")
 		if total > 100 'enough'
 			break
 		end 'enough'
@@ -365,7 +365,7 @@ typealias IntegerSeq = Seq with Integer
 type Holder
 	export var seq as IntegerSeq
 
-	static function create(seq IntegerSeq) returns Self
+	static function create(consumes seq IntegerSeq) returns Self
 		return Self{seq: seq}
 	end 'create'
 end 'Holder'
@@ -377,24 +377,24 @@ end 'makeSeq'
 function fromCall(limit Integer) returns Integer
 	var sum = 0 as Integer
 	for item in makeSeq(limit) 'walk'
-		sum = sum + item
+		sum = try sum + item otherwise panic("out of range")
 	end 'walk'
 	return sum
 end 'fromCall'
 
 function fromLocal(limit Integer) returns Integer
-	let s = makeSeq(limit)
+	var s = makeSeq(limit)
 	var sum = 0 as Integer
 	for item in s 'walk'
-		sum = sum + item
+		sum = try sum + item otherwise panic("out of range")
 	end 'walk'
 	return sum
 end 'fromLocal'
 
-function fromField(h Holder) returns Integer
+function fromField(mutates h Holder) returns Integer
 	var sum = 0 as Integer
 	for item in h.seq 'walk'
-		sum = sum + item
+		sum = try sum + item otherwise panic("out of range")
 	end 'walk'
 	return sum
 end 'fromField'
@@ -402,7 +402,7 @@ end 'fromField'
 function main() returns ExitCode
 	print("{fromCall(4)}\n")
 	print("{fromLocal(4)}\n")
-	let h = Holder.create(makeSeq(4))
+	var h = Holder.create(makeSeq(4))
 	print("{fromField(h)}\n")
 	return 0
 end 'main'
@@ -444,7 +444,7 @@ type Upto implements Seq with Integer
 		return self.pos
 	end 'current'
 
-	function advance() throws IterationError
+	function advance(mutates self) throws IterationError
 		if self.pos >= self.limit 'atTheLast'
 			throw IterationError.exhausted
 		end 'atTheLast'
@@ -454,10 +454,10 @@ end 'Upto'
 
 typealias TextSeq = Seq with Text
 
-function total(source TextSeq) returns Integer
+function total(mutates source TextSeq) returns Integer
 	var sum = 0 as Integer
 	for item in source 'walk'
-		sum = sum + (item as Integer)
+		sum = try sum + (item as Integer) otherwise panic("out of range")
 	end 'walk'
 	return sum
 end 'total'

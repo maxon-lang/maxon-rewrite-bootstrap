@@ -244,6 +244,9 @@ function visitUses(p ast.Project, mutates ms ast.ModuleState, module diag.Module
 		if p.modules[ast.modIndex(module)].tree.kindOf(site) == ast.NodeKind.forStmt 'loop'
 			let calls = iterationInfoAt(p, module: module, node: site).calls()
 			for j in 0 upto calls.count() 'calls'
+				if dispatchedInterface(p, ms: ms, info: calls[j], bindParams: bindParams, bindArgs: bindArgs) != ast.noType 'dispatched'
+					continue 'calls'
+				end 'dispatched'
 				let target = resolveTarget(p, ms: ms, module: module, site: site, receiver: 0 as ast.NodeID, info: calls[j], bindParams: bindParams, bindArgs: bindArgs, bindWitnesses: bindWitnesses, errs: errs)
 				if not noteInstance(p, ms: ms, module: module, site: site, target: target, found: found, errs: errs) 'deepLoop'
 					return false

@@ -400,9 +400,10 @@ let advanceMethod = "advance"
 
 let createIteratorMethod = "createIterator"
 
-// checkForEach types a for over the elements of a collection. An array lends each element to the variable, as a
-// subscript lends it; a type that declares the iteration protocol gives each one as the value its current() returns, or
-// lends it where current() returns borrowed.
+// checkForEach types a for over the elements of a collection. An array and a list lend each element to the variable, as a
+// subscript lends it, and a String lends each grapheme cluster as a view: the lowering walks the three in place, as the
+// iteration protocol would; any other type that has the iteration protocol gives each element as the value its current()
+// returns, or lends it where current() returns borrowed.
 function checkForEach(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, s ast.NodeID, mutates errs diag.ErrorList)
 	let source = ast.forStmtFrom(ms.tree(), id: s)
 	let receiver = enumeratedReceiver(ms.tree(), source: source)
@@ -418,11 +419,17 @@ function checkForEach(mutates c Checker, p ast.Project, mutates ms ast.ModuleSta
 	if not requireNotCown(c, p: p, ms: ms, off: offsetOf(c, p: p, ms: ms, node: source), t: t, use: "a 'for' over its elements", errs: errs) 'cown'
 		return
 	end 'cown'
-	if kindOfType(p, ms: ms, t: t) == ast.TypeKind.builtinArray 'array'
+	let kind = kindOfType(p, ms: ms, t: t)
+	if kind == ast.TypeKind.builtinArray or kind == ast.TypeKind.builtinList 'inPlace'
 		let elem = typeElemType(p, ms: ms, ownerTy: t)
 		checkForBody(c, p: p, ms: ms, s: s, varType: elem, borrows: ast.isManagedType(ms.types, reads: p.types, t: elem), errs: errs)
 		return
-	end 'array'
+	end 'inPlace'
+	// Each grapheme cluster of a String is lent to the variable as a view of the String's bytes.
+	if kind == ast.TypeKind.primString 'clusters'
+		checkForBody(c, p: p, ms: ms, s: s, varType: p.builtins.stringTy, borrows: true, errs: errs)
+		return
+	end 'clusters'
 	let elem = checkIteration(c, p: p, ms: ms, s: s, t: t, typed: typed, errs: errs)
 	if elem == ast.noType 'notIterable'
 		return
@@ -557,8 +564,15 @@ function iterationOf(c Checker, s ast.NodeID) returns ast.IterationInfo
 	end 'hit'
 end 'iterationOf'
 
+// failNotIterable refuses a for over a value of type t that has no iteration protocol, in maxon's words. A value whose
+// methods are reached through interfaces, a type parameter or an interface value, walks only through what they require.
 function failNotIterable(c Checker, p ast.Project, ms ast.ModuleState, s ast.NodeID, t ast.TypeID, mutates errs diag.ErrorList)
-	failAt(c, p: p, ms: ms, node: s, code: diag.errUnsupportedFeature, msg: "Unsupported: `for … in` over a `{nameOfType(p, ms: ms, t: t)}` value — the compiler iterates an `Array`, a `Map`'s entries, the counted ranges `<lo> to <hi>` / `<lo> upto <hi>`, and any type declaring the cursor protocol `{currentMethod}()` + `{advanceMethod}() throws IterationError` or a `{createIteratorMethod}()` factory that returns one", errs: errs)
+	let k = ast.typeKind(ms.types, reads: p.types, t: ast.contentType(ms.types, reads: p.types, t: t))
+	if k == ast.TypeKind.typeParam or k == ast.TypeKind.interfaceTy 'dispatched'
+		failAt(c, p: p, ms: ms, node: s, code: diag.errUnsupportedFeature, msg: "Unsupported: `for … in` over a value dispatched through `{nameOfType(p, ms: ms, t: t)}`, which supplies neither the cursor protocol `{currentMethod}()` + `{advanceMethod}() throws IterationError` nor a `{createIteratorMethod}()` factory as a zero-argument requirement — the traversal goes through what the interface requires, so add the requirement; a conformer declaring it is not enough", errs: errs)
+		return
+	end 'dispatched'
+	failAt(c, p: p, ms: ms, node: s, code: diag.errUnsupportedFeature, msg: "Unsupported: `for … in` over a `{nameOfType(p, ms: ms, t: t)}` value — the compiler iterates an `Array`, a `FixedArray`, a `List`, a `Map`'s `(key, value)` entries, a `String`'s grapheme clusters, the counted ranges `<lo> to <hi>` / `<lo> upto <hi>`, and any type declaring the cursor protocol `{currentMethod}()` + `{advanceMethod}() throws IterationError`", errs: errs)
 end 'failNotIterable'
 
 // requireProtocolVisible refuses a for that calls a method of the protocol that the module cannot see. A requirement is
@@ -598,8 +612,11 @@ end 'ProtocolCall'
 // for a type parameter the requirement of its one bound that declares it; not found where there is none.
 function protocolCall(c Checker, p ast.Project, mutates ms ast.ModuleState, t ast.TypeID, name String) returns ProtocolCall
 	if ast.typeKind(ms.types, reads: p.types, t: t) == ast.TypeKind.typeParam 'bound'
-		return boundProtocolCall(c, p: p, ms: ms, param: t, name: name)
+		return requirementProtocolCall(p, ms: ms, receiver: t, ifaces: boundsOfParam(p, ms: ms, boundedFn: c.boundedFn, paramTy: t), name: name, generic: true)
 	end 'bound'
+	if ast.typeKind(ms.types, reads: p.types, t: t) == ast.TypeKind.interfaceTy 'interface'
+		return requirementProtocolCall(p, ms: ms, receiver: t, ifaces: oneType(t), name: name, generic: false)
+	end 'interface'
 	var out = ProtocolCall.none()
 	let method = zeroArgumentMethod(p, ms: ms, t: t, name: name)
 	if method == ast.noFunc 'absent'
@@ -614,14 +631,15 @@ function protocolCall(c Checker, p ast.Project, mutates ms ast.ModuleState, t as
 	return out
 end 'protocolCall'
 
-// boundProtocolCall is protocolCall for a type parameter: the requirement that one of its bounds declares, called through
-// the bound as a call written in the source is (boundCall). Two bounds that declare it leave the loop without a protocol.
-function boundProtocolCall(c Checker, p ast.Project, mutates ms ast.ModuleState, param ast.TypeID, name String) returns ProtocolCall
+// requirementProtocolCall is protocolCall for a value whose methods are reached through interfaces: a type parameter
+// through its bounds, called as a call written in the source is (boundCall), and an interface value through the table it
+// carries (witnessCall). The method is the requirement of one of ifaces that declares it; two that declare it leave the
+// loop without a protocol.
+function requirementProtocolCall(p ast.Project, mutates ms ast.ModuleState, receiver ast.TypeID, ifaces ast.TypeIDList, name String, generic bool) returns ProtocolCall
 	var out = ProtocolCall.none()
-	let bounds = boundsOfParam(p, ms: ms, boundedFn: c.boundedFn, paramTy: param)
 	var found = ast.RequirementList.create(0)
-	for i in 0 upto bounds.count() 'each'
-		let named = requirementsNamed(p, ms: ms, iface: bounds[i], name: name)
+	for i in 0 upto ifaces.count() 'each'
+		let named = requirementsNamed(p, ms: ms, iface: ifaces[i], name: name)
 		for j in 0 upto named.count() 'named'
 			let sig = named[j].sig
 			if ast.funcEntry(ms.funcs, funcReads: p.funcs, f: sig).isStatic or ast.funcEntry(ms.funcs, funcReads: p.funcs, f: sig).params.count() != 0 'unfit'
@@ -635,15 +653,15 @@ function boundProtocolCall(c Checker, p ast.Project, mutates ms ast.ModuleState,
 	end 'notOne'
 	let sig = found[0].sig
 	let selfParams = requirementParams(p, ms: ms, iface: found[0].iface)
-	let selfArgs = requirementBindings(param, req: found[0])
-	var info = requirementCall(p, ms: ms, sig: sig, receiver: param, specs: ast.ParamSpecList.create(0))
+	let selfArgs = requirementBindings(receiver, req: found[0])
+	var info = requirementCall(p, ms: ms, sig: sig, receiver: receiver, specs: ast.ParamSpecList.create(0))
 	out.found = true
 	out.info = info
 	out.result = ast.substituteType(ms.types, reads: p.types, t: ast.funcEntry(ms.funcs, funcReads: p.funcs, f: sig).retTy, params: selfParams, args: selfArgs)
 	out.thrown = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: sig).errTy
-	out.generic = true
+	out.generic = generic
 	return out
-end 'boundProtocolCall'
+end 'requirementProtocolCall'
 
 // zeroArgumentMethod is the method of that name a value of type t has that takes no arguments, or none.
 function zeroArgumentMethod(p ast.Project, ms ast.ModuleState, t ast.TypeID, name String) returns ast.FuncID

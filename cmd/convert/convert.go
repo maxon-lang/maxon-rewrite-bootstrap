@@ -1994,7 +1994,7 @@ func transformStmtAndExpr(line *sourceLine, warn func(*sourceLine, string)) {
 			}
 		case "for":
 			if !hasRangeKeyword(toks) && !iteratesSupported(toks) {
-				warn(line, "for loops over the characters of a string, its grapheme clusters, pieces or lines are not supported in minimaxon; loop over an array or a view")
+				warn(line, "for loops over graphemes(), characters(), split() or lines() of a string are not supported in minimaxon; loop over the string itself, whose elements are its grapheme clusters, or a view")
 			}
 		case "let", "var":
 			if len(toks) > 1 && toks[1].kind == tokIdent && isKeywordName(toks[1].text) {
@@ -2352,11 +2352,11 @@ func hasToken(toks []token, text string) bool {
 	return false
 }
 
-// unsupportedIterations are the members whose result a for loop cannot walk in minimaxon, which iterates arrays, the
-// entries of a map, an enum's cases and names, cursors, and the views of a string's bytes, code points and UTF-16 units:
-// a string's characters, grapheme clusters and pieces, maxon's cursors and the cases of a
-// union. A name is a member only after a dot, and a method only when called, so a variable or a field of that name is
-// left to the checker.
+// unsupportedIterations are the members whose result a for loop cannot walk in minimaxon, which iterates arrays, lists,
+// the entries of a map, a string's grapheme clusters, an enum's cases and names, cursors, and the views of a string's
+// bytes, code points and UTF-16 units: a string's characters, grapheme clusters and pieces as maxon's methods give them,
+// maxon's cursors and the cases of a union. A name is a member only after a dot, and a method only when called, so a
+// variable or a field of that name is left to the checker.
 var unsupportedIterations = map[string]bool{
 	"graphemes": true, "characters": true, "split": true, "lines": true,
 	"cursor": true, "createIterator": true, unionCasesMember: true,
@@ -2498,8 +2498,8 @@ func rewriteIteratorInString(text, iterator string) (string, bool) {
 const unionCasesMember = "unionCases"
 
 // iteratesSupported is whether the source of a `for x in source` loop may be something minimaxon walks: the converter
-// cannot see its type, so it refuses only the sources it can tell are something else, a string literal on its own (a loop
-// over its characters) and a member in unsupportedIterations, written after a dot as a name or a call.
+// cannot see its type, so it refuses only the sources it can tell are something else, a member in unsupportedIterations,
+// written after a dot as a name or a call.
 func iteratesSupported(toks []token) bool {
 	in := -1
 	for i, t := range toks {
@@ -2517,9 +2517,6 @@ func iteratesSupported(toks []token) bool {
 	}
 	source := toks[in+1 : end]
 	if len(source) == 0 {
-		return false
-	}
-	if len(source) == 1 && source[0].kind == tokString {
 		return false
 	}
 	for i := 1; i < len(source); i++ {

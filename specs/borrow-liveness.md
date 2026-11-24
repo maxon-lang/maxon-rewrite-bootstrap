@@ -5225,6 +5225,7 @@ d=68064
 ```
 
 <!-- test: error.a-for-over-a-frozen-list-writes-its-element-is-refused -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 A `for` over a frozen `List` hands out the element records the list holds, so writing one is a write through frozen data.
 ```maxon

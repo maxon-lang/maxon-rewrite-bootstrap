@@ -1045,7 +1045,7 @@ end 'main'
 ```
 
 <!-- test: split-result-crosses-a-user-function-and-a-struct-field -->
-<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines are not supported in minimaxon; loop over an array or a view -->
+<!-- skip: for loops over graphemes(), characters(), split() or lines() of a string are not supported in minimaxon; loop over the string itself, whose elements are its grapheme clusters, or a view -->
 ### An owned `Array with String` survives being returned out of the corpus body
 `split` is the only corpus `String` member that CONSTRUCTS a container. The corpus builds it through
 `StringArray.create(0)` (`stdlib/String.maxon:621-625`), so the corpus decides that array's element size
@@ -1081,7 +1081,7 @@ function main() returns ExitCode
 	let derived = ["seed"]
 	for round in 0 upto 200 'rounds'
 		let tmp = "{round},x,{round}"
-		// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines are not supported in minimaxon; loop over an array or a view
+		// TODO: for loops over graphemes(), characters(), split() or lines() of a string are not supported in minimaxon; loop over the string itself, whose elements are its grapheme clusters, or a view
 		for p in tmp.split(",") 'each'
 			derived.push(p.clone())
 		end 'each'

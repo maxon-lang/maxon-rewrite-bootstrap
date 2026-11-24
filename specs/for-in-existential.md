@@ -87,10 +87,10 @@ type Upto implements Seq
 	end 'advance'
 end 'Upto'
 
-function total(source Seq) returns Integer
+function total(mutates source Seq) returns Integer
 	var sum = 0 as Integer
 	for item in source 'walk'
-		sum = sum + item
+		sum = try sum + item otherwise panic("out of range")
 	end 'walk'
 	return sum
 end 'total'
@@ -147,12 +147,12 @@ type Upto implements Counted
 	end 'advance'
 end 'Upto'
 
-function report(source Counted) returns Integer
+function report(mutates source Counted) returns Integer
 	var sum = 0 as Integer
 	for item in source 'walk'
-		sum = sum + item
+		sum = try sum + item otherwise panic("out of range")
 	end 'walk'
-	return sum + source.size()
+	return try sum + source.size() otherwise panic("out of range")
 end 'report'
 
 function main() returns ExitCode
@@ -185,7 +185,7 @@ type Tagged uses T implements Seq
 	let limit as Integer
 	let tag as T
 
-	static function create(limit Integer, tag T) returns Self
+	static function create(limit Integer, tag T) returns Self where T implements Copyable
 		return Self{pos: 1, limit: limit, tag: tag}
 	end 'create'
 
@@ -203,10 +203,10 @@ end 'Tagged'
 
 typealias IntTagged = Tagged with Integer
 
-function total(source Seq) returns Integer
+function total(mutates source Seq) returns Integer
 	var sum = 0 as Integer
 	for item in source 'walk'
-		sum = sum + item
+		sum = try sum + item otherwise panic("out of range")
 	end 'walk'
 	return sum
 end 'total'
@@ -256,7 +256,7 @@ type Numbered implements Lines
 	end 'advance'
 end 'Numbered'
 
-function show(source Lines)
+function show(mutates source Lines)
 	for text in source 'walk'
 		print("{text}\n")
 	end 'walk'
@@ -313,7 +313,7 @@ end 'Upto'
 type Holder
 	export var seq as Seq
 
-	static function create(seq Seq) returns Self
+	static function create(consumes seq Seq) returns Self
 		return Self{seq: seq}
 	end 'create'
 end 'Holder'
@@ -325,24 +325,24 @@ end 'makeSeq'
 function fromCall(limit Integer) returns Integer
 	var sum = 0 as Integer
 	for item in makeSeq(limit) 'walk'
-		sum = sum + item
+		sum = try sum + item otherwise panic("out of range")
 	end 'walk'
 	return sum
 end 'fromCall'
 
 function fromLocal(limit Integer) returns Integer
-	let s = makeSeq(limit)
+	var s = makeSeq(limit)
 	var sum = 0 as Integer
 	for item in s 'walk'
-		sum = sum + item
+		sum = try sum + item otherwise panic("out of range")
 	end 'walk'
 	return sum
 end 'fromLocal'
 
-function fromField(h Holder) returns Integer
+function fromField(mutates h Holder) returns Integer
 	var sum = 0 as Integer
 	for item in h.seq 'walk'
-		sum = sum + item
+		sum = try sum + item otherwise panic("out of range")
 	end 'walk'
 	return sum
 end 'fromField'
@@ -350,7 +350,7 @@ end 'fromField'
 function main() returns ExitCode
 	print("{fromCall(4)}\n")
 	print("{fromLocal(4)}\n")
-	let h = Holder.create(makeSeq(4))
+	var h = Holder.create(makeSeq(4))
 	print("{fromField(h)}\n")
 	return 0
 end 'main'
@@ -382,18 +382,18 @@ type IntCursor
 		if items.count() == 0 'empty'
 			throw IterationError.exhausted
 		end 'empty'
-		return Self{items: items, pos: 0}
+		return Self{items: items.clone(), pos: 0}
 	end 'create'
 
 	function current() returns Integer
 		return try self.items.get(self.pos as ElementIndex) otherwise 0
 	end 'current'
 
-	function advance() throws IterationError
-		if self.pos + 1 >= (self.items.count() as Integer) 'atTheLast'
+	function advance(mutates self) throws IterationError
+		if (try self.pos + 1 otherwise panic("out of range")) >= (try self.items.count() as Integer otherwise panic("out of range")) 'atTheLast'
 			throw IterationError.exhausted
 		end 'atTheLast'
-		self.pos = self.pos + 1
+		self.pos = try self.pos + 1 otherwise panic("out of range")
 	end 'advance'
 end 'IntCursor'
 
@@ -405,7 +405,7 @@ type Numbers implements Bag
 	let items as IntArray
 
 	static function create(items IntArray) returns Self
-		return Self{items: items}
+		return Self{items: items.clone()}
 	end 'create'
 
 	function createIterator(mutates self) returns IntCursor throws IterationError
@@ -416,13 +416,13 @@ end 'Numbers'
 function total(source Bag) returns Integer
 	var sum = 0 as Integer
 	for item in source 'walk'
-		sum = sum + item
+		sum = try sum + item otherwise panic("out of range")
 	end 'walk'
 	return sum
 end 'total'
 
 function main() returns ExitCode
-	let filled = IntArray.create(0)
+	var filled = IntArray.create(0)
 	filled.push(4)
 	filled.push(5)
 	filled.push(6)
@@ -614,7 +614,7 @@ function pick(up bool) returns Integer
 	end 'other'
 	var sum = 0 as Integer
 	for item in s 'walk'
-		sum = sum + item
+		sum = try sum + item otherwise panic("out of range")
 	end 'walk'
 	return sum
 end 'pick'
@@ -730,19 +730,19 @@ type Numbered implements Lines
 	end 'advance'
 end 'Numbered'
 
-function returnsOutOfTheBody(source Lines) returns Integer
+function returnsOutOfTheBody(mutates source Lines) returns Integer
 	for text in source 'walk'
 		if text.byteLength() > 0 'theFirst'
-			return text.byteLength() as Integer
+			return try text.byteLength() as Integer otherwise panic("out of range")
 		end 'theFirst'
 	end 'walk'
 	return 0
 end 'returnsOutOfTheBody'
 
-function breaksOutOfTheBody(source Lines) returns Integer
+function breaksOutOfTheBody(mutates source Lines) returns Integer
 	var total = 0 as Integer
 	for text in source 'walk'
-		total = total + (text.byteLength() as Integer)
+		total = try total + (text.byteLength() as Integer) otherwise panic("out of range")
 		if total > 100 'enough'
 			break
 		end 'enough'

@@ -69,13 +69,13 @@ end 'Entry'
 typealias EntryList = List with Entry
 
 function main() returns ExitCode
-	let list = EntryList.create()
+	var list = EntryList.create()
 	list.append(Entry.create(1, value: 100))
 	list.append(Entry.create(2, value: 200))
 	list.append(Entry.create(3, value: 300))
 	var sum = 0 as Integer
 	for item in list 'loop'
-		sum = sum + item.value
+		sum = try sum + item.value otherwise panic("out of range")
 	end 'loop'
 	print("{sum}\n")
 	return 0

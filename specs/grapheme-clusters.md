@@ -397,7 +397,7 @@ function main() returns ExitCode
 	let s = "caf\u0065\u0301" // c, a, f, e+combining accent = 4 graphemes
 	var count = 0 as Count
 	for _ in s 'loop'
-		count = count + 1
+		count = try count + 1 otherwise panic("out of range")
 	end 'loop'
 	print("{count}\n")
 	return 0

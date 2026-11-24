@@ -1,0 +1,52 @@
+typealias Strings = Array with String
+
+// clusters walks a String that is not all ASCII: a cluster may be several bytes and several code points.
+function clusters(text String) returns Count
+	var n = 0 as Count
+	for cluster in text 'each'
+		print("{cluster.byteLength()};")
+		n = try n + 1 otherwise panic("too many clusters")
+	end 'each'
+	print("\n")
+	return n
+end 'clusters'
+
+function main() returns ExitCode
+	for c in "abc" 'ascii'
+		print("{c};")
+	end 'ascii'
+	print("\n")
+	let mixed = "héllo 👩‍💻🇫🇷!"
+	print("{clusters(mixed)} {mixed.count()}\n")
+	print("{clusters("a\r\nb")}\n")
+	for _ in "" 'empty'
+		print("never\n")
+	end 'empty'
+	var kept = Strings.create(0)
+	for c in "x-y-z" 'keep'
+		if c == "-" 'dash'
+			continue 'keep'
+		end 'dash'
+		if c == "z" 'last'
+			break 'keep'
+		end 'last'
+		kept.push(c.clone())
+	end 'keep'
+	print("{kept.count()} {kept[0]}{kept[1]}\n")
+	let built = "{kept[0]}é{kept[1]}"
+	for outer in built 'outer'
+		for inner in built 'inner'
+			print("{outer}{inner};")
+		end 'inner'
+	end 'outer'
+	print("\n")
+	return 0
+end 'main'
+
+//> a;b;c;
+//> 1;3;1;1;1;1;11;8;1;
+//> 9 9
+//> 1;2;1;
+//> 3
+//> 2 xy
+//> xx;xé;xy;éx;éé;éy;yx;yé;yy;

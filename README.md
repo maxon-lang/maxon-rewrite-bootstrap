@@ -2529,8 +2529,9 @@ edit to `runtime/` rebuilds everything.
 - `extension` blocks (see "Extensions"): methods, static functions of a type and conformances added to a type, an enum, a
   union, `Array`, `Map`, `List`, `String`, `bool` or `int` from outside its body.
 - `let`, `var` (with a value, or `var x as T` without one), assignment to a variable, a field or an element,
-  `_ = call()`, `if`/`else if`/`else`, `if let x = try call()` and `if try call()` with an `else`, `while`, `for i in a to|upto b`, `for x in xs` over an array or a type with
-  maxon's iteration protocol, `for (i, x) in xs.enumerated()` over an array with its indexes, `for (k, v) in m` over the library's `Map`, whose iterator lends each entry, and `for c in E.allCases` (see "Primitives"), `match` as a statement or expression
+  `_ = call()`, `if`/`else if`/`else`, `if let x = try call()` and `if try call()` with an `else`, `while`, `for i in a to|upto b`, `for x in xs` over an array, a `List`, the grapheme clusters of a `String`, or any value
+  whose type has maxon's iteration protocol (a type of the program, a type parameter through its bounds, an interface
+  value through what its interface requires), `for (i, x) in xs.enumerated()` over an array with its indexes, `for (k, v) in m` over the library's `Map`, whose iterator lends each entry, and `for c in E.allCases` (see "Primitives"), `match` as a statement or expression
   (case, literal, range and string patterns, `or` alternatives, `default`, `panic` arms, `default throws E`, and `stmt and fallthrough`), `break`/`continue`
   with labels, `return`, `when` (a behaviour, see "Immutable values, cowns and behaviours"), `await p` of a promise of a
   function that returns nothing, and a `try` block with or without a handler (see "Checked arithmetic").
@@ -3693,8 +3694,17 @@ dropped, ends after every element was taken out. Nothing built in returns an `Op
   pair and no iterator is made. `enumerated()` is a form of the `for` and not a method: it names the elements of an
   `Array` or a `FixedArray`, the only collections whose elements have an index, and over anything else, or with one name,
   it is `E2015`.
-  A type walks with maxon's iteration protocol, found on its concrete type, or for a type parameter on the requirements of
-  its bounds (one bound that requires each method): a cursor declares `current()`, which gives
+  A `List` is walked the same way, front to back: each element is lent to `x`, and the list is held while the body runs
+  (`E3186`). The lowering walks its handles, `first` and then `next` until there is none, reading each element in place.
+  A `String` is walked by grapheme cluster, as `count()` counts them (see "Text"): each cluster is lent to `x` as a view
+  of the String's bytes, a `String` that owns none, so keeping one is `.clone()` (`E3900` otherwise), and the String is
+  held while the body runs (`E3186`). The lowering is a loop over byte positions that reads the String's ASCII bit once:
+  where it is set every cluster is one byte and the next starts at the next byte, and elsewhere `rt.str.graphemeBytePos`
+  finds where the cluster ends. A pass allocates nothing: the view is two words made in registers.
+  Anything else walks with maxon's iteration protocol, wherever its type has it: on a concrete type, through a type
+  parameter's bounds (one bound that requires each method), or through an interface value's interface, whose
+  requirements the loop calls through the table the value carries, one indirect call each for `current()` and `advance()`
+  per pass and one for `createIterator()`, with no box made. A cursor declares `current()`, which gives
   the element and cannot fail, and `advance(mutates self) throws IterationError`, which fails past the last one; a
   collection declares `createIterator()`, which returns a cursor and may throw `IterationError` where it is empty. A
   loop over a cursor moves it on in place (a place it is must be mutable, and is held while the body runs); a loop
@@ -3702,8 +3712,9 @@ dropped, ends after every element was taken out. Nothing built in returns an `Op
   the cursor borrows it (see "Borrowing values"). Each `current()` is a value of its own, owned by
   `x` until the pass ends, or, where `current()` returns borrowed (a requirement or a method), lent to `x` as an array's
   element is: a borrow of the cursor, which the loop holds, so moving it is `E3900` and `.clone()` the fix. A throw of `createIterator()` or `advance()` ends the loop, and a `createIterator()` that
-  throws another error is `E2015`, as is a loop over anything else: a string, a list, a pool. A string's `bytes()`,
-  `codepoints()` and `utf16()` views are such collections; a loop over the string itself waits for `Character`.
+  throws another error is `E2015`, as is a loop over a value whose type has no protocol (a pool, a number), in maxon's
+  words, which for a type parameter or an interface value name the requirement to add. A string's `bytes()`,
+  `codepoints()` and `utf16()` views are such collections.
   A `Map` is walked by its `MapIterator`, table by table in the order the map made them and each in the order of its slots: `current()` lends the entry as a tuple of two
   borrows, the key's and the value's slots (see "Tuples"), so `for (key, value) in m` binds the two as borrows of the
   table, read-only, `_` for one the body does not use, and `for entry in m` binds the pair. The map is held while the
@@ -3813,6 +3824,13 @@ a `Byte`, a `Codepoint` (`int(0 to 1114111)`) and a `CodeUnit16` (`int(0 to 6553
 the iteration protocol (see "Iteration"): a `for` over it, or `createIterator()` and an iterator's `current()` and
 `advance()` as maxon's. Unlike maxon's they are not lazy: a view and an iterator each hold a copy of the string, so
 changing the string leaves them as they were. A view is no `Array`, as in maxon.
+
+A `String` is walked by `for c in s` cluster by cluster, each a view of its bytes (see "Iteration"), and implements the
+library's `Iterable with (String, StringIterator)` (`stdlib/StringIterator.maxon`, minimaxon's own), so a type parameter
+bound by `Iterable` and an `Iterable` interface value walk it too: its `createIterator()` gives a `StringIterator` that
+holds a copy of the String and lends each cluster with `current()`, as the loop does, finding where each ends with
+`sliceLength`.
+
 ### The OS
 
 The OS functions are maxon's stdlib, names, labels, results and errors, declared as static functions of built-in
@@ -4405,10 +4423,12 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   type's arguments, is `E2015`. A ranged typealias of an extension of a generic type is `E2015`, as in its body. A function
   typealias of a non-generic type or extension is a type of its own, as a top-level one is; in the body of a generic type it is not.
 - `for` loops (see "Primitives"): a `Map`'s entries are lent, not copied, as a tuple of two borrows (see "Tuples"), and the
-  map is held while the body runs, so a body that changes it is `E3186` where maxon re-reads it. `E.allCases`
+  map is held while the body runs, so a body that changes it is `E3186` where maxon re-reads it; so is a `List` or a
+  `String` that the body changes, where maxon's loop over a list ends when it finds no next node. A loop over a `String`
+  gives each grapheme cluster as a `String`, a view of the walked String's bytes, where maxon's gives a `Character`, which
+  minimaxon does not have. `E.allCases`
   and `E.allCaseNames` are a new array each time they are read, since an array has one owner, and `Shape.unionCases` is not
-  supported. Not supported, and skipped by the converter: a loop over the characters of a `String` (there is no `Character`),
-  over its grapheme clusters, `split()` or `lines()`. maxon's `for (iter, x) in xs.withIterator()`, whose iterator the
+  supported. Not supported, and skipped by the converter: a loop over `graphemes()`, `characters()`, `split()` or `lines()`. maxon's `for (iter, x) in xs.withIterator()`, whose iterator the
   body asks for `iter.index()`, is `for (i, x) in xs.enumerated()` here, as in Hylo and Swift: the loop binds the index
   itself and there is no iterator object, so an array is walked with its indexes at the cost of the plain loop. The
   converter rewrites the one form into the other, `iter.index()` into the name; a test whose body uses the iterator for
@@ -4614,10 +4634,11 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   types rather than stdlib code, and keep these differences: a subscript is a place (`a[i].f = x`, `mutates a[i]`) that
   traps on a miss, where only `get` and `set` throw, as maxon's do; `Pool`, `Handle` and the list's handle API (`prepend`
   and `append` return a `Handle`, `first` and `last` return one, `remove(h)`, `next`, `prev`, `moveToFront`) stand where
-  maxon has pointers and indexes; `filled` and `dropEmpty` are minimaxon's own; only an array, a type with the iteration protocol (the library's `Map`)
-  and the views of a `String` are walked by `for x in` (a `String` itself, a `List` and a range value are not), and the loop holds the array or the map, so a body that pushes to it or reassigns it is
-  refused (`E3186`) where maxon re-reads the live count; the
-  iteration protocol is found on the concrete type or through a type parameter's bounds, never through an interface value;
+  maxon has pointers and indexes; `filled` and `dropEmpty` are minimaxon's own; the loop holds the array or the list it walks, so a body that pushes to it or reassigns it is
+  refused (`E3186`) where maxon re-reads the live count; a `List` does not implement the library's `Iterable`, so it is
+  walked only where its type is known, not through a bound or an interface value; there is no range value (maxon's library `Range` and `OpenRange`,
+  which `a to b` and `a upto b` make outside a `for` header): a range is written only in a `for` header, a ranged type and a
+  pattern;
   `sort`, `sortUnstable`, `sortBy`, `sortUnstableBy`, `cursor`, `createIterator`, `map`, `filter` and `hash()` are the library's extensions of `Array` (`stdlib/Array.maxon`, converted, and `stdlib/Sort.maxon`, ours: both sorts are one stable merge sort that moves elements with `pop` and `push`, where maxon's are driftsort and pdqsort over the raw buffer, so the compare counts differ and the unstable sorts are stable; `appendMemory` and `withIterator` are not there), `Array` implements `Iterable` there but not `Hashable` (minimaxon has no conditional conformance, so `hash()` is a method of the arrays whose element is `Hashable`, and an array is no `Map` key), `reserve` does nothing, since a capacity is no part of an array's value here (there is no `capacity()`), and `clear`, `truncate`, `resize`, `slice`, `first` and `last` are maxon's, and `clearSlot(at)` too, which only the library tiers call (`E3185`): it drops the element at an index and leaves the slot empty, a hash table's tombstone. A slot is empty where a library tier grew an array of its type parameter with `resize` (outside the library tiers that is `E3106`, as maxon refuses it) or cleared it; it is maxon's: an empty slot of a managed element is 0, the empty place a drop does nothing with, so dropping the array drops only the full slots, and a copy keeps an empty slot empty, while over a scalar a grown or cleared slot is the element 0. `get`, `first`, `last` and a buffer's `get` or a cursor's `peek` of an empty slot throw `emptySlot`, and a read that lends it (a subscript, a `for`, a cursor's `current()`) panics with maxon's `empty slot: element N of the array was never filled`, so no element that is not there is ever lent; the indexes and counts they take are `ElementIndex`; `create(n)` and `resize` refuse an enum element
   some case of which writes a raw value or carries a payload, since a slot holds a case's ordinal and its zero is the first case, which is maxon's case of raw value 0 only where no case writes one, and take no `zeroed:`; and `String` has the byte operations `byteLength`, `byteAt`, `sliceBytes`, `toByteArray`, the static `String.from(bytes)`, and maxon's text methods (see "Text").
   There is no built-in `Option`, which maxon's stdlib has no more of either: an

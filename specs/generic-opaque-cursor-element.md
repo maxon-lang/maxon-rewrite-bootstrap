@@ -375,6 +375,7 @@ the one spelling that can never be an existential, which is why it is served whi
 ABI that carries a descriptor.
 
 <!-- test: error.a-cursor-over-a-parameter-is-still-refused -->
+<!-- positions: moved -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -400,7 +401,7 @@ type Collector uses Element
 	function count(source ElementBag) returns Integer
 		var n = 0 as Integer
 		for item in source 'collect'
-			n = n + 1
+			n = try n + 1 otherwise panic("out of range")
 		end 'collect'
 		return n
 	end 'count'

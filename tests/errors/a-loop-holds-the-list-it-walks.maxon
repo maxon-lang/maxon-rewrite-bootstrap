@@ -1,0 +1,11 @@
+typealias Counts = List with Count
+
+function main() returns ExitCode
+	var numbers = Counts from [1, 2]
+	for n in numbers 'each'
+		_ = numbers.append(n)
+	end 'each'
+	return 0
+end 'main'
+
+// expect-error: E3186 at 6:7

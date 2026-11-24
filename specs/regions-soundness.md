@@ -6259,7 +6259,7 @@ type Bin
 	end 'create'
 end 'Bin'
 
-function keepFromList(bin Bin, keep BlobArray)
+function keepFromList(bin Bin, mutates keep BlobArray)
 	for blob in bin.list 'each'
 		keep.push(blob.clone())
 	end 'each'
@@ -6268,14 +6268,14 @@ end 'keepFromList'
 function weighMap(bin Bin) returns Count
 	var total = 0 as Count
 	for (_, blob) in bin.index 'each'
-		total = total + blob.data.count()
+		total = try total + blob.data.count() otherwise panic("out of range")
 	end 'each'
 	return total
 end 'weighMap'
 
 function main() returns ExitCode
 	let bin = Bin.create()
-	let keep = BlobArray.create(0)
+	var keep = BlobArray.create(0)
 	keepFromList(bin, keep: keep)
 	print("{keep.count()} {weighMap(bin)}\n")
 	return 0
