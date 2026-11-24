@@ -99,7 +99,6 @@ end 'main'
 ```
 
 <!-- test: a-still-shared-var-stored-into-a-let-payload -->
-<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 `name` is read again after the construction, and the `let` payload names the same record.
 
 ```maxon
@@ -111,12 +110,12 @@ union Op
 end 'Op'
 
 function main() returns ExitCode
-	let name = ByteArray.create(0)
+	var name = ByteArray.create(0)
 	name.push(65)
-	let op = Op.call(name, weight: 1)
+	let op = Op.call(name.clone(), weight: 1)
 	name.push(66)
 	match op 'shape'
-		call(_, weight) then return weight as ExitCode
+		call(_, weight) then return try weight as ExitCode otherwise panic("out of range")
 		nop then return 0
 	end 'shape'
 end 'main'
@@ -509,7 +508,6 @@ end 'main'
 ```
 
 <!-- test: an-all-let-record-and-a-scalar-go-into-let-payloads -->
-<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 A record whose fields are all `let` is a value type and a scalar owns no storage, so a `var` of either goes into a
 `let` payload and stays usable afterwards.
 
@@ -533,10 +531,10 @@ end 'Mark'
 function main() returns ExitCode
 	let point = Point.create(3, y: 4)
 	var tick = 5 as Integer
-	let mark = Mark.at(point, tick: tick)
-	tick = tick + point.x
+	let mark = Mark.at(point.clone(), tick: tick)
+	tick = try tick + point.x otherwise panic("out of range")
 	return match mark 'read'
-		at(p, t) gives (p.x + p.y + t + tick) as ExitCode
+		at(p, t) gives try (p.x + p.y + t + tick) as ExitCode otherwise panic("out of range")
 		cleared gives 0
 	end 'read'
 end 'main'

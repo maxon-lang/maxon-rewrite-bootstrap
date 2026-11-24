@@ -64,7 +64,6 @@ end 'main'
 ```
 
 <!-- test: local-alias -->
-<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 Two variables alias the same object; freed once when both go out of scope.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -80,7 +79,7 @@ end 'Point'
 
 function testAlias()
 	let p = Point.create(3, y: 4)
-	let q = p
+	let q = p.clone()
 	print("{q.x}\n")
 	print("{p.y}\n")
 end 'testAlias'

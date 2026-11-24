@@ -3704,7 +3704,7 @@ true
 ```
 
 <!-- test: fixed-array.a-slice-deep-copies-a-fixed-array-held-in-a-field-and-in-a-union-payload -->
-<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
+<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 A `FixedArray`'s record is an `Array`'s, so `slice` copies it like one: writing the original cells after the
 slice — replacing the union and setting a flag in the fixed array field — leaves the copies as they were.
 ```maxon

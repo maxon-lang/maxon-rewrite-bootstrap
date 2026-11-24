@@ -65,7 +65,6 @@ none
 ```
 
 <!-- test: a-copy-of-the-union-shares-the-payload-and-both-drop -->
-<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 Two names for one union each own a reference, and the payload is released once both are gone.
 ```maxon
 typealias Mass = int(0 to 100)
@@ -92,7 +91,7 @@ end 'mass'
 
 function main() returns ExitCode
 	let a = Holder.holding(Body.create(7))
-	let b = a
+	let b = a.clone()
 	return (mass(a) + mass(b)) as ExitCode
 end 'main'
 ```
@@ -534,7 +533,6 @@ end 'main'
 ```
 
 <!-- test: an-all-let-union-with-a-mutable-struct-payload-is-shared-with-a-service -->
-<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 `Shape`'s payloads are `let`, but the struct they hold has a `var` field, so the payload walk meets its record as owned state while the word is shared with the service and viewed by `w`.
 ```maxon
 typealias Coord = int(0 to 1000)
@@ -544,7 +542,7 @@ type Cell
 	export let label as String
 
 	static function create(n Coord, label String) returns Self
-		return Self{n: n, label: label}
+		return Self{n: n, label: label.clone()}
 	end 'create'
 end 'Cell'
 
@@ -560,10 +558,10 @@ type Store
 		return Self{}
 	end 'create'
 
-	export function keep(s frozen with Shape) returns Coord
-		self.seen = self.seen + 1
+	export function keep(mutates self, s frozen with Shape) returns Coord
+		self.seen = try self.seen + 1 otherwise panic("out of range")
 		return match s 'shape'
-			cell(c) gives c.n + c.label.byteLength() as Coord
+			cell(c) gives try c.n + c.label.byteLength() as Coord otherwise panic("out of range")
 			nothing gives 0
 		end 'shape'
 	end 'keep'
@@ -572,10 +570,10 @@ end 'Store'
 function main() returns ExitCode
 	let h = spawn Store.create()
 	let s = freeze(Shape.cell(Cell.create(7, label: "cde{2}")))
-	let w = s
+	let w = s.clone()
 	let r = try await h.keep(s) otherwise 0
 	let mine = match w 'shape'
-		cell(c) gives c.n + c.label.byteLength() as Coord
+		cell(c) gives try c.n + c.label.byteLength() as Coord otherwise panic("out of range")
 		nothing gives 0
 	end 'shape'
 	print("{r} {mine}\n")
@@ -590,7 +588,6 @@ end 'main'
 ```
 
 <!-- test: an-all-let-union-is-shared-while-several-words-hold-a-mutable-struct-payload -->
-<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 Three words hold one `Shape` payload while a fourth reference travels with the send. The share walk meets the payload record once, as a view of an immutable union, and the owners outside the graph are tolerated exactly as they were when the payload sat behind a box.
 ```maxon
 typealias Coord = int(0 to 1000)
@@ -600,7 +597,7 @@ type Cell
 	export let label as String
 
 	static function create(n Coord, label String) returns Self
-		return Self{n: n, label: label}
+		return Self{n: n, label: label.clone()}
 	end 'create'
 end 'Cell'
 
@@ -616,10 +613,10 @@ type Store
 		return Self{}
 	end 'create'
 
-	export function keep(s frozen with Shape) returns Coord
-		self.seen = self.seen + 1
+	export function keep(mutates self, s frozen with Shape) returns Coord
+		self.seen = try self.seen + 1 otherwise panic("out of range")
 		return match s 'shape'
-			cell(c) gives c.n + c.label.byteLength() as Coord
+			cell(c) gives try c.n + c.label.byteLength() as Coord otherwise panic("out of range")
 			nothing gives 0
 		end 'shape'
 	end 'keep'
@@ -627,7 +624,7 @@ end 'Store'
 
 function weigh(s Shape) returns Coord
 	return match s 'shape'
-		cell(c) gives c.n + c.label.byteLength() as Coord
+		cell(c) gives try c.n + c.label.byteLength() as Coord otherwise panic("out of range")
 		nothing gives 0
 	end 'shape'
 end 'weigh'
@@ -635,9 +632,9 @@ end 'weigh'
 function main() returns ExitCode
 	let h = spawn Store.create()
 	let s = freeze(Shape.cell(Cell.create(5, label: "ab{1}")))
-	let a = s
-	let b = s
-	let r = try await h.keep(s) otherwise 0
+	let a = s.clone()
+	let b = s.clone()
+	let r = try await h.keep(s.clone()) otherwise 0
 	print("{r} {weigh(a)} {weigh(b)} {weigh(s)}\n")
 	return 0
 end 'main'
@@ -650,7 +647,6 @@ end 'main'
 ```
 
 <!-- test: an-all-let-union-is-shared-while-several-words-hold-a-string-payload -->
-<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 ```maxon
 typealias Count = int(0 to 1000)
 
@@ -666,10 +662,10 @@ type Store
 		return Self{}
 	end 'create'
 
-	export function keep(n frozen with Note) returns Count
-		self.seen = self.seen + 1
+	export function keep(mutates self, n frozen with Note) returns Count
+		self.seen = try self.seen + 1 otherwise panic("out of range")
 		return match n 'note'
-			text(body) gives body.byteLength() as Count
+			text(body) gives try body.byteLength() as Count otherwise panic("out of range")
 			blank gives 0
 		end 'note'
 	end 'keep'
@@ -677,7 +673,7 @@ end 'Store'
 
 function weigh(n Note) returns Count
 	return match n 'note'
-		text(body) gives body.byteLength() as Count
+		text(body) gives try body.byteLength() as Count otherwise panic("out of range")
 		blank gives 0
 	end 'note'
 end 'weigh'
@@ -685,12 +681,12 @@ end 'weigh'
 function main() returns ExitCode
 	let h = spawn Store.create()
 	let n = Note.text("abc{1}")
-	let a = n
-	let b = n
+	let a = n.clone()
+	let b = n.clone()
 	let wa = weigh(a)
 	let wb = weigh(b)
 	let wn = weigh(n)
-	let r = try await h.keep(n) otherwise 0
+	let r = try await h.keep(freeze(n)) otherwise 0
 	print("{r} {wa} {wb} {wn}\n")
 	return 0
 end 'main'

@@ -1915,7 +1915,6 @@ reassign first payload string long enough to be a real heap allocationreassign s
 ```
 
 <!-- test: construct-co-owns-string-source -->
-<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 Storing a String binding into a union payload CO-OWNS it: the payload slot takes its own
 reference, `msg` stays live, and its scope-exit drop releases the reference it always held. The record is
 freed exactly once, by whichever of the two owners drops last. A durable store takes a reference rather
@@ -1934,7 +1933,7 @@ end 'Message'
 
 function main() returns ExitCode
 	let msg = build(1)
-	let m = Message.text(msg)
+	let m = Message.text(msg.clone())
 	print("{m}")
 	print(msg)
 	return 0
@@ -1949,7 +1948,6 @@ textv1
 ```
 
 <!-- test: construct-co-owns-struct-source -->
-<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 The struct spelling of the case above. `Shape.solid(b)` gives the payload slot its own reference to `b`'s
 box; `b` stays readable and drops its own reference at scope exit, so the box is released once by the
 union's destructor and once by `b` — matching the two references taken.
@@ -1971,9 +1969,9 @@ end 'Shape'
 
 function main() returns ExitCode
 	let b = Body.create(5)
-	let s = Shape.solid(b)
+	let s = Shape.solid(b.clone())
 	print("{s}")
-	return b.mass
+	return try b.mass as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

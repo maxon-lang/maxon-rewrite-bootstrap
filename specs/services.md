@@ -8403,7 +8403,6 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: borrow.dag.a-graph-reaching-one-record-twice-is-sent -->
-<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 A sent graph may reach one record through two fields: the second owner is inside the graph the service
 owns, not outside it, so the send's walk admits it.
 ```maxon
@@ -8422,7 +8421,7 @@ type Bag
 	export var cells as CellArray
 
 	static function create() returns Self
-		let cells = CellArray.create(0)
+		var cells = CellArray.create(0)
 		cells.push(Cell.create())
 		cells.push(Cell.create())
 		return Self{n: 3, cells: cells}
@@ -8435,7 +8434,7 @@ type Pair
 
 	static function create() returns Self
 		let bag = Bag.create()
-		return Self{left: bag, right: bag}
+		return Self{left: bag.clone(), right: bag}
 	end 'create'
 end 'Pair'
 
@@ -8448,7 +8447,7 @@ type Svc
 
 	export function look(consumes target Pair) returns Integer
 		print("service reads {target.right.n}\n")
-		return target.right.cells.count() as Integer
+		return try target.right.cells.count() as Integer otherwise panic("out of range")
 	end 'look'
 end 'Svc'
 
@@ -8471,7 +8470,6 @@ service counted 2 cells
 ```
 
 <!-- test: borrow.dag.a-graph-reaching-one-record-twice-is-sent-twice -->
-<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 A clone of that graph is sent first and the graph itself second; each send's walk admits what it meets.
 ```maxon
 type Cell
@@ -8489,7 +8487,7 @@ type Bag
 	export var cells as CellArray
 
 	static function create() returns Self
-		let cells = CellArray.create(0)
+		var cells = CellArray.create(0)
 		cells.push(Cell.create())
 		cells.push(Cell.create())
 		return Self{n: 3, cells: cells}
@@ -8502,7 +8500,7 @@ type Pair
 
 	static function create() returns Self
 		let bag = Bag.create()
-		return Self{left: bag, right: bag}
+		return Self{left: bag.clone(), right: bag}
 	end 'create'
 end 'Pair'
 
@@ -8515,7 +8513,7 @@ type Svc
 
 	export function look(consumes target Pair) returns Integer
 		print("service reads {target.right.n}\n")
-		return target.right.cells.count() as Integer
+		return try target.right.cells.count() as Integer otherwise panic("out of range")
 	end 'look'
 end 'Svc'
 
@@ -8524,7 +8522,7 @@ function main() returns ExitCode
 	let p = Pair.create() as Pair
 	let first = try await h.look(p.clone()) otherwise 0
 	let second = try await h.look(p) otherwise 0
-	print("service counted {first + second} cells\n")
+	print("service counted {try first + second otherwise panic("out of range")} cells\n")
 	return 0
 end 'main'
 
@@ -17151,7 +17149,6 @@ error E3102: <fragment>:33:30: use of moved value 'b': its ownership moved to an
 ```
 
 <!-- test: services.a-viewed-var-of-an-immutable-record-is-shared-with-the-service -->
-<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 `Box` has only `let` fields, so nothing can write its record: the send shares it with the service instead of moving it, and `w` stays valid. The service's reply reads the record, and `w` reads it after the send.
 
 ```maxon
@@ -17172,8 +17169,8 @@ type Store
 		return Self{seen: 0}
 	end 'create'
 
-	export function keep(p frozen with Box) returns Count
-		self.seen = self.seen + 1
+	export function keep(mutates self, p frozen with Box) returns Count
+		self.seen = try self.seen + 1 otherwise panic("out of range")
 		return p.n
 	end 'keep'
 end 'Store'
@@ -17182,8 +17179,8 @@ function main() returns ExitCode
 	let h = spawn Store.create()
 	var b = Box.create(1)
 	b = Box.create(2)
-	let w = b
-	let r = try await h.keep(b) otherwise 0
+	let w = b.clone()
+	let r = try await h.keep(freeze(b)) otherwise 0
 	print("{w.n} {r}\n")
 	return 0
 end 'main'
@@ -17252,7 +17249,6 @@ error E3102: <fragment>:45:2: use of moved value 'a': its ownership moved to ano
 ```
 
 <!-- test: services.a-viewed-var-of-an-immutable-generic-instance-is-shared-with-the-service -->
-<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 `Cell with Count` has only a `let` field, so nothing can write its record: the send shares it with the service instead of moving it, and `w` stays valid. The service's reply reads the record, and `w` reads it after the send.
 
 ```maxon
@@ -17261,8 +17257,8 @@ typealias Count = int(i64.min to i64.max)
 type Cell uses T
 	export let v as T
 
-	static function create(v T) returns Self
-		return Self{v: v}
+	static function create(v T) returns Self where T implements Copyable
+		return Self{v: v.clone()}
 	end 'create'
 end 'Cell'
 
@@ -17275,8 +17271,8 @@ type Store
 		return Self{seen: 0}
 	end 'create'
 
-	export function keep(p frozen with CountCell) returns Count
-		self.seen = self.seen + 1
+	export function keep(mutates self, p frozen with CountCell) returns Count
+		self.seen = try self.seen + 1 otherwise panic("out of range")
 		return p.v
 	end 'keep'
 end 'Store'
@@ -17285,8 +17281,8 @@ function main() returns ExitCode
 	let h = spawn Store.create()
 	var b = CountCell.create(1)
 	b = CountCell.create(3)
-	let w = b
-	let r = try await h.keep(b) otherwise 0
+	let w = b.clone()
+	let r = try await h.keep(freeze(b)) otherwise 0
 	print("{w.v} {r}\n")
 	return 0
 end 'main'
@@ -17299,7 +17295,6 @@ end 'main'
 ```
 
 <!-- test: services.a-viewed-var-of-an-immutable-union-is-shared-with-the-service -->
-<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 Every payload of `Note` is a `let`, so nothing can write its value: the send shares it with the service instead of moving it, and `w` stays valid. The service's reply reads the payload, and `w` reads it after the send.
 
 ```maxon
@@ -17317,10 +17312,10 @@ type Store
 		return Self{seen: 0}
 	end 'create'
 
-	export function keep(n frozen with Note) returns Count
-		self.seen = self.seen + 1
+	export function keep(mutates self, n frozen with Note) returns Count
+		self.seen = try self.seen + 1 otherwise panic("out of range")
 		return match n 'note'
-			text(body) gives body.byteLength() as Count
+			text(body) gives try body.byteLength() as Count otherwise panic("out of range")
 			blank gives 0
 		end 'note'
 	end 'keep'
@@ -17330,10 +17325,10 @@ function main() returns ExitCode
 	let h = spawn Store.create()
 	var n = Note.text("a")
 	n = Note.text("bb")
-	let w = n
-	let r = try await h.keep(n) otherwise 0
+	let w = n.clone()
+	let r = try await h.keep(freeze(n)) otherwise 0
 	let mine = match w 'note'
-		text(body) gives body.byteLength() as Count
+		text(body) gives try body.byteLength() as Count otherwise panic("out of range")
 		blank gives 0
 	end 'note'
 	print("{r} {mine}\n")

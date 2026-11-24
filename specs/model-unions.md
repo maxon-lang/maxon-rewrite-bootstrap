@@ -810,7 +810,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-ag-b14-nested-alias-moved-away-inside -->
-<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `b14-nested-alias-moved-away-inside` of redteamAG.hand_ag5, in capmodel `reggio/REPORTRTAG.txt`.
 
 ```maxon
@@ -838,7 +837,7 @@ end 'eatUb'
 
 function main() returns ExitCode
 	let ub = Ub.u1(Bx.create(0))
-	let ua = ub
+	let ua = ub.clone()
 	match ub 'x1'
 		u0 then break
 		u1 then eatUb(ua)

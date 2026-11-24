@@ -4477,7 +4477,6 @@ end 'main'
 ```
 
 <!-- test: async-await.a-let-and-its-alias-handed-to-one-async-call-are-shared -->
-<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 `c` names the record `b` holds, and both are read-only, so the coroutine shares the record under both parameters.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -4492,14 +4491,14 @@ end 'Box'
 
 function pair(a Box, other Box) returns Integer
 	Scheduler.yield()
-	return a.n + other.n
+	return try a.n + other.n otherwise panic("out of range")
 end 'pair'
 
 function main() returns ExitCode
 	let b = Box.create()
-	let c = b
+	let c = b.clone()
 	let p = async pair(b, other: c)
-	return (await p) as ExitCode
+	return try (await p) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

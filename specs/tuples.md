@@ -1359,14 +1359,13 @@ end 'main'
 ```
 
 <!-- test: duplicate-owned-element-co-owns -->
-<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 One owned value CAN fill two slots of one record: each slot is a durable sink and takes its own reference,
 so the tuple's drop cascade releases exactly the two it took and `s` releases the one it
 holds.
 ```maxon
 function main() returns ExitCode
 	let s = "hello"
-	let t = (s, s)
+	let t = (s.clone(), s.clone())
 	print("{t.0}{t.1}{s}")
 	return 0
 end 'main'

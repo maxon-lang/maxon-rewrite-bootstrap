@@ -460,6 +460,7 @@ async-await.md: async-await.a-counted-co-owner-bound-to-a-let-is-shared-with-asy
 async-await.md: async-await.a-counted-co-owner-shared-with-async-is-read-after-the-spawn
 async-await.md: async-await.a-forwarder-and-the-function-it-forwards-to-in-two-files-are-closed-callee-first
 async-await.md: async-await.a-forwarder-and-the-function-it-forwards-to-in-two-files-are-closed-forwarder-first
+async-await.md: async-await.a-let-and-its-alias-handed-to-one-async-call-are-shared
 async-await.md: async-await.a-let-handed-to-async-may-be-written-by-the-coroutine
 async-await.md: async-await.a-let-read-after-an-async-spawn-is-shared
 async-await.md: async-await.a-let-whose-clone-a-closure-captured-is-handed-to-async
@@ -3874,6 +3875,7 @@ let-escape.md: let-escape.a-builder-that-writes-before-it-stores-is-accepted
 let-escape.md: let-escape.a-call-writing-two-lets-passed-directly-writes-both
 let-escape.md: let-escape.a-callee-writing-a-let-through-its-holders-own-method-is-accepted
 let-escape.md: let-escape.a-captured-let-pushed-into-a-holder-is-accepted-though-nothing-writes-its-type
+let-escape.md: let-escape.a-field-assigned-a-global-record-in-the-let-is-written-through-the-global-is-accepted
 let-escape.md: let-escape.a-getter-that-hands-back-a-clone-of-a-set-the-factory-minted-is-accepted
 let-escape.md: let-escape.a-getter-that-hands-back-a-clone-of-what-the-factory-minted-is-accepted
 let-escape.md: let-escape.a-global-container-written-before-the-let-is-stored-is-accepted
@@ -3882,11 +3884,14 @@ let-escape.md: let-escape.a-let-bound-to-a-borrowed-element-of-a-field-of-a-plai
 let-escape.md: let-escape.a-let-bound-to-a-field-a-getter-hands-back-from-a-var-holder-is-accepted
 let-escape.md: let-escape.a-let-bound-to-a-record-a-var-holder-hands-back-is-accepted-though-another-container-is-written
 let-escape.md: let-escape.a-let-bound-to-a-record-a-var-holder-hands-back-is-accepted-though-another-set-of-its-type-is-written
+let-escape.md: let-escape.a-let-bound-to-a-record-the-callee-also-stored-in-the-world-is-accepted-though-it-holds-copies
 let-escape.md: let-escape.a-let-bound-to-an-element-moved-out-of-a-field-of-a-generic-type-is-accepted-for-a-record
 let-escape.md: let-escape.a-let-bound-to-an-element-moved-out-of-a-field-of-a-generic-type-is-accepted-for-a-string
 let-escape.md: let-escape.a-let-bound-to-an-element-moved-out-of-a-field-of-a-generic-type-is-accepted-for-an-integer
 let-escape.md: let-escape.a-let-bound-to-an-element-moved-out-of-a-field-of-a-plain-type-is-accepted
 let-escape.md: let-escape.a-let-handed-to-a-factory-that-stores-a-clone-is-accepted
+let-escape.md: let-escape.a-let-held-by-a-local-holder-that-a-local-world-also-holds-is-written-through-the-world-after-both-are-stored
+let-escape.md: let-escape.a-let-held-by-a-local-holder-that-holds-copies-of-the-worlds-layouts-is-accepted
 let-escape.md: let-escape.a-let-kept-after-the-write-into-a-holder-an-earlier-call-escaped-is-accepted
 let-escape.md: let-escape.a-let-kept-by-a-callee-while-a-task-runs-and-read-again-is-accepted
 let-escape.md: let-escape.a-let-kept-by-a-holders-method-and-read-again-is-accepted
@@ -3896,12 +3901,20 @@ let-escape.md: let-escape.a-let-kept-in-one-container-of-a-holder-and-read-again
 let-escape.md: let-escape.a-let-kept-two-factories-down-and-read-again-is-accepted
 let-escape.md: let-escape.a-let-minted-in-the-loop-kept-by-a-callee-and-read-again-is-accepted
 let-escape.md: let-escape.a-let-pushed-into-a-module-holder-and-read-again-is-accepted
+let-escape.md: let-escape.a-let-stored-into-a-var-field-and-returned-is-accepted-though-only-a-long-chain-is-written
+let-escape.md: let-escape.a-let-stored-into-a-var-field-and-returned-is-accepted-though-only-another-map-is-written
 let-escape.md: let-escape.a-let-the-callee-pushes-and-returns-is-accepted-at-the-push-though-the-caller-reads-it-before-the-write
 let-escape.md: let-escape.a-record-pushed-then-returned-without-a-write-is-accepted
 let-escape.md: let-escape.a-record-stored-before-the-write-into-a-holder-an-earlier-call-escaped-is-written
 let-escape.md: let-escape.a-sibling-record-method-that-never-runs-after-the-store-is-accepted
 let-escape.md: let-escape.a-static-lets-record-a-call-hands-back-is-stored-as-a-clone
 let-escape.md: let-escape.a-string-let-stored-as-a-clone-is-accepted
+let-escape.md: let-escape.a-string-let-stored-in-a-field-is-a-value-the-append-does-not-reach
+let-escape.md: let-escape.a-write-through-a-global-reaches-a-record-the-let-holds-though-the-let-is-stored-in-a-local
+let-escape.md: let-escape.a-write-through-a-path-longer-than-the-recorded-hops-reaches-a-record-the-let-holds
+let-escape.md: let-escape.a-write-to-a-record-a-callee-built-into-the-let-from-its-argument-is-accepted
+let-escape.md: let-escape.a-write-to-a-record-another-holder-shares-with-the-let-is-accepted
+let-escape.md: let-escape.an-interface-typed-let-is-written-through-a-deep-path-to-a-record-it-holds
 let-escape.md: let-escape.error.a-record-stored-through-a-witness-method-is-written
 let-reassignment-only.md: a-field-store-through-a-let-local
 let-reassignment-only.md: a-for-variable-over-a-let-array-is-written-through
@@ -3926,8 +3939,10 @@ let-union-payloads.md: a-let-payload-projected-into-a-tuple-is-read-by-the-calle
 let-union-payloads.md: a-let-payload-read-into-a-var
 let-union-payloads.md: a-let-payload-returned-by-a-call-is-read-into-a-var
 let-union-payloads.md: a-read-only-value-stored-into-a-let-payload
+let-union-payloads.md: a-still-shared-var-stored-into-a-let-payload
 let-union-payloads.md: a-var-at-its-last-use-moves-into-a-let-payload
 let-union-payloads.md: a-var-read-again-after-it-is-passed-to-a-parameter-kept-in-a-let-payload
+let-union-payloads.md: an-all-let-record-and-a-scalar-go-into-let-payloads
 let-union-payloads.md: error.assigning-to-the-binding-of-a-let-payload
 let-union-payloads.md: error.assigning-to-the-binding-of-a-payload-under-a-var-scrutinee
 let-union-payloads.md: the-binding-of-a-let-payload-passed-to-a-parameter-kept-in-a-var-field
@@ -4901,6 +4916,7 @@ model-unions.md: model-hand-af-a11-record-field-nested-call
 model-unions.md: model-hand-af-a7-match-then-call-same-union
 model-unions.md: model-hand-af-n20-two-sequential
 model-unions.md: model-hand-af-s5-binder-lent-named-like-outer
+model-unions.md: model-hand-ag-b14-nested-alias-moved-away-inside
 model-unions.md: model-hand-ag-f2-control-copy
 model-unions.md: model-hand-ag-m8-copy-into-array
 model-unions.md: model-hand-ag-r20-refill-assign-as-lent-arm
@@ -5113,11 +5129,13 @@ moves.md: a-var-moves-where-a-field-read-before-the-loop-cannot-hold-it
 moves.md: assign-owned-from-owned
 moves.md: call-arg-consumed-at-two-positions
 moves.md: conditional-poisoning
+moves.md: consume-through-an-alias-keeps-both-live
 moves.md: error.a-closure-may-not-capture-a-moved-value
 moves.md: field-access-on-live-struct
 moves.md: field-read-after-move
 moves.md: field-store-after-move
 moves.md: field-store-after-move-on-assign
+moves.md: immutable-rebind-aliases
 moves.md: immutable-rebind-on-assign-from-a-loop-element
 moves.md: immutable-rebind-on-assign-is-a-second-name
 moves.md: immutable-rebind-on-assign-outlives-its-source
@@ -5420,6 +5438,7 @@ ownership-edge-cases.md: rc-array-of-structs-get-no-leak
 ownership-edge-cases.md: rc-array-of-structs-literal-no-leak
 ownership-edge-cases.md: rc-borrow-field-from-param
 ownership-edge-cases.md: rc-break-frees-before-exit
+ownership-edge-cases.md: rc-char-alias-incref
 ownership-edge-cases.md: rc-char-backed-enum-compare
 ownership-edge-cases.md: rc-char-inner-block-freed
 ownership-edge-cases.md: rc-char-reassign-decrefs-old
@@ -5462,6 +5481,7 @@ ownership-edge-cases.md: rc-loop-per-iteration-freed
 ownership-edge-cases.md: rc-map-string-keys-multiple-no-leak
 ownership-edge-cases.md: rc-map-string-keys-no-leak
 ownership-edge-cases.md: rc-match-char-range-cleanup
+ownership-edge-cases.md: rc-multiple-aliases-freed-once
 ownership-edge-cases.md: rc-nested-call-return
 ownership-edge-cases.md: rc-nested-container-freed
 ownership-edge-cases.md: rc-nested-struct-clone-no-leak
@@ -5529,6 +5549,7 @@ ownership.md: cycle-enum-self-ref
 ownership.md: for-loop-elem-borrow
 ownership.md: if-else-both-assign
 ownership.md: if-then-block-cleanup
+ownership.md: local-alias
 ownership.md: local-shadowing-a-consumed-parameter
 ownership.md: local-shadowing-a-parameter-ends-with-its-block
 ownership.md: local-struct-freed
@@ -6961,6 +6982,8 @@ services.md: borrow.a-cloned-let-string-is-sent-while-the-sender-keeps-its-sourc
 services.md: borrow.a-handler-may-write-a-copy-of-a-record-inside-its-sent-parameter-through-a-self-writing-method
 services.md: borrow.a-let-string-whose-bytes-the-sender-still-views-crosses-the-send
 services.md: borrow.a-sent-handle-may-be-kept-by-the-handler
+services.md: borrow.dag.a-graph-reaching-one-record-twice-is-sent
+services.md: borrow.dag.a-graph-reaching-one-record-twice-is-sent-twice
 services.md: borrow.dag.bytes-and-their-string-are-sent-together
 services.md: borrow.error.a-let-string-read-after-its-awaited-send-is-use-after-move
 services.md: borrow.one-graph-cloned-into-many-sends-to-one-service
@@ -7038,6 +7061,9 @@ services.md: services.a-throwing-factory-with-a-payload-error-reports-the-payloa
 services.md: services.a-var-reassigned-after-a-closure-captured-it-is-sent
 services.md: services.a-var-string-sent-to-a-service-is-moved
 services.md: services.a-view-of-an-immutable-record-sent-to-a-service-is-sent
+services.md: services.a-viewed-var-of-an-immutable-generic-instance-is-shared-with-the-service
+services.md: services.a-viewed-var-of-an-immutable-record-is-shared-with-the-service
+services.md: services.a-viewed-var-of-an-immutable-union-is-shared-with-the-service
 services.md: services.an-otherwise-merge-of-two-fresh-records-is-sent
 services.md: services.error.a-cell-resident-var-a-closure-only-reads-cannot-be-sent
 services.md: services.error.a-message-that-spawns-a-throwing-factory-is-refused
@@ -7759,6 +7785,7 @@ structs.md: struct-param
 structs.md: struct-return
 structs.md: var-field-assign
 structs.md: var-struct-field-assign
+subprocess.md: subprocess-an-argument-holding-a-nul-is-refused-before-the-spawn
 subprocess.md: subprocess-collected-output-keeps-an-embedded-nul
 subprocess.md: subprocess-not-found
 subprocess.md: subprocess-run-bare-name-found-on-path
@@ -8104,6 +8131,7 @@ tuples.md: array-of-substituted-entry-tuples-clones-each
 tuples.md: array-of-substituted-entry-tuples-with-a-struct-element-clones-each
 tuples.md: basic-tuple
 tuples.md: destructure-match-result-then-compare
+tuples.md: duplicate-owned-element-co-owns
 tuples.md: error.a-bound-tuple-literal-holding-a-call-nothing-declares-is-undefined-at-that-call
 tuples.md: error.a-let-tuple-field-outside-a-narrower-alias
 tuples.md: error.a-let-tuple-field-write-is-refused
@@ -8424,6 +8452,8 @@ union-managed-payload.md: borrowed-bind-two-levels-deep-then-the-owner-moves-it-
 union-managed-payload.md: borrowed-struct-payload-bind-leak-free
 union-managed-payload.md: co-owned-array-element-bind-then-the-element-is-read-again
 union-managed-payload.md: co-owned-nested-payload-bound-inside-a-borrowed-union-s-arm
+union-managed-payload.md: construct-co-owns-string-source
+union-managed-payload.md: construct-co-owns-struct-source
 union-managed-payload.md: discard-managed-field
 union-managed-payload.md: discard-on-a-borrowed-union-increfs-nothing
 union-managed-payload.md: error.fallthrough-into-a-borrowed-binding-arm
@@ -8486,6 +8516,7 @@ union-struct-backing.md: union-backing-mixed-cases
 union-struct-backing.md: union-backing-multi-field
 union-struct-backing.md: union-backing-runtime-rawvalue
 union-struct-backing.md: union-backing-type-qualified-surface
+union-unboxed.md: a-copy-of-the-union-shares-the-payload-and-both-drop
 union-unboxed.md: a-default-throws-over-a-word-union-still-tests-its-last-listed-case
 union-unboxed.md: a-generic-record-holds-a-union
 union-unboxed.md: a-match-on-a-temporary-word-gives-its-payload
@@ -8494,6 +8525,9 @@ union-unboxed.md: a-service-replies-with-a-payload-free-word-and-a-constructed-o
 union-unboxed.md: a-seven-case-union-is-a-word
 union-unboxed.md: a-union-in-an-array-and-in-a-map
 union-unboxed.md: a-var-union-assigned-to-another-case-drops-the-old-payload
+union-unboxed.md: an-all-let-union-is-shared-while-several-words-hold-a-mutable-struct-payload
+union-unboxed.md: an-all-let-union-is-shared-while-several-words-hold-a-string-payload
+union-unboxed.md: an-all-let-union-with-a-mutable-struct-payload-is-shared-with-a-service
 union-unboxed.md: an-all-let-union-with-a-struct-payload-is-shared-with-a-service
 union-unboxed.md: an-all-let-union-with-an-array-payload-is-shared-with-a-service
 union-unboxed.md: an-eighth-payload-case-keeps-the-box-and-the-behaviour
@@ -8664,6 +8698,7 @@ view-binding.md: view-binding.a-let-captured-in-a-closure-is-legal
 view-binding.md: view-binding.a-let-of-a-number-captured-in-a-closure-is-accepted
 view-binding.md: view-binding.a-let-passed-to-a-parameter-that-is-kept-is-legal
 view-binding.md: view-binding.a-let-returned-through-a-call-that-hands-it-back-is-legal
+view-binding.md: view-binding.a-let-stored-into-a-field-or-pushed-is-legal
 view-binding.md: view-binding.a-let-stored-into-a-let-field-is-legal
 view-binding.md: view-binding.a-returned-let-is-legal
 view-binding.md: view-binding.error.a-heap-annotated-view-is-refused
@@ -8835,6 +8870,7 @@ witness-devirtualization.md: witness-devirtualization.throwing-method-through-a-
 witness-devirtualization.md: witness-devirtualization.two-conformers-keep-their-own-method
 witness-managed-return-throws.md: throwing-witness-managed-return-both-edges
 witness-managed-return.md: repeated-persist-overwrites-decref-old
+witness-managed-return.md: two-sink-persist-and-transient
 witness-throws.md: witness-throws.boxed-error-caught-at-witness-edge
 witness-throws.md: witness-throws.error.bare-dispatch-needs-try
 witness-throws.md: witness-throws.error.impl-may-not-throw-beyond-interface

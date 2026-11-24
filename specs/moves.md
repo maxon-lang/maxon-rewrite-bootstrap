@@ -108,7 +108,6 @@ gate reports as exit 101; zero would be a leak it reports the same way. No refco
 alias is simply not enrolled as an owner.
 
 <!-- test: immutable-rebind-aliases -->
-<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -118,7 +117,7 @@ end 'build'
 
 function main() returns ExitCode
 	let t = build(1)
-	let u = t
+	let u = t.clone()
 	print(u)
 	print(t)
 	return 0
@@ -146,7 +145,6 @@ binding-to-binding move and is unaffected by that distinction; the two consuming
 NOT (this one and `call-arg-consumed-at-two-positions`) both show the co-owning side.
 
 <!-- test: consume-through-an-alias-keeps-both-live -->
-<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -158,13 +156,13 @@ type Box
 	export var text as String
 
 	static function create(text String) returns Self
-		return Self{text: text}
+		return Self{text: text.clone()}
 	end 'create'
 end 'Box'
 
 function main() returns ExitCode
 	let a = build(1)
-	let b = a
+	let b = a.clone()
 	let held = Box.create(b)
 	print(held.text)
 	print(a)

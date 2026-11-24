@@ -76,8 +76,8 @@ export type OwnFact
 	export var dest as OwnDest
 	// moves are the fields gone from a partly moved local, none inside another; empty for any other fact.
 	export var moves as OwnMoves
-	// moved is the expression a whole local moved out at into a consumes parameter, where its type can be copied, and 0
-	// for any other fact: a later use's fix copies it there.
+	// moved is the expression a whole local moved out at into a consumes parameter, a field or a binding, where its type can
+	// be copied, and 0 for any other fact: a later use's fix copies it there (movedCloneFix).
 	export var moved as ast.NodeID
 
 	export static function make(local ast.LocalID, site diag.U32, kind OwnFactKind, consumes dest OwnDest) returns OwnFact

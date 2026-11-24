@@ -1,6 +1,12 @@
 // The expressions of the ownership pass: where a value moves, where a place is changed, the calls whose arguments must
 // not overlap, and the borrows an expression holds while the rest of it runs.
 
+// copiesAtMove is whether a move into dest records the moved expression, where a later use's fix copies it
+// (movedCloneFix).
+function copiesAtMove(dest OwnDestKind) returns bool
+	return dest == OwnDestKind.destParameter or dest == OwnDestKind.destField or dest == OwnDestKind.destBinding
+end 'copiesAtMove'
+
 // readRoot is a use of a local's value, which needs one to exist.
 function readRoot(mutates o Ownership, p ast.Project, ms ast.ModuleState, l ast.LocalID, site diag.U32, consumes s OwnState) returns OwnState
 	if s.dead or not s.has(l) 'held'
@@ -28,10 +34,11 @@ function readRoot(mutates o Ownership, p ast.Project, ms ast.ModuleState, l ast.
 	return without(s, l: l)
 end 'readRoot'
 
-// movedCloneFix is the fix of a use of a local after it moved into a consumes parameter: a copy passed there instead,
-// written at the argument, so the local keeps its value. A move into anything else, such as a binding or a field, has
-// none, since what a copy there would cost is the program's to weigh, and neither has a move of a type that cannot be
-// copied (the fact then records no expression).
+// movedCloneFix is the fix of a use of a local after it moved into a consumes parameter, a field of a record literal or a
+// binding: a copy moved there instead, written where it moved, so the local keeps its value. The use after the move is
+// what the program says it wants, as maxon's shared value gives it: the source already paid for the share, and the copy is
+// what it becomes where a value has one owner. A move of a type that cannot be copied has none (the fact then records no
+// expression), and neither has a move into anything else, such as a collection or a return, which hands the value on.
 function movedCloneFix(t ast.Tree, fact OwnFact) returns diag.Fix
 	if fact.moved == 0 'none'
 		return diag.Fix.none()
@@ -138,7 +145,7 @@ function consume(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState,
 	requireUnlent(o, p: p, ms: ms, root: path.root, site: site, s: out)
 	let released = releaseHolder(o, p: p, root: path.root, site: site, dest: dest, s: out)
 	var copied = 0 as ast.NodeID
-	if dest.kind == OwnDestKind.destParameter and canCopy(o, p: p, ms: ms, t: t) 'copyable'
+	if copiesAtMove(dest.kind) and canCopy(o, p: p, ms: ms, t: t) 'copyable'
 		copied = e
 	end 'copyable'
 	return withFact(released, fact: OwnFact.movedAt(path.root, site: site, e: copied, dest: dest))

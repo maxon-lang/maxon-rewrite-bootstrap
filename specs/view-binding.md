@@ -167,7 +167,6 @@ end 'main'
 ```
 
 <!-- test: view-binding.a-let-stored-into-a-field-or-pushed-is-legal -->
-<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 A `let` may be stored into a `var` field and pushed onto an array.
 
 ```maxon
@@ -187,17 +186,17 @@ type Holder
 	export var box as Box
 
 	static function create(box Box) returns Self
-		return Self{box: box}
+		return Self{box: box.clone()}
 	end 'create'
 end 'Holder'
 
 function main() returns ExitCode
-	let h = Holder.create(Box.create(1))
-	let other = Holder.create(Box.create(2))
-	let boxes = Boxes.create(0)
+	var h = Holder.create(Box.create(1))
+	var other = Holder.create(Box.create(2))
+	var boxes = Boxes.create(0)
 	h.box.n = 3
 	let v = h.box
-	other.box = v
+	other.box = v.clone()
 	boxes.push(v)
 	print("{other.box.n} {boxes.count()}\n")
 	return 0

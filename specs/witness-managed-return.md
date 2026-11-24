@@ -37,7 +37,6 @@ store-incref (dangle / double-free) or a skipped decref-old (leak) fails them.
 ## Tests
 
 <!-- test: two-sink-persist-and-transient -->
-<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 A managed struct returned from a witness-dispatched interface method, stored into
 a long-lived field AND pushed into a transient local array that is torn down at
 the method's scope exit. The persisted field is read AFTER the transient array is
@@ -96,10 +95,10 @@ type Store
 		return Self{saved: Chunk.create(0)}
 	end 'create'
 
-	function populate(maker ChunkMaker)
-		let transient = ChunkArray.create(0)
+	function populate(mutates self, maker ChunkMaker)
+		var transient = ChunkArray.create(0)
 		let chunk = maker.makeChunk()
-		self.saved = chunk
+		self.saved = chunk.clone()
 		transient.push(chunk)
 	end 'populate'
 
@@ -116,7 +115,7 @@ function obtainMaker(seed Payload) returns ChunkMaker
 end 'obtainMaker'
 
 function main() returns ExitCode
-	let store = Store.create()
+	var store = Store.create()
 	let maker = obtainMaker(42)
 	store.populate(maker)
 	print("{store.readSaved()}\n")
