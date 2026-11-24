@@ -575,7 +575,7 @@
 		let result = checkedInt(__Raw.callImport1("rmdir", arg1: cPath))
 		exitBlocking()
 		free(cPath)
-		endDirectoryDelete(errorAddress, osError: osErrorOf(result), notDirectory: macosEnotdir)
+		endDirectoryDelete(errorAddress, osError: osErrorOf(result), notDirectory: macosEnotdir, path: path)
 	end 'osDeleteDirectory'
 
 	// osFileInfo is the time a file was last written, in Unix seconds, and stores its size, the times it was made and last

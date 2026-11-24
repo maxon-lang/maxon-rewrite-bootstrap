@@ -4090,7 +4090,7 @@ records that have no fields (`internal/builtingen/table.go`), so a program calls
 | `File.writeText(path, content: s)`, `File.writeBinary(path, content: bytes)`, each with an optional `mode: FilePermission` | — (a file that is there is replaced, and keeps its mode) | `FileWriteError` |
 | `File.rename(from, to: dest)` | — (what is at `dest` is replaced) | `FileRenameError` |
 | `File.delete(path)` | — (a directory is refused, `accessDenied`) | `FileDeleteError` |
-| `Directory.delete(path)` | — (removes an empty directory: one that still holds an entry is refused, `notEmpty`, and a file or a link there is `deleteFailed`; `RemoveDirectoryW`, `rmdir`, and `unlinkat` with `AT_REMOVEDIR` on arm64 Linux, which has no `rmdir`; the interpreter runs no `Directory.delete`, so a program that calls it is `// native-only`) | `DirectoryDeleteError` |
+| `Directory.delete(path)` | — (removes an empty directory: one that still holds an entry is refused, `notEmpty`, a file or a link there is `deleteFailed`, and a path through a file `notFound`; `RemoveDirectoryW`, `rmdir`, and `unlinkat` with `AT_REMOVEDIR` on arm64 Linux, which has no `rmdir`; the interpreter runs no `Directory.delete`, so a program that calls it is `// native-only`) | `DirectoryDeleteError` |
 | `File.info(path)` | `FileInfo`: `size`, `modifiedTime`, `createdTime` and `accessedTime` (Unix seconds on the file system's clock, as maxon's), `isDirectory`, `isReadOnly`; read from the directory's record of the file (`FindFirstFileW`), so a file another process holds open is no failure | `FileInfoError` |
 | `Directory.isDirectory(path)` | `bool` | — |
 | `Directory.create(path)` | `bool`, whether the directory is there after it; the missing parents are made too | — |

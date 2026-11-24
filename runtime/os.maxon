@@ -282,13 +282,18 @@ function directoryDeleteFailures() returns Count
 	return failureCases(directoryDeleteNotFound, accessDenied: directoryDeleteFailed, busy: directoryDeleteFailed, alreadyExists: directoryDeleteNotEmpty, other: directoryDeleteFailed)
 end 'directoryDeleteFailures'
 
-// endDirectoryDelete ends osDeleteDirectory on a system whose rmdir answers a file or a link with ENOTDIR, which every other
-// entry tells as a missing path: Directory.delete says deleteFailed for it, as it does where RemoveDirectoryW tells the two apart.
-function endDirectoryDelete(errorAddress Count, osError Count, notDirectory Count)
-	if osError == notDirectory 'file'
+// endDirectoryDelete ends osDeleteDirectory on a system whose rmdir answers ENOTDIR both for a path that is a file or a link
+// and for one that passes through a file: Directory.delete says deleteFailed for the first and notFound for the second, as
+// RemoveDirectoryW tells them apart, so a path that has a status is the first.
+function endDirectoryDelete(errorAddress Count, osError Count, notDirectory Count, path String)
+	if osError == notDirectory and osExists(path) 'file'
 		failWith(errorAddress, errorCase: directoryDeleteFailed)
 		return
 	end 'file'
+	if osError == notDirectory 'throughFile'
+		failWith(errorAddress, errorCase: directoryDeleteNotFound)
+		return
+	end 'throughFile'
 	endWithError(errorAddress, osError: osError, table: directoryDeleteFailures())
 end 'endDirectoryDelete'
 

@@ -442,7 +442,7 @@
 		#endif
 		exitBlocking()
 		free(cPath)
-		endDirectoryDelete(errorAddress, osError: osErrorOf(result), notDirectory: linuxEnotdir)
+		endDirectoryDelete(errorAddress, osError: osErrorOf(result), notDirectory: linuxEnotdir, path: path)
 	end 'osDeleteDirectory'
 
 	// negativeWordBit is set in a word that holds a negative number, such as the seconds of a time before 1970.
