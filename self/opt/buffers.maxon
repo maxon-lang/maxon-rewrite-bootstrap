@@ -58,7 +58,11 @@ export type BufferSplit
 		end 'address' else if splitsByte(f.instrs[k]) 'byte'
 			let data = self.buffer(f, src: src)
 			out.push(ir.newByteAt(dst, data: data, index: index))
-		end 'byte' else 'other'
+		end 'byte' else if splitsStringByte(f.instrs[k]) 'string'
+			let data = f.newReg(ir.IrKind.kindScalar)
+			out.push(ir.newStrBytes(data, src: src, box: f.newFrameBox()))
+			out.push(ir.newByteAt(dst, data: data, index: index))
+		end 'string' else 'other'
 			out.push(table.takeAt(f.instrs, at: k))
 		end 'other'
 	end 'splitAt'
@@ -75,15 +79,22 @@ end 'BufferSplit'
 function accessesElement(f ir.IrFunction) returns bool
 	for k in 0 upto f.instrs.count() 'instrs'
 		let op = f.instrs[k].op
-		if op == ir.Opcode.opElemLoad or op == ir.Opcode.opElemAddr or splitsByte(f.instrs[k]) 'found'
+		if op == ir.Opcode.opElemLoad or op == ir.Opcode.opElemAddr or splitsByte(f.instrs[k]) or splitsStringByte(f.instrs[k]) 'found'
 			return true
 		end 'found'
 	end 'instrs'
 	return false
 end 'accessesElement'
 
-// splitsByte is whether x reads a byte of a byte array, whose buffer is a word of its box; a string's bytes are at the
-// address that is its first word, a register.
+// splitsStringByte is whether x reads a byte of a String. It becomes the address of the String's bytes (strbytes: its
+// first word, or a frame box its words are written to where it holds its bytes in them) and the byte at the index of it,
+// so that the test of which a String is, and the address, are a pure value that leaves a loop that holds the String: the
+// loop then reads a byte at an address, as it does of a byte array.
+function splitsStringByte(x ir.Instr) returns bool
+	return x.op == ir.Opcode.opLoadByte and ir.loadByteOf(x) == ir.Collection.collectionString
+end 'splitsStringByte'
+
+// splitsByte is whether x reads a byte of a byte array, whose buffer is a word of its box.
 function splitsByte(x ir.Instr) returns bool
 	return x.op == ir.Opcode.opLoadByte and ir.loadByteOf(x) == ir.Collection.collectionArray
 end 'splitsByte'
