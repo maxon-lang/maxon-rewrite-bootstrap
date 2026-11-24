@@ -34,6 +34,11 @@ var primTypes = []primType{
 	{"CodeUnit16", "b.codeUnit16Ty"},
 	{"ExitCode", "b.exitCodeTy"},
 	{"Milliseconds", "b.millisecondsTy"},
+	{"InstantNanos", "b.instantNanosTy"},
+	{"InstantMs", "b.instantMsTy"},
+	{"ThreadCpuTicks", "b.threadCpuTicksTy"},
+	{"UnixSeconds", "b.unixSecondsTy"},
+	{"UnixNanos", "b.unixNanosTy"},
 	{"MailboxCapacity", "b.mailboxCapacityTy"},
 	{"ReportedCapacity", "b.reportedCapacityTy"},
 	{"FullRangeInt", "b.fullRangeIntTy"},
@@ -73,6 +78,12 @@ var stdAliases = []stdAlias{
 	{Name: "AsciiValue", Field: "asciiValueTy", Lo: "I128.zero()", Hi: "I128.fromCount(127 as Count)"},
 	{Name: "CodeUnit16", Field: "codeUnit16Ty", Lo: "I128.zero()", Hi: "I128.fromCount(65535 as Count)"},
 	{Name: "Milliseconds", Field: "millisecondsTy", Lo: "I128.zero()", Hi: "I128.u64Max()"},
+	// InstantNanos is maxon's (stdlib/Clock.maxon): a reading of the monotonic clock in nanoseconds.
+	{Name: "InstantNanos", Field: "instantNanosTy", Lo: "I128.zero()", Hi: "I128.u64Max()"},
+	{Name: "InstantMs", Field: "instantMsTy", Lo: "I128.zero()", Hi: "I128.u64Max()"},
+	{Name: "ThreadCpuTicks", Field: "threadCpuTicksTy", Lo: "I128.zero()", Hi: "I128.u64Max()"},
+	{Name: "UnixSeconds", Field: "unixSecondsTy", Lo: "I128.i64Min()", Hi: "I128.i64Max()"},
+	{Name: "UnixNanos", Field: "unixNanosTy", Lo: "I128.i64Min()", Hi: "I128.i64Max()"},
 	// OrderedWord is the word maxon's library splits into bytes and assembles from them (maxon's stdlib/Builtins.maxon),
 	// and HashDigest a seeded 64-bit digest (maxon's stdlib/Hasher.maxon), which the hash intrinsics give and take.
 	{Name: "OrderedWord", Field: "orderedWordTy", Bits: 64},
@@ -813,8 +824,8 @@ var tableFunctions = []function{
 	// run at background scheduling priority, and the answer is the priority the system reports then, a second reading: Windows' priority
 	// class (16384, BELOW_NORMAL_PRIORITY_CLASS) or a POSIX nice value (10). maxon's BackgroundPriority is a FullRangeInt.
 	{Owner: "Process", Name: "enterBackgroundPriority", Static: true, Result: "FullRangeInt", Intrinsic: "ProcessEnterBackgroundPriority"},
-	// nowNanos is maxon's Clock.nowNanos, whose InstantNanos is an unsigned 64-bit integer, which Count is.
-	{Owner: "Clock", Name: "nowNanos", Static: true, Result: "Count", Intrinsic: "ClockNowNanos"},
+	// nowNanos is maxon's Clock.nowNanos.
+	{Owner: "Clock", Name: "nowNanos", Static: true, Result: "InstantNanos", Intrinsic: "ClockNowNanos"},
 	// processorCount is maxon's Scheduler.processorCount, whose SchedulerProcessorCount is an unsigned 64-bit integer, which Count is.
 	{Owner: "Scheduler", Name: "processorCount", Static: true, Result: "Count", Intrinsic: "SchedulerProcessorCount"},
 	// yield is maxon's Scheduler.yield: the coroutines of the caller's strand that wait to run, else the green threads that
@@ -851,6 +862,8 @@ var tableFunctions = []function{
 	{Owner: "File", Name: "exists", Static: true, Params: []string{"path FilePath"}, Result: "Bool", Intrinsic: "FileExists"},
 	{Owner: "File", Name: "info", Static: true, Params: []string{"path FilePath"}, Result: "FileInfo", Throws: "FileInfoError", Intrinsic: "FileInfo"},
 	{Owner: "Directory", Name: "isDirectory", Static: true, Params: []string{"path FilePath"}, Result: "Bool", Intrinsic: "DirectoryIsDirectory"},
+	// exists is maxon's name for the same question: a path that names an entry that is not a directory is not one.
+	{Owner: "Directory", Name: "exists", Static: true, Params: []string{"path FilePath"}, Result: "Bool", Intrinsic: "DirectoryIsDirectory"},
 	// create makes the missing parents too, and gives whether the directory is there after it.
 	{Owner: "Directory", Name: "create", Static: true, Params: []string{"path FilePath"}, Result: "Bool", Intrinsic: "DirectoryCreate"},
 	// list gives the path of each entry, the directory's path joined to its name.
@@ -891,6 +904,13 @@ var tableFunctions = []function{
 
 	{Owner: "Builtins", Name: "currentProcessId", Static: true, Result: "Count", Intrinsic: "ProcessId", Instead: "Process.id()"},
 	{Owner: "Builtins", Name: "currentTimeNanos", Static: true, Result: "Count", Intrinsic: "ClockNowNanos", Instead: "Clock.nowNanos()"},
+	// The other readings of the clocks maxon's Clock and WallClock are written on. A wall-clock reading is signed: it is
+	// before 1970 for a time that is.
+	{Owner: "Builtins", Name: "currentTimeMs", Static: true, Result: "InstantMs", Intrinsic: "ClockNowMillis", Instead: "Clock.nowMs()"},
+	{Owner: "Builtins", Name: "tickCountMs", Static: true, Result: "InstantMs", Intrinsic: "ClockTickMillis", Instead: "Clock.osTickMs()"},
+	{Owner: "Builtins", Name: "threadCpuTicks", Static: true, Result: "ThreadCpuTicks", Intrinsic: "ClockThreadCpuTicks", Instead: "Clock.threadCpuTicks()"},
+	{Owner: "Builtins", Name: "currentUnixTimeSeconds", Static: true, Result: "UnixSeconds", Intrinsic: "ClockUnixSeconds", Instead: "WallClock.nowUnixSeconds()"},
+	{Owner: "Builtins", Name: "currentUnixTimeNanos", Static: true, Result: "UnixNanos", Intrinsic: "ClockUnixNanos", Instead: "WallClock.nowUnixNanos()"},
 	// readStdin is maxon's: up to the count of bytes of standard input, of any integer type that is not negative, in a fresh buffer, empty only at the end.
 	// stdoutWantsAnsiColor is whether standard output is a character device, NO_COLOR is unset and TERM is not dumb, as maxon's
 	// runtime asks. runWithInput is Subprocess.runWithDeadline with the child's standard input a pipe that holds the input and
@@ -1142,6 +1162,11 @@ var entries = []entry{
 	{"OsSetExitCode", "rt.os.setExitCode", "Os", roleCall, "(code): the code the process ends with when main has returned and no behaviour is left, in place of main's"},
 	{"OsEnterBackgroundPriority", "rt.os.enterBackgroundPriority", "Os", roleCall, "() -> Count: puts the process at background priority (Windows' below-normal class, a POSIX nice of 10) and answers the priority the system reports afterwards"},
 	{"OsClockNanos", "rt.os.clockNanos", "Os", roleCall, "() -> Count: the monotonic clock in nanoseconds, from QueryPerformanceCounter"},
+	{"OsClockMillis", "rt.os.clockMillis", "Os", roleCall, "() -> Count: the monotonic clock in whole milliseconds, which is OsClockNanos divided by a million"},
+	{"OsTickMillis", "rt.os.tickMillis", "Os", roleCall, "() -> Count: the milliseconds since the machine booted, from GetTickCount64 and the POSIX boot clock"},
+	{"OsThreadCpuTicks", "rt.os.threadCpuTicks", "Os", roleCall, "() -> Count: the CPU time the calling thread has used, in the cycles QueryThreadCycleTime counts on Windows and in nanoseconds under POSIX"},
+	{"OsUnixNanos", "rt.os.unixNanos", "Os", roleCall, "() -> Count: the nanoseconds since 1970-01-01 UTC, in steps of the host calendar's own tick, the word of a signed 64-bit count"},
+	{"OsUnixSeconds", "rt.os.unixSeconds", "Os", roleCall, "() -> Count: the whole seconds since 1970-01-01 UTC, which is OsUnixNanos divided by a billion, the word of a signed 64-bit count"},
 	{"OsProcessorCount", "rt.os.processorCount", "Os", roleCall, "() -> Count: how many workers the runtime runs behaviours on, as the scheduler counts them: the processors, or what MAXON_MAX_PROCS asks"},
 	{"OsPathFrom", "rt.os.pathFrom", "Os", roleCall, "(path String, error) -> String: the path with the native separator for the other one"},
 	{"OsReadText", "rt.os.readText", "Os", roleCall, "(path String, error) -> String"},
@@ -1305,6 +1330,11 @@ var runtimeFunctions = []runtimeFunction{
 	{"OsSetExitCode", "osSetExitCode(code Count)"},
 	{"OsEnterBackgroundPriority", "osEnterBackgroundPriority() Count"},
 	{"OsClockNanos", "osClockNanos() Count"},
+	{"OsClockMillis", "osClockMillis() Count"},
+	{"OsTickMillis", "osTickMillis() Count"},
+	{"OsThreadCpuTicks", "osThreadCpuTicks() Count"},
+	{"OsUnixNanos", "osUnixNanos() Count"},
+	{"OsUnixSeconds", "osUnixSeconds() Count"},
 	{"OsProcessorCount", "osProcessorCount() Count"},
 	{"OsPathFrom", "osPathFrom(path String, errorAddress Count) String"},
 	{"OsReadText", "osReadText(path String, errorAddress Count) String"},

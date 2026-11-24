@@ -4142,7 +4142,7 @@ error E3207: <fragment>:38:15: 'bump' writes 'o' (line 32: `let f = function() g
 ```
 
 <!-- test: closure-capture.a-closure-writing-within-a-captured-parameter-writes-a-local-let -->
-<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
+<!-- skip: language difference: a closure writes what it captured only where its function type mutates captures -->
 A closure that writes inside the record a captured `let` holds writes it, as the same write in the body does.
 
 ```maxon

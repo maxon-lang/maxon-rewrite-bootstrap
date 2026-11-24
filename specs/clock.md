@@ -193,7 +193,7 @@ function main() returns ExitCode
 	var i = 0 as Count
 	while i < 200000 'sample'
 		let now = Clock.nowNanos()
-		let delta = now - prev
+		let delta = try now - prev otherwise panic("out of range")
 		if delta > 0 'advanced'
 			if smallest == 0 or delta < smallest 'newMin'
 				smallest = delta
@@ -257,7 +257,7 @@ function main() returns ExitCode
 	for i in 0 upto reps 'sweep'
 		let spinStart = Clock.nowNanos()
 		while Clock.elapsedNanos(spinStart) < i * 1000000 'burn'
-			spins = spins + 1
+			spins = try spins + 1 otherwise panic("out of range")
 		end 'burn'
 		let start = Clock.nowNanos()
 		sleep(30)
@@ -330,7 +330,7 @@ function main() returns ExitCode
 	sleep(1100)
 	let after = WallClock.nowUnixSeconds()
 	var ok = 0 as Count
-	if after >= before + 1 'advanced'
+	if after >= (try before + 1 otherwise panic("out of range")) 'advanced'
 		ok = 1
 	end 'advanced'
 	print("ok={ok}\n")
@@ -373,7 +373,7 @@ the seconds, falls in the same second or the next one.
 function main() returns ExitCode
 	let s = WallClock.nowUnixSeconds()
 	let n = WallClock.nowUnixNanos()
-	let drift = (n / 1_000_000_000) as UnixSeconds - s
+	let drift = try (n / 1_000_000_000) as UnixSeconds - s otherwise panic("out of range")
 	if drift == 0 or drift == 1 'sameOrNextSecond'
 		return 4
 	end 'sameOrNextSecond'

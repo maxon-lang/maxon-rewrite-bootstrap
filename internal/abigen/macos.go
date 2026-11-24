@@ -6,7 +6,10 @@ package main
 // <arm/_mcontext.h>, <sys/event.h>, <pthread/pthread_impl.h>, <spawn.h>), under maxon's name where its Darwin runtime has
 // one (Targets/Arm64/Arm64DarwinRuntime.maxon, Arm64FaultRuntime.maxon).
 var macosABI = []layoutConst{
-	// The clock.
+	// The clocks.
+	{"macosClockRealtime", 0, true, toRuntime, "CLOCK_REALTIME: the calendar, as the system keeps it."},
+	{"macosClockMonotonic", 6, true, toRuntime, "CLOCK_MONOTONIC: the time since the machine booted, sleep included."},
+	{"macosClockThreadCpu", 16, true, toRuntime, "CLOCK_THREAD_CPUTIME_ID: the CPU time of the calling thread."},
 	{"macosClockUptimeRaw", 8, true, toRuntime, "CLOCK_UPTIME_RAW: clock_gettime_nsec_np's monotonic clock, which stands still while the machine sleeps, as Linux's CLOCK_MONOTONIC does."},
 	{"macosTimespecBytes", 16, true, toRuntime, "a timespec: the seconds, then the nanoseconds, a word each."},
 

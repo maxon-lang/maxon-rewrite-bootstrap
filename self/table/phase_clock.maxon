@@ -20,13 +20,13 @@ export type PhaseClock
 		for _ in 0 upto phases 'phases'
 			nanos.push(0)
 		end 'phases'
-		return PhaseClock{enabled: true, nanos: nanos, last: Clock.nowNanos()}
+		return PhaseClock{enabled: true, nanos: nanos, last: Clock.nowNanos() as Count}
 	end 'start'
 
 	// restart drops the time since the last lap, which was of no phase.
 	export function restart(mutates self)
 		if enabled 'on'
-			last = Clock.nowNanos()
+			last = Clock.nowNanos() as Count
 		end 'on'
 	end 'restart'
 
@@ -35,7 +35,7 @@ export type PhaseClock
 		if not enabled 'off'
 			return
 		end 'off'
-		let now = Clock.nowNanos()
+		let now = Clock.nowNanos() as Count
 		let elapsed = try now - last otherwise panic("table: the clock went backwards")
 		nanos[at] = try nanos[at] + elapsed otherwise panic("table: the time of a phase passes a word of nanoseconds")
 		last = now

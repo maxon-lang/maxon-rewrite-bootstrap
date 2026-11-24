@@ -1534,7 +1534,6 @@ end 'main'
 ```
 
 <!-- test: let-self-field-passed-to-mutating-param-ok -->
-<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 The `let` half of the same pair: a `let` field forbids only reassigning the field, so handing it to a callee
 that writes it is legal. The receiver half of this (`items.push(v)`) is `immutable-method-call.md`'s
 `push-on-let-self-field-array`.
@@ -1544,30 +1543,30 @@ typealias Integer = int(i64.min to i64.max)
 
 typealias IntArray = Array with Integer
 
-function grow(d IntArray)
+function grow(mutates d IntArray)
 	d.push(9)
 end 'grow'
 
 type Bag
-	export let items as IntArray
+	export var items as IntArray
 
 	static function create() returns Bag
 		return Self{items: IntArray.create(0)}
 	end 'create'
 
-	function add()
+	function add(mutates self)
 		grow(items)
 	end 'add'
 
 	function size() returns Integer
-		return items.count()
+		return try items.count() as Integer otherwise panic("out of range")
 	end 'size'
 end 'Bag'
 
 function main() returns ExitCode
-	let b = Bag.create()
+	var b = Bag.create()
 	b.add()
-	return b.size() as ExitCode
+	return try b.size() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

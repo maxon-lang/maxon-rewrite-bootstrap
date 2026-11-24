@@ -515,6 +515,26 @@ function runtimeEntry(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 		try entryOsClockNanos(vm, f: f, x: x)
 		return
 	end 'rtOsClockNanos'
+	if symbol == ir.Rt.rtOsClockMillis 'rtOsClockMillis'
+		try entryOsClockMillis(vm, f: f, x: x)
+		return
+	end 'rtOsClockMillis'
+	if symbol == ir.Rt.rtOsTickMillis 'rtOsTickMillis'
+		try entryOsTickMillis(vm, f: f, x: x)
+		return
+	end 'rtOsTickMillis'
+	if symbol == ir.Rt.rtOsThreadCpuTicks 'rtOsThreadCpuTicks'
+		try entryOsThreadCpuTicks(vm, f: f, x: x)
+		return
+	end 'rtOsThreadCpuTicks'
+	if symbol == ir.Rt.rtOsUnixNanos 'rtOsUnixNanos'
+		try entryOsUnixNanos(vm, f: f, x: x)
+		return
+	end 'rtOsUnixNanos'
+	if symbol == ir.Rt.rtOsUnixSeconds 'rtOsUnixSeconds'
+		try entryOsUnixSeconds(vm, f: f, x: x)
+		return
+	end 'rtOsUnixSeconds'
 	if symbol == ir.Rt.rtOsProcessorCount 'rtOsProcessorCount'
 		try entryOsProcessorCount(vm, f: f, x: x)
 		return

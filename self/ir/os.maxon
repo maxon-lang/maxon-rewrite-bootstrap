@@ -180,6 +180,26 @@ function lowerClockNowNanos(mutates l Lowerer, p ast.Project, ms ast.ModuleState
 	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtOsClockNanos, kind: IrKind.kindScalar, args: RegList.create(0))
 end 'lowerClockNowNanos'
 
+function lowerClockNowMillis(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtOsClockMillis, kind: IrKind.kindScalar, args: RegList.create(0))
+end 'lowerClockNowMillis'
+
+function lowerClockTickMillis(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtOsTickMillis, kind: IrKind.kindScalar, args: RegList.create(0))
+end 'lowerClockTickMillis'
+
+function lowerClockThreadCpuTicks(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtOsThreadCpuTicks, kind: IrKind.kindScalar, args: RegList.create(0))
+end 'lowerClockThreadCpuTicks'
+
+function lowerClockUnixSeconds(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtOsUnixSeconds, kind: IrKind.kindScalar, args: RegList.create(0))
+end 'lowerClockUnixSeconds'
+
+function lowerClockUnixNanos(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtOsUnixNanos, kind: IrKind.kindScalar, args: RegList.create(0))
+end 'lowerClockUnixNanos'
+
 function lowerSchedulerProcessorCount(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtOsProcessorCount, kind: IrKind.kindScalar, args: RegList.create(0))
 end 'lowerSchedulerProcessorCount'

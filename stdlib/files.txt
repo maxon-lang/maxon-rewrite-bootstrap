@@ -22,3 +22,6 @@ Base64.maxon base64
 Sha2.maxon sha2
 Hmac.maxon sha2
 Hkdf.maxon sha2
+Slot.maxon slot
+Clock.maxon clock
+Directory.maxon directory

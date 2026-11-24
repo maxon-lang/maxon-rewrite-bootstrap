@@ -28,7 +28,6 @@ Binding a `var` from a `let` local moves the record, and reading the
 ## Tests
 
 <!-- test: a-let-field-array-grows-through-a-let-local -->
-<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 The plan's first sample: `columns` is a `let` field and `report` a `let` local, and both are written through.
 
 ```maxon
@@ -48,13 +47,13 @@ type Counts
 end 'Counts'
 
 type Report
-	let columns as ColumnArray
+	var columns as ColumnArray
 
 	static function create() returns Self
 		return Self{columns: ColumnArray.create(0)}
 	end 'create'
 
-	function addColumn(column Column)
+	function addColumn(mutates self, consumes column Column)
 		self.columns.push(column)
 	end 'addColumn'
 
@@ -68,7 +67,7 @@ type Report
 end 'Report'
 
 function main() returns ExitCode
-	let report = Report.create()
+	var report = Report.create()
 	report.addColumn(function(counts Counts) gives counts.lines)
 	report.addColumn(function(counts Counts) gives counts.words)
 	print("{report.render(Counts.create(3, words: 12))}\n")

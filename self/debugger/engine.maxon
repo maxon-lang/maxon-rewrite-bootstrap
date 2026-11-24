@@ -430,11 +430,11 @@ export type DebugEngine
 				frameTop = back.unwrap().sp
 			end 'known'
 		end 'framed'
-		let deadline = plus(Clock.nowNanos(), by: try budgetMs * nanosPerMilli otherwise budgetMs)
+		let deadline = plus(Clock.nowNanos() as Count, by: try budgetMs * nanosPerMilli otherwise budgetMs)
 		var left = false
 		var entering = false
 		var callee = 0 as Count
-		while Clock.nowNanos() < deadline 'instructions'
+		while (Clock.nowNanos() as Count) < deadline 'instructions'
 			let beforeSp = self.stackPointerOf(thread)
 			let beforePc = self.programCounter()
 			let t = thread

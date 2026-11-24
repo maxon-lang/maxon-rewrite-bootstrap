@@ -358,7 +358,6 @@ end 'main'
 ```
 
 <!-- test: push-on-let-self-field-array-ok -->
-<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 A `let` FIELD forbids only reassigning the field, so the array it holds may be pushed onto.
 
 ```maxon
@@ -367,25 +366,25 @@ typealias Integer = int(i64.min to i64.max)
 typealias IntArray = Array with Integer
 
 type Bag
-	export let items as IntArray
+	export var items as IntArray
 
 	static function create() returns Bag
 		return Self{items: IntArray.create(0)}
 	end 'create'
 
-	function add(v Integer)
+	function add(mutates self, v Integer)
 		items.push(v)
 	end 'add'
 
 	function size() returns Integer
-		return items.count()
+		return try items.count() as Integer otherwise panic("out of range")
 	end 'size'
 end 'Bag'
 
 function main() returns ExitCode
-	let b = Bag.create()
+	var b = Bag.create()
 	b.add(1)
-	return b.size() as ExitCode
+	return try b.size() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

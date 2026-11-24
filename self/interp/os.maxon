@@ -103,10 +103,48 @@ end 'entryOsProcessorCount'
 let clockStepNanos = 1000 as ir.Word
 
 function entryOsClockNanos(mutates vm Vm, f ir.IrFunction, x ir.Instr)
-	vm.clockNanos = try vm.clockNanos + clockStepNanos otherwise panic("interp: the clock is past a word")
-	let now = vm.clockNanos
+	let now = stepClock(vm)
 	giveNum(vm, x: x, n: now)
 end 'entryOsClockNanos'
+
+// stepClock is a reading of the interpreter's clock.
+function stepClock(mutates vm Vm) returns ir.Word
+	vm.clockNanos = try vm.clockNanos + clockStepNanos otherwise panic("interp: the clock is past a word")
+	return vm.clockNanos
+end 'stepClock'
+
+let nanosPerMillisecond = 1000000 as ir.Word
+
+let nanosPerSecond = 1000000000 as ir.Word
+
+// interpretedEpochSeconds is the second, since 1970, that the interpreter's calendar starts at, so that a run reads the same
+// time every time.
+let interpretedEpochSeconds = 1700000000 as ir.Word
+
+function entryOsClockMillis(mutates vm Vm, f ir.IrFunction, x ir.Instr)
+	let since = stepClock(vm)
+	giveNum(vm, x: x, n: since / nanosPerMillisecond)
+end 'entryOsClockMillis'
+
+function entryOsTickMillis(mutates vm Vm, f ir.IrFunction, x ir.Instr)
+	let since = stepClock(vm)
+	giveNum(vm, x: x, n: since / nanosPerMillisecond)
+end 'entryOsTickMillis'
+
+function entryOsThreadCpuTicks(mutates vm Vm, f ir.IrFunction, x ir.Instr)
+	let ticks = stepClock(vm)
+	giveNum(vm, x: x, n: ticks)
+end 'entryOsThreadCpuTicks'
+
+function entryOsUnixNanos(mutates vm Vm, f ir.IrFunction, x ir.Instr)
+	let since = stepClock(vm)
+	giveNum(vm, x: x, n: try interpretedEpochSeconds * nanosPerSecond + since otherwise panic("interp: the calendar is past a word"))
+end 'entryOsUnixNanos'
+
+function entryOsUnixSeconds(mutates vm Vm, f ir.IrFunction, x ir.Instr)
+	let since = stepClock(vm)
+	giveNum(vm, x: x, n: interpretedEpochSeconds + since / nanosPerSecond)
+end 'entryOsUnixSeconds'
 
 function entryOsSetExitCode(mutates vm Vm, f ir.IrFunction, x ir.Instr)
 	vm.setExit = true

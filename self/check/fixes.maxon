@@ -158,12 +158,8 @@ export function matchConsumesFix(t ast.Tree, subject ast.NodeID, param ast.NodeI
 	return fixOf(fixKindMatchConsumes, edits: edits)
 end 'matchConsumesFix'
 
-// varFix declares the local of a let statement with var.
-export function varFix(t ast.Tree, stmt ast.NodeID) returns diag.Fix
-	if stmt == 0 or t.kindOf(stmt) != ast.NodeKind.letStmt 'notLet'
-		return diag.Fix.none()
-	end 'notLet'
-	let start = t.startOf(stmt) as Count
+// letToVar replaces the let keyword at start with var, or gives no fix where it is not written there.
+function letToVar(t ast.Tree, start Count) returns diag.Fix
 	let finish = try start + letKeyword.byteLength() otherwise panic("fixes: an offset past a module")
 	if finish > t.text.byteLength() or t.text.sliceBytes(start, endPos: finish) != letKeyword 'notWritten'
 		return diag.Fix.none()
@@ -171,7 +167,52 @@ export function varFix(t ast.Tree, stmt ast.NodeID) returns diag.Fix
 	var edits = diag.FixEdits.create(0)
 	edits.push(diag.FixEdit.make(t.module, begin: at32(start), until: at32(finish), text: varKeyword))
 	return fixOf(fixKindVar, edits: edits)
+end 'letToVar'
+
+// varFix declares the local of a let statement with var.
+export function varFix(t ast.Tree, stmt ast.NodeID) returns diag.Fix
+	if stmt == 0 or t.kindOf(stmt) != ast.NodeKind.letStmt 'notLet'
+		return diag.Fix.none()
+	end 'notLet'
+	return letToVar(t, start: t.startOf(stmt) as Count)
 end 'varFix'
+
+// letFieldFix declares the field that an assignment changes with var, in the module that declares its type: another
+// module's source is not the one being checked, so a field of its types has no fix.
+export function letFieldFix(p ast.Project, ms ast.ModuleState, owner ast.TypeID, field String) returns diag.Fix
+	let entry = ast.typeEntry(ms.types, reads: p.types, t: ast.originOf(ms.types, reads: p.types, t: owner))
+	if not entry.hasDecl or entry.decl.module != ms.module 'elsewhere'
+		return diag.Fix.none()
+	end 'elsewhere'
+	let t = ms.tree()
+	match p.modules[ast.modIndex(ms.module)].decls[entry.decl.ordinal as Count] 'declared'
+		typeDecl(td) then return letFieldDeclFix(t, fields: td.fields, field: field)
+		funcDecl(_) then return diag.Fix.none()
+		constDecl(_) then return diag.Fix.none()
+		enumDecl(_) then return diag.Fix.none()
+		unionDecl(_) then return diag.Fix.none()
+		aliasDecl(_) then return diag.Fix.none()
+		interfaceDecl(_) then return diag.Fix.none()
+		extensionDecl(_) then return diag.Fix.none()
+	end 'declared'
+end 'letFieldFix'
+
+// letFieldDeclFix is the fix of the field named field among a type's field declarations: its let, which a visibility
+// word may come before.
+function letFieldDeclFix(t ast.Tree, fields ast.FieldDeclList, field String) returns diag.Fix
+	for i in 0 upto fields.count() 'each'
+		if fields[i].name != field 'other'
+			continue 'each'
+		end 'other'
+		var at = t.startOf(fields[i].id) as Count
+		let afterVisibility = ast.skipSpace(t.text, at: ast.wordEnd(t.text, at: at))
+		if t.text.sliceBytes(at, endPos: ast.wordEnd(t.text, at: at)) != letKeyword 'modified'
+			at = afterVisibility
+		end 'modified'
+		return letToVar(t, start: at)
+	end 'each'
+	return diag.Fix.none()
+end 'letFieldDeclFix'
 
 // mutatesSelfFix declares the receiver of the method mutable, first among its parameters. A method whose receiver is
 // already written with another convention has none: the message names no change for it.

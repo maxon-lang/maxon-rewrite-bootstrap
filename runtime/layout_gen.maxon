@@ -714,8 +714,17 @@ let linuxFutexWaitPrivate = 128 as Count
 // linuxFutexWakePrivate is FUTEX_WAKE | FUTEX_PRIVATE_FLAG: wake as many sleepers of the word as the value says.
 let linuxFutexWakePrivate = 129 as Count
 
+// linuxClockRealtime is CLOCK_REALTIME: the calendar, as the system keeps it.
+let linuxClockRealtime = 0 as Count
+
 // linuxClockMonotonic is CLOCK_MONOTONIC.
 let linuxClockMonotonic = 1 as Count
+
+// linuxClockThreadCpu is CLOCK_THREAD_CPUTIME_ID: the CPU time of the calling thread.
+let linuxClockThreadCpu = 3 as Count
+
+// linuxClockBoottime is CLOCK_BOOTTIME: the time since the machine booted, suspended time included.
+let linuxClockBoottime = 7 as Count
 
 // linuxTimespecBytes is a timespec: the seconds, then the nanoseconds, a word each.
 let linuxTimespecBytes = 16 as Count
@@ -854,6 +863,15 @@ let linuxPollEventsOffset = 4 as Count
 
 // linuxPollReturnedOffset is where a struct pollfd holds the events that came.
 let linuxPollReturnedOffset = 6 as Count
+
+// macosClockRealtime is CLOCK_REALTIME: the calendar, as the system keeps it.
+let macosClockRealtime = 0 as Count
+
+// macosClockMonotonic is CLOCK_MONOTONIC: the time since the machine booted, sleep included.
+let macosClockMonotonic = 6 as Count
+
+// macosClockThreadCpu is CLOCK_THREAD_CPUTIME_ID: the CPU time of the calling thread.
+let macosClockThreadCpu = 16 as Count
 
 // macosClockUptimeRaw is CLOCK_UPTIME_RAW: clock_gettime_nsec_np's monotonic clock, which stands still while the machine sleeps, as Linux's CLOCK_MONOTONIC does.
 let macosClockUptimeRaw = 8 as Count

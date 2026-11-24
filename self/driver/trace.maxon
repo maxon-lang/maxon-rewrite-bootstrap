@@ -46,7 +46,7 @@ export type Trace
 		if path == "" 'off'
 			return Trace.off()
 		end 'off'
-		let now = Clock.nowNanos()
+		let now = Clock.nowNanos() as Count
 		return Trace{path: path.clone(), origin: now, prepared: now, spans: TraceSpans.create(0)}
 	end 'start'
 
@@ -57,7 +57,7 @@ export type Trace
 	// prepare marks the end of what the compile did before its tasks.
 	function prepare(mutates self)
 		if enabled() 'on'
-			prepared = Clock.nowNanos()
+			prepared = Clock.nowNanos() as Count
 		end 'on'
 	end 'prepare'
 

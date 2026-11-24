@@ -470,5 +470,10 @@ function codeSkipTable() returns CodeSkips
 	skips.push(CodeSkip.naming("async-promise-drop.md", test: "async-promise-drop.error.a-promise-element-handed-out-by-a-static-through-a-map", line: "<!-- skip: language difference: a promise owns the coroutine that one owner awaits, so it is not Droppable and no Map holds one as a value -->\n"))
 	skips.push(CodeSkip.naming("async-promise-drop.md", test: "async-promise-drop.error.a-user-generics-pop-that-returns-a-borrow-of-its-array-is-refused", line: "<!-- skip: language difference: a door that copies its element bounds it Copyable, so a promise is refused by the bound, where maxon refuses it at the door -->\n"))
 	skips.push(CodeSkip.naming("async-promise-drop.md", test: "async-promise-drop.error.a-user-generics-pop-through-a-nested-user-type-whose-pop-borrows-is-refused", line: "<!-- skip: language difference: a door that copies its element bounds it Copyable, so a promise is refused by the bound, where maxon refuses it at the door -->\n"))
+	skips.push(CodeSkip.naming("slot.md", test: "filling-a-full-slot-panics-naming-the-slot", line: "<!-- skip: the test asserts a line of maxon's library source, which the converted file does not share -->\n"))
+	skips.push(CodeSkip.naming("slot.md", test: "taking-from-an-empty-slot-panics-naming-the-slot", line: "<!-- skip: the test asserts a line of maxon's library source, which the converted file does not share -->\n"))
+	skips.push(CodeSkip.naming("slot.md", test: "reading-an-empty-slot-panics-naming-the-slot", line: "<!-- skip: the test asserts a line of maxon's library source, which the converted file does not share -->\n"))
+	skips.push(CodeSkip.naming("sha2.md", test: "sha2.digest-panics-when-finalized-twice", line: "<!-- skip: the test asserts a line of maxon's library source, which the converted file does not share -->\n"))
+	skips.push(CodeSkip.naming("sha2.md", test: "sha2.digest-panics-on-update-after-finalize", line: "<!-- skip: the test asserts a line of maxon's library source, which the converted file does not share -->\n"))
 	return skips
 end 'codeSkipTable'

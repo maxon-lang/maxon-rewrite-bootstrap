@@ -104,7 +104,10 @@ var linuxABI = []layoutConst{
 	{"linuxFutexWakePrivate", 129, true, toRuntime, "FUTEX_WAKE | FUTEX_PRIVATE_FLAG: wake as many sleepers of the word as the value says."},
 
 	// The clocks.
+	{"linuxClockRealtime", 0, true, toRuntime, "CLOCK_REALTIME: the calendar, as the system keeps it."},
 	{"linuxClockMonotonic", 1, true, toRuntime, "CLOCK_MONOTONIC."},
+	{"linuxClockThreadCpu", 3, true, toRuntime, "CLOCK_THREAD_CPUTIME_ID: the CPU time of the calling thread."},
+	{"linuxClockBoottime", 7, true, toRuntime, "CLOCK_BOOTTIME: the time since the machine booted, suspended time included."},
 	{"linuxTimespecBytes", 16, true, toRuntime, "a timespec: the seconds, then the nanoseconds, a word each."},
 
 	// Files.

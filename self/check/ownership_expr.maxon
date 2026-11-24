@@ -385,7 +385,7 @@ function requireMutable(mutates o Ownership, p ast.Project, mutates ms ast.Modul
 	end 'projected'
 	for i in 0 upto path.steps.count() 'steps'
 		if not path.steps[i].isElement() and not fieldIsVar(p, ms: ms, step: path.steps[i]) 'letField'
-			mutableFail(o, p: p, ms: ms, site: site, call: call, text: text, fix: diag.Fix.none(), code: diag.errAssignToImmutable, msg: diag.letFieldReassigned(fieldName(p, ms: ms, step: path.steps[i])))
+			mutableFail(o, p: p, ms: ms, site: site, call: call, text: text, fix: letFieldFix(p, ms: ms, owner: path.steps[i].owner, field: fieldName(p, ms: ms, step: path.steps[i])), code: diag.errAssignToImmutable, msg: diag.letFieldReassigned(fieldName(p, ms: ms, step: path.steps[i])))
 			return false
 		end 'letField'
 	end 'steps'

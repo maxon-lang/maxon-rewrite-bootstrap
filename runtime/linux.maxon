@@ -237,18 +237,43 @@
 
 	// osClockNanos is the monotonic clock in nanoseconds.
 	function osClockNanos() returns Count
+		return clockNanosOf(linuxClockMonotonic)
+	end 'osClockNanos'
+
+	// osTickMillis is the milliseconds since the machine booted.
+	function osTickMillis() returns Count
+		return clockNanosOf(linuxClockBoottime) / nanosPerMilli
+	end 'osTickMillis'
+
+	// osThreadCpuTicks is the CPU time the calling thread has used, in nanoseconds.
+	function osThreadCpuTicks() returns Count
+		return clockNanosOf(linuxClockThreadCpu)
+	end 'osThreadCpuTicks'
+
+	// osUnixNanos is the nanoseconds since 1970-01-01 UTC.
+	function osUnixNanos() returns Count
+		return clockNanosOf(linuxClockRealtime)
+	end 'osUnixNanos'
+
+	// clockNanosOf is the clock that the system numbers clock, in nanoseconds.
+	function clockNanosOf(clock Count) returns Count
 		let time = alloc(linuxTimespecBytes)
-		let nanos = clockNanosInto(time)
+		let nanos = clockNanosFrom(clock, time: time)
 		free(time)
 		return nanos
-	end 'osClockNanos'
+	end 'clockNanosOf'
 
 	// clockNanosInto is the monotonic clock in nanoseconds, read through a timespec at an address.
 	function clockNanosInto(time Count) returns Count
-		_ = __Raw.syscall2(linuxSysClockGettime, arg1: linuxClockMonotonic, arg2: time)
-		let wholeNanos = try __Raw.loadWord(time, offset: 0) * nanosPerSecond otherwise panic("the monotonic clock is past a word of nanoseconds")
-		return try wholeNanos + __Raw.loadWord(time, offset: wordBytes) otherwise panic("the monotonic clock is past a word of nanoseconds")
+		return clockNanosFrom(linuxClockMonotonic, time: time)
 	end 'clockNanosInto'
+
+	// clockNanosFrom is a clock in nanoseconds, read through a timespec at an address.
+	function clockNanosFrom(clock Count, time Count) returns Count
+		_ = __Raw.syscall2(linuxSysClockGettime, arg1: clock, arg2: time)
+		let wholeNanos = try __Raw.loadWord(time, offset: 0) * nanosPerSecond otherwise panic("the clock is past a word of nanoseconds")
+		return try wholeNanos + __Raw.loadWord(time, offset: wordBytes) otherwise panic("the clock is past a word of nanoseconds")
+	end 'clockNanosFrom'
 
 	function osProcessId() returns Count
 		return __Raw.syscall0(linuxSysGetpid)

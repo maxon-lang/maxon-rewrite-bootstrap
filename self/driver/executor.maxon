@@ -264,7 +264,7 @@ end 'clockIf'
 // elapsedIf is the time since started, which clockIf gave, where timed says the tasks are timed.
 function elapsedIf(timed bool, started Count) returns Count
 	if timed 'timed'
-		return try Clock.nowNanos() - started otherwise panic("driver: the clock went backwards")
+		return try (Clock.nowNanos() as Count) - started otherwise panic("driver: the clock went backwards")
 	end 'timed'
 	return 0
 end 'elapsedIf'

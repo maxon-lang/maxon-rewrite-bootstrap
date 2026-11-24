@@ -1,0 +1,276 @@
+/// Monotonic time helpers. Use for measuring elapsed durations; absolute
+/// values are platform-defined (e.g. nanoseconds since boot) and only
+/// meaningful when subtracted.
+///
+/// Every reading comes from one source, `__gt_now_ns`: `QueryPerformanceCounter` scaled to nanoseconds
+/// on Windows, `clock_gettime(CLOCK_MONOTONIC)` on Linux, `clock_gettime(CLOCK_UPTIME_RAW)` on macOS and
+/// WASI's `monotonic-clock.now` on `wasm32-wasi`. `nowMs()` is that reading divided by 1,000,000. On
+/// `wasm32-wasi`, `osTickMs()` and `threadCpuTicks()` are refused at compile time (E3104).
+/// @category System
+/// ⭐ **NO READING CAN PRESENT A VALUE ABOVE `i64.max`.** `__gt_now_ns` answers nanoseconds since boot,
+/// which needs 292 years of uptime to reach `i64.max`, and a millisecond reading is the same quantity
+/// divided down. A duration is the difference of two such instants and is clamped at 0 below, so it is
+/// bounded by the same word.
+public typealias DurationMs = int(0 to u64.max)
+
+public typealias DurationNanos = int(0 to u64.max)
+
+extension Clock
+	/// Monotonic time in milliseconds. Differences between two `nowMs()`
+	/// readings are meaningful; the absolute value is not.
+	///
+	/// It is `nowNanos()` divided by 1,000,000, so it resolves whole milliseconds on
+	/// every platform; use `nowNanos()` for anything finer.
+	public static function nowMs() returns InstantMs
+		return __Builtins.currentTimeMs()
+	end 'nowMs'
+
+	/// Milliseconds since the machine booted, from the OS tick counter. It is a different counter
+	/// from `nowMs()`, so readings of the two are not comparable.
+	public static function osTickMs() returns InstantMs
+		return __Builtins.tickCountMs()
+	end 'osTickMs'
+
+	/// CPU time the calling thread has consumed, which advances only while it is scheduled. The unit
+	/// is platform-defined: TSC ticks on Windows, nanoseconds under POSIX.
+	public static function threadCpuTicks() returns ThreadCpuTicks
+		return __Builtins.threadCpuTicks()
+	end 'threadCpuTicks'
+
+	/// Milliseconds elapsed since a prior `nowMs()` reading. Clamps to 0 if
+	/// the system clock somehow moves backwards between the two readings
+	/// (shouldn't happen on a monotonic source, but guards against bugs).
+	public static function elapsedMs(since InstantMs) returns DurationMs
+		let now = Clock.nowMs()
+		if now < since 'clockSkew'
+			return 0
+		end 'clockSkew'
+		return now - since
+	end 'elapsedMs'
+
+	/// What is left of `deadlineMs` measured from `started`; `0` once it has passed.
+	public static function remainingMs(started InstantMs, deadlineMs DurationMs) returns DurationMs
+		let elapsed = Clock.elapsedMs(started)
+		return deadlineMs - elapsed if deadlineMs > elapsed else 0
+	end 'remainingMs'
+
+	/// Nanoseconds elapsed since a prior `nowNanos()` reading. Clamps to 0 on
+	/// apparent backwards movement, mirroring `elapsedMs`.
+	public static function elapsedNanos(since InstantNanos) returns DurationNanos
+		let now = Clock.nowNanos()
+		if now < since 'clockSkew'
+			return 0
+		end 'clockSkew'
+		return now - since
+	end 'elapsedNanos'
+end 'Clock'
+
+/// The WALL clock — the calendar, as opposed to `Clock`, which is a stopwatch.
+///
+/// These are two different instruments and the distinction is not pedantry. Every reading
+/// `Clock` gives you is monotonic: its absolute value is meaningless (milliseconds since boot,
+/// performance-counter ticks) and only the DIFFERENCE between two readings means anything. That
+/// makes it exactly right for "how long did this take" and completely useless for "what is
+/// today's date" — no arithmetic turns an uptime into a calendar day.
+///
+/// `WallClock` answers the second question and must never be used for the first. A wall clock can
+/// step BACKWARDS: NTP corrects a drift, a user changes the timezone, a VM resumes from a
+/// snapshot. A duration measured across such a step comes out negative or absurd, which is
+/// precisely the bug `Clock`'s monotonic guarantee exists to prevent.
+///
+///   duration → Clock.elapsedNanos / Clock.elapsedMs
+///   date     → WallClock.nowUnixSeconds
+///
+/// @category System
+public type WallClock
+	/// Seconds since the Unix epoch, UTC. No timezone is applied — the caller converts if it
+	/// wants local time, because the offset is a policy decision the stdlib has no business
+	/// guessing.
+	public static function nowUnixSeconds() returns UnixSeconds
+		return __Builtins.currentUnixTimeSeconds()
+	end 'nowUnixSeconds'
+
+	/// Nanoseconds since the Unix epoch, UTC, in steps of the host calendar's 100 ns tick.
+	public static function nowUnixNanos() returns UnixNanos
+		return __Builtins.currentUnixTimeNanos()
+	end 'nowUnixNanos'
+
+	/// `nanos` as an RFC 3339 UTC timestamp to the millisecond: `2026-09-26T12:34:56.789Z`.
+	public static function rfc3339Millis(nanos UnixNanos) returns String
+		return "{rfc3339DateTime(nanos)}.{nanosIntoSecond(nanos) / NanosPerMillisecond:03}Z"
+	end 'rfc3339Millis'
+
+	/// `nanos` as an RFC 3339 UTC timestamp to the nanosecond: `2026-09-26T12:34:56.789012300Z`.
+	public static function rfc3339Nanos(nanos UnixNanos) returns String
+		return "{rfc3339DateTime(nanos)}.{nanosIntoSecond(nanos):09}Z"
+	end 'rfc3339Nanos'
+end 'WallClock'
+
+/// Days since 1970-01-01; negative before it.
+public typealias UnixDays = int(i64.min to i64.max)
+
+public typealias CivilYear = int(i64.min to i64.max)
+
+public typealias CivilMonth = int(1 to 12)
+
+public typealias CivilDay = int(1 to 31)
+
+typealias CalendarCount = int(i64.min to i64.max)
+
+let NanosPerSecond = 1_000_000_000
+
+let NanosPerMillisecond = 1_000_000 as CalendarCount
+
+let SecondsPerDay = 86_400
+
+let SecondsPerHour = 3_600 as CalendarCount
+
+let SecondsPerMinute = 60 as CalendarCount
+
+let DaysFromMarchOfYearZeroTo1970 = 719_468
+
+let DaysPerEra = 146_097
+
+let LastDayOfEra = 146_096 as CalendarCount
+
+let DaysPerCentury = 36_524 as CalendarCount
+
+let DaysPerFourYears = 1_460 as CalendarCount
+
+let DaysPerCommonYear = 365 as CalendarCount
+
+let YearsPerEra = 400
+
+let YearsPerCentury = 100 as CalendarCount
+
+let YearsPerLeapCycle = 4 as CalendarCount
+
+let DaysInFiveMonthsFromMarch = 153 as CalendarCount
+
+let MonthsInFiveMonths = 5 as CalendarCount
+
+let MonthLengthRoundingOffset = 2
+
+let MonthsFromMarchToYearEnd = 10
+
+let MarchMonthOfMarch = 3
+
+let MonthsFromJanuaryToMarch = 9
+
+let MonthsBeforeMarch = 2
+
+let FebruaryMonth = 2
+
+let AprilMonth = 4
+
+let JuneMonth = 6
+
+let SeptemberMonth = 9
+
+let NovemberMonth = 11
+
+let DaysInLongMonth = 31
+
+let DaysInShortMonth = 30
+
+let DaysInCommonFebruary = 28 as CalendarCount
+
+let DaysInLeapFebruary = 29 as CalendarCount
+
+/// Why `CivilDate.create` refused its parts: `impossibleDay` is a day past the end of its month,
+/// such as February 30 or February 29 in a common year.
+public enum CivilDateError implements Error
+	impossibleDay
+end 'CivilDateError'
+
+function daysInMonth(year CivilYear, month CivilMonth) returns CalendarCount
+	if month == FebruaryMonth 'february'
+		return DaysInLeapFebruary if isLeapYear(year) else DaysInCommonFebruary
+	end 'february'
+	if month == AprilMonth or month == JuneMonth or month == SeptemberMonth or month == NovemberMonth 'thirtyDays'
+		return DaysInShortMonth
+	end 'thirtyDays'
+	return DaysInLongMonth
+end 'daysInMonth'
+
+function isLeapYear(year CivilYear) returns bool
+	let yearNumber = year as CalendarCount
+	return dividesEvenly(yearNumber, by: YearsPerLeapCycle) and (not dividesEvenly(yearNumber, by: YearsPerCentury) or dividesEvenly(yearNumber, by: YearsPerEra))
+end 'isLeapYear'
+
+function dividesEvenly(value CalendarCount, by CalendarCount) returns bool
+	return (try floorDivide(value, by: by) * by otherwise panic("out of range")) == value
+end 'dividesEvenly'
+
+/// A date in the proleptic Gregorian calendar, converted to and from `UnixDays`.
+/// @category System
+public type CivilDate
+	public let year as CivilYear
+	public let month as CivilMonth
+	public let day as CivilDay
+
+	/// The date with these parts; throws `CivilDateError.impossibleDay` for a day the month does not
+	/// have.
+	public static function create(year CivilYear, month CivilMonth, day CivilDay) returns CivilDate throws CivilDateError
+		if (day as CalendarCount) > daysInMonth(year, month: month) 'pastTheMonth'
+			throw CivilDateError.impossibleDay
+		end 'pastTheMonth'
+		return Self{year: year, month: month, day: day}
+	end 'create'
+
+	/// The date `days` days after 1970-01-01, or before it for a negative count.
+	public static function fromDays(days UnixDays) returns CivilDate
+		let shifted = try (days as CalendarCount) + DaysFromMarchOfYearZeroTo1970 otherwise panic("out of range")
+		let era = floorDivide(shifted, by: DaysPerEra)
+		let dayOfEra = try shifted - era * DaysPerEra otherwise panic("out of range")
+		let yearOfEra = try (dayOfEra - dayOfEra / DaysPerFourYears + dayOfEra / DaysPerCentury - dayOfEra / LastDayOfEra) / DaysPerCommonYear otherwise panic("out of range")
+		let dayOfYear = try dayOfEra - (DaysPerCommonYear * yearOfEra + yearOfEra / YearsPerLeapCycle - yearOfEra / YearsPerCentury) otherwise panic("out of range")
+		let marchMonth = try (MonthsInFiveMonths * dayOfYear + MonthLengthRoundingOffset) / DaysInFiveMonthsFromMarch otherwise panic("out of range")
+		let dayOfMonth = try (dayOfYear - (DaysInFiveMonthsFromMarch * marchMonth + MonthLengthRoundingOffset) / MonthsInFiveMonths + 1) as CivilDay otherwise panic("out of range")
+		let marchYear = try yearOfEra + era * YearsPerEra otherwise panic("out of range")
+		// Built directly rather than through `create`: a date derived from a day count is valid by
+		// construction, so it has nothing to throw.
+		if marchMonth >= MonthsFromMarchToYearEnd 'januaryOrFebruary'
+			return Self{year: try (marchYear + 1) as CivilYear otherwise panic("out of range"), month: try (marchMonth - MonthsFromJanuaryToMarch) as CivilMonth otherwise panic("out of range"), day: dayOfMonth}
+		end 'januaryOrFebruary'
+		return Self{year: marchYear as CivilYear, month: try (marchMonth + MarchMonthOfMarch) as CivilMonth otherwise panic("out of range"), day: dayOfMonth}
+	end 'fromDays'
+
+	/// Days from 1970-01-01 to this date; negative before it.
+	public function days() returns UnixDays
+		let monthNumber = self.month as CalendarCount
+		let yearNumber = self.year as CalendarCount
+		let startsBeforeMarch = monthNumber <= MonthsBeforeMarch
+		let marchYear = (try yearNumber - 1 otherwise panic("out of range")) if startsBeforeMarch else yearNumber
+		let marchMonth = monthNumber + MonthsFromJanuaryToMarch if startsBeforeMarch else monthNumber - MarchMonthOfMarch
+		let era = floorDivide(marchYear, by: YearsPerEra)
+		let yearOfEra = try marchYear - era * YearsPerEra otherwise panic("out of range")
+		let dayOfYear = (DaysInFiveMonthsFromMarch * marchMonth + MonthLengthRoundingOffset) / MonthsInFiveMonths + (self.day as CalendarCount) - 1
+		let dayOfEra = try yearOfEra * DaysPerCommonYear + yearOfEra / YearsPerLeapCycle - yearOfEra / YearsPerCentury + dayOfYear otherwise panic("out of range")
+		return try (era * DaysPerEra + dayOfEra - DaysFromMarchOfYearZeroTo1970) as UnixDays otherwise panic("out of range")
+	end 'days'
+end 'CivilDate'
+
+function floorDivide(value CalendarCount, by CalendarCount) returns CalendarCount
+	let quotient = try (value / by) otherwise panic("floorDivide: every caller in this file divides by a positive calendar constant")
+	if (try quotient * by otherwise panic("out of range")) > value 'roundedTowardZero'
+		return try quotient - 1 otherwise panic("out of range")
+	end 'roundedTowardZero'
+	return quotient
+end 'floorDivide'
+
+function nanosIntoSecond(nanos UnixNanos) returns CalendarCount
+	let count = nanos as CalendarCount
+	return try count - floorDivide(count, by: NanosPerSecond) * NanosPerSecond otherwise panic("out of range")
+end 'nanosIntoSecond'
+
+function rfc3339DateTime(nanos UnixNanos) returns String
+	let seconds = floorDivide(nanos as CalendarCount, by: NanosPerSecond)
+	let days = floorDivide(seconds, by: SecondsPerDay)
+	let secondOfDay = try seconds - days * SecondsPerDay otherwise panic("out of range")
+	let date = CivilDate.fromDays(days as UnixDays)
+	let hour = secondOfDay / SecondsPerHour
+	let minute = (secondOfDay mod SecondsPerHour) / SecondsPerMinute
+	let second = secondOfDay mod SecondsPerMinute
+	return "{date.year:04}-{date.month:02}-{date.day:02}T{hour:02}:{minute:02}:{second:02}"
+end 'rfc3339DateTime'

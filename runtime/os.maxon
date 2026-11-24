@@ -355,6 +355,22 @@ end 'pushBytes'
 // nanosPerSecond is what a count of whole seconds is scaled to.
 let nanosPerSecond = 1000000000 as Count
 
+// osClockMillis is the monotonic clock in whole milliseconds.
+function osClockMillis() returns Count
+	return osClockNanos() / nanosPerMilli
+end 'osClockMillis'
+
+// osUnixSeconds is the whole seconds since 1970-01-01 UTC.
+function osUnixSeconds() returns Count
+	return osUnixNanos() / nanosPerSecond
+end 'osUnixSeconds'
+
+// fileTimeAtUnixEpoch is 1970-01-01 in FILETIME's 100 ns steps since 1601-01-01, and nanosPerFileTimeStep the nanoseconds
+// of one step.
+let fileTimeAtUnixEpoch = 116444736000000000 as Count
+
+let nanosPerFileTimeStep = 100 as Count
+
 #if os(Windows)
 	// osArgs is the program's arguments, the program's own name first, as the command line splits by the C runtime's rules.
 	function osArgs() returns Count
@@ -453,6 +469,25 @@ let nanosPerSecond = 1000000000 as Count
 		let partNanos = try remainder * nanosPerSecond otherwise panic("the performance counter's rate is past a word of nanoseconds")
 		return try wholeNanos + partNanos / frequency otherwise panic("the monotonic clock is past a word of nanoseconds")
 	end 'osClockNanos'
+
+	// osTickMillis is the milliseconds since the machine booted.
+	function osTickMillis() returns Count
+		return __Raw.callImport0("GetTickCount64")
+	end 'osTickMillis'
+
+	// osThreadCpuTicks is the CPU cycles the calling thread has used, which is the unit that maxon's gives on Windows.
+	function osThreadCpuTicks() returns Count
+		var cycles = 0 as Count
+		_ = __Raw.callImport2("QueryThreadCycleTime", arg1: __Raw.callImport0("GetCurrentThread"), arg2: __Raw.addressOf(cycles))
+		return cycles
+	end 'osThreadCpuTicks'
+
+	// osUnixNanos is the nanoseconds since 1970-01-01 UTC, from the calendar's FILETIME, the 100 ns steps since 1601.
+	function osUnixNanos() returns Count
+		var fileTime = 0 as Count
+		_ = __Raw.callImport1("GetSystemTimePreciseAsFileTime", arg1: __Raw.addressOf(fileTime))
+		return try (__Raw.wrappingSub(fileTime, right: fileTimeAtUnixEpoch)) * nanosPerFileTimeStep otherwise panic("the calendar is past a word of nanoseconds")
+	end 'osUnixNanos'
 
 	// osProcessId is the id of the running process, which Windows answers as a DWORD.
 	function osProcessId() returns Count

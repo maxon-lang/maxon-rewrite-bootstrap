@@ -65,7 +65,6 @@ error E3209: <fragment>:26:10: a return does not fit the declared result: 'self.
 
 
 <!-- test: a-generic-method-returning-its-item-type-over-an-immutable-instance-runs -->
-<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 The same through a generic shelf: `Shelf with immutable Counter` stores and returns frozen counters, and the item
 type it returns is `immutable` by the instance.
 
@@ -82,17 +81,17 @@ end 'Counter'
 
 type Shelf uses Item
 	typealias Items = Array with Item
-	let items as Items
+	var items as Items
 
 	static function create() returns Self
 		return Self{items: Items.create(0)}
 	end 'create'
 
-	function add(item Item)
-		self.items.push(item)
+	function add(mutates self, item Item) where Item implements Copyable
+		self.items.push(item.clone())
 	end 'add'
 
-	function at(i ElementIndex) returns Item throws ArrayError
+	function at(i ElementIndex) returns Item throws ArrayError where Item implements Copyable
 		return try self.items.get(i)
 	end 'at'
 end 'Shelf'
@@ -101,10 +100,10 @@ typealias CounterShelf = Shelf with Counter
 
 function main() returns ExitCode
 	let shared = freeze(Counter.create(4))
-	let shelf = CounterShelf.create()
+	var shelf = CounterShelf.create()
 	shelf.add(shared)
 	let first = try shelf.at(0) otherwise return 1
-	return first.n as ExitCode
+	return try first.n as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -206,7 +205,6 @@ error E3209: <fragment>:26:10: a return does not fit the declared result: 'self.
 
 
 <!-- test: a-method-returning-an-immutable-element-is-read-through-a-let -->
-<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 The accepted twin: the result is declared `immutable` and the caller binds the returned element with `let` and
 reads it.
 
@@ -223,27 +221,27 @@ end 'Counter'
 
 type Shelf
 	typealias Items = Array with Counter
-	let items as Items
+	var items as Items
 
 	static function create() returns Self
 		return Self{items: Items.create(0)}
 	end 'create'
 
-	function add(item frozen with Counter)
-		self.items.push(item)
+	function add(mutates self, item frozen with Counter)
+		self.items.push(thaw(item))
 	end 'add'
 
 	function at(i ElementIndex) returns frozen with Counter throws ArrayError
-		return try self.items.get(i)
+		return freeze(try self.items.get(i))
 	end 'at'
 end 'Shelf'
 
 function main() returns ExitCode
 	let shared = freeze(Counter.create(4))
-	let shelf = Shelf.create()
+	var shelf = Shelf.create()
 	shelf.add(shared)
 	let first = try shelf.at(0) otherwise return 1
-	return first.n as ExitCode
+	return try first.n as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -298,7 +296,6 @@ error E3197: <fragment>:35:2: cannot write 'n' through 'first', which is immutab
 
 
 <!-- test: a-method-returning-an-immutable-element-is-copied-with-clone -->
-<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 The accepted twin: a `clone()` of the returned element is a new record, so the caller's `var` writes the copy and
 the shelf's record keeps its value.
 
@@ -315,28 +312,28 @@ end 'Counter'
 
 type Shelf
 	typealias Items = Array with Counter
-	let items as Items
+	var items as Items
 
 	static function create() returns Self
 		return Self{items: Items.create(0)}
 	end 'create'
 
-	function add(item frozen with Counter)
-		self.items.push(item)
+	function add(mutates self, item frozen with Counter)
+		self.items.push(thaw(item))
 	end 'add'
 
 	function at(i ElementIndex) returns frozen with Counter throws ArrayError
-		return try self.items.get(i)
+		return freeze(try self.items.get(i))
 	end 'at'
 end 'Shelf'
 
 function main() returns ExitCode
 	let shared = freeze(Counter.create(4))
-	let shelf = Shelf.create()
+	var shelf = Shelf.create()
 	shelf.add(shared)
 	let mine = (try shelf.at(0) otherwise return 1).clone()
 	mine.n = 99
-	return shared.n as ExitCode
+	return try shared.n as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

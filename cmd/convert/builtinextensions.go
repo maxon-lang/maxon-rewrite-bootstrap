@@ -77,6 +77,45 @@ func dropConformanceBeforeWhere(l *sourceLine) {
 	l.code = slices.Delete(l.code, impl, where)
 }
 
+// extendedBuiltinRecords are the record types minimaxon builds in whose library declaration has members that the built-in
+// lacks (Clock's `nowMs`, Directory's `removeTree`): the declaration is kept as an extension of the built-in, which a
+// program reaches as it reaches the type.
+var extendedBuiltinRecords = []string{"Clock", "Directory"}
+
+// rewriteBuiltinRecords writes the declaration of each of extendedBuiltinRecords as an extension of the built-in type, with
+// the members that the built-in declares left out, and the fields, which the built-in's own storage replaces.
+func rewriteBuiltinRecords(lines []sourceLine) {
+	for i := 0; i < len(lines); i++ {
+		l := &lines[i]
+		if l.removed || len(l.code) == 0 || l.indent != "" {
+			continue
+		}
+		declIdx := skipModifiers(l.code)
+		if declIdx+1 >= len(l.code) || l.code[declIdx].text != "type" || !slices.Contains(extendedBuiltinRecords, l.code[declIdx+1].text) {
+			continue
+		}
+		last := topLevelEnd(lines, i)
+		target := l.code[declIdx+1].text
+		l.code = slices.Concat([]token{{kind: tokIdent, text: "extension"}}, l.code[declIdx+1:])
+		dropFields(lines, i, last)
+		dropNativeMembers(lines, i, last, target)
+		i = last
+	}
+}
+
+// dropFields leaves out the fields of the type from header to last, each a line of its own.
+func dropFields(lines []sourceLine, header, last int) {
+	for k := header + 1; k < last; k++ {
+		l := &lines[k]
+		if l.removed || len(l.code) == 0 || l.indent != "\t" {
+			continue
+		}
+		if word := l.code[skipModifiers(l.code)].text; word == "var" || word == "let" {
+			l.removed = true
+		}
+	}
+}
+
 // dropNativeMembers leaves out the members of the extension from header to last that the built-in type of its name declares.
 func dropNativeMembers(lines []sourceLine, header, last int, target string) {
 	for k := header + 1; k < last; k++ {
@@ -122,4 +161,21 @@ func conditionText(toks []token) string {
 		text.WriteString(t.text)
 	}
 	return text.String()
+}
+
+// typeNamesHere are the types of maxon's that minimaxon types as another: the payload of WaitDeadline.within is a Count here,
+// where maxon's is its own alias of that range.
+var typeNamesHere = map[string]string{"WaitDeadlineMs": "Count"}
+
+// rewriteTypeNames writes each name of typeNamesHere as minimaxon's.
+func rewriteTypeNames(lines []sourceLine) {
+	for i := range lines {
+		l := &lines[i]
+		for k, t := range l.code {
+			here, ok := typeNamesHere[t.text]
+			if ok && t.kind == tokIdent && (k == 0 || l.code[k-1].text != ".") {
+				l.code[k].text = here
+			}
+		}
+	}
 }

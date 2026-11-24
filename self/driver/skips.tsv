@@ -20,7 +20,8 @@
 #           minimaxon lacks
 #   test    `test`, the name of a spec file, the name of one of its tests, and the reason: a test that minimaxon compiles
 #           and runs to another answer than maxon's, because a language change (README, "Where it differs from Maxon") gives
-#           the program another meaning
+#           the program another meaning, or because it asserts a line of maxon's library source, which the converted file
+#           does not share
 #   cause   `cause`, a case of diag.ErrorCause and the reason: a test is skipped when the first diagnostic left after the fixes
 #           has that cause and is not the code the test expects, where the cause tells apart what its code covers
 code	E2027	a match arm that repeats the pattern of an earlier arm
@@ -492,3 +493,8 @@ test	async-promise-drop.md	async-promise-drop.error.a-promise-element-handed-out
 test	async-promise-drop.md	async-promise-drop.error.a-promise-element-handed-out-by-a-static-through-a-map	language difference: a promise owns the coroutine that one owner awaits, so it is not Droppable and no Map holds one as a value
 test	async-promise-drop.md	async-promise-drop.error.a-user-generics-pop-that-returns-a-borrow-of-its-array-is-refused	language difference: a door that copies its element bounds it Copyable, so a promise is refused by the bound, where maxon refuses it at the door
 test	async-promise-drop.md	async-promise-drop.error.a-user-generics-pop-through-a-nested-user-type-whose-pop-borrows-is-refused	language difference: a door that copies its element bounds it Copyable, so a promise is refused by the bound, where maxon refuses it at the door
+test	slot.md	filling-a-full-slot-panics-naming-the-slot	the test asserts a line of maxon's library source, which the converted file does not share
+test	slot.md	taking-from-an-empty-slot-panics-naming-the-slot	the test asserts a line of maxon's library source, which the converted file does not share
+test	slot.md	reading-an-empty-slot-panics-naming-the-slot	the test asserts a line of maxon's library source, which the converted file does not share
+test	sha2.md	sha2.digest-panics-when-finalized-twice	the test asserts a line of maxon's library source, which the converted file does not share
+test	sha2.md	sha2.digest-panics-on-update-after-finalize	the test asserts a line of maxon's library source, which the converted file does not share

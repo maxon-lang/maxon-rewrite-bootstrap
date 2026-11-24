@@ -861,7 +861,7 @@ function main() returns ExitCode
 		let argv = StringArray.create(0)
 		argv.push("-c")
 		argv.push("echo hello; sleep 60")
-		try Subprocess.run(exe, arguments: argv, deadline: WaitDeadline.within((1 + lap mod DeadlineSpanMs) as WaitDeadlineMs)) otherwise (e) 'expired'
+		try Subprocess.run(exe, arguments: argv, deadline: WaitDeadline.within((1 + lap mod DeadlineSpanMs) as Count)) otherwise (e) 'expired'
 			if e.timedOut() 'counted'
 				timedOut = timedOut + 1
 			end 'counted'

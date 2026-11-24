@@ -12,7 +12,7 @@ let spread = 1000 as Count
 
 // lap prints the time of the phase that began at since, which bench.ps1 and cmd/bench read from the line, and gives the
 // time the next one begins.
-function lap(phase String, since Count) returns Count
+function lap(phase String, since InstantNanos) returns InstantNanos
 	let now = Clock.nowNanos()
 	let elapsed = try (now - since) otherwise panic("the clock went backwards")
 	print("{phase} ns {elapsed}\n")

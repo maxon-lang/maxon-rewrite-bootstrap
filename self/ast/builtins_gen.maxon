@@ -391,6 +391,11 @@ export enum Intrinsic
 	intrDebuggeeCloseHandle
 	intrDebuggeeTerminate
 	intrCollectedOutputSucceeded
+	intrClockNowMillis
+	intrClockTickMillis
+	intrClockThreadCpuTicks
+	intrClockUnixSeconds
+	intrClockUnixNanos
 	intrReadStdin
 	intrSubprocessRunWithInput
 	intrStdoutWantsColor
@@ -663,6 +668,21 @@ export function rawCallInstead(b Builtins, owner TypeID, name String) returns ta
 		if name == "currentTimeNanos" 'currentTimeNanos'
 			return table.Option.some("Clock.nowNanos()")
 		end 'currentTimeNanos'
+		if name == "currentTimeMs" 'currentTimeMs'
+			return table.Option.some("Clock.nowMs()")
+		end 'currentTimeMs'
+		if name == "tickCountMs" 'tickCountMs'
+			return table.Option.some("Clock.osTickMs()")
+		end 'tickCountMs'
+		if name == "threadCpuTicks" 'threadCpuTicks'
+			return table.Option.some("Clock.threadCpuTicks()")
+		end 'threadCpuTicks'
+		if name == "currentUnixTimeSeconds" 'currentUnixTimeSeconds'
+			return table.Option.some("WallClock.nowUnixSeconds()")
+		end 'currentUnixTimeSeconds'
+		if name == "currentUnixTimeNanos" 'currentUnixTimeNanos'
+			return table.Option.some("WallClock.nowUnixNanos()")
+		end 'currentUnixTimeNanos'
 		if name == "readStdin" 'readStdin'
 			return table.Option.some("Console.stdin().readBytes(n)")
 		end 'readStdin'
@@ -760,6 +780,11 @@ function declareStdAliases(mutates tt TypeSlot, reads TypeTable, mutates std Par
 	b.asciiValueTy = registerStdAlias(tt, reads: reads, std: std, typeMap: typeMap, name: "AsciiValue", lo: I128.zero(), hi: I128.fromCount(127 as Count))
 	b.codeUnit16Ty = registerStdAlias(tt, reads: reads, std: std, typeMap: typeMap, name: "CodeUnit16", lo: I128.zero(), hi: I128.fromCount(65535 as Count))
 	b.millisecondsTy = registerStdAlias(tt, reads: reads, std: std, typeMap: typeMap, name: "Milliseconds", lo: I128.zero(), hi: I128.u64Max())
+	b.instantNanosTy = registerStdAlias(tt, reads: reads, std: std, typeMap: typeMap, name: "InstantNanos", lo: I128.zero(), hi: I128.u64Max())
+	b.instantMsTy = registerStdAlias(tt, reads: reads, std: std, typeMap: typeMap, name: "InstantMs", lo: I128.zero(), hi: I128.u64Max())
+	b.threadCpuTicksTy = registerStdAlias(tt, reads: reads, std: std, typeMap: typeMap, name: "ThreadCpuTicks", lo: I128.zero(), hi: I128.u64Max())
+	b.unixSecondsTy = registerStdAlias(tt, reads: reads, std: std, typeMap: typeMap, name: "UnixSeconds", lo: I128.i64Min(), hi: I128.i64Max())
+	b.unixNanosTy = registerStdAlias(tt, reads: reads, std: std, typeMap: typeMap, name: "UnixNanos", lo: I128.i64Min(), hi: I128.i64Max())
 	b.orderedWordTy = registerStdBitsAlias(tt, reads: reads, std: std, typeMap: typeMap, name: "OrderedWord", width: 64)
 	b.hashDigestTy = registerStdBitsAlias(tt, reads: reads, std: std, typeMap: typeMap, name: "HashDigest", width: 64)
 	b.mailboxCapacityTy = registerStdAlias(tt, reads: reads, std: std, typeMap: typeMap, name: "MailboxCapacity", lo: I128.fromCount(1 as Count), hi: I128.fromCount(2147483648 as Count))
@@ -1848,7 +1873,7 @@ function declareProcessMethods(mutates tt TypeSlot, reads TypeTable, mutates ft 
 end 'declareProcessMethods'
 
 function declareClockMethods(mutates tt TypeSlot, reads TypeTable, mutates ft FuncSlot, funcReads FuncTable, mutates std ParsedModule, mutates b Builtins, mutates funcMap FuncIDMap)
-	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.clockTy, op: Intrinsic.intrClockNowNanos, name: "nowNanos", isStatic: true, selfConv: Convention.convLet, ret: b.countTy, params: ParamSpecList.create(0), listed: true)
+	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.clockTy, op: Intrinsic.intrClockNowNanos, name: "nowNanos", isStatic: true, selfConv: Convention.convLet, ret: b.instantNanosTy, params: ParamSpecList.create(0), listed: true)
 end 'declareClockMethods'
 
 function declareSchedulerMethods(mutates tt TypeSlot, reads TypeTable, mutates ft FuncSlot, funcReads FuncTable, mutates std ParsedModule, mutates b Builtins, mutates funcMap FuncIDMap)
@@ -1922,17 +1947,20 @@ function declareDirectoryMethods(mutates tt TypeSlot, reads TypeTable, mutates f
 	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.directoryTy, op: Intrinsic.intrDirectoryIsDirectory, name: "isDirectory", isStatic: true, selfConv: Convention.convLet, ret: b.boolTy, params: ps1, listed: true)
 	var ps2 = ParamSpecList.create(0)
 	ps2.push(ParamSpec.make("path", ty: b.filePathTy, conv: Convention.convLet))
-	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.directoryTy, op: Intrinsic.intrDirectoryCreate, name: "create", isStatic: true, selfConv: Convention.convLet, ret: b.boolTy, params: ps2, listed: true)
-	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.directoryTy, op: Intrinsic.intrDirectoryCurrentPath, name: "currentPath", isStatic: true, selfConv: Convention.convLet, ret: b.filePathTy, params: ParamSpecList.create(0), listed: true)
+	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.directoryTy, op: Intrinsic.intrDirectoryIsDirectory, name: "exists", isStatic: true, selfConv: Convention.convLet, ret: b.boolTy, params: ps2, listed: true)
 	var ps3 = ParamSpecList.create(0)
 	ps3.push(ParamSpec.make("path", ty: b.filePathTy, conv: Convention.convLet))
-	let f4 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.directoryTy, op: Intrinsic.intrDirectoryDelete, name: "delete", isStatic: true, selfConv: Convention.convLet, ret: b.voidTy, params: ps3, listed: true)
-	ft.lists[funcList(ft, f: f4)][funcIndex(ft, f: f4)].errTy = b.directoryDeleteErrorTy
-	let ty5 = instantiateType(tt, reads: reads, origin: b.arrayOrigin, args: oneArgList(b.filePathTy))
-	var ps6 = ParamSpecList.create(0)
-	ps6.push(ParamSpec.make("path", ty: b.filePathTy, conv: Convention.convLet))
-	let f7 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.directoryTy, op: Intrinsic.intrDirectoryList, name: "list", isStatic: true, selfConv: Convention.convLet, ret: ty5, params: ps6, listed: true)
-	ft.lists[funcList(ft, f: f7)][funcIndex(ft, f: f7)].errTy = b.directoryListErrorTy
+	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.directoryTy, op: Intrinsic.intrDirectoryCreate, name: "create", isStatic: true, selfConv: Convention.convLet, ret: b.boolTy, params: ps3, listed: true)
+	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.directoryTy, op: Intrinsic.intrDirectoryCurrentPath, name: "currentPath", isStatic: true, selfConv: Convention.convLet, ret: b.filePathTy, params: ParamSpecList.create(0), listed: true)
+	var ps4 = ParamSpecList.create(0)
+	ps4.push(ParamSpec.make("path", ty: b.filePathTy, conv: Convention.convLet))
+	let f5 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.directoryTy, op: Intrinsic.intrDirectoryDelete, name: "delete", isStatic: true, selfConv: Convention.convLet, ret: b.voidTy, params: ps4, listed: true)
+	ft.lists[funcList(ft, f: f5)][funcIndex(ft, f: f5)].errTy = b.directoryDeleteErrorTy
+	let ty6 = instantiateType(tt, reads: reads, origin: b.arrayOrigin, args: oneArgList(b.filePathTy))
+	var ps7 = ParamSpecList.create(0)
+	ps7.push(ParamSpec.make("path", ty: b.filePathTy, conv: Convention.convLet))
+	let f8 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.directoryTy, op: Intrinsic.intrDirectoryList, name: "list", isStatic: true, selfConv: Convention.convLet, ret: ty6, params: ps7, listed: true)
+	ft.lists[funcList(ft, f: f8)][funcIndex(ft, f: f8)].errTy = b.directoryListErrorTy
 end 'declareDirectoryMethods'
 
 function declareSubprocessMethods(mutates tt TypeSlot, reads TypeTable, mutates ft FuncSlot, funcReads FuncTable, mutates std ParsedModule, mutates b Builtins, mutates funcMap FuncIDMap)
@@ -2030,6 +2058,11 @@ end 'declareDebuggeeMethods'
 function declareBuiltinsMethods(mutates tt TypeSlot, reads TypeTable, mutates ft FuncSlot, funcReads FuncTable, mutates std ParsedModule, mutates b Builtins, mutates funcMap FuncIDMap)
 	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrProcessId, name: "currentProcessId", isStatic: true, selfConv: Convention.convLet, ret: b.countTy, params: ParamSpecList.create(0), listed: true)
 	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrClockNowNanos, name: "currentTimeNanos", isStatic: true, selfConv: Convention.convLet, ret: b.countTy, params: ParamSpecList.create(0), listed: true)
+	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrClockNowMillis, name: "currentTimeMs", isStatic: true, selfConv: Convention.convLet, ret: b.instantMsTy, params: ParamSpecList.create(0), listed: true)
+	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrClockTickMillis, name: "tickCountMs", isStatic: true, selfConv: Convention.convLet, ret: b.instantMsTy, params: ParamSpecList.create(0), listed: true)
+	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrClockThreadCpuTicks, name: "threadCpuTicks", isStatic: true, selfConv: Convention.convLet, ret: b.threadCpuTicksTy, params: ParamSpecList.create(0), listed: true)
+	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrClockUnixSeconds, name: "currentUnixTimeSeconds", isStatic: true, selfConv: Convention.convLet, ret: b.unixSecondsTy, params: ParamSpecList.create(0), listed: true)
+	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.builtinsTy, op: Intrinsic.intrClockUnixNanos, name: "currentUnixTimeNanos", isStatic: true, selfConv: Convention.convLet, ret: b.unixNanosTy, params: ParamSpecList.create(0), listed: true)
 	let ty1 = instantiateType(tt, reads: reads, origin: b.managedMemoryOrigin, args: oneArgList(b.byteTy))
 	var ps2 = ParamSpecList.create(0)
 	ps2.push(ParamSpec.make("_", ty: b.anonU64Ty, conv: Convention.convLet))

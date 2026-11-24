@@ -560,7 +560,7 @@ function storeCallInfo(mutates w table.CacheWriter, v CallInfo)
 	w.flag(v.hasDrop)
 	w.word64(v.dropFn as table.Word64)
 	storeArrayOfNodeID(w, v: v.dropOrdered)
-	w.word8(v.intrinsic.ordinal as table.Word64)
+	w.word16(v.intrinsic.ordinal as table.Word64)
 	w.word8(v.result.ordinal as table.Word64)
 	w.word64(v.body as table.Word64)
 	w.flag(v.replyKept)
@@ -581,7 +581,7 @@ extension CallInfo
 		let theHasDrop = r.flag()
 		let theDropFn = try (r.word64() as FuncID) otherwise panic("cache: a stored FuncID is out of its range")
 		let theDropOrdered = loadArrayOfNodeID(r)
-		let theIntrinsic = Intrinsic.allCases[r.word8() as Count]
+		let theIntrinsic = Intrinsic.allCases[r.word16() as Count]
 		let theResult = ResultConv.allCases[r.word8() as Count]
 		let theBody = try (r.word64() as FuncID) otherwise panic("cache: a stored FuncID is out of its range")
 		let theReplyKept = r.flag()
@@ -793,7 +793,7 @@ function storeFuncEntry(mutates w table.CacheWriter, v FuncEntry)
 	w.word64(v.genericOrigin as table.Word64)
 	storeArrayOfTypeID(w, v: v.typeArgs)
 	storeArrayOfWitness(w, v: v.witnesses)
-	w.word8(v.intrinsic.ordinal as table.Word64)
+	w.word16(v.intrinsic.ordinal as table.Word64)
 	w.text(v.linkName)
 	w.word32(v.bodyRef as table.Word64)
 	w.flag(v.isTest)
@@ -826,7 +826,7 @@ extension FuncEntry
 		let theGenericOrigin = try (r.word64() as FuncID) otherwise panic("cache: a stored FuncID is out of its range")
 		let theTypeArgs = loadArrayOfTypeID(r)
 		let theWitnesses = loadArrayOfWitness(r)
-		let theIntrinsic = Intrinsic.allCases[r.word8() as Count]
+		let theIntrinsic = Intrinsic.allCases[r.word16() as Count]
 		let theLinkName = r.text()
 		let theBodyRef = try (r.word32() as diag.U32) otherwise panic("cache: a stored diag.U32 is out of its range")
 		let theIsTest = r.flag()

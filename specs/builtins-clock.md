@@ -195,7 +195,7 @@ function main() returns ExitCode
 	if ms >= nsAsMs 'notBehind'
 		score = score + 1
 	end 'notBehind'
-	if ms - nsAsMs < 50 'notAhead'
+	if (try ms - nsAsMs otherwise panic("out of range")) < 50 'notAhead'
 		score = score + 1
 	end 'notAhead'
 	return score as ExitCode
@@ -222,7 +222,7 @@ function main() returns ExitCode
 	var i = 0 as Count
 	while i < 200000 'sample'
 		let now = __Builtins.currentTimeMs()
-		let delta = (now - prev) as DurationMs
+		let delta = try (now - prev) as DurationMs otherwise panic("out of range")
 		if delta > 0 'advanced'
 			if smallest == 0 or delta < smallest 'newMin'
 				smallest = delta
@@ -278,7 +278,7 @@ function main() returns ExitCode
 	let before = __Builtins.currentUnixTimeSeconds()
 	sleep(1100)
 	let after = __Builtins.currentUnixTimeSeconds()
-	if after >= before + 1 'advanced'
+	if after >= (try before + 1 otherwise panic("out of range")) 'advanced'
 		return 4
 	end 'advanced'
 	return 1
@@ -607,9 +607,9 @@ function main() returns ExitCode
 	sleep(200)
 	let sleepCpuAfter = Clock.threadCpuTicks()
 	let sleepWallAfter = Clock.nowNanos()
-	let busyCpu = busyCpuAfter - busyCpuBefore
-	let sleepCpu = sleepCpuAfter - sleepCpuBefore
-	let sleepWall = sleepWallAfter - sleepWallBefore
+	let busyCpu = try busyCpuAfter - busyCpuBefore otherwise panic("out of range")
+	let sleepCpu = try sleepCpuAfter - sleepCpuBefore otherwise panic("out of range")
+	let sleepWall = try sleepWallAfter - sleepWallBefore otherwise panic("out of range")
 	var score = 0 as ExitCode
 	if worked > 0 'workReallyRan'
 		score = score + 1
@@ -617,7 +617,7 @@ function main() returns ExitCode
 	if sleepWall >= 200000000 'sleptTheWholeTime'
 		score = score + 2
 	end 'sleptTheWholeTime'
-	if busyCpu > sleepCpu * 4 'cpuFollowsTheThreadNotTheClock'
+	if busyCpu > (try sleepCpu * 4 otherwise panic("out of range")) 'cpuFollowsTheThreadNotTheClock'
 		score = score + 4
 	end 'cpuFollowsTheThreadNotTheClock'
 	return score
@@ -647,7 +647,7 @@ function main() returns ExitCode
 	if after >= before 'neverBackwards'
 		score = score + 2
 	end 'neverBackwards'
-	if after - before >= SleepMs - TickGranularityMs 'theSleepWasCounted'
+	if (try after - before otherwise panic("out of range")) >= SleepMs - TickGranularityMs 'theSleepWasCounted'
 		score = score + 4
 	end 'theSleepWasCounted'
 	return score

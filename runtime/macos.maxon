@@ -507,8 +507,28 @@
 
 	// osClockNanos is the monotonic clock in nanoseconds.
 	function osClockNanos() returns Count
-		return __Raw.callImport1("clock_gettime_nsec_np", arg1: macosClockUptimeRaw)
+		return clockNanosOf(macosClockUptimeRaw)
 	end 'osClockNanos'
+
+	// osTickMillis is the milliseconds since the machine booted, the time it slept included.
+	function osTickMillis() returns Count
+		return clockNanosOf(macosClockMonotonic) / nanosPerMilli
+	end 'osTickMillis'
+
+	// osThreadCpuTicks is the CPU time the calling thread has used, in nanoseconds.
+	function osThreadCpuTicks() returns Count
+		return clockNanosOf(macosClockThreadCpu)
+	end 'osThreadCpuTicks'
+
+	// osUnixNanos is the nanoseconds since 1970-01-01 UTC.
+	function osUnixNanos() returns Count
+		return clockNanosOf(macosClockRealtime)
+	end 'osUnixNanos'
+
+	// clockNanosOf is the clock that the system numbers clock, in nanoseconds.
+	function clockNanosOf(clock Count) returns Count
+		return __Raw.callImport1("clock_gettime_nsec_np", arg1: clock)
+	end 'clockNanosOf'
 
 	function osProcessId() returns Count
 		return intResult(__Raw.callImport0("getpid"))

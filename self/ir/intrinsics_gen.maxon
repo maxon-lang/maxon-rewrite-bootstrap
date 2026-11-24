@@ -581,6 +581,21 @@ export function intrinsicCall(mutates l Lowerer, p ast.Project, mutates ms ast.M
 	if op == ast.Intrinsic.intrCollectedOutputSucceeded 'intrCollectedOutputSucceeded'
 		return lowerCollectedOutputSucceeded(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrCollectedOutputSucceeded'
+	if op == ast.Intrinsic.intrClockNowMillis 'intrClockNowMillis'
+		return lowerClockNowMillis(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrClockNowMillis'
+	if op == ast.Intrinsic.intrClockTickMillis 'intrClockTickMillis'
+		return lowerClockTickMillis(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrClockTickMillis'
+	if op == ast.Intrinsic.intrClockThreadCpuTicks 'intrClockThreadCpuTicks'
+		return lowerClockThreadCpuTicks(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrClockThreadCpuTicks'
+	if op == ast.Intrinsic.intrClockUnixSeconds 'intrClockUnixSeconds'
+		return lowerClockUnixSeconds(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrClockUnixSeconds'
+	if op == ast.Intrinsic.intrClockUnixNanos 'intrClockUnixNanos'
+		return lowerClockUnixNanos(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrClockUnixNanos'
 	if op == ast.Intrinsic.intrReadStdin 'intrReadStdin'
 		return lowerReadStdin(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrReadStdin'
@@ -1348,6 +1363,21 @@ export function ownsOperands(op ast.Intrinsic) returns bool
 	if op == ast.Intrinsic.intrCollectedOutputSucceeded 'intrCollectedOutputSucceeded'
 		return false
 	end 'intrCollectedOutputSucceeded'
+	if op == ast.Intrinsic.intrClockNowMillis 'intrClockNowMillis'
+		return false
+	end 'intrClockNowMillis'
+	if op == ast.Intrinsic.intrClockTickMillis 'intrClockTickMillis'
+		return false
+	end 'intrClockTickMillis'
+	if op == ast.Intrinsic.intrClockThreadCpuTicks 'intrClockThreadCpuTicks'
+		return false
+	end 'intrClockThreadCpuTicks'
+	if op == ast.Intrinsic.intrClockUnixSeconds 'intrClockUnixSeconds'
+		return false
+	end 'intrClockUnixSeconds'
+	if op == ast.Intrinsic.intrClockUnixNanos 'intrClockUnixNanos'
+		return false
+	end 'intrClockUnixNanos'
 	if op == ast.Intrinsic.intrReadStdin 'intrReadStdin'
 		return false
 	end 'intrReadStdin'

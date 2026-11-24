@@ -179,8 +179,9 @@ function noteDependency(mutates r Resolver, ref ast.DeclRef, off diag.U32)
 end 'noteDependency'
 
 // bareLookup looks up a name written without a module: a typealias of the type being resolved, else the module's own
-// declaration, else a built-in, else a declaration of the standard library's root that the module sees. Another module's
-// declarations are always qualified, so resolving a module reads only the modules it names.
+// declaration, else a built-in, else a declaration of the standard library that the module sees and that no other module of
+// the program declares (libraryLookup). Another module's declarations are always qualified, so resolving a module reads of
+// the others only the names they declare, which every resolve waits for, and the declarations of the modules it names.
 function bareLookup(r Resolver, p ast.Project, name String) returns LookupResult
 	match consumes r.members.get(name) 'member'
 		some(ref) then return LookupResult.hit(ref)
@@ -201,7 +202,10 @@ end 'bareLookup'
 // libraryLookup is the public declaration named name of a module of the standard library, for a module of the program: the
 // library's modules are layers that name each other qualified, as any modules do, and a program sees all of their public
 // names bare, so the layering is the library's own. The first module in the project's order that declares it is the one,
-// since projectLibraryCollisions refuses a public name that two of them declare.
+// since projectLibraryCollisions refuses a public name that two of them declare. A name that another module of the program
+// declares where the module sees it is that declaration's, never the library's, as in maxon: what the library adds never
+// captures a name of the program, which the module then writes qualified. That is asked only of a name the library has, so a
+// program pays for it only where it names the library.
 function libraryLookup(r Resolver, p ast.Project, name String) returns LookupResult
 	if p.modules[ast.modIndex(r.modID)].isLibrary 'library'
 		return LookupResult.miss()
@@ -212,11 +216,36 @@ function libraryLookup(r Resolver, p ast.Project, name String) returns LookupRes
 		end 'program'
 		let hit = libraryModuleLookup(r, p: p, module: p.modules[m].id, name: name)
 		if hit.found 'visible'
+			if programDeclares(r, p: p, name: name) 'program'
+				return LookupResult.miss()
+			end 'program'
 			return hit
 		end 'visible'
 	end 'modules'
 	return LookupResult.miss()
 end 'libraryLookup'
+
+// programDeclares is whether a module of the program other than the resolver's declares name where the resolver's module
+// sees it.
+function programDeclares(r Resolver, p ast.Project, name String) returns bool
+	for m in 0 upto p.modules.count() 'modules'
+		if p.modules[m].isLibrary or p.modules[m].id == r.modID 'skip'
+			continue 'modules'
+		end 'skip'
+		if declaresVisibly(r, p: p, module: p.modules[m].id, name: name) 'seen'
+			return true
+		end 'seen'
+	end 'modules'
+	return false
+end 'programDeclares'
+
+// declaresVisibly is whether module declares name where the resolver's module sees it.
+function declaresVisibly(r Resolver, p ast.Project, module diag.ModuleID, name String) returns bool
+	match p.modules[ast.modIndex(module)].names.get(name) 'declared'
+		some(ord) then return isDeclVisible(r, p: p, ref: ast.DeclRef.make(module, ordinal: ord))
+		none then return false
+	end 'declared'
+end 'declaresVisibly'
 
 // libraryModuleLookup is libraryLookup in the one library module module.
 function libraryModuleLookup(r Resolver, p ast.Project, module diag.ModuleID, name String) returns LookupResult

@@ -85,6 +85,7 @@ func Convert(file, src string, kind inputKind) Result {
 			keepBuiltinConformances(lines, libraryInterfaces(root))
 			dropLiteralMarkers(lines)
 		}
+		rewriteBuiltinRecords(lines)
 		dropBuiltinDeclarations(lines)
 		dropHardwareRegions(lines)
 		rewriteBuiltinExtensions(lines)
@@ -93,6 +94,7 @@ func Convert(file, src string, kind inputKind) Result {
 		dropReplacedMembers(lines)
 		dropSelfClones(lines)
 	}
+	rewriteTypeNames(lines)
 	joinEndOtherwise(lines)
 	rewriteDestructors(lines, addWarn)
 	rewriteStringBuilders(lines)
