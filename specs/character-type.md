@@ -180,12 +180,12 @@ end 'main'
 ```maxon
 function folded(c Character) returns HashValue
 	var hasher = Hasher.create()
-	hasher.combineBytes(c.toString().toByteArray())
+	hasher.combineBytes("{c}".toByteArray())
 	return hasher.finalize()
 end 'folded'
 
 function report(c Character)
-	print("{c.byteLength()} bytes: {c.hash() == folded(c)} as its string: {c.hash() == c.toString().hash()}\n")
+	print("{c.byteLength()} bytes: {c.hash() == folded(c)} as its string: {c.hash() == "{c}".hash()}\n")
 end 'report'
 
 function main() returns ExitCode

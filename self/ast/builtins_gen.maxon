@@ -309,6 +309,7 @@ export enum Intrinsic
 	intrStringEndsWith
 	intrStringFindFirst
 	intrStringFindLast
+	intrStringIndexAfter
 	intrStringStartIndex
 	intrStringEndIndex
 	intrStringSlice
@@ -799,6 +800,12 @@ export function rawMemberSurface(b Builtins, owner TypeID, name String) returns 
 	if owner == b.arrayOrigin and name == "clearSlot" 'arrayClearSlot'
 		return table.Option.some(RawSurface.make("an array's slot is emptied in place", instead: "use 'remove(at)'"))
 	end 'arrayClearSlot'
+	if owner == b.stringTy and name == "addressableBytes" 'stringAddressableBytes'
+		return table.Option.some(RawSurface.make("a String's bytes are taken as a raw '__ManagedMemory' buffer", instead: "use 'toByteArray()' or 'bytes()'"))
+	end 'stringAddressableBytes'
+	if owner == b.stringTy and name == "init" 'stringInit'
+		return table.Option.some(RawSurface.make("a String is made of a raw '__ManagedMemory' buffer", instead: "use 'String.from(bytes)'"))
+	end 'stringInit'
 	return table.Option.none
 end 'rawMemberSurface'
 
@@ -1608,161 +1615,190 @@ function declareStringMethods(mutates tt TypeSlot, reads TypeTable, mutates ft F
 	ft.lists[funcList(ft, f: f10)][funcIndex(ft, f: f10)].isStatic = true
 	ft.lists[funcList(ft, f: f10)][funcIndex(ft, f: f10)].hasReceiver = false
 	b.stringMethods.insert("from", value: f10)
-	let f11 = registerStdFunc(ft, funcReads: funcReads, std: std, funcMap: funcMap, op: Intrinsic.intrStringBytes, name: "bytes", generics: TypeIDList.create(0), ret: b.byteViewTy, params: ParamSpecList.create(0), declareInStd: false)
-	ft.lists[funcList(ft, f: f11)][funcIndex(ft, f: f11)].ownerTy = b.stringTy
-	ft.lists[funcList(ft, f: f11)][funcIndex(ft, f: f11)].isStatic = false
-	ft.lists[funcList(ft, f: f11)][funcIndex(ft, f: f11)].hasReceiver = true
-	b.stringMethods.insert("bytes", value: f11)
-	let f12 = registerStdFunc(ft, funcReads: funcReads, std: std, funcMap: funcMap, op: Intrinsic.intrStringCodepoints, name: "codepoints", generics: TypeIDList.create(0), ret: b.codepointViewTy, params: ParamSpecList.create(0), declareInStd: false)
+	var ps11 = ParamSpecList.create(0)
+	ps11.push(ParamSpec.make("index", ty: b.countTy, conv: Convention.convLet))
+	let f12 = registerStdFunc(ft, funcReads: funcReads, std: std, funcMap: funcMap, op: Intrinsic.intrStringByteAt, name: "byteAtOrPanic", generics: TypeIDList.create(0), ret: b.byteTy, params: ps11, declareInStd: false)
 	ft.lists[funcList(ft, f: f12)][funcIndex(ft, f: f12)].ownerTy = b.stringTy
 	ft.lists[funcList(ft, f: f12)][funcIndex(ft, f: f12)].isStatic = false
 	ft.lists[funcList(ft, f: f12)][funcIndex(ft, f: f12)].hasReceiver = true
-	b.stringMethods.insert("codepoints", value: f12)
-	let f13 = registerStdFunc(ft, funcReads: funcReads, std: std, funcMap: funcMap, op: Intrinsic.intrStringUtf16, name: "utf16", generics: TypeIDList.create(0), ret: b.utf16ViewTy, params: ParamSpecList.create(0), declareInStd: false)
-	ft.lists[funcList(ft, f: f13)][funcIndex(ft, f: f13)].ownerTy = b.stringTy
-	ft.lists[funcList(ft, f: f13)][funcIndex(ft, f: f13)].isStatic = false
-	ft.lists[funcList(ft, f: f13)][funcIndex(ft, f: f13)].hasReceiver = true
-	b.stringMethods.insert("utf16", value: f13)
-	let f14 = registerStdFunc(ft, funcReads: funcReads, std: std, funcMap: funcMap, op: Intrinsic.intrStringIsEmpty, name: "isEmpty", generics: TypeIDList.create(0), ret: b.boolTy, params: ParamSpecList.create(0), declareInStd: false)
+	b.stringMethods.insert("byteAtOrPanic", value: f12)
+	let ty13 = instantiateType(tt, reads: reads, origin: b.managedMemoryOrigin, args: oneArgList(b.byteTy))
+	let f14 = registerStdFunc(ft, funcReads: funcReads, std: std, funcMap: funcMap, op: Intrinsic.intrStringToByteArray, name: "addressableBytes", generics: TypeIDList.create(0), ret: ty13, params: ParamSpecList.create(0), declareInStd: false)
 	ft.lists[funcList(ft, f: f14)][funcIndex(ft, f: f14)].ownerTy = b.stringTy
 	ft.lists[funcList(ft, f: f14)][funcIndex(ft, f: f14)].isStatic = false
 	ft.lists[funcList(ft, f: f14)][funcIndex(ft, f: f14)].hasReceiver = true
-	b.stringMethods.insert("isEmpty", value: f14)
-	var ps15 = ParamSpecList.create(0)
-	ps15.push(ParamSpec.make("other", ty: b.stringTy, conv: Convention.convLet))
-	let f16 = registerStdFunc(ft, funcReads: funcReads, std: std, funcMap: funcMap, op: Intrinsic.intrStringEquals, name: "equals", generics: TypeIDList.create(0), ret: b.boolTy, params: ps15, declareInStd: false)
-	ft.lists[funcList(ft, f: f16)][funcIndex(ft, f: f16)].ownerTy = b.stringTy
-	ft.lists[funcList(ft, f: f16)][funcIndex(ft, f: f16)].isStatic = false
-	ft.lists[funcList(ft, f: f16)][funcIndex(ft, f: f16)].hasReceiver = true
-	b.stringMethods.insert("equals", value: f16)
-	let f17 = registerStdFunc(ft, funcReads: funcReads, std: std, funcMap: funcMap, op: Intrinsic.intrStringCount, name: "count", generics: TypeIDList.create(0), ret: b.countTy, params: ParamSpecList.create(0), declareInStd: false)
+	b.stringMethods.insert("addressableBytes", value: f14)
+	let ty15 = instantiateType(tt, reads: reads, origin: b.managedMemoryOrigin, args: oneArgList(b.byteTy))
+	var ps16 = ParamSpecList.create(0)
+	ps16.push(ParamSpec.make("managed", ty: ty15, conv: Convention.convLet))
+	let f17 = registerStdFunc(ft, funcReads: funcReads, std: std, funcMap: funcMap, op: Intrinsic.intrStringFrom, name: "init", generics: TypeIDList.create(0), ret: b.stringTy, params: ps16, declareInStd: false)
 	ft.lists[funcList(ft, f: f17)][funcIndex(ft, f: f17)].ownerTy = b.stringTy
-	ft.lists[funcList(ft, f: f17)][funcIndex(ft, f: f17)].isStatic = false
-	ft.lists[funcList(ft, f: f17)][funcIndex(ft, f: f17)].hasReceiver = true
-	b.stringMethods.insert("count", value: f17)
-	var ps18 = ParamSpecList.create(0)
-	ps18.push(ParamSpec.make("needle", ty: b.stringTy, conv: Convention.convLet))
-	let f19 = registerStdFunc(ft, funcReads: funcReads, std: std, funcMap: funcMap, op: Intrinsic.intrStringContains, name: "contains", generics: TypeIDList.create(0), ret: b.boolTy, params: ps18, declareInStd: false)
+	ft.lists[funcList(ft, f: f17)][funcIndex(ft, f: f17)].isStatic = true
+	ft.lists[funcList(ft, f: f17)][funcIndex(ft, f: f17)].hasReceiver = false
+	b.stringMethods.insert("init", value: f17)
+	let f18 = registerStdFunc(ft, funcReads: funcReads, std: std, funcMap: funcMap, op: Intrinsic.intrStringBytes, name: "bytes", generics: TypeIDList.create(0), ret: b.byteViewTy, params: ParamSpecList.create(0), declareInStd: false)
+	ft.lists[funcList(ft, f: f18)][funcIndex(ft, f: f18)].ownerTy = b.stringTy
+	ft.lists[funcList(ft, f: f18)][funcIndex(ft, f: f18)].isStatic = false
+	ft.lists[funcList(ft, f: f18)][funcIndex(ft, f: f18)].hasReceiver = true
+	b.stringMethods.insert("bytes", value: f18)
+	let f19 = registerStdFunc(ft, funcReads: funcReads, std: std, funcMap: funcMap, op: Intrinsic.intrStringCodepoints, name: "codepoints", generics: TypeIDList.create(0), ret: b.codepointViewTy, params: ParamSpecList.create(0), declareInStd: false)
 	ft.lists[funcList(ft, f: f19)][funcIndex(ft, f: f19)].ownerTy = b.stringTy
 	ft.lists[funcList(ft, f: f19)][funcIndex(ft, f: f19)].isStatic = false
 	ft.lists[funcList(ft, f: f19)][funcIndex(ft, f: f19)].hasReceiver = true
-	b.stringMethods.insert("contains", value: f19)
-	var ps20 = ParamSpecList.create(0)
-	ps20.push(ParamSpec.make("prefix", ty: b.stringTy, conv: Convention.convLet))
-	let f21 = registerStdFunc(ft, funcReads: funcReads, std: std, funcMap: funcMap, op: Intrinsic.intrStringStartsWith, name: "startsWith", generics: TypeIDList.create(0), ret: b.boolTy, params: ps20, declareInStd: false)
+	b.stringMethods.insert("codepoints", value: f19)
+	let f20 = registerStdFunc(ft, funcReads: funcReads, std: std, funcMap: funcMap, op: Intrinsic.intrStringUtf16, name: "utf16", generics: TypeIDList.create(0), ret: b.utf16ViewTy, params: ParamSpecList.create(0), declareInStd: false)
+	ft.lists[funcList(ft, f: f20)][funcIndex(ft, f: f20)].ownerTy = b.stringTy
+	ft.lists[funcList(ft, f: f20)][funcIndex(ft, f: f20)].isStatic = false
+	ft.lists[funcList(ft, f: f20)][funcIndex(ft, f: f20)].hasReceiver = true
+	b.stringMethods.insert("utf16", value: f20)
+	let f21 = registerStdFunc(ft, funcReads: funcReads, std: std, funcMap: funcMap, op: Intrinsic.intrStringIsEmpty, name: "isEmpty", generics: TypeIDList.create(0), ret: b.boolTy, params: ParamSpecList.create(0), declareInStd: false)
 	ft.lists[funcList(ft, f: f21)][funcIndex(ft, f: f21)].ownerTy = b.stringTy
 	ft.lists[funcList(ft, f: f21)][funcIndex(ft, f: f21)].isStatic = false
 	ft.lists[funcList(ft, f: f21)][funcIndex(ft, f: f21)].hasReceiver = true
-	b.stringMethods.insert("startsWith", value: f21)
+	b.stringMethods.insert("isEmpty", value: f21)
 	var ps22 = ParamSpecList.create(0)
-	ps22.push(ParamSpec.make("suffix", ty: b.stringTy, conv: Convention.convLet))
-	let f23 = registerStdFunc(ft, funcReads: funcReads, std: std, funcMap: funcMap, op: Intrinsic.intrStringEndsWith, name: "endsWith", generics: TypeIDList.create(0), ret: b.boolTy, params: ps22, declareInStd: false)
+	ps22.push(ParamSpec.make("other", ty: b.stringTy, conv: Convention.convLet))
+	let f23 = registerStdFunc(ft, funcReads: funcReads, std: std, funcMap: funcMap, op: Intrinsic.intrStringEquals, name: "equals", generics: TypeIDList.create(0), ret: b.boolTy, params: ps22, declareInStd: false)
 	ft.lists[funcList(ft, f: f23)][funcIndex(ft, f: f23)].ownerTy = b.stringTy
 	ft.lists[funcList(ft, f: f23)][funcIndex(ft, f: f23)].isStatic = false
 	ft.lists[funcList(ft, f: f23)][funcIndex(ft, f: f23)].hasReceiver = true
-	b.stringMethods.insert("endsWith", value: f23)
-	var ps24 = ParamSpecList.create(0)
-	ps24.push(ParamSpec.make("needle", ty: b.stringTy, conv: Convention.convLet))
-	let f25 = registerStdFunc(ft, funcReads: funcReads, std: std, funcMap: funcMap, op: Intrinsic.intrStringFindFirst, name: "findFirst", generics: TypeIDList.create(0), ret: b.stringIndexTy, params: ps24, declareInStd: false)
-	ft.lists[funcList(ft, f: f25)][funcIndex(ft, f: f25)].errTy = b.stringErrorTy
-	ft.lists[funcList(ft, f: f25)][funcIndex(ft, f: f25)].ownerTy = b.stringTy
-	ft.lists[funcList(ft, f: f25)][funcIndex(ft, f: f25)].isStatic = false
-	ft.lists[funcList(ft, f: f25)][funcIndex(ft, f: f25)].hasReceiver = true
-	b.stringMethods.insert("findFirst", value: f25)
-	var ps26 = ParamSpecList.create(0)
-	ps26.push(ParamSpec.make("needle", ty: b.stringTy, conv: Convention.convLet))
-	let f27 = registerStdFunc(ft, funcReads: funcReads, std: std, funcMap: funcMap, op: Intrinsic.intrStringFindLast, name: "findLast", generics: TypeIDList.create(0), ret: b.stringIndexTy, params: ps26, declareInStd: false)
-	ft.lists[funcList(ft, f: f27)][funcIndex(ft, f: f27)].errTy = b.stringErrorTy
-	ft.lists[funcList(ft, f: f27)][funcIndex(ft, f: f27)].ownerTy = b.stringTy
-	ft.lists[funcList(ft, f: f27)][funcIndex(ft, f: f27)].isStatic = false
-	ft.lists[funcList(ft, f: f27)][funcIndex(ft, f: f27)].hasReceiver = true
-	b.stringMethods.insert("findLast", value: f27)
-	let f28 = registerStdFunc(ft, funcReads: funcReads, std: std, funcMap: funcMap, op: Intrinsic.intrStringStartIndex, name: "startIndex", generics: TypeIDList.create(0), ret: b.stringIndexTy, params: ParamSpecList.create(0), declareInStd: false)
+	b.stringMethods.insert("equals", value: f23)
+	let f24 = registerStdFunc(ft, funcReads: funcReads, std: std, funcMap: funcMap, op: Intrinsic.intrStringCount, name: "count", generics: TypeIDList.create(0), ret: b.countTy, params: ParamSpecList.create(0), declareInStd: false)
+	ft.lists[funcList(ft, f: f24)][funcIndex(ft, f: f24)].ownerTy = b.stringTy
+	ft.lists[funcList(ft, f: f24)][funcIndex(ft, f: f24)].isStatic = false
+	ft.lists[funcList(ft, f: f24)][funcIndex(ft, f: f24)].hasReceiver = true
+	b.stringMethods.insert("count", value: f24)
+	var ps25 = ParamSpecList.create(0)
+	ps25.push(ParamSpec.make("needle", ty: b.stringTy, conv: Convention.convLet))
+	let f26 = registerStdFunc(ft, funcReads: funcReads, std: std, funcMap: funcMap, op: Intrinsic.intrStringContains, name: "contains", generics: TypeIDList.create(0), ret: b.boolTy, params: ps25, declareInStd: false)
+	ft.lists[funcList(ft, f: f26)][funcIndex(ft, f: f26)].ownerTy = b.stringTy
+	ft.lists[funcList(ft, f: f26)][funcIndex(ft, f: f26)].isStatic = false
+	ft.lists[funcList(ft, f: f26)][funcIndex(ft, f: f26)].hasReceiver = true
+	b.stringMethods.insert("contains", value: f26)
+	var ps27 = ParamSpecList.create(0)
+	ps27.push(ParamSpec.make("prefix", ty: b.stringTy, conv: Convention.convLet))
+	let f28 = registerStdFunc(ft, funcReads: funcReads, std: std, funcMap: funcMap, op: Intrinsic.intrStringStartsWith, name: "startsWith", generics: TypeIDList.create(0), ret: b.boolTy, params: ps27, declareInStd: false)
 	ft.lists[funcList(ft, f: f28)][funcIndex(ft, f: f28)].ownerTy = b.stringTy
 	ft.lists[funcList(ft, f: f28)][funcIndex(ft, f: f28)].isStatic = false
 	ft.lists[funcList(ft, f: f28)][funcIndex(ft, f: f28)].hasReceiver = true
-	b.stringMethods.insert("startIndex", value: f28)
-	let f29 = registerStdFunc(ft, funcReads: funcReads, std: std, funcMap: funcMap, op: Intrinsic.intrStringEndIndex, name: "endIndex", generics: TypeIDList.create(0), ret: b.stringIndexTy, params: ParamSpecList.create(0), declareInStd: false)
-	ft.lists[funcList(ft, f: f29)][funcIndex(ft, f: f29)].ownerTy = b.stringTy
-	ft.lists[funcList(ft, f: f29)][funcIndex(ft, f: f29)].isStatic = false
-	ft.lists[funcList(ft, f: f29)][funcIndex(ft, f: f29)].hasReceiver = true
-	b.stringMethods.insert("endIndex", value: f29)
-	var ps30 = ParamSpecList.create(0)
-	ps30.push(ParamSpec.make("start", ty: b.stringIndexTy, conv: Convention.convLet))
-	ps30.push(ParamSpec.make("endIndex", ty: b.stringIndexTy, conv: Convention.convLet))
-	let f31 = registerStdFunc(ft, funcReads: funcReads, std: std, funcMap: funcMap, op: Intrinsic.intrStringSlice, name: "slice", generics: TypeIDList.create(0), ret: b.stringTy, params: ps30, declareInStd: false)
-	ft.lists[funcList(ft, f: f31)][funcIndex(ft, f: f31)].result = ResultConv.resultBorrowed
-	ft.lists[funcList(ft, f: f31)][funcIndex(ft, f: f31)].ownerTy = b.stringTy
-	ft.lists[funcList(ft, f: f31)][funcIndex(ft, f: f31)].isStatic = false
-	ft.lists[funcList(ft, f: f31)][funcIndex(ft, f: f31)].hasReceiver = true
-	b.stringMethods.insert("slice", value: f31)
-	var ps32 = ParamSpecList.create(0)
-	ps32.push(ParamSpec.make("start", ty: b.stringIndexTy, conv: Convention.convLet))
-	ps32.push(ParamSpec.make("length", ty: b.countTy, conv: Convention.convLet))
-	let f33 = registerStdFunc(ft, funcReads: funcReads, std: std, funcMap: funcMap, op: Intrinsic.intrStringSliceLength, name: "sliceLength", generics: TypeIDList.create(0), ret: b.stringTy, params: ps32, declareInStd: false)
-	ft.lists[funcList(ft, f: f33)][funcIndex(ft, f: f33)].result = ResultConv.resultBorrowed
-	ft.lists[funcList(ft, f: f33)][funcIndex(ft, f: f33)].ownerTy = b.stringTy
-	ft.lists[funcList(ft, f: f33)][funcIndex(ft, f: f33)].isStatic = false
-	ft.lists[funcList(ft, f: f33)][funcIndex(ft, f: f33)].hasReceiver = true
-	b.stringMethods.insert("sliceLength", value: f33)
-	var ps34 = ParamSpecList.create(0)
-	ps34.push(ParamSpec.make("old", ty: b.stringTy, conv: Convention.convLet))
-	ps34.push(ParamSpec.make("with", ty: b.stringTy, conv: Convention.convLet))
-	let f35 = registerStdFunc(ft, funcReads: funcReads, std: std, funcMap: funcMap, op: Intrinsic.intrStringReplace, name: "replace", generics: TypeIDList.create(0), ret: b.stringTy, params: ps34, declareInStd: false)
-	ft.lists[funcList(ft, f: f35)][funcIndex(ft, f: f35)].ownerTy = b.stringTy
-	ft.lists[funcList(ft, f: f35)][funcIndex(ft, f: f35)].isStatic = false
-	ft.lists[funcList(ft, f: f35)][funcIndex(ft, f: f35)].hasReceiver = true
-	b.stringMethods.insert("replace", value: f35)
-	var ps36 = ParamSpecList.create(0)
-	ps36.push(ParamSpec.make("old", ty: b.stringTy, conv: Convention.convLet))
-	ps36.push(ParamSpec.make("with", ty: b.stringTy, conv: Convention.convLet))
-	let f37 = registerStdFunc(ft, funcReads: funcReads, std: std, funcMap: funcMap, op: Intrinsic.intrStringReplaceFirst, name: "replaceFirst", generics: TypeIDList.create(0), ret: b.stringTy, params: ps36, declareInStd: false)
+	b.stringMethods.insert("startsWith", value: f28)
+	var ps29 = ParamSpecList.create(0)
+	ps29.push(ParamSpec.make("suffix", ty: b.stringTy, conv: Convention.convLet))
+	let f30 = registerStdFunc(ft, funcReads: funcReads, std: std, funcMap: funcMap, op: Intrinsic.intrStringEndsWith, name: "endsWith", generics: TypeIDList.create(0), ret: b.boolTy, params: ps29, declareInStd: false)
+	ft.lists[funcList(ft, f: f30)][funcIndex(ft, f: f30)].ownerTy = b.stringTy
+	ft.lists[funcList(ft, f: f30)][funcIndex(ft, f: f30)].isStatic = false
+	ft.lists[funcList(ft, f: f30)][funcIndex(ft, f: f30)].hasReceiver = true
+	b.stringMethods.insert("endsWith", value: f30)
+	var ps31 = ParamSpecList.create(0)
+	ps31.push(ParamSpec.make("needle", ty: b.stringTy, conv: Convention.convLet))
+	let f32 = registerStdFunc(ft, funcReads: funcReads, std: std, funcMap: funcMap, op: Intrinsic.intrStringFindFirst, name: "findFirst", generics: TypeIDList.create(0), ret: b.stringIndexTy, params: ps31, declareInStd: false)
+	ft.lists[funcList(ft, f: f32)][funcIndex(ft, f: f32)].errTy = b.stringErrorTy
+	ft.lists[funcList(ft, f: f32)][funcIndex(ft, f: f32)].ownerTy = b.stringTy
+	ft.lists[funcList(ft, f: f32)][funcIndex(ft, f: f32)].isStatic = false
+	ft.lists[funcList(ft, f: f32)][funcIndex(ft, f: f32)].hasReceiver = true
+	b.stringMethods.insert("findFirst", value: f32)
+	var ps33 = ParamSpecList.create(0)
+	ps33.push(ParamSpec.make("needle", ty: b.stringTy, conv: Convention.convLet))
+	let f34 = registerStdFunc(ft, funcReads: funcReads, std: std, funcMap: funcMap, op: Intrinsic.intrStringFindLast, name: "findLast", generics: TypeIDList.create(0), ret: b.stringIndexTy, params: ps33, declareInStd: false)
+	ft.lists[funcList(ft, f: f34)][funcIndex(ft, f: f34)].errTy = b.stringErrorTy
+	ft.lists[funcList(ft, f: f34)][funcIndex(ft, f: f34)].ownerTy = b.stringTy
+	ft.lists[funcList(ft, f: f34)][funcIndex(ft, f: f34)].isStatic = false
+	ft.lists[funcList(ft, f: f34)][funcIndex(ft, f: f34)].hasReceiver = true
+	b.stringMethods.insert("findLast", value: f34)
+	var ps35 = ParamSpecList.create(0)
+	ps35.push(ParamSpec.make("idx", ty: b.stringIndexTy, conv: Convention.convLet))
+	let f36 = registerStdFunc(ft, funcReads: funcReads, std: std, funcMap: funcMap, op: Intrinsic.intrStringIndexAfter, name: "indexAfter", generics: TypeIDList.create(0), ret: b.stringIndexTy, params: ps35, declareInStd: false)
+	ft.lists[funcList(ft, f: f36)][funcIndex(ft, f: f36)].errTy = b.stringErrorTy
+	ft.lists[funcList(ft, f: f36)][funcIndex(ft, f: f36)].ownerTy = b.stringTy
+	ft.lists[funcList(ft, f: f36)][funcIndex(ft, f: f36)].isStatic = false
+	ft.lists[funcList(ft, f: f36)][funcIndex(ft, f: f36)].hasReceiver = true
+	b.stringMethods.insert("indexAfter", value: f36)
+	let f37 = registerStdFunc(ft, funcReads: funcReads, std: std, funcMap: funcMap, op: Intrinsic.intrStringStartIndex, name: "startIndex", generics: TypeIDList.create(0), ret: b.stringIndexTy, params: ParamSpecList.create(0), declareInStd: false)
 	ft.lists[funcList(ft, f: f37)][funcIndex(ft, f: f37)].ownerTy = b.stringTy
 	ft.lists[funcList(ft, f: f37)][funcIndex(ft, f: f37)].isStatic = false
 	ft.lists[funcList(ft, f: f37)][funcIndex(ft, f: f37)].hasReceiver = true
-	b.stringMethods.insert("replaceFirst", value: f37)
-	let f38 = registerStdFunc(ft, funcReads: funcReads, std: std, funcMap: funcMap, op: Intrinsic.intrStringTrim, name: "trim", generics: TypeIDList.create(0), ret: b.stringTy, params: ParamSpecList.create(0), declareInStd: false)
-	ft.lists[funcList(ft, f: f38)][funcIndex(ft, f: f38)].result = ResultConv.resultBorrowed
+	b.stringMethods.insert("startIndex", value: f37)
+	let f38 = registerStdFunc(ft, funcReads: funcReads, std: std, funcMap: funcMap, op: Intrinsic.intrStringEndIndex, name: "endIndex", generics: TypeIDList.create(0), ret: b.stringIndexTy, params: ParamSpecList.create(0), declareInStd: false)
 	ft.lists[funcList(ft, f: f38)][funcIndex(ft, f: f38)].ownerTy = b.stringTy
 	ft.lists[funcList(ft, f: f38)][funcIndex(ft, f: f38)].isStatic = false
 	ft.lists[funcList(ft, f: f38)][funcIndex(ft, f: f38)].hasReceiver = true
-	b.stringMethods.insert("trim", value: f38)
-	let f39 = registerStdFunc(ft, funcReads: funcReads, std: std, funcMap: funcMap, op: Intrinsic.intrStringTrimStart, name: "trimStart", generics: TypeIDList.create(0), ret: b.stringTy, params: ParamSpecList.create(0), declareInStd: false)
-	ft.lists[funcList(ft, f: f39)][funcIndex(ft, f: f39)].result = ResultConv.resultBorrowed
-	ft.lists[funcList(ft, f: f39)][funcIndex(ft, f: f39)].ownerTy = b.stringTy
-	ft.lists[funcList(ft, f: f39)][funcIndex(ft, f: f39)].isStatic = false
-	ft.lists[funcList(ft, f: f39)][funcIndex(ft, f: f39)].hasReceiver = true
-	b.stringMethods.insert("trimStart", value: f39)
-	let f40 = registerStdFunc(ft, funcReads: funcReads, std: std, funcMap: funcMap, op: Intrinsic.intrStringTrimEnd, name: "trimEnd", generics: TypeIDList.create(0), ret: b.stringTy, params: ParamSpecList.create(0), declareInStd: false)
+	b.stringMethods.insert("endIndex", value: f38)
+	var ps39 = ParamSpecList.create(0)
+	ps39.push(ParamSpec.make("start", ty: b.stringIndexTy, conv: Convention.convLet))
+	ps39.push(ParamSpec.make("endIndex", ty: b.stringIndexTy, conv: Convention.convLet))
+	let f40 = registerStdFunc(ft, funcReads: funcReads, std: std, funcMap: funcMap, op: Intrinsic.intrStringSlice, name: "slice", generics: TypeIDList.create(0), ret: b.stringTy, params: ps39, declareInStd: false)
 	ft.lists[funcList(ft, f: f40)][funcIndex(ft, f: f40)].result = ResultConv.resultBorrowed
 	ft.lists[funcList(ft, f: f40)][funcIndex(ft, f: f40)].ownerTy = b.stringTy
 	ft.lists[funcList(ft, f: f40)][funcIndex(ft, f: f40)].isStatic = false
 	ft.lists[funcList(ft, f: f40)][funcIndex(ft, f: f40)].hasReceiver = true
-	b.stringMethods.insert("trimEnd", value: f40)
-	let f41 = registerStdFunc(ft, funcReads: funcReads, std: std, funcMap: funcMap, op: Intrinsic.intrStringToLower, name: "toLower", generics: TypeIDList.create(0), ret: b.stringTy, params: ParamSpecList.create(0), declareInStd: false)
-	ft.lists[funcList(ft, f: f41)][funcIndex(ft, f: f41)].ownerTy = b.stringTy
-	ft.lists[funcList(ft, f: f41)][funcIndex(ft, f: f41)].isStatic = false
-	ft.lists[funcList(ft, f: f41)][funcIndex(ft, f: f41)].hasReceiver = true
-	b.stringMethods.insert("toLower", value: f41)
-	let f42 = registerStdFunc(ft, funcReads: funcReads, std: std, funcMap: funcMap, op: Intrinsic.intrStringToUpper, name: "toUpper", generics: TypeIDList.create(0), ret: b.stringTy, params: ParamSpecList.create(0), declareInStd: false)
+	b.stringMethods.insert("slice", value: f40)
+	var ps41 = ParamSpecList.create(0)
+	ps41.push(ParamSpec.make("start", ty: b.stringIndexTy, conv: Convention.convLet))
+	ps41.push(ParamSpec.make("length", ty: b.countTy, conv: Convention.convLet))
+	let f42 = registerStdFunc(ft, funcReads: funcReads, std: std, funcMap: funcMap, op: Intrinsic.intrStringSliceLength, name: "sliceLength", generics: TypeIDList.create(0), ret: b.stringTy, params: ps41, declareInStd: false)
+	ft.lists[funcList(ft, f: f42)][funcIndex(ft, f: f42)].result = ResultConv.resultBorrowed
 	ft.lists[funcList(ft, f: f42)][funcIndex(ft, f: f42)].ownerTy = b.stringTy
 	ft.lists[funcList(ft, f: f42)][funcIndex(ft, f: f42)].isStatic = false
 	ft.lists[funcList(ft, f: f42)][funcIndex(ft, f: f42)].hasReceiver = true
-	b.stringMethods.insert("toUpper", value: f42)
+	b.stringMethods.insert("sliceLength", value: f42)
 	var ps43 = ParamSpecList.create(0)
-	ps43.push(ParamSpec.make("idx", ty: b.stringIndexTy, conv: Convention.convLet))
-	let f44 = registerStdFunc(ft, funcReads: funcReads, std: std, funcMap: funcMap, op: Intrinsic.intrStringCharAt, name: "charAt", generics: TypeIDList.create(0), ret: b.characterTy, params: ps43, declareInStd: false)
+	ps43.push(ParamSpec.make("old", ty: b.stringTy, conv: Convention.convLet))
+	ps43.push(ParamSpec.make("with", ty: b.stringTy, conv: Convention.convLet))
+	let f44 = registerStdFunc(ft, funcReads: funcReads, std: std, funcMap: funcMap, op: Intrinsic.intrStringReplace, name: "replace", generics: TypeIDList.create(0), ret: b.stringTy, params: ps43, declareInStd: false)
 	ft.lists[funcList(ft, f: f44)][funcIndex(ft, f: f44)].ownerTy = b.stringTy
 	ft.lists[funcList(ft, f: f44)][funcIndex(ft, f: f44)].isStatic = false
 	ft.lists[funcList(ft, f: f44)][funcIndex(ft, f: f44)].hasReceiver = true
-	b.stringMethods.insert("charAt", value: f44)
+	b.stringMethods.insert("replace", value: f44)
 	var ps45 = ParamSpecList.create(0)
-	ps45.push(ParamSpec.make("character", ty: b.characterTy, conv: Convention.convLet))
-	let f46 = registerStdFunc(ft, funcReads: funcReads, std: std, funcMap: funcMap, op: Intrinsic.intrStringContainsCharacter, name: "containsCharacter", generics: TypeIDList.create(0), ret: b.boolTy, params: ps45, declareInStd: false)
+	ps45.push(ParamSpec.make("old", ty: b.stringTy, conv: Convention.convLet))
+	ps45.push(ParamSpec.make("with", ty: b.stringTy, conv: Convention.convLet))
+	let f46 = registerStdFunc(ft, funcReads: funcReads, std: std, funcMap: funcMap, op: Intrinsic.intrStringReplaceFirst, name: "replaceFirst", generics: TypeIDList.create(0), ret: b.stringTy, params: ps45, declareInStd: false)
 	ft.lists[funcList(ft, f: f46)][funcIndex(ft, f: f46)].ownerTy = b.stringTy
 	ft.lists[funcList(ft, f: f46)][funcIndex(ft, f: f46)].isStatic = false
 	ft.lists[funcList(ft, f: f46)][funcIndex(ft, f: f46)].hasReceiver = true
-	b.stringMethods.insert("containsCharacter", value: f46)
+	b.stringMethods.insert("replaceFirst", value: f46)
+	let f47 = registerStdFunc(ft, funcReads: funcReads, std: std, funcMap: funcMap, op: Intrinsic.intrStringTrim, name: "trim", generics: TypeIDList.create(0), ret: b.stringTy, params: ParamSpecList.create(0), declareInStd: false)
+	ft.lists[funcList(ft, f: f47)][funcIndex(ft, f: f47)].result = ResultConv.resultBorrowed
+	ft.lists[funcList(ft, f: f47)][funcIndex(ft, f: f47)].ownerTy = b.stringTy
+	ft.lists[funcList(ft, f: f47)][funcIndex(ft, f: f47)].isStatic = false
+	ft.lists[funcList(ft, f: f47)][funcIndex(ft, f: f47)].hasReceiver = true
+	b.stringMethods.insert("trim", value: f47)
+	let f48 = registerStdFunc(ft, funcReads: funcReads, std: std, funcMap: funcMap, op: Intrinsic.intrStringTrimStart, name: "trimStart", generics: TypeIDList.create(0), ret: b.stringTy, params: ParamSpecList.create(0), declareInStd: false)
+	ft.lists[funcList(ft, f: f48)][funcIndex(ft, f: f48)].result = ResultConv.resultBorrowed
+	ft.lists[funcList(ft, f: f48)][funcIndex(ft, f: f48)].ownerTy = b.stringTy
+	ft.lists[funcList(ft, f: f48)][funcIndex(ft, f: f48)].isStatic = false
+	ft.lists[funcList(ft, f: f48)][funcIndex(ft, f: f48)].hasReceiver = true
+	b.stringMethods.insert("trimStart", value: f48)
+	let f49 = registerStdFunc(ft, funcReads: funcReads, std: std, funcMap: funcMap, op: Intrinsic.intrStringTrimEnd, name: "trimEnd", generics: TypeIDList.create(0), ret: b.stringTy, params: ParamSpecList.create(0), declareInStd: false)
+	ft.lists[funcList(ft, f: f49)][funcIndex(ft, f: f49)].result = ResultConv.resultBorrowed
+	ft.lists[funcList(ft, f: f49)][funcIndex(ft, f: f49)].ownerTy = b.stringTy
+	ft.lists[funcList(ft, f: f49)][funcIndex(ft, f: f49)].isStatic = false
+	ft.lists[funcList(ft, f: f49)][funcIndex(ft, f: f49)].hasReceiver = true
+	b.stringMethods.insert("trimEnd", value: f49)
+	let f50 = registerStdFunc(ft, funcReads: funcReads, std: std, funcMap: funcMap, op: Intrinsic.intrStringToLower, name: "toLower", generics: TypeIDList.create(0), ret: b.stringTy, params: ParamSpecList.create(0), declareInStd: false)
+	ft.lists[funcList(ft, f: f50)][funcIndex(ft, f: f50)].ownerTy = b.stringTy
+	ft.lists[funcList(ft, f: f50)][funcIndex(ft, f: f50)].isStatic = false
+	ft.lists[funcList(ft, f: f50)][funcIndex(ft, f: f50)].hasReceiver = true
+	b.stringMethods.insert("toLower", value: f50)
+	let f51 = registerStdFunc(ft, funcReads: funcReads, std: std, funcMap: funcMap, op: Intrinsic.intrStringToUpper, name: "toUpper", generics: TypeIDList.create(0), ret: b.stringTy, params: ParamSpecList.create(0), declareInStd: false)
+	ft.lists[funcList(ft, f: f51)][funcIndex(ft, f: f51)].ownerTy = b.stringTy
+	ft.lists[funcList(ft, f: f51)][funcIndex(ft, f: f51)].isStatic = false
+	ft.lists[funcList(ft, f: f51)][funcIndex(ft, f: f51)].hasReceiver = true
+	b.stringMethods.insert("toUpper", value: f51)
+	var ps52 = ParamSpecList.create(0)
+	ps52.push(ParamSpec.make("idx", ty: b.stringIndexTy, conv: Convention.convLet))
+	let f53 = registerStdFunc(ft, funcReads: funcReads, std: std, funcMap: funcMap, op: Intrinsic.intrStringCharAt, name: "charAt", generics: TypeIDList.create(0), ret: b.characterTy, params: ps52, declareInStd: false)
+	ft.lists[funcList(ft, f: f53)][funcIndex(ft, f: f53)].ownerTy = b.stringTy
+	ft.lists[funcList(ft, f: f53)][funcIndex(ft, f: f53)].isStatic = false
+	ft.lists[funcList(ft, f: f53)][funcIndex(ft, f: f53)].hasReceiver = true
+	b.stringMethods.insert("charAt", value: f53)
+	var ps54 = ParamSpecList.create(0)
+	ps54.push(ParamSpec.make("character", ty: b.characterTy, conv: Convention.convLet))
+	let f55 = registerStdFunc(ft, funcReads: funcReads, std: std, funcMap: funcMap, op: Intrinsic.intrStringContainsCharacter, name: "containsCharacter", generics: TypeIDList.create(0), ret: b.boolTy, params: ps54, declareInStd: false)
+	ft.lists[funcList(ft, f: f55)][funcIndex(ft, f: f55)].ownerTy = b.stringTy
+	ft.lists[funcList(ft, f: f55)][funcIndex(ft, f: f55)].isStatic = false
+	ft.lists[funcList(ft, f: f55)][funcIndex(ft, f: f55)].hasReceiver = true
+	b.stringMethods.insert("containsCharacter", value: f55)
 end 'declareStringMethods'
 
 function declareByteViewMethods(mutates tt TypeSlot, reads TypeTable, mutates ft FuncSlot, funcReads FuncTable, mutates std ParsedModule, mutates b Builtins, mutates funcMap FuncIDMap)

@@ -1,0 +1,27 @@
+// maxon's String.split, written over the built-in String's members, since maxon's slices its own buffer: a String here owns
+// its bytes, so each piece is a copy of a slice, and an array never holds a view of another String.
+typealias SplitPieces = Array with String
+
+extension String
+	/// The pieces of the String between each occurrence of the delimiter, from the first byte on: an empty piece where
+	/// two delimiters meet or one starts or ends the String, and the String alone for an empty delimiter or one longer
+	/// than it.
+	public function split(delimiter String) returns SplitPieces
+		var pieces = SplitPieces.create(0)
+		let delimiterLength = delimiter.byteLength()
+		let length = byteLength()
+		if delimiterLength == 0 or delimiterLength > length 'whole'
+			pieces.push(self.clone())
+			return pieces
+		end 'whole'
+		var at = 0 as Count
+		while sliceBytes(at, endPos: length).contains(delimiter) 'pieces'
+			let found = try sliceBytes(at, endPos: length).findFirst(delimiter) otherwise panic("String.split: a delimiter that contains finds is found")
+			let stop = try at + found.bytePos() otherwise panic("String.split: a match lies inside the String")
+			pieces.push(sliceBytes(at, endPos: stop).clone())
+			at = try stop + delimiterLength otherwise panic("String.split: a match lies inside the String")
+		end 'pieces'
+		pieces.push(sliceBytes(at, endPos: length).clone())
+		return pieces
+	end 'split'
+end 'String'

@@ -508,7 +508,7 @@ is that of its module (`app::main`), and a project with no `main` in any module 
   unknown (`E2004`) as in maxon.
 - **The standard library** is Maxon source in `stdlib/`, found as `runtime/` is (the `stdlib` directory of the nearest
   directory, from the compiler's executable's upward, that has one), converted from maxon's `stdlib/` by `cmd/convert`
-  but for `Map.maxon`, `Stream.maxon`, `Console.maxon` and `Character.maxon`, which are minimaxon's own (see "Where it differs from Maxon") and
+  but for `Map.maxon`, `Stream.maxon`, `Console.maxon`, `Character.maxon` and `StringSplit.maxon`, which are minimaxon's own (see "Where it differs from Maxon") and
   which no conversion touches; maxon's
   `StringBuilder.maxon` is left out, since an interpolation builds a String here:
   `stdlib/files.txt` lists the files converted so far, each with the library module it goes to (its directory under
@@ -3974,7 +3974,11 @@ start of one, and `startIndex()`, `endIndex()`, `findFirst(needle)` and `findLas
 them, and `sliceBytes(start, endPos: end)` by bytes, `contains`, `startsWith`, `endsWith`, `equals` and `isEmpty` ask,
 `replace(old, with: new)` and `replaceFirst` leave a string with an empty or absent `old` as it was, `trim`, `trimStart` and
 `trimEnd` remove the whitespace and newline clusters of maxon's `CharacterSet.whitespacesAndNewlines` (they take no set),
-`toLower` and `toUpper` map the ASCII letters only, as maxon's do. A slice and a trim are a view: a String of the receiver's
+`toLower` and `toUpper` map the ASCII letters only, as maxon's do. `split(delimiter)` gives the pieces between the delimiters as an array of copies, since an array holds no view
+(`stdlib/StringSplit.maxon`), `indexAfter(index)` the index of the next grapheme cluster (`StringError.invalidIndex` at the
+end), and `byteAtOrPanic(i)` is `byteAt(i)` under the name maxon's library calls it. The library tiers' doors to the bytes as
+a buffer, `addressableBytes()` and `String.init(managed)`, copy them, where maxon's lend and wrap the String's own buffer: a
+String owns its bytes, which the String itself may hold where they are few, so there is no buffer to lend. A slice and a trim are a view: a String of the receiver's
 bytes that owns none, made in place with no allocation (`rt.str.view`: the address, and a word of the length, the
 receiver's ASCII bit and the view bit), which the call lends as a function that `returns borrowed` lends a place (see
 "Ownership"), so it is kept only by a copy, `.clone()`; the copy of a view copies its bytes, where the copy of a literal is

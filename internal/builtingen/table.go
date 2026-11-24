@@ -747,6 +747,14 @@ var tableFunctions = []function{
 	{Owner: "String", Name: "sliceBytes", Params: []string{"start Count", "endPos Count"}, Result: "String", Lends: true, Intrinsic: "StringSliceBytes"},
 	{Owner: "String", Name: "toByteArray", Result: "Array with Byte", Intrinsic: "StringToByteArray"},
 	{Owner: "String", Name: "from", Static: true, Params: []string{"bytes Array with Byte"}, Result: "String", Intrinsic: "StringFrom"},
+	// byteAtOrPanic is byteAt for a caller that checked the index, as maxon's library names it; byteAt here traps past the
+	// end already.
+	{Owner: "String", Name: "byteAtOrPanic", Params: []string{"index Count"}, Result: "Byte", Intrinsic: "StringByteAt"},
+	// The library's doors to a String's bytes as a buffer: maxon's addressableBytes() lends the String's own buffer, and
+	// init(managed) wraps a buffer as a String. A String here owns its bytes, which the String itself may hold where they
+	// are few, so each is a copy, read through the String's bytes as every member reads them.
+	{Owner: "String", Name: "addressableBytes", Result: "ManagedMemory with Byte", Intrinsic: "StringToByteArray", Raw: &rawSurface{What: "a String's bytes are taken as a raw '__ManagedMemory' buffer", Instead: "use 'toByteArray()' or 'bytes()'"}},
+	{Owner: "String", Name: "init", Static: true, Params: []string{"managed ManagedMemory with Byte"}, Result: "String", Intrinsic: "StringFrom", Raw: &rawSurface{What: "a String is made of a raw '__ManagedMemory' buffer", Instead: "use 'String.from(bytes)'"}},
 	{Owner: "String", Name: "bytes", Result: "ByteView", Intrinsic: "StringBytes"},
 	{Owner: "String", Name: "codepoints", Result: "CodepointView", Intrinsic: "StringCodepoints"},
 	{Owner: "String", Name: "utf16", Result: "Utf16View", Intrinsic: "StringUtf16"},
@@ -772,6 +780,8 @@ var tableFunctions = []function{
 	{Owner: "String", Name: "endsWith", Params: []string{"suffix String"}, Result: "Bool", Intrinsic: "StringEndsWith"},
 	{Owner: "String", Name: "findFirst", Params: []string{"needle String"}, Result: "StringIndex", Throws: "StringError", Intrinsic: "StringFindFirst"},
 	{Owner: "String", Name: "findLast", Params: []string{"needle String"}, Result: "StringIndex", Throws: "StringError", Intrinsic: "StringFindLast"},
+	// indexAfter is the index of the grapheme cluster after the one at an index, which fails with invalidIndex at the end.
+	{Owner: "String", Name: "indexAfter", Params: []string{"idx StringIndex"}, Result: "StringIndex", Throws: "StringError", Intrinsic: "StringIndexAfter"},
 	{Owner: "String", Name: "startIndex", Result: "StringIndex", Intrinsic: "StringStartIndex"},
 	{Owner: "String", Name: "endIndex", Result: "StringIndex", Intrinsic: "StringEndIndex"},
 	{Owner: "String", Name: "slice", Params: []string{"start StringIndex", "endIndex StringIndex"}, Result: "String", Lends: true, Intrinsic: "StringSlice"},

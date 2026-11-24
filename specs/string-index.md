@@ -478,7 +478,7 @@ function main() returns ExitCode
 	var i = uni.startIndex()
 	var n = 0 as FullRangeInt
 	while n < 6 'walk'
-		print(uni.charAt(i).toString())
+		print("{uni.charAt(i)}")
 		print(" {i.charIndex()}")
 		print(",{i.bytePos()}\n")
 		i = try uni.indexAfter(i) otherwise uni.endIndex()

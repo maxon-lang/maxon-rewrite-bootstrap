@@ -199,3 +199,19 @@ end 'lowerStringIndexCharIndex'
 function lowerStringIndexBytePos(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	return indexBytePos(l, index: recv)
 end 'lowerStringIndexBytePos'
+
+// lowerStringIndexAfter is the index of the grapheme cluster after the one at the index, one cluster on and at the byte
+// where the runtime finds the cluster ends; an index at the end or past it fails with invalidIndex.
+function lowerStringIndexAfter(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	let start = indexBytePos(l, index: args[0])
+	let size = runtime(l, symbol: Rt.rtStrLen, kind: IrKind.kindScalar, args: argsOf1(recv))
+	let inside = compare(l, op: CmpOp.cmpLt, a: start, b: size, unsigned: true)
+	failUnless(l, p: p, ms: ms, cond: inside, errorCase: ast.errorStringInvalidIndex)
+	let one = konst(l, value: 1 as Word)
+	let stop = runtime(l, symbol: Rt.rtStrGraphemeBytePos, kind: IrKind.kindScalar, args: argsOf3(recv, b: start, c: one))
+	let clusters = newReg(l, kind: IrKind.kindScalar)
+	emit(l, i: newLoadField(clusters, obj: args[0], offset: fieldOffset(ast.stringIndexCharIdxField, tagged: false)))
+	let next = newReg(l, kind: IrKind.kindScalar)
+	emit(l, i: newBin(next, op: BinOp.binAdd, left: clusters, right: one, unsigned: true, fail: noBlock))
+	return indexRecord(l, p: p, ms: ms, c: c, clusters: next, bytePos: stop)
+end 'lowerStringIndexAfter'

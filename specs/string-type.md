@@ -1093,6 +1093,7 @@ end 'main'
 ```
 
 <!-- test: a-split-result-and-an-array-literal-are-one-type -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 ### The corpus's `StringArray` and a caller's `Array with String` are ONE instance
 The corpus declares `typealias StringArray = Array with String` INSIDE `type String`
 (`stdlib/String.maxon:621`) and this file declares its own `Array with String`. Two spellings, and the

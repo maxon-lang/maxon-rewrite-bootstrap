@@ -335,6 +335,9 @@ export function intrinsicCall(mutates l Lowerer, p ast.Project, mutates ms ast.M
 	if op == ast.Intrinsic.intrStringFindLast 'intrStringFindLast'
 		return lowerStringFindLast(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrStringFindLast'
+	if op == ast.Intrinsic.intrStringIndexAfter 'intrStringIndexAfter'
+		return lowerStringIndexAfter(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrStringIndexAfter'
 	if op == ast.Intrinsic.intrStringStartIndex 'intrStringStartIndex'
 		return lowerStringStartIndex(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrStringStartIndex'
@@ -1162,6 +1165,9 @@ export function ownsOperands(op ast.Intrinsic) returns bool
 	if op == ast.Intrinsic.intrStringFindLast 'intrStringFindLast'
 		return false
 	end 'intrStringFindLast'
+	if op == ast.Intrinsic.intrStringIndexAfter 'intrStringIndexAfter'
+		return false
+	end 'intrStringIndexAfter'
 	if op == ast.Intrinsic.intrStringStartIndex 'intrStringStartIndex'
 		return false
 	end 'intrStringStartIndex'

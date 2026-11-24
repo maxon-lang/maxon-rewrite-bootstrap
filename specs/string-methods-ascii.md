@@ -334,10 +334,10 @@ function main() returns ExitCode
 	while i < 200 'loop'
 		let line = "k{i},v{i}"
 		let parts = line.split(",")
-		total = total + parts.count()
+		total = try total + parts.count() otherwise panic("out of range")
 		let r = line.replace(",", with: ";")
 		if r.contains(";") 'has'
-			total = total + 1
+			total = try total + 1 otherwise panic("out of range")
 		end 'has'
 		i = i + 1
 	end 'loop'
