@@ -1,0 +1,25 @@
+// A program of the library tier reads its standard input with maxon's __Builtins.readStdin, two bytes at most a read,
+// until a read gives none, which is the end of the input.
+// stdin: hello
+// stdin: world
+function main() returns ExitCode
+	var total = ByteArray.create(0)
+	var reads = 0 as Count
+	var reading = true
+	while reading 'reads'
+		let got = ByteArray.init(__Builtins.readStdin(2))
+		if got.isEmpty() 'end'
+			reading = false
+		end 'end' else 'more'
+			reads = try reads + 1 otherwise reads
+			total.append(got)
+		end 'more'
+	end 'reads'
+	print(String.from(total))
+	print("{reads} reads\n")
+	return 0
+end 'main'
+
+//> hello
+//> world
+//> 6 reads

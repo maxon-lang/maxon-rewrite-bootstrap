@@ -1,0 +1,18 @@
+// A program reads its standard input by exact counts through Console.stdin(): the count asked while the input has that many
+// bytes, the rest to the end, and nothing after it.
+// stdin: abcdefghij
+function main() returns ExitCode
+	var input = Console.stdin()
+	let first = try input.readBytes(4) otherwise return 2
+	let rest = try input.readToEnd() otherwise return 3
+	let after = try input.readBytes(4) otherwise return 4
+	let line = try input.readLine() otherwise return 5
+	let ended = match line 'line'
+		line gives false
+		ended gives true
+	end 'line'
+	print("{String.from(first)}|{rest.count()}|{after.count()}|{ended}\n")
+	return 0
+end 'main'
+
+//> abcd|7|0|true

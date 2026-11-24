@@ -148,6 +148,19 @@ export type DebugEngine
 		return true
 	end 'lift'
 
+	// clearEveryBreakpoint lifts every breakpoint, maxon's, before a session lets the program run to its end.
+	export function clearEveryBreakpoint(mutates self)
+		var standing = CountList.create(0)
+		for i in 0 upto traps.count() 'traps'
+			if traps[i].user 'user'
+				standing.push(traps[i].offset)
+			end 'user'
+		end 'traps'
+		for i in 0 upto standing.count() 'lift'
+			_ = self.lift(standing[i], temporary: false)
+		end 'lift'
+	end 'clearEveryBreakpoint'
+
 	// isUserTrap is whether a breakpoint stands at an offset.
 	export function isUserTrap(offset Count) returns bool
 		let held = self.trapAt(offset)

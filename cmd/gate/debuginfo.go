@@ -18,7 +18,7 @@ import (
 // registers, in frame slots and in two words (a String) must say so, with its record's fields. A stack overflow's fault
 // line, whose address is in a function of one statement, is then symbolized to that statement on every target the host
 // runs. On x64 Windows a batch session of the debugger drives the locals program (debug --batch) and its events are held
-// to sessionEvents.
+// to sessionEvents, and a conversational session (debug, its commands as standard input) is held to conversationLines.
 var debugInfoPrograms = []string{
 	filepath.Join("tests", "run", "arithmetic.maxon"),
 	filepath.Join("tests", "run", "array-methods.maxon"),
@@ -99,6 +99,25 @@ var sessionEvents = []*regexp.Regexp{
 	regexp.MustCompile(`^\{"event":"backtrace","frames":\[\{"frame":0,"function":"export::named".*\{"frame":1,"function":"export::main"`),
 	regexp.MustCompile(`^\{"event":"stop","reason":"step","function":"export::main","file":"locals.maxon","line":38,`),
 	regexp.MustCompile(`^\{"event":"exit","code":0\}$`),
+}
+
+// conversationInput is what the conversational session of the locals program reads as its commands: a breakpoint on a
+// function, the run to it, its locals, a step over a line, a field, the backtrace and a word that is no command.
+const conversationInput = "break named\nrun\nlocals\nnext\nprint pair.left\nbt\nbogus\n"
+
+// conversationLines are what the conversational session must print, in maxon's text, for conversationInput.
+var conversationLines = []*regexp.Regexp{
+	regexp.MustCompile(`breakpoint set at locals\.maxon:32 in export::named \(1 site\(s\)\)`),
+	regexp.MustCompile(`stopped \(breakpoint\) at locals\.maxon:32 in export::named`),
+	regexp.MustCompile("(?m)^-> 32\t"),
+	regexp.MustCompile(`locals of export::named:`),
+	regexp.MustCompile(`(?m)^    text : String = "x" \(len=1\)`),
+	regexp.MustCompile(`stopped \(step\) at locals\.maxon:33 in export::named`),
+	regexp.MustCompile(`(?m)pair\.left : Count = 4\r?$`),
+	regexp.MustCompile(`  #0 export::named at locals\.maxon:33`),
+	regexp.MustCompile(`(?m)^  #1 export::main at locals\.maxon:`),
+	regexp.MustCompile(`error: 'bogus' is not a debugger command`),
+	regexp.MustCompile(`(?m)^the program exited with code 0`),
 }
 
 const overflowSource = `// The program whose stack overflow the debug info step symbolizes: every instruction of down is its one statement's.
@@ -217,7 +236,7 @@ func debugInfo(h host, compiler string) error {
 	return nil
 }
 
-// debuggerSession runs the batch session of the locals program on x64 Windows. The program's own output goes to stderr.
+// debuggerSession runs the batch session of the locals program on x64 Windows, then the conversational one. The batch's program output goes to stderr.
 func debuggerSession(compiler, session string) error {
 	cmd := exec.Command(compiler, "debug", "--batch", sessionCommands, session)
 	out, err := cmd.Output()
@@ -232,6 +251,17 @@ func debuggerSession(compiler, session string) error {
 	}
 	if len(events) != len(sessionEvents) {
 		return fmt.Errorf("debug info: the batch session answered %d events, not %d: %s", len(events), len(sessionEvents), out)
+	}
+	cmd = exec.Command(compiler, "debug", session)
+	cmd.Stdin = strings.NewReader(conversationInput)
+	out, err = cmd.Output()
+	if err != nil {
+		return fmt.Errorf("debug info: the conversational session of %s fails (%v): %s", session, err, out)
+	}
+	for _, expected := range conversationLines {
+		if !expected.Match(out) {
+			return fmt.Errorf("debug info: the conversational session does not answer %s: %s", expected, out)
+		}
 	}
 	return nil
 }

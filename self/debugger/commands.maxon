@@ -72,6 +72,9 @@ let runningMessage = "the program is running: it must stop before it can be step
 
 let spaceByte = 32 as Byte
 
+// finishRounds is how many stops a program that is let finish may still make, maxon's DetachRoundCap.
+let finishRounds = 64 as Count
+
 // DebugSession is a session's engine and whether the reader has quit.
 export type DebugSession
 	export var engine as DebugEngine
@@ -192,6 +195,39 @@ export type DebugSession
 		end 'rendered'
 	end 'printPath'
 
+	// letItFinish runs a program that has not ended to its end, its breakpoints cleared, as maxon's conversational session
+	// does when the reader leaves: the answers are each stop it still makes (a fault) and its end.
+	export function letItFinish(mutates self) returns DebugReplies
+		var replies = DebugReplies.create(0)
+		if engine.state == ProgramState.ended 'over'
+			return replies
+		end 'over'
+		engine.clearEveryBreakpoint()
+		var rounds = 0 as Count
+		while engine.state != ProgramState.ended and rounds < finishRounds 'untilItEnds'
+			rounds = rounds + 1
+			let reply = engine.resume()
+			let timedOut = match reply 'which'
+				timedOut gives true
+				breakpoint or
+				stopped or
+				walked or
+				locals or
+				value or
+				exited or
+				crashed or
+				failed or
+				spoken or
+				quit gives false
+			end 'which'
+			replies.push(reply)
+			if timedOut 'gaveUp'
+				break 'untilItEnds'
+			end 'gaveUp'
+		end 'untilItEnds'
+		return replies
+	end 'letItFinish'
+
 	// arm sets or clears the breakpoints a target names, answering as maxon's break does.
 	function arm(mutates self, spelling String, clearing bool) returns DebugReply
 		var resolved = resolveTarget(engine.reader, spelling: spelling)
@@ -264,7 +300,9 @@ function oneOffset(offset Count) returns CountList
 end 'oneOffset'
 
 function refusal(action String, spelling String) returns BreakAnswer
-	return BreakAnswer.make(action.clone(), functionName: "", file: "", line: 0, offsets: CountList.create(0))
+	var answer = BreakAnswer.make(action.clone(), functionName: "", file: "", line: 0, offsets: CountList.create(0))
+	answer.target = spelling.clone()
+	return answer
 end 'refusal'
 
 // answerAt is the answer for offsets of code: the function and the line of the first.

@@ -1349,7 +1349,7 @@ end 'joinLines'
 // checkSpecRun runs the compiled program in directory, the run's (specRunDirectory), and checks its exit code, when the test
 // gives one, and its output, which must be what the blocks say or else nothing.
 function checkSpecRun(test SpecTest, text String, exe String, directory String) returns TestResult
-	match consumes runExecutable(exe, runner: TargetRunner.native, directory: directory, workers: 0, envRunner: "") 'run'
+	match consumes runExecutable(exe, runner: TargetRunner.native, directory: directory, workers: 0, envRunner: "", input: "") 'run'
 		ran(out) then return checkSpecOutput(test, text: text, out: out)
 		cannotStart then return TestResult.failed("cannot run the executable")
 		timedOut then return TestResult.failed("timed out")

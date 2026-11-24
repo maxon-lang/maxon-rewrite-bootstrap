@@ -109,6 +109,7 @@ Mac never renews the seeds, but proves the macOS one when they are renewed (see 
 | `minimaxon debug --symbolize <exe> <offset\|rip=0x<address>>...` | name the function, `file:line:column` and the inlined calls of code offsets (decimal or `0x` hex) of an executable that `build --debug-info` made, or of the address of a fault line, from the sidecar beside it, refusing one that describes another build (see "Debug info") |
 | `minimaxon debug --dump-info <exe> [header\|files\|functions\|types\|lines\|inline\|layout]...` | print the sidecar's sections, every one when none is named |
 | `minimaxon debug --batch --commands=<cmd;cmd;...\|@file> [--stop-timeout=<seconds>] <exe> [-- <args>...]` | debug an executable that `build --debug-info` made, on x64 Windows: launch it under the debugger, run the commands and write one JSON event per line, maxon's batch mode (see "Debug info") |
+| `minimaxon debug [--stop-timeout=<seconds>] <exe> [-- <args>...]` | debug it in a conversation, maxon's: the commands are read from standard input after maxon's prompt, `(maxon debug) `, and each is answered in maxon's text (see "Debug info") |
 | `minimaxon cache [trim\|clear]` | say where the build cache is and how many files and bytes it holds; `trim` deletes what a trim would (the files unused for five days) whether one is due or not, `clear` every file the cache wrote (see "Build cache") |
 | `minimaxon rewrite --keyword=old=new <path>...` | rename a keyword by token in the `.maxon` files and the Markdown code under the paths (see "Changing the language") |
 | `minimaxon qualify <dir>...` | write the module's path before each bare name of another module's declaration in the projects (see "Changing the language") |
@@ -432,6 +433,7 @@ Directives in comments say what the program must do:
 | `// expect-free: label` | the interpreter must free the program's values in the order of these lines, one value each, as `minimaxon interp --frees` prints them (`string "a1"`, `array`, `record`, `pool`) |
 | `// memory-limit: N` | the native run may use at most N megabytes; the runner does not enforce it yet |
 | `// native-only` | do not run the program under the interpreter; for a program whose point is what the executable does with memory, which the interpreter runs far too slowly |
+| `// stdin: <text>` | a line of the program's standard input, which ends after the last: each directive is one more line, its text after the one space as `//>`'s is. A program without one reads the end of its input at once. The runner gives each executable its input through `__Builtins.runWithInput`, and the interpreter reads the same text |
 | `// schedules: N` | run the program under N schedules of the interpreter (seeds 0 to N - 1) instead of 20; for a program of thousands of behaviours |
 | `// expect-scheduler: used` or `none` | the link must give the program the scheduler, or must not (see "Main with or without the scheduler"); what a program does cannot show it |
 
@@ -1348,6 +1350,15 @@ where each local is, `debug --symbolize` and `--dump-info`, which read it, and t
     frame stops where it lands in the program's code, or runs on when it lands in the runtime's. `finish` runs the frame to
     its return. `backtrace` (`bt`, `where`), `locals`, `print` (`p`) of a local or a dotted path of fields, `help` (`?`,
     `commands`) and `quit` (`q`, `exit`).
+  - **A conversation**, maxon's `DebugRepl`: `debug <exe>` without `--batch` launches the program the same way, its output and
+    error its own, prints maxon's prompt `(maxon debug) ` and reads one command a line from standard input (`LineInput`, over
+    `__Builtins.readStdin`, as the compiler's modules read it), answering each through the batch's commands in maxon's text (`DebugText`, `textLines`):
+    `breakpoint set at locals.maxon:32 in export::named (1 site(s))`, `stopped (breakpoint) at ...` with the source around
+    the line (`->` at the current one), frames as `  #0 export::named at locals.maxon:32`, locals and values as
+    `name : Type = display` indented by their depth, `error: <message>` for a command that fails. A blank line only prompts
+    again. When the input ends, or after `quit`, it prints a newline, clears every breakpoint and lets the program run to its
+    end (64 stops at most, maxon's), printing what it still answers (`the program exited with code 0`), and exits as a batch
+    does.
   - **Traps.** A breakpoint is int3 written over the code; resuming from one restores the byte, steps the thread with every
     other thread suspended and writes it again, and a stop of another thread at a trap meanwhile is put back on it for later.
     A call that a step runs over goes to a trap at its return address that holds only for the frame that returns there: the
@@ -1367,7 +1378,7 @@ where each local is, `debug --symbolize` and `--dump-info`, which read it, and t
   spans of `self` and those programs, walks the sidecar of `self`, holds the dump of a program's locals to a register, a frame
   slot, a String's second word and a record's fields on each target, on x64 Windows holds a batch session of that program
   to its events (a breakpoint on a line and on a function, the backtrace, a local in a register and one in a slot, a step
-  over a line, a String local, a record's fields, a step out and the run to the exit), and symbolizes the `rip=` of a stack overflow on x64
+  over a line, a String local, a record's fields, a step out and the run to the exit) and a conversation, fed from a file, to maxon's text of a breakpoint, a stop, its locals, a field, the frames, an unknown command and the program's end, and symbolizes the `rip=` of a stack overflow on x64
   Windows, x64 Linux and arm64 Linux to its line.
 ## The IR
 

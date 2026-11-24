@@ -1,0 +1,117 @@
+// A conversational session, maxon's DebugRepl: the program is started under the debugger and parked before any of its code
+// runs, the reader's commands are read from standard input (__Builtins.readStdin) one line at a time after a prompt, and each answer is printed
+// as text (textLines). The program's output is its own. When the input ends or the reader quits, the program is let run to
+// its end, its breakpoints cleared, as maxon's session does.
+
+let replPrompt = "(maxon debug) "
+
+// stdinChunkBytes is how much of standard input one read asks for, maxon's StreamChunkBytes.
+let stdinChunkBytes = 65536 as Count
+
+let lineFeed = 10 as Byte
+
+let carriageReturn = 13 as Byte
+
+// LineInput is standard input read one line at a time: the bytes read and not yet handed out, and whether the stream ended.
+type LineInput
+	var backlog as ByteArray
+	var ended as bool
+
+	static function new() returns LineInput
+		return LineInput{backlog: ByteArray.create(0), ended: false}
+	end 'new'
+
+	// next is the next line without its LF or a CR before it, a last line without an LF as it is, and none at the end.
+	function next(mutates self) returns table.Option with String
+		while true 'lines'
+			for i in 0 upto backlog.count() 'scan'
+				if backlog[i] == lineFeed 'found'
+					return table.Option.some(self.take(i, skipping: 1))
+				end 'found'
+			end 'scan'
+			if ended 'atEnd'
+				if backlog.count() == 0 'nothing'
+					return table.Option.none
+				end 'nothing'
+				return table.Option.some(self.take(backlog.count(), skipping: 0))
+			end 'atEnd'
+			let arrived = ByteArray.init(__Builtins.readStdin(stdinChunkBytes))
+			if arrived.isEmpty() 'end'
+				ended = true
+			end 'end'
+			backlog.append(arrived)
+		end 'lines'
+		return table.Option.none
+	end 'next'
+
+	// take hands out the first length bytes as a line, dropping a CR at their end, and the skipped bytes after them.
+	function take(mutates self, length Count, skipping Count) returns String
+		var textLength = length
+		if length > 0 and backlog[length - 1] == carriageReturn 'carriageReturn'
+			textLength = length - 1
+		end 'carriageReturn'
+		let text = String.from(try backlog.slice(0, endIndex: textLength) otherwise panic("debugger: a line past the input read"))
+		let rest = try length + skipping otherwise panic("debugger: a line past a count")
+		backlog = try backlog.slice(rest, endIndex: backlog.count()) otherwise panic("debugger: a line past the input read")
+		return text
+	end 'take'
+end 'LineInput'
+
+// runRepl debugs the executable, which the reader describes, with the commands of standard input, and gives the session's
+// exit code as runBatch does.
+export function runRepl(exe String, consumes reader mxdbg.MxdbgReader, arguments StringArray, budgetMs Count) returns ExitCode
+	let textRva = match consumes reader.figureCountNamed(mxdbg.ImageTextRvaFigureName) 'rva'
+		some(rva) gives rva
+		none gives 0
+	end 'rva'
+	if not Scheduler.pinToMachine() 'unpinned'
+		printError("debug: no machine to drive the program from\n")
+		return sessionFailed
+	end 'unpinned'
+	let code = match consumes WindowsHost.launch(exe, arguments: arguments, outputToError: false, budgetMs: budgetMs) 'launched'
+		launched(host) gives driveRepl(host, reader: reader, textRva: textRva, budgetMs: budgetMs)
+		refused(reason) gives refusedSession(exe, reason: reason)
+	end 'launched'
+	Scheduler.unpinFromMachine()
+	return code
+end 'runRepl'
+
+function driveRepl(consumes host WindowsHost, consumes reader mxdbg.MxdbgReader, textRva Count, budgetMs Count) returns ExitCode
+	var engine = DebugEngine.make(host, reader: reader, textRva: textRva, budgetMs: budgetMs)
+	if not engine.waitLoader() 'neverStopped'
+		printError("debug: the program ended before the debugger could stop it\n")
+		return sessionFailed
+	end 'neverStopped'
+	var session = DebugSession.make(engine)
+	var input = LineInput.new()
+	print(replPrompt)
+	while true 'lines'
+		let read = input.next()
+		if not read.isSome() 'endOfInput'
+			break 'lines'
+		end 'endOfInput'
+		let line = read.unwrap()
+		if line.trim() == "" 'nothingTyped'
+			print(replPrompt)
+			continue 'lines'
+		end 'nothingTyped'
+		printReplies(session.run(line))
+		if session.over 'quit'
+			break 'lines'
+		end 'quit'
+		print(replPrompt)
+	end 'lines'
+	print("\n")
+	printReplies(session.letItFinish())
+	session.engine.terminate()
+	return sessionFailed if session.engine.failedSession else sessionSucceeded
+end 'driveRepl'
+
+function printReplies(replies DebugReplies)
+	for i in 0 upto replies.count() 'replies'
+		let lines = textLines(replies[i])
+		for k in 0 upto lines.count() 'lines'
+			print("{lines[k]}\n")
+		end 'lines'
+	end 'replies'
+end 'printReplies'

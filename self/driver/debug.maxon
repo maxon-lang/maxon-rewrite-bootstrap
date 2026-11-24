@@ -29,13 +29,17 @@ let defaultStopTimeoutMs = 10000 as Count
 
 let millisPerSecond = 1000 as Count
 
-// debugCommand runs `debug --symbolize <exe> <offset>...`, `debug --dump-info <exe> [section]...` or a session,
-// `debug --batch --commands=<cmd;...|@file> [--stop-timeout=<seconds>] <exe> [-- <program args>...]`.
+// debugCommand runs `debug --symbolize <exe> <offset>...`, `debug --dump-info <exe> [section]...` or a session: a batch,
+// `debug --batch --commands=<cmd;...|@file> [--stop-timeout=<seconds>] <exe> [-- <program args>...]`, or a conversation, the
+// same without --batch and --commands, whose commands are read from standard input.
 function debugCommand(args CommandNames) returns ExitCode
 	if args.count() >= 2 and args[1] == batchFlag 'batch'
-		return debugBatch(args)
+		return debugSession(args, from: 2, batch: true)
 	end 'batch'
-	if args.count() < 3 or (args[1] != symbolizeFlag and args[1] != dumpInfoFlag) 'usage'
+	if args.count() >= 2 and args[1] != symbolizeFlag and args[1] != dumpInfoFlag 'conversation'
+		return debugSession(args, from: 1, batch: false)
+	end 'conversation'
+	if args.count() < 3 'usage'
 		printError(usage())
 		return usageExitCode
 	end 'usage'
@@ -46,14 +50,15 @@ function debugCommand(args CommandNames) returns ExitCode
 	end 'loaded'
 end 'debugCommand'
 
-// debugBatch reads a batch session's options, loads the sidecar beside the executable and runs the session.
-function debugBatch(args CommandNames) returns ExitCode
+// debugSession reads a session's options from the argument at from on, loads the sidecar beside the executable and runs
+// the session: a batch of the commands --commands names, or a conversation, which takes no --commands.
+function debugSession(args CommandNames, from Count, batch bool) returns ExitCode
 	var commands = ""
 	var hasCommands = false
 	var budgetMs = defaultStopTimeoutMs
 	var exe = ""
 	var programArgs = StringArray.create(0)
-	var i = 2 as Count
+	var i = from
 	while i < args.count() 'options'
 		let a = args[i].clone()
 		if a == programArgumentsMark 'rest'
@@ -63,7 +68,7 @@ function debugBatch(args CommandNames) returns ExitCode
 			i = args.count()
 			continue 'options'
 		end 'rest'
-		if hasPrefix(a, prefix: commandsPrefix) 'commands'
+		if batch and hasPrefix(a, prefix: commandsPrefix) 'commands'
 			commands = a.sliceBytes(commandsPrefix.byteLength(), endPos: a.byteLength()).clone()
 			hasCommands = true
 		end 'commands' else if hasPrefix(a, prefix: stopTimeoutPrefix) 'timeout'
@@ -78,10 +83,16 @@ function debugBatch(args CommandNames) returns ExitCode
 		end 'extra'
 		i = sumCounts(i, b: 1)
 	end 'options'
-	if not hasCommands or exe == "" 'usage'
+	if (batch and not hasCommands) or exe == "" 'usage'
 		printError(usage())
 		return usageExitCode
 	end 'usage'
+	if not batch 'conversation'
+		return match consumes loadSidecar(exe) 'loaded'
+			read(reader) gives debugger.runRepl(exe, reader: reader, arguments: programArgs, budgetMs: budgetMs)
+			refused(reason) gives refuseDebug(exe, reason: reason)
+		end 'loaded'
+	end 'conversation'
 	let script = debugger.batchCommands(commands)
 	if not script.isSome() 'unreadable'
 		printError("debug: the commands file '{commands}' cannot be read\n")
@@ -91,7 +102,7 @@ function debugBatch(args CommandNames) returns ExitCode
 		read(reader) gives debugger.runBatch(exe, reader: reader, arguments: programArgs, commands: script.unwrap(), budgetMs: budgetMs)
 		refused(reason) gives refuseDebug(exe, reason: reason)
 	end 'loaded'
-end 'debugBatch'
+end 'debugSession'
 
 function refuseOption(option String) returns ExitCode
 	printError("debug: '{option}' is not an option of a session, or is not a number of seconds from 0.001\n")

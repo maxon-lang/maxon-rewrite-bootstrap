@@ -49,7 +49,8 @@ export type StopReport
 	end 'make'
 end 'StopReport'
 
-// BreakAnswer is maxon's answer to `break` and `clear`: an empty function or reason is none.
+// BreakAnswer is maxon's answer to `break` and `clear`: an empty function or reason is none; target is what the reader
+// wrote, which a refusal names.
 export type BreakAnswer
 	export var action as String
 	export var functionName as String
@@ -58,9 +59,10 @@ export type BreakAnswer
 	export var offsets as CountList
 	export var candidates as StringArray
 	export var reason as String
+	export var target as String
 
 	export static function make(consumes action String, consumes functionName String, consumes file String, line Count, consumes offsets CountList) returns BreakAnswer
-		return BreakAnswer{action: action, functionName: functionName, file: file, line: line, offsets: offsets, candidates: StringArray.create(0), reason: ""}
+		return BreakAnswer{action: action, functionName: functionName, file: file, line: line, offsets: offsets, candidates: StringArray.create(0), reason: "", target: ""}
 	end 'make'
 end 'BreakAnswer'
 

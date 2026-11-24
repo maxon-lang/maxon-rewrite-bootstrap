@@ -1,0 +1,27 @@
+// A program reads its standard input a line at a time through Console.stdin(), maxon's StreamReader over a StdinSource: each
+// line without its LF, a blank line empty, and ended after the last. Each stdin directive is a line of the input.
+// stdin: first line
+// stdin:
+// stdin: third, with  two spaces
+function main() returns ExitCode
+	var input = Console.stdin()
+	var n = 0 as Count
+	var reading = true
+	while reading 'lines'
+		let read = try input.readLine() otherwise return 2
+		match read 'read'
+			line(text) then print("{n}: [{text}]\n")
+			ended then reading = false
+		end 'read'
+		if reading 'counted'
+			n = try n + 1 otherwise n
+		end 'counted'
+	end 'lines'
+	print("{n} lines\n")
+	return 0
+end 'main'
+
+//> 0: [first line]
+//> 1: []
+//> 2: [third, with  two spaces]
+//> 3 lines

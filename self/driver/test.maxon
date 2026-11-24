@@ -33,6 +33,10 @@ let expectMemoryPrefix = "// memory-limit:"
 
 let nativeOnlyDirective = "// native-only"
 
+// Each line of this directive is a line of the program's standard input, as maxon's spec tests feed one; a program without one
+// reads the end of its input at once.
+let stdinPrefix = "// stdin:"
+
 // A program that says the targets it does not run on, as a spec test of maxon's does, is not run for them: it reads what is
 // another system's only, as a path of Windows or a program that Windows has.
 let unsupportedTargetsPrefix = "// unsupported-targets:"
@@ -96,6 +100,8 @@ type Expectation
 	var errors as ast.StringList
 	var exit as ExitCode
 	var stdout as String
+	// stdin is what the program reads as its standard input.
+	var stdin as String
 	var memoryLimitMB as Count
 	var nativeOnly as bool
 	// frees is the order in which the interpreter must free the values of the program, when the program says it.
@@ -116,7 +122,7 @@ type Expectation
 	var scheduled as bool
 
 	static function new() returns Expectation
-		return Expectation{errors: ast.StringList.create(0), exit: 0, stdout: "", memoryLimitMB: 0, nativeOnly: false, frees: ast.StringList.create(0), checkOnly: false, runtimeTier: false, libraryTier: false, schedules: scheduleSeeds, mentionsConcurrency: false, unsupportedTargets: "", saysScheduler: false, scheduled: false}
+		return Expectation{errors: ast.StringList.create(0), exit: 0, stdout: "", stdin: "", memoryLimitMB: 0, nativeOnly: false, frees: ast.StringList.create(0), checkOnly: false, runtimeTier: false, libraryTier: false, schedules: scheduleSeeds, mentionsConcurrency: false, unsupportedTargets: "", saysScheduler: false, scheduled: false}
 	end 'new'
 end 'Expectation'
 
@@ -302,7 +308,7 @@ function afterMarkerSpace(text String) returns String
 end 'afterMarkerSpace'
 
 // applyDirective adds what one line of a test program says, when it is a directive, to the expectation.
-function applyDirective(mutates expect Expectation, mutates stdout ByteArray, line String, file String)
+function applyDirective(mutates expect Expectation, mutates stdout ByteArray, mutates stdin ByteArray, line String, file String)
 	if hasPrefix(line, prefix: expectErrorPrefix) 'error'
 		expect.errors.push(trimSpace(afterPrefix(line, prefix: expectErrorPrefix)).clone())
 	end 'error' else if hasPrefix(line, prefix: expectFreePrefix) 'free'
@@ -333,7 +339,10 @@ function applyDirective(mutates expect Expectation, mutates stdout ByteArray, li
 		end 'malformed'
 		expect.saysScheduler = true
 		expect.scheduled = answer == schedulerUsed
-	end 'scheduler' else if hasPrefix(line, prefix: expectStdoutPrefix) 'stdout'
+	end 'scheduler' else if hasPrefix(line, prefix: stdinPrefix) 'stdin'
+		stdin.append(afterMarkerSpace(afterPrefix(line, prefix: stdinPrefix)).toByteArray())
+		stdin.push(newlineByte)
+	end 'stdin' else if hasPrefix(line, prefix: expectStdoutPrefix) 'stdout'
 		var skip = stdoutMarkerBytes
 		if line.byteLength() > stdoutMarkerBytes and line.byteAt(stdoutMarkerBytes) == spaceByte 'space'
 			skip = stdoutMarkerBytes + 1
@@ -352,6 +361,7 @@ end 'mentionsConcurrency'
 function readExpectation(program String) returns Expectation
 	var expect = Expectation.new()
 	var stdout = ByteArray.create(0)
+	var stdin = ByteArray.create(0)
 	var files = ast.StringList.create(0)
 	if project.isDirectoryPath(program) 'project'
 		files = project.sourceFiles(program)
@@ -361,13 +371,14 @@ function readExpectation(program String) returns Expectation
 	for f in 0 upto files.count() 'files'
 		let lines = readLines(files[f])
 		for l in 0 upto lines.count() 'lines'
-			applyDirective(expect, stdout: stdout, line: trimLeft(lines[l]), file: files[f])
+			applyDirective(expect, stdout: stdout, stdin: stdin, line: trimLeft(lines[l]), file: files[f])
 			if not expect.mentionsConcurrency and mentionsConcurrency(lines[l]) 'concurrency'
 				expect.mentionsConcurrency = true
 			end 'concurrency'
 		end 'lines'
 	end 'files'
 	expect.stdout = String.from(stdout)
+	expect.stdin = String.from(stdin)
 	return expect
 end 'readExpectation'
 
@@ -806,7 +817,7 @@ end 'workerCountText'
 // the memory model. A program that schedules behaviours runs under several schedules, and each must give the same output.
 function runInterpreted(compiled CompiledProgram, expect Expectation) returns TestResult
 	for schedule in 0 upto expect.schedules 'schedules'
-		let out = interp.run(compiled.p, modules: compiled.generated.modules, entry: compiled.generated.entry, stepLimit: interp.defaultStepLimit, seed: interp.seedOf(schedule), wantFrees: expect.frees.count() > 0, stdin: "")
+		let out = interp.run(compiled.p, modules: compiled.generated.modules, entry: compiled.generated.entry, stepLimit: interp.defaultStepLimit, seed: interp.seedOf(schedule), wantFrees: expect.frees.count() > 0, stdin: expect.stdin)
 		var atSeed = ""
 		if out.behaviours > 0 'scheduled'
 			atSeed = " under the schedule of seed {schedule}"
@@ -915,9 +926,10 @@ end 'ExecutableRun'
 // inheritedDirectory is the directory of runExecutable that starts the executable in the runner's working directory.
 let inheritedDirectory = ""
 
-// runExecutable runs the executable at exe with no arguments, through the runner of its target, in directory, or in the
-// runner's working directory for inheritedDirectory, for no longer than testRunDeadlineMs.
-function runExecutable(exe String, runner TargetRunner, directory String, workers Count, envRunner String) returns ExecutableRun
+// runExecutable runs the executable at exe with no arguments and the input as its standard input, which then ends, through the
+// runner of its target, in directory, or in the runner's working directory for inheritedDirectory, for no longer than
+// testRunDeadlineMs.
+function runExecutable(exe String, runner TargetRunner, directory String, workers Count, envRunner String, input String) returns ExecutableRun
 	let exePath = try FilePath.from(exe) otherwise return ExecutableRun.cannotStart
 	let deadline = WaitDeadline.within(testRunDeadlineMs)
 	var started = runnerExecutable(runner, exe: exePath)
@@ -927,7 +939,7 @@ function runExecutable(exe String, runner TargetRunner, directory String, worker
 		started = Executable.name(envRunner.clone())
 	end 'counted'
 	try 'run'
-		let out = startExecutable(started, arguments: arguments, directory: directory, deadline: deadline)
+		let out = startExecutable(started, arguments: arguments, directory: directory, input: input, deadline: deadline)
 		return ExecutableRun.ran(out)
 	end 'run' otherwise (e) 'failed'
 		match e 'kind'
@@ -945,12 +957,15 @@ function runExecutable(exe String, runner TargetRunner, directory String, worker
 	return ExecutableRun.cannotStart
 end 'runExecutable'
 
-// startExecutable runs the executable with the arguments in directory, or in the runner's working directory for
-// inheritedDirectory, until the deadline.
-function startExecutable(executable Executable, arguments CommandNames, directory String, deadline WaitDeadline) returns CollectedOutput throws SubprocessError
+// startExecutable runs the executable with the arguments and the input as its standard input in directory, or in the runner's
+// working directory for inheritedDirectory, until the deadline. A child that starts in a directory is given no input.
+function startExecutable(executable Executable, arguments CommandNames, directory String, input String, deadline WaitDeadline) returns CollectedOutput throws SubprocessError
 	if directory == inheritedDirectory 'inherited'
-		return try Subprocess.runWithDeadline(executable, arguments: arguments, deadline: deadline)
+		return try __Builtins.runWithInput(executable, arguments: arguments, input: input, deadline: deadline)
 	end 'inherited'
+	if input != "" 'unsupported'
+		panic("test: a program that starts in the directory {directory} cannot be given standard input")
+	end 'unsupported'
 	let at = try FilePath.from(directory) otherwise panic("test: the working directory {directory} is not a path")
 	return try Subprocess.runInDirectory(executable, arguments: arguments, directory: at, deadline: deadline)
 end 'startExecutable'
@@ -958,7 +973,7 @@ end 'startExecutable'
 // runNative runs the executable and checks its output and exit code against what the program expects. The memory limit
 // of the directive is not enforced.
 function runNative(exe String, expect Expectation, runner TargetRunner, workers Count, envRunner String) returns TestResult
-	match consumes runExecutable(exe, runner: runner, directory: inheritedDirectory, workers: workers, envRunner: envRunner) 'run'
+	match consumes runExecutable(exe, runner: runner, directory: inheritedDirectory, workers: workers, envRunner: envRunner, input: expect.stdin) 'run'
 		ran(out) then return checkNativeOutput(out, exe: exe, expect: expect)
 		cannotStart then return TestResult.failed("cannot run {exe}")
 		timedOut then return TestResult.failed("timed out")

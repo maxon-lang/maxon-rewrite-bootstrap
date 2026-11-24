@@ -1,0 +1,106 @@
+// The lines a conversational session prints for each answer, maxon's DebugText: the same answers as the batch's JSON,
+// rendered for a reader.
+
+let frameIndent = "  "
+
+let inFunctionLead = " in "
+
+let valueIndent = "    "
+
+let candidateSeparator = ", "
+
+let unknownPositionText = "at an unknown position"
+
+// textLines are the lines of a reply.
+export function textLines(reply DebugReply) returns StringArray
+	var lines = StringArray.create(0)
+	match reply 'which'
+		quit then lines.push("quit")
+		spoken(spokenLines) then lines.append(spokenLines)
+		breakpoint(answer) then lines.push(breakpointText(answer))
+		stopped(stop) then appendStop(lines, stop: stop)
+		walked(frames) then appendFrames(lines, frames: frames)
+		locals(functionName, values) then appendLocals(lines, functionName: functionName, values: values)
+		value(tree) then appendRoots(lines, tree: tree, indent: "")
+		exited(code) then lines.push("the program exited with code {code}")
+		crashed(status) then lines.push("the program crashed with status {hexWord(status)}")
+		timedOut(waitingFor) then lines.push("timed out waiting for {waitingFor}")
+		failed(message) then lines.push("error: {message}")
+	end 'which'
+	return lines
+end 'textLines'
+
+// namePhrase is a function's name after a lead, or nothing for none.
+function namePhrase(functionName String, lead String) returns String
+	return "" if functionName == "" else "{lead}{functionName}"
+end 'namePhrase'
+
+function breakpointText(answer BreakAnswer) returns String
+	if answer.action == "ambiguous" 'ambiguous'
+		return "'{answer.target}' is ambiguous: it names {joined(answer.candidates)}"
+	end 'ambiguous'
+	if answer.action == "no-match" 'noMatch'
+		return "'{answer.target}' names no function"
+	end 'noMatch'
+	if answer.action == "refused" 'refused'
+		return "breakpoint at {answer.file}:{answer.line} refused ({answer.reason})"
+	end 'refused'
+	if answer.action == "no-code" 'noCode'
+		return "no code at {answer.file}:{answer.line}"
+	end 'noCode'
+	return "breakpoint {answer.action} at {answer.file}:{answer.line}{namePhrase(answer.functionName, lead: inFunctionLead)} ({answer.offsets.count()} site(s))"
+end 'breakpointText'
+
+function joined(names StringArray) returns String
+	var out = ""
+	for i in 0 upto names.count() 'names'
+		out = "{out}{candidateSeparator}{names[i]}" if i > 0 else names[i].clone()
+	end 'names'
+	return out
+end 'joined'
+
+function appendStop(mutates lines StringArray, stop StopReport)
+	lines.push(stopHeadline(stop))
+	for i in 0 upto stop.source.count() 'source'
+		let marker = "->" if stop.source[i].current else "  "
+		lines.push("{marker} {stop.source[i].line}\t{stop.source[i].text}")
+	end 'source'
+end 'appendStop'
+
+function stopHeadline(stop StopReport) returns String
+	if stop.reason == trapReason 'trap'
+		return "trap at {stop.file}:{stop.line} ({hexWord(stop.offset)})"
+	end 'trap'
+	if stop.reason == faultReason 'fault'
+		return "fault at {stop.file}:{stop.line}{namePhrase(stop.functionName, lead: inFunctionLead)}: {stop.fault} ({hexWord(stop.offset)}); continuing ends the program"
+	end 'fault'
+	return "stopped ({stop.reason}) at {stop.file}:{stop.line}{namePhrase(stop.functionName, lead: inFunctionLead)}"
+end 'stopHeadline'
+
+function appendFrames(mutates lines StringArray, frames FrameList)
+	for i in 0 upto frames.count() 'frames'
+		let inlined = " [inlined]" if frames[i].inlined else ""
+		let position = unknownPositionText if frames[i].file == "" else "at {frames[i].file}:{frames[i].line}"
+		lines.push("{frameIndent}#{frames[i].number} {frames[i].functionName}{inlined} {position}")
+	end 'frames'
+end 'appendFrames'
+
+function appendLocals(mutates lines StringArray, functionName String, values ValueTree)
+	lines.push("locals{namePhrase(functionName, lead: " of ")}:")
+	appendRoots(lines, tree: values, indent: valueIndent)
+end 'appendLocals'
+
+function appendRoots(mutates lines StringArray, tree ValueTree, indent String)
+	for i in 0 upto tree.roots.count() 'roots'
+		appendValue(lines, tree: tree, index: tree.roots[i], indent: indent)
+	end 'roots'
+end 'appendRoots'
+
+function appendValue(mutates lines StringArray, tree ValueTree, index Count, indent String)
+	let node = tree.nodes[index].clone()
+	let shown = node.display.clone() if node.unavailable == "" else "<{node.unavailable}>"
+	lines.push("{indent}{node.name} : {node.typeName} = {shown}")
+	for i in 0 upto node.children.count() 'children'
+		appendValue(lines, tree: tree, index: node.children[i], indent: "{indent}{valueIndent}")
+	end 'children'
+end 'appendValue'
