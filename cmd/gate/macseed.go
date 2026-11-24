@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
@@ -19,7 +20,11 @@ var macSeedSources = []string{"self", "runtime", "stdlib"}
 // the compiler, the sources and cmd/gate/macseed.sh are staged at in\seed for the Mac session to run, and the renewal
 // refuses until it has, as it does when the share is not mounted: no seed is replaced before all three are proven.
 func proveMacSeed(candidate string) error {
-	if !isDir(filepath.Join(macShare, "in")) {
+	mounted, err := shareIsDir(filepath.Join(macShare, "in"))
+	if err != nil {
+		return fmt.Errorf("seed not renewed: %w", err)
+	}
+	if !mounted {
 		return fmt.Errorf("seed not renewed: the macOS compiler is proven on the Mac, through the share %s, which is not mounted", macShare)
 	}
 	data, err := os.ReadFile(candidate)
@@ -28,7 +33,11 @@ func proveMacSeed(candidate string) error {
 	}
 	sum := sha256.Sum256(data)
 	digest := hex.EncodeToString(sum[:])
-	if have, err := os.ReadFile(filepath.Join(macShare, "out", "seed", "proven.txt")); err == nil && strings.TrimRight(string(have), "\r\n") == digest {
+	have, err := shareReadFile(filepath.Join(macShare, "out", "seed", "proven.txt"))
+	if isShareTimeout(err) {
+		return fmt.Errorf("seed not renewed: %w", err)
+	}
+	if err == nil && strings.TrimRight(string(have), "\r\n") == digest {
 		return nil
 	}
 	root, err := scratchDir("minimaxon-mac-seed-")
@@ -37,7 +46,7 @@ func proveMacSeed(candidate string) error {
 	}
 	defer os.RemoveAll(root)
 	for _, dir := range macSeedSources {
-		if err := robocopy(dir, filepath.Join(root, dir), "/E"); err != nil {
+		if err := robocopy(context.Background(), dir, filepath.Join(root, dir), "/E"); err != nil {
 			return fmt.Errorf("seed not renewed: cannot stage %s for the Mac: %w", dir, err)
 		}
 	}
@@ -49,7 +58,7 @@ func proveMacSeed(candidate string) error {
 	}
 	// A mirror, so nothing of an older candidate stays for the Mac to prove.
 	stage := filepath.Join(macShare, "in", "seed")
-	if err := robocopy(root, stage, "/MIR"); err != nil {
+	if err := shareCopy(root, stage, "/MIR"); err != nil {
 		return fmt.Errorf("seed not renewed: cannot stage the macOS compiler at %s: %w", stage, err)
 	}
 	return fmt.Errorf("seed not renewed: the Mac has not proven the macOS compiler %s: run bash ~/Dev/agents/minimaxon/in/seed/run.sh there and the renewal again", digest[:12])

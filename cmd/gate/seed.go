@@ -3,6 +3,7 @@ package main
 import (
 	"archive/tar"
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -108,7 +109,7 @@ func stageSeed(h host, c0 string) error {
 	if err := extractTree(stagedRuntimeRevision, "runtime", dir); err != nil {
 		return fmt.Errorf("seed not renewed: cannot stage the runtime of %s: %w", stagedRuntimeRevision, err)
 	}
-	if err := robocopy("self", filepath.Join(dir, "self"), "/E"); err != nil {
+	if err := robocopy(context.Background(), "self", filepath.Join(dir, "self"), "/E"); err != nil {
 		return fmt.Errorf("seed not renewed: cannot stage self: %w", err)
 	}
 	seed := filepath.Join(dir, filepath.Base(h.seed))

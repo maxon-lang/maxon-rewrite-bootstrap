@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -18,23 +19,88 @@ const macShare = `M:\agents\minimaxon`
 // robocopyFailed is the least exit code of robocopy that says it failed; below it, the code says what it copied.
 const robocopyFailed = 8
 
-// macAnswerTime bounds the look at the share: a mapped drive whose Mac is asleep or away keeps a stat waiting for the
-// network's own timeout, far longer than the gate should wait for a machine that is not its own.
+// macAnswerTime bounds a stat or a read of a small file on the share: a mapped drive whose Mac is asleep, busy or away
+// keeps such a call waiting for the network's own timeout, far longer than the gate should wait for a machine that is not
+// its own.
 const macAnswerTime = 3 * time.Second
+
+// macCopyTime bounds one robocopy to or from the share. The batches are the compiled corpus (a few hundred executables and
+// their rows) and, for the seed, the sources and one compiler: tens of megabytes, which a healthy share moves in seconds,
+// so two minutes leaves room for a slow network and still ends a share that has stopped answering.
+const macCopyTime = 2 * time.Minute
+
+// robocopyKillDelay is how long a killed robocopy gets to let go of its output before Wait gives up on it: a process
+// stuck in a call to the share does not die when it is killed, and Wait would otherwise wait for it.
+const robocopyKillDelay = time.Second
+
+// shareTimeout is the error of an operation on the Mac's share that did not finish in time.
+type shareTimeout struct {
+	operation string
+	limit     time.Duration
+}
+
+func (e *shareTimeout) Error() string {
+	return fmt.Sprintf("the Mac's share %s did not answer within %s: %s", macShare, e.limit, e.operation)
+}
+
+// shareDo runs an operation on the share and gives up on it after limit. The operation keeps running in its own goroutine
+// when it is abandoned, since a call blocked in the network cannot be interrupted; it only writes to its buffered channel.
+func shareDo[T any](operation string, limit time.Duration, do func() (T, error)) (T, error) {
+	type result struct {
+		value T
+		err   error
+	}
+	done := make(chan result, 1)
+	go func() {
+		value, err := do()
+		done <- result{value, err}
+	}()
+	select {
+	case r := <-done:
+		return r.value, r.err
+	case <-time.After(limit):
+		var zero T
+		return zero, &shareTimeout{operation, limit}
+	}
+}
+
+// shareIsDir says whether path on the share is a directory.
+func shareIsDir(path string) (bool, error) {
+	return shareDo("looking at "+path, macAnswerTime, func() (bool, error) { return isDir(path), nil })
+}
+
+// shareReadFile reads a small file of the share.
+func shareReadFile(path string) ([]byte, error) {
+	return shareDo("reading "+path, macAnswerTime, func() ([]byte, error) { return os.ReadFile(path) })
+}
+
+// shareCopy runs robocopy for a copy to or from the share, and kills it when it passes macCopyTime.
+func shareCopy(src, dst, mode string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), macCopyTime)
+	defer cancel()
+	err := robocopy(ctx, src, dst, mode)
+	if ctx.Err() != nil {
+		return &shareTimeout{fmt.Sprintf("copying %s to %s (robocopy %s)", src, dst, mode), macCopyTime}
+	}
+	return err
+}
+
+// isShareTimeout says whether err is, or wraps, a timeout of an operation on the share.
+func isShareTimeout(err error) bool {
+	var timeout *shareTimeout
+	return errors.As(err, &timeout)
+}
 
 // macUnavailable is why the Mac cannot be reached through the share now, or "" when it can.
 func macUnavailable() string {
-	found := make(chan bool, 1)
-	go func() { found <- isDir(filepath.Join(macShare, "in")) }()
-	select {
-	case ok := <-found:
-		if ok {
-			return ""
-		}
-		return "the Mac's share " + macShare + " is not mounted"
-	case <-time.After(macAnswerTime):
-		return fmt.Sprintf("the Mac's share %s did not answer within %s", macShare, macAnswerTime)
+	mounted, err := shareIsDir(filepath.Join(macShare, "in"))
+	if err != nil {
+		return err.Error()
 	}
+	if !mounted {
+		return "the Mac's share " + macShare + " is not mounted"
+	}
+	return ""
 }
 
 // macLane runs the arm64-macos corpus on the Mac: the gate compiles every program and the reruns of those that schedule
@@ -51,6 +117,17 @@ func macLane(h host, compiler string, behavioursArgs, testArgs []string) error {
 		skip("corpus on arm64-macos", why)
 		return nil
 	}
+	// A share that stops answering after the first look is the Mac being away, which skips the lane as it does there.
+	err := macRun(compiler, behavioursArgs, testArgs)
+	if timeout, ok := errors.AsType[*shareTimeout](err); ok {
+		skip("corpus on arm64-macos", timeout.Error())
+		return nil
+	}
+	return err
+}
+
+// macRun is the lane's work once the share has answered.
+func macRun(compiler string, behavioursArgs, testArgs []string) error {
 	root, err := scratchDir("minimaxon-mac-")
 	if err != nil {
 		return err
@@ -67,9 +144,13 @@ func macLane(h host, compiler string, behavioursArgs, testArgs []string) error {
 		return err
 	}
 	results := filepath.Join(macShare, "out", "gate")
-	if have, err := os.ReadFile(filepath.Join(results, "stamp.txt")); err == nil && strings.TrimRight(string(have), "\r\n") == stamp {
+	have, err := shareReadFile(filepath.Join(results, "stamp.txt"))
+	if isShareTimeout(err) {
+		return err
+	}
+	if err == nil && strings.TrimRight(string(have), "\r\n") == stamp {
 		replay := filepath.Join(root, "results")
-		if err := robocopy(filepath.Join(results, "out"), filepath.Join(replay, "out"), "/E"); err != nil {
+		if err := shareCopy(filepath.Join(results, "out"), filepath.Join(replay, "out"), "/E"); err != nil {
 			return fmt.Errorf("mac lane: cannot copy the Mac's results from %s: %w", results, err)
 		}
 		out, err := macCorpus(compiler, batchrun, "replay", replay, behavioursArgs, testArgs)
@@ -94,7 +175,7 @@ func macLane(h host, compiler string, behavioursArgs, testArgs []string) error {
 	// A mirror, so no row or executable of an older batch stays for the Mac to run: the share refuses some listings that a
 	// recursive delete makes, and robocopy's purge does not.
 	batch := filepath.Join(macShare, "in", "gate")
-	if err := robocopy(stage, batch, "/MIR"); err != nil {
+	if err := shareCopy(stage, batch, "/MIR"); err != nil {
 		return fmt.Errorf("mac lane: cannot stage the batch at %s: %w", batch, err)
 	}
 	skip("corpus on arm64-macos", "the Mac has no results of this corpus: run bash ~/Dev/agents/minimaxon/in/gate/run.sh there and the gate again")
@@ -127,8 +208,10 @@ func rowStamp(rows string) (string, error) {
 	return strings.Join(names, "\n"), nil
 }
 
-func robocopy(src, dst, mode string) error {
-	cmd := exec.Command("robocopy", src, dst, mode, "/NFL", "/NDL", "/NJH", "/NJS", "/NP")
+// robocopy copies a tree, and kills robocopy when ctx ends. Its exit codes below robocopyFailed say what it copied.
+func robocopy(ctx context.Context, src, dst, mode string) error {
+	cmd := exec.CommandContext(ctx, "robocopy", src, dst, mode, "/NFL", "/NDL", "/NJH", "/NJS", "/NP")
+	cmd.WaitDelay = robocopyKillDelay
 	err := cmd.Run()
 	var exit *exec.ExitError
 	if errors.As(err, &exit) && exit.ExitCode() < robocopyFailed {
