@@ -2758,7 +2758,7 @@ function main() returns ExitCode
 	let me = try Process.executablePath() otherwise return 2
 	let folder = try me.parent() otherwise return 3
 	let exe = Executable.path(folder.join("{me.filename()}\0x"))
-	let argv = StringArray.create(0)
+	var argv = StringArray.create(0)
 	argv.push("child")
 	if let result = try Subprocess.run(exe, arguments: argv) 'ran'
 		print("ran: {result.stdout}")

@@ -304,7 +304,7 @@ end 'FilePath'
 
 function main() returns ExitCode
 	let child = Directory.currentPath().join("alpha.txt")
-	return (FilePath.make().tag + (child.filename().byteLength() as Integer)) as ExitCode
+	return try (FilePath.make().tag + (child.filename().byteLength() as Integer)) as ExitCode otherwise panic("out of range")
 end 'main'
 
 typealias Integer = int(i64.min to i64.max)
@@ -334,7 +334,7 @@ end 'FilePath'
 function main() returns ExitCode
 	let mine = FilePath.make()
 	let child = Directory.currentPath().join("alpha.txt")
-	return mine.filename() + (child.filename().byteLength() as ExitCode)
+	return try mine.filename() + (child.filename().byteLength() as ExitCode) otherwise panic("out of range")
 end 'main'
 
 typealias Integer = int(i64.min to i64.max)
@@ -809,7 +809,7 @@ end 'FilePath'
 function main() returns ExitCode
 	let child = Directory.currentPath().join("alpha.txt")
 	let name = child.filename()
-	return lib.FilePath.make().tag + (name.byteLength() as ExitCode)
+	return try lib.FilePath.make().tag + (name.byteLength() as ExitCode) otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

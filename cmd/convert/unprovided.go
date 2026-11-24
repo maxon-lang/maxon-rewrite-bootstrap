@@ -1,8 +1,10 @@
 package main
 
+import "strings"
+
 import "slices"
 
-// dropUnprovidedMembers leaves out each method of maxon's library that calls a static of __Builtins that minimaxon does
+// dropUnprovidedMembers leaves out each method of maxon's library that calls a static of a raw type that minimaxon does
 // not provide, since what it reads has no counterpart here (README, "Where it differs from Maxon": HeapStats' slab, census
 // and raw-allocation figures), so a call of it is the unknown-member error. A top-level declaration that only such methods
 // named goes with them, and so on, so the file declares nothing that nothing reaches.
@@ -57,19 +59,33 @@ func dropUnprovidedMembers(lines []sourceLine) {
 	}
 }
 
-// callsUnprovidedBuiltin reports whether the lines call a static of __Builtins that the built-in table does not declare.
+// rawPrefix starts the name of a type of maxon's raw surface, which the built-in table declares without it.
+const rawPrefix = "__"
+
+// callsUnprovidedBuiltin reports whether the lines call a static of a raw type (__Builtins, __ManagedDirectory) that the
+// built-in table does not declare.
 func callsUnprovidedBuiltin(lines []sourceLine) bool {
 	for _, l := range lines {
 		if l.removed {
 			continue
 		}
 		for k := 0; k+2 < len(l.code); k++ {
-			if l.code[k].kind == tokIdent && l.code[k].text == "__Builtins" && l.code[k+1].text == "." && l.code[k+2].kind == tokIdent && !provides(builtinMethods["Builtins"], l.code[k+2].text) {
+			name := l.code[k].text
+			if l.code[k].kind == tokIdent && strings.HasPrefix(name, rawPrefix) && l.code[k+1].text == "." && l.code[k+2].kind == tokIdent && !provides(rawMembers(name), l.code[k+2].text) {
 				return true
 			}
 		}
 	}
 	return false
+}
+
+// rawMembers are the members the built-in table declares on a raw type, which it names with its prefix (__ManagedMemory)
+// or, for __Builtins, without.
+func rawMembers(name string) []string {
+	if members, ok := builtinMethods[name]; ok {
+		return members
+	}
+	return builtinMethods[strings.TrimPrefix(name, rawPrefix)]
 }
 
 func provides(names []string, name string) bool {

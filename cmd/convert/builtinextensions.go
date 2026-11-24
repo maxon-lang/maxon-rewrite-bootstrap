@@ -80,7 +80,11 @@ func dropConformanceBeforeWhere(l *sourceLine) {
 // extendedBuiltinRecords are the record types minimaxon builds in whose library declaration has members that the built-in
 // lacks (Clock's `nowMs`, Directory's `removeTree`): the declaration is kept as an extension of the built-in, which a
 // program reaches as it reaches the type.
-var extendedBuiltinRecords = []string{"Clock", "Directory"}
+var extendedBuiltinRecords = []string{"Clock", "Directory", "FilePath"}
+
+// builtinRecordConformances are the interfaces of a declaration of extendedBuiltinRecords that its extension leaves out:
+// FilePath is a literal's type and has its toString as a built-in until the seed that compiles its library type.
+var builtinRecordConformances = map[string][]string{"FilePath": {"InitableFromStringLiteral", "Stringable"}}
 
 // rewriteBuiltinRecords writes the declaration of each of extendedBuiltinRecords as an extension of the built-in type, with
 // the members that the built-in declares left out, and the fields, which the built-in's own storage replaces.
@@ -97,6 +101,10 @@ func rewriteBuiltinRecords(lines []sourceLine) {
 		last := topLevelEnd(lines, i)
 		target := l.code[declIdx+1].text
 		l.code = slices.Concat([]token{{kind: tokIdent, text: "extension"}}, l.code[declIdx+1:])
+		for _, iface := range builtinRecordConformances[target] {
+			dropConformance(l, iface)
+		}
+		dropEmptyImplements(l)
 		dropFields(lines, i, last)
 		dropNativeMembers(lines, i, last, target)
 		i = last
@@ -242,4 +250,24 @@ func dropConformance(l *sourceLine, name string) {
 		l.code = slices.Delete(l.code, from, to)
 		return
 	}
+}
+
+// dropEmptyImplements removes an implements clause that names nothing.
+func dropEmptyImplements(l *sourceLine) {
+	impl := findToken(l.code, 0, "implements")
+	if impl < 0 {
+		return
+	}
+	k := impl + 1
+	for k < len(l.code) && l.code[k].kind == tokSpace {
+		k++
+	}
+	if k < len(l.code) && l.code[k].kind == tokIdent && l.code[k].text != "where" {
+		return
+	}
+	from := impl
+	for from > 0 && l.code[from-1].kind == tokSpace {
+		from--
+	}
+	l.code = slices.Delete(l.code, from, k)
 }

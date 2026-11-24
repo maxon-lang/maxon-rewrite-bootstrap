@@ -2059,9 +2059,9 @@ typealias PathSet = Set with FilePath
 typealias PathCounts = Map with (FilePath, Count)
 
 function main() returns ExitCode
-	let paths = PathSet.create()
+	var paths = PathSet.create()
 	paths.insert(FilePath from "a.txt")
-	let counts = PathCounts.create()
+	var counts = PathCounts.create()
 	counts.upsert(FilePath from "b.txt", value: 2)
 	let again = FilePath from "a.txt"
 	print("{paths.count()} {counts.count()} {paths.contains(again)}\n")

@@ -1619,7 +1619,7 @@ legacy limit and once past it. Each spelling names the entry its plain form name
 let rootName = "long-spelling-root"
 
 function layout(root FilePath, segments Count) returns FilePath
-	var deep = root
+	var deep = root.clone()
 	for i in 0 upto segments 'segments'
 		deep = deep.join("a-fairly-long-directory-segment-number-{i}")
 	end 'segments'
@@ -1716,7 +1716,7 @@ let rootName = "long-dotted-root"
 let leafName = "leaf-segment"
 
 function layout(root FilePath, segments Count) returns FilePath
-	var deep = root
+	var deep = root.clone()
 	for i in 0 upto segments 'segments'
 		deep = deep.join("a-fairly-long-directory-segment-number-{i}")
 	end 'segments'
@@ -1884,7 +1884,7 @@ end 'readOrNone'
 
 function main() returns ExitCode
 	let working = Directory.currentPath()
-	let workingUnits = "{working}".byteLength() as Units
+	let workingUnits = try "{working}".byteLength() as Units otherwise panic("out of range")
 	if workingUnits > PaddedUnits - 1 'tooDeep'
 		return 3
 	end 'tooDeep'

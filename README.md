@@ -4109,6 +4109,13 @@ records that have no fields (`internal/builtingen/table.go`), so a program calls
 
 - **`FilePath`** is a record holding the path's `String` (`path`), which every `File` and `Directory` function takes. It
   is made with `FilePath.from`, or from a string literal with `FilePath from "text"`, which panics where `from` would throw.
+  The rest of maxon's `FilePath` (`join`, `parent`, `filename`, `fileExtension`, `stem`, `normalize`, `resolve`,
+  `relativeTo`, `isInside`, `startsWith`, `equals`, `hash`...) is maxon's, converted as an extension of the built-in record
+  (`stdlib/FilePath.maxon`), less `resolvedPhysically`, which needs a raw directory call there is not.
+  The built-in record goes once a seed compiles the library's type: then its `from`, `init` and `toString` rows go, the
+  conversion writes the type rather than an extension, the OS rows (`File`, `Directory`, `Process.executablePath`,
+  `Subprocess.runInDirectory`, `FilePathArray`) find the library's `FilePath` by its name at the root, as a map literal finds
+  `Map`, and `self/`'s `path.toString()` calls become interpolations.
 - **Errors** are maxon's enums, cases and all: `FileReadError` (`notFound`, `accessDenied`, `busy`, `failed`),
   `FileWriteError` (`failed`, `notFound`, `accessDenied`, `alreadyExists`, `busy`, `partialFileLeft`),
   `FilePermission` (`normal`, 0666, the default of `mode:`, and `executable`, 0755, which only Linux's runtime has an effect for),
@@ -4932,8 +4939,7 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   elements; maxon sizes a narrower integer's elements by their range too. `String.from(bytes)` copies the bytes where maxon's shares the
   array's buffer, and a `String` here is its bytes, so neither direction scans them.
 - The OS functions (see "The OS") have maxon's names, signatures and errors, but are a subset, built in rather than
-  stdlib code: `FilePath` has only `from`, `toString` and its `path`, and `FilePath.from` does not resolve a `file://`
-  URL (one is taken as a path); `File` has no `readBinary`, `createText`, `exists`, `renameNew`, `info` or `openRead`,
+  stdlib code: `FilePath`'s built-in `from` does not resolve a `file://` URL (one is taken as a path); `File` has no `readBinary`, `createText`, `exists`, `renameNew`, `info` or `openRead`,
   `Directory.exists`, `removeTree` and `removeContents` are maxon's (`stdlib/directory` extends the built-in with the last two), and
   `Directory.list` lists in the order the system gives; `Process` has only `environmentVariable`, `executablePath`, `id` and `setExitCode`; `Subprocess.run`
   takes no `workingDirectory:` or `deadline:` (`runWithDeadline` takes the deadline), and `CollectedOutput` has no `status`, `pid` or `durationMs`;
