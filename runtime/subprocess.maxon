@@ -1,6 +1,7 @@
 // Running a program over pipes for the child's standard output and error, read by the run while the child goes on, so
 // that a child that fills one pipe cannot block waiting for the run to read the other: CreateProcessW on Windows, and on
-// Linux a clone and an execve (linux_subprocess.maxon). The child's standard input is the run's own.
+// Linux a clone and an execve (linux_subprocess.maxon). The child's standard input is the run's own, or in a run with input a
+// pipe that holds the input and then ends.
 
 #if os(Windows)
 	// The Win32 values the run uses.
@@ -122,7 +123,27 @@
 
 	let frameErrorOffset = frameOutputOffset + pipeBytes
 
-	let frameBytes = frameErrorOffset + pipeBytes
+	// The pipe of the child's standard input in a run with input, as a record of words: its read end, which the child gets,
+	// its write end, which the run writes the input to as the child reads it, how much of the input it has written, and whether
+	// the write end is still open.
+	let frameInputOffset = frameErrorOffset + pipeBytes
+
+	let inputReadOffset = 0
+
+	let inputWriteOffset = 8
+
+	let inputDoneOffset = 16
+
+	let inputOpenOffset = 24
+
+	let inputBytes = 32
+
+	let frameBytes = frameInputOffset + inputBytes
+
+	// pipeNoWait is PIPE_NOWAIT, the mode of a pipe handle whose write takes what fits and never waits.
+	let pipeNoWait = 1
+
+	let noCollection = 0
 #endif
 
 // The cases of SubprocessError that the run fails with besides the ones the system's error gives.
@@ -135,6 +156,9 @@ let spawnBusy = 2
 let ioFailed = 3
 
 let timedOut = 4
+
+// inputChunkBytes is the most of a run's input that one write offers the pipe of the child's standard input.
+let inputChunkBytes = 65536
 
 // noDeadline is the deadline of a run that is never ended for taking long.
 let noDeadline = 0
@@ -337,15 +361,84 @@ end 'argumentAt'
 	// child still running deadlineMs milliseconds after it started, when that is not noDeadline, is ended and fails the run
 	// with the timeout case.
 	function osRun(executable String, arguments Count, deadlineMs Count, stdout Count, stderr Count, errorAddress Count) returns Count
-		return osRunIn(executable, arguments: arguments, directory: "", deadlineMs: deadlineMs, stdout: stdout, stderr: stderr, errorAddress: errorAddress)
+		return runChild(executable, arguments: arguments, directory: "", hasInput: false, input: noString(), deadlineMs: deadlineMs, stdout: stdout, stderr: stderr, errorAddress: errorAddress)
 	end 'osRun'
 
 	// osRunIn is osRun with the child started in directory, relative to the run's working directory, or in the run's own
 	// working directory when directory is empty.
 	function osRunIn(executable String, arguments Count, directory String, deadlineMs Count, stdout Count, stderr Count, errorAddress Count) returns Count
+		return runChild(executable, arguments: arguments, directory: directory, hasInput: false, input: noString(), deadlineMs: deadlineMs, stdout: stdout, stderr: stderr, errorAddress: errorAddress)
+	end 'osRunIn'
+
+	// osRunInput is osRun with the child's standard input a pipe that holds the input and then ends.
+	function osRunInput(executable String, arguments Count, input String, deadlineMs Count, stdout Count, stderr Count, errorAddress Count) returns Count
+		return runChild(executable, arguments: arguments, directory: "", hasInput: true, input: input, deadlineMs: deadlineMs, stdout: stdout, stderr: stderr, errorAddress: errorAddress)
+	end 'osRunInput'
+
+	// openInputPipe makes the pipe of a run's input, whose read end the child can inherit and whose write end it cannot, the
+	// write end in nonblocking mode (PIPE_NOWAIT), so that a write takes what fits and the run goes on reading the child's
+	// output while the child has not read its input: neither waits on the other.
+	function openInputPipe(input Count, security Count) returns bool
+		__Raw.storeWord(input, offset: inputReadOffset, value: 0)
+		__Raw.storeWord(input, offset: inputWriteOffset, value: 0)
+		__Raw.storeWord(input, offset: inputDoneOffset, value: 0)
+		__Raw.storeWord(input, offset: inputOpenOffset, value: 0)
+		let made = __Raw.callImport4("CreatePipe", arg1: fieldAt(input, offset: inputReadOffset), arg2: fieldAt(input, offset: inputWriteOffset), arg3: security, arg4: defaultPipeSize)
+		if dword(made) == 0 'failed'
+			return false
+		end 'failed'
+		_ = __Raw.callImport3("SetHandleInformation", arg1: wordAt(input, offset: inputWriteOffset), arg2: handleFlagInherit, arg3: noMask)
+		var mode = pipeNoWait as Count
+		if dword(__Raw.callImport4("SetNamedPipeHandleState", arg1: wordAt(input, offset: inputWriteOffset), arg2: __Raw.addressOf(mode), arg3: noCollection, arg4: noCollection)) == 0 'blocking'
+			closeHandle(wordAt(input, offset: inputReadOffset))
+			closeHandle(wordAt(input, offset: inputWriteOffset))
+			return false
+		end 'blocking'
+		__Raw.storeWord(input, offset: inputOpenOffset, value: 1)
+		return true
+	end 'openInputPipe'
+
+	// closeInput closes the write end of a run's input, which ends the child's input, unless it is closed already.
+	function closeInput(input Count)
+		if wordAt(input, offset: inputOpenOffset) != 0 'open'
+			closeHandle(wordAt(input, offset: inputWriteOffset))
+			__Raw.storeWord(input, offset: inputOpenOffset, value: 0)
+		end 'open'
+	end 'closeInput'
+
+	// feedInput writes what the pipe of a run's input takes now of the input not written yet, and gives whether it wrote any. It
+	// never waits. Once all of it is written the input is closed; a write that fails is a child that stopped reading (the pipe
+	// has no reader), whose input is then closed too, which is no failure of the run.
+	function feedInput(input Count, text String) returns bool
+		if wordAt(input, offset: inputOpenOffset) == 0 'closed'
+			return false
+		end 'closed'
+		let done = wordAt(input, offset: inputDoneOffset)
+		let length = __Raw.stringLength(text)
+		if done >= length 'all'
+			closeInput(input)
+			return true
+		end 'all'
+		let left = __Raw.wrappingSub(length, right: done)
+		var wrote = 0 as Count
+		let ok = __Raw.callImport5("WriteFile", arg1: wordAt(input, offset: inputWriteOffset), arg2: __Raw.wrappingAdd(__Raw.stringBytes(text), right: done), arg3: left if left < inputChunkBytes else inputChunkBytes, arg4: __Raw.addressOf(wrote), arg5: noOverlapped)
+		if dword(ok) == 0 'refused'
+			closeInput(input)
+			return false
+		end 'refused'
+		if dword(wrote) == 0 'full'
+			return false
+		end 'full'
+		__Raw.storeWord(input, offset: inputDoneOffset, value: __Raw.wrappingAdd(done, right: dword(wrote)))
+		return true
+	end 'feedInput'
+
+	// runChild runs the child of osRun and osRunIn, in directory unless it is empty, and of osRunInput when hasInput is set.
+	function runChild(executable String, arguments Count, directory String, hasInput bool, input String, deadlineMs Count, stdout Count, stderr Count, errorAddress Count) returns Count
 		let frame = alloc(frameBytes)
 		let output = fieldAt(frame, offset: frameOutputOffset)
 		let errors = fieldAt(frame, offset: frameErrorOffset)
+		let inputPipe = fieldAt(frame, offset: frameInputOffset)
 		let command = commandLineOf(executable, arguments: arguments)
 		let security = fieldAt(frame, offset: frameSecurityOffset)
 		__Raw.storeWord32(security, offset: securityLengthOffset, value: securityBytes)
@@ -356,10 +449,20 @@ end 'argumentAt'
 			failWith(errorAddress, errorCase: ioFailed)
 			return 0
 		end 'pipes'
+		var childInput = __Raw.callImport1("GetStdHandle", arg1: stdInputHandle)
+		if hasInput 'input'
+			if not openInputPipe(inputPipe, security: security) 'inputPipe'
+				abandonRun(output, errors: errors, command: command)
+				free(frame)
+				failWith(errorAddress, errorCase: ioFailed)
+				return 0
+			end 'inputPipe'
+			childInput = wordAt(inputPipe, offset: inputReadOffset)
+		end 'input'
 		let startup = fieldAt(frame, offset: frameStartupOffset)
 		__Raw.storeWord32(startup, offset: startupSizeOffset, value: startupBytes)
 		__Raw.storeWord32(startup, offset: startupFlagsOffset, value: startfUseStdHandles)
-		__Raw.storeWord(startup, offset: startupInputOffset, value: __Raw.callImport1("GetStdHandle", arg1: stdInputHandle))
+		__Raw.storeWord(startup, offset: startupInputOffset, value: childInput)
 		__Raw.storeWord(startup, offset: startupOutputOffset, value: wordAt(output, offset: pipeWriteOffset))
 		__Raw.storeWord(startup, offset: startupErrorOffset, value: wordAt(errors, offset: pipeWriteOffset))
 		let inherited = fieldAt(frame, offset: frameInheritedOffset)
@@ -372,10 +475,16 @@ end 'argumentAt'
 			wideDirectory = wideOf(directory)
 		end 'directory'
 		let win32 = createChild(command, startup: startup, inherited: inherited, inheritedCount: inheritedCount, process: process, flags: extendedStartupInfoPresent, directory: wideDirectory)
+		if hasInput 'inputRead'
+			closeHandle(wordAt(inputPipe, offset: inputReadOffset))
+		end 'inputRead'
 		if wideDirectory != noCurrentDirectory 'wide'
 			free(wideDirectory)
 		end 'wide'
 		if win32 != 0 'spawn'
+			if hasInput 'inputWrite'
+				closeInput(inputPipe)
+			end 'inputWrite'
 			abandonRun(output, errors: errors, command: command)
 			free(frame)
 			endWithError(errorAddress, osError: win32, table: spawnFailures())
@@ -394,13 +503,18 @@ end 'argumentAt'
 		while draining 'drain'
 			if deadlineMs != noDeadline and __Raw.wrappingSub(__Raw.callImport0("GetTickCount64"), right: startedAt) >= deadlineMs 'late'
 				exitBlocking()
+				if hasInput 'abandonInput'
+					closeInput(inputPipe)
+				end 'abandonInput'
 				endAtDeadline(child, output: output, errors: errors, frame: frame, errorAddress: errorAddress)
 				return 0
 			end 'late'
+			let movedInput = hasInput and feedInput(inputPipe, text: input)
 			let movedOutput = drainPipe(output)
 			let movedErrors = drainPipe(errors)
-			if not movedOutput and not movedErrors 'idle'
-				if wordAt(output, offset: pipeOpenOffset) == 0 and wordAt(errors, offset: pipeOpenOffset) == 0 'ended'
+			if not movedInput and not movedOutput and not movedErrors 'idle'
+				let inputOpen = hasInput and wordAt(inputPipe, offset: inputOpenOffset) != 0
+				if wordAt(output, offset: pipeOpenOffset) == 0 and wordAt(errors, offset: pipeOpenOffset) == 0 and not inputOpen 'ended'
 					draining = false
 				end 'ended' else 'wait'
 					_ = __Raw.callImport2("WaitForSingleObject", arg1: child, arg2: pollMillis)
@@ -419,5 +533,5 @@ end 'argumentAt'
 		free(frame)
 		succeed(errorAddress)
 		return exitCode
-	end 'osRunIn'
+	end 'runChild'
 #endif

@@ -2681,8 +2681,8 @@ function main() returns ExitCode
 	let p = 3 as stdlib.BytePos
 	let bytes = "hello".toByteArray()
 	let b = try bytes.get(p) otherwise 0
-	let i = (c - 68) as stdlib.ElementIndex
-	return (c + (b as Codepoint) - 100 + (i as Codepoint)) as ExitCode
+	let i = try (c - 68) as stdlib.ElementIndex otherwise panic("out of range")
+	return try (c + (b as Codepoint) - 100 + (i as Codepoint)) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

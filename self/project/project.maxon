@@ -931,6 +931,11 @@ function discoverDirectory(mutates p ast.Project, rootPath String, memory Source
 		let rootMid = collectModuleTree(nodes, nodeIdx: 0 as Count, p: p)
 		p.rootModule = rootMid
 		p.modules[ast.modIndex(rootMid)].isRuntime = isRuntimeDirectory(rootPath)
+		if isCompilerDirectory(rootPath) 'compiler'
+			for m in 0 upto p.modules.count() 'modules'
+				p.modules[m].isCompiler = true
+			end 'modules'
+		end 'compiler'
 		addLibrary(p, rootPath: rootPath, errs: errs)
 	end 'collect'
 end 'discoverDirectory'

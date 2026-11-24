@@ -33,6 +33,7 @@ var macosImports = []libSystemFunction{
 	{name: "read"},
 	{name: "open", variadic: true, fixed: 2},
 	{name: "close"},
+	{name: "fcntl", variadic: true, fixed: 2},
 	{name: "fstat"},
 	{name: "stat"},
 	{name: "mmap"},

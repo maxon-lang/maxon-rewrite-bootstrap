@@ -11,6 +11,7 @@ export function macosImports() returns NameList
 	names.push("read")
 	names.push("open")
 	names.push("close")
+	names.push("fcntl")
 	names.push("fstat")
 	names.push("stat")
 	names.push("mmap")
@@ -76,11 +77,13 @@ end 'macosImports'
 export function macosVariadicImports() returns NameList
 	var names = NameList.create(0)
 	names.push("open")
+	names.push("fcntl")
 	return names
 end 'macosVariadicImports'
 
 export function macosVariadicFixedWords() returns CountList
 	var words = CountList.create(0)
+	words.push(2)
 	words.push(2)
 	return words
 end 'macosVariadicFixedWords'

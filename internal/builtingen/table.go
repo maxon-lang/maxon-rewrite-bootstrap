@@ -25,6 +25,7 @@ var primTypes = []primType{
 	{"Void", "b.voidTy"},
 	{"Count", "b.countTy"},
 	{"ElementIndex", "b.elementIndexTy"},
+	{"BytePos", "b.bytePosTy"},
 	{"Byte", "b.byteTy"},
 	{"FullRangeInt", "b.fullRangeIntTy"},
 	{"Codepoint", "b.codepointTy"},
@@ -36,6 +37,9 @@ var primTypes = []primType{
 	{"FullRangeInt", "b.fullRangeIntTy"},
 	// Float is the type of a float whose range is not known, which maxon names FullRangeFloat.
 	{"Float", "b.anonFloatTy"},
+	// Natural is the type of an integer whose alias is not known and that is not negative, the unsigned word, which any integer
+	// alias whose range it holds goes into, Count among them.
+	{"Natural", "b.anonU64Ty"},
 	{"OrderedWord", "b.orderedWordTy"},
 	{"HashDigest", "b.hashDigestTy"},
 }
@@ -54,6 +58,8 @@ var stdAliases = []stdAlias{
 	{Name: "ExitCode", Field: "exitCodeTy", Lo: "I128.zero()", Hi: "I128.fromCount(4294967295 as Count)"},
 	{Name: "Count", Field: "countTy", Lo: "I128.zero()", Hi: "I128.u64Max()"},
 	{Name: "ElementIndex", Field: "elementIndexTy", Lo: "I128.zero()", Hi: "I128.u64Max()"},
+	// BytePos is maxon's (stdlib/String.maxon): a position in the bytes of a string or a buffer of them.
+	{Name: "BytePos", Field: "bytePosTy", Lo: "I128.zero()", Hi: "I128.u64Max()"},
 	{Name: "FullRangeInt", Field: "fullRangeIntTy", Lo: "I128.i64Min()", Hi: "I128.i64Max()"},
 	// ReportedCapacity is maxon's (stdlib/Array.maxon): what an array's capacity() gives, signed since maxon's view of a buffer it
 	// does not own answers with a negative flag, which an array here never is.
@@ -81,7 +87,6 @@ type extraField struct {
 var extraFields = []extraField{
 	{"neverTy", "TypeID", "noType"},
 	{"anon64Ty", "TypeID", "noType"},
-	{"anonU64Ty", "TypeID", "noType"},
 	{"fullRangeFloatTy", "TypeID", "noType"},
 	{"stringMethods", "FuncIDMap", "FuncIDMap.new()"},
 	{"stdlibTypeMap", "TypeIDMap", "TypeIDMap.new()"},
@@ -580,6 +585,8 @@ var tableFunctions = []function{
 	// create(n, zeroed:) is maxon's one allocation with a stated capacity: zeroed: true is create(n), and zeroed: false an empty
 	// array with room for n, which is legal for every element. The flag is a literal.
 	{Owner: "Array", Name: "create", Static: true, Params: []string{"count ElementIndex", "zeroed Bool"}, Result: "Self", Intrinsic: "ArrayCreateZeroed", Field: "ArrayCreateZeroed", Checked: true},
+	// init is maxon's door from a raw buffer, which is an array's box: it makes the array of it.
+	{Owner: "Array", Name: "init", Static: true, Params: []string{"consumes managed ManagedMemory with T"}, Result: "Self", Intrinsic: "ArrayFromMemory", Raw: &rawSurface{What: "an array is made of a raw '__ManagedMemory' buffer", Instead: "use 'Array.create'"}},
 	{Owner: "Array", Name: "filled", Static: true, Params: []string{"count ElementIndex", "consumes value T"}, Result: "Self", Bounds: []string{"T Copyable"}, Intrinsic: "ArrayFilled"},
 	{Owner: "Array", Name: "count", Result: "Count", Intrinsic: "ArrayCount"},
 	{Owner: "Array", Name: "isEmpty", Result: "Bool", Intrinsic: "ArrayIsEmpty"},
@@ -863,6 +870,14 @@ var tableFunctions = []function{
 
 	{Owner: "Builtins", Name: "currentProcessId", Static: true, Result: "Count", Intrinsic: "ProcessId", Instead: "Process.id()"},
 	{Owner: "Builtins", Name: "currentTimeNanos", Static: true, Result: "Count", Intrinsic: "ClockNowNanos", Instead: "Clock.nowNanos()"},
+	// readStdin is maxon's: up to the count of bytes of standard input, of any integer type that is not negative, in a fresh buffer, empty only at the end.
+	// stdoutWantsAnsiColor is whether standard output is a character device, NO_COLOR is unset and TERM is not dumb, as maxon's
+	// runtime asks. runWithInput is Subprocess.runWithDeadline with the child's standard input a pipe that holds the input and
+	// then ends: what maxon's Configuration.standardInput of InputSource.bytes gives, which the compiler's test runner and
+	// interpreter run children with until maxon's Subprocess converts.
+	{Owner: "Builtins", Name: "readStdin", Static: true, Params: []string{"_ Natural"}, Result: "ManagedMemory with Byte", Intrinsic: "ReadStdin", Instead: "Console.stdin().readBytes(n)"},
+	{Owner: "Builtins", Name: "runWithInput", Static: true, Params: []string{"executable Executable", "arguments Array with String", "input String", "deadline WaitDeadline"}, Result: "CollectedOutput", Throws: "SubprocessError", Intrinsic: "SubprocessRunWithInput", Instead: "a Configuration whose standardInput is InputSource.bytes(text)"},
+	{Owner: "Builtins", Name: "stdoutWantsAnsiColor", Static: true, Result: "Bool", Intrinsic: "StdoutWantsColor", Instead: "Console.stdoutWantsColor()"},
 	// floatToBits is the 64 bits of a double read as an integer, as maxon's is: a reinterpretation, which the library's
 	// float hash folds.
 	{Owner: "Builtins", Name: "floatToBits", Static: true, Params: []string{"_ Float"}, Result: "FullRangeInt", Intrinsic: "FloatToBits", Instead: "the float's own operations"},
@@ -1129,6 +1144,9 @@ var entries = []entry{
 	{"DebugTerminate", "rt.debug.terminate", "Os", roleCall, "(process, exitCode) -> bool"},
 	{"OsRun", "rt.os.run", "Os", roleCall, "(executable String, arguments Array with String, deadlineMs, stdout, stderr, error) -> exit code: runs the executable with the arguments quoted as the C runtime splits them, and stores what the child wrote to each stream as a String at the address given for it; a child still running deadlineMs milliseconds after it started, when that is not 0, is terminated and the run fails with the timeout case"},
 	{"OsRunIn", "rt.os.runIn", "Os", roleCall, "(executable String, arguments Array with String, directory String, deadlineMs, stdout, stderr, error) -> exit code: rt.os.run with the child started in directory, relative to the caller's working directory"},
+	{"OsRunInput", "rt.os.runInput", "Os", roleCall, "(executable String, arguments Array with String, input String, deadlineMs, stdout, stderr, error) -> exit code: rt.os.run with the child's standard input a pipe that holds the input and then ends"},
+	{"OsReadStdin", "rt.os.readStdin", "Os", roleCall, "(most) -> ByteArray: up to most bytes of standard input, parking until one arrives; empty only at its end or a failure"},
+	{"OsStdoutWantsColor", "rt.os.stdoutWantsColor", "Os", roleCall, "() -> bool: whether standard output is a character device, NO_COLOR is unset and TERM is not dumb"},
 }
 
 // runtimeFunction is the function of the runtime's source (runtime/) that defines an entry, so that self links a call of
@@ -1269,6 +1287,9 @@ var runtimeFunctions = []runtimeFunction{
 	{"OsList", "osList(path String, errorAddress Count) Count"},
 	{"OsRun", "osRun(executable String, arguments Count, deadlineMs Count, stdout Count, stderr Count, errorAddress Count) Count"},
 	{"OsRunIn", "osRunIn(executable String, arguments Count, directory String, deadlineMs Count, stdout Count, stderr Count, errorAddress Count) Count"},
+	{"OsRunInput", "osRunInput(executable String, arguments Count, input String, deadlineMs Count, stdout Count, stderr Count, errorAddress Count) Count"},
+	{"OsReadStdin", "osReadStdin(most Count) Count"},
+	{"OsStdoutWantsColor", "osStdoutWantsColor() Bool"},
 	{"DebugLaunch", "debugLaunch(executable String, arguments Count, outputToError Bool, errorAddress Count) Count"},
 	{"DebugWaitEvent", "debugWaitEvent(budgetMs Count) Count"},
 	{"DebugContinueEvent", "debugContinueEvent(processId Count, thread Count, unhandled Bool) Bool"},

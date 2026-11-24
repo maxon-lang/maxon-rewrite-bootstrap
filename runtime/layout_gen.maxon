@@ -657,6 +657,15 @@ let linuxSigurg = 23 as Count
 // linuxSigUnblock is SIG_UNBLOCK: rt_sigprocmask lets the signals of the set through and leaves the others as they are.
 let linuxSigUnblock = 1 as Count
 
+// linuxSigBlock is SIG_BLOCK: rt_sigprocmask holds back the signals of the set and leaves the others as they are.
+let linuxSigBlock = 0 as Count
+
+// linuxSigSetMask is SIG_SETMASK: rt_sigprocmask makes the set the mask.
+let linuxSigSetMask = 2 as Count
+
+// linuxSigpipe is SIGPIPE, which a write to a pipe with no reader sends the writing thread.
+let linuxSigpipe = 13 as Count
+
 // linuxErrnoLimit is one past the largest errno: a result above the word -linuxErrnoLimit is a failure.
 let linuxErrnoLimit = 4096 as Count
 
@@ -708,6 +717,15 @@ let linuxOpenReplace = 524865 as Count
 // linuxOpenCloseOnExec is O_CLOEXEC: an fd that an execve closes, as pipe2 takes it.
 let linuxOpenCloseOnExec = 524288 as Count
 
+// linuxOpenNonblock is O_NONBLOCK: a write that would wait writes what fits, or fails with EAGAIN.
+let linuxOpenNonblock = 2048 as Count
+
+// linuxFcntlGetFlags is F_GETFL.
+let linuxFcntlGetFlags = 3 as Count
+
+// linuxFcntlSetFlags is F_SETFL.
+let linuxFcntlSetFlags = 4 as Count
+
 // linuxFileMode is 0666, which the umask narrows: the mode of a file the runtime makes.
 let linuxFileMode = 438 as Count
 
@@ -753,6 +771,9 @@ let linuxModeTypeMask = 61440 as Count
 // linuxModeDirectory is S_IFDIR.
 let linuxModeDirectory = 16384 as Count
 
+// linuxModeCharacter is S_IFCHR: a character device, a terminal among them.
+let linuxModeCharacter = 8192 as Count
+
 // linuxModeOwnerWrite is S_IWUSR: a file without it is the read-only one of FileInfo.
 let linuxModeOwnerWrite = 128 as Count
 
@@ -795,11 +816,17 @@ let linuxEtxtbsy = 26 as Count
 // linuxEnotempty is ENOTEMPTY.
 let linuxEnotempty = 39 as Count
 
+// linuxEpipe is EPIPE: a write to a pipe whose reader has closed it.
+let linuxEpipe = 32 as Count
+
 // linuxSigkill is SIGKILL.
 let linuxSigkill = 9 as Count
 
 // linuxPollIn is POLLIN.
 let linuxPollIn = 1 as Count
+
+// linuxPollOut is POLLOUT.
+let linuxPollOut = 4 as Count
 
 // linuxPollRecordBytes is a struct pollfd: the fd and the events asked, then the events that came, 16 bits.
 let linuxPollRecordBytes = 8 as Count
@@ -876,11 +903,32 @@ let macosModeTypeMask = 61440 as Count
 // macosModeDirectory is S_IFDIR.
 let macosModeDirectory = 16384 as Count
 
+// macosModeCharacter is S_IFCHR: a character device, a terminal among them.
+let macosModeCharacter = 8192 as Count
+
 // macosModeOwnerWrite is S_IWUSR: a file without it is the read-only one of FileInfo.
 let macosModeOwnerWrite = 128 as Count
 
 // macosPollIn is POLLIN.
 let macosPollIn = 1 as Count
+
+// macosPollOut is POLLOUT.
+let macosPollOut = 4 as Count
+
+// macosEpipe is EPIPE: a write to a pipe whose reader has closed it.
+let macosEpipe = 32 as Count
+
+// macosFcntlGetFlags is F_GETFL.
+let macosFcntlGetFlags = 3 as Count
+
+// macosFcntlSetFlags is F_SETFL.
+let macosFcntlSetFlags = 4 as Count
+
+// macosOpenNonblock is O_NONBLOCK: a write that would wait writes what fits, or fails with EAGAIN.
+let macosOpenNonblock = 4 as Count
+
+// macosFcntlSetNoSigpipe is F_SETNOSIGPIPE: a write to the fd whose reader has closed it fails with EPIPE and sends no SIGPIPE.
+let macosFcntlSetNoSigpipe = 73 as Count
 
 // macosPollRecordBytes is a struct pollfd: the fd and the events asked, then the events that came, 16 bits.
 let macosPollRecordBytes = 8 as Count
@@ -1096,6 +1144,12 @@ let macosSpawnCloexecDefault = 16384 as Count
 	// linuxSysPipe2 is pipe2(fds, flags).
 	let linuxSysPipe2 = 59 as Count
 
+	// linuxSysFcntl is fcntl(fd, command, argument).
+	let linuxSysFcntl = 25 as Count
+
+	// linuxSysRtSigtimedwait is rt_sigtimedwait(set, info, timeout, size of the signal mask): takes a pending signal of the set.
+	let linuxSysRtSigtimedwait = 137 as Count
+
 	// linuxSysGettid is gettid(): the calling thread's id, which a signal is sent to.
 	let linuxSysGettid = 178 as Count
 
@@ -1257,6 +1311,12 @@ let macosSpawnCloexecDefault = 16384 as Count
 
 	// linuxSysPipe2 is pipe2(fds, flags).
 	let linuxSysPipe2 = 293 as Count
+
+	// linuxSysFcntl is fcntl(fd, command, argument).
+	let linuxSysFcntl = 72 as Count
+
+	// linuxSysRtSigtimedwait is rt_sigtimedwait(set, info, timeout, size of the signal mask): takes a pending signal of the set.
+	let linuxSysRtSigtimedwait = 128 as Count
 
 	// linuxSysGettid is gettid(): the calling thread's id, which a signal is sent to.
 	let linuxSysGettid = 186 as Count

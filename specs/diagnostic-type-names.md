@@ -1790,11 +1790,12 @@ end 'main'
 ```
 
 <!-- test: error.a-generic-function-argument-of-a-typealiased-reader-names-the-alias -->
+<!-- positions: moved -->
 `StdinReader` is a typealias of a generic instance, so it is none of the kinds a type parameter binds.
 
 ```maxon
-function same(value Item) uses Item returns Item
-	return value
+function same(value Item) uses Item returns Item where Item implements Copyable
+	return value.clone()
 end 'same'
 
 function main() returns ExitCode

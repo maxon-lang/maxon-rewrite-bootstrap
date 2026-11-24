@@ -224,6 +224,8 @@ export function initBuiltins(mutates tt TypeSlot, reads TypeTable, mutates ft Fu
 	b.anonFloatTy = internFloatRange(tt, reads: reads, aliasName: "", lo: floatNegate(floatMaxBits), hi: floatMaxBits)
 	let countTy = b.countTy
 	tt.lists[typeList(tt, t: countTy)][typeIndex(tt, t: countTy)].supertype = b.elementIndexTy
+	let bytePosTy = b.bytePosTy
+	tt.lists[typeList(tt, t: bytePosTy)][typeIndex(tt, t: bytePosTy)].supertype = b.elementIndexTy
 	declareBuiltinTable(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, b: b, typeMap: typeMap, funcMap: funcMap)
 	b.stdlibTypeMap = typeMap
 	b.stdlibFuncMap = funcMap

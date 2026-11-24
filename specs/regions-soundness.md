@@ -2034,6 +2034,7 @@ error E3102: <fragment>:17:2: use of moved value 'src': its ownership moved to a
 ```
 
 <!-- test: array-init-over-an-isolated-local-is-then-pushed -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 The move leaves the array `ByteArray.init(src)` answers as the one owner of the storage, so the new name is an ordinary array that takes its own `push` and counts the bytes that were in `src`.
 
 ```maxon
@@ -2139,6 +2140,7 @@ error E3102: <fragment>:15:2: use of moved value 'src': its ownership moved to a
 ```
 
 <!-- test: error.array-init-over-an-isolated-local-sent-to-a-service-moves-it -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- positions: moved -->
 The same array sent as an `isolated` message argument crosses to the service's thread, so `src` is moved by the send and a later push from the sender is refused rather than racing the handler.
 

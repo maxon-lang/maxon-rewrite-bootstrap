@@ -472,6 +472,28 @@ function runChild(mutates vm Vm, f ir.IrFunction, x ir.Instr, directory String, 
 	end 'ran'
 end 'runChild'
 
+// entryOsRunInput halts: the interpreter gives no child an input of its own, so a program that does says `// native-only`.
+function entryOsRunInput(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	panic("interp: Subprocess.runWithInput is not run by the interpreter: mark the program native-only")
+end 'entryOsRunInput'
+
+// entryOsReadStdin gives up to the count asked of the standard input the run was given, and nothing at its end.
+function entryOsReadStdin(mutates vm Vm, f ir.IrFunction, x ir.Instr)
+	let most = try argNum(vm, f: f, x: x, i: 0) as Count otherwise panic("interp: a read's count past a count")
+	let left = try vm.stdin.count() - vm.stdinRead otherwise panic("interp: the standard input was read past its end")
+	let taken = most if most < left else left
+	let stop = try vm.stdinRead + taken otherwise panic("interp: the standard input past a count")
+	let bytes = try vm.stdin.slice(vm.stdinRead, endIndex: stop) otherwise panic("interp: the standard input was read past its end")
+	vm.stdinRead = stop
+	let made = newBytes(vm, buf: bytes)
+	giveRef(vm, x: x, o: made)
+end 'entryOsReadStdin'
+
+// entryOsStdoutWantsColor is false: the interpreter's standard output is a capture, which no escape sequence may go into.
+function entryOsStdoutWantsColor(mutates vm Vm, f ir.IrFunction, x ir.Instr)
+	giveFlag(vm, x: x, b: false)
+end 'entryOsStdoutWantsColor'
+
 // entrySchedPin pins nothing: the interpreter runs one thread, which every green thread is on.
 function entrySchedPin(mutates vm Vm, f ir.IrFunction, x ir.Instr)
 	giveNum(vm, x: x, n: 1)

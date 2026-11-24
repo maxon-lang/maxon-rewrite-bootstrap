@@ -505,6 +505,27 @@ let nanosPerSecond = 1000000000 as Count
 		return file
 	end 'openFile'
 
+	// readStandardInput reads up to count bytes of standard input to room and gives how many it read: 0 at the end of the
+	// stream, which a closed handle, a broken pipe and a failure are as well, as maxon's runtime does not tell them apart.
+	function readStandardInput(room Count, count Count) returns Count
+		let input = __Raw.callImport1("GetStdHandle", arg1: stdInputHandle)
+		var got = 0 as Count
+		enterBlocking()
+		let ok = __Raw.callImport5("ReadFile", arg1: input, arg2: room, arg3: count, arg4: __Raw.addressOf(got), arg5: noOverlapped)
+		exitBlocking()
+		if dword(ok) == 0 'failed'
+			return 0
+		end 'failed'
+		return dword(got)
+	end 'readStandardInput'
+
+	// fileTypeChar is GetFileType's answer for a character device: a console, which a redirect to a file or a pipe is not.
+	let fileTypeChar = 2
+
+	function stdoutIsCharacterDevice() returns bool
+		return dword(__Raw.callImport1("GetFileType", arg1: __Raw.callImport1("GetStdHandle", arg1: stdOutputHandle))) == fileTypeChar
+	end 'stdoutIsCharacterDevice'
+
 	// osReadText is the whole content of a file.
 	function osReadText(path String, errorAddress Count) returns String
 		var win32 = 0 as Count

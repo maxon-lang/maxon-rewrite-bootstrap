@@ -199,6 +199,16 @@ function lowerProcessSetExitCode(mutates l Lowerer, p ast.Project, ms ast.Module
 	return konst(l, value: 0 as Word)
 end 'lowerProcessSetExitCode'
 
+// lowerReadStdin is a fresh byte array of what one read of standard input gave: the box of an array of bytes, which a
+// __ManagedMemory of bytes is.
+function lowerReadStdin(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtOsReadStdin, kind: IrKind.kindManaged, args: argsOf1(args[0]))
+end 'lowerReadStdin'
+
+function lowerStdoutWantsColor(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtOsStdoutWantsColor, kind: IrKind.kindScalar, args: RegList.create(0))
+end 'lowerStdoutWantsColor'
+
 function lowerDirectoryCurrentPath(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	let text = entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtOsCurrentPath, kind: IrKind.kindManaged, args: RegList.create(0))
 	return builtinRecord(l, p: p, ms: ms, t: exprType(p, module: l.module, node: c.node), values: argsOf1(text))
@@ -372,19 +382,24 @@ export let noDeadline = 0 as Word
 
 function lowerSubprocessRun(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	let never = konst(l, value: noDeadline)
-	return runSubprocess(l, p: p, ms: ms, c: c, executable: args[0], arguments: args[1], directory: noReg, deadlineMs: never)
+	return runSubprocess(l, p: p, ms: ms, c: c, executable: args[0], arguments: args[1], directory: noReg, input: noReg, deadlineMs: never)
 end 'lowerSubprocessRun'
 
 function lowerSubprocessRunWithDeadline(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	let millis = deadlineMs(l, p: p, deadline: args[2])
-	return runSubprocess(l, p: p, ms: ms, c: c, executable: args[0], arguments: args[1], directory: noReg, deadlineMs: millis)
+	return runSubprocess(l, p: p, ms: ms, c: c, executable: args[0], arguments: args[1], directory: noReg, input: noReg, deadlineMs: millis)
 end 'lowerSubprocessRunWithDeadline'
 
 function lowerSubprocessRunInDirectory(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	let millis = deadlineMs(l, p: p, deadline: args[3])
 	let directory = pathText(l, path: args[2])
-	return runSubprocess(l, p: p, ms: ms, c: c, executable: args[0], arguments: args[1], directory: directory, deadlineMs: millis)
+	return runSubprocess(l, p: p, ms: ms, c: c, executable: args[0], arguments: args[1], directory: directory, input: noReg, deadlineMs: millis)
 end 'lowerSubprocessRunInDirectory'
+
+function lowerSubprocessRunWithInput(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	let millis = deadlineMs(l, p: p, deadline: args[3])
+	return runSubprocess(l, p: p, ms: ms, c: c, executable: args[0], arguments: args[1], directory: noReg, input: args[2], deadlineMs: millis)
+end 'lowerSubprocessRunWithInput'
 
 // deadlineMs is the milliseconds a WaitDeadline gives, noDeadline for none.
 function deadlineMs(mutates l Lowerer, p ast.Project, deadline Reg) returns Reg
@@ -405,9 +420,10 @@ function deadlineMs(mutates l Lowerer, p ast.Project, deadline Reg) returns Reg
 	return load(l, slot: millis)
 end 'deadlineMs'
 
-// runSubprocess runs the child, in directory by rt.os.runIn or, for noReg, in the caller's working directory by rt.os.run,
-// and makes the CollectedOutput of what the entry stored and returned.
-function runSubprocess(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, executable Reg, arguments Reg, directory Reg, deadlineMs Reg) returns Reg
+// runSubprocess runs the child and makes the CollectedOutput of what the entry stored and returned. A run in a directory, which
+// is noReg for the caller's working directory, uses rt.os.runIn; a run with input, which is noReg for none, gives the child the
+// input as its standard input by rt.os.runInput. No run has both.
+function runSubprocess(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, executable Reg, arguments Reg, directory Reg, input Reg, deadlineMs Reg) returns Reg
 	let site = siteOf(l, p: p, node: c.node)
 	let stdout = l.b.f.newSlot(IrKind.kindString)
 	let stderr = l.b.f.newSlot(IrKind.kindString)
@@ -421,6 +437,10 @@ function runSubprocess(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleSt
 		all.push(directory)
 		symbol = Rt.rtOsRunIn
 	end 'directory'
+	if input != noReg 'input'
+		all.push(input)
+		symbol = Rt.rtOsRunInput
+	end 'input'
 	all.push(deadlineMs)
 	all.push(slotAddr(l, slot: stdout))
 	all.push(slotAddr(l, slot: stderr))

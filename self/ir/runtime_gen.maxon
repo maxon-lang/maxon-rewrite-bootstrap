@@ -185,6 +185,9 @@ export enum Rt
 	rtDebugTerminate
 	rtOsRun
 	rtOsRunIn
+	rtOsRunInput
+	rtOsReadStdin
+	rtOsStdoutWantsColor
 end 'Rt'
 
 // rtSymbol is the name the runtime defines a symbol by.
@@ -735,6 +738,15 @@ export function rtSymbol(r Rt) returns String
 	if r == Rt.rtOsRunIn 'rtOsRunIn'
 		return "runtime::osRunIn"
 	end 'rtOsRunIn'
+	if r == Rt.rtOsRunInput 'rtOsRunInput'
+		return "runtime::osRunInput"
+	end 'rtOsRunInput'
+	if r == Rt.rtOsReadStdin 'rtOsReadStdin'
+		return "runtime::osReadStdin"
+	end 'rtOsReadStdin'
+	if r == Rt.rtOsStdoutWantsColor 'rtOsStdoutWantsColor'
+		return "runtime::osStdoutWantsColor"
+	end 'rtOsStdoutWantsColor'
 	panic("ir: rtNone names no runtime symbol")
 end 'rtSymbol'
 
@@ -1286,6 +1298,15 @@ export function rtText(r Rt) returns String
 	if r == Rt.rtOsRunIn 'rtOsRunIn'
 		return "rt.os.runIn"
 	end 'rtOsRunIn'
+	if r == Rt.rtOsRunInput 'rtOsRunInput'
+		return "rt.os.runInput"
+	end 'rtOsRunInput'
+	if r == Rt.rtOsReadStdin 'rtOsReadStdin'
+		return "rt.os.readStdin"
+	end 'rtOsReadStdin'
+	if r == Rt.rtOsStdoutWantsColor 'rtOsStdoutWantsColor'
+		return "rt.os.stdoutWantsColor"
+	end 'rtOsStdoutWantsColor'
 	panic("ir: rtNone has no text")
 end 'rtText'
 
@@ -1837,6 +1858,15 @@ export function rtCode(r Rt) returns Count
 	if r == Rt.rtOsRunIn 'rtOsRunIn'
 		return 182
 	end 'rtOsRunIn'
+	if r == Rt.rtOsRunInput 'rtOsRunInput'
+		return 183
+	end 'rtOsRunInput'
+	if r == Rt.rtOsReadStdin 'rtOsReadStdin'
+		return 184
+	end 'rtOsReadStdin'
+	if r == Rt.rtOsStdoutWantsColor 'rtOsStdoutWantsColor'
+		return 185
+	end 'rtOsStdoutWantsColor'
 	panic("ir: rtNone has no number")
 end 'rtCode'
 
@@ -2025,6 +2055,9 @@ export function rtOf(code Count) returns Rt
 		180 gives Rt.rtDebugTerminate
 		181 gives Rt.rtOsRun
 		182 gives Rt.rtOsRunIn
+		183 gives Rt.rtOsRunInput
+		184 gives Rt.rtOsReadStdin
+		185 gives Rt.rtOsStdoutWantsColor
 		default panic("ir: a number that is no runtime symbol")
 	end 'code'
 end 'rtOf'
@@ -2589,6 +2622,15 @@ export function rtUnit(r Rt) returns RtUnit
 	if r == Rt.rtOsRunIn 'rtOsRunIn'
 		return RtUnit.rtUnitOs
 	end 'rtOsRunIn'
+	if r == Rt.rtOsRunInput 'rtOsRunInput'
+		return RtUnit.rtUnitOs
+	end 'rtOsRunInput'
+	if r == Rt.rtOsReadStdin 'rtOsReadStdin'
+		return RtUnit.rtUnitOs
+	end 'rtOsReadStdin'
+	if r == Rt.rtOsStdoutWantsColor 'rtOsStdoutWantsColor'
+		return RtUnit.rtUnitOs
+	end 'rtOsStdoutWantsColor'
 	panic("ir: rtNone is defined by no unit")
 end 'rtUnit'
 
@@ -3158,6 +3200,20 @@ export function rtFunctions(b ast.Builtins) returns RtFunctionList
 	params140.push(RtParam.make(ast.Convention.convLet, name: "stderr", ty: b.countTy))
 	params140.push(RtParam.make(ast.Convention.convLet, name: "errorAddress", ty: b.countTy))
 	fns.push(RtFunction.make(Rt.rtOsRunIn, name: "osRunIn", params: params140, result: b.countTy))
+	var params141 = RtParamList.create(0)
+	params141.push(RtParam.make(ast.Convention.convLet, name: "executable", ty: b.stringTy))
+	params141.push(RtParam.make(ast.Convention.convLet, name: "arguments", ty: b.countTy))
+	params141.push(RtParam.make(ast.Convention.convLet, name: "input", ty: b.stringTy))
+	params141.push(RtParam.make(ast.Convention.convLet, name: "deadlineMs", ty: b.countTy))
+	params141.push(RtParam.make(ast.Convention.convLet, name: "stdout", ty: b.countTy))
+	params141.push(RtParam.make(ast.Convention.convLet, name: "stderr", ty: b.countTy))
+	params141.push(RtParam.make(ast.Convention.convLet, name: "errorAddress", ty: b.countTy))
+	fns.push(RtFunction.make(Rt.rtOsRunInput, name: "osRunInput", params: params141, result: b.countTy))
+	var params142 = RtParamList.create(0)
+	params142.push(RtParam.make(ast.Convention.convLet, name: "most", ty: b.countTy))
+	fns.push(RtFunction.make(Rt.rtOsReadStdin, name: "osReadStdin", params: params142, result: b.countTy))
+	let params143 = RtParamList.create(0)
+	fns.push(RtFunction.make(Rt.rtOsStdoutWantsColor, name: "osStdoutWantsColor", params: params143, result: b.boolTy))
 	return fns
 end 'rtFunctions'
 
@@ -3347,6 +3403,9 @@ export function rtGivesString(r Rt) returns bool
 		rtDebugCloseHandle or
 		rtDebugTerminate or
 		rtOsRun or
-		rtOsRunIn gives false
+		rtOsRunIn or
+		rtOsRunInput or
+		rtOsReadStdin or
+		rtOsStdoutWantsColor gives false
 	end 'entry'
 end 'rtGivesString'

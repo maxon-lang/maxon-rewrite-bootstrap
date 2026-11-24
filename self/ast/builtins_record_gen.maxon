@@ -6,6 +6,7 @@ export type Builtins
 	export var voidTy as TypeID
 	export var countTy as TypeID
 	export var elementIndexTy as TypeID
+	export var bytePosTy as TypeID
 	export var byteTy as TypeID
 	export var fullRangeIntTy as TypeID
 	export var codepointTy as TypeID
@@ -15,11 +16,11 @@ export type Builtins
 	export var mailboxCapacityTy as TypeID
 	export var reportedCapacityTy as TypeID
 	export var anonFloatTy as TypeID
+	export var anonU64Ty as TypeID
 	export var orderedWordTy as TypeID
 	export var hashDigestTy as TypeID
 	export var neverTy as TypeID
 	export var anon64Ty as TypeID
-	export var anonU64Ty as TypeID
 	export var fullRangeFloatTy as TypeID
 	export var arrayOrigin as TypeID
 	export var fixedArrayOrigin as TypeID
@@ -95,7 +96,7 @@ export type Builtins
 	export var stdlibFuncMap as FuncIDMap
 
 	export static function empty() returns Builtins
-		return Builtins{boolTy: noType, stringTy: noType, voidTy: noType, countTy: noType, elementIndexTy: noType, byteTy: noType, fullRangeIntTy: noType, codepointTy: noType, codeUnit16Ty: noType, exitCodeTy: noType, millisecondsTy: noType, mailboxCapacityTy: noType, reportedCapacityTy: noType, anonFloatTy: noType, orderedWordTy: noType, hashDigestTy: noType, neverTy: noType, anon64Ty: noType, anonU64Ty: noType, fullRangeFloatTy: noType, arrayOrigin: noType, fixedArrayOrigin: noType, managedMemoryOrigin: noType, managedMemoryCursorOrigin: noType, listCursorOrigin: noType, stringCursorTy: noType, groupMemoryOrigin: noType, listOrigin: noType, poolOrigin: noType, handleOrigin: noType, frozenOrigin: noType, cownOrigin: noType, promiseOrigin: noType, serviceOrigin: noType, commandLineTy: noType, processTy: noType, clockTy: noType, schedulerTy: noType, filePathTy: noType, fileTy: noType, directoryTy: noType, stringIndexTy: noType, byteViewTy: noType, byteIteratorTy: noType, codepointViewTy: noType, codepointIteratorTy: noType, utf16ViewTy: noType, utf16IteratorTy: noType, collectedOutputTy: noType, fileInfoTy: noType, subprocessTy: noType, debuggeeTy: noType, rawTy: noType, builtinsTy: noType, executableTy: noType, waitDeadlineTy: noType, arithmeticErrorTy: noType, arrayErrorTy: noType, managedMemoryErrorTy: noType, filePathErrorTy: noType, fileReadErrorTy: noType, fileWriteErrorTy: noType, filePermissionTy: noType, sendErrorTy: noType, fileDeleteErrorTy: noType, fileRenameErrorTy: noType, fileInfoErrorTy: noType, directoryListErrorTy: noType, directoryDeleteErrorTy: noType, processIntrospectionErrorTy: noType, subprocessErrorTy: noType, debuggeeErrorTy: noType, debugDispositionTy: noType, stringErrorTy: noType, iterationErrorTy: noType, castErrorTy: noType, copyableTy: noType, droppableTy: noType, errorTy: noType, initableFromStringLiteralTy: noType, arrayCreateZeroedFunc: noFunc, fixedArrayCreateFilledFunc: noFunc, fixedArrayCreateCountedFunc: noFunc, fixedArrayCreateCountedFilledFunc: noFunc, fixedArrayGetProvenFunc: noFunc, fixedArraySetProvenFunc: noFunc, cownNewFunc: noFunc, cownNewDropWithFunc: noFunc, hashStringBytesFunc: noFunc, stringMethods: FuncIDMap.new(), stdlibTypeMap: TypeIDMap.new(), stdlibFuncMap: FuncIDMap.new()}
+		return Builtins{boolTy: noType, stringTy: noType, voidTy: noType, countTy: noType, elementIndexTy: noType, bytePosTy: noType, byteTy: noType, fullRangeIntTy: noType, codepointTy: noType, codeUnit16Ty: noType, exitCodeTy: noType, millisecondsTy: noType, mailboxCapacityTy: noType, reportedCapacityTy: noType, anonFloatTy: noType, anonU64Ty: noType, orderedWordTy: noType, hashDigestTy: noType, neverTy: noType, anon64Ty: noType, fullRangeFloatTy: noType, arrayOrigin: noType, fixedArrayOrigin: noType, managedMemoryOrigin: noType, managedMemoryCursorOrigin: noType, listCursorOrigin: noType, stringCursorTy: noType, groupMemoryOrigin: noType, listOrigin: noType, poolOrigin: noType, handleOrigin: noType, frozenOrigin: noType, cownOrigin: noType, promiseOrigin: noType, serviceOrigin: noType, commandLineTy: noType, processTy: noType, clockTy: noType, schedulerTy: noType, filePathTy: noType, fileTy: noType, directoryTy: noType, stringIndexTy: noType, byteViewTy: noType, byteIteratorTy: noType, codepointViewTy: noType, codepointIteratorTy: noType, utf16ViewTy: noType, utf16IteratorTy: noType, collectedOutputTy: noType, fileInfoTy: noType, subprocessTy: noType, debuggeeTy: noType, rawTy: noType, builtinsTy: noType, executableTy: noType, waitDeadlineTy: noType, arithmeticErrorTy: noType, arrayErrorTy: noType, managedMemoryErrorTy: noType, filePathErrorTy: noType, fileReadErrorTy: noType, fileWriteErrorTy: noType, filePermissionTy: noType, sendErrorTy: noType, fileDeleteErrorTy: noType, fileRenameErrorTy: noType, fileInfoErrorTy: noType, directoryListErrorTy: noType, directoryDeleteErrorTy: noType, processIntrospectionErrorTy: noType, subprocessErrorTy: noType, debuggeeErrorTy: noType, debugDispositionTy: noType, stringErrorTy: noType, iterationErrorTy: noType, castErrorTy: noType, copyableTy: noType, droppableTy: noType, errorTy: noType, initableFromStringLiteralTy: noType, arrayCreateZeroedFunc: noFunc, fixedArrayCreateFilledFunc: noFunc, fixedArrayCreateCountedFunc: noFunc, fixedArrayCreateCountedFilledFunc: noFunc, fixedArrayGetProvenFunc: noFunc, fixedArraySetProvenFunc: noFunc, cownNewFunc: noFunc, cownNewDropWithFunc: noFunc, hashStringBytesFunc: noFunc, stringMethods: FuncIDMap.new(), stdlibTypeMap: TypeIDMap.new(), stdlibFuncMap: FuncIDMap.new()}
 	end 'empty'
 
 	// isCapability is whether an interface is one that a type has by its parts and no declaration implements.

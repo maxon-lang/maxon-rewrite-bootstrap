@@ -481,7 +481,8 @@ is that of its module (`app::main`), and a project with no `main` in any module 
   unknown (`E2004`) as in maxon.
 - **The standard library** is Maxon source in `stdlib/`, found as `runtime/` is (the `stdlib` directory of the nearest
   directory, from the compiler's executable's upward, that has one), converted from maxon's `stdlib/` by `cmd/convert`
-  but for `Map.maxon`, which is minimaxon's own (see "Where it differs from Maxon") and which no conversion touches; maxon's
+  but for `Map.maxon`, `Stream.maxon` and `Console.maxon`, which are minimaxon's own (see "Where it differs from Maxon") and
+  which no conversion touches; maxon's
   `StringBuilder.maxon` is left out, since an interpolation builds a String here:
   `stdlib/files.txt` lists the files converted so far, each with the library module it goes to (its directory under
   `stdlib/`, `.` for the root) and, where two files of one module would share a name, the name it takes (`StringHash.maxon`), and `.\stdlib.ps1` regenerates them, then applies the compiler's `fix` to them as `specs.ps1`
@@ -519,8 +520,10 @@ is that of its module (`app::main`), and a project with no `main` in any module 
   module of it, which is how the gate checks the library.
 - **The raw surface is the library tiers'.** Maxon's library is written on a raw surface that reads and writes memory past the
   ownership model's bookkeeping: the static functions of `__Builtins`, the type `__ManagedMemory` and its methods, and an
-  array's `.managed` (see "Primitives"). Only a module of the runtime or of the library, or a program the spec runner stages
-  in the library, may go through one of these doors; anywhere else each is `E3185` at the door, in maxon's words, with
+  array's `.managed` (see "Primitives"). Only a module of the runtime or of the library, a program the spec runner stages
+  in the library, or the compiler's own source, may go through one of these doors (the compiler reads its standard input with
+  `__Builtins.readStdin` and runs a test's executable with `__Builtins.runWithInput`, what maxon's `Configuration` with an
+  `InputSource.bytes` runs, until maxon's Subprocess converts); anywhere else each is `E3185` at the door, in maxon's words, with
   what a program uses instead (`Process.id()` for `__Builtins.currentProcessId()`, the `Array` methods for `.managed`),
   as a table of `internal/builtingen` says. A refused type stops the declaration that names it, so its body reports nothing
   more of it. `__Raw` is narrower still: the runtime's alone (`E3152`).
@@ -2698,7 +2701,7 @@ rather than being `E3005`, and an operation whose context expects one of them is
 any value of the parent. The parent is a ranged typealias, `int` or `float` (`E2003`), possibly of another module
 (`implements shapes.Index`); the subtype's range lies inside the parent's and is over the same primitive, a signed range
 (one that holds a negative value) only under a signed one (`E3178`); a chain that comes back to the alias is `E3091`. The
-built-in `Count` is a subtype of `ElementIndex`.
+built-in `Count` is a subtype of `ElementIndex`, and so is `BytePos`, maxon's position in a string's or a buffer's bytes.
 
 ### Bit patterns
 
@@ -4739,6 +4742,17 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   that reason). Not yet: `sendTimeout:`, interface handles (`I.handle`),
   `T.request`, `acquire`, `reply.later()`, `SharedValue`, `default`, a generic service, a message with type parameters,
   one `try await h.m()` over a message that throws, and services in the interpreter.
+- `stdlib/Stream.maxon` and `stdlib/Console.maxon` (`Console.stdin()`, a `StreamReader` over a `StdinSource`) are minimaxon's own,
+  written from maxon's (with `helpers/stream/streamBytes.maxon`) until they convert: maxon's name the network's, TLS's, files'
+  and child processes' sources, which this library has not got, and spell a constant (`64 * 1024 * 1024 as LineCap`),
+  unchecked arithmetic and a receiver that satisfies `mutable self` as maxon's rules allow and these do not. So there is no
+  `ChildOutputReader`, `FileStreamReader`, `TcpStreamReader` or `TlsStreamReader` yet, `StreamError` has no `secure`
+  case, and a `ByteSource`'s `readSome` takes `mutates self`.
+- `Console.stdoutWantsColor()` asks maxon's three questions on Linux too (standard output a character device by `fstat`'s
+  `S_IFCHR`, `NO_COLOR` unset, `TERM` not `dumb`), where maxon's runtime answers false there: its Linux lanes have the
+  terminal test but not yet the environment, which a libc-less image reaches only through what its entry stub captured
+  (maxon's `TerminalRuntime.maxon`), a gap rather than a decision, which this runtime has not, reading the environment from
+  the stack the process started with.
 - No alias subtyping (an alias implementing another), characters, region capabilities (`isolated` and `immutable` of a
   local, a payload or a receiver, and `modify`), static fields, default parameters. The memory model of [docs/regions.md](docs/regions.md) is implemented: owned
   values, the primitives, frozen values, cowns and behaviours (see "Ownership", "Primitives" and

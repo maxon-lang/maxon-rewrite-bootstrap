@@ -107,6 +107,7 @@ array-hashable.md: hash-avalanches
 array-hashable.md: string-array-equals-compares-element-content
 array-hashable.md: string-array-hash-follows-element-content
 array-hashable.md: string-array-operator-equality-compares-element-content
+array-init.md: error.a-non-buffer-argument
 array-literal-element-size.md: array-literal-nonconstant-byte-stride
 array-managed-elements.md: array-of-structs-cleanup-order
 array-managed-elements.md: array-of-structs-with-string
@@ -1308,6 +1309,15 @@ conditional-ownership-param.md: struct-same-depth-reassign
 conditional-ownership-param.md: union-cond-reassign-else
 conditional-ownership-param.md: union-cond-reassign-then
 conditional-ownership-param.md: union-reassign-to-other-borrowed-param
+console-stdin.md: console-stdin.a-second-reader-also-sees-eof
+console-stdin.md: console-stdin.builtin-arity-checked
+console-stdin.md: console-stdin.builtin-operand-type
+console-stdin.md: console-stdin.builtin-takes-a-ranged-count
+console-stdin.md: console-stdin.error.a-non-exported-method-is-refused
+console-stdin.md: console-stdin.read-bytes-answers-an-empty-array-at-eof
+console-stdin.md: console-stdin.read-bytes-result-is-owned
+console-stdin.md: console-stdin.read-line-at-eof-answers-ended
+console-stdin.md: console-stdin.repeat-reads-at-eof-are-idempotent
 constant-string-slice.md: a-folded-slice-does-not-corrupt-a-deduped-literal
 constant-string-slice.md: a-folded-slice-is-still-copy-on-write
 constants.md: assignment
@@ -4851,6 +4861,7 @@ namespace-qualified-resolution.md: one-alias-reached-by-its-bare-and-qualified-s
 namespace-qualified-resolution.md: qualified-alias-carries-its-own-declaring-range
 namespace-qualified-resolution.md: same-directory-alias-pair-is-not-offered-as-its-own-disambiguation
 namespace-qualified-resolution.md: static-method-outranks-a-same-named-directory
+namespace-qualified-resolution.md: the-librarys-supplied-aliases-are-named-through-stdlib
 namespace-qualified-resolution.md: two-directories-export-one-alias-over-two-primitives-and-both-stand
 namespace-qualified-resolution.md: uncontested-free-function-in-a-type-named-directory
 namespaces.md: bare-call-resolves-free-fn-over-different-arity-method
@@ -7299,6 +7310,8 @@ temporary-borrow-lifetime.md: first-borrowed-out-of-a-temporary-array
 temporary-borrow-lifetime.md: last-borrowed-out-of-a-temporary-array
 temporary-borrow-lifetime.md: the-same-temporary-yields-a-borrow-and-an-owned-value
 temporary-borrow-lifetime.md: two-borrows-out-of-two-temporaries-in-one-statement
+terminal-color-detection.md: terminal-color-detection.answers-false-when-stdout-is-captured
+terminal-color-detection.md: terminal-color-detection.is-stable-across-calls
 terminating-statement-temporaries.md: not-taken-path-releases-nothing
 terminating-statement-temporaries.md: owned-temporary-in-the-message
 terminating-statement-temporaries.md: panic-interpolation-in-a-block

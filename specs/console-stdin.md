@@ -72,7 +72,7 @@ The first `readLine()` on a closed stdin answers `LineOrEnd.ended`. If it instea
 empty line a NUL-scanned length would produce — the program returns 1, and a read that threw returns 2.
 ```maxon
 function main() returns ExitCode
-	let stdin = Console.stdin()
+	var stdin = Console.stdin()
 	let read = try stdin.readLine() otherwise return 2
 	return match read 'read'
 		ended gives 9
@@ -107,7 +107,7 @@ its own latched end, so it asks the OS itself and reaches the same answer. Bytes
 that reader's alone, and the half a closed stdin can reach is that the second construction neither shares
 the first reader's state nor faults on a spent stream.
 ```maxon
-function atEnd(reader StdinReader) returns bool
+function atEnd(mutates reader StdinReader) returns bool
 	let read = try reader.readLine() otherwise return false
 	return match read 'read'
 		ended gives true
@@ -116,11 +116,11 @@ function atEnd(reader StdinReader) returns bool
 end 'atEnd'
 
 function main() returns ExitCode
-	let first = Console.stdin()
+	var first = Console.stdin()
 	if not atEnd(first) 'firstRead'
 		return 2
 	end 'firstRead'
-	let second = Console.stdin()
+	var second = Console.stdin()
 	if not atEnd(second) 'secondRead'
 		return 1
 	end 'secondRead'
@@ -137,18 +137,18 @@ exactly as the first did. A reader that re-issued the read would still be correc
 stale buffer, or that stopped answering `ended`, would not.
 ```maxon
 function main() returns ExitCode
-	let stdin = Console.stdin()
+	var stdin = Console.stdin()
 	var endings = 0 as Count
 	var i = 0 as Count
 	while i < 3 'again'
 		let read = try stdin.readLine() otherwise return 2
 		match read 'read'
-			ended then endings = endings + 1
+			ended then endings = try endings + 1 otherwise panic("out of range")
 			line then return 1
 		end 'read'
 		i = i + 1
 	end 'again'
-	return endings as ExitCode
+	return try endings as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -160,7 +160,7 @@ end 'main'
 leaking into the count would answer 64.
 ```maxon
 function main() returns ExitCode
-	let stdin = Console.stdin()
+	var stdin = Console.stdin()
 	let bytes = try stdin.readBytes(64) otherwise return 2
 	if bytes.count() == 0 'eof'
 		return 5
@@ -178,15 +178,15 @@ hundred of them in a loop is the leak gate's shape: a missing drop is a non-zero
 which the runtime reports as exit 101 rather than as a wrong number.
 ```maxon
 function main() returns ExitCode
-	let stdin = Console.stdin()
+	var stdin = Console.stdin()
 	var total = 0 as Count
 	var i = 0 as Count
 	while i < 100 'reads'
 		let bytes = try stdin.readBytes(4096) otherwise return 2
-		total = total + bytes.count()
+		total = try total + bytes.count() otherwise panic("out of range")
 		i = i + 1
 	end 'reads'
-	return (total + 6) as ExitCode
+	return try (total + 6) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -263,13 +263,13 @@ error E3104: <fragment>:3:22: 'Console.stdin' lowers to the runtime entry '__con
 ```maxon
 function shown(read LineOrEnd) returns String
 	return match read 'read'
-		line(text) gives text
+		line(text) gives text.clone()
 		ended gives "ended"
 	end 'read'
 end 'shown'
 
 function main() returns ExitCode
-	let input = Console.stdin()
+	var input = Console.stdin()
 	print("ready\n")
 	let first = shown(try input.readLine() otherwise return 2)
 	let second = shown(try input.readLine() otherwise return 3)

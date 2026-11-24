@@ -343,6 +343,9 @@ export type Module
 	// stagedInLibrary is whether a module of the program is compiled in the library tier, as maxon's spec runner compiles a case
 	// marked `tier: stdlib`: it may name maxon's raw surface, as the runtime and the library may (E3185).
 	export var stagedInLibrary as bool
+	// isCompiler is whether the module is the compiler's own source, which reads its input and runs its tests' children through
+	// the library tiers' built-ins (__Builtins.readStdin, __Builtins.runWithInput) and so goes through the doors they do.
+	export var isCompiler as bool
 	export var filePaths as StringList
 	export var childNames as StringList
 	export var childIDs as Array with diag.ModuleID
@@ -356,7 +359,7 @@ export type Module
 	export var tables as ModuleTables
 
 	export static function new(id diag.ModuleID, consumes path String, consumes text String, consumes files FileSpanList) returns Module
-		return Module{id: id, path: path, dir: "", isRuntime: false, isLibrary: false, stagedInLibrary: false, filePaths: StringList.create(0), childNames: StringList.create(0), childIDs: Array.create(0), files: freeze(files), tree: freeze(Tree.new(id, text: text)), decls: freeze(DeclList.create(0)), names: freeze(DeclIndex.new()), nested: freeze(NestedAliasList.create(0)), tables: ModuleTables.new()}
+		return Module{id: id, path: path, dir: "", isRuntime: false, isLibrary: false, stagedInLibrary: false, isCompiler: false, filePaths: StringList.create(0), childNames: StringList.create(0), childIDs: Array.create(0), files: freeze(files), tree: freeze(Tree.new(id, text: text)), decls: freeze(DeclList.create(0)), names: freeze(DeclIndex.new()), nested: freeze(NestedAliasList.create(0)), tables: ModuleTables.new()}
 	end 'new'
 
 	export function display() returns String
@@ -371,7 +374,7 @@ export type Module
 
 	// inLibraryTier is whether the module may name maxon's raw surface (E3185).
 	export function inLibraryTier() returns bool
-		return isRuntime or isLibrary or stagedInLibrary
+		return isRuntime or isLibrary or stagedInLibrary or isCompiler
 	end 'inLibraryTier'
 
 	export function findChild(name String) returns table.Option with diag.ModuleID
@@ -386,7 +389,7 @@ export type Module
 	// viewOf is the module as a task sees it that waited on the stages that made tree and, where parsed, on its parse: where it
 	// is, and those products, shared, with tables, a view of its tables.
 	export function viewOf(consumes viewTree frozen with Tree, parsed bool, consumes viewTables ModuleTables) returns Module
-		var view = Module{id: id, path: path.clone(), dir: dir.clone(), isRuntime: isRuntime, isLibrary: isLibrary, stagedInLibrary: stagedInLibrary, filePaths: filePaths.clone(), childNames: childNames.clone(), childIDs: childIDs.clone(), files: share(files), tree: viewTree, decls: share(decls), names: share(names), nested: share(nested), tables: viewTables}
+		var view = Module{id: id, path: path.clone(), dir: dir.clone(), isRuntime: isRuntime, isLibrary: isLibrary, stagedInLibrary: stagedInLibrary, isCompiler: isCompiler, filePaths: filePaths.clone(), childNames: childNames.clone(), childIDs: childIDs.clone(), files: share(files), tree: viewTree, decls: share(decls), names: share(names), nested: share(nested), tables: viewTables}
 		if not parsed 'unparsed'
 			view.files = freeze(FileSpanList.create(0))
 			view.decls = freeze(DeclList.create(0))

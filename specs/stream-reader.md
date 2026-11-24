@@ -174,9 +174,9 @@ function main() returns ExitCode
 	let chunk = "0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789"
 	var content = ""
 	for _ in 0 upto 11000 'eachChunk'
-		content.append(chunk)
+		content = "{content}{chunk}"
 	end 'eachChunk'
-	content.append("\nshort\n")
+	content = "{content}\nshort\n"
 	try File.writeText(path, content: content) otherwise return 1
 	let reader = try File.openRead(path) otherwise return 2
 	let long = shown(try reader.readLine() otherwise return 3)

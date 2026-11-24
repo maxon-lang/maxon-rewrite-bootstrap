@@ -1,0 +1,65 @@
+// Standard input, read as maxon's runtime reads it (Compiler/Runtime/ConsoleRuntime.maxon): what one read of the stream gave,
+// counted by what the system said it read, since a NUL is a byte of the stream like any other; and whether standard output
+// wants ANSI colour (TerminalRuntime.maxon). Each system's read and its test of a terminal are in its file
+// (readStandardInput, stdoutIsCharacterDevice).
+
+// stdinReadLimit is the most bytes one read asks the system for: a read gives up to the count asked, so a larger count is
+// only read in more than one.
+let stdinReadLimit = 1048576
+
+// The variables of the colour question: NO_COLOR, set, refuses colour (no-color.org), and a TERM of dumb, in any case.
+let noColorVariable = "NO_COLOR"
+
+let termVariable = "TERM"
+
+let dumbTerm = "dumb"
+
+// asciiCaseBit is the bit by which an ASCII letter's two cases differ.
+let asciiCaseBit = 0x20 as Byte
+
+// osReadStdin is a new byte array of what one read of standard input gave, up to most bytes: empty at the end of the
+// stream, and when the read failed, which ends it too.
+function osReadStdin(most Count) returns Count
+	let bytes = bytesNew()
+	let asked = most if most < stdinReadLimit else stdinReadLimit
+	if asked == 0 'nothing'
+		return bytes
+	end 'nothing'
+	let room = collectionExtend(bytes, count: asked, elementBytes: byteBytes)
+	let got = readStandardInput(room, count: asked)
+	arrayShrink(bytes, length: got if got <= asked else 0)
+	return bytes
+end 'osReadStdin'
+
+// osStdoutWantsColor is maxon's three conditions, cheapest first: standard output is a character device (not redirected to a
+// file or a pipe), NO_COLOR is unset, and TERM is not dumb.
+function osStdoutWantsColor() returns bool
+	if not stdoutIsCharacterDevice() 'redirected'
+		return false
+	end 'redirected'
+	var unset = 0 as Count
+	_ = osEnvironmentVariable(noColorVariable, errorAddress: __Raw.addressOf(unset))
+	if unset == 0 'noColor'
+		return false
+	end 'noColor'
+	unset = 0
+	let term = osEnvironmentVariable(termVariable, errorAddress: __Raw.addressOf(unset))
+	if unset != 0 'noTerm'
+		return true
+	end 'noTerm'
+	return not isDumbTerm(term)
+end 'osStdoutWantsColor'
+
+// isDumbTerm is whether a TERM is dumb, in any case: every byte of dumb is a lowercase letter, so setting the case bit of
+// a byte matches exactly its two cases.
+function isDumbTerm(term String) returns bool
+	if term.byteLength() != dumbTerm.byteLength() 'length'
+		return false
+	end 'length'
+	for i in 0 upto dumbTerm.byteLength() 'bytes'
+		if (term.byteAt(i) or asciiCaseBit) != dumbTerm.byteAt(i) 'differs'
+			return false
+		end 'differs'
+	end 'bytes'
+	return true
+end 'isDumbTerm'

@@ -602,4 +602,29 @@
 		free(mask)
 		return count
 	end 'onlineProcessors'
+
+	let stdinFd = 0
+
+	// readStandardInput reads up to count bytes of standard input to room and gives how many it read: 0 at the end of the
+	// stream, which a failure is as well.
+	function readStandardInput(room Count, count Count) returns Count
+		enterBlocking()
+		var got = __Raw.syscall3(linuxSysRead, arg1: stdinFd, arg2: room, arg3: count)
+		while failed(got) and errnoOf(got) == linuxEintr 'again'
+			got = __Raw.syscall3(linuxSysRead, arg1: stdinFd, arg2: room, arg3: count)
+		end 'again'
+		exitBlocking()
+		if failed(got) 'failed'
+			return 0
+		end 'failed'
+		return got
+	end 'readStandardInput'
+
+	function stdoutIsCharacterDevice() returns bool
+		let stat = alloc(linuxStatBytes)
+		let result = __Raw.syscall2(linuxSysFstat, arg1: stdoutFd, arg2: stat)
+		let mode = __Raw.loadWord32(stat, offset: linuxStatModeOffset)
+		free(stat)
+		return not failed(result) and (mode and linuxModeTypeMask) == linuxModeCharacter
+	end 'stdoutIsCharacterDevice'
 #endif

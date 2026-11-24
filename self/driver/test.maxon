@@ -806,7 +806,7 @@ end 'workerCountText'
 // the memory model. A program that schedules behaviours runs under several schedules, and each must give the same output.
 function runInterpreted(compiled CompiledProgram, expect Expectation) returns TestResult
 	for schedule in 0 upto expect.schedules 'schedules'
-		let out = interp.run(compiled.p, modules: compiled.generated.modules, entry: compiled.generated.entry, stepLimit: interp.defaultStepLimit, seed: interp.seedOf(schedule), wantFrees: expect.frees.count() > 0)
+		let out = interp.run(compiled.p, modules: compiled.generated.modules, entry: compiled.generated.entry, stepLimit: interp.defaultStepLimit, seed: interp.seedOf(schedule), wantFrees: expect.frees.count() > 0, stdin: "")
 		var atSeed = ""
 		if out.behaviours > 0 'scheduled'
 			atSeed = " under the schedule of seed {schedule}"

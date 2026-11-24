@@ -450,6 +450,7 @@ end 'main'
 ```
 
 <!-- test: an-ordinary-array-of-the-instance-adopts -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 ⭐ **WHAT THE DOOR ACTUALLY ASKS, PINNED.** The rule is SAME-INSTANCE, and that admits an
 ORDINARY array of the instance as well as a buffer — `requireSameArrayInstance` never consults the
 buffer mark. Adopting one is an ordinary co-owning retain: `src` and `b` are two owners of one record,
@@ -510,6 +511,7 @@ end 'main'
 ```
 
 <!-- test: an-opaque-element-array-adopts-and-becomes-the-last-owner -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 ⭐⭐ **THE OPAQUE INSTANCE, AND THE ADOPTION AS SOLE OWNER.** `parseArrayStaticCall`'s header claims the
 adoption serves an OPAQUE instance (`Array with Element` inside a generic body) exactly as a concrete
 one, "element-agnostic by construction" — and this case is what runs that claim. It is reachable through

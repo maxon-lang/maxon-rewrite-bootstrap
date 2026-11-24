@@ -506,6 +506,11 @@ function lowerArrayFilled(mutates l Lowerer, p ast.Project, mutates ms ast.Modul
 	return arrayFilled(l, p: p, ms: ms, c: c, count: args[0], value: args[1])
 end 'lowerArrayFilled'
 
+// lowerArrayFromMemory is the array whose box the buffer it consumes is: the same value under the array's type.
+function lowerArrayFromMemory(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return args[0]
+end 'lowerArrayFromMemory'
+
 function lowerArrayCount(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	let a = arrayOfCall(l, p: p, ms: ms, c: c)
 	return arrayLength(l, p: p, ms: ms, box: a, arr: recv)

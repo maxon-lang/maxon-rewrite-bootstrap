@@ -1,0 +1,46 @@
+// A child given a megabyte of standard input writes a megabyte of output before it reads any of it, then reads the input to
+// its end: the run writes the input as the child reads it and reads the child's output meanwhile, so that neither waits on
+// the other, whatever the size of a pipe.
+// native-only
+let megabyte = 1048576 as Count
+
+let readChunk = 65536 as Count
+
+// doubled is a string of a byte doubled until it holds count bytes, a power of two.
+function doubled(count Count) returns String
+	var text = "x"
+	while text.byteLength() < count 'double'
+		text = "{text}{text}"
+	end 'double'
+	return text
+end 'doubled'
+
+function child() returns ExitCode
+	print(doubled(megabyte))
+	var total = 0 as Count
+	var reading = true
+	while reading 'reads'
+		let got = __Builtins.readStdin(readChunk).length()
+		if got == 0 'end'
+			reading = false
+		end 'end' else 'more'
+			total = try total + got otherwise total
+		end 'more'
+	end 'reads'
+	print("read {total}\n")
+	return 0
+end 'child'
+
+function main() returns ExitCode
+	if CommandLine.args().count() > 1 'child'
+		return child()
+	end 'child'
+	let exe = Executable.path(try Process.executablePath() otherwise return 2)
+	var argv = StringArray.create(0)
+	argv.push("child")
+	let out = try __Builtins.runWithInput(exe, arguments: argv, input: doubled(megabyte), deadline: WaitDeadline.within(60000)) otherwise return 3
+	print("{out.exitCode()} {out.stdout.byteLength()} {out.stdout.endsWith("read 1048576\n")}\n")
+	return 0
+end 'main'
+
+//> 0 1048589 true

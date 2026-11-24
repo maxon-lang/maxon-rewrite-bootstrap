@@ -305,6 +305,7 @@ aggregate=8 last=1
 ```
 
 <!-- test: a-blocking-kernel-call-does-not-starve-an-unrelated-green-thread -->
+<!-- skip: language difference: a message that calls through a function value or an interface, whose target the check cannot see, may wait on another party while it holds its service -->
 <!-- procs: 1 -->
 <!-- stdin: after "S: sentinel ran" -->
 ⭐⭐ **THIS IS THE CASE THE FILE'S OPENING CLAIM WAS ALWAYS ABOUT, AND IT ASSERTS AN ORDER RATHER THAN A
@@ -404,6 +405,7 @@ done read=5
 ```
 
 <!-- test: a-spare-processor-already-carries-the-sibling -->
+<!-- skip: language difference: a message that calls through a function value or an interface, whose target the check cannot see, may wait on another party while it holds its service -->
 <!-- procs: 4 -->
 <!-- stdin: after "S: sentinel ran" -->
 ⚠ **THIS CASE IS GREEN WITH OR WITHOUT THE HANDOFF, AND IT IS HERE TO SAY WHY THE ONE ABOVE NEEDS
@@ -868,6 +870,7 @@ retaken=yes ran=7
 ```
 
 <!-- test: a-blocking-kernel-call-on-main-hands-its-processor-off -->
+<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 <!-- procs: 1 -->
 <!-- stdin: after "S: sentinel ran" -->
 **THE SAME READ, MADE BY `main` ITSELF.** `main` is a green thread like any other, so a kernel call it blocks

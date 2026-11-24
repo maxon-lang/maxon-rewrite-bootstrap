@@ -1,0 +1,28 @@
+// A child that ends without reading its input leaves a megabyte of it unwritten: the run's write finds the pipe without a
+// reader, which is the child having stopped reading and no failure, and the SIGPIPE it raises on Linux never reaches the
+// process.
+// native-only
+function doubled(count Count) returns String
+	var text = "x"
+	while text.byteLength() < count 'double'
+		text = "{text}{text}"
+	end 'double'
+	return text
+end 'doubled'
+
+function main() returns ExitCode
+	if CommandLine.args().count() > 1 'child'
+		print("gone\n")
+		return 7
+	end 'child'
+	let exe = Executable.path(try Process.executablePath() otherwise return 2)
+	var argv = StringArray.create(0)
+	argv.push("child")
+	let out = try __Builtins.runWithInput(exe, arguments: argv, input: doubled(1048576), deadline: WaitDeadline.within(60000)) otherwise return 3
+	print("{out.exitCode()} {out.stdout}")
+	print("parent lives\n")
+	return 0
+end 'main'
+
+//> 7 gone
+//> parent lives

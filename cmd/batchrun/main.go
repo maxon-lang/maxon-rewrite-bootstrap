@@ -8,7 +8,8 @@
 // worker count its run was given (MAXON_MAX_PROCS); the runs of one executable under one count are told
 // apart by the order they were asked for, which does not matter, since they are the same program under the same count.
 //
-//	batchrun record <stage> <exe>       keep <exe> in <stage>/bin and a row in <stage>/rows
+//	batchrun record <stage> <exe>       keep <exe> in <stage>/bin and a row in <stage>/rows, and the standard input it is
+//	                                    given, when there is any, in <stage>/stdin, which its runs read
 //	batchrun run [-j N] [-deadline D] [-repeat N] <stage>
 //	                                    run every row, writing <stage>/out/<run>.stdout, .stderr and .status
 //	batchrun replay <stage> <exe>       print what the row of <exe> printed, and exit as it did
@@ -36,6 +37,9 @@ import (
 
 // workerCountVariable is the environment variable the runtime reads its worker count from.
 const workerCountVariable = "MAXON_MAX_PROCS"
+
+// stdinDir is the directory of a stage that holds the standard input of each row that was given one, under the row's name.
+const stdinDir = "stdin"
 
 // digestChars is how much of an executable's digest names it.
 const digestChars = 16
@@ -172,6 +176,18 @@ func record(args []string) error {
 	row, err := claim(filepath.Join(stage, "rows"), key)
 	if err != nil {
 		return err
+	}
+	input, err := io.ReadAll(os.Stdin)
+	if err != nil {
+		return err
+	}
+	if len(input) > 0 {
+		if err := os.MkdirAll(filepath.Join(stage, stdinDir), 0o755); err != nil {
+			return err
+		}
+		if err := os.WriteFile(filepath.Join(stage, stdinDir, row), input, 0o644); err != nil {
+			return err
+		}
 	}
 	return os.WriteFile(filepath.Join(stage, "rows", row), []byte(filepath.Base(bin)+"\t"+os.Getenv(workerCountVariable)+"\n"), 0o644)
 }
@@ -345,6 +361,10 @@ func runRow(stage, row, name string, deadline time.Duration) error {
 	defer stderr.Close()
 	cmd := exec.Command(bin)
 	cmd.Stdout, cmd.Stderr = stdout, stderr
+	if input, err := os.Open(filepath.Join(stage, stdinDir, row)); err == nil {
+		defer input.Close()
+		cmd.Stdin = input
+	}
 	cmd.Env = os.Environ()
 	if fields[1] != "" {
 		cmd.Env = append(cmd.Env, workerCountVariable+"="+fields[1])

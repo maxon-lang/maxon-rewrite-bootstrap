@@ -227,13 +227,13 @@ function runLoaded(mutates p ast.Project, schedules Count, mutates outcome Gener
 		end 'each'
 		return
 	end 'rejected'
-	var out = interp.run(p, modules: generated.modules, entry: generated.entry, stepLimit: generatedStepLimit, seed: interp.seedOf(0), wantFrees: false)
+	var out = interp.run(p, modules: generated.modules, entry: generated.entry, stepLimit: generatedStepLimit, seed: interp.seedOf(0), wantFrees: false, stdin: "")
 	if out.behaviours > 0 'scheduled'
 		// The schedule of behaviours is random, so a program that has some runs under several, and a rule that only some of them
 		// break is still broken.
 		var schedule = 1 as Count
 		while schedule < schedules and out.violations.count() == 0 'schedules'
-			let again = interp.run(p, modules: generated.modules, entry: generated.entry, stepLimit: generatedStepLimit, seed: interp.seedOf(schedule), wantFrees: false)
+			let again = interp.run(p, modules: generated.modules, entry: generated.entry, stepLimit: generatedStepLimit, seed: interp.seedOf(schedule), wantFrees: false, stdin: "")
 			if again.violations.count() > 0 'broken'
 				out = again
 				outcome.scheduleSeed = schedule
