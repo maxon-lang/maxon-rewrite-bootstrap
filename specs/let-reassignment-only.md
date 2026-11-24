@@ -678,7 +678,6 @@ error E2013: <fragment>:14:2: 'v' is a let and cannot be reassigned
 ```
 
 <!-- test: a-frozen-let-is-sent-to-a-service-twice -->
-<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 Sharing a frozen value rests on `freeze`, not on the `let` that names it.
 
 ```maxon
@@ -699,8 +698,8 @@ type Sink
 		return Self{total: 0}
 	end 'create'
 
-	export function take(cfg frozen with Cfg) returns Count
-		self.total = self.total + cfg.n
+	export function take(mutates self, cfg frozen with Cfg) returns Count
+		self.total = try self.total + cfg.n otherwise panic("out of range")
 		return self.total
 	end 'take'
 end 'Sink'
@@ -708,8 +707,8 @@ end 'Sink'
 function main() returns ExitCode
 	let sink = spawn Sink.create()
 	let cfg = freeze(Cfg.create(3))
-	let first = try await sink.take(cfg) otherwise 0
-	let second = try await sink.take(cfg) otherwise 0
+	let first = try await sink.take(cfg.clone()) otherwise 0
+	let second = try await sink.take(cfg.clone()) otherwise 0
 	sink.shutdown()
 	print("{first} {second} {cfg.n}\n")
 	return 0

@@ -187,7 +187,7 @@ end 'Box'
 function main() returns ExitCode
 	let list = FrozenBoxList.create()
 	let pinned = freeze(Box.create(7))
-	list.append(pinned)
+	list.append(thaw(pinned))
 	let first = try list.first() otherwise panic("empty")
 	print("{list.count()} {first.n}\n")
 	return 0
@@ -1675,7 +1675,7 @@ end 'Box'
 function main() returns ExitCode
 	var a = freeze(Box.create(1))
 	var inner = FrozenBoxList.create()
-	inner.append(a)
+	inner.append(thaw(a))
 	var nested = NestedBoxes.create()
 	nested.append(inner)
 	print("{nested.count()}\n")
@@ -2076,8 +2076,8 @@ type Bag uses T
 		return Self{items: Items.create(0)}
 	end 'create'
 
-	function absorb(more Items)
-		self.items = more
+	function absorb(mutates self, more Items) where T implements Droppable and Copyable
+		self.items = more.clone()
 	end 'absorb'
 
 	function size() returns Tally
@@ -2091,7 +2091,7 @@ function main() returns ExitCode
 	var bag = BoxBag.create()
 	var frozen = FrozenBoxes.create(0)
 	var pinned = freeze(Box.create(1))
-	frozen.push(pinned)
+	frozen.push(thaw(pinned))
 	bag.absorb(frozen)
 	print("{bag.size()}\n")
 	return 0

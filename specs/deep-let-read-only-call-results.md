@@ -85,7 +85,7 @@ type Table
 	end 'create'
 
 	function register(name frozen with ByteArray)
-		self.names.push(name)
+		self.names.push(thaw(name))
 	end 'register'
 
 	function nameOf(index ElementIndex) returns frozen with ByteArray
@@ -128,7 +128,7 @@ type Table
 	end 'create'
 
 	function register(name frozen with ByteArray)
-		self.names.push(name)
+		self.names.push(thaw(name))
 	end 'register'
 
 	function nameOf(index ElementIndex) returns frozen with ByteArray
@@ -163,7 +163,7 @@ type Table
 	end 'create'
 
 	function register(name frozen with ByteArray)
-		self.names.push(name)
+		self.names.push(thaw(name))
 	end 'register'
 
 	function nameOf(index ElementIndex) returns frozen with ByteArray
@@ -175,7 +175,7 @@ function main() returns ExitCode
 	let table = Table.create()
 	table.register(b"gamma")
 	let roster = Names.create(0)
-	roster.push(table.nameOf(1))
+	roster.push(thaw(table.nameOf(1)))
 	return roster.count() as ExitCode
 end 'main'
 ```

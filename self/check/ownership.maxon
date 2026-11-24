@@ -76,13 +76,21 @@ export type OwnFact
 	export var dest as OwnDest
 	// moves are the fields gone from a partly moved local, none inside another; empty for any other fact.
 	export var moves as OwnMoves
+	// moved is the expression a whole local moved out at into a consumes parameter, where its type can be copied, and 0
+	// for any other fact: a later use's fix copies it there.
+	export var moved as ast.NodeID
 
 	export static function make(local ast.LocalID, site diag.U32, kind OwnFactKind, consumes dest OwnDest) returns OwnFact
-		return OwnFact{local: local, site: site, kind: kind, dest: dest, moves: OwnMoves.create(0)}
+		return OwnFact{local: local, site: site, kind: kind, dest: dest, moves: OwnMoves.create(0), moved: 0}
 	end 'make'
 
+	// movedAt is the fact of a whole local moved out into dest, at the expression e that a later use's fix copies, or 0.
+	export static function movedAt(local ast.LocalID, site diag.U32, e ast.NodeID, consumes dest OwnDest) returns OwnFact
+		return OwnFact{local: local, site: site, kind: OwnFactKind.factMoved, dest: dest, moves: OwnMoves.create(0), moved: e}
+	end 'movedAt'
+
 	export static function partly(local ast.LocalID, site diag.U32, consumes moves OwnMoves) returns OwnFact
-		return OwnFact{local: local, site: site, kind: OwnFactKind.factPartlyMoved, dest: OwnDest.of(OwnDestKind.destVariable), moves: moves}
+		return OwnFact{local: local, site: site, kind: OwnFactKind.factPartlyMoved, dest: OwnDest.of(OwnDestKind.destVariable), moves: moves, moved: 0}
 	end 'partly'
 
 	export function isPartial() returns bool

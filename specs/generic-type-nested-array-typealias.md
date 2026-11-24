@@ -4741,7 +4741,7 @@ type Box uses T
 
 	static function index(k String, v T) returns Index where T implements Droppable and Copyable
 		var m = Index.create()
-		m.upsert(k, value: Self{v: v.clone()})
+		m.upsert(k.clone(), value: Self{v: v.clone()})
 		return m
 	end 'index'
 

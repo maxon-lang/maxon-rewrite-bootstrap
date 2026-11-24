@@ -2612,7 +2612,7 @@ typealias MyKeyMap = Map with (MyKey, Integer)
 
 function main() returns ExitCode
 	var m = MyKeyMap.create()
-	try m.insert(freeze(MyKey.create(1)), value: 42) otherwise ignore
+	try m.insert(thaw(freeze(MyKey.create(1))), value: 42) otherwise ignore
 	return try m.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```

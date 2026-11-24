@@ -64,11 +64,19 @@ function stringKeys() returns Word
 		absent.push("none{i}")
 	end 'names'
 	started = lap("string build", since: started)
+	// An insert consumes its key, and these keys are looked up again below, so each is copied into the map: Go's map shares
+	// the caller's bytes, so this phase copies once where Go does not. The phase after it inserts keys it builds and does
+	// not keep, which move in with no copy, as Go's do.
 	var m = TextMap.create()
 	for i in 0 upto size 'insert'
-		m.upsert(keys[i], value: i as Word)
+		m.upsert(keys[i].clone(), value: i as Word)
 	end 'insert'
 	started = lap("string insert", since: started)
+	var built = TextMap.create()
+	for i in 0 upto size 'built'
+		built.upsert("key{i}", value: i as Word)
+	end 'built'
+	started = lap("string insert built", since: started)
 	var sum = 0 as Word
 	for i in 0 upto size 'hits'
 		sum = try sum + (try m.get(keys[i]) otherwise panic("a key went missing")) otherwise panic("sum overflowed")
@@ -92,7 +100,7 @@ function stringKeys() returns Word
 		end 'gone'
 	end 'remove'
 	started = lap("string remove", since: started)
-	return try sum + misses + removed + (m.count() as Word) otherwise panic("sum overflowed")
+	return try sum + misses + removed + (m.count() as Word) + (built.count() as Word) otherwise panic("sum overflowed")
 end 'stringKeys'
 
 function work() returns ExitCode
@@ -109,4 +117,4 @@ function main() returns ExitCode
 	return code
 end 'main'
 
-//> 1000001500000 1000009888890
+//> 1000001500000 1000010888890

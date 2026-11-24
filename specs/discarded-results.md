@@ -1852,7 +1852,6 @@ error E3064: specs/discarded-results/error.a-closure-handed-down-through-two-hel
 ```
 
 <!-- test: a-registering-factory-keeps-writes-to-its-product-visible -->
-<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 A function that registers the record it creates in a module-level array and then writes it changes state the caller can see,
 whatever it returns.
 ```maxon
@@ -1865,8 +1864,8 @@ type Box
 		return Box{total: 0}
 	end 'create'
 
-	function bump() returns Integer
-		self.total = self.total + 1
+	function bump(mutates self) returns Integer
+		self.total = try self.total + 1 otherwise panic("out of range")
 		return self.total
 	end 'bump'
 
@@ -1879,17 +1878,17 @@ typealias BoxArray = Array with Box
 
 function enroll(mutates registry BoxArray) returns Box
 	let box = Box.create()
-	registry.push(box)
+	registry.push(box.clone())
 	return box
 end 'enroll'
 
 function tamper(mutates registry BoxArray) returns Integer
-	let box = enroll(registry)
+	var box = enroll(registry)
 	return box.bump()
 end 'tamper'
 
 function main() returns ExitCode
-	let registry = BoxArray.create(0)
+	var registry = BoxArray.create(0)
 	_ = tamper(registry)
 	if (try registry.get(0) otherwise return 2).read() != 1 'wrong'
 		return 1

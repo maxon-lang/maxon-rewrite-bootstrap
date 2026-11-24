@@ -800,7 +800,6 @@ end 'main'
 ```
 
 <!-- test: write-through-a-holder.a-let-parked-in-a-holders-field-is-accepted-beside-a-record-the-callee-creates-and-stores -->
-<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 `add` pushes `made` and then returns it, and `parkAndGrow` keeps `b` in `reg.last`, so the `let` handed to it and read afterwards names the kept record.
 
 ```maxon
@@ -821,33 +820,33 @@ type Reg
 	export var last as Box
 
 	static function create(seed Box) returns Self
-		return Self{items: Boxes.create(0), last: seed}
+		return Self{items: Boxes.create(0), last: seed.clone()}
 	end 'create'
 
-	function add(n Count) returns Box
+	function add(mutates self, n Count) returns Box
 		let made = Box.create(n)
-		items.push(made)
+		items.push(made.clone())
 		return made
 	end 'add'
 end 'Reg'
 
-function growAndKeep(reg Reg)
+function growAndKeep(mutates reg Reg)
 	let kept = reg.add(7)
 	reg.last = kept
 end 'growAndKeep'
 
-function growAndBump(reg Reg)
-	let fresh = reg.add(1)
+function growAndBump(mutates reg Reg)
+	var fresh = reg.add(1)
 	fresh.n = 2
 end 'growAndBump'
 
-function parkAndGrow(reg Reg, b Box)
-	reg.last = b
+function parkAndGrow(mutates reg Reg, b Box)
+	reg.last = b.clone()
 	growAndBump(reg)
 end 'parkAndGrow'
 
 function main() returns ExitCode
-	let reg = Reg.create(Box.create(0))
+	var reg = Reg.create(Box.create(0))
 	growAndKeep(reg)
 	let a = Box.create(5)
 	parkAndGrow(reg, b: a)

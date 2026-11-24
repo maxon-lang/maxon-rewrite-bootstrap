@@ -14,7 +14,7 @@ public type Set uses Element implements Iterable with (Element, SetIterator) whe
 	end 'create'
 
 	/// Insert an element into the set; one that is there already is left as it is.
-	public function insert(mutates self, element Element) where Element implements Copyable
+	public function insert(mutates self, consumes element Element) where Element implements Copyable
 		if members.contains(element) 'present'
 			return
 		end 'present'

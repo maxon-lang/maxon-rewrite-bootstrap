@@ -870,9 +870,9 @@ typealias NameSet = Set with ByteArray
 
 function main() returns ExitCode
 	let counts = CountMap.create()
-	counts.upsert(freeze(ByteArray.create(3)), value: 7)
+	counts.upsert(thaw(freeze(ByteArray.create(3))), value: 7)
 	let names = NameSet.create()
-	names.insert(freeze(ByteArray.create(2)))
+	names.insert(thaw(freeze(ByteArray.create(2))))
 	print("{counts.count()} {names.count()}\n")
 	return 0
 end 'main'
@@ -1207,7 +1207,7 @@ end 'describe'
 
 function main() returns ExitCode
 	let label = Label.named(Alpha)
-	let fresh = Label.named(freeze(ByteArray.create(4)))
+	let fresh = Label.named(thaw(freeze(ByteArray.create(4))))
 	print("{describe(label)} {describe(fresh)} {describe(Label.anonymous)}\n")
 	return 0
 end 'main'
@@ -1519,7 +1519,7 @@ type Table
 	end 'nameAt'
 
 	export function intern(name frozen with ByteArray)
-		self.names.push(name)
+		self.names.push(thaw(name))
 		self.hits = self.hits + 1
 	end 'intern'
 end 'Table'
@@ -1682,7 +1682,7 @@ type Holder
 	end 'create'
 
 	export function keep(name frozen with ByteArray)
-		self.source = Source.body(name)
+		self.source = Source.body(thaw(name))
 	end 'keep'
 
 	export function size() returns Count
@@ -2363,7 +2363,7 @@ end 'main'
 ```
 
 <!-- test: a-tuple-destructured-from-a-method-result-is-stored-and-written -->
-<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
+<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 A name bound by `var (a, b) = self.method()` is the method's data, so the receiver decides whether it can be stored or written.
 
 ```maxon

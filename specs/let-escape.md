@@ -459,7 +459,6 @@ end 'main'
 ```
 
 <!-- test: let-escape.a-let-the-callee-pushes-and-returns-is-accepted-at-the-push-though-the-caller-reads-it-before-the-write -->
-<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 `add` pushes `made` and then returns it: the push is accepted, and the `let` that binds the result names the record the container holds.
 
 ```maxon
@@ -482,20 +481,20 @@ type Reg
 		return Self{items: Boxes.create(0)}
 	end 'create'
 
-	function add(n Count) returns Box
+	function add(mutates self, n Count) returns Box
 		let made = Box.create(n)
-		items.push(made)
+		items.push(made.clone())
 		return made
 	end 'add'
 end 'Reg'
 
 function touch(reg Reg)
-	let w = try reg.items.get(0) otherwise return
+	var w = try reg.items.get(0) otherwise return
 	w.n = 1
 end 'touch'
 
 function main() returns ExitCode
-	let reg = Reg.create()
+	var reg = Reg.create()
 	let b = reg.add(7)
 	print("{b.n}\n")
 	touch(reg)
@@ -791,7 +790,6 @@ error E3196: <fragment>:18:21: cannot store an immutable 'Box' into 'Map.upsert.
 ```
 
 <!-- test: let-escape.a-captured-let-pushed-into-a-holder-is-accepted-though-nothing-writes-its-type -->
-<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 `install` pushes `b` into the holder's container and then captures it in a closure, and `main` binds the element it reads back to a `let`: all accepted.
 
 ```maxon
@@ -818,14 +816,14 @@ type Reg
 	end 'create'
 end 'Reg'
 
-function install(reg Reg)
+function install(mutates reg Reg)
 	let b = Box.create(1)
-	reg.items.push(b)
+	reg.items.push(b.clone())
 	reg.show = function() gives b.n
 end 'install'
 
 function main() returns ExitCode
-	let reg = Reg.create()
+	var reg = Reg.create()
 	install(reg)
 	let w = try reg.items.get(0) otherwise return 1
 	let f = reg.show
@@ -1099,7 +1097,6 @@ end 'main'
 ```
 
 <!-- test: let-escape.a-let-pushed-into-a-module-holder-and-read-again-is-accepted -->
-<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 The `let` record is pushed into a container of the holder and read afterwards: the push is accepted, whichever field of the holder is written later.
 
 ```maxon
@@ -1133,9 +1130,9 @@ function note(mutates holder Holder, id Count)
 end 'note'
 
 function main() returns ExitCode
-	let holder = Holder.create()
+	var holder = Holder.create()
 	let layout = Layout.create()
-	holder.items.push(layout)
+	holder.items.push(layout.clone())
 	note(holder, id: 7)
 	print("{layout.names.count()}\n")
 	return 0
@@ -1421,7 +1418,6 @@ end 'main'
 ```
 
 <!-- test: let-escape.a-let-kept-after-the-write-into-a-holder-an-earlier-call-escaped-is-accepted -->
-<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 `attach` keeps its `args` in an edge it pushes into the block, and `carried` is read afterwards: the call is accepted, before or after any write.
 
 ```maxon
@@ -1437,7 +1433,7 @@ type Edge
 	export var args as Args
 
 	static function create(args Args) returns Self
-		return Self{args: args}
+		return Self{args: args.clone()}
 	end 'create'
 end 'Edge'
 
@@ -1473,36 +1469,36 @@ type World
 		return Self{book: Book.create(), routed: Routed.create()}
 	end 'create'
 
-	function open() returns Block
+	function open(mutates self) returns Block
 		let block = Block.create()
-		self.book.blocks.push(block)
+		self.book.blocks.push(block.clone())
 		return block
 	end 'open'
 
-	function scribble()
+	function scribble(mutates self)
 		self.routed.args.push(1)
 	end 'scribble'
 end 'World'
 
-function attach(block Block, args Args)
+function attach(mutates block Block, args Args)
 	block.edges.push(Edge.create(args))
 end 'attach'
 
-function wire(world World, block Block)
+function wire(world World, mutates block Block)
 	attach(block, args: world.routed.args)
 end 'wire'
 
-function run(world World) returns Count
+function run(mutates world World) returns Count
 	let carried = Args.create(0)
-	let block = world.open()
+	var block = world.open()
 	world.scribble()
 	attach(block, args: carried)
-	return carried.count()
+	return try carried.count() as Count otherwise panic("out of range")
 end 'run'
 
 function main() returns ExitCode
-	let world = World.create()
-	let other = world.open()
+	var world = World.create()
+	var other = world.open()
 	wire(world, block: other)
 	print("{run(world)}\n")
 	return 0
@@ -2485,7 +2481,6 @@ end 'main'
 ```
 
 <!-- test: let-escape.a-record-the-callee-creates-and-stores-is-written-through-its-holder -->
-<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 `add` pushes `made` and then returns it: the `let` that binds the result names the record the container holds, and `touch` writes it.
 
 ```maxon
@@ -2508,20 +2503,20 @@ type Reg
 		return Self{items: Boxes.create(0)}
 	end 'create'
 
-	function add(n Count) returns Box
+	function add(mutates self, n Count) returns Box
 		let made = Box.create(n)
-		items.push(made)
+		items.push(made.clone())
 		return made
 	end 'add'
 end 'Reg'
 
 function touch(reg Reg)
-	let w = try reg.items.get(0) otherwise return
+	var w = try reg.items.get(0) otherwise return
 	w.n = 1
 end 'touch'
 
 function main() returns ExitCode
-	let reg = Reg.create()
+	var reg = Reg.create()
 	let b = reg.add(7)
 	touch(reg)
 	print("{b.n}\n")
@@ -2536,7 +2531,6 @@ end 'main'
 ```
 
 <!-- test: let-escape.a-var-the-callee-pushed-and-returned-is-written-through-its-holder -->
-<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 `add` pushes its `var` `made` and returns it, and `touch` writes the pushed element: the record the caller binds with a `let` reads the write.
 
 ```maxon
@@ -2559,20 +2553,20 @@ type Reg
 		return Self{items: Boxes.create(0)}
 	end 'create'
 
-	function add(n Count) returns Box
+	function add(mutates self, n Count) returns Box
 		let made = Box.create(n)
-		items.push(made)
+		items.push(made.clone())
 		return made
 	end 'add'
 end 'Reg'
 
 function touch(reg Reg)
-	let w = try reg.items.get(0) otherwise return
+	var w = try reg.items.get(0) otherwise return
 	w.n = 1
 end 'touch'
 
 function main() returns ExitCode
-	let reg = Reg.create()
+	var reg = Reg.create()
 	let b = reg.add(7)
 	touch(reg)
 	print("{b.n}\n")
@@ -2653,7 +2647,7 @@ end 'Box'
 function main() returns ExitCode
 	var m = BoxMap.create()
 	let a = Box.create(2)
-	m.upsert(1, value: a)
+	m.upsert(1, value: a.clone())
 	var w = try m.get(1) otherwise return 1
 	w.n = 9
 	print("{a.n}\n")
@@ -2896,7 +2890,6 @@ end 'main'
 ```
 
 <!-- test: let-escape.a-captured-let-stored-in-a-container-is-written-after-the-closure-outlives-the-function -->
-<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 `install` pushes `b` into the holder's container and then captures it in a closure: both are accepted, and the closure reads the write `main` makes through the container.
 
 ```maxon
@@ -2923,16 +2916,16 @@ type Reg
 	end 'create'
 end 'Reg'
 
-function install(reg Reg)
+function install(mutates reg Reg)
 	let b = Box.create(1)
-	reg.items.push(b)
+	reg.items.push(b.clone())
 	reg.show = function() gives b.n
 end 'install'
 
 function main() returns ExitCode
-	let reg = Reg.create()
+	var reg = Reg.create()
 	install(reg)
-	let w = try reg.items.get(0) otherwise return 1
+	var w = try reg.items.get(0) otherwise return 1
 	w.n = 5
 	let f = reg.show
 	print("{f()}\n")
@@ -3092,7 +3085,6 @@ error E3196: <fragment>:28:10: cannot store an immutable 'Box' into 'box', which
 ```
 
 <!-- test: let-escape.a-callee-two-calls-down-writes-the-module-holder -->
-<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 The `let` record is pushed into a container and read afterwards, and the write comes two calls down: the push is accepted.
 
 ```maxon
@@ -3117,7 +3109,7 @@ type Holder
 end 'Holder'
 
 function g(mutates holder Holder)
-	let w = try holder.items.get(0) otherwise return
+	var w = try holder.items.get(0) otherwise return
 	w.n = 5
 end 'g'
 
@@ -3126,9 +3118,9 @@ function f(mutates holder Holder)
 end 'f'
 
 function main() returns ExitCode
-	let holder = Holder.create()
+	var holder = Holder.create()
 	let b = Box.create(1)
-	holder.items.push(b)
+	holder.items.push(b.clone())
 	f(holder)
 	print("{b.n}\n")
 	return 0
@@ -3449,7 +3441,6 @@ end 'main'
 ```
 
 <!-- test: let-escape.a-record-stored-in-a-module-holder-is-written-through-the-module-holder-beside-a-set-of-its-type -->
-<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 The `let` record is pushed into a container of the holder and read afterwards: the push is accepted.
 
 ```maxon
@@ -3479,14 +3470,14 @@ type Holder
 end 'Holder'
 
 function grow(mutates holder Holder, id Count)
-	let target = try holder.items.get(0) otherwise return
+	var target = try holder.items.get(0) otherwise return
 	target.names.insert(id)
 end 'grow'
 
 function main() returns ExitCode
-	let holder = Holder.create()
+	var holder = Holder.create()
 	let layout = Layout.create()
-	holder.items.push(layout)
+	holder.items.push(layout.clone())
 	grow(holder, id: 7)
 	print("{layout.names.count()}\n")
 	return 0
@@ -3827,7 +3818,6 @@ end 'main'
 ```
 
 <!-- test: let-escape.a-record-stored-before-the-write-into-a-holder-an-earlier-call-escaped-is-written -->
-<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 `attach` keeps its `args` in an edge it pushes into the block, and `carried` is read afterwards: the call is accepted.
 
 ```maxon
@@ -3843,7 +3833,7 @@ type Edge
 	export var args as Args
 
 	static function create(args Args) returns Self
-		return Self{args: args}
+		return Self{args: args.clone()}
 	end 'create'
 end 'Edge'
 
@@ -3879,36 +3869,36 @@ type World
 		return Self{book: Book.create(), routed: Routed.create()}
 	end 'create'
 
-	function open() returns Block
+	function open(mutates self) returns Block
 		let block = Block.create()
-		self.book.blocks.push(block)
+		self.book.blocks.push(block.clone())
 		return block
 	end 'open'
 
-	function scribble()
+	function scribble(mutates self)
 		self.routed.args.push(1)
 	end 'scribble'
 end 'World'
 
-function attach(block Block, args Args)
+function attach(mutates block Block, args Args)
 	block.edges.push(Edge.create(args))
 end 'attach'
 
-function wire(world World, block Block)
+function wire(world World, mutates block Block)
 	attach(block, args: world.routed.args)
 end 'wire'
 
-function run(world World) returns Count
+function run(mutates world World) returns Count
 	let carried = Args.create(0)
-	let block = world.open()
+	var block = world.open()
 	attach(block, args: carried)
 	world.scribble()
-	return carried.count()
+	return try carried.count() as Count otherwise panic("out of range")
 end 'run'
 
 function main() returns ExitCode
-	let world = World.create()
-	let other = world.open()
+	var world = World.create()
+	var other = world.open()
 	wire(world, block: other)
 	print("{run(world)}\n")
 	return 0

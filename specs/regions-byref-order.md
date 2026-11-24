@@ -6695,8 +6695,8 @@ type Store
 		return Self{seen: 0}
 	end 'create'
 
-	export function keep(text String, n Tally) returns Tally
-		self.seen = self.seen + n
+	export function keep(mutates self, text String, n Tally) returns Tally
+		self.seen = try self.seen + n otherwise panic("out of range")
 		return text.byteLength() as Tally
 	end 'keep'
 end 'Store'
@@ -6709,7 +6709,7 @@ end 'put'
 function main() returns ExitCode
 	let sink = spawn Store.create()
 	var a = "original"
-	let n = try await sink.keep(a, n: put(a)) otherwise 0
+	let n = try await sink.keep(a.clone(), n: put(a)) otherwise 0
 	print("{n} {a}\n")
 	return 0
 end 'main'
@@ -6719,7 +6719,6 @@ error E3186: <fragment>:27:40: argument 'a' is read by another operand of this s
 ```
 
 <!-- test: a-send-after-an-operand-read-of-the-cell-and-a-reading-hand-over-runs -->
-<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 The same statement with a callee that only reads the cell lends nothing, so the send takes the record the first operand read and the cell keeps the variable usable afterwards.
 
 ```maxon
@@ -6732,8 +6731,8 @@ type Store
 		return Self{seen: 0}
 	end 'create'
 
-	export function keep(text String, n Tally) returns Tally
-		self.seen = self.seen + n
+	export function keep(mutates self, text String, n Tally) returns Tally
+		self.seen = try self.seen + n otherwise panic("out of range")
 		return text.byteLength() as Tally
 	end 'keep'
 end 'Store'
@@ -6745,7 +6744,7 @@ end 'put'
 function main() returns ExitCode
 	let sink = spawn Store.create()
 	var a = "original"
-	let n = try await sink.keep(a, n: put(a)) otherwise 0
+	let n = try await sink.keep(a.clone(), n: put(a)) otherwise 0
 	print("{n} {a}\n")
 	return 0
 end 'main'
@@ -6768,7 +6767,7 @@ type Store
 	var seen as Tally
 
 	static function create(text String, n Tally) returns Self
-		return Self{seen: (text.byteLength() as Tally) + n}
+		return Self{seen: try (text.byteLength() as Tally) + n otherwise panic("out of range")}
 	end 'create'
 
 	export function total() returns Tally
@@ -6783,7 +6782,7 @@ end 'put'
 
 function main() returns ExitCode
 	var a = "original"
-	let sink = spawn Store.create(a, n: put(a))
+	let sink = spawn Store.create(a.clone(), n: put(a))
 	let n = try await sink.total() otherwise 0
 	print("{n} {a}\n")
 	return 0
@@ -6794,7 +6793,6 @@ error E3186: <fragment>:24:42: argument 'a' is read by another operand of this s
 ```
 
 <!-- test: a-spawn-after-an-operand-read-of-the-cell-and-a-reading-hand-over-runs -->
-<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 A factory operand that reads the cell and a later operand whose callee only reads it lend nothing, so the spawn takes the record.
 
 ```maxon
@@ -6804,7 +6802,7 @@ type Store
 	var seen as Tally
 
 	static function create(text String, n Tally) returns Self
-		return Self{seen: (text.byteLength() as Tally) + n}
+		return Self{seen: try (text.byteLength() as Tally) + n otherwise panic("out of range")}
 	end 'create'
 
 	export function total() returns Tally
@@ -6818,7 +6816,7 @@ end 'put'
 
 function main() returns ExitCode
 	var a = "original"
-	let sink = spawn Store.create(a, n: put(a))
+	let sink = spawn Store.create(a.clone(), n: put(a))
 	let n = try await sink.total() otherwise 0
 	print("{n} {a}\n")
 	return 0
@@ -7399,7 +7397,6 @@ error E3186: <fragment>:14:15: argument 's' is read by another operand of this s
 ```
 
 <!-- test: write-based-isolated-occupant-at-a-send-beside-a-by-reference-hand-over-is-sent -->
-<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 An isolated record sent in the same call as a by-reference hand-over of its own variable is sent: the send moves the box, and the service reads it.
 
 ```maxon
@@ -7420,9 +7417,9 @@ type Store
 		return Self{seen: 0}
 	end 'create'
 
-	export function keep(consumes box Box, n Tally) returns Tally
+	export function keep(mutates self, consumes box Box, n Tally) returns Tally
 		let touched = box.n
-		self.seen = self.seen + n + touched
+		self.seen = try self.seen + n + touched otherwise panic("out of range")
 		return 1
 	end 'keep'
 end 'Store'
@@ -7434,7 +7431,7 @@ end 'look'
 function main() returns ExitCode
 	let sink = spawn Store.create()
 	var a = Box.create(1) as Box
-	let n = try await sink.keep(a, n: look(a)) otherwise 0
+	let n = try await sink.keep(a.clone(), n: look(a)) otherwise 0
 	print("{n}\n")
 	return 0
 end 'main'

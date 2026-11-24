@@ -568,7 +568,7 @@ end 'bumpFirst'
 function main() returns ExitCode
 	var boxes = BoxArray.create(0)
 	let first = Box.create(1)
-	boxes.push(first)
+	boxes.push(first.clone())
 	print("{bumpFirst(boxes)} {first.count}\n")
 	return 0
 end 'main'
@@ -803,7 +803,7 @@ end 'bumpFirst'
 function main() returns ExitCode
 	var boxes = BoxArray.create(0)
 	let first = Box.create(1)
-	boxes.push(first)
+	boxes.push(first.clone())
 	print("{bumpFirst(boxes)} {first.count}\n")
 	return 0
 end 'main'
@@ -951,7 +951,7 @@ end 'bumpFirst'
 function main() returns ExitCode
 	var boxes = BoxArray.create(0)
 	let first = Box.create(1)
-	boxes.push(first)
+	boxes.push(first.clone())
 	print("{bumpFirst(boxes)} {first.count}\n")
 	return 0
 end 'main'

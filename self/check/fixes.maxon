@@ -24,6 +24,8 @@ export let fixKindInterpolation = "interpolation"
 
 export let fixKindMatchConsumes = "match consumes"
 
+let fixKindThaw = "thaw"
+
 // fixPanicText is what the panic of a try that a fix writes says: the failure it stands for, which the program never
 // expected.
 let fixPanicText = "out of range"
@@ -115,6 +117,11 @@ export function cloneFix(t ast.Tree, e ast.NodeID) returns diag.Fix
 	edits.push(diag.FixEdit.insert(t.module, at: at32(found.unwrap()), text: ".clone()"))
 	return fixOf(fixKindClone, edits: edits)
 end 'cloneFix'
+
+// thawFix passes an owned copy of the contents of the frozen value e instead of the frozen value.
+function thawFix(t ast.Tree, e ast.NodeID) returns diag.Fix
+	return wrapFix(t, kind: fixKindThaw, e: e, before: "thaw(", after: ")")
+end 'thawFix'
 
 // conventionFix writes a convention before a parameter that has none.
 export function conventionFix(t ast.Tree, param ast.NodeID, consumes keyword String) returns diag.Fix

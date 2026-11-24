@@ -993,7 +993,6 @@ end 'main'
 ```
 
 <!-- test: let-record-pushed-into-a-var-container -->
-<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 A push stores `a`'s record in the container, so an element read back out is it: a `var` made from the element writes the record `a` names.
 
 ```maxon
@@ -1012,11 +1011,11 @@ typealias PointArray = Array with Point
 
 function main() returns ExitCode
 	let a = Point.create(1)
-	let arr = PointArray.create(0)
-	arr.push(a)
-	let e = try arr.get(0) otherwise panic("an element was pushed")
+	var arr = PointArray.create(0)
+	arr.push(a.clone())
+	var e = try arr.get(0) otherwise panic("an element was pushed")
 	e.x = 99
-	return a.x
+	return try a.x as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1087,7 +1086,6 @@ error E3102: <fragment>:17:9: use of moved value 'p': its ownership moved to ano
 ```
 
 <!-- test: let-record-pushed-and-popped-while-still-read -->
-<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 `a` is read after the push, and popping the record back out gives the `var` the record `a` names: the write through it is read through `a`.
 
 ```maxon
@@ -1106,11 +1104,11 @@ typealias PointArray = Array with Point
 
 function main() returns ExitCode
 	let a = Point.create(1)
-	let arr = PointArray.create(0)
-	arr.push(a)
-	let e = try arr.pop() otherwise panic("one element was pushed")
+	var arr = PointArray.create(0)
+	arr.push(a.clone())
+	var e = try arr.pop() otherwise panic("one element was pushed")
 	e.x = 99
-	return a.x
+	return try a.x as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1183,7 +1181,6 @@ end 'main'
 ```
 
 <!-- test: let-record-written-through-an-interface-call -->
-<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 A method called through an interface writes whichever conformer's record the value holds: `relay` hands `a` back at the interface type, `b.bump()` writes the record, and `a` reads the write.
 
 ```maxon
@@ -1201,20 +1198,20 @@ type Point implements Bumpable
 		return Self{x: x}
 	end 'create'
 
-	function bump()
-		self.x = self.x + 1
+	function bump(mutates self)
+		self.x = try self.x + 1 otherwise panic("out of range")
 	end 'bump'
 end 'Point'
 
-function relay(p Bumpable) returns Bumpable
+function relay(consumes p Bumpable) returns Bumpable
 	return p
 end 'relay'
 
 function main() returns ExitCode
 	let a = Point.create(1)
-	let b = relay(a)
+	var b = relay(a.clone())
 	b.bump()
-	return a.x
+	return try a.x as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

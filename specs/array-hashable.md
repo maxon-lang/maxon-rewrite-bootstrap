@@ -124,7 +124,7 @@ end 'threeKey'
 
 function main() returns ExitCode
 	let m = IntArrMap.create()
-	try m.insert(freeze(threeKey()), value: 42) otherwise ignore
+	try m.insert(thaw(freeze(threeKey())), value: 42) otherwise ignore
 	let lookup = IntArr.create(0)
 	lookup.push(1)
 	lookup.push(2)
@@ -359,7 +359,7 @@ end 'numbered'
 
 function main() returns ExitCode
 	let m = StrArrMap.create()
-	try m.insert(freeze(numbered(1, count: 3)), value: 42) otherwise ignore
+	try m.insert(thaw(freeze(numbered(1, count: 3))), value: 42) otherwise ignore
 	let found = try m.get(numbered(1, count: 3)) otherwise 'notFound'
 		print("not found\n")
 		return 1
@@ -436,9 +436,9 @@ end 'seven'
 
 function main() returns ExitCode
 	let ints = IntArrMap.create()
-	try ints.insert(freeze(seven()), value: 1) otherwise ignore
+	try ints.insert(thaw(freeze(seven())), value: 1) otherwise ignore
 	let strings = StrArrMap.create()
-	try strings.insert(freeze(numbered(1, count: 3)), value: 2) otherwise ignore
+	try strings.insert(thaw(freeze(numbered(1, count: 3))), value: 2) otherwise ignore
 	let intProbe = IntArr.create(0)
 	intProbe.push(7)
 	let a = try ints.get(intProbe) otherwise 0
@@ -866,7 +866,7 @@ function main() returns ExitCode
 	other.push(100)
 	let sameHash = key.hash() == probe.hash()
 	let seen = SignedArraySet.create()
-	seen.insert(freeze(signedKey()))
+	seen.insert(thaw(freeze(signedKey())))
 	print("{seen.contains(probe)}\n")
 	print("{seen.contains(other)}\n")
 	print("{sameHash}\n")

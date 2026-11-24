@@ -229,7 +229,7 @@ type Shelf
 	end 'create'
 
 	function add(item frozen with Counter)
-		self.items.push(item)
+		self.items.push(thaw(item))
 	end 'add'
 
 	function at(i ElementIndex) returns frozen with Counter throws ArrayError
@@ -320,7 +320,7 @@ type Shelf
 	end 'create'
 
 	function add(item frozen with Counter)
-		self.items.push(item)
+		self.items.push(thaw(item))
 	end 'add'
 
 	function at(i ElementIndex) returns frozen with Counter throws ArrayError

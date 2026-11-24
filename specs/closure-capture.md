@@ -1157,7 +1157,6 @@ a name padded long enough to heap allocate 7 x2
 ```
 
 <!-- test: closure-capture.one-closure-in-two-fields-an-array-and-a-union -->
-<!-- skip: language difference: a place passed mutates, consumes or sets overlaps nothing else the call or the statement holds, where maxon shares the place by a reference count -->
 One closure copied into two fields, an Array and a union payload: every holder takes a reference of its own
 and drops it.
 ```maxon
@@ -1171,7 +1170,7 @@ type Pair
 	export var first as Op
 	export var second as Op
 
-	static function create(first Op, second Op) returns Self
+	static function create(consumes first Op, consumes second Op) returns Self
 		return Self{first: first, second: second}
 	end 'create'
 end 'Pair'
@@ -1183,17 +1182,17 @@ end 'Held'
 
 function main() returns ExitCode
 	let label = "a label padded long enough to heap allocate {3}"
-	let f = function(n Integer) gives n + (label.byteLength() as Integer)
+	let f = function(n Integer) gives try n + (label.byteLength() as Integer) otherwise panic("out of range")
 	let p = Pair.create(f, second: f)
-	let ops = OpArray.create(0)
+	var ops = OpArray.create(0)
 	ops.push(f)
 	let h = Held.one(f)
-	var total = p.first(1) + p.second(2)
+	var total = try (p.first(1) + p.second(2)) as Integer otherwise panic("out of range")
 	for op in ops 'each'
-		total = total + op(3)
+		total = try total + op(3) otherwise panic("out of range")
 	end 'each'
 	match h 'held'
-		one(op) then total = total + op(4)
+		one(op) then total = try total + op(4) otherwise panic("out of range")
 		nothing then total = total + 0
 	end 'held'
 	print("{total}\n")

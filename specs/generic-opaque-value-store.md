@@ -116,7 +116,7 @@ type Held uses Value
 	end 'create'
 
 	function hold(mutates self, key String, value Value) where Value implements Droppable and Copyable
-		self.values.upsert(key, value: value)
+		self.values.upsert(key.clone(), value: value.clone())
 	end 'hold'
 
 	function get(key String) returns Value throws MapError where Value implements Copyable
@@ -175,7 +175,7 @@ type Held uses Value
 	end 'create'
 
 	function hold(mutates self, key String, value Value) where Value implements Droppable and Copyable
-		self.values.upsert(key, value: value)
+		self.values.upsert(key.clone(), value: value.clone())
 		self.touch(key)
 	end 'hold'
 
@@ -241,7 +241,7 @@ type Held uses Value
 	end 'create'
 
 	function hold(mutates self, key String, value Value) where Value implements Droppable and Copyable
-		self.values.upsert(key, value: value)
+		self.values.upsert(key.clone(), value: value.clone())
 	end 'hold'
 
 	function get(key String) returns Value throws MapError where Value implements Copyable
@@ -300,7 +300,7 @@ type Held uses Value
 	end 'create'
 
 	function hold(mutates self, key String, value Value) where Value implements Droppable and Copyable
-		self.values.upsert(key, value: value)
+		self.values.upsert(key.clone(), value: value.clone())
 	end 'hold'
 
 	function get(key String) returns Value throws MapError where Value implements Copyable
@@ -6012,7 +6012,7 @@ type Registry uses Value
 	end 'create'
 
 	function put(mutates self, key String, item Value) where Value implements Droppable and Copyable
-		self.entries.upsert(key, value: item)
+		self.entries.upsert(key.clone(), value: item.clone())
 	end 'put'
 
 	function count() returns Count

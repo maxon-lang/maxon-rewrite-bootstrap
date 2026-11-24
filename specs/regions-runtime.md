@@ -63,7 +63,6 @@ sibling
 ```
 
 <!-- test: frozen-graph-shared-counts -->
-<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 <!-- procs: 4 -->
 Two services read one frozen forest at the same time, three hundred passes each, so every read of a leaf and its label steps the counts of boxes both threads hold; a plain count would lose steps and either leak at exit or free a live box.
 
@@ -77,7 +76,7 @@ type Leaf
 	export var weight as Tally
 
 	static function create(label String, weight Tally) returns Self
-		return Self{label: label, weight: weight}
+		return Self{label: label.clone(), weight: weight}
 	end 'create'
 end 'Leaf'
 
@@ -85,7 +84,7 @@ type Forest
 	export var leaves as LeafArray
 
 	static function create(size Tally) returns Self
-		let leaves = LeafArray.create(0)
+		var leaves = LeafArray.create(0)
 		for n in 1 to size 'build'
 			leaves.push(Leaf.create("leaf {n}", weight: n))
 		end 'build'
@@ -95,7 +94,7 @@ type Forest
 	function total() returns Tally
 		var sum = 0 as Tally
 		for leaf in self.leaves 'eachLeaf'
-			sum = sum + leaf.weight + (leaf.label.byteLength() as Tally)
+			sum = try sum + leaf.weight + (leaf.label.byteLength() as Tally) otherwise panic("out of range")
 		end 'eachLeaf'
 		return sum
 	end 'total'
@@ -109,7 +108,7 @@ type Reader
 	export function passes(forest frozen with Forest, rounds Tally) returns Tally
 		var sum = 0 as Tally
 		for _ in 1 to rounds 'eachRound'
-			sum = sum + forest.total()
+			sum = try sum + forest.total() otherwise panic("out of range")
 		end 'eachRound'
 		return sum
 	end 'passes'
@@ -119,8 +118,8 @@ function main() returns ExitCode
 	let forest = freeze(Forest.create(50))
 	let one = spawn Reader.create()
 	let two = spawn Reader.create()
-	let first = try one.passes(forest, rounds: 300) otherwise panic("main: a fresh reader accepts its only request")
-	let second = try two.passes(forest, rounds: 300) otherwise panic("main: a fresh reader accepts its only request")
+	let first = try one.passes(forest.clone(), rounds: 300) otherwise panic("main: a fresh reader accepts its only request")
+	let second = try two.passes(forest.clone(), rounds: 300) otherwise panic("main: a fresh reader accepts its only request")
 	let a = await first
 	let b = await second
 	one.shutdown()

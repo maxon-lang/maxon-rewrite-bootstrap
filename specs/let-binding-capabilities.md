@@ -373,7 +373,6 @@ end 'main'
 ```
 
 <!-- test: let-binding-capabilities.a-let-of-a-var-a-container-holds-sees-the-write -->
-<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 `a` is a `var` the array also holds, and the write through the element reaches the record `b` names.
 
 ```maxon
@@ -390,12 +389,12 @@ type Box
 end 'Box'
 
 function main() returns ExitCode
-	let boxes = Boxes.create(0)
-	let a = Box.create(1)
+	var boxes = Boxes.create(0)
+	var a = Box.create(1)
 	a.n = 2
-	boxes.push(a)
+	boxes.push(a.clone())
 	let b = a
-	let w = try boxes.get(0) otherwise return 1
+	var w = try boxes.get(0) otherwise return 1
 	w.n = 9
 	print("{b.n}\n")
 	return 0

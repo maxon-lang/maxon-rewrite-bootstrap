@@ -58,7 +58,7 @@ type Registry uses Key where Key implements Hashable and Equatable
 
 	function remember(mutates self, keys KeyArray) where Key implements Copyable
 		for key in keys 'eachKey'
-			self.seen.insert(key)
+			self.seen.insert(key.clone())
 		end 'eachKey'
 	end 'remember'
 
@@ -208,8 +208,8 @@ end 'Counter'
 
 function main() returns ExitCode
 	var members = CounterSet.create()
-	members.insert(freeze(Counter.create(1)))
-	members.insert(freeze(Counter.create(2)))
+	members.insert(thaw(freeze(Counter.create(1))))
+	members.insert(thaw(freeze(Counter.create(2))))
 	return try members.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```

@@ -46,26 +46,26 @@ end 'Counter'
 typealias Roster = Array with Counter
 
 function main() returns ExitCode
-	let roster = Roster.create(0)
+	var roster = Roster.create(0)
 	let shared = freeze(Counter.create(4))
-	roster.push(shared)
-	roster.push(freeze(Counter.create(5)))
+	roster.push(thaw(shared))
+	roster.push(thaw(freeze(Counter.create(5))))
 	let built = freeze(Counter.create(6))
-	roster.push(built)
+	roster.push(thaw(built))
 	var total = 0 as Integer
 	for entry in roster 'each'
-		total = total + entry.n
+		total = try total + entry.n otherwise panic("out of range")
 	end 'each'
 	let head = try roster.first() otherwise return 1
 	let second = try roster.get(1) otherwise return 1
-	total = total + head.n + second.n
-	try roster.set(0, value: freeze(Counter.create(10))) otherwise return 1
+	total = try total + head.n + second.n otherwise panic("out of range")
+	try roster.set(0, value: thaw(freeze(Counter.create(10)))) otherwise return 1
 	let removed = try roster.remove(2) otherwise return 1
-	total = total + removed.n
-	roster.insert(0, value: shared)
-	total = total + (roster.count() as Integer)
+	total = try total + removed.n otherwise panic("out of range")
+	roster.insert(0, value: thaw(shared))
+	total = try total + (roster.count() as Integer) otherwise panic("out of range")
 	roster.clear()
-	return (total + (roster.count() as Integer)) as ExitCode
+	return try (total + (roster.count() as Integer)) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -92,11 +92,11 @@ typealias Index = Map with String, Counter
 function main() returns ExitCode
 	var index = Index.create()
 	let shared = freeze(Counter.create(5))
-	index.upsert("a", value: shared)
-	index.upsert("b", value: freeze(Counter.create(6)))
+	index.upsert("a", value: thaw(shared))
+	index.upsert("b", value: thaw(freeze(Counter.create(6))))
 	let late = freeze(Counter.create(2))
-	try index.insert("c", value: late) otherwise return 1
-	index.upsert("a", value: freeze(Counter.create(7)))
+	try index.insert("c", value: thaw(late)) otherwise return 1
+	index.upsert("a", value: thaw(freeze(Counter.create(7))))
 	let seen = try index.get("a") otherwise return 1
 	let gone = index.remove("b")
 	var total = try (seen.n + shared.n) as Integer otherwise panic("out of range")
@@ -140,7 +140,7 @@ function main() returns ExitCode
 	let spelled = Spelled.create()
 	spelled.upsert("b", value: shared)
 	let queue = Queue.create()
-	queue.append(shared)
+	queue.append(thaw(shared))
 	let first = try queue.first() otherwise return 1
 	let total = (index.count() as Integer) + (spelled.count() as Integer) + (queue.count() as Integer) + first.n + shared.n
 	return total as ExitCode
@@ -177,9 +177,9 @@ typealias Counters = Array with Counter
 
 function main() returns ExitCode
 	let counters = Counters.create(0)
-	counters.push(freeze(Counter.create(3)))
-	counters.push(freeze(Counter.create(1)))
-	counters.push(freeze(Counter.create(2)))
+	counters.push(thaw(freeze(Counter.create(3))))
+	counters.push(thaw(freeze(Counter.create(1))))
+	counters.push(thaw(freeze(Counter.create(2))))
 	counters.sort()
 	var total = 0 as Integer
 	for counter in counters 'each'
@@ -505,7 +505,6 @@ error E3197: specs/readonly-element-types/error.a-for-variable-over-an-immutable
 ```
 
 <!-- test: error.a-for-value-over-an-immutable-map-is-not-written -->
-<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 A `Map`'s `immutable` value stays immutable when a `for` loop destructures an entry.
 

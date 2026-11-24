@@ -3006,7 +3006,8 @@ type-parameter type has one owner; every other access is a borrow that cannot ou
   "Primitives"), and two places overlap when one is a prefix of the other (`a` and `a.f`; `a.f` and `a.g` do not;
   `a[i]` and `a[j]` do, for every index). An argument passed `mutates`, `consumes` or `sets`
   must not overlap any other argument of the call, receiver included (`E3186`). The rule applies to every
-  argument that names a place, scalars too. An argument that is a borrowed place stays borrowed while the later
+  argument that names a place, scalars too, except that a value a `consumes` parameter copies (a scalar, a frozen value
+  or a cown) is read there as a `let` argument is, so `m.upsert(i, value: i)` is fine. An argument that is a borrowed place stays borrowed while the later
   arguments are evaluated, and so does the target of an assignment while its value is, so a call nested there that
   changes an overlapping place is refused too (`E3186`).
 - **Initialisation.** `var x as T` declares a variable with no value. Reading it before every path has assigned
@@ -4031,7 +4032,8 @@ end 'transfer'
 -  **Frozen values.** The contents are lent and never given: reading a field, calling a method whose receiver is `let`,
   subscripting, matching, interpolating, and passing the frozen value to a `let` parameter of the type it holds all see
   the contents (`d.title`, `d.total()`, `describe(d)`). Anything else is refused: assigning through it, a `mutates`
-  argument, a method that takes `mutates self` or `consumes self`, or a `consumes` parameter is `E3197`, and taking a
+  argument, a method that takes `mutates self` or `consumes self`, or a `consumes` parameter is `E3197` (whose `fix`
+  for a `consumes` parameter passes `thaw(...)`, when the contents can be copied), and taking a
   part out of it is `E3901`. The type system tells a frozen value from its contents by the type `frozen with T`, so a
   place's path gains a step into the contents (`self/check/paths.maxon`), and every rule about places, borrows and exclusivity applies
   to it as it does to a field. `clone()` of a frozen value, of a cown reference, and of anything that holds one, is a
@@ -4396,6 +4398,15 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   the header with the other literal markers (`Builtin*Literal`). maxon's `Map` has no subscript, `replace`, `isEmpty` or
   `dropEmpty`, which the built-in had, and a `Handle` is no key, since it is not `Hashable`. maxon makes a payload-free enum
   `Hashable` and `Equatable` itself; here such an enum declares both, with its methods, to be a key (not yet synthesized).
+- **A `Map` or `Set` insert consumes what it stores.** maxon's `insert` and `upsert` take `key immutable Key` and keep it by a
+  retain; here a value has one owner and a `String` no count, so a borrowed key that the table keeps would have to be
+  copied, out of sight of the program. `Map.insert`, `Map.upsert` and `Set.insert` take the key, the value and the element
+  `consumes`: a value built for the call moves in with no copy, and a caller that goes on using its key writes
+  `key.clone()`. A key that is an element of a collection is `E3901`, and one that is used after the call `E3102`, and
+  `fix` writes the `.clone()` for both: for `E3102` at the argument the local moved into, when a `consumes` parameter
+  took it and its type can be copied. A frozen value given for a key or value of the type it holds is `E3197`, as at any
+  `consumes` parameter, and `fix` writes `thaw(...)` around it when that type can be copied: maxon's map keeps the
+  frozen value, and here it keeps an owned copy, which is what the library made before.
 - **A `String` is two words in place**, its bytes' address and a word of its length, an ASCII bit, an owned bit and a
   view bit, where maxon's is the address of a counted box. A literal is its bytes in the executable's read-only data, copied
   by no operation; an owned String's bytes are a heap buffer of their own, freed by the String that owns them; a view's are

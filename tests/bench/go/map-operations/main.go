@@ -62,6 +62,11 @@ func stringKeys(t *phase.Timer) uint64 {
 		m[keys[i]] = uint64(i)
 	}
 	t.Lap("string insert")
+	built := map[string]uint64{}
+	for i := range size {
+		built["key"+strconv.Itoa(i)] = uint64(i)
+	}
+	t.Lap("string insert built")
 	var sum uint64
 	for i := range size {
 		sum += m[keys[i]]
@@ -87,7 +92,7 @@ func stringKeys(t *phase.Timer) uint64 {
 		}
 	}
 	t.Lap("string remove")
-	return sum + misses + removed + uint64(len(m))
+	return sum + misses + removed + uint64(len(m)) + uint64(len(built))
 }
 
 func main() {

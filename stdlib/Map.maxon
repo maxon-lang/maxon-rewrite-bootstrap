@@ -449,12 +449,12 @@ public type Map uses Key, Value implements Iterable with (Entry, MapIterator) wh
 	/// Insert a key-value pair into the map
 	/// Throws if the key already exists
 	/// Grows the table the key goes to when its slots in use pass 7/8 of them
-	public function insert(mutates self, key Key, value Value) throws MapError where Key implements Droppable and Copyable, Value implements Droppable and Copyable
+	public function insert(mutates self, consumes key Key, consumes value Value) throws MapError where Key implements Droppable and Copyable, Value implements Droppable and Copyable
 		allocate()
 		let hash = hashOf(key)
 		let t = tableOf(hash)
 		_ = try tables[t].find(key, hash: hash) otherwise 'absent'
-			putAbsent(key.clone(), value: value.clone(), hash: hash)
+			putAbsent(key, value: value, hash: hash)
 			return
 		end 'absent'
 		throw MapError.keyAlreadyExists
@@ -463,15 +463,15 @@ public type Map uses Key, Value implements Iterable with (Entry, MapIterator) wh
 	/// Insert or update a key-value pair in the map
 	/// If the key already exists, updates the value
 	/// Grows the table the key goes to when its slots in use pass 7/8 of them
-	public function upsert(mutates self, key Key, value Value) where Value implements Droppable and Copyable, Key implements Droppable and Copyable
+	public function upsert(mutates self, consumes key Key, consumes value Value) where Value implements Droppable and Copyable, Key implements Droppable and Copyable
 		allocate()
 		let hash = hashOf(key)
 		let t = tableOf(hash)
 		let slot = try tables[t].find(key, hash: hash) otherwise 'absent'
-			putAbsent(key.clone(), value: value.clone(), hash: hash)
+			putAbsent(key, value: value, hash: hash)
 			return
 		end 'absent'
-		tables[t].groups.setSecond(slot, value: value.clone())
+		tables[t].groups.setSecond(slot, value: value)
 	end 'upsert'
 
 	// putAbsent moves in an entry whose key the map does not hold. A table with no growth left first prunes its

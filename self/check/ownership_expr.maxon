@@ -15,7 +15,8 @@ function readRoot(mutates o Ownership, p ast.Project, ms ast.ModuleState, l ast.
 		if site <= fact.site 'loop'
 			fail(o, p: p, site: site, code: diag.errUseAfterMove, msg: diag.movedInEarlierIteration(name))
 		end 'loop' else 'later'
-			fail(o, p: p, site: site, code: diag.errUseAfterMove, msg: diag.useOfMovedValue(name))
+			let fix = movedCloneFix(ms.tree(), fact: fact)
+			failFixed(o, p: p, site: site, code: diag.errUseAfterMove, msg: diag.useOfMovedValue(name), fix: fix)
 		end 'later'
 	end 'moved' else if fact.kind == OwnFactKind.factUninitialised 'uninitialised'
 		fail(o, p: p, site: site, code: diag.errUseBeforeInit, msg: "'{name}' has no value here; assign it on every path before reading it")
@@ -26,6 +27,17 @@ function readRoot(mutates o Ownership, p ast.Project, ms ast.ModuleState, l ast.
 	end 'partly'
 	return without(s, l: l)
 end 'readRoot'
+
+// movedCloneFix is the fix of a use of a local after it moved into a consumes parameter: a copy passed there instead,
+// written at the argument, so the local keeps its value. A move into anything else, such as a binding or a field, has
+// none, since what a copy there would cost is the program's to weigh, and neither has a move of a type that cannot be
+// copied (the fact then records no expression).
+function movedCloneFix(t ast.Tree, fact OwnFact) returns diag.Fix
+	if fact.moved == 0 'none'
+		return diag.Fix.none()
+	end 'none'
+	return cloneFix(t, e: fact.moved)
+end 'movedCloneFix'
 
 // consume is an expression whose value is stored, passed to a consumes parameter or returned. Code that can run marks
 // the expression consumed, which is how lowering learns where a value changes owner. A scalar is copied, and a fresh
@@ -57,7 +69,7 @@ function consume(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState,
 	if holdsBorrowOf(o, p: p, ms: ms, t: t) 'borrows'
 		requireBorrowsStay(o, p: p, ms: ms, e: e, dest: dest)
 	end 'borrows'
-	if not isManagedOwn(p, ms: ms, t: t) or ast.sharesOnCopy(ms.types, reads: p.types, t: t) 'scalar'
+	if copiedOnConsume(p, ms: ms, t: t) 'scalar'
 		return out
 	end 'scalar'
 	let projection = projectionOf(o, ms: ms, e: e)
@@ -125,8 +137,18 @@ function consume(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState,
 	requireNotProjected(o, p: p, ms: ms, path: path, site: site)
 	requireUnlent(o, p: p, ms: ms, root: path.root, site: site, s: out)
 	let released = releaseHolder(o, p: p, root: path.root, site: site, dest: dest, s: out)
-	return withFact(released, fact: OwnFact.make(path.root, site: site, kind: OwnFactKind.factMoved, dest: dest))
+	var copied = 0 as ast.NodeID
+	if dest.kind == OwnDestKind.destParameter and canCopy(o, p: p, ms: ms, t: t) 'copyable'
+		copied = e
+	end 'copyable'
+	return withFact(released, fact: OwnFact.movedAt(path.root, site: site, e: copied, dest: dest))
 end 'consume'
+
+// copiedOnConsume is whether consuming a value of type t copies it, leaving the place it was read from as it was: a
+// scalar, or a frozen value or a cown, whose copy is another owner.
+function copiedOnConsume(p ast.Project, ms ast.ModuleState, t ast.TypeID) returns bool
+	return not isManagedOwn(p, ms: ms, t: t) or ast.sharesOnCopy(ms.types, reads: p.types, t: t)
+end 'copiedOnConsume'
 
 // takesFromSlot is whether consuming a promise at path takes it out of the slot that holds it, which is left empty, as
 // maxon's read of a promise out of storage names its slot: an element of a collection, or a field of a value the function
@@ -952,7 +974,12 @@ function requireExclusive(mutates o Ownership, p ast.Project, mutates ms ast.Mod
 	for i in 0 upto call.ordered.count() 'args'
 		if call.ordered[i] != 0 'given'
 			requireApartFromClosure(o, p: p, ms: ms, e: call.ordered[i])
-			addAccess(o, p: p, ms: ms, e: call.ordered[i], conv: call.paramSpecs[i].conv)
+			var conv = call.paramSpecs[i].conv
+			if conv == ast.Convention.convConsumes and copiedOnConsume(p, ms: ms, t: ownType(o, node: call.ordered[i])) 'copied'
+				// The callee gets a copy and reaches the place through no name: the argument only reads it, as a let does.
+				conv = ast.Convention.convLet
+			end 'copied'
+			addAccess(o, p: p, ms: ms, e: call.ordered[i], conv: conv)
 		end 'given'
 	end 'args'
 	for j in 1 upto o.accesses.count() 'later'

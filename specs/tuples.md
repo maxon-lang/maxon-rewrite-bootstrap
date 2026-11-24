@@ -3642,7 +3642,6 @@ end 'main'
 ```
 
 <!-- test: a-trivial-tuple-a-call-handed-back-is-sent-as-a-copy -->
-<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 `echo` hands back a tuple the compiler cannot prove this frame owns alone; a trivial tuple has no identity,
 so it is sent as a copy and `b` keeps its value. Returns 43.
 ```maxon
@@ -3651,7 +3650,7 @@ typealias Num = int(0 to 1000)
 typealias Pair = (Num, Num)
 
 function echo(p Pair) returns Pair
-	return p
+	return p.clone()
 end 'echo'
 
 type Tally
@@ -3661,8 +3660,8 @@ type Tally
 		return Self{sum: 0}
 	end 'create'
 
-	export function take(pair Pair)
-		self.sum = pair.0 + pair.1
+	export function take(mutates self, pair Pair)
+		self.sum = try pair.0 + pair.1 otherwise panic("out of range")
 	end 'take'
 
 	export function total() returns Num
@@ -3674,10 +3673,10 @@ function main() returns ExitCode
 	var b = echo((3 as Num, 1 as Num))
 	b.1 = 40
 	let t = spawn Tally.create()
-	try t.take(b) otherwise panic("an open mailbox with room takes the send")
+	try t.take(b.clone()) otherwise panic("an open mailbox with room takes the send")
 	let sum = try await t.total() otherwise panic("the tally is running")
 	t.shutdown()
-	return sum + b.0 - 3
+	return try sum + b.0 - 3 otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

@@ -1088,6 +1088,7 @@ closure-capture.md: closure-capture.ignore-param
 closure-capture.md: closure-capture.interface-method-with-captured-field
 closure-capture.md: closure-capture.multiple-captures
 closure-capture.md: closure-capture.no-capture-regression
+closure-capture.md: closure-capture.one-closure-in-two-fields-an-array-and-a-union
 closure-capture.md: closure-capture.string-literal-body
 closure-capture.md: closure-capture.struct-field
 closure-capture.md: closure-capture.the-environment-releases-a-captured-string
@@ -3331,6 +3332,7 @@ immutable-constants.md: a-map-of-text-keys-is-built-from-a-dictionary-literal
 immutable-constants.md: a-map-of-values-is-built-from-a-dictionary-literal
 immutable-constants.md: a-record-of-let-values-crosses-a-message-with-no-capability-word
 immutable-constants.md: a-scalar-key-and-element-need-no-freeze
+immutable-constants.md: a-union-payload-declared-immutable-holds-a-constant-name
 immutable-constants.md: an-all-let-record-read-from-an-element-is-stored-into-a-plain-payload
 immutable-constants.md: an-immutable-element-fills-the-second-payload-case-of-a-boxed-union
 immutable-constants.md: an-inline-byte-literal-passed-to-a-parameter-a-plain-field-keeps-is-read-only-for-the-caller
@@ -3642,6 +3644,7 @@ let-binding-capabilities.md: let-binding-capabilities.let-fields-of-a-let-return
 let-escape.md: let-escape.a-builder-that-writes-before-it-stores-is-accepted
 let-escape.md: let-escape.a-call-writing-two-lets-passed-directly-writes-both
 let-escape.md: let-escape.a-callee-writing-a-let-through-its-holders-own-method-is-accepted
+let-escape.md: let-escape.a-captured-let-pushed-into-a-holder-is-accepted-though-nothing-writes-its-type
 let-escape.md: let-escape.a-getter-that-hands-back-a-clone-of-a-set-the-factory-minted-is-accepted
 let-escape.md: let-escape.a-getter-that-hands-back-a-clone-of-what-the-factory-minted-is-accepted
 let-escape.md: let-escape.a-global-container-written-before-the-let-is-stored-is-accepted
@@ -3655,6 +3658,7 @@ let-escape.md: let-escape.a-let-bound-to-an-element-moved-out-of-a-field-of-a-ge
 let-escape.md: let-escape.a-let-bound-to-an-element-moved-out-of-a-field-of-a-generic-type-is-accepted-for-an-integer
 let-escape.md: let-escape.a-let-bound-to-an-element-moved-out-of-a-field-of-a-plain-type-is-accepted
 let-escape.md: let-escape.a-let-handed-to-a-factory-that-stores-a-clone-is-accepted
+let-escape.md: let-escape.a-let-kept-after-the-write-into-a-holder-an-earlier-call-escaped-is-accepted
 let-escape.md: let-escape.a-let-kept-by-a-callee-while-a-task-runs-and-read-again-is-accepted
 let-escape.md: let-escape.a-let-kept-by-a-holders-method-and-read-again-is-accepted
 let-escape.md: let-escape.a-let-kept-in-a-global-container-of-another-type-and-read-again-is-accepted
@@ -3662,11 +3666,15 @@ let-escape.md: let-escape.a-let-kept-in-a-var-field-of-a-record-with-sixty-five-
 let-escape.md: let-escape.a-let-kept-in-one-container-of-a-holder-and-read-again-is-accepted
 let-escape.md: let-escape.a-let-kept-two-factories-down-and-read-again-is-accepted
 let-escape.md: let-escape.a-let-minted-in-the-loop-kept-by-a-callee-and-read-again-is-accepted
+let-escape.md: let-escape.a-let-pushed-into-a-module-holder-and-read-again-is-accepted
+let-escape.md: let-escape.a-let-the-callee-pushes-and-returns-is-accepted-at-the-push-though-the-caller-reads-it-before-the-write
 let-escape.md: let-escape.a-record-pushed-then-returned-without-a-write-is-accepted
+let-escape.md: let-escape.a-record-stored-before-the-write-into-a-holder-an-earlier-call-escaped-is-written
 let-escape.md: let-escape.a-sibling-record-method-that-never-runs-after-the-store-is-accepted
 let-escape.md: let-escape.a-string-let-stored-as-a-clone-is-accepted
 let-reassignment-only.md: a-field-store-through-a-let-local
 let-reassignment-only.md: a-for-variable-over-a-let-array-is-written-through
+let-reassignment-only.md: a-frozen-let-is-sent-to-a-service-twice
 let-reassignment-only.md: a-let-array-is-pushed-set-and-read-in-loops
 let-reassignment-only.md: a-let-bound-from-a-field-keeps-its-record-when-the-holder-is-reassigned
 let-reassignment-only.md: a-let-is-passed-to-a-parameter-the-callee-writes
@@ -4766,6 +4774,7 @@ moves.md: var-destructure-scalars-from-immutable
 moves.md: var-from-a-let-struct-moves-it
 moves.md: var-from-a-let-tuple-element-shares-the-element
 mutable-enums.md: a-freshly-built-scalar-payload-union-passed-to-a-let-field-keeper-is-sole
+mutable-enums.md: a-scalar-payload-union-also-stored-elsewhere-is-kept-too
 mutable-enums.md: a-scalar-payload-union-var-at-its-last-use-passed-to-a-let-field-keeper-is-sole
 mutable-enums.md: a-scalar-payload-union-var-read-after-the-call-is-kept-too
 mutable-enums.md: error.assign-to-let-enum-binding
@@ -5746,12 +5755,14 @@ raw-bit-patterns.md: xor-over-a-top-bit-variable-reaches-an-unsigned-quantity-pa
 readonly-element-returns.md: error.a-method-returning-an-immutable-element-or-a-fresh-record-hands-back-a-read-only-value
 readonly-element-types.md: a-map-stores-frozen-values-and-stays-mutable
 readonly-element-types.md: a-wrapper-storing-into-an-immutable-element-takes-a-frozen-argument
+readonly-element-types.md: error.a-for-value-over-an-immutable-map-is-not-written
 readonly-element-types.md: error.a-for-variable-over-an-immutable-list-is-not-written
 readonly-element-types.md: error.a-for-variable-over-immutable-elements-is-not-written
 readonly-element-types.md: error.an-element-an-iterator-pair-yields-is-not-written
 readonly-element-types.md: error.an-element-is-not-bound-to-a-var
 readonly-element-types.md: error.an-element-read-by-get-is-not-written
 readonly-element-types.md: error.the-element-a-cursor-reads-is-not-bound-to-a-var
+readonly-element-types.md: values-that-nothing-writes-are-stored-and-read
 rebindable-slot-borrow.md: an-immutable-field-read-is-counted-too
 rebindable-slot-borrow.md: managed-field-read-survives-the-field-being-replaced
 rebindable-slot-borrow.md: string-field-read-survives-the-field-being-replaced
@@ -5797,6 +5808,8 @@ regions-async-lend.md: the-lent-holder-is-refused-again-when-its-shadow-ends
 regions-audit.md: a-promise-whose-payload-is-not-sendable-is-not-a-clean-input
 regions-audit.md: a-result-through-a-function-value-over-mutable-captures-is-writable
 regions-audit.md: a-result-through-a-function-value-that-captures-nothing-is-writable
+regions-byref-order.md: a-send-after-an-operand-read-of-the-cell-and-a-reading-hand-over-runs
+regions-byref-order.md: a-spawn-after-an-operand-read-of-the-cell-and-a-reading-hand-over-runs
 regions-byref-order.md: alias-let-after
 regions-byref-order.md: alias-let-before
 regions-byref-order.md: async-argument-after
@@ -5915,6 +5928,7 @@ regions-byref-order.md: write-based-forwarding-to-a-function-value-position-the-
 regions-byref-order.md: write-based-forwarding-to-an-interface-requirement-position-is-refused
 regions-byref-order.md: write-based-function-value-counts-every-position
 regions-byref-order.md: write-based-interface-requirement-counts-every-position
+regions-byref-order.md: write-based-isolated-occupant-at-a-send-beside-a-by-reference-hand-over-is-sent
 regions-byref-order.md: write-based-mutual-recursion-one-writes-ping-first
 regions-byref-order.md: write-based-mutual-recursion-one-writes-pong-first
 regions-byref-order.md: write-based-nested-both-written
@@ -6477,6 +6491,7 @@ services.md: a-handle-moved-into-another-service
 services.md: a-handle-payload-beside-a-consumed-string-payload
 services.md: a-handle-read-out-of-an-array-survives-a-second-send
 services.md: a-message-that-spawns-a-service-keeps-that-services-unsent-messages-alive
+services.md: a-module-let-record-is-shared-with-the-service
 services.md: a-monomorphic-handle-is-co-owned-in-a-struct-field
 services.md: a-private-method-is-not-a-message
 services.md: a-reply-a-method-of-the-state-builds-fresh-crosses
@@ -6497,6 +6512,7 @@ services.md: a-split-send-and-await-propagates-the-handlers-error
 services.md: a-static-factory-forwarding-to-its-sibling-static-sends-a-fresh-record
 services.md: a-stopped-service-stores-no-reply-and-its-send-fails-serviceStopped
 services.md: a-stored-reply-send-needs-its-own-try
+services.md: a-string-a-container-also-holds-is-sent-with-its-owners-counted
 services.md: a-string-argument-moves-into-the-service
 services.md: a-string-moves-in-and-a-fresh-string-comes-back
 services.md: a-throwing-message-is-sent-fire-and-forget
@@ -7522,6 +7538,7 @@ tuples.md: a-let-tuple-field-is-range-known
 tuples.md: a-message-parameter-of-a-generic-alias-names-its-own-modules-alias-beside-a-sibling-of-the-same-name
 tuples.md: a-pair-returned-at-three-depths-through-shared-drop-blocks
 tuples.md: a-signed-element-and-an-unsigned-element-each-keep-their-reading
+tuples.md: a-trivial-tuple-a-call-handed-back-is-sent-as-a-copy
 tuples.md: a-tuple-alias-message-parameter-names-its-own-modules-alias-beside-a-sibling-of-the-same-name
 tuples.md: a-tuple-alias-type-argument-declared-above-its-instantiation-is-constructible
 tuples.md: a-tuple-alias-type-argument-declared-below-its-instantiation-is-constructible
@@ -8246,5 +8263,6 @@ write-through-a-holder.md: write-through-a-holder.a-let-handed-to-a-parameter-ke
 write-through-a-holder.md: write-through-a-holder.a-let-handed-to-a-parameter-pushed-after-the-holder-is-written-is-accepted
 write-through-a-holder.md: write-through-a-holder.a-let-handed-to-a-parameter-pushed-in-one-arm-is-accepted
 write-through-a-holder.md: write-through-a-holder.a-let-kept-by-a-holder-is-read-after-its-method-writes-another-field
+write-through-a-holder.md: write-through-a-holder.a-let-parked-in-a-holders-field-is-accepted-beside-a-record-the-callee-creates-and-stores
 write-through-a-holder.md: write-through-a-holder.a-method-writing-its-own-field-on-a-let-parameter-is-accepted
 write-through-a-holder.md: write-through-a-holder.a-read-only-method-on-a-holder-leaves-the-parameter-unwritten

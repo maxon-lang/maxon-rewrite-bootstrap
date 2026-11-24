@@ -185,7 +185,8 @@ function bindArgs(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, 
 end 'bindArgs'
 
 // coerceArg checks an argument against its parameter, which a 'mutates' or 'sets' parameter takes exactly, and a let
-// parameter takes the contents of a frozen value for.
+// parameter takes the contents of a frozen value for. Any other parameter is given a copy of them, which fix writes,
+// where they can be copied.
 function coerceArg(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, call ast.NodeID, value ast.NodeID, callee String, spec ast.ParamSpec, payload bool, mutates errs diag.ErrorList) returns bool
 	let t = ast.nodeType(c.typing, node: value)
 	let temporary = ast.isMutatingFunction(ms.types, reads: p.types, t: spec.ty) and not ast.isStorage(ms.tree(), typing: c.typing, node: value)
@@ -206,7 +207,11 @@ function coerceArg(mutates c Checker, p ast.Project, mutates ms ast.ModuleState,
 	end 'byAddress'
 	if lendsContents(p, ms: ms, t: t, want: spec.ty) 'frozen'
 		if spec.conv != ast.Convention.convLet 'keeps'
-			failAt(c, p: p, ms: ms, node: value, code: diag.errFrozenChange, msg: "the {spec.conv.keyword()} parameter '{spec.name}' of '{callee}' would change or keep the contents of a frozen value, which are immutable and shared; pass an owned copy: 'thaw(...)'", errs: errs)
+			var fix = diag.Fix.none()
+			if not lacksCap(c, p: p, ms: ms, wantCopy: true, t: spec.ty).missing 'copyable'
+				fix = thawFix(ms.tree(), e: value)
+			end 'copyable'
+			checkFailFixed(c.modID, off: offsetOf(c, p: p, ms: ms, node: value), code: diag.errFrozenChange, msg: "the {spec.conv.keyword()} parameter '{spec.name}' of '{callee}' would change or keep the contents of a frozen value, which are immutable and shared; pass an owned copy: 'thaw(...)'", fix: fix, errs: errs)
 			return false
 		end 'keeps'
 		return true

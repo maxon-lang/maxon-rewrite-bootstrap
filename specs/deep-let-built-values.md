@@ -209,7 +209,7 @@ type Told
 	end 'create'
 
 	function note(name frozen with ByteArray)
-		self.names.push(name)
+		self.names.push(thaw(name))
 	end 'note'
 end 'Told'
 
@@ -275,7 +275,7 @@ type Told
 	end 'create'
 
 	function note(name frozen with ByteArray)
-		self.names.push(name)
+		self.names.push(thaw(name))
 	end 'note'
 end 'Told'
 
@@ -341,7 +341,7 @@ type Told
 	end 'create'
 
 	function note(name frozen with ByteArray)
-		self.names.push(name)
+		self.names.push(thaw(name))
 	end 'note'
 end 'Told'
 

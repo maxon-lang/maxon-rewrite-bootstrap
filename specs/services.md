@@ -5101,7 +5101,6 @@ kept hello padded out long enough to heap allocate 1
 ```
 
 <!-- test: a-string-a-container-also-holds-is-sent-with-its-owners-counted -->
-<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 A String a container also holds has a second owner on this green thread, and a send of it is correct: the box
 counts its owners, so the service and the sender each hold a counted reference to one String.
 ```maxon
@@ -5112,17 +5111,17 @@ type Store
 		return Self{n: 0}
 	end 'create'
 
-	export function keep(s String) returns Integer
-		self.n = self.n + 1
-		return s.byteLength()
+	export function keep(mutates self, s String) returns Integer
+		self.n = try self.n + 1 otherwise panic("out of range")
+		return try s.byteLength() as Integer otherwise panic("out of range")
 	end 'keep'
 end 'Store'
 
 function main() returns ExitCode
 	let h = spawn Store.create()
 	let buf = "hello {1}"
-	let held = Strings.create(0)
-	held.push(buf)
+	var held = Strings.create(0)
+	held.push(buf.clone())
 	let got = try await h.keep(buf) otherwise panic("an open mailbox with room takes the send")
 	print("{got} {held.count()}\n")
 	return 0
@@ -5323,7 +5322,6 @@ error E3102: <fragment>:31:18: use of moved value 'p': its ownership moved to an
 ```
 
 <!-- test: a-module-let-record-is-shared-with-the-service -->
-<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 A module-level `let` is read-only for the whole program, so a message may carry it directly. The sender does not own
 the record, nothing can write it, and the handler only reads it: the graph is marked shared, every count in it steps
 atomically, and both threads read the one record.
@@ -5343,8 +5341,8 @@ type Store
 		return Self{seen: 0}
 	end 'create'
 
-	export function keep(p frozen with Payload) returns Integer
-		self.seen = self.seen + 1
+	export function keep(mutates self, p frozen with Payload) returns Integer
+		self.seen = try self.seen + 1 otherwise panic("out of range")
 		return p.n
 	end 'keep'
 end 'Store'
@@ -5352,7 +5350,7 @@ end 'Store'
 function main() returns ExitCode
 	let h = spawn Store.create()
 	let shared = freeze(Payload.create(7))
-	let total = (try await h.keep(shared) otherwise 0) + shared.n
+	let total = try (try await h.keep(shared.clone()) otherwise 0) + shared.n otherwise panic("out of range")
 	print("{total}\n")
 	return 0
 end 'main'

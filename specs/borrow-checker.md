@@ -90,7 +90,7 @@ typealias ByteArrayMap = Map with (String, ByteArray)
 function intern(mutates lookup ByteArrayMap, name String) returns ByteArray
 	let existing = try lookup.get(name) otherwise 'fresh'
 		let bytes = name.toByteArray()
-		lookup.upsert(name, value: bytes)
+		lookup.upsert(name.clone(), value: bytes.clone())
 		return bytes
 	end 'fresh'
 	return existing

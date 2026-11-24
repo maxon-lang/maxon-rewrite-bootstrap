@@ -353,7 +353,6 @@ end 'main'
 ```
 
 <!-- test: a-scalar-payload-union-also-stored-elsewhere-is-kept-too -->
-<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 A union pushed into a collection before the call is held by the collection too, and the `let` field takes it all the same.
 
 ```maxon
@@ -370,7 +369,7 @@ type Holder
 	export let settle as Settle
 
 	static function create(settle Settle) returns Self
-		return Self{settle: settle}
+		return Self{settle: settle.clone()}
 	end 'create'
 end 'Holder'
 
@@ -383,23 +382,23 @@ type Registry
 		return Self{held: HolderArray.create(0)}
 	end 'create'
 
-	function keep(settle Settle)
+	function keep(mutates self, settle Settle)
 		self.held.push(Holder.create(settle))
 	end 'keep'
 
-	function run(count Integer)
+	function run(mutates self, count Integer)
 		let settle = Settle.someMoved(count)
-		let spare = SettleArray.create(0)
-		spare.push(settle)
+		var spare = SettleArray.create(0)
+		spare.push(settle.clone())
 		self.keep(settle)
 		spare.clear()
 	end 'run'
 end 'Registry'
 
 function main() returns ExitCode
-	let registry = Registry.create()
+	var registry = Registry.create()
 	registry.run(3)
-	return registry.held.count() as ExitCode
+	return try registry.held.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

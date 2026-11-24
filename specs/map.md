@@ -660,7 +660,7 @@ typealias PointMap = Map with (Point, Val)
 function main() returns ExitCode
 	var m = PointMap.create()
 	for i in 1 upto 4 'fill'
-		m.upsert(freeze(Point.create(i, y: i * 2)), value: i * 7)
+		m.upsert(thaw(freeze(Point.create(i, y: i * 2))), value: i * 7)
 	end 'fill'
 	return try (try m.get(Point.create(1, y: 2)) otherwise 0) + (try m.get(Point.create(2, y: 4)) otherwise 0) + (try m.get(Point.create(3, y: 6)) otherwise 0) otherwise panic("out of range")
 end 'main'
@@ -712,7 +712,7 @@ typealias PointMap = Map with (Point, Val)
 function build(n Val) returns Val
 	var m = PointMap.create()
 	for i in 0 upto n 'fill'
-		m.upsert(freeze(Point.create(i, y: try i * 3 otherwise panic("out of range"))), value: i)
+		m.upsert(thaw(freeze(Point.create(i, y: try i * 3 otherwise panic("out of range")))), value: i)
 	end 'fill'
 	var seen = 0 as Val
 	for i in 0 upto n 'read'
@@ -771,7 +771,7 @@ typealias PointStrMap = Map with (Point, String)
 function main() returns ExitCode
 	var m = PointStrMap.create()
 	for i in 0 upto 40 'fill'
-		m.upsert(freeze(Point.create(i, y: i * 3)), value: "value number {i}, long enough to escape any small-string envelope")
+		m.upsert(thaw(freeze(Point.create(i, y: i * 3))), value: "value number {i}, long enough to escape any small-string envelope")
 	end 'fill'
 	var seen = 0 as Count
 	for i in 0 upto 40 'read'
