@@ -528,8 +528,8 @@ end 'argumentAt'
 		closeHandle(child)
 		closeHandle(wordAt(output, offset: pipeReadOffset))
 		closeHandle(wordAt(errors, offset: pipeReadOffset))
-		__Raw.storeString(stdout, offset: 0, bytes: wordAt(output, offset: pipeTextOffset), length: wordAt(output, offset: pipeLengthOffset), ascii: false)
-		__Raw.storeString(stderr, offset: 0, bytes: wordAt(errors, offset: pipeTextOffset), length: wordAt(errors, offset: pipeLengthOffset), ascii: false)
+		storeOwnedString(stdout, offset: 0, bytes: wordAt(output, offset: pipeTextOffset), length: wordAt(output, offset: pipeLengthOffset), ascii: false)
+		storeOwnedString(stderr, offset: 0, bytes: wordAt(errors, offset: pipeTextOffset), length: wordAt(errors, offset: pipeLengthOffset), ascii: false)
 		free(frame)
 		succeed(errorAddress)
 		return exitCode

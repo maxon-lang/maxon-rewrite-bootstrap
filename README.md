@@ -1980,6 +1980,24 @@ nothing.
   bit because a copy is made where nothing says whether the String is a literal, whose copy may share bytes that outlive
   every copy, or a view, whose copy may not: a `let` parameter is given either. The length is the word shifted right, with no access to memory. `strptr`, `strword` and
   `strmake` take a String apart and make one of its two words, which only the runtime's String intrinsics write.
+- **A String of 1 to 15 bytes holds them in its two words** (`stringInlineBytes`, `runtime/inline.maxon`): the first eight
+  in the first word, the lowest first, the rest in the second between `stringLengthShift` and `stringCountShift`, their count
+  in the four bits above, and its top bit (`stringInlineShift`) set, which no length reaches, so the word is negative. Neither
+  the owned bit nor the view bit is set, so its drop does nothing and its copy is its two words, as a literal's are, and its
+  ASCII bit is exact. Every String of so few bytes is held so, and the empty String never is: literals, data constants, slices,
+  joins and every String the runtime makes (`ownedString`, which frees the room of a short one) keep to that one form, so two
+  Strings of which one is held in its words are equal exactly when their words are, and a short Map key is hashed and compared
+  with no access to memory. A short literal is an address and two loads from a 16-byte constant of its own, and the fold pass
+  makes the length of a literal a constant. Only a few accessors know the form: the length (`length.string`,
+  `__Raw.stringLength`, `rt.str.len`: the count or the word shifted, chosen by `csel` on arm64 and `cmov` on x64), the
+  byte at an index (the word shifted down by the index's bytes, with no call), and `strbytes` (`__Raw.stringBytes`), the address
+  of the bytes, which writes a String held in its words to a frame box of the function that asks and gives that box: the
+  runtime's byte loops read through it, and only `runtime/inline.maxon`, `runtime/characters.maxon` and a few entries read the
+  words themselves (`__Raw.stringFirstWord`, `stringSecondWord`, `stringOfWords`). `rt.str.view` stays in place for a long
+  view of a String that is not held in its words, and calls `runtime::stringView` otherwise. A join, an append and a
+  concatenation of at most 15 bytes are made in the words with no allocation; a buffer that a join or an append grows is
+  made with 16 bytes of slack past the bytes, so a part held in its words goes in as its two word stores. The drop of a String
+  value tests the owned bit in place and calls the routine only when it is set.
 - **The ASCII bit** of a String's word says that every byte is below 0x80 and none is a carriage return, which a line
   feed after it would join in one grapheme cluster: each cluster and each code point is then one byte. It is set only
   where the bytes are examined anyway: a literal's at compile time, a String made of bytes the runtime has just written
@@ -4027,17 +4045,16 @@ surrogates are no step, and `Character.fromCodepoint(cp)` encodes one; each pani
 literals, counts through the scalar values between them and gives each as a Character; with one integer bound the range is
 of integers, the literal's code point. A Character is `Hashable`, `Equatable` and `Comparable` through the library's
 `stdlib/Character.maxon` (minimaxon's own, since maxon's declares the type that is built in here), so it is a `Map` key, a `Set`
-element and sorts; its hash folds its two words where it holds its bytes in them, which equal Characters always both do, and
-its bytes otherwise. `String` has `charAt(index)`, the cluster at an index as a Character, and `containsCharacter(c)`.
+element and sorts; its hash is the hash of the String of its bytes, which for one held in its two words is one fold of the words. `String` has `charAt(index)`, the cluster at an index as a Character, and `containsCharacter(c)`.
 maxon's `Ascii` is converted from maxon's library (`stdlib/ascii`). Its `CharacterSet` is not yet: its predefined sets are static
 lets whose `Set` literal is built where they are read, and the module that reads one does not make the instance of `Set.init`
 it calls (a panic of the lowering). What it reads is there: `unicodeGeneralCategory`, maxon's helper, over the
 General_Category table of every code point, which `internal/textgen` writes from `DerivedGeneralCategory.txt` to
-`stdlib/string/unicodeCategory_gen.maxon`, the helper module of maxon's `stdlib/helpers/string/`. A Character is two words, laid out as a String is: one of at most 15
-bytes holds them in its two words, the first eight in the first and the rest above the flags of the second, with their count
-and a bit no String's word sets, so it owns nothing and its copy and drop are the two words; a longer one is a String of its
-bytes, a literal's in the executable's data or a box it owns. Only `runtime/characters.maxon`, whose entries read one, and the
-backend's literal and routines know this.
+`stdlib/string/unicodeCategory_gen.maxon`, the helper module of maxon's `stdlib/helpers/string/`. A Character is two words, laid out as a String is: one of 1 to 15
+bytes holds them in its two words as every String of so few bytes does (see "The IR"), so its words are the words of the
+String of its bytes, it owns nothing, its copy and drop are the two words, and making a String of it copies the words; a
+longer one is a String of its bytes, a literal's in the executable's data or a box it owns. `runtime/characters.maxon`'s
+entries read one as the String of its words.
 
 `bytes()`, `codepoints()` and `utf16()` give maxon's views `ByteView`, `CodepointView` and `UTF16View`, whose elements are
 a `Byte`, a `Codepoint` (`int(0 to 1114111)`) and a `CodeUnit16` (`int(0 to 65535)`). A view has `count()` and walks with
@@ -4509,8 +4526,8 @@ the checker reports where Maxon's parser does, as it needs the type of the value
 
 - **A Character is held in two words.** maxon's `Character` is a record that owns a heap copy of its bytes, so each one
   taken from a String or written as a literal allocates. Here it is two words, laid out as a String is: a cluster of at most
-  15 bytes, which is nearly every one, is held in the words themselves and owns nothing, and a longer one is a String of its
-  bytes (see "Text"). What a program sees is maxon's: the same equality, order, copies and drops.
+  15 bytes, which is nearly every one, is held in the words themselves and owns nothing, as a String of so few bytes is, and a
+  longer one is a String of its bytes (see "Text"). What a program sees is maxon's: the same equality, order, copies and drops.
 - **More commands run at background priority.** Maxon lowers only `spec-test`, which puts itself at background priority
   (`Process.enterBackgroundPriority()`) once its worker branch is past, so its workers and test binaries inherit it.
   minimaxon does so for `test`, `selftest`, `fuzz`, `build` and `check` as well, and its gate lowers itself the same way.
@@ -4561,7 +4578,7 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   `consumes` parameter, and `fix` writes `thaw(...)` around it when that type can be copied: maxon's map keeps the
   frozen value, and here it keeps an owned copy, which is what the library made before.
 - **A `String` is two words in place**, its bytes' address and a word of its length, an ASCII bit, an owned bit and a
-  view bit, where maxon's is the address of a counted box. A literal is its bytes in the executable's read-only data, copied
+  view bit, where maxon's is the address of a counted box, and one of 1 to 15 bytes holds them in the two words (see "The IR"). A literal is its bytes in the executable's read-only data, copied
   by no operation; an owned String's bytes are a heap buffer of their own, freed by the String that owns them; a view's are
   another String's, so it frees none, and its copy copies them. A field, an element, a capture and an interface value hold
   the two words, and a call passes them in two registers.
@@ -5052,6 +5069,11 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   name of a parameter or a function (`return 1 + if(5)`): each starts a statement here, so it keeps that meaning at the
   start of every operand, and a free function named by one cannot be called. A bare read of `while`, `for`, `match` or
   `end`, which Maxon refuses with `E2015`, is the parser's syntax error here.
+- **A short String hashes as its two words.** A String of 1 to 15 bytes, which holds them in its two words (see "The IR"), and
+  so a Character, is hashed as one finish of maxon's fold over the two words (`hashShortFold` in `runtime/hashfold.maxon`,
+  which the interpreter runs too, so a Map's order is the same in both), with no access to memory and no rebuilding of the
+  words that maxon's fold loads; a longer String hashes as maxon's does. A short String's hash is therefore not maxon's fold of
+  its bytes, nor `Hasher.combineBytes` of a byte array of the same bytes.
 
 ## Changing the language
 
@@ -5100,7 +5122,9 @@ differs from Maxon" in the same change. A change to the syntax touches many prog
 - **The seed.** `seed/minimaxon.exe` has the language as it was when it was built, and it must compile `self/` and `runtime/`.
   A change that `self/` or `runtime/` must follow therefore takes two commits: first the compiler accepts the new form while
   `self/` and `runtime/` still use the old one, and `.\seed.ps1` renews the seed (`seed/README.md`); then `self/` and
-  `runtime/` move to the new form and the old one goes. A change that they do not use needs no new seed.
+  `runtime/` move to the new form and the old one goes. A change that they do not use needs no new seed. A change of a layout
+  that the seed bakes into the code it makes and the runtime shares with it (a String's two words) lands in one commit with
+  seeds renewed for it by `.\seed.ps1 --staged`, run before it is committed (`seed/README.md`).
 - **`.\check.ps1`** runs every check this repository requires (see "Tests"), formatting and applying `go fix` first,
   and stops at the first failure. The seed builds `self/` as `bin\minimaxon.exe`, which runs every later step, so a change that only the compiled
   `self/` shows (a symbol that two modules

@@ -556,6 +556,11 @@ func rawFunctions() []function {
 		raw("storeString", append(slices.Clone(at), "bytes Count", "length Count", "ascii Bool"), "", "RawStoreString"),
 		raw("stringBytesAt", at, "Count", "RawStringBytesAt"),
 		raw("stringLengthAt", at, "Count", "RawStringLengthAt"),
+		// The two words of a String as they are, and the String of two words, which only the runtime's source that knows
+		// a String that holds its bytes in its words (runtime/inline.maxon) and a Character's (runtime/characters.maxon) say.
+		raw("stringFirstWord", []string{"text String"}, "Count", "RawStringFirstWord"),
+		raw("stringSecondWord", []string{"text String"}, "Count", "RawStringSecondWord"),
+		raw("stringOfWords", []string{"first Count", "second Count"}, "String", "RawStringOfWords"),
 		raw("heapAddress", nil, "Count", "RawHeapAddress"),
 		raw("stdoutAddress", nil, "Count", "RawStdoutAddress"),
 		raw("stderrAddress", nil, "Count", "RawStderrAddress"),
@@ -1076,7 +1081,7 @@ var entries = []entry{
 	{"CharNextScalar", "rt.char.nextScalar", "Runtime", roleCall, "(code point) -> the scalar value after a scalar value, past the surrogates, which a character range steps through"},
 	{"CharOfBytes", "rt.char.ofBytes", "Runtime", roleCall, "(String, from, length) -> a Character of the length bytes from from, held in its two words when they are few enough"},
 	{"StrByteAt", "rt.str.byteAt", "Runtime", roleCall, "(String, index) -> byte"},
-	{"StrView", "rt.str.view", "Runtime", roleCall, "(String, from, length) -> String: a view of the length bytes from from, which owns none and has the String's ASCII bit, the bounds checked before; the backend writes it in place"},
+	{"StrView", "rt.str.view", "Runtime", roleCall, "(String, from, length) -> String: a view of the length bytes from from, which owns none and has the String's ASCII bit, the bounds checked before; the backend writes it in place where the String holds no bytes in its words and the view is too long to"},
 	{"StrCount", "rt.str.count", "Runtime", roleCall, "(String) -> count of its grapheme clusters"},
 	{"StrGraphemeIndex", "rt.str.graphemeIndex", "Runtime", roleCall, "(String, byte position) -> count of the clusters that start before it"},
 	{"StrGraphemeBytePos", "rt.str.graphemeBytePos", "Runtime", roleCall, "(String, from, count) -> the byte position that count clusters after from end at, or the end"},
@@ -1306,6 +1311,7 @@ var runtimeFunctions = []runtimeFunction{
 	{"CharNextScalar", "charNextScalar(cp Count) Count"},
 	{"CharOfBytes", "charOfBytes(text String, from Count, length Count) String"},
 	{"StrByteAt", "stringByteAt(text String, index Count) Byte"},
+	{"StrView", "stringView(text String, from Count, length Count) String"},
 	{"StrCount", "stringCount(text String) Count"},
 	{"StrGraphemeIndex", "stringGraphemeIndex(text String, bytePos Count) Count"},
 	{"StrGraphemeBytePos", "stringGraphemeBytePos(text String, from Count, count Count) Count"},

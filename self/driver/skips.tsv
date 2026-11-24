@@ -532,3 +532,4 @@ test	slab-census.md	slab-census.raw-live-slots-do-not-count-boxes	language diffe
 test	slab-census.md	slab-census.error.a-bucket-index-past-the-table-is-refused	language difference: minimaxon's heap is Go's page heap with per-thread size classes, so maxon's slab, census and raw-allocation figures have no counterpart
 test	slab-sharding.md	slab-sharding.the-traffic-counters-are-exact-across-green-threads	language difference: minimaxon's heap is Go's page heap with per-thread size classes, so maxon's slab, census and raw-allocation figures have no counterpart
 test	string-cstr.md	packed-receiver-pays-once-and-only-once	language difference: minimaxon's heap is Go's page heap with per-thread size classes, so maxon's slab, census and raw-allocation figures have no counterpart
+test	string-conformance.md	string-conformance.hash-is-the-hasher-fold-of-its-bytes	a String of 1 to 15 bytes hashes as its two words, not as the fold of its bytes that Hasher.combineBytes gives

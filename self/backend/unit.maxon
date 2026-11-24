@@ -278,6 +278,8 @@ export type DataSection
 	export var bytes as ByteArray
 	var strings as StringOffsets
 	var literals as StringOffsets
+	// inlines are where the two words of a literal that holds its bytes in them are (runtime/inline.maxon).
+	var inlines as StringOffsets
 	// words are the offsets of the words that constants read into xmm registers are, by their bits.
 	var words as WordOffsets
 	// pieces are the offsets where each string, each constant and each reserved value begins, which the link keeps or
@@ -290,7 +292,7 @@ export type DataSection
 	export var pointers as DataPointerList
 
 	export static function new() returns DataSection
-		return DataSection{bytes: ByteArray.create(0), strings: StringOffsets.new(), literals: StringOffsets.new(), words: WordOffsets.new(), pieces: CountList.create(0), readOnly: Array.create(0), pointers: DataPointerList.create(0)}
+		return DataSection{bytes: ByteArray.create(0), strings: StringOffsets.new(), literals: StringOffsets.new(), inlines: StringOffsets.new(), words: WordOffsets.new(), pieces: CountList.create(0), readOnly: Array.create(0), pointers: DataPointerList.create(0)}
 	end 'new'
 
 	// startPiece begins a piece, aligned to a word, which is read-only (constant) or not, and gives its offset.
@@ -351,6 +353,28 @@ export type DataSection
 		literals.insert(text.clone(), value: at)
 		return at
 	end 'textOffset'
+
+	// inlineOffset is where the two words of a literal that holds its bytes in them are, first and second, put there once
+	// however often they are asked for: two loads make the literal where the moves of the words would take up to eight.
+	export function inlineOffset(mutates self, text String, first Count, second Count) returns Count
+		match inlines.get(text) 'known'
+			some(at) then return at
+			none then _ = 0
+		end 'known'
+		let at = self.startPiece(true)
+		var word = first
+		for _ in 0 upto wordBytes 'first'
+			bytes.push((word mod byteValues) as Byte)
+			word = word / byteValues
+		end 'first'
+		word = second
+		for _ in 0 upto wordBytes 'second'
+			bytes.push((word mod byteValues) as Byte)
+			word = word / byteValues
+		end 'second'
+		inlines.insert(text.clone(), value: at)
+		return at
+	end 'inlineOffset'
 
 	// countedTextOffset is where a text is, as the length and then the bytes, which the entry stubs read themselves, put
 	// there once however often it is asked for.

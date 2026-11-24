@@ -200,8 +200,14 @@ type Machine implements ir.InstrVisitor, ir.TermVisitor
 		vm.setNum(x.dst, n: held)
 	end 'visitStrPtr'
 
+	function visitStrBytes(mutates self, f ir.IrFunction, x ir.Instr)
+		panic("interp: strbytes is the runtime source's, which the interpreter never runs")
+	end 'visitStrBytes'
+
+	// A strword is the runtime source's but for the test of an element read too, which ors it with the strptr: the
+	// interpreter's word of a String is 0, so the strptr says.
 	function visitStrWord(mutates self, f ir.IrFunction, x ir.Instr)
-		panic("interp: strword is the runtime source's, which the interpreter never runs")
+		vm.setNum(x.dst, n: 0 as ir.Word)
 	end 'visitStrWord'
 
 	function visitStrMake(mutates self, f ir.IrFunction, x ir.Instr)

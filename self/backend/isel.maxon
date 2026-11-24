@@ -886,8 +886,7 @@ function emitCallRuntime(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
 	let start = ir.callRuntimeArgsStart(ins)
 	if symbol == ir.Rt.rtStrLen 'stringLength'
 		let result = sel.resultOf(ins.dst)
-		let word = sel.secondOf(fn.args[start])
-		sel.shiftRightInto(result, src: word, count: stringLengthShift)
+		sel.stringLengthInto(result, word: sel.secondOf(fn.args[start]))
 		return
 	end 'stringLength'
 	if symbol == ir.Rt.rtStrView 'stringView'
@@ -1002,6 +1001,20 @@ function emitCallRuntime(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
 		sel.args.clear()
 		sel.jumpTo(done)
 	end 'bytesInsert' else if symbol == ir.Rt.rtStrByteAt 'stringByteAt'
+		// A String that holds its bytes in its words has its byte read from them.
+		let held = sel.mir.addBlock()
+		sel.branchIfInline(sel.secondOf(fn.args[start]), block: held)
+		let heldElsewhere = sel.mir.addBlock()
+		sel.jumpTo(heldElsewhere)
+		sel.mir.writeBlock(held)
+		let count = sel.newTemp()
+		sel.bitFieldInto(count, src: sel.secondOf(fn.args[start]), lsb: stringCountShift, width: stringInlineShift - stringCountShift)
+		sel.compare(index, b: count)
+		sel.branchTo(MCond.aboveEqual, block: slow)
+		let inlineByte = sel.newTemp()
+		sel.inlineByteInto(inlineByte, text: fn.args[start], index: index)
+		sel.reach(done, value: inlineByte, keeps: keeps)
+		sel.mir.writeBlock(heldElsewhere)
 		let length = sel.newTemp()
 		sel.shiftRightInto(length, src: sel.secondOf(fn.args[start]), count: stringLengthShift)
 		sel.compare(index, b: length)
@@ -1158,7 +1171,20 @@ function asyncThunkSymbol(callee String) returns String
 	return "async {callee}"
 end 'asyncThunkSymbol'
 
+// A String that owns no bytes, a literal, a view or one that holds its bytes in its words, has nothing to drop, which its
+// word says in place, so its drop routine is called only for one that owns them.
 function emitDropValue(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
+	if ir.dropTy(fn, x: ins) == sel.stringTy 'string'
+		let done = sel.mir.addBlock()
+		let owned = sel.newTemp()
+		sel.maskInto(owned, src: sel.secondOf(ir.dropSrc(ins)), mask: stringOwnedBit)
+		sel.branchIfZero(owned, block: done)
+		sel.callRoutineOf(RoutineKind.dropRoutine, ty: ir.dropTy(fn, x: ins), value: ir.dropSrc(ins))
+		sel.args.clear()
+		sel.jumpTo(done)
+		sel.mir.writeBlock(done)
+		return
+	end 'string'
 	sel.callRoutineOf(RoutineKind.dropRoutine, ty: ir.dropTy(fn, x: ins), value: ir.dropSrc(ins))
 end 'emitDropValue'
 

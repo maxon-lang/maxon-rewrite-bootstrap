@@ -7447,7 +7447,6 @@ string-conformance.md: string-conformance.eq-with-equatable
 string-conformance.md: string-conformance.equals-via-constraint
 string-conformance.md: string-conformance.hash-avalanches
 string-conformance.md: string-conformance.hash-in-loop-no-leak
-string-conformance.md: string-conformance.hash-is-the-hasher-fold-of-its-bytes
 string-conformance.md: string-conformance.hash-values
 string-conformance.md: string-conformance.hashable-and-equatable
 string-index.md: a-slice-is-an-owned-copy

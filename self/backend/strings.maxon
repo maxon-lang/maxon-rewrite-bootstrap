@@ -21,9 +21,9 @@ function literalWord(text String) returns FullRangeInt
 	return word
 end 'literalWord'
 
-// inlineCharacterWord is the count bytes of a character literal's text from from, as a word holds them, the first lowest: in its
-// first word, or in its second above the flags of a String's word.
-function inlineCharacterWord(text String, from Count, count Count) returns FullRangeInt
+// inlineTextWord is the count bytes of a literal's text from from, as the words of a String that holds them hold them, the
+// first lowest: in its first word, or in its second above the flags.
+function inlineTextWord(text String, from Count, count Count) returns FullRangeInt
 	var bits = 0 as Count
 	var shift = 0 as Count
 	if from > 0 'second'
@@ -37,14 +37,7 @@ function inlineCharacterWord(text String, from Count, count Count) returns FullR
 		shift = try shift + bitsPerByte otherwise panic("backend: a byte past its word")
 	end 'bytes'
 	return ir.wordOfBits(bits)
-end 'inlineCharacterWord'
-
-// inlineCharacterFlags is the rest of the second word of a Character that holds its length bytes in its two words: the count, the
-// bit that says so, and a String's owned bit, as the runtime's stringOf gives it.
-function inlineCharacterFlags(length Count) returns FullRangeInt
-	let count = try length shl charLengthShift otherwise panic("backend: a character literal longer than its words hold")
-	return ir.wordOfBits((1 shl charInlineShift) or count or stringOwnedBit)
-end 'inlineCharacterFlags'
+end 'inlineTextWord'
 
 // holdsSimpleBytes is whether every byte of a text is below 0x80 and none is a carriage return, which a line feed after it
 // would make one grapheme cluster with: what a String's ASCII bit says (runtime::bytesAreSimple).
@@ -202,12 +195,15 @@ function emitStringConst(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
 end 'emitStringConst'
 
 // emitStr is a literal: the address of its bytes in the executable and its word, both known before the program runs. A
-// character literal of few enough bytes is its two words, which hold them (runtime/characters.maxon).
+// literal of few enough bytes, a String's or a Character's, is the two words that hold them (runtime/inline.maxon), loaded
+// from a constant of their own: an address and two loads where the moves of the words would take up to eight instructions.
 function emitStr(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
-	if ir.strCharacter(ins) and ir.strText(fn, x: ins).byteLength() <= charInlineBytes 'inline'
+	if holdsInline(ir.strText(fn, x: ins)) 'inline'
 		let text = ir.strText(fn, x: ins)
-		sel.constantInto(vregOf(ins.dst), value: inlineCharacterWord(text, from: 0 as Count, count: wordBytes))
-		sel.constantInto(sel.secondOf(ins.dst), value: inlineCharacterWord(text, from: wordBytes, count: charInlineBytes - wordBytes) or inlineCharacterFlags(text.byteLength()))
+		let first = ir.bitsOfWord(inlineTextWord(text, from: 0 as Count, count: wordBytes) as ir.Word)
+		let second = ir.bitsOfWord(inlineStringWord(text) as ir.Word)
+		let offset = sel.u.data.inlineOffset(text, first: first, second: second)
+		sel.loadDataWords(vregOf(ins.dst), high: sel.secondOf(ins.dst), offset: offset)
 		return
 	end 'inline'
 	let refers = sel.textRef(fn, ins: ins)
@@ -218,12 +214,19 @@ end 'emitStr'
 // emitStringView is a view of a String's bytes, rt.str.view's (text, from, length) with its bounds checked before: the
 // address of the byte at from, and a word of the length, the text's ASCII bit and the view bit, which owns no bytes. It
 // reads no memory and makes no call, so a slice costs a few instructions.
+// A view of at most stringInlineBytes bytes, or of a String that holds its bytes in its words, is a String that holds them
+// in its own, which runtime::stringView makes.
 function emitStringView(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
 	let start = ir.callRuntimeArgsStart(ins)
 	let text = fn.args[start]
 	let from = vregOf(fn.args[nextCount(start)])
 	let length = vregOf(fn.args[try start + 2 otherwise panic("backend: an argument past the pool")])
-	let bytes = sel.resultOf(ins.dst)
+	let small = sel.mir.addBlock()
+	let done = sel.mir.addBlock()
+	sel.compareWith(length, value: stringInlineBytes as ir.Word)
+	sel.branchTo(MCond.belowEqual, block: small)
+	sel.branchIfInline(sel.secondOf(text), block: small)
+	let bytes = sel.newTemp()
 	sel.addInto(bytes, a: vregOf(text), b: from)
 	let ascii = sel.newTemp()
 	sel.maskInto(ascii, src: sel.secondOf(text), mask: stringAsciiBit)
@@ -231,14 +234,31 @@ function emitStringView(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
 	sel.shiftLeftInto(shifted, src: length, count: stringLengthShift)
 	let flags = sel.newTemp()
 	sel.orInto(flags, a: shifted, b: ascii)
-	sel.orMaskInto(sel.secondOf(ins.dst), src: flags, mask: stringViewBit)
+	let word = sel.newTemp()
+	sel.orMaskInto(word, src: flags, mask: stringViewBit)
+	sel.args.clear()
+	sel.args.push(bytes)
+	sel.args.push(word)
+	sel.jumpTo(done)
+	sel.mir.writeBlock(small)
+	sel.addWords(fn, start: start, count: ir.callRuntimeArgsCount(ins))
+	sel.callSymbol(ir.rtSymbol(ir.Rt.rtStrView))
+	let first = sel.newTemp()
+	sel.copy(first, src: physOfNumber(internalResultOf(sel.arch)))
+	let second = sel.newTemp()
+	sel.copy(second, src: physOfNumber(internalSecondResultOf(sel.arch)))
+	sel.args.clear()
+	sel.args.push(first)
+	sel.args.push(second)
+	sel.jumpTo(done)
+	sel.mir.writeBlock(done)
+	sel.addParamOf(ins.dst)
 end 'emitStringView'
 
 // emitStringLength is the length a String's word holds, which reads no memory.
 function emitStringLength(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
 	let result = sel.resultOf(ins.dst)
-	let word = sel.secondOf(ir.lengthSrc(ins))
-	sel.shiftRightInto(result, src: word, count: stringLengthShift)
+	sel.stringLengthInto(result, word: sel.secondOf(ir.lengthSrc(ins)))
 end 'emitStringLength'
 
 // emitStringElemLoad reads a String element of an array whose bounds check has passed.
@@ -253,6 +273,44 @@ function emitStringElemAt(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
 	let at = sel.elementAddress(vregOf(ir.elemAtData(ins)), index: vregOf(ir.elemAtIndex(ins)), shift: ir.elemAtShift(ins))
 	sel.loadString(ins.dst, base: at, disp: 0)
 end 'emitStringElemAt'
+
+// emitStrBytes is the address of the first byte of a String: its first word, or, where it holds its bytes in its words,
+// the frame box the instruction names, which they are written to in order: the first word, then the bytes of the second.
+function emitStrBytes(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
+	let text = ir.strBytesSrc(ins)
+	let word = sel.secondOf(text)
+	let held = sel.mir.addBlock()
+	let done = sel.mir.addBlock()
+	sel.branchIfInline(word, block: held)
+	sel.jumpWith(done, value: vregOf(text))
+	sel.mir.writeBlock(held)
+	let disp = sel.frameBoxAt(fn, box: ir.strBytesBox(ins))
+	sel.store(sel.frameBase(), disp: disp, src: vregOf(text))
+	let rest = sel.newTemp()
+	sel.bitFieldInto(rest, src: word, lsb: stringLengthShift, width: stringCountShift - stringLengthShift)
+	sel.store(sel.frameBase(), disp: secondWordDisp(disp), src: rest)
+	let at = sel.newTemp()
+	sel.frameAddressInto(at, disp: disp)
+	sel.jumpWith(done, value: at)
+	sel.join(done, r: ins.dst)
+end 'emitStrBytes'
+
+// emitStringLoadByte is the byte at an index of a String, its bounds checked before: a load where its bytes are elsewhere,
+// and the byte shifted out of its words where it holds them there.
+function emitStringLoadByte(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
+	let text = ir.loadByteSrc(ins)
+	let index = vregOf(ir.loadByteIndex(ins))
+	let held = sel.mir.addBlock()
+	let done = sel.mir.addBlock()
+	sel.branchIfInline(sel.secondOf(text), block: held)
+	let byte = sel.loadIndexedByte(vregOf(text), index: index, disp: 0)
+	sel.jumpWith(done, value: byte)
+	sel.mir.writeBlock(held)
+	let result = sel.newTemp()
+	sel.inlineByteInto(result, text: text, index: index)
+	sel.jumpWith(done, value: result)
+	sel.join(done, r: ins.dst)
+end 'emitStringLoadByte'
 
 function emitStrPtr(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
 	let result = sel.resultOf(ins.dst)
@@ -305,3 +363,152 @@ function emitStringMoveAt(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
 	sel.loadString(ins.dst, base: at, disp: 0)
 	sel.emptyString(at, disp: 0)
 end 'emitStringMoveAt'
+
+// wordBits is how many bits a word has.
+let wordBits = 64 as Count
+
+// byteShiftBits is how far an index of a byte is shifted to the count of bits before it, and byteValueMask keeps a byte.
+let byteShiftBits = 3 as Count
+
+let byteValueMask = 255 as FullRangeInt
+
+// inlineStringWord is the second word of a String literal of few enough bytes to hold them in its words: the bytes after
+// the eighth above the flags, the ASCII bit where it applies, their count and the bit that says so.
+function inlineStringWord(text String) returns FullRangeInt
+	var word = inlineTextWord(text, from: wordBytes, count: stringInlineBytes - wordBytes)
+	word = word or (ir.wordOfBits((1 shl stringInlineShift) or (try text.byteLength() shl stringCountShift otherwise panic("backend: a literal longer than its words hold"))) as FullRangeInt)
+	if holdsSimpleBytes(text) 'simple'
+		word = word or stringAsciiBit
+	end 'simple'
+	return word
+end 'inlineStringWord'
+
+// holdsInline is whether a String of these bytes holds them in its two words.
+function holdsInline(text String) returns bool
+	return text.byteLength() > 0 and text.byteLength() <= stringInlineBytes
+end 'holdsInline'
+
+// A String of at most stringInlineBytes bytes holds them in its two words (runtime/inline.maxon): its word has the bit at
+// stringInlineShift, their count under it, and the bytes after the eighth under that, above the flags, which are clear.
+extension Selector
+	// bitFieldInto sets dst to the width bits of src from lsb up, moved down to the bottom.
+	function bitFieldInto(mutates self, dst MReg, src MReg, lsb Count, width Count)
+		let top = try lsb + width - 1 otherwise panic("backend: a bit field past the word")
+		if arch == ast.TargetArch.arm64 'arm64'
+			self.arm64Instr(Arm64Form.ubfmRegReg, a: dst, b: src, c: noMReg, aux: try top as Imm32 otherwise panic("backend: a bit field past the word"), imm: try lsb as FullRangeInt otherwise panic("backend: a bit field past the word"))
+			return
+		end 'arm64'
+		let up = self.newTemp()
+		self.shiftLeftInto(up, src: src, count: try wordBits - 1 - top otherwise panic("backend: a bit field past the word"))
+		self.shiftRightInto(dst, src: up, count: try wordBits - width otherwise panic("backend: a bit field past the word"))
+	end 'bitFieldInto'
+
+	// branchIfZero goes to block where r is 0: cbz on arm64.
+	function branchIfZero(mutates self, r MReg, block MBlockID)
+		if arch == ast.TargetArch.arm64 'arm64'
+			args.clear()
+			let edge = mir.addEdge(block, args: args)
+			var x = newArm64Target(Arm64Form.cbz, a: r, b: noMReg, c: noMReg, aux: 0, imm: 0)
+			x.ref = MRef.edge
+			x.aux = edge
+			mir.emit(x)
+			let next = mir.addBlock()
+			self.jumpTo(next)
+			mir.writeBlock(next)
+			return
+		end 'arm64'
+		self.compareWith(r, value: 0)
+		self.branchTo(MCond.equal, block: block)
+	end 'branchIfZero'
+
+	// branchIfInline goes to block where the String of the word holds its bytes in its words: its word is negative.
+	function branchIfInline(mutates self, word MReg, block MBlockID)
+		self.compareWith(word, value: 0)
+		self.branchTo(MCond.less, block: block)
+	end 'branchIfInline'
+
+	// stringLengthInto sets dst to the length a String's word holds: the word shifted down past the flags, or the count of
+	// the bytes it holds in its words, chosen with no branch.
+	function stringLengthInto(mutates self, dst MReg, word MReg)
+		let held = self.newTemp()
+		self.bitFieldInto(held, src: word, lsb: stringCountShift, width: stringInlineShift - stringCountShift)
+		let length = self.newTemp()
+		self.shiftRightInto(length, src: word, count: stringLengthShift)
+		self.compareWith(word, value: 0)
+		self.selectInto(dst, cond: MCond.less, chosen: held, other: length)
+	end 'stringLengthInto'
+
+	// selectInto sets dst to chosen where the flags say cond, and to other else: csel on arm64, cmov on x64.
+	function selectInto(mutates self, dst MReg, cond MCond, chosen MReg, other MReg)
+		if arch == ast.TargetArch.arm64 'arm64'
+			var x = newArm64Conditional(Arm64Form.cselRegReg, cond: cond, a: dst, ref: MRef.none, aux: 0)
+			x.b = chosen
+			x.c = other
+			self.emit(x)
+			return
+		end 'arm64'
+		var x = newConditional(X64Form.cmovccRegReg, cond: cond, a: dst, ref: MRef.none, aux: 0)
+		x.b = other
+		x.c = chosen
+		self.emit(x)
+	end 'selectInto'
+
+	// shiftRightByInto sets dst to src shifted right by the register by, zeros coming in, the count taken modulo the word.
+	function shiftRightByInto(mutates self, dst MReg, src MReg, by MReg)
+		if arch == ast.TargetArch.arm64 'arm64'
+			self.arm64Instr(Arm64Form.lsrvRegReg, a: dst, b: src, c: by, aux: 0, imm: 0)
+			return
+		end 'arm64'
+		self.copy(x64PhysReg(rcx), src: by)
+		self.target(X64Form.shrRegCl, a: dst, b: src, c: noMReg, aux: 0, imm: 0)
+	end 'shiftRightByInto'
+
+	// inlineByteInto sets dst to the byte at an index of a String that holds its bytes in its words, below their count:
+	// each word shifted down by the index's bytes, the shift taken modulo the word, and the one the index is in.
+	function inlineByteInto(mutates self, dst MReg, text ir.Reg, index MReg)
+		let shift = self.newTemp()
+		self.shiftLeftInto(shift, src: index, count: byteShiftBits)
+		let rest = self.newTemp()
+		self.bitFieldInto(rest, src: self.secondOf(text), lsb: stringLengthShift, width: stringCountShift - stringLengthShift)
+		let low = self.newTemp()
+		self.shiftRightByInto(low, src: vregOf(text), by: shift)
+		let high = self.newTemp()
+		self.shiftRightByInto(high, src: rest, by: shift)
+		self.compareWith(index, value: wordBytes as ir.Word)
+		let picked = self.newTemp()
+		self.selectInto(picked, cond: MCond.below, chosen: low, other: high)
+		self.maskInto(dst, src: picked, mask: byteValueMask)
+	end 'inlineByteInto'
+
+	// loadDataWords loads the two words at an offset of the unit's data into low and high: two loads relative to the
+	// instruction pointer on x64, and the address and two loads on arm64.
+	function loadDataWords(mutates self, low MReg, high MReg, offset Count)
+		if arch == ast.TargetArch.arm64 'arm64'
+			let at = self.newTemp()
+			self.referAddressInto(at, refers: Referent.make(MRef.data, aux: imm32Of(offset)))
+			self.loadInto(low, base: at, disp: 0)
+			self.loadInto(high, base: at, disp: imm32Of(wordBytes))
+			return
+		end 'arm64'
+		self.referring(X64Form.loadRegRip, a: low, refers: Referent.make(MRef.data, aux: imm32Of(offset)))
+		self.referring(X64Form.loadRegRip, a: high, refers: Referent.make(MRef.data, aux: imm32Of(try offset + wordBytes otherwise panic("backend: a constant past memory"))))
+	end 'loadDataWords'
+
+	// frameBoxAt is where a frame box of f lies from frameBase.
+	function frameBoxAt(f ir.IrFunction, box Count) returns Imm32
+		return match arch 'arch'
+			x64 gives frameBoxDisp(f, box: box)
+			arm64 gives arm64FrameBoxDisp(f, box: box)
+		end 'arch'
+	end 'frameBoxAt'
+
+	// frameAddressInto sets dst to frameBase plus disp.
+	function frameAddressInto(mutates self, dst MReg, disp Imm32)
+		if arch == ast.TargetArch.arm64 'arm64'
+			let at = self.arm64AddConst(arm64PhysReg(arm64FramePointer), value: disp as FullRangeInt)
+			self.copy(dst, src: at)
+			return
+		end 'arm64'
+		self.target(X64Form.leaRegBaseDisp, a: dst, b: x64PhysReg(rbp), c: noMReg, aux: disp, imm: 0)
+	end 'frameAddressInto'
+end 'Selector'

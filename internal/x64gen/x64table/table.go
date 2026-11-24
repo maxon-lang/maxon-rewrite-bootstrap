@@ -378,6 +378,12 @@ func buildForms() []form {
 			name: "TzcntRegReg", mnemonic: "tzcnt", operands: []operand{reg("dest", fieldReg, write), reg("src", fieldRM, read)},
 			prefix: []byte{repPrefix}, rexW: true, opcode: []byte{opcodeHigh, 0xBC}, modrm: modOperands, effects: flags,
 		},
+		// cmovcc moves its source into its destination where the condition holds, and leaves the destination else: the
+		// length of a String, which its word holds one of two ways, is chosen with no branch.
+		form{
+			name: "CmovccRegReg", mnemonic: "cmovcc", operands: []operand{cond(), reg("dest", fieldReg, readWrite), reg("src", fieldRM, read)},
+			rexW: true, opcode: []byte{opcodeHigh, 0x40}, modrm: modOperands, effects: readsFlag,
+		},
 		form{
 			name: "LoadRegBaseDisp", mnemonic: "mov", operands: []operand{reg("dest", fieldReg, write), mem()},
 			rexW: true, opcode: []byte{0x8B}, modrm: modOperands, effects: reads,

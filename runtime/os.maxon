@@ -341,7 +341,7 @@ function stringArrayPush(array Count, room Count, textLength Count)
 		__Raw.storeWord(array, offset: osArrayCapacityOffset, value: grown)
 	end 'grow'
 	let data = __Raw.loadWord(array, offset: osArrayDataOffset)
-	__Raw.storeString(data, offset: collectionBytes(length, elementBytes: elementBytes), bytes: room, length: textLength, ascii: false)
+	storeOwnedString(data, offset: collectionBytes(length, elementBytes: elementBytes), bytes: room, length: textLength, ascii: false)
 	__Raw.storeWord(array, offset: osArrayLengthOffset, value: length + 1)
 end 'stringArrayPush'
 
@@ -529,7 +529,7 @@ let nanosPerFileTimeStep = 100 as Count
 			__Raw.storeByte(dest, offset: i, value: pathSeparator if byte == otherSeparator else byte)
 		end 'copy'
 		succeed(errorAddress)
-		return __Raw.stringOf(dest, length: length, ascii: __Raw.stringAscii(path))
+		return ownedString(dest, length: length, ascii: __Raw.stringAscii(path))
 	end 'osPathFrom'
 
 	// openFile is the handle of a file that CreateFileW opened, or invalidHandle with the Win32 error stored at win32Address.

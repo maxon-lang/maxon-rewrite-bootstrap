@@ -6,17 +6,26 @@ let wordBytes = 8 as Count
 // noBox is the empty place: a box address that names nothing, which a move leaves behind and a free skips.
 let noBox = 0 as Count
 
+// stringOwnedBit is the bit of a String's word that says it owns its bytes, a box of runtime::alloc that its drop frees; a literal and a view own none, so their drop does nothing and touches no memory.
+let stringOwnedBit = 1 as Count
+
+// stringViewBit is the bit of a String's word that says it is a view of another String's bytes, which it owns none of: its copy copies them, where a literal's copy is the literal, since its bytes outlive every copy.
+let stringViewBit = 4 as Count
+
+// stringAsciiBit is the bit of a String's word that says every byte is below 0x80 and none is a carriage return, so each grapheme cluster and each code point is one byte; clear means nothing is known.
+let stringAsciiBit = 2 as Count
+
 // stringLengthShift is how far a String's length is shifted up in its word, past its flags: the length is the word shifted right by it.
 let stringLengthShift = 3 as Count
 
-// charInlineBytes is the most bytes a Character holds in its two words, which then own nothing.
-let charInlineBytes = 15 as Count
+// stringInlineBytes is the most bytes a String holds in its two words; every String of 1 to that many bytes holds them there, and the empty String never does.
+let stringInlineBytes = 15 as Count
 
-// charInlineShift is the bit of a Character's word that says it holds its bytes in its two words: a String's length never reaches it.
-let charInlineShift = 63 as Count
+// stringInlineShift is the bit of a String's word that says it holds its bytes in its two words: a length never reaches it.
+let stringInlineShift = 63 as Count
 
-// charLengthShift is where the word of a Character that holds its bytes keeps their count, in the four bits under charInlineShift; the bytes after the eighth are between it and stringLengthShift.
-let charLengthShift = 59 as Count
+// stringCountShift is where the word of a String that holds its bytes keeps their count, in the four bits under stringInlineShift.
+let stringCountShift = 59 as Count
 
 // charOrderSame is what rt.char.compare gives for two Characters of the same bytes: 1 less where the first is before the second, 1 more where it is after, so an operator compares the answer with it as it would the two Characters.
 let charOrderSame = 1 as Count

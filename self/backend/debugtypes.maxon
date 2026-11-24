@@ -99,7 +99,7 @@ type DebugTypes
 			invalid then self.begin(t, name: name, kind: mxdbg.MxdbgTypeKindManagedRecord, size: wordSize, align: wordSize, flag: 0)
 			primBool then self.begin(t, name: name, kind: mxdbg.MxdbgTypeKindPrimitive, size: boolSize, align: boolSize, flag: 0)
 			primString then self.begin(t, name: name, kind: mxdbg.MxdbgTypeKindString, size: ir.stringValueBytes, align: wordSize, flag: 0)
-			primCharacter then self.begin(t, name: name, kind: mxdbg.MxdbgTypeKindPrimitive, size: ir.stringValueBytes, align: wordSize, flag: 0)
+			primCharacter then self.begin(t, name: name, kind: mxdbg.MxdbgTypeKindString, size: ir.stringValueBytes, align: wordSize, flag: 0)
 			primVoid or
 			primNever then self.begin(t, name: name, kind: mxdbg.MxdbgTypeKindPrimitive, size: 0, align: 1, flag: 0)
 			intRange or

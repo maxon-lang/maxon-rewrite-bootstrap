@@ -509,5 +509,6 @@ function codeSkipTable() returns CodeSkips
 	skips.push(CodeSkip.naming("slab-census.md", test: "slab-census.error.a-bucket-index-past-the-table-is-refused", line: "<!-- skip: language difference: minimaxon's heap is Go's page heap with per-thread size classes, so maxon's slab, census and raw-allocation figures have no counterpart -->\n"))
 	skips.push(CodeSkip.naming("slab-sharding.md", test: "slab-sharding.the-traffic-counters-are-exact-across-green-threads", line: "<!-- skip: language difference: minimaxon's heap is Go's page heap with per-thread size classes, so maxon's slab, census and raw-allocation figures have no counterpart -->\n"))
 	skips.push(CodeSkip.naming("string-cstr.md", test: "packed-receiver-pays-once-and-only-once", line: "<!-- skip: language difference: minimaxon's heap is Go's page heap with per-thread size classes, so maxon's slab, census and raw-allocation figures have no counterpart -->\n"))
+	skips.push(CodeSkip.naming("string-conformance.md", test: "string-conformance.hash-is-the-hasher-fold-of-its-bytes", line: "<!-- skip: a String of 1 to 15 bytes hashes as its two words, not as the fold of its bytes that Hasher.combineBytes gives -->\n"))
 	return skips
 end 'codeSkipTable'

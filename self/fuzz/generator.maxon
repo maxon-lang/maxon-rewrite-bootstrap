@@ -26,6 +26,11 @@ enum Kind
 	kCown
 end 'Kind'
 
+// longTextTail makes a String literal or an interpolation longer than a String holds in its two words.
+let longTextTail = "-held-past-its-two-words"
+
+let halfTheTime = 50 as Count
+
 // The three types that are not made by the program's declarations or an instance.
 let tCount = 0 as Count
 
@@ -1299,11 +1304,11 @@ type Generator
 		if k == Kind.kString 'string'
 			let n = self.pick(6)
 			if n < 2 'literal'
-				return quoted("s{self.pick(5)}")
+				return quoted("s{self.pick(5)}{self.textTail()}")
 			end 'literal'
 			if n < 4 'interpolated'
 				let c = self.countExpr(below)
-				return quoted("{braced(c)}x")
+				return quoted("{braced(c)}x{self.textTail()}")
 			end 'interpolated'
 			if n < 5 'storage'
 				let s = self.ownedFromStorage(t)
@@ -3473,6 +3478,15 @@ type Generator
 		end 'each'
 		return false
 	end 'movesFrom'
+
+	// textTail is what a String literal ends with: nothing, or bytes enough that the String is past the 15 that it holds in
+	// its two words, so that it owns its bytes, and its drops and copies free and allocate them.
+	function textTail(mutates self) returns String
+		if self.chance(halfTheTime) 'long'
+			return longTextTail
+		end 'long'
+		return ""
+	end 'textTail'
 
 	// stringMethod is the method of a record that gives a String and has the convention, if there is one.
 	function stringMethod(t Count, recv String) returns table.Option with String

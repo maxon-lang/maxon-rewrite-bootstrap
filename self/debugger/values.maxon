@@ -26,8 +26,18 @@ let mostChildren = 32 as Count
 
 let mostTextBytes = 256 as Count
 
-// The layout of a String's word and of an array's box (self/backend/layout_gen.maxon).
+// The layout of a String's word and of an array's box (self/backend/layout_gen.maxon): a String of 1 to 15 bytes holds them
+// in its two words, the first eight in the first and the rest in the second above stringLengthShift, their count at
+// stringCountShift and its top bit set.
 let stringLengthShift = 3 as Count
+
+let stringCountShift = 59 as Count
+
+let inlineCountMask = 15 as Count
+
+let inlineBit = 0x8000000000000000 as Count
+
+let bitsPerByte = 8 as Count
 
 let arrayLengthAt = 0 as Count
 
@@ -248,6 +258,10 @@ function renderString(mutates tree ValueTree, host WindowsHost, name String, typ
 		return missing(tree, name: name, typeName: typeName, kind: kind, reason: readFailedReason)
 	end 'unread'
 	let held = words.unwrap()
+	if held.lengthWord >= inlineBit 'inline'
+		let count = (held.lengthWord shr stringCountShift) and inlineCountMask
+		return rendered(tree, name: name, typeName: typeName, kind: kind, display: "\"{String.from(inlineBytes(held, count: count))}\" (len={count})")
+	end 'inline'
 	let length = held.lengthWord shr stringLengthShift
 	let shown = length if length < mostTextBytes else mostTextBytes
 	if shown == 0 'empty'
@@ -260,7 +274,22 @@ function renderString(mutates tree ValueTree, host WindowsHost, name String, typ
 	return rendered(tree, name: name, typeName: typeName, kind: kind, display: "\"{String.from(bytes.unwrap())}\" (len={length})")
 end 'renderString'
 
-// StringWords are a String's two words: the address of its bytes and its length's word.
+// inlineBytes are the count bytes of a String that holds them in its two words.
+function inlineBytes(held StringWords, count Count) returns ByteArray
+	var bytes = ByteArray.create(0)
+	for i in 0 upto count 'bytes'
+		var word = held.bytesAt
+		var at = i
+		if i >= wordBytes 'second'
+			word = held.lengthWord shr stringLengthShift
+			at = i - wordBytes
+		end 'second'
+		bytes.push(((word shr (try at * bitsPerByte otherwise panic("debugger: a byte past a String's words"))) and byteMask) as Byte)
+	end 'bytes'
+	return bytes
+end 'inlineBytes'
+
+// StringWords are a String's two words: the address of its bytes, or its first eight where it holds them, and its word.
 type StringWords
 	var bytesAt as Count
 	var lengthWord as Count

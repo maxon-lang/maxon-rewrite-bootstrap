@@ -1,0 +1,292 @@
+// Strings that hold their bytes in their two words. Every String of 1 to stringInlineBytes bytes does: the first eight in
+// its first word, the lowest byte first, the rest in its word between stringLengthShift and stringCountShift, their count
+// under stringInlineShift and the bit at stringInlineShift set, which no other String's word sets. Its owned and view bits
+// are clear, so its drop does nothing and its copy is its two words, as a literal's are; its ASCII bit says what its bytes
+// are, so the words of two such Strings are the same exactly where their bytes are. Every byte reader takes the address of
+// the bytes from __Raw.stringBytes, which writes them to the frame where the String holds them, and every String a runtime
+// entry makes of room is made by ownedString, which holds a short one in the words and frees the room.
+
+// The bits of a word, whose arithmetic wraps.
+typealias WordBits = bits(64)
+
+let inlineBit = 0x8000000000000000 as WordBits
+
+// restMask keeps the seven bytes of a second word's bytes, moved down to the bottom.
+let restMask = 0x00FFFFFFFFFFFFFF as WordBits
+
+let inlineCountMask = 15 as Count
+
+// inlineScratchWord is the word of the String of no bytes that holds them in its words, which only a join or an append
+// holds while it puts the parts of a String of few enough bytes together.
+let inlineScratchWord = 0x8000000000000000 as Count
+
+let halfBytes = 4 as Count
+
+// isInline is whether a String holds its bytes in its words.
+function isInline(text String) returns bool
+	return __Raw.stringSecondWord(text) >= signBit
+end 'isInline'
+
+// inlineRest is the bytes after the eighth of a String that holds its bytes in its words, the ninth the lowest.
+function inlineRest(text String) returns Count
+	return (((__Raw.stringSecondWord(text) as WordBits) shr (stringLengthShift as WordBits)) and restMask) as Count
+end 'inlineRest'
+
+// inlineByte is the byte at an index, below their count, of a String that holds its bytes in its words.
+function inlineByte(text String, index Count) returns Byte
+	if index < wordBytes 'first'
+		return ((__Raw.stringFirstWord(text) shr byteShift(index)) and byteMask) as Byte
+	end 'first'
+	return ((inlineRest(text) shr byteShift(__Raw.wrappingSub(index, right: wordBytes))) and byteMask) as Byte
+end 'inlineByte'
+
+// holdsInline is whether a String of a number of bytes holds them in its words.
+function holdsInline(length Count) returns bool
+	return __Raw.wrappingSub(length, right: 1) < stringInlineBytes
+end 'holdsInline'
+
+// inlineString is the String of count bytes, 1 to stringInlineBytes, that first and rest hold, each zero past them.
+function inlineString(first Count, rest Count, count Count) returns String
+	return inlineWithAscii(first, rest: rest, count: count, ascii: wordsAreSimple(first, rest: rest))
+end 'inlineString'
+
+// inlineWithAscii is inlineString of bytes whose ASCII bit is known: ascii says whether each is simple.
+function inlineWithAscii(first Count, rest Count, count Count, ascii bool) returns String
+	var word = inlineBit or ((rest as WordBits) shl (stringLengthShift as WordBits)) or ((count as WordBits) shl (stringCountShift as WordBits))
+	if ascii 'simple'
+		word = word or (stringAsciiBit as WordBits)
+	end 'simple'
+	return __Raw.stringOfWords(first, second: word as Count)
+end 'inlineWithAscii'
+
+// wordsAreSimple is whether no byte of two words is 0x80 or above or a carriage return; a zero byte is neither.
+function wordsAreSimple(first Count, rest Count) returns bool
+	if ((first or rest) and highBits) != 0 'high'
+		return false
+	end 'high'
+	let a = first xor carriageReturns
+	let b = rest xor carriageReturns
+	return (((__Raw.wrappingSub(a, right: lowBits) and not a) or (__Raw.wrappingSub(b, right: lowBits) and not b)) and highBits) == 0
+end 'wordsAreSimple'
+
+// lowBytes is the count lowest bytes of a word, count at most a word's.
+function lowBytes(word Count, count Count) returns Count
+	if count >= wordBytes 'all'
+		return word
+	end 'all'
+	return (word as WordBits and (((1 as WordBits) shl (byteShift(count) as WordBits)) - 1)) as Count
+end 'lowBytes'
+
+// inlineOfRoom is the String that holds the length bytes, 1 to stringInlineBytes, at an address with at least two words
+// that can be read, a box of runtime::alloc or a frame box: its two words, each cut to the bytes. Its ASCII bit is
+// always exact, ascii or what the bytes say, so that its words are the same as every other String's of those bytes.
+function inlineOfRoom(at Count, length Count, ascii bool) returns String
+	var first = __Raw.loadWord(at, offset: 0)
+	var rest = 0 as Count
+	if length <= wordBytes 'one'
+		first = lowBytes(first, count: length)
+	end 'one' else 'two'
+		rest = lowBytes(__Raw.loadWord(at, offset: wordBytes), count: __Raw.wrappingSub(length, right: wordBytes))
+	end 'two'
+	return inlineWithAscii(first, rest: rest, count: length, ascii: ascii or wordsAreSimple(first, rest: rest))
+end 'inlineOfRoom'
+
+// inlineJoin is the String that holds the bytes of text, which holds its bytes in its words or has none, and then the
+// count bytes, count above 0, that first and rest hold, at most stringInlineBytes in all: the two words shifted along the
+// first's bytes, with no access to memory.
+function inlineJoin(text String, first Count, rest Count, count Count, ascii bool) returns String
+	let length = __Raw.stringLength(text)
+	let total = __Raw.wrappingAdd(length, right: count)
+	let both = ascii and __Raw.stringAscii(text)
+	if length == 0 'empty'
+		return inlineWithAscii(first, rest: rest, count: total, ascii: ascii)
+	end 'empty'
+	let low = __Raw.stringFirstWord(text) as WordBits
+	let high = inlineRest(text) as WordBits
+	let addedFirst = first as WordBits
+	if length < wordBytes 'first'
+		let shift = byteShift(length) as WordBits
+		let carried = addedFirst shr ((64 as WordBits) - shift)
+		return inlineWithAscii((low or (addedFirst shl shift)) as Count, rest: (high or carried or ((rest as WordBits) shl shift)) as Count, count: total, ascii: both)
+	end 'first'
+	let shift = byteShift(__Raw.wrappingSub(length, right: wordBytes)) as WordBits
+	return inlineWithAscii(low as Count, rest: (high or (addedFirst shl shift)) as Count, count: total, ascii: both)
+end 'inlineJoin'
+
+// inlineAppend is inlineJoin of the bytes of part, which holds them in its words or has none.
+function inlineAppend(text String, part String) returns String
+	let count = __Raw.stringLength(part)
+	if count == 0 'none'
+		return __Raw.stringOfWords(__Raw.stringFirstWord(text), second: __Raw.stringSecondWord(text))
+	end 'none'
+	return inlineJoin(text, first: __Raw.stringFirstWord(part), rest: inlineRest(part), count: count, ascii: __Raw.stringAscii(part))
+end 'inlineAppend'
+
+// inlineDecimal is the String that holds in its words the length bytes, 1 to stringInlineBytes, of the decimal text of a word
+// read as signed unless unsigned says otherwise, as writeDecimal writes them: made in registers, with no store to read back.
+// The digits come last first, and each is shifted in under the ones after it, the two words one 128-bit number, so the
+// first byte of the text ends lowest.
+function inlineDecimal(n Count, unsigned bool, length Count) returns String
+	var low = 0 as WordBits
+	var high = 0 as WordBits
+	var value = n
+	let negative = isNegative(n, unsigned: unsigned)
+	if negative 'sign'
+		value = __Raw.wrappingSub(0, right: n)
+	end 'sign'
+	var more = true
+	while more 'digit'
+		high = (high shl bitsPerByteBits) or (low shr highByteShift)
+		low = (low shl bitsPerByteBits) or (((value mod decimalBase) as WordBits) + (digitZero as WordBits))
+		value = value / decimalBase
+		more = value != 0
+	end 'digit'
+	if negative 'minus'
+		high = (high shl bitsPerByteBits) or (low shr highByteShift)
+		low = (low shl bitsPerByteBits) or (minusSign as WordBits)
+	end 'minus'
+	return inlineWithAscii(low as Count, rest: high as Count, count: length, ascii: true)
+end 'inlineDecimal'
+
+// bitsPerByteBits is how far a byte is shifted along a word, and highByteShift how far the top byte of a word is shifted to
+// its bottom.
+let bitsPerByteBits = 8 as WordBits
+
+let highByteShift = 56 as WordBits
+
+// loadPadded is the count bytes, at most a word's, at an address, the first the least significant and zero past them,
+// read with no access past them: a word, two half words that overlap, or the first, middle and last bytes.
+function loadPadded(at Count, count Count) returns Count
+	if count >= wordBytes 'word'
+		return __Raw.loadWord(at, offset: 0)
+	end 'word'
+	if count >= halfBytes 'halves'
+		let low = __Raw.loadWord32(at, offset: 0) as WordBits
+		let high = __Raw.loadWord32(at, offset: __Raw.wrappingSub(count, right: halfBytes)) as WordBits
+		return (low or (high shl (byteShift(__Raw.wrappingSub(count, right: halfBytes)) as WordBits))) as Count
+	end 'halves'
+	if count == 0 'none'
+		return 0
+	end 'none'
+	let middle = count shr 1
+	let last = __Raw.wrappingSub(count, right: 1)
+	let first = __Raw.loadByte(at, offset: 0) as WordBits
+	let mid = (__Raw.loadByte(at, offset: middle) as WordBits) shl (byteShift(middle) as WordBits)
+	let final = (__Raw.loadByte(at, offset: last) as WordBits) shl (byteShift(last) as WordBits)
+	return (first or mid or final) as Count
+end 'loadPadded'
+
+// inlineOfBytes is the String that holds the length bytes, 1 to stringInlineBytes, at an address in its words.
+function inlineOfBytes(bytes Count, length Count) returns String
+	if length <= wordBytes 'one'
+		return inlineString(loadPadded(bytes, count: length), rest: 0, count: length)
+	end 'one'
+	let restCount = __Raw.wrappingSub(length, right: wordBytes)
+	return inlineString(__Raw.loadWord(bytes, offset: 0), rest: loadPadded(__Raw.wrappingAdd(bytes, right: wordBytes), count: restCount), count: length)
+end 'inlineOfBytes'
+
+// ownedString is the String of the length bytes written to room, a box of runtime::alloc, whose ASCII bit ascii says:
+// one that holds them in its words, the room freed, where they are few enough, and else the String that owns the room.
+function ownedString(room Count, length Count, ascii bool) returns String
+	if holdsInline(length) 'inline'
+		let held = inlineOfRoom(room, length: length, ascii: ascii)
+		free(room)
+		return held
+	end 'inline'
+	return __Raw.stringOf(room, length: length, ascii: ascii)
+end 'ownedString'
+
+// storeOwnedString stores at address plus offset the String that ownedString makes of the room.
+function storeOwnedString(address Count, offset Count, bytes Count, length Count, ascii bool)
+	if holdsInline(length) 'inline'
+		let held = inlineOfRoom(bytes, length: length, ascii: ascii)
+		free(bytes)
+		let at = __Raw.wrappingAdd(address, right: offset)
+		__Raw.storeWord(at, offset: 0, value: __Raw.stringFirstWord(held))
+		__Raw.storeWord(at, offset: wordBytes, value: __Raw.stringSecondWord(held))
+		return
+	end 'inline'
+	__Raw.storeString(address, offset: offset, bytes: bytes, length: length, ascii: ascii)
+end 'storeOwnedString'
+
+// lowBytesMask keeps the count lowest bytes of a word, count below a word's.
+function lowBytesMask(count Count) returns WordBits
+	return ((1 as WordBits) shl (byteShift(count) as WordBits)) - 1
+end 'lowBytesMask'
+
+// stringView is rt.str.view where the backend does not write it in place: the length bytes of text from from, the bounds
+// checked before, as a String that holds them in its words where they are few enough, and else a view.
+function stringView(text String, from Count, length Count) returns String
+	if length == 0 'empty'
+		return ""
+	end 'empty'
+	if not isInline(text) 'held'
+		let bytes = __Raw.wrappingAdd(__Raw.stringFirstWord(text), right: from)
+		if holdsInline(length) 'short'
+			return inlineOfBytes(bytes, length: length)
+		end 'short'
+		return viewOf(bytes, length: length, ascii: __Raw.stringAscii(text))
+	end 'held'
+	var first = __Raw.stringFirstWord(text) as WordBits
+	var rest = inlineRest(text) as WordBits
+	if from >= wordBytes 'second'
+		first = rest shr (byteShift(__Raw.wrappingSub(from, right: wordBytes)) as WordBits)
+		rest = 0
+	end 'second' else if from > 0 'within'
+		let shift = byteShift(from) as WordBits
+		first = (first shr shift) or (rest shl ((64 as WordBits) - shift))
+		rest = rest shr shift
+	end 'within'
+	if length < wordBytes 'short'
+		first = first and lowBytesMask(length)
+		rest = 0
+	end 'short' else 'long'
+		rest = rest and lowBytesMask(__Raw.wrappingSub(length, right: wordBytes))
+	end 'long'
+	let ascii = __Raw.stringAscii(text) or wordsAreSimple(first as Count, rest: rest as Count)
+	return inlineWithAscii(first as Count, rest: rest as Count, count: length, ascii: ascii)
+end 'stringView'
+
+// viewOf is the view of the length bytes at an address, which owns none of them.
+function viewOf(bytes Count, length Count, ascii bool) returns String
+	var word = ((length as WordBits) shl (stringLengthShift as WordBits)) or (stringViewBit as WordBits)
+	if ascii 'ascii'
+		word = word or (stringAsciiBit as WordBits)
+	end 'ascii'
+	return __Raw.stringOfWords(bytes, second: word as Count)
+end 'viewOf'
+
+// storeInline writes the count bytes, count above 0, of a String that holds them in its words at an address with room for
+// exactly them: a word and the last word, which overlap, two half words that overlap, or the first, middle and last bytes.
+function storeInline(at Count, part String, count Count)
+	let first = __Raw.stringFirstWord(part) as WordBits
+	if count >= wordBytes 'words'
+		__Raw.storeWord(at, offset: 0, value: first as Count)
+		let over = __Raw.wrappingSub(count, right: wordBytes)
+		if over > 0 'rest'
+			__Raw.storeWord(at, offset: over, value: inlineLastWord(part, over: over))
+		end 'rest'
+		return
+	end 'words'
+	if count >= halfBytes 'halves'
+		let over = __Raw.wrappingSub(count, right: halfBytes)
+		__Raw.storeWord32(at, offset: 0, value: (first and halfWord) as Count)
+		__Raw.storeWord32(at, offset: over, value: ((first shr (byteShift(over) as WordBits)) and halfWord) as Count)
+		return
+	end 'halves'
+	let middle = count shr 1
+	let last = __Raw.wrappingSub(count, right: 1)
+	__Raw.storeByte(at, offset: 0, value: (first and lowByte) as Byte)
+	__Raw.storeByte(at, offset: middle, value: ((first shr (byteShift(middle) as WordBits)) and lowByte) as Byte)
+	__Raw.storeByte(at, offset: last, value: ((first shr (byteShift(last) as WordBits)) and lowByte) as Byte)
+end 'storeInline'
+
+// inlineLastWord is the last eight of the bytes of a String that holds over more than eight in its words, over above 0.
+function inlineLastWord(part String, over Count) returns Count
+	let shift = byteShift(over) as WordBits
+	return (((__Raw.stringFirstWord(part) as WordBits) shr shift) or ((inlineRest(part) as WordBits) shl ((64 as WordBits) - shift))) as Count
+end 'inlineLastWord'
+
+let halfWord = 0xFFFFFFFF as WordBits
+
+let lowByte = 0xFF as WordBits

@@ -151,6 +151,9 @@ export function rewriteInstr(mutates fn ir.IrFunction, at Count, defs ir.Defs, m
 	if op == ir.Opcode.opStrPtr 'opcodeStrPtr'
 		return false
 	end 'opcodeStrPtr'
+	if op == ir.Opcode.opStrBytes 'opcodeStrBytes'
+		return false
+	end 'opcodeStrBytes'
 	if op == ir.Opcode.opStrWord 'opcodeStrWord'
 		return false
 	end 'opcodeStrWord'

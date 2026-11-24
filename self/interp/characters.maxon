@@ -42,14 +42,13 @@ function entryCharToString(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Ha
 	giveText(vm, x: x, text: text)
 end 'entryCharToString'
 
-// entryCharHash folds a Character's text under a seed, as a String's bytes are folded: the interpreter has no words that hold
-// a Character's bytes, and a hash is the same only within one run.
+// entryCharHash is the hash of a Character's text under a seed, a String's of the same bytes, as a compiled program's is.
 function entryCharHash(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	let text = try stringArg(vm, f: f, x: x, i: 0, what: "a character's hash")
 	let seed = ir.bitsOfWord(argNum(vm, f: f, x: x, i: 1)) as HashWord
 	let bytes = text.toByteArray()
 	let count = bytes.count()
-	giveNum(vm, x: x, n: ir.wordOfBits(hashSpan(HashInput.make(bytes), count: count, seed: seed) as Count))
+	giveNum(vm, x: x, n: ir.wordOfBits(hashWholeText(HashInput.make(bytes), count: count, seed: seed) as Count))
 end 'entryCharHash'
 
 function entryCharFromCodepoint(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt

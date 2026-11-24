@@ -7,7 +7,7 @@
 //
 //	go run ./cmd/gate check [test args...]
 //	go run ./cmd/gate suites <compiler> [test args...]
-//	go run ./cmd/gate seed
+//	go run ./cmd/gate seed [--staged]
 //	go run ./cmd/gate specs <maxon specs dir>
 //	go run ./cmd/gate stdlib [--check] <maxon stdlib dir>
 //	go run ./cmd/gate build
@@ -30,7 +30,7 @@ import (
 const usage = `usage:
   gate check [test args...]          the gate: Go checks, generators, a compiler from the seed and the suites on it
   gate suites <compiler> [args...]   the suites a compiler must pass (on arm64 Linux, which has no seed, the lanes it runs natively)
-  gate seed                          renew the seeds, each proven to reproduce itself
+  gate seed [--staged]               renew the seeds, each proven to reproduce itself; --staged for a change of a layout\n                                     the seed bakes in, which it cannot compile the runtime of: run before committing it
   gate specs <maxon specs dir>       regenerate specs/ from maxon's spec tests and write specs/passed.txt again
   gate stdlib [--check] <maxon stdlib dir>
                                      regenerate stdlib/ from maxon's library; --check fails when that differs from what is committed
@@ -96,7 +96,11 @@ func gate() {
 			printStepTable()
 		}
 	case "seed":
-		err = renewSeeds(h)
+		staged := len(args) == 1 && args[0] == "--staged"
+		if len(args) > 0 && !staged {
+			fail(errors.New("seed: the one option is --staged, for a change of a layout that the seed bakes in (seed/README.md)"))
+		}
+		err = renewSeeds(h, staged)
 		printStepTable()
 	case "specs":
 		if len(args) != 1 {

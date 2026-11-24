@@ -142,7 +142,7 @@
 			__Raw.storeByte(dest, offset: i, value: slashByte if byte == backslashByte else byte)
 		end 'copy'
 		succeed(errorAddress)
-		return __Raw.stringOf(dest, length: length, ascii: __Raw.stringAscii(path))
+		return ownedString(dest, length: length, ascii: __Raw.stringAscii(path))
 	end 'osPathFrom'
 
 	// osReadText is the whole content of a file.

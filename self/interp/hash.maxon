@@ -144,8 +144,26 @@ function entryHashStringBytes(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws
 		throw trap(vm, message: "a hashed span reaches past the end of its string")
 	end 'outside'
 	let input = HashInput.make(try bytes.slice(at, endIndex: at + count) otherwise panic("interp: a hashed span checked inside its string is not"))
+	if at == 0 and count == length 'whole'
+		giveNum(vm, x: x, n: ir.wordOfBits(hashWholeText(input, count: count, seed: seed) as Count))
+		return
+	end 'whole'
 	giveNum(vm, x: x, n: ir.wordOfBits(hashSpan(input, count: count, seed: seed) as Count))
 end 'entryHashStringBytes'
+
+// hashWholeText is the hash of all the count bytes of a String or a Character, as the runtime's hashStringBytes gives it:
+// one that a compiled program holds in its two words, its first eight bytes and the rest, each zero past them, is hashed
+// as those words, and a longer one as its span.
+function hashWholeText(input HashInput, count Count, seed HashWord) returns HashWord
+	if count == 0 or count > ir.stringInlineBytes 'span'
+		return hashSpan(input, count: count, seed: seed)
+	end 'span'
+	if count <= hashWordBytes 'one'
+		return hashShortFold(hashLoadBytes(input, at: 0, count: count), rest: 0, count: count, seed: seed)
+	end 'one'
+	let rest = hashLoadBytes(input, at: hashWordBytes, count: count - hashWordBytes)
+	return hashShortFold(hashLoadWord(input, at: 0), rest: rest, count: count, seed: seed)
+end 'hashWholeText'
 
 // entryBytesReadWord is the width bytes from an index as a word, the first the most significant where bigEndian, or
 // indexOutOfBounds when they are not all inside the array.

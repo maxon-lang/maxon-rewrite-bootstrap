@@ -1,17 +1,12 @@
 // The Character entries. A Character is two words, laid out as a String is, and the runtime's source, which names no
-// Character, takes one as the String of its two words. One of at most charInlineBytes bytes holds them in the words, which
-// then own nothing: the first eight in the first word, the lowest byte first, and the rest in the second above its flags
-// (stringLengthShift), with their count at charLengthShift and the bit at charInlineShift set, which no String's word sets.
-// A longer one is a String of its bytes, a literal's in the executable or a box it owns, so a Character never borrows. Only
-// this file and the backend's literal and routines (self/backend/strings.maxon, routines.maxon) know this.
-
-// charCountMask is the count of an inline Character's bytes, under its shift.
-let charCountMask = 15 as Count
+// Character, takes one as the String of its two words. One of 1 to stringInlineBytes bytes holds them in the words, as
+// every String of so few bytes does (inline.maxon), so its words are those of the String of its bytes; a longer one is a
+// String of its bytes, a literal's in the executable or a box it owns, so a Character never borrows.
 
 let byteMask = 255 as Count
 
-// bitsPerByte is how far one byte of a word is shifted from the one before it.
-let bitsPerByte = 8 as Count
+// byteShiftBits is how far an index of a byte is shifted to the count of bits before it in a word.
+let byteShiftBits = 3 as Count
 
 let charBefore = (charOrderSame - 1) as Count
 
@@ -35,43 +30,26 @@ let continuationBits = 0x3F as Count
 
 let continuationSpan = 64 as Count
 
-// charIsInline is whether a Character holds its bytes in its two words: its String's length, the word shifted down past the
-// flags, has the inline bit at the top.
-function charIsInline(c String) returns bool
-	return (__Raw.stringLength(c) shr (charInlineShift - stringLengthShift)) != 0
-end 'charIsInline'
-
 // charLength is the count of a Character's bytes.
 function charLength(c String) returns Count
-	let length = __Raw.stringLength(c)
-	if charIsInline(c) 'inline'
-		return (length shr (charLengthShift - stringLengthShift)) and charCountMask
-	end 'inline'
-	return length
+	return __Raw.stringLength(c)
 end 'charLength'
 
 // charByte is the byte of a Character at an index below its count.
 function charByte(c String, index Count) returns Byte
-	if not charIsInline(c) 'held'
-		return __Raw.loadByte(__Raw.stringBytes(c), offset: index)
-	end 'held'
-	if index < wordBytes 'first'
-		return ((__Raw.stringBytes(c) shr byteShift(index)) and byteMask) as Byte
-	end 'first'
-	return ((__Raw.stringLength(c) shr byteShift(__Raw.wrappingSub(index, right: wordBytes))) and byteMask) as Byte
+	if isInline(c) 'inline'
+		return inlineByte(c, index: index)
+	end 'inline'
+	return __Raw.loadByte(__Raw.stringFirstWord(c), offset: index)
 end 'charByte'
 
 // byteShift is how far the byte at an index of a word is shifted up in it.
 function byteShift(index Count) returns Count
-	return try index * bitsPerByte otherwise panic("a byte past a word")
+	return ((index as HashWord) shl (byteShiftBits as HashWord)) as Count
 end 'byteShift'
 
-// charEquals is whether two Characters have the same bytes. A cluster of few enough bytes is always held in the words, so
-// two of which one is held there are the same only where their words are.
+// charEquals is whether two Characters have the same bytes: a String's equality, since a Character is laid out as one.
 function charEquals(left String, right String) returns bool
-	if charIsInline(left) or charIsInline(right) 'inline'
-		return __Raw.stringBytes(left) == __Raw.stringBytes(right) and __Raw.stringLength(left) == __Raw.stringLength(right)
-	end 'inline'
 	return streq(left, right: right)
 end 'charEquals'
 
@@ -97,39 +75,16 @@ function charCompare(left String, right String) returns Count
 	return charOrderSame
 end 'charCompare'
 
-// charToString is a new String of a Character's bytes.
+// charToString is a new String of a Character's bytes: the same two words where they hold the bytes.
 function charToString(c String) returns String
-	let length = charLength(c)
-	if not charIsInline(c) 'held'
-		return stringOfBytes(__Raw.stringBytes(c), length: length)
-	end 'held'
-	let room = __Raw.stringRoom(length)
-	for i in 0 upto length 'bytes'
-		__Raw.storeByte(room, offset: i, value: charByte(c, index: i))
-	end 'bytes'
-	return stringOfRoom(room, length: length)
+	if isInline(c) 'inline'
+		return __Raw.stringOfWords(__Raw.stringFirstWord(c), second: __Raw.stringSecondWord(c))
+	end 'inline'
+	return stringOfBytes(__Raw.stringFirstWord(c), length: __Raw.stringLength(c))
 end 'charToString'
 
-// charOfWords is the Character that holds its bytes in its two words: first, the first eight, and rest, the word of the second
-// above its flags, which stringOf shifts past them and which holds the bytes after the eighth with their count and the inline
-// bit (charInlineRest). Its flags are a String's that owns its bytes, as a literal's are.
-function charOfWords(first HashWord, rest HashWord) returns String
-	return __Raw.stringOf(first as Count, length: rest as Count, ascii: false)
-end 'charOfWords'
-
-// charInlineRest is the rest of the second word of a Character that holds count bytes in its two words, before the bytes after
-// the eighth: their count and the inline bit.
-function charInlineRest(count Count) returns HashWord
-	let inline = (1 as HashWord) shl (charInlineShift - stringLengthShift)
-	return inline or ((count as HashWord) shl (charLengthShift - stringLengthShift))
-end 'charInlineRest'
-
-// charHash is the fold of a Character's bytes under a seed. One of few enough bytes always holds them in its two words, so
-// two equal Characters are folded the same way, and one that holds them is folded as its two words without its flags.
+// charHash is the hash of a Character's bytes under a seed, a String's of the same bytes, since it is laid out as one.
 function charHash(c String, seed Count) returns Count
-	if charIsInline(c) 'inline'
-		return hashWord(__Raw.stringBytes(c), seed: hashWord(__Raw.stringLength(c), seed: seed))
-	end 'inline'
 	return hashStringBytes(c, at: 0, count: charLength(c), seed: seed)
 end 'charHash'
 
@@ -143,7 +98,7 @@ function charFromCodepoint(cp Count) returns String
 	for i in 0 upto length 'bytes'
 		first = first or ((strEncodedByte(cp, length: length, index: i) as HashWord) shl byteShift(i))
 	end 'bytes'
-	return charOfWords(first, rest: charInlineRest(length))
+	return inlineString(first as Count, rest: 0, count: length)
 end 'charFromCodepoint'
 
 // charNextScalar is the scalar value after a scalar value: the code point after it, but for the first after the surrogates.
@@ -172,21 +127,10 @@ function charOfBytes(text String, from Count, length Count) returns String
 	if from > total or length > total - from 'outside'
 		panic("a character's bytes reach past the end of its string")
 	end 'outside'
-	let bytes = __Raw.wrappingAdd(__Raw.stringBytes(text), right: from)
-	if length > charInlineBytes 'held'
-		return stringOfBytes(bytes, length: length)
+	if length > stringInlineBytes 'held'
+		return stringOfBytes(__Raw.wrappingAdd(__Raw.stringFirstWord(text), right: from), length: length)
 	end 'held'
-	var first = 0 as HashWord
-	var rest = charInlineRest(length)
-	for i in 0 upto length 'bytes'
-		let b = __Raw.loadByte(bytes, offset: i) as HashWord
-		if i < wordBytes 'first'
-			first = first or (b shl byteShift(i))
-		end 'first' else 'rest'
-			rest = rest or (b shl byteShift(__Raw.wrappingSub(i, right: wordBytes)))
-		end 'rest'
-	end 'bytes'
-	return charOfWords(first, rest: rest)
+	return stringView(text, from: from, length: length)
 end 'charOfBytes'
 
 // charCodepoint is the code point of a Character's first UTF-8 sequence.

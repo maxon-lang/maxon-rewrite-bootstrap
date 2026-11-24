@@ -12,7 +12,9 @@ it clearly does not apply.
 The compiler is `self/`, built from the seed (`seed/README.md`). The seed has the old language, so a change that
 `self/` or `runtime/` must follow takes two commits: first the compiler accepts the new form while `self/` and
 `runtime/` still use the old one, and `.\seed.ps1` renews the seed; then `self/` and `runtime/` move to the new form,
-and the old one goes. A change that `self/` and `runtime/` do not use needs no new seed.
+and the old one goes. A change that `self/` and `runtime/` do not use needs no new seed. A change of a layout that the seed
+bakes into the code it makes and that the runtime shares with it (a String's two words) is one commit with the seeds renewed
+for it by `.\seed.ps1 --staged` before it is committed (`seed/README.md`, "A change of a layout the seeds bake in").
 
 ## 0. Look at current maxon first
 

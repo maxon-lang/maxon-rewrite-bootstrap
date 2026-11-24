@@ -119,9 +119,10 @@ function windowsRuntimeUnit(count bool) returns CodeUnit
 	asmEpilogue(u)
 	u.defineCode(ir.rtSymbol(ir.Rt.rtWrite))
 	asmPrologue(u)
+	u.asm.subImm(rsp, imm: stubHeldBytes)
 	u.asm.mov(r8, src: x64InternalArg(2))
-	u.asm.shrImm(r8, imm: stringLengthShift as Imm8)
 	u.asm.mov(rdx, src: x64InternalArg(1))
+	asmHeldBytes(u, word: r8, first: rdx, at: windowsHeldDisp)
 	u.asm.mov(rcx, src: x64InternalArg(0))
 	u.asm.lea(r9, base: rsp, disp: 40)
 	u.asm.bitXor(rax, src: rax)
@@ -179,8 +180,10 @@ function linuxRuntimeUnit(count bool) returns CodeUnit
 	u.asm.mov(rdi, src: x64InternalArg(0))
 	u.asm.mov(rsi, src: x64InternalArg(1))
 	u.asm.mov(rdx, src: x64InternalArg(2))
-	u.asm.shrImm(rdx, imm: stringLengthShift as Imm8)
+	u.asm.subImm(rsp, imm: stubHeldBytes)
+	asmHeldBytes(u, word: rdx, first: rsi, at: 0)
 	stubSyscall(u, number: linuxSysWrite)
+	u.asm.addImm(rsp, imm: stubHeldBytes)
 	u.asm.ret()
 	emitTestItoa(u)
 	u.defineCode(ir.rtSymbol(ir.Rt.rtCheckLeaks))
@@ -231,15 +234,31 @@ function arm64RuntimeUnit(system ast.TargetSystem, count bool) returns CodeUnit
 	u.asm.arm64Ret()
 	u.defineCode(ir.rtSymbol(ir.Rt.rtWrite))
 	u.asm.arm64Enter()
+	let held = u.asm.newLabel()
+	u.asm.arm64CmpImm(arm64InternalArg(2), value: 0)
+	u.asm.arm64BranchIf(MCond.less, label: held)
 	u.asm.arm64ShrImm(arm64StubArg(2), src: arm64InternalArg(2), shift: stringLengthShift as Arm64Imm6)
 	u.asm.arm64Mov(arm64StubArg(1), src: arm64InternalArg(1))
 	u.asm.arm64Mov(arm64StubArg(0), src: arm64InternalArg(0))
 	emitArm64StubCall(u, system: system, call: Arm64StubCall.stubWrite)
 	u.asm.arm64Leave()
 	u.asm.arm64Ret()
+	// A String that holds its bytes in its words (runtime/inline.maxon) is written from the stack, its words in order.
+	u.asm.bind(held)
+	u.asm.arm64ShrImm(stubTemp, src: arm64InternalArg(2), shift: stringLengthShift as Arm64Imm6)
+	u.asm.arm64Push(arm64InternalArg(1), second: stubTemp)
+	u.asm.arm64ShrImm(arm64StubArg(2), src: arm64InternalArg(2), shift: stringCountShift as Arm64Imm6)
+	u.asm.arm64MovImm(stubTemp, value: inlineBitCount)
+	u.asm.arm64Sub(arm64StubArg(2), left: arm64StubArg(2), right: stubTemp)
+	u.asm.arm64Mov(arm64StubArg(0), src: arm64InternalArg(0))
+	u.asm.arm64AddImm(arm64StubArg(1), src: Arm64Register.sp, value: 0)
+	emitArm64StubCall(u, system: system, call: Arm64StubCall.stubWrite)
+	u.asm.arm64Pop(stubTemp, second: stubSecond)
+	u.asm.arm64Leave()
+	u.asm.arm64Ret()
 	u.defineCode(ir.rtSymbol(ir.Rt.rtItoa))
-	u.asm.arm64AddressData(result, dataOffset: u.data.textOffset("?"))
-	u.asm.arm64MovImm(arm64InternalSecondResult, value: literalWord("?"))
+	u.asm.arm64MovImm(result, value: inlineTextWord(testItoaText, from: 0, count: wordBytes))
+	u.asm.arm64MovImm(arm64InternalSecondResult, value: inlineStringWord(testItoaText))
 	u.asm.arm64Ret()
 	u.defineCode(ir.rtSymbol(ir.Rt.rtCheckLeaks))
 	let clean = u.asm.newLabel()
@@ -267,10 +286,46 @@ end 'arm64CountLive'
 // emitTestItoa writes the stand-in for itoa, which gives "?" for every number.
 function emitTestItoa(mutates u CodeUnit)
 	u.defineCode(ir.rtSymbol(ir.Rt.rtItoa))
-	u.asm.leaData(x64InternalResult, dataOffset: u.data.textOffset("?"))
-	u.asm.movImm(x64InternalSecondResult, imm: literalWord("?"))
+	u.asm.movImm(x64InternalResult, imm: inlineTextWord(testItoaText, from: 0, count: wordBytes))
+	u.asm.movImm(x64InternalSecondResult, imm: inlineStringWord(testItoaText))
 	u.asm.ret()
 end 'emitTestItoa'
+
+// testItoaText is what the test runtime's itoa gives for every number, a String that holds its byte in its words.
+let testItoaText = "?"
+
+// stubHeldBytes is the room a test runtime's write takes on the stack for the bytes of a String that holds them in its
+// words, and windowsHeldDisp where that room is above the arguments that WriteFile takes on the stack.
+let stubHeldBytes = 16
+
+let windowsHeldDisp = 48
+
+// asmHeldBytes leaves in word the length of the String whose words are first and word, and in first the address of its
+// bytes: where it holds them in its words (runtime/inline.maxon), the room at rsp plus at, which they are written to.
+function asmHeldBytes(mutates u CodeUnit, word X64Register, first X64Register, at Imm32)
+	let held = u.asm.newLabel()
+	let done = u.asm.newLabel()
+	u.asm.test(word, right: word)
+	u.asm.jcc(MCond.less, label: held)
+	u.asm.shrImm(word, imm: stringLengthShift as Imm8)
+	u.asm.jmp(done)
+	u.asm.bind(held)
+	u.asm.store(rsp, disp: at, src: first)
+	u.asm.mov(first, src: word)
+	u.asm.shrImm(first, imm: stringLengthShift as Imm8)
+	u.asm.store(rsp, disp: try at + wordBytes as Imm32 otherwise panic("a stub's room past 2 GiB"), src: first)
+	u.asm.shrImm(word, imm: stringCountShift as Imm8)
+	u.asm.andImm(word, imm: inlineCountBits)
+	u.asm.lea(first, base: rsp, disp: at)
+	u.asm.bind(done)
+end 'asmHeldBytes'
+
+// inlineCountBits keeps the count of the bytes a String holds in its words, its word shifted down by stringCountShift.
+let inlineCountBits = 15
+
+// inlineBitCount is what the inline bit adds to the count of the bytes a String holds in its words, its word shifted down by
+// stringCountShift.
+let inlineBitCount = 16
 
 // testLeakExitCode is the runtime's exit code for a leak (runtime/output.maxon).
 let testLeakExitCode = 99

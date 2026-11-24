@@ -758,6 +758,15 @@ export function intrinsicCall(mutates l Lowerer, p ast.Project, mutates ms ast.M
 	if op == ast.Intrinsic.intrRawStringLengthAt 'intrRawStringLengthAt'
 		return lowerRawStringLengthAt(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrRawStringLengthAt'
+	if op == ast.Intrinsic.intrRawStringFirstWord 'intrRawStringFirstWord'
+		return lowerRawStringFirstWord(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrRawStringFirstWord'
+	if op == ast.Intrinsic.intrRawStringSecondWord 'intrRawStringSecondWord'
+		return lowerRawStringSecondWord(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrRawStringSecondWord'
+	if op == ast.Intrinsic.intrRawStringOfWords 'intrRawStringOfWords'
+		return lowerRawStringOfWords(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrRawStringOfWords'
 	if op == ast.Intrinsic.intrRawHeapAddress 'intrRawHeapAddress'
 		return lowerRawHeapAddress(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrRawHeapAddress'
@@ -1588,6 +1597,15 @@ export function ownsOperands(op ast.Intrinsic) returns bool
 	if op == ast.Intrinsic.intrRawStringLengthAt 'intrRawStringLengthAt'
 		return false
 	end 'intrRawStringLengthAt'
+	if op == ast.Intrinsic.intrRawStringFirstWord 'intrRawStringFirstWord'
+		return false
+	end 'intrRawStringFirstWord'
+	if op == ast.Intrinsic.intrRawStringSecondWord 'intrRawStringSecondWord'
+		return false
+	end 'intrRawStringSecondWord'
+	if op == ast.Intrinsic.intrRawStringOfWords 'intrRawStringOfWords'
+		return false
+	end 'intrRawStringOfWords'
 	if op == ast.Intrinsic.intrRawHeapAddress 'intrRawHeapAddress'
 		return false
 	end 'intrRawHeapAddress'

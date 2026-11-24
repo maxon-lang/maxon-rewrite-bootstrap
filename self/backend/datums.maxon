@@ -77,6 +77,11 @@ end 'pushDatumWord'
 
 // pushText writes a String of the datum's texts: the address of its bytes, which the link fills in, and its word.
 function pushText(mutates data DataSection, d ir.Datum, index Count, textAt CountList)
+	if holdsInline(d.texts[index]) 'inline'
+		pushU64(data.bytes, v: ir.bitsOfWord(inlineTextWord(d.texts[index], from: 0, count: wordBytes) as ir.Word))
+		pushU64(data.bytes, v: ir.bitsOfWord(inlineStringWord(d.texts[index]) as ir.Word))
+		return
+	end 'inline'
 	pushPointer(data, target: textAt[index])
 	pushU64(data.bytes, v: try literalWord(d.texts[index]) as Count otherwise panic("backend: a literal's word past a word"))
 end 'pushText'

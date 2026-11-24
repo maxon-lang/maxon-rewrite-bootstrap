@@ -140,8 +140,11 @@ function requireFilled(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleSt
 	end 'scalar'
 	var word = element
 	if ast.isStringType(ms.types, reads: p.types, t: elem) 'string'
-		word = newReg(l, kind: IrKind.kindScalar)
-		emit(l, i: newStrPtr(word, src: element))
+		// A String that holds its bytes in its words may have a first word of 0, but never a word of 0 then.
+		let first = newReg(l, kind: IrKind.kindScalar)
+		emit(l, i: newStrPtr(first, src: element))
+		let second = stringWord(l, text: element)
+		word = wrappingBin(l, op: BinOp.binOr, a: first, b: second, kind: IrKind.kindScalar)
 	end 'string'
 	let empty = konst(l, value: 0 as Word)
 	let filled = compare(l, op: CmpOp.cmpNe, a: word, b: empty, unsigned: true)

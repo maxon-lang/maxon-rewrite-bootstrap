@@ -434,7 +434,7 @@ end 'floatTextOf'
 // floatText is the string that owns the room of a float's text, whose every byte is a digit, a sign, a point or a letter
 // of a word, so below 0x80.
 function floatText(room Count, length Count) returns String
-	return __Raw.stringOf(room, length: length, ascii: true)
+	return ownedString(room, length: length, ascii: true)
 end 'floatText'
 
 function floatPut(out Count, at Count, value Byte) returns Count

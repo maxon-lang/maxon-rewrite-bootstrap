@@ -523,6 +523,19 @@ export type Fold
 			self.decideCheck(f, k: k, holds: ir.evalBounds(self.valueOf(index), b: self.valueOf(length)))
 			return true
 		end 'bounds'
+		if op == ir.Opcode.opLength 'length'
+			if ir.lengthOf(f.instrs[k]) != ir.Collection.collectionString 'other'
+				return false
+			end 'other'
+			return self.foldLiteralLength(f, k: k, text: ir.lengthSrc(f.instrs[k]))
+		end 'length'
+		if op == ir.Opcode.opCallRuntime 'call'
+			if ir.callRuntimeSymbol(f.instrs[k]) != ir.Rt.rtStrLen 'other'
+				return false
+			end 'other'
+			let text = f.args[ir.callRuntimeArgsStart(f.instrs[k])]
+			return self.foldLiteralLength(f, k: k, text: text)
+		end 'call'
 		if op == ir.Opcode.opDrop 'drop'
 			let src = ir.dropSrc(f.instrs[k])
 			if self.isKnown(src) and self.valueOf(src) == 0 'nothing'
@@ -597,6 +610,16 @@ export type Fold
 	end 'settle'
 
 	// fold makes the instruction k a constant v, which passes its check if it has one.
+	// foldLiteralLength folds the length k of the String text where text is a literal, whose length is known: the backend
+	// would read it out of a word that holds it one of two ways.
+	function foldLiteralLength(mutates self, mutates f ir.IrFunction, k Count, text ir.Reg) returns bool
+		let src = self.find(text)
+		if not definedBy(f, defs: defs, r: src, op: ir.Opcode.opStr) 'unknown'
+			return false
+		end 'unknown'
+		return self.fold(f, k: k, v: ir.wordOfBits(ir.strText(f, x: f.instrs[defOf(defs, r: src)]).byteLength()))
+	end 'foldLiteralLength'
+
 	function fold(mutates self, mutates f ir.IrFunction, k Count, v ir.Word) returns bool
 		if ir.instrCanFail(f.instrs[k]) 'checked'
 			self.removeCheck(f, k: k)

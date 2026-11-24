@@ -94,6 +94,13 @@ function hashEmptyFold(seed HashWord) returns HashWord
 	return hashFinish(0, high: 0, state: hashKeyedState(seed), count: 0)
 end 'hashEmptyFold'
 
+// hashShortFold is the hash of a String of 1 to 15 bytes under a seed, which such a String holds in its two words: one
+// finish of its first eight bytes and the rest, each the lowest byte first and zero past the bytes. It is not hashSpan of
+// the bytes, as maxon's is (README, "Where it differs from Maxon"): a short key is hashed with no access to memory.
+function hashShortFold(first HashWord, rest HashWord, count Count, seed HashWord) returns HashWord
+	return hashFinish(first, high: rest, state: hashKeyedState(seed), count: count as HashWord)
+end 'hashShortFold'
+
 // hashDrawn is the seed a pinned process draws as its draw of an index: the stream and the index folded under the
 // secret itself, not the empty fold, so that a pin draws one sequence whatever the fold.
 function hashDrawn(index HashWord, secret HashWord) returns HashWord

@@ -1,9 +1,13 @@
 package main
 
 import (
+	"archive/tar"
+	"bytes"
 	"errors"
 	"fmt"
+	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 )
@@ -16,15 +20,28 @@ import (
 // Windows seed and the cross-built compilers as the others, so the three always come from one commit of self/. The gate
 // never builds a C3: this is the only place that checks that a compiler reproduces itself, so a compiler that does not is
 // never committed. seed/README.md says when a renewal is needed.
-func renewSeeds(h host) error {
+//
+// A staged renewal is the one for a change of a layout that the seed bakes into the code it makes and that the runtime
+// shares with that code, such as a String's two words: the seed can compile neither the new runtime nor code that agrees
+// with it. The seed then first builds C0, the new self/ against the runtime it was renewed with, which is HEAD's while the
+// change is not committed (stageSeed), and C0, which makes code of the new layout, builds C1 in the seed's place.
+func renewSeeds(h host, staged bool) error {
 	if !h.windows() {
 		return errors.New("seed: the seeds are renewed on x64 Windows with WSL and the Mac's share, which run and prove all three; another host cannot run the Windows seed")
 	}
 	if err := os.MkdirAll("bin", 0o755); err != nil {
 		return err
 	}
+	first := abs(h.seed)
+	if staged {
+		c0 := h.compiler("c0")
+		if err := stageSeed(h, c0); err != nil {
+			return err
+		}
+		first = abs(c0)
+	}
 	c1, c2, c3 := h.compiler("c1"), h.compiler("c2"), h.compiler("c3")
-	if err := chain(abs(h.seed), c1, c2, c3, nil); err != nil {
+	if err := chain(first, c1, c2, c3, nil); err != nil {
 		return err
 	}
 	if err := suites(h, c2, nil); err != nil {
@@ -73,6 +90,77 @@ func renewSeeds(h host) error {
 	}
 	fmt.Printf("seeds renewed: %s from %s, %s from %s, %s from %s\n", h.seed, c2, seeds["x64-linux"], linuxSeed, seeds["arm64-macos"], macSeed)
 	return nil
+}
+
+// stagedRuntimeRevision is the commit whose runtime the seed compiles in a staged renewal: the change of the layout is
+// renewed for before it is committed, so HEAD's runtime is the one the seed was renewed with.
+const stagedRuntimeRevision = "HEAD"
+
+// stageSeed has the seed build c0 of today's self/ against the runtime of stagedRuntimeRevision. A compiler finds the
+// runtime and its own source by its executable's directory (README, "The runtime"), so the seed runs from bin/seed-stage,
+// which holds a copy of it, that runtime and today's self/; each build is uncached, since the cache does not know which
+// runtime a module was compiled against.
+func stageSeed(h host, c0 string) error {
+	dir := filepath.Join("bin", "seed-stage")
+	if err := os.RemoveAll(dir); err != nil {
+		return err
+	}
+	if err := extractTree(stagedRuntimeRevision, "runtime", dir); err != nil {
+		return fmt.Errorf("seed not renewed: cannot stage the runtime of %s: %w", stagedRuntimeRevision, err)
+	}
+	if err := robocopy("self", filepath.Join(dir, "self"), "/E"); err != nil {
+		return fmt.Errorf("seed not renewed: cannot stage self: %w", err)
+	}
+	seed := filepath.Join(dir, filepath.Base(h.seed))
+	if err := copyFile(h.seed, seed); err != nil {
+		return err
+	}
+	if err := stage(filepath.Base(c0)+", the new self/ against the runtime of "+stagedRuntimeRevision, abs(seed), "build", abs(filepath.Join(dir, "self")), "--no-cache", "-o", c0); err != nil {
+		return fmt.Errorf("%w\na staged renewal is run before the change of the layout is committed, so that the seed compiles the runtime of %s", err, stagedRuntimeRevision)
+	}
+	return nil
+}
+
+// extractTree writes the files under path at a revision of the repository below dir, at their paths in the repository.
+func extractTree(revision, path, dir string) error {
+	cmd := exec.Command("git", "archive", "--format=tar", revision, path)
+	var archive, errs bytes.Buffer
+	cmd.Stdout = &archive
+	cmd.Stderr = &errs
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("%s%w", errs.String(), err)
+	}
+	r := tar.NewReader(&archive)
+	for {
+		hdr, err := r.Next()
+		if err == io.EOF {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		target := filepath.Join(dir, filepath.FromSlash(hdr.Name))
+		switch hdr.Typeflag {
+		case tar.TypeDir:
+			if err := os.MkdirAll(target, 0o755); err != nil {
+				return err
+			}
+		case tar.TypeReg:
+			if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
+				return err
+			}
+			data, err := io.ReadAll(r)
+			if err != nil {
+				return err
+			}
+			if err := os.WriteFile(target, data, 0o644); err != nil {
+				return err
+			}
+		case tar.TypeXGlobalHeader:
+		default:
+			return fmt.Errorf("%s: an entry of type %q, which a tree of sources does not hold", hdr.Name, hdr.Typeflag)
+		}
+	}
 }
 
 // chain has seed build c1, c1 build c2 and c2 build c3, each uncached and C3 with its IR verified, through wrap when it is

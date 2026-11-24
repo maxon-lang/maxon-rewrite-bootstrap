@@ -16,6 +16,9 @@ function concat(left String, right String) returns String
 	let leftLength = __Raw.stringLength(left)
 	let rightLength = __Raw.stringLength(right)
 	let length = __Raw.wrappingAdd(leftLength, right: rightLength)
+	if holdsInline(length) 'inline'
+		return inlineAppend(left, part: right)
+	end 'inline'
 	let room = __Raw.stringRoom(length)
 	copyBytes(__Raw.stringBytes(left), target: room, count: leftLength)
 	copyBytes(__Raw.stringBytes(right), target: __Raw.wrappingAdd(room, right: leftLength), count: rightLength)
@@ -25,6 +28,9 @@ end 'concat'
 // itoa is the decimal digits of a word, read as signed unless unsigned says otherwise, with a '-' before a negative one.
 function itoa(n Count, unsigned bool) returns String
 	let length = decimalLength(n, unsigned: unsigned)
+	if holdsInline(length) 'inline'
+		return inlineDecimal(n, unsigned: unsigned, length: length)
+	end 'inline'
 	let bytes = __Raw.stringRoom(length)
 	writeDecimal(bytes, n: n, unsigned: unsigned, length: length)
 	return __Raw.stringOf(bytes, length: length, ascii: true)
@@ -76,23 +82,53 @@ end 'writeDecimal'
 // String it is given over, and the String it gives owns the same buffer: the code that calls them never drops what it
 // passed, and nothing in this source calls them.
 
-// stringJoinRoom is an empty String that owns room for a number of bytes.
+// stringJoinRoom is an empty String that owns room for a number of bytes and the slack past them.
+// A String that will hold its bytes in its words is put together in its words: it starts as the String of no bytes with
+// the inline bit (inlineScratchWord), which only a join or an append holds, and each part is shifted in after the bytes
+// before.
 function stringJoinRoom(length Count) returns String
-	return __Raw.stringOf(__Raw.stringRoom(length), length: 0, ascii: true)
+	if holdsInline(length) 'inline'
+		return __Raw.stringOfWords(0, second: inlineScratchWord)
+	end 'inline'
+	return __Raw.stringOf(__Raw.stringRoom(withSlack(length)), length: 0, ascii: true)
 end 'stringJoinRoom'
 
 // stringJoinPut is text with the bytes of part after its own, which text's buffer has room for.
 function stringJoinPut(text String, part String) returns String
+	let second = __Raw.stringSecondWord(text)
+	if second >= signBit 'inline'
+		return inlineAppend(text, part: part)
+	end 'inline'
+	let partSecond = __Raw.stringSecondWord(part)
+	if partSecond >= signBit 'held'
+		// A part in its words is its two word stores: the room of a join, stringJoinRoom's or stringExtend's, always has the
+		// slack past the bytes it is made for.
+		let bytes = __Raw.stringFirstWord(text)
+		let length = second shr stringLengthShift
+		let count = (partSecond shr stringCountShift) and inlineCountMask
+		putPart(__Raw.wrappingAdd(bytes, right: length), part: part, count: count)
+		return __Raw.stringOf(bytes, length: __Raw.wrappingAdd(length, right: count), ascii: __Raw.stringAscii(text) and __Raw.stringAscii(part))
+	end 'held'
+	return joinPutCopy(text, part: part)
+end 'stringJoinPut'
+
+// joinPutCopy is stringJoinPut of a part whose bytes are elsewhere, copied: apart from it, so that its common case is a
+// function of few registers.
+function joinPutCopy(text String, part String) returns String
 	let length = __Raw.stringLength(text)
 	let count = __Raw.stringLength(part)
-	let bytes = __Raw.stringBytes(text)
-	copyBytes(__Raw.stringBytes(part), target: __Raw.wrappingAdd(bytes, right: length), count: count)
+	let bytes = __Raw.stringFirstWord(text)
+	copyBytes(__Raw.stringFirstWord(part), target: __Raw.wrappingAdd(bytes, right: length), count: count)
 	return __Raw.stringOf(bytes, length: __Raw.wrappingAdd(length, right: count), ascii: __Raw.stringAscii(text) and __Raw.stringAscii(part))
-end 'stringJoinPut'
+end 'joinPutCopy'
 
 // stringJoinDigits is text with the length bytes of the decimal text of a word after its own, which text's buffer has room
 // for.
 function stringJoinDigits(text String, n Count, unsigned bool, length Count) returns String
+	if isInline(text) 'inline'
+		let digits = inlineDecimal(n, unsigned: unsigned, length: length)
+		return inlineJoin(text, first: __Raw.stringFirstWord(digits), rest: inlineRest(digits), count: length, ascii: true)
+	end 'inline'
 	let start = __Raw.stringLength(text)
 	let bytes = __Raw.stringBytes(text)
 	writeDecimal(__Raw.wrappingAdd(bytes, right: start), n: n, unsigned: unsigned, length: length)
@@ -108,44 +144,106 @@ end 'stringJoinDigits'
 
 // extendedRoom is the address of a buffer that holds length bytes and room for needed in all: bytes, where owned says it is
 // a buffer of its own with that room or one that grows to the growth policy's size in place, or else a new one of that
-// size with the length bytes copied into it (grownBox). Nothing past the length of a String is read, so none of the room
-// is zeroed.
-function extendedRoom(bytes Count, length Count, owned bool, needed Count) returns Count
+// size with the length bytes copied into it (grownBox): where fit, needed or needed and the slack past it, is no more than
+// its capacity, it has the room. A buffer that grows is sized for needed and the slack past it. Nothing past the length of
+// a String is read, so none of the room is zeroed.
+function extendedRoom(bytes Count, length Count, owned bool, needed Count, fit Count) returns Count
 	if not owned 'literal'
-		return grownBox(bytes, held: 0, kept: length, bytes: grownCapacity(length, required: needed), zeroed: false)
+		return grownBox(bytes, held: 0, kept: length, bytes: grownCapacity(length, required: withSlack(needed)), zeroed: false)
 	end 'literal'
 	let capacity = boxCapacity(bytes)
-	if needed <= capacity 'room'
+	if fit <= capacity 'room'
 		return bytes
 	end 'room'
-	return grownBox(bytes, held: capacity, kept: length, bytes: grownCapacity(capacity, required: needed), zeroed: false)
+	return grownBox(bytes, held: capacity, kept: length, bytes: grownCapacity(capacity, required: withSlack(needed)), zeroed: false)
 end 'extendedRoom'
 
-// stringExtend is text's bytes with room for extra more after them, the old buffer left for stringRelease.
+// stringExtend is text's bytes with room for extra more after them and the slack past those, the old buffer left for
+// stringRelease.
 function stringExtend(text String, owned bool, extra Count) returns String
 	let length = __Raw.stringLength(text)
 	let needed = try length + extra otherwise panic("string size overflows")
-	let room = extendedRoom(__Raw.stringBytes(text), length: length, owned: owned, needed: needed)
+	if holdsInline(needed) 'inline'
+		if isInline(text) 'held'
+			return __Raw.stringOfWords(__Raw.stringFirstWord(text), second: __Raw.stringSecondWord(text))
+		end 'held'
+		return __Raw.stringOfWords(0, second: inlineScratchWord)
+	end 'inline'
+	let room = extendedRoom(__Raw.stringBytes(text), length: length, owned: owned, needed: needed, fit: withSlack(needed))
 	return __Raw.stringOf(room, length: length, ascii: __Raw.stringAscii(text))
 end 'stringExtend'
 
 // stringRelease frees the buffer of text, which stringExtend extended into grown, where text owned it and grown's bytes are
-// in another.
+// in another. A text that owns its buffer is longer than a String holds in its words, and so is grown then.
 function stringRelease(text String, owned bool, grown String)
-	let bytes = __Raw.stringBytes(text)
-	if owned and bytes != __Raw.stringBytes(grown) 'moved'
+	let bytes = __Raw.stringFirstWord(text)
+	if owned and bytes != __Raw.stringFirstWord(grown) 'moved'
 		__Raw.freeStringRoom(bytes)
 	end 'moved'
 end 'stringRelease'
 
+// stringSlackBytes is the room past a String's bytes that a buffer a join or an append grows is made with, so that a part
+// that holds its bytes in its words goes in as its two words, whatever their count: what is past the part is never read.
+let stringSlackBytes = 16 as Count
+
+// emptyWordLimit is the least word of a String that is not inline and has bytes: its length of 1 shifted up.
+let emptyWordLimit = 8 as Count
+
+// withSlack is a length of bytes with the slack past them.
+function withSlack(length Count) returns Count
+	return try length + stringSlackBytes otherwise panic("string size overflows")
+end 'withSlack'
+
+// putPart stores at an address with the slack past it the bytes of part, which holds count of them in its words: its first
+// word, and its rest where it has bytes past the first. It is small enough to be copied into its callers.
+function putPart(at Count, part String, count Count)
+	__Raw.storeWord(at, offset: 0, value: __Raw.stringFirstWord(part))
+	if count > wordBytes 'rest'
+		__Raw.storeWord(at, offset: wordBytes, value: inlineRest(part))
+	end 'rest'
+end 'putPart'
+
 // stringAppend is text with part's bytes after its own: the append of one part, which may be a view of text's bytes.
 function stringAppend(text String, owned bool, part String) returns String
-	let bytes = __Raw.stringBytes(text)
+	let second = __Raw.stringSecondWord(text)
+	let partSecond = __Raw.stringSecondWord(part)
+	// An owned long text with sixteen bytes of room past its own and a piece in its words: the text's length is its word
+	// shifted, the result is long, and the piece is two word stores into the room.
+	if owned and (second < signBit) and (second >= emptyWordLimit) and (partSecond >= signBit) 'fast'
+		let have = second shr stringLengthShift
+		let bytes = __Raw.stringFirstWord(text)
+		if withSlack(have) <= boxCapacity(bytes) 'room'
+			let count = (partSecond shr stringCountShift) and inlineCountMask
+			putPart(__Raw.wrappingAdd(bytes, right: have), part: part, count: count)
+			return __Raw.stringOf(bytes, length: __Raw.wrappingAdd(have, right: count), ascii: __Raw.stringAscii(text) and __Raw.stringAscii(part))
+		end 'room'
+	end 'fast'
 	let length = __Raw.stringLength(text)
 	let count = __Raw.stringLength(part)
 	let needed = try length + count otherwise panic("string size overflows")
-	let room = extendedRoom(bytes, length: length, owned: owned, needed: needed)
-	copyBytes(__Raw.stringBytes(part), target: __Raw.wrappingAdd(room, right: length), count: count)
+	if holdsInline(needed) 'inline'
+		if owned 'owned'
+			__Raw.freeStringRoom(__Raw.stringFirstWord(text))
+		end 'owned'
+		return inlineAppend(text, part: part)
+	end 'inline'
+	let bytes = __Raw.stringBytes(text)
+	let room = extendedRoom(bytes, length: length, owned: owned, needed: needed, fit: needed)
+	let at = __Raw.wrappingAdd(room, right: length)
+	if isInline(part) 'held'
+		// A piece of a word or more is two stores that overlap, written here: a call would cost more than they do.
+		if count >= wordBytes 'words'
+			__Raw.storeWord(at, offset: 0, value: __Raw.stringFirstWord(part))
+			let over = __Raw.wrappingSub(count, right: wordBytes)
+			if over > 0 'rest'
+				__Raw.storeWord(at, offset: over, value: inlineLastWord(part, over: over))
+			end 'rest'
+		end 'words' else 'short'
+			storeInline(at, part: part, count: count)
+		end 'short'
+	end 'held' else 'elsewhere'
+		copyBytes(__Raw.stringFirstWord(part), target: at, count: count)
+	end 'elsewhere'
 	if owned and room != bytes 'moved'
 		__Raw.freeStringRoom(bytes)
 	end 'moved'
@@ -159,6 +257,11 @@ let halfWordBytes = 4 as Count
 // last whole word as the last word of the string, which overlaps words already compared, as Go's memequal does; a string
 // shorter than a word as two overlapping half words, or its few bytes. No read is outside either string's bytes.
 function streq(left String, right String) returns bool
+	let leftWord = __Raw.stringSecondWord(left)
+	let rightWord = __Raw.stringSecondWord(right)
+	if (leftWord or rightWord) >= signBit 'inline'
+		return leftWord == rightWord and __Raw.stringFirstWord(left) == __Raw.stringFirstWord(right)
+	end 'inline'
 	let length = __Raw.stringLength(left)
 	if length != __Raw.stringLength(right) 'lengths'
 		return false
@@ -203,7 +306,10 @@ function stringByteAt(text String, index Count) returns Byte
 	if index >= __Raw.stringLength(text) 'outside'
 		panic("string byte position out of bounds")
 	end 'outside'
-	return __Raw.loadByte(__Raw.stringBytes(text), offset: index)
+	if isInline(text) 'inline'
+		return inlineByte(text, index: index)
+	end 'inline'
+	return __Raw.loadByte(__Raw.stringFirstWord(text), offset: index)
 end 'stringByteAt'
 
 // stringOfBytes is a new string of a copy of a number of bytes at an address.
@@ -216,7 +322,7 @@ end 'stringOfBytes'
 // stringOfRoom is the string of the length bytes that were just written to room, whose ASCII bit says what they are: the
 // one pass over bytes that are still in the cache is what lets every later operation take its byte path.
 function stringOfRoom(room Count, length Count) returns String
-	return __Raw.stringOf(room, length: length, ascii: bytesAreSimple(room, length: length))
+	return ownedString(room, length: length, ascii: bytesAreSimple(room, length: length))
 end 'stringOfRoom'
 
 // highBits has the top bit of each byte of a word set, and carriageReturns a carriage return in each byte.

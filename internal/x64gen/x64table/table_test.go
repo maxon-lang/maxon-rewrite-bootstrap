@@ -367,6 +367,10 @@ var literal = []struct {
 	{"TzcntRegReg", []int64{0, 1}, []byte{0xF3, 0x48, 0x0F, 0xBC, 0xC1}},
 	{"TzcntRegReg", []int64{9, 12}, []byte{0xF3, 0x4D, 0x0F, 0xBC, 0xCC}},
 	{"TzcntRegReg", []int64{2, 15}, []byte{0xF3, 0x49, 0x0F, 0xBC, 0xD7}},
+	// The conditional move, whose condition is added to its second opcode byte.
+	{"CmovccRegReg", []int64{0xC, 0, 1}, []byte{0x48, 0x0F, 0x4C, 0xC1}},
+	{"CmovccRegReg", []int64{0x2, 9, 12}, []byte{0x4D, 0x0F, 0x42, 0xCC}},
+	{"CmovccRegReg", []int64{0x4, 2, 15}, []byte{0x49, 0x0F, 0x44, 0xD7}},
 	// The fill between functions and the nops before a loop's head, as the Intel manual lists the recommended nop of each
 	// length (vol. 2B, NOP).
 	{"Int3", nil, []byte{0xCC}},

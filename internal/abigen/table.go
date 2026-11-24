@@ -47,24 +47,26 @@ var layouts = []layoutConst{
 		"where a String holds its word: its length in bytes shifted left by stringLengthShift, with stringAsciiBit, stringOwnedBit and stringViewBit."},
 	{"stringValueBytes", 2, false, toSelfIR | toSelfBack,
 		"the size of a String in memory: a field, an element, a capture or a slot of one."},
-	{"stringOwnedBit", 1, true, toSelfIR | toSelfBack,
+	{"stringOwnedBit", 1, true, toRuntime | toSelfIR | toSelfBack,
 		"the bit of a String's word that says it owns its bytes, a box of runtime::alloc that its drop frees; a literal and a view own none, so their drop does nothing and touches no memory."},
-	{"stringViewBit", 4, true, toSelfIR | toSelfBack,
+	{"stringViewBit", 4, true, toRuntime | toSelfIR | toSelfBack,
 		"the bit of a String's word that says it is a view of another String's bytes, which it owns none of: its copy copies them, where a literal's copy is the literal, since its bytes outlive every copy."},
-	{"stringAsciiBit", 2, true, toSelfIR | toSelfBack,
+	{"stringAsciiBit", 2, true, toRuntime | toSelfIR | toSelfBack,
 		"the bit of a String's word that says every byte is below 0x80 and none is a carriage return, so each grapheme cluster and each code point is one byte; clear means nothing is known."},
 	{"stringLengthShift", 3, true, toRuntime | toSelfIR | toSelfBack,
 		"how far a String's length is shifted up in its word, past its flags: the length is the word shifted right by it."},
 
-	// A Character is two words, laid out as a String is (runtime/characters.maxon): one of at most charInlineBytes bytes holds
-	// them in the words themselves, the first eight in the first word and the rest in the second above its flags, and is told
-	// by a bit of its word that no String's word sets; a longer one is a String of its bytes.
-	{"charInlineBytes", 15, true, toRuntime | toSelfBack,
-		"the most bytes a Character holds in its two words, which then own nothing."},
-	{"charInlineShift", 63, true, toRuntime | toSelfBack,
-		"the bit of a Character's word that says it holds its bytes in its two words: a String's length never reaches it."},
-	{"charLengthShift", 59, true, toRuntime | toSelfBack,
-		"where the word of a Character that holds its bytes keeps their count, in the four bits under charInlineShift; the bytes after the eighth are between it and stringLengthShift."},
+	// A String of 1 to stringInlineBytes bytes holds them in its two words (runtime/inline.maxon), and so does a Character,
+	// which is laid out as a String is: the first eight in the first word, the rest in the second between stringLengthShift
+	// and stringCountShift, their count above them and the bit at stringInlineShift. Neither the owned bit nor the view bit
+	// is set, so its drop does nothing and its copy is its two words, as a literal's are, and its ASCII bit is exact, so
+	// two such Strings are the same exactly where their words are. A longer Character is a String of its bytes.
+	{"stringInlineBytes", 15, true, toRuntime | toSelfIR | toSelfBack,
+		"the most bytes a String holds in its two words; every String of 1 to that many bytes holds them there, and the empty String never does."},
+	{"stringInlineShift", 63, true, toRuntime | toSelfIR | toSelfBack,
+		"the bit of a String's word that says it holds its bytes in its two words: a length never reaches it."},
+	{"stringCountShift", 59, true, toRuntime | toSelfIR | toSelfBack,
+		"where the word of a String that holds its bytes keeps their count, in the four bits under stringInlineShift."},
 	{"charOrderSame", 1, true, toRuntime | toSelfIR,
 		"what rt.char.compare gives for two Characters of the same bytes: 1 less where the first is before the second, 1 more where it is after, so an operator compares the answer with it as it would the two Characters."},
 	{"wordElementShift", 3, true, toSelfIR | toSelfBack,

@@ -115,12 +115,6 @@ function loadWordAt(mutates l Lowerer, w Reg, offset Count) returns Reg
 	return d
 end 'loadWordAt'
 
-// lengthOfWord is the length a String's word holds.
-function lengthOfWord(mutates l Lowerer, word Reg) returns Reg
-	let shift = konst(l, value: countWord(stringLengthShift))
-	return wrappingBin(l, op: BinOp.binShr, a: word, b: shift, kind: IrKind.kindScalar)
-end 'lengthOfWord'
-
 // ownedWord is the word of a String that owns its bytes, of a length and an ascii flag, 0 or 1.
 function ownedWord(mutates l Lowerer, length Reg, ascii Reg) returns Reg
 	let shift = konst(l, value: countWord(stringLengthShift))
@@ -138,16 +132,54 @@ function stringWord(mutates l Lowerer, text Reg) returns Reg
 	return d
 end 'stringWord'
 
-function lowerRawStringBytes(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+// stringBytes is the address of the first byte of a String: its first word, or, where it holds its bytes in its words, a
+// frame box of its own that it writes them to, which lives as long as the frame.
+function stringBytes(mutates l Lowerer, text Reg) returns Reg
 	let d = newReg(l, kind: IrKind.kindScalar)
-	emit(l, i: newStrPtr(d, src: args[0]))
+	let box = l.b.f.newFrameBox()
+	emit(l, i: newStrBytes(d, src: text, box: box))
 	return d
+end 'stringBytes'
+
+// stringLength is the length of a String, which its word holds one way or another.
+function stringLength(mutates l Lowerer, text Reg) returns Reg
+	let d = newReg(l, kind: IrKind.kindScalar)
+	emit(l, i: newLength(d, src: text, of: Collection.collectionString))
+	return d
+end 'stringLength'
+
+function lowerRawStringBytes(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return stringBytes(l, text: args[0])
 end 'lowerRawStringBytes'
 
 function lowerRawStringLength(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
-	let word = stringWord(l, text: args[0])
-	return lengthOfWord(l, word: word)
+	return stringLength(l, text: args[0])
 end 'lowerRawStringLength'
+
+function lowerRawStringFirstWord(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	let d = newReg(l, kind: IrKind.kindScalar)
+	emit(l, i: newStrPtr(d, src: args[0]))
+	return d
+end 'lowerRawStringFirstWord'
+
+function lowerRawStringSecondWord(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return stringWord(l, text: args[0])
+end 'lowerRawStringSecondWord'
+
+function lowerRawStringOfWords(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	let d = newReg(l, kind: IrKind.kindString)
+	emit(l, i: newStrMake(d, bytes: args[0], word: args[1]))
+	return d
+end 'lowerRawStringOfWords'
+
+// stringAt is the String held at an address, which stays there.
+function stringAt(mutates l Lowerer, at Reg) returns Reg
+	let first = loadWordAt(l, w: at, offset: stringBytesOffset)
+	let word = loadWordAt(l, w: at, offset: stringWordOffset)
+	let d = newReg(l, kind: IrKind.kindString)
+	emit(l, i: newStrMake(d, bytes: first, word: word))
+	return d
+end 'stringAt'
 
 function lowerRawStringAscii(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	let word = stringWord(l, text: args[0])
@@ -191,13 +223,14 @@ end 'lowerRawStoreString'
 
 function lowerRawStringBytesAt(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	let at = rawAddress(l, address: args[0], offset: args[1])
-	return loadWordAt(l, w: at, offset: stringBytesOffset)
+	let text = stringAt(l, at: at)
+	return stringBytes(l, text: text)
 end 'lowerRawStringBytesAt'
 
 function lowerRawStringLengthAt(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	let at = rawAddress(l, address: args[0], offset: args[1])
-	let word = loadWordAt(l, w: at, offset: stringWordOffset)
-	return lengthOfWord(l, word: word)
+	let text = stringAt(l, at: at)
+	return stringLength(l, text: text)
 end 'lowerRawStringLengthAt'
 
 function lowerRawHeapAddress(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg

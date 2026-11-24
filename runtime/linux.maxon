@@ -305,7 +305,7 @@
 			__Raw.storeByte(dest, offset: i, value: slashByte if byte == backslashByte else byte)
 		end 'copy'
 		succeed(errorAddress)
-		return __Raw.stringOf(dest, length: length, ascii: __Raw.stringAscii(path))
+		return ownedString(dest, length: length, ascii: __Raw.stringAscii(path))
 	end 'osPathFrom'
 
 	// openPath is the fd of the file a path names, opened with flags, or -errno.

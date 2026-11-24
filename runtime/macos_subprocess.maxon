@@ -290,7 +290,7 @@
 
 	// storeStreamText stores the text a stream read as a string at an address, which owns its room from then on.
 	function storeStreamText(at Count, stream Count)
-		__Raw.storeString(at, offset: 0, bytes: wordAt(stream, offset: streamTextOffset), length: wordAt(stream, offset: streamLengthOffset), ascii: false)
+		storeOwnedString(at, offset: 0, bytes: wordAt(stream, offset: streamTextOffset), length: wordAt(stream, offset: streamLengthOffset), ascii: false)
 	end 'storeStreamText'
 
 	// closeStreams closes the read ends of the run's streams.

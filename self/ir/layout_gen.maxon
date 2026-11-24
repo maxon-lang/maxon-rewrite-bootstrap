@@ -27,6 +27,15 @@ export let stringAsciiBit = 2 as Count
 // stringLengthShift is how far a String's length is shifted up in its word, past its flags: the length is the word shifted right by it.
 export let stringLengthShift = 3 as Count
 
+// stringInlineBytes is the most bytes a String holds in its two words; every String of 1 to that many bytes holds them there, and the empty String never does.
+export let stringInlineBytes = 15 as Count
+
+// stringInlineShift is the bit of a String's word that says it holds its bytes in its two words: a length never reaches it.
+export let stringInlineShift = 63 as Count
+
+// stringCountShift is where the word of a String that holds its bytes keeps their count, in the four bits under stringInlineShift.
+export let stringCountShift = 59 as Count
+
 // charOrderSame is what rt.char.compare gives for two Characters of the same bytes: 1 less where the first is before the second, 1 more where it is after, so an operator compares the answer with it as it would the two Characters.
 export let charOrderSame = 1 as Count
 

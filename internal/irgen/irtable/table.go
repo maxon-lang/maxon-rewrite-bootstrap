@@ -353,6 +353,8 @@ var ops = []op{
 	// and make, so they move no memory; the runtime's String intrinsics are made of them.
 	{Name: "StrPtr", Eval: noEval, Doc: "StrPtr gives the address of the first byte of the string Src, its first word.",
 		Result: valueResult, Operands: []operand{reg("Src", fA)}, Text: "strptr {Src}"},
+	{Name: "StrBytes", Eval: noEval, Doc: "StrBytes gives the address of the first byte of the string Src: its first word, or where it holds its bytes in\n// its two words, the frame box Box, which it writes them to in order.",
+		Result: valueResult, Operands: []operand{reg("Src", fA), {Name: "Box", Kind: kFrameBox, Field: fImm}}, Effects: []effect{effWrites}, Text: "strbytes {Src} in frame box {Box}"},
 	{Name: "StrWord", Eval: noEval, Doc: "StrWord gives the word of the string Src: its length shifted up past its flags, and the flags.",
 		Result: valueResult, Operands: []operand{reg("Src", fA)}, Text: "strword {Src}"},
 	{Name: "StrMake", Eval: noEval, Doc: "StrMake gives the string of the address Bytes and the word Word.",

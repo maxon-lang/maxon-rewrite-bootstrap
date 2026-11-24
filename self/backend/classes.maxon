@@ -191,6 +191,7 @@ export type ClassChoice
 			opBuffer or
 			opByteAt or
 			opStrPtr or
+			opStrBytes or
 			opStrWord or
 			opStrMake or
 			opAlloc or

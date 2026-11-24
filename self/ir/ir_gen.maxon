@@ -76,6 +76,7 @@ export enum Opcode
 	opElemAddrAt
 	opByteAt
 	opStrPtr
+	opStrBytes
 	opStrWord
 	opStrMake
 	opAlloc
@@ -782,6 +783,9 @@ export function opEffects(op Opcode) returns Count
 	if op == Opcode.opStrPtr 'opStrPtr'
 		return 0
 	end 'opStrPtr'
+	if op == Opcode.opStrBytes 'opStrBytes'
+		return 2
+	end 'opStrBytes'
 	if op == Opcode.opStrWord 'opStrWord'
 		return 0
 	end 'opStrWord'
@@ -1379,6 +1383,16 @@ export function newStrPtr(dst Reg, src Reg) returns Instr
 	return r
 end 'newStrPtr'
 
+// StrBytes gives the address of the first byte of the string Src: its first word, or where it holds its bytes in
+// its two words, the frame box Box, which it writes them to in order.
+export function newStrBytes(dst Reg, src Reg, box Count) returns Instr
+	var r = Instr.make(Opcode.opStrBytes)
+	r.dst = dst
+	r.a = src
+	r.imm = try box as Word otherwise panic("ir: strBytes box is out of range")
+	return r
+end 'newStrBytes'
+
 // StrWord gives the word of the string Src: its length shifted up past its flags, and the flags.
 export function newStrWord(dst Reg, src Reg) returns Instr
 	var r = Instr.make(Opcode.opStrWord)
@@ -1831,6 +1845,9 @@ export function opcodeName(op Opcode) returns String
 	if op == Opcode.opStrPtr 'opStrPtr'
 		return "StrPtr"
 	end 'opStrPtr'
+	if op == Opcode.opStrBytes 'opStrBytes'
+		return "StrBytes"
+	end 'opStrBytes'
 	if op == Opcode.opStrWord 'opStrWord'
 		return "StrWord"
 	end 'opStrWord'
@@ -2647,6 +2664,20 @@ export function strPtrSrc(x Instr) returns Reg
 	return x.a
 end 'strPtrSrc'
 
+export function strBytesSrc(x Instr) returns Reg
+	if x.op != Opcode.opStrBytes 'op'
+		wrongInstr("strBytesSrc", found: x.op)
+	end 'op'
+	return x.a
+end 'strBytesSrc'
+
+export function strBytesBox(x Instr) returns Count
+	if x.op != Opcode.opStrBytes 'op'
+		wrongInstr("strBytesBox", found: x.op)
+	end 'op'
+	return try x.imm as Count otherwise panic("ir: strBytes box is out of range")
+end 'strBytesBox'
+
 export function strWordSrc(x Instr) returns Reg
 	if x.op != Opcode.opStrWord 'op'
 		wrongInstr("strWordSrc", found: x.op)
@@ -3341,6 +3372,9 @@ export function instrDef(x Instr) returns table.Option with Reg
 	if x.op == Opcode.opStrPtr 'opStrPtr'
 		return table.Option.some(x.dst)
 	end 'opStrPtr'
+	if x.op == Opcode.opStrBytes 'opStrBytes'
+		return table.Option.some(x.dst)
+	end 'opStrBytes'
 	if x.op == Opcode.opStrWord 'opStrWord'
 		return table.Option.some(x.dst)
 	end 'opStrWord'
@@ -3568,6 +3602,9 @@ export function instrFail(x Instr) returns table.Option with BlockID
 	if x.op == Opcode.opStrPtr 'opStrPtr'
 		return table.Option.none
 	end 'opStrPtr'
+	if x.op == Opcode.opStrBytes 'opStrBytes'
+		return table.Option.none
+	end 'opStrBytes'
 	if x.op == Opcode.opStrWord 'opStrWord'
 		return table.Option.none
 	end 'opStrWord'
@@ -3687,6 +3724,7 @@ export function instrCanFail(x Instr) returns bool
 		opElemAddrAt gives false
 		opByteAt gives false
 		opStrPtr gives false
+		opStrBytes gives false
 		opStrWord gives false
 		opStrMake gives false
 		opAlloc gives false
@@ -3915,6 +3953,10 @@ export function instrReads(f IrFunction, x Instr, mutates out RegList)
 		out.push(strPtrSrc(x))
 		return
 	end 'opStrPtr'
+	if x.op == Opcode.opStrBytes 'opStrBytes'
+		out.push(strBytesSrc(x))
+		return
+	end 'opStrBytes'
 	if x.op == Opcode.opStrWord 'opStrWord'
 		out.push(strWordSrc(x))
 		return
@@ -4222,6 +4264,10 @@ export function instrWrites(x Instr, mutates out RegList)
 		out.push(x.dst)
 		return
 	end 'opStrPtr'
+	if x.op == Opcode.opStrBytes 'opStrBytes'
+		out.push(x.dst)
+		return
+	end 'opStrBytes'
 	if x.op == Opcode.opStrWord 'opStrWord'
 		out.push(x.dst)
 		return
@@ -4523,6 +4569,10 @@ export function renameInstrReads(mutates x Instr, mutates args RegList, names Re
 		x.a = renamedReg(names, r: x.a)
 		return
 	end 'opStrPtr'
+	if x.op == Opcode.opStrBytes 'opStrBytes'
+		x.a = renamedReg(names, r: x.a)
+		return
+	end 'opStrBytes'
 	if x.op == Opcode.opStrWord 'opStrWord'
 		x.a = renamedReg(names, r: x.a)
 		return
@@ -4926,6 +4976,12 @@ export function relocateInstr(mutates x Instr, at Relocation)
 		x.a = renamedReg(at.names, r: x.a)
 		return
 	end 'opStrPtr'
+	if x.op == Opcode.opStrBytes 'opStrBytes'
+		x.dst = renamedReg(at.names, r: x.dst)
+		x.a = renamedReg(at.names, r: x.a)
+		x.imm = shiftedWord(x.imm, by: at.frameBoxes)
+		return
+	end 'opStrBytes'
 	if x.op == Opcode.opStrWord 'opStrWord'
 		x.dst = renamedReg(at.names, r: x.dst)
 		x.a = renamedReg(at.names, r: x.a)
@@ -5146,6 +5202,7 @@ export interface InstrVisitor
 	function visitElemAddrAt(mutates self, f IrFunction, x Instr)
 	function visitByteAt(mutates self, f IrFunction, x Instr)
 	function visitStrPtr(mutates self, f IrFunction, x Instr)
+	function visitStrBytes(mutates self, f IrFunction, x Instr)
 	function visitStrWord(mutates self, f IrFunction, x Instr)
 	function visitStrMake(mutates self, f IrFunction, x Instr)
 	function visitAlloc(mutates self, f IrFunction, x Instr)
@@ -5367,6 +5424,10 @@ export function visitInstr(mutates visitor V, f IrFunction, x Instr) uses V wher
 		visitor.visitStrPtr(f, x: x)
 		return
 	end 'opStrPtr'
+	if x.op == Opcode.opStrBytes 'opStrBytes'
+		visitor.visitStrBytes(f, x: x)
+		return
+	end 'opStrBytes'
 	if x.op == Opcode.opStrWord 'opStrWord'
 		visitor.visitStrWord(f, x: x)
 		return
@@ -5676,6 +5737,9 @@ export function instrText(p ast.Project, tt ast.TypeSlot, reads ast.TypeTable, f
 	if x.op == Opcode.opStrPtr 'opStrPtr'
 		return "{resultText(x.dst)}strptr %{strPtrSrc(x)}"
 	end 'opStrPtr'
+	if x.op == Opcode.opStrBytes 'opStrBytes'
+		return "{resultText(x.dst)}strbytes %{strBytesSrc(x)} in frame box {strBytesBox(x)}"
+	end 'opStrBytes'
 	if x.op == Opcode.opStrWord 'opStrWord'
 		return "{resultText(x.dst)}strword %{strWordSrc(x)}"
 	end 'opStrWord'
