@@ -363,7 +363,6 @@ end 'main'
 
 
 <!-- test: character-element-type -->
-<!-- skip: character literals are not supported in minimaxon -->
 `CharSource` declares no `extends`, so `implements CharSource with Character` is the ordinary root-entry
 binding every case above it uses; `Character.codepoints()` supplies the value, and the program exits **65**.
 ```maxon
@@ -376,16 +375,15 @@ type SingleChar implements CharSource with Character
 	let ch as Character
 
 	function getChar() returns Character
-		return ch
+		return ch.clone()
 	end 'getChar'
 
 	static function create(ch Character) returns Self
-		return Self{ch: ch}
+		return Self{ch: ch.clone()}
 	end 'create'
 end 'SingleChar'
 
 function main() returns ExitCode
-	// TODO: character literals are not supported in minimaxon
 	let s = SingleChar.create('A')
 	let c = s.getChar()
 	for cp in c.codepoints() 'loop'

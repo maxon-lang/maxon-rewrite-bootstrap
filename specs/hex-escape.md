@@ -88,13 +88,10 @@ end 'main'
 ```
 
 <!-- test: hex-escape.character-literal -->
-<!-- skip: character literals are not supported in minimaxon -->
 
 ```maxon
 function main() returns ExitCode
-	// TODO: character literals are not supported in minimaxon
 	let ch = '\x41'
-	// TODO: character literals are not supported in minimaxon
 	if ch == 'A' 'check'
 		return 0
 	end 'check'

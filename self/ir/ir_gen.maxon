@@ -615,6 +615,10 @@ export let flagProven = 16 as Byte
 // flagFloatResult is on a call whose result is a float, which native code returns in an xmm register.
 export let flagFloatResult = 32 as Byte
 
+// flagCharacter is on a Str of a character literal, which native code holds in its two words when it has few enough bytes
+// (runtime/characters.maxon).
+export let flagCharacter = 64 as Byte
+
 export let effectReads = 1 as Count
 
 export let effectWrites = 2 as Count
@@ -914,10 +918,13 @@ export function newConst(dst Reg, value Word) returns Instr
 end 'newConst'
 
 // Str gives a string literal.
-export function newStr(dst Reg, text Index) returns Instr
+export function newStr(dst Reg, text Index, character bool) returns Instr
 	var r = Instr.make(Opcode.opStr)
 	r.dst = dst
 	r.c = text
+	if character 'character'
+		r.flags = r.flags or flagCharacter
+	end 'character'
 	return r
 end 'newStr'
 
@@ -1936,6 +1943,13 @@ export function strText(f IrFunction, x Instr) returns String
 	end 'op'
 	return f.stringAt(x.c)
 end 'strText'
+
+export function strCharacter(x Instr) returns bool
+	if x.op != Opcode.opStr 'op'
+		wrongInstr("strCharacter", found: x.op)
+	end 'op'
+	return (x.flags and flagCharacter) != 0
+end 'strCharacter'
 
 export function datumItem(x Instr) returns Count
 	if x.op != Opcode.opDatum 'op'
@@ -5485,7 +5499,11 @@ export function instrText(p ast.Project, tt ast.TypeSlot, reads ast.TypeTable, f
 		return "{resultText(x.dst)}const {constValue(x)}"
 	end 'opConst'
 	if x.op == Opcode.opStr 'opStr'
-		return "{resultText(x.dst)}str {quote(strText(f, x: x))}"
+		var text = "{resultText(x.dst)}str {quote(strText(f, x: x))}"
+		if strCharacter(x) 'character'
+			text = "{text} character"
+		end 'character'
+		return text
 	end 'opStr'
 	if x.op == Opcode.opDatum 'opDatum'
 		return "{resultText(x.dst)}datum {datumItem(x)}"

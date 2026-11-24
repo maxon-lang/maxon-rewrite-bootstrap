@@ -342,7 +342,7 @@ stmt
     | forStmt
     | matchStmt
     | whenStmt
-    | tryStmt
+    | {atTryBlock}? tryStmt
     | throwStmt
     | returnStmt
     | breakStmt
@@ -556,6 +556,7 @@ patternValue returns [Expr value]
     : value=intLit
     | value=strLit
     | value=boolLit
+    | value=charLit
     ;
 
 // Expressions
@@ -567,6 +568,7 @@ expr
     | strLit
     | byteStrLit
     | boolLit
+    | charLit
     | structLitExpr
     | collectionLitExpr
     | selfExpr
@@ -598,7 +600,7 @@ expr
     // A range value, the library's Range or OpenRange, everywhere but at the top of a for header, which reads the operator.
     | low=expr (inclusive='to' | 'upto') {rangeIsValue}? high=expr  # RangeExpr
     | <assoc=right> then=expr 'if' cond=expr 'else' else=expr        # CondExpr
-    | 'try' e=expr ('otherwise' (ignore='ignore' | value=expr ({atHandlerBinding}? handler=handlerBlock)? | handler=handlerBlock | ret=returnStmt | brk=breakStmt | cont=continueStmt | thr=throwStmt))? # TryExpr
+    | 'try' e=expr ('otherwise' (ignore='ignore' | handler=handlerBlock | value=expr ({atHandlerBinding}? handler=handlerBlock)? | ret=returnStmt | brk=breakStmt | cont=continueStmt | thr=throwStmt))? # TryExpr
     ;
 
 @ast::MemberExpr {
@@ -661,6 +663,16 @@ boolLit
     : value='true'
     | 'false'
     ;
+
+// A character literal is one grapheme cluster in single quotes, which lexes as a label or a test name does: an operand is a
+// character, and a label or a test name only stands where no operand can, as maxon's one token is read by its place.
+charLit
+    : parts=(Label | TestName)
+    ;
+
+@ast::CharLit {
+	Parts Word
+}
 
 // 'export' is a name only as the start of a qualified name, where it is the root module, and 'int' only as the head of
 // one, where it names the type of an integer's static functions.
@@ -768,7 +780,7 @@ ByteString : 'b"' (~["\\] | '\\' .)* '"' -> scan ;
 Label : '\'' [A-Za-z_] [A-Za-z0-9_]* '\'' ;
 
 /** a test name */
-TestName : '\'' ~['\n]* '\'' ;
+TestName : '\'' (~['\\\n] | '\\' ~[\n])* '\'' ;
 
 /** a directive */
 HashIf : '#if' ;

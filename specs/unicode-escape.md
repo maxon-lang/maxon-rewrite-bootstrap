@@ -40,14 +40,11 @@ let s2 = "hello\u0021 {name}" // "hello! world"
 ## Tests
 
 <!-- test: unicode-escape.char-basic -->
-<!-- skip: character literals are not supported in minimaxon -->
 ### Character literal with unicode escape
 
 ```maxon
 function main() returns ExitCode
-	// TODO: character literals are not supported in minimaxon
 	let excl = '\u0021'
-	// TODO: character literals are not supported in minimaxon
 	if excl == '!' 'check'
 		print("PASS")
 	end 'check'
@@ -62,12 +59,10 @@ PASS
 ```
 
 <!-- test: unicode-escape.char-multibyte -->
-<!-- skip: character literals are not supported in minimaxon -->
 ### Multi-byte unicode character
 
 ```maxon
 function main() returns ExitCode
-	// TODO: character literals are not supported in minimaxon
 	let sigma = '\u03A3'
 	print("{sigma}")
 	return 0
@@ -116,17 +111,15 @@ hello! world
 ```
 
 <!-- test: unicode-escape.whitespace-chars -->
-<!-- skip: character literals are not supported in minimaxon -->
+<!-- skip: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet -->
 ### Unicode whitespace characters via escape
 
 ```maxon
 function main() returns ExitCode
+	// TODO: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet
 	let ws = CharacterSet.whitespacesAndNewlines
-	// TODO: character literals are not supported in minimaxon
 	let nbsp = '\u00A0'
-	// TODO: character literals are not supported in minimaxon
 	let enSpace = '\u2002'
-	// TODO: character literals are not supported in minimaxon
 	let ideoSpace = '\u3000'
 	if ws.contains(nbsp) 'c1'
 		print("nbsp ")
@@ -148,13 +141,10 @@ nbsp enSpace ideoSpace
 ```
 
 <!-- test: unicode-escape.invalid-too-few-digits -->
-<!-- skip: character literals are not supported in minimaxon -->
-<!-- positions: moved -->
 ### Error: too few hex digits
 
 ```maxon
 function main() returns ExitCode
-	// TODO: character literals are not supported in minimaxon
 	let x = '\u00'
 	return 0
 end 'main'

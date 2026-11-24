@@ -282,7 +282,6 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: local-declared-before-a-loop-drops-once-after-it -->
-<!-- skip: character literals are not supported in minimaxon -->
 A local declared BEFORE a loop drops ONCE, in the block control actually leaves through — not once
 per iteration, and not only on one arm of a branch.
 
@@ -301,11 +300,9 @@ typealias ByteArray = Array with Byte
 
 function fill(sink ByteArray)
 	let scratch = ByteArray.create(0)
-	// TODO: character literals are not supported in minimaxon
 	scratch.push('x')
 	var i = 0 as Count
 	while i < 3 'each'
-		// TODO: character literals are not supported in minimaxon
 		sink.push('y')
 		i = i + 1
 	end 'each'

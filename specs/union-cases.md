@@ -374,7 +374,6 @@ add
 ### A non-integer backing keeps the TAG round-trip
 
 <!-- test: union-cases.companion-mirrors-backing -->
-<!-- skip: character literals are not supported in minimaxon -->
 The companion mirrors the union's backing only where the tag IS the raw value. For `float` and `character`
 the tag is an IEEE bit pattern / a codepoint, so the backing travels with it and `.rawValue` decodes to the
 written value. For a `string` backing the raw text rides a column the companion does not carry, so its tag
@@ -389,9 +388,7 @@ union F
 end 'F'
 
 union C
-	// TODO: character literals are not supported in minimaxon
 	m(x ID) = 'm'
-	// TODO: character literals are not supported in minimaxon
 	n = 'n'
 end 'C'
 

@@ -489,6 +489,9 @@ function defaultType(mutates c Checker, p ast.Project, mutates ms ast.ModuleStat
 	if k == ast.NodeKind.strLit and ms.tree().strIsPlain(ast.strLitPartsRef(ms.tree(), id: e)) 'string'
 		return p.builtins.stringTy
 	end 'string'
+	if k == ast.NodeKind.charLit 'character'
+		return p.builtins.characterTy
+	end 'character'
 	let head = defaultHead(ms.tree(), e: e)
 	if head != 0 and ms.tree().kindOf(head) == ast.NodeKind.nameExpr 'named'
 		let mark = errs.count()

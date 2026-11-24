@@ -71,14 +71,11 @@ For non-ASCII characters (multi-byte UTF-8 or values >= 128), `asciiValue()` ret
 ## Tests
 
 <!-- test: basic-character -->
-<!-- skip: character literals are not supported in minimaxon -->
 ### Basic Character
 
 ```maxon
 function main() returns ExitCode
-	// TODO: character literals are not supported in minimaxon
 	let x = 'A'
-	// TODO: character literals are not supported in minimaxon
 	if x == 'A' 'check'
 		return 0
 	end 'check'
@@ -90,14 +87,11 @@ end 'main'
 ```
 
 <!-- test: character-comparison -->
-<!-- skip: character literals are not supported in minimaxon -->
 ### Character Comparison
 
 ```maxon
 function main() returns ExitCode
-	// TODO: character literals are not supported in minimaxon
 	let a = 'A'
-	// TODO: character literals are not supported in minimaxon
 	let b = 'B'
 	if a < b 'check'
 		return 1
@@ -110,14 +104,11 @@ end 'main'
 ```
 
 <!-- test: character-in-variable -->
-<!-- skip: character literals are not supported in minimaxon -->
 ### Character in Variable
 
 ```maxon
 function main() returns ExitCode
-	// TODO: character literals are not supported in minimaxon
 	let letter = 'Z'
-	// TODO: character literals are not supported in minimaxon
 	if letter == 'Z' 'check'
 		return 0
 	end 'check'
@@ -129,12 +120,10 @@ end 'main'
 ```
 
 <!-- test: multibyte-character-2byte -->
-<!-- skip: character literals are not supported in minimaxon -->
 ### Multi-byte Character (2-byte UTF-8)
 
 ```maxon
 function main() returns ExitCode
-	// TODO: character literals are not supported in minimaxon
 	let c = 'é'
 	print("{c.bytes().count()}\n")
 	return 0
@@ -148,12 +137,10 @@ end 'main'
 ```
 
 <!-- test: multibyte-character-3byte -->
-<!-- skip: character literals are not supported in minimaxon -->
 ### Multi-byte Character (3-byte UTF-8)
 
 ```maxon
 function main() returns ExitCode
-	// TODO: character literals are not supported in minimaxon
 	let c = '中'
 	print("{c.bytes().count()}\n")
 	return 0
@@ -167,12 +154,10 @@ end 'main'
 ```
 
 <!-- test: multibyte-character-4byte -->
-<!-- skip: character literals are not supported in minimaxon -->
 ### Multi-byte Character (4-byte Emoji)
 
 ```maxon
 function main() returns ExitCode
-	// TODO: character literals are not supported in minimaxon
 	let c = '🎉'
 	print("{c.bytes().count()}\n")
 	return 0
@@ -186,7 +171,6 @@ end 'main'
 ```
 
 <!-- test: character-hash-is-the-hasher-fold-of-its-utf8 -->
-<!-- skip: character literals are not supported in minimaxon -->
 ### A Character hashes as its UTF-8 bytes
 
 `c.hash()` is the `finalize()` of a `Hasher.create()` that folds its UTF-8 bytes with `combineBytes`, the hash a
@@ -205,15 +189,10 @@ function report(c Character)
 end 'report'
 
 function main() returns ExitCode
-	// TODO: character literals are not supported in minimaxon
 	report('a')
-	// TODO: character literals are not supported in minimaxon
 	report('é')
-	// TODO: character literals are not supported in minimaxon
 	report('€')
-	// TODO: character literals are not supported in minimaxon
 	report('🎉')
-	// TODO: character literals are not supported in minimaxon
 	report('👨‍👩‍👧‍👦')
 	return 0
 end 'main'
@@ -230,12 +209,10 @@ end 'main'
 ```
 
 <!-- test: character-to-string -->
-<!-- skip: character literals are not supported in minimaxon -->
 ### Character to String Conversion
 
 ```maxon
 function main() returns ExitCode
-	// TODO: character literals are not supported in minimaxon
 	let c = 'A'
 	let s = "{c}"
 	print(s)
@@ -250,12 +227,10 @@ A
 ```
 
 <!-- test: multibyte-character-to-string -->
-<!-- skip: character literals are not supported in minimaxon -->
 ### Multi-byte Character to String
 
 ```maxon
 function main() returns ExitCode
-	// TODO: character literals are not supported in minimaxon
 	let c = '中'
 	let s = "{c}"
 	print(s)
@@ -270,14 +245,11 @@ end 'main'
 ```
 
 <!-- test: character-equality-multibyte -->
-<!-- skip: character literals are not supported in minimaxon -->
 ### Multi-byte Character Equality
 
 ```maxon
 function main() returns ExitCode
-	// TODO: character literals are not supported in minimaxon
 	let a = 'é'
-	// TODO: character literals are not supported in minimaxon
 	let b = 'é'
 	if a == b 'check'
 		return 0
@@ -290,14 +262,11 @@ end 'main'
 ```
 
 <!-- test: character-inequality-multibyte -->
-<!-- skip: character literals are not supported in minimaxon -->
 ### Multi-byte Character Inequality
 
 ```maxon
 function main() returns ExitCode
-	// TODO: character literals are not supported in minimaxon
 	let a = 'é'
-	// TODO: character literals are not supported in minimaxon
 	let b = 'è'
 	if a != b 'check'
 		return 0
@@ -310,16 +279,13 @@ end 'main'
 ```
 
 <!-- test: character-ordering-lt -->
-<!-- skip: character literals are not supported in minimaxon -->
 ### Multi-byte Character Ordering
 
 `Character` implements `Comparable`; the order is lexicographic over the UTF-8 bytes.
 
 ```maxon
 function main() returns ExitCode
-	// TODO: character literals are not supported in minimaxon
 	let a = 'é'
-	// TODO: character literals are not supported in minimaxon
 	let b = 'ü'
 	if a < b 'lt'
 		print("lt\n")
@@ -338,14 +304,11 @@ lt
 ```
 
 <!-- test: character-ordering-le-ge -->
-<!-- skip: character literals are not supported in minimaxon -->
 ### Multi-byte Character Ordering, Inclusive and Reversed
 
 ```maxon
 function main() returns ExitCode
-	// TODO: character literals are not supported in minimaxon
 	let a = 'é'
-	// TODO: character literals are not supported in minimaxon
 	let b = 'ü'
 	if a <= b 'le'
 		print("le\n")
@@ -372,14 +335,11 @@ gt
 ```
 
 <!-- test: character-ordering-equal -->
-<!-- skip: character literals are not supported in minimaxon -->
 ### Equal Characters Satisfy Both Inclusive Operators
 
 ```maxon
 function main() returns ExitCode
-	// TODO: character literals are not supported in minimaxon
 	let a = 'é'
-	// TODO: character literals are not supported in minimaxon
 	let b = 'é'
 	if a <= b 'le'
 		print("le\n")
@@ -405,7 +365,6 @@ ge
 ```
 
 <!-- test: character-ordering-compares-bytes-unsigned -->
-<!-- skip: character literals are not supported in minimaxon -->
 ### Character Ordering Compares Bytes as UNSIGNED
 
 `e` + COMBINING ACUTE (`65 CC 81`) orders BELOW the precomposed `é` (`C3 A9`), because `0x65` (101) is
@@ -414,9 +373,7 @@ that tells a zero-extending byte load from a sign-extending one.
 
 ```maxon
 function main() returns ExitCode
-	// TODO: character literals are not supported in minimaxon
 	let decomposed = 'é'
-	// TODO: character literals are not supported in minimaxon
 	let precomposed = 'é'
 	if decomposed < precomposed 'lt'
 		print("lt\n")
@@ -435,16 +392,13 @@ lt
 ```
 
 <!-- test: character-ordering-prefix-is-less -->
-<!-- skip: character literals are not supported in minimaxon -->
 ### A Character Whose Bytes Prefix Another's Orders Below It
 
 Every byte agrees up to the shorter cluster's length, so the LENGTH decides.
 
 ```maxon
 function main() returns ExitCode
-	// TODO: character literals are not supported in minimaxon
 	let shorter = 'é'
-	// TODO: character literals are not supported in minimaxon
 	let longer = 'é̈'
 	if shorter < longer 'lt'
 		print("lt\n")
@@ -463,7 +417,6 @@ lt
 ```
 
 <!-- test: character-ordering-of-loop-elements -->
-<!-- skip: character literals are not supported in minimaxon -->
 ### Ordering the OWNED Characters a String Loop Yields
 
 Each `c` is a freshly minted, owned `Character` (`__char_at`), while the pivot is an immortal `.rdata`
@@ -473,7 +426,6 @@ live for the whole run — the one shape a compare that retained an operand woul
 ```maxon
 function main() returns ExitCode
 	let s = "caféüñ"
-	// TODO: character literals are not supported in minimaxon
 	let pivot = 'ü'
 	var below = 0 as Count
 	for c in s 'each'
@@ -523,7 +475,6 @@ end 'main'
 ```
 
 <!-- test: character-comparable-witness -->
-<!-- skip: character literals are not supported in minimaxon -->
 ### A `Character` Satisfies a `where T is Comparable` Constraint
 
 `stdlib/Character.maxon:19` declares `Comparable`, so a `Character` type argument resolves the witness slot
@@ -550,12 +501,10 @@ end 'Pair'
 typealias CharPair = Pair with Character
 
 function main() returns ExitCode
-	// TODO: character literals are not supported in minimaxon
 	let p = CharPair.create('é', b: 'ü')
 	if p.lt() 'ordered'
 		print("lt\n")
 	end 'ordered'
-	// TODO: character literals are not supported in minimaxon
 	let q = CharPair.create('ü', b: 'é')
 	if q.lt() 'reversed'
 		print("REVERSED\n")
@@ -592,8 +541,6 @@ end 'main'
 ```
 
 <!-- test: error.character-arithmetic-still-refused -->
-<!-- skip: character literals are not supported in minimaxon -->
-<!-- positions: moved -->
 ### Arithmetic on a Character Is Still Refused
 
 The second NEGATIVE CONTROL. Ordering is not an integral reading: a `Character` is a POINTER to a byte
@@ -601,7 +548,6 @@ record, not a magnitude, so `c - 1` is refused although a `Character` is ordered
 
 ```maxon
 function main() returns ExitCode
-	// TODO: character literals are not supported in minimaxon
 	let c = 'é'
 	let d = c - 1
 	return d
@@ -612,12 +558,10 @@ error E2004: specs/character-type/error.character-arithmetic-still-refused.maxon
 ```
 
 <!-- test: emoji-character -->
-<!-- skip: character literals are not supported in minimaxon -->
 ### Emoji Character
 
 ```maxon
 function main() returns ExitCode
-	// TODO: character literals are not supported in minimaxon
 	let emoji = '🎉'
 	print("{emoji}\n")
 	return 0
@@ -631,12 +575,10 @@ end 'main'
 ```
 
 <!-- test: flag-emoji-character -->
-<!-- skip: character literals are not supported in minimaxon -->
 ### Flag Emoji (Regional Indicator Pair)
 
 ```maxon
 function main() returns ExitCode
-	// TODO: character literals are not supported in minimaxon
 	let flag = '🇺🇸'
 	print("{flag.bytes().count()}\n")
 	print("{flag}\n")
@@ -652,12 +594,10 @@ end 'main'
 ```
 
 <!-- test: family-emoji-character -->
-<!-- skip: character literals are not supported in minimaxon -->
 ### Family Emoji (ZWJ Sequence)
 
 ```maxon
 function main() returns ExitCode
-	// TODO: character literals are not supported in minimaxon
 	let family = '👨‍👩‍👧'
 	print("{family.bytes().count()}\n")
 	return 0
@@ -671,12 +611,10 @@ end 'main'
 ```
 
 <!-- test: skin-tone-emoji -->
-<!-- skip: character literals are not supported in minimaxon -->
 ### Skin Tone Modifier Emoji
 
 ```maxon
 function main() returns ExitCode
-	// TODO: character literals are not supported in minimaxon
 	let wave = '👋🏽'
 	print("{wave.bytes().count()}\n")
 	return 0
@@ -690,18 +628,13 @@ end 'main'
 ```
 
 <!-- test: escape-sequences -->
-<!-- skip: character literals are not supported in minimaxon -->
 ### Escape Sequences in Character
 
 ```maxon
 function main() returns ExitCode
-	// TODO: character literals are not supported in minimaxon
 	let newline = '\n'
-	// TODO: character literals are not supported in minimaxon
 	let tab = '\t'
-	// TODO: character literals are not supported in minimaxon
 	let backslash = '\\'
-	// TODO: character literals are not supported in minimaxon
 	let quote = '\''
 	print("{newline.bytes().count()}\n")
 	print("{tab.bytes().count()}\n")
@@ -721,12 +654,10 @@ end 'main'
 ```
 
 <!-- test: ascii-value-letter -->
-<!-- skip: character literals are not supported in minimaxon -->
 ### ASCII Value for Letter
 
 ```maxon
 function main() returns ExitCode
-	// TODO: character literals are not supported in minimaxon
 	let c = 'A'
 	let val = try c.asciiValue() otherwise 0
 	print("{val}\n")
@@ -741,12 +672,10 @@ end 'main'
 ```
 
 <!-- test: ascii-value-digit -->
-<!-- skip: character literals are not supported in minimaxon -->
 ### ASCII Value for Digit
 
 ```maxon
 function main() returns ExitCode
-	// TODO: character literals are not supported in minimaxon
 	let c = '0'
 	let val = try c.asciiValue() otherwise 0
 	print("{val}\n")
@@ -761,12 +690,10 @@ end 'main'
 ```
 
 <!-- test: ascii-value-lowercase -->
-<!-- skip: character literals are not supported in minimaxon -->
 ### ASCII Value for Lowercase
 
 ```maxon
 function main() returns ExitCode
-	// TODO: character literals are not supported in minimaxon
 	let c = 'a'
 	let val = try c.asciiValue() otherwise 0
 	print("{val}\n")
@@ -781,12 +708,10 @@ end 'main'
 ```
 
 <!-- test: ascii-value-space -->
-<!-- skip: character literals are not supported in minimaxon -->
 ### ASCII Value for Space
 
 ```maxon
 function main() returns ExitCode
-	// TODO: character literals are not supported in minimaxon
 	let c = ' '
 	let val = try c.asciiValue() otherwise 0
 	print("{val}\n")
@@ -801,12 +726,10 @@ end 'main'
 ```
 
 <!-- test: ascii-value-newline -->
-<!-- skip: character literals are not supported in minimaxon -->
 ### ASCII Value for Newline Escape
 
 ```maxon
 function main() returns ExitCode
-	// TODO: character literals are not supported in minimaxon
 	let c = '\n'
 	let val = try c.asciiValue() otherwise 0
 	print("{val}\n")
@@ -821,12 +744,10 @@ end 'main'
 ```
 
 <!-- test: ascii-value-non-ascii -->
-<!-- skip: character literals are not supported in minimaxon -->
 ### ASCII Value for Non-ASCII Returns Error
 
 ```maxon
 function main() returns ExitCode
-	// TODO: character literals are not supported in minimaxon
 	let c = 'é'
 	if let ascii = try c.asciiValue() 'hasAscii'
 		return ascii
@@ -839,12 +760,10 @@ end 'main'
 ```
 
 <!-- test: ascii-value-emoji -->
-<!-- skip: character literals are not supported in minimaxon -->
 ### ASCII Value for Emoji Returns Error
 
 ```maxon
 function main() returns ExitCode
-	// TODO: character literals are not supported in minimaxon
 	let c = '🎉'
 	if let ascii = try c.asciiValue() 'hasAscii'
 		return ascii
@@ -857,8 +776,6 @@ end 'main'
 ```
 
 <!-- test: error.declare-character-error-enum -->
-<!-- skip: character literals are not supported in minimaxon -->
-<!-- positions: moved -->
 ### `CharacterError` is a declaration the compiler owns
 The two cases above rest on `asciiValue()` throwing `CharacterError.notAscii`, and the ordinal that reaches
 the failure edge is the COMPILER's: `Runtime/GraphemeRuntime.buildCharAscii` returns `notAscii`'s position as
@@ -874,7 +791,6 @@ enum CharacterError
 end 'CharacterError'
 
 function main() returns ExitCode
-	// TODO: character literals are not supported in minimaxon
 	let c = 'x'
 	let val = try c.asciiValue() otherwise 0
 	return val
@@ -885,13 +801,10 @@ error E2015: <fragment>:2:6: Unsupported: a declaration of the type name 'Charac
 ```
 
 <!-- test: error.otherwise-out-of-range -->
-<!-- skip: character literals are not supported in minimaxon -->
-<!-- positions: moved -->
 ### Otherwise value must be within ranged type bounds
 
 ```maxon
 function main() returns ExitCode
-	// TODO: character literals are not supported in minimaxon
 	let c = 'x'
 	let val = try c.asciiValue() otherwise -1
 	return val
@@ -902,17 +815,14 @@ error E3005: specs/character-type/error.otherwise-out-of-range.maxon:4:12: other
 ```
 
 <!-- test: match-escape-character -->
-<!-- skip: character literals are not supported in minimaxon -->
 ### Match with Escape Character Literals
 
 Character match patterns must correctly handle escape sequences like `'\n'`, `'\t'`, `'\r'`, and `'\\'`.
 
 ```maxon
 function main() returns ExitCode
-	// TODO: character literals are not supported in minimaxon
 	let c = '\n'
 	match c 'check'
-		// TODO: character literals are not supported in minimaxon
 		'\n' then return 0
 		default then return 1
 	end 'check'

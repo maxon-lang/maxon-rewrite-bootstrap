@@ -22,6 +22,7 @@ const (
 	maxonInterpFile     = "../../self/interp/builtins_gen.maxon"
 	runtimeTextOpsFile  = "../../runtime/textops.maxon"
 	interpTextOpsFile   = "../../self/interp/textops_gen.maxon"
+	syntaxTextOpsFile   = "../../self/syntax/textops_gen.maxon"
 	runtimeHashFoldFile = "../../runtime/hashfold.maxon"
 	interpHashFoldFile  = "../../self/interp/hashfold_gen.maxon"
 
@@ -71,7 +72,7 @@ func generate() (outs []output, err error) {
 	if err != nil {
 		return nil, err
 	}
-	outs = append(outs, output{maxonFile, []byte(emitMaxon(t))}, output{maxonRecordFile, []byte(emitMaxonBuiltinsRecord(t))}, output{maxonRtFile, []byte(emitMaxonRt(t))}, output{maxonIntrinsicsFile, []byte(emitMaxonIntrinsics(t))}, output{maxonCheckFile, []byte(emitMaxonCheck(t))}, output{maxonInterpFile, []byte(emitMaxonInterp(t))}, output{interpTextOpsFile, []byte(emitSharedRuntime(runtimeTextOpsFile, "text operations"))}, output{interpHashFoldFile, []byte(emitSharedRuntime(runtimeHashFoldFile, "hash fold"))}, output{convertFile, names})
+	outs = append(outs, output{maxonFile, []byte(emitMaxon(t))}, output{maxonRecordFile, []byte(emitMaxonBuiltinsRecord(t))}, output{maxonRtFile, []byte(emitMaxonRt(t))}, output{maxonIntrinsicsFile, []byte(emitMaxonIntrinsics(t))}, output{maxonCheckFile, []byte(emitMaxonCheck(t))}, output{maxonInterpFile, []byte(emitMaxonInterp(t))}, output{interpTextOpsFile, []byte(emitSharedRuntime(runtimeTextOpsFile, "text operations"))}, output{syntaxTextOpsFile, []byte(emitSharedRuntime(runtimeTextOpsFile, "text operations"))}, output{interpHashFoldFile, []byte(emitSharedRuntime(runtimeHashFoldFile, "hash fold"))}, output{convertFile, names})
 	return outs, nil
 }
 
@@ -188,7 +189,7 @@ func load() table {
 		if f.Throws != "" && enumOf(f.Throws) == nil {
 			fail("%s throws %s, which is no enum row of the table", f.Name, f.Throws)
 		}
-		if f.Owner != "" && f.Owner != stringOwner && !isOwner(f.Owner) {
+		if f.Owner != "" && !isPrimOwner(f.Owner) && !isOwner(f.Owner) {
 			fail("%s is a method of %s, which the table does not declare", f.Name, f.Owner)
 		}
 		key := f.Owner + "." + f.Name
@@ -256,8 +257,15 @@ func load() table {
 	return t
 }
 
-// stringOwner is the Owner of a method of String, which is a primitive and no type the table declares.
-const stringOwner = "String"
+// primOwners are the Owners of methods of a primitive, which is no type the table declares, each with the lowerCamelCase
+// prefix of its Builtins fields: the type (stringTy) and the methods (stringMethods).
+var primOwners = map[string]string{"String": "string", "Character": "character"}
+
+// isPrimOwner is whether owner is a primitive's.
+func isPrimOwner(owner string) bool {
+	_, ok := primOwners[owner]
+	return ok
+}
 
 // checkSharedFailure holds the rows that lower to one intrinsic and throw different enums to enums whose shared cases have
 // the same indexes, since the lowering fails with a case's index and knows nothing of the row.
@@ -333,7 +341,7 @@ func defaultIndex(p param) int {
 func (f fn) checkType(t *tyExpr) {
 	switch {
 	case t.name == "Self":
-		if f.Owner == "" || f.Owner == stringOwner {
+		if f.Owner == "" || isPrimOwner(f.Owner) {
 			fail("%s names Self, and has no owner of its own", f.Name)
 		}
 	case t.name == f.generic || paramIndex(ownerParams(f.Owner), t.name) >= 0 || primOf(t.name) != nil:

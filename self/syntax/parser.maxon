@@ -391,6 +391,13 @@ type Parser
 		return self.at(TokenKind.name) and self.text(toks[pos]) == testWord and (self.peekIs(TokenKind.label) or self.peekIs(TokenKind.testName))
 	end 'atTestDecl'
 
+	// atTryBlock is whether the `try` here opens a block: a label follows it, and no `.`, which a character literal that the
+	// try calls a method of has after it, as maxon tells the two by the token after the quote.
+	function atTryBlock() returns bool
+		let quote = after(pos)
+		return self.peekIs(TokenKind.label) and not (after(quote) < toks.count() and toks[after(quote)].kind == TokenKind.dot)
+	end 'atTryBlock'
+
 	// atStaticLet is whether the member that starts at the current token is a `static let`, which `static function` starts as
 	// well, after the same modifier.
 	function atStaticLet() returns bool
@@ -921,6 +928,28 @@ function byteStrLitParts(mutates p Parser, t Token) returns diag.U32 throws Synt
 	end 'each'
 	return b.finish(p.tree)
 end 'byteStrLitParts'
+
+// charLitParts reads the character literal that t is, a label's or a test name's token, and gives its text in the tree, decoded:
+// one grapheme cluster, or E2016.
+function charLitParts(mutates p Parser, t Token) returns diag.U32 throws SyntaxError
+	let file = p.fileNumber()
+	let open = lexemeStart(t)
+	var r = stringReaderAt(p.src, file: file, open: open, collect: true)
+	try r.readCharacter(p.src, errs: p.errors, until: t.endOffset())
+	let text = String.from(exchange(r.buf, value: ByteArray.create(0)))
+	if text.byteLength() == 0 or strGraphemeEnd(text, start: 0) != text.byteLength() 'notOne'
+		p.errors.push(p.src.errorAt(diag.errInvalidCharacterLiteral, message: diag.invalidCharacterLiteral("a character literal must contain exactly one character"), file: file, offset: open))
+		throw SyntaxError.refused
+	end 'notOne'
+	var b = ast.StrPartsBuilder.new()
+	b.decoded(p.tree, text: text)
+	return b.finish(p.tree)
+end 'charLitParts'
+
+// strKnownSimple is what the text operations (textops_gen.maxon) ask of a String's ASCII bit, which the parser keeps none of.
+function strKnownSimple(text String) returns bool
+	return false
+end 'strKnownSimple'
 
 // lexemeStart and lexemeEnd are where a token's source text begins and ends: a label's token leaves out its quotes.
 function lexemeStart(t Token) returns Count

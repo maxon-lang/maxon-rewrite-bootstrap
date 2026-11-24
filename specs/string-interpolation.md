@@ -1762,12 +1762,10 @@ end 'main'
 ```
 
 <!-- test: quote-format-control-escapes-spell-uppercase-hex-on-both-sides-of-9 -->
-<!-- skip: character literals are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
 	let low = "\u0000\u0001\u0008\u000B\u000C\u000F"
 	let high = "\u0010\u0019\u001A\u001F\u007F"
-	// TODO: character literals are not supported in minimaxon
 	let escape = '\u001B'
 	print("{low:q}\n")
 	print("{high:q}\n")
@@ -1820,20 +1818,13 @@ A `Character` prints between single quotes with the same escapes, and `'` is the
 A brace stays bare, because `'{'` is already a valid character literal and `\{` is spelled in string literals only.
 
 <!-- test: quote-format-character -->
-<!-- skip: character literals are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: character literals are not supported in minimaxon
 	let letter = 'a'
-	// TODO: character literals are not supported in minimaxon
 	let single = '\''
-	// TODO: character literals are not supported in minimaxon
 	let double = '"'
-	// TODO: character literals are not supported in minimaxon
 	let slash = '\\'
-	// TODO: character literals are not supported in minimaxon
 	let newline = '\n'
-	// TODO: character literals are not supported in minimaxon
 	let accent = 'é'
 	print("{letter:q} {single:q} {double:q} {slash:q} {newline:q} {accent:q}\n")
 	return 0
@@ -1847,12 +1838,9 @@ end 'main'
 ```
 
 <!-- test: quote-format-character-braces -->
-<!-- skip: character literals are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: character literals are not supported in minimaxon
 	let open = '{'
-	// TODO: character literals are not supported in minimaxon
 	let close = '}'
 	print("{open:q} {close:q}\n")
 	return 0
@@ -1871,11 +1859,9 @@ A width pads the QUOTED text on the left with spaces, as `%8q` does in Go: the q
 width the text already fills changes nothing, and a leading `0` is no fill for text, so `08q` pads with spaces too.
 
 <!-- test: quote-format-width-pads-the-quoted-text -->
-<!-- skip: character literals are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
 	let s = "ab"
-	// TODO: character literals are not supported in minimaxon
 	let c = 'x'
 	print("[{s:8q}] [{c:5q}] [{s:2q}]\n")
 	return 0
@@ -1889,11 +1875,9 @@ end 'main'
 ```
 
 <!-- test: quote-format-zero-flag-pads-text-with-spaces -->
-<!-- skip: character literals are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
 	let s = "ab"
-	// TODO: character literals are not supported in minimaxon
 	let c = 'x'
 	print("[{s:08q}] [{c:05q}]\n")
 	return 0
@@ -2012,7 +1996,6 @@ end 'main'
 `Character` and renders plainly where `T` is an integer.
 
 <!-- test: quote-format-in-a-generic-body-is-resolved-per-instantiation -->
-<!-- skip: character literals are not supported in minimaxon -->
 ```maxon
 function quoted(value T) uses T returns String
 	return "{value:q}"
@@ -2022,7 +2005,6 @@ function main() returns ExitCode
 	let text = "say \"hi\""
 	let a = quoted(text)
 	let b = quoted(42)
-	// TODO: character literals are not supported in minimaxon
 	let c = quoted('x')
 	print("{a} {b} {c}\n")
 	return 0

@@ -665,6 +665,10 @@ type Lexer
 			end 'name'
 			return self.failWith(src, code: diag.errUnknownDirective, message: diag.unknownDirective(src.text.sliceBytes(after(start), endPos: nameEnd).clone()), at: start)
 		end 'directive'
+		if first == byteApostrophe 'quoted'
+			// A quoted label, test name or character that its line ends is maxon's unterminated literal.
+			return self.failWith(src, code: diag.errUnterminatedString, message: diag.unterminatedString(), at: start)
+		end 'quoted'
 		if first == byteSlash and after(start) < limit and src.text.byteAt(after(start)) == byteStar 'blockComment'
 			return self.failWith(src, code: diag.errUnterminatedBlockComment, message: diag.unterminatedBlockComment(), at: start)
 		end 'blockComment'
@@ -1009,6 +1013,48 @@ type StringReader
 			appendRune(buf, ch: ch)
 		end 'collect'
 	end 'escape'
+
+	// readCharacter reads the text of a character literal, from pos up to its closing quote at until, into buf. Its escapes are a
+	// string's but for `\{` and `\}`, which only an interpolation needs: an escape it does not know is E2016, and one of hex
+	// digits with too few of them E1004, in maxon's words.
+	function readCharacter(mutates self, src Source, mutates errs diag.ErrorList, until Count) throws SyntaxError
+		escaped = true
+		while pos < until 'chars'
+			let c = src.text.byteAt(pos)
+			if c != byteBackslash 'plain'
+				buf.push(c)
+				pos = after(pos)
+				continue 'chars'
+			end 'plain'
+			let e = src.text.byteAt(after(pos))
+			if e == byteLowerX or e == byteLowerU 'digits'
+				let digits = 2 as Count if e == byteLowerX else 4 as Count
+				let first = after(after(pos))
+				var at = first
+				var found = 0 as Count
+				while at < until and found < digits and isAsciiHexDigit(src.text.byteAt(at)) 'hex'
+					at = after(at)
+					found = after(found)
+				end 'hex'
+				if found < digits 'short'
+					var shownEnd = first
+					var shown = 0 as Count
+					while shownEnd < until and shown < digits 'text'
+						shownEnd = after(shownEnd)
+						shown = after(shown)
+					end 'text'
+					let form = "hex" if e == byteLowerX else "unicode"
+					errs.push(src.errorAt(diag.errInvalidEscape, message: diag.invalidDigitEscape(form, text: src.text.sliceBytes(pos, endPos: shownEnd).clone(), digits: "{digits}", literal: "character literal"), file: file, offset: open))
+					throw SyntaxError.refused
+				end 'short'
+			end 'digits' else if not (e == byteLowerN or e == byteLowerT or e == byteLowerR or e == byteZero or e == byteBackslash or e == byteQuote or e == byteApostrophe) 'unknown'
+				let shown = runeAt(src.text, at: after(pos), limit: until)
+				errs.push(src.errorAt(diag.errInvalidCharacterLiteral, message: diag.invalidCharacterLiteral("unknown escape sequence '\\{shown}'"), file: file, offset: open))
+				throw SyntaxError.refused
+			end 'unknown'
+			try self.escape(src, errs: errs)
+		end 'chars'
+	end 'readCharacter'
 
 	function readHex(mutates self, src Source, mutates errs diag.ErrorList, digits Count) returns Count throws SyntaxError
 		var v = 0 as Count

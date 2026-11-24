@@ -61,7 +61,7 @@ Each warning is one of two kinds. Decide per message, not per file.
 
 1. **A feature minimaxon lacks.** The messages say "not supported in minimaxon": floats, tuples, closures,
    default parameters, `static let`, `test` declarations, `#if`, union errors, `default throws`, `if try`, a block
-   handler (`otherwise (e) 'label'`) inside brackets, iterator `for` loops, byte strings, char literals, format
+   handler (`otherwise (e) 'label'`) inside brackets, iterator `for` loops, byte strings, `CharacterSet`, format
    specifiers, array/map literals, capabilities, `extends`, and so on. README "Where it differs from Maxon" lists what
    minimaxon still lacks and what it spells differently on purpose; the converter rewrites the second and warns of the
    first, and nothing else. Leave the file out, or skip

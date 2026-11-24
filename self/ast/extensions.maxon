@@ -24,6 +24,7 @@ export function extensionKey(p Project, ms ModuleState, t TypeID) returns table.
 		builtinService gives table.Option.some(originOf(ms.types, reads: p.types, t: t))
 		primBool gives table.Option.some(p.builtins.boolTy)
 		primString gives table.Option.some(p.builtins.stringTy)
+		primCharacter gives table.Option.some(p.builtins.characterTy)
 		intRange gives table.Option.some(p.builtins.anon64Ty)
 		constInt gives table.Option.some(p.builtins.anon64Ty)
 		invalid gives table.Option.none

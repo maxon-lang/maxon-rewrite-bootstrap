@@ -91,12 +91,12 @@ function witnessFor(p ast.Project, mutates ms ast.ModuleState, module diag.Modul
 	end 'found'
 	// A built-in method of String meets a requirement as it is: a call through the bound lowers it in place
 	// (lowerBuiltinWitness).
-	if recv == p.builtins.stringTy 'string'
-		match p.builtins.stringMethods.get(name) 'builtin'
+	if recv == p.builtins.stringTy or recv == p.builtins.characterTy 'primitive'
+		match ast.primitiveMethod(p.builtins, t: recv, name: name) 'builtin'
 			some(fid) then return table.Option.some(fid)
 			none then _ = 0
 		end 'builtin'
-	end 'string'
+	end 'primitive'
 	let key = ast.extensionKey(p, ms: ms, t: recv)
 	if key.isSome() 'extensions'
 		match consumes ast.extensionMethod(p, ms: ms, from: conformance, owner: key.unwrap(), name: name) 'ofType'

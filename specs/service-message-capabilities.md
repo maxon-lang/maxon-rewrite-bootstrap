@@ -575,7 +575,6 @@ error E2010: <fragment>:16:30: Expected 'a type' but got 'isolated'
 ```
 
 <!-- test: values-and-handles-need-no-word -->
-<!-- skip: character literals are not supported in minimaxon -->
 Numbers, `bool`, `String`, `Character`, an enum, a service handle and a `SharedValue` cell cross on parameter, reply and factory with no capability word.
 
 ```maxon
@@ -650,7 +649,6 @@ function main() returns ExitCode
 	let doubled = try await echo.twice(21) otherwise panic("main: echo answers twice")
 	let mode = try await echo.pick(Mode.slow) otherwise panic("main: echo answers pick")
 	let flipped = try await echo.flip(true) otherwise panic("main: echo answers flip")
-	// TODO: character literals are not supported in minimaxon
 	let letter = try await echo.letter('q') otherwise panic("main: echo answers letter")
 	try echo.bump(cell.clone()) otherwise panic("main: echo takes bump")
 	let calls = try await echo.read() otherwise panic("main: echo answers read")

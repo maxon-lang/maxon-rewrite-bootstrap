@@ -260,11 +260,9 @@ end 'main'
 ```
 
 <!-- test: ranges.character-range -->
-<!-- skip: character literals are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
 	var count = 0 as ExitCode
-	// TODO: character literals are not supported in minimaxon
 	for _ in 'a' to 'z' 'loop'
 		count = count + 1
 	end 'loop'
@@ -276,10 +274,8 @@ end 'main'
 ```
 
 <!-- test: ranges.character-range-print -->
-<!-- skip: character literals are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: character literals are not supported in minimaxon
 	for c in 'a' to 'e' 'loop'
 		print("{c}\n")
 	end 'loop'
@@ -439,7 +435,6 @@ error E2015: specs/ranges/ranges.mixed-bounds-blames-the-float-half.maxon:4:13: 
 ```
 
 <!-- test: ranges.ranged-alias-parameter-bound-stays-legal -->
-<!-- skip: character literals are not supported in minimaxon -->
 The check is `tagIsIntegral`, not `== integer`, and this is the program that pins the difference: a
 ranged-alias bound arriving as a PARAMETER carries the `named` tag until TypeResolution collapses
 it. The narrow spelling would refuse this legal program (the false refusal
@@ -457,7 +452,6 @@ end 'sumTo'
 
 function main() returns ExitCode
 	var chars = 0 as Row
-	// TODO: character literals are not supported in minimaxon
 	for _ in 'a' to 'e' 'k'
 		chars = chars + 1
 	end 'k'
@@ -469,7 +463,6 @@ end 'main'
 ```
 
 <!-- test: ranges.character-range-encodes-every-utf8-width -->
-<!-- skip: character literals are not supported in minimaxon -->
 ### A character range mints its element through all four UTF-8 encoder widths
 
 ⚠ **THE ENCODER HAS FOUR ARMS AND EVERY OTHER CHARACTER-RANGE CASE EXERCISES ONE.** A character range
@@ -487,17 +480,14 @@ missed drop on any arm is the runner's exit 101 rather than a wrong string.
 
 function main() returns ExitCode
 	var two = ""
-	// TODO: character literals are not supported in minimaxon
 	for c in 'à' to 'å' 'twoByte'
 		two.append("{c}")
 	end 'twoByte'
 	var three = ""
-	// TODO: character literals are not supported in minimaxon
 	for c in '一' to '五' 'threeByte'
 		three.append("{c}")
 	end 'threeByte'
 	var four = ""
-	// TODO: character literals are not supported in minimaxon
 	for c in '😀' to '😃' 'fourByte'
 		four.append("{c}")
 	end 'fourByte'

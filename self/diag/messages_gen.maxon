@@ -1019,3 +1019,13 @@ end 'promiseDroppedUnnamed'
 export function asyncOfIntrinsic(callee String) returns String
 	return "`async {callee}(…)` — `{callee}` is a runtime intrinsic the compiler lowers in place, so it names no function a green thread could start at; call it directly, or spawn a function that calls it"
 end 'asyncOfIntrinsic'
+
+// The text of errInvalidCharacterLiteral for: invalid character literal: {reason}
+export function invalidCharacterLiteral(reason String) returns String
+	return "invalid character literal: {reason}"
+end 'invalidCharacterLiteral'
+
+// The text of errInvalidEscape for: Invalid {form} escape '{text}': expected {digits} hex digits in {literal}
+export function invalidDigitEscape(form String, text String, digits String, literal String) returns String
+	return "Invalid {form} escape '{text}': expected {digits} hex digits in {literal}"
+end 'invalidDigitEscape'

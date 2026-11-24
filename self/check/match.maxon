@@ -232,7 +232,7 @@ function checkSubject(mutates c Checker, p ast.Project, ms ast.ModuleState, core
 		return false
 	end 'wide'
 	let k = kindOfType(p, ms: ms, t: st)
-	if ast.isIntType(ms.types, reads: p.types, t: st) or st == p.builtins.stringTy or st == p.builtins.boolTy or k == ast.TypeKind.enumTy or k == ast.TypeKind.unionTy 'matchable'
+	if ast.isIntType(ms.types, reads: p.types, t: st) or st == p.builtins.stringTy or st == p.builtins.characterTy or st == p.builtins.boolTy or k == ast.TypeKind.enumTy or k == ast.TypeKind.unionTy 'matchable'
 		return true
 	end 'matchable'
 	checkFail(c.modID, off: off, code: diag.errTypeMismatch, msg: "cannot match on a value of {nameOfType(p, ms: ms, t: st)}", errs: errs)
@@ -392,7 +392,7 @@ function checkExhaustive(c Checker, p ast.Project, ms ast.ModuleState, core ast.
 		return
 	end 'cases'
 	let leavesBoolOut = st == p.builtins.boolTy and not (state.sawTrue and state.sawFalse)
-	if leavesBoolOut or ast.isIntType(ms.types, reads: p.types, t: st) or st == p.builtins.stringTy 'values'
+	if leavesBoolOut or ast.isIntType(ms.types, reads: p.types, t: st) or st == p.builtins.stringTy or st == p.builtins.characterTy 'values'
 		var subject = "match"
 		if isExpr 'expr'
 			subject = "match expression"
@@ -525,11 +525,15 @@ end 'bindCase'
 function checkLiteralPattern(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, pattern ast.NodeID, st ast.TypeID, mutates state MatchState, mutates errs diag.ErrorList)
 	let off = offsetOf(c, p: p, ms: ms, node: pattern)
 	let value = ast.patternValue(ms.tree(), id: pattern)
-	let t = checkExpr(c, p: p, ms: ms, e: value, errs: errs)
-	if t == ast.noType 'failed'
+	let checked = checkExpr(c, p: p, ms: ms, e: value, errs: errs)
+	if checked == ast.noType 'failed'
 		return
 	end 'failed'
+	let t = integerized(c, p: p, ms: ms, e: value, t: checked, other: st)
 	let valueKind = ms.tree().kindOf(value)
+	if valueKind == ast.NodeKind.charLit and st == p.builtins.characterTy 'character'
+		return
+	end 'character'
 	if valueKind == ast.NodeKind.boolLit and st == p.builtins.boolTy 'bool'
 		recordBoolPattern(c, p: p, ms: ms, pattern: pattern, value: value, state: state, errs: errs)
 		return
@@ -571,14 +575,19 @@ function checkRangePattern(mutates c Checker, p ast.Project, mutates ms ast.Modu
 	let off = offsetOf(c, p: p, ms: ms, node: pattern)
 	let lowNode = ast.patternValue(ms.tree(), id: pattern)
 	let highNode = ast.patternHigh(ms.tree(), id: pattern)
-	let lo = checkExpr(c, p: p, ms: ms, e: lowNode, errs: errs)
-	if lo == ast.noType 'badLow'
+	let checkedLo = checkExpr(c, p: p, ms: ms, e: lowNode, errs: errs)
+	if checkedLo == ast.noType 'badLow'
 		return
 	end 'badLow'
-	let hi = checkExpr(c, p: p, ms: ms, e: highNode, errs: errs)
-	if hi == ast.noType 'badHigh'
+	let checkedHi = checkExpr(c, p: p, ms: ms, e: highNode, errs: errs)
+	if checkedHi == ast.noType 'badHigh'
 		return
 	end 'badHigh'
+	let lo = integerized(c, p: p, ms: ms, e: lowNode, t: checkedLo, other: st)
+	let hi = integerized(c, p: p, ms: ms, e: highNode, t: checkedHi, other: st)
+	if st == p.builtins.characterTy and ms.tree().kindOf(lowNode) == ast.NodeKind.charLit and ms.tree().kindOf(highNode) == ast.NodeKind.charLit 'characters'
+		return
+	end 'characters'
 	if not ast.isIntType(ms.types, reads: p.types, t: st) or not isConstInt(p, ms: ms, t: lo) or not isConstInt(p, ms: ms, t: hi) 'notInts'
 		checkFail(c.modID, off: off, code: diag.errTypeMismatch, msg: "a range pattern needs integer bounds and an integer subject", errs: errs)
 		return

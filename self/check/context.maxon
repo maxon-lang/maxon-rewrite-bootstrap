@@ -808,6 +808,7 @@ export function typeIsNominal(tt ast.TypeSlot, reads ast.TypeTable, t ast.TypeID
 		invalid gives false
 		primBool gives false
 		primString gives false
+		primCharacter gives false
 		primVoid gives false
 		primNever gives false
 		intRange gives false
@@ -867,7 +868,7 @@ export function lacksCap(mutates c Checker, p ast.Project, mutates ms ast.Module
 		return LackInfo.ok()
 	end 'err'
 	let k = ast.typeKind(ms.types, reads: p.types, t: t)
-	if k == ast.TypeKind.intRange or k == ast.TypeKind.constInt or k == ast.TypeKind.floatRange or k == ast.TypeKind.constFloat or k == ast.TypeKind.primBool or k == ast.TypeKind.primString or k == ast.TypeKind.primVoid or k == ast.TypeKind.primNever or k == ast.TypeKind.enumTy 'scalar'
+	if k == ast.TypeKind.intRange or k == ast.TypeKind.constInt or k == ast.TypeKind.floatRange or k == ast.TypeKind.constFloat or k == ast.TypeKind.primBool or k == ast.TypeKind.primString or k == ast.TypeKind.primCharacter or k == ast.TypeKind.primVoid or k == ast.TypeKind.primNever or k == ast.TypeKind.enumTy 'scalar'
 		return LackInfo.ok()
 	end 'scalar'
 	if k == ast.TypeKind.funcTy 'function'
@@ -1315,6 +1316,12 @@ function resolveNamedTypeRef(mutates c Checker, p ast.Project, mutates ms ast.Mo
 			end 'badA'
 			return p.builtins.stringTy
 		end 'str'
+		if tName == "Character" 'char'
+			if hasArgs 'badA'
+				failNotGeneric(c, off: off, name: "Character", errs: errs)
+			end 'badA'
+			return p.builtins.characterTy
+		end 'char'
 		if tName == "Self" 'slf'
 			if selfTy == ast.noType 'noS'
 				checkFail(c.modID, off: off, code: diag.errUnknownType, msg: "'Self' names a type only inside one", errs: errs)

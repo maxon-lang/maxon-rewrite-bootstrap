@@ -161,7 +161,7 @@ export type FnBuilder
 		let dst = self.regOf(IrKind.kindString)
 		let at = try f.strings.count() as Index otherwise panic("too many strings")
 		f.strings.push(text.clone())
-		self.emit(newStr(dst, text: at))
+		self.emit(newStr(dst, text: at, character: false))
 		return dst
 	end 'str'
 

@@ -32,13 +32,12 @@ The `unicodeGeneralCategory(cp)` function returns the Unicode General Category f
 ## Tests
 
 <!-- test: cyrillic-letters -->
-<!-- skip: character literals are not supported in minimaxon -->
+<!-- skip: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet -->
 ```maxon
 function main() returns ExitCode
+	// TODO: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet
 	let letters = CharacterSet.letters
-	// TODO: character literals are not supported in minimaxon
 	let a = '\u0410'
-	// TODO: character literals are not supported in minimaxon
 	let b = '\u0430'
 	print("{letters.contains(a)}\n{letters.contains(b)}")
 	return 0
@@ -53,11 +52,11 @@ true
 ```
 
 <!-- test: cjk-letters -->
-<!-- skip: character literals are not supported in minimaxon -->
+<!-- skip: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet -->
 ```maxon
 function main() returns ExitCode
+	// TODO: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet
 	let letters = CharacterSet.letters
-	// TODO: character literals are not supported in minimaxon
 	let c = '\u4E00'
 	print("{letters.contains(c)}")
 	return 0
@@ -71,11 +70,11 @@ true
 ```
 
 <!-- test: arabic-digits -->
-<!-- skip: character literals are not supported in minimaxon -->
+<!-- skip: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet -->
 ```maxon
 function main() returns ExitCode
+	// TODO: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet
 	let digits = CharacterSet.decimalDigits
-	// TODO: character literals are not supported in minimaxon
 	let d = '\u0660'
 	print("{digits.contains(d)}")
 	return 0
@@ -89,13 +88,12 @@ true
 ```
 
 <!-- test: unicode-punctuation -->
-<!-- skip: character literals are not supported in minimaxon -->
+<!-- skip: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet -->
 ```maxon
 function main() returns ExitCode
+	// TODO: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet
 	let punct = CharacterSet.punctuation
-	// TODO: character literals are not supported in minimaxon
 	let a = '\u00AB'
-	// TODO: character literals are not supported in minimaxon
 	let b = '\u00BB'
 	print("{punct.contains(a)}\n{punct.contains(b)}")
 	return 0
@@ -110,11 +108,11 @@ true
 ```
 
 <!-- test: unicode-symbols -->
-<!-- skip: character literals are not supported in minimaxon -->
+<!-- skip: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet -->
 ```maxon
 function main() returns ExitCode
+	// TODO: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet
 	let syms = CharacterSet.symbols
-	// TODO: character literals are not supported in minimaxon
 	let c = '\u00A9'
 	print("{syms.contains(c)}")
 	return 0
@@ -128,10 +126,10 @@ true
 ```
 
 <!-- test: custom-set-unchanged -->
-<!-- skip: character literals are not supported in minimaxon -->
+<!-- skip: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet -->
 ```maxon
 function main() returns ExitCode
-	// TODO: character literals are not supported in minimaxon
+	// TODO: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet
 	let cs = CharacterSet.from(CharSet from ['x', 'y', 'z'])
 	print("{cs.contains('x')}\n{cs.contains('a')}")
 	return 0
@@ -146,9 +144,11 @@ false
 ```
 
 <!-- test: trim-cyrillic -->
+<!-- skip: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet -->
 ```maxon
 function main() returns ExitCode
 	let s = "\u0410\u0411\u0412 123 \u0410\u0411\u0412"
+	// TODO: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet
 	let result = s.trim(CharacterSet.letters)
 	print("[{result}]")
 	return 0
@@ -162,11 +162,11 @@ end 'main'
 ```
 
 <!-- test: unicode-whitespace -->
-<!-- skip: character literals are not supported in minimaxon -->
+<!-- skip: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet -->
 ```maxon
 function main() returns ExitCode
+	// TODO: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet
 	let ws = CharacterSet.whitespaces
-	// TODO: character literals are not supported in minimaxon
 	let c = '\u2003'
 	print("{ws.contains(c)}")
 	return 0

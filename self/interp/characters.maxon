@@ -1,0 +1,48 @@
+// The interpreter's entries of a Character, which it holds as it holds a String, an object of its text: where the executable
+// keeps a short one in its two words, the interpreter tracks it as it does any other value it drops and copies.
+
+function entryCharEquals(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let left = try stringArg(vm, f: f, x: x, i: 0, what: "a character comparison")
+	let right = try stringArg(vm, f: f, x: x, i: 1, what: "a character comparison")
+	giveFlag(vm, x: x, b: left == right)
+end 'entryCharEquals'
+
+// entryCharCompare orders two Characters by their bytes, as the runtime's charCompare does.
+function entryCharCompare(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let left = try stringArg(vm, f: f, x: x, i: 0, what: "a character comparison")
+	let right = try stringArg(vm, f: f, x: x, i: 1, what: "a character comparison")
+	let same = ir.charOrderSame
+	let length = left.byteLength() if left.byteLength() < right.byteLength() else right.byteLength()
+	for i in 0 upto length 'bytes'
+		if left.byteAt(i) < right.byteAt(i) 'before'
+			giveCount(vm, x: x, n: same - 1)
+			return
+		end 'before'
+		if left.byteAt(i) > right.byteAt(i) 'after'
+			giveCount(vm, x: x, n: same + 1)
+			return
+		end 'after'
+	end 'bytes'
+	if left.byteLength() < right.byteLength() 'shorter'
+		giveCount(vm, x: x, n: same - 1)
+	end 'shorter' else if left.byteLength() > right.byteLength() 'longer'
+		giveCount(vm, x: x, n: same + 1)
+	end 'longer' else 'equal'
+		giveCount(vm, x: x, n: same)
+	end 'equal'
+end 'entryCharCompare'
+
+function entryCharLength(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let text = try stringArg(vm, f: f, x: x, i: 0, what: "a character's length")
+	giveCount(vm, x: x, n: text.byteLength())
+end 'entryCharLength'
+
+function entryCharToString(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let text = try stringArg(vm, f: f, x: x, i: 0, what: "a character's text")
+	giveText(vm, x: x, text: text)
+end 'entryCharToString'
+
+function entryCharCodepoint(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let text = try stringArg(vm, f: f, x: x, i: 0, what: "a character's code point")
+	giveCount(vm, x: x, n: stringCodePointAt(text, bytePos: 0))
+end 'entryCharCodepoint'

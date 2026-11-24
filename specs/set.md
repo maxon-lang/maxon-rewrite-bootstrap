@@ -676,7 +676,7 @@ end 'main'
 
 <!-- test: from-a-character-array-under-an-alias-or-a-bare-head -->
 <!-- skip: 'Type from value' takes an array literal or a string literal in minimaxon, not another value -->
-<!-- skip: character literals are not supported in minimaxon -->
+<!-- skip: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet -->
 A `Character` array is a source like any other: an alias head of `Set with Character` and a bare `Set` head both take one.
 ```maxon
 typealias Chars = Array with Character
@@ -685,12 +685,10 @@ typealias CharSet = Set with Character
 
 function main() returns ExitCode
 	let chars = Chars.create(0)
-	// TODO: character literals are not supported in minimaxon
 	chars.push('a')
-	// TODO: character literals are not supported in minimaxon
 	chars.push('b')
-	// TODO: character literals are not supported in minimaxon
 	chars.push('a')
+	// TODO: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet
 	// TODO: 'Type from value' takes an array literal or a string literal in minimaxon, not another value
 	let named = CharSet from chars
 	// TODO: 'Type from value' takes an array literal or a string literal in minimaxon, not another value

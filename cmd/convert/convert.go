@@ -956,7 +956,7 @@ func opensBlockInBrackets(toks []token) bool {
 
 // unsupportedExtensionTargets are the names an extension cannot extend in minimaxon although it may name them: library
 // types and interfaces that it has no counterpart of, or that it does not extend.
-var unsupportedExtensionTargets = []string{"Set", "Log", "Logger", "CivilDate", "ParseError", "byte", "Character", "Error"}
+var unsupportedExtensionTargets = []string{"Set", "Log", "Logger", "CivilDate", "ParseError", "byte", "Error"}
 
 // builtinGenericTypes are the library types that an extension may name and that take type arguments.
 var builtinGenericTypes = []string{"Array", "Map", "List", "Pool", "Handle", "Frozen", "Cown", "FixedArray"}
@@ -2100,10 +2100,6 @@ func transformStmtAndExpr(line *sourceLine, warn func(*sourceLine, string)) {
 			if !strings.HasSuffix(t.text, "\"") || len(t.text) < 3 {
 				warn(line, "a byte string literal that spans lines is not supported in minimaxon")
 			}
-		case tokLabel:
-			if isCharLiteralPosition(toks, i) {
-				warn(line, "character literals are not supported in minimaxon")
-			}
 		case tokPunct:
 			if t.text == "[" && isCollectionLiteralBracket(toks, i) && i+1 < len(toks) && toks[i+1].text == "]" {
 				warn(line, "an empty array literal is not supported in minimaxon, as in maxon: write Array.create(0) under a typealias of the array")
@@ -2134,10 +2130,22 @@ func transformStmtAndExpr(line *sourceLine, warn func(*sourceLine, string)) {
 				if i > 0 && toks[i-1].text == "to" {
 					warn(line, "open-ended 'to max' match range patterns are not supported in minimaxon")
 				}
+			case "CharacterSet", "CharSet", "Ascii":
+				if i == 0 || toks[i-1].text != "." {
+					warn(line, characterLibraryWarning)
+				}
+			case "charAt", "containsCharacter", "advanceBy", "fromCodepoint":
+				if i > 0 && toks[i-1].text == "." {
+					warn(line, characterLibraryWarning)
+				}
 			}
 		}
 	}
 }
+
+// characterLibraryWarning is the warning of the parts of maxon's Character library that read the Unicode tables or a String's
+// clusters as Characters, which minimaxon does not have yet.
+const characterLibraryWarning = "CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet"
 
 // rewriteArmThrows turns a match arm `pattern throws E` into `pattern then throw E`, the one form minimaxon's arms have.
 // rewriteDiscards drops the let of a discard binding, which minimaxon spells `_ = value`, at the start of a statement
@@ -2622,31 +2630,6 @@ func hasRangeKeyword(toks []token) bool {
 		}
 	}
 	return false
-}
-
-func isCharLiteralPosition(toks []token, idx int) bool {
-	// Labels appear at the end of block headers (`if ... 'lbl'`, `while ... 'lbl'`, `for ... 'lbl'`, `match ... 'lbl'`,
-	// `try 'lbl'`, `else 'lbl'`, `otherwise ... 'lbl'`, `when ... 'lbl'`, `modify ... 'lbl'`, `acquire ... 'lbl'`),
-	// or right after `end`, `break`, `continue`, or `test`.
-	if idx > 0 {
-		switch toks[idx-1].text {
-		case "end", "break", "continue", "else", "otherwise", "try", "test":
-			return false
-		}
-	}
-	if idx == len(toks)-1 {
-		switch toks[0].text {
-		case "if", "while", "for", "match", "try", "else", "otherwise", "when", "modify", "acquire", "end", "test":
-			return false
-		}
-		// Also `let x = try ... otherwise 'lbl'` or `end 'a' else 'b'`.
-		for _, t := range toks[:idx] {
-			if t.text == "otherwise" || t.text == "else" || t.text == "match" {
-				return false
-			}
-		}
-	}
-	return true
 }
 
 func isCollectionLiteralBracket(toks []token, idx int) bool {

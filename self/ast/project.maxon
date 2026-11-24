@@ -969,6 +969,7 @@ export function typeLinkNameIn(p Project, tt TypeSlot, reads TypeTable, t TypeID
 		invalid gives typeEntry(tt, reads: reads, t: t).name.clone()
 		primBool gives typeEntry(tt, reads: reads, t: t).name.clone()
 		primString gives typeEntry(tt, reads: reads, t: t).name.clone()
+		primCharacter gives typeEntry(tt, reads: reads, t: t).name.clone()
 		primVoid gives typeEntry(tt, reads: reads, t: t).name.clone()
 		primNever gives typeEntry(tt, reads: reads, t: t).name.clone()
 		typeParam gives typeEntry(tt, reads: reads, t: t).name.clone()

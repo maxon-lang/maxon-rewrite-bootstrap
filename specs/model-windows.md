@@ -6395,7 +6395,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-af-w10-linear-swap-out-modify -->
-<!-- skip: character literals are not supported in minimaxon -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-WHERE`; the compiler refuses it with E3224. Model program `w10-linear-swap-out-modify` of redteamAF.hand_af20, in capmodel `reggio/REPORTRTAF.txt`.
@@ -6432,7 +6431,6 @@ function main() returns ExitCode
 	let h = Lh.create(Sh.held(Rl.create(1))) as Lh
 	// TODO: modify blocks are not supported in minimaxon
 	modify h 'm1'
-		// TODO: character literals are not supported in minimaxon
 		match exchange(h.s, value: Sh.none 'x2')
 			none then break
 			held(q) then q.fin(1)
@@ -6446,7 +6444,6 @@ error E3224: <fragment>:23:6: the field 's' holds a linear value, and a linear v
 ```
 
 <!-- test: model-hand-af-w12-linear-swap-out-store-back-other-region -->
-<!-- skip: character literals are not supported in minimaxon -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-WHERE`; the compiler refuses it with E3199, E3224. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `w12-linear-swap-out-store-back-other-region` of redteamAF.hand_af20, in capmodel `reggio/REPORTRTAF.txt`.
@@ -6484,7 +6481,6 @@ function main() returns ExitCode
 	let g = Lh.create(Sh.none) as Lh
 	// TODO: modify blocks are not supported in minimaxon
 	modify h 'm1'
-		// TODO: character literals are not supported in minimaxon
 		match exchange(h.s, value: Sh.none 'x2')
 			none then break
 			held(q) then _ = exchange(g.s, value: Sh.held(q))
@@ -25266,7 +25262,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-an-p1-swap-state -->
-<!-- skip: character literals are not supported in minimaxon -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `p1-swap-state` of redteamAN.hand_an3, in capmodel `reggio/REPORTRTAN.txt`.
 
@@ -25295,7 +25290,6 @@ type Ks
 	end 'create'
 
 	export function go()
-		// TODO: character literals are not supported in minimaxon
 		match exchange(self.u, value: Ub.u0 'x1')
 			u0 then break
 			u1(o) then self.item = o

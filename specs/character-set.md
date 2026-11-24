@@ -77,12 +77,14 @@ end 'main'
 ```
 
 <!-- test: character-set-create -->
+<!-- skip: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet -->
 ### A Character-keyed Set is constructible
 `CharSet` is the builtin alias for `Set with Character` — `stdlib/CharacterSet.maxon`'s
 `typealias CharSet = Set with Character`. A member set reached only through `CharSet from [...]` never
 consults the key-type gate at all.
 ```maxon
 function main() returns ExitCode
+	// TODO: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet
 	let cs = CharSet.create()
 	print("{cs.count()}")
 	return 0
@@ -96,21 +98,18 @@ end 'main'
 ```
 
 <!-- test: character-key-insert-contains -->
-<!-- skip: character literals are not supported in minimaxon -->
+<!-- skip: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet -->
 ### A single-byte character literal is a Character key, not an int
 the compiler types a character literal by its byte WIDTH, so `'x'` is an `int` unless the position expects a
 `Character`. Every `insert`/`contains`/`remove` on a `Set with Character` therefore has to make the
 literal adopt the key type, and this is the case that exercises that door.
 ```maxon
 function main() returns ExitCode
+	// TODO: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet
 	let cs = CharSet.create()
-	// TODO: character literals are not supported in minimaxon
 	cs.insert('x')
-	// TODO: character literals are not supported in minimaxon
 	cs.insert('é')
-	// TODO: character literals are not supported in minimaxon
 	cs.insert('中')
-	// TODO: character literals are not supported in minimaxon
 	cs.insert('x')
 	print("{cs.count()}\n")
 	print("{cs.contains('x')}\n")
@@ -130,14 +129,13 @@ false
 ```
 
 <!-- test: character-key-remove -->
-<!-- skip: character literals are not supported in minimaxon -->
+<!-- skip: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet -->
 ### Removing a Character key drops it exactly once
 ```maxon
 function main() returns ExitCode
+	// TODO: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet
 	let cs = CharSet.create()
-	// TODO: character literals are not supported in minimaxon
 	cs.insert('a')
-	// TODO: character literals are not supported in minimaxon
 	cs.insert('🎉')
 	print("{cs.remove('a')}\n")
 	print("{cs.remove('a')}\n")
@@ -155,14 +153,16 @@ false
 ```
 
 <!-- test: supplementary-plane-category -->
-<!-- skip: minimaxon does not parse the converted source: Expected ')' but got '🎉' -->
+<!-- skip: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet -->
 ### A codepoint above the BMP is classified through the sorted range table
 The BMP table is indexed directly; everything above U+FFFF takes a binary search. No other case
 distinguishes the two — `string-trim/trim-end-emoji` only needs an emoji NOT to be whitespace, which a
 search that always answered `Cn` would also give.
 ```maxon
 function main() returns ExitCode
+	// TODO: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet
 	let syms = CharacterSet.symbols
+	// TODO: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet
 	let letters = CharacterSet.letters
 	print("{syms.contains('🎉')}\n")
 	print("{letters.contains('🎉')}\n")
@@ -180,6 +180,7 @@ true
 ```
 
 <!-- test: supplementary-plane-trim -->
+<!-- skip: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet -->
 ### A trim driven by a supplementary-plane category
 The direct `contains` above and this reach the sorted table by different routes — one from the parser's
 own `__cs_contains` call, one from inside the trim's cluster walk — so a search broken in either
@@ -187,6 +188,7 @@ direction is caught twice rather than once.
 ```maxon
 function main() returns ExitCode
 	let s = "🎉🎉ok🎉"
+	// TODO: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet
 	let r = s.trim(CharacterSet.symbols)
 	print("[{r}]")
 	return 0
@@ -200,7 +202,7 @@ end 'main'
 ```
 
 <!-- test: supplementary-plane-table-bounds -->
-<!-- skip: minimaxon does not parse the converted source: Expected ')' but got '󠄀' -->
+<!-- skip: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet -->
 ### The sorted table's TOP, and the `Cn` a codepoint in no range falls out to
 `supplementary-plane-category` finds both its codepoints in the table's MIDDLE, so nothing above
 reaches the last entry and nothing at all reaches the fall-out — a lookup that answered any
@@ -211,6 +213,7 @@ falls out between two entries; and above EVERY range (U+10FFFF), which is the on
 the table's last index and is therefore what an off-by-one in the search's initial high bound would read past.
 ```maxon
 function main() returns ExitCode
+	// TODO: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet
 	let letters = CharacterSet.letters
 	print("{letters.contains('󠄀')}\n")
 	print("{letters.contains('󠇰')}\n")
@@ -228,7 +231,7 @@ false
 ```
 
 <!-- test: member-set-co-owned-by-from -->
-<!-- skip: character literals are not supported in minimaxon -->
+<!-- skip: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet -->
 ### `CharacterSet.from` CO-OWNS its member set
 `from` consumes its argument, and a consuming position is a DURABLE SINK: the set takes its own reference
 to the member box rather than stealing the caller's. `members` therefore stays readable and
@@ -236,8 +239,9 @@ releases its own reference at scope exit, so the box is freed once — exactly t
 two drops.
 ```maxon
 function main() returns ExitCode
-	// TODO: character literals are not supported in minimaxon
+	// TODO: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet
 	let members = CharSet from ['x']
+	// TODO: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet
 	let adopted = CharacterSet.from(members)
 	print("{members.count()}")
 	_ = adopted
@@ -252,7 +256,7 @@ end 'main'
 ```
 
 <!-- test: one-member-set-fills-two-character-sets -->
-<!-- skip: character literals are not supported in minimaxon -->
+<!-- skip: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet -->
 ### One member set can fill two CharacterSets
 The refcount consequence of the case above, and the reason it is not merely a relaxation: EACH `from`
 takes its own reference, so the box ends at three (two sets plus `members`) and is released three times.
@@ -260,9 +264,11 @@ A move rule — one transferred `+1` — would make the second `from` E3102, bec
 answer for two owners.
 ```maxon
 function main() returns ExitCode
-	// TODO: character literals are not supported in minimaxon
+	// TODO: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet
 	let members = CharSet from ['x']
+	// TODO: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet
 	let first = CharacterSet.from(members)
+	// TODO: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet
 	let second = CharacterSet.from(members)
 	print("{first.contains('x')}{second.contains('x')}")
 	return 0
@@ -276,11 +282,11 @@ truetrue
 ```
 
 <!-- test: member-set-dropped-unused -->
-<!-- skip: character literals are not supported in minimaxon -->
+<!-- skip: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet -->
 ### A member set that never reaches a box is still dropped
 ```maxon
 function main() returns ExitCode
-	// TODO: character literals are not supported in minimaxon
+	// TODO: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet
 	let orphan = CharSet from ['q', 'r']
 	print("{orphan.count()}")
 	return 0
@@ -294,7 +300,7 @@ end 'main'
 ```
 
 <!-- test: character-set-dropped-unused -->
-<!-- skip: character literals are not supported in minimaxon -->
+<!-- skip: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet -->
 ### A CharacterSet whose value is never inspected is still dropped
 Both the box and the member set it owns; a leak here exits 101.
 
@@ -304,9 +310,10 @@ compiler is right to refuse it. Binding without inspecting is what this case nee
 the drop obligation is the binding's, not the reader's.
 ```maxon
 function main() returns ExitCode
+	// TODO: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet
 	let punctuation = CharacterSet.punctuation
+	// TODO: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet
 	let blanks = CharacterSet.whitespacesAndNewlines
-	// TODO: character literals are not supported in minimaxon
 	print("ok" if punctuation.contains('!') and blanks.contains('	') else "no")
 	return 0
 end 'main'
@@ -361,10 +368,12 @@ end 'main'
 ```
 
 <!-- test: one-set-two-trims -->
+<!-- skip: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet -->
 ### One CharacterSet serves two trims
 The set is BORROWED by the scan, so trimming twice against one set neither frees it early nor twice.
 ```maxon
 function main() returns ExitCode
+	// TODO: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet
 	let d = CharacterSet.decimalDigits
 	let mixed = "12a34"
 	let head = mixed.trimStart(d)
@@ -381,14 +390,14 @@ end 'main'
 ```
 
 <!-- test: trim-crlf-is-one-cluster -->
-<!-- skip: character literals are not supported in minimaxon -->
+<!-- skip: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet -->
 ### CR+LF is ONE grapheme, so a set holding CR but not LF trims neither
 UAX#29 GB3 joins CR+LF into a single cluster, which is why the trim walks clusters rather than bytes:
 the cluster `"\r\n"` is not a member of a set seeded with a bare CR, so nothing is cut.
 ```maxon
 function main() returns ExitCode
 	let s = "\r\nx\r\n"
-	// TODO: character literals are not supported in minimaxon
+	// TODO: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet
 	let cr = CharacterSet.from(CharSet from ['\r'])
 	let r = s.trim(cr)
 	print("{r.byteLength()}")
@@ -482,6 +491,7 @@ error E2015: <fragment>:2:6: Unsupported: a declaration of the type name 'Charac
 ### A `CharacterSet` an aggregate OWNS is dropped by that aggregate's cascade
 
 <!-- test: characterset-at-a-struct-field -->
+<!-- skip: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet -->
 ### A `CharacterSet` at a struct field
 
 ⭐⭐ **WHAT A DESTRUCTOR CASCADE CALLS IS INVISIBLE TO THE MODULE SCAN.** `scanRuntimeUsage` walks the Maxon
@@ -498,6 +508,7 @@ bit reopens it.**
 (The source-side statement of the same fact lives at `MmRuntime.noteDestructorUsage`'s header.)
 ```maxon
 type Trimmer
+	// TODO: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet
 	var chars as CharacterSet
 
 	static function init(cs frozen with CharacterSet) returns Self
@@ -506,6 +517,7 @@ type Trimmer
 end 'Trimmer'
 
 function main() returns ExitCode
+	// TODO: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet
 	let trimmer = Trimmer.init(CharacterSet.whitespaces)
 	_ = trimmer
 	return 0
@@ -516,6 +528,7 @@ end 'main'
 ```
 
 <!-- test: characterset-at-a-union-payload -->
+<!-- skip: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet -->
 ### A `CharacterSet` at a union payload
 
 The union arm of the same declaration. Both arms read the drop CALLEE the cascade will emit and route it
@@ -525,10 +538,12 @@ all.
 ```maxon
 union Slot
 	empty
+	// TODO: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet
 	filled(chars CharacterSet)
 end 'Slot'
 
 function main() returns ExitCode
+	// TODO: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet
 	let s = Slot.filled(CharacterSet.whitespaces)
 	print("{s}")
 	return 0
@@ -543,6 +558,7 @@ filled
 ```
 
 <!-- test: characterset-at-a-generic-instance-field -->
+<!-- skip: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet -->
 ### A `CharacterSet` substituted into a generic instance's field
 
 The third arm, and the one that shows the three were one defect rather than three: an instance's cascade is
@@ -566,6 +582,7 @@ typealias CharacterSetBox = Box with CharacterSet
 
 function main() returns ExitCode
 	var inits = 0 as Tally
+	// TODO: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet
 	_ = CharacterSetBox.init(CharacterSet.whitespaces, inits: inits)
 	return inits - 1
 end 'main'
@@ -575,6 +592,8 @@ end 'main'
 ```
 
 <!-- test: error.characterset-undeclared-static-at-a-top-level-initializer -->
+<!-- skip: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet -->
+<!-- positions: moved -->
 ### Error: an undeclared `CharacterSet` static at a TOP-LEVEL initializer
 
 ⭐ **THE TOP-LEVEL DOOR MUST NOT KEEP A ROSTER OF ITS OWN.** `stdlib/CharacterSet.maxon` declares the
@@ -588,6 +607,7 @@ inside a function.
 ⇒ what a stdlib-declared type's undeclared static earns here is the sentence EVERY declared type's
 undeclared static earns, in the same code and words a read of it gets (E2073). Add such an arm and this case reads the roster claim instead.
 ```maxon
+// TODO: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet
 let bogus = CharacterSet.inverted()
 
 function main() returns ExitCode
@@ -599,12 +619,12 @@ error E2073: <fragment>:2:26: 'CharacterSet' has no static method named 'inverte
 ```
 
 <!-- test: characterset-from-in-a-body -->
-<!-- skip: character literals are not supported in minimaxon -->
+<!-- skip: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet -->
 ### `CharacterSet.from` — a KEYWORD-named static — in a body
 After a `.`, a keyword is a name, so `CharacterSet.from` is an ordinary static call wherever an expression stands.
 ```maxon
 function main() returns ExitCode
-	// TODO: character literals are not supported in minimaxon
+	// TODO: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet
 	let custom = CharacterSet.from(CharSet from ['a', 'e'])
 	let r = "aaxyzee".trim(custom)
 	print("{r}\n")
@@ -619,12 +639,12 @@ xyz
 ```
 
 <!-- test: error.characterset-from-at-a-top-level-initializer-is-refused -->
-<!-- skip: character literals are not supported in minimaxon -->
+<!-- skip: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet -->
 <!-- positions: moved -->
 ### Error: `CharacterSet.from` at a TOP-LEVEL initializer
 A top-level initializer calls nothing, and `CharacterSet.from` is a call.
 ```maxon
-// TODO: character literals are not supported in minimaxon
+// TODO: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet
 let custom = CharacterSet.from(CharSet from ['a', 'e'])
 
 function main() returns ExitCode

@@ -4077,9 +4077,12 @@ error E2015: <fragment>:5:11: Unsupported: a counted `for … in <lo> to|upto <h
 ```
 
 <!-- test: error.a-tuple-in-a-character-set-literal-names-the-tuple-type -->
+<!-- skip: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet -->
+<!-- positions: moved -->
 ```maxon
 function main() returns ExitCode
 	let t = (1, 2)
+	// TODO: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet
 	let cs = CharSet from [t]
 	return 0
 end 'main'

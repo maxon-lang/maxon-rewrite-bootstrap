@@ -1,0 +1,132 @@
+// The Character entries. A Character is two words, laid out as a String is, and the runtime's source, which names no
+// Character, takes one as the String of its two words. One of at most charInlineBytes bytes holds them in the words, which
+// then own nothing: the first eight in the first word, the lowest byte first, and the rest in the second above its flags
+// (stringLengthShift), with their count at charLengthShift and the bit at charInlineShift set, which no String's word sets.
+// A longer one is a String of its bytes, a literal's in the executable or a box it owns, so a Character never borrows. Only
+// this file and the backend's literal and routines (self/backend/strings.maxon, routines.maxon) know this.
+
+// charCountMask is the count of an inline Character's bytes, under its shift.
+let charCountMask = 15 as Count
+
+let byteMask = 255 as Count
+
+// bitsPerByte is how far one byte of a word is shifted from the one before it.
+let bitsPerByte = 8 as Count
+
+let charBefore = (charOrderSame - 1) as Count
+
+let charAfter = (charOrderSame + 1) as Count
+
+// The lowest lead bytes of a UTF-8 sequence of three and of four bytes, and the bits of a code point that each byte holds,
+// which charCodepoint decodes.
+let leadThree = 0xE0 as Count
+
+let leadFour = 0xF0 as Count
+
+let asciiTop = 0x80 as Count
+
+let leadTwoBits = 0x1F as Count
+
+let leadThreeBits = 0x0F as Count
+
+let leadFourBits = 0x07 as Count
+
+let continuationBits = 0x3F as Count
+
+let continuationSpan = 64 as Count
+
+// charIsInline is whether a Character holds its bytes in its two words: its String's length, the word shifted down past the
+// flags, has the inline bit at the top.
+function charIsInline(c String) returns bool
+	return (__Raw.stringLength(c) shr (charInlineShift - stringLengthShift)) != 0
+end 'charIsInline'
+
+// charLength is the count of a Character's bytes.
+function charLength(c String) returns Count
+	let length = __Raw.stringLength(c)
+	if charIsInline(c) 'inline'
+		return (length shr (charLengthShift - stringLengthShift)) and charCountMask
+	end 'inline'
+	return length
+end 'charLength'
+
+// charByte is the byte of a Character at an index below its count.
+function charByte(c String, index Count) returns Byte
+	if not charIsInline(c) 'held'
+		return __Raw.loadByte(__Raw.stringBytes(c), offset: index)
+	end 'held'
+	if index < wordBytes 'first'
+		return ((__Raw.stringBytes(c) shr byteShift(index)) and byteMask) as Byte
+	end 'first'
+	return ((__Raw.stringLength(c) shr byteShift(__Raw.wrappingSub(index, right: wordBytes))) and byteMask) as Byte
+end 'charByte'
+
+// byteShift is how far the byte at an index of a word is shifted up in it.
+function byteShift(index Count) returns Count
+	return try index * bitsPerByte otherwise panic("a byte past a word")
+end 'byteShift'
+
+// charEquals is whether two Characters have the same bytes. A cluster of few enough bytes is always held in the words, so
+// two of which one is held there are the same only where their words are.
+function charEquals(left String, right String) returns bool
+	if charIsInline(left) or charIsInline(right) 'inline'
+		return __Raw.stringBytes(left) == __Raw.stringBytes(right) and __Raw.stringLength(left) == __Raw.stringLength(right)
+	end 'inline'
+	return streq(left, right: right)
+end 'charEquals'
+
+// charCompare orders two Characters by their bytes, a shorter one that the other starts with first.
+function charCompare(left String, right String) returns Count
+	let leftLength = charLength(left)
+	let rightLength = charLength(right)
+	var at = 0 as Count
+	while at < leftLength and at < rightLength 'bytes'
+		let a = charByte(left, index: at)
+		let b = charByte(right, index: at)
+		if a != b 'differ'
+			return charBefore if a < b else charAfter
+		end 'differ'
+		at = __Raw.wrappingAdd(at, right: 1)
+	end 'bytes'
+	if leftLength < rightLength 'shorter'
+		return charBefore
+	end 'shorter'
+	if leftLength > rightLength 'longer'
+		return charAfter
+	end 'longer'
+	return charOrderSame
+end 'charCompare'
+
+// charToString is a new String of a Character's bytes.
+function charToString(c String) returns String
+	let length = charLength(c)
+	if not charIsInline(c) 'held'
+		return stringOfBytes(__Raw.stringBytes(c), length: length)
+	end 'held'
+	let room = __Raw.stringRoom(length)
+	for i in 0 upto length 'bytes'
+		__Raw.storeByte(room, offset: i, value: charByte(c, index: i))
+	end 'bytes'
+	return stringOfRoom(room, length: length)
+end 'charToString'
+
+// charCodepoint is the code point of a Character's first UTF-8 sequence.
+function charCodepoint(c String) returns Count
+	let first = charByte(c, index: 0) as Count
+	if first < asciiTop 'ascii'
+		return first
+	end 'ascii'
+	var count = 4 as Count
+	var cp = first and leadFourBits
+	if first < leadThree 'two'
+		count = 2
+		cp = first and leadTwoBits
+	end 'two' else if first < leadFour 'three'
+		count = 3
+		cp = first and leadThreeBits
+	end 'three'
+	for i in 1 upto count 'continuation'
+		cp = try cp * continuationSpan + ((charByte(c, index: i) as Count) and continuationBits) otherwise panic("a code point past a word")
+	end 'continuation'
+	return cp
+end 'charCodepoint'

@@ -1108,14 +1108,11 @@ end 'main'
 ```
 
 <!-- test: implicit-char-backed -->
-<!-- skip: character literals are not supported in minimaxon -->
+<!-- skip: minimaxon does not parse the converted source: Expected 'export', 'function', 'public', 'static' or a name but got 'N' -->
 ```maxon
 enum CharBacked
-	// TODO: character literals are not supported in minimaxon
 	'N'
-	// TODO: character literals are not supported in minimaxon
 	'S'
-	// TODO: character literals are not supported in minimaxon
 	'E'
 end 'CharBacked'
 
@@ -1134,14 +1131,10 @@ end 'main'
 ```
 
 <!-- test: explicit-char-backed -->
-<!-- skip: character literals are not supported in minimaxon -->
 ```maxon
 enum Direction
-	// TODO: character literals are not supported in minimaxon
 	North = 'n'
-	// TODO: character literals are not supported in minimaxon
 	South = 's'
-	// TODO: character literals are not supported in minimaxon
 	East = 'e'
 end 'Direction'
 

@@ -334,7 +334,7 @@ func maxonGroupFunction(owner string) string {
 
 func emitMaxonFunction(m *maxonBody, f fn) {
 	op := "Intrinsic.intr" + f.Intrinsic
-	if f.Owner != "" && f.Owner != stringOwner {
+	if f.Owner != "" && !isPrimOwner(f.Owner) {
 		ret := m.ty(f, "", f.result)
 		ps := m.params(f, "")
 		call := fmt.Sprintf("registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: %s, op: %s, name: %q, isStatic: %v, selfConv: %s, ret: %s, params: %s, listed: %v)",
@@ -383,14 +383,14 @@ func emitMaxonFunction(m *maxonBody, f fn) {
 	if f.gbound != "" {
 		m.line("ft.lists[funcList(ft, f: %[1]s)][funcIndex(ft, f: %[1]s)].bounds.push(ParamBound.make(%s, ifaceTy: b.%s))", id, generic, maxonField(f.gbound, false))
 	}
-	if f.Owner == stringOwner {
-		m.line("ft.lists[funcList(ft, f: %[1]s)][funcIndex(ft, f: %[1]s)].ownerTy = b.stringTy", id)
+	if prefix, ok := primOwners[f.Owner]; ok {
+		m.line("ft.lists[funcList(ft, f: %[1]s)][funcIndex(ft, f: %[1]s)].ownerTy = b.%[2]sTy", id, prefix)
 		m.line("ft.lists[funcList(ft, f: %[1]s)][funcIndex(ft, f: %[1]s)].isStatic = %v", id, f.Static)
 		m.line("ft.lists[funcList(ft, f: %[1]s)][funcIndex(ft, f: %[1]s)].hasReceiver = %v", id, !f.Static)
 		if f.Self != "" {
 			m.line("ft.lists[funcList(ft, f: %[1]s)][funcIndex(ft, f: %[1]s)].selfConv = %s", id, maxonConv(f.Self))
 		}
-		m.line("b.stringMethods.insert(%q, value: %s)", f.Name, id)
+		m.line("b.%sMethods.insert(%q, value: %s)", prefix, f.Name, id)
 	}
 	if f.Field != "" {
 		m.line("b.%sFunc = %s", lowerFirst(f.Field), id)

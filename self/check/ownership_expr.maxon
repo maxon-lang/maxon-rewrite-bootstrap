@@ -572,7 +572,7 @@ end 'eval'
 
 function visitExprOwn(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, consumes s OwnState) returns OwnState
 	let k = ms.tree().kindOf(e)
-	if k == ast.NodeKind.intLit or k == ast.NodeKind.floatLit or k == ast.NodeKind.boolLit or k == ast.NodeKind.byteStrLit or k == ast.NodeKind.typeQueryExpr 'literal'
+	if k == ast.NodeKind.intLit or k == ast.NodeKind.floatLit or k == ast.NodeKind.boolLit or k == ast.NodeKind.byteStrLit or k == ast.NodeKind.charLit or k == ast.NodeKind.typeQueryExpr 'literal'
 		return s
 	end 'literal'
 	if k == ast.NodeKind.selfExpr 'self'
@@ -952,7 +952,7 @@ end 'holdAcross'
 // into anything larger: holding is always right, and the walk costs more than the hold it would save.
 function runsNoCode(tree ast.Tree, e ast.NodeID) returns bool
 	let k = tree.kindOf(e)
-	return k == ast.NodeKind.intLit or k == ast.NodeKind.floatLit or k == ast.NodeKind.boolLit or k == ast.NodeKind.byteStrLit or k == ast.NodeKind.nameExpr or k == ast.NodeKind.selfExpr or k == ast.NodeKind.typeQueryExpr
+	return k == ast.NodeKind.intLit or k == ast.NodeKind.floatLit or k == ast.NodeKind.boolLit or k == ast.NodeKind.byteStrLit or k == ast.NodeKind.charLit or k == ast.NodeKind.nameExpr or k == ast.NodeKind.selfExpr or k == ast.NodeKind.typeQueryExpr
 end 'runsNoCode'
 
 // release ends the holds taken since projections had mark entries.

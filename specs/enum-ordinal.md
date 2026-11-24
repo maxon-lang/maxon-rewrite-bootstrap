@@ -147,20 +147,16 @@ end 'main'
 ### Char-Backed Enum
 
 <!-- test: enum-ordinal.char-backed -->
-<!-- skip: character literals are not supported in minimaxon -->
 ```maxon
 enum Grade
-	// TODO: character literals are not supported in minimaxon
 	a = 'A'
-	// TODO: character literals are not supported in minimaxon
 	b = 'B'
-	// TODO: character literals are not supported in minimaxon
 	c = 'C'
 end 'Grade'
 
 function main() returns ExitCode
 	let g = Grade.c
-	return g.ordinal as ExitCode
+	return try g.ordinal as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

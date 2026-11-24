@@ -145,6 +145,23 @@ function byteStringEnd(text String, at Count) returns Count
 	return n
 end 'byteStringEnd'
 
+// characterEnd is where a character literal whose text starts at at, after its opening quote, ends: past its closing one.
+function characterEnd(text String, at Count) returns Count
+	var i = at
+	let n = text.byteLength()
+	while i < n 'chars'
+		let c = text.byteAt(i)
+		if c == backslashByte 'escape'
+			i = stepOn(stepOn(i))
+		end 'escape' else if c == apostropheByte 'close'
+			return stepOn(i)
+		end 'close' else 'plain'
+			i = stepOn(i)
+		end 'plain'
+	end 'chars'
+	return n
+end 'characterEnd'
+
 // labelEnd is past the quoted label whose opening apostrophe is at at.
 function labelEnd(text String, at Count) returns Count
 	var i = stepOn(at)
@@ -315,6 +332,9 @@ export function exprEnd(t Tree, e NodeID) returns table.Option with Count
 	if k == NodeKind.byteStrLit 'byteString'
 		return table.Option.some(byteStringEnd(t.text, at: start))
 	end 'byteString'
+	if k == NodeKind.charLit 'character'
+		return table.Option.some(characterEnd(t.text, at: start))
+	end 'character'
 	if k == NodeKind.panicExpr or k == NodeKind.structLitExpr or k == NodeKind.typeQueryExpr 'opened'
 		return table.Option.some(closingEnd(t.text, at: openingAfter(t.text, at: start)))
 	end 'opened'

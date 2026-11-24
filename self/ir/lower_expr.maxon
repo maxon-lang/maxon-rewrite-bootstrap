@@ -186,6 +186,12 @@ function visitExpr(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState,
 	if k == ast.NodeKind.byteStrLit 'byteStrLit'
 		return visitByteStrLit(l, p: p, ms: ms, e: e)
 	end 'byteStrLit'
+	if k == ast.NodeKind.charLit 'charLit'
+		let d = newReg(l, kind: IrKind.kindString)
+		let instr = l.b.character(d, text: ast.charLitText(p.modules[l.mi].tree, id: e))
+		emit(l, i: instr)
+		return d
+	end 'charLit'
 	if k == ast.NodeKind.nameExpr 'nameExpr'
 		return visitNameExpr(l, p: p, ms: ms, e: e)
 	end 'nameExpr'
@@ -298,10 +304,13 @@ function isField(mutates l Lowerer, p ast.Project, e ast.NodeID) returns bool
 end 'isField'
 
 // isImmortal is whether a value is a string that lives in the executable, which is never dropped: a literal, or the name
-// of an enum or union case.
+// of an enum or union case. A character literal is too, or two words that own nothing.
 function isImmortal(mutates l Lowerer, p ast.Project, e ast.NodeID) returns bool
 	let through = ast.through(p.modules[l.mi].tree, e: e)
 	let k = p.modules[l.mi].tree.kindOf(through)
+	if k == ast.NodeKind.charLit 'character'
+		return true
+	end 'character'
 	if k == ast.NodeKind.strLit 'str'
 		return p.modules[l.mi].tree.strIsPlain(ast.strLitPartsRef(p.modules[l.mi].tree, id: through))
 	end 'str'
@@ -1297,6 +1306,9 @@ function strPart(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, p
 		end 'immortal'
 		return TextPart.make(v, owner: TextOwner.textBorrowed)
 	end 'string'
+	if t == p.builtins.characterTy 'character'
+		return characterText(l, p: p, ms: ms, v: v, spec: spec)
+	end 'character'
 	if t == p.builtins.boolTy 'bool'
 		var texts = ast.StringList.create(0)
 		texts.push("false")
@@ -1481,6 +1493,17 @@ function lowerOperator(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleSt
 		end 'ne'
 		return eq
 	end 'string'
+	if arith.operand == p.builtins.characterTy 'character'
+		let other = lowerExpr(l, p: p, ms: ms, e: right)
+		if op == "==" 'eq'
+			return characterEquals(l, left: left, right: other)
+		end 'eq'
+		if op == "!=" 'ne'
+			let eq = characterEquals(l, left: left, right: other)
+			return flip(l, boolean: eq)
+		end 'ne'
+		return characterOrder(l, op: cmpOpOfText(op), left: left, right: other)
+	end 'character'
 	let c = lowerExpr(l, p: p, ms: ms, e: right)
 	if ast.isFloatType(ms.types, reads: p.types, t: arith.operand) 'float'
 		return floatOperator(l, p: p, ms: ms, e: e, op: op, left: left, right: c)

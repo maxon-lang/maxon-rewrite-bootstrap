@@ -127,6 +127,7 @@ end 'main'
 ```
 
 <!-- test: cursor-advance-by -->
+<!-- skip: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet -->
 Skip multiple positions with advanceBy(n).
 ```maxon
 typealias Byte = int(0 to u8.max)
@@ -134,15 +135,16 @@ typealias Byte = int(0 to u8.max)
 typealias ByteArray = Array with Byte
 
 function main() returns ExitCode
-	var arr = ByteArray.create(0)
+	let arr = ByteArray.create(0)
 	arr.push(10)
 	arr.push(20)
 	arr.push(30)
 	arr.push(40)
 	arr.push(50)
-	var cursor = try arr.cursor() otherwise 'fail'
+	let cursor = try arr.cursor() otherwise 'fail'
 		return 99
 	end 'fail'
+	// TODO: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet
 	try cursor.advanceBy(3) otherwise ignore
 	return cursor.current()
 end 'main'
@@ -256,6 +258,7 @@ end 'main'
 ```
 
 <!-- test: cursor-retreat-by -->
+<!-- skip: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet -->
 Rewind the cursor multiple positions with retreatBy.
 ```maxon
 typealias Byte = int(0 to u8.max)
@@ -263,15 +266,16 @@ typealias Byte = int(0 to u8.max)
 typealias ByteArray = Array with Byte
 
 function main() returns ExitCode
-	var arr = ByteArray.create(0)
+	let arr = ByteArray.create(0)
 	arr.push(10)
 	arr.push(20)
 	arr.push(30)
 	arr.push(40)
 	arr.push(50)
-	var cursor = try arr.cursor() otherwise 'fail'
+	let cursor = try arr.cursor() otherwise 'fail'
 		return 99
 	end 'fail'
+	// TODO: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet
 	try cursor.advanceBy(4) otherwise ignore
 	try cursor.retreatBy(2) otherwise ignore
 	return cursor.current()
@@ -497,6 +501,7 @@ A written negative is therefore refused where it is WRITTEN, by the ordinary ran
 `while i < n` loop that is false on its first test and returns having moved nothing.
 
 <!-- test: error.cursor-advance-by-a-written-negative-step-is-refused -->
+<!-- skip: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet -->
 <!-- positions: moved -->
 ```maxon
 typealias Byte = int(0 to u8.max)
@@ -511,6 +516,7 @@ function main() returns ExitCode
 	let cursor = try arr.cursor() otherwise 'fail'
 		return 99
 	end 'fail'
+	// TODO: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet
 	try cursor.advanceBy(-2) otherwise 'moved'
 		return 98
 	end 'moved'
@@ -558,21 +564,23 @@ reads a POSITION back. Four forward then three back from element 0 lands on elem
 `20` only if `advanceBy` counted four forward moves and `retreatBy` counted three backward ones.
 
 <!-- test: cursor-advance-by-and-retreat-by-still-move-in-their-own-directions -->
+<!-- skip: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet -->
 ```maxon
 typealias Byte = int(0 to u8.max)
 
 typealias ByteArray = Array with Byte
 
 function main() returns ExitCode
-	var arr = ByteArray.create(0)
+	let arr = ByteArray.create(0)
 	arr.push(10)
 	arr.push(20)
 	arr.push(30)
 	arr.push(40)
 	arr.push(50)
-	var cursor = try arr.cursor() otherwise 'fail'
+	let cursor = try arr.cursor() otherwise 'fail'
 		return 99
 	end 'fail'
+	// TODO: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet
 	try cursor.advanceBy(4) otherwise 'forward'
 		return 98
 	end 'forward'

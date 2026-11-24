@@ -5980,7 +5980,6 @@ valueCmp=1
 ```
 
 <!-- test: first-class-function.character-return-through-alias -->
-<!-- skip: character literals are not supported in minimaxon -->
 `Character` is DELIBERATELY absent from `TypeResolution.builtinTypeNameTag`, and this is the case that
 turns the reason into an assertion rather than an argument. `parseTypeReference` settles
 `Character` SYNTACTICALLY, so a function typealias stores it by TAG with an EMPTY name and the
@@ -5991,7 +5990,6 @@ of the omission being justified by prose nothing checks.
 typealias CharThunk = function() returns Character
 
 function ch() returns Character
-	// TODO: character literals are not supported in minimaxon
 	return 'x'
 end 'ch'
 

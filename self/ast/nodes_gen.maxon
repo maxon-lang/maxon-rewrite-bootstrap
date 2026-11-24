@@ -62,6 +62,7 @@ export enum NodeKind
 	strLit
 	byteStrLit
 	boolLit
+	charLit
 	nameExpr
 	selfExpr
 	tupleExpr
@@ -1977,21 +1978,21 @@ export function setTryExprIgnore(mutates t Tree, id NodeID)
 	t.records[id as Count].flags = t.records[id as Count].flags or (1 as Byte)
 end 'setTryExprIgnore'
 
-export function tryExprValue(t Tree, id NodeID) returns NodeID
-	return t.blockWordAt(id, offset: 0 as Count) as NodeID
-end 'tryExprValue'
-
-export function setTryExprValue(mutates t Tree, id NodeID, value NodeID)
-	t.setBlockWordAt(id, offset: 0 as Count, value: value as diag.U32)
-end 'setTryExprValue'
-
 export function tryExprHandler(t Tree, id NodeID) returns NodeID
-	return t.blockWordAt(id, offset: 1 as Count) as NodeID
+	return t.blockWordAt(id, offset: 0 as Count) as NodeID
 end 'tryExprHandler'
 
 export function setTryExprHandler(mutates t Tree, id NodeID, value NodeID)
-	t.setBlockWordAt(id, offset: 1 as Count, value: value as diag.U32)
+	t.setBlockWordAt(id, offset: 0 as Count, value: value as diag.U32)
 end 'setTryExprHandler'
+
+export function tryExprValue(t Tree, id NodeID) returns NodeID
+	return t.blockWordAt(id, offset: 1 as Count) as NodeID
+end 'tryExprValue'
+
+export function setTryExprValue(mutates t Tree, id NodeID, value NodeID)
+	t.setBlockWordAt(id, offset: 1 as Count, value: value as diag.U32)
+end 'setTryExprValue'
 
 export function tryExprRet(t Tree, id NodeID) returns NodeID
 	return t.blockWordAt(id, offset: 2 as Count) as NodeID
@@ -2111,6 +2112,19 @@ end 'boolLitValue'
 export function setBoolLitValue(mutates t Tree, id NodeID)
 	t.records[id as Count].flags = t.records[id as Count].flags or (1 as Byte)
 end 'setBoolLitValue'
+
+export function newCharLit(mutates t Tree, start diag.U32) returns NodeID
+	let id = t.alloc(NodeKind.charLit, start: start)
+	return id
+end 'newCharLit'
+
+export function charLitPartsRef(t Tree, id NodeID) returns diag.U32
+	return t.records[id as Count].a
+end 'charLitPartsRef'
+
+export function setCharLitPartsRef(mutates t Tree, id NodeID, ref diag.U32)
+	t.records[id as Count].a = ref
+end 'setCharLitPartsRef'
 
 export function newNameExpr(mutates t Tree, start diag.U32) returns NodeID
 	let id = t.alloc(NodeKind.nameExpr, start: start)

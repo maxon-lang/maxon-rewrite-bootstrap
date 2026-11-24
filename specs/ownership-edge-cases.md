@@ -1198,13 +1198,11 @@ end 'main'
 ```
 
 <!-- test: rc-char-single-alloc-freed -->
-<!-- skip: character literals are not supported in minimaxon -->
 Single character allocated and freed in the same function scope; Character + child __ManagedMemory both cleaned up.
 ```maxon
 function main() returns ExitCode
-	// TODO: character literals are not supported in minimaxon
 	let c = 'A'
-	return c.byteLength()
+	return try c.byteLength() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1212,11 +1210,10 @@ end 'main'
 ```
 
 <!-- test: rc-char-alias-incref -->
-<!-- skip: character literals are not supported in minimaxon -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 Aliasing a character increfs it; both variables share the same Character object.
 ```maxon
 function main() returns ExitCode
-	// TODO: character literals are not supported in minimaxon
 	let a = 'X'
 	let b = a
 	return a.byteLength() + b.byteLength()
@@ -1227,15 +1224,12 @@ end 'main'
 ```
 
 <!-- test: rc-char-reassign-decrefs-old -->
-<!-- skip: character literals are not supported in minimaxon -->
 Reassigning a character var decrefs and frees the old Character (with its managed child) before storing the new one.
 ```maxon
 function main() returns ExitCode
-	// TODO: character literals are not supported in minimaxon
 	var c = 'A'
-	// TODO: character literals are not supported in minimaxon
 	c = 'B'
-	return c.byteLength()
+	return try c.byteLength() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1243,17 +1237,15 @@ end 'main'
 ```
 
 <!-- test: rc-char-return-transfers-ownership -->
-<!-- skip: character literals are not supported in minimaxon -->
 Returning a character from a function transfers ownership to the caller.
 ```maxon
 function makeChar() returns Character
-	// TODO: character literals are not supported in minimaxon
 	return 'Z'
 end 'makeChar'
 
 function main() returns ExitCode
 	let c = makeChar()
-	return c.byteLength()
+	return try c.byteLength() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1261,17 +1253,15 @@ end 'main'
 ```
 
 <!-- test: rc-char-inner-block-freed -->
-<!-- skip: character literals are not supported in minimaxon -->
 A character created in an inner if-block is freed when that block exits.
 ```maxon
 function main() returns ExitCode
 	var result = 0 as Count
 	if true 'inner'
-		// TODO: character literals are not supported in minimaxon
 		let c = 'Q'
 		result = c.byteLength()
 	end 'inner'
-	return result
+	return try result as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1435,15 +1425,11 @@ end 'main'
 ```
 
 <!-- test: rc-enum-char-rawvalue-from-function -->
-<!-- skip: character literals are not supported in minimaxon -->
 Returning an enum's char rawValue through a function must not underflow the refcount: the returned value is a raw constant, not a managed allocation, so releasing it as one would underflow.
 ```maxon
 enum Grade
-	// TODO: character literals are not supported in minimaxon
 	excellent = 'A'
-	// TODO: character literals are not supported in minimaxon
 	good = 'B'
-	// TODO: character literals are not supported in minimaxon
 	average = 'C'
 end 'Grade'
 
@@ -1454,7 +1440,6 @@ end 'getLetter'
 function main() returns ExitCode
 	let grade = Grade.good
 	let letter = getLetter(grade)
-	// TODO: character literals are not supported in minimaxon
 	if letter == 'B' 'check'
 		return 1
 	end 'check'
@@ -1583,11 +1568,9 @@ end 'main'
 ```
 
 <!-- test: rc-char-to-string-interpolation -->
-<!-- skip: character literals are not supported in minimaxon -->
 Interpolating a character into a string must not leak: the intermediate allocation from the Character must be freed.
 ```maxon
 function main() returns ExitCode
-	// TODO: character literals are not supported in minimaxon
 	let c = 'A'
 	let s = "{c}"
 	print(s)
@@ -1602,18 +1585,13 @@ A
 ```
 
 <!-- test: rc-match-char-range-cleanup -->
-<!-- skip: character literals are not supported in minimaxon -->
 Using character range patterns in a match statement must clean up all allocated Characters, the range bounds' included.
 ```maxon
 function main() returns ExitCode
-	// TODO: character literals are not supported in minimaxon
 	let c = 'G'
 	match c 'classify'
-		// TODO: character literals are not supported in minimaxon
 		'a' to 'z' then return 1
-		// TODO: character literals are not supported in minimaxon
 		'A' to 'Z' then return 2
-		// TODO: character literals are not supported in minimaxon
 		'0' to '9' then return 3
 		default then return 0
 	end 'classify'
@@ -1645,13 +1623,10 @@ end 'main'
 ```
 
 <!-- test: rc-char-backed-enum-compare -->
-<!-- skip: character literals are not supported in minimaxon -->
 Comparing two char-backed enum values must not leak: the Character allocations for the enum case values must be freed.
 ```maxon
 enum Escape
-	// TODO: character literals are not supported in minimaxon
 	newline = '\n'
-	// TODO: character literals are not supported in minimaxon
 	tab = '\t'
 end 'Escape'
 

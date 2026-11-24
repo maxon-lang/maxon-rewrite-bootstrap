@@ -14517,7 +14517,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-fa23-p2-swap-field -->
-<!-- skip: character literals are not supported in minimaxon -->
+<!-- skip: minimaxon does not parse the converted source: Expected ')' but got 'x1' -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `p2-swap-field` of redteamFA23.hand_fa23, in capmodel `reggio/REPORTFA23.txt`.
 
 ```maxon
@@ -14555,7 +14555,6 @@ end 'mkUb'
 
 function main() returns ExitCode
 	let w = Wu.create(mkUb(), n: 0)
-	// TODO: character literals are not supported in minimaxon
 	match exchange(w.u, value: Ub.u0 'x1')
 		u0 then break
 		u1(o) then takeB(o)

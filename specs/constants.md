@@ -449,12 +449,9 @@ end 'main'
 ```
 
 <!-- test: char-backed -->
-<!-- skip: character literals are not supported in minimaxon -->
 ```maxon
 enum Escape
-	// TODO: character literals are not supported in minimaxon
 	newline = '\n'
-	// TODO: character literals are not supported in minimaxon
 	tab = '\t'
 end 'Escape'
 
@@ -723,18 +720,14 @@ end 'main'
 ```
 
 <!-- test: char-comparison -->
-<!-- skip: character literals are not supported in minimaxon -->
 Character-backed enum can be compared with character values.
 ```maxon
 enum Escape
-	// TODO: character literals are not supported in minimaxon
 	newline = '\n'
-	// TODO: character literals are not supported in minimaxon
 	tab = '\t'
 end 'Escape'
 
 function main() returns ExitCode
-	// TODO: character literals are not supported in minimaxon
 	let ch = '\n'
 	if ch == Escape.newline 'check'
 		return 1
@@ -892,14 +885,10 @@ Mars
 ```
 
 <!-- test: explicit-char-backed-rawvalue -->
-<!-- skip: character literals are not supported in minimaxon -->
 ```maxon
 enum CardSuit
-	// TODO: character literals are not supported in minimaxon
 	Hearts = 'H'
-	// TODO: character literals are not supported in minimaxon
 	Diamonds = 'D'
-	// TODO: character literals are not supported in minimaxon
 	Spades = 'S'
 end 'CardSuit'
 
@@ -1048,14 +1037,10 @@ end 'main'
 ```
 
 <!-- test: char-rawvalue-function-param -->
-<!-- skip: character literals are not supported in minimaxon -->
 ```maxon
 enum Grade
-	// TODO: character literals are not supported in minimaxon
 	excellent = 'A'
-	// TODO: character literals are not supported in minimaxon
 	good = 'B'
-	// TODO: character literals are not supported in minimaxon
 	average = 'C'
 end 'Grade'
 
@@ -1066,7 +1051,6 @@ end 'getLetter'
 function main() returns ExitCode
 	let grade = Grade.good
 	let letter = getLetter(grade)
-	// TODO: character literals are not supported in minimaxon
 	if letter == 'B' 'check'
 		return 1
 	end 'check'
@@ -1213,14 +1197,10 @@ heavy
 ```
 
 <!-- test: name-char-backed -->
-<!-- skip: character literals are not supported in minimaxon -->
 ```maxon
 enum CardSuit
-	// TODO: character literals are not supported in minimaxon
 	Hearts = 'H'
-	// TODO: character literals are not supported in minimaxon
 	Diamonds = 'D'
-	// TODO: character literals are not supported in minimaxon
 	Spades = 'S'
 end 'CardSuit'
 
@@ -1349,19 +1329,14 @@ end 'main'
 ```
 
 <!-- test: fromRawValue-char-backed -->
-<!-- skip: character literals are not supported in minimaxon -->
 ```maxon
 enum Grade
-	// TODO: character literals are not supported in minimaxon
 	excellent = 'A'
-	// TODO: character literals are not supported in minimaxon
 	good = 'B'
-	// TODO: character literals are not supported in minimaxon
 	average = 'C'
 end 'Grade'
 
 function main() returns ExitCode
-	// TODO: character literals are not supported in minimaxon
 	let g = try Grade.fromRawValue('B') otherwise Grade.average
 	if g == Grade.good 'check'
 		return 1

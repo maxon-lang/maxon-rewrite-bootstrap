@@ -4239,7 +4239,6 @@ error E3005: specs/interface-dispatch/error.a-witness-argument-of-another-alias-
 ```
 
 <!-- test: interface-requirement-returning-a-character-through-two-conformers -->
-<!-- skip: character literals are not supported in minimaxon -->
 A requirement returning `Character` hands each conformer's grapheme back through the interface-typed value,
 owned by the caller exactly as a direct call's result is.
 ```maxon
@@ -4251,11 +4250,11 @@ type Letter implements Glyphs
 	let ch as Character
 
 	static function create(ch Character) returns Self
-		return Self{ch: ch}
+		return Self{ch: ch.clone()}
 	end 'create'
 
 	function glyph() returns Character
-		return self.ch
+		return self.ch.clone()
 	end 'glyph'
 end 'Letter'
 
@@ -4263,11 +4262,11 @@ type Mark implements Glyphs
 	let ch as Character
 
 	static function create(ch Character) returns Self
-		return Self{ch: ch}
+		return Self{ch: ch.clone()}
 	end 'create'
 
 	function glyph() returns Character
-		return self.ch
+		return self.ch.clone()
 	end 'glyph'
 end 'Mark'
 
@@ -4280,8 +4279,7 @@ function codeOf(g Glyphs) returns ExitCode
 end 'codeOf'
 
 function main() returns ExitCode
-	// TODO: character literals are not supported in minimaxon
-	return codeOf(Letter.create('A')) + codeOf(Mark.create('B'))
+	return try codeOf(Letter.create('A')) + codeOf(Mark.create('B')) otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

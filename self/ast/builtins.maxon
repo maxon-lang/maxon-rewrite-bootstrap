@@ -216,6 +216,7 @@ export function initBuiltins(mutates tt TypeSlot, reads TypeTable, mutates ft Fu
 	var funcMap = FuncIDMap.new()
 	b.boolTy = allocType(tt, module: diag.stdlibID, e: TypeEntry.make(TypeKind.primBool, name: "bool"))
 	b.stringTy = allocType(tt, module: diag.stdlibID, e: TypeEntry.make(TypeKind.primString, name: "String"))
+	b.characterTy = allocType(tt, module: diag.stdlibID, e: TypeEntry.make(TypeKind.primCharacter, name: "Character"))
 	b.voidTy = allocType(tt, module: diag.stdlibID, e: TypeEntry.make(TypeKind.primVoid, name: "void"))
 	b.neverTy = allocType(tt, module: diag.stdlibID, e: TypeEntry.make(TypeKind.primNever, name: "never"))
 	b.anon64Ty = internIntRange(tt, reads: reads, aliasName: "", minVal: I128.i64Min(), maxVal: I128.i64Max(), inferred: false)
@@ -231,3 +232,15 @@ export function initBuiltins(mutates tt TypeSlot, reads TypeTable, mutates ft Fu
 	b.stdlibFuncMap = funcMap
 	return b
 end 'initBuiltins'
+
+// primitiveMethod is the built-in method of that name of a primitive whose methods the table gives, String or Character, or none:
+// such a type has no declaration to hold them.
+export function primitiveMethod(b Builtins, t TypeID, name String) returns table.Option with FuncID
+	if t == b.stringTy 'string'
+		return b.stringMethods.get(name)
+	end 'string'
+	if t == b.characterTy 'character'
+		return b.characterMethods.get(name)
+	end 'character'
+	return table.Option.none
+end 'primitiveMethod'

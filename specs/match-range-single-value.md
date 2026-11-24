@@ -51,14 +51,11 @@ error E2027: specs/match-range-single-value/error.int-upto-by-one.maxon:5:3: ran
 ```
 
 <!-- test: error.char-to-same -->
-<!-- skip: character literals are not supported in minimaxon -->
-<!-- positions: moved -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 ```maxon
 function main() returns ExitCode
-	// TODO: character literals are not supported in minimaxon
 	let c = 'a'
 	match c 'eval'
-		// TODO: character literals are not supported in minimaxon
 		'a' to 'a' then return 0
 		default then return 1
 	end 'eval'
@@ -69,14 +66,11 @@ error E2027: specs/match-range-single-value/error.char-to-same.maxon:5:3: range 
 ```
 
 <!-- test: error.char-upto-adjacent -->
-<!-- skip: character literals are not supported in minimaxon -->
-<!-- positions: moved -->
+<!-- skip: language difference: style and lint rules are not checked, since the generated code does not depend on them -->
 ```maxon
 function main() returns ExitCode
-	// TODO: character literals are not supported in minimaxon
 	let c = 'a'
 	match c 'eval'
-		// TODO: character literals are not supported in minimaxon
 		'a' upto 'b' then return 0
 		default then return 1
 	end 'eval'

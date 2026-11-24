@@ -927,7 +927,7 @@ end 'requireNative'
 // records and unions being walked, so a type that contains itself through an array ends.
 function holdsInterpreterOnly(p ast.Project, mutates ms ast.ModuleState, t ast.TypeID, mutates visiting ast.TypeIDList) returns bool
 	let kind = ast.typeKind(ms.types, reads: p.types, t: t)
-	if kind == ast.TypeKind.primBool or kind == ast.TypeKind.primString or kind == ast.TypeKind.intRange or kind == ast.TypeKind.constInt or kind == ast.TypeKind.floatRange or kind == ast.TypeKind.constFloat or kind == ast.TypeKind.enumTy 'plain'
+	if kind == ast.TypeKind.primBool or kind == ast.TypeKind.primString or kind == ast.TypeKind.primCharacter or kind == ast.TypeKind.intRange or kind == ast.TypeKind.constInt or kind == ast.TypeKind.floatRange or kind == ast.TypeKind.constFloat or kind == ast.TypeKind.enumTy 'plain'
 		return false
 	end 'plain'
 	if kind == ast.TypeKind.builtinHandle or kind == ast.TypeKind.builtinPromise 'handle'

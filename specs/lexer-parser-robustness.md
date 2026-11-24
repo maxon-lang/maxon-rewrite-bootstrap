@@ -263,14 +263,12 @@ error E2001: specs/lexer-parser-robustness/mid-keyword-retur.maxon:3:2: unexpect
 ```
 
 <!-- test: mid-keyword-els -->
-<!-- skip: character literals are not supported in minimaxon -->
-<!-- positions: moved -->
+<!-- skip: differing error code: syntax error -->
 ```maxon
 function main() returns ExitCode
 	var x = 0 as ExitCode
 	if true 'p'
 		x = 1
-	// TODO: character literals are not supported in minimaxon
 	els 'p'
 		x = 2
 	end 'p'
@@ -282,11 +280,9 @@ error E2001: specs/lexer-parser-robustness/mid-keyword-els.maxon:6:2: unexpected
 ```
 
 <!-- test: mid-keyword-whil -->
-<!-- skip: character literals are not supported in minimaxon -->
-<!-- positions: moved -->
+<!-- skip: differing error code: syntax error -->
 ```maxon
 function main() returns ExitCode
-	// TODO: character literals are not supported in minimaxon
 	whil true 'l'
 		break 'l'
 	end 'l'
@@ -298,11 +294,9 @@ error E2001: specs/lexer-parser-robustness/mid-keyword-whil.maxon:3:2: unexpecte
 ```
 
 <!-- test: mid-keyword-matc -->
-<!-- skip: character literals are not supported in minimaxon -->
-<!-- positions: moved -->
+<!-- skip: differing error code: syntax error -->
 ```maxon
 function main() returns ExitCode
-	// TODO: character literals are not supported in minimaxon
 	matc 1 'm'
 	default gives 0
 	end 'm'
@@ -791,11 +785,8 @@ error E1004: specs/lexer-parser-robustness/bad-hex-escape-string.maxon:3:10: Inv
 ```
 
 <!-- test: bad-hex-escape-char -->
-<!-- skip: character literals are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
 function main() returns ExitCode
-	// TODO: character literals are not supported in minimaxon
 	let x = '\xZZ'
 	return 0
 end 'main'

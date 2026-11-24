@@ -5028,7 +5028,6 @@ end 'main'
 ```
 
 <!-- test: error.create-with-capacity-zeroed-cannot-hold-a-tag-set-without-zero-at-any-backing -->
-<!-- skip: character literals are not supported in minimaxon -->
 <!-- positions: moved -->
 The slot is the tag, and the test is whether 0 is one of the declared tags. A tag set that straddles 0 without containing it, an all-negative one, a float backing without `0.0` and a character backing without `'\0'` each exclude it, and each function below is refused on its own.
 ```maxon
@@ -5048,9 +5047,7 @@ enum Ratio
 end 'Ratio'
 
 enum Mark
-	// TODO: character literals are not supported in minimaxon
 	first = 'a'
-	// TODO: character literals are not supported in minimaxon
 	second = 'b'
 end 'Mark'
 
@@ -5094,7 +5091,6 @@ error E3106: <fragment>:46:11: 'create(n)' cannot publish zeroed slots of 'Mark'
 ```
 
 <!-- test: create-with-capacity-zeroed-holds-an-enum-with-a-zero-tag-at-any-backing -->
-<!-- skip: character literals are not supported in minimaxon -->
 A tag of 0 is a case whichever way it arrives: an auto-increment that lands on 0, a float `0.0`, a character `'\0'`, and a struct or function backing, whose tags are declaration indices. A zeroed slot reads as the case that owns 0.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -5127,9 +5123,7 @@ enum Ratio
 end 'Ratio'
 
 enum Mark
-	// TODO: character literals are not supported in minimaxon
 	nul = '\0'
-	// TODO: character literals are not supported in minimaxon
 	letter = 'a'
 end 'Mark'
 

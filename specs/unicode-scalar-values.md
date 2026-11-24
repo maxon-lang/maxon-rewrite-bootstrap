@@ -26,13 +26,10 @@ can name a surrogate as a number; the places that turn a number into text refuse
 ## Tests
 
 <!-- test: error.surrogate-escape-in-a-character-literal -->
-<!-- skip: character literals are not supported in minimaxon -->
-<!-- positions: moved -->
 ### A character literal cannot spell a surrogate
 
 ```maxon
 function main() returns ExitCode
-	// TODO: character literals are not supported in minimaxon
 	let c = '\uD800'
 	return c.byteLength()
 end 'main'
@@ -69,7 +66,6 @@ error E1004: <fragment>:4:14: Malformed UTF-8 in string interpolation: a surroga
 ```
 
 <!-- test: the-scalar-values-beside-the-surrogate-block-are-literals -->
-<!-- skip: character literals are not supported in minimaxon -->
 ### U+D7FF and U+E000 are the last and first scalar values beside the block
 
 ```maxon
@@ -79,11 +75,8 @@ function show(label String, c Character)
 end 'show'
 
 function main() returns ExitCode
-	// TODO: character literals are not supported in minimaxon
 	show("last before", c: '\uD7FF')
-	// TODO: character literals are not supported in minimaxon
 	show("first after", c: '\uE000')
-	// TODO: character literals are not supported in minimaxon
 	show("last", c: '😀')
 	return 0
 end 'main'
@@ -98,7 +91,7 @@ last: 128512 4 true
 ```
 
 <!-- test: advance-by-steps-over-the-surrogate-block -->
-<!-- skip: character literals are not supported in minimaxon -->
+<!-- skip: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet -->
 ### `advanceBy` counts scalar values, in either direction
 
 ```maxon
@@ -108,25 +101,28 @@ function show(label String, c Character)
 end 'show'
 
 function main() returns ExitCode
-	// TODO: character literals are not supported in minimaxon
 	let beforeBlock = '\uD7FF'
-	// TODO: character literals are not supported in minimaxon
 	let twoBefore = '\uD7FE'
-	// TODO: character literals are not supported in minimaxon
 	let afterBlock = '\uE000'
-	// TODO: character literals are not supported in minimaxon
 	let twoAfter = '\uE001'
-	// TODO: character literals are not supported in minimaxon
 	let first = '\0'
+	// TODO: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet
 	show("D7FF +1", c: beforeBlock.advanceBy(1))
+	// TODO: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet
 	show("D7FF +2", c: beforeBlock.advanceBy(2))
+	// TODO: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet
 	show("D7FE +2", c: twoBefore.advanceBy(2))
+	// TODO: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet
 	show("E000 -1", c: afterBlock.advanceBy(-1))
+	// TODO: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet
 	show("E001 -2", c: twoAfter.advanceBy(-2))
+	// TODO: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet
 	show("0 +55296", c: first.advanceBy(55296))
+	// TODO: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet
 	show("E000 -55296", c: afterBlock.advanceBy(-55296))
+	// TODO: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet
 	show("D7FF +0", c: beforeBlock.advanceBy(0))
-	// TODO: character literals are not supported in minimaxon
+	// TODO: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet
 	show("a +1", c: 'a'.advanceBy(1))
 	return 0
 end 'main'
@@ -147,24 +143,20 @@ a +1: 98 1 true
 ```
 
 <!-- test: a-character-range-skips-the-surrogate-block -->
-<!-- skip: character literals are not supported in minimaxon -->
 ### A character range over the block visits scalar values only
 
 ```maxon
 function main() returns ExitCode
-	// TODO: character literals are not supported in minimaxon
 	for c in '\uD7FE' to '\uE001' 'closed'
 		print("{c.codepoint()} ")
 	end 'closed'
 	print("\n")
-	// TODO: character literals are not supported in minimaxon
 	for c in '\uD7FF' upto '\uE001' 'halfOpen'
 		print("{c.codepoint()} ")
 	end 'halfOpen'
 	print("\n")
 	var trips = 0 as Count
 	var wellFormed = true
-	// TODO: character literals are not supported in minimaxon
 	for c in '\u0000' to '\uFFFF' 'basicPlane'
 		trips = trips + 1
 		if not utf8IsWellFormed(c.toString().toByteArray()) 'malformed'

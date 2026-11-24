@@ -22,6 +22,7 @@ type primType struct {
 var primTypes = []primType{
 	{"Bool", "b.boolTy"},
 	{"String", "b.stringTy"},
+	{"Character", "b.characterTy"},
 	{"Void", "b.voidTy"},
 	{"Count", "b.countTy"},
 	{"ElementIndex", "b.elementIndexTy"},
@@ -29,6 +30,7 @@ var primTypes = []primType{
 	{"Byte", "b.byteTy"},
 	{"FullRangeInt", "b.fullRangeIntTy"},
 	{"Codepoint", "b.codepointTy"},
+	{"AsciiValue", "b.asciiValueTy"},
 	{"CodeUnit16", "b.codeUnit16Ty"},
 	{"ExitCode", "b.exitCodeTy"},
 	{"Milliseconds", "b.millisecondsTy"},
@@ -67,6 +69,8 @@ var stdAliases = []stdAlias{
 	{Name: "Byte", Field: "byteTy", Lo: "I128.zero()", Hi: "I128.fromCount(255 as Count)"},
 	{Name: "FullRangeFloat", Field: "fullRangeFloatTy", Lo: "floatNegate(floatMaxBits)", Hi: "floatMaxBits", Float: true},
 	{Name: "Codepoint", Field: "codepointTy", Lo: "I128.zero()", Hi: "I128.fromCount(1114111 as Count)"},
+	// AsciiValue is maxon's (stdlib/Character.maxon): what Character.asciiValue gives.
+	{Name: "AsciiValue", Field: "asciiValueTy", Lo: "I128.zero()", Hi: "I128.fromCount(127 as Count)"},
 	{Name: "CodeUnit16", Field: "codeUnit16Ty", Lo: "I128.zero()", Hi: "I128.fromCount(65535 as Count)"},
 	{Name: "Milliseconds", Field: "millisecondsTy", Lo: "I128.zero()", Hi: "I128.u64Max()"},
 	// OrderedWord is the word maxon's library splits into bytes and assembles from them (maxon's stdlib/Builtins.maxon),
@@ -89,6 +93,7 @@ var extraFields = []extraField{
 	{"anon64Ty", "TypeID", "noType"},
 	{"fullRangeFloatTy", "TypeID", "noType"},
 	{"stringMethods", "FuncIDMap", "FuncIDMap.new()"},
+	{"characterMethods", "FuncIDMap", "FuncIDMap.new()"},
 	{"stdlibTypeMap", "TypeIDMap", "TypeIDMap.new()"},
 	{"stdlibFuncMap", "FuncIDMap", "FuncIDMap.new()"},
 }
@@ -397,6 +402,10 @@ var enumTypes = []enumType{
 	{Key: "DebugDisposition", Name: "DebugDisposition", Cases: []enumCase{
 		{"handled", "DispositionHandled"},
 		{"unhandled", "DispositionUnhandled"},
+	}},
+	// CharacterError is maxon's (stdlib/Character.maxon): what Character.asciiValue throws for a character that is no ASCII byte.
+	{Key: "CharacterError", Name: "CharacterError", Cases: []enumCase{
+		{"notAscii", "ErrorCharacterNotAscii"},
 	}},
 	{Key: "StringError", Name: "StringError", Cases: []enumCase{
 		{"notFound", "ErrorStringNotFound"},
@@ -755,6 +764,16 @@ var tableFunctions = []function{
 	{Owner: "String", Name: "trimEnd", Result: "String", Lends: true, Intrinsic: "StringTrimEnd"},
 	{Owner: "String", Name: "toLower", Result: "String", Intrinsic: "StringToLower"},
 	{Owner: "String", Name: "toUpper", Result: "String", Intrinsic: "StringToUpper"},
+	// A Character's members that read its bytes, which are maxon's: equality and order are of the bytes, and codepoint decodes the
+	// first code point of the cluster.
+	{Owner: "Character", Name: "toString", Result: "String", Intrinsic: "CharacterToString"},
+	{Owner: "Character", Name: "byteLength", Result: "Count", Intrinsic: "CharacterByteLength"},
+	// bytes and codepoints are views of a String of the character's bytes, as maxon's are of its toString().
+	{Owner: "Character", Name: "bytes", Result: "ByteView", Intrinsic: "CharacterBytes"},
+	{Owner: "Character", Name: "codepoints", Result: "CodepointView", Intrinsic: "CharacterCodepoints"},
+	{Owner: "Character", Name: "codepoint", Result: "Codepoint", Intrinsic: "CharacterCodepoint"},
+	{Owner: "Character", Name: "asciiValue", Result: "AsciiValue", Throws: "CharacterError", Intrinsic: "CharacterAsciiValue"},
+	{Owner: "Character", Name: "equals", Params: []string{"other Character"}, Result: "Bool", Intrinsic: "CharacterEquals"},
 	{Owner: "StringIndex", Name: "charIndex", Result: "Count", Intrinsic: "StringIndexCharIndex"},
 	{Owner: "StringIndex", Name: "bytePos", Result: "Count", Intrinsic: "StringIndexBytePos"},
 
@@ -977,6 +996,12 @@ var entries = []entry{
 	{"FmtFixed", "rt.fmt.fixed", "Runtime", roleCall, "(magnitude String, negative, precision) -> String: the exact decimal rounded to the places"},
 	{"Streq", "rt.streq", "Runtime", roleCall, "(String, String) -> bool"},
 	{"StrLen", "rt.str.len", "Runtime", roleCall, "(String) -> count of bytes"},
+	// A Character is two words laid out as a String is (runtime/characters.maxon); these are the entries that read its bytes.
+	{"CharEquals", "rt.char.equals", "Runtime", roleCall, "(Character, Character) -> whether they have the same bytes"},
+	{"CharCompare", "rt.char.compare", "Runtime", roleCall, "(Character, Character) -> 0, 1 or 2 where the first's bytes are before, the same as or after the second's"},
+	{"CharLength", "rt.char.length", "Runtime", roleCall, "(Character) -> count of its bytes"},
+	{"CharToString", "rt.char.toString", "Runtime", roleCall, "(Character) -> a new String of its bytes"},
+	{"CharCodepoint", "rt.char.codepoint", "Runtime", roleCall, "(Character) -> its first code point"},
 	{"StrByteAt", "rt.str.byteAt", "Runtime", roleCall, "(String, index) -> byte"},
 	{"StrView", "rt.str.view", "Runtime", roleCall, "(String, from, length) -> String: a view of the length bytes from from, which owns none and has the String's ASCII bit, the bounds checked before; the backend writes it in place"},
 	{"StrCount", "rt.str.count", "Runtime", roleCall, "(String) -> count of its grapheme clusters"},
@@ -1183,6 +1208,12 @@ var runtimeFunctions = []runtimeFunction{
 	{"FmtFixed", "formatFixed(magnitude String, negative Bool, precision Count) String"},
 	{"Streq", "streq(left String, right String) Bool"},
 	{"StrLen", "stringLength(text String) Count"},
+	// The runtime's source names no Character, so its entries take one as the String of its two words.
+	{"CharEquals", "charEquals(left String, right String) Bool"},
+	{"CharCompare", "charCompare(left String, right String) Count"},
+	{"CharLength", "charLength(c String) Count"},
+	{"CharToString", "charToString(c String) String"},
+	{"CharCodepoint", "charCodepoint(c String) Count"},
 	{"StrByteAt", "stringByteAt(text String, index Count) Byte"},
 	{"StrCount", "stringCount(text String) Count"},
 	{"StrGraphemeIndex", "stringGraphemeIndex(text String, bytePos Count) Count"},

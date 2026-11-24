@@ -50,8 +50,6 @@ end 'main'
 ```
 
 <!-- test: open-brace-escape-refused-in-character-literal -->
-<!-- skip: character literals are not supported in minimaxon -->
-<!-- positions: moved -->
 ### `'\{'` is not an escape in a character literal
 
 Which escapes a quoted body accepts is a per-kind fact: an escape table shared by every quoted body
@@ -64,7 +62,6 @@ under test: a character `{` where there should be a refusal.
 
 ```maxon
 function main() returns ExitCode
-	// TODO: character literals are not supported in minimaxon
 	let c = '\{'
 	print("[{c}]\n")
 	return 0
@@ -75,8 +72,6 @@ error E2016: <fragment>:3:10: invalid character literal: unknown escape sequence
 ```
 
 <!-- test: close-brace-escape-refused-in-character-literal -->
-<!-- skip: character literals are not supported in minimaxon -->
-<!-- positions: moved -->
 ### `'\}'` is not an escape in a character literal either
 
 The closing brace rides the same table row as the opening one, so it has to be pinned with it —
@@ -84,7 +79,6 @@ otherwise a later edit could restore half the rule and stay green.
 
 ```maxon
 function main() returns ExitCode
-	// TODO: character literals are not supported in minimaxon
 	let c = '\}'
 	print("[{c}]\n")
 	return 0
@@ -113,7 +107,6 @@ error E2015: <fragment>:3:10: Unsupported: the escape sequence '\{' in a byte st
 ```
 
 <!-- test: unescaped-brace-is-an-ordinary-character -->
-<!-- skip: character literals are not supported in minimaxon -->
 ### A bare `{` needs no escape where nothing interpolates
 
 The other half of the rule, and the reason refusing the escape costs an author nothing: the brace the
@@ -121,9 +114,7 @@ escape would have produced is already writable directly in both forms.
 
 ```maxon
 function main() returns ExitCode
-	// TODO: character literals are not supported in minimaxon
 	let open = '{'
-	// TODO: character literals are not supported in minimaxon
 	let close = '}'
 	let blob = b"a{b}c"
 	print("[{open}{close}] {blob.count()}\n")

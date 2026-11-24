@@ -210,3 +210,5 @@ tiedPromiseExit	ErrTiedPromise	this exit leaves '{name}' neither awaited nor can
 promiseDroppedNamed	ErrPromiseDropped	this drops '{name}', which was never awaited, cancelled, stored or returned: `await {name}`, call `{name}.cancel()`, store it or return it
 promiseDroppedUnnamed	ErrPromiseDropped	this drops a promise that was never awaited, cancelled, stored or returned: `await` it, call `.cancel()` on it, store it or return it
 asyncOfIntrinsic	ErrUnsupportedFeature	`async {callee}(…)` — `{callee}` is a runtime intrinsic the compiler lowers in place, so it names no function a green thread could start at; call it directly, or spawn a function that calls it
+invalidCharacterLiteral	ErrInvalidCharacterLiteral	invalid character literal: {reason}
+invalidDigitEscape	ErrInvalidEscape	Invalid {form} escape '{text}': expected {digits} hex digits in {literal}

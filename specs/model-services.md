@@ -6854,7 +6854,6 @@ error E3214: <fragment>:47:24: cannot hand 'h' to the service it is sent to: 'h'
 
 <!-- test: model-hand-an-p1-swap-state-plain-payload -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: character literals are not supported in minimaxon -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `p1-swap-state-plain-payload` of redteamAN.hand_an3, in capmodel `reggio/REPORTRTAN.txt`.
 
 ```maxon
@@ -6883,7 +6882,6 @@ type Ks2
 	end 'create'
 
 	export function go()
-		// TODO: character literals are not supported in minimaxon
 		match exchange(self.u, value: UP.none 'x1')
 			none then break
 			have(t) then self.pk = t

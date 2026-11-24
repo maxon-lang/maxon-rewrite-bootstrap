@@ -3964,8 +3964,22 @@ Extended_Pictographic values of Unicode 16.0.0, which `internal/textgen` writes 
 directory to `runtime/unicode_gen.maxon` and `self/interp/unicode_gen.maxon`: a string of the first code point of each run
 of one class and its class, searched by halves, with the Hangul syllables computed from their place in the block. Maxon
 joins only the marks in a few ranges; here every Extend, SpacingMark and Prepend code point joins. The Indic conjunct rule
-GB9c is not implemented. `StringIndex` has no `equals` or `compare`; `String` has no `split`, `hash`, `charAt` or
-`Character` yet.
+GB9c is not implemented. `StringIndex` has no `equals` or `compare`; `String` has no `split`, `hash` or `charAt` yet.
+
+A `Character` is one grapheme cluster, written `'A'`, `'é'`, `'🎉'`, `'\''` or with a string's escapes but for `\{` and `\}`; a literal
+that is not one cluster, or has an escape it does not know, is `E2016`, and a malformed or surrogate escape is `E1004`. The
+quotes are read as maxon's one token is, by place: where an operand stands, a quoted word is a character, and where a label or
+a test name does, it is that (`try 'x'.m()` calls a method of a character, as a `.` after the quote says, and `try 'x'` opens
+a block). A literal that is the whole of an operand beside an integer is its code point, a constant (`cp - '0'`, `cp == '-'`,
+`'A' + 1` is 66, and a `match` arm on an integer), where its cluster is one code point; a Character that is no literal never
+converts, and `'a' == "a"` is `E3005`. Characters are equal and ordered by their bytes, interpolate as their text (`{c:q}` in
+single quotes), match by literal and by range (`'a' to 'z'`), and have `toString()`, `byteLength()`, `codepoint()`,
+`asciiValue()` (`CharacterError.notAscii`), `equals`, and `bytes()` and `codepoints()`, views of a String of its bytes as maxon's are
+of its `toString()`; `hash`, `advanceBy`, `fromCodepoint`, `CharacterSet` and `Ascii` are not there yet. A Character is two words, laid out as a String is: one of at most 15
+bytes holds them in its two words, the first eight in the first and the rest above the flags of the second, with their count
+and a bit no String's word sets, so it owns nothing and its copy and drop are the two words; a longer one is a String of its
+bytes, a literal's in the executable's data or a box it owns. Only `runtime/characters.maxon`, whose entries read one, and the
+backend's literal and routines know this.
 
 `bytes()`, `codepoints()` and `utf16()` give maxon's views `ByteView`, `CodepointView` and `UTF16View`, whose elements are
 a `Byte`, a `Codepoint` (`int(0 to 1114111)`) and a `CodeUnit16` (`int(0 to 65535)`). A view has `count()` and walks with
@@ -4433,6 +4447,12 @@ the checker reports where Maxon's parser does, as it needs the type of the value
 
 ### Where it differs from Maxon
 
+- **A Character is held in two words.** maxon's `Character` is a record that owns a heap copy of its bytes, so each one
+  taken from a String or written as a literal allocates. Here it is two words, laid out as a String is: a cluster of at most
+  15 bytes, which is nearly every one, is held in the words themselves and owns nothing, and a longer one is a String of its
+  bytes (see "Text"). What a program sees is maxon's: the same equality, order, copies and drops. A literal beside an integer
+  is a constant of its code point, which any integer type that holds it takes, where maxon's is a `Codepoint`: a parameter of
+  another alias refuses `'a' + 1` there.
 - **More commands run at background priority.** Maxon lowers only `spec-test`, which puts itself at background priority
   (`Process.enterBackgroundPriority()`) once its worker branch is past, so its workers and test binaries inherit it.
   minimaxon does so for `test`, `selftest`, `fuzz`, `build` and `check` as well, and its gate lowers itself the same way.
@@ -4606,8 +4626,7 @@ the checker reports where Maxon's parser does, as it needs the type of the value
 - `for` loops (see "Primitives"): a `Map`'s entries are lent, not copied, as a tuple of two borrows (see "Tuples"), and the
   map is held while the body runs, so a body that changes it is `E3186` where maxon re-reads it; so is a `List` or a
   `String` that the body changes, where maxon's loop over a list ends when it finds no next node. A loop over a `String`
-  gives each grapheme cluster as a `String`, a view of the walked String's bytes, where maxon's gives a `Character`, which
-  minimaxon does not have. `E.allCases`
+  gives each grapheme cluster as a `String`, a view of the walked String's bytes, where maxon's gives a `Character`. `E.allCases`
   and `E.allCaseNames` are a new array each time they are read, since an array has one owner, and `Shape.unionCases` is not
   supported. Not supported, and skipped by the converter: a loop over `graphemes()`, `characters()`, `split()` or `lines()`. maxon's `for (iter, x) in xs.withIterator()`, whose iterator the
   body asks for `iter.index()`, is `for (i, x) in xs.enumerated()` here, as in Hylo and Swift: the loop binds the index
@@ -4730,8 +4749,7 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   a `throws` clause, a `where` or `implements` clause and a typealias's target, which minimaxon still refuses. The spec tests
   that expect `E3167` on a result are skipped with that reason.
 - A format specifier (see "Format specifiers") reads the integers, floats and Strings, and leaves any other value as it is:
-  there is no `FormattedStringable`, so `{c:verbose}` of a type of the program is not interpolated, and no `Character` to
-  quote. An empty specifier (`{x:}`) is no specifier.
+  there is no `FormattedStringable`, so `{c:verbose}` of a type of the program is not interpolated. An empty specifier (`{x:}`) is no specifier.
 - A `return` converts an integer to the function's declared integer type with no cast where the range analysis proves that
   it fits, and the value that may not fit is `E3057` (see "Integers"). Maxon converts every `return` implicitly and checks
   it at run time, trapping where the value does not fit, so a function that returns an `ExitCode` can return any
@@ -4877,7 +4895,7 @@ the checker reports where Maxon's parser does, as it needs the type of the value
 - `Type from value` (see "Primitives") is written from a literal only: an array literal for an `Array`, a `List`, or a type that implements `InitableFromArrayLiteral`, a string
   literal for a type with `init`. Not supported: `FixedArray`, `List from <an array value>` and `Set from <an array
   value>` (the elements are written as a literal), a map literal under an
-  alias, and `Type from 'c'`, since there are no character literals. The expression after `from` is a postfix expression,
+  alias, and `Type from 'c'`. The expression after `from` is a postfix expression,
   where Maxon takes a literal whole: `Alias from [1, 2].count()` is `E3005`, since a call on the literal is not an array
   literal, and the conversion is parenthesized to call on it: `(Alias from [1, 2]).count()`. `from` is still a name where a
   name is required or an operand is (`function from()`, a parameter read as `from`, `String.from(bytes)`), as in Maxon, and
@@ -4938,7 +4956,7 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   changes nothing a program sees, `setLength` is `resize`, and `elementSize()` is what `sizeof` gives for the element, never
   maxon's negative bit width, since no element is bit-packed. Not provided, because no model-sound operation does the same:
   `setByte` (it writes a buffer under another type than its element's), a `__ManagedMemory` of no element type, `create`
-  with an element size, `fromCString`, `toCString` and `makeCharFromBytes` (there is no `cstring` and no `Character`),
+  with an element size, `fromCString`, `toCString` and `makeCharFromBytes` (there is no `cstring`, and a `Character` is no buffer),
   `shiftLeft` and `shiftRight`, `__ManagedList` and its nodes (a node carries its list by a reference count, where a `Handle`
   is an index into a list that the caller names), `__ManagedFile`, `__ManagedDirectory`, `__ManagedSocket`, `__ManagedPages`,
   `__ManagedHandle` and `__ManagedPin` (the OS records of the runtime take their place), and the four contracts of a counted

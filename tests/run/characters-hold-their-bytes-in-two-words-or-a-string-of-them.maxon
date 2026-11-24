@@ -1,0 +1,55 @@
+typealias Chars = Array with Character
+
+type Holder
+	var c as Character
+
+	static function make(consumes c Character) returns Holder
+		return Holder{c: c}
+	end 'make'
+end 'Holder'
+
+function kind(c Character) returns ExitCode
+	return match c 'which'
+		'a' to 'z' gives 1
+		'-' gives 2
+		'👨‍👩‍👧‍👦' gives 3
+		default gives 4
+	end 'which'
+end 'kind'
+
+function pick(consumes c Character) returns Character
+	return c
+end 'pick'
+
+function main() returns ExitCode
+	let cp = 45
+	if cp != '-' or cp - '0' != -3 or 'A' + 1 != 66 'codepoints'
+		return 1
+	end 'codepoints'
+	let family = '👨‍👩‍👧‍👦'
+	var chars = Chars.create(0)
+	chars.push('x')
+	chars.push(family.clone())
+	chars.push(pick('é'))
+	let holder = Holder.make(chars[1].clone())
+	let copied = chars.clone()
+	if copied[0] != 'x' or copied[1] != family or holder.c != family or copied[0] > copied[2] 'equality'
+		return 2
+	end 'equality'
+	if kind('q') != 1 or kind('-') != 2 or kind(family) != 3 or kind('é') != 4 'match'
+		return 3
+	end 'match'
+	let text = "{copied[2]}{family}{'\''}"
+	if text.byteLength() != 28 or family.toString() != "👨‍👩‍👧‍👦" or "{'a':q}" != "'a'" 'text'
+		return 4
+	end 'text'
+	if family.byteLength() != 25 or 'é'.codepoint() != 233 'members'
+		return 5
+	end 'members'
+	let ascii = try 'A'.asciiValue() otherwise 0
+	let none = try 'é'.asciiValue() otherwise 0
+	if ascii != 65 or none != 0 'ascii'
+		return 6
+	end 'ascii'
+	return 0
+end 'main'

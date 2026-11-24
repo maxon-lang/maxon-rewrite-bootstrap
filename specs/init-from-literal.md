@@ -139,7 +139,6 @@ struct and the E3004 for a type with no `init` are the ones every other static c
 
 <!-- test: init-from-char-literal-basic -->
 <!-- skip: 'Type from value' takes an array literal or a string literal in minimaxon, not another value -->
-<!-- skip: character literals are not supported in minimaxon -->
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
@@ -158,7 +157,6 @@ end 'CharWrapper'
 
 function main() returns ExitCode
 	// TODO: 'Type from value' takes an array literal or a string literal in minimaxon, not another value
-	// TODO: character literals are not supported in minimaxon
 	let cw = CharWrapper from 'X'
 	print("{cw.len()}\n")
 	return 0
@@ -170,7 +168,6 @@ end 'main'
 
 <!-- test: init-from-char-literal-multibyte -->
 <!-- skip: 'Type from value' takes an array literal or a string literal in minimaxon, not another value -->
-<!-- skip: character literals are not supported in minimaxon -->
 The literal's BYTES are what the record carries, so a character outside ASCII arrives whole rather than
 truncated to its first byte. `byteLength()` is the discriminating read — a `Character` that lost its
 continuation bytes would answer 1.
@@ -191,7 +188,6 @@ end 'CharWrapper'
 
 function main() returns ExitCode
 	// TODO: 'Type from value' takes an array literal or a string literal in minimaxon, not another value
-	// TODO: character literals are not supported in minimaxon
 	let cw = CharWrapper from '€'
 	print("{cw.len()}\n")
 	return 0
@@ -203,7 +199,6 @@ end 'main'
 
 <!-- test: init-from-char-literal-at-module-scope -->
 <!-- skip: 'Type from value' takes an array literal or a string literal in minimaxon, not another value -->
-<!-- skip: character literals are not supported in minimaxon -->
 ⭐⭐ **THE SAME CONSTRUCTION AS A TOP-LEVEL INITIALIZER.** A module-scope initializer is read by the body's
 expression parser, so the construction is the body's, and `__module_init` builds the record before `main`
 runs.
@@ -223,12 +218,10 @@ type CharWrapper implements InitableFromCharLiteral
 end 'CharWrapper'
 
 // TODO: 'Type from value' takes an array literal or a string literal in minimaxon, not another value
-// TODO: character literals are not supported in minimaxon
 let euro = CharWrapper from '€'
 
 function main() returns ExitCode
 	// TODO: 'Type from value' takes an array literal or a string literal in minimaxon, not another value
-	// TODO: character literals are not supported in minimaxon
 	let local = CharWrapper from 'A'
 	print("{euro.len()} {local.len()}\n")
 	return 0
@@ -240,7 +233,6 @@ end 'main'
 
 <!-- test: error.init-from-char-literal-without-the-conformance -->
 <!-- skip: 'Type from value' takes an array literal or a string literal in minimaxon, not another value -->
-<!-- skip: character literals are not supported in minimaxon -->
 <!-- positions: moved -->
 The conformance is REQUIRED, and it is checked after the merge rather than at the cursor: `implements` is
 recorded when the type's own file is parsed, and the compiler orders files only by source path. The sentence names
@@ -263,7 +255,6 @@ end 'CharWrapper'
 
 function main() returns ExitCode
 	// TODO: 'Type from value' takes an array literal or a string literal in minimaxon, not another value
-	// TODO: character literals are not supported in minimaxon
 	let cw = CharWrapper from 'X'
 	return cw.len() as ExitCode
 end 'main'

@@ -184,6 +184,8 @@ export let dispositionHandled = 0 as Count
 
 export let dispositionUnhandled = 1 as Count
 
+export let errorCharacterNotAscii = 0 as Count
+
 export let errorStringNotFound = 0 as Count
 
 export let errorStringInvalidIndex = 1 as Count
@@ -318,6 +320,13 @@ export enum Intrinsic
 	intrStringTrimEnd
 	intrStringToLower
 	intrStringToUpper
+	intrCharacterToString
+	intrCharacterByteLength
+	intrCharacterBytes
+	intrCharacterCodepoints
+	intrCharacterCodepoint
+	intrCharacterAsciiValue
+	intrCharacterEquals
 	intrStringIndexCharIndex
 	intrStringIndexBytePos
 	intrFreeze
@@ -748,6 +757,7 @@ function declareStdAliases(mutates tt TypeSlot, reads TypeTable, mutates std Par
 	b.byteTy = registerStdAlias(tt, reads: reads, std: std, typeMap: typeMap, name: "Byte", lo: I128.zero(), hi: I128.fromCount(255 as Count))
 	b.fullRangeFloatTy = registerStdFloatAlias(tt, reads: reads, std: std, typeMap: typeMap, name: "FullRangeFloat", lo: floatNegate(floatMaxBits), hi: floatMaxBits)
 	b.codepointTy = registerStdAlias(tt, reads: reads, std: std, typeMap: typeMap, name: "Codepoint", lo: I128.zero(), hi: I128.fromCount(1114111 as Count))
+	b.asciiValueTy = registerStdAlias(tt, reads: reads, std: std, typeMap: typeMap, name: "AsciiValue", lo: I128.zero(), hi: I128.fromCount(127 as Count))
 	b.codeUnit16Ty = registerStdAlias(tt, reads: reads, std: std, typeMap: typeMap, name: "CodeUnit16", lo: I128.zero(), hi: I128.fromCount(65535 as Count))
 	b.millisecondsTy = registerStdAlias(tt, reads: reads, std: std, typeMap: typeMap, name: "Milliseconds", lo: I128.zero(), hi: I128.u64Max())
 	b.orderedWordTy = registerStdBitsAlias(tt, reads: reads, std: std, typeMap: typeMap, name: "OrderedWord", width: 64)
@@ -773,6 +783,7 @@ function declareBuiltinTable(mutates tt TypeSlot, reads TypeTable, mutates ft Fu
 	declareCodepointIteratorMethods(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, b: b, funcMap: funcMap)
 	declareUtf16ViewMethods(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, b: b, funcMap: funcMap)
 	declareUtf16IteratorMethods(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, b: b, funcMap: funcMap)
+	declareCharacterMethods(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, b: b, funcMap: funcMap)
 	declareStringIndexMethods(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, b: b, funcMap: funcMap)
 	declareBuiltinFunctions(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, b: b, funcMap: funcMap)
 	declareCommandLineMethods(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, b: b, funcMap: funcMap)
@@ -989,29 +1000,32 @@ function declareBuiltinTypes(mutates tt TypeSlot, reads TypeTable, mutates std P
 	names33.push("unhandled")
 	b.debugDispositionTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "DebugDisposition", cases: names33)
 	var names34 = StringList.create(0)
-	names34.push("notFound")
-	names34.push("invalidIndex")
-	b.stringErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "StringError", cases: names34)
+	names34.push("notAscii")
+	b.characterErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "CharacterError", cases: names34)
 	var names35 = StringList.create(0)
-	names35.push("exhausted")
-	names35.push("atStart")
-	b.iterationErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "IterationError", cases: names35)
+	names35.push("notFound")
+	names35.push("invalidIndex")
+	b.stringErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "StringError", cases: names35)
 	var names36 = StringList.create(0)
-	names36.push("otherType")
-	b.castErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "CastError", cases: names36)
+	names36.push("exhausted")
+	names36.push("atStart")
+	b.iterationErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "IterationError", cases: names36)
+	var names37 = StringList.create(0)
+	names37.push("otherType")
+	b.castErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "CastError", cases: names37)
 	b.copyableTy = registerInterfaceType(tt, reads: reads, std: std, typeMap: typeMap, name: "Copyable")
 	b.droppableTy = registerInterfaceType(tt, reads: reads, std: std, typeMap: typeMap, name: "Droppable")
 	b.errorTy = registerInterfaceType(tt, reads: reads, std: std, typeMap: typeMap, name: "Error")
 	b.initableFromStringLiteralTy = registerInterfaceType(tt, reads: reads, std: std, typeMap: typeMap, name: "InitableFromStringLiteral")
 	tt.lists[typeList(tt, t: b.filePathTy)][typeIndex(tt, t: b.filePathTy)].conforms.push(b.initableFromStringLiteralTy)
-	let ty37 = instantiateType(tt, reads: reads, origin: b.arrayOrigin, args: oneArgList(b.byteTy))
-	registerStdInstanceAlias(std, typeMap: typeMap, name: "ByteArray", ty: ty37)
-	let ty38 = instantiateType(tt, reads: reads, origin: b.arrayOrigin, args: oneArgList(b.stringTy))
-	registerStdInstanceAlias(std, typeMap: typeMap, name: "StringArray", ty: ty38)
-	let ty39 = instantiateType(tt, reads: reads, origin: b.arrayOrigin, args: oneArgList(b.fullRangeIntTy))
-	registerStdInstanceAlias(std, typeMap: typeMap, name: "FullRangeIntArray", ty: ty39)
-	let ty40 = instantiateType(tt, reads: reads, origin: b.arrayOrigin, args: oneArgList(b.filePathTy))
-	registerStdInstanceAlias(std, typeMap: typeMap, name: "FilePathArray", ty: ty40)
+	let ty38 = instantiateType(tt, reads: reads, origin: b.arrayOrigin, args: oneArgList(b.byteTy))
+	registerStdInstanceAlias(std, typeMap: typeMap, name: "ByteArray", ty: ty38)
+	let ty39 = instantiateType(tt, reads: reads, origin: b.arrayOrigin, args: oneArgList(b.stringTy))
+	registerStdInstanceAlias(std, typeMap: typeMap, name: "StringArray", ty: ty39)
+	let ty40 = instantiateType(tt, reads: reads, origin: b.arrayOrigin, args: oneArgList(b.fullRangeIntTy))
+	registerStdInstanceAlias(std, typeMap: typeMap, name: "FullRangeIntArray", ty: ty40)
+	let ty41 = instantiateType(tt, reads: reads, origin: b.arrayOrigin, args: oneArgList(b.filePathTy))
+	registerStdInstanceAlias(std, typeMap: typeMap, name: "FilePathArray", ty: ty41)
 end 'declareBuiltinTypes'
 
 function declareArrayMethods(mutates tt TypeSlot, reads TypeTable, mutates ft FuncSlot, funcReads FuncTable, mutates std ParsedModule, mutates b Builtins, mutates funcMap FuncIDMap)
@@ -1689,6 +1703,47 @@ function declareUtf16IteratorMethods(mutates tt TypeSlot, reads TypeTable, mutat
 	let f1 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.utf16IteratorTy, op: Intrinsic.intrUtf16IteratorAdvance, name: "advance", isStatic: false, selfConv: Convention.convMutates, ret: b.voidTy, params: ParamSpecList.create(0), listed: true)
 	ft.lists[funcList(ft, f: f1)][funcIndex(ft, f: f1)].errTy = b.iterationErrorTy
 end 'declareUtf16IteratorMethods'
+
+function declareCharacterMethods(mutates tt TypeSlot, reads TypeTable, mutates ft FuncSlot, funcReads FuncTable, mutates std ParsedModule, mutates b Builtins, mutates funcMap FuncIDMap)
+	let f1 = registerStdFunc(ft, funcReads: funcReads, std: std, funcMap: funcMap, op: Intrinsic.intrCharacterToString, name: "toString", generics: TypeIDList.create(0), ret: b.stringTy, params: ParamSpecList.create(0), declareInStd: false)
+	ft.lists[funcList(ft, f: f1)][funcIndex(ft, f: f1)].ownerTy = b.characterTy
+	ft.lists[funcList(ft, f: f1)][funcIndex(ft, f: f1)].isStatic = false
+	ft.lists[funcList(ft, f: f1)][funcIndex(ft, f: f1)].hasReceiver = true
+	b.characterMethods.insert("toString", value: f1)
+	let f2 = registerStdFunc(ft, funcReads: funcReads, std: std, funcMap: funcMap, op: Intrinsic.intrCharacterByteLength, name: "byteLength", generics: TypeIDList.create(0), ret: b.countTy, params: ParamSpecList.create(0), declareInStd: false)
+	ft.lists[funcList(ft, f: f2)][funcIndex(ft, f: f2)].ownerTy = b.characterTy
+	ft.lists[funcList(ft, f: f2)][funcIndex(ft, f: f2)].isStatic = false
+	ft.lists[funcList(ft, f: f2)][funcIndex(ft, f: f2)].hasReceiver = true
+	b.characterMethods.insert("byteLength", value: f2)
+	let f3 = registerStdFunc(ft, funcReads: funcReads, std: std, funcMap: funcMap, op: Intrinsic.intrCharacterBytes, name: "bytes", generics: TypeIDList.create(0), ret: b.byteViewTy, params: ParamSpecList.create(0), declareInStd: false)
+	ft.lists[funcList(ft, f: f3)][funcIndex(ft, f: f3)].ownerTy = b.characterTy
+	ft.lists[funcList(ft, f: f3)][funcIndex(ft, f: f3)].isStatic = false
+	ft.lists[funcList(ft, f: f3)][funcIndex(ft, f: f3)].hasReceiver = true
+	b.characterMethods.insert("bytes", value: f3)
+	let f4 = registerStdFunc(ft, funcReads: funcReads, std: std, funcMap: funcMap, op: Intrinsic.intrCharacterCodepoints, name: "codepoints", generics: TypeIDList.create(0), ret: b.codepointViewTy, params: ParamSpecList.create(0), declareInStd: false)
+	ft.lists[funcList(ft, f: f4)][funcIndex(ft, f: f4)].ownerTy = b.characterTy
+	ft.lists[funcList(ft, f: f4)][funcIndex(ft, f: f4)].isStatic = false
+	ft.lists[funcList(ft, f: f4)][funcIndex(ft, f: f4)].hasReceiver = true
+	b.characterMethods.insert("codepoints", value: f4)
+	let f5 = registerStdFunc(ft, funcReads: funcReads, std: std, funcMap: funcMap, op: Intrinsic.intrCharacterCodepoint, name: "codepoint", generics: TypeIDList.create(0), ret: b.codepointTy, params: ParamSpecList.create(0), declareInStd: false)
+	ft.lists[funcList(ft, f: f5)][funcIndex(ft, f: f5)].ownerTy = b.characterTy
+	ft.lists[funcList(ft, f: f5)][funcIndex(ft, f: f5)].isStatic = false
+	ft.lists[funcList(ft, f: f5)][funcIndex(ft, f: f5)].hasReceiver = true
+	b.characterMethods.insert("codepoint", value: f5)
+	let f6 = registerStdFunc(ft, funcReads: funcReads, std: std, funcMap: funcMap, op: Intrinsic.intrCharacterAsciiValue, name: "asciiValue", generics: TypeIDList.create(0), ret: b.asciiValueTy, params: ParamSpecList.create(0), declareInStd: false)
+	ft.lists[funcList(ft, f: f6)][funcIndex(ft, f: f6)].errTy = b.characterErrorTy
+	ft.lists[funcList(ft, f: f6)][funcIndex(ft, f: f6)].ownerTy = b.characterTy
+	ft.lists[funcList(ft, f: f6)][funcIndex(ft, f: f6)].isStatic = false
+	ft.lists[funcList(ft, f: f6)][funcIndex(ft, f: f6)].hasReceiver = true
+	b.characterMethods.insert("asciiValue", value: f6)
+	var ps7 = ParamSpecList.create(0)
+	ps7.push(ParamSpec.make("other", ty: b.characterTy, conv: Convention.convLet))
+	let f8 = registerStdFunc(ft, funcReads: funcReads, std: std, funcMap: funcMap, op: Intrinsic.intrCharacterEquals, name: "equals", generics: TypeIDList.create(0), ret: b.boolTy, params: ps7, declareInStd: false)
+	ft.lists[funcList(ft, f: f8)][funcIndex(ft, f: f8)].ownerTy = b.characterTy
+	ft.lists[funcList(ft, f: f8)][funcIndex(ft, f: f8)].isStatic = false
+	ft.lists[funcList(ft, f: f8)][funcIndex(ft, f: f8)].hasReceiver = true
+	b.characterMethods.insert("equals", value: f8)
+end 'declareCharacterMethods'
 
 function declareStringIndexMethods(mutates tt TypeSlot, reads TypeTable, mutates ft FuncSlot, funcReads FuncTable, mutates std ParsedModule, mutates b Builtins, mutates funcMap FuncIDMap)
 	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.stringIndexTy, op: Intrinsic.intrStringIndexCharIndex, name: "charIndex", isStatic: false, selfConv: Convention.convLet, ret: b.countTy, params: ParamSpecList.create(0), listed: true)

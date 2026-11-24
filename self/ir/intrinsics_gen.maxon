@@ -368,6 +368,27 @@ export function intrinsicCall(mutates l Lowerer, p ast.Project, mutates ms ast.M
 	if op == ast.Intrinsic.intrStringToUpper 'intrStringToUpper'
 		return lowerStringToUpper(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrStringToUpper'
+	if op == ast.Intrinsic.intrCharacterToString 'intrCharacterToString'
+		return lowerCharacterToString(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrCharacterToString'
+	if op == ast.Intrinsic.intrCharacterByteLength 'intrCharacterByteLength'
+		return lowerCharacterByteLength(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrCharacterByteLength'
+	if op == ast.Intrinsic.intrCharacterBytes 'intrCharacterBytes'
+		return lowerCharacterBytes(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrCharacterBytes'
+	if op == ast.Intrinsic.intrCharacterCodepoints 'intrCharacterCodepoints'
+		return lowerCharacterCodepoints(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrCharacterCodepoints'
+	if op == ast.Intrinsic.intrCharacterCodepoint 'intrCharacterCodepoint'
+		return lowerCharacterCodepoint(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrCharacterCodepoint'
+	if op == ast.Intrinsic.intrCharacterAsciiValue 'intrCharacterAsciiValue'
+		return lowerCharacterAsciiValue(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrCharacterAsciiValue'
+	if op == ast.Intrinsic.intrCharacterEquals 'intrCharacterEquals'
+		return lowerCharacterEquals(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrCharacterEquals'
 	if op == ast.Intrinsic.intrStringIndexCharIndex 'intrStringIndexCharIndex'
 		return lowerStringIndexCharIndex(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrStringIndexCharIndex'
@@ -1114,6 +1135,27 @@ export function ownsOperands(op ast.Intrinsic) returns bool
 	if op == ast.Intrinsic.intrStringToUpper 'intrStringToUpper'
 		return false
 	end 'intrStringToUpper'
+	if op == ast.Intrinsic.intrCharacterToString 'intrCharacterToString'
+		return false
+	end 'intrCharacterToString'
+	if op == ast.Intrinsic.intrCharacterByteLength 'intrCharacterByteLength'
+		return false
+	end 'intrCharacterByteLength'
+	if op == ast.Intrinsic.intrCharacterBytes 'intrCharacterBytes'
+		return false
+	end 'intrCharacterBytes'
+	if op == ast.Intrinsic.intrCharacterCodepoints 'intrCharacterCodepoints'
+		return false
+	end 'intrCharacterCodepoints'
+	if op == ast.Intrinsic.intrCharacterCodepoint 'intrCharacterCodepoint'
+		return false
+	end 'intrCharacterCodepoint'
+	if op == ast.Intrinsic.intrCharacterAsciiValue 'intrCharacterAsciiValue'
+		return false
+	end 'intrCharacterAsciiValue'
+	if op == ast.Intrinsic.intrCharacterEquals 'intrCharacterEquals'
+		return false
+	end 'intrCharacterEquals'
 	if op == ast.Intrinsic.intrStringIndexCharIndex 'intrStringIndexCharIndex'
 		return false
 	end 'intrStringIndexCharIndex'

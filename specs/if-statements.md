@@ -266,11 +266,9 @@ end 'main'
 ```
 
 <!-- test: if-statements.single-line-block-rejected -->
-<!-- skip: character literals are not supported in minimaxon -->
-<!-- positions: moved -->
+<!-- skip: differing error code: syntax error -->
 ```maxon
 function main() returns ExitCode
-	// TODO: character literals are not supported in minimaxon
 	if true 'x' return 1 end 'x'
 	return 0
 end 'main'
@@ -327,7 +325,7 @@ error E3071: specs/if-statements/if-statements.self-assignment-after-return-on-o
 ```
 
 <!-- test: if-statements.block-if-sharing-a-line-with-a-statement -->
-<!-- skip: character literals are not supported in minimaxon -->
+<!-- skip: differing error code: syntax error -->
 <!-- positions: moved -->
 A block `if` written after a statement on the same line is refused at the `if`, before its block is read.
 ```maxon
@@ -335,7 +333,6 @@ typealias Small = int(0 to 9)
 
 function main() returns ExitCode
 	var x = 1 as Small
-	// TODO: character literals are not supported in minimaxon
 	print("one\n") if x == 1 'a'
 		x = 3
 	end 'a'
@@ -347,7 +344,7 @@ error E2001: specs/if-statements/if-statements.block-if-sharing-a-line-with-a-st
 ```
 
 <!-- test: if-statements.shared-line-is-refused-before-the-block-it-opens -->
-<!-- skip: character literals are not supported in minimaxon -->
+<!-- skip: differing error code: syntax error -->
 <!-- positions: moved -->
 The shared line is the error even when the block it opens holds a later one.
 ```maxon
@@ -355,7 +352,6 @@ typealias Small = int(0 to 9)
 
 function main() returns ExitCode
 	var x = 1 as Small
-	// TODO: character literals are not supported in minimaxon
 	print("one\n") while x < 3 'w'
 		x = nope
 	end 'w'

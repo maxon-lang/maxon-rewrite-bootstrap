@@ -1055,8 +1055,7 @@ end 'main'
 ```
 
 <!-- test: a-buffer-field-refuses-another-directorys-byte-at-the-construction -->
-<!-- skip: character literals are not supported in minimaxon -->
-<!-- positions: moved -->
+<!-- skip: language difference: modules are Go's, so an unmarked declaration is its module's alone and an export reaches the tree of its module's parent, where maxon's unmarked declaration reaches its directory's subtree and its export the whole project -->
 <!-- tier: stdlib -->
 ### …and the disagreement lands LOUDLY, at the construction
 The same two files with the buffer handed IN rather than built inside `holder.maxon`. `app/main.maxon`'s
@@ -1093,7 +1092,6 @@ function widen(b Byte) returns Integer
 end 'widen'
 
 function main() returns ExitCode
-	// TODO: character literals are not supported in minimaxon
 	let c = 'a'
 	let h = Holder.of(c.bytes())
 	return (h.first() - widen(50)) as ExitCode
@@ -1360,7 +1358,6 @@ back is honest whatever `Byte` was declared to be. Only the WRITE puts a value i
 surface reads through the element's declared range. `raw-byte-reads-survive-a-narrow-byte` pins it.
 
 <!-- test: a-byte-view-is-refused-when-byte-cannot-hold-every-byte -->
-<!-- skip: character literals are not supported in minimaxon -->
 <!-- positions: moved -->
 ### `bytes()` is refused when this program's `Byte` cannot hold every byte
 The receiver is a `Character` because that is the one receiver served by `Parser.parseByteView`,
@@ -1376,7 +1373,6 @@ function takes(b Bytes) returns ExitCode
 end 'takes'
 
 function main() returns ExitCode
-	// TODO: character literals are not supported in minimaxon
 	let c = 'ß'
 	return takes(c.bytes())
 end 'main'
@@ -1564,7 +1560,6 @@ error E3005: <fragment>:8:2: cannot assign a value of type 'ByteArray' to variab
 ```
 
 <!-- test: a-wide-byte-still-materializes-a-byte-view -->
-<!-- skip: character literals are not supported in minimaxon -->
 ### A WIDE `Byte` strides two and the view fills it correctly — this is what rules out `__ManagedByte`
 `int(0 to 1000)` HOLDS every byte, so the rule says nothing about it; the record strides two and
 `__str_to_bytes` writes at that stride. The reads below pin it, and they are the reason the byte view
@@ -1588,7 +1583,6 @@ function takes(b Bytes) returns ExitCode
 end 'takes'
 
 function main() returns ExitCode
-	// TODO: character literals are not supported in minimaxon
 	let c = 'ß'
 	return takes(c.bytes())
 end 'main'

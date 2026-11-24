@@ -3212,7 +3212,6 @@ b d2 box
 ```
 
 <!-- test: an-outer-character-var-is-assigned-inside-a-window -->
-<!-- skip: character literals are not supported in minimaxon -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 A `Character` is a value type too.
 
@@ -3229,12 +3228,10 @@ end 'Bx'
 
 function main() returns ExitCode
 	let b = Bx.create(1) as Bx
-	// TODO: character literals are not supported in minimaxon
 	var c = 'a'
 	// TODO: modify blocks are not supported in minimaxon
 	modify b 'm'
 		b.n = 2
-		// TODO: character literals are not supported in minimaxon
 		c = 'b'
 	end 'm'
 	print("{c}\n")

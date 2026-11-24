@@ -3529,14 +3529,11 @@ error E3005: <fragment>:12:2: argument type mismatch for 'v': expected 'Score', 
 ```
 
 <!-- test: a-top-level-character-is-a-record-slot -->
-<!-- skip: character literals are not supported in minimaxon -->
 A character initializer is the expression a body would write, so the global holds a `Character` record that
 is read as it was built.
 ```maxon
-// TODO: character literals are not supported in minimaxon
 let c = 'x'
 
-// TODO: character literals are not supported in minimaxon
 let d = 'é'
 
 function main() returns ExitCode

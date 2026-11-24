@@ -338,7 +338,6 @@ error E3004: <fragment>:14:10: call to undefined function 'missing'
 ### The corpus fall-through
 
 <!-- test: an-extension-published-method-is-reachable-on-a-corpus-receiver -->
-<!-- skip: character literals are not supported in minimaxon -->
 ⭐ **`String.filter` IS A `String` METHOD, AND THE FALL-THROUGH REFUSED IT.** It is published onto
 `String` by `stdlib/Interfaces.maxon`'s `extension Iterable`, so `String`'s own body does not declare it
 — and the door asked whether the conformer declares it in its own body. The refusal read
@@ -347,7 +346,6 @@ here`**, about a method the program plainly has.
 ```maxon
 function main() returns ExitCode
 	let s = "hello"
-	// TODO: character literals are not supported in minimaxon
 	let ells = s.filter(function(c Character) gives c == 'l')
 	return ells.count() as ExitCode
 end 'main'

@@ -1015,7 +1015,7 @@ end 'main'
 ```
 
 <!-- test: stdlib-loading.ascii-classifiers-from-stdlib -->
-<!-- skip: character literals are not supported in minimaxon -->
+<!-- skip: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet -->
 `stdlib/Ascii.maxon`'s six classifiers. Its bodies are `match` arms over **`Character` RANGE
 patterns** (`'0' to '9'`, `'a' to 'z' or 'A' to 'Z'`), so what this pins is not only that the module
 reaches user code, but that `Character` range patterns hold when the `match` is compiled from a STDLIB
@@ -1028,39 +1028,39 @@ before the `'a' to 'z'` comparison ever runs. A case with positives alone would 
 classifier that answered `true` for everything.
 ```maxon
 function main() returns ExitCode
-	// TODO: character literals are not supported in minimaxon
+	// TODO: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet
 	if Ascii.isDigit('7') 'digit'
 		print("digit\n")
 	end 'digit'
-	// TODO: character literals are not supported in minimaxon
+	// TODO: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet
 	if Ascii.isAlpha('q') 'alpha'
 		print("alpha\n")
 	end 'alpha'
-	// TODO: character literals are not supported in minimaxon
+	// TODO: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet
 	if Ascii.isAlphanumeric('Z') 'alnum'
 		print("alnum\n")
 	end 'alnum'
-	// TODO: character literals are not supported in minimaxon
+	// TODO: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet
 	if Ascii.isWhitespace('\t') 'tab'
 		print("tab\n")
 	end 'tab'
-	// TODO: character literals are not supported in minimaxon
+	// TODO: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet
 	if Ascii.isUpper('K') 'upper'
 		print("upper\n")
 	end 'upper'
-	// TODO: character literals are not supported in minimaxon
+	// TODO: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet
 	if Ascii.isLower('k') 'lower'
 		print("lower\n")
 	end 'lower'
-	// TODO: character literals are not supported in minimaxon
+	// TODO: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet
 	if Ascii.isDigit('x') 'notDigit'
 		print("UNREACHED-notDigit\n")
 	end 'notDigit'
-	// TODO: character literals are not supported in minimaxon
+	// TODO: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet
 	if Ascii.isUpper('k') 'notUpper'
 		print("UNREACHED-notUpper\n")
 	end 'notUpper'
-	// TODO: character literals are not supported in minimaxon
+	// TODO: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet
 	if Ascii.isAlpha('é') 'notAscii'
 		print("UNREACHED-notAscii\n")
 	end 'notAscii'

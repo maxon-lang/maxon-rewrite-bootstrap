@@ -179,14 +179,10 @@ error E3017: specs/enum-hashable/error.associated-value-enum-not-hashable.maxon:
 ```
 
 <!-- test: char-backed-enum-as-map-key -->
-<!-- skip: character literals are not supported in minimaxon -->
 ```maxon
 enum Grade
-	// TODO: character literals are not supported in minimaxon
 	excellent = 'A'
-	// TODO: character literals are not supported in minimaxon
 	good = 'B'
-	// TODO: character literals are not supported in minimaxon
 	average = 'C'
 end 'Grade'
 

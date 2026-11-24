@@ -809,13 +809,10 @@ error E2029: specs/match-statements/error.match-default-not-last.maxon:6:3: 'def
 ```
 
 <!-- test: error.match-block-statement -->
-<!-- skip: character literals are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
 function main() returns ExitCode
 	let x = 1
 	match x 'check'
-		// TODO: character literals are not supported in minimaxon
 		1 then if true 'inner'
 			return 10
 		end 'inner'
@@ -828,14 +825,11 @@ error E2049: specs/match-statements/error.match-block-statement.maxon:5:10: bloc
 ```
 
 <!-- test: error.match-block-statement-abandons-only-its-own-function -->
-<!-- skip: character literals are not supported in minimaxon -->
-<!-- positions: moved -->
 The refused arm abandons its function up to that function's own `end`, whichever blocks the abandoned text opened or closed, so the declaration after it is read whole and its own mistake is reported.
 ```maxon
 function first() returns ExitCode
 	let x = 1
 	match x 'check'
-		// TODO: character literals are not supported in minimaxon
 		1 then if true 'inner'
 			return 10
 		end 'inner'
@@ -1349,13 +1343,10 @@ end 'main'
 ```
 
 <!-- test: match-character-literal -->
-<!-- skip: character literals are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: character literals are not supported in minimaxon
 	let c = 'ñ'
 	match c 'check'
-		// TODO: character literals are not supported in minimaxon
 		'ñ' then print("eq\n")
 		default then print("ne\n")
 	end 'check'
@@ -1370,13 +1361,10 @@ eq
 ```
 
 <!-- test: match-character-range -->
-<!-- skip: character literals are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: character literals are not supported in minimaxon
 	let c = 'ñ'
 	match c 'check'
-		// TODO: character literals are not supported in minimaxon
 		'é' to 'ü' then print("inrange\n")
 		default then print("out\n")
 	end 'check'
@@ -1391,15 +1379,12 @@ inrange
 ```
 
 <!-- test: match-character-range-outside -->
-<!-- skip: character literals are not supported in minimaxon -->
 A range test that only ever matches is not a range test. `Ω` is `CE A9`, whose FIRST byte is above `ü`'s `C3`, so it falls outside the range and the arm must not be taken.
 
 ```maxon
 function main() returns ExitCode
-	// TODO: character literals are not supported in minimaxon
 	let c = 'Ω'
 	match c 'check'
-		// TODO: character literals are not supported in minimaxon
 		'é' to 'ü' then print("inrange\n")
 		default then print("out\n")
 	end 'check'
@@ -1414,7 +1399,6 @@ out
 ```
 
 <!-- test: match-character-range-over-an-owned-scrutinee -->
-<!-- skip: character literals are not supported in minimaxon -->
 The scrutinee is an OWNED `Character` the loop mints, while both range bounds are immortal `.rdata`
 literals — so nothing the arm compares against is droppable and the loop's own temporary is dropped
 exactly once. `x` (one ASCII byte, `0x78`) falls below `'é'` (`C3 A9`) and takes the default.
@@ -1425,7 +1409,6 @@ function main() returns ExitCode
 	var hits = 0 as Count
 	for c in s 'each'
 		match c 'classify'
-			// TODO: character literals are not supported in minimaxon
 			'é' to 'ü' then hits = hits + 1
 			default then hits = hits + 100
 		end 'classify'
@@ -1442,8 +1425,6 @@ end 'main'
 ```
 
 <!-- test: error.match-character-pattern-on-int-scrutinee -->
-<!-- skip: character literals are not supported in minimaxon -->
-<!-- positions: moved -->
 A `Character` pattern against an `int` scrutinee is an ordinary pattern/scrutinee type mismatch — the two
 do not compare, exactly as a `String` pattern against an `int` one does not.
 
@@ -1456,7 +1437,6 @@ integer reading at all, so it is the pattern that still cannot meet an `int`.
 function main() returns ExitCode
 	let n = 5
 	match n 'check'
-		// TODO: character literals are not supported in minimaxon
 		'👨‍👩‍👧‍👦' then return 1
 		default then return 0
 	end 'check'
@@ -1467,7 +1447,6 @@ error E2028: specs/match-statements/error.match-character-pattern-on-int-scrutin
 ```
 
 <!-- test: match-character-literal-pattern-is-its-codepoint -->
-<!-- skip: character literals are not supported in minimaxon -->
 ### A character-literal pattern over an `int` scrutinee is its codepoint
 
 A `match` pattern is an integer-expecting position when the scrutinee is integral, so the literal converts
@@ -1479,13 +1458,11 @@ function main() returns ExitCode
 	var hits = 0 as Count
 	let dash = 45
 	match dash 'ascii'
-		// TODO: character literals are not supported in minimaxon
 		'-' then hits = hits + 1
 		default then hits = hits + 100
 	end 'ascii'
 	let accent = 233
 	match accent 'wide'
-		// TODO: character literals are not supported in minimaxon
 		'é' then hits = hits + 1
 		default then hits = hits + 100
 	end 'wide'
@@ -1501,17 +1478,12 @@ end 'main'
 ```
 
 <!-- test: match-range.character -->
-<!-- skip: character literals are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: character literals are not supported in minimaxon
 	let c = 'G'
 	match c 'classify'
-		// TODO: character literals are not supported in minimaxon
 		'a' to 'z' then return 1
-		// TODO: character literals are not supported in minimaxon
 		'A' to 'Z' then return 2
-		// TODO: character literals are not supported in minimaxon
 		'0' to '9' then return 3
 		default then return 0
 	end 'classify'
@@ -1522,15 +1494,11 @@ end 'main'
 ```
 
 <!-- test: match-range.character-lowercase -->
-<!-- skip: character literals are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: character literals are not supported in minimaxon
 	let c = 'm'
 	match c 'classify'
-		// TODO: character literals are not supported in minimaxon
 		'a' to 'z' then return 1
-		// TODO: character literals are not supported in minimaxon
 		'A' to 'Z' then return 2
 		default then return 0
 	end 'classify'
@@ -1541,17 +1509,12 @@ end 'main'
 ```
 
 <!-- test: match-range.character-digit -->
-<!-- skip: character literals are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: character literals are not supported in minimaxon
 	let c = '7'
 	match c 'classify'
-		// TODO: character literals are not supported in minimaxon
 		'a' to 'z' then return 1
-		// TODO: character literals are not supported in minimaxon
 		'A' to 'Z' then return 2
-		// TODO: character literals are not supported in minimaxon
 		'0' to '9' then return 3
 		default then return 0
 	end 'classify'
@@ -1592,7 +1555,7 @@ end 'main'
 ```
 
 <!-- test: match-range.float -->
-<!-- skip: minimaxon does not parse the converted source: Expected an integer, 'default', 'false', 'true', '-', a name or a string but got '0.0' -->
+<!-- skip: minimaxon does not parse the converted source: Expected an integer, 'default', 'false', 'true', a label, '-', a name, a string or a test name but got '0.0' -->
 ```maxon
 function main() returns ExitCode
 	let x = 2.5

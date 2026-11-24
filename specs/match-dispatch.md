@@ -608,7 +608,7 @@ end 'main'
 ```
 
 <!-- test: dispatch.float-scrutinee-chain -->
-<!-- skip: minimaxon does not parse the converted source: Expected an integer, 'default', 'false', 'true', '-', a name or a string but got '0.0' -->
+<!-- skip: minimaxon does not parse the converted source: Expected an integer, 'default', 'false', 'true', a label, '-', a name, a string or a test name but got '0.0' -->
 ```maxon
 function main() returns ExitCode
 	let x = 2.5

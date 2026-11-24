@@ -245,8 +245,6 @@ end 'main'
 ```
 
 <!-- test: string-and-character-do-not-compare -->
-<!-- skip: character literals are not supported in minimaxon -->
-<!-- positions: moved -->
 ### A String and a Character are different types
 
 They share a record; they are not the same type. Comparing them is a type error, not a byte compare
@@ -255,7 +253,6 @@ that happens to succeed for a one-cluster String.
 ```maxon
 function main() returns ExitCode
 	let s = "é"
-	// TODO: character literals are not supported in minimaxon
 	let c = 'é'
 	if s == c 'same'
 		return 1
@@ -268,13 +265,10 @@ error E3005: specs/character-ownership/string-and-character-do-not-compare.maxon
 ```
 
 <!-- test: print-takes-a-string-not-a-character -->
-<!-- skip: character literals are not supported in minimaxon -->
-<!-- positions: moved -->
 ### `print` takes a String; a Character reaches stdout through interpolation
 
 ```maxon
 function main() returns ExitCode
-	// TODO: character literals are not supported in minimaxon
 	let c = '中'
 	print(c)
 	return 0
@@ -285,7 +279,6 @@ error E3005: specs/character-ownership/print-takes-a-string-not-a-character.maxo
 ```
 
 <!-- test: character-parameter-and-equality -->
-<!-- skip: character literals are not supported in minimaxon -->
 ### A `Character` is nameable as a declared type
 
 ```maxon
@@ -296,7 +289,6 @@ end 'isTarget'
 function main() returns ExitCode
 	var hits = 0 as Count
 	for c in "héllo wörld" 'each'
-		// TODO: character literals are not supported in minimaxon
 		if isTarget(c, target: 'ö') 'match'
 			hits = hits + 1
 		end 'match'
@@ -332,7 +324,6 @@ end 'main'
 ```
 
 <!-- test: returned-character-is-dropped-by-the-caller -->
-<!-- skip: character literals are not supported in minimaxon -->
 ### A `returns Character` hands ownership to the caller, which drops it
 
 A Character crossing a return is a heap record the callee moves out, so the CALLER becomes its sole
@@ -341,7 +332,6 @@ Character.
 
 ```maxon
 function litOnly() returns Character
-	// TODO: character literals are not supported in minimaxon
 	return 'é'
 end 'litOnly'
 
@@ -350,7 +340,7 @@ function main() returns ExitCode
 	var n = 0 as Count
 	while i < 50 'rep'
 		let c = litOnly()
-		n = n + 1 if c == c else n
+		n = (try n + 1 otherwise panic("out of range")) if c == c else n
 		i = i + 1
 	end 'rep'
 	print("{n}\n")
@@ -365,7 +355,6 @@ end 'main'
 ```
 
 <!-- test: loop-element-moves-into-an-outer-var -->
-<!-- skip: character literals are not supported in minimaxon -->
 ### Assigning the trip's cluster to an outer `var` MOVES it
 
 `found = c` must move the minted cluster into `found` — dropping whatever `found` held — not copy it.
@@ -375,7 +364,6 @@ The element carries its owned-heap provenance; a reassignment that saw a borrow 
 ```maxon
 function reassignInLoop(s String) returns Integer
 	var n = 0 as Integer
-	// TODO: character literals are not supported in minimaxon
 	var found = 'é'
 	for c in s 'each'
 		found = c
@@ -386,7 +374,6 @@ function reassignInLoop(s String) returns Integer
 end 'reassignInLoop'
 
 function lastOf(s String) returns Character
-	// TODO: character literals are not supported in minimaxon
 	var found = 'é'
 	for c in s 'each'
 		found = c
@@ -418,7 +405,6 @@ t=300
 ```
 
 <!-- test: promoting-a-character-keeps-its-type -->
-<!-- skip: character literals are not supported in minimaxon -->
 ### A `var` Character stays a Character
 
 A `var`'s managed initializer is promoted to an owned copy at its declaration, and the copy is built
@@ -427,7 +413,6 @@ next line legal; typed `String`, `found` would make the assignment E3005.
 
 ```maxon
 function main() returns ExitCode
-	// TODO: character literals are not supported in minimaxon
 	var found = 'é'
 	for c in "ab中" 'each'
 		found = c
@@ -444,7 +429,6 @@ end 'main'
 ```
 
 <!-- test: character-literal-adopts-the-character-type -->
-<!-- skip: character literals are not supported in minimaxon -->
 ### A character literal in a Character-expecting position IS a Character
 
 Every character literal IS a `Character`, so no position has to ask for one: `c == 'a'` inside
@@ -453,35 +437,29 @@ literal's own type meeting itself. What the case measures is the behaviour and n
 
 ```maxon
 function firstAscii() returns Character
-	// TODO: character literals are not supported in minimaxon
 	return 'a'
 end 'firstAscii'
 
 function main() returns ExitCode
 	var n = 0 as Count
 	for c in "banana" 'scan'
-		// TODO: character literals are not supported in minimaxon
 		if c == 'a' 'hit'
 			n = n + 1
 		end 'hit'
 	end 'scan'
 	var m = 0 as Count
 	for c in "banana" 'scan2'
-		// TODO: character literals are not supported in minimaxon
 		if c != 'a' 'miss'
 			m = m + 1
 		end 'miss'
 	end 'scan2'
 	var w = 0 as Count
 	for c in "héllö théré" 'scan3'
-		// TODO: character literals are not supported in minimaxon
 		if 'é' == c 'lhs'
 			w = w + 1
 		end 'lhs'
 	end 'scan3'
-	// TODO: character literals are not supported in minimaxon
 	var found = 'é'
-	// TODO: character literals are not supported in minimaxon
 	found = 'z'
 	print("{n} {m} {w} {found} {firstAscii()}\n")
 	return 0
@@ -495,7 +473,6 @@ end 'main'
 ```
 
 <!-- test: an-int-position-keeps-its-integer-literal -->
-<!-- skip: character literals are not supported in minimaxon -->
 ### A character literal meeting an `int` is still an int
 
 The literal is a `Character` and the INTEGER position converts it to its codepoint
@@ -506,15 +483,12 @@ arithmetic pins the rest of it.
 function main() returns ExitCode
 	let cp = 45
 	var hits = 0 as Count
-	// TODO: character literals are not supported in minimaxon
 	if cp == '-' 'dash'
 		hits = hits + 1
 	end 'dash'
-	// TODO: character literals are not supported in minimaxon
 	if 'A' == 'A' 'bothLiterals'
 		hits = hits + 1
 	end 'bothLiterals'
-	// TODO: character literals are not supported in minimaxon
 	let digit = 53 - '0'
 	print("{hits} {digit}\n")
 	return 0
@@ -528,7 +502,6 @@ end 'main'
 ```
 
 <!-- test: character-literal-at-a-call-argument -->
-<!-- skip: character literals are not supported in minimaxon -->
 ### Character literal at a call argument
 
 ```maxon
@@ -539,7 +512,6 @@ end 'isTarget'
 function main() returns ExitCode
 	var hits = 0 as Count
 	for c in "banana" 'each'
-		// TODO: character literals are not supported in minimaxon
 		if isTarget(c, target: 'a') 'match'
 			hits = hits + 1
 		end 'match'
@@ -651,7 +623,6 @@ end 'main'
 ```
 
 <!-- test: a-character-array-takes-a-borrowed-literal -->
-<!-- skip: character literals are not supported in minimaxon -->
 ### An `Array with Character` accepts a literal, exactly as an `Array with String` does
 
 A move into durable storage picks its protocol off the element's RECORD, not off its type: a borrowed
@@ -664,7 +635,6 @@ typealias CharArray = Array with Character
 
 function build(s String) returns Integer
 	let a = CharArray.create(0)
-	// TODO: character literals are not supported in minimaxon
 	a.push('é')
 	for c in s 'each'
 		a.push(c)
@@ -693,7 +663,6 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: a-character-array-takes-a-one-byte-literal -->
-<!-- skip: character literals are not supported in minimaxon -->
 ### A ONE-BYTE character literal adopts `Character` at an array element too
 
 `push` / `set` / `insert` take whatever the element slot declares, and a one-byte literal must not be a
@@ -707,14 +676,11 @@ typealias Count = int(0 to 1000)
 typealias CharArray = Array with Character
 
 function build() returns Count
-	let a = CharArray.create(0)
-	// TODO: character literals are not supported in minimaxon
+	var a = CharArray.create(0)
 	a.push('e')
-	// TODO: character literals are not supported in minimaxon
 	a.insert(0, value: 'z')
-	// TODO: character literals are not supported in minimaxon
 	try a.set(1, value: 'q') otherwise panic("test invariant: set OOB")
-	return a.count()
+	return try a.count() as Count otherwise panic("out of range")
 end 'build'
 
 function main() returns ExitCode
@@ -730,8 +696,7 @@ end 'main'
 ```
 
 <!-- test: panic-takes-a-string-not-a-character -->
-<!-- skip: character literals are not supported in minimaxon -->
-<!-- positions: moved -->
+<!-- skip: minimaxon does not parse the converted source: Expected a string but got 'c' -->
 ### `panic` takes a string literal, and a Character is not one
 
 The near-twin of `print-takes-a-string-not-a-character`. ⚠ **The two doors ask DIFFERENT questions and
@@ -742,7 +707,6 @@ before any type tag is consulted — which is why the message names the rule tha
 
 ```maxon
 function main() returns ExitCode
-	// TODO: character literals are not supported in minimaxon
 	let c = '中'
 	panic(c)
 end 'main'
@@ -752,8 +716,6 @@ error E3005: specs/character-ownership/panic-takes-a-string-not-a-character.maxo
 ```
 
 <!-- test: an-array-literal-element-is-not-a-character -->
-<!-- skip: character literals are not supported in minimaxon -->
-<!-- positions: moved -->
 ### An array literal infers no element type from a Character
 
 A type-side site of `tagIsText`, and the one whose wrong answer is SILENT: with
@@ -761,7 +723,6 @@ A type-side site of `tagIsText`, and the one whose wrong answer is SILENT: with
 
 ```maxon
 function main() returns ExitCode
-	// TODO: character literals are not supported in minimaxon
 	let a = ['é', 'ö']
 	print("{a.count()}\n")
 	return 0
@@ -772,7 +733,6 @@ error E2015: specs/character-ownership/an-array-literal-element-is-not-a-charact
 ```
 
 <!-- test: a-single-byte-literal-adopts-on-the-left-too -->
-<!-- skip: character literals are not supported in minimaxon -->
 ### The LEFT operand's literal is judged against the RIGHT one
 
 A one-word transposition — the left operand asking its own tag instead of the other side's — leaves every
@@ -783,14 +743,12 @@ left operand compared with itself would answer about nothing.
 function main() returns ExitCode
 	var n = 0 as Count
 	for c in "banana" 'scan'
-		// TODO: character literals are not supported in minimaxon
 		if 'a' == c 'hit'
 			n = n + 1
 		end 'hit'
 	end 'scan'
 	var m = 0 as Count
 	for c in "banana" 'scan2'
-		// TODO: character literals are not supported in minimaxon
 		if 'a' != c 'miss'
 			m = m + 1
 		end 'miss'
@@ -807,7 +765,6 @@ end 'main'
 ```
 
 <!-- test: a-character-literal-receiver-is-not-a-try-block-label -->
-<!-- skip: minimaxon does not parse the converted source: Expected expression but got 'A' -->
 ### `try 'A'.asciiValue()` is a call, not a block-form `try`
 
 A block LABEL and a character literal are the same `TokenKind.charLiteral`; only grammatical position tells
@@ -832,7 +789,6 @@ end 'main'
 ```
 
 <!-- test: a-character-literal-fills-a-character-struct-field -->
-<!-- skip: character literals are not supported in minimaxon -->
 ### A character literal at a struct-literal field
 
 `Self{ch: 'e'}` compiles and runs: the literal IS a `Character`, so the field and the value are the same
@@ -843,7 +799,6 @@ type Cell
 	export var ch as Character
 
 	static function create() returns Cell
-		// TODO: character literals are not supported in minimaxon
 		return Self{ch: 'e'}
 	end 'create'
 end 'Cell'
@@ -862,8 +817,6 @@ e
 ```
 
 <!-- test: a-character-binding-is-never-retyped-by-an-int -->
-<!-- skip: character literals are not supported in minimaxon -->
-<!-- positions: moved -->
 ### Only a LONE LITERAL converts — a `Character` binding meeting an `int` is a type error
 
 The coercion keys on the operand being written as a character literal, never on the two tags. Without that
@@ -872,7 +825,6 @@ diagnostic anywhere — because a `let` binds the literal's own SSA value.
 
 ```maxon
 function main() returns ExitCode
-	// TODO: character literals are not supported in minimaxon
 	let c = 'a'
 	if c == 45 'oops'
 		return 1
@@ -885,14 +837,11 @@ error E3005: specs/character-ownership/a-character-binding-is-never-retyped-by-a
 ```
 
 <!-- test: a-character-let-in-a-body-holds-a-character -->
-<!-- skip: character literals are not supported in minimaxon -->
 ### A `let` holds a character literal of any byte width
 
 ```maxon
 function main() returns ExitCode
-	// TODO: character literals are not supported in minimaxon
 	let dash = '-'
-	// TODO: character literals are not supported in minimaxon
 	let arrow = '→'
 	print("[{dash}] {dash.byteLength()} [{arrow}] {arrow.byteLength()}\n")
 	return 0
@@ -906,17 +855,14 @@ end 'main'
 ```
 
 <!-- test: a-module-level-character-initializer-holds-a-character -->
-<!-- skip: character literals are not supported in minimaxon -->
 ### A top-level `let` holds a character as a body's `let` does
 
 A module-scope initializer is the expression a body would write, so a character literal binds a `Character`
 there too, whatever its byte width, the one-byte case included.
 
 ```maxon
-// TODO: character literals are not supported in minimaxon
 let DASH = '-'
 
-// TODO: character literals are not supported in minimaxon
 let ARROW = '→'
 
 function main() returns ExitCode
@@ -932,7 +878,6 @@ end 'main'
 ```
 
 <!-- test: a-character-range-needs-both-bounds -->
-<!-- skip: character literals are not supported in minimaxon -->
 ### A range is a `Character` range only when BOTH bounds are character literals
 
 `for c in 'a' to 'e'` iterates Characters; `for i in 'a' to n` is an INTEGER range starting at 97, because
@@ -941,13 +886,11 @@ comparison of numbers. The element type follows the pair, never either half.
 
 ```maxon
 function main() returns ExitCode
-	// TODO: character literals are not supported in minimaxon
 	for c in 'a' to 'e' 'chars'
 		print("{c}")
 	end 'chars'
 	let stop = 99
 	var total = 0 as Codepoint
-	// TODO: character literals are not supported in minimaxon
 	for i in 'a' to stop 'codepoints'
 		total = total + i
 	end 'codepoints'
@@ -963,7 +906,6 @@ abcde 294
 ```
 
 <!-- test: a-wide-character-literal-converts-to-its-codepoint -->
-<!-- skip: character literals are not supported in minimaxon -->
 ### The conversion is to the CODEPOINT, not to a byte
 
 `'é'` is two bytes and one codepoint, and an integer position wants the codepoint: 233, which is what the
@@ -974,15 +916,12 @@ one-byte case.
 function main() returns ExitCode
 	var hits = 0 as Count
 	let cp = 233
-	// TODO: character literals are not supported in minimaxon
 	if cp == 'é' 'accent'
 		hits = hits + 1
 	end 'accent'
-	// TODO: character literals are not supported in minimaxon
 	if '中' == 20013 'han'
 		hits = hits + 1
 	end 'han'
-	// TODO: character literals are not supported in minimaxon
 	let shifted = 'é' + 1
 	print("{hits} {shifted}\n")
 	return 0
@@ -996,8 +935,6 @@ end 'main'
 ```
 
 <!-- test: a-cluster-has-no-integer-reading -->
-<!-- skip: character literals are not supported in minimaxon -->
-<!-- positions: moved -->
 ### A multi-codepoint cluster stays a `Character` in an integer position
 
 A ZWJ family emoji is a SEQUENCE of codepoints, so there is no single number to convert it to — answering
@@ -1007,7 +944,6 @@ operator raises its own type error.
 ```maxon
 function main() returns ExitCode
 	let cp = 128104
-	// TODO: character literals are not supported in minimaxon
 	if cp == '👨‍👩‍👧‍👦' 'family'
 		return 1
 	end 'family'
@@ -1019,8 +955,6 @@ error E3005: specs/character-ownership/a-cluster-has-no-integer-reading.maxon:4:
 ```
 
 <!-- test: an-ascii-array-literal-is-a-character-array-too -->
-<!-- skip: character literals are not supported in minimaxon -->
-<!-- positions: moved -->
 ### `['a', 'b']` infers the same element type `['é', 'ö']` does
 
 The two literals are one kind of array, and the compiler refuses a `Character` array in both — a one-byte
@@ -1028,7 +962,6 @@ literal array is not an `Array with integer`.
 
 ```maxon
 function main() returns ExitCode
-	// TODO: character literals are not supported in minimaxon
 	let a = ['a', 'b']
 	print("{a.count()}\n")
 	return 0

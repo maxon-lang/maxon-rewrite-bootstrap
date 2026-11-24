@@ -799,7 +799,6 @@ end 'main'
 ```
 
 <!-- test: a-qualified-set-from-head-names-the-alias-it-qualifies -->
-<!-- skip: character literals are not supported in minimaxon -->
 A user `CharSet` exported beside the library's: each qualified head builds the set its own declaration states.
 ```maxon
 // --- file: api/chars.maxon
@@ -807,9 +806,7 @@ export typealias CharSet = Set with Character
 
 // --- file: app/main.maxon
 function main() returns ExitCode
-	// TODO: character literals are not supported in minimaxon
 	let mine = api.CharSet from ['a', 'b']
-	// TODO: character literals are not supported in minimaxon
 	let theirs = stdlib.CharSet from ['x', 'y', 'z']
 	return (mine.count() * 10 + theirs.count()) as ExitCode
 end 'main'
@@ -841,17 +838,14 @@ end 'main'
 ```
 
 <!-- test: a-qualified-set-from-head-names-the-alias-it-qualifies-at-top-level -->
-<!-- skip: character literals are not supported in minimaxon -->
 Each qualified `CharSet` head of a top-level constant builds the set its own declaration states.
 ```maxon
 // --- file: api/chars.maxon
 export typealias CharSet = Set with Character
 
 // --- file: app/main.maxon
-// TODO: character literals are not supported in minimaxon
 let Mine = api.CharSet from ['a', 'b']
 
-// TODO: character literals are not supported in minimaxon
 let Theirs = stdlib.CharSet from ['x', 'y', 'z']
 
 function main() returns ExitCode

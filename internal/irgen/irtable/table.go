@@ -195,6 +195,7 @@ var flags = []flag{
 	{"Throws", "Throws is on a Call of a function that throws: its error register receives 0 when it returned and the\n// error's case plus 1 when it failed."},
 	{"Proven", "Proven is on a CallRuntime of an entry that reads or addresses an element at an index that the checker or a\n// check before it has proved inside the collection: its expansion is the access alone, with no bounds check."},
 	{"FloatResult", "FloatResult is on a call whose result is a float, which native code returns in an xmm register."},
+	{"Character", "Character is on a Str of a character literal, which native code holds in its two words when it has few enough bytes\n// (runtime/characters.maxon)."},
 }
 
 func reg(name string, f field) operand { return operand{Name: name, Kind: kReg, Field: f} }
@@ -222,7 +223,7 @@ var ops = []op{
 	{Name: "Const", Eval: noEval, Doc: "Const gives a number.", Result: valueResult,
 		Operands: []operand{{Name: "Value", Kind: kWord, Field: fImm}}, Text: "const {Value}"},
 	{Name: "Str", Eval: noEval, Doc: "Str gives a string literal.", Result: valueResult,
-		Operands: []operand{{Name: "Text", Kind: kText, Field: fC}}, Text: "str {Text}"},
+		Operands: []operand{{Name: "Text", Kind: kText, Field: fC}, {Name: "Character", Kind: kFlag, Field: fFlags, Flag: "Character", Text: " character"}}, Text: "str {Text}{Character}"},
 	{Name: "Datum", Eval: noEval, Doc: "Datum gives the constant Item of the function's Datums, laid out once in the executable's data: no one owns\n// it, and it is never written or dropped.", Result: valueResult,
 		Operands: []operand{{Name: "Item", Kind: kDatum, Field: fC}}, Text: "datum {Item}"},
 	{Name: "LoadSlot", Eval: noEval, Doc: "LoadSlot reads a slot.", Result: valueResult,

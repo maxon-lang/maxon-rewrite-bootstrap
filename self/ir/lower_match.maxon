@@ -160,7 +160,25 @@ function testPattern(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleStat
 		let lit = lowerExpr(l, p: p, ms: ms, e: ast.patternValue(p.modules[l.mi].tree, id: pat))
 		let eq = runtime(l, symbol: Rt.rtStreq, kind: IrKind.kindScalar, args: argsOf2(subject, b: lit))
 		l.b.terminate(testBlock, t: newBranch(eq, ifTrue: body, ifFalse: fail))
-	end 'string' else if form == ast.PatternKind.patLiteral 'literal'
+	end 'string' else if form == ast.PatternKind.patLiteral and st == p.builtins.characterTy 'character'
+		let testBlock = l.cur
+		let lit = lowerExpr(l, p: p, ms: ms, e: ast.patternValue(p.modules[l.mi].tree, id: pat))
+		let eq = characterEquals(l, left: subject, right: lit)
+		l.b.terminate(testBlock, t: newBranch(eq, ifTrue: body, ifFalse: fail))
+	end 'character' else if form == ast.PatternKind.patRange and st == p.builtins.characterTy 'characters'
+		let lo = lowerExpr(l, p: p, ms: ms, e: ast.patternValue(p.modules[l.mi].tree, id: pat))
+		let atLeast = characterOrder(l, op: CmpOp.cmpGe, left: subject, right: lo)
+		let upper = l.b.newBlock()
+		l.b.terminate(l.cur, t: newBranch(atLeast, ifTrue: upper, ifFalse: fail))
+		l.cur = upper
+		let hi = lowerExpr(l, p: p, ms: ms, e: ast.patternHigh(p.modules[l.mi].tree, id: pat))
+		var below = CmpOp.cmpLt
+		if ast.patternInclusive(p.modules[l.mi].tree, id: pat) 'inclusive'
+			below = CmpOp.cmpLe
+		end 'inclusive'
+		let atMost = characterOrder(l, op: below, left: subject, right: hi)
+		l.b.terminate(l.cur, t: newBranch(atMost, ifTrue: body, ifFalse: fail))
+	end 'characters' else if form == ast.PatternKind.patLiteral 'literal'
 		let valueNode = ast.patternValue(p.modules[l.mi].tree, id: pat)
 		var value = 0 as Word
 		if p.modules[l.mi].tree.kindOf(valueNode) == ast.NodeKind.boolLit 'bool'

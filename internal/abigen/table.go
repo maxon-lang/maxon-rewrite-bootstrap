@@ -53,8 +53,20 @@ var layouts = []layoutConst{
 		"the bit of a String's word that says it is a view of another String's bytes, which it owns none of: its copy copies them, where a literal's copy is the literal, since its bytes outlive every copy."},
 	{"stringAsciiBit", 2, true, toSelfIR | toSelfBack,
 		"the bit of a String's word that says every byte is below 0x80 and none is a carriage return, so each grapheme cluster and each code point is one byte; clear means nothing is known."},
-	{"stringLengthShift", 3, true, toSelfIR | toSelfBack,
+	{"stringLengthShift", 3, true, toRuntime | toSelfIR | toSelfBack,
 		"how far a String's length is shifted up in its word, past its flags: the length is the word shifted right by it."},
+
+	// A Character is two words, laid out as a String is (runtime/characters.maxon): one of at most charInlineBytes bytes holds
+	// them in the words themselves, the first eight in the first word and the rest in the second above its flags, and is told
+	// by a bit of its word that no String's word sets; a longer one is a String of its bytes.
+	{"charInlineBytes", 15, true, toRuntime | toSelfBack,
+		"the most bytes a Character holds in its two words, which then own nothing."},
+	{"charInlineShift", 63, true, toRuntime | toSelfBack,
+		"the bit of a Character's word that says it holds its bytes in its two words: a String's length never reaches it."},
+	{"charLengthShift", 59, true, toRuntime | toSelfBack,
+		"where the word of a Character that holds its bytes keeps their count, in the four bits under charInlineShift; the bytes after the eighth are between it and stringLengthShift."},
+	{"charOrderSame", 1, true, toRuntime | toSelfIR,
+		"what rt.char.compare gives for two Characters of the same bytes: 1 less where the first is before the second, 1 more where it is after, so an operator compares the answer with it as it would the two Characters."},
 	{"wordElementShift", 3, true, toSelfIR | toSelfBack,
 		"how far the index of an element of a word is shifted to its offset in a buffer: wordBytes is 1 shifted by it."},
 	{"stringElementShift", 4, true, toSelfIR | toSelfBack,

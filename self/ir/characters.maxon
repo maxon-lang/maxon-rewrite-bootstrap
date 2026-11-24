@@ -1,0 +1,74 @@
+// The lowering of a Character's members and operators. A Character is two registers' worth as a String is, and each
+// operation that reads its bytes is an entry of runtime/characters.maxon, the one place that knows how they are held.
+
+// asciiLimit is the first code point that is no ASCII byte.
+let asciiLimit = 128 as Word
+
+function lowerCharacterToString(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return runtime(l, symbol: Rt.rtCharToString, kind: IrKind.kindString, args: argsOf1(recv))
+end 'lowerCharacterToString'
+
+function lowerCharacterByteLength(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return runtime(l, symbol: Rt.rtCharLength, kind: IrKind.kindScalar, args: argsOf1(recv))
+end 'lowerCharacterByteLength'
+
+function lowerCharacterBytes(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return characterView(l, p: p, ms: ms, c: c, recv: recv)
+end 'lowerCharacterBytes'
+
+function lowerCharacterCodepoints(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return characterView(l, p: p, ms: ms, c: c, recv: recv)
+end 'lowerCharacterCodepoints'
+
+// characterView is the view of the type of the call c that holds a new String of the character's bytes.
+function characterView(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg) returns Reg
+	let text = runtime(l, symbol: Rt.rtCharToString, kind: IrKind.kindString, args: argsOf1(recv))
+	return builtinRecord(l, p: p, ms: ms, t: exprType(p, module: l.module, node: c.node), values: argsOf1(text))
+end 'characterView'
+
+function lowerCharacterCodepoint(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return runtime(l, symbol: Rt.rtCharCodepoint, kind: IrKind.kindScalar, args: argsOf1(recv))
+end 'lowerCharacterCodepoint'
+
+function lowerCharacterEquals(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return characterEquals(l, left: recv, right: args[0])
+end 'lowerCharacterEquals'
+
+// lowerCharacterAsciiValue is the byte of a Character of one byte below 0x80, and fails with notAscii for any other.
+function lowerCharacterAsciiValue(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	let length = runtime(l, symbol: Rt.rtCharLength, kind: IrKind.kindScalar, args: argsOf1(recv))
+	let one = konst(l, value: 1 as Word)
+	let single = compare(l, op: CmpOp.cmpEq, a: length, b: one, unsigned: true)
+	failUnless(l, p: p, ms: ms, cond: single, errorCase: ast.errorCharacterNotAscii)
+	let cp = runtime(l, symbol: Rt.rtCharCodepoint, kind: IrKind.kindScalar, args: argsOf1(recv))
+	let limit = konst(l, value: asciiLimit)
+	let ascii = compare(l, op: CmpOp.cmpLt, a: cp, b: limit, unsigned: true)
+	failUnless(l, p: p, ms: ms, cond: ascii, errorCase: ast.errorCharacterNotAscii)
+	return cp
+end 'lowerCharacterAsciiValue'
+
+// characterText is the text an interpolation writes of a Character: its bytes, or with `:q` the literal that spells it, in
+// single quotes as maxon's is.
+function characterText(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, v Reg, spec ast.FormatSpec) returns TextPart
+	let text = runtime(l, symbol: Rt.rtCharToString, kind: IrKind.kindString, args: argsOf1(v))
+	if not spec.quotes 'plain'
+		return TextPart.make(text, owner: TextOwner.textFresh)
+	end 'plain'
+	let single = konst(l, value: 1 as Word)
+	let width = konst(l, value: countWord(spec.width))
+	let quoted = runtime(l, symbol: Rt.rtFmtQuoted, kind: IrKind.kindManaged, args: argsOf3(text, b: single, c: width))
+	dropValue(l, p: p, ms: ms, v: text, t: p.builtins.stringTy)
+	return TextPart.make(quoted, owner: TextOwner.textFresh)
+end 'characterText'
+
+// characterEquals is whether two Characters have the same bytes.
+function characterEquals(mutates l Lowerer, left Reg, right Reg) returns Reg
+	return runtime(l, symbol: Rt.rtCharEquals, kind: IrKind.kindScalar, args: argsOf2(left, b: right))
+end 'characterEquals'
+
+// characterOrder compares two Characters by their bytes with op, as rt.char.compare's answer compares with charOrderSame.
+function characterOrder(mutates l Lowerer, op CmpOp, left Reg, right Reg) returns Reg
+	let order = runtime(l, symbol: Rt.rtCharCompare, kind: IrKind.kindScalar, args: argsOf2(left, b: right))
+	let same = konst(l, value: countWord(charOrderSame))
+	return compare(l, op: op, a: order, b: same, unsigned: true)
+end 'characterOrder'

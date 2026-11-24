@@ -60,6 +60,9 @@ export let errAssignToImmutable = "E2013"
 // The source uses a construct this compiler does not implement, such as a static function outside a type.
 export let errUnsupportedFeature = "E2015"
 
+// A character literal is malformed: empty, holding more than one character, or with an escape it does not know.
+export let errInvalidCharacterLiteral = "E2016"
+
 // A match arm that returns also says 'and fallthrough'.
 export let errMatchFallthroughWithReturn = "E2025"
 

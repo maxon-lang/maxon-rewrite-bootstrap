@@ -318,8 +318,8 @@ end 'emitRoutine'
 
 function emitDrop(mutates u CodeUnit, a ast.TargetArch, p ast.Project, mutates ms ast.ModuleState, ty ast.TypeID)
 	let kind = ast.typeKind(ms.types, reads: p.types, t: ty)
-	if kind == ast.TypeKind.primString 'string'
-		dropString(u, a: a, checks: p.checksStrings)
+	if kind == ast.TypeKind.primString or kind == ast.TypeKind.primCharacter 'string'
+		dropString(u, a: a, checks: p.checksStrings, character: kind == ast.TypeKind.primCharacter)
 		return
 	end 'string'
 	if kind == ast.TypeKind.record 'record'
@@ -371,8 +371,8 @@ end 'emitDrop'
 
 function emitCopy(mutates u CodeUnit, a ast.TargetArch, p ast.Project, mutates ms ast.ModuleState, ty ast.TypeID)
 	let kind = ast.typeKind(ms.types, reads: p.types, t: ty)
-	if kind == ast.TypeKind.primString 'string'
-		copyString(u, a: a, checks: p.checksStrings)
+	if kind == ast.TypeKind.primString or kind == ast.TypeKind.primCharacter 'string'
+		copyString(u, a: a, checks: p.checksStrings, character: kind == ast.TypeKind.primCharacter)
 		return
 	end 'string'
 	if kind == ast.TypeKind.record 'record'
@@ -1356,6 +1356,15 @@ function skipUnlessOwned(mutates u CodeUnit, a ast.TargetArch, done LabelID)
 	skipUnlessBits(u, a: a, bits: stringOwnedBit, done: done)
 end 'skipUnlessOwned'
 
+// skipIfInline goes to done where the Character whose word is in the first local holds its bytes in its two words, which own
+// nothing (runtime/characters.maxon).
+function skipIfInline(mutates u CodeUnit, a ast.TargetArch, done LabelID)
+	rLoad(u, a: a, dst: rSecond, base: rFrame, disp: routineLocal0)
+	rShrImm(u, a: a, dst: rSecond, shift: charInlineShift)
+	rTest(u, a: a, left: rSecond, right: rSecond)
+	rBranch(u, a: a, cond: MCond.notEqual, label: done)
+end 'skipIfInline'
+
 // skipUnlessBits goes to done unless the word of the String in the first local has one of bits set.
 function skipUnlessBits(mutates u CodeUnit, a ast.TargetArch, bits FullRangeInt, done LabelID)
 	rMovImm(u, a: a, dst: rWork, imm: bits)
@@ -1380,11 +1389,15 @@ function checkAsciiBit(mutates u CodeUnit, a ast.TargetArch)
 	u.asm.bind(clear)
 end 'checkAsciiBit'
 
-// dropString frees the bytes of a String that owns them: its word says so, with no access to memory.
-function dropString(mutates u CodeUnit, a ast.TargetArch, checks bool)
+// dropString frees the bytes of a String that owns them: its word says so, with no access to memory. A Character's is a String's,
+// but for one that holds its bytes in its two words, which owns nothing.
+function dropString(mutates u CodeUnit, a ast.TargetArch, checks bool, character bool)
 	let done = u.asm.newLabel()
 	routinePrologue(u, a: a, locals: 1)
 	rStore(u, a: a, base: rFrame, disp: routineLocal0, src: rArgWord)
+	if character 'character'
+		skipIfInline(u, a: a, done: done)
+	end 'character'
 	skipUnlessOwned(u, a: a, done: done)
 	if checks 'checks'
 		checkAsciiBit(u, a: a)
@@ -1539,12 +1552,16 @@ end 'copyArray'
 
 // copyString is a new String of a copy of the bytes, which it owns, where the String owns them or is a view of another's:
 // a literal's copy is the same two words, since its bytes are the executable's and outlive every copy. A view's copy has
-// its word with the owned bit in place of the view bit.
-function copyString(mutates u CodeUnit, a ast.TargetArch, checks bool)
+// its word with the owned bit in place of the view bit. A Character's is a String's, but for one that holds its bytes in its two
+// words, whose copy is the same two words.
+function copyString(mutates u CodeUnit, a ast.TargetArch, checks bool, character bool)
 	let shared = u.asm.newLabel()
 	let owned = u.asm.newLabel()
 	routinePrologue(u, a: a, locals: 2)
 	rStore(u, a: a, base: rFrame, disp: routineLocal0, src: rArgWord)
+	if character 'character'
+		skipIfInline(u, a: a, done: shared)
+	end 'character'
 	skipUnlessBits(u, a: a, bits: stringOwnedBit or stringViewBit, done: shared)
 	if checks 'checks'
 		checkAsciiBit(u, a: a)

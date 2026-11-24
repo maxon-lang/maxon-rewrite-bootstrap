@@ -69,8 +69,9 @@ export type Selector
 	// second is the virtual register of the second word of each String register of the function being selected, its word,
 	// and noMReg for every other register: a String is two words, and the IR register's own is its first.
 	var second as MRegList
-	// stringTy is the type String, whose values are two words.
+	// stringTy is the type String, whose values are two words, and characterTy the type Character, laid out as a String.
 	var stringTy as ast.TypeID
+	var characterTy as ast.TypeID
 	var args as MRegList
 	// callArgs are the arguments of the call being selected, in the order the convention passes them, and callFloats
 	// which of them are floats; places is where the convention puts them (placeArgs).
@@ -136,7 +137,7 @@ export type Selector
 	var sharedWords as WordSharing
 
 	static function new(verifies bool, target ast.Target) returns Selector
-		return Selector{u: CodeUnit.new(), mir: MirFunction.new("", canThrow: false, arch: target.arch), defs: DefAtList.create(0), second: MRegList.create(0), stringTy: ast.noType, args: MRegList.create(0), callArgs: MRegList.create(0), callFloats: Array.create(0), places: CountList.create(0), params: MRegList.create(0), paramPlaces: CountList.create(0), paramFloats: Array.create(0), paramWordAt: CountList.create(0), wordPositions: CountList.create(0), closureBody: false, calleeSymbols: CalleeSymbols.new(), canThrow: false, floatResult: false, fnSymbol: "", tables: TableSet.new(), due: ir.WitnessTableList.create(0), thunks: TableSet.new(), dueThunks: ast.FuncIDList.create(0), typeNames: TableSet.new(), typeSymbols: CalleeSymbols.new(), datums: TableSet.new(), readCount: CountList.create(0), reads: ir.RegList.create(0), irBlock: 0, irAt: 0, dead: DeadCode.new(), layout: BlockLayout.new(), allocator: Allocator.new(verifies, target: target), classes: ClassChoice.new(), arch: target.arch, system: target.system, harvest: LocalHarvest.new(), sharedWords: WordSharing.new()}
+		return Selector{u: CodeUnit.new(), mir: MirFunction.new("", canThrow: false, arch: target.arch), defs: DefAtList.create(0), second: MRegList.create(0), stringTy: ast.noType, characterTy: ast.noType, args: MRegList.create(0), callArgs: MRegList.create(0), callFloats: Array.create(0), places: CountList.create(0), params: MRegList.create(0), paramPlaces: CountList.create(0), paramFloats: Array.create(0), paramWordAt: CountList.create(0), wordPositions: CountList.create(0), closureBody: false, calleeSymbols: CalleeSymbols.new(), canThrow: false, floatResult: false, fnSymbol: "", tables: TableSet.new(), due: ir.WitnessTableList.create(0), thunks: TableSet.new(), dueThunks: ast.FuncIDList.create(0), typeNames: TableSet.new(), typeSymbols: CalleeSymbols.new(), datums: TableSet.new(), readCount: CountList.create(0), reads: ir.RegList.create(0), irBlock: 0, irAt: 0, dead: DeadCode.new(), layout: BlockLayout.new(), allocator: Allocator.new(verifies, target: target), classes: ClassChoice.new(), arch: target.arch, system: target.system, harvest: LocalHarvest.new(), sharedWords: WordSharing.new()}
 	end 'new'
 
 	// prepare names what the function's instructions ask for by handle: the symbols of its callees, and the drop and copy
@@ -144,6 +145,7 @@ export type Selector
 	function prepare(mutates self, p ast.Project, mutates ms ast.ModuleState, f ir.IrFunction)
 		canThrow = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: f.decl).errTy != ast.noType
 		stringTy = p.builtins.stringTy
+		characterTy = p.builtins.characterTy
 		floatResult = f.floatResult
 		calleeSymbols = CalleeSymbols.new()
 		for i in 0 upto f.callees.count() 'callees'

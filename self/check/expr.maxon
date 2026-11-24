@@ -92,6 +92,9 @@ function visitExpr(mutates c Checker, p ast.Project, mutates ms ast.ModuleState,
 	if k == ast.NodeKind.byteStrLit 'byteStrLit'
 		return checkByteStrLit(c, p: p, ms: ms, e: e, errs: errs)
 	end 'byteStrLit'
+	if k == ast.NodeKind.charLit 'charLit'
+		return p.builtins.characterTy
+	end 'charLit'
 	if k == ast.NodeKind.nameExpr 'nameExpr'
 		return checkNameExpr(c, p: p, ms: ms, e: e, errs: errs)
 	end 'nameExpr'
@@ -223,7 +226,7 @@ function checkInterpolation(mutates c Checker, p ast.Project, mutates ms ast.Mod
 		return false
 	end 'wide'
 	let k = kindOfType(p, ms: ms, t: t)
-	if isNumberType(p, ms: ms, t: t) or t == p.builtins.stringTy or t == p.builtins.boolTy or k == ast.TypeKind.enumTy or k == ast.TypeKind.unionTy 'printable'
+	if isNumberType(p, ms: ms, t: t) or t == p.builtins.stringTy or t == p.builtins.characterTy or t == p.builtins.boolTy or k == ast.TypeKind.enumTy or k == ast.TypeKind.unionTy 'printable'
 		return true
 	end 'printable'
 	checkFail(c.modID, off: off, code: diag.errTypeMismatch, msg: "a value of {nameOfType(p, ms: ms, t: t)} cannot be interpolated", errs: errs)
@@ -431,24 +434,26 @@ function checkBinary(mutates c Checker, p ast.Project, mutates ms ast.ModuleStat
 		if l == ast.noType 'badInner'
 			return ast.noType
 		end 'badInner'
-		l = checkOperator(c, p: p, ms: ms, e: node, l: l, want: ast.noType, errs: errs)
+		l = checkOperator(c, p: p, ms: ms, e: node, checkedL: l, want: ast.noType, errs: errs)
 		recordType(c, e: node, t: l)
 		node = ast.nextOperator(chain, e: e)
 	end 'inner'
 	if l == ast.noType 'badLeft'
 		return ast.noType
 	end 'badLeft'
-	return checkOperator(c, p: p, ms: ms, e: e, l: l, want: want, errs: errs)
+	return checkOperator(c, p: p, ms: ms, e: e, checkedL: l, want: want, errs: errs)
 end 'checkBinary'
 
 // checkOperator types an operator whose left operand has the type l.
-function checkOperator(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, l ast.TypeID, want ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
+function checkOperator(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, checkedL ast.TypeID, want ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
 	let op = ast.binaryExprOp(ms.tree(), id: e)
 	let rNode = ast.binaryExprR(ms.tree(), id: e)
-	let r = checkExpr(c, p: p, ms: ms, e: rNode, errs: errs)
-	if r == ast.noType 'badRight'
+	let checkedR = checkExpr(c, p: p, ms: ms, e: rNode, errs: errs)
+	if checkedR == ast.noType 'badRight'
 		return ast.noType
 	end 'badRight'
+	let l = integerized(c, p: p, ms: ms, e: ast.binaryExprL(ms.tree(), id: e), t: checkedL, other: checkedR)
+	let r = integerized(c, p: p, ms: ms, e: rNode, t: checkedR, other: l)
 	let off = offsetOf(c, p: p, ms: ms, node: e)
 	if op == "is" 'identity'
 		return checkIdentity(c, p: p, ms: ms, e: e, l: l, r: r, errs: errs)
@@ -477,12 +482,29 @@ function checkOperator(mutates c Checker, p ast.Project, mutates ms ast.ModuleSt
 	return ast.noType
 end 'checkOperator'
 
+// integerized is the type of the operand e, of type t, beside an operand of type other: a character literal that is the whole of
+// an operand beside an integer is its code point, a constant, as maxon's is (cp - '0'), where its cluster is one code point;
+// any other operand, a Character that is no literal among them, keeps its type.
+function integerized(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, t ast.TypeID, other ast.TypeID) returns ast.TypeID
+	if ms.tree().kindOf(e) != ast.NodeKind.charLit or not ast.isIntType(ms.types, reads: p.types, t: other) 'kept'
+		return t
+	end 'kept'
+	let cp = ast.charLitCodepoint(ms.tree(), id: e)
+	if not cp.isSome() 'cluster'
+		return t
+	end 'cluster'
+	let coerced = ast.internConstInt(ms.types, reads: p.types, val: ast.I128.fromCount(cp.unwrap()))
+	recordType(c, e: e, t: coerced)
+	return coerced
+end 'integerized'
+
 // hasIdentity is whether a value of the type is an object that two names can stand for: a record, a string or a collection.
 // A number, a bool, an enum case, a union, a function and a type parameter are values with no object to name.
 function hasIdentity(p ast.Project, ms ast.ModuleState, t ast.TypeID) returns bool
 	return match ast.typeKind(ms.types, reads: p.types, t: t) 'kind'
 		record gives true
 		primString gives true
+		primCharacter gives false
 		builtinArray gives true
 		builtinList gives true
 		invalid gives false
@@ -681,6 +703,11 @@ function checkComparison(mutates c Checker, p ast.Project, mutates ms ast.Module
 		checkFail(c.modID, off: off, code: diag.errEnumNotComparable, msg: diag.unionNotComparable(op), errs: errs)
 		return ast.noType
 	end 'union'
+	if l == r and l == p.builtins.characterTy 'characters'
+		// Characters are equal and ordered by their bytes, maxon's Equatable and Comparable.
+		setOperand(c, node: e, operand: l)
+		return p.builtins.boolTy
+	end 'characters'
 	let equality = op == "==" or op == "!="
 	if equality and l == r and (l == p.builtins.boolTy or l == p.builtins.stringTy or typeHasKind(p, ms: ms, t: l, kind: ast.TypeKind.enumTy) or typeHasKind(p, ms: ms, t: l, kind: ast.TypeKind.builtinHandle)) 'comparable'
 		setOperand(c, node: e, operand: l)
@@ -924,6 +951,7 @@ function castTargetIsRefused(p ast.Project, ms ast.ModuleState, target ast.TypeI
 	return match kindOfType(p, ms: ms, t: target) 'k'
 		primBool gives true
 		primString gives true
+		primCharacter gives true
 		record gives true
 		enumTy gives true
 		unionTy gives true
@@ -957,6 +985,7 @@ function castKindWord(p ast.Project, ms ast.ModuleState, t ast.TypeID) returns S
 		invalid gives panic("a cast names a value that has no type")
 		primBool gives "bool"
 		primString gives "String"
+		primCharacter gives "Character"
 		primVoid gives name
 		primNever gives name
 		intRange gives "int" if typeIsAnonInt(ms.types, reads: p.types, t: t) else name
@@ -988,6 +1017,7 @@ function castTargetWord(p ast.Project, ms ast.ModuleState, t ast.TypeID) returns
 		invalid gives panic("a cast names a target that has no type")
 		primBool gives "bool"
 		primString gives "String"
+		primCharacter gives "Character"
 		intRange gives "int"
 		constInt gives "int"
 		floatRange gives "float"

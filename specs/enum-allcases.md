@@ -157,14 +157,10 @@ text/plain
 ### Char-Backed Enum
 
 <!-- test: enum-allcases.char-backed -->
-<!-- skip: character literals are not supported in minimaxon -->
 ```maxon
 enum Grade
-	// TODO: character literals are not supported in minimaxon
 	a = 'A'
-	// TODO: character literals are not supported in minimaxon
 	b = 'B'
-	// TODO: character literals are not supported in minimaxon
 	c = 'C'
 end 'Grade'
 

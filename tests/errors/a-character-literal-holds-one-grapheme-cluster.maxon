@@ -1,0 +1,7 @@
+function main() returns ExitCode
+	let pair = 'ab'
+	print("{pair}\n")
+	return 0
+end 'main'
+
+// expect-error: E2016 at 2:13

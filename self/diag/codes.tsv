@@ -26,6 +26,7 @@ ErrIntegerLiteralRange	E2011	parserLiteralOverflow	An integer literal is outside
 ErrDependsOnItself	E2012	parserCircularDependency	Something is defined in terms of itself: modules, constants or typealiases in a cycle.
 ErrAssignToImmutable	E2013	assignToImmutable	An assignment targets something that cannot be reassigned.
 ErrUnsupportedFeature	E2015	parserUnsupportedFeature	The source uses a construct this compiler does not implement, such as a static function outside a type.
+ErrInvalidCharacterLiteral	E2016	parserInvalidCharacterLiteral	A character literal is malformed: empty, holding more than one character, or with an escape it does not know.
 ErrMatchFallthroughWithReturn	E2025	matchFallthroughWithReturn	A match arm that returns also says 'and fallthrough'.
 ErrMatchNotExhaustive	E2026	matchNotExhaustive	A match covers neither every case of its subject nor a default.
 ErrMatchTypeMismatch	E2028	matchTypeMismatch	A match arm or a ternary branch has a type that the others do not, or a pattern does not match its subject.

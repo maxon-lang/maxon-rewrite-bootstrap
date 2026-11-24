@@ -3874,7 +3874,6 @@ hello
 ```
 
 <!-- test: a-sendable-bound-accepts-a-character -->
-<!-- skip: character literals are not supported in minimaxon -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
 A `Character` is a value, so it is sendable as it stands.
 
@@ -3891,7 +3890,6 @@ end 'Pool'
 typealias LetterPool = Pool with Character
 
 function main() returns ExitCode
-	// TODO: character literals are not supported in minimaxon
 	let pool = LetterPool.create('q')
 	print("{pool.item}\n")
 	return 0

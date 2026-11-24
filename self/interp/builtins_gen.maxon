@@ -95,6 +95,26 @@ function runtimeEntry(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 		try entryStrLen(vm, f: f, x: x)
 		return
 	end 'rtStrLen'
+	if symbol == ir.Rt.rtCharEquals 'rtCharEquals'
+		try entryCharEquals(vm, f: f, x: x)
+		return
+	end 'rtCharEquals'
+	if symbol == ir.Rt.rtCharCompare 'rtCharCompare'
+		try entryCharCompare(vm, f: f, x: x)
+		return
+	end 'rtCharCompare'
+	if symbol == ir.Rt.rtCharLength 'rtCharLength'
+		try entryCharLength(vm, f: f, x: x)
+		return
+	end 'rtCharLength'
+	if symbol == ir.Rt.rtCharToString 'rtCharToString'
+		try entryCharToString(vm, f: f, x: x)
+		return
+	end 'rtCharToString'
+	if symbol == ir.Rt.rtCharCodepoint 'rtCharCodepoint'
+		try entryCharCodepoint(vm, f: f, x: x)
+		return
+	end 'rtCharCodepoint'
 	if symbol == ir.Rt.rtStrByteAt 'rtStrByteAt'
 		try entryStrByteAt(vm, f: f, x: x)
 		return

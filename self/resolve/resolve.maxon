@@ -88,7 +88,7 @@ type Resolver
 end 'Resolver'
 
 function isPrimTypeName(name String) returns bool
-	return name == "bool" or name == "String" or name == "Self" or name == "int" or name == "float"
+	return name == "bool" or name == "String" or name == "Character" or name == "Self" or name == "int" or name == "float"
 end 'isPrimTypeName'
 
 function pushErr(mutates errs diag.ErrorList, modID diag.ModuleID, off diag.U32, consumes code String, consumes msg String)
@@ -1043,7 +1043,7 @@ function resolveExpr(mutates r Resolver, p ast.Project, ms ast.ModuleState, id a
 	if k == ast.NodeKind.selfExpr and r.inClosure and isNameBound(r, name: ast.receiverName) 'capturedSelf'
 		r.tree.becomeSelfName(id)
 		resolveNameExpr(r, p: p, id: id, errs: errs)
-	end 'capturedSelf' else if k == ast.NodeKind.intLit or k == ast.NodeKind.floatLit or k == ast.NodeKind.boolLit or k == ast.NodeKind.selfExpr or k == ast.NodeKind.byteStrLit 'leaf'
+	end 'capturedSelf' else if k == ast.NodeKind.intLit or k == ast.NodeKind.floatLit or k == ast.NodeKind.boolLit or k == ast.NodeKind.selfExpr or k == ast.NodeKind.byteStrLit or k == ast.NodeKind.charLit 'leaf'
 		return
 	end 'leaf' else if k == ast.NodeKind.nameExpr 'nm'
 		resolveNameExpr(r, p: p, id: id, errs: errs)

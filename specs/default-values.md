@@ -338,7 +338,6 @@ end 'main'
 ```
 
 <!-- test: default-values.char-default-omitted -->
-<!-- skip: minimaxon does not parse the converted source: Expected expression but got 'A' -->
 ```maxon
 function initial(c Character = 'A') returns ExitCode
 	print("{c}")

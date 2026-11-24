@@ -6,6 +6,21 @@ let wordBytes = 8 as Count
 // noBox is the empty place: a box address that names nothing, which a move leaves behind and a free skips.
 let noBox = 0 as Count
 
+// stringLengthShift is how far a String's length is shifted up in its word, past its flags: the length is the word shifted right by it.
+let stringLengthShift = 3 as Count
+
+// charInlineBytes is the most bytes a Character holds in its two words, which then own nothing.
+let charInlineBytes = 15 as Count
+
+// charInlineShift is the bit of a Character's word that says it holds its bytes in its two words: a String's length never reaches it.
+let charInlineShift = 63 as Count
+
+// charLengthShift is where the word of a Character that holds its bytes keeps their count, in the four bits under charInlineShift; the bytes after the eighth are between it and stringLengthShift.
+let charLengthShift = 59 as Count
+
+// charOrderSame is what rt.char.compare gives for two Characters of the same bytes: 1 less where the first is before the second, 1 more where it is after, so an operator compares the answer with it as it would the two Characters.
+let charOrderSame = 1 as Count
+
 // arrayLengthOffset is where the box of an array, and of a byte array, holds its length, a count of elements.
 let arrayLengthOffset = 0 as Count
 

@@ -21,6 +21,31 @@ function literalWord(text String) returns FullRangeInt
 	return word
 end 'literalWord'
 
+// inlineCharacterWord is the count bytes of a character literal's text from from, as a word holds them, the first lowest: in its
+// first word, or in its second above the flags of a String's word.
+function inlineCharacterWord(text String, from Count, count Count) returns FullRangeInt
+	var bits = 0 as Count
+	var shift = 0 as Count
+	if from > 0 'second'
+		shift = stringLengthShift
+	end 'second'
+	let until = try from + count otherwise panic("backend: a character past memory")
+	for i in from upto until 'bytes'
+		if i < text.byteLength() 'byte'
+			bits = bits or (try (text.byteAt(i) as Count) shl shift otherwise panic("backend: a byte past its word"))
+		end 'byte'
+		shift = try shift + bitsPerByte otherwise panic("backend: a byte past its word")
+	end 'bytes'
+	return ir.wordOfBits(bits)
+end 'inlineCharacterWord'
+
+// inlineCharacterFlags is the rest of the second word of a Character that holds its length bytes in its two words: the count, the
+// bit that says so, and a String's owned bit, as the runtime's stringOf gives it.
+function inlineCharacterFlags(length Count) returns FullRangeInt
+	let count = try length shl charLengthShift otherwise panic("backend: a character literal longer than its words hold")
+	return ir.wordOfBits((1 shl charInlineShift) or count or stringOwnedBit)
+end 'inlineCharacterFlags'
+
 // holdsSimpleBytes is whether every byte of a text is below 0x80 and none is a carriage return, which a line feed after it
 // would make one grapheme cluster with: what a String's ASCII bit says (runtime::bytesAreSimple).
 function holdsSimpleBytes(text String) returns bool
@@ -150,7 +175,7 @@ extension Selector
 		let value = self.load(base, disp: disp)
 		self.storeImm(base, disp: disp, value: 0)
 		self.addArg(value, float: false)
-		if ty == stringTy 'string'
+		if ty == stringTy or ty == characterTy 'string'
 			let word = self.load(base, disp: secondWordDisp(disp))
 			self.storeImm(base, disp: secondWordDisp(disp), value: 0)
 			self.addArg(word, float: false)
@@ -176,8 +201,15 @@ function emitStringConst(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
 	sel.constantInto(sel.secondOf(ins.dst), value: 0)
 end 'emitStringConst'
 
-// emitStr is a literal: the address of its bytes in the executable and its word, both known before the program runs.
+// emitStr is a literal: the address of its bytes in the executable and its word, both known before the program runs. A
+// character literal of few enough bytes is its two words, which hold them (runtime/characters.maxon).
 function emitStr(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
+	if ir.strCharacter(ins) and ir.strText(fn, x: ins).byteLength() <= charInlineBytes 'inline'
+		let text = ir.strText(fn, x: ins)
+		sel.constantInto(vregOf(ins.dst), value: inlineCharacterWord(text, from: 0 as Count, count: wordBytes))
+		sel.constantInto(sel.secondOf(ins.dst), value: inlineCharacterWord(text, from: wordBytes, count: charInlineBytes - wordBytes) or inlineCharacterFlags(text.byteLength()))
+		return
+	end 'inline'
 	let refers = sel.textRef(fn, ins: ins)
 	sel.referAddressInto(vregOf(ins.dst), refers: refers)
 	sel.constantInto(sel.secondOf(ins.dst), value: literalWord(ir.strText(fn, x: ins)))

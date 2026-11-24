@@ -127,7 +127,7 @@ function constRefsOfOperands(p ast.Project, ms ast.ModuleState, tree ast.Tree, r
 	end 'member' else if k == ast.NodeKind.panicExpr 'panic'
 		out.runs = true
 		constRefs(p, ms: ms, tree: tree, res: res, e: ast.panicExprMessage(tree, id: e), out: out)
-	end 'panic' else if k == ast.NodeKind.intLit or k == ast.NodeKind.floatLit or k == ast.NodeKind.boolLit or k == ast.NodeKind.selfExpr or k == ast.NodeKind.byteStrLit or k == ast.NodeKind.typeQueryExpr 'leaf'
+	end 'panic' else if k == ast.NodeKind.intLit or k == ast.NodeKind.floatLit or k == ast.NodeKind.boolLit or k == ast.NodeKind.selfExpr or k == ast.NodeKind.byteStrLit or k == ast.NodeKind.charLit or k == ast.NodeKind.typeQueryExpr 'leaf'
 		_ = 0
 	end 'leaf' else if k == ast.NodeKind.closureExpr 'closure'
 		// A closure's body runs when it is called, so the constants it names are not part of the value.

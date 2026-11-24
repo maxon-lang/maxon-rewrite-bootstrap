@@ -79,6 +79,7 @@ function isConstantResult(p ast.Project, ms ast.ModuleState, t ast.TypeID) retur
 		primBool gives true
 		invalid gives false
 		primString gives false
+		primCharacter gives false
 		primVoid gives false
 		primNever gives false
 		record gives false
@@ -287,9 +288,9 @@ end 'methodNamed'
 // implements there. Each outranks the next, so a type's own method is the one called wherever the type is known.
 function methodLookup(c Checker, p ast.Project, ms ast.ModuleState, t ast.TypeID, name String) returns ast.MethodLookup
 	var own = methodNamed(p, ms: ms, t: t, name: name)
-	if t == p.builtins.stringTy 'string'
-		own = stringMethodNamed(p, name: name)
-	end 'string'
+	if t == p.builtins.stringTy or t == p.builtins.characterTy 'primitive'
+		own = primitiveMethodNamed(p, t: t, name: name)
+	end 'primitive'
 	if own != ast.noFunc 'declared'
 		return ast.MethodLookup.found(own)
 	end 'declared'
@@ -337,13 +338,13 @@ function extensionText(p ast.Project, ms ast.ModuleState, fid ast.FuncID, module
 	return "an extension in {module}"
 end 'extensionText'
 
-// stringMethodNamed is the method of String of that name, or none.
-function stringMethodNamed(p ast.Project, name String) returns ast.FuncID
-	match p.builtins.stringMethods.get(name) 'method'
+// primitiveMethodNamed is the method of that name of String or Character, or none.
+function primitiveMethodNamed(p ast.Project, t ast.TypeID, name String) returns ast.FuncID
+	match ast.primitiveMethod(p.builtins, t: t, name: name) 'method'
 		some(fid) then return fid
 		none then return ast.noFunc
 	end 'method'
-end 'stringMethodNamed'
+end 'primitiveMethodNamed'
 
 // callPrint types print and printError, which take the text to write.
 function callPrint(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, call ast.NodeID, name String, mutates errs diag.ErrorList) returns ast.TypeID

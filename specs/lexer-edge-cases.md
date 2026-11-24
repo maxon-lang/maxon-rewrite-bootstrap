@@ -39,10 +39,7 @@ error E3001: No 'main' function found
 ### Unterminated strings
 
 <!-- test: unterminated-squote-eof -->
-<!-- skip: character literals are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
-// TODO: character literals are not supported in minimaxon
 let x = 'hello
 ```
 ```maxoncstderr
@@ -58,13 +55,11 @@ error E1002: specs/lexer-edge-cases/unterminated-dquote-eof.maxon:2:9: Untermina
 ```
 
 <!-- test: string-with-newline -->
-<!-- skip: character literals are not supported in minimaxon -->
+<!-- skip: minimaxon does not parse the converted source: Unterminated string literal -->
 <!-- positions: moved -->
 ```maxon
-// TODO: character literals are not supported in minimaxon
 let x = 'hel
 
-// TODO: character literals are not supported in minimaxon
 lo '
 ```
 ```maxoncstderr
@@ -72,12 +67,10 @@ error E3001: No 'main' function found
 ```
 
 <!-- test: string-with-newline-in-a-body -->
-<!-- skip: character literals are not supported in minimaxon -->
+<!-- skip: minimaxon does not parse the converted source: Unterminated string literal -->
 ```maxon
 function main() returns ExitCode
-	// TODO: character literals are not supported in minimaxon
 	let x = 'hel
-// TODO: character literals are not supported in minimaxon
 lo '
 	print("[{x}]\n")
 	return 0
@@ -100,10 +93,7 @@ error E1002: specs/lexer-edge-cases/unterminated-escape-eof.maxon:2:9: Untermina
 ```
 
 <!-- test: empty-squote-string -->
-<!-- skip: character literals are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
-// TODO: character literals are not supported in minimaxon
 let x = ''
 
 function main() returns ExitCode
@@ -481,13 +471,11 @@ error E1010: specs/lexer-edge-cases/stray-curly-quote.maxon:2:9: Unexpected char
 ```
 
 <!-- test: question-mark-is-text-in-strings-and-comments -->
-<!-- skip: character literals are not supported in minimaxon -->
 ```maxon
 // is this a comment?
 // or a block comment?
 function main() returns ExitCode
 	let q = "why?"
-	// TODO: character literals are not supported in minimaxon
 	let c = '?'
 	print("{q}{c}\n")
 	return 0

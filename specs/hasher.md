@@ -1329,7 +1329,6 @@ error E3005: <fragment>:9:10: argument type mismatch for 'digest': expected 'Has
 ```
 
 <!-- test: the-hash-methods-are-the-process-fold -->
-<!-- skip: character literals are not supported in minimaxon -->
 `String.hash()`, `Character.hash()` and `Array.hash()` are the `Hasher` fold: the `finalize()` of a
 `Hasher.create()` that folds the same bytes with `combineBytes`. A `String`, the empty one included, a
 `Character` of several bytes, and a `ByteArray` of the same bytes as the `String` each agree with it.
@@ -1343,7 +1342,6 @@ end 'folded'
 function main() returns ExitCode
 	let message = "a message of the process fold"
 	let empty = ""
-	// TODO: character literals are not supported in minimaxon
 	let euro = '€'
 	print("string: {message.hash() == folded(message.toByteArray())}\n")
 	print("empty string: {empty.hash() == folded(ByteArray.create(0))}\n")

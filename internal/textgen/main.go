@@ -22,10 +22,12 @@ const (
 	emojiDataFile     = "ucd/emoji-data.txt"
 )
 
-// outputs are the generated files: the runtime's, and the interpreter's, which runs the same text operations.
+// outputs are the generated files: the runtime's, the interpreter's, which runs the same text operations, and the parser's,
+// which holds a character literal to one grapheme cluster.
 var outputs = []string{
 	"../../runtime/unicode_gen.maxon",
 	"../../self/interp/unicode_gen.maxon",
+	"../../self/syntax/unicode_gen.maxon",
 }
 
 const (

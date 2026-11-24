@@ -217,9 +217,9 @@ end 'verifyExtensions'
 
 // bodyDeclares is whether the declaration of the type owner has a method of that name of its own.
 function bodyDeclares(p ast.Project, ms ast.ModuleState, owner ast.TypeID, name String) returns bool
-	if owner == p.builtins.stringTy 'string'
-		return stringMethodNamed(p, name: name) != ast.noFunc
-	end 'string'
+	if owner == p.builtins.stringTy or owner == p.builtins.characterTy 'primitive'
+		return primitiveMethodNamed(p, t: owner, name: name) != ast.noFunc
+	end 'primitive'
 	return ast.typeEntry(ms.types, reads: p.types, t: owner).findMethod(name).isSome()
 end 'bodyDeclares'
 

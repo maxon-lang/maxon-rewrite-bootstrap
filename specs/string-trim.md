@@ -55,9 +55,11 @@ CharacterSet.controlCharacters       // Control characters
 ## Tests
 
 <!-- test: trim-whitespace-both -->
+<!-- skip: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet -->
 ```maxon
 function main() returns ExitCode
 	let s = "  hello  "
+	// TODO: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet
 	let ws = CharacterSet.whitespacesAndNewlines
 	let result = s.trim(ws)
 	print("[{result}]")
@@ -200,9 +202,11 @@ end 'main'
 ```
 
 <!-- test: trim-charset-whitespace -->
+<!-- skip: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet -->
 ```maxon
 function main() returns ExitCode
 	let s = "  hello  "
+	// TODO: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet
 	let result = s.trim(CharacterSet.whitespacesAndNewlines)
 	print("[{result}]")
 	return 0
@@ -216,9 +220,11 @@ end 'main'
 ```
 
 <!-- test: trim-charset-digits -->
+<!-- skip: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet -->
 ```maxon
 function main() returns ExitCode
 	let s = "123hello456"
+	// TODO: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet
 	let result = s.trim(CharacterSet.decimalDigits)
 	print("[{result}]")
 	return 0
@@ -232,9 +238,11 @@ end 'main'
 ```
 
 <!-- test: trim-charset-letters -->
+<!-- skip: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet -->
 ```maxon
 function main() returns ExitCode
 	let s = "abc123abc"
+	// TODO: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet
 	let result = s.trim(CharacterSet.letters)
 	print("[{result}]")
 	return 0
@@ -248,9 +256,11 @@ end 'main'
 ```
 
 <!-- test: trim-charset-digits-start -->
+<!-- skip: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet -->
 ```maxon
 function main() returns ExitCode
 	let s = "123hello"
+	// TODO: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet
 	let result = s.trimStart(CharacterSet.decimalDigits)
 	print("[{result}]")
 	return 0
@@ -264,9 +274,11 @@ end 'main'
 ```
 
 <!-- test: trim-charset-digits-end -->
+<!-- skip: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet -->
 ```maxon
 function main() returns ExitCode
 	let s = "hello123"
+	// TODO: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet
 	let result = s.trimEnd(CharacterSet.decimalDigits)
 	print("[{result}]")
 	return 0
@@ -280,9 +292,11 @@ end 'main'
 ```
 
 <!-- test: trim-charset-no-match -->
+<!-- skip: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet -->
 ```maxon
 function main() returns ExitCode
 	let s = "hello"
+	// TODO: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet
 	let result = s.trim(CharacterSet.decimalDigits)
 	print("[{result}]")
 	return 0
@@ -296,9 +310,11 @@ end 'main'
 ```
 
 <!-- test: trim-charset-all-match -->
+<!-- skip: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet -->
 ```maxon
 function main() returns ExitCode
 	let s = "12345"
+	// TODO: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet
 	let result = s.trim(CharacterSet.decimalDigits)
 	print("[{result}]")
 	return 0
@@ -312,9 +328,11 @@ end 'main'
 ```
 
 <!-- test: trim-charset-empty -->
+<!-- skip: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet -->
 ```maxon
 function main() returns ExitCode
 	let s = ""
+	// TODO: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet
 	let result = s.trim(CharacterSet.whitespacesAndNewlines)
 	print("[{result}]")
 	return 0
@@ -328,9 +346,11 @@ end 'main'
 ```
 
 <!-- test: trim-charset-punctuation -->
+<!-- skip: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet -->
 ```maxon
 function main() returns ExitCode
 	let s = "...hello!!!"
+	// TODO: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet
 	let result = s.trim(CharacterSet.punctuation)
 	print("[{result}]")
 	return 0

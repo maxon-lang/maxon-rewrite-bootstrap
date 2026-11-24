@@ -187,8 +187,15 @@ export type Builder
 	export function str(mutates self, dst Reg, consumes text String) returns Instr
 		let n = f.strings.count()
 		f.strings.push(text)
-		return newStr(dst, text: indexOf(n))
+		return newStr(dst, text: indexOf(n), character: false)
 	end 'str'
+
+	// character is a Str of a character literal's text (runtime/characters.maxon).
+	export function character(mutates self, dst Reg, consumes text String) returns Instr
+		let n = f.strings.count()
+		f.strings.push(text)
+		return newStr(dst, text: indexOf(n), character: true)
+	end 'character'
 
 	// callImport calls the DLL import name with the words args; the name is one of the function's strings.
 	export function callImport(mutates self, dst Reg, name String, args RegList) returns Instr

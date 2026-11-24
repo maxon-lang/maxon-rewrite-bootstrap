@@ -11,6 +11,47 @@ export function strPartsText(t Tree, partsRef diag.U32) returns String
 	return String.from(text)
 end 'strPartsText'
 
+// charLitText is the UTF-8 text of a character literal, its one grapheme cluster.
+export function charLitText(t Tree, id NodeID) returns String
+	return strPartsText(t, partsRef: charLitPartsRef(t, id: id))
+end 'charLitText'
+
+let utf8LeadThree = 0xE0 as Count
+
+let utf8LeadFour = 0xF0 as Count
+
+let utf8AsciiTop = 0x80 as Count
+
+let utf8ContinuationBits = 0x3F as Count
+
+let utf8ContinuationSpan = 64 as Count
+
+// charLitCodepoint is the code point of a character literal whose cluster is one code point, which is what it is beside an
+// integer; a cluster of several has none.
+export function charLitCodepoint(t Tree, id NodeID) returns table.Option with Count
+	let text = charLitText(t, id: id)
+	let first = text.byteAt(0) as Count
+	var length = 1 as Count
+	var cp = first
+	if first >= utf8LeadFour 'four'
+		length = 4
+		cp = first - utf8LeadFour
+	end 'four' else if first >= utf8LeadThree 'three'
+		length = 3
+		cp = first - utf8LeadThree
+	end 'three' else if first >= utf8AsciiTop 'two'
+		length = 2
+		cp = first and 0x1F
+	end 'two'
+	if length != text.byteLength() 'cluster'
+		return table.Option.none
+	end 'cluster'
+	for i in 1 upto length 'continuation'
+		cp = try cp * utf8ContinuationSpan + ((text.byteAt(i) as Count) and utf8ContinuationBits) otherwise panic("ast: a code point past a word")
+	end 'continuation'
+	return table.Option.some(cp)
+end 'charLitCodepoint'
+
 // floatLitBits is the double of a float literal, its sign flipped when it is written with a minus.
 export function floatLitBits(t Tree, id NodeID) returns Count
 	let magnitude = floatLitMagnitude(t, id: id).lo

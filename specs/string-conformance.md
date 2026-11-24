@@ -641,15 +641,12 @@ error E2015: <fragment>:2:11: Unsupported: a declaration of the type name 'Built
 ```
 
 <!-- test: error.a-declaration-may-not-bind-the-name-BuiltinCharLiteral -->
-<!-- skip: character literals are not supported in minimaxon -->
-<!-- positions: moved -->
 ### `BuiltinCharLiteral` is reserved for `Character`'s record
 ```maxon
 interface BuiltinCharLiteral
 end 'BuiltinCharLiteral'
 
 function main() returns ExitCode
-	// TODO: character literals are not supported in minimaxon
 	let c = 'x'
 	print("{c}\n")
 	return 0

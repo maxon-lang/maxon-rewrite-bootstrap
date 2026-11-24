@@ -1,0 +1,7 @@
+function main() returns ExitCode
+	let same = 'a' == "a"
+	print("{same}\n")
+	return 0
+end 'main'
+
+// expect-error: E3005 at 2:17

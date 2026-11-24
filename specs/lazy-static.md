@@ -130,11 +130,12 @@ end 'main'
 ```
 
 <!-- test: lazy-static.charset-cache -->
-<!-- skip: character literals are not supported in minimaxon -->
+<!-- skip: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet -->
 ### CharacterSet caching pattern
 
 ```maxon
 type WSCache
+	// TODO: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet
 	static let ws = CharacterSet.whitespacesAndNewlines
 
 	static function isWhitespace(c Character) returns bool
@@ -143,15 +144,12 @@ type WSCache
 end 'WSCache'
 
 function main() returns ExitCode
-	// TODO: character literals are not supported in minimaxon
 	if WSCache.isWhitespace(' ') 'c1'
 		print("space ")
 	end 'c1'
-	// TODO: character literals are not supported in minimaxon
 	if WSCache.isWhitespace('a') 'c2'
 		print("FAIL")
 	end 'c2'
-	// TODO: character literals are not supported in minimaxon
 	if WSCache.isWhitespace('\t') 'c3'
 		print("tab")
 	end 'c3'
@@ -166,14 +164,14 @@ space tab
 ```
 
 <!-- test: lazy-static.collection-initializer -->
-<!-- skip: character literals are not supported in minimaxon -->
+<!-- skip: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet -->
 ### A static initialized by a collection conversion
 
 ```maxon
 typealias CharSet = Set with Character
 
 type Vowels
-	// TODO: character literals are not supported in minimaxon
+	// TODO: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet
 	static let vowelSet = CharSet from ['a', 'e', 'i', 'o', 'u']
 
 	static function contains(c Character) returns bool

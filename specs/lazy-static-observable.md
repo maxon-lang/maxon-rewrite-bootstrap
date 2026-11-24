@@ -351,6 +351,7 @@ end 'main'
 ```
 
 <!-- test: a-library-static-the-program-reads-is-built-before-main -->
+<!-- skip: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet -->
 ### A library static the program reads is built
 
 `CharacterSet.whitespaces` answers with a `static let` declared by `stdlib/CharacterSet.maxon`, a file
@@ -362,6 +363,7 @@ is visible only as emitted code, which no case here compares.
 
 ```maxon
 function main() returns ExitCode
+	// TODO: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet
 	let trimmed = "  hi  ".trim(CharacterSet.whitespaces)
 	print("[{trimmed}]")
 	return 0

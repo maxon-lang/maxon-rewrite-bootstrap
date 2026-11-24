@@ -262,12 +262,10 @@ naming an alias there is a use of that alias. Each case below names its alias ON
 alias the construction failed to record would be refused as unused.
 
 <!-- test: a-set-alias-takes-from-an-array-literal -->
-<!-- skip: character literals are not supported in minimaxon -->
 ```maxon
 typealias Letters = Set with Character
 
 function main() returns ExitCode
-	// TODO: character literals are not supported in minimaxon
 	let vowels = Letters from ['a', 'e', 'i']
 	print("{vowels.count()} {vowels.contains('a')} {vowels.contains('e')} {vowels.contains('i')} {vowels.contains('o')}\n")
 	return 0
@@ -497,7 +495,6 @@ typealias Tally = int(0 to u64.max)
 ```
 
 <!-- test: set-list-and-fixed-array-aliases-declared-in-a-generic-type-take-from -->
-<!-- skip: character literals are not supported in minimaxon -->
 ```maxon
 type Shelf uses T
 	typealias Letters = Set with Character
@@ -510,7 +507,6 @@ type Shelf uses T
 	end 'create'
 
 	function show()
-		// TODO: character literals are not supported in minimaxon
 		let vowels = Letters from ['a', 'e', 'i']
 		let readings = Readings from [30, 10, 20]
 		let triple = ReadingTriple from [7, 8, 9]
