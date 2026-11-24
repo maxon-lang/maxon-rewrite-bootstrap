@@ -1,14 +1,15 @@
 // Command gate holds the repository's checks in one place for every host the compiler is built on: the gate (check), the
-// suites it runs on a compiler (suites), the renewal of the seeds (seed), the regeneration of specs/ (specs) and the
-// day-to-day build (build), each with the one compiler bin/minimaxon (compiler.go). check.ps1, seed.ps1, specs.ps1 and
-// build.ps1 on Windows and check.sh on Linux and macOS only call it, so the hosts cannot drift apart in what they check.
-// A step that cannot run on the host says so and why, and is
-// skipped; every other step that fails stops the command.
+// suites it runs on a compiler (suites), the renewal of the seeds (seed), the regeneration of specs/ (specs) and of stdlib/
+// (stdlib) and the day-to-day build (build), each with the one compiler bin/minimaxon (compiler.go). check.ps1, seed.ps1,
+// specs.ps1, stdlib.ps1 and build.ps1 on Windows and check.sh on Linux and macOS only call it, so the hosts cannot drift
+// apart in what they check. A step that cannot run on the host says so and why, and is skipped; every other step that fails
+// stops the command.
 //
 //	go run ./cmd/gate check [test args...]
 //	go run ./cmd/gate suites <compiler> [test args...]
 //	go run ./cmd/gate seed
 //	go run ./cmd/gate specs <maxon specs dir>
+//	go run ./cmd/gate stdlib [--check] <maxon stdlib dir>
 //	go run ./cmd/gate build
 //	go run ./cmd/gate compiler
 package main
@@ -31,6 +32,8 @@ const usage = `usage:
   gate suites <compiler> [args...]   the suites a compiler must pass
   gate seed                          renew the seeds, each proven to reproduce itself
   gate specs <maxon specs dir>       regenerate specs/ from maxon's spec tests and write specs/passed.txt again
+  gate stdlib [--check] <maxon stdlib dir>
+                                     regenerate stdlib/ from maxon's library; --check fails when that differs from what is committed
   gate build                         build bin/minimaxon, the day-to-day compiler: the seed builds C1, C1 builds self/
   gate compiler                      build bin/minimaxon from the seed unless it is built from the sources as they are
 `
@@ -97,6 +100,19 @@ func gate() {
 			fail(errors.New("specs: name maxon's specs directory"))
 		}
 		err = regenerateSpecs(h, args[0])
+	case "stdlib":
+		checkOnly := len(args) > 0 && args[0] == "--check"
+		if checkOnly {
+			args = args[1:]
+		}
+		if len(args) != 1 {
+			fail(errors.New("stdlib: name maxon's stdlib directory"))
+		}
+		if checkOnly {
+			err = checkStdlib(h, args[0])
+		} else {
+			err = regenerateStdlib(h, args[0])
+		}
 	case "build":
 		err = build(h)
 	case "compiler":

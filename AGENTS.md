@@ -61,7 +61,9 @@ is the gate: it formats and vets the Go, runs the generators and fails if a gene
 from the seed (`bin\minimaxon.exe`), runs the Go tests, and then has it run `selftest`, `check runtime`, `check self`,
 `fmt --check`, the corpus, the corpus again for `--target=x64-linux` (compiled for Linux and run under WSL, so WSL and
 a distribution must be installed: the step fails without them and never skips), every spec test (failing when one that
-`specs/passed.txt` lists does not pass) and `fuzz`.
+`specs/passed.txt` lists does not pass) and `fuzz`. Where maxon is checked out, `MAXON_STDLIB` naming its `stdlib`
+directory adds a step that fails when regenerating `stdlib/` (`.\stdlib.ps1 <that directory>`, `go run ./cmd/gate stdlib`)
+gives anything but what is committed.
 `.\seed.ps1` renews the three seeds, Windows's, Linux's and macOS's, and is where each is held to reproducing itself (seed builds C1, C1 builds C2, C2
 builds a C3 identical to it).
 

@@ -37,7 +37,8 @@ already that build through C1. It finds `runtime/` by walking up from its own ex
 
 runs every check (see "Tests"). The generators and the tools need Go 1.27; `go generate ./internal/...` runs every
 generator. The scripts only call `cmd/gate`, which holds the gate's steps, the seeds' renewal, the regeneration of
-`specs/` and the build (`go run ./cmd/gate check|suites|seed|specs|build`), so that every host runs the same steps.
+`specs/` and of `stdlib/` and the build (`go run ./cmd/gate check|suites|seed|specs|stdlib|build`), so that every host
+runs the same steps.
 
 The commands that keep every core busy, `test`, `selftest`, `fuzz`, `build` and `check`, put the compiler's own process at
 background priority first (`Process.enterBackgroundPriority()`), so a foreground job preempts them and the compilers and
@@ -56,7 +57,8 @@ from Windows:
 
 is the gate (`go run ./cmd/gate check`), ending `all checks passed`, and `go run ./cmd/gate build` builds `./bin/minimaxon`.
 `go run ./cmd/gate specs <maxon's specs directory>` regenerates `specs/` and writes the same files as on Windows: the
-conversion's fixes are made on every target's branches of a test (see "Tests"). The gate runs every step there that a
+conversion's fixes are made on every target's branches of a test (see "Tests"). `go run ./cmd/gate stdlib <maxon's stdlib
+directory>` regenerates `stdlib/` the same way. The gate runs every step there that a
 Linux host can: the corpus natively for `x64-linux` and, when a `qemu-aarch64` is registered with binfmt_misc
 (`qemu-user-binfmt` or `qemu-user-static`), for `arm64-linux`, which the test runner then starts as it starts the host's
 own executables; and it says of each step it skips that it skips it and why: the `x64-windows` corpus, the debugger's batch
@@ -497,9 +499,12 @@ is that of its module (`app::main`), and a project with no `main` in any module 
   which no conversion touches; maxon's
   `StringBuilder.maxon` is left out, since an interpolation builds a String here:
   `stdlib/files.txt` lists the files converted so far, each with the library module it goes to (its directory under
-  `stdlib/`, `.` for the root) and, where two files of one module would share a name, the name it takes (`StringHash.maxon`), and `.\stdlib.ps1` regenerates them, then applies the compiler's `fix` to them as `specs.ps1`
-  does to the spec tests (a `let` that is changed becomes a `var`, a name of another library module is qualified); none is
-  edited here. The conversion replaces a conditional region that calls a CPU-specific intrinsic (`__Builtins.cpuHasSha`, `__Builtins.sha256Blocks`) by its `#else` branch or leaves it out, so `Sha2` is software only on every target. The modules are layers, as a program's are: maxon's library names any of its declarations from any file, so
+  `stdlib/`, `.` for the root) and, where two files of one module would share a name, the name it takes (`StringHash.maxon`), and `.\stdlib.ps1 <maxon's stdlib directory>` (`go run ./cmd/gate stdlib`, on every host) regenerates them, then applies the
+  compiler's `fix` to them as `specs.ps1` does to the spec tests (a `let` that is changed becomes a `var`, a name of another
+  library module is qualified); none is edited here, and a declaration of a name the compiler builds in (`BytePos`) is left
+  out. `gate stdlib --check <maxon's stdlib directory>` fails when a regeneration differs from what is committed and puts
+  the files back; the gate runs it as the step "library regenerates" when `MAXON_STDLIB` names that directory, and skips it
+  otherwise, since it cannot assume where maxon is checked out. The conversion replaces a conditional region that calls a CPU-specific intrinsic (`__Builtins.cpuHasSha`, `__Builtins.sha256Blocks`) by its `#else` branch or leaves it out, so `Sha2` is software only on every target. The modules are layers, as a program's are: maxon's library names any of its declarations from any file, so
   the list puts files that name each other in one module and each other module above the ones it names. Every
   program is compiled with it (`project.addLibrary`): its directories are modules after the program's, flagged `isLibrary`,
   the root's path being `stdlib` and each one under it `stdlib.<path>`, so no program module shares one, and

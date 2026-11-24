@@ -1,43 +1,10 @@
-# Regenerates stdlib/ from maxon's standard library: cmd/convert converts each file that a line of stdlib\files.txt names, a
-# path relative to maxon's stdlib directory, into the library module the line names after it (a directory under stdlib/, '.'
-# for the root) under its own name, or the name the line gives third where two files of a module would share one (names
-# differ only in case at best on Windows), and the compiler's fix command then applies the fixes of what minimaxon's language differences raise in it,
-# as specs.ps1 does for the spec tests: a 'let' that is changed becomes a 'var', and a name of another library module is
-# qualified. A file is listed once it converts with no warning and checks clean; the files are never edited here, and a file
-# of stdlib/ that no line names (Map.maxon) is minimaxon's own, which a run leaves alone. The
-# conversion lays out what it writes with bin\minimaxon.exe, the gate's compiler, which `go run ./cmd/gate compiler` builds
-# first when it is not of the sources as they are. The argument is maxon's stdlib directory.
+# Regenerates stdlib/ from maxon's standard library, whose stdlib directory is the argument: cmd/gate's, as on Linux, with
+# bin\minimaxon.exe, which it builds first when it is not of the sources as they are. `.\stdlib.ps1 --check <directory>` only
+# fails when the regeneration differs from what is committed, leaving stdlib/ as it was.
 $ErrorActionPreference = 'Stop'
 if (-not (Get-Command go -ErrorAction SilentlyContinue)) {
 	$env:PATH += ';C:\Program Files\Go\bin'
 }
 Set-Location $PSScriptRoot
-
-$maxonStdlib = if ($args.Count -gt 0) { $args[0] } else { 'C:\Users\Eric\Dev\maxon\stdlib' }
-go run ./cmd/gate compiler
-if ($LASTEXITCODE -ne 0) {
-	exit 1
-}
-$env:MINIMAXON = Join-Path $PSScriptRoot 'bin\minimaxon.exe'
-$listed = Get-Content stdlib\files.txt | Where-Object { $_ -ne '' }
-$scratch = Join-Path ([IO.Path]::GetTempPath()) "minimaxon-stdlib-$PID"
-try {
-	foreach ($line in $listed) {
-		$file, $module, $name = -split $line
-		if (-not $module) {
-			Write-Output "stdlib\files.txt: '$line' names no module: write the module's directory after the file, '.' for the root"
-			exit 1
-		}
-		$source = Join-Path $maxonStdlib $file
-		$targetDir = Join-Path stdlib $module
-		$null = New-Item -ItemType Directory -Force $targetDir
-		go run ./cmd/convert --out=$scratch $source
-		if ($LASTEXITCODE -ne 0) { exit 1 }
-		if (-not $name) { $name = Split-Path $file -Leaf }
-		Move-Item -Force (Join-Path $scratch (Split-Path $file -Leaf)) (Join-Path $targetDir $name)
-	}
-} finally {
-	Remove-Item -Recurse -Force $scratch -ErrorAction SilentlyContinue
-}
-$null | bin\minimaxon.exe fix stdlib
-if ($LASTEXITCODE -ne 0) { exit 1 }
+go run ./cmd/gate stdlib @args
+exit $LASTEXITCODE

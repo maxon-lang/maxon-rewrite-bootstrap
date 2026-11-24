@@ -27,6 +27,8 @@ func check(h host, testArgs []string) error {
 		{"vet", func() error { return quiet(nil, "go", "vet", "./...") }},
 		{"generators", checkGenerated},
 		{"compiler from the seed", func() error { return buildCompiler(h, bySeed) }},
+		// Needs maxon's checkout, which the gate cannot assume (maxonStdlibVariable).
+		{"library regenerates", func() error { return checkStdlibIfMaxon(h) }},
 	}
 	if err := runSteps(steps); err != nil {
 		return err

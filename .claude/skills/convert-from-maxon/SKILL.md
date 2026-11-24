@@ -24,6 +24,12 @@ go run ./cmd/convert --out=C:\temp\conv C:\Users\Eric\Dev\maxon\stdlib\Array.max
 go run ./cmd/convert --check C:\Users\Eric\Dev\maxon\stdlib                          # each warning kind, its count and files
 ```
 
+`stdlib/` as a whole is regenerated from `stdlib/files.txt` by `.\stdlib.ps1 C:\Users\Eric\Dev\maxon\stdlib` (on Linux
+`go run ./cmd/gate stdlib <maxon's stdlib directory>`): it converts each listed file into its module, then runs the
+compiler's `fix` over `stdlib/`. `gate stdlib --check <directory>` (the gate's step "library regenerates" when
+`MAXON_STDLIB` names it) fails when the regeneration differs from what is committed, so a change to `cmd/convert`
+regenerates and commits the library in the same change.
+
 (Build it once with `go build -o <scratchpad>\convert.exe ./cmd/convert` for repeated runs; keep the exe out of the repo.)
 
 - Input: files or directories (directories are walked for `*.maxon`, skipping dot-directories, sorted by path). No path or

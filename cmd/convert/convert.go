@@ -1347,7 +1347,7 @@ func keepBuiltinConformances(lines []sourceLine, interfaces map[string][]string)
 // keptBuiltinDeclarations are the top-level declarations of the file of a type that the compiler builds in, besides the
 // type, that the library's other files and programs name: the vocabulary of the type's operations.
 var keptBuiltinDeclarations = map[string][]string{
-	"String": {"BytePos", "GraphemeIndex"},
+	"String": {"GraphemeIndex"},
 }
 
 // keepListedDeclarations keeps the top-level declarations that names lists, outside the type from header to last, with the

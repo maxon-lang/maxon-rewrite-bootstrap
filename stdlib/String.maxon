@@ -1,14 +1,3 @@
-// A string's bytes live in ONE `__ManagedMemory`, whose length is a signed machine word, so no honest
-// byte position can exceed `i64.max`; a grapheme is at least one byte, so no grapheme index can exceed
-// the byte position beside it.
-//
-// ⚠ **THE UPPER BOUND IS `u64.max` WHERE THE STORE'S REAL MAXIMUM IS `i64.max`, AND THAT COSTS
-// NOTHING.** A quantity's door is guarded at every range — `bits(64)` is the spelling that opts out —
-// and for any value such a door admits the two bounds are indistinguishable: both refuse a signed
-// negative, both store 8 bytes, and signed and unsigned ordering agree bit for bit across
-// `0 … i64.max`. The narrower bound would be a second spelling of one meaning.
-public typealias BytePos = int(0 to u64.max) implements ElementIndex
-
 public typealias GraphemeIndex = int(0 to u64.max) implements ElementIndex
 
 extension String implements Hashable, Equatable
