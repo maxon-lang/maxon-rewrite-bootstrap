@@ -91,19 +91,21 @@ function groupCount(mutates l Lowerer, p ast.Project, g Groups, arr Reg) returns
 	return binary(l, op: BinOp.binDiv, left: words, right: g.groupWords())
 end 'groupCount'
 
-// groupsWord is the address of the word at index in the buffer arr, where index is a word of the group position, which is
-// held below bound, the number of whole groups: so the one check of the group proves the index, and no product wraps.
-function groupsWord(mutates l Lowerer, p ast.Project, g Groups, arr Reg, position Reg, bound Reg, index Reg) returns Reg
-	let inside = compare(l, op: CmpOp.cmpLt, a: position, b: bound, unsigned: true)
+// groupsWord is the address of the word at index in the buffer arr, which is checked below the buffer's length in words.
+// A buffer holds whole groups and every word an access names is inside its group, so the word is inside the buffer
+// exactly when its group is one of the buffer's: the check needs no count of groups, which is a division of the length,
+// and the length it reads is the one every other access of the buffer reads, which the optimizer reads once.
+function groupsWord(mutates l Lowerer, p ast.Project, g Groups, arr Reg, index Reg) returns Reg
+	let words = entry(l, p: p, site: g.site, symbol: Rt.rtArrayLen, kind: IrKind.kindScalar, args: argsOf1(arr))
+	let inside = compare(l, op: CmpOp.cmpLt, a: index, b: words, unsigned: true)
 	requireOrTrap(l, cond: inside, message: groupsOutOfRange)
 	return elementEntry(l, p: p, site: g.site, symbol: Rt.rtArrayElem, args: argsOf2(arr, b: index), checked: false)
 end 'groupsWord'
 
 // controlWord is the address of the control word of a group.
 function controlWord(mutates l Lowerer, p ast.Project, g Groups, arr Reg, group Reg) returns Reg
-	let groups = groupCount(l, p: p, g: g, arr: arr)
 	let index = binary(l, op: BinOp.binMul, left: group, right: g.groupWords())
-	return groupsWord(l, p: p, g: g, arr: arr, position: group, bound: groups, index: index)
+	return groupsWord(l, p: p, g: g, arr: arr, index: index)
 end 'controlWord'
 
 // pairHalf is the address of a half of the pair at an index over every group.
@@ -115,8 +117,7 @@ function pairHalf(mutates l Lowerer, p ast.Project, g Groups, arr Reg, at Reg, h
 	let pair = newReg(l, kind: IrKind.kindScalar)
 	emit(l, i: newBin(pair, op: BinOp.binAdd, left: start, right: offset, unsigned: true, fail: noBlock))
 	let index = binary(l, op: BinOp.binAdd, left: pair, right: g.halfOffset(half))
-	let groups = groupCount(l, p: p, g: g, arr: arr)
-	return groupsWord(l, p: p, g: g, arr: arr, position: group, bound: groups, index: index)
+	return groupsWord(l, p: p, g: g, arr: arr, index: index)
 end 'pairHalf'
 
 // lowerTrailingZeros is __Builtins.trailingZeros, by which a set of matches of a control word names its first slot.

@@ -152,7 +152,12 @@ function stringAppend(text String, owned bool, part String) returns String
 	return __Raw.stringOf(room, length: needed, ascii: __Raw.stringAscii(text) and __Raw.stringAscii(part))
 end 'stringAppend'
 
-// streq is whether two strings have the same bytes.
+// halfWordBytes is the size of the half word that streq compares a string shorter than a word by.
+let halfWordBytes = 4 as Count
+
+// streq is whether two strings have the same bytes. Their bytes are compared a word at a time, and what is left past the
+// last whole word as the last word of the string, which overlaps words already compared, as Go's memequal does; a string
+// shorter than a word as two overlapping half words, or its few bytes. No read is outside either string's bytes.
 function streq(left String, right String) returns bool
 	let length = __Raw.stringLength(left)
 	if length != __Raw.stringLength(right) 'lengths'
@@ -160,13 +165,25 @@ function streq(left String, right String) returns bool
 	end 'lengths'
 	let leftBytes = __Raw.stringBytes(left)
 	let rightBytes = __Raw.stringBytes(right)
-	var at = 0 as Count
-	while __Raw.wrappingAdd(at, right: wordBytes) <= length 'words'
-		if __Raw.loadWord(leftBytes, offset: at) != __Raw.loadWord(rightBytes, offset: at) 'differ'
-			return false
-		end 'differ'
-		at = __Raw.wrappingAdd(at, right: wordBytes)
+	if length >= wordBytes 'words'
+		var at = 0 as Count
+		while __Raw.wrappingAdd(at, right: wordBytes) <= length 'whole'
+			if __Raw.loadWord(leftBytes, offset: at) != __Raw.loadWord(rightBytes, offset: at) 'differ'
+				return false
+			end 'differ'
+			at = __Raw.wrappingAdd(at, right: wordBytes)
+		end 'whole'
+		if at == length 'exact'
+			return true
+		end 'exact'
+		let last = __Raw.wrappingSub(length, right: wordBytes)
+		return __Raw.loadWord(leftBytes, offset: last) == __Raw.loadWord(rightBytes, offset: last)
 	end 'words'
+	if length >= halfWordBytes 'halves'
+		let last = __Raw.wrappingSub(length, right: halfWordBytes)
+		return __Raw.loadWord32(leftBytes, offset: 0) == __Raw.loadWord32(rightBytes, offset: 0) and __Raw.loadWord32(leftBytes, offset: last) == __Raw.loadWord32(rightBytes, offset: last)
+	end 'halves'
+	var at = 0 as Count
 	while at < length 'bytes'
 		if __Raw.loadByte(leftBytes, offset: at) != __Raw.loadByte(rightBytes, offset: at) 'differ'
 			return false

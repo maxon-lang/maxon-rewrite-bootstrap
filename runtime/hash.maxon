@@ -56,23 +56,40 @@ function drawHashSeed() returns Count
 	return drawEntropy()
 end 'drawHashSeed'
 
-// processHashState is the process's hash state, which the first call makes. Two threads may make it at once: the first
-// to publish it wins, and the other gives its own back. The pointer is read as an acquire, so a thread that finds it
-// published finds the state's words written.
+// processHashState is the process's hash state, which the first call makes. A thread reads it from its own context once
+// it has found it (processHashStateFirst), so a hash reads one word for it rather than walking to the main thread's
+// context through the scheduler; the read is an acquire, so a thread that finds the address finds the state's words.
 function processHashState() returns Count
-	let main = mainContext(__Raw.threadContext())
-	let state = __Raw.loadAcquire(main, offset: contextHashOffset)
-	if state != noBox 'made'
+	let context = __Raw.threadContext()
+	let state = __Raw.loadAcquire(context, offset: contextHashOffset)
+	if state != noBox 'found'
 		return state
-	end 'made'
-	let made = makeHashState()
-	let found = __Raw.compareExchange(main, offset: contextHashOffset, expected: noBox, desired: made)
-	if found != noBox 'lost'
-		unkeep(made, bytes: hashStateBytes)
-		return found
-	end 'lost'
-	return made
+	end 'found'
+	return processHashStateFirst(context)
 end 'processHashState'
+
+// processHashStateFirst is the hash state for a thread whose context does not hold it yet: the main thread's, made by
+// the first call of the process. Two threads may make it at once: the first to publish it wins, and the other gives its
+// own back. The pointer is read as an acquire, so a thread that finds it published finds the state's words written, and
+// a thread other than the main one keeps it in its own context for its next hash.
+function processHashStateFirst(context Count) returns Count
+	let main = mainContext(context)
+	var state = __Raw.loadAcquire(main, offset: contextHashOffset)
+	if state == noBox 'make'
+		let made = makeHashState()
+		let found = __Raw.compareExchange(main, offset: contextHashOffset, expected: noBox, desired: made)
+		if found != noBox 'lost'
+			unkeep(made, bytes: hashStateBytes)
+			state = found
+		end 'lost' else 'won'
+			state = made
+		end 'won'
+	end 'make'
+	if context != main 'cache'
+		__Raw.storeRelease(context, offset: contextHashOffset, value: state)
+	end 'cache'
+	return state
+end 'processHashStateFirst'
 
 // mainContext is the main thread's context: a thread's own while the scheduler is not made, since only the main thread
 // runs then.

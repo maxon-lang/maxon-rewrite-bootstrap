@@ -206,7 +206,7 @@ var layouts = []layoutConst{
 	{"contextStartCodeOffset", 21, false, toRuntime,
 		"where a thread's context holds the address of the code that the thread the runtime starts with it runs, called with the context: the monitor's loop, or 0 for a worker's."},
 	{"contextHashOffset", 22, false, toRuntime,
-		"where the main thread's context holds the address of the process's hash state (hashStateBytes), 0 until the first hash that needs the seed makes it; every other thread reaches it through the scheduler's main thread."},
+		"where the main thread's context holds the address of the process's hash state (hashStateBytes), 0 until the first hash that needs the seed makes it; every other thread's context holds it too once that thread has read it from the main thread's, so a hash reads it from its own thread's context."},
 	{"contextBytes", 23, false, toRuntime | toSelfBack,
 		"the size of a thread's context."},
 
