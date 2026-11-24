@@ -27,3 +27,5 @@ Clock.maxon clock
 Directory.maxon directory
 Ascii.maxon ascii
 HeapStats.maxon heap
+helpers/url/urlHelpers.maxon .
+URL.maxon .

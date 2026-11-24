@@ -16,6 +16,7 @@ var builtinNames = map[string]bool{
 	"Codepoint":                 true,
 	"AsciiValue":                true,
 	"CodepointDelta":            true,
+	"NetworkPort":               true,
 	"CodeUnit16":                true,
 	"Milliseconds":              true,
 	"InstantNanos":              true,

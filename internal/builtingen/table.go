@@ -32,6 +32,7 @@ var primTypes = []primType{
 	{"Codepoint", "b.codepointTy"},
 	{"AsciiValue", "b.asciiValueTy"},
 	{"CodepointDelta", "b.codepointDeltaTy"},
+	{"NetworkPort", "b.networkPortTy"},
 	{"CodeUnit16", "b.codeUnit16Ty"},
 	{"ExitCode", "b.exitCodeTy"},
 	{"Milliseconds", "b.millisecondsTy"},
@@ -79,6 +80,8 @@ var stdAliases = []stdAlias{
 	{Name: "AsciiValue", Field: "asciiValueTy", Lo: "I128.zero()", Hi: "I128.fromCount(127 as Count)"},
 	// CodepointDelta is maxon's (stdlib/Character.maxon): a step of Character.advanceBy along the scalar values, either way.
 	{Name: "CodepointDelta", Field: "codepointDeltaTy", Lo: "I128.fromCount(1114111 as Count).neg()", Hi: "I128.fromCount(1114111 as Count)"},
+	// NetworkPort is maxon's (stdlib/TcpClient.maxon): a TCP or UDP port, which URL's port() gives.
+	{Name: "NetworkPort", Field: "networkPortTy", Lo: "I128.zero()", Hi: "I128.fromCount(65535 as Count)"},
 	{Name: "CodeUnit16", Field: "codeUnit16Ty", Lo: "I128.zero()", Hi: "I128.fromCount(65535 as Count)"},
 	{Name: "Milliseconds", Field: "millisecondsTy", Lo: "I128.zero()", Hi: "I128.u64Max()"},
 	// InstantNanos is maxon's (stdlib/Clock.maxon): a reading of the monotonic clock in nanoseconds.

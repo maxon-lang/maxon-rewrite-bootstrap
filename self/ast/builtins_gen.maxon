@@ -840,6 +840,7 @@ function declareStdAliases(mutates tt TypeSlot, reads TypeTable, mutates std Par
 	b.codepointTy = registerStdAlias(tt, reads: reads, std: std, typeMap: typeMap, name: "Codepoint", lo: I128.zero(), hi: I128.fromCount(1114111 as Count))
 	b.asciiValueTy = registerStdAlias(tt, reads: reads, std: std, typeMap: typeMap, name: "AsciiValue", lo: I128.zero(), hi: I128.fromCount(127 as Count))
 	b.codepointDeltaTy = registerStdAlias(tt, reads: reads, std: std, typeMap: typeMap, name: "CodepointDelta", lo: I128.fromCount(1114111 as Count).neg(), hi: I128.fromCount(1114111 as Count))
+	b.networkPortTy = registerStdAlias(tt, reads: reads, std: std, typeMap: typeMap, name: "NetworkPort", lo: I128.zero(), hi: I128.fromCount(65535 as Count))
 	b.codeUnit16Ty = registerStdAlias(tt, reads: reads, std: std, typeMap: typeMap, name: "CodeUnit16", lo: I128.zero(), hi: I128.fromCount(65535 as Count))
 	b.millisecondsTy = registerStdAlias(tt, reads: reads, std: std, typeMap: typeMap, name: "Milliseconds", lo: I128.zero(), hi: I128.u64Max())
 	b.instantNanosTy = registerStdAlias(tt, reads: reads, std: std, typeMap: typeMap, name: "InstantNanos", lo: I128.zero(), hi: I128.u64Max())

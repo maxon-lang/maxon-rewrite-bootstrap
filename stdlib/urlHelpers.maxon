@@ -1,0 +1,332 @@
+/// Internal helper functions for URL parsing and manipulation.
+/// @category Internal
+export typealias UrlDecimal = int(0 to u64.max)
+
+// At most `u64.max / 10`: `urlDecimalWithin` grows a value no larger than the bound by one more digit,
+// which then cannot pass `u64.max` however long the digit run a peer sends.
+export typealias UrlDecimalBound = int(0 to 1844674407370955160)
+
+export let UrlPercentByte = 37 as Byte
+
+export let UrlPercentTripletBytes = 3
+
+export let UrlDecimalZeroByte = 48 as Byte
+
+export let UrlSlashByte = 47 as Byte
+
+export let UrlOriginFormRoot = "/"
+
+let UrlDotByte = 46
+
+let UrlPlusByte = 43
+
+let UrlMinusByte = 45
+
+let UrlSegmentEndBytes = "/"
+
+let UrlDecimalBase = 10
+
+let UrlDecimalNineByte = 57
+
+let UrlUpperAByte = 65
+
+let UrlUpperFByte = 70
+
+let UrlUpperZByte = 90
+
+let UrlLowerAByte = 97
+
+let UrlLowerFByte = 102
+
+let UrlLowerZByte = 122
+
+export function urlIsAlpha(b Byte) returns bool
+	if b >= UrlUpperAByte and b <= UrlUpperZByte 'upper'
+		return true
+	end 'upper'
+	if b >= UrlLowerAByte and b <= UrlLowerZByte 'lower'
+		return true
+	end 'lower'
+	return false
+end 'urlIsAlpha'
+
+export function urlIsDigit(b Byte) returns bool
+	if b >= UrlDecimalZeroByte and b <= UrlDecimalNineByte 'digit'
+		return true
+	end 'digit'
+	return false
+end 'urlIsDigit'
+
+export typealias UrlHexDigitValue = int(0 to 15)
+
+export union UrlHexDigitReading
+	value(digit UrlHexDigitValue)
+	notAHexDigit
+end 'UrlHexDigitReading'
+
+let UrlHexLetterValueBase = 10
+
+export function urlHexDigitOf(b Byte) returns UrlHexDigitReading
+	if urlIsDigit(b) 'digit'
+		return UrlHexDigitReading.value(try (b - UrlDecimalZeroByte) as UrlHexDigitValue otherwise panic("out of range"))
+	end 'digit'
+	if b >= UrlUpperAByte and b <= UrlUpperFByte 'upperHex'
+		return UrlHexDigitReading.value((b - UrlUpperAByte + UrlHexLetterValueBase) as UrlHexDigitValue)
+	end 'upperHex'
+	if b >= UrlLowerAByte and b <= UrlLowerFByte 'lowerHex'
+		return UrlHexDigitReading.value((b - UrlLowerAByte + UrlHexLetterValueBase) as UrlHexDigitValue)
+	end 'lowerHex'
+	return UrlHexDigitReading.notAHexDigit
+end 'urlHexDigitOf'
+
+export function urlIsHexDigit(b Byte) returns bool
+	return match urlHexDigitOf(b) 'reading'
+		value gives true
+		notAHexDigit gives false
+	end 'reading'
+end 'urlIsHexDigit'
+
+export function urlByteIsOneOf(b Byte, bytes String) returns bool
+	for candidate in bytes.bytes() 'eachCandidate'
+		if candidate == b 'hit'
+			return true
+		end 'hit'
+	end 'eachCandidate'
+	return false
+end 'urlByteIsOneOf'
+
+/// The position of the first byte in `[from, until)` that is one of `bytes`, or `until` when none is.
+export function urlFirstOfBytes(text String, from BytePos, until BytePos, bytes String) returns BytePos
+	for pos in from upto until 'eachByte'
+		if urlByteIsOneOf(text.byteAtOrPanic(pos as Count), bytes: bytes) 'found'
+			return pos
+		end 'found'
+	end 'eachByte'
+	return until
+end 'urlFirstOfBytes'
+
+/// Valid scheme characters after the first: ALPHA / DIGIT / "+" / "-" / "."
+export function urlIsSchemeChar(b Byte) returns bool
+	if urlIsAlpha(b) 'alpha'
+		return true
+	end 'alpha'
+	if urlIsDigit(b) 'digit'
+		return true
+	end 'digit'
+	if b == UrlPlusByte or b == UrlMinusByte or b == UrlDotByte 'special'
+		return true
+	end 'special'
+	return false
+end 'urlIsSchemeChar'
+
+/// Validate percent-encoding in a string. Throws URLError.invalidEncoding on malformed sequences.
+export function urlValidatePercentEncoding(input String) throws URLError
+	let len = input.byteLength()
+	var i = 0 as BytePos
+	while i < len 'scan'
+		if input.byteAtOrPanic(i as Count) == UrlPercentByte 'percent'
+			if not urlPercentTripletAt(input, at: i, until: len as BytePos) 'malformed'
+				throw URLError.invalidEncoding
+			end 'malformed'
+			i = try i + UrlPercentTripletBytes otherwise panic("out of range")
+		end 'percent' else 'notPercent'
+			i = i + 1
+		end 'notPercent'
+	end 'scan'
+end 'urlValidatePercentEncoding'
+
+export function urlPercentTripletAt(text String, at BytePos, until BytePos) returns bool
+	return (try at + UrlPercentTripletBytes otherwise panic("out of range")) <= until and urlIsHexDigit(text.byteAtOrPanic(try at + 1 otherwise panic("out of range"))) and urlIsHexDigit(text.byteAtOrPanic(try at + 2 otherwise panic("out of range")))
+end 'urlPercentTripletAt'
+
+export function urlByteRange(text String, from BytePos, until BytePos) returns String
+	if from >= until 'nothingThere'
+		return ""
+	end 'nothingThere'
+	let slice = try text.addressableBytes().slice(from, until) otherwise panic("urlByteRange: {from}..{until} is outside the {text.byteLength()} bytes of the text it was asked of")
+	return String.init(slice)
+end 'urlByteRange'
+
+export union UrlDecimalReading
+	value(number UrlDecimal)
+	notADecimal
+	aboveTheBound
+end 'UrlDecimalReading'
+
+export function urlDecimalWithin(text String, from BytePos, until BytePos, bound UrlDecimalBound) returns UrlDecimalReading
+	if from >= until 'noDigits'
+		return UrlDecimalReading.notADecimal
+	end 'noDigits'
+	var value = 0 as UrlDecimal
+	var aboveTheBound = false
+	for pos in from upto until 'eachDigit'
+		let b = text.byteAtOrPanic(pos as Count)
+		if not urlIsDigit(b) 'notADigit'
+			return UrlDecimalReading.notADecimal
+		end 'notADigit'
+		if not aboveTheBound 'stillCounting'
+			value = try value * UrlDecimalBase + ((b - UrlDecimalZeroByte) as UrlDecimal) otherwise panic("out of range")
+			aboveTheBound = value > bound as UrlDecimal
+		end 'stillCounting'
+	end 'eachDigit'
+	return UrlDecimalReading.aboveTheBound if aboveTheBound else UrlDecimalReading.value(value)
+end 'urlDecimalWithin'
+
+/// Remove dot segments from a path per RFC 3986 Section 5.2.4.
+export function urlRemoveDotSegments(path String) returns String
+	let len = path.byteLength()
+	if len == 0 'empty'
+		return ""
+	end 'empty'
+	// For the SLICE alone — the byte reads go through `path.byteAtOrPanic`, which needs no record.
+	// `slice` hands back a buffer, so it is one of the few asks that genuinely needs one; hoisted
+	// out of the loop so Stage 4b materializes it once per call rather than once per segment.
+	let pathBytes = path.addressableBytes()
+	var pos = 0 as BytePos
+	var output = ""
+	while pos < len 'loop'
+		let remaining = len - pos
+		// A: If input starts with "../" remove it
+		if remaining >= 3 'checkDotDotSlash'
+			if path.byteAtOrPanic(pos as Count) == UrlDotByte 'dot1'
+				if path.byteAtOrPanic(pos + 1) == UrlDotByte 'dot2'
+					if path.byteAtOrPanic(try pos + 2 otherwise panic("out of range")) == UrlSlashByte 'slash'
+						pos = try pos + 3 otherwise panic("out of range")
+						continue
+					end 'slash'
+				end 'dot2'
+			end 'dot1'
+		end 'checkDotDotSlash'
+		// A: If input starts with "./" remove it
+		if remaining >= 2 'checkDotSlash'
+			if path.byteAtOrPanic(pos as Count) == UrlDotByte 'dot1b'
+				if path.byteAtOrPanic(pos + 1) == UrlSlashByte 'slash1b'
+					pos = try pos + 2 otherwise panic("out of range")
+					continue
+				end 'slash1b'
+			end 'dot1b'
+		end 'checkDotSlash'
+		// B: If input starts with "/./" replace with "/"
+		if remaining >= 3 'checkSlashDotSlash'
+			if path.byteAtOrPanic(pos as Count) == UrlSlashByte 'sl1'
+				if path.byteAtOrPanic(pos + 1) == UrlDotByte 'dt1'
+					if path.byteAtOrPanic(try pos + 2 otherwise panic("out of range")) == UrlSlashByte 'sl2'
+						pos = try pos + 2 otherwise panic("out of range")
+						continue
+					end 'sl2'
+				end 'dt1'
+			end 'sl1'
+		end 'checkSlashDotSlash'
+		// B: If input is exactly "/." replace with "/"
+		if remaining == 2 'checkSlashDot'
+			if path.byteAtOrPanic(pos as Count) == UrlSlashByte 'sl1c'
+				if path.byteAtOrPanic(pos + 1) == UrlDotByte 'dt1c'
+					output = "{output}/"
+					pos = len as BytePos
+					continue
+				end 'dt1c'
+			end 'sl1c'
+		end 'checkSlashDot'
+		// C: If input starts with "/../" replace with "/" and remove last segment from output
+		if remaining >= 4 'checkSlashDotDotSlash'
+			if path.byteAtOrPanic(pos as Count) == UrlSlashByte 'sl1d'
+				if path.byteAtOrPanic(pos + 1) == UrlDotByte 'dt1d'
+					if path.byteAtOrPanic(try pos + 2 otherwise panic("out of range")) == UrlDotByte 'dt2d'
+						if path.byteAtOrPanic(try pos + 3 otherwise panic("out of range")) == UrlSlashByte 'sl2d'
+							output = urlRemoveLastSegment(output)
+							pos = try pos + 3 otherwise panic("out of range")
+							continue
+						end 'sl2d'
+					end 'dt2d'
+				end 'dt1d'
+			end 'sl1d'
+		end 'checkSlashDotDotSlash'
+		// C: If input is exactly "/.." replace with "/" and remove last segment from output
+		if remaining == 3 'checkSlashDotDot'
+			if path.byteAtOrPanic(pos as Count) == UrlSlashByte 'sl1e'
+				if path.byteAtOrPanic(pos + 1) == UrlDotByte 'dt1e'
+					if path.byteAtOrPanic(try pos + 2 otherwise panic("out of range")) == UrlDotByte 'dt2e'
+						output = urlRemoveLastSegment(output)
+						output = "{output}/"
+						pos = len as BytePos
+						continue
+					end 'dt2e'
+				end 'dt1e'
+			end 'sl1e'
+		end 'checkSlashDotDot'
+		// D: If input is exactly "." or ".." remove it
+		if remaining == 1 'checkLoneDot'
+			if path.byteAtOrPanic(pos as Count) == UrlDotByte 'isDot'
+				pos = len as BytePos
+				continue
+			end 'isDot'
+		end 'checkLoneDot'
+		if remaining == 2 'checkLoneDotDot'
+			if path.byteAtOrPanic(pos as Count) == UrlDotByte 'isDot1'
+				if path.byteAtOrPanic(pos + 1) == UrlDotByte 'isDot2'
+					pos = len as BytePos
+					continue
+				end 'isDot2'
+			end 'isDot1'
+		end 'checkLoneDotDot'
+		// E: Move first path segment (including initial "/" if any) to output
+		var segEnd = pos
+		if path.byteAtOrPanic(segEnd as Count) == UrlSlashByte 'startsWithSlash'
+			segEnd = segEnd + 1
+		end 'startsWithSlash'
+		// Find next "/" or end
+		segEnd = urlFirstOfBytes(path, from: segEnd, until: len as BytePos, bytes: UrlSegmentEndBytes)
+		let segManaged = try pathBytes.slice(pos, segEnd) otherwise 'sliceErr'
+			panic("urlRemoveDotSegments: slice OOB — pos and segEnd are within bounds")
+		end 'sliceErr'
+		let seg = String.init(segManaged)
+		output = "{output}{seg}"
+		pos = segEnd
+	end 'loop'
+	return output
+end 'urlRemoveDotSegments'
+
+/// Remove the last path segment from output (everything after and including the last "/").
+export function urlRemoveLastSegment(output String) returns String
+	let len = output.byteLength()
+	if len == 0 'empty'
+		return ""
+	end 'empty'
+	// For the SLICE alone; the byte reads below go through `byteAtOrPanic`.
+	let outputBytes = output.addressableBytes()
+	var i = output.byteLength()
+	while i > 0 'scan'
+		i = i - 1
+		if output.byteAtOrPanic(i) == UrlSlashByte 'foundSlash'
+			if i == 0 'isRoot'
+				return ""
+			end 'isRoot'
+			let sliced = try outputBytes.slice(0, i) otherwise 'sliceErr2'
+				panic("urlRemoveLastSegment: slice OOB — i < len guaranteed")
+			end 'sliceErr2'
+			return String.init(sliced)
+		end 'foundSlash'
+	end 'scan'
+	return ""
+end 'urlRemoveLastSegment'
+
+/// Merge base path with reference path per RFC 3986 Section 5.2.3.
+export function urlMergeBasePath(basePath String, hasAuthority bool, refPath String) returns String
+	if hasAuthority and basePath.isEmpty() 'emptyBase'
+		return "/{refPath}"
+	end 'emptyBase'
+	// Find last "/" in basePath. `baseBytes` is for the SLICE alone; the scan uses `byteAtOrPanic`.
+	let baseBytes = basePath.addressableBytes()
+	var i = basePath.byteLength()
+	while i > 0 'scan'
+		i = i - 1
+		if basePath.byteAtOrPanic(i) == UrlSlashByte 'foundSlash'
+			let prefix = try baseBytes.slice(0, i + 1) otherwise 'sliceErr3'
+				panic("urlMergeBasePath: slice OOB — i < len guaranteed")
+			end 'sliceErr3'
+			let prefixStr = String.init(prefix)
+			return "{prefixStr}{refPath}"
+		end 'foundSlash'
+	end 'scan'
+	return refPath.clone()
+end 'urlMergeBasePath'
