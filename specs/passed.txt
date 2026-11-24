@@ -3880,6 +3880,8 @@ iterator-element-provenance.md: a-for-with-iterator-over-a-let-built-by-a-call-w
 iterator-element-provenance.md: a-for-with-iterator-over-a-let-parameters-field-writes-through-the-call
 iterator-element-provenance.md: a-let-array-is-read-and-a-var-cursor-over-it-moves
 jcc-erratum-padding.md: a-tight-loops-back-edge-never-straddles-a-32-byte-boundary
+json-number-range.md: json-number-range.a-number-is-read-to-the-nearest-float
+json-number-range.md: json-number-range.an-exponent-past-the-float-range-is-refused
 keyword-as-a-declared-name.md: a-function-named-from-beside-a-set-from-construction
 keyword-as-a-declared-name.md: a-keyword-as-a-free-function-name
 keyword-as-a-declared-name.md: a-keyword-as-a-parameter-name-read-in-the-body
@@ -5406,6 +5408,7 @@ nominal-generic-alias.md: error.a-managed-buffer-of-one-brand-does-not-reach-ano
 nominal-generic-alias.md: error.an-adopted-element-is-still-range-checked
 nominal-generic-alias.md: error.as-to-a-different-instance-is-still-refused
 nominal-typealias.md: a-codepoint-count-compares-with-an-array-count
+nominal-typealias.md: a-json-array-length-is-a-count
 nominal-typealias.md: a-literal-decays-at-every-door
 nominal-typealias.md: a-match-over-two-siblings-joins-to-their-parent
 nominal-typealias.md: a-mixed-expression-in-range-is-stored-in-a-field
@@ -7497,6 +7500,9 @@ stdlib-loading.md: stdlib-loading.both-print-modules-from-stdlib
 stdlib-loading.md: stdlib-loading.clock-from-stdlib
 stdlib-loading.md: stdlib-loading.elapsed-through-a-sibling
 stdlib-loading.md: stdlib-loading.error.print-arity-comes-from-the-stdlib-declaration
+stdlib-loading.md: stdlib-loading.json-has-child-answers-for-an-object-member-only
+stdlib-loading.md: stdlib-loading.json-negative-zero-round-trips
+stdlib-loading.md: stdlib-loading.json-parse-and-read-from-stdlib
 stdlib-loading.md: stdlib-loading.nanos-from-stdlib
 stdlib-loading.md: stdlib-loading.no-clock-is-byte-neutral
 stdlib-loading.md: stdlib-loading.range-is-constructible-from-to-in-expression-position

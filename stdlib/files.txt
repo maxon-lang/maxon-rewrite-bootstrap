@@ -31,3 +31,6 @@ helpers/url/urlHelpers.maxon .
 URL.maxon .
 FilePath.maxon .
 CharacterSet.maxon .
+helpers/string/utf8.maxon .
+helpers/string/utf16.maxon .
+Json.maxon .

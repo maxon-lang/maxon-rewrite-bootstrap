@@ -5198,9 +5198,9 @@ the checker reports where Maxon's parser does, as it needs the type of the value
 
 - `Slot` (`stdlib/slot`) stores what `fill` and `replace` are given by a copy, as `Array.push` does, so those two take only a
   `Copyable` element (`where T implements Copyable`), where maxon's takes a unique value too and moves it in; `Directory.list`,
-  `create`, `delete` and `currentPath` are built in over the runtime, not over `__ManagedDirectory`. `Json`, and the `Url` and
-  string helpers it is written on, are not in the library yet: it needs `float.fromString`, which minimaxon lacks, and the
-  coercion of a byte-valued enum case to a `Byte`.
+  `create`, `delete` and `currentPath` are built in over the runtime, not over `__ManagedDirectory`. `Json` is converted
+  (`stdlib/Json.maxon`), with maxon's UTF-8 and UTF-16 helpers (`stdlib/utf8.maxon`, `stdlib/utf16.maxon`, in the root
+  module, which reads the surrogate constants of maxon's `Character.maxon`, declared in minimaxon's own).
 - An operand is never `if`, `let`, `var`, `when`, `throw`, `return`, `break` or `continue`, which Maxon reads there as the
   name of a parameter or a function (`return 1 + if(5)`): each starts a statement here, so it keeps that meaning at the
   start of every operand, and a free function named by one cannot be called. A bare read of `while`, `for`, `match` or

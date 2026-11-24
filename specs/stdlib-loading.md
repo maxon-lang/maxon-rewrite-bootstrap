@@ -1355,7 +1355,7 @@ function main() returns ExitCode
 	print("{name} count={count} tags={n} second={second} ok={ok}\n")
 	let absent = try doc.getInt(doc.root, key: "missing") otherwise 'absent'
 		print("absent key refused\n")
-		return (count + (n as JsonInt) + second as JsonInt) as ExitCode
+		return try (count + (n as JsonInt) + second as JsonInt) as ExitCode otherwise panic("out of range")
 	end 'absent'
 	print("UNREACHED {absent}\n")
 	return 0
@@ -1395,6 +1395,7 @@ true false false
 ```
 
 <!-- test: stdlib-loading.json-stringify-round-trips-through-stdlib -->
+<!-- skip: language difference: a place passed mutates, consumes or sets overlaps nothing else the call or the statement holds, where maxon shares the place by a reference count -->
 The other half of the module, which the parse case cannot reach: the 22 free emitter functions, driven
 by building an arena BY HAND through `JsonNode`'s exported constructors and serializing it. The emitted
 text is checked literally, so it pins `writeJsonString`'s escaping of an embedded quote, `writeNumber`'s
