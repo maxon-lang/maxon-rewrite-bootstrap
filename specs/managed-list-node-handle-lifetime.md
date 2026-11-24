@@ -688,7 +688,7 @@ end 'main'
 ```
 
 <!-- test: removing-a-handle-a-navigator-hands-back-is-refused -->
-<!-- skip: a block inside brackets is not supported in minimaxon: a line break inside parentheses is a syntax error; bind the block's value on a line of its own -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- positions: moved -->
 ⭐⭐ **THE ROSTER AGAINST ALL EIGHT MINT DOORS.** *"An insertion on this same chain, handed in inline"*
 names only the doors that mint from a chain value. `n.next()` mints from a NODE — no chain value is in
@@ -703,10 +703,10 @@ function main() returns ExitCode
 	var chain = StrChain.create()
 	let a = chain.insertLast("first element, long enough to be a real heap allocation")
 	let b = chain.insertLast("second element, long enough to be a real heap allocation")
-	// TODO: a block inside brackets is not supported in minimaxon: a line break inside parentheses is a syntax error; bind the block's value on a line of its own
-	let got = chain.remove(try a.next() otherwise 'atEnd'
+	let gotBlock = try a.next() otherwise 'atEnd'
 		return 1
-	end 'atEnd')
+	end 'atEnd'
+	let got = chain.remove(gotBlock)
 	print("[{got}] [{b.value()}]\n")
 	return 0
 end 'main'
@@ -716,7 +716,7 @@ error E2015: <fragment>:8:18: Unsupported: `__ManagedList.remove` takes the elem
 ```
 
 <!-- test: removing-a-handle-this-chains-own-navigator-hands-back-inline -->
-<!-- skip: a block inside brackets is not supported in minimaxon: a line break inside parentheses is a syntax error; bind the block's value on a line of its own -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 The other half of the row above, and the reason the test is IDENTITY rather than "which door minted it".
 `chain.tail()` and `chain.insertAfter(…)` both mint from THIS chain, so both carry its stamp and both are
 admitted — the handle exists only as this argument and no second expression can name it. Two more mint
@@ -729,10 +729,10 @@ function main() returns ExitCode
 	let a = chain.insertLast("the element that stays behind, on the heap")
 	let spliced = chain.remove(chain.insertAfter(a, value: "an element spliced in and taken straight out"))
 	print("[{spliced}]\n")
-	// TODO: a block inside brackets is not supported in minimaxon: a line break inside parentheses is a syntax error; bind the block's value on a line of its own
-	let last = chain.remove(try chain.tail() otherwise 'empty'
+	let lastBlock = try chain.tail() otherwise 'empty'
 		return 1
-	end 'empty')
+	end 'empty'
+	let last = chain.remove(lastBlock)
 	print("[{last}] {chain.count()}\n")
 	return 0
 end 'main'
@@ -746,7 +746,7 @@ end 'main'
 ```
 
 <!-- test: the-four-node-argument-doors-admit-every-arrival -->
-<!-- skip: a block inside brackets is not supported in minimaxon: a line break inside parentheses is a syntax error; bind the block's value on a line of its own -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 ⭐⭐ **THE ROSTER'S ANSWER FOR THE FOUR NEW NODE-ARGUMENT DOORS, AND IT IS "ALL OF THEM" — DERIVED, NOT
 PROBED.** `remove` needs a roster because it EMPTIES `value@16`, so a handle that survives the call would
 read an emptied slot. `insertAfter`, `insertBefore`, `reinsertFirst` and `reinsertLast` change LINKS and
@@ -800,10 +800,10 @@ function main() returns ExitCode
 	print("call result: {headOf(chain)} / {k.read()}\n")
 	moveToBack(chain, n: n1)
 	print("parameter: {headOf(chain)} / {n1.value()}\n")
-	// TODO: a block inside brackets is not supported in minimaxon: a line break inside parentheses is a syntax error; bind the block's value on a line of its own
-	chain.reinsertFirst(try chain.tail() otherwise 'empty'
+	let hoisted42 = try chain.tail() otherwise 'empty'
 		return 1
-	end 'empty')
+	end 'empty'
+	chain.reinsertFirst(hoisted42)
 	print("navigator: {headOf(chain)}\n")
 	chain.reinsertLast(chain.insertFirst("three, long enough to be a real heap allocation"))
 	print("insertion: {headOf(chain)} {chain.count()}\n")
@@ -865,7 +865,7 @@ the element the handle keeps alive, on the heap
 ```
 
 <!-- test: a-navigators-handle-in-a-field-walks-the-chain -->
-<!-- skip: a block inside brackets is not supported in minimaxon: a line break inside parentheses is a syntax error; bind the block's value on a line of its own -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 ⭐ **`stdlib/List.maxon`'s `ListIterator`, whole.** A handle from `head()` stored in a FIELD, a
 `next()` handle REASSIGNED over it on every step, and a read through the field after the chain has been
 cleared. Each of the three is a separate obligation — the mint's reference, the reassignment releasing the
@@ -893,10 +893,10 @@ function main() returns ExitCode
 	chain.insertLast("one, long enough to be a real heap allocation")
 	chain.insertLast("two, long enough to be a real heap allocation")
 	chain.insertLast("three, long enough to be a real heap allocation")
-	// TODO: a block inside brackets is not supported in minimaxon: a line break inside parentheses is a syntax error; bind the block's value on a line of its own
-	let cursor = Cursor.create(try chain.head() otherwise 'empty'
+	let cursorBlock = try chain.head() otherwise 'empty'
 		return 1
-	end 'empty')
+	end 'empty'
+	let cursor = Cursor.create(cursorBlock)
 	print("{cursor.at.value()}\n")
 	try cursor.step() otherwise 'atEnd'
 		return 2

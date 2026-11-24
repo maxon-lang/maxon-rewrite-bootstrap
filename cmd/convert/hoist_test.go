@@ -37,3 +37,39 @@ func TestConvertKeepsThePublicNameOfAHelperThatTheRootExposes(t *testing.T) {
 		t.Fatalf("the exposed name stays public and the others are export:\n%s", res.Text)
 	}
 }
+
+func TestConvertBindsABlockInBracketsOnLinesOfItsOwn(t *testing.T) {
+	in := "function f(s String) returns Count\n\tlet n = (try g(s) otherwise 'bad'\n\t\tpanic(\"no\")\n\tend 'bad') as Count\n\treturn n\nend 'f'\n"
+	want := "function f(s String) returns Count\n\tlet nBlock = try g(s) otherwise 'bad'\n\t\tpanic(\"no\")\n\tend 'bad'\n\tlet n = nBlock as Count\n\treturn n\nend 'f'\n"
+	res := Convert("x.maxon", in, sourceFile)
+	if len(res.Warnings) > 0 || res.Text != want {
+		t.Fatalf("warnings %v, got:\n%q\nwant:\n%q", res.Warnings, res.Text, want)
+	}
+}
+
+func TestConvertKeepsABlockInBracketsThatItsNameTakes(t *testing.T) {
+	in := "function f(nBlock Count) returns Count\n\tlet n = (match nBlock 'm'\n\t\t0 gives 1\n\t\tdefault gives 2\n\tend 'm') as Count\n\treturn n\nend 'f'\n"
+	res := Convert("x.maxon", in, sourceFile)
+	if len(res.Warnings) != 1 || !strings.Contains(res.Warnings[0].Message, "a block inside brackets") {
+		t.Fatalf("warnings %v:\n%s", res.Warnings, res.Text)
+	}
+}
+
+func TestConvertBindsABlockThatIsAnArgumentOnLinesOfItsOwn(t *testing.T) {
+	in := "function f(xs Array with Count, k Count)\n\tfor x in xs 'each'\n\t\tout.push(match x 'm'\n\t\t\t0 gives 1\n\t\t\tdefault gives 2\n\t\tend 'm')\n\tend 'each'\nend 'f'\n"
+	res := Convert("x.maxon", in, sourceFile)
+	if len(res.Warnings) > 0 || !strings.Contains(res.Text, "\t\tlet hoisted3 = match x 'm'") || !strings.Contains(res.Text, "\t\tout.push(hoisted3)\n") {
+		t.Fatalf("warnings %v, got:\n%s", res.Warnings, res.Text)
+	}
+}
+
+func TestConvertKeepsABlockThatAnArmOrAClosureOwns(t *testing.T) {
+	arm := "function f(e Count)\n\tmatch e 'k'\n\t\t0 then total = run(match e 'inner'\n\t\t\tdefault gives 1\n\t\tend 'inner')\n\t\tdefault then total = 2\n\tend 'k'\nend 'f'\n"
+	closure := "function f(e Count)\n\ttotal = run(function() gives match e 'inner'\n\t\tdefault gives 1\n\tend 'inner')\nend 'f'\n"
+	for _, in := range []string{arm, closure} {
+		res := Convert("x.maxon", in, sourceFile)
+		if strings.Contains(res.Text, "hoisted") {
+			t.Fatalf("hoisted a block its arm or closure owns:\n%s", res.Text)
+		}
+	}
+}

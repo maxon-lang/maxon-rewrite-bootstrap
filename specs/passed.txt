@@ -7749,6 +7749,7 @@ top-level-factory-globals.md: factory-returning-a-boxed-union-in-a-function-body
 top-level-factory-globals.md: factory-returning-a-generic-alias-in-a-function-body
 top-level-factory-globals.md: user-generic-instance-create-returning-a-scalar-in-a-function-body
 top-level-factory-globals.md: user-generic-instance-factory-in-a-function
+top-level-let.md: a-match-expression-in-a-parenthesised-group-ends-a-top-level-let-at-its-own-line
 top-level-let.md: a-parenthesised-tuple-element-of-a-typed-array-literal
 top-level-let.md: a-static-method-body-calling-a-sibling-static-bare-calls-it
 top-level-let.md: a-static-struct-literal-tuple-field

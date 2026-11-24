@@ -4464,7 +4464,7 @@ error E3198: <fragment>:34:46: 'donor.bytes' is isolated and cannot be read outs
 ```
 
 <!-- test: error.an-isolated-part-read-in-the-middle-arm-of-a-match-expression-cannot-reach-an-isolated-slot -->
-<!-- skip: a block inside brackets is not supported in minimaxon: a line break inside parentheses is a syntax error; bind the block's value on a line of its own -->
+<!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify and acquire blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
 <!-- positions: moved -->
 A `match` expression joins all its arms, so an `isolated` part of a holder on its middle arm alone, between two fresh arms, is refused at an `isolated` field store, an `isolated` parameter and an `isolated` return.
 
@@ -4500,12 +4500,12 @@ function storeMiddle(donor Shelf, shelf Shelf, mode Mode)
 end 'storeMiddle'
 
 function argMiddle(donor Shelf, mode Mode) returns Count
-	// TODO: a block inside brackets is not supported in minimaxon: a line break inside parentheses is a syntax error; bind the block's value on a line of its own
-	return weigh(match mode 'pick'
+	let hoisted31 = match mode 'pick'
 		first gives ByteArray.create(0)
 		second gives donor.bytes
 		third gives ByteArray.create(1)
-	end 'pick')
+	end 'pick'
+	return weigh(hoisted31)
 end 'argMiddle'
 
 function returnMiddle(donor Shelf, mode Mode) returns ByteArray

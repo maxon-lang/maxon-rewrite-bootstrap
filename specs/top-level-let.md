@@ -3289,18 +3289,18 @@ error E3220: <fragment>:11:13: the initializer of 'LABEL' calls 'tag': a module-
 ```
 
 <!-- test: a-match-expression-in-a-parenthesised-group-ends-a-top-level-let-at-its-own-line -->
-<!-- skip: a block inside brackets is not supported in minimaxon: a line break inside parentheses is a syntax error; bind the block's value on a line of its own -->
 ```maxon
 enum Mode
 	quiet
 	loud
 end 'Mode'
 
-// TODO: a block inside brackets is not supported in minimaxon: a line break inside parentheses is a syntax error; bind the block's value on a line of its own
-let LABEL = (match Mode.loud 'm'
+let LABELBlock = match Mode.loud 'm'
 	quiet gives "quiet"
 	loud gives "loud"
-end 'm')
+end 'm'
+
+let LABEL = LABELBlock
 
 let NEXT = "next"
 
@@ -4827,24 +4827,25 @@ error E3004: <fragment>:10:9: call to undefined function 'nothere'
 ```
 
 <!-- test: error.constants-initialized-by-a-match-are-each-refused -->
-<!-- skip: a block inside brackets is not supported in minimaxon: a line break inside parentheses is a syntax error; bind the block's value on a line of its own -->
 <!-- positions: moved -->
 A `match` expression is not a constant expression, so a constant whose initializer holds one is refused, and every such constant in the file is reported, the second as well as the first.
 
 ```maxon
-// TODO: a block inside brackets is not supported in minimaxon: a line break inside parentheses is a syntax error; bind the block's value on a line of its own
-let first = (match 2 'pickFirst'
+let firstBlock = match 2 'pickFirst'
 	1 gives 10
 	2 gives 20
 	default gives 0
-end 'pickFirst')
+end 'pickFirst'
 
-// TODO: a block inside brackets is not supported in minimaxon: a line break inside parentheses is a syntax error; bind the block's value on a line of its own
-let second = (match 3 'pickSecond'
+let first = firstBlock
+
+let secondBlock = match 3 'pickSecond'
 	1 gives 11
 	3 gives 33
 	default gives 0
-end 'pickSecond')
+end 'pickSecond'
+
+let second = secondBlock
 
 function main() returns ExitCode
 	print("{first} {second}\n")

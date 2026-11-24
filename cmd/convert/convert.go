@@ -66,7 +66,7 @@ func Convert(file, src string, kind inputKind) Result {
 	text = convertBlockComments(text)
 	text = joinBracketLines(text)
 
-	lines := splitLines(text)
+	lines := hoistBlocksInBrackets(splitLines(text))
 	var warnings []Warning
 	addWarn := func(line *sourceLine, msg string) {
 		if slices.Contains(line.todos, msg) {
