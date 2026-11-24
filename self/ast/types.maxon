@@ -2292,6 +2292,11 @@ export function funcSlotOf(f FuncID) returns Count
 	return handleSlot(f as Count)
 end 'funcSlotOf'
 
+// holdsFunc is whether the slot ft is the one that holds the entry of the function f, which is then of ft's module.
+export function holdsFunc(ft FuncSlot, f FuncID) returns bool
+	return handleSlot(f as Count) == ft.slot
+end 'holdsFunc'
+
 // funcListOf is the number of the list (the segment) of its slot that holds the entry of the function f.
 export function funcListOf(f FuncID) returns Count
 	return handleList(f as Count)

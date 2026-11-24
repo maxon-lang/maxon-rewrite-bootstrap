@@ -82,10 +82,13 @@ type ModuleWork
 	// (project.libraryModulesNamedIn), and namesRead whether they were read.
 	var named as project.CountList
 	var namesRead as bool
+	// calls are the functions of other modules that the module's lower named, for a compile that lowers the library's modules
+	// on demand (lowersOnDemand), whose lowers are given them.
+	var calls as ast.FuncIDList
 
 	static function make(consumes home ast.ModuleHome) returns ModuleWork
 		let module = home.module
-		return ModuleWork{home: home, checkState: check.ModuleState.make(check.Checker.make(module, typing: ast.Typing.new(module)), entryRole: check.EntryRole.none), checked: check.ModuleChecked.none(), checkEnded: false, lowered: ir.IrFunctionList.create(0), kept: ir.IrFunctionList.create(0), code: freeze(ir.IrFunctionList.create(0)), leaves: freeze(opt.Leaves.empty()), unit: backend.CodeUnit.new(), reach: Reach.whole, digests: ModuleDigests.none(), key: table.Digest.none(), found: FoundEntry.none, speculated: false, mispredicted: false, checkedState: ByteArray.create(0), checkedKey: table.Digest.none(), checkedFound: FoundChecked.none, restored: Restored.none(), named: project.CountList.create(0), namesRead: false}
+		return ModuleWork{home: home, checkState: check.ModuleState.make(check.Checker.make(module, typing: ast.Typing.new(module)), entryRole: check.EntryRole.none), checked: check.ModuleChecked.none(), checkEnded: false, lowered: ir.IrFunctionList.create(0), kept: ir.IrFunctionList.create(0), code: freeze(ir.IrFunctionList.create(0)), leaves: freeze(opt.Leaves.empty()), unit: backend.CodeUnit.new(), reach: Reach.whole, digests: ModuleDigests.none(), key: table.Digest.none(), found: FoundEntry.none, speculated: false, mispredicted: false, checkedState: ByteArray.create(0), checkedKey: table.Digest.none(), checkedFound: FoundChecked.none, restored: Restored.none(), named: project.CountList.create(0), namesRead: false, calls: ast.FuncIDList.create(0)}
 	end 'make'
 
 	// startCheck starts the module's check as the order decided it (start).
@@ -119,7 +122,7 @@ type ModuleWork
 
 	// product is what the module's stages made, up to the first segments, which a task that waits on the last of them reads.
 	function product(segments Count) returns frozen with Product
-		return freeze(Product.make(freeze(ast.publish(home, segments: segments)), code: share(code), leaves: share(leaves), entry: checked.entry, tests: checked.tests.clone(), digests: digests.clone(), mispredicted: mispredicted, named: named.clone(), namesRead: namesRead))
+		return freeze(Product.make(freeze(ast.publish(home, segments: segments)), code: share(code), leaves: share(leaves), entry: checked.entry, tests: checked.tests.clone(), digests: digests.clone(), mispredicted: mispredicted, named: named.clone(), namesRead: namesRead, calls: calls.clone()))
 	end 'product'
 end 'ModuleWork'
 
@@ -186,9 +189,10 @@ type Product
 	var mispredicted as bool
 	var named as project.CountList
 	var namesRead as bool
+	var calls as ast.FuncIDList
 
-	static function make(consumes model frozen with ast.ModuleProducts, consumes code frozen with ir.IrFunctionList, consumes leaves frozen with opt.Leaves, entry ast.FuncID, consumes tests ast.FuncIDList, consumes digests ModuleDigests, mispredicted bool, consumes named project.CountList, namesRead bool) returns Product
-		return Product{model: model, code: code, leaves: leaves, entry: entry, tests: tests, digests: digests, mispredicted: mispredicted, named: named, namesRead: namesRead}
+	static function make(consumes model frozen with ast.ModuleProducts, consumes code frozen with ir.IrFunctionList, consumes leaves frozen with opt.Leaves, entry ast.FuncID, consumes tests ast.FuncIDList, consumes digests ModuleDigests, mispredicted bool, consumes named project.CountList, namesRead bool, consumes calls ast.FuncIDList) returns Product
+		return Product{model: model, code: code, leaves: leaves, entry: entry, tests: tests, digests: digests, mispredicted: mispredicted, named: named, namesRead: namesRead, calls: calls}
 	end 'make'
 
 	function segments() returns Count
@@ -540,7 +544,16 @@ function lowerModule(c Compile, mutates work ModuleWork, known Known, inputs ast
 		appendErrors(errs, found: found)
 		return giveTask(work, ms: ms, stage: Stage.lower)
 	end 'instances'
-	var lowered = ir.lowerModule(view, ms: ms, functions: work.checked.functions, callers: work.checked.callers, errs: found)
+	var lowered as ir.IrFunctionList
+	let m = ast.modIndex(work.home.module)
+	if lowersOnDemand(c) and c.libraryLater[c.slotOf(m)] 'demanded'
+		lowered = ir.lowerReached(view, ms: ms, functions: work.checked.functions, callers: work.checked.callers, demanded: demandedOf(c, p: view, ms: ms, known: known, m: m), calls: work.calls, errs: found)
+	end 'demanded' else 'whole'
+		lowered = ir.lowerModule(view, ms: ms, functions: work.checked.functions, callers: work.checked.callers, errs: found)
+		if lowersOnDemand(c) 'calls'
+			work.calls = ir.callsOutside(view, ms: ms, fns: lowered)
+		end 'calls'
+	end 'whole'
 	if c.options.keepsLowered 'keep'
 		work.kept = lowered.clone()
 		opt.expandModule(work.kept)
@@ -563,6 +576,46 @@ function lowerModule(c Compile, mutates work ModuleWork, known Known, inputs ast
 	appendErrors(errs, found: found)
 	return giveTask(work, ms: ms, stage: Stage.lower)
 end 'lowerModule'
+
+// lowersOnDemand is whether the compile lowers, of each module of the standard library, only what the program reaches: a
+// program's compile that makes code without the build cache, which would keep the module's unit for another program that
+// reaches more of it. The module's lower then waits for the lowers of the program and of the library's modules that name it,
+// whose calls name what it lowers (TaskGraph.addLowerTasks), and the functions nothing calls are never lowered, optimized
+// or emitted.
+function lowersOnDemand(c Compile) returns bool
+	return makesCode(c.goal) and not c.cache.enabled() and resolvesLibraryLater(c)
+end 'lowersOnDemand'
+
+// onDemandModules are, by module, the modules whose lower lowers only what the others call (lowersOnDemand).
+function onDemandModules(c Compile) returns Placed
+	var marks = Placed.create(0)
+	let demands = lowersOnDemand(c)
+	for m in 0 upto try c.first + c.modules otherwise panic("driver: a module past memory") 'modules'
+		var demanded = false
+		if demands and m >= c.first 'compiled'
+			demanded = c.libraryLater[c.slotOf(m)]
+		end 'compiled'
+		marks.push(demanded)
+	end 'modules'
+	return marks
+end 'onDemandModules'
+
+// demandedOf are the functions of module m that the lowers before its own, which it knows, call.
+function demandedOf(c Compile, p ast.Project, ms ast.ModuleState, known Known, m Count) returns ast.FuncIDList
+	var demanded = ast.FuncIDList.create(0)
+	for slot in 0 upto known.count() 'modules'
+		if c.moduleOf(slot) == m 'own'
+			continue 'modules'
+		end 'own'
+		for j in 0 upto known[slot].calls.count() 'calls'
+			let fn = known[slot].calls[j]
+			if ast.holdsFunc(ms.funcs, f: fn) 'here'
+				demanded.push(fn)
+			end 'here'
+		end 'calls'
+	end 'modules'
+	return demanded
+end 'demandedOf'
 
 // inlineTask runs the passes of the optimizer from leaf inlining on (inlineModule) on the functions the module's lower left,
 // which then are the module's code, so --emit-ir and --verify-ir see what codegen gets, and makes the module's summary for
@@ -820,7 +873,7 @@ function addCheckTasks(mutates graph TaskGraph, c Compile, ordered Ordered)
 	entries.push(entry)
 	var ended = TaskIDs.create(0)
 	ended.push(graph.addSideTask(Stage.endCheck, also: entries))
-	graph.addModuleTasks(Stage.lower, order: ordered.order, deps: ordered.deps, first: first)
+	graph.addLowerTasks(ordered.order, deps: ordered.deps, onDemand: onDemandModules(c), first: first)
 	if c.goal == Goal.lowered 'lowered'
 		return
 	end 'lowered'
