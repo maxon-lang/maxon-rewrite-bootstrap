@@ -4055,9 +4055,10 @@ literals, counts through the scalar values between them and gives each as a Char
 of integers, the literal's code point. A Character is `Hashable`, `Equatable` and `Comparable` through the library's
 `stdlib/Character.maxon` (minimaxon's own, since maxon's declares the type that is built in here), so it is a `Map` key, a `Set`
 element and sorts; its hash is the hash of the String of its bytes, which for one held in its two words is one fold of the words. `String` has `charAt(index)`, the cluster at an index as a Character, and `containsCharacter(c)`.
-maxon's `Ascii` is converted from maxon's library (`stdlib/ascii`). Its `CharacterSet` is not yet: its predefined sets are static
-lets whose `Set` literal is built where they are read, and the module that reads one does not make the instance of `Set.init`
-it calls (a panic of the lowering). What it reads is there: `unicodeGeneralCategory`, maxon's helper, over the
+maxon's `Ascii` is converted from maxon's library (`stdlib/ascii`), and so is its `CharacterSet` (`stdlib/CharacterSet.maxon`).
+Its predefined sets are static lets whose `Set` literal is built where they are read; the module that reads one makes the
+instances the literal calls, since finding a module's instances follows a read of another module's constant to the calls of
+its value, in its module (`ir.visitConstant`). What it reads is `unicodeGeneralCategory`, maxon's helper, over the
 General_Category table of every code point, which `internal/textgen` writes from `DerivedGeneralCategory.txt` to
 `stdlib/string/unicodeCategory_gen.maxon`, the helper module of maxon's `stdlib/helpers/string/`. A Character is two words, laid out as a String is: one of 1 to 15
 bytes holds them in its two words as every String of so few bytes does (see "The IR"), so its words are the words of the

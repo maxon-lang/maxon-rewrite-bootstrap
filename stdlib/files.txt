@@ -30,3 +30,4 @@ HeapStats.maxon heap
 helpers/url/urlHelpers.maxon .
 URL.maxon .
 FilePath.maxon .
+CharacterSet.maxon .

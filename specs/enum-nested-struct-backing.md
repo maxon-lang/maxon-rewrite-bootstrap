@@ -560,19 +560,15 @@ further before refusing — landing on exactly the sentence its `Array` sibling 
 line:column. A type the stdlib declares has no second rule.
 
 <!-- test: error.nested-struct-backing-characterset-field -->
-<!-- skip: CharacterSet is not supported in minimaxon yet: its predefined sets are static lets of the library whose Set literal is built where they are read, which the reading module does not instantiate -->
-<!-- positions: moved -->
 ```maxon
 typealias Wide = int(0 to 100)
 
 type Meta
-	// TODO: CharacterSet is not supported in minimaxon yet: its predefined sets are static lets of the library whose Set literal is built where they are read, which the reading module does not instantiate
 	export let chars as CharacterSet
 	export let n as Wide
 end 'Meta'
 
 enum Task
-	// TODO: CharacterSet is not supported in minimaxon yet: its predefined sets are static lets of the library whose Set literal is built where they are read, which the reading module does not instantiate
 	quick = Meta{chars: CharacterSet.create(), n: 2}
 end 'Task'
 

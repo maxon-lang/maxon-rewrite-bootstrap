@@ -239,8 +239,19 @@ function visitUses(p ast.Project, mutates ms ast.ModuleState, module diag.Module
 		some(list) then recorded = list
 		none then _ = 0
 	end 'recorded'
+	return visitSites(p, ms: ms, module: module, recorded: recorded, bindParams: bindParams, bindArgs: bindArgs, bindWitnesses: bindWitnesses, found: found, errs: errs)
+end 'visitUses'
+
+// visitSites finds the instances that the uses recorded at the sites of a module need. A site that reads a constant of
+// another module stands for the calls of the constant's value, which is built where it is read: they are nodes of that
+// module, and their instances are found there, as lowering makes them there (exprIn), with no type parameter bound, since
+// a constant's value names none.
+function visitSites(p ast.Project, mutates ms ast.ModuleState, module diag.ModuleID, recorded ast.NodeIDList, bindParams ast.TypeIDList, bindArgs ast.TypeIDList, bindWitnesses ast.WitnessList, mutates found InstanceSet, mutates errs diag.ErrorList) returns bool
 	for i in 0 upto recorded.count() 'each'
 		let site = recorded[i]
+		if not visitConstant(p, ms: ms, module: module, site: site, found: found, errs: errs) 'deepConstant'
+			return false
+		end 'deepConstant'
 		if p.modules[ast.modIndex(module)].tree.kindOf(site) == ast.NodeKind.forStmt 'loop'
 			let calls = iterationInfoAt(p, module: module, node: site).calls()
 			for j in 0 upto calls.count() 'calls'
@@ -295,7 +306,28 @@ function visitUses(p ast.Project, mutates ms ast.ModuleState, module diag.Module
 		end 'deep'
 	end 'each'
 	return true
-end 'visitUses'
+end 'visitSites'
+
+// visitConstant follows a site that reads a constant of another module to the uses of the constant's value, and says
+// whether the instances they need are finite. Any other site has none of its own here.
+function visitConstant(p ast.Project, mutates ms ast.ModuleState, module diag.ModuleID, site ast.NodeID, mutates found InstanceSet, mutates errs diag.ErrorList) returns bool
+	if not p.typings[ast.modIndex(module)].names.has(site as Count) 'unnamed'
+		return true
+	end 'unnamed'
+	let info = p.typings[ast.modIndex(module)].names.get(site as Count).unwrap()
+	if info.kind != ast.NameKind.nameConst or info.decl.module == module or info.decl.module == diag.stdlibID 'notElsewhere'
+		return true
+	end 'notElsewhere'
+	let ref = info.decl.clone()
+	let owner = ref.module
+	var calls = ast.NodeIDList.create(0)
+	match consumes p.typings[ast.modIndex(owner)].fieldUses.get(ast.constValueNode(p, ref: ref) as Count) 'uses'
+		some(list) then calls = list
+		none then return true
+	end 'uses'
+	let unbound = ast.TypeIDList.create(0)
+	return visitSites(p, ms: ms, module: owner, recorded: calls, bindParams: unbound.clone(), bindArgs: unbound.clone(), bindWitnesses: ast.WitnessList.create(0), found: found, errs: errs)
+end 'visitConstant'
 
 // requireCrossings refuses, in an instance of generic code, a value that the behaviour stmt takes and that cannot cross to
 // the thread that runs it at the instance's type arguments: the check judged every other capture where it was written.

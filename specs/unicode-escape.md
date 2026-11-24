@@ -111,12 +111,10 @@ hello! world
 ```
 
 <!-- test: unicode-escape.whitespace-chars -->
-<!-- skip: CharacterSet is not supported in minimaxon yet: its predefined sets are static lets of the library whose Set literal is built where they are read, which the reading module does not instantiate -->
 ### Unicode whitespace characters via escape
 
 ```maxon
 function main() returns ExitCode
-	// TODO: CharacterSet is not supported in minimaxon yet: its predefined sets are static lets of the library whose Set literal is built where they are read, which the reading module does not instantiate
 	let ws = CharacterSet.whitespacesAndNewlines
 	let nbsp = '\u00A0'
 	let enSpace = '\u2002'

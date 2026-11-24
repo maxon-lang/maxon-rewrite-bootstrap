@@ -347,18 +347,18 @@ function checkDeclaredName(mutates c Checker, p ast.Project, mutates ms ast.Modu
 end 'checkDeclaredName'
 
 // typeOfConstant types a read of the constant ref. A constant is built where it is read, so the calls of its value that need
-// an instance of a generic (a map literal's) are the reader's, which only a reader in the constant's module can make.
+// an instance of a generic (a map literal's) are the reader's. A reader in the constant's module takes them on as its own;
+// one in another module records the read itself, since the calls are nodes of the constant's module, whose check may not
+// have ended yet: finding the instances follows the read to them (ir.visitSites).
 function typeOfConstant(mutates c Checker, p ast.Project, ms ast.ModuleState, e ast.NodeID, consumes ref ast.DeclRef, consumes value ast.ConstValue, mutates errs diag.ErrorList) returns ast.TypeID
 	if c.hasUses 'reader'
-		let node = ast.constValueNode(p, ref: ref)
 		if ref.module == c.modID 'here'
-			match consumes c.typing.fieldUses.get(node as Count) 'uses'
+			match consumes c.typing.fieldUses.get(ast.constValueNode(p, ref: ref) as Count) 'uses'
 				some(calls) then recordAll(c, calls: calls)
 				none then _ = 0
 			end 'uses'
-		end 'here' else if p.typings[ast.modIndex(ref.module)].fieldUses.has(node as Count) 'elsewhere'
-			failAt(c, p: p, ms: ms, node: e, code: diag.errUnsupported, msg: "Unsupported: '{ast.declName(p, ref: ref)}' is built where it is read, and its value calls code of its own module that another module cannot make here; read it through a function of its module", errs: errs)
-			return ast.noType
+		end 'here' else if ref.module != diag.stdlibID 'elsewhere'
+			recordUse(c, call: e)
 		end 'elsewhere'
 	end 'reader'
 	c.typing.names.insert(e as Count, value: ast.NameInfo.constName(ref))

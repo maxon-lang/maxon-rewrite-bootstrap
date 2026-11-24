@@ -4079,12 +4079,9 @@ error E2015: <fragment>:5:11: Unsupported: a counted `for … in <lo> to|upto <h
 ```
 
 <!-- test: error.a-tuple-in-a-character-set-literal-names-the-tuple-type -->
-<!-- skip: CharacterSet is not supported in minimaxon yet: its predefined sets are static lets of the library whose Set literal is built where they are read, which the reading module does not instantiate -->
-<!-- positions: moved -->
 ```maxon
 function main() returns ExitCode
 	let t = (1, 2)
-	// TODO: CharacterSet is not supported in minimaxon yet: its predefined sets are static lets of the library whose Set literal is built where they are read, which the reading module does not instantiate
 	let cs = CharSet from [t]
 	return 0
 end 'main'

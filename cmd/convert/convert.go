@@ -2136,10 +2136,6 @@ func transformStmtAndExpr(line *sourceLine, warn func(*sourceLine, string)) {
 				if i > 0 && toks[i-1].text == "to" {
 					warn(line, "open-ended 'to max' match range patterns are not supported in minimaxon")
 				}
-			case "CharacterSet", "CharSet":
-				if i == 0 || toks[i-1].text != "." {
-					warn(line, "CharacterSet is not supported in minimaxon yet: its predefined sets are static lets of the library whose Set literal is built where they are read, which the reading module does not instantiate")
-				}
 			case "trim", "trimStart", "trimEnd":
 				if i > 0 && toks[i-1].text == "." && i+2 < len(toks) && toks[i+1].text == "(" && toks[i+2].text != ")" {
 					warn(line, "a trim of a CharacterSet is not supported in minimaxon: trim, trimStart and trimEnd take no set and remove whitespace and newlines")
