@@ -11,6 +11,13 @@ let minusSign = 45 as Byte
 // signBit is the bit that makes a signed word negative.
 let signBit = 0x8000000000000000 as Count
 
+// bothAscii is whether two Strings are both ASCII, from the bit of their words, without a branch: the short-circuit `and`
+// of their two stringAscii is a taken branch where the first is not, which on the M3 cost up to 12 cycles an append in
+// stringAppend's fast path, by where it fell in the code.
+function bothAscii(text String, other String) returns bool
+	return ((__Raw.stringSecondWord(text) and __Raw.stringSecondWord(other)) and stringAsciiBit) != 0
+end 'bothAscii'
+
 // concat is a new string of the bytes of left and then of right, every byte below 0x80 where each of them says so.
 function concat(left String, right String) returns String
 	let leftLength = __Raw.stringLength(left)
@@ -22,7 +29,7 @@ function concat(left String, right String) returns String
 	let room = __Raw.stringRoom(length)
 	copyBytes(__Raw.stringBytes(left), target: room, count: leftLength)
 	copyBytes(__Raw.stringBytes(right), target: __Raw.wrappingAdd(room, right: leftLength), count: rightLength)
-	return __Raw.stringOf(room, length: length, ascii: __Raw.stringAscii(left) and __Raw.stringAscii(right))
+	return __Raw.stringOf(room, length: length, ascii: bothAscii(left, other: right))
 end 'concat'
 
 // itoa is the decimal digits of a word, read as signed unless unsigned says otherwise, with a '-' before a negative one.
@@ -107,7 +114,7 @@ function stringJoinPut(text String, part String) returns String
 		let length = second shr stringLengthShift
 		let count = (partSecond shr stringCountShift) and inlineCountMask
 		putPart(__Raw.wrappingAdd(bytes, right: length), part: part, count: count)
-		return __Raw.stringOf(bytes, length: __Raw.wrappingAdd(length, right: count), ascii: __Raw.stringAscii(text) and __Raw.stringAscii(part))
+		return __Raw.stringOf(bytes, length: __Raw.wrappingAdd(length, right: count), ascii: bothAscii(text, other: part))
 	end 'held'
 	return joinPutCopy(text, part: part)
 end 'stringJoinPut'
@@ -119,7 +126,7 @@ function joinPutCopy(text String, part String) returns String
 	let count = __Raw.stringLength(part)
 	let bytes = __Raw.stringFirstWord(text)
 	copyBytes(__Raw.stringFirstWord(part), target: __Raw.wrappingAdd(bytes, right: length), count: count)
-	return __Raw.stringOf(bytes, length: __Raw.wrappingAdd(length, right: count), ascii: __Raw.stringAscii(text) and __Raw.stringAscii(part))
+	return __Raw.stringOf(bytes, length: __Raw.wrappingAdd(length, right: count), ascii: bothAscii(text, other: part))
 end 'joinPutCopy'
 
 // stringJoinDigits is text with the length bytes of the decimal text of a word after its own, which text's buffer has room
@@ -215,7 +222,7 @@ function stringAppend(text String, owned bool, part String) returns String
 		if withSlack(have) <= boxCapacity(bytes) 'room'
 			let count = (partSecond shr stringCountShift) and inlineCountMask
 			putPart(__Raw.wrappingAdd(bytes, right: have), part: part, count: count)
-			return __Raw.stringOf(bytes, length: __Raw.wrappingAdd(have, right: count), ascii: __Raw.stringAscii(text) and __Raw.stringAscii(part))
+			return __Raw.stringOf(bytes, length: __Raw.wrappingAdd(have, right: count), ascii: bothAscii(text, other: part))
 		end 'room'
 	end 'fast'
 	let length = __Raw.stringLength(text)
@@ -247,7 +254,7 @@ function stringAppend(text String, owned bool, part String) returns String
 	if owned and room != bytes 'moved'
 		__Raw.freeStringRoom(bytes)
 	end 'moved'
-	return __Raw.stringOf(room, length: needed, ascii: __Raw.stringAscii(text) and __Raw.stringAscii(part))
+	return __Raw.stringOf(room, length: needed, ascii: bothAscii(text, other: part))
 end 'stringAppend'
 
 // halfWordBytes is the size of the half word that streq compares a string shorter than a word by.
