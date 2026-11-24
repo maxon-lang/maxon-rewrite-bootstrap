@@ -1,5 +1,6 @@
 // Jump threading, maxon's threadConstantBranches: an edge into a block that holds nothing but a branch on one of its own
-// parameters, where the edge passes a constant for it, goes straight to the side of the branch the constant takes. A
+// parameters, where the edge passes a constant for it, or the condition of the branch it leaves (decidedBy), goes straight
+// to the side of the branch that value takes. A
 // `match` or a call of a predicate that gives a bool which an `if` then tests is a join of constants and a branch on the
 // join, so this is what makes such a test one compare and one branch. The edge passes the arguments that side passed,
 // with each of the block's parameters replaced by what the edge passed for it, so a parameter may be read only by the
@@ -228,13 +229,14 @@ export type Threader
 			let term = f.blocks[t].term.clone()
 			let at = paramAt[regIndex(ir.branchCond(term))]
 			let passed = regIndex(f.args[sum(editor.edges.argsStart[e], b: at)])
-			if not isConst[passed] 'unknown'
+			let decided = self.decidedBy(f, p: p, e: e, passed: passed)
+			if decided == undecided 'unknown'
 				continue 'edges'
 			end 'unknown'
 			var target = ir.branchIfFalse(term)
 			var start = ir.branchFalseArgsStart(term)
 			var count = ir.branchFalseArgsCount(term)
-			if value[passed] != 0 'taken'
+			if decided == decidedTrue 'taken'
 				target = ir.branchIfTrue(term)
 				start = ir.branchTrueArgsStart(term)
 				count = ir.branchTrueArgsCount(term)
@@ -268,7 +270,31 @@ export type Threader
 		end 'store'
 		return changed
 	end 'threadEdges'
+
+	// decidedBy is what edge e of block p passes as the register passed, as a condition: a constant's value, or, on an edge
+	// of a branch on passed itself, the side that edge is on, since the branch went that way because of passed. A short
+	// circuit `a or b` passes its first operand on the edge where it holds, and `a and b` where it fails, to a block that
+	// branches on what it was given, which is how such a test becomes the branches on its operands alone.
+	function decidedBy(f ir.IrFunction, p Count, e Count, passed Count) returns Count
+		if isConst[passed] 'constant'
+			return decidedTrue if value[passed] != 0 else decidedFalse
+		end 'constant'
+		if f.blocks[p].term.kind != ir.TermKind.termBranch or regIndex(ir.branchCond(f.blocks[p].term)) != passed 'other'
+			return undecided
+		end 'other'
+		return decidedTrue if e == trueEdge else decidedFalse
+	end 'decidedBy'
 end 'Threader'
+
+// What an edge passes as a condition (decidedBy): nothing known, or that it holds or fails.
+let undecided = 0 as Count
+
+let decidedFalse = 1 as Count
+
+let decidedTrue = 2 as Count
+
+// trueEdge is the place of a branch's true edge among the edges ir.SuccessorVisitor gives, which visits it first.
+let trueEdge = 0 as Count
 
 // holdsEmptyBlock is whether a block of f holds no instruction, which every block the pass threads through is.
 function holdsEmptyBlock(f ir.IrFunction) returns bool
