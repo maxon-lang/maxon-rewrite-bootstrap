@@ -224,6 +224,12 @@ function lowerProcessSetExitCode(mutates l Lowerer, p ast.Project, ms ast.Module
 	return konst(l, value: 0 as Word)
 end 'lowerProcessSetExitCode'
 
+// lowerProcessExitAtOnce ends the process with the code at once (rt.os.exitAtOnce), which gives nothing back.
+function lowerProcessExitAtOnce(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	entryVoid(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtOsExitAtOnce, args: argsOf1(args[0]))
+	return konst(l, value: 0 as Word)
+end 'lowerProcessExitAtOnce'
+
 // lowerReadStdin is a fresh byte array of what one read of standard input gave: the box of an array of bytes, which a
 // __ManagedMemory of bytes is.
 function lowerReadStdin(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg

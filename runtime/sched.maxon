@@ -191,6 +191,12 @@ function osSetExitCode(code Count)
 	__Raw.storeWord(scheduler, offset: schedExitSetOffset, value: set)
 end 'osSetExitCode'
 
+// osExitAtOnce ends the process with the code at once (__Builtins.exitAtOnce): every write reaches standard output and error
+// unbuffered, so nothing is left to flush, and nothing is freed and no behaviour that is left runs.
+function osExitAtOnce(code Count)
+	exitProcess(code)
+end 'osExitAtOnce'
+
 // schedulerOf is the scheduler's record, which the first call on the main thread makes: only the main thread's context
 // starts with none, and no other thread runs before the record is made.
 function schedulerOf(context Count) returns Count

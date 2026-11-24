@@ -948,6 +948,11 @@ var tableFunctions = []function{
 	{Owner: "Builtins", Name: "readStdin", Static: true, Params: []string{"_ Natural"}, Result: "ManagedMemory with Byte", Intrinsic: "ReadStdin", Instead: "Console.stdin().readBytes(n)"},
 	{Owner: "Builtins", Name: "runWithInput", Static: true, Params: []string{"executable Executable", "arguments Array with String", "input String", "deadline WaitDeadline"}, Result: "CollectedOutput", Throws: "SubprocessError", Intrinsic: "SubprocessRunWithInput", Instead: "a Configuration whose standardInput is InputSource.bytes(text)"},
 	{Owner: "Builtins", Name: "stdoutWantsAnsiColor", Static: true, Result: "Bool", Intrinsic: "StdoutWantsColor", Instead: "Console.stdoutWantsColor()"},
+	// exitAtOnce ends the process with the code at once: standard output and error, which every write reaches unbuffered,
+	// hold all that was written, and nothing is freed, no drop runs and no behaviour that is left runs. It is the compiler's,
+	// for the end of a build that nothing after it reads, as Go's compiler never frees at exit; maxon's library has no such
+	// call, so a program has none either.
+	{Owner: "Builtins", Name: "exitAtOnce", Static: true, Params: []string{"_ ExitCode"}, Intrinsic: "ProcessExitAtOnce", Instead: "returning from main, or Process.setExitCode(code)"},
 	// floatToBits is the 64 bits of a double read as an integer, as maxon's is: a reinterpretation, which the library's
 	// float hash folds.
 	{Owner: "Builtins", Name: "floatToBits", Static: true, Params: []string{"_ Float"}, Result: "FullRangeInt", Intrinsic: "FloatToBits", Instead: "the float's own operations"},
@@ -1223,6 +1228,7 @@ var entries = []entry{
 	{"OsCurrentPath", "rt.os.currentPath", "Os", roleCall, "() -> String: the working directory, panicking when Windows cannot give it"},
 	{"OsProcessId", "rt.os.processId", "Os", roleCall, "() -> Count: the id of the running process"},
 	{"OsSetExitCode", "rt.os.setExitCode", "Os", roleCall, "(code): the code the process ends with when main has returned and no behaviour is left, in place of main's"},
+	{"OsExitAtOnce", "rt.os.exitAtOnce", "Os", roleCall, "(code): ends the process with the code at once, freeing nothing"},
 	{"OsEnterBackgroundPriority", "rt.os.enterBackgroundPriority", "Os", roleCall, "() -> Count: puts the process at background priority (Windows' below-normal class, a POSIX nice of 10) and answers the priority the system reports afterwards"},
 	{"OsClockNanos", "rt.os.clockNanos", "Os", roleCall, "() -> Count: the monotonic clock in nanoseconds, from QueryPerformanceCounter"},
 	{"OsClockMillis", "rt.os.clockMillis", "Os", roleCall, "() -> Count: the monotonic clock in whole milliseconds, which is OsClockNanos divided by a million"},
@@ -1405,6 +1411,7 @@ var runtimeFunctions = []runtimeFunction{
 	{"OsCurrentPath", "osCurrentPath() String"},
 	{"OsProcessId", "osProcessId() Count"},
 	{"OsSetExitCode", "osSetExitCode(code Count)"},
+	{"OsExitAtOnce", "osExitAtOnce(code Count)"},
 	{"OsEnterBackgroundPriority", "osEnterBackgroundPriority() Count"},
 	{"OsClockNanos", "osClockNanos() Count"},
 	{"OsClockMillis", "osClockMillis() Count"},

@@ -608,6 +608,9 @@ export function intrinsicCall(mutates l Lowerer, p ast.Project, mutates ms ast.M
 	if op == ast.Intrinsic.intrStdoutWantsColor 'intrStdoutWantsColor'
 		return lowerStdoutWantsColor(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrStdoutWantsColor'
+	if op == ast.Intrinsic.intrProcessExitAtOnce 'intrProcessExitAtOnce'
+		return lowerProcessExitAtOnce(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrProcessExitAtOnce'
 	if op == ast.Intrinsic.intrFloatToBits 'intrFloatToBits'
 		return lowerFloatToBits(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrFloatToBits'
@@ -1438,6 +1441,9 @@ export function ownsOperands(op ast.Intrinsic) returns bool
 	if op == ast.Intrinsic.intrStdoutWantsColor 'intrStdoutWantsColor'
 		return false
 	end 'intrStdoutWantsColor'
+	if op == ast.Intrinsic.intrProcessExitAtOnce 'intrProcessExitAtOnce'
+		return false
+	end 'intrProcessExitAtOnce'
 	if op == ast.Intrinsic.intrFloatToBits 'intrFloatToBits'
 		return false
 	end 'intrFloatToBits'

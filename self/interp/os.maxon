@@ -151,6 +151,11 @@ function entryOsSetExitCode(mutates vm Vm, f ir.IrFunction, x ir.Instr)
 	vm.setExitValue = int32Of(argNum(vm, f: f, x: x, i: 0))
 end 'entryOsSetExitCode'
 
+// entryOsExitAtOnce ends the program with the code, as the executable's rt.os.exitAtOnce ends the process.
+function entryOsExitAtOnce(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	throw exitWith(vm, code: argNum(vm, f: f, x: x, i: 0))
+end 'entryOsExitAtOnce'
+
 function entryOsPathFrom(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	let at = try textIndex(vm, o: argRef(vm, f: f, x: x, i: 0), what: "a path")
 	let text = vm.h.texts[at].clone()
