@@ -744,8 +744,10 @@ d registers at a scaled, an unscaled and a register offset, adrp and the page of
 operations and conversions, `ldar`, `stlr`, `ldaxr`, `stlxr`, `casal` (of x0, as x64's `cmpxchg` is of rax), `ldaddal` and
 `swpal`, the barriers, `brk`, `svc`, and the reads and writes of `tpidr_el0`, `tpidrro_el0` and `nzcv`. A direct form (the
 pairs `ldp` and `stp` at an offset, pre-index and post-index, `madd` and `msub` of four registers) is one only hand-written
-code writes: it has an encoder and is no case of `Arm64Form`. `encodeArm64MovImm` (and its steps, `arm64LadderInverted`, `arm64LadderSkips`, `arm64LadderFirst`, which arm64's selection writes as machine instructions) sets a register to any word in the fewest
-`movz` or `movn` and `movk`. arm64's forms are the FormIDs from 256. `go test ./internal/arm64gen/...` encodes every form at
+code writes: it has an encoder and is no case of `Arm64Form`. `encodeArm64MovImm` (and its steps, `arm64LadderInverted`, `arm64LadderSkips`, `arm64LadderFirst`) sets a register to any word in the fewest
+`movz` or `movn` and `movk`; it is the encoder of `MovRegWord`, the one form of more than one word, which the machine IR holds
+as one instruction that makes its result from its immediate alone, so the allocator writes it again before a use rather than
+spill it. arm64's forms are the FormIDs from 256. `go test ./internal/arm64gen/...` encodes every form at
 the registers 0, 1, 30 and `sp`, the limits of each field and every condition with a reference encoder (whose logical
 immediates are found by trying every element, run and rotation) and compares the words with
 `internal/arm64gen/arm64table/testdata/assembler.golden`, which the Go toolchain's arm64 assembler wrote
@@ -837,7 +839,12 @@ whose product comes before the high word that says it fits). The address of a sy
 the load after it, each with its reference, which the link patches by its kind (`page21`, `pageOffset12`,
 `pageOffset12Word`), and a branch's distance `branch19` or `branch26`; an immediate or an offset that no field holds goes
 through a helper of `isel_arm64.maxon` (a constant by the ladder of `movz` or `movn` and `movk`, a wide addition by an `add` of its
-high 12 bits and then its low ones, an access at an added address). Unsigned conditions are x64's after a comparison, and an
+high 12 bits and then its low ones, an access at an added address). The IR writes a constant again at each reader, which costs
+nothing where the reader takes it as an immediate or one move sets it; a word that needs the ladder and is written at more than
+one place, or inside a loop, is made once (`WordSharing`): at the start of the segment that dominates each place it is written
+and that no loop holds, with a copy at each place. Where the registers do not allow it to be kept that far, the allocator writes
+the ladder again before the reader, which is the code of a ladder at each place; x64's `mov` of any word is one instruction,
+so x64 writes each constant in place. Unsigned conditions are x64's after a comparison, and an
 unsigned add's carry is `aboveEqual`; after `fcmp` the negation of an ordered condition holds for an unordered pair. A
 checked signed division is the one that branches, for -1, since `sdiv` does not fault; a shift by a count branches past
 the word as x64's does, since `lslv` counts modulo it; `casal`, `ldaddal` and `swpal` are the atomics; and on Linux the

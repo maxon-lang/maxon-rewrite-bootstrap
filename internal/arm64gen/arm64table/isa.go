@@ -92,7 +92,7 @@ func (f form) shapeParams() []isa.ShapeParam {
 			}
 		case kindDisp:
 			out = append(out, isa.ShapeParam{Name: o.name, Role: isa.RoleDisp, Type: typeDisp})
-		case kindImm, kindMask:
+		case kindImm, kindMask, kindWord:
 			role := isa.RoleImm
 			if immediates > 0 {
 				role = isa.RoleDisp

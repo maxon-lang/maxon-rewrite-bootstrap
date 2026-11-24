@@ -173,7 +173,7 @@ func machineArgs(f form) []string {
 			}
 		case kindDisp:
 			args = append(args, "aux")
-		case kindMask:
+		case kindMask, kindWord:
 			args = append(args, "imm")
 			immediates++
 		case kindImm:

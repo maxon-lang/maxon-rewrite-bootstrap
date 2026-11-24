@@ -270,7 +270,7 @@ func goldenCases() []goldenCase {
 			}
 			continue
 		}
-		if assemblerless[f.name] {
+		if assemblerless[f.name] || f.isLadder() {
 			continue
 		}
 		product(spreads(f), func(vals []int64) {
@@ -342,7 +342,9 @@ func TestFormsEncodeAsTheAssemblerDid(t *testing.T) {
 		}
 	}
 	for _, f := range forms {
-		if !tested[f.name] {
+		// The ladder's words are the moves of encodeArm64MovImm, which self/backend/arm64.maxtest checks; each move's
+		// form is compared here.
+		if !tested[f.name] && !f.isLadder() {
 			t.Errorf("form %s is compared with nothing", f.name)
 		}
 	}

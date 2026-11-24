@@ -355,7 +355,7 @@ end 'encodeArm64MovImm'
 // operandText is how a comment shows an operand.
 func operandText(o operand) string {
 	switch o.kind {
-	case kindReg, kindImm, kindMask, kindCond, kindRel, kindAddress:
+	case kindReg, kindImm, kindMask, kindWord, kindCond, kindRel, kindAddress:
 		return o.name
 	case kindDisp, kindPageOffset:
 		return "[base + " + o.name + "]"
@@ -434,12 +434,21 @@ func emitForm(b *strings.Builder, f form) {
 	if f.direct {
 		direct = " A direct form, which no machine instruction holds."
 	}
-	fmt.Fprintf(b, "// %s: 0x%08X.%s\n", what, f.opcode, direct)
+	if f.isLadder() {
+		fmt.Fprintf(b, "// %s: the ladder of the word, one to four moves.\n", what)
+	} else {
+		fmt.Fprintf(b, "// %s: 0x%08X.%s\n", what, f.opcode, direct)
+	}
 	list := "mutates code ByteArray"
 	if ps := f.params(); len(ps) > 0 {
 		list += ", " + paramList(ps)
 	}
 	fmt.Fprintf(b, "export function %s(%s)\n", encoderName(f.name), list)
+	if f.isLadder() {
+		fmt.Fprintf(b, "\tencodeArm64MovImm(code, dest: dest, value: imm)\n")
+		fmt.Fprintf(b, "end '%s'\n\n", encoderName(f.name))
+		return
+	}
 	var word strings.Builder
 	word.WriteString(fmt.Sprintf("0x%08X", f.opcode))
 	for _, o := range f.operands {

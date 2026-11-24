@@ -120,6 +120,9 @@ const (
 	// kindPageOffset is the low 12 bits of an address in units of the access, which the reference that patches the
 	// adrp before it patches too.
 	kindPageOffset
+	// kindWord is any word, given as its value, which no field holds: a form of one is the ladder of moves that sets its
+	// register to the word (ladderForm), not one instruction word.
+	kindWord
 )
 
 // access is whether an instruction reads a register operand, writes it, or both: a form whose result the machine IR
@@ -220,6 +223,8 @@ func pairOffset(size int) operand {
 
 func mask() operand { return operand{name: "imm", kind: kindMask, at: logicalAt, bits: logicalBits} }
 
+func word() operand { return operand{name: "imm", kind: kindWord} }
+
 func cond(at int) operand { return operand{name: "cond", kind: kindCond, at: at, bits: condBits} }
 
 func rel(at, bits int) operand {
@@ -283,6 +288,16 @@ func moveWide(name, mnemonic string, opcode uint32, a access) form {
 	return form{name: name, mnemonic: mnemonic, opcode: opcode,
 		operands: []operand{reg("dest", rdAt, a), imm("imm", imm16At, imm16Bits), imm("shift", hwAt, hwBits)}}
 }
+
+// ladderName is the form of the ladder, whose encoder writes the moves of encodeArm64MovImm.
+const ladderName = "MovRegWord"
+
+func ladderForm() form {
+	return form{name: ladderName, mnemonic: "mov", operands: []operand{reg("dest", rdAt, write), word()}}
+}
+
+// isLadder is whether a form is the ladder: its words are its moves, not an opcode with fields.
+func (f form) isLadder() bool { return f.name == ladderName }
 
 // load and store are the forms of a memory operand of one addressing: dest or src is the register, at rdAt, and at
 // are the operands of the address.
@@ -481,6 +496,10 @@ func buildForms() []form {
 		moveWide("MovzRegImm", "movz", 0xD2800000, write),
 		moveWide("MovnRegImm", "movn", 0x92800000, write),
 		moveWide("MovkRegImm", "movk", 0xF2800000, readWrite),
+		// The ladder of a word that no one move sets, as one machine instruction that makes its result from its immediate
+		// alone: the allocator writes it again before a use where no register is free to keep it in, so a constant is
+		// made once in a function where the registers allow and before each use where they do not.
+		ladderForm(),
 		// The shifts and extensions by a constant: lsl #s is ubfm #(-s mod 64), #(63-s), lsr #s ubfm #s, #63, asr #s
 		// sbfm #s, #63, and a zero or sign extension ubfm or sbfm #0 and the top bit of the narrow value.
 		{name: "UbfmRegReg", mnemonic: "ubfm", opcode: 0xD3400000, operands: []operand{

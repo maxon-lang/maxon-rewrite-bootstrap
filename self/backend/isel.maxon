@@ -132,9 +132,11 @@ export type Selector
 	var system as ast.TargetSystem
 	// harvest describes the locals of a function that keeps spans (locals.maxon).
 	var harvest as LocalHarvest
+	// sharedWords are the words that no one move sets which the function being selected makes once, on arm64.
+	var sharedWords as WordSharing
 
 	static function new(verifies bool, target ast.Target) returns Selector
-		return Selector{u: CodeUnit.new(), mir: MirFunction.new("", canThrow: false, arch: target.arch), defs: DefAtList.create(0), second: MRegList.create(0), stringTy: ast.noType, args: MRegList.create(0), callArgs: MRegList.create(0), callFloats: Array.create(0), places: CountList.create(0), params: MRegList.create(0), paramPlaces: CountList.create(0), paramFloats: Array.create(0), paramWordAt: CountList.create(0), wordPositions: CountList.create(0), closureBody: false, calleeSymbols: CalleeSymbols.new(), canThrow: false, floatResult: false, fnSymbol: "", tables: TableSet.new(), due: ir.WitnessTableList.create(0), thunks: TableSet.new(), dueThunks: ast.FuncIDList.create(0), typeNames: TableSet.new(), typeSymbols: CalleeSymbols.new(), datums: TableSet.new(), readCount: CountList.create(0), reads: ir.RegList.create(0), irBlock: 0, irAt: 0, dead: DeadCode.new(), layout: BlockLayout.new(), allocator: Allocator.new(verifies, target: target), classes: ClassChoice.new(), arch: target.arch, system: target.system, harvest: LocalHarvest.new()}
+		return Selector{u: CodeUnit.new(), mir: MirFunction.new("", canThrow: false, arch: target.arch), defs: DefAtList.create(0), second: MRegList.create(0), stringTy: ast.noType, args: MRegList.create(0), callArgs: MRegList.create(0), callFloats: Array.create(0), places: CountList.create(0), params: MRegList.create(0), paramPlaces: CountList.create(0), paramFloats: Array.create(0), paramWordAt: CountList.create(0), wordPositions: CountList.create(0), closureBody: false, calleeSymbols: CalleeSymbols.new(), canThrow: false, floatResult: false, fnSymbol: "", tables: TableSet.new(), due: ir.WitnessTableList.create(0), thunks: TableSet.new(), dueThunks: ast.FuncIDList.create(0), typeNames: TableSet.new(), typeSymbols: CalleeSymbols.new(), datums: TableSet.new(), readCount: CountList.create(0), reads: ir.RegList.create(0), irBlock: 0, irAt: 0, dead: DeadCode.new(), layout: BlockLayout.new(), allocator: Allocator.new(verifies, target: target), classes: ClassChoice.new(), arch: target.arch, system: target.system, harvest: LocalHarvest.new(), sharedWords: WordSharing.new()}
 	end 'new'
 
 	// prepare names what the function's instructions ask for by handle: the symbols of its callees, and the drop and copy
@@ -1249,6 +1251,10 @@ function selectFunction(mutates sel Selector, p ast.Project, mutates ms ast.Modu
 	sel.classes.choose(f, fn: sel.mir)
 	sel.mir.lengthened = f.lengthened.clone()
 	sel.pairStrings(f)
+	match sel.arch 'arch'
+		x64 then sel.sharedWords.clear()
+		arm64 then sel.planWords(f)
+	end 'arch'
 	sel.mir.fixedSlots = try slotsWords(f) + f.frameBoxes * ifaceBoxWords otherwise panic("backend: a frame past memory")
 	for _ in 0 upto f.blocks.count() 'blocks'
 		_ = sel.mir.addBlock()
@@ -1269,10 +1275,12 @@ function selectFunction(mutates sel Selector, p ast.Project, mutates ms ast.Modu
 		for k in f.blocks[i].first upto f.blocks[i].endAt 'instrs'
 			sel.irAt = k
 			sel.mir.pos = ir.spanAt(f, k: k)
+			sel.makeDueWords(i, at: k)
 			selectInstruction(sel, fn: f, ins: f.instrs[k])
 		end 'instrs'
 		sel.irAt = f.blocks[i].endAt
 		sel.mir.pos = ir.noSpan
+		sel.makeDueWords(i, at: f.blocks[i].endAt)
 		selectTerminator(sel, fn: f, ins: f.blocks[i].term)
 		if f.blocks[i].term.kind == ir.TermKind.termTrap 'fails'
 			sel.mir.blocks[i].likelihood = Likelihood.cold

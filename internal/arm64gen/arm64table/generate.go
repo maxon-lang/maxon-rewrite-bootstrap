@@ -68,7 +68,7 @@ func (o operand) params() []param {
 		return []param{{o.name, immType(o.bits)}}
 	case kindDisp, kindRel, kindAddress, kindPageOffset:
 		return []param{{o.name, typeDisp}}
-	case kindMask:
+	case kindMask, kindWord:
 		return []param{{o.name, typeValue}}
 	case kindCond:
 		return []param{{o.name, typeCondition}}
@@ -185,6 +185,10 @@ func checkForm(f form) {
 			fieldMask = bitsAt(o.at, o.bits)
 		case kindAddress:
 			fieldMask = bitsAt(immloAt, immloBits) | bitsAt(immhiAt, o.bits-immloBits)
+		case kindWord:
+			if !f.isLadder() {
+				fail("%s: a word that no field holds in a form that is not the ladder", f.name)
+			}
 		default:
 			fail("%s: operand %s is of no known kind", f.name, o.name)
 		}
@@ -207,7 +211,7 @@ func checkForm(f form) {
 		switch o.kind {
 		case kindDisp:
 			aux++
-		case kindImm, kindMask:
+		case kindImm, kindMask, kindWord:
 			imm++
 		}
 	}

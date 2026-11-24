@@ -28,7 +28,8 @@ extension Selector
 	end 'arm64Refer'
 
 	// arm64ConstantInto sets dst to a word: in one move where the ladder of the word is one, or where it is a logical
-	// immediate, and otherwise by the ladder's first move and a movk of each later halfword it writes.
+	// immediate, and otherwise by the ladder, which is one machine instruction (MovRegWord) so that the allocator can write
+	// it again before a use instead of keeping or spilling its register.
 	function arm64ConstantInto(mutates self, dst MReg, value FullRangeInt)
 		let word = value as ir.Word
 		if arm64OneMove(word) 'one'
@@ -40,22 +41,7 @@ extension Selector
 			self.arm64Instr(Arm64Form.movRegMask, a: dst, b: noMReg, c: noMReg, aux: 0, imm: value)
 			return
 		end 'mask'
-		var held = noMReg
-		for hw in 0 upto arm64LadderSteps 'halfwords'
-			if arm64LadderSkips(value, hw: hw) 'skipped'
-				continue 'halfwords'
-			end 'skipped'
-			let shift = arm64LadderShift(hw) as Imm32
-			if held == noMReg 'first'
-				let form = Arm64Form.movnRegImm if arm64LadderInverted(value) else Arm64Form.movzRegImm
-				held = self.arm64Define(form, b: noMReg, c: noMReg, aux: shift, imm: arm64LadderFirst(value, hw: hw) as FullRangeInt)
-			end 'first' else 'later'
-				let next = self.newTemp()
-				self.arm64Instr(Arm64Form.movkRegImm, a: next, b: held, c: noMReg, aux: shift, imm: arm64LadderHalfword(value, hw: hw) as FullRangeInt)
-				held = next
-			end 'later'
-		end 'halfwords'
-		self.copy(dst, src: held)
+		self.arm64Instr(Arm64Form.movRegWord, a: dst, b: noMReg, c: noMReg, aux: 0, imm: value)
 	end 'arm64ConstantInto'
 
 	// arm64AddConst is a register that src plus a constant defines: an add or a sub of an immediate where 12 bits hold
@@ -359,11 +345,235 @@ end 'Selector'
 // arm64WideImmediate is one past the largest constant that an add of the high 12 bits and then of the low 12 adds.
 let arm64WideImmediate = 0x1000000
 
-// emitArm64Constant sets a general register to a word that no one move does.
+// emitArm64Constant sets a general register to a word that no one move does: a copy of the register that holds it where
+// the function makes the word once (WordSharing), and the word's ladder otherwise.
 function emitArm64Constant(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
 	let result = sel.resultOf(ins.dst)
+	let held = sel.sharedWords.sharedOf(ins.dst)
+	if held != noMReg 'shared'
+		sel.copy(result, src: held)
+		return
+	end 'shared'
 	sel.arm64ConstantInto(result, value: ir.constValue(ins) as FullRangeInt)
 end 'emitArm64Constant'
+
+// WordSharing makes once in a function each word that no one move sets, on arm64. The IR writes a constant again at each
+// of its readers (opt/motion.maxon, Motion.constant), which costs nothing where the reader takes it as an immediate or one
+// move sets it, but costs a ladder of up to four moves each time where neither does. Such a word written at more than
+// one place, or inside a loop, is made once instead: at the start of the segment nearest the entry's side that dominates
+// every place it is written and that no loop holds, and each place copies it. The ladder is one machine instruction that
+// makes its result from its immediate alone (MovRegWord), so where the registers do not allow the word to be kept from
+// there to its readers, the allocator writes it again before them instead of spilling it: the code that writing it at
+// each place gives.
+export type WordSharing
+	var flow as ir.Flow
+	// shared is the register that holds the word of each constant register the function makes once, and noMReg for every
+	// other register.
+	var shared as MRegList
+	// The words due: make dueReg[i] the word dueValue[i] before the instruction dueAt[i] of the block dueBlock[i], or
+	// before its terminator where dueAt[i] is the block's end.
+	var dueBlock as CountList
+	var dueAt as CountList
+	var dueReg as MRegList
+	var dueValue as Array with FullRangeInt
+	// The constants that write such a word, by instruction and word, and whether each is placed yet.
+	var siteAt as CountList
+	var siteValue as Array with FullRangeInt
+	var placed as Array with bool
+	var siteGroup as CountList
+	// header is the header of the outermost loop that holds each segment, or noLoop; walk is the stack of the walk that
+	// finds a loop's segments.
+	var header as CountList
+	var seen as CountList
+	var walk as CountList
+
+	static function new() returns WordSharing
+		return WordSharing{flow: ir.Flow.new(), shared: MRegList.create(0), dueBlock: CountList.create(0), dueAt: CountList.create(0), dueReg: MRegList.create(0), dueValue: Array.create(0), siteAt: CountList.create(0), siteValue: Array.create(0), placed: Array.create(0), siteGroup: CountList.create(0), header: CountList.create(0), seen: CountList.create(0), walk: CountList.create(0)}
+	end 'new'
+
+	// sharedOf is the register that holds the word of the constant register r, or noMReg where r writes it in place.
+	function sharedOf(r ir.Reg) returns MReg
+		let i = regIndex(r)
+		if i >= shared.count() 'none'
+			return noMReg
+		end 'none'
+		return shared[i]
+	end 'sharedOf'
+
+	// clear makes no word shared, as for a function selected for x64.
+	function clear(mutates self)
+		shared.clear()
+		siteAt.clear()
+		siteValue.clear()
+		dueBlock.clear()
+		dueAt.clear()
+		dueReg.clear()
+		dueValue.clear()
+	end 'clear'
+
+	// isDue is whether a word is to be made before the instruction at of block b.
+	function isDue(b Count, at Count) returns bool
+		for i in 0 upto dueAt.count() 'due'
+			if dueAt[i] == at and dueBlock[i] == b 'here'
+				return true
+			end 'here'
+		end 'due'
+		return false
+	end 'isDue'
+
+	// findLoops sets header: the segments of the loop of each back edge are its header and those that reach its latch
+	// without passing through the header, and a segment takes the header of the outermost loop that holds it, the one
+	// whose header dominates the others'. seen stamps the segments each loop's walk has reached with the loop's number.
+	function findLoops(mutates self)
+		let segs = flow.segCount()
+		ir.resetCounts(header, n: segs)
+		ir.resetCounts(seen, n: segs)
+		for s in 0 upto segs 'none'
+			header[s] = noLoop
+		end 'none'
+		for e in 0 upto flow.retreatTo.count() 'loops'
+			let h = flow.retreatTo[e]
+			let latch = flow.retreatFrom[e]
+			if not flow.dominates(h, b: latch) 'irreducible'
+				continue 'loops'
+			end 'irreducible'
+			let stamp = nextCount(e)
+			seen[h] = stamp
+			self.mark(h, h: h)
+			walk.clear()
+			walk.push(latch)
+			while walk.count() > 0 'body'
+				let s = try walk.pop() otherwise panic("backend: a walk of a loop past its stack")
+				if seen[s] == stamp 'reached'
+					continue 'body'
+				end 'reached'
+				seen[s] = stamp
+				self.mark(s, h: h)
+				for p in flow.predStart[s] upto flow.predStart[nextCount(s)] 'preds'
+					let from = flow.pred[p]
+					if flow.reached[from] and seen[from] != stamp 'enter'
+						walk.push(from)
+					end 'enter'
+				end 'preds'
+			end 'body'
+		end 'loops'
+	end 'findLoops'
+
+	// mark puts the segment s in the loop whose header is h, unless a loop around that one holds it already.
+	function mark(mutates self, s Count, h Count)
+		if header[s] == noLoop or header[s] == h or flow.dominates(h, b: header[s]) 'outer'
+			header[s] = h
+		end 'outer'
+	end 'mark'
+
+	// addSite records that the constant instrs[k] writes a word that no one move sets.
+	function addSite(mutates self, k Count, value FullRangeInt)
+		siteAt.push(k)
+		siteValue.push(value)
+	end 'addSite'
+
+	// place finds where each word of the sites is made once, for the words that are, and leaves their registers to
+	// give: siteGroup is the word due of each site, or noLoop for one written in place.
+	function place(mutates self, f ir.IrFunction)
+		for _ in 0 upto f.regs.count() 'regs'
+			shared.push(noMReg)
+		end 'regs'
+		flow.build(f)
+		self.findLoops()
+		ir.resetFlags(placed, n: siteAt.count())
+		ir.resetCounts(siteGroup, n: siteAt.count())
+		for i in 0 upto siteAt.count() 'words'
+			if placed[i] 'done'
+				continue 'words'
+			end 'done'
+			var at = noLoop
+			var sites = 0 as Count
+			for j in i upto siteAt.count() 'same'
+				if not placed[j] and siteValue[j] == siteValue[i] 'word'
+					placed[j] = true
+					siteGroup[j] = noLoop
+					let s = flow.defs.seg[regIndex(f.instrs[siteAt[j]].dst)]
+					if flow.reached[s] 'live'
+						at = s if at == noLoop else flow.commonDominatorOf(at, other: s)
+						sites = sites + 1
+						siteGroup[j] = dueAt.count()
+					end 'live'
+				end 'word'
+			end 'same'
+			// A loop's header is dominated by the segment before the loop, its immediate dominator, unless the header is the
+			// entry, which nothing comes before.
+			var hoisted = false
+			while at != noLoop and header[at] != noLoop and flow.idom[header[at]] != header[at] 'out'
+				at = flow.idom[header[at]]
+				hoisted = true
+			end 'out'
+			if at == noLoop or (sites < 2 and not hoisted) 'inPlace'
+				for j in i upto siteAt.count() 'unname'
+					if siteGroup[j] == dueAt.count() and siteValue[j] == siteValue[i] 'word'
+						siteGroup[j] = noLoop
+					end 'word'
+				end 'unname'
+				continue 'words'
+			end 'inPlace'
+			dueBlock.push(flow.segBlock[at])
+			dueAt.push(flow.segFirst[at])
+			dueReg.push(noMReg)
+			dueValue.push(siteValue[i])
+		end 'words'
+	end 'place'
+
+	// give makes held the register of the word due g, which each of its sites copies.
+	function give(mutates self, f ir.IrFunction, g Count, held MReg)
+		dueReg[g] = held
+		for j in 0 upto siteAt.count() 'sites'
+			if siteGroup[j] == g 'site'
+				shared[regIndex(f.instrs[siteAt[j]].dst)] = held
+			end 'site'
+		end 'sites'
+	end 'give'
+end 'WordSharing'
+
+// noLoop is the header of a segment that no loop holds, no segment, and the word due of a site written in place: no
+// function has so many segments.
+let noLoop = 2147483647 as Count
+
+extension Selector
+	// planWords finds the words that no one move sets which f makes once (WordSharing), and gives each a register.
+	function planWords(mutates self, f ir.IrFunction)
+		sharedWords.clear()
+		for k in 0 upto f.instrs.count() 'instrs'
+			let dst = f.instrs[k].dst
+			if f.instrs[k].op == ir.Opcode.opConst and not isStringReg(f, r: dst) and not self.inXmm(dst) 'constant'
+				let value = ir.constValue(f.instrs[k])
+				if not arm64OneMove(value) and not arm64IsLogicalImmediate(value as FullRangeInt) 'ladder'
+					sharedWords.addSite(k, value: value as FullRangeInt)
+				end 'ladder'
+			end 'constant'
+		end 'instrs'
+		if sharedWords.siteAt.count() == 0 'none'
+			return
+		end 'none'
+		sharedWords.place(f)
+		for g in 0 upto sharedWords.dueAt.count() 'due'
+			let held = self.newTemp()
+			sharedWords.give(f, g: g, held: held)
+		end 'due'
+	end 'planWords'
+
+	// makeDueWords writes the ladders of the words that WordSharing makes before the instruction at of block b.
+	function makeDueWords(mutates self, b Count, at Count)
+		if sharedWords.dueAt.count() == 0 or not sharedWords.isDue(b, at: at) 'none'
+			return
+		end 'none'
+		for i in 0 upto sharedWords.dueAt.count() 'due'
+			if sharedWords.dueAt[i] == at and sharedWords.dueBlock[i] == b 'here'
+				let held = sharedWords.dueReg[i]
+				let value = sharedWords.dueValue[i]
+				self.arm64Instr(Arm64Form.movRegWord, a: held, b: noMReg, c: noMReg, aux: 0, imm: value)
+			end 'here'
+		end 'due'
+	end 'makeDueWords'
+end 'Selector'
 
 // The accesses of an offset that the field of the access does not hold, a slot of a large frame among them.
 
