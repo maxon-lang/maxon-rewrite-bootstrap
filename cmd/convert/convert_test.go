@@ -567,6 +567,14 @@ func TestConvertTupleElementSpelling(t *testing.T) {
 	}
 }
 
+func TestConvertToStringIsInterpolation(t *testing.T) {
+	in := "function f(n Count, xs Words) returns String\n\tlet a = n.toString()\n\tlet b = xs[0].count().toString().byteLength()\n\treturn \"{a.toString()} {(n + 1).toString()}\" + self.name.toString()\nend 'f'\n"
+	want := "function f(n Count, xs Words) returns String\n\tlet a = \"{n}\"\n\tlet b = \"{xs[0].count()}\".byteLength()\n\treturn \"{a} {(n + 1)}\" + \"{self.name}\"\nend 'f'\n"
+	if got := Convert("test.maxon", in, sourceFile).Text; got != want {
+		t.Fatalf("got:\n%q\nwant:\n%q", got, want)
+	}
+}
+
 func TestConvertHelperPublicIsExport(t *testing.T) {
 	in := "public type Cursor\n\tpublic static function over() returns Count\n\t\treturn 0\n\tend 'over'\nend 'Cursor'\n"
 	want := "export type Cursor\n\texport static function over() returns Count\n\t\treturn 0\n\tend 'over'\nend 'Cursor'\n"

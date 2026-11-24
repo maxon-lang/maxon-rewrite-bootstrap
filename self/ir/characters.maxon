@@ -4,10 +4,6 @@
 // asciiLimit is the first code point that is no ASCII byte.
 let asciiLimit = 128 as Word
 
-function lowerCharacterToString(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
-	return runtime(l, symbol: Rt.rtCharToString, kind: IrKind.kindString, args: argsOf1(recv))
-end 'lowerCharacterToString'
-
 function lowerCharacterByteLength(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	return runtime(l, symbol: Rt.rtCharLength, kind: IrKind.kindScalar, args: argsOf1(recv))
 end 'lowerCharacterByteLength'

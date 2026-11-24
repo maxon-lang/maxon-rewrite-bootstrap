@@ -680,6 +680,11 @@ export function wrongSignatureMethods(typeName String, count String) returns Str
 	return "Partial interface implementation: type '{typeName}' has {count} method(s) with wrong signature:"
 end 'wrongSignatureMethods'
 
+// The text of errConformance for: Type '{typeName}' used in string interpolation must have a toString method
+export function interpolatedWithoutText(typeName String) returns String
+	return "Type '{typeName}' used in string interpolation must have a toString method"
+end 'interpolatedWithoutText'
+
 // The text of errBoundBindingDisagrees for: '{baseName}' constrains type parameter '{param}' to '{claimed}', but '{argName}' binds '{interfaceName}'s associated type '{associated}' to '{supplied}' — a `where` constraint's binding is what types every dispatch through that parameter inside the shared body, which is compiled ONCE, so a conformer binding it otherwise would have its bits read as the claimed type. Bind the constraint to what the conformer declares, or supply an argument whose conformance binds what the constraint states
 export function boundBindingDisagrees(baseName String, param String, claimed String, argName String, interfaceName String, associated String, supplied String) returns String
 	return "'{baseName}' constrains type parameter '{param}' to '{claimed}', but '{argName}' binds '{interfaceName}'s associated type '{associated}' to '{supplied}' — a `where` constraint's binding is what types every dispatch through that parameter inside the shared body, which is compiled ONCE, so a conformer binding it otherwise would have its bits read as the claimed type. Bind the constraint to what the conformer declares, or supply an argument whose conformance binds what the constraint states"

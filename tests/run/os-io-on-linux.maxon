@@ -121,7 +121,7 @@ end 'listError'
 function pathError(text String) returns String
 	try 'from'
 		let path = FilePath.from(text)
-		return path.toString()
+		return "{path}"
 	end 'from' otherwise (e) 'failed'
 		match e 'kind'
 			invalidCharacter then return "invalidCharacter"
@@ -154,7 +154,7 @@ function main() returns ExitCode
 	print("args={CommandLine.args().count() >= 1}\n")
 	print("unset={envError("MINIMAXON_NO_SUCH_ENV_98765")}\n")
 	let exe = try Process.executablePath() otherwise panic("no executable path")
-	print("exe={exe.toString().byteLength() > 0} {Directory.isDirectory(exe)}\n")
+	print("exe={"{exe}".byteLength() > 0} {Directory.isDirectory(exe)}\n")
 	print("cwd={Directory.isDirectory(Directory.currentPath())}\n")
 	print("path={pathError("a/b\\c.txt")}\n")
 	print("any={pathError("a?b")}\n")
@@ -175,7 +175,7 @@ function main() returns ExitCode
 	try File.rename(f1, to: f2) otherwise panic("cannot rename")
 	print("renamed={try File.readText(f2) otherwise panic("cannot read")}\n")
 	let entries = try Directory.list(path(dir)) otherwise panic("cannot list")
-	print("listed={entries.count()} {entries[0].toString() == f2.toString()}\n")
+	print("listed={entries.count()} {"{entries[0]}" == "{f2}"}\n")
 	print("readMissing={readError(f1)}\n")
 	print("renameMissing={renameError(f1, dest: f2)}\n")
 	print("deleteMissing={deleteError(f1)}\n")

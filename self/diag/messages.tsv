@@ -142,6 +142,7 @@ duplicateDefinition	ErrDuplicateDefinition	duplicate definition of '{name}' — 
 letFieldReassigned	ErrAssignToImmutable	'{name}' is a let field and cannot be reassigned
 missingMethods	ErrConformance	Partial interface implementation: type '{typeName}' is missing {count} method(s):
 wrongSignatureMethods	ErrConformance	Partial interface implementation: type '{typeName}' has {count} method(s) with wrong signature:
+interpolatedWithoutText	ErrConformance	Type '{typeName}' used in string interpolation must have a toString method
 boundBindingDisagrees	ErrBoundBindingDisagrees	'{baseName}' constrains type parameter '{param}' to '{claimed}', but '{argName}' binds '{interfaceName}'s associated type '{associated}' to '{supplied}' — a `where` constraint's binding is what types every dispatch through that parameter inside the shared body, which is compiled ONCE, so a conformer binding it otherwise would have its bits read as the claimed type. Bind the constraint to what the conformer declares, or supply an argument whose conformance binds what the constraint states
 aliasCycle	ErrResolutionCycle	typealias '{aliasName}' forms a type cycle: the alias it implements refers back to '{aliasName}'
 notARangedAlias	ErrExpectedType	'{parentName}' is not a ranged typealias: a typealias implements one declared over `int(low to high)` or `float(low to high)`

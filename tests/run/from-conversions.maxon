@@ -20,6 +20,6 @@ function main() returns ExitCode
 	let words = Words from ["a", "b"]
 	let path = FilePath from "x.txt"
 	let tag = Tag from "tagged"
-	print("{ages.count()} {ages[1]} {words[1]} {ages[2]} {path.toString()} {tag.text}\n")
+	print("{ages.count()} {ages[1]} {words[1]} {ages[2]} {path} {tag.text}\n")
 	return 0
 end 'main'

@@ -782,9 +782,9 @@ var tableFunctions = []function{
 	{Owner: "String", Name: "toUpper", Result: "String", Intrinsic: "StringToUpper"},
 	// A Character's members that read its bytes, which are maxon's: equality and order are of the bytes, and codepoint decodes the
 	// first code point of the cluster.
-	{Owner: "Character", Name: "toString", Result: "String", Intrinsic: "CharacterToString"},
 	{Owner: "Character", Name: "byteLength", Result: "Count", Intrinsic: "CharacterByteLength"},
-	// bytes and codepoints are views of a String of the character's bytes, as maxon's are of its toString().
+	// bytes and codepoints are views of a String of the character's bytes, as maxon's are of its toString(), which the
+	// interpolation "{c}" is here.
 	{Owner: "Character", Name: "bytes", Result: "ByteView", Intrinsic: "CharacterBytes"},
 	{Owner: "Character", Name: "codepoints", Result: "CodepointView", Intrinsic: "CharacterCodepoints"},
 	{Owner: "Character", Name: "codepoint", Result: "Codepoint", Intrinsic: "CharacterCodepoint"},

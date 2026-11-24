@@ -504,6 +504,9 @@ export type Typing
 	export var whens as NodeWhenMap
 	export var closures as NodeClosureMap
 	export var iterations as NodeIterationMap
+	// hooks are the parts of string literals whose value is of a type that makes its own text, each with the call of its
+	// `toString()` that the interpolation makes.
+	export var hooks as NodeCallMap
 	export var jumps as NodeJumpMap
 	export var locals as LocalEntryList
 	export var nodeLocals as NodeLocalMap
@@ -541,6 +544,7 @@ export type Typing
 		let wm = NodeWhenMap.new()
 		let clm = NodeClosureMap.new()
 		let im = NodeIterationMap.new()
+		let hk = NodeCallMap.new()
 		let jm = NodeJumpMap.new()
 		let nlm = NodeLocalMap.new()
 		let ixm = NodeLocalMap.new()
@@ -552,7 +556,7 @@ export type Typing
 		let st = NodeBoolMap.new()
 		let bx = NodeBoxMap.new()
 		let wt = FuncWaitingMap.new()
-		return Typing{module: module, types: tm, arith: am, names: nm, members: mm, calls: cm, structLits: sm, patterns: pm, arms: ak, whens: wm, closures: clm, iterations: im, jumps: jm, locals: ls, nodeLocals: nlm, indexes: ixm, expansions: exm, funcLocals: flm, funcUses: fum, fieldUses: fdum, consumed: con, slotTakes: st, boxes: bx, waiting: wt, declared: false}
+		return Typing{module: module, types: tm, arith: am, names: nm, members: mm, calls: cm, structLits: sm, patterns: pm, arms: ak, whens: wm, closures: clm, iterations: im, hooks: hk, jumps: jm, locals: ls, nodeLocals: nlm, indexes: ixm, expansions: exm, funcLocals: flm, funcUses: fum, fieldUses: fdum, consumed: con, slotTakes: st, boxes: bx, waiting: wt, declared: false}
 	end 'new'
 
 	export function allocLocal(mutates self, consumes entry LocalEntry) returns LocalID

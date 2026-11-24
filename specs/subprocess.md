@@ -1092,7 +1092,7 @@ function main() returns ExitCode
 	let argv = StringArray.create(0)
 	argv.push("-c")
 	argv.push("\"$0\" member & exit 0")
-	argv.push(exePath.toString())
+	argv.push("{exePath}")
 	let shell = try StreamingSubprocess.spawn(sh, arguments: argv) otherwise return 5
 	let reader = try shell.takeStdout() otherwise return 6
 	let read = try reader.readLine() otherwise return 6

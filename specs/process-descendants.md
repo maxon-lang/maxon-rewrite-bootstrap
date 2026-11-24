@@ -106,7 +106,7 @@ function runShell(script String, exePath FilePath) returns ExitCode
 	let argv = StringArray.create(0)
 	argv.push("-c")
 	argv.push(script)
-	argv.push(exePath.toString())
+	argv.push("{exePath}")
 	let result = try Subprocess.run(Executable.path(try FilePath.from("/bin/sh") otherwise return 2), arguments: argv) otherwise return 3
 	return result.status.code() as ExitCode
 end 'runShell'

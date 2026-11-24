@@ -3808,6 +3808,7 @@ error E3102: <fragment>:41:24: 'q' is named at two payloads of this case, and a 
 ```
 
 <!-- test: an-interpolated-cond-of-unique-locals-leaves-them-usable -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 Interpolating a `cond` of unique locals reads them; it does not move them.
 ```maxon
 typealias Num = int(i64.min to i64.max)

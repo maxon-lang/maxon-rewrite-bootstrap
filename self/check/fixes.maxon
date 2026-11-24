@@ -46,6 +46,10 @@ let tabByte = 9 as Byte
 
 let spaceByte = 32 as Byte
 
+let openBraceByte = 123 as Byte
+
+let closeBraceByte = 125 as Byte
+
 let returnsKeyword = "returns"
 
 let borrowedKeyword = "borrowed"
@@ -296,6 +300,40 @@ export function stringAppendFix(t ast.Tree, call ast.NodeID) returns diag.Fix
 	edits.push(diag.FixEdit.make(t.module, begin: extent.begin, until: extent.until, text: "{placeText} = \"\{{placeText}\}{part}\""))
 	return fixOf(fixKindInterpolation, edits: edits)
 end 'stringAppendFix'
+
+// toStringFix is the repair for the call `x.toString()` of a built-in type, which has no such method: the interpolation
+// "{x}" is the one way to make the text of a value. A call that is itself the whole of an interpolated part with no format,
+// "{x.toString()}", becomes the part "{x}".
+export function toStringFix(t ast.Tree, call ast.NodeID) returns diag.Fix
+	let callee = ast.callExprCallee(t, id: call)
+	if t.kindOf(callee) != ast.NodeKind.memberExpr or t.listLen(ast.callExprArgsRef(t, id: call)) != 0 'shape'
+		return diag.Fix.none()
+	end 'shape'
+	let whole = ast.exprExtent(t, e: call)
+	if not whole.isSome() 'unknown'
+		return diag.Fix.none()
+	end 'unknown'
+	let extent = whole.unwrap()
+	// The receiver is the call's text before the dot of `.toString()`: a bare name's extent runs on through the dotted words
+	// after it, so the receiver's own extent does not end it.
+	let callText = t.text.sliceBytes(extent.begin as Count, endPos: extent.until as Count)
+	let tail = "{toStringMethod}()"
+	if not callText.endsWith(tail) 'spelled'
+		return diag.Fix.none()
+	end 'spelled'
+	var text = callText.sliceBytes(0, endPos: try callText.byteLength() - tail.byteLength() otherwise panic("fixes: a short call")).trimEnd()
+	if not text.endsWith(".") 'noDot'
+		return diag.Fix.none()
+	end 'noDot'
+	text = text.sliceBytes(0, endPos: try text.byteLength() - 1 otherwise panic("fixes: an empty receiver")).trimEnd()
+	var written = "\"\{{text}\}\""
+	if extent.begin > 0 and t.text.byteAt(try (extent.begin as Count) - 1 otherwise panic("fixes: an offset before a module")) == openBraceByte and (extent.until as Count) < t.text.byteLength() and t.text.byteAt(extent.until as Count) == closeBraceByte 'part'
+		written = text.clone()
+	end 'part'
+	var edits = diag.FixEdits.create(0)
+	edits.push(diag.FixEdit.make(t.module, begin: extent.begin, until: extent.until, text: written))
+	return fixOf(fixKindInterpolation, edits: edits)
+end 'toStringFix'
 
 function nextOf(at Count) returns Count
 	return try at + 1 otherwise panic("fixes: an offset past a module")

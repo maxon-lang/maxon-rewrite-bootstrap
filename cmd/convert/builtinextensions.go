@@ -179,3 +179,67 @@ func rewriteTypeNames(lines []sourceLine) {
 		}
 	}
 }
+
+// primitiveExtensionTargets are the built-in types whose text the interpolation writes itself, so maxon's library gives
+// them a toString that minimaxon leaves out, with their Stringable conformance (README, "Where it differs from Maxon").
+var primitiveExtensionTargets = []string{"int", "float", "bool"}
+
+// dropPrimitiveToStrings leaves out the toString of each extension of a primitive type, and Stringable from its
+// implements clause.
+func dropPrimitiveToStrings(lines []sourceLine) {
+	for i := 0; i < len(lines); i++ {
+		l := &lines[i]
+		if l.removed || len(l.code) == 0 || l.indent != "" {
+			continue
+		}
+		declIdx := skipModifiers(l.code)
+		if declIdx+1 >= len(l.code) || l.code[declIdx].text != "extension" || !slices.Contains(primitiveExtensionTargets, l.code[declIdx+1].text) {
+			continue
+		}
+		dropConformance(l, "Stringable")
+		last := topLevelEnd(lines, i)
+		for k := i + 1; k < last; k++ {
+			m := &lines[k]
+			if m.removed || m.indent != "\t" || len(m.code) == 0 {
+				continue
+			}
+			at := skipModifiers(m.code)
+			if at+1 >= len(m.code) || m.code[at].text != "function" || m.code[at+1].text != "toString" {
+				continue
+			}
+			end := memberEnd(lines, k)
+			for j := commentsAbove(lines, k); j <= end; j++ {
+				lines[j].removed = true
+			}
+			if k > 0 && lines[k-1].blank {
+				lines[k-1].removed = true
+			}
+			k = end
+		}
+		i = last
+	}
+}
+
+// dropConformance removes the interface name, and the comma that joins it to the list, from a header's implements
+// clause.
+func dropConformance(l *sourceLine, name string) {
+	for k, t := range l.code {
+		if t.kind != tokIdent || t.text != name {
+			continue
+		}
+		from, to := k, k+1
+		switch {
+		case to < len(l.code) && l.code[to].text == ",":
+			to++
+			for to < len(l.code) && l.code[to].kind == tokSpace {
+				to++
+			}
+		case from > 0 && l.code[from-1].text == ",":
+			from--
+		case from > 0 && l.code[from-1].kind == tokSpace && from > 1 && l.code[from-2].text == ",":
+			from -= 2
+		}
+		l.code = slices.Delete(l.code, from, to)
+		return
+	}
+}

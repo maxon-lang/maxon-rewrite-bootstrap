@@ -37,7 +37,7 @@ print(s)   // prints "42"
 ```maxon
 function main() returns ExitCode
 	let x = 42
-	let s = x.toString()
+	let s = "{x}"
 	if s == "42" 'ok'
 		return 1
 	end 'ok'
@@ -52,7 +52,7 @@ end 'main'
 ```maxon
 function main() returns ExitCode
 	let x = 3.14
-	let s = x.toString()
+	let s = "{x}"
 	if s == "3.14" 'ok'
 		return 1
 	end 'ok'
@@ -67,7 +67,7 @@ end 'main'
 ```maxon
 function main() returns ExitCode
 	let x = true
-	let s = x.toString()
+	let s = "{x}"
 	if s == "true" 'ok'
 		return 1
 	end 'ok'
@@ -82,7 +82,7 @@ end 'main'
 ```maxon
 function main() returns ExitCode
 	let x = false
-	let s = x.toString()
+	let s = "{x}"
 	if s == "false" 'ok'
 		return 1
 	end 'ok'
@@ -100,7 +100,7 @@ typealias Byte = int(0 to u8.max)
 
 function main() returns ExitCode
 	let x = 65 as Byte
-	let s = x.toString()
+	let s = "{x}"
 	if s == "65" 'ok'
 		return 1
 	end 'ok'

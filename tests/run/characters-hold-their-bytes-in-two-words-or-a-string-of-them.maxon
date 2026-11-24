@@ -40,7 +40,7 @@ function main() returns ExitCode
 		return 3
 	end 'match'
 	let text = "{copied[2]}{family}{'\''}"
-	if text.byteLength() != 28 or family.toString() != "👨‍👩‍👧‍👦" or "{'a':q}" != "'a'" 'text'
+	if text.byteLength() != 28 or "{family}" != "👨‍👩‍👧‍👦" or "{'a':q}" != "'a'" 'text'
 		return 4
 	end 'text'
 	if family.byteLength() != 25 or 'é'.codepoint() != 233 'members'

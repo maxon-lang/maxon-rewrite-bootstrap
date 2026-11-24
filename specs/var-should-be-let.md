@@ -381,9 +381,9 @@ returns its `path` field, and the `var` made from it holds a copy of its own.
 
 function main() returns ExitCode
 	let fp = try FilePath.from("somedir") otherwise panic("a relative path is valid")
-	var s = fp.toString()
+	var s = "{fp}"
 	s = "{s} more"
-	print("{s} {fp.toString()}\n")
+	print("{s} {fp}\n")
 	return 0
 end 'main'
 ```
@@ -650,9 +650,9 @@ holds, and `fp` is read after it.
 
 public function helper() returns ExitCode
 	let fp = try FilePath.from("some/dir") otherwise panic("a relative path is valid")
-	var s = fp.toString()
+	var s = "{fp}"
 	s = "{s} more"
-	print("{s} {fp.toString()}\n")
+	print("{s} {fp}\n")
 	return 0
 end 'helper'
 
@@ -670,8 +670,8 @@ The accepted twin of the case above: the same unreached function, reading the st
 
 public function helper() returns ExitCode
 	let fp = try FilePath.from("some/dir") otherwise panic("a relative path is valid")
-	let s = fp.toString()
-	print("{s} {fp.toString()}\n")
+	let s = "{fp}"
+	print("{s} {fp}\n")
 	return 0
 end 'helper'
 

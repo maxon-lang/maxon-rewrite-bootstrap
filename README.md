@@ -3979,7 +3979,9 @@ bytes that owns none, made in place with no allocation (`rt.str.view`: the addre
 receiver's ASCII bit and the view bit), which the call lends as a function that `returns borrowed` lends a place (see
 "Ownership"), so it is kept only by a copy, `.clone()`; the copy of a view copies its bytes, where the copy of a literal is
 the literal. A `var` bound to a view is given views of the same String as code narrows what it reads, with no copy. A String is built by interpolation: there is no `append` and no `StringBuilder` (see
-"Where it differs from Maxon"). An interpolation measures its parts (a String's length, a literal's
+"Where it differs from Maxon"). An interpolation writes an integer, a float, a bool, a String, an enum, a union and a
+`FilePath` itself, and a value of any other type that has a `toString()` giving a String, a type parameter's through its
+bound, by calling it (`Typing.hooks`). An interpolation measures its parts (a String's length, a literal's
 known one, an integer's digit count by `rt.decimalLength`), allocates once (`rt.str.joinRoom`) and puts each part in place
 (`rt.str.joinPut`, and `rt.str.joinDigits`, which writes an integer's digits into the buffer with no String of their own),
 its ASCII bit the AND of the parts'; an interpolation that is a part of another with no format of its own gives the outer
@@ -4010,9 +4012,9 @@ a block). A literal that is the whole of an operand beside an integer is its cod
 is 66, and a `match` arm on an integer), where its cluster is one code point: a `Codepoint` in an operation that is no
 comparison and of which neither operand names an alias, as maxon's is, and otherwise a constant; a Character that is no literal never
 converts, and `'a' == "a"` is `E3005`. Characters are equal and ordered by their bytes, interpolate as their text (`{c:q}` in
-single quotes), match by literal and by range (`'a' to 'z'`), and have `toString()`, `byteLength()`, `codepoint()`,
+single quotes), match by literal and by range (`'a' to 'z'`), and have `byteLength()`, `codepoint()`,
 `asciiValue()` (`CharacterError.notAscii`), `equals`, and `bytes()` and `codepoints()`, views of a String of its bytes as maxon's are
-of its `toString()`. `advanceBy(n)` (a `CodepointDelta`, `int(-1114111 to 1114111)`) steps through the scalar values, so the
+of its `toString()`, which `"{c}"` is here (see "Where it differs from Maxon"). `advanceBy(n)` (a `CodepointDelta`, `int(-1114111 to 1114111)`) steps through the scalar values, so the
 surrogates are no step, and `Character.fromCodepoint(cp)` encodes one; each panics, as maxon's does, on a surrogate, which a
 `Codepoint` can name, and `advanceBy` past the first or the last scalar value. `for c in 'a' to 'z'` (or `upto`), both bounds
 literals, counts through the scalar values between them and gives each as a Character; with one integer bound the range is
@@ -5017,6 +5019,13 @@ the checker reports where Maxon's parser does, as it needs the type of the value
 - **A shift past the width overflows.** `shl` whose result is past the range of its type fails with `overflow`, as `+`
   does (see "Checked arithmetic"), so `7 shl 65` is a failure a `try` handles, where maxon's gives 0. The spec tests that
   shift past the width are skipped with that reason.
+- **No `toString` on a built-in type.** `int` and its ranged and sized aliases, `float`, `bool` and `Character` have no `toString`, and
+  so are not `Stringable`: the interpolation `"{x}"`, with its format specifiers, is the one way to make the String of a
+  value, and the compiler writes each built-in type itself, from the value's own type (an unsigned 64-bit value as its
+  unsigned digits), measured and put in the one buffer of the interpolation with no String of its own. A call of
+  `x.toString()` on one is the unknown-member error (`E3004`), which `minimaxon fix` repairs to `"{x}"`, and `cmd/convert`
+  writes maxon's `x.toString()` as `"{x}"`. A type of the program that has a `toString()` giving a String is interpolated
+  by calling it, and may still be called. (`FilePath` keeps its `toString` until the next seed.)
 
 - `Slot` (`stdlib/slot`) stores what `fill` and `replace` are given by a copy, as `Array.push` does, so those two take only a
   `Copyable` element (`where T implements Copyable`), where maxon's takes a unique value too and moves it in; `Directory.list`,

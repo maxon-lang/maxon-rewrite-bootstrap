@@ -125,7 +125,7 @@ var builtinMethods = map[string][]string{
 	"CodepointIterator":     {"current", "advance"},
 	"Utf16View":             {"createIterator", "count"},
 	"Utf16Iterator":         {"current", "advance"},
-	"Character":             {"toString", "byteLength", "bytes", "codepoints", "codepoint", "asciiValue", "equals", "advanceBy", "fromCodepoint"},
+	"Character":             {"byteLength", "bytes", "codepoints", "codepoint", "asciiValue", "equals", "advanceBy", "fromCodepoint"},
 	"StringIndex":           {"charIndex", "bytePos"},
 	"CommandLine":           {"args"},
 	"Process":               {"environmentVariable", "executablePath", "id", "setExitCode", "enterBackgroundPriority"},

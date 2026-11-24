@@ -487,7 +487,7 @@ Top-level let with `Type from "literal"` syntax (runtime-initialized via `__modu
 let path = FilePath from "test.txt"
 
 function main() returns ExitCode
-	print(path.toString())
+	print("{path}")
 	return 0
 end 'main'
 ```
@@ -1410,7 +1410,7 @@ typealias Tally = int(0 to 1000)
 
 let limit = 5 as Tally
 
-let label = limit.toString()
+let label = "{limit}"
 
 function main() returns ExitCode
 	return label.byteLength() as ExitCode

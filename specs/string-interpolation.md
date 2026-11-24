@@ -805,7 +805,7 @@ type Name implements Stringable
 	end 'toString'
 
 	static function create(first String, last String) returns Self
-		return Self{first: first, last: last}
+		return Self{first: first.clone(), last: last.clone()}
 	end 'create'
 end 'Name'
 
@@ -1538,7 +1538,7 @@ else. This is what pins that there is only one.
 typealias Wide = bits(64)
 
 function show(u Wide)
-	print("[{u.toString()}]\n")
+	print("[{u}]\n")
 end 'show'
 
 function main() returns ExitCode
@@ -2309,7 +2309,7 @@ type Pt
 end 'Pt'
 
 function add(a Integer, b Integer) returns Integer
-	return a + b
+	return try a + b otherwise panic("out of range")
 end 'add'
 
 function main() returns ExitCode

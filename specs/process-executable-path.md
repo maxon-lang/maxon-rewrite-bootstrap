@@ -251,6 +251,7 @@ error E3036: <fragment>:3:20: '__Builtins.executablePath' takes exactly 0 argume
 ```
 
 <!-- test: process-executable-path.rejected-on-wasm -->
+<!-- positions: moved -->
 <!-- unsupported-targets: x64-windows, x64-linux, arm64-macos, arm64-linux -->
 wasm32-wasi has no process-introspection substrate, so the call is refused at the span the program wrote
 with `E3104`, naming the library function and the runtime entry that has no lowering there — never a
@@ -258,7 +259,7 @@ panic from inside the wasm backend.
 ```maxon
 function main() returns ExitCode
 	let path = try Process.executablePath() otherwise return 1
-	return path.toString().byteLength() as ExitCode
+	return "{path}".byteLength() as ExitCode
 end 'main'
 ```
 ```maxoncstderr

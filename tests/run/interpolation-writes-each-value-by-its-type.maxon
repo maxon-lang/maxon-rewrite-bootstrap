@@ -1,0 +1,16 @@
+// Interpolation is the one way to make the text of a value, and it writes each from its own type: an unsigned 64-bit
+// value above i64.max as its unsigned digits, not as the signed word, and a float by its shortest spelling.
+typealias Wide = bits(64)
+
+function show(u Wide) returns String
+	return "[{u}]"
+end 'show'
+
+function main() returns ExitCode
+	print("{show(u64.max)} {show(1 shl 63)} {show(42)}\n")
+	print("{2.5 * 2.0} {0.1} {-3.25} {true}\n")
+	return 0
+end 'main'
+
+//> [18446744073709551615] [9223372036854775808] [42]
+//> 5.0 0.1 -3.25 true

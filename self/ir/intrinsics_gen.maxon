@@ -368,9 +368,6 @@ export function intrinsicCall(mutates l Lowerer, p ast.Project, mutates ms ast.M
 	if op == ast.Intrinsic.intrStringToUpper 'intrStringToUpper'
 		return lowerStringToUpper(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrStringToUpper'
-	if op == ast.Intrinsic.intrCharacterToString 'intrCharacterToString'
-		return lowerCharacterToString(l, p: p, ms: ms, c: c, recv: recv, args: args)
-	end 'intrCharacterToString'
 	if op == ast.Intrinsic.intrCharacterByteLength 'intrCharacterByteLength'
 		return lowerCharacterByteLength(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrCharacterByteLength'
@@ -1165,9 +1162,6 @@ export function ownsOperands(op ast.Intrinsic) returns bool
 	if op == ast.Intrinsic.intrStringToUpper 'intrStringToUpper'
 		return false
 	end 'intrStringToUpper'
-	if op == ast.Intrinsic.intrCharacterToString 'intrCharacterToString'
-		return false
-	end 'intrCharacterToString'
 	if op == ast.Intrinsic.intrCharacterByteLength 'intrCharacterByteLength'
 		return false
 	end 'intrCharacterByteLength'

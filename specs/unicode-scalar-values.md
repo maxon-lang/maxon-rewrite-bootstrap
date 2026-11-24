@@ -70,7 +70,7 @@ error E1004: <fragment>:4:14: Malformed UTF-8 in string interpolation: a surroga
 
 ```maxon
 function show(label String, c Character)
-	let wellFormed = utf8IsWellFormed(c.toString().toByteArray())
+	let wellFormed = utf8IsWellFormed("{c}".toByteArray())
 	print("{label}: {c.codepoint()} {c.byteLength()} {wellFormed}\n")
 end 'show'
 
@@ -95,7 +95,7 @@ last: 128512 4 true
 
 ```maxon
 function show(label String, c Character)
-	let wellFormed = utf8IsWellFormed(c.toString().toByteArray())
+	let wellFormed = utf8IsWellFormed("{c}".toByteArray())
 	print("{label}: {c.codepoint()} {c.byteLength()} {wellFormed}\n")
 end 'show'
 
@@ -149,7 +149,7 @@ function main() returns ExitCode
 	var wellFormed = true
 	for c in '\u0000' to '\uFFFF' 'basicPlane'
 		trips = trips + 1
-		if not utf8IsWellFormed(c.toString().toByteArray()) 'malformed'
+		if not utf8IsWellFormed("{c}".toByteArray()) 'malformed'
 			wellFormed = false
 		end 'malformed'
 	end 'basicPlane'

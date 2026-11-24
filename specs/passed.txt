@@ -2315,8 +2315,12 @@ file-io.md: read-text-file
 file-io.md: read-text-of-a-missing-file-throws-not-found
 file-io.md: rename-of-a-missing-file-throws-not-found
 file-io.md: write-and-read-text
+filepath.md: filepath-from-method
 filepath.md: filepath-from-string
+filepath.md: filepath-from-valid-ok
 filepath.md: filepath-path-immutable
+filepath.md: filepath-regular-string-unchanged
+filepath.md: filepath-stringable
 first-class-functions.md: a-body-factory-through-a-generic-instance-alias-is-called
 first-class-functions.md: a-call-through-a-directory-named-like-a-primitive-reaches-the-directory
 first-class-functions.md: a-call-through-a-function-typed-variable-assigned-on-one-branch-calls-the-function-it-holds
@@ -7419,9 +7423,11 @@ string-interpolation.md: bool-true
 string-interpolation.md: comparison-interpolation
 string-interpolation.md: complex-expression
 string-interpolation.md: cross-file-float-enum-interpolation
+string-interpolation.md: custom-stringable
 string-interpolation.md: empty-parts
 string-interpolation.md: enum-rawvalue-format
 string-interpolation.md: error.interp-exponent-without-point
+string-interpolation.md: error.interp-struct-without-tostring
 string-interpolation.md: error.interp-trailing-tokens
 string-interpolation.md: error.plus-on-string
 string-interpolation.md: error.unclosed-format-spec
@@ -7459,6 +7465,7 @@ string-interpolation.md: int-format-zero-padded-unsigned
 string-interpolation.md: integer-interpolation
 string-interpolation.md: integer-literal
 string-interpolation.md: interp-expression-boundary-format-spec
+string-interpolation.md: interp-expression-boundary-forms
 string-interpolation.md: interp-temporary-dropped-per-loop-iteration
 string-interpolation.md: interp-temporary-in-nested-block
 string-interpolation.md: interpolation-loop
@@ -7468,6 +7475,7 @@ string-interpolation.md: method-call
 string-interpolation.md: mixed-escaped
 string-interpolation.md: mixed-types
 string-interpolation.md: multiple-enum-interpolation
+string-interpolation.md: multiple-stringable
 string-interpolation.md: multiple-variables
 string-interpolation.md: narrow-non-negative-alias-renders-unchanged
 string-interpolation.md: negative-float
@@ -7494,6 +7502,7 @@ string-interpolation.md: string-variable
 string-interpolation.md: tab-interpolation
 string-interpolation.md: three-adjacent
 string-interpolation.md: unsigned-decimal-interpolation
+string-interpolation.md: unsigned-decimal-tostring
 string-interpolation.md: zero-values
 string-methods-ascii.md: a-replacement-argument-that-is-the-receiver
 string-methods-ascii.md: affix-predicate-argument-is-a-live-binding
@@ -8050,6 +8059,7 @@ tuples.md: error.a-tuple-operand-of-an-arithmetic-operator-names-the-tuple-type
 tuples.md: error.a-tuple-pushed-into-an-array-of-words-names-the-tuple-type
 tuples.md: error.a-tuple-returned-as-a-scalar-names-the-tuple-type
 tuples.md: error.a-tuple-ternary-condition-names-the-tuple-type
+tuples.md: error.an-interpolated-tuple-names-the-tuple-type
 tuples.md: error.iterating-a-tuple-names-the-tuple-type
 tuples.md: error.nested-tuple-name-does-not-depend-on-which-file-declares-it
 tuples.md: error.nested-tuple-name-does-not-depend-on-which-file-declares-it-swapped

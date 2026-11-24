@@ -292,11 +292,11 @@ function hostRefusesListing(directory FilePath) returns bool
 	#if os(Windows)
 		arguments.push("-NoProfile")
 		arguments.push("-Command")
-		arguments.push("try \{ [void][System.IO.Directory]::GetFileSystemEntries('{directory.toString()}'); exit 0 \} catch [System.UnauthorizedAccessException] \{ exit {listerRefusedExit} \}")
+		arguments.push("try \{ [void][System.IO.Directory]::GetFileSystemEntries('{directory}'); exit 0 \} catch [System.UnauthorizedAccessException] \{ exit {listerRefusedExit} \}")
 		let result = try Subprocess.run(Executable.name("powershell"), arguments: arguments, deadline: WaitDeadline.within(toolTimeoutMs)) otherwise panic("the host's lister did not run")
 	#else
 		arguments.push("-r")
-		arguments.push(directory.toString())
+		arguments.push("{directory}")
 		let result = try Subprocess.run(Executable.name("test"), arguments: arguments, deadline: WaitDeadline.within(toolTimeoutMs)) otherwise panic("the host's lister did not run")
 	#endif
 	if result.succeeded() 'listable'
@@ -327,13 +327,13 @@ end 'tokenBypassesDenial'
 function denyListing(directory FilePath) returns bool
 	let arguments = StringArray.create(0)
 	#if os(Windows)
-		arguments.push(directory.toString())
+		arguments.push("{directory}")
 		arguments.push("/deny")
 		arguments.push("*S-1-1-0:(RD)")
 		return runTool("icacls", arguments: arguments)
 	#else
 		arguments.push("000")
-		arguments.push(directory.toString())
+		arguments.push("{directory}")
 		return runTool("chmod", arguments: arguments)
 	#endif
 end 'denyListing'
@@ -341,13 +341,13 @@ end 'denyListing'
 function restoreListing(directory FilePath) returns bool
 	let arguments = StringArray.create(0)
 	#if os(Windows)
-		arguments.push(directory.toString())
+		arguments.push("{directory}")
 		arguments.push("/remove:d")
 		arguments.push("*S-1-1-0")
 		return runTool("icacls", arguments: arguments)
 	#else
 		arguments.push("755")
-		arguments.push(directory.toString())
+		arguments.push("{directory}")
 		return runTool("chmod", arguments: arguments)
 	#endif
 end 'restoreListing'
@@ -434,7 +434,7 @@ end 'main'
 ```maxon
 function main() returns ExitCode
 	let cwd = Directory.currentPath()
-	if cwd.toString().count() > 0 'ok'
+	if "{cwd}".count() > 0 'ok'
 		return 42
 	end 'ok'
 	return 0
@@ -585,8 +585,8 @@ let linkToolTimeoutMs = 30000
 function plantLink(link FilePath, target FilePath) returns bool
 	let arguments = StringArray.create(0)
 	arguments.push("-s")
-	arguments.push(target.toString())
-	arguments.push(link.toString())
+	arguments.push("{target}")
+	arguments.push("{link}")
 	let result = try Subprocess.run(Executable.name("ln"), arguments: arguments, deadline: WaitDeadline.within(linkToolTimeoutMs)) otherwise return false
 	return result.succeeded()
 end 'plantLink'
@@ -635,7 +635,7 @@ let testToolTimeoutMs = 30000
 function hostFindsAnEntryAt(path FilePath) returns bool
 	let arguments = StringArray.create(0)
 	arguments.push("-e")
-	arguments.push(path.toString())
+	arguments.push("{path}")
 	let result = try Subprocess.run(Executable.name("test"), arguments: arguments, deadline: WaitDeadline.within(testToolTimeoutMs)) otherwise panic("the host's existence test could not run")
 	if result.succeeded() 'found'
 		return true
@@ -855,13 +855,13 @@ function plantDirectoryLink(link FilePath, target FilePath) returns bool
 		arguments.push("/c")
 		arguments.push("mklink")
 		arguments.push("/J")
-		arguments.push(link.toString())
-		arguments.push(target.toString())
+		arguments.push("{link}")
+		arguments.push("{target}")
 		let tool = "cmd"
 	#else
 		arguments.push("-s")
-		arguments.push(target.toString())
-		arguments.push(link.toString())
+		arguments.push("{target}")
+		arguments.push("{link}")
 		let tool = "ln"
 	#endif
 	let result = try Subprocess.run(Executable.name(tool), arguments: arguments, deadline: WaitDeadline.within(linkToolTimeoutMs)) otherwise return false
@@ -926,11 +926,11 @@ function hostRefusesListing(directory FilePath) returns bool
 	#if os(Windows)
 		arguments.push("-NoProfile")
 		arguments.push("-Command")
-		arguments.push("try \{ [void][System.IO.Directory]::GetFileSystemEntries('{directory.toString()}'); exit 0 \} catch [System.UnauthorizedAccessException] \{ exit {listerRefusedExit} \}")
+		arguments.push("try \{ [void][System.IO.Directory]::GetFileSystemEntries('{directory}'); exit 0 \} catch [System.UnauthorizedAccessException] \{ exit {listerRefusedExit} \}")
 		let result = try Subprocess.run(Executable.name("powershell"), arguments: arguments, deadline: WaitDeadline.within(accessToolTimeoutMs)) otherwise panic("the host's lister did not run")
 	#else
 		arguments.push("-r")
-		arguments.push(directory.toString())
+		arguments.push("{directory}")
 		let result = try Subprocess.run(Executable.name("test"), arguments: arguments, deadline: WaitDeadline.within(accessToolTimeoutMs)) otherwise panic("the host's lister did not run")
 	#endif
 	if result.succeeded() 'listable'
@@ -961,13 +961,13 @@ end 'tokenBypassesDenial'
 function denyListing(directory FilePath) returns bool
 	let arguments = StringArray.create(0)
 	#if os(Windows)
-		arguments.push(directory.toString())
+		arguments.push("{directory}")
 		arguments.push("/deny")
 		arguments.push("*S-1-1-0:(RD)")
 		return runAccessTool("icacls", arguments: arguments)
 	#else
 		arguments.push("000")
-		arguments.push(directory.toString())
+		arguments.push("{directory}")
 		return runAccessTool("chmod", arguments: arguments)
 	#endif
 end 'denyListing'
@@ -975,13 +975,13 @@ end 'denyListing'
 function restoreListing(directory FilePath) returns bool
 	let arguments = StringArray.create(0)
 	#if os(Windows)
-		arguments.push(directory.toString())
+		arguments.push("{directory}")
 		arguments.push("/remove:d")
 		arguments.push("*S-1-1-0")
 		return runAccessTool("icacls", arguments: arguments)
 	#else
 		arguments.push("755")
-		arguments.push(directory.toString())
+		arguments.push("{directory}")
 		return runAccessTool("chmod", arguments: arguments)
 	#endif
 end 'restoreListing'
@@ -1063,11 +1063,11 @@ function hostRefusesListing(directory FilePath) returns bool
 	#if os(Windows)
 		arguments.push("-NoProfile")
 		arguments.push("-Command")
-		arguments.push("try \{ [void][System.IO.Directory]::GetFileSystemEntries('{directory.toString()}'); exit 0 \} catch [System.UnauthorizedAccessException] \{ exit {listerRefusedExit} \}")
+		arguments.push("try \{ [void][System.IO.Directory]::GetFileSystemEntries('{directory}'); exit 0 \} catch [System.UnauthorizedAccessException] \{ exit {listerRefusedExit} \}")
 		let result = try Subprocess.run(Executable.name("powershell"), arguments: arguments, deadline: WaitDeadline.within(accessToolTimeoutMs)) otherwise panic("the host's lister did not run")
 	#else
 		arguments.push("-r")
-		arguments.push(directory.toString())
+		arguments.push("{directory}")
 		let result = try Subprocess.run(Executable.name("test"), arguments: arguments, deadline: WaitDeadline.within(accessToolTimeoutMs)) otherwise panic("the host's lister did not run")
 	#endif
 	if result.succeeded() 'listable'
@@ -1098,13 +1098,13 @@ end 'tokenBypassesDenial'
 function denyListing(directory FilePath) returns bool
 	let arguments = StringArray.create(0)
 	#if os(Windows)
-		arguments.push(directory.toString())
+		arguments.push("{directory}")
 		arguments.push("/deny")
 		arguments.push("*S-1-1-0:(RD)")
 		return runAccessTool("icacls", arguments: arguments)
 	#else
 		arguments.push("000")
-		arguments.push(directory.toString())
+		arguments.push("{directory}")
 		return runAccessTool("chmod", arguments: arguments)
 	#endif
 end 'denyListing'
@@ -1112,13 +1112,13 @@ end 'denyListing'
 function restoreListing(directory FilePath) returns bool
 	let arguments = StringArray.create(0)
 	#if os(Windows)
-		arguments.push(directory.toString())
+		arguments.push("{directory}")
 		arguments.push("/remove:d")
 		arguments.push("*S-1-1-0")
 		return runAccessTool("icacls", arguments: arguments)
 	#else
 		arguments.push("755")
-		arguments.push(directory.toString())
+		arguments.push("{directory}")
 		return runAccessTool("chmod", arguments: arguments)
 	#endif
 end 'restoreListing'
@@ -1204,7 +1204,7 @@ function holderArguments(file FilePath) returns StringArray
 	arguments.push("-NoProfile")
 	arguments.push("-NonInteractive")
 	arguments.push("-Command")
-	arguments.push("$ErrorActionPreference = 'Stop'; $held = [System.IO.File]::Open('{file.toString()}', 'Open', 'Read', 'Read'); try \{ [Console]::Out.WriteLine('{holderAnnouncement}'); [Console]::Out.Flush(); Start-Sleep -Milliseconds {holdMs} \} finally \{ $held.Dispose() \}")
+	arguments.push("$ErrorActionPreference = 'Stop'; $held = [System.IO.File]::Open('{file}', 'Open', 'Read', 'Read'); try \{ [Console]::Out.WriteLine('{holderAnnouncement}'); [Console]::Out.Flush(); Start-Sleep -Milliseconds {holdMs} \} finally \{ $held.Dispose() \}")
 	return arguments
 end 'holderArguments'
 
@@ -1225,7 +1225,7 @@ end 'endedCleanly'
 function answersOnly(unremoved FilePathArray, file FilePath) returns bool
 	var namesFile = false
 	for stuck in unremoved 'eachStuck'
-		namesFile = namesFile or stuck.toString() == file.toString()
+		namesFile = namesFile or "{stuck}" == "{file}"
 	end 'eachStuck'
 	return unremoved.count() == 1 and namesFile
 end 'answersOnly'
@@ -1301,7 +1301,7 @@ function holderArguments(file FilePath) returns StringArray
 	arguments.push("-NoProfile")
 	arguments.push("-NonInteractive")
 	arguments.push("-Command")
-	arguments.push("$ErrorActionPreference = 'Stop'; $held = [System.IO.File]::Open('{file.toString()}', 'Open', 'Read', 'Read'); try \{ [Console]::Out.WriteLine('{holderAnnouncement}'); [Console]::Out.Flush(); [void][Console]::In.ReadToEnd() \} finally \{ $held.Dispose() \}")
+	arguments.push("$ErrorActionPreference = 'Stop'; $held = [System.IO.File]::Open('{file}', 'Open', 'Read', 'Read'); try \{ [Console]::Out.WriteLine('{holderAnnouncement}'); [Console]::Out.Flush(); [void][Console]::In.ReadToEnd() \} finally \{ $held.Dispose() \}")
 	return arguments
 end 'holderArguments'
 
@@ -1322,7 +1322,7 @@ end 'endedCleanly'
 function answersOnly(unremoved FilePathArray, file FilePath) returns bool
 	var namesFile = false
 	for stuck in unremoved 'eachStuck'
-		namesFile = namesFile or stuck.toString() == file.toString()
+		namesFile = namesFile or "{stuck}" == "{file}"
 	end 'eachStuck'
 	return unremoved.count() == 1 and namesFile
 end 'answersOnly'
@@ -1391,22 +1391,22 @@ end 'runAccessTool'
 function plantLink(link FilePath, target FilePath) returns bool
 	let arguments = StringArray.create(0)
 	arguments.push("-s")
-	arguments.push(target.toString())
-	arguments.push(link.toString())
+	arguments.push("{target}")
+	arguments.push("{link}")
 	return runAccessTool("ln", arguments: arguments)
 end 'plantLink'
 
 function setMode(mode String, directory FilePath) returns bool
 	let arguments = StringArray.create(0)
 	arguments.push(mode)
-	arguments.push(directory.toString())
+	arguments.push("{directory}")
 	return runAccessTool("chmod", arguments: arguments)
 end 'setMode'
 
 function hostRefusesWriting(directory FilePath) returns bool
 	let arguments = StringArray.create(0)
 	arguments.push("-w")
-	arguments.push(directory.toString())
+	arguments.push("{directory}")
 	let result = try Subprocess.run(Executable.name("test"), arguments: arguments, deadline: WaitDeadline.within(accessToolTimeoutMs)) otherwise panic("the host's access test did not run")
 	if result.succeeded() 'writable'
 		return false
@@ -1441,7 +1441,7 @@ function main() returns ExitCode
 	let unremoved = Directory.removeTree(base)
 	var reportedTheLink = false
 	for stuck in unremoved 'eachStuck'
-		reportedTheLink = reportedTheLink or stuck.toString() == link.toString()
+		reportedTheLink = reportedTheLink or "{stuck}" == "{link}"
 	end 'eachStuck'
 	let expectedUnremoved = 1 if hostRefuses else 0
 	let matches = unremoved.count() == expectedUnremoved and reportedTheLink == hostRefuses and Directory.exists(base) == hostRefuses
@@ -1536,7 +1536,7 @@ function main() returns ExitCode
 	let detour = deep.join("detour")
 	print("detour {Directory.create(detour)}\n")
 	let sep = FilePath.separator()
-	let detoured = try FilePath.from("{deep.toString()}{sep}.{sep}detour{sep}..{sep}{sep}file.txt") otherwise return 6
+	let detoured = try FilePath.from("{deep}{sep}.{sep}detour{sep}..{sep}{sep}file.txt") otherwise return 6
 	let again = try File.readText(detoured) otherwise return 7
 	print("detoured read {again}\n")
 	let listed = try Directory.list(deep) otherwise return 8
@@ -1641,7 +1641,7 @@ end 'listedCount'
 
 function probe(label String, dir FilePath) returns bool
 	let sep = FilePath.separator()
-	let text = dir.toString()
+	let text = "{dir}"
 	let forward = text.replace(sep, with: "/")
 	print("{label} past the limit {text.byteLength() > 260}\n")
 	print("{label} create {Directory.create(dir)}\n")
@@ -1734,7 +1734,7 @@ end 'readOrNone'
 function probe(label String, parent FilePath) returns bool
 	let sep = FilePath.separator()
 	let dir = parent.join(leafName)
-	let text = dir.toString()
+	let text = "{dir}"
 	print("{label} past the limit {text.byteLength() > 260}\n")
 	print("{label} create {Directory.create(dir)}\n")
 	try File.writeText(dir.join("file.txt"), content: "hello") otherwise return false
@@ -1742,7 +1742,7 @@ function probe(label String, parent FilePath) returns bool
 	let spacedDirectory = spell("{text} ")
 	let dottedFile = spell("{text}{sep}file.txt.")
 	let spacedFile = spell("{text}{sep}file.txt ")
-	let dottedSegment = spell("{parent.toString()}{sep}{leafName}.{sep}file.txt")
+	let dottedSegment = spell("{parent}{sep}{leafName}.{sep}file.txt")
 	print("{label} directory with a trailing dot {Directory.exists(dottedDirectory)}\n")
 	print("{label} directory with a trailing space {Directory.exists(spacedDirectory)}\n")
 	print("{label} file with a trailing dot {readOrNone(dottedFile)}\n")
@@ -1821,7 +1821,7 @@ function probe(label String, drive String, rooted String, segments Count) return
 end 'probe'
 
 function main() returns ExitCode
-	let parts = Directory.currentPath().toString().split(":")
+	let parts = "{Directory.currentPath()}".split(":")
 	if parts.count() != 2 'notDriveRooted'
 		return 3
 	end 'notDriveRooted'
@@ -1884,7 +1884,7 @@ end 'readOrNone'
 
 function main() returns ExitCode
 	let working = Directory.currentPath()
-	let workingUnits = working.toString().byteLength() as Units
+	let workingUnits = "{working}".byteLength() as Units
 	if workingUnits > PaddedUnits - 1 'tooDeep'
 		return 3
 	end 'tooDeep'

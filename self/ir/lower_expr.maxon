@@ -1344,6 +1344,14 @@ function strPart(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, p
 		let tag = tagReg(l, box: v)
 		return TextPart.make(names(l, index: tag, names: caseNames(p, ms: ms, t: t)), owner: TextOwner.textImmortal)
 	end 'union'
+	if t == p.builtins.filePathTy 'path'
+		return TextPart.make(pathText(l, path: v), owner: TextOwner.textBorrowed)
+	end 'path'
+	if p.typings[l.mi].hooks.has(e as Count) 'hook'
+		let made = newReg(l, kind: IrKind.kindString)
+		let text = protocolCall(l, p: p, ms: ms, s: e, info: hookInfoAt(p, module: l.module, node: e), recv: v, dst: made, resultTy: p.builtins.stringTy, exit: l.cur.clone())
+		return TextPart.make(text, owner: TextOwner.textFresh)
+	end 'hook'
 	panic("lower: cannot interpolate {ast.typeName(ms.types, reads: p.types, t: exprType(p, module: l.module, node: e))}")
 end 'strPart'
 

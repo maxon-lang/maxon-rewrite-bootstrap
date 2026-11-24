@@ -254,6 +254,16 @@ function visitUses(p ast.Project, mutates ms ast.ModuleState, module diag.Module
 			end 'calls'
 			continue 'each'
 		end 'loop'
+		if p.typings[ast.modIndex(module)].hooks.has(site as Count) 'hook'
+			// The part is recorded for its own call, if it is one, and again for the call its interpolation makes.
+			let hook = hookInfoAt(p, module: module, node: site)
+			if dispatchedInterface(p, ms: ms, info: hook, bindParams: bindParams, bindArgs: bindArgs) == ast.noType 'static'
+				let target = resolveTarget(p, ms: ms, module: module, site: site, receiver: 0 as ast.NodeID, info: hook, bindParams: bindParams, bindArgs: bindArgs, bindWitnesses: bindWitnesses, errs: errs)
+				if not noteInstance(p, ms: ms, module: module, site: site, target: target, found: found, errs: errs) 'deepHook'
+					return false
+				end 'deepHook'
+			end 'static'
+		end 'hook'
 		if p.modules[ast.modIndex(module)].tree.kindOf(site) == ast.NodeKind.whenStmt 'behaviour'
 			requireCrossings(p, ms: ms, module: module, stmt: site, bindParams: bindParams, bindArgs: bindArgs, errs: errs)
 			continue 'each'

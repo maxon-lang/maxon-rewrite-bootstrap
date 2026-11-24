@@ -61,7 +61,7 @@ function total(a T, b T) uses T returns Score where T implements Shape
 	return a.area() if a.area() > b.area() else b.area()
 end 'total'
 
-// expect-error: E3005 at 66:11
+// expect-error: E3016 at 66:11
 function f(a T) uses T returns String
 	return "{a}"
 end 'f'

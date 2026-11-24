@@ -563,7 +563,9 @@ function callOnValue(mutates c Checker, p ast.Project, mutates ms ast.ModuleStat
 	var fix = diag.Fix.none()
 	if name == "append" and content == p.builtins.stringTy 'stringAppend'
 		fix = stringAppendFix(ms.tree(), call: call)
-	end 'stringAppend'
+	end 'stringAppend' else if name == toStringMethod and interpolatesItself(p, ms: ms, t: content) 'toString'
+		fix = toStringFix(ms.tree(), call: call)
+	end 'toString'
 	return unknownFunction(c, p: p, ms: ms, call: call, name: "{nameOfType(p, ms: ms, t: receiver)}.{name}", qualifiers: 1 as Count, fix: fix, errs: errs)
 end 'callOnValue'
 

@@ -2344,7 +2344,7 @@ empty=0 named=hello
 let source = FilePath from "input.txt"
 
 function main() returns ExitCode
-	print("{source.toString()}\n")
+	print("{source}\n")
 	return 0
 end 'main'
 ```

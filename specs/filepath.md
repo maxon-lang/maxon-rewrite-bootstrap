@@ -89,7 +89,7 @@ relative path that folds away entirely is `.`, and the empty path stays empty.
 ```maxon
 function main() returns ExitCode
 	let p = FilePath from "C:\\test.txt"
-	print("{p.toString()}\n")
+	print("{p}\n")
 	return 0
 end 'main'
 ```

@@ -172,7 +172,8 @@ function checkStrLit(mutates c Checker, p ast.Project, mutates ms ast.ModuleStat
 	for i in 0 upto count 'parts'
 		if ms.tree().strPartIsExpr(partsRef, index: i) 'interpolated'
 			let part = ms.tree().strPartExpr(partsRef, index: i)
-			if not checkInterpolation(c, p: p, ms: ms, part: part, errs: errs) 'bad'
+			let formatted = ms.tree().strPartFormat(partsRef, index: i).byteLength() > 0
+			if not checkInterpolation(c, p: p, ms: ms, part: part, formatted: formatted, errs: errs) 'bad'
 				return ast.noType
 			end 'bad'
 		end 'interpolated'
@@ -215,7 +216,20 @@ function adoptsBytes(p ast.Project, ms ast.ModuleState, e ast.NodeID, want ast.T
 	return true
 end 'adoptsBytes'
 
-function checkInterpolation(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, part ast.NodeID, mutates errs diag.ErrorList) returns bool
+// interpolatesItself is whether the interpolation writes the text of a value of type t itself: a built-in type, an enum or
+// a union.
+function interpolatesItself(p ast.Project, ms ast.ModuleState, t ast.TypeID) returns bool
+	let k = kindOfType(p, ms: ms, t: t)
+	return isNumberType(p, ms: ms, t: t) or t == p.builtins.stringTy or t == p.builtins.characterTy or t == p.builtins.boolTy or t == p.builtins.filePathTy or k == ast.TypeKind.enumTy or k == ast.TypeKind.unionTy
+end 'interpolatesItself'
+
+// toStringMethod is the method that gives the text of a value of a type that makes its own, which interpolation calls.
+let toStringMethod = "toString"
+
+// checkInterpolation checks a value interpolated into a string: a built-in type the interpolation writes itself, or a type
+// with a `toString()` that gives a String, which it calls (recorded in the hooks of the typing). A format written after it
+// is for the built-in types alone.
+function checkInterpolation(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, part ast.NodeID, formatted bool, mutates errs diag.ErrorList) returns bool
 	let typed = checkExpr(c, p: p, ms: ms, e: part, errs: errs)
 	if typed == ast.noType 'failed'
 		return false
@@ -225,11 +239,24 @@ function checkInterpolation(mutates c Checker, p ast.Project, mutates ms ast.Mod
 	if not requireSigned64(c, off: off, t: t, p: p, ms: ms, errs: errs) 'wide'
 		return false
 	end 'wide'
-	let k = kindOfType(p, ms: ms, t: t)
-	if isNumberType(p, ms: ms, t: t) or t == p.builtins.stringTy or t == p.builtins.characterTy or t == p.builtins.boolTy or k == ast.TypeKind.enumTy or k == ast.TypeKind.unionTy 'printable'
+	if interpolatesItself(p, ms: ms, t: t) 'printable'
 		return true
 	end 'printable'
-	checkFail(c.modID, off: off, code: diag.errTypeMismatch, msg: "a value of {nameOfType(p, ms: ms, t: t)} cannot be interpolated", errs: errs)
+	if not formatted 'hook'
+		let hook = protocolCall(c, p: p, ms: ms, t: t, name: toStringMethod)
+		if hook.found and hook.thrown == ast.noType and hook.result == p.builtins.stringTy 'text'
+			if not requireProtocolVisible(c, p: p, ms: ms, s: part, call: hook, errs: errs) 'hidden'
+				return false
+			end 'hidden'
+			c.waitNow = true
+			c.typing.hooks.insert(part as Count, value: hook.info.clone())
+			if hook.generic 'instances'
+				recordUse(c, call: part)
+			end 'instances'
+			return true
+		end 'text'
+	end 'hook'
+	checkFail(c.modID, off: off, code: diag.errConformance, msg: diag.interpolatedWithoutText(nameOfType(p, ms: ms, t: t)), errs: errs)
 	return false
 end 'checkInterpolation'
 

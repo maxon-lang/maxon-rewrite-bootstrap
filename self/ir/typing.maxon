@@ -45,6 +45,14 @@ export function callInfoAt(p ast.Project, module diag.ModuleID, node ast.NodeID)
 	end 'hit'
 end 'callInfoAt'
 
+// hookInfoAt is the call of `toString()` that the interpolation of the part at node makes.
+export function hookInfoAt(p ast.Project, module diag.ModuleID, node ast.NodeID) returns ast.CallInfo
+	return match consumes p.typings[ast.modIndex(module)].hooks.get(node as Count) 'hit'
+		some(info) gives info
+		none panic("lower: the interpolation at node {node} of module {module} was not recorded by the check pass")
+	end 'hit'
+end 'hookInfoAt'
+
 export function iterationInfoAt(p ast.Project, module diag.ModuleID, node ast.NodeID) returns ast.IterationInfo
 	return match consumes p.typings[ast.modIndex(module)].iterations.get(node as Count) 'hit'
 		some(info) gives info

@@ -220,7 +220,7 @@ function show(spelled String)
 	let url = try URL.parse(spelled) otherwise return
 	let host = try url.host() otherwise "no-host"
 	let authorityHost = try url.authorityHost() otherwise "no-host"
-	print("{spelled} -> host={host} authorityHost={authorityHost} string={url.toString()}\n")
+	print("{spelled} -> host={host} authorityHost={authorityHost} string={url}\n")
 end 'show'
 
 function main() returns ExitCode
@@ -238,7 +238,7 @@ function main() returns ExitCode
 	let resolvedHost = try resolved.host() otherwise "no-host"
 	let resolvedAuthority = try resolved.authorityHost() otherwise "no-host"
 	print("literal equals name: {literal.equals(name)}\n")
-	print("resolved: {resolved.toString()} {resolvedHost} {resolvedAuthority}\n")
+	print("resolved: {resolved} {resolvedHost} {resolvedAuthority}\n")
 	return 0
 end 'main'
 ```
@@ -736,7 +736,7 @@ function main() returns ExitCode
 	let url = try URL.parse("https://example.com/path") otherwise 'err'
 		return 1
 	end 'err'
-	print("{url.toString()}\n")
+	print("{url}\n")
 	return 0
 end 'main'
 ```
@@ -753,7 +753,7 @@ function main() returns ExitCode
 	let url = try URL.parse("https://example.com:8080/?q=1#top") otherwise 'err'
 		return 1
 	end 'err'
-	print("{url.toString()}\n")
+	print("{url}\n")
 	return 0
 end 'main'
 ```
@@ -770,7 +770,7 @@ function main() returns ExitCode
 	let url = try URL.parse("ftp://user:pass@ftp.example.com/files") otherwise 'err'
 		return 1
 	end 'err'
-	print("{url.toString()}\n")
+	print("{url}\n")
 	return 0
 end 'main'
 ```
@@ -787,7 +787,7 @@ function main() returns ExitCode
 	let url = try URL.parse("mailto:user@example.com") otherwise 'err'
 		return 1
 	end 'err'
-	print("{url.toString()}\n")
+	print("{url}\n")
 	return 0
 end 'main'
 ```
@@ -804,7 +804,7 @@ function main() returns ExitCode
 	let url = try URL.parse("http://[::1]:8080/path") otherwise 'err'
 		return 1
 	end 'err'
-	print("{url.toString()}\n")
+	print("{url}\n")
 	return 0
 end 'main'
 ```
@@ -821,7 +821,7 @@ function main() returns ExitCode
 	let url = try URL.parse("file:///home/user/file.txt") otherwise 'err'
 		return 1
 	end 'err'
-	print("{url.toString()}\n")
+	print("{url}\n")
 	return 0
 end 'main'
 ```
@@ -843,7 +843,7 @@ function main() returns ExitCode
 	let resolved = try URL.resolve(base, reference: "g") otherwise 'err2'
 		return 2
 	end 'err2'
-	print("{resolved.toString()}\n")
+	print("{resolved}\n")
 	return 0
 end 'main'
 ```
@@ -863,7 +863,7 @@ function main() returns ExitCode
 	let resolved = try URL.resolve(base, reference: "./g") otherwise 'err2'
 		return 2
 	end 'err2'
-	print("{resolved.toString()}\n")
+	print("{resolved}\n")
 	return 0
 end 'main'
 ```
@@ -883,7 +883,7 @@ function main() returns ExitCode
 	let resolved = try URL.resolve(base, reference: "../g") otherwise 'err2'
 		return 2
 	end 'err2'
-	print("{resolved.toString()}\n")
+	print("{resolved}\n")
 	return 0
 end 'main'
 ```
@@ -903,7 +903,7 @@ function main() returns ExitCode
 	let resolved = try URL.resolve(base, reference: "/g") otherwise 'err2'
 		return 2
 	end 'err2'
-	print("{resolved.toString()}\n")
+	print("{resolved}\n")
 	return 0
 end 'main'
 ```
@@ -923,7 +923,7 @@ function main() returns ExitCode
 	let resolved = try URL.resolve(base, reference: "//other.com/g") otherwise 'err2'
 		return 2
 	end 'err2'
-	print("{resolved.toString()}\n")
+	print("{resolved}\n")
 	return 0
 end 'main'
 ```
@@ -943,7 +943,7 @@ function main() returns ExitCode
 	let resolved = try URL.resolve(base, reference: "?y") otherwise 'err2'
 		return 2
 	end 'err2'
-	print("{resolved.toString()}\n")
+	print("{resolved}\n")
 	return 0
 end 'main'
 ```
@@ -963,7 +963,7 @@ function main() returns ExitCode
 	let resolved = try URL.resolve(base, reference: "#s") otherwise 'err2'
 		return 2
 	end 'err2'
-	print("{resolved.toString()}\n")
+	print("{resolved}\n")
 	return 0
 end 'main'
 ```
@@ -983,7 +983,7 @@ function main() returns ExitCode
 	let resolved = try URL.resolve(base, reference: "") otherwise 'err2'
 		return 2
 	end 'err2'
-	print("{resolved.toString()}\n")
+	print("{resolved}\n")
 	return 0
 end 'main'
 ```
@@ -1003,7 +1003,7 @@ function main() returns ExitCode
 	let resolved = try URL.resolve(base, reference: "g?y#s") otherwise 'err2'
 		return 2
 	end 'err2'
-	print("{resolved.toString()}\n")
+	print("{resolved}\n")
 	return 0
 end 'main'
 ```
@@ -1023,7 +1023,7 @@ function main() returns ExitCode
 	let resolved = try URL.resolve(base, reference: "../../g") otherwise 'err2'
 		return 2
 	end 'err2'
-	print("{resolved.toString()}\n")
+	print("{resolved}\n")
 	return 0
 end 'main'
 ```

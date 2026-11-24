@@ -89,6 +89,7 @@ func Convert(file, src string, kind inputKind) Result {
 		dropBuiltinDeclarations(lines)
 		dropHardwareRegions(lines)
 		rewriteBuiltinExtensions(lines)
+		dropPrimitiveToStrings(lines)
 		addInterfaceWheres(lines)
 		lendRequirements(lines)
 		dropReplacedMembers(lines)
@@ -2058,6 +2059,7 @@ func transformStmtAndExpr(line *sourceLine, warn func(*sourceLine, string)) {
 	toks = rewriteDiscards(toks)
 	toks = rewriteClosureParams(toks, line, warn)
 	toks = rewriteTupleElements(toks)
+	toks = rewriteToStringCalls(toks)
 	line.code = toks
 
 	// Statement-head checks.
@@ -2247,6 +2249,91 @@ func rewriteTupleElements(toks []token) []token {
 }
 
 var tupleElementName = regexp.MustCompile(`^_[0-9]+$`)
+
+// rewriteToStringCalls writes maxon's `x.toString()` as the interpolation `"{x}"`, the one way minimaxon makes the text of
+// a value: the built-in types have no toString, and the interpolation of a type with one calls it. A call that is the
+// whole of an interpolated part, `"{x.toString()}"`, becomes the part `"{x}"`.
+func rewriteToStringCalls(toks []token) []token {
+	var out []token
+	for i := 0; i < len(toks); i++ {
+		t := toks[i]
+		if t.kind == tokString && strings.Contains(t.text, ".toString()}") {
+			t.text = toStringPart.ReplaceAllString(t.text, "{$1}")
+			out = append(out, t)
+			continue
+		}
+		if t.kind == tokIdent && t.text == "toString" && i+2 < len(toks) && toks[i+1].text == "(" && toks[i+2].text == ")" && i > 0 && toks[i-1].text == "." {
+			if start := receiverStart(toks, i-2); start >= 0 {
+				// The operand and the dot are the last tokens out took, unless a rewrite earlier on the line joined some.
+				n := len(out) - (i - start)
+				if n >= 0 && out[n].start == toks[start].start {
+					var text strings.Builder
+					for _, r := range toks[start : i-1] {
+						text.WriteString(r.text)
+					}
+					out = append(out[:n], token{kind: tokString, text: "\"{" + text.String() + "}\"", start: toks[start].start, end: toks[i+2].end, line: toks[start].line})
+					i += 2
+					continue
+				}
+			}
+		}
+		out = append(out, t)
+	}
+	return out
+}
+
+// toStringPart is an interpolated part that is a call of toString() on an expression with no braces or quotes in it.
+var toStringPart = regexp.MustCompile(`\{([^{}"]+?)\.toString\(\)\}`)
+
+// receiverStart is the index of the first token of the operand that ends at the token last: names, literals and self
+// joined by dots, each followed by its calls and indexes, or a parenthesised expression; -1 where it is none of these.
+func receiverStart(toks []token, last int) int {
+	start := -1
+	pos := last
+	for pos >= 0 {
+		t := toks[pos]
+		switch {
+		case t.text == ")" || t.text == "]":
+			open := matchingOpen(toks, pos)
+			if open < 0 {
+				return -1
+			}
+			start = open
+			pos = open - 1
+			if pos >= 0 && (toks[pos].text == ")" || toks[pos].text == "]" || toks[pos].kind == tokIdent && (!reservedWords[toks[pos].text] || toks[pos].text == "self")) {
+				continue
+			}
+		case t.kind == tokIdent && (!reservedWords[t.text] || t.text == "self"), t.kind == tokInt, t.kind == tokFloat, t.kind == tokString:
+			start = pos
+			pos--
+		default:
+			return start
+		}
+		if pos >= 0 && toks[pos].text == "." {
+			pos--
+			continue
+		}
+		return start
+	}
+	return start
+}
+
+// matchingOpen is the index of the bracket that the closing bracket at close closes, or -1.
+func matchingOpen(toks []token, close int) int {
+	depth := 0
+	for k := close; k >= 0; k-- {
+		switch toks[k].text {
+		case ")", "]":
+			depth++
+		case "(", "[":
+			depth--
+			if depth == 0 {
+				return k
+			}
+		}
+	}
+	return -1
+}
 
 func rewriteArmThrows(toks []token) []token {
 	if toks[0].text == "end" || hasToken(toks, "function") {

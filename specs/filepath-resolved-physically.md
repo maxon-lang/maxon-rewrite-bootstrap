@@ -34,7 +34,7 @@ function main() returns ExitCode
 	end 'noDirectory'
 	try File.writeText(inner.join("f.txt"), content: "x") otherwise return 2
 	let shell = try FilePath.from("/bin/sh") otherwise return 3
-	let script = "cd '{base.toString()}' && rm -f link nested && ln -s real link && ln -s link/inner nested"
+	let script = "cd '{base}' && rm -f link nested && ln -s real link && ln -s link/inner nested"
 	let made = try Subprocess.run(Executable.path(shell), arguments: ["-c", script]) otherwise return 4
 	if not made.succeeded() 'noLinks'
 		return 5
@@ -49,7 +49,7 @@ function main() returns ExitCode
 	print("{viaNested.equals(file)}\n")
 	print("{viaDotDot.equals(file)}\n")
 	print("{aLinkItself.equals(root.join("real"))}\n")
-	let cleaned = try Subprocess.run(Executable.path(shell), arguments: ["-c", "rm -rf '{base.toString()}'"]) otherwise return 11
+	let cleaned = try Subprocess.run(Executable.path(shell), arguments: ["-c", "rm -rf '{base}'"]) otherwise return 11
 	if not cleaned.succeeded() 'notCleaned'
 		return 12
 	end 'notCleaned'
@@ -82,7 +82,7 @@ function main() returns ExitCode
 	if Directory.exists(link) 'stale'
 		try Directory.delete(link) otherwise return 3
 	end 'stale'
-	let made = try Subprocess.run(Executable.name("cmd"), arguments: ["/c", "mklink", "/J", link.toString(), base.join("real").toString()]) otherwise (e) 'notRun'
+	let made = try Subprocess.run(Executable.name("cmd"), arguments: ["/c", "mklink", "/J", "{link}", "{base.join("real")}"]) otherwise (e) 'notRun'
 		print("mklink was not run: {e.displayReason()}\n")
 		return 4
 	end 'notRun'
