@@ -75,6 +75,7 @@ case brackets ONLY the slice, because `print` and interpolation allocate on thei
 ## Tests
 
 <!-- test: full-slice-of-a-literal-allocates-nothing -->
+<!-- skip: language difference: minimaxon's heap is Go's page heap with per-thread size classes, so maxon's slab, census and raw-allocation figures have no counterpart -->
 Slicing a literal end to end costs nothing: the bytes are already in the image, and the record naming
 them is too. Before this fold the two `StringIndex` boxes and the view record made this a non-zero
 delta.
@@ -96,6 +97,7 @@ end 'main'
 ```
 
 <!-- test: length-slice-of-a-literal-allocates-nothing -->
+<!-- skip: language difference: minimaxon's heap is Go's page heap with per-thread size classes, so maxon's slab, census and raw-allocation figures have no counterpart -->
 The shape that makes the fold worth having — a PROPER substring, whose bytes are a window the compiler
 can cut for itself. `"hello world"` is single-byte-grapheme, so `length: 5` is five bytes.
 ```maxon
@@ -116,6 +118,7 @@ end 'main'
 ```
 
 <!-- test: empty-slice-of-a-literal-allocates-nothing -->
+<!-- skip: language difference: minimaxon's heap is Go's page heap with per-thread size classes, so maxon's slab, census and raw-allocation figures have no counterpart -->
 An empty window is a constant like any other. It is worth its own case because it is the one range
 whose start and end coincide, and because the runtime path it replaces builds a length-0 view that
 holds its parent alive.
@@ -137,6 +140,7 @@ end 'main'
 ```
 
 <!-- test: a-folded-slice-in-a-loop-allocates-nothing -->
+<!-- skip: language difference: minimaxon's heap is Go's page heap with per-thread size classes, so maxon's slab, census and raw-allocation figures have no counterpart -->
 ⭐ **THE MOTIVATION, and the shape no single-evaluation case can show.** The cost the fold removes is
 paid PER EVALUATION, so a loop is where it is actually spent: 500 unfolded trips mean 500 view
 records plus their index boxes. A fold that fired once and then fell back would pass the three cases
@@ -209,6 +213,7 @@ hello! hello
 ```
 
 <!-- test: a-runtime-bound-still-takes-the-runtime-path -->
+<!-- skip: language difference: minimaxon's heap is Go's page heap with per-thread size classes, so maxon's slab, census and raw-allocation figures have no counterpart -->
 **THE BOUNDARY, held from the other side.** A literal receiver whose bound is NOT compile-time known
 keeps the view record it always had — the delta is positive — and still answers the right bytes. Without
 this, a fold that quietly guessed at a `findFirst` result would look exactly like a working one.

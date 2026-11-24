@@ -117,6 +117,8 @@ function alloc(bytes Count) returns Count
 	if heap == noHeap 'first'
 		return allocFirst(bytes)
 	end 'first'
+	__Raw.storeWord(heap, offset: heapAllocsOffset, value: __Raw.wrappingAdd(__Raw.loadWord(heap, offset: heapAllocsOffset), right: 1))
+	__Raw.storeWord(heap, offset: heapAllocBytesOffset, value: __Raw.wrappingAdd(__Raw.loadWord(heap, offset: heapAllocBytesOffset), right: bytes))
 	var key = __Raw.wrappingAdd(bytes, right: classStepBytes - 1) and wordRoundMask
 	if bytes > linearLimitBytes 'above'
 		if bytes > largestSmallBytes 'large'
@@ -172,7 +174,9 @@ function grownBox(box Count, held Count, kept Count, bytes Count, zeroed bool) r
 		if zeroed 'zeroed'
 			zeroFrom = kept
 		end 'zeroed'
-		moved = allocLarge(heapMade(__Raw.loadWord(__Raw.threadContext(), offset: contextHeapOffset)), bytes: bytes, zeroFrom: zeroFrom)
+		let heap = heapMade(__Raw.loadWord(__Raw.threadContext(), offset: contextHeapOffset))
+		countAlloc(heap, bytes: bytes)
+		moved = allocLarge(heap, bytes: bytes, zeroFrom: zeroFrom)
 	end 'large'
 	copyBytes(box, target: moved, count: kept)
 	return moved
@@ -216,6 +220,7 @@ function free(box Count)
 		freeOther(heap, box: box, header: header)
 		return
 	end 'other'
+	__Raw.storeWord(heap, offset: heapFreesOffset, value: __Raw.wrappingAdd(__Raw.loadWord(heap, offset: heapFreesOffset), right: 1))
 	let key = header and heapKeyMask
 	let top = __Raw.wrappingAdd(__Raw.loadWord(heap, offset: key), right: wordBytes)
 	if top == __Raw.loadWord(heap, offset: __Raw.wrappingAdd(key, right: heapLimitsOffset)) 'full'
@@ -241,12 +246,13 @@ end 'freeFull'
 // freeOther frees a box that the running thread's heap (heap, or noHeap before its first alloc) did not make: a large box's
 // block goes back from the running thread, and a slot onto the list of the heap that owns it.
 function freeOther(heap Count, box Count, header Count)
+	let mine = heapMade(heap)
+	addHeapWord(mine, offset: heapFreesOffset, change: 1)
 	if (header and heapKeyMask) == heapLargeKey 'large'
-		freeLarge(heapMade(heap), box: box)
+		freeLarge(mine, box: box)
 		return
 	end 'large'
 	let owner = header and heapRecordMask
-	let mine = heapMade(heap)
 	if __Raw.loadWord(mine, offset: heapBatchOwnerOffset) != owner 'owner'
 		flushBatch(mine)
 		__Raw.storeWord(mine, offset: heapBatchOwnerOffset, value: owner)
@@ -347,6 +353,87 @@ function heapLive(heap Count) returns Count
 	end 'remote'
 	return __Raw.wrappingSub(live, right: __Raw.loadWord(heap, offset: heapBatchCountOffset))
 end 'heapLive'
+
+// The counters that HeapStats reads: each heap counts the boxes its thread allocates and frees and the bytes the
+// allocations ask for, a plain add to words of its own record that no other thread writes, and a reading sums the
+// threads' heaps, as Go's memstats sums its per-processor counts, so an allocation pays no atomic for them.
+
+// countAlloc counts an allocation of a number of bytes in a heap.
+function countAlloc(heap Count, bytes Count)
+	addHeapWord(heap, offset: heapAllocsOffset, change: 1)
+	addHeapWord(heap, offset: heapAllocBytesOffset, change: bytes)
+end 'countAlloc'
+
+// addHeapWord adds a number, which wraps to subtract, to a word of a heap's record.
+function addHeapWord(heap Count, offset Count, change Count)
+	__Raw.storeWord(heap, offset: offset, value: __Raw.wrappingAdd(__Raw.loadWord(heap, offset: offset), right: change))
+end 'addHeapWord'
+
+// threadHeapCount is a counter of the running thread's heap, 0 before its first allocation.
+function threadHeapCount(offset Count) returns Count
+	let heap = __Raw.loadWord(__Raw.threadContext(), offset: contextHeapOffset)
+	if heap == noHeap 'none'
+		return 0
+	end 'none'
+	return __Raw.loadWord(heap, offset: offset)
+end 'threadHeapCount'
+
+// processHeapCount is a counter summed over the heaps of every thread, as liveBoxes walks them. Another thread may add to
+// its own while the sum reads it, so the sum is of the moment each word is read.
+function processHeapCount(offset Count) returns Count
+	let context = __Raw.threadContext()
+	let scheduler = __Raw.loadWord(context, offset: contextSchedulerOffset)
+	if scheduler == noScheduler 'oneThread'
+		return threadHeapCount(offset)
+	end 'oneThread'
+	var sum = 0 as Count
+	var thread = __Raw.loadWord(scheduler, offset: schedAllThreadsOffset)
+	while thread != noThread 'threads'
+		let heap = __Raw.loadWord(thread, offset: contextHeapOffset)
+		if heap != noHeap 'counted'
+			sum = __Raw.wrappingAdd(sum, right: __Raw.loadWord(heap, offset: offset))
+		end 'counted'
+		thread = __Raw.loadWord(thread, offset: contextAllNextOffset)
+	end 'threads'
+	return sum
+end 'processHeapCount'
+
+function heapThreadAllocs() returns Count
+	return threadHeapCount(heapAllocsOffset)
+end 'heapThreadAllocs'
+
+function heapThreadFrees() returns Count
+	return threadHeapCount(heapFreesOffset)
+end 'heapThreadFrees'
+
+function heapThreadBytes() returns Count
+	return threadHeapCount(heapAllocBytesOffset)
+end 'heapThreadBytes'
+
+function heapProcessAllocs() returns Count
+	return processHeapCount(heapAllocsOffset)
+end 'heapProcessAllocs'
+
+function heapProcessFrees() returns Count
+	return processHeapCount(heapFreesOffset)
+end 'heapProcessFrees'
+
+function heapProcessLive() returns Count
+	return __Raw.wrappingSub(heapProcessAllocs(), right: heapProcessFrees())
+end 'heapProcessLive'
+
+function heapProcessBytes() returns Count
+	return processHeapCount(heapAllocBytesOffset)
+end 'heapProcessBytes'
+
+// heapScavenge gives the running thread's kept large runs back to the page heap, then gives back to the system every
+// committed free page that was free at the pass before as well, and answers the bytes given back: a second call after a
+// burst gives back what the first left as recent.
+function heapScavenge() returns Count
+	let heap = heapMade(__Raw.loadWord(__Raw.threadContext(), offset: contextHeapOffset))
+	releaseKept(heap)
+	return scavengeNow(heapPages(heap))
+end 'heapScavenge'
 
 // countOut adds a number, which wraps to subtract, to the boxes a heap gave out that no stack holds.
 function countOut(heap Count, change Count)

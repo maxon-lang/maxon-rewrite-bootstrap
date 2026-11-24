@@ -1542,6 +1542,7 @@ hi3
 ```
 
 <!-- test: an-inferred-library-type-is-not-judged-as-a-same-named-private-one -->
+<!-- skip: language difference: minimaxon's heap is Go's page heap with per-thread size classes, so maxon's slab, census and raw-allocation figures have no counterpart -->
 `api/lib.maxon` declares an unmarked `HeapCensusMode` of its own, beside the library's `public` one. `MODE`
 holds `stdlib.HeapCensusMode.byTag`, so its type is the library's enum: the declaration the initializer
 reached, not whichever `HeapCensusMode` the binding's own file declares.
@@ -1602,6 +1603,7 @@ error E3167: api/<fragment>:8:12: exported constant 'api.MODE' names unexported 
 ```
 
 <!-- test: a-parameter-naming-the-librarys-type-is-not-judged-as-a-same-named-private-one -->
+<!-- skip: language difference: minimaxon's heap is Go's page heap with per-thread size classes, so maxon's slab, census and raw-allocation figures have no counterpart -->
 A function's parameter type is judged by the declaration it names, the same as a binding's type:
 `stdlib.HeapCensusMode` is the library's `public` enum, and the unmarked `HeapCensusMode` beside the
 function is another type.

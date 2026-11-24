@@ -225,6 +225,7 @@ end 'main'
 ```
 
 <!-- test: slab-census.the-unreachable-free-set-is-what-a-dropped-population-becomes -->
+<!-- skip: language difference: minimaxon's heap is Go's page heap with per-thread size classes, so maxon's slab, census and raw-allocation figures have no counterpart -->
 **THE SUBSET CASE, AND THE ONE THAT NAMES THE DEFECT.** `cachedFree` and `parked` are each a subset of
 `free`, so neither may exceed it. And after a population of one class is dropped whole, the free bytes
 must vastly exceed what any mcache row still points at — a processor caches AT MOST ONE SPAN PER CLASS,
@@ -287,6 +288,7 @@ end 'main'
 ```
 
 <!-- test: slab-census.a-dropped-class-serves-a-different-one-after-a-scavenge -->
+<!-- skip: language difference: minimaxon's heap is Go's page heap with per-thread size classes, so maxon's slab, census and raw-allocation figures have no counterpart -->
 **THE CLASS-AGNOSTIC RETURN.** A burst of one size class is allocated and dropped WHOLE, one
 `scavengeMemory()` destroys the spans it emptied, and a burst of a DIFFERENT, larger class is then cut
 straight out of the chunks that came back. `committed` must not rise.
@@ -369,6 +371,7 @@ end 'main'
 ```
 
 <!-- test: slab-census.committed-covers-every-slot-the-allocator-holds -->
+<!-- skip: language difference: minimaxon's heap is Go's page heap with per-thread size classes, so maxon's slab, census and raw-allocation figures have no counterpart -->
 **THE CONTAINMENT CASE.** Every slot the census reports lives in a chunk the arena handed out, and every
 such chunk lies in a granule that is backed — so `committed` can never be below `live + free`. A
 committed figure that fell short of the slots it must contain would be a commit bitmap that had lost
@@ -422,6 +425,7 @@ end 'main'
 ```
 
 <!-- test: slab-census.an-os-direct-mapping-is-committed-and-is-not-a-slot -->
+<!-- skip: language difference: minimaxon's heap is Go's page heap with per-thread size classes, so maxon's slab, census and raw-allocation figures have no counterpart -->
 **THE OTHER ROAD.** A request above the largest size class is its own mapping rather than a slot in a
 span, so no arena bitmap describes it and no span holds it. It must still raise `committed` — by at
 least its own size — and must move neither `live` nor `free`. Freeing it must give the bytes back.
@@ -470,6 +474,7 @@ end 'main'
 ```
 
 <!-- test: slab-census.a-scavenge-lowers-committed-and-leaves-live-alone -->
+<!-- skip: language difference: minimaxon's heap is Go's page heap with per-thread size classes, so maxon's slab, census and raw-allocation figures have no counterpart -->
 **THE RECLAMATION CASE, READ THROUGH THE CENSUS.** `slab-scavenger.md` asserts the byte count the
 scavenger REPORTS; this asserts what the heap looks like afterwards. Two passes over a dropped
 population must lower `committed` and `parked` and must not touch `live` — a scavenger that reached a
@@ -539,6 +544,7 @@ end 'main'
 ```
 
 <!-- test: slab-census.the-walk-reaches-every-metadata-chunk -->
+<!-- skip: language difference: minimaxon's heap is Go's page heap with per-thread size classes, so maxon's slab, census and raw-allocation figures have no counterpart -->
 **THE MAGNITUDE CASE, AND IT IS THE ONLY ONE THAT IS NOT A RELATION.** Every other case here compares
 the five figures with each other, and a census that walks only the NEWEST metadata chunk keeps every
 one of those relations intact while under-reporting the whole heap several-fold. **With the
@@ -594,6 +600,7 @@ end 'main'
 ```
 
 <!-- test: slab-census.the-tally-totals-the-live-heap -->
+<!-- skip: language difference: minimaxon's heap is Go's page heap with per-thread size classes, so maxon's slab, census and raw-allocation figures have no counterpart -->
 **THE TOTAL IS THE LEVEL, AND THE TWO WALKS MUST AGREE.** A census by bucket and the `live` level are
 two derivations from one lock-held walk, so summing every bucket must land exactly on the figure
 `HeapStats.slab().live` reports — no byte of slot may be attributed twice and none may be dropped on the
@@ -1244,6 +1251,7 @@ mm_free ArrayRecord #1
 ```
 
 <!-- test: slab-census.an-untraced-build-tallies-by-size-class -->
+<!-- skip: language difference: minimaxon's heap is Go's page heap with per-thread size classes, so maxon's slab, census and raw-allocation figures have no counterpart -->
 **THE SAME POPULATION, READ BY GEOMETRY INSTEAD OF BY TAG.** Mode 1 needs no prefix word, so it answers
 in every build — and it answers with a bucket per size class, which is a fact the allocator's own ladder
 already holds. The same N widgets move one bucket by N, and that bucket's bytes divided by its count is
@@ -1430,6 +1438,7 @@ end 'main'
 ```
 
 <!-- test: slab-census.the-census-carries-the-level-of-its-own-walk -->
+<!-- skip: language difference: minimaxon's heap is Go's page heap with per-thread size classes, so maxon's slab, census and raw-allocation figures have no counterpart -->
 **THE LEVEL A CENSUS CARRIES IS THE ONE ITS WALK SAW, NOT ONE READ AFTER THE SNAPSHOT EXISTS.** `liveBytes` is read
 on the statement after the walk and before the snapshot allocates its two bucket arrays, so it equals `tallyBytes`
 with no reading taken beforehand. A `slab().live` read after the census returned counts those arrays, which is why
@@ -1475,6 +1484,7 @@ end 'main'
 ```
 
 <!-- test: slab-census.raw-live-slots-do-not-count-boxes -->
+<!-- skip: language difference: minimaxon's heap is Go's page heap with per-thread size classes, so maxon's slab, census and raw-allocation figures have no counterpart -->
 **THE HEADER-LESS POPULATION IS WHAT THE CENSUS PRINTS BESIDE ITS TABLE, AND A BOX IS NOT ONE.** Every box
 the memory manager hands out is also a slab request, so the raw layer's own live count includes every box in
 the program — a figure equal to the whole live table, which attributes nothing. What the census needs
@@ -1526,6 +1536,7 @@ end 'main'
 ```
 
 <!-- test: slab-census.error.a-bucket-index-past-the-table-is-refused -->
+<!-- skip: language difference: minimaxon's heap is Go's page heap with per-thread size classes, so maxon's slab, census and raw-allocation figures have no counterpart -->
 The table has 2048 buckets, and the index a bucket reader takes is a `HeapBucketIndex`, `int(0 to 2047)`, so
 an index past the last bucket is refused at the call rather than reading a word beyond the table.
 ```maxon

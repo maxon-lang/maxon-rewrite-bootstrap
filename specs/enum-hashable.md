@@ -191,11 +191,11 @@ typealias Int = int(i64.min to i64.max)
 typealias GradeMap = Map with (Grade, Int)
 
 function main() returns ExitCode
-	let m = GradeMap.create()
+	var m = GradeMap.create()
 	try m.insert(Grade.excellent, value: 100) otherwise ignore
 	try m.insert(Grade.good, value: 85) otherwise ignore
 	let result = try m.get(Grade.excellent) otherwise 0
-	return result
+	return try result as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

@@ -134,7 +134,7 @@ typealias Bufs = Array with ByteArray
 typealias Seed = int(0 to 65536)
 
 function build(seed Seed) returns ByteArray
-	let b = ByteArray.create(0)
+	var b = ByteArray.create(0)
 	b.reserve(96)
 	for i in 0 upto 96 'fill'
 		b.push(((seed + i) mod 251) as Byte)
@@ -204,7 +204,7 @@ typealias Bufs = Array with ByteArray
 typealias Seed = int(0 to 65536)
 
 function build(seed Seed) returns ByteArray
-	let b = ByteArray.create(0)
+	var b = ByteArray.create(0)
 	b.reserve(96)
 	for i in 0 upto 96 'fill'
 		b.push(((seed + i) mod 251) as Byte)
@@ -213,7 +213,7 @@ function build(seed Seed) returns ByteArray
 end 'build'
 
 function main() returns ExitCode
-	let bufs = Bufs.create(0)
+	var bufs = Bufs.create(0)
 	for k in 0 upto 16000 'alloc'
 		bufs.push(build(k as Seed))
 	end 'alloc'
@@ -264,7 +264,7 @@ typealias Bufs = Array with ByteArray
 typealias Seed = int(0 to 65536)
 
 function build(seed Seed) returns ByteArray
-	let b = ByteArray.create(0)
+	var b = ByteArray.create(0)
 	b.reserve(96)
 	for i in 0 upto 96 'fill'
 		b.push(((seed + i) mod 251) as Byte)
@@ -333,7 +333,7 @@ typealias Bufs = Array with ByteArray
 typealias Seed = int(0 to 65536)
 
 function build(seed Seed, n Seed) returns ByteArray
-	let b = ByteArray.create(0)
+	var b = ByteArray.create(0)
 	b.reserve(n as ElementIndex)
 	for i in 0 upto n 'fill'
 		b.push(((seed + i) mod 251) as Byte)
@@ -351,7 +351,7 @@ function main() returns ExitCode
 	if HeapStats.scavenge() <= 0 'nothingReleased'
 		return 1
 	end 'nothingReleased'
-	let large = Bufs.create(0)
+	var large = Bufs.create(0)
 	for k in 0 upto 3000 'allocLarge'
 		large.push(build(k as Seed, n: 500))
 	end 'allocLarge'
@@ -406,7 +406,7 @@ function main() returns ExitCode
 	for i in 0 upto 512 'check'
 		let got = try big.get(i) otherwise return 1
 		if got != (i mod 251) 'value'
-			bad = bad + 1
+			bad = try bad + 1 otherwise panic("out of range")
 		end 'value'
 	end 'check'
 	if bad != 0 'corrupted'

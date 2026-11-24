@@ -296,6 +296,23 @@ function scavengeIfDue(pages Count, now Count)
 	end 'arenas'
 end 'scavengeIfDue'
 
+// scavengeNow runs a release pass at once, under the lock, that leaves no committed free page that was free at the last pass
+// too, and answers the bytes it gave back.
+function scavengeNow(pages Count) returns Count
+	lockPages(pages)
+	let before = __Raw.loadWord(pages, offset: pagesRetainedOffset)
+	__Raw.storeWord(pages, offset: pagesScavengedAtOffset, value: pagesClock(pages))
+	releaseDown(pages, goal: 0, aged: true)
+	var arena = pages
+	while arena != noArena 'arenas'
+		clearBitmap(arena, bitmap: bitmapRecent)
+		arena = __Raw.loadWord(arena, offset: arenaNextOffset)
+	end 'arenas'
+	let given = __Raw.wrappingSub(before, right: __Raw.loadWord(pages, offset: pagesRetainedOffset))
+	unlockPages(pages)
+	return runBytes(given)
+end 'scavengeNow'
+
 // releaseDown gives back free committed pages of every arena while the page heap holds more than goal of them, only
 // those free at the last pass too where aged says so.
 function releaseDown(pages Count, goal Count, aged bool)

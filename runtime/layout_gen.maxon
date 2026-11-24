@@ -576,6 +576,15 @@ let heapBatchCountOffset = 2104 as Count
 // heapBatchOwnerOffset is where a heap's record holds the heap whose boxes its batch holds.
 let heapBatchOwnerOffset = 2112 as Count
 
+// heapAllocsOffset is where a heap's record holds how many boxes its thread allocated, which HeapStats reads.
+let heapAllocsOffset = 2120 as Count
+
+// heapFreesOffset is where a heap's record holds how many boxes its thread freed, which HeapStats reads.
+let heapFreesOffset = 2128 as Count
+
+// heapAllocBytesOffset is where a heap's record holds how many bytes the boxes its thread allocated asked for, which HeapStats reads.
+let heapAllocBytesOffset = 2136 as Count
+
 // heapRemoteOffset is where a heap's record holds the list of the boxes that other threads freed, linked through their first words, 128 bytes from the words its own thread writes, since other threads write it: a cache line of its own, and of Apple's cores'.
 let heapRemoteOffset = 2176 as Count
 

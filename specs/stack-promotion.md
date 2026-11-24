@@ -172,7 +172,7 @@ end 'main'
 typealias Count = int(0 to 1000)
 
 function bump(mutates count Count) returns Count
-	count = count + 1
+	count = try count + 1 otherwise panic("out of range")
 	return count
 end 'bump'
 
@@ -182,8 +182,8 @@ function main() returns ExitCode
 	var count = 1 as Count
 	let first = bump(count)
 	let second = bump(count)
-	let allocs = HeapStats.threadAllocations() - allocsBefore
-	let frees = HeapStats.threadFrees() - freesBefore
+	let allocs = try HeapStats.threadAllocations() - allocsBefore otherwise panic("out of range")
+	let frees = try HeapStats.threadFrees() - freesBefore otherwise panic("out of range")
 	print("{first} {second} {count} {allocs} {frees}\n")
 	return 0
 end 'main'
@@ -202,7 +202,7 @@ The closure holds the cell's address after `bump` returns, so the cell is heap s
 typealias Count = int(0 to 1000)
 
 function bump(mutates count Count) returns Count
-	count = count + 1
+	count = try count + 1 otherwise panic("out of range")
 	return count
 end 'bump'
 
@@ -212,7 +212,7 @@ function main() returns ExitCode
 	let first = bump(count)
 	let read = function() gives count
 	let second = read()
-	let live = HeapStats.allocationsLive() - liveBefore
+	let live = try HeapStats.allocationsLive() - liveBefore otherwise panic("out of range")
 	print("{first} {second} {live > 0}\n")
 	return 0
 end 'main'
@@ -232,7 +232,7 @@ typealias Count = int(0 to 1000)
 
 function bump(mutates count Count) returns Count
 	Scheduler.yield()
-	count = count + 1
+	count = try count + 1 otherwise panic("out of range")
 	return count
 end 'bump'
 
@@ -241,7 +241,7 @@ function main() returns ExitCode
 	var count = 1 as Count
 	let pending = async bump(count)
 	let result = await pending
-	let live = HeapStats.allocationsLive() - liveBefore
+	let live = try HeapStats.allocationsLive() - liveBefore otherwise panic("out of range")
 	print("{result} {count} {live}\n")
 	return 0
 end 'main'

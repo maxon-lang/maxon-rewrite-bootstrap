@@ -259,6 +259,38 @@ function runtimeEntry(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 		try entryHashSeedDraw(vm, f: f, x: x)
 		return
 	end 'rtHashSeedDraw'
+	if symbol == ir.Rt.rtHeapThreadAllocs 'rtHeapThreadAllocs'
+		try entryHeapThreadAllocs(vm, f: f, x: x)
+		return
+	end 'rtHeapThreadAllocs'
+	if symbol == ir.Rt.rtHeapThreadFrees 'rtHeapThreadFrees'
+		try entryHeapThreadFrees(vm, f: f, x: x)
+		return
+	end 'rtHeapThreadFrees'
+	if symbol == ir.Rt.rtHeapThreadBytes 'rtHeapThreadBytes'
+		try entryHeapThreadBytes(vm, f: f, x: x)
+		return
+	end 'rtHeapThreadBytes'
+	if symbol == ir.Rt.rtHeapProcessAllocs 'rtHeapProcessAllocs'
+		try entryHeapProcessAllocs(vm, f: f, x: x)
+		return
+	end 'rtHeapProcessAllocs'
+	if symbol == ir.Rt.rtHeapProcessFrees 'rtHeapProcessFrees'
+		try entryHeapProcessFrees(vm, f: f, x: x)
+		return
+	end 'rtHeapProcessFrees'
+	if symbol == ir.Rt.rtHeapProcessLive 'rtHeapProcessLive'
+		try entryHeapProcessLive(vm, f: f, x: x)
+		return
+	end 'rtHeapProcessLive'
+	if symbol == ir.Rt.rtHeapProcessBytes 'rtHeapProcessBytes'
+		try entryHeapProcessBytes(vm, f: f, x: x)
+		return
+	end 'rtHeapProcessBytes'
+	if symbol == ir.Rt.rtHeapScavenge 'rtHeapScavenge'
+		try entryHeapScavenge(vm, f: f, x: x)
+		return
+	end 'rtHeapScavenge'
 	if symbol == ir.Rt.rtRandomFill 'rtRandomFill'
 		try entryRandomFill(vm, f: f, x: x)
 		return

@@ -333,6 +333,7 @@ timed out
 ```
 
 <!-- test: a-census-bucket-past-the-last-panics-at-the-cast -->
+<!-- skip: language difference: minimaxon's heap is Go's page heap with per-thread size classes, so maxon's slab, census and raw-allocation figures have no counterpart -->
 `HeapBucketIndex` is `int(0 to 2047)`. The last bucket reads, and an index one past it panics where it is made.
 
 ```maxon

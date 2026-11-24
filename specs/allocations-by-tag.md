@@ -91,14 +91,14 @@ end 'Widget'
 typealias Widgets = Array with Widget
 
 function main() returns ExitCode
-	let holder = Widgets.create(0)
+	var holder = Widgets.create(0)
 	holder.reserve(Population)
-	let beforeCounts = CountSnapshot.create(0)
+	var beforeCounts = CountSnapshot.create(0)
 	beforeCounts.reserve(TallyBuckets)
 	for _ in 0 upto TallyBuckets 'sizeTheCountSnapshot'
 		beforeCounts.push(0)
 	end 'sizeTheCountSnapshot'
-	let beforeBytes = ByteSnapshot.create(0)
+	var beforeBytes = ByteSnapshot.create(0)
 	beforeBytes.reserve(TallyBuckets)
 	for _ in 0 upto TallyBuckets 'sizeTheByteSnapshot'
 		beforeBytes.push(0)
@@ -377,12 +377,12 @@ end 'Widget'
 typealias Widgets = Array with Widget
 
 function main() returns ExitCode
-	let holder = Widgets.create(0)
+	var holder = Widgets.create(0)
 	holder.reserve(Population)
 	let totalBefore = HeapStats.allocationsMade()
 	var sumBefore = 0 as HeapCount
 	for i in 0 upto TallyBuckets 'totalTheBucketsBefore'
-		sumBefore = sumBefore + HeapStats.allocationsTagged(i)
+		sumBefore = try sumBefore + HeapStats.allocationsTagged(i) otherwise panic("out of range")
 	end 'totalTheBucketsBefore'
 	if sumBefore != totalBefore 'theBucketsMissedTheTotalBeforeTheBuild'
 		return 1
@@ -393,7 +393,7 @@ function main() returns ExitCode
 	let totalAfter = HeapStats.allocationsMade()
 	var sumAfter = 0 as HeapCount
 	for i in 0 upto TallyBuckets 'totalTheBucketsAfter'
-		sumAfter = sumAfter + HeapStats.allocationsTagged(i)
+		sumAfter = try sumAfter + HeapStats.allocationsTagged(i) otherwise panic("out of range")
 	end 'totalTheBucketsAfter'
 	if sumAfter != totalAfter 'theBucketsMissedTheTotalAfterTheBuild'
 		return 2
@@ -634,7 +634,7 @@ typealias Widgets = Array with Widget
 function main() returns ExitCode
 	var holder = Widgets.create(0)
 	holder.reserve(Population)
-	let beforeCounts = CountSnapshot.create(0)
+	var beforeCounts = CountSnapshot.create(0)
 	beforeCounts.reserve(TallyBuckets)
 	for _ in 0 upto TallyBuckets 'sizeTheSnapshot'
 		beforeCounts.push(0)
@@ -650,8 +650,8 @@ function main() returns ExitCode
 	for i in 0 upto TallyBuckets 'compare'
 		let was = try beforeCounts.get(i) otherwise panic("the snapshot is sized to every bucket")
 		let now = HeapStats.allocationsTagged(i)
-		if (now - was) > biggestRise 'rose'
-			biggestRise = now - was
+		if (try now - was otherwise panic("out of range")) > biggestRise 'rose'
+			biggestRise = try now - was otherwise panic("out of range")
 			biggestIndex = i
 		end 'rose'
 	end 'compare'
@@ -904,7 +904,7 @@ end 'Widget'
 typealias Widgets = Array with Widget
 
 function main() returns ExitCode
-	let holder = Widgets.create(0)
+	var holder = Widgets.create(0)
 	holder.reserve(Population)
 	let totalBefore = HeapStats.allocationsMade()
 	for k in 0 upto Population 'buildWidgets'
@@ -993,16 +993,16 @@ function main() returns ExitCode
 	let threadAfter = HeapStats.thread()
 	let widgetBytes = (Population * sizeof(Widget)) as HeapBytes
 	var score = 0 as ExitCode
-	if bytesAfter - bytesBefore >= widgetBytes 'theProcessCountedTheBytes'
+	if (try bytesAfter - bytesBefore otherwise panic("out of range")) >= widgetBytes 'theProcessCountedTheBytes'
 		score = score + 1
 	end 'theProcessCountedTheBytes'
-	if threadHolding.allocations - threadBefore.allocations >= Population 'theThreadCountedTheAllocations'
+	if (try threadHolding.allocations - threadBefore.allocations otherwise panic("out of range")) >= Population 'theThreadCountedTheAllocations'
 		score = score + 2
 	end 'theThreadCountedTheAllocations'
-	if threadHolding.bytes - threadBefore.bytes >= widgetBytes 'theThreadCountedTheBytes'
+	if (try threadHolding.bytes - threadBefore.bytes otherwise panic("out of range")) >= widgetBytes 'theThreadCountedTheBytes'
 		score = score + 4
 	end 'theThreadCountedTheBytes'
-	if threadAfter.frees - threadHolding.frees >= Population 'theThreadCountedTheFrees'
+	if (try threadAfter.frees - threadHolding.frees otherwise panic("out of range")) >= Population 'theThreadCountedTheFrees'
 		score = score + 8
 	end 'theThreadCountedTheFrees'
 	return score

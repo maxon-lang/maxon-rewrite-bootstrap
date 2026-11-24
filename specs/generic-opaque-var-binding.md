@@ -869,14 +869,14 @@ The arms of the `match` give only a parameter and a field of `self`, so no recor
 type Box uses Item
 	var stored as Item
 
-	static function create(stored Item) returns Self
-		return Self{stored: stored}
+	static function create(stored Item) returns Self where Item implements Copyable
+		return Self{stored: stored.clone()}
 	end 'create'
 
-	function pick(v Item, which Count) returns Item
+	function pick(v Item, which Count) returns Item where Item implements Copyable
 		let chosen = match which 'arm'
-			0 gives v
-			default gives self.stored
+			0 gives v.clone()
+			default gives self.stored.clone()
 		end 'arm'
 		return chosen
 	end 'pick'
@@ -889,10 +889,10 @@ function main() returns ExitCode
 	var total = tallies.pick(0, which: 0)
 	let before = HeapStats.allocationsMade()
 	for round in 0 upto 100 'eachRound'
-		total = total + tallies.pick(round, which: round mod 2)
+		total = try total + tallies.pick(round, which: round mod 2) otherwise panic("out of range")
 	end 'eachRound'
 	let after = HeapStats.allocationsMade()
-	let delta = after - before
+	let delta = try after - before otherwise panic("out of range")
 	print("{total} {delta}\n")
 	return 0
 end 'main'
@@ -912,17 +912,17 @@ One arm gives a borrowed parameter and its sibling an owned `self.fresh()` resul
 type Box uses Item
 	var stored as Item
 
-	static function create(stored Item) returns Self
-		return Self{stored: stored}
+	static function create(stored Item) returns Self where Item implements Copyable
+		return Self{stored: stored.clone()}
 	end 'create'
 
-	function fresh() returns Item
-		return self.stored
+	function fresh() returns Item where Item implements Copyable
+		return self.stored.clone()
 	end 'fresh'
 
-	function pick(v Item, which Count) returns Item
+	function pick(v Item, which Count) returns Item where Item implements Copyable
 		let chosen = match which 'arm'
-			0 gives v
+			0 gives v.clone()
 			default gives self.fresh()
 		end 'arm'
 		return chosen
@@ -936,10 +936,10 @@ function main() returns ExitCode
 	var total = tallies.pick(0, which: 0)
 	let before = HeapStats.allocationsMade()
 	for round in 0 upto 100 'eachRound'
-		total = total + tallies.pick(round, which: round mod 2)
+		total = try total + tallies.pick(round, which: round mod 2) otherwise panic("out of range")
 	end 'eachRound'
 	let after = HeapStats.allocationsMade()
-	let delta = after - before
+	let delta = try after - before otherwise panic("out of range")
 	print("{total} {delta}\n")
 	return 0
 end 'main'
@@ -1027,15 +1027,15 @@ type Slot uses Item
 	var latest as Item
 	var swaps = 0 as Count
 
-	static function create(start Item) returns Self
-		return Self{latest: start}
+	static function create(start Item) returns Self where Item implements Copyable
+		return Self{latest: start.clone()}
 	end 'create'
 
-	function rebind(first Item, second Item) returns Count
-		var held = first
-		held = second
+	function rebind(mutates self, first Item, second Item) returns Count where Item implements Copyable
+		var held = first.clone()
+		held = second.clone()
 		self.latest = held
-		self.swaps = self.swaps + 1
+		self.swaps = try self.swaps + 1 otherwise panic("out of range")
 		return self.swaps
 	end 'rebind'
 end 'Slot'
@@ -1043,7 +1043,7 @@ end 'Slot'
 typealias TallySlot = Slot with Count
 
 function main() returns ExitCode
-	let tallies = TallySlot.create(0)
+	var tallies = TallySlot.create(0)
 	_ = tallies.rebind(1, second: 2)
 	let before = HeapStats.allocationsMade()
 	var swaps = 0 as Count
@@ -1051,7 +1051,7 @@ function main() returns ExitCode
 		swaps = tallies.rebind(round, second: round + 1)
 	end 'eachRound'
 	let after = HeapStats.allocationsMade()
-	let delta = after - before
+	let delta = try after - before otherwise panic("out of range")
 	print("{swaps} {delta}\n")
 	return 0
 end 'main'

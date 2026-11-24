@@ -1,0 +1,49 @@
+// The counters of the heap that maxon's HeapStats reads, as the interpreter has them: its objects stand for the boxes, so
+// an allocation is an object made and a free one freed, on its one thread, and an object has no size in bytes and no page
+// to give back.
+
+function entryHeapThreadAllocs(mutates vm Vm, f ir.IrFunction, x ir.Instr)
+	giveNum(vm, x: x, n: ir.wordOfBits(objectsMade(vm)))
+end 'entryHeapThreadAllocs'
+
+function entryHeapThreadFrees(mutates vm Vm, f ir.IrFunction, x ir.Instr)
+	giveNum(vm, x: x, n: ir.wordOfBits(objectsFreed(vm)))
+end 'entryHeapThreadFrees'
+
+function entryHeapThreadBytes(mutates vm Vm, f ir.IrFunction, x ir.Instr)
+	giveNum(vm, x: x, n: 0)
+end 'entryHeapThreadBytes'
+
+function entryHeapProcessAllocs(mutates vm Vm, f ir.IrFunction, x ir.Instr)
+	giveNum(vm, x: x, n: ir.wordOfBits(objectsMade(vm)))
+end 'entryHeapProcessAllocs'
+
+function entryHeapProcessFrees(mutates vm Vm, f ir.IrFunction, x ir.Instr)
+	giveNum(vm, x: x, n: ir.wordOfBits(objectsFreed(vm)))
+end 'entryHeapProcessFrees'
+
+function entryHeapProcessLive(mutates vm Vm, f ir.IrFunction, x ir.Instr)
+	giveNum(vm, x: x, n: ir.wordOfBits(try objectsMade(vm) - objectsFreed(vm) otherwise panic("interp: more objects freed than made")))
+end 'entryHeapProcessLive'
+
+function entryHeapProcessBytes(mutates vm Vm, f ir.IrFunction, x ir.Instr)
+	giveNum(vm, x: x, n: 0)
+end 'entryHeapProcessBytes'
+
+function entryHeapScavenge(mutates vm Vm, f ir.IrFunction, x ir.Instr)
+	giveNum(vm, x: x, n: 0)
+end 'entryHeapScavenge'
+
+function objectsMade(vm Vm) returns Count
+	return vm.h.oKind.count()
+end 'objectsMade'
+
+function objectsFreed(vm Vm) returns Count
+	var freed = 0 as Count
+	for i in 0 upto vm.h.oFreed.count() 'objects'
+		if vm.h.oFreed[i] 'freed'
+			freed = freed + 1
+		end 'freed'
+	end 'objects'
+	return freed
+end 'objectsFreed'

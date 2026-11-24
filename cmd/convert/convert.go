@@ -90,6 +90,9 @@ func Convert(file, src string, kind inputKind) Result {
 		dropHardwareRegions(lines)
 		rewriteBuiltinExtensions(lines)
 		dropPrimitiveToStrings(lines)
+		if libraryRoot(file) != "" && !isLibraryHelper(file) {
+			dropUnprovidedMembers(lines)
+		}
 		addInterfaceWheres(lines)
 		lendRequirements(lines)
 		dropReplacedMembers(lines)

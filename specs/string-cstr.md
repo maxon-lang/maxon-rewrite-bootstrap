@@ -111,6 +111,7 @@ xxxxxxxxxxxxxxxx len=16
 ```
 
 <!-- test: packed-receiver-pays-once-and-only-once -->
+<!-- skip: language difference: minimaxon's heap is Go's page heap with per-thread size classes, so maxon's slab, census and raw-allocation figures have no counterpart -->
 <!-- tier: stdlib -->
 ⭐ **THE COST, PINNED AS A NUMBER — and the case that says not every receiver pays.** A
 String LITERAL's blob is NUL-terminated in `.rdata` by construction, so it vouches, probes, and costs
@@ -124,7 +125,7 @@ function main() returns ExitCode
 	var p = lit.cstr()
 	let afterLit = __Builtins.mmAllocTotal() + __Builtins.mmRawAllocTotal()
 	var s = ""
-	s = "{s}xxxxxxxx"
+	s.append("xxxxxxxx")
 	let beforeFirst = __Builtins.mmAllocTotal() + __Builtins.mmRawAllocTotal()
 	p = s.cstr()
 	let afterFirst = __Builtins.mmAllocTotal() + __Builtins.mmRawAllocTotal()

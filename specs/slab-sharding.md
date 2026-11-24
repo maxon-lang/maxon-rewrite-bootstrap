@@ -382,6 +382,7 @@ end 'main'
 ```
 
 <!-- test: slab-sharding.the-traffic-counters-are-exact-across-green-threads -->
+<!-- skip: language difference: minimaxon's heap is Go's page heap with per-thread size classes, so maxon's slab, census and raw-allocation figures have no counterpart -->
 **THE COUNTERS, READ THROUGH THE SHARDED ALLOCATOR.** Every traffic column an emitted program keeps is
 stepped inside the slab's doors, and `__mm_alloc`/`__mm_free` carry the tracked doors' hit path inline in a
 build without `--debugstream` and otherwise reach `__slab_alloc_tracked`/`__slab_free_tracked`. A door's hit
@@ -873,14 +874,14 @@ function digitSum(k Tally) returns Tally
 end 'digitSum'
 
 function holds(s String, key Tally, fillByte Tally, padLength Tally) returns bool
-	if (s.byteLength() as Tally) != padLength + FramingBytes 'length'
+	if (s.byteLength() as Tally) != (try padLength + FramingBytes otherwise panic("out of range")) 'length'
 		return false
 	end 'length'
 	var sum = 0 as Tally
 	for b in s.bytes() 'sum'
-		sum = sum + (b as Tally)
+		sum = try sum + (b as Tally) otherwise panic("out of range")
 	end 'sum'
-	return sum == FramingSum + (2 * digitSum(key)) + (fillByte * padLength)
+	return sum == (try FramingSum + (2 * digitSum(key)) + (fillByte * padLength) otherwise panic("out of range"))
 end 'holds'
 
 function makePad(fill String, length Tally) returns String
@@ -906,29 +907,29 @@ type Churn
 		return Self{pad: makePad(fill, length: padLength), padLength: padLength, fillByte: fillByte, population: population, built: 0, absorbed: 0, wrong: 0}
 	end 'create'
 
-	export function round(next Churn.handle) returns Tally
-		let keep = StringArray.create(0)
+	export function round(mutates self, next Churn.handle) returns Tally
+		var keep = StringArray.create(0)
 		var made = 0 as Tally
 		for k in 0 upto self.population 'make'
 			let s = "{k:04}:{self.pad}:{k:04}"
 			if not holds(s, key: k, fillByte: self.fillByte, padLength: self.padLength) 'badBuild'
-				self.wrong = self.wrong + 1
+				self.wrong = try self.wrong + 1 otherwise panic("out of range")
 			end 'badBuild'
-			made = made + (s.byteLength() as Tally)
+			made = try made + (s.byteLength() as Tally) otherwise panic("out of range")
 			if (k mod 2) == 0 'handOver'
 				try next.absorb(s, key: k, senderFill: self.fillByte, senderPad: self.padLength) otherwise panic("churn: the neighbour's mailbox holds a round's hand-overs")
 			end 'handOver' else 'keepIt'
 				keep.push(s)
 			end 'keepIt'
 		end 'make'
-		self.built = self.built + made
+		self.built = try self.built + made otherwise panic("out of range")
 		return made
 	end 'round'
 
-	export function absorb(s String, key Tally, senderFill Tally, senderPad Tally)
-		self.absorbed = self.absorbed + (s.byteLength() as Tally)
+	export function absorb(mutates self, s String, key Tally, senderFill Tally, senderPad Tally)
+		self.absorbed = try self.absorbed + (s.byteLength() as Tally) otherwise panic("out of range")
 		if not holds(s, key: key, fillByte: senderFill, padLength: senderPad) 'badAbsorb'
-			self.wrong = self.wrong + 1
+			self.wrong = try self.wrong + 1 otherwise panic("out of range")
 		end 'badAbsorb'
 	end 'absorb'
 
@@ -952,10 +953,10 @@ type Scavenger
 		return Self{passes: 0}
 	end 'create'
 
-	export function sweep(count Tally) returns Tally
+	export function sweep(mutates self, count Tally) returns Tally
 		for _ in 0 upto count 'passes'
 			_ = HeapStats.scavenge()
-			self.passes = self.passes + 1
+			self.passes = try self.passes + 1 otherwise panic("out of range")
 			Scheduler.yield()
 		end 'passes'
 		return self.passes
@@ -967,7 +968,7 @@ function main() returns ExitCode
 	let fills = StringArray from ["a", "b", "c", "d", "e", "f"]
 	let pads = TallyArray from [3, 185, 1000, 3700, 9900, 30000]
 	let populations = TallyArray from [1600, 800, 360, 120, 48, 16]
-	let handles = ChurnHandleArray.create(0)
+	var handles = ChurnHandleArray.create(0)
 	for i in 0 upto ServiceCount 'spawnEach'
 		let fill = try fills.get(i) otherwise panic("churn: fills.get OOB at {i}")
 		let pad = try pads.get(i) otherwise panic("churn: pads.get OOB at {i}")
@@ -977,7 +978,7 @@ function main() returns ExitCode
 	var roundBytes = 0 as Tally
 	var sweeps = 0 as Tally
 	for _ in 0 upto Rounds 'eachRound'
-		let replies = TallyPromiseArray.create(0)
+		var replies = TallyPromiseArray.create(0)
 		let sweeping = try scavenger.sweep(SweepsPerRound) otherwise panic("churn: the scavenger's mailbox holds a round")
 		for i in 0 upto ServiceCount 'sendEach'
 			let mine = try handles.get(i) otherwise panic("churn: handles.get OOB at {i}")
@@ -985,7 +986,7 @@ function main() returns ExitCode
 			replies.push(try mine.round(next) otherwise panic("churn: a service's mailbox holds a round"))
 		end 'sendEach'
 		for p in replies 'join'
-			roundBytes = roundBytes + (await p)
+			roundBytes = try roundBytes + (await p) otherwise panic("out of range")
 		end 'join'
 		sweeps = await sweeping
 	end 'eachRound'
@@ -998,9 +999,9 @@ function main() returns ExitCode
 		let a = try await h.absorbedBytes() otherwise 0
 		let w = try await h.wrongCount() otherwise 1
 		print("service {i}: built={b} absorbed={a} wrong={w}\n")
-		built = built + b
-		absorbed = absorbed + a
-		wrong = wrong + w
+		built = try built + b otherwise panic("out of range")
+		absorbed = try absorbed + a otherwise panic("out of range")
+		wrong = try wrong + w otherwise panic("out of range")
 	end 'collect'
 	print("total built={built} absorbed={absorbed} wrong={wrong} rounds={roundBytes} sweeps={sweeps}\n")
 	if wrong != 0 'corrupted'

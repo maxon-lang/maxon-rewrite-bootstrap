@@ -5028,6 +5028,13 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   `x.toString()` on one is the unknown-member error (`E3004`), which `minimaxon fix` repairs to `"{x}"`, and `cmd/convert`
   writes maxon's `x.toString()` as `"{x}"`. A type of the program that has a `toString()` giving a String is interpolated
   by calling it, and may still be called. (`FilePath` keeps its `toString` until the next seed.)
+- **HeapStats reads only what the heap counts.** minimaxon's heap is Go's page heap with per-thread size classes
+  (`runtime/heap.maxon`, `runtime/pages.maxon`), so maxon's slab, census and raw-allocation figures have no counterpart:
+  `HeapStats` (module `heap`) gives the allocations made, freed and live and their bytes, for the running thread and the
+  process, each heap counting its own thread's with a plain add and a reading summing the heaps, and `scavenge()`, a release
+  pass of the page heap. The counts by tag are 0, as maxon's are outside a `--debugstream` build. `slab()`, `census(mode)`
+  and the raw allocations are left out (`cmd/convert` leaves out a library member that calls a `__Builtins` static
+  minimaxon does not provide), and the spec tests that read them are skipped with that reason.
 
 - `Slot` (`stdlib/slot`) stores what `fill` and `replace` are given by a copy, as `Array.push` does, so those two take only a
   `Copyable` element (`where T implements Copyable`), where maxon's takes a unique value too and moves it in; `Directory.list`,

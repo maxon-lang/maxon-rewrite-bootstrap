@@ -3544,7 +3544,7 @@ end 'allocated'
 
 function main() returns ExitCode
 	let before = allocated()
-	let kept = ByteArray.create(0)
+	var kept = ByteArray.create(0)
 	kept.push(1)
 	_ = allocated()
 	return 0 if allocated() > before else 1

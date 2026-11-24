@@ -76,3 +76,42 @@ end 'lowerEnumHash'
 function lowerEnumEquals(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	return compare(l, op: CmpOp.cmpEq, a: recv, b: args[0], unsigned: true)
 end 'lowerEnumEquals'
+
+// The counters of the heap that maxon's HeapStats reads (runtime/heap.maxon): each a call of its runtime entry, but the
+// counts by tag, which are 0 with no allocation tags, as maxon's are outside a --debugstream build.
+
+function lowerHeapThreadAllocs(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtHeapThreadAllocs, kind: IrKind.kindScalar, args: RegList.create(0))
+end 'lowerHeapThreadAllocs'
+
+function lowerHeapThreadFrees(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtHeapThreadFrees, kind: IrKind.kindScalar, args: RegList.create(0))
+end 'lowerHeapThreadFrees'
+
+function lowerHeapThreadBytes(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtHeapThreadBytes, kind: IrKind.kindScalar, args: RegList.create(0))
+end 'lowerHeapThreadBytes'
+
+function lowerHeapProcessAllocs(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtHeapProcessAllocs, kind: IrKind.kindScalar, args: RegList.create(0))
+end 'lowerHeapProcessAllocs'
+
+function lowerHeapProcessFrees(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtHeapProcessFrees, kind: IrKind.kindScalar, args: RegList.create(0))
+end 'lowerHeapProcessFrees'
+
+function lowerHeapProcessLive(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtHeapProcessLive, kind: IrKind.kindScalar, args: RegList.create(0))
+end 'lowerHeapProcessLive'
+
+function lowerHeapProcessBytes(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtHeapProcessBytes, kind: IrKind.kindScalar, args: RegList.create(0))
+end 'lowerHeapProcessBytes'
+
+function lowerHeapScavenge(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtHeapScavenge, kind: IrKind.kindScalar, args: RegList.create(0))
+end 'lowerHeapScavenge'
+
+function lowerHeapByTag(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return konst(l, value: 0 as Word)
+end 'lowerHeapByTag'

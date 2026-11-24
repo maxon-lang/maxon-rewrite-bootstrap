@@ -170,7 +170,7 @@ typealias ByteArray = Array with Byte
 
 function main() returns ExitCode
 	let before = __Builtins.mmAllocTotal()
-	let buf = ByteArray.create(0)
+	var buf = ByteArray.create(0)
 	buf.push(1)
 	let after = __Builtins.mmAllocTotal()
 	var score = 0 as Count
@@ -200,7 +200,7 @@ typealias Byte = int(0 to u8.max)
 typealias ByteArray = Array with Byte
 
 function fill()
-	let buf = ByteArray.create(0)
+	var buf = ByteArray.create(0)
 	for _ in 0 upto 64 'push'
 		buf.push(3)
 	end 'push'
@@ -227,6 +227,7 @@ end 'main'
 ```
 
 <!-- test: builtins-mm-counters.bytes-scale-with-the-request -->
+<!-- skip: language difference: minimaxon's heap is Go's page heap with per-thread size classes, so maxon's slab, census and raw-allocation figures have no counterpart -->
 <!-- tier: stdlib -->
 **THE CASE THAT SAYS A BYTE COLUMN IS BYTES AND NOT A COUNT**, and it is written on the SUM of the
 two layers because that is the contract — see *The two LAYERS* above. Filling 1024 elements moves
@@ -274,6 +275,7 @@ end 'main'
 ```
 
 <!-- test: builtins-mm-counters.total-is-never-below-live -->
+<!-- skip: language difference: minimaxon's heap is Go's page heap with per-thread size classes, so maxon's slab, census and raw-allocation figures have no counterpart -->
 <!-- tier: stdlib -->
 The invariant that must hold at every observation point in both layers: an allocation must be
 counted before it can be live. It is what a cumulative counter that had been wired to the free path
@@ -305,6 +307,7 @@ end 'main'
 ```
 
 <!-- test: builtins-mm-counters.the-two-layers-are-disjoint -->
+<!-- skip: language difference: minimaxon's heap is Go's page heap with per-thread size classes, so maxon's slab, census and raw-allocation figures have no counterpart -->
 <!-- tier: stdlib -->
 **THE CASE THAT PROVES THE TWO LAYERS' SUM DOES NOT DOUBLE-COUNT.** the compiler's `__mm_alloc` obtains its
 box through the tracked doors, which credit ONLY the tracked columns, so the raw column does not move: a
@@ -344,6 +347,7 @@ end 'main'
 ```
 
 <!-- test: builtins-mm-counters.a-known-box-pattern-moves-each-column-by-its-exact-figure -->
+<!-- skip: language difference: minimaxon's heap is Go's page heap with per-thread size classes, so maxon's slab, census and raw-allocation figures have no counterpart -->
 <!-- tier: stdlib -->
 **THE EXACT FIGURES FOR A KNOWN ALLOCATION PATTERN, AND THE ONLY CASE HERE THAT PINS A COLUMN TO A NUMBER.**
 One hundred empty arrays are created and dropped inside a window. An empty array is one box, a 48-byte
@@ -418,6 +422,7 @@ end 'main'
 ```
 
 <!-- test: builtins-mm-counters.an-oversize-box-moves-each-column-by-its-exact-figure -->
+<!-- skip: language difference: minimaxon's heap is Go's page heap with per-thread size classes, so maxon's slab, census and raw-allocation figures have no counterpart -->
 <!-- tier: stdlib -->
 **THE SAME EXACT FIGURES FOR A BOX THE SLAB DOES NOT CUT FROM A SPAN.** An empty array's element buffer of
 300000 bytes is past the 32 KiB small-object limit, so it takes the OS-direct road and the oversize doors,
@@ -781,8 +786,8 @@ type Adder
 		return Self{total: 0}
 	end 'create'
 
-	export function add(n Integer)
-		self.total = self.total + n
+	export function add(mutates self, n Integer)
+		self.total = try self.total + n otherwise panic("out of range")
 	end 'add'
 
 	export function read() returns Integer
@@ -810,7 +815,7 @@ function main() returns ExitCode
 	if warm == 0 and one == 0 and many == sumOfQueued 'everyMessageWasHandled'
 		score = score + 1
 	end 'everyMessageWasHandled'
-	if manyAfter - manyBefore == oneAfter - oneBefore 'aMessageMovesNoTrackedAllocation'
+	if (try manyAfter - manyBefore otherwise panic("out of range")) == (try oneAfter - oneBefore otherwise panic("out of range")) 'aMessageMovesNoTrackedAllocation'
 		score = score + 2
 	end 'aMessageMovesNoTrackedAllocation'
 	return score as ExitCode
@@ -867,6 +872,7 @@ end 'main'
 ```
 
 <!-- test: builtins-mm-counters.a-thread-is-billed-only-its-own-allocations -->
+<!-- skip: language difference: minimaxon's heap is Go's page heap with per-thread size classes, so maxon's slab, census and raw-allocation figures have no counterpart -->
 <!-- tier: stdlib -->
 ⭐⭐⭐ **THE CASE THE POOL NEEDS, AND THE ONE THE SIX ABOVE STRUCTURALLY CANNOT BE.** Every column above is
 summed over every row, so each answers for the whole PROCESS — exact while ONE thread allocates and
@@ -954,6 +960,7 @@ end 'main'
 ```
 
 <!-- test: builtins-mm-counters.process-totals-are-the-six-summed-while-one-thread-runs -->
+<!-- skip: language difference: minimaxon's heap is Go's page heap with per-thread size classes, so maxon's slab, census and raw-allocation figures have no counterpart -->
 <!-- tier: stdlib -->
 ⭐⭐ **THE CASE THAT SAYS WHAT EACH PROCESS-WIDE TOTAL IS.** With one thread running, the six per-layer
 figures are exact, so each total must equal the figure they sum to — to the digit. The allocation total is
@@ -1029,14 +1036,14 @@ type Idle
 		return Self{calls: 0}
 	end 'create'
 
-	export function ping(n Integer) returns Integer
-		self.calls = self.calls + 1
-		return n + 1
+	export function ping(mutates self, n Integer) returns Integer
+		self.calls = try self.calls + 1 otherwise panic("out of range")
+		return try n + 1 otherwise panic("out of range")
 	end 'ping'
 end 'Idle'
 
 function fillAndDrop()
-	let buf = Bytes.create(0)
+	var buf = Bytes.create(0)
 	for _ in 0 upto 4096 'push'
 		buf.push(1)
 	end 'push'
@@ -1052,22 +1059,22 @@ function main() returns ExitCode
 	let freesBefore = __Builtins.processFreeTotal()
 	let bytesBefore = __Builtins.processAllocBytes()
 	fillAndDrop()
-	let allocs = __Builtins.processAllocTotal() - allocsBefore
-	let frees = __Builtins.processFreeTotal() - freesBefore
-	let bytes = __Builtins.processAllocBytes() - bytesBefore
-	let threadAllocs = __Builtins.threadAllocTotal() - threadAllocsBefore
-	let threadFrees = __Builtins.threadFreeTotal() - threadFreesBefore
-	let threadBytes = __Builtins.threadAllocBytes() - threadBytesBefore
+	let allocs = try __Builtins.processAllocTotal() - allocsBefore otherwise panic("out of range")
+	let frees = try __Builtins.processFreeTotal() - freesBefore otherwise panic("out of range")
+	let bytes = try __Builtins.processAllocBytes() - bytesBefore otherwise panic("out of range")
+	let threadAllocs = try __Builtins.threadAllocTotal() - threadAllocsBefore otherwise panic("out of range")
+	let threadFrees = try __Builtins.threadFreeTotal() - threadFreesBefore otherwise panic("out of range")
+	let threadBytes = try __Builtins.threadAllocBytes() - threadBytesBefore otherwise panic("out of range")
 	if allocs > 0 and allocs == threadAllocs 'allocsAgree'
-		score = score + 2
+		score = try score + 2 otherwise panic("out of range")
 	end 'allocsAgree'
 	if frees > 0 and frees == threadFrees 'freesAgree'
-		score = score + 4
+		score = try score + 4 otherwise panic("out of range")
 	end 'freesAgree'
 	if bytes > allocs and bytes == threadBytes 'bytesAgree'
-		score = score + 8
+		score = try score + 8 otherwise panic("out of range")
 	end 'bytesAgree'
-	return score as ExitCode
+	return try score as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1099,12 +1106,12 @@ type Churn
 		return Self{rounds: 0}
 	end 'create'
 
-	export function churn(n Integer) returns Integer
+	export function churn(mutates self, n Integer) returns Integer
 		for _ in 0 upto n 'round'
-			let buf = Bytes.create(0)
+			var buf = Bytes.create(0)
 			buf.push(3)
 		end 'round'
-		self.rounds = self.rounds + 1
+		self.rounds = try self.rounds + 1 otherwise panic("out of range")
 		return n
 	end 'churn'
 end 'Churn'
@@ -1133,7 +1140,7 @@ function main() returns ExitCode
 	if backwards == 0 'onlyRose'
 		score = score + 1
 	end 'onlyRose'
-	if rounds == 100000 and __Builtins.processFreeTotal() - freesBefore >= (rounds as Count) 'theServiceWasCounted'
+	if rounds == 100000 and (try __Builtins.processFreeTotal() - freesBefore otherwise panic("out of range")) >= (rounds as Count) 'theServiceWasCounted'
 		score = score + 2
 	end 'theServiceWasCounted'
 	return score as ExitCode
@@ -1183,6 +1190,7 @@ error E3036: <fragment>:3:20: '__Builtins.mmAllocBytes' takes exactly 0 argument
 ```
 
 <!-- test: builtins-mm-counters.raw-alloc-total-arity-checked -->
+<!-- skip: language difference: minimaxon's heap is Go's page heap with per-thread size classes, so maxon's slab, census and raw-allocation figures have no counterpart -->
 <!-- tier: stdlib -->
 The cumulative raw counter, refused the same way and naming itself.
 ```maxon
@@ -1195,6 +1203,7 @@ error E3036: <fragment>:3:20: '__Builtins.mmRawAllocTotal' takes exactly 0 argum
 ```
 
 <!-- test: builtins-mm-counters.raw-alloc-live-arity-checked -->
+<!-- skip: language difference: minimaxon's heap is Go's page heap with per-thread size classes, so maxon's slab, census and raw-allocation figures have no counterpart -->
 <!-- tier: stdlib -->
 The live raw counter, refused the same way and naming itself.
 ```maxon
@@ -1207,6 +1216,7 @@ error E3036: <fragment>:3:20: '__Builtins.mmRawAllocLive' takes exactly 0 argume
 ```
 
 <!-- test: builtins-mm-counters.raw-alloc-bytes-arity-checked -->
+<!-- skip: language difference: minimaxon's heap is Go's page heap with per-thread size classes, so maxon's slab, census and raw-allocation figures have no counterpart -->
 <!-- tier: stdlib -->
 The raw byte volume, refused the same way and naming itself.
 ```maxon

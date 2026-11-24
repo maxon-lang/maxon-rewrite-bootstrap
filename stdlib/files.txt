@@ -26,3 +26,4 @@ Slot.maxon slot
 Clock.maxon clock
 Directory.maxon directory
 Ascii.maxon ascii
+HeapStats.maxon heap

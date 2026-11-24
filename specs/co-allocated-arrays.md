@@ -29,7 +29,7 @@ typealias Word = bits(64)
 typealias Planes = FixedArray with 8 Word
 
 function churn() returns Word
-	let planes = Planes.create()
+	var planes = Planes.create()
 	planes.set(3, value: 40)
 	return planes.get(3)
 end 'churn'
@@ -38,8 +38,8 @@ function main() returns ExitCode
 	let allocsBefore = HeapStats.threadAllocations()
 	let freesBefore = HeapStats.threadFrees()
 	let value = churn()
-	let allocs = HeapStats.threadAllocations() - allocsBefore
-	let frees = HeapStats.threadFrees() - freesBefore
+	let allocs = try HeapStats.threadAllocations() - allocsBefore otherwise panic("out of range")
+	let frees = try HeapStats.threadFrees() - freesBefore otherwise panic("out of range")
 	if value != 40 'value'
 		return 1
 	end 'value'
@@ -65,7 +65,7 @@ typealias Word = bits(64)
 typealias Wide = FixedArray with 64 Word
 
 function churn() returns Word
-	let wide = Wide.create()
+	var wide = Wide.create()
 	wide.set(63, value: 7)
 	return wide.get(63)
 end 'churn'
@@ -74,8 +74,8 @@ function main() returns ExitCode
 	let allocsBefore = HeapStats.threadAllocations()
 	let freesBefore = HeapStats.threadFrees()
 	let value = churn()
-	let allocs = HeapStats.threadAllocations() - allocsBefore
-	let frees = HeapStats.threadFrees() - freesBefore
+	let allocs = try HeapStats.threadAllocations() - allocsBefore otherwise panic("out of range")
+	let frees = try HeapStats.threadFrees() - freesBefore otherwise panic("out of range")
 	if value != 7 'value'
 		return 1
 	end 'value'
@@ -99,18 +99,18 @@ record and its buffer live in one operating-system mapping. Both ends of the lar
 typealias Bytes = FixedArray with Byte
 
 function churn(count Count) returns Byte
-	let bytes = Bytes.create(count)
+	var bytes = Bytes.create(count)
 	let first = try bytes.get(0) otherwise panic("first")
 	let last = try bytes.get(count - 1) otherwise panic("last")
 	try bytes.set(count - 1, value: 9) otherwise panic("set")
-	return first + last + (try bytes.get(count - 1) otherwise panic("read"))
+	return try first + last + (try bytes.get(count - 1) otherwise panic("read")) otherwise panic("out of range")
 end 'churn'
 
 function allocationsOf(count Count) returns (Byte, HeapCount, HeapCount)
 	let allocsBefore = HeapStats.threadAllocations()
 	let freesBefore = HeapStats.threadFrees()
 	let value = churn(count)
-	return (value, HeapStats.threadAllocations() - allocsBefore, HeapStats.threadFrees() - freesBefore)
+	return (value, try HeapStats.threadAllocations() - allocsBefore otherwise panic("out of range"), try HeapStats.threadFrees() - freesBefore otherwise panic("out of range"))
 end 'allocationsOf'
 
 function main() returns ExitCode
@@ -389,7 +389,7 @@ A sub-byte-packed element sizes the buffer in bits, and the single allocation ho
 typealias Flags = FixedArray with 16 bool
 
 function churn() returns bool
-	let flags = Flags.create()
+	var flags = Flags.create()
 	flags.set(3, value: true)
 	flags.set(15, value: true)
 	return flags.get(3) and flags.get(15) and not flags.get(4)
@@ -398,7 +398,7 @@ end 'churn'
 function main() returns ExitCode
 	let allocsBefore = HeapStats.threadAllocations()
 	let ok = churn()
-	let allocs = HeapStats.threadAllocations() - allocsBefore
+	let allocs = try HeapStats.threadAllocations() - allocsBefore otherwise panic("out of range")
 	if not ok 'bits'
 		return 1
 	end 'bits'
@@ -853,7 +853,7 @@ once.
 typealias Names = Array with String
 
 function build() returns Names
-	let names = Names.create(0)
+	var names = Names.create(0)
 	var index = 0 as ElementIndex
 	while index < 6 'each'
 		names.push("name number {index}")
@@ -865,8 +865,8 @@ end 'build'
 function main() returns ExitCode
 	let original = build()
 	let allocsBefore = HeapStats.threadAllocations()
-	let copy = original.clone()
-	let allocs = HeapStats.threadAllocations() - allocsBefore
+	var copy = original.clone()
+	let allocs = try HeapStats.threadAllocations() - allocsBefore otherwise panic("out of range")
 	if allocs != 7 'allocs'
 		return 1
 	end 'allocs'
@@ -998,10 +998,10 @@ end 'pastLimit'
 function main() returns ExitCode
 	var before = HeapStats.threadAllocations()
 	let a = atLimit()
-	let atLimitAllocations = HeapStats.threadAllocations() - before
+	let atLimitAllocations = try HeapStats.threadAllocations() - before otherwise panic("out of range")
 	before = HeapStats.threadAllocations()
 	let b = pastLimit()
-	let pastLimitAllocations = HeapStats.threadAllocations() - before
+	let pastLimitAllocations = try HeapStats.threadAllocations() - before otherwise panic("out of range")
 	if a != 0 or b != 0 'zero'
 		return 1
 	end 'zero'
@@ -1019,6 +1019,7 @@ end 'main'
 ```
 
 <!-- test: the-co-allocation-limit-is-256-bytes-of-bytes -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 The same boundary at a one-byte element: 256 bytes are one allocation and 257 are two.
 ```maxon
@@ -1043,6 +1044,7 @@ end 'main'
 ```
 
 <!-- test: a-capacity-below-the-minimum-is-floored-and-still-one-allocation -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 A buffer asked for fewer elements than the growth policy's minimum of 4 reports the minimum, and a capacity of 0
 is a record with no buffer at all.

@@ -626,6 +626,33 @@ export function intrinsicCall(mutates l Lowerer, p ast.Project, mutates ms ast.M
 	if op == ast.Intrinsic.intrTrailingZeros 'intrTrailingZeros'
 		return lowerTrailingZeros(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrTrailingZeros'
+	if op == ast.Intrinsic.intrHeapProcessAllocs 'intrHeapProcessAllocs'
+		return lowerHeapProcessAllocs(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrHeapProcessAllocs'
+	if op == ast.Intrinsic.intrHeapProcessLive 'intrHeapProcessLive'
+		return lowerHeapProcessLive(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrHeapProcessLive'
+	if op == ast.Intrinsic.intrHeapProcessBytes 'intrHeapProcessBytes'
+		return lowerHeapProcessBytes(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrHeapProcessBytes'
+	if op == ast.Intrinsic.intrHeapByTag 'intrHeapByTag'
+		return lowerHeapByTag(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrHeapByTag'
+	if op == ast.Intrinsic.intrHeapThreadAllocs 'intrHeapThreadAllocs'
+		return lowerHeapThreadAllocs(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrHeapThreadAllocs'
+	if op == ast.Intrinsic.intrHeapThreadFrees 'intrHeapThreadFrees'
+		return lowerHeapThreadFrees(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrHeapThreadFrees'
+	if op == ast.Intrinsic.intrHeapThreadBytes 'intrHeapThreadBytes'
+		return lowerHeapThreadBytes(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrHeapThreadBytes'
+	if op == ast.Intrinsic.intrHeapProcessFrees 'intrHeapProcessFrees'
+		return lowerHeapProcessFrees(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrHeapProcessFrees'
+	if op == ast.Intrinsic.intrHeapScavenge 'intrHeapScavenge'
+		return lowerHeapScavenge(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrHeapScavenge'
 	if op == ast.Intrinsic.intrHashSeed 'intrHashSeed'
 		return lowerHashSeed(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrHashSeed'
@@ -1426,6 +1453,33 @@ export function ownsOperands(op ast.Intrinsic) returns bool
 	if op == ast.Intrinsic.intrTrailingZeros 'intrTrailingZeros'
 		return false
 	end 'intrTrailingZeros'
+	if op == ast.Intrinsic.intrHeapProcessAllocs 'intrHeapProcessAllocs'
+		return false
+	end 'intrHeapProcessAllocs'
+	if op == ast.Intrinsic.intrHeapProcessLive 'intrHeapProcessLive'
+		return false
+	end 'intrHeapProcessLive'
+	if op == ast.Intrinsic.intrHeapProcessBytes 'intrHeapProcessBytes'
+		return false
+	end 'intrHeapProcessBytes'
+	if op == ast.Intrinsic.intrHeapByTag 'intrHeapByTag'
+		return false
+	end 'intrHeapByTag'
+	if op == ast.Intrinsic.intrHeapThreadAllocs 'intrHeapThreadAllocs'
+		return false
+	end 'intrHeapThreadAllocs'
+	if op == ast.Intrinsic.intrHeapThreadFrees 'intrHeapThreadFrees'
+		return false
+	end 'intrHeapThreadFrees'
+	if op == ast.Intrinsic.intrHeapThreadBytes 'intrHeapThreadBytes'
+		return false
+	end 'intrHeapThreadBytes'
+	if op == ast.Intrinsic.intrHeapProcessFrees 'intrHeapProcessFrees'
+		return false
+	end 'intrHeapProcessFrees'
+	if op == ast.Intrinsic.intrHeapScavenge 'intrHeapScavenge'
+		return false
+	end 'intrHeapScavenge'
 	if op == ast.Intrinsic.intrHashSeed 'intrHashSeed'
 		return false
 	end 'intrHashSeed'

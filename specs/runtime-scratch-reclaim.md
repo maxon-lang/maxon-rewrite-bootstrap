@@ -57,6 +57,7 @@ through probes only x64-windows builds; the GT-struct case runs on every lane wi
 ## Tests
 
 <!-- test: runtime-scratch-reclaim.read-probe-scratch-returns -->
+<!-- skip: language difference: minimaxon's heap is Go's page heap with per-thread size classes, so maxon's slab, census and raw-allocation figures have no counterpart -->
 <!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux -->
 **THE ~4.2 KB-PER-CALL DEBT.** `spawnReadLine` builds a pipe name, a `SECURITY_ATTRIBUTES`, a
 two-handle out-param block, a mutable command line, a `STARTUPINFOW`, a `PROCESS_INFORMATION` and a
@@ -97,6 +98,7 @@ end 'main'
 ```
 
 <!-- test: runtime-scratch-reclaim.subprocess-scratch-returns -->
+<!-- skip: language difference: minimaxon's heap is Go's page heap with per-thread size classes, so maxon's slab, census and raw-allocation figures have no counterpart -->
 <!-- tier: stdlib -->
 <!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux -->
 **NO REUSED BUFFERS.** Fixed scratch regions taken at scheduler init and reused by every call
@@ -144,6 +146,7 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: runtime-scratch-reclaim.every-spawn-door-returns-its-scratch -->
+<!-- skip: language difference: minimaxon's heap is Go's page heap with per-thread size classes, so maxon's slab, census and raw-allocation figures have no counterpart -->
 <!-- unsupported-targets: wasm32-wasi -->
 **THE PUBLIC SPAWN DOORS, AND EVERY ROAD OUT OF THEM.** A `Subprocess.run` takes scratch in three
 places the program cannot see: the stdlib's `PATH` walk (its state, the variables it reads and the

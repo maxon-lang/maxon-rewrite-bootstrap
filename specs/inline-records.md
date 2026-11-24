@@ -88,7 +88,7 @@ end 'Pair'
 typealias PairArray = Array with Pair
 
 function main() returns ExitCode
-	let holder = PairArray.create(0)
+	var holder = PairArray.create(0)
 	holder.reserve(100)
 	let before = HeapStats.allocationsLive()
 	for i in 0 upto 100 'build'
@@ -97,12 +97,12 @@ function main() returns ExitCode
 	let after = HeapStats.allocationsLive()
 	var sum = 0 as Half
 	for p in holder 'read'
-		sum = sum + p.lo
+		sum = try sum + p.lo otherwise panic("out of range")
 	end 'read'
 	if sum != 4950 'values'
 		return 1
 	end 'values'
-	return (after - before) as ExitCode
+	return try (after - before) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -203,7 +203,7 @@ end 'Pair'
 typealias PairArray = Array with Pair
 
 function main() returns ExitCode
-	let arr = PairArray.create(0)
+	var arr = PairArray.create(0)
 	arr.reserve(500)
 	let before = HeapStats.allocationsLive()
 	for i in 0 upto 500 'push'
@@ -218,7 +218,7 @@ function main() returns ExitCode
 	end 'alloc'
 	var sum = 0 as Half
 	for p in arr 'read'
-		sum = sum + p.lo
+		sum = try sum + p.lo otherwise panic("out of range")
 	end 'read'
 	if sum != 124750 'values'
 		return 4
@@ -260,21 +260,21 @@ typealias PointArray = Array with Point
 typealias PointMap = Map with (Point, Coord)
 
 function main() returns ExitCode
-	let keys = PointArray.create(0)
+	var keys = PointArray.create(0)
 	keys.reserve(500)
 	let before = HeapStats.allocationsLive()
 	for i in 0 upto 500 'build'
 		keys.push(Point.create(i, y: i + 1))
 	end 'build'
 	let after = HeapStats.allocationsLive()
-	let m = PointMap.create()
+	var m = PointMap.create()
 	for k in keys 'insert'
-		m.upsert(k, value: k.x)
+		m.upsert(k.clone(), value: k.x.clone())
 	end 'insert'
 	var found = 0 as Count
 	for k in keys 'lookup'
 		if m.contains(k) 'hit'
-			found = found + 1
+			found = try found + 1 otherwise panic("out of range")
 		end 'hit'
 	end 'lookup'
 	if found != 500 'missing'
@@ -311,7 +311,7 @@ function main() returns ExitCode
 	if Pair.origin.hi != 2 'hi'
 		return 91
 	end 'hi'
-	return live as ExitCode
+	return try live as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -334,7 +334,7 @@ type Pair
 end 'Pair'
 
 function bumped(p Pair) returns Pair
-	return Pair.create(p.lo + 1, hi: p.hi + 1)
+	return Pair.create(try p.lo + 1 otherwise panic("out of range"), hi: try p.hi + 1 otherwise panic("out of range"))
 end 'bumped'
 
 function main() returns ExitCode
@@ -595,8 +595,8 @@ type Box uses T
 	export let a as T
 	export let b as T
 
-	static function create(a T, b T) returns Self
-		return Self{a: a, b: b}
+	static function create(a T, b T) returns Self where T implements Copyable
+		return Self{a: a.clone(), b: b.clone()}
 	end 'create'
 end 'Box'
 
@@ -605,7 +605,7 @@ typealias HalfBox = Box with Half
 typealias HalfBoxArray = Array with HalfBox
 
 function main() returns ExitCode
-	let holder = HalfBoxArray.create(0)
+	var holder = HalfBoxArray.create(0)
 	holder.reserve(4)
 	let before = HeapStats.allocationsLive()
 	holder.push(HalfBox.create(1, b: 2))
@@ -613,7 +613,7 @@ function main() returns ExitCode
 	if holder.count() != 1 'held'
 		return 1
 	end 'held'
-	if (after - before) != 1 'alloc'
+	if (try after - before otherwise panic("out of range")) != 1 'alloc'
 		return 2
 	end 'alloc'
 	return 0

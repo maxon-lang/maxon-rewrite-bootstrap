@@ -1931,7 +1931,7 @@ type Salted implements Hashable, Equatable
 	end 'create'
 
 	function hash() returns HashValue
-		return ((self.value as Wide * self.multiplier) mod HashSpace) as HashValue
+		return try ((self.value as Wide * self.multiplier) mod HashSpace) as HashValue otherwise panic("out of range")
 	end 'hash'
 
 	function equals(other Salted) returns bool
@@ -1940,7 +1940,7 @@ type Salted implements Hashable, Equatable
 end 'Salted'
 
 function churnAllocations(multiplier Wide) returns HeapCount
-	let table = SaltedMap.create()
+	var table = SaltedMap.create()
 	let before = HeapStats.allocationsMade()
 	for i in 0 upto ChurnLength 'eachStep'
 		let k = i as Key
@@ -1949,11 +1949,11 @@ function churnAllocations(multiplier Wide) returns HeapCount
 			_ = table.remove(Salted.create((k - LiveWindow) as Key, multiplier: multiplier))
 		end 'oneLeavesTheWindow'
 	end 'eachStep'
-	return HeapStats.allocationsMade() - before
+	return try HeapStats.allocationsMade() - before otherwise panic("out of range")
 end 'churnAllocations'
 
 function main() returns ExitCode
-	let tallies = Tallies.create(0)
+	var tallies = Tallies.create(0)
 	for multiplier in Multipliers from [2654435761, 2246822519, 3266489917, 668265263] 'eachLayout'
 		tallies.push(churnAllocations(multiplier))
 	end 'eachLayout'
