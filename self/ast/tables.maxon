@@ -325,13 +325,15 @@ export type NodeTypes
 		return entries[key]
 	end 'at'
 
-	export function get(key Count) returns table.Option with TypeID
+	// expect is the type of a node, for a caller to whom an untyped node is a broken invariant: what names the node, for the
+	// panic.
+	export function expect(key Count, what String) returns TypeID
 		let t = self.at(key)
 		if t == noType 'untyped'
-			return table.Option.none
+			panic("ast: no type was recorded for the {what} at node {key}")
 		end 'untyped'
-		return table.Option.some(t)
-	end 'get'
+		return t
+	end 'expect'
 
 	export function insert(mutates self, key Count, value TypeID)
 		while entries.count() <= key 'grow'
@@ -500,11 +502,8 @@ end 'Waiting'
 export typealias FuncWaitingMap = table.IntMap with Waiting
 
 // expansionOf is the statements that the check made a destructuring or a tuple assignment out of, in the order they run.
-export function expansionOf(tp Typing, node NodeID) returns NodeIDList
-	return match consumes tp.expansions.get(node as Count) 'hit'
-		some(steps) gives steps
-		none panic("ast: the statement at node {node} was checked into no statements")
-	end 'hit'
+export function expansionOf(tp Typing, node NodeID) returns borrowed NodeIDList
+	return tp.expansions.expect(node as Count, what: "expansion of a statement")
 end 'expansionOf'
 
 export type Typing
@@ -590,10 +589,7 @@ end 'setNodeType'
 
 // boxedTo is the interface that the value of node is put in an interface value of, or none.
 export function boxedTo(tp Typing, node NodeID) returns TypeID
-	return match tp.boxes.get(node as Count) 'box'
-		some(iface) gives iface
-		none gives noType
-	end 'box'
+	return tp.boxes.getOr(node as Count, fallback: noType)
 end 'boxedTo'
 
 export function nodeType(tp Typing, node NodeID) returns TypeID

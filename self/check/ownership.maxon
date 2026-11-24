@@ -890,46 +890,28 @@ function ownType(o Ownership, node ast.NodeID) returns ast.TypeID
 	return ast.nodeType(o.c.typing, node: node)
 end 'ownType'
 
-function ownName(o Ownership, node ast.NodeID) returns ast.NameInfo
-	return match consumes o.c.typing.names.get(node as Count) 'hit'
-		some(info) gives info
-		none panic("ownership: the name at node {node} was not recorded by the bodies check")
-	end 'hit'
+function ownName(o Ownership, node ast.NodeID) returns borrowed ast.NameInfo
+	return o.c.typing.names.expect(node as Count, what: "name")
 end 'ownName'
 
-function ownMember(o Ownership, node ast.NodeID) returns ast.MemberInfo
-	return match consumes o.c.typing.members.get(node as Count) 'hit'
-		some(info) gives info
-		none panic("ownership: the member at node {node} was not recorded by the bodies check")
-	end 'hit'
+function ownMember(o Ownership, node ast.NodeID) returns borrowed ast.MemberInfo
+	return o.c.typing.members.expect(node as Count, what: "member")
 end 'ownMember'
 
-function ownCall(o Ownership, node ast.NodeID) returns ast.CallInfo
-	return match consumes o.c.typing.calls.get(node as Count) 'hit'
-		some(info) gives info
-		none panic("ownership: the call at node {node} was not recorded by the bodies check")
-	end 'hit'
+function ownCall(o Ownership, node ast.NodeID) returns borrowed ast.CallInfo
+	return o.c.typing.calls.expect(node as Count, what: "call")
 end 'ownCall'
 
-function ownPattern(o Ownership, node ast.NodeID) returns ast.PatternInfo
-	return match consumes o.c.typing.patterns.get(node as Count) 'hit'
-		some(info) gives info
-		none panic("ownership: the pattern at node {node} was not recorded by the bodies check")
-	end 'hit'
+function ownPattern(o Ownership, node ast.NodeID) returns borrowed ast.PatternInfo
+	return o.c.typing.patterns.expect(node as Count, what: "pattern")
 end 'ownPattern'
 
 function ownLocalOf(o Ownership, node ast.NodeID) returns ast.LocalID
-	return match o.c.typing.nodeLocals.get(node as Count) 'hit'
-		some(id) gives id
-		none panic("ownership: the local of node {node} was not recorded by the bodies check")
-	end 'hit'
+	return o.c.typing.nodeLocals.expect(node as Count, what: "local")
 end 'ownLocalOf'
 
 function ownJump(o Ownership, node ast.NodeID) returns ast.NodeID
-	return match o.c.typing.jumps.get(node as Count) 'hit'
-		some(target) gives target
-		none panic("ownership: the jump at node {node} was not recorded by the bodies check")
-	end 'hit'
+	return o.c.typing.jumps.expect(node as Count, what: "jump target")
 end 'ownJump'
 
 // isBorrowed is whether the local only borrows its value, so the value cannot be moved out of it.

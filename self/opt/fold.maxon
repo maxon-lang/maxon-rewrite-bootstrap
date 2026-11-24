@@ -1051,7 +1051,7 @@ export type Fold
 			for i in 0 upto orderCount 'instrs'
 				let k = order[i]
 				if liveInstr[k] and not dead[k] 'kept'
-					var x = f.instrs[k].clone()
+					var x = table.takeAt(f.instrs, at: k)
 					let fail = ir.failTarget(x)
 					if fail != ir.noBlock 'fails'
 						ir.setFail(x, fail: newID[ir.blockIndex(fail)])

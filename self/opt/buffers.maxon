@@ -59,7 +59,7 @@ export type BufferSplit
 			let data = self.buffer(f, src: src)
 			out.push(ir.newByteAt(dst, data: data, index: index))
 		end 'byte' else 'other'
-			out.push(f.instrs[k].clone())
+			out.push(table.takeAt(f.instrs, at: k))
 		end 'other'
 	end 'splitAt'
 

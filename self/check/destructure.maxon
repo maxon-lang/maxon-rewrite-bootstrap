@@ -114,10 +114,7 @@ function lendsResult(c Checker, tree ast.Tree, e ast.NodeID) returns bool
 	if tree.kindOf(e) != ast.NodeKind.callExpr 'notCall'
 		return false
 	end 'notCall'
-	return match c.typing.calls.get(e as Count) 'hit'
-		some(info) gives info.result == ast.ResultConv.resultBorrowed
-		none gives false
-	end 'hit'
+	return ast.isProjectionCall(c.typing, call: e)
 end 'lendsResult'
 
 // tupleSource types the tuple that the statement s takes apart, and holds it in a local of its own when it is not a place

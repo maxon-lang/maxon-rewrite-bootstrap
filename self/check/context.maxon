@@ -274,11 +274,8 @@ function isMutableLocal(l ast.LocalEntry) returns bool
 end 'isMutableLocal'
 
 // nameInfoOf is what a name expression was typed as naming.
-function nameInfoOf(typing ast.Typing, node ast.NodeID) returns ast.NameInfo
-	match consumes typing.names.get(node as Count) 'info'
-		some(info) then return info
-		none then panic("the name at node {node} was typed without a record of what it is")
-	end 'info'
+function nameInfoOf(typing ast.Typing, node ast.NodeID) returns borrowed ast.NameInfo
+	return typing.names.expect(node as Count, what: "name")
 end 'nameInfoOf'
 
 export function typeIsAnonInt(tt ast.TypeSlot, reads ast.TypeTable, t ast.TypeID) returns bool

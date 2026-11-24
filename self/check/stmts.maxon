@@ -959,11 +959,7 @@ function namesAssignable(c Checker, node ast.NodeID) returns bool
 end 'namesAssignable'
 
 function memberKindOf(c Checker, node ast.NodeID) returns ast.MemberKind
-	match consumes c.typing.members.get(node as Count) 'info'
-		some(m) then return m.kind
-		none then _ = 0
-	end 'info'
-	panic("the member at node {node} was typed without a record of what it is")
+	return c.typing.members.expect(node as Count, what: "member").kind
 end 'memberKindOf'
 
 function checkReturn(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, s ast.NodeID, mutates errs diag.ErrorList)

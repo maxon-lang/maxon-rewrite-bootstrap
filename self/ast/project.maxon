@@ -206,9 +206,9 @@ export type ModuleTables
 			if part(k).paramTypes.isEmpty() 'none'
 				continue 'parts'
 			end 'none'
-			let found = part(k).paramTypes.get(node as Count)
-			if found.isSome() 'hit'
-				return found
+			var slot as Count
+			if part(k).paramTypes.find(node as Count, slot: slot) 'hit'
+				return table.Option.some(part(k).paramTypes.valueAt(slot))
 			end 'hit'
 		end 'parts'
 		return table.Option.none
@@ -243,9 +243,9 @@ export type ModuleTables
 			if part(k).nodeFuncs.isEmpty() 'none'
 				continue 'parts'
 			end 'none'
-			let found = part(k).nodeFuncs.get(node as Count)
-			if found.isSome() 'hit'
-				return found
+			var slot as Count
+			if part(k).nodeFuncs.find(node as Count, slot: slot) 'hit'
+				return table.Option.some(part(k).nodeFuncs.valueAt(slot))
 			end 'hit'
 		end 'parts'
 		return table.Option.none
@@ -279,9 +279,9 @@ export type ModuleTables
 			if part(k).rawTypes.isEmpty() 'none'
 				continue 'parts'
 			end 'none'
-			let found = part(k).rawTypes.get(t as Count)
-			if found.isSome() 'hit'
-				return found.unwrap()
+			var slot as Count
+			if part(k).rawTypes.find(t as Count, slot: slot) 'hit'
+				return part(k).rawTypes.valueAt(slot)
 			end 'hit'
 		end 'parts'
 		return noType
@@ -301,9 +301,9 @@ export type ModuleTables
 			if part(k).localsAt.isEmpty() 'none'
 				continue 'parts'
 			end 'none'
-			let found = part(k).localsAt.get(f as Count)
-			if found.isSome() 'hit'
-				at = found.unwrap()
+			var slot as Count
+			if part(k).localsAt.find(f as Count, slot: slot) 'hit'
+				at = part(k).localsAt.valueAt(slot)
 				return table.Option.some(k)
 			end 'hit'
 		end 'parts'
@@ -834,13 +834,12 @@ export let stdlibQualifier = "stdlib"
 // calls them by (ir.rtSymbol).
 export let runtimeQualifier = "runtime"
 
-// moduleDecl is a copy of a declaration, with everything in it: a caller that needs one fact of it asks the accessor of that
-// fact below, which reads the declaration where it is.
-export function moduleDecl(p Project, ref DeclRef) returns Decl
+// moduleDecl is a declaration, with everything in it, lent where it lies.
+export function moduleDecl(p Project, ref DeclRef) returns borrowed Decl
 	if ref.module == diag.stdlibID 'std'
-		return p.stdlib.decls[ref.ordinal as Count].clone()
+		return p.stdlib.decls[ref.ordinal as Count]
 	end 'std'
-	return p.modules[ref.module as Count].decls[ref.ordinal as Count].clone()
+	return p.modules[ref.module as Count].decls[ref.ordinal as Count]
 end 'moduleDecl'
 
 // declKindOf is what kind of declaration ref is.

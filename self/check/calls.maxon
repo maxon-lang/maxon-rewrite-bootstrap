@@ -11,18 +11,15 @@ end 'checkCall'
 
 // recordCallFailure notes that the function a call runs can fail, for the try that catches it.
 function recordCallFailure(mutates c Checker, p ast.Project, ms ast.ModuleState, call ast.NodeID)
-	match consumes c.typing.calls.get(call as Count) 'info'
-		some(info) then recordFailureOf(c, p: p, ms: ms, info: info)
-		none then _ = 0
-	end 'info'
-end 'recordCallFailure'
-
-function recordFailureOf(mutates c Checker, p ast.Project, ms ast.ModuleState, info ast.CallInfo)
-	let failure = callErrorType(p, ms: ms, info: info)
+	var slot as Count
+	if not c.typing.calls.find(call as Count, slot: slot) 'unrecorded'
+		return
+	end 'unrecorded'
+	let failure = callErrorType(p, ms: ms, info: c.typing.calls.valueAt(slot))
 	if failure != ast.noType 'fails'
 		recordFailure(c, e: failure)
 	end 'fails'
-end 'recordFailureOf'
+end 'recordCallFailure'
 
 // callErrorType is the error that the function a call runs throws, or none.
 function callErrorType(p ast.Project, ms ast.ModuleState, info ast.CallInfo) returns ast.TypeID

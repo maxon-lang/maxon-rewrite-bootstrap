@@ -88,7 +88,7 @@ export type Expander
 	function expandAt(mutates self, mutates f ir.IrFunction, k Count, endAt Count, own Count) returns Count
 		let next = plusOne(k)
 		if not expandable(f.instrs[k]) 'kept'
-			out.push(f.instrs[k].clone())
+			out.push(table.takeAt(f.instrs, at: k))
 			return next
 		end 'kept'
 		let call = f.instrs[k].clone()

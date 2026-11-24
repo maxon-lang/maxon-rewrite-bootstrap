@@ -355,7 +355,7 @@ function visitFromExpr(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleSt
 	end 'collection'
 	let info = callInfoAt(p, module: l.module, node: e)
 	let ordered = info.ordered.clone()
-	let c = CallSite.make(e, info: info, receiver: 0 as ast.NodeID, ordered: ordered)
+	let c = CallSite.make(e, info: info.clone(), receiver: 0 as ast.NodeID, ordered: ordered)
 	return lowerCall(l, p: p, ms: ms, c: c)
 end 'visitFromExpr'
 

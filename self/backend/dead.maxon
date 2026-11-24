@@ -229,7 +229,7 @@ export type DeadCode
 			let first = out.count()
 			for k in fn.blocks[b].first upto fn.blocks[b].endAt 'instrs'
 				if not dead[k] 'live'
-					out.push(fn.instrs[k].clone())
+					out.push(table.takeAt(fn.instrs, at: k))
 					keepSpan(outSpans, fn: fn, k: k)
 				end 'live'
 			end 'instrs'

@@ -185,8 +185,8 @@ type Parser
 		return src.text.sliceBytes(t.start as Count, endPos: t.endOffset()).clone()
 	end 'text'
 
-	function cur() returns Token
-		return toks[pos].clone()
+	function cur() returns borrowed Token
+		return toks[pos]
 	end 'cur'
 
 	function curStart() returns diag.U32
@@ -202,44 +202,45 @@ type Parser
 		return toks[at].clone()
 	end 'at2'
 
-	function peekTok() returns Token
+	function peekTok() returns borrowed Token
 		let last = try toks.count() - 1 otherwise 0 as Count
 		var at = try pos + 1 otherwise last
 		if at > last 'clamp'
 			at = last
 		end 'clamp'
-		return toks[at].clone()
+		return toks[at]
 	end 'peekTok'
 
 	// next consumes the current token, after checking the layout before it.
 	function next(mutates self) returns Token throws SyntaxError
-		let t = self.cur()
-		try self.layout(t)
+		try self.layout()
 		return self.skip()
 	end 'next'
 
-	// layout checks the gap before t, or in a formatting parser writes the gap the rules require there and then t.
-	function layout(mutates self, t Token) throws SyntaxError
+	// layout checks the gap before the current token, or in a formatting parser writes the gap the rules require there and
+	// then the token.
+	function layout(mutates self) throws SyntaxError
 		if formatting 'formats'
-			try self.formatToken(t)
+			try self.formatToken()
 			return
 		end 'formats'
-		try self.checkLayout(t)
+		try self.checkLayout()
 	end 'layout'
 
-	// formatToken writes the gap the layout puts before t, and then t. It is called where a checking parser calls
-	// checkLayout, so the gap comes from the same decisions.
-	function formatToken(mutates self, t Token) throws SyntaxError
-		let start = lexemeStart(t)
-		let gap = self.gapBefore(t.kind)
+	// formatToken writes the gap the layout puts before the current token, and then the token. It is called where a checking
+	// parser calls checkLayout, so the gap comes from the same decisions.
+	function formatToken(mutates self) throws SyntaxError
+		let kind = toks[pos].kind
+		let start = lexemeStart(toks[pos])
+		let gap = self.gapBefore(kind)
 		if gap == Gap.lineStart 'lines'
 			try self.blankLines(start)
 			let depth = format.depth
-			if t.kind == TokenKind.indent 'indent'
+			if kind == TokenKind.indent 'indent'
 				format.depth = after(depth)
-			end 'indent' else if t.kind == TokenKind.dedent 'dedent'
+			end 'indent' else if kind == TokenKind.dedent 'dedent'
 				format.depth = try depth - 1 otherwise panic("the formatter dedents past the margin")
-			end 'dedent' else if t.kind != TokenKind.fileEnd and t.kind != TokenKind.eof 'code'
+			end 'dedent' else if kind != TokenKind.fileEnd and kind != TokenKind.eof 'code'
 				format.indent(format.tabsAt(depth))
 			end 'code'
 		end 'lines' else if gap == Gap.endOfLine 'endOfLine'
@@ -248,11 +249,11 @@ type Parser
 			format.out.push(byteSpace)
 		end 'space'
 		format.tokenStart = format.out.count()
-		if t.kind == TokenKind.newline 'newline'
+		if kind == TokenKind.newline 'newline'
 			format.out.push(byteNewline)
 			return
 		end 'newline'
-		appendRange(format.out, text: src.text, begin: start, until: lexemeEnd(t))
+		appendRange(format.out, text: src.text, begin: start, until: lexemeEnd(toks[pos]))
 	end 'formatToken'
 
 	// depthAfterIndentTokens is the indentation of the code line that starts at the current token, which is the first of
@@ -281,15 +282,21 @@ type Parser
 
 	// skip consumes the current token without checking its layout, as error recovery does.
 	function skip(mutates self) returns Token
-		let t = self.cur()
+		let at = pos
+		self.advance()
+		return toks[at].clone()
+	end 'skip'
+
+	// advance is skip where nothing keeps the token.
+	function advance(mutates self)
+		let at = pos
 		if after(pos) < toks.count() 'more'
 			pos = after(pos)
 		end 'more'
-		prevEnd = lexemeEnd(t)
-		prevKind = t.kind
-		joinNext = inTokenSet(tokenNoSpaceAfter, kind: t.kind)
-		return t
-	end 'skip'
+		prevEnd = lexemeEnd(toks[at])
+		prevKind = toks[at].kind
+		joinNext = inTokenSet(tokenNoSpaceAfter, kind: toks[at].kind)
+	end 'advance'
 
 	function at(k TokenKind) returns bool
 		return toks[pos].kind == k
@@ -462,24 +469,24 @@ type Parser
 		return Gap.oneSpace
 	end 'gapBefore'
 
-	// checkLayout checks the space before t. Within a line the lexer has made every gap one space or none; here the
-	// grammar decides which. At the start of a line the lexer has checked the indentation, and only the blank lines
+	// checkLayout checks the space before the current token. Within a line the lexer has made every gap one space or none;
+	// here the grammar decides which. At the start of a line the lexer has checked the indentation, and only the blank lines
 	// before it are left to check.
-	function checkLayout(mutates self, t Token) throws SyntaxError
-		let start = lexemeStart(t)
-		let gap = self.gapBefore(t.kind)
+	function checkLayout(mutates self) throws SyntaxError
+		let start = lexemeStart(toks[pos])
+		let gap = self.gapBefore(toks[pos].kind)
 		let last = prevEnd
 		if gap == Gap.lineStart 'line'
 			try self.blankLines(start)
 		end 'line' else if gap == Gap.joined 'joined'
 			if start > last 'spaced'
-				let msg = "expected no space before '{self.describe(t)}'"
+				let msg = "expected no space before '{self.describe(toks[pos])}'"
 				throw self.refuse(msg, at: last)
 			end 'spaced'
 		end 'joined' else if gap == Gap.oneSpace 'space'
 			if start == last 'touching'
-				let msg = "expected a space before '{self.describe(t)}'"
-				throw self.refuse(msg, at: t.start as Count)
+				let msg = "expected a space before '{self.describe(toks[pos])}'"
+				throw self.refuse(msg, at: toks[pos].start as Count)
 			end 'touching'
 		end 'space'
 	end 'checkLayout'
@@ -802,7 +809,7 @@ type Parser
 			errors.push(src.errorAt(diag.errUnexpectedToken, message: diag.heapAnnotationWithoutBinding(), file: self.fileNumber(), offset: toks[before(before(pos))].start as Count))
 			return SyntaxError.refused
 		end 'annotation'
-		let t = self.cur()
+		let t = self.cur().clone()
 		let file = self.fileNumber()
 		if what == expressionWanted 'expression'
 			// Where an operand is missing maxon reports E2004, as it does a name that names nothing, '_' among them: a
@@ -832,14 +839,26 @@ type Parser
 	end 'emptyBlock'
 
 	function expect(mutates self, k TokenKind, what String) returns Token throws SyntaxError
+		try self.require(k, what: what)
+		return try self.next()
+	end 'expect'
+
+	// pass is expect where nothing keeps the token.
+	function pass(mutates self, k TokenKind, what String) throws SyntaxError
+		try self.require(k, what: what)
+		try self.layout()
+		self.advance()
+	end 'pass'
+
+	// require refuses a current token that is not of kind k, which what describes.
+	function require(mutates self, k TokenKind, what String) throws SyntaxError
 		if not self.at(k) 'missing'
 			if k == TokenKind.indent and self.at(TokenKind.kw_end) 'emptyBlock'
 				throw self.emptyBlock()
 			end 'emptyBlock'
 			throw self.expected(what)
 		end 'missing'
-		return try self.next()
-	end 'expect'
+	end 'require'
 
 	// textRef is what a record holds for the name or label that a token is.
 	function textRef(t Token) returns diag.U32
@@ -1184,8 +1203,8 @@ end 'refuseAt'
 // parseTest parses a test, which is a function that no program calls: it has a name that is prose, no parameters and no
 // result, and only a file of tests may hold one. Its function is named by the name it compiles to; the prose name is kept.
 function parseTest(mutates p Parser) returns ast.FuncDecl throws SyntaxError
-	let keyword = p.cur()
-	let named = p.peekTok()
+	let keyword = p.cur().clone()
+	let named = p.peekTok().clone()
 	let file = baseName(p.src.files[p.fileNumber()].path)
 	if not p.layoutOnly and not file.endsWith(testFileExtension) 'outside'
 		throw refuseAt(p, code: diag.errTestOutsideTestFile, message: diag.testOutsideTestFile(file, renamed: testFileName(file)), at: keyword.start as Count)
@@ -1212,14 +1231,13 @@ function parseProgram(mutates p Parser) returns ast.DeclList
 		if p.at(TokenKind.fileEnd) 'fileEnd'
 			if not failed 'check'
 				p.blanks = blanksBefore(count)
-				let t = p.cur()
 				try 'layout'
-					p.checkLayout(t)
+					p.checkLayout()
 				end 'layout' otherwise 'refused'
 					failed = true
 				end 'refused'
 			end 'check'
-			_ = p.skip()
+			p.advance()
 			p.fileIndex = after(p.fileIndex)
 			count = 0 as Count
 			failed = false
@@ -1230,7 +1248,7 @@ function parseProgram(mutates p Parser) returns ast.DeclList
 			p.blanks = blanksBefore(count)
 			let d = parseDeclaration(p)
 			pushDecl(decls, t: p.tree, d: d)
-			_ = p.expect(TokenKind.newline, what: "the end of the line")
+			p.pass(TokenKind.newline, what: "the end of the line")
 		end 'decl' otherwise 'refused'
 			abandoned = true
 		end 'refused'
@@ -1239,7 +1257,7 @@ function parseProgram(mutates p Parser) returns ast.DeclList
 			failed = true
 			p.lists.reset()
 			while not p.atEndOfInput() 'rest'
-				_ = p.skip()
+				p.advance()
 			end 'rest'
 		end 'skip'
 	end 'decls'

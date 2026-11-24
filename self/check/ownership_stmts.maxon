@@ -33,7 +33,7 @@ function visitStmtOwn(mutates o Ownership, p ast.Project, mutates ms ast.ModuleS
 		return assignStmtOwn(o, p: p, ms: ms, st: st, s: s)
 	end 'assign'
 	if k == ast.NodeKind.destructStmt or k == ast.NodeKind.tupleAssignStmt 'expansion'
-		let steps = ast.expansionOf(o.c.typing, node: st)
+		let steps = ast.expansionOf(o.c.typing, node: st).clone()
 		var cur = s
 		for i in 0 upto steps.count() 'steps'
 			cur = stmt(o, p: p, ms: ms, st: steps[i], s: cur)
@@ -280,7 +280,7 @@ function assignStmtOwn(mutates o Ownership, p ast.Project, mutates ms ast.Module
 	requireStoredBorrows(o, p: p, ms: ms, target: target, value: value, site: site)
 	let k = ms.tree().kindOf(target)
 	if k == ast.NodeKind.nameExpr 'name'
-		let name = ownName(o, node: target)
+		let name = ownName(o, node: target).clone()
 		let targetName = ast.nameExprName(ms.tree(), id: target).clone()
 		if name.kind == ast.NameKind.nameLocal and o.c.typing.locals[name.local as Count].isView() 'view'
 			return viewAssignOwn(o, p: p, ms: ms, local: name.local, value: value, site: site, s: s)
@@ -977,7 +977,7 @@ function takeApart(mutates o Ownership, p ast.Project, mutates ms ast.ModuleStat
 		if ast.patternForm(ms.tree(), id: pat) != ast.PatternKind.patCase 'literal'
 			continue 'patterns'
 		end 'literal'
-		let info = ownPattern(o, node: pat)
+		let info = ownPattern(o, node: pat).clone()
 		let site = offsetOfOwn(o, p: p, ms: ms, node: pat)
 		for j in 0 upto ast.typeEntry(ms.types, reads: p.types, t: orig).cases[info.caseIdx].payload.count() 'payload'
 			if j < info.bindings.count() and info.bindings[j] != ast.noLocal 'named'

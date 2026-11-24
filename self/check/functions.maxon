@@ -261,7 +261,7 @@ function returnsExitCode(c Checker, p ast.Project, ms ast.ModuleState, f ast.Fun
 		return false
 	end 'none'
 	match consumes ast.nodeDecl(p, ms: ms, node: f.returnsRef as Count) 'bound'
-		some(ref) then return namesExitCode(ast.moduleDecl(p, ref: ref))
+		some(ref) then return namesExitCode(ast.moduleDecl(p, ref: ref).clone())
 		none then return false
 	end 'bound'
 end 'returnsExitCode'

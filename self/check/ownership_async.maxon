@@ -112,7 +112,7 @@ end 'bindLends'
 // coroutine what it borrows. The call fails nowhere: its await does.
 function asyncExprOwn(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, consumes s OwnState) returns OwnState
 	let call = ast.asyncExprCall(ms.tree(), id: e)
-	let info = ownCall(o, node: call)
+	let info = ownCall(o, node: call).clone()
 	let site = offsetOfOwn(o, p: p, ms: ms, node: e)
 	var out = passArguments(o, p: p, ms: ms, site: site, call: info, receiver: 0 as ast.NodeID, fails: false, s: s)
 	for i in 0 upto info.ordered.count() 'args'

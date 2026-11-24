@@ -8,9 +8,9 @@
 // holdsBorrowOf is holdsBorrow with the answers kept for the rest of the module's pass: the pass asks it of the type of
 // every argument a call writes, and the walk of a type's fields reaches every type it holds.
 function holdsBorrowOf(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState, t ast.TypeID) returns bool
-	let known = o.borrowing.get(t as Count)
-	if known.isSome() 'known'
-		return known.unwrap()
+	var slot as Count
+	if o.borrowing.find(t as Count, slot: slot) 'known'
+		return o.borrowing.valueAt(slot)
 	end 'known'
 	let holds = holdsBorrow(p, ms: ms, t: t)
 	o.borrowing.insert(t as Count, value: holds)

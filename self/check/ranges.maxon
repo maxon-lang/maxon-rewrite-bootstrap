@@ -427,11 +427,8 @@ function selfPlace(r Ranges, p ast.Project, ms ast.ModuleState) returns Place
 	return Place.local(slotOf(r, local: ast.receiverLocal(p, ms: ms, f: r.fn)))
 end 'selfPlace'
 
-function memberInfoOf(r Ranges, e ast.NodeID) returns ast.MemberInfo
-	return match consumes r.typing.members.get(e as Count) 'member'
-		some(info) gives info
-		none panic("ranges: the member at node {e} was typed without a record of what it is")
-	end 'member'
+function memberInfoOf(r Ranges, e ast.NodeID) returns borrowed ast.MemberInfo
+	return r.typing.members.expect(e as Count, what: "member")
 end 'memberInfoOf'
 
 function nodeLocalOf(r Ranges, node ast.NodeID) returns table.Option with ast.LocalID
@@ -460,7 +457,7 @@ function rangeStmt(mutates r Ranges, p ast.Project, ms ast.ModuleState, s ast.No
 		return
 	end 'assign'
 	if k == ast.NodeKind.destructStmt or k == ast.NodeKind.tupleAssignStmt 'expansion'
-		let steps = ast.expansionOf(r.typing, node: s)
+		let steps = ast.expansionOf(r.typing, node: s).clone()
 		for i in 0 upto steps.count() 'steps'
 			rangeStmt(r, p: p, ms: ms, s: steps[i])
 		end 'steps'
@@ -825,7 +822,7 @@ function rangeReturnStmt(mutates r Ranges, p ast.Project, ms ast.ModuleState, s 
 	let value = ast.returnStmtValue(ms.tree(), id: s)
 	if value != 0 'value'
 		let v = rangeEval(r, p: p, ms: ms, e: value)
-		if r.typing.arith.get(s as Count).isSome() 'converts'
+		if r.typing.arith.has(s as Count) 'converts'
 			let ret = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: r.fn).retTy
 			_ = rangeConverted(r, p: p, ms: ms, e: s, v: v, src: typeOf(r, e: value), ty: ret, why: Unchecked.returned(ret, value: value))
 		end 'converts'
@@ -834,10 +831,7 @@ function rangeReturnStmt(mutates r Ranges, p ast.Project, ms ast.ModuleState, s 
 end 'rangeReturnStmt'
 
 function rangeBreakStmt(mutates r Ranges, s ast.NodeID)
-	let target = match consumes r.typing.jumps.get(s as Count) 'target'
-		some(node) gives node
-		none panic("ranges: the break at node {s} leaves nothing")
-	end 'target'
+	let target = r.typing.jumps.expect(s as Count, what: "jump target")
 	var i = r.frames.count()
 	while i > 0 'frames'
 		i = try i - 1 otherwise panic("ranges: the frames ran out")

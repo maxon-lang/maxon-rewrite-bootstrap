@@ -97,7 +97,7 @@ rename` rewrites built-in names by what the checker resolved. New code follows t
   every key. Keep the operands 32-bit so a product cannot overflow, as maxon's stdlib does.
 - A fact every node has belongs in an array indexed by the node; keep `IntMap` and `StringMap` for sparse keys.
 - Never copy a record out of a table to read one field: read through the element, or add an accessor that reads in
-  place (`ast.declName`, `ast.declLevel`). `IntMap.get` copies its value, so keep large values out of hot lookups.
+  place (`ast.declName`, `ast.declLevel`). `IntMap.get` copies its value: a reader takes it in place with `find` and `valueAt` (or `expect`, which panics on a miss).
 - Every record value is a heap box in the compiled code, so a copy allocates. Pass by `mutates` or read in place on hot
   paths.
 - The backend writes the common case of array, byte-array and string length, element read and write, and push at the

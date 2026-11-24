@@ -514,9 +514,10 @@ export type Builder
 		var work = BlockIDList.create(0)
 		work.push(0 as BlockID)
 		reached[0] = true
+		var next = SuccessorVisitor.new()
 		while work.count() > 0 'walk'
 			let blk = blockIndex(try work.pop() otherwise panic("ir: the work list is empty"))
-			var next = SuccessorVisitor.new()
+			next.clear()
 			visitTerm(next, f: f, t: terms[blk])
 			let after = try blk + 1 otherwise panic("ir: too many blocks")
 			for at in edgeStart[blk] upto edgeStart[after] 'fails'
@@ -539,9 +540,10 @@ export type Builder
 		var into as Array with Count
 		into = Array.create(n)
 		into[0] = 1
+		var next = SuccessorVisitor.new()
 		for blk in 0 upto n 'blocks'
 			if reached[blk] 'live'
-				var next = SuccessorVisitor.new()
+				next.clear()
 				visitTerm(next, f: f, t: terms[blk])
 				for e in 0 upto next.out.count() 'edges'
 					let target = blockIndex(next.out[e])
@@ -637,7 +639,7 @@ export type Builder
 		end 'order'
 		var placed = InstrList.create(0)
 		for k in 0 upto total 'place'
-			var x = instrs[order[k]].clone()
+			var x = table.takeAt(instrs, at: order[k])
 			let target = failTarget(x)
 			if target != noBlock 'fails'
 				setFail(x, fail: newID[blockIndex(target)])

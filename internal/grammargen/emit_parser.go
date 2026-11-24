@@ -305,7 +305,7 @@ func (g *pgen) once(e *elem, c cont, tg target) {
 		case e.action != "":
 			g.l.line(g.l.action(e.action, g.l.bind(call)))
 		default:
-			g.l.stmt(call)
+			g.l.pass(term, g.m.describeTerminal(term))
 		}
 		if e.joinAfter {
 			g.l.setJoin()
@@ -448,6 +448,12 @@ func (m *model) inSet(n *node, name string) bool {
 	return false
 }
 
+// passToken consumes the literal e where its field records only that it was there.
+func (g *pgen) passToken(e *elem) {
+	term := g.m.terminal(e)
+	g.l.pass(term, g.m.describeTerminal(term))
+}
+
 func (g *pgen) assignToken(tg target, e *elem, call string) {
 	if e.action != "" {
 		tok := g.l.bind(call)
@@ -470,7 +476,7 @@ func (g *pgen) assignToken(tg target, e *elem, call string) {
 			if e.kind != ekLiteral || e.appendTo {
 				g.fail(e.line, "a bool field takes a single literal")
 			}
-			g.l.stmt(call)
+			g.passToken(e)
 			g.l.line(g.setField(tg, f, "true"))
 		case "string":
 			g.storeStructText(tg, f, e.appendTo, g.l.text(g.l.bind(call)))
@@ -485,7 +491,7 @@ func (g *pgen) assignToken(tg target, e *elem, call string) {
 		if e.kind != ekLiteral || e.appendTo {
 			g.fail(e.line, "a bool field takes a single literal")
 		}
-		g.l.stmt(call)
+		g.passToken(e)
 		g.l.line(g.l.setRecordFlag(tg.node, fp))
 	case stEnum:
 		g.l.line(g.setField(tg, f, g.l.bind(g.l.text(g.l.bind(call)))))
@@ -1037,6 +1043,8 @@ type lang interface {
 
 	// Calls that consume tokens or parse a rule.
 	expect(term, desc string) string
+	// pass is the statement that consumes the token term, of which nothing is kept.
+	pass(term, desc string)
 	next() string
 	call(r *rule) string
 	callAfter(r *rule, first string) string

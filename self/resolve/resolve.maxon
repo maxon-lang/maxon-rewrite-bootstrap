@@ -183,18 +183,18 @@ end 'noteDependency'
 // the program declares (libraryLookup). Another module's declarations are always qualified, so resolving a module reads of
 // the others only the names they declare, which every resolve waits for, and the declarations of the modules it names.
 function bareLookup(r Resolver, p ast.Project, name String) returns LookupResult
-	match consumes r.members.get(name) 'member'
-		some(ref) then return LookupResult.hit(ref)
-		none then _ = 0
+	var memberSlot as Count
+	if r.members.find(name, slot: memberSlot) 'member'
+		return LookupResult.hit(r.members.valueAt(memberSlot).clone())
 	end 'member'
 	let ownIdx = ast.modIndex(r.modID)
-	match p.modules[ownIdx].names.get(name) 'own'
-		some(ord) then return LookupResult.hit(ast.DeclRef.make(r.modID, ordinal: ord))
-		none then _ = 0
+	var ownSlot as Count
+	if p.modules[ownIdx].names.find(name, slot: ownSlot) 'own'
+		return LookupResult.hit(ast.DeclRef.make(r.modID, ordinal: p.modules[ownIdx].names.valueAt(ownSlot)))
 	end 'own'
-	match p.stdlib.names.get(name) 'std'
-		some(ord) then return LookupResult.hit(ast.DeclRef.make(diag.stdlibID, ordinal: ord))
-		none then _ = 0
+	var stdSlot as Count
+	if p.stdlib.names.find(name, slot: stdSlot) 'std'
+		return LookupResult.hit(ast.DeclRef.make(diag.stdlibID, ordinal: p.stdlib.names.valueAt(stdSlot)))
 	end 'std'
 	return libraryLookup(r, p: p, name: name)
 end 'bareLookup'
@@ -249,10 +249,11 @@ end 'declaresVisibly'
 
 // libraryModuleLookup is libraryLookup in the one library module module.
 function libraryModuleLookup(r Resolver, p ast.Project, module diag.ModuleID, name String) returns LookupResult
-	match p.modules[ast.modIndex(module)].names.get(name) 'declared'
-		some(ord) then return visibleHit(r, p: p, ref: ast.DeclRef.make(module, ordinal: ord))
-		none then return LookupResult.miss()
-	end 'declared'
+	var slot as Count
+	if not p.modules[ast.modIndex(module)].names.find(name, slot: slot) 'undeclared'
+		return LookupResult.miss()
+	end 'undeclared'
+	return visibleHit(r, p: p, ref: ast.DeclRef.make(module, ordinal: p.modules[ast.modIndex(module)].names.valueAt(slot)))
 end 'libraryModuleLookup'
 
 // visibleHit is the lookup that found ref, when the module sees it, and a miss otherwise.
@@ -487,10 +488,13 @@ function resolveTypeRef(mutates r Resolver, p ast.Project, tr ast.NodeID, mutate
 	let tName = ast.typeRefName(r.tree, id: tr).clone()
 	let off = r.tree.startOf(tr)
 	if qualCount == 0 'unqual'
-		match r.typeParams.get(tName) 'tp'
-			some(slot) then r.res.bindTypeParam(tr, slot: slot)
-			none then resolveUnqualDeclType(r, p: p, tr: tr, tName: tName, off: off, errs: errs)
-		end 'tp'
+		var tp as Count
+		if r.typeParams.find(tName, slot: tp) 'tp'
+			let slot = r.typeParams.valueAt(tp)
+			r.res.bindTypeParam(tr, slot: slot)
+		end 'tp' else 'decl'
+			resolveUnqualDeclType(r, p: p, tr: tr, tName: tName, off: off, errs: errs)
+		end 'decl'
 		return
 	end 'unqual'
 	let firstQual = r.tree.nameAt(r.tree.listAt(qualRef, index: 0 as Count)).clone()

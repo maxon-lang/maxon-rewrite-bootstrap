@@ -890,7 +890,7 @@ function storeIntMapOfArithInfo(mutates w table.CacheWriter, v table.IntMap with
 	for i in 0 upto slots 'entries'
 		if table.mapSlotOccupied(v.stateAt(i)) 'occupied'
 			w.word64(v.keyAt(i) as table.Word64)
-			storeTableOptionOfArithInfo(w, v: v.valueAt(i))
+			storeArithInfo(w, v: v.valueAt(i))
 		end 'occupied'
 	end 'entries'
 	w.word64(v.count() as table.Word64)
@@ -905,15 +905,14 @@ function loadIntMapOfArithInfo(mutates r table.CacheReader) returns table.IntMap
 	end 'states'
 	var keys as Array with Count
 	keys = Array.create(0)
-	var values as Array with (table.Option with ArithInfo)
+	var values as Array with ArithInfo
 	values = Array.create(0)
 	for i in 0 upto slots 'entries'
 		if table.mapSlotOccupied(states[i] as Count) 'occupied'
 			keys.push(r.word64() as Count)
-			values.push(loadTableOptionOfArithInfo(r))
+			values.push(ArithInfo.cacheLoad(r))
 		end 'occupied' else 'free'
 			keys.push(0)
-			values.push(table.Option.none)
 		end 'free'
 	end 'entries'
 	let length = r.word64() as Count
@@ -930,7 +929,7 @@ function storeIntMapOfArmKind(mutates w table.CacheWriter, v table.IntMap with A
 	for i in 0 upto slots 'entries'
 		if table.mapSlotOccupied(v.stateAt(i)) 'occupied'
 			w.word64(v.keyAt(i) as table.Word64)
-			storeTableOptionOfArmKind(w, v: v.valueAt(i))
+			w.word8(v.valueAt(i).ordinal as table.Word64)
 		end 'occupied'
 	end 'entries'
 	w.word64(v.count() as table.Word64)
@@ -945,15 +944,14 @@ function loadIntMapOfArmKind(mutates r table.CacheReader) returns table.IntMap w
 	end 'states'
 	var keys as Array with Count
 	keys = Array.create(0)
-	var values as Array with (table.Option with ArmKind)
+	var values as Array with ArmKind
 	values = Array.create(0)
 	for i in 0 upto slots 'entries'
 		if table.mapSlotOccupied(states[i] as Count) 'occupied'
 			keys.push(r.word64() as Count)
-			values.push(loadTableOptionOfArmKind(r))
+			values.push(ArmKind.allCases[r.word8() as Count])
 		end 'occupied' else 'free'
 			keys.push(0)
-			values.push(table.Option.none)
 		end 'free'
 	end 'entries'
 	let length = r.word64() as Count
@@ -970,7 +968,7 @@ function storeIntMapOfArrayOfLocalID(mutates w table.CacheWriter, v table.IntMap
 	for i in 0 upto slots 'entries'
 		if table.mapSlotOccupied(v.stateAt(i)) 'occupied'
 			w.word64(v.keyAt(i) as table.Word64)
-			storeTableOptionOfArrayOfLocalID(w, v: v.valueAt(i))
+			storeArrayOfLocalID(w, v: v.valueAt(i))
 		end 'occupied'
 	end 'entries'
 	w.word64(v.count() as table.Word64)
@@ -985,15 +983,14 @@ function loadIntMapOfArrayOfLocalID(mutates r table.CacheReader) returns table.I
 	end 'states'
 	var keys as Array with Count
 	keys = Array.create(0)
-	var values as Array with (table.Option with (Array with LocalID))
+	var values as Array with (Array with LocalID)
 	values = Array.create(0)
 	for i in 0 upto slots 'entries'
 		if table.mapSlotOccupied(states[i] as Count) 'occupied'
 			keys.push(r.word64() as Count)
-			values.push(loadTableOptionOfArrayOfLocalID(r))
+			values.push(loadArrayOfLocalID(r))
 		end 'occupied' else 'free'
 			keys.push(0)
-			values.push(table.Option.none)
 		end 'free'
 	end 'entries'
 	let length = r.word64() as Count
@@ -1010,7 +1007,7 @@ function storeIntMapOfArrayOfNodeID(mutates w table.CacheWriter, v table.IntMap 
 	for i in 0 upto slots 'entries'
 		if table.mapSlotOccupied(v.stateAt(i)) 'occupied'
 			w.word64(v.keyAt(i) as table.Word64)
-			storeTableOptionOfArrayOfNodeID(w, v: v.valueAt(i))
+			storeArrayOfNodeID(w, v: v.valueAt(i))
 		end 'occupied'
 	end 'entries'
 	w.word64(v.count() as table.Word64)
@@ -1025,15 +1022,14 @@ function loadIntMapOfArrayOfNodeID(mutates r table.CacheReader) returns table.In
 	end 'states'
 	var keys as Array with Count
 	keys = Array.create(0)
-	var values as Array with (table.Option with (Array with NodeID))
+	var values as Array with (Array with NodeID)
 	values = Array.create(0)
 	for i in 0 upto slots 'entries'
 		if table.mapSlotOccupied(states[i] as Count) 'occupied'
 			keys.push(r.word64() as Count)
-			values.push(loadTableOptionOfArrayOfNodeID(r))
+			values.push(loadArrayOfNodeID(r))
 		end 'occupied' else 'free'
 			keys.push(0)
-			values.push(table.Option.none)
 		end 'free'
 	end 'entries'
 	let length = r.word64() as Count
@@ -1050,7 +1046,7 @@ function storeIntMapOfBool(mutates w table.CacheWriter, v table.IntMap with bool
 	for i in 0 upto slots 'entries'
 		if table.mapSlotOccupied(v.stateAt(i)) 'occupied'
 			w.word64(v.keyAt(i) as table.Word64)
-			table.storeOptionOfBool(w, v: v.valueAt(i))
+			w.flag(v.valueAt(i))
 		end 'occupied'
 	end 'entries'
 	w.word64(v.count() as table.Word64)
@@ -1065,15 +1061,14 @@ function loadIntMapOfBool(mutates r table.CacheReader) returns table.IntMap with
 	end 'states'
 	var keys as Array with Count
 	keys = Array.create(0)
-	var values as Array with (table.Option with bool)
+	var values as Array with bool
 	values = Array.create(0)
 	for i in 0 upto slots 'entries'
 		if table.mapSlotOccupied(states[i] as Count) 'occupied'
 			keys.push(r.word64() as Count)
-			values.push(table.loadOptionOfBool(r))
+			values.push(r.flag())
 		end 'occupied' else 'free'
 			keys.push(0)
-			values.push(table.Option.none)
 		end 'free'
 	end 'entries'
 	let length = r.word64() as Count
@@ -1090,7 +1085,7 @@ function storeIntMapOfCallInfo(mutates w table.CacheWriter, v table.IntMap with 
 	for i in 0 upto slots 'entries'
 		if table.mapSlotOccupied(v.stateAt(i)) 'occupied'
 			w.word64(v.keyAt(i) as table.Word64)
-			storeTableOptionOfCallInfo(w, v: v.valueAt(i))
+			storeCallInfo(w, v: v.valueAt(i))
 		end 'occupied'
 	end 'entries'
 	w.word64(v.count() as table.Word64)
@@ -1105,15 +1100,14 @@ function loadIntMapOfCallInfo(mutates r table.CacheReader) returns table.IntMap 
 	end 'states'
 	var keys as Array with Count
 	keys = Array.create(0)
-	var values as Array with (table.Option with CallInfo)
+	var values as Array with CallInfo
 	values = Array.create(0)
 	for i in 0 upto slots 'entries'
 		if table.mapSlotOccupied(states[i] as Count) 'occupied'
 			keys.push(r.word64() as Count)
-			values.push(loadTableOptionOfCallInfo(r))
+			values.push(CallInfo.cacheLoad(r))
 		end 'occupied' else 'free'
 			keys.push(0)
-			values.push(table.Option.none)
 		end 'free'
 	end 'entries'
 	let length = r.word64() as Count
@@ -1130,7 +1124,7 @@ function storeIntMapOfClosureInfo(mutates w table.CacheWriter, v table.IntMap wi
 	for i in 0 upto slots 'entries'
 		if table.mapSlotOccupied(v.stateAt(i)) 'occupied'
 			w.word64(v.keyAt(i) as table.Word64)
-			storeTableOptionOfClosureInfo(w, v: v.valueAt(i))
+			storeClosureInfo(w, v: v.valueAt(i))
 		end 'occupied'
 	end 'entries'
 	w.word64(v.count() as table.Word64)
@@ -1145,15 +1139,14 @@ function loadIntMapOfClosureInfo(mutates r table.CacheReader) returns table.IntM
 	end 'states'
 	var keys as Array with Count
 	keys = Array.create(0)
-	var values as Array with (table.Option with ClosureInfo)
+	var values as Array with ClosureInfo
 	values = Array.create(0)
 	for i in 0 upto slots 'entries'
 		if table.mapSlotOccupied(states[i] as Count) 'occupied'
 			keys.push(r.word64() as Count)
-			values.push(loadTableOptionOfClosureInfo(r))
+			values.push(ClosureInfo.cacheLoad(r))
 		end 'occupied' else 'free'
 			keys.push(0)
-			values.push(table.Option.none)
 		end 'free'
 	end 'entries'
 	let length = r.word64() as Count
@@ -1170,7 +1163,7 @@ function storeIntMapOfConstValue(mutates w table.CacheWriter, v table.IntMap wit
 	for i in 0 upto slots 'entries'
 		if table.mapSlotOccupied(v.stateAt(i)) 'occupied'
 			w.word64(v.keyAt(i) as table.Word64)
-			storeTableOptionOfConstValue(w, v: v.valueAt(i))
+			storeConstValue(w, v: v.valueAt(i))
 		end 'occupied'
 	end 'entries'
 	w.word64(v.count() as table.Word64)
@@ -1185,15 +1178,14 @@ function loadIntMapOfConstValue(mutates r table.CacheReader) returns table.IntMa
 	end 'states'
 	var keys as Array with Count
 	keys = Array.create(0)
-	var values as Array with (table.Option with ConstValue)
+	var values as Array with ConstValue
 	values = Array.create(0)
 	for i in 0 upto slots 'entries'
 		if table.mapSlotOccupied(states[i] as Count) 'occupied'
 			keys.push(r.word64() as Count)
-			values.push(loadTableOptionOfConstValue(r))
+			values.push(ConstValue.cacheLoad(r))
 		end 'occupied' else 'free'
 			keys.push(0)
-			values.push(table.Option.none)
 		end 'free'
 	end 'entries'
 	let length = r.word64() as Count
@@ -1210,7 +1202,7 @@ function storeIntMapOfCount(mutates w table.CacheWriter, v table.IntMap with Cou
 	for i in 0 upto slots 'entries'
 		if table.mapSlotOccupied(v.stateAt(i)) 'occupied'
 			w.word64(v.keyAt(i) as table.Word64)
-			table.storeOptionOfCount(w, v: v.valueAt(i))
+			w.word64(v.valueAt(i) as table.Word64)
 		end 'occupied'
 	end 'entries'
 	w.word64(v.count() as table.Word64)
@@ -1225,15 +1217,14 @@ function loadIntMapOfCount(mutates r table.CacheReader) returns table.IntMap wit
 	end 'states'
 	var keys as Array with Count
 	keys = Array.create(0)
-	var values as Array with (table.Option with Count)
+	var values as Array with Count
 	values = Array.create(0)
 	for i in 0 upto slots 'entries'
 		if table.mapSlotOccupied(states[i] as Count) 'occupied'
 			keys.push(r.word64() as Count)
-			values.push(table.loadOptionOfCount(r))
+			values.push(r.word64() as Count)
 		end 'occupied' else 'free'
 			keys.push(0)
-			values.push(table.Option.none)
 		end 'free'
 	end 'entries'
 	let length = r.word64() as Count
@@ -1250,7 +1241,7 @@ function storeIntMapOfDeclRef(mutates w table.CacheWriter, v table.IntMap with D
 	for i in 0 upto slots 'entries'
 		if table.mapSlotOccupied(v.stateAt(i)) 'occupied'
 			w.word64(v.keyAt(i) as table.Word64)
-			storeTableOptionOfDeclRef(w, v: v.valueAt(i))
+			storeDeclRef(w, v: v.valueAt(i))
 		end 'occupied'
 	end 'entries'
 	w.word64(v.count() as table.Word64)
@@ -1265,15 +1256,14 @@ function loadIntMapOfDeclRef(mutates r table.CacheReader) returns table.IntMap w
 	end 'states'
 	var keys as Array with Count
 	keys = Array.create(0)
-	var values as Array with (table.Option with DeclRef)
+	var values as Array with DeclRef
 	values = Array.create(0)
 	for i in 0 upto slots 'entries'
 		if table.mapSlotOccupied(states[i] as Count) 'occupied'
 			keys.push(r.word64() as Count)
-			values.push(loadTableOptionOfDeclRef(r))
+			values.push(DeclRef.cacheLoad(r))
 		end 'occupied' else 'free'
 			keys.push(0)
-			values.push(table.Option.none)
 		end 'free'
 	end 'entries'
 	let length = r.word64() as Count
@@ -1290,7 +1280,7 @@ function storeIntMapOfFuncID(mutates w table.CacheWriter, v table.IntMap with Fu
 	for i in 0 upto slots 'entries'
 		if table.mapSlotOccupied(v.stateAt(i)) 'occupied'
 			w.word64(v.keyAt(i) as table.Word64)
-			storeTableOptionOfFuncID(w, v: v.valueAt(i))
+			w.word64(v.valueAt(i) as table.Word64)
 		end 'occupied'
 	end 'entries'
 	w.word64(v.count() as table.Word64)
@@ -1305,15 +1295,14 @@ function loadIntMapOfFuncID(mutates r table.CacheReader) returns table.IntMap wi
 	end 'states'
 	var keys as Array with Count
 	keys = Array.create(0)
-	var values as Array with (table.Option with FuncID)
+	var values as Array with FuncID
 	values = Array.create(0)
 	for i in 0 upto slots 'entries'
 		if table.mapSlotOccupied(states[i] as Count) 'occupied'
 			keys.push(r.word64() as Count)
-			values.push(loadTableOptionOfFuncID(r))
+			values.push(try (r.word64() as FuncID) otherwise panic("cache: a stored FuncID is out of its range"))
 		end 'occupied' else 'free'
 			keys.push(0)
-			values.push(table.Option.none)
 		end 'free'
 	end 'entries'
 	let length = r.word64() as Count
@@ -1330,7 +1319,7 @@ function storeIntMapOfIterationInfo(mutates w table.CacheWriter, v table.IntMap 
 	for i in 0 upto slots 'entries'
 		if table.mapSlotOccupied(v.stateAt(i)) 'occupied'
 			w.word64(v.keyAt(i) as table.Word64)
-			storeTableOptionOfIterationInfo(w, v: v.valueAt(i))
+			storeIterationInfo(w, v: v.valueAt(i))
 		end 'occupied'
 	end 'entries'
 	w.word64(v.count() as table.Word64)
@@ -1345,15 +1334,14 @@ function loadIntMapOfIterationInfo(mutates r table.CacheReader) returns table.In
 	end 'states'
 	var keys as Array with Count
 	keys = Array.create(0)
-	var values as Array with (table.Option with IterationInfo)
+	var values as Array with IterationInfo
 	values = Array.create(0)
 	for i in 0 upto slots 'entries'
 		if table.mapSlotOccupied(states[i] as Count) 'occupied'
 			keys.push(r.word64() as Count)
-			values.push(loadTableOptionOfIterationInfo(r))
+			values.push(IterationInfo.cacheLoad(r))
 		end 'occupied' else 'free'
 			keys.push(0)
-			values.push(table.Option.none)
 		end 'free'
 	end 'entries'
 	let length = r.word64() as Count
@@ -1370,7 +1358,7 @@ function storeIntMapOfLocalID(mutates w table.CacheWriter, v table.IntMap with L
 	for i in 0 upto slots 'entries'
 		if table.mapSlotOccupied(v.stateAt(i)) 'occupied'
 			w.word64(v.keyAt(i) as table.Word64)
-			storeTableOptionOfLocalID(w, v: v.valueAt(i))
+			w.word32(v.valueAt(i) as table.Word64)
 		end 'occupied'
 	end 'entries'
 	w.word64(v.count() as table.Word64)
@@ -1385,15 +1373,14 @@ function loadIntMapOfLocalID(mutates r table.CacheReader) returns table.IntMap w
 	end 'states'
 	var keys as Array with Count
 	keys = Array.create(0)
-	var values as Array with (table.Option with LocalID)
+	var values as Array with LocalID
 	values = Array.create(0)
 	for i in 0 upto slots 'entries'
 		if table.mapSlotOccupied(states[i] as Count) 'occupied'
 			keys.push(r.word64() as Count)
-			values.push(loadTableOptionOfLocalID(r))
+			values.push(try (r.word32() as LocalID) otherwise panic("cache: a stored LocalID is out of its range"))
 		end 'occupied' else 'free'
 			keys.push(0)
-			values.push(table.Option.none)
 		end 'free'
 	end 'entries'
 	let length = r.word64() as Count
@@ -1410,7 +1397,7 @@ function storeIntMapOfMemberInfo(mutates w table.CacheWriter, v table.IntMap wit
 	for i in 0 upto slots 'entries'
 		if table.mapSlotOccupied(v.stateAt(i)) 'occupied'
 			w.word64(v.keyAt(i) as table.Word64)
-			storeTableOptionOfMemberInfo(w, v: v.valueAt(i))
+			storeMemberInfo(w, v: v.valueAt(i))
 		end 'occupied'
 	end 'entries'
 	w.word64(v.count() as table.Word64)
@@ -1425,15 +1412,14 @@ function loadIntMapOfMemberInfo(mutates r table.CacheReader) returns table.IntMa
 	end 'states'
 	var keys as Array with Count
 	keys = Array.create(0)
-	var values as Array with (table.Option with MemberInfo)
+	var values as Array with MemberInfo
 	values = Array.create(0)
 	for i in 0 upto slots 'entries'
 		if table.mapSlotOccupied(states[i] as Count) 'occupied'
 			keys.push(r.word64() as Count)
-			values.push(loadTableOptionOfMemberInfo(r))
+			values.push(MemberInfo.cacheLoad(r))
 		end 'occupied' else 'free'
 			keys.push(0)
-			values.push(table.Option.none)
 		end 'free'
 	end 'entries'
 	let length = r.word64() as Count
@@ -1450,7 +1436,7 @@ function storeIntMapOfNameInfo(mutates w table.CacheWriter, v table.IntMap with 
 	for i in 0 upto slots 'entries'
 		if table.mapSlotOccupied(v.stateAt(i)) 'occupied'
 			w.word64(v.keyAt(i) as table.Word64)
-			storeTableOptionOfNameInfo(w, v: v.valueAt(i))
+			storeNameInfo(w, v: v.valueAt(i))
 		end 'occupied'
 	end 'entries'
 	w.word64(v.count() as table.Word64)
@@ -1465,15 +1451,14 @@ function loadIntMapOfNameInfo(mutates r table.CacheReader) returns table.IntMap 
 	end 'states'
 	var keys as Array with Count
 	keys = Array.create(0)
-	var values as Array with (table.Option with NameInfo)
+	var values as Array with NameInfo
 	values = Array.create(0)
 	for i in 0 upto slots 'entries'
 		if table.mapSlotOccupied(states[i] as Count) 'occupied'
 			keys.push(r.word64() as Count)
-			values.push(loadTableOptionOfNameInfo(r))
+			values.push(NameInfo.cacheLoad(r))
 		end 'occupied' else 'free'
 			keys.push(0)
-			values.push(table.Option.none)
 		end 'free'
 	end 'entries'
 	let length = r.word64() as Count
@@ -1490,7 +1475,7 @@ function storeIntMapOfNodeID(mutates w table.CacheWriter, v table.IntMap with No
 	for i in 0 upto slots 'entries'
 		if table.mapSlotOccupied(v.stateAt(i)) 'occupied'
 			w.word64(v.keyAt(i) as table.Word64)
-			storeTableOptionOfNodeID(w, v: v.valueAt(i))
+			w.word32(v.valueAt(i) as table.Word64)
 		end 'occupied'
 	end 'entries'
 	w.word64(v.count() as table.Word64)
@@ -1505,15 +1490,14 @@ function loadIntMapOfNodeID(mutates r table.CacheReader) returns table.IntMap wi
 	end 'states'
 	var keys as Array with Count
 	keys = Array.create(0)
-	var values as Array with (table.Option with NodeID)
+	var values as Array with NodeID
 	values = Array.create(0)
 	for i in 0 upto slots 'entries'
 		if table.mapSlotOccupied(states[i] as Count) 'occupied'
 			keys.push(r.word64() as Count)
-			values.push(loadTableOptionOfNodeID(r))
+			values.push(try (r.word32() as NodeID) otherwise panic("cache: a stored NodeID is out of its range"))
 		end 'occupied' else 'free'
 			keys.push(0)
-			values.push(table.Option.none)
 		end 'free'
 	end 'entries'
 	let length = r.word64() as Count
@@ -1530,7 +1514,7 @@ function storeIntMapOfPatternInfo(mutates w table.CacheWriter, v table.IntMap wi
 	for i in 0 upto slots 'entries'
 		if table.mapSlotOccupied(v.stateAt(i)) 'occupied'
 			w.word64(v.keyAt(i) as table.Word64)
-			storeTableOptionOfPatternInfo(w, v: v.valueAt(i))
+			storePatternInfo(w, v: v.valueAt(i))
 		end 'occupied'
 	end 'entries'
 	w.word64(v.count() as table.Word64)
@@ -1545,15 +1529,14 @@ function loadIntMapOfPatternInfo(mutates r table.CacheReader) returns table.IntM
 	end 'states'
 	var keys as Array with Count
 	keys = Array.create(0)
-	var values as Array with (table.Option with PatternInfo)
+	var values as Array with PatternInfo
 	values = Array.create(0)
 	for i in 0 upto slots 'entries'
 		if table.mapSlotOccupied(states[i] as Count) 'occupied'
 			keys.push(r.word64() as Count)
-			values.push(loadTableOptionOfPatternInfo(r))
+			values.push(PatternInfo.cacheLoad(r))
 		end 'occupied' else 'free'
 			keys.push(0)
-			values.push(table.Option.none)
 		end 'free'
 	end 'entries'
 	let length = r.word64() as Count
@@ -1570,7 +1553,7 @@ function storeIntMapOfStructLitInfo(mutates w table.CacheWriter, v table.IntMap 
 	for i in 0 upto slots 'entries'
 		if table.mapSlotOccupied(v.stateAt(i)) 'occupied'
 			w.word64(v.keyAt(i) as table.Word64)
-			storeTableOptionOfStructLitInfo(w, v: v.valueAt(i))
+			storeStructLitInfo(w, v: v.valueAt(i))
 		end 'occupied'
 	end 'entries'
 	w.word64(v.count() as table.Word64)
@@ -1585,15 +1568,14 @@ function loadIntMapOfStructLitInfo(mutates r table.CacheReader) returns table.In
 	end 'states'
 	var keys as Array with Count
 	keys = Array.create(0)
-	var values as Array with (table.Option with StructLitInfo)
+	var values as Array with StructLitInfo
 	values = Array.create(0)
 	for i in 0 upto slots 'entries'
 		if table.mapSlotOccupied(states[i] as Count) 'occupied'
 			keys.push(r.word64() as Count)
-			values.push(loadTableOptionOfStructLitInfo(r))
+			values.push(StructLitInfo.cacheLoad(r))
 		end 'occupied' else 'free'
 			keys.push(0)
-			values.push(table.Option.none)
 		end 'free'
 	end 'entries'
 	let length = r.word64() as Count
@@ -1610,7 +1592,7 @@ function storeIntMapOfTypeID(mutates w table.CacheWriter, v table.IntMap with Ty
 	for i in 0 upto slots 'entries'
 		if table.mapSlotOccupied(v.stateAt(i)) 'occupied'
 			w.word64(v.keyAt(i) as table.Word64)
-			storeTableOptionOfTypeID(w, v: v.valueAt(i))
+			w.word64(v.valueAt(i) as table.Word64)
 		end 'occupied'
 	end 'entries'
 	w.word64(v.count() as table.Word64)
@@ -1625,15 +1607,14 @@ function loadIntMapOfTypeID(mutates r table.CacheReader) returns table.IntMap wi
 	end 'states'
 	var keys as Array with Count
 	keys = Array.create(0)
-	var values as Array with (table.Option with TypeID)
+	var values as Array with TypeID
 	values = Array.create(0)
 	for i in 0 upto slots 'entries'
 		if table.mapSlotOccupied(states[i] as Count) 'occupied'
 			keys.push(r.word64() as Count)
-			values.push(loadTableOptionOfTypeID(r))
+			values.push(try (r.word64() as TypeID) otherwise panic("cache: a stored TypeID is out of its range"))
 		end 'occupied' else 'free'
 			keys.push(0)
-			values.push(table.Option.none)
 		end 'free'
 	end 'entries'
 	let length = r.word64() as Count
@@ -1650,7 +1631,7 @@ function storeIntMapOfWaiting(mutates w table.CacheWriter, v table.IntMap with W
 	for i in 0 upto slots 'entries'
 		if table.mapSlotOccupied(v.stateAt(i)) 'occupied'
 			w.word64(v.keyAt(i) as table.Word64)
-			storeTableOptionOfWaiting(w, v: v.valueAt(i))
+			w.word8(v.valueAt(i).ordinal as table.Word64)
 		end 'occupied'
 	end 'entries'
 	w.word64(v.count() as table.Word64)
@@ -1665,15 +1646,14 @@ function loadIntMapOfWaiting(mutates r table.CacheReader) returns table.IntMap w
 	end 'states'
 	var keys as Array with Count
 	keys = Array.create(0)
-	var values as Array with (table.Option with Waiting)
+	var values as Array with Waiting
 	values = Array.create(0)
 	for i in 0 upto slots 'entries'
 		if table.mapSlotOccupied(states[i] as Count) 'occupied'
 			keys.push(r.word64() as Count)
-			values.push(loadTableOptionOfWaiting(r))
+			values.push(Waiting.allCases[r.word8() as Count])
 		end 'occupied' else 'free'
 			keys.push(0)
-			values.push(table.Option.none)
 		end 'free'
 	end 'entries'
 	let length = r.word64() as Count
@@ -1690,7 +1670,7 @@ function storeIntMapOfWhenInfo(mutates w table.CacheWriter, v table.IntMap with 
 	for i in 0 upto slots 'entries'
 		if table.mapSlotOccupied(v.stateAt(i)) 'occupied'
 			w.word64(v.keyAt(i) as table.Word64)
-			storeTableOptionOfWhenInfo(w, v: v.valueAt(i))
+			storeWhenInfo(w, v: v.valueAt(i))
 		end 'occupied'
 	end 'entries'
 	w.word64(v.count() as table.Word64)
@@ -1705,15 +1685,14 @@ function loadIntMapOfWhenInfo(mutates r table.CacheReader) returns table.IntMap 
 	end 'states'
 	var keys as Array with Count
 	keys = Array.create(0)
-	var values as Array with (table.Option with WhenInfo)
+	var values as Array with WhenInfo
 	values = Array.create(0)
 	for i in 0 upto slots 'entries'
 		if table.mapSlotOccupied(states[i] as Count) 'occupied'
 			keys.push(r.word64() as Count)
-			values.push(loadTableOptionOfWhenInfo(r))
+			values.push(WhenInfo.cacheLoad(r))
 		end 'occupied' else 'free'
 			keys.push(0)
-			values.push(table.Option.none)
 		end 'free'
 	end 'entries'
 	let length = r.word64() as Count
@@ -1966,7 +1945,7 @@ function storeStringMapOfFuncID(mutates w table.CacheWriter, v table.StringMap w
 	for i in 0 upto slots 'entries'
 		if table.mapSlotOccupied(v.stateAt(i)) 'occupied'
 			w.text(v.keyAt(i))
-			storeTableOptionOfFuncID(w, v: v.valueAt(i))
+			w.word64(v.valueAt(i) as table.Word64)
 		end 'occupied'
 	end 'entries'
 	w.word64(v.count() as table.Word64)
@@ -1981,15 +1960,14 @@ function loadStringMapOfFuncID(mutates r table.CacheReader) returns table.String
 	end 'states'
 	var keys as Array with String
 	keys = Array.create(0)
-	var values as Array with (table.Option with FuncID)
+	var values as Array with FuncID
 	values = Array.create(0)
 	for i in 0 upto slots 'entries'
 		if table.mapSlotOccupied(states[i] as Count) 'occupied'
 			keys.push(r.text())
-			values.push(loadTableOptionOfFuncID(r))
+			values.push(try (r.word64() as FuncID) otherwise panic("cache: a stored FuncID is out of its range"))
 		end 'occupied' else 'free'
 			keys.push("")
-			values.push(table.Option.none)
 		end 'free'
 	end 'entries'
 	let length = r.word64() as Count
@@ -2009,462 +1987,6 @@ extension StructLitInfo
 		return StructLitInfo{ty: theTy, ordered: theOrdered}
 	end 'cacheLoad'
 end 'StructLitInfo'
-
-function storeTableOptionOfArithInfo(mutates w table.CacheWriter, v table.Option with ArithInfo)
-	match v 'v'
-		some(p0) then storeTableOptionOfArithInfoSome(w, p0: p0)
-		none then w.word8(1 as table.Word64)
-	end 'v'
-end 'storeTableOptionOfArithInfo'
-
-function storeTableOptionOfArithInfoSome(mutates w table.CacheWriter, p0 ArithInfo)
-	w.word8(0 as table.Word64)
-	storeArithInfo(w, v: p0)
-end 'storeTableOptionOfArithInfoSome'
-
-function loadTableOptionOfArithInfo(mutates r table.CacheReader) returns table.Option with ArithInfo
-	let tag = r.word8()
-	if tag == 0 'some'
-		let theValue = ArithInfo.cacheLoad(r)
-		return table.Option.some(theValue)
-	end 'some'
-	if tag == 1 'none'
-		return table.Option.none
-	end 'none'
-	panic("cache: a stored Option has no case {tag}")
-end 'loadTableOptionOfArithInfo'
-
-function storeTableOptionOfArmKind(mutates w table.CacheWriter, v table.Option with ArmKind)
-	match v 'v'
-		some(p0) then storeTableOptionOfArmKindSome(w, p0: p0)
-		none then w.word8(1 as table.Word64)
-	end 'v'
-end 'storeTableOptionOfArmKind'
-
-function storeTableOptionOfArmKindSome(mutates w table.CacheWriter, p0 ArmKind)
-	w.word8(0 as table.Word64)
-	w.word8(p0.ordinal as table.Word64)
-end 'storeTableOptionOfArmKindSome'
-
-function loadTableOptionOfArmKind(mutates r table.CacheReader) returns table.Option with ArmKind
-	let tag = r.word8()
-	if tag == 0 'some'
-		let theValue = ArmKind.allCases[r.word8() as Count]
-		return table.Option.some(theValue)
-	end 'some'
-	if tag == 1 'none'
-		return table.Option.none
-	end 'none'
-	panic("cache: a stored Option has no case {tag}")
-end 'loadTableOptionOfArmKind'
-
-function storeTableOptionOfArrayOfLocalID(mutates w table.CacheWriter, v table.Option with (Array with LocalID))
-	match v 'v'
-		some(p0) then storeTableOptionOfArrayOfLocalIDSome(w, p0: p0)
-		none then w.word8(1 as table.Word64)
-	end 'v'
-end 'storeTableOptionOfArrayOfLocalID'
-
-function storeTableOptionOfArrayOfLocalIDSome(mutates w table.CacheWriter, p0 Array with LocalID)
-	w.word8(0 as table.Word64)
-	storeArrayOfLocalID(w, v: p0)
-end 'storeTableOptionOfArrayOfLocalIDSome'
-
-function loadTableOptionOfArrayOfLocalID(mutates r table.CacheReader) returns table.Option with (Array with LocalID)
-	let tag = r.word8()
-	if tag == 0 'some'
-		let theValue = loadArrayOfLocalID(r)
-		return table.Option.some(theValue)
-	end 'some'
-	if tag == 1 'none'
-		return table.Option.none
-	end 'none'
-	panic("cache: a stored Option has no case {tag}")
-end 'loadTableOptionOfArrayOfLocalID'
-
-function storeTableOptionOfArrayOfNodeID(mutates w table.CacheWriter, v table.Option with (Array with NodeID))
-	match v 'v'
-		some(p0) then storeTableOptionOfArrayOfNodeIDSome(w, p0: p0)
-		none then w.word8(1 as table.Word64)
-	end 'v'
-end 'storeTableOptionOfArrayOfNodeID'
-
-function storeTableOptionOfArrayOfNodeIDSome(mutates w table.CacheWriter, p0 Array with NodeID)
-	w.word8(0 as table.Word64)
-	storeArrayOfNodeID(w, v: p0)
-end 'storeTableOptionOfArrayOfNodeIDSome'
-
-function loadTableOptionOfArrayOfNodeID(mutates r table.CacheReader) returns table.Option with (Array with NodeID)
-	let tag = r.word8()
-	if tag == 0 'some'
-		let theValue = loadArrayOfNodeID(r)
-		return table.Option.some(theValue)
-	end 'some'
-	if tag == 1 'none'
-		return table.Option.none
-	end 'none'
-	panic("cache: a stored Option has no case {tag}")
-end 'loadTableOptionOfArrayOfNodeID'
-
-function storeTableOptionOfCallInfo(mutates w table.CacheWriter, v table.Option with CallInfo)
-	match v 'v'
-		some(p0) then storeTableOptionOfCallInfoSome(w, p0: p0)
-		none then w.word8(1 as table.Word64)
-	end 'v'
-end 'storeTableOptionOfCallInfo'
-
-function storeTableOptionOfCallInfoSome(mutates w table.CacheWriter, p0 CallInfo)
-	w.word8(0 as table.Word64)
-	storeCallInfo(w, v: p0)
-end 'storeTableOptionOfCallInfoSome'
-
-function loadTableOptionOfCallInfo(mutates r table.CacheReader) returns table.Option with CallInfo
-	let tag = r.word8()
-	if tag == 0 'some'
-		let theValue = CallInfo.cacheLoad(r)
-		return table.Option.some(theValue)
-	end 'some'
-	if tag == 1 'none'
-		return table.Option.none
-	end 'none'
-	panic("cache: a stored Option has no case {tag}")
-end 'loadTableOptionOfCallInfo'
-
-function storeTableOptionOfClosureInfo(mutates w table.CacheWriter, v table.Option with ClosureInfo)
-	match v 'v'
-		some(p0) then storeTableOptionOfClosureInfoSome(w, p0: p0)
-		none then w.word8(1 as table.Word64)
-	end 'v'
-end 'storeTableOptionOfClosureInfo'
-
-function storeTableOptionOfClosureInfoSome(mutates w table.CacheWriter, p0 ClosureInfo)
-	w.word8(0 as table.Word64)
-	storeClosureInfo(w, v: p0)
-end 'storeTableOptionOfClosureInfoSome'
-
-function loadTableOptionOfClosureInfo(mutates r table.CacheReader) returns table.Option with ClosureInfo
-	let tag = r.word8()
-	if tag == 0 'some'
-		let theValue = ClosureInfo.cacheLoad(r)
-		return table.Option.some(theValue)
-	end 'some'
-	if tag == 1 'none'
-		return table.Option.none
-	end 'none'
-	panic("cache: a stored Option has no case {tag}")
-end 'loadTableOptionOfClosureInfo'
-
-function storeTableOptionOfConstValue(mutates w table.CacheWriter, v table.Option with ConstValue)
-	match v 'v'
-		some(p0) then storeTableOptionOfConstValueSome(w, p0: p0)
-		none then w.word8(1 as table.Word64)
-	end 'v'
-end 'storeTableOptionOfConstValue'
-
-function storeTableOptionOfConstValueSome(mutates w table.CacheWriter, p0 ConstValue)
-	w.word8(0 as table.Word64)
-	storeConstValue(w, v: p0)
-end 'storeTableOptionOfConstValueSome'
-
-function loadTableOptionOfConstValue(mutates r table.CacheReader) returns table.Option with ConstValue
-	let tag = r.word8()
-	if tag == 0 'some'
-		let theValue = ConstValue.cacheLoad(r)
-		return table.Option.some(theValue)
-	end 'some'
-	if tag == 1 'none'
-		return table.Option.none
-	end 'none'
-	panic("cache: a stored Option has no case {tag}")
-end 'loadTableOptionOfConstValue'
-
-function storeTableOptionOfDeclRef(mutates w table.CacheWriter, v table.Option with DeclRef)
-	match v 'v'
-		some(p0) then storeTableOptionOfDeclRefSome(w, p0: p0)
-		none then w.word8(1 as table.Word64)
-	end 'v'
-end 'storeTableOptionOfDeclRef'
-
-function storeTableOptionOfDeclRefSome(mutates w table.CacheWriter, p0 DeclRef)
-	w.word8(0 as table.Word64)
-	storeDeclRef(w, v: p0)
-end 'storeTableOptionOfDeclRefSome'
-
-function loadTableOptionOfDeclRef(mutates r table.CacheReader) returns table.Option with DeclRef
-	let tag = r.word8()
-	if tag == 0 'some'
-		let theValue = DeclRef.cacheLoad(r)
-		return table.Option.some(theValue)
-	end 'some'
-	if tag == 1 'none'
-		return table.Option.none
-	end 'none'
-	panic("cache: a stored Option has no case {tag}")
-end 'loadTableOptionOfDeclRef'
-
-function storeTableOptionOfFuncID(mutates w table.CacheWriter, v table.Option with FuncID)
-	match v 'v'
-		some(p0) then storeTableOptionOfFuncIDSome(w, p0: p0)
-		none then w.word8(1 as table.Word64)
-	end 'v'
-end 'storeTableOptionOfFuncID'
-
-function storeTableOptionOfFuncIDSome(mutates w table.CacheWriter, p0 FuncID)
-	w.word8(0 as table.Word64)
-	w.word64(p0 as table.Word64)
-end 'storeTableOptionOfFuncIDSome'
-
-function loadTableOptionOfFuncID(mutates r table.CacheReader) returns table.Option with FuncID
-	let tag = r.word8()
-	if tag == 0 'some'
-		let theValue = try (r.word64() as FuncID) otherwise panic("cache: a stored FuncID is out of its range")
-		return table.Option.some(theValue)
-	end 'some'
-	if tag == 1 'none'
-		return table.Option.none
-	end 'none'
-	panic("cache: a stored Option has no case {tag}")
-end 'loadTableOptionOfFuncID'
-
-function storeTableOptionOfIterationInfo(mutates w table.CacheWriter, v table.Option with IterationInfo)
-	match v 'v'
-		some(p0) then storeTableOptionOfIterationInfoSome(w, p0: p0)
-		none then w.word8(1 as table.Word64)
-	end 'v'
-end 'storeTableOptionOfIterationInfo'
-
-function storeTableOptionOfIterationInfoSome(mutates w table.CacheWriter, p0 IterationInfo)
-	w.word8(0 as table.Word64)
-	storeIterationInfo(w, v: p0)
-end 'storeTableOptionOfIterationInfoSome'
-
-function loadTableOptionOfIterationInfo(mutates r table.CacheReader) returns table.Option with IterationInfo
-	let tag = r.word8()
-	if tag == 0 'some'
-		let theValue = IterationInfo.cacheLoad(r)
-		return table.Option.some(theValue)
-	end 'some'
-	if tag == 1 'none'
-		return table.Option.none
-	end 'none'
-	panic("cache: a stored Option has no case {tag}")
-end 'loadTableOptionOfIterationInfo'
-
-function storeTableOptionOfLocalID(mutates w table.CacheWriter, v table.Option with LocalID)
-	match v 'v'
-		some(p0) then storeTableOptionOfLocalIDSome(w, p0: p0)
-		none then w.word8(1 as table.Word64)
-	end 'v'
-end 'storeTableOptionOfLocalID'
-
-function storeTableOptionOfLocalIDSome(mutates w table.CacheWriter, p0 LocalID)
-	w.word8(0 as table.Word64)
-	w.word32(p0 as table.Word64)
-end 'storeTableOptionOfLocalIDSome'
-
-function loadTableOptionOfLocalID(mutates r table.CacheReader) returns table.Option with LocalID
-	let tag = r.word8()
-	if tag == 0 'some'
-		let theValue = try (r.word32() as LocalID) otherwise panic("cache: a stored LocalID is out of its range")
-		return table.Option.some(theValue)
-	end 'some'
-	if tag == 1 'none'
-		return table.Option.none
-	end 'none'
-	panic("cache: a stored Option has no case {tag}")
-end 'loadTableOptionOfLocalID'
-
-function storeTableOptionOfMemberInfo(mutates w table.CacheWriter, v table.Option with MemberInfo)
-	match v 'v'
-		some(p0) then storeTableOptionOfMemberInfoSome(w, p0: p0)
-		none then w.word8(1 as table.Word64)
-	end 'v'
-end 'storeTableOptionOfMemberInfo'
-
-function storeTableOptionOfMemberInfoSome(mutates w table.CacheWriter, p0 MemberInfo)
-	w.word8(0 as table.Word64)
-	storeMemberInfo(w, v: p0)
-end 'storeTableOptionOfMemberInfoSome'
-
-function loadTableOptionOfMemberInfo(mutates r table.CacheReader) returns table.Option with MemberInfo
-	let tag = r.word8()
-	if tag == 0 'some'
-		let theValue = MemberInfo.cacheLoad(r)
-		return table.Option.some(theValue)
-	end 'some'
-	if tag == 1 'none'
-		return table.Option.none
-	end 'none'
-	panic("cache: a stored Option has no case {tag}")
-end 'loadTableOptionOfMemberInfo'
-
-function storeTableOptionOfNameInfo(mutates w table.CacheWriter, v table.Option with NameInfo)
-	match v 'v'
-		some(p0) then storeTableOptionOfNameInfoSome(w, p0: p0)
-		none then w.word8(1 as table.Word64)
-	end 'v'
-end 'storeTableOptionOfNameInfo'
-
-function storeTableOptionOfNameInfoSome(mutates w table.CacheWriter, p0 NameInfo)
-	w.word8(0 as table.Word64)
-	storeNameInfo(w, v: p0)
-end 'storeTableOptionOfNameInfoSome'
-
-function loadTableOptionOfNameInfo(mutates r table.CacheReader) returns table.Option with NameInfo
-	let tag = r.word8()
-	if tag == 0 'some'
-		let theValue = NameInfo.cacheLoad(r)
-		return table.Option.some(theValue)
-	end 'some'
-	if tag == 1 'none'
-		return table.Option.none
-	end 'none'
-	panic("cache: a stored Option has no case {tag}")
-end 'loadTableOptionOfNameInfo'
-
-function storeTableOptionOfNodeID(mutates w table.CacheWriter, v table.Option with NodeID)
-	match v 'v'
-		some(p0) then storeTableOptionOfNodeIDSome(w, p0: p0)
-		none then w.word8(1 as table.Word64)
-	end 'v'
-end 'storeTableOptionOfNodeID'
-
-function storeTableOptionOfNodeIDSome(mutates w table.CacheWriter, p0 NodeID)
-	w.word8(0 as table.Word64)
-	w.word32(p0 as table.Word64)
-end 'storeTableOptionOfNodeIDSome'
-
-function loadTableOptionOfNodeID(mutates r table.CacheReader) returns table.Option with NodeID
-	let tag = r.word8()
-	if tag == 0 'some'
-		let theValue = try (r.word32() as NodeID) otherwise panic("cache: a stored NodeID is out of its range")
-		return table.Option.some(theValue)
-	end 'some'
-	if tag == 1 'none'
-		return table.Option.none
-	end 'none'
-	panic("cache: a stored Option has no case {tag}")
-end 'loadTableOptionOfNodeID'
-
-function storeTableOptionOfPatternInfo(mutates w table.CacheWriter, v table.Option with PatternInfo)
-	match v 'v'
-		some(p0) then storeTableOptionOfPatternInfoSome(w, p0: p0)
-		none then w.word8(1 as table.Word64)
-	end 'v'
-end 'storeTableOptionOfPatternInfo'
-
-function storeTableOptionOfPatternInfoSome(mutates w table.CacheWriter, p0 PatternInfo)
-	w.word8(0 as table.Word64)
-	storePatternInfo(w, v: p0)
-end 'storeTableOptionOfPatternInfoSome'
-
-function loadTableOptionOfPatternInfo(mutates r table.CacheReader) returns table.Option with PatternInfo
-	let tag = r.word8()
-	if tag == 0 'some'
-		let theValue = PatternInfo.cacheLoad(r)
-		return table.Option.some(theValue)
-	end 'some'
-	if tag == 1 'none'
-		return table.Option.none
-	end 'none'
-	panic("cache: a stored Option has no case {tag}")
-end 'loadTableOptionOfPatternInfo'
-
-function storeTableOptionOfStructLitInfo(mutates w table.CacheWriter, v table.Option with StructLitInfo)
-	match v 'v'
-		some(p0) then storeTableOptionOfStructLitInfoSome(w, p0: p0)
-		none then w.word8(1 as table.Word64)
-	end 'v'
-end 'storeTableOptionOfStructLitInfo'
-
-function storeTableOptionOfStructLitInfoSome(mutates w table.CacheWriter, p0 StructLitInfo)
-	w.word8(0 as table.Word64)
-	storeStructLitInfo(w, v: p0)
-end 'storeTableOptionOfStructLitInfoSome'
-
-function loadTableOptionOfStructLitInfo(mutates r table.CacheReader) returns table.Option with StructLitInfo
-	let tag = r.word8()
-	if tag == 0 'some'
-		let theValue = StructLitInfo.cacheLoad(r)
-		return table.Option.some(theValue)
-	end 'some'
-	if tag == 1 'none'
-		return table.Option.none
-	end 'none'
-	panic("cache: a stored Option has no case {tag}")
-end 'loadTableOptionOfStructLitInfo'
-
-function storeTableOptionOfTypeID(mutates w table.CacheWriter, v table.Option with TypeID)
-	match v 'v'
-		some(p0) then storeTableOptionOfTypeIDSome(w, p0: p0)
-		none then w.word8(1 as table.Word64)
-	end 'v'
-end 'storeTableOptionOfTypeID'
-
-function storeTableOptionOfTypeIDSome(mutates w table.CacheWriter, p0 TypeID)
-	w.word8(0 as table.Word64)
-	w.word64(p0 as table.Word64)
-end 'storeTableOptionOfTypeIDSome'
-
-function loadTableOptionOfTypeID(mutates r table.CacheReader) returns table.Option with TypeID
-	let tag = r.word8()
-	if tag == 0 'some'
-		let theValue = try (r.word64() as TypeID) otherwise panic("cache: a stored TypeID is out of its range")
-		return table.Option.some(theValue)
-	end 'some'
-	if tag == 1 'none'
-		return table.Option.none
-	end 'none'
-	panic("cache: a stored Option has no case {tag}")
-end 'loadTableOptionOfTypeID'
-
-function storeTableOptionOfWaiting(mutates w table.CacheWriter, v table.Option with Waiting)
-	match v 'v'
-		some(p0) then storeTableOptionOfWaitingSome(w, p0: p0)
-		none then w.word8(1 as table.Word64)
-	end 'v'
-end 'storeTableOptionOfWaiting'
-
-function storeTableOptionOfWaitingSome(mutates w table.CacheWriter, p0 Waiting)
-	w.word8(0 as table.Word64)
-	w.word8(p0.ordinal as table.Word64)
-end 'storeTableOptionOfWaitingSome'
-
-function loadTableOptionOfWaiting(mutates r table.CacheReader) returns table.Option with Waiting
-	let tag = r.word8()
-	if tag == 0 'some'
-		let theValue = Waiting.allCases[r.word8() as Count]
-		return table.Option.some(theValue)
-	end 'some'
-	if tag == 1 'none'
-		return table.Option.none
-	end 'none'
-	panic("cache: a stored Option has no case {tag}")
-end 'loadTableOptionOfWaiting'
-
-function storeTableOptionOfWhenInfo(mutates w table.CacheWriter, v table.Option with WhenInfo)
-	match v 'v'
-		some(p0) then storeTableOptionOfWhenInfoSome(w, p0: p0)
-		none then w.word8(1 as table.Word64)
-	end 'v'
-end 'storeTableOptionOfWhenInfo'
-
-function storeTableOptionOfWhenInfoSome(mutates w table.CacheWriter, p0 WhenInfo)
-	w.word8(0 as table.Word64)
-	storeWhenInfo(w, v: p0)
-end 'storeTableOptionOfWhenInfoSome'
-
-function loadTableOptionOfWhenInfo(mutates r table.CacheReader) returns table.Option with WhenInfo
-	let tag = r.word8()
-	if tag == 0 'some'
-		let theValue = WhenInfo.cacheLoad(r)
-		return table.Option.some(theValue)
-	end 'some'
-	if tag == 1 'none'
-		return table.Option.none
-	end 'none'
-	panic("cache: a stored Option has no case {tag}")
-end 'loadTableOptionOfWhenInfo'
 
 function storeTablesPart(mutates w table.CacheWriter, v TablesPart)
 	storeArrayOfTypeID(w, v: v.declTypes)

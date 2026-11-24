@@ -157,7 +157,7 @@ function rewriteMemoryParams(mutates fn MirFunction, over BoolList, memory BoolL
 				end 'stores'
 			end 'edge'
 			padSpans(spans, fn: fn, count: out.count())
-			out.push(fn.instrs[k].clone())
+			out.push(table.takeAt(fn.instrs, at: k))
 			keepSpan(spans, fn: fn, k: k)
 		end 'instrs'
 		fn.blocks[b].first = first

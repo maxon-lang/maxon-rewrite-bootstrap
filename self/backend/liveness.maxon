@@ -457,7 +457,7 @@ function writeLayout(mutates fn MirFunction)
 		placed[b] = true
 		let first = out.count()
 		for k in fn.blocks[b].first upto fn.blocks[b].endAt 'instrs'
-			out.push(fn.instrs[k].clone())
+			out.push(table.takeAt(fn.instrs, at: k))
 			keepSpan(spans, fn: fn, k: k)
 		end 'instrs'
 		fn.blocks[b].first = first

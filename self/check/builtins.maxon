@@ -93,12 +93,7 @@ end 'isPlainStringLiteral'
 
 // callElement is the element type of the array that the call at node is a call on.
 function callElement(c Checker, call ast.NodeID) returns ast.TypeID
-	var elem = ast.noType
-	match consumes c.typing.calls.get(call as Count) 'info'
-		some(info) then elem = info.typeArgs[0]
-		none then panic("the call at node {call} is checked for its arguments without a record of what it is")
-	end 'info'
-	return elem
+	return c.typing.calls.expect(call as Count, what: "call").typeArgs[0]
 end 'callElement'
 
 // checkArrayResizeArgs refuses Array.resize(n) of an element that has no zero value: growing would publish slots that hold no

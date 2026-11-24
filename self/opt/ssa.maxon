@@ -627,7 +627,7 @@ export type Ssa
 			end 'entry'
 			for k in f.blocks[b].first upto f.blocks[b].endAt 'instrs'
 				if keep[k] 'kept'
-					instrs.push(f.instrs[k].clone())
+					instrs.push(table.takeAt(f.instrs, at: k))
 					ir.keepSpan(spans, f: f, k: k)
 				end 'kept'
 			end 'instrs'

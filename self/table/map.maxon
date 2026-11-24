@@ -27,6 +27,9 @@ let fibonacciMultiplier = 2654435761 as Count
 
 let foldShift = 15 as Count
 
+// firstCapacity is the slots of a map's first table.
+let firstCapacity = 16 as Count
+
 // hashString is 32-bit FNV-1a.
 function hashString(s String) returns Count
 	var h = fnvOffset32
@@ -49,11 +52,30 @@ export function mapSlotOccupied(state Count) returns bool
 	return state == SlotState.occupied.ordinal
 end 'mapSlotOccupied'
 
+// A map holds its values in an array of slot states' length whose slots that hold no entry are empty (slots.maxon), so that
+// neither a slot nor a lookup boxes an Option, and a reader is lent the value where it lies (find and valueAt) rather than
+// given a copy.
+
+// restoredSlots is the values of a map's slots from those of its occupied slots in slot order, as the build cache stores them.
+function restoredSlots(states ByteArray, consumes filled Array with V) uses V returns Array with V where V implements Droppable
+	var rest = filled
+	var slots as Array with V
+	slots = emptySlots(states.count())
+	var i = states.count()
+	while i > 0 'slots'
+		i = try i - 1 otherwise 0 as Count
+		if mapSlotOccupied(states[i] as Count) 'filled'
+			slots[i] = try rest.pop() otherwise panic("table: a stored map has fewer values than occupied slots")
+		end 'filled'
+	end 'slots'
+	return slots
+end 'restoredSlots'
+
 // StringMap is an open-addressing hash map from String to V built on array.
 export type StringMap uses V
 	var states as States
 	var keys as Strings
-	var vals as Array with (Option with V)
+	var vals as Array with V
 	var len as Count
 	var used as Count
 
@@ -83,7 +105,8 @@ export type StringMap uses V
 		return keys[index]
 	end 'keyAt'
 
-	export function valueAt(index Count) returns borrowed Option with V
+	// valueAt is the value of an occupied slot: one that find gave, or whose stateAt is occupied.
+	export function valueAt(index Count) returns borrowed V
 		return vals[index]
 	end 'valueAt'
 
@@ -91,44 +114,61 @@ export type StringMap uses V
 		return used
 	end 'usedSlots'
 
-	export static function restored(consumes states ByteArray, consumes keys Array with String, consumes values Array with (Option with V), length Count, used Count) returns Self
+	export static function restored(consumes states ByteArray, consumes keys Array with String, consumes values Array with V, length Count, used Count) returns Self where V implements Droppable
+		let slots = restoredSlots(states, filled: values)
 		var held = States.create(0)
 		for i in 0 upto states.count() 'states'
 			held.push(SlotState.allCases[states[i] as Count])
 		end 'states'
-		return Self{states: held, keys: keys, vals: values, len: length, used: used}
+		return Self{states: held, keys: keys, vals: slots, len: length, used: used}
 	end 'restored'
 
-	function findSlot(key String) returns Option with Count
+	// find is whether the map holds key, and gives the slot that holds it, which valueAt reads, when it does.
+	export function find(key String, sets slot Count) returns bool
 		let cap = states.count()
+		slot = cap
 		if cap == 0 'empty'
-			return Option.none
+			return false
 		end 'empty'
 		let mask = cap - 1
 		var idx = hashString(key) and mask
 		for _ in 0 upto cap 'probe'
 			let st = states[idx]
 			if st == SlotState.empty 'miss'
-				return Option.none
+				return false
 			end 'miss'
 			if st == SlotState.occupied and keys[idx] == key 'hit'
-				return Option.some(idx)
+				slot = idx
+				return true
 			end 'hit'
 			idx = (try idx + 1 otherwise 0 as Count) and mask
 		end 'probe'
-		return Option.none
-	end 'findSlot'
+		return false
+	end 'find'
 
 	export function has(key String) returns bool
-		return self.findSlot(key).isSome()
+		var slot as Count
+		return self.find(key, slot: slot)
 	end 'has'
 
+	// get is a copy of the value of key, for a caller that keeps it; a caller that only reads it reads it in place with find
+	// and valueAt.
 	export function get(key String) returns Option with V where V implements Copyable
-		match self.findSlot(key) 'slot'
-			some(i) then return vals[i].clone()
-			none then return Option.none
-		end 'slot'
+		var slot as Count
+		if self.find(key, slot: slot) 'hit'
+			return Option.some(vals[slot].clone())
+		end 'hit'
+		return Option.none
 	end 'get'
+
+	// getOr is a copy of the value of key, or of fallback where the map holds none.
+	export function getOr(key String, fallback V) returns V where V implements Copyable
+		var slot as Count
+		if self.find(key, slot: slot) 'hit'
+			return vals[slot].clone()
+		end 'hit'
+		return fallback.clone()
+	end 'getOr'
 
 	function grow(mutates self, newCap Count) where V implements Droppable
 		if newCap == 0 'zero'
@@ -136,26 +176,20 @@ export type StringMap uses V
 		end 'zero'
 		var nextStates = States.filled(newCap, value: SlotState.empty)
 		var nextKeys = Strings.filled(newCap, value: "")
-		var nextVals as Array with (Option with V)
-		nextVals = Array.create(0)
-		for _ in 0 upto newCap 'init'
-			nextVals.push(Option.none)
-		end 'init'
+		var nextVals as Array with V
+		nextVals = emptySlots(newCap)
 		let oldCap = states.count()
 		let mask = newCap - 1
 		for i in 0 upto oldCap 'rehash'
 			if states[i] == SlotState.occupied 'move'
-				let k = keys[i].clone()
-				var emptyVal as Option with V
-				emptyVal = Option.none
-				let v = exchange(vals[i], value: emptyVal)
+				let k = exchange(keys[i], value: "")
 				var idx = hashString(k) and mask
 				while nextStates[idx] == SlotState.occupied 'probe'
 					idx = (try idx + 1 otherwise 0 as Count) and mask
 				end 'probe'
 				nextStates[idx] = SlotState.occupied
 				nextKeys[idx] = k
-				nextVals[idx] = v
+				nextVals[idx] = takeAt(vals, at: i)
 			end 'move'
 		end 'rehash'
 		states = nextStates
@@ -167,7 +201,7 @@ export type StringMap uses V
 	export function insert(mutates self, key String, consumes value V) where V implements Droppable
 		let cap = states.count()
 		if cap == 0 'first'
-			self.grow(16 as Count)
+			self.grow(firstCapacity)
 		end 'first' else if (try (used + 1) * 10 otherwise cap) >= (try cap * 7 otherwise cap) 'needGrow'
 			self.grow(try cap * 2 otherwise cap)
 		end 'needGrow'
@@ -184,7 +218,7 @@ export type StringMap uses V
 				break 'probe'
 			end 'stop'
 			if st == SlotState.occupied and keys[idx] == key 'replace'
-				vals[idx] = Option.some(value)
+				vals[idx] = value
 				return
 			end 'replace'
 			if st == SlotState.deleted and firstDeleted == curCap 'mark'
@@ -198,32 +232,27 @@ export type StringMap uses V
 		end 'bumpUsed'
 		states[target] = SlotState.occupied
 		keys[target] = key.clone()
-		vals[target] = Option.some(value)
+		vals[target] = value
 		len = try len + 1 otherwise len
 	end 'insert'
 
-	export function remove(mutates self, key String) returns Option with V
-		match self.findSlot(key) 'slot'
-			some(i) then return self.removeAt(i)
-			none then return Option.none
-		end 'slot'
+	export function remove(mutates self, key String) returns Option with V where V implements Droppable
+		var slot as Count
+		if self.find(key, slot: slot) 'hit'
+			states[slot] = SlotState.deleted
+			keys[slot] = ""
+			len = try len - 1 otherwise 0 as Count
+			return Option.some(takeAt(vals, at: slot))
+		end 'hit'
+		return Option.none
 	end 'remove'
-
-	function removeAt(mutates self, idx Count) returns Option with V
-		states[idx] = SlotState.deleted
-		keys[idx] = ""
-		len = try len - 1 otherwise 0 as Count
-		var emptyVal as Option with V
-		emptyVal = Option.none
-		return exchange(vals[idx], value: emptyVal)
-	end 'removeAt'
 end 'StringMap'
 
 // IntMap is an open-addressing hash map from Count to V built on array.
 export type IntMap uses V
 	var states as States
 	var keys as Counts
-	var vals as Array with (Option with V)
+	var vals as Array with V
 	var len as Count
 	var used as Count
 
@@ -253,7 +282,8 @@ export type IntMap uses V
 		return keys[index]
 	end 'keyAt'
 
-	export function valueAt(index Count) returns borrowed Option with V
+	// valueAt is the value of an occupied slot: one that find gave, or whose stateAt is occupied.
+	export function valueAt(index Count) returns borrowed V
 		return vals[index]
 	end 'valueAt'
 
@@ -261,44 +291,71 @@ export type IntMap uses V
 		return used
 	end 'usedSlots'
 
-	export static function restored(consumes states ByteArray, consumes keys Array with Count, consumes values Array with (Option with V), length Count, used Count) returns Self
+	export static function restored(consumes states ByteArray, consumes keys Array with Count, consumes values Array with V, length Count, used Count) returns Self where V implements Droppable
+		let slots = restoredSlots(states, filled: values)
 		var held = States.create(0)
 		for i in 0 upto states.count() 'states'
 			held.push(SlotState.allCases[states[i] as Count])
 		end 'states'
-		return Self{states: held, keys: keys, vals: values, len: length, used: used}
+		return Self{states: held, keys: keys, vals: slots, len: length, used: used}
 	end 'restored'
 
-	function findSlot(key Count) returns Option with Count
+	// find is whether the map holds key, and gives the slot that holds it, which valueAt reads, when it does.
+	export function find(key Count, sets slot Count) returns bool
 		let cap = states.count()
+		slot = cap
 		if cap == 0 'empty'
-			return Option.none
+			return false
 		end 'empty'
 		let mask = cap - 1
 		var idx = hashCount(key) and mask
 		for _ in 0 upto cap 'probe'
 			let st = states[idx]
 			if st == SlotState.empty 'miss'
-				return Option.none
+				return false
 			end 'miss'
 			if st == SlotState.occupied and keys[idx] == key 'hit'
-				return Option.some(idx)
+				slot = idx
+				return true
 			end 'hit'
 			idx = (try idx + 1 otherwise 0 as Count) and mask
 		end 'probe'
-		return Option.none
-	end 'findSlot'
+		return false
+	end 'find'
 
 	export function has(key Count) returns bool
-		return self.findSlot(key).isSome()
+		var slot as Count
+		return self.find(key, slot: slot)
 	end 'has'
 
+	// expect is the value of key, lent where it lies, for a caller to whom a missing key is a broken invariant: what names
+	// what the map should have held, for the panic.
+	export function expect(key Count, what String) returns borrowed V
+		var slot as Count
+		if not self.find(key, slot: slot) 'missing'
+			panic("table: no {what} was recorded for key {key}")
+		end 'missing'
+		return vals[slot]
+	end 'expect'
+
+	// get is a copy of the value of key, for a caller that keeps it; a caller that only reads it reads it in place with find
+	// and valueAt.
 	export function get(key Count) returns Option with V where V implements Copyable
-		match self.findSlot(key) 'slot'
-			some(i) then return vals[i].clone()
-			none then return Option.none
-		end 'slot'
+		var slot as Count
+		if self.find(key, slot: slot) 'hit'
+			return Option.some(vals[slot].clone())
+		end 'hit'
+		return Option.none
 	end 'get'
+
+	// getOr is a copy of the value of key, or of fallback where the map holds none.
+	export function getOr(key Count, fallback V) returns V where V implements Copyable
+		var slot as Count
+		if self.find(key, slot: slot) 'hit'
+			return vals[slot].clone()
+		end 'hit'
+		return fallback.clone()
+	end 'getOr'
 
 	function grow(mutates self, newCap Count) where V implements Droppable
 		if newCap == 0 'zero'
@@ -306,26 +363,20 @@ export type IntMap uses V
 		end 'zero'
 		var nextStates = States.filled(newCap, value: SlotState.empty)
 		var nextKeys = Counts.filled(newCap, value: 0 as Count)
-		var nextVals as Array with (Option with V)
-		nextVals = Array.create(0)
-		for _ in 0 upto newCap 'init'
-			nextVals.push(Option.none)
-		end 'init'
+		var nextVals as Array with V
+		nextVals = emptySlots(newCap)
 		let oldCap = states.count()
 		let mask = newCap - 1
 		for i in 0 upto oldCap 'rehash'
 			if states[i] == SlotState.occupied 'move'
 				let k = keys[i]
-				var emptyVal as Option with V
-				emptyVal = Option.none
-				let v = exchange(vals[i], value: emptyVal)
 				var idx = hashCount(k) and mask
 				while nextStates[idx] == SlotState.occupied 'probe'
 					idx = (try idx + 1 otherwise 0 as Count) and mask
 				end 'probe'
 				nextStates[idx] = SlotState.occupied
 				nextKeys[idx] = k
-				nextVals[idx] = v
+				nextVals[idx] = takeAt(vals, at: i)
 			end 'move'
 		end 'rehash'
 		states = nextStates
@@ -337,7 +388,7 @@ export type IntMap uses V
 	export function insert(mutates self, key Count, consumes value V) where V implements Droppable
 		let cap = states.count()
 		if cap == 0 'first'
-			self.grow(16 as Count)
+			self.grow(firstCapacity)
 		end 'first' else if (try (used + 1) * 10 otherwise cap) >= (try cap * 7 otherwise cap) 'needGrow'
 			self.grow(try cap * 2 otherwise cap)
 		end 'needGrow'
@@ -354,7 +405,7 @@ export type IntMap uses V
 				break 'probe'
 			end 'stop'
 			if st == SlotState.occupied and keys[idx] == key 'replace'
-				vals[idx] = Option.some(value)
+				vals[idx] = value
 				return
 			end 'replace'
 			if st == SlotState.deleted and firstDeleted == curCap 'mark'
@@ -368,22 +419,17 @@ export type IntMap uses V
 		end 'bumpUsed'
 		states[target] = SlotState.occupied
 		keys[target] = key
-		vals[target] = Option.some(value)
+		vals[target] = value
 		len = try len + 1 otherwise len
 	end 'insert'
 
-	export function remove(mutates self, key Count) returns Option with V
-		match self.findSlot(key) 'slot'
-			some(i) then return self.removeAt(i)
-			none then return Option.none
-		end 'slot'
+	export function remove(mutates self, key Count) returns Option with V where V implements Droppable
+		var slot as Count
+		if self.find(key, slot: slot) 'hit'
+			states[slot] = SlotState.deleted
+			len = try len - 1 otherwise 0 as Count
+			return Option.some(takeAt(vals, at: slot))
+		end 'hit'
+		return Option.none
 	end 'remove'
-
-	function removeAt(mutates self, idx Count) returns Option with V
-		states[idx] = SlotState.deleted
-		len = try len - 1 otherwise 0 as Count
-		var emptyVal as Option with V
-		emptyVal = Option.none
-		return exchange(vals[idx], value: emptyVal)
-	end 'removeAt'
 end 'IntMap'

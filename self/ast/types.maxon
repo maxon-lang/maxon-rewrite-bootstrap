@@ -1710,10 +1710,10 @@ export function substituteType(mutates tt TypeSlot, reads TypeTable, t TypeID, p
 		end 'each'
 		return t
 	end 'tp'
-	let origArgs = cloneTypeArgs(typeEntry(tt, reads: reads, t: t).typeArgs)
-	if origArgs.count() == 0 'nonInst'
+	if typeEntry(tt, reads: reads, t: t).typeArgs.count() == 0 'nonInst'
 		return t
 	end 'nonInst'
+	let origArgs = cloneTypeArgs(typeEntry(tt, reads: reads, t: t).typeArgs)
 	let selfOrigin = typeEntry(tt, reads: reads, t: t).effectiveOrigin()
 	if args.count() > params.count() and origArgs.equals(params) and typeEntry(tt, reads: reads, t: selfOrigin).typeParams.equals(params) 'countedSelf'
 		// Self of a fixed array at the arguments of an instance that states its count is that instance.
@@ -2411,9 +2411,9 @@ export function instantiateFunc(mutates ft FuncSlot, funcReads FuncTable, mutate
 		return origin
 	end 'none'
 	let key = funcInstanceKey(origin, args: args, witnesses: witnesses)
-	match ft.instCache.get(key) 'hit'
-		some(id) then return id
-		none then _ = 0
+	var slot as Count
+	if ft.instCache.find(key, slot: slot) 'hit'
+		return ft.instCache.valueAt(slot)
 	end 'hit'
 	let origName = funcEntry(ft, funcReads: funcReads, f: origin).name.clone()
 	let origVis = funcEntry(ft, funcReads: funcReads, f: origin).visibility.clone()
@@ -2594,10 +2594,7 @@ export function isStorage(tree Tree, typing Typing, node NodeID) returns bool
 	let e = through(tree, e: node)
 	let k = tree.kindOf(e)
 	if k == NodeKind.nameExpr 'name'
-		let kind = match typing.names.get(e as Count) 'hit'
-			some(info) gives info.kind
-			none panic("ast: the name at node {e} was not recorded by the check")
-		end 'hit'
+		let kind = typing.names.expect(e as Count, what: "name").kind
 		return kind == NameKind.nameLocal or kind == NameKind.nameSelfField
 	end 'name'
 	if k == NodeKind.selfExpr or k == NodeKind.indexExpr 'place'
@@ -2605,10 +2602,8 @@ export function isStorage(tree Tree, typing Typing, node NodeID) returns bool
 	end 'place'
 	if k == NodeKind.memberExpr 'member'
 		// A view of a value (`xs.managed`) is the value itself, so it is storage where the value is.
-		return match typing.members.get(e as Count) 'hit'
-			some(info) gives info.kind == MemberKind.memberField or (info.kind == MemberKind.memberView and isStorage(tree, typing: typing, node: memberExprObj(tree, id: e)))
-			none panic("ast: the member at node {e} was not recorded by the check")
-		end 'hit'
+		let kind = typing.members.expect(e as Count, what: "member").kind
+		return kind == MemberKind.memberField or (kind == MemberKind.memberView and isStorage(tree, typing: typing, node: memberExprObj(tree, id: e)))
 	end 'member'
 	if k == NodeKind.callExpr 'call'
 		return isProjectionCall(typing, call: e)
@@ -2619,10 +2614,8 @@ end 'isStorage'
 // isProjectionCall is whether a call gives a place that its callee borrows from the arguments, as a subscript gives an
 // element of its collection, rather than a value of its own.
 export function isProjectionCall(typing Typing, call NodeID) returns bool
-	return match typing.calls.get(call as Count) 'hit'
-		some(info) gives info.result == ResultConv.resultBorrowed
-		none gives false
-	end 'hit'
+	var slot as Count
+	return typing.calls.find(call as Count, slot: slot) and typing.calls.valueAt(slot).result == ResultConv.resultBorrowed
 end 'isProjectionCall'
 
 // isPromiseType is whether a type is a `Promise with ...`: what an async call gives, which an await consumes.

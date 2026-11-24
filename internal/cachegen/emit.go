@@ -283,19 +283,18 @@ func (g *gen) body(s *spec) string {
 			mapType = qual("table", mod) + "StringMap"
 		}
 		occupied := qual("table", mod) + "mapSlotOccupied"
-		option := &rtype{kind: unionKind, module: "table", name: "Option", args: []*rtype{t.elem}, d: g.w.decls["table"]["Option"]}
 		fmt.Fprintf(&b, "%sfunction %s(mutates w %s, v %s)\n", exp, store, writer, ty)
 		fmt.Fprintf(&b, "\tlet slots = v.capacity()\n\tw.word64(slots as %s)\n", g.word(mod))
 		fmt.Fprintf(&b, "\tfor i in 0 upto slots 'states'\n\t\tw.word8(v.stateAt(i) as %s)\n\tend 'states'\n", g.word(mod))
-		fmt.Fprintf(&b, "\tfor i in 0 upto slots 'entries'\n\t\tif %s(v.stateAt(i)) 'occupied'\n\t\t\t%s\n\t\t\t%s\n\t\tend 'occupied'\n\tend 'entries'\n", occupied, keyStore, g.storeStmt(option, "v.valueAt(i)", mod))
+		fmt.Fprintf(&b, "\tfor i in 0 upto slots 'entries'\n\t\tif %s(v.stateAt(i)) 'occupied'\n\t\t\t%s\n\t\t\t%s\n\t\tend 'occupied'\n\tend 'entries'\n", occupied, keyStore, g.storeStmt(t.elem, "v.valueAt(i)", mod))
 		fmt.Fprintf(&b, "\tw.word64(v.count() as %s)\n\tw.word64(v.usedSlots() as %s)\nend '%s'\n\n", g.word(mod), g.word(mod), store)
 		fmt.Fprintf(&b, "%sfunction %s(mutates r %s) returns %s\n", exp, load, reader, ty)
 		fmt.Fprintf(&b, "\tlet slots = r.items()\n\tvar states = ByteArray.create(0)\n")
 		fmt.Fprintf(&b, "\tfor _ in 0 upto slots 'states'\n\t\tstates.push(try (r.word8() as Byte) otherwise panic(\"cache: a stored state of a map is no byte\"))\n\tend 'states'\n")
 		fmt.Fprintf(&b, "\tvar keys as %s\n\tkeys = Array.create(0)\n", keys)
-		fmt.Fprintf(&b, "\tvar values as Array with %s\n\tvalues = Array.create(0)\n", paren(g.render(option, mod)))
-		fmt.Fprintf(&b, "\tfor i in 0 upto slots 'entries'\n\t\tif %s(states[i] as Count) 'occupied'\n\t\t\tkeys.push(%s)\n\t\t\tvalues.push(%s)\n", occupied, keyLoad, g.loadExpr(option, mod))
-		fmt.Fprintf(&b, "\t\tend 'occupied' else 'free'\n\t\t\tkeys.push(%s)\n\t\t\tvalues.push(%sOption.none)\n\t\tend 'free'\n\tend 'entries'\n", keyNone, qual("table", mod))
+		fmt.Fprintf(&b, "\tvar values as Array with %s\n\tvalues = Array.create(0)\n", paren(g.render(t.elem, mod)))
+		fmt.Fprintf(&b, "\tfor i in 0 upto slots 'entries'\n\t\tif %s(states[i] as Count) 'occupied'\n\t\t\tkeys.push(%s)\n\t\t\tvalues.push(%s)\n", occupied, keyLoad, g.loadExpr(t.elem, mod))
+		fmt.Fprintf(&b, "\t\tend 'occupied' else 'free'\n\t\t\tkeys.push(%s)\n\t\tend 'free'\n\tend 'entries'\n", keyNone)
 		fmt.Fprintf(&b, "\tlet length = r.word64() as Count\n\tlet used = r.word64() as Count\n")
 		fmt.Fprintf(&b, "\treturn %s.restored(states, keys: keys, values: values, length: length, used: used)\nend '%s'\n", mapType, load)
 	case recordKind:

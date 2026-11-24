@@ -254,7 +254,7 @@ end 'parseTypeDeclNode'
 function parseTestDecl(mutates p Parser) returns ast.FuncDecl throws SyntaxError
 	let t = p.curStart()
 	var n = ast.newFuncDecl(p.tree, start: t)
-	_ = try p.expect(TokenKind.name, what: "a name")
+	try p.pass(TokenKind.name, what: "a name")
 	if not p.inSet(lookahead4) 'b1'
 		throw p.expected("a label or a test name")
 	end 'b1'
@@ -262,7 +262,7 @@ function parseTestDecl(mutates p Parser) returns ast.FuncDecl throws SyntaxError
 	n.testName = p.text(v1)
 	let v2 = try parseFuncBody(p)
 	n.body = v2
-	_ = try p.expect(TokenKind.kw_end, what: "'end'")
+	try p.pass(TokenKind.kw_end, what: "'end'")
 	if p.inSet(lookahead4) 'b2'
 		let v3 = try parseEndLabel(p)
 		n.endRef = v3
@@ -282,10 +282,10 @@ function parseFuncDecl(mutates p Parser) returns ast.FuncDecl throws SyntaxError
 		n.visibility = p.text(v1)
 	end 'b1'
 	if p.at(TokenKind.kw_static) 'b3'
-		_ = try p.expect(TokenKind.kw_static, what: "'static'")
+		try p.pass(TokenKind.kw_static, what: "'static'")
 		n.isStatic = true
 	end 'b3'
-	_ = try p.expect(TokenKind.kw_function, what: "'function'")
+	try p.pass(TokenKind.kw_function, what: "'function'")
 	if not p.inSet(lookahead6) 'b4'
 		throw p.expected("a name")
 	end 'b4'
@@ -294,7 +294,7 @@ function parseFuncDecl(mutates p Parser) returns ast.FuncDecl throws SyntaxError
 	try p.declares(v2)
 	n.name = p.text(v2)
 	p.joinNext = true
-	_ = try p.expect(TokenKind.lParen, what: "'('")
+	try p.pass(TokenKind.lParen, what: "'('")
 	if p.inSet(lookahead6) 'b5'
 		if (p.at(TokenKind.kw_consumes) and p.peekIs(TokenKind.kw_self)) or (p.at(TokenKind.kw_destructs) and p.peekIs(TokenKind.kw_self)) or (p.at(TokenKind.kw_mutates) and p.peekIs(TokenKind.kw_self)) 'b6'
 			if not p.inSet(lookahead8) 'b7'
@@ -302,9 +302,9 @@ function parseFuncDecl(mutates p Parser) returns ast.FuncDecl throws SyntaxError
 			end 'b7'
 			let v3 = try p.next()
 			n.receiver = p.text(v3)
-			_ = try p.expect(TokenKind.kw_self, what: "'self'")
+			try p.pass(TokenKind.kw_self, what: "'self'")
 			while p.at(TokenKind.comma) 'b8'
-				_ = try p.expect(TokenKind.comma, what: "','")
+				try p.pass(TokenKind.comma, what: "','")
 				let v4 = try parseParam(p)
 				p.lists.ptr_Param.push(v4)
 			end 'b8'
@@ -312,7 +312,7 @@ function parseFuncDecl(mutates p Parser) returns ast.FuncDecl throws SyntaxError
 			let v5 = try parseParam(p)
 			p.lists.ptr_Param.push(v5)
 			while p.at(TokenKind.comma) 'b10'
-				_ = try p.expect(TokenKind.comma, what: "','")
+				try p.pass(TokenKind.comma, what: "','")
 				let v6 = try parseParam(p)
 				p.lists.ptr_Param.push(v6)
 			end 'b10'
@@ -320,13 +320,13 @@ function parseFuncDecl(mutates p Parser) returns ast.FuncDecl throws SyntaxError
 			throw p.expected("'Self', '_', 'and', 'as', 'async', 'await', 'break', 'consumes', 'continue', 'countof', 'default', 'destructs', 'else', 'end', 'enum', 'export', 'extends', 'extension', 'fallthrough', 'false', 'for', 'function', 'gives', 'if', 'ignore', 'implements', 'in', 'int', 'interface', 'is', 'let', 'match', 'mod', 'mutates', 'noncopyable', 'not', 'or', 'otherwise', 'panic', 'public', 'return', 'returns', 'self', 'sets', 'shl', 'shr', 'sizeof', 'static', 'then', 'throw', 'throws', 'true', 'try', 'type', 'typealias', 'union', 'upto', 'uses', 'var', 'when', 'where', 'while', 'with', 'xor' or a name")
 		end 'b11'
 	end 'b5'
-	_ = try p.expect(TokenKind.rParen, what: "')'")
+	try p.pass(TokenKind.rParen, what: "')'")
 	if p.at(TokenKind.kw_uses) 'b12'
 		let v7 = try parseUsesClause(p)
 		n.typeParams = v7
 	end 'b12'
 	if p.at(TokenKind.kw_returns) 'b13'
-		_ = try p.expect(TokenKind.kw_returns, what: "'returns'")
+		try p.pass(TokenKind.kw_returns, what: "'returns'")
 		if p.at(TokenKind.name) and p.peekIn(lookahead9) and p.atBorrowedResult() 'b14'
 			let v8 = try p.expect(TokenKind.name, what: "a name")
 			n.resultMode = p.text(v8)
@@ -335,7 +335,7 @@ function parseFuncDecl(mutates p Parser) returns ast.FuncDecl throws SyntaxError
 		n.returnsRef = v9
 	end 'b13'
 	if p.at(TokenKind.kw_throws) 'b15'
-		_ = try p.expect(TokenKind.kw_throws, what: "'throws'")
+		try p.pass(TokenKind.kw_throws, what: "'throws'")
 		let v10 = try parseTypeRef(p)
 		n.throwsRef = v10
 	end 'b15'
@@ -345,7 +345,7 @@ function parseFuncDecl(mutates p Parser) returns ast.FuncDecl throws SyntaxError
 	end 'b16'
 	let v12 = try parseFuncBody(p)
 	n.body = v12
-	_ = try p.expect(TokenKind.kw_end, what: "'end'")
+	try p.pass(TokenKind.kw_end, what: "'end'")
 	if p.inSet(lookahead4) 'b17'
 		let v13 = try parseEndLabel(p)
 		n.endRef = v13
@@ -375,7 +375,7 @@ function parseParam(mutates p Parser) returns ast.Param throws SyntaxError
 	let v3 = try parseTypeRef(p)
 	n.typeRef = v3
 	if p.at(TokenKind.assign) 'b4'
-		_ = try p.expect(TokenKind.assign, what: "'='")
+		try p.pass(TokenKind.assign, what: "'='")
 		let v4 = try parseExpr(p)
 		n.defaultRef = v4
 	end 'b4'
@@ -392,7 +392,7 @@ function parseConstDecl(mutates p Parser) returns ast.ConstDecl throws SyntaxErr
 		let v1 = try p.next()
 		n.visibility = p.text(v1)
 	end 'b1'
-	_ = try p.expect(TokenKind.kw_let, what: "'let'")
+	try p.pass(TokenKind.kw_let, what: "'let'")
 	if not p.inSet(lookahead12) 'b3'
 		throw p.expected("a name")
 	end 'b3'
@@ -400,7 +400,7 @@ function parseConstDecl(mutates p Parser) returns ast.ConstDecl throws SyntaxErr
 	p.nameWord(v2, keywords: lookahead13)
 	try p.initializes(v2)
 	n.name = p.text(v2)
-	_ = try p.expect(TokenKind.assign, what: "'='")
+	try p.pass(TokenKind.assign, what: "'='")
 	let v3 = try parseExpr(p)
 	n.value = v3
 	try p.initialized()
@@ -421,13 +421,13 @@ function parseTypeDecl(mutates p Parser) returns ast.TypeDecl throws SyntaxError
 		let v1 = try p.next()
 		n.visibility = p.text(v1)
 	end 'b1'
-	_ = try p.expect(TokenKind.kw_type, what: "'type'")
+	try p.pass(TokenKind.kw_type, what: "'type'")
 	let v2 = try p.expect(TokenKind.name, what: "a name")
 	try p.declares(v2)
 	n.name = p.text(v2)
 	if p.at(TokenKind.kw_is) 'b3'
-		_ = try p.expect(TokenKind.kw_is, what: "'is'")
-		_ = try p.expect(TokenKind.kw_noncopyable, what: "'noncopyable'")
+		try p.pass(TokenKind.kw_is, what: "'is'")
+		try p.pass(TokenKind.kw_noncopyable, what: "'noncopyable'")
 		n.isNoncopyable = true
 	end 'b3'
 	if p.at(TokenKind.kw_uses) 'b4'
@@ -442,9 +442,9 @@ function parseTypeDecl(mutates p Parser) returns ast.TypeDecl throws SyntaxError
 		let v5 = try parseWhereClause(p)
 		n.whereList = v5
 	end 'b6'
-	_ = try p.expect(TokenKind.newline, what: "the end of the line")
+	try p.pass(TokenKind.newline, what: "the end of the line")
 	if p.at(TokenKind.indent) 'b7'
-		_ = try p.expect(TokenKind.indent, what: "an indented line")
+		try p.pass(TokenKind.indent, what: "an indented line")
 		if p.at(TokenKind.kw_typealias) or (p.at(TokenKind.kw_export) and p.peekIs(TokenKind.kw_typealias)) or (p.at(TokenKind.kw_public) and p.peekIs(TokenKind.kw_typealias)) 'b8'
 			let v6 = try parseAliasDecl(p)
 			p.lists.ptr_AliasDecl.push(v6)
@@ -460,7 +460,7 @@ function parseTypeDecl(mutates p Parser) returns ast.TypeDecl throws SyntaxError
 		end 'b11' else 'b12'
 			throw p.expected("'export', 'function', 'let', 'public', 'static', 'typealias' or 'var'")
 		end 'b12'
-		_ = try p.expect(TokenKind.newline, what: "the end of the line")
+		try p.pass(TokenKind.newline, what: "the end of the line")
 		while p.inSet(lookahead16) 'b13'
 			if p.at(TokenKind.kw_typealias) or (p.at(TokenKind.kw_export) and p.peekIs(TokenKind.kw_typealias)) or (p.at(TokenKind.kw_public) and p.peekIs(TokenKind.kw_typealias)) 'b14'
 				let v10 = try parseAliasDecl(p)
@@ -477,11 +477,11 @@ function parseTypeDecl(mutates p Parser) returns ast.TypeDecl throws SyntaxError
 			end 'b17' else 'b18'
 				throw p.expected("'export', 'function', 'let', 'public', 'static', 'typealias' or 'var'")
 			end 'b18'
-			_ = try p.expect(TokenKind.newline, what: "the end of the line")
+			try p.pass(TokenKind.newline, what: "the end of the line")
 		end 'b13'
-		_ = try p.expect(TokenKind.dedent, what: "the end of the indented lines")
+		try p.pass(TokenKind.dedent, what: "the end of the indented lines")
 	end 'b7'
-	_ = try p.expect(TokenKind.kw_end, what: "'end'")
+	try p.pass(TokenKind.kw_end, what: "'end'")
 	if p.inSet(lookahead4) 'b19'
 		let v14 = try parseEndLabel(p)
 		n.endRef = v14
@@ -507,8 +507,8 @@ function parseStaticLetDecl(mutates p Parser) returns ast.ConstDecl throws Synta
 		let v1 = try p.next()
 		n.visibility = p.text(v1)
 	end 'b1'
-	_ = try p.expect(TokenKind.kw_static, what: "'static'")
-	_ = try p.expect(TokenKind.kw_let, what: "'let'")
+	try p.pass(TokenKind.kw_static, what: "'static'")
+	try p.pass(TokenKind.kw_let, what: "'let'")
 	if not p.inSet(lookahead12) 'b3'
 		throw p.expected("a name")
 	end 'b3'
@@ -516,7 +516,7 @@ function parseStaticLetDecl(mutates p Parser) returns ast.ConstDecl throws Synta
 	p.nameWord(v2, keywords: lookahead13)
 	try p.initializes(v2)
 	n.name = p.text(v2)
-	_ = try p.expect(TokenKind.assign, what: "'='")
+	try p.pass(TokenKind.assign, what: "'='")
 	let v3 = try parseExpr(p)
 	n.value = v3
 	try p.initialized()
@@ -534,9 +534,9 @@ function parseFieldDecl(mutates p Parser) returns ast.FieldDecl throws SyntaxErr
 		n.visibility = p.text(v1)
 	end 'b1'
 	if p.at(TokenKind.kw_let) 'b3'
-		_ = try p.expect(TokenKind.kw_let, what: "'let'")
+		try p.pass(TokenKind.kw_let, what: "'let'")
 	end 'b3' else if p.at(TokenKind.kw_var) 'b4'
-		_ = try p.expect(TokenKind.kw_var, what: "'var'")
+		try p.pass(TokenKind.kw_var, what: "'var'")
 		n.isVar = true
 	end 'b4' else 'b5'
 		throw p.expected("'let' or 'var'")
@@ -549,11 +549,11 @@ function parseFieldDecl(mutates p Parser) returns ast.FieldDecl throws SyntaxErr
 	try p.declares(v2)
 	n.name = p.text(v2)
 	if p.at(TokenKind.kw_as) 'b7'
-		_ = try p.expect(TokenKind.kw_as, what: "'as'")
+		try p.pass(TokenKind.kw_as, what: "'as'")
 		let v3 = try parseTypeRef(p)
 		n.typeRef = v3
 	end 'b7' else if p.at(TokenKind.assign) 'b8'
-		_ = try p.expect(TokenKind.assign, what: "'='")
+		try p.pass(TokenKind.assign, what: "'='")
 		let v4 = try parseExpr(p)
 		n.defaultRef = v4
 	end 'b8' else 'b9'
@@ -574,9 +574,9 @@ function parseExtensionDecl(mutates p Parser) returns ast.ExtensionDecl throws S
 		let v1 = try p.next()
 		n.visibility = p.text(v1)
 	end 'b1'
-	_ = try p.expect(TokenKind.kw_extension, what: "'extension'")
+	try p.pass(TokenKind.kw_extension, what: "'extension'")
 	if p.at(TokenKind.kw_int) and p.peekIn(lookahead17) 'b3'
-		_ = try p.expect(TokenKind.kw_int, what: "'int'")
+		try p.pass(TokenKind.kw_int, what: "'int'")
 		n.isInt = true
 	end 'b3' else if p.inSet(lookahead9) 'b4'
 		let v2 = try parseTypeRef(p)
@@ -592,9 +592,9 @@ function parseExtensionDecl(mutates p Parser) returns ast.ExtensionDecl throws S
 		let v4 = try parseWhereClause(p)
 		n.whereList = v4
 	end 'b7'
-	_ = try p.expect(TokenKind.newline, what: "the end of the line")
+	try p.pass(TokenKind.newline, what: "the end of the line")
 	if p.at(TokenKind.indent) 'b8'
-		_ = try p.expect(TokenKind.indent, what: "an indented line")
+		try p.pass(TokenKind.indent, what: "an indented line")
 		if p.at(TokenKind.kw_typealias) or (p.at(TokenKind.kw_export) and p.peekIs(TokenKind.kw_typealias)) or (p.at(TokenKind.kw_public) and p.peekIs(TokenKind.kw_typealias)) 'b9'
 			let v5 = try parseAliasDecl(p)
 			p.lists.ptr_AliasDecl.push(v5)
@@ -604,7 +604,7 @@ function parseExtensionDecl(mutates p Parser) returns ast.ExtensionDecl throws S
 		end 'b10' else 'b11'
 			throw p.expected("'export', 'function', 'public', 'static' or 'typealias'")
 		end 'b11'
-		_ = try p.expect(TokenKind.newline, what: "the end of the line")
+		try p.pass(TokenKind.newline, what: "the end of the line")
 		while p.inSet(lookahead18) 'b12'
 			if p.at(TokenKind.kw_typealias) or (p.at(TokenKind.kw_export) and p.peekIs(TokenKind.kw_typealias)) or (p.at(TokenKind.kw_public) and p.peekIs(TokenKind.kw_typealias)) 'b13'
 				let v7 = try parseAliasDecl(p)
@@ -615,11 +615,11 @@ function parseExtensionDecl(mutates p Parser) returns ast.ExtensionDecl throws S
 			end 'b14' else 'b15'
 				throw p.expected("'export', 'function', 'public', 'static' or 'typealias'")
 			end 'b15'
-			_ = try p.expect(TokenKind.newline, what: "the end of the line")
+			try p.pass(TokenKind.newline, what: "the end of the line")
 		end 'b12'
-		_ = try p.expect(TokenKind.dedent, what: "the end of the indented lines")
+		try p.pass(TokenKind.dedent, what: "the end of the indented lines")
 	end 'b8'
-	_ = try p.expect(TokenKind.kw_end, what: "'end'")
+	try p.pass(TokenKind.kw_end, what: "'end'")
 	if p.inSet(lookahead4) 'b16'
 		let v9 = try parseEndLabel(p)
 		n.endRef = v9
@@ -643,7 +643,7 @@ function parseEnumDecl(mutates p Parser) returns ast.EnumDecl throws SyntaxError
 		let v1 = try p.next()
 		n.visibility = p.text(v1)
 	end 'b1'
-	_ = try p.expect(TokenKind.kw_enum, what: "'enum'")
+	try p.pass(TokenKind.kw_enum, what: "'enum'")
 	let v2 = try p.expect(TokenKind.name, what: "a name")
 	try p.declares(v2)
 	n.name = p.text(v2)
@@ -651,9 +651,9 @@ function parseEnumDecl(mutates p Parser) returns ast.EnumDecl throws SyntaxError
 		let v3 = try parseConformsClause(p)
 		n.conforms = v3
 	end 'b3'
-	_ = try p.expect(TokenKind.newline, what: "the end of the line")
+	try p.pass(TokenKind.newline, what: "the end of the line")
 	if p.at(TokenKind.indent) 'b4'
-		_ = try p.expect(TokenKind.indent, what: "an indented line")
+		try p.pass(TokenKind.indent, what: "an indented line")
 		if p.inSet(lookahead12) 'b5'
 			let v4 = try parseEnumCaseDecl(p)
 			p.lists.ptr_EnumCaseDecl.push(v4)
@@ -663,7 +663,7 @@ function parseEnumDecl(mutates p Parser) returns ast.EnumDecl throws SyntaxError
 		end 'b6' else 'b7'
 			throw p.expected("'export', 'function', 'public', 'static' or a name")
 		end 'b7'
-		_ = try p.expect(TokenKind.newline, what: "the end of the line")
+		try p.pass(TokenKind.newline, what: "the end of the line")
 		while p.inSet(lookahead19) 'b8'
 			if p.inSet(lookahead12) 'b9'
 				let v6 = try parseEnumCaseDecl(p)
@@ -674,11 +674,11 @@ function parseEnumDecl(mutates p Parser) returns ast.EnumDecl throws SyntaxError
 			end 'b10' else 'b11'
 				throw p.expected("'export', 'function', 'public', 'static' or a name")
 			end 'b11'
-			_ = try p.expect(TokenKind.newline, what: "the end of the line")
+			try p.pass(TokenKind.newline, what: "the end of the line")
 		end 'b8'
-		_ = try p.expect(TokenKind.dedent, what: "the end of the indented lines")
+		try p.pass(TokenKind.dedent, what: "the end of the indented lines")
 	end 'b4'
-	_ = try p.expect(TokenKind.kw_end, what: "'end'")
+	try p.pass(TokenKind.kw_end, what: "'end'")
 	if p.inSet(lookahead4) 'b12'
 		let v8 = try parseEndLabel(p)
 		n.endRef = v8
@@ -701,7 +701,7 @@ function parseEnumCaseDecl(mutates p Parser) returns ast.EnumCaseDecl throws Syn
 	try p.declares(v1)
 	n.name = p.text(v1)
 	if p.at(TokenKind.assign) 'b2'
-		_ = try p.expect(TokenKind.assign, what: "'='")
+		try p.pass(TokenKind.assign, what: "'='")
 		let v2 = try parseExpr(p)
 		n.raw = v2
 	end 'b2'
@@ -720,13 +720,13 @@ function parseUnionDecl(mutates p Parser) returns ast.UnionDecl throws SyntaxErr
 		let v1 = try p.next()
 		n.visibility = p.text(v1)
 	end 'b1'
-	_ = try p.expect(TokenKind.kw_union, what: "'union'")
+	try p.pass(TokenKind.kw_union, what: "'union'")
 	let v2 = try p.expect(TokenKind.name, what: "a name")
 	try p.declares(v2)
 	n.name = p.text(v2)
 	if p.at(TokenKind.kw_is) 'b3'
-		_ = try p.expect(TokenKind.kw_is, what: "'is'")
-		_ = try p.expect(TokenKind.kw_noncopyable, what: "'noncopyable'")
+		try p.pass(TokenKind.kw_is, what: "'is'")
+		try p.pass(TokenKind.kw_noncopyable, what: "'noncopyable'")
 		n.isNoncopyable = true
 	end 'b3'
 	if p.at(TokenKind.kw_uses) 'b4'
@@ -741,9 +741,9 @@ function parseUnionDecl(mutates p Parser) returns ast.UnionDecl throws SyntaxErr
 		let v5 = try parseWhereClause(p)
 		n.whereList = v5
 	end 'b6'
-	_ = try p.expect(TokenKind.newline, what: "the end of the line")
+	try p.pass(TokenKind.newline, what: "the end of the line")
 	if p.at(TokenKind.indent) 'b7'
-		_ = try p.expect(TokenKind.indent, what: "an indented line")
+		try p.pass(TokenKind.indent, what: "an indented line")
 		if p.inSet(lookahead12) 'b8'
 			let v6 = try parseUnionCaseDecl(p)
 			p.lists.ptr_UnionCaseDecl.push(v6)
@@ -753,7 +753,7 @@ function parseUnionDecl(mutates p Parser) returns ast.UnionDecl throws SyntaxErr
 		end 'b9' else 'b10'
 			throw p.expected("'export', 'function', 'public', 'static' or a name")
 		end 'b10'
-		_ = try p.expect(TokenKind.newline, what: "the end of the line")
+		try p.pass(TokenKind.newline, what: "the end of the line")
 		while p.inSet(lookahead19) 'b11'
 			if p.inSet(lookahead12) 'b12'
 				let v8 = try parseUnionCaseDecl(p)
@@ -764,11 +764,11 @@ function parseUnionDecl(mutates p Parser) returns ast.UnionDecl throws SyntaxErr
 			end 'b13' else 'b14'
 				throw p.expected("'export', 'function', 'public', 'static' or a name")
 			end 'b14'
-			_ = try p.expect(TokenKind.newline, what: "the end of the line")
+			try p.pass(TokenKind.newline, what: "the end of the line")
 		end 'b11'
-		_ = try p.expect(TokenKind.dedent, what: "the end of the indented lines")
+		try p.pass(TokenKind.dedent, what: "the end of the indented lines")
 	end 'b7'
-	_ = try p.expect(TokenKind.kw_end, what: "'end'")
+	try p.pass(TokenKind.kw_end, what: "'end'")
 	if p.inSet(lookahead4) 'b15'
 		let v10 = try parseEndLabel(p)
 		n.endRef = v10
@@ -793,20 +793,20 @@ function parseUnionCaseDecl(mutates p Parser) returns ast.UnionCaseDecl throws S
 	n.name = p.text(v1)
 	if p.at(TokenKind.lParen) 'b2'
 		p.joinNext = true
-		_ = try p.expect(TokenKind.lParen, what: "'('")
+		try p.pass(TokenKind.lParen, what: "'('")
 		if p.inSet(lookahead6) 'b3'
 			let v2 = try parseParam(p)
 			p.lists.ptr_Param.push(v2)
 			while p.at(TokenKind.comma) 'b4'
-				_ = try p.expect(TokenKind.comma, what: "','")
+				try p.pass(TokenKind.comma, what: "','")
 				let v3 = try parseParam(p)
 				p.lists.ptr_Param.push(v3)
 			end 'b4'
 		end 'b3'
-		_ = try p.expect(TokenKind.rParen, what: "')'")
+		try p.pass(TokenKind.rParen, what: "')'")
 	end 'b2'
 	if p.at(TokenKind.assign) 'b5'
-		_ = try p.expect(TokenKind.assign, what: "'='")
+		try p.pass(TokenKind.assign, what: "'='")
 		let v4 = try parseExpr(p)
 		n.raw = v4
 	end 'b5'
@@ -825,14 +825,14 @@ function parseAliasDecl(mutates p Parser) returns ast.AliasDecl throws SyntaxErr
 		let v1 = try p.next()
 		n.visibility = p.text(v1)
 	end 'b1'
-	_ = try p.expect(TokenKind.kw_typealias, what: "'typealias'")
+	try p.pass(TokenKind.kw_typealias, what: "'typealias'")
 	let v2 = try p.expect(TokenKind.name, what: "a name")
 	try p.declares(v2)
 	n.name = p.text(v2)
-	_ = try p.expect(TokenKind.assign, what: "'='")
+	try p.pass(TokenKind.assign, what: "'='")
 	if p.at(TokenKind.kw_int) or (p.at(TokenKind.name) and p.peekIs(TokenKind.lParen)) 'b3'
 		if p.at(TokenKind.kw_int) 'b4'
-			_ = try p.expect(TokenKind.kw_int, what: "'int'")
+			try p.pass(TokenKind.kw_int, what: "'int'")
 		end 'b4' else if p.at(TokenKind.name) 'b5'
 			let v3 = try p.expect(TokenKind.name, what: "a name")
 			n.number = p.text(v3)
@@ -840,24 +840,24 @@ function parseAliasDecl(mutates p Parser) returns ast.AliasDecl throws SyntaxErr
 			throw p.expected("'int' or a name")
 		end 'b6'
 		p.joinNext = true
-		_ = try p.expect(TokenKind.lParen, what: "'('")
+		try p.pass(TokenKind.lParen, what: "'('")
 		let v4 = try parseBound(p)
 		n.low = v4
 		if p.inSet(lookahead20) 'b7'
 			if p.at(TokenKind.kw_to) 'b8'
-				_ = try p.expect(TokenKind.kw_to, what: "'to'")
+				try p.pass(TokenKind.kw_to, what: "'to'")
 				n.inclusive = true
 			end 'b8' else if p.at(TokenKind.kw_upto) 'b9'
-				_ = try p.expect(TokenKind.kw_upto, what: "'upto'")
+				try p.pass(TokenKind.kw_upto, what: "'upto'")
 			end 'b9' else 'b10'
 				throw p.expected("'to' or 'upto'")
 			end 'b10'
 			let v5 = try parseBound(p)
 			n.high = v5
 		end 'b7'
-		_ = try p.expect(TokenKind.rParen, what: "')'")
+		try p.pass(TokenKind.rParen, what: "')'")
 		if p.at(TokenKind.kw_implements) 'b11'
-			_ = try p.expect(TokenKind.kw_implements, what: "'implements'")
+			try p.pass(TokenKind.kw_implements, what: "'implements'")
 			let v6 = try parseTypeRef(p)
 			n.parent = v6
 		end 'b11'
@@ -877,28 +877,28 @@ function parseFuncType(mutates p Parser) returns ast.NodeID throws SyntaxError
 	let t = p.curStart()
 	let n = ast.newFuncType(p.tree, start: t)
 	let mark_n_Params = p.lists.ids_FuncType_Params.mark()
-	_ = try p.expect(TokenKind.kw_function, what: "'function'")
+	try p.pass(TokenKind.kw_function, what: "'function'")
 	p.joinNext = true
-	_ = try p.expect(TokenKind.lParen, what: "'('")
+	try p.pass(TokenKind.lParen, what: "'('")
 	if p.inSet(lookahead22) 'b1'
 		let v1 = try parseFuncTypeParam(p)
 		let v2 = v1 as diag.U32
 		p.lists.ids_FuncType_Params.push(v2)
 		while p.at(TokenKind.comma) 'b2'
-			_ = try p.expect(TokenKind.comma, what: "','")
+			try p.pass(TokenKind.comma, what: "','")
 			let v3 = try parseFuncTypeParam(p)
 			let v4 = v3 as diag.U32
 			p.lists.ids_FuncType_Params.push(v4)
 		end 'b2'
 	end 'b1'
-	_ = try p.expect(TokenKind.rParen, what: "')'")
+	try p.pass(TokenKind.rParen, what: "')'")
 	if p.at(TokenKind.kw_returns) 'b3'
-		_ = try p.expect(TokenKind.kw_returns, what: "'returns'")
+		try p.pass(TokenKind.kw_returns, what: "'returns'")
 		let v5 = try parseTypeRef(p)
 		ast.setFuncTypeReturns(p.tree, id: n, value: v5)
 	end 'b3'
 	if p.at(TokenKind.kw_mutates) and p.atMutatesCaptures() 'b4'
-		_ = try p.expect(TokenKind.kw_mutates, what: "'mutates'")
+		try p.pass(TokenKind.kw_mutates, what: "'mutates'")
 		let v6 = try p.expect(TokenKind.name, what: "a name")
 		let v7 = p.textRef(v6)
 		ast.setFuncTypeCapturesRef(p.tree, id: n, ref: v7)
@@ -937,7 +937,7 @@ function parseAliasInstance(mutates p Parser) returns ast.NodeID throws SyntaxEr
 			let v1 = try p.next()
 			let v2 = p.textRef(v1)
 			p.lists.ids_TypeRef_Qualifier.push(v2)
-			_ = try p.expect(TokenKind.dot, what: "'.'")
+			try p.pass(TokenKind.dot, what: "'.'")
 		end 'b2'
 		if not p.inSet(lookahead25) 'b4'
 			throw p.expected("'Self' or a name")
@@ -946,7 +946,7 @@ function parseAliasInstance(mutates p Parser) returns ast.NodeID throws SyntaxEr
 		let v4 = p.textRef(v3)
 		ast.setTypeRefNameRef(p.tree, id: n, ref: v4)
 		if p.at(TokenKind.kw_with) 'b5'
-			_ = try p.expect(TokenKind.kw_with, what: "'with'")
+			try p.pass(TokenKind.kw_with, what: "'with'")
 			if p.inSet(lookahead26) 'b6'
 				let v5 = try parseTypeCount(p)
 				ast.setTypeRefCount(p.tree, id: n, value: v5)
@@ -955,22 +955,22 @@ function parseAliasInstance(mutates p Parser) returns ast.NodeID throws SyntaxEr
 			ast.setTypeRefTypeArgsRef(p.tree, id: n, ref: v6)
 		end 'b5'
 	end 'b1' else if p.at(TokenKind.lParen) 'b7'
-		_ = try p.expect(TokenKind.lParen, what: "'('")
+		try p.pass(TokenKind.lParen, what: "'('")
 		ast.setTypeRefIsTuple(p.tree, id: n)
 		let v7 = try parseTypeRef(p)
 		let v8 = v7 as diag.U32
 		p.lists.ids_TypeRef_Elems.push(v8)
-		_ = try p.expect(TokenKind.comma, what: "','")
+		try p.pass(TokenKind.comma, what: "','")
 		let v9 = try parseTypeRef(p)
 		let v10 = v9 as diag.U32
 		p.lists.ids_TypeRef_Elems.push(v10)
 		while p.at(TokenKind.comma) 'b8'
-			_ = try p.expect(TokenKind.comma, what: "','")
+			try p.pass(TokenKind.comma, what: "','")
 			let v11 = try parseTypeRef(p)
 			let v12 = v11 as diag.U32
 			p.lists.ids_TypeRef_Elems.push(v12)
 		end 'b8'
-		_ = try p.expect(TokenKind.rParen, what: "')'")
+		try p.pass(TokenKind.rParen, what: "')'")
 	end 'b7' else 'b9'
 		throw p.expected("'Self', 'export', '(' or a name")
 	end 'b9'
@@ -985,23 +985,23 @@ function parseAliasTypeArgs(mutates p Parser) returns diag.U32 throws SyntaxErro
 	var args = 0 as diag.U32
 	let mark_args = p.lists.ids_aliasTypeArgs.mark()
 	if p.at(TokenKind.lParen) and p.peekIn(lookahead9) 'b1'
-		_ = try p.expect(TokenKind.lParen, what: "'('")
+		try p.pass(TokenKind.lParen, what: "'('")
 		let v1 = try parseTypeRef(p)
 		let v2 = v1 as diag.U32
 		p.lists.ids_aliasTypeArgs.push(v2)
 		while p.at(TokenKind.comma) 'b2'
-			_ = try p.expect(TokenKind.comma, what: "','")
+			try p.pass(TokenKind.comma, what: "','")
 			let v3 = try parseTypeRef(p)
 			let v4 = v3 as diag.U32
 			p.lists.ids_aliasTypeArgs.push(v4)
 		end 'b2'
-		_ = try p.expect(TokenKind.rParen, what: "')'")
+		try p.pass(TokenKind.rParen, what: "')'")
 	end 'b1' else if p.inSet(lookahead9) 'b3'
 		let v5 = try parseTypeRef(p)
 		let v6 = v5 as diag.U32
 		p.lists.ids_aliasTypeArgs.push(v6)
 		while p.at(TokenKind.comma) 'b4'
-			_ = try p.expect(TokenKind.comma, what: "','")
+			try p.pass(TokenKind.comma, what: "','")
 			let v7 = try parseTypeRef(p)
 			let v8 = v7 as diag.U32
 			p.lists.ids_aliasTypeArgs.push(v8)
@@ -1018,7 +1018,7 @@ function parseBound(mutates p Parser) returns ast.Bound throws SyntaxError
 	let t = p.curStart()
 	var n = ast.newBound(p.tree, start: t)
 	if p.at(TokenKind.minus) 'b1'
-		_ = try p.expect(TokenKind.minus, what: "'-'")
+		try p.pass(TokenKind.minus, what: "'-'")
 		n.negative = true
 		p.joinNext = true
 	end 'b1'
@@ -1033,7 +1033,7 @@ function parseBound(mutates p Parser) returns ast.Bound throws SyntaxError
 	end 'b3' else if p.at(TokenKind.name) 'b4'
 		let v5 = try p.expect(TokenKind.name, what: "a name")
 		n.sized = p.text(v5)
-		_ = try p.expect(TokenKind.dot, what: "'.'")
+		try p.pass(TokenKind.dot, what: "'.'")
 		let v6 = try p.expect(TokenKind.name, what: "a name")
 		n.limit = p.text(v6)
 	end 'b4' else 'b5'
@@ -1055,7 +1055,7 @@ function parseTypeRef(mutates p Parser) returns ast.NodeID throws SyntaxError
 			let v1 = try p.next()
 			let v2 = p.textRef(v1)
 			p.lists.ids_TypeRef_Qualifier.push(v2)
-			_ = try p.expect(TokenKind.dot, what: "'.'")
+			try p.pass(TokenKind.dot, what: "'.'")
 		end 'b2'
 		if not p.inSet(lookahead28) 'b4'
 			throw p.expected("'Self', 'int' or a name")
@@ -1064,7 +1064,7 @@ function parseTypeRef(mutates p Parser) returns ast.NodeID throws SyntaxError
 		let v4 = p.textRef(v3)
 		ast.setTypeRefNameRef(p.tree, id: n, ref: v4)
 		if p.at(TokenKind.kw_with) 'b5'
-			_ = try p.expect(TokenKind.kw_with, what: "'with'")
+			try p.pass(TokenKind.kw_with, what: "'with'")
 			if p.inSet(lookahead26) 'b6'
 				let v5 = try parseTypeCount(p)
 				ast.setTypeRefCount(p.tree, id: n, value: v5)
@@ -1073,22 +1073,22 @@ function parseTypeRef(mutates p Parser) returns ast.NodeID throws SyntaxError
 			ast.setTypeRefTypeArgsRef(p.tree, id: n, ref: v6)
 		end 'b5'
 	end 'b1' else if p.at(TokenKind.lParen) 'b7'
-		_ = try p.expect(TokenKind.lParen, what: "'('")
+		try p.pass(TokenKind.lParen, what: "'('")
 		ast.setTypeRefIsTuple(p.tree, id: n)
 		let v7 = try parseTypeRef(p)
 		let v8 = v7 as diag.U32
 		p.lists.ids_TypeRef_Elems.push(v8)
-		_ = try p.expect(TokenKind.comma, what: "','")
+		try p.pass(TokenKind.comma, what: "','")
 		let v9 = try parseTypeRef(p)
 		let v10 = v9 as diag.U32
 		p.lists.ids_TypeRef_Elems.push(v10)
 		while p.at(TokenKind.comma) 'b8'
-			_ = try p.expect(TokenKind.comma, what: "','")
+			try p.pass(TokenKind.comma, what: "','")
 			let v11 = try parseTypeRef(p)
 			let v12 = v11 as diag.U32
 			p.lists.ids_TypeRef_Elems.push(v12)
 		end 'b8'
-		_ = try p.expect(TokenKind.rParen, what: "')'")
+		try p.pass(TokenKind.rParen, what: "')'")
 	end 'b7' else 'b9'
 		throw p.expected("a type")
 	end 'b9'
@@ -1103,7 +1103,7 @@ function parseTypeCount(mutates p Parser) returns ast.NodeID throws SyntaxError
 	let t = p.curStart()
 	let n = ast.newTypeCount(p.tree, start: t)
 	if p.at(TokenKind.minus) 'b1'
-		_ = try p.expect(TokenKind.minus, what: "'-'")
+		try p.pass(TokenKind.minus, what: "'-'")
 		ast.setTypeCountNegative(p.tree, id: n)
 		p.joinNext = true
 	end 'b1'
@@ -1117,17 +1117,17 @@ function parseTypeArgs(mutates p Parser) returns diag.U32 throws SyntaxError
 	var args = 0 as diag.U32
 	let mark_args = p.lists.ids_typeArgs.mark()
 	if p.at(TokenKind.lParen) and p.peekIn(lookahead9) 'b1'
-		_ = try p.expect(TokenKind.lParen, what: "'('")
+		try p.pass(TokenKind.lParen, what: "'('")
 		let v1 = try parseTypeRef(p)
 		let v2 = v1 as diag.U32
 		p.lists.ids_typeArgs.push(v2)
 		while p.at(TokenKind.comma) 'b2'
-			_ = try p.expect(TokenKind.comma, what: "','")
+			try p.pass(TokenKind.comma, what: "','")
 			let v3 = try parseTypeRef(p)
 			let v4 = v3 as diag.U32
 			p.lists.ids_typeArgs.push(v4)
 		end 'b2'
-		_ = try p.expect(TokenKind.rParen, what: "')'")
+		try p.pass(TokenKind.rParen, what: "')'")
 	end 'b1' else if p.inSet(lookahead9) 'b3'
 		let v5 = try parseTypeRef(p)
 		let v6 = v5 as diag.U32
@@ -1143,11 +1143,11 @@ end 'parseTypeArgs'
 function parseUsesClause(mutates p Parser) returns ast.TypeParamList throws SyntaxError
 	var params = ast.TypeParamList.create(0)
 	let mark_params = p.lists.ptr_TypeParam.mark()
-	_ = try p.expect(TokenKind.kw_uses, what: "'uses'")
+	try p.pass(TokenKind.kw_uses, what: "'uses'")
 	let v1 = try parseTypeParam(p)
 	p.lists.ptr_TypeParam.push(v1)
 	while p.at(TokenKind.comma) 'b1'
-		_ = try p.expect(TokenKind.comma, what: "','")
+		try p.pass(TokenKind.comma, what: "','")
 		let v2 = try parseTypeParam(p)
 		p.lists.ptr_TypeParam.push(v2)
 	end 'b1'
@@ -1168,11 +1168,11 @@ end 'parseTypeParam'
 function parseWhereClause(mutates p Parser) returns ast.ConstraintList throws SyntaxError
 	var constraints = ast.ConstraintList.create(0)
 	let mark_constraints = p.lists.ptr_Constraint.mark()
-	_ = try p.expect(TokenKind.kw_where, what: "'where'")
+	try p.pass(TokenKind.kw_where, what: "'where'")
 	let v1 = try parseConstraint(p)
 	p.lists.ptr_Constraint.push(v1)
 	while p.at(TokenKind.comma) 'b1'
-		_ = try p.expect(TokenKind.comma, what: "','")
+		try p.pass(TokenKind.comma, what: "','")
 		let v2 = try parseConstraint(p)
 		p.lists.ptr_Constraint.push(v2)
 	end 'b1'
@@ -1187,12 +1187,12 @@ function parseConstraint(mutates p Parser) returns ast.Constraint throws SyntaxE
 	let mark_n_Bounds = p.lists.ids_Constraint_Bounds.mark()
 	let v1 = try p.expect(TokenKind.name, what: "a name")
 	n.param = p.text(v1)
-	_ = try p.expect(TokenKind.kw_implements, what: "'implements'")
+	try p.pass(TokenKind.kw_implements, what: "'implements'")
 	let v2 = try parseTypeRef(p)
 	let v3 = v2 as diag.U32
 	p.lists.ids_Constraint_Bounds.push(v3)
 	while p.at(TokenKind.kw_and) 'b1'
-		_ = try p.expect(TokenKind.kw_and, what: "'and'")
+		try p.pass(TokenKind.kw_and, what: "'and'")
 		let v4 = try parseTypeRef(p)
 		let v5 = v4 as diag.U32
 		p.lists.ids_Constraint_Bounds.push(v5)
@@ -1205,12 +1205,12 @@ end 'parseConstraint'
 function parseConformsClause(mutates p Parser) returns diag.U32 throws SyntaxError
 	var interfaces = 0 as diag.U32
 	let mark_interfaces = p.lists.ids_conformsClause.mark()
-	_ = try p.expect(TokenKind.kw_implements, what: "'implements'")
+	try p.pass(TokenKind.kw_implements, what: "'implements'")
 	let v1 = try parseTypeRef(p)
 	let v2 = v1 as diag.U32
 	p.lists.ids_conformsClause.push(v2)
 	while p.at(TokenKind.comma) 'b1'
-		_ = try p.expect(TokenKind.comma, what: "','")
+		try p.pass(TokenKind.comma, what: "','")
 		let v3 = try parseTypeRef(p)
 		let v4 = v3 as diag.U32
 		p.lists.ids_conformsClause.push(v4)
@@ -1223,12 +1223,12 @@ end 'parseConformsClause'
 function parseExtendsClause(mutates p Parser) returns diag.U32 throws SyntaxError
 	var interfaces = 0 as diag.U32
 	let mark_interfaces = p.lists.ids_extendsClause.mark()
-	_ = try p.expect(TokenKind.kw_extends, what: "'extends'")
+	try p.pass(TokenKind.kw_extends, what: "'extends'")
 	let v1 = try parseTypeRef(p)
 	let v2 = v1 as diag.U32
 	p.lists.ids_extendsClause.push(v2)
 	while p.at(TokenKind.comma) 'b1'
-		_ = try p.expect(TokenKind.comma, what: "','")
+		try p.pass(TokenKind.comma, what: "','")
 		let v3 = try parseTypeRef(p)
 		let v4 = v3 as diag.U32
 		p.lists.ids_extendsClause.push(v4)
@@ -1250,7 +1250,7 @@ function parseInterfaceDecl(mutates p Parser) returns ast.InterfaceDecl throws S
 		let v1 = try p.next()
 		n.visibility = p.text(v1)
 	end 'b1'
-	_ = try p.expect(TokenKind.kw_interface, what: "'interface'")
+	try p.pass(TokenKind.kw_interface, what: "'interface'")
 	let v2 = try p.expect(TokenKind.name, what: "a name")
 	try p.declares(v2)
 	n.name = p.text(v2)
@@ -1277,9 +1277,9 @@ function parseInterfaceDecl(mutates p Parser) returns ast.InterfaceDecl throws S
 		let v7 = try parseWhereClause(p)
 		n.whereList = v7
 	end 'b9'
-	_ = try p.expect(TokenKind.newline, what: "the end of the line")
+	try p.pass(TokenKind.newline, what: "the end of the line")
 	if p.at(TokenKind.indent) 'b10'
-		_ = try p.expect(TokenKind.indent, what: "an indented line")
+		try p.pass(TokenKind.indent, what: "an indented line")
 		if p.inSet(lookahead30) 'b11'
 			let v8 = try parseAliasDecl(p)
 			p.lists.ptr_AliasDecl.push(v8)
@@ -1289,7 +1289,7 @@ function parseInterfaceDecl(mutates p Parser) returns ast.InterfaceDecl throws S
 		end 'b12' else 'b13'
 			throw p.expected("'export', 'function', 'public', 'static' or 'typealias'")
 		end 'b13'
-		_ = try p.expect(TokenKind.newline, what: "the end of the line")
+		try p.pass(TokenKind.newline, what: "the end of the line")
 		while p.inSet(lookahead18) 'b14'
 			if p.inSet(lookahead30) 'b15'
 				let v10 = try parseAliasDecl(p)
@@ -1300,11 +1300,11 @@ function parseInterfaceDecl(mutates p Parser) returns ast.InterfaceDecl throws S
 			end 'b16' else 'b17'
 				throw p.expected("'export', 'function', 'public', 'static' or 'typealias'")
 			end 'b17'
-			_ = try p.expect(TokenKind.newline, what: "the end of the line")
+			try p.pass(TokenKind.newline, what: "the end of the line")
 		end 'b14'
-		_ = try p.expect(TokenKind.dedent, what: "the end of the indented lines")
+		try p.pass(TokenKind.dedent, what: "the end of the indented lines")
 	end 'b10'
-	_ = try p.expect(TokenKind.kw_end, what: "'end'")
+	try p.pass(TokenKind.kw_end, what: "'end'")
 	if p.inSet(lookahead4) 'b18'
 		let v12 = try parseEndLabel(p)
 		n.endRef = v12
@@ -1321,10 +1321,10 @@ function parseFuncSig(mutates p Parser) returns ast.FuncSig throws SyntaxError
 	var n = ast.newFuncSig(p.tree, start: t)
 	let mark_n_Params = p.lists.ptr_Param.mark()
 	if p.at(TokenKind.kw_static) 'b1'
-		_ = try p.expect(TokenKind.kw_static, what: "'static'")
+		try p.pass(TokenKind.kw_static, what: "'static'")
 		n.isStatic = true
 	end 'b1'
-	_ = try p.expect(TokenKind.kw_function, what: "'function'")
+	try p.pass(TokenKind.kw_function, what: "'function'")
 	if not p.inSet(lookahead6) 'b2'
 		throw p.expected("a name")
 	end 'b2'
@@ -1333,7 +1333,7 @@ function parseFuncSig(mutates p Parser) returns ast.FuncSig throws SyntaxError
 	try p.declares(v1)
 	n.name = p.text(v1)
 	p.joinNext = true
-	_ = try p.expect(TokenKind.lParen, what: "'('")
+	try p.pass(TokenKind.lParen, what: "'('")
 	if p.inSet(lookahead6) 'b3'
 		if (p.at(TokenKind.kw_consumes) and p.peekIs(TokenKind.kw_self)) or (p.at(TokenKind.kw_destructs) and p.peekIs(TokenKind.kw_self)) or (p.at(TokenKind.kw_mutates) and p.peekIs(TokenKind.kw_self)) 'b4'
 			if not p.inSet(lookahead8) 'b5'
@@ -1341,9 +1341,9 @@ function parseFuncSig(mutates p Parser) returns ast.FuncSig throws SyntaxError
 			end 'b5'
 			let v2 = try p.next()
 			n.receiver = p.text(v2)
-			_ = try p.expect(TokenKind.kw_self, what: "'self'")
+			try p.pass(TokenKind.kw_self, what: "'self'")
 			while p.at(TokenKind.comma) 'b6'
-				_ = try p.expect(TokenKind.comma, what: "','")
+				try p.pass(TokenKind.comma, what: "','")
 				let v3 = try parseParam(p)
 				p.lists.ptr_Param.push(v3)
 			end 'b6'
@@ -1351,7 +1351,7 @@ function parseFuncSig(mutates p Parser) returns ast.FuncSig throws SyntaxError
 			let v4 = try parseParam(p)
 			p.lists.ptr_Param.push(v4)
 			while p.at(TokenKind.comma) 'b8'
-				_ = try p.expect(TokenKind.comma, what: "','")
+				try p.pass(TokenKind.comma, what: "','")
 				let v5 = try parseParam(p)
 				p.lists.ptr_Param.push(v5)
 			end 'b8'
@@ -1359,9 +1359,9 @@ function parseFuncSig(mutates p Parser) returns ast.FuncSig throws SyntaxError
 			throw p.expected("'Self', '_', 'and', 'as', 'async', 'await', 'break', 'consumes', 'continue', 'countof', 'default', 'destructs', 'else', 'end', 'enum', 'export', 'extends', 'extension', 'fallthrough', 'false', 'for', 'function', 'gives', 'if', 'ignore', 'implements', 'in', 'int', 'interface', 'is', 'let', 'match', 'mod', 'mutates', 'noncopyable', 'not', 'or', 'otherwise', 'panic', 'public', 'return', 'returns', 'self', 'sets', 'shl', 'shr', 'sizeof', 'static', 'then', 'throw', 'throws', 'true', 'try', 'type', 'typealias', 'union', 'upto', 'uses', 'var', 'when', 'where', 'while', 'with', 'xor' or a name")
 		end 'b9'
 	end 'b3'
-	_ = try p.expect(TokenKind.rParen, what: "')'")
+	try p.pass(TokenKind.rParen, what: "')'")
 	if p.at(TokenKind.kw_returns) 'b10'
-		_ = try p.expect(TokenKind.kw_returns, what: "'returns'")
+		try p.pass(TokenKind.kw_returns, what: "'returns'")
 		if p.at(TokenKind.name) and p.peekIn(lookahead9) and p.atBorrowedResult() 'b11'
 			let v6 = try p.expect(TokenKind.name, what: "a name")
 			n.resultMode = p.text(v6)
@@ -1370,7 +1370,7 @@ function parseFuncSig(mutates p Parser) returns ast.FuncSig throws SyntaxError
 		n.returnsRef = v7
 	end 'b10'
 	if p.at(TokenKind.kw_throws) 'b12'
-		_ = try p.expect(TokenKind.kw_throws, what: "'throws'")
+		try p.pass(TokenKind.kw_throws, what: "'throws'")
 		let v8 = try parseTypeRef(p)
 		n.throwsRef = v8
 	end 'b12'
@@ -1394,19 +1394,19 @@ end 'parseEndLabel'
 function parseBlock(mutates p Parser) returns diag.U32 throws SyntaxError
 	var stmts = 0 as diag.U32
 	let mark_stmts = p.lists.ids_block.mark()
-	_ = try p.expect(TokenKind.newline, what: "the end of the line")
-	_ = try p.expect(TokenKind.indent, what: "an indented line")
+	try p.pass(TokenKind.newline, what: "the end of the line")
+	try p.pass(TokenKind.indent, what: "an indented line")
 	let v1 = try parseStmt(p)
 	let v2 = v1 as diag.U32
 	p.lists.ids_block.push(v2)
-	_ = try p.expect(TokenKind.newline, what: "the end of the line")
+	try p.pass(TokenKind.newline, what: "the end of the line")
 	while p.inSet(lookahead31) 'b1'
 		let v3 = try parseStmt(p)
 		let v4 = v3 as diag.U32
 		p.lists.ids_block.push(v4)
-		_ = try p.expect(TokenKind.newline, what: "the end of the line")
+		try p.pass(TokenKind.newline, what: "the end of the line")
 	end 'b1'
-	_ = try p.expect(TokenKind.dedent, what: "the end of the indented lines")
+	try p.pass(TokenKind.dedent, what: "the end of the indented lines")
 	let v5 = takeIDs(p.tree, stack: p.lists.ids_block, mark: mark_stmts)
 	stmts = v5
 	return stmts
@@ -1415,20 +1415,20 @@ end 'parseBlock'
 function parseFuncBody(mutates p Parser) returns diag.U32 throws SyntaxError
 	var stmts = 0 as diag.U32
 	let mark_stmts = p.lists.ids_funcBody.mark()
-	_ = try p.expect(TokenKind.newline, what: "the end of the line")
+	try p.pass(TokenKind.newline, what: "the end of the line")
 	if p.at(TokenKind.indent) 'b1'
-		_ = try p.expect(TokenKind.indent, what: "an indented line")
+		try p.pass(TokenKind.indent, what: "an indented line")
 		let v1 = try parseStmt(p)
 		let v2 = v1 as diag.U32
 		p.lists.ids_funcBody.push(v2)
-		_ = try p.expect(TokenKind.newline, what: "the end of the line")
+		try p.pass(TokenKind.newline, what: "the end of the line")
 		while p.inSet(lookahead31) 'b2'
 			let v3 = try parseStmt(p)
 			let v4 = v3 as diag.U32
 			p.lists.ids_funcBody.push(v4)
-			_ = try p.expect(TokenKind.newline, what: "the end of the line")
+			try p.pass(TokenKind.newline, what: "the end of the line")
 		end 'b2'
-		_ = try p.expect(TokenKind.dedent, what: "the end of the indented lines")
+		try p.pass(TokenKind.dedent, what: "the end of the indented lines")
 	end 'b1'
 	let v5 = takeIDs(p.tree, stack: p.lists.ids_funcBody, mark: mark_stmts)
 	stmts = v5
@@ -1506,14 +1506,14 @@ function parseLetStmt(mutates p Parser) returns ast.NodeID throws SyntaxError
 	let t = p.curStart()
 	let n = ast.newLetStmt(p.tree, start: t)
 	if p.at(TokenKind.at) 'b1'
-		_ = try p.expect(TokenKind.at, what: "'@'")
+		try p.pass(TokenKind.at, what: "'@'")
 		ast.setLetStmtIsHeap(p.tree, id: n)
 		let v1 = try p.expect(TokenKind.name, what: "a name")
 		let v2 = p.textRef(v1)
 		ast.setLetStmtAnnotationRef(p.tree, id: n, ref: v2)
 	end 'b1'
 	if p.at(TokenKind.kw_let) 'b2'
-		_ = try p.expect(TokenKind.kw_let, what: "'let'")
+		try p.pass(TokenKind.kw_let, what: "'let'")
 		if not p.inSet(lookahead12) 'b3'
 			throw p.expected("a name")
 		end 'b3'
@@ -1522,11 +1522,11 @@ function parseLetStmt(mutates p Parser) returns ast.NodeID throws SyntaxError
 		try p.declares(v3)
 		let v4 = p.textRef(v3)
 		ast.setLetStmtNameRef(p.tree, id: n, ref: v4)
-		_ = try p.expect(TokenKind.assign, what: "'='")
+		try p.pass(TokenKind.assign, what: "'='")
 		let v5 = try parseExpr(p)
 		ast.setLetStmtInit(p.tree, id: n, value: v5)
 	end 'b2' else if p.at(TokenKind.kw_var) 'b4'
-		_ = try p.expect(TokenKind.kw_var, what: "'var'")
+		try p.pass(TokenKind.kw_var, what: "'var'")
 		ast.setLetStmtIsVar(p.tree, id: n)
 		if not p.inSet(lookahead12) 'b5'
 			throw p.expected("a name")
@@ -1537,11 +1537,11 @@ function parseLetStmt(mutates p Parser) returns ast.NodeID throws SyntaxError
 		let v7 = p.textRef(v6)
 		ast.setLetStmtNameRef(p.tree, id: n, ref: v7)
 		if p.at(TokenKind.assign) 'b6'
-			_ = try p.expect(TokenKind.assign, what: "'='")
+			try p.pass(TokenKind.assign, what: "'='")
 			let v8 = try parseExpr(p)
 			ast.setLetStmtInit(p.tree, id: n, value: v8)
 		end 'b6' else if p.at(TokenKind.kw_as) 'b7'
-			_ = try p.expect(TokenKind.kw_as, what: "'as'")
+			try p.pass(TokenKind.kw_as, what: "'as'")
 			let v9 = try parseTypeRef(p)
 			ast.setLetStmtType(p.tree, id: n, value: v9)
 		end 'b7' else 'b8'
@@ -1558,29 +1558,29 @@ function parseDestructStmt(mutates p Parser) returns ast.NodeID throws SyntaxErr
 	let n = ast.newDestructStmt(p.tree, start: t)
 	let mark_n_Names = p.lists.ids_DestructStmt_Names.mark()
 	if p.at(TokenKind.kw_let) 'b1'
-		_ = try p.expect(TokenKind.kw_let, what: "'let'")
+		try p.pass(TokenKind.kw_let, what: "'let'")
 	end 'b1' else if p.at(TokenKind.kw_var) 'b2'
-		_ = try p.expect(TokenKind.kw_var, what: "'var'")
+		try p.pass(TokenKind.kw_var, what: "'var'")
 		ast.setDestructStmtIsVar(p.tree, id: n)
 	end 'b2' else 'b3'
 		throw p.expected("'let' or 'var'")
 	end 'b3'
-	_ = try p.expect(TokenKind.lParen, what: "'('")
+	try p.pass(TokenKind.lParen, what: "'('")
 	let v1 = try parseBindName(p)
 	let v2 = v1 as diag.U32
 	p.lists.ids_DestructStmt_Names.push(v2)
-	_ = try p.expect(TokenKind.comma, what: "','")
+	try p.pass(TokenKind.comma, what: "','")
 	let v3 = try parseBindName(p)
 	let v4 = v3 as diag.U32
 	p.lists.ids_DestructStmt_Names.push(v4)
 	while p.at(TokenKind.comma) 'b4'
-		_ = try p.expect(TokenKind.comma, what: "','")
+		try p.pass(TokenKind.comma, what: "','")
 		let v5 = try parseBindName(p)
 		let v6 = v5 as diag.U32
 		p.lists.ids_DestructStmt_Names.push(v6)
 	end 'b4'
-	_ = try p.expect(TokenKind.rParen, what: "')'")
-	_ = try p.expect(TokenKind.assign, what: "'='")
+	try p.pass(TokenKind.rParen, what: "')'")
+	try p.pass(TokenKind.assign, what: "'='")
 	let v7 = try parseExpr(p)
 	ast.setDestructStmtInit(p.tree, id: n, value: v7)
 	let v8 = takeIDs(p.tree, stack: p.lists.ids_DestructStmt_Names, mark: mark_n_Names)
@@ -1605,22 +1605,22 @@ function parseTupleAssignStmt(mutates p Parser) returns ast.NodeID throws Syntax
 	let t = p.curStart()
 	let n = ast.newTupleAssignStmt(p.tree, start: t)
 	let mark_n_Targets = p.lists.ids_TupleAssignStmt_Targets.mark()
-	_ = try p.expect(TokenKind.lParen, what: "'('")
+	try p.pass(TokenKind.lParen, what: "'('")
 	let v1 = try parseAssignTarget(p)
 	let v2 = v1 as diag.U32
 	p.lists.ids_TupleAssignStmt_Targets.push(v2)
-	_ = try p.expect(TokenKind.comma, what: "','")
+	try p.pass(TokenKind.comma, what: "','")
 	let v3 = try parseAssignTarget(p)
 	let v4 = v3 as diag.U32
 	p.lists.ids_TupleAssignStmt_Targets.push(v4)
 	while p.at(TokenKind.comma) 'b1'
-		_ = try p.expect(TokenKind.comma, what: "','")
+		try p.pass(TokenKind.comma, what: "','")
 		let v5 = try parseAssignTarget(p)
 		let v6 = v5 as diag.U32
 		p.lists.ids_TupleAssignStmt_Targets.push(v6)
 	end 'b1'
-	_ = try p.expect(TokenKind.rParen, what: "')'")
-	_ = try p.expect(TokenKind.assign, what: "'='")
+	try p.pass(TokenKind.rParen, what: "')'")
+	try p.pass(TokenKind.assign, what: "'='")
 	let v7 = try parseExpr(p)
 	ast.setTupleAssignStmtValue(p.tree, id: n, value: v7)
 	let v8 = takeIDs(p.tree, stack: p.lists.ids_TupleAssignStmt_Targets, mark: mark_n_Targets)
@@ -1633,10 +1633,10 @@ function parseAssignTarget(mutates p Parser) returns ast.NodeID throws SyntaxErr
 	let n = ast.newAssignTarget(p.tree, start: t)
 	if p.inSet(lookahead14) 'b1'
 		if p.at(TokenKind.kw_let) 'b2'
-			_ = try p.expect(TokenKind.kw_let, what: "'let'")
+			try p.pass(TokenKind.kw_let, what: "'let'")
 			ast.setAssignTargetIsLet(p.tree, id: n)
 		end 'b2' else if p.at(TokenKind.kw_var) 'b3'
-			_ = try p.expect(TokenKind.kw_var, what: "'var'")
+			try p.pass(TokenKind.kw_var, what: "'var'")
 			ast.setAssignTargetIsVar(p.tree, id: n)
 		end 'b3' else 'b4'
 			throw p.expected("'let' or 'var'")
@@ -1654,8 +1654,8 @@ end 'parseAssignTarget'
 function parseDiscardStmt(mutates p Parser) returns ast.NodeID throws SyntaxError
 	let t = p.curStart()
 	let n = ast.newDiscardStmt(p.tree, start: t)
-	_ = try p.expect(TokenKind.kw__, what: "'_'")
-	_ = try p.expect(TokenKind.assign, what: "'='")
+	try p.pass(TokenKind.kw__, what: "'_'")
+	try p.pass(TokenKind.assign, what: "'='")
 	let v1 = try parseExpr(p)
 	ast.setDiscardStmtValue(p.tree, id: n, value: v1)
 	return n
@@ -1664,7 +1664,7 @@ end 'parseDiscardStmt'
 function parseAssignStmtAfter(mutates p Parser, t diag.U32, first ast.NodeID) returns ast.NodeID throws SyntaxError
 	let n = ast.newAssignStmt(p.tree, start: t)
 	ast.setAssignStmtTarget(p.tree, id: n, value: first)
-	_ = try p.expect(TokenKind.assign, what: "'='")
+	try p.pass(TokenKind.assign, what: "'='")
 	let v1 = try parseExpr(p)
 	ast.setAssignStmtValue(p.tree, id: n, value: v1)
 	return n
@@ -1692,7 +1692,7 @@ function parseIfStmt(mutates p Parser) returns ast.NodeID throws SyntaxError
 	let t = p.curStart()
 	let n = ast.newIfStmt(p.tree, start: t)
 	let mark_n_Else = p.lists.ids_IfStmt_Else.mark()
-	_ = try p.expect(TokenKind.kw_if, what: "'if'")
+	try p.pass(TokenKind.kw_if, what: "'if'")
 	let v1 = try parseExpr(p)
 	ast.setIfStmtCond(p.tree, id: n, value: v1)
 	let v2 = try p.expect(TokenKind.label, what: "a label")
@@ -1700,13 +1700,13 @@ function parseIfStmt(mutates p Parser) returns ast.NodeID throws SyntaxError
 	ast.setIfStmtLabelRef(p.tree, id: n, ref: v3)
 	let v4 = try parseBlock(p)
 	ast.setIfStmtThenRef(p.tree, id: n, ref: v4)
-	_ = try p.expect(TokenKind.kw_end, what: "'end'")
+	try p.pass(TokenKind.kw_end, what: "'end'")
 	if p.inSet(lookahead4) 'b1'
 		let v5 = try parseEndLabel(p)
 		ast.setIfStmtEnd(p.tree, id: n, value: v5)
 	end 'b1'
 	if p.at(TokenKind.kw_else) 'b2'
-		_ = try p.expect(TokenKind.kw_else, what: "'else'")
+		try p.pass(TokenKind.kw_else, what: "'else'")
 		ast.setIfStmtHasElse(p.tree, id: n)
 		if p.at(TokenKind.kw_if) 'b3'
 			let v6 = try parseIfStmt(p)
@@ -1718,7 +1718,7 @@ function parseIfStmt(mutates p Parser) returns ast.NodeID throws SyntaxError
 			ast.setIfStmtElseLabelRef(p.tree, id: n, ref: v9)
 			let v10 = try parseBlock(p)
 			ast.setIfStmtElseRef(p.tree, id: n, ref: v10)
-			_ = try p.expect(TokenKind.kw_end, what: "'end'")
+			try p.pass(TokenKind.kw_end, what: "'end'")
 			if p.inSet(lookahead4) 'b5'
 				let v11 = try parseEndLabel(p)
 				ast.setIfStmtElseEnd(p.tree, id: n, value: v11)
@@ -1737,29 +1737,29 @@ end 'parseIfStmt'
 function parseIfTryStmt(mutates p Parser) returns ast.NodeID throws SyntaxError
 	let t = p.curStart()
 	let n = ast.newIfTryStmt(p.tree, start: t)
-	_ = try p.expect(TokenKind.kw_if, what: "'if'")
+	try p.pass(TokenKind.kw_if, what: "'if'")
 	if p.inSet(lookahead14) 'b1'
 		if p.at(TokenKind.kw_let) 'b2'
-			_ = try p.expect(TokenKind.kw_let, what: "'let'")
+			try p.pass(TokenKind.kw_let, what: "'let'")
 			ast.setIfTryStmtIsLet(p.tree, id: n)
 			let v1 = try p.expect(TokenKind.name, what: "a name")
 			try p.declares(v1)
 			let v2 = p.textRef(v1)
 			ast.setIfTryStmtNameRef(p.tree, id: n, ref: v2)
-			_ = try p.expect(TokenKind.assign, what: "'='")
+			try p.pass(TokenKind.assign, what: "'='")
 		end 'b2' else if p.at(TokenKind.kw_var) 'b3'
-			_ = try p.expect(TokenKind.kw_var, what: "'var'")
+			try p.pass(TokenKind.kw_var, what: "'var'")
 			ast.setIfTryStmtIsVar(p.tree, id: n)
 			let v3 = try p.expect(TokenKind.name, what: "a name")
 			try p.declares(v3)
 			let v4 = p.textRef(v3)
 			ast.setIfTryStmtNameRef(p.tree, id: n, ref: v4)
-			_ = try p.expect(TokenKind.assign, what: "'='")
+			try p.pass(TokenKind.assign, what: "'='")
 		end 'b3' else 'b4'
 			throw p.expected("'let' or 'var'")
 		end 'b4'
 	end 'b1'
-	_ = try p.expect(TokenKind.kw_try, what: "'try'")
+	try p.pass(TokenKind.kw_try, what: "'try'")
 	let v5 = try parseExpr(p)
 	ast.setIfTryStmtCall(p.tree, id: n, value: v5)
 	let v6 = try p.expect(TokenKind.label, what: "a label")
@@ -1767,27 +1767,27 @@ function parseIfTryStmt(mutates p Parser) returns ast.NodeID throws SyntaxError
 	ast.setIfTryStmtLabelRef(p.tree, id: n, ref: v7)
 	let v8 = try parseBlock(p)
 	ast.setIfTryStmtThenRef(p.tree, id: n, ref: v8)
-	_ = try p.expect(TokenKind.kw_end, what: "'end'")
+	try p.pass(TokenKind.kw_end, what: "'end'")
 	if p.inSet(lookahead4) 'b5'
 		let v9 = try parseEndLabel(p)
 		ast.setIfTryStmtEnd(p.tree, id: n, value: v9)
 	end 'b5'
 	if p.at(TokenKind.kw_else) 'b6'
-		_ = try p.expect(TokenKind.kw_else, what: "'else'")
+		try p.pass(TokenKind.kw_else, what: "'else'")
 		ast.setIfTryStmtHasElse(p.tree, id: n)
 		if p.at(TokenKind.lParen) 'b7'
-			_ = try p.expect(TokenKind.lParen, what: "'('")
+			try p.pass(TokenKind.lParen, what: "'('")
 			let v10 = try p.expect(TokenKind.name, what: "a name")
 			let v11 = p.textRef(v10)
 			ast.setIfTryStmtErrNameRef(p.tree, id: n, ref: v11)
-			_ = try p.expect(TokenKind.rParen, what: "')'")
+			try p.pass(TokenKind.rParen, what: "')'")
 		end 'b7'
 		let v12 = try p.expect(TokenKind.label, what: "a label")
 		let v13 = p.textRef(v12)
 		ast.setIfTryStmtElseLabelRef(p.tree, id: n, ref: v13)
 		let v14 = try parseBlock(p)
 		ast.setIfTryStmtElseRef(p.tree, id: n, ref: v14)
-		_ = try p.expect(TokenKind.kw_end, what: "'end'")
+		try p.pass(TokenKind.kw_end, what: "'end'")
 		if p.inSet(lookahead4) 'b8'
 			let v15 = try parseEndLabel(p)
 			ast.setIfTryStmtElseEnd(p.tree, id: n, value: v15)
@@ -1799,7 +1799,7 @@ end 'parseIfTryStmt'
 function parseWhileStmt(mutates p Parser) returns ast.NodeID throws SyntaxError
 	let t = p.curStart()
 	let n = ast.newWhileStmt(p.tree, start: t)
-	_ = try p.expect(TokenKind.kw_while, what: "'while'")
+	try p.pass(TokenKind.kw_while, what: "'while'")
 	let v1 = try parseExpr(p)
 	ast.setWhileStmtCond(p.tree, id: n, value: v1)
 	let v2 = try p.expect(TokenKind.label, what: "a label")
@@ -1807,7 +1807,7 @@ function parseWhileStmt(mutates p Parser) returns ast.NodeID throws SyntaxError
 	ast.setWhileStmtLabelRef(p.tree, id: n, ref: v3)
 	let v4 = try parseBlock(p)
 	ast.setWhileStmtBodyRef(p.tree, id: n, ref: v4)
-	_ = try p.expect(TokenKind.kw_end, what: "'end'")
+	try p.pass(TokenKind.kw_end, what: "'end'")
 	if p.inSet(lookahead4) 'b1'
 		let v5 = try parseEndLabel(p)
 		ast.setWhileStmtEnd(p.tree, id: n, value: v5)
@@ -1819,7 +1819,7 @@ function parseForStmt(mutates p Parser) returns ast.NodeID throws SyntaxError
 	let t = p.curStart()
 	let n = ast.newForStmt(p.tree, start: t)
 	let mark_n_Vars = p.lists.ids_ForStmt_Vars.mark()
-	_ = try p.expect(TokenKind.kw_for, what: "'for'")
+	try p.pass(TokenKind.kw_for, what: "'for'")
 	if p.inSet(lookahead38) 'b1'
 		if not p.inSet(lookahead38) 'b2'
 			throw p.expected("'_' or a name")
@@ -1829,33 +1829,33 @@ function parseForStmt(mutates p Parser) returns ast.NodeID throws SyntaxError
 		let v2 = p.textRef(v1)
 		ast.setForStmtVarRef(p.tree, id: n, ref: v2)
 	end 'b1' else if p.at(TokenKind.lParen) 'b3'
-		_ = try p.expect(TokenKind.lParen, what: "'('")
+		try p.pass(TokenKind.lParen, what: "'('")
 		let v3 = try parseBindName(p)
 		let v4 = v3 as diag.U32
 		p.lists.ids_ForStmt_Vars.push(v4)
-		_ = try p.expect(TokenKind.comma, what: "','")
+		try p.pass(TokenKind.comma, what: "','")
 		let v5 = try parseBindName(p)
 		let v6 = v5 as diag.U32
 		p.lists.ids_ForStmt_Vars.push(v6)
 		while p.at(TokenKind.comma) 'b4'
-			_ = try p.expect(TokenKind.comma, what: "','")
+			try p.pass(TokenKind.comma, what: "','")
 			let v7 = try parseBindName(p)
 			let v8 = v7 as diag.U32
 			p.lists.ids_ForStmt_Vars.push(v8)
 		end 'b4'
-		_ = try p.expect(TokenKind.rParen, what: "')'")
+		try p.pass(TokenKind.rParen, what: "')'")
 	end 'b3' else 'b5'
 		throw p.expected("'_', '(' or a name")
 	end 'b5'
-	_ = try p.expect(TokenKind.kw_in, what: "'in'")
+	try p.pass(TokenKind.kw_in, what: "'in'")
 	let v9 = try parseExpr(p)
 	ast.setForStmtFrom(p.tree, id: n, value: v9)
 	if p.inSet(lookahead20) 'b6'
 		if p.at(TokenKind.kw_to) 'b7'
-			_ = try p.expect(TokenKind.kw_to, what: "'to'")
+			try p.pass(TokenKind.kw_to, what: "'to'")
 			ast.setForStmtInclusive(p.tree, id: n)
 		end 'b7' else if p.at(TokenKind.kw_upto) 'b8'
-			_ = try p.expect(TokenKind.kw_upto, what: "'upto'")
+			try p.pass(TokenKind.kw_upto, what: "'upto'")
 		end 'b8' else 'b9'
 			throw p.expected("'to' or 'upto'")
 		end 'b9'
@@ -1867,7 +1867,7 @@ function parseForStmt(mutates p Parser) returns ast.NodeID throws SyntaxError
 	ast.setForStmtLabelRef(p.tree, id: n, ref: v12)
 	let v13 = try parseBlock(p)
 	ast.setForStmtBodyRef(p.tree, id: n, ref: v13)
-	_ = try p.expect(TokenKind.kw_end, what: "'end'")
+	try p.pass(TokenKind.kw_end, what: "'end'")
 	if p.inSet(lookahead4) 'b10'
 		let v14 = try parseEndLabel(p)
 		ast.setForStmtEnd(p.tree, id: n, value: v14)
@@ -1880,22 +1880,22 @@ end 'parseForStmt'
 function parseTryStmt(mutates p Parser) returns ast.NodeID throws SyntaxError
 	let t = p.curStart()
 	let n = ast.newTryStmt(p.tree, start: t)
-	_ = try p.expect(TokenKind.kw_try, what: "'try'")
+	try p.pass(TokenKind.kw_try, what: "'try'")
 	let v1 = try p.expect(TokenKind.label, what: "a label")
 	let v2 = p.textRef(v1)
 	ast.setTryStmtLabelRef(p.tree, id: n, ref: v2)
 	let v3 = try parseBlock(p)
 	ast.setTryStmtBodyRef(p.tree, id: n, ref: v3)
-	_ = try p.expect(TokenKind.kw_end, what: "'end'")
+	try p.pass(TokenKind.kw_end, what: "'end'")
 	if p.inSet(lookahead4) 'b1'
 		let v4 = try parseEndLabel(p)
 		ast.setTryStmtEnd(p.tree, id: n, value: v4)
 	end 'b1'
 	if p.at(TokenKind.kw_otherwise) 'b2'
-		_ = try p.expect(TokenKind.kw_otherwise, what: "'otherwise'")
+		try p.pass(TokenKind.kw_otherwise, what: "'otherwise'")
 		ast.setTryStmtHasOtherwise(p.tree, id: n)
 		if p.at(TokenKind.lParen) 'b3'
-			_ = try p.expect(TokenKind.lParen, what: "'('")
+			try p.pass(TokenKind.lParen, what: "'('")
 			if not p.inSet(lookahead12) 'b4'
 				throw p.expected("a name")
 			end 'b4'
@@ -1903,14 +1903,14 @@ function parseTryStmt(mutates p Parser) returns ast.NodeID throws SyntaxError
 			p.nameWord(v5, keywords: lookahead13)
 			let v6 = p.textRef(v5)
 			ast.setTryStmtBindingRef(p.tree, id: n, ref: v6)
-			_ = try p.expect(TokenKind.rParen, what: "')'")
+			try p.pass(TokenKind.rParen, what: "')'")
 		end 'b3'
 		let v7 = try p.expect(TokenKind.label, what: "a label")
 		let v8 = p.textRef(v7)
 		ast.setTryStmtHandlerLabelRef(p.tree, id: n, ref: v8)
 		let v9 = try parseBlock(p)
 		ast.setTryStmtHandlerRef(p.tree, id: n, ref: v9)
-		_ = try p.expect(TokenKind.kw_end, what: "'end'")
+		try p.pass(TokenKind.kw_end, what: "'end'")
 		if p.inSet(lookahead4) 'b5'
 			let v10 = try parseEndLabel(p)
 			ast.setTryStmtHandlerEnd(p.tree, id: n, value: v10)
@@ -1927,7 +1927,7 @@ function parseHandlerBlock(mutates p Parser) returns ast.NodeID throws SyntaxErr
 	ast.setHandlerBlockLabelRef(p.tree, id: n, ref: v2)
 	let v3 = try parseBlock(p)
 	ast.setHandlerBlockBodyRef(p.tree, id: n, ref: v3)
-	_ = try p.expect(TokenKind.kw_end, what: "'end'")
+	try p.pass(TokenKind.kw_end, what: "'end'")
 	if p.at(TokenKind.testName) or (p.at(TokenKind.label) and p.peekIn(lookahead39)) 'b1'
 		let v4 = try parseEndLabel(p)
 		ast.setHandlerBlockEnd(p.tree, id: n, value: v4)
@@ -1938,7 +1938,7 @@ end 'parseHandlerBlock'
 function parseThrowStmt(mutates p Parser) returns ast.NodeID throws SyntaxError
 	let t = p.curStart()
 	let n = ast.newThrowStmt(p.tree, start: t)
-	_ = try p.expect(TokenKind.kw_throw, what: "'throw'")
+	try p.pass(TokenKind.kw_throw, what: "'throw'")
 	let v1 = try parseExpr(p)
 	ast.setThrowStmtValue(p.tree, id: n, value: v1)
 	return n
@@ -1959,7 +1959,7 @@ end 'parseReturnStmt'
 function parseBreakStmt(mutates p Parser) returns ast.NodeID throws SyntaxError
 	let t = p.curStart()
 	let n = ast.newBreakStmt(p.tree, start: t)
-	_ = try p.expect(TokenKind.kw_break, what: "'break'")
+	try p.pass(TokenKind.kw_break, what: "'break'")
 	if p.at(TokenKind.label) and p.peekIn(lookahead43) 'b1'
 		let v1 = try p.expect(TokenKind.label, what: "a label")
 		let v2 = p.textRef(v1)
@@ -1971,7 +1971,7 @@ end 'parseBreakStmt'
 function parseContinueStmt(mutates p Parser) returns ast.NodeID throws SyntaxError
 	let t = p.curStart()
 	let n = ast.newContinueStmt(p.tree, start: t)
-	_ = try p.expect(TokenKind.kw_continue, what: "'continue'")
+	try p.pass(TokenKind.kw_continue, what: "'continue'")
 	if p.at(TokenKind.label) and p.peekIn(lookahead43) 'b1'
 		let v1 = try p.expect(TokenKind.label, what: "a label")
 		let v2 = p.textRef(v1)
@@ -1993,22 +1993,22 @@ function parseWhenStmt(mutates p Parser) returns ast.NodeID throws SyntaxError
 	let n = ast.newWhenStmt(p.tree, start: t)
 	let mark_n_Cowns = p.lists.ids_WhenStmt_Cowns.mark()
 	let mark_n_Names = p.lists.ids_WhenStmt_Names.mark()
-	_ = try p.expect(TokenKind.kw_when, what: "'when'")
+	try p.pass(TokenKind.kw_when, what: "'when'")
 	let v1 = try parseNameExpr(p)
 	let v2 = v1 as diag.U32
 	p.lists.ids_WhenStmt_Cowns.push(v2)
 	while p.at(TokenKind.comma) 'b1'
-		_ = try p.expect(TokenKind.comma, what: "','")
+		try p.pass(TokenKind.comma, what: "','")
 		let v3 = try parseNameExpr(p)
 		let v4 = v3 as diag.U32
 		p.lists.ids_WhenStmt_Cowns.push(v4)
 	end 'b1'
-	_ = try p.expect(TokenKind.kw_as, what: "'as'")
+	try p.pass(TokenKind.kw_as, what: "'as'")
 	let v5 = try p.expect(TokenKind.name, what: "a name")
 	let v6 = p.textRef(v5)
 	p.lists.ids_WhenStmt_Names.push(v6)
 	while p.at(TokenKind.comma) 'b2'
-		_ = try p.expect(TokenKind.comma, what: "','")
+		try p.pass(TokenKind.comma, what: "','")
 		let v7 = try p.expect(TokenKind.name, what: "a name")
 		let v8 = p.textRef(v7)
 		p.lists.ids_WhenStmt_Names.push(v8)
@@ -2018,7 +2018,7 @@ function parseWhenStmt(mutates p Parser) returns ast.NodeID throws SyntaxError
 	ast.setWhenStmtLabelRef(p.tree, id: n, ref: v10)
 	let v11 = try parseBlock(p)
 	ast.setWhenStmtBodyRef(p.tree, id: n, ref: v11)
-	_ = try p.expect(TokenKind.kw_end, what: "'end'")
+	try p.pass(TokenKind.kw_end, what: "'end'")
 	if p.inSet(lookahead4) 'b3'
 		let v12 = try parseEndLabel(p)
 		ast.setWhenStmtEnd(p.tree, id: n, value: v12)
@@ -2034,9 +2034,9 @@ function parseMatchCore(mutates p Parser) returns ast.NodeID throws SyntaxError
 	let t = p.curStart()
 	let n = ast.newMatchCore(p.tree, start: t)
 	let mark_n_Arms = p.lists.ids_MatchCore_Arms.mark()
-	_ = try p.expect(TokenKind.kw_match, what: "'match'")
+	try p.pass(TokenKind.kw_match, what: "'match'")
 	if p.at(TokenKind.kw_consumes) and p.peekIn(lookahead34) 'b1'
-		_ = try p.expect(TokenKind.kw_consumes, what: "'consumes'")
+		try p.pass(TokenKind.kw_consumes, what: "'consumes'")
 		ast.setMatchCoreConsumes(p.tree, id: n)
 	end 'b1'
 	let v1 = try parseExpr(p)
@@ -2044,22 +2044,22 @@ function parseMatchCore(mutates p Parser) returns ast.NodeID throws SyntaxError
 	let v2 = try p.expect(TokenKind.label, what: "a label")
 	let v3 = p.textRef(v2)
 	ast.setMatchCoreLabelRef(p.tree, id: n, ref: v3)
-	_ = try p.expect(TokenKind.newline, what: "the end of the line")
+	try p.pass(TokenKind.newline, what: "the end of the line")
 	if p.at(TokenKind.indent) 'b2'
-		_ = try p.expect(TokenKind.indent, what: "an indented line")
+		try p.pass(TokenKind.indent, what: "an indented line")
 		let v4 = try parseMatchArm(p)
 		let v5 = v4 as diag.U32
 		p.lists.ids_MatchCore_Arms.push(v5)
-		_ = try p.expect(TokenKind.newline, what: "the end of the line")
+		try p.pass(TokenKind.newline, what: "the end of the line")
 		while p.inSet(lookahead44) 'b3'
 			let v6 = try parseMatchArm(p)
 			let v7 = v6 as diag.U32
 			p.lists.ids_MatchCore_Arms.push(v7)
-			_ = try p.expect(TokenKind.newline, what: "the end of the line")
+			try p.pass(TokenKind.newline, what: "the end of the line")
 		end 'b3'
-		_ = try p.expect(TokenKind.dedent, what: "the end of the indented lines")
+		try p.pass(TokenKind.dedent, what: "the end of the indented lines")
 	end 'b2'
-	_ = try p.expect(TokenKind.kw_end, what: "'end'")
+	try p.pass(TokenKind.kw_end, what: "'end'")
 	if p.at(TokenKind.testName) or (p.at(TokenKind.label) and p.peekIn(lookahead39)) 'b4'
 		let v8 = try parseEndLabel(p)
 		ast.setMatchCoreEnd(p.tree, id: n, value: v8)
@@ -2074,15 +2074,15 @@ function parseMatchArm(mutates p Parser) returns ast.NodeID throws SyntaxError
 	let n = ast.newMatchArm(p.tree, start: t)
 	let mark_n_Patterns = p.lists.ids_MatchArm_Patterns.mark()
 	if p.at(TokenKind.kw_default) 'b1'
-		_ = try p.expect(TokenKind.kw_default, what: "'default'")
+		try p.pass(TokenKind.kw_default, what: "'default'")
 		ast.setMatchArmIsDefault(p.tree, id: n)
 	end 'b1' else if p.inSet(lookahead45) 'b2'
 		let v1 = try parsePattern(p)
 		let v2 = v1 as diag.U32
 		p.lists.ids_MatchArm_Patterns.push(v2)
 		while p.at(TokenKind.kw_or) 'b3'
-			_ = try p.expect(TokenKind.kw_or, what: "'or'")
-			_ = try p.expect(TokenKind.newline, what: "the end of the line")
+			try p.pass(TokenKind.kw_or, what: "'or'")
+			try p.pass(TokenKind.newline, what: "the end of the line")
 			let v3 = try parsePattern(p)
 			let v4 = v3 as diag.U32
 			p.lists.ids_MatchArm_Patterns.push(v4)
@@ -2091,16 +2091,16 @@ function parseMatchArm(mutates p Parser) returns ast.NodeID throws SyntaxError
 		throw p.expected("an integer, 'default', 'false', 'true', a label, '-', a name, a string or a test name")
 	end 'b4'
 	if p.at(TokenKind.kw_then) 'b5'
-		_ = try p.expect(TokenKind.kw_then, what: "'then'")
+		try p.pass(TokenKind.kw_then, what: "'then'")
 		let v5 = try parseStmt(p)
 		ast.setMatchArmAction(p.tree, id: n, value: v5)
 		if p.at(TokenKind.kw_and) 'b6'
-			_ = try p.expect(TokenKind.kw_and, what: "'and'")
+			try p.pass(TokenKind.kw_and, what: "'and'")
 			ast.setMatchArmFalls(p.tree, id: n)
-			_ = try p.expect(TokenKind.kw_fallthrough, what: "'fallthrough'")
+			try p.pass(TokenKind.kw_fallthrough, what: "'fallthrough'")
 		end 'b6'
 	end 'b5' else if p.at(TokenKind.kw_gives) 'b7'
-		_ = try p.expect(TokenKind.kw_gives, what: "'gives'")
+		try p.pass(TokenKind.kw_gives, what: "'gives'")
 		ast.setMatchArmGives(p.tree, id: n)
 		let v6 = try parseExpr(p)
 		ast.setMatchArmValue(p.tree, id: n, value: v6)
@@ -2121,7 +2121,7 @@ end 'parseMatchArm'
 function parseThrowsArm(mutates p Parser) returns ast.NodeID throws SyntaxError
 	let t = p.curStart()
 	let n = ast.newThrowStmt(p.tree, start: t)
-	_ = try p.expect(TokenKind.kw_throws, what: "'throws'")
+	try p.pass(TokenKind.kw_throws, what: "'throws'")
 	let v1 = try parseExpr(p)
 	ast.setThrowStmtValue(p.tree, id: n, value: v1)
 	return n
@@ -2140,14 +2140,14 @@ function parsePattern(mutates p Parser) returns ast.NodeID throws SyntaxError
 		let v2 = p.textRef(v1)
 		ast.setPatternCaseNameRef(p.tree, id: n, ref: v2)
 		if p.at(TokenKind.dot) 'b3'
-			_ = try p.expect(TokenKind.dot, what: "'.'")
+			try p.pass(TokenKind.dot, what: "'.'")
 			let v3 = try p.expect(TokenKind.name, what: "a name")
 			let v4 = p.textRef(v3)
 			ast.setPatternMemberRef(p.tree, id: n, ref: v4)
 		end 'b3'
 		if p.at(TokenKind.lParen) 'b4'
 			p.joinNext = true
-			_ = try p.expect(TokenKind.lParen, what: "'('")
+			try p.pass(TokenKind.lParen, what: "'('")
 			ast.setPatternHasBindings(p.tree, id: n)
 			if p.inSet(lookahead38) 'b5'
 				if not p.inSet(lookahead38) 'b6'
@@ -2158,7 +2158,7 @@ function parsePattern(mutates p Parser) returns ast.NodeID throws SyntaxError
 				let v6 = p.textRef(v5)
 				p.lists.ids_Pattern_Bindings.push(v6)
 				while p.at(TokenKind.comma) 'b7'
-					_ = try p.expect(TokenKind.comma, what: "','")
+					try p.pass(TokenKind.comma, what: "','")
 					if not p.inSet(lookahead38) 'b8'
 						throw p.expected("'_' or a name")
 					end 'b8'
@@ -2168,17 +2168,17 @@ function parsePattern(mutates p Parser) returns ast.NodeID throws SyntaxError
 					p.lists.ids_Pattern_Bindings.push(v8)
 				end 'b7'
 			end 'b5'
-			_ = try p.expect(TokenKind.rParen, what: "')'")
+			try p.pass(TokenKind.rParen, what: "')'")
 		end 'b4'
 	end 'b1' else if p.inSet(lookahead46) 'b9'
 		let v9 = try parsePatternValue(p)
 		ast.setPatternValue(p.tree, id: n, value: v9)
 		if p.inSet(lookahead20) 'b10'
 			if p.at(TokenKind.kw_to) 'b11'
-				_ = try p.expect(TokenKind.kw_to, what: "'to'")
+				try p.pass(TokenKind.kw_to, what: "'to'")
 				ast.setPatternInclusive(p.tree, id: n)
 			end 'b11' else if p.at(TokenKind.kw_upto) 'b12'
-				_ = try p.expect(TokenKind.kw_upto, what: "'upto'")
+				try p.pass(TokenKind.kw_upto, what: "'upto'")
 			end 'b12' else 'b13'
 				throw p.expected("'to' or 'upto'")
 			end 'b13'
@@ -2269,10 +2269,10 @@ function parseExprPrec(mutates p Parser, minPrec Count) returns ast.NodeID throw
 		let v16 = try parseTupleExpr(p)
 		left = v16
 	end 'b16' else if p.at(TokenKind.lParen) 'b17'
-		_ = try p.expect(TokenKind.lParen, what: "'('")
+		try p.pass(TokenKind.lParen, what: "'('")
 		let v17 = try parseExpr(p)
 		left = v17
-		_ = try p.expect(TokenKind.rParen, what: "')'")
+		try p.pass(TokenKind.rParen, what: "')'")
 	end 'b17' else if p.inSet(lookahead50) 'b18'
 		let n = ast.newUnaryExpr(p.tree, start: t)
 		if not p.inSet(lookahead50) 'b19'
@@ -2288,25 +2288,25 @@ function parseExprPrec(mutates p Parser, minPrec Count) returns ast.NodeID throw
 		left = n
 	end 'b18' else if p.at(TokenKind.kw_async) 'b20'
 		let n = ast.newAsyncExpr(p.tree, start: t)
-		_ = try p.expect(TokenKind.kw_async, what: "'async'")
+		try p.pass(TokenKind.kw_async, what: "'async'")
 		let v22 = try parseExprPrec(p, minPrec: 13)
 		ast.setAsyncExprCall(p.tree, id: n, value: v22)
 		left = n
 	end 'b20' else if p.at(TokenKind.kw_await) 'b21'
 		let n = ast.newAwaitExpr(p.tree, start: t)
-		_ = try p.expect(TokenKind.kw_await, what: "'await'")
+		try p.pass(TokenKind.kw_await, what: "'await'")
 		let v23 = try parseExprPrec(p, minPrec: 12)
 		ast.setAwaitExprE(p.tree, id: n, value: v23)
 		left = n
 	end 'b21' else if p.at(TokenKind.kw_try) 'b22'
 		let n = ast.newTryExpr(p.tree, start: t)
-		_ = try p.expect(TokenKind.kw_try, what: "'try'")
+		try p.pass(TokenKind.kw_try, what: "'try'")
 		let v24 = try parseExpr(p)
 		ast.setTryExprE(p.tree, id: n, value: v24)
 		if p.at(TokenKind.kw_otherwise) and p.peekIn(lookahead51) 'b23'
-			_ = try p.expect(TokenKind.kw_otherwise, what: "'otherwise'")
+			try p.pass(TokenKind.kw_otherwise, what: "'otherwise'")
 			if p.at(TokenKind.kw_ignore) and p.peekIn(lookahead43) 'b24'
-				_ = try p.expect(TokenKind.kw_ignore, what: "'ignore'")
+				try p.pass(TokenKind.kw_ignore, what: "'ignore'")
 				ast.setTryExprIgnore(p.tree, id: n)
 			end 'b24' else if p.at(TokenKind.label) and p.peekIs(TokenKind.newline) 'b25'
 				let v25 = try parseHandlerBlock(p)
@@ -2346,7 +2346,7 @@ function parseExprPrec(mutates p Parser, minPrec Count) returns ast.NodeID throw
 			let v32 = p.curStart()
 			let n = ast.newMemberExpr(p.tree, start: v32)
 			ast.setMemberExprObj(p.tree, id: n, value: left)
-			_ = try p.expect(TokenKind.dot, what: "'.'")
+			try p.pass(TokenKind.dot, what: "'.'")
 			if not p.inSet(lookahead57) 'b37'
 				throw p.expected("an integer or a name")
 			end 'b37'
@@ -2364,17 +2364,17 @@ function parseExprPrec(mutates p Parser, minPrec Count) returns ast.NodeID throw
 			let mark_n_Args = p.lists.ids_IndexExpr_Args.mark()
 			ast.setIndexExprObj(p.tree, id: n, value: left)
 			p.joinNext = true
-			_ = try p.expect(TokenKind.lBracket, what: "'['")
+			try p.pass(TokenKind.lBracket, what: "'['")
 			let v36 = try parseExpr(p)
 			let v37 = v36 as diag.U32
 			p.lists.ids_IndexExpr_Args.push(v37)
 			while p.at(TokenKind.comma) 'b40'
-				_ = try p.expect(TokenKind.comma, what: "','")
+				try p.pass(TokenKind.comma, what: "','")
 				let v38 = try parseExpr(p)
 				let v39 = v38 as diag.U32
 				p.lists.ids_IndexExpr_Args.push(v39)
 			end 'b40'
-			_ = try p.expect(TokenKind.rBracket, what: "']'")
+			try p.pass(TokenKind.rBracket, what: "']'")
 			let v40 = takeIDs(p.tree, stack: p.lists.ids_IndexExpr_Args, mark: mark_n_Args)
 			ast.setIndexExprArgsRef(p.tree, id: n, ref: v40)
 			left = n
@@ -2387,19 +2387,19 @@ function parseExprPrec(mutates p Parser, minPrec Count) returns ast.NodeID throw
 			let mark_n_Args = p.lists.ids_CallExpr_Args.mark()
 			ast.setCallExprCallee(p.tree, id: n, value: left)
 			p.joinNext = true
-			_ = try p.expect(TokenKind.lParen, what: "'('")
+			try p.pass(TokenKind.lParen, what: "'('")
 			if p.inSet(lookahead58) 'b43'
 				let v42 = try parseArg(p)
 				let v43 = v42 as diag.U32
 				p.lists.ids_CallExpr_Args.push(v43)
 				while p.at(TokenKind.comma) 'b44'
-					_ = try p.expect(TokenKind.comma, what: "','")
+					try p.pass(TokenKind.comma, what: "','")
 					let v44 = try parseArg(p)
 					let v45 = v44 as diag.U32
 					p.lists.ids_CallExpr_Args.push(v45)
 				end 'b44'
 			end 'b43'
-			_ = try p.expect(TokenKind.rParen, what: "')'")
+			try p.pass(TokenKind.rParen, what: "')'")
 			let v46 = takeIDs(p.tree, stack: p.lists.ids_CallExpr_Args, mark: mark_n_Args)
 			ast.setCallExprArgsRef(p.tree, id: n, ref: v46)
 			left = n
@@ -2410,7 +2410,7 @@ function parseExprPrec(mutates p Parser, minPrec Count) returns ast.NodeID throw
 			let v47 = p.curStart()
 			let n = ast.newFromExpr(p.tree, start: v47)
 			ast.setFromExprHead(p.tree, id: n, value: left)
-			_ = try p.expect(TokenKind.kw_from, what: "'from'")
+			try p.pass(TokenKind.kw_from, what: "'from'")
 			let v48 = try parseExprPrec(p, minPrec: 16)
 			ast.setFromExprValue(p.tree, id: n, value: v48)
 			left = n
@@ -2421,7 +2421,7 @@ function parseExprPrec(mutates p Parser, minPrec Count) returns ast.NodeID throw
 			let v49 = p.curStart()
 			let n = ast.newCastExpr(p.tree, start: v49)
 			ast.setCastExprE(p.tree, id: n, value: left)
-			_ = try p.expect(TokenKind.kw_as, what: "'as'")
+			try p.pass(TokenKind.kw_as, what: "'as'")
 			let v50 = try parseTypeRef(p)
 			ast.setCastExprTarget(p.tree, id: n, value: v50)
 			left = n
@@ -2500,7 +2500,7 @@ function parseExprPrec(mutates p Parser, minPrec Count) returns ast.NodeID throw
 			let v69 = p.text(v68)
 			ast.setBinaryExprOp(p.tree, id: n, text: v69)
 			if p.at(TokenKind.kw_not) and p.peekIn(lookahead34) 'b63'
-				_ = try p.expect(TokenKind.kw_not, what: "'not'")
+				try p.pass(TokenKind.kw_not, what: "'not'")
 				ast.setBinaryExprNegated(p.tree, id: n)
 			end 'b63'
 			let v70 = try parseExprPrec(p, minPrec: 7)
@@ -2553,10 +2553,10 @@ function parseExprPrec(mutates p Parser, minPrec Count) returns ast.NodeID throw
 			let n = ast.newRangeExpr(p.tree, start: v83)
 			ast.setRangeExprLow(p.tree, id: n, value: left)
 			if p.at(TokenKind.kw_to) 'b72'
-				_ = try p.expect(TokenKind.kw_to, what: "'to'")
+				try p.pass(TokenKind.kw_to, what: "'to'")
 				ast.setRangeExprInclusive(p.tree, id: n)
 			end 'b72' else if p.at(TokenKind.kw_upto) 'b73'
-				_ = try p.expect(TokenKind.kw_upto, what: "'upto'")
+				try p.pass(TokenKind.kw_upto, what: "'upto'")
 			end 'b73' else 'b74'
 				throw p.expected("'to' or 'upto'")
 			end 'b74'
@@ -2570,10 +2570,10 @@ function parseExprPrec(mutates p Parser, minPrec Count) returns ast.NodeID throw
 			let v85 = p.curStart()
 			let n = ast.newCondExpr(p.tree, start: v85)
 			ast.setCondExprThen(p.tree, id: n, value: left)
-			_ = try p.expect(TokenKind.kw_if, what: "'if'")
+			try p.pass(TokenKind.kw_if, what: "'if'")
 			let v86 = try parseExpr(p)
 			ast.setCondExprCond(p.tree, id: n, value: v86)
-			_ = try p.expect(TokenKind.kw_else, what: "'else'")
+			try p.pass(TokenKind.kw_else, what: "'else'")
 			let v87 = try parseExprPrec(p, minPrec: 1)
 			ast.setCondExprElse(p.tree, id: n, value: v87)
 			left = n
@@ -2586,7 +2586,7 @@ function parseIntLit(mutates p Parser) returns ast.NodeID throws SyntaxError
 	let t = p.curStart()
 	let n = ast.newIntLit(p.tree, start: t)
 	if p.at(TokenKind.minus) 'b1'
-		_ = try p.expect(TokenKind.minus, what: "'-'")
+		try p.pass(TokenKind.minus, what: "'-'")
 		ast.setIntLitNegative(p.tree, id: n)
 		p.joinNext = true
 	end 'b1'
@@ -2600,7 +2600,7 @@ function parseFloatLit(mutates p Parser) returns ast.NodeID throws SyntaxError
 	let t = p.curStart()
 	let n = ast.newFloatLit(p.tree, start: t)
 	if p.at(TokenKind.minus) 'b1'
-		_ = try p.expect(TokenKind.minus, what: "'-'")
+		try p.pass(TokenKind.minus, what: "'-'")
 		ast.setFloatLitNegative(p.tree, id: n)
 		p.joinNext = true
 	end 'b1'
@@ -2632,10 +2632,10 @@ function parseBoolLit(mutates p Parser) returns ast.NodeID throws SyntaxError
 	let t = p.curStart()
 	let n = ast.newBoolLit(p.tree, start: t)
 	if p.at(TokenKind.kw_true) 'b1'
-		_ = try p.expect(TokenKind.kw_true, what: "'true'")
+		try p.pass(TokenKind.kw_true, what: "'true'")
 		ast.setBoolLitValue(p.tree, id: n)
 	end 'b1' else if p.at(TokenKind.kw_false) 'b2'
-		_ = try p.expect(TokenKind.kw_false, what: "'false'")
+		try p.pass(TokenKind.kw_false, what: "'false'")
 	end 'b2' else 'b3'
 		throw p.expected("'false' or 'true'")
 	end 'b3'
@@ -2670,7 +2670,7 @@ end 'parseNameExpr'
 function parseSelfExpr(mutates p Parser) returns ast.NodeID throws SyntaxError
 	let t = p.curStart()
 	let n = ast.newSelfExpr(p.tree, start: t)
-	_ = try p.expect(TokenKind.kw_self, what: "'self'")
+	try p.pass(TokenKind.kw_self, what: "'self'")
 	return n
 end 'parseSelfExpr'
 
@@ -2678,21 +2678,21 @@ function parseTupleExpr(mutates p Parser) returns ast.NodeID throws SyntaxError
 	let t = p.curStart()
 	let n = ast.newTupleExpr(p.tree, start: t)
 	let mark_n_Elems = p.lists.ids_TupleExpr_Elems.mark()
-	_ = try p.expect(TokenKind.lParen, what: "'('")
+	try p.pass(TokenKind.lParen, what: "'('")
 	let v1 = try parseExpr(p)
 	let v2 = v1 as diag.U32
 	p.lists.ids_TupleExpr_Elems.push(v2)
-	_ = try p.expect(TokenKind.comma, what: "','")
+	try p.pass(TokenKind.comma, what: "','")
 	let v3 = try parseExpr(p)
 	let v4 = v3 as diag.U32
 	p.lists.ids_TupleExpr_Elems.push(v4)
 	while p.at(TokenKind.comma) 'b1'
-		_ = try p.expect(TokenKind.comma, what: "','")
+		try p.pass(TokenKind.comma, what: "','")
 		let v5 = try parseExpr(p)
 		let v6 = v5 as diag.U32
 		p.lists.ids_TupleExpr_Elems.push(v6)
 	end 'b1'
-	_ = try p.expect(TokenKind.rParen, what: "')'")
+	try p.pass(TokenKind.rParen, what: "')'")
 	let v7 = takeIDs(p.tree, stack: p.lists.ids_TupleExpr_Elems, mark: mark_n_Elems)
 	ast.setTupleExprElemsRef(p.tree, id: n, ref: v7)
 	return n
@@ -2708,19 +2708,19 @@ function parseStructLitExpr(mutates p Parser) returns ast.NodeID throws SyntaxEr
 	let v1 = try p.next()
 	let v2 = p.textRef(v1)
 	ast.setStructLitExprTypeNameRef(p.tree, id: n, ref: v2)
-	_ = try p.expect(TokenKind.lBrace, what: "'\{'")
+	try p.pass(TokenKind.lBrace, what: "'\{'")
 	if p.inSet(lookahead12) 'b2'
 		let v3 = try parseStructField(p)
 		let v4 = v3 as diag.U32
 		p.lists.ids_StructLitExpr_Fields.push(v4)
 		while p.at(TokenKind.comma) 'b3'
-			_ = try p.expect(TokenKind.comma, what: "','")
+			try p.pass(TokenKind.comma, what: "','")
 			let v5 = try parseStructField(p)
 			let v6 = v5 as diag.U32
 			p.lists.ids_StructLitExpr_Fields.push(v6)
 		end 'b3'
 	end 'b2'
-	_ = try p.expect(TokenKind.rBrace, what: "'\}'")
+	try p.pass(TokenKind.rBrace, what: "'\}'")
 	let v7 = takeIDs(p.tree, stack: p.lists.ids_StructLitExpr_Fields, mark: mark_n_Fields)
 	ast.setStructLitExprFieldsRef(p.tree, id: n, ref: v7)
 	return n
@@ -2736,7 +2736,7 @@ function parseStructField(mutates p Parser) returns ast.NodeID throws SyntaxErro
 	p.nameWord(v1, keywords: lookahead13)
 	let v2 = p.textRef(v1)
 	ast.setStructFieldNameRef(p.tree, id: n, ref: v2)
-	_ = try p.expect(TokenKind.colon, what: "':'")
+	try p.pass(TokenKind.colon, what: "':'")
 	let v3 = try parseExpr(p)
 	ast.setStructFieldValue(p.tree, id: n, value: v3)
 	return n
@@ -2747,29 +2747,29 @@ function parseCollectionLitExpr(mutates p Parser) returns ast.NodeID throws Synt
 	let n = ast.newCollectionLitExpr(p.tree, start: t)
 	let mark_n_Elems = p.lists.ids_CollectionLitExpr_Elems.mark()
 	let mark_n_Values = p.lists.ids_CollectionLitExpr_Values.mark()
-	_ = try p.expect(TokenKind.lBracket, what: "'['")
+	try p.pass(TokenKind.lBracket, what: "'['")
 	if p.inSet(lookahead34) 'b1'
 		let v1 = try parseExpr(p)
 		let v2 = v1 as diag.U32
 		p.lists.ids_CollectionLitExpr_Elems.push(v2)
 		if p.at(TokenKind.colon) 'b2'
-			_ = try p.expect(TokenKind.colon, what: "':'")
+			try p.pass(TokenKind.colon, what: "':'")
 			let v3 = try parseExpr(p)
 			let v4 = v3 as diag.U32
 			p.lists.ids_CollectionLitExpr_Values.push(v4)
 			while p.at(TokenKind.comma) 'b3'
-				_ = try p.expect(TokenKind.comma, what: "','")
+				try p.pass(TokenKind.comma, what: "','")
 				let v5 = try parseExpr(p)
 				let v6 = v5 as diag.U32
 				p.lists.ids_CollectionLitExpr_Elems.push(v6)
-				_ = try p.expect(TokenKind.colon, what: "':'")
+				try p.pass(TokenKind.colon, what: "':'")
 				let v7 = try parseExpr(p)
 				let v8 = v7 as diag.U32
 				p.lists.ids_CollectionLitExpr_Values.push(v8)
 			end 'b3'
 		end 'b2' else if p.inSet(lookahead60) 'b4'
 			while p.at(TokenKind.comma) 'b5'
-				_ = try p.expect(TokenKind.comma, what: "','")
+				try p.pass(TokenKind.comma, what: "','")
 				let v9 = try parseExpr(p)
 				let v10 = v9 as diag.U32
 				p.lists.ids_CollectionLitExpr_Elems.push(v10)
@@ -2778,7 +2778,7 @@ function parseCollectionLitExpr(mutates p Parser) returns ast.NodeID throws Synt
 			throw p.expected("':', ',' or ']'")
 		end 'b6'
 	end 'b1'
-	_ = try p.expect(TokenKind.rBracket, what: "']'")
+	try p.pass(TokenKind.rBracket, what: "']'")
 	let v11 = takeIDs(p.tree, stack: p.lists.ids_CollectionLitExpr_Elems, mark: mark_n_Elems)
 	ast.setCollectionLitExprElemsRef(p.tree, id: n, ref: v11)
 	let v12 = takeIDs(p.tree, stack: p.lists.ids_CollectionLitExpr_Values, mark: mark_n_Values)
@@ -2797,7 +2797,7 @@ function parseArg(mutates p Parser) returns ast.NodeID throws SyntaxError
 		p.nameWord(v1, keywords: lookahead7)
 		let v2 = p.textRef(v1)
 		ast.setArgLabelRef(p.tree, id: n, ref: v2)
-		_ = try p.expect(TokenKind.colon, what: "':'")
+		try p.pass(TokenKind.colon, what: "':'")
 	end 'b1'
 	let v3 = try parseExpr(p)
 	ast.setArgValue(p.tree, id: n, value: v3)
@@ -2812,10 +2812,10 @@ function parseSpawnExpr(mutates p Parser) returns ast.NodeID throws SyntaxError
 	ast.setSpawnExprSpawnRef(p.tree, id: n, ref: v2)
 	if p.at(TokenKind.lParen) and p.peekIn(lookahead58) 'b1'
 		p.joinNext = true
-		_ = try p.expect(TokenKind.lParen, what: "'('")
+		try p.pass(TokenKind.lParen, what: "'('")
 		let v3 = try parseArg(p)
 		ast.setSpawnExprCapacity(p.tree, id: n, value: v3)
-		_ = try p.expect(TokenKind.rParen, what: "')'")
+		try p.pass(TokenKind.rParen, what: "')'")
 	end 'b1'
 	let v4 = try parseExpr(p)
 	ast.setSpawnExprCall(p.tree, id: n, value: v4)
@@ -2825,12 +2825,12 @@ end 'parseSpawnExpr'
 function parsePanicExpr(mutates p Parser) returns ast.NodeID throws SyntaxError
 	let t = p.curStart()
 	let n = ast.newPanicExpr(p.tree, start: t)
-	_ = try p.expect(TokenKind.kw_panic, what: "'panic'")
+	try p.pass(TokenKind.kw_panic, what: "'panic'")
 	p.joinNext = true
-	_ = try p.expect(TokenKind.lParen, what: "'('")
+	try p.pass(TokenKind.lParen, what: "'('")
 	let v1 = try parseStrLit(p)
 	ast.setPanicExprMessage(p.tree, id: n, value: v1)
-	_ = try p.expect(TokenKind.rParen, what: "')'")
+	try p.pass(TokenKind.rParen, what: "')'")
 	return n
 end 'parsePanicExpr'
 
@@ -2852,10 +2852,10 @@ function parseTypeQueryExpr(mutates p Parser) returns ast.NodeID throws SyntaxEr
 	let v2 = p.text(v1)
 	ast.setTypeQueryExprOp(p.tree, id: n, text: v2)
 	p.joinNext = true
-	_ = try p.expect(TokenKind.lParen, what: "'('")
+	try p.pass(TokenKind.lParen, what: "'('")
 	let v3 = try parseTypeRef(p)
 	ast.setTypeQueryExprType(p.tree, id: n, value: v3)
-	_ = try p.expect(TokenKind.rParen, what: "')'")
+	try p.pass(TokenKind.rParen, what: "')'")
 	return n
 end 'parseTypeQueryExpr'
 
@@ -2864,27 +2864,27 @@ function parseClosureExpr(mutates p Parser) returns ast.NodeID throws SyntaxErro
 	let n = ast.newClosureExpr(p.tree, start: t)
 	let mark_n_Params = p.lists.ids_ClosureExpr_Params.mark()
 	let mark_n_Body = p.lists.ids_ClosureExpr_Body.mark()
-	_ = try p.expect(TokenKind.kw_function, what: "'function'")
+	try p.pass(TokenKind.kw_function, what: "'function'")
 	p.joinNext = true
-	_ = try p.expect(TokenKind.lParen, what: "'('")
+	try p.pass(TokenKind.lParen, what: "'('")
 	if p.inSet(lookahead62) 'b1'
 		let v1 = try parseClosureParam(p)
 		let v2 = v1 as diag.U32
 		p.lists.ids_ClosureExpr_Params.push(v2)
 		while p.at(TokenKind.comma) 'b2'
-			_ = try p.expect(TokenKind.comma, what: "','")
+			try p.pass(TokenKind.comma, what: "','")
 			let v3 = try parseClosureParam(p)
 			let v4 = v3 as diag.U32
 			p.lists.ids_ClosureExpr_Params.push(v4)
 		end 'b2'
 	end 'b1'
-	_ = try p.expect(TokenKind.rParen, what: "')'")
+	try p.pass(TokenKind.rParen, what: "')'")
 	if p.at(TokenKind.kw_returns) 'b3'
-		_ = try p.expect(TokenKind.kw_returns, what: "'returns'")
+		try p.pass(TokenKind.kw_returns, what: "'returns'")
 		let v5 = try parseTypeRef(p)
 		ast.setClosureExprReturns(p.tree, id: n, value: v5)
 	end 'b3'
-	_ = try p.expect(TokenKind.kw_gives, what: "'gives'")
+	try p.pass(TokenKind.kw_gives, what: "'gives'")
 	let v6 = try parseClosureBody(p)
 	let v7 = v6 as diag.U32
 	p.lists.ids_ClosureExpr_Body.push(v7)

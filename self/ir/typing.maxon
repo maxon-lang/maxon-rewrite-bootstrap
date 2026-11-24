@@ -4,18 +4,12 @@
 
 // exprType is the type the checker gave an expression.
 export function exprType(p ast.Project, module diag.ModuleID, node ast.NodeID) returns ast.TypeID
-	match p.typings[ast.modIndex(module)].types.get(node as Count) 'hit'
-		some(t) then return t
-		none then panic("lower: the type at node {node} of module {module} was not recorded by the check pass")
-	end 'hit'
+	return p.typings[ast.modIndex(module)].types.expect(node as Count, what: "expression")
 end 'exprType'
 
 // isConsumed is whether the ownership pass found the expression consuming its value.
 export function isConsumed(p ast.Project, module diag.ModuleID, node ast.NodeID) returns bool
-	return match p.typings[ast.modIndex(module)].consumed.get(node as Count) 'hit'
-		some(c) gives c
-		none gives false
-	end 'hit'
+	return p.typings[ast.modIndex(module)].consumed.getOr(node as Count, fallback: false)
 end 'isConsumed'
 
 // movesOut is whether the expression's value leaves the place that holds it: one the ownership pass found consuming it,
@@ -24,111 +18,72 @@ export function movesOut(p ast.Project, ms ast.ModuleState, module diag.ModuleID
 	return isConsumed(p, module: module, node: node) and not ast.sharesOnCopy(ms.types, reads: p.types, t: exprType(p, module: module, node: node))
 end 'movesOut'
 
-export function nameInfoAt(p ast.Project, module diag.ModuleID, node ast.NodeID) returns ast.NameInfo
-	return match consumes p.typings[ast.modIndex(module)].names.get(node as Count) 'hit'
-		some(info) gives info
-		none panic("lower: the name at node {node} of module {module} was not recorded by the check pass")
-	end 'hit'
+export function nameInfoAt(p ast.Project, module diag.ModuleID, node ast.NodeID) returns borrowed ast.NameInfo
+	return p.typings[ast.modIndex(module)].names.expect(node as Count, what: "name")
 end 'nameInfoAt'
 
-export function memberInfoAt(p ast.Project, module diag.ModuleID, node ast.NodeID) returns ast.MemberInfo
-	return match consumes p.typings[ast.modIndex(module)].members.get(node as Count) 'hit'
-		some(info) gives info
-		none panic("lower: the member at node {node} of module {module} was not recorded by the check pass")
-	end 'hit'
+export function memberInfoAt(p ast.Project, module diag.ModuleID, node ast.NodeID) returns borrowed ast.MemberInfo
+	return p.typings[ast.modIndex(module)].members.expect(node as Count, what: "member")
 end 'memberInfoAt'
 
-export function callInfoAt(p ast.Project, module diag.ModuleID, node ast.NodeID) returns ast.CallInfo
-	return match consumes p.typings[ast.modIndex(module)].calls.get(node as Count) 'hit'
-		some(info) gives info
-		none panic("lower: the call at node {node} of module {module} was not recorded by the check pass")
-	end 'hit'
+export function callInfoAt(p ast.Project, module diag.ModuleID, node ast.NodeID) returns borrowed ast.CallInfo
+	return p.typings[ast.modIndex(module)].calls.expect(node as Count, what: "call")
 end 'callInfoAt'
 
 // hookInfoAt is the call of `toString()` that the interpolation of the part at node makes.
-export function hookInfoAt(p ast.Project, module diag.ModuleID, node ast.NodeID) returns ast.CallInfo
-	return match consumes p.typings[ast.modIndex(module)].hooks.get(node as Count) 'hit'
-		some(info) gives info
-		none panic("lower: the interpolation at node {node} of module {module} was not recorded by the check pass")
-	end 'hit'
+export function hookInfoAt(p ast.Project, module diag.ModuleID, node ast.NodeID) returns borrowed ast.CallInfo
+	return p.typings[ast.modIndex(module)].hooks.expect(node as Count, what: "interpolation")
 end 'hookInfoAt'
 
-export function iterationInfoAt(p ast.Project, module diag.ModuleID, node ast.NodeID) returns ast.IterationInfo
-	return match consumes p.typings[ast.modIndex(module)].iterations.get(node as Count) 'hit'
-		some(info) gives info
-		none panic("lower: the iteration of the for at node {node} of module {module} was not recorded by the check pass")
-	end 'hit'
+export function iterationInfoAt(p ast.Project, module diag.ModuleID, node ast.NodeID) returns borrowed ast.IterationInfo
+	return p.typings[ast.modIndex(module)].iterations.expect(node as Count, what: "iteration of a for")
 end 'iterationInfoAt'
 
-export function structLitInfoAt(p ast.Project, module diag.ModuleID, node ast.NodeID) returns ast.StructLitInfo
-	return match consumes p.typings[ast.modIndex(module)].structLits.get(node as Count) 'hit'
-		some(info) gives info
-		none panic("lower: the struct literal at node {node} of module {module} was not recorded by the check pass")
-	end 'hit'
+export function structLitInfoAt(p ast.Project, module diag.ModuleID, node ast.NodeID) returns borrowed ast.StructLitInfo
+	return p.typings[ast.modIndex(module)].structLits.expect(node as Count, what: "struct literal")
 end 'structLitInfoAt'
 
-export function patternInfoAt(p ast.Project, module diag.ModuleID, node ast.NodeID) returns ast.PatternInfo
-	return match consumes p.typings[ast.modIndex(module)].patterns.get(node as Count) 'hit'
-		some(info) gives info
-		none panic("lower: the pattern at node {node} of module {module} was not recorded by the check pass")
-	end 'hit'
+export function patternInfoAt(p ast.Project, module diag.ModuleID, node ast.NodeID) returns borrowed ast.PatternInfo
+	return p.typings[ast.modIndex(module)].patterns.expect(node as Count, what: "pattern")
 end 'patternInfoAt'
 
-export function whenInfoAt(p ast.Project, module diag.ModuleID, node ast.NodeID) returns ast.WhenInfo
-	return match consumes p.typings[ast.modIndex(module)].whens.get(node as Count) 'hit'
-		some(info) gives info
-		none panic("lower: the behaviour at node {node} of module {module} was not recorded by the check pass")
-	end 'hit'
+export function whenInfoAt(p ast.Project, module diag.ModuleID, node ast.NodeID) returns borrowed ast.WhenInfo
+	return p.typings[ast.modIndex(module)].whens.expect(node as Count, what: "behaviour")
 end 'whenInfoAt'
 
-export function closureInfoAt(p ast.Project, module diag.ModuleID, node ast.NodeID) returns ast.ClosureInfo
-	return match consumes p.typings[ast.modIndex(module)].closures.get(node as Count) 'hit'
-		some(info) gives info
-		none panic("lower: the closure at node {node} of module {module} was not recorded by the check pass")
-	end 'hit'
+export function closureInfoAt(p ast.Project, module diag.ModuleID, node ast.NodeID) returns borrowed ast.ClosureInfo
+	return p.typings[ast.modIndex(module)].closures.expect(node as Count, what: "closure")
 end 'closureInfoAt'
 
-export function arithInfoAt(p ast.Project, module diag.ModuleID, node ast.NodeID) returns ast.ArithInfo
-	return match consumes p.typings[ast.modIndex(module)].arith.get(node as Count) 'hit'
-		some(info) gives info
-		none panic("lower: the arithmetic at node {node} of module {module} was not recorded by the check pass")
-	end 'hit'
+export function arithInfoAt(p ast.Project, module diag.ModuleID, node ast.NodeID) returns borrowed ast.ArithInfo
+	return p.typings[ast.modIndex(module)].arith.expect(node as Count, what: "arithmetic")
 end 'arithInfoAt'
 
 // convertsAtReturn is whether the return statement converts its value to the declared type of the function, which the
 // range analysis proved fits.
 export function convertsAtReturn(p ast.Project, module diag.ModuleID, node ast.NodeID) returns bool
-	return p.typings[ast.modIndex(module)].arith.get(node as Count).isSome()
+	return p.typings[ast.modIndex(module)].arith.has(node as Count)
 end 'convertsAtReturn'
 
 // localOfNode is the local a let, a for or the handler of a try declares: none for a 'for' named '_' and for a handler
 // that binds no error.
 export function localOfNode(p ast.Project, module diag.ModuleID, node ast.NodeID) returns ast.LocalID
-	return match p.typings[ast.modIndex(module)].nodeLocals.get(node as Count) 'hit'
-		some(id) gives id
-		none gives ast.noLocal
-	end 'hit'
+	return p.typings[ast.modIndex(module)].nodeLocals.getOr(node as Count, fallback: ast.noLocal)
 end 'localOfNode'
 
 // indexLocalOf is the variable that a `for (i, x) in xs.enumerated()` gives each element's index to, or none for any other for.
 export function indexLocalOf(p ast.Project, module diag.ModuleID, node ast.NodeID) returns ast.LocalID
-	return match p.typings[ast.modIndex(module)].indexes.get(node as Count) 'hit'
-		some(id) gives id
-		none gives ast.noLocal
-	end 'hit'
+	return p.typings[ast.modIndex(module)].indexes.getOr(node as Count, fallback: ast.noLocal)
 end 'indexLocalOf'
 
 // jumpTargetOf is the loop or match that a break or a continue leaves or repeats.
 export function jumpTargetOf(p ast.Project, module diag.ModuleID, node ast.NodeID) returns ast.NodeID
-	return match p.typings[ast.modIndex(module)].jumps.get(node as Count) 'hit'
-		some(target) gives target
-		none panic("lower: the jump at node {node} of module {module} was not recorded by the check pass")
-	end 'hit'
+	return p.typings[ast.modIndex(module)].jumps.expect(node as Count, what: "jump target")
 end 'jumpTargetOf'
 
 // localEntry is a local of the function whose body is in the module.
-export function localEntry(p ast.Project, module diag.ModuleID, id ast.LocalID) returns ast.LocalEntry
-	return p.typings[ast.modIndex(module)].locals[id as Count].clone()
+export function localEntry(p ast.Project, module diag.ModuleID, id ast.LocalID) returns borrowed ast.LocalEntry
+	return p.typings[ast.modIndex(module)].locals[id as Count]
 end 'localEntry'
 
 // isByRef is whether the local is the address of the caller's storage.

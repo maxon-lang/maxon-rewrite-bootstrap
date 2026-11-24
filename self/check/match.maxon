@@ -39,9 +39,9 @@ function lookupScopes(scopes ScopeList, name String) returns ast.LocalID
 	var i = scopes.count()
 	while i > 0 'scopes'
 		i = try i - 1 otherwise 0 as Count
-		match scopes[i].get(name) 'found'
-			some(id) then return id
-			none then _ = 0
+		var slot as Count
+		if scopes[i].find(name, slot: slot) 'found'
+			return scopes[i].valueAt(slot)
 		end 'found'
 	end 'scopes'
 	return ast.noLocal

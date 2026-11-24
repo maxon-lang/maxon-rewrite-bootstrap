@@ -53,14 +53,12 @@ end 'finishWaits'
 
 // noteCallWaits notes what a call says of whether the function being checked may wait.
 function noteCallWaits(mutates c Checker, p ast.Project, ms ast.ModuleState, call ast.NodeID)
-	match consumes c.typing.calls.get(call as Count) 'info'
-		some(info) then noteCallInfoWaits(c, p: p, ms: ms, info: info)
-		none then _ = 0
-	end 'info'
-end 'noteCallWaits'
-
-function noteCallInfoWaits(mutates c Checker, p ast.Project, ms ast.ModuleState, info ast.CallInfo)
-	let k = info.kind
+	var slot as Count
+	if not c.typing.calls.find(call as Count, slot: slot) 'unrecorded'
+		return
+	end 'unrecorded'
+	let k = c.typing.calls.valueAt(slot).kind
+	let callee = c.typing.calls.valueAt(slot).fn
 	if k == ast.CallKind.callValue or k == ast.CallKind.callBound 'unknown'
 		c.waitNow = true
 		c.partyWaitNow = true
@@ -69,8 +67,8 @@ function noteCallInfoWaits(mutates c Checker, p ast.Project, ms ast.ModuleState,
 	if k != ast.CallKind.callFunction and k != ast.CallKind.callStatic and k != ast.CallKind.callMethod 'noCall'
 		return
 	end 'noCall'
-	noteCallee(c, p: p, ms: ms, callee: info.fn)
-end 'noteCallInfoWaits'
+	noteCallee(c, p: p, ms: ms, callee: callee)
+end 'noteCallWaits'
 
 // noteCallee notes a call or an async start of a function: a wait point among the built-ins, or an edge to the function,
 // which verifyAsyncs and verifyHolders follow.
@@ -134,10 +132,11 @@ function waitingOf(c Checker, p ast.Project, ms ast.ModuleState, f ast.FuncID, m
 		return ast.Waiting.waitsNever
 	end 'seen'
 	visited.insert(fid as Count, value: true)
-	let fact = match consumes c.waits.get(fid as Count) 'fact'
-		some(known) gives known
-		none gives WaitFact.make(false, calls: ast.FuncIDList.create(0))
-	end 'fact'
+	var slot as Count
+	if not c.waits.find(fid as Count, slot: slot) 'unchecked'
+		return ast.Waiting.waitsNever
+	end 'unchecked'
+	let fact = c.waits.valueAt(slot)
 	if fact.partyWaits 'party'
 		return ast.Waiting.waitsOnParty
 	end 'party'
@@ -160,10 +159,7 @@ function publishedWaiting(p ast.Project, module diag.ModuleID, f ast.FuncID) ret
 	if module == diag.stdlibID 'std'
 		return ast.Waiting.waitsOnParty
 	end 'std'
-	return match consumes p.typings[ast.modIndex(module)].waiting.get(f as Count) 'published'
-		some(w) gives w
-		none gives ast.Waiting.waitsOnParty
-	end 'published'
+	return p.typings[ast.modIndex(module)].waiting.getOr(f as Count, fallback: ast.Waiting.waitsOnParty)
 end 'publishedWaiting'
 
 // publishWaits keeps in the module's typing what each of its functions may wait for, which the check of a module that calls

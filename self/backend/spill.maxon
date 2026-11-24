@@ -769,12 +769,12 @@ export type Spiller
 				for e in applyStarts[insertKey(k)] upto applyStarts[insertKey(nextCount(k))] 'inserts'
 					stale[b] = true
 					if not cancelled[applyList[e]] 'live'
-						out.push(inserts[applyList[e]].clone())
+						out.push(table.takeAt(inserts, at: applyList[e]))
 						movedFrom.push(noDef)
 					end 'live'
 				end 'inserts'
 				if not deleted[k] 'kept'
-					out.push(fn.instrs[k].clone())
+					out.push(table.takeAt(fn.instrs, at: k))
 					movedFrom.push(indexOfCount(k))
 				end 'kept' else 'dropped'
 					stale[b] = true

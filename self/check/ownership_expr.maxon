@@ -643,7 +643,7 @@ function visitExprOwn(mutates o Ownership, p ast.Project, mutates ms ast.ModuleS
 		if ast.isLiteralCollection(ms.types, reads: p.types, t: ownType(o, node: e)) 'literal'
 			return expr(o, p: p, ms: ms, e: ast.fromExprValue(ms.tree(), id: e), s: s)
 		end 'literal'
-		return userCall(o, p: p, ms: ms, site: offsetOfOwn(o, p: p, ms: ms, node: e), call: ownCall(o, node: e), receiver: 0 as ast.NodeID, s: s)
+		return userCall(o, p: p, ms: ms, site: offsetOfOwn(o, p: p, ms: ms, node: e), call: ownCall(o, node: e).clone(), receiver: 0 as ast.NodeID, s: s)
 	end 'from'
 	if k == ast.NodeKind.rangeExpr 'range'
 		// The bounds are integers, which the range's create takes as values.
@@ -704,21 +704,22 @@ function holdText(mutates o Ownership, p ast.Project, ms ast.ModuleState, first 
 end 'holdText'
 
 function nameExprOwn(mutates o Ownership, p ast.Project, ms ast.ModuleState, e ast.NodeID, consumes s OwnState) returns OwnState
-	let name = ownName(o, node: e)
+	let kind = ownName(o, node: e).kind
 	let site = offsetOfOwn(o, p: p, ms: ms, node: e)
-	if name.kind == ast.NameKind.nameLocal 'local'
-		requireNotMutablyHeld(o, p: p, local: name.local, site: site)
-		requireUnlentRead(o, p: p, ms: ms, root: name.local, site: site, s: s)
-		return readRoot(o, p: p, ms: ms, l: name.local, site: site, s: s)
+	if kind == ast.NameKind.nameLocal 'local'
+		let local = ownName(o, node: e).local
+		requireNotMutablyHeld(o, p: p, local: local, site: site)
+		requireUnlentRead(o, p: p, ms: ms, root: local, site: site, s: s)
+		return readRoot(o, p: p, ms: ms, l: local, site: site, s: s)
 	end 'local'
-	if name.kind == ast.NameKind.nameSelfField 'selfField'
+	if kind == ast.NameKind.nameSelfField 'selfField'
 		requireNotMutablyHeld(o, p: p, local: selfLocalOf(o, p: p, ms: ms), site: site)
 		if o.partials > 0 and readPart(o, p: p, ms: ms, e: e, s: s) 'part'
 			return s
 		end 'part'
 		return readRoot(o, p: p, ms: ms, l: selfLocalOf(o, p: p, ms: ms), site: site, s: s)
 	end 'selfField'
-	if name.kind == ast.NameKind.nameConst or name.kind == ast.NameKind.nameFunc 'value'
+	if kind == ast.NameKind.nameConst or kind == ast.NameKind.nameFunc 'value'
 		return s
 	end 'value'
 	panic("ownership: unresolved name '{ast.nameExprName(ms.tree(), id: e)}'")
@@ -763,9 +764,10 @@ end 'operatorOwn'
 // failed is the failure of an operator or a cast that the range analysis could not rule out. An operator that the
 // checker gave no arithmetic, a comparison of two strings among them, cannot fail.
 function failed(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, consumes s OwnState) returns OwnState
-	let fails = match o.c.typing.arith.get(e as Count) 'arith'
-		some(info) gives info.fails
-		none gives ast.failNone
+	var fails = ast.failNone
+	var slot as Count
+	if o.c.typing.arith.find(e as Count, slot: slot) 'arith'
+		fails = o.c.typing.arith.valueAt(slot).fails
 	end 'arith'
 	if fails != ast.failNone 'fails'
 		failure(o, p: p, ms: ms, site: offsetOfOwn(o, p: p, ms: ms, node: e), s: s)
@@ -784,7 +786,7 @@ function condExprOwn(mutates o Ownership, p ast.Project, mutates ms ast.ModuleSt
 end 'condExprOwn'
 
 function callExprOwn(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, consumes s OwnState) returns OwnState
-	let call = ownCall(o, node: e)
+	let call = ownCall(o, node: e).clone()
 	let receiver = ast.callReceiver(ms.tree(), e: e, kind: call.kind)
 	let k = call.kind
 	if k == ast.CallKind.callCopy 'copy'

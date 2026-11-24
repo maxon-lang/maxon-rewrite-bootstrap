@@ -1121,7 +1121,7 @@ export type Colourer
 			for k in origBlocks[b].first upto origBlocks[b].endAt 'instrs'
 				outStart[k] = emitted.count()
 				for e in insStart[k] upto insStart[nextCount(k)] 'inserted'
-					emitted.push(insInstr[insList[e]].clone())
+					emitted.push(table.takeAt(insInstr, at: insList[e]))
 				end 'inserted'
 				self.rewriteInstr(fn, out: emitted, b: b, k: k, lv: lv)
 				outEnd[k] = emitted.count()

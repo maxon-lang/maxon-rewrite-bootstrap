@@ -181,6 +181,9 @@ func (l *maxonLang) refuse(desc string) { l.line("throw p.expected(" + maxonQuot
 func (l *maxonLang) expect(term, desc string) string {
 	return fmt.Sprintf("try p.expect(%s, what: %s)", l.term(term), maxonQuote(desc))
 }
+func (l *maxonLang) pass(term, desc string) {
+	l.linef("try p.pass(%s, what: %s)", l.term(term), maxonQuote(desc))
+}
 func (l *maxonLang) next() string        { return "try p.next()" }
 func (l *maxonLang) call(r *rule) string { return "try " + parseFunc(r) + "(p)" }
 func (l *maxonLang) callAfter(r *rule, first string) string {

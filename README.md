@@ -600,7 +600,7 @@ layering cannot erode:
 | Module | Holds | Imports |
 |---|---|---|
 | `diag` | `CompileError` (a code, a message and a place: a `Site`, a module handle and an offset, until the error is located, then file, line and column), `ErrorList`, `sortErrors`, the error codes (generated from `codes.tsv`) and the message functions (from `messages.tsv`) | — |
-| `table` | `StringMap` and `IntMap` (open addressing) and `Option`, which nothing built in provides; `Digest`, `Hasher`, `ByteWriter` and `ByteReader` (`digest.maxon`), which the build cache names its entries by and stores them with, and `CacheWriter` and `CacheReader` (`cache.maxon`), which the generated functions store a module's checked state with | — |
+| `table` | `StringMap` and `IntMap` (open addressing) and `Option`, which nothing built in provides; `emptySlots` and `takeAt` (`slots.maxon`), which move an element out of a list without a copy; `Digest`, `Hasher`, `ByteWriter` and `ByteReader` (`digest.maxon`), which the build cache names its entries by and stores them with, and `CacheWriter` and `CacheReader` (`cache.maxon`), which the generated functions store a module's checked state with | — |
 | `mxdbg` | the `.mxdbg` sidecar's format, maxon's (`format.maxon`), its writer (`MxdbgWriter`) and its reader (`MxdbgReader`), which the backend writes and the `debug` command reads (see "Debug info") | `table` |
 | `ast` | the program model: `Tree`, a module's nodes as flat `Record`s, the generated node kinds, accessors and declaration structs, `Module` and `Project`, the project's `TypeTable` and `FuncTable` of per-module slots and the accessors every read of an entry goes through (`typeEntry`, `funcEntry`), the `ModuleState` a module's task writes, which holds its module's slots (`state.maxon`), the built-in types and functions (generated), `Resolution` and `Typing`, the per-module tables the phases fill in (see "The AST"), link names, locating an error, `I128` | `diag`, `table` |
 | `syntax` | the grammar (`Maxon.g4`), the generated tokens and parser, the lexer loop, the layout rules, the formatter (the parser in a mode that writes the layout instead of checking it) and the edits that rename a keyword | `ast`, `diag`, `table` |
@@ -1175,7 +1175,10 @@ compiler's own data is laid out to keep copies down (`.claude/skills/write-self`
   (`stmts+=stmt`, `args+=arg`) is pushed on a stack of its own as it is parsed and moved out once into the list array.
 - A fact that every node has is an array indexed by `NodeID`; `table.IntMap` and `table.StringMap` are for sparse keys.
 - A value is read in place where it can be: `ast.declName` and `ast.declLevel` read one field of a declaration where it is,
-  because `IntMap.get` and a record read out of a table each copy. Hot paths take `mutates` parameters and borrow.
+  and a map lends its value (`find` and `valueAt`, `expect`) where `get` would copy it, since every record is a box of its own.
+  A map's slots hold no `Option`: the slots without an entry are empty (`table.emptySlots`). A pass that writes a list of
+  instructions in another order moves each out with `table.takeAt` rather than copying it. Hot paths take `mutates`
+  parameters and borrow.
 - A function's IR is one list of fixed-size `ir.Instr` records and a few pools, and a block is a range of that list.
 
 ### Link names

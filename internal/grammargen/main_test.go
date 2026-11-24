@@ -180,7 +180,7 @@ Minus : '-' ;
 `)
 	parser, tokens := outs[maxonParserFile], outs[maxonTokensFile]
 	for _, want := range []string{
-		"\tp.joinNext = true\n\t_ = try p.expect(TokenKind.lParen",
+		"\tp.joinNext = true\n\ttry p.pass(TokenKind.lParen",
 		"\tlet joins1 = p.at(TokenKind.minus)\n",
 		"\tp.joinNext = p.joinNext or joins1\n",
 	} {

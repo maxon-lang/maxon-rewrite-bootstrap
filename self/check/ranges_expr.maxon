@@ -393,10 +393,7 @@ function rangeIndexExpr(mutates r Ranges, p ast.Project, ms ast.ModuleState, e a
 end 'rangeIndexExpr'
 
 function rangeCallExpr(mutates r Ranges, p ast.Project, ms ast.ModuleState, e ast.NodeID) returns Span
-	let call = match consumes r.typing.calls.get(e as Count) 'call'
-		some(info) gives info
-		none panic("ranges: the call at node {e} was typed without a record of what it calls")
-	end 'call'
+	let call = r.typing.calls.expect(e as Count, what: "call").clone()
 	let receiver = ast.callReceiver(ms.tree(), e: e, kind: call.kind)
 	if receiver != 0 'receiver'
 		_ = rangeEval(r, p: p, ms: ms, e: receiver)
@@ -436,10 +433,7 @@ end 'rangeCallExpr'
 // rangeAsyncCall analyses the arguments of the call an async call starts, which it evaluates as the call would: it fails
 // nowhere, since what the function throws its await fails with, and what it changes is unknown until the await.
 function rangeAsyncCall(mutates r Ranges, p ast.Project, ms ast.ModuleState, e ast.NodeID)
-	let call = match consumes r.typing.calls.get(e as Count) 'call'
-		some(info) gives info
-		none panic("ranges: the async call at node {e} was typed without a record of what it calls")
-	end 'call'
+	let call = r.typing.calls.expect(e as Count, what: "async call").clone()
 	for i in 0 upto call.ordered.count() 'args'
 		if call.ordered[i] != 0 'given'
 			_ = rangeEval(r, p: p, ms: ms, e: call.ordered[i])
@@ -704,11 +698,8 @@ function gapOrLow(consumes gap table.Option with ast.I128, low ast.I128) returns
 	end 'gap'
 end 'gapOrLow'
 
-function arithOf(r Ranges, e ast.NodeID) returns ast.ArithInfo
-	return match consumes r.typing.arith.get(e as Count) 'arith'
-		some(info) gives info
-		none panic("ranges: the arithmetic at node {e} was typed without a record of its operands")
-	end 'arith'
+function arithOf(r Ranges, e ast.NodeID) returns borrowed ast.ArithInfo
+	return r.typing.arith.expect(e as Count, what: "arithmetic")
 end 'arithOf'
 
 // rangeResult judges an operation whose exact result has the span exact: it fails where that leaves the word it computes
@@ -898,7 +889,7 @@ end 'rangeFail'
 
 // setFails records how an operation can fail, for the lowering, which checks only that.
 function setFails(mutates r Ranges, e ast.NodeID, fails Byte)
-	var info = arithOf(r, e: e)
+	var info = arithOf(r, e: e).clone()
 	info.fails = fails
 	r.typing.arith.insert(e as Count, value: info)
 end 'setFails'
