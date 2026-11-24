@@ -351,7 +351,21 @@ end 'checkDeclaredName'
 // an instance of a generic (a map literal's) are the reader's. A reader in the constant's module takes them on as its own;
 // one in another module records the read itself, since the calls are nodes of the constant's module, whose check may not
 // have ended yet: finding the instances follows the read to them (ir.visitSites).
-function typeOfConstant(mutates c Checker, p ast.Project, ms ast.ModuleState, e ast.NodeID, consumes ref ast.DeclRef, consumes value ast.ConstValue, mutates errs diag.ErrorList) returns ast.TypeID
+function typeOfConstant(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, consumes ref ast.DeclRef, consumes value ast.ConstValue, mutates errs diag.ErrorList) returns ast.TypeID
+	if value.instanceOf != ast.noType 'perInstance'
+		match consumes c.typing.staticInstances.get(e as Count) 'instance'
+			some(instance) then return typeOfInstanceConstant(c, p: p, ms: ms, e: e, ref: ref, value: value, instance: instance)
+			none then _ = 0
+		end 'instance'
+		if ast.originOf(ms.types, reads: p.types, t: c.owner) != value.instanceOf 'bare'
+			failBareInstanceStatic(c, p: p, ms: ms, off: offsetOf(c, p: p, ms: ms, node: e), qualified: ast.declName(p, ref: ref), origin: value.instanceOf, errs: errs)
+			return ast.noType
+		end 'bare'
+		// A static let whose value reads one that is one for each instance is one for each instance too.
+		if c.constName != "" 'constant'
+			c.constNamesParams = true
+		end 'constant'
+	end 'perInstance'
 	if c.hasUses 'reader'
 		if ref.module == c.modID 'here'
 			match consumes c.typing.fieldUses.get(ast.constValueNode(p, ref: ref) as Count) 'uses'
@@ -365,6 +379,19 @@ function typeOfConstant(mutates c Checker, p ast.Project, ms ast.ModuleState, e 
 	c.typing.names.insert(e as Count, value: ast.NameInfo.constName(ref))
 	return value.ty
 end 'typeOfConstant'
+
+// typeOfInstanceConstant types a read of a static let that is one for each instance of its generic type, read through the
+// instance: its type with the type's parameters bound to the instance's arguments. Its value is built at the read with them
+// bound, so the read itself is recorded for the instances its calls need (ir.visitSites), wherever the constant is.
+function typeOfInstanceConstant(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, consumes ref ast.DeclRef, consumes value ast.ConstValue, instance ast.TypeID) returns ast.TypeID
+	if c.hasUses 'reader'
+		recordUse(c, call: e)
+	end 'reader'
+	c.typing.names.insert(e as Count, value: ast.NameInfo.constName(ref))
+	let params = ast.typeEntry(ms.types, reads: p.types, t: value.instanceOf).typeParams.clone()
+	let args = ast.typeEntry(ms.types, reads: p.types, t: instance).typeArgs.clone()
+	return ast.substituteType(ms.types, reads: p.types, t: value.ty, params: params, args: args)
+end 'typeOfInstanceConstant'
 
 function checkSelfExpr(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
 	if c.inClosure 'closure'

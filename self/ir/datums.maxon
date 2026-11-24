@@ -103,8 +103,20 @@ end 'rawSymbol'
 // constantDatum is the datum of the constant a name stands for, or none when the constant is read as it is lowered: its
 // value is a number, a string or a function, or is not known before the program runs.
 function constantDatum(p ast.Project, ms ast.ModuleState, name ast.NameInfo) returns table.Option with Datum
+	if isInstanceConstant(p, ms: ms, ref: name.decl) 'perInstance'
+		return table.Option.none
+	end 'perInstance'
 	return datumOf(p, ms: ms, symbol: constantSymbol(p, ref: name.decl), e: constantExpr(p, name: name))
 end 'constantDatum'
+
+// isInstanceConstant is whether a constant is one for each instance of its generic type, so that its value is built where it
+// is read, with the instance's arguments bound, and never laid out once.
+function isInstanceConstant(p ast.Project, ms ast.ModuleState, ref ast.DeclRef) returns bool
+	match consumes ast.declConst(p, ms: ms, ref: ref) 'valued'
+		some(value) then return value.instanceOf != ast.noType
+		none then return false
+	end 'valued'
+end 'isInstanceConstant'
 
 // rawDatums are the datums of the raw values of the cases of an enum or a union, in the order of the cases, or none when
 // a case's raw value is not one: then every case's is built where it is read, so a read has one owner whichever case it is.

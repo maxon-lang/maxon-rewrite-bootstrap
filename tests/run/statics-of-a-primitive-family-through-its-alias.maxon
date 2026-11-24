@@ -1,0 +1,17 @@
+// A typealias of an integer qualifies the statics of the int family as `int` does: a static let and a static function.
+typealias Port = int(0 to 65535)
+
+extension int
+	static let limit = 3
+
+	static function twice(n Count) returns Count
+		return try n * 2 otherwise 0
+	end 'twice'
+end 'int'
+
+function main() returns ExitCode
+	print("{int.limit} {Port.limit} {int.twice(4)} {Port.twice(5)}\n")
+	return 0
+end 'main'
+
+//> 3 3 8 10

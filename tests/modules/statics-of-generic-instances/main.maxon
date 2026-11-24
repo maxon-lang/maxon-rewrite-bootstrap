@@ -1,0 +1,10 @@
+typealias CountBox = boxes.Box with Count
+
+function main() returns ExitCode
+	print("{boxes.FlagBox.width} {CountBox.width} {boxes.FlagBox.doubled} {CountBox.doubled}\n")
+	print("{boxes.FlagBox.first().describe()} {CountBox.origin.describe()} {boxes.Box.limit}\n")
+	return 0
+end 'main'
+
+//> 1 8 2 16
+//> box:1:1 box:8:8 42

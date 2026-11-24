@@ -1,0 +1,29 @@
+// A static let of a generic type whose value names its parameter or Self is one for each instance, read through an alias
+// of the instance and by its bare name in the type's methods; the others are one value, read through the type itself.
+type Box uses T
+	var size as Count
+	var label as String
+	static let origin = Self{size: sizeof(T), label: "box"}
+	static let width = sizeof(T)
+
+	function describe() returns String
+		return "{label}:{size}"
+	end 'describe'
+
+	static function first() returns Self
+		return origin.clone()
+	end 'first'
+end 'Box'
+
+typealias BoolBox = Box with bool
+
+typealias CountBox = Box with Count
+
+function main() returns ExitCode
+	let b = BoolBox.first()
+	let c = CountBox.first()
+	print("{b.describe()} {c.describe()} {BoolBox.width} {CountBox.width} {BoolBox.origin.describe()}\n")
+	return 0
+end 'main'
+
+//> box:1 box:8 1 8 box:1

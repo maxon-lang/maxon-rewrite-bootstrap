@@ -5,6 +5,7 @@ function checkStructLit(mutates c Checker, p ast.Project, mutates ms ast.ModuleS
 	var target = ast.noType
 	if typeName == "Self" 'selfType'
 		target = c.owner
+		noteConstantType(c, p: p, ms: ms, t: target)
 	end 'selfType' else 'named'
 		match consumes ast.nodeDecl(p, ms: ms, node: e as Count) 'bound'
 			some(ref) then target = declaredTypeOrNone(p, ms: ms, ref: ref)
@@ -226,7 +227,7 @@ function checkMember(mutates c Checker, p ast.Project, mutates ms ast.ModuleStat
 	if primitive != ast.noType 'primitive'
 		let mark = errs.count()
 		match consumes extensionStaticOf(c, p: p, ms: ms, nt: primitive, member: ast.memberExprName(ms.tree(), id: e), e: e, errs: errs) 'static'
-			some(ref) then return readExtensionStatic(c, p: p, ms: ms, e: e, obj: obj, ref: ref, errs: errs)
+			some(ref) then return readTypeStatic(c, p: p, ms: ms, e: e, obj: obj, nt: primitive, ref: ref, errs: errs)
 			none then _ = 0
 		end 'static'
 		if failedSince(errs, mark: mark) 'ambiguous'
@@ -295,6 +296,20 @@ function checkTypeMember(mutates c Checker, p ast.Project, mutates ms ast.Module
 		end 'cannotInfer'
 	end 'inferred'
 	let mark = errs.count()
+	let isCase = (k == ast.TypeKind.enumTy or k == ast.TypeKind.unionTy) and ast.typeEntry(ms.types, reads: p.types, t: ast.originOf(ms.types, reads: p.types, t: named)).findCase(member).isSome()
+	if not isCase 'notCase'
+		match consumes bodyStaticOf(p, ms: ms, nt: named, member: member) 'body'
+			some(ref) then return readTypeStatic(c, p: p, ms: ms, e: e, obj: obj, nt: named, ref: ref, errs: errs)
+			none then _ = 0
+		end 'body'
+		match consumes extensionStaticOf(c, p: p, ms: ms, nt: named, member: member, e: e, errs: errs) 'static'
+			some(ref) then return readTypeStatic(c, p: p, ms: ms, e: e, obj: obj, nt: named, ref: ref, errs: errs)
+			none then _ = 0
+		end 'static'
+		if failedSince(errs, mark: mark) 'ambiguousStatic'
+			return ast.noType
+		end 'ambiguousStatic'
+	end 'notCase'
 	_ = requireInstance(c, p: p, ms: ms, off: offsetOf(c, p: p, ms: ms, node: obj), nt: named, errs: errs)
 	if failedSince(errs, mark: mark) 'generic'
 		return ast.noType
@@ -302,16 +317,6 @@ function checkTypeMember(mutates c Checker, p ast.Project, mutates ms ast.Module
 	if (k == ast.TypeKind.enumTy or k == ast.TypeKind.unionTy) and (member == allCasesMember or member == allCaseNamesMember) 'caseList'
 		return checkCaseListMember(c, p: p, ms: ms, e: e, obj: obj, member: member, nt: named, errs: errs)
 	end 'caseList'
-	let isCase = (k == ast.TypeKind.enumTy or k == ast.TypeKind.unionTy) and ast.typeEntry(ms.types, reads: p.types, t: ast.originOf(ms.types, reads: p.types, t: named)).findCase(member).isSome()
-	if not isCase 'notCase'
-		match consumes extensionStaticOf(c, p: p, ms: ms, nt: named, member: member, e: e, errs: errs) 'static'
-			some(ref) then return readExtensionStatic(c, p: p, ms: ms, e: e, obj: obj, ref: ref, errs: errs)
-			none then _ = 0
-		end 'static'
-		if failedSince(errs, mark: mark) 'ambiguousStatic'
-			return ast.noType
-		end 'ambiguousStatic'
-	end 'notCase'
 	if k == ast.TypeKind.enumTy or k == ast.TypeKind.unionTy 'cases'
 		return checkCaseMember(c, p: p, ms: ms, e: e, member: member, nt: named, errs: errs)
 	end 'cases'
@@ -353,10 +358,42 @@ function failAmbiguousStatic(mutates c Checker, p ast.Project, ms ast.ModuleStat
 	checkFail(c.modID, off: offsetOf(c, p: p, ms: ms, node: e), code: diag.errAmbiguousExtension, msg: "'{typeName}.{member}' is ambiguous here: an extension in {ast.describeModule(p, modID: first.module)} and an extension in {ast.describeModule(p, modID: second.module)} both add the static let '{member}' to '{typeName}', and {ast.describeModule(p, modID: c.modID)} sees both; a read cannot name it through its module, so rename or remove one of the two", errs: errs)
 end 'failAmbiguousStatic'
 
-// readExtensionStatic types a read of the static let ref that an extension adds, written Type.member at e: the bodies make the
-// member a name of the constant, as the resolve makes one of a static let that the type's own body declares. The initializer
-// of a constant is typed where no stage rewrites the tree, so it cannot read one.
-function readExtensionStatic(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, obj ast.NodeID, consumes ref ast.DeclRef, mutates errs diag.ErrorList) returns ast.TypeID
+// bodyStaticOf is the static let that the body of the type nt, or of the generic type it is an instance of, declares under
+// the name member, or none: the resolve makes a name of one written after the type's own name, and this finds one written
+// after a typealias or an instance of the type.
+function bodyStaticOf(p ast.Project, ms ast.ModuleState, nt ast.TypeID, member String) returns table.Option with ast.DeclRef
+	let origin = ast.originOf(ms.types, reads: p.types, t: nt)
+	let k = ast.typeKind(ms.types, reads: p.types, t: origin)
+	if k != ast.TypeKind.record and k != ast.TypeKind.enumTy and k != ast.TypeKind.unionTy 'noBody'
+		return table.Option.none
+	end 'noBody'
+	let ref = ast.typeEntry(ms.types, reads: p.types, t: origin).decl.clone()
+	let statics = ast.moduleDecl(p, ref: ref).staticLets()
+	for i in 0 upto statics.count() 'each'
+		if statics[i].name == member 'hit'
+			let qualified = ast.nestedAliasName(ast.typeEntry(ms.types, reads: p.types, t: origin).name, name: member)
+			var ord as table.Option with ast.DeclOrdinal
+			if ref.module == diag.stdlibID 'library'
+				ord = p.stdlib.names.get(qualified)
+			end 'library' else 'module'
+				ord = p.modules[ast.modIndex(ref.module)].names.get(qualified)
+			end 'module'
+			match consumes ord 'declared'
+				some(o) then return table.Option.some(ast.DeclRef.make(ref.module, ordinal: o))
+				none then panic("the static let '{member}' of '{qualified}' is not among the declarations of its module")
+			end 'declared'
+		end 'hit'
+	end 'each'
+	return table.Option.none
+end 'bodyStaticOf'
+
+// readTypeStatic types a read of the static let ref of the type nt, written Type.member at e, where the type is named by a
+// typealias, as an instance, or by an extension's: the bodies make the member a name of the constant, as the resolve
+// makes one of a static let written after its type's own name. A static let whose value names the type's parameters is
+// one for each instance (ConstValue.instanceOf), read through an instance, which binds them; any other is read through the
+// type itself, as maxon has it. The constants stage shares its tree, so a read in a constant's initializer is rewritten by
+// the bodies stage (Checker.deferredNames).
+function readTypeStatic(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, obj ast.NodeID, nt ast.TypeID, consumes ref ast.DeclRef, mutates errs diag.ErrorList) returns ast.TypeID
 	let member = ast.memberExprName(ms.tree(), id: e).clone()
 	let off = offsetOf(c, p: p, ms: ms, node: e)
 	let level = ast.declLevel(p, ref: ref)
@@ -364,14 +401,59 @@ function readExtensionStatic(mutates c Checker, p ast.Project, mutates ms ast.Mo
 		checkFail(c.modID, off: off, code: diag.errNotExported, msg: ast.notVisible(p, name: ast.declName(p, ref: ref), v: level, owner: ref.module, from: c.modID), errs: errs)
 		return ast.noType
 	end 'hidden'
-	if ms.readsSharedTree() 'constant'
-		checkFail(c.modID, off: off, code: diag.errUnsupportedFeature, msg: "Unsupported: the initializer of a constant reads '{writtenName(ms.tree(), e: e)}', a static let that an extension adds, which a constant cannot read; read it in a function, or write its value here", errs: errs)
+	let origin = ast.originOf(ms.types, reads: p.types, t: nt)
+	let throughInstance = ast.typeEntry(ms.types, reads: p.types, t: origin).typeParams.count() > 0 and ast.typeEntry(ms.types, reads: p.types, t: nt).typeArgs.count() > 0
+	let instanceOf = instanceOfConstant(p, ms: ms, ref: ref)
+	if instanceOf == ast.noType and throughInstance 'shared'
+		let typeName = nameOfType(p, ms: ms, t: origin)
+		checkFail(c.modID, off: off, code: diag.errUnknownStaticMember, msg: "'{writtenType(c, p: p, ms: ms, obj: obj)}.{member}' is a static of '{typeName}', which is read through the type itself: write '{typeName}.{member}'", errs: errs)
 		return ast.noType
-	end 'constant'
-	ms.ownTree.becomeName(e, head: obj)
+	end 'shared'
+	if ast.typeKind(ms.types, reads: p.types, t: origin) != ast.TypeKind.record and familySelf(p, ms: ms, t: nt) != nt and constantType(p, ms: ms, ref: ref) == familySelf(p, ms: ms, t: nt) 'implicitSelf'
+		checkFail(c.modID, off: off, code: diag.errUnsupportedFeature, msg: implicitSelfRefusal(p, ms: ms, qualifier: nt, name: member), errs: errs)
+		return ast.noType
+	end 'implicitSelf'
+	if instanceOf != ast.noType and not throughInstance 'bare'
+		failBareInstanceStatic(c, p: p, ms: ms, off: off, qualified: "{nameOfType(p, ms: ms, t: instanceOf)}.{member}", origin: instanceOf, errs: errs)
+		return ast.noType
+	end 'bare'
+	if instanceOf != ast.noType 'perInstance'
+		c.typing.staticInstances.insert(e as Count, value: nt)
+	end 'perInstance'
+	if ms.readsSharedTree() 'constant'
+		c.deferredNames.push(e)
+		c.deferredHeads.push(obj)
+	end 'constant' else 'body'
+		ms.ownTree.becomeName(e, head: obj)
+	end 'body'
 	ms.tables.bindMemberDecl(e, d: ref.clone())
 	return checkDeclaredName(c, p: p, ms: ms, e: e, ref: ref, name: member, errs: errs)
-end 'readExtensionStatic'
+end 'readTypeStatic'
+
+// constantType is the type of the constant ref, or noType before it is typed.
+function constantType(p ast.Project, ms ast.ModuleState, ref ast.DeclRef) returns ast.TypeID
+	match consumes constantOf(p, ms: ms, ref: ref) 'valued'
+		some(value) then return value.ty
+		none then return ast.noType
+	end 'valued'
+end 'constantType'
+
+// instanceOfConstant is the generic type that the constant ref is one for each instance of, or noType.
+function instanceOfConstant(p ast.Project, ms ast.ModuleState, ref ast.DeclRef) returns ast.TypeID
+	match consumes constantOf(p, ms: ms, ref: ref) 'valued'
+		some(value) then return value.instanceOf
+		none then return ast.noType
+	end 'valued'
+end 'instanceOfConstant'
+
+// failBareInstanceStatic refuses a read of a static let that is one for each instance of the generic type origin, read where
+// nothing names the instance: through the generic type's own name, outside its methods.
+export function failBareInstanceStatic(mutates c Checker, p ast.Project, ms ast.ModuleState, off diag.U32, qualified String, origin ast.TypeID, mutates errs diag.ErrorList)
+	let typeName = nameOfType(p, ms: ms, t: origin)
+	let start = try typeName.byteLength() + 1 otherwise qualified.byteLength()
+	let member = qualified.sliceBytes(start, endPos: qualified.byteLength()).clone() if qualified.startsWith("{typeName}.") else qualified.clone()
+	checkFail(c.modID, off: off, code: diag.errTypeArgumentCount, msg: "'{qualified}' is one for each instance of '{typeName}', since its value names the type's parameters, and nothing here says which: read it through an instance, as 'Items.{member}' after `typealias Items = {typeName} with ...`", errs: errs)
+end 'failBareInstanceStatic'
 
 // writtenType is a type's name as the source writes it: the path of its module comes first where another module declares it.
 function writtenType(c Checker, p ast.Project, ms ast.ModuleState, obj ast.NodeID) returns String

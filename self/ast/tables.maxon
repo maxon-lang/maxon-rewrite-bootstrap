@@ -538,6 +538,9 @@ export type Typing
 	// boxes are the expressions whose value goes where an interface value is expected, each with that interface: the value
 	// moves into the box of an interface value there, or the box lends it where the place only borrows.
 	export var boxes as NodeBoxMap
+	// staticInstances are the reads of a static let that is one for each instance of its generic type, each with the
+	// instance it is read through: lowering binds the type's parameters to that instance's arguments in the value.
+	export var staticInstances as NodeTypeMap
 	// waiting is what each function whose body the module checked may wait for, by its body and every call it makes, which
 	// the check of a module that calls it reads (check/waits.maxon), by the function.
 	export var waiting as FuncWaitingMap
@@ -570,8 +573,9 @@ export type Typing
 		let con = NodeBoolMap.new()
 		let st = NodeBoolMap.new()
 		let bx = NodeBoxMap.new()
+		let si = NodeTypeMap.new()
 		let wt = FuncWaitingMap.new()
-		return Typing{module: module, types: tm, arith: am, names: nm, members: mm, calls: cm, structLits: sm, patterns: pm, arms: ak, whens: wm, closures: clm, iterations: im, hooks: hk, jumps: jm, locals: ls, nodeLocals: nlm, indexes: ixm, expansions: exm, funcLocals: flm, funcUses: fum, fieldUses: fdum, consumed: con, slotTakes: st, boxes: bx, waiting: wt, declared: false}
+		return Typing{module: module, types: tm, arith: am, names: nm, members: mm, calls: cm, structLits: sm, patterns: pm, arms: ak, whens: wm, closures: clm, iterations: im, hooks: hk, jumps: jm, locals: ls, nodeLocals: nlm, indexes: ixm, expansions: exm, funcLocals: flm, funcUses: fum, fieldUses: fdum, consumed: con, slotTakes: st, boxes: bx, staticInstances: si, waiting: wt, declared: false}
 	end 'new'
 
 	export function allocLocal(mutates self, consumes entry LocalEntry) returns LocalID

@@ -2224,6 +2224,8 @@ export-keyword.md: error.duplicate-typealias-same-file
 export-keyword.md: error.hidden-alias-as-a-top-level-set-from-head
 export-keyword.md: error.non-exported-enum-cross-file
 export-keyword.md: error.non-exported-function-cross-file
+export-keyword.md: error.non-exported-static-constant-assign-cross-file
+export-keyword.md: error.non-exported-static-read-cross-file
 export-keyword.md: error.non-exported-type-cross-file
 export-keyword.md: error.non-exported-var-cross-file
 export-keyword.md: error.typealias-with-unknown-element-type
@@ -2437,6 +2439,7 @@ first-class-functions.md: a-module-binding-named-like-a-primitive-calls-the-bind
 first-class-functions.md: a-statement-call-through-a-directory-beside-a-type-of-its-name-reaches-the-directory
 first-class-functions.md: a-statement-call-through-a-directory-named-like-a-primitive-reaches-the-directory
 first-class-functions.md: a-statement-call-through-an-ordinary-directory-reaches-the-directory
+first-class-functions.md: a-static-of-a-generic-type-is-read-through-the-type
 first-class-functions.md: error.a-call-through-a-cast-result-is-checked-against-the-cast-type
 first-class-functions.md: error.a-call-through-a-reassigned-function-typed-variable-reports-only-the-refused-assignment
 first-class-functions.md: error.a-call-through-a-type-parameter-names-a-static-requirement-in-a-generic-function
@@ -2466,6 +2469,7 @@ first-class-functions.md: error.a-requirement-through-a-type-parameter-of-a-gene
 first-class-functions.md: error.a-requirement-through-a-type-parameter-outranks-a-top-level-type-of-that-name
 first-class-functions.md: error.a-static-of-a-directory-qualified-generic-alias-is-not-a-function-value
 first-class-functions.md: error.a-static-of-a-directory-type-read-as-a-value-at-module-scope-is-named-by-its-whole-chain
+first-class-functions.md: error.a-static-of-a-generic-type-read-through-its-alias-names-the-type
 first-class-functions.md: error.a-static-of-a-type-named-like-a-sized-type-is-not-a-function-value
 first-class-functions.md: error.a-static-read-at-module-scope-is-not-a-function-value
 first-class-functions.md: error.a-static-requirement-called-as-a-statement-through-a-type-parameter
@@ -3720,6 +3724,8 @@ inline-records.md: inline-records.no-equals-is-still-refused
 inline-records.md: inline-records.sixty-five-bits-stays-a-heap-record
 inner-alias-construction.md: a-static-factory-result-is-checked-as-its-own-type
 inner-alias-construction.md: error.an-inner-alias-shadows-a-file-scope-alias-at-the-from-door
+inner-alias-construction.md: error.an-inner-alias-shadows-a-file-scope-alias-at-the-static-door
+inner-alias-construction.md: error.an-inner-ranged-alias-has-no-static-create
 inner-alias-construction.md: error.an-inner-ranged-alias-takes-no-from
 inner-alias-construction.md: error.inner-set-alias-literal-keeps-e3076
 inner-alias-construction.md: extension-body-inner-alias-builds-the-container
@@ -5226,6 +5232,7 @@ mutable-enums.md: a-scalar-payload-union-var-at-its-last-use-passed-to-a-let-fie
 mutable-enums.md: a-scalar-payload-union-var-read-after-the-call-is-kept-too
 mutable-enums.md: error.assign-to-let-enum-binding
 namespace-qualified-resolution.md: a-files-own-alias-beside-another-directorys-type-is-its-bare-name
+namespace-qualified-resolution.md: a-global-named-like-a-qualified-type-segment-leaves-a-static-field
 namespace-qualified-resolution.md: a-let-initializer-call-named-by-its-directory-resolves
 namespace-qualified-resolution.md: a-let-initializer-call-resolves-past-an-invisible-competitor
 namespace-qualified-resolution.md: a-let-initializer-call-resolves-to-its-one-visible-contested-declaration
@@ -7386,6 +7393,7 @@ static-variables.md: error.a-return-in-a-handler-block-of-a-static-record-let-na
 static-variables.md: error.a-top-level-let-map-values-keep-their-alias
 static-variables.md: error.a-top-level-string-literal-init-still-needs-the-conformance
 static-variables.md: error.an-array-literal-may-not-mix-two-enums
+static-variables.md: error.an-unmarked-static-read-from-another-directory
 static-variables.md: error.map-into-array-field-in-a-function-body
 static-variables.md: error.static-bound-name-on-a-struct-base
 static-variables.md: error.static-let-reassign
@@ -7404,6 +7412,7 @@ static-variables.md: error.top-level-let-array-reassign
 static-variables.md: error.union-case-into-enum-field-in-a-function-body
 static-variables.md: static-and-instance-fields
 static-variables.md: static-let-basic
+static-variables.md: static-let-cross-file
 static-variables.md: static-let-multiple-types
 static-variables.md: static-managed-members
 static-variables.md: top-level-array-bool-element
@@ -8374,6 +8383,10 @@ type-name-collision.md: declared-type-and-instance-both-cascade
 type-name-collision.md: declared-type-owning-a-string-named-like-an-array-instance
 type-name-collision.md: enum-named-like-a-compiled-instance-name
 type-name-collision.md: error.a-hidden-directory-qualified-alias-is-refused-as-a-top-level-cast-target
+type-name-collision.md: error.a-member-beside-the-librarys-type-is-refused-on-the-authors-alias
+type-name-collision.md: error.a-member-beside-the-librarys-type-is-refused-on-the-authors-alias-in-a-function-body
+type-name-collision.md: error.a-member-beside-the-librarys-union-is-refused-on-the-authors-alias
+type-name-collision.md: error.a-member-beside-the-librarys-union-is-refused-on-the-authors-alias-in-a-function-body
 type-name-collision.md: error.a-name-whose-declarations-coexist-in-part-is-blamed-in-path-order
 type-name-collision.md: error.a-requirement-returning-the-declared-type-is-not-met-by-the-instance
 type-name-collision.md: error.a-requirement-taking-the-declared-type-is-not-met-by-the-instance

@@ -187,6 +187,14 @@ export type Checker
 	export var allowCalls as bool
 	// constName is the module-level constant whose initializer is being typed, for the message that refuses a call in it.
 	export var constName as String
+	// constNamesParams is whether the initializer being typed names a type parameter of the type it belongs to, or its
+	// Self: a static let of a generic type is then one for each of its instances (noteConstantType).
+	export var constNamesParams as bool
+	// deferredNames are the reads Type.member of a static let in the initializers of constants, which the constants stage
+	// types on a tree it shares and so cannot rewrite into names: the bodies stage, which
+	// writes the tree, rewrites (moduleBodies), and deferredHeads the head of each.
+	export var deferredNames as ast.NodeIDList
+	export var deferredHeads as ast.NodeIDList
 	// inRawValue is whether the value that a case of an enum or a union writes after "=" is being typed: it may build any record,
 	// since it belongs to the enum or union that declares it and to no record.
 	export var inRawValue as bool
@@ -248,7 +256,7 @@ export type Checker
 	export static function make(modID diag.ModuleID, consumes typing ast.Typing) returns Checker
 		let mIdx = ast.modIndex(modID)
 		let csMap = BoolIntMap.new()
-		return Checker{modID: modID, modIdx: mIdx, typing: typing, pendingCalls: PendingCallList.create(0), pendingBounds: PendingBoundList.create(0), pendingBorrowFree: PendingBorrowFreeList.create(0), pendingBoxes: PendingBoxList.create(0), pendingValueTypes: PendingValueTypeList.create(0), callers: ast.FuncIDList.create(0), callersSeen: csMap, fn: ast.noFunc, rootFn: ast.noFunc, boundedFn: ast.noFunc, owner: ast.noType, allowCalls: false, constName: "", inRawValue: false, dead: false, expect: ast.noType, literalWide: false, scopes: ScopeList.create(0), blocks: BlockFrameList.create(0), nextSlot: 0 as Count, whens: 0 as Count, outers: Array.create(0), bFrames: Array.create(0), inBehaviour: false, bareNumbers: false, inClosure: false, activeBehIdx: 0 as Count, isFieldDefault: false, defaultFieldKey: 0 as Count, hasOmitted: false, omittedCall: 0 as ast.NodeID, omittedArgIdx: 0 as Count, capKnown: LackMap.new(), capVisiting: VisitMap.new(), tries: Array.create(0), bindings: Array.create(0), statement: 0 as ast.NodeID, usesNode: 0 as ast.NodeID, usesField: false, hasUses: false, recorded: ast.NodeIDList.create(0), fnLocals: ast.LocalIDList.create(0), waitNow: false, waitCalls: ast.FuncIDList.create(0), waits: WaitFacts.new(), pendingAsyncs: PendingAsyncList.create(0), partyWaitNow: false, spawned: ast.TypeIDList.create(0), spawnSites: ast.NodeIDList.create(0), servicesChecked: ast.TypeIDList.create(0), discardedSend: 0 as ast.NodeID}
+		return Checker{modID: modID, modIdx: mIdx, typing: typing, pendingCalls: PendingCallList.create(0), pendingBounds: PendingBoundList.create(0), pendingBorrowFree: PendingBorrowFreeList.create(0), pendingBoxes: PendingBoxList.create(0), pendingValueTypes: PendingValueTypeList.create(0), callers: ast.FuncIDList.create(0), callersSeen: csMap, fn: ast.noFunc, rootFn: ast.noFunc, boundedFn: ast.noFunc, owner: ast.noType, allowCalls: false, constName: "", constNamesParams: false, deferredNames: ast.NodeIDList.create(0), deferredHeads: ast.NodeIDList.create(0), inRawValue: false, dead: false, expect: ast.noType, literalWide: false, scopes: ScopeList.create(0), blocks: BlockFrameList.create(0), nextSlot: 0 as Count, whens: 0 as Count, outers: Array.create(0), bFrames: Array.create(0), inBehaviour: false, bareNumbers: false, inClosure: false, activeBehIdx: 0 as Count, isFieldDefault: false, defaultFieldKey: 0 as Count, hasOmitted: false, omittedCall: 0 as ast.NodeID, omittedArgIdx: 0 as Count, capKnown: LackMap.new(), capVisiting: VisitMap.new(), tries: Array.create(0), bindings: Array.create(0), statement: 0 as ast.NodeID, usesNode: 0 as ast.NodeID, usesField: false, hasUses: false, recorded: ast.NodeIDList.create(0), fnLocals: ast.LocalIDList.create(0), waitNow: false, waitCalls: ast.FuncIDList.create(0), waits: WaitFacts.new(), pendingAsyncs: PendingAsyncList.create(0), partyWaitNow: false, spawned: ast.TypeIDList.create(0), spawnSites: ast.NodeIDList.create(0), servicesChecked: ast.TypeIDList.create(0), discardedSend: 0 as ast.NodeID}
 	end 'make'
 end 'Checker'
 
@@ -1257,12 +1265,21 @@ export function resolveTypeRef(mutates c Checker, p ast.Project, mutates ms ast.
 		return resolveTupleTypeRef(c, p: p, ms: ms, tr: tr, selfTy: selfTy, errs: errs)
 	end 'tuple'
 	let t = resolveNamedTypeRef(c, p: p, ms: ms, tr: tr, selfTy: selfTy, errs: errs)
+	noteConstantType(c, p: p, ms: ms, t: t)
 	if t != ast.noType and ast.typeKind(ms.types, reads: p.types, t: t) == ast.TypeKind.interfaceTy 'ifTy'
 		let off = ms.tree().startOf(tr)
 		c.pendingValueTypes.push(PendingValueType.make(off, iface: t, written: ast.typeRefName(ms.tree(), id: tr).clone()))
 	end 'ifTy'
 	return t
 end 'resolveTypeRef'
+
+// noteConstantType notes a type that the initializer of a constant names, where it names a type parameter: the parameters
+// of the type a static let belongs to, or that type's Self, are the only ones an initializer can name.
+export function noteConstantType(mutates c Checker, p ast.Project, ms ast.ModuleState, t ast.TypeID)
+	if c.constName != "" and t != ast.noType and ast.mentionsTypeParam(ms.types, reads: p.types, t: t) 'names'
+		c.constNamesParams = true
+	end 'names'
+end 'noteConstantType'
 
 // resolveTupleTypeRef is the tuple that a parenthesized list of types stands for. A type that cannot be an element is
 // refused where the list names it.

@@ -1,0 +1,12 @@
+// expect-error: E2015 at 7:13
+interface Sized
+	function size() returns Count
+end 'Sized'
+
+extension Sized
+	static let most = 9
+end 'Sized'
+
+function main() returns ExitCode
+	return 0
+end 'main'

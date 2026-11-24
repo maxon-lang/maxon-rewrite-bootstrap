@@ -1,0 +1,25 @@
+// expect-error: E2073 at 21:24
+// expect-error: E2056 at 22:13
+// expect-error: E2056 at 23:20
+// A static let of a generic type whose value names none of its parameters is one value, read through the type itself; one
+// whose value names them is one for each instance, read through an instance, and the type's own name does not say which.
+type Box uses T
+	var item as T
+	static let limit = 42
+	static let width = sizeof(T)
+end 'Box'
+
+extension Box
+	static let wide = (sizeof(T) * 2) as Count
+end 'Box'
+
+typealias CountBox = Box with Count
+
+function main() returns ExitCode
+	let fine = Box.limit
+	let alsoFine = CountBox.width
+	let shared = CountBox.limit
+	let bare = Box.width
+	let bareToo = Box.wide
+	return 0
+end 'main'

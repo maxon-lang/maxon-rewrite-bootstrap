@@ -667,6 +667,7 @@ function storeConstValue(mutates w table.CacheWriter, v ConstValue)
 	storeI128(w, v: v.intVal)
 	storeI128(w, v: v.low)
 	storeI128(w, v: v.high)
+	w.word64(v.instanceOf as table.Word64)
 end 'storeConstValue'
 
 extension ConstValue
@@ -680,7 +681,8 @@ extension ConstValue
 		let theIntVal = I128.cacheLoad(r)
 		let theLow = I128.cacheLoad(r)
 		let theHigh = I128.cacheLoad(r)
-		return ConstValue{ty: theTy, hasValue: theHasValue, isBool: theIsBool, boolVal: theBoolVal, isStr: theIsStr, strVal: theStrVal, intVal: theIntVal, low: theLow, high: theHigh}
+		let theInstanceOf = try (r.word64() as TypeID) otherwise panic("cache: a stored TypeID is out of its range")
+		return ConstValue{ty: theTy, hasValue: theHasValue, isBool: theIsBool, boolVal: theBoolVal, isStr: theIsStr, strVal: theStrVal, intVal: theIntVal, low: theLow, high: theHigh, instanceOf: theInstanceOf}
 	end 'cacheLoad'
 end 'ConstValue'
 
@@ -2162,6 +2164,7 @@ export function storeTyping(mutates w table.CacheWriter, v Typing)
 	storeIntMapOfBool(w, v: v.consumed)
 	storeIntMapOfBool(w, v: v.slotTakes)
 	storeIntMapOfTypeID(w, v: v.boxes)
+	storeIntMapOfTypeID(w, v: v.staticInstances)
 	storeIntMapOfWaiting(w, v: v.waiting)
 	w.flag(v.declared)
 end 'storeTyping'
@@ -2192,9 +2195,10 @@ extension Typing
 		let theConsumed = loadIntMapOfBool(r)
 		let theSlotTakes = loadIntMapOfBool(r)
 		let theBoxes = loadIntMapOfTypeID(r)
+		let theStaticInstances = loadIntMapOfTypeID(r)
 		let theWaiting = loadIntMapOfWaiting(r)
 		let theDeclared = r.flag()
-		return Typing{module: theModule, types: theTypes, arith: theArith, names: theNames, members: theMembers, calls: theCalls, structLits: theStructLits, patterns: thePatterns, arms: theArms, whens: theWhens, closures: theClosures, iterations: theIterations, hooks: theHooks, jumps: theJumps, locals: theLocals, nodeLocals: theNodeLocals, indexes: theIndexes, expansions: theExpansions, funcLocals: theFuncLocals, funcUses: theFuncUses, fieldUses: theFieldUses, consumed: theConsumed, slotTakes: theSlotTakes, boxes: theBoxes, waiting: theWaiting, declared: theDeclared}
+		return Typing{module: theModule, types: theTypes, arith: theArith, names: theNames, members: theMembers, calls: theCalls, structLits: theStructLits, patterns: thePatterns, arms: theArms, whens: theWhens, closures: theClosures, iterations: theIterations, hooks: theHooks, jumps: theJumps, locals: theLocals, nodeLocals: theNodeLocals, indexes: theIndexes, expansions: theExpansions, funcLocals: theFuncLocals, funcUses: theFuncUses, fieldUses: theFieldUses, consumed: theConsumed, slotTakes: theSlotTakes, boxes: theBoxes, staticInstances: theStaticInstances, waiting: theWaiting, declared: theDeclared}
 	end 'cacheLoad'
 end 'Typing'
 

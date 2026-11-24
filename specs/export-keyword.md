@@ -1656,6 +1656,7 @@ file is the same refusal with a different noun — `function 'x' is not exported
 `static 'T.x' is not exported` are one rule.
 
 <!-- test: error.non-exported-static-read-cross-file -->
+<!-- positions: moved -->
 ```maxon
 // --- file: lib/holder.maxon
 export typealias Count = int(0 to u64.max)
@@ -1667,7 +1668,7 @@ end 'Holder'
 
 // --- file: main.maxon
 function main() returns ExitCode
-	let a = Holder.cached
+	let a = lib.Holder.cached
 	return a.value
 end 'main'
 ```
@@ -1676,6 +1677,7 @@ error E3008: specs/export-keyword/error.non-exported-static-read-cross-file.maxo
 ```
 
 <!-- test: error.non-exported-static-constant-assign-cross-file -->
+<!-- positions: moved -->
 The write is refused at the same token for the same reason. Assignment reaches the member through the
 same qualified-name lookup a read does, so a refusal that fired only on the read would be a rule
 written once and applied in one of the two places it belongs.
@@ -1693,7 +1695,7 @@ end 'Counter'
 
 // --- file: main.maxon
 function main() returns ExitCode
-	Counter.hits = 9
+	lib.Counter.hits = 9
 	return 0
 end 'main'
 ```

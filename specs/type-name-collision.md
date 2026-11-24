@@ -5022,7 +5022,7 @@ export typealias LogValue = int(0 to 9)
 
 // --- file: app/main.maxon
 function main() returns ExitCode
-	let v = LogValue.boolean(true)
+	let v = lib.LogValue.boolean(true)
 	return 0
 end 'main'
 ```
@@ -5031,6 +5031,7 @@ error E3004: app/<fragment>:7:19: call to undefined function 'LogValue.boolean'
 ```
 
 <!-- test: error.a-member-beside-the-librarys-union-is-refused-on-the-authors-alias-in-a-function-body -->
+<!-- positions: moved -->
 The same construction in a function body.
 ```maxon
 // --- file: lib/value.maxon
@@ -5038,7 +5039,7 @@ export typealias LogValue = int(0 to 9)
 
 // --- file: app/main.maxon
 function main() returns ExitCode
-	let v = LogValue.boolean(true)
+	let v = lib.LogValue.boolean(true)
 	return 0
 end 'main'
 ```
@@ -5076,7 +5077,7 @@ export typealias Console = int(0 to 9)
 
 // --- file: app/main.maxon
 function main() returns ExitCode
-	let c = Console.stdin()
+	let c = lib.Console.stdin()
 	return 0
 end 'main'
 ```
@@ -5085,6 +5086,7 @@ error E3004: app/<fragment>:7:18: call to undefined function 'Console.stdin'
 ```
 
 <!-- test: error.a-member-beside-the-librarys-type-is-refused-on-the-authors-alias-in-a-function-body -->
+<!-- positions: moved -->
 The same call in a function body.
 ```maxon
 // --- file: lib/console.maxon
@@ -5092,7 +5094,7 @@ export typealias Console = int(0 to 9)
 
 // --- file: app/main.maxon
 function main() returns ExitCode
-	let c = Console.stdin()
+	let c = lib.Console.stdin()
 	return 0
 end 'main'
 ```

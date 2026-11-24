@@ -1,0 +1,23 @@
+// A generic type whose static lets are one for each instance where their values name its parameter, and one value where
+// they do not.
+export type Box uses T
+	export var size as Count
+	export var label as String
+	export static let limit = 42
+	export static let width = sizeof(T)
+	export static let origin = Self{size: sizeof(T), label: "box"}
+
+	export static function first() returns Self
+		return origin.clone()
+	end 'first'
+
+	export function describe() returns String
+		return "{label}:{size}:{width}"
+	end 'describe'
+end 'Box'
+
+extension Box
+	export static let doubled = (width * 2) as Count
+end 'Box'
+
+export typealias FlagBox = Box with bool

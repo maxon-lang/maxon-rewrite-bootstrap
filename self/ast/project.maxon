@@ -12,21 +12,24 @@ export type ConstValue
 	// wherever it is used.
 	export var low as I128
 	export var high as I128
+	// instanceOf is the generic type, for a static let of one whose value names its type parameters or Self, so that it is
+	// one for each instance of the type, read through an instance: noType for any other constant.
+	export var instanceOf as TypeID
 
 	export static function typed(ty TypeID) returns ConstValue
-		return ConstValue{ty: ty, hasValue: false, isBool: false, boolVal: false, isStr: false, strVal: "", intVal: I128.zero(), low: I128.zero(), high: I128.zero()}
+		return ConstValue{ty: ty, hasValue: false, isBool: false, boolVal: false, isStr: false, strVal: "", intVal: I128.zero(), low: I128.zero(), high: I128.zero(), instanceOf: noType}
 	end 'typed'
 
 	export static function makeInt(ty TypeID, consumes v I128) returns ConstValue
-		return ConstValue{ty: ty, hasValue: true, isBool: false, boolVal: false, isStr: false, strVal: "", intVal: v.clone(), low: v.clone(), high: v}
+		return ConstValue{ty: ty, hasValue: true, isBool: false, boolVal: false, isStr: false, strVal: "", intVal: v.clone(), low: v.clone(), high: v, instanceOf: noType}
 	end 'makeInt'
 
 	export static function makeBool(ty TypeID, v bool) returns ConstValue
-		return ConstValue{ty: ty, hasValue: true, isBool: true, boolVal: v, isStr: false, strVal: "", intVal: I128.zero(), low: I128.zero(), high: I128.zero()}
+		return ConstValue{ty: ty, hasValue: true, isBool: true, boolVal: v, isStr: false, strVal: "", intVal: I128.zero(), low: I128.zero(), high: I128.zero(), instanceOf: noType}
 	end 'makeBool'
 
 	export static function makeString(ty TypeID, consumes v String) returns ConstValue
-		return ConstValue{ty: ty, hasValue: true, isBool: false, boolVal: false, isStr: true, strVal: v, intVal: I128.zero(), low: I128.zero(), high: I128.zero()}
+		return ConstValue{ty: ty, hasValue: true, isBool: false, boolVal: false, isStr: true, strVal: v, intVal: I128.zero(), low: I128.zero(), high: I128.zero(), instanceOf: noType}
 	end 'makeString'
 end 'ConstValue'
 

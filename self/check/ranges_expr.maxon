@@ -243,6 +243,10 @@ function rangeEval(mutates r Ranges, p ast.Project, ms ast.ModuleState, e ast.No
 	if k == ast.NodeKind.matchExpr 'match'
 		return rangeMatch(r, p: p, ms: ms, core: ast.matchExprMatch(ms.tree(), id: e))
 	end 'match'
+	if k == ast.NodeKind.memberExpr and r.typing.names.has(e as Count) 'deferredName'
+		// A read Type.member of a static let in a constant's initializer, which the bodies stage makes a name.
+		return rangeNameExpr(r, p: p, ms: ms, e: e)
+	end 'deferredName'
 	if k == ast.NodeKind.memberExpr 'member'
 		return rangeMemberExpr(r, p: p, ms: ms, e: e)
 	end 'member'

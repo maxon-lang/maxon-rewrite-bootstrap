@@ -1,0 +1,27 @@
+// The initializer of a constant reads statics that extensions add, Type.name, of a type and of the int family, and is
+// typed after them wherever they are declared.
+let total = (Meter.unit + int.base + Other.both) as Count
+
+type Other
+	var x as Count
+	static let both = (Meter.unit * 2) as Count
+end 'Other'
+
+type Meter
+	var n as Count
+end 'Meter'
+
+extension Meter
+	static let unit = (int.base / 2) as Count
+end 'Meter'
+
+extension int
+	static let base = 10
+end 'int'
+
+function main() returns ExitCode
+	print("{total} {Other.both} {Meter.unit}\n")
+	return 0
+end 'main'
+
+//> 25 10 5

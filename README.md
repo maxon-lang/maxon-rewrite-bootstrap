@@ -3710,10 +3710,13 @@ which stands for every integer type (`self` has the range of `FullRangeInt`), an
 Inside, `self` and the bare names of the type's fields and type parameters mean what they do in its body, and `Self` is
 the type. As in Swift, an extension of any of these may add static members: a `static function`, and a `static let`, which is
 a constant of the type as one its body declares is (see "Default parameter values, static fields, default throws and
-fallthrough"), read as `Type.name` (`int.answer`, `float.fromString(text)`, `String.greeting`; the family's name, not an alias
-of a range) and as `name` inside the extension. A static let of a generic type, in its body or in an extension of it, and
-one in an extension of an interface, is `E2015`: there would have to be one for each instance, or for each type that
-implements the interface, so it is a static function there. An extension declares no field or destructor. Its typealiases are scoped as its methods are (see "Typealiases of an extension" under "Generics"). A method of an extension is called as one of
+fallthrough"), read as `Type.name` (`int.answer`, `float.fromString(text)`, `String.greeting`, or through a typealias of an
+integer or a float, `Port.answer`) and as `name` inside the extension. A static of the family whose signature names `Self` is
+not yet called through a typealias, which would bind `Self` to it (`E2015`, which says to call it on the family and convert).
+A static let of a generic type, in its body or in an extension of it, is one for each instance where its value names the
+type's parameters or `Self` (see "Default parameter values, static fields, default throws and fallthrough"). One in an
+extension of an interface is `E2015`: there would have to be one for each type that implements the interface, so it is a
+static function there. An extension declares no field or destructor. Its typealiases are scoped as its methods are (see "Typealiases of an extension" under "Generics"). A method of an extension is called as one of
 the type's, and is `E3006` if the type's body or another extension of the same module declares the name; a static let of an
 extension is `E3006` where the type's body declares a member of its name (a method, a field, a case or a static let), or the
 module's extensions a method or another static let of it.
@@ -4549,8 +4552,21 @@ its value is read from the data section when it is a box known before the progra
 (see "Constants in the data section"), and a call in its initializer is `E3220` unless it is a literal factory (see "Raw
 values"), which the initializer may call by its bare name as one of the type's methods may. One that an extension adds is filed, as its typealiases are, under the type it extends in the module that writes the
 extension (`ast.ExtAlias`), and found as its methods are, where the module sees the extension: the check makes `Type.name` a
-name bound to it (`readExtensionStatic`), in a function's body; the initializer of a constant cannot read one that way. A
-`static var` is not supported.
+name bound to it (`readTypeStatic`), as it does one of the type's body written after a typealias of the type. In the
+initializer of a constant, which the constants stage types on a tree it shares, the read is typed there and made a name by
+the bodies stage (`Checker.deferredNames`), and the constants stage orders the constant after the static it reads
+(`staticReadBy`).
+
+A static let of a generic type whose value names the type's parameters or `Self` (`static let width = sizeof(T)`,
+`static let origin = Self{size: 0}`), or reads such a static, is one for each instance of the type (`ConstValue.instanceOf`):
+it is read through an instance, a typealias of one (`typealias CountBox = Box with Count`, `CountBox.width`), which binds the
+parameters, or by its bare name in the type's own methods, whose instance binds them; through the generic type's own name
+nothing says which instance, and it is `E2056`, saying to read it through one. The check records the instance at the read
+(`Typing.staticInstances`) and types the read with the parameters bound; lowering builds the value where it is read with
+them bound (`lowerInstanceConstant`), and finding instances follows the read to the calls of the value with them bound
+(`ir.visitConstant`), so an instance never read is never built, and the value is never laid out in the data section. Any
+other static let of a generic type is one value, read through the type itself (`Box.limit`); read through an instance or a
+typealias of one it is maxon's `E2073`. A `static var` is not supported.
 
 ### Conditional compilation, tests and annotations
 
@@ -4721,8 +4737,7 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   needs a global that the program initialises before `main` and replaces, and the read-only values of Maxon's regions.
 - Default parameter values (see "Default parameter values, static fields, default throws and fallthrough"): the caller-location defaults `__line__` and `__file__`
   and a default on a discard parameter `_` (which maxon's calls name with a synthesized label) are not supported, a default that
-  trails off is the parser's generic `E2010`, and a default on a closure parameter has no syntax. The initializer of a constant cannot
-  read a static let that an extension adds as `Type.name`.
+  trails off is the parser's generic `E2010`, and a default on a closure parameter has no syntax.
 - Values that hold a borrow (see "Borrowing values") are minimaxon's: maxon's cursor retains its buffer by a reference
   count, so a cursor, an iterator and a record that holds one go anywhere, where here they borrow what they were made from and
   stay in its scope. An iterator that escapes, returned past the collection it walks, stored in a field of a value that may
@@ -5165,9 +5180,14 @@ the checker reports where Maxon's parser does, as it needs the type of the value
 - **Static members follow Swift's rule.** An extension of a type, an enum, a union, a built-in generic type, `String`, `bool`,
   the integers, the floats or a built-in record may add a `static function` and a `static let`, and the body of an enum or a
   union may declare them, where maxon refuses a static function on an enum or a union and any binding in an extension
-  (`E2015`). A static let of a generic type, in its body or an extension, and one in an extension of an interface, is `E2015`,
-  where maxon keeps one for the generic type: there would have to be one for each instance. maxon has no `static var`, nor has
-  minimaxon yet: one is state that every thread reaches, which Swift 6 refuses too unless an actor isolates it.
+  (`E2015`). A static let in an extension of an interface is `E2015`: there would have to be one for each type that
+  implements it. maxon has no `static var`, nor has minimaxon yet: one is state that every thread reaches, which Swift 6
+  refuses too unless an actor isolates it.
+- **A static let of a generic type whose value names its parameters is one for each instance.** minimaxon compiles every
+  generic per instance, so such a static let (`static let width = sizeof(T)`) is built for each instance it is read through,
+  `CountBox.width` for `typealias CountBox = Box with Count`, and its bare read through `Box` is `E2056`; maxon keeps one
+  static let for a generic type. One whose value names no parameter is one value, read through the type itself, as maxon's
+  is.
 
 ## Changing the language
 

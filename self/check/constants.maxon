@@ -81,6 +81,48 @@ function constRefs(p ast.Project, ms ast.ModuleState, tree ast.Tree, res ast.Res
 	constRefsOfOperands(p, ms: ms, tree: tree, res: res, e: e, k: k, out: out)
 end 'constRefs'
 
+// staticReadBy is the static let that the member read e names, Type.member, where the resolve has not made it a name: one
+// that a typealias of the type, an instance of it or a primitive family's name is written before, or that an extension
+// adds, or none.
+function staticReadBy(p ast.Project, ms ast.ModuleState, tree ast.Tree, res ast.Resolution, e ast.NodeID) returns table.Option with ast.DeclRef
+	let obj = ast.memberExprObj(tree, id: e)
+	if tree.kindOf(obj) != ast.NodeKind.nameExpr 'notName'
+		return table.Option.none
+	end 'notName'
+	var nt = familyNamed(p, name: ast.nameExprName(tree, id: obj))
+	if nt == ast.noType 'declared'
+		match consumes res.decls.get(obj as Count) 'bound'
+			some(ref) then nt = declaredOrNone(p, ms: ms, ref: ref)
+			none then return table.Option.none
+		end 'bound'
+	end 'declared'
+	if nt == ast.noType 'untyped'
+		return table.Option.none
+	end 'untyped'
+	let member = ast.memberExprName(tree, id: e)
+	match consumes bodyStaticOf(p, ms: ms, nt: nt, member: member) 'body'
+		some(ref) then return table.Option.some(ref)
+		none then _ = 0
+	end 'body'
+	let key = ast.extensionKey(p, ms: ms, t: nt)
+	if not key.isSome() 'unextended'
+		return table.Option.none
+	end 'unextended'
+	match consumes ast.extensionStatic(p, ms: ms, from: ms.module, owner: key.unwrap(), name: member) 'lookup'
+		found(ref) then return table.Option.some(ref)
+		ambiguous(_, _) then return table.Option.none
+		absent then return table.Option.none
+	end 'lookup'
+end 'staticReadBy'
+
+// declaredOrNone is the type a declaration declares, or noType for one that declares none.
+function declaredOrNone(p ast.Project, ms ast.ModuleState, ref ast.DeclRef) returns ast.TypeID
+	match consumes ast.declType(p, ms: ms, ref: ref) 'typed'
+		some(t) then return t
+		none then return ast.noType
+	end 'typed'
+end 'declaredOrNone'
+
 function constRefsOfString(p ast.Project, ms ast.ModuleState, tree ast.Tree, res ast.Resolution, e ast.NodeID, mutates out ConstReads)
 	let partsRef = ast.strLitPartsRef(tree, id: e)
 	for i in 0 upto tree.strPartCount(partsRef) 'parts'
@@ -123,7 +165,10 @@ function constRefsOfOperands(p ast.Project, ms ast.ModuleState, tree ast.Tree, r
 		constRefs(p, ms: ms, tree: tree, res: res, e: ast.rangeExprLow(tree, id: e), out: out)
 		constRefs(p, ms: ms, tree: tree, res: res, e: ast.rangeExprHigh(tree, id: e), out: out)
 	end 'range' else if k == ast.NodeKind.memberExpr 'member'
-		constRefs(p, ms: ms, tree: tree, res: res, e: ast.memberExprObj(tree, id: e), out: out)
+		match consumes staticReadBy(p, ms: ms, tree: tree, res: res, e: e) 'static'
+			some(ref) then pushIfConstant(p, ms: ms, ref: ref, out: out)
+			none then constRefs(p, ms: ms, tree: tree, res: res, e: ast.memberExprObj(tree, id: e), out: out)
+		end 'static'
 	end 'member' else if k == ast.NodeKind.panicExpr 'panic'
 		out.runs = true
 		constRefs(p, ms: ms, tree: tree, res: res, e: ast.panicExprMessage(tree, id: e), out: out)
@@ -392,8 +437,10 @@ function checkConst(mutates c Checker, p ast.Project, mutates ms ast.ModuleState
 	end 'refused'
 	enterContext(c, p: p, ms: ms, f: ast.noFunc, owner: owner, calls: false)
 	c.constName = cd.name.clone()
+	c.constNamesParams = false
 	startUses(c, node: cd.value, inField: true)
 	let t = checkExpr(c, p: p, ms: ms, e: cd.value, errs: errs)
+	noteConstantType(c, p: p, ms: ms, t: t)
 	// The calls the value makes are made where it is read (typeOfConstant).
 	finishUses(c)
 	if t == ast.noType 'failed'
@@ -402,6 +449,9 @@ function checkConst(mutates c Checker, p ast.Project, mutates ms ast.ModuleState
 	if checkConstantType(c, p: p, ms: ms, name: cd.name, node: cd.id, value: cd.value, t: t, errs: errs) 'typed'
 		refuseHiddenConstantType(c, p: p, ms: ms, cd: cd, t: t, errs: errs)
 		var value = constantValue(p, ms: ms, t: t)
+		if c.constNamesParams 'perInstance'
+			value.instanceOf = ast.originOf(ms.types, reads: p.types, t: owner)
+		end 'perInstance'
 		let s = rangeConstant(c, p: p, ms: ms, value: cd.value, errs: errs)
 		if ast.isIntType(ms.types, reads: p.types, t: t) 'int'
 			value.low = s.lo.clone()
@@ -424,10 +474,6 @@ function refusesStaticLet(mutates c Checker, p ast.Project, ms ast.ModuleState, 
 		checkFail(c.modID, off: off, code: diag.errUnsupportedFeature, msg: interfaceStaticRefusal("let", name: ownerName), errs: errs)
 		return true
 	end 'interface'
-	if ast.typeEntry(ms.types, reads: p.types, t: ast.originOf(ms.types, reads: p.types, t: owner)).typeParams.count() > 0 'generic'
-		checkFail(c.modID, off: off, code: diag.errUnsupportedFeature, msg: "Unsupported: a `static let` of the generic type '{ownerName}' — there would have to be one for each instance of '{ownerName}'; make it a static function, or move it to a type that is not generic", errs: errs)
-		return true
-	end 'generic'
 	return false
 end 'refusesStaticLet'
 

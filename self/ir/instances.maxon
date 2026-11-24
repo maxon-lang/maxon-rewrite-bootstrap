@@ -249,7 +249,7 @@ end 'visitUses'
 function visitSites(p ast.Project, mutates ms ast.ModuleState, module diag.ModuleID, recorded ast.NodeIDList, bindParams ast.TypeIDList, bindArgs ast.TypeIDList, bindWitnesses ast.WitnessList, mutates found InstanceSet, mutates errs diag.ErrorList) returns bool
 	for i in 0 upto recorded.count() 'each'
 		let site = recorded[i]
-		if not visitConstant(p, ms: ms, module: module, site: site, found: found, errs: errs) 'deepConstant'
+		if not visitConstant(p, ms: ms, module: module, site: site, bindParams: bindParams, bindArgs: bindArgs, bindWitnesses: bindWitnesses, found: found, errs: errs) 'deepConstant'
 			return false
 		end 'deepConstant'
 		if p.modules[ast.modIndex(module)].tree.kindOf(site) == ast.NodeKind.forStmt 'loop'
@@ -311,16 +311,22 @@ function visitSites(p ast.Project, mutates ms ast.ModuleState, module diag.Modul
 	return true
 end 'visitSites'
 
-// visitConstant follows a site that reads a constant of another module to the uses of the constant's value, and says
-// whether the instances they need are finite. Any other site has none of its own here.
-function visitConstant(p ast.Project, mutates ms ast.ModuleState, module diag.ModuleID, site ast.NodeID, mutates found InstanceSet, mutates errs diag.ErrorList) returns bool
+// visitConstant follows a site that reads a constant of another module, or one that is one for each instance of its generic
+// type read through an instance, to the uses of the constant's value, and says whether the instances they need are
+// finite: an instance's read binds the type's parameters to its arguments, as the reader's bindings give them. Any other
+// site has none of its own here.
+function visitConstant(p ast.Project, mutates ms ast.ModuleState, module diag.ModuleID, site ast.NodeID, bindParams ast.TypeIDList, bindArgs ast.TypeIDList, bindWitnesses ast.WitnessList, mutates found InstanceSet, mutates errs diag.ErrorList) returns bool
 	if not p.typings[ast.modIndex(module)].names.has(site as Count) 'unnamed'
 		return true
 	end 'unnamed'
 	let info = p.typings[ast.modIndex(module)].names.get(site as Count).unwrap()
-	if info.kind != ast.NameKind.nameConst or info.decl.module == module or info.decl.module == diag.stdlibID 'notElsewhere'
+	if info.kind != ast.NameKind.nameConst or info.decl.module == diag.stdlibID 'notConstant'
 		return true
-	end 'notElsewhere'
+	end 'notConstant'
+	let instance = p.typings[ast.modIndex(module)].staticInstances.get(site as Count)
+	if info.decl.module == module and not instance.isSome() 'here'
+		return true
+	end 'here'
 	let ref = info.decl.clone()
 	let owner = ref.module
 	var calls = ast.NodeIDList.create(0)
@@ -328,6 +334,13 @@ function visitConstant(p ast.Project, mutates ms ast.ModuleState, module diag.Mo
 		some(list) then calls = list
 		none then return true
 	end 'uses'
+	if instance.isSome() 'perInstance'
+		let origin = ast.declConst(p, ms: ms, ref: ref).unwrap().instanceOf
+		let params = ast.cloneTypeArgs(ast.typeEntry(ms.types, reads: p.types, t: origin).typeParams)
+		let written = ast.cloneTypeArgs(ast.typeEntry(ms.types, reads: p.types, t: instance.unwrap()).typeArgs)
+		let args = applyAll(ms.types, reads: p.types, ts: written, params: bindParams, args: bindArgs)
+		return visitSites(p, ms: ms, module: owner, recorded: calls, bindParams: params, bindArgs: args, bindWitnesses: bindWitnesses, found: found, errs: errs)
+	end 'perInstance'
 	let unbound = ast.TypeIDList.create(0)
 	return visitSites(p, ms: ms, module: owner, recorded: calls, bindParams: unbound.clone(), bindArgs: unbound.clone(), bindWitnesses: ast.WitnessList.create(0), found: found, errs: errs)
 end 'visitConstant'

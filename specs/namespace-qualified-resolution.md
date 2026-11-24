@@ -3202,11 +3202,11 @@ end 'Calc'
 let Calc = FullRangeIntArray from [1]
 
 function size(xs FullRangeIntArray) returns ExitCode
-	return xs.count() as ExitCode
+	return try xs.count() as ExitCode otherwise panic("out of range")
 end 'size'
 
 function main() returns ExitCode
-	return sub.Calc.n + (size(Calc) - 1)
+	return try sub.Calc.n + (size(Calc) - 1) otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

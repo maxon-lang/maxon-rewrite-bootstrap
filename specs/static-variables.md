@@ -200,7 +200,7 @@ end 'Config'
 
 // --- file: app/main.maxon
 function main() returns ExitCode
-	return api.Config.used + Config.MAX_SIZE
+	return api.Config.used + api.Config.MAX_SIZE
 end 'main'
 ```
 ```exitcode
@@ -2781,6 +2781,7 @@ error E3005: specs/static-variables/error.an-array-literal-may-not-mix-two-enums
 ### A STATIC MEMBER'S VISIBILITY IS THE MEMBER'S, NOT ITS TYPE'S
 
 <!-- test: error.an-unmarked-static-read-from-another-directory -->
+<!-- positions: moved -->
 An unmarked static member is visible in the declaring directory's subtree only, while the type
 around it stays exported and nameable everywhere. A reader outside the subtree may therefore write
 `Config` and must still be refused `used`, at the member token — the base is not the problem here and a
@@ -2794,7 +2795,7 @@ end 'Config'
 
 // --- file: dir_b/main.maxon
 function main() returns ExitCode
-	return Config.used
+	return dir_a.Config.used
 end 'main'
 ```
 ```maxoncstderr

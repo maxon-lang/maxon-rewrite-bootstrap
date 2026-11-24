@@ -550,5 +550,3 @@ test	enum-union-method-receiver.md	error.static-method-on-a-union	language diffe
 test	enum-union-method-receiver.md	error.static-method-on-an-enum	language difference: an enum and a union take static members as Swift's do, in their body and in an extension
 test	extension-over-enum.md	error.static-function-in-an-enum-extension	language difference: an enum and a union take static members as Swift's do, in their body and in an extension
 test	extension-over-enum.md	error.static-function-in-a-union-extension	language difference: an enum and a union take static members as Swift's do, in their body and in an extension
-test	first-class-functions.md	a-static-of-a-generic-type-is-read-through-the-type	language difference: a static let of a generic type is refused as Swift refuses one, since there would have to be one for each instance
-test	first-class-functions.md	error.a-static-of-a-generic-type-read-through-its-alias-names-the-type	language difference: a static let of a generic type is refused as Swift refuses one, since there would have to be one for each instance

@@ -476,6 +476,10 @@ function visitNameExpr(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleSt
 		return d
 	end 'field'
 	if name.kind == ast.NameKind.nameConst 'const'
+		match consumes p.typings[l.mi].staticInstances.get(e as Count) 'instance'
+			some(instance) then return lowerInstanceConstant(l, p: p, ms: ms, name: name, instance: instance)
+			none then _ = 0
+		end 'instance'
 		match consumes constantDatum(p, ms: ms, name: name) 'datum'
 			some(d) then return datumReg(l, d: d)
 			none then _ = 0
@@ -830,6 +834,21 @@ function visitCallExpr(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleSt
 	end 'ctor'
 	panic("lower: unresolved call")
 end 'visitCallExpr'
+
+// lowerInstanceConstant lowers a read of a static let that is one for each instance of its generic type, read through the
+// instance: its value, built where it is read, in the module that declares it and with the type's parameters bound to the
+// instance's arguments, as the reader's bindings give them.
+function lowerInstanceConstant(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, name ast.NameInfo, instance ast.TypeID) returns Reg
+	let origin = ast.declConst(p, ms: ms, ref: name.decl).unwrap().instanceOf
+	let written = ast.cloneTypeArgs(ast.typeEntry(ms.types, reads: p.types, t: instance).typeArgs)
+	let args = applyAll(ms.types, reads: p.types, ts: written, params: l.bindParams, args: l.bindArgs)
+	let savedParams = exchange(l.bindParams, value: ast.cloneTypeArgs(ast.typeEntry(ms.types, reads: p.types, t: origin).typeParams))
+	let savedArgs = exchange(l.bindArgs, value: args)
+	let v = exprIn(l, p: p, ms: ms, e: constantExpr(p, name: name))
+	l.bindParams = savedParams
+	l.bindArgs = savedArgs
+	return v
+end 'lowerInstanceConstant'
 
 // lowerDefault lowers the default of a parameter that a call leaves out, in the module that declares the function and with
 // its type parameters bound to the call's type arguments, converted to the parameter's type.

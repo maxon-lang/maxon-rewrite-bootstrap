@@ -391,6 +391,59 @@ function primitiveNamed(c Checker, p ast.Project, ms ast.ModuleState, e ast.Node
 	if lookupLocal(c, name: name) != ast.noLocal 'shadowed'
 		return ast.noType
 	end 'shadowed'
+	let family = familyNamed(p, name: name)
+	if family != ast.noType 'family'
+		return family
+	end 'family'
+	return primitiveAliasNamed(p, ms: ms, e: e)
+end 'primitiveNamed'
+
+// familySelf is the Self of an extension of the family of the primitive type t: the integers' widest, the floats', or t.
+function familySelf(p ast.Project, ms ast.ModuleState, t ast.TypeID) returns ast.TypeID
+	if ast.isIntType(ms.types, reads: p.types, t: t) 'integer'
+		return p.builtins.anon64Ty
+	end 'integer'
+	if ast.isFloatType(ms.types, reads: p.types, t: t) 'float'
+		return p.builtins.anonFloatTy
+	end 'float'
+	return t
+end 'familySelf'
+
+// namesFamilySelf is whether the static function sig of a primitive family, called through the typealias qualifier, names
+// the family's Self in its signature: the alias would bind Self to itself, which minimaxon does not do yet, and the call
+// would give the family's type where the alias's is written.
+function namesFamilySelf(p ast.Project, ms ast.ModuleState, qualifier ast.TypeID, sig ast.FuncID) returns bool
+	let family = familySelf(p, ms: ms, t: qualifier)
+	if family == qualifier 'family'
+		return false
+	end 'family'
+	let entry = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: sig)
+	if entry.retTy == family 'result'
+		return true
+	end 'result'
+	for i in 0 upto entry.paramTypes.count() 'params'
+		if entry.paramTypes[i] == family 'param'
+			return true
+		end 'param'
+	end 'params'
+	return false
+end 'namesFamilySelf'
+
+// implicitSelfRefusal is the message that refuses a static of a primitive family whose type names Self, reached through a
+// typealias of the family.
+export function implicitSelfRefusal(p ast.Project, ms ast.ModuleState, qualifier ast.TypeID, name String) returns String
+	let alias = nameOfType(p, ms: ms, t: qualifier)
+	var family = nameOfType(p, ms: ms, t: qualifier)
+	if ast.isIntType(ms.types, reads: p.types, t: qualifier) 'integer'
+		family = intFamily
+	end 'integer' else if ast.isFloatType(ms.types, reads: p.types, t: qualifier) 'float'
+		family = floatFamily
+	end 'float'
+	return "Unsupported: '{alias}.{name}' names Self, which a static of the family of '{alias}' is not yet instantiated with for a typealias; write '{family}.{name}' and convert the result to '{alias}'"
+end 'implicitSelfRefusal'
+
+// familyNamed is the type that a primitive's word names as the qualifier of a static, or noType.
+function familyNamed(p ast.Project, name String) returns ast.TypeID
 	if name == "String" 'string'
 		return p.builtins.stringTy
 	end 'string'
@@ -407,7 +460,39 @@ function primitiveNamed(c Checker, p ast.Project, ms ast.ModuleState, e ast.Node
 		return p.builtins.boolTy
 	end 'boolean'
 	return ast.noType
-end 'primitiveNamed'
+end 'familyNamed'
+
+// primitiveAliasNamed is the type that the typealias e names, where it is an integer, a float or bool, which qualifies a
+// static of its family as the family's name does (`Port.limit`, `Port.fromString(text)`), or noType.
+function primitiveAliasNamed(p ast.Project, ms ast.ModuleState, e ast.NodeID) returns ast.TypeID
+	let bound = ast.nodeDecl(p, ms: ms, node: e as Count)
+	if not bound.isSome() 'unbound'
+		return ast.noType
+	end 'unbound'
+	let ref = bound.unwrap()
+	let isAlias = match ast.moduleDecl(p, ref: ref) 'decl'
+		aliasDecl(_) gives true
+		funcDecl(_) gives false
+		constDecl(_) gives false
+		typeDecl(_) gives false
+		enumDecl(_) gives false
+		unionDecl(_) gives false
+		interfaceDecl(_) gives false
+		extensionDecl(_) gives false
+	end 'decl'
+	if not isAlias 'notAlias'
+		return ast.noType
+	end 'notAlias'
+	let typed = ast.declType(p, ms: ms, ref: ref)
+	if not typed.isSome() 'untyped'
+		return ast.noType
+	end 'untyped'
+	let t = typed.unwrap()
+	if ast.isIntType(ms.types, reads: p.types, t: t) or ast.isFloatType(ms.types, reads: p.types, t: t) or ast.typeKind(ms.types, reads: p.types, t: t) == ast.TypeKind.primBool 'primitive'
+		return t
+	end 'primitive'
+	return ast.noType
+end 'primitiveAliasNamed'
 
 // intFamily, floatFamily and boolName are the words that name the integers, the floats and bool as the qualifier of a static.
 let intFamily = "int"
@@ -453,6 +538,10 @@ function callPrimitiveStatic(mutates c Checker, p ast.Project, mutates ms ast.Mo
 		return ast.noType
 	end 'ambiguous'
 	if sf != ast.noFunc and ast.funcEntry(ms.funcs, funcReads: p.funcs, f: sf).isStatic 'static'
+		if namesFamilySelf(p, ms: ms, qualifier: t, sig: sf) 'implicitSelf'
+			failAt(c, p: p, ms: ms, node: call, code: diag.errUnsupportedFeature, msg: implicitSelfRefusal(p, ms: ms, qualifier: t, name: name), errs: errs)
+			return ast.noType
+		end 'implicitSelf'
 		return callFunction(c, p: p, ms: ms, call: call, kind: ast.CallKind.callStatic, target: sf, hasGiven: false, given: ast.TypeIDList.create(0), errs: errs)
 	end 'static'
 	return unknownFunction(c, p: p, ms: ms, call: call, name: "{nameOfType(p, ms: ms, t: t)}.{name}", qualifiers: 1 as Count, fix: diag.Fix.none(), errs: errs)
