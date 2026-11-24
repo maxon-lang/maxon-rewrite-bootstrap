@@ -510,6 +510,7 @@ error E3016: <fragment>:10:11: Partial interface implementation: type 'Suite' is
 ```
 
 <!-- test: error.static-function-in-an-enum-extension -->
+<!-- skip: language difference: an enum and a union take static members as Swift's do, in their body and in an extension -->
 An enum has no `static function`, and an extension of one refuses it with the sentence the body gives.
 ```maxon
 enum Color
@@ -531,6 +532,7 @@ error E2015: <fragment>:7:2: Unsupported: a `static function` on `enum Color` (a
 ```
 
 <!-- test: error.static-function-in-a-union-extension -->
+<!-- skip: language difference: an enum and a union take static members as Swift's do, in their body and in an extension -->
 ```maxon
 union Shape
 	circle(radius ExitCode)

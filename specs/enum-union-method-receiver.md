@@ -392,6 +392,7 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: error.static-method-on-a-union -->
+<!-- skip: language difference: an enum and a union take static members as Swift's do, in their body and in an extension -->
 <!-- positions: moved -->
 ```maxon
 union Shape
@@ -413,6 +414,7 @@ error E2015: <fragment>:5:2: Unsupported: a `static function` on `union Shape` (
 ```
 
 <!-- test: error.static-method-on-an-enum -->
+<!-- skip: language difference: an enum and a union take static members as Swift's do, in their body and in an extension -->
 <!-- positions: moved -->
 ```maxon
 enum Color

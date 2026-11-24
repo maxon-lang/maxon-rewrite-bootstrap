@@ -47,12 +47,12 @@ error E2001: <fragment>:2:8: Expected function declaration, got 'var'
 ```
 
 <!-- test: error.a-static-var-is-refused -->
-<!-- skip: static fields are supported in minimaxon only as 'static let' in a type body -->
+<!-- skip: a static field is a 'static let' in minimaxon: a 'static var' is not supported -->
 <!-- positions: moved -->
 After `static` a type body takes a function or a `let`, so a `static var` is refused at the `var` token.
 ```maxon
 type Counter
-	// TODO: static fields are supported in minimaxon only as 'static let' in a type body
+	// TODO: a static field is a 'static let' in minimaxon: a 'static var' is not supported
 	static var count = 0 as FullRangeInt
 end 'Counter'
 

@@ -702,6 +702,7 @@ function storeExtAlias(mutates w table.CacheWriter, v ExtAlias)
 	w.text(v.name)
 	w.word32(v.ordinal as table.Word64)
 	w.word64(v.extended as table.Word64)
+	w.flag(v.isStatic)
 end 'storeExtAlias'
 
 extension ExtAlias
@@ -710,7 +711,8 @@ extension ExtAlias
 		let theName = r.text()
 		let theOrdinal = try (r.word32() as DeclOrdinal) otherwise panic("cache: a stored DeclOrdinal is out of its range")
 		let theExtended = try (r.word64() as TypeID) otherwise panic("cache: a stored TypeID is out of its range")
-		return ExtAlias{owner: theOwner, name: theName, ordinal: theOrdinal, extended: theExtended}
+		let theIsStatic = r.flag()
+		return ExtAlias{owner: theOwner, name: theName, ordinal: theOrdinal, extended: theExtended, isStatic: theIsStatic}
 	end 'cacheLoad'
 end 'ExtAlias'
 

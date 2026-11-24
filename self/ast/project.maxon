@@ -339,7 +339,8 @@ export type ModuleTables
 		open[k].funcLocals[at].params.push(l)
 	end 'pushParamLocal'
 
-	// memberDecl is the typealias that a check stage bound the type written Owner.member at node to.
+	// memberDecl is the typealias that a check stage bound the type written Owner.member at node to, or the static let that an
+	// extension adds that it bound the value written so to.
 	export function memberDecl(node Count) returns table.Option with DeclRef
 		var k = partCount()
 		while k > 0 'parts'
@@ -457,8 +458,8 @@ type TablesPart
 	var extMethods as ExtMethodList
 	var extAliases as ExtAliasList
 	var extConforms as ExtConformList
-	// memberDecls are the typealiases that the types written Owner.member are bound to, by their node, which a check stage
-	// finds after the resolve, as an extension of Owner may add them.
+	// memberDecls are the typealiases that the types written Owner.member are bound to, and the static lets that the values
+	// written so are, by their node, which a check stage finds after the resolve, as an extension of Owner may add them.
 	var memberDecls as NodeDeclMap
 
 	static function new() returns Self

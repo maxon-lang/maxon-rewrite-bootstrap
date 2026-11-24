@@ -222,6 +222,17 @@ function checkMember(mutates c Checker, p ast.Project, mutates ms ast.ModuleStat
 	if param != ast.noType 'parameter'
 		return memberOfTypeParam(c, p: p, ms: ms, e: e, param: param, errs: errs)
 	end 'parameter'
+	let primitive = primitiveNamed(c, p: p, ms: ms, e: obj)
+	if primitive != ast.noType 'primitive'
+		let mark = errs.count()
+		match consumes extensionStaticOf(c, p: p, ms: ms, nt: primitive, member: ast.memberExprName(ms.tree(), id: e), e: e, errs: errs) 'static'
+			some(ref) then return readExtensionStatic(c, p: p, ms: ms, e: e, obj: obj, ref: ref, errs: errs)
+			none then _ = 0
+		end 'static'
+		if failedSince(errs, mark: mark) 'ambiguous'
+			return ast.noType
+		end 'ambiguous'
+	end 'primitive'
 	var named = ast.noType
 	if ms.tree().kindOf(obj) == ast.NodeKind.nameExpr 'headIsName'
 		let mark = errs.count()
@@ -291,6 +302,16 @@ function checkTypeMember(mutates c Checker, p ast.Project, mutates ms ast.Module
 	if (k == ast.TypeKind.enumTy or k == ast.TypeKind.unionTy) and (member == allCasesMember or member == allCaseNamesMember) 'caseList'
 		return checkCaseListMember(c, p: p, ms: ms, e: e, obj: obj, member: member, nt: named, errs: errs)
 	end 'caseList'
+	let isCase = (k == ast.TypeKind.enumTy or k == ast.TypeKind.unionTy) and ast.typeEntry(ms.types, reads: p.types, t: ast.originOf(ms.types, reads: p.types, t: named)).findCase(member).isSome()
+	if not isCase 'notCase'
+		match consumes extensionStaticOf(c, p: p, ms: ms, nt: named, member: member, e: e, errs: errs) 'static'
+			some(ref) then return readExtensionStatic(c, p: p, ms: ms, e: e, obj: obj, ref: ref, errs: errs)
+			none then _ = 0
+		end 'static'
+		if failedSince(errs, mark: mark) 'ambiguousStatic'
+			return ast.noType
+		end 'ambiguousStatic'
+	end 'notCase'
 	if k == ast.TypeKind.enumTy or k == ast.TypeKind.unionTy 'cases'
 		return checkCaseMember(c, p: p, ms: ms, e: e, member: member, nt: named, errs: errs)
 	end 'cases'
@@ -311,6 +332,46 @@ function checkTypeMember(mutates c Checker, p ast.Project, mutates ms ast.Module
 	checkFail(c.modID, off: off, code: diag.errUnknownField, msg: "'{nameOfType(p, ms: ms, t: named)}.{member}' is not a value", errs: errs)
 	return ast.noType
 end 'checkTypeMember'
+
+// extensionStaticOf is the static let that an extension seen from the module adds to the type nt under the name member, or none.
+// Two that the module sees are ambiguous, which it refuses at e.
+function extensionStaticOf(mutates c Checker, p ast.Project, ms ast.ModuleState, nt ast.TypeID, member String, e ast.NodeID, mutates errs diag.ErrorList) returns table.Option with ast.DeclRef
+	let key = ast.extensionKey(p, ms: ms, t: nt)
+	if not key.isSome() 'unextended'
+		return table.Option.none
+	end 'unextended'
+	match consumes ast.extensionStatic(p, ms: ms, from: c.modID, owner: key.unwrap(), name: member) 'lookup'
+		found(ref) then return table.Option.some(ref)
+		ambiguous(first, second) then failAmbiguousStatic(c, p: p, ms: ms, e: e, nt: nt, member: member, first: first, second: second, errs: errs)
+		absent then _ = 0
+	end 'lookup'
+	return table.Option.none
+end 'extensionStaticOf'
+
+function failAmbiguousStatic(mutates c Checker, p ast.Project, ms ast.ModuleState, e ast.NodeID, nt ast.TypeID, member String, first ast.DeclRef, second ast.DeclRef, mutates errs diag.ErrorList)
+	let typeName = nameOfType(p, ms: ms, t: nt)
+	checkFail(c.modID, off: offsetOf(c, p: p, ms: ms, node: e), code: diag.errAmbiguousExtension, msg: "'{typeName}.{member}' is ambiguous here: an extension in {ast.describeModule(p, modID: first.module)} and an extension in {ast.describeModule(p, modID: second.module)} both add the static let '{member}' to '{typeName}', and {ast.describeModule(p, modID: c.modID)} sees both; a read cannot name it through its module, so rename or remove one of the two", errs: errs)
+end 'failAmbiguousStatic'
+
+// readExtensionStatic types a read of the static let ref that an extension adds, written Type.member at e: the bodies make the
+// member a name of the constant, as the resolve makes one of a static let that the type's own body declares. The initializer
+// of a constant is typed where no stage rewrites the tree, so it cannot read one.
+function readExtensionStatic(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, obj ast.NodeID, consumes ref ast.DeclRef, mutates errs diag.ErrorList) returns ast.TypeID
+	let member = ast.memberExprName(ms.tree(), id: e).clone()
+	let off = offsetOf(c, p: p, ms: ms, node: e)
+	let level = ast.declLevel(p, ref: ref)
+	if ref.module != c.modID and not ast.isVisibleFrom(p, v: level, owner: ref.module, from: c.modID) 'hidden'
+		checkFail(c.modID, off: off, code: diag.errNotExported, msg: ast.notVisible(p, name: ast.declName(p, ref: ref), v: level, owner: ref.module, from: c.modID), errs: errs)
+		return ast.noType
+	end 'hidden'
+	if ms.readsSharedTree() 'constant'
+		checkFail(c.modID, off: off, code: diag.errUnsupportedFeature, msg: "Unsupported: the initializer of a constant reads '{writtenName(ms.tree(), e: e)}', a static let that an extension adds, which a constant cannot read; read it in a function, or write its value here", errs: errs)
+		return ast.noType
+	end 'constant'
+	ms.ownTree.becomeName(e, head: obj)
+	ms.tables.bindMemberDecl(e, d: ref.clone())
+	return checkDeclaredName(c, p: p, ms: ms, e: e, ref: ref, name: member, errs: errs)
+end 'readExtensionStatic'
 
 // writtenType is a type's name as the source writes it: the path of its module comes first where another module declares it.
 function writtenType(c Checker, p ast.Project, ms ast.ModuleState, obj ast.NodeID) returns String

@@ -20,12 +20,15 @@ export type DeclRef
 	end 'make'
 end 'DeclRef'
 
-// methodNamesOf are the names of the methods that an extension declares.
+// methodNamesOf are the names of the methods and the static lets that an extension declares.
 function methodNamesOf(xd ExtensionDecl) returns StringList
 	var names = StringList.create(0)
 	for i in 0 upto xd.methods.count() 'methods'
 		names.push(xd.methods[i].name.clone())
 	end 'methods'
+	for i in 0 upto xd.statics.count() 'statics'
+		names.push(xd.statics[i].name.clone())
+	end 'statics'
 	return names
 end 'methodNamesOf'
 
@@ -128,6 +131,20 @@ export union Decl
 			interfaceDecl(_) gives StringList.create(0)
 		end 'd'
 	end 'memberNames'
+
+	// staticLets are the static lets that the body of a type, an enum or a union declares, or that an extension adds.
+	export function staticLets() returns ConstDeclList
+		return match self 'd'
+			typeDecl(v) gives v.statics.clone()
+			enumDecl(v) gives v.statics.clone()
+			unionDecl(v) gives v.statics.clone()
+			extensionDecl(v) gives v.statics.clone()
+			funcDecl(_) gives ConstDeclList.create(0)
+			constDecl(_) gives ConstDeclList.create(0)
+			aliasDecl(_) gives ConstDeclList.create(0)
+			interfaceDecl(_) gives ConstDeclList.create(0)
+		end 'd'
+	end 'staticLets'
 
 	export function level() returns Visibility
 		return visibilityOf(self.visibility())

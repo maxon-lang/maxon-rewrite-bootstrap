@@ -1516,6 +1516,7 @@ error E3220: <fragment>:8:11: the initializer of 'big' calls 'larger': a module-
 
 
 <!-- test: error.a-static-initializer-calling-a-sibling-static-past-a-hidden-free-function-is-not-a-constant -->
+<!-- positions: moved -->
 Another directory declares an unmarked free `makeSeed`; inside `Registry` the bare call means
 the sibling static, as a body call would, so it is refused as a call rather than as a hidden function.
 ```maxon
@@ -1534,11 +1535,11 @@ end 'hiddenSeed'
 type Registry
 	static let seed = makeSeed()
 
-	static function makeSeed() returns Integer
+	static function makeSeed() returns hidden.Integer
 		return 4
 	end 'makeSeed'
 
-	export static function value() returns Integer
+	export static function value() returns hidden.Integer
 		return Registry.seed
 	end 'value'
 end 'Registry'

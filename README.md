@@ -2679,7 +2679,8 @@ edit to `runtime/` rebuilds everything.
 ## The subset
 
 - `function` (a body may have no statement; every other block with none is `E3082`), `type` (fields, defaults, methods, `static function`, `static let`; a function parameter may have a default, see "Default parameter values, static fields, default throws and fallthrough"), `enum` (integer, float, string, record and function raw values, see
-  "Raw values"), `union` (payloads, methods, explicit tags), `interface`, `typealias X = int(a to|upto b)`,
+  "Raw values"; methods, `static function`, `static let`), `union` (payloads, methods, explicit tags, `static function`,
+  `static let`), `interface`, `typealias X = int(a to|upto b)`,
   `typealias X = bits(n)` (see "Bit patterns"), `typealias X = float(a to b)` (see "Floats"), either range with `implements Parent` (see "Integers"), `typealias X = Box with Count` (also in the body of a type, an interface or an extension), a top-level
   `let` constant. A function, a type and a union can be generic (see "Generics"). A `type` or a `union` can say
   `is noncopyable` right after its name (`type Socket is noncopyable`; never an `enum`), which takes `Copyable` from it,
@@ -2694,8 +2695,8 @@ edit to `runtime/` rebuilds everything.
   has (a literal is written as the target, `[1, 2] as Ages`), or between two instances of one generic whose type
   arguments are one type or integer aliases of one name, range and domain (the library's `Byte` and the author's), as
   maxon retags a container. A cast to another instance is `E3131`, and to any other type that is not the value's `E3009`.
-- `extension` blocks (see "Extensions"): methods, static functions of a type and conformances added to a type, an enum, a
-  union, `Array`, `Map`, `List`, `String`, `bool` or `int` from outside its body.
+- `extension` blocks (see "Extensions"): methods, static functions, static lets and conformances added to a type, an enum, a
+  union, `Array`, `Map`, `List`, `String`, `bool`, `int`, `float` or a built-in record from outside its body.
 - `let`, `var` (with a value, or `var x as T` without one), assignment to a variable, a field or an element,
   `_ = call()`, `if`/`else if`/`else`, `if let x = try call()` and `if try call()` with an `else`, `while`, `for i in a to|upto b`, `for x in xs` over an array, a `List`, the grapheme clusters of a `String`, a range value, or any value
   whose type has maxon's iteration protocol (a type of the program, a type parameter through its bounds, an interface
@@ -3656,9 +3657,15 @@ or a `union` of any module (`extension shapes.Counter`), the built-in `Array` an
 which stands for every integer type (`self` has the range of `FullRangeInt`), and `float`, which stands for every float type
 (`self` is a `FullRangeFloat`), as maxon's `PrimitiveExtensions.maxon` extends them. The end label is the extended type's name.
 Inside, `self` and the bare names of the type's fields and type parameters mean what they do in its body, and `Self` is
-the type. A static function is allowed only in an extension of a `type` or of a built-in generic type. An extension
-declares no field or destructor. Its typealiases are scoped as its methods are (see "Typealiases of an extension" under "Generics"). A method of an extension is called as one of
-the type's, and is `E3006` if the type's body or another extension of the same module declares the name.
+the type. As in Swift, an extension of any of these may add static members: a `static function`, and a `static let`, which is
+a constant of the type as one its body declares is (see "Default parameter values, static fields, default throws and
+fallthrough"), read as `Type.name` (`int.answer`, `float.fromString(text)`, `String.greeting`; the family's name, not an alias
+of a range) and as `name` inside the extension. A static let of a generic type, in its body or in an extension of it, and
+one in an extension of an interface, is `E2015`: there would have to be one for each instance, or for each type that
+implements the interface, so it is a static function there. An extension declares no field or destructor. Its typealiases are scoped as its methods are (see "Typealiases of an extension" under "Generics"). A method of an extension is called as one of
+the type's, and is `E3006` if the type's body or another extension of the same module declares the name; a static let of an
+extension is `E3006` where the type's body declares a member of its name (a method, a field, a case or a static let), or the
+module's extensions a method or another static let of it.
 
 An extension's declarations belong to the module that writes it, never to the extended type's module, so each module's
 stages stay independent. A module of a program that writes a member which a module of the library declares, by an extension or on one of its types
@@ -3728,7 +3735,7 @@ method is lent the box: its instance at the interface's type reaches the require
 no method of a requirement's name meets the requirement with a method that an extension of an interface it implements
 adds (`extension Forward` adds `back`, which `interface Both extends Forward` requires), in a table too. Its instances are
 named by the extension's module and the interface (see "Link names"). An extension of an interface declares no
-conformance and no static function (`E2015`). `for item in self` in it walks the conformer through the iteration protocol
+conformance and no static member (`E2015`). `for item in self` in it walks the conformer through the iteration protocol
 of the interface's bounds (see "Iteration" under "Primitives"): `createIterator()` of `Iterable`, and `current()` and
 `advance()` of the bound that the interface's `where` gives its iterator, checked once and lowered for each instance.
 
@@ -4482,14 +4489,17 @@ fallthrough` is `E2025`. The arm it falls into must bind no payload name (`E2015
 state the arm leaves with the one the dispatch gives the next arm, and lowering jumps to the body of the next arm. `E2025` is
 reported at the arm's statement and not at the `and`, and `and fallthrough` after a `gives` arm is a syntax error.
 
-`static let name = expr` in a type's body declares a constant of the type, read as `Type.name` anywhere and as `name` inside the
-type's own body, where its initializer is also written (it may build `Self{...}`, which a constant of the module may not). The
+`static let name = expr` in the body of a type, an enum or a union, or in an extension of one (see "Extensions"), declares a
+constant of the type, read as `Type.name` anywhere and as `name` inside the type's own body or the extension, where its
+initializer is also written (it may build `Self{...}`, which a constant of the module may not). The
 parser makes it a constant of the module named `Type.name`, as it does a `typealias` of a type's body, and the resolver turns
 `Type.name` into a name bound to it, so it is typed, ranged, ordered (`E2012` for a cycle) and lowered as a module-level `let`:
 its value is read from the data section when it is a box known before the program runs and inlined at each use otherwise
 (see "Constants in the data section"), and a call in its initializer is `E3220` unless it is a literal factory (see "Raw
-values"). `static var`, and a `static let` of an enum or a union,
-are not supported.
+values"), which the initializer may call by its bare name as one of the type's methods may. One that an extension adds is filed, as its typealiases are, under the type it extends in the module that writes the
+extension (`ast.ExtAlias`), and found as its methods are, where the module sees the extension: the check makes `Type.name` a
+name bound to it (`readExtensionStatic`), in a function's body; the initializer of a constant cannot read one that way. A
+`static var` is not supported.
 
 ### Conditional compilation, tests and annotations
 
@@ -4660,8 +4670,8 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   needs a global that the program initialises before `main` and replaces, and the read-only values of Maxon's regions.
 - Default parameter values (see "Default parameter values, static fields, default throws and fallthrough"): the caller-location defaults `__line__` and `__file__`
   and a default on a discard parameter `_` (which maxon's calls name with a synthesized label) are not supported, a default that
-  trails off is the parser's generic `E2010`, and a default on a closure parameter has no syntax. A `static let` is only a
-  `type`'s, and a call in its initializer that names a sibling by its bare name is not resolved to the sibling.
+  trails off is the parser's generic `E2010`, and a default on a closure parameter has no syntax. The initializer of a constant cannot
+  read a static let that an extension adds as `Type.name`.
 - Values that hold a borrow (see "Borrowing values") are minimaxon's: maxon's cursor retains its buffer by a reference
   count, so a cursor, an iterator and a record that holds one go anywhere, where here they borrow what they were made from and
   stay in its scope. An iterator that escapes, returned past the collection it walks, stored in a field of a value that may
@@ -5101,6 +5111,12 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   (`startThreadFor`, Go's startm, which a ready or a sleep may do) and taking a processor back after a blocking call whose
   processor the monitor took (`exitBlocking`'s slow path, Go's exitsyscall). maxon counts both, so a bracket across a sleep
   could count a clone of a thread, which under WSL on a loaded machine took up to 8 ms of the thread's CPU.
+- **Static members follow Swift's rule.** An extension of a type, an enum, a union, a built-in generic type, `String`, `bool`,
+  the integers, the floats or a built-in record may add a `static function` and a `static let`, and the body of an enum or a
+  union may declare them, where maxon refuses a static function on an enum or a union and any binding in an extension
+  (`E2015`). A static let of a generic type, in its body or an extension, and one in an extension of an interface, is `E2015`,
+  where maxon keeps one for the generic type: there would have to be one for each instance. maxon has no `static var`, nor has
+  minimaxon yet: one is state that every thread reaches, which Swift 6 refuses too unless an actor isolates it.
 
 ## Changing the language
 

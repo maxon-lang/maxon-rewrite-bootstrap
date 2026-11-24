@@ -66,25 +66,11 @@ function bindParamsFrom(mutates c Checker, p ast.Project, mutates ms ast.ModuleS
 	end 'params'
 end 'bindParamsFrom'
 
-// staticAllowed is whether an extension of the type may add a static function: only a type and a built-in generic type have
-// them.
-function staticAllowed(p ast.Project, ms ast.ModuleState, nt ast.TypeID) returns bool
-	let kind = ast.typeKind(ms.types, reads: p.types, t: nt)
-	return kind == ast.TypeKind.record or kind.isBuiltin()
-end 'staticAllowed'
-
-// staticRefusal is why an extension of the type nt may not add a static function.
-function staticRefusal(p ast.Project, ms ast.ModuleState, nt ast.TypeID) returns String
-	let kind = ast.typeKind(ms.types, reads: p.types, t: nt)
-	if kind == ast.TypeKind.enumTy or kind == ast.TypeKind.unionTy 'cases'
-		var word = unionWord
-		if kind == ast.TypeKind.enumTy 'enum'
-			word = enumWord
-		end 'enum'
-		return "Unsupported: a `static function` on `{word} {ast.typeEntry(ms.types, reads: p.types, t: nt).name}` (an INSTANCE method is supported — a static one has no receiver to name the {word} through, and no `enum`/`union` in the corpus declares one)"
-	end 'cases'
-	return "a static function belongs in a 'type'"
-end 'staticRefusal'
+// interfaceStaticRefusal is why an extension of the interface named may not add the static member of the kind written: as in
+// Swift, an extension of an interface adds to the values of the types that implement it, and a static has no value.
+function interfaceStaticRefusal(kind String, name String) returns String
+	return "Unsupported: a `static {kind}` in an extension of the interface '{name}' — such an extension adds methods to the values of the types that implement '{name}', and a static belongs to no value; declare it in each type, or make it a function"
+end 'interfaceStaticRefusal'
 
 // addExtensionMethod declares a method that an extension adds to the type nt, filed under key. The extension's 'where'
 // is the method's, before its own: the method is one of the instances whose type arguments meet it.
@@ -94,8 +80,8 @@ function addExtensionMethod(mutates c Checker, p ast.Project, mutates ms ast.Mod
 	bounds.append(m.whereList)
 	m.whereList = bounds
 	let off = offsetOf(c, p: p, ms: ms, node: m.id)
-	if m.isStatic and not staticAllowed(p, ms: ms, nt: nt) 'static'
-		checkFail(c.modID, off: off, code: diag.errUnsupportedFeature, msg: staticRefusal(p, ms: ms, nt: nt), errs: errs)
+	if m.isStatic and ast.typeKind(ms.types, reads: p.types, t: key) == ast.TypeKind.interfaceTy 'static'
+		checkFail(c.modID, off: off, code: diag.errUnsupportedFeature, msg: interfaceStaticRefusal("function", name: ast.typeName(ms.types, reads: p.types, t: key)), errs: errs)
 		return
 	end 'static'
 	if m.receiver == ast.Convention.convDestructs.keyword() 'destructor'
@@ -216,7 +202,46 @@ export function verifyExtensions(mutates c Checker, p ast.Project, ms ast.Module
 			checkFail(c.modID, off: offsetOf(c, p: p, ms: ms, node: ast.funcEntry(ms.funcs, funcReads: p.funcs, f: entry.func).nodeID), code: diag.errDuplicateDefinition, msg: diag.duplicateMethod(entry.name, typeName: ast.typeName(ms.types, reads: p.types, t: entry.owner)), errs: errs)
 		end 'dup'
 	end 'each'
+	for i in 0 upto ms.tables.extAliasCount() 'statics'
+		let entry = ms.tables.extAlias(i).clone()
+		if entry.isStatic and entry.owner != ast.noType 'static'
+			verifyExtensionStatic(c, p: p, ms: ms, entry: entry, errs: errs)
+		end 'static'
+	end 'statics'
 end 'verifyExtensions'
+
+// verifyExtensionStatic refuses a static let that an extension adds under a name that the type's own declaration or a method of
+// an extension of the module gives a member of the type: a static is a member of the type, as a method is.
+function verifyExtensionStatic(mutates c Checker, p ast.Project, ms ast.ModuleState, entry ast.ExtAlias, mutates errs diag.ErrorList)
+	var declaredBy = ""
+	if bodyDeclares(p, ms: ms, owner: entry.owner, name: entry.name) or bodyDeclaresValue(p, ms: ms, owner: entry.owner, name: entry.name) 'body'
+		declaredBy = "its declaration"
+	end 'body' else if ast.methodIn(ms.tables, owner: entry.owner, name: entry.name) != ast.noFunc 'method'
+		declaredBy = "a method of an extension in {ast.describeModule(p, modID: c.modID)}"
+	end 'method' else 'free'
+		return
+	end 'free'
+	let node = ast.declNodeID(p, ref: ast.DeclRef.make(c.modID, ordinal: entry.ordinal))
+	checkFail(c.modID, off: offsetOf(c, p: p, ms: ms, node: node), code: diag.errDuplicateDefinition, msg: diag.duplicateStatic(entry.name, typeName: ast.typeName(ms.types, reads: p.types, t: entry.owner), declaredBy: declaredBy), errs: errs)
+end 'verifyExtensionStatic'
+
+// bodyDeclaresValue is whether the declaration of the type owner has a field, a case or a static let of that name.
+function bodyDeclaresValue(p ast.Project, ms ast.ModuleState, owner ast.TypeID, name String) returns bool
+	let entry = ast.typeEntry(ms.types, reads: p.types, t: owner)
+	if entry.findField(name).isSome() or entry.findCase(name).isSome() 'member'
+		return true
+	end 'member'
+	if not entry.hasDecl 'undeclared'
+		return false
+	end 'undeclared'
+	let statics = ast.moduleDecl(p, ref: entry.decl).staticLets()
+	for i in 0 upto statics.count() 'each'
+		if statics[i].name == name 'hit'
+			return true
+		end 'hit'
+	end 'each'
+	return false
+end 'bodyDeclaresValue'
 
 // bodyDeclares is whether the declaration of the type owner has a method of that name of its own.
 function bodyDeclares(p ast.Project, ms ast.ModuleState, owner ast.TypeID, name String) returns bool
@@ -247,7 +272,7 @@ export function declareExtensionAliases(mutates c Checker, p ast.Project, mutate
 end 'declareExtensionAliases'
 
 function declareAliasesOfExtension(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, xd ast.ExtensionDecl, mutates errs diag.ErrorList)
-	if xd.aliases.count() == 0 'none'
+	if xd.aliases.count() == 0 and xd.statics.count() == 0 'none'
 		return
 	end 'none'
 	let mark = errs.count()
@@ -255,16 +280,23 @@ function declareAliasesOfExtension(mutates c Checker, p ast.Project, mutates ms 
 	if failedSince(errs, mark: mark) 'failed'
 		nt = ast.noType
 	end 'failed'
-	if nt != ast.noType and (ast.typeKind(ms.types, reads: p.types, t: nt) == ast.TypeKind.enumTy or ast.typeKind(ms.types, reads: p.types, t: nt) == ast.TypeKind.unionTy) 'cases'
-		refuseExtensionAliases(c, p: p, ms: ms, xd: xd, code: diag.errExpectedToken, msg: diag.expectedToken("'function'", got: "typealias"), errs: errs)
-		nt = ast.noType
-	end 'cases'
 	var key = ast.noType
 	if nt != ast.noType 'extended'
 		bindExtensionParams(c, p: p, ms: ms, xd: xd, nt: nt)
 		key = extensionAliasKey(p, ms: ms, nt: nt)
 	end 'extended'
 	let owner = ast.extensionOwnerName(ms.tree(), xd: xd)
+	for i in 0 upto xd.statics.count() 'statics'
+		match consumes p.modules[c.modIdx].names.get(ast.nestedAliasName(owner, name: xd.statics[i].name)) 'declared'
+			some(ord) then ms.tables.pushExtAlias(ast.ExtAlias.make(key, name: xd.statics[i].name.clone(), ordinal: ord, extended: nt, isStatic: true))
+			none then panic("the static let '{xd.statics[i].name}' of an extension of '{owner}' is not among the declarations of its module")
+		end 'declared'
+	end 'statics'
+	if nt != ast.noType and (ast.typeKind(ms.types, reads: p.types, t: nt) == ast.TypeKind.enumTy or ast.typeKind(ms.types, reads: p.types, t: nt) == ast.TypeKind.unionTy) 'cases'
+		refuseExtensionAliases(c, p: p, ms: ms, xd: xd, code: diag.errExpectedToken, msg: diag.expectedToken("'function'", got: "typealias"), errs: errs)
+		nt = ast.noType
+		key = ast.noType
+	end 'cases'
 	for i in 0 upto xd.aliases.count() 'aliases'
 		match consumes p.modules[c.modIdx].names.get(ast.nestedAliasName(owner, name: xd.aliases[i].name)) 'declared'
 			some(ord) then fileExtensionAlias(c, p: p, ms: ms, a: xd.aliases[i].clone(), ord: ord, key: key, nt: nt, errs: errs)
@@ -294,10 +326,10 @@ end 'refuseExtensionAliases'
 // was refused. A refused alias is filed with no type, so that the aliases stage leaves it without one.
 function fileExtensionAlias(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, a ast.AliasDecl, ord ast.DeclOrdinal, key ast.TypeID, nt ast.TypeID, mutates errs diag.ErrorList)
 	if nt == ast.noType or refuseExtensionAlias(c, p: p, ms: ms, a: a, key: key, nt: nt, errs: errs) 'refused'
-		ms.tables.pushExtAlias(ast.ExtAlias.make(ast.noType, name: a.name.clone(), ordinal: ord, extended: ast.noType))
+		ms.tables.pushExtAlias(ast.ExtAlias.make(ast.noType, name: a.name.clone(), ordinal: ord, extended: ast.noType, isStatic: false))
 		return
 	end 'refused'
-	ms.tables.pushExtAlias(ast.ExtAlias.make(key, name: a.name.clone(), ordinal: ord, extended: nt))
+	ms.tables.pushExtAlias(ast.ExtAlias.make(key, name: a.name.clone(), ordinal: ord, extended: nt, isStatic: false))
 end 'fileExtensionAlias'
 
 // refuseExtensionAlias reports why an extension of the type nt may not declare the typealias a, and tells whether it did: a

@@ -185,18 +185,13 @@ end 'requirementNamed'
 
 // addMethods declares the methods of a type, a union or an enum.
 function addMethods(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, methods ast.FuncDeclList, nt ast.TypeID, mutates declared ast.FuncIDList, mutates errs diag.ErrorList)
-	let isRecord = ast.typeKind(ms.types, reads: p.types, t: nt) == ast.TypeKind.record
 	for i in 0 upto methods.count() 'each'
-		addMethod(c, p: p, ms: ms, m: methods[i].clone(), nt: nt, isRecord: isRecord, declared: declared, errs: errs)
+		addMethod(c, p: p, ms: ms, m: methods[i].clone(), nt: nt, declared: declared, errs: errs)
 	end 'each'
 end 'addMethods'
 
-function addMethod(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, m ast.FuncDecl, nt ast.TypeID, isRecord bool, mutates declared ast.FuncIDList, mutates errs diag.ErrorList)
+function addMethod(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, m ast.FuncDecl, nt ast.TypeID, mutates declared ast.FuncIDList, mutates errs diag.ErrorList)
 	let off = offsetOf(c, p: p, ms: ms, node: m.id)
-	if m.isStatic and not isRecord 'static'
-		checkFail(c.modID, off: off, code: diag.errUnsupportedFeature, msg: "a static function belongs in a 'type'", errs: errs)
-		return
-	end 'static'
 	if m.name == cloneMethod 'clone'
 		checkFail(c.modID, off: off, code: diag.errDuplicateDefinition, msg: "'{cloneMethod}' is built in for every type; name the method something else", errs: errs)
 		return

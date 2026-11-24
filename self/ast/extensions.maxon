@@ -48,10 +48,11 @@ export function methodIn(tables ModuleTables, owner TypeID, name String) returns
 	return noFunc
 end 'methodIn'
 
-// aliasIn is the typealias of that name that the module's extensions add to the type owner, or none.
-function aliasIn(module diag.ModuleID, tables ModuleTables, owner TypeID, name String) returns table.Option with DeclRef
+// aliasIn is the typealias of that name that the module's extensions add to the type owner, or the static let where isStatic,
+// or none.
+function aliasIn(module diag.ModuleID, tables ModuleTables, owner TypeID, name String, isStatic bool) returns table.Option with DeclRef
 	for i in 0 upto tables.extAliasCount() 'each'
-		if tables.extAlias(i).owner == owner and tables.extAlias(i).name == name 'hit'
+		if tables.extAlias(i).owner == owner and tables.extAlias(i).name == name and tables.extAlias(i).isStatic == isStatic 'hit'
 			return table.Option.some(DeclRef.make(module, ordinal: tables.extAlias(i).ordinal))
 		end 'hit'
 	end 'each'
@@ -99,7 +100,7 @@ export function isRefusedExtensionAlias(tables ModuleTables, ordinal DeclOrdinal
 	return false
 end 'isRefusedExtensionAlias'
 
-// extendedBy is the type that the extension adding the typealias at ref extends, whichever module writes it.
+// extendedBy is the type that the extension adding the typealias or the static let at ref extends, whichever module writes it.
 export function extendedBy(p Project, ms ModuleState, ref DeclRef) returns TypeID
 	if ref.module == ms.module 'own'
 		return extendedIn(ms.tables, ref: ref)
@@ -114,10 +115,10 @@ function extendedIn(tables ModuleTables, ref DeclRef) returns TypeID
 			return tables.extAlias(i).extended
 		end 'hit'
 	end 'each'
-	panic("the typealias at ordinal {ref.ordinal} is added by no extension")
+	panic("the declaration at ordinal {ref.ordinal} is added by no extension")
 end 'extendedIn'
 
-// isExtensionAlias is whether an extension of the module declares the typealias at the ordinal.
+// isExtensionAlias is whether an extension of the module declares the typealias, or the static let, at the ordinal.
 export function isExtensionAlias(tables ModuleTables, ordinal DeclOrdinal) returns bool
 	for i in 0 upto tables.extAliasCount() 'each'
 		if tables.extAlias(i).ordinal == ordinal 'hit'
@@ -324,12 +325,22 @@ end 'AliasLookup'
 // extensionAlias is what the name finds among the typealiases that extensions add to the type owner where code in the module
 // from sees them, by the rule of their methods: its own module's, and the modules it names. The standard library sees none.
 export function extensionAlias(p Project, ms ModuleState, from diag.ModuleID, owner TypeID, name String) returns AliasLookup
+	return extensionNested(p, ms: ms, from: from, owner: owner, name: name, isStatic: false)
+end 'extensionAlias'
+
+// extensionStatic is what the name finds among the static lets that extensions add to the type owner where code in the module
+// from sees them, by the rule of their methods.
+export function extensionStatic(p Project, ms ModuleState, from diag.ModuleID, owner TypeID, name String) returns AliasLookup
+	return extensionNested(p, ms: ms, from: from, owner: owner, name: name, isStatic: true)
+end 'extensionStatic'
+
+function extensionNested(p Project, ms ModuleState, from diag.ModuleID, owner TypeID, name String, isStatic bool) returns AliasLookup
 	if from == diag.stdlibID 'library'
 		return AliasLookup.absent
 	end 'library'
-	var seen = aliasOf(p, ms: ms, module: from, owner: owner, name: name)
+	var seen = aliasOf(p, ms: ms, module: from, owner: owner, name: name, isStatic: isStatic)
 	for i in 0 upto namedCount(p, ms: ms, module: from) 'deps'
-		let hit = aliasOf(p, ms: ms, module: namedModule(p, ms: ms, module: from, index: i), owner: owner, name: name)
+		let hit = aliasOf(p, ms: ms, module: namedModule(p, ms: ms, module: from, index: i), owner: owner, name: name, isStatic: isStatic)
 		if not hit.isSome() 'none'
 			continue 'deps'
 		end 'none'
@@ -343,7 +354,7 @@ export function extensionAlias(p Project, ms ModuleState, from diag.ModuleID, ow
 		some(ref) then return AliasLookup.found(ref)
 		none then return AliasLookup.absent
 	end 'k'
-end 'extensionAlias'
+end 'extensionNested'
 
 // A Conformance is a declaration that says a type implements an interface: the type's own, in its module, or an extension
 // of a module.
@@ -607,12 +618,12 @@ function methodOf(p Project, ms ModuleState, module diag.ModuleID, owner TypeID,
 	return methodIn(p.modules[modIndex(module)].tables, owner: owner, name: name)
 end 'methodOf'
 
-function aliasOf(p Project, ms ModuleState, module diag.ModuleID, owner TypeID, name String) returns table.Option with DeclRef
+function aliasOf(p Project, ms ModuleState, module diag.ModuleID, owner TypeID, name String, isStatic bool) returns table.Option with DeclRef
 	if module == ms.module 'own'
-		return aliasIn(module, tables: ms.tables, owner: owner, name: name)
+		return aliasIn(module, tables: ms.tables, owner: owner, name: name, isStatic: isStatic)
 	end 'own'
 	p.modules[modIndex(module)].tables.requireHeld()
-	return aliasIn(module, tables: p.modules[modIndex(module)].tables, owner: owner, name: name)
+	return aliasIn(module, tables: p.modules[modIndex(module)].tables, owner: owner, name: name, isStatic: isStatic)
 end 'aliasOf'
 
 // conformsOf is whether an extension of the module m says the type t, whose extensions are filed under owner, implements

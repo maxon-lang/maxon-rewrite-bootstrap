@@ -1,0 +1,18 @@
+// expect-error: E3006 at 12:13
+// expect-error: E3006 at 13:13
+type Meter
+	var n as Count
+
+	function size() returns Count
+		return n
+	end 'size'
+end 'Meter'
+
+extension Meter
+	static let size = 1
+	static let n = 2
+end 'Meter'
+
+function main() returns ExitCode
+	return 0
+end 'main'

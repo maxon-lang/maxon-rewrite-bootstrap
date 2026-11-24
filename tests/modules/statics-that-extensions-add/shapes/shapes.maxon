@@ -1,0 +1,17 @@
+export type Meter
+	export var n as Count
+
+	export static function make(n Count) returns Meter
+		return Meter{n: n}
+	end 'make'
+end 'Meter'
+
+export enum Color
+	red
+	green
+end 'Color'
+
+export union Shape
+	dot
+	square(side Count)
+end 'Shape'

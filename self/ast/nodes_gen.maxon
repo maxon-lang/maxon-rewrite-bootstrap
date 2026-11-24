@@ -329,11 +329,12 @@ export type ExtensionDecl
 	export var conforms as diag.U32
 	export var whereList as ConstraintList
 	export var aliases as AliasDeclList
+	export var statics as ConstDeclList
 	export var methods as FuncDeclList
 	export var endRef as NodeID
 
 	export static function make(id NodeID) returns ExtensionDecl
-		return ExtensionDecl{id: id, visibility: "", isInt: false, target: 0 as NodeID, conforms: 0 as diag.U32, whereList: ConstraintList.create(0), aliases: AliasDeclList.create(0), methods: FuncDeclList.create(0), endRef: 0 as NodeID}
+		return ExtensionDecl{id: id, visibility: "", isInt: false, target: 0 as NodeID, conforms: 0 as diag.U32, whereList: ConstraintList.create(0), aliases: AliasDeclList.create(0), statics: ConstDeclList.create(0), methods: FuncDeclList.create(0), endRef: 0 as NodeID}
 	end 'make'
 end 'ExtensionDecl'
 
@@ -349,11 +350,12 @@ export type EnumDecl
 	export var visibility as String
 	export var conforms as diag.U32
 	export var cases as EnumCaseDeclList
+	export var statics as ConstDeclList
 	export var methods as FuncDeclList
 	export var endRef as NodeID
 
 	export static function make(id NodeID) returns EnumDecl
-		return EnumDecl{id: id, name: "", visibility: "", conforms: 0 as diag.U32, cases: EnumCaseDeclList.create(0), methods: FuncDeclList.create(0), endRef: 0 as NodeID}
+		return EnumDecl{id: id, name: "", visibility: "", conforms: 0 as diag.U32, cases: EnumCaseDeclList.create(0), statics: ConstDeclList.create(0), methods: FuncDeclList.create(0), endRef: 0 as NodeID}
 	end 'make'
 end 'EnumDecl'
 
@@ -388,11 +390,12 @@ export type UnionDecl
 	export var conforms as diag.U32
 	export var whereList as ConstraintList
 	export var cases as UnionCaseDeclList
+	export var statics as ConstDeclList
 	export var methods as FuncDeclList
 	export var endRef as NodeID
 
 	export static function make(id NodeID) returns UnionDecl
-		return UnionDecl{id: id, name: "", visibility: "", isNoncopyable: false, typeParams: TypeParamList.create(0), conforms: 0 as diag.U32, whereList: ConstraintList.create(0), cases: UnionCaseDeclList.create(0), methods: FuncDeclList.create(0), endRef: 0 as NodeID}
+		return UnionDecl{id: id, name: "", visibility: "", isNoncopyable: false, typeParams: TypeParamList.create(0), conforms: 0 as diag.U32, whereList: ConstraintList.create(0), cases: UnionCaseDeclList.create(0), statics: ConstDeclList.create(0), methods: FuncDeclList.create(0), endRef: 0 as NodeID}
 	end 'make'
 end 'UnionDecl'
 

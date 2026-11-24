@@ -1,0 +1,62 @@
+typealias Digit = int(0 to 9)
+
+extension shapes.Meter
+	export static let unit = 5
+	export static let twoUnits = unit + unit
+
+	export static function ofUnits(count Count) returns shapes.Meter
+		return shapes.Meter.make(try count * unit otherwise 0)
+	end 'ofUnits'
+end 'Meter'
+
+extension shapes.Color
+	export static let count = 2
+
+	export static function best() returns shapes.Color
+		return shapes.Color.green
+	end 'best'
+end 'Color'
+
+extension shapes.Shape
+	export static let corners = 4
+
+	export static function unitSquare() returns shapes.Shape
+		return shapes.Shape.square(1)
+	end 'unitSquare'
+end 'Shape'
+
+extension String
+	export static let greeting = "hello"
+
+	export static function twice(s String) returns String
+		return "{s}{s}"
+	end 'twice'
+end 'String'
+
+extension int
+	export static let answer = 42
+
+	export static function digit(n Count) returns Digit
+		return try n as Digit otherwise 0
+	end 'digit'
+end 'int'
+
+extension float
+	export static let half = 0.5
+
+	export static function halved(x FullRangeFloat) returns FullRangeFloat
+		return x * half
+	end 'halved'
+end 'float'
+
+extension FilePath
+	export static let dot = "."
+
+	export static function here() returns String
+		return dot
+	end 'here'
+end 'FilePath'
+
+export function ready() returns bool
+	return true
+end 'ready'

@@ -1108,19 +1108,19 @@ function parseInterpolation(mutates p Parser) returns ast.NodeID throws SyntaxEr
 	return e
 end 'parseInterpolation'
 
-// pushDecl adds a declaration to a module's list, and after a type the typealiases and the static lets its body declares, and
-// after an extension the typealiases it declares, each named by its owner and its own name: such a member is a declaration
-// of the module like the others, with the type as its scope.
+// pushDecl adds a declaration to a module's list, and after a type, an enum or a union the typealiases and the static lets its
+// body declares, and after an extension the typealiases and the static lets it declares, each named by its owner and its own
+// name: such a member is a declaration of the module like the others, with the type as its scope.
 function pushDecl(mutates decls ast.DeclList, t ast.Tree, consumes d ast.Decl)
 	var nested = ast.DeclList.create(0)
 	match d 'k'
 		typeDecl(td) then nestedMemberDecls(td, out: nested)
-		extensionDecl(xd) then aliasMemberDecls(xd.aliases, owner: ast.extensionOwnerName(t, xd: xd), out: nested)
+		extensionDecl(xd) then extensionMemberDecls(xd, owner: ast.extensionOwnerName(t, xd: xd), out: nested)
 		interfaceDecl(ifd) then interfaceMemberDecls(ifd, out: nested)
 		funcDecl(_) then _ = 0
 		constDecl(_) then _ = 0
-		enumDecl(_) then _ = 0
-		unionDecl(_) then _ = 0
+		enumDecl(ed) then staticMemberDecls(ed.statics, owner: ed.name, visibility: ed.visibility, out: nested)
+		unionDecl(ud) then staticMemberDecls(ud.statics, owner: ud.name, visibility: ud.visibility, out: nested)
 		aliasDecl(_) then _ = 0
 	end 'k'
 	decls.push(d)
@@ -1136,22 +1136,33 @@ function nestedMemberDecls(td ast.TypeDecl, mutates out ast.DeclList)
 		a.name = ast.nestedAliasName(td.name, name: a.name)
 		out.push(ast.Decl.aliasDecl(a))
 	end 'each'
-	for i in 0 upto td.statics.count() 'statics'
-		var s = td.statics[i].clone()
-		s.visibility = ast.nestedVisibility(td.visibility, member: s.visibility)
-		s.name = ast.nestedAliasName(td.name, name: s.name)
-		out.push(ast.Decl.constDecl(s))
-	end 'statics'
+	staticMemberDecls(td.statics, owner: td.name, visibility: td.visibility, out: out)
 end 'nestedMemberDecls'
 
-// aliasMemberDecls files the typealiases of an extension under the type it extends, as it writes it.
-function aliasMemberDecls(aliases ast.AliasDeclList, owner String, mutates out ast.DeclList)
-	for i in 0 upto aliases.count() 'each'
-		var a = aliases[i].clone()
+// staticMemberDecls files the static lets of the body of the declaration owner, whose visibility bounds theirs.
+function staticMemberDecls(statics ast.ConstDeclList, owner String, visibility String, mutates out ast.DeclList)
+	for i in 0 upto statics.count() 'statics'
+		var s = statics[i].clone()
+		s.visibility = ast.nestedVisibility(visibility, member: s.visibility)
+		s.name = ast.nestedAliasName(owner, name: s.name)
+		out.push(ast.Decl.constDecl(s))
+	end 'statics'
+end 'staticMemberDecls'
+
+// extensionMemberDecls files the typealiases and the static lets of an extension under the type it extends, as it writes it.
+// Each keeps its own visibility, as the extension's methods do.
+function extensionMemberDecls(xd ast.ExtensionDecl, owner String, mutates out ast.DeclList)
+	for i in 0 upto xd.aliases.count() 'aliases'
+		var a = xd.aliases[i].clone()
 		a.name = ast.nestedAliasName(owner, name: a.name)
 		out.push(ast.Decl.aliasDecl(a))
-	end 'each'
-end 'aliasMemberDecls'
+	end 'aliases'
+	for i in 0 upto xd.statics.count() 'statics'
+		var s = xd.statics[i].clone()
+		s.name = ast.nestedAliasName(owner, name: s.name)
+		out.push(ast.Decl.constDecl(s))
+	end 'statics'
+end 'extensionMemberDecls'
 
 function interfaceMemberDecls(ifd ast.InterfaceDecl, mutates out ast.DeclList)
 	for i in 0 upto ifd.aliases.count() 'each'

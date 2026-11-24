@@ -174,18 +174,18 @@ fieldDecl
     : visibility=('export' | 'public')? ('let' | isVar='var') name=(Name | 'from' | 'to'){declares} ('as' type=typeRef | '=' default=expr)
     ;
 
-// An extension adds methods, typealiases and conformances to a type another declaration names: a type, an enum, a union, a
-// built-in generic type, String, bool or the integers (`extension int`), or methods to every type that implements an
-// interface. A `where` makes its methods those of the instances whose type arguments meet it.
+// An extension adds methods, static lets, typealiases and conformances to a type another declaration names: a type, an enum,
+// a union, a built-in generic type, String, bool or the integers (`extension int`), or methods to every type that implements
+// an interface. A `where` makes its methods those of the instances whose type arguments meet it.
 extensionDecl
     : visibility=('export' | 'public')? 'extension' (isInt='int' | target=typeRef) conforms=conformsClause? where=whereClause? Newline
-      (Indent ((aliases+=aliasDecl | methods+=funcDecl) Newline)+ Dedent)?
+      (Indent ((aliases+=aliasDecl | {atStaticLet}? statics+=staticLetDecl | methods+=funcDecl) Newline)+ Dedent)?
       'end' end=endLabel?
     ;
 
 enumDecl
     : visibility=('export' | 'public')? 'enum' name=Name{declares} conforms=conformsClause? Newline
-      (Indent ((cases+=enumCaseDecl | methods+=funcDecl) Newline)+ Dedent)?
+      (Indent ((cases+=enumCaseDecl | {atStaticLet}? statics+=staticLetDecl | methods+=funcDecl) Newline)+ Dedent)?
       'end' end=endLabel?
     ;
 
@@ -195,7 +195,7 @@ enumCaseDecl
 
 unionDecl
     : visibility=('export' | 'public')? 'union' name=Name{declares} ('is' noncopyable='noncopyable')? typeParams=usesClause? conforms=conformsClause? where=whereClause? Newline
-      (Indent ((cases+=unionCaseDecl | methods+=funcDecl) Newline)+ Dedent)?
+      (Indent ((cases+=unionCaseDecl | {atStaticLet}? statics+=staticLetDecl | methods+=funcDecl) Newline)+ Dedent)?
       'end' end=endLabel?
     ;
 

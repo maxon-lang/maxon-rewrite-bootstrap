@@ -74,6 +74,7 @@ bareFloatCast	ErrTypeMismatch	Cannot cast to bare 'float'. Define a typealias wi
 bareFloatType	ErrTypeMismatch	Cannot use bare 'float' as a type. Define a typealias with range constraints, e.g., typealias MyFloat = float(0.0 to 1.0)
 duplicateField	ErrDuplicateDefinition	Duplicate field '{member}' in type '{typeName}'
 duplicateMethod	ErrDuplicateDefinition	Duplicate method '{member}' in type '{typeName}'
+duplicateStatic	ErrDuplicateDefinition	'{member}' is declared twice in type '{typeName}': {declaredBy} declares it too; give the static let a name of its own
 duplicateRequirement	ErrDuplicateDefinition	Duplicate requirement '{member}' in interface '{interfaceName}'
 localShadowsSelfField	ErrDuplicateDefinition	local '{name}' shadows self field '{typeName}.{name}' — rename the local to avoid silent type confusion at every read/write keyed on the name
 unknownType	ErrUnknownType	Unknown type '{typeName}'

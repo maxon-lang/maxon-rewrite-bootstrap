@@ -1,0 +1,28 @@
+function describe(s shapes.Shape) returns Count
+	return match s 's'
+		dot gives 0
+		square(side) gives side
+	end 's'
+end 'describe'
+
+function main() returns ExitCode
+	if not more.ready() 'unready'
+		return 1
+	end 'unready'
+	print("{shapes.Meter.unit} {shapes.Meter.twoUnits} {shapes.Meter.ofUnits(3).n}\n")
+	print("{shapes.Color.count} {shapes.Color.best() == shapes.Color.green}\n")
+	print("{shapes.Shape.corners} {describe(shapes.Shape.unitSquare())}\n")
+	print("{String.greeting} {String.twice("ab")}\n")
+	print("{int.answer} {int.digit(7)}\n")
+	print("{float.half} {float.halved(3.0)}\n")
+	print("{FilePath.dot} {FilePath.here()}\n")
+	return 0
+end 'main'
+
+//> 5 10 15
+//> 2 true
+//> 4 1
+//> hello abab
+//> 42 7
+//> 0.5 1.5
+//> . .

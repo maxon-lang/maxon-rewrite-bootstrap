@@ -208,8 +208,6 @@ end 'main'
 ```
 
 <!-- test: error.static-binding-in-an-extension -->
-<!-- skip: static fields are supported in minimaxon only as 'static let' in a type body -->
-<!-- positions: moved -->
 An `extension` body declares no storage. Its members are re-parsed once per conforming type, so a binding
 written there has no declaration to belong to — and the declaration sweep, which is what builds the
 conformer list, cannot know that list while it is reading the extension. Refused at the keyword rather
@@ -225,8 +223,8 @@ type Widget implements Tagged
 end 'Widget'
 
 extension Tagged
-	// TODO: static fields are supported in minimaxon only as 'static let' in a type body
 	static let LIMIT = 4
+
 	function tag() returns Integer
 		return 1
 	end 'tag'

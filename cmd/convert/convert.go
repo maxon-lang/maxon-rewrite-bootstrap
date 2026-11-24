@@ -873,8 +873,8 @@ func transformLines(lines []sourceLine, warn func(*sourceLine, string)) {
 				continue
 			}
 		case "let", "var":
-			if hasStaticModifier(line.code, declIdx) && (line.code[declIdx].text == "var" || currentBlock() != blockType) {
-				warn(line, "static fields are supported in minimaxon only as 'static let' in a type body")
+			if hasStaticModifier(line.code, declIdx) && line.code[declIdx].text == "var" {
+				warn(line, "a static field is a 'static let' in minimaxon: a 'static var' is not supported")
 			}
 		}
 

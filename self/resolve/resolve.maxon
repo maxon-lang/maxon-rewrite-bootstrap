@@ -942,12 +942,13 @@ function resolveNameExpr(mutates r Resolver, p ast.Project, id ast.NodeID, mutat
 	end 'cap'
 end 'resolveNameExpr'
 
-// staticConstRef is the constant that the static let named member of the type at ref is, in the module that declares the type.
+// staticConstRef is the constant that the static let named member of the type, the enum or the union at ref is, in the module
+// that declares it.
 function staticConstRef(p ast.Project, ref ast.DeclRef, member String) returns table.Option with ast.DeclRef
 	match ast.moduleDecl(p, ref: ref) 'k'
-		typeDecl(td) then return staticConstOf(p, ref: ref, td: td, member: member)
-		enumDecl(_) then return table.Option.none
-		unionDecl(_) then return table.Option.none
+		typeDecl(td) then return staticConstOf(p, ref: ref, owner: td.name, statics: td.statics, member: member)
+		enumDecl(ed) then return staticConstOf(p, ref: ref, owner: ed.name, statics: ed.statics, member: member)
+		unionDecl(ud) then return staticConstOf(p, ref: ref, owner: ud.name, statics: ud.statics, member: member)
 		interfaceDecl(_) then return table.Option.none
 		funcDecl(_) then return table.Option.none
 		constDecl(_) then return table.Option.none
@@ -956,10 +957,10 @@ function staticConstRef(p ast.Project, ref ast.DeclRef, member String) returns t
 	end 'k'
 end 'staticConstRef'
 
-function staticConstOf(p ast.Project, ref ast.DeclRef, td ast.TypeDecl, member String) returns table.Option with ast.DeclRef
-	for i in 0 upto td.statics.count() 'each'
-		if td.statics[i].name == member 'hit'
-			let qualified = ast.nestedAliasName(td.name, name: member)
+function staticConstOf(p ast.Project, ref ast.DeclRef, owner String, statics ast.ConstDeclList, member String) returns table.Option with ast.DeclRef
+	for i in 0 upto statics.count() 'each'
+		if statics[i].name == member 'hit'
+			let qualified = ast.nestedAliasName(owner, name: member)
 			var ord as table.Option with ast.DeclOrdinal
 			if ref.module == diag.stdlibID 'std'
 				ord = p.stdlib.names.get(qualified)
@@ -968,7 +969,7 @@ function staticConstOf(p ast.Project, ref ast.DeclRef, td ast.TypeDecl, member S
 			end 'own'
 			match consumes ord 'declared'
 				some(o) then return table.Option.some(ast.DeclRef.make(ref.module, ordinal: o))
-				none then panic("the static let '{member}' of '{td.name}' is not among the declarations of its module")
+				none then panic("the static let '{member}' of '{owner}' is not among the declarations of its module")
 			end 'declared'
 		end 'hit'
 	end 'each'
@@ -1585,11 +1586,13 @@ function resolveEnumDecl(mutates r Resolver, p ast.Project, ms ast.ModuleState, 
 		resolveRawValue(r, p: p, ms: ms, raw: ed.cases[i].raw, errs: errs)
 	end 'cs'
 	resolveEnumKeys(r, p: p, ed: ed)
+	resolveNestedAliases(r, p: p, ms: ms, owner: ed.name, aliases: ast.AliasDeclList.create(0), statics: ed.statics, s: s, errs: errs)
 	let emptyFields = BoolStrMap.new()
 	for i in 0 upto ed.methods.count() 'meths'
 		let surface = methodSurface(r, owner: ed.name, m: ed.methods[i])
 		resolveFuncDecl(r, p: p, ms: ms, f: ed.methods[i].clone(), s: surface, fieldNames: emptyFields, hasReceiver: not ed.methods[i].isStatic, errs: errs)
 	end 'meths'
+	r.members = ast.DeclRefIndex.new()
 end 'resolveEnumDecl'
 
 // resolveEnumKeys records the declarations of the library's root that a payload-free enum is a key by (ast.KeyNames), which
@@ -1635,11 +1638,13 @@ function resolveUnionDecl(mutates r Resolver, p ast.Project, ms ast.ModuleState,
 		end 'ps'
 		resolveRawValue(r, p: p, ms: ms, raw: ud.cases[i].raw, errs: errs)
 	end 'cs'
+	resolveNestedAliases(r, p: p, ms: ms, owner: ud.name, aliases: ast.AliasDeclList.create(0), statics: ud.statics, s: s, errs: errs)
 	let emptyFields = BoolStrMap.new()
 	for i in 0 upto ud.methods.count() 'meths'
 		let surface = methodSurface(r, owner: ud.name, m: ud.methods[i])
 		resolveFuncDecl(r, p: p, ms: ms, f: ud.methods[i].clone(), s: surface, fieldNames: emptyFields, hasReceiver: not ud.methods[i].isStatic, errs: errs)
 	end 'meths'
+	r.members = ast.DeclRefIndex.new()
 	r.typeParams = outer
 end 'resolveUnionDecl'
 
@@ -1713,11 +1718,15 @@ function resolveExtensionDecl(mutates r Resolver, p ast.Project, ms ast.ModuleSt
 		none then _ = 0
 	end 'extended'
 	enterExtensionAliases(r, p: p, xd: xd)
+	enterExtensionStatics(r, p: p, xd: xd)
 	for i in 0 upto xd.aliases.count() 'aliases'
 		let a = xd.aliases[i].clone()
 		let surface = Surface.make(ast.visibilityOf(a.visibility), noun: "typealias", name: ast.nestedAliasName(ast.extensionOwnerName(r.tree, xd: xd), name: a.name), at: r.tree.reportStartOf(a.id))
 		resolveAliasDecl(r, p: p, ad: a, s: surface, errs: errs)
 	end 'aliases'
+	for i in 0 upto xd.statics.count() 'statics'
+		resolveConstDecl(r, p: p, ms: ms, cd: xd.statics[i].clone(), errs: errs)
+	end 'statics'
 	resolveConforms(r, p: p, s: s, conforms: xd.conforms, errs: errs)
 	enterConstraints(r, p: p, owner: name, s: s, constraints: xd.whereList, ofExtension: true, errs: errs)
 	let emptyFields = BoolStrMap.new()
@@ -1742,6 +1751,39 @@ function enterExtensionAliases(mutates r Resolver, p ast.Project, xd ast.Extensi
 	end 'extended'
 	ast.nestedMembers(p, declaring: r.modID, owner: ast.extensionOwnerName(r.tree, xd: xd), from: r.modID, out: r.members)
 end 'enterExtensionAliases'
+
+// enterExtensionStatics brings into scope the static lets that a bare name in the extension may mean: the ones that the body of
+// the extended declaration declares, and the extension's own, which outrank them.
+function enterExtensionStatics(mutates r Resolver, p ast.Project, xd ast.ExtensionDecl)
+	match consumes extendedDecl(r, xd: xd) 'extended'
+		some(ref) then enterBodyStatics(r, p: p, ref: ref)
+		none then _ = 0
+	end 'extended'
+	let owner = ast.extensionOwnerName(r.tree, xd: xd)
+	for i in 0 upto xd.statics.count() 'own'
+		match consumes p.modules[ast.modIndex(r.modID)].names.get(ast.nestedAliasName(owner, name: xd.statics[i].name)) 'declared'
+			some(ord) then r.members.insert(xd.statics[i].name.clone(), value: ast.DeclRef.make(r.modID, ordinal: ord))
+			none then panic("the static let '{xd.statics[i].name}' of an extension of '{owner}' is not among the declarations of its module")
+		end 'declared'
+	end 'own'
+end 'enterExtensionStatics'
+
+// enterBodyStatics brings into scope the static lets that the body of the declaration at ref declares.
+function enterBodyStatics(mutates r Resolver, p ast.Project, ref ast.DeclRef)
+	let statics = ast.moduleDecl(p, ref: ref).staticLets()
+	for i in 0 upto statics.count() 'each'
+		match consumes staticConstRef(p, ref: ref, member: statics[i].name) 'found'
+			some(found) then enterVisibleMember(r, p: p, name: statics[i].name, ref: found)
+			none then panic("the static let '{statics[i].name}' is not one of its declaration's")
+		end 'found'
+	end 'each'
+end 'enterBodyStatics'
+
+function enterVisibleMember(mutates r Resolver, p ast.Project, name String, consumes ref ast.DeclRef)
+	if ref.module == r.modID or ast.isVisibleFrom(p, v: ast.declLevel(p, ref: ref), owner: ref.module, from: r.modID) 'seen'
+		r.members.insert(name.clone(), value: ref)
+	end 'seen'
+end 'enterVisibleMember'
 
 // enterExtendedMembers brings the type parameters of the extended declaration into scope, and gives its field names.
 function enterExtendedMembers(mutates r Resolver, p ast.Project, xd ast.ExtensionDecl, ref ast.DeclRef) returns BoolStrMap

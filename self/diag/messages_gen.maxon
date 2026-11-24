@@ -340,6 +340,11 @@ export function duplicateMethod(member String, typeName String) returns String
 	return "Duplicate method '{member}' in type '{typeName}'"
 end 'duplicateMethod'
 
+// The text of errDuplicateDefinition for: '{member}' is declared twice in type '{typeName}': {declaredBy} declares it too; give the static let a name of its own
+export function duplicateStatic(member String, typeName String, declaredBy String) returns String
+	return "'{member}' is declared twice in type '{typeName}': {declaredBy} declares it too; give the static let a name of its own"
+end 'duplicateStatic'
+
 // The text of errDuplicateDefinition for: Duplicate requirement '{member}' in interface '{interfaceName}'
 export function duplicateRequirement(member String, interfaceName String) returns String
 	return "Duplicate requirement '{member}' in interface '{interfaceName}'"

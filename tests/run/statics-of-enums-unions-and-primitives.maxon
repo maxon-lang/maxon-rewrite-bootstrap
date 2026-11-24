@@ -1,0 +1,81 @@
+enum Suit
+	hearts
+	spades
+	static let count = 2
+
+	static function first() returns Suit
+		return Suit.hearts
+	end 'first'
+
+	function isFirst() returns bool
+		return self == first()
+	end 'isFirst'
+end 'Suit'
+
+union Token
+	word(text String)
+	stop
+	static let marker = "$"
+
+	static function ending() returns Token
+		return Token.stop
+	end 'ending'
+end 'Token'
+
+extension Suit
+	static let names = ["hearts", "spades"]
+
+	static function last() returns Suit
+		return Suit.spades
+	end 'last'
+end 'Suit'
+
+extension bool
+	static let yes = true
+
+	static function either(a bool, b bool) returns bool
+		return a or b
+	end 'either'
+end 'bool'
+
+extension int
+	static let dozen = 12
+	static let gross = dozen * dozen
+
+	static function grossOf(n Count) returns Count
+		return try n * gross otherwise 0
+	end 'grossOf'
+end 'int'
+
+type Pt
+	var x as Count
+	static let origin = make(0)
+
+	static function make(x Count) returns Pt
+		return Pt{x: x}
+	end 'make'
+end 'Pt'
+
+extension Pt
+	static let one = make(1)
+end 'Pt'
+
+function main() returns ExitCode
+	print("{Suit.count} {Suit.first().isFirst()} {Suit.last().isFirst()} {Suit.names.count()}\n")
+	let t = Token.ending()
+	let text = match t 't'
+		word(w) gives w.clone()
+		stop gives Token.marker
+	end 't'
+	print("{text}\n")
+	print("{bool.yes} {bool.either(false, b: true)}\n")
+	print("{int.dozen} {int.gross} {int.grossOf(2)}\n")
+	print("{Pt.origin.x} {Pt.one.x}\n")
+	return 0
+end 'main'
+
+//> 2 true false 2
+//> $
+//> true true
+//> 12 144 288
+//> 0 1

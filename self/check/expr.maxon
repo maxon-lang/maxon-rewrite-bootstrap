@@ -265,10 +265,11 @@ function constantOf(p ast.Project, ms ast.ModuleState, ref ast.DeclRef) returns 
 	return ast.declConst(p, ms: ms, ref: ref)
 end 'constantOf'
 
-// isQualifiedName is whether the resolver made a name of a name written with its module or its type, `mod.name`: it stands
-// for that declaration, never for a local, a field or a method of the enclosing type, which a bare name outranks.
+// isQualifiedName is whether the resolver made a name of a name written with its module or its type, `mod.name`, or the bodies
+// one of a static let that an extension adds, `Type.name`: it stands for that declaration, never for a local, a field or a
+// method of the enclosing type, which a bare name outranks.
 function isQualifiedName(c Checker, p ast.Project, ms ast.ModuleState, e ast.NodeID) returns bool
-	return ast.resolutionOf(p, ms: ms).becomeNames.has(e as Count)
+	return ast.resolutionOf(p, ms: ms).becomeNames.has(e as Count) or ms.tables.memberDecl(e as Count).isSome()
 end 'isQualifiedName'
 
 function checkQualifiedName(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID

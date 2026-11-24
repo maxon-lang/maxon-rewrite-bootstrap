@@ -292,17 +292,18 @@ end 'ExtMethod'
 
 export typealias ExtMethodList = Array with ExtMethod
 
-// ExtAlias is a typealias that an extension adds to the type owner, which is the key of the extended type
-// (ast.extensionKey). It belongs to the module that writes the extension, as its methods do. extended is the type the
-// extension extends, whose own parameters its target names.
+// ExtAlias is a declaration that an extension nests under the type owner, which is the key of the extended type
+// (ast.extensionKey): a typealias, or a static let where isStatic. It belongs to the module that writes the extension, as
+// its methods do. extended is the type the extension extends, whose own parameters its target names.
 export type ExtAlias
 	export var owner as TypeID
 	export var name as String
 	export var ordinal as DeclOrdinal
 	export var extended as TypeID
+	export var isStatic as bool
 
-	export static function make(owner TypeID, consumes name String, ordinal DeclOrdinal, extended TypeID) returns ExtAlias
-		return ExtAlias{owner: owner, name: name, ordinal: ordinal, extended: extended}
+	export static function make(owner TypeID, consumes name String, ordinal DeclOrdinal, extended TypeID, isStatic bool) returns ExtAlias
+		return ExtAlias{owner: owner, name: name, ordinal: ordinal, extended: extended, isStatic: isStatic}
 	end 'make'
 end 'ExtAlias'
 

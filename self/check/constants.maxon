@@ -348,8 +348,15 @@ function constantValue(p ast.Project, ms ast.ModuleState, t ast.TypeID) returns 
 end 'constantValue'
 
 // constOwner is the type that a static let belongs to, which its value is written inside of, or none for a constant of the
-// module.
-function constOwner(c Checker, p ast.Project, mutates ms ast.ModuleState, name String) returns ast.TypeID
+// module: the type whose body declares it, or the type that the extension adding it extends.
+function constOwner(c Checker, p ast.Project, mutates ms ast.ModuleState, ord ast.DeclOrdinal, name String) returns ast.TypeID
+	if ast.isExtensionAlias(ms.tables, ordinal: ord) 'extension'
+		let extended = ast.extendedBy(p, ms: ms, ref: ast.DeclRef.make(c.modID, ordinal: ord))
+		if ast.typeKind(ms.types, reads: p.types, t: extended) == ast.TypeKind.interfaceTy 'interface'
+			return extended
+		end 'interface'
+		return ast.selfType(ms.types, reads: p.types, declTy: extended)
+	end 'extension'
 	match consumes ast.nestedAliasOwner(name) 'owner'
 		some(typeName) then return ownerSelfType(c, p: p, ms: ms, typeName: typeName)
 		none then return ast.noType
@@ -376,7 +383,13 @@ function checkConst(mutates c Checker, p ast.Project, mutates ms ast.ModuleState
 		interfaceDecl(_) then panic("the declaration at ordinal {ord} is no constant")
 		extensionDecl(_) then panic("the declaration at ordinal {ord} is no constant")
 	end 'k'
-	let owner = constOwner(c, p: p, ms: ms, name: cd.name)
+	if ast.isRefusedExtensionAlias(ms.tables, ordinal: ord) 'unextended'
+		return
+	end 'unextended'
+	let owner = constOwner(c, p: p, ms: ms, ord: ord, name: cd.name)
+	if refusesStaticLet(c, p: p, ms: ms, cd: cd, owner: owner, errs: errs) 'refused'
+		return
+	end 'refused'
 	enterContext(c, p: p, ms: ms, f: ast.noFunc, owner: owner, calls: false)
 	c.constName = cd.name.clone()
 	startUses(c, node: cd.value, inField: true)
@@ -397,6 +410,26 @@ function checkConst(mutates c Checker, p ast.Project, mutates ms ast.ModuleState
 		ast.setDeclConst(ms, ref: ast.DeclRef.make(c.modID, ordinal: ord), value: value)
 	end 'typed'
 end 'checkConst'
+
+// refusesStaticLet refuses a static let of the type owner that has to be one for each type, and tells whether it did, as Swift
+// refuses a static stored property of a generic type or in an extension of a protocol: a generic type's would be one for each
+// of its instances, and an interface's one for each type that implements it.
+function refusesStaticLet(mutates c Checker, p ast.Project, ms ast.ModuleState, cd ast.ConstDecl, owner ast.TypeID, mutates errs diag.ErrorList) returns bool
+	if owner == ast.noType 'module'
+		return false
+	end 'module'
+	let off = ms.tree().reportStartOf(cd.id)
+	let ownerName = ast.typeName(ms.types, reads: p.types, t: ast.originOf(ms.types, reads: p.types, t: owner))
+	if ast.typeKind(ms.types, reads: p.types, t: owner) == ast.TypeKind.interfaceTy 'interface'
+		checkFail(c.modID, off: off, code: diag.errUnsupportedFeature, msg: interfaceStaticRefusal("let", name: ownerName), errs: errs)
+		return true
+	end 'interface'
+	if ast.typeEntry(ms.types, reads: p.types, t: ast.originOf(ms.types, reads: p.types, t: owner)).typeParams.count() > 0 'generic'
+		checkFail(c.modID, off: off, code: diag.errUnsupportedFeature, msg: "Unsupported: a `static let` of the generic type '{ownerName}' — there would have to be one for each instance of '{ownerName}'; make it a static function, or move it to a type that is not generic", errs: errs)
+		return true
+	end 'generic'
+	return false
+end 'refusesStaticLet'
 
 // refuseHiddenConstantType refuses an exported or public constant whose type, written or inferred from its value, names a
 // declaration less visible than the constant: a reader of the constant would hold a value of a type it cannot name.
@@ -466,6 +499,10 @@ end 'checkConstants'
 // (`Meta.create(4, isMemory: true)`): the call is known before the program runs, as the literal it returns is, so a constant
 // may make it where it makes no other.
 function isLiteralFactoryCall(c Checker, p ast.Project, ms ast.ModuleState, callee ast.NodeID) returns bool
+	if ms.tree().kindOf(callee) == ast.NodeKind.nameExpr 'bare'
+		let sibling = staticSibling(c, p: p, ms: ms, callee: callee)
+		return sibling != ast.noFunc and isLiteralFactory(p, ms: ms, fn: sibling)
+	end 'bare'
 	if ms.tree().kindOf(callee) != ast.NodeKind.memberExpr 'notMember'
 		return false
 	end 'notMember'

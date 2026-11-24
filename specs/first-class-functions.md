@@ -3190,6 +3190,7 @@ error E2073: <fragment>:6:18: 'IntIter' is an interface instance, so 'IntIter.ne
 ```
 
 <!-- test: error.a-static-of-a-generic-type-read-through-its-alias-names-the-type -->
+<!-- skip: language difference: a static let of a generic type is refused as Swift refuses one, since there would have to be one for each instance -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -3210,6 +3211,7 @@ error E2073: <fragment>:12:17: 'IntBox.LIMIT' is a static of 'Box', which is rea
 ```
 
 <!-- test: a-static-of-a-generic-type-is-read-through-the-type -->
+<!-- skip: language difference: a static let of a generic type is refused as Swift refuses one, since there would have to be one for each instance -->
 ```maxon
 type Box uses T
 	var item as T

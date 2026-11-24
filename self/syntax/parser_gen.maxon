@@ -566,6 +566,7 @@ function parseExtensionDecl(mutates p Parser) returns ast.ExtensionDecl throws S
 	let t = p.curStart()
 	var n = ast.newExtensionDecl(p.tree, start: t)
 	let mark_n_Aliases = p.lists.ptr_AliasDecl.mark()
+	let mark_n_Statics = p.lists.ptr_ConstDecl.mark()
 	let mark_n_Methods = p.lists.ptr_FuncDecl.mark()
 	if p.inSet(lookahead5) 'b1'
 		if not p.inSet(lookahead5) 'b2'
@@ -598,36 +599,44 @@ function parseExtensionDecl(mutates p Parser) returns ast.ExtensionDecl throws S
 		if p.at(TokenKind.kw_typealias) or (p.at(TokenKind.kw_export) and p.peekIs(TokenKind.kw_typealias)) or (p.at(TokenKind.kw_public) and p.peekIs(TokenKind.kw_typealias)) 'b9'
 			let v5 = try parseAliasDecl(p)
 			p.lists.ptr_AliasDecl.push(v5)
-		end 'b9' else if p.inSet(lookahead15) 'b10'
-			let v6 = try parseFuncDecl(p)
-			p.lists.ptr_FuncDecl.push(v6)
-		end 'b10' else 'b11'
+		end 'b9' else if ((p.at(TokenKind.kw_export) and p.peekIs(TokenKind.kw_static)) or (p.at(TokenKind.kw_public) and p.peekIs(TokenKind.kw_static)) or (p.at(TokenKind.kw_static) and p.peekIs(TokenKind.kw_let))) and p.atStaticLet() 'b10'
+			let v6 = try parseStaticLetDecl(p)
+			p.lists.ptr_ConstDecl.push(v6)
+		end 'b10' else if p.inSet(lookahead15) 'b11'
+			let v7 = try parseFuncDecl(p)
+			p.lists.ptr_FuncDecl.push(v7)
+		end 'b11' else 'b12'
 			throw p.expected("'export', 'function', 'public', 'static' or 'typealias'")
-		end 'b11'
-		try p.pass(TokenKind.newline, what: "the end of the line")
-		while p.inSet(lookahead18) 'b12'
-			if p.at(TokenKind.kw_typealias) or (p.at(TokenKind.kw_export) and p.peekIs(TokenKind.kw_typealias)) or (p.at(TokenKind.kw_public) and p.peekIs(TokenKind.kw_typealias)) 'b13'
-				let v7 = try parseAliasDecl(p)
-				p.lists.ptr_AliasDecl.push(v7)
-			end 'b13' else if p.inSet(lookahead15) 'b14'
-				let v8 = try parseFuncDecl(p)
-				p.lists.ptr_FuncDecl.push(v8)
-			end 'b14' else 'b15'
-				throw p.expected("'export', 'function', 'public', 'static' or 'typealias'")
-			end 'b15'
-			try p.pass(TokenKind.newline, what: "the end of the line")
 		end 'b12'
+		try p.pass(TokenKind.newline, what: "the end of the line")
+		while p.inSet(lookahead18) 'b13'
+			if p.at(TokenKind.kw_typealias) or (p.at(TokenKind.kw_export) and p.peekIs(TokenKind.kw_typealias)) or (p.at(TokenKind.kw_public) and p.peekIs(TokenKind.kw_typealias)) 'b14'
+				let v8 = try parseAliasDecl(p)
+				p.lists.ptr_AliasDecl.push(v8)
+			end 'b14' else if ((p.at(TokenKind.kw_export) and p.peekIs(TokenKind.kw_static)) or (p.at(TokenKind.kw_public) and p.peekIs(TokenKind.kw_static)) or (p.at(TokenKind.kw_static) and p.peekIs(TokenKind.kw_let))) and p.atStaticLet() 'b15'
+				let v9 = try parseStaticLetDecl(p)
+				p.lists.ptr_ConstDecl.push(v9)
+			end 'b15' else if p.inSet(lookahead15) 'b16'
+				let v10 = try parseFuncDecl(p)
+				p.lists.ptr_FuncDecl.push(v10)
+			end 'b16' else 'b17'
+				throw p.expected("'export', 'function', 'public', 'static' or 'typealias'")
+			end 'b17'
+			try p.pass(TokenKind.newline, what: "the end of the line")
+		end 'b13'
 		try p.pass(TokenKind.dedent, what: "the end of the indented lines")
 	end 'b8'
 	try p.pass(TokenKind.kw_end, what: "'end'")
-	if p.inSet(lookahead4) 'b16'
-		let v9 = try parseEndLabel(p)
-		n.endRef = v9
-	end 'b16'
-	let v10 = p.lists.ptr_AliasDecl.take(mark_n_Aliases)
-	n.aliases = v10
-	let v11 = p.lists.ptr_FuncDecl.take(mark_n_Methods)
-	n.methods = v11
+	if p.inSet(lookahead4) 'b18'
+		let v11 = try parseEndLabel(p)
+		n.endRef = v11
+	end 'b18'
+	let v12 = p.lists.ptr_AliasDecl.take(mark_n_Aliases)
+	n.aliases = v12
+	let v13 = p.lists.ptr_ConstDecl.take(mark_n_Statics)
+	n.statics = v13
+	let v14 = p.lists.ptr_FuncDecl.take(mark_n_Methods)
+	n.methods = v14
 	return n
 end 'parseExtensionDecl'
 
@@ -635,6 +644,7 @@ function parseEnumDecl(mutates p Parser) returns ast.EnumDecl throws SyntaxError
 	let t = p.curStart()
 	var n = ast.newEnumDecl(p.tree, start: t)
 	let mark_n_Cases = p.lists.ptr_EnumCaseDecl.mark()
+	let mark_n_Statics = p.lists.ptr_ConstDecl.mark()
 	let mark_n_Methods = p.lists.ptr_FuncDecl.mark()
 	if p.inSet(lookahead5) 'b1'
 		if not p.inSet(lookahead5) 'b2'
@@ -657,36 +667,44 @@ function parseEnumDecl(mutates p Parser) returns ast.EnumDecl throws SyntaxError
 		if p.inSet(lookahead12) 'b5'
 			let v4 = try parseEnumCaseDecl(p)
 			p.lists.ptr_EnumCaseDecl.push(v4)
-		end 'b5' else if p.inSet(lookahead15) 'b6'
-			let v5 = try parseFuncDecl(p)
-			p.lists.ptr_FuncDecl.push(v5)
-		end 'b6' else 'b7'
+		end 'b5' else if ((p.at(TokenKind.kw_export) and p.peekIs(TokenKind.kw_static)) or (p.at(TokenKind.kw_public) and p.peekIs(TokenKind.kw_static)) or (p.at(TokenKind.kw_static) and p.peekIs(TokenKind.kw_let))) and p.atStaticLet() 'b6'
+			let v5 = try parseStaticLetDecl(p)
+			p.lists.ptr_ConstDecl.push(v5)
+		end 'b6' else if p.inSet(lookahead15) 'b7'
+			let v6 = try parseFuncDecl(p)
+			p.lists.ptr_FuncDecl.push(v6)
+		end 'b7' else 'b8'
 			throw p.expected("'export', 'function', 'public', 'static' or a name")
-		end 'b7'
-		try p.pass(TokenKind.newline, what: "the end of the line")
-		while p.inSet(lookahead19) 'b8'
-			if p.inSet(lookahead12) 'b9'
-				let v6 = try parseEnumCaseDecl(p)
-				p.lists.ptr_EnumCaseDecl.push(v6)
-			end 'b9' else if p.inSet(lookahead15) 'b10'
-				let v7 = try parseFuncDecl(p)
-				p.lists.ptr_FuncDecl.push(v7)
-			end 'b10' else 'b11'
-				throw p.expected("'export', 'function', 'public', 'static' or a name")
-			end 'b11'
-			try p.pass(TokenKind.newline, what: "the end of the line")
 		end 'b8'
+		try p.pass(TokenKind.newline, what: "the end of the line")
+		while p.inSet(lookahead19) 'b9'
+			if p.inSet(lookahead12) 'b10'
+				let v7 = try parseEnumCaseDecl(p)
+				p.lists.ptr_EnumCaseDecl.push(v7)
+			end 'b10' else if ((p.at(TokenKind.kw_export) and p.peekIs(TokenKind.kw_static)) or (p.at(TokenKind.kw_public) and p.peekIs(TokenKind.kw_static)) or (p.at(TokenKind.kw_static) and p.peekIs(TokenKind.kw_let))) and p.atStaticLet() 'b11'
+				let v8 = try parseStaticLetDecl(p)
+				p.lists.ptr_ConstDecl.push(v8)
+			end 'b11' else if p.inSet(lookahead15) 'b12'
+				let v9 = try parseFuncDecl(p)
+				p.lists.ptr_FuncDecl.push(v9)
+			end 'b12' else 'b13'
+				throw p.expected("'export', 'function', 'public', 'static' or a name")
+			end 'b13'
+			try p.pass(TokenKind.newline, what: "the end of the line")
+		end 'b9'
 		try p.pass(TokenKind.dedent, what: "the end of the indented lines")
 	end 'b4'
 	try p.pass(TokenKind.kw_end, what: "'end'")
-	if p.inSet(lookahead4) 'b12'
-		let v8 = try parseEndLabel(p)
-		n.endRef = v8
-	end 'b12'
-	let v9 = p.lists.ptr_EnumCaseDecl.take(mark_n_Cases)
-	n.cases = v9
-	let v10 = p.lists.ptr_FuncDecl.take(mark_n_Methods)
-	n.methods = v10
+	if p.inSet(lookahead4) 'b14'
+		let v10 = try parseEndLabel(p)
+		n.endRef = v10
+	end 'b14'
+	let v11 = p.lists.ptr_EnumCaseDecl.take(mark_n_Cases)
+	n.cases = v11
+	let v12 = p.lists.ptr_ConstDecl.take(mark_n_Statics)
+	n.statics = v12
+	let v13 = p.lists.ptr_FuncDecl.take(mark_n_Methods)
+	n.methods = v13
 	return n
 end 'parseEnumDecl'
 
@@ -712,6 +730,7 @@ function parseUnionDecl(mutates p Parser) returns ast.UnionDecl throws SyntaxErr
 	let t = p.curStart()
 	var n = ast.newUnionDecl(p.tree, start: t)
 	let mark_n_Cases = p.lists.ptr_UnionCaseDecl.mark()
+	let mark_n_Statics = p.lists.ptr_ConstDecl.mark()
 	let mark_n_Methods = p.lists.ptr_FuncDecl.mark()
 	if p.inSet(lookahead5) 'b1'
 		if not p.inSet(lookahead5) 'b2'
@@ -747,36 +766,44 @@ function parseUnionDecl(mutates p Parser) returns ast.UnionDecl throws SyntaxErr
 		if p.inSet(lookahead12) 'b8'
 			let v6 = try parseUnionCaseDecl(p)
 			p.lists.ptr_UnionCaseDecl.push(v6)
-		end 'b8' else if p.inSet(lookahead15) 'b9'
-			let v7 = try parseFuncDecl(p)
-			p.lists.ptr_FuncDecl.push(v7)
-		end 'b9' else 'b10'
+		end 'b8' else if ((p.at(TokenKind.kw_export) and p.peekIs(TokenKind.kw_static)) or (p.at(TokenKind.kw_public) and p.peekIs(TokenKind.kw_static)) or (p.at(TokenKind.kw_static) and p.peekIs(TokenKind.kw_let))) and p.atStaticLet() 'b9'
+			let v7 = try parseStaticLetDecl(p)
+			p.lists.ptr_ConstDecl.push(v7)
+		end 'b9' else if p.inSet(lookahead15) 'b10'
+			let v8 = try parseFuncDecl(p)
+			p.lists.ptr_FuncDecl.push(v8)
+		end 'b10' else 'b11'
 			throw p.expected("'export', 'function', 'public', 'static' or a name")
-		end 'b10'
-		try p.pass(TokenKind.newline, what: "the end of the line")
-		while p.inSet(lookahead19) 'b11'
-			if p.inSet(lookahead12) 'b12'
-				let v8 = try parseUnionCaseDecl(p)
-				p.lists.ptr_UnionCaseDecl.push(v8)
-			end 'b12' else if p.inSet(lookahead15) 'b13'
-				let v9 = try parseFuncDecl(p)
-				p.lists.ptr_FuncDecl.push(v9)
-			end 'b13' else 'b14'
-				throw p.expected("'export', 'function', 'public', 'static' or a name")
-			end 'b14'
-			try p.pass(TokenKind.newline, what: "the end of the line")
 		end 'b11'
+		try p.pass(TokenKind.newline, what: "the end of the line")
+		while p.inSet(lookahead19) 'b12'
+			if p.inSet(lookahead12) 'b13'
+				let v9 = try parseUnionCaseDecl(p)
+				p.lists.ptr_UnionCaseDecl.push(v9)
+			end 'b13' else if ((p.at(TokenKind.kw_export) and p.peekIs(TokenKind.kw_static)) or (p.at(TokenKind.kw_public) and p.peekIs(TokenKind.kw_static)) or (p.at(TokenKind.kw_static) and p.peekIs(TokenKind.kw_let))) and p.atStaticLet() 'b14'
+				let v10 = try parseStaticLetDecl(p)
+				p.lists.ptr_ConstDecl.push(v10)
+			end 'b14' else if p.inSet(lookahead15) 'b15'
+				let v11 = try parseFuncDecl(p)
+				p.lists.ptr_FuncDecl.push(v11)
+			end 'b15' else 'b16'
+				throw p.expected("'export', 'function', 'public', 'static' or a name")
+			end 'b16'
+			try p.pass(TokenKind.newline, what: "the end of the line")
+		end 'b12'
 		try p.pass(TokenKind.dedent, what: "the end of the indented lines")
 	end 'b7'
 	try p.pass(TokenKind.kw_end, what: "'end'")
-	if p.inSet(lookahead4) 'b15'
-		let v10 = try parseEndLabel(p)
-		n.endRef = v10
-	end 'b15'
-	let v11 = p.lists.ptr_UnionCaseDecl.take(mark_n_Cases)
-	n.cases = v11
-	let v12 = p.lists.ptr_FuncDecl.take(mark_n_Methods)
-	n.methods = v12
+	if p.inSet(lookahead4) 'b17'
+		let v12 = try parseEndLabel(p)
+		n.endRef = v12
+	end 'b17'
+	let v13 = p.lists.ptr_UnionCaseDecl.take(mark_n_Cases)
+	n.cases = v13
+	let v14 = p.lists.ptr_ConstDecl.take(mark_n_Statics)
+	n.statics = v14
+	let v15 = p.lists.ptr_FuncDecl.take(mark_n_Methods)
+	n.methods = v15
 	return n
 end 'parseUnionDecl'
 

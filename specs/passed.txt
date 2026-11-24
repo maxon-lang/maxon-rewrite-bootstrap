@@ -2088,8 +2088,6 @@ enum-struct-field-match.md: enum-struct-field-match-extract
 enum-struct-field-match.md: enum-struct-field-match-let
 enum-union-method-receiver.md: a-case-declared-after-a-method
 enum-union-method-receiver.md: a-method-that-binds-its-payload-and-recurses
-enum-union-method-receiver.md: error.static-method-on-a-union
-enum-union-method-receiver.md: error.static-method-on-an-enum
 enum-union-method-receiver.md: managed-payload-bound-out-of-an-RVALUE-receiver
 enum-union-method-receiver.md: managed-payload-escapes-through-the-receiver
 enum-union-method-receiver.md: managed-payload-receiver-bind-leak-free
@@ -2439,7 +2437,6 @@ first-class-functions.md: a-module-binding-named-like-a-primitive-calls-the-bind
 first-class-functions.md: a-statement-call-through-a-directory-beside-a-type-of-its-name-reaches-the-directory
 first-class-functions.md: a-statement-call-through-a-directory-named-like-a-primitive-reaches-the-directory
 first-class-functions.md: a-statement-call-through-an-ordinary-directory-reaches-the-directory
-first-class-functions.md: a-static-of-a-generic-type-is-read-through-the-type
 first-class-functions.md: error.a-call-through-a-cast-result-is-checked-against-the-cast-type
 first-class-functions.md: error.a-call-through-a-reassigned-function-typed-variable-reports-only-the-refused-assignment
 first-class-functions.md: error.a-call-through-a-type-parameter-names-a-static-requirement-in-a-generic-function
@@ -2469,7 +2466,6 @@ first-class-functions.md: error.a-requirement-through-a-type-parameter-of-a-gene
 first-class-functions.md: error.a-requirement-through-a-type-parameter-outranks-a-top-level-type-of-that-name
 first-class-functions.md: error.a-static-of-a-directory-qualified-generic-alias-is-not-a-function-value
 first-class-functions.md: error.a-static-of-a-directory-type-read-as-a-value-at-module-scope-is-named-by-its-whole-chain
-first-class-functions.md: error.a-static-of-a-generic-type-read-through-its-alias-names-the-type
 first-class-functions.md: error.a-static-of-a-type-named-like-a-sized-type-is-not-a-function-value
 first-class-functions.md: error.a-static-read-at-module-scope-is-not-a-function-value
 first-class-functions.md: error.a-static-requirement-called-as-a-statement-through-a-type-parameter
@@ -7488,6 +7484,7 @@ stdlib-user-shadows.md: stdlib-user-shadows.a-generic-function-binds-the-library
 stdlib-user-shadows.md: stdlib-user-shadows.a-library-file-is-unaffected-by-an-authors-same-named-export
 stdlib-user-shadows.md: stdlib-user-shadows.a-library-file-is-unaffected-by-an-authors-same-named-type
 stdlib-user-shadows.md: stdlib-user-shadows.a-library-method-keeps-the-librarys-answer-past-an-authors-extension-method-of-the-same-signature
+stdlib-user-shadows.md: stdlib-user-shadows.a-library-method-keeps-the-librarys-answer-past-an-authors-static-extension-method-of-the-same-signature
 stdlib-user-shadows.md: stdlib-user-shadows.a-librarys-count-and-the-programs-own-count-do-not-mix
 stdlib-user-shadows.md: stdlib-user-shadows.a-masked-count-cast-to-the-programs-own-count-is-not-unneeded
 stdlib-user-shadows.md: stdlib-user-shadows.a-member-typealias-after-a-method-stays-a-member
@@ -8054,6 +8051,8 @@ top-level-let.md: error.a-program-that-folds-twice-with-an-explained-consequence
 top-level-let.md: error.a-refused-call-inside-a-record-literal-in-a-function-body-reports-the-call-alone
 top-level-let.md: error.a-return-in-a-handler-block-of-a-top-level-let-names-the-initializer
 top-level-let.md: error.a-return-in-a-handler-block-of-a-top-level-record-let-names-the-initializer
+top-level-let.md: error.a-static-initializer-calling-a-sibling-static-is-not-a-constant
+top-level-let.md: error.a-static-initializer-calling-a-sibling-static-past-a-hidden-free-function-is-not-a-constant
 top-level-let.md: error.a-static-method-body-calling-a-sibling-instance-method-bare-has-no-receiver
 top-level-let.md: error.a-static-method-calling-a-sibling-past-a-same-named-constant-reports-the-siblings-defect
 top-level-let.md: error.a-top-level-exit-code-constant-is-refused-where-a-ranged-alias-is-required

@@ -123,11 +123,15 @@ end 'typeCall'
 
 // siblingMethod is the method of the enclosing type that a bare name stands for, as a bare field name stands for a field,
 // or none: the type's method outranks a function of the same name. In an extension of an interface the enclosing type is
-// the parameter that stands for the type implementing it, whose methods are those of its bounds.
+// the parameter that stands for the type implementing it, whose methods are those of its bounds. The initializer of a static
+// let is written inside its type, so a bare name there stands for a static function of the type.
 function siblingMethod(c Checker, p ast.Project, ms ast.ModuleState, callee ast.NodeID, mutates errs diag.ErrorList) returns ast.FuncID
-	if c.owner == ast.noType or c.fn == ast.noFunc or c.inBehaviour or c.inClosure 'outside'
+	if c.owner == ast.noType or c.inBehaviour or c.inClosure 'outside'
 		return ast.noFunc
 	end 'outside'
+	if c.fn == ast.noFunc 'initializer'
+		return staticSibling(c, p: p, ms: ms, callee: callee)
+	end 'initializer'
 	let name = ast.nameExprName(ms.tree(), id: callee)
 	if typeHasKind(p, ms: ms, t: c.owner, kind: ast.TypeKind.typeParam) 'parameter'
 		let req = boundRequirement(p, ms: ms, boundedFn: c.boundedFn, param: c.owner, name: name)
@@ -138,6 +142,19 @@ function siblingMethod(c Checker, p ast.Project, ms ast.ModuleState, callee ast.
 	end 'parameter'
 	return methodOf(c, p: p, ms: ms, t: c.owner, name: name, node: callee, errs: errs)
 end 'siblingMethod'
+
+// staticSibling is the static function of the enclosing type that a bare name in the initializer of one of its static lets
+// stands for, or none.
+function staticSibling(c Checker, p ast.Project, ms ast.ModuleState, callee ast.NodeID) returns ast.FuncID
+	if c.constName == "" or typeHasKind(p, ms: ms, t: c.owner, kind: ast.TypeKind.typeParam) or typeHasKind(p, ms: ms, t: c.owner, kind: ast.TypeKind.interfaceTy) 'none'
+		return ast.noFunc
+	end 'none'
+	match consumes methodLookup(c, p: p, ms: ms, t: c.owner, name: ast.nameExprName(ms.tree(), id: callee)) 'lookup'
+		found(fid) then return fid if ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fid).isStatic else ast.noFunc
+		absent then return ast.noFunc
+		ambiguous(_, _) then return ast.noFunc
+	end 'lookup'
+end 'staticSibling'
 
 // callSibling types a bare call of a method of the enclosing type: `helper()` is `self.helper()`, and a static method is
 // called as `Self.helper()`. A static method has no `self`, so a bare call of an instance method in it has no receiver.
@@ -363,8 +380,9 @@ function callPrint(mutates c Checker, p ast.Project, mutates ms ast.ModuleState,
 	return p.builtins.voidTy
 end 'callPrint'
 
-// primitiveNamed is the primitive type with no declaration whose methods the table gives, String or Character, that e names
-// where no local shadows the name, or none.
+// primitiveNamed is the primitive type with no declaration that e names where no local shadows the name, or none: String or
+// Character, whose methods the table gives, or the family that `int`, `float` or `bool` names, whose static functions only
+// extensions add.
 function primitiveNamed(c Checker, p ast.Project, ms ast.ModuleState, e ast.NodeID) returns ast.TypeID
 	if ms.tree().kindOf(e) != ast.NodeKind.nameExpr 'notName'
 		return ast.noType
@@ -379,8 +397,24 @@ function primitiveNamed(c Checker, p ast.Project, ms ast.ModuleState, e ast.Node
 	if name == "Character" 'character'
 		return p.builtins.characterTy
 	end 'character'
+	if name == intFamily 'integer'
+		return p.builtins.anon64Ty
+	end 'integer'
+	if name == floatFamily 'float'
+		return p.builtins.anonFloatTy
+	end 'float'
+	if name == boolName 'boolean'
+		return p.builtins.boolTy
+	end 'boolean'
 	return ast.noType
 end 'primitiveNamed'
+
+// intFamily, floatFamily and boolName are the words that name the integers, the floats and bool as the qualifier of a static.
+let intFamily = "int"
+
+let floatFamily = "float"
+
+let boolName = "bool"
 
 // callMember types 'Type.function(...)', 'Union.case(...)' and 'object.method(...)'.
 function callMember(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, call ast.NodeID, callee ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
