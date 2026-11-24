@@ -631,8 +631,19 @@ function takeIdleThread(scheduler Count, context Count) returns bool
 end 'takeIdleThread'
 
 // startThreadFor is Go's startm: a stopped thread, or a new one, runs proc, or an idle processor when proc is noProc;
-// spinning says it starts by looking for work, for which the caller counted it among the spinning threads already.
+// spinning says it starts by looking for work, for which the caller counted it among the spinning threads already. It is
+// the scheduler's work wherever it runs, as Go's startm runs on the system stack, so a green thread that starts a thread
+// (a wake of a processor at a ready or a sleep) does not pay for the clone in its CPU clock.
 function startThreadFor(scheduler Count, proc Count, spinning bool)
+	let context = __Raw.threadContext()
+	setGreenClockAside(context)
+	takeThreadFor(scheduler, proc: proc, spinning: spinning)
+	takeGreenClockBack(context)
+end 'startThreadFor'
+
+// takeThreadFor is startThreadFor's work: the thread and the processor taken under the scheduler's lock, and the thread
+// woken or made.
+function takeThreadFor(scheduler Count, proc Count, spinning bool)
 	lockScheduler(scheduler)
 	var p = proc
 	if p == noProc 'any'
@@ -657,7 +668,7 @@ function startThreadFor(scheduler Count, proc Count, spinning bool)
 	__Raw.storeWord(thread, offset: contextSpinningOffset, value: set if spinning else unset)
 	__Raw.storeWord(thread, offset: contextNextProcOffset, value: p)
 	wakeThread(thread)
-end 'startThreadFor'
+end 'takeThreadFor'
 
 // wakeProc is Go's wakep: when a processor is idle and no thread spins, a thread starts spinning on it, which steals what
 // was just readied or finds it on the global queue.

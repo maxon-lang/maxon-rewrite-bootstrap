@@ -5095,6 +5095,12 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   which the interpreter runs too, so a Map's order is the same in both), with no access to memory and no rebuilding of the
   words that maxon's fold loads; a longer String hashes as maxon's does. A short String's hash is therefore not maxon's fold of
   its bytes, nor `Hasher.combineBytes` of a byte array of the same bytes.
+- **The thread CPU clock leaves out the scheduler's work.** `Clock.threadCpuTicks()` is the green thread's clock, as maxon's
+  is: it stands still while the green thread is switched out. It also stands still while the scheduler does its own work on
+  the green thread's stack, which Go runs on the system stack: starting or waking a thread for a processor
+  (`startThreadFor`, Go's startm, which a ready or a sleep may do) and taking a processor back after a blocking call whose
+  processor the monitor took (`exitBlocking`'s slow path, Go's exitsyscall). maxon counts both, so a bracket across a sleep
+  could count a clone of a thread, which under WSL on a loaded machine took up to 8 ms of the thread's CPU.
 
 ## Changing the language
 

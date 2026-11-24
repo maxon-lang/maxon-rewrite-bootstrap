@@ -395,6 +395,31 @@ function switchToScheduler(context Count, intent Count)
 	__Raw.storeWord(g, offset: greenCpuClockOffset, value: __Raw.wrappingAdd(__Raw.loadWord(g, offset: greenCpuClockOffset), right: gap))
 end 'switchToScheduler'
 
+// setGreenClockAside and takeGreenClockBack keep the scheduler's own work that runs on a green thread's stack out of its
+// CPU clock, as Go keeps it off the goroutine by running it on the system stack (startm, the slow path of exitsyscall): the
+// clock does not move between them, the reading before added to greenCpuClockOffset and the reading after taken out. Both
+// run on the same thread with no switch between them, and read the clock only for a green thread that keeps it.
+function setGreenClockAside(context Count)
+	shiftGreenClock(context, ending: false)
+end 'setGreenClockAside'
+
+function takeGreenClockBack(context Count)
+	shiftGreenClock(context, ending: true)
+end 'takeGreenClockBack'
+
+function shiftGreenClock(context Count, ending bool)
+	let g = __Raw.loadWord(context, offset: contextGreenOffset)
+	if g == noGreen 'off'
+		return
+	end 'off'
+	if __Raw.loadWord(g, offset: greenCpuKeptOffset) == unset 'unkept'
+		return
+	end 'unkept'
+	let now = threadCpuTime(context)
+	let clock = __Raw.loadWord(g, offset: greenCpuClockOffset)
+	__Raw.storeWord(g, offset: greenCpuClockOffset, value: __Raw.wrappingSub(clock, right: now) if ending else __Raw.wrappingAdd(clock, right: now))
+end 'shiftGreenClock'
+
 // osThreadCpuTicks is maxon's thread CPU clock, the CPU time the running green thread has used: its thread's, plus what
 // the threads it ran on before gave it (greenCpuClockOffset, which only its own switches change), so a green thread that
 // moved to another thread reads on from where it was and never back. The first read starts the keeping, so the time
@@ -768,6 +793,7 @@ function exitBlocking()
 		return
 	end 'kept'
 	__Raw.storeWord(context, offset: contextProcOffset, value: noProc)
+	setGreenClockAside(context)
 	let scheduler = __Raw.loadWord(context, offset: contextSchedulerOffset)
 	lockScheduler(scheduler)
 	let idle = idleProcGet(scheduler)
@@ -775,8 +801,10 @@ function exitBlocking()
 	__Raw.storeWord(context, offset: contextSyscallOffset, value: unset)
 	if idle != noProc 'idle'
 		acquireProc(context, proc: idle)
+		takeGreenClockBack(context)
 		return
 	end 'idle'
+	takeGreenClockBack(context)
 	switchToScheduler(context, intent: intentNoProc)
 end 'exitBlocking'
 
