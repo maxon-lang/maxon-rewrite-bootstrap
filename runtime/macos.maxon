@@ -515,10 +515,11 @@
 		return programClockNanos(macosClockMonotonic) / nanosPerMilli
 	end 'osTickMillis'
 
-	// osThreadCpuTicks is the CPU time the calling thread has used, in nanoseconds.
-	function osThreadCpuTicks() returns Count
-		return programClockNanos(macosClockThreadCpu)
-	end 'osThreadCpuTicks'
+	// threadCpuTime is the CPU time the running thread has used, in nanoseconds, as the runtime's own code reads it, outside
+	// any bracket, on the thread whose context is context; clock_gettime_nsec_np needs no record, so it allocates nothing.
+	function threadCpuTime(context Count) returns Count
+		return clockNanosOf(macosClockThreadCpu)
+	end 'threadCpuTime'
 
 	// osUnixNanos is the nanoseconds since 1970-01-01 UTC.
 	function osUnixNanos() returns Count

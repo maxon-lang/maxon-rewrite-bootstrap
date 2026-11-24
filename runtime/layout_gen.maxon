@@ -498,8 +498,14 @@ let greenLockedOffset = 464 as Count
 // greenPinsOffset is where a green thread holds how many pins it holds, which nest: the last unpin frees it from its thread.
 let greenPinsOffset = 472 as Count
 
+// greenCpuKeptOffset is where a green thread holds 1 once it has read its CPU clock, from when each switch keeps greenCpuClockOffset; only its own thread reads and writes it.
+let greenCpuKeptOffset = 480 as Count
+
+// greenCpuClockOffset is where a green thread holds what its CPU clock adds to the CPU time of the thread it runs on: the time of the threads it ran on before, less what the thread it runs on had used when it came to it; only its own thread reads and writes it.
+let greenCpuClockOffset = 488 as Count
+
 // greenBytes is the size of a green thread's record.
-let greenBytes = 480 as Count
+let greenBytes = 496 as Count
 
 // selectorGreenOffset is where a selector holds the green thread that waits.
 let selectorGreenOffset = 0 as Count

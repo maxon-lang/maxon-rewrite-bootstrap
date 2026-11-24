@@ -97,6 +97,7 @@ function newGreen(context Count, code Count, kind Count) returns Count
 	__Raw.storeWord(g, offset: greenErrorOffset, value: 0)
 	__Raw.storeWord(g, offset: greenCancelOffset, value: unset)
 	__Raw.storeWord(g, offset: greenHandedOffset, value: noBehaviour)
+	__Raw.storeWord(g, offset: greenCpuKeptOffset, value: unset)
 	return g
 end 'newGreen'
 
@@ -376,12 +377,45 @@ function parkGreen(context Count, g Count)
 end 'parkGreen'
 
 // switchToScheduler is Go's mcall: the running green thread saves its registers and goes to its thread's scheduler,
-// which does what intent asks on its own stack. It returns when the green thread runs again, on whatever thread.
+// which does what intent asks on its own stack. It returns when the green thread runs again, on whatever thread. A green
+// thread that has read its CPU clock reads its thread's on both sides of the gap and takes the difference out of the
+// clock (greenCpuClockOffset), so the clock stands still while it does not run and goes on from there on the thread it
+// comes back on, as maxon's park does; one that never read it pays one load.
 function switchToScheduler(context Count, intent Count)
 	let g = __Raw.loadWord(context, offset: contextGreenOffset)
 	__Raw.storeWord(context, offset: contextIntentOffset, value: intent)
-	switchStacks(context, from: __Raw.wrappingAdd(g, right: greenSwitchOffset), onto: threadBlockSwitch(context))
+	let from = __Raw.wrappingAdd(g, right: greenSwitchOffset)
+	if __Raw.loadWord(g, offset: greenCpuKeptOffset) == unset 'unkept'
+		switchStacks(context, from: from, onto: threadBlockSwitch(context))
+		return
+	end 'unkept'
+	let left = threadCpuTime(context)
+	switchStacks(context, from: from, onto: threadBlockSwitch(context))
+	let gap = __Raw.wrappingSub(left, right: threadCpuTime(__Raw.threadContext()))
+	__Raw.storeWord(g, offset: greenCpuClockOffset, value: __Raw.wrappingAdd(__Raw.loadWord(g, offset: greenCpuClockOffset), right: gap))
 end 'switchToScheduler'
+
+// osThreadCpuTicks is maxon's thread CPU clock, the CPU time the running green thread has used: its thread's, plus what
+// the threads it ran on before gave it (greenCpuClockOffset, which only its own switches change), so a green thread that
+// moved to another thread reads on from where it was and never back. The first read starts the keeping, so the time
+// before it is the thread's own. Off a green thread, in a program without the scheduler, it is the thread's. The read
+// is bracketed, as each clock a program reads is (runtime README), and the sum taken inside, where the green thread
+// cannot move.
+function osThreadCpuTicks() returns Count
+	let context = __Raw.threadContext()
+	let g = __Raw.loadWord(context, offset: contextGreenOffset)
+	if g == noGreen 'off'
+		return threadCpuTime(context)
+	end 'off'
+	if __Raw.loadWord(g, offset: greenCpuKeptOffset) == unset 'first'
+		__Raw.storeWord(g, offset: greenCpuClockOffset, value: 0)
+		__Raw.storeWord(g, offset: greenCpuKeptOffset, value: set)
+	end 'first'
+	enterBlocking()
+	let ticks = __Raw.wrappingAdd(threadCpuTime(context), right: __Raw.loadWord(g, offset: greenCpuClockOffset))
+	exitBlocking()
+	return ticks
+end 'osThreadCpuTicks'
 
 // switchStacks saves the running stack's registers into from and goes on the stack of onto (rt.stackSwitch).
 function switchStacks(context Count, from Count, onto Count)

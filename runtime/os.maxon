@@ -496,14 +496,13 @@ let nanosPerFileTimeStep = 100 as Count
 		return millis
 	end 'osTickMillis'
 
-	// osThreadCpuTicks is the CPU cycles the calling thread has used, which is the unit that maxon's gives on Windows.
-	function osThreadCpuTicks() returns Count
+	// threadCpuTime is the CPU cycles the running thread has used, which is the unit that maxon's clock gives on Windows, as
+	// the runtime's own code reads it, outside any bracket, on the thread whose context is context.
+	function threadCpuTime(context Count) returns Count
 		var cycles = 0 as Count
-		enterBlocking()
 		_ = __Raw.callImport2("QueryThreadCycleTime", arg1: __Raw.callImport0("GetCurrentThread"), arg2: __Raw.addressOf(cycles))
-		exitBlocking()
 		return cycles
-	end 'osThreadCpuTicks'
+	end 'threadCpuTime'
 
 	// osUnixNanos is the nanoseconds since 1970-01-01 UTC, from the calendar's FILETIME, the 100 ns steps since 1601.
 	function osUnixNanos() returns Count

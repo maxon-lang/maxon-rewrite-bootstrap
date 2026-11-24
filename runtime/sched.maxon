@@ -1159,6 +1159,9 @@ function newThread(scheduler Count, proc Count, spinning bool)
 	startThread(context)
 end 'newThread'
 
+// noThreadBlock is the block of the one thread of a program without the scheduler, which has none.
+let noThreadBlock = 0 as Count
+
 // threadBlockSwitch is the switch record of a thread's scheduler, at the start of its block.
 function threadBlockSwitch(context Count) returns Count
 	return __Raw.loadWord(context, offset: contextSchedSwitchOffset)

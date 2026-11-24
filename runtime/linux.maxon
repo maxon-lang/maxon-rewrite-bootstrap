@@ -245,10 +245,17 @@
 		return programClockNanos(linuxClockBoottime) / nanosPerMilli
 	end 'osTickMillis'
 
-	// osThreadCpuTicks is the CPU time the calling thread has used, in nanoseconds.
-	function osThreadCpuTicks() returns Count
-		return programClockNanos(linuxClockThreadCpu)
-	end 'osThreadCpuTicks'
+	// threadCpuTime is the CPU time the running thread has used, in nanoseconds, as the runtime's own code reads it, outside
+	// any bracket, on the thread whose context is context: through the timespec of the thread's block, so that it allocates
+	// nothing in a bracket or a switch, or through one of its own on the one thread of a program without the scheduler, which
+	// has no block and no bracket.
+	function threadCpuTime(context Count) returns Count
+		let block = threadBlockSwitch(context)
+		if block == noThreadBlock 'alone'
+			return clockNanosOf(linuxClockThreadCpu)
+		end 'alone'
+		return clockNanosFrom(linuxClockThreadCpu, time: __Raw.wrappingAdd(block, right: threadBlockClockOffset))
+	end 'threadCpuTime'
 
 	// osUnixNanos is the nanoseconds since 1970-01-01 UTC.
 	function osUnixNanos() returns Count

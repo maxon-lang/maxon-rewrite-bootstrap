@@ -1227,7 +1227,7 @@ var entries = []entry{
 	{"OsClockNanos", "rt.os.clockNanos", "Os", roleCall, "() -> Count: the monotonic clock in nanoseconds, from QueryPerformanceCounter"},
 	{"OsClockMillis", "rt.os.clockMillis", "Os", roleCall, "() -> Count: the monotonic clock in whole milliseconds, which is OsClockNanos divided by a million"},
 	{"OsTickMillis", "rt.os.tickMillis", "Os", roleCall, "() -> Count: the milliseconds since the machine booted, from GetTickCount64 and the POSIX boot clock"},
-	{"OsThreadCpuTicks", "rt.os.threadCpuTicks", "Os", roleCall, "() -> Count: the CPU time the calling thread has used, in the cycles QueryThreadCycleTime counts on Windows and in nanoseconds under POSIX"},
+	{"OsThreadCpuTicks", "rt.os.threadCpuTicks", "Os", roleCall, "() -> Count: the CPU time the calling green thread has used, on whichever threads it ran, in the cycles QueryThreadCycleTime counts on Windows and in nanoseconds under POSIX"},
 	{"OsUnixNanos", "rt.os.unixNanos", "Os", roleCall, "() -> Count: the nanoseconds since 1970-01-01 UTC, in steps of the host calendar's own tick, the word of a signed 64-bit count"},
 	{"OsUnixSeconds", "rt.os.unixSeconds", "Os", roleCall, "() -> Count: the whole seconds since 1970-01-01 UTC, which is OsUnixNanos divided by a billion, the word of a signed 64-bit count"},
 	{"OsProcessorCount", "rt.os.processorCount", "Os", roleCall, "() -> Count: how many workers the runtime runs behaviours on, as the scheduler counts them: the processors, or what MAXON_MAX_PROCS asks"},

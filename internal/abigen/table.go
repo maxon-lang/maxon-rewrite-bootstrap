@@ -482,7 +482,13 @@ var layouts = []layoutConst{
 		"where a green thread holds the context of the thread it is pinned to (Go's g.lockedm), 0 while it is pinned to none."},
 	{"greenPinsOffset", 59, false, toRuntime,
 		"where a green thread holds how many pins it holds, which nest: the last unpin frees it from its thread."},
-	{"greenBytes", 60, false, toRuntime,
+	// A green thread's CPU clock (osThreadCpuTicks) is its thread's plus what the threads it ran on before gave it, kept
+	// from its first read on, as maxon's GtOffCpuOffset is.
+	{"greenCpuKeptOffset", 60, false, toRuntime,
+		"where a green thread holds 1 once it has read its CPU clock, from when each switch keeps greenCpuClockOffset; only its own thread reads and writes it."},
+	{"greenCpuClockOffset", 61, false, toRuntime,
+		"where a green thread holds what its CPU clock adds to the CPU time of the thread it runs on: the time of the threads it ran on before, less what the thread it runs on had used when it came to it; only its own thread reads and writes it."},
+	{"greenBytes", 62, false, toRuntime,
 		"the size of a green thread's record."},
 
 	// A selector: the record of an awaitAny that waits, which every promise it waits on names as its waiter, tagged, as the
