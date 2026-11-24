@@ -1288,12 +1288,13 @@ let reservedPrefix = "__"
 
 // parseSourceInto parses the module of the handle from its source; a module of the library tier may declare its reserved
 // names.
-function parseSourceInto(module diag.ModuleID, consumes path String, consumes src Source, target ast.Target, libraryTier bool) returns ParseResult
+function parseSourceInto(module diag.ModuleID, consumes path String, consumes src Source, target ast.Target, libraryTier bool, skims bool) returns ParseResult
 	var errs = diag.ErrorList.create(0)
 	var toks = Tokens.create(0)
 	var failed = false
+	var skimmed = 0 as Count
 	try 'lex'
-		toks = lexSource(src, errs: errs, lenient: false)
+		toks = lexSkimming(src, errs: errs, lenient: false, skims: skims, skimmed: skimmed)
 	end 'lex' otherwise 'refused'
 		failed = true
 	end 'refused'
@@ -1319,14 +1320,21 @@ function parseSourceInto(module diag.ModuleID, consumes path String, consumes sr
 	var m = ast.ParsedModule.new(module, text: "", files: files)
 	m.tree = exchange(p.tree, value: ast.Tree.new(module, text: ""))
 	m.decls = decls
+	m.skimmed = skimmed
 	return ParseResult.ok(m)
 end 'parseSourceInto'
 
 export function parseSource(module diag.ModuleID, path String, consumes src String) returns ParseResult
-	return parseSourceInto(module, path: path.clone(), src: sourceOf(src, path: path), target: ast.Target.windowsX64(), libraryTier: false)
+	return parseSourceInto(module, path: path.clone(), src: sourceOf(src, path: path), target: ast.Target.windowsX64(), libraryTier: false, skims: false)
 end 'parseSource'
 
 export function parseModuleFiles(module diag.ModuleID, consumes path String, consumes filePaths ast.StringList, consumes fileTexts ast.StringList, target ast.Target, libraryTier bool) returns ParseResult
+	return parseModuleFilesSkimming(module, path: path, filePaths: filePaths, fileTexts: fileTexts, target: target, libraryTier: libraryTier, skims: false)
+end 'parseModuleFiles'
+
+// parseModuleFilesSkimming is parseModuleFiles that skims the bodies of functions when skims is set (Lexer.skimBody): the
+// parsed module holds them empty, and says how many it skimmed (ParsedModule.skimmed).
+export function parseModuleFilesSkimming(module diag.ModuleID, consumes path String, consumes filePaths ast.StringList, consumes fileTexts ast.StringList, target ast.Target, libraryTier bool, skims bool) returns ParseResult
 	var buf = ByteArray.create(0)
 	var files = ast.FileSpanList.create(0)
 	var spans as Array with Count
@@ -1342,5 +1350,5 @@ export function parseModuleFiles(module diag.ModuleID, consumes path String, con
 		files.push(ast.FileSpan.make(filePaths[i].clone(), text: text, start: startOff, endOff: endOff))
 		startOff = endOff
 	end 'spans'
-	return parseSourceInto(module, path: path, src: Source.make(text, files: files), target: target, libraryTier: libraryTier)
-end 'parseModuleFiles'
+	return parseSourceInto(module, path: path, src: Source.make(text, files: files), target: target, libraryTier: libraryTier, skims: skims)
+end 'parseModuleFilesSkimming'

@@ -116,9 +116,13 @@ type Options
 	// stagesInLibrary compiles the program's modules in the library tier, as maxon's spec runner compiles a case marked
 	// `tier: stdlib`: they may name maxon's raw surface.
 	var stagesInLibrary as bool
+	// skimsBodies parses the modules with the bodies of their functions skimmed (syntax.parseModuleFilesSkimming), for a compile
+	// whose modules' units the cache holds, which needs none of them (prepareRuntime); a module whose bodies its compile then
+	// needs fails it (skimmedBodyNeeded).
+	var skimsBodies as bool
 
 	static function new() returns Options
-		return Options{emitIr: false, verifyIr: false, emitMap: false, countAllocations: false, debugInfo: false, keepsLowered: false, timings: false, trace: "", reversesModules: false, verifiesReads: false, runsTests: false, testsUnder: "", checksTests: false, cacheDir: "", compiler: table.Digest.none(), verifiesCache: false, usesCache: true, speculates: false, target: hostTarget(), stagesInLibrary: false}
+		return Options{emitIr: false, verifyIr: false, emitMap: false, countAllocations: false, debugInfo: false, keepsLowered: false, timings: false, trace: "", reversesModules: false, verifiesReads: false, runsTests: false, testsUnder: "", checksTests: false, cacheDir: "", compiler: table.Digest.none(), verifiesCache: false, usesCache: true, speculates: false, target: hostTarget(), stagesInLibrary: false, skimsBodies: false}
 	end 'new'
 
 	// timesTasks is whether a compile reads the clock around each task, for --timings or --trace.

@@ -240,6 +240,22 @@ end 'compileRuntimeTest'
 // compiled by adding it to a copy of p and linking it with that code, which is the same for every program: the runtime's own
 // source is then loaded, checked and lowered once however many programs are compiled.
 function prepareRuntime(mutates p ast.Project, options Options, mutates errs diag.ErrorList) returns backend.UnitList
+	if options.cacheDir != "" and not options.emitIr and not options.verifyIr and not options.debugInfo and not options.verifiesCache 'skim'
+		var trial = copyOfProject(p)
+		var trialErrs = diag.ErrorList.create(0)
+		var skimming = options.clone()
+		skimming.skimsBodies = true
+		var units = runtimeUnits(trial, options: skimming, errs: trialErrs)
+		if trialErrs.count() == 0 'kept'
+			p = exchange(trial, value: ast.Project.new(""))
+			return exchange(units, value: backend.UnitList.create(0))
+		end 'kept'
+	end 'skim'
+	return runtimeUnits(p, options: options, errs: errs)
+end 'prepareRuntime'
+
+// runtimeUnits is prepareRuntime's compile of the runtime, its bodies skimmed where options say so.
+function runtimeUnits(mutates p ast.Project, options Options, mutates errs diag.ErrorList) returns backend.UnitList
 	let first = p.modules.count()
 	project.discoverRuntime(p)
 	var runtimeOptions = Options.new()
@@ -250,12 +266,13 @@ function prepareRuntime(mutates p ast.Project, options Options, mutates errs dia
 	runtimeOptions.target = options.target.clone()
 	runtimeOptions.countAllocations = options.countAllocations
 	runtimeOptions.debugInfo = options.debugInfo
+	runtimeOptions.skimsBodies = options.skimsBodies
 	var run = runStages(p, from: Stage.parse, memory: project.SourceFiles.create(0), first: first, goal: Goal.units, makesProgram: false, output: "", options: runtimeOptions, ready: noReadyUnits(), errs: errs)
 	if errs.count() > 0 'failed'
 		ast.locateAllErrors(p.modules, errs: errs)
 	end 'failed'
 	return exchange(run.made, value: backend.UnitList.create(0))
-end 'prepareRuntime'
+end 'runtimeUnits'
 
 // compileDiscovered compiles the modules of p from the one at index first on, which a project discovered after the modules
 // that p started with, from their parse, and gives back what the generate stage lowered. memory holds the files that the

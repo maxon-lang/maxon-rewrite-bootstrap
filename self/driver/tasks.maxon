@@ -89,13 +89,15 @@ type ModuleWork
 	// words are what the module gives the library's names index: for a module of the program, the words its text writes
 	// (wordsIn), which reach the library's modules, and for one of the library, the words that reach it (wordsOfParsed).
 	var words as ast.StringList
+	// skimmed is how many bodies of functions the module's parse skimmed (Options.skimsBodies).
+	var skimmed as Count
 	// calls are the functions of other modules that the module's lower named, for a compile that lowers the library's modules
 	// on demand (lowersOnDemand), whose lowers are given them.
 	var calls as ast.FuncIDList
 
 	static function make(consumes home ast.ModuleHome) returns ModuleWork
 		let module = home.module
-		return ModuleWork{home: home, checkState: check.ModuleState.make(check.Checker.make(module, typing: ast.Typing.new(module)), entryRole: check.EntryRole.none), checked: check.ModuleChecked.none(), checkEnded: false, lowered: ir.IrFunctionList.create(0), kept: ir.IrFunctionList.create(0), code: freeze(ir.IrFunctionList.create(0)), leaves: freeze(opt.Leaves.empty()), unit: backend.CodeUnit.new(), reach: Reach.whole, digests: ModuleDigests.none(), key: table.Digest.none(), found: FoundEntry.none, speculated: false, mispredicted: false, checkedState: ByteArray.create(0), checkedKey: table.Digest.none(), checkedFound: FoundChecked.none, restored: Restored.none(), named: project.CountList.create(0), namesRead: false, words: ast.StringList.create(0), calls: ast.FuncIDList.create(0)}
+		return ModuleWork{home: home, checkState: check.ModuleState.make(check.Checker.make(module, typing: ast.Typing.new(module)), entryRole: check.EntryRole.none), checked: check.ModuleChecked.none(), checkEnded: false, lowered: ir.IrFunctionList.create(0), kept: ir.IrFunctionList.create(0), code: freeze(ir.IrFunctionList.create(0)), leaves: freeze(opt.Leaves.empty()), unit: backend.CodeUnit.new(), reach: Reach.whole, digests: ModuleDigests.none(), key: table.Digest.none(), found: FoundEntry.none, speculated: false, mispredicted: false, checkedState: ByteArray.create(0), checkedKey: table.Digest.none(), checkedFound: FoundChecked.none, restored: Restored.none(), named: project.CountList.create(0), namesRead: false, words: ast.StringList.create(0), skimmed: 0, calls: ast.FuncIDList.create(0)}
 	end 'make'
 
 	// startCheck starts the module's check as the order decided it (start).
@@ -377,7 +379,8 @@ function parseTask(c Compile, mutates work ModuleWork, known Known, inputs ast.I
 		work.namesRead = true
 		return giveTask(work, ms: ms, stage: Stage.parse)
 	end 'unreached'
-	project.parseModule(ms, p: view, memory: memory, errs: errs)
+	project.parseModuleSkimming(ms, p: view, memory: memory, skims: c.options.skimsBodies, errs: errs)
+	work.skimmed = ms.parsed.skimmed
 	if ofLibrary 'library'
 		work.named = project.libraryModulesNamedIn(view, text: ms.parsed.tree.text)
 		work.namesRead = true
@@ -393,6 +396,19 @@ function parseTask(c Compile, mutates work ModuleWork, known Known, inputs ast.I
 	end 'digests'
 	return giveTask(work, ms: ms, stage: Stage.parse)
 end 'parseTask'
+
+// checkBodies types the module's bodies, unless its parse skimmed some (Options.skimsBodies), which a compile that needs them
+// cannot use: it then fails, so that its caller compiles again without skimming (prepareRuntime).
+function checkBodies(mutates work ModuleWork, view ast.Project, mutates errs diag.ErrorList)
+	if work.skimmed > 0 'skimmed'
+		diag.pushLocatedError(errs, code: skimmedBodyNeeded, message: "the compile needs bodies that its parse skimmed", file: "", line: 1 as Count, col: 1 as Count)
+		return
+	end 'skimmed'
+	check.moduleBodies(work.checkState, p: view, errs: errs)
+end 'checkBodies'
+
+// skimmedBodyNeeded is the code of the error of a compile that needs a body its parse skimmed, which no compile reports.
+let skimmedBodyNeeded = "E9998"
 
 // reachedByProgram is whether the program reaches library module m by the library's names index: the words of the program's
 // modules, whose parses the parse of m waited on, reach the root, each library module one of whose words they are, and what
@@ -588,7 +604,7 @@ function checkTask(c Compile, mutates work ModuleWork, stage Stage, known Known,
 		entry then panic("driver: entry is a stage of the project")
 		constantOrder then check.moduleConstantOrder(work.checkState, p: view, errs: errs)
 		constants then check.moduleConstants(work.checkState, p: view, errs: errs)
-		bodies then check.moduleBodies(work.checkState, p: view, errs: errs)
+		bodies then checkBodies(work, view: view, errs: errs)
 		verify then check.moduleVerify(work.checkState, p: view, errs: errs)
 		endCheck then panic("driver: endCheck is a stage of the project")
 		lower then panic("driver: the lower is no stage of the check")

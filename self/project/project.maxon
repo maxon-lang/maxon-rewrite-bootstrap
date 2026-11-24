@@ -855,7 +855,7 @@ function lastPathPart(path String) returns String
 	return path.sliceBytes(start, endPos: path.byteLength()).clone()
 end 'lastPathPart'
 
-function parseSingleModule(mutates ms ast.ModuleState, p ast.Project, memory SourceFiles, mutates errs diag.ErrorList)
+function parseSingleModule(mutates ms ast.ModuleState, p ast.Project, memory SourceFiles, skims bool, mutates errs diag.ErrorList)
 	let mPath = ms.source.path.clone()
 	var fPaths = ast.StringList.create(0)
 	var fTexts = ast.StringList.create(0)
@@ -868,7 +868,7 @@ function parseSingleModule(mutates ms ast.ModuleState, p ast.Project, memory Sou
 		return
 	end 'ioFail'
 	let modID = ms.source.id
-	let res = syntax.parseModuleFiles(modID, path: mPath, filePaths: fPaths, fileTexts: fTexts, target: p.target, libraryTier: ms.source.inLibraryTier())
+	let res = syntax.parseModuleFilesSkimming(modID, path: mPath, filePaths: fPaths, fileTexts: fTexts, target: p.target, libraryTier: ms.source.inLibraryTier(), skims: skims)
 	match consumes res 'pr'
 		ok(parsedMod) then copyParsedIntoModule(ms, p: p, parsedMod: parsedMod)
 		err(found) then appendErrors(errs, found: found)
@@ -1039,10 +1039,16 @@ end 'parseModules'
 // parseModule reads a module's files, from memory when they are held there and from disk otherwise, parses them into the
 // module's tree and declarations, and gives the declarations their names and each type declaration its shell type.
 export function parseModule(mutates ms ast.ModuleState, p ast.Project, memory SourceFiles, mutates errs diag.ErrorList)
-	parseSingleModule(ms, p: p, memory: memory, errs: errs)
+	parseModuleSkimming(ms, p: p, memory: memory, skims: false, errs: errs)
+end 'parseModule'
+
+// parseModuleSkimming is parseModule that skims the bodies of the module's functions when skims is set, which the parsed
+// module then holds empty (ParsedModule.skimmed).
+export function parseModuleSkimming(mutates ms ast.ModuleState, p ast.Project, memory SourceFiles, skims bool, mutates errs diag.ErrorList)
+	parseSingleModule(ms, p: p, memory: memory, skims: skims, errs: errs)
 	let module = ms.module
 	buildModuleTable(ms, p: p, modID: module, errs: errs)
-end 'parseModule'
+end 'parseModuleSkimming'
 
 // addRuntime loads the runtime's source as a module of p, so that it is checked, lowered and linked with the programs
 // compiled after it.

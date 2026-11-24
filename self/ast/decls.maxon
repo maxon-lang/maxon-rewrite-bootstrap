@@ -435,9 +435,11 @@ export type ParsedModule
 	export var decls as DeclList
 	export var names as DeclIndex
 	export var nested as NestedAliasList
+	// skimmed is how many bodies of functions the parse skimmed, which it holds empty (syntax.parseModuleFilesSkimming).
+	export var skimmed as Count
 
 	export static function new(id diag.ModuleID, consumes text String, consumes files FileSpanList) returns ParsedModule
-		return ParsedModule{files: files, tree: Tree.new(id, text: text), decls: DeclList.create(0), names: DeclIndex.new(), nested: NestedAliasList.create(0)}
+		return ParsedModule{files: files, tree: Tree.new(id, text: text), decls: DeclList.create(0), names: DeclIndex.new(), nested: NestedAliasList.create(0), skimmed: 0}
 	end 'new'
 
 	export function appendRawDecl(mutates self, consumes d Decl)
