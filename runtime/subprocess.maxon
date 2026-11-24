@@ -187,6 +187,34 @@ function argumentAt(arguments Count, index Count) returns Count
 	return __Raw.wrappingAdd(__Raw.loadWord(arguments, offset: osArrayDataOffset), right: collectionBytes(index, elementBytes: __Raw.stringSize()))
 end 'argumentAt'
 
+// holdsNul is whether the executable, an argument or the working directory of a run holds a NUL byte, which names no program and no argument: the
+// systems' calls end their texts at it, so the spawn would run what the bytes before it name, without the arguments after.
+// The run is refused as spawnFailed before anything starts, as maxon's is.
+function holdsNul(executable String, arguments Count, directory String) returns bool
+	if bytesHoldNul(__Raw.stringBytes(executable), length: __Raw.stringLength(executable)) or bytesHoldNul(__Raw.stringBytes(directory), length: __Raw.stringLength(directory)) 'texts'
+		return true
+	end 'texts'
+	let count = wordAt(arguments, offset: osArrayLengthOffset)
+	for i in 0 upto count 'arguments'
+		let argument = argumentAt(arguments, index: i)
+		if bytesHoldNul(__Raw.stringBytesAt(argument, offset: 0), length: __Raw.stringLengthAt(argument, offset: 0)) 'argument'
+			return true
+		end 'argument'
+	end 'arguments'
+	return false
+end 'holdsNul'
+
+function bytesHoldNul(bytes Count, length Count) returns bool
+	var i = 0 as Count
+	while i < length 'bytes'
+		if __Raw.loadByte(bytes, offset: i) == 0 'nul'
+			return true
+		end 'nul'
+		i = __Raw.wrappingAdd(i, right: 1)
+	end 'bytes'
+	return false
+end 'bytesHoldNul'
+
 #if os(Windows)
 	// commandLineOf is a new zero-terminated UTF-16 command line of the executable and the arguments, each quoted by the
 	// rules that the C runtime splits them by, with a space between them. CreateProcessW may write in it.
@@ -435,6 +463,10 @@ end 'argumentAt'
 
 	// runChild runs the child of osRun and osRunIn, in directory unless it is empty, and of osRunInput when hasInput is set.
 	function runChild(executable String, arguments Count, directory String, hasInput bool, input String, deadlineMs Count, stdout Count, stderr Count, errorAddress Count) returns Count
+		if holdsNul(executable, arguments: arguments, directory: directory) 'nul'
+			failWith(errorAddress, errorCase: spawnFailed)
+			return 0
+		end 'nul'
 		let frame = alloc(frameBytes)
 		let output = fieldAt(frame, offset: frameOutputOffset)
 		let errors = fieldAt(frame, offset: frameErrorOffset)

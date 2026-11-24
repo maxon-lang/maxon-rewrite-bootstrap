@@ -383,6 +383,10 @@
 	// runChild runs the child of osRun and osRunIn, in directory unless it is empty, and of osRunInput when hasInput is set, its
 	// input written as the child reads it.
 	function runChild(executable String, arguments Count, directory String, hasInput bool, input String, deadlineMs Count, stdout Count, stderr Count, errorAddress Count) returns Count
+		if holdsNul(executable, arguments: arguments, directory: directory) 'nul'
+			failWith(errorAddress, errorCase: spawnFailed)
+			return 0
+		end 'nul'
 		let path = programPath(executable)
 		if path == 0 'missing'
 			failWith(errorAddress, errorCase: executableNotFound)
