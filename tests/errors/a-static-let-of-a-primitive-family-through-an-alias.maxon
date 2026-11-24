@@ -1,0 +1,19 @@
+// expect-error: E2015 at 16:16
+// A static let of the float family is one constant for the family, where a static function is generic over its Self and has an
+// instance for each alias. A read through an alias of a constant whose type is `Self`, the family's own, is refused rather
+// than giving the family's type where the alias is written.
+typealias Ratio = float(0.0 to 1.0)
+
+extension float
+	static let zero = 0.0 as Self
+end 'float'
+
+function takeRatio(r Ratio) returns Ratio
+	return r
+end 'takeRatio'
+
+function main() returns ExitCode
+	let r = Ratio.zero
+	print("{takeRatio(r)}\n")
+	return 0
+end 'main'

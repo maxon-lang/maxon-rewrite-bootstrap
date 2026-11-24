@@ -413,7 +413,8 @@ end 'visitStructLitExpr'
 
 function visitCastExpr(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID) returns Reg
 	let inner = ast.castExprE(p.modules[l.mi].tree, id: e)
-	let castTy = exprType(p, module: l.module, node: e)
+	let written = exprType(p, module: l.module, node: e)
+	let castTy = applyType(l, p: p, ms: ms, t: written)
 	if isRecoveryCast(l, p: p, ms: ms, e: e) 'recovered'
 		return lowerRecoveryCast(l, p: p, ms: ms, e: e, inner: inner, target: castTy)
 	end 'recovered'
@@ -425,12 +426,17 @@ function visitCastExpr(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleSt
 	end 'rebrand'
 	let fails = arithInfoAt(p, module: l.module, node: e).fails
 	let fail = overflowTo(l, p: p, ms: ms, fails: fails)
-	let target = exprType(p, module: l.module, node: e)
-	if ast.typeKind(ms.types, reads: p.types, t: target) == ast.TypeKind.floatRange 'float'
-		return floatConverted(l, p: p, ms: ms, v: v, e: inner, target: target, fails: fails)
+	if ast.typeKind(ms.types, reads: p.types, t: castTy) == ast.TypeKind.floatRange 'float'
+		return floatConverted(l, p: p, ms: ms, v: v, e: inner, target: castTy, fails: fails)
 	end 'float'
-	requireInt(p, ms: ms, t: target)
-	fit(l, p: p, ms: ms, v: v, target: target, source: exprType(p, module: l.module, node: inner), fails: fails, fail: fail)
+	requireInt(p, ms: ms, t: castTy)
+	var source = applyType(l, p: p, ms: ms, t: exprType(p, module: l.module, node: inner))
+	if ast.familyOfSelf(ms.types, reads: p.types, t: written) != ast.noType and ast.typeKind(ms.types, reads: p.types, t: source) == ast.TypeKind.constInt 'constant'
+		// The checker could not tell whether a constant fits the instance's range, which the check against the widest
+		// integer does.
+		source = p.builtins.anon64Ty
+	end 'constant'
+	fit(l, p: p, ms: ms, v: v, target: castTy, source: source, fails: fails, fail: fail)
 	return v
 end 'visitCastExpr'
 

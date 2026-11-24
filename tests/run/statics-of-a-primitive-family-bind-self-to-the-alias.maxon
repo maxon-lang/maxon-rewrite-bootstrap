@@ -1,0 +1,93 @@
+// A static function of an extension of a primitive family that names `Self` takes it as a type parameter bounded by the
+// family: `int.parse` is the full integer type, and `Port.parse` through a typealias is a `Port`, each with an instance of its
+// own. The body converts into `Self` with `as`, which the instance checks against its own range, so a value outside it takes
+// the `otherwise` path.
+typealias Port = int(0 to 65535)
+
+typealias Octet = int(0 to 255)
+
+typealias Ratio = float(0.0 to 1.0)
+
+enum ParseError implements Error
+	invalid
+	outOfRange
+end 'ParseError'
+
+extension int
+	static function parse(input String) returns Self throws ParseError
+		var value = 0 as Count
+		for i in 0 upto input.byteLength() 'digits'
+			let digit = try (input.byteAt(i) as Count) - 48 otherwise throw ParseError.invalid
+			if digit > 9 'notDigit'
+				throw ParseError.invalid
+			end 'notDigit'
+			value = try value * 10 + digit otherwise throw ParseError.outOfRange
+		end 'digits'
+		return try value as Self otherwise throw ParseError.outOfRange
+	end 'parse'
+
+	// viaSelf calls the function above on `Self`, so the instance for one alias calls the instance for that alias.
+	static function viaSelf(input String) returns Self throws ParseError
+		let once = try Self.parse(input) otherwise throw ParseError.invalid
+		return once
+	end 'viaSelf'
+
+	static function seven() returns Self throws ParseError
+		return try 7 as Self otherwise throw ParseError.outOfRange
+	end 'seven'
+
+	// big is a constant that fits one instance and not another.
+	static function big() returns Self throws ParseError
+		return try 70000 as Self otherwise throw ParseError.outOfRange
+	end 'big'
+
+	// bare names a static of the extension without its type, which is the same call on the same Self.
+	static function bare(input String) returns Self throws ParseError
+		return try parse(input) otherwise throw ParseError.invalid
+	end 'bare'
+end 'int'
+
+extension float
+	static function quarters(count Count) returns Self throws ParseError
+		return try ((count as FullRangeFloat) * 0.25) as Self otherwise throw ParseError.outOfRange
+	end 'quarters'
+end 'float'
+
+function show(text String) returns String
+	let port = try Port.parse(text) otherwise 0
+	return "{port}"
+end 'show'
+
+function main() returns ExitCode
+	let port = try Port.parse("8080") otherwise 0
+	let octet = try Octet.parse("200") otherwise 0
+	let wide = try int.parse("70000") otherwise 0
+	print("{port} {octet} {wide}\n")
+	print("{show("80")} {show("65535")} {show("65536")} {show("x")}\n")
+	let tooBig = try Octet.parse("256") otherwise 7
+	let notNumber = try Port.parse("12x") otherwise 9
+	print("{tooBig} {notNumber}\n")
+	let viaSelf = try Octet.viaSelf("9") otherwise 0
+	let seven = try Port.seven() otherwise 0
+	let sevenOctet = try Octet.seven() otherwise 0
+	let sevenWide = try int.seven() otherwise 0
+	let bigPort = try Port.big() otherwise 1
+	let bigOctet = try Octet.big() otherwise 2
+	let bigWide = try int.big() otherwise 3
+	let bare = try Octet.bare("300") otherwise 4
+	let bareOctet = try Octet.bare("30") otherwise 4
+	print("{viaSelf} {seven} {sevenOctet} {sevenWide}\n")
+	print("{bigPort} {bigOctet} {bigWide} {bare} {bareOctet}\n")
+	let half = try Ratio.quarters(2) otherwise 0.0
+	let past = try Ratio.quarters(5) otherwise -1.0
+	let any = try float.quarters(5) otherwise -1.0
+	print("{half} {past} {any}\n")
+	return 0
+end 'main'
+
+//> 8080 200 70000
+//> 80 65535 0 0
+//> 7 9
+//> 9 7 7 7
+//> 1 2 70000 4 30
+//> 0.5 -1.0 1.25

@@ -133,6 +133,9 @@ function siblingMethod(c Checker, p ast.Project, ms ast.ModuleState, callee ast.
 		return staticSibling(c, p: p, ms: ms, callee: callee)
 	end 'initializer'
 	let name = ast.nameExprName(ms.tree(), id: callee)
+	if ast.familyOfSelf(ms.types, reads: p.types, t: c.owner) != ast.noType 'ofFamily'
+		return methodOf(c, p: p, ms: ms, t: ast.familyOfSelf(ms.types, reads: p.types, t: c.owner), name: name, node: callee, errs: errs)
+	end 'ofFamily'
 	if typeHasKind(p, ms: ms, t: c.owner, kind: ast.TypeKind.typeParam) 'parameter'
 		let req = boundRequirement(p, ms: ms, boundedFn: c.boundedFn, param: c.owner, name: name)
 		if req.sig != ast.noFunc 'required'
@@ -409,28 +412,23 @@ function familySelf(p ast.Project, ms ast.ModuleState, t ast.TypeID) returns ast
 	return t
 end 'familySelf'
 
-// namesFamilySelf is whether the static function sig of a primitive family, called through the typealias qualifier, names
-// the family's Self in its signature: the alias would bind Self to itself, which minimaxon does not do yet, and the call
-// would give the family's type where the alias's is written.
-function namesFamilySelf(p ast.Project, ms ast.ModuleState, qualifier ast.TypeID, sig ast.FuncID) returns bool
-	let family = familySelf(p, ms: ms, t: qualifier)
-	if family == qualifier 'family'
-		return false
-	end 'family'
-	let entry = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: sig)
-	if entry.retTy == family 'result'
-		return true
-	end 'result'
-	for i in 0 upto entry.paramTypes.count() 'params'
-		if entry.paramTypes[i] == family 'param'
-			return true
-		end 'param'
-	end 'params'
-	return false
-end 'namesFamilySelf'
+// isFamilyType is whether t is the type that names a primitive family: every integer, every float, or bool.
+function isFamilyType(p ast.Project, t ast.TypeID) returns bool
+	return t == p.builtins.anon64Ty or t == p.builtins.anonFloatTy or t == p.builtins.boolTy
+end 'isFamilyType'
 
-// implicitSelfRefusal is the message that refuses a static of a primitive family whose type names Self, reached through a
-// typealias of the family.
+// staticHolder is the type whose extensions declare the statics that a qualifier of type t reaches: the family, where t is the
+// `Self` of a static of one, and t itself otherwise.
+function staticHolder(p ast.Project, ms ast.ModuleState, t ast.TypeID) returns ast.TypeID
+	let family = ast.familyOfSelf(ms.types, reads: p.types, t: t)
+	if family == ast.noType 'other'
+		return t
+	end 'other'
+	return family
+end 'staticHolder'
+
+// implicitSelfRefusal is the message that refuses a static let of a primitive family whose type is the family's own, reached
+// through a typealias of the family: the constant is one for the family, so its type is not the alias's.
 export function implicitSelfRefusal(p ast.Project, ms ast.ModuleState, qualifier ast.TypeID, name String) returns String
 	let alias = nameOfType(p, ms: ms, t: qualifier)
 	var family = nameOfType(p, ms: ms, t: qualifier)
@@ -439,7 +437,7 @@ export function implicitSelfRefusal(p ast.Project, ms ast.ModuleState, qualifier
 	end 'integer' else if ast.isFloatType(ms.types, reads: p.types, t: qualifier) 'float'
 		family = floatFamily
 	end 'float'
-	return "Unsupported: '{alias}.{name}' names Self, which a static of the family of '{alias}' is not yet instantiated with for a typealias; write '{family}.{name}' and convert the result to '{alias}'"
+	return "Unsupported: '{alias}.{name}' is a static let of the family of '{alias}' whose type is the family's own, which is not the type of '{alias}'; write '{family}.{name}' and convert the result to '{alias}'"
 end 'implicitSelfRefusal'
 
 // familyNamed is the type that a primitive's word names as the qualifier of a static, or noType.
@@ -531,18 +529,21 @@ function callMember(mutates c Checker, p ast.Project, mutates ms ast.ModuleState
 	return callOnValue(c, p: p, ms: ms, call: call, receiver: receiver, name: name, errs: errs)
 end 'callMember'
 
+// callPrimitiveStatic types a call of a static function on the qualifier t: a primitive's name, a typealias of an integer, a
+// float or bool, or the `Self` of a static function of an extension of a primitive family. A static function of a family
+// is generic over its `Self`, which the call binds to the qualifier.
 function callPrimitiveStatic(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, call ast.NodeID, t ast.TypeID, name String, mutates errs diag.ErrorList) returns ast.TypeID
 	let mark = errs.count()
-	let sf = methodOf(c, p: p, ms: ms, t: t, name: name, node: call, errs: errs)
+	let sf = methodOf(c, p: p, ms: ms, t: staticHolder(p, ms: ms, t: t), name: name, node: call, errs: errs)
 	if failedSince(errs, mark: mark) 'ambiguous'
 		return ast.noType
 	end 'ambiguous'
 	if sf != ast.noFunc and ast.funcEntry(ms.funcs, funcReads: p.funcs, f: sf).isStatic 'static'
-		if namesFamilySelf(p, ms: ms, qualifier: t, sig: sf) 'implicitSelf'
-			failAt(c, p: p, ms: ms, node: call, code: diag.errUnsupportedFeature, msg: implicitSelfRefusal(p, ms: ms, qualifier: t, name: name), errs: errs)
-			return ast.noType
-		end 'implicitSelf'
-		return callFunction(c, p: p, ms: ms, call: call, kind: ast.CallKind.callStatic, target: sf, hasGiven: false, given: ast.TypeIDList.create(0), errs: errs)
+		var given = ast.TypeIDList.create(0)
+		if ast.familyOfSelf(ms.types, reads: p.types, t: ast.funcEntry(ms.funcs, funcReads: p.funcs, f: sf).ownerTy) != ast.noType 'ofFamily'
+			given.push(t)
+		end 'ofFamily'
+		return callFunction(c, p: p, ms: ms, call: call, kind: ast.CallKind.callStatic, target: sf, hasGiven: given.count() > 0, given: given, errs: errs)
 	end 'static'
 	return unknownFunction(c, p: p, ms: ms, call: call, name: "{nameOfType(p, ms: ms, t: t)}.{name}", qualifiers: 1 as Count, fix: diag.Fix.none(), errs: errs)
 end 'callPrimitiveStatic'
@@ -608,6 +609,9 @@ end 'overloadByFirstArgument'
 
 // callOnType types a call written on a type's name: a case of a union that carries a payload, or a static function.
 function callOnType(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, call ast.NodeID, nt ast.TypeID, name String, mutates errs diag.ErrorList) returns ast.TypeID
+	if isFamilyType(p, t: nt) or ast.familyOfSelf(ms.types, reads: p.types, t: nt) != ast.noType 'family'
+		return callPrimitiveStatic(c, p: p, ms: ms, call: call, t: nt, name: name, errs: errs)
+	end 'family'
 	if ast.typeKind(ms.types, reads: p.types, t: nt) == ast.TypeKind.typeParam 'parameter'
 		return callOnTypeParam(c, p: p, ms: ms, call: call, param: nt, name: name, errs: errs)
 	end 'parameter'

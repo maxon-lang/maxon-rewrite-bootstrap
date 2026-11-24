@@ -3742,8 +3742,16 @@ Inside, `self` and the bare names of the type's fields and type parameters mean 
 the type. As in Swift, an extension of any of these may add static members: a `static function`, and a `static let`, which is
 a constant of the type as one its body declares is (see "Default parameter values, static fields, default throws and
 fallthrough"), read as `Type.name` (`int.answer`, `float.fromString(text)`, `String.greeting`, or through a typealias of an
-integer or a float, `Port.answer`) and as `name` inside the extension. A static of the family whose signature names `Self` is
-not yet called through a typealias, which would bind `Self` to it (`E2015`, which says to call it on the family and convert).
+integer or a float, `Port.answer`) and as `name` inside the extension. A static function of `int`, `float` or `bool` is
+generic over `Self`, a type parameter bounded by the family alone: a call through the family's name binds it to the family's
+full type (`int.parse(text)` returns an `int(i64.min to i64.max)`), and one through a typealias binds it to the alias
+(`Port.parse(text)` returns a `Port`), each with an instance of its own, made where it is called and never otherwise (see
+"Generics"). Its body does with a value of `Self` what a generic does with one of an unbounded parameter, and converts
+into it: `return try value as Self otherwise throw ParseError.outOfRange` checks the value against the range of the instance
+(a constant too, `7 as Self`), and a float converts from any number. The range analysis takes that conversion as one that
+can fail on both sides, so it is written with `try`; `Self.name(...)` and a bare `name(...)` call another static function
+of the extension on the same `Self`. A static let is one constant for the family, so one whose type is the family's own
+(`static let zero = 0.0 as Self`) is `E2015` when read through a typealias, which says to read it on the family and convert.
 A static let of a generic type, in its body or in an extension of it, is one for each instance where its value names the
 type's parameters or `Self` (see "Default parameter values, static fields, default throws and fallthrough"). One in an
 extension of an interface is `E2015`: there would have to be one for each type that implements the interface, so it is a

@@ -913,6 +913,9 @@ export function lacksCap(mutates c Checker, p ast.Project, mutates ms ast.Module
 		return LackInfo.ok()
 	end 'function'
 	if k == ast.TypeKind.typeParam 'tp'
+		if ast.familyOfSelf(ms.types, reads: p.types, t: t) != ast.noType 'primitive'
+			return LackInfo.ok()
+		end 'primitive'
 		if hasBoundCap(p, ms: ms, boundedFn: c.boundedFn, paramTy: t, wantCopy: wantCopy) 'ok'
 			return LackInfo.ok()
 		end 'ok'

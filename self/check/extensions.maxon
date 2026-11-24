@@ -129,10 +129,35 @@ function declareExtension(mutates c Checker, p ast.Project, mutates ms ast.Modul
 	if failedSince(errs, mark: mark) 'badConforms'
 		return
 	end 'badConforms'
+	let familySelf = familySelfParam(c, p: p, ms: ms, xd: xd, family: nt)
 	for i in 0 upto xd.methods.count() 'methods'
-		addExtensionMethod(c, p: p, ms: ms, xd: xd, method: xd.methods[i].clone(), nt: nt, key: key, declared: declared, errs: errs)
+		var owner = nt
+		if xd.methods[i].isStatic and familySelf != ast.noType 'static'
+			owner = familySelf
+		end 'static'
+		addExtensionMethod(c, p: p, ms: ms, xd: xd, method: xd.methods[i].clone(), nt: owner, key: key, declared: declared, errs: errs)
 	end 'methods'
 end 'declareExtension'
+
+// familySelfParam is the `Self` of the static functions of an extension of the primitive family, or none where the extension
+// is of another type or adds no static function. Such a function is generic over it: a call through the family's name binds
+// it to the family's full type, and one through a typealias of the family to the alias, so that `Port.fromString(text)`
+// returns a `Port`. The parameter is bounded by the family alone, so the body converts into it with `as` and does no more.
+function familySelfParam(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, xd ast.ExtensionDecl, family ast.TypeID) returns ast.TypeID
+	if not isFamilyType(p, t: family) 'other'
+		return ast.noType
+	end 'other'
+	var hasStatic = false
+	for i in 0 upto xd.methods.count() 'methods'
+		hasStatic = hasStatic or xd.methods[i].isStatic
+	end 'methods'
+	if not hasStatic 'none'
+		return ast.noType
+	end 'none'
+	let selfParam = ast.allocType(ms.types, module: c.modID, e: ast.TypeEntry.make(ast.TypeKind.typeParam, name: "Self"))
+	ms.types.lists[ast.typeList(ms.types, t: selfParam)][ast.typeIndex(ms.types, t: selfParam)].family = family
+	return selfParam
+end 'familySelfParam'
 
 // declareInterfaceExtension declares the methods that an extension adds to every type that implements the interface iface.
 // As in Hylo, each is generic over that type, a parameter 'Self' of the extension's own bounded by the interface, and over

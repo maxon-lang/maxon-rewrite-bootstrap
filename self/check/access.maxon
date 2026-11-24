@@ -241,6 +241,10 @@ function checkMember(mutates c Checker, p ast.Project, mutates ms ast.ModuleStat
 		if failedSince(errs, mark: mark) 'failed'
 			return ast.noType
 		end 'failed'
+		if ast.familyOfSelf(ms.types, reads: p.types, t: named) != ast.noType 'familySelf'
+			// A static let is one of the family, which every `Self` reads alike.
+			named = ast.familyOfSelf(ms.types, reads: p.types, t: named)
+		end 'familySelf'
 	end 'headIsName'
 	if named != ast.noType 'typeMember'
 		return checkTypeMember(c, p: p, ms: ms, e: e, obj: obj, nt: named, errs: errs)

@@ -982,6 +982,13 @@ function rangeCastExpr(mutates r Ranges, p ast.Project, ms ast.ModuleState, e as
 		end 'integer'
 		return noSpan()
 	end 'recovered'
+	if ast.familyOfSelf(ms.types, reads: p.types, t: ty) != ast.noType 'ofFamily'
+		// Each instance has its own range, so the value may lie outside it on either side.
+		if src != ty 'converted'
+			rangeFail(r, p: p, ms: ms, e: e, fails: ast.failBelow or ast.failAbove, why: Unchecked.cast(ty))
+		end 'converted'
+		return noSpan()
+	end 'ofFamily'
 	if ast.castRebrands(ms.types, reads: p.types, target: ty) 'rebrand'
 		return noSpan()
 	end 'rebrand'

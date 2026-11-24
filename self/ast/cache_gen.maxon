@@ -2076,6 +2076,7 @@ function storeTypeEntry(mutates w table.CacheWriter, v TypeEntry)
 	w.text(v.brandKey)
 	w.word64(v.supertype as table.Word64)
 	w.flag(v.mayBorrow)
+	w.word64(v.family as table.Word64)
 end 'storeTypeEntry'
 
 extension TypeEntry
@@ -2112,7 +2113,8 @@ extension TypeEntry
 		let theBrandKey = r.text()
 		let theSupertype = try (r.word64() as TypeID) otherwise panic("cache: a stored TypeID is out of its range")
 		let theMayBorrow = r.flag()
-		return TypeEntry{id: theId, kind: theKind, name: theName, inferred: theInferred, minVal: theMinVal, maxVal: theMaxVal, bitsWidth: theBitsWidth, hasDecl: theHasDecl, decl: theDecl, isNoncopyable: theIsNoncopyable, origin: theOrigin, declaring: theDeclaring, typeParams: theTypeParams, typeArgs: theTypeArgs, conforms: theConforms, bounds: theBounds, fields: theFields, cases: theCases, hasExplicitRaw: theHasExplicitRaw, rawKind: theRawKind, methods: theMethods, sigs: theSigs, boundIface: theBoundIface, dropFunc: theDropFunc, selfParam: theSelfParam, paramConvs: theParamConvs, isTuple: theIsTuple, mutatesCaptures: theMutatesCaptures, isBrand: theIsBrand, brandKey: theBrandKey, supertype: theSupertype, mayBorrow: theMayBorrow}
+		let theFamily = try (r.word64() as TypeID) otherwise panic("cache: a stored TypeID is out of its range")
+		return TypeEntry{id: theId, kind: theKind, name: theName, inferred: theInferred, minVal: theMinVal, maxVal: theMaxVal, bitsWidth: theBitsWidth, hasDecl: theHasDecl, decl: theDecl, isNoncopyable: theIsNoncopyable, origin: theOrigin, declaring: theDeclaring, typeParams: theTypeParams, typeArgs: theTypeArgs, conforms: theConforms, bounds: theBounds, fields: theFields, cases: theCases, hasExplicitRaw: theHasExplicitRaw, rawKind: theRawKind, methods: theMethods, sigs: theSigs, boundIface: theBoundIface, dropFunc: theDropFunc, selfParam: theSelfParam, paramConvs: theParamConvs, isTuple: theIsTuple, mutatesCaptures: theMutatesCaptures, isBrand: theIsBrand, brandKey: theBrandKey, supertype: theSupertype, mayBorrow: theMayBorrow, family: theFamily}
 	end 'cacheLoad'
 end 'TypeEntry'
 

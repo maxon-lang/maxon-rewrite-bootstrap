@@ -52,7 +52,8 @@ end 'newFuncEntry'
 
 // declareGenerics gives a function its type parameters: its own, or for a method the ones of its type, which its
 // 'where' may bound further. A method that an extension of an interface adds belongs to the extension's parameter 'Self',
-// and takes it and the associated types of the interface that bounds it.
+// and takes it and the associated types of the interface that bounds it; a static function of an extension of a primitive
+// family takes its parameter 'Self' alone.
 function declareGenerics(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, f ast.FuncDecl, fid ast.FuncID, nt ast.TypeID, mutates errs diag.ErrorList)
 	let isMethod = nt != ast.noType
 	if f.typeParams.count() > 0 and isMethod 'ownParams'
@@ -62,10 +63,12 @@ function declareGenerics(mutates c Checker, p ast.Project, mutates ms ast.Module
 	let ofInterface = isMethod and ast.typeKind(ms.types, reads: p.types, t: nt) == ast.TypeKind.typeParam
 	if isMethod and (ofInterface or ast.typeEntry(ms.types, reads: p.types, t: nt).typeParams.count() > 0) 'ofType'
 		var generics = ast.cloneTypeArgs(ast.typeEntry(ms.types, reads: p.types, t: nt).typeParams)
-		if ofInterface 'interface'
+		if ofInterface 'self'
 			generics.push(nt)
-			generics.append(ast.typeEntry(ms.types, reads: p.types, t: ast.typeEntry(ms.types, reads: p.types, t: nt).bounds[0].ifaceTy).typeArgs)
-		end 'interface'
+			if ast.familyOfSelf(ms.types, reads: p.types, t: nt) == ast.noType 'interface'
+				generics.append(ast.typeEntry(ms.types, reads: p.types, t: ast.typeEntry(ms.types, reads: p.types, t: nt).bounds[0].ifaceTy).typeArgs)
+			end 'interface'
+		end 'self'
 		var bounds = ast.ParamBoundList.create(0)
 		let mark = errs.count()
 		for i in 0 upto f.whereList.count() 'cons'

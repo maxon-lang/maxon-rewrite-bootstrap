@@ -382,10 +382,13 @@ export type TypeEntry
 	// 'Self' of an extension of an interface, and an associated type that the interface's 'where' bounds. Code over one is
 	// checked as code over a value that holds a borrow.
 	export var mayBorrow as bool
+	// family is, on the `Self` of a static function of an extension of a primitive family, the type that names the family: every
+	// integer, every float, or bool. It is none for any other type.
+	export var family as TypeID
 
 	export static function make(kind TypeKind, consumes name String) returns TypeEntry
 		let z = I128.zero()
-		return TypeEntry{id: noType, kind: kind, name: name, inferred: false, minVal: z.clone(), maxVal: z, bitsWidth: 0 as Count, hasDecl: false, decl: DeclRef.make(0 as diag.ModuleID, ordinal: 0 as DeclOrdinal), isNoncopyable: false, origin: noType, declaring: false, typeParams: TypeIDList.create(0), typeArgs: TypeIDList.create(0), conforms: TypeIDList.create(0), bounds: ParamBoundList.create(0), fields: FieldInfoList.create(0), cases: CaseInfoList.create(0), hasExplicitRaw: false, rawKind: RawKind.integer, methods: MethodRefList.create(0), sigs: FuncIDList.create(0), boundIface: noType, dropFunc: noFunc, selfParam: noType, paramConvs: ConventionList.create(0), isTuple: false, mutatesCaptures: false, isBrand: false, brandKey: "", supertype: noType, mayBorrow: false}
+		return TypeEntry{id: noType, kind: kind, name: name, inferred: false, minVal: z.clone(), maxVal: z, bitsWidth: 0 as Count, hasDecl: false, decl: DeclRef.make(0 as diag.ModuleID, ordinal: 0 as DeclOrdinal), isNoncopyable: false, origin: noType, declaring: false, typeParams: TypeIDList.create(0), typeArgs: TypeIDList.create(0), conforms: TypeIDList.create(0), bounds: ParamBoundList.create(0), fields: FieldInfoList.create(0), cases: CaseInfoList.create(0), hasExplicitRaw: false, rawKind: RawKind.integer, methods: MethodRefList.create(0), sigs: FuncIDList.create(0), boundIface: noType, dropFunc: noFunc, selfParam: noType, paramConvs: ConventionList.create(0), isTuple: false, mutatesCaptures: false, isBrand: false, brandKey: "", supertype: noType, mayBorrow: false, family: noType}
 	end 'make'
 
 	export function findMethod(methodName String) returns table.Option with FuncID
@@ -1916,6 +1919,15 @@ export function hasTypeDepthOverflow(tt TypeSlot, reads TypeTable, t TypeID, dep
 	end 'each'
 	return false
 end 'hasTypeDepthOverflow'
+
+// familyOfSelf is the primitive family that the type t is the `Self` of in a static function of an extension of it, or none
+// for any other type.
+export function familyOfSelf(tt TypeSlot, reads TypeTable, t TypeID) returns TypeID
+	if t == noType or typeKind(tt, reads: reads, t: t) != TypeKind.typeParam 'other'
+		return noType
+	end 'other'
+	return typeEntry(tt, reads: reads, t: t).family
+end 'familyOfSelf'
 
 export function isIntType(tt TypeSlot, reads TypeTable, t TypeID) returns bool
 	if t == noType 'no'

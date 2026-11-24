@@ -1008,6 +1008,9 @@ function checkCast(mutates c Checker, p ast.Project, mutates ms ast.ModuleState,
 	if typeHasKind(p, ms: ms, t: target, kind: ast.TypeKind.interfaceTy) 'interface'
 		return checkInterfaceCast(c, p: p, ms: ms, e: e, operand: operand, target: target, errs: errs)
 	end 'interface'
+	if ast.familyOfSelf(ms.types, reads: p.types, t: target) != ast.noType 'ofFamily'
+		return checkFamilyCast(c, p: p, ms: ms, e: e, operand: operand, target: target, errs: errs)
+	end 'ofFamily'
 	let toFloat = typeHasKind(p, ms: ms, t: target, kind: ast.TypeKind.floatRange)
 	let toInt = typeHasKind(p, ms: ms, t: target, kind: ast.TypeKind.intRange)
 	let numeric = toInt or toFloat
@@ -1063,6 +1066,26 @@ function checkCast(mutates c Checker, p ast.Project, mutates ms ast.ModuleState,
 	failCast(c, p: p, ms: ms, off: off, src: src, target: target, errs: errs)
 	return ast.noType
 end 'checkCast'
+
+// checkFamilyCast types a cast to the `Self` of a static function of an extension of a primitive family: a number of the
+// family converts to it, and which type `Self` is, so which values fit, is known only to each instance, so the range analysis
+// takes the conversion as one that can fail and the instance checks the value against its own range. A bool converts from
+// nothing, as any cast to one is refused.
+function checkFamilyCast(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, operand ast.NodeID, target ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
+	let src = checkExpr(c, p: p, ms: ms, e: operand, errs: errs)
+	if src == ast.noType 'badSource'
+		return ast.noType
+	end 'badSource'
+	setOperand(c, node: e, operand: src)
+	let family = ast.familyOfSelf(ms.types, reads: p.types, t: target)
+	let fromInteger = family == p.builtins.anon64Ty and ast.isIntType(ms.types, reads: p.types, t: src)
+	let fromNumber = family == p.builtins.anonFloatTy and isNumberType(p, ms: ms, t: src)
+	if src == target or fromInteger or fromNumber 'converts'
+		return target
+	end 'converts'
+	failCast(c, p: p, ms: ms, off: offsetOf(c, p: p, ms: ms, node: e), src: src, target: target, errs: errs)
+	return ast.noType
+end 'checkFamilyCast'
 
 // checkFunctionCast casts a function value to another function type of its shape, which re-brands it, as in maxon: the
 // value is the same closure. A closure written in the cast takes the target as the type it is written for.
