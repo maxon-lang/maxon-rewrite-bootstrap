@@ -1,0 +1,205 @@
+// If-conversion of a conditional update: a branch one side of which only adds, subtracts, ors or xors a constant into
+// values that it then passes to the block the other side goes to, as `if c 'x' n = n + 1 end 'x'` is lowered, becomes the
+// update computed on both ways with an amount of the constant where c holds and 0 where it does not, and a jump. A branch
+// on data the processor cannot predict (a scan that counts the bytes above a digit) costs a misprediction on every few
+// iterations and a taken branch on every other; the update costs one or two operations. A checked update keeps its check
+// and its failure block: with an amount of 0 it cannot fail, so it fails exactly when the side it came from would have.
+
+// Converter is the state of the pass, kept from one function to the next.
+export type Converter
+	// converted is how many branches the pass turned into updates, over every function it was given.
+	export var converted as Count
+	var editor as Editor
+	// By block: how many edges enter it, the terminators' and the failure edges of instructions.
+	var entries as Array with Count
+	// By register: the instruction plus 1 that defines it, or 0 for a parameter.
+	var definedAt as Array with Count
+	// By block: whether a conversion changed it, whose instructions, registers and terminator the facts no longer
+	// describe until the editor has applied the edits.
+	var rewritten as Array with bool
+	// The updates of the side being looked at, by the place of the edge argument each gives: the instruction plus 1, or
+	// 0 where the side passes what the other side passes.
+	var updates as Array with Count
+	var passed as ir.RegList
+
+	export static function new() returns Converter
+		return Converter{converted: 0, editor: Editor.new(), entries: Array.create(0), definedAt: Array.create(0), rewritten: Array.create(0), updates: Array.create(0), passed: ir.RegList.create(0)}
+	end 'new'
+
+	// convert turns the conditional updates of f into unconditional ones, and gives whether it turned any. f is in SSA
+	// form.
+	export function convert(mutates self, mutates f ir.IrFunction) returns bool
+		self.facts(f)
+		editor.begin(f)
+		var changed = false
+		for p in 0 upto f.blocks.count() 'blocks'
+			if f.blocks[p].term.kind != ir.TermKind.termBranch 'notBranch'
+				continue 'blocks'
+			end 'notBranch'
+			let term = f.blocks[p].term.clone()
+			if self.convertSide(f, p: p, side: ir.branchIfTrue(term), other: ir.branchIfFalse(term), otherStart: ir.branchFalseArgsStart(term), otherCount: ir.branchFalseArgsCount(term), holds: true) 'trueSide'
+				changed = true
+				continue 'blocks'
+			end 'trueSide'
+			if self.convertSide(f, p: p, side: ir.branchIfFalse(term), other: ir.branchIfTrue(term), otherStart: ir.branchTrueArgsStart(term), otherCount: ir.branchTrueArgsCount(term), holds: false) 'falseSide'
+				changed = true
+			end 'falseSide'
+		end 'blocks'
+		editor.finish(f)
+		return changed
+	end 'convert'
+
+	// facts counts the edges into each block of f and finds the instruction that defines each register.
+	function facts(mutates self, f ir.IrFunction)
+		ir.resetCounts(entries, n: f.blocks.count())
+		ir.resetCounts(definedAt, n: f.regs.count())
+		ir.resetFlags(rewritten, n: f.blocks.count())
+		for b in 0 upto f.blocks.count() 'blocks'
+			for k in f.blocks[b].first upto f.blocks[b].endAt 'instrs'
+				let fail = ir.failTarget(f.instrs[k])
+				if fail != ir.noBlock 'fails'
+					self.enter(fail)
+				end 'fails'
+				if f.instrs[k].dst != ir.noReg 'defines'
+					definedAt[regIndex(f.instrs[k].dst)] = plusOne(k)
+				end 'defines'
+			end 'instrs'
+			editor.loadEdges(f, b: b)
+			for e in 0 upto editor.edges.out.count() 'edges'
+				let target = editor.edges.out[e]
+				self.enter(target)
+			end 'edges'
+		end 'blocks'
+	end 'facts'
+
+	function enter(mutates self, target ir.BlockID)
+		let t = ir.blockIndex(target)
+		entries[t] = plusOne(entries[t])
+	end 'enter'
+
+	// convertSide converts the branch that ends block p when its side to block side, the one it takes where its condition
+	// is holds, only updates values that it passes to other, where the branch's other edge goes with the otherCount
+	// arguments from otherStart of f.args.
+	function convertSide(mutates self, mutates f ir.IrFunction, p Count, side ir.BlockID, other ir.BlockID, otherStart Count, otherCount Count, holds bool) returns bool
+		let s = ir.blockIndex(side)
+		if s == p or side == other or rewritten[s] or entries[s] != 1 or f.blocks[s].paramCount != 0 'shape'
+			return false
+		end 'shape'
+		let jump = f.blocks[s].term.clone()
+		if jump.kind != ir.TermKind.termJump or ir.jumpTarget(jump) != other or ir.jumpArgsCount(jump) != otherCount 'joins'
+			return false
+		end 'joins'
+		for k in f.blocks[s].first upto f.blocks[s].endAt 'instrs'
+			if f.instrs[k].op != ir.Opcode.opConst and not self.isUpdate(f, k: k, s: s) 'other'
+				return false
+			end 'other'
+		end 'instrs'
+		ir.resetCounts(updates, n: otherCount)
+		var any = false
+		for i in 0 upto otherCount 'args'
+			let here = f.args[sum(ir.jumpArgsStart(jump), b: i)]
+			let there = f.args[sum(otherStart, b: i)]
+			if here == there 'same'
+				continue 'args'
+			end 'same'
+			let at = definedAt[regIndex(here)]
+			if at == 0 or not self.inBlock(f, k: minusOne(at), b: s) or f.instrs[minusOne(at)].op != ir.Opcode.opBin or ir.binLeft(f.instrs[minusOne(at)]) != there 'notUpdate'
+				return false
+			end 'notUpdate'
+			updates[i] = at
+			any = true
+		end 'args'
+		if not any 'nothing'
+			return false
+		end 'nothing'
+		let mask = self.maskOf(f, p: p, holds: holds)
+		passed.clear()
+		for i in 0 upto otherCount 'args'
+			let there = f.args[sum(otherStart, b: i)]
+			if updates[i] == 0 'same'
+				passed.push(there)
+				continue 'args'
+			end 'same'
+			let k = minusOne(updates[i])
+			let amount = self.amountOf(f, p: p, k: k, mask: mask)
+			let update = f.instrs[k].clone()
+			let kind = f.regs[regIndex(update.dst)]
+			let result = f.newReg(kind)
+			editor.append(p, x: ir.newBin(result, op: ir.binOp(update), left: there, right: amount, unsigned: ir.binUnsigned(update), fail: ir.failTarget(update)), span: ir.spanAt(f, k: k))
+			passed.push(result)
+		end 'args'
+		let start = f.args.count()
+		f.args.append(passed)
+		editor.retarget(f, b: p, t: ir.newJumpWith(other, argsStart: ir.indexOf(start), argsCount: ir.indexOf(passed.count())))
+		rewritten[p] = true
+		rewritten[s] = true
+		converted = plusOne(converted)
+		return true
+	end 'convertSide'
+
+	// isUpdate is whether instruction k of block s adds, subtracts, ors or xors a constant into a value defined outside
+	// s: an operation of which 0 is the identity on the right, so an amount of 0 leaves the value as it is.
+	function isUpdate(f ir.IrFunction, k Count, s Count) returns bool
+		if f.instrs[k].op != ir.Opcode.opBin 'notBin'
+			return false
+		end 'notBin'
+		let op = ir.binOp(f.instrs[k])
+		if op != ir.BinOp.binAdd and op != ir.BinOp.binSub and op != ir.BinOp.binOr and op != ir.BinOp.binXor 'notIdentity'
+			return false
+		end 'notIdentity'
+		let left = definedAt[regIndex(ir.binLeft(f.instrs[k]))]
+		if left != 0 and self.inBlock(f, k: minusOne(left), b: s) 'chained'
+			return false
+		end 'chained'
+		let right = definedAt[regIndex(ir.binRight(f.instrs[k]))]
+		return right != 0 and f.instrs[minusOne(right)].op == ir.Opcode.opConst
+	end 'isUpdate'
+
+	function inBlock(f ir.IrFunction, k Count, b Count) returns bool
+		return k >= f.blocks[b].first and k < f.blocks[b].endAt
+	end 'inBlock'
+
+	// maskOf is a register that holds 1 where the branch that ends block p goes the way holds says and 0 where it does
+	// not, made by instructions appended to p where its condition is not such a register already: a comparison gives 0 or
+	// 1, and a branch tests any other word for 0.
+	function maskOf(mutates self, mutates f ir.IrFunction, p Count, holds bool) returns ir.Reg
+		let cond = ir.branchCond(f.blocks[p].term)
+		let at = definedAt[regIndex(cond)]
+		if holds and at != 0 and (f.instrs[minusOne(at)].op == ir.Opcode.opCmp or f.instrs[minusOne(at)].op == ir.Opcode.opFCmp) 'comparison'
+			return cond
+		end 'comparison'
+		let zero = f.newReg(ir.IrKind.kindScalar)
+		editor.append(p, x: ir.newConst(zero, value: 0), span: ir.noSpan)
+		let mask = f.newReg(ir.IrKind.kindScalar)
+		var op = ir.CmpOp.cmpNe
+		if not holds 'inverted'
+			op = ir.CmpOp.cmpEq
+		end 'inverted'
+		editor.append(p, x: ir.newCmp(mask, op: op, left: cond, right: zero, unsigned: true), span: ir.noSpan)
+		return mask
+	end 'maskOf'
+
+	// amountOf is a register that holds the constant that update k applies where mask is 1 and 0 where it is 0, made by
+	// instructions appended to block p: the mask itself for a constant of 1, else the constant and'ed with the mask's
+	// negation, all ones or none.
+	function amountOf(mutates self, mutates f ir.IrFunction, p Count, k Count, mask ir.Reg) returns ir.Reg
+		let value = ir.constValue(f.instrs[minusOne(definedAt[regIndex(ir.binRight(f.instrs[k]))])])
+		if value == oneValue 'one'
+			return mask
+		end 'one'
+		let ones = f.newReg(ir.IrKind.kindScalar)
+		editor.append(p, x: ir.newNeg(ones, src: mask, fail: ir.noBlock), span: ir.noSpan)
+		let constant = f.newReg(ir.IrKind.kindScalar)
+		editor.append(p, x: ir.newConst(constant, value: value), span: ir.noSpan)
+		let amount = f.newReg(ir.IrKind.kindScalar)
+		editor.append(p, x: ir.newBin(amount, op: ir.BinOp.binAnd, left: ones, right: constant, unsigned: true, fail: ir.noBlock), span: ir.noSpan)
+		return amount
+	end 'amountOf'
+end 'Converter'
+
+// oneValue is the constant an update that adds a mask as it is applies.
+let oneValue = 1 as ir.Word
+
+function minusOne(n Count) returns Count
+	return try n - 1 otherwise panic("opt: an instruction plus 1 of 0")
+end 'minusOne'

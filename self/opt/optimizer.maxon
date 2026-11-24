@@ -9,9 +9,10 @@
 // After it, on the module (inline.maxon): the expansion of the primitives (expand.maxon), whose operations hold no call
 // that values were in memory across; the fold again with the rules of pressure.rules, on each function that holds an
 // instruction they rewrite (a division by a constant, whose multiply holds x beside the high word); leaf inlining, which
-// folds again each function that got a copy; then on each function the split of its element accesses into the read of the
-// array's buffer and the access at the index (buffers.maxon), loop rotation (rotate.maxon), loop-invariant code motion
-// (licm.maxon), which finds a preheader on the guard that rotation leaves, common subexpression elimination
+// folds again each function that got a copy; then on each function the if-conversion of conditional updates
+// (select.maxon), the split of its element accesses into the read of the array's buffer and the access at the index
+// (buffers.maxon), loop rotation (rotate.maxon), loop-invariant code motion (licm.maxon), which finds a preheader on the
+// guard that rotation leaves, common subexpression elimination
 // (cse.maxon), which merges what moved out of a loop with what was computed before it, and copy elision (copies.maxon),
 // which needs the reads of one place merged to see that a copy of it is a move. Code motion and elimination record each
 // value they make live where the program did not hold it (ir.IrFunction.lengthened), which register allocation reloads
@@ -29,6 +30,8 @@ export enum OptPhase
 	expansion
 	// inlining is the leaves found, the order of the callees and the calls of leaves replaced.
 	inlining
+	// conversion is the if-conversion of conditional updates (select.maxon).
+	conversion
 	// buffers is the split of the element accesses (buffers.maxon).
 	buffers
 	// analyses is the flow, the dominators and the loops' facts that the passes after inlining share.
@@ -52,6 +55,7 @@ export type Optimizer
 	export var cse as Cse
 	export var copies as Copies
 	export var threader as Threader
+	export var converter as Converter
 	export var buffers as BufferSplit
 	// The analyses the passes after inlining share: each pass that changes a function has them found again.
 	var analysis as Analysis
@@ -61,7 +65,7 @@ export type Optimizer
 
 	// new is the passes of a build.
 	export static function new() returns Optimizer
-		return Optimizer{ssa: Ssa.new(), fold: Fold.new(), expander: Expander.new(), inliner: Inliner.new(), rotator: Rotator.new(), licm: Licm.new(), cse: Cse.new(), copies: Copies.new(), threader: Threader.new(), buffers: BufferSplit.new(), analysis: Analysis.new(), facts: LoopFacts.new(), clock: table.PhaseClock.off()}
+		return Optimizer{ssa: Ssa.new(), fold: Fold.new(), expander: Expander.new(), inliner: Inliner.new(), rotator: Rotator.new(), licm: Licm.new(), cse: Cse.new(), copies: Copies.new(), threader: Threader.new(), buffers: BufferSplit.new(), converter: Converter.new(), analysis: Analysis.new(), facts: LoopFacts.new(), clock: table.PhaseClock.off()}
 	end 'new'
 
 	// lap charges the time since the clock's last lap to phase.
@@ -120,6 +124,8 @@ function refine(mutates o Optimizer, mutates f ir.IrFunction)
 	if f.blocks.count() == 0 'empty'
 		return
 	end 'empty'
+	_ = o.converter.convert(f)
+	o.lap(OptPhase.conversion)
 	_ = o.buffers.split(f)
 	o.lap(OptPhase.buffers)
 	o.analysis.dominators(f)
