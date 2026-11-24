@@ -76,3 +76,4 @@ neither.
 | 2026-11-23 | b64577c | debug info behind a flag; one-allocation interpolation, builder and append removed | 129770 | 2305 | 1521 | 1444 | 4355178 | 526.4 | 545.6 |
 | 2026-11-23 | 9dbfc6e | String views, var views, debug-info locals, E3944 removed, seed renewed | 131958 | 1792 | 1684 | 1652 | 4437738 | 526.4 | 546.6 |
 | 2026-11-23 | fc53e85 | page heap, demand-driven imports, debug port (measured with five agents building) | 132425 | 1774 | 1667 | 1680 | 4463530 | 548.6 | 561.8 |
+| 2026-11-24 | 1130276f | maps without Option, readers lend (1130276f); machine busy | 142299 | 1699 | 1462 | 1473 | 4785962 | 572.5 | 589.8 |
