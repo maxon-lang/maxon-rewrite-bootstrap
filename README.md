@@ -91,7 +91,7 @@ On an arm64 Mac the compiler is built and gated from `seed/minimaxon-arm64-macos
 else: `./check.sh` is the gate, ending `all checks passed`, and `go run ./cmd/gate build` builds `./minimaxon`. The native
 lanes run the `arm64-macos` corpus (with `--verify-ir`, as every arm64 corpus is compiled) and its reruns, so the Mac lane
 that Windows runs through the share is not a step here. The gate says of each step it skips that it skips it and why: the
-`x64-windows`, `x64-linux` and `arm64-linux` corpus and reruns, which macOS has no way to run, the debugger's batch session,
+`x64-windows`, `x64-linux` and `arm64-linux` selftest, corpus and reruns, which macOS has no way to run, the debugger's batch session,
 and the fault lines of those three targets' programs. `selftest` runs the tests that build and run a program on the host
 with the arm64 test runtime (`arm64RuntimeUnit`); the machine IR's tests of hand-written x64 functions are linked into an
 x64 Linux executable and not run. The compiler reads the directory of temporary files from `TMPDIR`, which macOS sets; a
@@ -310,7 +310,11 @@ proves the Linux seed under WSL and the macOS seed on the Mac (`seed/README.md`)
 
 The suites (`cmd/gate`) group their steps in lanes that share nothing but the compiler and the checkout: `checks` (the Go tests, `selftest`, `check runtime`
 and `check stdlib`, `check self`, the layout and `fuzz`), `builds` (the benchmarks and `self` for arm64, the cache, the debug info), `specs`, the
-corpus of `native`, `x64-linux`, `arm64-linux` and `mac`, and the reruns of the programs that schedule behaviours of the first three
+corpus of `native`, `x64-linux`, `arm64-linux` and `mac` (each Linux lane first runs `selftest` with the compiler built for
+its target, since the host's `selftest` runs the code of the host's target alone: Windows runs the `x64-linux` compiler's
+under WSL, and the `arm64-linux` compiler's runs only on an arm64 host, CI's arm64 runner or the Mac's Linux VM, never
+under qemu-user, where it ran 43 minutes without ending; the `mac` lane skips when the Mac's share does not answer within a
+few seconds), and the reruns of the programs that schedule behaviours of the first three
 (`*-behaviours`). The gate runs them one after another. `--concurrent` on `gate suites`, or `MINIMAXON_GATE_CONCURRENT=1` for the gate, runs
 each lane as a process of its own, all at once (the behaviours lanes in a second phase, with two executables at a time each), so that the gate
 takes as long as its longest lane of each phase (about 70 s here against about 190 s one after another) and a lane that fails ends the others. It

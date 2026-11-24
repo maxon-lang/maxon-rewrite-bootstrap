@@ -107,11 +107,15 @@ func stage(name, compiler string, args ...string) error {
 	return nil
 }
 
+// wslTempDir is the directory of temporary files of a WSL distribution.
+const wslTempDir = "/tmp"
+
 // wslCommand runs a Linux compiler of the repository under WSL, with its paths the repository's from the root, which WSL
-// sees under /mnt.
+// sees under /mnt. The compiler finds the directory of temporary files by TMPDIR, which a WSL session started from Windows
+// does not carry, so the command names the distribution's own.
 func wslCommand(compiler string, args ...string) (string, []string) {
 	root := wslPath(abs("."))
-	words := []string{"--cd", root, "--exec", "./" + filepath.ToSlash(compiler)}
+	words := []string{"--cd", root, "--exec", "env", "TMPDIR=" + wslTempDir, "./" + filepath.ToSlash(compiler)}
 	for _, a := range args {
 		words = append(words, filepath.ToSlash(a))
 	}

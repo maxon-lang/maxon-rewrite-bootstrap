@@ -138,6 +138,7 @@ func (r suiteRun) steps() ([]laneStep, [][]string) {
 			continue
 		}
 		steps = append(steps,
+			laneStep{step{"selftest on " + t, func() error { return r.otherSelftest(t) }}, t},
 			laneStep{step{"corpus on " + t, func() error { return r.otherCorpus(t) }}, t},
 			laneStep{step{"behaviours on " + t, func() error { return r.otherBehaviours(t) }}, t + "-behaviours"})
 		first = append(first, t)
@@ -351,6 +352,43 @@ func (r suiteRun) otherCorpus(t string) error {
 		return err
 	}
 	return quiet(nil, r.compiler, slices.Concat([]string{"test"}, corpusFlags(t), r.testArgs)...)
+}
+
+// otherSelftest runs the compiler's own tests with the compiler built for another target that the host runs. Its tests
+// build programs for the target the compiler runs on and run them, so the host's selftest holds only the host's target to
+// them: codegen.maxtest's raw write once called arm64 Linux's kernel by x64's number for write, and no lane ran it there.
+// The compiler goes under bin/, which WSL reaches from the repository's root as wslCommand runs it. An arm64 compiler's
+// tests are not run under qemu-user, as the arm64 corpus is: there they ran 43 minutes without ending, so they run only on
+// an arm64 host.
+func (r suiteRun) otherSelftest(t string) error {
+	why, err := selftestRunsTarget(r.h, t)
+	if err != nil || why != "" {
+		if why != "" {
+			skip("selftest on "+t, why)
+		}
+		return err
+	}
+	compiler := filepath.Join("bin", "selftest-"+t, "minimaxon")
+	if err := os.MkdirAll(filepath.Dir(compiler), 0o755); err != nil {
+		return err
+	}
+	if err := quiet(nil, r.compiler, "build", "self", "--target="+t, "-o", compiler); err != nil {
+		return err
+	}
+	if r.h.windows() {
+		name, args := wslCommand(compiler, "selftest")
+		return quiet(nil, name, args...)
+	}
+	return quiet(nil, abs(compiler), "selftest")
+}
+
+// selftestRunsTarget is why the host cannot run the compiler built for a target, or "" when it can: as runsTarget, but
+// never through an emulator.
+func selftestRunsTarget(h host, t string) (string, error) {
+	if strings.HasPrefix(t, "arm64-") && !strings.HasPrefix(h.target, "arm64-") {
+		return t + "'s selftest runs only on an arm64 host (CI's arm64 runner, the Mac's Linux VM): under qemu-user the compiler's own tests ran 43 minutes without ending", nil
+	}
+	return runsTarget(h, t)
 }
 
 func (r suiteRun) otherBehaviours(t string) error {

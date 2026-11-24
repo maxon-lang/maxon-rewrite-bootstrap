@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"time"
 )
 
 // macShare is the folder that the Windows machine and the Mac both mount, the Mac's ~/Dev/agents/minimaxon, through which
@@ -17,18 +18,37 @@ const macShare = `M:\agents\minimaxon`
 // robocopyFailed is the least exit code of robocopy that says it failed; below it, the code says what it copied.
 const robocopyFailed = 8
 
+// macAnswerTime bounds the look at the share: a mapped drive whose Mac is asleep or away keeps a stat waiting for the
+// network's own timeout, far longer than the gate should wait for a machine that is not its own.
+const macAnswerTime = 3 * time.Second
+
+// macUnavailable is why the Mac cannot be reached through the share now, or "" when it can.
+func macUnavailable() string {
+	found := make(chan bool, 1)
+	go func() { found <- isDir(filepath.Join(macShare, "in")) }()
+	select {
+	case ok := <-found:
+		if ok {
+			return ""
+		}
+		return "the Mac's share " + macShare + " is not mounted"
+	case <-time.After(macAnswerTime):
+		return fmt.Sprintf("the Mac's share %s did not answer within %s", macShare, macAnswerTime)
+	}
+}
+
 // macLane runs the arm64-macos corpus on the Mac: the gate compiles every program and the reruns of those that schedule
 // behaviours, keeping each executable through cmd/batchrun, and when the share holds the Mac's results of exactly those
 // executables (the stamp of their rows), replays them through the test runner, which compares them, and fails on any
 // failure. Otherwise it stages the batch at in\gate for the Mac session to run (bash ~/Dev/agents/minimaxon/in/gate/run.sh)
-// and skips, as it does when the share is not mounted: the Mac is not the gate's machine.
+// and skips, as it does when the Mac cannot be reached: the Mac is not the gate's machine.
 func macLane(h host, compiler string, behavioursArgs, testArgs []string) error {
 	if !h.windows() {
 		skip("corpus on arm64-macos", "the Mac is reached through the share "+macShare+" that only the Windows machine mounts")
 		return nil
 	}
-	if !isDir(filepath.Join(macShare, "in")) {
-		fmt.Printf("mac lane: skipped, %s is not mounted\n", macShare)
+	if why := macUnavailable(); why != "" {
+		skip("corpus on arm64-macos", why)
 		return nil
 	}
 	root, err := scratchDir("minimaxon-mac-")
@@ -77,7 +97,7 @@ func macLane(h host, compiler string, behavioursArgs, testArgs []string) error {
 	if err := robocopy(stage, batch, "/MIR"); err != nil {
 		return fmt.Errorf("mac lane: cannot stage the batch at %s: %w", batch, err)
 	}
-	fmt.Println("mac lane: skipped, the Mac has no results of this corpus: run bash ~/Dev/agents/minimaxon/in/gate/run.sh there and the gate again")
+	skip("corpus on arm64-macos", "the Mac has no results of this corpus: run bash ~/Dev/agents/minimaxon/in/gate/run.sh there and the gate again")
 	return nil
 }
 

@@ -339,14 +339,22 @@ end 'routinesMain'
 // programs reach it (rawWrite). It returns 42 when every value is what it should be.
 // rawWrite writes length bytes at bytes to handle and gives a word that is not zero when it wrote: by WriteFile, a DLL
 // import of five words, on Windows, by libSystem's write, an import of three words, on macOS, and by the write system call
-// on Linux, whose programs call the kernel.
-function rawWrite(mutates b ir.FnBuilder, system ast.TargetSystem, handle ir.Reg, bytes ir.Reg, length ir.Reg, written Count) returns ir.Reg
-	return match system 'system'
+// on Linux, whose programs call the kernel by the number the architecture gives write.
+function rawWrite(mutates b ir.FnBuilder, target ast.Target, handle ir.Reg, bytes ir.Reg, length ir.Reg, written Count) returns ir.Reg
+	return match target.system 'system'
 		windows gives rawWriteFile(b, handle: handle, bytes: bytes, length: length, written: written)
 		macos gives rawWriteLibSystem(b, handle: handle, bytes: bytes, length: length)
-		linux gives rawWriteSyscall(b, handle: handle, bytes: bytes, length: length)
+		linux gives rawWriteSyscall(b, number: linuxWriteNumber(target.arch), handle: handle, bytes: bytes, length: length)
 	end 'system'
 end 'rawWrite'
+
+// linuxWriteNumber is the number of Linux's write system call on an architecture: the kernel numbers its calls for each.
+function linuxWriteNumber(arch ast.TargetArch) returns FullRangeInt
+	return match arch 'arch'
+		x64 gives linuxSysWrite
+		arm64 gives arm64LinuxSysWrite
+	end 'arch'
+end 'linuxWriteNumber'
 
 function rawWriteFile(mutates b ir.FnBuilder, handle ir.Reg, bytes ir.Reg, length ir.Reg, written Count) returns ir.Reg
 	let writtenAddr = b.reg()
@@ -379,9 +387,9 @@ function rawImport(mutates b ir.FnBuilder, consumes name String, args ir.RegList
 	return result
 end 'rawImport'
 
-function rawWriteSyscall(mutates b ir.FnBuilder, handle ir.Reg, bytes ir.Reg, length ir.Reg) returns ir.Reg
+function rawWriteSyscall(mutates b ir.FnBuilder, number FullRangeInt, handle ir.Reg, bytes ir.Reg, length ir.Reg) returns ir.Reg
 	var args = ir.RegList.create(0)
-	args.push(b.constant(linuxSysWrite as ir.Word))
+	args.push(b.constant(number as ir.Word))
 	args.push(handle)
 	args.push(bytes)
 	args.push(length)
@@ -391,7 +399,7 @@ function rawWriteSyscall(mutates b ir.FnBuilder, handle ir.Reg, bytes ir.Reg, le
 	return wrote
 end 'rawWriteSyscall'
 
-function rawMain(decl ast.FuncID, system ast.TargetSystem) returns ir.IrFunction
+function rawMain(decl ast.FuncID, target ast.Target) returns ir.IrFunction
 	var b = ir.FnBuilder.new(decl, name: "main", paramCount: 0)
 	let written = b.slot(ir.IrKind.kindScalar)
 	let live = b.reg()
@@ -427,7 +435,7 @@ function rawMain(decl ast.FuncID, system ast.TargetSystem) returns ir.IrFunction
 	let length = b.bin(ir.BinOp.binShr, left: lineWord, right: lengthShift, unsigned: true, fail: ir.noBlock)
 	let handle = b.reg()
 	b.emit(ir.newLoadGlobal(handle, symbol: ir.Rt.rtStdout))
-	let wrote = rawWrite(b, system: system, handle: handle, bytes: bytes, length: length, written: written)
+	let wrote = rawWrite(b, target: target, handle: handle, bytes: bytes, length: length, written: written)
 	let okWrite = b.cmp(ir.CmpOp.cmpNe, left: wrote, right: zero, unsigned: false)
 	let lowOk = b.bin(ir.BinOp.binAnd, left: ok8, right: ok16, unsigned: false, fail: ir.noBlock)
 	let highOk = b.bin(ir.BinOp.binAnd, left: ok32, right: okWord, unsigned: false, fail: ir.noBlock)
@@ -463,6 +471,6 @@ test 'codegen'
 	let leakId = addFunction(p, name: "main", errTy: ast.noType)
 	runIr(p, fns: ir.oneFunction(leakMain(leakId)), entry: leakId, count: true, name: "minimaxon_cg_leak.exe", expectedCode: 99, expectedOutput: "")
 	let rawId = addFunction(p, name: "main", errTy: ast.noType)
-	runIr(p, fns: ir.oneFunction(rawMain(rawId, system: p.target.system)), entry: rawId, count: false, name: "minimaxon_cg_raw.exe", expectedCode: 42, expectedOutput: "raw\n")
+	runIr(p, fns: ir.oneFunction(rawMain(rawId, target: p.target)), entry: rawId, count: false, name: "minimaxon_cg_raw.exe", expectedCode: 42, expectedOutput: "raw\n")
 	testStackOverflow(p)
 end 'codegen'
