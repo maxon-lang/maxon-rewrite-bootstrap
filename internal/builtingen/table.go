@@ -797,9 +797,6 @@ var tableFunctions = []function{
 	{Owner: "String", Name: "replace", Params: []string{"old String", "with String"}, Result: "String", Intrinsic: "StringReplace"},
 	{Owner: "String", Name: "replaceFirst", Params: []string{"old String", "with String"}, Result: "String", Intrinsic: "StringReplaceFirst"},
 	// trim takes no CharacterSet: it removes whitespace and newlines, maxon's default.
-	{Owner: "String", Name: "trim", Result: "String", Lends: true, Intrinsic: "StringTrim"},
-	{Owner: "String", Name: "trimStart", Result: "String", Lends: true, Intrinsic: "StringTrimStart"},
-	{Owner: "String", Name: "trimEnd", Result: "String", Lends: true, Intrinsic: "StringTrimEnd"},
 	{Owner: "String", Name: "toLower", Result: "String", Intrinsic: "StringToLower"},
 	{Owner: "String", Name: "toUpper", Result: "String", Intrinsic: "StringToUpper"},
 	// A Character's members that read its bytes, which are maxon's: equality and order are of the bytes, and codepoint decodes the
@@ -1089,6 +1086,8 @@ var entries = []entry{
 	{"StrFindLast", "rt.str.findLast", "Runtime", roleCall, "(String, needle String) -> the position of the last match, plus 1, or 0"},
 	{"StrHasAffix", "rt.str.hasAffix", "Runtime", roleCall, "(String, affix String, atEnd) -> whether it starts with the affix, or ends with it where atEnd"},
 	{"StrReplace", "rt.str.replace", "Runtime", roleCall, "(String, old String, replacement String, all) -> String with the first match, or each, replaced"},
+	// StrTrimFirst and StrTrimLast are the seed's String.trim, which builds C1 with them: trim is the library's
+	// (stdlib/StringTrim.maxon), and the two go with the next seed.
 	{"StrTrimFirst", "rt.str.trimFirst", "Runtime", roleCall, "(String) -> the byte position of the first cluster that is not whitespace, or the length"},
 	{"StrTrimLast", "rt.str.trimLast", "Runtime", roleCall, "(String, from) -> the byte position after the last cluster at or after from that is not whitespace, or from"},
 	{"StrMapCase", "rt.str.mapCase", "Runtime", roleCall, "(String, upper) -> String with its ASCII letters in that case"},

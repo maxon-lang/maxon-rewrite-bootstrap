@@ -1,0 +1,49 @@
+// maxon's String.trim, trimStart and trimEnd, written over the built-in String's members, since maxon's scan the grapheme
+// clusters with helpers of its own String: each is a view of the receiver, as maxon's is a slice of its buffer, and a
+// cluster is trimmed when the set holds it (a CR LF is one cluster, held or not as one).
+extension String
+	/// The String without the clusters of the set at either end.
+	public function trim(chars CharacterSet = CharacterSet.whitespacesAndNewlines) returns borrowed String
+		let (first, last) = trimBounds(chars, toEnd: true)
+		if last < first 'allTrimmed'
+			return sliceBytes(first, endPos: first)
+		end 'allTrimmed'
+		return sliceBytes(first, endPos: last)
+	end 'trim'
+
+	/// The String without the clusters of the set at its start.
+	public function trimStart(chars CharacterSet = CharacterSet.whitespacesAndNewlines) returns borrowed String
+		let (first, _) = trimBounds(chars, toEnd: false)
+		return sliceBytes(first, endPos: byteLength())
+	end 'trimStart'
+
+	/// The String without the clusters of the set at its end.
+	public function trimEnd(chars CharacterSet = CharacterSet.whitespacesAndNewlines) returns borrowed String
+		let (_, last) = trimBounds(chars, toEnd: true)
+		return sliceBytes(0, endPos: last)
+	end 'trimEnd'
+
+	// trimBounds is the byte position of the first cluster the set does not hold, or the length, and, where toEnd, the
+	// position after the last such cluster, or 0: a String has no index at a byte position to scan back from, so one scan
+	// forward finds both.
+	function trimBounds(chars CharacterSet, toEnd bool) returns (Count, Count)
+		let length = byteLength()
+		var first = length
+		var last = 0 as Count
+		var index = startIndex()
+		while index.bytePos() < length 'clusters'
+			let next = try indexAfter(index) otherwise panic("String.trim: a cluster before the end has one after it")
+			if not chars.contains(charAt(index)) 'kept'
+				if first == length 'firstKept'
+					first = index.bytePos()
+					if not toEnd 'startOnly'
+						return (first, last)
+					end 'startOnly'
+				end 'firstKept'
+				last = next.bytePos()
+			end 'kept'
+			index = next
+		end 'clusters'
+		return (first, last)
+	end 'trimBounds'
+end 'String'

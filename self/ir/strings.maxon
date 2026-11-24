@@ -149,34 +149,6 @@ function lowerStringReplaceFirst(mutates l Lowerer, p ast.Project, ms ast.Module
 	return replace(l, text: recv, old: args[0], replacement: args[1], all: false)
 end 'lowerStringReplaceFirst'
 
-// trim is the view of text without the whitespace clusters at its start, where fromStart, and at its end, where fromEnd,
-// whose positions the runtime finds inside text.
-function trim(mutates l Lowerer, text Reg, fromStart bool, fromEnd bool) returns Reg
-	var first = konst(l, value: 0 as Word)
-	if fromStart 'leading'
-		first = runtime(l, symbol: Rt.rtStrTrimFirst, kind: IrKind.kindScalar, args: argsOf1(text))
-	end 'leading'
-	var last = noReg
-	if fromEnd 'trailing'
-		last = runtime(l, symbol: Rt.rtStrTrimLast, kind: IrKind.kindScalar, args: argsOf2(text, b: first))
-	end 'trailing' else 'whole'
-		last = runtime(l, symbol: Rt.rtStrLen, kind: IrKind.kindScalar, args: argsOf1(text))
-	end 'whole'
-	return stringView(l, text: text, from: first, until: last, checked: false)
-end 'trim'
-
-function lowerStringTrim(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
-	return trim(l, text: recv, fromStart: true, fromEnd: true)
-end 'lowerStringTrim'
-
-function lowerStringTrimStart(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
-	return trim(l, text: recv, fromStart: true, fromEnd: false)
-end 'lowerStringTrimStart'
-
-function lowerStringTrimEnd(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
-	return trim(l, text: recv, fromStart: false, fromEnd: true)
-end 'lowerStringTrimEnd'
-
 function mapCase(mutates l Lowerer, text Reg, upper bool) returns Reg
 	let toUpper = flag(l, on: upper)
 	return runtime(l, symbol: Rt.rtStrMapCase, kind: IrKind.kindManaged, args: argsOf2(text, b: toUpper))

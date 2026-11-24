@@ -87,7 +87,7 @@ export type DebugSession
 	// run answers one command line.
 	export function run(mutates self, line String) returns DebugReplies
 		var replies = DebugReplies.create(0)
-		let trimmed = line.trim()
+		let trimmed = table.blankTrimmed(line, fromStart: true, fromEnd: true)
 		var split = trimmed.byteLength()
 		for i in 0 upto trimmed.byteLength() 'word'
 			if trimmed.byteAt(i) == spaceByte and split == trimmed.byteLength() 'space'
@@ -95,7 +95,7 @@ export type DebugSession
 			end 'space'
 		end 'word'
 		let word = trimmed.sliceBytes(0, endPos: split)
-		let argument = trimmed.sliceBytes(split, endPos: trimmed.byteLength()).trim()
+		let argument = table.blankTrimmed(trimmed.sliceBytes(split, endPos: trimmed.byteLength()), fromStart: true, fromEnd: true)
 		if word == "" 'empty'
 			return replies
 		end 'empty'

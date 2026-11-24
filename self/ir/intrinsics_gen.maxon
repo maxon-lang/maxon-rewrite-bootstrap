@@ -356,15 +356,6 @@ export function intrinsicCall(mutates l Lowerer, p ast.Project, mutates ms ast.M
 	if op == ast.Intrinsic.intrStringReplaceFirst 'intrStringReplaceFirst'
 		return lowerStringReplaceFirst(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrStringReplaceFirst'
-	if op == ast.Intrinsic.intrStringTrim 'intrStringTrim'
-		return lowerStringTrim(l, p: p, ms: ms, c: c, recv: recv, args: args)
-	end 'intrStringTrim'
-	if op == ast.Intrinsic.intrStringTrimStart 'intrStringTrimStart'
-		return lowerStringTrimStart(l, p: p, ms: ms, c: c, recv: recv, args: args)
-	end 'intrStringTrimStart'
-	if op == ast.Intrinsic.intrStringTrimEnd 'intrStringTrimEnd'
-		return lowerStringTrimEnd(l, p: p, ms: ms, c: c, recv: recv, args: args)
-	end 'intrStringTrimEnd'
 	if op == ast.Intrinsic.intrStringToLower 'intrStringToLower'
 		return lowerStringToLower(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrStringToLower'
@@ -1195,15 +1186,6 @@ export function ownsOperands(op ast.Intrinsic) returns bool
 	if op == ast.Intrinsic.intrStringReplaceFirst 'intrStringReplaceFirst'
 		return false
 	end 'intrStringReplaceFirst'
-	if op == ast.Intrinsic.intrStringTrim 'intrStringTrim'
-		return false
-	end 'intrStringTrim'
-	if op == ast.Intrinsic.intrStringTrimStart 'intrStringTrimStart'
-		return false
-	end 'intrStringTrimStart'
-	if op == ast.Intrinsic.intrStringTrimEnd 'intrStringTrimEnd'
-		return false
-	end 'intrStringTrimEnd'
 	if op == ast.Intrinsic.intrStringToLower 'intrStringToLower'
 		return false
 	end 'intrStringToLower'

@@ -290,6 +290,9 @@ function visitSites(p ast.Project, mutates ms ast.ModuleState, module diag.Modul
 			continue 'each'
 		end 'notCall'
 		let info = callInfoAt(p, module: module, node: site)
+		if not visitDefaults(p, ms: ms, module: module, info: info, bindParams: bindParams, bindArgs: bindArgs, bindWitnesses: bindWitnesses, found: found, errs: errs) 'deepDefault'
+			return false
+		end 'deepDefault'
 		if info.intrinsic == ast.Intrinsic.intrFreeze or info.intrinsic == ast.Intrinsic.intrCown 'shared'
 			requireShareable(p, ms: ms, module: module, site: site, info: info, bindParams: bindParams, bindArgs: bindArgs, errs: errs)
 			continue 'each'
@@ -328,6 +331,31 @@ function visitConstant(p ast.Project, mutates ms ast.ModuleState, module diag.Mo
 	let unbound = ast.TypeIDList.create(0)
 	return visitSites(p, ms: ms, module: owner, recorded: calls, bindParams: unbound.clone(), bindArgs: unbound.clone(), bindWitnesses: ast.WitnessList.create(0), found: found, errs: errs)
 end 'visitConstant'
+
+// visitDefaults follows the defaults of the parameters that a call leaves out to the uses of each, in the module that
+// declares the function, with its type parameters bound to the call's type arguments, as lowerDefault lowers them there.
+function visitDefaults(p ast.Project, mutates ms ast.ModuleState, module diag.ModuleID, info ast.CallInfo, bindParams ast.TypeIDList, bindArgs ast.TypeIDList, bindWitnesses ast.WitnessList, mutates found InstanceSet, mutates errs diag.ErrorList) returns bool
+	for i in 0 upto info.ordered.count() 'each'
+		if info.ordered[i] != 0 or info.paramSpecs[i].defaultExpr == 0 'given'
+			continue 'each'
+		end 'given'
+		let owner = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: info.fn).module
+		if owner == diag.stdlibID 'builtIn'
+			continue 'each'
+		end 'builtIn'
+		var calls = ast.NodeIDList.create(0)
+		match consumes p.typings[ast.modIndex(owner)].fieldUses.get(info.paramSpecs[i].defaultExpr as Count) 'defaultUses'
+			some(list) then calls = list
+			none then continue 'each'
+		end 'defaultUses'
+		let params = ast.cloneTypeArgs(ast.funcEntry(ms.funcs, funcReads: p.funcs, f: info.fn).generics)
+		let args = applyAll(ms.types, reads: p.types, ts: info.typeArgs, params: bindParams, args: bindArgs)
+		if not visitSites(p, ms: ms, module: owner, recorded: calls, bindParams: params, bindArgs: args, bindWitnesses: bindWitnesses, found: found, errs: errs) 'deep'
+			return false
+		end 'deep'
+	end 'each'
+	return true
+end 'visitDefaults'
 
 // requireCrossings refuses, in an instance of generic code, a value that the behaviour stmt takes and that cannot cross to
 // the thread that runs it at the instance's type arguments: the check judged every other capture where it was written.

@@ -171,7 +171,6 @@ true
 ```
 
 <!-- test: supplementary-plane-trim -->
-<!-- skip: a trim of a CharacterSet is not supported in minimaxon: trim, trimStart and trimEnd take no set and remove whitespace and newlines -->
 ### A trim driven by a supplementary-plane category
 The direct `contains` above and this reach the sorted table by different routes — one from the parser's
 own `__cs_contains` call, one from inside the trim's cluster walk — so a search broken in either
@@ -179,7 +178,6 @@ direction is caught twice rather than once.
 ```maxon
 function main() returns ExitCode
 	let s = "🎉🎉ok🎉"
-	// TODO: a trim of a CharacterSet is not supported in minimaxon: trim, trimStart and trimEnd take no set and remove whitespace and newlines
 	let r = s.trim(CharacterSet.symbols)
 	print("[{r}]")
 	return 0
@@ -345,16 +343,13 @@ end 'main'
 ```
 
 <!-- test: one-set-two-trims -->
-<!-- skip: a trim of a CharacterSet is not supported in minimaxon: trim, trimStart and trimEnd take no set and remove whitespace and newlines -->
 ### One CharacterSet serves two trims
 The set is BORROWED by the scan, so trimming twice against one set neither frees it early nor twice.
 ```maxon
 function main() returns ExitCode
 	let d = CharacterSet.decimalDigits
 	let mixed = "12a34"
-	// TODO: a trim of a CharacterSet is not supported in minimaxon: trim, trimStart and trimEnd take no set and remove whitespace and newlines
 	let head = mixed.trimStart(d)
-	// TODO: a trim of a CharacterSet is not supported in minimaxon: trim, trimStart and trimEnd take no set and remove whitespace and newlines
 	let tail = mixed.trimEnd(d)
 	print("[{head}][{tail}]")
 	return 0
@@ -368,7 +363,6 @@ end 'main'
 ```
 
 <!-- test: trim-crlf-is-one-cluster -->
-<!-- skip: a trim of a CharacterSet is not supported in minimaxon: trim, trimStart and trimEnd take no set and remove whitespace and newlines -->
 ### CR+LF is ONE grapheme, so a set holding CR but not LF trims neither
 UAX#29 GB3 joins CR+LF into a single cluster, which is why the trim walks clusters rather than bytes:
 the cluster `"\r\n"` is not a member of a set seeded with a bare CR, so nothing is cut.
@@ -376,7 +370,6 @@ the cluster `"\r\n"` is not a member of a set seeded with a bare CR, so nothing 
 function main() returns ExitCode
 	let s = "\r\nx\r\n"
 	let cr = CharacterSet.from(CharSet from ['\r'])
-	// TODO: a trim of a CharacterSet is not supported in minimaxon: trim, trimStart and trimEnd take no set and remove whitespace and newlines
 	let r = s.trim(cr)
 	print("{r.byteLength()}")
 	return 0
@@ -586,13 +579,11 @@ error E2073: <fragment>:2:26: 'CharacterSet' has no static method named 'inverte
 ```
 
 <!-- test: characterset-from-in-a-body -->
-<!-- skip: a trim of a CharacterSet is not supported in minimaxon: trim, trimStart and trimEnd take no set and remove whitespace and newlines -->
 ### `CharacterSet.from` — a KEYWORD-named static — in a body
 After a `.`, a keyword is a name, so `CharacterSet.from` is an ordinary static call wherever an expression stands.
 ```maxon
 function main() returns ExitCode
 	let custom = CharacterSet.from(CharSet from ['a', 'e'])
-	// TODO: a trim of a CharacterSet is not supported in minimaxon: trim, trimStart and trimEnd take no set and remove whitespace and newlines
 	let r = "aaxyzee".trim(custom)
 	print("{r}\n")
 	return 0
@@ -606,15 +597,13 @@ xyz
 ```
 
 <!-- test: error.characterset-from-at-a-top-level-initializer-is-refused -->
-<!-- skip: a trim of a CharacterSet is not supported in minimaxon: trim, trimStart and trimEnd take no set and remove whitespace and newlines -->
-<!-- positions: moved -->
+<!-- skip: language difference: a constant may call a literal factory, and E3220 names what it may call -->
 ### Error: `CharacterSet.from` at a TOP-LEVEL initializer
 A top-level initializer calls nothing, and `CharacterSet.from` is a call.
 ```maxon
 let custom = CharacterSet.from(CharSet from ['a', 'e'])
 
 function main() returns ExitCode
-	// TODO: a trim of a CharacterSet is not supported in minimaxon: trim, trimStart and trimEnd take no set and remove whitespace and newlines
 	let r = "aaxyzee".trim(custom)
 	print("{r}\n")
 	return 0

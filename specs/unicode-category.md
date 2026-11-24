@@ -132,11 +132,9 @@ false
 ```
 
 <!-- test: trim-cyrillic -->
-<!-- skip: a trim of a CharacterSet is not supported in minimaxon: trim, trimStart and trimEnd take no set and remove whitespace and newlines -->
 ```maxon
 function main() returns ExitCode
 	let s = "\u0410\u0411\u0412 123 \u0410\u0411\u0412"
-	// TODO: a trim of a CharacterSet is not supported in minimaxon: trim, trimStart and trimEnd take no set and remove whitespace and newlines
 	let result = s.trim(CharacterSet.letters)
 	print("[{result}]")
 	return 0

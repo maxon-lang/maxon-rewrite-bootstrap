@@ -23,7 +23,7 @@ function splitCommands(spelling String) returns StringArray
 	let limit = try spelling.byteLength() + 1 otherwise spelling.byteLength()
 	for i in 0 upto limit 'bytes'
 		if i == spelling.byteLength() or spelling.byteAt(i) == 59 'end'
-			let piece = spelling.sliceBytes(start, endPos: i).trim()
+			let piece = table.blankTrimmed(spelling.sliceBytes(start, endPos: i), fromStart: true, fromEnd: true)
 			if piece != "" 'command'
 				commands.push(piece.clone())
 			end 'command'

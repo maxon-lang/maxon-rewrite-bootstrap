@@ -508,7 +508,7 @@ is that of its module (`app::main`), and a project with no `main` in any module 
   unknown (`E2004`) as in maxon.
 - **The standard library** is Maxon source in `stdlib/`, found as `runtime/` is (the `stdlib` directory of the nearest
   directory, from the compiler's executable's upward, that has one), converted from maxon's `stdlib/` by `cmd/convert`
-  but for `Map.maxon`, `Stream.maxon`, `Console.maxon`, `Character.maxon` and `StringSplit.maxon`, which are minimaxon's own (see "Where it differs from Maxon") and
+  but for `Map.maxon`, `Stream.maxon`, `Console.maxon`, `Character.maxon`, `StringSplit.maxon` and `StringTrim.maxon`, which are minimaxon's own (see "Where it differs from Maxon") and
   which no conversion touches; maxon's
   `StringBuilder.maxon` is left out, since an interpolation builds a String here:
   `stdlib/files.txt` lists the files converted so far, each with the library module it goes to (its directory under
@@ -4002,8 +4002,12 @@ is the number of clusters, a `StringIndex` (built-in record; `charIndex()` and `
 start of one, and `startIndex()`, `endIndex()`, `findFirst(needle)` and `findLast(needle)` give them, the searches throwing
 `StringError.notFound` where the needle is not there; `slice(start, endIndex: end)` and `sliceLength(start, length: n)` cut by
 them, and `sliceBytes(start, endPos: end)` by bytes, `contains`, `startsWith`, `endsWith`, `equals` and `isEmpty` ask,
-`replace(old, with: new)` and `replaceFirst` leave a string with an empty or absent `old` as it was, `trim`, `trimStart` and
-`trimEnd` remove the whitespace and newline clusters of maxon's `CharacterSet.whitespacesAndNewlines` (they take no set),
+`replace(old, with: new)` and `replaceFirst` leave a string with an empty or absent `old` as it was, `trim(chars)`,
+`trimStart(chars)` and `trimEnd(chars)` remove the clusters a `CharacterSet` holds (`CharacterSet.whitespacesAndNewlines`
+when it is left out) at either end, the start or the end, written in the library (`stdlib/StringTrim.maxon`, whose one scan
+forward over the clusters finds both ends, since a String has no index at a byte position to scan back from) and each a
+view of the receiver (`returns borrowed String`); the compiler, which is built without the library, trims its own ASCII
+text with `table.blankTrimmed`, and the runtime's whitespace scans the seed's `trim` lowers to go with the next seed,
 `toLower` and `toUpper` map the ASCII letters only, as maxon's do. `split(delimiter)` gives the pieces between the delimiters as an array of copies, since an array holds no view
 (`stdlib/StringSplit.maxon`), `indexAfter(index)` the index of the next grapheme cluster (`StringError.invalidIndex` at the
 end), and `byteAtOrPanic(i)` is `byteAt(i)` under the name maxon's library calls it. The library tiers' doors to the bytes as

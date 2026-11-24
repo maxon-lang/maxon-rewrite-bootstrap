@@ -1111,11 +1111,15 @@ character-set.md: character-set-dropped-unused
 character-set.md: characterset-at-a-generic-instance-field
 character-set.md: characterset-at-a-struct-field
 character-set.md: characterset-at-a-union-payload
+character-set.md: characterset-from-in-a-body
 character-set.md: member-set-co-owned-by-from
 character-set.md: member-set-dropped-unused
 character-set.md: one-member-set-fills-two-character-sets
+character-set.md: one-set-two-trims
 character-set.md: supplementary-plane-category
 character-set.md: supplementary-plane-table-bounds
+character-set.md: supplementary-plane-trim
+character-set.md: trim-crlf-is-one-cluster
 character-set.md: trim-end-all-match
 character-set.md: trim-in-a-loop
 character-set.md: trim-result-discarded
@@ -3884,6 +3888,7 @@ keyword-parameter-names.md: interface-as-parameter-name-crossfile
 keyword-parameter-names.md: type-as-parameter-name-crossfile
 keyword-parameter-names.md: union-as-parameter-name-crossfile
 lazy-static-observable.md: a-global-built-through-a-constraint-reads-a-global-declared-later
+lazy-static-observable.md: a-library-static-the-program-reads-is-built-before-main
 lazy-static-observable.md: a-managed-static-is-released-after-main
 lazy-static-observable.md: a-static-initializer-that-reads-itself-is-refused
 lazy-static-observable.md: an-unaccessed-managed-static-is-built-and-dropped
@@ -7680,6 +7685,15 @@ string-split.md: split-no-match
 string-split.md: split-only-delimiters
 string-trim.md: trim-all-whitespace
 string-trim.md: trim-both-multibyte
+string-trim.md: trim-charset-all-match
+string-trim.md: trim-charset-digits
+string-trim.md: trim-charset-digits-end
+string-trim.md: trim-charset-digits-start
+string-trim.md: trim-charset-empty
+string-trim.md: trim-charset-letters
+string-trim.md: trim-charset-no-match
+string-trim.md: trim-charset-punctuation
+string-trim.md: trim-charset-whitespace
 string-trim.md: trim-empty-string
 string-trim.md: trim-end-combining-mark
 string-trim.md: trim-end-emoji
@@ -7688,6 +7702,7 @@ string-trim.md: trim-internal-preserved
 string-trim.md: trim-mixed-whitespace
 string-trim.md: trim-no-whitespace
 string-trim.md: trim-tabs-and-newlines
+string-trim.md: trim-whitespace-both
 string-trim.md: trim-whitespace-end
 string-trim.md: trim-whitespace-start
 string-type-2.md: a-borrowed-string-stored-in-a-var-field-is-copied-not-written-through
@@ -8473,6 +8488,7 @@ unicode-category.md: arabic-digits
 unicode-category.md: cjk-letters
 unicode-category.md: custom-set-unchanged
 unicode-category.md: cyrillic-letters
+unicode-category.md: trim-cyrillic
 unicode-category.md: unicode-punctuation
 unicode-category.md: unicode-symbols
 unicode-category.md: unicode-whitespace

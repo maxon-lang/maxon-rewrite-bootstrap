@@ -288,7 +288,7 @@ export function stringAppendFix(t ast.Tree, call ast.NodeID) returns diag.Fix
 	end 'notStatement'
 	// The place is the text before the member's dot, which is where a member node starts: the extent of a bare name runs on
 	// through the dotted words after it, as a qualified name's does.
-	let placeText = t.text.sliceBytes(ast.exprStart(t, e: ast.memberExprObj(t, id: callee)), endPos: t.startOf(callee) as Count).trimEnd()
+	let placeText = table.blankTrimmed(t.text.sliceBytes(ast.exprStart(t, e: ast.memberExprObj(t, id: callee)), endPos: t.startOf(callee) as Count), fromStart: false, fromEnd: true)
 	if not isDottedName(placeText) 'notPlace'
 		return diag.Fix.none()
 	end 'notPlace'
@@ -321,11 +321,11 @@ export function toStringFix(t ast.Tree, call ast.NodeID) returns diag.Fix
 	if not callText.endsWith(tail) 'spelled'
 		return diag.Fix.none()
 	end 'spelled'
-	var text = callText.sliceBytes(0, endPos: try callText.byteLength() - tail.byteLength() otherwise panic("fixes: a short call")).trimEnd()
+	var text = table.blankTrimmed(callText.sliceBytes(0, endPos: try callText.byteLength() - tail.byteLength() otherwise panic("fixes: a short call")), fromStart: false, fromEnd: true)
 	if not text.endsWith(".") 'noDot'
 		return diag.Fix.none()
 	end 'noDot'
-	text = text.sliceBytes(0, endPos: try text.byteLength() - 1 otherwise panic("fixes: an empty receiver")).trimEnd()
+	text = table.blankTrimmed(text.sliceBytes(0, endPos: try text.byteLength() - 1 otherwise panic("fixes: an empty receiver")), fromStart: false, fromEnd: true)
 	var written = "\"\{{text}\}\""
 	if extent.begin > 0 and t.text.byteAt(try (extent.begin as Count) - 1 otherwise panic("fixes: an offset before a module")) == openBraceByte and (extent.until as Count) < t.text.byteLength() and t.text.byteAt(extent.until as Count) == closeBraceByte 'part'
 		written = text.clone()

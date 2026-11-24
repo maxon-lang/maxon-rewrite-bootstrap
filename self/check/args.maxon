@@ -150,6 +150,9 @@ function checkedArgs(mutates c Checker, p ast.Project, mutates ms ast.ModuleStat
 	if failedSince(errs, mark: mark) 'badOrder'
 		return ordered
 	end 'badOrder'
+	if c.hasUses 'inBody'
+		recordDefaults(c, call: call, specs: specs)
+	end 'inBody'
 	for i in 0 upto ordered.count() 'each'
 		if ordered[i] == 0 'defaulted'
 			continue 'each'
@@ -168,6 +171,9 @@ function bindArgs(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, 
 	if failedSince(errs, mark: mark) 'badOrder'
 		return ordered
 	end 'badOrder'
+	if c.hasUses 'inBody'
+		recordDefaults(c, call: call, specs: specs)
+	end 'inBody'
 	for i in 0 upto specs.count() 'each'
 		if ordered[i] == 0 'defaulted'
 			continue 'each'
@@ -183,6 +189,18 @@ function bindArgs(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, 
 	end 'each'
 	return ordered
 end 'bindArgs'
+
+// recordDefaults records a call of a function with a parameter that has a default as a use: a call that leaves the
+// argument out runs the default, which is code of the function's module, so finding the instances follows the call to
+// the calls of the default (ir.visitDefaults), as lowering lowers it there.
+function recordDefaults(mutates c Checker, call ast.NodeID, specs ast.ParamSpecList)
+	for i in 0 upto specs.count() 'each'
+		if specs[i].defaultExpr != 0 'defaulted'
+			recordUse(c, call: call)
+			return
+		end 'defaulted'
+	end 'each'
+end 'recordDefaults'
 
 // coerceArg checks an argument against its parameter, which a 'mutates' or 'sets' parameter takes exactly, and a let
 // parameter takes the contents of a frozen value for. Any other parameter is given a copy of them, which fix writes,
@@ -380,6 +398,9 @@ end 'requireVisible'
 // queuePending leaves a call of a function that another module declares to the verify phase, which binds its arguments to
 // the function's parameters once that module's signatures are known.
 function queuePending(mutates c Checker, call ast.NodeID, callee String, fn ast.FuncID, specs ast.ParamSpecList)
+	if c.hasUses 'inBody'
+		recordDefaults(c, call: call, specs: specs)
+	end 'inBody'
 	let skipped = omittedIndex(c, call: call)
 	var at = 0 as Count
 	if skipped.isSome() 'omitted'

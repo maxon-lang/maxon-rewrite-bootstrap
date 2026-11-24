@@ -91,7 +91,7 @@ function driveRepl(consumes host WindowsHost, consumes reader mxdbg.MxdbgReader,
 			break 'lines'
 		end 'endOfInput'
 		let line = read.unwrap()
-		if line.trim() == "" 'nothingTyped'
+		if table.blankTrimmed(line, fromStart: true, fromEnd: true) == "" 'nothingTyped'
 			print(replPrompt)
 			continue 'lines'
 		end 'nothingTyped'

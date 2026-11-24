@@ -316,9 +316,6 @@ export enum Intrinsic
 	intrStringSliceLength
 	intrStringReplace
 	intrStringReplaceFirst
-	intrStringTrim
-	intrStringTrimStart
-	intrStringTrimEnd
 	intrStringToLower
 	intrStringToUpper
 	intrCharacterByteLength
@@ -1770,48 +1767,30 @@ function declareStringMethods(mutates tt TypeSlot, reads TypeTable, mutates ft F
 	ft.lists[funcList(ft, f: f46)][funcIndex(ft, f: f46)].isStatic = false
 	ft.lists[funcList(ft, f: f46)][funcIndex(ft, f: f46)].hasReceiver = true
 	b.stringMethods.insert("replaceFirst", value: f46)
-	let f47 = registerStdFunc(ft, funcReads: funcReads, std: std, funcMap: funcMap, op: Intrinsic.intrStringTrim, name: "trim", generics: TypeIDList.create(0), ret: b.stringTy, params: ParamSpecList.create(0), declareInStd: false)
-	ft.lists[funcList(ft, f: f47)][funcIndex(ft, f: f47)].result = ResultConv.resultBorrowed
+	let f47 = registerStdFunc(ft, funcReads: funcReads, std: std, funcMap: funcMap, op: Intrinsic.intrStringToLower, name: "toLower", generics: TypeIDList.create(0), ret: b.stringTy, params: ParamSpecList.create(0), declareInStd: false)
 	ft.lists[funcList(ft, f: f47)][funcIndex(ft, f: f47)].ownerTy = b.stringTy
 	ft.lists[funcList(ft, f: f47)][funcIndex(ft, f: f47)].isStatic = false
 	ft.lists[funcList(ft, f: f47)][funcIndex(ft, f: f47)].hasReceiver = true
-	b.stringMethods.insert("trim", value: f47)
-	let f48 = registerStdFunc(ft, funcReads: funcReads, std: std, funcMap: funcMap, op: Intrinsic.intrStringTrimStart, name: "trimStart", generics: TypeIDList.create(0), ret: b.stringTy, params: ParamSpecList.create(0), declareInStd: false)
-	ft.lists[funcList(ft, f: f48)][funcIndex(ft, f: f48)].result = ResultConv.resultBorrowed
+	b.stringMethods.insert("toLower", value: f47)
+	let f48 = registerStdFunc(ft, funcReads: funcReads, std: std, funcMap: funcMap, op: Intrinsic.intrStringToUpper, name: "toUpper", generics: TypeIDList.create(0), ret: b.stringTy, params: ParamSpecList.create(0), declareInStd: false)
 	ft.lists[funcList(ft, f: f48)][funcIndex(ft, f: f48)].ownerTy = b.stringTy
 	ft.lists[funcList(ft, f: f48)][funcIndex(ft, f: f48)].isStatic = false
 	ft.lists[funcList(ft, f: f48)][funcIndex(ft, f: f48)].hasReceiver = true
-	b.stringMethods.insert("trimStart", value: f48)
-	let f49 = registerStdFunc(ft, funcReads: funcReads, std: std, funcMap: funcMap, op: Intrinsic.intrStringTrimEnd, name: "trimEnd", generics: TypeIDList.create(0), ret: b.stringTy, params: ParamSpecList.create(0), declareInStd: false)
-	ft.lists[funcList(ft, f: f49)][funcIndex(ft, f: f49)].result = ResultConv.resultBorrowed
-	ft.lists[funcList(ft, f: f49)][funcIndex(ft, f: f49)].ownerTy = b.stringTy
-	ft.lists[funcList(ft, f: f49)][funcIndex(ft, f: f49)].isStatic = false
-	ft.lists[funcList(ft, f: f49)][funcIndex(ft, f: f49)].hasReceiver = true
-	b.stringMethods.insert("trimEnd", value: f49)
-	let f50 = registerStdFunc(ft, funcReads: funcReads, std: std, funcMap: funcMap, op: Intrinsic.intrStringToLower, name: "toLower", generics: TypeIDList.create(0), ret: b.stringTy, params: ParamSpecList.create(0), declareInStd: false)
+	b.stringMethods.insert("toUpper", value: f48)
+	var ps49 = ParamSpecList.create(0)
+	ps49.push(ParamSpec.make("idx", ty: b.stringIndexTy, conv: Convention.convLet))
+	let f50 = registerStdFunc(ft, funcReads: funcReads, std: std, funcMap: funcMap, op: Intrinsic.intrStringCharAt, name: "charAt", generics: TypeIDList.create(0), ret: b.characterTy, params: ps49, declareInStd: false)
 	ft.lists[funcList(ft, f: f50)][funcIndex(ft, f: f50)].ownerTy = b.stringTy
 	ft.lists[funcList(ft, f: f50)][funcIndex(ft, f: f50)].isStatic = false
 	ft.lists[funcList(ft, f: f50)][funcIndex(ft, f: f50)].hasReceiver = true
-	b.stringMethods.insert("toLower", value: f50)
-	let f51 = registerStdFunc(ft, funcReads: funcReads, std: std, funcMap: funcMap, op: Intrinsic.intrStringToUpper, name: "toUpper", generics: TypeIDList.create(0), ret: b.stringTy, params: ParamSpecList.create(0), declareInStd: false)
-	ft.lists[funcList(ft, f: f51)][funcIndex(ft, f: f51)].ownerTy = b.stringTy
-	ft.lists[funcList(ft, f: f51)][funcIndex(ft, f: f51)].isStatic = false
-	ft.lists[funcList(ft, f: f51)][funcIndex(ft, f: f51)].hasReceiver = true
-	b.stringMethods.insert("toUpper", value: f51)
-	var ps52 = ParamSpecList.create(0)
-	ps52.push(ParamSpec.make("idx", ty: b.stringIndexTy, conv: Convention.convLet))
-	let f53 = registerStdFunc(ft, funcReads: funcReads, std: std, funcMap: funcMap, op: Intrinsic.intrStringCharAt, name: "charAt", generics: TypeIDList.create(0), ret: b.characterTy, params: ps52, declareInStd: false)
-	ft.lists[funcList(ft, f: f53)][funcIndex(ft, f: f53)].ownerTy = b.stringTy
-	ft.lists[funcList(ft, f: f53)][funcIndex(ft, f: f53)].isStatic = false
-	ft.lists[funcList(ft, f: f53)][funcIndex(ft, f: f53)].hasReceiver = true
-	b.stringMethods.insert("charAt", value: f53)
-	var ps54 = ParamSpecList.create(0)
-	ps54.push(ParamSpec.make("character", ty: b.characterTy, conv: Convention.convLet))
-	let f55 = registerStdFunc(ft, funcReads: funcReads, std: std, funcMap: funcMap, op: Intrinsic.intrStringContainsCharacter, name: "containsCharacter", generics: TypeIDList.create(0), ret: b.boolTy, params: ps54, declareInStd: false)
-	ft.lists[funcList(ft, f: f55)][funcIndex(ft, f: f55)].ownerTy = b.stringTy
-	ft.lists[funcList(ft, f: f55)][funcIndex(ft, f: f55)].isStatic = false
-	ft.lists[funcList(ft, f: f55)][funcIndex(ft, f: f55)].hasReceiver = true
-	b.stringMethods.insert("containsCharacter", value: f55)
+	b.stringMethods.insert("charAt", value: f50)
+	var ps51 = ParamSpecList.create(0)
+	ps51.push(ParamSpec.make("character", ty: b.characterTy, conv: Convention.convLet))
+	let f52 = registerStdFunc(ft, funcReads: funcReads, std: std, funcMap: funcMap, op: Intrinsic.intrStringContainsCharacter, name: "containsCharacter", generics: TypeIDList.create(0), ret: b.boolTy, params: ps51, declareInStd: false)
+	ft.lists[funcList(ft, f: f52)][funcIndex(ft, f: f52)].ownerTy = b.stringTy
+	ft.lists[funcList(ft, f: f52)][funcIndex(ft, f: f52)].isStatic = false
+	ft.lists[funcList(ft, f: f52)][funcIndex(ft, f: f52)].hasReceiver = true
+	b.stringMethods.insert("containsCharacter", value: f52)
 end 'declareStringMethods'
 
 function declareByteViewMethods(mutates tt TypeSlot, reads TypeTable, mutates ft FuncSlot, funcReads FuncTable, mutates std ParsedModule, mutates b Builtins, mutates funcMap FuncIDMap)

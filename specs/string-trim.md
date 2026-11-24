@@ -55,12 +55,10 @@ CharacterSet.controlCharacters       // Control characters
 ## Tests
 
 <!-- test: trim-whitespace-both -->
-<!-- skip: a trim of a CharacterSet is not supported in minimaxon: trim, trimStart and trimEnd take no set and remove whitespace and newlines -->
 ```maxon
 function main() returns ExitCode
 	let s = "  hello  "
 	let ws = CharacterSet.whitespacesAndNewlines
-	// TODO: a trim of a CharacterSet is not supported in minimaxon: trim, trimStart and trimEnd take no set and remove whitespace and newlines
 	let result = s.trim(ws)
 	print("[{result}]")
 	return 0
@@ -202,11 +200,9 @@ end 'main'
 ```
 
 <!-- test: trim-charset-whitespace -->
-<!-- skip: a trim of a CharacterSet is not supported in minimaxon: trim, trimStart and trimEnd take no set and remove whitespace and newlines -->
 ```maxon
 function main() returns ExitCode
 	let s = "  hello  "
-	// TODO: a trim of a CharacterSet is not supported in minimaxon: trim, trimStart and trimEnd take no set and remove whitespace and newlines
 	let result = s.trim(CharacterSet.whitespacesAndNewlines)
 	print("[{result}]")
 	return 0
@@ -220,11 +216,9 @@ end 'main'
 ```
 
 <!-- test: trim-charset-digits -->
-<!-- skip: a trim of a CharacterSet is not supported in minimaxon: trim, trimStart and trimEnd take no set and remove whitespace and newlines -->
 ```maxon
 function main() returns ExitCode
 	let s = "123hello456"
-	// TODO: a trim of a CharacterSet is not supported in minimaxon: trim, trimStart and trimEnd take no set and remove whitespace and newlines
 	let result = s.trim(CharacterSet.decimalDigits)
 	print("[{result}]")
 	return 0
@@ -238,11 +232,9 @@ end 'main'
 ```
 
 <!-- test: trim-charset-letters -->
-<!-- skip: a trim of a CharacterSet is not supported in minimaxon: trim, trimStart and trimEnd take no set and remove whitespace and newlines -->
 ```maxon
 function main() returns ExitCode
 	let s = "abc123abc"
-	// TODO: a trim of a CharacterSet is not supported in minimaxon: trim, trimStart and trimEnd take no set and remove whitespace and newlines
 	let result = s.trim(CharacterSet.letters)
 	print("[{result}]")
 	return 0
@@ -256,11 +248,9 @@ end 'main'
 ```
 
 <!-- test: trim-charset-digits-start -->
-<!-- skip: a trim of a CharacterSet is not supported in minimaxon: trim, trimStart and trimEnd take no set and remove whitespace and newlines -->
 ```maxon
 function main() returns ExitCode
 	let s = "123hello"
-	// TODO: a trim of a CharacterSet is not supported in minimaxon: trim, trimStart and trimEnd take no set and remove whitespace and newlines
 	let result = s.trimStart(CharacterSet.decimalDigits)
 	print("[{result}]")
 	return 0
@@ -274,11 +264,9 @@ end 'main'
 ```
 
 <!-- test: trim-charset-digits-end -->
-<!-- skip: a trim of a CharacterSet is not supported in minimaxon: trim, trimStart and trimEnd take no set and remove whitespace and newlines -->
 ```maxon
 function main() returns ExitCode
 	let s = "hello123"
-	// TODO: a trim of a CharacterSet is not supported in minimaxon: trim, trimStart and trimEnd take no set and remove whitespace and newlines
 	let result = s.trimEnd(CharacterSet.decimalDigits)
 	print("[{result}]")
 	return 0
@@ -292,11 +280,9 @@ end 'main'
 ```
 
 <!-- test: trim-charset-no-match -->
-<!-- skip: a trim of a CharacterSet is not supported in minimaxon: trim, trimStart and trimEnd take no set and remove whitespace and newlines -->
 ```maxon
 function main() returns ExitCode
 	let s = "hello"
-	// TODO: a trim of a CharacterSet is not supported in minimaxon: trim, trimStart and trimEnd take no set and remove whitespace and newlines
 	let result = s.trim(CharacterSet.decimalDigits)
 	print("[{result}]")
 	return 0
@@ -310,11 +296,9 @@ end 'main'
 ```
 
 <!-- test: trim-charset-all-match -->
-<!-- skip: a trim of a CharacterSet is not supported in minimaxon: trim, trimStart and trimEnd take no set and remove whitespace and newlines -->
 ```maxon
 function main() returns ExitCode
 	let s = "12345"
-	// TODO: a trim of a CharacterSet is not supported in minimaxon: trim, trimStart and trimEnd take no set and remove whitespace and newlines
 	let result = s.trim(CharacterSet.decimalDigits)
 	print("[{result}]")
 	return 0
@@ -328,11 +312,9 @@ end 'main'
 ```
 
 <!-- test: trim-charset-empty -->
-<!-- skip: a trim of a CharacterSet is not supported in minimaxon: trim, trimStart and trimEnd take no set and remove whitespace and newlines -->
 ```maxon
 function main() returns ExitCode
 	let s = ""
-	// TODO: a trim of a CharacterSet is not supported in minimaxon: trim, trimStart and trimEnd take no set and remove whitespace and newlines
 	let result = s.trim(CharacterSet.whitespacesAndNewlines)
 	print("[{result}]")
 	return 0
@@ -346,11 +328,9 @@ end 'main'
 ```
 
 <!-- test: trim-charset-punctuation -->
-<!-- skip: a trim of a CharacterSet is not supported in minimaxon: trim, trimStart and trimEnd take no set and remove whitespace and newlines -->
 ```maxon
 function main() returns ExitCode
 	let s = "...hello!!!"
-	// TODO: a trim of a CharacterSet is not supported in minimaxon: trim, trimStart and trimEnd take no set and remove whitespace and newlines
 	let result = s.trim(CharacterSet.punctuation)
 	print("[{result}]")
 	return 0

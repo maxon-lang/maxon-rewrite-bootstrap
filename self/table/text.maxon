@@ -1,0 +1,30 @@
+// blankTrimmed is the view of text without the spaces, tabs and line ends at its start, where fromStart, and at its end,
+// where fromEnd. The compiler is built without the standard library, whose String.trim reads grapheme clusters against
+// a CharacterSet; the text it trims (source it rewrites, a command typed to the debugger) is split at ASCII blanks, which
+// one byte each is.
+export function blankTrimmed(text String, fromStart bool, fromEnd bool) returns borrowed String
+	var first = 0 as Count
+	var last = text.byteLength()
+	if fromStart 'leading'
+		while first < last and isBlankByte(text.byteAt(first)) 'scan'
+			first = first + 1
+		end 'scan'
+	end 'leading'
+	if fromEnd 'trailing'
+		while last > first and isBlankByte(text.byteAt(last - 1)) 'scan'
+			last = last - 1
+		end 'scan'
+	end 'trailing'
+	return text.sliceBytes(first, endPos: last)
+end 'blankTrimmed'
+
+let spaceByte = 32 as Byte
+
+// tabByte to carriageReturnByte are the control blanks: tab, line feed, vertical tab, form feed, carriage return.
+let tabByte = 9 as Byte
+
+let carriageReturnByte = 13 as Byte
+
+function isBlankByte(b Byte) returns bool
+	return b == spaceByte or (b >= tabByte and b <= carriageReturnByte)
+end 'isBlankByte'
