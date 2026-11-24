@@ -123,7 +123,7 @@ function main() returns ExitCode
 	let args = CommandLine.args()
 	let a = try float.fromString(try args.get(1) otherwise "") otherwise 0.0
 	let b = try float.fromString(try args.get(2) otherwise "") otherwise 0.0
-	return trunc(min(a, b))
+	return try trunc(min(a, b)) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -137,7 +137,7 @@ function main() returns ExitCode
 	let args = CommandLine.args()
 	let a = try float.fromString(try args.get(1) otherwise "") otherwise 0.0
 	let b = try float.fromString(try args.get(2) otherwise "") otherwise 0.0
-	return trunc(min(a, b))
+	return try trunc(min(a, b)) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -151,7 +151,7 @@ function main() returns ExitCode
 	let args = CommandLine.args()
 	let a = try float.fromString(try args.get(1) otherwise "") otherwise 0.0
 	let b = try float.fromString(try args.get(2) otherwise "") otherwise 0.0
-	return trunc(min(a, b)) + 10
+	return try trunc(min(a, b)) + 10 otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -165,7 +165,7 @@ function main() returns ExitCode
 	let args = CommandLine.args()
 	let a = try float.fromString(try args.get(1) otherwise "") otherwise 0.0
 	let b = try float.fromString(try args.get(2) otherwise "") otherwise 0.0
-	return trunc(min(a, b)) + 10
+	return try trunc(min(a, b)) + 10 otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -179,7 +179,7 @@ function main() returns ExitCode
 	let args = CommandLine.args()
 	let a = try float.fromString(try args.get(1) otherwise "") otherwise 0.0
 	let b = try float.fromString(try args.get(2) otherwise "") otherwise 0.0
-	return trunc(min(a, b))
+	return try trunc(min(a, b)) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -193,7 +193,7 @@ function main() returns ExitCode
 	let args = CommandLine.args()
 	let a = try float.fromString(try args.get(1) otherwise "") otherwise 0.0
 	let b = try float.fromString(try args.get(2) otherwise "") otherwise 0.0
-	return trunc(min(a, b))
+	return try trunc(min(a, b)) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

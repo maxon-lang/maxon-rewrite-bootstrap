@@ -79,7 +79,7 @@ end 'main'
 function main() returns ExitCode
 	let args = CommandLine.args()
 	let x = try float.fromString(try args.get(1) otherwise "") otherwise 0.0
-	return trunc(sqrt(x))
+	return try trunc(sqrt(x)) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -93,7 +93,7 @@ function main() returns ExitCode
 	let args = CommandLine.args()
 	let x = try float.fromString(try args.get(1) otherwise "") otherwise 0.0
 	let check = sqrt(x) * sqrt(x)
-	return trunc(check)
+	return try trunc(check) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

@@ -5787,6 +5787,10 @@ parentheses.md: override-precedence
 parsable-interface.md: error.unknown-static-of-a-user-type-named-byte-is-an-ordinary-undefined-function
 parsable-interface.md: parsable.bound-keyword-outranks-primitive-static
 parsable-interface.md: parsable.byte-user-type-outranks-primitive
+parsable-interface.md: parsable.float-fromstring
+parsable-interface.md: parsable.float-fromstring-negative
+parsable-interface.md: parsable.float-fromstring-past-the-i64-integer-part
+parsable-interface.md: parsable.float-fromstring-round-trips-interpolation
 parsable-interface.md: parsable.interface-definition
 pass-by-reference.md: pass-by-reference.a-callee-taking-the-vars-own-alias-needs-no-copy-back-check
 pass-by-reference.md: pass-by-reference.a-field-typed-with-a-directory-qualified-function-alias-passes-by-reference

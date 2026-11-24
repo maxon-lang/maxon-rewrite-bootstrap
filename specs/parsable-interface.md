@@ -390,7 +390,7 @@ end 'main'
 ```maxon
 function main() returns ExitCode
 	let f = try float.fromString("-2.5") otherwise 0.0
-	return trunc(f) + 10
+	return try trunc(f) + 10 otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

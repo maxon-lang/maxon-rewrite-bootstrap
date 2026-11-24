@@ -4844,7 +4844,7 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   "Errors of the program"). A bare `int` or `float` is the full range of its kind only on the right of a `typealias`
   (`typealias Pair = (int, int)`, `typealias Op = function(int) returns int`); anywhere else it is `E3005`, and as the
   target of a cast it has the cast's own wording. `int.fromString` and the other static functions of `int` are library, which
-  minimaxon has not: a call is `E2004`.
+  minimaxon has not: a call is `E3004`. `float.fromString` is (below).
 - `a is b` (see "Identity") does not refuse a record that packs into one word (maxon's inline record, `E3068`): every
   record here has an address, of its box or, for a record held in place, of its words. A literal is not interned, so two equal literals are two objects, and the
   tests that read an alias made by `let b = a`, a string's identity after `.clone()` or the identity of a constant do not
@@ -4982,7 +4982,14 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   too), as an integer's do, where maxon traps. Float division by 0 is IEEE's (an infinity or NaN), where maxon's throws
   `divisionByZero` and refuses a constant zero divisor (`E3103`). The float functions take a float or an integer constant,
   not a value of an integer alias, which is cast first.
-  There is no float `match` pattern or map key, no `float.fromString`, no `Math`, no format
+  `float.fromString(text)` is maxon's reader of a float literal's text, correctly rounded, written in the library
+  (`stdlib/FloatText.maxon`, minimaxon's own, since maxon's is the compiler-owned `Builtins.maxon`'s `__float_bitsFromText`):
+  an optional `-`, digits with `_`, at most one `.` and an exponent with an optional sign, as a literal; the digits are
+  one big integer and a power of ten scales it or its denominator, so the value is an exact ratio rounded once to the
+  nearest double, ties to even, as the compiler reads a literal (`self/ast/floats.maxon`), where maxon keeps 768
+  significant digits and a sticky bit, which rounds the same; anything else, or a magnitude past `f64.max`, is
+  `ParseError.invalidFormat`. Its `static function` in an `extension float` is allowed in the library tiers.
+  There is no float `match` pattern or map key, no `Math`, no format
   specifier for a float, and no `f32` storage. `trunc` of a NaN or of a double past the word gives `i64.min`, as x64's
   `cvttsd2si` does.
 - A type takes no capability word in a nested position: `cmd/convert` leaves out maxon's `immutable` (or `isolated`)

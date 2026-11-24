@@ -1,0 +1,345 @@
+// maxon's float.fromString, which maxon reads with the reader of its float literals (Builtins.maxon's
+// __float_bitsFromText) and which is minimaxon's own here, since that file is the compiler's: the same grammar, and the
+// double correctly rounded, as the compiler reads a literal (self/ast/floats.maxon). The digits are one big integer and
+// the power of ten scales it or its denominator, so the value is an exact ratio that is rounded once, to the nearest
+// double, ties to even.
+
+/// Why a String is not the value a `fromString` reads.
+public enum ParseError implements Error
+	invalidFormat
+end 'ParseError'
+
+typealias FloatTextLimb = int(0 to 4294967295)
+
+typealias FloatTextLimbs = Array with FloatTextLimb
+
+typealias FloatTextShift = int(0 to 31)
+
+// FloatTextOrder is how two big integers compare: -1, 0 or 1 as the first is less, equal or greater.
+typealias FloatTextOrder = int(-1 to 1)
+
+typealias FloatTextExponent = int(-2000000 to 2000000)
+
+let floatTextLimbMask = 4294967295 as Count
+
+let floatTextLimbBits = 32 as Count
+
+let floatTextLimbBase = 4294967296 as Count
+
+let floatTextPrecision = 53 as FloatTextExponent
+
+let floatTextUnitExponent = 1075 as FloatTextExponent
+
+let floatTextMinNormalExponent = -1022 as FloatTextExponent
+
+let floatTextMaxExponent = 1023 as FloatTextExponent
+
+let floatTextExponentBias = 1023 as FloatTextExponent
+
+let floatTextSignificandBits = 52 as Count
+
+let floatTextImplicitBit = 4503599627370496 as Count
+
+let floatTextSignBit = 9223372036854775808 as Count
+
+// The decimal magnitudes past which the text is surely past f64.max, or surely rounds to 0: a bound on the powers of ten
+// the ratio is built of.
+let floatTextOverflowMagnitude = 310 as FloatTextExponent
+
+let floatTextUnderflowMagnitude = -400 as FloatTextExponent
+
+// floatTextExponentClamp is where an exponent stops growing: past both ends of the range, whatever the digits before it
+// shift by, as long as the text is shorter than the clamp, and ten times it and one more digit still fit FloatTextExponent.
+let floatTextExponentClamp = 100000 as FloatTextExponent
+
+enum FloatTextByte
+	minus = 45
+	plus = 43
+	point = 46
+	underscore = 95
+	zero = 48
+	nine = 57
+	lowerE = 101
+	upperE = 69
+end 'FloatTextByte'
+
+extension float
+	/// The double the text is, correctly rounded: an optional `-`, digits with `_` between them, at most one `.`, and an
+	/// exponent `e` or `E` with an optional sign, as a float literal is written. Text that is not one, or a magnitude past
+	/// `f64.max`, is `ParseError.invalidFormat`.
+	public static function fromString(input String) returns FullRangeFloat throws ParseError
+		let bits = try floatTextBits(input) otherwise throw ParseError.invalidFormat
+		return __Builtins.bitsToFloat(floatTextSigned(bits))
+	end 'fromString'
+end 'float'
+
+// floatTextSigned is the 64 bits of a double as the signed integer bitsToFloat takes: the sign bit is its sign.
+function floatTextSigned(bits Count) returns FullRangeInt
+	if bits < floatTextSignBit 'positive'
+		return try bits as FullRangeInt otherwise panic("FloatText: bits below the sign bit fit")
+	end 'positive'
+	return try ((bits - floatTextSignBit) as FullRangeInt) + i64.min otherwise panic("FloatText: bits with the sign bit fit")
+end 'floatTextSigned'
+
+enum FloatTextFailure implements Error
+	malformed
+	overflow
+end 'FloatTextFailure'
+
+function floatTextBits(text String) returns Count throws FloatTextFailure
+	let n = text.byteLength()
+	var at = 0 as Count
+	var negative = false
+	if n > 0 and text.byteAt(0) == FloatTextByte.minus 'sign'
+		negative = true
+		at = 1
+	end 'sign'
+	var digits = FloatTextLimbs.create(0)
+	var significant = 0 as Count
+	var fractionDigits = 0 as Count
+	var pastPoint = false
+	var sawDigit = false
+	while at < n 'mantissa'
+		let c = text.byteAt(at) as Count
+		if c == FloatTextByte.lowerE.rawValue or c == FloatTextByte.upperE.rawValue 'exponent'
+			break 'mantissa'
+		end 'exponent'
+		if c == FloatTextByte.point.rawValue 'point'
+			if pastPoint 'second'
+				throw FloatTextFailure.malformed
+			end 'second'
+			pastPoint = true
+		end 'point' else if c >= FloatTextByte.zero.rawValue and c <= FloatTextByte.nine.rawValue 'digit'
+			sawDigit = true
+			if pastPoint 'fraction'
+				fractionDigits = try fractionDigits + 1 otherwise throw FloatTextFailure.malformed
+			end 'fraction'
+			let d = try (c - FloatTextByte.zero.rawValue) as FloatTextLimb otherwise panic("FloatText: a digit is below 10")
+			if significant > 0 or d != 0 'counted'
+				significant = try significant + 1 otherwise throw FloatTextFailure.malformed
+				floatTextMulAdd(digits, m: 10, add: d)
+			end 'counted'
+		end 'digit' else if c != FloatTextByte.underscore.rawValue 'other'
+			throw FloatTextFailure.malformed
+		end 'other'
+		at = at + 1
+	end 'mantissa'
+	var exp10 = 0 as FloatTextExponent
+	if at < n 'exponent'
+		at = at + 1
+		var negativeExponent = false
+		if at < n and (text.byteAt(at) == FloatTextByte.plus or text.byteAt(at) == FloatTextByte.minus) 'sign'
+			negativeExponent = text.byteAt(at) == FloatTextByte.minus
+			at = at + 1
+		end 'sign'
+		while at < n 'digits'
+			let c = text.byteAt(at) as Count
+			if c == FloatTextByte.underscore.rawValue 'separator'
+				at = at + 1
+				continue 'digits'
+			end 'separator'
+			if c < FloatTextByte.zero.rawValue or c > FloatTextByte.nine.rawValue 'notDigit'
+				throw FloatTextFailure.malformed
+			end 'notDigit'
+			if exp10 < floatTextExponentClamp 'grow'
+				exp10 = try exp10 * 10 + ((c - FloatTextByte.zero.rawValue) as FloatTextExponent) otherwise panic("FloatText: the exponent is clamped")
+			end 'grow'
+			at = at + 1
+		end 'digits'
+		if negativeExponent 'negate'
+			exp10 = -exp10
+		end 'negate'
+	end 'exponent'
+	if not sawDigit 'empty'
+		throw FloatTextFailure.malformed
+	end 'empty'
+	let sign = floatTextSignBit if negative else 0
+	if digits.count() == 0 'zero'
+		return sign
+	end 'zero'
+	let fraction = try fractionDigits as FloatTextExponent otherwise throw FloatTextFailure.malformed
+	let kept = try significant as FloatTextExponent otherwise throw FloatTextFailure.malformed
+	let scale = try (exp10 - fraction) as FloatTextExponent otherwise throw FloatTextFailure.malformed
+	let magnitude = try scale + kept otherwise throw FloatTextFailure.malformed
+	if magnitude > floatTextOverflowMagnitude 'over'
+		throw FloatTextFailure.overflow
+	end 'over'
+	if magnitude < floatTextUnderflowMagnitude 'under'
+		return sign
+	end 'under'
+	var den = floatTextOne()
+	if scale >= 0 'whole'
+		floatTextMulPow10(digits, n: floatTextShift(scale))
+	end 'whole' else 'fraction'
+		floatTextMulPow10(den, n: floatTextShift(-scale))
+	end 'fraction'
+	let bits = try floatTextRound(digits, den: den) otherwise throw FloatTextFailure.overflow
+	return bits or sign
+end 'floatTextBits'
+
+function floatTextOne() returns FloatTextLimbs
+	var one = FloatTextLimbs.create(0)
+	one.push(1)
+	return one
+end 'floatTextOne'
+
+function floatTextTrim(mutates a FloatTextLimbs)
+	var n = a.count()
+	while n > 0 and a[n - 1] == 0 'top'
+		_ = try a.pop() otherwise panic("FloatText: a limb was just counted")
+		n = n - 1
+	end 'top'
+end 'floatTextTrim'
+
+// floatTextMulAdd sets a to a * m + add.
+function floatTextMulAdd(mutates a FloatTextLimbs, m FloatTextLimb, add FloatTextLimb)
+	let factor = m as Count
+	var carry = add
+	for i in 0 upto a.count() 'each'
+		let t = (a[i] as Count) * factor + (carry as Count)
+		a[i] = (t and floatTextLimbMask) as FloatTextLimb
+		carry = (t / floatTextLimbBase) as FloatTextLimb
+	end 'each'
+	if carry != 0 'grow'
+		a.push(carry)
+	end 'grow'
+	floatTextTrim(a)
+end 'floatTextMulAdd'
+
+function floatTextMulPow10(mutates a FloatTextLimbs, n Count)
+	for _ in 0 upto n 'each'
+		floatTextMulAdd(a, m: 10, add: 0)
+	end 'each'
+end 'floatTextMulPow10'
+
+// floatTextShl is a * 2^n.
+function floatTextShl(a FloatTextLimbs, n Count) returns FloatTextLimbs
+	let part = (n mod floatTextLimbBits) as FloatTextShift
+	var out = FloatTextLimbs.create(n / floatTextLimbBits)
+	var carry = 0 as FloatTextLimb
+	for i in 0 upto a.count() 'each'
+		let t = ((a[i] as Count) shl part) + (carry as Count)
+		out.push((t and floatTextLimbMask) as FloatTextLimb)
+		carry = (t / floatTextLimbBase) as FloatTextLimb
+	end 'each'
+	out.push(carry)
+	floatTextTrim(out)
+	return out
+end 'floatTextShl'
+
+// floatTextCompare is -1, 0 or 1 as a is less than, equal to or greater than b.
+function floatTextCompare(a FloatTextLimbs, b FloatTextLimbs) returns FloatTextOrder
+	if a.count() != b.count() 'lengths'
+		return -1 if a.count() < b.count() else 1
+	end 'lengths'
+	var i = a.count()
+	while i > 0 'down'
+		i = i - 1
+		if a[i] != b[i] 'differs'
+			return -1 if a[i] < b[i] else 1
+		end 'differs'
+	end 'down'
+	return 0
+end 'floatTextCompare'
+
+// floatTextSub sets a to a - b, for a b that is not larger.
+function floatTextSub(mutates a FloatTextLimbs, b FloatTextLimbs)
+	var borrow = 0 as FloatTextLimb
+	for i in 0 upto a.count() 'each'
+		var sub = borrow as Count
+		if i < b.count() 'part'
+			sub = sub + (b[i] as Count)
+		end 'part'
+		let ai = a[i] as Count
+		if ai >= sub 'fits'
+			a[i] = try (ai - sub) as FloatTextLimb otherwise panic("FloatText: a difference is past a limb")
+			borrow = 0
+		end 'fits' else 'borrows'
+			a[i] = try (ai + floatTextLimbMask + 1 - sub) as FloatTextLimb otherwise panic("FloatText: a borrow is past a limb")
+			borrow = 1
+		end 'borrows'
+	end 'each'
+	if borrow != 0 'negative'
+		panic("FloatText: a subtraction went below 0")
+	end 'negative'
+	floatTextTrim(a)
+end 'floatTextSub'
+
+function floatTextBitLength(a FloatTextLimbs) returns FloatTextExponent
+	let n = a.count()
+	if n == 0 'zero'
+		return 0
+	end 'zero'
+	var top = a[n - 1] as Count
+	var bits = try ((n - 1) * floatTextLimbBits) as FloatTextExponent otherwise panic("FloatText: a number is past its bound")
+	while top != 0 'bits'
+		bits = try bits + 1 otherwise panic("FloatText: a number is past its bound")
+		top = top shr 1
+	end 'bits'
+	return bits
+end 'floatTextBitLength'
+
+// floatTextShift is a shift that the exponents say is not negative, as a count of bits.
+function floatTextShift(v FloatTextExponent) returns Count
+	return try v as Count otherwise panic("FloatText: a shift is negative")
+end 'floatTextShift'
+
+// floatTextRound is the bits of the double nearest num / den, ties to even, for a num and a den that are not 0; past
+// f64.max it fails.
+function floatTextRound(num FloatTextLimbs, den FloatTextLimbs) returns Count throws FloatTextFailure
+	var e0 = try (floatTextBitLength(num) - floatTextBitLength(den)) as FloatTextExponent otherwise panic("FloatText: a bit length is past its bound")
+	if e0 >= 0 'up'
+		if floatTextCompare(num, b: floatTextShl(den, n: floatTextShift(e0))) < 0 'below'
+			e0 = try e0 - 1 otherwise panic("FloatText: a bit length is past its bound")
+		end 'below'
+	end 'up' else 'down'
+		if floatTextCompare(floatTextShl(num, n: floatTextShift(-e0)), b: den) < 0 'below'
+			e0 = try e0 - 1 otherwise panic("FloatText: a bit length is past its bound")
+		end 'below'
+	end 'down'
+	if e0 > floatTextMaxExponent 'over'
+		throw FloatTextFailure.overflow
+	end 'over'
+	var p = floatTextPrecision
+	if e0 < floatTextMinNormalExponent 'subnormal'
+		p = e0 + floatTextUnitExponent
+	end 'subnormal'
+	if p < 0 'under'
+		return 0
+	end 'under'
+	let k = try (p - 1 - e0) as FloatTextExponent otherwise panic("FloatText: a scale is past its bound")
+	var n = num.clone()
+	var d = den.clone()
+	if k >= 0 'scaleUp'
+		n = floatTextShl(num, n: floatTextShift(k))
+	end 'scaleUp' else 'scaleDown'
+		d = floatTextShl(den, n: floatTextShift(-k))
+	end 'scaleDown'
+	var q = 0 as Count
+	var i = floatTextShift(p)
+	while i > 0 'bits'
+		i = i - 1
+		let di = floatTextShl(d, n: i)
+		if floatTextCompare(n, b: di) >= 0 'set'
+			floatTextSub(n, b: di)
+			q = try q + (1 as Count shl i) otherwise panic("FloatText: a significand is past 53 bits")
+		end 'set'
+	end 'bits'
+	let half = floatTextCompare(floatTextShl(n, n: 1), b: d)
+	if half > 0 or (half == 0 and q mod 2 == 1) 'roundUp'
+		q = try q + 1 otherwise panic("FloatText: a significand is past 53 bits")
+	end 'roundUp'
+	if p != floatTextPrecision 'subnormalBits'
+		return q
+	end 'subnormalBits'
+	var biased = try (e0 + floatTextExponentBias) as FloatTextExponent otherwise panic("FloatText: an exponent is past its bound")
+	var significand = q
+	if significand == floatTextImplicitBit * 2 'carried'
+		significand = floatTextImplicitBit
+		biased = try biased + 1 otherwise panic("FloatText: an exponent is past its bound")
+	end 'carried'
+	if biased > floatTextMaxExponent + floatTextExponentBias 'carriedOver'
+		throw FloatTextFailure.overflow
+	end 'carriedOver'
+	return try (floatTextShift(biased) shl floatTextSignificandBits) + (significand - floatTextImplicitBit) otherwise panic("FloatText: a significand lost its leading bit")
+end 'floatTextRound'
