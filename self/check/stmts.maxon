@@ -12,7 +12,8 @@ function terminates(tree ast.Tree, s ast.NodeID) returns bool
 		return true
 	end 'leaves'
 	if k == ast.NodeKind.exprStmt 'expr'
-		return tree.kindOf(ast.exprStmtE(tree, id: s)) == ast.NodeKind.panicExpr
+		let e = ast.exprStmtE(tree, id: s)
+		return tree.kindOf(e) == ast.NodeKind.panicExpr or exitsProcess(tree, e: e)
 	end 'expr'
 	if k == ast.NodeKind.ifStmt 'if'
 		return ast.ifStmtHasElse(tree, id: s) and bodyTerminates(tree, body: ast.ifStmtThenRef(tree, id: s)) and bodyTerminates(tree, body: ast.ifStmtElseRef(tree, id: s))
@@ -96,8 +97,25 @@ function keywordTerminator(tree ast.Tree, s ast.NodeID) returns table.Option wit
 	if k == ast.NodeKind.exprStmt and tree.kindOf(ast.exprStmtE(tree, id: s)) == ast.NodeKind.panicExpr 'panic'
 		return table.Option.some("panic")
 	end 'panic'
+	if k == ast.NodeKind.exprStmt and exitsProcess(tree, e: ast.exprStmtE(tree, id: s)) 'exit'
+		return table.Option.some("Process.exit")
+	end 'exit'
 	return table.Option.none
 end 'keywordTerminator'
+
+// exitsProcess is whether an expression is a call of Process.exit, which ends the process and never returns: a statement
+// that is one ends its path as a panic does, so nothing after it runs and a function that ends with it needs no return.
+function exitsProcess(tree ast.Tree, e ast.NodeID) returns bool
+	if tree.kindOf(e) != ast.NodeKind.callExpr 'call'
+		return false
+	end 'call'
+	let callee = ast.callExprCallee(tree, id: e)
+	if tree.kindOf(callee) != ast.NodeKind.memberExpr or ast.memberExprName(tree, id: callee) != "exit" 'member'
+		return false
+	end 'member'
+	let owner = ast.memberExprObj(tree, id: callee)
+	return tree.kindOf(owner) == ast.NodeKind.nameExpr and ast.nameExprName(tree, id: owner) == "Process"
+end 'exitsProcess'
 
 // failUnreachable reports the statement that follows a keyword terminator, where the code after it starts.
 function failUnreachable(mutates c Checker, tree ast.Tree, body diag.U32, index Count, mutates errs diag.ErrorList)

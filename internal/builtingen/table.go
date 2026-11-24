@@ -849,6 +849,12 @@ var tableFunctions = []function{
 	{Owner: "Process", Name: "id", Static: true, Result: "Count", Intrinsic: "ProcessId"},
 	// setExitCode is how a behaviour, which runs after main has returned, decides the code the process ends with.
 	{Owner: "Process", Name: "setExitCode", Static: true, Params: []string{"code ExitCode"}, Intrinsic: "ProcessSetExitCode"},
+	// exit ends the process at once with the code, as Rust's process::exit and Go's os.Exit do: nothing is dropped, no
+	// other green thread or service finishes, and an executable that counts its boxes reports no leak. What was written
+	// to standard output and error is out, since every write reaches them unbuffered. The checker takes a statement that
+	// calls it for one that never completes, as a panic (check.exitsProcess). The ordinary way to end a program is to
+	// return from main, with setExitCode for the code when behaviours run after it; maxon's library has no exit.
+	{Owner: "Process", Name: "exit", Static: true, Params: []string{"code ExitCode"}, Intrinsic: "ProcessExitAtOnce"},
 	// enterBackgroundPriority is maxon's Process.enterBackgroundPriority: this process, and the processes and threads it starts after it,
 	// run at background scheduling priority, and the answer is the priority the system reports then, a second reading: Windows' priority
 	// class (16384, BELOW_NORMAL_PRIORITY_CLASS) or a POSIX nice value (10). maxon's BackgroundPriority is a FullRangeInt.
@@ -948,11 +954,6 @@ var tableFunctions = []function{
 	{Owner: "Builtins", Name: "readStdin", Static: true, Params: []string{"_ Natural"}, Result: "ManagedMemory with Byte", Intrinsic: "ReadStdin", Instead: "Console.stdin().readBytes(n)"},
 	{Owner: "Builtins", Name: "runWithInput", Static: true, Params: []string{"executable Executable", "arguments Array with String", "input String", "deadline WaitDeadline"}, Result: "CollectedOutput", Throws: "SubprocessError", Intrinsic: "SubprocessRunWithInput", Instead: "a Configuration whose standardInput is InputSource.bytes(text)"},
 	{Owner: "Builtins", Name: "stdoutWantsAnsiColor", Static: true, Result: "Bool", Intrinsic: "StdoutWantsColor", Instead: "Console.stdoutWantsColor()"},
-	// exitAtOnce ends the process with the code at once: standard output and error, which every write reaches unbuffered,
-	// hold all that was written, and nothing is freed, no drop runs and no behaviour that is left runs. It is the compiler's,
-	// for the end of a build that nothing after it reads, as Go's compiler never frees at exit; maxon's library has no such
-	// call, so a program has none either.
-	{Owner: "Builtins", Name: "exitAtOnce", Static: true, Params: []string{"_ ExitCode"}, Intrinsic: "ProcessExitAtOnce", Instead: "returning from main, or Process.setExitCode(code)"},
 	// floatToBits is the 64 bits of a double read as an integer, as maxon's is: a reinterpretation, which the library's
 	// float hash folds.
 	{Owner: "Builtins", Name: "floatToBits", Static: true, Params: []string{"_ Float"}, Result: "FullRangeInt", Intrinsic: "FloatToBits", Instead: "the float's own operations"},

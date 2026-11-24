@@ -1,0 +1,40 @@
+// Process.exit ends the process at once with its code: what was written before it is out, a value whose drop would print is
+// not dropped, a value that must be ended by one of its destructors need not be, nothing after the call runs, and the
+// function needs no return after it, as after a panic.
+// expect-exit: 7
+type Txn
+	var id as Count
+
+	static function begin(id Count) returns Txn
+		return Txn{id: id}
+	end 'begin'
+
+	function commit(destructs self)
+		print("commit {id}\n")
+	end 'commit'
+
+	function rollback(destructs self)
+		print("rollback {id}\n")
+	end 'rollback'
+end 'Txn'
+
+function stop(code ExitCode) returns Count
+	print("stopping\n")
+	Process.exit(code)
+end 'stop'
+
+function main() returns ExitCode
+	let guarded = cown(Txn.begin(1), dropWith: rollback)
+	let open = Txn.begin(2)
+	print("written before\n")
+	_ = stop(7)
+	print("not reached\n")
+	open.commit()
+	when guarded as t 'never'
+		print("never {t.id}\n")
+	end 'never'
+	return 0
+end 'main'
+
+//> written before
+//> stopping

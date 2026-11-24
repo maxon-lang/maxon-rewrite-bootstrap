@@ -4187,6 +4187,7 @@ records that have no fields (`internal/builtingen/table.go`), so a program calls
 | `Process.executablePath()` | `FilePath`, the running executable's full path (`GetModuleFileNameW`) | `ProcessIntrospectionError.pathUnavailable` |
 | `Process.id()` | `Count`, the running process's id (`GetCurrentProcessId`); maxon's `Pid` is the same unsigned 64-bit integer | — |
 | `Process.setExitCode(code)` | — (the process ends with the last code set in place of `main`'s; see "Where it differs from Maxon") | — |
+| `Process.exit(code)` | — (never returns: the process ends at once with the code, nothing dropped and nothing else finishing; the ordinary end is a return from `main`; see "Where it differs from Maxon") | — |
 | `Process.enterBackgroundPriority()` | `FullRangeInt` (maxon's `BackgroundPriority`), the priority the system reports after the call lowered the process's own: Windows' priority class, 16384 (`BELOW_NORMAL_PRIORITY_CLASS`, `SetPriorityClass`, read back by `GetPriorityClass`), and a nice value, 10, on Linux (`setpriority(PRIO_PROCESS, 0, 10)`, read back by `getpriority`, which the kernel answers as 20 minus the nice value) and on macOS (libSystem's `setpriority` and `getpriority`); the processes and threads started afterwards inherit it (on Linux a thread already running keeps its value; macOS scopes it to the process). Asking twice sinks no further. The interpreter does not change its host's priority, so a program that asks is `// native-only` | — |
 | `Clock.nowNanos()` | `InstantNanos`, the monotonic clock in nanoseconds; only differences of two readings mean anything (see "Where it differs from Maxon"). The library's `stdlib/clock` extends `Clock` with maxon's `nowMs`, `osTickMs`, `threadCpuTicks`, `elapsedMs`, `elapsedNanos` and `remainingMs`, and declares `WallClock` and `CivilDate` | — |
 | `Scheduler.processorCount()` | `Count`, the workers the runtime runs behaviours on: `MAXON_MAX_PROCS` when it holds a count, else the machine's processors (`GetActiveProcessorCount`); maxon's `SchedulerProcessorCount` is the same unsigned 64-bit integer; the interpreter has one worker and answers 1 | — |
@@ -5224,6 +5225,12 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   `.clone()`, a local, a parameter and a result allocate nothing, where maxon allocates every record that is not inline. A
   program that counts its allocations sees fewer: two back-to-back `HeapStats.thread()` readings, whose `HeapActivity` is
   such a record, count the same.
+- **`Process.exit(code)` ends the process at once**, as Rust's `process::exit` and Go's `os.Exit` do: nothing is dropped,
+  no other green thread or service finishes, and an executable that counts its boxes reports no leak; what was written to
+  standard output and error is out, since every write reaches them unbuffered. A statement that calls it ends its path as a
+  `panic` does: code after it in its block is `E3071`, and a function that ends with it needs no return. The ordinary way to end
+  a program is still to return from `main`, with `Process.setExitCode` for the code when behaviours run after it. maxon's
+  library has none.
 
 ## Changing the language
 

@@ -191,7 +191,7 @@ function osSetExitCode(code Count)
 	__Raw.storeWord(scheduler, offset: schedExitSetOffset, value: set)
 end 'osSetExitCode'
 
-// osExitAtOnce ends the process with the code at once (__Builtins.exitAtOnce): every write reaches standard output and error
+// osExitAtOnce ends the process with the code at once (Process.exit): every write reaches standard output and error
 // unbuffered, so nothing is left to flush, and nothing is freed and no behaviour that is left runs.
 function osExitAtOnce(code Count)
 	exitProcess(code)

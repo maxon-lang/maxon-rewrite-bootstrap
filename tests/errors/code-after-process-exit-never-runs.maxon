@@ -1,0 +1,8 @@
+// Process.exit never returns, so a statement after it in the same block can never run, as after a panic.
+function main() returns ExitCode
+	Process.exit(3)
+	print("never\n")
+	return 0
+end 'main'
+
+// expect-error: E3071 at 4:2

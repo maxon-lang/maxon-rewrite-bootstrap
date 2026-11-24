@@ -224,9 +224,11 @@ function lowerProcessSetExitCode(mutates l Lowerer, p ast.Project, ms ast.Module
 	return konst(l, value: 0 as Word)
 end 'lowerProcessSetExitCode'
 
-// lowerProcessExitAtOnce ends the process with the code at once (rt.os.exitAtOnce), which gives nothing back.
+// lowerProcessExitAtOnce is Process.exit: it ends the process with the code at once (rt.os.exitAtOnce), which never
+// returns, so the block ends there, as after a panic.
 function lowerProcessExitAtOnce(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	entryVoid(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtOsExitAtOnce, args: argsOf1(args[0]))
+	seal(l, t: newTrap())
 	return konst(l, value: 0 as Word)
 end 'lowerProcessExitAtOnce'
 
