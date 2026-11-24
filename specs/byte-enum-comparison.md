@@ -162,7 +162,7 @@ enum Ascii
 end 'Ascii'
 
 function main() returns ExitCode
-	let out = ByteArray.create(0)
+	var out = ByteArray.create(0)
 	out.push(Ascii.space)
 	out.push(Ascii.zero)
 	let first = try out.get(0) otherwise 99

@@ -168,7 +168,7 @@ end 'wordAt'
 // before the program runs, which leaves the constant to be built where it is read.
 function datumWord(mutates b DatumBuild, p ast.Project, ms ast.ModuleState, module diag.ModuleID, e ast.NodeID, mutates w DatumWord) returns bool
 	let mi = ast.modIndex(module)
-	if ast.boxedTo(p.typings[mi], node: e) != ast.noType 'boxed'
+	if ast.boxedTo(p.typings[mi], node: e) != ast.noType or p.typings[mi].rawReads.has(e as Count) 'boxed'
 		return false
 	end 'boxed'
 	let ty = exprType(p, module: module, node: e)

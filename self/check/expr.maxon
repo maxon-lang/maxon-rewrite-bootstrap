@@ -510,11 +510,13 @@ function checkOperator(mutates c Checker, p ast.Project, mutates ms ast.ModuleSt
 	let lNode = ast.binaryExprL(ms.tree(), id: e)
 	let integerL = integerized(c, p: p, ms: ms, e: lNode, t: checkedL, other: checkedR)
 	let integerR = integerized(c, p: p, ms: ms, e: rNode, t: checkedR, other: integerL)
+	let caseL = rawCaseCompared(c, p: p, ms: ms, e: lNode, t: integerL, other: integerR, compares: isComparisonOp(op))
+	let caseR = rawCaseCompared(c, p: p, ms: ms, e: rNode, t: integerR, other: caseL, compares: isComparisonOp(op))
 	// In an operation that is no comparison and of which neither operand names an alias, a literal's code point is a Codepoint,
 	// as maxon's is: `'A' + 1` is a Codepoint, which a parameter of another alias refuses.
-	let unaliased = not isComparisonOp(op) and not typeIsNamedInt(ms.types, reads: p.types, t: integerL) and not typeIsNamedInt(ms.types, reads: p.types, t: integerR)
-	let l = codepointTyped(c, p: p, ms: ms, e: lNode, t: integerL, retype: unaliased)
-	let r = codepointTyped(c, p: p, ms: ms, e: rNode, t: integerR, retype: unaliased)
+	let unaliased = not isComparisonOp(op) and not typeIsNamedInt(ms.types, reads: p.types, t: caseL) and not typeIsNamedInt(ms.types, reads: p.types, t: caseR)
+	let l = codepointTyped(c, p: p, ms: ms, e: lNode, t: caseL, retype: unaliased)
+	let r = codepointTyped(c, p: p, ms: ms, e: rNode, t: caseR, retype: unaliased)
 	let off = offsetOf(c, p: p, ms: ms, node: e)
 	if op == "is" 'identity'
 		return checkIdentity(c, p: p, ms: ms, e: e, l: l, r: r, errs: errs)
@@ -558,6 +560,70 @@ function integerized(mutates c Checker, p ast.Project, mutates ms ast.ModuleStat
 	recordType(c, e: e, t: coerced)
 	return coerced
 end 'integerized'
+
+// rawCaseCompared is the type of the operand e, of type t, of a comparison with an integer of the type other: the raw value
+// of the enum case it writes, as the integer constant it is, where rawCaseConstant gives one (`b == Ascii.underscore`), and
+// t otherwise.
+function rawCaseCompared(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, t ast.TypeID, other ast.TypeID, compares bool) returns ast.TypeID
+	if not compares or not ast.isIntType(ms.types, reads: p.types, t: other) 'kept'
+		return t
+	end 'kept'
+	let raw = rawCaseConstant(c, p: p, ms: ms, e: e)
+	if raw != ast.noType 'case'
+		recordType(c, e: e, t: raw)
+		return raw
+	end 'case'
+	let span = rawValueSpan(p, ms: ms, t: t)
+	if span == ast.noType 'notConstants'
+		return t
+	end 'notConstants'
+	c.typing.rawReads.insert(e as Count, value: true)
+	return span
+end 'rawCaseCompared'
+
+// rawValueSpan is the integer range of the raw values of the enum t, as an anonymous range, where it is maxon's constants
+// enum, whose cases write integers: a value of it goes where an integer is expected as the raw value of its case, read when
+// it runs (rawReads). noType for any other type.
+function rawValueSpan(p ast.Project, mutates ms ast.ModuleState, t ast.TypeID) returns ast.TypeID
+	if ast.typeKind(ms.types, reads: p.types, t: t) != ast.TypeKind.enumTy 'notEnum'
+		return ast.noType
+	end 'notEnum'
+	let orig = ast.originOf(ms.types, reads: p.types, t: t)
+	if ast.typeEntry(ms.types, reads: p.types, t: orig).rawKind != ast.RawKind.integer or not ast.typeEntry(ms.types, reads: p.types, t: orig).hasExplicitRaw or ast.typeEntry(ms.types, reads: p.types, t: orig).cases.count() == 0 'notConstants'
+		return ast.noType
+	end 'notConstants'
+	var lo = ast.typeEntry(ms.types, reads: p.types, t: orig).cases[0].rawValue.clone()
+	var hi = lo.clone()
+	for i in 1 upto ast.typeEntry(ms.types, reads: p.types, t: orig).cases.count() 'cases'
+		let v = ast.typeEntry(ms.types, reads: p.types, t: orig).cases[i].rawValue.clone()
+		if v.lt(lo) 'lower'
+			lo = v.clone()
+		end 'lower'
+		if hi.lt(v) 'higher'
+			hi = v.clone()
+		end 'higher'
+	end 'cases'
+	return ast.internIntRange(ms.types, reads: p.types, aliasName: "", minVal: lo, maxVal: hi, inferred: true)
+end 'rawValueSpan'
+
+// rawCaseConstant is the raw value of the enum case that e writes (`Ascii.space`), as an integer constant, where the case
+// writes an integer: maxon's constants enum, whose case is its raw value where an integer is expected, compared with one or
+// passed, stored or returned as one. It is noType for any other e, and for a value of such an enum that is no case written
+// out, whose case is not known before it runs.
+function rawCaseConstant(c Checker, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID) returns ast.TypeID
+	if not c.typing.members.has(e as Count) 'notMember'
+		return ast.noType
+	end 'notMember'
+	let info = c.typing.members.get(e as Count).unwrap()
+	if info.kind != ast.MemberKind.memberEnumCase 'notCase'
+		return ast.noType
+	end 'notCase'
+	let orig = ast.originOf(ms.types, reads: p.types, t: info.ownerTy)
+	if ast.typeEntry(ms.types, reads: p.types, t: orig).rawKind != ast.RawKind.integer or not ast.typeEntry(ms.types, reads: p.types, t: orig).hasExplicitRaw 'unwritten'
+		return ast.noType
+	end 'unwritten'
+	return ast.internConstInt(ms.types, reads: p.types, val: ast.typeEntry(ms.types, reads: p.types, t: orig).cases[info.enumCase].rawValue.clone())
+end 'rawCaseConstant'
 
 // codepointTyped is the type of the operand e, of type t: a Codepoint where retype says so and e is a character literal that
 // integerized made its code point, and t otherwise.

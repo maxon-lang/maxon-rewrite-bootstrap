@@ -2165,6 +2165,7 @@ export function storeTyping(mutates w table.CacheWriter, v Typing)
 	storeIntMapOfBool(w, v: v.slotTakes)
 	storeIntMapOfTypeID(w, v: v.boxes)
 	storeIntMapOfTypeID(w, v: v.staticInstances)
+	storeIntMapOfBool(w, v: v.rawReads)
 	storeIntMapOfWaiting(w, v: v.waiting)
 	w.flag(v.declared)
 end 'storeTyping'
@@ -2196,9 +2197,10 @@ extension Typing
 		let theSlotTakes = loadIntMapOfBool(r)
 		let theBoxes = loadIntMapOfTypeID(r)
 		let theStaticInstances = loadIntMapOfTypeID(r)
+		let theRawReads = loadIntMapOfBool(r)
 		let theWaiting = loadIntMapOfWaiting(r)
 		let theDeclared = r.flag()
-		return Typing{module: theModule, types: theTypes, arith: theArith, names: theNames, members: theMembers, calls: theCalls, structLits: theStructLits, patterns: thePatterns, arms: theArms, whens: theWhens, closures: theClosures, iterations: theIterations, hooks: theHooks, jumps: theJumps, locals: theLocals, nodeLocals: theNodeLocals, indexes: theIndexes, expansions: theExpansions, funcLocals: theFuncLocals, funcUses: theFuncUses, fieldUses: theFieldUses, consumed: theConsumed, slotTakes: theSlotTakes, boxes: theBoxes, staticInstances: theStaticInstances, waiting: theWaiting, declared: theDeclared}
+		return Typing{module: theModule, types: theTypes, arith: theArith, names: theNames, members: theMembers, calls: theCalls, structLits: theStructLits, patterns: thePatterns, arms: theArms, whens: theWhens, closures: theClosures, iterations: theIterations, hooks: theHooks, jumps: theJumps, locals: theLocals, nodeLocals: theNodeLocals, indexes: theIndexes, expansions: theExpansions, funcLocals: theFuncLocals, funcUses: theFuncUses, fieldUses: theFieldUses, consumed: theConsumed, slotTakes: theSlotTakes, boxes: theBoxes, staticInstances: theStaticInstances, rawReads: theRawReads, waiting: theWaiting, declared: theDeclared}
 	end 'cacheLoad'
 end 'Typing'
 

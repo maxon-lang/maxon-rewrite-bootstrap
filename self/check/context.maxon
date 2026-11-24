@@ -528,6 +528,21 @@ export function coerce(mutates c Checker, p ast.Project, mutates ms ast.ModuleSt
 	end 'ok'
 	let sk = ast.typeKind(ms.types, reads: p.types, t: src)
 	let dk = ast.typeKind(ms.types, reads: p.types, t: target)
+	if sk == ast.TypeKind.enumTy and dk == ast.TypeKind.intRange 'rawCase'
+		let raw = rawCaseConstant(c, p: p, ms: ms, e: node)
+		if raw != ast.noType 'written'
+			recordType(c, e: node, t: raw)
+			return coerce(c, p: p, ms: ms, node: node, at: at, src: raw, target: target, wrong: wrong, errs: errs)
+		end 'written'
+		let span = rawValueSpan(p, ms: ms, t: src)
+		if span != ast.noType 'constants'
+			if not coerce(c, p: p, ms: ms, node: node, at: at, src: span, target: target, wrong: wrong, errs: errs) 'unfit'
+				return false
+			end 'unfit'
+			c.typing.rawReads.insert(node as Count, value: true)
+			return true
+		end 'constants'
+	end 'rawCase'
 	if dk == ast.TypeKind.interfaceTy and sk != ast.TypeKind.interfaceTy 'interface'
 		return boxInto(c, p: p, ms: ms, node: node, at: at, src: src, iface: target, wrong: wrong, errs: errs)
 	end 'interface'

@@ -380,6 +380,7 @@ arrays.md: string-array-literal-iterate
 arrays.md: string-array-literal-top-level
 arrays.md: string-array-literal-top-level-pass-to-function
 arrays.md: two-slices-then-write-parent
+assignment.md: assign-constants-enum-to-backing
 assignment.md: assign-enum-to-same-enum
 assignment.md: assign-ranged-typealias
 assignment.md: assign-struct-to-same-struct
@@ -976,6 +977,12 @@ builtins-type.md: builtins-type.print-via-stdlib
 byref-param-widening-and-guard.md: full-range-byref-param-needs-no-guard
 byref-param-widening-and-guard.md: narrow-ranged-byref-param-guards-the-pointee
 byref-param-widening-and-guard.md: narrow-ranged-float-byref-param-guards-the-pointee
+byte-enum-comparison.md: byte-enum-comparison.byte-eq-enum
+byte-enum-comparison.md: byte-enum-comparison.byte-ne-enum
+byte-enum-comparison.md: byte-enum-comparison.enum-coerces-as-return
+byte-enum-comparison.md: byte-enum-comparison.enum-coerces-to-byte-arg
+byte-enum-comparison.md: byte-enum-comparison.enum-coerces-to-byte-array-element
+byte-enum-comparison.md: byte-enum-comparison.enum-eq-byte
 byte-string-literal-codepoint-range.md: error.byte-string-literal.codepoint-emoji
 byte-string-literal-codepoint-range.md: error.byte-string-literal.codepoint-literal-latin-extended
 byte-string-literal-codepoint-range.md: error.byte-string-literal.codepoint-uni-escape
@@ -5402,6 +5409,7 @@ nominal-typealias.md: a-literal-decays-at-every-door
 nominal-typealias.md: a-match-over-two-siblings-joins-to-their-parent
 nominal-typealias.md: a-mixed-expression-in-range-is-stored-in-a-field
 nominal-typealias.md: a-narrow-value-converts-at-a-wide-return
+nominal-typealias.md: a-payload-free-enum-decays-into-an-alias-slot
 nominal-typealias.md: a-private-alias-of-one-name-implements-a-parent-per-file
 nominal-typealias.md: a-processor-count-compares-with-an-array-count
 nominal-typealias.md: a-qualified-implements-parent-beside-a-same-named-type-is-the-parameters-alias
@@ -8377,6 +8385,7 @@ type-name-collision.md: array-literal-managed-element-instance-onto-declared-typ
 type-name-collision.md: array-literal-of-unrelated-type-onto-declared-type
 type-name-collision.md: cross-directory-type-and-exported-typealias-coexist
 type-name-collision.md: crossfile-a-private-alias-beside-a-visible-export-is-its-own-files-bare-name
+type-name-collision.md: crossfile-enum-constant-decays-into-a-wider-alias-slot
 type-name-collision.md: crossfile-enum-member-keeps-its-own-files-value
 type-name-collision.md: crossfile-generic-alias-same-name-still-legal
 type-name-collision.md: crossfile-instantiation-compiles-onto-declared-type

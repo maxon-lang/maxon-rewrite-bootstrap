@@ -56,6 +56,9 @@ function lowerExpr(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState,
 	let mark = l.pending.count()
 	var v = visitExpr(l, p: p, ms: ms, e: e)
 	popPending(l, n: mark)
+	if p.typings[l.mi].rawReads.has(e as Count) 'raw'
+		return rawValueOf(l, p: p, ms: ms, t: applied, index: v)
+	end 'raw'
 	if boxes 'boxed'
 		return lowerBoxed(l, p: p, ms: ms, e: e, v: v, ty: ty, iface: iface)
 	end 'boxed'
