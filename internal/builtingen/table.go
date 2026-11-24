@@ -31,6 +31,7 @@ var primTypes = []primType{
 	{"FullRangeInt", "b.fullRangeIntTy"},
 	{"Codepoint", "b.codepointTy"},
 	{"AsciiValue", "b.asciiValueTy"},
+	{"CodepointDelta", "b.codepointDeltaTy"},
 	{"CodeUnit16", "b.codeUnit16Ty"},
 	{"ExitCode", "b.exitCodeTy"},
 	{"Milliseconds", "b.millisecondsTy"},
@@ -76,6 +77,8 @@ var stdAliases = []stdAlias{
 	{Name: "Codepoint", Field: "codepointTy", Lo: "I128.zero()", Hi: "I128.fromCount(1114111 as Count)"},
 	// AsciiValue is maxon's (stdlib/Character.maxon): what Character.asciiValue gives.
 	{Name: "AsciiValue", Field: "asciiValueTy", Lo: "I128.zero()", Hi: "I128.fromCount(127 as Count)"},
+	// CodepointDelta is maxon's (stdlib/Character.maxon): a step of Character.advanceBy along the scalar values, either way.
+	{Name: "CodepointDelta", Field: "codepointDeltaTy", Lo: "I128.fromCount(1114111 as Count).neg()", Hi: "I128.fromCount(1114111 as Count)"},
 	{Name: "CodeUnit16", Field: "codeUnit16Ty", Lo: "I128.zero()", Hi: "I128.fromCount(65535 as Count)"},
 	{Name: "Milliseconds", Field: "millisecondsTy", Lo: "I128.zero()", Hi: "I128.u64Max()"},
 	// InstantNanos is maxon's (stdlib/Clock.maxon): a reading of the monotonic clock in nanoseconds.
@@ -787,6 +790,13 @@ var tableFunctions = []function{
 	{Owner: "Character", Name: "codepoint", Result: "Codepoint", Intrinsic: "CharacterCodepoint"},
 	{Owner: "Character", Name: "asciiValue", Result: "AsciiValue", Throws: "CharacterError", Intrinsic: "CharacterAsciiValue"},
 	{Owner: "Character", Name: "equals", Params: []string{"other Character"}, Result: "Bool", Intrinsic: "CharacterEquals"},
+	// advanceBy steps over the scalar values, so the surrogate block is no step, and fromCodepoint encodes one; each panics, as
+	// maxon's does, on a surrogate, which a Codepoint holds, and advanceBy past the first or the last scalar value.
+	{Owner: "Character", Name: "advanceBy", Params: []string{"n CodepointDelta"}, Result: "Character", Intrinsic: "CharacterAdvanceBy"},
+	{Owner: "Character", Name: "fromCodepoint", Static: true, Params: []string{"cp Codepoint"}, Result: "Character", Intrinsic: "CharacterFromCodepoint"},
+	// charAt is the cluster that starts at an index, and containsCharacter whether the string holds the character's bytes.
+	{Owner: "String", Name: "charAt", Params: []string{"idx StringIndex"}, Result: "Character", Intrinsic: "StringCharAt"},
+	{Owner: "String", Name: "containsCharacter", Params: []string{"character Character"}, Result: "Bool", Intrinsic: "StringContainsCharacter"},
 	{Owner: "StringIndex", Name: "charIndex", Result: "Count", Intrinsic: "StringIndexCharIndex"},
 	{Owner: "StringIndex", Name: "bytePos", Result: "Count", Intrinsic: "StringIndexBytePos"},
 
@@ -939,6 +949,9 @@ var tableFunctions = []function{
 	{Owner: "Builtins", Name: "hashBytes", Static: true, Params: []string{"_ Array with Byte", "_ ElementIndex", "_ ElementIndex", "_ HashDigest"}, Result: "HashDigest", Intrinsic: "HashBytes", Instead: "a Hasher's combineBytes(bytes)"},
 	// hashBytes of a String, whose box holds its bytes inline: the call of hashBytes whose first argument is a String.
 	{Owner: "Builtins", Name: "hashBytes", Static: true, Params: []string{"_ String", "_ ElementIndex", "_ ElementIndex", "_ HashDigest"}, Result: "HashDigest", Intrinsic: "HashStringBytes", Field: "HashStringBytes", Instead: "a Hasher's combineBytes(bytes)"},
+	// hashCharacter is the fold of a Character's bytes under a seed, which the library's Character.hash is: minimaxon's, as a
+	// Character here holds its bytes in its words where maxon's hashBytes reads its buffer.
+	{Owner: "Builtins", Name: "hashCharacter", Static: true, Params: []string{"_ Character", "_ HashDigest"}, Result: "HashDigest", Intrinsic: "HashCharacter", Instead: "the character's hash()"},
 	// The ordered words of maxon's library: a read of the 2, 4 or 8 bytes at an index of an array, the first the most
 	// significant or the least, and an append of a word's low bytes in that order.
 	{Owner: "Builtins", Name: "readBigEndian", Static: true, Params: []string{"_ Array with Byte", "_ ElementIndex", "_ Count"}, Result: "OrderedWord", Throws: "ArrayError", Intrinsic: "ReadBigEndian", Instead: "readOrderedWord", Checked: true},
@@ -1024,6 +1037,11 @@ var entries = []entry{
 	{"CharLength", "rt.char.length", "Runtime", roleCall, "(Character) -> count of its bytes"},
 	{"CharToString", "rt.char.toString", "Runtime", roleCall, "(Character) -> a new String of its bytes"},
 	{"CharCodepoint", "rt.char.codepoint", "Runtime", roleCall, "(Character) -> its first code point"},
+	{"CharHash", "rt.char.hash", "Runtime", roleCall, "(Character, seed) -> the fold of its bytes under the seed: of its two words where it holds them, which a cluster of so few bytes always does"},
+	{"CharFromCodepoint", "rt.char.fromCodepoint", "Runtime", roleCall, "(code point) -> the Character of its UTF-8 bytes; a surrogate panics"},
+	{"CharAdvanceBy", "rt.char.advanceBy", "Runtime", roleCall, "(Character, signed step) -> the Character of the scalar value that many after its first code point's; a surrogate or a step past the scalar values panics"},
+	{"CharNextScalar", "rt.char.nextScalar", "Runtime", roleCall, "(code point) -> the scalar value after a scalar value, past the surrogates, which a character range steps through"},
+	{"CharOfBytes", "rt.char.ofBytes", "Runtime", roleCall, "(String, from, length) -> a Character of the length bytes from from, held in its two words when they are few enough"},
 	{"StrByteAt", "rt.str.byteAt", "Runtime", roleCall, "(String, index) -> byte"},
 	{"StrView", "rt.str.view", "Runtime", roleCall, "(String, from, length) -> String: a view of the length bytes from from, which owns none and has the String's ASCII bit, the bounds checked before; the backend writes it in place"},
 	{"StrCount", "rt.str.count", "Runtime", roleCall, "(String) -> count of its grapheme clusters"},
@@ -1241,6 +1259,11 @@ var runtimeFunctions = []runtimeFunction{
 	{"CharLength", "charLength(c String) Count"},
 	{"CharToString", "charToString(c String) String"},
 	{"CharCodepoint", "charCodepoint(c String) Count"},
+	{"CharHash", "charHash(c String, seed Count) Count"},
+	{"CharFromCodepoint", "charFromCodepoint(cp Count) String"},
+	{"CharAdvanceBy", "charAdvanceBy(c String, step Count) String"},
+	{"CharNextScalar", "charNextScalar(cp Count) Count"},
+	{"CharOfBytes", "charOfBytes(text String, from Count, length Count) String"},
 	{"StrByteAt", "stringByteAt(text String, index Count) Byte"},
 	{"StrCount", "stringCount(text String) Count"},
 	{"StrGraphemeIndex", "stringGraphemeIndex(text String, bytePos Count) Count"},

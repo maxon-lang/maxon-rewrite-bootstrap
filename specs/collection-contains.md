@@ -99,11 +99,9 @@ end 'main'
 ```
 
 <!-- test: string-char-found -->
-<!-- skip: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet -->
 ```maxon
 function main() returns ExitCode
 	let s = "hello world"
-	// TODO: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet
 	if s.containsCharacter('o') 'check'
 		return 1
 	end 'check'
@@ -115,11 +113,9 @@ end 'main'
 ```
 
 <!-- test: string-char-not-found -->
-<!-- skip: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet -->
 ```maxon
 function main() returns ExitCode
 	let s = "hello world"
-	// TODO: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet
 	if s.containsCharacter('z') 'check'
 		return 1
 	end 'check'

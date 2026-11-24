@@ -375,7 +375,7 @@ error E3011: <fragment>:9:18: Unknown type 'NoSuchElementType'
 ```
 
 <!-- test: compiler-reserved-base-type-is-nameable-at-a-parameter -->
-<!-- skip: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet -->
+<!-- skip: CharacterSet is not supported in minimaxon yet: its predefined sets are static lets of the library whose Set literal is built where they are read, which the reading module does not instantiate -->
 ⭐⭐ **A NAME THE COMPILER RESERVES IS NOT AN UNDECLARED NAME — AND IT IS NOT AN UNNAMEABLE ONE
 EITHER.** `CharacterSet` is reserved: `isCompilerOwnedTypeName`, keyed by `CharacterSetBuiltinName`, stops a
 USER DECLARATION binding the name. The reservation does not stop a source NAMING the type —
@@ -406,7 +406,7 @@ function countIn(s String, chars CharacterSet) returns HitCount
 end 'countIn'
 
 function main() returns ExitCode
-	// TODO: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet
+	// TODO: CharacterSet is not supported in minimaxon yet: its predefined sets are static lets of the library whose Set literal is built where they are read, which the reading module does not instantiate
 	return countIn("a b c", chars: CharacterSet.whitespaces) as ExitCode
 end 'main'
 ```

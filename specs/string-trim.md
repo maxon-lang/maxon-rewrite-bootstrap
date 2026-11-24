@@ -55,12 +55,14 @@ CharacterSet.controlCharacters       // Control characters
 ## Tests
 
 <!-- test: trim-whitespace-both -->
-<!-- skip: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet -->
+<!-- skip: CharacterSet is not supported in minimaxon yet: its predefined sets are static lets of the library whose Set literal is built where they are read, which the reading module does not instantiate -->
+<!-- skip: a trim of a CharacterSet is not supported in minimaxon: trim, trimStart and trimEnd take no set and remove whitespace and newlines -->
 ```maxon
 function main() returns ExitCode
 	let s = "  hello  "
-	// TODO: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet
+	// TODO: CharacterSet is not supported in minimaxon yet: its predefined sets are static lets of the library whose Set literal is built where they are read, which the reading module does not instantiate
 	let ws = CharacterSet.whitespacesAndNewlines
+	// TODO: a trim of a CharacterSet is not supported in minimaxon: trim, trimStart and trimEnd take no set and remove whitespace and newlines
 	let result = s.trim(ws)
 	print("[{result}]")
 	return 0
@@ -202,11 +204,13 @@ end 'main'
 ```
 
 <!-- test: trim-charset-whitespace -->
-<!-- skip: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet -->
+<!-- skip: CharacterSet is not supported in minimaxon yet: its predefined sets are static lets of the library whose Set literal is built where they are read, which the reading module does not instantiate -->
+<!-- skip: a trim of a CharacterSet is not supported in minimaxon: trim, trimStart and trimEnd take no set and remove whitespace and newlines -->
 ```maxon
 function main() returns ExitCode
 	let s = "  hello  "
-	// TODO: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet
+	// TODO: a trim of a CharacterSet is not supported in minimaxon: trim, trimStart and trimEnd take no set and remove whitespace and newlines
+	// TODO: CharacterSet is not supported in minimaxon yet: its predefined sets are static lets of the library whose Set literal is built where they are read, which the reading module does not instantiate
 	let result = s.trim(CharacterSet.whitespacesAndNewlines)
 	print("[{result}]")
 	return 0
@@ -220,11 +224,13 @@ end 'main'
 ```
 
 <!-- test: trim-charset-digits -->
-<!-- skip: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet -->
+<!-- skip: CharacterSet is not supported in minimaxon yet: its predefined sets are static lets of the library whose Set literal is built where they are read, which the reading module does not instantiate -->
+<!-- skip: a trim of a CharacterSet is not supported in minimaxon: trim, trimStart and trimEnd take no set and remove whitespace and newlines -->
 ```maxon
 function main() returns ExitCode
 	let s = "123hello456"
-	// TODO: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet
+	// TODO: a trim of a CharacterSet is not supported in minimaxon: trim, trimStart and trimEnd take no set and remove whitespace and newlines
+	// TODO: CharacterSet is not supported in minimaxon yet: its predefined sets are static lets of the library whose Set literal is built where they are read, which the reading module does not instantiate
 	let result = s.trim(CharacterSet.decimalDigits)
 	print("[{result}]")
 	return 0
@@ -238,11 +244,13 @@ end 'main'
 ```
 
 <!-- test: trim-charset-letters -->
-<!-- skip: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet -->
+<!-- skip: CharacterSet is not supported in minimaxon yet: its predefined sets are static lets of the library whose Set literal is built where they are read, which the reading module does not instantiate -->
+<!-- skip: a trim of a CharacterSet is not supported in minimaxon: trim, trimStart and trimEnd take no set and remove whitespace and newlines -->
 ```maxon
 function main() returns ExitCode
 	let s = "abc123abc"
-	// TODO: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet
+	// TODO: a trim of a CharacterSet is not supported in minimaxon: trim, trimStart and trimEnd take no set and remove whitespace and newlines
+	// TODO: CharacterSet is not supported in minimaxon yet: its predefined sets are static lets of the library whose Set literal is built where they are read, which the reading module does not instantiate
 	let result = s.trim(CharacterSet.letters)
 	print("[{result}]")
 	return 0
@@ -256,11 +264,13 @@ end 'main'
 ```
 
 <!-- test: trim-charset-digits-start -->
-<!-- skip: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet -->
+<!-- skip: CharacterSet is not supported in minimaxon yet: its predefined sets are static lets of the library whose Set literal is built where they are read, which the reading module does not instantiate -->
+<!-- skip: a trim of a CharacterSet is not supported in minimaxon: trim, trimStart and trimEnd take no set and remove whitespace and newlines -->
 ```maxon
 function main() returns ExitCode
 	let s = "123hello"
-	// TODO: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet
+	// TODO: a trim of a CharacterSet is not supported in minimaxon: trim, trimStart and trimEnd take no set and remove whitespace and newlines
+	// TODO: CharacterSet is not supported in minimaxon yet: its predefined sets are static lets of the library whose Set literal is built where they are read, which the reading module does not instantiate
 	let result = s.trimStart(CharacterSet.decimalDigits)
 	print("[{result}]")
 	return 0
@@ -274,11 +284,13 @@ end 'main'
 ```
 
 <!-- test: trim-charset-digits-end -->
-<!-- skip: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet -->
+<!-- skip: CharacterSet is not supported in minimaxon yet: its predefined sets are static lets of the library whose Set literal is built where they are read, which the reading module does not instantiate -->
+<!-- skip: a trim of a CharacterSet is not supported in minimaxon: trim, trimStart and trimEnd take no set and remove whitespace and newlines -->
 ```maxon
 function main() returns ExitCode
 	let s = "hello123"
-	// TODO: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet
+	// TODO: a trim of a CharacterSet is not supported in minimaxon: trim, trimStart and trimEnd take no set and remove whitespace and newlines
+	// TODO: CharacterSet is not supported in minimaxon yet: its predefined sets are static lets of the library whose Set literal is built where they are read, which the reading module does not instantiate
 	let result = s.trimEnd(CharacterSet.decimalDigits)
 	print("[{result}]")
 	return 0
@@ -292,11 +304,13 @@ end 'main'
 ```
 
 <!-- test: trim-charset-no-match -->
-<!-- skip: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet -->
+<!-- skip: CharacterSet is not supported in minimaxon yet: its predefined sets are static lets of the library whose Set literal is built where they are read, which the reading module does not instantiate -->
+<!-- skip: a trim of a CharacterSet is not supported in minimaxon: trim, trimStart and trimEnd take no set and remove whitespace and newlines -->
 ```maxon
 function main() returns ExitCode
 	let s = "hello"
-	// TODO: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet
+	// TODO: a trim of a CharacterSet is not supported in minimaxon: trim, trimStart and trimEnd take no set and remove whitespace and newlines
+	// TODO: CharacterSet is not supported in minimaxon yet: its predefined sets are static lets of the library whose Set literal is built where they are read, which the reading module does not instantiate
 	let result = s.trim(CharacterSet.decimalDigits)
 	print("[{result}]")
 	return 0
@@ -310,11 +324,13 @@ end 'main'
 ```
 
 <!-- test: trim-charset-all-match -->
-<!-- skip: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet -->
+<!-- skip: CharacterSet is not supported in minimaxon yet: its predefined sets are static lets of the library whose Set literal is built where they are read, which the reading module does not instantiate -->
+<!-- skip: a trim of a CharacterSet is not supported in minimaxon: trim, trimStart and trimEnd take no set and remove whitespace and newlines -->
 ```maxon
 function main() returns ExitCode
 	let s = "12345"
-	// TODO: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet
+	// TODO: a trim of a CharacterSet is not supported in minimaxon: trim, trimStart and trimEnd take no set and remove whitespace and newlines
+	// TODO: CharacterSet is not supported in minimaxon yet: its predefined sets are static lets of the library whose Set literal is built where they are read, which the reading module does not instantiate
 	let result = s.trim(CharacterSet.decimalDigits)
 	print("[{result}]")
 	return 0
@@ -328,11 +344,13 @@ end 'main'
 ```
 
 <!-- test: trim-charset-empty -->
-<!-- skip: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet -->
+<!-- skip: CharacterSet is not supported in minimaxon yet: its predefined sets are static lets of the library whose Set literal is built where they are read, which the reading module does not instantiate -->
+<!-- skip: a trim of a CharacterSet is not supported in minimaxon: trim, trimStart and trimEnd take no set and remove whitespace and newlines -->
 ```maxon
 function main() returns ExitCode
 	let s = ""
-	// TODO: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet
+	// TODO: a trim of a CharacterSet is not supported in minimaxon: trim, trimStart and trimEnd take no set and remove whitespace and newlines
+	// TODO: CharacterSet is not supported in minimaxon yet: its predefined sets are static lets of the library whose Set literal is built where they are read, which the reading module does not instantiate
 	let result = s.trim(CharacterSet.whitespacesAndNewlines)
 	print("[{result}]")
 	return 0
@@ -346,11 +364,13 @@ end 'main'
 ```
 
 <!-- test: trim-charset-punctuation -->
-<!-- skip: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet -->
+<!-- skip: CharacterSet is not supported in minimaxon yet: its predefined sets are static lets of the library whose Set literal is built where they are read, which the reading module does not instantiate -->
+<!-- skip: a trim of a CharacterSet is not supported in minimaxon: trim, trimStart and trimEnd take no set and remove whitespace and newlines -->
 ```maxon
 function main() returns ExitCode
 	let s = "...hello!!!"
-	// TODO: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet
+	// TODO: a trim of a CharacterSet is not supported in minimaxon: trim, trimStart and trimEnd take no set and remove whitespace and newlines
+	// TODO: CharacterSet is not supported in minimaxon yet: its predefined sets are static lets of the library whose Set literal is built where they are read, which the reading module does not instantiate
 	let result = s.trim(CharacterSet.punctuation)
 	print("[{result}]")
 	return 0

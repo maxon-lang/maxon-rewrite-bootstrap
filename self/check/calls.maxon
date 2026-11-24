@@ -366,22 +366,33 @@ function callPrint(mutates c Checker, p ast.Project, mutates ms ast.ModuleState,
 	return p.builtins.voidTy
 end 'callPrint'
 
-// namesString is whether e is the name String, a primitive type with no declaration, where no local shadows it.
-function namesString(c Checker, p ast.Project, ms ast.ModuleState, e ast.NodeID) returns bool
+// primitiveNamed is the primitive type with no declaration whose methods the table gives, String or Character, that e names
+// where no local shadows the name, or none.
+function primitiveNamed(c Checker, p ast.Project, ms ast.ModuleState, e ast.NodeID) returns ast.TypeID
 	if ms.tree().kindOf(e) != ast.NodeKind.nameExpr 'notName'
-		return false
+		return ast.noType
 	end 'notName'
 	let name = ast.nameExprName(ms.tree(), id: e)
-	return name == "String" and lookupLocal(c, name: name) == ast.noLocal
-end 'namesString'
+	if lookupLocal(c, name: name) != ast.noLocal 'shadowed'
+		return ast.noType
+	end 'shadowed'
+	if name == "String" 'string'
+		return p.builtins.stringTy
+	end 'string'
+	if name == "Character" 'character'
+		return p.builtins.characterTy
+	end 'character'
+	return ast.noType
+end 'primitiveNamed'
 
 // callMember types 'Type.function(...)', 'Union.case(...)' and 'object.method(...)'.
 function callMember(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, call ast.NodeID, callee ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
 	let obj = ast.memberExprObj(ms.tree(), id: callee)
 	let name = ast.memberExprName(ms.tree(), id: callee).clone()
-	if namesString(c, p: p, ms: ms, e: obj) 'string'
-		return callStringStatic(c, p: p, ms: ms, call: call, name: name, errs: errs)
-	end 'string'
+	let primitive = primitiveNamed(c, p: p, ms: ms, e: obj)
+	if primitive != ast.noType 'primitive'
+		return callPrimitiveStatic(c, p: p, ms: ms, call: call, t: primitive, name: name, errs: errs)
+	end 'primitive'
 	let param = typeParamNamed(c, p: p, ms: ms, e: obj)
 	if param != ast.noType 'parameter'
 		return callOnTypeParam(c, p: p, ms: ms, call: call, param: param, name: name, errs: errs)
@@ -404,17 +415,17 @@ function callMember(mutates c Checker, p ast.Project, mutates ms ast.ModuleState
 	return callOnValue(c, p: p, ms: ms, call: call, receiver: receiver, name: name, errs: errs)
 end 'callMember'
 
-function callStringStatic(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, call ast.NodeID, name String, mutates errs diag.ErrorList) returns ast.TypeID
+function callPrimitiveStatic(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, call ast.NodeID, t ast.TypeID, name String, mutates errs diag.ErrorList) returns ast.TypeID
 	let mark = errs.count()
-	let sf = methodOf(c, p: p, ms: ms, t: p.builtins.stringTy, name: name, node: call, errs: errs)
+	let sf = methodOf(c, p: p, ms: ms, t: t, name: name, node: call, errs: errs)
 	if failedSince(errs, mark: mark) 'ambiguous'
 		return ast.noType
 	end 'ambiguous'
 	if sf != ast.noFunc and ast.funcEntry(ms.funcs, funcReads: p.funcs, f: sf).isStatic 'static'
 		return callFunction(c, p: p, ms: ms, call: call, kind: ast.CallKind.callStatic, target: sf, hasGiven: false, given: ast.TypeIDList.create(0), errs: errs)
 	end 'static'
-	return unknownFunction(c, p: p, ms: ms, call: call, name: "String.{name}", qualifiers: 1 as Count, fix: diag.Fix.none(), errs: errs)
-end 'callStringStatic'
+	return unknownFunction(c, p: p, ms: ms, call: call, name: "{nameOfType(p, ms: ms, t: t)}.{name}", qualifiers: 1 as Count, fix: diag.Fix.none(), errs: errs)
+end 'callPrimitiveStatic'
 
 // typeParamNamed is the type parameter that the expression e names, or none: a type parameter's name outranks a
 // declaration of that name.

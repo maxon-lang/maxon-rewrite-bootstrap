@@ -1,6 +1,7 @@
 // Command textgen generates, from the Unicode data files in ucd/, the table that the text operations of the runtime
 // (runtime/textops.maxon) read to cut a string into grapheme clusters (UAX #29): the class of every code point that is
-// not Other. `go generate ./internal/textgen` runs it.
+// not Other; and the library's table of the General_Category of every code point (category.go). `go generate
+// ./internal/textgen` runs it.
 package main
 
 //go:generate go run .
@@ -10,6 +11,7 @@ import (
 	"bytes"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 )
@@ -72,11 +74,25 @@ func main() {
 		fmt.Fprintln(os.Stderr, "textgen:", err)
 		os.Exit(1)
 	}
+	category, err := generateCategory()
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "textgen:", err)
+		os.Exit(1)
+	}
 	for _, path := range outputs {
 		if err := os.WriteFile(path, []byte(text), 0o644); err != nil {
 			fmt.Fprintln(os.Stderr, "textgen:", err)
 			os.Exit(1)
 		}
+	}
+	// The table is the only file of its directory, so a checkout that leaves generated files out has no directory yet.
+	if err := os.MkdirAll(filepath.Dir(categoryOutput), 0o755); err != nil {
+		fmt.Fprintln(os.Stderr, "textgen:", err)
+		os.Exit(1)
+	}
+	if err := os.WriteFile(categoryOutput, []byte(category), 0o644); err != nil {
+		fmt.Fprintln(os.Stderr, "textgen:", err)
+		os.Exit(1)
 	}
 }
 

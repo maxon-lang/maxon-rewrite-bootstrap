@@ -110,6 +110,85 @@ function charToString(c String) returns String
 	return stringOfRoom(room, length: length)
 end 'charToString'
 
+// charOfWords is the Character that holds its bytes in its two words: first, the first eight, and rest, the word of the second
+// above its flags, which stringOf shifts past them and which holds the bytes after the eighth with their count and the inline
+// bit (charInlineRest). Its flags are a String's that owns its bytes, as a literal's are.
+function charOfWords(first HashWord, rest HashWord) returns String
+	return __Raw.stringOf(first as Count, length: rest as Count, ascii: false)
+end 'charOfWords'
+
+// charInlineRest is the rest of the second word of a Character that holds count bytes in its two words, before the bytes after
+// the eighth: their count and the inline bit.
+function charInlineRest(count Count) returns HashWord
+	let inline = (1 as HashWord) shl (charInlineShift - stringLengthShift)
+	return inline or ((count as HashWord) shl (charLengthShift - stringLengthShift))
+end 'charInlineRest'
+
+// charHash is the fold of a Character's bytes under a seed. One of few enough bytes always holds them in its two words, so
+// two equal Characters are folded the same way, and one that holds them is folded as its two words without its flags.
+function charHash(c String, seed Count) returns Count
+	if charIsInline(c) 'inline'
+		return hashWord(__Raw.stringBytes(c), seed: hashWord(__Raw.stringLength(c), seed: seed))
+	end 'inline'
+	return hashStringBytes(c, at: 0, count: charLength(c), seed: seed)
+end 'charHash'
+
+// charFromCodepoint is the Character of a code point's UTF-8 bytes, which its two words always hold.
+function charFromCodepoint(cp Count) returns String
+	if strIsSurrogate(cp) 'surrogate'
+		panic("Character.fromCodepoint: a surrogate is not a Unicode scalar value")
+	end 'surrogate'
+	let length = strEncodedLength(cp)
+	var first = 0 as HashWord
+	for i in 0 upto length 'bytes'
+		first = first or ((strEncodedByte(cp, length: length, index: i) as HashWord) shl byteShift(i))
+	end 'bytes'
+	return charOfWords(first, rest: charInlineRest(length))
+end 'charFromCodepoint'
+
+// charNextScalar is the scalar value after a scalar value: the code point after it, but for the first after the surrogates.
+function charNextScalar(cp Count) returns Count
+	return strScalarOfRank(strAdd(strRankOfScalar(cp), right: 1))
+end 'charNextScalar'
+
+// charAdvanceBy is the Character of the scalar value step scalar values after the first code point of a Character, step a
+// signed word: before it where it is negative.
+function charAdvanceBy(c String, step Count) returns String
+	let cp = charCodepoint(c)
+	if strIsSurrogate(cp) 'surrogate'
+		panic("Character.advanceBy: this character holds a surrogate, which is not a Unicode scalar value")
+	end 'surrogate'
+	let target = __Raw.wrappingAdd(strRankOfScalar(cp), right: step)
+	if target > strScalarRankLast 'outside'
+		panic("Character.advanceBy: the step leaves the Unicode scalar values")
+	end 'outside'
+	return charFromCodepoint(strScalarOfRank(target))
+end 'charAdvanceBy'
+
+// charOfBytes is a Character of the length bytes of a String from a byte position: held in its two words where they are few
+// enough, and otherwise a String of a copy of them.
+function charOfBytes(text String, from Count, length Count) returns String
+	let total = __Raw.stringLength(text)
+	if from > total or length > total - from 'outside'
+		panic("a character's bytes reach past the end of its string")
+	end 'outside'
+	let bytes = __Raw.wrappingAdd(__Raw.stringBytes(text), right: from)
+	if length > charInlineBytes 'held'
+		return stringOfBytes(bytes, length: length)
+	end 'held'
+	var first = 0 as HashWord
+	var rest = charInlineRest(length)
+	for i in 0 upto length 'bytes'
+		let b = __Raw.loadByte(bytes, offset: i) as HashWord
+		if i < wordBytes 'first'
+			first = first or (b shl byteShift(i))
+		end 'first' else 'rest'
+			rest = rest or (b shl byteShift(__Raw.wrappingSub(i, right: wordBytes)))
+		end 'rest'
+	end 'bytes'
+	return charOfWords(first, rest: rest)
+end 'charOfBytes'
+
 // charCodepoint is the code point of a Character's first UTF-8 sequence.
 function charCodepoint(c String) returns Count
 	let first = charByte(c, index: 0) as Count

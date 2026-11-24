@@ -1,0 +1,18 @@
+// The library's part of a Character, minimaxon's own: maxon's stdlib/Character.maxon declares the type, its fields and its
+// members, which minimaxon builds in (README, "Text"), so what is left here is its conformances, with the methods that the
+// built-in Character lacks. Equality and order are of the bytes, as maxon's are; the built-in equals meets Equatable.
+extension Character implements Hashable, Equatable, Comparable
+	public function hash() returns HashValue
+		return hashValueOfDigest(__Builtins.hashCharacter(self, processFoldStart()))
+	end 'hash'
+
+	public function compare(other Character) returns Ordering
+		if self < other 'before'
+			return Ordering.lessThan
+		end 'before'
+		if self > other 'after'
+			return Ordering.greaterThan
+		end 'after'
+		return Ordering.equalTo
+	end 'compare'
+end 'Character'

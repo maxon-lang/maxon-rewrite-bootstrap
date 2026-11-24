@@ -32,10 +32,10 @@ The `unicodeGeneralCategory(cp)` function returns the Unicode General Category f
 ## Tests
 
 <!-- test: cyrillic-letters -->
-<!-- skip: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet -->
+<!-- skip: CharacterSet is not supported in minimaxon yet: its predefined sets are static lets of the library whose Set literal is built where they are read, which the reading module does not instantiate -->
 ```maxon
 function main() returns ExitCode
-	// TODO: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet
+	// TODO: CharacterSet is not supported in minimaxon yet: its predefined sets are static lets of the library whose Set literal is built where they are read, which the reading module does not instantiate
 	let letters = CharacterSet.letters
 	let a = '\u0410'
 	let b = '\u0430'
@@ -52,10 +52,10 @@ true
 ```
 
 <!-- test: cjk-letters -->
-<!-- skip: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet -->
+<!-- skip: CharacterSet is not supported in minimaxon yet: its predefined sets are static lets of the library whose Set literal is built where they are read, which the reading module does not instantiate -->
 ```maxon
 function main() returns ExitCode
-	// TODO: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet
+	// TODO: CharacterSet is not supported in minimaxon yet: its predefined sets are static lets of the library whose Set literal is built where they are read, which the reading module does not instantiate
 	let letters = CharacterSet.letters
 	let c = '\u4E00'
 	print("{letters.contains(c)}")
@@ -70,10 +70,10 @@ true
 ```
 
 <!-- test: arabic-digits -->
-<!-- skip: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet -->
+<!-- skip: CharacterSet is not supported in minimaxon yet: its predefined sets are static lets of the library whose Set literal is built where they are read, which the reading module does not instantiate -->
 ```maxon
 function main() returns ExitCode
-	// TODO: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet
+	// TODO: CharacterSet is not supported in minimaxon yet: its predefined sets are static lets of the library whose Set literal is built where they are read, which the reading module does not instantiate
 	let digits = CharacterSet.decimalDigits
 	let d = '\u0660'
 	print("{digits.contains(d)}")
@@ -88,10 +88,10 @@ true
 ```
 
 <!-- test: unicode-punctuation -->
-<!-- skip: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet -->
+<!-- skip: CharacterSet is not supported in minimaxon yet: its predefined sets are static lets of the library whose Set literal is built where they are read, which the reading module does not instantiate -->
 ```maxon
 function main() returns ExitCode
-	// TODO: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet
+	// TODO: CharacterSet is not supported in minimaxon yet: its predefined sets are static lets of the library whose Set literal is built where they are read, which the reading module does not instantiate
 	let punct = CharacterSet.punctuation
 	let a = '\u00AB'
 	let b = '\u00BB'
@@ -108,10 +108,10 @@ true
 ```
 
 <!-- test: unicode-symbols -->
-<!-- skip: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet -->
+<!-- skip: CharacterSet is not supported in minimaxon yet: its predefined sets are static lets of the library whose Set literal is built where they are read, which the reading module does not instantiate -->
 ```maxon
 function main() returns ExitCode
-	// TODO: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet
+	// TODO: CharacterSet is not supported in minimaxon yet: its predefined sets are static lets of the library whose Set literal is built where they are read, which the reading module does not instantiate
 	let syms = CharacterSet.symbols
 	let c = '\u00A9'
 	print("{syms.contains(c)}")
@@ -126,10 +126,10 @@ true
 ```
 
 <!-- test: custom-set-unchanged -->
-<!-- skip: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet -->
+<!-- skip: CharacterSet is not supported in minimaxon yet: its predefined sets are static lets of the library whose Set literal is built where they are read, which the reading module does not instantiate -->
 ```maxon
 function main() returns ExitCode
-	// TODO: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet
+	// TODO: CharacterSet is not supported in minimaxon yet: its predefined sets are static lets of the library whose Set literal is built where they are read, which the reading module does not instantiate
 	let cs = CharacterSet.from(CharSet from ['x', 'y', 'z'])
 	print("{cs.contains('x')}\n{cs.contains('a')}")
 	return 0
@@ -144,11 +144,13 @@ false
 ```
 
 <!-- test: trim-cyrillic -->
-<!-- skip: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet -->
+<!-- skip: CharacterSet is not supported in minimaxon yet: its predefined sets are static lets of the library whose Set literal is built where they are read, which the reading module does not instantiate -->
+<!-- skip: a trim of a CharacterSet is not supported in minimaxon: trim, trimStart and trimEnd take no set and remove whitespace and newlines -->
 ```maxon
 function main() returns ExitCode
 	let s = "\u0410\u0411\u0412 123 \u0410\u0411\u0412"
-	// TODO: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet
+	// TODO: a trim of a CharacterSet is not supported in minimaxon: trim, trimStart and trimEnd take no set and remove whitespace and newlines
+	// TODO: CharacterSet is not supported in minimaxon yet: its predefined sets are static lets of the library whose Set literal is built where they are read, which the reading module does not instantiate
 	let result = s.trim(CharacterSet.letters)
 	print("[{result}]")
 	return 0
@@ -162,10 +164,10 @@ end 'main'
 ```
 
 <!-- test: unicode-whitespace -->
-<!-- skip: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet -->
+<!-- skip: CharacterSet is not supported in minimaxon yet: its predefined sets are static lets of the library whose Set literal is built where they are read, which the reading module does not instantiate -->
 ```maxon
 function main() returns ExitCode
-	// TODO: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet
+	// TODO: CharacterSet is not supported in minimaxon yet: its predefined sets are static lets of the library whose Set literal is built where they are read, which the reading module does not instantiate
 	let ws = CharacterSet.whitespaces
 	let c = '\u2003'
 	print("{ws.contains(c)}")

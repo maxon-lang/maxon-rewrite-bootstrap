@@ -130,12 +130,12 @@ end 'main'
 ```
 
 <!-- test: lazy-static.charset-cache -->
-<!-- skip: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet -->
+<!-- skip: CharacterSet is not supported in minimaxon yet: its predefined sets are static lets of the library whose Set literal is built where they are read, which the reading module does not instantiate -->
 ### CharacterSet caching pattern
 
 ```maxon
 type WSCache
-	// TODO: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet
+	// TODO: CharacterSet is not supported in minimaxon yet: its predefined sets are static lets of the library whose Set literal is built where they are read, which the reading module does not instantiate
 	static let ws = CharacterSet.whitespacesAndNewlines
 
 	static function isWhitespace(c Character) returns bool
@@ -164,14 +164,14 @@ space tab
 ```
 
 <!-- test: lazy-static.collection-initializer -->
-<!-- skip: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet -->
+<!-- skip: CharacterSet is not supported in minimaxon yet: its predefined sets are static lets of the library whose Set literal is built where they are read, which the reading module does not instantiate -->
 ### A static initialized by a collection conversion
 
 ```maxon
 typealias CharSet = Set with Character
 
 type Vowels
-	// TODO: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet
+	// TODO: CharacterSet is not supported in minimaxon yet: its predefined sets are static lets of the library whose Set literal is built where they are read, which the reading module does not instantiate
 	static let vowelSet = CharSet from ['a', 'e', 'i', 'o', 'u']
 
 	static function contains(c Character) returns bool

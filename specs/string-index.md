@@ -462,7 +462,6 @@ aé 6 aéb
 ```
 
 <!-- test: char-at-and-index-after-walk-the-clusters -->
-<!-- skip: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet -->
 ### `charAt` and `indexAfter` walk a string one CLUSTER at a time
 ⭐ **`charAt` IS THE CORPUS'S AND SO IS EVERY PRODUCER IT IS FED FROM.** The compiler has no `charAt`
 arm — it needs `makeCharFromBytes`, which the `__ManagedMemory` surface does not serve — and the corpus
@@ -479,7 +478,6 @@ function main() returns ExitCode
 	var i = uni.startIndex()
 	var n = 0 as FullRangeInt
 	while n < 6 'walk'
-		// TODO: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet
 		print(uni.charAt(i).toString())
 		print(" {i.charIndex()}")
 		print(",{i.bytePos()}\n")

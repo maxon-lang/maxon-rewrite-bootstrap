@@ -20,4 +20,15 @@ func TestGeneratedFilesAreCurrent(t *testing.T) {
 			t.Errorf("%s is not what the Unicode data generates; run `go generate ./internal/textgen`", path)
 		}
 	}
+	category, err := generateCategory()
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := os.ReadFile(categoryOutput)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(bytes.ReplaceAll(got, []byte("\r\n"), []byte("\n")), []byte(category)) {
+		t.Errorf("%s is not what the Unicode data generates; run `go generate ./internal/textgen`", categoryOutput)
+	}
 }

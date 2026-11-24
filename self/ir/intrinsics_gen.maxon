@@ -389,6 +389,18 @@ export function intrinsicCall(mutates l Lowerer, p ast.Project, mutates ms ast.M
 	if op == ast.Intrinsic.intrCharacterEquals 'intrCharacterEquals'
 		return lowerCharacterEquals(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrCharacterEquals'
+	if op == ast.Intrinsic.intrCharacterAdvanceBy 'intrCharacterAdvanceBy'
+		return lowerCharacterAdvanceBy(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrCharacterAdvanceBy'
+	if op == ast.Intrinsic.intrCharacterFromCodepoint 'intrCharacterFromCodepoint'
+		return lowerCharacterFromCodepoint(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrCharacterFromCodepoint'
+	if op == ast.Intrinsic.intrStringCharAt 'intrStringCharAt'
+		return lowerStringCharAt(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrStringCharAt'
+	if op == ast.Intrinsic.intrStringContainsCharacter 'intrStringContainsCharacter'
+		return lowerStringContainsCharacter(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrStringContainsCharacter'
 	if op == ast.Intrinsic.intrStringIndexCharIndex 'intrStringIndexCharIndex'
 		return lowerStringIndexCharIndex(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrStringIndexCharIndex'
@@ -632,6 +644,9 @@ export function intrinsicCall(mutates l Lowerer, p ast.Project, mutates ms ast.M
 	if op == ast.Intrinsic.intrHashStringBytes 'intrHashStringBytes'
 		return lowerHashStringBytes(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrHashStringBytes'
+	if op == ast.Intrinsic.intrHashCharacter 'intrHashCharacter'
+		return lowerHashCharacter(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrHashCharacter'
 	if op == ast.Intrinsic.intrReadBigEndian 'intrReadBigEndian'
 		return lowerReadBigEndian(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrReadBigEndian'
@@ -1171,6 +1186,18 @@ export function ownsOperands(op ast.Intrinsic) returns bool
 	if op == ast.Intrinsic.intrCharacterEquals 'intrCharacterEquals'
 		return false
 	end 'intrCharacterEquals'
+	if op == ast.Intrinsic.intrCharacterAdvanceBy 'intrCharacterAdvanceBy'
+		return false
+	end 'intrCharacterAdvanceBy'
+	if op == ast.Intrinsic.intrCharacterFromCodepoint 'intrCharacterFromCodepoint'
+		return false
+	end 'intrCharacterFromCodepoint'
+	if op == ast.Intrinsic.intrStringCharAt 'intrStringCharAt'
+		return false
+	end 'intrStringCharAt'
+	if op == ast.Intrinsic.intrStringContainsCharacter 'intrStringContainsCharacter'
+		return false
+	end 'intrStringContainsCharacter'
 	if op == ast.Intrinsic.intrStringIndexCharIndex 'intrStringIndexCharIndex'
 		return false
 	end 'intrStringIndexCharIndex'
@@ -1414,6 +1441,9 @@ export function ownsOperands(op ast.Intrinsic) returns bool
 	if op == ast.Intrinsic.intrHashStringBytes 'intrHashStringBytes'
 		return false
 	end 'intrHashStringBytes'
+	if op == ast.Intrinsic.intrHashCharacter 'intrHashCharacter'
+		return false
+	end 'intrHashCharacter'
 	if op == ast.Intrinsic.intrReadBigEndian 'intrReadBigEndian'
 		return false
 	end 'intrReadBigEndian'

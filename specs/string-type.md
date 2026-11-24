@@ -413,7 +413,6 @@ end 'main'
 ```
 
 <!-- test: contains-and-containsCharacter -->
-<!-- skip: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet -->
 ### BOTH `contains` and `containsCharacter`, from one program
 `contains(needle String)` (`stdlib/String.maxon:456`) and
 `containsCharacter(character Character)` (`:464`) are two declarations, and neither is synthesized by the compiler.
@@ -425,14 +424,10 @@ function main() returns ExitCode
 	let s = "hello world"
 	let a = s.contains("lo wo")
 	let b = s.contains("xyz")
-	// TODO: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet
 	let c = s.containsCharacter('o')
-	// TODO: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet
 	let d = s.containsCharacter('z')
 	let e = "café naïve"
-	// TODO: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet
 	let f = e.containsCharacter('é')
-	// TODO: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet
 	let g = e.containsCharacter('ü')
 	print("{a} {b} {c} {d} {f} {g}")
 	return 0
@@ -446,7 +441,6 @@ true false true false true false
 ```
 
 <!-- test: contains-in-a-loop-does-not-leak -->
-<!-- skip: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet -->
 ### Neither member leaks its temporary
 The `Character` member builds a `String` from its argument (`character.toString()`) and the `String`
 member borrows its needle. Both are the CORPUS's bodies, so the drops are the ones its declarations
@@ -456,7 +450,6 @@ function main() returns ExitCode
 	var hits = 0 as FullRangeInt
 	for i in 0 upto 200 'each'
 		let s = "hello world {i}"
-		// TODO: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet
 		if s.containsCharacter('o') 'ch'
 			hits = hits + 1
 		end 'ch'

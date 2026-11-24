@@ -99,6 +99,86 @@ function strCodePoint(text String, at Count, length Count) returns Count
 	return code
 end 'strCodePoint'
 
+// The scalar values are the code points but the surrogates, strSurrogateFirst to strSurrogateLast, which UTF-8 does not
+// spell. A scalar value's rank is how many come before it, which a Character steps by (maxon's Character.advanceBy), and
+// strScalarRankLast the last scalar value's.
+let strSurrogateFirst = 0xD800 as Count
+
+let strSurrogateLast = 0xDFFF as Count
+
+let strSurrogateCount = 0x800 as Count
+
+let strScalarRankLast = 1112063 as Count
+
+// strTwoByteLimit and strThreeByteLimit are the first code points that UTF-8 spells with three and with four bytes.
+let strTwoByteLimit = 0x800 as Count
+
+let strThreeByteLimit = 0x10000 as Count
+
+// strContinuationLead is the bits that a byte that continues a sequence starts with, and strContinuationBits how many bits of
+// the code point it holds.
+let strContinuationLead = 0x80 as Count
+
+let strContinuationBits = 6 as Count
+
+// strIsSurrogate is whether a code point is a surrogate, which no Character holds.
+function strIsSurrogate(code Count) returns bool
+	return code >= strSurrogateFirst and code <= strSurrogateLast
+end 'strIsSurrogate'
+
+// strRankOfScalar is how many scalar values come before a scalar value.
+function strRankOfScalar(code Count) returns Count
+	if code > strSurrogateLast 'afterSurrogates'
+		return strSub(code, right: strSurrogateCount)
+	end 'afterSurrogates'
+	return code
+end 'strRankOfScalar'
+
+// strScalarOfRank is the scalar value that rank of them come before.
+function strScalarOfRank(rank Count) returns Count
+	if rank >= strSurrogateFirst 'afterSurrogates'
+		return strAdd(rank, right: strSurrogateCount)
+	end 'afterSurrogates'
+	return rank
+end 'strScalarOfRank'
+
+// strEncodedLength is how many bytes UTF-8 spells a code point with.
+function strEncodedLength(code Count) returns Count
+	if code < strAsciiCodeLimit 'single'
+		return 1
+	end 'single'
+	if code < strTwoByteLimit 'two'
+		return 2
+	end 'two'
+	if code < strThreeByteLimit 'three'
+		return 3
+	end 'three'
+	return 4
+end 'strEncodedLength'
+
+// strEncodedByte is the byte at an index of the UTF-8 sequence of length bytes that spells a code point: each byte after the
+// first holds six of its bits, the last the lowest, and the first the rest under its lead.
+function strEncodedByte(code Count, length Count, index Count) returns Byte
+	let after = strSub(strSub(length, right: 1), right: index)
+	let bits = code shr (try strContinuationBits * after otherwise panic("a sequence past four bytes"))
+	if index > 0 'continuation'
+		return try (strContinuationLead or (bits and strContinuationMask)) as Byte otherwise panic("a continuation byte past a byte")
+	end 'continuation'
+	if length == 1 'single'
+		return try bits as Byte otherwise panic("a code point past a byte")
+	end 'single'
+	var lead = strLeadFour as Count
+	var mask = strFourByteMask
+	if length == 2 'two'
+		lead = strLeadTwo as Count
+		mask = strTwoByteMask
+	end 'two' else if length == 3 'three'
+		lead = strLeadThree as Count
+		mask = strThreeByteMask
+	end 'three'
+	return try (lead or (bits and mask)) as Byte otherwise panic("a lead byte past a byte")
+end 'strEncodedByte'
+
 let strAsciiCodeLimit = 0x80 as Count
 
 let strCarriageReturnCode = 13 as Count

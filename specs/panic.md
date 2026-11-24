@@ -177,7 +177,8 @@ Stack trace:
 ```
 
 <!-- test: panic.specialized-panic-keeps-its-own-message -->
-<!-- skip: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet -->
+<!-- skip: CharacterSet is not supported in minimaxon yet: its predefined sets are static lets of the library whose Set literal is built where they are read, which the reading module does not instantiate -->
+<!-- skip: a trim of a CharacterSet is not supported in minimaxon: trim, trimStart and trimEnd take no set and remove whitespace and newlines -->
 A panic's label is decided where its message is written down, and every copy keeps it. The string
 operations put a long run of CONCRETE stdlib panics into the program ahead of the guard that fires —
 the grapheme, hash, Unicode-category, UTF-8 and UTF-16 helpers all panic on invariants they never
@@ -203,7 +204,8 @@ end 'launder'
 
 function main() returns ExitCode
 	let s = "  héllo wörld  "
-	// TODO: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet
+	// TODO: a trim of a CharacterSet is not supported in minimaxon: trim, trimStart and trimEnd take no set and remove whitespace and newlines
+	// TODO: CharacterSet is not supported in minimaxon yet: its predefined sets are static lets of the library whose Set literal is built where they are read, which the reading module does not instantiate
 	var n = s.trim(CharacterSet.letters).count() as Signed
 	n = n + (s.bytes().count() as Signed)
 	for cp in "héllo".codepoints() 'c'
@@ -234,7 +236,8 @@ Stack trace:
 ```
 
 <!-- test: panic.specialized-panic-keeps-its-own-message-twin -->
-<!-- skip: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet -->
+<!-- skip: CharacterSet is not supported in minimaxon yet: its predefined sets are static lets of the library whose Set literal is built where they are read, which the reading module does not instantiate -->
+<!-- skip: a trim of a CharacterSet is not supported in minimaxon: trim, trimStart and trimEnd take no set and remove whitespace and newlines -->
 The same program again, deliberately. The runner compiles on a pool of worker threads, and a label
 derived from per-thread state answers differently on a thread that parsed the stdlib and one that did
 not — so a single copy could be handed the one thread that happens to agree with itself. Two
@@ -248,7 +251,8 @@ end 'launder'
 
 function main() returns ExitCode
 	let s = "  héllo wörld  "
-	// TODO: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet
+	// TODO: a trim of a CharacterSet is not supported in minimaxon: trim, trimStart and trimEnd take no set and remove whitespace and newlines
+	// TODO: CharacterSet is not supported in minimaxon yet: its predefined sets are static lets of the library whose Set literal is built where they are read, which the reading module does not instantiate
 	var n = s.trim(CharacterSet.letters).count() as Signed
 	n = n + (s.bytes().count() as Signed)
 	for cp in "héllo".codepoints() 'c'

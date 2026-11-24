@@ -452,8 +452,14 @@ function checkOperator(mutates c Checker, p ast.Project, mutates ms ast.ModuleSt
 	if checkedR == ast.noType 'badRight'
 		return ast.noType
 	end 'badRight'
-	let l = integerized(c, p: p, ms: ms, e: ast.binaryExprL(ms.tree(), id: e), t: checkedL, other: checkedR)
-	let r = integerized(c, p: p, ms: ms, e: rNode, t: checkedR, other: l)
+	let lNode = ast.binaryExprL(ms.tree(), id: e)
+	let integerL = integerized(c, p: p, ms: ms, e: lNode, t: checkedL, other: checkedR)
+	let integerR = integerized(c, p: p, ms: ms, e: rNode, t: checkedR, other: integerL)
+	// In an operation that is no comparison and of which neither operand names an alias, a literal's code point is a Codepoint,
+	// as maxon's is: `'A' + 1` is a Codepoint, which a parameter of another alias refuses.
+	let unaliased = not isComparisonOp(op) and not typeIsNamedInt(ms.types, reads: p.types, t: integerL) and not typeIsNamedInt(ms.types, reads: p.types, t: integerR)
+	let l = codepointTyped(c, p: p, ms: ms, e: lNode, t: integerL, retype: unaliased)
+	let r = codepointTyped(c, p: p, ms: ms, e: rNode, t: integerR, retype: unaliased)
 	let off = offsetOf(c, p: p, ms: ms, node: e)
 	if op == "is" 'identity'
 		return checkIdentity(c, p: p, ms: ms, e: e, l: l, r: r, errs: errs)
@@ -497,6 +503,16 @@ function integerized(mutates c Checker, p ast.Project, mutates ms ast.ModuleStat
 	recordType(c, e: e, t: coerced)
 	return coerced
 end 'integerized'
+
+// codepointTyped is the type of the operand e, of type t: a Codepoint where retype says so and e is a character literal that
+// integerized made its code point, and t otherwise.
+function codepointTyped(mutates c Checker, p ast.Project, ms ast.ModuleState, e ast.NodeID, t ast.TypeID, retype bool) returns ast.TypeID
+	if not retype or ms.tree().kindOf(e) != ast.NodeKind.charLit or not isConstInt(p, ms: ms, t: t) 'kept'
+		return t
+	end 'kept'
+	recordType(c, e: e, t: p.builtins.codepointTy)
+	return p.builtins.codepointTy
+end 'codepointTyped'
 
 // hasIdentity is whether a value of the type is an object that two names can stand for: a record, a string or a collection.
 // A number, a bool, an enum case, a union, a function and a type parameter are values with no object to name.

@@ -502,8 +502,8 @@ type Shelf uses T
 	typealias ReadingTriple = FixedArray with 3 Reading
 	export var item as T
 
-	static function create(item T) returns Self
-		return Self{item: item}
+	static function create(item T) returns Self where T implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 
 	function show()

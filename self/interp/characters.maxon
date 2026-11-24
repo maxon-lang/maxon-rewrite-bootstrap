@@ -42,6 +42,69 @@ function entryCharToString(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Ha
 	giveText(vm, x: x, text: text)
 end 'entryCharToString'
 
+// entryCharHash folds a Character's text under a seed, as a String's bytes are folded: the interpreter has no words that hold
+// a Character's bytes, and a hash is the same only within one run.
+function entryCharHash(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let text = try stringArg(vm, f: f, x: x, i: 0, what: "a character's hash")
+	let seed = ir.bitsOfWord(argNum(vm, f: f, x: x, i: 1)) as HashWord
+	let bytes = text.toByteArray()
+	let count = bytes.count()
+	giveNum(vm, x: x, n: ir.wordOfBits(hashSpan(HashInput.make(bytes), count: count, seed: seed) as Count))
+end 'entryCharHash'
+
+function entryCharFromCodepoint(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let cp = ir.bitsOfWord(argNum(vm, f: f, x: x, i: 0))
+	if strIsSurrogate(cp) 'surrogate'
+		throw trap(vm, message: "Character.fromCodepoint: a surrogate is not a Unicode scalar value")
+	end 'surrogate'
+	giveText(vm, x: x, text: codepointText(cp))
+end 'entryCharFromCodepoint'
+
+// entryCharAdvanceBy steps a signed word of scalar values from a Character's first code point, as the runtime's
+// charAdvanceBy does.
+function entryCharAdvanceBy(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let text = try stringArg(vm, f: f, x: x, i: 0, what: "a character's step")
+	let step = ir.bitsOfWord(argNum(vm, f: f, x: x, i: 1))
+	let cp = stringCodePointAt(text, bytePos: 0)
+	if strIsSurrogate(cp) 'surrogate'
+		throw trap(vm, message: "Character.advanceBy: this character holds a surrogate, which is not a Unicode scalar value")
+	end 'surrogate'
+	let target = ir.wrapAdd(strRankOfScalar(cp), b: step)
+	if target > strScalarRankLast 'outside'
+		throw trap(vm, message: "Character.advanceBy: the step leaves the Unicode scalar values")
+	end 'outside'
+	giveText(vm, x: x, text: codepointText(strScalarOfRank(target)))
+end 'entryCharAdvanceBy'
+
+function entryCharNextScalar(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let cp = ir.bitsOfWord(argNum(vm, f: f, x: x, i: 0))
+	giveCount(vm, x: x, n: strScalarOfRank(strAdd(strRankOfScalar(cp), right: 1)))
+end 'entryCharNextScalar'
+
+function entryCharOfBytes(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let text = try stringArg(vm, f: f, x: x, i: 0, what: "a character of a string's bytes")
+	let from = ir.bitsOfWord(argNum(vm, f: f, x: x, i: 1))
+	let length = ir.bitsOfWord(argNum(vm, f: f, x: x, i: 2))
+	let total = text.byteLength()
+	if from > total 'outside'
+		throw trap(vm, message: "a character's bytes reach past the end of its string")
+	end 'outside'
+	if length > total - from 'past'
+		throw trap(vm, message: "a character's bytes reach past the end of its string")
+	end 'past'
+	giveText(vm, x: x, text: text.sliceBytes(from, endPos: try from + length otherwise panic("interp: a span checked inside its string is not")).clone())
+end 'entryCharOfBytes'
+
+// codepointText is the text of a code point's UTF-8 bytes.
+function codepointText(cp Count) returns String
+	let length = strEncodedLength(cp)
+	var bytes = ByteArray.create(0)
+	for i in 0 upto length 'bytes'
+		bytes.push(strEncodedByte(cp, length: length, index: i))
+	end 'bytes'
+	return String.from(bytes)
+end 'codepointText'
+
 function entryCharCodepoint(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	let text = try stringArg(vm, f: f, x: x, i: 0, what: "a character's code point")
 	giveCount(vm, x: x, n: stringCodePointAt(text, bytePos: 0))

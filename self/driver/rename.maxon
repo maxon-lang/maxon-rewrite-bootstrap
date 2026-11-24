@@ -667,11 +667,14 @@ function typeName(p ast.Project, s Scan, id ast.NodeID, name String, qualifiers 
 	return RenameSites.create(0)
 end 'typeName'
 
-// builtinMethod is the method name of the built-in type that a rule names, or of String.
+// builtinMethod is the method name of the built-in type that a rule names, or of String or Character.
 function builtinMethod(p ast.Project, owner String, name String) returns table.Option with ast.FuncID
 	if owner == "String" 'string'
 		return p.builtins.stringMethods.get(name)
 	end 'string'
+	if owner == "Character" 'character'
+		return p.builtins.characterMethods.get(name)
+	end 'character'
 	let ty = p.builtins.stdlibTypeMap.get(owner)
 	if not ty.isSome() 'unknown'
 		panic("rename: {owner} is no built-in type with methods")

@@ -508,7 +508,7 @@ is that of its module (`app::main`), and a project with no `main` in any module 
   unknown (`E2004`) as in maxon.
 - **The standard library** is Maxon source in `stdlib/`, found as `runtime/` is (the `stdlib` directory of the nearest
   directory, from the compiler's executable's upward, that has one), converted from maxon's `stdlib/` by `cmd/convert`
-  but for `Map.maxon`, `Stream.maxon` and `Console.maxon`, which are minimaxon's own (see "Where it differs from Maxon") and
+  but for `Map.maxon`, `Stream.maxon`, `Console.maxon` and `Character.maxon`, which are minimaxon's own (see "Where it differs from Maxon") and
   which no conversion touches; maxon's
   `StringBuilder.maxon` is left out, since an interpolation builds a String here:
   `stdlib/files.txt` lists the files converted so far, each with the library module it goes to (its directory under
@@ -4000,18 +4000,31 @@ Extended_Pictographic values of Unicode 16.0.0, which `internal/textgen` writes 
 directory to `runtime/unicode_gen.maxon` and `self/interp/unicode_gen.maxon`: a string of the first code point of each run
 of one class and its class, searched by halves, with the Hangul syllables computed from their place in the block. Maxon
 joins only the marks in a few ranges; here every Extend, SpacingMark and Prepend code point joins. The Indic conjunct rule
-GB9c is not implemented. `StringIndex` has no `equals` or `compare`; `String` has no `split`, `hash` or `charAt` yet.
+GB9c is not implemented. `StringIndex` has no `equals` or `compare`; `String` has no `split` yet.
 
 A `Character` is one grapheme cluster, written `'A'`, `'é'`, `'🎉'`, `'\''` or with a string's escapes but for `\{` and `\}`; a literal
 that is not one cluster, or has an escape it does not know, is `E2016`, and a malformed or surrogate escape is `E1004`. The
 quotes are read as maxon's one token is, by place: where an operand stands, a quoted word is a character, and where a label or
 a test name does, it is that (`try 'x'.m()` calls a method of a character, as a `.` after the quote says, and `try 'x'` opens
-a block). A literal that is the whole of an operand beside an integer is its code point, a constant (`cp - '0'`, `cp == '-'`,
-`'A' + 1` is 66, and a `match` arm on an integer), where its cluster is one code point; a Character that is no literal never
+a block). A literal that is the whole of an operand beside an integer is its code point (`cp - '0'`, `cp == '-'`, `'A' + 1`
+is 66, and a `match` arm on an integer), where its cluster is one code point: a `Codepoint` in an operation that is no
+comparison and of which neither operand names an alias, as maxon's is, and otherwise a constant; a Character that is no literal never
 converts, and `'a' == "a"` is `E3005`. Characters are equal and ordered by their bytes, interpolate as their text (`{c:q}` in
 single quotes), match by literal and by range (`'a' to 'z'`), and have `toString()`, `byteLength()`, `codepoint()`,
 `asciiValue()` (`CharacterError.notAscii`), `equals`, and `bytes()` and `codepoints()`, views of a String of its bytes as maxon's are
-of its `toString()`; `hash`, `advanceBy`, `fromCodepoint`, `CharacterSet` and `Ascii` are not there yet. A Character is two words, laid out as a String is: one of at most 15
+of its `toString()`. `advanceBy(n)` (a `CodepointDelta`, `int(-1114111 to 1114111)`) steps through the scalar values, so the
+surrogates are no step, and `Character.fromCodepoint(cp)` encodes one; each panics, as maxon's does, on a surrogate, which a
+`Codepoint` can name, and `advanceBy` past the first or the last scalar value. `for c in 'a' to 'z'` (or `upto`), both bounds
+literals, counts through the scalar values between them and gives each as a Character; with one integer bound the range is
+of integers, the literal's code point. A Character is `Hashable`, `Equatable` and `Comparable` through the library's
+`stdlib/Character.maxon` (minimaxon's own, since maxon's declares the type that is built in here), so it is a `Map` key, a `Set`
+element and sorts; its hash folds its two words where it holds its bytes in them, which equal Characters always both do, and
+its bytes otherwise. `String` has `charAt(index)`, the cluster at an index as a Character, and `containsCharacter(c)`.
+maxon's `Ascii` is converted from maxon's library (`stdlib/ascii`). Its `CharacterSet` is not yet: its predefined sets are static
+lets whose `Set` literal is built where they are read, and the module that reads one does not make the instance of `Set.init`
+it calls (a panic of the lowering). What it reads is there: `unicodeGeneralCategory`, maxon's helper, over the
+General_Category table of every code point, which `internal/textgen` writes from `DerivedGeneralCategory.txt` to
+`stdlib/string/unicodeCategory_gen.maxon`, the helper module of maxon's `stdlib/helpers/string/`. A Character is two words, laid out as a String is: one of at most 15
 bytes holds them in its two words, the first eight in the first and the rest above the flags of the second, with their count
 and a bit no String's word sets, so it owns nothing and its copy and drop are the two words; a longer one is a String of its
 bytes, a literal's in the executable's data or a box it owns. Only `runtime/characters.maxon`, whose entries read one, and the
@@ -4488,9 +4501,7 @@ the checker reports where Maxon's parser does, as it needs the type of the value
 - **A Character is held in two words.** maxon's `Character` is a record that owns a heap copy of its bytes, so each one
   taken from a String or written as a literal allocates. Here it is two words, laid out as a String is: a cluster of at most
   15 bytes, which is nearly every one, is held in the words themselves and owns nothing, and a longer one is a String of its
-  bytes (see "Text"). What a program sees is maxon's: the same equality, order, copies and drops. A literal beside an integer
-  is a constant of its code point, which any integer type that holds it takes, where maxon's is a `Codepoint`: a parameter of
-  another alias refuses `'a' + 1` there.
+  bytes (see "Text"). What a program sees is maxon's: the same equality, order, copies and drops.
 - **More commands run at background priority.** Maxon lowers only `spec-test`, which puts itself at background priority
   (`Process.enterBackgroundPriority()`) once its worker branch is past, so its workers and test binaries inherit it.
   minimaxon does so for `test`, `selftest`, `fuzz`, `build` and `check` as well, and its gate lowers itself the same way.

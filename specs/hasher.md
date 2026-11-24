@@ -1334,7 +1334,7 @@ error E3005: <fragment>:9:10: argument type mismatch for 'digest': expected 'Has
 `Character` of several bytes, and a `ByteArray` of the same bytes as the `String` each agree with it.
 ```maxon
 function folded(bytes ByteArray) returns HashValue
-	let hasher = Hasher.create()
+	var hasher = Hasher.create()
 	hasher.combineBytes(bytes)
 	return hasher.finalize()
 end 'folded'

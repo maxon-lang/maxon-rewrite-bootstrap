@@ -91,7 +91,6 @@ last: 128512 4 true
 ```
 
 <!-- test: advance-by-steps-over-the-surrogate-block -->
-<!-- skip: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet -->
 ### `advanceBy` counts scalar values, in either direction
 
 ```maxon
@@ -106,23 +105,14 @@ function main() returns ExitCode
 	let afterBlock = '\uE000'
 	let twoAfter = '\uE001'
 	let first = '\0'
-	// TODO: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet
 	show("D7FF +1", c: beforeBlock.advanceBy(1))
-	// TODO: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet
 	show("D7FF +2", c: beforeBlock.advanceBy(2))
-	// TODO: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet
 	show("D7FE +2", c: twoBefore.advanceBy(2))
-	// TODO: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet
 	show("E000 -1", c: afterBlock.advanceBy(-1))
-	// TODO: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet
 	show("E001 -2", c: twoAfter.advanceBy(-2))
-	// TODO: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet
 	show("0 +55296", c: first.advanceBy(55296))
-	// TODO: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet
 	show("E000 -55296", c: afterBlock.advanceBy(-55296))
-	// TODO: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet
 	show("D7FF +0", c: beforeBlock.advanceBy(0))
-	// TODO: CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet
 	show("a +1", c: 'a'.advanceBy(1))
 	return 0
 end 'main'

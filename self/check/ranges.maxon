@@ -647,7 +647,7 @@ function rangePopFrame(mutates r Ranges) returns Count
 end 'rangePopFrame'
 
 function rangeForStmt(mutates r Ranges, p ast.Project, ms ast.ModuleState, s ast.NodeID)
-	if not ast.forStmtIsRange(ms.tree(), id: s) 'forEach'
+	if not ast.forStmtIsRange(ms.tree(), id: s) or ast.forStmtIsCharacterRange(ms.tree(), id: s) 'forEach'
 		rangeForEach(r, p: p, ms: ms, s: s)
 		return
 	end 'forEach'

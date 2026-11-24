@@ -60,6 +60,8 @@ array-copy-widths.md: insert-and-remove-shift-every-length
 array-copy-widths.md: insert-and-remove-shift-every-position-of-eight-byte-elements
 array-copy-widths.md: insert-and-remove-shift-every-position-of-four-byte-elements
 array-copy-widths.md: insert-and-remove-shift-every-position-of-two-byte-elements
+array-cursor.md: cursor-advance-by
+array-cursor.md: cursor-advance-by-and-retreat-by-still-move-in-their-own-directions
 array-cursor.md: cursor-advance-throws-at-end
 array-cursor.md: cursor-basic-traversal
 array-cursor.md: cursor-bool-array
@@ -69,10 +71,12 @@ array-cursor.md: cursor-peek
 array-cursor.md: cursor-peek-packed-byte-elements
 array-cursor.md: cursor-peek-throws-out-of-bounds
 array-cursor.md: cursor-retreat
+array-cursor.md: cursor-retreat-by
 array-cursor.md: cursor-retreat-by-throws-at-start
 array-cursor.md: cursor-retreat-throws-at-start
 array-cursor.md: cursor-seek
 array-cursor.md: cursor-seek-out-of-bounds
+array-cursor.md: error.cursor-advance-by-a-written-negative-step-is-refused
 array-cursor.md: error.cursor-retreat-by-a-written-negative-step-is-refused
 array-declared-record.md: error.the-library-arrays-index-refuses-a-string
 array-element-drop-stamp.md: a-local-array-of-inline-records-owns-nothing-to-release
@@ -1064,6 +1068,7 @@ character-ownership.md: a-character-binding-is-never-retyped-by-an-int
 character-ownership.md: a-character-let-in-a-body-holds-a-character
 character-ownership.md: a-character-literal-fills-a-character-struct-field
 character-ownership.md: a-character-literal-receiver-is-not-a-try-block-label
+character-ownership.md: a-character-range-needs-both-bounds
 character-ownership.md: a-cluster-has-no-integer-reading
 character-ownership.md: a-module-level-character-initializer-holds-a-character
 character-ownership.md: a-wide-character-literal-converts-to-its-codepoint
@@ -1091,6 +1096,7 @@ character-type.md: ascii-value-newline
 character-type.md: ascii-value-non-ascii
 character-type.md: ascii-value-space
 character-type.md: basic-character
+character-type.md: character-comparable-witness
 character-type.md: character-comparison
 character-type.md: character-equality-multibyte
 character-type.md: character-in-variable
@@ -1249,6 +1255,8 @@ collection-contains.md: array-subsequence-empty-sequence
 collection-contains.md: array-subsequence-equal-length-match
 collection-contains.md: array-subsequence-found
 collection-contains.md: array-subsequence-not-found
+collection-contains.md: string-char-found
+collection-contains.md: string-char-not-found
 collection-contains.md: string-substring-found
 collection-contains.md: string-substring-not-found
 collection.md: count-basic
@@ -3547,6 +3555,7 @@ implicit-type-conversion.md: no-bool-to-int
 implicit-type-conversion.md: no-int-to-bool
 implicit-type-conversion.md: no-string-to-int
 init-from-literal-rules.md: a-fixed-array-alias-takes-from-an-array-literal
+init-from-literal-rules.md: a-set-alias-takes-from-an-array-literal
 init-from-literal-rules.md: a-user-type-takes-from-an-array-literal
 init-from-literal-rules.md: a-user-type-takes-from-an-array-literal-at-module-scope
 init-from-literal-rules.md: an-alias-declared-in-a-generic-type-takes-from-an-array-literal
@@ -6034,6 +6043,9 @@ ranges.md: error.mismatched-for-end-label
 ranges.md: ranges.basic-exclusive
 ranges.md: ranges.basic-inclusive
 ranges.md: ranges.break-in-range
+ranges.md: ranges.character-range
+ranges.md: ranges.character-range-encodes-every-utf8-width
+ranges.md: ranges.character-range-print
 ranges.md: ranges.continue-in-range
 ranges.md: ranges.create-iterator
 ranges.md: ranges.empty-create-iterator-throws
@@ -6046,6 +6058,7 @@ ranges.md: ranges.large-range
 ranges.md: ranges.let-binding
 ranges.md: ranges.negative-bounds
 ranges.md: ranges.nested-ranges
+ranges.md: ranges.ranged-alias-parameter-bound-stays-legal
 ranges.md: ranges.single-element-exclusive
 ranges.md: ranges.single-element-inclusive
 ranges.md: ranges.variable-bounds
@@ -7311,6 +7324,7 @@ stdlib-loading.md: stdlib-loading.a-user-free-function-outranks-the-stdlib-modul
 stdlib-loading.md: stdlib-loading.a-user-grapheme-classifier-is-the-one-that-runs
 stdlib-loading.md: stdlib-loading.a-user-print-outranks-the-stdlib-module
 stdlib-loading.md: stdlib-loading.a-value-returning-user-free-function-outranks-a-void-stdlib-one
+stdlib-loading.md: stdlib-loading.ascii-classifiers-from-stdlib
 stdlib-loading.md: stdlib-loading.both-print-modules-from-stdlib
 stdlib-loading.md: stdlib-loading.clock-from-stdlib
 stdlib-loading.md: stdlib-loading.elapsed-through-a-sibling
@@ -7559,6 +7573,8 @@ string-type-2.md: tobytearray-survives-the-source-growing
 string-type.md: basic-declaration
 string-type.md: byteview-iteration
 string-type.md: contains
+string-type.md: contains-and-containsCharacter
+string-type.md: contains-in-a-loop-does-not-leak
 string-type.md: count-method
 string-type.md: empty-string
 string-type.md: endsWith

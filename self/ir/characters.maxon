@@ -30,6 +30,36 @@ function lowerCharacterCodepoint(mutates l Lowerer, p ast.Project, ms ast.Module
 	return runtime(l, symbol: Rt.rtCharCodepoint, kind: IrKind.kindScalar, args: argsOf1(recv))
 end 'lowerCharacterCodepoint'
 
+function lowerCharacterAdvanceBy(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return runtime(l, symbol: Rt.rtCharAdvanceBy, kind: IrKind.kindString, args: argsOf2(recv, b: args[0]))
+end 'lowerCharacterAdvanceBy'
+
+function lowerCharacterFromCodepoint(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return runtime(l, symbol: Rt.rtCharFromCodepoint, kind: IrKind.kindString, args: argsOf1(args[0]))
+end 'lowerCharacterFromCodepoint'
+
+function lowerHashCharacter(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return runtime(l, symbol: Rt.rtCharHash, kind: IrKind.kindScalar, args: argsOf2(args[0], b: args[1]))
+end 'lowerHashCharacter'
+
+// lowerStringCharAt is the cluster that starts at the index's byte, as a Character of its bytes.
+function lowerStringCharAt(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	let from = indexBytePos(l, index: args[0])
+	let one = konst(l, value: 1 as Word)
+	let until = runtime(l, symbol: Rt.rtStrGraphemeBytePos, kind: IrKind.kindScalar, args: argsOf3(recv, b: from, c: one))
+	let length = wrappingBin(l, op: BinOp.binSub, a: until, b: from, kind: IrKind.kindScalar)
+	return runtime(l, symbol: Rt.rtCharOfBytes, kind: IrKind.kindString, args: argsOf3(recv, b: from, c: length))
+end 'lowerStringCharAt'
+
+// lowerStringContainsCharacter is whether the string holds the character's bytes, as maxon's searches for its toString().
+function lowerStringContainsCharacter(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	let needle = runtime(l, symbol: Rt.rtCharToString, kind: IrKind.kindString, args: argsOf1(args[0]))
+	let from = konst(l, value: 0 as Word)
+	let result = runtime(l, symbol: Rt.rtStrFind, kind: IrKind.kindScalar, args: argsOf3(recv, b: needle, c: from))
+	dropValue(l, p: p, ms: ms, v: needle, t: p.builtins.stringTy)
+	return found(l, result: result)
+end 'lowerStringContainsCharacter'
+
 function lowerCharacterEquals(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	return characterEquals(l, left: recv, right: args[0])
 end 'lowerCharacterEquals'

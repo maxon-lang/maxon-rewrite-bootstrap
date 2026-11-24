@@ -562,6 +562,12 @@ function visitForStmt(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleSta
 	end 'forEach'
 	let sym = localEntry(p, module: l.fnModule, id: localOfNode(p, module: l.module, node: s))
 	let slot = slotOf(sym)
+	// A range of characters counts through the scalar values of its bounds, and its variable is the character of each.
+	let characters = ast.forStmtIsCharacterRange(p.modules[l.mi].tree, id: s)
+	var counter = slot
+	if characters 'characters'
+		counter = l.b.f.newSlot(IrKind.kindScalar)
+	end 'characters'
 	let limit = l.b.f.newSlot(IrKind.kindScalar)
 	let unsigned = ast.isUnsignedInt(ms.types, reads: p.types, t: sym.ty)
 	let body = l.b.newBlock()
@@ -570,23 +576,34 @@ function visitForStmt(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleSta
 	let exit = l.b.newBlock()
 	pushJumps(l, node: s, brk: exit, cont: cont)
 	let inclusive = ast.forStmtInclusive(p.modules[l.mi].tree, id: s)
-	let from = lowerExpr(l, p: p, ms: ms, e: ast.forStmtFrom(p.modules[l.mi].tree, id: s))
-	emit(l, i: newStoreSlot(slot, src: from, borrow: false))
-	let upper = lowerExpr(l, p: p, ms: ms, e: ast.forStmtTo(p.modules[l.mi].tree, id: s))
+	let from = rangeBound(l, p: p, ms: ms, e: ast.forStmtFrom(p.modules[l.mi].tree, id: s), characters: characters)
+	emit(l, i: newStoreSlot(counter, src: from, borrow: false))
+	let upper = rangeBound(l, p: p, ms: ms, e: ast.forStmtTo(p.modules[l.mi].tree, id: s), characters: characters)
 	emit(l, i: newStoreSlot(limit, src: upper, borrow: false))
 	var pastOp = CmpOp.cmpGe
 	if inclusive 'inclusive'
 		pastOp = CmpOp.cmpGt
 	end 'inclusive'
-	let pastA = load(l, slot: slot)
+	let pastA = load(l, slot: counter)
 	let pastB = load(l, slot: limit)
 	let past = compare(l, op: pastOp, a: pastA, b: pastB, unsigned: unsigned)
 	l.b.terminate(l.cur, t: newBranch(past, ifTrue: exit, ifFalse: body))
 	l.cur = body
+	if characters 'character'
+		// Each pass owns its character, which its scope drops, as a cursor's element is.
+		pushScope(l, block: true)
+		let code = load(l, slot: counter)
+		let character = runtime(l, symbol: Rt.rtCharFromCodepoint, kind: IrKind.kindString, args: argsOf1(code))
+		emit(l, i: newStoreSlot(slot, src: character, borrow: false))
+		ownLocal(l, p: p, ms: ms, slot: slot, t: sym.ty)
+	end 'character'
 	lowerBlock(l, p: p, ms: ms, ref: ast.forStmtBodyRef(p.modules[l.mi].tree, id: s))
+	if characters 'passEnds'
+		popScope(l, p: p)
+	end 'passEnds'
 	goTo(l, target: cont)
 	if inclusive 'inclusiveStep'
-		let a = load(l, slot: slot)
+		let a = load(l, slot: counter)
 		let b = load(l, slot: limit)
 		let done = compare(l, op: CmpOp.cmpEq, a: a, b: b, unsigned: unsigned)
 		l.b.terminate(l.cur, t: newBranch(done, ifTrue: exit, ifFalse: step))
@@ -594,11 +611,9 @@ function visitForStmt(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleSta
 	end 'inclusiveStep' else 'exclusiveStep'
 		goTo(l, target: step)
 	end 'exclusiveStep'
-	let next = newReg(l, kind: IrKind.kindScalar)
-	let cur = load(l, slot: slot)
-	let one = konst(l, value: 1 as Word)
-	emit(l, i: newBin(next, op: BinOp.binAdd, left: cur, right: one, unsigned: unsigned, fail: noBlock))
-	emit(l, i: newStoreSlot(slot, src: next, borrow: false))
+	let cur = load(l, slot: counter)
+	let next = rangeNext(l, cur: cur, characters: characters, unsigned: unsigned)
+	emit(l, i: newStoreSlot(counter, src: next, borrow: false))
 	if inclusive 'inclusiveJump'
 		l.b.terminate(l.cur, t: newJump(body))
 	end 'inclusiveJump' else 'exclusiveJump'
@@ -609,6 +624,28 @@ function visitForStmt(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleSta
 	popJumps(l)
 	l.cur = exit
 end 'visitForStmt'
+
+// rangeBound is the value a range for counts from or to: an integer, or the code point of a bound of a range of characters,
+// which is a character literal.
+function rangeBound(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, characters bool) returns Reg
+	if characters 'character'
+		let cp = ast.charLitCodepoint(p.modules[l.mi].tree, id: e)
+		return konst(l, value: countWord(cp.unwrap()))
+	end 'character'
+	return lowerExpr(l, p: p, ms: ms, e: e)
+end 'rangeBound'
+
+// rangeNext is the value a range for counts to after cur: the next integer, or the next scalar value of a range of
+// characters, which steps over the surrogates.
+function rangeNext(mutates l Lowerer, cur Reg, characters bool, unsigned bool) returns Reg
+	if characters 'scalar'
+		return runtime(l, symbol: Rt.rtCharNextScalar, kind: IrKind.kindScalar, args: argsOf1(cur))
+	end 'scalar'
+	let next = newReg(l, kind: IrKind.kindScalar)
+	let one = konst(l, value: 1 as Word)
+	emit(l, i: newBin(next, op: BinOp.binAdd, left: cur, right: one, unsigned: unsigned, fail: noBlock))
+	return next
+end 'rangeNext'
 
 // visitForEach lowers a for over an array to a loop over its indexes. The array is read once, and the ownership pass keeps
 // the body from changing it. Each element is lent to the variable, as a subscript lends it, and a loop over `enumerated()`

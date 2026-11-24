@@ -2131,22 +2131,18 @@ func transformStmtAndExpr(line *sourceLine, warn func(*sourceLine, string)) {
 				if i > 0 && toks[i-1].text == "to" {
 					warn(line, "open-ended 'to max' match range patterns are not supported in minimaxon")
 				}
-			case "CharacterSet", "CharSet", "Ascii":
+			case "CharacterSet", "CharSet":
 				if i == 0 || toks[i-1].text != "." {
-					warn(line, characterLibraryWarning)
+					warn(line, "CharacterSet is not supported in minimaxon yet: its predefined sets are static lets of the library whose Set literal is built where they are read, which the reading module does not instantiate")
 				}
-			case "charAt", "containsCharacter", "advanceBy", "fromCodepoint":
-				if i > 0 && toks[i-1].text == "." {
-					warn(line, characterLibraryWarning)
+			case "trim", "trimStart", "trimEnd":
+				if i > 0 && toks[i-1].text == "." && i+2 < len(toks) && toks[i+1].text == "(" && toks[i+2].text != ")" {
+					warn(line, "a trim of a CharacterSet is not supported in minimaxon: trim, trimStart and trimEnd take no set and remove whitespace and newlines")
 				}
 			}
 		}
 	}
 }
-
-// characterLibraryWarning is the warning of the parts of maxon's Character library that read the Unicode tables or a String's
-// clusters as Characters, which minimaxon does not have yet.
-const characterLibraryWarning = "CharacterSet, Ascii, charAt, containsCharacter, advanceBy and fromCodepoint are not supported in minimaxon yet"
 
 // rewriteArmThrows turns a match arm `pattern throws E` into `pattern then throw E`, the one form minimaxon's arms have.
 // rewriteDiscards drops the let of a discard binding, which minimaxon spells `_ = value`, at the start of a statement

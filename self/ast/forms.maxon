@@ -26,6 +26,12 @@ export function forStmtIsRange(t Tree, id NodeID) returns bool
 	return forStmtTo(t, id: id) != 0
 end 'forStmtIsRange'
 
+// forStmtIsCharacterRange is whether a for counts through a range of characters, whose bounds are both character literals
+// (`for c in 'a' to 'z'`); a range with one integer bound is of integers, the literal's code point.
+export function forStmtIsCharacterRange(t Tree, id NodeID) returns bool
+	return forStmtIsRange(t, id: id) and t.kindOf(forStmtFrom(t, id: id)) == NodeKind.charLit and t.kindOf(forStmtTo(t, id: id)) == NodeKind.charLit
+end 'forStmtIsCharacterRange'
+
 // matchArmThrows is whether an arm throws an error instead of giving a value: 'default throws E' is the statement 'throw E'
 // as the whole of an arm.
 export function matchArmThrows(t Tree, id NodeID) returns bool

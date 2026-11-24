@@ -339,14 +339,26 @@ function checkFor(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, 
 	end 'iterates'
 	let lowerNode = ast.forStmtFrom(ms.tree(), id: s)
 	let upperNode = ast.forStmtTo(ms.tree(), id: s)
-	let lowerTy = checkExpr(c, p: p, ms: ms, e: lowerNode, errs: errs)
-	if lowerTy == ast.noType 'badLower'
+	let checkedLower = checkExpr(c, p: p, ms: ms, e: lowerNode, errs: errs)
+	if checkedLower == ast.noType 'badLower'
 		return
 	end 'badLower'
-	let upperTy = checkExpr(c, p: p, ms: ms, e: upperNode, errs: errs)
-	if upperTy == ast.noType 'badUpper'
+	let checkedUpper = checkExpr(c, p: p, ms: ms, e: upperNode, errs: errs)
+	if checkedUpper == ast.noType 'badUpper'
 		return
 	end 'badUpper'
+	if ast.forStmtIsCharacterRange(ms.tree(), id: s) 'characters'
+		// A range of two character literals counts through the scalar values between them, as maxon's does, and gives each
+		// as a Character; a range with one integer bound is of the other's code point.
+		if not ast.charLitCodepoint(ms.tree(), id: lowerNode).isSome() or not ast.charLitCodepoint(ms.tree(), id: upperNode).isSome() 'cluster'
+			failAt(c, p: p, ms: ms, node: s, code: diag.errTypeMismatch, msg: "a range of characters needs bounds of one code point each", errs: errs)
+			return
+		end 'cluster'
+		checkForBody(c, p: p, ms: ms, s: s, varType: p.builtins.characterTy, borrows: false, errs: errs)
+		return
+	end 'characters'
+	let lowerTy = integerized(c, p: p, ms: ms, e: lowerNode, t: checkedLower, other: checkedUpper)
+	let upperTy = integerized(c, p: p, ms: ms, e: upperNode, t: checkedUpper, other: lowerTy)
 	if not ast.isIntType(ms.types, reads: p.types, t: lowerTy) or not ast.isIntType(ms.types, reads: p.types, t: upperTy) 'notInts'
 		failAt(c, p: p, ms: ms, node: s, code: diag.errTypeMismatch, msg: "a range needs integer bounds, found {nameOfType(p, ms: ms, t: lowerTy)} and {nameOfType(p, ms: ms, t: upperTy)}", errs: errs)
 		return

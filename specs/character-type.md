@@ -179,7 +179,7 @@ end 'main'
 
 ```maxon
 function folded(c Character) returns HashValue
-	let hasher = Hasher.create()
+	var hasher = Hasher.create()
 	hasher.combineBytes(c.toString().toByteArray())
 	return hasher.finalize()
 end 'folded'
@@ -489,8 +489,8 @@ type Pair uses T where T implements Comparable
 	export var a as T
 	export var b as T
 
-	static function create(a T, b T) returns Self
-		return Self{a: a, b: b}
+	static function create(a T, b T) returns Self where T implements Copyable
+		return Self{a: a.clone(), b: b.clone()}
 	end 'create'
 
 	function lt() returns bool

@@ -187,6 +187,10 @@ function visitExpr(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState,
 		return visitByteStrLit(l, p: p, ms: ms, e: e)
 	end 'byteStrLit'
 	if k == ast.NodeKind.charLit 'charLit'
+		if ast.isIntType(ms.types, reads: p.types, t: exprType(p, module: l.module, node: e)) 'codepoint'
+			// A literal beside an integer is its code point (check.integerized).
+			return konst(l, value: countWord(ast.charLitCodepoint(p.modules[l.mi].tree, id: e).unwrap()))
+		end 'codepoint'
 		let d = newReg(l, kind: IrKind.kindString)
 		let instr = l.b.character(d, text: ast.charLitText(p.modules[l.mi].tree, id: e))
 		emit(l, i: instr)

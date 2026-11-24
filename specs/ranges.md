@@ -264,7 +264,7 @@ end 'main'
 function main() returns ExitCode
 	var count = 0 as ExitCode
 	for _ in 'a' to 'z' 'loop'
-		count = count + 1
+		count = try count + 1 otherwise panic("out of range")
 	end 'loop'
 	return count
 end 'main'
@@ -445,7 +445,7 @@ typealias Row = int(0 to 63)
 function sumTo(lastRow Row) returns Row
 	var total = 0 as Row
 	for r in 0 to lastRow 'l'
-		total = total + r
+		total = try total + r otherwise panic("out of range")
 	end 'l'
 	return total
 end 'sumTo'
@@ -453,7 +453,7 @@ end 'sumTo'
 function main() returns ExitCode
 	var chars = 0 as Row
 	for _ in 'a' to 'e' 'k'
-		chars = chars + 1
+		chars = try chars + 1 otherwise panic("out of range")
 	end 'k'
 	return (sumTo(5) + chars) as ExitCode
 end 'main'
@@ -481,15 +481,15 @@ missed drop on any arm is the runner's exit 101 rather than a wrong string.
 function main() returns ExitCode
 	var two = ""
 	for c in 'à' to 'å' 'twoByte'
-		two.append("{c}")
+		two = "{two}{c}"
 	end 'twoByte'
 	var three = ""
 	for c in '一' to '五' 'threeByte'
-		three.append("{c}")
+		three = "{three}{c}"
 	end 'threeByte'
 	var four = ""
 	for c in '😀' to '😃' 'fourByte'
-		four.append("{c}")
+		four = "{four}{c}"
 	end 'fourByte'
 	print("two={two}\nthree={three}\nfour={four}\n")
 	return 0
