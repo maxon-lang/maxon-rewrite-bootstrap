@@ -3,20 +3,41 @@
 // monitor, since the call never takes the stop; it is asked at least once. Then as many spinners as there are processors
 // hold every processor while a ticker sleeps testTicks times, which it does only as the monitor stops spinners, and the
 // asks stay within one a slice for each processor.
+//
+// How long the monitor takes to run depends on the machine's load, so the test never assumes it: the raw call goes on
+// until the first ask has come and testBlockMillis have passed, and the spinners until the ticker has run, each up to
+// testDeadlineNanos, and only then is a missing ask or tick an error. The most asks allowed is measured against the time
+// that really passed.
 //> a raw call was asked to stop once a slice, and the ticker ran while every processor spun
 
+// testBlockMillis is the least time the raw call lasts, so that a monitor asking on every round shows in the count.
 let testBlockMillis = 300 as Count
+
+// testChunkMillis is how long one raw sleep lasts: the raw call goes on in chunks until the ask has come.
+let testChunkMillis = 20 as Count
+
+// testDeadlineNanos is how long each half waits for the monitor before the test fails, within the runner's 10 seconds.
+let testDeadlineNanos = 4000000000 as Count
 
 let testTicks = 5 as Count
 
 let testTickNanos = 1000000 as Count
 
-// The record the green threads share: the flag that ends the spinners, and how many spin.
+// The record the green threads share: the flag that ends the spinners, how many spin, how many times the ticker woke, the
+// time the half gives up at, and what the raw call needs: the asks before it and the time before which it does not end.
 let testFlagOffset = 0 as Count
 
 let testSpinningOffset = 8 as Count
 
-let testRecordBytes = 16 as Count
+let testTicksOffset = 16 as Count
+
+let testGiveUpOffset = 24 as Count
+
+let testBaselineOffset = 32 as Count
+
+let testMinimumOffset = 40 as Count
+
+let testRecordBytes = 48 as Count
 
 function main() returns ExitCode
 	greenReady(greenSpawn(__Raw.codeAddress("testCoordinator")))
@@ -25,21 +46,26 @@ end 'main'
 
 function testCoordinator(g Count) returns Count
 	let scheduler = __Raw.loadWord(__Raw.threadContext(), offset: contextSchedulerOffset)
+	let shared = alloc(testRecordBytes)
 	var asks = testAsks(scheduler)
 	var start = osClockNanos()
+	__Raw.storeWord(shared, offset: testBaselineOffset, value: asks)
+	__Raw.storeWord(shared, offset: testMinimumOffset, value: __Raw.wrappingAdd(start, right: testBlockMillis * nanosPerMilli))
+	__Raw.storeWord(shared, offset: testGiveUpOffset, value: __Raw.wrappingAdd(start, right: testDeadlineNanos))
 	let blocker = greenSpawn(__Raw.codeAddress("testBlocker"))
+	greenSetArgument(blocker, index: 0, value: shared)
 	greenReady(blocker)
 	_ = greenAwait(blocker)
 	let blockAsks = __Raw.wrappingSub(testAsks(scheduler), right: asks)
 	testCheckPace(blockAsks, elapsed: __Raw.wrappingSub(osClockNanos(), right: start), procs: 1, what: "the raw call")
 	if blockAsks == 0 'unasked'
-		panic("a green thread in a raw call for {testBlockMillis} ms was never asked to stop")
+		panic("a green thread in a raw call for {testDeadlineNanos / nanosPerMilli} ms was never asked to stop")
 	end 'unasked'
-	let shared = alloc(testRecordBytes)
 	let spinners = osProcessorCount()
 	let list = alloc(try spinners * wordBytes otherwise panic("too many processors"))
 	asks = testAsks(scheduler)
 	start = osClockNanos()
+	__Raw.storeWord(shared, offset: testGiveUpOffset, value: __Raw.wrappingAdd(start, right: testDeadlineNanos))
 	for i in 0 upto spinners 'spawn'
 		let spinner = greenSpawn(__Raw.codeAddress("testSpinner"))
 		greenSetArgument(spinner, index: 0, value: shared)
@@ -54,12 +80,17 @@ function testCoordinator(g Count) returns Count
 		_ = greenAwait(__Raw.loadWord(list, offset: try i * wordBytes otherwise panic("too many processors")))
 	end 'await'
 	testCheckPace(__Raw.wrappingSub(testAsks(scheduler), right: asks), elapsed: __Raw.wrappingSub(osClockNanos(), right: start), procs: spinners, what: "the spinners")
+	if __Raw.loadWord(shared, offset: testTicksOffset) != testTicks 'unticked'
+		panic("the ticker did not run {testTicks} times in {testDeadlineNanos / nanosPerMilli} ms while every processor spun")
+	end 'unticked'
 	free(list)
 	free(shared)
 	testWrite("a raw call was asked to stop once a slice, and the ticker ran while every processor spun\n")
 	return 0
 end 'testCoordinator'
 
+// testAsks reads the monitor's count. Only the monitor writes it, a word at a time, so a read sees a whole count that is
+// never ahead of the asks made, and the asks that a window holds are at most those the check allows for.
 function testAsks(scheduler Count) returns Count
 	return __Raw.loadAcquire(scheduler, offset: schedPreemptAsksOffset)
 end 'testAsks'
@@ -73,30 +104,61 @@ function testCheckPace(asks Count, elapsed Count, procs Count, what String)
 	end 'fast'
 end 'testCheckPace'
 
-// testBlocker sleeps in the system with no bracket, so it holds its processor and the monitor sees it running.
+// testBlocker sleeps in the system with no bracket, so it holds its processor and the monitor sees it running, until the
+// monitor has asked it to stop and the least time has passed, or the time to give up.
 function testBlocker(g Count) returns Count
-	testBlock()
+	let shared = greenArgument(g, index: 0)
+	let scheduler = __Raw.loadWord(__Raw.threadContext(), offset: contextSchedulerOffset)
+	let baseline = __Raw.loadWord(shared, offset: testBaselineOffset)
+	let minimum = __Raw.loadWord(shared, offset: testMinimumOffset)
+	let giveUp = __Raw.loadWord(shared, offset: testGiveUpOffset)
+	var finished = false
+	while not finished 'blocking'
+		testBlock(testChunkMillis)
+		let now = osClockNanos()
+		finished = now >= giveUp or (now >= minimum and testAsks(scheduler) != baseline)
+	end 'blocking'
 	return 0
 end 'testBlocker'
 
+// testSpinsPerClock is how many rounds a spinner spins between two reads of the clock. The read is the runtime's code,
+// which the monitor never stops, so a spinner that read the clock every round would be in it nearly all the time and be
+// stopped only when an ask happened to find it between two reads; this way it spends all but a sliver of its time in the
+// program's code, as the busy loop the test is about does.
+let testSpinsPerClock = 65536 as Count
+
 function testSpinner(g Count) returns Count
 	let shared = greenArgument(g, index: 0)
+	let giveUp = __Raw.loadWord(shared, offset: testGiveUpOffset)
 	_ = __Raw.atomicAdd(shared, offset: testSpinningOffset, value: 1)
+	var spins = 0 as Count
 	while __Raw.loadWord(shared, offset: testFlagOffset) == 0 'spin'
 		__Raw.spinPause()
+		spins = __Raw.wrappingAdd(spins, right: 1)
+		if spins == testSpinsPerClock 'look'
+			if osClockNanos() >= giveUp 'late'
+				break 'spin'
+			end 'late'
+			spins = 0
+		end 'look'
 	end 'spin'
 	return 0
 end 'testSpinner'
 
 // testTicker sleeps until every spinner spins, then testTicks times more, each wake one that only a stop of a spinner lets
-// it run, and ends the spinners.
+// it run, and ends the spinners. It counts its wakes, and stops counting at the time to give up, when the spinners end.
 function testTicker(g Count) returns Count
 	let shared = greenArgument(g, index: 0)
-	while __Raw.loadWord(shared, offset: testSpinningOffset) != osProcessorCount() 'started'
+	let giveUp = __Raw.loadWord(shared, offset: testGiveUpOffset)
+	while __Raw.loadWord(shared, offset: testSpinningOffset) != osProcessorCount() and osClockNanos() < giveUp 'started'
 		greenSleep(testTickNanos)
 	end 'started'
 	for i in 0 upto testTicks 'ticks'
 		greenSleep(testTickNanos)
+		if osClockNanos() >= giveUp 'late'
+			break 'ticks'
+		end 'late'
+		__Raw.storeWord(shared, offset: testTicksOffset, value: __Raw.wrappingAdd(__Raw.loadWord(shared, offset: testTicksOffset), right: 1))
 	end 'ticks'
 	__Raw.storeWord(shared, offset: testFlagOffset, value: 1)
 	return 0
@@ -105,14 +167,14 @@ end 'testTicker'
 // testTimespecBytes is a timespec, its seconds and its nanoseconds, a word each on Linux and macOS.
 let testTimespecBytes = 16 as Count
 
-// testBlock sleeps in the system for testBlockMillis, through the signals that break the sleep off.
-function testBlock()
+// testBlock sleeps in the system for millis, through the signals that break the sleep off.
+function testBlock(millis Count)
 	#if os(Windows)
-		_ = __Raw.callImport1("Sleep", arg1: testBlockMillis)
+		_ = __Raw.callImport1("Sleep", arg1: millis)
 	#else
 		let time = alloc(testTimespecBytes)
 		__Raw.storeWord(time, offset: 0, value: 0)
-		__Raw.storeWord(time, offset: wordBytes, value: testBlockMillis * nanosPerMilli)
+		__Raw.storeWord(time, offset: wordBytes, value: try millis * nanosPerMilli otherwise panic("the sleep is past a word of nanoseconds"))
 		var slept = sysNanosleep(time, remaining: time)
 		while slept != 0 'again'
 			slept = sysNanosleep(time, remaining: time)
