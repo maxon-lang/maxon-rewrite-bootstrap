@@ -64,6 +64,13 @@ func renewSeeds(h host) error {
 	if err := copyFile(macSeed, seeds["arm64-macos"]); err != nil {
 		return err
 	}
+	// Windows keeps no executable bit for git to commit, so the Linux and macOS seeds are marked executable in the index,
+	// without which a clone of the commit cannot start them.
+	for _, t := range []string{"x64-linux", "arm64-macos"} {
+		if err := quiet(nil, "git", "update-index", "--chmod=+x", seeds[t]); err != nil {
+			return fmt.Errorf("%w\nseeds copied, but %s is not marked executable in the index: run git update-index --chmod=+x %s", err, seeds[t], seeds[t])
+		}
+	}
 	fmt.Printf("seeds renewed: %s from %s, %s from %s, %s from %s\n", h.seed, c2, seeds["x64-linux"], linuxSeed, seeds["arm64-macos"], macSeed)
 	return nil
 }

@@ -38,6 +38,7 @@ compilers `minimaxon-x64-linux` and `minimaxon-arm64-macos`.
 
 The three seeds therefore always come from one commit of `self/` and one renewal: there is no way to renew one alone.
 Neither Linux nor macOS can run the Windows seed, so the renewal runs on Windows, and those machines only build from their
-seeds.
+seeds. Windows keeps no executable bit, so the renewal marks the Linux and macOS seeds executable in git's index
+(`git update-index --chmod=+x`), without which a clone could not start them.
 Commit the new seeds on their own, saying in the message what they can now compile; `self/` and `runtime/` may use the
 feature from the next commit on.
