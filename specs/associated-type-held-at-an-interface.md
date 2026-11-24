@@ -1739,6 +1739,7 @@ end 'main'
 ```
 
 <!-- test: held.bindings-differing-in-a-held-position-no-share-walk-reaches-keep-their-own-tables -->
+<!-- skip: language difference: what is frozen or held in a cown crosses between threads by the rule of a message's arguments, so a value at an interface type, whose conformer the check does not know, is refused there -->
 `Item` holds its `P` only as the element of an `Array`, a position no share walk of `Item` names. `Item with (Tally, String)` and `Item with (Tally, Tally)` still release different arrays, so each binding's `Cursor` table keeps its own.
 
 ```maxon

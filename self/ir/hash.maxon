@@ -9,6 +9,10 @@ function lowerHashSeedDraw(mutates l Lowerer, p ast.Project, ms ast.ModuleState,
 	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtHashSeedDraw, kind: IrKind.kindScalar, args: RegList.create(0))
 end 'lowerHashSeedDraw'
 
+function lowerRandomFill(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtRandomFill, kind: IrKind.kindScalar, args: argsOf1(args[0]))
+end 'lowerRandomFill'
+
 function lowerHashWord(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtHashWord, kind: IrKind.kindScalar, args: argsOf2(args[0], b: args[1]))
 end 'lowerHashWord'

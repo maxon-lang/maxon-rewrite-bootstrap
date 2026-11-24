@@ -429,6 +429,7 @@ Stack trace:
 ```
 
 <!-- test: one-past-the-end-is-a-legal-fill-window-and-one-more-is-not -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 The CLOSED-end twin, `emitBoundaryPositionOutOfRange`, reached through `__managed_fill`'s window end
 `start + count`. `stop == length` is legal — a window may reach the length exactly — and `ja` rather
@@ -470,6 +471,7 @@ end 'main'
 ```
 
 <!-- test: a-fill-window-that-overflows-is-refused -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 ⭐ **THE OVERFLOW GUARD, WHICH THE UNSIGNED READING KEEPS RATHER THAN INHERITS.** `start + count` for
 two non-negative operands lands in `[0, 2^64-2]`, so it either fits an `i64` or wraps into

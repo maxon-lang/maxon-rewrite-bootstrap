@@ -3346,6 +3346,7 @@ end 'main'
 ```
 
 <!-- test: moving-a-node-out-of-an-argument-chain-keeps-its-result-droppable -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 Reinserting a node moves it out of the chain it was in, which is the argument's chain, not the receiver's.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -3373,6 +3374,7 @@ end 'main'
 ```
 
 <!-- test: moving-a-node-out-of-a-global-chain-keeps-its-result-droppable -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 The same move out of a module-level chain.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -3475,6 +3477,7 @@ error E3064: specs/discarded-results/error.a-static-returning-another-instance-o
 ```
 
 <!-- test: moving-a-node-out-of-a-field-chain-keeps-its-result-droppable -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 The same move out of a chain a record holds, where the method that moves it is the only thing that touches the chain.
 ```maxon
 typealias Integer = int(i64.min to i64.max)

@@ -404,6 +404,18 @@ export function lowerArrayCreate(mutates l Lowerer, p ast.Project, mutates ms as
 	return arrayZeroed(l, p: p, ms: ms, c: c, count: args[0])
 end 'lowerArrayCreate'
 
+// lowerArrayCreateZeroed is create(n, zeroed:) with the literal flag read off the call: n zero elements, or an empty array
+// with room for n.
+function lowerArrayCreateZeroed(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	if ast.boolLitValue(p.modules[l.mi].tree, id: c.ordered[1]) 'zeroed'
+		return arrayZeroed(l, p: p, ms: ms, c: c, count: args[0])
+	end 'zeroed'
+	let a = arrayOfCall(l, p: p, ms: ms, c: c)
+	let out = arrayNew(l, p: p, ms: ms, box: a)
+	arrayReserve(l, p: p, ms: ms, box: a, arr: out, count: args[0])
+	return out
+end 'lowerArrayCreateZeroed'
+
 // arrayZeroed is the array of count zero elements that a call makes.
 function arrayZeroed(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, count Reg) returns Reg
 	let a = arrayOfCall(l, p: p, ms: ms, c: c)
@@ -613,6 +625,20 @@ function lowerArrayResize(mutates l Lowerer, p ast.Project, mutates ms ast.Modul
 	arrayGrowZero(l, p: p, ms: ms, box: a, arr: recv, newLength: args[0])
 	return konst(l, value: 0 as Word)
 end 'lowerArrayResize'
+
+// lowerArrayElementSize is the bytes an element of the instance takes, what sizeof gives for it.
+function lowerArrayElementSize(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	let a = arrayOfCall(l, p: p, ms: ms, c: c)
+	let size = try ast.byteSize(ms.types, reads: p.types, t: arrayElem(p, ms: ms, box: a)) as Word otherwise panic("lower: a size is a word")
+	return konst(l, value: size)
+end 'lowerArrayElementSize'
+
+// lowerArraySwap exchanges two elements, failing with indexOutOfBounds for an index past the end.
+function lowerArraySwap(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	let a = arrayOfCall(l, p: p, ms: ms, c: c)
+	arraySwap(l, p: p, ms: ms, box: a, arr: recv, i: args[0], j: args[1])
+	return konst(l, value: 0 as Word)
+end 'lowerArraySwap'
 
 function lowerArrayClearSlot(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	let a = arrayOfCall(l, p: p, ms: ms, c: c)

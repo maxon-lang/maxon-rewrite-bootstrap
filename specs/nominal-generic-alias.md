@@ -1240,6 +1240,7 @@ error E3005: <fragment>:12:9: argument type mismatch for 'x': expected 'Xs', got
 ```
 
 <!-- test: a-managed-view-reaches-a-parameter-of-its-own-arrays-alias -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 The control for the refusal above: `a.managed` keeps `a`'s brand, so it reaches a parameter declared with the
 alias `a` was built from, without a cast.
@@ -1313,6 +1314,7 @@ error E3005: <fragment>:7:10: match arms give incompatible types: '__ManagedMemo
 ```
 
 <!-- test: an-unbranded-view-reaches-a-branded-parameter-of-its-instance -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 A row read out of `Rows` is unbranded, because `Rows` spells its element inline, so its view carries no
 brand either and decays into `Bytes`, a brand of the same instance.

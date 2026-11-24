@@ -4,6 +4,11 @@ typealias ScopeStack = Array with BoolStrMap
 
 typealias TypeParamMap = table.StringMap with Count
 
+// ModuleIndexes are modules by their index in the project.
+typealias ModuleIndexes = Array with Count
+
+typealias LibraryMemberMap = table.StringMap with ModuleIndexes
+
 // OpenLabel is the label of a block or declaration that the resolver is inside of, and where it was written.
 type OpenLabel
 	export var name as String
@@ -71,14 +76,14 @@ type Resolver
 	// labels are the labels of the blocks and declarations that enclose the code being resolved, outermost first: an end
 	// label names the innermost one, so a block may not repeat any of them.
 	export var labels as OpenLabels
-	// libraryMembers are the names of the methods that the library's root declares, read when the module first
-	// writes a member, and libraryDone is whether that is settled: the module depends on the root already, or never will.
-	export var libraryMembers as BoolStrMap
-	export var libraryDone as bool
+	// libraryMembers are, by the name of a method that a module of the library declares, the modules that declare it, read
+	// when the module first writes a member (libraryRead); a name leaves it once the module depends on those modules.
+	export var libraryMembers as LibraryMemberMap
+	export var libraryRead as bool
 
 	static function make(modID diag.ModuleID, consumes tree ast.Tree, consumes res ast.Resolution) returns Resolver
 		let spawned = spawnedTypes(tree)
-		return Resolver{modID: modID, tree: tree, res: res, scopes: ScopeStack.create(0), fields: BoolStrMap.new(), typeParams: TypeParamMap.new(), members: ast.DeclRefIndex.new(), expandsMembers: false, whenDepth: 0 as Count, inClosure: false, labels: OpenLabels.create(0), libraryMembers: BoolStrMap.new(), libraryDone: false, spawned: spawned}
+		return Resolver{modID: modID, tree: tree, res: res, scopes: ScopeStack.create(0), fields: BoolStrMap.new(), typeParams: TypeParamMap.new(), members: ast.DeclRefIndex.new(), expandsMembers: false, whenDepth: 0 as Count, inClosure: false, labels: OpenLabels.create(0), libraryMembers: LibraryMemberMap.new(), libraryRead: false, spawned: spawned}
 	end 'make'
 end 'Resolver'
 
@@ -1754,35 +1759,56 @@ function refuseCollision(mutates r Resolver, p ast.Project, ref ast.DeclRef, oth
 	pushErr(errs, modID: r.modID, off: r.tree.startOf(ast.declNodeID(p, ref: ref)), code: diag.errDuplicateDefinition, msg: "'{name}' is public in {ast.describeModule(p, modID: other.module)} too, and a program names every public declaration of the standard library bare; rename one of them or make it 'export'")
 end 'refuseCollision'
 
-// noteLibraryMember makes a module of the program depend on the library's root when it writes a member that the root declares,
-// by an extension or on a type of its own (`arr.sort()`, `5.hash()`, `m.contains(k)`): the methods of Array, String and the
-// integers belong to types the program writes without naming the library, and a bound that a library type states is met by
-// the conformances that the extensions of the root give, which the calling module must see. A module that writes no such member
-// names nothing of the library and pays nothing for it.
+// noteLibraryMember makes a module of the program depend on each module of the library that declares a member of the name
+// it writes, by an extension or on a type of its own (`arr.sort()`, `5.hash()`, `m.contains(k)`): the methods of Array,
+// String and the integers belong to types the program writes without naming the library, and a bound that a library type
+// states is met by the conformances that the extensions of that module give, which the calling module must see. A module
+// pays for the library modules whose members it writes and for nothing else of the library.
 function noteLibraryMember(mutates r Resolver, p ast.Project, name String)
-	if r.libraryDone 'settled'
-		return
-	end 'settled'
-	let own = ast.modIndex(r.modID)
-	if not p.library.isSome() or p.modules[own].isRuntime or p.modules[own].isLibrary 'excluded'
-		r.libraryDone = true
-		return
-	end 'excluded'
-	let root = p.library.clone().unwrap()
-	if r.libraryMembers.isEmpty() 'unread'
-		let decls = p.modules[ast.modIndex(root)].decls.count()
-		for i in 0 upto decls 'decls'
-			let names = p.modules[ast.modIndex(root)].decls[i].memberNames()
-			for j in 0 upto names.count() 'names'
-				r.libraryMembers.insert(names[j], value: true)
-			end 'names'
-		end 'decls'
+	if not r.libraryRead 'unread'
+		r.libraryRead = true
+		let own = ast.modIndex(r.modID)
+		if p.library.isSome() and not p.modules[own].isRuntime and not p.modules[own].isLibrary 'program'
+			r.libraryMembers = libraryMembersOf(p)
+		end 'program'
 	end 'unread'
-	if r.libraryMembers.has(name) 'declared'
-		r.res.addDep(root, offset: 0)
-		r.libraryDone = true
+	match consumes r.libraryMembers.remove(name) 'declared'
+		some(modules) then addModuleDeps(r, p: p, modules: modules)
+		none then return
 	end 'declared'
 end 'noteLibraryMember'
+
+function addModuleDeps(mutates r Resolver, p ast.Project, modules ModuleIndexes)
+	for i in 0 upto modules.count() 'modules'
+		r.res.addDep(p.modules[modules[i]].id, offset: 0)
+	end 'modules'
+end 'addModuleDeps'
+
+// libraryMembersOf is, by the name of each method that a module of the library declares, the modules that declare it, in
+// the order of the project's modules.
+function libraryMembersOf(p ast.Project) returns LibraryMemberMap
+	var members = LibraryMemberMap.new()
+	for m in 0 upto p.modules.count() 'modules'
+		if not p.modules[m].isLibrary 'program'
+			continue 'modules'
+		end 'program'
+		for i in 0 upto p.modules[m].decls.count() 'decls'
+			let names = p.modules[m].decls[i].memberNames()
+			for j in 0 upto names.count() 'names'
+				var modules = ModuleIndexes.create(0)
+				match consumes members.remove(names[j]) 'seen'
+					some(earlier) then modules = earlier
+					none then _ = 0
+				end 'seen'
+				if not modules.contains(m) 'new'
+					modules.push(m)
+				end 'new'
+				members.insert(names[j], value: modules)
+			end 'names'
+		end 'decls'
+	end 'modules'
+	return members
+end 'libraryMembersOf'
 
 export function resolveModule(mutates ms ast.ModuleState, p ast.Project, mutates errs diag.ErrorList)
 	let modID = ms.module

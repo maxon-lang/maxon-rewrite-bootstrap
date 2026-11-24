@@ -19,6 +19,7 @@ anywhere else), so every case here compiles in the library tier (`<!-- tier: std
 ## Tests
 
 <!-- test: create-and-length -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 `__ManagedMemory.create(4, elementSize: 8)` allocates a struct with capacity at
 least 4 and length 0. We verify both fields read back through the `length()` and
@@ -43,6 +44,7 @@ end 'main'
 ```
 
 <!-- test: set-and-get -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 After `setLength(3)` we set three values and read them back; all three must
 match. Exercises both the `set` and `get` runtime helpers' word path
@@ -74,6 +76,7 @@ end 'main'
 ```
 
 <!-- test: setlength-then-get -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 `create(8) + setLength(3)` makes length 3 while capacity stays at least 8 (the
 small-array inline path may report more than the requested count as spare
@@ -103,6 +106,7 @@ end 'main'
 ```
 
 <!-- test: grow -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 `grow(8)` raises capacity from 2 to 8. Values written before the grow must still be
 readable through the (potentially relocated) buffer.
@@ -132,6 +136,7 @@ end 'main'
 ```
 
 <!-- test: append -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 Appending another `__ManagedMemory` concatenates its bytes onto the end of the
 receiver. Length grows by `other.length`, capacity grows automatically if
@@ -174,6 +179,7 @@ end 'main'
 ```
 
 <!-- test: slice -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 `slice(1, endIndex: 4)` produces a fresh `__ManagedMemory` of length 3 (and
 capacity 3), holding a copy of indices 1..3 of the source.
@@ -210,6 +216,7 @@ end 'main'
 ```
 
 <!-- test: byte-at -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 A byte-sized `__ManagedMemory` (`elementSize: 1`) supports `setByte` /
 `byteAt`. Each byte is independently addressable.
@@ -240,6 +247,7 @@ end 'main'
 ```
 
 <!-- test: clear -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 `clear()` sets length to 0 without touching capacity. After clear, `length()`
 must read 0 and `capacity()` must still report the original allocated capacity
@@ -266,6 +274,7 @@ end 'main'
 ```
 
 <!-- test: out-of-bounds-get -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 `get(99)` on a length-1 `__ManagedMemory` triggers the index-out-of-bounds
 error path. The `try ... otherwise -1` branch must execute and the function
@@ -284,6 +293,7 @@ end 'main'
 ```
 
 <!-- test: out-of-bounds-set -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 `set(99, value: 0)` on a length-1 `__ManagedMemory` triggers the OOB path.
 The `try ... otherwise return 0` branch executes; the trailing return must not
@@ -301,6 +311,7 @@ end 'main'
 ```
 
 <!-- test: slice-out-of-bounds -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 `slice(0, endIndex: 99)` triggers the slice-out-of-bounds error path (error
 2). The `otherwise return 0` branch must execute.
@@ -317,6 +328,7 @@ end 'main'
 ```
 
 <!-- test: a-managed-memory-buffer-binds-to-a-var -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 A buffer is not a number, so a `var` binds it with no cast.
 ```maxon
@@ -337,6 +349,7 @@ end 'main'
 ```
 
 <!-- test: a-typed-managed-memory-buffer-binds-to-a-var -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 A buffer created through an alias of `__ManagedMemory with T` binds to a `var` with no cast, as the bare
 builtin does.

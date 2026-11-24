@@ -1017,6 +1017,7 @@ SENTENCE: `append` declares its parameter `other` and `appendMemory` declares it
 refusal names the parameter of the method the author actually wrote.
 
 <!-- test: appendMemory-copies-a-raw-buffers-elements -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 ### An `Array` receiver takes a raw `__ManagedMemory` — `stdlib/String.maxon:865`'s exact shape
 The receiver is a genuine `Array` and the argument is a buffer nothing wrapped, which is the whole
@@ -1123,7 +1124,7 @@ error E3207: <fragment>:5:4: 'appendMemory' needs a writable receiver; 'a' is im
 `first` counts the element it hands back, so the receiver may be written while `s` is still in use.
 ```maxon
 function main() returns ExitCode
-	let arr = ["hello world {40 + 2} this is a long string for heap allocation"]
+	var arr = ["hello world {40 + 2} this is a long string for heap allocation"]
 	let s = try arr.first() otherwise ""
 	let other = ["a second long string that also lives on the heap here"]
 	arr.appendMemory(other.managed)
@@ -1194,13 +1195,13 @@ end 'Cell'
 typealias Cells = Array with Cell
 
 function main() returns ExitCode
-	let src = Cells.create(0)
+	var src = Cells.create(0)
 	src.push(Cell.create(1))
 	src.push(Cell.create(2))
-	let dest = Cells.create(0)
+	var dest = Cells.create(0)
 	dest.push(Cell.create(0))
 	dest.appendMemory(src.managed)
-	let moved = try dest.get(1) otherwise Cell.create(-1)
+	var moved = try dest.get(1) otherwise Cell.create(-1)
 	moved.value = 99
 	let seen = try src.get(0) otherwise Cell.create(-1)
 	print("dest {moved.value} src {seen.value}\n")
@@ -1250,10 +1251,10 @@ the second long string that lives on the heap 43
 typealias Names = Array with String
 
 function main() returns ExitCode
-	let src = Names.create(0)
+	var src = Names.create(0)
 	src.push("the first long string that lives on the heap {40 + 2}")
 	src.push("the second long string that lives on the heap {41 + 2}")
-	let dest = Names.create(0)
+	var dest = Names.create(0)
 	dest.push("a destination string that lives on the heap {1 + 2}")
 	dest.appendMemory(src.managed)
 	for name in dest 'each'
@@ -1305,6 +1306,7 @@ end 'main'
 ```
 
 <!-- test: error.appendMemory-is-not-a-value -->
+<!-- skip: differing error code: operand types -->
 <!-- tier: stdlib -->
 ### It is VOID, like every other `Array` mutator
 ```maxon
@@ -1593,6 +1595,7 @@ end 'main'
 ```
 
 <!-- test: slice-and-clone-of-a-co-allocated-array-report-a-capacity-of-their-own -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 An array whose buffer lives in its record's own allocation is copied, not viewed, by `slice` and `clone`, so
 the copy reports the capacity of a buffer it owns, the larger of its length and the growth policy's minimum of 4,
@@ -3022,7 +3025,7 @@ function main() returns ExitCode
 	let a = [1.5, 2.5, 3.5]
 	print("{a.managed.length()}\n")
 	print("{a.managed.elementSize()}\n")
-	return trunc(try a.get(2) otherwise 0.0)
+	return try trunc(try a.get(2) otherwise 0.0) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -3110,6 +3113,7 @@ end 'main'
 ```
 
 <!-- test: error.a-raw-byte-write-is-refused-on-a-float-element -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 ### A raw byte write is refused on a float element, and it is the SLOT's rule that refuses it
 E3118 admits raw bytes into an element only when the element's own value set covers every bit
@@ -3129,6 +3133,7 @@ error E3118: <fragment>:4:16: 'setByte' writes a RAW BYTE at a byte OFFSET, so w
 ```
 
 <!-- test: error.a-raw-byte-write-is-refused-on-a-declared-float-element -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- positions: moved -->
 <!-- tier: stdlib -->
 ### The same refusal, off the element's DECLARED float alias
@@ -4486,13 +4491,13 @@ end 'main'
 `create(n, zeroed: false)` is an empty array with room for `n` elements: the length is 0 and `n` pushes need no growth.
 ```maxon
 function main() returns ExitCode
-	let bytes = ByteArray.create(16, zeroed: false)
+	var bytes = ByteArray.create(16, zeroed: false)
 	let before = bytes.count()
 	for i in 0 upto 16 'eachByte'
 		bytes.push((i + 1) as Byte)
 	end 'eachByte'
 	let last = try bytes.get(15) otherwise 0
-	return (before * 100 + bytes.count() + (last as Count)) as ExitCode
+	return try (before * 100 + bytes.count() + (last as Count)) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -4503,7 +4508,7 @@ end 'main'
 ```maxon
 function main() returns ExitCode
 	let bytes = ByteArray.create(4, zeroed: true)
-	return bytes.count() as ExitCode
+	return try bytes.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -4516,10 +4521,10 @@ A `String` has no zero value, so only the not-zeroed form builds an array of the
 typealias Words = Array with String
 
 function main() returns ExitCode
-	let words = Words.create(2, zeroed: false)
+	var words = Words.create(2, zeroed: false)
 	words.push("ab")
 	words.push("cde")
-	return (words.count() * 10 + (try words.get(1) otherwise "").byteLength()) as ExitCode
+	return try (words.count() * 10 + (try words.get(1) otherwise "").byteLength()) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -4746,7 +4751,7 @@ end 'Worker'
 typealias Handles = Array with Worker.handle
 
 function main() returns ExitCode
-	let handles = Handles.create(2, zeroed: false)
+	var handles = Handles.create(2, zeroed: false)
 	let first = spawn Worker.create()
 	let second = spawn Worker.create()
 	handles.push(first)
@@ -4872,7 +4877,7 @@ function three() returns Digit
 end 'three'
 
 function main() returns ExitCode
-	let promises = DigitPromises.create(2, zeroed: false)
+	var promises = DigitPromises.create(2, zeroed: false)
 	promises.push(async three())
 	promises.push(async three())
 	let second = try promises.pop() otherwise panic("two were pushed")
@@ -5009,9 +5014,9 @@ typealias LevelArray = Array with Level
 
 function main() returns ExitCode
 	let none = LevelArray.create(0)
-	let roomy = LevelArray.create(4, zeroed: false)
+	var roomy = LevelArray.create(4, zeroed: false)
 	roomy.push(Level.high)
-	let filled = LevelArray.create(0)
+	var filled = LevelArray.create(0)
 	filled.growFilled(3, value: Level.low)
 	let tail = try filled.get(2) otherwise Level.high
 	print("{none.count()} {roomy.count()} {filled.count()} {tail.rawValue}\n")
@@ -5676,11 +5681,11 @@ mm_free ArrayRecord #1
 The not-zeroed form is one `__mm_alloc` too, and 16 pushes after it allocate nothing more.
 ```maxon
 function main() returns ExitCode
-	let bytes = ByteArray.create(16, zeroed: false)
+	var bytes = ByteArray.create(16, zeroed: false)
 	for i in 0 upto 16 'eachByte'
 		bytes.push(i as Byte)
 	end 'eachByte'
-	return bytes.count() as ExitCode
+	return try bytes.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

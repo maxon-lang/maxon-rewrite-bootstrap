@@ -42,31 +42,31 @@ type Bag uses Element
 		return Self{items: Items.create(0)}
 	end 'create'
 
-	function add(value Element)
-		items.push(value)
+	function add(mutates self, value Element) where Element implements Copyable
+		items.push(value.clone())
 	end 'add'
 
-	function put(i ElementIndex, value Element)
-		try items.set(i, value: value) otherwise panic("Bag.put: index out of range")
+	function put(mutates self, i ElementIndex, value Element) where Element implements Droppable and Copyable
+		try items.set(i, value: value.clone()) otherwise panic("Bag.put: index out of range")
 	end 'put'
 
-	function at(i ElementIndex) returns Element
+	function at(i ElementIndex) returns Element where Element implements Copyable
 		return try items.get(i) otherwise panic("Bag.at: index out of range")
 	end 'at'
 
-	function lastOne() returns Element
+	function lastOne() returns Element where Element implements Copyable
 		return try items.last() otherwise panic("Bag.lastOne: empty")
 	end 'lastOne'
 
-	function dropLast() returns Element
+	function dropLast(mutates self) returns Element
 		return try items.pop() otherwise panic("Bag.dropLast: empty")
 	end 'dropLast'
 
-	function insertAt(i ElementIndex, value Element)
-		items.insert(i, value: value)
+	function insertAt(mutates self, i ElementIndex, value Element) where Element implements Copyable
+		items.insert(i, value: value.clone())
 	end 'insertAt'
 
-	function removeAt(i ElementIndex) returns Element
+	function removeAt(mutates self, i ElementIndex) returns Element
 		return try items.remove(i) otherwise panic("Bag.removeAt: index out of range")
 	end 'removeAt'
 
@@ -74,35 +74,35 @@ type Bag uses Element
 		return Self{items: items.clone()}
 	end 'cloned'
 
-	function window(start ElementIndex, endIndex ElementIndex) returns Self
+	function window(start ElementIndex, endIndex ElementIndex) returns Self where Element implements Copyable
 		return Self{items: try items.slice(start, endIndex: endIndex) otherwise panic("Bag.window: range out of bounds")}
 	end 'window'
 
-	function addAll(other Self)
+	function addAll(mutates self, other Self) where Element implements Copyable
 		items.append(other.items)
 	end 'addAll'
 
-	function addMemory(other Self)
+	function addMemory(mutates self, other Self) where Element implements Copyable
 		items.appendMemory(other.items.managed)
 	end 'addMemory'
 
-	function replayed() returns Self
-		let out = Self{items: Items.create(0)}
+	function replayed() returns Self where Element implements Copyable
+		var out = Self{items: Items.create(0)}
 		for value in items 'each'
 			out.add(value)
 		end 'each'
 		return out
 	end 'replayed'
 
-	function grownTo(length ElementIndex, value Element)
+	function grownTo(mutates self, length ElementIndex, value Element) where Element implements Copyable
 		items.growFilled(length, value: value)
 	end 'grownTo'
 
-	function refilled(length ElementIndex, value Element)
+	function refilled(mutates self, length ElementIndex, value Element) where Element implements Copyable
 		items.refill(length, value: value)
 	end 'refilled'
 
-	function reserved(capacity ElementIndex)
+	function reserved(mutates self, capacity ElementIndex)
 		items.reserve(capacity)
 	end 'reserved'
 end 'Bag'
@@ -110,13 +110,13 @@ end 'Bag'
 typealias ByteBag = Bag with Byte
 
 function value(i Count) returns Byte
-	return ((i * 37 + 11) mod 251) as Byte
+	return try ((i * 37 + 11) mod 251) as Byte otherwise panic("out of range")
 end 'value'
 
 function sumOf(bag ByteBag) returns Total
 	var total = 0 as Total
 	for element in bag.items 'walk'
-		total = total + (element as Total)
+		total = try total + (element as Total) otherwise panic("out of range")
 	end 'walk'
 	return total
 end 'sumOf'
@@ -124,7 +124,7 @@ end 'sumOf'
 function sumDirect(bag ByteBag) returns Total
 	var total = 0 as Total
 	for at in 0 upto bag.items.count() 'each'
-		total = total + ((try bag.items.get(at) otherwise panic("sumDirect: index out of range")) as Total)
+		total = try total + ((try bag.items.get(at) otherwise panic("sumDirect: index out of range")) as Total) otherwise panic("out of range")
 	end 'each'
 	return total
 end 'sumDirect'
@@ -132,13 +132,13 @@ end 'sumDirect'
 function sumAt(bag ByteBag) returns Total
 	var total = 0 as Total
 	for at in 0 upto bag.items.count() 'each'
-		total = total + (bag.at(at) as Total)
+		total = try total + (bag.at(at) as Total) otherwise panic("out of range")
 	end 'each'
 	return total
 end 'sumAt'
 
 function main() returns ExitCode
-	let bag = ByteBag.create()
+	var bag = ByteBag.create()
 	for i in 0 upto 300 'fill'
 		bag.add(value(i))
 	end 'fill'
@@ -158,23 +158,23 @@ function main() returns ExitCode
 	print("clone {snapshot.items.managed.elementSize()} count {snapshot.items.count()} sum {sumOf(snapshot)} first {(snapshot.at(0) as Total)} source first {(bag.at(0) as Total)}\n")
 	let part = bag.window(100, endIndex: 200)
 	print("window {part.items.managed.elementSize()} count {part.items.count()} sum {sumOf(part)}\n")
-	let joined = part.cloned()
+	var joined = part.cloned()
 	joined.addAll(part)
 	print("append {joined.items.managed.elementSize()} count {joined.items.count()} sum {sumOf(joined)}\n")
-	let memory = part.cloned()
+	var memory = part.cloned()
 	memory.addMemory(part)
 	print("appendMemory {memory.items.managed.elementSize()} count {memory.items.count()} sum {sumOf(memory)}\n")
 	let replay = bag.replayed()
 	print("replay {replay.items.managed.elementSize()} count {replay.items.count()} sum {sumOf(replay)}\n")
-	let grown = ByteBag.create()
+	var grown = ByteBag.create()
 	grown.add(value(0))
 	grown.grownTo(70, value: 9)
 	print("grow {grown.items.managed.elementSize()} count {grown.items.count()} sum {sumOf(grown)} first {(grown.at(0) as Total)} last {(grown.lastOne() as Total)}\n")
-	let filled = ByteBag.create()
+	var filled = ByteBag.create()
 	filled.add(value(1))
 	filled.refilled(40, value: 3)
 	print("refill {filled.items.managed.elementSize()} count {filled.items.count()} sum {sumOf(filled)}\n")
-	let roomy = ByteBag.create()
+	var roomy = ByteBag.create()
 	roomy.add(value(1))
 	roomy.add(value(2))
 	roomy.add(value(3))
@@ -231,31 +231,31 @@ type Bag uses Element
 		return Self{items: Items.create(0)}
 	end 'create'
 
-	function add(value Element)
-		items.push(value)
+	function add(mutates self, value Element) where Element implements Copyable
+		items.push(value.clone())
 	end 'add'
 
-	function put(i ElementIndex, value Element)
-		try items.set(i, value: value) otherwise panic("Bag.put: index out of range")
+	function put(mutates self, i ElementIndex, value Element) where Element implements Droppable and Copyable
+		try items.set(i, value: value.clone()) otherwise panic("Bag.put: index out of range")
 	end 'put'
 
-	function at(i ElementIndex) returns Element
+	function at(i ElementIndex) returns Element where Element implements Copyable
 		return try items.get(i) otherwise panic("Bag.at: index out of range")
 	end 'at'
 
-	function lastOne() returns Element
+	function lastOne() returns Element where Element implements Copyable
 		return try items.last() otherwise panic("Bag.lastOne: empty")
 	end 'lastOne'
 
-	function dropLast() returns Element
+	function dropLast(mutates self) returns Element
 		return try items.pop() otherwise panic("Bag.dropLast: empty")
 	end 'dropLast'
 
-	function insertAt(i ElementIndex, value Element)
-		items.insert(i, value: value)
+	function insertAt(mutates self, i ElementIndex, value Element) where Element implements Copyable
+		items.insert(i, value: value.clone())
 	end 'insertAt'
 
-	function removeAt(i ElementIndex) returns Element
+	function removeAt(mutates self, i ElementIndex) returns Element
 		return try items.remove(i) otherwise panic("Bag.removeAt: index out of range")
 	end 'removeAt'
 
@@ -263,35 +263,35 @@ type Bag uses Element
 		return Self{items: items.clone()}
 	end 'cloned'
 
-	function window(start ElementIndex, endIndex ElementIndex) returns Self
+	function window(start ElementIndex, endIndex ElementIndex) returns Self where Element implements Copyable
 		return Self{items: try items.slice(start, endIndex: endIndex) otherwise panic("Bag.window: range out of bounds")}
 	end 'window'
 
-	function addAll(other Self)
+	function addAll(mutates self, other Self) where Element implements Copyable
 		items.append(other.items)
 	end 'addAll'
 
-	function addMemory(other Self)
+	function addMemory(mutates self, other Self) where Element implements Copyable
 		items.appendMemory(other.items.managed)
 	end 'addMemory'
 
-	function replayed() returns Self
-		let out = Self{items: Items.create(0)}
+	function replayed() returns Self where Element implements Copyable
+		var out = Self{items: Items.create(0)}
 		for value in items 'each'
 			out.add(value)
 		end 'each'
 		return out
 	end 'replayed'
 
-	function grownTo(length ElementIndex, value Element)
+	function grownTo(mutates self, length ElementIndex, value Element) where Element implements Copyable
 		items.growFilled(length, value: value)
 	end 'grownTo'
 
-	function refilled(length ElementIndex, value Element)
+	function refilled(mutates self, length ElementIndex, value Element) where Element implements Copyable
 		items.refill(length, value: value)
 	end 'refilled'
 
-	function reserved(capacity ElementIndex)
+	function reserved(mutates self, capacity ElementIndex)
 		items.reserve(capacity)
 	end 'reserved'
 end 'Bag'
@@ -299,13 +299,13 @@ end 'Bag'
 typealias HalfBag = Bag with Half
 
 function halfValue(i Count) returns Half
-	return ((i * 1237 + 11) mod 65521) as Half
+	return try ((i * 1237 + 11) mod 65521) as Half otherwise panic("out of range")
 end 'halfValue'
 
 function halfSum(bag HalfBag) returns Total
 	var total = 0 as Total
 	for element in bag.items 'walk'
-		total = total + (element as Total)
+		total = try total + (element as Total) otherwise panic("out of range")
 	end 'walk'
 	return total
 end 'halfSum'
@@ -313,13 +313,13 @@ end 'halfSum'
 typealias WideBag = Bag with Wide
 
 function wideValue(i Count) returns Wide
-	return ((i * 2654435 + 11) mod 4294967291) as Wide
+	return try ((i * 2654435 + 11) mod 4294967291) as Wide otherwise panic("out of range")
 end 'wideValue'
 
 function wideSum(bag WideBag) returns Total
 	var total = 0 as Total
 	for element in bag.items 'walk'
-		total = total + (element as Total)
+		total = try total + (element as Total) otherwise panic("out of range")
 	end 'walk'
 	return total
 end 'wideSum'
@@ -333,7 +333,7 @@ end 'flagValue'
 function flagSum(bag FlagBag) returns Total
 	var total = 0 as Total
 	for element in bag.items 'walk'
-		total = total + bit(element)
+		total = try total + bit(element) otherwise panic("out of range")
 	end 'walk'
 	return total
 end 'flagSum'
@@ -341,13 +341,13 @@ end 'flagSum'
 typealias CrumbBag = Bag with Crumb
 
 function crumbValue(i Count) returns Crumb
-	return ((i * 5 + 1) mod 4) as Crumb
+	return try ((i * 5 + 1) mod 4) as Crumb otherwise panic("out of range")
 end 'crumbValue'
 
 function crumbSum(bag CrumbBag) returns Total
 	var total = 0 as Total
 	for element in bag.items 'walk'
-		total = total + (element as Total)
+		total = try total + (element as Total) otherwise panic("out of range")
 	end 'walk'
 	return total
 end 'crumbSum'
@@ -355,19 +355,19 @@ end 'crumbSum'
 typealias NibbleBag = Bag with Nibble
 
 function nibbleValue(i Count) returns Nibble
-	return ((i * 7 + 3) mod 16) as Nibble
+	return try ((i * 7 + 3) mod 16) as Nibble otherwise panic("out of range")
 end 'nibbleValue'
 
 function nibbleSum(bag NibbleBag) returns Total
 	var total = 0 as Total
 	for element in bag.items 'walk'
-		total = total + (element as Total)
+		total = try total + (element as Total) otherwise panic("out of range")
 	end 'walk'
 	return total
 end 'nibbleSum'
 
 function main() returns ExitCode
-	let half = HalfBag.create()
+	var half = HalfBag.create()
 	for i in 0 upto 300 'fillHalf'
 		half.add(halfValue(i))
 	end 'fillHalf'
@@ -383,15 +383,15 @@ function main() returns ExitCode
 	let halfCopy = half.cloned()
 	half.put(0, value: 1)
 	let halfPart = half.window(100, endIndex: 200)
-	let halfJoined = halfPart.cloned()
+	var halfJoined = halfPart.cloned()
 	halfJoined.addAll(halfPart)
 	let halfReplay = half.replayed()
 	print("half clone {halfCopy.items.managed.elementSize()} {halfSum(halfCopy)} window {halfPart.items.managed.elementSize()} {halfSum(halfPart)} append {halfJoined.items.managed.elementSize()} {halfSum(halfJoined)} replay {halfReplay.items.managed.elementSize()} {halfSum(halfReplay)}\n")
-	let halfGrown = HalfBag.create()
+	var halfGrown = HalfBag.create()
 	halfGrown.add(halfValue(0))
 	halfGrown.grownTo(70, value: 777)
 	print("half grow {halfGrown.items.managed.elementSize()} count {halfGrown.items.count()} sum {halfSum(halfGrown)}\n")
-	let wide = WideBag.create()
+	var wide = WideBag.create()
 	for i in 0 upto 300 'fillWide'
 		wide.add(wideValue(i))
 	end 'fillWide'
@@ -407,15 +407,15 @@ function main() returns ExitCode
 	let wideCopy = wide.cloned()
 	wide.put(0, value: 1)
 	let widePart = wide.window(100, endIndex: 200)
-	let wideJoined = widePart.cloned()
+	var wideJoined = widePart.cloned()
 	wideJoined.addAll(widePart)
 	let wideReplay = wide.replayed()
 	print("wide clone {wideCopy.items.managed.elementSize()} {wideSum(wideCopy)} window {widePart.items.managed.elementSize()} {wideSum(widePart)} append {wideJoined.items.managed.elementSize()} {wideSum(wideJoined)} replay {wideReplay.items.managed.elementSize()} {wideSum(wideReplay)}\n")
-	let wideGrown = WideBag.create()
+	var wideGrown = WideBag.create()
 	wideGrown.add(wideValue(0))
 	wideGrown.grownTo(70, value: 777777)
 	print("wide grow {wideGrown.items.managed.elementSize()} count {wideGrown.items.count()} sum {wideSum(wideGrown)}\n")
-	let flag = FlagBag.create()
+	var flag = FlagBag.create()
 	for i in 0 upto 300 'fillFlag'
 		flag.add(flagValue(i))
 	end 'fillFlag'
@@ -431,15 +431,15 @@ function main() returns ExitCode
 	let flagCopy = flag.cloned()
 	flag.put(0, value: false)
 	let flagPart = flag.window(100, endIndex: 200)
-	let flagJoined = flagPart.cloned()
+	var flagJoined = flagPart.cloned()
 	flagJoined.addAll(flagPart)
 	let flagReplay = flag.replayed()
 	print("flag clone {flagCopy.items.managed.elementSize()} {flagSum(flagCopy)} window {flagPart.items.managed.elementSize()} {flagSum(flagPart)} append {flagJoined.items.managed.elementSize()} {flagSum(flagJoined)} replay {flagReplay.items.managed.elementSize()} {flagSum(flagReplay)}\n")
-	let flagGrown = FlagBag.create()
+	var flagGrown = FlagBag.create()
 	flagGrown.add(flagValue(0))
 	flagGrown.grownTo(70, value: true)
 	print("flag grow {flagGrown.items.managed.elementSize()} count {flagGrown.items.count()} sum {flagSum(flagGrown)}\n")
-	let crumb = CrumbBag.create()
+	var crumb = CrumbBag.create()
 	for i in 0 upto 300 'fillCrumb'
 		crumb.add(crumbValue(i))
 	end 'fillCrumb'
@@ -455,15 +455,15 @@ function main() returns ExitCode
 	let crumbCopy = crumb.cloned()
 	crumb.put(0, value: 0)
 	let crumbPart = crumb.window(100, endIndex: 200)
-	let crumbJoined = crumbPart.cloned()
+	var crumbJoined = crumbPart.cloned()
 	crumbJoined.addAll(crumbPart)
 	let crumbReplay = crumb.replayed()
 	print("crumb clone {crumbCopy.items.managed.elementSize()} {crumbSum(crumbCopy)} window {crumbPart.items.managed.elementSize()} {crumbSum(crumbPart)} append {crumbJoined.items.managed.elementSize()} {crumbSum(crumbJoined)} replay {crumbReplay.items.managed.elementSize()} {crumbSum(crumbReplay)}\n")
-	let crumbGrown = CrumbBag.create()
+	var crumbGrown = CrumbBag.create()
 	crumbGrown.add(crumbValue(0))
 	crumbGrown.grownTo(70, value: 2)
 	print("crumb grow {crumbGrown.items.managed.elementSize()} count {crumbGrown.items.count()} sum {crumbSum(crumbGrown)}\n")
-	let nibble = NibbleBag.create()
+	var nibble = NibbleBag.create()
 	for i in 0 upto 300 'fillNibble'
 		nibble.add(nibbleValue(i))
 	end 'fillNibble'
@@ -479,11 +479,11 @@ function main() returns ExitCode
 	let nibbleCopy = nibble.cloned()
 	nibble.put(0, value: 2)
 	let nibblePart = nibble.window(100, endIndex: 200)
-	let nibbleJoined = nibblePart.cloned()
+	var nibbleJoined = nibblePart.cloned()
 	nibbleJoined.addAll(nibblePart)
 	let nibbleReplay = nibble.replayed()
 	print("nibble clone {nibbleCopy.items.managed.elementSize()} {nibbleSum(nibbleCopy)} window {nibblePart.items.managed.elementSize()} {nibbleSum(nibblePart)} append {nibbleJoined.items.managed.elementSize()} {nibbleSum(nibbleJoined)} replay {nibbleReplay.items.managed.elementSize()} {nibbleSum(nibbleReplay)}\n")
-	let nibbleGrown = NibbleBag.create()
+	var nibbleGrown = NibbleBag.create()
 	nibbleGrown.add(nibbleValue(0))
 	nibbleGrown.grownTo(70, value: 5)
 	print("nibble grow {nibbleGrown.items.managed.elementSize()} count {nibbleGrown.items.count()} sum {nibbleSum(nibbleGrown)}\n")
@@ -632,7 +632,7 @@ type Bag uses Element
 		return Self{items: Items.create(0)}
 	end 'create'
 
-	static function wrapping(source Items) returns Self
+	static function wrapping(source Items) returns Self where Element implements Copyable
 		let own = Items.create(0)
 		own.append(source)
 		return Self{items: own}
@@ -642,7 +642,7 @@ type Bag uses Element
 		items.push(value)
 	end 'add'
 
-	function at(i ElementIndex) returns Element
+	function at(i ElementIndex) returns Element where Element implements Copyable
 		return try items.get(i) otherwise panic("Bag.at: index out of range")
 	end 'at'
 
@@ -650,15 +650,15 @@ type Bag uses Element
 		return Self{items: items.clone()}
 	end 'cloned'
 
-	function firstOne() returns Element
+	function firstOne() returns Element where Element implements Copyable
 		return try items.first() otherwise panic("Bag.firstOne: empty")
 	end 'firstOne'
 
-	function lastOne() returns Element
+	function lastOne() returns Element where Element implements Copyable
 		return try items.last() otherwise panic("Bag.lastOne: empty")
 	end 'lastOne'
 
-	function peekedAt(ahead ElementIndex) returns Element
+	function peekedAt(ahead ElementIndex) returns Element where Element implements Copyable
 		let cursor = try items.cursor() otherwise panic("Bag.peekedAt: empty")
 		return try cursor.peek(ahead) otherwise panic("Bag.peekedAt: past the end")
 	end 'peekedAt'
@@ -683,15 +683,15 @@ type Bag uses Element
 		items.insert(i, value: value)
 	end 'insertAt'
 
-	function grownTo(length ElementIndex, value Element)
+	function grownTo(length ElementIndex, value Element) where Element implements Copyable
 		items.growFilled(length, value: value)
 	end 'grownTo'
 
-	function refilled(length ElementIndex, value Element)
+	function refilled(length ElementIndex, value Element) where Element implements Copyable
 		items.refill(length, value: value)
 	end 'refilled'
 
-	function addAll(other Self)
+	function addAll(other Self) where Element implements Copyable
 		items.append(other.items)
 	end 'addAll'
 end 'Bag'
@@ -899,7 +899,7 @@ type Stamp
 	export let label as String
 
 	static function create(tick Integer, label String) returns Self
-		return Self{tick: tick, label: label}
+		return Self{tick: tick, label: label.clone()}
 	end 'create'
 end 'Stamp'
 
@@ -911,11 +911,11 @@ type Bag uses Element
 		return Self{items: Items.create(0)}
 	end 'create'
 
-	function add(value Element)
-		items.push(value)
+	function add(mutates self, value Element) where Element implements Copyable
+		items.push(value.clone())
 	end 'add'
 
-	function at(i ElementIndex) returns Element
+	function at(i ElementIndex) returns Element where Element implements Copyable
 		return try items.get(i) otherwise panic("Bag.at: index out of range")
 	end 'at'
 
@@ -923,7 +923,7 @@ type Bag uses Element
 		return Self{items: items.clone()}
 	end 'cloned'
 
-	function window(start ElementIndex, endIndex ElementIndex) returns Self
+	function window(start ElementIndex, endIndex ElementIndex) returns Self where Element implements Copyable
 		return Self{items: try items.slice(start, endIndex: endIndex) otherwise panic("Bag.window: range out of bounds")}
 	end 'window'
 end 'Bag'
@@ -933,8 +933,8 @@ typealias TextBag = Bag with String
 typealias StampBag = Bag with Stamp
 
 function main() returns ExitCode
-	let texts = TextBag.create()
-	let stamps = StampBag.create()
+	var texts = TextBag.create()
+	var stamps = StampBag.create()
 	for i in 0 upto 40 'fill'
 		texts.add("text {i}")
 		stamps.add(Stamp.create(i, label: "stamp {i}"))
@@ -943,7 +943,7 @@ function main() returns ExitCode
 	let part = stamps.window(10, endIndex: 20)
 	var tickSum = 0 as Integer
 	for stamp in part.items 'walk'
-		tickSum = tickSum + stamp.tick
+		tickSum = try tickSum + stamp.tick otherwise panic("out of range")
 	end 'walk'
 	print("strides {texts.items.managed.elementSize()} {stamps.items.managed.elementSize()} {copy.items.managed.elementSize()} {part.items.managed.elementSize()}\n")
 	print("text {texts.at(7)} {copy.at(39)} stamp {stamps.at(12).label} {part.at(0).tick} ticks {tickSum} count {part.items.count()}\n")

@@ -192,6 +192,29 @@ function arrayClearSlot(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleS
 	arrayWrite(l, p: p, ms: ms, box: box, arr: arr, index: index, v: empty, checked: false)
 end 'arrayClearSlot'
 
+// arraySwap exchanges the elements at two indexes where they are: each is loaded and stored into the other's slot, so neither
+// is copied or dropped, and a slot that is empty stays empty. An index past the end fails with indexOutOfBounds, as a read's does.
+function arraySwap(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, box ArrayBox, arr Reg, i Reg, j Reg)
+	arrayInBounds(l, p: p, ms: ms, box: box, arr: arr, index: i)
+	arrayInBounds(l, p: p, ms: ms, box: box, arr: arr, index: j)
+	if arrayPacked(p, ms: ms, box: box) 'packed'
+		let first = elementEntry(l, p: p, site: box.site, symbol: Rt.rtBytesGet, args: argsOf2(arr, b: i), checked: false)
+		let second = elementEntry(l, p: p, site: box.site, symbol: Rt.rtBytesGet, args: argsOf2(arr, b: j), checked: false)
+		entryVoid(l, p: p, site: box.site, symbol: Rt.rtBytesSet, args: argsOf3(arr, b: i, c: second))
+		entryVoid(l, p: p, site: box.site, symbol: Rt.rtBytesSet, args: argsOf3(arr, b: j, c: first))
+		return
+	end 'packed'
+	let kind = kindOf(l, p: p, ms: ms, t: arrayElem(p, ms: ms, box: box))
+	let addrI = arrayAddress(l, p: p, ms: ms, box: box, arr: arr, index: i, checked: false)
+	let addrJ = arrayAddress(l, p: p, ms: ms, box: box, arr: arr, index: j, checked: false)
+	let first = newReg(l, kind: kind)
+	emit(l, i: newLoadAt(first, addr: addrI))
+	let second = newReg(l, kind: kind)
+	emit(l, i: newLoadAt(second, addr: addrJ))
+	emit(l, i: newStoreAt(addrI, src: second))
+	emit(l, i: newStoreAt(addrJ, src: first))
+end 'arraySwap'
+
 // arrayWrite writes v to the element at index as arrayStore does, through a proven address where the index is proved
 // inside the array (not checked). A byte is written by its entry either way.
 function arrayWrite(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, box ArrayBox, arr Reg, index Reg, v Reg, checked bool)

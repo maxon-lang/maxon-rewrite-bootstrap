@@ -152,12 +152,15 @@ end 'visitTryStmt'
 
 // visitIfTryStmt lowers a conditional try: its call with the failures going to the else block, and then the block that
 // runs when the call succeeds, which owns the result the call gave. A failure of that block is not the call's, so the try
-// ends before it.
+// ends before it. The temporaries of the call are a scope of their own, which a failure drops and the block that runs on
+// success ends: both paths go on to the same join, which would drop them a second time on the failure's if the statement
+// held them.
 function visitIfTryStmt(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, s ast.NodeID)
 	let call = ast.ifTryStmtCall(p.modules[l.mi].tree, id: s)
 	let failed = l.b.newBlock()
 	let join = l.b.newBlock()
 	_ = enterTry(l, target: failed, binding: tryBindingSlot(l, p: p, node: call))
+	pushScope(l, block: false)
 	let v = lowerExpr(l, p: p, ms: ms, e: call)
 	if ast.ifTryStmtName(p.modules[l.mi].tree, id: s) != "" 'bind'
 		let sym = localEntry(p, module: l.fnModule, id: localOfNode(p, module: l.module, node: s))
@@ -170,6 +173,7 @@ function visitIfTryStmt(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleS
 		pushScope(l, block: true)
 	end 'bare'
 	lowerBlock(l, p: p, ms: ms, ref: ast.ifTryStmtThenRef(p.modules[l.mi].tree, id: s))
+	popScope(l, p: p)
 	popScope(l, p: p)
 	goTo(l, target: join)
 	l.cur = failed

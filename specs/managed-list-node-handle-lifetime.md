@@ -64,6 +64,7 @@ minimal reproduction of one of that module's own shapes, cited in its prose.
 ## Tests
 
 <!-- test: a-handle-returned-out-of-the-function-that-made-the-chain -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 `stdlib/List.maxon`'s `walkTo` **returns** an `ENode` out of a chain that the returning function
 is the only namer of. The chain binding dies at that `return`; only the handle leaves. Reading the
 element in the caller therefore reads through the retain, and nothing else.
@@ -89,6 +90,7 @@ end 'main'
 ```
 
 <!-- test: the-last-handle-to-die-releases-its-chain -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 The other direction, and it needs repetition to be worth anything: four chains are built and four
 handles are dropped, each at the end of its own loop trip. A retain with no matching release leaks
 every one of them and the run ends **101** rather than **0** — while the printed values still read
@@ -124,6 +126,7 @@ end 'main'
 ```
 
 <!-- test: a-handle-stored-in-a-struct-field -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 `stdlib/List.maxon`'s `ListIterator` declares `var node as ENode` and `create` returns
 `Self{node: head}`. Reproduced here in all three escape positions at once: the handle arrives as a
 **parameter**, is stored in a **field**, and the box is **returned** to a caller that outlives the
@@ -162,6 +165,7 @@ end 'main'
 ```
 
 <!-- test: a-handle-field-reassigned-releases-the-one-it-replaced -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 `stdlib/List.maxon`'s `ListIterator.advance` **reassigns** its own handle field. A reassignment
 owes both halves: the replacement's list must be retained and the replaced box's list must be
 released. Keeping only the retain leaks (**101**); keeping only the release frees a chain the field
@@ -210,6 +214,7 @@ end 'main'
 ```
 
 <!-- test: a-handle-into-a-chain-of-managed-elements -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 The same escape over a **managed** element, so the chain's teardown walk actually runs when the last
 handle dies. The element is a heap `String` the chain owns; the handle's release has to reach
 `__list_clear`'s walk and not merely free the record, or the strings leak. `managed-list-opaque-element`
@@ -239,6 +244,7 @@ a heap string long enough not to be inline
 ```
 
 <!-- test: a-handle-into-a-chain-of-trivial-elements -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 The trivial control. The identical escape over an element with no destructor: the release must free
 the record and the nodes and walk nothing. A run that reports the right answer here and leaks in the
 case above has a broken walk, not a broken retain.
@@ -269,6 +275,7 @@ end 'main'
 ```
 
 <!-- test: a-chain-passed-as-a-parameter-hands-a-handle-back -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 `stdlib/List.maxon`'s `ListIterator.create(chain EManagedList)` takes the chain **as a parameter**
 and mints a handle from it. The handle outlives the call, so the retain is taken against a list the
 callee never owned. Its own binding in `main` is still what finally releases it.
@@ -294,6 +301,7 @@ end 'main'
 ```
 
 <!-- test: a-returned-handle-survives-a-clear -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 ⭐⭐ **THE CASE THE REFCOUNTED-NODE RULING IS FOR.** `a-chain-passed-as-a-parameter-hands-a-handle-back`
 with one line added: the chain is CLEARED while a handle into it is still live, in a different function
 from the one that minted it. Under a refcounted node this needs no refusal at all — `clear` drops the
@@ -332,6 +340,7 @@ end 'main'
 ```
 
 <!-- test: a-handle-in-a-field-survives-a-clear -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 The harder half of the pair, and the one no function boundary explains: `a-handle-stored-in-a-struct-field`
 with one line added, with the mint, the `clear` and the read all in `main`. Under a handle that retains its
 LIST, what loses the borrow is the store into a struct FIELD, which no binding then claims — same poison,
@@ -371,6 +380,7 @@ end 'main'
 ```
 
 <!-- test: reading-a-handle-after-its-element-is-removed-is-refused -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 ⭐⭐ **THE REASON `remove` CARRIES A REFUSAL WHEN `clear` DOES NOT.** Nothing on this surface FREES a
 node — but `remove` MOVES the element out and empties the node's `value@16`, so the argument's own handle
 is left naming a node whose value is gone. Without this refusal the program prints the moved string and
@@ -397,6 +407,7 @@ error E3102: <fragment>:9:11: use of moved value 'n': its ownership moved to ano
 ```
 
 <!-- test: removing-through-a-handle-twice-is-refused -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- positions: moved -->
 The same rule reaching the second `remove` rather than a `value()`. It is a compile error, because the
 first `remove` took the element and the handle may not be read again to ask for it twice.
@@ -425,6 +436,7 @@ error E3102: <fragment>:14:23: use of moved value 'n': its ownership moved to an
 ```
 
 <!-- test: removing-a-handle-no-binding-owns-is-refused -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- positions: moved -->
 ⭐⭐ **THE ESCAPE THE PER-BINDING MARK CANNOT REACH.** The refusal above is filed against the BINDING
 that owns the handle, so it is silently INERT on a handle read back out of a struct FIELD — and a field is
@@ -467,6 +479,7 @@ error E2015: <fragment>:21:18: Unsupported: `__ManagedList.remove` takes the ele
 ```
 
 <!-- test: removing-a-handle-minted-in-the-same-statement -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 The control for the refusal above, and the reason it tests for a MARKABLE handle rather than for a NAMED
 one. `insertLast`'s result is owned by no binding either, so a refusal keyed on *"is there a binding?"*
 alone would refuse this too — and there is nothing here to protect, because no second expression can name
@@ -491,6 +504,7 @@ end 'main'
 ```
 
 <!-- test: removing-a-handle-a-call-hands-back-is-refused -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- positions: moved -->
 ⭐⭐ **A CALL RESULT IS AN UNNAMED TEMPORARY TOO, AND THE REASON THE EXEMPTION IS KEYED BY IDENTITY.** A
 guard admitting any unnamed owned temporary (`pendingTempsContain`) admits a METHOD RETURNING A FIELD'S
@@ -533,6 +547,7 @@ error E2015: <fragment>:25:18: Unsupported: `__ManagedList.remove` takes the ele
 ```
 
 <!-- test: removing-a-handle-held-only-by-a-parameter-is-refused -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- positions: moved -->
 ⭐⭐ **A BORROWED PARAMETER IS REFUSED, AND THIS IS THE ONE WHERE THE REFUSAL IS NOT MERELY CONSERVATIVE —
 THE MARK COULD NOT POSSIBLY REACH THE BINDING THAT MATTERS.** The handle belongs to the CALLER; the callee
@@ -562,6 +577,7 @@ error E2015: <fragment>:6:15: Unsupported: `__ManagedList.remove` takes the elem
 ```
 
 <!-- test: removing-a-handle-out-of-an-array-element-is-refused -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- positions: moved -->
 A container ELEMENT is the field case with a different storage: `bag.get(0)` yields a borrow no binding
 owns, and the same index reads it again afterwards. Without the guard: exit **139**.
@@ -587,6 +603,7 @@ error E2015: <fragment>:11:18: Unsupported: `__ManagedList.remove` takes the ele
 ```
 
 <!-- test: removing-another-chains-inline-insertion-is-refused -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 ⭐ **THE EXEMPTION CARRIES *WHICH* CHAIN, NOT JUST *THAT IT IS A MINT*.** `b.insertLast(x)` is an
 insertion's own result and is unnamable, so the *"nothing can name it twice"* half holds — but the node it
 mints belongs to `b`, and `a.remove(…)` would unlink it out of `b`'s links while repairing `a`'s header. The
@@ -608,6 +625,7 @@ error E2015: <fragment>:7:14: Unsupported: `__ManagedList.remove` takes the elem
 ```
 
 <!-- test: removing-a-handle-out-of-a-merge-is-refused -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 A ternary's result is a phi, which no binding owns — marking it would mark neither arm.
 
 ⚠ **THIS GUARD IS NOT CONSERVATIVE — there is no second refusal behind it.** A merge arm reading an
@@ -632,6 +650,7 @@ error E2015: <fragment>:9:18: Unsupported: `__ManagedList.remove` takes the elem
 ```
 
 <!-- test: removing-a-handle-a-union-arm-bound-runs -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 ⭐ **AN ADMITTED SPELLING THAT IS NOT A PLAIN NAME.** A `match` arm binding a managed payload out of a union
 IS a live owned binding, so the mark lands on it and a later read in the arm is refused per-binding like any
 other name. The route AROUND it — re-matching the box for a fresh binding over the same node — is closed by
@@ -803,6 +822,7 @@ insertion: one, long enough to be a real heap allocation 3
 ```
 
 <!-- test: a-navigators-handle-outlives-the-chain-it-came-from -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 `head()` mints a handle exactly as an insertion does, and it hands back a node that ALREADY has owners —
 so its `+1` is taken inside the runtime entry, on the ok path, where the parser structurally cannot emit
 one: an incref at the mint door would sit before the `try` fork and run on the ERROR edge too. This is
@@ -902,6 +922,7 @@ three, long enough to be a real heap allocation 0
 ```
 
 <!-- test: a-navigator-that-throws-mints-nothing -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 The error edge of all four navigators, two hundred times over. A mint whose `+1` sat BEFORE the `try`
 fork would incref a result that is not a node on every one of these trips — and would also displace the
 call as the op the `try` rewrite targets, which is a compile-time E3055 rather than a wrong answer. Once
@@ -954,6 +975,7 @@ end 'main'
 ```
 
 <!-- test: removing-a-node-of-another-chain-aborts -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 ⭐⭐ **THE LAST NET, AND THE ONE THE FRONT END CANNOT STAND IN FRONT OF.** Two chains of one element type
 share a `__ManagedListNode` type, so a handle carried between two NAMED chains type-checks at the call and
 no compile-time rule can see it. `owner@32` names the chain a node belongs to, and the unlink gates on that
@@ -984,6 +1006,7 @@ fatal error: runtime abort 77 (managedListNodeNotInThisChain)
 ```
 
 <!-- test: removing-a-node-the-chain-has-already-let-go -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 ⭐ **THE `owner@32` GATE ON THE ROUTE THE REFUSAL DOES NOT COVER.** The
 refusal above stops a handle being read after ITS OWN `remove`; it says nothing about a node the chain let
 go some other way. `clear()` unlinks every node without touching any handle, so `remove(n)` afterwards is
@@ -1015,6 +1038,7 @@ end 'main'
 ```
 
 <!-- test: a-detached-node-releases-a-managed-element-when-its-last-handle-dies -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 ⭐⭐ **THE CASE A PER-LIST ELEMENT DROP GETS WRONG, AND THE ONE THE ELEMENT-DESTRUCTOR DECISION EXISTS FOR.** `detach` unlinks
 a node and leaves its element in place; the chain will never walk that node again. If the element's drop
 lived on the LIST, gated by a per-list flag, nobody would ever release this
@@ -1047,6 +1071,7 @@ a heap string long enough not to be inline
 ```
 
 <!-- test: error.an-element-holding-a-handle-into-its-own-chain-is-a-cycle -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- positions: moved -->
 A chain whose element can reach a handle back into that same chain is a retain cycle, and refcounting
 cannot collect one — which is why `ownership.md` makes a cycle a COMPILE error rather than a runtime
@@ -1118,6 +1143,7 @@ error E4014: <fragment>:22:6: type 'Holder' contains a reference cycle (via Hold
 ```
 
 <!-- test: reading-a-node-a-remove-emptied-aborts -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 ⭐⭐ **THE ROSTER ROW ON THE READ SIDE RATHER THAN THE ARGUMENT SIDE.** Every row above asks *"which handles may ARRIVE at `remove`"*; this one asks *"which handles
 SURVIVE it"*, and the answer is *"all of them but the one it marked"*. `remove` empties `value@16` so the
 element it hands out is not dropped twice, and it defends that hole with a per-BINDING move mark on its
@@ -1155,6 +1181,7 @@ removed [the only element, long enough to be a real heap allocation] count=0
 ```
 
 <!-- test: reinserting-an-emptied-node-puts-it-back-where-the-chain-itself-reads-it -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 ⭐⭐ **AND THE REINSERTIONS CARRY IT INTO THE CHAIN, WHICH IS WHY A STALE HANDLE IS NOT THE WHOLE OF IT.**
 `the-four-node-argument-doors-admit-every-arrival` derives its *"admit everything"* from *"they change
 LINKS and leave `value@16` alone"* — true of what the member DOES, and silent about the STATE the node
@@ -1193,6 +1220,7 @@ relinked count=1
 ```
 
 <!-- test: an-empty-managed-element-is-not-an-emptied-slot -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 ⭐ **THE POSITIVE CONTROL THE GUARD IS EXACTLY AS TRUSTWORTHY AS.** The test is *"the slot is 0"*, and it
 would be worth nothing — a false abort on ordinary programs — if a managed element could legitimately BE
 0. An empty `String` is a real record, so it is not; this case shows it rather than assumes it, because a guard
@@ -1217,6 +1245,7 @@ end 'main'
 ```
 
 <!-- test: a-trivial-element-of-zero-is-the-element-and-not-a-hole -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 ⭐ **THE OTHER HALF OF THE SAME CONTROL, AND IT IS WHY THE GUARD LOADS `element_drop@24` AT ALL.** A
 trivial element legitimately holds `0`, so an empty slot means nothing on its own — the same two-test
 pair `__list_node_decref` already makes to decide whether there is anything to drop. Without the second

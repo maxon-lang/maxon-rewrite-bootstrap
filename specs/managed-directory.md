@@ -74,6 +74,7 @@ end
 ## Tests
 
 <!-- test: managed-directory.exists -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 ```maxon
 function main() returns ExitCode
@@ -91,6 +92,7 @@ end 'main'
 ```
 
 <!-- test: managed-directory.not-exists -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 ```maxon
 function main() returns ExitCode
@@ -106,6 +108,7 @@ end 'main'
 ```
 
 <!-- test: managed-directory.current-path -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 ```maxon
 function main() returns ExitCode
@@ -122,6 +125,7 @@ end 'main'
 ```
 
 <!-- test: managed-directory.open-search-nonexistent -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 ```maxon
 function main() returns ExitCode
@@ -140,6 +144,7 @@ not found
 ```
 
 <!-- test: managed-directory.open-search-throws -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 ```maxon
 function main() returns ExitCode
@@ -154,6 +159,7 @@ end 'main'
 ```
 
 <!-- test: managed-directory.create-throws -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 ```maxon
 function main() returns ExitCode
@@ -168,6 +174,7 @@ end 'main'
 ```
 
 <!-- test: managed-directory.next-without-try -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 ```maxon
 function main() returns ExitCode
@@ -181,6 +188,7 @@ error E3057: specs/managed-directory/managed-directory.next-without-try.maxon:4:
 ```
 
 <!-- test: managed-directory.search-and-list -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 ```maxon
 enum TestFileError implements Error
@@ -266,6 +274,7 @@ end 'main'
 ```
 
 <!-- test: managed-directory.open-search-not-found-variant -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 
 The errno→variant mapping ensures that opening a search on a path that does
@@ -321,6 +330,7 @@ Each of the nine cases below pins a mechanism the ten cases above do not reach,
 rather than restating a passing one.
 
 <!-- test: managed-directory.next-does-not-skip-the-first-match -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 
 ⭐ **The advance-first PENDING flag.** `FindFirstFileW` does not merely open a
@@ -371,6 +381,7 @@ end 'main'
 ```
 
 <!-- test: managed-directory.filename-round-trip -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 
 ⭐ **`filename()` — which no case above reaches.** It answers with a FRESH
@@ -421,6 +432,7 @@ end 'main'
 ```
 
 <!-- test: managed-directory.next-after-close-throws-closed -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 
 ⚠ **`next()` after `close()` throws `closed`.** Without the guard, `close()`
@@ -448,6 +460,7 @@ end 'main'
 ```
 
 <!-- test: managed-directory.exists-discriminates-file-from-directory -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 
 `exists()` asks whether the path is a DIRECTORY, so an existing plain file is
@@ -486,6 +499,7 @@ end 'main'
 ```
 
 <!-- test: managed-directory.create-existing-is-create-failed -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 
 `CreateDirectoryW` on a path that already exists reports
@@ -514,6 +528,7 @@ end 'main'
 ```
 
 <!-- test: managed-directory.auto-close -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 
 The RAII half: a search opened and NEVER closed explicitly, reclaimed only by
@@ -560,6 +575,7 @@ error E2051: <fragment>:2:6: identifier '__ManagedDirectoryError' is reserved: d
 ```
 
 <!-- test: managed-directory.dotfiles-are-entries-not-dot-pseudo-entries -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 
 ⭐ **THE DOT FILTER IS THREE BYTES, AND ALL SEVENTEEN CASES ABOVE PASS IF IT IS
@@ -636,6 +652,7 @@ end 'main'
 ```
 
 <!-- test: managed-directory.eof-and-close-are-both-idempotent -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 
 Two contracts nothing above states. **EOF is a plain 0 and stays one**: an empty

@@ -156,6 +156,7 @@ unglobbed. Neither program could carry the other's claim.
 ## Tests
 
 <!-- test: subprocess-builtins.collect-echo -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 <!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux -->
 The whole attached path end to end: build an argv blob, spawn `cmd /c echo hello` with both output
@@ -210,6 +211,7 @@ kind=0 code=0 outLen=7 errLen=0 matches=true
 ```
 
 <!-- test: subprocess-builtins.posix-collect-echo -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 <!-- unsupported-targets: x64-windows -->
 `collect-echo`'s subject on the POSIX lane, and the case that proves the whole attached path runs here at
@@ -261,6 +263,7 @@ kind=0 code=0 outLen=6 errLen=0 matches=true
 ```
 
 <!-- test: subprocess-builtins.posix-a-reported-exit-is-reaped-rather-than-polled -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 <!-- unsupported-targets: x64-windows -->
 ⭐⭐ **A CHILD'S EXIT REACHES THE POLLER ONCE, SO THE COLLECT MUST REAP ON IT RATHER THAN ASK AGAIN.** The
@@ -336,6 +339,7 @@ laps=200 collected=200
 ```
 
 <!-- test: subprocess-builtins.posix-argv-reaches-the-child-verbatim -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 <!-- unsupported-targets: x64-windows -->
 ⭐ **THE CASE THAT PROVES THERE IS NO SHELL ON THE ARGV PATH — `argv-quoting`'s subject, inverted.** The
@@ -481,6 +485,7 @@ read=0 readErr=0 write=-1 wait=-1 voidsReturned=true
 ```
 
 <!-- test: subprocess-builtins.file-stdio-that-cannot-open-fails-the-spawn -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 <!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux -->
 `InputSource.file(path)` and `OutputDestination.file(path)` are public corpus surface, and
@@ -526,6 +531,7 @@ spawn=-1 reason=true
 ```
 
 <!-- test: subprocess-builtins.stdin-bytes-and-stderr -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 <!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux -->
 `StdinKind.bytes` queues a payload the collect loop pushes into the child's stdin between drains,
@@ -575,6 +581,7 @@ outHasPayload=true errHasOops=true kind=0
 ```
 
 <!-- test: subprocess-builtins.posix-stdin-bytes -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 <!-- unsupported-targets: x64-windows -->
 `stdin-bytes-and-stderr`'s stdin half on this lane. `StdinKind.bytes` queues a payload the collect loop
@@ -688,6 +695,7 @@ kind=0 code=0 out=3 bytes [97 0 98]
 ```
 
 <!-- test: subprocess-builtins.posix-stdout-and-stderr-are-separate -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 <!-- unsupported-targets: x64-windows -->
 `stdin-bytes-and-stderr`'s other half: the two pipes are drained INDEPENDENTLY, not one after the other.
@@ -737,6 +745,7 @@ out=true err=true outLen=4 errLen=3
 ```
 
 <!-- test: subprocess-builtins.posix-exit-code-is-propagated -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 <!-- unsupported-targets: x64-windows -->
 The child's own exit status reaches `subprocessResultStatusCode` unchanged. ⚠ **On this lane that is a
@@ -784,6 +793,7 @@ kind=0 code=7
 ```
 
 <!-- test: subprocess-builtins.timeout-kills-the-child -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 <!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux -->
 A non-zero `timeoutMs` argument is a KILL-AFTER deadline, which is what `stdlib/Subprocess.maxon`'s
@@ -830,6 +840,7 @@ kind=2
 ```
 
 <!-- test: subprocess-builtins.posix-timeout-kills-the-child -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 <!-- unsupported-targets: x64-windows -->
 `timeout-kills-the-child` on this lane. `/bin/sleep 5` would run for five seconds; the 300 ms deadline
@@ -879,6 +890,7 @@ kind=2 killedEarly=true
 ```
 
 <!-- test: subprocess-builtins.timeout-kills-the-whole-tree -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 <!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux -->
 **A DEADLINE KILLS THE CHILD'S DESCENDANTS, NOT ONLY THE CHILD.** `timeout-kills-the-child` proves the
@@ -939,6 +951,7 @@ kind=2 descendantSurvived=false
 ```
 
 <!-- test: subprocess-builtins.posix-timeout-kills-the-whole-tree -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 <!-- unsupported-targets: x64-windows -->
 `timeout-kills-the-whole-tree` on this lane, and the shell is nested here for that case's reason: the inner
@@ -992,6 +1005,7 @@ kind=2 descendantSurvived=false
 ```
 
 <!-- test: subprocess-builtins.a-child-that-exited-before-the-deadline-keeps-its-own-code -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 <!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux -->
 **A DEADLINE KILL REPORTS THE KILL'S CODE ONLY FOR A CHILD THE KILL ENDED.** The direct child exits at once
@@ -1817,6 +1831,7 @@ detached=true newSession=true
 ```
 
 <!-- test: subprocess-builtins.inherited-and-discarded-output -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 <!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux -->
 `OutputKind.inherit` hands the child the PARENT's own standard handle, so its text lands in this
@@ -1876,6 +1891,7 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: subprocess-builtins.posix-inherited-and-discarded-output -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 <!-- unsupported-targets: x64-windows -->
 `inherited-and-discarded-output` on this lane. `OutputKind.inherit` hands the child the PARENT's own
@@ -1937,6 +1953,7 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: subprocess-builtins.argv-quoting -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 <!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux -->
 A token holding a SPACE is quoted, so it reaches the child as ONE argument rather than two. `echo`
@@ -1985,6 +2002,7 @@ echoed=true len=7
 ```
 
 <!-- test: subprocess-builtins.large-collect-grows-the-buffer -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 <!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux -->
 An UNCAPPED collect of far more than one buffer's worth: 200 lines of 40 characters, which `cmd`
@@ -2031,6 +2049,7 @@ kind=0 code=0 outLen=8400
 ```
 
 <!-- test: subprocess-builtins.posix-large-collect-grows-both-buffers -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 <!-- unsupported-targets: x64-windows -->
 An UNCAPPED collect of far more than one buffer's worth, on BOTH pipes at once: 1200 lines of 49
@@ -2085,6 +2104,7 @@ kind=0 code=0 outLen=60000 errLen=60000
 ```
 
 <!-- test: subprocess-builtins.capture-limit -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 A non-zero `stdoutLimit` caps what is KEPT, never what is read: a runtime that stopped reading at
 the ceiling would leave the child blocked on a full pipe for ever. The child writes far more than
@@ -3023,6 +3043,7 @@ exit=0 out=ok
 ```
 
 <!-- test: subprocess-builtins.posix-a-released-handle-cannot-release-the-spawn-that-reuses-its-slot -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 <!-- unsupported-targets: x64-windows, wasm32-wasi -->
 A released handle stays dead while a new spawn is still being set up in the slot it named. The first spawn
@@ -3106,6 +3127,7 @@ second: kind=0 code=0 out=through the fifo
 ```
 
 <!-- test: subprocess-builtins.posix-a-file-open-in-the-parent-is-not-inherited-by-the-child -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 <!-- unsupported-targets: x64-windows, arm64-macos, wasm32-wasi -->
 A descriptor the parent holds open when it spawns is not the child's. Here the parent writes 1 MiB into the FIFO

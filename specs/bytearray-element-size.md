@@ -763,6 +763,7 @@ Hello 1
 ```
 
 <!-- test: a-wide-byte-still-reads-a-compiler-synthesized-buffer -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 ### A buffer the COMPILER minted answers to no file's `Byte` — not even the file that asked for it
 The case above proves a STDLIB MODULE's buffer survives a wide `Byte`. This one proves the
@@ -1199,6 +1200,7 @@ The door is asked ONCE — `aggregatesConflict` takes the (tag, nameId) pair bes
 ask the identity question without asking the boundary one.
 
 <!-- test: a-synthesized-buffer-crosses-every-declared-byte-buffer-door -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 ### One synthesized buffer, through six declared byte-buffer doors
 The cwd differs per machine, so every assertion is on a LENGTH — the failure this case guards is a
@@ -1286,6 +1288,7 @@ more natural name of the two. ⇒ the declared element's DECLARED BOUNDS are the
 what receives one must admit every value a byte has.
 
 <!-- test: a-narrow-byte-does-not-admit-a-compiler-synthesized-buffer -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- positions: moved -->
 <!-- tier: stdlib -->
 ### A one-byte slot that cannot hold 255 is refused at the boundary
@@ -1610,6 +1613,7 @@ hi
 ```
 
 <!-- test: a-narrow-byte-refuses-a-raw-byte-write-through-the-buffer-surface -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- positions: moved -->
 <!-- tier: stdlib -->
 ### `setByte` is a raw-byte write, so a narrow `Byte` refuses it too
@@ -1636,6 +1640,7 @@ error E3118: <fragment>:12:10: 'setByte' writes a RAW BYTE at a byte OFFSET, so 
 ```
 
 <!-- test: a-narrow-byte-refuses-a-raw-byte-write-into-a-literals-buffer -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- positions: moved -->
 <!-- tier: stdlib -->
 ### The buffer surface of a `b"…"` literal is the same write, and the literal's range rule cannot reach it
@@ -1661,6 +1666,7 @@ error E3118: <fragment>:11:16: 'setByte' writes a RAW BYTE at a byte OFFSET, so 
 ```
 
 <!-- test: a-wide-byte-still-writes-raw-bytes-through-the-buffer-surface -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 ### A `Byte` WIDER than a byte keeps its raw writer, as long as it fills its slot
 ⚠ **THE SAME WRITE UNDER `int(0 to 1000)` IS REFUSED, TWICE OVER, AND DELIBERATELY** —
@@ -1711,6 +1717,7 @@ end 'main'
 ```
 
 <!-- test: raw-byte-reads-survive-a-narrow-byte -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 ### `byteAt` yields a plain `int`, never the element, so a narrow `Byte` does not touch it
 ```maxon
@@ -1734,6 +1741,7 @@ end 'main'
 ```
 
 <!-- test: a-narrow-byte-refuses-a-file-read-into-its-buffer -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- positions: moved -->
 <!-- tier: stdlib -->
 ### `__ManagedFile.read` blits a file's contents, so it answers to the element too
@@ -1769,6 +1777,7 @@ error E3117: <fragment>:12:12: 'read' stores RAW bytes into an element declared 
 ```
 
 <!-- test: a-raw-byte-write-answers-to-the-element-not-to-the-name-byte -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- positions: moved -->
 <!-- tier: stdlib -->
 ### The rule reads the element's RANGE, never the name `Byte`
@@ -1814,6 +1823,7 @@ adopts nothing and merely copies values. Asking it would make the receiver-side 
 element has a value set of its own (`ProgramSignatures.elementIntegerValueRange`): a byte's.
 
 <!-- test: a-narrow-byte-refuses-a-synthesized-buffer-appended-to-it -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- positions: moved -->
 <!-- tier: stdlib -->
 ### A narrow `Byte` refuses a synthesized buffer appended into its array
@@ -1843,6 +1853,7 @@ error E3005: <fragment>:13:4: argument type mismatch for 'other': expected 'Byte
 ```
 
 <!-- test: a-byte-that-holds-every-byte-still-appends-a-synthesized-buffer -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 ### A `Byte` that holds every byte still takes one
 The other half of the boundary, and the case that keeps the door LIVE: refusing this would convert a
@@ -1876,6 +1887,7 @@ compiler-owned element its value set (`ProgramSignatures.elementIntegerValueRang
 answers in both directions on its own.
 
 <!-- test: a-synthesized-buffer-takes-a-byte-array-appended-to-it -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 ### A synthesized buffer takes a declared byte array appended to it
 ```maxon
@@ -1897,6 +1909,7 @@ end 'main'
 ```
 
 <!-- test: a-synthesized-buffer-takes-a-NARROWER-byte-array-appended-to-it -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 ### …and a NARROWER one too, because every one of its values is a byte
 The asymmetry that makes `error.append-narrower-element-array` a refusal runs the other way here: an
@@ -1939,6 +1952,7 @@ module writes `__ManagedMemory.create(size + extraBytes, 1)` and is parsed by ev
 `wide-byte-program-still-round-trips-a-file` below is what holds that shut.
 
 <!-- test: error.a-byte-packed-buffer-is-refused-when-byte-is-wider-than-one-byte -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- positions: moved -->
 <!-- tier: stdlib -->
 ### `__ManagedMemory.create(n, 1)` is refused where the `b"…"` literal is
@@ -1963,6 +1977,7 @@ error E2015: <fragment>:10:38: Unsupported: `__ManagedMemory.create(count, eleme
 ```
 
 <!-- test: a-byte-packed-buffer-is-accepted-at-the-canonical-byte -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 ### The canonical `Byte` keeps the two producers agreeing, so the buffer is built and read normally
 The acceptance half: the refusal is about the DISAGREEMENT and not about `elementSize: 1`.
@@ -1987,6 +2002,7 @@ end 'main'
 ```
 
 <!-- test: a-word-buffer-is-untouched-by-a-wide-byte -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 ### A MACHINE-WORD buffer in the same wide-`Byte` program is untouched
 Only the byte arm can disagree: `create(n, 8)` takes the bare-`int` instance, whose stride is the machine
@@ -2041,6 +2057,7 @@ elsewhere — each admitting every pattern of its slot. `an-exit-code-element-fi
 below pins it.
 
 <!-- test: error.a-raw-byte-write-is-refused-at-a-slot-the-element-does-not-fill -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- positions: moved -->
 <!-- tier: stdlib -->
 ### A ranged element WIDER than a byte that does not fill its slot
@@ -2067,6 +2084,7 @@ error E3118: <fragment>:12:16: 'setByte' writes a RAW BYTE at a byte OFFSET, so 
 ```
 
 <!-- test: error.a-raw-byte-write-is-refused-on-a-negative-lower-bound-element -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- positions: moved -->
 <!-- tier: stdlib -->
 ### An element with a NEGATIVE lower bound keeps the machine word and does not fill it
@@ -2093,6 +2111,7 @@ error E3118: <fragment>:12:16: 'setByte' writes a RAW BYTE at a byte OFFSET, so 
 ```
 
 <!-- test: error.a-raw-byte-write-is-refused-on-a-bool-element -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 ### A `bool` element is a ONE-byte slot holding exactly two values
 The slot is one byte and the element admits `0` and `1`, so this is the case that separates *"admits every
@@ -2113,6 +2132,7 @@ error E3118: <fragment>:7:16: 'setByte' writes a RAW BYTE at a byte OFFSET, and 
 ```
 
 <!-- test: error.a-raw-byte-write-is-refused-on-an-enum-element -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 ### An ENUM element stores an ORDINAL, and a raw byte is not one
 An enum's value set is the ordinals its declaration lists, which is never every pattern of the slot holding
@@ -2145,6 +2165,7 @@ error E3118: <fragment>:12:16: 'setByte' writes a RAW BYTE at a byte OFFSET, so 
 ```
 
 <!-- test: an-exit-code-element-fills-its-own-slot-and-takes-a-raw-byte-write -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 <!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux, wasm32-wasi -->
 ### An `ExitCode` element FILLS its slot, so a raw byte write is legal
@@ -2181,6 +2202,7 @@ end 'main'
 ```
 
 <!-- test: a-raw-byte-write-is-accepted-when-the-element-fills-its-two-byte-slot -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 ### An element that DOES fill its two-byte slot keeps its raw writer
 `int(0 to u16.max)` admits every value of the two-byte slot it was given, so a raw byte at either offset is
@@ -2208,6 +2230,7 @@ end 'main'
 ```
 
 <!-- test: a-raw-byte-write-still-stages-a-machine-word-element -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 ### A machine-word `int` element admits every bit pattern of its slot, so staging still works
 The reason the rule may not be *"does the element hold every BYTE"*: `int(i64.min to i64.max)` does not, and it holds every value of its slot.
@@ -2228,6 +2251,7 @@ end 'main'
 ```
 
 <!-- test: a-raw-byte-write-into-a-byte-no-file-declares-is-still-accepted -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 ### A program that declares no `Byte` at all keeps its raw writer
 The literal mints its own `Array with Byte` (`undeclaredNamedElementSlot`'s byte arm), which strides
@@ -2245,6 +2269,7 @@ end 'main'
 ```
 
 <!-- test: a-byte-packed-buffer-under-the-canonical-byte-still-takes-a-raw-byte-write -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 ### The two rules COMPOSED: a byte-packed `create` buffer under the canonical `Byte`, written raw
 ⭐ **THE ONE CASE THAT CROSSES BOTH RULES.** `a-wide-byte-still-writes-raw-bytes-through-the-buffer-surface`

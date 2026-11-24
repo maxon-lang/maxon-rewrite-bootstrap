@@ -1,0 +1,16 @@
+// expect-exit: 1
+// swap exchanges two elements where they are and, like a subscript, traps on an index past the end.
+typealias Names = Array with String
+
+function main() returns ExitCode
+	var names = Names.create(0)
+	names.push("ada")
+	names.push("bo")
+	names.swap(0, j: 1)
+	print("{names[0]} {names[1]}\n")
+	names.swap(0, j: 2)
+	print("not reached\n")
+	return 0
+end 'main'
+
+//> bo ada

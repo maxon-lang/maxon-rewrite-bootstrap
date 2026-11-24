@@ -5,6 +5,9 @@ export function intrinsicCall(mutates l Lowerer, p ast.Project, mutates ms ast.M
 	if op == ast.Intrinsic.intrArrayCreate 'intrArrayCreate'
 		return lowerArrayCreate(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrArrayCreate'
+	if op == ast.Intrinsic.intrArrayCreateZeroed 'intrArrayCreateZeroed'
+		return lowerArrayCreateZeroed(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrArrayCreateZeroed'
 	if op == ast.Intrinsic.intrArrayFilled 'intrArrayFilled'
 		return lowerArrayFilled(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrArrayFilled'
@@ -101,6 +104,12 @@ export function intrinsicCall(mutates l Lowerer, p ast.Project, mutates ms ast.M
 	if op == ast.Intrinsic.intrFixedArrayRefill 'intrFixedArrayRefill'
 		return lowerFixedArrayRefill(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrFixedArrayRefill'
+	if op == ast.Intrinsic.intrArrayElementSize 'intrArrayElementSize'
+		return lowerArrayElementSize(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrArrayElementSize'
+	if op == ast.Intrinsic.intrArraySwap 'intrArraySwap'
+		return lowerArraySwap(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrArraySwap'
 	if op == ast.Intrinsic.intrCursorCreate 'intrCursorCreate'
 		return lowerCursorCreate(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrCursorCreate'
@@ -551,6 +560,9 @@ export function intrinsicCall(mutates l Lowerer, p ast.Project, mutates ms ast.M
 	if op == ast.Intrinsic.intrFloatToBits 'intrFloatToBits'
 		return lowerFloatToBits(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrFloatToBits'
+	if op == ast.Intrinsic.intrRandomFill 'intrRandomFill'
+		return lowerRandomFill(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrRandomFill'
 	if op == ast.Intrinsic.intrBitsToFloat 'intrBitsToFloat'
 		return lowerBitsToFloat(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrBitsToFloat'
@@ -727,6 +739,9 @@ export function ownsOperands(op ast.Intrinsic) returns bool
 	if op == ast.Intrinsic.intrArrayCreate 'intrArrayCreate'
 		return false
 	end 'intrArrayCreate'
+	if op == ast.Intrinsic.intrArrayCreateZeroed 'intrArrayCreateZeroed'
+		return false
+	end 'intrArrayCreateZeroed'
 	if op == ast.Intrinsic.intrArrayFilled 'intrArrayFilled'
 		return false
 	end 'intrArrayFilled'
@@ -823,6 +838,12 @@ export function ownsOperands(op ast.Intrinsic) returns bool
 	if op == ast.Intrinsic.intrFixedArrayRefill 'intrFixedArrayRefill'
 		return false
 	end 'intrFixedArrayRefill'
+	if op == ast.Intrinsic.intrArrayElementSize 'intrArrayElementSize'
+		return false
+	end 'intrArrayElementSize'
+	if op == ast.Intrinsic.intrArraySwap 'intrArraySwap'
+		return false
+	end 'intrArraySwap'
 	if op == ast.Intrinsic.intrCursorCreate 'intrCursorCreate'
 		return false
 	end 'intrCursorCreate'
@@ -1273,6 +1294,9 @@ export function ownsOperands(op ast.Intrinsic) returns bool
 	if op == ast.Intrinsic.intrFloatToBits 'intrFloatToBits'
 		return false
 	end 'intrFloatToBits'
+	if op == ast.Intrinsic.intrRandomFill 'intrRandomFill'
+		return false
+	end 'intrRandomFill'
 	if op == ast.Intrinsic.intrBitsToFloat 'intrBitsToFloat'
 		return false
 	end 'intrBitsToFloat'

@@ -219,6 +219,10 @@ function runtimeEntry(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 		try entryHashSeedDraw(vm, f: f, x: x)
 		return
 	end 'rtHashSeedDraw'
+	if symbol == ir.Rt.rtRandomFill 'rtRandomFill'
+		try entryRandomFill(vm, f: f, x: x)
+		return
+	end 'rtRandomFill'
 	if symbol == ir.Rt.rtHashWord 'rtHashWord'
 		try entryHashWord(vm, f: f, x: x)
 		return

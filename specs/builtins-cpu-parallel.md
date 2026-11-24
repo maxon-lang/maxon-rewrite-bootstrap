@@ -246,6 +246,7 @@ end 'main'
 ```
 
 <!-- test: builtins-cpu-parallel.cpu-count-agrees-with-a-child-environment -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 **THE ONE DISCRIMINATOR AGAINST A CONSTANT.** Spawn `cmd /c echo %NUMBER_OF_PROCESSORS%` and read
 the environment Windows gave the child — a second reading of the same fact through a mechanism that

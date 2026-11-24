@@ -250,6 +250,7 @@ FileAFileB
 ```
 
 <!-- test: async-filesystem.async-read-through-a-handle-holding-struct -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 ### A struct holding a `__ManagedFile`, spawned as an `async` argument
 ⭐ **AN `async` ARGUMENT THAT HOLDS A HANDLE IS LENT, NEVER DEEP-COPIED, AND A HANDLE BOX IS WHY THAT

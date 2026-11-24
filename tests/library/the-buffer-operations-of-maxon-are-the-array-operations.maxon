@@ -1,0 +1,56 @@
+// The buffer operations of maxon's raw surface that an array operation does the same as: swap exchanges two elements where
+// they are (of words, of Strings and of bytes), set replaces one, remove, append, slice and clear are the array's, and an index
+// past the end throws, where Array.swap traps. A managed element is moved, never copied or dropped, by a swap.
+typealias Names = Array with String
+
+typealias Octets = Array with Byte
+
+typealias Words = Array with Count
+
+function show(names Names) returns String
+	var text = ""
+	for i in 0 upto names.count() 'each'
+		text = "{text}{names[i]};"
+	end 'each'
+	return text
+end 'show'
+
+function main() returns ExitCode
+	var names = Names.create(0)
+	names.push("ada")
+	names.push("bo")
+	names.push("cy")
+	try names.managed.swap(0, j: 2) otherwise return 1
+	print("{show(names)}\n")
+	names.swap(1, j: 1)
+	names.swap(0, j: 1)
+	print("{show(names)}\n")
+	try names.managed.set(2, value: "di") otherwise return 2
+	let tail = try names.managed.slice(1, endIndex: 3) otherwise return 3
+	print("{tail.length()} {show(names)}\n")
+	try names.managed.swap(0, j: 3) otherwise print("swap past the end throws\n")
+	let moved = try names.managed.remove(0) otherwise return 4
+	print("{moved} {names.managed.length()}\n")
+	names.managed.clear()
+	print("{names.count()}\n")
+	var octets = Octets.create(0)
+	octets.push(1)
+	octets.push(2)
+	octets.push(3)
+	octets.swap(0, j: 2)
+	var words = Words.create(0)
+	words.push(10)
+	words.push(20)
+	words.managed.append(words.clone().managed)
+	try words.managed.swap(0, j: 3) otherwise return 6
+	print("{octets[0]}{octets[1]}{octets[2]} {words[0]} {words[3]}\n")
+	return 0
+end 'main'
+
+//> cy;bo;ada;
+//> bo;cy;ada;
+//> 2 bo;cy;di;
+//> swap past the end throws
+//> bo 2
+//> 0
+//> 321 20 10

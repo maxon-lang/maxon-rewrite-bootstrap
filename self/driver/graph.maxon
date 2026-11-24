@@ -155,6 +155,34 @@ type TaskGraph
 		groupOfModules = true
 	end 'addModuleTasks'
 
+	// addResolveTasks adds the resolve of each module of program and then of library, each waiting for the task of the project
+	// added before it (the join of the parses), and each of library for the resolves of program as well: it resolves only for a
+	// program that names the library (resolvesModule).
+	function addResolveTasks(mutates self, program check.ModuleOrder, library check.ModuleOrder)
+		let before = group.clone()
+		var added = TaskIDs.create(0)
+		for i in 0 upto program.count() 'program'
+			added.push(addTaskAfter(Stage.resolve, module: ast.modIndex(program[i]), before: before, also: TaskIDs.create(0)))
+		end 'program'
+		let programTasks = added.clone()
+		for i in 0 upto library.count() 'library'
+			added.push(addTaskAfter(Stage.resolve, module: ast.modIndex(library[i]), before: before, also: programTasks))
+		end 'library'
+		group = added
+		groupOfModules = true
+	end 'addResolveTasks'
+
+	// addTaskAfter adds the task of stage of module m, which waits for the tasks before and also, and gives it.
+	function addTaskAfter(mutates self, stage Stage, module Count, before TaskIDs, also TaskIDs) returns Count
+		let id = tasks.count()
+		let firstInput = inputs.count()
+		inputs.append(before)
+		inputs.append(also)
+		tasks.push(Task.make(stage, module: module, firstInput: firstInput, inputCount: try inputs.count() - firstInput otherwise panic("driver: a task's inputs end before they start")))
+		moduleTask[module] = id
+		return id
+	end 'addTaskAfter'
+
 	// namedTask is the task of stage of module, which module by names and which order put before it.
 	function namedTask(stage Stage, module Count, by Count) returns Count
 		let id = moduleTask[module]
@@ -376,7 +404,7 @@ function compileOf(mutates p ast.Project, from Stage, first Count, goal Goal, ma
 		panic("driver: a compile starts at parse or resolve, not at {from}")
 	end 'from'
 	let modules = try p.modules.count() - first otherwise panic("driver: a compile from past the modules")
-	return Compile.make(goal, first: first, modules: modules, begun: begun, makesProgram: makesProgram, options: options.clone(), output: output.clone(), base: freeze(ast.baseOf(p, first: first)), cache: cacheSetupOf(p, first: first, options: options))
+	return Compile.make(goal, first: first, modules: modules, begun: begun, makesProgram: makesProgram, options: options.clone(), output: output.clone(), base: freeze(ast.baseOf(p, first: first)), cache: cacheSetupOf(p, first: first, options: options), libraryLater: libraryLaterOf(p, first: first))
 end 'compileOf'
 
 // startGraph adds the tasks of the compile c up to the order, from the stage from: those that every compile has, before it
@@ -388,9 +416,20 @@ function startGraph(mutates graph TaskGraph, c Compile, from Stage)
 		graph.addModuleTasks(Stage.parse, order: modules, deps: none, first: c.first)
 		graph.addProjectTask(Stage.parsed, also: TaskIDs.create(0))
 	end 'parse'
-	graph.addModuleTasks(Stage.resolve, order: modules, deps: none, first: c.first)
+	graph.addResolveTasks(modulesOf(c, order: modules, library: false), library: modulesOf(c, order: modules, library: true))
 	graph.addProjectTask(Stage.order, also: TaskIDs.create(0))
 end 'startGraph'
+
+// modulesOf are the modules of order whose resolve waits for the program's (Compile.libraryLater), or the others.
+function modulesOf(c Compile, order check.ModuleOrder, library bool) returns check.ModuleOrder
+	var kept = check.ModuleOrder.create(0)
+	for i in 0 upto order.count() 'modules'
+		if c.libraryLater[c.slotOf(ast.modIndex(order[i]))] == library 'kept'
+			kept.push(order[i])
+		end 'kept'
+	end 'modules'
+	return kept
+end 'modulesOf'
 
 // runStages compiles the modules of p from the one at index first on, from the stage from (parse, or resolve for modules
 // parsed already) as far as goal, one task after another (execute). memory holds the files that parse reads from memory

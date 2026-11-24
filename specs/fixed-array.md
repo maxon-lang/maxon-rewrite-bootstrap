@@ -3234,7 +3234,7 @@ typealias Int = int(i64.min to i64.max)
 typealias Ints = Array with Int
 
 function main() returns ExitCode
-	let a = Ints.create(0)
+	var a = Ints.create(0)
 	a.push(1)
 	a.push(2)
 	a.push(3)
@@ -3242,7 +3242,7 @@ function main() returns ExitCode
 	try a.managed.remove(0) otherwise ignore
 	let afterRemove = a.managed.length()
 	a.managed.clear()
-	return ((afterRemove * 10) + a.managed.length()) as ExitCode
+	return try ((afterRemove * 10) + a.managed.length()) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -3601,6 +3601,7 @@ error E2015: <fragment>:8:5: Unsupported: `__ManagedMemory` member 'clear' — t
 ```
 
 <!-- test: a-growable-buffer-keeps-its-own-roster-through-a-merge -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 <!-- tier: stdlib -->
 ⭐⭐ **THE OTHER HALF OF THE CARRY, AND IT IS A REPAIR RATHER THAN A REFUSAL.** The merged value here is
 an ordinary growable buffer: it must come out on the BUFFER roster, which is the roster a value

@@ -57,6 +57,7 @@ error E3072: <fragment>:3:26: '__ManagedSocket' is a compiler builtin type and c
 ```
 
 <!-- test: managed-socket.connect-bad-host -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 ⚠ The `default` arm says *unreachable*, and in a function declaring no `throws` it has to say so with
 `panic` rather than `throws`: `main` has no error channel, so a `default throws` here would be silently
@@ -82,6 +83,7 @@ resolve failed
 ```
 
 <!-- test: managed-socket.connect-refused -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 ⚠ The `default` arm says *unreachable*, and in a function declaring no `throws` it has to say so with
 `panic` rather than `throws`: `main` has no error channel, so a `default throws` here would be silently

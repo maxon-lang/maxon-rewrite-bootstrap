@@ -18,9 +18,12 @@ type Compile
 	var output as String
 	var base as frozen with ast.Project
 	var cache as CacheSetup
+	// libraryLater is, by slot, whether the module is the standard library's in a program's compile, whose resolve waits for
+	// the program's (resolvesModule).
+	var libraryLater as Placed
 
-	static function make(goal Goal, first Count, modules Count, begun Count, makesProgram bool, consumes options Options, consumes output String, consumes base frozen with ast.Project, consumes cache CacheSetup) returns Compile
-		return Compile{goal: goal, first: first, modules: modules, begun: begun, makesProgram: makesProgram, options: options, output: output, base: base, cache: cache}
+	static function make(goal Goal, first Count, modules Count, begun Count, makesProgram bool, consumes options Options, consumes output String, consumes base frozen with ast.Project, consumes cache CacheSetup, consumes libraryLater Placed) returns Compile
+		return Compile{goal: goal, first: first, modules: modules, begun: begun, makesProgram: makesProgram, options: options, output: output, base: base, cache: cache, libraryLater: libraryLater}
 	end 'make'
 
 	// slotOf is the place among the modules the compile compiles of module m.
@@ -394,9 +397,54 @@ end 'restoredTask'
 function resolveTask(c Compile, mutates work ModuleWork, known Known, inputs ast.Inputs, mutates errs diag.ErrorList) returns frozen with Product
 	var view as ast.Project
 	var ms = lendTask(c, work: work, stage: Stage.resolve, lent: ast.Lent.resolution, known: known, inputs: inputs, view: view)
-	resolve.resolveModule(ms, p: view, errs: errs)
+	if resolvesModule(c, p: view, m: ast.modIndex(work.home.module)) 'named'
+		resolve.resolveModule(ms, p: view, errs: errs)
+	end 'named'
 	return giveTask(work, ms: ms, stage: Stage.resolve)
 end 'resolveTask'
+
+// resolvesLibraryLater is whether the compile is a program's with the standard library, whose modules resolve after the
+// program's (resolvesModule); the library's own compile resolves every module of it.
+function resolvesLibraryLater(c Compile) returns bool
+	return c.libraryLater.contains(true)
+end 'resolvesLibraryLater'
+
+// libraryLaterOf is Compile.libraryLater for the compile of the modules of p from first on.
+function libraryLaterOf(p ast.Project, first Count) returns Placed
+	var later = Placed.create(0)
+	let ofLibrary = p.modules[ast.modIndex(p.rootModule)].isLibrary
+	for m in first upto p.modules.count() 'modules'
+		later.push(p.modules[m].isLibrary and not ofLibrary)
+	end 'modules'
+	return later
+end 'libraryLaterOf'
+
+// resolvesModule is whether the resolve of module m runs. A module of the library resolves, in a program's compile, only when
+// a module of the program names a module of the library, whose resolves it waited on, so a program that names nothing of the
+// library pays for none of its resolve and compiles none of it (reachedModules). Which modules of the library the others name
+// is known only once they resolved, so a program that names one resolves them all.
+function resolvesModule(c Compile, p ast.Project, m Count) returns bool
+	if not c.libraryLater[c.slotOf(m)] 'program'
+		return true
+	end 'program'
+	for slot in 0 upto c.modules 'modules'
+		let k = c.moduleOf(slot)
+		if not p.modules[k].isLibrary and namesLibrary(p, m: k) 'named'
+			return true
+		end 'named'
+	end 'modules'
+	return false
+end 'resolvesModule'
+
+// namesLibrary is whether the resolve of module m recorded a module of the library among those it names.
+function namesLibrary(p ast.Project, m Count) returns bool
+	for j in 0 upto p.resolutions[m].deps.count() 'deps'
+		if p.modules[ast.modIndex(p.resolutions[m].deps[j].module)].isLibrary 'library'
+			return true
+		end 'library'
+	end 'deps'
+	return false
+end 'namesLibrary'
 
 // lendTask lends a task of stage what its stage writes of the module's home, with what lent says of the module, and sets view
 // to its view of the project (taskView). giveTask ends it.

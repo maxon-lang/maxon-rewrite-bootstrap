@@ -1,0 +1,17 @@
+// create(n, zeroed: false) is an empty array with room for n, which is legal for every element; zeroed: true is create(n).
+typealias Names = Array with String
+
+typealias Bytes = Array with Byte
+
+function main() returns ExitCode
+	var names = Names.create(8, zeroed: false)
+	names.push("ada")
+	var bytes = Bytes.create(4, zeroed: true)
+	bytes.push(7)
+	var room = Bytes.create(4, zeroed: false)
+	room.push(9)
+	print("{names.count()} {bytes.count()} {bytes[0]} {bytes[4]} {room.count()} {room[0]}\n")
+	return 0
+end 'main'
+
+//> 1 5 0 7 1 9

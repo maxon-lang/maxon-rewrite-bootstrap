@@ -31,6 +31,18 @@ function nameOfType(p ast.Project, ms ast.ModuleState, t ast.TypeID) returns Str
 	return ast.typeName(ms.types, reads: p.types, t: t)
 end 'nameOfType'
 
+// rawSurfaceCauseOfTypes is the cause of an error about two types: rawSurface when one is a type of maxon's raw memory surface and
+// the other is not, as an array is not a buffer here without `.managed`. Two buffers that differ are a mismatch of their
+// elements.
+function rawSurfaceCauseOfTypes(p ast.Project, ms ast.ModuleState, a ast.TypeID, b ast.TypeID) returns diag.ErrorCause
+	let first = diag.rawSurfaceCause(nameOfType(p, ms: ms, t: a))
+	let second = diag.rawSurfaceCause(nameOfType(p, ms: ms, t: b))
+	if first != second 'one'
+		return diag.ErrorCause.rawSurface
+	end 'one'
+	return diag.ErrorCause.none
+end 'rawSurfaceCauseOfTypes'
+
 // declaredNameOfType is the name a type was declared with, which a generic instance shares with its generic.
 function declaredNameOfType(p ast.Project, ms ast.ModuleState, t ast.TypeID) returns String
 	return ast.typeName(ms.types, reads: p.types, t: ast.originOf(ms.types, reads: p.types, t: t))
@@ -852,7 +864,7 @@ function checkCast(mutates c Checker, p ast.Project, mutates ms ast.ModuleState,
 			return target
 		end 'identity'
 		if ast.typeEntry(ms.types, reads: p.types, t: target).typeArgs.count() > 0 and not ast.typeEntry(ms.types, reads: p.types, t: target).isTuple 'container'
-			checkFail(c.modID, off: off, code: diag.errCastTargetIsAContainer, msg: diag.castTargetIsAContainer(nameOfType(p, ms: ms, t: target), source: nameOfType(p, ms: ms, t: src)), errs: errs)
+			checkFailCaused(c.modID, off: off, code: diag.errCastTargetIsAContainer, msg: diag.castTargetIsAContainer(nameOfType(p, ms: ms, t: target), source: nameOfType(p, ms: ms, t: src)), cause: rawSurfaceCauseOfTypes(p, ms: ms, a: target, b: src), errs: errs)
 			return ast.noType
 		end 'container'
 		if castTargetIsRefused(p, ms: ms, target: target) and not assignable(p, ms: ms, src: src, dst: target) 'refused'

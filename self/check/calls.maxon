@@ -233,6 +233,8 @@ function unknownFunction(c Checker, p ast.Project, ms ast.ModuleState, call ast.
 		return ast.noType
 	end 'bare'
 	checkFailFixed(c.modID, off: off, code: diag.errUnknownFunction, msg: undefinedFunctionText(name), fix: fix, errs: errs)
+	let last = try errs.count() - 1 otherwise panic("the unknown function was reported")
+	errs[last].cause = diag.rawSurfaceCause(name)
 	return ast.noType
 end 'unknownFunction'
 
@@ -489,7 +491,10 @@ function callOnType(mutates c Checker, p ast.Project, mutates ms ast.ModuleState
 		return ast.noType
 	end 'ambiguous'
 	if sm != ast.noFunc and ast.funcEntry(ms.funcs, funcReads: p.funcs, f: sm).isStatic 'static'
-		let target = overloadByFirstArgument(c, p: p, ms: ms, call: call, declared: sm, errs: errs)
+		var target = overloadByFirstArgument(c, p: p, ms: ms, call: call, declared: sm, errs: errs)
+		if ast.funcEntry(ms.funcs, funcReads: p.funcs, f: target).intrinsic == ast.Intrinsic.intrArrayCreate and ms.tree().listLen(ast.callExprArgsRef(ms.tree(), id: call)) == 2 'zeroed'
+			target = p.builtins.arrayCreateZeroedFunc
+		end 'zeroed'
 		return callFunction(c, p: p, ms: ms, call: call, kind: ast.CallKind.callStatic, target: target, hasGiven: ast.typeEntry(ms.types, reads: p.types, t: nt).typeArgs.count() > 0, given: ast.typeEntry(ms.types, reads: p.types, t: nt).typeArgs.clone(), errs: errs)
 	end 'static'
 	if sm != ast.noFunc 'instance'

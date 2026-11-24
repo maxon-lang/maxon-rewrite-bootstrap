@@ -1147,7 +1147,7 @@ the case that would actually alias if the view had not already detached.
 function main() returns ExitCode
 	let who = "ello"
 	let s = "H{who}"
-	let arr = s.toByteArray()
+	var arr = s.toByteArray()
 	try arr.managed.set(0, 74) otherwise panic("set")
 	let b0 = try arr.get(0) otherwise panic("get")
 	print("s={s} arr[0]={b0}")

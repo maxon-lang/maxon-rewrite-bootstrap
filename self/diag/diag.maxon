@@ -60,7 +60,21 @@ export enum ErrorCause
 	loopHoldsCollection
 	// payloadOfBuiltinError is a binding of a payload of a case of SendError or SubprocessError, whose cases carry none here.
 	payloadOfBuiltinError
+	// rawSurface is an error about a type or a function of maxon's raw memory surface that minimaxon provides no counterpart of.
+	rawSurface
 end 'ErrorCause'
+
+// rawSurfacePrefix starts the name of each type of maxon's raw memory surface (`__ManagedMemory`, `__ManagedList`, `__ManagedFile`...).
+let rawSurfacePrefix = "__Managed"
+
+// rawSurfaceCause is the cause of an error about the name, which is rawSurface where it names a type of the raw memory surface or a
+// member of one, as `__ManagedMemory with Byte.setByte` does.
+export function rawSurfaceCause(name String) returns ErrorCause
+	if name.startsWith(rawSurfacePrefix) 'raw'
+		return ErrorCause.rawSurface
+	end 'raw'
+	return ErrorCause.none
+end 'rawSurfaceCause'
 
 export type CompileError
 	export var code as String
@@ -136,6 +150,7 @@ end 'pushUnqualifiedError'
 // pushUnqualifiedErrorAt is pushUnqualifiedError for a name written at another place than the error's.
 export function pushUnqualifiedErrorAt(mutates errs ErrorList, consumes code String, consumes message String, module ModuleID, offset U32, consumes name String, at U32)
 	var e = CompileError.atSite(code, message: message, site: Site.make(module, offset: offset))
+	e.cause = rawSurfaceCause(name)
 	e.unqualified = name
 	e.unqualifiedAt = at
 	errs.push(e)

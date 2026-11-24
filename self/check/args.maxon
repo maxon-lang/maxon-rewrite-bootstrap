@@ -95,7 +95,12 @@ function orderArgs(c Checker, p ast.Project, ms ast.ModuleState, call ast.NodeID
 			end 'labelled'
 		end 'positional' else if seen == 0 and label == "" 'first'
 			slot = 0
-		end 'first' else 'labelled'
+		end 'first' else if label == "" and seen < specs.count() and specs[seen].mayOmitLabel 'placed'
+			if ordered[slot] != 0 'taken'
+				failAt(c, p: p, ms: ms, node: arg, code: diag.errCallArgMissingLabel, msg: diag.argMissingLabel(), errs: errs)
+				return ordered
+			end 'taken'
+		end 'placed' else 'labelled'
 			if seen == 0 and not specs[0].hasDefault() and not specs[0].labelled 'noDefault'
 				failAt(c, p: p, ms: ms, node: arg, code: diag.errCallFirstArgNamed, msg: diag.firstArgNamed(), errs: errs)
 				return ordered

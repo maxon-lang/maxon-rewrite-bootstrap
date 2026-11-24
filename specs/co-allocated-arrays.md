@@ -628,6 +628,7 @@ mm_free Cells #8
 ```
 
 <!-- test: a-sized-memory-is-one-allocation -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- unsupported-targets: wasm32-wasi -->
 <!-- tier: stdlib -->
 `__ManagedMemory.create(capacity, elementSize)` is the sized creation the standard library's own buffers use.
@@ -662,6 +663,7 @@ end 'main'
 ```
 
 <!-- test: growing-past-the-co-allocated-capacity-moves-the-buffer-and-frees-cleanly -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 The record keeps its identity while its buffer leaves the allocation it was born in; the elements survive the move
 and the whole thing is released with no leak.
@@ -704,6 +706,7 @@ end 'main'
 ```
 
 <!-- test: a-clone-of-a-co-allocated-array-is-independent-in-both-directions -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 `clone` copies a co-allocated array rather than viewing it, so a write on either side never reaches the other.
 ```maxon
@@ -734,6 +737,7 @@ end 'main'
 ```
 
 <!-- test: a-clone-of-a-co-allocated-array-is-one-allocation -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 ```maxon
 function main() returns ExitCode
@@ -757,6 +761,7 @@ end 'main'
 ```
 
 <!-- test: a-slice-of-a-co-allocated-array-outlives-the-array -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 The array that the slice was cut from is released before the slice is read and written.
 ```maxon
@@ -795,6 +800,7 @@ end 'main'
 ```
 
 <!-- test: writing-a-co-allocated-array-after-a-slice-leaves-the-slice-intact -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 ```maxon
 function main() returns ExitCode
@@ -1062,6 +1068,7 @@ end 'main'
 ```
 
 <!-- test: growing-a-co-allocated-memory-keeps-its-bytes-and-frees-cleanly -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 `grow` is the exact-capacity reallocation of the buffer surface; the bytes written before it are still there after.
 ```maxon
@@ -1090,6 +1097,7 @@ end 'main'
 ```
 
 <!-- test: swap-and-shift-work-in-place-on-a-co-allocated-buffer -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 ```maxon
 function main() returns ExitCode
@@ -1219,6 +1227,7 @@ end 'main'
 ```
 
 <!-- test: a-co-allocated-array-grown-by-resize-keeps-its-prefix -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 `resize` past the capacity reallocates; the part below the old length is carried across.
 ```maxon

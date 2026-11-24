@@ -42,31 +42,31 @@ type Churn
 		return Self{finished: 0}
 	end 'create'
 
-	export function run(rounds Word, seed Word)
+	export function run(mutates self, rounds Word, seed Word)
 		var total = 0 as Total
 		var round = 0 as Word
 		while round < rounds 'eachRound'
-			let a = WordArray.create(4, zeroed: false)
+			var a = WordArray.create(4, zeroed: false)
 			a.push(round)
 			a.push(seed)
 			a.push(round)
 			a.push(seed)
-			let b = WordArray.create(6, zeroed: false)
-			b.push(a.count() as Word)
+			var b = WordArray.create(6, zeroed: false)
+			b.push(try a.count() as Word otherwise panic("out of range"))
 			b.push(round)
 			b.push(seed)
 			b.push(round)
 			b.push(seed)
 			b.push(round)
 			for word in a 'sumA'
-				total = total + (word as Total)
+				total = try total + (word as Total) otherwise panic("out of range")
 			end 'sumA'
 			for word in b 'sumB'
-				total = total + (word as Total)
+				total = try total + (word as Total) otherwise panic("out of range")
 			end 'sumB'
-			round = round + 1
+			round = try round + 1 otherwise panic("out of range")
 		end 'eachRound'
-		self.finished = self.finished + total
+		self.finished = try self.finished + total otherwise panic("out of range")
 	end 'run'
 
 	export function result() returns Total
@@ -78,14 +78,14 @@ function expected(rounds Word, seed Word) returns Total
 	var total = 0 as Total
 	var round = 0 as Word
 	while round < rounds 'eachRound'
-		total = total + (round as Total) * 5 + (seed as Total) * 4 + 4
+		total = try total + (round as Total) * 5 + (seed as Total) * 4 + 4 otherwise panic("out of range")
 		round = round + 1
 	end 'eachRound'
 	return total
 end 'expected'
 
 function main() returns ExitCode
-	let handles = ChurnHandleArray.create(0)
+	var handles = ChurnHandleArray.create(0)
 	var index = 0 as ElementIndex
 	while index < ServiceCount 'spawnEach'
 		handles.push(spawn Churn.create())
@@ -105,7 +105,7 @@ function main() returns ExitCode
 		let want = expected(Rounds, seed: (index + 1) as Word)
 		if got != want 'mismatch'
 			print("service {index}: got {got} want {want}\n")
-			wrong = wrong + 1
+			wrong = try wrong + 1 otherwise panic("out of range")
 		end 'mismatch'
 		index = index + 1
 	end 'checkEach'

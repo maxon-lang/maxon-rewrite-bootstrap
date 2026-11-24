@@ -100,6 +100,9 @@ type param struct {
 	ty   *tyExpr
 	// labelled is a parameter that a call names with its label even where it is the first, written "name:".
 	labelled bool
+	// mayOmitLabel is a parameter after the first that a call may name by its place too, written "name?": maxon's buffer
+	// roster takes `set(i, v)` as well as `set(i, value: v)`.
+	mayOmitLabel bool
 	// defaultCase is the case of an enum parameter that a call leaving the argument out gives, written "= case", or "".
 	defaultCase string
 }
@@ -128,7 +131,11 @@ func parseSignature(s string) param {
 		fail("parameter %q is not 'convention name Type'", s)
 	}
 	name, labelled := strings.CutSuffix(fields[0], ":")
-	return param{conv: conv, name: name, ty: parseType(fields[1]), labelled: labelled}
+	name, mayOmitLabel := strings.CutSuffix(name, "?")
+	if labelled && mayOmitLabel {
+		fail("parameter %q is both labelled and unlabelled", s)
+	}
+	return param{conv: conv, name: name, ty: parseType(fields[1]), labelled: labelled, mayOmitLabel: mayOmitLabel}
 }
 
 func isConvention(s string) bool {

@@ -3322,6 +3322,7 @@ target that is not a linked function is a link failure or a wrong answer at run 
 diagnostic.
 
 <!-- test: async-await.error.qualified-spawn-compiler-owned-static-outside-the-library-tiers -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 Outside the library tiers the raw type's name is refused first, at the type the spawn names.
 ```maxon
 function main() returns ExitCode
@@ -3334,6 +3335,7 @@ error E3185: <fragment>:3:16: '__ManagedFile' named outside the library tiers: t
 ```
 
 <!-- test: async-await.error.qualified-spawn-compiler-owned-static -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 A static on a compiler-owned surface is served by a runtime entry the compiler emits, so there is no
 declared function whose address the scheduler could be handed. The roster (`__ManagedFile`,
@@ -3350,6 +3352,7 @@ error E2015: <fragment>:3:16: Unsupported: `async __ManagedFile.…` — a stati
 ```
 
 <!-- test: async-await.error.qualified-spawn-compiler-owned-static-it-lacks -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 The spawn reads the member through the one resolution a call reads it through, so a static the surface does
 not have is refused for that, before the spawn is.

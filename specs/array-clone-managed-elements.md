@@ -115,6 +115,7 @@ end 'main'
 ```
 
 <!-- test: error.clone-of-a-struct-holding-a-compiler-owned-handle-is-refused -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- positions: moved -->
 <!-- tier: stdlib -->
 ⛔⛔ **THE DEEP-CLONE GATE AND THE CLONE STRATEGY MUST AGREE ABOUT THE COMPILER'S OWN AGGREGATES.**
@@ -163,6 +164,7 @@ note: stdlib/Array.maxon:83:32: raised inside the library, on behalf of the cons
 ```
 
 <!-- test: an-array-of-a-handle-holding-struct-compiles-when-nothing-copies-it -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 The refusal above answers for a COPY. The same element in an array that is only pushed to, walked and counted
 is legal.
@@ -564,6 +566,7 @@ appended inner string, long enough to allocate
 ```
 
 <!-- test: an-array-no-code-copies-may-hold-an-element-clone-cannot-copy -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 `b/`'s `Holders` holds a handle element no clone can copy, and nothing copies a `Holders`, so it compiles; `a/`'s clone of its own array still works.
 ```maxon
@@ -620,6 +623,7 @@ b 0
 ```
 
 <!-- test: an-array-of-directory-handle-holders-is-dropped-on-every-lane -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 A lane with no directory substrate refuses every call that opens a directory, so an array of structs holding a `__ManagedDirectory` is empty there and its drop closes nothing.
 ```maxon
@@ -647,6 +651,7 @@ end 'main'
 ```
 
 <!-- test: an-array-of-socket-handle-holders-is-dropped-on-every-lane -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 A lane with no socket substrate refuses every call that opens a socket, so an array of structs holding a `__ManagedSocket` is empty there and its drop closes nothing.
 ```maxon

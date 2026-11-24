@@ -1989,6 +1989,7 @@ total=6
 ```
 
 <!-- test: range-check-panic.a-capacity-is-not-a-count -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 <!-- tier: stdlib -->
 ⛔ **THE RED GATE FOR THE `count` WITHHOLD.** The interval is recorded where `__managed_count` is emitted
 and NOWHERE ELSE on that arm's siblings: a `capacity()` answers a NEGATIVE SENTINEL for a buffer its record

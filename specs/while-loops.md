@@ -428,7 +428,7 @@ function liveCount(both bool) returns SlotTally
 	var n = 0 as SlotTally
 	for c in Pair.allCases 'walk'
 		if c == Pair.first or both 'live'
-			n = n + 1
+			n = try n + 1 otherwise panic("out of range")
 		end 'live'
 	end 'walk'
 	return n
@@ -440,10 +440,10 @@ function main() returns ExitCode
 	var guard = 0 as SlotTally
 	var pass = 0 as SlotTally
 	while pass < 2 'passes'
-		var running = seed
+		var running = try seed as SlotTally otherwise panic("out of range")
 		for c in Pair.allCases 'inner'
 			if c == Pair.first 'one'
-				running = running + 1
+				running = try running + 1 otherwise panic("out of range")
 			end 'one'
 		end 'inner'
 		// ⚠ `running` is NARROW-typed, so it takes a 4-byte store while this read is 8 bytes wide — the
@@ -454,8 +454,8 @@ function main() returns ExitCode
 		if running != 15 'paddingLeakedIn'
 			return 98
 		end 'paddingLeakedIn'
-		guard = guard + 1
-		pass = pass + 1
+		guard = try guard + 1 otherwise panic("out of range")
+		pass = try pass + 1 otherwise panic("out of range")
 		if guard > 10 'runaway'
 			return 99
 		end 'runaway'

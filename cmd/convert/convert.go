@@ -77,6 +77,7 @@ func Convert(file, src string, kind inputKind) Result {
 	}
 
 	if kind == sourceFile {
+		lines = hoistRangedTypealiases(lines)
 		if isLibraryHelper(file) {
 			exportPublicModifiers(lines)
 		} else if root := libraryRoot(file); root != "" {
@@ -1045,11 +1046,20 @@ func isLibraryHelper(file string) bool {
 	return false
 }
 
-// exportPublicModifiers makes each public of a helper export: a helper module is a direct child of the library's root,
-// so export reaches the whole library and no program.
+// publicHelperNames are the names that a helper's file declares and that a program calls, as `Array.swap(i, j: j)`, or that a
+// public member of the library's root names in its signature (`Array.sortBy(cmp)`'s `SortComparator`): they stay public, where a
+// helper's other names become export, since a public function may not name a less visible type (E3167).
+var publicHelperNames = []string{"SortComparator", "swap"}
+
+// exportPublicModifiers makes each public of a helper export, but for the names of publicHelperNames: a helper module is a
+// direct child of the library's root, so export reaches the whole library and no program.
 func exportPublicModifiers(lines []sourceLine) {
 	for i := range lines {
-		makeExport(&lines[i])
+		l := &lines[i]
+		if declIdx := skipModifiers(l.code); declIdx+1 < len(l.code) && (l.code[declIdx].text == "typealias" || l.code[declIdx].text == "function") && slices.Contains(publicHelperNames, l.code[declIdx+1].text) {
+			continue
+		}
+		makeExport(l)
 	}
 }
 
@@ -1164,7 +1174,7 @@ const staticRequirement = "static "
 // extension of the built-in type, besides the members that the interfaces it keeps require: the methods maxon declares in
 // the type's body and the built-in lacks. Such a type is kept with the conformances that take type arguments too.
 var keptBuiltinMembers = map[string][]string{
-	"Array": {"cursor"},
+	"Array": {"cursor", "appendMemory"},
 }
 
 // keepBuiltinConformances converts a file of the library that declares a type minimaxon builds in, whose methods the

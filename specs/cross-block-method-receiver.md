@@ -101,6 +101,7 @@ v=7
 ```
 
 <!-- test: builtin-method-statement-after-if-merge -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 The builtin-method statement path — a `__ManagedMemory` receiver whose method is
 emitted INLINE rather than as a call, so the receiver value is consumed at the

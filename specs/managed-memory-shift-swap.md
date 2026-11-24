@@ -66,12 +66,12 @@ typealias Byte = int(0 to u8.max)
 typealias ByteArray = Array with Byte
 
 function main() returns ExitCode
-	let arr = ByteArray.create(0)
+	var arr = ByteArray.create(0)
 	arr.push(10)
 	arr.push(20)
 	arr.push(30)
 	let gone = try arr.managed.remove(1) otherwise return 99
-	return ((gone as Count) + arr.managed.length()) as ExitCode
+	return try ((gone as Count) + arr.managed.length()) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -88,7 +88,7 @@ typealias Byte = int(0 to u8.max)
 typealias ByteArray = Array with Byte
 
 function main() returns ExitCode
-	let arr = ByteArray.create(0)
+	var arr = ByteArray.create(0)
 	arr.push(10)
 	arr.reserve(16)
 	let gone = try arr.managed.remove(1) otherwise 7
@@ -108,7 +108,7 @@ be erased. A leak or a double free is the failure; the run is leak-gated.
 typealias StrArray = Array with String
 
 function main() returns ExitCode
-	let xs = StrArray.create(0)
+	var xs = StrArray.create(0)
 	xs.push("first heap string long enough to require an allocation")
 	xs.push("second heap string long enough to require an allocation")
 	xs.push("third heap string long enough to require an allocation")
@@ -118,7 +118,7 @@ function main() returns ExitCode
 	print("{gone}\n")
 	print("{first}\n")
 	print("{second}\n")
-	return xs.managed.length()
+	return try xs.managed.length() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```stdout
@@ -131,6 +131,7 @@ third heap string long enough to require an allocation
 ```
 
 <!-- test: shift-right-opens-a-hole-and-zeroes-it -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 `shiftRight` is bounded by LENGTH, so a caller grows the length first and shifts inside it —
 which is exactly what `Array.insert` does. Slot 3 is the top slot written: `1 + 2 < 4`.
@@ -159,6 +160,7 @@ end 'main'
 ```
 
 <!-- test: shift-left-closes-the-hole -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 `shiftLeft` zeroes the slot its slide vacated, and the caller republishes the length over it.
 ```maxon
@@ -185,6 +187,7 @@ end 'main'
 ```
 
 <!-- test: shift-right-into-reserved-capacity-is-shift-out-of-bounds -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 `index + count >= length` is refused even with capacity to spare, and the complaint is
 `shiftOutOfBounds` rather than `indexOutOfBounds`: a shift blames the RANGE it was handed, not one
@@ -215,6 +218,7 @@ shiftOutOfBounds
 ```
 
 <!-- test: shift-left-at-index-zero-is-shift-out-of-bounds -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 `shiftLeft` needs `index >= 1`, because `index - 1` is where the first element lands.
 ```maxon
@@ -277,6 +281,7 @@ beta heap string long enough to require an allocation
 ```
 
 <!-- test: shift-right-whose-range-end-overflows-is-shift-out-of-bounds -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 ⭐ **THE RANGE CHECK CANNOT BE WRAPPED.** `index + count` here is past `i64.max`, so a check that adds
 the two in signed arithmetic sees a negative end, passes it, and slides memory far outside the buffer. The
@@ -312,6 +317,7 @@ shiftOutOfBounds
 ```
 
 <!-- test: shift-left-over-strings-releases-the-overwritten-slot-and-zeroes-the-tail -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 ⭐⭐ **A LEFT SLIDE OVERWRITES ONE OCCUPANT AND DUPLICATES ANOTHER, AND THE MEMBER OWNS BOTH.**
 `shiftLeft(1, 2)` slides `[1, 3)` down onto `[0, 2)`: slot 0's `alpha` is released before it is
@@ -343,6 +349,7 @@ the tail is empty
 ```
 
 <!-- test: shift-right-to-the-live-end-over-strings-does-not-leak -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 `index + count == length` would slide the last live element into the first slot past the live range,
 where no length owns it. It is refused with `shiftOutOfBounds` even with capacity reserved, and the
@@ -385,6 +392,7 @@ gamma 42 heap string three
 ```
 
 <!-- test: shift-right-whose-count-overflows-is-shift-out-of-bounds -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 The overflow on the COUNT side: `1 + i64.max` wraps just as `(i64.max - 3) + 4` does above, and the check
 refuses it without forming the sum. The refusal moves nothing.
@@ -420,6 +428,7 @@ shiftOutOfBounds
 ```
 
 <!-- test: shift-right-with-a-negative-argument-is-shift-out-of-bounds -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 A negative `index` or `count` read as unsigned is past every length, so both are `shiftOutOfBounds`. Read as
 signed, `-1 + 1` is 0 and `0 + -1` is -1, both below the length, and the slide would read the word before the
@@ -458,6 +467,7 @@ count: shiftOutOfBounds
 ```
 
 <!-- test: shift-left-with-a-negative-argument-is-shift-out-of-bounds -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 The same unsigned reading on the left slide: `-1` as an index is past every length, not one below slot 0, and
 `-1` as a count is past every length too.
@@ -495,6 +505,7 @@ count: shiftOutOfBounds
 ```
 
 <!-- test: shift-left-past-the-live-length-is-shift-out-of-bounds -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 ⭐ **`shiftLeft` IS BOUNDED BY LENGTH, NOT CAPACITY.** `shiftLeft(1, 3)` over three live bytes asks to slide
 slot 3 — a reserved slot past the live length — down into slot 2. Bounded by capacity it would pass and pull
@@ -537,6 +548,7 @@ the whole capacity: shiftOutOfBounds
 ```
 
 <!-- test: shift-left-whose-range-end-overflows-is-shift-out-of-bounds -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 `i64.max + 2` wraps negative, below every length; the check refuses it without forming the sum.
 ```maxon
@@ -569,6 +581,7 @@ shiftOutOfBounds
 ```
 
 <!-- test: shift-right-releases-the-live-occupant-at-the-top-of-its-range -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 ⭐⭐ **THE SLOT THE SLIDE LANDS ON MAY HOLD A LIVE ELEMENT, AND THE MEMBER RELEASES IT.** `shiftRight(0, 2)`
 over three live strings writes `alpha` and `beta` onto slots 1 and 2, so `gamma` in slot 2 is overwritten —
@@ -602,6 +615,7 @@ beta 42 heap string two
 ```
 
 <!-- test: shift-right-of-no-elements-moves-nothing -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 ⛔ **A COUNT OF 0 TOUCHES NO SLOT.** The occupant of `index + count` is the one a slide overwrites, and with
 `count` 0 that is the element AT `index` — which no slide overwrites. Released and then zeroed as the hole, it
@@ -632,6 +646,7 @@ gamma 42 heap string three
 ```
 
 <!-- test: shift-left-of-no-elements-moves-nothing -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 ⛔ **THE SAME ON THE LEFT.** With `count` 0 the slot `index - 1` receives nothing and the slot
 `index + count - 1` the slide would vacate is that same slot, so releasing one and zeroing the other would
@@ -668,7 +683,7 @@ typealias Byte = int(0 to u8.max)
 typealias ByteArray = Array with Byte
 
 function main() returns ExitCode
-	let arr = ByteArray.create(0)
+	var arr = ByteArray.create(0)
 	arr.push(10)
 	arr.push(20)
 	arr.push(30)
@@ -689,12 +704,12 @@ element and store the pointer it just released.
 typealias StrArray = Array with String
 
 function main() returns ExitCode
-	let xs = StrArray.create(0)
+	var xs = StrArray.create(0)
 	xs.push("only heap string long enough to require an allocation")
 	try xs.managed.swap(0, j: 0) otherwise return 99
 	let only = try xs.get(0) otherwise "missing"
 	print("{only}\n")
-	return xs.count()
+	return try xs.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```stdout
@@ -713,7 +728,7 @@ typealias Byte = int(0 to u8.max)
 typealias ByteArray = Array with Byte
 
 function main() returns ExitCode
-	let arr = ByteArray.create(0)
+	var arr = ByteArray.create(0)
 	arr.push(10)
 	arr.reserve(16)
 	try arr.managed.swap(0, j: 4) otherwise return 5
@@ -735,7 +750,7 @@ strings print. A wrong answer here is a corrupted string; a double free is exit 
 typealias StrArray = Array with String
 
 function main() returns ExitCode
-	let xs = StrArray.create(0)
+	var xs = StrArray.create(0)
 	xs.push("alpha heap string long enough to require an allocation")
 	xs.push("beta heap string long enough to require an allocation")
 	try xs.managed.swap(0, j: 1) otherwise return 99
@@ -743,7 +758,7 @@ function main() returns ExitCode
 	let second = try xs.get(1) otherwise "missing"
 	print("{first}\n")
 	print("{second}\n")
-	return xs.count()
+	return try xs.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```stdout
@@ -763,7 +778,7 @@ exactly what was pushed — the leak gate is the assertion.
 typealias StrArray = Array with String
 
 function main() returns ExitCode
-	let xs = StrArray.create(0)
+	var xs = StrArray.create(0)
 	xs.push("one heap string long enough to require an allocation")
 	xs.push("two heap string long enough to require an allocation")
 	xs.push("three heap string long enough to require an allocation")
@@ -778,7 +793,7 @@ function main() returns ExitCode
 	for s in xs 'each'
 		print("{s}\n")
 	end 'each'
-	return xs.count()
+	return try xs.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```stdout
@@ -800,7 +815,7 @@ written.
 typealias Flags = Array with bool
 
 function main() returns ExitCode
-	let flags = Flags.create(0)
+	var flags = Flags.create(0)
 	flags.push(true)
 	flags.push(false)
 	flags.push(false)

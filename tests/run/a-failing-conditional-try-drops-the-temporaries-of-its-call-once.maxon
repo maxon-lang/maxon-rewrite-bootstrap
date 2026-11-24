@@ -1,0 +1,41 @@
+// A conditional try whose call fails drops the temporaries of the call on the way to its else block, and the statement does
+// not drop them again where the two paths join: a second drop freed the byte array twice, and a later allocation failed.
+enum Failure implements Error
+	tooLong
+end 'Failure'
+
+function bytesOf(text String) returns ByteArray
+	var bytes = ByteArray.create(0)
+	for byte in text.bytes() 'eachByte'
+		bytes.push(byte)
+	end 'eachByte'
+	return bytes
+end 'bytesOf'
+
+function encode(label String, data ByteArray) returns String throws Failure
+	if label.count() > 3 'long'
+		throw Failure.tooLong
+	end 'long'
+	return String.from(data)
+end 'encode'
+
+function report(label String, text String)
+	if let encoded = try encode(label, data: bytesOf(text)) 'encoded'
+		print("{label} {encoded}\n")
+	end 'encoded' else 'refused'
+		print("{label} refused\n")
+	end 'refused'
+end 'report'
+
+function main() returns ExitCode
+	report("LONG", text: "00")
+	report("LONGER", text: "00")
+	report("OK", text: "ab")
+	report("LONGEST", text: "00")
+	return 0
+end 'main'
+
+//> LONG refused
+//> LONGER refused
+//> OK ab
+//> LONGEST refused

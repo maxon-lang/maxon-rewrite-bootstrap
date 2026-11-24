@@ -561,6 +561,7 @@ error E3004: <fragment>:4:16: call to undefined function '__int_fromString': the
 ```
 
 <!-- test: reserved-space-module-declarations-reach-a-user-program -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 **THE POSITIVE CONTROL ON THE DECLARATION-SIDE EXEMPTION, and it is the half every negative case
 above assumes.** The four cases before this one prove the exemption is not WIDER than one file. None of
 them proves it is not EMPTY: a compiler that refused `stdlib/Builtins.maxon`'s own declarations too would

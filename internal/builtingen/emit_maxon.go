@@ -106,6 +106,9 @@ func (m *maxonBody) params(f fn, generic string) string {
 		if p.labelled {
 			maker = "labelledFirst"
 		}
+		if p.mayOmitLabel {
+			maker = "mayOmitLabel"
+		}
 		m.line("%s.push(ParamSpec.%s(%q, ty: %s, conv: %s))", v, maker, p.name, types[i], maxonConv(p.conv))
 	}
 	return v

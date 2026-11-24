@@ -177,6 +177,23 @@ end 'refuseHashSeed'
 	end 'drawEntropy'
 #endif
 
+// randomFill is __Builtins.fillRandom: it overwrites every byte of a byte array with the system's entropy, a word at a time,
+// and gives 0.
+function randomFill(array Count) returns Count
+	let length = collectionLength(array)
+	var at = 0 as Count
+	while at < length 'words'
+		let word = drawEntropy()
+		var i = 0 as Count
+		while i < hashSecretBytes and at < length 'bytes'
+			bytesSet(array, index: at, value: orderedWordByte(word as HashWord, index: i, width: hashSecretBytes, bigEndian: false))
+			at = __Raw.wrappingAdd(at, right: 1)
+			i = __Raw.wrappingAdd(i, right: 1)
+		end 'bytes'
+	end 'words'
+	return 0
+end 'randomFill'
+
 // hashWord is __Builtins.hashWord: the fold of a word under a seed.
 function hashWord(word Count, seed Count) returns Count
 	return hashWordFold(word as HashWord, seed: seed as HashWord) as Count

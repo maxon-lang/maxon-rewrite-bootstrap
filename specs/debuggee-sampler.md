@@ -967,6 +967,7 @@ Stack trace:
 ```
 
 <!-- test: a-released-page-reservation-reads-as-empty-and-releases-once -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 `release` frees the pages early and is idempotent: the base reads back `0` afterwards, a second `release` does
 nothing, and the drop that follows frees only the box.
@@ -990,6 +991,7 @@ true 4096
 ```
 
 <!-- test: a-function-reading-a-page-reservations-base-accepts-a-let-holder -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 Reading the base of a reservation writes nothing, so a function that does it may be handed a `let` holder.
 wasm32-wasi has no page reservations.
@@ -1021,6 +1023,7 @@ true
 ```
 
 <!-- test: a-function-lending-a-page-reservations-address-accepts-a-let-holder -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 Lending the address of a reservation hands foreign code a way to write the pages, so the function that lends it writes
 its holder; a `let` only forbids reassignment, so a `let` holder is accepted at the call exactly as it is for a function that writes a word.
@@ -1240,6 +1243,7 @@ closed
 ```
 
 <!-- test: an-adopted-handle-reads-as-empty-once-released -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 <!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux, wasm32-wasi -->
 `adopting` puts an existing handle under the box's ownership: it reads back as given, `release` closes it early and
@@ -1300,6 +1304,7 @@ dropped false
 ```
 
 <!-- test: a-released-timer-reads-as-empty-and-releases-once -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 <!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux -->
 `release` closes the timer early and is idempotent: the handle reads back `0` afterwards and the drop that follows

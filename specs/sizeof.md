@@ -317,6 +317,7 @@ end 'main'
 ```
 
 <!-- test: sizeof.a-plain-managed-field-is-still-a-pointer -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 ### Without the marker, `managed` is an ordinary pointer field
 

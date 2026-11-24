@@ -49,6 +49,19 @@ function checkArrayCreateArgs(mutates c Checker, p ast.Project, ms ast.ModuleSta
 	failAt(c, p: p, ms: ms, node: count, code: diag.errZeroOutsideElement, msg: "'create(n)' cannot publish zeroed slots of '{name}': zero is not a value of '{name}'. Create it empty with 'create(0)' and append with 'push(value)'", errs: errs)
 end 'checkArrayCreateArgs'
 
+// checkArrayCreateZeroedArgs holds the flag of Array.create(n, zeroed:) to a literal true or false, as maxon does, and gives
+// zeroed: true the refusal of create(n) of an element that has no zero value.
+function checkArrayCreateZeroedArgs(mutates c Checker, p ast.Project, ms ast.ModuleState, call ast.NodeID, ordered ast.NodeIDList, mutates errs diag.ErrorList)
+	let flag = ordered[1]
+	if ms.tree().kindOf(flag) != ast.NodeKind.boolLit 'computed'
+		failAt(c, p: p, ms: ms, node: flag, code: diag.errExpressionError, msg: "'zeroed:' is the literal true or false: 'create(n, zeroed: false)' makes an empty array with room for n elements, and 'create(n, zeroed: true)' n zero elements", errs: errs)
+		return
+	end 'computed'
+	if ast.boolLitValue(ms.tree(), id: flag) 'zeroed'
+		checkArrayCreateArgs(c, p: p, ms: ms, call: call, ordered: ordered, errs: errs)
+	end 'zeroed'
+end 'checkArrayCreateZeroedArgs'
+
 // checkRawCallImportArgs refuses a DLL import named by anything but a string literal: the name is the import's entry in
 // the executable's import table, which the link fixes, so it is never computed.
 function checkRawCallImportArgs(mutates c Checker, p ast.Project, ms ast.ModuleState, call ast.NodeID, ordered ast.NodeIDList, mutates errs diag.ErrorList)

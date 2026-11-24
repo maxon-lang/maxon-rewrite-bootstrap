@@ -832,7 +832,8 @@ function checkLet(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, 
 end 'checkLet'
 
 // operandAlias is the integer alias of the first operand of the arithmetic e that has one, which maxon gives the result of
-// the arithmetic, or none: the type a var bound to it is cast to by the fix of starting from an anonymous range.
+// the arithmetic, or none: the type a var bound to it is cast to by the fix of starting from an anonymous range. A name is the
+// alias of what its own let was bound to.
 function operandAlias(c Checker, p ast.Project, ms ast.ModuleState, e ast.NodeID) returns ast.TypeID
 	let node = ast.through(ms.tree(), e: e)
 	let k = ms.tree().kindOf(node)
@@ -850,6 +851,13 @@ function operandAlias(c Checker, p ast.Project, ms ast.ModuleState, e ast.NodeID
 	if typeIsNamedInt(ms.types, reads: p.types, t: t) 'named'
 		return t
 	end 'named'
+	if k == ast.NodeKind.nameExpr and c.typing.names.has(node as Count) 'local'
+		let info = nameInfoOf(c.typing, node: node)
+		let defined = c.typing.locals[info.local as Count].definedAt
+		if info.kind == ast.NameKind.nameLocal and defined != 0 and ms.tree().kindOf(defined) == ast.NodeKind.letStmt and ast.letStmtInit(ms.tree(), id: defined) != 0 'bound'
+			return operandAlias(c, p: p, ms: ms, e: ast.letStmtInit(ms.tree(), id: defined))
+		end 'bound'
+	end 'local'
 	return ast.noType
 end 'operandAlias'
 

@@ -607,6 +607,7 @@ end 'main'
 ```
 
 <!-- test: managed-list-insert-incref -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 Inserting a struct into a managed list increfs the value; the node holds the reference.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -639,6 +640,7 @@ end 'main'
 ```
 
 <!-- test: managed-list-remove-decref -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 Removing a node and discarding the result frees the value at scope exit.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -669,6 +671,7 @@ end 'main'
 ```
 
 <!-- test: managed-list-clear-decrefs-all -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 Clearing a managed list decrefs all node values.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -1193,6 +1196,7 @@ end 'main'
 ```
 
 <!-- test: no-leak-returned-managed-list -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 Build a managed list in a function, return it to the caller, caller frees it.
 ```maxon
 typealias Integer = int(i64.min to i64.max)

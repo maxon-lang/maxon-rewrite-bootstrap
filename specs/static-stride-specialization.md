@@ -232,7 +232,7 @@ typealias Q = int(0 to 3)
 typealias QArray = Array with Q
 
 function main() returns ExitCode
-	let a = QArray.create(0)
+	var a = QArray.create(0)
 	a.push(0)
 	a.push(1)
 	a.push(2)
@@ -360,15 +360,15 @@ type Bag uses Element
 		return Self{items: Items.create(0)}
 	end 'create'
 
-	function add(value Element)
-		items.push(value)
+	function add(mutates self, value Element) where Element implements Copyable
+		items.push(value.clone())
 	end 'add'
 end 'Bag'
 
 typealias ByteBag = Bag with Byte
 
 function main() returns ExitCode
-	let b = ByteBag.create()
+	var b = ByteBag.create()
 	b.add(200)
 	b.add(7)
 	if b.items.managed.elementSize() != 1 'theRecordIsByteStrided'

@@ -145,6 +145,7 @@ source=3 round=1
 ```
 
 <!-- test: the-managed-memory-static-is-reachable-directly -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 The layer underneath, asked without the `String` wrapper — because that is where the mechanism actually
 lives, and a case that only ever reaches it through `stdlib/String.maxon` could not tell a broken static

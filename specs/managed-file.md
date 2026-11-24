@@ -75,6 +75,7 @@ end
 ## Tests
 
 <!-- test: managed-file.open-read-nonexistent -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 ```maxon
 function main() returns ExitCode
@@ -93,6 +94,7 @@ not found
 ```
 
 <!-- test: managed-file.write-and-read -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 ```maxon
 enum TestFileError implements Error
@@ -176,6 +178,7 @@ Hello Managed
 ```
 
 <!-- test: managed-file.exists -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 ```maxon
 enum TestFileError implements Error
@@ -224,6 +227,7 @@ end 'main'
 ```
 
 <!-- test: managed-file.delete-nonexistent -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 ```maxon
 function main() returns ExitCode
@@ -242,6 +246,7 @@ delete failed as expected
 ```
 
 <!-- test: managed-file.auto-close -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 ```maxon
 enum TestFileError implements Error
@@ -298,6 +303,7 @@ end 'main'
 ```
 
 <!-- test: managed-file.open-read-not-found-variant -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 
 The errno→variant mapping ensures that opening a path that does not exist
@@ -322,6 +328,7 @@ end 'main'
 ```
 
 <!-- test: managed-file.delete-not-found-variant -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 ```maxon
 function main() returns ExitCode
@@ -340,6 +347,7 @@ end 'main'
 ```
 
 <!-- test: managed-file.stat-not-found-variant -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 ```maxon
 function main() returns ExitCode
@@ -384,6 +392,7 @@ error E3072: <fragment>:3:24: '__ManagedFile' is a compiler builtin type and can
 ```
 
 <!-- test: managed-file.unknown-instance-method-is-refused-by-name -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 This case pins the instance-method DISPATCHER.
 
@@ -414,6 +423,7 @@ error E2015: <fragment>:6:12: Unsupported: `__ManagedFile` method 'seek' — the
 ```
 
 <!-- test: managed-file.rename-round-trip -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 `rename` is the ONLY one of the thirteen methods that no other case reaches SUCCESSFULLY at the builtin
 level: `specs/file-io.md` goes through `File.rename`, whose signature takes a `FilePath`, and
@@ -459,6 +469,7 @@ end 'main'
 ```
 
 <!-- test: managed-file.open-create-new-refuses-an-existing-path -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 `openCreateNew` creates a file that does not exist, and a second `openCreateNew` of the same path throws and
 leaves the first file's bytes in place.
@@ -501,6 +512,7 @@ end 'main'
 ```
 
 <!-- test: managed-file.open-create-new-of-an-existing-path-throws-already-exists -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 The refusal of an existing path is the `alreadyExists` case, not the catch-all `openFailed`.
 ```maxon
@@ -526,6 +538,7 @@ end 'main'
 ```
 
 <!-- test: managed-file.read-appending-continues-after-the-live-length -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 Two `readAppending` calls fill one buffer end to end: the second lands after the bytes the first left, and
 each grows the buffer's length by what it read.
@@ -557,6 +570,7 @@ end 'main'
 ```
 
 <!-- test: managed-file.read-appending-past-the-capacity-is-refused -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 A `readAppending` whose bytes would run past the buffer's capacity is `readFailed`, and reads nothing.
 ```maxon
@@ -584,6 +598,7 @@ end 'main'
 ```
 
 <!-- test: managed-file.a-buffer-passed-through-a-function-value-keeps-its-surface-for-a-builtin -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 A buffer passed to a function value of a by-reference arity lives in a cell, and the file member that fills it and the buffer's own members are still served through that cell.
 ```maxon
@@ -626,6 +641,7 @@ end 'main'
 ```
 
 <!-- test: error.managed-file.read-appending-into-a-buffer-of-wider-elements-is-refused -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 `readAppending` grows the buffer's length by the bytes it read, and a length counts elements, so only a byte
 buffer is accepted: a buffer of wider elements is refused where it is passed.
@@ -643,6 +659,7 @@ error E3005: <fragment>:5:18: argument type mismatch for 'managed': expected '__
 ```
 
 <!-- test: managed-file.a-file-held-open-for-reading-can-be-rewritten-and-deleted -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 A read handle shares the file with every other open: while one is held, the same path can be opened for
 writing, written, and deleted.
@@ -675,6 +692,7 @@ end 'main'
 ```
 
 <!-- test: managed-file.stat-round-trip -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 This is the case that reaches a SUCCESSFUL `stat` at the builtin level. Every other successful
 `stat` goes through `File.info`, and `stat-not-found-variant` throws before a buffer exists.
@@ -741,6 +759,7 @@ dirIsDirectory=1
 ```
 
 <!-- test: managed-file.open-read-without-try -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 
 ⭐ **E3057 MUST NAME THE CONSTRUCT THE AUTHOR WROTE (D12).** `openRead` throws, so a bare call branches on
@@ -761,6 +780,7 @@ error E3057: specs/managed-file/managed-file.open-read-without-try.maxon:3:6: th
 ```
 
 <!-- test: managed-file.open-write-executable-without-try -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 
 ⭐⭐ **THE CALLEE NAMES THE METHOD THAT WAS WRITTEN.** A POSIX lane makes the 0755 bit OBSERVABLE — an
@@ -779,6 +799,7 @@ error E3057: specs/managed-file/managed-file.open-write-executable-without-try.m
 ```
 
 <!-- test: managed-file.read-into-a-non-owned-buffer-is-refused -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 
 ⛔⛔ **A `read` IS A WRITE INTO THE CALLER'S BUFFER, AND A BUFFER THE RECORD DOES NOT OWN IS REFUSED —
@@ -852,6 +873,7 @@ within=999 over=999 parent=65,68
 ```
 
 <!-- test: managed-file.read-bound-is-the-owned-capacity -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 
 ⭐⭐ **THE CONTROL THAT MAKES THE REFUSAL ABOVE MEAN SOMETHING.** "A read into a non-owned buffer throws" is
@@ -907,6 +929,7 @@ at=4 first=48 over=999
 ```
 
 <!-- test: error.a-managed-memory-parameter-mismatch-names-managed-memory -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- positions: moved -->
 <!-- tier: stdlib -->
 A bare `__ManagedMemory` parameter holds the library's `Byte`. A buffer over a `Byte` the program declares

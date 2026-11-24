@@ -394,6 +394,7 @@ end 'main'
 ```
 
 <!-- test: error.the-cursor-roster-is-the-surface -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- positions: moved -->
 <!-- tier: stdlib -->
 The refusal RENDERS the roster the dispatch consults, so the sentence cannot claim a member
@@ -672,6 +673,7 @@ end 'main'
 ```
 
 <!-- test: error.a-cursor-alias-cannot-be-created -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- positions: moved -->
 <!-- tier: stdlib -->
 ### `Cur.create()` is REFUSED, never a compiler PANIC
@@ -699,6 +701,7 @@ error E2073: <fragment>:6:14: `__ManagedMemoryCursor` static method 'create' —
 ```
 
 <!-- test: error.a-cursor-alias-has-no-other-static-either -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- positions: moved -->
 <!-- tier: stdlib -->
 ### The same sentence for a static that was never going to exist

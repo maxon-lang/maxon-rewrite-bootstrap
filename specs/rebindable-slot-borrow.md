@@ -179,6 +179,7 @@ end 'main'
 ```
 
 <!-- test: the-promoted-name-keeps-its-declared-surface -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 ⭐ **A COUNTED BINDING KEEPS ITS DECLARED SURFACE.** `__ManagedMemory` and the `Array` around it are
 one record told apart by provenance, keyed by the value — so a counted binding, which is a fresh value,

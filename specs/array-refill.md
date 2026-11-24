@@ -106,14 +106,14 @@ typealias Quarter = int(0 to 3)
 typealias QuarterArray = Array with Quarter
 
 function main() returns ExitCode
-	let arr = QuarterArray.create(0)
+	var arr = QuarterArray.create(0)
 	arr.push(1 as Quarter)
 	arr.refill(7, value: 3 as Quarter)
 	var total = 0 as FullRangeInt
 	for q in arr 'sum'
-		total = total + q as FullRangeInt
+		total = try total + q as FullRangeInt otherwise panic("out of range")
 	end 'sum'
-	return total + arr.managed.elementSize()
+	return try total + arr.managed.elementSize() otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -417,6 +417,7 @@ end 'main'
 ```
 
 <!-- test: fill-detaches-from-a-buffer-someone-is-viewing -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 ### the buffer fill detaches from a buffer someone is viewing
 `refill` reaches `fill` only after `resize`, which has already detached — so this calls the primitive
@@ -449,6 +450,7 @@ end 'main'
 ```
 
 <!-- test: fill-declines-a-managed-element-and-writes-nothing -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 ### the buffer fill declines a managed element and writes nothing
 The answer `refill` reads. A `String` element's slot holds exactly one reference, and the retain/release
@@ -478,6 +480,7 @@ end 'main'
 ```
 
 <!-- test: fill-refuses-a-window-past-the-live-length -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 ### the buffer fill refuses a window past the live length
 The window is `[start, start + count)` and the bound is the LIVE LENGTH, not the capacity: a fill writes
@@ -499,6 +502,7 @@ end 'main'
 ```
 
 <!-- test: fill-refuses-a-negative-start -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 ### the buffer fill refuses a negative start
 `StdCmpPred` is signed, so `start + count > length` is FALSE for a negative `start` and reads as in range —
@@ -519,6 +523,7 @@ end 'main'
 ```
 
 <!-- test: fill-refuses-a-negative-count -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 ### the buffer fill refuses a negative count
 The other half of the same signed-compare hazard, and the one whose silent answer would be a LIE rather
@@ -540,6 +545,7 @@ end 'main'
 ```
 
 <!-- test: fill-refuses-a-window-whose-end-overflows -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 ### the buffer fill refuses a window whose end overflows
 The THIRD way a signed compare can read a wrong answer, and the one no negative ARGUMENT can produce:
@@ -565,6 +571,7 @@ end 'main'
 ```
 
 <!-- test: fill-writes-only-its-own-window -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 ### the buffer fill writes only its own window
 `growFilled` reaches the primitive with a non-zero `start`, so the window's LOW end has to bind as well as
@@ -593,6 +600,7 @@ end 'main'
 ```
 
 <!-- test: fill-writes-only-its-own-window-at-a-byte-stride -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 ### the buffer fill writes ONE BYTE per entry at a one-byte stride
 The stride is dispatched ONCE above the fill's loop and each width runs a loop of its own, so a BYTE

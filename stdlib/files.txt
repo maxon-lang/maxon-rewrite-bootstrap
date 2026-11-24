@@ -1,4 +1,4 @@
-Unicode.maxon .
+Unicode.maxon unicode
 Interfaces.maxon .
 helpers/hash/Hash.maxon .
 helpers/hashtable/slotScan.maxon hashtable
@@ -8,5 +8,14 @@ PrimitiveExtensions.maxon .
 helpers/string/hash.maxon . StringHash.maxon
 String.maxon .
 Array.maxon .
-Math.maxon .
+Math.maxon math
 Range.maxon .
+helpers/sort/insertionSort.maxon .
+helpers/sort/smallSort.maxon .
+helpers/sort/mergeSort.maxon .
+helpers/sort/driftQuicksort.maxon .
+helpers/sort/driftsort.maxon .
+helpers/sort/pdqsort.maxon .
+Random.maxon random
+Pem.maxon pem
+Base64.maxon base64

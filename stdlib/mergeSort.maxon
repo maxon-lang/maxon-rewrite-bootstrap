@@ -1,0 +1,215 @@
+// This file holds the bounded-buffer adaptive merge machinery
+// (`mergeAdaptive` and friends) used by the driftsort entry in driftsort.maxon.
+
+export extension Array
+	// Local typealias so `scratch` can be typed as the same generic
+	// `Array with Element`. Maxon parameter types can't carry `Array with X`
+	// inline — they need a named alias to resolve.
+	export typealias MergeScratchArray = Array with T
+
+	// ---------------------------------------------------------------
+	// Stage 6: bounded-scratch and in-place merges
+	// ---------------------------------------------------------------
+	// Stable merge using ONLY the smaller side as scratch. Returns after
+	// merging `managed[lo, hi)` in place; `scratch` must be at least
+	// `min(mid-lo, hi-mid)` slots. Saves O(n) scratch when one side is
+	// much smaller than the other — common in driftsort's merges.
+	export function mergeBuffered(mutates self, lo ElementIndex, mid ElementIndex, hi ElementIndex, mutates scratch MergeScratchArray, cmp SortComparator) where T implements Droppable and Copyable
+		let leftLen = try mid - lo otherwise panic("out of range")
+		let rightLen = try hi - mid otherwise panic("out of range")
+		if leftLen <= rightLen 'leftIsSmaller'
+			self.mergeBufferedLeft(lo, mid: mid, hi: hi, scratch: scratch, cmp: cmp)
+		end 'leftIsSmaller' else 'rightIsSmaller'
+			self.mergeBufferedRight(lo, mid: mid, hi: hi, scratch: scratch, cmp: cmp)
+		end 'rightIsSmaller'
+	end 'mergeBuffered'
+
+	// Buffered merge when the LEFT side is smaller (or equal). Copies left
+	// into scratch, then sweeps left-to-right merging scratch + right into
+	// the output range. Stable (when picking equal, left wins).
+	function mergeBufferedLeft(mutates self, lo ElementIndex, mid ElementIndex, hi ElementIndex, mutates scratch MergeScratchArray, cmp SortComparator) where T implements Droppable and Copyable
+		let leftLen = try mid - lo otherwise panic("out of range")
+		var i = 0 as ElementIndex
+		while i < leftLen 'copyLeft'
+			try scratch.set(i, value: try self.managed.get(lo + i) otherwise panic("mergeBufferedLeft: get OOB during copy")) otherwise panic("mergeBufferedLeft: scratch.set OOB")
+			i = i + 1
+		end 'copyLeft'
+		var l = 0 as ElementIndex
+		var r = mid
+		var out = lo
+		while l < leftLen and r < hi 'pick'
+			let lv = try scratch.get(l) otherwise panic("mergeBufferedLeft: scratch.get OOB at l")
+			let rv = try self.managed.get(r) otherwise panic("mergeBufferedLeft: get OOB at r")
+			if cmp(lv, rv) == Ordering.greaterThan 'takeRight'
+				try self.managed.set(out, value: try self.managed.get(r) otherwise panic("mergeBufferedLeft: get OOB at r (right)")) otherwise panic("mergeBufferedLeft: set OOB at out (right)")
+				r = r + 1
+			end 'takeRight' else 'takeLeft'
+				try self.managed.set(out, value: try scratch.get(l) otherwise panic("mergeBufferedLeft: scratch.get OOB at l (left)")) otherwise panic("mergeBufferedLeft: set OOB at out (left)")
+				l = l + 1
+			end 'takeLeft'
+			out = try out + 1 otherwise panic("out of range")
+		end 'pick'
+		while l < leftLen 'drainLeft'
+			try self.managed.set(out, value: try scratch.get(l) otherwise panic("mergeBufferedLeft: scratch.get OOB drain")) otherwise panic("mergeBufferedLeft: set OOB drain")
+			l = l + 1
+			out = try out + 1 otherwise panic("out of range")
+		end 'drainLeft'
+	// Right tail is already in place; no drain needed.
+	end 'mergeBufferedLeft'
+
+	// Buffered merge when the RIGHT side is smaller. Copies right into
+	// scratch, then sweeps right-to-left merging left + scratch into the
+	// output range. Uses exclusive end-pointers (lEnd, rEnd, outEnd) so the
+	// "still has elements?" check is a simple `> 0` comparison — avoids
+	// the off-by-one hazard the inclusive form had when both indices reach
+	// their start simultaneously.
+	//
+	// Stability: when picking equal in a right-to-left sweep, the right
+	// (scratch) element must win so the left's equal-keyed element stays
+	// earlier in the merged output. The pick rule below tests
+	// "left > right" — equality falls through to "take right", which is
+	// the stability-preserving choice.
+	function mergeBufferedRight(mutates self, lo ElementIndex, mid ElementIndex, hi ElementIndex, mutates scratch MergeScratchArray, cmp SortComparator) where T implements Droppable and Copyable
+		let rightLen = try hi - mid otherwise panic("out of range")
+		var i = 0 as ElementIndex
+		while i < rightLen 'copyRight'
+			try scratch.set(i, value: try self.managed.get(mid + i) otherwise panic("mergeBufferedRight: get OOB during copy")) otherwise panic("mergeBufferedRight: scratch.set OOB")
+			i = i + 1
+		end 'copyRight'
+		// Exclusive end-pointers: lEnd = first index past unconsumed left;
+		// rEnd = first index past unconsumed scratch; outEnd = first index
+		// past the next slot to write. All three start one past the rightmost
+		// unconsumed slot, and decrement before write/read.
+		var lEnd = mid
+		var rEnd = try rightLen as ElementIndex otherwise panic("out of range")
+		var outEnd = hi
+		while lEnd > lo and rEnd > 0 'pick'
+			let lv = try self.managed.get(lEnd - 1) otherwise panic("mergeBufferedRight: get OOB at lEnd-1")
+			let rv = try scratch.get(rEnd - 1) otherwise panic("mergeBufferedRight: scratch.get OOB at rEnd-1")
+			if cmp(lv, rv) == Ordering.greaterThan 'takeLeft'
+				try self.managed.set(outEnd - 1, value: try self.managed.get(lEnd - 1) otherwise panic("mergeBufferedRight: get OOB at lEnd-1 (left)")) otherwise panic("mergeBufferedRight: set OOB at outEnd-1 (left)")
+				lEnd = lEnd - 1
+			end 'takeLeft' else 'takeRight'
+				try self.managed.set(outEnd - 1, value: try scratch.get(rEnd - 1) otherwise panic("mergeBufferedRight: scratch.get OOB at rEnd-1 (right)")) otherwise panic("mergeBufferedRight: set OOB at outEnd-1 (right)")
+				rEnd = rEnd - 1
+			end 'takeRight'
+			outEnd = try outEnd - 1 otherwise panic("out of range")
+		end 'pick'
+		// Drain remaining scratch (right). Any remaining left tail is already
+		// in place since `managed` was untouched there during the copy.
+		while rEnd > 0 'drainRight'
+			try self.managed.set(outEnd - 1, value: try scratch.get(rEnd - 1) otherwise panic("mergeBufferedRight: scratch.get OOB at drain")) otherwise panic("mergeBufferedRight: set OOB at drain")
+			rEnd = rEnd - 1
+			outEnd = try outEnd - 1 otherwise panic("out of range")
+		end 'drainRight'
+	end 'mergeBufferedRight'
+
+	// In-place rotation: swap the contents of [lo, mid) with [mid, hi).
+	// Result: original [mid, hi) ends up at [lo, lo + (hi - mid)); original
+	// [lo, mid) ends up at [lo + (hi - mid), hi). Three-reverse algorithm:
+	// reverse each half, then reverse the whole range.
+	function rotateRange(mutates self, lo ElementIndex, mid ElementIndex, hi ElementIndex)
+		if lo == mid or mid == hi 'noOp'
+			return
+		end 'noOp'
+		self.reverseRange(lo, hi: mid)
+		self.reverseRange(mid, hi: hi)
+		self.reverseRange(lo, hi: hi)
+	end 'rotateRange'
+
+	// Binary search: find the first index in [lo, hi) at which `target`
+	// could be inserted while keeping the run sorted ascending. Returns
+	// `lo` if every element in [lo, hi) is >= target, `hi` if every
+	// element is < target. The "lower bound" form — for stability, equal
+	// elements stay to the LEFT of `target` (i.e., the returned index is
+	// the first slot where inserting target wouldn't cross an equal).
+	function lowerBound(lo ElementIndex, hi ElementIndex, target T, cmp SortComparator) returns ElementIndex where T implements Copyable
+		var l = lo
+		var h = hi
+		while l < h 'binSearch'
+			let m = try l + (h - l) / 2 otherwise panic("out of range")
+			let v = try self.managed.get(m) otherwise panic("lowerBound: get OOB at m")
+			if cmp(v, target) == Ordering.lessThan 'goRight'
+				l = try m + 1 otherwise panic("out of range")
+			end 'goRight' else 'goLeft'
+				h = m
+			end 'goLeft'
+		end 'binSearch'
+		return l
+	end 'lowerBound'
+
+	// In-place rotation merge of two sorted runs [lo, mid) and [mid, hi).
+	// O(n^2) worst case but uses no auxiliary storage. Stable.
+	// Algorithm: recursively split via binary search; rotate the middle
+	// block to bring the partition point of one side adjacent to the
+	// partition point of the other; recurse on the two sub-merges.
+	export function mergeRotation(mutates self, lo ElementIndex, mid ElementIndex, hi ElementIndex, cmp SortComparator) where T implements Copyable
+		let leftLen = try mid - lo otherwise panic("out of range")
+		let rightLen = try hi - mid otherwise panic("out of range")
+		if leftLen == 0 or rightLen == 0 'trivial'
+			return
+		end 'trivial'
+		// Pick the longer side; binary-search the shorter side for the
+		// split that mates with the longer side's midpoint.
+		if leftLen >= rightLen 'leftLonger'
+			let q = try lo + leftLen / 2 otherwise panic("out of range")
+			let qVal = try self.managed.get(q) otherwise panic("mergeRotation: get OOB at q (left)")
+			let r = self.lowerBound(mid, hi: hi, target: qVal, cmp: cmp)
+			// Rotate [q+1, mid) and [mid, r) so the right-side elements
+			// less-than-or-equal-to qVal land just past q.
+			// We rotate [q, mid) with [mid, r) — exclude q itself since
+			// qVal is the partition value.
+			self.rotateRange(q, mid: mid, hi: r)
+			let newMid = try q + (r - mid) otherwise panic("out of range")
+			// Recurse on left of newMid (excludes the partition slot at newMid).
+			self.mergeRotation(lo, mid: q, hi: newMid, cmp: cmp)
+			// Recurse on right of newMid + 1 — q's value already sits at newMid.
+			self.mergeRotation(try newMid + 1 otherwise panic("out of range"), mid: r, hi: hi, cmp: cmp)
+		end 'leftLonger' else 'rightLonger'
+			let q = try mid + rightLen / 2 otherwise panic("out of range")
+			let qVal = try self.managed.get(q) otherwise panic("mergeRotation: get OOB at q (right)")
+			let l = self.upperBound(lo, hi: mid, target: qVal, cmp: cmp)
+			// Rotate [l, mid) and [mid, q+1) so q's value lands at the
+			// new partition point.
+			self.rotateRange(l, mid: mid, hi: try q + 1 otherwise panic("out of range"))
+			let newPos = try l + (q + 1 - mid) - 1 otherwise panic("out of range")
+			self.mergeRotation(lo, mid: l, hi: newPos, cmp: cmp)
+			self.mergeRotation(newPos + 1, mid: try q + 1 otherwise panic("out of range"), hi: hi, cmp: cmp)
+		end 'rightLonger'
+	end 'mergeRotation'
+
+	// "Upper bound" binary search: first index in [lo, hi) > target.
+	// Mirror of lowerBound; needed by mergeRotation's right-longer branch
+	// to keep stability when the pivot value sits on the right side.
+	function upperBound(lo ElementIndex, hi ElementIndex, target T, cmp SortComparator) returns ElementIndex where T implements Copyable
+		var l = lo
+		var h = hi
+		while l < h 'binSearch'
+			let m = try l + (h - l) / 2 otherwise panic("out of range")
+			let v = try self.managed.get(m) otherwise panic("upperBound: get OOB at m")
+			if cmp(v, target) == Ordering.greaterThan 'goLeft'
+				h = m
+			end 'goLeft' else 'goRight'
+				l = try m + 1 otherwise panic("out of range")
+			end 'goRight'
+		end 'binSearch'
+		return l
+	end 'upperBound'
+
+	// Adaptive merge — driftsort's large-run merge strategy. If scratch can
+	// hold the smaller side, use the buffered merge (the common case: the
+	// powersort merge policy keeps merges balanced enough that the smaller
+	// side fits the O(log n) buffer for the vast majority of merges). When
+	// even the smaller side exceeds scratchCap, fall back to the in-place
+	// rotation merge, which needs no auxiliary storage.
+	export function mergeAdaptive(mutates self, lo ElementIndex, mid ElementIndex, hi ElementIndex, mutates scratch MergeScratchArray, scratchCap ElementIndex, cmp SortComparator) where T implements Copyable
+		let leftLen = try mid - lo otherwise panic("out of range")
+		let rightLen = try hi - mid otherwise panic("out of range")
+		let smaller = leftLen if leftLen < rightLen else rightLen
+		if smaller <= scratchCap 'fitsBuffer'
+			self.mergeBuffered(lo, mid: mid, hi: hi, scratch: scratch, cmp: cmp)
+			return
+		end 'fitsBuffer'
+		self.mergeRotation(lo, mid: mid, hi: hi, cmp: cmp)
+	end 'mergeAdaptive'
+end 'Array'

@@ -3031,6 +3031,7 @@ error E2078: <fragment>:6:18: 'Numbers.create' is a method, and a method is not 
 ```
 
 <!-- test: error.a-compiler-owned-surface-static-is-not-a-function-value -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 ```maxon
 function main() returns ExitCode
@@ -3647,6 +3648,7 @@ end 'main'
 ```
 
 <!-- test: error.a-raw-handle-static-read-as-a-value-in-user-code-is-not-reachable -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 ```maxon
 function main() returns ExitCode
 	let f = __ManagedFile.openRead
@@ -3658,6 +3660,7 @@ error E3185: <fragment>:3:10: '__ManagedFile' named outside the library tiers: t
 ```
 
 <!-- test: error.a-raw-handle-static-stored-to-in-user-code-is-not-reachable -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 ```maxon
 function main() returns ExitCode
 	__ManagedFile.openRead = 1
@@ -3681,6 +3684,7 @@ error E3185: <fragment>:2:9: '__ManagedFile' named outside the library tiers: th
 ```
 
 <!-- test: error.a-raw-handle-unknown-static-called-in-user-code-is-not-reachable -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 ```maxon
 function main() returns ExitCode
 	let f = __ManagedFile.bogus("p")

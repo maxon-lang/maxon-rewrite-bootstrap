@@ -138,6 +138,7 @@ error E3185: <fragment>:10:9: '.managed' read from outside the library tiers: a 
 ```
 
 <!-- test: a-managed-read-compiles-in-the-library-tier -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 The same program in the library tier. `shiftRight(1, 1)` releases slot 2, slides slot 1 up into it and zeroes slot 1;
 the length stays 3.
@@ -264,6 +265,7 @@ error E3185: <fragment>:4:25: '__ManagedMemory' named outside the library tiers:
 ```
 
 <!-- test: a-managed-memory-type-compiles-in-the-library-tier -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 The same program in the library tier.
 ```maxon
@@ -300,6 +302,7 @@ error E3185: <fragment>:3:19: '__ManagedMemory' named outside the library tiers:
 ```
 
 <!-- test: a-managed-memory-static-compiles-in-the-library-tier -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 The same program in the library tier.
 ```maxon
@@ -643,6 +646,7 @@ error E3185: <fragment>:10:21: '__ManagedMemory' named outside the library tiers
 ```
 
 <!-- test: several-raw-doors-compile-in-the-library-tier -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 The same program in the library tier.
 ```maxon
@@ -666,6 +670,7 @@ true 4
 ```
 
 <!-- test: error.a-managed-directory-static-is-refused-outside-the-library-tiers -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 `__ManagedDirectory`, `__ManagedFile` and `__ManagedSocket` are the runtime's OS handles, and their
 statics hand out raw `__ManagedMemory` buffers. Calling one is refused at the type it is called on, with
 the public API that replaces it.
@@ -681,6 +686,7 @@ error E3185: <fragment>:3:16: '__ManagedDirectory' named outside the library tie
 ```
 
 <!-- test: a-managed-directory-static-compiles-in-the-library-tier -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 The same program in the library tier.
 ```maxon
@@ -698,6 +704,7 @@ true
 ```
 
 <!-- test: error.the-managed-directory-type-is-refused-outside-the-library-tiers -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 Naming the handle type in a signature is refused at the type.
 ```maxon
 function nameLength(d __ManagedDirectory) returns Count
@@ -714,6 +721,7 @@ error E3185: <fragment>:2:23: '__ManagedDirectory' named outside the library tie
 ```
 
 <!-- test: the-managed-directory-type-compiles-in-the-library-tier -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 The same program in the library tier.
 ```maxon
@@ -734,6 +742,7 @@ declared
 ```
 
 <!-- test: error.a-managed-file-static-is-refused-outside-the-library-tiers -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 ```maxon
 function main() returns ExitCode
 	let there = __ManagedFile.exists(b"no-such-file-for-this-case.bin".managed)
@@ -746,6 +755,7 @@ error E3185: <fragment>:3:14: '__ManagedFile' named outside the library tiers: t
 ```
 
 <!-- test: a-managed-file-static-compiles-in-the-library-tier -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 The same program in the library tier.
 ```maxon
@@ -763,6 +773,7 @@ end 'main'
 ```
 
 <!-- test: error.the-managed-file-type-is-refused-outside-the-library-tiers -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 A field of the handle type is refused at the field's type, the first door in the file.
 ```maxon
 type Reader
@@ -788,6 +799,7 @@ error E3185: <fragment>:3:14: '__ManagedFile' named outside the library tiers: t
 ```
 
 <!-- test: the-managed-file-type-compiles-in-the-library-tier -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 The same program in the library tier.
 ```maxon
@@ -817,6 +829,7 @@ false
 ```
 
 <!-- test: error.a-managed-socket-static-is-refused-outside-the-library-tiers -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 ```maxon
 function main() returns ExitCode
 	let listener = try __ManagedSocket.bindListener(b"127.0.0.1".managed, port: 0) otherwise return 1
@@ -830,6 +843,7 @@ error E3185: <fragment>:3:21: '__ManagedSocket' named outside the library tiers:
 ```
 
 <!-- test: a-managed-socket-static-compiles-in-the-library-tier -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 The same program in the library tier: it binds a listener on a port the kernel picks.
 ```maxon
@@ -848,6 +862,7 @@ true
 ```
 
 <!-- test: error.the-managed-socket-type-is-refused-outside-the-library-tiers -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 ```maxon
 function isLate(s __ManagedSocket) returns bool
 	return s.timedOut()
@@ -863,6 +878,7 @@ error E3185: <fragment>:2:19: '__ManagedSocket' named outside the library tiers:
 ```
 
 <!-- test: the-managed-socket-type-compiles-in-the-library-tier -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 The same program in the library tier.
 ```maxon
@@ -1010,6 +1026,7 @@ end 'main'
 ```
 
 <!-- test: error.a-managed-pages-static-is-refused-outside-the-library-tiers -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 ```maxon
 function main() returns ExitCode
 	let pages = __ManagedPages.reserve(0x1000)
@@ -1022,6 +1039,7 @@ error E3185: <fragment>:3:14: '__ManagedPages' named outside the library tiers: 
 ```
 
 <!-- test: a-managed-pages-static-compiles-in-the-library-tier -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 The same program in the library tier.
 ```maxon
@@ -1039,6 +1057,7 @@ true
 ```
 
 <!-- test: error.the-managed-pages-type-is-refused-outside-the-library-tiers -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 ```maxon
 function isHeld(pages __ManagedPages) returns bool
 	return pages.base() != 0
@@ -1054,6 +1073,7 @@ error E3185: <fragment>:2:23: '__ManagedPages' named outside the library tiers: 
 ```
 
 <!-- test: the-managed-pages-type-compiles-in-the-library-tier -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 The same program in the library tier.
 ```maxon
@@ -1074,6 +1094,7 @@ declared
 ```
 
 <!-- test: error.a-managed-handle-static-is-refused-outside-the-library-tiers -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 ```maxon
 function main() returns ExitCode
 	let timer = __ManagedHandle.timer()
@@ -1086,6 +1107,7 @@ error E3185: <fragment>:3:14: '__ManagedHandle' named outside the library tiers:
 ```
 
 <!-- test: error.the-managed-handle-type-is-refused-outside-the-library-tiers -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 ```maxon
 function isHeld(timer __ManagedHandle) returns bool
 	return timer.handle() != 0
@@ -1101,6 +1123,7 @@ error E3185: <fragment>:2:23: '__ManagedHandle' named outside the library tiers:
 ```
 
 <!-- test: the-managed-handle-type-compiles-in-the-library-tier -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 The same program in the library tier.
 ```maxon
@@ -1121,6 +1144,7 @@ declared
 ```
 
 <!-- test: a-managed-handle-static-compiles-in-the-library-tier -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 <!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux -->
 The same program in the library tier.

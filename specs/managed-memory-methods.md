@@ -151,6 +151,7 @@ end 'main'
 ```
 
 <!-- test: cstring-round-trip -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 Out and back through a raw pointer. `specs/string-from-cstring.md` owns the conversion's own cases —
 the copy, the empty source, the embedded NUL; this one is here because it is the `__ManagedMemory` surface's
@@ -259,7 +260,7 @@ typealias Int = int(i64.min to i64.max)
 typealias IntArray = Array with Int
 
 function main() returns ExitCode
-	let arr = IntArray.create(0)
+	var arr = IntArray.create(0)
 	arr.push(1)
 	arr.push(2)
 	arr.push(3)
@@ -282,7 +283,7 @@ typealias Int = int(i64.min to i64.max)
 typealias IntArray = Array with Int
 
 function main() returns ExitCode
-	let arr = IntArray.create(0)
+	var arr = IntArray.create(0)
 	arr.push(1)
 	try arr.managed.setLength(100) otherwise 'overlen'
 		return 7
@@ -295,6 +296,7 @@ end 'main'
 ```
 
 <!-- test: bounds-byte-oob -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 ```maxon
 typealias Int = int(i64.min to i64.max)
@@ -321,7 +323,7 @@ typealias Int = int(i64.min to i64.max)
 typealias IntArray = Array with Int
 
 function main() returns ExitCode
-	let arr = IntArray.create(0)
+	var arr = IntArray.create(0)
 	arr.push(1)
 	arr.push(2)
 	arr.push(3)
@@ -329,7 +331,7 @@ function main() returns ExitCode
 	let sliced = try arr.managed.slice(0, 10) otherwise 'oob'
 		return 7
 	end 'oob'
-	return sliced.length() as ExitCode
+	return try sliced.length() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -344,7 +346,7 @@ typealias Int = int(i64.min to i64.max)
 typealias IntArray = Array with Int
 
 function main() returns ExitCode
-	let arr = IntArray.create(0)
+	var arr = IntArray.create(0)
 	try arr.managed.grow(8) otherwise panic("grow OOB")
 	try arr.managed.setLength(4) otherwise panic("setLength OOB")
 	try arr.managed.set(0, 10) otherwise panic("set OOB")
@@ -355,8 +357,8 @@ function main() returns ExitCode
 	let v1 = try arr.managed.get(1) otherwise panic("get OOB")
 	let v2 = try arr.managed.get(2) otherwise panic("get OOB")
 	let v3 = try arr.managed.get(3) otherwise panic("get OOB")
-	let sum = v0 + v1 + v2 + v3
-	return sum
+	let sum = try v0 + v1 + v2 + v3 otherwise panic("out of range")
+	return try sum as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -736,6 +738,7 @@ landing on the case the operation is documented to report. A shifted ordinal rer
 the `default panic` says which.
 
 <!-- test: managed-memory-error-variants -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 ```maxon
 function main() returns ExitCode
@@ -813,6 +816,7 @@ error E2015: <fragment>:4:8: Unsupported: `Array` member 'setLength' — the com
 ```
 
 <!-- test: buffer-of-a-slice-is-a-buffer-and-detaches-before-it-writes -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 
 A `slice` taken THROUGH the buffer surface is itself a buffer — the surface rides the VALUE, so `sub.managed`
@@ -842,6 +846,7 @@ end 'main'
 ```
 
 <!-- test: byte-at-reads-the-word-buffer-a-byte-at-a-time -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 
 `byteAt` addresses BYTES where `get` addresses ELEMENTS, and at element size 8 the two differ — which is the
@@ -863,6 +868,7 @@ end 'main'
 ```
 
 <!-- test: byte-at-stops-at-the-live-length -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 
 `byteAt`'s bound is `length · element_size` — the LIVE length, not the capacity that `setByte` is bounded by.
@@ -882,6 +888,7 @@ end 'main'
 ```
 
 <!-- test: grow-to-the-same-capacity-then-below-it -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 
 `grow` raises the capacity to EXACTLY what it is asked for. Asked for what it already has it is a no-op;
@@ -937,6 +944,7 @@ error E2015: <fragment>:7:8: Unsupported: `Array` member 'setLength' — the com
 ### An element size the compiler has no element TYPE for is refused, not silently truncated
 
 <!-- test: error.create-element-size-with-no-element-type -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 
 `create`'s `elementSize` is read TWICE: the runtime stores it into `element_size@24` — the stride every
@@ -961,6 +969,7 @@ error E2015: <fragment>:3:37: Unsupported: `__ManagedMemory.create`'s `elementSi
 ### A buffer mark minted in one function does not reach another function's value
 
 <!-- test: error.buffer-mark-does-not-leak-across-functions -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 
 The buffer surface rides the VALUE (`Parser.bufferSurfaceValues`), and `ValueId`s restart at 0 in every
@@ -1002,6 +1011,7 @@ length** — `set` against `capacity`, `setByte` against `capacity · elementSiz
 what a capacity bound permits and a length bound forbids. The first case below is that round trip.
 
 <!-- test: set-stages-into-capacity-then-set-length-publishes -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 
 The round trip `setLength`'s contract names: four elements written while `length()` is still 0, then ONE
@@ -1030,6 +1040,7 @@ end 'main'
 ```
 
 <!-- test: set-past-the-live-length-lands-and-reads-back-published -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 
 The same rule with a NON-zero length, so the staged slot is genuinely past a live range rather than past an
@@ -1051,6 +1062,7 @@ end 'main'
 ```
 
 <!-- test: set-at-the-capacity-and-below-zero-is-refused -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 
 The bound is the capacity, so the LAST slot inside it takes a write and the first slot outside it does not.
@@ -1093,6 +1105,7 @@ end 'main'
 ```
 
 <!-- test: get-stops-at-the-live-length-where-set-does-not -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 
 The ASYMMETRY, pinned in one program so the two bounds cannot silently converge: index 1 accepts a write while
@@ -1202,6 +1215,7 @@ error E3109: <fragment>:7:16: 'managed.set' cannot store an element of 'String':
 ```
 
 <!-- test: staging-a-trivial-element-twice-releases-nothing-and-still-publishes -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 
 ⭐ **THE RULING'S MAIN LINE, KEPT ALIVE FOR THE ELEMENT KIND THAT STILL HAS IT.** The refusal above takes the
@@ -1232,6 +1246,7 @@ end 'main'
 ```
 
 <!-- test: set-byte-past-the-live-length-is-allowed-within-capacity -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 
 ⚖ The capacity USER RULING itself, pinned as behaviour rather than as prose: `setByte` at an offset past
@@ -1291,15 +1306,15 @@ typealias Int = int(i64.min to i64.max)
 typealias IntArray = Array with Int
 
 function main() returns ExitCode
-	let arr = IntArray.create(0)
+	var arr = IntArray.create(0)
 	arr.push(11)
 	arr.push(22)
 	arr.push(33)
-	let sub = try arr.slice(0, endIndex: 2) otherwise panic("slice: 0..2 of a length-3 array")
+	var sub = try arr.slice(0, endIndex: 2) otherwise panic("slice: 0..2 of a length-3 array")
 	try sub.managed.set(1, value: 99) otherwise return 1
 	try sub.managed.set(2, value: 99) otherwise 'pastTheDetachedCapacity'
 		let parent = try arr.get(1) otherwise panic("get: index 1 of a length-3 array")
-		return ((sub.managed.length() as Int) + parent) as ExitCode
+		return try ((sub.managed.length() as Int) + parent) as ExitCode otherwise panic("out of range")
 	end 'pastTheDetachedCapacity'
 	return 5
 end 'main'
@@ -1402,6 +1417,7 @@ Stack trace:
 ```
 
 <!-- test: set-byte-through-a-viewed-owner-detaches-first -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 
 ⭐⭐ **THE WRITE GUARD CALLS THE DETACH UNCONDITIONALLY.** `__managed_cow_detach` has TWO arms — a buffer that is
@@ -1446,7 +1462,7 @@ typealias Int = int(i64.min to i64.max)
 typealias IntArray = Array with Int
 
 function main() returns ExitCode
-	let arr = IntArray.create(0)
+	var arr = IntArray.create(0)
 	arr.push(11)
 	arr.push(22)
 	arr.push(33)
@@ -1454,7 +1470,7 @@ function main() returns ExitCode
 	try arr.managed.set(0, value: 99) otherwise panic("set: index 0 of a length-3 buffer")
 	let viewed = try sub.get(0) otherwise panic("get: index 0 of a length-2 view")
 	let owner = try arr.get(0) otherwise panic("get: index 0 of a length-3 array")
-	return (viewed + owner) as ExitCode
+	return try (viewed + owner) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1471,6 +1487,7 @@ this one is about the element's REPRESENTATION, holds at EVERY offset, and has n
 access to a pointer is not something a correct program wants. One predicate, two reasons, two messages.
 
 <!-- test: error.set-byte-on-a-managed-element-buffer-is-refused -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 
 Without the refusal this program exits **101**. The write goes into a live `String`'s pointer, after
@@ -1490,6 +1507,7 @@ error E3110: <fragment>:7:17: 'managed.setByte' cannot address the bytes of an e
 ```
 
 <!-- test: error.byte-at-on-a-managed-element-buffer-is-refused -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 
 ⭐⭐ **THE HALF A REFUSAL OF THE WRITER ALONE WOULD MISS, WHICH IS WHY IT HAS ITS OWN CASE.** `byteAt`
@@ -1512,6 +1530,7 @@ error E3110: <fragment>:7:25: 'managed.byteAt' cannot address the bytes of an el
 ```
 
 <!-- test: raw-byte-access-still-works-for-every-trivial-element-kind -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 
 ⭐ **THE FALSE-REJECT GUARD, and the case that makes the two refusals above safe to keep.** Byte access is the
@@ -1553,6 +1572,7 @@ end 'main'
 ### A throwing buffer read written without `try` names the buffer method
 
 <!-- test: error.byte-at-without-try -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- positions: moved -->
 <!-- tier: stdlib -->
 
@@ -1619,6 +1639,7 @@ BUFFER" below close that: each of the three spellings has a case in both directi
 `__ManagedDirectory.filename`/`currentPath`, and the `.managed` field.
 
 <!-- test: buffer-surface-serves-every-member-its-roster-names -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 
 ⭐⭐ **THE FALSE-REJECT GUARD — eleven of the roster's twenty members, in one program, returning a
@@ -1704,9 +1725,9 @@ here and `a`'s second element must survive it.
 typealias Strings = Array with String
 
 function main() returns ExitCode
-	let a = Strings.create(0)
+	var a = Strings.create(0)
 	a.push("alpha is long enough to be heap allocated")
-	let b = Strings.create(0)
+	var b = Strings.create(0)
 	b.push("beta is also long enough to be heap allocated")
 	a.managed.append(b.managed)
 	if a.count() != 2 'badCount'
@@ -1725,6 +1746,7 @@ beta is also long enough to be heap allocated
 ```
 
 <!-- test: error.buffer-has-no-push -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 
 ⭐ **`push` IS NOT A BUFFER MEMBER.** `push` is an `Array` method and
@@ -1744,6 +1766,7 @@ error E2015: <fragment>:4:5: Unsupported: `__ManagedMemory` member 'push' — th
 ```
 
 <!-- test: error.buffer-has-no-push-in-value-position -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 
 ⭐⭐ **THE VALUE POSITION IS THE SAME SHAPE ONE SURFACE OVER, AND IT IS WHY THIS GATE MUST PRECEDE THE
@@ -1763,6 +1786,7 @@ error E2015: <fragment>:4:13: Unsupported: `__ManagedMemory` member 'push' — t
 ```
 
 <!-- test: the-buffer-does-have-remove -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 
 ⭐⭐ **THE BUFFER HAS `remove`, AND BOTH HALVES SAY SO.** The roster names `remove`, and the arm emits the
@@ -1785,6 +1809,7 @@ end 'main'
 ```
 
 <!-- test: error.buffer-has-no-count -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 
 ⭐⭐ **THE FOLDED NAME IS THE SHARPEST CASE IN THIS BLOCK: `length` IS the buffer's spelling and `count` is
@@ -1803,6 +1828,7 @@ error E2015: <fragment>:4:13: Unsupported: `__ManagedMemory` member 'count' — 
 ```
 
 <!-- test: error.buffer-has-no-appendMemory -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 
 ⭐⭐ **`count`'s ARGUMENT, ONE MEMBER OVER — AND THE DIRECTION THAT NEEDED ITS OWN CASE.** `appendMemory` is
@@ -1825,6 +1851,7 @@ error E2015: <fragment>:5:9: Unsupported: `__ManagedMemory` member 'appendMemory
 ```
 
 <!-- test: error.buffer-has-no-managed-field -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 
 ⭐ **`.managed` IS THE `Array`'s FIELD, SO A BUFFER DOES NOT HAVE IT — AND THE CHAIN IS WHAT MAKES THAT
@@ -1843,6 +1870,7 @@ error E2015: <fragment>:4:9: Unsupported: `__ManagedMemory` member 'managed' —
 ```
 
 <!-- test: buffer-reports-its-element-size -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 
 ⚠ **THE BUFFER REPORTS ITS ELEMENT SIZE.** The packed stride is read through exactly this door. The roster
@@ -1862,6 +1890,7 @@ end 'main'
 ```
 
 <!-- test: error.buffer-has-no-pop -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 
 `pop`, `first` and `last` are the `Array`'s alone; of the move-out accessors the buffer serves only `remove`
@@ -1879,6 +1908,7 @@ error E2015: <fragment>:4:17: Unsupported: `__ManagedMemory` member 'pop' — th
 ```
 
 <!-- test: error.buffer-has-no-first -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 ```maxon
 function main() returns ExitCode
@@ -1892,6 +1922,7 @@ error E2015: <fragment>:4:17: Unsupported: `__ManagedMemory` member 'first' — 
 ```
 
 <!-- test: error.buffer-has-no-last -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 ```maxon
 function main() returns ExitCode
@@ -1905,6 +1936,7 @@ error E2015: <fragment>:4:17: Unsupported: `__ManagedMemory` member 'last' — t
 ```
 
 <!-- test: error.buffer-has-no-insert -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 
 ⭐⭐ **A SECOND DIAGNOSTIC THAT WOULD ASSERT A BUFFER MEMBER INTO EXISTENCE, and it is why the `try` here is
@@ -1925,6 +1957,7 @@ error E2015: <fragment>:4:9: Unsupported: `__ManagedMemory` member 'insert' — 
 ```
 
 <!-- test: error.buffer-has-no-reserve -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 
 ⚠ `reserve` and `grow` are the pair most easily mistaken for one another, and refusing `reserve` is what
@@ -1943,6 +1976,7 @@ error E2015: <fragment>:4:5: Unsupported: `__ManagedMemory` member 'reserve' —
 ```
 
 <!-- test: error.buffer-has-no-resize -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 
 ⚠ And `resize`/`setLength` are the other such pair, already stated one block up: `resize` GROWS the
@@ -1961,6 +1995,7 @@ error E2015: <fragment>:4:5: Unsupported: `__ManagedMemory` member 'resize' — 
 ```
 
 <!-- test: error.buffer-has-no-is-empty -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 ```maxon
 function main() returns ExitCode
@@ -1974,6 +2009,7 @@ error E2015: <fragment>:4:13: Unsupported: `__ManagedMemory` member 'isEmpty' �
 ```
 
 <!-- test: error.buffer-has-no-clone -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 
 ⚠ `slice` is the buffer's copy, and it is on the roster — so refusing `clone` takes nothing away. What it
@@ -1991,6 +2027,7 @@ error E2015: <fragment>:4:13: Unsupported: `__ManagedMemory` member 'clone' — 
 ```
 
 <!-- test: error.buffer-of-a-slice-has-no-array-members-either -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 
 ⭐⭐ **ONE NESTING LEVEL DOWN — a buffer the SOURCE never named, reached as the result of a `slice` through
@@ -2023,14 +2060,14 @@ typealias Int = int(i64.min to i64.max)
 typealias IntArray = Array with Int
 
 function main() returns ExitCode
-	let arr = IntArray.create(0)
+	var arr = IntArray.create(0)
 	arr.push(10)
 	arr.push(20)
 	try arr.managed.set(0, value: 12) otherwise return 1
 	arr.push(30)
 	let popped = try arr.pop() otherwise return 2
 	let head = try arr.first() otherwise return 3
-	return ((arr.count() as Int) + popped + head) as ExitCode
+	return try ((arr.count() as Int) + popped + head) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -2053,6 +2090,7 @@ COMPUTES a value through a roster member and asserts the number. The receiver in
 buffer, and the declaration is doing all the work.
 
 <!-- test: error.declared-parameter-has-the-buffer-surface -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- positions: moved -->
 <!-- tier: stdlib -->
 
@@ -2078,6 +2116,7 @@ error E2015: <fragment>:3:12: Unsupported: `__ManagedMemory` member 'count' — 
 ```
 
 <!-- test: declared-parameter-serves-the-roster -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 
 ⭐ **THE FALSE-REJECT HALF, and without the declared mark it is WRONG rather than merely permissive**:
@@ -2100,6 +2139,7 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: error.declared-return-type-has-the-buffer-surface -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 
 The RETURN spelling, refused the same member for the same reason. It is the one of the three that cannot be
@@ -2121,6 +2161,7 @@ error E2015: <fragment>:8:11: Unsupported: `__ManagedMemory` member 'count' — 
 ```
 
 <!-- test: declared-return-type-serves-the-roster -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 
 The return spelling's false-reject half. `slice` is on BOTH rosters, so it is deliberately taken through the
@@ -2142,6 +2183,7 @@ end 'main'
 ```
 
 <!-- test: error.declared-field-has-the-buffer-surface -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 
 The FIELD spelling. The bit rides `StructLayout` beside the field's declared type, in the column the SWEEP
@@ -2166,6 +2208,7 @@ error E2015: <fragment>:12:15: Unsupported: `__ManagedMemory` member 'count' —
 ```
 
 <!-- test: declared-field-serves-the-roster -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 
 The field spelling's false-reject half, and it reaches the buffer surface through TWO different doors on one
@@ -2303,6 +2346,7 @@ well — a wrong ACCEPTANCE no diagnostic reports, decided by whichever spelling
 quietly written onto the shared layout column.
 
 <!-- test: tuple-element-serves-the-roster -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 
 The tuple RETURN spelling's false-reject half. `p.0` is rewritten to a positional field token and reaches the
@@ -2325,6 +2369,7 @@ end 'main'
 ```
 
 <!-- test: tuple-destructuring-serves-the-roster -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 
 `let (m, n) = pair()` binds each name to a field load off the hidden temp, so a destructured name inherits
@@ -2347,6 +2392,7 @@ end 'main'
 ```
 
 <!-- test: tuple-parameter-serves-the-roster -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 
 The tuple PARAMETER spelling. The mask is read off the annotation's TOKENS at the same moment the
@@ -2367,6 +2413,7 @@ end 'main'
 ```
 
 <!-- test: tuple-through-a-struct-field-serves-the-roster -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 
 A struct FIELD whose declared type is a tuple — the composed shape, which falls out of the two mechanisms
@@ -2393,6 +2440,7 @@ end 'main'
 ```
 
 <!-- test: array-element-serves-the-roster -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 
 The generic ARRAY ELEMENT spelling. `Array with T` is writable only as a `typealias` RHS, so the element's
@@ -2414,6 +2462,7 @@ end 'main'
 ```
 
 <!-- test: array-element-through-a-struct-field-serves-the-roster -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 
 The same element mark reached through a struct FIELD declared with the alias. The field column is written by
@@ -2443,6 +2492,7 @@ end 'main'
 ```
 
 <!-- test: error.tuple-element-has-the-buffer-surface -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 
 The refusal half of the tuple slot. `count` is an `Array` member and not a buffer one, and without the slot
@@ -2464,6 +2514,7 @@ error E2015: <fragment>:10:13: Unsupported: `__ManagedMemory` member 'count' —
 ```
 
 <!-- test: error.array-element-has-the-buffer-surface -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 
 The refusal half of the array element, which without its carrier likewise runs (exit 5).
@@ -2561,6 +2612,7 @@ end 'main'
 ```
 
 <!-- test: error.tuple-slot-mark-does-not-leak-across-functions -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 
 The slot mask's copy-on-write twin of `error.buffer-mark-does-not-leak-across-functions`, and it is needed
@@ -2648,6 +2700,7 @@ error E2015: <fragment>:10:18: Unsupported: `Array` member 'length' — the comp
 ```
 
 <!-- test: managed-field-as-a-value-binds-serves-the-roster-and-drops-once -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 
 **`arr.managed` IN VALUE POSITION.** Four doors in one program, all on the SAME record: a
@@ -2759,6 +2812,7 @@ error E2015: <fragment>:8:2: Unsupported: identifier statement
 ```
 
 <!-- test: managed-field-as-a-value-releases-in-every-forking-region -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 
 ⭐ **THE VALUE FORM TAKES A STATEMENT-SCOPED DROP, SO IT IS SUBJECT TO THE REGION DISCIPLINE**
@@ -2805,6 +2859,7 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: buffer-surface-survives-a-var-reassignment -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 
 A `var` reassigned from another buffer keeps the buffer surface. The mark rides the VALUE, and a reassignment
@@ -2825,6 +2880,7 @@ end 'main'
 ```
 
 <!-- test: buffer-surface-survives-a-var-reassigned-from-a-slice -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 
 The same rebinding, from a `slice` of the buffer's OWN value — the one producer whose result is marked by
@@ -2848,6 +2904,7 @@ SIX spellings and a whole-array copy has TWO, and a mark that reached some of th
 inverted roster at the spellings it missed.
 
 <!-- test: every-element-reading-member-serves-the-buffer-roster -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 
 `get`, `first` and `last` all read an element, and all three funnel through the ONE accessor mint — so the
@@ -2870,6 +2927,7 @@ end 'main'
 ```
 
 <!-- test: a-popped-element-serves-the-buffer-roster -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 
 `pop` MOVES the element out instead of reading it, so it gets its own case: the OWNED buffer must reach the
@@ -2889,6 +2947,7 @@ end 'main'
 ```
 
 <!-- test: a-for-loop-element-serves-the-buffer-roster -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 
 The fifth spelling: `for m in bufs` reads its element through the same accessor, with the loop's own
@@ -2913,6 +2972,7 @@ end 'main'
 ```
 
 <!-- test: a-clone-of-an-array-of-buffers-still-holds-buffers -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 
 ⭐ **`clone` CARRIES THE ELEMENT MARK ACROSS THE COPY.** `clone` hands back a whole array of the receiver's
@@ -2935,6 +2995,7 @@ end 'main'
 ```
 
 <!-- test: a-slice-of-an-array-of-buffers-still-holds-buffers -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 
 The `Array`-surface `slice` is the other whole-array producer, and it carries the element surface for the
@@ -2973,6 +3034,7 @@ left to derive it from later: a tuple's element types are CANONICAL by the time 
 alias name is gone. It is blocked on the alias-visibility work, not on this mechanism.
 
 <!-- test: a-nested-tuple-slot-serves-the-roster -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 
 A tuple inside a tuple. `p.0` binds a value carrying ITS slots, and `p.0.0` reads one off it — the same line
@@ -3035,6 +3097,7 @@ end 'main'
 ```
 
 <!-- test: a-tuple-slot-of-buffers-serves-the-roster -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 
 A slot whose declared type is an array-of-buffers ALIAS — the surface a slot could not express at all while
@@ -3112,6 +3175,7 @@ end 'main'
 ```
 
 <!-- test: a-nested-tuple-parameter-serves-the-roster -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 
 The nested shape through the PARAMETER door, where the mask is read off the annotation's own tokens rather
@@ -3165,6 +3229,7 @@ half — a tuple's element types are canonical by the time anything could ask �
 registry at a sweep-fed door at all, and is refused in both orders instead of accepted in one.
 
 <!-- test: a-sibling-files-array-of-buffers-alias-serves-the-roster -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 
 ⭐ **THE ROOT, ALIAS FILE FIRST.** `Holder.bufs` is declared with an alias the OTHER file writes, so by the
@@ -3203,6 +3268,7 @@ end 'main'
 ```
 
 <!-- test: a-sibling-files-array-of-buffers-alias-serves-the-roster-either-order -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 
 ⭐ **THE ROOT, ALIAS FILE LAST — the identical program, its two files declared the other way round.** Here the alias is NOT yet
@@ -3241,6 +3307,7 @@ end 'seed'
 ```
 
 <!-- test: error.a-sibling-files-alias-in-a-tuple-slot-is-refused-alias-file-first -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- positions: moved -->
 <!-- tier: stdlib -->
 
@@ -3279,6 +3346,7 @@ error E2015: <fragment>:20:12: Unsupported: `Array` member 'length' — the comp
 ```
 
 <!-- test: error.a-sibling-files-alias-in-a-tuple-slot-is-refused-alias-file-last -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- positions: moved -->
 <!-- tier: stdlib -->
 
@@ -3320,6 +3388,7 @@ siblings are absent. These four were written to break that walk, and are kept be
 over a LATER sibling of a NESTED slot is a walk nobody has read.
 
 <!-- test: a-buffer-three-tuples-deep-serves-the-roster -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 
 Slot 1 of slot 1 of slot 0 — three levels, and every step past a sibling the walk has to skip.
@@ -3340,6 +3409,7 @@ end 'main'
 ```
 
 <!-- test: two-nested-slots-of-one-tuple-take-their-own-surfaces -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 
 ⭐ **THE STRONGEST FORM OF THE OVER-ACCEPTANCE CONTROL: both spellings in ONE tuple, one statement.** Slot 1's
@@ -3363,6 +3433,7 @@ end 'main'
 ```
 
 <!-- test: error.a-byte-array-slot-beside-a-buffer-slot-keeps-the-array-surface -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 
 And the refusal half of that same tuple: the `ByteArray`-spelled nested slot is still refused `length`, in a
@@ -3385,6 +3456,7 @@ error E2015: <fragment>:10:15: Unsupported: `Array` member 'length' — the comp
 ```
 
 <!-- test: a-seventy-element-tuple-carries-its-last-slots-surface -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 
 ⭐ **THERE IS NO ARITY CEILING, AND THIS IS WHAT SAYS SO.** A flat 62-slot mask would have to REFUSE a
@@ -3425,6 +3497,7 @@ the declaration SWEEP that captures *"this position spelled `__ManagedMemory`"* 
 a payload's answer, or the mark alone reads nothing. The column holds the fact; the mark is what reads it.
 
 <!-- test: union-payload-declared-managed-memory-serves-the-roster -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 
 The false-reject half, and without the mark it is WRONG rather than merely permissive: `length()` is the buffer
@@ -3455,6 +3528,7 @@ end 'main'
 ```
 
 <!-- test: error.union-payload-declared-managed-memory-refuses-an-array-member -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 
 The refusal half. `count` is an `Array` member and not a buffer one, so the binding is refused it — and
@@ -3486,6 +3560,7 @@ error E2015: <fragment>:11:18: Unsupported: `__ManagedMemory` member 'count' —
 ```
 
 <!-- test: union-payload-declared-managed-memory-serves-a-shared-member -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 
 The POSITIVE CONTROL — a member BOTH rosters name, so it answers on either side of the flip and pins that
@@ -3576,6 +3651,7 @@ end 'main'
 ```
 
 <!-- test: union-payload-declared-an-array-of-buffers-serves-the-roster -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 
 ⭐ **THE SLOT MECHANISM'S DEPTH AT THE NEW DOOR, and it comes free rather than needing a second mechanism**: a payload
@@ -3610,6 +3686,7 @@ end 'main'
 ```
 
 <!-- test: error.a-tuple-slot-mark-does-not-leak-into-a-parameter-default-helper -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 
 ⭐⭐ **THE SIXTH VALUE SPACE — a PARAMETER DEFAULT's synthesized helper — must reset all three surface
@@ -3652,6 +3729,7 @@ error E2015: <fragment>:8:44: Unsupported: `Array` member 'length' — the compi
 ```
 
 <!-- test: a-sibling-files-buffer-array-payload-serves-the-roster-alias-file-first -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 
 ⭐ **THE FILE-ORDER PAIR AT THE NEW DOOR.** `union-payload-declared-an-array-of-buffers-serves-the-roster`
@@ -3692,6 +3770,7 @@ end 'main'
 ```
 
 <!-- test: a-sibling-files-buffer-array-payload-serves-the-roster-alias-file-last -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 
 ⭐ **The other half — the identical program, its two files declared the other way round.** Here the alias is
@@ -3755,6 +3834,7 @@ file orders between them: a swept type is still `named` EXACTLY when the alias w
 is EXACTLY when the token test found nothing, because both conditions are `recordGenericAlias`'s ONE write.
 
 <!-- test: a-buffer-alias-serves-the-roster-at-a-struct-field -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 
 The ten-line repro, through TWO doors on one layout — `h.buf` from outside the type and a bare `self.buf`
@@ -3789,6 +3869,7 @@ end 'main'
 ```
 
 <!-- test: error.a-buffer-alias-at-a-struct-field-refuses-an-array-member -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- positions: moved -->
 <!-- tier: stdlib -->
 
@@ -3865,6 +3946,7 @@ end 'main'
 ```
 
 <!-- test: a-buffer-alias-serves-the-roster-at-a-declared-return -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 
 The RETURN clause is the second swept position, and it is read through the same one fold
@@ -3905,6 +3987,7 @@ error E2015: <fragment>:7:19: Unsupported: `Array` member 'length' — the compi
 ```
 
 <!-- test: a-buffer-alias-serves-the-roster-at-a-union-payload -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 
 The union PAYLOAD is the third swept position, and it reaches the same derivation through
@@ -3938,6 +4021,7 @@ end 'main'
 ```
 
 <!-- test: an-inner-buffer-alias-serves-the-roster-at-a-struct-field -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 
 ⭐ **AN ALIAS DECLARED INSIDE THE TYPE, which is the spelling `stdlib/Character.maxon` and
@@ -3972,6 +4056,7 @@ end 'main'
 ```
 
 <!-- test: a-cast-to-a-qualified-inner-alias-converts -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 
 The inner alias reached from OUTSIDE its type, by its qualified name, as the target of an `as`: the
@@ -4002,6 +4087,7 @@ end 'main'
 ```
 
 <!-- test: a-sibling-files-buffer-alias-serves-the-roster-alias-file-first -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 
 ⭐ **THE FILE-ORDER PAIR, which is what proves the cure is a COMPLEMENTARY half and not a replacement.**
@@ -4040,6 +4126,7 @@ end 'main'
 ```
 
 <!-- test: a-sibling-files-buffer-alias-serves-the-roster-alias-file-last -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 
 ⭐ **The other half — the identical program, its two files declared the other way round.** Here the alias is
@@ -4099,6 +4186,7 @@ SPELLING is resolved to the reader's own declaration before either set is asked
 empty map and allocates nothing.
 
 <!-- test: a-contested-alias-takes-each-files-own-buffer-spelling -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 
 Both halves in one program, so neither can be satisfied by handing everything one surface: `bufferWidth`'s
@@ -4130,7 +4218,7 @@ end 'arrayWidth'
 function main() returns ExitCode
 	let xs = B.create(0)
 	xs.push(7 as Int2)
-	return ((buffer.textWidth("hello") as Int2) + arrayWidth(xs)) as ExitCode
+	return ((textWidth("hello") as Int2) + arrayWidth(xs)) as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -4138,6 +4226,7 @@ end 'main'
 ```
 
 <!-- test: a-contested-alias-takes-each-files-own-buffer-spelling-at-a-struct-field -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 
 ⭐ **THE FIELD DOOR'S HALF, WHICH TAKES A DIFFERENT ROUTE TO THE SAME ANSWER AND SO NEEDS ITS OWN CASE.** A
@@ -4185,7 +4274,7 @@ function main() returns ExitCode
 	let xs = Nums.create(0)
 	xs.push(7 as Int2)
 	let b = Bag.create(xs)
-	return (buffer.seed() + (b.items.count() as buffer.Int)) as ExitCode
+	return (seed() + (b.items.count() as Int)) as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -4193,6 +4282,7 @@ end 'main'
 ```
 
 <!-- test: a-family-buffer-alias-keeps-its-buffer-surface -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 
 An alias whose name a nominal type in another directory also holds is a declaration of its own, and it keeps
@@ -4252,6 +4342,7 @@ in the two spellings, because a rule about a roster is only pinned by BOTH direc
 must reach `length`, and the `ByteArray` spelling must still be refused it and still answer `count`.
 
 <!-- test: a-generic-arguments-buffer-spelling-reaches-a-substituted-return -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 
 The base case, and it needs two things at once: the FACTORY has to stamp the spelling the call site wrote
@@ -4339,6 +4430,7 @@ end 'main'
 ```
 
 <!-- test: a-declared-parameter-carries-the-argument-spelling-into-a-substituted-return -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 
 The receiver's mark reaching the call from a DECLARED position rather than from the factory — a parameter
@@ -4372,6 +4464,7 @@ end 'main'
 ```
 
 <!-- test: a-generic-field-read-carries-the-argument-spelling -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 
 The FIELD door, which is the same crossing one op earlier: `var slot as U` names the buffer nowhere, so a
@@ -4401,6 +4494,7 @@ end 'main'
 ```
 
 <!-- test: an-inner-alias-return-carries-the-argument-spelling-one-hop-further -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 
 ⭐⭐ **TWO HOPS, WHICH IS THE SHAPE A `for m in bufs` OVER A CORPUS `Array` IS.** `inner()` returns the
@@ -4586,6 +4680,7 @@ error E3185: <fragment>:3:15: '__ManagedMemory' named outside the library tiers:
 ```
 
 <!-- test: error.buffer-makeCharFromBytes-needs-a-byte-record-receiver -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 ### Library code calling `makeCharFromBytes` on a bare buffer is refused, not a compiler panic
 

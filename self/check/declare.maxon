@@ -456,7 +456,7 @@ function requireInstance(c Checker, p ast.Project, ms ast.ModuleState, off diag.
 			names.push(ast.typeEntry(ms.types, reads: p.types, t: ast.typeEntry(ms.types, reads: p.types, t: nt).typeParams[i]).name.clone())
 		end 'params'
 		let tName = ast.typeEntry(ms.types, reads: p.types, t: nt).name.clone()
-		checkFail(c.modID, off: off, code: diag.errTypeArgumentCount, msg: "'{tName}' is generic: name an instance with a typealias, as 'typealias Name = {ast.instanceSpelling(tName, args: names)}'", errs: errs)
+		checkFailCaused(c.modID, off: off, code: diag.errTypeArgumentCount, msg: "'{tName}' is generic: name an instance with a typealias, as 'typealias Name = {ast.instanceSpelling(tName, args: names)}'", cause: diag.rawSurfaceCause(tName), errs: errs)
 	end 'generic'
 	return nt
 end 'requireInstance'

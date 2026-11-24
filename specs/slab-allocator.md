@@ -308,6 +308,7 @@ end 'main'
 ```
 
 <!-- test: slab-allocator.a-fresh-slot-reads-zero -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 **THE ZEROING CONTRACT.** The allocator hands back memory that is always zero, and the bump region is
 what makes that free: a slot that has never been handed out still holds the zeroes the OS gave the

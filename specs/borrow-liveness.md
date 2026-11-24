@@ -1631,6 +1631,7 @@ end 'main'
 ```
 
 <!-- test: a-callee-clearing-a-managed-list-leaves-a-node-handle-alive -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 ### A callee that clears a `__ManagedList` does NOT free the node a handle still names
 
 ⚖ **USER RULING — NODES ARE REFCOUNTED AND A HANDLE IS A SECOND OWNER.** `clear` drops the CHAIN's
@@ -1662,6 +1663,7 @@ end 'main'
 ```
 
 <!-- test: a-callee-inserting-into-a-managed-list-keeps-every-handle -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 ### An INSERTION in a callee disturbs no handle the caller holds
 A chain's nodes are individually allocated and never move, so an insertion rewrites two link words
 and dangles nothing. This case pins that a **cross-function** insertion leaves every outstanding handle
@@ -3244,6 +3246,7 @@ hook
 ```
 
 <!-- test: a-raw-cursor-current-survives-a-clear-of-its-buffer -->
+<!-- skip: language difference: a place passed mutates, consumes or sets overlaps nothing else the call or the statement holds, where maxon shares the place by a reference count -->
 <!-- tier: stdlib -->
 ### A value read through a raw buffer cursor survives a `clear` of the buffer
 The raw cursor's `current()` is an element read like `get`: it counts what it returns, so the buffer's

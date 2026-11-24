@@ -53,6 +53,7 @@ which a count passes through zero, because no count moves down.
 ## Tests
 
 <!-- test: insert-after-and-before-splice-around-a-named-node -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 Both interior insertions, on one chain, checked by walking the whole thing forwards — and then by reading
 every handle again, which is what catches a splice that linked the node into the walk but left a
 neighbour pointing at the wrong side.
@@ -93,6 +94,7 @@ alpha, long enough to be a real heap allocation | beta, long enough to be a real
 ```
 
 <!-- test: inserting-beside-a-node-of-another-chain-aborts -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 Two chains of one element type share a `__ManagedListNode` type, so a handle carried between two NAMED
 chains type-checks at the call and no compile-time rule can see it — the same hole `remove` meets, one
 member over. `owner@32` names the chain a node belongs to and the splice compares against it.
@@ -125,6 +127,7 @@ before
 ```
 
 <!-- test: inserting-beside-a-detached-node-aborts -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 The other state `owner@32` catches, and it is not the same program: a detached node belongs to NO chain,
 so a splice around it would link the new node to a pair of zeroed neighbours and leave the header
 untouched — one element the chain counts and cannot reach. The test is `owner == list`, which answers
@@ -153,6 +156,7 @@ before
 ```
 
 <!-- test: reinserting-a-node-into-its-own-chain-is-a-reorder -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 The self-move, in both directions, including the case a hand-written unlink gets wrong: a chain of ONE,
 where the node is both `head` and `tail` and the unlink must leave the chain genuinely empty for the
 relink's empty-list arm to adopt both ends again.
@@ -208,6 +212,7 @@ one, long enough to be a real heap allocation
 ```
 
 <!-- test: reinserting-a-detached-node-links-it-back -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 The member `detach` earns, and the one arm where the new chain takes a reference of its own — a detached
 node is held only by handles, so the relink has nothing handed to it. Miss that incref and the node dies
 with its last handle while the chain still lists it; take one on the LINKED arm as well and the node
@@ -242,6 +247,7 @@ one, long enough to be a real heap allocation
 ```
 
 <!-- test: reinserting-a-node-of-another-chain-moves-it -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 Where `insertAfter` aborts, this is well defined and runs: the unlink repairs the chain `owner@32`
 names — not the receiver's — so both counts are right afterwards, and the one chain reference the node
 carried simply belongs to the new chain.
@@ -278,6 +284,7 @@ the element that stays in chain a, on the heap the element chain a is about to t
 ```
 
 <!-- test: setting-a-value-releases-the-one-it-replaced -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 The leak direction of `setValue`, and the reason it needs a loop: a single overwrite that forgets to
 release the displaced element still prints the right answer. Sixteen do too — and end at **101**.
 ```maxon
@@ -308,6 +315,7 @@ a replacement element, long enough to be a real allocation
 ```
 
 <!-- test: setting-a-value-on-a-node-the-chain-let-go -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 A detached node still owns its element, so it still owes the release when one replaces it — and the node
 is the only thing that can do it, because no chain lists it any more. The read afterwards is through the
 handle alone.
@@ -331,6 +339,7 @@ the element that replaced it after the detach, on the heap 0
 ```
 
 <!-- test: setting-a-value-through-a-let-handle-writes-the-node -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 `setValue` is the one member that WRITES a node, and a `let`-bound handle is accepted exactly as a
 `let`-bound chain's `insertLast` is: a `let` forbids reassigning the name, not writing the node it names.
 
@@ -355,6 +364,7 @@ a replacement element, long enough to be a real allocation
 ```
 
 <!-- test: detaching-through-a-let-chain-writes-the-chain -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 `detach` writes `head@0`, `tail@8` and `count@16`, so it is on the receiver-write roster: `ml.detach(n)`
 through a `let` is accepted exactly as the identical `ml.remove(n)` is, or one operation would give two
 answers about the same binding. The chain is built in a helper
@@ -387,6 +397,7 @@ end 'main'
 ```
 
 <!-- test: a-discarded-insertion-mints-no-handle -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 ⭐ **A DISCARDED INSERTION.** An insertion whose node nobody reads pays no refcount round trip:
 `insertLast(x)` in statement position emits the link and nothing else — no `__mm_incref` for the
 statement's own drain to cancel with a `__list_node_decref` one instruction later.

@@ -426,7 +426,7 @@ type function struct {
 	// Self is how a method takes its receiver: "", "mutates" or "consumes".
 	Self string
 	// Params are "convention name Type", the convention left out when it is let, and "name:" for one that a call labels
-	// even where it is the first argument. A let parameter of an enum row may end in " = case", the case a call that leaves the
+	// even where it is the first argument, "name?" for one after the first that a call may also give by its place. A let parameter of an enum row may end in " = case", the case a call that leaves the
 	// argument out gives.
 	Params []string
 	// Result is the type it returns; "" is Void.
@@ -577,6 +577,9 @@ const maxSyscallArgs = 6
 
 var tableFunctions = []function{
 	{Owner: "Array", Name: "create", Static: true, Params: []string{"count ElementIndex"}, Result: "Self", Intrinsic: "ArrayCreate", Checked: true},
+	// create(n, zeroed:) is maxon's one allocation with a stated capacity: zeroed: true is create(n), and zeroed: false an empty
+	// array with room for n, which is legal for every element. The flag is a literal.
+	{Owner: "Array", Name: "create", Static: true, Params: []string{"count ElementIndex", "zeroed Bool"}, Result: "Self", Intrinsic: "ArrayCreateZeroed", Field: "ArrayCreateZeroed", Checked: true},
 	{Owner: "Array", Name: "filled", Static: true, Params: []string{"count ElementIndex", "consumes value T"}, Result: "Self", Bounds: []string{"T Copyable"}, Intrinsic: "ArrayFilled"},
 	{Owner: "Array", Name: "count", Result: "Count", Intrinsic: "ArrayCount"},
 	{Owner: "Array", Name: "isEmpty", Result: "Bool", Intrinsic: "ArrayIsEmpty"},
@@ -626,6 +629,25 @@ var tableFunctions = []function{
 	// A buffer's length is the count of its elements, and get gives a copy of the one at an index below it, as an array's do.
 	{Owner: "ManagedMemory", Name: "length", Result: "Count", Intrinsic: "ArrayCount"},
 	{Owner: "ManagedMemory", Name: "get", Params: []string{"index ElementIndex"}, Result: "T", Bounds: []string{"T Copyable"}, Throws: "ManagedMemoryError", Intrinsic: "ArrayGet"},
+	// The buffer operations of maxon that an array operation does the same as, each of which throws where maxon's does. A
+	// buffer is the array here, so set is bounded by the length where maxon's is by the capacity, slice copies where maxon's is
+	// a view of the parent, and grow is reserve, which changes nothing a program sees. What has no counterpart is not
+	// provided: setByte, which writes a buffer under another type than its element's, a buffer of no element type, a view that
+	// shares a buffer, and a write that detaches a shared buffer.
+	{Owner: "ManagedMemory", Name: "capacity", Result: "ReportedCapacity", Intrinsic: "ArrayCapacity"},
+	// elementSize is the bytes an element takes, what sizeof gives for it: a constant of the instance, which maxon's driftsort
+	// sizes its scratch by. No element is bit-packed here, so it is never maxon's negative bit width.
+	{Owner: "ManagedMemory", Name: "elementSize", Result: "FullRangeInt", Intrinsic: "ArrayElementSize"},
+	{Owner: "ManagedMemory", Name: "set", Self: "mutates", Params: []string{"index ElementIndex", "consumes value? T"}, Bounds: []string{"T Droppable"}, Throws: "ManagedMemoryError", Intrinsic: "ArraySet"},
+	// swap exchanges two elements where they are: neither is copied or dropped, so no element needs a bound. It is the buffer's
+	// row, and maxon's Array.swap, which its sorts call, is library code over it.
+	{Owner: "ManagedMemory", Name: "swap", Self: "mutates", Params: []string{"i ElementIndex", "j? ElementIndex"}, Throws: "ManagedMemoryError", Intrinsic: "ArraySwap"},
+	{Owner: "ManagedMemory", Name: "append", Self: "mutates", Params: []string{"other Self"}, Bounds: []string{"T Copyable"}, Intrinsic: "ArrayAppend"},
+	{Owner: "ManagedMemory", Name: "remove", Self: "mutates", Params: []string{"at ElementIndex"}, Result: "T", Throws: "ManagedMemoryError", Intrinsic: "ArrayRemove"},
+	{Owner: "ManagedMemory", Name: "clear", Self: "mutates", Bounds: []string{"T Droppable"}, Intrinsic: "ArrayClear"},
+	{Owner: "ManagedMemory", Name: "slice", Params: []string{"start ElementIndex", "endIndex? ElementIndex"}, Result: "Self", Bounds: []string{"T Copyable"}, Throws: "ManagedMemoryError", Intrinsic: "ArraySlice"},
+	{Owner: "ManagedMemory", Name: "grow", Self: "mutates", Params: []string{"newCapacity ElementIndex"}, Intrinsic: "ArrayReserve"},
+	{Owner: "ManagedMemory", Name: "setLength", Self: "mutates", Params: []string{"newLength ElementIndex"}, Bounds: []string{"T Droppable"}, Intrinsic: "ArrayResize", Checked: true},
 	// A cursor starts at the first element, so an empty buffer has none; a move that would leave the elements fails and
 	// leaves it where it was, so a cursor always names an element, which current() lends.
 	{Owner: "ManagedMemory", Name: "createCursor", Result: "ManagedMemoryCursor with T", Throws: "ManagedMemoryError", Intrinsic: "CursorCreate"},
@@ -844,6 +866,9 @@ var tableFunctions = []function{
 	// floatToBits is the 64 bits of a double read as an integer, as maxon's is: a reinterpretation, which the library's
 	// float hash folds.
 	{Owner: "Builtins", Name: "floatToBits", Static: true, Params: []string{"_ Float"}, Result: "FullRangeInt", Intrinsic: "FloatToBits", Instead: "the float's own operations"},
+	// fillRandom overwrites every byte of a buffer of bytes with the system's entropy, which Random.bytes asks for. It gives 0 where
+	// maxon's gives a non-zero answer for a refusal, which here is a panic.
+	{Owner: "Builtins", Name: "fillRandom", Static: true, Params: []string{"mutates _ ManagedMemory with Byte"}, Result: "Count", Intrinsic: "RandomFill", Instead: "Random.bytes(count)"},
 	// bitsToFloat is its inverse: the double whose 64 bits are the integer, the only way to make an infinity or a NaN.
 	{Owner: "Builtins", Name: "bitsToFloat", Static: true, Params: []string{"_ FullRangeInt"}, Result: "Float", Intrinsic: "BitsToFloat", Instead: "the float's own operations"},
 	// The seeded hash of maxon's runtime, its software fold: hashSeed is the fold of no bytes under the process's secret,
@@ -995,6 +1020,7 @@ var entries = []entry{
 	{"SchedUnpin", "rt.unpin", "Source", roleCall, "(): undoes one pin of the running green thread, Go's UnlockOSThread"},
 	{"HashSeed", "rt.hash.seed", "Source", roleCall, "() -> the fold of no bytes under the process's secret, which the first hash of the process draws or reads from MAXON_HASH_SEED"},
 	{"HashSeedDraw", "rt.hash.draw", "Source", roleCall, "() -> a fresh secret from the system, or the next of the sequence a pinned process draws"},
+	{"RandomFill", "rt.random.fill", "Source", roleCall, "(ByteArray) -> 0: overwrites every byte of the array with the system's entropy"},
 	{"HashWord", "rt.hash.word", "Source", roleCall, "(word, seed) -> the fold of the word's 8 bytes under the seed"},
 	{"HashBytes", "rt.hash.bytes", "Source", roleCall, "(ByteArray, at, count, seed) -> the fold of the count bytes from at under the seed; a span past the end panics"},
 	{"HashStringBytes", "rt.hash.string", "Source", roleCall, "(String, at, count, seed) -> the fold of the count bytes of the string from at under the seed; a span past the end panics"},
@@ -1181,6 +1207,7 @@ var runtimeFunctions = []runtimeFunction{
 	{"SchedUnpin", "schedUnpin()"},
 	{"HashSeed", "hashSeed() Count"},
 	{"HashSeedDraw", "drawHashSeed() Count"},
+	{"RandomFill", "randomFill(array Count) Count"},
 	{"HashWord", "hashWord(word Count, seed Count) Count"},
 	{"HashBytes", "hashBytes(array Count, at Count, count Count, seed Count) Count"},
 	{"HashStringBytes", "hashStringBytes(text String, at Count, count Count, seed Count) Count"},

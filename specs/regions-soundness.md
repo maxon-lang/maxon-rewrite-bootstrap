@@ -1916,6 +1916,7 @@ end 'main'
 ```
 
 <!-- test: a-runtime-buffer-bound-as-isolated-moves-into-a-fresh-array -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 A fresh buffer bound `as isolated` is written through one-call opens and then moved into `ByteArray.init`, so the array is returned as `isolated` without a copy.
 

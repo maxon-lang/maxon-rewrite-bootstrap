@@ -31,7 +31,7 @@ A thousand draws below 6 each land in `0 upto 6`, and every one of the six value
 typealias FaceCounts = Array with bool
 
 function main() returns ExitCode
-	let seen = FaceCounts.create(0)
+	var seen = FaceCounts.create(0)
 	seen.resize(6)
 	for _ in 0 upto 1000 'eachDraw'
 		let face = try Random.below(6) otherwise return 1
@@ -125,7 +125,7 @@ top half seen
 ```maxon
 function main() returns ExitCode
 	let only = try Random.below(1) otherwise return 1
-	return (42 + only) as ExitCode
+	return try (42 + only) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -152,7 +152,7 @@ request is bytes 768 to 999, and 232 bytes drawn at random are all zero with pro
 typealias ByteTally = int(0 to 1000)
 
 function main() returns ExitCode
-	let bytes = ByteArray.create(0)
+	var bytes = ByteArray.create(0)
 	bytes.resize(1000)
 	if __Builtins.fillRandom(bytes.managed) != 0 'refused'
 		return 1
@@ -160,7 +160,7 @@ function main() returns ExitCode
 	var nonZeroInTheLastPiece = 0 as ByteTally
 	for (iter, byte) in bytes.enumerated() 'eachByte'
 		if iter >= 768 and byte != 0 'filled'
-			nonZeroInTheLastPiece = nonZeroInTheLastPiece + 1
+			nonZeroInTheLastPiece = try nonZeroInTheLastPiece + 1 otherwise panic("out of range")
 		end 'filled'
 	end 'eachByte'
 	if nonZeroInTheLastPiece == 0 'unfilled'
@@ -196,13 +196,13 @@ type Sink
 		return Sink{bytes: ByteArray.create(0)}
 	end 'create'
 
-	function fill()
+	function fill(mutates self)
 		_ = __Builtins.fillRandom(self.bytes.managed)
 	end 'fill'
 end 'Sink'
 
 function main() returns ExitCode
-	let sink = Sink.create()
+	var sink = Sink.create()
 	sink.fill()
 	return 0
 end 'main'
@@ -216,12 +216,12 @@ end 'main'
 A function that fills its `ByteArray` parameter's buffer writes that parameter, and handing it a `let` binding is
 accepted at the call.
 ```maxon
-function fill(drawn ByteArray)
+function fill(mutates drawn ByteArray)
 	_ = __Builtins.fillRandom(drawn.managed)
 end 'fill'
 
 function main() returns ExitCode
-	let drawn = ByteArray.create(0)
+	var drawn = ByteArray.create(0)
 	fill(drawn)
 	return 0
 end 'main'
@@ -313,7 +313,7 @@ Two equal 32-byte draws happen with probability 2^-256, and a repeat among a tho
 function toHex(bytes ByteArray) returns String
 	var text = ""
 	for byte in bytes 'eachByte'
-		text.append("{byte:02x}")
+		text = "{text}{byte:02x}"
 	end 'eachByte'
 	return text
 end 'toHex'
@@ -325,7 +325,7 @@ typealias FailureTally = int(0 to 100)
 typealias DrawSet = Set with String
 
 function uniqueFailures(id String, count RandomByteCount, repeat DrawRepeat) returns FailureTally
-	let seen = DrawSet.create()
+	var seen = DrawSet.create()
 	for _ in 1 to repeat 'eachDraw'
 		let drawn = try Random.bytes(count) otherwise return 1
 		let hex = toHex(drawn)
@@ -360,7 +360,7 @@ typealias DistinctTally = int(0 to 256)
 typealias ValueSeen = Array with bool
 
 function distinctValues(drawn ByteArray) returns DistinctTally
-	let seen = ValueSeen.create(0)
+	var seen = ValueSeen.create(0)
 	seen.resize(256)
 	for byte in drawn 'eachByte'
 		try seen.set(byte as ElementIndex, value: true) otherwise panic("a byte indexes 256 slots")
@@ -368,7 +368,7 @@ function distinctValues(drawn ByteArray) returns DistinctTally
 	var distinct = 0 as DistinctTally
 	for wasSeen in seen 'eachValue'
 		if wasSeen 'counted'
-			distinct = distinct + 1
+			distinct = try distinct + 1 otherwise panic("out of range")
 		end 'counted'
 	end 'eachValue'
 	return distinct

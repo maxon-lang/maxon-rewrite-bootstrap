@@ -51,7 +51,7 @@ typealias Q = int(0 to 3)
 typealias QArray = Array with Q
 
 function main() returns ExitCode
-	let a = QArray.create(0)
+	var a = QArray.create(0)
 	a.push(0)
 	a.push(1)
 	a.push(2)
@@ -63,7 +63,7 @@ function main() returns ExitCode
 	var sum = 0 as ExitCode
 	var i = 0 as ElementIndex
 	while i < 5 'read'
-		sum = sum + ((try a.get(i) otherwise 0) as ExitCode)
+		sum = try sum + ((try a.get(i) otherwise 0) as ExitCode) otherwise panic("out of range")
 		i = i + 1
 	end 'read'
 	return sum
@@ -81,7 +81,7 @@ typealias N = int(0 to 15)
 typealias NArray = Array with N
 
 function main() returns ExitCode
-	let a = NArray.create(0)
+	var a = NArray.create(0)
 	a.push(15)
 	a.push(1)
 	a.push(8)
@@ -103,7 +103,7 @@ typealias U = int(0 to 1)
 typealias UArray = Array with U
 
 function main() returns ExitCode
-	let a = UArray.create(0)
+	var a = UArray.create(0)
 	a.push(1)
 	a.push(0)
 	a.push(1)
@@ -125,7 +125,7 @@ typealias W = int(0 to 16)
 typealias WArray = Array with W
 
 function main() returns ExitCode
-	let a = WArray.create(0)
+	var a = WArray.create(0)
 	a.push(16)
 	if a.managed.elementSize() != 1 'shouldBeByte'
 		return 99
@@ -145,12 +145,12 @@ typealias Octet = int(0 to 255)
 typealias OctetArray = Array with Octet
 
 function main() returns ExitCode
-	let a = OctetArray.create(0)
+	var a = OctetArray.create(0)
 	a.push(200)
 	if a.managed.elementSize() != 1 'shouldBeByte'
 		return 99
 	end 'shouldBeByte'
-	return (try a.get(0) otherwise 0) - 100
+	return try (try a.get(0) otherwise 0) - 100 otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -165,7 +165,7 @@ typealias Offset = int(1 to 3)
 typealias OffsetArray = Array with Offset
 
 function main() returns ExitCode
-	let a = OffsetArray.create(0)
+	var a = OffsetArray.create(0)
 	a.push(2)
 	if a.managed.elementSize() != 1 'shouldBeByte'
 		return 99
@@ -183,7 +183,7 @@ end 'main'
 typealias BoolArray = Array with bool
 
 function main() returns ExitCode
-	let a = BoolArray.create(0)
+	var a = BoolArray.create(0)
 	a.push(true)
 	a.push(false)
 	a.push(true)
@@ -205,7 +205,7 @@ typealias Q = int(0 to 3)
 typealias QArray = Array with Q
 
 function main() returns ExitCode
-	let a = QArray.create(0)
+	var a = QArray.create(0)
 	var i = 0 as ElementIndex
 	while i < 40 'fill'
 		a.push((i mod 4) as Q)

@@ -586,8 +586,8 @@ func TestConvertLibraryRules(t *testing.T) {
 		{
 			name: "an extension of a built-in generic type names its parameter as the table does, and gives no conditional conformance",
 			file: "Array.maxon",
-			in:   "public type Array uses Element implements Iterable with (Element, ArrayIter)\n\tpublic typealias ArrayIter = ArrayIterator with Element\n\n\tpublic function count() returns Count\n\t\treturn 0\n\tend 'count'\n\n\tpublic function createIterator() returns ArrayIter throws IterationError\n\t\treturn try ArrayIter.create(managed)\n\tend 'createIterator'\n\n\tpublic function cursor() returns ArrayIter throws IterationError\n\t\treturn try ArrayIter.create(managed)\n\tend 'cursor'\nend 'Array'\n\npublic extension Array implements Hashable where Element implements Hashable\n\tpublic function hash() returns HashValue\n\t\tif __Builtins.elementsHashAsStorage() 'storage'\n\t\t\treturn 0\n\t\tend 'storage'\n\t\treturn managed.length() as HashValue\n\tend 'hash'\n\n\tpublic function count() returns Count\n\t\treturn 0\n\tend 'count'\nend 'Array'\n",
-			want: "extension Array implements Iterable with (T, ArrayIter)\n\tpublic typealias ArrayIter = ArrayIterator with T\n\n\tpublic function createIterator() returns ArrayIter throws IterationError\n\t\treturn try ArrayIter.create(self.managed)\n\tend 'createIterator'\n\n\tpublic function cursor() returns ArrayIter throws IterationError\n\t\treturn try ArrayIter.create(self.managed)\n\tend 'cursor'\nend 'Array'\n\npublic extension Array where T implements Hashable\n\tpublic function hash() returns HashValue\n\t\treturn self.managed.length() as HashValue\n\tend 'hash'\nend 'Array'\n",
+			in:   "public type Array uses Element implements Iterable with (Element, ArrayIter)\n\tpublic typealias ArrayIter = ArrayIterator with Element\n\tpublic typealias ElementMemory = __ManagedMemory with Element\n\n\tpublic function count() returns Count\n\t\treturn 0\n\tend 'count'\n\n\tpublic function appendMemory(source ElementMemory)\n\t\tmanaged.append(source)\n\tend 'appendMemory'\n\n\tpublic function createIterator() returns ArrayIter throws IterationError\n\t\treturn try ArrayIter.create(managed)\n\tend 'createIterator'\n\n\tpublic function cursor() returns ArrayIter throws IterationError\n\t\treturn try ArrayIter.create(managed)\n\tend 'cursor'\nend 'Array'\n\npublic extension Array implements Hashable where Element implements Hashable\n\tpublic function hash() returns HashValue\n\t\tif __Builtins.elementsHashAsStorage() 'storage'\n\t\t\treturn 0\n\t\tend 'storage'\n\t\treturn managed.length() as HashValue\n\tend 'hash'\n\n\tpublic function count() returns Count\n\t\treturn 0\n\tend 'count'\nend 'Array'\n",
+			want: "extension Array implements Iterable with (T, ArrayIter)\n\tpublic typealias ArrayIter = ArrayIterator with T\n\tpublic typealias ElementMemory = __ManagedMemory with T\n\n\tpublic function appendMemory(source ElementMemory)\n\t\tself.managed.append(source)\n\tend 'appendMemory'\n\n\tpublic function createIterator() returns ArrayIter throws IterationError\n\t\treturn try ArrayIter.create(self.managed)\n\tend 'createIterator'\n\n\tpublic function cursor() returns ArrayIter throws IterationError\n\t\treturn try ArrayIter.create(self.managed)\n\tend 'cursor'\nend 'Array'\n\npublic extension Array where T implements Hashable\n\tpublic function hash() returns HashValue\n\t\treturn self.managed.length() as HashValue\n\tend 'hash'\nend 'Array'\n",
 		},
 	}
 	for _, tc := range cases {
@@ -613,11 +613,6 @@ func TestConvertUnsupportedConstructsEmitTodosAndWarnings(t *testing.T) {
 			name:     "caller-location default",
 			in:       "function check(ok bool, from String = __file__)\n\tprint(from)\nend 'check'\n",
 			wantTodo: "the caller-location default '__file__'",
-		},
-		{
-			name:     "ranged typealias in a generic type",
-			in:       "type Bin uses Element\n\ttypealias Idx = int(0 to u64.max)\nend 'Bin'\n",
-			wantTodo: "ranged typealiases in a generic type",
 		},
 		{
 			name:     "typealias in an enum",
@@ -663,11 +658,6 @@ func TestConvertUnsupportedConstructsEmitTodosAndWarnings(t *testing.T) {
 			name:     "extension of a library type with no counterpart",
 			in:       "extension Set\n\tfunction x() returns Count\n\t\treturn 0\n\tend 'x'\nend 'Set'\n",
 			wantTodo: "extensions of 'Set'",
-		},
-		{
-			name:     "ranged typealias in an extension of a generic type",
-			in:       "extension Array\n\ttypealias Level = int(0 to 64)\nend 'Array'\n",
-			wantTodo: "ranged typealiases in a generic type",
 		},
 		{
 			name:     "qualified case names in a handler's match",

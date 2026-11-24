@@ -864,6 +864,7 @@ end 'main'
 ```
 
 <!-- test: rc-managed-list-insert-incref -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 Inserting a struct into a managed list increfs the value; the node holds the reference.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -890,6 +891,7 @@ end 'main'
 ```
 
 <!-- test: rc-managed-list-remove-decrefs -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 Removing a node from a managed list transfers ownership; value is freed when the result var leaves scope.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -916,6 +918,7 @@ end 'main'
 ```
 
 <!-- test: rc-managed-list-clear-decrefs-all -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 Clearing a managed list decrefs every node value; all values freed when rc hits 0.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -944,6 +947,7 @@ end 'main'
 ```
 
 <!-- test: rc-managed-list-node-set-value-decrefs-old -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 Calling `setValue` on a managed list node decrefs the old value and increfs the new one.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -1981,6 +1985,7 @@ hello
 ```
 
 <!-- test: rc-managed-list-remove-single-no-leak -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 Removing a node from a managed list must properly decref the node's value. The managed list node itself and the stored value must both be freed.
 ```maxon
 typealias Integer = int(i64.min to i64.max)

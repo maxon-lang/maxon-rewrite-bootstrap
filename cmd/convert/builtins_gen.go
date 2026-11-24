@@ -101,7 +101,7 @@ var builtinNames = map[string]bool{
 var builtinMethods = map[string][]string{
 	"Array":                 {"create", "filled", "count", "isEmpty", "capacity", "get", "set", "push", "append", "insert", "remove", "pop", "dropEmpty", "clear", "truncate", "reserve", "resize", "slice", "growFilled", "refill", "clearSlot", "contains", "containsSequence", "equals", "first", "last", "awaitAny"},
 	"FixedArray":            {"create", "count", "get", "set", "refill"},
-	"__ManagedMemory":       {"length", "get", "createCursor"},
+	"__ManagedMemory":       {"length", "get", "capacity", "elementSize", "set", "swap", "append", "remove", "clear", "slice", "grow", "setLength", "createCursor"},
 	"__ManagedMemoryCursor": {"current", "index", "advance", "retreat", "seek", "peek"},
 	"__ListCursor":          {"create", "current", "advance"},
 	"__StringCursor":        {"create", "current", "advance"},
@@ -128,6 +128,6 @@ var builtinMethods = map[string][]string{
 	"Subprocess":            {"run", "runWithDeadline", "runInDirectory"},
 	"CollectedOutput":       {"exitCode", "succeeded"},
 	"Debuggee":              {"launch", "waitEvent", "continueEvent", "readMemory", "writeCode", "readContext", "writeContext", "suspend", "resume", "breakIn", "detach", "closeHandle", "terminate"},
-	"Builtins":              {"currentProcessId", "currentTimeNanos", "floatToBits", "bitsToFloat", "trailingZeros", "hashSeed", "drawHashSeed", "hashWord", "hashBytes", "readBigEndian", "readLittleEndian", "appendBigEndian", "appendLittleEndian"},
+	"Builtins":              {"currentProcessId", "currentTimeNanos", "floatToBits", "fillRandom", "bitsToFloat", "trailingZeros", "hashSeed", "drawHashSeed", "hashWord", "hashBytes", "readBigEndian", "readLittleEndian", "appendBigEndian", "appendLittleEndian"},
 	"Raw":                   {"loadByte", "loadWord16", "loadWord32", "loadWord", "storeByte", "storeWord16", "storeWord32", "storeWord", "loadAcquire", "storeRelease", "wrappingAdd", "wrappingSub", "mulHigh", "addressOf", "stringBytes", "stringLength", "stringAscii", "stringRoom", "freeStringRoom", "stringOf", "stringSize", "storeString", "stringBytesAt", "stringLengthAt", "heapAddress", "stdoutAddress", "stderrAddress", "atomicAdd", "atomicExchange", "compareExchange", "spinPause", "threadContext", "callCode1", "callHost2", "threadStartAddress", "stackSwitchAddress", "greenStartAddress", "asyncPreemptAddress", "preemptibleCodeAddress", "codeAddress", "callImport0", "callImport1", "callImport2", "callImport3", "callImport4", "callImport5", "callImport6", "callImport7", "callImport8", "callImport9", "callImport10", "syscall0", "syscall1", "syscall2", "syscall3", "syscall4", "syscall5", "syscall6", "processStartAddress", "preemptHandlerAddress", "signalReturnAddress"},
 }

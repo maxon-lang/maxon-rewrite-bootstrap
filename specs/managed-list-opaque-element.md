@@ -35,6 +35,7 @@ passes just as happily with the destructor hard-wired.
 ## Tests
 
 <!-- test: a-chain-at-an-opaque-element-holds-managed-values -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 The base case. Every element is a heap `String` the chain owns; the run must end with nothing leaked,
 which is what the exit code reports.
 ```maxon
@@ -72,6 +73,7 @@ end 'main'
 ```
 
 <!-- test: a-chain-at-an-opaque-element-holds-trivial-values -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 The trivial control. The same generic body, an element with no destructor: the stamp must be the
 trivial one and the walk must release nothing.
 ```maxon
@@ -110,6 +112,7 @@ end 'main'
 ```
 
 <!-- test: two-instantiations-of-one-chain-body-carry-their-own-stamps -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 ⭐⭐ **THE CONTROL THAT MATTERS.** One generic body, two instantiations, in one program. They share the
 compiled body and must not share the element destructor: the `String` bag has to release its elements
 and the `int` bag has to release nothing. A wrong stamp shows up here as a leak (exit 101) or a fault,
@@ -156,6 +159,7 @@ end 'main'
 ```
 
 <!-- test: clearing-a-chain-of-opaque-managed-elements-releases-them -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 `clear()` is the runtime walk that reads `element_drop@24` and releases every element still held. With
 an opaque element that stamp is the descriptor's, so this is the case where a zero stamp leaks rather
 than merely being unused.
@@ -198,6 +202,7 @@ end 'main'
 ```
 
 <!-- test: two-type-parameters-each-with-their-own-chain -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 ⭐⭐ **THE BLOCK-OFFSET HAZARD, PINNED.** A layout descriptor reserves one block **per type
 parameter**, so a type with two of them holds two chains whose stamps come from two different blocks of
 one descriptor. Reading the wrong block is not a refusal — it stamps the *other* parameter's destructor,

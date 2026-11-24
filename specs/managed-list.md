@@ -113,6 +113,7 @@ Get the previous node. Throws `__ManagedListError.endOfList` if at the beginning
 ## Tests
 
 <!-- test: core.create-empty -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -135,6 +136,7 @@ end 'main'
 ```
 
 <!-- test: core.insert-first -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -157,6 +159,7 @@ end 'main'
 ```
 
 <!-- test: core.insert-last -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -179,6 +182,7 @@ end 'main'
 ```
 
 <!-- test: core.insert-first-multiple -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -208,6 +212,7 @@ end 'main'
 ```
 
 <!-- test: core.insert-last-multiple -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -237,6 +242,7 @@ end 'main'
 ```
 
 <!-- test: core.insert-after -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -279,6 +285,7 @@ end 'main'
 ```
 
 <!-- test: core.insert-before -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -321,6 +328,7 @@ end 'main'
 ```
 
 <!-- test: core.remove -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -352,6 +360,7 @@ end 'main'
 ```
 
 <!-- test: core.detach -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -384,6 +393,7 @@ end 'main'
 ```
 
 <!-- test: core.count -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -419,6 +429,7 @@ end 'main'
 ```
 
 <!-- test: node.value -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -439,6 +450,7 @@ end 'main'
 ```
 
 <!-- test: node.next-prev -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -484,6 +496,7 @@ end 'main'
 ```
 
 <!-- test: node.set-value -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -513,6 +526,7 @@ end 'main'
 ```
 
 <!-- test: node.set-value-old-survives -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 ```maxon
 typealias StringManagedList = __ManagedList with String
 
@@ -535,6 +549,7 @@ replacement!!!!!!!!!!!!!!
 ```
 
 <!-- test: core.clear -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -568,6 +583,7 @@ end 'main'
 ```
 
 <!-- test: core.head-empty-throws -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -592,6 +608,7 @@ caught
 ```
 
 <!-- test: core.tail-empty-throws -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -616,6 +633,7 @@ caught
 ```
 
 <!-- test: node.next-end-throws -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -648,6 +666,7 @@ caught
 ```
 
 <!-- test: node.prev-begin-throws -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -680,6 +699,7 @@ caught
 ```
 
 <!-- test: core.reinsert-first -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -722,6 +742,7 @@ end 'main'
 ```
 
 <!-- test: core.reinsert-last -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -764,6 +785,7 @@ end 'main'
 ```
 
 <!-- test: core.remove-head -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -800,6 +822,7 @@ end 'main'
 ```
 
 <!-- test: core.remove-tail -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -836,6 +859,7 @@ end 'main'
 ```
 
 <!-- test: core.remove-all -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 

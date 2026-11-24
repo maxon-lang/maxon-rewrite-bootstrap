@@ -14,6 +14,7 @@ Every lane contains that destructor under one name, whether or not the lane can 
 ## Tests
 
 <!-- test: an-array-of-process-handle-holders-is-dropped-on-every-lane -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 A lane with no process-sampling substrate cannot open a `__ManagedHandle`, so an array of structs holding one is empty there and its drop closes nothing.
 
@@ -42,6 +43,7 @@ end 'main'
 ```
 
 <!-- test: an-array-of-machine-pin-holders-is-dropped-on-every-lane -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 A lane with no green threads cannot take a `__ManagedPin`, so an array of structs holding one is empty there and its drop releases nothing.
 

@@ -101,6 +101,7 @@ door admits it.
 ## Tests
 
 <!-- test: count-agrees-with-the-buffers-length -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 The adopted array's `count()` is the buffer's `length()`, because it is the same `length@8`. The
 value is pinned as well as the agreement — two readers of one field agree even when both are
@@ -125,6 +126,7 @@ end 'main'
 ```
 
 <!-- test: written-through-the-buffer-read-through-the-array -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 Bytes stored through the BUFFER surface (`setByte`) read back through the ARRAY surface (`get`).
 This is the whole purpose of the static: fill a raw buffer, then name it as the container.
@@ -151,6 +153,7 @@ end 'main'
 ```
 
 <!-- test: the-surface-flips -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 ⭐ **THE CASE A PURE IDENTITY FAILS.** `push` is an `Array` member the buffer surface does not
 have. If `init` handed back the argument's own `ValueId`, that value would still carry the buffer
@@ -174,6 +177,7 @@ end 'main'
 ```
 
 <!-- test: the-buffer-keeps-its-own-surface -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 The other half of the flip, and it needs no error message to say it: the SOURCE is untouched by
 the adoption, so it still answers on the buffer roster (`setByte`, `length`) — while the result
@@ -203,6 +207,7 @@ end 'main'
 ```
 
 <!-- test: a-differently-named-byte-alias-still-adopts -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 The receiver is matched by INSTANCE, never by alias NAME: a second alias over `Array with Byte`
 adopts the same buffer, and the two names denote one type.
@@ -227,6 +232,7 @@ end 'main'
 ```
 
 <!-- test: both-owners-reach-scope-exit -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 ⭐ **THE REFCOUNT CASE.** The buffer and the array it was adopted into are two owners of one
 record, and both die at the same scope exit. A missing retain frees it twice; a retain with no
@@ -256,6 +262,7 @@ end 'main'
 ```
 
 <!-- test: an-unbound-result-is-dropped-at-the-statement -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 The result of `init` bound to no name is a statement-scoped owned temporary, exactly as a
 `create()`'s is. The buffer is still readable afterwards — the temporary's drop lowered the count,
@@ -279,6 +286,7 @@ end 'main'
 ```
 
 <!-- test: the-array-outlives-the-buffer-binding -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 ⭐ **THE HAND-OFF.** The buffer local dies at the end of `build`, lowering the count by one; the
 array it was adopted into is moved OUT and becomes the caller's sole owner. This is the shape
@@ -309,6 +317,7 @@ end 'main'
 ```
 
 <!-- test: a-declared-buffer-parameter-adopts -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 ⭐ **A BUFFER HANDED IN AS A PARAMETER.** The buffer arrives as a parameter DECLARED
 `__ManagedMemory` — which is where the surface mark comes from at a function boundary
@@ -340,6 +349,7 @@ end 'main'
 ```
 
 <!-- test: sixty-four-adoptions-of-one-buffer -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 The retain/drop pair has to balance every time round, not once: 64 adoptions of one record, each
 dropped at the loop body's scope exit. An off-by-one either way is exit 101 or a use-after-free on
@@ -370,6 +380,7 @@ end 'main'
 ```
 
 <!-- test: a-reallocating-grow-is-visible-through-every-adoption -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 ⭐ **THE ADOPTION IS OF THE RECORD, NOT OF THE BYTES.** Two adoptions of one buffer, then 200
 `push`es through the first — enough to reallocate `buffer@0` several times. The second adoption
@@ -401,6 +412,7 @@ end 'main'
 ```
 
 <!-- test: the-adopted-array-moves-into-a-struct-field -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 The adopted array is consumed by a static factory and stored in a field, while the buffer local
 dies at `build`'s exit. The record then has exactly one owner — the struct — and reaches `main`
@@ -464,6 +476,7 @@ end 'main'
 ```
 
 <!-- test: a-captured-buffer-adopts-inside-a-closure -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 ⭐ **THE MARK DOES NOT CROSS A CLOSURE BOUNDARY AND THE ADOPTION MUST.** `bufferSurfaceValues` is a
 per-function fact about a `ValueId`, so a captured `mm` has lost it inside the closure body —
@@ -542,6 +555,7 @@ end 'main'
 ```
 
 <!-- test: an-inner-alias-adopts -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 `parseArrayStaticCall` has TWO call sites and both adopt: a top-level generic alias, and an
 alias declared INSIDE a type body (`enclosingInnerAliases` → `innerArrayStatic`). Every case above
@@ -575,6 +589,7 @@ end 'main'
 ```
 
 <!-- test: the-adopted-array-drops-on-the-throw-edge -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 ⭐ **RELEASE ON EVERY PATH, INCLUDING THE ONE THAT DOES NOT RETURN.** The adopted array is a BOUND owner
 when the function throws past it. Its drop rides the unwind edge or it does not ride at all, and a
@@ -617,6 +632,7 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: an-unbound-adoption-is-dropped-when-the-callee-throws -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 The other half of the same question, one owner-kind over: the adoption is UNBOUND — a statement-scoped
 pending temporary handed straight to a callee — and the callee throws before it ever reads it. The
@@ -676,6 +692,7 @@ error E3005: <fragment>:6:20: argument type mismatch for 'managed': expected '__
 ```
 
 <!-- test: error.a-buffer-of-the-wrong-element -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- positions: moved -->
 <!-- tier: stdlib -->
 ⭐ **THE SILENT WRONG ANSWER THIS DOOR EXISTS TO STOP.** An `Array with Integer` over a BYTE
@@ -697,6 +714,7 @@ error E3005: <fragment>:7:19: argument type mismatch for 'managed': expected '__
 ```
 
 <!-- test: error.a-word-buffer-adopts-only-into-full-range-int-array -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- positions: moved -->
 <!-- tier: stdlib -->
 ⚠ `__ManagedMemory.create(n, elementSize: 8)` mints `FullRangeIntArray`, and `Array with Integer` is a
@@ -737,6 +755,7 @@ error E2073: <fragment>:6:20: `Array` static method 'nosuch' — the compiler pr
 ```
 
 <!-- test: a-synthesized-byte-buffer-adopts -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 ⭐⭐ **THE BYTE-BUFFER BOUNDARY AT THIS DOOR.** A COMPILER-SYNTHESIZED buffer wears the
 reserved element `__ManagedByte`, deliberately a DIFFERENT instance from the user-visible `Byte` —
@@ -771,6 +790,7 @@ end 'main'
 ```
 
 <!-- test: error.a-synthesized-buffer-is-refused-at-a-narrowed-byte -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- positions: moved -->
 <!-- tier: stdlib -->
 ⛔ **AND THE ADMISSION IS THREE QUESTIONS, NOT ONE — THIS CASE IS THE THIRD.**
