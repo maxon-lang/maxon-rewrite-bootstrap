@@ -57,6 +57,30 @@ function bodyTerminates(tree ast.Tree, body diag.U32) returns bool
 	return terminates(tree, s: tree.listAt(body, index: try n - 1 otherwise 0 as Count) as ast.NodeID)
 end 'bodyTerminates'
 
+// endsInEndlessLoop is whether the last statement of a body is a `while true` loop that no break leaves, as maxon has it: its
+// only ways out are a return, a throw or a panic inside it, so the end of the body is never reached. The jumps of the body
+// are resolved by the time it is asked.
+function endsInEndlessLoop(c Checker, tree ast.Tree, body diag.U32) returns bool
+	let n = tree.listLen(body)
+	if n == 0 'empty'
+		return false
+	end 'empty'
+	let loop = tree.listAt(body, index: n - 1) as ast.NodeID
+	if tree.kindOf(loop) != ast.NodeKind.whileStmt 'notWhile'
+		return false
+	end 'notWhile'
+	let cond = ast.whileStmtCond(tree, id: loop)
+	if tree.kindOf(cond) != ast.NodeKind.boolLit or not ast.boolLitValue(tree, id: cond) 'notEndless'
+		return false
+	end 'notEndless'
+	for i in 0 upto c.typing.jumps.capacity() 'jumps'
+		if table.mapSlotOccupied(c.typing.jumps.stateAt(i)) and c.typing.jumps.valueAt(i) == loop and tree.kindOf(try c.typing.jumps.keyAt(i) as ast.NodeID otherwise panic("a jump is recorded at a node")) == ast.NodeKind.breakStmt 'leaves'
+			return false
+		end 'leaves'
+	end 'jumps'
+	return true
+end 'endsInEndlessLoop'
+
 // endsBlock is whether control never reaches the statement after this one in its block.
 function endsBlock(tree ast.Tree, s ast.NodeID) returns bool
 	let k = tree.kindOf(s)

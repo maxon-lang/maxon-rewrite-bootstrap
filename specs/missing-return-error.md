@@ -134,12 +134,12 @@ function firstAbove(limit Integer) returns Integer
 		if n > limit 'found'
 			return n
 		end 'found'
-		n = n + 7
+		n = try n + 7 otherwise panic("out of range")
 	end 'search'
 end 'firstAbove'
 
 function main() returns ExitCode
-	return firstAbove(20) as ExitCode
+	return try firstAbove(20) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

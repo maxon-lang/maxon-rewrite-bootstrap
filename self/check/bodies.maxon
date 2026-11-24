@@ -196,7 +196,7 @@ function checkFunction(mutates c Checker, p ast.Project, mutates ms ast.ModuleSt
 		return
 	end 'badParams'
 	checkBlock(c, p: p, ms: ms, body: f.body, errs: errs)
-	if ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fid).retTy != p.builtins.voidTy and not bodyTerminates(ms.tree(), body: f.body) 'missingReturn'
+	if ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fid).retTy != p.builtins.voidTy and not bodyTerminates(ms.tree(), body: f.body) and not endsInEndlessLoop(c, tree: ms.tree(), body: f.body) 'missingReturn'
 		failAt(c, p: p, ms: ms, node: f.id, code: diag.errMissingReturn, msg: diag.missingReturn(f.name), errs: errs)
 	end 'missingReturn'
 	finishFunction(c, node: f.id)

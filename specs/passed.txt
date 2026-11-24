@@ -4614,6 +4614,7 @@ missing-return-error.md: no-return
 missing-return-error.md: valid-all-paths
 missing-return-error.md: while-true-left-by-a-labelled-break-from-an-inner-loop-still-falls-off-the-end
 missing-return-error.md: while-true-with-a-break-still-falls-off-the-end
+missing-return-error.md: while-true-with-no-break-leaves-only-by-return
 mm-trace.md: debugstream-predicate-drops-the-arm-untraced
 model-linear.md: model-finding-ad-h1-nomodify
 model-linear.md: model-finding-ad-match-window-both-arms
