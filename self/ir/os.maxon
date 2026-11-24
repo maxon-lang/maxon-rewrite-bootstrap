@@ -141,15 +141,21 @@ function pathText(mutates l Lowerer, path Reg) returns Reg
 	return d
 end 'pathText'
 
-// builtinRecord is a new box of a record of the table, whose fields are the values by index.
+// builtinRecord is a new value of a record of the table, whose fields are the values by index: a frame area of its own
+// for one held in place, and else a box.
 function builtinRecord(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, t ast.TypeID, values RegList) returns Reg
 	let ty = applyType(l, p: p, ms: ms, t: t)
 	let origin = ast.typeEntry(ms.types, reads: p.types, t: ty).effectiveOrigin()
 	if ast.typeKind(ms.types, reads: p.types, t: ty) != ast.TypeKind.record or ast.typeEntry(ms.types, reads: p.types, t: origin).fields.count() != values.count() 'shape'
 		panic("lower: {ast.typeName(ms.types, reads: p.types, t: t)} is not a record of {values.count()} fields")
 	end 'shape'
-	let box = newReg(l, kind: IrKind.kindManaged)
-	emit(l, i: newAlloc(box, bytes: recordBoxBytes(ms.types, reads: p.types, owner: ty)))
+	var box = noReg
+	if heldInPlace(ms.types, reads: p.types, t: ty) 'inPlace'
+		box = newArea(l, words: inPlaceWords(ms.types, reads: p.types, t: ty))
+	end 'inPlace' else 'boxed'
+		box = newReg(l, kind: IrKind.kindManaged)
+		emit(l, i: newAlloc(box, bytes: recordBoxBytes(ms.types, reads: p.types, owner: ty)))
+	end 'boxed'
 	for i in 0 upto values.count() 'each'
 		emit(l, i: newStoreField(box, offset: recordFieldOffset(ms.types, reads: p.types, owner: ty, index: i), src: values[i], borrow: false))
 	end 'each'

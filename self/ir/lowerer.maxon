@@ -223,9 +223,16 @@ export type Lowerer
 	export var writeBacks as WriteBackList
 	// slotLoops are the fors around the code being lowered whose variable names an element's slot, innermost last.
 	export var slotLoops as SlotLoopList
+	// slotWords are, for each slot of a local that holds a value held in place, how many words it takes, and 0 for any other
+	// slot; slotAreas the first frame box of each such slot's frame area, or noArea before its first store.
+	export var slotWords as Array with Count
+	export var slotAreas as Array with Index
+	// resultWords is how many words the result of the function takes where it writes it to the area its caller passes as its
+	// last parameter, and 0 otherwise (resultWords).
+	export var resultWords as Count
 
 	export static function new(consumes instances InstanceSet) returns Lowerer
-		return Lowerer{module: 0 as diag.ModuleID, mi: 0 as Count, fnModule: 0 as diag.ModuleID, fn: ast.noFunc, origin: ast.noFunc, b: Builder.new(), instances: instances, bindParams: ast.TypeIDList.create(0), bindArgs: ast.TypeIDList.create(0), bindWitnesses: ast.WitnessList.create(0), jumps: JumpFrameList.create(0), cur: 0 as BlockID, scopes: ScopeList.create(0), ownerSlots: OwnerSlotList.create(0), selfOwner: noSlot, lentElements: 0, args: RegList.create(0), handlers: HandlerList.create(0), pending: PendingList.create(0), operators: OperatorFrameList.create(0), writeBacks: WriteBackList.create(0), slotLoops: SlotLoopList.create(0)}
+		return Lowerer{module: 0 as diag.ModuleID, mi: 0 as Count, fnModule: 0 as diag.ModuleID, fn: ast.noFunc, origin: ast.noFunc, b: Builder.new(), instances: instances, bindParams: ast.TypeIDList.create(0), bindArgs: ast.TypeIDList.create(0), bindWitnesses: ast.WitnessList.create(0), jumps: JumpFrameList.create(0), cur: 0 as BlockID, scopes: ScopeList.create(0), ownerSlots: OwnerSlotList.create(0), selfOwner: noSlot, lentElements: 0, args: RegList.create(0), handlers: HandlerList.create(0), pending: PendingList.create(0), operators: OperatorFrameList.create(0), writeBacks: WriteBackList.create(0), slotLoops: SlotLoopList.create(0), slotWords: Array.create(0), slotAreas: Array.create(0), resultWords: 0}
 	end 'new'
 end 'Lowerer'
 
@@ -259,8 +266,11 @@ function regKind(l Lowerer, v Reg) returns IrKind
 	return l.b.f.regs[try v as Count otherwise panic("ir: a register that does not exist is read")]
 end 'regKind'
 
-// kindOfType is the kind of a value of a type.
+// kindOfType is the kind of a value of a type in a register: for a value held in place, its address, which drops nothing.
 function kindOfType(p ast.Project, ms ast.ModuleState, t ast.TypeID) returns IrKind
+	if heldInPlace(ms.types, reads: p.types, t: t) 'inPlace'
+		return IrKind.kindScalar
+	end 'inPlace'
 	return match valueForm(ms.types, reads: p.types, t: t) 'form'
 		formScalar gives IrKind.kindScalar
 		formManaged gives IrKind.kindManaged
@@ -279,7 +289,17 @@ function kindOf(l Lowerer, p ast.Project, mutates ms ast.ModuleState, t ast.Type
 	return kindOfType(p, ms: ms, t: applied)
 end 'kindOf'
 
+// emit adds an instruction to the block being lowered. A store that gives a local held in place a value copies its words to
+// the local's frame area (storeLocal), which is the one way every lowering gives a local a value.
 export function emit(mutates l Lowerer, consumes i Instr)
+	if i.op == Opcode.opStoreSlot and not storeSlotBorrow(i) 'store'
+		let slot = storeSlotSlot(i)
+		if slot < l.slotWords.count() and l.slotWords[slot] > 0 'inPlace'
+			let words = l.slotWords[slot]
+			storeLocal(l, slot: slot, words: words, v: storeSlotSrc(i))
+			return
+		end 'inPlace'
+	end 'store'
 	let block = l.cur
 	l.b.emit(block, i: i)
 end 'emit'
@@ -425,6 +445,14 @@ function emitThrowingCall(mutates l Lowerer, p ast.Project, ms ast.ModuleState, 
 		emit(l, i: lending)
 		return
 	end 'lentTuple'
+	let words = resultWords(ms.types, reads: p.types, f: ast.funcEntry(ms.funcs, funcReads: p.funcs, f: target))
+	if words > 0 'inPlace'
+		var given = args.clone()
+		given.push(newArea(l, words: words))
+		let writing = l.b.throwingCall(dst, target: target, args: given, err: err, sig: funcSignature(p, ms: ms, fid: target))
+		emit(l, i: writing)
+		return
+	end 'inPlace'
 	let instr = l.b.throwingCall(dst, target: target, args: args, err: err, sig: funcSignature(p, ms: ms, fid: target))
 	emit(l, i: instr)
 end 'emitThrowingCall'

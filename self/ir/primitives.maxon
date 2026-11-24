@@ -233,7 +233,8 @@ function assignElement(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleSt
 	let obj = ast.indexExprObj(p.modules[l.mi].tree, id: target)
 	let coll = lowerExpr(l, p: p, ms: ms, e: obj)
 	let index = indexValue(l, p: p, ms: ms, e: target)
-	let v = lowerExpr(l, p: p, ms: ms, e: value)
+	let given = lowerExpr(l, p: p, ms: ms, e: value)
+	let v = boxed(l, p: p, ms: ms, v: given, t: exprType(p, module: l.module, node: target))
 	let collTy = exprType(p, module: l.module, node: obj)
 	if isArray(l, p: p, ms: ms, collection: collTy) 'array'
 		let box = arrayOf(l, p: p, ms: ms, site: siteOf(l, p: p, node: target), t: collTy)
@@ -304,7 +305,9 @@ function columnArray(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleStat
 	let flight = dropType(l, p: p, ms: ms, t: t)
 	l.pending.push(PendingDrop.ofReg(arr, ty: flight))
 	for i in 0 upto p.modules[l.mi].tree.listLen(ref) 'each'
-		let v = lowerConverted(l, p: p, ms: ms, e: p.modules[l.mi].tree.listAt(ref, index: i) as ast.NodeID, target: element)
+		let node = p.modules[l.mi].tree.listAt(ref, index: i) as ast.NodeID
+		let converted = lowerConverted(l, p: p, ms: ms, e: node, target: element)
+		let v = boxed(l, p: p, ms: ms, v: converted, t: element)
 		arrayPush(l, p: p, ms: ms, box: box, arr: arr, v: v)
 	end 'each'
 	popPending(l, n: succ(mark))
@@ -333,7 +336,8 @@ function lowerCollectionLit(mutates l Lowerer, p ast.Project, mutates ms ast.Mod
 	let flight = dropType(l, p: p, ms: ms, t: ty)
 	l.pending.push(PendingDrop.ofReg(collection, ty: flight))
 	for i in 0 upto p.modules[l.mi].tree.listLen(elemsRef) 'each'
-		let first = lowerExpr(l, p: p, ms: ms, e: p.modules[l.mi].tree.listAt(elemsRef, index: i) as ast.NodeID)
+		let node = p.modules[l.mi].tree.listAt(elemsRef, index: i) as ast.NodeID
+		let first = heldIn(l, p: p, ms: ms, e: ExprRef.make(l.module, node: node))
 		if isList 'append'
 			_ = entry(l, p: p, site: site, symbol: Rt.rtListPushBack, kind: IrKind.kindScalar, args: argsOf2(collection, b: first))
 		end 'append' else 'push'
@@ -377,7 +381,7 @@ function lowerIntrinsic(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleS
 			pushArg(l, v: word)
 			continue 'each'
 		end 'defaulted'
-		let v = lowerConverted(l, p: p, ms: ms, e: c.ordered[i], target: c.info.paramSpecs[i].ty)
+		let v = argValue(l, p: p, ms: ms, c: c, index: i)
 		pushArg(l, v: v)
 	end 'each'
 	// The primitive has the arguments now, and drops what it was given itself when it fails, as a callee does.
@@ -850,6 +854,18 @@ function lowerExchange(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleSt
 	let value = lowerConverted(l, p: p, ms: ms, e: c.ordered[1], target: c.info.paramSpecs[1].ty)
 	let places = l.writeBacks.count()
 	let addr = address(l, p: p, ms: ms, e: c.ordered[0])
+	let t = exprType(p, module: l.module, node: c.node)
+	if inPlace(l, p: p, ms: ms, t: t) 'inPlace'
+		// The place holds the address of the words, a frame area's or a box's: the old words are copied out before the new
+		// ones are copied in, and the place keeps its box.
+		let words = newReg(l, kind: IrKind.kindScalar)
+		emit(l, i: newLoadAt(words, addr: addr))
+		let n = placeWords(l, p: p, ms: ms, t: t)
+		let old = placedCopy(l, words: n, v: words)
+		copyWords(l, dst: words, src: value, words: n)
+		writeBack(l, p: p, ms: ms, mark: places)
+		return old
+	end 'inPlace'
 	let old = moveOutAt(l, p: p, ms: ms, addr: addr, t: exprType(p, module: l.module, node: c.node))
 	emit(l, i: newStoreAt(addr, src: value))
 	writeBack(l, p: p, ms: ms, mark: places)
@@ -873,8 +889,10 @@ function removeEnd(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState,
 	let n = entry(l, p: p, site: site, symbol: Rt.rtListLen, kind: IrKind.kindScalar, args: argsOf1(list))
 	let present = nonZero(l, v: n)
 	failUnless(l, p: p, ms: ms, cond: present, errorCase: ast.errorIndexOutOfBounds)
-	let kind = kindOf(l, p: p, ms: ms, t: exprType(p, module: l.module, node: c.node))
-	return entry(l, p: p, site: site, symbol: pop, kind: kind, args: argsOf1(list))
+	let t = exprType(p, module: l.module, node: c.node)
+	let kind = holderKind(l, p: p, ms: ms, t: t)
+	let removed = entry(l, p: p, site: site, symbol: pop, kind: kind, args: argsOf1(list))
+	return unboxed(l, p: p, ms: ms, v: removed, t: t)
 end 'removeEnd'
 
 // endHandle is the handle of a list's first or last node, or of the node after or before one, which the entry gives as 0
@@ -891,8 +909,10 @@ function removeHandle(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleSta
 	let site = siteOf(l, p: p, node: c.node)
 	let named = entry(l, p: p, site: site, symbol: contains, kind: IrKind.kindScalar, args: argsOf2(collection, b: handle))
 	failUnless(l, p: p, ms: ms, cond: named, errorCase: ast.errorEmptySlot)
-	let kind = kindOf(l, p: p, ms: ms, t: exprType(p, module: l.module, node: c.node))
-	return entry(l, p: p, site: site, symbol: remove, kind: kind, args: argsOf2(collection, b: handle))
+	let t = exprType(p, module: l.module, node: c.node)
+	let kind = holderKind(l, p: p, ms: ms, t: t)
+	let removed = entry(l, p: p, site: site, symbol: remove, kind: kind, args: argsOf2(collection, b: handle))
+	return unboxed(l, p: p, ms: ms, v: removed, t: t)
 end 'removeHandle'
 
 // arrayFilled is an array of count copies of value: the value is copied into every slot and then dropped, so that every
@@ -907,7 +927,7 @@ function arrayFilled(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleStat
 	end 'scalar'
 	let loop = countedLoopBegin(l, limit: count)
 	let i = countedLoopIndex(l, loop: loop)
-	let copy = copyValue(l, p: p, ms: ms, site: siteOf(l, p: p, node: c.node), v: value, t: arrayElem(p, ms: ms, box: a))
+	let copy = holderCopy(l, p: p, ms: ms, site: siteOf(l, p: p, node: c.node), v: value, t: arrayElem(p, ms: ms, box: a))
 	arrayInsert(l, p: p, ms: ms, box: a, arr: out, index: i, v: copy)
 	countedLoopEnd(l, loop: loop)
 	dropValue(l, p: p, ms: ms, v: value, t: arrayElem(p, ms: ms, box: a))

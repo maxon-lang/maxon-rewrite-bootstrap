@@ -7,6 +7,10 @@ export function begin(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleSta
 	if l.lentElements > 0 'lentTuple'
 		paramCount = succ(paramCount)
 	end 'lentTuple'
+	l.resultWords = resultWords(ms.types, reads: p.types, f: ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fn))
+	if l.resultWords > 0 'inPlace'
+		paramCount = succ(paramCount)
+	end 'inPlace'
 	l.b.keepsSpans = p.keepsSpans
 	l.b.start(fn, name: name, paramCount: paramCount)
 	l.b.f.lendsResult = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fn).result == ast.ResultConv.resultBorrowed
@@ -31,6 +35,8 @@ export function begin(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleSta
 	l.handlers = HandlerList.create(0)
 	l.pending = PendingList.create(0)
 	l.writeBacks = WriteBackList.create(0)
+	l.slotWords = Array.create(0)
+	l.slotAreas = Array.create(0)
 	l.selfOwner = noSlot
 	declareSlots(l, p: p, ms: ms)
 	l.cur = l.b.newBlock()
@@ -72,6 +78,11 @@ function declareSlots(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleSta
 			end 'dense'
 			filled[slotOf(loc)] = true
 			l.b.f.slots[slotOf(loc)] = kindOf(l, p: p, ms: ms, t: loc.ty)
+			// A local that borrows (a binding of a part, a let of a lent result) holds the lender's address as it is.
+			if not loc.projected and inPlace(l, p: p, ms: ms, t: loc.ty) 'inPlace'
+				let words = placeWords(l, p: p, ms: ms, t: loc.ty)
+				placeLocal(l, slot: slotOf(loc), words: words)
+			end 'inPlace'
 		end 'slotted'
 	end 'each'
 	if l.b.keepsSpans 'bindings'
@@ -137,7 +148,10 @@ function adoptParams(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleStat
 	let hasReceiver = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: l.fn).hasReceiver
 	if hasReceiver and ast.receiverLocal(p, ms: ms, f: l.origin) != ast.noLocal 'self'
 		let selfLocal = localEntry(p, module: l.fnModule, id: ast.receiverLocal(p, ms: ms, f: l.origin))
-		if ast.ownsValue(selfLocal.conv) and owning(kindOf(l, p: p, ms: ms, t: selfLocal.ty)) 'owned'
+		if ast.ownsValue(selfLocal.conv) and inPlace(l, p: p, ms: ms, t: selfLocal.ty) 'placed'
+			let slot = adoptPlaced(l, p: p, ms: ms, index: selfLocal.paramIndex, t: selfLocal.ty)
+			l.selfOwner = indexOf(slot)
+		end 'placed' else if ast.ownsValue(selfLocal.conv) and owning(kindOf(l, p: p, ms: ms, t: selfLocal.ty)) 'owned'
 			let slot = adopt(l, p: p, ms: ms, index: selfLocal.paramIndex, t: selfLocal.ty)
 			l.selfOwner = indexOf(slot)
 		end 'owned'
@@ -145,7 +159,14 @@ function adoptParams(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleStat
 	let first = ast.leadingParams(ast.funcEntry(ms.funcs, funcReads: p.funcs, f: l.fn))
 	for i in 0 upto ast.funcEntry(ms.funcs, funcReads: p.funcs, f: l.fn).params.count() 'each'
 		let ty = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: l.fn).paramTypes[i]
-		if ast.funcEntry(ms.funcs, funcReads: p.funcs, f: l.fn).params[i].conv == ast.Convention.convConsumes and owning(kindOf(l, p: p, ms: ms, t: ty)) 'consumed'
+		let consumed = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: l.fn).params[i].conv == ast.Convention.convConsumes
+		if consumed and inPlace(l, p: p, ms: ms, t: ty) 'placed'
+			let slot = adoptPlaced(l, p: p, ms: ms, index: try first + i otherwise panic("ir: too many parameters"), t: ty)
+			let local = ast.paramLocal(p, ms: ms, f: l.origin, index: i)
+			if local != ast.noLocal 'named'
+				l.ownerSlots.push(OwnerSlot.make(local, slot: slot))
+			end 'named'
+		end 'placed' else if consumed and owning(kindOf(l, p: p, ms: ms, t: ty)) 'consumed'
 			let slot = adopt(l, p: p, ms: ms, index: try first + i otherwise panic("ir: too many parameters"), t: ty)
 			let local = ast.paramLocal(p, ms: ms, f: l.origin, index: i)
 			if local != ast.noLocal 'named'
@@ -163,6 +184,16 @@ function adopt(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, ind
 	ownLocal(l, p: p, ms: ms, slot: slot, t: t)
 	return slot
 end 'adopt'
+
+// adoptPlaced takes the box of a consumes parameter held in place, the parameter at index, out to a frame area of its own,
+// whose address a new slot holds, and drops the box: the caller boxes what a callee consumes (argValue).
+function adoptPlaced(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, index Count, t ast.TypeID) returns Count
+	let box = paramReg(l, index: index, kind: IrKind.kindManaged)
+	let area = unboxed(l, p: p, ms: ms, v: box, t: t)
+	let slot = l.b.f.newSlot(IrKind.kindScalar)
+	emit(l, i: newStoreSlot(slot, src: area, borrow: true))
+	return slot
+end 'adoptPlaced'
 
 // ownerOf is the slot that owns a consumes parameter, or noSlot for a local that no slot owns.
 function ownerOf(l Lowerer, id ast.LocalID, isSelf bool) returns Index
@@ -420,10 +451,36 @@ function visitReturnStmt(mutates l Lowerer, p ast.Project, mutates ms ast.Module
 		if convertsAtReturn(p, module: l.module, node: s) 'converts'
 			v = convertReturned(l, p: p, ms: ms, s: s, value: value, v: v)
 		end 'converts'
+		if l.resultWords > 0 'inPlace'
+			returnPlaced(l, p: p, ms: ms, v: v)
+			return
+		end 'inPlace'
 	end 'some'
 	unwind(l, p: p, depth: 0 as Count)
 	seal(l, t: newRet(v))
 end 'visitReturnStmt'
+
+// returnPlaced returns the value v of a function whose result is held in place (resultWords): its words go to the area
+// the caller passed, which the function returns, or, where the caller passed 0, to a box of their own, which the caller
+// owns: an async call's coroutine hands the box to its promise, since no frame of the caller's outlives it. The words are
+// taken before the scopes end, whose drops may free the box they are read from.
+function returnPlaced(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, v Reg)
+	let area = paramReg(l, index: pred(l.b.f.paramCount), kind: IrKind.kindScalar)
+	let given = nonZero(l, v: area)
+	let copied = l.b.newBlock()
+	let owned = l.b.newBlock()
+	l.b.terminate(l.cur, t: newBranch(given, ifTrue: copied, ifFalse: owned))
+	l.cur = copied
+	let words = l.resultWords
+	copyWords(l, dst: area, src: v, words: words)
+	unwind(l, p: p, depth: 0 as Count)
+	l.b.terminate(l.cur, t: newRet(area))
+	l.cur = owned
+	let result = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: l.fn).retTy
+	let box = boxed(l, p: p, ms: ms, v: v, t: result)
+	unwind(l, p: p, depth: 0 as Count)
+	seal(l, t: newRet(box))
+end 'returnPlaced'
 
 // lentTuple writes the tuple that a function lends into the frame area its caller passed, a borrow of each element, and
 // gives the area: the elements of a tuple written in the return, or the words of the tuple box it lends a place of. The
@@ -501,7 +558,14 @@ function visitAssignStmt(mutates l Lowerer, p ast.Project, mutates ms ast.Module
 				emit(l, i: newStoreSlot(slotOf(loc), src: v, borrow: owning(regKind(l, v: v))))
 				return
 			end 'view'
-			if isByRef(loc) 'byRef'
+			if isByRef(loc) and inPlace(l, p: p, ms: ms, t: loc.ty) 'placed'
+				// The caller's place holds the address of the words, a frame area's or a box's, whichever it keeps them in.
+				let addr = refAddress(l, p: p, ms: ms, loc: loc)
+				let words = newReg(l, kind: IrKind.kindScalar)
+				emit(l, i: newLoadAt(words, addr: addr))
+				let n = placeWords(l, p: p, ms: ms, t: loc.ty)
+				copyWords(l, dst: words, src: v, words: n)
+			end 'placed' else if isByRef(loc) 'byRef'
 				let addr = refAddress(l, p: p, ms: ms, loc: loc)
 				dropAt(l, p: p, ms: ms, addr: addr, t: loc.ty)
 				emit(l, i: newStoreAt(addr, src: v))
@@ -842,12 +906,20 @@ function visitForCursor(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleS
 	let info = iterationInfoAt(p, module: l.module, node: s)
 	let source = ast.forStmtFrom(p.modules[l.mi].tree, id: s)
 	let sym = localEntry(p, module: l.fnModule, id: localOfNode(p, module: l.module, node: s))
-	let cursor = l.b.f.newSlot(IrKind.kindManaged)
+	let placed = info.hasFactory and inPlace(l, p: p, ms: ms, t: info.cursorTy)
+	let cursor = l.b.f.newSlot(IrKind.kindScalar if placed else IrKind.kindManaged)
 	let body = l.b.newBlock()
 	let cont = l.b.newBlock()
 	let exit = l.b.newBlock()
 	let collection = lowerRead(l, p: p, ms: ms, e: source)
-	if info.hasFactory 'factory'
+	if placed 'placed'
+		// A cursor held in place lives in the slot's frame area, which drops nothing.
+		let words = placeWords(l, p: p, ms: ms, t: info.cursorTy)
+		placeLocal(l, slot: cursor, words: words)
+		let fresh = newReg(l, kind: IrKind.kindScalar)
+		let made = protocolCall(l, p: p, ms: ms, s: s, info: info.factory, recv: collection, dst: fresh, resultTy: info.cursorTy, exit: exit)
+		emit(l, i: newStoreSlot(cursor, src: made, borrow: false))
+	end 'placed' else if info.hasFactory 'factory'
 		let fresh = newReg(l, kind: IrKind.kindManaged)
 		let made = protocolCall(l, p: p, ms: ms, s: s, info: info.factory, recv: collection, dst: fresh, resultTy: info.cursorTy, exit: exit)
 		emit(l, i: newStoreSlot(cursor, src: made, borrow: false))
@@ -912,7 +984,11 @@ function protocolCall(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleSta
 		let given = applyType(l, p: p, ms: ms, t: resultTy)
 		let sig = FloatSignature.make(0 as FloatMask, result: not lends and ast.isFloatType(ms.types, reads: p.types, t: given))
 		let slot = ast.requirementSlot(ms.types, reads: p.types, iface: iface, sig: info.method)
-		let call = l.b.callWitness(dst, conv: receiverConv(info.selfConv), slot: slot, recv: recv, args: RegList.create(0), err: err, sig: sig)
+		var rest = RegList.create(0)
+		if not lends and heldInPlace(ms.types, reads: p.types, t: given) 'inPlace'
+			rest.push(newArea(l, words: inPlaceWords(ms.types, reads: p.types, t: given)))
+		end 'inPlace'
+		let call = l.b.callWitness(dst, conv: receiverConv(info.selfConv), slot: slot, recv: recv, args: rest, err: err, sig: sig)
 		emit(l, i: call)
 	end 'table' else if not fails 'plain'
 		emitCall(l, p: p, ms: ms, dst: dst, target: target, args: argsOf1(recv))

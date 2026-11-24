@@ -1,0 +1,139 @@
+// A value held in place (heldInPlace) is the address of its words in a register: borrowed, so nothing drops it, and every
+// holder that keeps it copies the words. A local keeps them in a frame area of its own (storeLocal), a result in the area
+// its caller passes (returnPlaced), and any other holder in a box of its own (boxed), which it owns and drops as before, and
+// which it gives up as a copy in a frame area (unboxed).
+
+// inPlace is whether a value of the type t, which the body names, is held in place.
+function inPlace(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, t ast.TypeID) returns bool
+	let ty = applyType(l, p: p, ms: ms, t: t)
+	return heldInPlace(ms.types, reads: p.types, t: ty)
+end 'inPlace'
+
+// placeWords is how many words a value of the type t, which the body names and which is held in place, takes.
+function placeWords(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, t ast.TypeID) returns Count
+	let ty = applyType(l, p: p, ms: ms, t: t)
+	return inPlaceWords(ms.types, reads: p.types, t: ty)
+end 'placeWords'
+
+// newArea is a frame area of words words of its own.
+function newArea(mutates l Lowerer, words Count) returns Reg
+	let area = newReg(l, kind: IrKind.kindScalar)
+	let instr = l.b.frameArea(area, words: words)
+	emit(l, i: instr)
+	return area
+end 'newArea'
+
+// copyWords copies words words from the address src to the address dst.
+function copyWords(mutates l Lowerer, dst Reg, src Reg, words Count)
+	for i in 0 upto words 'words'
+		let w = newReg(l, kind: IrKind.kindScalar)
+		emit(l, i: newLoadField(w, obj: src, offset: wordOffset(i)))
+		emit(l, i: newStoreField(dst, offset: wordOffset(i), src: w, borrow: false))
+	end 'words'
+end 'copyWords'
+
+// placedCopy is a copy of the words words at v in a frame area of its own.
+function placedCopy(mutates l Lowerer, words Count, v Reg) returns Reg
+	let area = newArea(l, words: words)
+	copyWords(l, dst: area, src: v, words: words)
+	return area
+end 'placedCopy'
+
+// boxed is the value v of the type t as a holder other than a local or a result keeps it: for a value held in place, a new
+// box of its words, which the holder owns; any other value as it is.
+function boxed(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, v Reg, t ast.TypeID) returns Reg
+	let ty = applyType(l, p: p, ms: ms, t: t)
+	if not heldInPlace(ms.types, reads: p.types, t: ty) 'other'
+		return v
+	end 'other'
+	let d = newReg(l, kind: IrKind.kindManaged)
+	emitCopy(l, dst: d, src: v, ty: ty)
+	return d
+end 'boxed'
+
+// unboxed is the value of the box v of the type t that a holder gave up: for a value held in place, its words copied to a
+// frame area of their own, and the box dropped; any other value as it is.
+function unboxed(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, v Reg, t ast.TypeID) returns Reg
+	let ty = applyType(l, p: p, ms: ms, t: t)
+	if not heldInPlace(ms.types, reads: p.types, t: ty) 'other'
+		return v
+	end 'other'
+	let area = placedCopy(l, words: inPlaceWords(ms.types, reads: p.types, t: ty), v: v)
+	emitDropReg(l, src: v, ty: ty)
+	return area
+end 'unboxed'
+
+// holderCopy is a copy of the value v of the type t that a holder other than a local keeps: a box of its own for a value
+// held in place, which v may be the address of, in place or in a box.
+function holderCopy(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, site diag.Site, v Reg, t ast.TypeID) returns Reg
+	if inPlace(l, p: p, ms: ms, t: t) 'box'
+		return boxed(l, p: p, ms: ms, v: v, t: t)
+	end 'box'
+	return copyValue(l, p: p, ms: ms, site: site, v: v, t: t)
+end 'holderCopy'
+
+// holderKind is the kind of a value of the type t as a holder other than a local keeps it: the managed word of its box for
+// a value held in place, and its kind otherwise.
+function holderKind(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, t ast.TypeID) returns IrKind
+	if inPlace(l, p: p, ms: ms, t: t) 'box'
+		return IrKind.kindManaged
+	end 'box'
+	return kindOf(l, p: p, ms: ms, t: t)
+end 'holderKind'
+
+// holderOwns is whether a holder other than a local owns what it keeps of a value of the type t, which it drops.
+function holderOwns(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, t ast.TypeID) returns bool
+	return owning(holderKind(l, p: p, ms: ms, t: t))
+end 'holderOwns'
+
+// noArea is the frame area of a local slot that has not been given one.
+let noArea = -1 as Index
+
+// placeLocal makes the slot slot one of a local held in place of words words, which storeLocal gives its values.
+function placeLocal(mutates l Lowerer, slot Count, words Count)
+	while l.slotWords.count() <= slot 'grow'
+		l.slotWords.push(0)
+		l.slotAreas.push(noArea)
+	end 'grow'
+	l.slotWords[slot] = words
+end 'placeLocal'
+
+// localArea is the frame area of the local slot slot, which holds a value held in place of words words: the same words at
+// every store to the slot, so that the slot holds their address.
+function localArea(mutates l Lowerer, slot Count, words Count) returns Reg
+	if l.slotAreas[slot] == noArea 'first'
+		l.slotAreas[slot] = indexOf(l.b.f.newFrameBoxes(frameAreaBoxes(words)))
+	end 'first'
+	let area = newReg(l, kind: IrKind.kindScalar)
+	emit(l, i: newFrameArea(area, words: words, box: slotIndex(l.slotAreas[slot])))
+	return area
+end 'localArea'
+
+// storeLocal gives a local slot that holds a value held in place of words words the value v: its words are copied to the
+// slot's frame area, whose address the slot then holds.
+function storeLocal(mutates l Lowerer, slot Count, words Count, v Reg)
+	let area = localArea(l, slot: slot, words: words)
+	copyWords(l, dst: area, src: v, words: words)
+	l.b.emit(l.cur, i: newStoreSlot(slot, src: area, borrow: false))
+end 'storeLocal'
+
+// placeSlot gives a local slot held in place the address of its frame area before a callee is given the slot's address,
+// which writes the words there: a sets parameter is given a slot that holds no value yet.
+function placeSlot(mutates l Lowerer, slot Count)
+	if slot >= l.slotWords.count() or l.slotWords[slot] == 0 'other'
+		return
+	end 'other'
+	let words = l.slotWords[slot]
+	let area = localArea(l, slot: slot, words: words)
+	emit(l, i: newStoreSlot(slot, src: area, borrow: true))
+end 'placeSlot'
+
+// resultWords is how many words the result of the function f takes where it writes it to an area its caller passes after
+// its arguments, a result held in place that it does not lend, and 0 otherwise. An instance has its types substituted, so
+// every call of it and its own body read the same count (as ast.lentTupleElements).
+export function resultWords(tt ast.TypeSlot, reads ast.TypeTable, f ast.FuncEntry) returns Count
+	if f.result == ast.ResultConv.resultBorrowed or f.retTy == ast.noType or not heldInPlace(tt, reads: reads, t: f.retTy) 'none'
+		return 0
+	end 'none'
+	return inPlaceWords(tt, reads: reads, t: f.retTy)
+end 'resultWords'

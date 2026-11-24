@@ -1730,6 +1730,26 @@ match reads the case from the word. A thrown error of such a union is its word p
 enum's case plus 1 is (`ir.errorBias`), and the debug info gives it the kind `unionWord`, each case without a payload at
 the word that stands for it.
 
+A record whose every field is a word of nothing to drop, and which has no destructor, is held in place (`ir.heldInPlace`,
+`self/ir/inplace.maxon`): a register holds the address of its words, a scalar of the IR that nothing drops, and every
+holder that keeps the value copies the words. A literal and a `.clone()` are a frame area of their own (`framearea`, the
+same words each time the frame reaches it) filled with `setfield`s, with no allocation. A local that owns its value keeps
+the words in a frame area of its own, which every store to it copies into (`Lowerer.emit` turns the store of a value into
+the copy, `storeLocal`), and the slot holds the area's address; a local that borrows (a binding of a part, a `let` of a lent
+result) holds the lender's address. A `let` parameter is the address of the caller's words, and a `mutates` or `sets` one
+the address of the caller's place, which holds the address of the words, so an assignment through it copies into them. A
+function whose result is held in place, and which does not lend it, takes the address of an area of its caller's frame
+after its arguments, copies the result there before its scopes end and returns the address (`resultWords`,
+`returnPlaced`); given 0, as an async call's coroutine gives it, it returns a box of the result, which its promise owns.
+Every other holder keeps the value as a managed word, the address of a box of its words that it owns, as every record was
+held before: a field and a payload (the layout table's form and offsets, the drop and copy routines and the datums are
+unchanged), an element of an array, a half of a map's pair, a node of a list or a pool, a capture of a closure or a
+behaviour, an argument of a message, the contents of an interface value, a frozen value or a cown, and an argument that a
+parameter consumes, since a callee may keep what it consumes past the caller's frame (a coroutine, a behaviour): the value
+goes into the holder as a `copy` into a new box (`boxed`), is read from it as the box's address, which is the address of
+its words, and leaves it, by a remove, a take or the start of a function that consumes it, as a copy in a frame area and a
+drop of the box (`unboxed`, `adoptPlaced`). `exchange` copies the place's words out and the new ones in.
+
 ### Constants in the data section
 
 A constant whose value is a box built only of what is known before the program runs (a top-level or `static let`, and each
@@ -4825,7 +4845,7 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   target of a cast it has the cast's own wording. `int.fromString` and the other static functions of `int` are library, which
   minimaxon has not: a call is `E2004`.
 - `a is b` (see "Identity") does not refuse a record that packs into one word (maxon's inline record, `E3068`): every
-  record here is a heap box with an address. A literal is not interned, so two equal literals are two objects, and the
+  record here has an address, of its box or, for a record held in place, of its words. A literal is not interned, so two equal literals are two objects, and the
   tests that read an alias made by `let b = a`, a string's identity after `.clone()` or the identity of a constant do not
   hold here (`.clone()` of a `String` is the same object).
 - A keyword is not a case name: maxon's `end` as the case of an enum, a union or an arm is a syntax error here.
@@ -5199,6 +5219,11 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   `CountBox.width` for `typealias CountBox = Box with Count`, and its bare read through `Box` is `E2056`; maxon keeps one
   static let for a generic type. One whose value names no parameter is one value, read through the type itself, as maxon's
   is.
+- **A record of words is not a heap allocation where a function holds it.** A record whose every field is a word of nothing
+  to drop, and which has no destructor, is held in place (see "The IR"): a literal, a
+  `.clone()`, a local, a parameter and a result allocate nothing, where maxon allocates every record that is not inline. A
+  program that counts its allocations sees fewer: two back-to-back `HeapStats.thread()` readings, whose `HeapActivity` is
+  such a record, count the same.
 
 ## Changing the language
 

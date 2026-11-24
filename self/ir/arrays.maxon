@@ -100,7 +100,7 @@ function arrayRemove(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleStat
 		return entry(l, p: p, site: box.site, symbol: Rt.rtBytesRemove, kind: IrKind.kindScalar, args: argsOf2(arr, b: index))
 	end 'packed'
 	let elem = arrayElem(p, ms: ms, box: box)
-	let kind = kindOf(l, p: p, ms: ms, t: elem)
+	let kind = holderKind(l, p: p, ms: ms, t: elem)
 	if arrayOfStrings(p, ms: ms, box: box) 'strings'
 		let at = entry(l, p: p, site: box.site, symbol: Rt.rtStrsElem, kind: IrKind.kindScalar, args: argsOf2(arr, b: index))
 		let d = newReg(l, kind: kind)
@@ -108,7 +108,8 @@ function arrayRemove(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleStat
 		entryVoid(l, p: p, site: box.site, symbol: Rt.rtStrsClose, args: argsOf2(arr, b: index))
 		return d
 	end 'strings'
-	return entry(l, p: p, site: box.site, symbol: Rt.rtArrayRemove, kind: kind, args: argsOf2(arr, b: index))
+	let removed = entry(l, p: p, site: box.site, symbol: Rt.rtArrayRemove, kind: kind, args: argsOf2(arr, b: index))
+	return unboxed(l, p: p, ms: ms, v: removed, t: elem)
 end 'arrayRemove'
 
 // arrayLoad reads the element at index: a byte, a scalar, or a managed element lent for as long as the array is not
@@ -186,7 +187,7 @@ end 'arrayRead'
 function arrayClearSlot(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, box ArrayBox, arr Reg, index Reg)
 	arrayInBounds(l, p: p, ms: ms, box: box, arr: arr, index: index)
 	let elem = arrayElem(p, ms: ms, box: box)
-	if owning(kindOf(l, p: p, ms: ms, t: elem)) and not arrayPacked(p, ms: ms, box: box) 'owning'
+	if holderOwns(l, p: p, ms: ms, t: elem) and not arrayPacked(p, ms: ms, box: box) 'owning'
 		let addr = arrayAddress(l, p: p, ms: ms, box: box, arr: arr, index: index, checked: false)
 		dropAt(l, p: p, ms: ms, addr: addr, t: elem)
 		return
@@ -207,7 +208,7 @@ function arraySwap(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState,
 		entryVoid(l, p: p, site: box.site, symbol: Rt.rtBytesSet, args: argsOf3(arr, b: j, c: first))
 		return
 	end 'packed'
-	let kind = kindOf(l, p: p, ms: ms, t: arrayElem(p, ms: ms, box: box))
+	let kind = holderKind(l, p: p, ms: ms, t: arrayElem(p, ms: ms, box: box))
 	let addrI = arrayAddress(l, p: p, ms: ms, box: box, arr: arr, index: i, checked: false)
 	let addrJ = arrayAddress(l, p: p, ms: ms, box: box, arr: arr, index: j, checked: false)
 	let first = newReg(l, kind: kind)
@@ -283,7 +284,7 @@ function arrayAppendCopy(mutates l Lowerer, p ast.Project, mutates ms ast.Module
 	let loop = countedLoopBegin(l, limit: n)
 	let i = countedLoopIndex(l, loop: loop)
 	let element = arrayLoad(l, p: p, ms: ms, box: box, arr: other, index: i)
-	let copy = copyValue(l, p: p, ms: ms, site: box.site, v: element, t: arrayElem(p, ms: ms, box: box))
+	let copy = holderCopy(l, p: p, ms: ms, site: box.site, v: element, t: arrayElem(p, ms: ms, box: box))
 	arrayPush(l, p: p, ms: ms, box: box, arr: arr, v: copy)
 	countedLoopEnd(l, loop: loop)
 end 'arrayAppendCopy'
@@ -344,7 +345,7 @@ end 'saturatingSub'
 // each, before the length is set.
 function arrayShrinkTo(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, box ArrayBox, arr Reg, keep Reg)
 	let elem = arrayElem(p, ms: ms, box: box)
-	if owning(kindOf(l, p: p, ms: ms, t: elem)) 'owning'
+	if holderOwns(l, p: p, ms: ms, t: elem) 'owning'
 		let length = arrayLength(l, p: p, ms: ms, box: box, arr: arr)
 		let extra = newReg(l, kind: IrKind.kindScalar)
 		emit(l, i: newBin(extra, op: BinOp.binSub, left: length, right: keep, unsigned: true, fail: noBlock))
@@ -408,7 +409,7 @@ function arraySlice(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState
 	let index = newReg(l, kind: IrKind.kindScalar)
 	emit(l, i: newBin(index, op: BinOp.binAdd, left: start, right: offset, unsigned: true, fail: noBlock))
 	let element = arrayLoad(l, p: p, ms: ms, box: box, arr: arr, index: index)
-	let copy = copyValue(l, p: p, ms: ms, site: box.site, v: element, t: arrayElem(p, ms: ms, box: box))
+	let copy = holderCopy(l, p: p, ms: ms, site: box.site, v: element, t: arrayElem(p, ms: ms, box: box))
 	arrayPush(l, p: p, ms: ms, box: box, arr: out, v: copy)
 	countedLoopEnd(l, loop: loop)
 	return out
@@ -424,7 +425,7 @@ end 'arrayCopyAt'
 // arrayPushCopies pushes n copies of value, which the call only reads.
 function arrayPushCopies(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, box ArrayBox, arr Reg, n Reg, value Reg)
 	let loop = countedLoopBegin(l, limit: n)
-	let copy = copyValue(l, p: p, ms: ms, site: box.site, v: value, t: arrayElem(p, ms: ms, box: box))
+	let copy = holderCopy(l, p: p, ms: ms, site: box.site, v: value, t: arrayElem(p, ms: ms, box: box))
 	arrayPush(l, p: p, ms: ms, box: box, arr: arr, v: copy)
 	countedLoopEnd(l, loop: loop)
 end 'arrayPushCopies'

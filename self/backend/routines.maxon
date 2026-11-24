@@ -1233,6 +1233,10 @@ export function emitAsyncThunk(mutates u CodeUnit, p ast.Project, mutates ms ast
 			floats.push(false)
 		end 'string'
 	end 'floats'
+	// The area of a result held in place, which the async call gives as 0, so the function returns a box of it.
+	if ir.resultWords(ms.types, reads: p.types, f: ast.funcEntry(ms.funcs, funcReads: p.funcs, f: callee)) > 0 'inPlace'
+		floats.push(false)
+	end 'inPlace'
 	let words = floats.count()
 	var places = CountList.create(0)
 	let stacked = rPlaceArgs(a, floats: floats, places: places)

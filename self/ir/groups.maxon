@@ -186,7 +186,7 @@ end 'lowerGroupsSecond'
 // pairEmpty drops what a half whose address is addr held and leaves it empty, which a drop does to a managed half; a
 // scalar half is set to 0.
 function pairEmpty(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, g Groups, addr Reg, half Word)
-	if owning(kindOf(l, p: p, ms: ms, t: g.half(half))) 'owning'
+	if holderOwns(l, p: p, ms: ms, t: g.half(half)) 'owning'
 		dropAt(l, p: p, ms: ms, addr: addr, t: g.half(half))
 		return
 	end 'owning'
@@ -222,14 +222,14 @@ end 'lowerGroupsSetSecond'
 function pairTake(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, at Reg, half Word) returns Reg
 	let g = groupsOfCall(l, p: p, ms: ms, c: c)
 	let addr = pairHalf(l, p: p, g: g, arr: recv, at: at, half: half)
-	let kind = kindOf(l, p: p, ms: ms, t: g.half(half))
+	let kind = holderKind(l, p: p, ms: ms, t: g.half(half))
 	let d = newReg(l, kind: kind)
 	if owning(kind) 'managed'
 		emit(l, i: newMoveAt(d, addr: addr))
 	end 'managed' else 'scalar'
 		emit(l, i: newLoadAt(d, addr: addr))
 	end 'scalar'
-	return d
+	return unboxed(l, p: p, ms: ms, v: d, t: g.half(half))
 end 'pairTake'
 
 function lowerGroupsTakeFirst(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg

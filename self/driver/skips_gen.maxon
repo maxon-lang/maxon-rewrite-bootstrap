@@ -527,5 +527,6 @@ function codeSkipTable() returns CodeSkips
 	skips.push(CodeSkip.naming("enum-union-method-receiver.md", test: "error.static-method-on-an-enum", line: "<!-- skip: language difference: an enum and a union take static members as Swift's do, in their body and in an extension -->\n"))
 	skips.push(CodeSkip.naming("extension-over-enum.md", test: "error.static-function-in-an-enum-extension", line: "<!-- skip: language difference: an enum and a union take static members as Swift's do, in their body and in an extension -->\n"))
 	skips.push(CodeSkip.naming("extension-over-enum.md", test: "error.static-function-in-a-union-extension", line: "<!-- skip: language difference: an enum and a union take static members as Swift's do, in their body and in an extension -->\n"))
+	skips.push(CodeSkip.naming("allocations-by-tag.md", test: "allocations-by-tag.a-scalar-reading-allocates-nothing-and-a-record-reading-allocates-its-record", line: "<!-- skip: language difference: a record of words is held in place, so a HeapActivity reading allocates nothing -->\n"))
 	return skips
 end 'codeSkipTable'

@@ -550,3 +550,4 @@ test	enum-union-method-receiver.md	error.static-method-on-a-union	language diffe
 test	enum-union-method-receiver.md	error.static-method-on-an-enum	language difference: an enum and a union take static members as Swift's do, in their body and in an extension
 test	extension-over-enum.md	error.static-function-in-an-enum-extension	language difference: an enum and a union take static members as Swift's do, in their body and in an extension
 test	extension-over-enum.md	error.static-function-in-a-union-extension	language difference: an enum and a union take static members as Swift's do, in their body and in an extension
+test	allocations-by-tag.md	allocations-by-tag.a-scalar-reading-allocates-nothing-and-a-record-reading-allocates-its-record	language difference: a record of words is held in place, so a HeapActivity reading allocates nothing

@@ -17,8 +17,13 @@ function visitAsyncExpr(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleS
 	if l.writeBacks.count() != places 'writeBack'
 		panic("lower: an async call passes an element by address, which the ownership pass lends only from a local")
 	end 'writeBack'
+	var args = argsSince(l, base: base)
+	if resultWords(ms.types, reads: p.types, f: ast.funcEntry(ms.funcs, funcReads: p.funcs, f: target)) > 0 'inPlace'
+		// No area: the function gives the coroutine a box of the result, which the promise owns (returnPlaced).
+		args.push(konst(l, value: 0 as Word))
+	end 'inPlace'
 	let promise = newReg(l, kind: IrKind.kindManaged)
-	let instr = l.b.asyncInstr(promise, target: target, args: argsSince(l, base: base))
+	let instr = l.b.asyncInstr(promise, target: target, args: args)
 	emit(l, i: instr)
 	popArgs(l, n: base)
 	popPending(l, n: mark)
@@ -39,11 +44,12 @@ function visitAwaitExpr(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleS
 	let errTy = ast.promiseError(ms.types, reads: p.types, t: t)
 	var dst = noReg
 	if result != p.builtins.voidTy 'value'
-		dst = newReg(l, kind: kindOf(l, p: p, ms: ms, t: result))
+		let kind = holderKind(l, p: p, ms: ms, t: result)
+		dst = newReg(l, kind: kind)
 	end 'value'
 	if errTy == ast.noType 'plain'
 		emitEntry(l, p: p, site: site, dst: dst, symbol: Rt.rtAsyncAwait, args: argsOf1(promise), routine: ast.noFunc)
-		return awaited(l, dst: dst)
+		return awaited(l, p: p, ms: ms, dst: dst, t: result)
 	end 'plain'
 	entryVoid(l, p: p, site: site, symbol: Rt.rtAsyncWait, args: argsOf1(promise))
 	var errKind = IrKind.kindScalar
@@ -60,15 +66,16 @@ function visitAwaitExpr(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleS
 	let stub = failureBiased(l, p: p, ms: ms, errorCase: 0 as Count, err: err, errDrop: errDrop, bias: errorBias(ms.types, reads: p.types, t: errApplied))
 	l.b.terminate(l.cur, t: newBranch(failed, ifTrue: stub, ifFalse: ok))
 	l.cur = ok
-	return awaited(l, dst: dst)
+	return awaited(l, p: p, ms: ms, dst: dst, t: result)
 end 'visitAwaitExpr'
 
-// awaited is the value of an await: what dst holds, or nothing for a function that returns nothing.
-function awaited(mutates l Lowerer, dst Reg) returns Reg
+// awaited is the value of an await of a result of the type t: what dst holds, taken out of its box for a value held in
+// place, or nothing for a function that returns nothing.
+function awaited(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, dst Reg, t ast.TypeID) returns Reg
 	if dst == noReg 'none'
 		return konst(l, value: 0 as Word)
 	end 'none'
-	return dst
+	return unboxed(l, p: p, ms: ms, v: dst, t: t)
 end 'awaited'
 
 // lowerPromiseCancel cancels the coroutine of a promise and waits for it, as maxon's cancel of a tied promise does: one that
@@ -83,8 +90,9 @@ function lowerPromiseCancel(mutates l Lowerer, p ast.Project, mutates ms ast.Mod
 	var dst = noReg
 	var valueDrop = ast.noType
 	if result != p.builtins.voidTy 'value'
-		dst = newReg(l, kind: kindOf(l, p: p, ms: ms, t: result))
-		if owning(kindOf(l, p: p, ms: ms, t: result)) 'managed'
+		let kind = holderKind(l, p: p, ms: ms, t: result)
+		dst = newReg(l, kind: kind)
+		if holderOwns(l, p: p, ms: ms, t: result) 'managed'
 			valueDrop = dropType(l, p: p, ms: ms, t: result)
 		end 'managed'
 	end 'value'

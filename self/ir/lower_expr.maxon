@@ -515,6 +515,7 @@ function address(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, e
 			if isByRef(loc) 'byRef'
 				return refAddress(l, p: p, ms: ms, loc: loc)
 			end 'byRef'
+			placeSlot(l, slot: slotOf(loc))
 			let d = newReg(l, kind: IrKind.kindScalar)
 			emit(l, i: newSlotAddr(d, slot: slotOf(loc)))
 			return d
@@ -695,7 +696,10 @@ function callOn(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c 
 		target = callee(l, p: p, ms: ms, node: node, info: c.info, receiver: c.receiver)
 	end 'direct'
 	let base = l.args.count()
-	if recv != noReg 'receiver'
+	if recv != noReg and c.receiver != 0 and c.info.selfConv == ast.Convention.convConsumes and iface == ast.noType 'consumedReceiver'
+		let held = boxed(l, p: p, ms: ms, v: recv, t: exprType(p, module: l.module, node: c.receiver))
+		pushArg(l, v: held)
+	end 'consumedReceiver' else if recv != noReg 'receiver'
 		pushArg(l, v: recv)
 	end 'receiver'
 	pushOrderedArgs(l, p: p, ms: ms, c: c)
@@ -755,7 +759,9 @@ function emitCallOf(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState
 		let result = applyType(l, p: p, ms: ms, t: exprType(p, module: l.module, node: c.node))
 		if ast.funcEntry(ms.funcs, funcReads: p.funcs, f: c.info.method).result == ast.ResultConv.resultBorrowed and ast.isTupleType(ms.types, reads: p.types, t: result) 'lentTuple'
 			rest.push(frameArea(l, elements: ast.typeEntry(ms.types, reads: p.types, t: result).typeArgs.count()))
-		end 'lentTuple'
+		end 'lentTuple' else if ast.funcEntry(ms.funcs, funcReads: p.funcs, f: c.info.method).result != ast.ResultConv.resultBorrowed and heldInPlace(ms.types, reads: p.types, t: result) 'inPlace'
+			rest.push(newArea(l, words: inPlaceWords(ms.types, reads: p.types, t: result)))
+		end 'inPlace'
 		let sig = requirementSignature(l, p: p, ms: ms, c: c)
 		let instr = l.b.callWitness(dst, conv: receiverConv(c.info.selfConv), slot: slot, recv: args[0], args: rest, err: err, sig: sig)
 		emit(l, i: instr)
@@ -810,8 +816,12 @@ function visitCallExpr(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleSt
 		let places = l.writeBacks.count()
 		pushOrderedArgs(l, p: p, ms: ms, c: c)
 		let dst = callResult(l, p: p, ms: ms, node: node)
-		let args = argsSince(l, base: base)
+		var args = argsSince(l, base: base)
 		let fnTy = applyType(l, p: p, ms: ms, t: exprType(p, module: l.module, node: ast.callExprCallee(p.modules[l.mi].tree, id: node)))
+		let result = ast.funcResult(ms.types, reads: p.types, t: fnTy)
+		if heldInPlace(ms.types, reads: p.types, t: result) 'inPlace'
+			args.push(newArea(l, words: inPlaceWords(ms.types, reads: p.types, t: result)))
+		end 'inPlace'
 		let instr = l.b.callValueInstr(dst, target: closure, args: args, sig: valueSignature(p, ms: ms, t: fnTy))
 		emit(l, i: instr)
 		popArgs(l, n: base)
@@ -858,7 +868,10 @@ function lowerDefault(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleSta
 	let savedParams = exchange(l.bindParams, value: ast.cloneTypeArgs(ast.funcEntry(ms.funcs, funcReads: p.funcs, f: info.fn).generics))
 	let savedArgs = exchange(l.bindArgs, value: args)
 	setModule(l, m: ast.funcEntry(ms.funcs, funcReads: p.funcs, f: info.fn).module)
-	let v = lowerConverted(l, p: p, ms: ms, e: spec.defaultExpr, target: spec.ty)
+	var v = lowerConverted(l, p: p, ms: ms, e: spec.defaultExpr, target: spec.ty)
+	if spec.conv == ast.Convention.convConsumes 'consumed'
+		v = boxed(l, p: p, ms: ms, v: v, t: spec.ty)
+	end 'consumed'
 	setModule(l, m: saved)
 	l.bindParams = savedParams
 	l.bindArgs = savedArgs
@@ -878,11 +891,27 @@ function pushOrderedArgs(mutates l Lowerer, p ast.Project, mutates ms ast.Module
 			let addr = address(l, p: p, ms: ms, e: c.ordered[i])
 			pushArg(l, v: addr)
 		end 'address' else 'value'
-			let v = lowerConverted(l, p: p, ms: ms, e: c.ordered[i], target: c.info.paramSpecs[i].ty)
+			let v = argValue(l, p: p, ms: ms, c: c, index: i)
 			pushArg(l, v: v)
 		end 'value'
 	end 'each'
 end 'pushOrderedArgs'
+
+// argValue is the value of the argument at index of a call, which its parameter takes by value: converted to the
+// parameter's type, and, where the parameter consumes it, a value held in place in a box of its own, since the callee owns
+// what it consumes past the caller's frame (a coroutine's, a behaviour's).
+function argValue(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, index Count) returns Reg
+	let v = lowerConverted(l, p: p, ms: ms, e: c.ordered[index], target: c.info.paramSpecs[index].ty)
+	let t = exprRefType(l, p: p, ms: ms, e: ExprRef.make(l.module, node: c.ordered[index]))
+	if c.info.paramSpecs[index].conv != ast.Convention.convConsumes or not inPlace(l, p: p, ms: ms, t: t) 'lent'
+		return v
+	end 'lent'
+	let box = boxed(l, p: p, ms: ms, v: v, t: t)
+	// The box is in flight until the call takes it, as a consumed value is (lowerExpr).
+	let ty = dropType(l, p: p, ms: ms, t: t)
+	l.pending.push(PendingDrop.ofReg(box, ty: ty))
+	return box
+end 'argValue'
 
 // callResult is the register a call gives its value in, or noReg for a call that returns nothing.
 function callResult(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, node ast.NodeID) returns Reg
@@ -924,7 +953,9 @@ function record(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, t 
 			return unionWord(l, p: p, ms: ms, t: applied, caseIndex: caseIndex, values: values)
 		end 'word'
 		bytes = caseBoxBytes(ms.types, reads: p.types, owner: applied, caseIndex: caseIndex)
-	end 'union' else 'fields'
+	end 'union' else if heldInPlace(ms.types, reads: p.types, t: applied) 'inPlace'
+		return placedRecord(l, p: p, ms: ms, t: applied, values: values)
+	end 'inPlace' else 'fields'
 		bytes = recordBoxBytes(ms.types, reads: p.types, owner: applied)
 	end 'fields'
 	let box = newReg(l, kind: IrKind.kindManaged)
@@ -939,7 +970,7 @@ function record(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, t 
 		l.pending.push(PendingDrop.ofReg(box, ty: ty))
 	end 'owned'
 	for i in 0 upto count 'each'
-		let v = exprIn(l, p: p, ms: ms, e: values[i])
+		let v = heldIn(l, p: p, ms: ms, e: values[i])
 		var offset = 0 as Count
 		if tagged 'payload'
 			offset = payloadOffset(ms.types, reads: p.types, owner: applied, caseIndex: caseIndex, index: i)
@@ -953,10 +984,46 @@ function record(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, t 
 	return box
 end 'record'
 
+// placedRecord is a new value of the record t, held in place, in a frame area of its own: values are the expression of each
+// field, every one a word of nothing to drop.
+function placedRecord(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, t ast.TypeID, values ExprRefList) returns Reg
+	let area = newArea(l, words: inPlaceWords(ms.types, reads: p.types, t: t))
+	for i in 0 upto values.count() 'each'
+		let v = exprIn(l, p: p, ms: ms, e: values[i])
+		emit(l, i: newStoreField(area, offset: recordFieldOffset(ms.types, reads: p.types, owner: t, index: i), src: v, borrow: false))
+	end 'each'
+	return area
+end 'placedRecord'
+
+// exprRefType is the type of the value that lowering the expression e gives, in the module it is in: the interface it is
+// boxed to, where it is (lowerExpr), and its own type otherwise.
+function exprRefType(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, e ExprRef) returns ast.TypeID
+	let ty = exprType(p, module: e.module, node: e.node)
+	let iface = ast.boxedTo(p.typings[ast.modIndex(e.module)], node: e.node)
+	if iface == ast.noType 'own'
+		return ty
+	end 'own'
+	let applied = applyType(l, p: p, ms: ms, t: ty)
+	if standsForInterface(p, ms: ms, t: applied) 'own'
+		return ty
+	end 'own'
+	return iface
+end 'exprRefType'
+
+// heldIn is the value of the expression e as a holder other than a local keeps it (boxed).
+function heldIn(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, e ExprRef) returns Reg
+	let v = exprIn(l, p: p, ms: ms, e: e)
+	let t = exprRefType(l, p: p, ms: ms, e: e)
+	return boxed(l, p: p, ms: ms, v: v, t: t)
+end 'heldIn'
+
 // copyValue is a new value equal to v, which every part of it owns: the deep copy that CopyInstr says. A scalar is the
 // value itself. site is the source that needs the copy, kept when the type holds something that has no native code.
 function copyValue(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, site diag.Site, v Reg, t ast.TypeID) returns Reg
 	let ty = applyType(l, p: p, ms: ms, t: t)
+	if heldInPlace(ms.types, reads: p.types, t: ty) 'inPlace'
+		return placedCopy(l, words: inPlaceWords(ms.types, reads: p.types, t: ty), v: v)
+	end 'inPlace'
 	if not owning(kindOfType(p, ms: ms, t: ty)) 'scalar'
 		return v
 	end 'scalar'
@@ -982,7 +1049,7 @@ end 'unionWord'
 function nullCaseWord(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, t ast.TypeID, caseIndex Count, values ExprRefList) returns Reg
 	if caseIndex == payloadCase(ms.types, reads: p.types, t: t) 'payload'
 		let mark = l.pending.count()
-		let v = exprIn(l, p: p, ms: ms, e: values[0])
+		let v = heldIn(l, p: p, ms: ms, e: values[0])
 		popPending(l, n: mark)
 		return v
 	end 'payload'

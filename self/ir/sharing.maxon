@@ -40,7 +40,9 @@ function visitWhenStmt(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleSt
 	var captures = RegList.create(0)
 	var strings = 0 as FloatMask
 	for i in 0 upto info.captures.count() 'captures'
-		let capture = lowerExpr(l, p: p, ms: ms, e: info.captures[i].refNode)
+		// The body owns what it captures past this frame, so a value held in place goes in a box of its own (adoptPlaced).
+		let captured = lowerExpr(l, p: p, ms: ms, e: info.captures[i].refNode)
+		let capture = boxed(l, p: p, ms: ms, v: captured, t: exprType(p, module: l.module, node: info.captures[i].refNode))
 		if regKind(l, v: capture) == IrKind.kindString 'string'
 			strings = strings or floatBit(try cowns.count() + i otherwise panic("lower: a behaviour past memory"))
 		end 'string'

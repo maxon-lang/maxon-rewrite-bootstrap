@@ -53,6 +53,35 @@ export function valueForm(tt ast.TypeSlot, reads ast.TypeTable, t ast.TypeID) re
 	return ValueForm.formScalar
 end 'valueForm'
 
+// heldInPlace is whether a value of the type t is held in place where a function holds it: a record whose every field is a
+// word of nothing to drop, and which has no destructor. Its value in a register is the address of its words, which drops
+// nothing: a frame area of the function that made it, the caller's place for a parameter, or the box of a part. A local
+// holds it in a frame area of its own, a result is written to an area the caller passes, and any other holder (a field, an
+// element, a payload, a capture, the contents of an interface value, a frozen value or a cown) holds it as a managed word,
+// the address of a box of its words, which the holder owns, as before.
+export function heldInPlace(tt ast.TypeSlot, reads ast.TypeTable, t ast.TypeID) returns bool
+	let kind = ast.typeKind(tt, reads: reads, t: t)
+	if kind != ast.TypeKind.record or ast.isTupleType(tt, reads: reads, t: t) 'record'
+		return false
+	end 'record'
+	let origin = ast.originOf(tt, reads: reads, t: t)
+	if ast.typeEntry(tt, reads: reads, t: origin).dropFunc != ast.noFunc 'destructor'
+		return false
+	end 'destructor'
+	for i in 0 upto ast.typeEntry(tt, reads: reads, t: origin).fields.count() 'fields'
+		let field = boundType(tt, reads: reads, owner: t, declared: ast.typeEntry(tt, reads: reads, t: origin).fields[i].ty)
+		if valueForm(tt, reads: reads, t: field) != ValueForm.formScalar 'managed'
+			return false
+		end 'managed'
+	end 'fields'
+	return true
+end 'heldInPlace'
+
+// inPlaceWords is how many words a value held in place takes: one for each field, and one for a record of none, as its box.
+export function inPlaceWords(tt ast.TypeSlot, reads ast.TypeTable, t ast.TypeID) returns Count
+	return boxBytes(fieldWordsBefore(tt, reads: reads, owner: t, index: fieldsOf(tt, reads: reads, owner: t)), tagged: false) / wordBytes
+end 'inPlaceWords'
+
 // heldAsScalar is whether a union of the form is held as a word of nothing to drop.
 export function heldAsScalar(form UnionForm) returns bool
 	return match form 'form'

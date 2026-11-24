@@ -1013,6 +1013,7 @@ end 'main'
 ```
 
 <!-- test: allocations-by-tag.a-scalar-reading-allocates-nothing-and-a-record-reading-allocates-its-record -->
+<!-- skip: language difference: a record of words is held in place, so a HeapActivity reading allocates nothing -->
 A counter a bracket reads must not be moved by the read. The scalar readings (`threadAllocations()`,
 `threadBytes()`, `processAllocations()`, `processBytes()`) answer a number, so two of them back to back see the same
 figure; `HeapStats.thread()` answers a `HeapActivity` record, so the second of two back-to-back readings has

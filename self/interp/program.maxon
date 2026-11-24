@@ -16,6 +16,10 @@ function convsOf(p ast.Project, decl ast.FuncID) returns CountList
 	if ast.lentTupleElements(ast.TypeSlot.none(), reads: p.types, f: ast.funcEntry(ast.FuncSlot.none(), funcReads: p.funcs, f: decl)) > 0 'lentTuple'
 		convs.push(ast.Convention.convLet.ordinal)
 	end 'lentTuple'
+	// The area of a result held in place, which the caller lends to be written.
+	if ir.resultWords(ast.TypeSlot.none(), reads: p.types, f: ast.funcEntry(ast.FuncSlot.none(), funcReads: p.funcs, f: decl)) > 0 'inPlace'
+		convs.push(ast.Convention.convLet.ordinal)
+	end 'inPlace'
 	return convs
 end 'convsOf'
 

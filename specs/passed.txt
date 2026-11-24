@@ -5,7 +5,6 @@ abs.md: abs.zero
 acquire-state-doors.md: a-value-bound-through-a-try-with-a-handler-is-accepted
 advent.md: day1
 advent.md: day2
-allocations-by-tag.md: allocations-by-tag.a-scalar-reading-allocates-nothing-and-a-record-reading-allocates-its-record
 allocations-by-tag.md: allocations-by-tag.alloc-bytes-by-tag-arity-checked
 allocations-by-tag.md: allocations-by-tag.alloc-total-by-tag-arity-checked
 allocations-by-tag.md: allocations-by-tag.an-untraced-build-tallies-nothing
@@ -3718,10 +3717,13 @@ inline-records.md: inline-records.as-a-field-of-a-heap-record
 inline-records.md: inline-records.as-a-union-payload
 inline-records.md: inline-records.as-an-existential
 inline-records.md: inline-records.captured-by-a-closure
+inline-records.md: inline-records.clone-is-the-identity
 inline-records.md: inline-records.equals-still-dispatches
 inline-records.md: inline-records.field-range-check-at-the-door
 inline-records.md: inline-records.no-equals-is-still-refused
+inline-records.md: inline-records.passed-and-returned-through-functions
 inline-records.md: inline-records.sixty-five-bits-stays-a-heap-record
+inline-records.md: inline-records.try-otherwise-over-a-factory-returning-one
 inner-alias-construction.md: a-static-factory-result-is-checked-as-its-own-type
 inner-alias-construction.md: error.an-inner-alias-shadows-a-file-scope-alias-at-the-from-door
 inner-alias-construction.md: error.an-inner-alias-shadows-a-file-scope-alias-at-the-static-door

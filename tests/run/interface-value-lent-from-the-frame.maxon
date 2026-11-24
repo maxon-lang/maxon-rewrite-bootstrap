@@ -63,12 +63,9 @@ function main() returns ExitCode
 	return 0
 end 'main'
 
-// expect-free: record
 // expect-free: string "27 6 30\n"
-// expect-free: record
 // expect-free: string "kept 9 4\n"
 // expect-free: array
-// expect-free: record
 // expect-free: record
 // expect-free: record
 // expect-free: record

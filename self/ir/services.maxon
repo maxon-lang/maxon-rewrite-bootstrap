@@ -22,14 +22,15 @@ function visitSpawnExpr(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleS
 	end 'default'
 	let handleTy = applyType(l, p: p, ms: ms, t: exprType(p, module: l.module, node: e))
 	if c.info.body == ast.noFunc 'here'
-		let state = lowerExpr(l, p: p, ms: ms, e: call)
+		let made = lowerExpr(l, p: p, ms: ms, e: call)
+		let state = boxed(l, p: p, ms: ms, v: made, t: exprType(p, module: l.module, node: call))
 		let handle = entry(l, p: p, site: site, symbol: Rt.rtServiceNew, kind: IrKind.kindManaged, args: argsOf2(state, b: capacity))
 		popPending(l, n: mark)
 		return handle
 	end 'here'
 	let base = l.args.count()
 	pushOrderedArgs(l, p: p, ms: ms, c: c)
-	let captures = argsSince(l, base: base)
+	let captures = messageArgs(l, p: p, ms: ms, c: c, base: base)
 	popArgs(l, n: base)
 	let empty = konst(l, value: 0 as Word)
 	let handle = entry(l, p: p, site: site, symbol: Rt.rtServiceNew, kind: IrKind.kindManaged, args: argsOf2(empty, b: capacity))
@@ -48,7 +49,7 @@ function lowerSend(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState,
 	let handleTy = applyType(l, p: p, ms: ms, t: exprType(p, module: l.module, node: c.receiver))
 	let base = l.args.count()
 	pushOrderedArgs(l, p: p, ms: ms, c: c)
-	var captures = argsSince(l, base: base)
+	var captures = messageArgs(l, p: p, ms: ms, c: c, base: base)
 	popArgs(l, n: base)
 	let status = entry(l, p: p, site: site, symbol: Rt.rtServiceReserve, kind: IrKind.kindScalar, args: argsOf1(handle))
 	let ok = l.b.newBlock()
@@ -71,6 +72,19 @@ function lowerSend(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState,
 	end 'none'
 	return reply
 end 'lowerSend'
+
+// messageArgs are the arguments of a message pushed since base, each of which the message owns: a value held in place that a
+// let parameter borrows goes in a box of its own as a consumed one does (argValue), since the body runs past this frame.
+function messageArgs(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, base Count) returns RegList
+	var args = argsSince(l, base: base)
+	for i in 0 upto args.count() 'args'
+		if c.info.paramSpecs[i].conv == ast.Convention.convLet 'lent'
+			let t = exprRefType(l, p: p, ms: ms, e: ExprRef.make(l.module, node: c.ordered[i]))
+			args[i] = boxed(l, p: p, ms: ms, v: args[i], t: t)
+		end 'lent'
+	end 'args'
+	return args
+end 'messageArgs'
 
 // lowerServiceBody lowers the behaviour that runs a factory or a handler on the service, as a body of the function around
 // it: it is given the address of the state, then each argument, which it owns, then the reply's cell where the sender keeps
@@ -96,7 +110,7 @@ function lowerServiceBody(mutates l Lowerer, p ast.Project, mutates ms ast.Modul
 	var strings = 0 as FloatMask
 	for i in 0 upto params 'params'
 		let ty = applyType(l, p: p, ms: ms, t: fn.paramTypes[i])
-		let kind = kindOf(l, p: p, ms: ms, t: ty)
+		let kind = holderKind(l, p: p, ms: ms, t: ty)
 		if kind == IrKind.kindString 'string'
 			strings = strings or floatBit(try i + 1 otherwise panic("lower: too many parameters in a message"))
 		end 'string'
@@ -123,15 +137,16 @@ function lowerServiceBody(mutates l Lowerer, p ast.Project, mutates ms ast.Modul
 	end 'plain'
 	for i in 0 upto params 'borrowed'
 		let ty = applyType(l, p: p, ms: ms, t: fn.paramTypes[i])
-		if fn.params[i].conv == ast.Convention.convLet and owning(kindOf(l, p: p, ms: ms, t: ty)) 'lent'
+		if fn.params[i].conv == ast.Convention.convLet and holderOwns(l, p: p, ms: ms, t: ty) 'lent'
 			emitDropReg(inner, src: owned[i], ty: dropType(l, p: p, ms: ms, t: ty))
 		end 'lent'
 	end 'borrowed'
 	if factory 'store'
-		emit(inner, i: newStoreAt(state, src: dst))
+		let held = boxed(inner, p: p, ms: ms, v: dst, t: resultTy)
+		emit(inner, i: newStoreAt(state, src: held))
 	end 'store' else if cell 'reply'
 		let cellReg = paramReg(inner, index: try 1 + params otherwise panic("lower: too many parameters in a message"), kind: IrKind.kindScalar)
-		let value = dst if dst != noReg else konst(inner, value: 0 as Word)
+		let value = boxed(inner, p: p, ms: ms, v: dst, t: resultTy) if dst != noReg else konst(inner, value: 0 as Word)
 		let error = err if err != noReg else konst(inner, value: 0 as Word)
 		entryVoid(inner, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtReplyGive, args: argsOf3(cellReg, b: value, c: error))
 	end 'reply' else 'dropped'

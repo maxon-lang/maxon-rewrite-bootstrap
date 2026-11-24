@@ -110,7 +110,8 @@ function borrowPayloads(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleS
 				let local = localEntry(p, module: l.fnModule, id: info.bindings[j])
 				let kind = kindOf(l, p: p, ms: ms, t: local.ty)
 				let d = unionPayload(l, p: p, ms: ms, t: st, v: subject, caseIndex: info.caseIdx, index: j, kind: kind)
-				emit(l, i: newStoreSlot(slotOf(local), src: d, borrow: owning(kind)))
+				// A payload held in place may be the managed word of its box, which the binding borrows as any managed payload.
+				emit(l, i: newStoreSlot(slotOf(local), src: d, borrow: owning(regKind(l, v: d))))
 			end 'named'
 		end 'bindings'
 	end 'patterns'

@@ -92,7 +92,8 @@ function lowerBoxed(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState
 	end 'settle'
 	let box = newReg(l, kind: IrKind.kindManaged)
 	if consumed 'inFlight'
-		let instr = l.b.box(box, t: table, src: value)
+		let held = boxed(l, p: p, ms: ms, v: value, t: ty)
+		let instr = l.b.box(box, t: table, src: held)
 		emit(l, i: instr)
 		let dropTy = dropType(l, p: p, ms: ms, t: iface)
 		l.pending.push(PendingDrop.ofReg(box, ty: dropTy))
@@ -130,7 +131,7 @@ function lowerRecoveryCast(mutates l Lowerer, p ast.Project, mutates ms ast.Modu
 	l.cur = pass
 	let addr = newReg(l, kind: IrKind.kindScalar)
 	emit(l, i: newFieldAddr(addr, obj: box, offset: ifaceValueOffset))
-	let kind = kindOf(l, p: p, ms: ms, t: ty)
+	let kind = holderKind(l, p: p, ms: ms, t: ty)
 	let v = newReg(l, kind: kind)
 	if owning(kind) 'managed'
 		emit(l, i: newMoveAt(v, addr: addr))
@@ -140,7 +141,7 @@ function lowerRecoveryCast(mutates l Lowerer, p ast.Project, mutates ms ast.Modu
 	let dropTy = dropType(l, p: p, ms: ms, t: iface)
 	emitDropReg(l, src: box, ty: dropTy)
 	popPending(l, n: mark)
-	return v
+	return unboxed(l, p: p, ms: ms, v: v, t: ty)
 end 'lowerRecoveryCast'
 
 // receiverConv is how a call through an interface value gives the method the value its box holds, for a method whose

@@ -1,0 +1,143 @@
+typealias Small = int(0 to 1000000)
+
+type Pair
+	var a as Small
+	var b as Small
+
+	static function make(a Small, b Small) returns Self
+		return Self{a: a, b: b}
+	end 'make'
+
+	function sum() returns Small
+		return try a + b otherwise 0
+	end 'sum'
+
+	function swapped() returns Self
+		return Self{a: b, b: a}
+	end 'swapped'
+
+	function grow(mutates self, by Small)
+		a = try a + by otherwise 0
+		self.b = try b + by otherwise 0
+	end 'grow'
+
+	function into(consumes self) returns Small
+		return try a * b otherwise 0
+	end 'into'
+end 'Pair'
+
+typealias Pairs = Array with Pair
+
+type Holder
+	var name as String
+	var pair as Pair
+	var pairs as Pairs
+
+	static function make(consumes name String, consumes pair Pair) returns Self
+		return Self{name: name, pair: pair, pairs: Pairs.create(0)}
+	end 'make'
+end 'Holder'
+
+union Maybe uses T
+	none
+	some(value T)
+end 'Maybe'
+
+interface Summed
+	function sum() returns Small
+end 'Summed'
+
+extension Pair implements Summed
+end 'Pair'
+
+function printLine(s String)
+	print("{s}\n")
+end 'printLine'
+
+function show(p Pair) returns String
+	return "({p.a}, {p.b})"
+end 'show'
+
+function reset(mutates p Pair)
+	p = Pair.make(7, b: 8)
+end 'reset'
+
+function fill(sets p Pair)
+	p = Pair.make(9, b: 10)
+end 'fill'
+
+function keep(consumes p Pair) returns Pairs
+	var ps = Pairs.create(0)
+	ps.push(p)
+	return ps
+end 'keep'
+
+function largest(ps Pairs) returns Pair
+	var best = Pair.make(0, b: 0)
+	for p in ps 'each'
+		if p.sum() > best.sum() 'more'
+			best = p.clone()
+		end 'more'
+	end 'each'
+	return best
+end 'largest'
+
+function first(m Maybe with Pair) returns String
+	return match m 'm'
+		some(p) gives show(p)
+		none gives "none"
+	end 'm'
+end 'first'
+
+function total(s Summed) returns Small
+	return s.sum()
+end 'total'
+
+function main() returns ExitCode
+	var p = Pair.make(1, b: 2)
+	let q = p.clone()
+	p.grow(10)
+	printLine("{show(p)} {show(q)} {show(p.swapped())}")
+	reset(p)
+	printLine(show(p))
+	var r as Pair
+	fill(r)
+	printLine(show(r))
+	var ps = Pairs.create(0)
+	for i in 0 upto 5 'push'
+		ps.push(Pair.make(i as Small, b: (i * i) as Small))
+	end 'push'
+	ps[1] = Pair.make(100, b: 1)
+	printLine("largest {show(largest(ps))} count {ps.count()}")
+	let popped = try ps.pop() otherwise Pair.make(0, b: 0)
+	printLine("popped {show(popped)} left {ps.count()}")
+	var h = Holder.make("h", pair: Pair.make(3, b: 4))
+	h.pair.grow(1)
+	h.pairs.push(h.pair.clone())
+	h.pair = Pair.make(5, b: 6)
+	let old = exchange(h.pair, value: Pair.make(11, b: 12))
+	printLine("{h.name} {show(h.pair)} {show(old)} {show(h.pairs[0])}")
+	let kept = keep(Pair.make(2, b: 3))
+	printLine("kept {show(kept[0])} into {Pair.make(4, b: 5).into()}")
+	printLine("some {first(Maybe.some(Pair.make(6, b: 7)))} {first(Maybe.none)}")
+	let add = function(x Small) gives Pair.make(try q.a + x otherwise 0, b: q.b)
+	printLine("closure {show(add(5))}")
+	printLine("interface {total(Pair.make(20, b: 22))}")
+	match consumes Maybe.some(Pair.make(8, b: 9)) 'taken'
+		some(t) then printLine("took {show(t)}")
+		none then printLine("took nothing")
+	end 'taken'
+	return 0
+end 'main'
+
+//> (11, 12) (1, 2) (12, 11)
+//> (7, 8)
+//> (9, 10)
+//> largest (100, 1) count 5
+//> popped (4, 16) left 4
+//> h (11, 12) (5, 6) (4, 5)
+//> kept (2, 3) into 20
+//> some (6, 7) none
+//> closure (6, 2)
+//> interface 42
+//> took (8, 9)
