@@ -1,10 +1,30 @@
 // Children that run at the same time inherit only their own pipes, so each run reads its child's output and sees the end of
 // it when that child ends, whether or not another child is still running. Each child waits a moment before it writes, so
-// that the runs overlap when there is more than one worker. The children are cmd.exe's, which WSL runs too; macOS runs the
-// same children of sh (children-started-at-once-each-read-their-own-output-on-posix.maxon).
-// unsupported-targets: arm64-macos
+// that the runs overlap when there is more than one worker. The children are the host's shell's: cmd.exe's on Windows and
+// sh's elsewhere.
+// native-only
 // schedules: 2
 typealias Arguments = Array with String
+
+// The host's shell, the flag that has it run a command, and the command that waits about a second and prints a child's
+// label.
+#if os(Windows)
+	let shellName = "cmd.exe"
+
+	let shellRuns = "/c"
+
+	function pauseThenEcho(label Count) returns String
+		return "ping -n 2 127.0.0.1 >nul& echo child {label}"
+	end 'pauseThenEcho'
+#else
+	let shellName = "sh"
+
+	let shellRuns = "-c"
+
+	function pauseThenEcho(label Count) returns String
+		return "sleep 1; echo child {label}"
+	end 'pauseThenEcho'
+#endif
 
 type Output
 	export var text as String
@@ -17,9 +37,9 @@ end 'Output'
 function run(label Count, slot cown with Output)
 	when slot as output 'child'
 		var script = Arguments.create(0)
-		script.push("/c")
-		script.push("ping -n 2 127.0.0.1 >nul& echo child {label}")
-		let out = try Subprocess.run(Executable.name("cmd.exe"), arguments: script) otherwise panic("cannot run cmd.exe")
+		script.push(shellRuns)
+		script.push(pauseThenEcho(label))
+		let out = try Subprocess.run(Executable.name(shellName), arguments: script) otherwise panic("cannot run {shellName}")
 		output.text = out.stdout.clone()
 	end 'child'
 end 'run'

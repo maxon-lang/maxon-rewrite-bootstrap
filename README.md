@@ -56,6 +56,25 @@ from `TMPDIR`, as maxon does, and refuses to guess one, so the gate sets it to t
 none; the build cache is under `MINIMAXON_CACHE` when that names a directory, and off otherwise. A Linux host never renews
 the seeds, which needs the Windows seed run (see `seed/README.md`).
 
+Go is the one that `go.mod` names: an older installed Go fetches it itself (`GOTOOLCHAIN=auto`, Go's default) from the
+module proxy, `proxy.golang.org`, which a machine that cannot reach `go.dev` still reaches. A test that starts a program of
+its system names the host's with `#if os(...)`, as maxon's spec tests do: its shell is `cmd.exe /c` on Windows and `sh -c`
+elsewhere, so the same test runs on each host and none starts a Windows program on Linux.
+
+On a Windows machine the Linux gate is checked in WSL as a native Linux host would run it: in a clone on WSL's own file
+system (under `~`, not `/mnt/c`, whose files have no birth time, so `File.info` fails there as on no native disk), with
+WSL's interop with Windows off for the run, so that no Windows program can be started from Linux, and no Windows directory
+on `PATH`:
+
+```sh
+echo 0 | sudo tee /proc/sys/fs/binfmt_misc/WSLInterop
+PATH=$(printf %s "$PATH" | tr : '\n' | grep -v '^/mnt/' | paste -sd:) ./check.sh
+echo 1 | sudo tee /proc/sys/fs/binfmt_misc/WSLInterop
+```
+
+With interop on, a Linux program that starts `cmd.exe` works under WSL and fails on any other Linux, which the gate would
+then miss.
+
 | Command | What it does |
 |---|---|
 | `minimaxon build <file\|dir> [-o out.exe] [--target=<arch>-<os>]` | compile; the path given is the project's root, and a directory is a project, one module per directory (see "Modules"); `--target` names the target, `x64-windows`, `x64-linux` or `arm64-linux` (see "Targets"), the system the compiler runs on by default |

@@ -1,7 +1,8 @@
-// Running Windows' programs: cmd.exe and ping.exe; subprocess-on-linux.maxon runs Linux's.
-// unsupported-targets: x64-linux, arm64-linux, arm64-macos
+// Running the host's programs, found on PATH or by a path: its shell, echo, and a program that waits.
+// unsupported-targets: arm64-macos
+// native-only
 //> code=3 succeeded=false stdout=true stderr=true
-//> quoted=true code=0 succeeded=true
+//> spaced=true code=0 succeeded=true
 //> path=true
 //> missing=executableNotFound
 //> sleeper=timeout
@@ -9,6 +10,26 @@
 //> unbounded=ran 0
 
 typealias Arguments = Array with String
+
+// The host's shell, the flag that has it run a command, the end of the lines it prints, and a command that writes a line
+// to each stream and exits 3.
+#if os(Windows)
+	let shellName = "cmd.exe"
+
+	let shellRuns = "/c"
+
+	let lineEnd = "\r\n"
+
+	let failingScript = "echo out&& 1>&2 echo err&& exit /b 3"
+#else
+	let shellName = "sh"
+
+	let shellRuns = "-c"
+
+	let lineEnd = "\n"
+
+	let failingScript = "echo out; echo err 1>&2; exit 3"
+#endif
 
 // outcome runs a program under a deadline and says how it ended.
 function outcome(name String, arguments Arguments, deadline WaitDeadline) returns String
@@ -31,33 +52,72 @@ function outcome(name String, arguments Arguments, deadline WaitDeadline) return
 	return "unreachable"
 end 'outcome'
 
-// pingFor runs ping, which takes about a second for each of its pings after the first.
-function pingFor(pings String, deadline WaitDeadline) returns String
+// pauseFor runs a program that waits a number of seconds: ping on Windows, which takes about a second for each of its
+// pings after the first, and sleep elsewhere.
+function pauseFor(seconds Count, deadline WaitDeadline) returns String
 	var args = Arguments.create(0)
-	args.push("-n")
-	args.push(pings.clone())
-	args.push("127.0.0.1")
-	return outcome("ping.exe", arguments: args, deadline: deadline)
-end 'pingFor'
+	#if os(Windows)
+		let pings = try seconds + 1 otherwise panic("too many seconds")
+		args.push("-n")
+		args.push("{pings}")
+		args.push("127.0.0.1")
+		return outcome("ping.exe", arguments: args, deadline: deadline)
+	#else
+		args.push("{seconds}")
+		return outcome("sleep", arguments: args, deadline: deadline)
+	#endif
+end 'pauseFor'
+
+// echoProgram is the host's echo, found on PATH, or by its path with byPath; cmd.exe's echo is a command of the shell.
+function echoProgram(byPath bool) returns Executable
+	#if os(Windows)
+		if byPath 'path'
+			return Executable.path(try FilePath.from(try Process.environmentVariable("ComSpec") otherwise panic("ComSpec is not set")) otherwise panic("not a path"))
+		end 'path'
+		return Executable.name(shellName)
+	#else
+		if byPath 'path'
+			return Executable.path(try FilePath.from("/bin/echo") otherwise panic("not a path"))
+		end 'path'
+		return Executable.name("echo")
+	#endif
+end 'echoProgram'
+
+// echoArguments are the arguments of the host's echo of one argument with a space in it, and spacedLine what it prints:
+// cmd.exe prints the argument as it was quoted on its command line.
+#if os(Windows)
+	let spacedLine = "\"a b\"\r\n"
+
+	function echoArguments() returns Arguments
+		var args = Arguments.create(0)
+		args.push(shellRuns)
+		args.push("echo")
+		args.push("a b")
+		return args
+	end 'echoArguments'
+#else
+	let spacedLine = "a b\n"
+
+	function echoArguments() returns Arguments
+		var args = Arguments.create(0)
+		args.push("a b")
+		return args
+	end 'echoArguments'
+#endif
 
 function main() returns ExitCode
 	var script = Arguments.create(0)
-	script.push("/c")
-	script.push("echo out&& 1>&2 echo err&& exit /b 3")
-	let out = try Subprocess.run(Executable.name("cmd.exe"), arguments: script) otherwise panic("cannot run cmd.exe")
-	print("code={out.exitCode()} succeeded={out.succeeded()} stdout={out.stdout == "out\r\n"} stderr={out.stderr == "err\r\n"}\n")
-	var echo = Arguments.create(0)
-	echo.push("/c")
-	echo.push("echo")
-	echo.push("a b")
-	let quoted = try Subprocess.run(Executable.name("cmd.exe"), arguments: echo) otherwise panic("cannot run cmd.exe")
-	print("quoted={quoted.stdout == "\"a b\"\r\n"} code={quoted.exitCode()} succeeded={quoted.succeeded()}\n")
-	let shell = try FilePath.from(try Process.environmentVariable("ComSpec") otherwise panic("ComSpec is not set")) otherwise panic("not a path")
-	let byPath = try Subprocess.run(Executable.path(shell), arguments: echo) otherwise panic("cannot run the shell")
-	print("path={byPath.stdout == quoted.stdout}\n")
+	script.push(shellRuns)
+	script.push(failingScript)
+	let out = try Subprocess.run(Executable.name(shellName), arguments: script) otherwise panic("cannot run {shellName}")
+	print("code={out.exitCode()} succeeded={out.succeeded()} stdout={out.stdout == "out{lineEnd}"} stderr={out.stderr == "err{lineEnd}"}\n")
+	let spaced = try Subprocess.run(echoProgram(false), arguments: echoArguments()) otherwise panic("cannot run echo")
+	print("spaced={spaced.stdout == spacedLine} code={spaced.exitCode()} succeeded={spaced.succeeded()}\n")
+	let byPath = try Subprocess.run(echoProgram(true), arguments: echoArguments()) otherwise panic("cannot run echo by its path")
+	print("path={byPath.stdout == spaced.stdout}\n")
 	print("missing={outcome("minimaxon_no_such_exe_98765", arguments: Arguments.create(0), deadline: WaitDeadline.none)}\n")
-	print("sleeper={pingFor("11", deadline: WaitDeadline.within(300))}\n")
-	print("quick={pingFor("1", deadline: WaitDeadline.within(30000))}\n")
-	print("unbounded={pingFor("1", deadline: WaitDeadline.none)}\n")
+	print("sleeper={pauseFor(10, deadline: WaitDeadline.within(300))}\n")
+	print("quick={pauseFor(0, deadline: WaitDeadline.within(30000))}\n")
+	print("unbounded={pauseFor(0, deadline: WaitDeadline.none)}\n")
 	return 0
 end 'main'
