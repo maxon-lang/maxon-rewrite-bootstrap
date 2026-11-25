@@ -1,0 +1,28 @@
+// A throwing factory that is spawned with nothing to catch its error gets a try around the spawn, which is where maxon
+// writes one: the call that a spawn names cannot be a try.
+typealias Whole = int(i64.min to i64.max)
+
+enum StartError implements Error
+	refused
+end 'StartError'
+
+type Gate
+	var open as Whole
+
+	static function create(ok bool) returns Self throws StartError
+		if not ok 'closed'
+			throw StartError.refused
+		end 'closed'
+		return Self{open: 1}
+	end 'create'
+
+	export function state() returns Whole
+		return self.open
+	end 'state'
+end 'Gate'
+
+function main() returns ExitCode
+	let g = spawn Gate.create(true)
+	g.shutdown()
+	return 0
+end 'main'

@@ -1,0 +1,11 @@
+// Arithmetic that starts with a character literal gets its try before the literal's opening quote, not inside it.
+typealias Integer = int(i64.min to i64.max)
+
+function offset(n Integer) returns Integer
+	return '0' + n
+end 'offset'
+
+function main() returns ExitCode
+	print("{offset(1)}\n")
+	return 0
+end 'main'
