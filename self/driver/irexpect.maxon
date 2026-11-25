@@ -1,0 +1,433 @@
+// The IR expectations of the corpus (tests/ir): claims about the optimized IR of one function of a program, read from the text
+// that --emit-ir writes (ir.moduleIrText) and kept in memory by the compile (Options.keepsIrText).
+//
+// A claim names the function and says one of
+//
+//	// expect-ir: <function> has no <op>
+//	// expect-ir: <function> has some <op>
+//	// expect-ir: <function> has <N> <op>
+//	// expect-ir: <function> calls <symbol>
+//	// expect-ir: <function> does not call <symbol>
+//
+// <function> is the symbol the IR text gives the function (`sum`, `Counter.bump`, `first[Count]`), <op> the name of an IR
+// operation as the text prints it (`bounds`, `length.array`, `add.u`), and <symbol> a function of the program or a runtime
+// entry (`rt.panicEmptySlot`). An op written without its dotted ending (`add`, `length`) is every op that starts so. A claim
+// reads only the names of operations and symbols, never a register, a block or the order of the lines, so that a change of how
+// code is generated that keeps what a test is about does not fail it. A test says `has no`, `has some`, `calls` or `does not
+// call` where it can, and an exact count only where the number is the property, which its comment says.
+
+let expectIrPrefix = "// expect-ir:"
+
+// The words of a claim, each with the spaces that set it apart from the function's name before it.
+let hasWord = " has "
+
+let hasNoWord = "no "
+
+let hasSomeWord = "some "
+
+let callsWord = " calls "
+
+let doesNotCallWord = " does not call "
+
+// The word that starts the line of a function in the IR text, and the one that ends the function's name in it.
+let functionHeaderWord = "function "
+
+let paramsWord = " params "
+
+// The words between a register and the operation that makes its value.
+let resultWord = " = "
+
+let percentByte = 37 as Byte
+
+// The operations whose line names a function or an entry that it calls, and so is a call.
+let callOpWords = ["call", "runtime", "async"]
+
+enum IrClaimKind
+	// absent: the function has no such operation.
+	absent
+	// present: the function has at least one.
+	present
+	// counted: the function has exactly times of them.
+	counted
+	// calls: the function calls the symbol.
+	calls
+	// doesNotCall: the function does not call the symbol.
+	doesNotCall
+end 'IrClaimKind'
+
+// IrClaim is one expect-ir directive: what it says of the function it names.
+type IrClaim
+	var subject as String
+	var kind as IrClaimKind
+	var times as Count
+	// name is the operation, or the symbol of a call.
+	var name as String
+
+	static function make(consumes subject String, kind IrClaimKind, times Count, consumes name String) returns IrClaim
+		return IrClaim{subject: subject, kind: kind, times: times, name: name}
+	end 'make'
+end 'IrClaim'
+
+union IrClaimParse
+	parsed(claim IrClaim)
+	malformed(reason String)
+end 'IrClaimParse'
+
+// IrFunctionText is a function of the IR text: its name and its lines, up to the header of the next function. The bodies of
+// a function's closures and behaviours are functions of their own in the text.
+type IrFunctionText
+	var name as String
+	var lines as ast.StringList
+
+	static function make(consumes name String) returns IrFunctionText
+		return IrFunctionText{name: name, lines: ast.StringList.create(0)}
+	end 'make'
+end 'IrFunctionText'
+
+typealias IrFunctionTexts = Array with IrFunctionText
+
+// firstClaimWord is where the earliest of the words of a claim stands in it.
+function firstClaimWord(text String) returns table.Option with Count
+	for at in 0 upto text.byteLength() 'scan'
+		if matchesAt(text, at: at, needle: hasWord) or matchesAt(text, at: at, needle: callsWord) or matchesAt(text, at: at, needle: doesNotCallWord) 'found'
+			return table.Option.some(at)
+		end 'found'
+	end 'scan'
+	return table.Option.none
+end 'firstClaimWord'
+
+// parseIrClaim reads what an expect-ir directive says after its marker.
+function parseIrClaim(text String) returns IrClaimParse
+	let body = trimSpace(text)
+	let start = firstClaimWord(body)
+	if not start.isSome() 'noWord'
+		return IrClaimParse.malformed("write `<function> has no <op>`, `has some <op>`, `has <N> <op>`, `calls <symbol>` or `does not call <symbol>`")
+	end 'noWord'
+	let at = start.unwrap()
+	let subject = trimSpace(body.sliceBytes(0, endPos: at))
+	if matchesAt(body, at: at, needle: doesNotCallWord) 'doesNotCall'
+		return symbolClaim(subject, kind: IrClaimKind.doesNotCall, name: afterWord(body, at: at, word: doesNotCallWord))
+	end 'doesNotCall' else if matchesAt(body, at: at, needle: callsWord) 'calls'
+		return symbolClaim(subject, kind: IrClaimKind.calls, name: afterWord(body, at: at, word: callsWord))
+	end 'calls'
+	return countClaim(subject, rest: trimSpace(afterWord(body, at: at, word: hasWord)))
+end 'parseIrClaim'
+
+// afterWord is the text after the word of a claim that stands at at.
+function afterWord(text String, at Count, word String) returns borrowed String
+	let start = try at + word.byteLength() otherwise panic("test: a claim is too long")
+	return text.sliceBytes(start, endPos: text.byteLength())
+end 'afterWord'
+
+function symbolClaim(subject String, kind IrClaimKind, name String) returns IrClaimParse
+	let symbol = trimSpace(name)
+	if symbol.byteLength() == 0 'empty'
+		return IrClaimParse.malformed("name the symbol that {subject} does or does not call")
+	end 'empty'
+	return IrClaimParse.parsed(IrClaim.make(subject.clone(), kind: kind, times: 0, name: symbol.clone()))
+end 'symbolClaim'
+
+// countClaim reads what follows `has`: `no <op>`, `some <op>`, or a number and an op.
+function countClaim(subject String, rest String) returns IrClaimParse
+	if hasPrefix(rest, prefix: hasNoWord) 'none'
+		return opClaim(subject, kind: IrClaimKind.absent, times: 0, op: afterPrefix(rest, prefix: hasNoWord))
+	end 'none'
+	if hasPrefix(rest, prefix: hasSomeWord) 'some'
+		return opClaim(subject, kind: IrClaimKind.present, times: 0, op: afterPrefix(rest, prefix: hasSomeWord))
+	end 'some'
+	let space = findText(rest, needle: " ")
+	if not space.isSome() 'noOp'
+		return IrClaimParse.malformed("write `has no <op>`, `has some <op>` or `has <N> <op>` after {subject}")
+	end 'noOp'
+	let split = space.unwrap()
+	return match consumes parseCount(rest.sliceBytes(0, endPos: split)) 'number'
+		some(n) gives opClaim(subject, kind: IrClaimKind.counted, times: n, op: rest.sliceBytes(split, endPos: rest.byteLength()))
+		none gives IrClaimParse.malformed("`{rest.sliceBytes(0, endPos: split)}` is neither `no`, `some` nor a number of operations")
+	end 'number'
+end 'countClaim'
+
+function opClaim(subject String, kind IrClaimKind, times Count, op String) returns IrClaimParse
+	let name = trimSpace(op)
+	if name.byteLength() == 0 or findText(name, needle: " ").isSome() 'malformed'
+		return IrClaimParse.malformed("name one IR operation after `has` for {subject}")
+	end 'malformed'
+	return IrClaimParse.parsed(IrClaim.make(subject.clone(), kind: kind, times: times, name: name.clone()))
+end 'opClaim'
+
+// irFunctionTexts cuts the IR text at the headers of its functions.
+function irFunctionTexts(irText String) returns IrFunctionTexts
+	var functions = IrFunctionTexts.create(0)
+	var current = IrFunctionText.make("")
+	var open = false
+	let lines = splitLines(irText)
+	for line in lines 'lines'
+		if hasPrefix(line, prefix: functionHeaderWord) 'header'
+			let fresh = IrFunctionText.make(headerName(line).clone())
+			if open 'previous'
+				functions.push(exchange(current, value: fresh))
+			end 'previous' else 'first'
+				current = fresh
+				open = true
+			end 'first'
+		end 'header' else if open 'body'
+			current.lines.push(line.clone())
+		end 'body'
+	end 'lines'
+	if open 'last'
+		functions.push(current)
+	end 'last'
+	return functions
+end 'irFunctionTexts'
+
+// headerName is the name of the function a header line of the IR text starts: what stands between `function` and `params`.
+function headerName(line String) returns borrowed String
+	let start = functionHeaderWord.byteLength()
+	let stop = findText(line, needle: paramsWord)
+	if not stop.isSome() 'malformed'
+		panic("test: the IR text has a function header with no params: {line}")
+	end 'malformed'
+	return line.sliceBytes(start, endPos: stop.unwrap())
+end 'headerName'
+
+// opStart is where the operation of an instruction's line starts: after the register that holds its value, when it has one.
+function opStart(line String) returns Count
+	var at = 0 as Count
+	while at < line.byteLength() and isSpaceByte(line.byteAt(at)) 'indent'
+		at = at + 1
+	end 'indent'
+	if at < line.byteLength() and line.byteAt(at) == percentByte 'result'
+		let equals = findText(line, needle: resultWord)
+		if equals.isSome() 'assigned'
+			return try equals.unwrap() + resultWord.byteLength() otherwise panic("test: a line of the IR text is too long")
+		end 'assigned'
+	end 'result'
+	return at
+end 'opStart'
+
+// wordEnd is where the word of line that starts at start ends: at a space or at the bracket of an argument list.
+function wordEnd(line String, start Count) returns Count
+	var at = start
+	while at < line.byteLength() and not isSpaceByte(line.byteAt(at)) and line.byteAt(at) != openParenByte 'word'
+		at = at + 1
+	end 'word'
+	return at
+end 'wordEnd'
+
+// opWord is the name of the operation of a line of a function's text: the first word after the register that takes its
+// value. A line that is no instruction or terminator, a block's or a function's header, gives a word no operation has.
+function opWord(line String) returns borrowed String
+	let start = opStart(line)
+	return line.sliceBytes(start, endPos: wordEnd(line, start: start))
+end 'opWord'
+
+// isOp is whether the word that a line starts its operation with is op, or begins with it and a dot: `add` is `add` and `add.u`.
+function isOp(word String, op String) returns bool
+	if word == op 'same'
+		return true
+	end 'same'
+	return hasPrefix(word, prefix: op) and word.byteLength() > op.byteLength() and word.byteAt(op.byteLength()) == dotByte
+end 'isOp'
+
+// countOps is how many of the lines are an operation op: of one function's text, or of the whole IR text.
+function countOps(lines ast.StringList, op String) returns Count
+	var found = 0 as Count
+	for line in lines 'lines'
+		if isOp(opWord(line), op: op) 'op'
+			found = try found + 1 otherwise panic("test: more operations than a count holds")
+		end 'op'
+	end 'lines'
+	return found
+end 'countOps'
+
+// isCallWord is whether an operation's name is that of one that names what it calls.
+function isCallWord(word String) returns bool
+	for call in callOpWords 'calls'
+		if word == call 'same'
+			return true
+		end 'same'
+	end 'calls'
+	return false
+end 'isCallWord'
+
+// calleeWord is the symbol that a call's line names: the text after its operation up to the argument list, which opens
+// with a bracket and a register or closes at once.
+function calleeWord(line String) returns borrowed String
+	let opEnd = wordEnd(line, start: opStart(line))
+	var start = opEnd
+	while start < line.byteLength() and isSpaceByte(line.byteAt(start)) 'space'
+		start = start + 1
+	end 'space'
+	var stop = start
+	while stop < line.byteLength() and not opensArguments(line, at: stop) 'symbol'
+		stop = stop + 1
+	end 'symbol'
+	return line.sliceBytes(start, endPos: stop)
+end 'calleeWord'
+
+// opensArguments is whether the bracket at at opens an argument list: one that a register or a closing bracket follows.
+function opensArguments(line String, at Count) returns bool
+	if line.byteAt(at) != openParenByte 'bracket'
+		return false
+	end 'bracket'
+	let next = try at + 1 otherwise return false
+	return next >= line.byteLength() or line.byteAt(next) == percentByte or line.byteAt(next) == closeParenByte
+end 'opensArguments'
+
+// countCalls is how many of the lines call symbol.
+function countCalls(lines ast.StringList, symbol String) returns Count
+	var found = 0 as Count
+	for line in lines 'lines'
+		if isCallWord(opWord(line)) and calleeWord(line) == symbol 'call'
+			found = try found + 1 otherwise panic("test: more calls than a count holds")
+		end 'call'
+	end 'lines'
+	return found
+end 'countCalls'
+
+function namesFunction(functions IrFunctionTexts, name String) returns bool
+	for f in functions 'each'
+		if f.name == name 'same'
+			return true
+		end 'same'
+	end 'each'
+	return false
+end 'namesFunction'
+
+function isPrintedOp(op String) returns bool
+	let names = ir.printedOpNames()
+	for name in names 'each'
+		if name == op 'same'
+			return true
+		end 'same'
+	end 'each'
+	return false
+end 'isPrintedOp'
+
+function isRuntimeSymbol(symbol String) returns bool
+	let texts = ir.rtTexts()
+	for text in texts 'each'
+		if text == symbol 'same'
+			return true
+		end 'same'
+	end 'each'
+	return false
+end 'isRuntimeSymbol'
+
+// checkIrClaims is whether the IR text holds what every expect-ir directive of the program says. A directive that names a
+// function that the text does not have, an operation the text never prints, or a symbol that is neither a function of the
+// program nor a runtime entry fails, and so does a program with no directive.
+function checkIrClaims(expect Expectation, irText String) returns TestResult
+	if expect.irClaims.count() == 0 'none'
+		return TestResult.failed("a program of tests/ir says nothing: add `{expectIrPrefix} <function> has no <op>` or another claim")
+	end 'none'
+	let functions = irFunctionTexts(irText)
+	for text in expect.irClaims 'claims'
+		let result = checkIrClaimText(text, functions: functions)
+		if result.outcome != TestOutcome.testPassed 'failed'
+			return result
+		end 'failed'
+	end 'claims'
+	return TestResult.passed()
+end 'checkIrClaims'
+
+function checkIrClaimText(text String, functions IrFunctionTexts) returns TestResult
+	return match consumes parseIrClaim(text) 'parse'
+		parsed(claim) gives checkIrClaim(claim, text: text, functions: functions)
+		malformed(reason) gives TestResult.failed("{expectIrPrefix} {text}: {reason}")
+	end 'parse'
+end 'checkIrClaimText'
+
+// checkIrClaim is whether one claim holds of the function it names.
+function checkIrClaim(claim IrClaim, text String, functions IrFunctionTexts) returns TestResult
+	var named = 0 as Count
+	var verdict = TestResult.passed()
+	for f in functions 'functions'
+		if f.name == claim.subject 'named'
+			named = try named + 1 otherwise panic("test: more functions than a count holds")
+			verdict = checkIrClaimOf(claim, f: f, text: text, functions: functions)
+		end 'named'
+	end 'functions'
+	if named == 0 'unknown'
+		return TestResult.failed("{expectIrPrefix} {text}: the IR has no function {claim.subject}")
+	end 'unknown'
+	if named > 1 'ambiguous'
+		return TestResult.failed("{expectIrPrefix} {text}: the IR has {named} functions called {claim.subject}")
+	end 'ambiguous'
+	return verdict
+end 'checkIrClaim'
+
+// checkIrClaimOf is whether a claim holds of f, the function it names.
+function checkIrClaimOf(claim IrClaim, f IrFunctionText, text String, functions IrFunctionTexts) returns TestResult
+	if claim.kind == IrClaimKind.absent or claim.kind == IrClaimKind.present or claim.kind == IrClaimKind.counted 'ops'
+		if not isPrintedOp(claim.name) 'unknownOp'
+			return TestResult.failed("{expectIrPrefix} {text}: {claim.name} is no operation of the IR")
+		end 'unknownOp'
+		let found = countOps(f.lines, op: claim.name)
+		if claim.kind == IrClaimKind.present and found == 0 'missing'
+			return TestResult.failed("{expectIrPrefix} {text}: {claim.subject} has no {claim.name}")
+		end 'missing'
+		if claim.kind != IrClaimKind.present and found != claim.times 'count'
+			return TestResult.failed("{expectIrPrefix} {text}: {claim.subject} has {found} {claim.name}")
+		end 'count'
+		return TestResult.passed()
+	end 'ops'
+	if not namesFunction(functions, name: claim.name) and not isRuntimeSymbol(claim.name) 'unknownSymbol'
+		return TestResult.failed("{expectIrPrefix} {text}: {claim.name} is neither a function of the program nor a runtime entry")
+	end 'unknownSymbol'
+	let calls = countCalls(f.lines, symbol: claim.name) > 0
+	if claim.kind == IrClaimKind.calls and not calls 'missing'
+		return TestResult.failed("{expectIrPrefix} {text}: {claim.subject} does not call {claim.name}")
+	end 'missing'
+	if claim.kind == IrClaimKind.doesNotCall and calls 'present'
+		return TestResult.failed("{expectIrPrefix} {text}: {claim.subject} calls {claim.name}")
+	end 'present'
+	return TestResult.passed()
+end 'checkIrClaimOf'
+
+let irCountOpArgument = "op="
+
+let irCountCallArgument = "call="
+
+// irCountCommand is `ircount <file.ir> (op=NAME | call=SYMBOL)...`: it prints, for each argument, how many lines of the IR text
+// that --emit-ir wrote are the operation NAME or a call of SYMBOL, as `op=NAME 3`. It counts as the expect-ir directives do, so
+// that a tool that measures the run-time checks of a build (cmd/selfab) and the corpus say the same by the same code.
+function irCountCommand(rest CommandNames) returns ExitCode
+	if rest.count() < 3 'unnamed'
+		printError("ircount: name an IR file and what to count: op=NAME or call=SYMBOL\n")
+		return usageExitCode
+	end 'unnamed'
+	// The arguments are the command's name, the IR file, then what to count.
+	var path = ""
+	var pastName = false
+	var named = false
+	for arg in rest 'file'
+		if pastName and not named 'path'
+			path = arg.clone()
+			named = true
+		end 'path'
+		pastName = true
+	end 'file'
+	let lines = splitLines(readText(path))
+	pastName = false
+	var pastFile = false
+	for arg in rest 'arguments'
+		if pastFile 'counted'
+			if hasPrefix(arg, prefix: irCountOpArgument) 'op'
+				let op = afterPrefix(arg, prefix: irCountOpArgument)
+				if not isPrintedOp(op) 'unknown'
+					printError("ircount: {op} is no operation of the IR\n")
+					return usageExitCode
+				end 'unknown'
+				print("{arg} {countOps(lines, op: op)}\n")
+			end 'op' else if hasPrefix(arg, prefix: irCountCallArgument) 'call'
+				print("{arg} {countCalls(lines, symbol: afterPrefix(arg, prefix: irCountCallArgument))}\n")
+			end 'call' else 'other'
+				printError("ircount: {arg} is neither op=NAME nor call=SYMBOL\n")
+				return usageExitCode
+			end 'other'
+		end 'counted'
+		pastFile = pastName
+		pastName = true
+	end 'arguments'
+	return 0
+end 'irCountCommand'

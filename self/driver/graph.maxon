@@ -444,10 +444,12 @@ type Run
 	var made as backend.UnitList
 	// scheduled is whether the executable the link made runs the scheduler.
 	var scheduled as bool
+	// irText is the text of the IR that the program stage kept, when the options keep it (Options.keepsIrText).
+	var irText as String
 
 	static function make(consumes compile Compile, modules Count) returns Run
 		let plan = check.EntryPlan.none(compile.makesProgram)
-		return Run{compile: compile, graph: TaskGraph.new(modules), work: Array.create(0), homesOut: false, outcomes: Array.create(0), started: Outcome.none(), states: TaskStates.create(0), errors: ErrorLists.create(0), earlierErrors: 0, entryPlan: plan, checksStarted: false, checked: check.Checked.none(), generates: false, timings: Timings.off(), made: backend.UnitList.create(0), scheduled: false}
+		return Run{compile: compile, graph: TaskGraph.new(modules), work: Array.create(0), homesOut: false, outcomes: Array.create(0), started: Outcome.none(), states: TaskStates.create(0), errors: ErrorLists.create(0), earlierErrors: 0, entryPlan: plan, checksStarted: false, checked: check.Checked.none(), generates: false, timings: Timings.off(), made: backend.UnitList.create(0), scheduled: false, irText: ""}
 	end 'make'
 
 	// generated is what the generate stage lowered, which is nothing when the check did not end without errors: the IR as
@@ -466,7 +468,7 @@ type Run
 				return Generated.nothing()
 			end 'compiled'
 		end 'modules'
-		return Generated.make(checked.entry, modules: modules, scheduled: scheduled)
+		return Generated.make(checked.entry, modules: modules, scheduled: scheduled, irText: exchange(irText, value: ""))
 	end 'generated'
 end 'Run'
 
@@ -697,7 +699,7 @@ end 'startChecks'
 // programTask is holdProgram on the project, which holds the modules' homes while it runs.
 function programTask(mutates run Run, mutates p ast.Project, known Known, mutates errs diag.ErrorList)
 	putHomes(run, p: p)
-	holdProgram(run.compile, p: p, known: known, errs: errs)
+	run.irText = holdProgram(run.compile, p: p, known: known, errs: errs)
 	if run.compile.goal != Goal.instances 'emits'
 		takeHomes(run, p: p)
 	end 'emits'

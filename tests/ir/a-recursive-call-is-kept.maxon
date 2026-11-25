@@ -1,0 +1,15 @@
+// A function that calls itself is not a leaf, so its call stays; the test also shows that `calls` finds a call by its symbol.
+// expect-ir: countdown calls countdown
+
+function countdown(n Count) returns Count
+	if n == 0 'done'
+		return 0
+	end 'done'
+	let rest = try n - 1 otherwise 0
+	return try countdown(rest) + 1 otherwise 0
+end 'countdown'
+
+function main() returns ExitCode
+	print("{countdown(3)}\n")
+	return 0
+end 'main'

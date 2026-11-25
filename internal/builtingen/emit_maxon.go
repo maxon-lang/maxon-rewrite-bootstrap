@@ -436,7 +436,11 @@ func emitMaxonRt(t table) string {
 	for _, e := range entries {
 		fmt.Fprintf(&sb, "\tif r == Rt.rt%s 'rt%s'\n\t\treturn %q\n\tend 'rt%s'\n", e.Name, e.Name, e.Symbol, e.Name)
 	}
-	sb.WriteString("\tpanic(\"ir: rtNone has no text\")\nend 'rtText'\n\n// rtCode is the number an instruction holds a symbol as.\nexport function rtCode(r Rt) returns Count\n")
+	sb.WriteString("\tpanic(\"ir: rtNone has no text\")\nend 'rtText'\n\n// rtTexts are the texts of every symbol, which a test of the IR checks the symbols it names against.\nexport function rtTexts() returns ast.StringList\n\tvar texts = ast.StringList.create(0)\n")
+	for _, e := range entries {
+		fmt.Fprintf(&sb, "\ttexts.push(%q)\n", e.Symbol)
+	}
+	sb.WriteString("\treturn texts\nend 'rtTexts'\n\n// rtCode is the number an instruction holds a symbol as.\nexport function rtCode(r Rt) returns Count\n")
 	for i, e := range entries {
 		fmt.Fprintf(&sb, "\tif r == Rt.rt%s 'rt%s'\n\t\treturn %d\n\tend 'rt%s'\n", e.Name, e.Name, i+1, e.Name)
 	}

@@ -1,0 +1,12 @@
+// A division by a constant is the high half of a multiplication and a shift, so the function holds no `div`.
+// expect-ir: tenth has no div
+// expect-ir: tenth has some mulhi
+
+function tenth(n Count) returns Count
+	return n / 10
+end 'tenth'
+
+function main() returns ExitCode
+	print("{tenth(100)}\n")
+	return 0
+end 'main'

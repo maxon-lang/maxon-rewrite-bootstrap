@@ -423,7 +423,7 @@ function projectTask(ctx frozen with Context, mutates station ProjectStation, st
 		endCheck then return
 		lower then panic("driver: the lower is a stage of a module")
 		inline then panic("driver: the inline is a stage of a module")
-		program then holdProgram(ctx.compile, p: station.p, known: known, errs: errs)
+		program then _ = holdProgram(ctx.compile, p: station.p, known: known, errs: errs)
 		emit then panic("driver: the emit is a stage of a module")
 		link then _ = linkUnits(ctx.compile, p: station.p, units: exchange(station.units, value: backend.UnitList.create(0)), ready: station.ready, entry: entryOf(known), tests: testsOf(known))
 	end 's'

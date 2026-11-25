@@ -185,6 +185,7 @@ func emitMaxon() string {
 	emitMaxonRegisters(w)
 	emitMaxonVisitors(w)
 	emitMaxonPrinter(w)
+	emitMaxonOpNames(w)
 	return strings.TrimRight(w.b.String(), "\n") + "\n"
 }
 
@@ -519,6 +520,67 @@ func emitMaxonPrinter(w *writer) {
 		}
 		w.p("\tpanic(\"ir: %s\")\nend '%s'\n\n", what, fn)
 	}
+}
+
+// printedHeads are the words an operation's text starts with, as the printer writes them before the first space or
+// bracket: every case of an enum and each way a flag may print in it.
+func printedHeads(o op) []string {
+	heads := []string{""}
+	cross := func(options []string) {
+		var next []string
+		for _, h := range heads {
+			for _, s := range options {
+				next = append(next, h+s)
+			}
+		}
+		heads = next
+	}
+	for _, p := range templateParts(o.Text) {
+		if p.operand == "" {
+			if end := strings.IndexAny(p.text, " ("); end >= 0 {
+				cross([]string{p.text[:end]})
+				return heads
+			}
+			cross([]string{p.text})
+			continue
+		}
+		switch x := operandOf(o, p.operand); x.Kind {
+		case kEnum:
+			var texts []string
+			for _, c := range enumOf(x.Enum).Cases {
+				texts = append(texts, c.Text)
+			}
+			cross(texts)
+		case kFlag:
+			cross([]string{"", x.Text})
+		default:
+			fail("%s starts its text with operand %s, which has no fixed words", o.Name, x.Name)
+		}
+	}
+	return heads
+}
+
+// emitMaxonOpNames writes the names an operation may be called by in the text of the IR: each word an operation's text starts
+// with, and each of its dotted beginnings (add.u and add, length.array and length).
+func emitMaxonOpNames(w *writer) {
+	seen := map[string]bool{}
+	var names []string
+	for _, o := range ops {
+		for _, h := range printedHeads(o) {
+			for at := 1; at <= len(h); at++ {
+				if (at == len(h) || h[at] == '.') && !seen[h[:at]] {
+					seen[h[:at]] = true
+					names = append(names, h[:at])
+				}
+			}
+		}
+	}
+	slices.Sort(names)
+	w.p("// printedOpNames are the names an operation has in the text of the IR (printIr): the word its line starts with after its\n// result, and each beginning of it that stops before a dot.\nexport function printedOpNames() returns ast.StringList\n\tvar names = ast.StringList.create(0)\n")
+	for _, n := range names {
+		w.p("\tnames.push(%q)\n", n)
+	}
+	w.p("\treturn names\nend 'printedOpNames'\n\n")
 }
 
 // maxonPrintOp writes the text of one operation: one interpolated string when nothing in it is conditional, and

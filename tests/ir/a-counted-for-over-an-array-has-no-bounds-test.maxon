@@ -1,0 +1,20 @@
+// A counted `for` that reads an array with `get` checks the index once, by a comparison with the length whose failure goes to
+// the `try`'s handler. The general element access that follows is proven by that comparison, so the function is left with no
+// `bounds` test and no call of the runtime's failure of one.
+// expect-ir: sum has no bounds
+// expect-ir: sum does not call rt.array.elem
+
+function sum(xs Array with Count) returns Count
+	var total = 0 as Count
+	for i in 0 upto xs.count() 'each'
+		total = try total + (try xs.get(i) otherwise 0) otherwise 0
+	end 'each'
+	return total
+end 'sum'
+
+function main() returns ExitCode
+	var xs = Array.create(0) as Array with Count
+	xs.push(1)
+	print("{sum(xs)}\n")
+	return 0
+end 'main'
