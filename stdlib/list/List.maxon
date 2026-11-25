@@ -2,13 +2,14 @@
 /// A linked structure whose nodes keep stable positions is a SlotMap of nodes that name each other by key, not a List.
 /// @category Collections
 // The elements lie in an array of slots used as a ring: the list's element i is in slot (head + i) mod the slot count,
-// and the slots outside the `live` elements from head are empty (Array.takeSlot left them so). A full ring doubles: each
+// and the slots outside the `live` elements from head are empty (takeSlot left them so). A full ring doubles: each
 // element is taken out in order and pushed after the last slot, so the first half is empty and the elements follow it.
 // Growth, insertion and removal only move elements, so a List holds an element of any type, one with a destructor too;
 // get lends an element in place, which is why a place get lends does not outlive a change of the list.
 public type List uses T implements export.InitableFromArrayLiteral with T, export.Iterable with (T, ListIterator)
 	public typealias ListIter = ListIterator with T
-	export typealias Elements = Array with T
+	export typealias Elements = __SlotArray with T
+	export typealias Literal = Array with T
 	var slots as Elements
 	var head as Count
 	var live as Count
@@ -18,11 +19,11 @@ public type List uses T implements export.InitableFromArrayLiteral with T, expor
 		return Self{slots: Elements.create(0), head: 0, live: 0}
 	end 'create'
 
-	// InitableFromArrayLiteral conformance, which `List from [a, b, c]` calls: the array is the ring, its first element at
-	// the head.
-	static function init(consumes value Elements) returns Self
+	// InitableFromArrayLiteral conformance, which `List from [a, b, c]` calls: the array's box is the ring, its first element
+	// at the head.
+	static function init(consumes value Literal) returns Self
 		let n = value.count()
-		return Self{slots: value, head: 0, live: n}
+		return Self{slots: Elements.adopt(value), head: 0, live: n}
 	end 'init'
 
 	/// How many elements the list holds.
@@ -177,6 +178,9 @@ public type List uses T implements export.InitableFromArrayLiteral with T, expor
 
 	/// Ends the list, which must hold no element: it is how a list of values with destructors ends.
 	public function dropEmpty(consumes self)
+		if live != 0 'filled'
+			panic("List: dropEmpty of a list that holds an element")
+		end 'filled'
 		slots.dropEmpty()
 	end 'dropEmpty'
 
@@ -236,7 +240,7 @@ end 'List'
 
 /// Iterator for List: its elements from the first to the last, each lent, through a cursor over the ring of slots.
 public type ListIterator uses T implements export.Iterator with T
-	export typealias Elements = Array with T
+	export typealias Elements = __SlotArray with T
 	typealias ElementCursor = __ManagedMemoryCursor with T
 	var cursor as ElementCursor
 	var left as Count

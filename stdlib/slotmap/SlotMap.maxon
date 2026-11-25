@@ -2,7 +2,7 @@
 /// stores, and the key finds the element until remove takes it out. A graph, a tree or a linked structure is a SlotMap of
 /// nodes that name each other by key.
 /// @category Collections
-// The elements lie in an array of slots; a slot that holds none is empty (Array.takeSlot left it so). Each slot has a
+// The elements lie in an array of slots; a slot that holds none is empty (takeSlot left it so). Each slot has a
 // generation, odd while it holds an element and even while it is free, and a key is the word of its slot and the slot's
 // generation when the element went in (SlotKey.fromWord). So a key finds its element only while the slot holds that
 // element: remove makes every key of it stale, and a slot freed by remove is reused by a later insert under a new
@@ -12,7 +12,7 @@
 public type SlotMap uses T implements export.Iterable with (T, SlotMapIterator)
 	public typealias Key = SlotKey with T
 	public typealias SlotMapIter = SlotMapIterator with T
-	export typealias Elements = Array with T
+	export typealias Elements = __SlotArray with T
 	export typealias Generations = Array with Count
 	export typealias Slots = Array with Count
 	var elements as Elements
@@ -89,6 +89,9 @@ public type SlotMap uses T implements export.Iterable with (T, SlotMapIterator)
 
 	/// Ends the map, which must hold no element: it is how a map of values with destructors ends.
 	public function dropEmpty(consumes self)
+		if live != 0 'filled'
+			panic("SlotMap: dropEmpty of a map that holds an element")
+		end 'filled'
 		elements.dropEmpty()
 	end 'dropEmpty'
 
@@ -100,7 +103,7 @@ end 'SlotMap'
 
 /// Iterator for SlotMap: the elements in the order of their slots, each lent, skipping the free slots.
 public type SlotMapIterator uses T implements export.Iterator with T
-	export typealias Elements = Array with T
+	export typealias Elements = __SlotArray with T
 	export typealias Generations = Array with Count
 	typealias ElementCursor = __ManagedMemoryCursor with T
 	typealias GenerationCursor = __ManagedMemoryCursor with Count
