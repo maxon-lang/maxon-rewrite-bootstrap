@@ -107,39 +107,14 @@ function rangeCompareAt(mutates r Ranges, p ast.Project, ms ast.ModuleState, mut
 	end 'y'
 	let cur = rangeSpanAt(r, p: p, ms: ms, s: st, place: px, t: typeOf(r, e: x))
 	let other = rangePeek(r, p: p, ms: ms, s: st, e: y)
-	var next = cur.clone()
-	if op == "<" 'lt'
-		next.hi = ast.minI128(cur.hi, b: other.hi.sub(ast.I128.one()))
-	end 'lt' else if op == "<=" 'le'
-		next.hi = ast.minI128(cur.hi, b: other.hi)
-	end 'le' else if op == ">" 'gt'
-		next.lo = ast.maxI128(cur.lo, b: other.lo.add(ast.I128.one()))
-	end 'gt' else if op == ">=" 'ge'
-		next.lo = ast.maxI128(cur.lo, b: other.lo)
-	end 'ge' else if op == "==" 'eq'
-		next = cur.clamp(other)
-		next.nonZero = cur.nonZero or other.excludesZero()
-	end 'eq' else if op == "!=" 'ne'
-		if not other.lo.eq(other.hi) 'many'
-			return
-		end 'many'
-		if other.lo.eq(cur.lo) 'atLow'
-			next.lo = cur.lo.add(ast.I128.one())
-		end 'atLow' else if other.lo.eq(cur.hi) 'atHigh'
-			next.hi = cur.hi.sub(ast.I128.one())
-		end 'atHigh' else if other.lo.isZero() 'zero'
-			next.nonZero = true
-		end 'zero'
-	end 'ne' else 'unknownOp'
-		panic("ranges: '{op}' is no comparison")
-	end 'unknownOp'
+	let next = narrowedSpan(cur, op: op, other: other)
 	if next.same(cur) 'unchanged'
 		return
 	end 'unchanged'
 	if st == from 'first'
 		st = r.states.copyOf(from)
 	end 'first'
-	if next.isEmpty() or (next.lo.isZero() and next.hi.isZero() and next.nonZero) 'never'
+	if rulesOut(next) 'never'
 		r.states.list[st].dead = true
 		return
 	end 'never'
@@ -154,17 +129,18 @@ end 'rangeRelateUnchanged'
 
 // rangeRelate records what 'x op y' says of the difference of two places, which a subtraction of them reads.
 function rangeRelate(mutates r Ranges, mutates st Count, from Count, x Place, op String, y Place)
-	var gap = ast.I128.zero()
-	if op == ">" 'above'
-		gap = ast.I128.one()
-	end 'above' else if op != ">=" and op != "==" 'nothing'
-		return
-	end 'nothing'
+	match consumes relationGap(op) 'gap'
+		some(gap) then rangeRelateBy(r, st: st, from: from, x: x, y: y, gap: gap)
+		none then _ = 0
+	end 'gap'
+end 'rangeRelate'
+
+function rangeRelateBy(mutates r Ranges, mutates st Count, from Count, x Place, y Place, gap ast.I128)
 	if st == from 'first'
 		st = r.states.copyOf(from)
 	end 'first'
 	r.states.list[st].relate(x, lo: y, gap: gap)
-end 'rangeRelate'
+end 'rangeRelateBy'
 
 // rangePeek is the span of an operand of a condition that has been evaluated already: a local's, a constant's, or else
 // its type's.
@@ -433,7 +409,7 @@ function rangeCallExpr(mutates r Ranges, p ast.Project, ms ast.ModuleState, e as
 		end 'byAddress'
 	end 'changes'
 	if receiver != 0 and call.selfConv != ast.Convention.convLet 'receiverChanges'
-		rangeChangedAt(r, p: p, ms: ms, e: receiver)
+		rangeReceiverChanged(r, p: p, ms: ms, e: receiver, effect: receiverEffect(p, ms: ms, info: call, receiverType: typeOf(r, e: receiver)))
 	end 'receiverChanges'
 	if receiver != 0 and isCountedAccess(r, p: p, ms: ms, info: call, receiver: receiver) 'counted'
 		rangeCountedAccess(r, p: p, ms: ms, e: e, info: call, receiver: receiver, index: first)
@@ -526,6 +502,36 @@ function countedAccessFunc(p ast.Project, ms ast.ModuleState, isGet bool, proven
 	let name = "get" if isGet else "set"
 	return ast.typeEntry(ms.types, reads: p.types, t: p.builtins.fixedArrayOrigin).findMethod(name).unwrap()
 end 'countedAccessFunc'
+
+// isMeasuredType is whether the count of a collection of the type t is a place the analysis follows: an Array's or a
+// FixedArray's. A '__ManagedMemory' shares Array's intrinsics, but it is an Array's storage, so its length would be a
+// second place for one quantity; a change through it overlaps the Array that holds it instead. A '__SlotArray''s get also
+// fails on an empty slot, so a proven index would remove none of its failures.
+function isMeasuredType(p ast.Project, ms ast.ModuleState, t ast.TypeID) returns bool
+	let origin = ast.originOf(ms.types, reads: p.types, t: ast.contentType(ms.types, reads: p.types, t: t))
+	return origin == p.builtins.arrayOrigin or origin == p.builtins.fixedArrayOrigin
+end 'isMeasuredType'
+
+// receiverEffect is what a call that takes its receiver to change does to the receiver's count: the built-in row's
+// effect on a collection whose count is followed, and a change of everything in the receiver otherwise.
+function receiverEffect(p ast.Project, ms ast.ModuleState, info ast.CallInfo, receiverType ast.TypeID) returns ast.CountEffect
+	if info.intrinsic == ast.Intrinsic.intrNone or not isMeasuredType(p, ms: ms, t: receiverType) 'unknown'
+		return ast.CountEffect.countChange
+	end 'unknown'
+	return ast.intrinsicCountEffect(info.intrinsic)
+end 'receiverEffect'
+
+// rangeReceiverChanged is a receiver that a call changes with the count effect effect, if it names a place.
+function rangeReceiverChanged(mutates r Ranges, p ast.Project, ms ast.ModuleState, e ast.NodeID, effect ast.CountEffect)
+	if effect == ast.CountEffect.countChange 'unknown'
+		rangeChangedAt(r, p: p, ms: ms, e: e)
+		return
+	end 'unknown'
+	match consumes rangePlaceOf(r, p: p, ms: ms, e: e) 'place'
+		some(place) then rangeAffect(r, place: place, effect: effect)
+		none then _ = 0
+	end 'place'
+end 'rangeReceiverChanged'
 
 // rangeChangedAt is an expression that a call may change, if it names a place.
 function rangeChangedAt(mutates r Ranges, p ast.Project, ms ast.ModuleState, e ast.NodeID)

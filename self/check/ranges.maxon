@@ -367,20 +367,38 @@ end 'rangeForget'
 
 // rangeWrite gives a place the value of the span s, after which nothing known of the place before holds.
 function rangeWrite(mutates r Ranges, p ast.Project, ms ast.ModuleState, place Place, s Span, t ast.TypeID)
-	if isDead(r, s: r.st) 'dead'
+	if not rangeTouch(r, place: place) 'dead'
 		return
 	end 'dead'
-	rangeOwn(r)
-	r.written.push(place.clone())
-	if r.probing and place.depth == 0 'probed'
-		r.probe.noteWrite(place.root)
-	end 'probed'
 	let st = r.st
 	r.states.list[st].drop(Gone.overlapping(place.clone()))
 	if ast.isIntType(ms.types, reads: p.types, t: t) 'int'
 		r.states.list[st].refine(place, v: s.clamp(typeSpan(ms.types, reads: p.types, t: t)))
 	end 'int'
 end 'rangeWrite'
+
+// rangeAffect is a collection that a call changes in a way the count effect says, and in no other way the analysis
+// follows.
+function rangeAffect(mutates r Ranges, place Place, effect ast.CountEffect)
+	if not rangeTouch(r, place: place) 'dead'
+		return
+	end 'dead'
+	let st = r.st
+	r.states.list[st].affect(place, effect: effect)
+end 'rangeAffect'
+
+// rangeTouch notes that a place changes, in a state of its own to change, and says whether a path reaches the change.
+function rangeTouch(mutates r Ranges, place Place) returns bool
+	if isDead(r, s: r.st) 'dead'
+		return false
+	end 'dead'
+	rangeOwn(r)
+	r.written.push(place.clone())
+	if r.probing and place.depth == 0 'probed'
+		r.probe.noteWrite(place.root)
+	end 'probed'
+	return true
+end 'rangeTouch'
 
 // rangeChanged is a place that a call may change: what was known of it no longer holds.
 function rangeChanged(mutates r Ranges, p ast.Project, ms ast.ModuleState, place Place, t ast.TypeID)

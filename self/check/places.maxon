@@ -13,10 +13,27 @@ type Place
 	export var depth as PlaceDepth
 	export var first as Count
 	export var second as Count
+	// counted is whether the place is the count of the collection at the path rather than the collection: the count lies
+	// in the collection's storage, so what overlaps the collection overlaps its count.
+	export var counted as bool
 
 	static function local(root Count) returns Place
-		return Place{root: root, depth: 0 as PlaceDepth, first: 0 as Count, second: 0 as Count}
+		return Place{root: root, depth: 0 as PlaceDepth, first: 0 as Count, second: 0 as Count, counted: false}
 	end 'local'
+
+	// isLocal is whether the place is a local itself, whose span a state keeps by its slot.
+	function isLocal() returns bool
+		return depth == 0 and not counted
+	end 'isLocal'
+
+	// isCountOf is whether this place is the count of the collection at q.
+	function isCountOf(q Place) returns bool
+		return counted and not q.counted and self.samePath(q)
+	end 'isCountOf'
+
+	function samePath(other Place) returns bool
+		return root == other.root and depth == other.depth and first == other.first and second == other.second
+	end 'samePath'
 
 	// fieldAt is the field the path takes at a depth below the place's own.
 	function fieldAt(i Count) returns Count
@@ -27,10 +44,10 @@ type Place
 	end 'fieldAt'
 
 	function same(other Place) returns bool
-		return root == other.root and depth == other.depth and first == other.first and second == other.second
+		return self.samePath(other) and counted == other.counted
 	end 'same'
 
-	// holds is whether q is this place or lies inside it.
+	// holds is whether the storage of q is this place's or lies inside it, a count being in its collection's storage.
 	function holds(q Place) returns bool
 		if root != q.root or depth > q.depth 'apart'
 			return false
@@ -65,6 +82,20 @@ function placeField(p Place, field Count) returns table.Option with Place
 	out.depth = p.depth + 1
 	return table.Option.some(out)
 end 'placeField'
+
+// placeCount is the place of the count of the collection at p.
+function placeCount(p Place) returns Place
+	if p.counted 'twice'
+		panic("ranges: a count has no count")
+	end 'twice'
+	var out = p.clone()
+	out.counted = true
+	return out
+end 'placeCount'
+
+// maxElementCount is more elements than any array holds: no 64-bit target addresses 2^62 of even the smallest, so a count
+// that grows stays below it.
+let maxElementCount = 4611686018427387904 as Count
 
 // changedIn is whether a place overlaps one of the places written from since on.
 function changedIn(p Place, written PlaceList, since Count) returns bool
@@ -102,11 +133,14 @@ end 'Relation'
 union Gone
 	overlapping(place Place)
 	assignable(mutable ByteArray)
+	// besides are the places that overlap a collection but its count, which a count effect adjusts instead.
+	besides(collection Place)
 
 	function isGone(p Place) returns bool
 		return match self 'rule'
 			overlapping(q) gives q.overlaps(p)
 			assignable(mutable) gives mutable[p.root] != 0
+			besides(q) gives q.overlaps(p) and not p.isCountOf(q)
 		end 'rule'
 	end 'isGone'
 end 'Gone'
@@ -132,7 +166,7 @@ type RangeState
 
 	// at is what is known of an integer place, if anything beyond its type.
 	function at(p Place) returns table.Option with Span
-		if p.depth == 0 'local'
+		if p.isLocal() 'local'
 			return table.Option.some(spans[p.root].clone())
 		end 'local'
 		for i in 0 upto fields.count() 'each'
@@ -145,7 +179,7 @@ type RangeState
 
 	// refine records what is known of an integer place.
 	function refine(mutates self, p Place, v Span)
-		if p.depth == 0 'local'
+		if p.isLocal() 'local'
 			spans[p.root] = v.clone()
 			return
 		end 'local'
@@ -201,7 +235,129 @@ type RangeState
 		end 'relations'
 		relations = keptRelations
 	end 'drop'
+
+	// affect applies what a call that changes nothing else the state follows inside the collection at holder does to its
+	// count: a fact on the count that the effect cannot falsify stays, moved by an exact amount, and the others go, as does
+	// every fact on a place inside the collection that is not its count.
+	function affect(mutates self, holder Place, effect ast.CountEffect)
+		if dead 'dead'
+			return
+		end 'dead'
+		match effect 'effect'
+			countKeep then self.drop(Gone.besides(holder.clone()))
+			countGrow then self.widenCount(holder, grows: true)
+			countShrink then self.widenCount(holder, grows: false)
+			countGrowOne then self.shiftCount(holder, by: ast.I128.one())
+			countShrinkOne then self.shiftCount(holder, by: ast.I128.one().neg())
+			countChange then self.drop(Gone.overlapping(holder.clone()))
+		end 'effect'
+	end 'affect'
+
+	// widenCount is a count that grows, or shrinks, by an amount not known: a relation that has the count on the side it
+	// moves away from stays, and its bound on that side.
+	function widenCount(mutates self, holder Place, grows bool)
+		self.drop(Gone.besides(holder.clone()))
+		let measure = placeCount(holder)
+		for i in 0 upto fields.count() 'fields'
+			if fields[i].at.same(measure) 'count'
+				var moved = Span.make(ast.I128.zero(), hi: fields[i].span.hi.clone())
+				if grows 'grows'
+					moved = Span.make(fields[i].span.lo.clone(), hi: ast.I128.fromCount(maxElementCount))
+				end 'grows'
+				fields[i].span = moved
+			end 'count'
+		end 'fields'
+		var stay = 0 as Count
+		for i in 0 upto relations.count() 'relations'
+			let falsified = relations[i].lo.same(measure) if grows else relations[i].hi.same(measure)
+			if not falsified 'stays'
+				if stay != i 'moves'
+					relations[stay] = relations[i].clone()
+				end 'moves'
+				stay = stay + 1
+			end 'stays'
+		end 'relations'
+		relations.truncate(stay)
+	end 'widenCount'
+
+	// shiftCount is a count that moves by exactly delta: every fact on it moves with it.
+	function shiftCount(mutates self, holder Place, by ast.I128)
+		self.drop(Gone.besides(holder.clone()))
+		let measure = placeCount(holder)
+		for i in 0 upto fields.count() 'fields'
+			if fields[i].at.same(measure) 'count'
+				let lo = ast.maxI128(fields[i].span.lo.add(by), b: ast.I128.zero())
+				let hi = ast.minI128(fields[i].span.hi.add(by), b: ast.I128.fromCount(maxElementCount))
+				if lo.gt(hi) 'never'
+					dead = true
+					return
+				end 'never'
+				fields[i].span = Span.make(lo, hi: hi)
+			end 'count'
+		end 'fields'
+		for i in 0 upto relations.count() 'relations'
+			if relations[i].hi.same(measure) 'above'
+				relations[i].gap = relations[i].gap.add(by)
+			end 'above'
+			if relations[i].lo.same(measure) 'below'
+				relations[i].gap = relations[i].gap.sub(by)
+			end 'below'
+		end 'relations'
+	end 'shiftCount'
 end 'RangeState'
+
+// narrowedSpan is what 'x op y' leaves of x's span cur, where y has the span other.
+function narrowedSpan(cur Span, op String, other Span) returns Span
+	var next = cur.clone()
+	if op == "<" 'lt'
+		next.hi = ast.minI128(cur.hi, b: other.hi.sub(ast.I128.one()))
+	end 'lt' else if op == "<=" 'le'
+		next.hi = ast.minI128(cur.hi, b: other.hi)
+	end 'le' else if op == ">" 'gt'
+		next.lo = ast.maxI128(cur.lo, b: other.lo.add(ast.I128.one()))
+	end 'gt' else if op == ">=" 'ge'
+		next.lo = ast.maxI128(cur.lo, b: other.lo)
+	end 'ge' else if op == "==" 'eq'
+		next = cur.clamp(other)
+		next.nonZero = cur.nonZero or other.excludesZero()
+	end 'eq' else if op == "!=" 'ne'
+		if not other.lo.eq(other.hi) 'many'
+			return next
+		end 'many'
+		if other.lo.eq(cur.lo) 'atLow'
+			next.lo = cur.lo.add(ast.I128.one())
+		end 'atLow' else if other.lo.eq(cur.hi) 'atHigh'
+			next.hi = cur.hi.sub(ast.I128.one())
+		end 'atHigh' else if other.lo.isZero() 'zero'
+			next.nonZero = true
+		end 'zero'
+	end 'ne' else 'unknownOp'
+		panic("ranges: '{op}' is no comparison")
+	end 'unknownOp'
+	return next
+end 'narrowedSpan'
+
+// rulesOut is whether a span holds no value, so that no path reaches where it is known.
+function rulesOut(s Span) returns bool
+	return s.isEmpty() or (s.lo.isZero() and s.hi.isZero() and s.nonZero)
+end 'rulesOut'
+
+// relationGap is how far 'x op y' puts x above y, for a comparison that bounds x - y from below.
+function relationGap(op String) returns table.Option with ast.I128
+	if op == ">" 'above'
+		return table.Option.some(ast.I128.one())
+	end 'above'
+	if op == ">=" or op == "==" 'atLeast'
+		return table.Option.some(ast.I128.zero())
+	end 'atLeast'
+	return table.Option.none
+end 'relationGap'
+
+// emptyComparison is the comparison of a count with 0 that a test of whether the collection is empty proves when it
+// gives truth.
+function emptyComparison(truth bool) returns String
+	return "==" if truth else "!="
+end 'emptyComparison'
 
 // deadState is the state no path reaches, which holds nothing: the first of the arena, which is never released.
 let deadState = 0 as Count
