@@ -1,4 +1,4 @@
-// The conversion `Type from value`. An array or a list is written from an array literal, which takes the element type its
+// The conversion `Type from value`. An array is written from an array literal, which takes the element type its
 // head states (`Ages from [1, 2]`) or, over the bare name, the one its elements give. Any other type is written from a
 // literal by its static `init`, as `Type.init("text")` or `Type.init([a, b])`, and says so with `implements
 // InitableFromStringLiteral` or `implements InitableFromArrayLiteral with Element`.
@@ -40,15 +40,11 @@ function checkFromExpr(mutates c Checker, p ast.Project, mutates ms ast.ModuleSt
 	return checkFromString(c, p: p, ms: ms, head: head, e: e, ty: ty, value: value, errs: errs)
 end 'checkFromExpr'
 
-// checkFromCollection types an array or a list written from an array literal. A head that is an instance states the
+// checkFromCollection types an array written from an array literal. A head that is an instance states the
 // element type, which each element must fit; the bare name takes the one the elements give.
 function checkFromCollection(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, ty ast.TypeID, value ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
 	let name = nameOfType(p, ms: ms, t: ty)
 	if ms.tree().kindOf(value) != ast.NodeKind.collectionLitExpr 'notLiteral'
-		if ast.typeKind(ms.types, reads: p.types, t: ty) == ast.TypeKind.builtinList 'list'
-			failAt(c, p: p, ms: ms, node: value, code: diag.errUnsupportedFeature, msg: "Unsupported: '{name} from' an array value; write the elements as a literal: '{name} from [a, b]'", errs: errs)
-			return ast.noType
-		end 'list'
 		failAt(c, p: p, ms: ms, node: value, code: diag.errTypeMismatch, msg: "'{name} from' takes an array literal: '{name} from [a, b]'", errs: errs)
 		return ast.noType
 	end 'notLiteral'
@@ -63,12 +59,6 @@ function checkFromCollection(mutates c Checker, p ast.Project, mutates ms ast.Mo
 	var want = ast.noType
 	if not bare 'stated'
 		want = ty
-		if ast.typeKind(ms.types, reads: p.types, t: ty) == ast.TypeKind.builtinList 'list'
-			var args = ast.TypeIDList.create(0)
-			args.push(ast.typeArgAt(ms.types, reads: p.types, t: ty, index: 0))
-			let arrayOrigin = p.builtins.arrayOrigin
-			want = instantiateGeneric(c, p: p, ms: ms, off: offsetOf(c, p: p, ms: ms, node: e), orig: arrayOrigin, args: args, errs: errs)
-		end 'list'
 	end 'stated'
 	let literal = checkExpecting(c, p: p, ms: ms, e: value, want: want, errs: errs)
 	if literal == ast.noType 'failed'

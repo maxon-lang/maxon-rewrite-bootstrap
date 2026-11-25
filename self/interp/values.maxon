@@ -21,8 +21,6 @@ let kindArray = 2 as Count
 // object that no one owns and nothing frees, so a managed register that holds it holds a value, where 0 says it holds none.
 let kindNone = 3 as Count
 
-let kindList = 4 as Count
-
 // kindFrozen and kindCown are boxes with many owners: a count of them, not one owner, decides when the box is freed.
 let kindFrozen = 6 as Count
 
@@ -53,8 +51,6 @@ function kindName(kind Count) returns String
 		1 gives "string"
 		2 gives "array"
 		3 gives "empty case"
-		4 gives "list"
-		5 gives "slot map"
 		6 gives "frozen value"
 		7 gives "cown"
 		8 gives "byte array"
@@ -120,96 +116,6 @@ end 'SharedData'
 
 typealias SharedDatas = Array with SharedData
 
-// Table holds the elements of a list or a slot map in slots that name them by a slot key with a generation, so a slot that held
-// an element and was reused does not answer to the slot key of the old one. A list also keeps its slots in order.
-type Table
-	var gens as CountList
-	var live as BoolList
-	var cells as CountList
-	var free as CountList
-	var order as CountList
-
-	static function new() returns Table
-		return Table{gens: CountList.create(0), live: BoolList.create(0), cells: CountList.create(0), free: CountList.create(0), order: CountList.create(0)}
-	end 'new'
-
-	// lookup is the slot a slot key names, if its element is still there; found says whether it is.
-	function lookup(h ir.Word) returns table.Option with Count
-		if h <= 0 'none'
-			return table.Option.none
-		end 'none'
-		let bits = h as Count
-		let slotPlus = bits and mask32
-		if slotPlus == 0 'noSlot'
-			return table.Option.none
-		end 'noSlot'
-		let slot = try slotPlus - 1 otherwise panic("interp: a handle's slot below 0")
-		let gen = bits shr 32
-		if slot >= gens.count() 'past'
-			return table.Option.none
-		end 'past'
-		if not live[slot] or gens[slot] != gen 'stale'
-			return table.Option.none
-		end 'stale'
-		return table.Option.some(slot)
-	end 'lookup'
-
-	// acquire puts a cell in a free slot, the one released last first, and gives the slot; its handle is handleOf it.
-	function acquire(mutates self, c Count) returns Count
-		var slot = 0 as Count
-		if free.count() > 0 'reuse'
-			slot = try free.pop() otherwise panic("interp: no free slot")
-			cells[slot] = c
-		end 'reuse' else 'fresh'
-			slot = gens.count()
-			gens.push(0)
-			live.push(false)
-			cells.push(c)
-		end 'fresh'
-		gens[slot] = try gens[slot] + 1 otherwise panic("interp: a generation past a word")
-		live[slot] = true
-		return slot
-	end 'acquire'
-
-	function handleOf(slot Count) returns ir.Word
-		let bits = try (gens[slot] shl 32) + slot + 1 otherwise panic("interp: a handle past a word")
-		return ir.wordOfBits(bits)
-	end 'handleOf'
-
-	function release(mutates self, slot Count)
-		live[slot] = false
-		cells[slot] = 0
-		free.push(slot)
-	end 'release'
-
-	function count() returns Count
-		var n = 0 as Count
-		for i in 0 upto live.count() 'each'
-			if live[i] 'alive'
-				n = try n + 1 otherwise panic("interp: more elements than memory")
-			end 'alive'
-		end 'each'
-		return n
-	end 'count'
-
-	// position is where a slot sits in the order of a list.
-	function position(slot Count) returns Count
-		for i in 0 upto order.count() 'each'
-			if order[i] == slot 'found'
-				return i
-			end 'found'
-		end 'each'
-		panic("interp: a live slot is missing from the order of its list")
-	end 'position'
-
-	function unlink(mutates self, slot Count)
-		let i = self.position(slot)
-		try order.remove(i) otherwise ignore
-	end 'unlink'
-end 'Table'
-
-typealias Tables = Array with Table
-
 // Heap is every cell and every object the program has made, in columns, so that a handle is an index. Nothing is ever taken
 // out of it: a freed object keeps its place, for the report of a use after the free.
 type Heap
@@ -226,7 +132,7 @@ type Heap
 	// it walks, which the cell's owner neither frees nor copies.
 	var cellLent as BoolList
 	// An object's columns. oData is where its contents are: the first cell of a box, an index into the heap's texts, buffers,
-	// element lists, tables or shared data by its kind.
+	// element lists or shared data by its kind.
 	var oKind as CountList
 	var oFreed as BoolList
 	var oImmortal as BoolList
@@ -241,7 +147,6 @@ type Heap
 	var texts as ast.StringList
 	var buffers as ByteArrays
 	var elements as CountLists
-	var tables as Tables
 	var shareds as SharedDatas
 	// literals are the strings that are in the executable, by their text, and constants the constants that are, by their
 	// symbol.
@@ -251,7 +156,7 @@ type Heap
 	var constants as table.StringMap with Count
 
 	static function new() returns Heap
-		var h = Heap{cellN: ir.WordList.create(0), cellR: ir.WordList.create(0), cellHolder: CountList.create(0), cellFrame: CountList.create(0), cellIndex: CountList.create(0), cellLent: BoolList.create(0), oKind: CountList.create(0), oFreed: BoolList.create(0), oImmortal: BoolList.create(0), oFrameArea: BoolList.create(0), oOwner: CountList.create(0), oVersion: CountList.create(0), oData: CountList.create(0), oSize: CountList.create(0), oAlloc: CountList.create(0), oFreedAt: CountList.create(0), texts: ast.StringList.create(0), buffers: ByteArrays.create(0), elements: CountLists.create(0), tables: Tables.create(0), shareds: SharedDatas.create(0), literals: table.StringMap.new(), constants: table.StringMap.new(), none: 0}
+		var h = Heap{cellN: ir.WordList.create(0), cellR: ir.WordList.create(0), cellHolder: CountList.create(0), cellFrame: CountList.create(0), cellIndex: CountList.create(0), cellLent: BoolList.create(0), oKind: CountList.create(0), oFreed: BoolList.create(0), oImmortal: BoolList.create(0), oFrameArea: BoolList.create(0), oOwner: CountList.create(0), oVersion: CountList.create(0), oData: CountList.create(0), oSize: CountList.create(0), oAlloc: CountList.create(0), oFreedAt: CountList.create(0), texts: ast.StringList.create(0), buffers: ByteArrays.create(0), elements: CountLists.create(0), shareds: SharedDatas.create(0), literals: table.StringMap.new(), constants: table.StringMap.new(), none: 0}
 		// Handle 0 names nothing, so every column starts with a row that is never used.
 		_ = h.newCell(0)
 		h.oKind.push(0)
@@ -267,7 +172,6 @@ type Heap
 		h.texts.push("")
 		h.buffers.push(ByteArray.create(0))
 		h.elements.push(CountList.create(0))
-		h.tables.push(Table.new())
 		h.shareds.push(SharedData.new())
 		return h
 	end 'new'
@@ -350,14 +254,6 @@ type Heap
 		elements.push(CountList.create(0))
 		return o
 	end 'newArray'
-
-	// newTable makes a list or a slot map.
-	function newTable(mutates self, kind Count, site Count) returns Count
-		let o = self.newObject(kind, site: site)
-		oData[o] = tables.count()
-		tables.push(Table.new())
-		return o
-	end 'newTable'
 
 	// newSharedBox makes a frozen value or a cown with one place for the value it holds.
 	function newSharedBox(mutates self, kind Count, site Count) returns Count

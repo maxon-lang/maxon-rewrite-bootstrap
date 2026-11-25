@@ -215,12 +215,12 @@ typealias IntList = List with Integer
 typealias ListArray = Array with IntList
 
 function makeClone() returns ListArray
-	let src = ListArray.create(0)
-	let a = IntList.create()
+	var src = ListArray.create(0)
+	var a = IntList.create()
 	a.append(10)
 	a.append(20)
 	src.push(a)
-	let b = IntList.create()
+	var b = IntList.create()
 	b.append(30)
 	src.push(b)
 	return src.clone()
@@ -262,15 +262,15 @@ type Holder
 	export var words as StrList
 
 	static function create(words StrList) returns Self
-		return Self{words: words}
+		return Self{words: words.clone()}
 	end 'create'
 end 'Holder'
 
 typealias Holders = Array with Holder
 
 function makeClone() returns Holders
-	let src = Holders.create(0)
-	let w = StrList.create()
+	var src = Holders.create(0)
+	var w = StrList.create()
 	w.append("first list element, long enough to need a heap record")
 	w.append("second list element, long enough to need a heap record")
 	src.push(Holder.create(w))
@@ -505,8 +505,8 @@ typealias StrList = List with String
 typealias StrListArray = Array with StrList
 
 function makeClone() returns StrListArray
-	let src = StrListArray.create(0)
-	let words = StrList.create()
+	var src = StrListArray.create(0)
+	var words = StrList.create()
 	words.append("first list element, long enough to need a heap record")
 	words.append("second list element, long enough to need a heap record")
 	src.push(words)
@@ -714,6 +714,7 @@ end 'main'
 ```
 
 <!-- test: a-write-through-a-cloned-lists-record-element-leaves-the-source-alone -->
+<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 ### The same for a `List`
 `List.clone` deep-copies each record element too, so the write through the copy's element leaves the source's at `1`.
 ```maxon

@@ -2054,7 +2054,7 @@ typealias Idx = int(i64.min to i64.max)
 typealias IdxList = List with Idx
 
 function main() returns ExitCode
-	let a = IdxList.create()
+	var a = IdxList.create()
 	a.append(10)
 	a.append(20)
 	print("a={try a.get(0) otherwise -1} b={try a.get(1) otherwise -1}\n")

@@ -1,0 +1,66 @@
+// A List's get, first and last lend the element with the access its caller has to the list: changed in place through a
+// var, read through a let and a let parameter, a scalar read out as a value, and a copy only where clone() makes one.
+typealias Items = List with Item
+
+typealias Counts = List with Count
+
+type Item
+	export var name as String
+	export var weight as Count
+
+	static function make(consumes name String, weight Count) returns Item
+		return Item{name: name, weight: weight}
+	end 'make'
+end 'Item'
+
+type Shelf
+	var items as Items
+
+	static function make() returns Shelf
+		return Shelf{items: Items.create()}
+	end 'make'
+
+	function heaviest() returns Count
+		var most = 0 as Count
+		for item in items 'each'
+			if item.weight > most 'more'
+				most = item.weight
+			end 'more'
+		end 'each'
+		return most
+	end 'heaviest'
+
+	function lighten(mutates self, at Count) throws ArrayError
+		try self.items.get(at).weight = 0
+	end 'lighten'
+end 'Shelf'
+
+function describe(items Items) returns String
+	return "{(try items.first() otherwise panic("first")).name}..{(try items.last() otherwise panic("last")).name}"
+end 'describe'
+
+function main() returns ExitCode
+	var s = Shelf.make()
+	s.items.append(Item.make("b", weight: 2))
+	s.items.prepend(Item.make("a", weight: 7))
+	s.items.append(Item.make("c", weight: 3))
+	(try s.items.get(2) otherwise panic("c")).name = "z"
+	(try s.items.first() otherwise panic("a")).weight = 4
+	print("{describe(s.items)} {s.heaviest()}\n")
+	try s.lighten(0) otherwise panic("a")
+	let copy = (try s.items.get(1) otherwise panic("b")).clone()
+	(try s.items.get(1) otherwise panic("b")).weight = 9
+	print("{copy.name}{copy.weight} {s.heaviest()}\n")
+	let counts = Counts from [1, 2, 30]
+	let n = try counts.get(0) otherwise 0
+	var sum = 0 as Count
+	for c in counts 'each'
+		sum = try sum + c otherwise panic("overflow")
+	end 'each'
+	print("{n} {sum}\n")
+	return 0
+end 'main'
+
+//> a..z 4
+//> b2 9
+//> 1 33

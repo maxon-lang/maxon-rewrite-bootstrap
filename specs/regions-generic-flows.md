@@ -185,7 +185,7 @@ type Box
 end 'Box'
 
 function main() returns ExitCode
-	let list = FrozenBoxList.create()
+	var list = FrozenBoxList.create()
 	let pinned = freeze(Box.create(7))
 	list.append(thaw(pinned))
 	let first = try list.first() otherwise panic("empty")
@@ -1129,6 +1129,7 @@ end 'main'
 ```
 
 <!-- test: a-list-of-tuples-with-an-immutable-item-takes-a-matching-tuple-and-runs -->
+<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 `List with (immutable Box, Box)` stores a tuple whose first item is frozen and reads it back at the same capabilities.
 
 ```maxon
@@ -1954,6 +1955,7 @@ error E3197: <fragment>:20:2: cannot write 'n' through 'got', which is immutable
 ```
 
 <!-- test: an-item-handed-back-by-a-call-over-a-list-of-tuples-with-a-frozen-item-is-immutable -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The frozen item reaches the result through the list, and the list's element type names it.
 

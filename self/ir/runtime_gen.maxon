@@ -139,21 +139,6 @@ export enum Rt
 	rtRecsReserve
 	rtRecsShrink
 	rtArrayShrink
-	rtListNew
-	rtListLen
-	rtListContains
-	rtListElem
-	rtListPushFront
-	rtListPushBack
-	rtListPopFront
-	rtListPopBack
-	rtListFirst
-	rtListLast
-	rtListNext
-	rtListPrev
-	rtListRemove
-	rtListMoveToFront
-	rtListCopy
 	rtFrozenFreeze
 	rtFrozenGet
 	rtShare
@@ -624,51 +609,6 @@ export function rtSymbol(r Rt) returns String
 	if r == Rt.rtArrayShrink 'rtArrayShrink'
 		return "runtime::arrayShrink"
 	end 'rtArrayShrink'
-	if r == Rt.rtListNew 'rtListNew'
-		return "rt.list.new"
-	end 'rtListNew'
-	if r == Rt.rtListLen 'rtListLen'
-		return "rt.list.len"
-	end 'rtListLen'
-	if r == Rt.rtListContains 'rtListContains'
-		return "rt.list.contains"
-	end 'rtListContains'
-	if r == Rt.rtListElem 'rtListElem'
-		return "rt.list.elem"
-	end 'rtListElem'
-	if r == Rt.rtListPushFront 'rtListPushFront'
-		return "rt.list.pushFront"
-	end 'rtListPushFront'
-	if r == Rt.rtListPushBack 'rtListPushBack'
-		return "rt.list.pushBack"
-	end 'rtListPushBack'
-	if r == Rt.rtListPopFront 'rtListPopFront'
-		return "rt.list.popFront"
-	end 'rtListPopFront'
-	if r == Rt.rtListPopBack 'rtListPopBack'
-		return "rt.list.popBack"
-	end 'rtListPopBack'
-	if r == Rt.rtListFirst 'rtListFirst'
-		return "rt.list.first"
-	end 'rtListFirst'
-	if r == Rt.rtListLast 'rtListLast'
-		return "rt.list.last"
-	end 'rtListLast'
-	if r == Rt.rtListNext 'rtListNext'
-		return "rt.list.next"
-	end 'rtListNext'
-	if r == Rt.rtListPrev 'rtListPrev'
-		return "rt.list.prev"
-	end 'rtListPrev'
-	if r == Rt.rtListRemove 'rtListRemove'
-		return "rt.list.remove"
-	end 'rtListRemove'
-	if r == Rt.rtListMoveToFront 'rtListMoveToFront'
-		return "rt.list.moveToFront"
-	end 'rtListMoveToFront'
-	if r == Rt.rtListCopy 'rtListCopy'
-		return "rt.list.copy"
-	end 'rtListCopy'
 	if r == Rt.rtFrozenFreeze 'rtFrozenFreeze'
 		return "runtime::frozenFreeze"
 	end 'rtFrozenFreeze'
@@ -1256,51 +1196,6 @@ export function rtText(r Rt) returns String
 	if r == Rt.rtArrayShrink 'rtArrayShrink'
 		return "rt.array.shrink"
 	end 'rtArrayShrink'
-	if r == Rt.rtListNew 'rtListNew'
-		return "rt.list.new"
-	end 'rtListNew'
-	if r == Rt.rtListLen 'rtListLen'
-		return "rt.list.len"
-	end 'rtListLen'
-	if r == Rt.rtListContains 'rtListContains'
-		return "rt.list.contains"
-	end 'rtListContains'
-	if r == Rt.rtListElem 'rtListElem'
-		return "rt.list.elem"
-	end 'rtListElem'
-	if r == Rt.rtListPushFront 'rtListPushFront'
-		return "rt.list.pushFront"
-	end 'rtListPushFront'
-	if r == Rt.rtListPushBack 'rtListPushBack'
-		return "rt.list.pushBack"
-	end 'rtListPushBack'
-	if r == Rt.rtListPopFront 'rtListPopFront'
-		return "rt.list.popFront"
-	end 'rtListPopFront'
-	if r == Rt.rtListPopBack 'rtListPopBack'
-		return "rt.list.popBack"
-	end 'rtListPopBack'
-	if r == Rt.rtListFirst 'rtListFirst'
-		return "rt.list.first"
-	end 'rtListFirst'
-	if r == Rt.rtListLast 'rtListLast'
-		return "rt.list.last"
-	end 'rtListLast'
-	if r == Rt.rtListNext 'rtListNext'
-		return "rt.list.next"
-	end 'rtListNext'
-	if r == Rt.rtListPrev 'rtListPrev'
-		return "rt.list.prev"
-	end 'rtListPrev'
-	if r == Rt.rtListRemove 'rtListRemove'
-		return "rt.list.remove"
-	end 'rtListRemove'
-	if r == Rt.rtListMoveToFront 'rtListMoveToFront'
-		return "rt.list.moveToFront"
-	end 'rtListMoveToFront'
-	if r == Rt.rtListCopy 'rtListCopy'
-		return "rt.list.copy"
-	end 'rtListCopy'
 	if r == Rt.rtFrozenFreeze 'rtFrozenFreeze'
 		return "rt.frozen.freeze"
 	end 'rtFrozenFreeze'
@@ -1888,224 +1783,179 @@ export function rtCode(r Rt) returns Count
 	if r == Rt.rtArrayShrink 'rtArrayShrink'
 		return 136
 	end 'rtArrayShrink'
-	if r == Rt.rtListNew 'rtListNew'
-		return 137
-	end 'rtListNew'
-	if r == Rt.rtListLen 'rtListLen'
-		return 138
-	end 'rtListLen'
-	if r == Rt.rtListContains 'rtListContains'
-		return 139
-	end 'rtListContains'
-	if r == Rt.rtListElem 'rtListElem'
-		return 140
-	end 'rtListElem'
-	if r == Rt.rtListPushFront 'rtListPushFront'
-		return 141
-	end 'rtListPushFront'
-	if r == Rt.rtListPushBack 'rtListPushBack'
-		return 142
-	end 'rtListPushBack'
-	if r == Rt.rtListPopFront 'rtListPopFront'
-		return 143
-	end 'rtListPopFront'
-	if r == Rt.rtListPopBack 'rtListPopBack'
-		return 144
-	end 'rtListPopBack'
-	if r == Rt.rtListFirst 'rtListFirst'
-		return 145
-	end 'rtListFirst'
-	if r == Rt.rtListLast 'rtListLast'
-		return 146
-	end 'rtListLast'
-	if r == Rt.rtListNext 'rtListNext'
-		return 147
-	end 'rtListNext'
-	if r == Rt.rtListPrev 'rtListPrev'
-		return 148
-	end 'rtListPrev'
-	if r == Rt.rtListRemove 'rtListRemove'
-		return 149
-	end 'rtListRemove'
-	if r == Rt.rtListMoveToFront 'rtListMoveToFront'
-		return 150
-	end 'rtListMoveToFront'
-	if r == Rt.rtListCopy 'rtListCopy'
-		return 151
-	end 'rtListCopy'
 	if r == Rt.rtFrozenFreeze 'rtFrozenFreeze'
-		return 152
+		return 137
 	end 'rtFrozenFreeze'
 	if r == Rt.rtFrozenGet 'rtFrozenGet'
-		return 153
+		return 138
 	end 'rtFrozenGet'
 	if r == Rt.rtShare 'rtShare'
-		return 154
+		return 139
 	end 'rtShare'
 	if r == Rt.rtCownNew 'rtCownNew'
-		return 155
+		return 140
 	end 'rtCownNew'
 	if r == Rt.rtBytesNew 'rtBytesNew'
-		return 156
+		return 141
 	end 'rtBytesNew'
 	if r == Rt.rtBytesLen 'rtBytesLen'
-		return 157
+		return 142
 	end 'rtBytesLen'
 	if r == Rt.rtBytesGet 'rtBytesGet'
-		return 158
+		return 143
 	end 'rtBytesGet'
 	if r == Rt.rtBytesSet 'rtBytesSet'
-		return 159
+		return 144
 	end 'rtBytesSet'
 	if r == Rt.rtBytesInsert 'rtBytesInsert'
-		return 160
+		return 145
 	end 'rtBytesInsert'
 	if r == Rt.rtBytesRemove 'rtBytesRemove'
-		return 161
+		return 146
 	end 'rtBytesRemove'
 	if r == Rt.rtBytesAppend 'rtBytesAppend'
-		return 162
+		return 147
 	end 'rtBytesAppend'
 	if r == Rt.rtBytesAppendStr 'rtBytesAppendStr'
-		return 163
+		return 148
 	end 'rtBytesAppendStr'
 	if r == Rt.rtBytesToString 'rtBytesToString'
-		return 164
+		return 149
 	end 'rtBytesToString'
 	if r == Rt.rtOsArgs 'rtOsArgs'
-		return 165
+		return 150
 	end 'rtOsArgs'
 	if r == Rt.rtOsEnvironmentVariable 'rtOsEnvironmentVariable'
-		return 166
+		return 151
 	end 'rtOsEnvironmentVariable'
 	if r == Rt.rtOsExecutablePath 'rtOsExecutablePath'
-		return 167
+		return 152
 	end 'rtOsExecutablePath'
 	if r == Rt.rtOsCurrentPath 'rtOsCurrentPath'
-		return 168
+		return 153
 	end 'rtOsCurrentPath'
 	if r == Rt.rtOsProcessId 'rtOsProcessId'
-		return 169
+		return 154
 	end 'rtOsProcessId'
 	if r == Rt.rtOsSetExitCode 'rtOsSetExitCode'
-		return 170
+		return 155
 	end 'rtOsSetExitCode'
 	if r == Rt.rtOsExitAtOnce 'rtOsExitAtOnce'
-		return 171
+		return 156
 	end 'rtOsExitAtOnce'
 	if r == Rt.rtOsEnterBackgroundPriority 'rtOsEnterBackgroundPriority'
-		return 172
+		return 157
 	end 'rtOsEnterBackgroundPriority'
 	if r == Rt.rtOsClockNanos 'rtOsClockNanos'
-		return 173
+		return 158
 	end 'rtOsClockNanos'
 	if r == Rt.rtOsClockMillis 'rtOsClockMillis'
-		return 174
+		return 159
 	end 'rtOsClockMillis'
 	if r == Rt.rtOsTickMillis 'rtOsTickMillis'
-		return 175
+		return 160
 	end 'rtOsTickMillis'
 	if r == Rt.rtOsThreadCpuTicks 'rtOsThreadCpuTicks'
-		return 176
+		return 161
 	end 'rtOsThreadCpuTicks'
 	if r == Rt.rtOsUnixNanos 'rtOsUnixNanos'
-		return 177
+		return 162
 	end 'rtOsUnixNanos'
 	if r == Rt.rtOsUnixSeconds 'rtOsUnixSeconds'
-		return 178
+		return 163
 	end 'rtOsUnixSeconds'
 	if r == Rt.rtOsProcessorCount 'rtOsProcessorCount'
-		return 179
+		return 164
 	end 'rtOsProcessorCount'
 	if r == Rt.rtOsPathFrom 'rtOsPathFrom'
-		return 180
+		return 165
 	end 'rtOsPathFrom'
 	if r == Rt.rtOsReadText 'rtOsReadText'
-		return 181
+		return 166
 	end 'rtOsReadText'
 	if r == Rt.rtOsWriteTextMode 'rtOsWriteTextMode'
-		return 182
+		return 167
 	end 'rtOsWriteTextMode'
 	if r == Rt.rtOsWriteBinaryMode 'rtOsWriteBinaryMode'
-		return 183
+		return 168
 	end 'rtOsWriteBinaryMode'
 	if r == Rt.rtOsRename 'rtOsRename'
-		return 184
+		return 169
 	end 'rtOsRename'
 	if r == Rt.rtOsDelete 'rtOsDelete'
-		return 185
+		return 170
 	end 'rtOsDelete'
 	if r == Rt.rtOsFileInfo 'rtOsFileInfo'
-		return 186
+		return 171
 	end 'rtOsFileInfo'
 	if r == Rt.rtOsIsDirectory 'rtOsIsDirectory'
-		return 187
+		return 172
 	end 'rtOsIsDirectory'
 	if r == Rt.rtOsExists 'rtOsExists'
-		return 188
+		return 173
 	end 'rtOsExists'
 	if r == Rt.rtOsCreateDirectory 'rtOsCreateDirectory'
-		return 189
+		return 174
 	end 'rtOsCreateDirectory'
 	if r == Rt.rtOsDeleteDirectory 'rtOsDeleteDirectory'
-		return 190
+		return 175
 	end 'rtOsDeleteDirectory'
 	if r == Rt.rtOsList 'rtOsList'
-		return 191
+		return 176
 	end 'rtOsList'
 	if r == Rt.rtDebugLaunch 'rtDebugLaunch'
-		return 192
+		return 177
 	end 'rtDebugLaunch'
 	if r == Rt.rtDebugWaitEvent 'rtDebugWaitEvent'
-		return 193
+		return 178
 	end 'rtDebugWaitEvent'
 	if r == Rt.rtDebugContinueEvent 'rtDebugContinueEvent'
-		return 194
+		return 179
 	end 'rtDebugContinueEvent'
 	if r == Rt.rtDebugReadMemory 'rtDebugReadMemory'
-		return 195
+		return 180
 	end 'rtDebugReadMemory'
 	if r == Rt.rtDebugWriteCode 'rtDebugWriteCode'
-		return 196
+		return 181
 	end 'rtDebugWriteCode'
 	if r == Rt.rtDebugReadContext 'rtDebugReadContext'
-		return 197
+		return 182
 	end 'rtDebugReadContext'
 	if r == Rt.rtDebugWriteContext 'rtDebugWriteContext'
-		return 198
+		return 183
 	end 'rtDebugWriteContext'
 	if r == Rt.rtDebugSuspend 'rtDebugSuspend'
-		return 199
+		return 184
 	end 'rtDebugSuspend'
 	if r == Rt.rtDebugResume 'rtDebugResume'
-		return 200
+		return 185
 	end 'rtDebugResume'
 	if r == Rt.rtDebugBreakIn 'rtDebugBreakIn'
-		return 201
+		return 186
 	end 'rtDebugBreakIn'
 	if r == Rt.rtDebugDetach 'rtDebugDetach'
-		return 202
+		return 187
 	end 'rtDebugDetach'
 	if r == Rt.rtDebugCloseHandle 'rtDebugCloseHandle'
-		return 203
+		return 188
 	end 'rtDebugCloseHandle'
 	if r == Rt.rtDebugTerminate 'rtDebugTerminate'
-		return 204
+		return 189
 	end 'rtDebugTerminate'
 	if r == Rt.rtOsRun 'rtOsRun'
-		return 205
+		return 190
 	end 'rtOsRun'
 	if r == Rt.rtOsRunIn 'rtOsRunIn'
-		return 206
+		return 191
 	end 'rtOsRunIn'
 	if r == Rt.rtOsRunInput 'rtOsRunInput'
-		return 207
+		return 192
 	end 'rtOsRunInput'
 	if r == Rt.rtOsReadStdin 'rtOsReadStdin'
-		return 208
+		return 193
 	end 'rtOsReadStdin'
 	if r == Rt.rtOsStdoutWantsColor 'rtOsStdoutWantsColor'
-		return 209
+		return 194
 	end 'rtOsStdoutWantsColor'
 	panic("ir: rtNone has no number")
 end 'rtCode'
@@ -2249,79 +2099,64 @@ export function rtOf(code Count) returns Rt
 		134 gives Rt.rtRecsReserve
 		135 gives Rt.rtRecsShrink
 		136 gives Rt.rtArrayShrink
-		137 gives Rt.rtListNew
-		138 gives Rt.rtListLen
-		139 gives Rt.rtListContains
-		140 gives Rt.rtListElem
-		141 gives Rt.rtListPushFront
-		142 gives Rt.rtListPushBack
-		143 gives Rt.rtListPopFront
-		144 gives Rt.rtListPopBack
-		145 gives Rt.rtListFirst
-		146 gives Rt.rtListLast
-		147 gives Rt.rtListNext
-		148 gives Rt.rtListPrev
-		149 gives Rt.rtListRemove
-		150 gives Rt.rtListMoveToFront
-		151 gives Rt.rtListCopy
-		152 gives Rt.rtFrozenFreeze
-		153 gives Rt.rtFrozenGet
-		154 gives Rt.rtShare
-		155 gives Rt.rtCownNew
-		156 gives Rt.rtBytesNew
-		157 gives Rt.rtBytesLen
-		158 gives Rt.rtBytesGet
-		159 gives Rt.rtBytesSet
-		160 gives Rt.rtBytesInsert
-		161 gives Rt.rtBytesRemove
-		162 gives Rt.rtBytesAppend
-		163 gives Rt.rtBytesAppendStr
-		164 gives Rt.rtBytesToString
-		165 gives Rt.rtOsArgs
-		166 gives Rt.rtOsEnvironmentVariable
-		167 gives Rt.rtOsExecutablePath
-		168 gives Rt.rtOsCurrentPath
-		169 gives Rt.rtOsProcessId
-		170 gives Rt.rtOsSetExitCode
-		171 gives Rt.rtOsExitAtOnce
-		172 gives Rt.rtOsEnterBackgroundPriority
-		173 gives Rt.rtOsClockNanos
-		174 gives Rt.rtOsClockMillis
-		175 gives Rt.rtOsTickMillis
-		176 gives Rt.rtOsThreadCpuTicks
-		177 gives Rt.rtOsUnixNanos
-		178 gives Rt.rtOsUnixSeconds
-		179 gives Rt.rtOsProcessorCount
-		180 gives Rt.rtOsPathFrom
-		181 gives Rt.rtOsReadText
-		182 gives Rt.rtOsWriteTextMode
-		183 gives Rt.rtOsWriteBinaryMode
-		184 gives Rt.rtOsRename
-		185 gives Rt.rtOsDelete
-		186 gives Rt.rtOsFileInfo
-		187 gives Rt.rtOsIsDirectory
-		188 gives Rt.rtOsExists
-		189 gives Rt.rtOsCreateDirectory
-		190 gives Rt.rtOsDeleteDirectory
-		191 gives Rt.rtOsList
-		192 gives Rt.rtDebugLaunch
-		193 gives Rt.rtDebugWaitEvent
-		194 gives Rt.rtDebugContinueEvent
-		195 gives Rt.rtDebugReadMemory
-		196 gives Rt.rtDebugWriteCode
-		197 gives Rt.rtDebugReadContext
-		198 gives Rt.rtDebugWriteContext
-		199 gives Rt.rtDebugSuspend
-		200 gives Rt.rtDebugResume
-		201 gives Rt.rtDebugBreakIn
-		202 gives Rt.rtDebugDetach
-		203 gives Rt.rtDebugCloseHandle
-		204 gives Rt.rtDebugTerminate
-		205 gives Rt.rtOsRun
-		206 gives Rt.rtOsRunIn
-		207 gives Rt.rtOsRunInput
-		208 gives Rt.rtOsReadStdin
-		209 gives Rt.rtOsStdoutWantsColor
+		137 gives Rt.rtFrozenFreeze
+		138 gives Rt.rtFrozenGet
+		139 gives Rt.rtShare
+		140 gives Rt.rtCownNew
+		141 gives Rt.rtBytesNew
+		142 gives Rt.rtBytesLen
+		143 gives Rt.rtBytesGet
+		144 gives Rt.rtBytesSet
+		145 gives Rt.rtBytesInsert
+		146 gives Rt.rtBytesRemove
+		147 gives Rt.rtBytesAppend
+		148 gives Rt.rtBytesAppendStr
+		149 gives Rt.rtBytesToString
+		150 gives Rt.rtOsArgs
+		151 gives Rt.rtOsEnvironmentVariable
+		152 gives Rt.rtOsExecutablePath
+		153 gives Rt.rtOsCurrentPath
+		154 gives Rt.rtOsProcessId
+		155 gives Rt.rtOsSetExitCode
+		156 gives Rt.rtOsExitAtOnce
+		157 gives Rt.rtOsEnterBackgroundPriority
+		158 gives Rt.rtOsClockNanos
+		159 gives Rt.rtOsClockMillis
+		160 gives Rt.rtOsTickMillis
+		161 gives Rt.rtOsThreadCpuTicks
+		162 gives Rt.rtOsUnixNanos
+		163 gives Rt.rtOsUnixSeconds
+		164 gives Rt.rtOsProcessorCount
+		165 gives Rt.rtOsPathFrom
+		166 gives Rt.rtOsReadText
+		167 gives Rt.rtOsWriteTextMode
+		168 gives Rt.rtOsWriteBinaryMode
+		169 gives Rt.rtOsRename
+		170 gives Rt.rtOsDelete
+		171 gives Rt.rtOsFileInfo
+		172 gives Rt.rtOsIsDirectory
+		173 gives Rt.rtOsExists
+		174 gives Rt.rtOsCreateDirectory
+		175 gives Rt.rtOsDeleteDirectory
+		176 gives Rt.rtOsList
+		177 gives Rt.rtDebugLaunch
+		178 gives Rt.rtDebugWaitEvent
+		179 gives Rt.rtDebugContinueEvent
+		180 gives Rt.rtDebugReadMemory
+		181 gives Rt.rtDebugWriteCode
+		182 gives Rt.rtDebugReadContext
+		183 gives Rt.rtDebugWriteContext
+		184 gives Rt.rtDebugSuspend
+		185 gives Rt.rtDebugResume
+		186 gives Rt.rtDebugBreakIn
+		187 gives Rt.rtDebugDetach
+		188 gives Rt.rtDebugCloseHandle
+		189 gives Rt.rtDebugTerminate
+		190 gives Rt.rtOsRun
+		191 gives Rt.rtOsRunIn
+		192 gives Rt.rtOsRunInput
+		193 gives Rt.rtOsReadStdin
+		194 gives Rt.rtOsStdoutWantsColor
 		default panic("ir: a number that is no runtime symbol")
 	end 'code'
 end 'rtOf'
@@ -2748,51 +2583,6 @@ export function rtUnit(r Rt) returns RtUnit
 	if r == Rt.rtArrayShrink 'rtArrayShrink'
 		return RtUnit.rtUnitArrays
 	end 'rtArrayShrink'
-	if r == Rt.rtListNew 'rtListNew'
-		return RtUnit.rtUnitInterpreter
-	end 'rtListNew'
-	if r == Rt.rtListLen 'rtListLen'
-		return RtUnit.rtUnitInterpreter
-	end 'rtListLen'
-	if r == Rt.rtListContains 'rtListContains'
-		return RtUnit.rtUnitInterpreter
-	end 'rtListContains'
-	if r == Rt.rtListElem 'rtListElem'
-		return RtUnit.rtUnitInterpreter
-	end 'rtListElem'
-	if r == Rt.rtListPushFront 'rtListPushFront'
-		return RtUnit.rtUnitInterpreter
-	end 'rtListPushFront'
-	if r == Rt.rtListPushBack 'rtListPushBack'
-		return RtUnit.rtUnitInterpreter
-	end 'rtListPushBack'
-	if r == Rt.rtListPopFront 'rtListPopFront'
-		return RtUnit.rtUnitInterpreter
-	end 'rtListPopFront'
-	if r == Rt.rtListPopBack 'rtListPopBack'
-		return RtUnit.rtUnitInterpreter
-	end 'rtListPopBack'
-	if r == Rt.rtListFirst 'rtListFirst'
-		return RtUnit.rtUnitInterpreter
-	end 'rtListFirst'
-	if r == Rt.rtListLast 'rtListLast'
-		return RtUnit.rtUnitInterpreter
-	end 'rtListLast'
-	if r == Rt.rtListNext 'rtListNext'
-		return RtUnit.rtUnitInterpreter
-	end 'rtListNext'
-	if r == Rt.rtListPrev 'rtListPrev'
-		return RtUnit.rtUnitInterpreter
-	end 'rtListPrev'
-	if r == Rt.rtListRemove 'rtListRemove'
-		return RtUnit.rtUnitInterpreter
-	end 'rtListRemove'
-	if r == Rt.rtListMoveToFront 'rtListMoveToFront'
-		return RtUnit.rtUnitInterpreter
-	end 'rtListMoveToFront'
-	if r == Rt.rtListCopy 'rtListCopy'
-		return RtUnit.rtUnitInterpreter
-	end 'rtListCopy'
 	if r == Rt.rtFrozenFreeze 'rtFrozenFreeze'
 		return RtUnit.rtUnitShared
 	end 'rtFrozenFreeze'
@@ -3798,21 +3588,6 @@ export function rtGivesString(r Rt) returns bool
 		rtRecsReserve or
 		rtRecsShrink or
 		rtArrayShrink or
-		rtListNew or
-		rtListLen or
-		rtListContains or
-		rtListElem or
-		rtListPushFront or
-		rtListPushBack or
-		rtListPopFront or
-		rtListPopBack or
-		rtListFirst or
-		rtListLast or
-		rtListNext or
-		rtListPrev or
-		rtListRemove or
-		rtListMoveToFront or
-		rtListCopy or
 		rtFrozenFreeze or
 		rtFrozenGet or
 		rtShare or

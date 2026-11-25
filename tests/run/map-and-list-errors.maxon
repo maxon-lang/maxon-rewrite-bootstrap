@@ -22,11 +22,12 @@ function main() returns ExitCode
 	m.upsert("a", value: 3)
 	print("{(try m.get("a") otherwise panic("no such key"))} {m.contains("a")} {m.remove("a")} {m.remove("a")} {m.contains("a")} {m.count()}\n")
 	var l = NameList.create()
-	let first = try l.first() otherwise l.append("x")
-	print("{l.count()} {l[first]}\n")
-	let h = l.prepend("w")
-	_ = l.append("y")
-	print("{l[try l.first() otherwise h]} {l[try l.last() otherwise h]}\n")
+	let none = try l.first().clone() otherwise "none"
+	l.append("x")
+	print("{none} {l.count()} {(try l.first().clone() otherwise "?")}\n")
+	l.prepend("w")
+	l.append("y")
+	print("{(try l.first().clone() otherwise "?")} {(try l.last().clone() otherwise "?")}\n")
 	let front = try l.removeFirst() otherwise "none"
 	let back = try l.removeLast() otherwise "none"
 	let middle = try l.removeLast() otherwise "none"
@@ -37,6 +38,6 @@ end 'main'
 
 //> added a a is there 1
 //> 3 true true false false 0
-//> 1 x
+//> none 1 x
 //> w y
 //> w y x none true
