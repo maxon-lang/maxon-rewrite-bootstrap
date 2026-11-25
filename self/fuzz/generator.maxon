@@ -2165,16 +2165,21 @@ type Generator
 		let test = self.boolExpr(1)
 		self.line("{kwIf} {test} {label}")
 		let state = self.moveState()
+		// Each branch is a scope of its own: a variable that a value declares there (a sets argument's) is not seen after it.
 		self.indentMore()
+		self.push()
 		let first = self.owned(t, depth: 1)
 		self.line("{name} = {first}")
+		self.pop()
 		self.indentLess()
 		let stateA = self.moveState()
 		self.restoreMoves(state)
 		self.line("{kwEnd} {label} {kwElse} {label2}")
 		self.indentMore()
+		self.push()
 		let second = self.owned(t, depth: 1)
 		self.line("{name} = {second}")
+		self.pop()
 		self.indentLess()
 		self.line("{kwEnd} {label2}")
 		let stateB = self.moveState()
@@ -3594,7 +3599,8 @@ type Generator
 		end 'mutating'
 		if c.kind == SiblingKind.swallow 'swallow'
 			vars[c.v].moved = true
-			return table.Option.some("swallowReturning({vars[c.v].name}, result: {result})")
+			// The variable is typed, as look's place is, so that a match or a conditional of literals fixes T.
+			return table.Option.some("swallowReturning({self.typedOf(vars[c.v].t, value: vars[c.v].name)}, result: {result})")
 		end 'swallow'
 		if c.kind == SiblingKind.consumingMethod 'consuming'
 			vars[c.v].moved = true
