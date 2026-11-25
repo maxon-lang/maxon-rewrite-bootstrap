@@ -457,8 +457,7 @@
 		end 'unexecuted'
 		let watch = eventProcessNew(pid)
 		if watch == noEntry 'unwatched'
-			killChild(pid)
-			_ = reapChild(run, pid: pid)
+			endAndReap(run, pid: pid)
 			closeOurEnds(wait)
 			return setupFailure()
 		end 'unwatched'
@@ -474,10 +473,7 @@
 		let wait = waitOf(run)
 		let pid = wordAt(wait, offset: waitChildOffset)
 		eventProcessFree(wordAt(wait, offset: waitProcessOffset))
-		killChild(pid)
-		if not isReaped(wait) 'unreaped'
-			_ = reapChild(run, pid: pid)
-		end 'unreaped'
+		endAndReap(run, pid: pid)
 		closeOurEnds(wait)
 	end 'abandonRun'
 

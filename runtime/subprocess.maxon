@@ -423,6 +423,10 @@ function exitWaiterMain(g Count) returns Count
 		markExpired(wait)
 		killTree(wait)
 		deadline = eventNoDeadline
+		// The kill may have waited for the child already, and an event that its exit made is no longer to be waited for.
+		if childExited(wait, child: child) 'ended'
+			break 'exit'
+		end 'ended'
 	end 'exit'
 	return 0
 end 'exitWaiterMain'
@@ -1545,21 +1549,60 @@ end 'osRunInput'
 		__Raw.storeWord(wait, offset: waitReapedOffset, value: set)
 	end 'markReaped'
 
-	// killChild ends a child that is still running, with the processes of its group: every child leads a group of its own.
-	function killChild(pid Count)
-		_ = signalGroup(pid, signal: killSignal)
-	end 'killChild'
-
-	// endTree ends the child and every process of its group, which is every one it started that did not leave it, and gives the
-	// errno of a kill that was refused, or 0: a group with no member left is ended. The processes are ending when it returns
-	// (treeEnded).
-	function endTree(wait Count) returns Count
-		let result = signalGroup(wordAt(wait, offset: waitPidOffset), signal: killSignal)
+	// killChild sends the kill to the processes of the child's group: every child leads a group of its own. It gives the errno of a
+	// kill that was refused, or 0: a group with no member left is ended.
+	function killChild(pid Count) returns Count
+		let result = signalGroup(pid, signal: killSignal)
 		if failed(result) and not noSuchGroup(result) 'refused'
 			return errnoOf(result)
 		end 'refused'
 		return 0
+	end 'killChild'
+
+	// endTree ends the child and every process of its group, which is every one it started that did not leave it, and gives the
+	// errno of a kill that was refused, or 0. The processes are ending when it returns (treeEnded).
+	//
+	// A process that is inside a fork when a signal is sent to its group can leave the process that the fork makes out of it (macOS
+	// does), and that one would outlive the kill and hold what the tree holds, the child's pipes. So the kill is sent again, as long
+	// as treeEndBoundMs, until the leader has ended, which a leader that has ended forks no more, and once more after it: that one
+	// reaches everything the leader started. The leader is waited for as it ends, its wait status kept in the wait, so that a wait
+	// for the child after finds it ended and says by what.
+	//
+	// macOS refuses a kill of a group whose members have all ended and are not waited for yet (EPERM, where Linux gives ESRCH):
+	// the leader until it is waited for here, and the processes it started until the system, their parent once the leader is
+	// gone, has waited for them. So a refusal is the tree's answer only when it lasts: the kill is sent again until it is not
+	// refused, or treeEndBoundMs has passed and the refusal is given.
+	function endTree(wait Count) returns Count
+		let pid = wordAt(wait, offset: waitPidOffset)
+		let bound = __Raw.wrappingAdd(osClockMillis(), right: treeEndBoundMs)
+		var leaderEnded = false
+		while true 'ending'
+			let refused = killChild(pid)
+			if leaderEnded and refused == 0 'ended'
+				return 0
+			end 'ended'
+			if not leaderEnded and (isReaped(wait) or childWaited(wait, child: pid, options: waitNoHang)) 'leader'
+				// The kill after the leader's end reaches everything it was starting as the earlier ones went out.
+				leaderEnded = true
+				continue 'ending'
+			end 'leader'
+			if osClockMillis() >= bound 'late'
+				return refused
+			end 'late'
+			sleepMs(treePollMs)
+		end 'ending'
+		return 0
 	end 'endTree'
+
+	// endAndReap ends a child that no wait has taken where the caller may block, and waits for it: the kill, the wait for the leader,
+	// which the kill ends, and the kill again, for what the leader was starting as the first went out (endTree).
+	function endAndReap(run Count, pid Count)
+		_ = killChild(pid)
+		if not isReaped(waitOf(run)) 'unreaped'
+			_ = reapChild(run, pid: pid)
+			_ = killChild(pid)
+		end 'unreaped'
+	end 'endAndReap'
 
 	// treeEnded waits, as long as treeEndBoundMs, until the child has been waited for and its group has no member, and says whether it
 	// came to: a group outlives its leader, and a member that has ended stays in it until its parent has waited for it.
