@@ -1,7 +1,5 @@
 let dropEmptyMessage = "dropEmpty of a collection that still holds an element"
 
-let interpreterOnlyMessage = "a list or a slot map runs only under the interpreter for now, and the compiler has no code for it; use an array, or run the program with the interpreter"
-
 // entry calls a runtime entry of a primitive that returns a value. site is the source that needs it, kept when the
 // backend has no code for the entry.
 function entry(mutates l Lowerer, p ast.Project, site diag.Site, symbol Rt, kind IrKind, args RegList) returns Reg
@@ -40,9 +38,7 @@ function noteEntry(mutates l Lowerer, site diag.Site, symbol Rt)
 		l.b.f.usesBytes = true
 	end 'bytes' else if unit == RtUnit.rtUnitArrays 'arrays'
 		l.b.f.usesArrays = true
-	end 'arrays' else if unit == RtUnit.rtUnitInterpreter 'interpreter'
-		refuse(l, site: site, code: diag.errInterpreterOnly, message: interpreterOnlyMessage)
-	end 'interpreter' else if unit == RtUnit.rtUnitRuntime or unit == RtUnit.rtUnitLinker 'internal'
+	end 'arrays' else if unit == RtUnit.rtUnitRuntime or unit == RtUnit.rtUnitLinker 'internal'
 		panic("lower: {rtSymbol(symbol)} is no entry of a primitive")
 	end 'internal'
 end 'noteEntry'
@@ -146,11 +142,8 @@ function elemPlace(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState,
 	let coll = lowerRead(l, p: p, ms: ms, e: obj)
 	let index = indexValue(l, p: p, ms: ms, e: e)
 	let collTy = exprType(p, module: l.module, node: obj)
-	if isArray(l, p: p, ms: ms, collection: collTy) 'array'
-		let box = arrayOf(l, p: p, ms: ms, site: siteOf(l, p: p, node: e), t: collTy)
-		return arrayPlace(l, p: p, ms: ms, box: box, arr: coll, index: index)
-	end 'array'
-	return elemEntry(l, p: p, ms: ms, site: siteOf(l, p: p, node: e), collection: collTy, coll: coll, index: index)
+	let box = arrayOf(l, p: p, ms: ms, site: siteOf(l, p: p, node: e), t: collTy)
+	return arrayPlace(l, p: p, ms: ms, box: box, arr: coll, index: index)
 end 'elemPlace'
 
 // builtinOf is the primitive type that a collection's type is, read through the binding and through a frozen value.
@@ -159,19 +152,12 @@ function builtinOf(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState,
 	return ast.contentType(ms.types, reads: p.types, t: applied)
 end 'builtinOf'
 
-// indexType is the type of what goes between the brackets: a position for an array, and for a list the slot key of the
-// element.
+// indexType is the type of what goes between the brackets: a position, for an array.
 function indexType(p ast.Project, mutates ms ast.ModuleState, bt ast.TypeID) returns ast.TypeID
 	let kind = ast.typeKind(ms.types, reads: p.types, t: bt)
-	let args = ast.typeArgsOf(ms.types, reads: p.types, t: bt)
 	if kind == ast.TypeKind.builtinArray 'array'
 		return p.builtins.countTy
 	end 'array'
-	if kind == ast.TypeKind.builtinList 'handle'
-		var of = ast.TypeIDList.create(0)
-		of.push(args[0])
-		return ast.instantiateType(ms.types, reads: p.types, origin: p.builtins.slotKeyOrigin, args: of)
-	end 'handle'
 	panic("lower: {ast.typeName(ms.types, reads: p.types, t: bt)} has no elements to index")
 end 'indexType'
 
@@ -179,7 +165,7 @@ end 'indexType'
 function elementType(p ast.Project, ms ast.ModuleState, bt ast.TypeID) returns ast.TypeID
 	let kind = ast.typeKind(ms.types, reads: p.types, t: bt)
 	let args = ast.typeArgsOf(ms.types, reads: p.types, t: bt)
-	if kind == ast.TypeKind.builtinArray or kind == ast.TypeKind.builtinList 'one'
+	if kind == ast.TypeKind.builtinArray 'one'
 		return args[0]
 	end 'one'
 	panic("lower: {ast.typeName(ms.types, reads: p.types, t: bt)} has no elements")
@@ -197,32 +183,13 @@ function isArray(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c
 	return ast.typeKind(ms.types, reads: p.types, t: bt) == ast.TypeKind.builtinArray
 end 'isArray'
 
-// elemEntry is the address of an element of a list; an array's goes through arrayOf.
-function elemEntry(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, site diag.Site, collection ast.TypeID, coll Reg, index Reg) returns Reg
-	let bt = builtinOf(l, p: p, ms: ms, collection: collection)
-	let kind = ast.typeKind(ms.types, reads: p.types, t: bt)
-	var symbol = Rt.rtNone
-	if kind == ast.TypeKind.builtinList 'list'
-		symbol = Rt.rtListElem
-	end 'list' else 'other'
-		panic("lower: {ast.typeName(ms.types, reads: p.types, t: bt)} has no elements to address")
-	end 'other'
-	return entry(l, p: p, site: site, symbol: symbol, kind: IrKind.kindScalar, args: argsOf2(coll, b: index))
-end 'elemEntry'
-
 function visitIndexExpr(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID) returns Reg
 	let obj = ast.indexExprObj(p.modules[l.mi].tree, id: e)
 	let coll = lowerRead(l, p: p, ms: ms, e: obj)
 	let index = indexValue(l, p: p, ms: ms, e: e)
 	let collTy = exprType(p, module: l.module, node: obj)
-	if isArray(l, p: p, ms: ms, collection: collTy) 'array'
-		let box = arrayOf(l, p: p, ms: ms, site: siteOf(l, p: p, node: e), t: collTy)
-		return arrayLoad(l, p: p, ms: ms, box: box, arr: coll, index: index)
-	end 'array'
-	let addr = elemEntry(l, p: p, ms: ms, site: siteOf(l, p: p, node: e), collection: collTy, coll: coll, index: index)
-	let d = newReg(l, kind: kindOf(l, p: p, ms: ms, t: exprType(p, module: l.module, node: e)))
-	emit(l, i: newLoadAt(d, addr: addr))
-	return d
+	let box = arrayOf(l, p: p, ms: ms, site: siteOf(l, p: p, node: e), t: collTy)
+	return arrayLoad(l, p: p, ms: ms, box: box, arr: coll, index: index)
 end 'visitIndexExpr'
 
 // assignElement stores into a[i]: the collection and the index are evaluated, then the value, and only then is the
@@ -234,14 +201,8 @@ function assignElement(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleSt
 	let given = lowerExpr(l, p: p, ms: ms, e: value)
 	let collTy = exprType(p, module: l.module, node: obj)
 	let v = arrayHeld(l, p: p, ms: ms, v: given, t: exprType(p, module: l.module, node: target), holder: collTy)
-	if isArray(l, p: p, ms: ms, collection: collTy) 'array'
-		let box = arrayOf(l, p: p, ms: ms, site: siteOf(l, p: p, node: target), t: collTy)
-		arrayStore(l, p: p, ms: ms, box: box, arr: coll, index: index, v: v)
-		return
-	end 'array'
-	let addr = elemEntry(l, p: p, ms: ms, site: siteOf(l, p: p, node: target), collection: collTy, coll: coll, index: index)
-	dropAt(l, p: p, ms: ms, addr: addr, t: exprType(p, module: l.module, node: target))
-	emit(l, i: newStoreAt(addr, src: v))
+	let box = arrayOf(l, p: p, ms: ms, site: siteOf(l, p: p, node: target), t: collTy)
+	arrayStore(l, p: p, ms: ms, box: box, arr: coll, index: index, v: v)
 end 'assignElement'
 
 // visitCollectionLitExpr builds the collection of a literal as the explicit code does: an empty one, then a push of each
@@ -312,8 +273,7 @@ function columnArray(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleStat
 	return arr
 end 'columnArray'
 
-// lowerCollectionLit builds the collection of type ty from the literal at e. A List takes the elements of an array
-// literal, appended in order.
+// lowerCollectionLit builds the collection of type ty from the literal at e.
 function lowerCollectionLit(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, ty ast.TypeID) returns Reg
 	let site = siteOf(l, p: p, node: e)
 	let elemsRef = ast.collectionLitExprElemsRef(p.modules[l.mi].tree, id: e)
@@ -321,33 +281,22 @@ function lowerCollectionLit(mutates l Lowerer, p ast.Project, mutates ms ast.Mod
 	if p.modules[l.mi].tree.listLen(valuesRef) > 0 'map'
 		return lowerMapLiteral(l, p: p, ms: ms, e: e, ty: ty)
 	end 'map'
-	let isList = ast.typeKind(ms.types, reads: p.types, t: ty) == ast.TypeKind.builtinList
-	var collection = noReg
-	var box = ArrayBox.make(site.clone(), ty: ty)
-	if isList 'list'
-		collection = entry(l, p: p, site: site, symbol: Rt.rtListNew, kind: IrKind.kindManaged, args: RegList.create(0))
-	end 'list' else 'array'
-		box = arrayOf(l, p: p, ms: ms, site: site, t: ty)
-		collection = arrayNew(l, p: p, ms: ms, box: box)
-	end 'array'
+	let box = arrayOf(l, p: p, ms: ms, site: site, t: ty)
+	let collection = arrayNew(l, p: p, ms: ms, box: box)
 	let mark = l.pending.count()
 	let flight = dropType(l, p: p, ms: ms, t: ty)
 	l.pending.push(PendingDrop.ofReg(collection, ty: flight))
 	for i in 0 upto p.modules[l.mi].tree.listLen(elemsRef) 'each'
 		let node = p.modules[l.mi].tree.listAt(elemsRef, index: i) as ast.NodeID
 		let first = heldIn(l, p: p, ms: ms, e: ExprRef.make(l.module, node: node), holder: ty)
-		if isList 'append'
-			_ = entry(l, p: p, site: site, symbol: Rt.rtListPushBack, kind: IrKind.kindScalar, args: argsOf2(collection, b: first))
-		end 'append' else 'push'
-			arrayPush(l, p: p, ms: ms, box: box, arr: collection, v: first)
-		end 'push'
+		arrayPush(l, p: p, ms: ms, box: box, arr: collection, v: first)
 		popPending(l, n: succ(mark))
 	end 'each'
 	popPending(l, n: mark)
 	return collection
 end 'lowerCollectionLit'
 
-// visitFromExpr lowers `Type from value`: an array or a list is the literal built as that type, and any other type is
+// visitFromExpr lowers `Type from value`: an array is the literal built as that type, and any other type is
 // built by its `init`, which the check recorded as a static call with the literal as its one argument.
 function visitFromExpr(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID) returns Reg
 	let value = ast.fromExprValue(p.modules[l.mi].tree, id: e)
@@ -752,73 +701,6 @@ function lowerArrayRefill(mutates l Lowerer, p ast.Project, mutates ms ast.Modul
 	return konst(l, value: 0 as Word)
 end 'lowerArrayRefill'
 
-function lowerListCreate(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
-	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtListNew, kind: IrKind.kindManaged, args: RegList.create(0))
-end 'lowerListCreate'
-
-function lowerListCount(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
-	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtListLen, kind: IrKind.kindScalar, args: argsOf1(recv))
-end 'lowerListCount'
-
-function lowerListIsEmpty(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
-	let n = entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtListLen, kind: IrKind.kindScalar, args: argsOf1(recv))
-	return isZero(l, v: n)
-end 'lowerListIsEmpty'
-
-function lowerListContains(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
-	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtListContains, kind: IrKind.kindScalar, args: argsOf2(recv, b: args[0]))
-end 'lowerListContains'
-
-function lowerListPrepend(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
-	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtListPushFront, kind: IrKind.kindScalar, args: argsOf2(recv, b: args[0]))
-end 'lowerListPrepend'
-
-function lowerListAppend(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
-	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtListPushBack, kind: IrKind.kindScalar, args: argsOf2(recv, b: args[0]))
-end 'lowerListAppend'
-
-function lowerListRemoveFirst(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
-	return removeEnd(l, p: p, ms: ms, c: c, pop: Rt.rtListPopFront, list: recv)
-end 'lowerListRemoveFirst'
-
-function lowerListRemoveLast(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
-	return removeEnd(l, p: p, ms: ms, c: c, pop: Rt.rtListPopBack, list: recv)
-end 'lowerListRemoveLast'
-
-function lowerListFirst(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
-	let h = entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtListFirst, kind: IrKind.kindScalar, args: argsOf1(recv))
-	return endSlotKey(l, p: p, ms: ms, handle: h)
-end 'lowerListFirst'
-
-function lowerListLast(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
-	let h = entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtListLast, kind: IrKind.kindScalar, args: argsOf1(recv))
-	return endSlotKey(l, p: p, ms: ms, handle: h)
-end 'lowerListLast'
-
-function lowerListNext(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
-	let h = entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtListNext, kind: IrKind.kindScalar, args: argsOf2(recv, b: args[0]))
-	return endSlotKey(l, p: p, ms: ms, handle: h)
-end 'lowerListNext'
-
-function lowerListPrev(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
-	let h = entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtListPrev, kind: IrKind.kindScalar, args: argsOf2(recv, b: args[0]))
-	return endSlotKey(l, p: p, ms: ms, handle: h)
-end 'lowerListPrev'
-
-function lowerListRemove(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
-	return removeSlotKey(l, p: p, ms: ms, c: c, contains: Rt.rtListContains, remove: Rt.rtListRemove, collection: recv, handle: args[0])
-end 'lowerListRemove'
-
-function lowerListDropEmpty(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
-	let n = entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtListLen, kind: IrKind.kindScalar, args: argsOf1(recv))
-	return dropEmpty(l, p: p, ms: ms, c: c, left: n, collection: recv)
-end 'lowerListDropEmpty'
-
-function lowerListMoveToFront(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
-	entryVoid(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtListMoveToFront, args: argsOf2(recv, b: args[0]))
-	return konst(l, value: 0 as Word)
-end 'lowerListMoveToFront'
-
 // lowerSlotKeyFromWord is the slot key whose word is the argument, the same word.
 function lowerSlotKeyFromWord(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	return args[0]
@@ -925,39 +807,6 @@ function nonZero(mutates l Lowerer, v Reg) returns Reg
 	return compare(l, op: CmpOp.cmpNe, a: v, b: zero, unsigned: false)
 end 'nonZero'
 
-// removeEnd moves the element at an end of a list out, and fails with indexOutOfBounds on an empty list, as maxon's List
-// does.
-function removeEnd(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, pop Rt, list Reg) returns Reg
-	let site = siteOf(l, p: p, node: c.node)
-	let n = entry(l, p: p, site: site, symbol: Rt.rtListLen, kind: IrKind.kindScalar, args: argsOf1(list))
-	let present = nonZero(l, v: n)
-	failUnless(l, p: p, ms: ms, cond: present, errorCase: ast.errorIndexOutOfBounds)
-	let t = exprType(p, module: l.module, node: c.node)
-	let kind = holderKind(l, p: p, ms: ms, t: t)
-	let removed = entry(l, p: p, site: site, symbol: pop, kind: kind, args: argsOf1(list))
-	return unboxed(l, p: p, ms: ms, v: removed, t: t)
-end 'removeEnd'
-
-// endSlotKey is the slot key of a list's first or last node, or of the node after or before one, which the entry gives as 0
-// when there is none, where the operation fails with indexOutOfBounds.
-function endSlotKey(mutates l Lowerer, p ast.Project, ms ast.ModuleState, handle Reg) returns Reg
-	let present = nonZero(l, v: handle)
-	failUnless(l, p: p, ms: ms, cond: present, errorCase: ast.errorIndexOutOfBounds)
-	return handle
-end 'endSlotKey'
-
-// removeSlotKey moves the element a slot key names out of a list or a slot map, and fails with emptySlot for a slot key that names
-// none, as maxon's emptied slot does.
-function removeSlotKey(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, contains Rt, remove Rt, collection Reg, handle Reg) returns Reg
-	let site = siteOf(l, p: p, node: c.node)
-	let named = entry(l, p: p, site: site, symbol: contains, kind: IrKind.kindScalar, args: argsOf2(collection, b: handle))
-	failUnless(l, p: p, ms: ms, cond: named, errorCase: ast.errorEmptySlot)
-	let t = exprType(p, module: l.module, node: c.node)
-	let kind = holderKind(l, p: p, ms: ms, t: t)
-	let removed = entry(l, p: p, site: site, symbol: remove, kind: kind, args: argsOf2(collection, b: handle))
-	return unboxed(l, p: p, ms: ms, v: removed, t: t)
-end 'removeSlotKey'
-
 // arrayFilled is an array of count copies of value: the value is copied into every slot and then dropped, so that every
 // element has an owner of its own. A scalar in words is its own copy, which one fill writes.
 function arrayFilled(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, count Reg, value Reg) returns Reg
@@ -976,82 +825,3 @@ function arrayFilled(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleStat
 	dropValue(l, p: p, ms: ms, v: value, t: arrayElem(p, ms: ms, box: a))
 	return out
 end 'arrayFilled'
-
-// requireNative refuses, once for each site, a value of a type that holds a primitive the backend has no code for. A copy
-// or a drop of such a value is code that only the interpreter has, as the entries of the primitive itself are.
-function requireNative(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, site diag.Site, t ast.TypeID)
-	var visiting = ast.TypeIDList.create(0)
-	if holdsInterpreterOnly(p, ms: ms, t: t, visiting: visiting) 'only'
-		refuse(l, site: site, code: diag.errInterpreterOnly, message: interpreterOnlyMessage)
-	end 'only'
-end 'requireNative'
-
-// holdsInterpreterOnly is whether a value of type t is, or holds at any depth, a list or a slot map. visiting are the
-// records and unions being walked, so a type that contains itself through an array ends.
-function holdsInterpreterOnly(p ast.Project, mutates ms ast.ModuleState, t ast.TypeID, mutates visiting ast.TypeIDList) returns bool
-	let kind = ast.typeKind(ms.types, reads: p.types, t: t)
-	if kind == ast.TypeKind.primBool or kind == ast.TypeKind.primString or kind == ast.TypeKind.primCharacter or kind == ast.TypeKind.intRange or kind == ast.TypeKind.constInt or kind == ast.TypeKind.floatRange or kind == ast.TypeKind.constFloat or kind == ast.TypeKind.enumTy 'plain'
-		return false
-	end 'plain'
-	if kind == ast.TypeKind.builtinSlotKey or kind == ast.TypeKind.builtinPromise 'handle'
-		return false
-	end 'handle'
-	// A function value is dropped by the routine of its closure, which the closure that owns such a value refuses.
-	if kind == ast.TypeKind.funcTy 'function'
-		return false
-	end 'function'
-	// An interface value is dropped by the table of the type it holds, and boxing a value of a type that holds such a part
-	// is refused natively where it is boxed.
-	if kind == ast.TypeKind.interfaceTy 'interface'
-		return false
-	end 'interface'
-	if kind == ast.TypeKind.builtinArray 'array'
-		return holdsInterpreterOnly(p, ms: ms, t: elementType(p, ms: ms, bt: t), visiting: visiting)
-	end 'array'
-	if kind == ast.TypeKind.builtinGroups 'groups'
-		let halves = ast.typeArgsOf(ms.types, reads: p.types, t: t)
-		return holdsInterpreterOnly(p, ms: ms, t: halves[0], visiting: visiting) or holdsInterpreterOnly(p, ms: ms, t: halves[1], visiting: visiting)
-	end 'groups'
-	if kind == ast.TypeKind.builtinFrozen or kind == ast.TypeKind.builtinCown or kind == ast.TypeKind.builtinService 'shared'
-		return holdsInterpreterOnly(p, ms: ms, t: heldType(p, ms: ms, t: t), visiting: visiting)
-	end 'shared'
-	if kind == ast.TypeKind.builtinList 'only'
-		return true
-	end 'only'
-	// A cursor holds a word of the buffer it borrows and its index, and never drops the buffer.
-	if kind == ast.TypeKind.builtinCursor 'cursor'
-		return false
-	end 'cursor'
-	if kind == ast.TypeKind.record or kind == ast.TypeKind.unionTy 'nominal'
-		for i in 0 upto visiting.count() 'seen'
-			if visiting[i] == t 'again'
-				return false
-			end 'again'
-		end 'seen'
-		visiting.push(t)
-		let origin = ast.typeEntry(ms.types, reads: p.types, t: t).effectiveOrigin()
-		let params = ast.cloneTypeArgs(ast.typeEntry(ms.types, reads: p.types, t: origin).typeParams)
-		let args = ast.cloneTypeArgs(ast.typeEntry(ms.types, reads: p.types, t: t).typeArgs)
-		if kind == ast.TypeKind.record 'record'
-			for i in 0 upto ast.typeEntry(ms.types, reads: p.types, t: origin).fields.count() 'fields'
-				let declared = ast.typeEntry(ms.types, reads: p.types, t: origin).fields[i].ty
-				let field = ast.substituteType(ms.types, reads: p.types, t: declared, params: params, args: args)
-				if holdsInterpreterOnly(p, ms: ms, t: field, visiting: visiting) 'holds'
-					return true
-				end 'holds'
-			end 'fields'
-			return false
-		end 'record'
-		for i in 0 upto ast.typeEntry(ms.types, reads: p.types, t: origin).cases.count() 'cases'
-			for j in 0 upto ast.typeEntry(ms.types, reads: p.types, t: origin).cases[i].payload.count() 'payload'
-				let declared = ast.typeEntry(ms.types, reads: p.types, t: origin).cases[i].payload[j].ty
-				let field = ast.substituteType(ms.types, reads: p.types, t: declared, params: params, args: args)
-				if holdsInterpreterOnly(p, ms: ms, t: field, visiting: visiting) 'holds'
-					return true
-				end 'holds'
-			end 'payload'
-		end 'cases'
-		return false
-	end 'nominal'
-	panic("lower: {ast.typeName(ms.types, reads: p.types, t: t)} has no layout the backend knows")
-end 'holdsInterpreterOnly'

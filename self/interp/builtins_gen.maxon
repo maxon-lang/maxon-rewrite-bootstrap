@@ -419,66 +419,6 @@ function runtimeEntry(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 		try entryArrayShrink(vm, f: f, x: x)
 		return
 	end 'rtArrayShrink'
-	if symbol == ir.Rt.rtListNew 'rtListNew'
-		try entryListNew(vm, f: f, x: x)
-		return
-	end 'rtListNew'
-	if symbol == ir.Rt.rtListLen 'rtListLen'
-		try entryListLen(vm, f: f, x: x)
-		return
-	end 'rtListLen'
-	if symbol == ir.Rt.rtListContains 'rtListContains'
-		try entryListContains(vm, f: f, x: x)
-		return
-	end 'rtListContains'
-	if symbol == ir.Rt.rtListElem 'rtListElem'
-		try entryListElem(vm, f: f, x: x)
-		return
-	end 'rtListElem'
-	if symbol == ir.Rt.rtListPushFront 'rtListPushFront'
-		try entryListPushFront(vm, f: f, x: x)
-		return
-	end 'rtListPushFront'
-	if symbol == ir.Rt.rtListPushBack 'rtListPushBack'
-		try entryListPushBack(vm, f: f, x: x)
-		return
-	end 'rtListPushBack'
-	if symbol == ir.Rt.rtListPopFront 'rtListPopFront'
-		try entryListPopFront(vm, f: f, x: x)
-		return
-	end 'rtListPopFront'
-	if symbol == ir.Rt.rtListPopBack 'rtListPopBack'
-		try entryListPopBack(vm, f: f, x: x)
-		return
-	end 'rtListPopBack'
-	if symbol == ir.Rt.rtListFirst 'rtListFirst'
-		try entryListFirst(vm, f: f, x: x)
-		return
-	end 'rtListFirst'
-	if symbol == ir.Rt.rtListLast 'rtListLast'
-		try entryListLast(vm, f: f, x: x)
-		return
-	end 'rtListLast'
-	if symbol == ir.Rt.rtListNext 'rtListNext'
-		try entryListNext(vm, f: f, x: x)
-		return
-	end 'rtListNext'
-	if symbol == ir.Rt.rtListPrev 'rtListPrev'
-		try entryListPrev(vm, f: f, x: x)
-		return
-	end 'rtListPrev'
-	if symbol == ir.Rt.rtListRemove 'rtListRemove'
-		try entryListRemove(vm, f: f, x: x)
-		return
-	end 'rtListRemove'
-	if symbol == ir.Rt.rtListMoveToFront 'rtListMoveToFront'
-		try entryListMoveToFront(vm, f: f, x: x)
-		return
-	end 'rtListMoveToFront'
-	if symbol == ir.Rt.rtListCopy 'rtListCopy'
-		try entryListCopy(vm, f: f, x: x)
-		return
-	end 'rtListCopy'
 	if symbol == ir.Rt.rtFrozenFreeze 'rtFrozenFreeze'
 		try entryFrozenFreeze(vm, f: f, x: x)
 		return

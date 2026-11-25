@@ -1,60 +1,26 @@
 // Running a program on macOS: posix_spawn makes the child with the write ends of the output pipes in place of its
 // standard output and error and its standard input inherited, or in a run with input the read end of a third pipe that the run
-// writes the input into as the child reads it, through poll beside the output pipes, every other fd closed in it (POSIX_SPAWN_CLOEXEC_DEFAULT), and says itself whether the
-// program could be executed.
+// writes the input into as the child reads it, every other fd closed in it (POSIX_SPAWN_CLOEXEC_DEFAULT), and says itself whether the
+// program could be executed. The run reads the output pipes, writes the input and watches for the child's exit (the kqueue's
+// EVFILT_PROC with NOTE_EXIT, eventProcessNew) through the event queue (subprocess.maxon), and then waits for the child, which
+// returns at once.
 
 #if os(macOS)
-	// A stream the run reads, as a record of words: the read end of its pipe, the string read so far with the room it
-	// has, and whether the child may still write.
-	let streamFdOffset = 0
+	// The run's record, one allocation: the ends of the three pipes as eventChildPipe makes them (the read end then the write
+	// end, a word each), and the run's wait (subprocess.maxon).
+	let runOutputPipeOffset = 0 as Count
 
-	let streamTextOffset = 8
+	let runErrorPipeOffset = (runOutputPipeOffset + pipeEndBytes) as Count
 
-	let streamLengthOffset = 16
+	let runInputPipeOffset = (runErrorPipeOffset + pipeEndBytes) as Count
 
-	let streamCapacityOffset = 24
+	let runWaitOffset = (runInputPipeOffset + pipeEndBytes) as Count
 
-	let streamOpenOffset = 32
-
-	let streamBytes = 40
-
-	// The run's record, one allocation: the two streams, the two pipes as pipe writes them, the read end then the write
-	// end, 32 bits each, the poll records of the two streams and the input, and the child's wait status.
-	let runOutputOffset = 0
-
-	let runErrorOffset = (runOutputOffset + streamBytes) as Count
-
-	let runOutputPipeOffset = (runErrorOffset + streamBytes) as Count
-
-	let runErrorPipeOffset = (runOutputPipeOffset + pipeFdsBytes) as Count
-
-	let runPollsOffset = (runErrorPipeOffset + pipeFdsBytes) as Count
-
-	let runWaitStatusOffset = (runPollsOffset + 3 * macosPollRecordBytes) as Count
-
-	// In a run with input: the pipe of the child's standard input, how much of the input the run has written, and whether the
-	// pipe's write end is open.
-	let runInputPipeOffset = (runWaitStatusOffset + wordBytes) as Count
-
-	let runInputDoneOffset = (runInputPipeOffset + pipeFdsBytes) as Count
-
-	let runInputOpenOffset = (runInputDoneOffset + wordBytes) as Count
-
-	let runRecordBytes = (runInputOpenOffset + wordBytes) as Count
-
-	let pipeFdsBytes = 8
-
-	let pipeWriteEndOffset = 4
+	let runRecordBytes = (runWaitOffset + waitBytes) as Count
 
 	let stdoutFd = 1
 
 	let stderrFd = 2
-
-	// readChunkBytes is the least room a stream's text has past its length before a read.
-	let readChunkBytes = 4096
-
-	// pollForever is poll's timeout of a run with no deadline, -1.
-	let pollForever = 0xFFFFFFFFFFFFFFFF as Count
 
 	// Decoding a wait status: the low seven bits are the signal that ended the child, 0 when it exited, with its code in
 	// the eight bits after them; a child that a signal ended reports 128 plus the signal, the POSIX shell's convention, as
@@ -69,14 +35,12 @@
 
 	let noWaitOptions = 0
 
+	let waitNoHang = 1
+
 	// The separator of the directories of PATH, which a program named without a directory is looked for in.
 	let searchPathVariable = "PATH"
 
 	let searchPathSeparator = 0x3A as Byte
-
-	function pipeFd(pipes Count, writeEnd bool) returns Count
-		return __Raw.loadWord32(pipes, offset: pipeWriteEndOffset if writeEnd else 0)
-	end 'pipeFd'
 
 	// isProgramAt is whether a zero-terminated path names a file that is not a directory.
 	function isProgramAt(cPath Count) returns bool
@@ -156,41 +120,58 @@
 		free(vector)
 	end 'freeVector'
 
-	// closePipe closes both ends of a pipe that makePipe made.
-	function closePipe(pipes Count)
-		closeFd(pipeFd(pipes, writeEnd: false))
-		closeFd(pipeFd(pipes, writeEnd: true))
-	end 'closePipe'
-
-	// openPipes makes the two pipes of a run, and gives whether it made them both; a pipe it could not make leaves the one
-	// before it closed.
+	// openPipes makes the pipes of a run, and gives whether it made them all; a pipe it could not make leaves those before it
+	// closed.
 	function openPipes(run Count, hasInput bool) returns bool
-		let output = fieldAt(run, offset: runOutputPipeOffset)
-		if failed(makePipe(output)) 'output'
-			return false
-		end 'output'
-		if failed(makePipe(fieldAt(run, offset: runErrorPipeOffset))) 'errors'
-			closePipe(output)
-			return false
-		end 'errors'
-		if hasInput and failed(makePipe(fieldAt(run, offset: runInputPipeOffset))) 'input'
-			closePipe(output)
-			closePipe(fieldAt(run, offset: runErrorPipeOffset))
-			return false
-		end 'input'
-		return true
+		return openRunPipes(fieldAt(run, offset: runWaitOffset), output: fieldAt(run, offset: runOutputPipeOffset), errors: fieldAt(run, offset: runErrorPipeOffset), input: fieldAt(run, offset: runInputPipeOffset), hasInput: hasInput)
 	end 'openPipes'
 
 	// reap waits for the child to end and gives its wait status.
 	function reap(run Count, pid Count) returns Count
+		let status = fieldAt(fieldAt(run, offset: runWaitOffset), offset: waitStatusOffset)
 		while true 'wait'
-			let result = waitChild(pid, status: fieldAt(run, offset: runWaitStatusOffset))
+			let result = waitChild(pid, status: status, options: noWaitOptions)
 			if not interrupted(result) 'done'
-				return __Raw.loadWord32(run, offset: runWaitStatusOffset)
+				return __Raw.loadWord32(status, offset: 0)
 			end 'done'
 		end 'wait'
 		return 0
 	end 'reap'
+
+	// childExited is whether the child has exited, which it waits for if so, its wait status kept in the wait. A wake of the
+	// exit's entry proves nothing either way: the entry may hold an event of its last owner, and the kqueue reports NOTE_EXIT as
+	// the child starts to exit, before waitpid can take it. So a child that waitpid does not yet find ended is watched again
+	// (processArm): one still running is reported when it exits, and one that the kqueue refuses has started to exit and is
+	// waited for, which returns as soon as it has ended.
+	function childExited(wait Count, child Count) returns bool
+		if childWaited(wait, child: child, options: waitNoHang) 'ended'
+			return true
+		end 'ended'
+		if processArm(wordAt(wait, offset: waitProcessOffset)) 'watched'
+			return false
+		end 'watched'
+		enterBlocking()
+		let waited = childWaited(wait, child: child, options: noWaitOptions)
+		exitBlocking()
+		return waited
+	end 'childExited'
+
+	// childWaited waits for the child with the options of waitpid, its wait status kept in the wait, and gives whether it had
+	// ended: a child that has not been waited for may always be.
+	function childWaited(wait Count, child Count, options Count) returns bool
+		let status = fieldAt(wait, offset: waitStatusOffset)
+		while true 'wait'
+			let result = waitChild(child, status: status, options: options)
+			if interrupted(result) 'again'
+				continue 'wait'
+			end 'again'
+			if failed(result) 'refused'
+				panic("cannot wait for a child that has not been waited for")
+			end 'refused'
+			return result == child
+		end 'wait'
+		return false
+	end 'childWaited'
 
 	// exitCodeOf is the exit code that a wait status says.
 	function exitCodeOf(status Count) returns Count
@@ -200,116 +181,6 @@
 		end 'signalled'
 		return (status shr waitExitShift) and waitExitMask
 	end 'exitCodeOf'
-
-	// startStream makes a stream of the read end of a pipe, open, with an empty text.
-	function startStream(stream Count, pipes Count)
-		__Raw.storeWord(stream, offset: streamFdOffset, value: pipeFd(pipes, writeEnd: false))
-		__Raw.storeWord(stream, offset: streamTextOffset, value: __Raw.stringRoom(0))
-		__Raw.storeWord(stream, offset: streamLengthOffset, value: 0)
-		__Raw.storeWord(stream, offset: streamCapacityOffset, value: 0)
-		__Raw.storeWord(stream, offset: streamOpenOffset, value: 1)
-	end 'startStream'
-
-	// drainStream reads what a stream's pipe holds, which poll said it has, or its end. The text keeps room beyond its length,
-	// which grows by doubling.
-	function drainStream(stream Count)
-		var text = wordAt(stream, offset: streamTextOffset)
-		let length = wordAt(stream, offset: streamLengthOffset)
-		let capacity = wordAt(stream, offset: streamCapacityOffset)
-		if __Raw.wrappingSub(capacity, right: length) < readChunkBytes 'grow'
-			let doubled = __Raw.wrappingAdd(capacity, right: capacity)
-			let needed = __Raw.wrappingAdd(length, right: readChunkBytes)
-			let grown = doubled if doubled > needed else needed
-			let grownRoom = __Raw.stringRoom(grown)
-			if length != 0 'kept'
-				copyBytes(text, target: grownRoom, count: length)
-			end 'kept'
-			__Raw.freeStringRoom(text)
-			text = grownRoom
-			__Raw.storeWord(stream, offset: streamTextOffset, value: grownRoom)
-			__Raw.storeWord(stream, offset: streamCapacityOffset, value: grown)
-		end 'grow'
-		let room = __Raw.wrappingSub(wordAt(stream, offset: streamCapacityOffset), right: length)
-		let got = sysRead(wordAt(stream, offset: streamFdOffset), buffer: __Raw.wrappingAdd(text, right: length), length: room)
-		if failed(got) 'failed'
-			if not interrupted(got) and not unready(got) 'broken'
-				__Raw.storeWord(stream, offset: streamOpenOffset, value: 0)
-			end 'broken'
-			return
-		end 'failed'
-		if got == 0 'ended'
-			__Raw.storeWord(stream, offset: streamOpenOffset, value: 0)
-			return
-		end 'ended'
-		__Raw.storeWord(stream, offset: streamLengthOffset, value: __Raw.wrappingAdd(length, right: got))
-	end 'drainStream'
-
-	// pollStreams waits until a stream that is open has something to read or has ended, or the run's input, while it is open,
-	// has room, or the timeout passes, and reads from each stream that has and writes to the input when it has.
-	function pollStreams(run Count, timeout Count, input String)
-		let polls = fieldAt(run, offset: runPollsOffset)
-		var count = 0 as Count
-		for s in 0 upto 2 'streams'
-			let stream = fieldAt(run, offset: try runOutputOffset + s * streamBytes otherwise panic("a stream past the run's record"))
-			if wordAt(stream, offset: streamOpenOffset) != 0 'open'
-				pollRecord(polls, at: count, fd: wordAt(stream, offset: streamFdOffset), events: macosPollIn)
-				count = __Raw.wrappingAdd(count, right: 1)
-			end 'open'
-		end 'streams'
-		let writing = inputOpen(run)
-		if writing 'input'
-			pollRecord(polls, at: count, fd: pipeFd(fieldAt(run, offset: runInputPipeOffset), writeEnd: true), events: macosPollOut)
-			count = __Raw.wrappingAdd(count, right: 1)
-		end 'input'
-		let ready = pollFds(polls, count: count, timeout: timeout)
-		if failed(ready) or ready == 0 'none'
-			return
-		end 'none'
-		var at = 0 as Count
-		for s in 0 upto 2 'drain'
-			let stream = fieldAt(run, offset: try runOutputOffset + s * streamBytes otherwise panic("a stream past the run's record"))
-			if wordAt(stream, offset: streamOpenOffset) != 0 'open'
-				if pollReturned(polls, at: at) 'ready'
-					drainStream(stream)
-				end 'ready'
-				at = __Raw.wrappingAdd(at, right: 1)
-			end 'open'
-		end 'drain'
-		if writing and pollReturned(polls, at: at) 'room'
-			feedInput(run, text: input)
-		end 'room'
-	end 'pollStreams'
-
-	// pollRecord fills the poll record at an index of the records with an fd and the events asked of it.
-	function pollRecord(polls Count, at Count, fd Count, events Count)
-		let record = fieldAt(polls, offset: try at * macosPollRecordBytes otherwise panic("a poll record past the run's record"))
-		__Raw.storeWord32(record, offset: 0, value: fd)
-		__Raw.storeWord16(record, offset: macosPollEventsOffset, value: events)
-		__Raw.storeWord16(record, offset: macosPollReturnedOffset, value: 0)
-	end 'pollRecord'
-
-	// pollReturned is whether poll said that the fd of the record at an index has an event.
-	function pollReturned(polls Count, at Count) returns bool
-		let record = fieldAt(polls, offset: try at * macosPollRecordBytes otherwise panic("a poll record past the run's record"))
-		return __Raw.loadWord16(record, offset: macosPollReturnedOffset) != 0
-	end 'pollReturned'
-
-	// storeStreamText stores the text a stream read as a string at an address, which owns its room from then on.
-	function storeStreamText(at Count, stream Count)
-		storeOwnedString(at, offset: 0, bytes: wordAt(stream, offset: streamTextOffset), length: wordAt(stream, offset: streamLengthOffset), ascii: false)
-	end 'storeStreamText'
-
-	// closeStreams closes the read ends of the run's streams.
-	function closeStreams(run Count)
-		closeFd(wordAt(fieldAt(run, offset: runOutputOffset), offset: streamFdOffset))
-		closeFd(wordAt(fieldAt(run, offset: runErrorOffset), offset: streamFdOffset))
-	end 'closeStreams'
-
-	// freeTexts frees the texts of the run's streams.
-	function freeTexts(run Count)
-		__Raw.freeStringRoom(wordAt(fieldAt(run, offset: runOutputOffset), offset: streamTextOffset))
-		__Raw.freeStringRoom(wordAt(fieldAt(run, offset: runErrorOffset), offset: streamTextOffset))
-	end 'freeTexts'
 
 	// osRun runs an executable with arguments and gives its exit code, and stores what the child wrote to its standard
 	// output and error as strings at the two addresses. An executable that is not found fails with the first case of the
@@ -330,61 +201,26 @@
 		return runChild(executable, arguments: arguments, directory: "", hasInput: true, input: input, deadlineMs: deadlineMs, stdout: stdout, stderr: stderr, errorAddress: errorAddress)
 	end 'osRunInput'
 
-	// startInput makes the write end of a run's input pipe nonblocking, so that a write takes what fits and the run reads the
-	// child's output meanwhile, and makes a write to it that finds the child gone fail with EPIPE rather than raise SIGPIPE
-	// (F_SETNOSIGPIPE), which would end the process; then it closes the read end, which only the child keeps.
-	function startInput(run Count)
-		let pipes = fieldAt(run, offset: runInputPipeOffset)
-		closeFd(pipeFd(pipes, writeEnd: false))
-		let writer = pipeFd(pipes, writeEnd: true)
-		let flags = intResult(__Raw.callImport3("fcntl", arg1: writer, arg2: macosFcntlGetFlags, arg3: 0))
-		_ = __Raw.callImport3("fcntl", arg1: writer, arg2: macosFcntlSetFlags, arg3: flags or macosOpenNonblock)
-		_ = __Raw.callImport3("fcntl", arg1: writer, arg2: macosFcntlSetNoSigpipe, arg3: 1)
-		__Raw.storeWord(run, offset: runInputDoneOffset, value: 0)
-		__Raw.storeWord(run, offset: runInputOpenOffset, value: 1)
-	end 'startInput'
+	let stdinFd = 0
 
-	function inputOpen(run Count) returns bool
-		return wordAt(run, offset: runInputOpenOffset) != 0
-	end 'inputOpen'
+	// waitChild waits for a child to end, or with waitNoHang asks whether it has, its wait status at an address, and gives its pid,
+	// 0 for a child that has not, or -errno.
+	function waitChild(pid Count, status Count, options Count) returns Count
+		return checkedInt(__Raw.callImport3("waitpid", arg1: pid, arg2: status, arg3: options))
+	end 'waitChild'
 
-	// closeInput closes the write end of a run's input, which ends the child's input, unless it is closed already.
-	function closeInput(run Count)
-		if inputOpen(run) 'open'
-			closeFd(pipeFd(fieldAt(run, offset: runInputPipeOffset), writeEnd: true))
-			__Raw.storeWord(run, offset: runInputOpenOffset, value: 0)
-		end 'open'
-	end 'closeInput'
+	// killChild ends a child that is still running when its deadline passes.
+	function killChild(pid Count)
+		_ = __Raw.callImport2("kill", arg1: pid, arg2: macosSigkill)
+	end 'killChild'
 
-	// feedInput writes what the input pipe takes now of the input not written yet, which poll said it has room for, and closes
-	// the input once it is all written; a write that fails otherwise than for want of room is a child that stopped reading,
-	// whose input is closed then, which is no failure of the run.
-	function feedInput(run Count, text String)
-		let done = wordAt(run, offset: runInputDoneOffset)
-		let length = __Raw.stringLength(text)
-		if done >= length 'all'
-			closeInput(run)
-			return
-		end 'all'
-		let left = __Raw.wrappingSub(length, right: done)
-		let wrote = sysWrite(pipeFd(fieldAt(run, offset: runInputPipeOffset), writeEnd: true), data: __Raw.wrappingAdd(__Raw.stringBytes(text), right: done), length: left if left < inputChunkBytes else inputChunkBytes)
-		if failed(wrote) 'failed'
-			if interrupted(wrote) or errnoOf(wrote) == macosEagain 'later'
-				return
-			end 'later'
-			closeInput(run)
-			return
-		end 'failed'
-		__Raw.storeWord(run, offset: runInputDoneOffset, value: __Raw.wrappingAdd(done, right: wrote))
-		if __Raw.wrappingAdd(done, right: wrote) >= length 'written'
-			closeInput(run)
-		end 'written'
-	end 'feedInput'
-
-	// running is whether a run still has an output stream to read or an input to write.
-	function running(run Count) returns bool
-		return wordAt(fieldAt(run, offset: runOutputOffset), offset: streamOpenOffset) != 0 or wordAt(fieldAt(run, offset: runErrorOffset), offset: streamOpenOffset) != 0 or inputOpen(run)
-	end 'running'
+	// reapChild waits for a child that has not run, or that is ended, and gives its wait status.
+	function reapChild(run Count, pid Count) returns Count
+		enterBlocking()
+		let status = reap(run, pid: pid)
+		exitBlocking()
+		return status
+	end 'reapChild'
 
 	// runChild runs the child of osRun and osRunIn, in directory unless it is empty, and of osRunInput when hasInput is set, its
 	// input written as the child reads it.
@@ -399,7 +235,8 @@
 			return 0
 		end 'missing'
 		let run = alloc(runRecordBytes)
-		__Raw.storeWord(run, offset: runInputOpenOffset, value: 0)
+		let wait = fieldAt(run, offset: runWaitOffset)
+		waitNew(wait)
 		if not openPipes(run, hasInput: hasInput) 'pipes'
 			free(path)
 			free(run)
@@ -417,76 +254,38 @@
 		end 'started'
 		freeVector(vector)
 		free(path)
-		closeFd(pipeFd(fieldAt(run, offset: runOutputPipeOffset), writeEnd: true))
-		closeFd(pipeFd(fieldAt(run, offset: runErrorPipeOffset), writeEnd: true))
-		if hasInput 'input'
-			startInput(run)
-		end 'input'
+		closeChildEnds(fieldAt(run, offset: runOutputPipeOffset), errors: fieldAt(run, offset: runErrorPipeOffset), input: fieldAt(run, offset: runInputPipeOffset), hasInput: hasInput)
 		if failed(pid) 'spawn'
-			closeInput(run)
-			closeFd(pipeFd(fieldAt(run, offset: runOutputPipeOffset), writeEnd: false))
-			closeFd(pipeFd(fieldAt(run, offset: runErrorPipeOffset), writeEnd: false))
+			closeOurEnds(wait)
 			free(run)
 			endWithError(errorAddress, osError: errnoOf(pid), table: spawnFailures())
 			return 0
 		end 'spawn'
-		startStream(fieldAt(run, offset: runOutputOffset), pipes: fieldAt(run, offset: runOutputPipeOffset))
-		startStream(fieldAt(run, offset: runErrorOffset), pipes: fieldAt(run, offset: runErrorPipeOffset))
-		enterBlocking()
-		if hasInput 'feed'
-			feedInput(run, text: input)
-		end 'feed'
-		let startedAt = monotonicNanos()
-		while running(run) 'drain'
-			var timeout = pollForever
-			if deadlineMs != noDeadline 'deadline'
-				let elapsedMs = __Raw.wrappingSub(monotonicNanos(), right: startedAt) / nanosPerMilli
-				if elapsedMs >= deadlineMs 'late'
-					killChild(pid)
-					closeInput(run)
-					exitBlocking()
-					_ = reap(run, pid: pid)
-					closeStreams(run)
-					freeTexts(run)
-					free(run)
-					failWith(errorAddress, errorCase: timedOut)
-					return 0
-				end 'late'
-				timeout = __Raw.wrappingSub(deadlineMs, right: elapsedMs)
-			end 'deadline'
-			pollStreams(run, timeout: timeout, input: input)
-		end 'drain'
-		let code = exitCodeOf(reap(run, pid: pid))
-		exitBlocking()
-		closeStreams(run)
-		storeStreamText(stdout, stream: fieldAt(run, offset: runOutputOffset))
-		storeStreamText(stderr, stream: fieldAt(run, offset: runErrorOffset))
+		let watch = eventProcessNew(pid)
+		if watch == noEntry 'unwatched'
+			killChild(pid)
+			_ = reapChild(run, pid: pid)
+			closeOurEnds(wait)
+			free(run)
+			failWith(errorAddress, errorCase: ioFailed)
+			return 0
+		end 'unwatched'
+		__Raw.storeWord(wait, offset: waitChildOffset, value: pid)
+		__Raw.storeWord(wait, offset: waitProcessOffset, value: watch)
+		let expired = awaitChild(wait, input: input, deadlineMs: deadlineMs)
+		if expired 'late'
+			freeStream(fieldAt(wait, offset: waitOutputOffset))
+			freeStream(fieldAt(wait, offset: waitErrorOffset))
+			free(run)
+			failWith(errorAddress, errorCase: timedOut)
+			return 0
+		end 'late'
+		storeStream(stdout, stream: fieldAt(wait, offset: waitOutputOffset))
+		storeStream(stderr, stream: fieldAt(wait, offset: waitErrorOffset))
 		free(run)
 		succeed(errorAddress)
-		return code
+		return exitCodeOf(__Raw.loadWord32(wait, offset: waitStatusOffset))
 	end 'runChild'
-
-	let stdinFd = 0
-
-	// pollFds is poll's wait of the records for a timeout in milliseconds, or of none for pollForever.
-	function pollFds(polls Count, count Count, timeout Count) returns Count
-		return checkedInt(__Raw.callImport3("poll", arg1: polls, arg2: count, arg3: timeout))
-	end 'pollFds'
-
-	// makePipe makes a pipe into the two 32-bit fds at an address, and gives 0 or -errno. No child keeps one open, since
-	// each is spawned with only the fds it is given.
-	function makePipe(pipes Count) returns Count
-		return checkedInt(__Raw.callImport1("pipe", arg1: pipes))
-	end 'makePipe'
-
-	// waitChild waits for a child to end, its wait status at an address, and gives its pid or -errno.
-	function waitChild(pid Count, status Count) returns Count
-		return checkedInt(__Raw.callImport3("waitpid", arg1: pid, arg2: status, arg3: noWaitOptions))
-	end 'waitChild'
-
-	function killChild(pid Count)
-		_ = __Raw.callImport2("kill", arg1: pid, arg2: macosSigkill)
-	end 'killChild'
 
 	// noDirectory is the directory of a child that starts in the run's working directory.
 	let noDirectory = 0
@@ -502,10 +301,10 @@
 		if intResult(__Raw.callImport1("posix_spawnattr_init", arg1: attributes)) != 0 'attributes'
 			panic("cannot make the attributes of a child")
 		end 'attributes'
-		_ = __Raw.callImport3("posix_spawn_file_actions_adddup2", arg1: actions, arg2: pipeFd(fieldAt(run, offset: runOutputPipeOffset), writeEnd: true), arg3: stdoutFd)
-		_ = __Raw.callImport3("posix_spawn_file_actions_adddup2", arg1: actions, arg2: pipeFd(fieldAt(run, offset: runErrorPipeOffset), writeEnd: true), arg3: stderrFd)
+		_ = __Raw.callImport3("posix_spawn_file_actions_adddup2", arg1: actions, arg2: endOf(fieldAt(run, offset: runOutputPipeOffset), writeEnd: true), arg3: stdoutFd)
+		_ = __Raw.callImport3("posix_spawn_file_actions_adddup2", arg1: actions, arg2: endOf(fieldAt(run, offset: runErrorPipeOffset), writeEnd: true), arg3: stderrFd)
 		if hasInput 'input'
-			_ = __Raw.callImport3("posix_spawn_file_actions_adddup2", arg1: actions, arg2: pipeFd(fieldAt(run, offset: runInputPipeOffset), writeEnd: false), arg3: stdinFd)
+			_ = __Raw.callImport3("posix_spawn_file_actions_adddup2", arg1: actions, arg2: endOf(fieldAt(run, offset: runInputPipeOffset), writeEnd: false), arg3: stdinFd)
 		end 'input' else 'inherited'
 			_ = __Raw.callImport2("posix_spawn_file_actions_addinherit_np", arg1: actions, arg2: stdinFd)
 		end 'inherited'

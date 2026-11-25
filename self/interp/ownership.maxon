@@ -146,11 +146,6 @@ function newArray(mutates vm Vm) returns Count
 	return vm.h.newArray(site)
 end 'newArray'
 
-function newTable(mutates vm Vm, kind Count) returns Count
-	let site = vm.site()
-	return vm.h.newTable(kind, site: site)
-end 'newTable'
-
 function newSharedBox(mutates vm Vm, kind Count) returns Count
 	let site = vm.site()
 	return vm.h.newSharedBox(kind, site: site)
@@ -450,13 +445,6 @@ function free(mutates vm Vm, o Count) throws Halt
 		end 'each'
 		return
 	end 'array'
-	if kind == kindList 'list'
-		for i in 0 upto vm.h.tables[data].order.count() 'each'
-			let element = vm.h.tables[data].cells[vm.h.tables[data].order[i]]
-			try freeCell(vm, c: element)
-		end 'each'
-		return
-	end 'list'
 	panic("interp: unknown object kind {kind}")
 end 'free'
 

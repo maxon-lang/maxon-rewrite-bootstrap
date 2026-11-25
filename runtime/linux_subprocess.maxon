@@ -6,68 +6,37 @@
 // the run's process is; what the child may do in that time is execChild's. The clone holds the fork lock (linux.maxon), so that
 // the child never gets a copy of a file that a write has open and makes the run of that file fail as busy. A third pipe, closed on exec, tells the run whether
 // the execve failed and with what errno: a child that executed the program closes it unwritten. The run reads both
-// output pipes as the child goes on, waiting in poll, so that a child that fills one cannot block waiting for the run to
-// read the other. The child's environment is the run's own, and so is its standard input but in a run with input, where it is
-// a fourth pipe, which the run writes the input into as the child reads it, through poll, beside the output pipes.
+// output pipes as the child goes on, through the event queue, so that a child that fills one cannot block waiting for the run to
+// read the other, and watches for the child's exit through the pidfd of the child (eventProcessNew), which epoll reports
+// readable once it has ended; the child is then waited for, which returns at once. The child's environment is the run's own, and
+// so is its standard input but in a run with input, where it is a fourth pipe, which the run writes the input into as the child
+// reads it, through the event queue too (subprocess.maxon).
 
 #if os(Linux)
-	// A stream the run reads, as a record of words: the read end of its pipe, the string read so far with the room it
-	// has, and whether the child may still write.
-	let streamFdOffset = 0
+	// The run's record, one allocation: the ends of the three pipes as eventChildPipe makes them (the read end then the write
+	// end, a word each), the status pipe as pipe2 writes it (the read end then the write end, 32 bits each), the errno a failed
+	// execve wrote, the run's wait (subprocess.maxon), and what the clone reads: every signal as a
+	// set, the thread's mask from before the clone blocked them, and a struct sigaction of SIG_DFL, all zero, which the child gives
+	// the preemption signal.
+	let runOutputPipeOffset = 0 as Count
 
-	let streamTextOffset = 8
+	let runErrorPipeOffset = (runOutputPipeOffset + pipeEndBytes) as Count
 
-	let streamLengthOffset = 16
+	let runInputPipeOffset = (runErrorPipeOffset + pipeEndBytes) as Count
 
-	let streamCapacityOffset = 24
+	let runStatusPipeOffset = (runInputPipeOffset + pipeEndBytes) as Count
 
-	let streamOpenOffset = 32
+	let runExecErrnoOffset = (runStatusPipeOffset + pipeFdsBytes) as Count
 
-	let streamBytes = 40
-
-	// The run's record, one allocation: the two streams, the three pipes as pipe2 writes them, the read end then the
-	// write end, 32 bits each, the poll records of the two streams and the input, the child's wait status and the errno a failed execve
-	// wrote.
-	let runOutputOffset = 0
-
-	let runErrorOffset = (runOutputOffset + streamBytes) as Count
-
-	let runOutputPipeOffset = (runErrorOffset + streamBytes) as Count
-
-	let runErrorPipeOffset = (runOutputPipeOffset + pipeFdsBytes) as Count
-
-	let runStatusPipeOffset = (runErrorPipeOffset + pipeFdsBytes) as Count
-
-	let runPollsOffset = (runStatusPipeOffset + pipeFdsBytes) as Count
-
-	let runWaitStatusOffset = (runPollsOffset + 3 * linuxPollRecordBytes) as Count
-
-	let runExecErrnoOffset = (runWaitStatusOffset + wordBytes) as Count
-
-	// In a run with input: the pipe of the child's standard input, how much of the input the run has written, whether the pipe's
-	// write end is open, whether a write found the child had stopped reading, and the signal set of SIGPIPE with the thread's
-	// mask from before the run blocked it.
-	let runInputPipeOffset = (runExecErrnoOffset + wordBytes) as Count
-
-	let runInputDoneOffset = (runInputPipeOffset + pipeFdsBytes) as Count
-
-	let runInputOpenOffset = (runInputDoneOffset + wordBytes) as Count
-
-	let runInputBrokenOffset = (runInputOpenOffset + wordBytes) as Count
-
-	let runSigpipeSetOffset = (runInputBrokenOffset + wordBytes) as Count
-
-	let runSignalMaskOffset = (runSigpipeSetOffset + wordBytes) as Count
-
-	// Around the clone: every signal as a set, the thread's mask from before the clone blocked them, and a struct sigaction
-	// of SIG_DFL, all zero, which the child gives the preemption signal.
-	let runAllSignalsOffset = (runSignalMaskOffset + wordBytes) as Count
+	let runAllSignalsOffset = (runExecErrnoOffset + wordBytes) as Count
 
 	let runCloneMaskOffset = (runAllSignalsOffset + wordBytes) as Count
 
 	let runDefaultActionOffset = (runCloneMaskOffset + wordBytes) as Count
 
-	let runRecordBytes = (runDefaultActionOffset + linuxSigactionBytes) as Count
+	let runWaitOffset = (runDefaultActionOffset + linuxSigactionBytes) as Count
+
+	let runRecordBytes = (runWaitOffset + waitBytes) as Count
 
 	let pipeFdsBytes = 8
 
@@ -79,12 +48,6 @@
 
 	// execFailedExitCode is what a child whose execve failed exits with, as a shell's does.
 	let execFailedExitCode = 127
-
-	// readChunkBytes is the least room a stream's text has past its length before a read.
-	let readChunkBytes = 4096
-
-	// pollForever is poll's timeout of a run with no deadline, -1.
-	let pollForever = 0xFFFFFFFFFFFFFFFF as Count
 
 	// Decoding a wait status: the low seven bits are the signal that ended the child, 0 when it exited, with its code in
 	// the eight bits after them; a child that a signal ended reports 128 plus the signal, the POSIX shell's convention, as
@@ -98,6 +61,8 @@
 	let signalExitCodeBase = 128
 
 	let noWaitOptions = 0
+
+	let waitNoHang = 1
 
 	let noUsage = 0
 
@@ -188,36 +153,27 @@
 		free(vector)
 	end 'freeVector'
 
-	// closePipe closes both ends of a pipe that pipe2 made.
+	// closePipe closes both ends of the status pipe, which pipe2 made.
 	function closePipe(pipes Count)
 		closeFd(pipeFd(pipes, writeEnd: false))
 		closeFd(pipeFd(pipes, writeEnd: true))
 	end 'closePipe'
 
-	// openPipes makes the three pipes of a run, each end closed on exec, and gives whether it made them all; a pipe it
-	// could not make leaves those before it closed.
+	// openPipes makes the pipes of a run, each end closed on exec, and gives whether it made them all; a pipe it could not make
+	// leaves those before it closed.
 	function openPipes(run Count, hasInput bool) returns bool
+		let wait = fieldAt(run, offset: runWaitOffset)
 		let output = fieldAt(run, offset: runOutputPipeOffset)
 		let errors = fieldAt(run, offset: runErrorPipeOffset)
-		let status = fieldAt(run, offset: runStatusPipeOffset)
-		if failed(__Raw.syscall2(linuxSysPipe2, arg1: output, arg2: linuxOpenCloseOnExec)) 'output'
+		let input = fieldAt(run, offset: runInputPipeOffset)
+		if not openRunPipes(wait, output: output, errors: errors, input: input, hasInput: hasInput) 'streams'
 			return false
-		end 'output'
-		if failed(__Raw.syscall2(linuxSysPipe2, arg1: errors, arg2: linuxOpenCloseOnExec)) 'errors'
-			closePipe(output)
-			return false
-		end 'errors'
-		if failed(__Raw.syscall2(linuxSysPipe2, arg1: status, arg2: linuxOpenCloseOnExec)) 'status'
-			closePipe(output)
-			closePipe(errors)
+		end 'streams'
+		if failed(__Raw.syscall2(linuxSysPipe2, arg1: fieldAt(run, offset: runStatusPipeOffset), arg2: linuxOpenCloseOnExec)) 'status'
+			closeChildEnds(output, errors: errors, input: input, hasInput: hasInput)
+			closeOurEnds(wait)
 			return false
 		end 'status'
-		if hasInput and failed(__Raw.syscall2(linuxSysPipe2, arg1: fieldAt(run, offset: runInputPipeOffset), arg2: linuxOpenCloseOnExec)) 'input'
-			closePipe(output)
-			closePipe(errors)
-			closePipe(status)
-			return false
-		end 'input'
 		return true
 	end 'openPipes'
 
@@ -240,10 +196,10 @@
 	function execChild(run Count, path Count, vector Count, directory Count, hasInput bool)
 		_ = __Raw.syscall4(linuxSysRtSigaction, arg1: linuxSigurg, arg2: fieldAt(run, offset: runDefaultActionOffset), arg3: 0, arg4: linuxSignalMaskBytes)
 		if hasInput 'input'
-			_ = __Raw.syscall3(linuxSysDup3, arg1: pipeFd(fieldAt(run, offset: runInputPipeOffset), writeEnd: false), arg2: stdinFd, arg3: noFlags)
+			_ = __Raw.syscall3(linuxSysDup3, arg1: endOf(fieldAt(run, offset: runInputPipeOffset), writeEnd: false), arg2: stdinFd, arg3: noFlags)
 		end 'input'
-		_ = __Raw.syscall3(linuxSysDup3, arg1: pipeFd(fieldAt(run, offset: runOutputPipeOffset), writeEnd: true), arg2: stdoutFd, arg3: noFlags)
-		_ = __Raw.syscall3(linuxSysDup3, arg1: pipeFd(fieldAt(run, offset: runErrorPipeOffset), writeEnd: true), arg2: stderrFd, arg3: noFlags)
+		_ = __Raw.syscall3(linuxSysDup3, arg1: endOf(fieldAt(run, offset: runOutputPipeOffset), writeEnd: true), arg2: stdoutFd, arg3: noFlags)
+		_ = __Raw.syscall3(linuxSysDup3, arg1: endOf(fieldAt(run, offset: runErrorPipeOffset), writeEnd: true), arg2: stderrFd, arg3: noFlags)
 		if directory != noDirectory 'directory'
 			let moved = __Raw.syscall1(linuxSysChdir, arg1: directory)
 			if failed(moved) 'unmoved'
@@ -289,14 +245,32 @@
 
 	// reap waits for the child to end and gives its wait status.
 	function reap(run Count, pid Count) returns Count
+		let status = fieldAt(fieldAt(run, offset: runWaitOffset), offset: waitStatusOffset)
 		while true 'wait'
-			let result = __Raw.syscall4(linuxSysWait4, arg1: pid, arg2: fieldAt(run, offset: runWaitStatusOffset), arg3: noWaitOptions, arg4: noUsage)
+			let result = __Raw.syscall4(linuxSysWait4, arg1: pid, arg2: status, arg3: noWaitOptions, arg4: noUsage)
 			if not (failed(result) and errnoOf(result) == linuxEintr) 'done'
-				return __Raw.loadWord32(run, offset: runWaitStatusOffset)
+				return __Raw.loadWord32(status, offset: 0)
 			end 'done'
 		end 'wait'
 		return 0
 	end 'reap'
+
+	// childExited is whether the child has exited, which it waits for if so, its wait status kept in the wait then. It never waits
+	// otherwise: the entry that its pidfd is may hold an event of its last owner, so a wake of the entry is no proof.
+	function childExited(wait Count, child Count) returns bool
+		let status = fieldAt(wait, offset: waitStatusOffset)
+		while true 'wait'
+			let result = __Raw.syscall4(linuxSysWait4, arg1: child, arg2: status, arg3: waitNoHang, arg4: noUsage)
+			if failed(result) and errnoOf(result) == linuxEintr 'again'
+				continue 'wait'
+			end 'again'
+			if failed(result) 'refused'
+				panic("cannot wait for a child that has not been waited for")
+			end 'refused'
+			return result == child
+		end 'wait'
+		return false
+	end 'childExited'
 
 	// exitCodeOf is the exit code that a wait status says.
 	function exitCodeOf(status Count) returns Count
@@ -306,138 +280,6 @@
 		end 'signalled'
 		return (status shr waitExitShift) and waitExitMask
 	end 'exitCodeOf'
-
-	// startStream makes a stream of the read end of a pipe, open, with an empty text.
-	function startStream(stream Count, pipes Count)
-		__Raw.storeWord(stream, offset: streamFdOffset, value: pipeFd(pipes, writeEnd: false))
-		__Raw.storeWord(stream, offset: streamTextOffset, value: __Raw.stringRoom(0))
-		__Raw.storeWord(stream, offset: streamLengthOffset, value: 0)
-		__Raw.storeWord(stream, offset: streamCapacityOffset, value: 0)
-		__Raw.storeWord(stream, offset: streamOpenOffset, value: 1)
-	end 'startStream'
-
-	// drainStream reads what a stream's pipe holds, which poll said it has, or its end. The text keeps room beyond its length,
-	// which grows by doubling.
-	function drainStream(stream Count)
-		var text = wordAt(stream, offset: streamTextOffset)
-		let length = wordAt(stream, offset: streamLengthOffset)
-		let capacity = wordAt(stream, offset: streamCapacityOffset)
-		if __Raw.wrappingSub(capacity, right: length) < readChunkBytes 'grow'
-			let doubled = __Raw.wrappingAdd(capacity, right: capacity)
-			let needed = __Raw.wrappingAdd(length, right: readChunkBytes)
-			let grown = doubled if doubled > needed else needed
-			let grownRoom = __Raw.stringRoom(grown)
-			if length != 0 'kept'
-				copyBytes(text, target: grownRoom, count: length)
-			end 'kept'
-			__Raw.freeStringRoom(text)
-			text = grownRoom
-			__Raw.storeWord(stream, offset: streamTextOffset, value: grownRoom)
-			__Raw.storeWord(stream, offset: streamCapacityOffset, value: grown)
-		end 'grow'
-		let room = __Raw.wrappingSub(wordAt(stream, offset: streamCapacityOffset), right: length)
-		let got = __Raw.syscall3(linuxSysRead, arg1: wordAt(stream, offset: streamFdOffset), arg2: __Raw.wrappingAdd(text, right: length), arg3: room)
-		if failed(got) 'failed'
-			if errnoOf(got) != linuxEintr and errnoOf(got) != linuxEagain 'broken'
-				__Raw.storeWord(stream, offset: streamOpenOffset, value: 0)
-			end 'broken'
-			return
-		end 'failed'
-		if got == 0 'ended'
-			__Raw.storeWord(stream, offset: streamOpenOffset, value: 0)
-			return
-		end 'ended'
-		__Raw.storeWord(stream, offset: streamLengthOffset, value: __Raw.wrappingAdd(length, right: got))
-	end 'drainStream'
-
-	#if arch(arm64)
-		let millisPerSecond = 1000 as Count
-
-		// pollMillis is poll's wait of a timeout in milliseconds, or of none for pollForever, which arm64 has by ppoll of a
-		// timespec.
-		function pollMillis(polls Count, count Count, timeout Count) returns Count
-			if timeout == pollForever 'forever'
-				return __Raw.syscall5(linuxSysPpoll, arg1: polls, arg2: count, arg3: 0, arg4: 0, arg5: linuxSignalMaskBytes)
-			end 'forever'
-			let time = alloc(linuxTimespecBytes)
-			__Raw.storeWord(time, offset: 0, value: timeout / millisPerSecond)
-			__Raw.storeWord(time, offset: wordBytes, value: try (timeout mod millisPerSecond) * nanosPerMilli otherwise panic("a poll's timeout past a word of nanoseconds"))
-			let ready = __Raw.syscall5(linuxSysPpoll, arg1: polls, arg2: count, arg3: time, arg4: 0, arg5: linuxSignalMaskBytes)
-			free(time)
-			return ready
-		end 'pollMillis'
-	#endif
-
-	// pollStreams waits until a stream that is open has something to read or has ended, or the run's input, while it is open,
-	// has room, or the timeout passes, and reads from each stream that has and writes to the input when it has.
-	function pollStreams(run Count, timeout Count, input String)
-		let polls = fieldAt(run, offset: runPollsOffset)
-		var count = 0 as Count
-		for s in 0 upto 2 'streams'
-			let stream = fieldAt(run, offset: try runOutputOffset + s * streamBytes otherwise panic("a stream past the run's record"))
-			if wordAt(stream, offset: streamOpenOffset) != 0 'open'
-				pollRecord(polls, at: count, fd: wordAt(stream, offset: streamFdOffset), events: linuxPollIn)
-				count = __Raw.wrappingAdd(count, right: 1)
-			end 'open'
-		end 'streams'
-		let writing = inputOpen(run)
-		if writing 'input'
-			pollRecord(polls, at: count, fd: pipeFd(fieldAt(run, offset: runInputPipeOffset), writeEnd: true), events: linuxPollOut)
-			count = __Raw.wrappingAdd(count, right: 1)
-		end 'input'
-		#if arch(arm64)
-			let ready = pollMillis(polls, count: count, timeout: timeout)
-		#else
-			let ready = __Raw.syscall3(linuxSysPoll, arg1: polls, arg2: count, arg3: timeout)
-		#endif
-		if failed(ready) or ready == 0 'none'
-			return
-		end 'none'
-		var at = 0 as Count
-		for s in 0 upto 2 'drain'
-			let stream = fieldAt(run, offset: try runOutputOffset + s * streamBytes otherwise panic("a stream past the run's record"))
-			if wordAt(stream, offset: streamOpenOffset) != 0 'open'
-				if pollReturned(polls, at: at) 'ready'
-					drainStream(stream)
-				end 'ready'
-				at = __Raw.wrappingAdd(at, right: 1)
-			end 'open'
-		end 'drain'
-		if writing and pollReturned(polls, at: at) 'room'
-			feedInput(run, text: input)
-		end 'room'
-	end 'pollStreams'
-
-	// pollRecord fills the poll record at an index of the records with an fd and the events asked of it.
-	function pollRecord(polls Count, at Count, fd Count, events Count)
-		let record = fieldAt(polls, offset: try at * linuxPollRecordBytes otherwise panic("a poll record past the run's record"))
-		__Raw.storeWord32(record, offset: 0, value: fd)
-		__Raw.storeWord16(record, offset: linuxPollEventsOffset, value: events)
-		__Raw.storeWord16(record, offset: linuxPollReturnedOffset, value: 0)
-	end 'pollRecord'
-
-	// pollReturned is whether poll said that the fd of the record at an index has an event.
-	function pollReturned(polls Count, at Count) returns bool
-		let record = fieldAt(polls, offset: try at * linuxPollRecordBytes otherwise panic("a poll record past the run's record"))
-		return __Raw.loadWord16(record, offset: linuxPollReturnedOffset) != 0
-	end 'pollReturned'
-
-	// storeStreamText stores the text a stream read as a string at an address, which owns its room from then on.
-	function storeStreamText(at Count, stream Count)
-		storeOwnedString(at, offset: 0, bytes: wordAt(stream, offset: streamTextOffset), length: wordAt(stream, offset: streamLengthOffset), ascii: false)
-	end 'storeStreamText'
-
-	// closeStreams closes the read ends of the run's streams.
-	function closeStreams(run Count)
-		closeFd(wordAt(fieldAt(run, offset: runOutputOffset), offset: streamFdOffset))
-		closeFd(wordAt(fieldAt(run, offset: runErrorOffset), offset: streamFdOffset))
-	end 'closeStreams'
-
-	// freeTexts frees the texts of the run's streams.
-	function freeTexts(run Count)
-		__Raw.freeStringRoom(wordAt(fieldAt(run, offset: runOutputOffset), offset: streamTextOffset))
-		__Raw.freeStringRoom(wordAt(fieldAt(run, offset: runErrorOffset), offset: streamTextOffset))
-	end 'freeTexts'
 
 	// osRun runs an executable with arguments and gives its exit code, and stores what the child wrote to its standard
 	// output and error as strings at the two addresses. An executable that is not found fails with the first case of the
@@ -458,81 +300,6 @@
 		return runChild(executable, arguments: arguments, directory: "", hasInput: true, input: input, deadlineMs: deadlineMs, stdout: stdout, stderr: stderr, errorAddress: errorAddress)
 	end 'osRunInput'
 
-	// startInput makes the write end of a run's input pipe nonblocking, so that a write takes what fits and the run reads the
-	// child's output meanwhile, and closes its read end, which only the child keeps.
-	function startInput(run Count)
-		let pipes = fieldAt(run, offset: runInputPipeOffset)
-		closeFd(pipeFd(pipes, writeEnd: false))
-		let writer = pipeFd(pipes, writeEnd: true)
-		let flags = __Raw.syscall2(linuxSysFcntl, arg1: writer, arg2: linuxFcntlGetFlags)
-		_ = __Raw.syscall3(linuxSysFcntl, arg1: writer, arg2: linuxFcntlSetFlags, arg3: flags or linuxOpenNonblock)
-		__Raw.storeWord(run, offset: runInputDoneOffset, value: 0)
-		__Raw.storeWord(run, offset: runInputOpenOffset, value: 1)
-		__Raw.storeWord(run, offset: runInputBrokenOffset, value: 0)
-	end 'startInput'
-
-	function inputOpen(run Count) returns bool
-		return wordAt(run, offset: runInputOpenOffset) != 0
-	end 'inputOpen'
-
-	// closeInput closes the write end of a run's input, which ends the child's input, unless it is closed already.
-	function closeInput(run Count)
-		if inputOpen(run) 'open'
-			closeFd(pipeFd(fieldAt(run, offset: runInputPipeOffset), writeEnd: true))
-			__Raw.storeWord(run, offset: runInputOpenOffset, value: 0)
-		end 'open'
-	end 'closeInput'
-
-	// feedInput writes what the input pipe takes now of the input not written yet, which poll said it has room for, and closes
-	// the input once it is all written. A write that fails with EPIPE is a child that stopped reading: the input is closed and
-	// the SIGPIPE the write raised, which holdSigpipe kept from the process, is taken later by releaseSigpipe.
-	function feedInput(run Count, text String)
-		let done = wordAt(run, offset: runInputDoneOffset)
-		let length = __Raw.stringLength(text)
-		if done >= length 'all'
-			closeInput(run)
-			return
-		end 'all'
-		let left = __Raw.wrappingSub(length, right: done)
-		let wrote = __Raw.syscall3(linuxSysWrite, arg1: pipeFd(fieldAt(run, offset: runInputPipeOffset), writeEnd: true), arg2: __Raw.wrappingAdd(__Raw.stringBytes(text), right: done), arg3: left if left < inputChunkBytes else inputChunkBytes)
-		if failed(wrote) 'failed'
-			if errnoOf(wrote) == linuxEagain or errnoOf(wrote) == linuxEintr 'later'
-				return
-			end 'later'
-			if errnoOf(wrote) == linuxEpipe 'broken'
-				__Raw.storeWord(run, offset: runInputBrokenOffset, value: 1)
-			end 'broken'
-			closeInput(run)
-			return
-		end 'failed'
-		__Raw.storeWord(run, offset: runInputDoneOffset, value: __Raw.wrappingAdd(done, right: wrote))
-		if __Raw.wrappingAdd(done, right: wrote) >= length 'written'
-			closeInput(run)
-		end 'written'
-	end 'feedInput'
-
-	// holdSigpipe blocks SIGPIPE on the calling thread for the writes of a run's input, keeping the mask it had: a write to a
-	// pipe whose reader has gone raises SIGPIPE on the writing thread, whose default action would end the process, and a
-	// pipe has no MSG_NOSIGNAL. Only SIGPIPE's bit changes, so the monitor's SIGURG reaches the thread as before; the run's
-	// writes are made between enterBlocking and exitBlocking, so on the one thread whose mask this is.
-	function holdSigpipe(run Count)
-		__Raw.storeWord(run, offset: runSigpipeSetOffset, value: (1 as Count) shl (linuxSigpipe - 1))
-		_ = __Raw.syscall4(linuxSysRtSigprocmask, arg1: linuxSigBlock, arg2: fieldAt(run, offset: runSigpipeSetOffset), arg3: fieldAt(run, offset: runSignalMaskOffset), arg4: linuxSignalMaskBytes)
-	end 'holdSigpipe'
-
-	// releaseSigpipe takes the SIGPIPE that a write of the input raised, when one did, so that it never reaches the process,
-	// and gives the thread back the mask it had.
-	function releaseSigpipe(run Count)
-		if wordAt(run, offset: runInputBrokenOffset) != 0 'raised'
-			let now = alloc(linuxTimespecBytes)
-			__Raw.storeWord(now, offset: 0, value: 0)
-			__Raw.storeWord(now, offset: wordBytes, value: 0)
-			_ = __Raw.syscall4(linuxSysRtSigtimedwait, arg1: fieldAt(run, offset: runSigpipeSetOffset), arg2: 0, arg3: now, arg4: linuxSignalMaskBytes)
-			free(now)
-		end 'raised'
-		_ = __Raw.syscall4(linuxSysRtSigprocmask, arg1: linuxSigSetMask, arg2: fieldAt(run, offset: runSignalMaskOffset), arg3: 0, arg4: linuxSignalMaskBytes)
-	end 'releaseSigpipe'
-
 	// prepareClone fills what the clone and its child read of the run's record: the set of every signal, and SIG_DFL's
 	// struct sigaction.
 	function prepareClone(run Count)
@@ -542,10 +309,18 @@
 		end 'action'
 	end 'prepareClone'
 
-	// running is whether a run still has an output stream to read or an input to write.
-	function running(run Count) returns bool
-		return wordAt(fieldAt(run, offset: runOutputOffset), offset: streamOpenOffset) != 0 or wordAt(fieldAt(run, offset: runErrorOffset), offset: streamOpenOffset) != 0 or inputOpen(run)
-	end 'running'
+	// killChild ends a child that is still running when its deadline passes.
+	function killChild(pid Count)
+		_ = __Raw.syscall2(linuxSysKill, arg1: pid, arg2: linuxSigkill)
+	end 'killChild'
+
+	// reapChild waits for a child that has not run, or that is ended, and gives its wait status.
+	function reapChild(run Count, pid Count) returns Count
+		enterBlocking()
+		let status = reap(run, pid: pid)
+		exitBlocking()
+		return status
+	end 'reapChild'
 
 	// runChild runs the child of osRun and osRunIn, in directory unless it is empty, and of osRunInput when hasInput is set, its
 	// input written as the child reads it.
@@ -560,8 +335,8 @@
 			return 0
 		end 'missing'
 		let run = alloc(runRecordBytes)
-		__Raw.storeWord(run, offset: runInputOpenOffset, value: 0)
-		__Raw.storeWord(run, offset: runInputBrokenOffset, value: 0)
+		let wait = fieldAt(run, offset: runWaitOffset)
+		waitNew(wait)
 		if not openPipes(run, hasInput: hasInput) 'pipes'
 			free(path)
 			free(run)
@@ -590,79 +365,53 @@
 		end 'started'
 		freeVector(vector)
 		free(path)
-		closeFd(pipeFd(fieldAt(run, offset: runOutputPipeOffset), writeEnd: true))
-		closeFd(pipeFd(fieldAt(run, offset: runErrorPipeOffset), writeEnd: true))
+		closeChildEnds(fieldAt(run, offset: runOutputPipeOffset), errors: fieldAt(run, offset: runErrorPipeOffset), input: fieldAt(run, offset: runInputPipeOffset), hasInput: hasInput)
 		closeFd(pipeFd(fieldAt(run, offset: runStatusPipeOffset), writeEnd: true))
-		if hasInput 'input'
-			startInput(run)
-		end 'input'
 		if failed(pid) 'spawn'
-			closeInput(run)
 			closeFd(pipeFd(fieldAt(run, offset: runStatusPipeOffset), writeEnd: false))
-			closeFd(pipeFd(fieldAt(run, offset: runOutputPipeOffset), writeEnd: false))
-			closeFd(pipeFd(fieldAt(run, offset: runErrorPipeOffset), writeEnd: false))
+			closeOurEnds(wait)
 			free(run)
 			endWithError(errorAddress, osError: errnoOf(pid), table: spawnFailures())
 			return 0
 		end 'spawn'
-		startStream(fieldAt(run, offset: runOutputOffset), pipes: fieldAt(run, offset: runOutputPipeOffset))
-		startStream(fieldAt(run, offset: runErrorOffset), pipes: fieldAt(run, offset: runErrorPipeOffset))
 		let unexecuted = execErrno(run)
 		if (unexecuted and unmovedMark) != 0 'unmoved'
-			_ = reap(run, pid: pid)
-			closeStreams(run)
-			freeTexts(run)
+			_ = reapChild(run, pid: pid)
+			closeOurEnds(wait)
 			free(run)
 			failWith(errorAddress, errorCase: spawnFailed)
 			return 0
 		end 'unmoved'
 		if unexecuted != 0 'unexecuted'
-			closeInput(run)
-			_ = reap(run, pid: pid)
-			closeStreams(run)
-			freeTexts(run)
+			_ = reapChild(run, pid: pid)
+			closeOurEnds(wait)
 			free(run)
 			endWithError(errorAddress, osError: unexecuted, table: spawnFailures())
 			return 0
 		end 'unexecuted'
-		enterBlocking()
-		if hasInput 'hold'
-			holdSigpipe(run)
-			feedInput(run, text: input)
-		end 'hold'
-		let startedAt = monotonicNanos()
-		while running(run) 'drain'
-			var timeout = pollForever
-			if deadlineMs != noDeadline 'deadline'
-				let elapsedMs = __Raw.wrappingSub(monotonicNanos(), right: startedAt) / nanosPerMilli
-				if elapsedMs >= deadlineMs 'late'
-					_ = __Raw.syscall2(linuxSysKill, arg1: pid, arg2: linuxSigkill)
-					if hasInput 'release'
-						closeInput(run)
-						releaseSigpipe(run)
-					end 'release'
-					exitBlocking()
-					_ = reap(run, pid: pid)
-					closeStreams(run)
-					freeTexts(run)
-					free(run)
-					failWith(errorAddress, errorCase: timedOut)
-					return 0
-				end 'late'
-				timeout = __Raw.wrappingSub(deadlineMs, right: elapsedMs)
-			end 'deadline'
-			pollStreams(run, timeout: timeout, input: input)
-		end 'drain'
-		if hasInput 'release'
-			releaseSigpipe(run)
-		end 'release'
-		let code = exitCodeOf(reap(run, pid: pid))
-		exitBlocking()
-		closeStreams(run)
-		storeStreamText(stdout, stream: fieldAt(run, offset: runOutputOffset))
-		storeStreamText(stderr, stream: fieldAt(run, offset: runErrorOffset))
+		let watch = eventProcessNew(pid)
+		if watch == noEntry 'unwatched'
+			killChild(pid)
+			_ = reapChild(run, pid: pid)
+			closeOurEnds(wait)
+			free(run)
+			failWith(errorAddress, errorCase: ioFailed)
+			return 0
+		end 'unwatched'
+		__Raw.storeWord(wait, offset: waitChildOffset, value: pid)
+		__Raw.storeWord(wait, offset: waitProcessOffset, value: watch)
+		let expired = awaitChild(wait, input: input, deadlineMs: deadlineMs)
+		if expired 'late'
+			freeStream(fieldAt(wait, offset: waitOutputOffset))
+			freeStream(fieldAt(wait, offset: waitErrorOffset))
+			free(run)
+			failWith(errorAddress, errorCase: timedOut)
+			return 0
+		end 'late'
+		storeStream(stdout, stream: fieldAt(wait, offset: waitOutputOffset))
+		storeStream(stderr, stream: fieldAt(wait, offset: waitErrorOffset))
 		free(run)
 		succeed(errorAddress)
-		return code
+		return exitCodeOf(__Raw.loadWord32(wait, offset: waitStatusOffset))
 	end 'runChild'
 #endif

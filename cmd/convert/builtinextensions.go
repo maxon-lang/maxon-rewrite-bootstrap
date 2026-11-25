@@ -9,7 +9,6 @@ import (
 // maxon's library names it `Element`: an extension of the type names it as the table does (README, "Extensions").
 var builtinTypeParams = map[string]string{
 	"Array": "T",
-	"List":  "T",
 }
 
 // maxonElementParam is the name of the type parameter of maxon's generic collections.
@@ -20,7 +19,7 @@ const maxonElementParam = "Element"
 // the converter leaves the block out and the code after it is the whole of the method.
 var unavailableIntrinsicConditions = []string{"__Builtins.elementsHashAsStorage()"}
 
-// rewriteBuiltinExtensions writes each extension of a type that minimaxon builds in (Array and List) as minimaxon has it:
+// rewriteBuiltinExtensions writes each extension of a type that minimaxon builds in (Array) as minimaxon has it:
 // the type parameter under the built-in table's name, the receiver's own storage as `self.managed`, the members the
 // built-in declares left out (the table has them natively), no conformance where the extension has a `where` (minimaxon
 // has no conditional conformance, so the methods stay and the interface is not implemented), and no block that asks for the

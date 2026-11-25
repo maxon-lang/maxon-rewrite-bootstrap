@@ -149,15 +149,6 @@ export function intrinsicCall(mutates l Lowerer, p ast.Project, mutates ms ast.M
 	if op == ast.Intrinsic.intrCursorPeek 'intrCursorPeek'
 		return lowerCursorPeek(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrCursorPeek'
-	if op == ast.Intrinsic.intrListCursorCreate 'intrListCursorCreate'
-		return lowerListCursorCreate(l, p: p, ms: ms, c: c, recv: recv, args: args)
-	end 'intrListCursorCreate'
-	if op == ast.Intrinsic.intrListCursorCurrent 'intrListCursorCurrent'
-		return lowerListCursorCurrent(l, p: p, ms: ms, c: c, recv: recv, args: args)
-	end 'intrListCursorCurrent'
-	if op == ast.Intrinsic.intrListCursorAdvance 'intrListCursorAdvance'
-		return lowerListCursorAdvance(l, p: p, ms: ms, c: c, recv: recv, args: args)
-	end 'intrListCursorAdvance'
 	if op == ast.Intrinsic.intrStringCursorCreate 'intrStringCursorCreate'
 		return lowerStringCursorCreate(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrStringCursorCreate'
@@ -200,51 +191,6 @@ export function intrinsicCall(mutates l Lowerer, p ast.Project, mutates ms ast.M
 	if op == ast.Intrinsic.intrGroupsClear 'intrGroupsClear'
 		return lowerGroupsClear(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrGroupsClear'
-	if op == ast.Intrinsic.intrListCreate 'intrListCreate'
-		return lowerListCreate(l, p: p, ms: ms, c: c, recv: recv, args: args)
-	end 'intrListCreate'
-	if op == ast.Intrinsic.intrListCount 'intrListCount'
-		return lowerListCount(l, p: p, ms: ms, c: c, recv: recv, args: args)
-	end 'intrListCount'
-	if op == ast.Intrinsic.intrListIsEmpty 'intrListIsEmpty'
-		return lowerListIsEmpty(l, p: p, ms: ms, c: c, recv: recv, args: args)
-	end 'intrListIsEmpty'
-	if op == ast.Intrinsic.intrListContains 'intrListContains'
-		return lowerListContains(l, p: p, ms: ms, c: c, recv: recv, args: args)
-	end 'intrListContains'
-	if op == ast.Intrinsic.intrListPrepend 'intrListPrepend'
-		return lowerListPrepend(l, p: p, ms: ms, c: c, recv: recv, args: args)
-	end 'intrListPrepend'
-	if op == ast.Intrinsic.intrListAppend 'intrListAppend'
-		return lowerListAppend(l, p: p, ms: ms, c: c, recv: recv, args: args)
-	end 'intrListAppend'
-	if op == ast.Intrinsic.intrListRemoveFirst 'intrListRemoveFirst'
-		return lowerListRemoveFirst(l, p: p, ms: ms, c: c, recv: recv, args: args)
-	end 'intrListRemoveFirst'
-	if op == ast.Intrinsic.intrListRemoveLast 'intrListRemoveLast'
-		return lowerListRemoveLast(l, p: p, ms: ms, c: c, recv: recv, args: args)
-	end 'intrListRemoveLast'
-	if op == ast.Intrinsic.intrListFirst 'intrListFirst'
-		return lowerListFirst(l, p: p, ms: ms, c: c, recv: recv, args: args)
-	end 'intrListFirst'
-	if op == ast.Intrinsic.intrListLast 'intrListLast'
-		return lowerListLast(l, p: p, ms: ms, c: c, recv: recv, args: args)
-	end 'intrListLast'
-	if op == ast.Intrinsic.intrListNext 'intrListNext'
-		return lowerListNext(l, p: p, ms: ms, c: c, recv: recv, args: args)
-	end 'intrListNext'
-	if op == ast.Intrinsic.intrListPrev 'intrListPrev'
-		return lowerListPrev(l, p: p, ms: ms, c: c, recv: recv, args: args)
-	end 'intrListPrev'
-	if op == ast.Intrinsic.intrListRemove 'intrListRemove'
-		return lowerListRemove(l, p: p, ms: ms, c: c, recv: recv, args: args)
-	end 'intrListRemove'
-	if op == ast.Intrinsic.intrListMoveToFront 'intrListMoveToFront'
-		return lowerListMoveToFront(l, p: p, ms: ms, c: c, recv: recv, args: args)
-	end 'intrListMoveToFront'
-	if op == ast.Intrinsic.intrListDropEmpty 'intrListDropEmpty'
-		return lowerListDropEmpty(l, p: p, ms: ms, c: c, recv: recv, args: args)
-	end 'intrListDropEmpty'
 	if op == ast.Intrinsic.intrSlotKeyFromWord 'intrSlotKeyFromWord'
 		return lowerSlotKeyFromWord(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrSlotKeyFromWord'
@@ -985,15 +931,6 @@ export function ownsOperands(op ast.Intrinsic) returns bool
 	if op == ast.Intrinsic.intrCursorPeek 'intrCursorPeek'
 		return false
 	end 'intrCursorPeek'
-	if op == ast.Intrinsic.intrListCursorCreate 'intrListCursorCreate'
-		return false
-	end 'intrListCursorCreate'
-	if op == ast.Intrinsic.intrListCursorCurrent 'intrListCursorCurrent'
-		return false
-	end 'intrListCursorCurrent'
-	if op == ast.Intrinsic.intrListCursorAdvance 'intrListCursorAdvance'
-		return false
-	end 'intrListCursorAdvance'
 	if op == ast.Intrinsic.intrStringCursorCreate 'intrStringCursorCreate'
 		return false
 	end 'intrStringCursorCreate'
@@ -1036,51 +973,6 @@ export function ownsOperands(op ast.Intrinsic) returns bool
 	if op == ast.Intrinsic.intrGroupsClear 'intrGroupsClear'
 		return false
 	end 'intrGroupsClear'
-	if op == ast.Intrinsic.intrListCreate 'intrListCreate'
-		return false
-	end 'intrListCreate'
-	if op == ast.Intrinsic.intrListCount 'intrListCount'
-		return false
-	end 'intrListCount'
-	if op == ast.Intrinsic.intrListIsEmpty 'intrListIsEmpty'
-		return false
-	end 'intrListIsEmpty'
-	if op == ast.Intrinsic.intrListContains 'intrListContains'
-		return false
-	end 'intrListContains'
-	if op == ast.Intrinsic.intrListPrepend 'intrListPrepend'
-		return false
-	end 'intrListPrepend'
-	if op == ast.Intrinsic.intrListAppend 'intrListAppend'
-		return false
-	end 'intrListAppend'
-	if op == ast.Intrinsic.intrListRemoveFirst 'intrListRemoveFirst'
-		return false
-	end 'intrListRemoveFirst'
-	if op == ast.Intrinsic.intrListRemoveLast 'intrListRemoveLast'
-		return false
-	end 'intrListRemoveLast'
-	if op == ast.Intrinsic.intrListFirst 'intrListFirst'
-		return false
-	end 'intrListFirst'
-	if op == ast.Intrinsic.intrListLast 'intrListLast'
-		return false
-	end 'intrListLast'
-	if op == ast.Intrinsic.intrListNext 'intrListNext'
-		return false
-	end 'intrListNext'
-	if op == ast.Intrinsic.intrListPrev 'intrListPrev'
-		return false
-	end 'intrListPrev'
-	if op == ast.Intrinsic.intrListRemove 'intrListRemove'
-		return false
-	end 'intrListRemove'
-	if op == ast.Intrinsic.intrListMoveToFront 'intrListMoveToFront'
-		return false
-	end 'intrListMoveToFront'
-	if op == ast.Intrinsic.intrListDropEmpty 'intrListDropEmpty'
-		return false
-	end 'intrListDropEmpty'
 	if op == ast.Intrinsic.intrSlotKeyFromWord 'intrSlotKeyFromWord'
 		return false
 	end 'intrSlotKeyFromWord'

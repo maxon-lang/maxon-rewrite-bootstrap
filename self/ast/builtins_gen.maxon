@@ -247,9 +247,6 @@ export enum Intrinsic
 	intrCursorRetreat
 	intrCursorSeek
 	intrCursorPeek
-	intrListCursorCreate
-	intrListCursorCurrent
-	intrListCursorAdvance
 	intrStringCursorCreate
 	intrStringCursorCurrent
 	intrStringCursorAdvance
@@ -264,21 +261,6 @@ export enum Intrinsic
 	intrGroupsTakeFirst
 	intrGroupsTakeSecond
 	intrGroupsClear
-	intrListCreate
-	intrListCount
-	intrListIsEmpty
-	intrListContains
-	intrListPrepend
-	intrListAppend
-	intrListRemoveFirst
-	intrListRemoveLast
-	intrListFirst
-	intrListLast
-	intrListNext
-	intrListPrev
-	intrListRemove
-	intrListMoveToFront
-	intrListDropEmpty
 	intrSlotKeyFromWord
 	intrSlotKeyWord
 	intrStringByteLength
@@ -690,9 +672,6 @@ export function intrinsicRequires(op Intrinsic) returns Precondition
 		intrCursorRetreat or
 		intrCursorSeek or
 		intrCursorPeek or
-		intrListCursorCreate or
-		intrListCursorCurrent or
-		intrListCursorAdvance or
 		intrStringCursorCreate or
 		intrStringCursorCurrent or
 		intrStringCursorAdvance or
@@ -707,21 +686,6 @@ export function intrinsicRequires(op Intrinsic) returns Precondition
 		intrGroupsTakeFirst or
 		intrGroupsTakeSecond or
 		intrGroupsClear or
-		intrListCreate or
-		intrListCount or
-		intrListIsEmpty or
-		intrListContains or
-		intrListPrepend or
-		intrListAppend or
-		intrListRemoveFirst or
-		intrListRemoveLast or
-		intrListFirst or
-		intrListLast or
-		intrListNext or
-		intrListPrev or
-		intrListRemove or
-		intrListMoveToFront or
-		intrListDropEmpty or
 		intrSlotKeyFromWord or
 		intrSlotKeyWord or
 		intrStringByteLength or
@@ -970,8 +934,6 @@ export function intrinsicCountEffect(op Intrinsic) returns CountEffect
 		intrCursorCurrent or
 		intrCursorIndex or
 		intrCursorPeek or
-		intrListCursorCreate or
-		intrListCursorCurrent or
 		intrStringCursorCreate or
 		intrStringCursorCurrent or
 		intrGroupsCreate or
@@ -979,14 +941,6 @@ export function intrinsicCountEffect(op Intrinsic) returns CountEffect
 		intrGroupsControl or
 		intrGroupsFirst or
 		intrGroupsSecond or
-		intrListCreate or
-		intrListCount or
-		intrListIsEmpty or
-		intrListContains or
-		intrListFirst or
-		intrListLast or
-		intrListNext or
-		intrListPrev or
 		intrSlotKeyFromWord or
 		intrSlotKeyWord or
 		intrStringByteLength or
@@ -1197,7 +1151,6 @@ export function intrinsicCountEffect(op Intrinsic) returns CountEffect
 		intrCursorAdvance or
 		intrCursorRetreat or
 		intrCursorSeek or
-		intrListCursorAdvance or
 		intrStringCursorAdvance or
 		intrGroupsSetControl or
 		intrGroupsPut or
@@ -1205,13 +1158,6 @@ export function intrinsicCountEffect(op Intrinsic) returns CountEffect
 		intrGroupsTakeFirst or
 		intrGroupsTakeSecond or
 		intrGroupsClear or
-		intrListPrepend or
-		intrListAppend or
-		intrListRemoveFirst or
-		intrListRemoveLast or
-		intrListRemove or
-		intrListMoveToFront or
-		intrListDropEmpty or
 		intrByteIteratorAdvance or
 		intrCodepointIteratorAdvance or
 		intrUtf16IteratorAdvance or
@@ -1276,9 +1222,6 @@ export function intrinsicMeasure(op Intrinsic) returns MeasureKind
 		intrCursorRetreat or
 		intrCursorSeek or
 		intrCursorPeek or
-		intrListCursorCreate or
-		intrListCursorCurrent or
-		intrListCursorAdvance or
 		intrStringCursorCreate or
 		intrStringCursorCurrent or
 		intrStringCursorAdvance or
@@ -1293,21 +1236,6 @@ export function intrinsicMeasure(op Intrinsic) returns MeasureKind
 		intrGroupsTakeFirst or
 		intrGroupsTakeSecond or
 		intrGroupsClear or
-		intrListCreate or
-		intrListCount or
-		intrListIsEmpty or
-		intrListContains or
-		intrListPrepend or
-		intrListAppend or
-		intrListRemoveFirst or
-		intrListRemoveLast or
-		intrListFirst or
-		intrListLast or
-		intrListNext or
-		intrListPrev or
-		intrListRemove or
-		intrListMoveToFront or
-		intrListDropEmpty or
 		intrSlotKeyFromWord or
 		intrSlotKeyWord or
 		intrStringByteLength or
@@ -1550,9 +1478,6 @@ export function rawTypeSurface(b Builtins, origin TypeID) returns table.Option w
 	if origin == b.managedMemoryCursorOrigin 'rawManagedMemoryCursor'
 		return table.Option.some(RawSurface.make("the raw buffer cursor type is nameable", instead: "walk an 'Array' with 'for'"))
 	end 'rawManagedMemoryCursor'
-	if origin == b.listCursorOrigin 'rawListCursor'
-		return table.Option.some(RawSurface.make("the raw list cursor type is nameable", instead: "walk a 'List' with 'for'"))
-	end 'rawListCursor'
 	if origin == b.stringCursorTy 'rawStringCursor'
 		return table.Option.some(RawSurface.make("the raw string cursor type is nameable", instead: "walk a 'String' with 'for'"))
 	end 'rawStringCursor'
@@ -1576,9 +1501,6 @@ export function rawMethodSurface(b Builtins, origin TypeID) returns table.Option
 	if origin == b.managedMemoryCursorOrigin 'rawManagedMemoryCursor'
 		return table.Option.some(RawSurface.make("a raw '__ManagedMemoryCursor' is reachable", instead: "walk an 'Array' with 'for'"))
 	end 'rawManagedMemoryCursor'
-	if origin == b.listCursorOrigin 'rawListCursor'
-		return table.Option.some(RawSurface.make("a raw '__ListCursor' is reachable", instead: "walk a 'List' with 'for'"))
-	end 'rawListCursor'
 	if origin == b.stringCursorTy 'rawStringCursor'
 		return table.Option.some(RawSurface.make("a raw '__StringCursor' is reachable", instead: "walk a 'String' with 'for'"))
 	end 'rawStringCursor'
@@ -1789,10 +1711,8 @@ function declareBuiltinTable(mutates tt TypeSlot, reads TypeTable, mutates ft Fu
 	declareFixedArrayMethods(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, b: b, funcMap: funcMap)
 	declareManagedMemoryMethods(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, b: b, funcMap: funcMap)
 	declareManagedMemoryCursorMethods(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, b: b, funcMap: funcMap)
-	declareListCursorMethods(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, b: b, funcMap: funcMap)
 	declareStringCursorMethods(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, b: b, funcMap: funcMap)
 	declareGroupMemoryMethods(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, b: b, funcMap: funcMap)
-	declareListMethods(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, b: b, funcMap: funcMap)
 	declareSlotKeyMethods(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, b: b, funcMap: funcMap)
 	declareStringMethods(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, b: b, funcMap: funcMap)
 	declareByteViewMethods(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, b: b, funcMap: funcMap)
@@ -1836,33 +1756,27 @@ function declareBuiltinTypes(mutates tt TypeSlot, reads TypeTable, mutates std P
 	var names5 = StringList.create(0)
 	names5.push("T")
 	b.managedMemoryCursorOrigin = registerPrimType(tt, reads: reads, std: std, typeMap: typeMap, kind: TypeKind.builtinCursor, name: "__ManagedMemoryCursor", paramNames: names5)
-	var names6 = StringList.create(0)
-	names6.push("T")
-	b.listCursorOrigin = registerPrimType(tt, reads: reads, std: std, typeMap: typeMap, kind: TypeKind.builtinCursor, name: "__ListCursor", paramNames: names6)
 	b.stringCursorTy = registerPrimType(tt, reads: reads, std: std, typeMap: typeMap, kind: TypeKind.builtinCursor, name: "__StringCursor", paramNames: StringList.create(0))
+	var names6 = StringList.create(0)
+	names6.push("A")
+	names6.push("B")
+	b.groupMemoryOrigin = registerPrimType(tt, reads: reads, std: std, typeMap: typeMap, kind: TypeKind.builtinGroups, name: "__GroupMemory", paramNames: names6)
 	var names7 = StringList.create(0)
-	names7.push("A")
-	names7.push("B")
-	b.groupMemoryOrigin = registerPrimType(tt, reads: reads, std: std, typeMap: typeMap, kind: TypeKind.builtinGroups, name: "__GroupMemory", paramNames: names7)
+	names7.push("T")
+	b.slotKeyOrigin = registerPrimType(tt, reads: reads, std: std, typeMap: typeMap, kind: TypeKind.builtinSlotKey, name: "SlotKey", paramNames: names7)
 	var names8 = StringList.create(0)
 	names8.push("T")
-	b.listOrigin = registerPrimType(tt, reads: reads, std: std, typeMap: typeMap, kind: TypeKind.builtinList, name: "List", paramNames: names8)
+	b.frozenOrigin = registerPrimType(tt, reads: reads, std: std, typeMap: typeMap, kind: TypeKind.builtinFrozen, name: "frozen", paramNames: names8)
 	var names9 = StringList.create(0)
 	names9.push("T")
-	b.slotKeyOrigin = registerPrimType(tt, reads: reads, std: std, typeMap: typeMap, kind: TypeKind.builtinSlotKey, name: "SlotKey", paramNames: names9)
+	b.cownOrigin = registerPrimType(tt, reads: reads, std: std, typeMap: typeMap, kind: TypeKind.builtinCown, name: "cown", paramNames: names9)
 	var names10 = StringList.create(0)
 	names10.push("T")
-	b.frozenOrigin = registerPrimType(tt, reads: reads, std: std, typeMap: typeMap, kind: TypeKind.builtinFrozen, name: "frozen", paramNames: names10)
+	names10.push("E")
+	b.promiseOrigin = registerPrimType(tt, reads: reads, std: std, typeMap: typeMap, kind: TypeKind.builtinPromise, name: "Promise", paramNames: names10)
 	var names11 = StringList.create(0)
 	names11.push("T")
-	b.cownOrigin = registerPrimType(tt, reads: reads, std: std, typeMap: typeMap, kind: TypeKind.builtinCown, name: "cown", paramNames: names11)
-	var names12 = StringList.create(0)
-	names12.push("T")
-	names12.push("E")
-	b.promiseOrigin = registerPrimType(tt, reads: reads, std: std, typeMap: typeMap, kind: TypeKind.builtinPromise, name: "Promise", paramNames: names12)
-	var names13 = StringList.create(0)
-	names13.push("T")
-	b.serviceOrigin = registerPrimType(tt, reads: reads, std: std, typeMap: typeMap, kind: TypeKind.builtinService, name: "__ServiceHandle", paramNames: names13)
+	b.serviceOrigin = registerPrimType(tt, reads: reads, std: std, typeMap: typeMap, kind: TypeKind.builtinService, name: "__ServiceHandle", paramNames: names11)
 	b.commandLineTy = registerRecordType(tt, reads: reads, std: std, typeMap: typeMap, name: "CommandLine")
 	b.processTy = registerRecordType(tt, reads: reads, std: std, typeMap: typeMap, name: "Process")
 	b.clockTy = registerRecordType(tt, reads: reads, std: std, typeMap: typeMap, name: "Clock")
@@ -1905,148 +1819,148 @@ function declareBuiltinTypes(mutates tt TypeSlot, reads TypeTable, mutates std P
 	addRecordField(tt, reads: reads, owner: b.fileInfoTy, name: "isDirectory", ty: b.boolTy, isVar: false, exported: true)
 	addRecordField(tt, reads: reads, owner: b.fileInfoTy, name: "isReadOnly", ty: b.boolTy, isVar: false, exported: true)
 	b.executableTy = registerUnionType(tt, reads: reads, std: std, typeMap: typeMap, name: "Executable", paramNames: StringList.create(0))
-	var payload14 = CaseFieldList.create(0)
-	payload14.push(CaseFieldInfo.make("value", ty: b.stringTy))
-	addUnionCase(tt, reads: reads, owner: b.executableTy, name: "name", payload: payload14)
-	var payload15 = CaseFieldList.create(0)
-	payload15.push(CaseFieldInfo.make("value", ty: b.filePathTy))
-	addUnionCase(tt, reads: reads, owner: b.executableTy, name: "path", payload: payload15)
+	var payload12 = CaseFieldList.create(0)
+	payload12.push(CaseFieldInfo.make("value", ty: b.stringTy))
+	addUnionCase(tt, reads: reads, owner: b.executableTy, name: "name", payload: payload12)
+	var payload13 = CaseFieldList.create(0)
+	payload13.push(CaseFieldInfo.make("value", ty: b.filePathTy))
+	addUnionCase(tt, reads: reads, owner: b.executableTy, name: "path", payload: payload13)
 	b.waitDeadlineTy = registerUnionType(tt, reads: reads, std: std, typeMap: typeMap, name: "WaitDeadline", paramNames: StringList.create(0))
 	addUnionCase(tt, reads: reads, owner: b.waitDeadlineTy, name: "none", payload: CaseFieldList.create(0))
-	var payload16 = CaseFieldList.create(0)
-	payload16.push(CaseFieldInfo.make("timeoutMs", ty: b.countTy))
-	addUnionCase(tt, reads: reads, owner: b.waitDeadlineTy, name: "within", payload: payload16)
+	var payload14 = CaseFieldList.create(0)
+	payload14.push(CaseFieldInfo.make("timeoutMs", ty: b.countTy))
+	addUnionCase(tt, reads: reads, owner: b.waitDeadlineTy, name: "within", payload: payload14)
+	var names15 = StringList.create(0)
+	names15.push("overflow")
+	names15.push("divisionByZero")
+	names15.push("negativeShift")
+	b.arithmeticErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "ArithmeticError", cases: names15)
+	var names16 = StringList.create(0)
+	names16.push("indexOutOfBounds")
+	names16.push("emptySlot")
+	b.arrayErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "ArrayError", cases: names16)
 	var names17 = StringList.create(0)
-	names17.push("overflow")
-	names17.push("divisionByZero")
-	names17.push("negativeShift")
-	b.arithmeticErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "ArithmeticError", cases: names17)
+	names17.push("indexOutOfBounds")
+	names17.push("emptySlot")
+	names17.push("sliceOutOfBounds")
+	names17.push("invalidLength")
+	names17.push("invalidCapacity")
+	names17.push("shiftOutOfBounds")
+	names17.push("invalidByteRange")
+	names17.push("invalidAllocation")
+	b.managedMemoryErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "__ManagedMemoryError", cases: names17)
 	var names18 = StringList.create(0)
-	names18.push("indexOutOfBounds")
-	names18.push("emptySlot")
-	b.arrayErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "ArrayError", cases: names18)
+	names18.push("invalidCharacter")
+	names18.push("notFileURL")
+	names18.push("malformedURL")
+	names18.push("noParent")
+	b.filePathErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "FilePathError", cases: names18)
 	var names19 = StringList.create(0)
-	names19.push("indexOutOfBounds")
-	names19.push("emptySlot")
-	names19.push("sliceOutOfBounds")
-	names19.push("invalidLength")
-	names19.push("invalidCapacity")
-	names19.push("shiftOutOfBounds")
-	names19.push("invalidByteRange")
-	names19.push("invalidAllocation")
-	b.managedMemoryErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "__ManagedMemoryError", cases: names19)
+	names19.push("notFound")
+	names19.push("accessDenied")
+	names19.push("busy")
+	names19.push("failed")
+	b.fileReadErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "FileReadError", cases: names19)
 	var names20 = StringList.create(0)
-	names20.push("invalidCharacter")
-	names20.push("notFileURL")
-	names20.push("malformedURL")
-	names20.push("noParent")
-	b.filePathErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "FilePathError", cases: names20)
+	names20.push("failed")
+	names20.push("notFound")
+	names20.push("accessDenied")
+	names20.push("alreadyExists")
+	names20.push("busy")
+	names20.push("partialFileLeft")
+	b.fileWriteErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "FileWriteError", cases: names20)
 	var names21 = StringList.create(0)
-	names21.push("notFound")
-	names21.push("accessDenied")
-	names21.push("busy")
-	names21.push("failed")
-	b.fileReadErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "FileReadError", cases: names21)
+	names21.push("normal")
+	names21.push("executable")
+	b.filePermissionTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "FilePermission", cases: names21)
 	var names22 = StringList.create(0)
-	names22.push("failed")
-	names22.push("notFound")
-	names22.push("accessDenied")
-	names22.push("alreadyExists")
-	names22.push("busy")
-	names22.push("partialFileLeft")
-	b.fileWriteErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "FileWriteError", cases: names22)
+	names22.push("mailboxFull")
+	names22.push("serviceStopped")
+	b.sendErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "SendError", cases: names22)
 	var names23 = StringList.create(0)
-	names23.push("normal")
-	names23.push("executable")
-	b.filePermissionTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "FilePermission", cases: names23)
+	names23.push("notFound")
+	names23.push("accessDenied")
+	names23.push("busy")
+	names23.push("failed")
+	b.fileDeleteErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "FileDeleteError", cases: names23)
 	var names24 = StringList.create(0)
-	names24.push("mailboxFull")
-	names24.push("serviceStopped")
-	b.sendErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "SendError", cases: names24)
+	names24.push("failed")
+	names24.push("notFound")
+	names24.push("accessDenied")
+	names24.push("busy")
+	names24.push("alreadyExists")
+	b.fileRenameErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "FileRenameError", cases: names24)
 	var names25 = StringList.create(0)
 	names25.push("notFound")
 	names25.push("accessDenied")
 	names25.push("busy")
 	names25.push("failed")
-	b.fileDeleteErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "FileDeleteError", cases: names25)
+	b.fileInfoErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "FileInfoError", cases: names25)
 	var names26 = StringList.create(0)
-	names26.push("failed")
 	names26.push("notFound")
 	names26.push("accessDenied")
-	names26.push("busy")
-	names26.push("alreadyExists")
-	b.fileRenameErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "FileRenameError", cases: names26)
+	names26.push("listFailed")
+	b.directoryListErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "DirectoryListError", cases: names26)
 	var names27 = StringList.create(0)
 	names27.push("notFound")
-	names27.push("accessDenied")
-	names27.push("busy")
-	names27.push("failed")
-	b.fileInfoErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "FileInfoError", cases: names27)
+	names27.push("notEmpty")
+	names27.push("deleteFailed")
+	b.directoryDeleteErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "DirectoryDeleteError", cases: names27)
 	var names28 = StringList.create(0)
-	names28.push("notFound")
-	names28.push("accessDenied")
-	names28.push("listFailed")
-	b.directoryListErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "DirectoryListError", cases: names28)
+	names28.push("pathUnavailable")
+	names28.push("variableUnset")
+	names28.push("environmentUnreadable")
+	b.processIntrospectionErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "ProcessIntrospectionError", cases: names28)
 	var names29 = StringList.create(0)
-	names29.push("notFound")
-	names29.push("notEmpty")
-	names29.push("deleteFailed")
-	b.directoryDeleteErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "DirectoryDeleteError", cases: names29)
+	names29.push("executableNotFound")
+	names29.push("spawnFailed")
+	names29.push("busy")
+	names29.push("ioFailed")
+	names29.push("timeout")
+	names29.push("treeNotEnded")
+	names29.push("detachRefused")
+	names29.push("inputTooLarge")
+	names29.push("statusLost")
+	b.subprocessErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "SubprocessError", cases: names29)
 	var names30 = StringList.create(0)
-	names30.push("pathUnavailable")
-	names30.push("variableUnset")
-	names30.push("environmentUnreadable")
-	b.processIntrospectionErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "ProcessIntrospectionError", cases: names30)
+	names30.push("unreadable")
+	names30.push("unwritable")
+	names30.push("outOfBounds")
+	b.debuggeeErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "DebuggeeError", cases: names30)
 	var names31 = StringList.create(0)
-	names31.push("executableNotFound")
-	names31.push("spawnFailed")
-	names31.push("busy")
-	names31.push("ioFailed")
-	names31.push("timeout")
-	names31.push("treeNotEnded")
-	names31.push("detachRefused")
-	names31.push("inputTooLarge")
-	names31.push("statusLost")
-	b.subprocessErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "SubprocessError", cases: names31)
+	names31.push("handled")
+	names31.push("unhandled")
+	b.debugDispositionTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "DebugDisposition", cases: names31)
 	var names32 = StringList.create(0)
-	names32.push("unreadable")
-	names32.push("unwritable")
-	names32.push("outOfBounds")
-	b.debuggeeErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "DebuggeeError", cases: names32)
+	names32.push("notAscii")
+	b.characterErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "CharacterError", cases: names32)
 	var names33 = StringList.create(0)
-	names33.push("handled")
-	names33.push("unhandled")
-	b.debugDispositionTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "DebugDisposition", cases: names33)
+	names33.push("notFound")
+	names33.push("invalidIndex")
+	b.stringErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "StringError", cases: names33)
 	var names34 = StringList.create(0)
-	names34.push("notAscii")
-	b.characterErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "CharacterError", cases: names34)
+	names34.push("exhausted")
+	names34.push("atStart")
+	b.iterationErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "IterationError", cases: names34)
 	var names35 = StringList.create(0)
-	names35.push("notFound")
-	names35.push("invalidIndex")
-	b.stringErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "StringError", cases: names35)
-	var names36 = StringList.create(0)
-	names36.push("exhausted")
-	names36.push("atStart")
-	b.iterationErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "IterationError", cases: names36)
-	var names37 = StringList.create(0)
-	names37.push("otherType")
-	b.castErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "CastError", cases: names37)
+	names35.push("otherType")
+	b.castErrorTy = registerEnumType(tt, reads: reads, std: std, typeMap: typeMap, name: "CastError", cases: names35)
 	b.copyableTy = registerInterfaceType(tt, reads: reads, std: std, typeMap: typeMap, name: "Copyable")
 	b.droppableTy = registerInterfaceType(tt, reads: reads, std: std, typeMap: typeMap, name: "Droppable")
 	b.errorTy = registerInterfaceType(tt, reads: reads, std: std, typeMap: typeMap, name: "Error")
 	b.initableFromStringLiteralTy = registerInterfaceType(tt, reads: reads, std: std, typeMap: typeMap, name: "InitableFromStringLiteral")
 	tt.lists[typeList(tt, t: b.filePathTy)][typeIndex(tt, t: b.filePathTy)].conforms.push(b.initableFromStringLiteralTy)
-	let ty38 = instantiateType(tt, reads: reads, origin: b.arrayOrigin, args: oneArgList(b.byteTy))
-	registerStdInstanceAlias(std, typeMap: typeMap, name: "ByteArray", ty: ty38)
-	let ty39 = instantiateType(tt, reads: reads, origin: b.arrayOrigin, args: oneArgList(b.byteTy))
-	let ty40 = instantiateType(tt, reads: reads, origin: b.arrayOrigin, args: oneArgList(ty39))
-	registerStdInstanceAlias(std, typeMap: typeMap, name: "ByteArrays", ty: ty40)
-	let ty41 = instantiateType(tt, reads: reads, origin: b.arrayOrigin, args: oneArgList(b.stringTy))
-	registerStdInstanceAlias(std, typeMap: typeMap, name: "StringArray", ty: ty41)
-	let ty42 = instantiateType(tt, reads: reads, origin: b.arrayOrigin, args: oneArgList(b.fullRangeIntTy))
-	registerStdInstanceAlias(std, typeMap: typeMap, name: "FullRangeIntArray", ty: ty42)
-	let ty43 = instantiateType(tt, reads: reads, origin: b.arrayOrigin, args: oneArgList(b.filePathTy))
-	registerStdInstanceAlias(std, typeMap: typeMap, name: "FilePathArray", ty: ty43)
+	let ty36 = instantiateType(tt, reads: reads, origin: b.arrayOrigin, args: oneArgList(b.byteTy))
+	registerStdInstanceAlias(std, typeMap: typeMap, name: "ByteArray", ty: ty36)
+	let ty37 = instantiateType(tt, reads: reads, origin: b.arrayOrigin, args: oneArgList(b.byteTy))
+	let ty38 = instantiateType(tt, reads: reads, origin: b.arrayOrigin, args: oneArgList(ty37))
+	registerStdInstanceAlias(std, typeMap: typeMap, name: "ByteArrays", ty: ty38)
+	let ty39 = instantiateType(tt, reads: reads, origin: b.arrayOrigin, args: oneArgList(b.stringTy))
+	registerStdInstanceAlias(std, typeMap: typeMap, name: "StringArray", ty: ty39)
+	let ty40 = instantiateType(tt, reads: reads, origin: b.arrayOrigin, args: oneArgList(b.fullRangeIntTy))
+	registerStdInstanceAlias(std, typeMap: typeMap, name: "FullRangeIntArray", ty: ty40)
+	let ty41 = instantiateType(tt, reads: reads, origin: b.arrayOrigin, args: oneArgList(b.filePathTy))
+	registerStdInstanceAlias(std, typeMap: typeMap, name: "FilePathArray", ty: ty41)
 end 'declareBuiltinTypes'
 
 function declareArrayMethods(mutates tt TypeSlot, reads TypeTable, mutates ft FuncSlot, funcReads FuncTable, mutates std ParsedModule, mutates b Builtins, mutates funcMap FuncIDMap)
@@ -2411,21 +2325,6 @@ function declareManagedMemoryCursorMethods(mutates tt TypeSlot, reads TypeTable,
 	ft.lists[funcList(ft, f: f9)][funcIndex(ft, f: f9)].errTy = b.managedMemoryErrorTy
 end 'declareManagedMemoryCursorMethods'
 
-function declareListCursorMethods(mutates tt TypeSlot, reads TypeTable, mutates ft FuncSlot, funcReads FuncTable, mutates std ParsedModule, mutates b Builtins, mutates funcMap FuncIDMap)
-	let ty1 = selfType(tt, reads: reads, declTy: b.listCursorOrigin)
-	let p2 = typeEntry(tt, reads: reads, t: b.listCursorOrigin).typeParams[0]
-	let ty3 = instantiateType(tt, reads: reads, origin: b.listOrigin, args: oneArgList(p2))
-	var ps4 = ParamSpecList.create(0)
-	ps4.push(ParamSpec.make("list", ty: ty3, conv: Convention.convLet))
-	let f5 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.listCursorOrigin, op: Intrinsic.intrListCursorCreate, name: "create", isStatic: true, selfConv: Convention.convLet, ret: ty1, params: ps4, listed: true)
-	ft.lists[funcList(ft, f: f5)][funcIndex(ft, f: f5)].errTy = b.managedMemoryErrorTy
-	let p6 = typeEntry(tt, reads: reads, t: b.listCursorOrigin).typeParams[0]
-	let f7 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.listCursorOrigin, op: Intrinsic.intrListCursorCurrent, name: "current", isStatic: false, selfConv: Convention.convLet, ret: p6, params: ParamSpecList.create(0), listed: true)
-	ft.lists[funcList(ft, f: f7)][funcIndex(ft, f: f7)].result = ResultConv.resultBorrowed
-	let f8 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.listCursorOrigin, op: Intrinsic.intrListCursorAdvance, name: "advance", isStatic: false, selfConv: Convention.convMutates, ret: b.voidTy, params: ParamSpecList.create(0), listed: true)
-	ft.lists[funcList(ft, f: f8)][funcIndex(ft, f: f8)].errTy = b.managedMemoryErrorTy
-end 'declareListCursorMethods'
-
 function declareStringCursorMethods(mutates tt TypeSlot, reads TypeTable, mutates ft FuncSlot, funcReads FuncTable, mutates std ParsedModule, mutates b Builtins, mutates funcMap FuncIDMap)
 	let ty1 = selfType(tt, reads: reads, declTy: b.stringCursorTy)
 	var ps2 = ParamSpecList.create(0)
@@ -2496,73 +2395,6 @@ function declareGroupMemoryMethods(mutates tt TypeSlot, reads TypeTable, mutates
 	let p28 = typeEntry(tt, reads: reads, t: b.groupMemoryOrigin).typeParams[1]
 	ft.lists[funcList(ft, f: f26)][funcIndex(ft, f: f26)].bounds.push(ParamBound.make(p28, ifaceTy: b.droppableTy))
 end 'declareGroupMemoryMethods'
-
-function declareListMethods(mutates tt TypeSlot, reads TypeTable, mutates ft FuncSlot, funcReads FuncTable, mutates std ParsedModule, mutates b Builtins, mutates funcMap FuncIDMap)
-	let ty1 = selfType(tt, reads: reads, declTy: b.listOrigin)
-	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.listOrigin, op: Intrinsic.intrListCreate, name: "create", isStatic: true, selfConv: Convention.convLet, ret: ty1, params: ParamSpecList.create(0), listed: true)
-	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.listOrigin, op: Intrinsic.intrListCount, name: "count", isStatic: false, selfConv: Convention.convLet, ret: b.countTy, params: ParamSpecList.create(0), listed: true)
-	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.listOrigin, op: Intrinsic.intrListIsEmpty, name: "isEmpty", isStatic: false, selfConv: Convention.convLet, ret: b.boolTy, params: ParamSpecList.create(0), listed: true)
-	let p2 = typeEntry(tt, reads: reads, t: b.listOrigin).typeParams[0]
-	let ty3 = instantiateType(tt, reads: reads, origin: b.slotKeyOrigin, args: oneArgList(p2))
-	var ps4 = ParamSpecList.create(0)
-	ps4.push(ParamSpec.make("key", ty: ty3, conv: Convention.convLet))
-	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.listOrigin, op: Intrinsic.intrListContains, name: "contains", isStatic: false, selfConv: Convention.convLet, ret: b.boolTy, params: ps4, listed: true)
-	let p5 = typeEntry(tt, reads: reads, t: b.listOrigin).typeParams[0]
-	let ty6 = instantiateType(tt, reads: reads, origin: b.slotKeyOrigin, args: oneArgList(p5))
-	let p7 = typeEntry(tt, reads: reads, t: b.listOrigin).typeParams[0]
-	var ps8 = ParamSpecList.create(0)
-	ps8.push(ParamSpec.make("value", ty: p7, conv: Convention.convConsumes))
-	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.listOrigin, op: Intrinsic.intrListPrepend, name: "prepend", isStatic: false, selfConv: Convention.convMutates, ret: ty6, params: ps8, listed: true)
-	let p9 = typeEntry(tt, reads: reads, t: b.listOrigin).typeParams[0]
-	let ty10 = instantiateType(tt, reads: reads, origin: b.slotKeyOrigin, args: oneArgList(p9))
-	let p11 = typeEntry(tt, reads: reads, t: b.listOrigin).typeParams[0]
-	var ps12 = ParamSpecList.create(0)
-	ps12.push(ParamSpec.make("value", ty: p11, conv: Convention.convConsumes))
-	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.listOrigin, op: Intrinsic.intrListAppend, name: "append", isStatic: false, selfConv: Convention.convMutates, ret: ty10, params: ps12, listed: true)
-	let p13 = typeEntry(tt, reads: reads, t: b.listOrigin).typeParams[0]
-	let f14 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.listOrigin, op: Intrinsic.intrListRemoveFirst, name: "removeFirst", isStatic: false, selfConv: Convention.convMutates, ret: p13, params: ParamSpecList.create(0), listed: true)
-	ft.lists[funcList(ft, f: f14)][funcIndex(ft, f: f14)].errTy = b.arrayErrorTy
-	let p15 = typeEntry(tt, reads: reads, t: b.listOrigin).typeParams[0]
-	let f16 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.listOrigin, op: Intrinsic.intrListRemoveLast, name: "removeLast", isStatic: false, selfConv: Convention.convMutates, ret: p15, params: ParamSpecList.create(0), listed: true)
-	ft.lists[funcList(ft, f: f16)][funcIndex(ft, f: f16)].errTy = b.arrayErrorTy
-	let p17 = typeEntry(tt, reads: reads, t: b.listOrigin).typeParams[0]
-	let ty18 = instantiateType(tt, reads: reads, origin: b.slotKeyOrigin, args: oneArgList(p17))
-	let f19 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.listOrigin, op: Intrinsic.intrListFirst, name: "first", isStatic: false, selfConv: Convention.convLet, ret: ty18, params: ParamSpecList.create(0), listed: true)
-	ft.lists[funcList(ft, f: f19)][funcIndex(ft, f: f19)].errTy = b.arrayErrorTy
-	let p20 = typeEntry(tt, reads: reads, t: b.listOrigin).typeParams[0]
-	let ty21 = instantiateType(tt, reads: reads, origin: b.slotKeyOrigin, args: oneArgList(p20))
-	let f22 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.listOrigin, op: Intrinsic.intrListLast, name: "last", isStatic: false, selfConv: Convention.convLet, ret: ty21, params: ParamSpecList.create(0), listed: true)
-	ft.lists[funcList(ft, f: f22)][funcIndex(ft, f: f22)].errTy = b.arrayErrorTy
-	let p23 = typeEntry(tt, reads: reads, t: b.listOrigin).typeParams[0]
-	let ty24 = instantiateType(tt, reads: reads, origin: b.slotKeyOrigin, args: oneArgList(p23))
-	let p25 = typeEntry(tt, reads: reads, t: b.listOrigin).typeParams[0]
-	let ty26 = instantiateType(tt, reads: reads, origin: b.slotKeyOrigin, args: oneArgList(p25))
-	var ps27 = ParamSpecList.create(0)
-	ps27.push(ParamSpec.make("key", ty: ty26, conv: Convention.convLet))
-	let f28 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.listOrigin, op: Intrinsic.intrListNext, name: "next", isStatic: false, selfConv: Convention.convLet, ret: ty24, params: ps27, listed: true)
-	ft.lists[funcList(ft, f: f28)][funcIndex(ft, f: f28)].errTy = b.arrayErrorTy
-	let p29 = typeEntry(tt, reads: reads, t: b.listOrigin).typeParams[0]
-	let ty30 = instantiateType(tt, reads: reads, origin: b.slotKeyOrigin, args: oneArgList(p29))
-	let p31 = typeEntry(tt, reads: reads, t: b.listOrigin).typeParams[0]
-	let ty32 = instantiateType(tt, reads: reads, origin: b.slotKeyOrigin, args: oneArgList(p31))
-	var ps33 = ParamSpecList.create(0)
-	ps33.push(ParamSpec.make("key", ty: ty32, conv: Convention.convLet))
-	let f34 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.listOrigin, op: Intrinsic.intrListPrev, name: "prev", isStatic: false, selfConv: Convention.convLet, ret: ty30, params: ps33, listed: true)
-	ft.lists[funcList(ft, f: f34)][funcIndex(ft, f: f34)].errTy = b.arrayErrorTy
-	let p35 = typeEntry(tt, reads: reads, t: b.listOrigin).typeParams[0]
-	let p36 = typeEntry(tt, reads: reads, t: b.listOrigin).typeParams[0]
-	let ty37 = instantiateType(tt, reads: reads, origin: b.slotKeyOrigin, args: oneArgList(p36))
-	var ps38 = ParamSpecList.create(0)
-	ps38.push(ParamSpec.make("key", ty: ty37, conv: Convention.convLet))
-	let f39 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.listOrigin, op: Intrinsic.intrListRemove, name: "remove", isStatic: false, selfConv: Convention.convMutates, ret: p35, params: ps38, listed: true)
-	ft.lists[funcList(ft, f: f39)][funcIndex(ft, f: f39)].errTy = b.arrayErrorTy
-	let p40 = typeEntry(tt, reads: reads, t: b.listOrigin).typeParams[0]
-	let ty41 = instantiateType(tt, reads: reads, origin: b.slotKeyOrigin, args: oneArgList(p40))
-	var ps42 = ParamSpecList.create(0)
-	ps42.push(ParamSpec.make("key", ty: ty41, conv: Convention.convLet))
-	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.listOrigin, op: Intrinsic.intrListMoveToFront, name: "moveToFront", isStatic: false, selfConv: Convention.convMutates, ret: b.voidTy, params: ps42, listed: true)
-	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.listOrigin, op: Intrinsic.intrListDropEmpty, name: "dropEmpty", isStatic: false, selfConv: Convention.convConsumes, ret: b.voidTy, params: ParamSpecList.create(0), listed: true)
-end 'declareListMethods'
 
 function declareSlotKeyMethods(mutates tt TypeSlot, reads TypeTable, mutates ft FuncSlot, funcReads FuncTable, mutates std ParsedModule, mutates b Builtins, mutates funcMap FuncIDMap)
 	let ty1 = selfType(tt, reads: reads, declTy: b.slotKeyOrigin)

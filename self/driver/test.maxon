@@ -736,17 +736,6 @@ function positionText(e diag.CompileError) returns String
 	return "{e.line}:{e.col}"
 end 'positionText'
 
-// onlyInterpreterErrors is whether a program failed to compile only because it uses a map, a list or a slot map, which the
-// compiler has no code for yet.
-function onlyInterpreterErrors(errs diag.ErrorList) returns bool
-	for i in 0 upto errs.count() 'each'
-		if errs[i].code != diag.errInterpreterOnly 'other'
-			return false
-		end 'other'
-	end 'each'
-	return errs.count() > 0
-end 'onlyInterpreterErrors'
-
 // mayScheduleBehaviours is whether a program is one a run of the behaviours alone compiles to see whether it runs the
 // scheduler: one that is run, and has a word that every program that runs the scheduler has, or is a test of the
 // runtime, which may run it without one.
@@ -782,27 +771,20 @@ function stageProgram(shared SharedRuntime, job CorpusJob, index Count, exe Stri
 end 'stageProgram'
 
 // checkTest is whether a compile that gave errs is what expect says, or, when it made the executable at exe, the run of the
-// executable that is to say it. A program that only the interpreter runs is run under it alone; any other is run natively
-// and then under it too, unless it says it is too heavy for that. A program that schedules behaviours runs natively several
+// executable that is to say it. A program is run natively and then under the interpreter too, unless it says it is too
+// heavy for that. A program that schedules behaviours runs natively several
 // times, each under another schedule.
 function checkTest(expect Expectation, file String, consumes compiled CompiledProgram, errs diag.ErrorList, index Count, exe String, options CorpusOptions) returns Staged
 	let built = errs.count() == 0
 	if expect.errors.count() > 0 'expected'
 		return doneBuilt(checkExpectedErrors(expect, file: file, errs: errs, updatePositions: options.updatePositions), exe: exe, built: built)
 	end 'expected'
-	let interpreterOnly = onlyInterpreterErrors(errs)
-	if errs.count() > 0 and not interpreterOnly 'failed'
+	if errs.count() > 0 'failed'
 		return doneBuilt(TestResult.failed(joinErrors(errs)), exe: exe, built: built)
 	end 'failed'
 	if expect.checkOnly 'checked'
 		return doneBuilt(TestResult.passed(), exe: exe, built: built)
 	end 'checked'
-	if interpreterOnly 'interpreted'
-		if options.behavioursOnly 'noExecutable'
-			return doneBuilt(TestResult.leftOut(), exe: exe, built: built)
-		end 'noExecutable'
-		return doneBuilt(runInterpreted(compiled, expect: expect), exe: exe, built: built)
-	end 'interpreted'
 	// The link says whether the program runs the scheduler, whatever it reached it by: a when, an async call, a sleep, or a
 	// test of the runtime's own.
 	let scheduling = compiled.generated.scheduled

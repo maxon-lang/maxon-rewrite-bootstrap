@@ -79,7 +79,6 @@ var macosImports = []libSystemFunction{
 	{name: "kqueue"},
 	{name: "kevent"},
 	{name: "pipe"},
-	{name: "poll"},
 	{name: "waitpid"},
 	{name: "kill"},
 	{name: "posix_spawn"},

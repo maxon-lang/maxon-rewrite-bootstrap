@@ -24,7 +24,6 @@ function holdsBorrowWithin(mutates tt TypeSlot, reads TypeTable, t TypeID, mutat
 		unionTy gives nominalHoldsBorrow(tt, reads: reads, t: t, visiting: visiting)
 		builtinArray gives argsHoldBorrow(tt, reads: reads, t: t, visiting: visiting)
 		builtinGroups gives argsHoldBorrow(tt, reads: reads, t: t, visiting: visiting)
-		builtinList gives argsHoldBorrow(tt, reads: reads, t: t, visiting: visiting)
 		builtinFrozen gives argsHoldBorrow(tt, reads: reads, t: t, visiting: visiting)
 		builtinCown gives argsHoldBorrow(tt, reads: reads, t: t, visiting: visiting)
 		builtinSlotKey gives false
@@ -144,7 +143,6 @@ function unsendableWithin(mutates tt TypeSlot, reads TypeTable, t TypeID, functi
 		unionTy gives partsUnsendable(tt, reads: reads, t: t, functions: functions, visiting: visiting)
 		builtinArray gives argsUnsendable(tt, reads: reads, t: t, functions: functions, visiting: visiting)
 		builtinGroups gives argsUnsendable(tt, reads: reads, t: t, functions: functions, visiting: visiting)
-		builtinList gives argsUnsendable(tt, reads: reads, t: t, functions: functions, visiting: visiting)
 		builtinFrozen gives argsUnsendable(tt, reads: reads, t: t, functions: functions, visiting: visiting)
 	end 'k'
 end 'unsendableWithin'

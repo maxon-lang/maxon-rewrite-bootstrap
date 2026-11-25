@@ -135,15 +135,15 @@ typealias Queue = List with Counter
 
 function main() returns ExitCode
 	let shared = freeze(Counter.create(2))
-	let index = Index.create()
-	index.upsert("a", value: shared)
-	let spelled = Spelled.create()
-	spelled.upsert("b", value: shared)
-	let queue = Queue.create()
+	var index = Index.create()
+	index.upsert("a", value: thaw(shared))
+	var spelled = Spelled.create()
+	spelled.upsert("b", value: thaw(shared))
+	var queue = Queue.create()
 	queue.append(thaw(shared))
 	let first = try queue.first() otherwise return 1
-	let total = (index.count() as Integer) + (spelled.count() as Integer) + (queue.count() as Integer) + first.n + shared.n
-	return total as ExitCode
+	let total = try (index.count() as Integer) + (spelled.count() as Integer) + (queue.count() as Integer) + first.n + shared.n otherwise panic("out of range")
+	return try total as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

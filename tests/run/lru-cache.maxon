@@ -1,3 +1,5 @@
+// A cache that forgets its least recently used entry, over a doubly linked list. A linked structure is a SlotMap of nodes
+// that name each other by key, not a List: a node keeps its key while others are linked and unlinked around it.
 union Option uses T
 	some(value T)
 	none
@@ -17,56 +19,105 @@ union Option uses T
 	end 'unwrap'
 end 'Option'
 
-typealias CountEntryHandleMap = Map with Count, SlotKey with Entry
+typealias NodeKey = SlotKey with Node
 
-typealias EntryList = List with Entry
+typealias Link = Option with NodeKey
+
+typealias Nodes = SlotMap with Node
+
+typealias CountKeyMap = Map with Count, NodeKey
 
 typealias StringOption = Option with String
 
-type Entry
+type Node
 	export var key as Count
 	export var value as String
+	export var prev as Link
+	export var next as Link
 
-	static function make(key Count, consumes value String) returns Entry
-		return Entry{key: key, value: value}
+	static function make(key Count, consumes value String) returns Node
+		return Node{key: key, value: value, prev: Link.none, next: Link.none}
 	end 'make'
-end 'Entry'
+end 'Node'
 
 type Cache
-	var order as List with Entry
-	var index as Map with (Count, SlotKey with Entry)
+	var nodes as Nodes
+	var newest as Link
+	var oldest as Link
+	var index as CountKeyMap
 	var capacity as Count
 
 	static function make(capacity Count) returns Cache
-		return Cache{order: EntryList.create(), index: CountEntryHandleMap.create(), capacity: capacity}
+		return Cache{nodes: Nodes.create(), newest: Link.none, oldest: Link.none, index: CountKeyMap.create(), capacity: capacity}
 	end 'make'
+
+	// unlink takes the node out of the order: its neighbours name each other.
+	function unlink(mutates self, k NodeKey) throws ArrayError
+		let before = try nodes.get(k).prev.clone()
+		let after = try nodes.get(k).next.clone()
+		match before 'before'
+			some(p) then try nodes.get(p).next = after.clone()
+			none then newest = after.clone()
+		end 'before'
+		match after 'after'
+			some(n) then try nodes.get(n).prev = before.clone()
+			none then oldest = before.clone()
+		end 'after'
+	end 'unlink'
+
+	// pushFront makes the node, which is in no order, the newest.
+	function pushFront(mutates self, k NodeKey) throws ArrayError
+		try nodes.get(k).prev = Link.none
+		try nodes.get(k).next = newest.clone()
+		match newest 'first'
+			some(first) then try nodes.get(first).prev = Link.some(k)
+			none then oldest = Link.some(k)
+		end 'first'
+		newest = Link.some(k)
+	end 'pushFront'
+
+	function touch(mutates self, k NodeKey) throws ArrayError
+		try self.unlink(k)
+		try self.pushFront(k)
+	end 'touch'
+
+	function replace(mutates self, k NodeKey, consumes value String) throws ArrayError
+		try nodes.get(k).value = value
+		try self.touch(k)
+	end 'replace'
+
+	function evict(mutates self) throws ArrayError
+		let k = oldest.clone().unwrap()
+		try self.unlink(k)
+		let node = try nodes.remove(k)
+		_ = index.remove(node.key)
+	end 'evict'
 
 	function get(mutates self, key Count) returns Option with String
 		if not index.contains(key) 'miss'
 			return StringOption.none
 		end 'miss'
-		let node = (try index.get(key) otherwise panic("no such key"))
-		order.moveToFront(node)
-		return Option.some(order[node].value.clone())
+		let k = try index.get(key) otherwise panic("no such key")
+		try self.touch(k) otherwise panic("the index names a node of the cache")
+		return Option.some((try nodes.get(k) otherwise panic("the index names a node of the cache")).value.clone())
 	end 'get'
 
 	function put(mutates self, key Count, consumes value String)
 		if index.contains(key) 'hit'
-			let node = (try index.get(key) otherwise panic("no such key"))
-			order[node].value = value
-			order.moveToFront(node)
+			let k = try index.get(key) otherwise panic("no such key")
+			try self.replace(k, value: value) otherwise panic("the index names a node of the cache")
 			return
 		end 'hit'
 		if index.count() == capacity 'full'
-			let oldest = try order.removeLast() otherwise return
-			_ = index.remove(oldest.key)
+			try self.evict() otherwise panic("a full cache has an oldest node")
 		end 'full'
-		let node = order.prepend(Entry.make(key, value: value))
-		index.upsert(key, value: node)
+		let k = nodes.insert(Node.make(key, value: value))
+		try self.pushFront(k) otherwise panic("a node just inserted")
+		index.upsert(key, value: k)
 	end 'put'
 
 	function size() returns Count
-		return order.count()
+		return nodes.count()
 	end 'size'
 end 'Cache'
 

@@ -1,0 +1,189 @@
+// Many short children through the event queue: hundreds of runs of a child that exits at once, one after another, leave the
+// process with the descriptors it had before them (fds on Linux and macOS, handles on Windows), and many such runs at once on
+// green threads each succeed with the child's exit code. A child that exits before its exit is watched, or whose exit the
+// system reports before it can be waited for, is still waited for: on macOS the kqueue refuses EVFILT_PROC for a process that
+// has started to exit (ESRCH), and reports NOTE_EXIT before waitpid can take the child.
+//> 200 children one after another left the descriptors as they were
+//> 256 children on 16 green threads each ran and exited
+
+// The host's program that exits with 0 at once, and its arguments.
+#if os(Windows)
+	let childrenProgram = "cmd.exe"
+
+	let childrenFirstArgument = "/c"
+
+	let childrenSecondArgument = "exit 0"
+#else
+	let childrenProgram = "true"
+#endif
+
+let childrenSequential = 200 as Count
+
+let childrenThreads = 16 as Count
+
+let childrenEach = 16 as Count
+
+// childrenWarmup is how many runs come before the first count, so that what the first run of a child opens for good (on
+// Windows, the handles the loader and the console keep) is in both counts.
+let childrenWarmup = 4 as Count
+
+// childrenMostFd is past every fd the runs could have left open, on Linux and macOS.
+let childrenMostFd = 4096 as Count
+
+// fcntlGetFd is F_GETFD on Linux and macOS: it fails with EBADF for an fd that is not open.
+let fcntlGetFd = 1 as Count
+
+// childrenHandleSlack is how far the process's count of handles may move on Windows over the runs, for what the system opens
+// and closes of its own; a run that kept a handle would move it by childrenSequential.
+let childrenHandleSlack = 16 as Count
+
+function main() returns ExitCode
+	greenReady(greenSpawn(__Raw.codeAddress("childrenCoordinator")))
+	return 0
+end 'main'
+
+function childrenCoordinator(g Count) returns Count
+	for i in 0 upto childrenWarmup 'warmup'
+		if childrenRun(i) != 0 'failed'
+			panic("a run of a child failed before the count")
+		end 'failed'
+	end 'warmup'
+	childrenSequentialTest()
+	childrenConcurrentTest()
+	return 0
+end 'childrenCoordinator'
+
+// childrenSequentialTest runs the children one after another, half of them with input that the child never reads, and compares
+// the descriptors open before and after.
+function childrenSequentialTest()
+	let before = childrenDescriptors()
+	for i in 0 upto childrenSequential 'runs'
+		if childrenRun(i) != 0 'failed'
+			panic("a run of a child that exits at once failed")
+		end 'failed'
+	end 'runs'
+	let after = childrenDescriptors()
+	#if os(Windows)
+		if after > __Raw.wrappingAdd(before, right: childrenHandleSlack) 'leaked'
+			panic("the runs of children left the process with {after} handles open, and it had {before}")
+		end 'leaked'
+	#else
+		if after != before 'leaked'
+			panic("the runs of children left the process with {after} fds open, and it had {before}")
+		end 'leaked'
+	#endif
+	childrenWrite("{childrenSequential} children one after another left the descriptors as they were\n")
+end 'childrenSequentialTest'
+
+// childrenConcurrentTest runs children on several green threads at once, so that a child often exits before its run watches
+// its exit, or while the run's thread is away.
+function childrenConcurrentTest()
+	let runs = alloc(childrenThreads * wordBytes)
+	for i in 0 upto childrenThreads 'spawn'
+		let run = greenSpawn(__Raw.codeAddress("childrenWorker"))
+		__Raw.storeWord(runs, offset: i * wordBytes, value: run)
+		greenReady(run)
+	end 'spawn'
+	for i in 0 upto childrenThreads 'await'
+		if greenAwait(__Raw.loadWord(runs, offset: i * wordBytes)) != 0 'failed'
+			panic("a run of a child on a green thread failed")
+		end 'failed'
+	end 'await'
+	free(runs)
+	childrenWrite("{childrenThreads * childrenEach} children on {childrenThreads} green threads each ran and exited\n")
+end 'childrenConcurrentTest'
+
+// childrenWorker runs its children one after another and gives 0 when every run succeeded with exit code 0, 1 otherwise.
+function childrenWorker(g Count) returns Count
+	for i in 0 upto childrenEach 'runs'
+		if childrenRun(i) != 0 'failed'
+			return 1
+		end 'failed'
+	end 'runs'
+	return 0
+end 'childrenWorker'
+
+// childrenRun runs the child once, with input where the index is odd, and gives 0 when the run succeeded and the child exited
+// with 0.
+function childrenRun(index Count) returns Count
+	let out = alloc(__Raw.stringSize())
+	let err = alloc(__Raw.stringSize())
+	let failure = alloc(wordBytes)
+	let arguments = stringArrayNew()
+	#if os(Windows)
+		childrenPush(arguments, text: childrenFirstArgument)
+		childrenPush(arguments, text: childrenSecondArgument)
+	#endif
+	var code = 0 as Count
+	if index mod 2 == 1 'input'
+		code = osRunInput(childrenProgram, arguments: arguments, input: "input the child never reads\n", deadlineMs: 0, stdout: out, stderr: err, errorAddress: failure)
+	end 'input' else 'none'
+		code = osRun(childrenProgram, arguments: arguments, deadlineMs: 0, stdout: out, stderr: err, errorAddress: failure)
+	end 'none'
+	var result = 0 as Count
+	if __Raw.loadWord(failure, offset: 0) != 0 or code != 0 'wrong'
+		result = 1
+	end 'wrong'
+	free(failure)
+	childrenDrop(out)
+	childrenDrop(err)
+	let data = __Raw.loadWord(arguments, offset: osArrayDataOffset)
+	for i in 0 upto __Raw.loadWord(arguments, offset: osArrayLengthOffset) 'strings'
+		childrenDropString(__Raw.wrappingAdd(data, right: collectionBytes(i, elementBytes: __Raw.stringSize())))
+	end 'strings'
+	free(data)
+	free(arguments)
+	return result
+end 'childrenRun'
+
+// childrenDescriptors is how many descriptors the process has open: the fds below childrenMostFd that fcntl finds on Linux and
+// macOS, and the process's count of handles on Windows.
+function childrenDescriptors() returns Count
+	var count = 0 as Count
+	#if os(Windows)
+		if __Raw.callImport2("GetProcessHandleCount", arg1: __Raw.callImport0("GetCurrentProcess"), arg2: __Raw.addressOf(count)) == 0 'refused'
+			panic("cannot count the process's handles")
+		end 'refused'
+		return dword(count)
+	#else
+		for fd in 0 upto childrenMostFd 'fds'
+			if childrenFdOpen(fd) 'open'
+				count = __Raw.wrappingAdd(count, right: 1)
+			end 'open'
+		end 'fds'
+		return count
+	#endif
+end 'childrenDescriptors'
+
+#if os(Linux)
+	function childrenFdOpen(fd Count) returns bool
+		return not failed(__Raw.syscall3(linuxSysFcntl, arg1: fd, arg2: fcntlGetFd, arg3: 0))
+	end 'childrenFdOpen'
+#endif
+
+#if os(macOS)
+	function childrenFdOpen(fd Count) returns bool
+		return not failed(checkedInt(__Raw.callImport3("fcntl", arg1: fd, arg2: fcntlGetFd, arg3: 0)))
+	end 'childrenFdOpen'
+#endif
+
+function childrenPush(arguments Count, text String)
+	pushBytes(arguments, address: __Raw.stringBytes(text), length: __Raw.stringLength(text))
+end 'childrenPush'
+
+function childrenWrite(text String)
+	write(__Raw.loadWord(__Raw.stdoutAddress(), offset: 0), text: text)
+end 'childrenWrite'
+
+// childrenDropString frees the room of the string at an address, which a string too long to hold its bytes in its words owns.
+function childrenDropString(slot Count)
+	if __Raw.loadWord(slot, offset: wordBytes) < signBit 'owned'
+		__Raw.freeStringRoom(__Raw.stringBytesAt(slot, offset: 0))
+	end 'owned'
+end 'childrenDropString'
+
+// childrenDrop frees a string that a run stored at an address, and the address.
+function childrenDrop(slot Count)
+	childrenDropString(slot)
+	free(slot)
+end 'childrenDrop'

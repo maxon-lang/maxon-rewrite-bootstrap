@@ -38,7 +38,6 @@ export enum TypeKind
 	enumTy
 	unionTy
 	builtinArray
-	builtinList
 	builtinSlotKey
 	builtinFrozen
 	builtinCown
@@ -53,7 +52,6 @@ export enum TypeKind
 	export function isBuiltin() returns bool
 		return match self 'k'
 			builtinArray gives true
-			builtinList gives true
 			builtinSlotKey gives true
 			builtinFrozen gives true
 			builtinCown gives true
@@ -888,11 +886,11 @@ export function typeKind(tt TypeSlot, reads TypeTable, t TypeID) returns TypeKin
 	return typeEntry(tt, reads: reads, t: t).kind
 end 'typeKind'
 
-// isLiteralCollection is whether t is an array or a list, the types that `Type from [a, b]` builds from the literal
-// itself; any other type is built by a call of its init.
+// isLiteralCollection is whether t is an array, the type that `Type from [a, b]` builds from the literal itself; any other
+// type is built by a call of its init.
 export function isLiteralCollection(tt TypeSlot, reads TypeTable, t TypeID) returns bool
 	let kind = typeKind(tt, reads: reads, t: t)
-	return kind == TypeKind.builtinArray or kind == TypeKind.builtinList
+	return kind == TypeKind.builtinArray
 end 'isLiteralCollection'
 
 // typeEntry is the entry of the type t, read in place: in tt, the slot the task holds, or in another slot of the project's
@@ -1585,7 +1583,6 @@ export function byteSize(tt TypeSlot, reads TypeTable, t TypeID) returns Count
 		enumTy gives sizeofWord
 		unionTy gives sizeofWord
 		builtinArray gives sizeofWord
-		builtinList gives sizeofWord
 		builtinSlotKey gives sizeofWord
 		builtinFrozen gives sizeofWord
 		builtinCown gives sizeofWord
@@ -2036,7 +2033,6 @@ export function isManagedType(tt TypeSlot, reads TypeTable, t TypeID) returns bo
 		record gives true
 		unionTy gives true
 		builtinArray gives true
-		builtinList gives true
 		builtinFrozen gives true
 		builtinCown gives true
 		builtinCursor gives true

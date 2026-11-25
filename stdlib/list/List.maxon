@@ -1,0 +1,270 @@
+/// A sequence of elements with O(1) access by index and at both ends, and O(n) insertion and removal in the middle.
+/// A linked structure whose nodes keep stable positions is a SlotMap of nodes that name each other by key, not a List.
+/// @category Collections
+// The elements lie in an array of slots used as a ring: the list's element i is in slot (head + i) mod the slot count,
+// and the slots outside the `live` elements from head are empty (Array.takeSlot left them so). A full ring doubles: each
+// element is taken out in order and pushed after the last slot, so the first half is empty and the elements follow it.
+// Growth, insertion and removal only move elements, so a List holds an element of any type, one with a destructor too;
+// get lends an element in place, which is why a place get lends does not outlive a change of the list.
+public type List uses T implements export.InitableFromArrayLiteral with T, export.Iterable with (T, ListIterator)
+	public typealias ListIter = ListIterator with T
+	export typealias Elements = Array with T
+	var slots as Elements
+	var head as Count
+	var live as Count
+
+	/// An empty list.
+	public static function create() returns Self
+		return Self{slots: Elements.create(0), head: 0, live: 0}
+	end 'create'
+
+	// InitableFromArrayLiteral conformance, which `List from [a, b, c]` calls: the array is the ring, its first element at
+	// the head.
+	static function init(consumes value Elements) returns Self
+		let n = value.count()
+		return Self{slots: value, head: 0, live: n}
+	end 'init'
+
+	/// How many elements the list holds.
+	public function count() returns Count
+		return live
+	end 'count'
+
+	public function isEmpty() returns bool
+		return live == 0
+	end 'isEmpty'
+
+	/// Lends the first element, to read or to change; fails with ArrayError.indexOutOfBounds on an empty list.
+	public function first() returns borrowed T throws ArrayError
+		if live == 0 'empty'
+			throw ArrayError.indexOutOfBounds
+		end 'empty'
+		return slots.lendSlot(head)
+	end 'first'
+
+	/// Lends the last element, to read or to change; fails with ArrayError.indexOutOfBounds on an empty list.
+	public function last() returns borrowed T throws ArrayError
+		if live == 0 'empty'
+			throw ArrayError.indexOutOfBounds
+		end 'empty'
+		return slots.lendSlot(slotOf(pred(live)))
+	end 'last'
+
+	/// Lends the element at an index, counted from the front, to read or to change; fails with ArrayError.indexOutOfBounds
+	/// past the last.
+	public function get(index ElementIndex) returns borrowed T throws ArrayError
+		if index >= live 'outside'
+			throw ArrayError.indexOutOfBounds
+		end 'outside'
+		return slots.lendSlot(slotOf(index as Count))
+	end 'get'
+
+	/// Adds an element at the front. O(1), amortised.
+	public function prepend(mutates self, consumes value T)
+		if slots.count() == 0 'first'
+			slots.push(value)
+			live = 1
+			return
+		end 'first'
+		if live == slots.count() 'full'
+			self.grow()
+		end 'full'
+		head = before(head)
+		slots.fillSlot(head, value: value)
+		live = try live + 1 otherwise panic("List: more elements than a count holds")
+	end 'prepend'
+
+	/// Adds an element at the back. O(1), amortised.
+	public function append(mutates self, consumes value T)
+		if slots.count() == 0 'first'
+			slots.push(value)
+			live = 1
+			return
+		end 'first'
+		if live == slots.count() 'full'
+			self.grow()
+		end 'full'
+		slots.fillSlot(slotOf(live), value: value)
+		live = try live + 1 otherwise panic("List: more elements than a count holds")
+	end 'append'
+
+	/// Inserts an element at an index, from 0 to count(), which appends; fails with ArrayError.indexOutOfBounds past
+	/// count(), which drops the value. O(n): the elements on the nearer side of the index move by one.
+	public function insert(mutates self, at ElementIndex, consumes value T) throws ArrayError where T implements Droppable
+		if at > live 'outside'
+			throw ArrayError.indexOutOfBounds
+		end 'outside'
+		if at == live 'back'
+			self.append(value)
+			return
+		end 'back'
+		if at == 0 'front'
+			self.prepend(value)
+			return
+		end 'front'
+		if live == slots.count() 'full'
+			self.grow()
+		end 'full'
+		let k = at as Count
+		if k < live / 2 'frontHalf'
+			let oldHead = head
+			head = before(head)
+			for i in 0 upto k 'shift'
+				self.move(shifted(oldHead, by: i), to: slotOf(i))
+			end 'shift'
+		end 'frontHalf' else 'backHalf'
+			var i = live
+			while i > k 'shift'
+				i = pred(i)
+				self.move(slotOf(i), to: slotOf(try i + 1 otherwise panic("List: a slot past a count")))
+			end 'shift'
+		end 'backHalf'
+		slots.fillSlot(slotOf(k), value: value)
+		live = try live + 1 otherwise panic("List: more elements than a count holds")
+	end 'insert'
+
+	/// Takes the first element out; fails with ArrayError.indexOutOfBounds on an empty list. O(1).
+	public function removeFirst(mutates self) returns T throws ArrayError
+		if live == 0 'empty'
+			throw ArrayError.indexOutOfBounds
+		end 'empty'
+		let element = try slots.takeSlot(head) otherwise panic("List: the slot of the first element")
+		head = after(head)
+		live = pred(live)
+		return element
+	end 'removeFirst'
+
+	/// Takes the last element out; fails with ArrayError.indexOutOfBounds on an empty list. O(1).
+	public function removeLast(mutates self) returns T throws ArrayError
+		if live == 0 'empty'
+			throw ArrayError.indexOutOfBounds
+		end 'empty'
+		let element = try slots.takeSlot(slotOf(pred(live))) otherwise panic("List: the slot of the last element")
+		live = pred(live)
+		return element
+	end 'removeLast'
+
+	/// Takes the element at an index out; fails with ArrayError.indexOutOfBounds past the last. O(n): the elements on the
+	/// nearer side of the index move by one.
+	public function remove(mutates self, at ElementIndex) returns T throws ArrayError
+		if at >= live 'outside'
+			throw ArrayError.indexOutOfBounds
+		end 'outside'
+		let k = at as Count
+		let element = try slots.takeSlot(slotOf(k)) otherwise panic("List: the slot of an element")
+		if k < live / 2 'frontHalf'
+			var i = k
+			while i > 0 'shift'
+				self.move(slotOf(pred(i)), to: slotOf(i))
+				i = pred(i)
+			end 'shift'
+			head = after(head)
+		end 'frontHalf' else 'backHalf'
+			for i in k + 1 upto live 'shift'
+				self.move(slotOf(i), to: slotOf(pred(i)))
+			end 'shift'
+		end 'backHalf'
+		live = pred(live)
+		return element
+	end 'remove'
+
+	/// Drops every element.
+	public function clear(mutates self) where T implements Droppable
+		slots.clear()
+		head = 0
+		live = 0
+	end 'clear'
+
+	/// Ends the list, which must hold no element: it is how a list of values with destructors ends.
+	public function dropEmpty(consumes self)
+		slots.dropEmpty()
+	end 'dropEmpty'
+
+	/// Walks the elements from the first to the last, each lent.
+	public function createIterator() returns ListIter throws IterationError
+		return try ListIter.create(slots, head: head, live: live)
+	end 'createIterator'
+
+	// slotOf is the slot of the element at index i, which is below the slot count.
+	function slotOf(i Count) returns Count
+		return shifted(head, by: i)
+	end 'slotOf'
+
+	// shifted is the slot `by` places after the slot at, around the ring.
+	function shifted(at Count, by Count) returns Count
+		let n = slots.count()
+		let s = try at + by otherwise panic("List: a slot past a count")
+		if s >= n 'wrap'
+			return try s - n otherwise panic("List: a slot around the ring")
+		end 'wrap'
+		return s
+	end 'shifted'
+
+	function after(at Count) returns Count
+		return shifted(at, by: 1)
+	end 'after'
+
+	function before(at Count) returns Count
+		if at == 0 'wrap'
+			return pred(slots.count())
+		end 'wrap'
+		return pred(at)
+	end 'before'
+
+	// move takes the element out of one slot and puts it in another, which is empty.
+	function move(mutates self, from Count, to Count)
+		let element = try slots.takeSlot(from) otherwise panic("List: the slot of an element that moves")
+		slots.fillSlot(to, value: element)
+	end 'move'
+
+	// grow doubles a full ring: each element, in order, is pushed after the last slot, which leaves the slots it was in
+	// empty and the elements in the second half. The ring's slots are the n there were before the first push.
+	function grow(mutates self)
+		let n = slots.count()
+		var at = head
+		for _ in 0 upto live 'each'
+			let element = try slots.takeSlot(at) otherwise panic("List: the slot of an element that moves")
+			slots.push(element)
+			at = try at + 1 otherwise panic("List: a slot past a count")
+			if at == n 'wrap'
+				at = 0
+			end 'wrap'
+		end 'each'
+		head = n
+	end 'grow'
+end 'List'
+
+/// Iterator for List: its elements from the first to the last, each lent, through a cursor over the ring of slots.
+public type ListIterator uses T implements export.Iterator with T
+	export typealias Elements = Array with T
+	typealias ElementCursor = __ManagedMemoryCursor with T
+	var cursor as ElementCursor
+	var left as Count
+
+	export static function create(slots Elements, head Count, live Count) returns Self throws IterationError
+		if live == 0 'empty'
+			throw IterationError.exhausted
+		end 'empty'
+		var c = try slots.managed.createCursor() otherwise throw IterationError.exhausted
+		try c.seek(head) otherwise throw IterationError.exhausted
+		return Self{cursor: c, left: pred(live)}
+	end 'create'
+
+	public function current() returns borrowed T
+		return cursor.current()
+	end 'current'
+
+	public function advance(mutates self) throws IterationError
+		if left == 0 'last'
+			throw IterationError.exhausted
+		end 'last'
+		left = pred(left)
+		try cursor.advance() otherwise 'wrap'
+			try cursor.seek(0) otherwise throw IterationError.exhausted
+		end 'wrap'
+	end 'advance'
+end 'ListIterator'
+
+function pred(n Count) returns Count
+	return try n - 1 otherwise panic("List: a count below 0")
+end 'pred'

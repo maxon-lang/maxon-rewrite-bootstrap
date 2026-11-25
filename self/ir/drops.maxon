@@ -110,19 +110,7 @@ export function fetch(mutates l Lowerer, slot Count) returns Reg
 	return d
 end 'fetch'
 
-// dropType is the type a drop names: the type the body writes, with the instance's arguments applied. A value that holds
-// something only the interpreter has is dropped by the interpreter alone, so a function that drops one is refused the way
-// one that makes it is. The refusal is at the function, and only when nothing else in it is refused, since a function that
-// is refused at a place already is not made better by another and its refusals stay in source order.
+// dropType is the type a drop names: the type the body writes, with the instance's arguments applied.
 function dropType(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, t ast.TypeID) returns ast.TypeID
-	let ty = applyType(l, p: p, ms: ms, t: t)
-	if l.b.f.refusals.count() == 0 'unrefused'
-		requireNative(l, p: p, ms: ms, site: diag.Site.make(ast.funcEntry(ms.funcs, funcReads: p.funcs, f: l.fn).module, offset: functionOffset(l, p: p, ms: ms)), t: ty)
-	end 'unrefused'
-	return ty
+	return applyType(l, p: p, ms: ms, t: t)
 end 'dropType'
-
-// functionOffset is where the function being lowered is declared.
-function functionOffset(l Lowerer, p ast.Project, ms ast.ModuleState) returns diag.U32
-	return p.modules[ast.modIndex(ast.funcEntry(ms.funcs, funcReads: p.funcs, f: l.origin).module)].tree.startOf(ast.funcEntry(ms.funcs, funcReads: p.funcs, f: l.origin).nodeID)
-end 'functionOffset'

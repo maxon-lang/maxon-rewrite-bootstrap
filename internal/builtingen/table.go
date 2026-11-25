@@ -164,12 +164,6 @@ var builtinTypes = []builtinType{
 		Named:   rawSurface{What: "the raw buffer cursor type is nameable", Instead: "walk an 'Array' with 'for'"},
 		Methods: rawSurface{What: "a raw '__ManagedMemoryCursor' is reachable", Instead: "walk an 'Array' with 'for'"},
 	}},
-	// ListCursor is a position in a list, as a buffer's cursor is in a buffer: the list it borrows and the slot key of an
-	// element of it, from the first to the last. It holds a borrow, as a buffer's cursor does.
-	{Key: "ListCursor", Name: "__ListCursor", Params: []string{"T"}, Kind: "Cursor", Managed: true, Raw: &rawType{
-		Named:   rawSurface{What: "the raw list cursor type is nameable", Instead: "walk a 'List' with 'for'"},
-		Methods: rawSurface{What: "a raw '__ListCursor' is reachable", Instead: "walk a 'List' with 'for'"},
-	}},
 	// StringCursor is a position in a String's grapheme clusters: a view of the String, which it borrows, and the byte
 	// positions where the cluster it is at starts and ends. It holds a borrow, as a buffer's cursor does.
 	{Key: "StringCursor", Name: "__StringCursor", Kind: "Cursor", Managed: true, Raw: &rawType{
@@ -184,7 +178,6 @@ var builtinTypes = []builtinType{
 		Named:   rawSurface{What: "the raw buffer of a table's groups is nameable", Instead: "use 'Map'"},
 		Methods: rawSurface{What: "a raw '__GroupMemory' buffer is reachable", Instead: "use 'Map'"},
 	}},
-	{Key: "List", Name: "List", Params: []string{"T"}, Managed: true, Subscriptable: true},
 	{Key: "SlotKey", Name: "SlotKey", Params: []string{"T"}},
 	{Key: "Frozen", Name: "frozen", Params: []string{"T"}, Managed: true, Shared: true},
 	{Key: "Cown", Name: "cown", Params: []string{"T"}, Managed: true, Shared: true},
@@ -785,9 +778,6 @@ var tableFunctions = []function{
 	{Owner: "ManagedMemoryCursor", Name: "retreat", Self: "mutates", Throws: "ManagedMemoryError", Intrinsic: "CursorRetreat"},
 	{Owner: "ManagedMemoryCursor", Name: "seek", Self: "mutates", Params: []string{"index ElementIndex"}, Throws: "ManagedMemoryError", Intrinsic: "CursorSeek"},
 	{Owner: "ManagedMemoryCursor", Name: "peek", Params: []string{"ahead ElementIndex"}, Result: "T", Bounds: []string{"T Copyable"}, Throws: "ManagedMemoryError", Intrinsic: "CursorPeek"},
-	{Owner: "ListCursor", Name: "create", Static: true, Params: []string{"list List with T"}, Result: "Self", Throws: "ManagedMemoryError", Intrinsic: "ListCursorCreate"},
-	{Owner: "ListCursor", Name: "current", Result: "T", Lends: true, Intrinsic: "ListCursorCurrent"},
-	{Owner: "ListCursor", Name: "advance", Self: "mutates", Throws: "ManagedMemoryError", Intrinsic: "ListCursorAdvance"},
 	{Owner: "StringCursor", Name: "create", Static: true, Params: []string{"text String"}, Result: "Self", Throws: "ManagedMemoryError", Intrinsic: "StringCursorCreate"},
 	{Owner: "StringCursor", Name: "current", Result: "String", Lends: true, Intrinsic: "StringCursorCurrent"},
 	{Owner: "StringCursor", Name: "advance", Self: "mutates", Throws: "ManagedMemoryError", Intrinsic: "StringCursorAdvance"},
@@ -807,22 +797,6 @@ var tableFunctions = []function{
 	{Owner: "GroupMemory", Name: "takeFirst", Self: "mutates", Params: []string{"at ElementIndex"}, Result: "A", Intrinsic: "GroupsTakeFirst"},
 	{Owner: "GroupMemory", Name: "takeSecond", Self: "mutates", Params: []string{"at ElementIndex"}, Result: "B", Intrinsic: "GroupsTakeSecond"},
 	{Owner: "GroupMemory", Name: "clear", Self: "mutates", Params: []string{"at ElementIndex"}, Bounds: []string{"A Droppable", "B Droppable"}, Intrinsic: "GroupsClear"},
-
-	{Owner: "List", Name: "create", Static: true, Result: "Self", Intrinsic: "ListCreate"},
-	{Owner: "List", Name: "count", Result: "Count", Intrinsic: "ListCount"},
-	{Owner: "List", Name: "isEmpty", Result: "Bool", Intrinsic: "ListIsEmpty"},
-	{Owner: "List", Name: "contains", Params: []string{"key SlotKey with T"}, Result: "Bool", Intrinsic: "ListContains"},
-	{Owner: "List", Name: "prepend", Self: "mutates", Params: []string{"consumes value T"}, Result: "SlotKey with T", Intrinsic: "ListPrepend"},
-	{Owner: "List", Name: "append", Self: "mutates", Params: []string{"consumes value T"}, Result: "SlotKey with T", Intrinsic: "ListAppend"},
-	{Owner: "List", Name: "removeFirst", Self: "mutates", Result: "T", Throws: "ArrayError", Intrinsic: "ListRemoveFirst"},
-	{Owner: "List", Name: "removeLast", Self: "mutates", Result: "T", Throws: "ArrayError", Intrinsic: "ListRemoveLast"},
-	{Owner: "List", Name: "first", Result: "SlotKey with T", Throws: "ArrayError", Intrinsic: "ListFirst"},
-	{Owner: "List", Name: "last", Result: "SlotKey with T", Throws: "ArrayError", Intrinsic: "ListLast"},
-	{Owner: "List", Name: "next", Params: []string{"key SlotKey with T"}, Result: "SlotKey with T", Throws: "ArrayError", Intrinsic: "ListNext"},
-	{Owner: "List", Name: "prev", Params: []string{"key SlotKey with T"}, Result: "SlotKey with T", Throws: "ArrayError", Intrinsic: "ListPrev"},
-	{Owner: "List", Name: "remove", Self: "mutates", Params: []string{"key SlotKey with T"}, Result: "T", Throws: "ArrayError", Intrinsic: "ListRemove"},
-	{Owner: "List", Name: "moveToFront", Self: "mutates", Params: []string{"key SlotKey with T"}, Intrinsic: "ListMoveToFront"},
-	{Owner: "List", Name: "dropEmpty", Self: "consumes", Intrinsic: "ListDropEmpty"},
 
 	// fromWord and word are the library's door to a slot key's word, which a slot map of the library packs its slot and the
 	// slot's generation into; each is the word itself.
@@ -1095,7 +1069,6 @@ var units = []unit{
 	{Key: "Os", Doc: "the OS unit, linked into a program that calls an OS entry"},
 	{Key: "Linker", Doc: "the linker, which defines the symbol itself"},
 	{Key: "Shared", Doc: "the frozen values and cowns, in the runtime's source (runtime/frozen.maxon)"},
-	{Key: "Interpreter", Doc: "no unit: only the interpreter runs the entry, and the compiler refuses a call of it"},
 	{Key: "Source", Doc: "the runtime's Maxon source (runtime/), which the compiler compiles with every program"},
 }
 
@@ -1268,22 +1241,6 @@ var entries = []entry{
 	{"RecsReserve", "rt.recs.reserve", "Arrays", roleCall, "(array of records held in place, count, bytes): makes the buffer hold count elements"},
 	{"RecsShrink", "rt.recs.shrink", "Arrays", roleCall, "(array of records held in place, length, bytes): sets the length to one that is not above it, keeping the buffer"},
 	{"ArrayShrink", "rt.array.shrink", "Arrays", roleCall, "(array or byte array, length): sets the length to one that is not above it, keeping the buffer; what was above it was moved out or needs no drop"},
-
-	{"ListNew", "rt.list.new", "Interpreter", roleCall, "() -> list"},
-	{"ListLen", "rt.list.len", "Interpreter", roleCall, "(list) -> count"},
-	{"ListContains", "rt.list.contains", "Interpreter", roleCall, "(list, slot key) -> bool"},
-	{"ListElem", "rt.list.elem", "Interpreter", roleCall, "(list, slot key) -> address of the element"},
-	{"ListPushFront", "rt.list.pushFront", "Interpreter", roleCall, "(list, element) -> slot key: moves it in"},
-	{"ListPushBack", "rt.list.pushBack", "Interpreter", roleCall, "(list, element) -> slot key: moves it in"},
-	{"ListPopFront", "rt.list.popFront", "Interpreter", roleCall, "(list) -> element: moves it out; traps if empty"},
-	{"ListPopBack", "rt.list.popBack", "Interpreter", roleCall, "(list) -> element: moves it out; traps if empty"},
-	{"ListFirst", "rt.list.first", "Interpreter", roleCall, "(list) -> slot key, or 0 if empty"},
-	{"ListLast", "rt.list.last", "Interpreter", roleCall, "(list) -> slot key, or 0 if empty"},
-	{"ListNext", "rt.list.next", "Interpreter", roleCall, "(list, slot key) -> slot key, or 0 after the last"},
-	{"ListPrev", "rt.list.prev", "Interpreter", roleCall, "(list, slot key) -> slot key, or 0 before the first"},
-	{"ListRemove", "rt.list.remove", "Interpreter", roleCall, "(list, slot key) -> element: moves it out"},
-	{"ListMoveToFront", "rt.list.moveToFront", "Interpreter", roleCall, "(list, slot key)"},
-	{"ListCopy", "rt.list.copy", "Interpreter", roleCall, "(list) -> list: every element copied, slot keys still valid in the copy"},
 
 	{"FrozenFreeze", "rt.frozen.freeze", "Shared", roleCall, "(value) -> frozen: moves the value into a new box with a count of 1; the backend stores a String's word after it"},
 	{"FrozenGet", "rt.frozen.get", "Shared", roleCall, "(frozen) -> what it holds, lent: an immutable borrow, valid while the frozen value is; the backend writes it in place, a load that leaves the count alone"},

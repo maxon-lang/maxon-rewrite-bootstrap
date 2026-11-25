@@ -41,11 +41,12 @@ function put(mutates p SlotMap with T, consumes item T) uses T returns SlotKey w
 	return p.insert(item)
 end 'put'
 
-function back(mutates l List with T, consumes item T) uses T returns SlotKey with T
-	let node = l.append(item)
-	l.moveToFront(node)
-	return node
-end 'back'
+function rotate(mutates l List with T, consumes item T) uses T returns Count
+	l.append(item)
+	let first = try l.removeFirst() otherwise panic("the list has an element")
+	l.append(first)
+	return l.count()
+end 'rotate'
 
 function swapFirst(mutates a Array with T, mutates b Array with T) uses T where T implements Copyable
 	let t = a[0].clone()
@@ -77,10 +78,10 @@ function main() returns ExitCode
 	var p = CountPool.create()
 	let h = put(p, item: 4)
 	var l = CountList.create()
-	let n = back(l, item: 5)
+	let n = rotate(l, item: 5)
 	var grid = CountArrayArray.create(0)
 	grid.push(CountArray.create(0))
 	nested(grid, item: 6)
-	print("{find(p, handle: h).isSome()} {l.contains(n)}")
+	print("{find(p, handle: h).isSome()} {n}")
 	return 0
 end 'main'

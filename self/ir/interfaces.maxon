@@ -87,7 +87,6 @@ end 'checkedTable'
 // keeping it, and a scalar is copied in. A borrow cannot outlive the call it is lent to, and the frame outlives the call.
 function lowerBoxed(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, v Reg, ty ast.TypeID, iface ast.TypeID) returns Reg
 	let table = tableOfBox(l, p: p, ms: ms, e: e, src: ty, iface: iface)
-	requireNative(l, p: p, ms: ms, site: siteOf(l, p: p, node: e), t: table.concrete)
 	let consumed = isConsumed(p, module: l.module, node: e)
 	var value = v
 	if owning(regKind(l, v: v)) 'settle'

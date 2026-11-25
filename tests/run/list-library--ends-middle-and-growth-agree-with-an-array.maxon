@@ -1,0 +1,99 @@
+// A List is a ring over an array: elements added at either end, inserted and removed in the middle, and taken from either
+// end, across many doublings and with the ring wrapped around, give what an array given the same operations does. A walk
+// and get(i) read them in the same order.
+typealias Counts = List with Count
+
+typealias CountArray = Array with Count
+
+// next is the step of a linear congruential generator, so the operations are the same on every run.
+function next(seed Count) returns Count
+	return (try seed * 1103515245 + 12345 otherwise panic("a seed past a word")) mod 2147483648
+end 'next'
+
+function agree(l Counts, model CountArray) returns bool
+	if l.count() != model.count() 'count'
+		return false
+	end 'count'
+	var i = 0 as Count
+	for n in l 'walk'
+		if n != (try model.get(i) otherwise 0) or (try l.get(i) otherwise 0) != n 'differs'
+			return false
+		end 'differs'
+		i = try i + 1 otherwise panic("a count past a word")
+	end 'walk'
+	return i == model.count()
+end 'agree'
+
+function main() returns ExitCode
+	var l = Counts.create()
+	var model = CountArray.create(0)
+	var seed = 7 as Count
+	var checks = 0 as Count
+	for step in 0 upto 4000 'steps'
+		seed = next(seed)
+		let op = (seed / 65536) mod 8
+		let at = try (seed / 8) mod (try model.count() + 1 otherwise panic("a count past a word")) otherwise 0
+		if op == 0 or op == 1 'append'
+			l.append(step)
+			model.push(step)
+		end 'append' else if op == 2 'prepend'
+			l.prepend(step)
+			model.insert(0, value: step)
+		end 'prepend' else if op == 3 'insert'
+			try l.insert(at, value: step) otherwise panic("an index up to the count")
+			model.insert(at, value: step)
+		end 'insert' else if op == 4 and not model.isEmpty() 'remove'
+			let place = try at mod model.count() otherwise 0
+			let a = try l.remove(place) otherwise panic("an index below the count")
+			let b = try model.remove(place) otherwise panic("an index below the count")
+			if a != b 'removed'
+				print("remove differs at step {step}\n")
+				return 1
+			end 'removed'
+		end 'remove' else if op == 5 and not model.isEmpty() 'first'
+			let a = try l.removeFirst() otherwise panic("an element")
+			let b = try model.remove(0) otherwise panic("an element")
+			if a != b 'removed'
+				print("removeFirst differs at step {step}\n")
+				return 1
+			end 'removed'
+		end 'first' else if op == 6 and not model.isEmpty() 'last'
+			let a = try l.removeLast() otherwise panic("an element")
+			let b = try model.pop() otherwise panic("an element")
+			if a != b 'removed'
+				print("removeLast differs at step {step}\n")
+				return 1
+			end 'removed'
+		end 'last'
+		if step mod 97 == 0 'check'
+			if not agree(l, model: model) 'differs'
+				print("the list differs at step {step}\n")
+				return 1
+			end 'differs'
+			checks = try checks + 1 otherwise panic("a count past a word")
+		end 'check'
+	end 'steps'
+	if not agree(l, model: model) 'end'
+		print("the list differs at the end\n")
+		return 1
+	end 'end'
+	print("{checks} checks, {l.count()} elements\n")
+	let past = try l.get(l.count()) otherwise 0
+	print("{past}\n")
+	var empty = Counts.create()
+	let a = try empty.removeFirst() otherwise 1
+	let b = try empty.removeLast() otherwise 2
+	let c = try empty.first() otherwise 3
+	let d = try empty.last() otherwise 4
+	let e = try empty.remove(0) otherwise 5
+	try empty.insert(1, value: 9) otherwise 'past'
+		print("insert past the count fails\n")
+	end 'past'
+	print("{a} {b} {c} {d} {e} {empty.count()}\n")
+	return 0
+end 'main'
+
+//> 42 checks, 498 elements
+//> 0
+//> insert past the count fails
+//> 1 2 3 4 5 0

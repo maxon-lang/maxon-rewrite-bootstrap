@@ -985,7 +985,6 @@ export function typeLinkNameIn(p Project, tt TypeSlot, reads TypeTable, t TypeID
 		enumTy gives nominalLinkName(p, tt: tt, reads: reads, t: t)
 		unionTy gives nominalLinkName(p, tt: tt, reads: reads, t: t)
 		builtinArray gives nominalLinkName(p, tt: tt, reads: reads, t: t)
-		builtinList gives nominalLinkName(p, tt: tt, reads: reads, t: t)
 		builtinSlotKey gives nominalLinkName(p, tt: tt, reads: reads, t: t)
 		builtinFrozen gives nominalLinkName(p, tt: tt, reads: reads, t: t)
 		builtinCown gives nominalLinkName(p, tt: tt, reads: reads, t: t)

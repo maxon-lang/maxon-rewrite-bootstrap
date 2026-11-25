@@ -831,7 +831,6 @@ export function typeIsNominal(tt ast.TypeSlot, reads ast.TypeTable, t ast.TypeID
 		enumTy gives true
 		unionTy gives true
 		builtinArray gives true
-		builtinList gives true
 		builtinSlotKey gives true
 		builtinFrozen gives true
 		builtinCown gives true
@@ -888,12 +887,6 @@ export function typeIndexType(p ast.Project, mutates ms ast.ModuleState, ownerTy
 	if k == ast.TypeKind.builtinArray 'arr'
 		return p.builtins.countTy
 	end 'arr'
-	let args = ast.typeArgsOf(ms.types, reads: p.types, t: ownerTy)
-	if k == ast.TypeKind.builtinList and args.count() >= 1 'hl'
-		var hArgs = ast.TypeIDList.create(0)
-		hArgs.push(args[0])
-		return ast.instantiateType(ms.types, reads: p.types, origin: p.builtins.slotKeyOrigin, args: hArgs)
-	end 'hl'
 	return ast.noType
 end 'typeIndexType'
 
@@ -983,7 +976,7 @@ export function lacksCap(mutates c Checker, p ast.Project, mutates ms ast.Module
 				end 'eachP'
 			end 'eachC'
 		end 'cases'
-	end 'uni' else if k == ast.TypeKind.builtinArray or k == ast.TypeKind.builtinList 'col'
+	end 'uni' else if k == ast.TypeKind.builtinArray 'col'
 		let elTy = typeElemType(p, ms: ms, ownerTy: t)
 		let sub = partLacks(c, p: p, ms: ms, wantCopy: wantCopy, t: elTy)
 		if sub.missing 'elMiss'

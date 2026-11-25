@@ -57,7 +57,6 @@ export function macosImports() returns NameList
 	names.push("kqueue")
 	names.push("kevent")
 	names.push("pipe")
-	names.push("poll")
 	names.push("waitpid")
 	names.push("kill")
 	names.push("posix_spawn")

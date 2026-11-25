@@ -82,7 +82,6 @@ function isConstantResult(p ast.Project, ms ast.ModuleState, t ast.TypeID) retur
 		record gives false
 		unionTy gives false
 		builtinArray gives false
-		builtinList gives false
 		builtinSlotKey gives false
 		builtinFrozen gives false
 		builtinCown gives false

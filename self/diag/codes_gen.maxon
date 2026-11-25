@@ -488,6 +488,3 @@ export let errRegisterPressure = "E5001"
 
 // A construct the compiler does not support yet.
 export let errUnsupported = "E9000"
-
-// A construct only the interpreter runs, so no native code is made for it.
-export let errInterpreterOnly = "E9900"

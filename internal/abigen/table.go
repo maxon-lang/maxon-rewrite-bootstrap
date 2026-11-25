@@ -567,6 +567,8 @@ var layouts = []layoutConst{
 		"where an OVERLAPPED_ENTRY holds the completion key."},
 	{"windowsEntryOverlappedOffset", 1, false, toRuntime,
 		"where an OVERLAPPED_ENTRY holds the address of the OVERLAPPED that completed, 0 for a posted packet."},
+	{"windowsEntryTransferredOffset", 3, false, toRuntime,
+		"where an OVERLAPPED_ENTRY holds the number of bytes transferred, 32 bits, which a job's notification holds its message in."},
 	{"windowsEntryBytes", 4, false, toRuntime,
 		"the size of an OVERLAPPED_ENTRY."},
 

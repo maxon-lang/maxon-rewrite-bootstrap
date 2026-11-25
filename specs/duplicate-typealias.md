@@ -759,13 +759,13 @@ typealias Tallies = Array with Integer
 typealias Step = function(Tallies) returns Integer
 
 function foldA(step Step) returns Integer
-	let xs = Tallies.create(0)
+	var xs = Tallies.create(0)
 	xs.push(700)
 	return step(xs)
 end 'foldA'
 
 export function goA() returns String
-	return "{foldA(function(xs) gives (try xs.get(0) otherwise 0) + 1)}"
+	return "{foldA(function(xs) gives try (try xs.get(0) otherwise 0) + 1 otherwise panic("out of range"))}"
 end 'goA'
 
 // --- file: b/b.maxon
@@ -776,13 +776,13 @@ typealias Tallies = List with Integer
 typealias Step = function(Tallies) returns Integer
 
 function foldB(step Step) returns Integer
-	let xs = Tallies.create()
+	var xs = Tallies.create()
 	xs.append(3)
 	return step(xs)
 end 'foldB'
 
 export function goB() returns String
-	return "{foldB(function(xs) gives (try xs.get(0) otherwise 0) + 1)}"
+	return "{foldB(function(xs) gives try (try xs.get(0) otherwise 0) + 1 otherwise panic("out of range"))}"
 end 'goB'
 
 // --- file: main.maxon

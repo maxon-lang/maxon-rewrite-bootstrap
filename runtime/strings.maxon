@@ -391,10 +391,24 @@ function checkSimpleBytes(bytes Count, length Count)
 	end 'wrong'
 end 'checkSimpleBytes'
 
-// copyBytes copies a word at a time and then the bytes left over, first first, so that a target below the source may
-// overlap it: each word is read before the target that overlaps it is written. The count is above 0: a caller that may
-// have nothing to copy decides so with an if of its own and skips the whole step, and copyBytes checks nothing.
+// longCopyBytes is the count above which copyBytes calls the copy routines' copy rather than run its loop, whose short copies a
+// call would only slow.
+let longCopyBytes = 64 as Count
+
+// copyBytes copies count bytes from source to target, places that do not overlap: a long copy with the copy routines' copy
+// (__Raw.copyBytes), a short one with copyForward. The count is above 0: a caller that may have nothing to copy decides so
+// with an if of its own and skips the whole step, and copyBytes checks nothing.
 function copyBytes(source Count, target Count, count Count)
+	if count > longCopyBytes 'long'
+		__Raw.copyBytes(source, target: target, count: count)
+		return
+	end 'long'
+	copyForward(source, target: target, count: count)
+end 'copyBytes'
+
+// copyForward copies a word at a time and then the bytes left over, first first, so that a target below the source may
+// overlap it: each word is read before the target that overlaps it is written.
+function copyForward(source Count, target Count, count Count)
 	var at = 0 as Count
 	while __Raw.wrappingAdd(at, right: wordBytes) <= count 'words'
 		__Raw.storeWord(target, offset: at, value: __Raw.loadWord(source, offset: at))
@@ -404,7 +418,7 @@ function copyBytes(source Count, target Count, count Count)
 		__Raw.storeByte(target, offset: at, value: __Raw.loadByte(source, offset: at))
 		at = __Raw.wrappingAdd(at, right: 1)
 	end 'bytes'
-end 'copyBytes'
+end 'copyForward'
 
 // cStringOf is a new zero-terminated copy of a string, which the caller frees: a path or an argument as the kernel reads
 // it, or a name as a Windows function of an A name reads it.

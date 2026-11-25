@@ -32,13 +32,13 @@ typealias IntList = List with Integer
 typealias IntListList = List with IntList
 
 function main() returns ExitCode
-	let inner1 = IntList.create()
+	var inner1 = IntList.create()
 	inner1.append(1)
 	inner1.append(2)
-	let inner2 = IntList.create()
+	var inner2 = IntList.create()
 	inner2.append(3)
 	inner2.append(4)
-	let outer = IntListList.create()
+	var outer = IntListList.create()
 	outer.append(inner1)
 	outer.append(inner2)
 	print("{outer.count()}\n")
@@ -67,10 +67,10 @@ typealias Integer = int(i64.min to i64.max)
 typealias IntList = List with Integer
 
 function main() returns ExitCode
-	let list1 = IntList.create()
+	var list1 = IntList.create()
 	list1.append(10)
 	list1.append(20)
-	let list2 = IntList.create()
+	var list2 = IntList.create()
 	list2.append(30)
 	let arr = [list1, list2]
 	print("{arr.count()}\n")

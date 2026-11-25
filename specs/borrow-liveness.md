@@ -1708,15 +1708,15 @@ type Bag
 		return Self{items: StringList.create()}
 	end 'create'
 
-	function reset()
+	function reset(mutates self)
 		items = StringList.create()
 	end 'reset'
 end 'Bag'
 
 function main() returns ExitCode
-	let b = Bag.create()
+	var b = Bag.create()
 	b.items.append("alpha string long enough for heap allocation {40 + 2}")
-	let s = try b.items.first() otherwise "none"
+	let s = (try b.items.first() otherwise "none").clone()
 	b.reset()
 	print("[{s}]\n")
 	return 0
@@ -1743,14 +1743,14 @@ type Bag
 	end 'create'
 end 'Bag'
 
-function wipe(b Bag)
+function wipe(mutates b Bag)
 	b.items = StringList.create()
 end 'wipe'
 
 function main() returns ExitCode
-	let b = Bag.create()
+	var b = Bag.create()
 	b.items.append("alpha string long enough for heap allocation {40 + 2}")
-	let s = try b.items.first() otherwise "none"
+	let s = (try b.items.first() otherwise "none").clone()
 	wipe(b)
 	print("[{s}]\n")
 	return 0

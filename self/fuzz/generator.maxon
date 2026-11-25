@@ -1,6 +1,6 @@
 // The program generator writes random minimaxon programs over the constructs the memory model's rules cover: records, unions,
 // strings, let and var, assignment, moves, copy(), the four conventions, calls whose arguments overlap or are disjoint, match
-// bindings, loops, generics with bounds, and arrays, lists and slot maps with slot keys. A program is well formed, and the types
+// bindings, loops, generics with bounds, and arrays and slot maps with slot keys. A program is well formed, and the types
 // are consistent, but nothing in it tries to obey the ownership rules: the checker decides which programs are accepted, and
 // every one it accepts must run without a violation. The generator only leans toward programs that pass, so that most of what
 // it writes reaches the interpreter, and leans toward the edges of the rules where a hole would be: arguments that overlap,
@@ -19,7 +19,6 @@ enum Kind
 	kUnion
 	kArray
 	kSlotMap
-	kList
 	kSlotKey
 	kOption
 	kFrozen
@@ -213,7 +212,7 @@ type Generator
 	var pendingInit as CountList
 	// carelessPercent is how often this program breaks a rule of ownership on purpose.
 	var carelessPercent as Count
-	// arraysOnly keeps a list and a slot map out of the program, so that it also compiles to an executable.
+	// arraysOnly keeps a slot map out of the program, so that it also compiles to an executable.
 	var arraysOnly as bool
 	// sharing lets the program freeze values, make cowns and schedule behaviours.
 	var sharing as bool
@@ -348,12 +347,6 @@ type Generator
 		return self.internInstance(Kind.kSlotMap, base: "SlotMap", args: args)
 	end 'slotMapOf'
 
-	function listOf(mutates self, e Count) returns Count
-		var args = CountList.create(0)
-		args.push(e)
-		return self.internInstance(Kind.kList, base: "List", args: args)
-	end 'listOf'
-
 	function slotKeyOf(mutates self, e Count) returns Count
 		var args = CountList.create(0)
 		args.push(e)
@@ -465,12 +458,8 @@ type Generator
 			let inner = self.elementType()
 			return self.slotMapOf(inner)
 		end 'pool'
-		if arraysOnly 'arrays'
-			let inner = self.elementType()
-			return self.arrayOf(inner)
-		end 'arrays'
 		let inner = self.elementType()
-		return self.listOf(inner)
+		return self.arrayOf(inner)
 	end 'anyType'
 
 	// elementType is a type an array, a slot map or an option holds.
@@ -617,10 +606,6 @@ type Generator
 			let inner = self.elementTypeBefore()
 			return self.slotMapOf(inner)
 		end 'pool'
-		if n < 14 and not arraysOnly 'list'
-			let inner = self.elementTypeBefore()
-			return self.listOf(inner)
-		end 'list'
 		return self.elementTypeBefore()
 	end 'fieldType'
 
@@ -933,11 +918,11 @@ type Generator
 		return t == a.want
 	end 'accepts'
 
-	// isCollection is whether a value of type t is subscripted: an array or a list. A slot map's element is lent by its get,
+	// isCollection is whether a value of type t is subscripted: an array. A slot map's element is lent by its get,
 	// which the generator does not write.
 	function isCollection(t Count) returns bool
 		let k = tys[t].kind
-		return k == Kind.kArray or k == Kind.kList
+		return k == Kind.kArray
 	end 'isCollection'
 
 	// walk is the places in and under p whose type accept takes.
@@ -1346,7 +1331,7 @@ type Generator
 			end 'some'
 			return "{self.typeExpr(t)}.create(0)"
 		end 'array'
-		if k == Kind.kSlotMap or k == Kind.kList 'collection'
+		if k == Kind.kSlotMap 'collection'
 			if self.chance(30) 'storage'
 				let s = self.ownedFromStorage(t)
 				if s.isSome() 'some'
@@ -1444,7 +1429,7 @@ type Generator
 		return "{self.typeExpr(t)}.none"
 	end 'optionExpr'
 
-	// slotKeyExpr is the slot key of a new element of a slot map or a list, or one that a variable already holds.
+	// slotKeyExpr is the slot key of a new element of a slot map, or one that a variable already holds.
 	function slotKeyExpr(mutates self, t Count, depth Depth) returns String
 		let elem = tys[t].args[0]
 		let below = lower(depth)
@@ -1463,17 +1448,6 @@ type Generator
 				return "{store[p].src}.insert({value})"
 			end 'insert'
 		end 'pool'
-		let listT = self.listOf(elem)
-		let list = self.place(listT, mutable: true)
-		if list.isSome() 'list'
-			let l = list.unwrap()
-			var add = "append"
-			if self.pick(2) == 1 'prepend'
-				add = "prepend"
-			end 'prepend'
-			let value = self.owned(elem, depth: below)
-			return "{store[l].src}.{add}({value})"
-		end 'list'
 		let again = self.place(t, mutable: false)
 		if again.isSome() 'again'
 			return store[again.unwrap()].src.clone()
@@ -1869,7 +1843,7 @@ type Generator
 				continue 'each'
 			end 'unusable'
 			let k = tys[vars[v].t].kind
-			if k == Kind.kArray or k == Kind.kList 'sequence'
+			if k == Kind.kArray 'sequence'
 				if tys[vars[v].t].args[0] == t 'element'
 					found.push(v)
 				end 'element'
@@ -1969,17 +1943,6 @@ type Generator
 			let inner = self.inside(whole, src: "{name}[0]", t: elemT, mutable: mutable)
 			return table.Option.some(self.element(inner, guard: "{name}.count() > 0"))
 		end 'array'
-		if k == Kind.kList 'handled'
-			let pooledT = tys[t].args[0]
-			let handleT = self.slotKeyOf(pooledT)
-			let h = self.place(handleT, mutable: false)
-			if not h.isSome() 'none'
-				return table.Option.none
-			end 'none'
-			let hsrc = store[h.unwrap()].src.clone()
-			let inner = self.inside(whole, src: "{name}[{hsrc}]", t: pooledT, mutable: mutable)
-			return table.Option.some(self.element(inner, guard: "{name}.contains({hsrc})"))
-		end 'handled'
 		if k == Kind.kFrozen 'frozen'
 			let held = tys[t].args[0]
 			if tys[held].kind == Kind.kArray 'array'
@@ -2076,7 +2039,6 @@ type Generator
 			actMatch then return self.actMatch(depth)
 			actArray then return self.actArray(depth)
 			actSlotMap then return self.actSlotMap(depth)
-			actList then return self.actList(depth)
 			actReturn then return self.actReturn(depth)
 			actLoopJump then return self.actLoopJump(depth)
 			actElement then return self.actElement(depth)
@@ -2811,7 +2773,7 @@ type Generator
 		return true
 	end 'actSlotMap'
 
-	// elementStatement2 does something with the element a slot key names in a slot map or a list, which the caller guards.
+	// elementStatement2 does something with the element a slot key names in a slot map, which the caller guards.
 	function elementStatement2(mutates self, v Count)
 		let elem = self.elementTypeOf(vars[v].t)
 		let mutable = vars[v].mutable
@@ -2835,75 +2797,6 @@ type Generator
 			self.line("_ = {src}.clone()")
 		end 'clone'
 	end 'elementStatement2'
-
-	function actList(mutates self, depth Depth) returns bool
-		let found = self.collectionVar(kindsOf(Kind.kList))
-		if not found.isSome() 'none'
-			return false
-		end 'none'
-		let v = found.unwrap()
-		if not vars[v].mutable 'immutable'
-			return false
-		end 'immutable'
-		let name = vars[v].name.clone()
-		let elem = vars[v].t
-		let element = tys[elem].args[0]
-		let n = self.pick(8)
-		if n < 2 'add'
-			let h = self.fresh("h")
-			var adder = "append"
-			if self.pick(2) == 1 'prepend'
-				adder = "prepend"
-			end 'prepend'
-			let value = self.owned(element, depth: 2)
-			self.line("{kwLet} {h} = {name}.{adder}({value})")
-			let handleT = self.slotKeyOf(element)
-			_ = self.declare(h, t: handleT, owned: false, mutable: false)
-		end 'add' else if n < 3 'take'
-			let kept = self.fresh("v")
-			var taker = "removeFirst"
-			if self.pick(2) == 1 'last'
-				taker = "removeLast"
-			end 'last'
-			let fallback = self.owned(element, depth: 2)
-			self.line("{kwLet} {kept} = {kwTry} {name}.{taker}() {kwOtherwise} {fallback}")
-			_ = self.declare(kept, t: element, owned: true, mutable: false)
-		end 'take' else if n < 4 'remove'
-			let handleT = self.slotKeyOf(element)
-			let held = self.place(handleT, mutable: false)
-			if held.isSome() 'some'
-				let kept = self.fresh("v")
-				self.line("{kwLet} {kept} = {name}.remove({store[held.unwrap()].src})")
-				let optionT = self.optionOf(element)
-				_ = self.declare(kept, t: optionT, owned: true, mutable: false)
-				return true
-			end 'some'
-			return false
-		end 'remove' else if n < 5 'move'
-			let handleT = self.slotKeyOf(element)
-			let held = self.place(handleT, mutable: false)
-			if held.isSome() 'some'
-				self.line("{name}.moveToFront({store[held.unwrap()].src})")
-				return true
-			end 'some'
-			return false
-		end 'move' else if n < 6 'element'
-			let mark = self.guardedBegin()
-			self.elementStatement2(v)
-			self.guardedEnd(mark)
-		end 'element' else if n < 7 'first'
-			let kept = self.fresh("v")
-			let mark = self.guardedBegin()
-			guards.push("{kwNot} {name}.isEmpty()")
-			self.line("{kwLet} {kept} = {kwTry} {name}.first() {kwOtherwise} panic(\"the list is empty\")")
-			let handleT = self.slotKeyOf(element)
-			_ = self.declare(kept, t: handleT, owned: false, mutable: false)
-			self.guardedEnd(mark)
-		end 'first' else 'count'
-			self.say(printed("{name}.count()"))
-		end 'count'
-		return true
-	end 'actList'
 
 	function actBox(mutates self, depth Depth) returns bool
 		var boxes = CountList.create(0)
@@ -3131,19 +3024,6 @@ type Generator
 			let handleT = self.slotKeyOf(elem)
 			_ = self.declare(h, t: handleT, owned: false, mutable: false)
 		end 'pool'
-		if self.chance(70) and not arraysOnly 'list'
-			elem = self.elementType()
-			let l = self.fresh("v")
-			let lt = self.listOf(elem)
-			let listText = self.typeExpr(lt)
-			self.line("{kwVar} {l} = {listText}.create()")
-			_ = self.declare(l, t: lt, owned: true, mutable: true)
-			let h = self.fresh("h")
-			let value = self.owned(elem, depth: 2)
-			self.line("{kwLet} {h} = {l}.append({value})")
-			let handleT = self.slotKeyOf(elem)
-			_ = self.declare(h, t: handleT, owned: false, mutable: false)
-		end 'list'
 		self.sharingPreamble()
 	end 'preamble'
 
@@ -3316,9 +3196,7 @@ type Generator
 		var call = ""
 		if k == Kind.kArray 'array'
 			call = "churn({name})"
-		end 'array' else if k == Kind.kList 'list'
-			call = "churnList({name})"
-		end 'list' else 'pool'
+		end 'array' else 'pool'
 			let value = self.owned(elem, depth: 1)
 			call = "churnSlotMap({name}, x: {value})"
 		end 'pool'
@@ -3346,7 +3224,7 @@ type Generator
 		if k == Kind.kArray 'array'
 			return tCount
 		end 'array'
-		if k == Kind.kSlotMap or k == Kind.kList 'handled'
+		if k == Kind.kSlotMap 'handled'
 			let pooledT = tys[t].args[0]
 			return self.slotKeyOf(pooledT)
 		end 'handled'
@@ -3832,39 +3710,6 @@ type Generator
 			end 'guard'
 			return table.Option.some(Access.make("0", result: typed(Kind.kCount, value: "0")))
 		end 'array'
-		if k == Kind.kList 'handled'
-			if not mutable 'named'
-				// A slot key that is a field is a copy that the checker still sees as a place, so it is passed only by name.
-				let handleT = self.slotKeyOf(elem)
-				let handles = self.places(handleT, mutable: false)
-				var wholes = CountList.create(0)
-				for i in 0 upto handles.count() 'each'
-					if store[handles[i]].whole 'whole'
-						wholes.push(handles[i])
-					end 'whole'
-				end 'each'
-				if wholes.count() == 0 'none'
-					return table.Option.none
-				end 'none'
-				let h = wholes[self.pick(wholes.count())]
-				let hsrc = store[h].src.clone()
-				guards.push("{src}.contains({hsrc})")
-				return table.Option.some(Access.make(hsrc.clone(), result: hsrc))
-			end 'named'
-			let name = self.fresh("h")
-			var add = "insert"
-			if k == Kind.kList 'list'
-				add = "append"
-				if self.pick(2) == 1 'prepend'
-					add = "prepend"
-				end 'prepend'
-			end 'list'
-			let value = self.owned(elem, depth: 0)
-			self.line("{kwLet} {name} = {src}.{add}({self.typedOf(elem, value: value)})")
-			let handleT = self.slotKeyOf(elem)
-			_ = self.declare(name, t: handleT, owned: false, mutable: false)
-			return table.Option.some(Access.make(name.clone(), result: name))
-		end 'handled'
 		panic("ensureElement: not a collection: {tys[bt].src}")
 	end 'ensureElement'
 

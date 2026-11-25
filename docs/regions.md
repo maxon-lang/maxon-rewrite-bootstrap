@@ -288,8 +288,9 @@ Where this document was open, minimaxon does the following.
   and element and keeps the slot keys of a list and a slot map valid. A slot key that names nothing traps with a message, as an
   index out of range does.
 - **The test runner.** Every program in `tests/run` runs natively and under the interpreter, which must give the same
-  stdout and exit code and no violation; a program that needs a map, a list or a slot map has no native code and runs under
-  the interpreter alone (the runner sees `E9900` and falls back, so no directive is needed).
+  stdout and exit code and no violation. (A program that needed a map, a list or a slot map had no native code then and
+  ran under the interpreter alone, the runner falling back on `E9900`; each is a library type over the array now, and
+  `E9900` is gone.)
 - **Checker holes found.** Three, each with a test in `tests/errors/` that failed first.
   1. A field or an element of a temporary could be moved out of it (`let s = make().label`): the pass treated an
      expression that is not a place as fresh and moved nothing, so the temporary and the binding both owned the string
@@ -397,9 +398,9 @@ values, cowns and behaviours"); these are the decisions behind them.
   scheduled and gives it back when it has run, so the cown outlives the references of the code that scheduled it.
 - **Lowering.** A frozen value and a cown are boxes that more than one place owns (`rt.frozen.freeze`, `rt.frozen.get`,
   `rt.share`, `rt.cown.new`), and a `when` is one instruction whose body is a function of its own, with the cowns first and
-  then the captures. Nothing of it is native: the driver refuses it with `E9900`, `freeze` alone included, because
-  green threads, a scheduler and atomic counts are not built and a frozen value with no thread to cross to tests none of
-  the rules.
+  then the captures. Nothing of it was native at this step: the driver refused it with `E9900`, `freeze` alone included,
+  because green threads, a scheduler and atomic counts were not built and a frozen value with no thread to cross tested
+  none of the rules. They are native now, and `E9900` is gone.
 - **A scheduler that simulates the interleaving.** Verona's queues, as written: a behaviour is queued on each cown it
   names when it is scheduled (one atomic step), and runs when it is first in all of its queues, so behaviours on a common
   cown run in the order they were scheduled and nothing waits while holding a cown. Threads are stacks of frames handed the turn

@@ -36,7 +36,6 @@ end 'expectCheckError'
 
 test 'bodies'
 	expectChecked("tests/run/generics.maxon")
-	expectChecked("tests/run/list-slot-keys.maxon")
 	expectChecked("tests/run/slot-key-stack.maxon")
 	expectChecked("tests/modules/generics")
 	expectChecked("tests/modules/throws")

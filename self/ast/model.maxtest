@@ -29,10 +29,10 @@ test 'ast model'
 	table.assertEqStr(typeName(ms.types, reads: proj.types, t: arrCount), expected: "Array with Count", label: "arrCount")
 	var nested = TypeIDList.create(0)
 	nested.push(arrCount)
-	let listArrCount = instantiateType(ms.types, reads: proj.types, origin: proj.builtins.listOrigin, args: nested)
-	table.assertEqStr(typeName(ms.types, reads: proj.types, t: listArrCount), expected: "List with (Array with Count)", label: "listArrCount")
-	let listArrCount2 = instantiateType(ms.types, reads: proj.types, origin: proj.builtins.listOrigin, args: nested)
-	if listArrCount != listArrCount2 'intern'
+	let arrArrCount = instantiateType(ms.types, reads: proj.types, origin: proj.builtins.arrayOrigin, args: nested)
+	table.assertEqStr(typeName(ms.types, reads: proj.types, t: arrArrCount), expected: "Array with (Array with Count)", label: "arrArrCount")
+	let arrArrCount2 = instantiateType(ms.types, reads: proj.types, origin: proj.builtins.arrayOrigin, args: nested)
+	if arrArrCount != arrArrCount2 'intern'
 		panic("type interning failed")
 	end 'intern'
 	let fid = typeEntry(ms.types, reads: proj.types, t: proj.builtins.arrayOrigin).findMethod("push").unwrap()

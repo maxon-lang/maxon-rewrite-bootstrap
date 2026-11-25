@@ -1,0 +1,26 @@
+// expect-error: E2013 at 16:2
+// expect-error: E3186 at 22:2
+// A List's get lends a place read-only from a list the caller may only read, and the place holds the list while it is
+// used.
+typealias Items = List with Item
+
+type Item
+	export var value as Count
+
+	static function make(value Count) returns Item
+		return Item{value: value}
+	end 'make'
+end 'Item'
+
+function touch(items Items) throws ArrayError
+	try items.get(0).value = 3
+end 'touch'
+
+function main() returns ExitCode
+	var items = Items from [Item.make(1)]
+	let held = try items.first() otherwise panic("first")
+	items.append(Item.make(2))
+	print("{held.value}\n")
+	try touch(items) otherwise ignore
+	return 0
+end 'main'

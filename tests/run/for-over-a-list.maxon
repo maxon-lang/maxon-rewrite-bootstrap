@@ -13,9 +13,9 @@ end 'Item'
 
 function main() returns ExitCode
 	var l = ItemList.create()
-	_ = l.append(Item.make("b", weight: 2))
-	_ = l.prepend(Item.make("a", weight: 1))
-	_ = l.append(Item.make("c", weight: 3))
+	l.append(Item.make("b", weight: 2))
+	l.prepend(Item.make("a", weight: 1))
+	l.append(Item.make("c", weight: 3))
 	for item in l 'items'
 		print("{item.name}:{item.weight};")
 	end 'items'

@@ -232,8 +232,58 @@
 
 	// entryUnregister takes a handle's filters off the kqueue, which its close does too.
 	function entryUnregister(scheduler Count, entry Count)
+		if __Raw.loadWord(entry, offset: entryKindOffset) == entryKindProcess 'process'
+			_ = changeProcess(scheduler, entry: entry, flags: macosEvDelete)
+			return
+		end 'process'
 		_ = changeHandle(scheduler, entry: entry, flags: macosEvDelete)
 	end 'entryUnregister'
+
+	// processWatch has the kqueue report the exit of a process, the pid an entry holds: its EVFILT_PROC filter with NOTE_EXIT,
+	// and gives the entry, or noEntry. The kernel refuses the filter with ESRCH from the moment the process starts to exit, before
+	// it can be waited for, so a process that ended before the filter was added is never reported: its entry is given with its
+	// event kept, as though the exit had come, and its first wait ends at once. The caller waits for the process after a wake
+	// only once the system says it has ended, and watches it again otherwise (processArm).
+	function processWatch(scheduler Count, process Count) returns Count
+		let entry = entryTake(scheduler, kind: entryKindProcess, handle: process)
+		let result = changeProcess(scheduler, entry: entry, flags: macosEvAddClear)
+		if not failed(result) 'watched'
+			return entry
+		end 'watched'
+		if errnoOf(result) == macosEsrch 'ended'
+			__Raw.storeRelease(entry, offset: eventRead, value: eventQueued)
+			return entry
+		end 'ended'
+		entryGive(scheduler, entry: entry)
+		return noEntry
+	end 'processWatch'
+
+	// processArm adds the exit filter of the process of an entry again, and gives whether the kqueue watches the process now:
+	// false when it refuses it with ESRCH, since the process has started to exit, which no filter added from then on reports.
+	// A filter still in place, after a wake that an event of the entry's last owner made, is only changed.
+	function processArm(entry Count) returns bool
+		let result = changeProcess(schedulerOf(__Raw.threadContext()), entry: entry, flags: macosEvAddClear)
+		if not failed(result) 'watched'
+			return true
+		end 'watched'
+		if errnoOf(result) != macosEsrch 'refused'
+			panic("the event queue refused to watch a child again")
+		end 'refused'
+		return false
+	end 'processArm'
+
+	// changeProcess makes a change of flags to the exit filter of the pid of an entry, in the running thread's block, and gives
+	// kevent's result, -errno where it failed.
+	function changeProcess(scheduler Count, entry Count, flags Count) returns Count
+		let change = __Raw.wrappingAdd(threadBlockSwitch(__Raw.threadContext()), right: threadBlockEventsOffset)
+		fillKevent(change, ident: __Raw.loadWord(entry, offset: entryHandleOffset), filter: macosEvfiltProc, flags: flags, key: entry)
+		__Raw.storeWord32(change, offset: macosKeventFflagsOffset, value: macosNoteExit)
+		return checkedInt(__Raw.callImport6("kevent", arg1: __Raw.loadWord(scheduler, offset: schedEventQueueOffset), arg2: change, arg3: oneChange, arg4: noEvents, arg5: 0, arg6: noTimeout))
+	end 'changeProcess'
+
+	// processWatchClose has nothing to close: the filter left the kqueue with the entry, and a pid is no handle.
+	function processWatchClose(pid Count)
+	end 'processWatchClose'
 
 	// changeHandle makes a change of flags to both filters of a handle's fd.
 	function changeHandle(scheduler Count, entry Count, flags Count) returns bool

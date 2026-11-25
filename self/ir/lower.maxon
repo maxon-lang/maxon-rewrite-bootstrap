@@ -689,10 +689,6 @@ function visitForStmt(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleSta
 			visitForClusters(l, p: p, ms: ms, s: s)
 			return
 		end 'clusters'
-		if walked == ast.TypeKind.builtinList 'list'
-			visitForList(l, p: p, ms: ms, s: s)
-			return
-		end 'list'
 		visitForEach(l, p: p, ms: ms, s: s)
 		return
 	end 'forEach'
@@ -927,48 +923,6 @@ function countPass(mutates l Lowerer, p ast.Project, s ast.NodeID)
 	emit(l, i: newBin(next, op: BinOp.binAdd, left: passed, right: one, unsigned: true, fail: noBlock))
 	emit(l, i: newStoreSlot(slot, src: next, borrow: false))
 end 'countPass'
-
-// visitForList lowers a for over a List to a walk of its slot keys, from the first to the one with no next. The list is read
-// once, and the ownership pass keeps the body from changing it. Each element is lent to the variable, as a subscript lends
-// it.
-function visitForList(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, s ast.NodeID)
-	let source = ast.forStmtFrom(p.modules[l.mi].tree, id: s)
-	let site = siteOf(l, p: p, node: s)
-	let sym = localEntry(p, module: l.fnModule, id: localOfNode(p, module: l.module, node: s))
-	let held = l.b.f.newSlot(IrKind.kindManaged)
-	let handle = l.b.f.newSlot(IrKind.kindScalar)
-	let top = l.b.newBlock()
-	let body = l.b.newBlock()
-	let cont = l.b.newBlock()
-	let exit = l.b.newBlock()
-	let list = lowerRead(l, p: p, ms: ms, e: source)
-	emit(l, i: newStoreSlot(held, src: list, borrow: true))
-	let first = entry(l, p: p, site: site, symbol: Rt.rtListFirst, kind: IrKind.kindScalar, args: argsOf1(list))
-	emit(l, i: newStoreSlot(handle, src: first, borrow: false))
-	startCount(l, p: p, s: s)
-	goTo(l, target: top)
-	let at = load(l, slot: handle)
-	let more = nonZero(l, v: at)
-	l.b.terminate(l.cur, t: newBranch(more, ifTrue: body, ifFalse: exit))
-	l.cur = body
-	let whole = load(l, slot: held)
-	let current = load(l, slot: handle)
-	let addr = entry(l, p: p, site: site, symbol: Rt.rtListElem, kind: IrKind.kindScalar, args: argsOf2(whole, b: current))
-	let elem = newReg(l, kind: kindOf(l, p: p, ms: ms, t: sym.ty))
-	emit(l, i: newLoadAt(elem, addr: addr))
-	emit(l, i: newStoreSlot(slotOf(sym), src: elem, borrow: owning(regKind(l, v: elem))))
-	pushJumps(l, node: s, brk: exit, cont: cont)
-	lowerBlock(l, p: p, ms: ms, ref: ast.forStmtBodyRef(p.modules[l.mi].tree, id: s))
-	goTo(l, target: cont)
-	popJumps(l)
-	countPass(l, p: p, s: s)
-	let walked = load(l, slot: held)
-	let passed = load(l, slot: handle)
-	let next = entry(l, p: p, site: site, symbol: Rt.rtListNext, kind: IrKind.kindScalar, args: argsOf2(walked, b: passed))
-	emit(l, i: newStoreSlot(handle, src: next, borrow: false))
-	goTo(l, target: top)
-	l.cur = exit
-end 'visitForList'
 
 // visitForCursor lowers a for over a type with the iteration protocol. The cursor is made once, by the collection's
 // createIterator(), and owned by the statement, or is the collection itself, borrowed. Each pass reads the element with

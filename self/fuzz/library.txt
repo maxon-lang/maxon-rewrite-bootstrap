@@ -127,11 +127,6 @@ function churn(mutates items Array with T) uses T returns Count where T implemen
 	return items.count()
 end 'churn'
 
-function churnList(mutates items List with T) uses T returns Count where T implements Droppable
-	try items.removeFirst() otherwise ignore
-	return items.count()
-end 'churnList'
-
 function churnMap(mutates m Map with (String, V)) uses V returns Count where V implements Droppable
 	let gone = m.remove("k0")
 	return m.count()

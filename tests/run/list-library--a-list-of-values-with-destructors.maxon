@@ -1,0 +1,36 @@
+// A List holds an element that has a destructor and no drop: it grows, inserts and removes by moving elements, never by
+// dropping one, each element is taken out and ended by its destructor, and dropEmpty ends the empty list.
+typealias Txns = List with Txn
+
+type Txn
+	var id as Count
+
+	static function begin(id Count) returns Txn
+		return Txn{id: id}
+	end 'begin'
+
+	function commit(destructs self)
+		print("commit {id}\n")
+	end 'commit'
+end 'Txn'
+
+function main() returns ExitCode
+	var txns = Txns.create()
+	for i in 0 upto 5 'begin'
+		txns.append(Txn.begin(i))
+	end 'begin'
+	txns.prepend(Txn.begin(9))
+	(try txns.remove(3) otherwise panic("3")).commit()
+	while not txns.isEmpty() 'commit'
+		(try txns.removeLast() otherwise panic("the list holds one")).commit()
+	end 'commit'
+	txns.dropEmpty()
+	return 0
+end 'main'
+
+//> commit 2
+//> commit 4
+//> commit 3
+//> commit 1
+//> commit 0
+//> commit 9

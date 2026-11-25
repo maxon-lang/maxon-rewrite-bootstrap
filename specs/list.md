@@ -151,7 +151,7 @@ typealias IntList = List with Integer
 function main() returns ExitCode
 	let list = IntList.create()
 	let f = try list.first() otherwise 99
-	return f
+	return try f as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -167,7 +167,7 @@ typealias IntList = List with Integer
 function main() returns ExitCode
 	let list = IntList.create()
 	let l = try list.last() otherwise 99
-	return l
+	return try l as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -181,10 +181,10 @@ typealias Integer = int(i64.min to i64.max)
 typealias IntList = List with Integer
 
 function main() returns ExitCode
-	let list = IntList.create()
+	var list = IntList.create()
 	list.prepend(42)
 	let f = try list.first() otherwise 0
-	return f
+	return try f as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -198,7 +198,7 @@ typealias Integer = int(i64.min to i64.max)
 typealias IntList = List with Integer
 
 function main() returns ExitCode
-	let list = IntList.create()
+	var list = IntList.create()
 	list.prepend(3)
 	list.prepend(2)
 	list.prepend(1)
@@ -226,10 +226,10 @@ typealias Integer = int(i64.min to i64.max)
 typealias IntList = List with Integer
 
 function main() returns ExitCode
-	let list = IntList.create()
+	var list = IntList.create()
 	list.append(42)
 	let f = try list.first() otherwise 0
-	return f
+	return try f as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -243,7 +243,7 @@ typealias Integer = int(i64.min to i64.max)
 typealias IntList = List with Integer
 
 function main() returns ExitCode
-	let list = IntList.create()
+	var list = IntList.create()
 	list.append(1)
 	list.append(2)
 	list.append(3)
@@ -329,7 +329,7 @@ end 'main'
 <!-- test: insert.at-middle -->
 ```maxon
 function main() returns ExitCode
-	let list = List from [10, 30]
+	var list = List from [10, 30]
 	try list.insert(1, value: 20) otherwise 'err'
 		return 1
 	end 'err'
@@ -405,7 +405,7 @@ threw
 <!-- test: remove-first -->
 ```maxon
 function main() returns ExitCode
-	let list = List from [10, 20, 30]
+	var list = List from [10, 20, 30]
 	let removed = (try list.removeFirst() otherwise 0) as FullRangeInt
 	print("{removed}\n")
 	print("{list.count()}\n")
@@ -426,7 +426,7 @@ end 'main'
 <!-- test: remove-last -->
 ```maxon
 function main() returns ExitCode
-	let list = List from [10, 20, 30]
+	var list = List from [10, 20, 30]
 	let removed = (try list.removeLast() otherwise 0) as FullRangeInt
 	print("{removed}\n")
 	print("{list.count()}\n")
@@ -447,7 +447,7 @@ end 'main'
 <!-- test: remove.at-index -->
 ```maxon
 function main() returns ExitCode
-	let list = List from [10, 20, 30, 40]
+	var list = List from [10, 20, 30, 40]
 	let removed = (try list.remove(1) otherwise 0) as FullRangeInt
 	print("{removed}\n")
 	print("{list.count()}\n")
@@ -541,7 +541,7 @@ typealias Integer = int(i64.min to i64.max)
 typealias IntList = List with Integer
 
 function main() returns ExitCode
-	let list = IntList.create()
+	var list = IntList.create()
 	list.append(2)
 	list.append(3)
 	list.prepend(1)
@@ -574,7 +574,7 @@ end 'main'
 typealias StringList = List with String
 
 function main() returns ExitCode
-	let list = StringList.create()
+	var list = StringList.create()
 	list.append("hello")
 	list.append("world")
 	let f = try list.first() otherwise "none"
@@ -595,7 +595,7 @@ world
 <!-- test: clear -->
 ```maxon
 function main() returns ExitCode
-	let list = List from [1, 2, 3]
+	var list = List from [1, 2, 3]
 	list.clear()
 	if list.isEmpty() 'check'
 		return 0
@@ -662,7 +662,7 @@ hello world!!!!!!!!!!!!!!
 typealias StringList = List with String
 
 function testClear()
-	let list = StringList.create()
+	var list = StringList.create()
 	list.append("alpha string!!!!!!!!!!!!!!!")
 	list.append("beta string!!!!!!!!!!!!!!!!")
 	list.append("gamma string!!!!!!!!!!!!!!!")
@@ -686,12 +686,12 @@ end 'main'
 ```maxon
 typealias StringList = List with String
 
-function clearList(list StringList)
+function clearList(mutates list StringList)
 	list.clear()
 end 'clearList'
 
 function main() returns ExitCode
-	let list = StringList.create()
+	var list = StringList.create()
 	list.append("alpha string!!!!!!!!!!!!!!!")
 	list.append("beta string!!!!!!!!!!!!!!!!")
 	list.append("gamma string!!!!!!!!!!!!!!!")
@@ -715,14 +715,14 @@ across a function boundary as much as inside one.
 ```maxon
 typealias StringList = List with String
 
-function clearList(list StringList) returns String
-	let val = try list.first() otherwise "none"
+function clearList(mutates list StringList) returns String
+	let val = (try list.first() otherwise "none").clone()
 	list.clear()
-	return val
+	return val.clone()
 end 'clearList'
 
 function main() returns ExitCode
-	let list = StringList.create()
+	var list = StringList.create()
 	list.append("hello world {40 + 2}!!!!!!!!!!!!!!")
 	let result = clearList(list)
 	print("{result}\n")
@@ -744,14 +744,14 @@ parameter. The route to the `clear()` changes nothing, because the safety was es
 ```maxon
 typealias StringList = List with String
 
-function clearList(list StringList)
+function clearList(mutates list StringList)
 	list.clear()
 end 'clearList'
 
 function main() returns ExitCode
-	let list = StringList.create()
+	var list = StringList.create()
 	list.append("hello world {40 + 2}!!!!!!!!!!!!!!")
-	let val = try list.first() otherwise "none"
+	let val = (try list.first() otherwise "none").clone()
 	clearList(list)
 	print("{val}\n")
 	return 0
@@ -774,9 +774,9 @@ immortal record no `clear()` could free.
 typealias StringList = List with String
 
 function main() returns ExitCode
-	let list = StringList.create()
+	var list = StringList.create()
 	list.append("hello world {40 + 2}!!!!!!!!!!!!!!")
-	let val = try list.first() otherwise "none"
+	let val = (try list.first() otherwise "none").clone()
 	list.clear()
 	print("{val}\n")
 	return 0
@@ -806,14 +806,14 @@ function walkSum(list NList, n N) returns N
 	var i = 0 as N
 	while i < n 'loop'
 		let v = try list.get(i as ElementIndex) otherwise panic("oob")
-		sum = sum + v
+		sum = try sum + v otherwise panic("out of range")
 		i = i + 1
 	end 'loop'
 	return sum
 end 'walkSum'
 
 function main() returns ExitCode
-	let list = NList.create()
+	var list = NList.create()
 	var k = 0 as N
 	while k < 12 'build'
 		list.append(k * 10)
@@ -832,6 +832,7 @@ sum=660
 ```
 
 <!-- test: memory.mutating-the-list-inside-for-in-ends-the-loop -->
+<!-- skip: language difference: a loop holds the collection it walks -->
 ### Clearing a list from inside `for … in` ends the walk
 ⭐ **`l.clear()` UNDER A LIVE WALK COMPILES.** `l` is a `var`, and `clear` is an ordinary mutating method
 on it; the loop holds its own reference to the list it walks.
@@ -893,7 +894,7 @@ end 'Point'
 typealias PointList = List with Point
 
 function main() returns ExitCode
-	let l = PointList.create()
+	var l = PointList.create()
 	l.append(Point.at(3, y: 4))
 	l.append(Point.at(5, y: 6))
 	let p = try l.first() otherwise Point.at(0, y: 0)

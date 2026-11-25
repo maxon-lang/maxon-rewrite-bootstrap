@@ -1134,7 +1134,7 @@ function heldIn(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, e 
 end 'heldIn'
 
 // copyValue is a new value equal to v, which every part of it owns: the deep copy that CopyInstr says. A scalar is the
-// value itself. site is the source that needs the copy, kept when the type holds something that has no native code.
+// value itself. site is the source that needs the copy.
 function copyValue(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, site diag.Site, v Reg, t ast.TypeID) returns Reg
 	let ty = applyType(l, p: p, ms: ms, t: t)
 	match heldAs(p, ms: ms, t: ty) 'holding'
@@ -1148,7 +1148,6 @@ function copyValue(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState,
 	if not owning(kindOfType(p, ms: ms, t: ty)) 'scalar'
 		return v
 	end 'scalar'
-	requireNative(l, p: p, ms: ms, site: site, t: ty)
 	let d = newReg(l, kind: kindOfType(p, ms: ms, t: ty))
 	emitCopy(l, dst: d, src: v, ty: ty)
 	return d

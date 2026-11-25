@@ -30,7 +30,7 @@ end 'Point'
 typealias PointList = List with Point
 
 function main() returns ExitCode
-	let list = PointList.create()
+	var list = PointList.create()
 	list.append(Point.create(10, y: 20))
 	list.append(Point.create(30, y: 40))
 	let first = try list.first() otherwise Point.create(0, y: 0)
@@ -98,14 +98,14 @@ type Person
 	export var age as Integer
 
 	static function create(name String, age Integer) returns Self
-		return Self{name: name, age: age}
+		return Self{name: name.clone(), age: age}
 	end 'create'
 end 'Person'
 
 typealias PersonList = List with Person
 
 function main() returns ExitCode
-	let list = PersonList.create()
+	var list = PersonList.create()
 	list.append(Person.create("Alice has a long name for heap", age: 30))
 	list.append(Person.create("Bob also has a long name for heap", age: 25))
 	let first = try list.first() otherwise Person.create("", age: 0)

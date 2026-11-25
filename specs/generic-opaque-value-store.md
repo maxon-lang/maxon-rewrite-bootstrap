@@ -837,12 +837,12 @@ type Box uses T
 	export let x as T
 	export let tag as Integer
 
-	function value() returns T
-		return x
+	function value() returns T where T implements Copyable
+		return x.clone()
 	end 'value'
 
-	static function create(x T, tag Integer) returns Self
-		return Self{x: x, tag: tag}
+	static function create(x T, tag Integer) returns Self where T implements Copyable
+		return Self{x: x.clone(), tag: tag}
 	end 'create'
 end 'Box'
 
@@ -851,11 +851,11 @@ type Bag uses Element
 	typealias Store = List with EBox
 	var items as Store
 
-	function add(x Element, tag Integer)
+	function add(mutates self, x Element, tag Integer) where Element implements Copyable
 		items.append(EBox.create(x, tag: tag))
 	end 'add'
 
-	function first() returns Element
+	function first() returns Element where Element implements Copyable
 		let slot = try items.first() otherwise panic("empty")
 		return slot.value()
 	end 'first'
@@ -874,7 +874,7 @@ function heap(n Integer) returns String
 end 'heap'
 
 function main() returns ExitCode
-	let b = StrBag.create()
+	var b = StrBag.create()
 	b.add(heap(1), tag: 7)
 	b.add(heap(2), tag: 8)
 	let f = b.first()
@@ -4709,12 +4709,12 @@ type Box uses T
 	export let x as T
 	export let tag as Integer
 
-	function value() returns T
-		return x
+	function value() returns T where T implements Copyable
+		return x.clone()
 	end 'value'
 
-	static function create(x T, tag Integer) returns Self
-		return Self{x: x, tag: tag}
+	static function create(x T, tag Integer) returns Self where T implements Copyable
+		return Self{x: x.clone(), tag: tag}
 	end 'create'
 end 'Box'
 
@@ -4723,11 +4723,11 @@ type Bag uses Element
 	typealias Store = List with EBox
 	var items as Store
 
-	function add(x Element, tag Integer)
+	function add(mutates self, x Element, tag Integer) where Element implements Copyable
 		items.append(EBox.create(x, tag: tag))
 	end 'add'
 
-	function first() returns Element
+	function first() returns Element where Element implements Copyable
 		let slot = try items.first() otherwise panic("empty")
 		return slot.value()
 	end 'first'
@@ -4739,7 +4739,7 @@ end 'Bag'
 
 typealias StrBag = Bag with String
 
-function fill(b StrBag)
+function fill(mutates b StrBag)
 	var sb = ""
 	sb = "{sb}hello "
 	sb = "{sb}heap world"
@@ -4747,7 +4747,7 @@ function fill(b StrBag)
 end 'fill'
 
 function main() returns ExitCode
-	let b = StrBag.create()
+	var b = StrBag.create()
 	fill(b)
 	print("{b.first()}\n")
 	return 0
@@ -4776,12 +4776,12 @@ type Box uses T
 	export let x as T
 	export let tag as Integer
 
-	function value() returns T
-		return x
+	function value() returns T where T implements Copyable
+		return x.clone()
 	end 'value'
 
-	static function create(x T, tag Integer) returns Self
-		return Self{x: x, tag: tag}
+	static function create(x T, tag Integer) returns Self where T implements Copyable
+		return Self{x: x.clone(), tag: tag}
 	end 'create'
 end 'Box'
 
@@ -4790,11 +4790,11 @@ type Bag uses Element
 	typealias Store = List with EBox
 	var items as Store
 
-	function add(x Element, tag Integer)
+	function add(mutates self, x Element, tag Integer) where Element implements Copyable
 		items.append(EBox.create(x, tag: tag))
 	end 'add'
 
-	function first() returns Element
+	function first() returns Element where Element implements Copyable
 		let slot = try items.first() otherwise panic("empty")
 		return slot.value()
 	end 'first'
@@ -4807,7 +4807,7 @@ end 'Bag'
 typealias SmallBag = Bag with Small
 
 function main() returns ExitCode
-	let b = SmallBag.create()
+	var b = SmallBag.create()
 	b.add(41, tag: 7)
 	return b.first()
 end 'main'

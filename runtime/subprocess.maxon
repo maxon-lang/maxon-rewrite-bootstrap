@@ -1,15 +1,19 @@
 // Running a program over pipes for the child's standard output and error, read by the run while the child goes on, so
 // that a child that fills one pipe cannot block waiting for the run to read the other: CreateProcessW on Windows, and on
-// Linux a clone and an execve (linux_subprocess.maxon). The child's standard input is the run's own, or in a run with input a
-// pipe that holds the input and then ends.
+// Linux a clone and an execve (linux_subprocess.maxon) and on macOS posix_spawn (macos_subprocess.maxon). The child's standard
+// input is the run's own, or in a run with input a pipe that holds the input and then ends.
+//
+// Nothing in a run waits in the system or polls. Each pipe's end that the run uses is registered with the event queue, and the
+// child's exit is an event entry of its own (eventProcessNew), so a run is a few green threads each parked on one entry: one
+// reads each of the two output pipes to its end, one writes the input, and one waits for the child's exit, all until the run's
+// deadline, which ends the child at the exit's wait and ends the others where they wait. The run's own green thread parks until
+// those have finished, and a child that has exited is waited for (reaped) once.
 
 #if os(Windows)
 	// The Win32 values the run uses.
 	let infinite = 0xFFFFFFFF
 
 	let stdInputHandle = 0xFFFFFFF6
-
-	let handleFlagInherit = 1
 
 	let startfUseStdHandles = 0x100
 
@@ -23,22 +27,9 @@
 
 	let noCurrentDirectory = 0
 
-	let defaultPipeSize = 0
-
-	let noMask = 0
-
 	let noName = 0
 
-	let noBuffer = 0
-
-	let noLeft = 0
-
-	let noInput = 0
-
-	// pollMillis is how long the run waits for its child when neither pipe had anything to read.
-	let pollMillis = 1
-
-	// SECURITY_ATTRIBUTES: a pipe is made with it so that its handles can be inherited.
+	// SECURITY_ATTRIBUTES: the child's end of a pipe is made with it so that the child can inherit it.
 	let securityBytes = 24
 
 	let securityLengthOffset = 0
@@ -88,62 +79,29 @@
 
 	let processThreadOffset = 8
 
-	// A pipe the run reads, as a record of words: the read end it keeps, the write end the child gets, the room of the
-	// string read so far (__Raw.stringRoom) with its length and its capacity, whether the child may still write, and the two
-	// counts that PeekNamedPipe and ReadFile set.
-	let pipeReadOffset = 0
+	// The child is created suspended, to be watched before it runs, and resumed.
+	let createSuspended = 4
 
-	let pipeWriteOffset = 8
+	let resumeFailed = 0xFFFFFFFF
 
-	let pipeTextOffset = 16
-
-	let pipeLengthOffset = 24
-
-	let pipeCapacityOffset = 32
-
-	let pipeOpenOffset = 40
-
-	let pipeAvailableOffset = 48
-
-	let pipeReceivedOffset = 56
-
-	let pipeBytes = 64
-
-	// The run's frame, one allocation: a security descriptor, the startup record, the array of the handles the child inherits
-	// (which the attribute list points into until the child is created), the process record, and the two pipes.
-	let frameSecurityOffset = 0
-
-	let frameStartupOffset = frameSecurityOffset + securityBytes
+	// The run's frame, one allocation: the startup record, the array of the handles the child inherits (which the attribute
+	// list points into until the child is created), the process record, the ends of the three pipes (a word for each of
+	// the read end and the write end), and the run's wait.
+	let frameStartupOffset = 0
 
 	let frameInheritedOffset = frameStartupOffset + startupBytes
 
 	let frameProcessOffset = frameInheritedOffset + inheritedHandlesBytes
 
-	let frameOutputOffset = frameProcessOffset + processBytes
+	let frameOutputEndsOffset = frameProcessOffset + processBytes
 
-	let frameErrorOffset = frameOutputOffset + pipeBytes
+	let frameErrorEndsOffset = (frameOutputEndsOffset + pipeEndBytes) as Count
 
-	// The pipe of the child's standard input in a run with input, as a record of words: its read end, which the child gets,
-	// its write end, which the run writes the input to as the child reads it, how much of the input it has written, and whether
-	// the write end is still open.
-	let frameInputOffset = frameErrorOffset + pipeBytes
+	let frameInputEndsOffset = (frameErrorEndsOffset + pipeEndBytes) as Count
 
-	let inputReadOffset = 0
+	let frameWaitOffset = (frameInputEndsOffset + pipeEndBytes) as Count
 
-	let inputWriteOffset = 8
-
-	let inputDoneOffset = 16
-
-	let inputOpenOffset = 24
-
-	let inputBytes = 32
-
-	let frameBytes = frameInputOffset + inputBytes
-
-	// pipeNoWait is PIPE_NOWAIT, the mode of a pipe handle whose write takes what fits and never waits.
-	let pipeNoWait = 1
-
-	let noCollection = 0
+	let frameBytes = (frameWaitOffset + waitBytes) as Count
 #endif
 
 // The cases of SubprocessError that the run fails with besides the ones the system's error gives.
@@ -177,6 +135,316 @@ end 'fieldAt'
 function wordAt(base Count, offset Count) returns Count
 	return __Raw.loadWord(base, offset: offset)
 end 'wordAt'
+
+// A run's wait is a record of words that the green threads serving the run share: the event entry of the child's exit, the
+// child (its pid, or its process handle on Windows) for killChild, the run's deadline (eventNoDeadline for none) as the event
+// queue's clock reads it, whether the deadline ended a wait, what the child ended with (its wait status, or on Windows its
+// exit code), and a record for each of the two output streams and for the input.
+let waitProcessOffset = 0
+
+let waitChildOffset = 8
+
+let waitDeadlineOffset = 16
+
+let waitExpiredOffset = 24
+
+let waitStatusOffset = 32
+
+let waitOutputOffset = 40
+
+let waitErrorOffset = waitOutputOffset + streamBytes
+
+let waitInputOffset = waitErrorOffset + streamBytes
+
+let waitBytes = waitInputOffset + inputRecordBytes
+
+// A stream and the input each hold, first, the event entry of the end of its pipe that the run uses, noEntry for the input of a
+// run without or once the end is closed. A stream then holds the room of the string read so far (__Raw.stringRoom) with its
+// length and its capacity, and the input the bytes and the length of the text it writes. Both hold the run's wait.
+let endEntryOffset = 0
+
+let streamTextOffset = 8
+
+let streamLengthOffset = 16
+
+let streamCapacityOffset = 24
+
+let streamWaitOffset = 32
+
+let streamBytes = 40
+
+let inputTextOffset = 8
+
+let inputLengthOffset = 16
+
+let inputWaitOffset = 24
+
+let inputRecordBytes = 32
+
+// readChunkBytes is the least room a stream's text has past its length before a read, and readMostBytes the most one read asks
+// for, which the system's counts of 32 bits hold.
+let readChunkBytes = 4096
+
+let readMostBytes = 0x100000
+
+// waitNew makes a run's wait with no entries, so that a run whose pipes are not all made holds only what it has.
+function waitNew(wait Count)
+	zeroRange(wait, from: 0, to: waitBytes)
+end 'waitNew'
+
+// endOf is the handle of the read end or the write end of the pipe that eventChildPipe made into ends.
+function endOf(ends Count, writeEnd bool) returns Count
+	return wordAt(ends, offset: wordBytes if writeEnd else 0)
+end 'endOf'
+
+// openRunPipe makes the pipe of a stream or of the input into ends, registers the end that this process uses with the event
+// queue, keeps its entry in the record, and says whether it did; the child writes the pipe where childWrites is set.
+function openRunPipe(ends Count, childWrites bool, record Count) returns bool
+	if not eventChildPipe(ends, childWrites: childWrites) 'refused'
+		return false
+	end 'refused'
+	let entry = eventRegister(endOf(ends, writeEnd: not childWrites))
+	if entry == noEntry 'unregistered'
+		eventPipeClose(endOf(ends, writeEnd: false))
+		eventPipeClose(endOf(ends, writeEnd: true))
+		return false
+	end 'unregistered'
+	__Raw.storeWord(record, offset: endEntryOffset, value: entry)
+	return true
+end 'openRunPipe'
+
+// openRunPipes makes the pipes of a run: the child writes its output and its error to two, and reads its input from a third in a
+// run with input. A pipe that cannot be made leaves the ones before it closed.
+function openRunPipes(wait Count, output Count, errors Count, input Count, hasInput bool) returns bool
+	let outputRecord = fieldAt(wait, offset: waitOutputOffset)
+	let errorRecord = fieldAt(wait, offset: waitErrorOffset)
+	if not openRunPipe(output, childWrites: true, record: outputRecord) 'output'
+		return false
+	end 'output'
+	if not openRunPipe(errors, childWrites: true, record: errorRecord) 'errors'
+		closeRunPipe(output, childWrites: true, record: outputRecord)
+		return false
+	end 'errors'
+	if hasInput and not openRunPipe(input, childWrites: false, record: fieldAt(wait, offset: waitInputOffset)) 'input'
+		closeRunPipe(output, childWrites: true, record: outputRecord)
+		closeRunPipe(errors, childWrites: true, record: errorRecord)
+		return false
+	end 'input'
+	return true
+end 'openRunPipes'
+
+// closeRunPipe closes both ends of a pipe that openRunPipe made, which the child has not been given.
+function closeRunPipe(ends Count, childWrites bool, record Count)
+	eventPipeClose(endOf(ends, writeEnd: childWrites))
+	releaseEnd(wordAt(record, offset: endEntryOffset))
+	__Raw.storeWord(record, offset: endEntryOffset, value: noEntry)
+end 'closeRunPipe'
+
+// closeChildEnds closes the ends of a run's pipes that the child was to have, once it has them or will never have them.
+function closeChildEnds(output Count, errors Count, input Count, hasInput bool)
+	eventPipeClose(endOf(output, writeEnd: true))
+	eventPipeClose(endOf(errors, writeEnd: true))
+	if hasInput 'input'
+		eventPipeClose(endOf(input, writeEnd: false))
+	end 'input'
+end 'closeChildEnds'
+
+// closeOurEnds closes the ends of a run's pipes that this process uses, for a run that ends before its wait.
+function closeOurEnds(wait Count)
+	releaseOurEnd(fieldAt(wait, offset: waitOutputOffset))
+	releaseOurEnd(fieldAt(wait, offset: waitErrorOffset))
+	releaseOurEnd(fieldAt(wait, offset: waitInputOffset))
+end 'closeOurEnds'
+
+// releaseOurEnd closes the end of a record's entry, unless it has none or it is closed.
+function releaseOurEnd(record Count)
+	let entry = wordAt(record, offset: endEntryOffset)
+	if entry != noEntry 'open'
+		releaseEnd(entry)
+		__Raw.storeWord(record, offset: endEntryOffset, value: noEntry)
+	end 'open'
+end 'releaseOurEnd'
+
+// releaseEnd takes an entry off the event queue and closes its handle, once no wait on it is in progress.
+function releaseEnd(entry Count)
+	let handle = wordAt(entry, offset: entryHandleOffset)
+	eventForget(entry)
+	eventPipeClose(handle)
+end 'releaseEnd'
+
+// runDeadline is the deadline of a run as the event queue's clock reads it, eventNoDeadline for a run that is never ended for
+// taking long.
+function runDeadline(deadlineMs Count) returns Count
+	if deadlineMs == noDeadline 'none'
+		return eventNoDeadline
+	end 'none'
+	let asked = try deadlineMs * nanosPerMilli otherwise longestSleepNanos
+	return eventDeadline(asked if asked < longestSleepNanos else longestSleepNanos)
+end 'runDeadline'
+
+// startStream makes a stream of its record, with an empty text.
+function startStream(stream Count, wait Count)
+	__Raw.storeWord(stream, offset: streamTextOffset, value: __Raw.stringRoom(0))
+	__Raw.storeWord(stream, offset: streamLengthOffset, value: 0)
+	__Raw.storeWord(stream, offset: streamCapacityOffset, value: 0)
+	__Raw.storeWord(stream, offset: streamWaitOffset, value: wait)
+end 'startStream'
+
+// streamRoom makes room for a read past a stream's text, which grows by doubling, and gives how much there is.
+function streamRoom(stream Count) returns Count
+	let text = wordAt(stream, offset: streamTextOffset)
+	let length = wordAt(stream, offset: streamLengthOffset)
+	let capacity = wordAt(stream, offset: streamCapacityOffset)
+	if __Raw.wrappingSub(capacity, right: length) < readChunkBytes 'grow'
+		let doubled = __Raw.wrappingAdd(capacity, right: capacity)
+		let needed = __Raw.wrappingAdd(length, right: readChunkBytes)
+		let grown = doubled if doubled > needed else needed
+		let room = __Raw.stringRoom(grown)
+		if length != 0 'kept'
+			copyBytes(text, target: room, count: length)
+		end 'kept'
+		__Raw.freeStringRoom(text)
+		__Raw.storeWord(stream, offset: streamTextOffset, value: room)
+		__Raw.storeWord(stream, offset: streamCapacityOffset, value: grown)
+	end 'grow'
+	return __Raw.wrappingSub(wordAt(stream, offset: streamCapacityOffset), right: length)
+end 'streamRoom'
+
+// storeStream stores the text a stream read as a string at an address, which owns its room from then on.
+function storeStream(at Count, stream Count)
+	storeOwnedString(at, offset: 0, bytes: wordAt(stream, offset: streamTextOffset), length: wordAt(stream, offset: streamLengthOffset), ascii: false)
+end 'storeStream'
+
+// freeStream frees the text of a stream that no string took.
+function freeStream(stream Count)
+	__Raw.freeStringRoom(wordAt(stream, offset: streamTextOffset))
+end 'freeStream'
+
+// markExpired says in a run's wait that its deadline ended a wait.
+function markExpired(wait Count)
+	__Raw.storeWord(wait, offset: waitExpiredOffset, value: set)
+end 'markExpired'
+
+// startHelper makes the green thread that runs code with an argument, and readies it.
+function startHelper(code Count, argument Count) returns Count
+	let helper = greenSpawn(code)
+	greenSetArgument(helper, index: 0, value: argument)
+	greenReady(helper)
+	return helper
+end 'startHelper'
+
+// exitWaiterMain waits for the child of a run to exit, in the run's wait that is its green thread's argument, until the run's
+// deadline; a child still running then is ended (killChild) and waited for on. An entry may hold an event of its last owner,
+// so a wake says nothing of the child (childExited does), as a wake of a handle's entry says nothing of what its call finds.
+function exitWaiterMain(g Count) returns Count
+	let wait = greenArgument(g, index: 0)
+	let process = wordAt(wait, offset: waitProcessOffset)
+	let child = wordAt(wait, offset: waitChildOffset)
+	var deadline = wordAt(wait, offset: waitDeadlineOffset)
+	while true 'exit'
+		let status = eventWait(process, mode: eventRead, deadline: deadline)
+		if status == eventReady 'ready'
+			if childExited(wait, child: child) 'exited'
+				break 'exit'
+			end 'exited'
+			continue 'exit'
+		end 'ready'
+		if status != eventExpired 'unexpected'
+			panic("the wait for a child's exit ended otherwise than by its exit or the run's deadline")
+		end 'unexpected'
+		markExpired(wait)
+		killChild(child)
+		deadline = eventNoDeadline
+	end 'exit'
+	return 0
+end 'exitWaiterMain'
+
+// streamReaderMain reads a stream's pipe to its end, in the stream record that is its green thread's argument, until the
+// run's deadline, and closes the end. A read that fails ends the stream, as the end of the data does.
+function streamReaderMain(g Count) returns Count
+	let stream = greenArgument(g, index: 0)
+	let wait = wordAt(stream, offset: streamWaitOffset)
+	let entry = wordAt(stream, offset: endEntryOffset)
+	let deadline = wordAt(wait, offset: waitDeadlineOffset)
+	while true 'read'
+		let room = streamRoom(stream)
+		let asked = room if room < readMostBytes else readMostBytes
+		let length = wordAt(stream, offset: streamLengthOffset)
+		let got = eventTransfer(entry, mode: eventRead, buffer: __Raw.wrappingAdd(wordAt(stream, offset: streamTextOffset), right: length), length: asked, deadline: deadline)
+		if got == 0 'ended'
+			break 'read'
+		end 'ended'
+		if got > asked 'stopped'
+			if got == transferExpired 'late'
+				markExpired(wait)
+			end 'late'
+			break 'read'
+		end 'stopped'
+		__Raw.storeWord(stream, offset: streamLengthOffset, value: __Raw.wrappingAdd(length, right: got))
+	end 'read'
+	releaseOurEnd(stream)
+	return 0
+end 'streamReaderMain'
+
+// inputWriterMain writes the input of a run to its pipe, in the input record that is its green thread's argument, until the
+// run's deadline, and closes the end, which ends the child's input. A write that fails is a child that stopped reading, which
+// is no failure of the run.
+function inputWriterMain(g Count) returns Count
+	let input = greenArgument(g, index: 0)
+	let wait = wordAt(input, offset: inputWaitOffset)
+	let entry = wordAt(input, offset: endEntryOffset)
+	let deadline = wordAt(wait, offset: waitDeadlineOffset)
+	let bytes = wordAt(input, offset: inputTextOffset)
+	let length = wordAt(input, offset: inputLengthOffset)
+	var done = 0 as Count
+	while done < length 'write'
+		let left = __Raw.wrappingSub(length, right: done)
+		let asked = left if left < inputChunkBytes else inputChunkBytes
+		let wrote = eventTransfer(entry, mode: eventWrite, buffer: __Raw.wrappingAdd(bytes, right: done), length: asked, deadline: deadline)
+		if wrote > asked 'stopped'
+			if wrote == transferExpired 'late'
+				markExpired(wait)
+			end 'late'
+			break 'write'
+		end 'stopped'
+		done = __Raw.wrappingAdd(done, right: wrote)
+	end 'write'
+	releaseOurEnd(input)
+	return 0
+end 'inputWriterMain'
+
+// awaitChild serves a run whose child has started, until the child has exited, its output has ended and its input is written
+// or refused, and says whether the run's deadline ended a wait. The caller has put in the run's wait the child, the entry of its
+// exit and the entries of the ends of its pipes that the run uses, and the text of the input is the one given. The run's own green
+// thread parks until the green threads that read, write and wait have finished; the ends and the exit's entry are closed and
+// given back by then, and the streams' texts are the caller's to store or free.
+function awaitChild(wait Count, input String, deadlineMs Count) returns bool
+	__Raw.storeWord(wait, offset: waitDeadlineOffset, value: runDeadline(deadlineMs))
+	let outputRecord = fieldAt(wait, offset: waitOutputOffset)
+	let errorRecord = fieldAt(wait, offset: waitErrorOffset)
+	let inputRecord = fieldAt(wait, offset: waitInputOffset)
+	startStream(outputRecord, wait: wait)
+	startStream(errorRecord, wait: wait)
+	let exitWaiter = startHelper(__Raw.codeAddress("exitWaiterMain"), argument: wait)
+	let outputReader = startHelper(__Raw.codeAddress("streamReaderMain"), argument: outputRecord)
+	let errorReader = startHelper(__Raw.codeAddress("streamReaderMain"), argument: errorRecord)
+	let writing = wordAt(inputRecord, offset: endEntryOffset) != noEntry
+	var inputWriter = noGreen
+	if writing 'input'
+		__Raw.storeWord(inputRecord, offset: inputTextOffset, value: __Raw.stringBytes(input))
+		__Raw.storeWord(inputRecord, offset: inputLengthOffset, value: __Raw.stringLength(input))
+		__Raw.storeWord(inputRecord, offset: inputWaitOffset, value: wait)
+		inputWriter = startHelper(__Raw.codeAddress("inputWriterMain"), argument: inputRecord)
+	end 'input'
+	_ = greenAwait(exitWaiter)
+	_ = greenAwait(outputReader)
+	_ = greenAwait(errorReader)
+	if writing 'written'
+		_ = greenAwait(inputWriter)
+	end 'written'
+	eventProcessFree(wordAt(wait, offset: waitProcessOffset))
+	return wordAt(wait, offset: waitExpiredOffset) != 0
+end 'awaitChild'
 
 // argumentAt is the address of the argument at an index of an array of strings, which stays there: its bytes are
 // __Raw.stringBytesAt and its length __Raw.stringLengthAt of it at 0.
@@ -244,19 +512,6 @@ end 'bytesHoldNul'
 		return wide
 	end 'commandLineOf'
 
-	// openPipe makes a pipe whose write end the child can inherit and whose read end it cannot, and gives whether it did.
-	function openPipe(pipe Count, security Count) returns bool
-		__Raw.storeWord(pipe, offset: pipeTextOffset, value: __Raw.stringRoom(0))
-		__Raw.storeWord(pipe, offset: pipeLengthOffset, value: 0)
-		let made = __Raw.callImport4("CreatePipe", arg1: fieldAt(pipe, offset: pipeReadOffset), arg2: fieldAt(pipe, offset: pipeWriteOffset), arg3: security, arg4: defaultPipeSize)
-		if dword(made) == 0 'failed'
-			return false
-		end 'failed'
-		_ = __Raw.callImport3("SetHandleInformation", arg1: wordAt(pipe, offset: pipeReadOffset), arg2: handleFlagInherit, arg3: noMask)
-		return true
-	end 'openPipe'
-
-	// inheritedBytes is the size of the first count handles of the array of the handles the child inherits.
 	function inheritedBytes(count Count) returns Count
 		return try count * wordBytes otherwise panic("the handles the child inherits are past a word")
 	end 'inheritedBytes'
@@ -306,86 +561,6 @@ end 'bytesHoldNul'
 		return failure
 	end 'createChild'
 
-	// closeIfOpen closes the handle that is in a word, unless it is 0.
-	function closeIfOpen(base Count, offset Count)
-		let handle = wordAt(base, offset: offset)
-		if handle != 0 'open'
-			closeHandle(handle)
-		end 'open'
-	end 'closeIfOpen'
-
-	// abandonRun undoes a run that did not start its child: it closes the pipes' ends that are open and frees the texts and
-	// the command line.
-	function abandonRun(output Count, errors Count, command Count)
-		closeIfOpen(output, offset: pipeReadOffset)
-		closeIfOpen(output, offset: pipeWriteOffset)
-		closeIfOpen(errors, offset: pipeReadOffset)
-		closeIfOpen(errors, offset: pipeWriteOffset)
-		freePipeText(output)
-		freePipeText(errors)
-		free(command)
-	end 'abandonRun'
-
-	// freePipeText frees the room of the text of a pipe that no string took, which openPipe may not have made.
-	function freePipeText(pipe Count)
-		let room = wordAt(pipe, offset: pipeTextOffset)
-		if room != 0 'made'
-			__Raw.freeStringRoom(room)
-		end 'made'
-	end 'freePipeText'
-
-	// drainPipe reads what a pipe holds now, and gives whether it read anything. It never waits. A pipe whose child has closed
-	// its end is no longer open. The text keeps room beyond its length, which grows by doubling.
-	function drainPipe(pipe Count) returns bool
-		if wordAt(pipe, offset: pipeOpenOffset) == 0 'closed'
-			return false
-		end 'closed'
-		__Raw.storeWord(pipe, offset: pipeAvailableOffset, value: 0)
-		let peeked = __Raw.callImport6("PeekNamedPipe", arg1: wordAt(pipe, offset: pipeReadOffset), arg2: noBuffer, arg3: 0, arg4: noInput, arg5: fieldAt(pipe, offset: pipeAvailableOffset), arg6: noLeft)
-		if dword(peeked) == 0 'broken'
-			__Raw.storeWord(pipe, offset: pipeOpenOffset, value: 0)
-			return false
-		end 'broken'
-		let available = wordAt(pipe, offset: pipeAvailableOffset)
-		if available == 0 'nothing'
-			return false
-		end 'nothing'
-		var text = wordAt(pipe, offset: pipeTextOffset)
-		let length = wordAt(pipe, offset: pipeLengthOffset)
-		let needed = __Raw.wrappingAdd(length, right: available)
-		let capacity = wordAt(pipe, offset: pipeCapacityOffset)
-		if needed > capacity 'grow'
-			let doubled = __Raw.wrappingAdd(capacity, right: capacity)
-			let grown = doubled if doubled > needed else needed
-			let room = __Raw.stringRoom(grown)
-			if length != 0 'kept'
-				copyBytes(text, target: room, count: length)
-			end 'kept'
-			__Raw.freeStringRoom(text)
-			text = room
-			__Raw.storeWord(pipe, offset: pipeTextOffset, value: room)
-			__Raw.storeWord(pipe, offset: pipeCapacityOffset, value: grown)
-		end 'grow'
-		__Raw.storeWord(pipe, offset: pipeReceivedOffset, value: 0)
-		_ = __Raw.callImport5("ReadFile", arg1: wordAt(pipe, offset: pipeReadOffset), arg2: __Raw.wrappingAdd(text, right: length), arg3: available, arg4: fieldAt(pipe, offset: pipeReceivedOffset), arg5: noOverlapped)
-		__Raw.storeWord(pipe, offset: pipeLengthOffset, value: __Raw.wrappingAdd(length, right: wordAt(pipe, offset: pipeReceivedOffset)))
-		return true
-	end 'drainPipe'
-
-	// endAtDeadline ends a child that is still running when its deadline passes, gives back what the run holds, and fails the
-	// run with the timeout case.
-	function endAtDeadline(child Count, output Count, errors Count, frame Count, errorAddress Count)
-		_ = __Raw.callImport2("TerminateProcess", arg1: child, arg2: killedExitCode)
-		_ = __Raw.callImport2("WaitForSingleObject", arg1: child, arg2: infinite)
-		closeHandle(child)
-		closeHandle(wordAt(output, offset: pipeReadOffset))
-		closeHandle(wordAt(errors, offset: pipeReadOffset))
-		freePipeText(output)
-		freePipeText(errors)
-		free(frame)
-		failWith(errorAddress, errorCase: timedOut)
-	end 'endAtDeadline'
-
 	// osRun runs an executable with arguments and gives its exit code, and stores what the child wrote to its standard output
 	// and error as strings at the two addresses. An executable that is not found fails with the first case of the error. A
 	// child still running deadlineMs milliseconds after it started, when that is not noDeadline, is ended and fails the run
@@ -405,63 +580,42 @@ end 'bytesHoldNul'
 		return runChild(executable, arguments: arguments, directory: "", hasInput: true, input: input, deadlineMs: deadlineMs, stdout: stdout, stderr: stderr, errorAddress: errorAddress)
 	end 'osRunInput'
 
-	// openInputPipe makes the pipe of a run's input, whose read end the child can inherit and whose write end it cannot, the
-	// write end in nonblocking mode (PIPE_NOWAIT), so that a write takes what fits and the run goes on reading the child's
-	// output while the child has not read its input: neither waits on the other.
-	function openInputPipe(input Count, security Count) returns bool
-		__Raw.storeWord(input, offset: inputReadOffset, value: 0)
-		__Raw.storeWord(input, offset: inputWriteOffset, value: 0)
-		__Raw.storeWord(input, offset: inputDoneOffset, value: 0)
-		__Raw.storeWord(input, offset: inputOpenOffset, value: 0)
-		let made = __Raw.callImport4("CreatePipe", arg1: fieldAt(input, offset: inputReadOffset), arg2: fieldAt(input, offset: inputWriteOffset), arg3: security, arg4: defaultPipeSize)
-		if dword(made) == 0 'failed'
-			return false
-		end 'failed'
-		_ = __Raw.callImport3("SetHandleInformation", arg1: wordAt(input, offset: inputWriteOffset), arg2: handleFlagInherit, arg3: noMask)
-		var mode = pipeNoWait as Count
-		if dword(__Raw.callImport4("SetNamedPipeHandleState", arg1: wordAt(input, offset: inputWriteOffset), arg2: __Raw.addressOf(mode), arg3: noCollection, arg4: noCollection)) == 0 'blocking'
-			closeHandle(wordAt(input, offset: inputReadOffset))
-			closeHandle(wordAt(input, offset: inputWriteOffset))
-			return false
-		end 'blocking'
-		__Raw.storeWord(input, offset: inputOpenOffset, value: 1)
-		return true
-	end 'openInputPipe'
+	// killChild ends a child that is still running when its deadline passes.
+	function killChild(child Count)
+		_ = __Raw.callImport2("TerminateProcess", arg1: child, arg2: killedExitCode)
+	end 'killChild'
 
-	// closeInput closes the write end of a run's input, which ends the child's input, unless it is closed already.
-	function closeInput(input Count)
-		if wordAt(input, offset: inputOpenOffset) != 0 'open'
-			closeHandle(wordAt(input, offset: inputWriteOffset))
-			__Raw.storeWord(input, offset: inputOpenOffset, value: 0)
-		end 'open'
-	end 'closeInput'
-
-	// feedInput writes what the pipe of a run's input takes now of the input not written yet, and gives whether it wrote any. It
-	// never waits. Once all of it is written the input is closed; a write that fails is a child that stopped reading (the pipe
-	// has no reader), whose input is then closed too, which is no failure of the run.
-	function feedInput(input Count, text String) returns bool
-		if wordAt(input, offset: inputOpenOffset) == 0 'closed'
-			return false
-		end 'closed'
-		let done = wordAt(input, offset: inputDoneOffset)
-		let length = __Raw.stringLength(text)
-		if done >= length 'all'
-			closeInput(input)
-			return true
-		end 'all'
-		let left = __Raw.wrappingSub(length, right: done)
-		var wrote = 0 as Count
-		let ok = __Raw.callImport5("WriteFile", arg1: wordAt(input, offset: inputWriteOffset), arg2: __Raw.wrappingAdd(__Raw.stringBytes(text), right: done), arg3: left if left < inputChunkBytes else inputChunkBytes, arg4: __Raw.addressOf(wrote), arg5: noOverlapped)
-		if dword(ok) == 0 'refused'
-			closeInput(input)
-			return false
+	// childExited is whether the child has exited, which its job says by holding no process, and keeps its exit code in the wait
+	// then, once its handle is signalled, which is with the job's notification or an instant after.
+	function childExited(wait Count, child Count) returns bool
+		let job = wordAt(wordAt(wait, offset: waitProcessOffset), offset: entryHandleOffset)
+		let accounting = alloc(jobAccountingBytes)
+		if dword(__Raw.callImport5("QueryInformationJobObject", arg1: job, arg2: jobBasicAccountingInformation, arg3: accounting, arg4: jobAccountingBytes, arg5: noReturnSize)) == 0 'refused'
+			panic("cannot read the accounting of a child's job")
 		end 'refused'
-		if dword(wrote) == 0 'full'
+		let active = __Raw.loadWord32(accounting, offset: jobActiveProcessesOffset)
+		free(accounting)
+		if active != 0 'running'
 			return false
-		end 'full'
-		__Raw.storeWord(input, offset: inputDoneOffset, value: __Raw.wrappingAdd(done, right: dword(wrote)))
+		end 'running'
+		enterBlocking()
+		_ = __Raw.callImport2("WaitForSingleObject", arg1: child, arg2: infinite)
+		exitBlocking()
+		var exitCode = 0 as Count
+		_ = __Raw.callImport2("GetExitCodeProcess", arg1: child, arg2: __Raw.addressOf(exitCode))
+		__Raw.storeWord(wait, offset: waitStatusOffset, value: exitCode)
 		return true
-	end 'feedInput'
+	end 'childExited'
+
+	// abandonChild ends a child that is created and not yet running and undoes its run: it closes the child's handles and the
+	// ends of the pipes that the run uses, and frees the frame.
+	function abandonChild(child Count, thread Count, wait Count, frame Count)
+		killChild(child)
+		closeHandle(thread)
+		closeHandle(child)
+		closeOurEnds(wait)
+		free(frame)
+	end 'abandonChild'
 
 	// runChild runs the child of osRun and osRunIn, in directory unless it is empty, and of osRunInput when hasInput is set.
 	function runChild(executable String, arguments Count, directory String, hasInput bool, input String, deadlineMs Count, stdout Count, stderr Count, errorAddress Count) returns Count
@@ -470,35 +624,28 @@ end 'bytesHoldNul'
 			return 0
 		end 'nul'
 		let frame = alloc(frameBytes)
-		let output = fieldAt(frame, offset: frameOutputOffset)
-		let errors = fieldAt(frame, offset: frameErrorOffset)
-		let inputPipe = fieldAt(frame, offset: frameInputOffset)
+		let wait = fieldAt(frame, offset: frameWaitOffset)
+		waitNew(wait)
+		let output = fieldAt(frame, offset: frameOutputEndsOffset)
+		let errors = fieldAt(frame, offset: frameErrorEndsOffset)
+		let inputEnds = fieldAt(frame, offset: frameInputEndsOffset)
 		let command = commandLineOf(executable, arguments: arguments)
-		let security = fieldAt(frame, offset: frameSecurityOffset)
-		__Raw.storeWord32(security, offset: securityLengthOffset, value: securityBytes)
-		__Raw.storeWord32(security, offset: securityInheritOffset, value: 1)
-		if not openPipe(output, security: security) or not openPipe(errors, security: security) 'pipes'
-			abandonRun(output, errors: errors, command: command)
+		if not openRunPipes(wait, output: output, errors: errors, input: inputEnds, hasInput: hasInput) 'pipes'
+			free(command)
 			free(frame)
 			failWith(errorAddress, errorCase: ioFailed)
 			return 0
 		end 'pipes'
 		var childInput = __Raw.callImport1("GetStdHandle", arg1: stdInputHandle)
 		if hasInput 'input'
-			if not openInputPipe(inputPipe, security: security) 'inputPipe'
-				abandonRun(output, errors: errors, command: command)
-				free(frame)
-				failWith(errorAddress, errorCase: ioFailed)
-				return 0
-			end 'inputPipe'
-			childInput = wordAt(inputPipe, offset: inputReadOffset)
+			childInput = endOf(inputEnds, writeEnd: false)
 		end 'input'
 		let startup = fieldAt(frame, offset: frameStartupOffset)
 		__Raw.storeWord32(startup, offset: startupSizeOffset, value: startupBytes)
 		__Raw.storeWord32(startup, offset: startupFlagsOffset, value: startfUseStdHandles)
 		__Raw.storeWord(startup, offset: startupInputOffset, value: childInput)
-		__Raw.storeWord(startup, offset: startupOutputOffset, value: wordAt(output, offset: pipeWriteOffset))
-		__Raw.storeWord(startup, offset: startupErrorOffset, value: wordAt(errors, offset: pipeWriteOffset))
+		__Raw.storeWord(startup, offset: startupOutputOffset, value: endOf(output, writeEnd: true))
+		__Raw.storeWord(startup, offset: startupErrorOffset, value: endOf(errors, writeEnd: true))
 		let inherited = fieldAt(frame, offset: frameInheritedOffset)
 		var inheritedCount = listInherited(inherited, count: 0, handle: wordAt(startup, offset: startupInputOffset))
 		inheritedCount = listInherited(inherited, count: inheritedCount, handle: wordAt(startup, offset: startupOutputOffset))
@@ -508,64 +655,48 @@ end 'bytesHoldNul'
 		if __Raw.stringLength(directory) != 0 'directory'
 			wideDirectory = wideOf(directory)
 		end 'directory'
-		let win32 = createChild(command, startup: startup, inherited: inherited, inheritedCount: inheritedCount, process: process, flags: extendedStartupInfoPresent, directory: wideDirectory)
-		if hasInput 'inputRead'
-			closeHandle(wordAt(inputPipe, offset: inputReadOffset))
-		end 'inputRead'
+		let win32 = createChild(command, startup: startup, inherited: inherited, inheritedCount: inheritedCount, process: process, flags: extendedStartupInfoPresent or createSuspended, directory: wideDirectory)
 		if wideDirectory != noCurrentDirectory 'wide'
 			free(wideDirectory)
 		end 'wide'
+		closeChildEnds(output, errors: errors, input: inputEnds, hasInput: hasInput)
+		free(command)
 		if win32 != 0 'spawn'
-			if hasInput 'inputWrite'
-				closeInput(inputPipe)
-			end 'inputWrite'
-			abandonRun(output, errors: errors, command: command)
+			closeOurEnds(wait)
 			free(frame)
 			endWithError(errorAddress, osError: win32, table: spawnFailures())
 			return 0
 		end 'spawn'
-		closeHandle(wordAt(output, offset: pipeWriteOffset))
-		closeHandle(wordAt(errors, offset: pipeWriteOffset))
-		closeHandle(wordAt(process, offset: processThreadOffset))
-		free(command)
-		__Raw.storeWord(output, offset: pipeOpenOffset, value: 1)
-		__Raw.storeWord(errors, offset: pipeOpenOffset, value: 1)
 		let child = wordAt(process, offset: processHandleOffset)
-		enterBlocking()
-		let startedAt = __Raw.callImport0("GetTickCount64")
-		var draining = true
-		while draining 'drain'
-			if deadlineMs != noDeadline and __Raw.wrappingSub(__Raw.callImport0("GetTickCount64"), right: startedAt) >= deadlineMs 'late'
-				exitBlocking()
-				if hasInput 'abandonInput'
-					closeInput(inputPipe)
-				end 'abandonInput'
-				endAtDeadline(child, output: output, errors: errors, frame: frame, errorAddress: errorAddress)
-				return 0
-			end 'late'
-			let movedInput = hasInput and feedInput(inputPipe, text: input)
-			let movedOutput = drainPipe(output)
-			let movedErrors = drainPipe(errors)
-			if not movedInput and not movedOutput and not movedErrors 'idle'
-				let inputOpen = hasInput and wordAt(inputPipe, offset: inputOpenOffset) != 0
-				if wordAt(output, offset: pipeOpenOffset) == 0 and wordAt(errors, offset: pipeOpenOffset) == 0 and not inputOpen 'ended'
-					draining = false
-				end 'ended' else 'wait'
-					_ = __Raw.callImport2("WaitForSingleObject", arg1: child, arg2: pollMillis)
-				end 'wait'
-			end 'idle'
-		end 'drain'
-		_ = __Raw.callImport2("WaitForSingleObject", arg1: child, arg2: infinite)
-		exitBlocking()
-		var exitCode = 0 as Count
-		_ = __Raw.callImport2("GetExitCodeProcess", arg1: child, arg2: __Raw.addressOf(exitCode))
+		let thread = wordAt(process, offset: processThreadOffset)
+		let watch = eventProcessNew(child)
+		if watch == noEntry 'unwatched'
+			abandonChild(child, thread: thread, wait: wait, frame: frame)
+			failWith(errorAddress, errorCase: ioFailed)
+			return 0
+		end 'unwatched'
+		if dword(__Raw.callImport1("ResumeThread", arg1: thread)) == resumeFailed 'unresumed'
+			eventProcessFree(watch)
+			abandonChild(child, thread: thread, wait: wait, frame: frame)
+			failWith(errorAddress, errorCase: ioFailed)
+			return 0
+		end 'unresumed'
+		closeHandle(thread)
+		__Raw.storeWord(wait, offset: waitChildOffset, value: child)
+		__Raw.storeWord(wait, offset: waitProcessOffset, value: watch)
+		let expired = awaitChild(wait, input: input, deadlineMs: deadlineMs)
 		closeHandle(child)
-		closeHandle(wordAt(output, offset: pipeReadOffset))
-		closeHandle(wordAt(errors, offset: pipeReadOffset))
-		storeOwnedString(stdout, offset: 0, bytes: wordAt(output, offset: pipeTextOffset), length: wordAt(output, offset: pipeLengthOffset), ascii: false)
-		storeOwnedString(stderr, offset: 0, bytes: wordAt(errors, offset: pipeTextOffset), length: wordAt(errors, offset: pipeLengthOffset), ascii: false)
+		if expired 'late'
+			freeStream(fieldAt(wait, offset: waitOutputOffset))
+			freeStream(fieldAt(wait, offset: waitErrorOffset))
+			free(frame)
+			failWith(errorAddress, errorCase: timedOut)
+			return 0
+		end 'late'
+		storeStream(stdout, stream: fieldAt(wait, offset: waitOutputOffset))
+		storeStream(stderr, stream: fieldAt(wait, offset: waitErrorOffset))
 		free(frame)
 		succeed(errorAddress)
-		return exitCode
+		return wordAt(wait, offset: waitStatusOffset)
 	end 'runChild'
 #endif
