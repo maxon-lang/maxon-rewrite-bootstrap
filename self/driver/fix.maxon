@@ -2,10 +2,6 @@
 // and checks again, until the program is clean or what is left names no change. It works on a .maxon file, a project's
 // directory, or the tests of spec files, and for a spec test only on its maxon block.
 
-// maxFixRounds bounds the rounds of a program: each round applies at least one fix, and the range analysis reports one
-// failure of a function at a time.
-let maxFixRounds = 64
-
 // trapSkipLine is what a spec test gets in place of the fix of its arithmetic when what it expects is the run-time trap
 // that maxon raises there: the fix turns the trap into the panic of a try, and the test would test nothing of its own.
 let trapSkipLine = "<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->\n"
@@ -486,23 +482,41 @@ function applyChoice(mutates prog FixProgram, choice Choice, mutates changed Fla
 	return true
 end 'applyChoice'
 
+// fixRoundsOf bounds the rounds of fixing a program: a round for each byte of its files. Each round applies at least one fix,
+// and the range analysis reports one failure of a function at a time, so a function with many operations that can fail
+// takes a round for each, however many there are; each fix covers a failure of its own, at least a byte of the program, so
+// fixing that has not ended in that many rounds is going round in a circle. A fixed count of rounds left such a function
+// half covered, and fixed again it changed again.
+function fixRoundsOf(prog FixProgram) returns Count
+	var bytes = 0 as Count
+	for file in prog.files 'files'
+		bytes = offsetBy(bytes, by: file.text.byteLength())
+	end 'files'
+	return bytes
+end 'fixRoundsOf'
+
 // fixProgram applies the fixes of the program's diagnostics, round by round, until it checks clean, no diagnostic left has
-// a fix that can be made, or the rounds run out. A round that leaves a file unparsable is undone, and the outcome says so. For
+// a fix that can be made, or the rounds run out (fixRoundsOf), when the fixing goes round in a circle and the program is left
+// as it was, which the outcome says: a half-made fix is no fixpoint. A round that leaves a file unparsable is undone, and the
+// outcome says so. For
 // a test that expects a compile error it stops as soon as the first diagnostic has the expected code, or has no fix, and leaves the
 // diagnostics of that code alone. The first of the watched codes to be a round's first diagnostic is kept (FixOutcome.watched).
 function fixProgram(consumes prog FixProgram, libraries FixLibraries, expected table.Option with String, watches ast.StringList) returns FixOutcome
+	let original = prog.files.clone()
 	var current = prog
 	var changed = Flags.create(0)
 	for i in 0 upto current.files.count() 'unchanged'
 		changed.push(false)
 	end 'unchanged'
+	let unchanged = changed.clone()
 	var kinds = ast.StringList.create(0)
 	var left = ""
 	var leftCause = diag.ErrorCause.none
 	var broken = false
 	var said = ""
 	var watched = table.Option.none as table.Option with String
-	for round in 0 upto increment(maxFixRounds) 'rounds'
+	let rounds = fixRoundsOf(current)
+	for round in 0 upto increment(rounds) 'rounds'
 		let errs = checkFixing(current, libraries: libraries)
 		if errs.count() == 0 'clean'
 			left = ""
@@ -520,8 +534,9 @@ function fixProgram(consumes prog FixProgram, libraries FixLibraries, expected t
 		if expected.isSome() and not errs[0].fix.isSome() 'unfixable'
 			break 'rounds'
 		end 'unfixable'
-		if round == maxFixRounds 'last'
-			break 'rounds'
+		if round == rounds 'last'
+			said = "{said}unended  fixing {current.name} did not end in {rounds} rounds, so it is left as it was\n"
+			return FixOutcome.make(original, changed: unchanged, kinds: ast.StringList.create(0), left: left, leftCause: leftCause, broken: broken, said: said, watched: watched)
 		end 'last'
 		let choice = chooseFixes(current, errs: errs, expected: expected)
 		if choice.edits.count() == 0 'stuck'

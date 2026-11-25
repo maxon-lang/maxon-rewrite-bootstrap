@@ -1,0 +1,113 @@
+// More operations that may leave their range than fix has rounds for, in one function: the range analysis reports
+// one failure of a function at a time, so each round covers one, and every one of them gets its try.
+typealias Integer = int(i64.min to i64.max)
+
+function sink(x Integer) returns Integer
+	return try x + 1 otherwise panic("out of range")
+end 'sink'
+
+function main() returns ExitCode
+	let n = sink(3)
+	let v0 = n + 1
+	let v1 = v0 + 1
+	let v2 = v1 + 1
+	let v3 = v2 + 1
+	let v4 = v3 + 1
+	let v5 = v4 + 1
+	let v6 = v5 + 1
+	let v7 = v6 + 1
+	let v8 = v7 + 1
+	let v9 = v8 + 1
+	let v10 = v9 + 1
+	let v11 = v10 + 1
+	let v12 = v11 + 1
+	let v13 = v12 + 1
+	let v14 = v13 + 1
+	let v15 = v14 + 1
+	let v16 = v15 + 1
+	let v17 = v16 + 1
+	let v18 = v17 + 1
+	let v19 = v18 + 1
+	let v20 = v19 + 1
+	let v21 = v20 + 1
+	let v22 = v21 + 1
+	let v23 = v22 + 1
+	let v24 = v23 + 1
+	let v25 = v24 + 1
+	let v26 = v25 + 1
+	let v27 = v26 + 1
+	let v28 = v27 + 1
+	let v29 = v28 + 1
+	let v30 = v29 + 1
+	let v31 = v30 + 1
+	let v32 = v31 + 1
+	let v33 = v32 + 1
+	let v34 = v33 + 1
+	let v35 = v34 + 1
+	let v36 = v35 + 1
+	let v37 = v36 + 1
+	let v38 = v37 + 1
+	let v39 = v38 + 1
+	let v40 = v39 + 1
+	let v41 = v40 + 1
+	let v42 = v41 + 1
+	let v43 = v42 + 1
+	let v44 = v43 + 1
+	let v45 = v44 + 1
+	let v46 = v45 + 1
+	let v47 = v46 + 1
+	let v48 = v47 + 1
+	let v49 = v48 + 1
+	let v50 = v49 + 1
+	let v51 = v50 + 1
+	let v52 = v51 + 1
+	let v53 = v52 + 1
+	let v54 = v53 + 1
+	let v55 = v54 + 1
+	let v56 = v55 + 1
+	let v57 = v56 + 1
+	let v58 = v57 + 1
+	let v59 = v58 + 1
+	let v60 = v59 + 1
+	let v61 = v60 + 1
+	let v62 = v61 + 1
+	let v63 = v62 + 1
+	let v64 = v63 + 1
+	let v65 = v64 + 1
+	let v66 = v65 + 1
+	let v67 = v66 + 1
+	let v68 = v67 + 1
+	let v69 = v68 + 1
+	let v70 = v69 + 1
+	let v71 = v70 + 1
+	let v72 = v71 + 1
+	let v73 = v72 + 1
+	let v74 = v73 + 1
+	let v75 = v74 + 1
+	let v76 = v75 + 1
+	let v77 = v76 + 1
+	let v78 = v77 + 1
+	let v79 = v78 + 1
+	let v80 = v79 + 1
+	let v81 = v80 + 1
+	let v82 = v81 + 1
+	let v83 = v82 + 1
+	let v84 = v83 + 1
+	let v85 = v84 + 1
+	let v86 = v85 + 1
+	let v87 = v86 + 1
+	let v88 = v87 + 1
+	let v89 = v88 + 1
+	let v90 = v89 + 1
+	let v91 = v90 + 1
+	let v92 = v91 + 1
+	let v93 = v92 + 1
+	let v94 = v93 + 1
+	let v95 = v94 + 1
+	let v96 = v95 + 1
+	let v97 = v96 + 1
+	let v98 = v97 + 1
+	let v99 = v98 + 1
+	print("{v99}\n")
+	return 0
+end 'main'
