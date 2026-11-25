@@ -1,0 +1,44 @@
+// adopt makes the slot array of an array, every slot filled, from the array's own box: it consumes the array and copies
+// nothing. clear drops the element of each filled slot, skipping the empty ones, so the slot array is empty and dropEmpty
+// ends it.
+typealias Strings = Array with String
+
+typealias Names = __SlotArray with String
+
+typealias Integers = __SlotArray with Count
+
+// marks is a slot array's slots, x where one is filled and . where it is empty.
+function marks(slots __SlotArray with T) uses T returns String
+	var text = ""
+	for i in 0 upto slots.count() 'each'
+		let mark = "x" if slots.isFilled(i) else "."
+		text = "{text}{mark}"
+	end 'each'
+	return text
+end 'marks'
+
+function main() returns ExitCode
+	var array = Strings.create(4, zeroed: false)
+	array.push("ada")
+	array.push("bob")
+	array.push("cy")
+	var names = Names.adopt(array)
+	print("{marks(names)} {names.lendSlot(0)} {names.lendSlot(2)}\n")
+	let bob = try names.takeSlot(1) otherwise "none"
+	print("{marks(names)} {bob}\n")
+	names.clear()
+	print("{names.count()}\n")
+	names.dropEmpty()
+	var integers = Integers.adopt([3, 4])
+	print("{marks(integers)} {try integers.get(1) otherwise 0}\n")
+	integers.clear()
+	print("{integers.count()}\n")
+	integers.dropEmpty()
+	return 0
+end 'main'
+
+//> xxx ada cy
+//> x.x bob
+//> 0
+//> xx 4
+//> 0

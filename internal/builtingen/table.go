@@ -722,6 +722,9 @@ var tableFunctions = []function{
 	// every slot below its count is filled has no need of. isFilled traps past the end, as a subscript does; over a scalar an
 	// empty slot is the element 0, as dropEmpty reads it.
 	{Owner: "SlotArray", Name: "create", Static: true, Params: []string{"count ElementIndex"}, Result: "Self", Intrinsic: "ArrayEmptySlots"},
+	// adopt makes the slot array of an array's box, every slot filled: the same value under the slot array's type, as an
+	// array is made of a raw buffer, so a library collection takes an array literal as its slots with no copy.
+	{Owner: "SlotArray", Name: "adopt", Static: true, Params: []string{"consumes array Array with T"}, Result: "Self", Intrinsic: "ArrayFromMemory"},
 	{Owner: "SlotArray", Name: "count", Result: "Count", Intrinsic: "ArrayCount"},
 	{Owner: "SlotArray", Name: "get", Params: []string{"index ElementIndex"}, Result: "T", Bounds: []string{"T Copyable"}, Throws: "ArrayError", Intrinsic: "ArrayGet"},
 	{Owner: "SlotArray", Name: "push", Self: "mutates", Params: []string{"consumes value T"}, Intrinsic: "ArrayPush"},
@@ -730,6 +733,8 @@ var tableFunctions = []function{
 	{Owner: "SlotArray", Name: "fillSlot", Self: "mutates", Params: []string{"at ElementIndex", "consumes value T"}, Intrinsic: "ArrayFillSlot"},
 	{Owner: "SlotArray", Name: "takeSlot", Self: "mutates", Params: []string{"at ElementIndex"}, Result: "T", Throws: "ArrayError", Intrinsic: "ArrayTakeSlot"},
 	{Owner: "SlotArray", Name: "lendSlot", Params: []string{"at ElementIndex"}, Result: "T", Lends: true, Place: true, Intrinsic: "ArrayLendSlot"},
+	// clear drops the element of every filled slot, skipping the empty ones as an array's drop does, and keeps the buffer.
+	{Owner: "SlotArray", Name: "clear", Self: "mutates", Bounds: []string{"T Droppable"}, Intrinsic: "ArrayClear"},
 	{Owner: "SlotArray", Name: "dropEmpty", Self: "consumes", Intrinsic: "ArrayDropEmpty"},
 
 	// A FixedArray is an array's box of its count of elements, which never grows. create() makes the count its type states,
