@@ -417,6 +417,11 @@ func buildForms() []form {
 			name: "LeaRegBaseIndex8Disp", mnemonic: "lea", operands: []operand{reg("dest", fieldReg, write), memIndex(wordScale)},
 			rexW: true, opcode: []byte{0x8D}, modrm: modOperands, effects: noEffects,
 		},
+		// The address of a byte of a buffer, base plus index, which a place of a byte-sized type lent by address is.
+		form{
+			name: "LeaRegBaseIndex1Disp", mnemonic: "lea", operands: []operand{reg("dest", fieldReg, write), memIndex(byteScale)},
+			rexW: true, opcode: []byte{0x8D}, modrm: modOperands, effects: noEffects,
+		},
 		// A word at a byte offset, base plus index, which an address the runtime adds up is.
 		form{
 			name: "LoadRegBaseIndex1Disp", mnemonic: "mov", operands: []operand{reg("dest", fieldReg, write), memIndex(byteScale)},

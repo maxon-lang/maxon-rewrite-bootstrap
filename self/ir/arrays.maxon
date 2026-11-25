@@ -350,10 +350,12 @@ function clearFormSlot(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleSt
 end 'clearFormSlot'
 
 // arrayLend is the place of the element at index that lendSlot lends, trapping past the end and at an empty slot: the
-// address of its word, or for a record held in place the address of its words.
+// address of its word, for a record held in place the address of its words, and for a packed element the address of its
+// byte, through rt.bytes.elem as a word's is through rt.array.elem: one entry, checked the same way, which the expansion
+// makes the same bounds check and address (opt/expand.maxon).
 function arrayLend(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, box ArrayBox, arr Reg, index Reg) returns Reg
 	return match elementWay(p, ms: ms, box: box) 'way'
-		heldPacked gives panic("ir: a byte of a buffer is lent, which lowerArrayLendSlot refuses")
+		heldPacked gives elementEntry(l, p: p, site: box.site, symbol: Rt.rtBytesElem, args: argsOf2(arr, b: index), checked: true)
 		heldInline(_) gives arrayAddress(l, p: p, ms: ms, box: box, arr: arr, index: index, checked: true)
 		heldString or
 		heldWord or
@@ -571,12 +573,29 @@ function bytePlace(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState,
 	return d
 end 'bytePlace'
 
+// lentBytePlace is a slot that holds the byte at at, a place of a byte-sized type that a call lent (lentInByte), until
+// writeBack stores it back, so that a callee that takes the place by address writes a word of its own.
+function lentBytePlace(mutates l Lowerer, site diag.Site, t ast.TypeID, at Reg) returns Reg
+	let slot = l.b.f.newSlot(IrKind.kindScalar)
+	let element = newReg(l, kind: IrKind.kindScalar)
+	emit(l, i: newLoadByteAt(element, addr: at))
+	emit(l, i: newStoreSlot(slot, src: element, borrow: false))
+	l.writeBacks.push(WriteBack.makeAt(ArrayBox.make(site.clone(), ty: t), at: at, slot: slot))
+	let d = newReg(l, kind: IrKind.kindScalar)
+	emit(l, i: newSlotAddr(d, slot: slot))
+	return d
+end 'lentBytePlace'
+
 // writeBack stores the slots of the places taken since mark back into their elements.
 function writeBack(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, mark Count)
 	for i in mark upto l.writeBacks.count() 'each'
 		let w = l.writeBacks[i].clone()
 		let v = load(l, slot: w.slot)
-		arrayStore(l, p: p, ms: ms, box: w.box, arr: w.arr, index: w.index, v: v)
+		if w.at != noReg 'lent'
+			emit(l, i: newStoreByteAt(w.at, src: v))
+		end 'lent' else 'element'
+			arrayStore(l, p: p, ms: ms, box: w.box, arr: w.arr, index: w.index, v: v)
+		end 'element'
 	end 'each'
 	l.writeBacks.truncate(mark)
 end 'writeBack'

@@ -384,11 +384,32 @@ function elementCell(mutates vm Vm, arr ir.Reg, index ir.Reg, what String) retur
 	return vm.h.elements[data][i]
 end 'elementCell'
 
-// execElemAddr gives the address of an element, as entryArrayElem does in range.
+// execElemAddr gives the address of an element, as entryArrayElem does in range, or of a byte of a byte array, as
+// entryBytesElem does.
 function execElemAddr(mutates vm Vm, x ir.Instr) throws Halt
+	let o = vm.ref(ir.elemAddrArr(x))
+	if vm.h.oKind[o] == kindBytes 'byte'
+		let b = try collection(vm, o: o, kind: kindBytes, what: "a byte address")
+		let i = ir.bitsOfWord(vm.num(ir.elemAddrIndex(x)))
+		if i >= vm.h.buffers[vm.h.oData[b]].count() 'outside'
+			panic("interp: a byte address at an index that no check let through")
+		end 'outside'
+		let c = byteCell(vm, b: b, i: i)
+		giveAddress(vm, x: x, c: c)
+		return
+	end 'byte'
 	let c = try elementCell(vm, arr: ir.elemAddrArr(x), index: ir.elemAddrIndex(x), what: "an element address")
 	giveAddress(vm, x: x, c: c)
 end 'execElemAddr'
+
+// byteCell is a cell that stands for the byte at index i of the byte array b, which a place of a byte-sized type lent by
+// address is (ir.lentInByte): held by b, so that a change of b's structure makes its address stale, and naming the byte by
+// its index, which LoadByteAt and StoreByteAt read and write. A cell is made for each address taken.
+function byteCell(mutates vm Vm, b Count, i Count) returns Count
+	let c = vm.h.newCell(b)
+	vm.h.cellIndex[c] = i
+	return c
+end 'byteCell'
 
 // execElemLoad reads an element, as a LoadAt reads through the address that ElemAddr gives.
 function execElemLoad(mutates vm Vm, x ir.Instr) throws Halt
@@ -668,6 +689,16 @@ function entryBytesGet(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	end 'outside'
 	giveNum(vm, x: x, n: vm.h.buffers[data][i] as ir.Word)
 end 'entryBytesGet'
+
+function entryBytesElem(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let b = try collection(vm, o: argRef(vm, f: f, x: x, i: 0), kind: kindBytes, what: "a byte address")
+	let i = ir.bitsOfWord(argNum(vm, f: f, x: x, i: 1))
+	if i >= vm.h.buffers[vm.h.oData[b]].count() 'outside'
+		throw trap(vm, message: indexOutOfRangeMessage)
+	end 'outside'
+	let c = byteCell(vm, b: b, i: i)
+	giveAddress(vm, x: x, c: c)
+end 'entryBytesElem'
 
 // lowByte is the byte a word holds in its low 8 bits.
 function lowByte(n ir.Word) returns Byte

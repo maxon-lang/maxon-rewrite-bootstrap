@@ -151,6 +151,8 @@ export type ClassChoice
 			opStoreField then self.wantsGpr(ir.storeFieldObj(x))
 			opLoadAt then self.wantsGpr(ir.loadAtAddr(x))
 			opStoreAt then self.wantsGpr(ir.storeAtAddr(x))
+			opLoadByteAt then self.wantsGpr(ir.loadByteAtAddr(x))
+			opStoreByteAt then self.wantsGpr(ir.storeByteAtAddr(x))
 			opElemLoad then self.wantsGprBoth(ir.elemLoadArr(x), b: ir.elemLoadIndex(x))
 			opElemAt then self.wantsGprBoth(ir.elemAtData(x), b: ir.elemAtIndex(x))
 			opLoadParam then self.wantsClass(x.dst, float: ir.isFloatAt(f.floatParams, place: ir.loadParamParam(x)))

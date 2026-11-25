@@ -575,7 +575,11 @@ function address(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, e
 	end 'try'
 	if k == ast.NodeKind.callExpr and lendsByAddressAt(l, p: p, ms: ms, node: e) 'lent'
 		let lent = lowerCall(l, p: p, ms: ms, c: callSite(l, p: p, node: e))
-		return match held(l, p: p, ms: ms, t: exprType(p, module: l.module, node: e)) 'holding'
+		let lentTy = exprType(p, module: l.module, node: e)
+		if lentInByte(l, p: p, ms: ms, t: lentTy) 'byte'
+			return lentBytePlace(l, site: siteOf(l, p: p, node: e), t: lentTy, at: lent)
+		end 'byte'
+		return match held(l, p: p, ms: ms, t: lentTy) 'holding'
 			heldAddress(_) gives heldPlace(l, words: lent)
 			heldWord gives lent
 			heldString gives lent
@@ -830,10 +834,32 @@ end 'requirementSignature'
 
 // loadLent is the value at addr, the place that the call node lends to be changed.
 function loadLent(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, node ast.NodeID, addr Reg) returns Reg
-	let d = newReg(l, kind: kindOf(l, p: p, ms: ms, t: exprType(p, module: l.module, node: node)))
+	let t = exprType(p, module: l.module, node: node)
+	let d = newReg(l, kind: kindOf(l, p: p, ms: ms, t: t))
+	if lentInByte(l, p: p, ms: ms, t: t) 'byte'
+		emit(l, i: newLoadByteAt(d, addr: addr))
+		return d
+	end 'byte'
 	emit(l, i: newLoadAt(d, addr: addr))
 	return d
 end 'loadLent'
+
+// lentInByte is whether a place of the type t, which the body names, that a call lends by address is one byte wide: where
+// an array keeps an element of the type in a byte (holding, inElement). Such a place is read and written one byte at a
+// time wherever it lies: a byte of an array's buffer, or the low byte of a word that holds the value, which is the value
+// on every target, since each is little-endian, the value is from 0 to 255, and the word's upper bytes are never written.
+// A place of any other type is its word, as it was.
+function lentInByte(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, t ast.TypeID) returns bool
+	let ty = applyType(l, p: p, ms: ms, t: t)
+	return match holding(ms.types, reads: p.types, b: p.builtins, t: ty, holder: Holder.inElement) 'holding'
+		heldPacked gives true
+		heldWord gives false
+		heldString gives false
+		heldBox gives false
+		heldAddress(_) gives false
+		heldInline(_) gives false
+	end 'holding'
+end 'lentInByte'
 
 function visitCallExpr(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, node ast.NodeID) returns Reg
 	let c = callSite(l, p: p, node: node)

@@ -246,6 +246,13 @@ var ops = []op{
 		Operands: []operand{reg("Addr", fA)}, Effects: []effect{effReads}, Text: "loadat {Addr}"},
 	{Name: "StoreAt", Eval: noEval, Doc: "StoreAt writes Src to the word at an address.",
 		Operands: []operand{reg("Addr", fA), reg("Src", fB)}, Effects: []effect{effWrites}, Text: "storeat {Addr}, {Src}"},
+	// A place of a byte-sized type that a call lends by address is read and written one byte wide (ir.lentWidth): a byte
+	// of a byte array's buffer, or the low byte of a word that holds the value, which is the value on every target, since
+	// each is little-endian, the value is from 0 to 255, and the word's upper bytes are never written.
+	{Name: "LoadByteAt", Eval: noEval, Doc: "LoadByteAt reads the byte at an address, zero-extended to the word.", Result: valueResult,
+		Operands: []operand{reg("Addr", fA)}, Effects: []effect{effReads}, Text: "loadbyteat {Addr}"},
+	{Name: "StoreByteAt", Eval: noEval, Doc: "StoreByteAt writes the low byte of Src to the byte at an address.",
+		Operands: []operand{reg("Addr", fA), reg("Src", fB)}, Effects: []effect{effWrites}, Text: "storebyteat {Addr}, {Src}"},
 	{Name: "LoadGlobal", Eval: noEval, Doc: "LoadGlobal reads a global of the runtime.", Result: valueResult,
 		Operands: []operand{symbolOp}, Effects: []effect{effReads}, Text: "global {Symbol}"},
 	// The raw operations are what the runtime's source lowers its __Raw intrinsics to (README, "The runtime"); no other

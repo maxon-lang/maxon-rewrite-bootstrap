@@ -90,6 +90,7 @@ export function motionOf(x ir.Instr) returns Motion
 		opLoadSlot or
 		opLoadField or
 		opLoadAt or
+		opLoadByteAt or
 		opElemAddr or
 		opElemLoad or
 		opLoadByte or
@@ -110,6 +111,7 @@ export function motionOf(x ir.Instr) returns Motion
 		opStoreSlot or
 		opStoreField or
 		opStoreAt or
+		opStoreByteAt or
 		opStoreRaw or
 		opLoadAcquire or
 		opStoreRelease or
@@ -157,10 +159,15 @@ end 'binMotion'
 // storesElement is whether x, a clobber of f, writes only an element of an array: a store through the address of an
 // element. defs is where f defines each register.
 export function storesElement(f ir.IrFunction, defs ir.Defs, x ir.Instr) returns bool
-	if x.op != ir.Opcode.opStoreAt 'other'
+	var addr = ir.noReg
+	if x.op == ir.Opcode.opStoreAt 'word'
+		addr = ir.storeAtAddr(x)
+	end 'word' else if x.op == ir.Opcode.opStoreByteAt 'byte'
+		addr = ir.storeByteAtAddr(x)
+	end 'byte' else 'other'
 		return false
 	end 'other'
-	let op = definingOp(f, defs: defs, r: ir.storeAtAddr(x))
+	let op = definingOp(f, defs: defs, r: addr)
 	return op == ir.Opcode.opElemAddr or op == ir.Opcode.opElemAddrAt
 end 'storesElement'
 
@@ -177,7 +184,7 @@ export function readsBeyondElements(f ir.IrFunction, defs ir.Defs, x ir.Instr) r
 	if op == ir.Opcode.opLoadField 'field'
 		return outsideElements(f, defs: defs, r: ir.loadFieldObj(x))
 	end 'field'
-	if op == ir.Opcode.opElemLoad or op == ir.Opcode.opElemAt or op == ir.Opcode.opLoadByte or op == ir.Opcode.opByteAt 'element'
+	if op == ir.Opcode.opElemLoad or op == ir.Opcode.opElemAt or op == ir.Opcode.opLoadByte or op == ir.Opcode.opByteAt or op == ir.Opcode.opLoadByteAt 'element'
 		return false
 	end 'element'
 	panic("opt: readsBeyondElements of {ir.opcodeName(op)}, which is no read")

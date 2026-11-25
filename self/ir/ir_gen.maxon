@@ -39,6 +39,8 @@ export enum Opcode
 	opFieldAddr
 	opLoadAt
 	opStoreAt
+	opLoadByteAt
+	opStoreByteAt
 	opLoadGlobal
 	opLoadRaw
 	opStoreRaw
@@ -672,6 +674,12 @@ export function opEffects(op Opcode) returns Count
 	if op == Opcode.opStoreAt 'opStoreAt'
 		return 2
 	end 'opStoreAt'
+	if op == Opcode.opLoadByteAt 'opLoadByteAt'
+		return 1
+	end 'opLoadByteAt'
+	if op == Opcode.opStoreByteAt 'opStoreByteAt'
+		return 2
+	end 'opStoreByteAt'
 	if op == Opcode.opLoadGlobal 'opLoadGlobal'
 		return 1
 	end 'opLoadGlobal'
@@ -1022,6 +1030,22 @@ export function newStoreAt(addr Reg, src Reg) returns Instr
 	r.b = src
 	return r
 end 'newStoreAt'
+
+// LoadByteAt reads the byte at an address, zero-extended to the word.
+export function newLoadByteAt(dst Reg, addr Reg) returns Instr
+	var r = Instr.make(Opcode.opLoadByteAt)
+	r.dst = dst
+	r.a = addr
+	return r
+end 'newLoadByteAt'
+
+// StoreByteAt writes the low byte of Src to the byte at an address.
+export function newStoreByteAt(addr Reg, src Reg) returns Instr
+	var r = Instr.make(Opcode.opStoreByteAt)
+	r.a = addr
+	r.b = src
+	return r
+end 'newStoreByteAt'
 
 // LoadGlobal reads a global of the runtime.
 export function newLoadGlobal(dst Reg, symbol Rt) returns Instr
@@ -1734,6 +1758,12 @@ export function opcodeName(op Opcode) returns String
 	if op == Opcode.opStoreAt 'opStoreAt'
 		return "StoreAt"
 	end 'opStoreAt'
+	if op == Opcode.opLoadByteAt 'opLoadByteAt'
+		return "LoadByteAt"
+	end 'opLoadByteAt'
+	if op == Opcode.opStoreByteAt 'opStoreByteAt'
+		return "StoreByteAt"
+	end 'opStoreByteAt'
 	if op == Opcode.opLoadGlobal 'opLoadGlobal'
 		return "LoadGlobal"
 	end 'opLoadGlobal'
@@ -2093,6 +2123,27 @@ export function storeAtSrc(x Instr) returns Reg
 	end 'op'
 	return x.b
 end 'storeAtSrc'
+
+export function loadByteAtAddr(x Instr) returns Reg
+	if x.op != Opcode.opLoadByteAt 'op'
+		wrongInstr("loadByteAtAddr", found: x.op)
+	end 'op'
+	return x.a
+end 'loadByteAtAddr'
+
+export function storeByteAtAddr(x Instr) returns Reg
+	if x.op != Opcode.opStoreByteAt 'op'
+		wrongInstr("storeByteAtAddr", found: x.op)
+	end 'op'
+	return x.a
+end 'storeByteAtAddr'
+
+export function storeByteAtSrc(x Instr) returns Reg
+	if x.op != Opcode.opStoreByteAt 'op'
+		wrongInstr("storeByteAtSrc", found: x.op)
+	end 'op'
+	return x.b
+end 'storeByteAtSrc'
 
 export function loadGlobalSymbol(x Instr) returns Rt
 	if x.op != Opcode.opLoadGlobal 'op'
@@ -3261,6 +3312,12 @@ export function instrDef(x Instr) returns table.Option with Reg
 	if x.op == Opcode.opStoreAt 'opStoreAt'
 		return table.Option.none
 	end 'opStoreAt'
+	if x.op == Opcode.opLoadByteAt 'opLoadByteAt'
+		return table.Option.some(x.dst)
+	end 'opLoadByteAt'
+	if x.op == Opcode.opStoreByteAt 'opStoreByteAt'
+		return table.Option.none
+	end 'opStoreByteAt'
 	if x.op == Opcode.opLoadGlobal 'opLoadGlobal'
 		return table.Option.some(x.dst)
 	end 'opLoadGlobal'
@@ -3491,6 +3548,12 @@ export function instrFail(x Instr) returns table.Option with BlockID
 	if x.op == Opcode.opStoreAt 'opStoreAt'
 		return table.Option.none
 	end 'opStoreAt'
+	if x.op == Opcode.opLoadByteAt 'opLoadByteAt'
+		return table.Option.none
+	end 'opLoadByteAt'
+	if x.op == Opcode.opStoreByteAt 'opStoreByteAt'
+		return table.Option.none
+	end 'opStoreByteAt'
 	if x.op == Opcode.opLoadGlobal 'opLoadGlobal'
 		return table.Option.none
 	end 'opLoadGlobal'
@@ -3687,6 +3750,8 @@ export function instrCanFail(x Instr) returns bool
 		opFieldAddr gives false
 		opLoadAt gives false
 		opStoreAt gives false
+		opLoadByteAt gives false
+		opStoreByteAt gives false
 		opLoadGlobal gives false
 		opLoadRaw gives false
 		opStoreRaw gives false
@@ -3795,6 +3860,15 @@ export function instrReads(f IrFunction, x Instr, mutates out RegList)
 		out.push(storeAtSrc(x))
 		return
 	end 'opStoreAt'
+	if x.op == Opcode.opLoadByteAt 'opLoadByteAt'
+		out.push(loadByteAtAddr(x))
+		return
+	end 'opLoadByteAt'
+	if x.op == Opcode.opStoreByteAt 'opStoreByteAt'
+		out.push(storeByteAtAddr(x))
+		out.push(storeByteAtSrc(x))
+		return
+	end 'opStoreByteAt'
 	if x.op == Opcode.opLoadGlobal 'opLoadGlobal'
 		return
 	end 'opLoadGlobal'
@@ -4121,6 +4195,13 @@ export function instrWrites(x Instr, mutates out RegList)
 	if x.op == Opcode.opStoreAt 'opStoreAt'
 		return
 	end 'opStoreAt'
+	if x.op == Opcode.opLoadByteAt 'opLoadByteAt'
+		out.push(x.dst)
+		return
+	end 'opLoadByteAt'
+	if x.op == Opcode.opStoreByteAt 'opStoreByteAt'
+		return
+	end 'opStoreByteAt'
 	if x.op == Opcode.opLoadGlobal 'opLoadGlobal'
 		out.push(x.dst)
 		return
@@ -4411,6 +4492,15 @@ export function renameInstrReads(mutates x Instr, mutates args RegList, names Re
 		x.b = renamedReg(names, r: x.b)
 		return
 	end 'opStoreAt'
+	if x.op == Opcode.opLoadByteAt 'opLoadByteAt'
+		x.a = renamedReg(names, r: x.a)
+		return
+	end 'opLoadByteAt'
+	if x.op == Opcode.opStoreByteAt 'opStoreByteAt'
+		x.a = renamedReg(names, r: x.a)
+		x.b = renamedReg(names, r: x.b)
+		return
+	end 'opStoreByteAt'
 	if x.op == Opcode.opLoadGlobal 'opLoadGlobal'
 		return
 	end 'opLoadGlobal'
@@ -4776,6 +4866,16 @@ export function relocateInstr(mutates x Instr, at Relocation)
 		x.b = renamedReg(at.names, r: x.b)
 		return
 	end 'opStoreAt'
+	if x.op == Opcode.opLoadByteAt 'opLoadByteAt'
+		x.dst = renamedReg(at.names, r: x.dst)
+		x.a = renamedReg(at.names, r: x.a)
+		return
+	end 'opLoadByteAt'
+	if x.op == Opcode.opStoreByteAt 'opStoreByteAt'
+		x.a = renamedReg(at.names, r: x.a)
+		x.b = renamedReg(at.names, r: x.b)
+		return
+	end 'opStoreByteAt'
 	if x.op == Opcode.opLoadGlobal 'opLoadGlobal'
 		x.dst = renamedReg(at.names, r: x.dst)
 		return
@@ -5165,6 +5265,8 @@ export interface InstrVisitor
 	function visitFieldAddr(mutates self, f IrFunction, x Instr)
 	function visitLoadAt(mutates self, f IrFunction, x Instr)
 	function visitStoreAt(mutates self, f IrFunction, x Instr)
+	function visitLoadByteAt(mutates self, f IrFunction, x Instr)
+	function visitStoreByteAt(mutates self, f IrFunction, x Instr)
 	function visitLoadGlobal(mutates self, f IrFunction, x Instr)
 	function visitLoadRaw(mutates self, f IrFunction, x Instr)
 	function visitStoreRaw(mutates self, f IrFunction, x Instr)
@@ -5276,6 +5378,14 @@ export function visitInstr(mutates visitor V, f IrFunction, x Instr) uses V wher
 		visitor.visitStoreAt(f, x: x)
 		return
 	end 'opStoreAt'
+	if x.op == Opcode.opLoadByteAt 'opLoadByteAt'
+		visitor.visitLoadByteAt(f, x: x)
+		return
+	end 'opLoadByteAt'
+	if x.op == Opcode.opStoreByteAt 'opStoreByteAt'
+		visitor.visitStoreByteAt(f, x: x)
+		return
+	end 'opStoreByteAt'
 	if x.op == Opcode.opLoadGlobal 'opLoadGlobal'
 		visitor.visitLoadGlobal(f, x: x)
 		return
@@ -5604,6 +5714,12 @@ export function instrText(p ast.Project, tt ast.TypeSlot, reads ast.TypeTable, f
 	if x.op == Opcode.opStoreAt 'opStoreAt'
 		return "storeat %{storeAtAddr(x)}, %{storeAtSrc(x)}"
 	end 'opStoreAt'
+	if x.op == Opcode.opLoadByteAt 'opLoadByteAt'
+		return "{resultText(x.dst)}loadbyteat %{loadByteAtAddr(x)}"
+	end 'opLoadByteAt'
+	if x.op == Opcode.opStoreByteAt 'opStoreByteAt'
+		return "storebyteat %{storeByteAtAddr(x)}, %{storeByteAtSrc(x)}"
+	end 'opStoreByteAt'
 	if x.op == Opcode.opLoadGlobal 'opLoadGlobal'
 		return "{resultText(x.dst)}global {rtText(loadGlobalSymbol(x))}"
 	end 'opLoadGlobal'
