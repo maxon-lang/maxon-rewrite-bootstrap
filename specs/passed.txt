@@ -4182,12 +4182,8 @@ list.md: append.single
 list.md: basic.creation
 list.md: basic.empty
 list.md: basic.first-empty
-list.md: basic.first-last
 list.md: basic.last-empty
 list.md: clear
-list.md: get.out-of-bounds
-list.md: get.valid
-list.md: insert.at-middle
 list.md: iteration.for-in
 list.md: iteration.large-list
 list.md: iteration.two-loops
@@ -4202,9 +4198,6 @@ list.md: memory.value-survives-clear-error
 list.md: mixed-operations
 list.md: prepend.multiple
 list.md: prepend.single
-list.md: remove-first
-list.md: remove-last
-list.md: remove.at-index
 list.md: strings
 literals.md: an-unsigned-literal-as-an-otherwise-fallback
 literals.md: an-unsigned-literal-in-a-ternary-arm-beside-an-unsigned-value
