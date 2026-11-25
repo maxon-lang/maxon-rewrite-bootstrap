@@ -1,0 +1,5 @@
+export let OsErrorFileNotFound = 2 as OsErrorCode
+
+export let OsErrorPathNotFound = 3 as OsErrorCode
+
+export let OsErrorSharingViolation = 32 as OsErrorCode

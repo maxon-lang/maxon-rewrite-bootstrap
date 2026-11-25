@@ -143,7 +143,7 @@ programs as an artifact. The workflow reads the repository and writes nothing to
 | `minimaxon fmt [--check] <path>...` | put the `.maxon` files and the Maxon code blocks of the `.md` files under the paths in the one layout; `--check` changes nothing and exits 1 listing the files that are not in it (see "Layout" and "Changing the language") |
 | `minimaxon interp <file\|dir> [--seed=N] [--frees]` | development only: run under the tracking interpreter, which runs a frozen value, a cown and a behaviour, and reports a violation of the memory model; `--frees` lists the values freed, in order |
 | `minimaxon fuzz [--seed=N] [--count=N] [--schedules=N] [--keep=DIR] [--native] [--dump]` | development only: write random programs, check them and run them under the interpreter (`self/fuzz`); `--native` also runs the executable of each that compiles and compares it with the interpreter (see "Tests") |
-| `go run ./cmd/convert [--specs] [--write] [--check] [--out=DIR] [<path>...]` | convert existing Maxon `.maxon` source files to minimaxon syntax and layout, marking unsupported constructs with `// TODO` comments and warnings on stderr; `--check` writes nothing and prints each kind of warning with its count and files, most frequent first (run `minimaxon qualify` after converting a project of several modules); `--specs` converts maxon's spec files, which is how `specs/` is made. A source file's top-level declaration of a name that minimaxon has built in (`internal/builtingen`'s table, which writes `cmd/convert/builtins_gen.go`) is left out, with the comment above it, since the built-in is the declaration every other module uses; a spec test's program keeps one, as a program may declare such a name. A source file's declaration of a record type that minimaxon builds in and that has members the built-in lacks (`Clock`, `Directory`) is kept as an extension of the built-in, with the members the built-in declares and the fields left out, and maxon's `WaitDeadlineMs` is written `Count`. A capability word before a type argument (`Array with immutable Key`) is left out (see "Where it differs from Maxon"). A block that is the first operand inside brackets (`let n = (try f() otherwise 'e' ... end 'e') as T`, `xs.push(match x 'm' ... end 'm')`) is bound on lines of its own before the line, since minimaxon reads no line break inside brackets. It lays out what it converts with the compiler's `fmt`: the gate's, `bin\minimaxon.exe` in the repository, or the compiler the environment variable `MINIMAXON` names |
+| `go run ./cmd/convert [--specs] [--write] [--check] [--out=DIR] [<path>...]` | convert existing Maxon `.maxon` source files to minimaxon syntax and layout, marking unsupported constructs with `// TODO` comments and warnings on stderr; `--check` writes nothing and prints each kind of warning with its count and files, most frequent first (run `minimaxon qualify` after converting a project of several modules); `--specs` converts maxon's spec files, which is how `specs/` is made. A source file's top-level declaration of a name that minimaxon has built in (`internal/builtingen`'s table, which writes `cmd/convert/builtins_gen.go`) is left out, with the comment above it, since the built-in is the declaration every other module uses; a spec test's program keeps one, as a program may declare such a name. A source file's declaration of a record type that minimaxon builds in and that has members the built-in lacks (`Clock`, `Directory`) is kept as an extension of the built-in, with the members the built-in declares and the fields left out, and maxon's `WaitDeadlineMs` is written `Count` unless the file declares it (the library's Subprocess does, for its own `MxWaitDeadline`). The types of maxon's Subprocess that the compiler builds in too are declared by the library under the prefix `Mx` (`MxSubprocess`). A method or a top-level function that calls a raw function the table lacks is left out, and so is what only it reached, a method that calls one left out included. A capability word before a type argument (`Array with immutable Key`) is left out (see "Where it differs from Maxon"). A block that is the first operand inside brackets (`let n = (try f() otherwise 'e' ... end 'e') as T`, `xs.push(match x 'm' ... end 'm')`) is bound on lines of its own before the line, since minimaxon reads no line break inside brackets. It lays out what it converts with the compiler's `fmt`: the gate's, `bin\minimaxon.exe` in the repository, or the compiler the environment variable `MINIMAXON` names |
 | `go run ./cmd/sample [-interval D] [-threads] [-top N] [-callers N] [-focus TEXT,...] [-o FILE] <exe> [arg...]` | profile an executable that `build --emit-map` made: runs it, samples its main thread's instruction pointer and its `rbp` frames (1 ms by default), and prints the functions by self and by total samples, with the callers of the top ones and of those whose symbol contains a `-focus` text, and the wall time; code outside the image (a Windows DLL) is charged to the function that called it, found by scanning the stack, and exits with the program's code |
 | `go run ./cmd/selfab [--base=REV] [--base-compiler=EXE] [--runs=N] [--note=TEXT]` | compare the self-build of two versions of the compiler: A (`--base`, a git revision, `HEAD` by default, checked out in a temporary worktree; or `--base-compiler`, a C1 made of its sources) and B (the working tree). Each is built as C1 by its own seed, then `<C1> build self --no-cache` is timed N times (11 by default) on both, interleaved with the order alternating after one run of each that is not counted, and the tool prints the medians, their ratio and the range of the ratio over the pairs of runs. It also prints the share of a build that `--timings` gives the `bodies` and `verify` stages (the check of function bodies), and the count in the IR that `--emit-ir` writes (after the optimizer) of the `bounds` operations and of the calls of `rt.panicEmptySlot` (counted for both versions by the working tree's `ircount`), the run-time tests that a compiler made by each version still holds; the failures that a `try xs.get(i)` takes to its handler are not among them. `--note` also prints a row for `docs/self-compile-times.md`. It takes the machine-wide lock and works on Windows, Linux and macOS |
 
@@ -538,7 +538,7 @@ is that of its module (`app::main`), and a project with no `main` in any module 
   `stdlib/` is not, and its root holds no file (a `.maxon` file there is `E3928`, which names the module to move it to), so
   `stdlib/` lists only modules: `array` (the methods of `Array` and its sorts), `string`, `character`, `characterset`, `map`,
   `set`, `list`, `range`, `parsable`, `json`, `url`, `filepath`, `stream`, `console`, `math`, `random`, `base64`, `pem`, `clock`,
-  `directory`, `cell`, `slotmap`, `unicode`, `ascii`, `sha2`, `heap`, the `core` and `_helpers`. The `core` holds the
+  `directory`, `process`, `subprocess`, `cell`, `slotmap`, `unicode`, `ascii`, `sha2`, `heap`, the `core` and `_helpers`. The `core` holds the
   interfaces, the conformances that the built-in types need to meet them and the hashing: a module sees an `extension
   <built-in> implements I` only when the module that writes it declares `I` (see "Extensions"), so each conformance of
   `Array`, `String`, `Character`, `FilePath`, the integers and the floats is written in the module that declares the
@@ -5551,9 +5551,9 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   `"70000"`, an `int`'s `"9223372036854775808"`, a float's `"1e309"`) is `outOfRange`, and `invalidFormat` is a text that
   is not written as the type's values are, so a program tells the two apart.
 - `try p.get(k).n = v` is minimaxon's: a try before an assignment's target covers the call that lends the place and passes
-- **`Process` has not `isAlive`, `namespace`, `endDescendants` or `DescendantProcess`**, and `Pid` is not declared: each needs a
-  raw function that lists or tests the host's processes, which this runtime has not, and `Pid` is declared in maxon's
-  `Subprocess.maxon`, which is not converted yet. The conversion leaves them out with the helpers only they reach.
+- **`Process` has not `isAlive`, `namespace`, `endDescendants` or `DescendantProcess`**, and `Process.id()` gives a `Count`, not
+  a `Pid` (declared in `stdlib/subprocess`, beside the library's Subprocess): the first three need a raw function that lists or
+  tests the host's processes, which this runtime has not. The conversion leaves them out with the helpers only they reach.
   `Process.currentEnvironmentEntries()` and the rest of the environment functions are maxon's, but the interpreter has no way to
   walk its own environment that the compiler's seed compiles, so a program that calls one is `// native-only` and halts under
   the interpreter, as one that enters background priority does.
@@ -5569,7 +5569,7 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   node is O(n) and the link O(1). `get`, `first` and `last` lend the element (a copy is `.clone()`) where maxon's copy it
   out; `clear()` and `insert` need elements that can be dropped, and `dropEmpty()` ends an empty list of values with
   destructors.
-- **The subprocess rows are the attached run of maxon's, and stdlib/Subprocess.maxon is not converted over them.** The rows
+- **The subprocess rows are the attached run of maxon's.** The rows
   (`runtime/spawn.maxon`, "Primitives": `__Builtins`) serve a spawn whose environment is this process's or a block of
   `NAME=VALUE` entries (`envInherit` 0, all of the child's environment, a block that is not one refused as Win32's 87), whose standard
   input is none (the null device), inherited, bytes or a file, whose output and error are discarded, inherited, collected (a limit
@@ -5591,16 +5591,29 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   program, the working directory unless `NoDefaultCurrentDirectoryInExePath` is set, the system directory, `System` of the Windows
   directory, the Windows directory, `PATH`, each name with the extensions of `PATHEXT` unless its last component has one), and on
   Linux and macOS walks `PATH` as `execvp` does. The interpreter halts at each row (`// native-only`). maxon's `Subprocess.maxon`
-  does not convert yet, since its `SubprocessError` is a union whose cases carry the output and the code (`timeout(elapsedMs,
-  stdout:, stderr:)`), which minimaxon has as the built-in enum without payloads until a seed that compiles union errors, and the
-  file reads the codes of `helpers/file/osErrorCodes.maxon`, which is not converted, and ors a `SpawnFlag`'s `rawValue`
-  (a `Count`) into an integer of another alias, which minimaxon refuses (`E3005`).
+  is converted over them (`stdlib/subprocess`, next bullet), as far as the rows go.
 - **A Windows argument is quoted as maxon's runtime decides it, but its backslashes are written as the C runtime reads them back.**
   An argument is in quotes when it is empty or has a space, a tab or a quote (it was in quotes for a space or a tab alone, a bare
   quote written as `\"`), and a quote is written `\"`; the backslashes before a quote and before the closing quote are doubled,
   where maxon's runtime writes them as they are: its bytes for the argument `C:\my dir\` are `"C:\my dir\"`, whose last quote the C
   runtime reads as a literal one, a broken argument that takes the rest of the line, where these write `"C:\my dir\\"`. This is
   the quoting of `Subprocess.run` and of the debug port's launch too (`tests/runtime/arguments-round-trip-through-a-child.maxon`).
+- **maxon's Subprocess is the library's `MxSubprocess`, beside the built-in `Subprocess`.** `stdlib/subprocess` is maxon's
+  `Subprocess.maxon` converted over the subprocess rows (`stdlib/files.txt`), with `helpers/file/osErrorCodes.maxon`, and gives
+  `MxSubprocess` (`run`, `runConfiguration`), `Configuration` (`create`, `run`) with `MxExecutable`, `WorkingDirectory`,
+  `Environment` (`inherit`, `inheritUpdating`, `custom`), `InputSource`, `OutputDestination`, `MxWaitDeadline`,
+  `PlatformOptions`, `MxCollectedOutput` with its `TerminationStatus` (`exited` or `signalled`, the signal's number), `Pid` and the
+  `MxSubprocessError` union that carries the output and the codes, as maxon's does. The five types that the compiler also builds in
+  (`Subprocess`, `Executable`, `CollectedOutput`, `SubprocessError`, `WaitDeadline`) are written with the prefix `Mx` where the
+  library declares them (`libraryBesideBuiltins` of `cmd/convert`), so that a program and the compiler's own source go on using
+  the built-ins until they are retired; the built-ins take no `Configuration`, `workingDirectory:` or `deadline:` of maxon's, and
+  throw an enum. Left out, since the rows are not there
+  (`cmd/convert` leaves out a member that calls a raw function the table lacks, and what only such members reach):
+  `runDetached`, the detached spawn (`SubprocessError.detachRefused` is a case nothing raises), the streaming child
+  (`StreamingSubprocess` and its readers, `pollExit`, `pollTermination`, `endTree` and `TreeEnd`, so that the end of a tree is
+  reached only by a run's deadline, which ends the child and its tree and gives `timeout` or `treeNotEnded`), and the holding of a
+  standard input (`InputSource.hold` fails the spawn, as the rows refuse it, and so does the flag `traced`). `Process.currentEnvironmentEntries`
+  and its helpers (`stdlib/process`) build the environment block of `inheritUpdating`.
 
 ## Changing the language
 

@@ -58,12 +58,12 @@ const (
 
 // Convert converts existing Maxon source code to minimaxon syntax and layout.
 func Convert(file, src string, kind inputKind) Result {
-	return convertProgram(file, src, kind, nil)
+	return convertProgram(file, src, kind, programNames{})
 }
 
-// convertProgram is Convert for one file of a program whose other files declare the types ownTypes names, of those that
-// libraryTypeNamesHere renames.
-func convertProgram(file, src string, kind inputKind, ownTypes []string) Result {
+// convertProgram is Convert for one file of a program, whose names (all its files together) decide which of the library's
+// types it names as minimaxon does.
+func convertProgram(file, src string, kind inputKind, names programNames) Result {
 	text := normalizeText(src)
 	if strings.TrimSpace(text) == "" {
 		return Result{Text: "", Formatted: true}
@@ -83,6 +83,7 @@ func convertProgram(file, src string, kind inputKind, ownTypes []string) Result 
 	}
 
 	if kind == sourceFile {
+		renameBesideBuiltins(lines)
 		lines = hoistRangedTypealiases(lines)
 		if isLibraryHelper(file) {
 			exportPublicModifiers(lines)
@@ -108,7 +109,7 @@ func convertProgram(file, src string, kind inputKind, ownTypes []string) Result 
 		}
 	}
 	rewriteTypeNames(lines)
-	renameLibraryTypes(file, lines, kind, ownTypes)
+	renameLibraryTypes(file, lines, kind, names.own)
 	joinEndOtherwise(lines)
 	rewriteDestructors(lines, addWarn)
 	rewriteStringBuilders(lines)
@@ -2381,6 +2382,14 @@ func rewriteToStringCalls(toks []token) []token {
 			continue
 		}
 		if t.kind == tokIdent && t.text == "toString" && i+2 < len(toks) && toks[i+1].text == "(" && toks[i+2].text == ")" && i > 0 && toks[i-1].text == "." {
+			if isCStrCall(toks, i+3) {
+				// maxon's FilePath.toString() is the path's own String, which its cstring views; here it is a new String, which
+				// would be gone once the cstring is made, so the cstring views the path field.
+				t.text = "path"
+				out = append(out, t)
+				i += 2
+				continue
+			}
 			if start := receiverStart(toks, i-2); start >= 0 {
 				// The operand and the dot are the last tokens out took, unless a rewrite earlier on the line joined some.
 				n := len(out) - (i - start)
@@ -2398,6 +2407,11 @@ func rewriteToStringCalls(toks []token) []token {
 		out = append(out, t)
 	}
 	return out
+}
+
+// isCStrCall says whether the tokens from i are `.cstr()`.
+func isCStrCall(toks []token, i int) bool {
+	return i+3 < len(toks) && toks[i].text == "." && toks[i+1].text == "cstr" && toks[i+2].text == "(" && toks[i+3].text == ")"
 }
 
 // toStringPart is an interpolated part that is a call of toString() on an expression with no braces or quotes in it.

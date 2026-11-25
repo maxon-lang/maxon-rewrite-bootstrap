@@ -116,7 +116,7 @@ func ConvertSpec(file, src string) SpecResult {
 		case strings.HasPrefix(line, specTestMarker):
 			c.closeTest()
 			c.startTest(line)
-			c.ownTypes = ownLibraryTypes(testSource(lines, i+1))
+			c.names = programNamesOf(testSource(lines, i+1))
 		case strings.HasPrefix(line, specHeadingPrefix):
 			c.closeTest()
 			if strings.TrimRight(line, " \t") == specTestsHeading {
@@ -165,8 +165,8 @@ type specConverter struct {
 	// block is the converted lines of the block convertBlock handled last.
 	block []string
 
-	// ownTypes are the types of libraryTypeNamesHere that the open test's program declares in any of its files.
-	ownTypes []string
+	// names is what the open test's program, all its files together, says about the names it writes.
+	names programNames
 }
 
 func (c *specConverter) startTest(marker string) {
@@ -253,7 +253,7 @@ func (c *specConverter) convertSection(body []string, firstLine int) []string {
 	if first == last {
 		return body
 	}
-	res := convertProgram(c.file, strings.Join(body[first:last], "\n"), specProgram, c.ownTypes)
+	res := convertProgram(c.file, strings.Join(body[first:last], "\n"), specProgram, c.names)
 	res.Text = moveLibraryListing(res.Text)
 	for _, w := range res.Warnings {
 		w.Line += firstLine + first - 1

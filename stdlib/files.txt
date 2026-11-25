@@ -36,3 +36,5 @@ CharacterSet.maxon characterset
 helpers/string/utf8.maxon json
 helpers/string/utf16.maxon json
 Json.maxon json
+helpers/file/osErrorCodes.maxon subprocess
+Subprocess.maxon subprocess

@@ -902,3 +902,29 @@ func TestConvertExportsWhatOtherModulesName(t *testing.T) {
 		t.Errorf("a helper that only a file outside its directory names:\n%s", got)
 	}
 }
+
+// TestConvertDeclaresMaxonsSubprocessBesideTheBuiltIns: the types of maxon's Subprocess that minimaxon also builds in are
+// declared by the library under the prefix Mx, a method that calls a raw function the table lacks goes with the method
+// that calls it, and a cstring of a toString() views the path field, which outlives it.
+func TestConvertDeclaresMaxonsSubprocessBesideTheBuiltIns(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "stdlib")
+	in := "public typealias WaitDeadlineMs = int(1 to u64.max)\n\n" +
+		"/// The deadline of a Subprocess.\npublic union WaitDeadline\n\tnone\n\twithin(timeoutMs WaitDeadlineMs)\nend 'WaitDeadline'\n\n" +
+		"public type Subprocess\n\tpublic static function run(deadline WaitDeadline) returns Count\n\t\tpanic(\"Subprocess.run: {deadline}\")\n\tend 'run'\n\n" +
+		"\tpublic static function runDetached() returns Count\n\t\treturn __Builtins.subprocessDetach(0)\n\tend 'runDetached'\nend 'Subprocess'\n\n" +
+		"public type Configuration\n\tpublic function run() returns Count\n\t\treturn Subprocess.run(WaitDeadline.none)\n\tend 'run'\n\n" +
+		"\tpublic function runDetached() returns Count\n\t\treturn Subprocess.runDetached()\n\tend 'runDetached'\nend 'Configuration'\n\n" +
+		"function operand(path FilePath) returns cstring\n\treturn path.toString().cstr()\nend 'operand'\n"
+	want := "public typealias WaitDeadlineMs = int(1 to u64.max)\n\n" +
+		"/// The deadline of a MxSubprocess.\npublic union MxWaitDeadline\n\tnone\n\twithin(timeoutMs WaitDeadlineMs)\nend 'MxWaitDeadline'\n\n" +
+		"public type MxSubprocess\n\tpublic static function run(deadline MxWaitDeadline) returns Count\n\t\tpanic(\"MxSubprocess.run: {deadline}\")\n\tend 'run'\nend 'MxSubprocess'\n\n" +
+		"public type Configuration\n\tpublic function run() returns Count\n\t\treturn MxSubprocess.run(MxWaitDeadline.none)\n\tend 'run'\nend 'Configuration'\n\n" +
+		"function operand(path FilePath) returns cstring\n\treturn path.path.cstr()\nend 'operand'\n"
+	res := Convert(filepath.Join(root, "Subprocess.maxon"), in, sourceFile)
+	if len(res.Warnings) > 0 || !res.Formatted {
+		t.Fatalf("warnings %v, formatted %v:\n%s", res.Warnings, res.Formatted, res.Text)
+	}
+	if res.Text != want {
+		t.Fatalf("got:\n%q\nwant:\n%q", res.Text, want)
+	}
+}

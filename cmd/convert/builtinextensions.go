@@ -161,15 +161,73 @@ func rewriteStorageHashCalls(l *sourceLine) {
 // where maxon's is its own alias of that range.
 var typeNamesHere = map[string]string{"WaitDeadlineMs": "Count"}
 
-// rewriteTypeNames writes each name of typeNamesHere as minimaxon's.
+// rewriteTypeNames writes each name of typeNamesHere as minimaxon's, but in a text that declares the type itself, as the
+// library's Subprocess declares WaitDeadlineMs for its own WaitDeadline.
 func rewriteTypeNames(lines []sourceLine) {
 	for i := range lines {
 		l := &lines[i]
 		for k, t := range l.code {
 			here, ok := typeNamesHere[t.text]
-			if ok && t.kind == tokIdent && (k == 0 || l.code[k-1].text != ".") {
+			if ok && t.kind == tokIdent && (k == 0 || l.code[k-1].text != ".") && !declaresType(lines, t.text) {
 				l.code[k].text = here
 			}
+		}
+	}
+}
+
+// libraryBesideBuiltins are the types of maxon's Subprocess library that minimaxon also builds in. The library declares each
+// as its own, so that a program can name either: the library's is written with besideBuiltinPrefix until the built-ins go.
+var libraryBesideBuiltins = []string{"CollectedOutput", "Executable", "Subprocess", "SubprocessError", "WaitDeadline"}
+
+// besideBuiltinPrefix starts the name of a type of libraryBesideBuiltins that the library declares.
+const besideBuiltinPrefix = "Mx"
+
+// programNames is what the whole of a program (every file of a spec test) says about the names its files write.
+type programNames struct {
+	// own are the types of libraryTypeNamesHere and libraryBesideBuiltins that the program declares itself, which it keeps.
+	own []string
+}
+
+// programNamesOf reads the names of a program from its source, all its files together.
+func programNamesOf(src string) programNames {
+	lines := splitLines(src)
+	names := programNames{}
+	for _, name := range libraryTypeNamesHere {
+		if declaresType(lines, name.maxon) {
+			names.own = append(names.own, name.maxon)
+		}
+	}
+	for _, name := range libraryBesideBuiltins {
+		if declaresType(lines, name) {
+			names.own = append(names.own, name)
+		}
+	}
+	return names
+}
+
+// renameBesideBuiltins writes each type of libraryBesideBuiltins that the library file declares with its prefix, wherever the
+// file writes it: in code, labels, strings and comments.
+func renameBesideBuiltins(lines []sourceLine) {
+	for _, name := range libraryBesideBuiltins {
+		if !declaresType(lines, name) {
+			continue
+		}
+		here := besideBuiltinPrefix + name
+		label := "'" + name + "'"
+		for i := range lines {
+			l := &lines[i]
+			for k, t := range l.code {
+				switch {
+				case t.kind == tokIdent && t.text == name && (k == 0 || l.code[k-1].text != "."):
+					l.code[k].text = here
+				case t.kind == tokLabel && t.text == label:
+					l.code[k].text = "'" + here + "'"
+				case t.kind == tokString:
+					l.code[k].text = replaceWholeWord(t.text, name, here)
+				}
+			}
+			l.comment = replaceWholeWord(l.comment, name, here)
+			l.trailing = replaceWholeWord(l.trailing, name, here)
 		}
 	}
 }
@@ -237,28 +295,26 @@ func declaresType(lines []sourceLine, name string) bool {
 	return false
 }
 
-// ownLibraryTypes are the types of libraryTypeNamesHere that the program src declares itself.
-func ownLibraryTypes(src string) []string {
-	lines := splitLines(src)
-	var own []string
-	for _, name := range libraryTypeNamesHere {
-		if declaresType(lines, name.maxon) {
-			own = append(own, name.maxon)
-		}
-	}
-	return own
-}
-
 // renameWord writes each whole word old in text, and the word with its first letter lower case, as here likewise.
 func renameWord(text, old, here string) string {
 	lowerOld, lowerHere := strings.ToLower(old[:1])+old[1:], strings.ToLower(here[:1])+here[1:]
+	return replaceWords(text, [][2]string{{old, here}, {lowerOld, lowerHere}})
+}
+
+// replaceWholeWord writes each whole word old in text as here.
+func replaceWholeWord(text, old, here string) string {
+	return replaceWords(text, [][2]string{{old, here}})
+}
+
+// replaceWords writes each whole word of text that a pair names as the pair's second.
+func replaceWords(text string, pairs [][2]string) string {
 	var b strings.Builder
 	isWord := func(c byte) bool {
 		return c == '_' || '0' <= c && c <= '9' || 'a' <= c && c <= 'z' || 'A' <= c && c <= 'Z'
 	}
 	for i := 0; i < len(text); {
 		matched := false
-		for _, w := range [][2]string{{old, here}, {lowerOld, lowerHere}} {
+		for _, w := range pairs {
 			end := i + len(w[0])
 			if (i == 0 || !isWord(text[i-1])) && strings.HasPrefix(text[i:], w[0]) && (end == len(text) || !isWord(text[end])) {
 				b.WriteString(w[1])

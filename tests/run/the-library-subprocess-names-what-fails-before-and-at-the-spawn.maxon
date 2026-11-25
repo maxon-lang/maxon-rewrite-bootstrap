@@ -1,0 +1,134 @@
+// What the library's Subprocess finds wrong before a child starts and at its spawn: a name that is on no PATH and a path to a
+// missing file (`executableNotFound`), a working directory that is missing or empty (`spawnFailed`, the empty one naming the
+// case that inherits), and a name or an argument that holds a NUL, which no system passes to a child intact, so that nothing
+// starts. A bare name is found on the PATH, a working directory the child starts in is the one given, and a `Executable` says
+// what path it is and what it is called. The child of the one run that needs a program of this program's own is this program
+// run again.
+// native-only
+//> a name on no PATH: executableNotFound mx-subprocess-no-such-program
+//> a path to a missing file: executableNotFound
+//> a bare name is found on the PATH: exited 0
+//> a missing working directory: spawnFailed
+//> an empty working directory: spawnFailed names inherit=true
+//> a NUL in the program name: spawnFailed holds a NUL byte=true
+//> a NUL in an argument: spawnFailed argument 2 holds a NUL byte=true
+//> the child starts where it is told: true
+//> the child starts in an absolute directory: true
+//> a name is the path it is called: true
+//> a path is its own path: true
+//> a display name: mx-subprocess-no-such-program
+//> termination: success=true code=0 failure=false code=3 signalled=false code=9
+//> both window options: exited 3
+
+typealias Arguments = Array with String
+
+let missingName = "mx-subprocess-no-such-program"
+
+// whatFailed runs the configuration and says how it failed, naming the name that a missing executable carries.
+function whatFailed(configuration Configuration) returns String
+	let out = try configuration.run() otherwise (e) 'failed'
+		match e 'kind'
+			executableNotFound(name) then return "executableNotFound {name}" if name == missingName else "executableNotFound"
+			spawnFailed then return "spawnFailed"
+			busy then return "busy"
+			ioFailed then return "ioFailed"
+			timeout then return "timeout"
+			treeNotEnded then return "treeNotEnded"
+			detachRefused then return "detachRefused"
+			inputTooLarge then return "inputTooLarge"
+			statusLost then return "statusLost"
+		end 'kind'
+	end 'failed'
+	return "exited {out.exitCode()}"
+end 'whatFailed'
+
+// reasonOf runs the configuration and gives the reason it fails with, or "ran" where it does not.
+function reasonOf(configuration Configuration) returns String
+	let out = try configuration.run() otherwise (e) 'failed'
+		return e.displayReason()
+	end 'failed'
+	return "ran {out.exitCode()}"
+end 'reasonOf'
+
+function pathOf(text String) returns FilePath
+	return try FilePath.from(text) otherwise panic("not a path")
+end 'pathOf'
+
+// shellOf is the host's shell found by its bare name, and the arguments that make it exit with a code.
+function shellOf(code String) returns Configuration
+	var configuration = Configuration.create(shellName())
+	#if os(Windows)
+		configuration.arguments.push("/c")
+		configuration.arguments.push("exit {code}")
+	#else
+		configuration.arguments.push("-c")
+		configuration.arguments.push("exit {code}")
+	#endif
+	return configuration
+end 'shellOf'
+
+function shellName() returns MxExecutable
+	#if os(Windows)
+		return MxExecutable.name("cmd")
+	#else
+		return MxExecutable.name("sh")
+	#endif
+end 'shellName'
+
+function child(mode String) returns ExitCode
+	if mode == "cwd" 'cwd'
+		print(Directory.currentPath().path)
+		return 0
+	end 'cwd'
+	return 3
+end 'child'
+
+function main() returns ExitCode
+	let args = CommandLine.args()
+	if args.count() > 1 'child'
+		return child(try args.get(2) otherwise "")
+	end 'child'
+	let own = try Process.executablePath() otherwise return 1
+	let executable = MxExecutable.path(own.clone())
+	print("a name on no PATH: {whatFailed(Configuration.create(MxExecutable.name(missingName)))}\n")
+	print("a path to a missing file: {whatFailed(Configuration.create(MxExecutable.path(pathOf("mx-subprocess-no-such-directory/no-such-program"))))}\n")
+	print("a bare name is found on the PATH: {whatFailed(shellOf("0"))}\n")
+	var missingDirectory = Configuration.create(executable.clone(), workingDirectory: WorkingDirectory.at(pathOf("mx-subprocess-no-such-directory")))
+	print("a missing working directory: {whatFailed(missingDirectory)}\n")
+	var emptyDirectory = Configuration.create(executable.clone(), workingDirectory: WorkingDirectory.at(pathOf("")))
+	print("an empty working directory: {whatFailed(emptyDirectory)} names inherit={reasonOf(emptyDirectory).contains("inherit")}\n")
+	let nulName = Configuration.create(MxExecutable.name("a\0b"))
+	print("a NUL in the program name: {whatFailed(nulName)} holds a NUL byte={reasonOf(nulName).contains("holds a NUL byte")}\n")
+	var nulArgument = Configuration.create(executable.clone())
+	nulArgument.arguments.push("first")
+	nulArgument.arguments.push("se\0cond")
+	print("a NUL in an argument: {whatFailed(nulArgument)} argument 2 holds a NUL byte={reasonOf(nulArgument).contains("argument 2 holds a NUL byte")}\n")
+	var elsewhere = Configuration.create(executable.clone(), workingDirectory: WorkingDirectory.at(pathOf("..")))
+	elsewhere.arguments.push("child")
+	elsewhere.arguments.push("cwd")
+	let there = try elsewhere.run() otherwise return 2
+	let here = Directory.currentPath().path.clone()
+	print("the child starts where it is told: {here.startsWith(there.stdout) and here != there.stdout}\n")
+	let hereNow = Directory.currentPath().path.clone()
+	var absolute = Configuration.create(executable.clone(), workingDirectory: WorkingDirectory.at(pathOf(hereNow)))
+	absolute.arguments.push("child")
+	absolute.arguments.push("cwd")
+	let inHere = try absolute.run() otherwise return 5
+	print("the child starts in an absolute directory: {inHere.stdout == hereNow}\n")
+	let named = try MxExecutable.name("some-program").resolve() otherwise return 3
+	print("a name is the path it is called: {named.path == "some-program"}\n")
+	let kept = try executable.resolve() otherwise return 4
+	print("a path is its own path: {kept.path == own.path}\n")
+	print("a display name: {MxExecutable.name(missingName).displayName()}\n")
+	let success = TerminationStatus.exited(0)
+	let failure = TerminationStatus.exited(3)
+	let signalled = TerminationStatus.signalled(9)
+	print("termination: success={success.isSuccess()} code={success.code()} failure={failure.isSuccess()} code={failure.code()} signalled={signalled.isSuccess()} code={signalled.code()}\n")
+	var windowOptions = Configuration.create(executable.clone())
+	windowOptions.arguments.push("child")
+	windowOptions.arguments.push("exits")
+	windowOptions.platformOptions.windowsHideWindow = true
+	windowOptions.platformOptions.windowsCreateNewProcessGroup = true
+	print("both window options: {whatFailed(windowOptions)}\n")
+	return 0
+end 'main'
