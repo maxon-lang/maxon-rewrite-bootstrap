@@ -7,8 +7,9 @@
 //> 32 children on green threads each read their own output
 
 // The host's shell, the flag that has it run a command, the end of the lines it prints, and the commands that the runs use: one
-// that waits about a second and then writes a line to each stream and exits 3, and one that waits about a second and then
-// prints a label, which the label's number completes.
+// that waits (0.3 s, or a second on Windows, whose shell has no shorter pause) and then writes a line to each stream and exits
+// 3, and one that prints a label, which the label's number completes, after 0.3 s, or at once on Windows, where a child is slow
+// enough to start that the runs overlap anyway.
 #if os(Windows)
 	let testShell = "cmd.exe"
 
@@ -18,7 +19,7 @@
 
 	let testExitThree = "ping -n 2 127.0.0.1 >nul&& echo out&& 1>&2 echo err&& exit /b 3"
 
-	let testPauseThenEcho = "ping -n 2 127.0.0.1 >nul&& echo child "
+	let testPauseThenEcho = "echo child "
 #else
 	let testShell = "sh"
 
@@ -26,9 +27,9 @@
 
 	let testLineEnd = "\n"
 
-	let testExitThree = "sleep 1; echo out; echo err 1>&2; exit 3"
+	let testExitThree = "sleep 0.3; echo out; echo err 1>&2; exit 3"
 
-	let testPauseThenEcho = "sleep 1; echo child "
+	let testPauseThenEcho = "sleep 0.3; echo child "
 #endif
 
 // The error word of a run that failed with the timeout case: the case plus one, as failWith stores it.
@@ -38,14 +39,15 @@ let testTimedOutWord = 5 as Count
 // instead of ended is seen however loaded the machine is.
 let testSleeperSeconds = 8 as Count
 
-let testDeadlineMillis = 1000 as Count
+let testDeadlineMillis = 300 as Count
 
 let testDeadlineMostNanos = 4500000000 as Count
 
 let testTickNanos = 20000000 as Count
 
-// testTicksLeast is how many 20 ms ticks of the second the child of the first test runs at least have to be made while it runs.
-let testTicksLeast = 10 as Count
+// testTicksLeast is how many 20 ms ticks have to be made while the child of the first test runs: a third of its 0.3 s, so that
+// a loaded machine still makes them.
+let testTicksLeast = 5 as Count
 
 // The ticker's record: its count, and the word that stops it.
 let testTicksBytes = 16 as Count
@@ -66,7 +68,7 @@ function testCoordinator(g Count) returns Count
 	return 0
 end 'testCoordinator'
 
-// testExit runs a child that exits with 3 after a second, with a green thread that ticks beside it, which keeps running as
+// testExit runs a child that exits with 3 after its pause, with a green thread that ticks beside it, which keeps running as
 // long as the run's thread waits on its child.
 function testExit()
 	let ticks = alloc(testTicksBytes)
@@ -111,7 +113,7 @@ function testTicker(g Count) returns Count
 	return 0
 end 'testTicker'
 
-// testDeadline runs a child that sleeps far past a deadline of a second: the run fails with the timeout case at the deadline,
+// testDeadline runs a child that sleeps far past a deadline of 300 ms: the run fails with the timeout case at the deadline,
 // not after the child's sleep, since the child is ended.
 function testDeadline()
 	let out = alloc(__Raw.stringSize())
@@ -139,7 +141,7 @@ function testDeadline()
 	testWrite("a child still running at the run's deadline was ended at it\n")
 end 'testDeadline'
 
-// testConcurrent runs a child on each of many green threads at once, which each pause a second and print their own label.
+// testConcurrent runs a child on each of many green threads at once, which each print their own label.
 function testConcurrent()
 	let started = osClockNanos()
 	let runs = alloc(testChildren * wordBytes)
