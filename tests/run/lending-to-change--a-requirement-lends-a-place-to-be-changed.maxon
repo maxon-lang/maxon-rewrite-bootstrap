@@ -1,0 +1,36 @@
+// An interface's requirement lends a place to be changed, met by a 'mutates self' method that does: a call through a
+// bound and through an interface value change the conformer's String in place.
+interface Labelled
+	function label(mutates self) returns borrowed String
+end 'Labelled'
+
+type Tag implements Labelled
+	var text as String
+
+	static function make(consumes text String) returns Tag
+		return Tag{text: text}
+	end 'make'
+
+	function label(mutates self) returns borrowed String
+		return text
+	end 'label'
+end 'Tag'
+
+function grow(mutates s String)
+	s = "{s}!"
+end 'grow'
+
+function viaBound(mutates x T) uses T where T implements Labelled
+	grow(x.label())
+end 'viaBound'
+
+function main() returns ExitCode
+	var t = Tag.make("a")
+	viaBound(t)
+	var any = Tag.make("b") as Labelled
+	grow(any.label())
+	print("{t.label()} {any.label()}\n")
+	return 0
+end 'main'
+
+//> a! b!

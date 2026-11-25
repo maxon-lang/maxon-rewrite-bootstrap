@@ -562,6 +562,13 @@ function address(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, e
 	if k == ast.NodeKind.indexExpr 'index'
 		return elemPlace(l, p: p, ms: ms, e: e)
 	end 'index'
+	if k == ast.NodeKind.callExpr and lendsToChangeAt(l, p: p, node: e) 'lent'
+		let lent = lowerCall(l, p: p, ms: ms, c: callSite(l, p: p, node: e))
+		if inPlace(l, p: p, ms: ms, t: exprType(p, module: l.module, node: e)) 'held'
+			return heldPlace(l, words: lent)
+		end 'held'
+		return lent
+	end 'lent'
 	let ty = exprType(p, module: l.module, node: e)
 	if ast.isMutatingFunction(ms.types, reads: p.types, t: ty) 'temporary'
 		// A new function value that the callee changes lives in a slot of its own, which drops what the callee leaves there.
@@ -821,7 +828,13 @@ function visitCallExpr(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleSt
 		return konst(l, value: 0 as Word)
 	end 'print'
 	if kind == ast.CallKind.callFunction or kind == ast.CallKind.callStatic or kind == ast.CallKind.callMethod or kind == ast.CallKind.callBound 'call'
-		return lowerCall(l, p: p, ms: ms, c: c)
+		let result = lowerCall(l, p: p, ms: ms, c: c)
+		if ast.lendsToChange(c.info.result, selfConv: c.info.selfConv) and not inPlace(l, p: p, ms: ms, t: exprType(p, module: l.module, node: node)) 'place'
+			let d = newReg(l, kind: kindOf(l, p: p, ms: ms, t: exprType(p, module: l.module, node: node)))
+			emit(l, i: newLoadAt(d, addr: result))
+			return d
+		end 'place'
+		return result
 	end 'call'
 	if kind == ast.CallKind.callSend 'send'
 		return lowerSend(l, p: p, ms: ms, c: c)
@@ -935,8 +948,20 @@ function callResult(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState
 	if callTy == p.builtins.voidTy 'none'
 		return noReg
 	end 'none'
+	if lendsToChangeAt(l, p: p, node: node) 'place'
+		return newReg(l, kind: IrKind.kindScalar)
+	end 'place'
 	return newReg(l, kind: kindOf(l, p: p, ms: ms, t: callTy))
 end 'callResult'
+
+// lendsToChangeAt is whether the call at node gives a borrowed place that the caller may change, which the callee returns
+// as the address of the place's word (ast.lendsToChange): a read of the value loads it, and a change writes through it. A
+// value held in place is the address of its words already, so the callee returns that, and a place of it is the caller's
+// own word that holds it (heldPlace), as every place of a value held in place is.
+function lendsToChangeAt(l Lowerer, p ast.Project, node ast.NodeID) returns bool
+	let info = callInfoAt(p, module: l.module, node: node)
+	return ast.lendsToChange(info.result, selfConv: info.selfConv)
+end 'lendsToChangeAt'
 
 // callee is the function a call runs. Every instance a body reaches was found for the module before lowering, so a
 // missing one, or one refused, is a compiler bug: the executable would depend on another module having made the instance.

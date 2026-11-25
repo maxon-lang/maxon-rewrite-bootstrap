@@ -458,7 +458,15 @@ function visitReturnStmt(mutates l Lowerer, p ast.Project, mutates ms ast.Module
 		v = konst(l, value: 0 as Word)
 	end 'none' else if l.lentElements > 0 'lentTuple'
 		v = lentTuple(l, p: p, ms: ms, value: value)
-	end 'lentTuple' else 'some'
+	end 'lentTuple' else if ast.lendsToChange(ast.funcEntry(ms.funcs, funcReads: p.funcs, f: l.fn).result, selfConv: ast.funcEntry(ms.funcs, funcReads: p.funcs, f: l.fn).selfConv) 'changing'
+		// A place lent to be changed is the address of its word, in 'self' (check.requireLentToChange), or for a value held
+		// in place the address of its words, which is its value.
+		if inPlace(l, p: p, ms: ms, t: exprType(p, module: l.module, node: value)) 'held'
+			v = lowerExpr(l, p: p, ms: ms, e: value)
+		end 'held' else 'word'
+			v = address(l, p: p, ms: ms, e: value)
+		end 'word'
+	end 'changing' else 'some'
 		v = lowerExpr(l, p: p, ms: ms, e: value)
 		if l.b.f.lendsResult 'lent'
 			let have = applyType(l, p: p, ms: ms, t: exprType(p, module: l.module, node: value))

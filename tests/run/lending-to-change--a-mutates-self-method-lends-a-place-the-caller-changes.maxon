@@ -1,0 +1,82 @@
+// A 'mutates self' method that returns a borrowed place lends it to be changed: a field assigned through it, the place
+// passed to a 'mutates' parameter, a lend of a place another such method lends, and the place read as any other.
+typealias Integer = int(i64.min to i64.max)
+
+type Cell
+	export var n as Integer
+	export var name as String
+
+	static function make(n Integer, consumes name String) returns Cell
+		return Cell{n: n, name: name}
+	end 'make'
+end 'Cell'
+
+type Pair
+	var left as Cell
+	var right as Cell
+	var count as Integer
+
+	static function make() returns Pair
+		return Pair{left: Cell.make(1, name: "l"), right: Cell.make(2, name: "r"), count: 0}
+	end 'make'
+
+	function first(mutates self) returns borrowed Cell
+		return left
+	end 'first'
+
+	function second(mutates self) returns borrowed Cell
+		return self.right
+	end 'second'
+
+	function counter(mutates self) returns borrowed Integer
+		return count
+	end 'counter'
+
+	function view() returns borrowed Cell
+		return left
+	end 'view'
+end 'Pair'
+
+type Holder
+	var pair as Pair
+
+	static function make() returns Holder
+		return Holder{pair: Pair.make()}
+	end 'make'
+
+	function inner(mutates self) returns borrowed Pair
+		return pair
+	end 'inner'
+
+	function deep(mutates self) returns borrowed Cell
+		return pair.second()
+	end 'deep'
+end 'Holder'
+
+function bump(mutates n Integer)
+	n = try n + 1 otherwise n
+end 'bump'
+
+function rename(mutates c Cell, consumes to String)
+	c.name = to
+end 'rename'
+
+function main() returns ExitCode
+	var p = Pair.make()
+	p.first().n = 10
+	p.second().name = "right"
+	bump(p.counter())
+	bump(p.counter())
+	bump(p.first().n)
+	rename(p.second(), to: "renamed")
+	print("{p.first().n} {p.second().name} {p.counter()} {p.view().n}\n")
+	var h = Holder.make()
+	h.inner().first().n = 7
+	h.deep().name = "deep"
+	bump(h.inner().counter())
+	print("{h.inner().view().n} {h.deep().name} {h.inner().counter()}\n")
+	return 0
+end 'main'
+
+//> 11 renamed 2 11
+//> 7 deep 1

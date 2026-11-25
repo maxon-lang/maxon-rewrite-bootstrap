@@ -272,7 +272,7 @@ function projectionOf(o Ownership, ms ast.ModuleState, e ast.NodeID) returns ast
 end 'projectionOf'
 
 // lenders are the arguments that a call of a function returning a borrowed place may lend it from: each one it passes to a
-// let or a mutates parameter, the receiver among them. Which one the place is in is the callee's to decide and is not
+// let or a mutates parameter, the receiver among them, and for a place lent to be changed the receiver alone. Which one the place is in is the callee's to decide and is not
 // known at the call, so the place borrows all of them, as a let projection borrows its let arguments in Hylo. A scalar
 // argument lends nothing to a place that is not a scalar, as a position given to a slice of a String does not.
 function lenders(o Ownership, p ast.Project, ms ast.ModuleState, call ast.NodeID) returns ast.NodeIDList
@@ -280,6 +280,11 @@ function lenders(o Ownership, p ast.Project, ms ast.ModuleState, call ast.NodeID
 	let managed = isManagedOwn(p, ms: ms, t: ownType(o, node: call))
 	var out = ast.NodeIDList.create(0)
 	let receiver = ast.callReceiver(ms.tree(), e: call, kind: info.kind)
+	if ast.lendsToChange(info.result, selfConv: info.selfConv) 'changing'
+		// A place lent to be changed lies in the receiver alone (requireLentByParameters).
+		out.push(receiver)
+		return out
+	end 'changing'
 	if receiver != 0 and lends(info.selfConv) and mayLend(o, p: p, ms: ms, arg: receiver, managed: managed) 'receiver'
 		out.push(receiver)
 	end 'receiver'

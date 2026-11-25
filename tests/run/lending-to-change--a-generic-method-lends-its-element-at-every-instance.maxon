@@ -1,0 +1,92 @@
+// A generic 'mutates self' method lends its type parameter's place to be changed at every instance: a String, a word, a
+// float, a record held in place, and a lend of a lend, in a loop too.
+typealias Real = float(f64.min to f64.max)
+
+typealias Integer = int(i64.min to i64.max)
+
+type Point
+	var x as Integer
+	var y as Integer
+
+	static function make(x Integer, y Integer) returns Point
+		return Point{x: x, y: y}
+	end 'make'
+
+	function shift(mutates self, by Integer)
+		x = try x + by otherwise x
+		y = try y + by otherwise y
+	end 'shift'
+
+	function sum() returns Integer
+		return try x + y otherwise 0
+	end 'sum'
+end 'Point'
+
+type Slot uses T
+	var held as T
+	var reads as Integer
+
+	static function holding(consumes value T) returns Self
+		return Self{held: value, reads: 0}
+	end 'holding'
+
+	function item(mutates self) returns borrowed T
+		reads = try reads + 1 otherwise reads
+		return held
+	end 'item'
+end 'Slot'
+
+function halve(mutates x Real)
+	x = x / 2.0
+end 'halve'
+
+function grow(mutates s String)
+	s = "{s}!"
+end 'grow'
+
+function twice(mutates n Integer)
+	n = try n * 2 otherwise n
+end 'twice'
+
+function moveTo(mutates p Point, x Integer)
+	p = Point.make(x, y: x)
+end 'moveTo'
+
+typealias Words = Slot with String
+
+typealias Numbers = Slot with Integer
+
+typealias Points = Slot with Point
+
+typealias Nested = Slot with (Slot with Point)
+
+typealias Reals = Slot with Real
+
+function main() returns ExitCode
+	var w = Words.holding("hi")
+	grow(w.item())
+	grow(w.item())
+	var n = Numbers.holding(3)
+	twice(n.item())
+	var pts = Points.holding(Point.make(1, y: 2))
+	pts.item().x = 10
+	pts.item().shift(1)
+	print("{w.item()} {n.item()} {pts.item().sum()} {pts.reads}\n")
+	moveTo(pts.item(), x: 4)
+	var nest = Nested.holding(Points.holding(Point.make(0, y: 0)))
+	nest.item().item().y = 9
+	let y = nest.item().item().y
+	moveTo(nest.item().item(), x: y)
+	for i in 0 upto 3 'loop'
+		nest.item().item().shift(i)
+	end 'loop'
+	print("{pts.item().sum()} {nest.item().item().sum()} {nest.reads}\n")
+	var r = Reals.holding(5.0)
+	halve(r.item())
+	print("{r.item()} {r.item() + 1.0}\n")
+	return 0
+end 'main'
+
+//> hi!! 6 14 3
+//> 8 24 7
+//> 2.5 3.5

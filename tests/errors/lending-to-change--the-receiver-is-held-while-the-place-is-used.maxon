@@ -1,0 +1,87 @@
+// expect-error: E3186 at 83:22
+// expect-error: E3186 at 84:20
+// expect-error: E3186 at 84:22
+// expect-error: E3186 at 85:35
+// A place lent to be changed holds its lender, the receiver, as long as it is used: changing the receiver while an
+// assignment's value or a later argument is computed, or passing two places it lends mutates to one call, is E3186.
+typealias Integer = int(i64.min to i64.max)
+
+type Cell
+	export var n as Integer
+	export var name as String
+
+	static function make(n Integer, consumes name String) returns Cell
+		return Cell{n: n, name: name}
+	end 'make'
+end 'Cell'
+
+type Pair
+	var left as Cell
+	var right as Cell
+	var count as Integer
+
+	static function make() returns Pair
+		return Pair{left: Cell.make(1, name: "l"), right: Cell.make(2, name: "r"), count: 0}
+	end 'make'
+
+	function first(mutates self) returns borrowed Cell
+		return left
+	end 'first'
+
+	function second(mutates self) returns borrowed Cell
+		return self.right
+	end 'second'
+
+	function counter(mutates self) returns borrowed Integer
+		return count
+	end 'counter'
+
+	function view() returns borrowed Cell
+		return left
+	end 'view'
+end 'Pair'
+
+type Holder
+	var pair as Pair
+
+	static function make() returns Holder
+		return Holder{pair: Pair.make()}
+	end 'make'
+
+	function inner(mutates self) returns borrowed Pair
+		return pair
+	end 'inner'
+
+	function deep(mutates self) returns borrowed Cell
+		return pair.second()
+	end 'deep'
+end 'Holder'
+
+function bump(mutates n Integer)
+	n = try n + 1 otherwise n
+end 'bump'
+
+function rename(mutates c Cell, consumes to String)
+	c.name = to
+end 'rename'
+
+function reset(mutates p Pair) returns Integer
+	p = Pair.make()
+	return 0
+end 'reset'
+
+function two(mutates a Cell, mutates b Cell)
+	a.n = b.n
+end 'two'
+
+function look(c Cell, n Integer) returns Integer
+	return c.n
+end 'look'
+
+function main() returns ExitCode
+	var p = Pair.make()
+	p.first().n = reset(p)
+	two(p.first(), b: p.second())
+	print("{look(p.first(), n: reset(p))}\n")
+	return 0
+end 'main'

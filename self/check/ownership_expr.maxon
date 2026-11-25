@@ -216,13 +216,18 @@ function moveOfProjection(mutates o Ownership, p ast.Project, mutates ms ast.Mod
 	failFixed(o, p: p, site: offsetOfOwn(o, p: p, ms: ms, node: e), code: code, msg: "'{name}' returns {what}, not a value of its own, so it cannot be moved into {dest.text()}; {advice}", fix: fix)
 end 'moveOfProjection'
 
-// changesProjection refuses a change to a part of a borrowed result, which its function lends only to be read, and says
-// whether e is one. what is how the change is said.
+// changesProjection says whether e is a part of a borrowed result, which the change does not reach through a path of the
+// caller's, and refuses the change where the function lends the place only to be read. One that lends it to be changed
+// (lendsToChange) took its receiver mutates at the call, which the call's own checks hold to a writable, unlent place, and
+// whatever the change overlaps meets the holds of its lenders (lentPaths). what is how the change is said.
 function changesProjection(mutates o Ownership, p ast.Project, ms ast.ModuleState, e ast.NodeID, site diag.U32, what String) returns bool
 	let call = projectionOf(o, ms: ms, e: e)
 	if call == 0 'notProjection'
 		return false
 	end 'notProjection'
+	if ast.isChangingProjectionCall(o.c.typing, call: call) 'changing'
+		return true
+	end 'changing'
 	let name = projectionName(o, p: p, ms: ms, call: call)
 	fail(o, p: p, site: site, code: diag.errAssignToImmutable, msg: "'{name}' returns a borrowed place to be read, so what it gives cannot be {what}; change the place it borrows from instead, or change a copy: 'var x = {name}(...).clone()'")
 	return true

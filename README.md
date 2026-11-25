@@ -3193,6 +3193,19 @@ type-parameter type has one owner; every other access is a borrow that cannot ou
   subscript holds its collection (an argument while later ones are evaluated, an operand, a for over it, a match binding
   of it) it holds each of those, and an argument passed `mutates`, `consumes` or `sets` beside it that overlaps one is
   `E3186`. A scalar argument lends nothing to a result that is not a scalar.
+- **A `mutates self` method lends a place to be changed** (`ast.lendsToChange`), as Hylo's `inout` accessor does: `function
+  first(mutates self) returns borrowed Cell` gives a place that the caller assigns through (`p.first().n = 10`), passes to
+  a `mutates` parameter (`bump(p.first().n)`), calls a `mutates self` method on, and reads as the form above lets it. The
+  place lies in `self` alone (`check.requireLentToChange`): a place in a parameter, the contents of a frozen value and a
+  place that another method lends only to be read are `E3926`, while a lend of a place that another `mutates self` method
+  lends is one (`h.inner().first().n = 7`). An element of a collection and a tuple are not lent so yet (`E9000`): a byte of
+  a byte array and a record an array holds in place have no word of their own that outlives the call. The call passes its
+  receiver `mutates`, so the receiver must be a variable that may change, and the place holds the receiver, and nothing
+  else, as long as the caller uses it: changing the receiver while an assignment's value or a later argument is computed,
+  and two places it lends passed `mutates` to one call, are `E3186`. The callee returns the address of the place's word,
+  whatever the place holds, a String or a float included; a read loads the value from it, and a change writes through it.
+  A record held in place is the address of its words already, which the callee returns, and the caller's place of it is
+  a word of its own that holds that address, as every place of a value held in place is.
 - **A `let` bound to a borrowed result borrows it** (`check.bindsLent`): `let t = s.trim()` or `let e = entryOf(table)`
   binds the place, or the view (see "Text"), with no copy, and owns nothing, so nothing drops at its end. It is read as a
   `let` parameter is: moving it anywhere is `E3900`, whose fix is `.clone()`, and a behaviour cannot take it (`E3909`). For
@@ -4827,9 +4840,9 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   so a lookup through a function there gives a copy. It is Hylo's `subscript` with only a `let` accessor, written as a
   function and restricted so that it needs no coroutine: the place is returned, never yielded, so no code of the callee
   runs after the caller's use of it, and a projection borrows its arguments for as long as the caller uses it, as Hylo's
-  does. Its `return` of the contents of a frozen value is minimaxon's too. Not built yet: the `mutates` form, which lends
-  a place the caller may change (Hylo's `inout` accessor), and subscript syntax on user types (`v[t]` calling such a
-  function).
+  does. Its `return` of the contents of a frozen value is minimaxon's too. Its `mutates` form is a method with a `mutates self`
+  receiver, which lends a place the caller may change (Hylo's `inout` accessor). Not built yet: subscript syntax on user
+  types (`v[t]` calling such a function).
 - `extension`: there is no `typealias` in the extension of an enum or a union, and none of `Set` or other library types
   the compiler does not have. A typealias of an extension of an interface names the interface's associated types as its
   methods do: `typealias ElementArray = Array with Element` in `extension Iterable` is an array of each conformer's

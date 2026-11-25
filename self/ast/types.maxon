@@ -2631,6 +2631,19 @@ end 'isStorage'
 
 // isProjectionCall is whether a call gives a place that its callee borrows from the arguments, as a subscript gives an
 // element of its collection, rather than a value of its own.
+// lendsToChange is whether a function of a result convention and a receiver convention lends a place that the caller may
+// change: one that returns a borrowed place and takes `mutates self`, as Hylo's inout accessor does. Any other borrowed
+// result is a place to be read.
+export function lendsToChange(result ResultConv, selfConv Convention) returns bool
+	return result == ResultConv.resultBorrowed and selfConv == Convention.convMutates
+end 'lendsToChange'
+
+// isChangingProjectionCall is whether the call at call gives a borrowed place that the caller may change (lendsToChange).
+export function isChangingProjectionCall(typing Typing, call NodeID) returns bool
+	var slot as Count
+	return typing.calls.find(call as Count, slot: slot) and lendsToChange(typing.calls.valueAt(slot).result, selfConv: typing.calls.valueAt(slot).selfConv)
+end 'isChangingProjectionCall'
+
 export function isProjectionCall(typing Typing, call NodeID) returns bool
 	var slot as Count
 	return typing.calls.find(call as Count, slot: slot) and typing.calls.valueAt(slot).result == ResultConv.resultBorrowed

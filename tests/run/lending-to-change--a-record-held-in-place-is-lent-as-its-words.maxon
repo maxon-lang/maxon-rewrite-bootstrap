@@ -1,0 +1,46 @@
+// A record held in place that a 'mutates self' method lends to be changed, here a field whose words its record holds,
+// is changed field by field, by a method of its own and whole, natively and in the interpreter.
+typealias Integer = int(i64.min to i64.max)
+
+type Point
+	var x as Integer
+	var y as Integer
+
+	static function make(x Integer, y Integer) returns Point
+		return Point{x: x, y: y}
+	end 'make'
+
+	function shift(mutates self, by Integer)
+		x = try x + by otherwise x
+	end 'shift'
+end 'Point'
+
+type Shape
+	var at as Point
+	var size as Integer
+
+	static function make() returns Shape
+		return Shape{at: Point.make(1, y: 2), size: 3}
+	end 'make'
+
+	function origin(mutates self) returns borrowed Point
+		return at
+	end 'origin'
+end 'Shape'
+
+function moveTo(mutates p Point, x Integer)
+	p = Point.make(x, y: x)
+end 'moveTo'
+
+function main() returns ExitCode
+	var s = Shape.make()
+	s.origin().x = 10
+	s.origin().shift(5)
+	print("{s.origin().x} {s.origin().y} {s.size}\n")
+	moveTo(s.origin(), x: 7)
+	print("{s.origin().x} {s.origin().y} {s.size}\n")
+	return 0
+end 'main'
+
+//> 15 2 3
+//> 7 7 3

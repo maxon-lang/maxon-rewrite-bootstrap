@@ -317,7 +317,7 @@ function assignStmtOwn(mutates o Ownership, p ast.Project, mutates ms ast.Module
 		let field = ast.memberExprName(ms.tree(), id: target).clone()
 		let out = consumeInto(o, p: p, ms: ms, target: target, value: value, dest: OwnDest.make(OwnDestKind.destField, name: field.clone()), s: s)
 		if changesProjection(o, p: p, ms: ms, e: target, site: site, what: "assigned") 'projection'
-			return out
+			return changedThroughProjection(o, p: p, ms: ms, st: st, target: target, of: ast.memberExprObj(ms.tree(), id: target), s: out)
 		end 'projection'
 		let path = pathOf(o, p: p, ms: ms, e: target)
 		if not path.isPlace() 'temporary'
@@ -337,7 +337,7 @@ function assignStmtOwn(mutates o Ownership, p ast.Project, mutates ms ast.Module
 		let collection = placeText(ms.tree(), e: ast.indexExprObj(ms.tree(), id: target))
 		let out = consumeInto(o, p: p, ms: ms, target: target, value: value, dest: OwnDest.make(OwnDestKind.destElement, name: collection), s: s)
 		if changesProjection(o, p: p, ms: ms, e: target, site: site, what: "assigned") 'projection'
-			return out
+			return changedThroughProjection(o, p: p, ms: ms, st: st, target: target, of: target, s: out)
 		end 'projection'
 		let path = pathOf(o, p: p, ms: ms, e: target)
 		if not path.isPlace() 'temporary'
@@ -351,6 +351,21 @@ function assignStmtOwn(mutates o Ownership, p ast.Project, mutates ms ast.Module
 	end 'index'
 	panic("ownership: unhandled assignment target")
 end 'assignStmtOwn'
+
+// changedThroughProjection is the rest of an assignment of a part of a borrowed result: where its function lends the place
+// to be changed, the value the part held is dropped and of, what holds the part, is evaluated, which checks the call that
+// lends it; a place lent only to be read was refused already.
+function changedThroughProjection(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState, st ast.NodeID, target ast.NodeID, of ast.NodeID, consumes s OwnState) returns OwnState
+	let call = projectionOf(o, ms: ms, e: target)
+	if not ast.isChangingProjectionCall(o.c.typing, call: call) 'read'
+		return s
+	end 'read'
+	requireOverwriteDroppable(o, p: p, ms: ms, st: st, target: target, s: s)
+	if of == target 'element'
+		return subscript(o, p: p, ms: ms, e: target, s: s)
+	end 'element'
+	return eval(o, p: p, ms: ms, e: of, s: s)
+end 'changedThroughProjection'
 
 // requireOverwriteDroppable is the drop of the value a field or an element holds when an assignment replaces it.
 // A promise there is dropped as its holder would drop it, cancelled, or skipped when a take left the slot empty, as maxon's
@@ -597,10 +612,32 @@ function returnStmtOwn(mutates o Ownership, p ast.Project, mutates ms ast.Module
 	return OwnState.unreachable()
 end 'returnStmtOwn'
 
+// requireLentToChange is the law of a place that a 'mutates self' method lends to be changed: it lies in 'self', which the
+// caller passed mutates and holds while it uses the place, so the place is writable and reached through no other name. An
+// element is not lent so yet: a byte of a byte array and a record an array holds in place have no word of their own that
+// outlives the call.
+function requireLentToChange(mutates o Ownership, p ast.Project, ms ast.ModuleState, e ast.NodeID, site diag.U32, fnName String, text String, root ast.LocalEntry, path AccessPath)
+	if not root.isSelf 'notSelf'
+		fail(o, p: p, site: site, code: diag.errBorrowedReturn, msg: "'{fnName}' lends a place to be changed, which lies in 'self', and '{text}' lies in '{root.name}'; return a place in 'self', or declare 'returns T' to give a value")
+		return
+	end 'notSelf'
+	if path.crossesFrozen() or ast.typeKind(ms.types, reads: p.types, t: ownType(o, node: e)) == ast.TypeKind.builtinFrozen 'frozen'
+		fail(o, p: p, site: site, code: diag.errBorrowedReturn, msg: "'{fnName}' lends a place to be changed, and '{text}' is part of a frozen value, which nothing changes; return a place outside it, or take 'self' as a let to lend it to be read")
+		return
+	end 'frozen'
+	if projectsElement(o, p: p, ms: ms, e: e) 'element'
+		fail(o, p: p, site: site, code: diag.errUnsupported, msg: "'{fnName}' lends a place to be changed, and '{text}' is an element of a collection, which is not lent to be changed yet; lend a field of 'self'")
+	end 'element'
+end 'requireLentToChange'
+
 // lentTupleOwn checks the tuple that a function returning a borrowed place returns, which is lent element by element: each
 // element that is managed is a place under the law of requireLentByParameters, which it lends, and a scalar is its value,
 // as a borrow of one is. The tuple holds those borrows and no value of its own (README, "Tuples").
 function lentTupleOwn(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, consumes s OwnState) returns OwnState
+	if ast.lendsToChange(ast.funcEntry(ms.funcs, funcReads: p.funcs, f: o.fn).result, selfConv: ast.funcEntry(ms.funcs, funcReads: p.funcs, f: o.fn).selfConv) 'changing'
+		let fnName = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: o.fn).name.clone()
+		fail(o, p: p, site: offsetOfOwn(o, p: p, ms: ms, node: e), code: diag.errUnsupported, msg: "'{fnName}' lends a tuple to be changed, which is not supported yet; lend each place from a method of its own")
+	end 'changing'
 	let elements = match consumes o.c.typing.structLits.get(e as Count) 'lit'
 		some(lit) gives lit.ordered
 		none panic("ownership: the tuple at node {e} was not typed")
@@ -626,8 +663,14 @@ function requireLentByParameters(mutates o Ownership, p ast.Project, mutates ms 
 		fail(o, p: p, site: site, code: diag.errBorrowedReturn, msg: "'{fnName}' returns a borrowed place, and this one would be put in a new box to be the interface it returns; return a place that holds the interface value, or declare 'returns T' to give a value")
 		return
 	end 'boxed'
+	let changing = ast.lendsToChange(ast.funcEntry(ms.funcs, funcReads: p.funcs, f: o.fn).result, selfConv: ast.funcEntry(ms.funcs, funcReads: p.funcs, f: o.fn).selfConv)
 	let call = projectionOf(o, ms: ms, e: e)
 	if call != 0 'projection'
+		if changing and not ast.isChangingProjectionCall(o.c.typing, call: call) 'readOnly'
+			let inner = projectionName(o, p: p, ms: ms, call: call)
+			fail(o, p: p, site: site, code: diag.errBorrowedReturn, msg: "'{fnName}' lends a place to be changed, and '{inner}' lends this one only to be read; lend a place in 'self', or one that a 'mutates self' method lends")
+			return
+		end 'readOnly'
 		let from = lenders(o, p: p, ms: ms, call: call)
 		for i in 0 upto from.count() 'each'
 			requireLentByParameters(o, p: p, ms: ms, e: from[i])
@@ -643,6 +686,10 @@ function requireLentByParameters(mutates o Ownership, p ast.Project, mutates ms 
 	end 'fresh'
 	let root = o.c.typing.locals[path.root as Count].clone()
 	let text = pathText(o, p: p, ms: ms, path: path)
+	if changing 'toChange'
+		requireLentToChange(o, p: p, ms: ms, e: e, site: site, fnName: fnName, text: text, root: root, path: path)
+		return
+	end 'toChange'
 	if root.isSelf 'self'
 		let conv = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: o.fn).selfConv
 		if not lends(conv) 'owned'

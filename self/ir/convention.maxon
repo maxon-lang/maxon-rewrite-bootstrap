@@ -154,7 +154,9 @@ function funcSignatureIn(tt ast.TypeSlot, reads ast.TypeTable, ft ast.FuncSlot, 
 	end 'params'
 	let lends = ast.funcEntry(ft, funcReads: funcReads, f: fid).result == ast.ResultConv.resultBorrowed
 	let retTy = ast.funcEntry(ft, funcReads: funcReads, f: fid).retTy
-	return FloatSignature.make(args, result: not lends and ast.isFloatType(tt, reads: reads, t: retTy)).withStrings(strings, givesString: ast.isStringType(tt, reads: reads, t: retTy))
+	// A place lent to be changed is the address of its word, whatever it holds.
+	let address = ast.lendsToChange(ast.funcEntry(ft, funcReads: funcReads, f: fid).result, selfConv: ast.funcEntry(ft, funcReads: funcReads, f: fid).selfConv)
+	return FloatSignature.make(args, result: not lends and ast.isFloatType(tt, reads: reads, t: retTy)).withStrings(strings, givesString: not address and ast.isStringType(tt, reads: reads, t: retTy))
 end 'funcSignatureIn'
 
 // valueSignature is the float signature of a call of a function value of the function type t, whose type arguments the
