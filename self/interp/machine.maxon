@@ -484,11 +484,14 @@ function enterFrame(mutates vm Vm, fn Count, dst ir.Word, err ir.Word) throws Ha
 		vm.regN[at] = 0
 		vm.regR[at] = 0
 	end 'regs'
-	let serial = vm.fr.fn.count()
-	let slots = vm.h.cellN.count()
-	vm.fr.push(fn, onThread: vm.cur, params: base, regs: first, slots: slots, frameBoxes: vm.prog.fnFrameBoxes[fn], dst: dst, err: err)
+	vm.calls = try vm.calls + 1 otherwise panic("interp: more calls than memory")
+	let slots = takeSlots(vm, fn: fn)
+	let serial = vm.fr.push(fn, onThread: vm.cur, params: base, regs: first, slots: slots, frameBoxes: vm.prog.fnFrameBoxes[fn], dst: dst, err: err, call: vm.calls)
 	for i in 0 upto vm.prog.fnSlots[fn] 'slots'
-		let c = vm.h.newCell(0)
+		let c = try slots + i otherwise panic("interp: a slot past memory")
+		vm.h.cellN[c] = 0
+		vm.h.cellR[c] = 0
+		vm.h.cellLent[c] = false
 		vm.h.cellFrame[c] = serial
 		vm.h.cellIndex[c] = i
 	end 'slots'
@@ -504,6 +507,58 @@ function enterFrame(mutates vm Vm, fn Count, dst ir.Word, err ir.Word) throws Ha
 	vm.post = false
 	vm.switched = true
 end 'enterFrame'
+
+// returnedSlot marks a slot whose frame has returned, plus the frame's function (Heap.cellFrame): it lies above every serial,
+// since there are never as many frames running.
+let returnedSlot = 1099511627776 as Count
+
+// slotFrame is the frame that the slot c belongs to, or 0 once that frame has returned.
+function slotFrame(vm Vm, c Count) returns Count
+	if vm.h.cellFrame[c] >= returnedSlot 'returned'
+		return 0
+	end 'returned'
+	return vm.h.cellFrame[c]
+end 'slotFrame'
+
+// slotFunction is the function whose slot c is.
+function slotFunction(vm Vm, c Count) returns Count
+	let frame = vm.h.cellFrame[c]
+	if frame >= returnedSlot 'returned'
+		return frame - returnedSlot
+	end 'returned'
+	return vm.fr.fn[frame]
+end 'slotFunction'
+
+// takeSlots is the first cell of a block of the slots of a frame of the function fn: one that a frame of the function that
+// returned gave back, or new cells.
+function takeSlots(mutates vm Vm, fn Count) returns Count
+	while vm.slotBlocks.count() <= fn 'functions'
+		vm.slotBlocks.push(CountList.create(0))
+	end 'functions'
+	if vm.slotBlocks[fn].count() > 0 'given'
+		return try vm.slotBlocks[fn].pop() otherwise panic("interp: no block of slots")
+	end 'given'
+	let first = vm.h.cellN.count()
+	for _ in 0 upto vm.prog.fnSlots[fn] 'cells'
+		_ = vm.h.newCell(0)
+	end 'cells'
+	return first
+end 'takeSlots'
+
+// giveSlotsBack gives the slots of the frame serial, which returns, to the next frame of its function. They name their
+// function and no frame from here on, so an address of one taken in this frame is stale, and the next frame's epoch tells its
+// own addresses from this frame's.
+function giveSlotsBack(mutates vm Vm, serial Count)
+	let fn = vm.fr.fn[serial]
+	let first = vm.fr.slotBase[serial]
+	let returned = try returnedSlot + fn otherwise panic("interp: a function past the mark of a returned slot")
+	for i in 0 upto vm.prog.fnSlots[fn] 'slots'
+		vm.h.cellFrame[try first + i otherwise panic("interp: a slot past memory")] = returned
+	end 'slots'
+	if vm.prog.fnSlots[fn] > 0 'block'
+		vm.slotBlocks[fn].push(first)
+	end 'block'
+end 'giveSlotsBack'
 
 // loadTop makes the frame at the top of the thread's stack the one that runs.
 function loadTop(mutates vm Vm)
@@ -524,10 +579,11 @@ function leaveFrame(mutates vm Vm, n ir.Word, r ir.Word, err ir.Word, errRef ir.
 	let serial = vm.top
 	let dst = vm.fr.retDst[serial]
 	let errReg = vm.fr.retErr[serial]
-	vm.fr.active[serial] = false
 	endFrameBoxes(vm, serial: serial)
-	try vm.frames.pop() otherwise ignore
 	vm.stackTop = vm.fr.paramBase[serial]
+	giveSlotsBack(vm, serial: serial)
+	vm.fr.returned(serial)
+	try vm.frames.pop() otherwise ignore
 	vm.switched = true
 	if vm.frames.count() == 0 'base'
 		vm.top = 0

@@ -116,15 +116,20 @@ end 'SharedData'
 
 typealias SharedDatas = Array with SharedData
 
-// Heap is every cell and every object the program has made, in columns, so that a handle is an index. Nothing is ever taken
-// out of it: a freed object keeps its place, for the report of a use after the free.
+// Heap is every cell and every object the program has made, in columns, so that a handle is an index. A freed object keeps its
+// place, for the report of a use after the free. A cell is taken again only where an address of it is found stale all the
+// same: the slots of a frame that returned, by the next frame of its function (takeSlots, by the frame's epoch), and the
+// places of elements that an array gave up or of an array that was freed, by the elements of arrays (elementPlace, by the
+// versions of their holders).
 type Heap
 	// A cell is a place that holds a value: a frame slot, a word of a box, an element of a primitive. A value is two words: a
 	// scalar is n; a handle of an object is r; and an address, a borrow of a cell that a callee may change, has the cell's
 	// handle negated in r and the version of the structure it was taken in in n.
 	var cellN as ir.WordList
 	var cellR as ir.WordList
-	// cellHolder is the object that a cell is a part of, or 0, and cellFrame the frame whose slot it is, or 0.
+	// cellHolder is the object that a cell is a part of, or 0. cellFrame is, for a slot, the frame it belongs to while the frame
+	// runs, and returnedSlot plus the frame's function once it has returned; 0 for any other cell. A frame's slots are a block of
+	// cells that only frames of its function take, one after another.
 	var cellHolder as CountList
 	var cellFrame as CountList
 	var cellIndex as CountList
@@ -139,14 +144,26 @@ type Heap
 	// oFrameArea is whether an object is the frame area of a frame (ir.FrameArea), which the frame keeps and nothing owns.
 	var oFrameArea as BoolList
 	var oOwner as CountList
+	// oVersion is the version of an object's structure, drawn with oBorn, the version it was made with, from lastVersion, so that
+	// no two structures share one: an address that a version older than its holder's birth was taken into is into a value
+	// that was freed and whose places another took (freePlaces).
 	var oVersion as CountList
+	var oBorn as CountList
+	var lastVersion as Count
 	var oData as CountList
 	var oSize as CountList
 	var oAlloc as CountList
 	var oFreedAt as CountList
 	var texts as ast.StringList
 	var buffers as ByteArrays
+	// byteCells are, by buffer, the cell of each byte whose address was taken, or 0 (byteCell).
+	var byteCells as CountLists
 	var elements as CountLists
+	// spareCells are, by element list, the places of elements that an array gave up, which its next elements take: an address
+	// of one is stale already, since giving it up changed the array's structure.
+	var spareCells as CountLists
+	// freePlaces are the places of the elements of arrays that were freed, which any array's next elements take.
+	var freePlaces as CountList
 	var shareds as SharedDatas
 	// literals are the strings that are in the executable, by their text, and constants the constants that are, by their
 	// symbol.
@@ -156,7 +173,7 @@ type Heap
 	var constants as table.StringMap with Count
 
 	static function new() returns Heap
-		var h = Heap{cellN: ir.WordList.create(0), cellR: ir.WordList.create(0), cellHolder: CountList.create(0), cellFrame: CountList.create(0), cellIndex: CountList.create(0), cellLent: BoolList.create(0), oKind: CountList.create(0), oFreed: BoolList.create(0), oImmortal: BoolList.create(0), oFrameArea: BoolList.create(0), oOwner: CountList.create(0), oVersion: CountList.create(0), oData: CountList.create(0), oSize: CountList.create(0), oAlloc: CountList.create(0), oFreedAt: CountList.create(0), texts: ast.StringList.create(0), buffers: ByteArrays.create(0), elements: CountLists.create(0), shareds: SharedDatas.create(0), literals: table.StringMap.new(), constants: table.StringMap.new(), none: 0}
+		var h = Heap{cellN: ir.WordList.create(0), cellR: ir.WordList.create(0), cellHolder: CountList.create(0), cellFrame: CountList.create(0), cellIndex: CountList.create(0), cellLent: BoolList.create(0), oKind: CountList.create(0), oFreed: BoolList.create(0), oImmortal: BoolList.create(0), oFrameArea: BoolList.create(0), oOwner: CountList.create(0), oVersion: CountList.create(0), oBorn: CountList.create(0), lastVersion: 0, oData: CountList.create(0), oSize: CountList.create(0), oAlloc: CountList.create(0), oFreedAt: CountList.create(0), texts: ast.StringList.create(0), buffers: ByteArrays.create(0), byteCells: CountLists.create(0), elements: CountLists.create(0), spareCells: CountLists.create(0), freePlaces: CountList.create(0), shareds: SharedDatas.create(0), literals: table.StringMap.new(), constants: table.StringMap.new(), none: 0}
 		// Handle 0 names nothing, so every column starts with a row that is never used.
 		_ = h.newCell(0)
 		h.oKind.push(0)
@@ -165,13 +182,16 @@ type Heap
 		h.oFrameArea.push(false)
 		h.oOwner.push(0)
 		h.oVersion.push(0)
+		h.oBorn.push(0)
 		h.oData.push(0)
 		h.oSize.push(0)
 		h.oAlloc.push(0)
 		h.oFreedAt.push(0)
 		h.texts.push("")
 		h.buffers.push(ByteArray.create(0))
+		h.byteCells.push(CountList.create(0))
 		h.elements.push(CountList.create(0))
+		h.spareCells.push(CountList.create(0))
 		h.shareds.push(SharedData.new())
 		return h
 	end 'new'
@@ -195,7 +215,9 @@ type Heap
 		oImmortal.push(false)
 		oFrameArea.push(false)
 		oOwner.push(0)
-		oVersion.push(0)
+		let born = self.nextVersion()
+		oVersion.push(born)
+		oBorn.push(born)
 		oData.push(0)
 		oSize.push(0)
 		oAlloc.push(site)
@@ -245,6 +267,7 @@ type Heap
 		let o = self.newObject(kindBytes, site: site)
 		oData[o] = buffers.count()
 		buffers.push(buf)
+		byteCells.push(CountList.create(0))
 		return o
 	end 'newBytes'
 
@@ -252,8 +275,54 @@ type Heap
 		let o = self.newObject(kindArray, site: site)
 		oData[o] = elements.count()
 		elements.push(CountList.create(0))
+		spareCells.push(CountList.create(0))
 		return o
 	end 'newArray'
+
+	// nextVersion is a version no structure has had.
+	function nextVersion(mutates self) returns Count
+		lastVersion = try lastVersion + 1 otherwise panic("interp: more versions than memory")
+		return lastVersion
+	end 'nextVersion'
+
+	// elementPlace is a place for an element of the array a, empty: one that the array gave up, one of an array that was
+	// freed, or a new one.
+	function elementPlace(mutates self, a Count) returns Count
+		let data = oData[a]
+		var c = 0 as Count
+		if spareCells[data].count() > 0 'spare'
+			c = try spareCells[data].pop() otherwise panic("interp: no spare place")
+		end 'spare' else if freePlaces.count() > 0 'freed'
+			c = try freePlaces.pop() otherwise panic("interp: no free place")
+			cellHolder[c] = a
+		end 'freed' else 'new'
+			return self.newCell(a)
+		end 'new'
+		cellN[c] = 0
+		cellR[c] = 0
+		cellLent[c] = false
+		cellIndex[c] = 0
+		return c
+	end 'elementPlace'
+
+	// freeElementPlaces takes the places of the elements of the array a, which was freed and has given up what they held, for the
+	// elements of other arrays.
+	function freeElementPlaces(mutates self, a Count)
+		let data = oData[a]
+		for i in 0 upto elements[data].count() 'elements'
+			freePlaces.push(elements[data][i])
+		end 'elements'
+		for i in 0 upto spareCells[data].count() 'spare'
+			freePlaces.push(spareCells[data][i])
+		end 'spare'
+		elements[data] = CountList.create(0)
+		spareCells[data] = CountList.create(0)
+	end 'freeElementPlaces'
+
+	// givePlaceUp takes the place c of an element that the array a no longer has, empty, for its next element.
+	function givePlaceUp(mutates self, a Count, c Count)
+		spareCells[oData[a]].push(c)
+	end 'givePlaceUp'
 
 	// newSharedBox makes a frozen value or a cown with one place for the value it holds.
 	function newSharedBox(mutates self, kind Count, site Count) returns Count

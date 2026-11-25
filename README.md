@@ -2200,7 +2200,12 @@ output and exit code are its own, a violation exits with 4 and a program that ou
   version of its structure; and the borrows that a call is waiting to use. A place has one owner, so storing a value that is
   already owned is an error, and so is overwriting a value that the place owns. A frozen value and a cown have many owners: it
   records the places that hold one, and a count. A cell (a place), an object (a value), a frame and a thread are handles that
-  index the columns of the `Vm`.
+  index the columns of the `Vm`. A frame that returns gives its handle to the next call and its slots to the next frame of
+  its function, so a run holds what its running calls need and not every call it made; an address of a slot holds the
+  epoch of its frame (its call's number), so one taken in a frame that has returned is a stale borrow even once another
+  frame holds the slot. The place of an element that an array gave up goes to its next element, and the places of an array
+  that was freed to any array's; versions come from one counter, so an address older than its holder is a use after free.
+  A freed object keeps its row, for the report of a use after the free.
 - **Violations**, each reported with the function, the block, the instruction and what happened: a use after free, a double free,
   a leak (a value still live when the program ends, or a slot that owns a value when its function returns), use of a moved value
   (a slot that was moved out of or never assigned, read again), a value with two owners or one that is freed or returned while

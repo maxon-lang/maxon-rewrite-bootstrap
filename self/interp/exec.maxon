@@ -69,7 +69,8 @@ end 'execStoreSlot'
 
 function execSlotAddr(mutates vm Vm, x ir.Instr)
 	let c = slotCell(vm, slot: ir.slotAddrSlot(x))
-	vm.setAddress(x.dst, c: c, version: 0)
+	let epoch = vm.fr.epoch[vm.top]
+	vm.setAddress(x.dst, c: c, version: epoch)
 end 'execSlotAddr'
 
 function execLoadParam(mutates vm Vm, x ir.Instr)
@@ -125,7 +126,8 @@ end 'execStoreField'
 
 function execFieldAddr(mutates vm Vm, x ir.Instr) throws Halt
 	let c = try fieldOf(vm, obj: ir.fieldAddrObj(x), offset: ir.fieldAddrOffset(x), what: "taking the address of a field")
-	vm.setAddress(x.dst, c: c, version: 0)
+	let version = vm.h.oVersion[vm.h.cellHolder[c]]
+	vm.setAddress(x.dst, c: c, version: version)
 end 'execFieldAddr'
 
 // addressIsValid is whether the cell an address names is still there: the structure that holds it must be alive and unchanged
@@ -140,22 +142,34 @@ function addressIsValid(vm Vm, c Count, version ir.Word) returns bool
 			return false
 		end 'stale'
 	end 'held'
-	let frame = vm.h.cellFrame[c]
-	return frame == 0 or vm.fr.active[frame]
+	return slotHolds(vm, c: c, version: version)
 end 'addressIsValid'
+
+// slotHolds is whether the cell c, if it is a slot, is still the slot that an address with the version was taken of: its
+// frame has not returned, and its block of slots was not given to another frame of its function since, whose epoch differs.
+function slotHolds(vm Vm, c Count, version ir.Word) returns bool
+	if vm.h.cellFrame[c] == 0 'noSlot'
+		return true
+	end 'noSlot'
+	let frame = slotFrame(vm, c: c)
+	return frame != 0 and (try vm.fr.epoch[frame] as ir.Word otherwise panic("interp: an epoch past a word")) == version
+end 'slotHolds'
 
 function requireValid(mutates vm Vm, c Count, version ir.Word, what String) throws Halt
 	let holder = vm.h.cellHolder[c]
 	if holder != 0 'held'
 		try requireLive(vm, o: holder, what: what)
+		if (try version as Count otherwise panic("interp: a version below 0")) < vm.h.oBorn[holder] 'freed'
+			let message = "{what} uses an address into a value that was freed, whose place {objectText(vm, o: holder)} holds now"
+			throw violation(vm, kind: useAfterFree, message: message)
+		end 'freed'
 		if vm.h.oVersion[holder] != (try version as Count otherwise panic("interp: a version below 0")) 'stale'
 			let message = "{what} uses an address into {objectText(vm, o: holder)} that was taken before the structure changed"
 			throw violation(vm, kind: staleBorrow, message: message)
 		end 'stale'
 	end 'held'
-	let frame = vm.h.cellFrame[c]
-	if frame != 0 and not vm.fr.active[frame] 'returned'
-		let message = "{what} uses the address of a slot of {vm.prog.symbols[vm.fr.fn[frame]]}, which has returned"
+	if not slotHolds(vm, c: c, version: version) 'returned'
+		let message = "{what} uses the address of a slot of {vm.prog.symbols[slotFunction(vm, c: c)]}, which has returned"
 		throw violation(vm, kind: staleBorrow, message: message)
 	end 'returned'
 end 'requireValid'
@@ -545,12 +559,12 @@ function execFrameBox(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	if isManaged(f, r: src) 'lent'
 		_ = try live(vm, o: vm.ref(src), what: "a value that an interface value borrows")
 	end 'lent'
-	let at = try vm.fr.boxBase[vm.top] + ir.frameBoxBox(x) otherwise panic("interp: a frame box past memory")
-	if vm.fr.boxes[at] == 0 'first'
+	let at = ir.frameBoxBox(x)
+	if vm.fr.boxes[vm.top][at] == 0 'first'
 		let made = newBox(vm, words: ir.ifaceBoxBytes / wordBytes)
-		vm.fr.boxes[at] = made
+		vm.fr.boxes[vm.top][at] = made
 	end 'first'
-	let o = vm.fr.boxes[at]
+	let o = vm.fr.boxes[vm.top][at]
 	vm.h.cellN[vm.h.field(o, i: boxTableWord)] = tableIndex(vm, t: ir.frameBoxTable(f, x: x))
 	let c = vm.h.field(o, i: boxValueWord)
 	let r = vm.regAt(src)
@@ -564,22 +578,21 @@ end 'execFrameBox'
 // the frame. It owns nothing and nothing owns it: the frame keeps it, so a function may lend it, and it ends with its frame
 // as a frame box does.
 function execFrameArea(mutates vm Vm, x ir.Instr)
-	let at = try vm.fr.boxBase[vm.top] + ir.frameAreaBox(x) otherwise panic("interp: a frame area past memory")
-	if vm.fr.boxes[at] == 0 'first'
+	let at = ir.frameAreaBox(x)
+	if vm.fr.boxes[vm.top][at] == 0 'first'
 		let made = newBox(vm, words: ir.frameAreaWords(x))
 		vm.h.oFrameArea[made] = true
-		vm.fr.boxes[at] = made
+		vm.fr.boxes[vm.top][at] = made
 	end 'first'
-	let o = vm.fr.boxes[at]
+	let o = vm.fr.boxes[vm.top][at]
 	vm.setRef(x.dst, o: o)
 end 'execFrameArea'
 
 // endFrameBoxes ends the frame boxes of the frame serial as it returns: each is marked freed without being a free of the
 // program's, so a use of one after its frame is a use after free.
 function endFrameBoxes(mutates vm Vm, serial Count)
-	let base = vm.fr.boxBase[serial]
-	for i in 0 upto vm.prog.fnFrameBoxes[vm.fr.fn[serial]] 'boxes'
-		let o = vm.fr.boxes[try base + i otherwise panic("interp: a frame box past memory")]
+	for i in 0 upto vm.fr.boxes[serial].count() 'boxes'
+		let o = vm.fr.boxes[serial][i]
 		if o != 0 'made'
 			vm.h.oFreed[o] = true
 			vm.h.oFreedAt[o] = vm.site()

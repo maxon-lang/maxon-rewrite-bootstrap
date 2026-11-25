@@ -27,7 +27,7 @@ function cellText(vm Vm, c Count) returns String
 		return "a part of {objectText(vm, o: vm.h.cellHolder[c])}"
 	end 'part'
 	if vm.h.cellFrame[c] != 0 'slot'
-		return "slot s{vm.h.cellIndex[c]} of {vm.prog.symbols[vm.fr.fn[vm.h.cellFrame[c]]]}"
+		return "slot s{vm.h.cellIndex[c]} of {vm.prog.symbols[slotFunction(vm, c: c)]}"
 	end 'slot'
 	return "a place"
 end 'cellText'
@@ -443,6 +443,7 @@ function free(mutates vm Vm, o Count) throws Halt
 			let element = vm.h.elements[data][i]
 			try freeCell(vm, c: element)
 		end 'each'
+		vm.h.freeElementPlaces(o)
 		return
 	end 'array'
 	panic("interp: unknown object kind {kind}")

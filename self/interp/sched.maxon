@@ -74,8 +74,13 @@ end 'Domain'
 // domainOfCell is where a place belongs, when that is settled by the place alone: a slot of a frame, or a place in a frozen
 // value or a cown. A place in any other object belongs wherever that object does, which is for the caller to ask.
 function domainOfCell(vm Vm, c Count) returns Domain
-	let frame = vm.h.cellFrame[c]
-	if frame != 0 'slot'
+	if vm.h.cellFrame[c] != 0 'slot'
+		let frame = slotFrame(vm, c: c)
+		// A slot of a frame that has returned belongs to no thread: nothing owns through it, since the frame dropped what its
+		// slots owned to return, and an address of it is stale (slotHolds).
+		if frame == 0 'returned'
+			return Domain.make(domainNone, thread: 0, cown: 0, settled: true)
+		end 'returned'
 		return Domain.make(domainThread, thread: vm.fr.thread[frame], cown: 0, settled: true)
 	end 'slot'
 	let holder = vm.h.cellHolder[c]

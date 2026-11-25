@@ -874,3 +874,59 @@ test 'a captured value that the behaviour never frees'
 	let zero = b.konst(0)
 	expectViolation("never freed", out: runSeed(p, main: b.ret(zero), seed: 0), kind: "leak", fragments: says("slot s0 still owns", b: "", c: "", d: ""))
 end 'a captured value that the behaviour never frees'
+
+// A frame that returns gives its slots to the next frame of its function: an address taken of a slot in the first, which
+// the first leaves in a box, is stale in the second, which holds the same cells.
+test 'an address of a slot is stale once another frame of its function holds the slot'
+	var p = ir.irProject()
+	var user = Fn.new(p, name: "use", convs: convs1(ast.Convention.convMutates))
+	let userZero = user.konst(0)
+	let userFn = user.ret(userZero)
+	var leaker = Fn.new(p, name: "leak", convs: convs1(ast.Convention.convLet))
+	let s = leaker.slot(ir.IrKind.kindScalar)
+	let holder = leaker.param(0, kind: ir.IrKind.kindManaged)
+	let left = leaker.reg(ir.IrKind.kindScalar)
+	leaker.emit(ir.newLoadField(left, obj: holder, offset: 0))
+	leaker.call(user.decl, args: ir.regs1(left))
+	let address = leaker.addr(s)
+	leaker.emit(ir.newStoreField(holder, offset: 0, src: address, borrow: false))
+	let leakerZero = leaker.konst(0)
+	let leakerFn = leaker.ret(leakerZero)
+	var b = Fn.new(p, name: "main", convs: ir.convs0())
+	let box = b.slot(ir.IrKind.kindManaged)
+	let made = b.alloc(1)
+	b.store(box, v: made)
+	let once = b.load(box)
+	b.call(leaker.decl, args: ir.regs1(once))
+	let twice = b.load(box)
+	b.call(leaker.decl, args: ir.regs1(twice))
+	b.dropSlot(box)
+	let zero = b.konst(0)
+	var others = ir.IrFunctionList.create(0)
+	others.push(leakerFn)
+	others.push(userFn)
+	let out = runWith(p, main: b.ret(zero), others: others, seed: 0)
+	expectViolation("reused", out: out, kind: "stale borrow", fragments: says("argument 0 of the call to use", b: "a slot of leak, which has returned", c: "", d: ""))
+end 'an address of a slot is stale once another frame of its function holds the slot'
+
+// An array that is freed gives the places of its elements to the elements of other arrays: an address taken of an element of
+// the first is a use after free in the second, which holds the same cell.
+test 'an address of an element of a freed array is a use after free once another array holds its place'
+	var p = ir.irProject()
+	var b = Fn.new(p, name: "main", convs: ir.convs0())
+	let first = b.runtime(ir.Rt.rtArrayNew, kind: ir.IrKind.kindManaged, args: ir.RegList.create(0))
+	let zero0 = b.konst(0)
+	let one = b.konst(1)
+	_ = b.runtime(ir.Rt.rtArrayInsert, kind: ir.IrKind.kindScalar, args: regs3(first, b: zero0, c: one))
+	let zero1 = b.konst(0)
+	let element = b.runtime(ir.Rt.rtArrayElem, kind: ir.IrKind.kindScalar, args: ir.regs2(first, b: zero1))
+	b.drop(first)
+	let second = b.runtime(ir.Rt.rtArrayNew, kind: ir.IrKind.kindManaged, args: ir.RegList.create(0))
+	let zero2 = b.konst(0)
+	let two = b.konst(2)
+	_ = b.runtime(ir.Rt.rtArrayInsert, kind: ir.IrKind.kindScalar, args: regs3(second, b: zero2, c: two))
+	let loaded = b.reg(ir.IrKind.kindScalar)
+	b.emit(ir.newLoadAt(loaded, addr: element, filled: false))
+	let zero = b.konst(0)
+	expectViolation("reused", out: runMain(p, main: b.ret(zero)), kind: "use after free", fragments: says("an address into a value that was freed", b: "", c: "", d: ""))
+end 'an address of an element of a freed array is a use after free once another array holds its place'

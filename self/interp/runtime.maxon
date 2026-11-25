@@ -309,12 +309,13 @@ end 'entryShare'
 // restructure is a change to the structure of a collection, which ends every address taken into it.
 function restructure(mutates vm Vm, o Count) throws Halt
 	try changed(vm, c: 0, o: o)
-	vm.h.oVersion[o] = try vm.h.oVersion[o] + 1 otherwise panic("interp: a version past a word")
+	let version = vm.h.nextVersion()
+	vm.h.oVersion[o] = version
 end 'restructure'
 
 // moveIn puts an element that an entry takes in a new place of a collection, which becomes its owner.
 function moveIn(mutates vm Vm, f ir.IrFunction, holder Count, src ir.Reg, what String) returns Count throws Halt
-	let c = vm.h.newCell(holder)
+	let c = vm.h.elementPlace(holder)
 	try store(vm, f: f, c: c, src: src, what: what)
 	return c
 end 'moveIn'
@@ -419,11 +420,19 @@ end 'execElemAddr'
 
 // byteCell is a cell that stands for the byte at index i of the byte array b, which a place of a byte-sized type lent by
 // address is (ir.lentInByte): held by b, so that a change of b's structure makes its address stale, and naming the byte by
-// its index, which LoadByteAt and StoreByteAt read and write. A cell is made for each address taken.
+// its index, which LoadByteAt and StoreByteAt read and write. A byte has the one cell, made the first time its address is
+// taken, so that two addresses of a byte are one place.
 function byteCell(mutates vm Vm, b Count, i Count) returns Count
-	let c = vm.h.newCell(b)
-	vm.h.cellIndex[c] = i
-	return c
+	let data = vm.h.oData[b]
+	while vm.h.byteCells[data].count() <= i 'grow'
+		vm.h.byteCells[data].push(0)
+	end 'grow'
+	if vm.h.byteCells[data][i] == 0 'first'
+		let c = vm.h.newCell(b)
+		vm.h.cellIndex[c] = i
+		vm.h.byteCells[data][i] = c
+	end 'first'
+	return vm.h.byteCells[data][i]
 end 'byteCell'
 
 // execElemLoad reads an element, as a LoadAt reads through the address that ElemAddr gives.
@@ -500,6 +509,7 @@ function entryArrayRemove(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Hal
 	try restructure(vm, o: a)
 	let e = try vm.h.elements[data].remove(i) otherwise panic("interp: an element that was there is gone")
 	try moveOutOfCollection(vm, x: x, c: e, what: "the remove")
+	vm.h.givePlaceUp(a, c: e)
 end 'entryArrayRemove'
 
 // entryArrayPop moves the last element out, which the code checked there is.
@@ -512,6 +522,7 @@ function entryArrayPop(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	try restructure(vm, o: a)
 	let e = try vm.h.elements[data].pop() otherwise panic("interp: an element that was there is gone")
 	try moveOutOfCollection(vm, x: x, c: e, what: "the pop")
+	vm.h.givePlaceUp(a, c: e)
 end 'entryArrayPop'
 
 // The entries of an array of strings: its model is an array's, a cell to an element, which the code moves a String in and
@@ -529,7 +540,7 @@ function entryStrsOpen(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 		throw trap(vm, message: indexOutOfRangeMessage)
 	end 'outside'
 	try restructure(vm, o: a)
-	let e = vm.h.newCell(a)
+	let e = vm.h.elementPlace(a)
 	vm.h.elements[data].insert(i, value: e)
 	giveAddress(vm, x: x, c: e)
 end 'entryStrsOpen'
@@ -547,6 +558,7 @@ function entryStrsClose(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	if vm.h.refOf(e) != 0 'held'
 		throw violation(vm, kind: movedUse, message: "a close of an element of an array of strings that still holds its String")
 	end 'held'
+	vm.h.givePlaceUp(a, c: e)
 end 'entryStrsClose'
 
 // entryStrsFill appends count empty cells.
@@ -556,7 +568,7 @@ function entryStrsFill(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	let data = vm.h.oData[a]
 	try restructure(vm, o: a)
 	for _ in 0 upto count 'cells'
-		let cell = vm.h.newCell(a)
+		let cell = vm.h.elementPlace(a)
 		vm.h.elements[data].push(cell)
 	end 'cells'
 end 'entryStrsFill'
@@ -589,7 +601,7 @@ function entryRecsOpen(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 		throw trap(vm, message: indexOutOfRangeMessage)
 	end 'outside'
 	try restructure(vm, o: a)
-	let e = vm.h.newCell(a)
+	let e = vm.h.elementPlace(a)
 	let box = newBox(vm, words: words)
 	try adopt(vm, c: e, o: box, what: "the insert")
 	vm.h.elements[data].insert(i, value: e)
@@ -607,6 +619,7 @@ function entryRecsClose(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	try restructure(vm, o: a)
 	let e = try vm.h.elements[data].remove(i) otherwise panic("interp: an element that was there is gone")
 	try dropCell(vm, c: e)
+	vm.h.givePlaceUp(a, c: e)
 end 'entryRecsClose'
 
 function entryRecsReserve(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
@@ -628,6 +641,7 @@ function entryRecsShrink(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 		for i in keep upto count 'above'
 			let element = vm.h.elements[data][i]
 			try dropCell(vm, c: element)
+			vm.h.givePlaceUp(a, c: element)
 		end 'above'
 		vm.h.elements[data].truncate(keep)
 	end 'shorter'
@@ -683,6 +697,8 @@ function entryArrayShrink(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Hal
 			if vm.h.refOf(vm.h.elements[data][i]) != 0 'owns'
 				panic("interp: a shrink leaves element {i} owning a value")
 			end 'owns'
+			let element = vm.h.elements[data][i]
+			vm.h.givePlaceUp(array, c: element)
 		end 'above'
 		vm.h.elements[data].truncate(keep)
 	end 'shorter'
