@@ -340,7 +340,9 @@ function stringArrayPush(array Count, room Count, textLength Count)
 		let grown = grownCapacity(capacity, required: length + 1)
 		let data = alloc(collectionBytes(grown, elementBytes: elementBytes))
 		let old = __Raw.loadWord(array, offset: osArrayDataOffset)
-		copyBytes(old, target: data, count: collectionBytes(length, elementBytes: elementBytes))
+		if length != 0 'some'
+			copyBytes(old, target: data, count: collectionBytes(length, elementBytes: elementBytes))
+		end 'some'
 		free(old)
 		__Raw.storeWord(array, offset: osArrayDataOffset, value: data)
 		__Raw.storeWord(array, offset: osArrayCapacityOffset, value: grown)
@@ -353,7 +355,9 @@ end 'stringArrayPush'
 // pushBytes puts a new string of a copy of a number of bytes at an address at the end of an array of strings.
 function pushBytes(array Count, address Count, length Count)
 	let room = __Raw.stringRoom(length)
-	copyBytes(address, target: room, count: length)
+	if length != 0 'some'
+		copyBytes(address, target: room, count: length)
+	end 'some'
 	stringArrayPush(array, room: room, textLength: length)
 end 'pushBytes'
 
@@ -872,7 +876,9 @@ end 'osWriteBinary'
 			panic("entry name too long to list")
 		end 'outside'
 		let bytes = __Raw.stringRoom(__Raw.wrappingAdd(__Raw.wrappingAdd(pathLength, right: 1), right: units * maxUtf8BytesPerUnit))
-		copyBytes(pathBytes, target: bytes, count: pathLength)
+		if pathLength != 0 'path'
+			copyBytes(pathBytes, target: bytes, count: pathLength)
+		end 'path'
 		var at = pathLength
 		if separate 'separator'
 			at = storeNextByte(bytes, offset: at, value: pathSeparator)

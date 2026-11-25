@@ -359,6 +359,10 @@ function runtimeEntry(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 		try entryArrayRemove(vm, f: f, x: x)
 		return
 	end 'rtArrayRemove'
+	if symbol == ir.Rt.rtArrayPop 'rtArrayPop'
+		try entryArrayPop(vm, f: f, x: x)
+		return
+	end 'rtArrayPop'
 	if symbol == ir.Rt.rtArrayFill 'rtArrayFill'
 		try entryArrayFill(vm, f: f, x: x)
 		return

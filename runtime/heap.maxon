@@ -155,8 +155,12 @@ end 'allocFirst'
 // what is written next may be read from it. With zeroed, its bytes past kept read zero, as a new box's do, box's from kept
 // to held having been zero already; without, for a caller that reads nothing past what it writes, nothing is zeroed. A
 // large box zeroes no more than that, as Go's growslice clears only what its copy does not write; a slot of a class is
-// zeroed whole, which costs little. A box of more than largestSmallBytes is a large one, so held alone says which.
+// zeroed whole, which costs little. A box of more than largestSmallBytes is a large one, so held alone says which. Where
+// nothing is kept, as when an empty array first grows, it is a new box, with nothing to grow in place or copy.
 function grownBox(box Count, held Count, kept Count, bytes Count, zeroed bool) returns Count
+	if kept == 0 'nothing'
+		return alloc(bytes)
+	end 'nothing'
 	var moved = noBox
 	if bytes <= largestSmallBytes 'small'
 		moved = alloc(bytes)
@@ -561,7 +565,9 @@ function growStack(heap Count, key Count) returns Count
 	end 'first'
 	let pages = heapPages(heap)
 	let bigger = pageAlloc(pages, count: pagesFor(grown), zeroFrom: 0, zeroTo: 0)
-	copyBytes(base, target: bigger, count: used)
+	if used != 0 'used'
+		copyBytes(base, target: bigger, count: used)
+	end 'used'
 	__Raw.storeWord(heap, offset: baseAt, value: bigger)
 	__Raw.storeWord(heap, offset: limitAt, value: __Raw.wrappingAdd(bigger, right: grown))
 	__Raw.storeWord(heap, offset: key, value: __Raw.wrappingSub(__Raw.wrappingAdd(bigger, right: used), right: wordBytes))

@@ -254,7 +254,9 @@ end 'floatRoundsUp'
 // carry out of the first digit leaves the one digit 1, and raises the scale, which carried says.
 function floatRounded(d Count, count Count, kept Count, cand Count, mutates carried bool) returns Count
 	carried = false
-	copyBytes(d, target: cand, count: kept)
+	if kept != 0 'some'
+		copyBytes(d, target: cand, count: kept)
+	end 'some'
 	if kept >= count or not floatRoundsUp(d, count: count, kept: kept) 'down'
 		return floatSignificant(cand, count: kept)
 	end 'down'

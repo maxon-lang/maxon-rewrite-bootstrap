@@ -358,7 +358,9 @@ end 'bytesHoldNul'
 			let doubled = __Raw.wrappingAdd(capacity, right: capacity)
 			let grown = doubled if doubled > needed else needed
 			let room = __Raw.stringRoom(grown)
-			copyBytes(text, target: room, count: length)
+			if length != 0 'kept'
+				copyBytes(text, target: room, count: length)
+			end 'kept'
 			__Raw.freeStringRoom(text)
 			text = room
 			__Raw.storeWord(pipe, offset: pipeTextOffset, value: room)

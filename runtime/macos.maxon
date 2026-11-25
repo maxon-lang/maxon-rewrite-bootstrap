@@ -274,12 +274,16 @@
 			length = __Raw.wrappingAdd(length, right: 1)
 		end 'separator'
 		let bytes = __Raw.stringRoom(length)
-		copyBytes(pathBytes, target: bytes, count: pathLength)
+		if pathLength != 0 'path'
+			copyBytes(pathBytes, target: bytes, count: pathLength)
+		end 'path'
 		var at = pathLength
 		if separate 'slash'
 			at = storeNextByte(bytes, offset: at, value: slashByte)
 		end 'slash'
-		copyBytes(name, target: __Raw.wrappingAdd(bytes, right: at), count: nameLength)
+		if nameLength != 0 'name'
+			copyBytes(name, target: __Raw.wrappingAdd(bytes, right: at), count: nameLength)
+		end 'name'
 		stringArrayPush(entries, room: bytes, textLength: length)
 	end 'pushEntryPath'
 

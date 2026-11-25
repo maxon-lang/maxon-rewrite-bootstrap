@@ -155,6 +155,17 @@ function arrayRemove(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleStat
 	return entry(l, p: p, site: box.site, symbol: Rt.rtArrayRemove, kind: kind, args: argsOf2(arr, b: index))
 end 'arrayRemove'
 
+// arrayPop moves the last element out, which the caller has checked there is: nothing follows it, so nothing moves. An
+// array of strings or of records held in place takes the element's address and then closes its room, which moves nothing
+// for the last.
+function arrayPop(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, box ArrayBox, arr Reg, last Reg) returns Reg
+	if arrayInPlace(p, ms: ms, box: box) or arrayOfStrings(p, ms: ms, box: box) 'room'
+		return arrayRemove(l, p: p, ms: ms, box: box, arr: arr, index: last)
+	end 'room'
+	let kind = kindOf(l, p: p, ms: ms, t: arrayElem(p, ms: ms, box: box))
+	return entry(l, p: p, site: box.site, symbol: Rt.rtArrayPop, kind: kind, args: argsOf1(arr))
+end 'arrayPop'
+
 // arrayLoad reads the element at index: a byte, a scalar, or a managed element lent for as long as the array is not
 // changed.
 function arrayLoad(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, box ArrayBox, arr Reg, index Reg) returns Reg

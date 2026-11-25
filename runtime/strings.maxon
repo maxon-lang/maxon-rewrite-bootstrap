@@ -27,8 +27,12 @@ function concat(left String, right String) returns String
 		return inlineAppend(left, part: right)
 	end 'inline'
 	let room = __Raw.stringRoom(length)
-	copyBytes(__Raw.stringBytes(left), target: room, count: leftLength)
-	copyBytes(__Raw.stringBytes(right), target: __Raw.wrappingAdd(room, right: leftLength), count: rightLength)
+	if leftLength != 0 'left'
+		copyBytes(__Raw.stringBytes(left), target: room, count: leftLength)
+	end 'left'
+	if rightLength != 0 'right'
+		copyBytes(__Raw.stringBytes(right), target: __Raw.wrappingAdd(room, right: leftLength), count: rightLength)
+	end 'right'
 	return __Raw.stringOf(room, length: length, ascii: bothAscii(left, other: right))
 end 'concat'
 
@@ -125,7 +129,9 @@ function joinPutCopy(text String, part String) returns String
 	let length = __Raw.stringLength(text)
 	let count = __Raw.stringLength(part)
 	let bytes = __Raw.stringFirstWord(text)
-	copyBytes(__Raw.stringFirstWord(part), target: __Raw.wrappingAdd(bytes, right: length), count: count)
+	if count != 0 'some'
+		copyBytes(__Raw.stringFirstWord(part), target: __Raw.wrappingAdd(bytes, right: length), count: count)
+	end 'some'
 	return __Raw.stringOf(bytes, length: __Raw.wrappingAdd(length, right: count), ascii: bothAscii(text, other: part))
 end 'joinPutCopy'
 
@@ -249,7 +255,9 @@ function stringAppend(text String, owned bool, part String) returns String
 			storeInline(at, part: part, count: count)
 		end 'short'
 	end 'held' else 'elsewhere'
-		copyBytes(__Raw.stringFirstWord(part), target: at, count: count)
+		if count != 0 'some'
+			copyBytes(__Raw.stringFirstWord(part), target: at, count: count)
+		end 'some'
 	end 'elsewhere'
 	if owned and room != bytes 'moved'
 		__Raw.freeStringRoom(bytes)
@@ -322,7 +330,9 @@ end 'stringByteAt'
 // stringOfBytes is a new string of a copy of a number of bytes at an address.
 function stringOfBytes(bytes Count, length Count) returns String
 	let room = __Raw.stringRoom(length)
-	copyBytes(bytes, target: room, count: length)
+	if length != 0 'some'
+		copyBytes(bytes, target: room, count: length)
+	end 'some'
 	return stringOfRoom(room, length: length)
 end 'stringOfBytes'
 
@@ -382,7 +392,8 @@ function checkSimpleBytes(bytes Count, length Count)
 end 'checkSimpleBytes'
 
 // copyBytes copies a word at a time and then the bytes left over, first first, so that a target below the source may
-// overlap it: each word is read before the target that overlaps it is written.
+// overlap it: each word is read before the target that overlaps it is written. The count is above 0: a caller that may
+// have nothing to copy decides so with an if of its own and skips the whole step, and copyBytes checks nothing.
 function copyBytes(source Count, target Count, count Count)
 	var at = 0 as Count
 	while __Raw.wrappingAdd(at, right: wordBytes) <= count 'words'
@@ -404,6 +415,8 @@ end 'cStringOf'
 // cStringOfBytes is a new zero-terminated copy of a number of bytes at an address, which the caller frees.
 function cStringOfBytes(bytes Count, length Count) returns Count
 	let copy = alloc(__Raw.wrappingAdd(length, right: 1))
-	copyBytes(bytes, target: copy, count: length)
+	if length != 0 'some'
+		copyBytes(bytes, target: copy, count: length)
+	end 'some'
 	return copy
 end 'cStringOfBytes'

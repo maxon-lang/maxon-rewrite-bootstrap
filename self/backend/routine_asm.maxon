@@ -356,7 +356,7 @@ end 'arm64LockAdd'
 // rCopyBytes copies as many bytes as second says from copyFrom to copyTo, and leaves the three and third holding anything;
 // on arm64 it leaves x0 to x8 holding anything too, as every call may (its routine holds nothing in them across it). Its
 // target is always a box its routine has just allocated, so the two never overlap, and a copy may read and write them in
-// any order.
+// any order. The count is above 0: a routine with nothing to copy skips the copy itself, and the copy checks nothing.
 function rCopyBytes(mutates u CodeUnit, a ast.TargetArch)
 	match a 'arch'
 		x64 then u.asm.repMovsb()
@@ -449,7 +449,6 @@ function arm64CopyBytes(mutates u CodeUnit)
 	let quarters = u.asm.newLabel()
 	let halves = u.asm.newLabel()
 	let single = u.asm.newLabel()
-	u.asm.arm64BranchIfZero(count, label: done)
 	encodeArm64AddRegReg(u.asm.code, dest: fromEnd, left: from, right: count)
 	encodeArm64AddRegReg(u.asm.code, dest: toEnd, left: to, right: count)
 	encodeArm64CmpRegImm(u.asm.code, left: count, imm: copySmallBytes as Arm64Imm12)

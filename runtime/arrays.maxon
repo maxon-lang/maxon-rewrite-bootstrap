@@ -19,6 +19,11 @@ function arrayElem(array Count, index Count) returns Count
 	return collectionElementAddress(array, index: index, elementBytes: wordBytes)
 end 'arrayElem'
 
+// arrayPop moves the last element out, which there is (the caller checked): nothing follows it, so only the length changes.
+function arrayPop(array Count) returns Count
+	return __Raw.loadWord(collectionPop(array, elementBytes: wordBytes), offset: 0)
+end 'arrayPop'
+
 // arrayInsert moves an element in at an index, which may be the length, after what follows moves up by one.
 function arrayInsert(array Count, index Count, element Count)
 	let at = collectionOpenGap(array, index: index, elementBytes: wordBytes)
@@ -255,9 +260,20 @@ function collectionOpenGap(box Count, index Count, elementBytes Count) returns C
 	end 'outside'
 	_ = collectionExtend(box, count: 1, elementBytes: elementBytes)
 	let at = collectionPlace(box, index: index, elementBytes: elementBytes)
-	copyBackward(at, target: __Raw.wrappingAdd(at, right: elementBytes), count: collectionBytes(__Raw.wrappingSub(length, right: index), elementBytes: elementBytes))
+	let moving = collectionBytes(__Raw.wrappingSub(length, right: index), elementBytes: elementBytes)
+	if moving != 0 'follows'
+		copyBackward(at, target: __Raw.wrappingAdd(at, right: elementBytes), count: moving)
+	end 'follows'
 	return at
 end 'collectionOpenGap'
+
+// collectionPop leaves the last element, which there is, out of the length, and gives its address: its bytes stay where they
+// are until the buffer is next written.
+function collectionPop(box Count, elementBytes Count) returns Count
+	let last = __Raw.wrappingSub(collectionLength(box), right: 1)
+	__Raw.storeWord(box, offset: arrayLengthOffset, value: last)
+	return collectionPlace(box, index: last, elementBytes: elementBytes)
+end 'collectionPop'
 
 // collectionCloseGap takes the element at an index out of the buffer by moving what follows down by one. The index is
 // in range, which collectionElementAddress has checked, so its subtractions do not wrap.
@@ -265,7 +281,10 @@ function collectionCloseGap(box Count, index Count, elementBytes Count)
 	let length = collectionLength(box)
 	let at = collectionPlace(box, index: index, elementBytes: elementBytes)
 	let following = __Raw.wrappingSub(__Raw.wrappingSub(length, right: index), right: 1)
-	copyBytes(__Raw.wrappingAdd(at, right: elementBytes), target: at, count: collectionBytes(following, elementBytes: elementBytes))
+	let moving = collectionBytes(following, elementBytes: elementBytes)
+	if moving != 0 'follows'
+		copyBytes(__Raw.wrappingAdd(at, right: elementBytes), target: at, count: moving)
+	end 'follows'
 	__Raw.storeWord(box, offset: arrayLengthOffset, value: __Raw.wrappingSub(length, right: 1))
 end 'collectionCloseGap'
 

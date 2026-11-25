@@ -468,6 +468,18 @@ function entryArrayRemove(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Hal
 	try moveOutOfCollection(vm, x: x, c: e, what: "the remove")
 end 'entryArrayRemove'
 
+// entryArrayPop moves the last element out, which the code checked there is.
+function entryArrayPop(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let a = try collection(vm, o: argRef(vm, f: f, x: x, i: 0), kind: kindArray, what: "a pop")
+	let data = vm.h.oData[a]
+	if vm.h.elements[data].count() == 0 'empty'
+		throw trap(vm, message: indexOutOfRangeMessage)
+	end 'empty'
+	try restructure(vm, o: a)
+	let e = try vm.h.elements[data].pop() otherwise panic("interp: an element that was there is gone")
+	try moveOutOfCollection(vm, x: x, c: e, what: "the pop")
+end 'entryArrayPop'
+
 // The entries of an array of strings: its model is an array's, a cell to an element, which the code moves a String in and
 // out of through the address of the cell.
 function entryStrsElem(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
