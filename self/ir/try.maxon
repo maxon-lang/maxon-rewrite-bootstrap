@@ -238,9 +238,15 @@ end 'visitTryExpr'
 // lowerThrough lowers a try whose value is its expression's, which passes a failure on or leaves the statement with a
 // return, a break, a continue or a throw, or with a handler block that leaves.
 function lowerThrough(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, t ast.NodeID) returns Reg
+	return lowerThroughAs(l, p: p, ms: ms, t: t, place: false)
+end 'lowerThrough'
+
+// lowerThroughAs is lowerThrough giving the value of the expression the try covers, or, for place, its address: a place
+// that a throwing method lends to be changed is the try's place, which no failure reaches, since a failure leaves.
+function lowerThroughAs(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, t ast.NodeID, place bool) returns Reg
 	if ast.propagates(p.modules[l.mi].tree, e: t) 'propagates'
 		let added = enterPropagating(l)
-		let v = lowerExpr(l, p: p, ms: ms, e: ast.tryExprE(p.modules[l.mi].tree, id: t))
+		let v = coveredBy(l, p: p, ms: ms, t: t, place: place)
 		if added 'leave'
 			leaveTry(l)
 		end 'leave'
@@ -248,7 +254,7 @@ function lowerThrough(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleSta
 	end 'propagates'
 	let exit = l.b.newBlock()
 	let h = enterTry(l, target: exit, binding: tryBindingSlot(l, p: p, node: t))
-	let v = lowerExpr(l, p: p, ms: ms, e: ast.tryExprE(p.modules[l.mi].tree, id: t))
+	let v = coveredBy(l, p: p, ms: ms, t: t, place: place)
 	leaveTry(l)
 	let resume = l.cur
 	l.cur = exit
@@ -260,7 +266,9 @@ function lowerThrough(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleSta
 	let handler = ast.tryExprHandler(p.modules[l.mi].tree, id: t)
 	if handler != 0 'handler'
 		lowerBlockOwning(l, p: p, ms: ms, ref: ast.handlerBlockBodyRef(p.modules[l.mi].tree, id: handler), owned: localOfNode(p, module: l.module, node: t))
-	end 'handler' else if ret != 0 'ret'
+	end 'handler' else if ast.panicsOnFailure(p.modules[l.mi].tree, e: t) 'panic'
+		_ = lowerExpr(l, p: p, ms: ms, e: ast.tryFallback(p.modules[l.mi].tree, e: t))
+	end 'panic' else if ret != 0 'ret'
 		visitReturnStmt(l, p: p, ms: ms, s: ret)
 	end 'ret' else if brk != 0 'brk'
 		visitBreakStmt(l, p: p, s: brk)
@@ -274,7 +282,16 @@ function lowerThrough(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleSta
 	atTryStartEnd(l, h: h, saved: saved)
 	l.cur = resume
 	return v
-end 'lowerThrough'
+end 'lowerThroughAs'
+
+// coveredBy is the value, or for place the address, of the expression the try t covers.
+function coveredBy(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, t ast.NodeID, place bool) returns Reg
+	let covered = ast.tryExprE(p.modules[l.mi].tree, id: t)
+	if place 'address'
+		return address(l, p: p, ms: ms, e: covered)
+	end 'address'
+	return lowerExpr(l, p: p, ms: ms, e: covered)
+end 'coveredBy'
 
 // TrySaved is what code that runs after a failure sets aside: the values in flight where the failure happened, and the
 // drops the try's code made in the scope below it.

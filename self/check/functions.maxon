@@ -152,9 +152,6 @@ function addFunction(mutates c Checker, p ast.Project, mutates ms ast.ModuleStat
 		return
 	end 'badThrows'
 	let result = ast.parseResultConv(f.resultMode)
-	if refusesBorrowedThrows(c, off: off, name: f.name, result: result, err: err, errs: errs) 'borrowedThrows'
-		return
-	end 'borrowedThrows'
 	ms.funcs.lists[ast.funcList(ms.funcs, f: fid)][ast.funcIndex(ms.funcs, f: fid)].result = result
 	ms.funcs.lists[ast.funcList(ms.funcs, f: fid)][ast.funcIndex(ms.funcs, f: fid)].params = specs
 	ms.funcs.lists[ast.funcList(ms.funcs, f: fid)][ast.funcIndex(ms.funcs, f: fid)].paramTypes = types

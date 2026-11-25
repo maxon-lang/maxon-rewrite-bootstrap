@@ -3195,15 +3195,18 @@ type-parameter type has one owner; every other access is a borrow that cannot ou
   a `consumes` or `sets` parameter, and a place that would be boxed to be an interface it returns are `E3926`. A miss
   inside, such as an index out of range, traps as it does anywhere. It may be a method, generic, exported and called
   from another module, and added by an extension. It may be the `current()` of a for, which lends each element to the
-  variable (see "Primitives"). For now it may not throw, be a function value, be the `createIterator()` of a for, or be
+  variable (see "Primitives"). It may throw: a failure leaves before any place is lent, since the lend is the `return`
+  and nothing runs after it, so a `try` around the call gives the place only where it is lent (a `try` block, an argument,
+  propagation, a handler that leaves, `otherwise panic(...)`), and a scalar read out of it takes a value fallback
+  (`try p.counter() otherwise 0`). For now it may not be a function value, be the `createIterator()` of a for, or be
   the `init` of `Type from "text"` (each `E9000`); a function type and a closure have no syntax for it.
 - **A requirement can lend a place.** `function label() returns borrowed String` in an interface is met by a method that
   lends one, and by one that gives a value only where the value is a scalar that is not a float, the one kind whose
   borrow and value are the same word (`E3016`, naming `returns borrowed`, for any other: a call through the requirement
   would own nothing it could drop). A call through it, on a value of a type parameter or of the interface, is a
   projection as a direct call is (`check.requirementCall` gives every such call the requirement's result), so it borrows
-  the receiver and the lent arguments for as long as the caller uses the place. A requirement that lends and throws is
-  `E9000`, as a function is.
+  the receiver and the lent arguments for as long as the caller uses the place. A requirement that lends may throw, as a
+  function may.
 - **Its call is a projection**, under the rules of a subscript (see "Primitives"), through one notion of a place in
   the checker (`projectionOf` and `lentPaths`, `self/check/paths.maxon`) and in lowering (`ast.isStorage`): read, the
   result is a `let` borrow, a base of a field, a subscript, a method with a `let` receiver, and an argument to a `let`

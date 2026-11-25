@@ -562,6 +562,9 @@ function address(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, e
 	if k == ast.NodeKind.indexExpr 'index'
 		return elemPlace(l, p: p, ms: ms, e: e)
 	end 'index'
+	if k == ast.NodeKind.tryExpr and ast.isTransparent(p.modules[l.mi].tree, e: e) 'try'
+		return lowerThroughAs(l, p: p, ms: ms, t: e, place: true)
+	end 'try'
 	if k == ast.NodeKind.callExpr and lendsToChangeAt(l, p: p, node: e) 'lent'
 		let lent = lowerCall(l, p: p, ms: ms, c: callSite(l, p: p, node: e))
 		if inPlace(l, p: p, ms: ms, t: exprType(p, module: l.module, node: e)) 'held'

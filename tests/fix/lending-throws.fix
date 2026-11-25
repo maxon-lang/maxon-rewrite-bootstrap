@@ -1,0 +1,62 @@
+// A borrowed place a throwing method lends is copied where it would be moved.
+typealias Integer = int(i64.min to i64.max)
+
+type Cell
+	export var n as Integer
+	export var name as String
+
+	static function make(n Integer, consumes name String) returns Cell
+		return Cell{n: n, name: name}
+	end 'make'
+end 'Cell'
+
+type Pair
+	var left as Cell
+	var right as Cell
+	var count as Integer
+
+	static function make() returns Pair
+		return Pair{left: Cell.make(1, name: "l"), right: Cell.make(2, name: "r"), count: 0}
+	end 'make'
+
+	function pick(mutates self, which Integer) returns borrowed Cell throws ArrayError
+		if which == 0 'left'
+			return left
+		end 'left'
+		if which == 1 'right'
+			return right
+		end 'right'
+		throw ArrayError.indexOutOfBounds
+	end 'pick'
+
+	function look(which Integer) returns borrowed Cell throws ArrayError
+		if which == 0 'left'
+			return left
+		end 'left'
+		if which != 1 'none'
+			throw ArrayError.emptySlot
+		end 'none'
+		return right
+	end 'look'
+
+	function keep(mutates self, consumes c Cell)
+		left = c
+	end 'keep'
+
+	function counter(mutates self, open bool) returns borrowed Integer throws ArrayError
+		if not open 'closed'
+			throw ArrayError.emptySlot
+		end 'closed'
+		return count
+	end 'counter'
+end 'Pair'
+
+function first(p Pair) returns Cell throws ArrayError
+	return try p.look(0)
+end 'first'
+
+function main() returns ExitCode
+	let p = Pair.make()
+	print("{(try first(p) otherwise Cell.make(0, name: "none")).name}\n")
+	return 0
+end 'main'

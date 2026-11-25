@@ -1,0 +1,109 @@
+// A method that returns a borrowed place may throw before it lends: the failure leaves before any place is lent, so a
+// try block, an argument, propagation, a leaving handler and a conditional try reach the place only where it is lent.
+// A scalar read out of the place is a value and takes a value fallback; a place bound by a let is a borrow, and
+// '.clone()' makes an owned copy.
+typealias Integer = int(i64.min to i64.max)
+
+type Cell
+	export var n as Integer
+	export var name as String
+
+	static function make(n Integer, consumes name String) returns Cell
+		return Cell{n: n, name: name}
+	end 'make'
+end 'Cell'
+
+type Pair
+	var left as Cell
+	var right as Cell
+	var count as Integer
+
+	static function make() returns Pair
+		return Pair{left: Cell.make(1, name: "l"), right: Cell.make(2, name: "r"), count: 0}
+	end 'make'
+
+	function pick(mutates self, which Integer) returns borrowed Cell throws ArrayError
+		if which == 0 'left'
+			return left
+		end 'left'
+		if which == 1 'right'
+			return right
+		end 'right'
+		throw ArrayError.indexOutOfBounds
+	end 'pick'
+
+	function look(which Integer) returns borrowed Cell throws ArrayError
+		if which == 0 'left'
+			return left
+		end 'left'
+		if which != 1 'none'
+			throw ArrayError.emptySlot
+		end 'none'
+		return right
+	end 'look'
+
+	function counter(mutates self, open bool) returns borrowed Integer throws ArrayError
+		if not open 'closed'
+			throw ArrayError.emptySlot
+		end 'closed'
+		return count
+	end 'counter'
+end 'Pair'
+
+function bump(mutates n Integer)
+	n = try n + 1 otherwise n
+end 'bump'
+
+function rename(mutates c Cell, consumes to String)
+	c.name = to
+end 'rename'
+
+function bumpOrFail(mutates p Pair, open bool) throws ArrayError
+	bump(try p.counter(open))
+end 'bumpOrFail'
+
+function why(e ArrayError) returns String
+	return match e 'which'
+		emptySlot gives "empty"
+		indexOutOfBounds gives "outside"
+	end 'which'
+end 'why'
+
+function main() returns ExitCode
+	var p = Pair.make()
+	try 'set'
+		p.pick(0).n = 10
+	end 'set' otherwise 'missed'
+		print("no left\n")
+	end 'missed'
+	try 'far'
+		p.pick(7).n = 70
+	end 'far' otherwise 'farMissed'
+		print("outside\n")
+	end 'farMissed'
+	bump(try p.counter(true) otherwise panic("open"))
+	rename(try p.pick(1) otherwise panic("right"), to: "renamed")
+	try bumpOrFail(p, open: true) otherwise panic("open")
+	try bumpOrFail(p, open: false) otherwise (e) 'closed'
+		print("closed: {why(e)}\n")
+	end 'closed'
+	let opened = try p.counter(true) otherwise 99
+	let shut = try p.counter(false) otherwise 99
+	print("{opened} {shut}\n")
+	let found = try p.look(5).n otherwise 0
+	print("look: {found}\n")
+	var copy = (try p.look(1) otherwise panic("right")).clone()
+	(try p.pick(1) otherwise panic("right")).name = "changed"
+	copy.n = 20
+	print("{copy.n} {copy.name} {(try p.look(1) otherwise panic("right")).name}\n")
+	let left = try p.look(0) otherwise panic("left")
+	print("{left.n} {left.name}\n")
+	return 0
+end 'main'
+
+//> outside
+//> closed: empty
+//> 2 99
+//> look: 0
+//> 20 renamed changed
+//> 10 l

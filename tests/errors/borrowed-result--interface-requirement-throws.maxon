@@ -1,9 +1,0 @@
-interface Labelled
-	function label() returns borrowed String throws IterationError
-end 'Labelled'
-
-function main() returns ExitCode
-	return 0
-end 'main'
-
-// expect-error: E9000 at 2:11

@@ -379,21 +379,8 @@ function declareSignature(mutates c Checker, p ast.Project, mutates ms ast.Modul
 		return
 	end 'badThrows'
 	fn.result = ast.parseResultConv(m.resultMode)
-	if refusesBorrowedThrows(c, off: off, name: m.name, result: fn.result, err: fn.errTy, errs: errs) 'borrowedThrows'
-		return
-	end 'borrowedThrows'
 	ms.types.lists[ast.typeList(ms.types, t: it)][ast.typeIndex(ms.types, t: it)].sigs.push(ast.allocFunc(ms.funcs, module: c.modID, f: fn))
 end 'declareSignature'
-
-// refusesBorrowedThrows refuses a function or a requirement that returns a borrowed place and throws: a failure leaves a
-// borrowed result with no place to lend, and the caller's try would need a fallback place.
-function refusesBorrowedThrows(c Checker, off diag.U32, name String, result ast.ResultConv, err ast.TypeID, mutates errs diag.ErrorList) returns bool
-	if result != ast.ResultConv.resultBorrowed or err == ast.noType 'fine'
-		return false
-	end 'fine'
-	checkFail(c.modID, off: off, code: diag.errUnsupported, msg: "'{name}' returns a borrowed place and throws, which is not supported yet; let the caller test first and remove 'throws', or return a value: 'returns T'", errs: errs)
-	return true
-end 'refusesBorrowedThrows'
 
 // requiresBuiltinClone is whether the requirement m of the interface it is `function clone() returns Self`, which the
 // built-in clone() of every Copyable type meets, as maxon's Cloneable is met by the clone() its compiler generates.

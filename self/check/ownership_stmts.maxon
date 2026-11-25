@@ -554,7 +554,9 @@ function handled(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState,
 		_ = jumpOwn(o, p: p, ms: ms, st: cont, s: entry, isBreak: false)
 	end 'continue' else if thr != 0 'throw'
 		_ = throwStmtOwn(o, p: p, ms: ms, st: thr, s: entry)
-	end 'throw'
+	end 'throw' else if ast.panicsOnFailure(ms.tree(), e: e) 'panic'
+		_ = expr(o, p: p, ms: ms, e: ast.tryFallback(ms.tree(), e: e), s: entry)
+	end 'panic'
 	land(o, mark: mark)
 end 'handled'
 

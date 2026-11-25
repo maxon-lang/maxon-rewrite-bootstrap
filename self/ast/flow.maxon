@@ -76,15 +76,21 @@ export function through(t Tree, e NodeID) returns NodeID
 end 'through'
 
 // isTransparent is whether a try's value is its expression's, with no other on a failure: it passes the failure on, or
-// leaves with a return, a break, a continue or a throw. A try that gives a value, or ignores the failure and has none,
-// is not.
+// leaves with a return, a break, a continue, a throw or a panic. A try that gives a value, or ignores the failure and has
+// none, is not.
 export function isTransparent(t Tree, e NodeID) returns bool
-	return tryFallback(t, e: e) == 0 and not tryExprIgnore(t, id: e) and not tryHandlerFallsThrough(t, e: e)
+	return (tryFallback(t, e: e) == 0 or panicsOnFailure(t, e: e)) and not tryExprIgnore(t, id: e) and not tryHandlerFallsThrough(t, e: e)
 end 'isTransparent'
+
+// panicsOnFailure is whether a try's 'otherwise' is a panic, which gives no value: the try's value is its expression's.
+export function panicsOnFailure(t Tree, e NodeID) returns bool
+	let fallback = tryFallback(t, e: e)
+	return fallback != 0 and t.kindOf(fallback) == NodeKind.panicExpr
+end 'panicsOnFailure'
 
 // propagates is whether a try has no 'otherwise', so it passes its failures to the try around it, or to the caller.
 export function propagates(t Tree, e NodeID) returns bool
-	return isTransparent(t, e: e) and tryExprHandler(t, id: e) == 0 and tryExprRet(t, id: e) == 0 and tryExprBrk(t, id: e) == 0 and tryExprCont(t, id: e) == 0 and tryExprThr(t, id: e) == 0
+	return isTransparent(t, e: e) and tryFallback(t, e: e) == 0 and tryExprHandler(t, id: e) == 0 and tryExprRet(t, id: e) == 0 and tryExprBrk(t, id: e) == 0 and tryExprCont(t, id: e) == 0 and tryExprThr(t, id: e) == 0
 end 'propagates'
 
 // leaves is whether control never reaches the statement after this one: it terminates, jumps out with a break or a
