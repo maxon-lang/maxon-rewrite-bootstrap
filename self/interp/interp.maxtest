@@ -421,24 +421,24 @@ test 'a moved element is owned by the caller'
 	expectViolation("moved element", out: runMain(p, main: b.ret(zero)), kind: "leak", fragments: says("", b: "", c: "", d: ""))
 end 'a moved element is owned by the caller'
 
-// A slot that held an element and was reused for a new one does not answer to the old handle: the handle carries the slot's
+// A slot that held an element and was reused for a new one does not answer to the old slot key: the slot key carries the slot's
 // generation.
-test 'a pool slot that is reused does not answer to the old handle'
+test 'a slot map slot that is reused does not answer to the old slot key'
 	var p = ir.irProject()
 	var b = Fn.new(p, name: "main", convs: ir.convs0())
-	let pool = b.runtime(ir.Rt.rtPoolNew, kind: ir.IrKind.kindManaged, args: ir.RegList.create(0))
+	let pool = b.runtime(ir.Rt.rtSlotMapNew, kind: ir.IrKind.kindManaged, args: ir.RegList.create(0))
 	let held = b.slot(ir.IrKind.kindManaged)
 	b.store(held, v: pool)
 	let first = b.alloc(1)
-	let old = b.runtime(ir.Rt.rtPoolInsert, kind: ir.IrKind.kindScalar, args: ir.regs2(pool, b: first))
-	let gone = b.runtime(ir.Rt.rtPoolRemove, kind: ir.IrKind.kindManaged, args: ir.regs2(pool, b: old))
+	let old = b.runtime(ir.Rt.rtSlotMapInsert, kind: ir.IrKind.kindScalar, args: ir.regs2(pool, b: first))
+	let gone = b.runtime(ir.Rt.rtSlotMapRemove, kind: ir.IrKind.kindManaged, args: ir.regs2(pool, b: old))
 	b.drop(gone)
 	let second = b.alloc(1)
-	let fresh = b.runtime(ir.Rt.rtPoolInsert, kind: ir.IrKind.kindScalar, args: ir.regs2(pool, b: second))
+	let fresh = b.runtime(ir.Rt.rtSlotMapInsert, kind: ir.IrKind.kindScalar, args: ir.regs2(pool, b: second))
 	let same = b.reg(ir.IrKind.kindScalar)
 	b.emit(ir.newCmp(same, op: ir.CmpOp.cmpEq, left: old, right: fresh, unsigned: false))
-	let found = b.runtime(ir.Rt.rtPoolContains, kind: ir.IrKind.kindScalar, args: ir.regs2(pool, b: old))
-	let live = b.runtime(ir.Rt.rtPoolContains, kind: ir.IrKind.kindScalar, args: ir.regs2(pool, b: fresh))
+	let found = b.runtime(ir.Rt.rtSlotMapContains, kind: ir.IrKind.kindScalar, args: ir.regs2(pool, b: old))
+	let live = b.runtime(ir.Rt.rtSlotMapContains, kind: ir.IrKind.kindScalar, args: ir.regs2(pool, b: fresh))
 	// The answer is 100*same + 10*found + live, which must be 1.
 	let hundred = b.reg(ir.IrKind.kindScalar)
 	let hundredConst = b.konst(100)
@@ -451,26 +451,26 @@ test 'a pool slot that is reused does not answer to the old handle'
 	let answer = b.reg(ir.IrKind.kindScalar)
 	b.emit(ir.newBin(answer, op: ir.BinOp.binAdd, left: sum, right: live, unsigned: false, fail: ir.noBlock))
 	b.dropSlot(held)
-	expectClean("pool", out: runMain(p, main: b.ret(answer)), exit: 1)
-end 'a pool slot that is reused does not answer to the old handle'
+	expectClean("slot map", out: runMain(p, main: b.ret(answer)), exit: 1)
+end 'a slot map slot that is reused does not answer to the old slot key'
 
-test 'a stale handle traps like the compiled program'
+test 'a stale slot key traps like the compiled program'
 	var p = ir.irProject()
 	var b = Fn.new(p, name: "main", convs: ir.convs0())
-	let pool = b.runtime(ir.Rt.rtPoolNew, kind: ir.IrKind.kindManaged, args: ir.RegList.create(0))
+	let pool = b.runtime(ir.Rt.rtSlotMapNew, kind: ir.IrKind.kindManaged, args: ir.RegList.create(0))
 	let held = b.slot(ir.IrKind.kindManaged)
 	b.store(held, v: pool)
 	let element = b.alloc(1)
-	let old = b.runtime(ir.Rt.rtPoolInsert, kind: ir.IrKind.kindScalar, args: ir.regs2(pool, b: element))
-	let gone = b.runtime(ir.Rt.rtPoolRemove, kind: ir.IrKind.kindManaged, args: ir.regs2(pool, b: old))
+	let old = b.runtime(ir.Rt.rtSlotMapInsert, kind: ir.IrKind.kindScalar, args: ir.regs2(pool, b: element))
+	let gone = b.runtime(ir.Rt.rtSlotMapRemove, kind: ir.IrKind.kindManaged, args: ir.regs2(pool, b: old))
 	b.drop(gone)
-	_ = b.runtime(ir.Rt.rtPoolElem, kind: ir.IrKind.kindScalar, args: ir.regs2(pool, b: old))
+	_ = b.runtime(ir.Rt.rtSlotMapElem, kind: ir.IrKind.kindScalar, args: ir.regs2(pool, b: old))
 	let zero = b.konst(0)
 	let out = runMain(p, main: b.ret(zero))
-	if out.violations.count() != 0 or out.exitCode != 1 or not table.contains(out.stderr, fragment: "panic: handle names no element") 'wrong'
-		panic("stale handle: exit {out.exitCode}, {out.violations.count()} violations, {out.stderr}")
+	if out.violations.count() != 0 or out.exitCode != 1 or not table.contains(out.stderr, fragment: "panic: slot key names no element") 'wrong'
+		panic("stale slot key: exit {out.exitCode}, {out.violations.count()} violations, {out.stderr}")
 	end 'wrong'
-end 'a stale handle traps like the compiled program'
+end 'a stale slot key traps like the compiled program'
 
 test 'a checked add that overflows goes to its failure block'
 	var p = ir.irProject()

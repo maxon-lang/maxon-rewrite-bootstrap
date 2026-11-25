@@ -1,5 +1,5 @@
 // expect-error: E9900 at 3:10
-function f(p Pool with Count, h Handle with Count) returns Count
+function f(p SlotMap with Count, h SlotKey with Count) returns Count
 	return p[h]
 end 'f'
 

@@ -520,7 +520,7 @@ function checkCownCycle(mutates c Checker, p ast.Project, mutates ms ast.ModuleS
 	if not reachesThroughCown(p, ms: ms, from: own, target: own, via: false, services: false, path: path, visited: visited) 'acyclic'
 		return
 	end 'acyclic'
-	failAt(c, p: p, ms: ms, node: site, code: diag.errCownCycle, msg: "type '{nameOfType(p, ms: ms, t: t)}' can reach itself through a cown (via {ast.joinNames(path, sep: " -> ")}), so cowns could refer to each other and counting would never free them; store a handle, or a key into a map, instead of the reference", errs: errs)
+	failAt(c, p: p, ms: ms, node: site, code: diag.errCownCycle, msg: "type '{nameOfType(p, ms: ms, t: t)}' can reach itself through a cown (via {ast.joinNames(path, sep: " -> ")}), so cowns could refer to each other and counting would never free them; store a slot key, or a key into a map, instead of the reference", errs: errs)
 end 'checkCownCycle'
 
 // reachesThroughCown is whether a value of type from holds one of type target, with a cown on the way, or, where services
@@ -552,7 +552,7 @@ function reachesThroughCown(p ast.Project, mutates ms ast.ModuleState, from ast.
 		end 'cases'
 		return false
 	end 'union'
-	if kind.isBuiltin() and kind != ast.TypeKind.builtinHandle 'builtin'
+	if kind.isBuiltin() and kind != ast.TypeKind.builtinSlotKey 'builtin'
 		for ai in 0 upto ast.typeEntry(ms.types, reads: p.types, t: from).typeArgs.count() 'args'
 			let held = ast.typeEntry(ms.types, reads: p.types, t: from).typeArgs[ai]
 			if followHolding(p, ms: ms, label: holder, held: held, isCown: kind == ast.TypeKind.builtinCown or (services and kind == ast.TypeKind.builtinService), target: target, via: via, services: services, path: path, visited: visited) 'found'

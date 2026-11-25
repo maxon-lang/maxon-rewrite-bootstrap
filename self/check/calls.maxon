@@ -83,8 +83,8 @@ function isConstantResult(p ast.Project, ms ast.ModuleState, t ast.TypeID) retur
 		unionTy gives false
 		builtinArray gives false
 		builtinList gives false
-		builtinPool gives false
-		builtinHandle gives false
+		builtinSlotMap gives false
+		builtinSlotKey gives false
 		builtinFrozen gives false
 		builtinCown gives false
 		builtinCursor gives false

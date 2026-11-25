@@ -39,8 +39,8 @@ export enum TypeKind
 	unionTy
 	builtinArray
 	builtinList
-	builtinPool
-	builtinHandle
+	builtinSlotMap
+	builtinSlotKey
 	builtinFrozen
 	builtinCown
 	builtinCursor
@@ -55,8 +55,8 @@ export enum TypeKind
 		return match self 'k'
 			builtinArray gives true
 			builtinList gives true
-			builtinPool gives true
-			builtinHandle gives true
+			builtinSlotMap gives true
+			builtinSlotKey gives true
 			builtinFrozen gives true
 			builtinCown gives true
 			builtinCursor gives true
@@ -1583,8 +1583,8 @@ export function byteSize(tt TypeSlot, reads TypeTable, t TypeID) returns Count
 		unionTy gives sizeofWord
 		builtinArray gives sizeofWord
 		builtinList gives sizeofWord
-		builtinPool gives sizeofWord
-		builtinHandle gives sizeofWord
+		builtinSlotMap gives sizeofWord
+		builtinSlotKey gives sizeofWord
 		builtinFrozen gives sizeofWord
 		builtinCown gives sizeofWord
 		builtinCursor gives sizeofWord
@@ -2035,7 +2035,7 @@ export function isManagedType(tt TypeSlot, reads TypeTable, t TypeID) returns bo
 		unionTy gives true
 		builtinArray gives true
 		builtinList gives true
-		builtinPool gives true
+		builtinSlotMap gives true
 		builtinFrozen gives true
 		builtinCown gives true
 		builtinCursor gives true
@@ -2053,7 +2053,7 @@ export function isManagedType(tt TypeSlot, reads TypeTable, t TypeID) returns bo
 		floatRange gives false
 		constFloat gives false
 		enumTy gives false
-		builtinHandle gives false
+		builtinSlotKey gives false
 		interfaceTy gives true
 	end 'k'
 end 'isManagedType'

@@ -711,7 +711,7 @@ function positionText(e diag.CompileError) returns String
 	return "{e.line}:{e.col}"
 end 'positionText'
 
-// onlyInterpreterErrors is whether a program failed to compile only because it uses a map, a list or a pool, which the
+// onlyInterpreterErrors is whether a program failed to compile only because it uses a map, a list or a slot map, which the
 // compiler has no code for yet.
 function onlyInterpreterErrors(errs diag.ErrorList) returns bool
 	for i in 0 upto errs.count() 'each'

@@ -856,7 +856,7 @@ function countPass(mutates l Lowerer, p ast.Project, s ast.NodeID)
 	emit(l, i: newStoreSlot(slot, src: next, borrow: false))
 end 'countPass'
 
-// visitForList lowers a for over a List to a walk of its handles, from the first to the one with no next. The list is read
+// visitForList lowers a for over a List to a walk of its slot keys, from the first to the one with no next. The list is read
 // once, and the ownership pass keeps the body from changing it. Each element is lent to the variable, as a subscript lends
 // it.
 function visitForList(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, s ast.NodeID)

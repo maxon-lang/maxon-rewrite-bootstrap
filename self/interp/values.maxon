@@ -23,7 +23,7 @@ let kindNone = 3 as Count
 
 let kindList = 4 as Count
 
-let kindPool = 5 as Count
+let kindSlotMap = 5 as Count
 
 // kindFrozen and kindCown are boxes with many owners: a count of them, not one owner, decides when the box is freed.
 let kindFrozen = 6 as Count
@@ -56,7 +56,7 @@ function kindName(kind Count) returns String
 		2 gives "array"
 		3 gives "empty case"
 		4 gives "list"
-		5 gives "pool"
+		5 gives "slot map"
 		6 gives "frozen value"
 		7 gives "cown"
 		8 gives "byte array"
@@ -122,8 +122,8 @@ end 'SharedData'
 
 typealias SharedDatas = Array with SharedData
 
-// Table holds the elements of a list or a pool in slots that name them by a handle with a generation, so a slot that held
-// an element and was reused does not answer to the handle of the old one. A list also keeps its slots in order.
+// Table holds the elements of a list or a slot map in slots that name them by a slot key with a generation, so a slot that held
+// an element and was reused does not answer to the slot key of the old one. A list also keeps its slots in order.
 type Table
 	var gens as CountList
 	var live as BoolList
@@ -135,7 +135,7 @@ type Table
 		return Table{gens: CountList.create(0), live: BoolList.create(0), cells: CountList.create(0), free: CountList.create(0), order: CountList.create(0)}
 	end 'new'
 
-	// lookup is the slot a handle names, if its element is still there; found says whether it is.
+	// lookup is the slot a slot key names, if its element is still there; found says whether it is.
 	function lookup(h ir.Word) returns table.Option with Count
 		if h <= 0 'none'
 			return table.Option.none
@@ -353,7 +353,7 @@ type Heap
 		return o
 	end 'newArray'
 
-	// newTable makes a list or a pool.
+	// newTable makes a list or a slot map.
 	function newTable(mutates self, kind Count, site Count) returns Count
 		let o = self.newObject(kind, site: site)
 		oData[o] = tables.count()

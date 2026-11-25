@@ -39,9 +39,9 @@ end 'Entry'
 type Rack
 	export var left as Array with Cell
 	export var right as Array with Cell
-	export var node as Handle with Cell
+	export var node as SlotKey with Cell
 
-	static function make(node Handle with Cell) returns Rack
+	static function make(node SlotKey with Cell) returns Rack
 		return Rack{left: CellArray.create(0), right: CellArray.create(0), node: node}
 	end 'make'
 end 'Rack'
@@ -86,18 +86,12 @@ function total(x T) uses T returns Count where T implements Shape
 	return x.area()
 end 'total'
 
-typealias CellHandleArray = Array with (Handle with Cell)
-
-typealias CellPool = Pool with Cell
+// expect-error: E3186 at 95:17
+typealias CellPool = SlotMap with Cell
 
 function main() returns ExitCode
 	var p = CellPool.create()
 	let h = p.insert(Cell.make(1))
-	let h2 = h
-	let h3 = h2
-	var hs = CellHandleArray.create(0)
-	hs.push(h)
-	hs.push(h2)
-	print("{h == h2} {h3 == h} {hs.count()}")
+	pair(p[h], b: p[h])
 	return 0
 end 'main'

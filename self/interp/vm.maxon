@@ -3,7 +3,7 @@
 // moved, owned twice, or reached through two overlapping borrows. A program that the checker accepted must run clean, so a
 // violation is a hole in the checker or in lowering. It is for tests and development, and never part of a compiled program.
 //
-// It also gives the primitives that the backend has no code for (map, list and pool) their meaning, and a trap in the
+// It also gives the primitives that the backend has no code for (map, list and slot map) their meaning, and a trap in the
 // program behaves as it does natively: the same standard output and the same exit code.
 
 // panicExitCode is what a panic, and every check that the compiled code makes, exits with.

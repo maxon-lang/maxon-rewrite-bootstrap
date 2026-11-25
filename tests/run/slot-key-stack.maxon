@@ -19,22 +19,22 @@ end 'Option'
 
 typealias CountOption = Option with Count
 
-typealias NodeHandleOption = Option with (Handle with Node)
+typealias NodeHandleOption = Option with (SlotKey with Node)
 
-typealias NodePool = Pool with Node
+typealias NodePool = SlotMap with Node
 
 type Node
 	var value as Count
-	var next as Option with (Handle with Node)
+	var next as Option with (SlotKey with Node)
 
-	static function make(value Count, consumes next Option with (Handle with Node)) returns Node
+	static function make(value Count, consumes next Option with (SlotKey with Node)) returns Node
 		return Node{value: value, next: next}
 	end 'make'
 end 'Node'
 
 type Stack
-	var nodes as Pool with Node
-	var top as Option with (Handle with Node)
+	var nodes as SlotMap with Node
+	var top as Option with (SlotKey with Node)
 
 	static function make() returns Stack
 		return Stack{nodes: NodePool.create(), top: NodeHandleOption.none}
@@ -50,7 +50,7 @@ type Stack
 			return CountOption.none
 		end 'empty'
 		let handle = top.clone().unwrap()
-		let node = try nodes.remove(handle) otherwise panic("the handle names no element")
+		let node = try nodes.remove(handle) otherwise panic("the slot key names no element")
 		top = node.next.clone()
 		return Option.some(node.value)
 	end 'pop'
@@ -61,15 +61,35 @@ type Stack
 		end 'empty'
 		return Option.some(nodes[top.clone().unwrap()].value)
 	end 'peek'
+
+	function size() returns Count
+		return nodes.count()
+	end 'size'
 end 'Stack'
+
+function show(o Option with Count) returns String
+	return match o 'm'
+		some(v) gives "{v}"
+		none gives "none"
+	end 'm'
+end 'show'
 
 function main() returns ExitCode
 	var s = Stack.make()
+	print("{show(s.peek())} {show(s.pop())} {s.size()}\n")
 	s.push(1)
 	s.push(2)
-	match s.pop() 'm'
-		some(v) then print("{v}")
-		none then print("empty")
-	end 'm'
+	s.push(3)
+	print("{show(s.peek())} {s.size()}\n")
+	print("{show(s.pop())} {show(s.pop())} {s.size()}\n")
+	s.push(4)
+	print("{show(s.peek())} {s.size()}\n")
+	print("{show(s.pop())} {show(s.pop())} {show(s.pop())} {s.size()}\n")
 	return 0
 end 'main'
+
+//> none none 0
+//> 3 3
+//> 3 2 1
+//> 4 2
+//> 4 1 none 0

@@ -27,4 +27,4 @@ function main() returns ExitCode
 	return 0
 end 'main'
 
-typealias CountPool = Pool with Count
+typealias CountPool = SlotMap with Count

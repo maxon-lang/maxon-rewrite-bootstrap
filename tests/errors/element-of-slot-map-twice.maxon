@@ -1,7 +1,7 @@
 // expect-error: E3186 at 25:17
 typealias CellArray = Array with Cell
 
-typealias CellPool = Pool with Cell
+typealias CellPool = SlotMap with Cell
 
 type Cell
 	export var n as Count

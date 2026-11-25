@@ -58,6 +58,12 @@ const (
 
 // Convert converts existing Maxon source code to minimaxon syntax and layout.
 func Convert(file, src string, kind inputKind) Result {
+	return convertProgram(file, src, kind, nil)
+}
+
+// convertProgram is Convert for one file of a program whose other files declare the types ownTypes names, of those that
+// libraryTypeNamesHere renames.
+func convertProgram(file, src string, kind inputKind, ownTypes []string) Result {
 	text := normalizeText(src)
 	if strings.TrimSpace(text) == "" {
 		return Result{Text: "", Formatted: true}
@@ -99,6 +105,7 @@ func Convert(file, src string, kind inputKind) Result {
 		dropSelfClones(lines)
 	}
 	rewriteTypeNames(lines)
+	renameLibraryTypes(file, lines, kind, ownTypes)
 	joinEndOtherwise(lines)
 	rewriteDestructors(lines, addWarn)
 	rewriteStringBuilders(lines)
@@ -966,7 +973,7 @@ func opensBlockInBrackets(toks []token) bool {
 var unsupportedExtensionTargets = []string{"Set", "Log", "Logger", "CivilDate", "ParseError", "byte", "Error"}
 
 // builtinGenericTypes are the library types that an extension may name and that take type arguments.
-var builtinGenericTypes = []string{"Array", "Map", "List", "Pool", "Handle", "Frozen", "Cown", "FixedArray"}
+var builtinGenericTypes = []string{"Array", "Map", "List", "SlotMap", "SlotKey", "Frozen", "Cown", "FixedArray"}
 
 // genericTypes are the types and unions the lines declare with type parameters, and the generic library types.
 func genericTypes(lines []sourceLine) []string {

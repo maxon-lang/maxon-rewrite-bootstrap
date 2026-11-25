@@ -152,13 +152,13 @@ export enum Rt
 	rtListRemove
 	rtListMoveToFront
 	rtListCopy
-	rtPoolNew
-	rtPoolLen
-	rtPoolContains
-	rtPoolElem
-	rtPoolInsert
-	rtPoolRemove
-	rtPoolCopy
+	rtSlotMapNew
+	rtSlotMapLen
+	rtSlotMapContains
+	rtSlotMapElem
+	rtSlotMapInsert
+	rtSlotMapRemove
+	rtSlotMapCopy
 	rtFrozenFreeze
 	rtFrozenGet
 	rtShare
@@ -668,27 +668,27 @@ export function rtSymbol(r Rt) returns String
 	if r == Rt.rtListCopy 'rtListCopy'
 		return "rt.list.copy"
 	end 'rtListCopy'
-	if r == Rt.rtPoolNew 'rtPoolNew'
-		return "rt.pool.new"
-	end 'rtPoolNew'
-	if r == Rt.rtPoolLen 'rtPoolLen'
-		return "rt.pool.len"
-	end 'rtPoolLen'
-	if r == Rt.rtPoolContains 'rtPoolContains'
-		return "rt.pool.contains"
-	end 'rtPoolContains'
-	if r == Rt.rtPoolElem 'rtPoolElem'
-		return "rt.pool.elem"
-	end 'rtPoolElem'
-	if r == Rt.rtPoolInsert 'rtPoolInsert'
-		return "rt.pool.insert"
-	end 'rtPoolInsert'
-	if r == Rt.rtPoolRemove 'rtPoolRemove'
-		return "rt.pool.remove"
-	end 'rtPoolRemove'
-	if r == Rt.rtPoolCopy 'rtPoolCopy'
-		return "rt.pool.copy"
-	end 'rtPoolCopy'
+	if r == Rt.rtSlotMapNew 'rtSlotMapNew'
+		return "rt.slotMap.new"
+	end 'rtSlotMapNew'
+	if r == Rt.rtSlotMapLen 'rtSlotMapLen'
+		return "rt.slotMap.len"
+	end 'rtSlotMapLen'
+	if r == Rt.rtSlotMapContains 'rtSlotMapContains'
+		return "rt.slotMap.contains"
+	end 'rtSlotMapContains'
+	if r == Rt.rtSlotMapElem 'rtSlotMapElem'
+		return "rt.slotMap.elem"
+	end 'rtSlotMapElem'
+	if r == Rt.rtSlotMapInsert 'rtSlotMapInsert'
+		return "rt.slotMap.insert"
+	end 'rtSlotMapInsert'
+	if r == Rt.rtSlotMapRemove 'rtSlotMapRemove'
+		return "rt.slotMap.remove"
+	end 'rtSlotMapRemove'
+	if r == Rt.rtSlotMapCopy 'rtSlotMapCopy'
+		return "rt.slotMap.copy"
+	end 'rtSlotMapCopy'
 	if r == Rt.rtFrozenFreeze 'rtFrozenFreeze'
 		return "runtime::frozenFreeze"
 	end 'rtFrozenFreeze'
@@ -1315,27 +1315,27 @@ export function rtText(r Rt) returns String
 	if r == Rt.rtListCopy 'rtListCopy'
 		return "rt.list.copy"
 	end 'rtListCopy'
-	if r == Rt.rtPoolNew 'rtPoolNew'
-		return "rt.pool.new"
-	end 'rtPoolNew'
-	if r == Rt.rtPoolLen 'rtPoolLen'
-		return "rt.pool.len"
-	end 'rtPoolLen'
-	if r == Rt.rtPoolContains 'rtPoolContains'
-		return "rt.pool.contains"
-	end 'rtPoolContains'
-	if r == Rt.rtPoolElem 'rtPoolElem'
-		return "rt.pool.elem"
-	end 'rtPoolElem'
-	if r == Rt.rtPoolInsert 'rtPoolInsert'
-		return "rt.pool.insert"
-	end 'rtPoolInsert'
-	if r == Rt.rtPoolRemove 'rtPoolRemove'
-		return "rt.pool.remove"
-	end 'rtPoolRemove'
-	if r == Rt.rtPoolCopy 'rtPoolCopy'
-		return "rt.pool.copy"
-	end 'rtPoolCopy'
+	if r == Rt.rtSlotMapNew 'rtSlotMapNew'
+		return "rt.slotMap.new"
+	end 'rtSlotMapNew'
+	if r == Rt.rtSlotMapLen 'rtSlotMapLen'
+		return "rt.slotMap.len"
+	end 'rtSlotMapLen'
+	if r == Rt.rtSlotMapContains 'rtSlotMapContains'
+		return "rt.slotMap.contains"
+	end 'rtSlotMapContains'
+	if r == Rt.rtSlotMapElem 'rtSlotMapElem'
+		return "rt.slotMap.elem"
+	end 'rtSlotMapElem'
+	if r == Rt.rtSlotMapInsert 'rtSlotMapInsert'
+		return "rt.slotMap.insert"
+	end 'rtSlotMapInsert'
+	if r == Rt.rtSlotMapRemove 'rtSlotMapRemove'
+		return "rt.slotMap.remove"
+	end 'rtSlotMapRemove'
+	if r == Rt.rtSlotMapCopy 'rtSlotMapCopy'
+		return "rt.slotMap.copy"
+	end 'rtSlotMapCopy'
 	if r == Rt.rtFrozenFreeze 'rtFrozenFreeze'
 		return "rt.frozen.freeze"
 	end 'rtFrozenFreeze'
@@ -1962,27 +1962,27 @@ export function rtCode(r Rt) returns Count
 	if r == Rt.rtListCopy 'rtListCopy'
 		return 149
 	end 'rtListCopy'
-	if r == Rt.rtPoolNew 'rtPoolNew'
+	if r == Rt.rtSlotMapNew 'rtSlotMapNew'
 		return 150
-	end 'rtPoolNew'
-	if r == Rt.rtPoolLen 'rtPoolLen'
+	end 'rtSlotMapNew'
+	if r == Rt.rtSlotMapLen 'rtSlotMapLen'
 		return 151
-	end 'rtPoolLen'
-	if r == Rt.rtPoolContains 'rtPoolContains'
+	end 'rtSlotMapLen'
+	if r == Rt.rtSlotMapContains 'rtSlotMapContains'
 		return 152
-	end 'rtPoolContains'
-	if r == Rt.rtPoolElem 'rtPoolElem'
+	end 'rtSlotMapContains'
+	if r == Rt.rtSlotMapElem 'rtSlotMapElem'
 		return 153
-	end 'rtPoolElem'
-	if r == Rt.rtPoolInsert 'rtPoolInsert'
+	end 'rtSlotMapElem'
+	if r == Rt.rtSlotMapInsert 'rtSlotMapInsert'
 		return 154
-	end 'rtPoolInsert'
-	if r == Rt.rtPoolRemove 'rtPoolRemove'
+	end 'rtSlotMapInsert'
+	if r == Rt.rtSlotMapRemove 'rtSlotMapRemove'
 		return 155
-	end 'rtPoolRemove'
-	if r == Rt.rtPoolCopy 'rtPoolCopy'
+	end 'rtSlotMapRemove'
+	if r == Rt.rtSlotMapCopy 'rtSlotMapCopy'
 		return 156
-	end 'rtPoolCopy'
+	end 'rtSlotMapCopy'
 	if r == Rt.rtFrozenFreeze 'rtFrozenFreeze'
 		return 157
 	end 'rtFrozenFreeze'
@@ -2312,13 +2312,13 @@ export function rtOf(code Count) returns Rt
 		147 gives Rt.rtListRemove
 		148 gives Rt.rtListMoveToFront
 		149 gives Rt.rtListCopy
-		150 gives Rt.rtPoolNew
-		151 gives Rt.rtPoolLen
-		152 gives Rt.rtPoolContains
-		153 gives Rt.rtPoolElem
-		154 gives Rt.rtPoolInsert
-		155 gives Rt.rtPoolRemove
-		156 gives Rt.rtPoolCopy
+		150 gives Rt.rtSlotMapNew
+		151 gives Rt.rtSlotMapLen
+		152 gives Rt.rtSlotMapContains
+		153 gives Rt.rtSlotMapElem
+		154 gives Rt.rtSlotMapInsert
+		155 gives Rt.rtSlotMapRemove
+		156 gives Rt.rtSlotMapCopy
 		157 gives Rt.rtFrozenFreeze
 		158 gives Rt.rtFrozenGet
 		159 gives Rt.rtShare
@@ -2842,27 +2842,27 @@ export function rtUnit(r Rt) returns RtUnit
 	if r == Rt.rtListCopy 'rtListCopy'
 		return RtUnit.rtUnitInterpreter
 	end 'rtListCopy'
-	if r == Rt.rtPoolNew 'rtPoolNew'
+	if r == Rt.rtSlotMapNew 'rtSlotMapNew'
 		return RtUnit.rtUnitInterpreter
-	end 'rtPoolNew'
-	if r == Rt.rtPoolLen 'rtPoolLen'
+	end 'rtSlotMapNew'
+	if r == Rt.rtSlotMapLen 'rtSlotMapLen'
 		return RtUnit.rtUnitInterpreter
-	end 'rtPoolLen'
-	if r == Rt.rtPoolContains 'rtPoolContains'
+	end 'rtSlotMapLen'
+	if r == Rt.rtSlotMapContains 'rtSlotMapContains'
 		return RtUnit.rtUnitInterpreter
-	end 'rtPoolContains'
-	if r == Rt.rtPoolElem 'rtPoolElem'
+	end 'rtSlotMapContains'
+	if r == Rt.rtSlotMapElem 'rtSlotMapElem'
 		return RtUnit.rtUnitInterpreter
-	end 'rtPoolElem'
-	if r == Rt.rtPoolInsert 'rtPoolInsert'
+	end 'rtSlotMapElem'
+	if r == Rt.rtSlotMapInsert 'rtSlotMapInsert'
 		return RtUnit.rtUnitInterpreter
-	end 'rtPoolInsert'
-	if r == Rt.rtPoolRemove 'rtPoolRemove'
+	end 'rtSlotMapInsert'
+	if r == Rt.rtSlotMapRemove 'rtSlotMapRemove'
 		return RtUnit.rtUnitInterpreter
-	end 'rtPoolRemove'
-	if r == Rt.rtPoolCopy 'rtPoolCopy'
+	end 'rtSlotMapRemove'
+	if r == Rt.rtSlotMapCopy 'rtSlotMapCopy'
 		return RtUnit.rtUnitInterpreter
-	end 'rtPoolCopy'
+	end 'rtSlotMapCopy'
 	if r == Rt.rtFrozenFreeze 'rtFrozenFreeze'
 		return RtUnit.rtUnitShared
 	end 'rtFrozenFreeze'
@@ -3878,13 +3878,13 @@ export function rtGivesString(r Rt) returns bool
 		rtListRemove or
 		rtListMoveToFront or
 		rtListCopy or
-		rtPoolNew or
-		rtPoolLen or
-		rtPoolContains or
-		rtPoolElem or
-		rtPoolInsert or
-		rtPoolRemove or
-		rtPoolCopy or
+		rtSlotMapNew or
+		rtSlotMapLen or
+		rtSlotMapContains or
+		rtSlotMapElem or
+		rtSlotMapInsert or
+		rtSlotMapRemove or
+		rtSlotMapCopy or
 		rtFrozenFreeze or
 		rtFrozenGet or
 		rtShare or

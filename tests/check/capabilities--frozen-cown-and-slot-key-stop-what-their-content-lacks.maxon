@@ -103,7 +103,7 @@ end 'Step'
 
 typealias TxnArray = Array with Txn
 
-function hold(a frozen with Socket, b cown with Socket, h Handle with Socket)
+function hold(a frozen with Socket, b cown with Socket, h SlotKey with Socket)
 	let x = a.clone()
 	let y = b.clone()
 	let z = h.clone()

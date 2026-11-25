@@ -655,8 +655,8 @@ function hasIdentity(p ast.Project, ms ast.ModuleState, t ast.TypeID) returns bo
 		constFloat gives false
 		enumTy gives false
 		unionTy gives false
-		builtinPool gives false
-		builtinHandle gives false
+		builtinSlotMap gives false
+		builtinSlotKey gives false
 		builtinFrozen gives false
 		builtinCown gives false
 		builtinCursor gives false
@@ -850,7 +850,7 @@ function checkComparison(mutates c Checker, p ast.Project, mutates ms ast.Module
 		return p.builtins.boolTy
 	end 'characters'
 	let equality = op == "==" or op == "!="
-	if equality and l == r and (l == p.builtins.boolTy or l == p.builtins.stringTy or typeHasKind(p, ms: ms, t: l, kind: ast.TypeKind.enumTy) or typeHasKind(p, ms: ms, t: l, kind: ast.TypeKind.builtinHandle)) 'comparable'
+	if equality and l == r and (l == p.builtins.boolTy or l == p.builtins.stringTy or typeHasKind(p, ms: ms, t: l, kind: ast.TypeKind.enumTy) or typeHasKind(p, ms: ms, t: l, kind: ast.TypeKind.builtinSlotKey)) 'comparable'
 		setOperand(c, node: e, operand: l)
 		return p.builtins.boolTy
 	end 'comparable'
@@ -1129,8 +1129,8 @@ function castTargetIsRefused(p ast.Project, ms ast.ModuleState, target ast.TypeI
 		constFloat gives false
 		builtinArray gives false
 		builtinList gives false
-		builtinPool gives false
-		builtinHandle gives false
+		builtinSlotMap gives false
+		builtinSlotKey gives false
 		builtinFrozen gives false
 		builtinCown gives false
 		builtinCursor gives false
@@ -1161,8 +1161,8 @@ function castKindWord(p ast.Project, ms ast.ModuleState, t ast.TypeID) returns S
 		unionTy gives "union"
 		builtinArray gives name
 		builtinList gives name
-		builtinPool gives name
-		builtinHandle gives name
+		builtinSlotMap gives name
+		builtinSlotKey gives name
 		builtinFrozen gives name
 		builtinCown gives name
 		builtinCursor gives name
@@ -1194,8 +1194,8 @@ function castTargetWord(p ast.Project, ms ast.ModuleState, t ast.TypeID) returns
 		unionTy gives nameOfType(p, ms: ms, t: t)
 		builtinArray gives nameOfType(p, ms: ms, t: t)
 		builtinList gives nameOfType(p, ms: ms, t: t)
-		builtinPool gives nameOfType(p, ms: ms, t: t)
-		builtinHandle gives nameOfType(p, ms: ms, t: t)
+		builtinSlotMap gives nameOfType(p, ms: ms, t: t)
+		builtinSlotKey gives nameOfType(p, ms: ms, t: t)
 		builtinFrozen gives nameOfType(p, ms: ms, t: t)
 		builtinCown gives nameOfType(p, ms: ms, t: t)
 		builtinCursor gives nameOfType(p, ms: ms, t: t)

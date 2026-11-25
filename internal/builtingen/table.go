@@ -157,7 +157,7 @@ var builtinTypes = []builtinType{
 		Named:   rawSurface{What: "the raw buffer cursor type is nameable", Instead: "walk an 'Array' with 'for'"},
 		Methods: rawSurface{What: "a raw '__ManagedMemoryCursor' is reachable", Instead: "walk an 'Array' with 'for'"},
 	}},
-	// ListCursor is a position in a list, as a buffer's cursor is in a buffer: the list it borrows and the handle of an
+	// ListCursor is a position in a list, as a buffer's cursor is in a buffer: the list it borrows and the slot key of an
 	// element of it, from the first to the last. It holds a borrow, as a buffer's cursor does.
 	{Key: "ListCursor", Name: "__ListCursor", Params: []string{"T"}, Kind: "Cursor", Managed: true, Raw: &rawType{
 		Named:   rawSurface{What: "the raw list cursor type is nameable", Instead: "walk a 'List' with 'for'"},
@@ -178,8 +178,8 @@ var builtinTypes = []builtinType{
 		Methods: rawSurface{What: "a raw '__GroupMemory' buffer is reachable", Instead: "use 'Map'"},
 	}},
 	{Key: "List", Name: "List", Params: []string{"T"}, Managed: true, Subscriptable: true},
-	{Key: "Pool", Name: "Pool", Params: []string{"T"}, Managed: true, Subscriptable: true},
-	{Key: "Handle", Name: "Handle", Params: []string{"T"}},
+	{Key: "SlotMap", Name: "SlotMap", Params: []string{"T"}, Managed: true, Subscriptable: true},
+	{Key: "SlotKey", Name: "SlotKey", Params: []string{"T"}},
 	{Key: "Frozen", Name: "frozen", Params: []string{"T"}, Managed: true, Shared: true},
 	{Key: "Cown", Name: "cown", Params: []string{"T"}, Managed: true, Shared: true},
 	// Promise is maxon's: what an async call gives, the coroutine it started, which an await consumes. `Promise with T` is of
@@ -727,26 +727,26 @@ var tableFunctions = []function{
 	{Owner: "List", Name: "create", Static: true, Result: "Self", Intrinsic: "ListCreate"},
 	{Owner: "List", Name: "count", Result: "Count", Intrinsic: "ListCount"},
 	{Owner: "List", Name: "isEmpty", Result: "Bool", Intrinsic: "ListIsEmpty"},
-	{Owner: "List", Name: "contains", Params: []string{"handle Handle with T"}, Result: "Bool", Intrinsic: "ListContains"},
-	{Owner: "List", Name: "prepend", Self: "mutates", Params: []string{"consumes value T"}, Result: "Handle with T", Intrinsic: "ListPrepend"},
-	{Owner: "List", Name: "append", Self: "mutates", Params: []string{"consumes value T"}, Result: "Handle with T", Intrinsic: "ListAppend"},
+	{Owner: "List", Name: "contains", Params: []string{"key SlotKey with T"}, Result: "Bool", Intrinsic: "ListContains"},
+	{Owner: "List", Name: "prepend", Self: "mutates", Params: []string{"consumes value T"}, Result: "SlotKey with T", Intrinsic: "ListPrepend"},
+	{Owner: "List", Name: "append", Self: "mutates", Params: []string{"consumes value T"}, Result: "SlotKey with T", Intrinsic: "ListAppend"},
 	{Owner: "List", Name: "removeFirst", Self: "mutates", Result: "T", Throws: "ArrayError", Intrinsic: "ListRemoveFirst"},
 	{Owner: "List", Name: "removeLast", Self: "mutates", Result: "T", Throws: "ArrayError", Intrinsic: "ListRemoveLast"},
-	{Owner: "List", Name: "first", Result: "Handle with T", Throws: "ArrayError", Intrinsic: "ListFirst"},
-	{Owner: "List", Name: "last", Result: "Handle with T", Throws: "ArrayError", Intrinsic: "ListLast"},
-	{Owner: "List", Name: "next", Params: []string{"handle Handle with T"}, Result: "Handle with T", Throws: "ArrayError", Intrinsic: "ListNext"},
-	{Owner: "List", Name: "prev", Params: []string{"handle Handle with T"}, Result: "Handle with T", Throws: "ArrayError", Intrinsic: "ListPrev"},
-	{Owner: "List", Name: "remove", Self: "mutates", Params: []string{"handle Handle with T"}, Result: "T", Throws: "ArrayError", Intrinsic: "ListRemove"},
-	{Owner: "List", Name: "moveToFront", Self: "mutates", Params: []string{"handle Handle with T"}, Intrinsic: "ListMoveToFront"},
+	{Owner: "List", Name: "first", Result: "SlotKey with T", Throws: "ArrayError", Intrinsic: "ListFirst"},
+	{Owner: "List", Name: "last", Result: "SlotKey with T", Throws: "ArrayError", Intrinsic: "ListLast"},
+	{Owner: "List", Name: "next", Params: []string{"key SlotKey with T"}, Result: "SlotKey with T", Throws: "ArrayError", Intrinsic: "ListNext"},
+	{Owner: "List", Name: "prev", Params: []string{"key SlotKey with T"}, Result: "SlotKey with T", Throws: "ArrayError", Intrinsic: "ListPrev"},
+	{Owner: "List", Name: "remove", Self: "mutates", Params: []string{"key SlotKey with T"}, Result: "T", Throws: "ArrayError", Intrinsic: "ListRemove"},
+	{Owner: "List", Name: "moveToFront", Self: "mutates", Params: []string{"key SlotKey with T"}, Intrinsic: "ListMoveToFront"},
 	{Owner: "List", Name: "dropEmpty", Self: "consumes", Intrinsic: "ListDropEmpty"},
 
-	{Owner: "Pool", Name: "create", Static: true, Result: "Self", Intrinsic: "PoolCreate"},
-	{Owner: "Pool", Name: "count", Result: "Count", Intrinsic: "PoolCount"},
-	{Owner: "Pool", Name: "isEmpty", Result: "Bool", Intrinsic: "PoolIsEmpty"},
-	{Owner: "Pool", Name: "contains", Params: []string{"handle Handle with T"}, Result: "Bool", Intrinsic: "PoolContains"},
-	{Owner: "Pool", Name: "insert", Self: "mutates", Params: []string{"consumes value T"}, Result: "Handle with T", Intrinsic: "PoolInsert"},
-	{Owner: "Pool", Name: "remove", Self: "mutates", Params: []string{"handle Handle with T"}, Result: "T", Throws: "ArrayError", Intrinsic: "PoolRemove"},
-	{Owner: "Pool", Name: "dropEmpty", Self: "consumes", Intrinsic: "PoolDropEmpty"},
+	{Owner: "SlotMap", Name: "create", Static: true, Result: "Self", Intrinsic: "SlotMapCreate"},
+	{Owner: "SlotMap", Name: "count", Result: "Count", Intrinsic: "SlotMapCount"},
+	{Owner: "SlotMap", Name: "isEmpty", Result: "Bool", Intrinsic: "SlotMapIsEmpty"},
+	{Owner: "SlotMap", Name: "contains", Params: []string{"key SlotKey with T"}, Result: "Bool", Intrinsic: "SlotMapContains"},
+	{Owner: "SlotMap", Name: "insert", Self: "mutates", Params: []string{"consumes value T"}, Result: "SlotKey with T", Intrinsic: "SlotMapInsert"},
+	{Owner: "SlotMap", Name: "remove", Self: "mutates", Params: []string{"key SlotKey with T"}, Result: "T", Throws: "ArrayError", Intrinsic: "SlotMapRemove"},
+	{Owner: "SlotMap", Name: "dropEmpty", Self: "consumes", Intrinsic: "SlotMapDropEmpty"},
 
 	{Owner: "String", Name: "byteLength", Result: "Count", Intrinsic: "StringByteLength"},
 	{Owner: "String", Name: "byteAt", Params: []string{"index Count"}, Result: "Byte", Intrinsic: "StringByteAt"},
@@ -1039,8 +1039,8 @@ type entry struct {
 
 // The entries of the primitives own their elements: an entry that takes one moves it in, an entry that returns one
 // moves it out, and an entry that returns an address lends it, valid until the next call that changes the primitive.
-// An entry given an index, a key or a handle that names nothing traps. A handle is a word and never 0, so an entry that
-// returns one returns 0 for none. A frozen value and a cown have a count of owners: an entry that makes another owner
+// An entry given an index, a key or a slot key that names nothing traps. A slot key is a word and never 0, so an entry
+// that returns one returns 0 for none. A frozen value and a cown have a count of owners: an entry that makes another owner
 // raises it, dropping an owner lowers it, and the box is freed when it reaches 0.
 var entries = []entry{
 	{"Entry", "rt.entry", "Runtime", roleInternal, "the executable's entry point, which calls main"},
@@ -1188,27 +1188,27 @@ var entries = []entry{
 
 	{"ListNew", "rt.list.new", "Interpreter", roleCall, "() -> list"},
 	{"ListLen", "rt.list.len", "Interpreter", roleCall, "(list) -> count"},
-	{"ListContains", "rt.list.contains", "Interpreter", roleCall, "(list, handle) -> bool"},
-	{"ListElem", "rt.list.elem", "Interpreter", roleCall, "(list, handle) -> address of the element"},
-	{"ListPushFront", "rt.list.pushFront", "Interpreter", roleCall, "(list, element) -> handle: moves it in"},
-	{"ListPushBack", "rt.list.pushBack", "Interpreter", roleCall, "(list, element) -> handle: moves it in"},
+	{"ListContains", "rt.list.contains", "Interpreter", roleCall, "(list, slot key) -> bool"},
+	{"ListElem", "rt.list.elem", "Interpreter", roleCall, "(list, slot key) -> address of the element"},
+	{"ListPushFront", "rt.list.pushFront", "Interpreter", roleCall, "(list, element) -> slot key: moves it in"},
+	{"ListPushBack", "rt.list.pushBack", "Interpreter", roleCall, "(list, element) -> slot key: moves it in"},
 	{"ListPopFront", "rt.list.popFront", "Interpreter", roleCall, "(list) -> element: moves it out; traps if empty"},
 	{"ListPopBack", "rt.list.popBack", "Interpreter", roleCall, "(list) -> element: moves it out; traps if empty"},
-	{"ListFirst", "rt.list.first", "Interpreter", roleCall, "(list) -> handle, or 0 if empty"},
-	{"ListLast", "rt.list.last", "Interpreter", roleCall, "(list) -> handle, or 0 if empty"},
-	{"ListNext", "rt.list.next", "Interpreter", roleCall, "(list, handle) -> handle, or 0 after the last"},
-	{"ListPrev", "rt.list.prev", "Interpreter", roleCall, "(list, handle) -> handle, or 0 before the first"},
-	{"ListRemove", "rt.list.remove", "Interpreter", roleCall, "(list, handle) -> element: moves it out"},
-	{"ListMoveToFront", "rt.list.moveToFront", "Interpreter", roleCall, "(list, handle)"},
-	{"ListCopy", "rt.list.copy", "Interpreter", roleCall, "(list) -> list: every element copied, handles still valid in the copy"},
+	{"ListFirst", "rt.list.first", "Interpreter", roleCall, "(list) -> slot key, or 0 if empty"},
+	{"ListLast", "rt.list.last", "Interpreter", roleCall, "(list) -> slot key, or 0 if empty"},
+	{"ListNext", "rt.list.next", "Interpreter", roleCall, "(list, slot key) -> slot key, or 0 after the last"},
+	{"ListPrev", "rt.list.prev", "Interpreter", roleCall, "(list, slot key) -> slot key, or 0 before the first"},
+	{"ListRemove", "rt.list.remove", "Interpreter", roleCall, "(list, slot key) -> element: moves it out"},
+	{"ListMoveToFront", "rt.list.moveToFront", "Interpreter", roleCall, "(list, slot key)"},
+	{"ListCopy", "rt.list.copy", "Interpreter", roleCall, "(list) -> list: every element copied, slot keys still valid in the copy"},
 
-	{"PoolNew", "rt.pool.new", "Interpreter", roleCall, "() -> pool"},
-	{"PoolLen", "rt.pool.len", "Interpreter", roleCall, "(pool) -> count"},
-	{"PoolContains", "rt.pool.contains", "Interpreter", roleCall, "(pool, handle) -> bool"},
-	{"PoolElem", "rt.pool.elem", "Interpreter", roleCall, "(pool, handle) -> address of the element"},
-	{"PoolInsert", "rt.pool.insert", "Interpreter", roleCall, "(pool, element) -> handle: moves it in"},
-	{"PoolRemove", "rt.pool.remove", "Interpreter", roleCall, "(pool, handle) -> element: moves it out"},
-	{"PoolCopy", "rt.pool.copy", "Interpreter", roleCall, "(pool) -> pool: every element copied, handles still valid in the copy"},
+	{"SlotMapNew", "rt.slotMap.new", "Interpreter", roleCall, "() -> slot map"},
+	{"SlotMapLen", "rt.slotMap.len", "Interpreter", roleCall, "(slot map) -> count"},
+	{"SlotMapContains", "rt.slotMap.contains", "Interpreter", roleCall, "(slot map, slot key) -> bool"},
+	{"SlotMapElem", "rt.slotMap.elem", "Interpreter", roleCall, "(slot map, slot key) -> address of the element"},
+	{"SlotMapInsert", "rt.slotMap.insert", "Interpreter", roleCall, "(slot map, element) -> slot key: moves it in"},
+	{"SlotMapRemove", "rt.slotMap.remove", "Interpreter", roleCall, "(slot map, slot key) -> element: moves it out"},
+	{"SlotMapCopy", "rt.slotMap.copy", "Interpreter", roleCall, "(slot map) -> slot map: every element copied, slot keys still valid in the copy"},
 
 	{"FrozenFreeze", "rt.frozen.freeze", "Shared", roleCall, "(value) -> frozen: moves the value into a new box with a count of 1; the backend stores a String's word after it"},
 	{"FrozenGet", "rt.frozen.get", "Shared", roleCall, "(frozen) -> what it holds, lent: an immutable borrow, valid while the frozen value is; the backend writes it in place, a load that leaves the count alone"},

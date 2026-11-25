@@ -1,6 +1,6 @@
 let dropEmptyMessage = "dropEmpty of a collection that still holds an element"
 
-let interpreterOnlyMessage = "a list or a pool runs only under the interpreter for now, and the compiler has no code for it; use an array, or run the program with the interpreter"
+let interpreterOnlyMessage = "a list or a slot map runs only under the interpreter for now, and the compiler has no code for it; use an array, or run the program with the interpreter"
 
 // entry calls a runtime entry of a primitive that returns a value. site is the source that needs it, kept when the
 // backend has no code for the entry.
@@ -159,7 +159,7 @@ function builtinOf(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState,
 	return ast.contentType(ms.types, reads: p.types, t: applied)
 end 'builtinOf'
 
-// indexType is the type of what goes between the brackets: a position for an array, and for a list or a pool the handle of
+// indexType is the type of what goes between the brackets: a position for an array, and for a list or a slot map the slot key of
 // the element.
 function indexType(p ast.Project, mutates ms ast.ModuleState, bt ast.TypeID) returns ast.TypeID
 	let kind = ast.typeKind(ms.types, reads: p.types, t: bt)
@@ -167,10 +167,10 @@ function indexType(p ast.Project, mutates ms ast.ModuleState, bt ast.TypeID) ret
 	if kind == ast.TypeKind.builtinArray 'array'
 		return p.builtins.countTy
 	end 'array'
-	if kind == ast.TypeKind.builtinList or kind == ast.TypeKind.builtinPool 'handle'
+	if kind == ast.TypeKind.builtinList or kind == ast.TypeKind.builtinSlotMap 'handle'
 		var of = ast.TypeIDList.create(0)
 		of.push(args[0])
-		return ast.instantiateType(ms.types, reads: p.types, origin: p.builtins.handleOrigin, args: of)
+		return ast.instantiateType(ms.types, reads: p.types, origin: p.builtins.slotKeyOrigin, args: of)
 	end 'handle'
 	panic("lower: {ast.typeName(ms.types, reads: p.types, t: bt)} has no elements to index")
 end 'indexType'
@@ -179,7 +179,7 @@ end 'indexType'
 function elementType(p ast.Project, ms ast.ModuleState, bt ast.TypeID) returns ast.TypeID
 	let kind = ast.typeKind(ms.types, reads: p.types, t: bt)
 	let args = ast.typeArgsOf(ms.types, reads: p.types, t: bt)
-	if kind == ast.TypeKind.builtinArray or kind == ast.TypeKind.builtinList or kind == ast.TypeKind.builtinPool 'one'
+	if kind == ast.TypeKind.builtinArray or kind == ast.TypeKind.builtinList or kind == ast.TypeKind.builtinSlotMap 'one'
 		return args[0]
 	end 'one'
 	panic("lower: {ast.typeName(ms.types, reads: p.types, t: bt)} has no elements")
@@ -197,15 +197,15 @@ function isArray(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c
 	return ast.typeKind(ms.types, reads: p.types, t: bt) == ast.TypeKind.builtinArray
 end 'isArray'
 
-// elemEntry is the address of an element of a list or a pool; an array's goes through arrayOf.
+// elemEntry is the address of an element of a list or a slot map; an array's goes through arrayOf.
 function elemEntry(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, site diag.Site, collection ast.TypeID, coll Reg, index Reg) returns Reg
 	let bt = builtinOf(l, p: p, ms: ms, collection: collection)
 	let kind = ast.typeKind(ms.types, reads: p.types, t: bt)
 	var symbol = Rt.rtNone
 	if kind == ast.TypeKind.builtinList 'list'
 		symbol = Rt.rtListElem
-	end 'list' else if kind == ast.TypeKind.builtinPool 'pool'
-		symbol = Rt.rtPoolElem
+	end 'list' else if kind == ast.TypeKind.builtinSlotMap 'pool'
+		symbol = Rt.rtSlotMapElem
 	end 'pool' else 'other'
 		panic("lower: {ast.typeName(ms.types, reads: p.types, t: bt)} has no elements to address")
 	end 'other'
@@ -504,7 +504,7 @@ function lowerFixedArrayRefill(mutates l Lowerer, p ast.Project, mutates ms ast.
 end 'lowerFixedArrayRefill'
 
 // hasZero is whether the word 0 is a value of t, so that a slot nothing wrote holds one: an integer whose range takes 0,
-// or a bool. A managed value, a handle, an enum (whose 0 is its first case, not its case of raw value 0) and a type
+// or a bool. A managed value, a slot key, an enum (whose 0 is its first case, not its case of raw value 0) and a type
 // parameter have none.
 function hasZero(p ast.Project, ms ast.ModuleState, t ast.TypeID) returns bool
 	let kind = ast.typeKind(ms.types, reads: p.types, t: t)
@@ -748,26 +748,26 @@ end 'lowerListRemoveLast'
 
 function lowerListFirst(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	let h = entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtListFirst, kind: IrKind.kindScalar, args: argsOf1(recv))
-	return endHandle(l, p: p, ms: ms, handle: h)
+	return endSlotKey(l, p: p, ms: ms, handle: h)
 end 'lowerListFirst'
 
 function lowerListLast(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	let h = entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtListLast, kind: IrKind.kindScalar, args: argsOf1(recv))
-	return endHandle(l, p: p, ms: ms, handle: h)
+	return endSlotKey(l, p: p, ms: ms, handle: h)
 end 'lowerListLast'
 
 function lowerListNext(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	let h = entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtListNext, kind: IrKind.kindScalar, args: argsOf2(recv, b: args[0]))
-	return endHandle(l, p: p, ms: ms, handle: h)
+	return endSlotKey(l, p: p, ms: ms, handle: h)
 end 'lowerListNext'
 
 function lowerListPrev(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	let h = entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtListPrev, kind: IrKind.kindScalar, args: argsOf2(recv, b: args[0]))
-	return endHandle(l, p: p, ms: ms, handle: h)
+	return endSlotKey(l, p: p, ms: ms, handle: h)
 end 'lowerListPrev'
 
 function lowerListRemove(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
-	return removeHandle(l, p: p, ms: ms, c: c, contains: Rt.rtListContains, remove: Rt.rtListRemove, collection: recv, handle: args[0])
+	return removeSlotKey(l, p: p, ms: ms, c: c, contains: Rt.rtListContains, remove: Rt.rtListRemove, collection: recv, handle: args[0])
 end 'lowerListRemove'
 
 function lowerListDropEmpty(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
@@ -780,35 +780,35 @@ function lowerListMoveToFront(mutates l Lowerer, p ast.Project, ms ast.ModuleSta
 	return konst(l, value: 0 as Word)
 end 'lowerListMoveToFront'
 
-function lowerPoolCreate(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
-	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtPoolNew, kind: IrKind.kindManaged, args: RegList.create(0))
-end 'lowerPoolCreate'
+function lowerSlotMapCreate(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtSlotMapNew, kind: IrKind.kindManaged, args: RegList.create(0))
+end 'lowerSlotMapCreate'
 
-function lowerPoolCount(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
-	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtPoolLen, kind: IrKind.kindScalar, args: argsOf1(recv))
-end 'lowerPoolCount'
+function lowerSlotMapCount(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtSlotMapLen, kind: IrKind.kindScalar, args: argsOf1(recv))
+end 'lowerSlotMapCount'
 
-function lowerPoolIsEmpty(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
-	let n = entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtPoolLen, kind: IrKind.kindScalar, args: argsOf1(recv))
+function lowerSlotMapIsEmpty(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	let n = entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtSlotMapLen, kind: IrKind.kindScalar, args: argsOf1(recv))
 	return isZero(l, v: n)
-end 'lowerPoolIsEmpty'
+end 'lowerSlotMapIsEmpty'
 
-function lowerPoolContains(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
-	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtPoolContains, kind: IrKind.kindScalar, args: argsOf2(recv, b: args[0]))
-end 'lowerPoolContains'
+function lowerSlotMapContains(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtSlotMapContains, kind: IrKind.kindScalar, args: argsOf2(recv, b: args[0]))
+end 'lowerSlotMapContains'
 
-function lowerPoolInsert(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
-	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtPoolInsert, kind: IrKind.kindScalar, args: argsOf2(recv, b: args[0]))
-end 'lowerPoolInsert'
+function lowerSlotMapInsert(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtSlotMapInsert, kind: IrKind.kindScalar, args: argsOf2(recv, b: args[0]))
+end 'lowerSlotMapInsert'
 
-function lowerPoolDropEmpty(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
-	let n = entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtPoolLen, kind: IrKind.kindScalar, args: argsOf1(recv))
+function lowerSlotMapDropEmpty(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	let n = entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtSlotMapLen, kind: IrKind.kindScalar, args: argsOf1(recv))
 	return dropEmpty(l, p: p, ms: ms, c: c, length: n, collection: recv)
-end 'lowerPoolDropEmpty'
+end 'lowerSlotMapDropEmpty'
 
-function lowerPoolRemove(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
-	return removeHandle(l, p: p, ms: ms, c: c, contains: Rt.rtPoolContains, remove: Rt.rtPoolRemove, collection: recv, handle: args[0])
-end 'lowerPoolRemove'
+function lowerSlotMapRemove(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return removeSlotKey(l, p: p, ms: ms, c: c, contains: Rt.rtSlotMapContains, remove: Rt.rtSlotMapRemove, collection: recv, handle: args[0])
+end 'lowerSlotMapRemove'
 
 function lowerStringByteLength(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	return runtime(l, symbol: Rt.rtStrLen, kind: IrKind.kindScalar, args: argsOf1(recv))
@@ -906,17 +906,17 @@ function removeEnd(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState,
 	return unboxed(l, p: p, ms: ms, v: removed, t: t)
 end 'removeEnd'
 
-// endHandle is the handle of a list's first or last node, or of the node after or before one, which the entry gives as 0
+// endSlotKey is the slot key of a list's first or last node, or of the node after or before one, which the entry gives as 0
 // when there is none, where the operation fails with indexOutOfBounds.
-function endHandle(mutates l Lowerer, p ast.Project, ms ast.ModuleState, handle Reg) returns Reg
+function endSlotKey(mutates l Lowerer, p ast.Project, ms ast.ModuleState, handle Reg) returns Reg
 	let present = nonZero(l, v: handle)
 	failUnless(l, p: p, ms: ms, cond: present, errorCase: ast.errorIndexOutOfBounds)
 	return handle
-end 'endHandle'
+end 'endSlotKey'
 
-// removeHandle moves the element a handle names out of a list or a pool, and fails with emptySlot for a handle that names
+// removeSlotKey moves the element a slot key names out of a list or a slot map, and fails with emptySlot for a slot key that names
 // none, as maxon's emptied slot does.
-function removeHandle(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, contains Rt, remove Rt, collection Reg, handle Reg) returns Reg
+function removeSlotKey(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, contains Rt, remove Rt, collection Reg, handle Reg) returns Reg
 	let site = siteOf(l, p: p, node: c.node)
 	let named = entry(l, p: p, site: site, symbol: contains, kind: IrKind.kindScalar, args: argsOf2(collection, b: handle))
 	failUnless(l, p: p, ms: ms, cond: named, errorCase: ast.errorEmptySlot)
@@ -924,7 +924,7 @@ function removeHandle(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleSta
 	let kind = holderKind(l, p: p, ms: ms, t: t)
 	let removed = entry(l, p: p, site: site, symbol: remove, kind: kind, args: argsOf2(collection, b: handle))
 	return unboxed(l, p: p, ms: ms, v: removed, t: t)
-end 'removeHandle'
+end 'removeSlotKey'
 
 // arrayFilled is an array of count copies of value: the value is copied into every slot and then dropped, so that every
 // element has an owner of its own. A scalar in words is its own copy, which one fill writes.
@@ -954,14 +954,14 @@ function requireNative(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleSt
 	end 'only'
 end 'requireNative'
 
-// holdsInterpreterOnly is whether a value of type t is, or holds at any depth, a list or a pool. visiting are the
+// holdsInterpreterOnly is whether a value of type t is, or holds at any depth, a list or a slot map. visiting are the
 // records and unions being walked, so a type that contains itself through an array ends.
 function holdsInterpreterOnly(p ast.Project, mutates ms ast.ModuleState, t ast.TypeID, mutates visiting ast.TypeIDList) returns bool
 	let kind = ast.typeKind(ms.types, reads: p.types, t: t)
 	if kind == ast.TypeKind.primBool or kind == ast.TypeKind.primString or kind == ast.TypeKind.primCharacter or kind == ast.TypeKind.intRange or kind == ast.TypeKind.constInt or kind == ast.TypeKind.floatRange or kind == ast.TypeKind.constFloat or kind == ast.TypeKind.enumTy 'plain'
 		return false
 	end 'plain'
-	if kind == ast.TypeKind.builtinHandle or kind == ast.TypeKind.builtinPromise 'handle'
+	if kind == ast.TypeKind.builtinSlotKey or kind == ast.TypeKind.builtinPromise 'handle'
 		return false
 	end 'handle'
 	// A function value is dropped by the routine of its closure, which the closure that owns such a value refuses.
@@ -983,7 +983,7 @@ function holdsInterpreterOnly(p ast.Project, mutates ms ast.ModuleState, t ast.T
 	if kind == ast.TypeKind.builtinFrozen or kind == ast.TypeKind.builtinCown or kind == ast.TypeKind.builtinService 'shared'
 		return holdsInterpreterOnly(p, ms: ms, t: heldType(p, ms: ms, t: t), visiting: visiting)
 	end 'shared'
-	if kind == ast.TypeKind.builtinList or kind == ast.TypeKind.builtinPool 'only'
+	if kind == ast.TypeKind.builtinList or kind == ast.TypeKind.builtinSlotMap 'only'
 		return true
 	end 'only'
 	// A cursor holds a word of the buffer it borrows and its index, and never drops the buffer.

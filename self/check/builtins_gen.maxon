@@ -126,10 +126,10 @@ function checkIntrinsicArgs(mutates c Checker, p ast.Project, mutates ms ast.Mod
 	if op == ast.Intrinsic.intrListPrev or op == ast.Intrinsic.intrListRemove or op == ast.Intrinsic.intrListMoveToFront or op == ast.Intrinsic.intrListDropEmpty 'signature16'
 		return
 	end 'signature16'
-	if op == ast.Intrinsic.intrPoolCreate or op == ast.Intrinsic.intrPoolCount or op == ast.Intrinsic.intrPoolIsEmpty or op == ast.Intrinsic.intrPoolContains 'signature17'
+	if op == ast.Intrinsic.intrSlotMapCreate or op == ast.Intrinsic.intrSlotMapCount or op == ast.Intrinsic.intrSlotMapIsEmpty or op == ast.Intrinsic.intrSlotMapContains 'signature17'
 		return
 	end 'signature17'
-	if op == ast.Intrinsic.intrPoolInsert or op == ast.Intrinsic.intrPoolRemove or op == ast.Intrinsic.intrPoolDropEmpty or op == ast.Intrinsic.intrStringByteLength 'signature18'
+	if op == ast.Intrinsic.intrSlotMapInsert or op == ast.Intrinsic.intrSlotMapRemove or op == ast.Intrinsic.intrSlotMapDropEmpty or op == ast.Intrinsic.intrStringByteLength 'signature18'
 		return
 	end 'signature18'
 	if op == ast.Intrinsic.intrStringByteAt or op == ast.Intrinsic.intrStringSliceBytes or op == ast.Intrinsic.intrStringToByteArray or op == ast.Intrinsic.intrStringFrom 'signature19'

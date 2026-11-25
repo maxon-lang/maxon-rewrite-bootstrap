@@ -475,34 +475,34 @@ function runtimeEntry(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 		try entryListCopy(vm, f: f, x: x)
 		return
 	end 'rtListCopy'
-	if symbol == ir.Rt.rtPoolNew 'rtPoolNew'
-		try entryPoolNew(vm, f: f, x: x)
+	if symbol == ir.Rt.rtSlotMapNew 'rtSlotMapNew'
+		try entrySlotMapNew(vm, f: f, x: x)
 		return
-	end 'rtPoolNew'
-	if symbol == ir.Rt.rtPoolLen 'rtPoolLen'
-		try entryPoolLen(vm, f: f, x: x)
+	end 'rtSlotMapNew'
+	if symbol == ir.Rt.rtSlotMapLen 'rtSlotMapLen'
+		try entrySlotMapLen(vm, f: f, x: x)
 		return
-	end 'rtPoolLen'
-	if symbol == ir.Rt.rtPoolContains 'rtPoolContains'
-		try entryPoolContains(vm, f: f, x: x)
+	end 'rtSlotMapLen'
+	if symbol == ir.Rt.rtSlotMapContains 'rtSlotMapContains'
+		try entrySlotMapContains(vm, f: f, x: x)
 		return
-	end 'rtPoolContains'
-	if symbol == ir.Rt.rtPoolElem 'rtPoolElem'
-		try entryPoolElem(vm, f: f, x: x)
+	end 'rtSlotMapContains'
+	if symbol == ir.Rt.rtSlotMapElem 'rtSlotMapElem'
+		try entrySlotMapElem(vm, f: f, x: x)
 		return
-	end 'rtPoolElem'
-	if symbol == ir.Rt.rtPoolInsert 'rtPoolInsert'
-		try entryPoolInsert(vm, f: f, x: x)
+	end 'rtSlotMapElem'
+	if symbol == ir.Rt.rtSlotMapInsert 'rtSlotMapInsert'
+		try entrySlotMapInsert(vm, f: f, x: x)
 		return
-	end 'rtPoolInsert'
-	if symbol == ir.Rt.rtPoolRemove 'rtPoolRemove'
-		try entryPoolRemove(vm, f: f, x: x)
+	end 'rtSlotMapInsert'
+	if symbol == ir.Rt.rtSlotMapRemove 'rtSlotMapRemove'
+		try entrySlotMapRemove(vm, f: f, x: x)
 		return
-	end 'rtPoolRemove'
-	if symbol == ir.Rt.rtPoolCopy 'rtPoolCopy'
-		try entryPoolCopy(vm, f: f, x: x)
+	end 'rtSlotMapRemove'
+	if symbol == ir.Rt.rtSlotMapCopy 'rtSlotMapCopy'
+		try entrySlotMapCopy(vm, f: f, x: x)
 		return
-	end 'rtPoolCopy'
+	end 'rtSlotMapCopy'
 	if symbol == ir.Rt.rtFrozenFreeze 'rtFrozenFreeze'
 		try entryFrozenFreeze(vm, f: f, x: x)
 		return

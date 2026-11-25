@@ -1,5 +1,5 @@
 // expect-exit: 1
-typealias CellPool = Pool with Cell
+typealias CellPool = SlotMap with Cell
 
 type Cell
 	export var n as Count
@@ -12,7 +12,7 @@ end 'Cell'
 function main() returns ExitCode
 	var p = CellPool.create()
 	let old = p.insert(Cell.make(1))
-	let gone = try p.remove(old) otherwise panic("the handle names no element")
+	let gone = try p.remove(old) otherwise panic("the slot key names no element")
 	print("removed {gone.n}\n")
 	let fresh = p.insert(Cell.make(2))
 	print("reused {p[fresh].n} {p.contains(old)}\n")

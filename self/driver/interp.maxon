@@ -1,4 +1,4 @@
-// The interp command runs a program under the tracking interpreter, which runs a map, a list, a pool, a frozen value, a cown
+// The interp command runs a program under the tracking interpreter, which runs a map, a list, a slot map, a frozen value, a cown
 // and a behaviour, and reports a violation of the memory model. The program's output and exit code are its own, unless a
 // violation or a timeout ends the run. A program that schedules behaviours runs under the schedule that --seed picks.
 

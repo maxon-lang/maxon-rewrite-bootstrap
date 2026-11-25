@@ -29,7 +29,7 @@ type Job
 	end 'create'
 end 'Job'
 
-typealias JobSlot = Slot with Job
+typealias JobSlot = Cell with Job
 
 function main() returns ExitCode
 	var slot = JobSlot.create("jobs")
@@ -55,7 +55,7 @@ false true 3
 ```maxon
 typealias Tally = int(0 to 1024)
 
-typealias TallySlot = Slot with Tally
+typealias TallySlot = Cell with Tally
 
 function main() returns ExitCode
 	var slot = TallySlot.create("tally")
@@ -89,7 +89,7 @@ type Token is noncopyable
 	end 'create'
 end 'Token'
 
-typealias TokenSlot = Slot with Token
+typealias TokenSlot = Cell with Token
 
 function main() returns ExitCode
 	let slot = TokenSlot.create("tokens")
@@ -115,7 +115,7 @@ A slot is an ordinary record, so it lives in an `isolated` region and is filled 
 ```maxon
 typealias Tally = int(0 to 1024)
 
-typealias TallySlot = Slot with Tally
+typealias TallySlot = Cell with Tally
 
 type Mailbox
 	export let letter as TallySlot
@@ -150,7 +150,7 @@ end 'main'
 ```maxon
 typealias Tally = int(0 to 1024)
 
-typealias TallySlot = Slot with Tally
+typealias TallySlot = Cell with Tally
 
 function main() returns ExitCode
 	let slot = TallySlot.create("totals")
@@ -176,7 +176,7 @@ Stack trace:
 ```maxon
 typealias Tally = int(0 to 1024)
 
-typealias TallySlot = Slot with Tally
+typealias TallySlot = Cell with Tally
 
 function main() returns ExitCode
 	let slot = TallySlot.create("totals")
@@ -201,7 +201,7 @@ Stack trace:
 ```maxon
 typealias Tally = int(0 to 1024)
 
-typealias TallySlot = Slot with Tally
+typealias TallySlot = Cell with Tally
 
 function main() returns ExitCode
 	let slot = TallySlot.create("totals")
@@ -235,7 +235,7 @@ type Token is noncopyable
 	end 'create'
 end 'Token'
 
-typealias TokenSlot = Slot with Token
+typealias TokenSlot = Cell with Token
 
 typealias TokenList = List with Token
 
@@ -286,7 +286,7 @@ type Token is noncopyable
 	end 'create'
 end 'Token'
 
-typealias TokenSlot = Slot with Token
+typealias TokenSlot = Cell with Token
 
 typealias TokenList = List with Token
 

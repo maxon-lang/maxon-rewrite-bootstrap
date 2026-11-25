@@ -110,9 +110,9 @@ type DebugTypes
 			enumTy then self.describeCases(p, ms: ms, t: t, name: name, kind: mxdbg.MxdbgTypeKindEnum)
 			unionTy then self.describeCases(p, ms: ms, t: t, name: name, kind: unionKind(p, ms: ms, t: t))
 			builtinArray then self.describeArray(p, ms: ms, t: t, name: name)
-			builtinHandle then self.begin(t, name: name, kind: mxdbg.MxdbgTypeKindPrimitive, size: wordSize, align: wordSize, flag: 0)
+			builtinSlotKey then self.begin(t, name: name, kind: mxdbg.MxdbgTypeKindPrimitive, size: wordSize, align: wordSize, flag: 0)
 			builtinList or
-			builtinPool or
+			builtinSlotMap or
 			builtinFrozen or
 			builtinCown or
 			builtinCursor or

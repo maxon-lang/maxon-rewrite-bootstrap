@@ -813,3 +813,29 @@ func TestCLIModes(t *testing.T) {
 		t.Fatalf("expected --check exit 0 after --write, got %d", code)
 	}
 }
+
+// TestConvertRenamesMaxonsSlotAsCell: maxon's library type Slot is Cell here, in its own file (with its comments and
+// messages), in the library and in a program that names it, while a program's own Slot, in any of its files, is kept.
+func TestConvertRenamesMaxonsSlotAsCell(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "stdlib")
+	own := Convert(filepath.Join(root, "Slot.maxon"), "/// An empty slot.\npublic type Slot uses T\n\tlet name as String\n\n\tpublic function fail()\n\t\tpanic(\"Slot '{self.name}' is full\")\n\tend 'fail'\nend 'Slot'\n", sourceFile)
+	if want := "/// An empty cell.\npublic type Cell uses T\n\tlet name as String\n\n\tpublic function fail()\n\t\tpanic(\"Cell '{self.name}' is full\")\n\tend 'fail'\nend 'Cell'\n"; own.Text != want {
+		t.Errorf("the type's own file:\ngot:\n%q\nwant:\n%q", own.Text, want)
+	}
+	user := Convert(filepath.Join(root, "Server.maxon"), "typealias Pending = Slot with int\n", sourceFile)
+	if want := "typealias Pending = Cell with int\n"; user.Text != want {
+		t.Errorf("a library file that names it:\ngot %q\nwant %q", user.Text, want)
+	}
+
+	spec := "## Tests\n\n" +
+		"<!-- test: library -->\n```maxon\ntypealias Held = Slot with int\n```\n\n" +
+		"<!-- test: own-in-another-file -->\n```maxon\n// --- file: lib/a.maxon\ntypealias Slot = int(0 to 9)\n\n// --- file: main.maxon\nfunction f(s Slot) returns Slot\n\treturn s\nend 'f'\n```\n\n" +
+		"<!-- test: own-parameter -->\n```maxon\ntype Box uses Slot\n\tlet item as Slot\nend 'Box'\n```\n"
+	want := "## Tests\n\n" +
+		"<!-- test: library -->\n```maxon\ntypealias Held = Cell with int\n```\n\n" +
+		"<!-- test: own-in-another-file -->\n```maxon\n// --- file: lib/a.maxon\ntypealias Slot = int(0 to 9)\n\n// --- file: main.maxon\nfunction f(s Slot) returns Slot\n\treturn s\nend 'f'\n```\n\n" +
+		"<!-- test: own-parameter -->\n```maxon\ntype Box uses Slot\n\tlet item as Slot\nend 'Box'\n```\n"
+	if got := ConvertSpec("demo.md", spec).Text; got != want {
+		t.Errorf("spec tests:\ngot:\n%q\nwant:\n%q", got, want)
+	}
+}

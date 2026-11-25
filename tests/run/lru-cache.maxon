@@ -17,7 +17,7 @@ union Option uses T
 	end 'unwrap'
 end 'Option'
 
-typealias CountEntryHandleMap = Map with Count, Handle with Entry
+typealias CountEntryHandleMap = Map with Count, SlotKey with Entry
 
 typealias EntryList = List with Entry
 
@@ -34,7 +34,7 @@ end 'Entry'
 
 type Cache
 	var order as List with Entry
-	var index as Map with (Count, Handle with Entry)
+	var index as Map with (Count, SlotKey with Entry)
 	var capacity as Count
 
 	static function make(capacity Count) returns Cache

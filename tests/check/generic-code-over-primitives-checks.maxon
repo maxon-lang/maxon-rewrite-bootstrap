@@ -23,7 +23,7 @@ typealias CountArrayArray = Array with (Array with Count)
 
 typealias CountList = List with Count
 
-typealias CountPool = Pool with Count
+typealias CountPool = SlotMap with Count
 
 typealias StringCountMap = Map with String, Count
 
@@ -37,11 +37,11 @@ function store(mutates m Map with (String, V), consumes value V) uses V where V 
 	m.upsert("key", value: value)
 end 'store'
 
-function put(mutates p Pool with T, consumes item T) uses T returns Handle with T
+function put(mutates p SlotMap with T, consumes item T) uses T returns SlotKey with T
 	return p.insert(item)
 end 'put'
 
-function back(mutates l List with T, consumes item T) uses T returns Handle with T
+function back(mutates l List with T, consumes item T) uses T returns SlotKey with T
 	let node = l.append(item)
 	l.moveToFront(node)
 	return node
@@ -53,7 +53,7 @@ function swapFirst(mutates a Array with T, mutates b Array with T) uses T where 
 	b[0] = t
 end 'swapFirst'
 
-function find(p Pool with T, handle Handle with T) uses T returns Option with T where T implements Copyable
+function find(p SlotMap with T, handle SlotKey with T) uses T returns Option with T where T implements Copyable
 	if p.contains(handle) 'live'
 		return Option.some(p[handle].clone())
 	end 'live'

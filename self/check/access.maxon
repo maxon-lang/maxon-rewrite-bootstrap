@@ -177,7 +177,7 @@ function declaredTypeOrNone(p ast.Project, ms ast.ModuleState, ref ast.DeclRef) 
 	end 'dt'
 end 'declaredTypeOrNone'
 
-// checkIndex types a subscript, which only an array, a list or a pool has. An element of a primitive is a
+// checkIndex types a subscript, which only an array, a list or a slot map has. An element of a primitive is a
 // projection, never a value of its own: what it is used for decides whether it borrows the element to read it or to change
 // it, and the ownership pass refuses to move one out.
 function checkIndex(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
@@ -191,8 +191,8 @@ function checkIndex(mutates c Checker, p ast.Project, mutates ms ast.ModuleState
 		return ast.noType
 	end 'cown'
 	let k = kindOfType(p, ms: ms, t: t)
-	if k != ast.TypeKind.builtinArray and k != ast.TypeKind.builtinList and k != ast.TypeKind.builtinPool 'notSubscriptable'
-		failAt(c, p: p, ms: ms, node: e, code: diag.errTypeMismatch, msg: "{nameOfType(p, ms: ms, t: t)} has no elements to index: only an array, a list or a pool does", errs: errs)
+	if k != ast.TypeKind.builtinArray and k != ast.TypeKind.builtinList and k != ast.TypeKind.builtinSlotMap 'notSubscriptable'
+		failAt(c, p: p, ms: ms, node: e, code: diag.errTypeMismatch, msg: "{nameOfType(p, ms: ms, t: t)} has no elements to index: only an array, a list or a slot map does", errs: errs)
 		return ast.noType
 	end 'notSubscriptable'
 	let argsRef = ast.indexExprArgsRef(ms.tree(), id: e)

@@ -263,7 +263,7 @@ type NativeCheck
 end 'NativeCheck'
 
 // compareNative compiles the program the interpreter just ran and runs the executable. A program that uses a map, a list or a
-// pool has no executable yet and is skipped, as is one that schedules behaviours and was not written so that its output is
+// slot map has no executable yet and is skipped, as is one that schedules behaviours and was not written so that its output is
 // the same under every schedule. One that was runs several times, and a run that ends in a trap may have printed more or
 // less of main's output first than the interpreter did, since a behaviour runs beside main: one output must be the start
 // of the other.

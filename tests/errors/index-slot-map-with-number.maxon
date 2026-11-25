@@ -1,5 +1,5 @@
 // expect-error: E3005 at 14:12
-typealias CellPool = Pool with Cell
+typealias CellPool = SlotMap with Cell
 
 type Cell
 	export var n as Count

@@ -274,13 +274,13 @@ export enum Intrinsic
 	intrListRemove
 	intrListMoveToFront
 	intrListDropEmpty
-	intrPoolCreate
-	intrPoolCount
-	intrPoolIsEmpty
-	intrPoolContains
-	intrPoolInsert
-	intrPoolRemove
-	intrPoolDropEmpty
+	intrSlotMapCreate
+	intrSlotMapCount
+	intrSlotMapIsEmpty
+	intrSlotMapContains
+	intrSlotMapInsert
+	intrSlotMapRemove
+	intrSlotMapDropEmpty
 	intrStringByteLength
 	intrStringByteAt
 	intrStringSliceBytes
@@ -873,7 +873,7 @@ function declareBuiltinTable(mutates tt TypeSlot, reads TypeTable, mutates ft Fu
 	declareStringCursorMethods(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, b: b, funcMap: funcMap)
 	declareGroupMemoryMethods(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, b: b, funcMap: funcMap)
 	declareListMethods(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, b: b, funcMap: funcMap)
-	declarePoolMethods(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, b: b, funcMap: funcMap)
+	declareSlotMapMethods(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, b: b, funcMap: funcMap)
 	declareStringMethods(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, b: b, funcMap: funcMap)
 	declareByteViewMethods(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, b: b, funcMap: funcMap)
 	declareByteIteratorMethods(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, b: b, funcMap: funcMap)
@@ -926,10 +926,10 @@ function declareBuiltinTypes(mutates tt TypeSlot, reads TypeTable, mutates std P
 	b.listOrigin = registerPrimType(tt, reads: reads, std: std, typeMap: typeMap, kind: TypeKind.builtinList, name: "List", paramNames: names7)
 	var names8 = StringList.create(0)
 	names8.push("T")
-	b.poolOrigin = registerPrimType(tt, reads: reads, std: std, typeMap: typeMap, kind: TypeKind.builtinPool, name: "Pool", paramNames: names8)
+	b.slotMapOrigin = registerPrimType(tt, reads: reads, std: std, typeMap: typeMap, kind: TypeKind.builtinSlotMap, name: "SlotMap", paramNames: names8)
 	var names9 = StringList.create(0)
 	names9.push("T")
-	b.handleOrigin = registerPrimType(tt, reads: reads, std: std, typeMap: typeMap, kind: TypeKind.builtinHandle, name: "Handle", paramNames: names9)
+	b.slotKeyOrigin = registerPrimType(tt, reads: reads, std: std, typeMap: typeMap, kind: TypeKind.builtinSlotKey, name: "SlotKey", paramNames: names9)
 	var names10 = StringList.create(0)
 	names10.push("T")
 	b.frozenOrigin = registerPrimType(tt, reads: reads, std: std, typeMap: typeMap, kind: TypeKind.builtinFrozen, name: "frozen", paramNames: names10)
@@ -1503,18 +1503,18 @@ function declareListMethods(mutates tt TypeSlot, reads TypeTable, mutates ft Fun
 	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.listOrigin, op: Intrinsic.intrListCount, name: "count", isStatic: false, selfConv: Convention.convLet, ret: b.countTy, params: ParamSpecList.create(0), listed: true)
 	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.listOrigin, op: Intrinsic.intrListIsEmpty, name: "isEmpty", isStatic: false, selfConv: Convention.convLet, ret: b.boolTy, params: ParamSpecList.create(0), listed: true)
 	let p2 = typeEntry(tt, reads: reads, t: b.listOrigin).typeParams[0]
-	let ty3 = instantiateType(tt, reads: reads, origin: b.handleOrigin, args: oneArgList(p2))
+	let ty3 = instantiateType(tt, reads: reads, origin: b.slotKeyOrigin, args: oneArgList(p2))
 	var ps4 = ParamSpecList.create(0)
-	ps4.push(ParamSpec.make("handle", ty: ty3, conv: Convention.convLet))
+	ps4.push(ParamSpec.make("key", ty: ty3, conv: Convention.convLet))
 	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.listOrigin, op: Intrinsic.intrListContains, name: "contains", isStatic: false, selfConv: Convention.convLet, ret: b.boolTy, params: ps4, listed: true)
 	let p5 = typeEntry(tt, reads: reads, t: b.listOrigin).typeParams[0]
-	let ty6 = instantiateType(tt, reads: reads, origin: b.handleOrigin, args: oneArgList(p5))
+	let ty6 = instantiateType(tt, reads: reads, origin: b.slotKeyOrigin, args: oneArgList(p5))
 	let p7 = typeEntry(tt, reads: reads, t: b.listOrigin).typeParams[0]
 	var ps8 = ParamSpecList.create(0)
 	ps8.push(ParamSpec.make("value", ty: p7, conv: Convention.convConsumes))
 	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.listOrigin, op: Intrinsic.intrListPrepend, name: "prepend", isStatic: false, selfConv: Convention.convMutates, ret: ty6, params: ps8, listed: true)
 	let p9 = typeEntry(tt, reads: reads, t: b.listOrigin).typeParams[0]
-	let ty10 = instantiateType(tt, reads: reads, origin: b.handleOrigin, args: oneArgList(p9))
+	let ty10 = instantiateType(tt, reads: reads, origin: b.slotKeyOrigin, args: oneArgList(p9))
 	let p11 = typeEntry(tt, reads: reads, t: b.listOrigin).typeParams[0]
 	var ps12 = ParamSpecList.create(0)
 	ps12.push(ParamSpec.make("value", ty: p11, conv: Convention.convConsumes))
@@ -1526,69 +1526,69 @@ function declareListMethods(mutates tt TypeSlot, reads TypeTable, mutates ft Fun
 	let f16 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.listOrigin, op: Intrinsic.intrListRemoveLast, name: "removeLast", isStatic: false, selfConv: Convention.convMutates, ret: p15, params: ParamSpecList.create(0), listed: true)
 	ft.lists[funcList(ft, f: f16)][funcIndex(ft, f: f16)].errTy = b.arrayErrorTy
 	let p17 = typeEntry(tt, reads: reads, t: b.listOrigin).typeParams[0]
-	let ty18 = instantiateType(tt, reads: reads, origin: b.handleOrigin, args: oneArgList(p17))
+	let ty18 = instantiateType(tt, reads: reads, origin: b.slotKeyOrigin, args: oneArgList(p17))
 	let f19 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.listOrigin, op: Intrinsic.intrListFirst, name: "first", isStatic: false, selfConv: Convention.convLet, ret: ty18, params: ParamSpecList.create(0), listed: true)
 	ft.lists[funcList(ft, f: f19)][funcIndex(ft, f: f19)].errTy = b.arrayErrorTy
 	let p20 = typeEntry(tt, reads: reads, t: b.listOrigin).typeParams[0]
-	let ty21 = instantiateType(tt, reads: reads, origin: b.handleOrigin, args: oneArgList(p20))
+	let ty21 = instantiateType(tt, reads: reads, origin: b.slotKeyOrigin, args: oneArgList(p20))
 	let f22 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.listOrigin, op: Intrinsic.intrListLast, name: "last", isStatic: false, selfConv: Convention.convLet, ret: ty21, params: ParamSpecList.create(0), listed: true)
 	ft.lists[funcList(ft, f: f22)][funcIndex(ft, f: f22)].errTy = b.arrayErrorTy
 	let p23 = typeEntry(tt, reads: reads, t: b.listOrigin).typeParams[0]
-	let ty24 = instantiateType(tt, reads: reads, origin: b.handleOrigin, args: oneArgList(p23))
+	let ty24 = instantiateType(tt, reads: reads, origin: b.slotKeyOrigin, args: oneArgList(p23))
 	let p25 = typeEntry(tt, reads: reads, t: b.listOrigin).typeParams[0]
-	let ty26 = instantiateType(tt, reads: reads, origin: b.handleOrigin, args: oneArgList(p25))
+	let ty26 = instantiateType(tt, reads: reads, origin: b.slotKeyOrigin, args: oneArgList(p25))
 	var ps27 = ParamSpecList.create(0)
-	ps27.push(ParamSpec.make("handle", ty: ty26, conv: Convention.convLet))
+	ps27.push(ParamSpec.make("key", ty: ty26, conv: Convention.convLet))
 	let f28 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.listOrigin, op: Intrinsic.intrListNext, name: "next", isStatic: false, selfConv: Convention.convLet, ret: ty24, params: ps27, listed: true)
 	ft.lists[funcList(ft, f: f28)][funcIndex(ft, f: f28)].errTy = b.arrayErrorTy
 	let p29 = typeEntry(tt, reads: reads, t: b.listOrigin).typeParams[0]
-	let ty30 = instantiateType(tt, reads: reads, origin: b.handleOrigin, args: oneArgList(p29))
+	let ty30 = instantiateType(tt, reads: reads, origin: b.slotKeyOrigin, args: oneArgList(p29))
 	let p31 = typeEntry(tt, reads: reads, t: b.listOrigin).typeParams[0]
-	let ty32 = instantiateType(tt, reads: reads, origin: b.handleOrigin, args: oneArgList(p31))
+	let ty32 = instantiateType(tt, reads: reads, origin: b.slotKeyOrigin, args: oneArgList(p31))
 	var ps33 = ParamSpecList.create(0)
-	ps33.push(ParamSpec.make("handle", ty: ty32, conv: Convention.convLet))
+	ps33.push(ParamSpec.make("key", ty: ty32, conv: Convention.convLet))
 	let f34 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.listOrigin, op: Intrinsic.intrListPrev, name: "prev", isStatic: false, selfConv: Convention.convLet, ret: ty30, params: ps33, listed: true)
 	ft.lists[funcList(ft, f: f34)][funcIndex(ft, f: f34)].errTy = b.arrayErrorTy
 	let p35 = typeEntry(tt, reads: reads, t: b.listOrigin).typeParams[0]
 	let p36 = typeEntry(tt, reads: reads, t: b.listOrigin).typeParams[0]
-	let ty37 = instantiateType(tt, reads: reads, origin: b.handleOrigin, args: oneArgList(p36))
+	let ty37 = instantiateType(tt, reads: reads, origin: b.slotKeyOrigin, args: oneArgList(p36))
 	var ps38 = ParamSpecList.create(0)
-	ps38.push(ParamSpec.make("handle", ty: ty37, conv: Convention.convLet))
+	ps38.push(ParamSpec.make("key", ty: ty37, conv: Convention.convLet))
 	let f39 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.listOrigin, op: Intrinsic.intrListRemove, name: "remove", isStatic: false, selfConv: Convention.convMutates, ret: p35, params: ps38, listed: true)
 	ft.lists[funcList(ft, f: f39)][funcIndex(ft, f: f39)].errTy = b.arrayErrorTy
 	let p40 = typeEntry(tt, reads: reads, t: b.listOrigin).typeParams[0]
-	let ty41 = instantiateType(tt, reads: reads, origin: b.handleOrigin, args: oneArgList(p40))
+	let ty41 = instantiateType(tt, reads: reads, origin: b.slotKeyOrigin, args: oneArgList(p40))
 	var ps42 = ParamSpecList.create(0)
-	ps42.push(ParamSpec.make("handle", ty: ty41, conv: Convention.convLet))
+	ps42.push(ParamSpec.make("key", ty: ty41, conv: Convention.convLet))
 	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.listOrigin, op: Intrinsic.intrListMoveToFront, name: "moveToFront", isStatic: false, selfConv: Convention.convMutates, ret: b.voidTy, params: ps42, listed: true)
 	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.listOrigin, op: Intrinsic.intrListDropEmpty, name: "dropEmpty", isStatic: false, selfConv: Convention.convConsumes, ret: b.voidTy, params: ParamSpecList.create(0), listed: true)
 end 'declareListMethods'
 
-function declarePoolMethods(mutates tt TypeSlot, reads TypeTable, mutates ft FuncSlot, funcReads FuncTable, mutates std ParsedModule, mutates b Builtins, mutates funcMap FuncIDMap)
-	let ty1 = selfType(tt, reads: reads, declTy: b.poolOrigin)
-	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.poolOrigin, op: Intrinsic.intrPoolCreate, name: "create", isStatic: true, selfConv: Convention.convLet, ret: ty1, params: ParamSpecList.create(0), listed: true)
-	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.poolOrigin, op: Intrinsic.intrPoolCount, name: "count", isStatic: false, selfConv: Convention.convLet, ret: b.countTy, params: ParamSpecList.create(0), listed: true)
-	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.poolOrigin, op: Intrinsic.intrPoolIsEmpty, name: "isEmpty", isStatic: false, selfConv: Convention.convLet, ret: b.boolTy, params: ParamSpecList.create(0), listed: true)
-	let p2 = typeEntry(tt, reads: reads, t: b.poolOrigin).typeParams[0]
-	let ty3 = instantiateType(tt, reads: reads, origin: b.handleOrigin, args: oneArgList(p2))
+function declareSlotMapMethods(mutates tt TypeSlot, reads TypeTable, mutates ft FuncSlot, funcReads FuncTable, mutates std ParsedModule, mutates b Builtins, mutates funcMap FuncIDMap)
+	let ty1 = selfType(tt, reads: reads, declTy: b.slotMapOrigin)
+	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.slotMapOrigin, op: Intrinsic.intrSlotMapCreate, name: "create", isStatic: true, selfConv: Convention.convLet, ret: ty1, params: ParamSpecList.create(0), listed: true)
+	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.slotMapOrigin, op: Intrinsic.intrSlotMapCount, name: "count", isStatic: false, selfConv: Convention.convLet, ret: b.countTy, params: ParamSpecList.create(0), listed: true)
+	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.slotMapOrigin, op: Intrinsic.intrSlotMapIsEmpty, name: "isEmpty", isStatic: false, selfConv: Convention.convLet, ret: b.boolTy, params: ParamSpecList.create(0), listed: true)
+	let p2 = typeEntry(tt, reads: reads, t: b.slotMapOrigin).typeParams[0]
+	let ty3 = instantiateType(tt, reads: reads, origin: b.slotKeyOrigin, args: oneArgList(p2))
 	var ps4 = ParamSpecList.create(0)
-	ps4.push(ParamSpec.make("handle", ty: ty3, conv: Convention.convLet))
-	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.poolOrigin, op: Intrinsic.intrPoolContains, name: "contains", isStatic: false, selfConv: Convention.convLet, ret: b.boolTy, params: ps4, listed: true)
-	let p5 = typeEntry(tt, reads: reads, t: b.poolOrigin).typeParams[0]
-	let ty6 = instantiateType(tt, reads: reads, origin: b.handleOrigin, args: oneArgList(p5))
-	let p7 = typeEntry(tt, reads: reads, t: b.poolOrigin).typeParams[0]
+	ps4.push(ParamSpec.make("key", ty: ty3, conv: Convention.convLet))
+	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.slotMapOrigin, op: Intrinsic.intrSlotMapContains, name: "contains", isStatic: false, selfConv: Convention.convLet, ret: b.boolTy, params: ps4, listed: true)
+	let p5 = typeEntry(tt, reads: reads, t: b.slotMapOrigin).typeParams[0]
+	let ty6 = instantiateType(tt, reads: reads, origin: b.slotKeyOrigin, args: oneArgList(p5))
+	let p7 = typeEntry(tt, reads: reads, t: b.slotMapOrigin).typeParams[0]
 	var ps8 = ParamSpecList.create(0)
 	ps8.push(ParamSpec.make("value", ty: p7, conv: Convention.convConsumes))
-	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.poolOrigin, op: Intrinsic.intrPoolInsert, name: "insert", isStatic: false, selfConv: Convention.convMutates, ret: ty6, params: ps8, listed: true)
-	let p9 = typeEntry(tt, reads: reads, t: b.poolOrigin).typeParams[0]
-	let p10 = typeEntry(tt, reads: reads, t: b.poolOrigin).typeParams[0]
-	let ty11 = instantiateType(tt, reads: reads, origin: b.handleOrigin, args: oneArgList(p10))
+	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.slotMapOrigin, op: Intrinsic.intrSlotMapInsert, name: "insert", isStatic: false, selfConv: Convention.convMutates, ret: ty6, params: ps8, listed: true)
+	let p9 = typeEntry(tt, reads: reads, t: b.slotMapOrigin).typeParams[0]
+	let p10 = typeEntry(tt, reads: reads, t: b.slotMapOrigin).typeParams[0]
+	let ty11 = instantiateType(tt, reads: reads, origin: b.slotKeyOrigin, args: oneArgList(p10))
 	var ps12 = ParamSpecList.create(0)
-	ps12.push(ParamSpec.make("handle", ty: ty11, conv: Convention.convLet))
-	let f13 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.poolOrigin, op: Intrinsic.intrPoolRemove, name: "remove", isStatic: false, selfConv: Convention.convMutates, ret: p9, params: ps12, listed: true)
+	ps12.push(ParamSpec.make("key", ty: ty11, conv: Convention.convLet))
+	let f13 = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.slotMapOrigin, op: Intrinsic.intrSlotMapRemove, name: "remove", isStatic: false, selfConv: Convention.convMutates, ret: p9, params: ps12, listed: true)
 	ft.lists[funcList(ft, f: f13)][funcIndex(ft, f: f13)].errTy = b.arrayErrorTy
-	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.poolOrigin, op: Intrinsic.intrPoolDropEmpty, name: "dropEmpty", isStatic: false, selfConv: Convention.convConsumes, ret: b.voidTy, params: ParamSpecList.create(0), listed: true)
-end 'declarePoolMethods'
+	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.slotMapOrigin, op: Intrinsic.intrSlotMapDropEmpty, name: "dropEmpty", isStatic: false, selfConv: Convention.convConsumes, ret: b.voidTy, params: ParamSpecList.create(0), listed: true)
+end 'declareSlotMapMethods'
 
 function declareStringMethods(mutates tt TypeSlot, reads TypeTable, mutates ft FuncSlot, funcReads FuncTable, mutates std ParsedModule, mutates b Builtins, mutates funcMap FuncIDMap)
 	let f1 = registerStdFunc(ft, funcReads: funcReads, std: std, funcMap: funcMap, op: Intrinsic.intrStringByteLength, name: "byteLength", generics: TypeIDList.create(0), ret: b.countTy, params: ParamSpecList.create(0), declareInStd: false)

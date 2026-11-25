@@ -39,9 +39,9 @@ end 'Entry'
 type Rack
 	export var left as Array with Cell
 	export var right as Array with Cell
-	export var node as Handle with Cell
+	export var node as SlotKey with Cell
 
-	static function make(node Handle with Cell) returns Rack
+	static function make(node SlotKey with Cell) returns Rack
 		return Rack{left: CellArray.create(0), right: CellArray.create(0), node: node}
 	end 'make'
 end 'Rack'
@@ -86,16 +86,15 @@ function total(x T) uses T returns Count where T implements Shape
 	return x.area()
 end 'total'
 
-typealias CellPool = Pool with Cell
+// expect-error: E3005 at 98:12
+typealias CellPool = SlotMap with Cell
+
+typealias EntryPool = SlotMap with Entry
 
 function main() returns ExitCode
 	var p = CellPool.create()
-	let h = p.insert(Cell.make(1))
-	p[h].n = 2
-	touch(p[h])
-	if p.contains(h) 'c'
-		let gone = try p.remove(h) otherwise panic("the handle names no element")
-		print("{gone.n}")
-	end 'c'
+	var q = EntryPool.create()
+	let h = q.insert(Entry.make(1, value: "a"))
+	print("{p[h].n}")
 	return 0
 end 'main'

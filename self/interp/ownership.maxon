@@ -448,7 +448,7 @@ function free(mutates vm Vm, o Count) throws Halt
 		end 'each'
 		return
 	end 'list'
-	if kind == kindPool 'pool'
+	if kind == kindSlotMap 'pool'
 		for slot in 0 upto vm.h.tables[data].live.count() 'each'
 			if vm.h.tables[data].live[slot] 'alive'
 				let element = vm.h.tables[data].cells[slot]

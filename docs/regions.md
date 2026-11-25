@@ -2,13 +2,13 @@
 
 Status: steps 1 to 5 (layer 1 checks, generics, the primitives' signatures, the tracking interpreter with the
 program generator, and immutable values, cowns and behaviours, see "Steps") and native freeing are implemented in
-minimaxon; native code for `map`, `list`, `pool`, frozen values and behaviours, are not. It combines published designs, each where it fits best:
+minimaxon; native code for `map`, `list`, `SlotMap`, frozen values and behaviours, are not. It combines published designs, each where it fits best:
 
 - **Inside a green thread: owned values, as in Hylo's mutable value semantics.** Racordon et al.,
   "Implementation Strategies for Mutable Value Semantics" (JOT 2022), the Hylo language tour
   (docs.hylo-lang.org) and specification (github.com/hylo-lang/specification).
 - **Structures with internal pointers: runtime primitives**, as maxon already has (array, map, a linked list),
-  plus a Pool with generational handles, after Rust's `slotmap`.
+  plus a SlotMap with generational slot keys, after Rust's `slotmap`.
 - **Between threads: Verona's behaviours.** Cheeseman et al., "When Concurrency Matters: Behaviour-Oriented
   Concurrency" (OOPSLA 2023).
 
@@ -49,7 +49,7 @@ that the rules are Hylo's, not grown case by case. Hylo's own laws for projectio
 | Layer | Model | Freed |
 |---|---|---|
 | Inside a green thread | Every value has one owner; other access is a scoped borrow (Hylo) | when its owner dies, known statically |
-| Structures with internal pointers | Runtime primitives that own their elements; handles to elements are keys | an element when it is removed, exactly |
+| Structures with internal pointers | Runtime primitives that own their elements; slot keys to elements are keys | an element when it is removed, exactly |
 | Between threads | Owned values move; immutable data is shared and counted; cowns and behaviours (Verona) | shared immutable data at its last owner |
 
 Why primitives and not Verona regions for lists and graphs: inside a region objects point to each other freely,
@@ -73,7 +73,7 @@ element exactly when it is removed.
   everything it owns is isolated: nothing outside points into it. Moving it to another thread needs no further
   proof.
 
-The cost: back-pointers, cross-links and graphs are not stored references. They are handles into a pool, keys
+The cost: back-pointers, cross-links and graphs are not stored references. They are slot keys into a slot map, keys
 into a map, or indices.
 
 ### Borrows
@@ -174,28 +174,28 @@ immortal, and are never counted. Implemented in step 5 as the type `frozen with 
 
 Structures whose elements point to each other are runtime primitives. Each owns its elements, frees an element
 exactly when it is removed, keeps its internal pointers private, and hands out only borrows (projections) and
-handles. Their implementations are the trusted code of the system, so they are few and heavily tested.
+slot keys. Their implementations are the trusted code of the system, so they are few and heavily tested.
 
 | Primitive | Holds |
 |---|---|
 | `array` | elements in order, indexed |
 | `map` | elements by key |
 | `list` | a doubly linked list, one allocation per node (maxon's `__ManagedList`) |
-| `pool` | elements addressed by generational handles |
+| `SlotMap` | elements addressed by generational slot keys |
 
 The stdlib's `Array`, `Map` and `List` are thin wrappers over them, as in maxon.
 
-### Handles are keys
+### Slot keys
 
-A handle names an element without owning it, so it can be stored anywhere: in a field, in a map, in another
+A slot key names an element without owning it, so it can be stored anywhere: in a field, in a map, in another
 element. Using one is a lookup that can fail, like a map miss: if the element was removed, the lookup finds
-nothing. It never reaches freed memory, because the pool checks the handle's generation against the slot's, so
-a slot reused for a new element does not answer to an old handle. A lookup costs about what a bounds-checked array
+nothing. It never reaches freed memory, because the slot map checks the slot key's generation against the slot's, so
+a slot reused for a new element does not answer to an old slot key. A lookup costs about what a bounds-checked array
 access costs, and its failure is part of the operation's meaning, not a safety net.
 
-The pool is what makes user-defined pointer structures safe without adding a primitive for each: a linked list is
-a pool of nodes whose links are handles, a graph is a pool of nodes whose edges are handles, and an LRU cache is a
-list plus a map from keys to node handles. Each element is freed when it is removed.
+The slot map is what makes user-defined pointer structures safe without adding a primitive for each: a linked list is
+a slot map of nodes whose links are slot keys, a graph is a slot map of nodes whose edges are slot keys, and an LRU cache is a
+list plus a map from keys to node slot keys. Each element is freed when it is removed.
 
 Projections into a primitive follow the law of exclusivity like any other path: an element borrowed `mutates`
 overlaps its container, so the container cannot remove it while the borrow lasts.
@@ -218,7 +218,7 @@ Where this document was open, minimaxon does the following. The operations and t
   value, so binding, returning or sinking it is the existing `E3901` (`E3900` under a borrowed root); no new code.
   Assigning through it needs a mutable root like a field does. Every element step overlaps every other element step
   of the same collection, which is a decision about indexes that cannot be compared before the program runs; it
-  also makes `a[i]` overlap `a`. Index, key and handle are values read before the call.
+  also makes `a[i]` overlap `a`. Index, key and slot key are values read before the call.
 - **A borrow is held until the call.** Taking the address of `a[i]` for a `mutates` argument, or loading an element
   for a `let` one, happens when the argument is evaluated, and the call runs after the arguments after it. So an
   argument that is a place stays borrowed through the rest of the call's arguments, and the target of an
@@ -232,21 +232,21 @@ Where this document was open, minimaxon does the following. The operations and t
   projection against the accesses made while it lasts" check of the exclusivity section, extended from match
   bindings to arguments, assignments, operands, subscripts and string parts, and it closes the gap where
   `f(mutates a[i], g(mutates a))` took an address that `g` could invalidate. It needs no run-time check.
-- **A handle is a key.** `Handle with T` is a scalar word: copied, never moved, not owning. Its generation is part of the
-  word, so a stale handle never reaches a reused slot. A handle is typed by its element type and not by its pool, so
-  a handle from one pool used on another pool of the same type is a lookup that fails or finds that pool's element;
-  that is not a soundness issue and is not prevented. Equality of handles is allowed.
-- **A list hands out handles like a pool.** A list is a doubly linked list whose nodes are named by `Handle with T`:
-  `prepend` and `append` return the handle, `first`, `last`, `next` and `prev` walk, `remove` and `moveToFront`
-  take one. That is the smallest API with which a cache is a list and a map from keys to handles.
-- **Keys of a map** are words or text: an integer alias, a `bool`, an enum, a `String` or a `Handle`. A record has no
+- **A slot key is a key.** `SlotKey with T` is a scalar word: copied, never moved, not owning. Its generation is part of the
+  word, so a stale slot key never reaches a reused slot. A slot key is typed by its element type and not by its slot map, so
+  a slot key from one slot map used on another slot map of the same type is a lookup that fails or finds that slot map's element;
+  that is not a soundness issue and is not prevented. Equality of slot keys is allowed.
+- **A list hands out slot keys like a slot map.** A list is a doubly linked list whose nodes are named by `SlotKey with T`:
+  `prepend` and `append` return the slot key, `first`, `last`, `next` and `prev` walk, `remove` and `moveToFront`
+  take one. That is the smallest API with which a cache is a list and a map from keys to slot keys.
+- **Keys of a map** are words or text: an integer alias, a `bool`, an enum, a `String` or a `SlotKey`. A record has no
   equality, and a type parameter is not known to have one, so generic code over `Map with (K, V)` waits for a bound on keys
   (`E3908`).
 - **No iteration beyond the index.** `for i in 0 upto a.count()` works. A `for x in a` loop would borrow the array for
   its whole body, which the exclusivity rule already covers, but it is not built, and a map has no key walk.
 - **Native and interpreter.** Every operation lowers to a named runtime entry (README, "The primitives in the IR"),
   so the interpreter of step 4 implements the same entries as the backend does, and element ownership is visible in
-  each call. Only the array is native, in a unit that is linked only when used. A map, a list and a pool lower too,
+  each call. Only the array is native, in a unit that is linked only when used. A map, a list and a slot map lower too,
   and the driver refuses a program that needs one when it builds an executable, with a code of its own. Nothing is
   freed yet, so an element that is removed or dropped is leaked, as every other box is.
 - **Not built.** Copying a record that contains itself through an array (`clone()` writes a copy out in place and
@@ -275,7 +275,7 @@ Where this document was open, minimaxon does the following.
   the IR marks). A value in flight, such as the result of a call, has no owner, and storing a value that has one is a
   violation: it would be freed twice. An element's address carries the version of its collection, and every insert,
   remove and move of the collection bumps it, which is the contract of the primitives ("valid until the next call that
-  changes the primitive") made checkable. A handle carries a generation, and the slot freed last is the next one reused,
+  changes the primitive") made checkable. A slot key carries a generation, and the slot freed last is the next one reused,
   so a reused slot is the common case in a test and not the rare one.
 - **Exclusivity at run time.** At a call, every argument that the callee may change (an address, an argument it owns,
   a `mutates self`) must not reach any place another argument reaches, which the owner tree answers: two places overlap
@@ -284,11 +284,11 @@ Where this document was open, minimaxon does the following.
   rule the checker calls a held borrow, and it is checked on the borrows that name existing storage; a value that is
   still being built is not one. A read while a borrow is held is fine and is not reported.
 - **Primitives in Go.** `insert` into a map that has the key keeps the entry, drops its old value and drops the key that
-  came in, since the map owns one; `remove` drops the key it held. `copy` of a map, a list or a pool copies every key
-  and element and keeps the handles of a list and a pool valid. A handle that names nothing traps with a message, as an
+  came in, since the map owns one; `remove` drops the key it held. `copy` of a map, a list or a slot map copies every key
+  and element and keeps the slot keys of a list and a slot map valid. A slot key that names nothing traps with a message, as an
   index out of range does.
 - **The test runner.** Every program in `tests/run` runs natively and under the interpreter, which must give the same
-  stdout and exit code and no violation; a program that needs a map, a list or a pool has no native code and runs under
+  stdout and exit code and no violation; a program that needs a map, a list or a slot map has no native code and runs under
   the interpreter alone (the runner sees `E9900` and falls back, so no directive is needed).
 - **Checker holes found.** Three, each with a test in `tests/errors/` that failed first.
   1. A field or an element of a temporary could be moved out of it (`let s = make().label`): the pass treated an
@@ -305,7 +305,7 @@ Where this document was open, minimaxon does the following.
 - **Bugs in lowering that the interpreter found**, fixed at the cause: the target of an assignment had no type, so an
   assignment to a field of a generic instance did not know to drop the old value; an assignment to an element did not
   drop the old element; a field's default was dropped as a temporary because nothing had marked it consumed.
-- **What the generator reaches.** A record, a union, an array, a map, a list and a pool of any of them, with handles
+- **What the generator reaches.** A record, a union, an array, a map, a list and a slot map of any of them, with slot keys
   stored in fields, arrays and maps; methods whose bodies are generated like any function's, with `self` read, changed
   and consumed; the four conventions, including `sets` through a variable with no value; `match` over a union and an
   option, as a statement and as a value; conditionals that move; loops with `break` and `continue`; generic functions,
@@ -315,7 +315,7 @@ Where this document was open, minimaxon does the following.
   string comparison or the first part of an interpolation, or by the base of a subscript, while a later operand, or the index, is a call that changes or
   consumes what it lies in), to see the checker refuse each, and the same expressions with a call that only reads or
   works on another variable, to see it accept them. Of the
-  programs it accepts, the ones with no map, list or pool also run natively and must give the interpreter's output and
+  programs it accepts, the ones with no map, list or slot map also run natively and must give the interpreter's output and
   exit code. Removing a rule from the checker (exclusivity at a call, held borrows, a use after a move, a move out of a
   borrow, a `sets` or a variable that is not initialised, the hold on the target of an assignment) makes the generator
   find a violation within a few thousand programs, which is the evidence that it reaches what it should.
@@ -329,8 +329,8 @@ Where this document was open, minimaxon does the following.
 
 A green thread runs in its own memory: the values it owns. Data reaches another thread only by:
 
-- **Moving** an owned value: isolated by construction, so nothing else points in. A handle moved without its
-  pool finds nothing on the other side, since it is only a key.
+- **Moving** an owned value: isolated by construction, so nothing else points in. A slot key moved without its
+  slot map finds nothing on the other side, since it is only a key.
 - **Sharing** an immutable value with `share` (counted).
 - **Cowns and behaviours.** A **cown** (concurrent owner) owns a value, which no thread touches directly; the cown
   reference can be copied and shared freely. A **behaviour**, `when a, b as x, y … end`, names the cowns it needs
@@ -370,7 +370,7 @@ values, cowns and behaviours"); these are the decisions behind them.
   counting would never free. The step does not build a cycle collector, so a type that can reach itself through a cown
   is refused (`E3914`), which makes every cycle of references impossible: a cycle of values has to be a cycle of types,
   through at least one declaration, and through a cown if one of the references is. The cost is that a linked structure
-  of cowns names its next link by a handle or a key. Verona leaves the cycle to a collector; if one is built, the check
+  of cowns names its next link by a slot key or a key. Verona leaves the cycle to a collector; if one is built, the check
   goes.
 -  **A behaviour is a function that captures by use.** Its body is checked as a function of its own, whose parameters
   are the access to each cown's value (`mutates`) and then whatever it uses from the function around it, which it owns
@@ -423,7 +423,7 @@ values, cowns and behaviours"); these are the decisions behind them.
      writing the corpus; `Resolved` looks through a frozen receiver now, as the checker does
      (`tests/run/frozen-bound-call.maxon`, and `totalFrozen` in the generator's library).
   2. A `clone()` that no source wrote (an array filled with a value that has no native code, here a cown or a frozen
-     value, and since step 4 a pool or a map) was lowered with no site to blame, so refusing it for the executable
+     value, and since step 4 a slot map or a map) was lowered with no site to blame, so refusing it for the executable
      crashed the driver. Found by the generator's comparison with executables; lowering names the call now
      (`TestEveryRefusalNamesItsSite`).
 -  **What the generator reaches.** Frozen values of records, unions, strings and arrays, held in variables (`let` and
@@ -451,7 +451,7 @@ values, cowns and behaviours"); these are the decisions behind them.
 
   Between 800 and 1,000 of the accepted programs of a run end in a trap, as they do from step 4 on, and one in the last run
   loops without end (a loop that doubles its own bound); neither is a violation. With `MINIMAXON_GEN_NATIVE=1`, 246 of
-  2,500 programs (the ones with no map, list, pool, frozen value, cown or behaviour) also ran as executables with the
+  2,500 programs (the ones with no map, list, slot map, frozen value, cown or behaviour) also ran as executables with the
   interpreter's output and exit code.
 - **Not covered.** A cycle of cowns, which the type rule refuses and the generator never builds, so the interpreter's leak
   report for one is tested only on IR. The generator writes no `when` in a generic function, no behaviour more than two
@@ -518,7 +518,7 @@ Where this document was open, minimaxon does the following.
   interpreter now reports a drop of a register that holds nothing, so a hole in that is a violation and not a crash.
 - **A copy is an instruction, not code written out.** Step 3 lowered `clone()` into the IR as a loop, which cannot end for a
   type that contains itself, so it refused one (`E9000`). It is now `%r = copy %s T`: the interpreter copies by the shape of
-  the value (it already could, for a map, a list and a pool), and the backend makes one copy routine for each type, as it
+  the value (it already could, for a map, a list and a slot map), and the backend makes one copy routine for each type, as it
   does a drop routine. `E9000` for a recursive copy is gone, and a tree copies natively.
 - **A routine for each type, after monomorphization.** Which words of a box are boxes depends on the type, so a drop and a
   copy are routines that the code of every module calls, generated once for the program for each concrete type that the
@@ -553,7 +553,7 @@ Where this document was open, minimaxon does the following.
 - **Generated programs** over the constructs the rules cover: every accepted program must run clean under the
   interpreter, under several schedules when it schedules behaviours. Done in steps 4 and 5
   (`self/fuzz`, which the `fuzz` command runs).
-- **The primitives get their own tests**, including stale handles after removal and slot reuse, since they are the
+- **The primitives get their own tests**, including stale slot keys after removal and slot reuse, since they are the
   trusted code.
 - **Hylo's tour examples** become corpus tests for layer 1.
 
@@ -568,7 +568,7 @@ implements the rules completely and the runtime only as far as testing them need
 2. Generics, checked once against their bounds. Second, because how they meet ownership is the unknown that
    hurt maxon. **Done**, in `self/check` (bounds, inference, the uniform rules over `T`) and `self/ir`
    (instances; see "Choices made in step 2").
-3. The primitives' signatures (`array`, `map`, `list`, `pool`): ownership of elements, projections, handles. **Done**,
+3. The primitives' signatures (`array`, `map`, `list`, `SlotMap`): ownership of elements, projections, slot keys. **Done**,
    in `self/ast` (the types), `self/check` (subscripts, element paths, the held borrows) and `self/ir`
    (lowering to runtime entries); an array also runs natively (see "Choices made in step 3").
 4. The tracking interpreter and the program generator. The primitives run here, in the interpreter. **Done**, in `self/ir`
@@ -583,5 +583,5 @@ implements the rules completely and the runtime only as far as testing them need
    (see "Choices made in step 6"). **Done**, in `self/backend` and `self/ir`.
 
 Not built here, because they teach nothing about soundness: green threads, a scheduler, atomic counts and cowns
-in generated code; native implementations of `map`, `list` and `pool` (the array is native, since corpus programs need it).
+in generated code; native implementations of `map`, `list` and `SlotMap` (the array is native, since corpus programs need it).
 These belong to the full compiler.

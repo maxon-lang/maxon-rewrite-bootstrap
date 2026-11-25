@@ -22,7 +22,7 @@ Base64.maxon base64
 Sha2.maxon sha2
 Hmac.maxon sha2
 Hkdf.maxon sha2
-Slot.maxon slot
+Slot.maxon cell Cell.maxon
 Clock.maxon clock
 Directory.maxon directory
 Ascii.maxon ascii

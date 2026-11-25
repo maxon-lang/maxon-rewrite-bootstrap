@@ -8,7 +8,7 @@ typealias Items = Array with Item
 
 typealias CountPersonMap = Map with Count, Person
 
-typealias CellPool = Pool with Cell
+typealias CellPool = SlotMap with Cell
 
 union Item
 	named(name String)
@@ -91,7 +91,7 @@ function drain(mutates m CountPersonMap) returns Count
 	return 0
 end 'drain'
 
-function reap(mutates p CellPool) returns Handle with Cell
+function reap(mutates p CellPool) returns SlotKey with Cell
 	return p.insert(Cell.make(0))
 end 'reap'
 

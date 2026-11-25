@@ -25,10 +25,10 @@ function holdsBorrowWithin(mutates tt TypeSlot, reads TypeTable, t TypeID, mutat
 		builtinArray gives argsHoldBorrow(tt, reads: reads, t: t, visiting: visiting)
 		builtinGroups gives argsHoldBorrow(tt, reads: reads, t: t, visiting: visiting)
 		builtinList gives argsHoldBorrow(tt, reads: reads, t: t, visiting: visiting)
-		builtinPool gives argsHoldBorrow(tt, reads: reads, t: t, visiting: visiting)
+		builtinSlotMap gives argsHoldBorrow(tt, reads: reads, t: t, visiting: visiting)
 		builtinFrozen gives argsHoldBorrow(tt, reads: reads, t: t, visiting: visiting)
 		builtinCown gives argsHoldBorrow(tt, reads: reads, t: t, visiting: visiting)
-		builtinHandle gives false
+		builtinSlotKey gives false
 		builtinPromise gives false
 		builtinService gives false
 		invalid gives false
@@ -133,7 +133,7 @@ function unsendableWithin(mutates tt TypeSlot, reads TypeTable, t TypeID, functi
 		floatRange gives ""
 		constFloat gives ""
 		enumTy gives ""
-		builtinHandle gives ""
+		builtinSlotKey gives ""
 		builtinCown gives ""
 		builtinService gives ""
 		builtinCursor gives "'{name}' borrows the buffer it walks"
@@ -146,7 +146,7 @@ function unsendableWithin(mutates tt TypeSlot, reads TypeTable, t TypeID, functi
 		builtinArray gives argsUnsendable(tt, reads: reads, t: t, functions: functions, visiting: visiting)
 		builtinGroups gives argsUnsendable(tt, reads: reads, t: t, functions: functions, visiting: visiting)
 		builtinList gives argsUnsendable(tt, reads: reads, t: t, functions: functions, visiting: visiting)
-		builtinPool gives argsUnsendable(tt, reads: reads, t: t, functions: functions, visiting: visiting)
+		builtinSlotMap gives argsUnsendable(tt, reads: reads, t: t, functions: functions, visiting: visiting)
 		builtinFrozen gives argsUnsendable(tt, reads: reads, t: t, functions: functions, visiting: visiting)
 	end 'k'
 end 'unsendableWithin'

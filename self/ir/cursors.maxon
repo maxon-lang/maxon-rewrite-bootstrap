@@ -2,7 +2,7 @@
 // and never owns, and the index of the element it is at. It is made only over a buffer that has an element, and a move
 // that would leave the elements fails and leaves it where it was, so the index always names one: the checker holds the
 // buffer unchanged while the cursor lives (README, "Borrowing values"), so its length is the one the cursor last saw.
-// A list's cursor, `__ListCursor with T`, is the same two words, the list and the handle of an element of it, and a
+// A list's cursor, `__ListCursor with T`, is the same two words, the list and the slot key of an element of it, and a
 // String's, `__StringCursor`, is the String's two words and the byte positions where the cluster it is at starts and ends.
 
 let cursorSourceField = 0 as Count

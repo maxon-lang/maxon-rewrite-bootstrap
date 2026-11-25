@@ -1,5 +1,5 @@
 // The entries are the primitives that the backend has no code for, and the ones it has, which the interpreter gives their meaning:
-// an array, a list and a pool, each with the generational handles that the README's "Primitives" describes, strings, byte
+// an array, a list and a slot map, each with the generational slot keys that the README's "Primitives" describes, strings, byte
 // arrays, a frozen value and a cown, and standard output. builtins_gen.maxon dispatches a call of an entry to the function of
 // its name here.
 
@@ -7,7 +7,7 @@ let indexOutOfRangeMessage = "index out of range"
 
 let missingKeyMessage = "map has no such key"
 
-let staleHandleMessage = "handle names no element"
+let staleSlotKeyMessage = "slot key names no element"
 
 let emptyListMessage = "pop from an empty list"
 
@@ -739,11 +739,11 @@ function entryListContains(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Ha
 	giveFlag(vm, x: x, b: vm.h.tables[vm.h.oData[l]].lookup(argNum(vm, f: f, x: x, i: 1)).isSome())
 end 'entryListContains'
 
-// slotOf is the slot of a list or a pool that a handle names, which must still be there.
+// slotOf is the slot of a list or a slot map that a slot key names, which must still be there.
 function slotOf(mutates vm Vm, o Count, handle ir.Word) returns Count throws Halt
 	match consumes vm.h.tables[vm.h.oData[o]].lookup(handle) 'slot'
 		some(slot) then return slot
-		none then throw trap(vm, message: staleHandleMessage)
+		none then throw trap(vm, message: staleSlotKeyMessage)
 	end 'slot'
 end 'slotOf'
 
@@ -807,7 +807,7 @@ function entryListLast(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	try listEnd(vm, f: f, x: x, last: true)
 end 'entryListLast'
 
-// listEnd is the handle of the first element of a list or of its last, or 0 for an empty list.
+// listEnd is the slot key of the first element of a list or of its last, or 0 for an empty list.
 function listEnd(mutates vm Vm, f ir.IrFunction, x ir.Instr, last bool) throws Halt
 	let l = try collection(vm, o: argRef(vm, f: f, x: x, i: 0), kind: kindList, what: "a walk")
 	let data = vm.h.oData[l]
@@ -830,7 +830,7 @@ function entryListPrev(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	try listStep(vm, f: f, x: x, next: false)
 end 'entryListPrev'
 
-// listStep is the handle of the element after the one a handle names or before it, or 0 past the end.
+// listStep is the slot key of the element after the one a slot key names or before it, or 0 past the end.
 function listStep(mutates vm Vm, f ir.IrFunction, x ir.Instr, next bool) throws Halt
 	let l = try collection(vm, o: argRef(vm, f: f, x: x, i: 0), kind: kindList, what: "a walk")
 	let data = vm.h.oData[l]
@@ -874,50 +874,50 @@ function entryListCopy(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	giveRef(vm, x: x, o: copy)
 end 'entryListCopy'
 
-function entryPoolNew(mutates vm Vm, f ir.IrFunction, x ir.Instr)
-	let made = newTable(vm, kind: kindPool)
+function entrySlotMapNew(mutates vm Vm, f ir.IrFunction, x ir.Instr)
+	let made = newTable(vm, kind: kindSlotMap)
 	giveRef(vm, x: x, o: made)
-end 'entryPoolNew'
+end 'entrySlotMapNew'
 
-function entryPoolLen(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
-	let p = try collection(vm, o: argRef(vm, f: f, x: x, i: 0), kind: kindPool, what: "a length")
-	giveNum(vm, x: x, n: try vm.h.tables[vm.h.oData[p]].count() as ir.Word otherwise panic("interp: a pool past a word"))
-end 'entryPoolLen'
+function entrySlotMapLen(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let p = try collection(vm, o: argRef(vm, f: f, x: x, i: 0), kind: kindSlotMap, what: "a length")
+	giveNum(vm, x: x, n: try vm.h.tables[vm.h.oData[p]].count() as ir.Word otherwise panic("interp: a slot map past a word"))
+end 'entrySlotMapLen'
 
-function entryPoolContains(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
-	let p = try collection(vm, o: argRef(vm, f: f, x: x, i: 0), kind: kindPool, what: "a lookup")
+function entrySlotMapContains(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let p = try collection(vm, o: argRef(vm, f: f, x: x, i: 0), kind: kindSlotMap, what: "a lookup")
 	giveFlag(vm, x: x, b: vm.h.tables[vm.h.oData[p]].lookup(argNum(vm, f: f, x: x, i: 1)).isSome())
-end 'entryPoolContains'
+end 'entrySlotMapContains'
 
-function entryPoolElem(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
-	let p = try collection(vm, o: argRef(vm, f: f, x: x, i: 0), kind: kindPool, what: "an element address")
+function entrySlotMapElem(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let p = try collection(vm, o: argRef(vm, f: f, x: x, i: 0), kind: kindSlotMap, what: "an element address")
 	let slot = try slotOf(vm, o: p, handle: argNum(vm, f: f, x: x, i: 1))
 	let element = vm.h.tables[vm.h.oData[p]].cells[slot]
 	giveAddress(vm, x: x, c: element)
-end 'entryPoolElem'
+end 'entrySlotMapElem'
 
-function entryPoolInsert(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
-	let p = try collection(vm, o: argRef(vm, f: f, x: x, i: 0), kind: kindPool, what: "an insert")
+function entrySlotMapInsert(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let p = try collection(vm, o: argRef(vm, f: f, x: x, i: 0), kind: kindSlotMap, what: "an insert")
 	let e = try moveIn(vm, f: f, holder: p, src: argAt(f, x: x, i: 1), what: "the insert")
 	try restructure(vm, o: p)
 	let data = vm.h.oData[p]
 	let slot = vm.h.tables[data].acquire(e)
 	giveNum(vm, x: x, n: vm.h.tables[data].handleOf(slot))
-end 'entryPoolInsert'
+end 'entrySlotMapInsert'
 
-function entryPoolRemove(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
-	let p = try collection(vm, o: argRef(vm, f: f, x: x, i: 0), kind: kindPool, what: "a remove")
+function entrySlotMapRemove(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let p = try collection(vm, o: argRef(vm, f: f, x: x, i: 0), kind: kindSlotMap, what: "a remove")
 	let slot = try slotOf(vm, o: p, handle: argNum(vm, f: f, x: x, i: 1))
 	try takeSlot(vm, x: x, o: p, slot: slot, what: "the remove")
-end 'entryPoolRemove'
+end 'entrySlotMapRemove'
 
-function entryPoolCopy(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
-	let p = try collection(vm, o: argRef(vm, f: f, x: x, i: 0), kind: kindPool, what: "a copy")
+function entrySlotMapCopy(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let p = try collection(vm, o: argRef(vm, f: f, x: x, i: 0), kind: kindSlotMap, what: "a copy")
 	let copy = try copyObject(vm, o: p)
 	giveRef(vm, x: x, o: copy)
-end 'entryPoolCopy'
+end 'entrySlotMapCopy'
 
-// takeSlot gives the element of a list or a pool slot to the caller and releases the slot, so a handle to it finds nothing from
+// takeSlot gives the element of a list or a slot map slot to the caller and releases the slot, so a slot key to it finds nothing from
 // now on, even when the slot is used again.
 function takeSlot(mutates vm Vm, x ir.Instr, o Count, slot Count, what String) throws Halt
 	try restructure(vm, o: o)
@@ -980,7 +980,7 @@ function copyObject(mutates vm Vm, o Count) returns Count throws Halt
 		end 'elements'
 		return out
 	end 'array'
-	if kind == kindList or kind == kindPool 'table'
+	if kind == kindList or kind == kindSlotMap 'table'
 		let out = newTable(vm, kind: kind)
 		let outData = vm.h.oData[out]
 		vm.h.tables[outData].gens = vm.h.tables[data].gens.clone()

@@ -188,6 +188,106 @@ func rewriteTypeNames(lines []sourceLine) {
 	}
 }
 
+// libraryTypeNamesHere are the types of maxon's library that minimaxon names otherwise (README, "Where it differs from
+// Maxon"): maxon's Slot, one value or none, is Cell here. stdlib/files.txt names the module and file it goes to.
+var libraryTypeNamesHere = []struct{ maxon, here string }{{"Slot", "Cell"}}
+
+// renameLibraryTypes writes each type of libraryTypeNamesHere that the text names as minimaxon's. A program or a helper of
+// the library that declares a type of that name, or takes a type parameter of it, names its own and keeps it, as does a
+// file of a program whose other files declare it (ownTypes); a file of the library's root that declares it is the type's
+// own, whose comments and messages say its new name too.
+func renameLibraryTypes(file string, lines []sourceLine, kind inputKind, ownTypes []string) {
+	root := ""
+	if kind == sourceFile && !isLibraryHelper(file) {
+		root = libraryRoot(file)
+	}
+	for _, name := range libraryTypeNamesHere {
+		old, here := name.maxon, name.here
+		own := declaresType(lines, old)
+		if (own || slices.Contains(ownTypes, old)) && root == "" || root != "" && helperTypes(root)[old] {
+			continue
+		}
+		label := "'" + old + "'"
+		for i := range lines {
+			l := &lines[i]
+			for k, t := range l.code {
+				switch {
+				case t.kind == tokIdent && t.text == old && (k == 0 || l.code[k-1].text != "."):
+					l.code[k].text = here
+				case t.kind == tokLabel && t.text == label:
+					l.code[k].text = "'" + here + "'"
+				case own && t.kind == tokString:
+					l.code[k].text = renameWord(t.text, old, here)
+				}
+			}
+			if own {
+				l.comment = renameWord(l.comment, old, here)
+				l.trailing = renameWord(l.trailing, old, here)
+			}
+		}
+	}
+}
+
+// declaresType says whether the text declares a type, an enum, a union, an interface or a typealias named name, or takes
+// a type parameter of that name.
+func declaresType(lines []sourceLine, name string) bool {
+	for _, l := range lines {
+		at := skipModifiers(l.code)
+		if at+1 < len(l.code) && slices.Contains([]string{"type", "enum", "union", "interface", "typealias"}, l.code[at].text) && l.code[at+1].text == name {
+			return true
+		}
+		inUses := false
+		for _, t := range l.code {
+			switch {
+			case t.kind == tokIdent && t.text == "uses":
+				inUses = true
+			case t.kind == tokIdent && (t.text == "implements" || t.text == "where"):
+				inUses = false
+			case inUses && t.kind == tokIdent && t.text == name:
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// ownLibraryTypes are the types of libraryTypeNamesHere that the program src declares itself.
+func ownLibraryTypes(src string) []string {
+	lines := splitLines(src)
+	var own []string
+	for _, name := range libraryTypeNamesHere {
+		if declaresType(lines, name.maxon) {
+			own = append(own, name.maxon)
+		}
+	}
+	return own
+}
+
+// renameWord writes each whole word old in text, and the word with its first letter lower case, as here likewise.
+func renameWord(text, old, here string) string {
+	lowerOld, lowerHere := strings.ToLower(old[:1])+old[1:], strings.ToLower(here[:1])+here[1:]
+	var b strings.Builder
+	isWord := func(c byte) bool {
+		return c == '_' || '0' <= c && c <= '9' || 'a' <= c && c <= 'z' || 'A' <= c && c <= 'Z'
+	}
+	for i := 0; i < len(text); {
+		matched := false
+		for _, w := range [][2]string{{old, here}, {lowerOld, lowerHere}} {
+			end := i + len(w[0])
+			if (i == 0 || !isWord(text[i-1])) && strings.HasPrefix(text[i:], w[0]) && (end == len(text) || !isWord(text[end])) {
+				b.WriteString(w[1])
+				i, matched = end, true
+				break
+			}
+		}
+		if !matched {
+			b.WriteByte(text[i])
+			i++
+		}
+	}
+	return b.String()
+}
+
 // primitiveExtensionTargets are the built-in types whose text the interpolation writes itself, so maxon's library gives
 // them a toString that minimaxon leaves out, with their Stringable conformance (README, "Where it differs from Maxon").
 var primitiveExtensionTargets = []string{"int", "float", "bool"}

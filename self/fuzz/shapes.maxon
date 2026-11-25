@@ -5,7 +5,7 @@ typealias CountLists = Array with CountList
 // carelessPrograms is the share of programs that break the rules of ownership on purpose.
 let carelessPrograms = 40 as Count
 
-// arraysOnlyPrograms is the share of programs with no list or pool, which can also run as executables.
+// arraysOnlyPrograms is the share of programs with no list or slot map, which can also run as executables.
 let arraysOnlyPrograms = 30 as Count
 
 // nativeSharingPrograms is the share of those that freeze values, make cowns and schedule behaviours, quietly.
@@ -117,7 +117,7 @@ function trimTrailingNewlines(text String) returns borrowed String
 	return text.sliceBytes(0, endPos: finish)
 end 'trimTrailingNewlines'
 
-// collectionSlot is the position of a collection's kind among the three that a program has: arrays, pools and lists.
+// collectionSlot is the position of a collection's kind among the three that a program has: arrays, slot maps and lists.
 // collectionKinds is how many kinds of collection a program has.
 let collectionKinds = 3 as Count
 
@@ -125,7 +125,7 @@ function collectionSlot(kind Kind) returns Count
 	if kind == Kind.kArray 'array'
 		return 0
 	end 'array'
-	if kind == Kind.kPool 'pool'
+	if kind == Kind.kSlotMap 'pool'
 		return 1
 	end 'pool'
 	if kind == Kind.kList 'list'
@@ -145,7 +145,7 @@ end 'kindsOf'
 function allCollections() returns KindList
 	var kinds = KindList.create(0)
 	kinds.push(Kind.kArray)
-	kinds.push(Kind.kPool)
+	kinds.push(Kind.kSlotMap)
 	kinds.push(Kind.kList)
 	return kinds
 end 'allCollections'
@@ -268,7 +268,7 @@ enum Action
 	actFor
 	actMatch
 	actArray
-	actPool
+	actSlotMap
 	actList
 	actReturn
 	actLoopJump
@@ -326,7 +326,7 @@ function actionTable() returns WeightedList
 	t.push(Weighted.make(3, action: Action.actFor))
 	t.push(Weighted.make(5, action: Action.actMatch))
 	t.push(Weighted.make(9, action: Action.actArray))
-	t.push(Weighted.make(5, action: Action.actPool))
+	t.push(Weighted.make(5, action: Action.actSlotMap))
 	t.push(Weighted.make(4, action: Action.actList))
 	t.push(Weighted.make(3, action: Action.actReturn))
 	t.push(Weighted.make(3, action: Action.actLoopJump))

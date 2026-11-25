@@ -23,7 +23,7 @@ function takesMap(consumes m Map with (Count, Count)) returns Count
 	return 0
 end 'takesMap'
 
-function takesTreeOfPools(consumes p Pool with Count, t Tree) returns Count
+function takesTreeOfPools(consumes p SlotMap with Count, t Tree) returns Count
 	return 0
 end 'takesTreeOfPools'
 

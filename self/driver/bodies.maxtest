@@ -30,8 +30,8 @@ end 'expectCheckError'
 
 test 'bodies'
 	expectChecked("tests/run/generics.maxon")
-	expectChecked("tests/run/list-handles.maxon")
-	expectChecked("tests/run/handle-stack.maxon")
+	expectChecked("tests/run/list-slot-keys.maxon")
+	expectChecked("tests/run/slot-key-stack.maxon")
 	expectChecked("tests/modules/generics")
 	expectChecked("tests/modules/throws")
 	expectCheckError("tests/errors/array-create-of-an-element-without-zero.maxon", code: "E3106", line: 5, col: 31)

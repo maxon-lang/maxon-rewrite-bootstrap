@@ -100,6 +100,7 @@ func ConvertSpec(file, src string) SpecResult {
 		case strings.HasPrefix(line, specTestMarker):
 			c.closeTest()
 			c.startTest(line)
+			c.ownTypes = ownLibraryTypes(testSource(lines, i+1))
 		case strings.HasPrefix(line, specHeadingPrefix):
 			c.closeTest()
 			if strings.TrimRight(line, " \t") == specTestsHeading {
@@ -145,6 +146,9 @@ type specConverter struct {
 
 	// block is the converted lines of the block convertBlock handled last.
 	block []string
+
+	// ownTypes are the types of libraryTypeNamesHere that the open test's program declares in any of its files.
+	ownTypes []string
 }
 
 func (c *specConverter) startTest(marker string) {
@@ -223,7 +227,7 @@ func (c *specConverter) convertSection(body []string, firstLine int) []string {
 	if first == last {
 		return body
 	}
-	res := Convert(c.file, strings.Join(body[first:last], "\n"), specProgram)
+	res := convertProgram(c.file, strings.Join(body[first:last], "\n"), specProgram, c.ownTypes)
 	for _, w := range res.Warnings {
 		w.Line += firstLine + first - 1
 		c.warnings = append(c.warnings, w)
@@ -235,6 +239,25 @@ func (c *specConverter) convertSection(body []string, firstLine int) []string {
 	out := append([]string{}, body[:first]...)
 	out = append(out, strings.Split(strings.TrimSuffix(res.Text, "\n"), "\n")...)
 	return append(out, body[last:]...)
+}
+
+// testSource is the source of every ```maxon block of the test whose lines start at from, up to the next test or heading.
+func testSource(lines []string, from int) string {
+	var src []string
+	for i := from; i < len(lines); i++ {
+		line := lines[i]
+		if strings.HasPrefix(line, specTestMarker) || strings.HasPrefix(line, specHeadingPrefix) {
+			break
+		}
+		if fence, ok := openingFence(line); ok {
+			end := closingFence(lines, i, fence)
+			if strings.TrimSpace(strings.TrimPrefix(line, fence)) == specSourceInfo {
+				src = append(src, lines[i+1:min(end, len(lines))]...)
+			}
+			i = end
+		}
+	}
+	return strings.Join(src, "\n")
 }
 
 func isSectionMarker(line string) bool {

@@ -1,5 +1,5 @@
 // hasZero is whether the word 0 is a value of t, so that a slot nothing wrote holds one: an integer whose range takes 0, or
-// a bool. A managed value, a handle, an enum (whose 0 is its first case, not its case of raw value 0) and a type parameter
+// a bool. A managed value, a slot key, an enum (whose 0 is its first case, not its case of raw value 0) and a type parameter
 // have none.
 function hasZero(p ast.Project, ms ast.ModuleState, t ast.TypeID) returns bool
 	if t == p.builtins.boolTy 'bool'
@@ -43,7 +43,7 @@ function checkArrayCreateArgs(mutates c Checker, p ast.Project, ms ast.ModuleSta
 	end 'zero'
 	let name = nameOfType(p, ms: ms, t: elem)
 	if typeHasKind(p, ms: ms, t: elem, kind: ast.TypeKind.typeParam) 'parameter'
-		failAt(c, p: p, ms: ms, node: count, code: diag.errZeroOutsideElement, msg: "'create(n)' cannot publish zeroed slots of a type parameter: '{name}' may be instantiated with a type that has no zero value (a managed type, a handle, an enum, or a ranged alias that excludes 0). Create it empty with 'create(0)' and append with 'push(value)'", errs: errs)
+		failAt(c, p: p, ms: ms, node: count, code: diag.errZeroOutsideElement, msg: "'create(n)' cannot publish zeroed slots of a type parameter: '{name}' may be instantiated with a type that has no zero value (a managed type, a slot key, an enum, or a ranged alias that excludes 0). Create it empty with 'create(0)' and append with 'push(value)'", errs: errs)
 		return
 	end 'parameter'
 	failAt(c, p: p, ms: ms, node: count, code: diag.errZeroOutsideElement, msg: "'create(n)' cannot publish zeroed slots of '{name}': zero is not a value of '{name}'. Create it empty with 'create(0)' and append with 'push(value)'", errs: errs)

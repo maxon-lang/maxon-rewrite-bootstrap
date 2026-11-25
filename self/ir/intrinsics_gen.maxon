@@ -230,27 +230,27 @@ export function intrinsicCall(mutates l Lowerer, p ast.Project, mutates ms ast.M
 	if op == ast.Intrinsic.intrListDropEmpty 'intrListDropEmpty'
 		return lowerListDropEmpty(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrListDropEmpty'
-	if op == ast.Intrinsic.intrPoolCreate 'intrPoolCreate'
-		return lowerPoolCreate(l, p: p, ms: ms, c: c, recv: recv, args: args)
-	end 'intrPoolCreate'
-	if op == ast.Intrinsic.intrPoolCount 'intrPoolCount'
-		return lowerPoolCount(l, p: p, ms: ms, c: c, recv: recv, args: args)
-	end 'intrPoolCount'
-	if op == ast.Intrinsic.intrPoolIsEmpty 'intrPoolIsEmpty'
-		return lowerPoolIsEmpty(l, p: p, ms: ms, c: c, recv: recv, args: args)
-	end 'intrPoolIsEmpty'
-	if op == ast.Intrinsic.intrPoolContains 'intrPoolContains'
-		return lowerPoolContains(l, p: p, ms: ms, c: c, recv: recv, args: args)
-	end 'intrPoolContains'
-	if op == ast.Intrinsic.intrPoolInsert 'intrPoolInsert'
-		return lowerPoolInsert(l, p: p, ms: ms, c: c, recv: recv, args: args)
-	end 'intrPoolInsert'
-	if op == ast.Intrinsic.intrPoolRemove 'intrPoolRemove'
-		return lowerPoolRemove(l, p: p, ms: ms, c: c, recv: recv, args: args)
-	end 'intrPoolRemove'
-	if op == ast.Intrinsic.intrPoolDropEmpty 'intrPoolDropEmpty'
-		return lowerPoolDropEmpty(l, p: p, ms: ms, c: c, recv: recv, args: args)
-	end 'intrPoolDropEmpty'
+	if op == ast.Intrinsic.intrSlotMapCreate 'intrSlotMapCreate'
+		return lowerSlotMapCreate(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrSlotMapCreate'
+	if op == ast.Intrinsic.intrSlotMapCount 'intrSlotMapCount'
+		return lowerSlotMapCount(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrSlotMapCount'
+	if op == ast.Intrinsic.intrSlotMapIsEmpty 'intrSlotMapIsEmpty'
+		return lowerSlotMapIsEmpty(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrSlotMapIsEmpty'
+	if op == ast.Intrinsic.intrSlotMapContains 'intrSlotMapContains'
+		return lowerSlotMapContains(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrSlotMapContains'
+	if op == ast.Intrinsic.intrSlotMapInsert 'intrSlotMapInsert'
+		return lowerSlotMapInsert(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrSlotMapInsert'
+	if op == ast.Intrinsic.intrSlotMapRemove 'intrSlotMapRemove'
+		return lowerSlotMapRemove(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrSlotMapRemove'
+	if op == ast.Intrinsic.intrSlotMapDropEmpty 'intrSlotMapDropEmpty'
+		return lowerSlotMapDropEmpty(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrSlotMapDropEmpty'
 	if op == ast.Intrinsic.intrStringByteLength 'intrStringByteLength'
 		return lowerStringByteLength(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrStringByteLength'
@@ -1063,27 +1063,27 @@ export function ownsOperands(op ast.Intrinsic) returns bool
 	if op == ast.Intrinsic.intrListDropEmpty 'intrListDropEmpty'
 		return false
 	end 'intrListDropEmpty'
-	if op == ast.Intrinsic.intrPoolCreate 'intrPoolCreate'
+	if op == ast.Intrinsic.intrSlotMapCreate 'intrSlotMapCreate'
 		return false
-	end 'intrPoolCreate'
-	if op == ast.Intrinsic.intrPoolCount 'intrPoolCount'
+	end 'intrSlotMapCreate'
+	if op == ast.Intrinsic.intrSlotMapCount 'intrSlotMapCount'
 		return false
-	end 'intrPoolCount'
-	if op == ast.Intrinsic.intrPoolIsEmpty 'intrPoolIsEmpty'
+	end 'intrSlotMapCount'
+	if op == ast.Intrinsic.intrSlotMapIsEmpty 'intrSlotMapIsEmpty'
 		return false
-	end 'intrPoolIsEmpty'
-	if op == ast.Intrinsic.intrPoolContains 'intrPoolContains'
+	end 'intrSlotMapIsEmpty'
+	if op == ast.Intrinsic.intrSlotMapContains 'intrSlotMapContains'
 		return false
-	end 'intrPoolContains'
-	if op == ast.Intrinsic.intrPoolInsert 'intrPoolInsert'
+	end 'intrSlotMapContains'
+	if op == ast.Intrinsic.intrSlotMapInsert 'intrSlotMapInsert'
 		return false
-	end 'intrPoolInsert'
-	if op == ast.Intrinsic.intrPoolRemove 'intrPoolRemove'
+	end 'intrSlotMapInsert'
+	if op == ast.Intrinsic.intrSlotMapRemove 'intrSlotMapRemove'
 		return false
-	end 'intrPoolRemove'
-	if op == ast.Intrinsic.intrPoolDropEmpty 'intrPoolDropEmpty'
+	end 'intrSlotMapRemove'
+	if op == ast.Intrinsic.intrSlotMapDropEmpty 'intrSlotMapDropEmpty'
 		return false
-	end 'intrPoolDropEmpty'
+	end 'intrSlotMapDropEmpty'
 	if op == ast.Intrinsic.intrStringByteLength 'intrStringByteLength'
 		return false
 	end 'intrStringByteLength'

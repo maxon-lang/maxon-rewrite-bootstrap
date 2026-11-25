@@ -33,7 +33,7 @@ function main() returns ExitCode
 	print("{describe(l)}\n")
 	l[b].weight = 20
 	print("{describe(l)}\n")
-	let removed = try l.remove(b) otherwise panic("the handle names no element")
+	let removed = try l.remove(b) otherwise panic("the slot key names no element")
 	print("{removed.name} {l.contains(b)} {l.count()} {describe(l)}\n")
 	let d = l.append(Item.make("d", weight: 4))
 	print("{l.contains(b)} {l.contains(d)} {b == d} {describe(l)}\n")

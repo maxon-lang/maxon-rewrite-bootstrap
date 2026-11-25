@@ -1310,7 +1310,7 @@ function checkSpecTest(test SpecTest, text String, stem String, errs diag.ErrorL
 	end 'expectsError'
 	if errs.count() > 0 'failed'
 		if onlyInterpreterErrors(errs) 'interpreter'
-			return table.Option.some(TestResult.unsupported("needs the interpreter: a map, list, pool, frozen value, cown or behaviour"))
+			return table.Option.some(TestResult.unsupported("needs the interpreter: a map, list, slot map, frozen value, cown or behaviour"))
 		end 'interpreter'
 		return table.Option.some(TestResult.failed("unexpected compile error: {oneLine(errs[0].code, limit: detailLimit)} {oneLine(errs[0].message, limit: detailLimit)}"))
 	end 'failed'
