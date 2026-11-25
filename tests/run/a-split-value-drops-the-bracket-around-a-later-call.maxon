@@ -1,0 +1,18 @@
+// A value split out of its register at an earlier point keeps no bracket around a later call of its block: the bracket's
+// spill and restore go with the split, which stores the value once and reloads it after the call (x64's float
+// registers, which every call clobbers, made a bracket that the split cut in two).
+typealias Span = float(0.0 to 10.0)
+
+function take(v Span) returns Span
+	return v
+end 'take'
+
+function main() returns ExitCode
+	let xs = [1.5, 2.5]
+	let r = try xs.get(0) otherwise 2.0
+	let q = try (4.5 / r) otherwise 0.0
+	print("{take(try (r + r) as Span otherwise panic("out of range"))} {take(try (r * r) as Span otherwise panic("out of range"))} {take(try (r - 1.0) as Span otherwise panic("out of range"))} {take(try q as Span otherwise panic("out of range"))} {take(try (5.0 - r) as Span otherwise panic("out of range"))} {take(try abs(-r) as Span otherwise panic("out of range"))}\n")
+	return 0
+end 'main'
+
+//> 3.0 2.25 0.5 3.0 3.5 1.5

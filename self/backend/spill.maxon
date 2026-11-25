@@ -509,6 +509,28 @@ export type Spiller
 		return lo
 	end 'firstEntryFrom'
 
+	// dropsBracket is whether the use e of r that a split reaches is the spill that opens a bracket of r, whose restore
+	// closes it further down the block, and deletes the two: the split stores r at its definition and reloads it at the
+	// uses after the cut, so the bracket's own store and restore have nothing left to do. A bracket's spill read as a use
+	// would take the split's piece while its restore went on defining r, a bracket of two values.
+	function dropsBracket(mutates self, fn MirFunction, e Count, r MReg) returns bool
+		let k = lv.recordAt[lv.useList[e]]
+		if fn.instrs[k].kind != MKind.spill 'notSpill'
+			return false
+		end 'notSpill'
+		let b = graph.blockAt[k]
+		for c in nextCount(k) upto fn.blocks[b].endAt 'close'
+			if fn.instrs[c].kind == MKind.restore and fn.instrs[c].a == r 'restore'
+				deleted[k] = true
+				deleted[c] = true
+				touchValue(touched, v: vregIndex(r))
+				stale[b] = true
+				return true
+			end 'restore'
+		end 'close'
+		return false
+	end 'dropsBracket'
+
 	function names(fn MirFunction, e Count, r MReg) returns bool
 		let rec = lv.useList[e]
 		return useOperand(fn, k: lv.recordAt[rec], slot: lv.recordSlot[rec]) == r
@@ -533,7 +555,7 @@ export type Spiller
 				if self.entryAt(e) >= fn.blocks[cutBlock].endAt 'past'
 					break 'uses'
 				end 'past'
-				if self.names(fn, e: e, r: r) 'mine'
+				if self.names(fn, e: e, r: r) and not self.dropsBracket(fn, e: e, r: r) 'mine'
 					reach.push(e)
 				end 'mine'
 			end 'uses'
@@ -678,7 +700,7 @@ export type Spiller
 			if region == ir.noLoop and b == cutBlock 'cut'
 				reached = at >= cutPos or visit[b] == mark
 			end 'cut'
-			if reached and self.names(fn, e: e, r: r) 'mine'
+			if reached and self.names(fn, e: e, r: r) and not self.dropsBracket(fn, e: e, r: r) 'mine'
 				reach.push(e)
 			end 'mine'
 		end 'uses'
@@ -1291,7 +1313,8 @@ function makeRoom(mutates fn MirFunction, mutates s Spiller, b Count, k Count, i
 		end 'across'
 	end 'measured'
 	let need = instrNeed(dying, writes: writes, shares: shares)
-	let cold = relief == Relief.all and s.graph.cold[b] and nextCount(k) < fn.blocks[b].endAt
+	// A bracket closes in its own block: after k and the copies of what k leaves in its fixed registers, before the block ends.
+	let cold = relief == Relief.all and s.graph.cold[b] and bracketClose(fn, s: s, k: k, until: fn.blocks[b].endAt) < fn.blocks[b].endAt
 	var t = across
 	while true 'over'
 		let held = try t - s.outCount[c] otherwise panic("backend: more values out of their registers than live")
@@ -1315,7 +1338,7 @@ function makeRoom(mutates fn MirFunction, mutates s Spiller, b Count, k Count, i
 			let rootReg = s.root[v]
 			let slot = s.slotFor(rootReg)
 			s.insertRanked(k, rank: rankFirst, x: newSpill(victim, slot: slot))
-			s.insertRanked(bracketClose(fn, s: s, k: k), rank: rankFirst, x: newRestore(victim, slot: slot))
+			s.insertRanked(bracketClose(fn, s: s, k: k, until: fn.blocks[b].endAt), rank: rankFirst, x: newRestore(victim, slot: slot))
 			s.fwdOut[v] = true
 			s.outCount[c] = nextCount(s.outCount[c])
 			s.bracketedNow.push(victim)
@@ -1333,11 +1356,12 @@ end 'makeRoom'
 
 // bracketClose is where the restore of a bracket about the instruction at k goes: after the copies that take what k left
 // in its fixed registers (a call's results), since the restore writes the value's register and colouring may have given
-// the value one of those, which the value is out of for the bracket's length.
-function bracketClose(fn MirFunction, s Spiller, k Count) returns Count
+// the value one of those, which the value is out of for the bracket's length; until, the end of k's block, where a
+// bracket that would close after it cannot.
+function bracketClose(fn MirFunction, s Spiller, k Count, until Count) returns Count
 	let left = implicitDefs(fn.instrs[k], convs: s.convs)
 	var at = nextCount(k)
-	while fn.instrs[at].kind == MKind.copy and isPhysical(fn.instrs[at].b) and maskHas(left, number: physicalNumber(fn.instrs[at].b)) 'results'
+	while at < until and fn.instrs[at].kind == MKind.copy and isPhysical(fn.instrs[at].b) and maskHas(left, number: physicalNumber(fn.instrs[at].b)) 'results'
 		at = nextCount(at)
 	end 'results'
 	return at
