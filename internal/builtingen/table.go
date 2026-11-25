@@ -622,8 +622,9 @@ var tableFunctions = []function{
 	// create(n, zeroed:) is maxon's one allocation with a stated capacity: zeroed: true is create(n), and zeroed: false an empty
 	// array with room for n, which is legal for every element. The flag is a literal.
 	{Owner: "Array", Name: "create", Static: true, Params: []string{"count ElementIndex", "zeroed Bool"}, Result: "Self", Intrinsic: "ArrayCreateZeroed", Field: "ArrayCreateZeroed", Checked: true},
-	// init is maxon's door from a raw buffer, which is an array's box: it makes the array of it.
-	{Owner: "Array", Name: "init", Static: true, Params: []string{"consumes managed ManagedMemory with T"}, Result: "Self", Intrinsic: "ArrayFromMemory", Raw: &rawSurface{What: "an array is made of a raw '__ManagedMemory' buffer", Instead: "use 'Array.create'"}},
+	// init makes the array of a raw buffer, which is an array's box. As in maxon the call is no door of its own: the buffer's
+	// type is, which only the library tiers name.
+	{Owner: "Array", Name: "init", Static: true, Params: []string{"consumes managed ManagedMemory with T"}, Result: "Self", Intrinsic: "ArrayFromMemory"},
 	{Owner: "Array", Name: "filled", Static: true, Params: []string{"count ElementIndex", "consumes value T"}, Result: "Self", Bounds: []string{"T Copyable"}, Intrinsic: "ArrayFilled"},
 	{Owner: "Array", Name: "count", Result: "Count", Intrinsic: "ArrayCount"},
 	{Owner: "Array", Name: "isEmpty", Result: "Bool", Intrinsic: "ArrayIsEmpty"},
@@ -747,6 +748,10 @@ var tableFunctions = []function{
 	{Owner: "SlotMap", Name: "insert", Self: "mutates", Params: []string{"consumes value T"}, Result: "SlotKey with T", Intrinsic: "SlotMapInsert"},
 	{Owner: "SlotMap", Name: "remove", Self: "mutates", Params: []string{"key SlotKey with T"}, Result: "T", Throws: "ArrayError", Intrinsic: "SlotMapRemove"},
 	{Owner: "SlotMap", Name: "dropEmpty", Self: "consumes", Intrinsic: "SlotMapDropEmpty"},
+	// fromWord and word are the library's door to a slot key's word, which a slot map of the library packs its slot and the
+	// slot's generation into; each is the word itself.
+	{Owner: "SlotKey", Name: "fromWord", Static: true, Params: []string{"word Count"}, Result: "Self", Intrinsic: "SlotKeyFromWord", Raw: &rawSurface{What: "a slot key is made of a word", Instead: "use the slot key a slot map's 'insert' gives"}},
+	{Owner: "SlotKey", Name: "word", Result: "Count", Intrinsic: "SlotKeyWord", Raw: &rawSurface{What: "a slot key's word is read", Instead: "compare slot keys with '=='"}},
 
 	{Owner: "String", Name: "byteLength", Result: "Count", Intrinsic: "StringByteLength"},
 	{Owner: "String", Name: "byteAt", Params: []string{"index Count"}, Result: "Byte", Intrinsic: "StringByteAt"},

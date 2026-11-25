@@ -119,6 +119,7 @@ var builtinMethods = map[string][]string{
 	"__GroupMemory":         {"create", "groups", "control", "setControl", "first", "second", "put", "setSecond", "takeFirst", "takeSecond", "clear"},
 	"List":                  {"create", "count", "isEmpty", "contains", "prepend", "append", "removeFirst", "removeLast", "first", "last", "next", "prev", "remove", "moveToFront", "dropEmpty"},
 	"SlotMap":               {"create", "count", "isEmpty", "contains", "insert", "remove", "dropEmpty"},
+	"SlotKey":               {"fromWord", "word"},
 	"String":                {"byteLength", "byteAt", "sliceBytes", "toByteArray", "from", "byteAtOrPanic", "addressableBytes", "init", "bytes", "codepoints", "utf16", "isEmpty", "equals", "count", "contains", "startsWith", "endsWith", "findFirst", "findLast", "indexAfter", "startIndex", "endIndex", "slice", "sliceLength", "replace", "replaceFirst", "toLower", "toUpper", "charAt", "containsCharacter"},
 	"ByteView":              {"createIterator", "count"},
 	"ByteIterator":          {"current", "advance"},

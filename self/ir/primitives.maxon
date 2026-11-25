@@ -806,6 +806,16 @@ function lowerSlotMapDropEmpty(mutates l Lowerer, p ast.Project, mutates ms ast.
 	return dropEmpty(l, p: p, ms: ms, c: c, left: n, collection: recv)
 end 'lowerSlotMapDropEmpty'
 
+// lowerSlotKeyFromWord is the slot key whose word is the argument, the same word.
+function lowerSlotKeyFromWord(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return args[0]
+end 'lowerSlotKeyFromWord'
+
+// lowerSlotKeyWord is the word of a slot key, the key itself.
+function lowerSlotKeyWord(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return recv
+end 'lowerSlotKeyWord'
+
 function lowerSlotMapRemove(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	return removeSlotKey(l, p: p, ms: ms, c: c, contains: Rt.rtSlotMapContains, remove: Rt.rtSlotMapRemove, collection: recv, handle: args[0])
 end 'lowerSlotMapRemove'

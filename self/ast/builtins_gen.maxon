@@ -281,6 +281,8 @@ export enum Intrinsic
 	intrSlotMapInsert
 	intrSlotMapRemove
 	intrSlotMapDropEmpty
+	intrSlotKeyFromWord
+	intrSlotKeyWord
 	intrStringByteLength
 	intrStringByteAt
 	intrStringSliceBytes
@@ -804,12 +806,15 @@ end 'rawCallInstead'
 // rawMemberSurface is the door of the raw surface that calling a method of that name of a type of the table is, for a
 // method that is one, or none.
 export function rawMemberSurface(b Builtins, owner TypeID, name String) returns table.Option with RawSurface
-	if owner == b.arrayOrigin and name == "init" 'arrayInit'
-		return table.Option.some(RawSurface.make("an array is made of a raw '__ManagedMemory' buffer", instead: "use 'Array.create'"))
-	end 'arrayInit'
 	if owner == b.arrayOrigin and name == "clearSlot" 'arrayClearSlot'
 		return table.Option.some(RawSurface.make("an array's slot is emptied in place", instead: "use 'remove(at)'"))
 	end 'arrayClearSlot'
+	if owner == b.slotKeyOrigin and name == "fromWord" 'slotKeyFromWord'
+		return table.Option.some(RawSurface.make("a slot key is made of a word", instead: "use the slot key a slot map's 'insert' gives"))
+	end 'slotKeyFromWord'
+	if owner == b.slotKeyOrigin and name == "word" 'slotKeyWord'
+		return table.Option.some(RawSurface.make("a slot key's word is read", instead: "compare slot keys with '=='"))
+	end 'slotKeyWord'
 	if owner == b.stringTy and name == "addressableBytes" 'stringAddressableBytes'
 		return table.Option.some(RawSurface.make("a String's bytes are taken as a raw '__ManagedMemory' buffer", instead: "use 'toByteArray()' or 'bytes()'"))
 	end 'stringAddressableBytes'
@@ -874,6 +879,7 @@ function declareBuiltinTable(mutates tt TypeSlot, reads TypeTable, mutates ft Fu
 	declareGroupMemoryMethods(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, b: b, funcMap: funcMap)
 	declareListMethods(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, b: b, funcMap: funcMap)
 	declareSlotMapMethods(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, b: b, funcMap: funcMap)
+	declareSlotKeyMethods(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, b: b, funcMap: funcMap)
 	declareStringMethods(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, b: b, funcMap: funcMap)
 	declareByteViewMethods(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, b: b, funcMap: funcMap)
 	declareByteIteratorMethods(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, b: b, funcMap: funcMap)
@@ -1589,6 +1595,14 @@ function declareSlotMapMethods(mutates tt TypeSlot, reads TypeTable, mutates ft 
 	ft.lists[funcList(ft, f: f13)][funcIndex(ft, f: f13)].errTy = b.arrayErrorTy
 	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.slotMapOrigin, op: Intrinsic.intrSlotMapDropEmpty, name: "dropEmpty", isStatic: false, selfConv: Convention.convConsumes, ret: b.voidTy, params: ParamSpecList.create(0), listed: true)
 end 'declareSlotMapMethods'
+
+function declareSlotKeyMethods(mutates tt TypeSlot, reads TypeTable, mutates ft FuncSlot, funcReads FuncTable, mutates std ParsedModule, mutates b Builtins, mutates funcMap FuncIDMap)
+	let ty1 = selfType(tt, reads: reads, declTy: b.slotKeyOrigin)
+	var ps2 = ParamSpecList.create(0)
+	ps2.push(ParamSpec.make("word", ty: b.countTy, conv: Convention.convLet))
+	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.slotKeyOrigin, op: Intrinsic.intrSlotKeyFromWord, name: "fromWord", isStatic: true, selfConv: Convention.convLet, ret: ty1, params: ps2, listed: true)
+	_ = registerMethodOn(tt, reads: reads, ft: ft, funcReads: funcReads, std: std, owner: b.slotKeyOrigin, op: Intrinsic.intrSlotKeyWord, name: "word", isStatic: false, selfConv: Convention.convLet, ret: b.countTy, params: ParamSpecList.create(0), listed: true)
+end 'declareSlotKeyMethods'
 
 function declareStringMethods(mutates tt TypeSlot, reads TypeTable, mutates ft FuncSlot, funcReads FuncTable, mutates std ParsedModule, mutates b Builtins, mutates funcMap FuncIDMap)
 	let f1 = registerStdFunc(ft, funcReads: funcReads, std: std, funcMap: funcMap, op: Intrinsic.intrStringByteLength, name: "byteLength", generics: TypeIDList.create(0), ret: b.countTy, params: ParamSpecList.create(0), declareInStd: false)

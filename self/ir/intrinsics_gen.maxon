@@ -251,6 +251,12 @@ export function intrinsicCall(mutates l Lowerer, p ast.Project, mutates ms ast.M
 	if op == ast.Intrinsic.intrSlotMapDropEmpty 'intrSlotMapDropEmpty'
 		return lowerSlotMapDropEmpty(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrSlotMapDropEmpty'
+	if op == ast.Intrinsic.intrSlotKeyFromWord 'intrSlotKeyFromWord'
+		return lowerSlotKeyFromWord(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrSlotKeyFromWord'
+	if op == ast.Intrinsic.intrSlotKeyWord 'intrSlotKeyWord'
+		return lowerSlotKeyWord(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrSlotKeyWord'
 	if op == ast.Intrinsic.intrStringByteLength 'intrStringByteLength'
 		return lowerStringByteLength(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrStringByteLength'
@@ -1084,6 +1090,12 @@ export function ownsOperands(op ast.Intrinsic) returns bool
 	if op == ast.Intrinsic.intrSlotMapDropEmpty 'intrSlotMapDropEmpty'
 		return false
 	end 'intrSlotMapDropEmpty'
+	if op == ast.Intrinsic.intrSlotKeyFromWord 'intrSlotKeyFromWord'
+		return false
+	end 'intrSlotKeyFromWord'
+	if op == ast.Intrinsic.intrSlotKeyWord 'intrSlotKeyWord'
+		return false
+	end 'intrSlotKeyWord'
 	if op == ast.Intrinsic.intrStringByteLength 'intrStringByteLength'
 		return false
 	end 'intrStringByteLength'

@@ -15,8 +15,9 @@ function refusesRawType(c Checker, p ast.Project, ms ast.ModuleState, off diag.U
 	return true
 end 'refusesRawType'
 
-// refusesRawCall refuses a call that a module outside the library tiers makes of a raw static function or of a method of a
-// type of the raw surface. A static function of such a type is called on its name, which refusesRawType refused already.
+// refusesRawCall refuses a call that a module outside the library tiers makes of a raw static function, of a raw member of a
+// type that is not raw (a door such as `SlotKey.fromWord`), or of a method of a type of the raw surface. Any other static
+// function of such a type is called on its name, which refusesRawType refused already.
 function refusesRawCall(c Checker, p ast.Project, ms ast.ModuleState, call ast.NodeID, target ast.FuncID, mutates errs diag.ErrorList) returns bool
 	if p.modules[c.modIdx].inLibraryTier() 'tier'
 		return false
@@ -31,13 +32,13 @@ function refusesRawCall(c Checker, p ast.Project, ms ast.ModuleState, call ast.N
 		some(instead) then return refuseRawCall(c, p: p, ms: ms, call: call, ownerName: ast.typeEntry(ms.types, reads: p.types, t: origin).name.clone(), name: name, instead: instead, errs: errs)
 		none then _ = 0
 	end 'call'
-	if not ast.funcEntry(ms.funcs, funcReads: p.funcs, f: target).hasReceiver 'static'
-		return false
-	end 'static'
 	match consumes ast.rawMemberSurface(p.builtins, owner: origin, name: name.clone()) 'member'
 		some(door) then return refuseRawMember(c, p: p, ms: ms, call: call, name: name, door: door, errs: errs)
 		none then _ = 0
 	end 'member'
+	if not ast.funcEntry(ms.funcs, funcReads: p.funcs, f: target).hasReceiver 'static'
+		return false
+	end 'static'
 	match consumes ast.rawMethodSurface(p.builtins, origin: origin) 'method'
 		some(door) then return refuseRawMember(c, p: p, ms: ms, call: call, name: name, door: door, errs: errs)
 		none then return false

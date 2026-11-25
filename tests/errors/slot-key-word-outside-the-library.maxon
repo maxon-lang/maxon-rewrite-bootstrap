@@ -1,0 +1,14 @@
+// expect-error: E3185 at 8:19
+// expect-error: E3185 at 12:12
+typealias CountKey = SlotKey with Count
+
+typealias CountPool = SlotMap with Count
+
+function main() returns ExitCode
+	let k = CountKey.fromWord(5)
+	var p = CountPool.create()
+	let h = p.insert(1)
+	let same = h == k
+	print("{h.word()}")
+	return 0
+end 'main'

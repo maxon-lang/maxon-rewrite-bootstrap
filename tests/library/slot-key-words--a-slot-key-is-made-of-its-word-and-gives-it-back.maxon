@@ -1,0 +1,13 @@
+// The library tier makes a slot key of a word and reads the word back, which a slot map packs its slot and the slot's
+// generation into; keys of the same word are equal.
+typealias CountKey = SlotKey with Count
+
+function main() returns ExitCode
+	let k = CountKey.fromWord(4294967299)
+	let same = CountKey.fromWord(k.word())
+	let other = CountKey.fromWord(3)
+	print("{k.word()} {k == same} {k == other}\n")
+	return 0
+end 'main'
+
+//> 4294967299 true false
