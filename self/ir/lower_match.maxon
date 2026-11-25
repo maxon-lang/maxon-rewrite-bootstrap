@@ -50,16 +50,16 @@ function lowerMatch(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState
 		end 'then' else if form == ast.ArmKind.armGives 'gives'
 			pushScope(l, block: false)
 			storeConverted(l, p: p, ms: ms, slot: result, e: ast.matchArmValue(p.modules[l.mi].tree, id: arm), target: resultType)
-			popScope(l, p: p)
+			popScope(l, p: p, ms: ms)
 		end 'gives' else if form == ast.ArmKind.armPanic 'panics'
 			pushScope(l, block: false)
 			_ = lowerExpr(l, p: p, ms: ms, e: ast.matchArmValue(p.modules[l.mi].tree, id: arm))
-			popScope(l, p: p)
+			popScope(l, p: p, ms: ms)
 		end 'panics' else 'other'
 			panic("lower: unhandled match arm kind")
 		end 'other'
 		if takesApart 'popApart'
-			popScope(l, p: p)
+			popScope(l, p: p, ms: ms)
 		end 'popApart'
 		if ast.matchArmFalls(p.modules[l.mi].tree, id: arm) and a + 1 < p.modules[l.mi].tree.listLen(armsRef) 'falls'
 			carried = l.b.newBlock()

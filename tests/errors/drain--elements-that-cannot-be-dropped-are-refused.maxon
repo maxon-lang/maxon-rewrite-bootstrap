@@ -1,0 +1,25 @@
+// expect-error: E3919 at 20:11
+// A walk of a drain that ends early drops the elements it has not reached, so the elements must be Droppable.
+type Txn
+	var id as Count
+
+	static function begin(id Count) returns Txn
+		return Txn{id: id}
+	end 'begin'
+
+	function commit(destructs self)
+		print("commit {id}\n")
+	end 'commit'
+end 'Txn'
+
+typealias Txns = Array with Txn
+
+function main() returns ExitCode
+	var txns = Txns.create(0)
+	txns.push(Txn.begin(1))
+	for t in txns.drain() 'each'
+		t.commit()
+	end 'each'
+	txns.dropEmpty()
+	return 0
+end 'main'

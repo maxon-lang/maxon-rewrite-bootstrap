@@ -102,11 +102,25 @@ export typealias OperatorFrameList = Array with OperatorFrame
 export type Scope
 	export var block as bool
 	export var drops as PendingList
+	// drains is whether the scope is a walk of a drain (pushDrainScope), which walk is then.
+	export var drains as bool
+	export var walk as DrainWalk
 
 	export static function make(block bool) returns Scope
-		return Scope{block: block, drops: PendingList.create(0)}
+		return Scope{block: block, drops: PendingList.create(0), drains: false, walk: DrainWalk.make(ArrayBox.make(diag.Site.make(diag.stdlibID, offset: 0), ty: ast.noType), slot: 0 as Count, drop: ElementDrop.make(Holding.heldWord, walks: false, drops: false, ty: ast.noType))}
 	end 'make'
 end 'Scope'
+
+// DrainWalk is a walk of a drain: the array, of the type box names, that slot holds, and how an element of it is dropped.
+export type DrainWalk
+	export var box as ArrayBox
+	export var slot as Count
+	export var drop as ElementDrop
+
+	export static function make(consumes box ArrayBox, slot Count, consumes drop ElementDrop) returns DrainWalk
+		return DrainWalk{box: box, slot: slot, drop: drop}
+	end 'make'
+end 'DrainWalk'
 
 export typealias ScopeList = Array with Scope
 

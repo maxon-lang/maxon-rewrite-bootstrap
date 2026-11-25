@@ -407,16 +407,23 @@ end 'fillFormSlot'
 // out of a slot table. It fails with indexOutOfBounds past the end and with emptySlot at an empty slot.
 function arrayTakeSlot(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, box ArrayBox, arr Reg, index Reg) returns Reg
 	arrayInBounds(l, p: p, ms: ms, box: box, arr: arr, index: index)
+	return arrayMoveOut(l, p: p, ms: ms, box: box, arr: arr, index: index, fillsEvery: false)
+end 'arrayTakeSlot'
+
+// arrayMoveOut moves the element at index, which is inside the array, out and leaves its slot empty. An array whose every
+// slot is filled (fillsEvery), as a plain array's below its count is, needs no test that the slot holds an element; a slot
+// array's fails with emptySlot where it does not.
+function arrayMoveOut(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, box ArrayBox, arr Reg, index Reg, fillsEvery bool) returns Reg
 	let zero = konst(l, value: 0 as Word)
 	return match elementWay(p, ms: ms, box: box) 'way'
 		heldPacked gives takeByte(l, p: p, box: box, arr: arr, index: index, zero: zero)
 		heldInline(words) gives takeWords(l, p: p, ms: ms, box: box, arr: arr, index: index, words: words)
-		heldString gives takeForm(l, p: p, ms: ms, box: box, arr: arr, index: index, zero: zero)
-		heldWord gives takeForm(l, p: p, ms: ms, box: box, arr: arr, index: index, zero: zero)
-		heldBox gives takeForm(l, p: p, ms: ms, box: box, arr: arr, index: index, zero: zero)
+		heldString gives takeForm(l, p: p, ms: ms, box: box, arr: arr, index: index, zero: zero, fillsEvery: fillsEvery)
+		heldWord gives takeForm(l, p: p, ms: ms, box: box, arr: arr, index: index, zero: zero, fillsEvery: fillsEvery)
+		heldBox gives takeForm(l, p: p, ms: ms, box: box, arr: arr, index: index, zero: zero, fillsEvery: fillsEvery)
 		heldAddress(_) gives panic("ir: an element held as the address of words elsewhere")
 	end 'way'
-end 'arrayTakeSlot'
+end 'arrayMoveOut'
 
 // takeByte reads the byte at index of an array of bytes and leaves it 0.
 function takeByte(mutates l Lowerer, p ast.Project, box ArrayBox, arr Reg, index Reg, zero Reg) returns Reg
@@ -435,11 +442,11 @@ function takeWords(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState,
 end 'takeWords'
 
 // takeForm moves the word or String at index out, as arrayTakeSlot says.
-function takeForm(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, box ArrayBox, arr Reg, index Reg, zero Reg) returns Reg
+function takeForm(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, box ArrayBox, arr Reg, index Reg, zero Reg, fillsEvery bool) returns Reg
 	let addr = arrayAddress(l, p: p, ms: ms, box: box, arr: arr, index: index, checked: false)
 	let elem = arrayElem(p, ms: ms, box: box)
 	let kind = kindOf(l, p: p, ms: ms, t: elem)
-	if zeroIsEmpty(ms.types, reads: p.types, t: elem) 'mayBeEmpty'
+	if not fillsEvery and zeroIsEmpty(ms.types, reads: p.types, t: elem) 'mayBeEmpty'
 		let held = newReg(l, kind: kind)
 		emit(l, i: newLoadAt(held, addr: addr))
 		let filled = notZero(l, p: p, ms: ms, elem: elem, element: held)
@@ -686,20 +693,46 @@ end 'saturatingSub'
 // one entry whatever its length. An element that owns something is dropped in place, one loop with one lookup of its address
 // each, before the length is set.
 function arrayShrinkTo(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, box ArrayBox, arr Reg, keep Reg)
-	match elementWay(p, ms: ms, box: box) 'way'
+	let drop = elementDrop(l, p: p, ms: ms, box: box)
+	shrinkWith(l, p: p, ms: ms, box: box, arr: arr, keep: keep, drop: drop)
+end 'arrayShrinkTo'
+
+// ElementDrop is how an element of an array is dropped where it lies: how the array holds it, whether its kind owns and
+// whether its place holds what a drop ends, and the type of the drop. It is worked out once, so that code emitted where the
+// types of the body can no longer be applied, the unwinding of a walk of a drain, drops the elements as a shrink does.
+export type ElementDrop
+	export var way as Holding
+	export var walks as bool
+	export var drops as bool
+	export var ty as ast.TypeID
+
+	export static function make(consumes way Holding, walks bool, drops bool, ty ast.TypeID) returns ElementDrop
+		return ElementDrop{way: way, walks: walks, drops: drops, ty: ty}
+	end 'make'
+end 'ElementDrop'
+
+function elementDrop(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, box ArrayBox) returns ElementDrop
+	let elem = arrayElem(p, ms: ms, box: box)
+	let walks = owning(kindOf(l, p: p, ms: ms, t: elem))
+	let drops = holderOwns(l, p: p, ms: ms, t: elem)
+	return ElementDrop.make(elementWay(p, ms: ms, box: box), walks: walks, drops: drops, ty: dropType(l, p: p, ms: ms, t: elem))
+end 'elementDrop'
+
+// shrinkWith is arrayShrinkTo with the drop of an element worked out.
+function shrinkWith(mutates l Lowerer, p ast.Project, ms ast.ModuleState, box ArrayBox, arr Reg, keep Reg, drop ElementDrop)
+	match drop.way 'way'
 		heldInline(words) then recordsCall(l, p: p, box: box, symbol: Rt.rtRecsShrink, arr: arr, n: keep, words: words)
 		heldPacked or
 		heldString or
 		heldWord or
-		heldBox then shrinkForms(l, p: p, ms: ms, box: box, arr: arr, keep: keep)
+		heldBox then shrinkForms(l, p: p, ms: ms, box: box, arr: arr, keep: keep, drop: drop)
 		heldAddress(_) panic("ir: an element held as the address of words elsewhere")
 	end 'way'
-end 'arrayShrinkTo'
+end 'shrinkWith'
 
 // shrinkForms makes an array of bytes, words or Strings keep elements long, as arrayShrinkTo says.
-function shrinkForms(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, box ArrayBox, arr Reg, keep Reg)
-	let elem = arrayElem(p, ms: ms, box: box)
-	if owning(kindOf(l, p: p, ms: ms, t: elem)) 'owning'
+function shrinkForms(mutates l Lowerer, p ast.Project, ms ast.ModuleState, box ArrayBox, arr Reg, keep Reg, drop ElementDrop)
+	if drop.walks 'owning'
 		let length = arrayLength(l, p: p, ms: ms, box: box, arr: arr)
 		let extra = newReg(l, kind: IrKind.kindScalar)
 		emit(l, i: newBin(extra, op: BinOp.binSub, left: length, right: keep, unsigned: true, fail: noBlock))
@@ -711,7 +744,9 @@ function shrinkForms(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleStat
 		let index = newReg(l, kind: IrKind.kindScalar)
 		emit(l, i: newBin(index, op: BinOp.binSub, left: last, right: offset, unsigned: true, fail: noBlock))
 		let addr = arrayAddress(l, p: p, ms: ms, box: box, arr: arr, index: index, checked: true)
-		dropAt(l, p: p, ms: ms, addr: addr, t: elem)
+		if drop.drops 'drops'
+			emitDropAt(l, addr: addr, ty: drop.ty)
+		end 'drops'
 		countedLoopEnd(l, loop: loop)
 	end 'owning'
 	entryVoid(l, p: p, site: box.site, symbol: Rt.rtArrayShrink, args: argsOf2(arr, b: keep))

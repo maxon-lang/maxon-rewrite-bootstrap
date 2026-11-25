@@ -252,6 +252,7 @@ export enum OwnDropKind
 	dropPayload
 	dropOtherPath
 	dropFailure
+	dropDrained
 end 'OwnDropKind'
 
 // OwnDrop is an implicit drop: the kind, and the name of the variable, parameter or payload it concerns.
@@ -276,6 +277,7 @@ export type OwnDrop
 			dropPayload gives "this arm drops the payload '{name}' that it does not name"
 			dropOtherPath gives "'{name}' is moved on one path only, so the other path drops it"
 			dropFailure gives "'{name}' still holds its value where this can fail, and a failure leaves its scope, which drops it"
+			dropDrained gives "a walk of '{name}.drain()' that ends early, by a 'break', a 'return' or a failure, drops the elements it has not reached"
 		end 'k'
 	end 'text'
 end 'OwnDrop'
@@ -329,6 +331,9 @@ export enum OwnProjectionKind
 	// projectLent is a place that a let bound to a borrowed result lends from, a view of a String's bytes among them:
 	// nothing may change or move it while the let's scope lasts (README, "Ownership").
 	projectLent
+	// projectDrain is the array that a `for x in xs.drain()` moves the elements out of: nothing may read, change or move it
+	// while the body runs, since its slots up to the variable's are empty and its count is the walk's.
+	projectDrain
 end 'OwnProjectionKind'
 
 // OwnProjection is a place that stays borrowed while code runs which must not change it: a match subject whose payload
@@ -505,6 +510,11 @@ export type Ownership
 	// the function has made a hold that refuses reads, which only then are looked at.
 	export var holders as OwnHolders
 	export var mutableHeld as bool
+	// draining is how many walks of a drain enclose the code being checked, whose arrays refuse every use
+	// (requireUndrained), and drainPart the object of the last place it looked at, which is part of that place and not a
+	// use of its own.
+	export var draining as Count
+	export var drainPart as ast.NodeID
 	// closureTy is, for the body of a closure, the closure's function type, which a message names.
 	export var closureTy as ast.TypeID
 	// borrowing holds by type whether a value of it holds a borrow, as far as the pass has asked (holdsBorrowOf).
@@ -517,7 +527,7 @@ export type Ownership
 	export var probing as bool
 
 	export static function make(consumes c Checker, consumes errs diag.ErrorList) returns Ownership
-		return Ownership{c: c, errs: errs, fn: ast.noFunc, frames: OwnFrames.create(0), projections: OwnProjections.create(0), setParams: ast.LocalIDList.create(0), initialising: ast.LocalIDList.create(0), accesses: CallAccesses.create(0), obliged: OwnObligedList.create(0), partials: 0 as Count, catches: OwnCatches.create(0), inFlight: ast.NodeIDList.create(0), lenders: OwnLenders.create(0), borrowingMatches: ast.NodeIDList.create(0), holders: OwnHolders.create(0), mutableHeld: false, closureTy: ast.noType, borrowing: BoolIntMap.new(), guarded: ast.noFunc, probing: false}
+		return Ownership{c: c, errs: errs, fn: ast.noFunc, frames: OwnFrames.create(0), projections: OwnProjections.create(0), setParams: ast.LocalIDList.create(0), initialising: ast.LocalIDList.create(0), accesses: CallAccesses.create(0), obliged: OwnObligedList.create(0), partials: 0 as Count, catches: OwnCatches.create(0), inFlight: ast.NodeIDList.create(0), lenders: OwnLenders.create(0), borrowingMatches: ast.NodeIDList.create(0), holders: OwnHolders.create(0), mutableHeld: false, draining: 0 as Count, drainPart: 0 as ast.NodeID, closureTy: ast.noType, borrowing: BoolIntMap.new(), guarded: ast.noFunc, probing: false}
 	end 'make'
 end 'Ownership'
 
@@ -620,6 +630,8 @@ function resetOwn(mutates o Ownership, fid ast.FuncID)
 	o.inFlight = ast.NodeIDList.create(0)
 	o.holders = OwnHolders.create(0)
 	o.mutableHeld = false
+	o.draining = 0 as Count
+	o.drainPart = 0 as ast.NodeID
 end 'resetOwn'
 
 // run checks a function, or the body of a behaviour in it, which has the bounds of the function around it. paramSites are

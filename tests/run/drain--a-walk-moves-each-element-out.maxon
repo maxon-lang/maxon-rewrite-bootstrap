@@ -1,0 +1,113 @@
+// A walk of xs.drain() moves each element out to its variable, which owns it, and leaves xs at count 0, however the walk
+// ends: a pass the body ends with continue, a break, a return and a failure out of the body each drop the elements the walk
+// has not reached. The array keeps its buffer and takes elements again.
+type Named
+	var name as String
+
+	static function make(consumes name String) returns Named
+		return Named{name: name}
+	end 'make'
+end 'Named'
+
+typealias Names = Array with String
+
+typealias Records = Array with Named
+
+typealias Numbers = Array with Count
+
+typealias Bytes = Array with Byte
+
+function filled(n Count) returns Names
+	var names = Names.create(0)
+	for i in 0 upto n 'each'
+		names.push("name {i}")
+	end 'each'
+	return names
+end 'filled'
+
+function firstLong(mutates names Names) returns String
+	for name in names.drain() 'each'
+		if name.byteLength() > 5 'long'
+			return name
+		end 'long'
+	end 'each'
+	return ""
+end 'firstLong'
+
+function failing(mutates names Names) throws ArrayError
+	for name in names.drain() 'each'
+		if name == "name 1" 'stop'
+			throw ArrayError.emptySlot
+		end 'stop'
+	end 'each'
+end 'failing'
+
+function main() returns ExitCode
+	var names = filled(4)
+	var kept = Names.create(0)
+	for name in names.drain() 'each'
+		kept.push(name)
+	end 'each'
+	print("{names.count()} {kept.count()} {try kept.get(3) otherwise "none"}\n")
+	names.push("again")
+	print("{names.count()} {try names.get(0) otherwise "none"}\n")
+	names = filled(5)
+	for name in names.drain() 'each'
+		if name == "name 1" 'skip'
+			continue 'each'
+		end 'skip'
+		if name == "name 3" 'stop'
+			break 'each'
+		end 'stop'
+		print("{name}\n")
+	end 'each'
+	print("{names.count()}\n")
+	names = filled(3)
+	print("{firstLong(names)} {names.count()}\n")
+	names = filled(3)
+	try failing(names) otherwise print("failed\n")
+	print("{names.count()}\n")
+	var records = Records.create(0)
+	records.push(Named.make("ada"))
+	records.push(Named.make("bob"))
+	var taken = Records.create(0)
+	for record in records.drain() 'each'
+		taken.push(record)
+	end 'each'
+	print("{records.count()} {(try taken.last() otherwise Named.make("none")).name}\n")
+	var numbers = Numbers.create(0)
+	numbers.push(7)
+	numbers.push(8)
+	var sum = 0 as Count
+	for n in numbers.drain() 'each'
+		sum = try sum + n otherwise 0
+	end 'each'
+	print("{sum} {numbers.count()}\n")
+	var bytes = Bytes.create(0)
+	bytes.push(1)
+	bytes.push(2)
+	var outer = filled(2)
+	for name in outer.drain() 'outer'
+		for b in bytes.drain() 'inner'
+			print("{name} {b}\n")
+		end 'inner'
+		bytes.push(3)
+	end 'outer'
+	print("{outer.count()} {bytes.count()}\n")
+	return 0
+end 'main'
+
+//> 0 4 name 3
+//> 1 again
+//> name 0
+//> name 2
+//> 0
+//> name 0 0
+//> failed
+//> 0
+//> 0 bob
+//> 15 0
+//> name 0 1
+//> name 0 2
+//> name 1 3
+//> 0 1

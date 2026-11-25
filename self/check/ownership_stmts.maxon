@@ -816,6 +816,9 @@ function forEachOwn(mutates o Ownership, p ast.Project, mutates ms ast.ModuleSta
 	let path = pathOf(o, p: p, ms: ms, e: source)
 	// A borrowed result is held where it lies, but lends no part of itself to be changed through the variable.
 	let projected = projectionOf(o, ms: ms, e: source) != 0
+	if o.c.typing.drains.has(st as Count) 'drain'
+		return drainOwn(o, p: p, ms: ms, st: st, path: path, s: start)
+	end 'drain'
 	var held = path.isPlace() or projected
 	var lends = path.isPlace()
 	var fresh = ast.noLocal
@@ -861,6 +864,35 @@ function forEachOwn(mutates o Ownership, p ast.Project, mutates ms ast.ModuleSta
 	end 'unlend'
 	return out
 end 'forEachOwn'
+
+// drainOwn checks a for over `xs.drain()`. xs must be a place the function may change, and the walk holds it against every
+// use while the body runs, a read too (requireUndrained), since the slots it has moved elements out of are empty. Each
+// element is the variable's own, and a walk that ends early drops those it has not reached, so they must be Droppable.
+function drainOwn(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState, st ast.NodeID, path AccessPath, consumes s OwnState) returns OwnState
+	let source = ast.forStmtFrom(ms.tree(), id: st)
+	let site = offsetOfOwn(o, p: p, ms: ms, node: source)
+	let held = path.isPlace()
+	if held 'place'
+		requireWritable(o, p: p, ms: ms, site: site, path: path)
+		requireUnlent(o, p: p, ms: ms, root: path.root, site: site, s: s)
+	end 'place' else 'temporary'
+		fail(o, p: p, site: site, code: diag.errUnsupportedFeature, msg: "Unsupported: a `for` over `drain()` walks the array of a variable or a field, which it leaves at count 0; bind this one to a `var` first")
+	end 'temporary'
+	let element = ownLocalOf(o, node: st)
+	let elementType = o.c.typing.locals[element as Count].ty
+	requireDroppable(o, p: p, ms: ms, site: site, t: elementType, d: OwnDrop.make(OwnDropKind.dropDrained, name: pathText(o, p: p, ms: ms, path: path)))
+	let mark = o.projections.count()
+	if held 'hold'
+		o.projections.push(OwnProjection.make(path.clone(), place: 0 as ast.NodeID, kind: OwnProjectionKind.projectDrain, ty: ownType(o, node: source)))
+		o.draining = try o.draining + 1 otherwise panic("ownership: too many walks of a drain")
+	end 'hold'
+	let out = loopOwn(o, p: p, ms: ms, target: st, s: s, body: ast.forStmtBodyRef(ms.tree(), id: st), cond: 0 as ast.NodeID, fresh: element)
+	release(o, mark: mark)
+	if held 'release'
+		o.draining = try o.draining - 1 otherwise panic("ownership: a walk of a drain ended that was never begun")
+	end 'release'
+	return out
+end 'drainOwn'
 
 function iterationOwn(o Ownership, node ast.NodeID) returns ast.IterationInfo
 	return match consumes o.c.typing.iterations.get(node as Count) 'hit'

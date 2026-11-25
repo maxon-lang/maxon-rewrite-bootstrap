@@ -1,0 +1,9 @@
+// expect-error: E3005 at 5:11
+// drain() is a form of the for over an Array, which it leaves at count 0.
+function main() returns ExitCode
+	var text = "abc"
+	for c in text.drain() 'each'
+		print("{c}\n")
+	end 'each'
+	return 0
+end 'main'

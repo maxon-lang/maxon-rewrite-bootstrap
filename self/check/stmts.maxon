@@ -465,6 +465,11 @@ function checkForEach(mutates c Checker, p ast.Project, mutates ms ast.ModuleSta
 		checkEnumerated(c, p: p, ms: ms, s: s, receiver: receiver, errs: errs)
 		return
 	end 'enumerated'
+	let drained = formReceiver(ms.tree(), source: source, method: drainMethod)
+	if drained != 0 'drain'
+		checkDrain(c, p: p, ms: ms, s: s, receiver: drained, errs: errs)
+		return
+	end 'drain'
 	var lent as bool
 	let elem = forElement(c, p: p, ms: ms, s: s, source: source, lent: lent, errs: errs)
 	if elem == ast.noType 'notIterable'
@@ -513,15 +518,43 @@ let enumeratedMethod = "enumerated"
 
 // enumeratedReceiver is the collection of a for whose source is the call `xs.enumerated()`, or 0 when it is no such call.
 function enumeratedReceiver(tree ast.Tree, source ast.NodeID) returns ast.NodeID
+	return formReceiver(tree, source: source, method: enumeratedMethod)
+end 'enumeratedReceiver'
+
+// formReceiver is the receiver of a for whose source is the call `xs.method()` with no arguments, a form of the for, or 0
+// when it is no such call.
+function formReceiver(tree ast.Tree, source ast.NodeID, method String) returns ast.NodeID
 	if tree.kindOf(source) != ast.NodeKind.callExpr or tree.listLen(ast.callExprArgsRef(tree, id: source)) != 0 'notCall'
 		return 0 as ast.NodeID
 	end 'notCall'
 	let callee = ast.callExprCallee(tree, id: source)
-	if tree.kindOf(callee) != ast.NodeKind.memberExpr or ast.memberExprName(tree, id: callee) != enumeratedMethod 'notEnumerated'
+	if tree.kindOf(callee) != ast.NodeKind.memberExpr or ast.memberExprName(tree, id: callee) != method 'notForm'
 		return 0 as ast.NodeID
-	end 'notEnumerated'
+	end 'notForm'
 	return ast.memberExprObj(tree, id: callee)
-end 'enumeratedReceiver'
+end 'formReceiver'
+
+// drainMethod is the form of the for that walks an array by moving its elements out, `for x in xs.drain()`, which leaves
+// the array at count 0 with its buffer (README, "Where it differs from Maxon").
+let drainMethod = "drain"
+
+// checkDrain types `for x in xs.drain()`: the for over the elements of the array xs, each of which the variable owns,
+// moved out of its slot. The loop walks xs itself from here on, and the ownership pass holds it for the walk and needs it
+// to be a place the function may change.
+function checkDrain(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, s ast.NodeID, receiver ast.NodeID, mutates errs diag.ErrorList)
+	let typed = checkExpr(c, p: p, ms: ms, e: receiver, errs: errs)
+	if typed == ast.noType 'badSource'
+		return
+	end 'badSource'
+	let t = ast.contentType(ms.types, reads: p.types, t: typed)
+	if ast.originOf(ms.types, reads: p.types, t: t) != p.builtins.arrayOrigin 'notArray'
+		failAt(c, p: p, ms: ms, node: receiver, code: diag.errTypeMismatch, msg: "a `for` over `{drainMethod}()` walks an `Array`, moving each element out, and '{nameOfType(p, ms: ms, t: typed)}' is not one; walk it with `for x in` and the value itself", errs: errs)
+		return
+	end 'notArray'
+	ast.setForStmtFrom(ms.ownTree, id: s, value: receiver)
+	c.typing.drains.insert(s as Count, value: true)
+	checkForBody(c, p: p, ms: ms, s: s, varType: typeElemType(p, ms: ms, ownerTy: t), borrows: false, errs: errs)
+end 'checkDrain'
 
 // checkEnumerated types `for (i, x) in xs.enumerated()`: the for over the elements of xs, which also binds the index of
 // each, from 0, to the first name. It walks whatever a for walks, as that for would. The loop walks xs itself from here on,

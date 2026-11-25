@@ -41,14 +41,14 @@ export function failureBiased(mutates l Lowerer, p ast.Project, ms ast.ModuleSta
 	l.cur = stub
 	if h.propagates 'propagates'
 		dropPending(l, first: 0 as Count, past: l.pending.count())
-		unwind(l, p: p, depth: 0 as Count)
+		unwind(l, p: p, ms: ms, depth: 0 as Count)
 		if error == noReg 'literal'
 			error = konst(l, value: try (succ(errorCase)) as Word otherwise panic("ir: an error case is out of range"))
 		end 'literal'
 		l.b.terminate(l.cur, t: newThrow(error))
 	end 'propagates' else 'handled'
 		dropPending(l, first: h.pending, past: l.pending.count())
-		unwindTo(l, p: p, depth: h.depth, mark: h.mark)
+		unwindTo(l, p: p, ms: ms, depth: h.depth, mark: h.mark)
 		if errDrop != ast.noType 'union'
 			if h.binding != noSlot 'unionBinding'
 				emit(l, i: newStoreSlot(slotIndex(h.binding), src: error, borrow: false))
@@ -81,8 +81,8 @@ function dropPending(mutates l Lowerer, first Count, past Count)
 end 'dropPending'
 
 // unwindTo drops what the scopes from depth inwards hold, and what the scope below them took on after it held mark drops.
-function unwindTo(mutates l Lowerer, p ast.Project, depth Count, mark Count)
-	unwind(l, p: p, depth: depth)
+function unwindTo(mutates l Lowerer, p ast.Project, ms ast.ModuleState, depth Count, mark Count)
+	unwind(l, p: p, ms: ms, depth: depth)
 	let below = pred(depth)
 	var i = l.scopes[below].drops.count()
 	while i > mark 'back'
@@ -178,8 +178,8 @@ function visitIfTryStmt(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleS
 		pushScope(l, block: true)
 	end 'bare'
 	lowerBlock(l, p: p, ms: ms, ref: ast.ifTryStmtThenRef(p.modules[l.mi].tree, id: s))
-	popScope(l, p: p)
-	popScope(l, p: p)
+	popScope(l, p: p, ms: ms)
+	popScope(l, p: p, ms: ms)
 	goTo(l, target: join)
 	l.cur = failed
 	if ast.ifTryStmtHasElse(p.modules[l.mi].tree, id: s) 'else'
@@ -197,7 +197,7 @@ function visitTryExpr(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleSta
 		_ = enterTry(l, target: join, binding: noSlot)
 		pushScope(l, block: false)
 		_ = lowerExpr(l, p: p, ms: ms, e: ast.tryExprE(p.modules[l.mi].tree, id: e))
-		popScope(l, p: p)
+		popScope(l, p: p, ms: ms)
 		leaveTry(l)
 		goTo(l, target: join)
 		return konst(l, value: 0 as Word)
@@ -209,7 +209,7 @@ function visitTryExpr(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleSta
 		_ = enterTry(l, target: onFailure, binding: tryBindingSlot(l, p: p, node: e))
 		pushScope(l, block: false)
 		_ = lowerExpr(l, p: p, ms: ms, e: ast.tryExprE(p.modules[l.mi].tree, id: e))
-		popScope(l, p: p)
+		popScope(l, p: p, ms: ms)
 		leaveTry(l)
 		goTo(l, target: join)
 		l.cur = onFailure
@@ -227,13 +227,13 @@ function visitTryExpr(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleSta
 	_ = enterTry(l, target: other, binding: noSlot)
 	pushScope(l, block: false)
 	storeConverted(l, p: p, ms: ms, slot: result, e: ast.tryExprE(p.modules[l.mi].tree, id: e), target: typ)
-	popScope(l, p: p)
+	popScope(l, p: p, ms: ms)
 	leaveTry(l)
 	goTo(l, target: join)
 	l.cur = other
 	pushScope(l, block: false)
 	storeConverted(l, p: p, ms: ms, slot: result, e: ast.tryExprValue(p.modules[l.mi].tree, id: e), target: typ)
-	popScope(l, p: p)
+	popScope(l, p: p, ms: ms)
 	goTo(l, target: join)
 	return fetch(l, slot: result)
 end 'visitTryExpr'
@@ -257,7 +257,7 @@ function lentTry(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, e
 	pushScope(l, block: false)
 	let lent = lowerExpr(l, p: p, ms: ms, e: ast.tryExprE(p.modules[l.mi].tree, id: e))
 	emit(l, i: newStoreSlot(result, src: lent, borrow: true))
-	popScope(l, p: p)
+	popScope(l, p: p, ms: ms)
 	leaveTry(l)
 	goTo(l, target: join)
 	l.cur = other
@@ -273,7 +273,7 @@ function lentTry(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, e
 	end 'own' else 'borrowed'
 		emit(l, i: newStoreSlot(result, src: fallback, borrow: true))
 	end 'borrowed'
-	popScope(l, p: p)
+	popScope(l, p: p, ms: ms)
 	goTo(l, target: join)
 	l.cur = join
 	let d = newReg(l, kind: slotKind(l, slot: result))
@@ -317,9 +317,9 @@ function lowerThroughAs(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleS
 	end 'panic' else if ret != 0 'ret'
 		visitReturnStmt(l, p: p, ms: ms, s: ret)
 	end 'ret' else if brk != 0 'brk'
-		visitBreakStmt(l, p: p, s: brk)
+		visitBreakStmt(l, p: p, ms: ms, s: brk)
 	end 'brk' else if cont != 0 'cont'
-		visitContinueStmt(l, p: p, s: cont)
+		visitContinueStmt(l, p: p, ms: ms, s: cont)
 	end 'cont' else if thr != 0 'thr'
 		visitThrowStmt(l, p: p, ms: ms, s: thr)
 	end 'thr' else 'none'

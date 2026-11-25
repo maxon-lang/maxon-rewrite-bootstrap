@@ -719,6 +719,11 @@ end 'rangeForStmt'
 // its variable is any value of its type.
 function rangeForEach(mutates r Ranges, p ast.Project, ms ast.ModuleState, s ast.NodeID)
 	_ = rangeEval(r, p: p, ms: ms, e: ast.forStmtFrom(ms.tree(), id: s))
+	// A walk of a drain leaves the array at count 0 however it ends, a failure out of the body included, and the body cannot
+	// name the array, so it shrinks from the start.
+	if r.typing.drains.has(s as Count) 'drained'
+		rangeReceiverChanged(r, p: p, ms: ms, e: ast.forStmtFrom(ms.tree(), id: s), effect: ast.CountEffect.countShrink)
+	end 'drained'
 	rangeForget(r, p: p, ms: ms)
 	let top = rangeKeep(r)
 	r.frames.push(RangeFrame.make(s))

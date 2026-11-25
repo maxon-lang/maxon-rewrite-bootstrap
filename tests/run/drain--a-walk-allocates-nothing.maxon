@@ -1,0 +1,20 @@
+// A walk of a drain moves each element out of its slot and empties the array in place, so it allocates nothing, however
+// many elements there are, and the array keeps its buffer.
+typealias Names = Array with String
+
+function main() returns ExitCode
+	var names = Names.create(0)
+	for i in 0 upto 100 'each'
+		names.push("a name long enough to have a box of its own, {i}")
+	end 'each'
+	var bytes = 0 as Count
+	let before = HeapStats.threadAllocations()
+	for name in names.drain() 'each'
+		bytes = try bytes + name.byteLength() otherwise 0
+	end 'each'
+	let after = HeapStats.threadAllocations()
+	print("{after == before} {names.count()} {bytes > 0}\n")
+	return 0
+end 'main'
+
+//> true 0 true

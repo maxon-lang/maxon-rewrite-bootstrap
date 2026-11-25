@@ -527,6 +527,9 @@ export type Typing
 	export var nodeLocals as NodeLocalMap
 	// indexes are the variables that the `for (i, x) in xs.enumerated()` loops bind the index of each element to, by loop.
 	export var indexes as NodeLocalMap
+	// drains are the `for x in xs.drain()` loops, by loop: each walks the array xs, moving each element out, and leaves it
+	// at count 0 with its buffer.
+	export var drains as NodeBoolMap
 	export var expansions as NodeExpansionMap
 	export var funcLocals as NodeLocalListMap
 	export var funcUses as NodeUsesMap
@@ -575,6 +578,7 @@ export type Typing
 		let jm = NodeJumpMap.new()
 		let nlm = NodeLocalMap.new()
 		let ixm = NodeLocalMap.new()
+		let drm = NodeBoolMap.new()
 		let exm = NodeExpansionMap.new()
 		let flm = NodeLocalListMap.new()
 		let fum = NodeUsesMap.new()
@@ -587,7 +591,7 @@ export type Typing
 		let si = NodeTypeMap.new()
 		let rr = NodeBoolMap.new()
 		let wt = FuncWaitingMap.new()
-		return Typing{module: module, types: tm, arith: am, names: nm, members: mm, calls: cm, structLits: sm, patterns: pm, arms: ak, whens: wm, closures: clm, iterations: im, hooks: hk, jumps: jm, locals: ls, nodeLocals: nlm, indexes: ixm, expansions: exm, funcLocals: flm, funcUses: fum, fieldUses: fdum, consumed: con, slotTakes: st, lendsPlace: lp, lentTries: lt, boxes: bx, staticInstances: si, rawReads: rr, waiting: wt, declared: false}
+		return Typing{module: module, types: tm, arith: am, names: nm, members: mm, calls: cm, structLits: sm, patterns: pm, arms: ak, whens: wm, closures: clm, iterations: im, hooks: hk, jumps: jm, locals: ls, nodeLocals: nlm, indexes: ixm, drains: drm, expansions: exm, funcLocals: flm, funcUses: fum, fieldUses: fdum, consumed: con, slotTakes: st, lendsPlace: lp, lentTries: lt, boxes: bx, staticInstances: si, rawReads: rr, waiting: wt, declared: false}
 	end 'new'
 
 	export function allocLocal(mutates self, consumes entry LocalEntry) returns LocalID

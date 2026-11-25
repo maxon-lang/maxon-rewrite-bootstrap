@@ -76,6 +76,11 @@ export function indexLocalOf(p ast.Project, module diag.ModuleID, node ast.NodeI
 	return p.typings[ast.modIndex(module)].indexes.getOr(node as Count, fallback: ast.noLocal)
 end 'indexLocalOf'
 
+// drainsAt is whether a for is a walk of `xs.drain()`, which moves each element of the array out.
+export function drainsAt(p ast.Project, module diag.ModuleID, node ast.NodeID) returns bool
+	return p.typings[ast.modIndex(module)].drains.has(node as Count)
+end 'drainsAt'
+
 // jumpTargetOf is the loop or match that a break or a continue leaves or repeats.
 export function jumpTargetOf(p ast.Project, module diag.ModuleID, node ast.NodeID) returns ast.NodeID
 	return p.typings[ast.modIndex(module)].jumps.expect(node as Count, what: "jump target")

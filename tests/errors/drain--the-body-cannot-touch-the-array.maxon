@@ -1,0 +1,34 @@
+// expect-error: E3186 at 19:12
+// expect-error: E3186 at 20:4
+// expect-error: E3186 at 21:9
+// The walk of a drain holds its array while the body runs, whose slots it has moved elements out of are empty: the body may
+// neither read it nor change it, nor pass the variable that holds it, but it may use the other fields beside it.
+typealias Counts = Array with Count
+
+type Pass
+	var instrs as Array with String
+	var blocks as Array with Count
+
+	static function make() returns Pass
+		return Pass{instrs: ["a"], blocks: Counts.create(0)}
+	end 'make'
+
+	function run(mutates self)
+		for x in instrs.drain() 'each'
+			blocks.push(x.byteLength())
+			print("{instrs.count()}\n")
+			instrs.push(x)
+			show(self)
+		end 'each'
+	end 'run'
+end 'Pass'
+
+function show(p Pass)
+	print("{p.blocks.count()}\n")
+end 'show'
+
+function main() returns ExitCode
+	var p = Pass.make()
+	p.run()
+	return 0
+end 'main'

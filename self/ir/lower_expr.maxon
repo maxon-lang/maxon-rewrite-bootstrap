@@ -350,12 +350,12 @@ function visitCondExpr(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleSt
 	l.cur = a
 	pushScope(l, block: false)
 	storeConverted(l, p: p, ms: ms, slot: result, e: ast.condExprThen(p.modules[l.mi].tree, id: e), target: typ)
-	popScope(l, p: p)
+	popScope(l, p: p, ms: ms)
 	goTo(l, target: join)
 	l.cur = b
 	pushScope(l, block: false)
 	storeConverted(l, p: p, ms: ms, slot: result, e: ast.condExprElse(p.modules[l.mi].tree, id: e), target: typ)
-	popScope(l, p: p)
+	popScope(l, p: p, ms: ms)
 	goTo(l, target: join)
 	return fetch(l, slot: result)
 end 'visitCondExpr'
@@ -1444,7 +1444,7 @@ function builtRawValue(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleSt
 		let v = exprIn(l, p: p, ms: ms, e: ExprRef.make(module, node: ast.typeEntry(ms.types, reads: p.types, t: origin).cases[i].rawExpr))
 		emit(l, i: newStoreSlot(sel.result, src: v, borrow: false))
 		popPending(l, n: mark)
-		popScope(l, p: p)
+		popScope(l, p: p, ms: ms)
 		goTo(l, target: sel.join)
 	end 'each'
 	return selectEnd(l, s: sel)
@@ -1788,7 +1788,7 @@ function lowerOperator(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleSt
 		pushScope(l, block: false)
 		let rv = lowerExpr(l, p: p, ms: ms, e: right)
 		emit(l, i: newStoreSlot(frame.result, src: rv, borrow: false))
-		popScope(l, p: p)
+		popScope(l, p: p, ms: ms)
 		goTo(l, target: frame.join)
 		return load(l, slot: frame.result)
 	end 'logical'

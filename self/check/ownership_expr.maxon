@@ -184,7 +184,7 @@ end 'changesInPlace'
 // walksSlots is whether a for loop walks the slots of an array that the function may change in place, so that its variable
 // names the slot of each element in turn, as maxon's does for a promise: consuming it takes the promise out of the slot.
 function walksSlots(o Ownership, p ast.Project, ms ast.ModuleState, loop ast.NodeID) returns bool
-	if ast.forStmtIsRange(ms.tree(), id: loop) or o.c.typing.iterations.has(loop as Count) 'notArray'
+	if ast.forStmtIsRange(ms.tree(), id: loop) or o.c.typing.iterations.has(loop as Count) or o.c.typing.drains.has(loop as Count) 'notArray'
 		return false
 	end 'notArray'
 	let source = ast.forStmtFrom(ms.tree(), id: loop)
@@ -616,8 +616,51 @@ function projectionConflict(mutates o Ownership, p ast.Project, mutates ms ast.M
 		fail(o, p: p, site: site, code: diag.errExclusivity, msg: "'{held}' is borrowed to be changed by {pr.holder}, a mutating closure that lives until its scope ends, so it cannot be changed here; change it after that, or through the closure")
 		return
 	end 'mutableCapture'
+	if k == OwnProjectionKind.projectDrain 'drain'
+		drainConflict(o, p: p, ms: ms, text: text, held: held, site: site)
+		return
+	end 'drain'
 	panic("ownership: unknown projection kind {k.name}")
 end 'projectionConflict'
+
+// requireUndrained refuses a use of a place that overlaps an array a drain walks, whose slots up to the walk's variable are
+// empty: a read as well as a change or a move. The object of a member or a subscript is a part of that place, which is the
+// use, so only the place as a whole is looked at.
+function requireUndrained(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID)
+	let whole = o.drainPart == e
+	o.drainPart = placeObject(ms.tree(), e: e)
+	if whole 'part'
+		return
+	end 'part'
+	let path = pathOf(o, p: p, ms: ms, e: e)
+	if not path.isPlace() 'notPlace'
+		return
+	end 'notPlace'
+	for i in 0 upto o.projections.count() 'each'
+		if o.projections[i].kind == OwnProjectionKind.projectDrain and o.projections[i].subject.overlaps(path) 'drained'
+			let text = pathText(o, p: p, ms: ms, path: path)
+			let held = pathText(o, p: p, ms: ms, path: o.projections[i].subject)
+			drainConflict(o, p: p, ms: ms, text: text, held: held, site: offsetOfOwn(o, p: p, ms: ms, node: e))
+			return
+		end 'drained'
+	end 'each'
+end 'requireUndrained'
+
+// placeObject is the place a member or a subscript names a part of, or 0 for any other expression.
+function placeObject(tree ast.Tree, e ast.NodeID) returns ast.NodeID
+	let k = tree.kindOf(e)
+	if k == ast.NodeKind.memberExpr 'member'
+		return ast.memberExprObj(tree, id: e)
+	end 'member'
+	if k == ast.NodeKind.indexExpr 'index'
+		return ast.indexExprObj(tree, id: e)
+	end 'index'
+	return 0 as ast.NodeID
+end 'placeObject'
+
+function drainConflict(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState, text String, held String, site diag.U32)
+	fail(o, p: p, site: site, code: diag.errExclusivity, msg: "'{held}' is drained by the enclosing loop over '{held}.drain()', which moves its elements out while the body runs, so '{text}' cannot be used here; use it after the loop")
+end 'drainConflict'
 
 // expr is an expression whose value is only read: a fresh value is a temporary that is dropped when the statement ends.
 function expr(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, consumes s OwnState) returns OwnState
@@ -636,6 +679,9 @@ end 'eval'
 
 function visitExprOwn(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, consumes s OwnState) returns OwnState
 	let k = ms.tree().kindOf(e)
+	if o.draining > 0 and (k == ast.NodeKind.nameExpr or k == ast.NodeKind.selfExpr or k == ast.NodeKind.memberExpr or k == ast.NodeKind.indexExpr) 'place'
+		requireUndrained(o, p: p, ms: ms, e: e)
+	end 'place'
 	if k == ast.NodeKind.intLit or k == ast.NodeKind.floatLit or k == ast.NodeKind.boolLit or k == ast.NodeKind.byteStrLit or k == ast.NodeKind.charLit or k == ast.NodeKind.typeQueryExpr 'literal'
 		return s
 	end 'literal'

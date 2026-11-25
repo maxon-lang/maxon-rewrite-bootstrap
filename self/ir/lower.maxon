@@ -123,7 +123,7 @@ function lowerBody(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState)
 	end 'test' else 'function'
 		lowerBlock(l, p: p, ms: ms, ref: bodyRef)
 	end 'function'
-	popScope(l, p: p)
+	popScope(l, p: p, ms: ms)
 	if not l.b.terminated(l.cur) 'open'
 		let zero = konst(l, value: 0 as Word)
 		l.b.terminate(l.cur, t: newRet(zero))
@@ -309,7 +309,7 @@ function lowerBlockOwning(mutates l Lowerer, p ast.Project, mutates ms ast.Modul
 	for i in 0 upto n 'each'
 		lowerStmt(l, p: p, ms: ms, s: p.modules[l.mi].tree.listAt(ref, index: i) as ast.NodeID)
 	end 'each'
-	popScope(l, p: p)
+	popScope(l, p: p, ms: ms)
 end 'lowerBlockOwning'
 
 // lowerStmt lowers a statement, which owns the temporaries it makes: they are dropped when it ends, and every value it
@@ -320,7 +320,7 @@ function lowerStmt(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState,
 	positionAt(l, p: p, node: s)
 	pushScope(l, block: false)
 	visitStmt(l, p: p, ms: ms, s: s)
-	popScope(l, p: p)
+	popScope(l, p: p, ms: ms)
 	popPending(l, n: mark)
 	l.b.pos = around
 end 'lowerStmt'
@@ -374,11 +374,11 @@ function visitStmt(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState,
 		return
 	end 'returnStmt'
 	if k == ast.NodeKind.breakStmt 'breakStmt'
-		visitBreakStmt(l, p: p, s: s)
+		visitBreakStmt(l, p: p, ms: ms, s: s)
 		return
 	end 'breakStmt'
 	if k == ast.NodeKind.continueStmt 'continueStmt'
-		visitContinueStmt(l, p: p, s: s)
+		visitContinueStmt(l, p: p, ms: ms, s: s)
 		return
 	end 'continueStmt'
 	if k == ast.NodeKind.assignStmt 'assignStmt'
@@ -408,7 +408,7 @@ end 'visitStmt'
 function condition(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID) returns Reg
 	pushScope(l, block: false)
 	let v = lowerExpr(l, p: p, ms: ms, e: e)
-	popScope(l, p: p)
+	popScope(l, p: p, ms: ms)
 	return v
 end 'condition'
 
@@ -519,7 +519,7 @@ function visitReturnStmt(mutates l Lowerer, p ast.Project, mutates ms ast.Module
 			return
 		end 'inPlace'
 	end 'some'
-	unwind(l, p: p, depth: 0 as Count)
+	unwind(l, p: p, ms: ms, depth: 0 as Count)
 	seal(l, t: newRet(v))
 end 'visitReturnStmt'
 
@@ -536,12 +536,12 @@ function returnPlaced(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleSta
 	l.cur = copied
 	let words = l.resultWords
 	copyWords(l, dst: area, src: v, words: words)
-	unwind(l, p: p, depth: 0 as Count)
+	unwind(l, p: p, ms: ms, depth: 0 as Count)
 	l.b.terminate(l.cur, t: newRet(area))
 	l.cur = owned
 	let result = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: l.fn).retTy
 	let box = boxed(l, p: p, ms: ms, v: v, t: result)
-	unwind(l, p: p, depth: 0 as Count)
+	unwind(l, p: p, ms: ms, depth: 0 as Count)
 	seal(l, t: newRet(box))
 end 'returnPlaced'
 
@@ -589,15 +589,15 @@ function convertReturned(mutates l Lowerer, p ast.Project, mutates ms ast.Module
 	return v
 end 'convertReturned'
 
-function visitBreakStmt(mutates l Lowerer, p ast.Project, s ast.NodeID)
+function visitBreakStmt(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, s ast.NodeID)
 	let target = jumpsOf(l, node: jumpTargetOf(p, module: l.module, node: s))
-	unwind(l, p: p, depth: target.depth)
+	unwind(l, p: p, ms: ms, depth: target.depth)
 	seal(l, t: newJump(target.brk))
 end 'visitBreakStmt'
 
-function visitContinueStmt(mutates l Lowerer, p ast.Project, s ast.NodeID)
+function visitContinueStmt(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, s ast.NodeID)
 	let target = jumpsOf(l, node: jumpTargetOf(p, module: l.module, node: s))
-	unwind(l, p: p, depth: target.depth)
+	unwind(l, p: p, ms: ms, depth: target.depth)
 	seal(l, t: newJump(target.cont))
 end 'visitContinueStmt'
 
@@ -752,7 +752,7 @@ function visitForStmt(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleSta
 	end 'character'
 	lowerBlock(l, p: p, ms: ms, ref: ast.forStmtBodyRef(p.modules[l.mi].tree, id: s))
 	if characters 'passEnds'
-		popScope(l, p: p)
+		popScope(l, p: p, ms: ms)
 	end 'passEnds'
 	goTo(l, target: cont)
 	if inclusive 'inclusiveStep'
@@ -802,8 +802,10 @@ end 'rangeNext'
 
 // visitForEach lowers a for over an array to a loop over its indexes. The array is read once, and the ownership pass keeps
 // the body from changing it. Each element is lent to the variable, as a subscript lends it, and a loop over `enumerated()`
-// also gives the index to its variable.
+// also gives the index to its variable. A walk of `xs.drain()` moves each element out to the variable, which owns it for
+// the pass, and its scope empties the array however the walk ends (pushDrainScope), so the walk allocates nothing.
 function visitForEach(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, s ast.NodeID)
+	let drains = drainsAt(p, module: l.module, node: s)
 	let source = ast.forStmtFrom(p.modules[l.mi].tree, id: s)
 	let box = arrayOf(l, p: p, ms: ms, site: siteOf(l, p: p, node: s), t: exprType(p, module: l.module, node: source))
 	let sym = localEntry(p, module: l.fnModule, id: localOfNode(p, module: l.module, node: s))
@@ -815,6 +817,9 @@ function visitForEach(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleSta
 	let exit = l.b.newBlock()
 	let coll = lowerRead(l, p: p, ms: ms, e: source)
 	emit(l, i: newStoreSlot(held, src: coll, borrow: true))
+	if drains 'drainScope'
+		pushDrainScope(l, p: p, ms: ms, box: box.clone(), slot: held)
+	end 'drainScope'
 	let zero = konst(l, value: 0 as Word)
 	emit(l, i: newStoreSlot(index, src: zero, borrow: false))
 	goTo(l, target: top)
@@ -826,8 +831,13 @@ function visitForEach(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleSta
 	l.cur = body
 	let arr = load(l, slot: held)
 	let i = load(l, slot: index)
-	let elem = arrayLoad(l, p: p, ms: ms, box: box, arr: arr, index: i)
-	let lent = owning(regKind(l, v: elem))
+	var elem = noReg
+	if drains 'move'
+		elem = arrayMoveOut(l, p: p, ms: ms, box: box, arr: arr, index: i, fillsEvery: true)
+	end 'move' else 'lend'
+		elem = arrayLoad(l, p: p, ms: ms, box: box, arr: arr, index: i)
+	end 'lend'
+	let lent = owning(regKind(l, v: elem)) and not drains
 	emit(l, i: newStoreSlot(slotOf(sym), src: elem, borrow: lent))
 	let indexLocal = indexLocalOf(p, module: l.module, node: s)
 	if indexLocal != ast.noLocal 'enumerated'
@@ -836,7 +846,12 @@ function visitForEach(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleSta
 	end 'enumerated'
 	pushJumps(l, node: s, brk: exit, cont: cont)
 	let element = applyType(l, p: p, ms: ms, t: arrayElem(p, ms: ms, box: box))
-	let walksSlots = ast.isPromiseType(ms.types, reads: p.types, t: element)
+	if drains 'pass'
+		// Each pass owns its element, which its scope drops unless the body moved it on.
+		pushScope(l, block: true)
+		ownLocal(l, p: p, ms: ms, slot: slotOf(sym), t: element)
+	end 'pass'
+	let walksSlots = not drains and ast.isPromiseType(ms.types, reads: p.types, t: element)
 	if walksSlots 'slots'
 		l.slotLoops.push(SlotLoop.make(localOfNode(p, module: l.module, node: s), held: held, index: index, box: box.clone()))
 	end 'slots'
@@ -844,6 +859,9 @@ function visitForEach(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleSta
 	if walksSlots 'slotsEnd'
 		_ = try l.slotLoops.pop() otherwise panic("lower: a for over slots ended that was never begun")
 	end 'slotsEnd'
+	if drains 'passEnds'
+		popScope(l, p: p, ms: ms)
+	end 'passEnds'
 	goTo(l, target: cont)
 	popJumps(l)
 	let next = newReg(l, kind: IrKind.kindScalar)
@@ -853,6 +871,9 @@ function visitForEach(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleSta
 	emit(l, i: newStoreSlot(index, src: next, borrow: false))
 	goTo(l, target: top)
 	l.cur = exit
+	if drains 'walkEnds'
+		popScope(l, p: p, ms: ms)
+	end 'walkEnds'
 end 'visitForEach'
 
 // visitForClusters lowers a for over the grapheme clusters of a String to a loop over byte positions. The String is read
@@ -1000,7 +1021,7 @@ function visitForCursor(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleS
 		ownLocal(l, p: p, ms: ms, slot: slotOf(sym), t: sym.ty)
 	end 'owned'
 	lowerBlock(l, p: p, ms: ms, ref: ast.forStmtBodyRef(p.modules[l.mi].tree, id: s))
-	popScope(l, p: p)
+	popScope(l, p: p, ms: ms)
 	goTo(l, target: cont)
 	popJumps(l)
 	countPass(l, p: p, s: s)

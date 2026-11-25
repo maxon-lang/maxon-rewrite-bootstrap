@@ -1152,6 +1152,7 @@ indexed by `NodeID` (`NodeTypes`, `noType` where nothing was recorded); the fact
 | `whens` | a `when` | the function the body became, the cowns and what it captures |
 | `iterations` | a `for` over a type with the iteration protocol | the calls of `createIterator()`, `current()` and `advance()`, and the cursor's type |
 | `indexes` | a `for (i, x) in xs.enumerated()` | the `LocalID` of `i`, which the lowering stores each pass's index in |
+| `drains` | a `for x in xs.drain()` | that the loop moves each element of the array out to its variable |
 | `nodeLocals`, `locals` | a `let`, a `for`, a `try` | the `LocalID`, and the `LocalEntry` it indexes (name, type, `var` or parameter, convention, its slot in the function's IR) |
 | `jumps` | a `break`, a `continue` | the `NodeID` of the loop or match |
 | `consumed` | an expression | set by the ownership pass where the value changes owner; lowering reads it and nothing else |
@@ -4134,6 +4135,15 @@ taken out; a library slot array's (`__SlotArray`) makes no test, as the slot tab
   walks, each the way its own loop does: a `List`, a `String`, a `Map`, a `Set`, a range value and anything else with the
   iteration protocol, also through a type parameter's bounds or an interface value. There `i` counts the passes from 0,
   in a variable the loop adds one to as each pass ends. With one name it is `E2015`.
+  `for x in xs.drain()` walks an `Array` by moving each element out of its slot to `x`, which owns it for the pass: the
+  body may move it on, and a pass that does not drops it. However the walk ends, the array is left at count 0 with its
+  buffer, so its capacity takes elements again: a walk that ends early, by a `break`, a `return` or a failure out of the
+  body, drops the elements it has not reached, so they must be `Droppable` (`E3919`). `drain()` is a form of the `for`,
+  as `enumerated()` is, over an `Array` alone (`E3005` otherwise). The array must be a place the function may change, a
+  `var`, a `mutates` parameter or a field of either (`E2013` for a `let`), which the walk holds while the body runs: since the slots it has moved elements out of are empty, the body may not read it, change it or move it, nor
+  use what holds it as a whole (`E3186`), though it may use the fields beside it. The lowering is the loop over the
+  indexes, each element moved out of its slot, and the scope of the walk empties the array on every way out, dropping
+  what is left in place, so a walk allocates nothing.
   A `String` is walked by grapheme cluster, as `count()` counts them (see "Text"): each cluster is lent to `x` as a view
   of the String's bytes, a `String` that owns none, so keeping one is `.clone()` (`E3900` otherwise), and the String is
   held while the body runs (`E3186`). The lowering is a loop over byte positions that reads the String's ASCII bit once:
@@ -4980,7 +4990,8 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   itself and there is no iterator object, so an array is walked with its indexes at the cost of the plain loop, and any
   other collection with the count of its passes, which is what a range's `index()` gives in maxon. The
   converter rewrites the one form into the other, `iter.index()` into the name; a test whose body uses the iterator for
-  anything else is skipped.
+  anything else is skipped. `for x in xs.drain()` is minimaxon's own: a walk that moves each element of an array out and
+  leaves the array at count 0 with its buffer, which maxon writes as a loop of `pop()` or `remove(0)` and a `clear()`.
 - Match arms name the case of an enum or a union by its bare name; a qualified `Color.red` is `E3075`, once for the match as
   maxon does (maxon's `Type.case` arms of a handler over the combined error of several errors are not supported, see
   "Errors of the program"). A bare `int` or `float` is the full range of its kind only on the right of a `typealias`

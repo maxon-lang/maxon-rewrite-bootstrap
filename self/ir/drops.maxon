@@ -4,14 +4,14 @@ export function pushScope(mutates l Lowerer, block bool)
 end 'pushScope'
 
 // popScope leaves the innermost scope, dropping what it holds.
-export function popScope(mutates l Lowerer, p ast.Project)
-	unwind(l, p: p, depth: pred(l.scopes.count()))
+export function popScope(mutates l Lowerer, p ast.Project, ms ast.ModuleState)
+	unwind(l, p: p, ms: ms, depth: pred(l.scopes.count()))
 	try l.scopes.pop() otherwise ignore
 end 'popScope'
 
-// unwind drops what the scopes from depth inwards hold, innermost first, and keeps them open: it is the code of a jump
-// out of them, and the code after the jump is still inside.
-export function unwind(mutates l Lowerer, p ast.Project, depth Count)
+// unwind drops what the scopes from depth inwards hold, innermost first, and empties the arrays their walks drain, and
+// keeps them open: it is the code of a jump out of them, and the code after the jump is still inside.
+export function unwind(mutates l Lowerer, p ast.Project, ms ast.ModuleState, depth Count)
 	var i = l.scopes.count()
 	while i > depth 'scopes'
 		i = pred(i)
@@ -20,8 +20,25 @@ export function unwind(mutates l Lowerer, p ast.Project, depth Count)
 			n = pred(n)
 			emitDrop(l, d: l.scopes[i].drops[n].clone())
 		end 'drops'
+		if l.scopes[i].drains 'drain'
+			let walk = l.scopes[i].walk.clone()
+			let arr = load(l, slot: walk.slot)
+			let none = konst(l, value: 0 as Word)
+			shrinkWith(l, p: p, ms: ms, box: walk.box, arr: arr, keep: none, drop: walk.drop)
+		end 'drain'
 	end 'scopes'
 end 'unwind'
+
+// pushDrainScope opens the scope of a walk of a drain over the array that slot holds: leaving it, however the walk ends,
+// drops the elements the walk has not moved out, skipping the empty slots of those it has, and leaves the array at count
+// 0 with its buffer.
+export function pushDrainScope(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, box ArrayBox, slot Count)
+	var scope = Scope.make(false)
+	scope.drains = true
+	let drop = elementDrop(l, p: p, ms: ms, box: box)
+	scope.walk = DrainWalk.make(box.clone(), slot: slot, drop: drop)
+	l.scopes.push(scope)
+end 'pushDrainScope'
 
 function emitDrop(mutates l Lowerer, d PendingDrop)
 	if d.inSlot 'slot'

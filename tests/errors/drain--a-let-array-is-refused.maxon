@@ -1,0 +1,11 @@
+// expect-error: E2013 at 7:14
+// A walk of a drain leaves its array at count 0, so the array must be one the function may change.
+typealias Names = Array with String
+
+function main() returns ExitCode
+	let names = ["ada", "bob"] as Names
+	for name in names.drain() 'each'
+		print("{name}\n")
+	end 'each'
+	return 0
+end 'main'
