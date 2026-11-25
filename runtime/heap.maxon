@@ -318,9 +318,9 @@ function heapMade(heap Count) returns Count
 	return heap
 end 'heapMade'
 
-// liveBoxes is the number of boxes allocated and not yet freed, summed over the heaps of every thread that runs green
-// threads, the main thread among them (the monitor allocates nothing): read when nothing runs, so no heap changes
-// meanwhile.
+// liveBoxes is the number of boxes allocated and not yet freed, summed over the heaps of the threads that run green
+// threads, the main one among them (not the monitor's, which frees its own): read once quiesceForCount has parked every
+// other such thread for good, its lock a full barrier after each one's last change, so no heap changes meanwhile.
 function liveBoxes() returns Count
 	let context = __Raw.threadContext()
 	let scheduler = __Raw.loadWord(context, offset: contextSchedulerOffset)

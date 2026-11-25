@@ -1,0 +1,54 @@
+// The leak check counts once every thread that runs green threads has parked: a thread of the scheduler's list that is not
+// a worker allocates a box, holds it past the drain, until the main thread has taken the exit claim and testHoldNanos more,
+// then frees it and stops as a worker does. Counted at once after the drain, the box would be a leak every run.
+//> a thread held a box past the drain
+
+let testHoldNanos = 20000000 as Count
+
+let testStartNanos = 5000000000 as Count
+
+function main() returns ExitCode
+	greenReady(greenSpawn(__Raw.codeAddress("testCoordinator")))
+	return 0
+end 'main'
+
+function testCoordinator(g Count) returns Count
+	let scheduler = schedulerOf(__Raw.threadContext())
+	let holder = keep(contextBytes)
+	initThread(scheduler, context: holder)
+	__Raw.storeWord(holder, offset: contextStartCodeOffset, value: __Raw.codeAddress("testHolder"))
+	startThread(holder)
+	let start = osClockNanos()
+	while heapLive(__Raw.loadWord(holder, offset: contextHeapOffset)) != 1 'started'
+		if __Raw.wrappingSub(osClockNanos(), right: start) > testStartNanos 'late'
+			panic("the holder did not allocate its box")
+		end 'late'
+		greenSleep(1000000)
+	end 'started'
+	testWrite("a thread held a box past the drain\n")
+	return 0
+end 'testCoordinator'
+
+// testHolder is the holder's thread, with its context: it waits for the end of the drain with its box, and then, past the
+// count it would have been in, frees it and stops on the idle list, which the leak check waits for.
+function testHolder(context Count) returns Count
+	setThreadIdentity(context)
+	let scheduler = __Raw.loadWord(context, offset: contextSchedulerOffset)
+	let box = alloc(wordBytes)
+	while __Raw.loadAcquire(scheduler, offset: schedExitClaimOffset) != __Raw.loadWord(scheduler, offset: schedMainThreadOffset) 'drain'
+		yieldThread()
+	end 'drain'
+	let start = monotonicNanos()
+	while __Raw.wrappingSub(monotonicNanos(), right: start) < testHoldNanos 'hold'
+		yieldThread()
+	end 'hold'
+	free(box)
+	if stopThread(context) 'handed'
+		scheduleLoop(context)
+	end 'handed'
+	panic("the holder was woken after the drain")
+end 'testHolder'
+
+function testWrite(text String)
+	write(__Raw.loadWord(__Raw.stdoutAddress(), offset: 0), text: text)
+end 'testWrite'

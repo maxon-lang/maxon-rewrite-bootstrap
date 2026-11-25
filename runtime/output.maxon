@@ -116,8 +116,10 @@ end 'panicIndex'
 
 // checkLeaks is the end of an executable that counts its allocations, after main and every behaviour: a box still live is a drop that the
 // program lacks, so it says how many on standard error and exits with leakExitCode. Otherwise it gives back main's exit
-// code. A panic and a trap exit without it, since they end the program with values still held.
+// code. A panic and a trap exit without it, since they end the program with values still held. It counts once every other
+// thread that runs green threads has parked for good (quiesceForCount).
 function checkLeaks(code Count) returns Count
+	quiesceForCount(__Raw.threadContext())
 	let live = liveBoxes()
 	if live == 0 'clean'
 		return code
