@@ -1,0 +1,58 @@
+// A try before an assignment's target covers the call that lends the place, and passes its failure on before anything
+// is written: a field of what a throwing 'mutates self' method lends is assigned in one statement.
+typealias Integer = int(i64.min to i64.max)
+
+type Node
+	export var visited as bool
+	export var weight as Integer
+
+	static function make(weight Integer) returns Node
+		return Node{visited: false, weight: weight}
+	end 'make'
+end 'Node'
+
+type Graph
+	var a as Node
+	var b as Node
+
+	static function make() returns Graph
+		return Graph{a: Node.make(1), b: Node.make(2)}
+	end 'make'
+
+	function get(mutates self, key Integer) returns borrowed Node throws ArrayError
+		if key == 0 'a'
+			return a
+		end 'a'
+		if key == 1 'b'
+			return b
+		end 'b'
+		throw ArrayError.emptySlot
+	end 'get'
+end 'Graph'
+
+function visit(mutates g Graph, key Integer, weight Integer) throws ArrayError
+	try g.get(key).visited = true
+	try g.get(key).weight = weight
+end 'visit'
+
+function main() returns ExitCode
+	var g = Graph.make()
+	try visit(g, key: 1, weight: 20) otherwise panic("b is there")
+	try visit(g, key: 5, weight: 50) otherwise 'missing'
+		print("no node 5\n")
+	end 'missing'
+	try 'block'
+		try g.get(0).weight = 10
+		try g.get(9).visited = true
+	end 'block' otherwise 'nine'
+		print("no node 9\n")
+	end 'nine'
+	print("{(try g.get(0) otherwise panic("a")).visited} {(try g.get(0) otherwise panic("a")).weight}\n")
+	print("{(try g.get(1) otherwise panic("b")).visited} {(try g.get(1) otherwise panic("b")).weight}\n")
+	return 0
+end 'main'
+
+//> no node 5
+//> no node 9
+//> false 10
+//> true 20

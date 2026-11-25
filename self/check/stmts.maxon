@@ -947,7 +947,9 @@ function checkAssign(mutates c Checker, p ast.Project, mutates ms ast.ModuleStat
 	let k = ms.tree().kindOf(targetNode)
 	var target = ast.noType
 	var wrong = Mismatch.expectedGot
-	if k == ast.NodeKind.nameExpr 'name'
+	if k == ast.NodeKind.tryExpr 'try'
+		target = checkTryTarget(c, p: p, ms: ms, s: s, targetNode: targetNode, errs: errs)
+	end 'try' else if k == ast.NodeKind.nameExpr 'name'
 		target = checkNameExpr(c, p: p, ms: ms, e: targetNode, errs: errs)
 		if target != ast.noType and nameInfoOf(c.typing, node: targetNode).kind == ast.NameKind.nameConst 'constant'
 			let constant = ast.declName(p, ref: nameInfoOf(c.typing, node: targetNode).decl)
@@ -987,6 +989,31 @@ function checkAssign(mutates c Checker, p ast.Project, mutates ms ast.ModuleStat
 	end 'refused'
 	_ = coerce(c, p: p, ms: ms, node: valueNode, at: placeOffset(c, p: p, ms: ms, place: targetNode), src: value, target: target, wrong: wrong, errs: errs)
 end 'checkAssign'
+
+// checkTryTarget types the target of `try p.get(k).n = v`: a field or an element of what a throwing call lends, which the try
+// covers and whose failure it passes on, so nothing is written where the call fails. A try that handles the failure
+// would leave no place to write, and a try of a variable covers no call.
+function checkTryTarget(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, s ast.NodeID, targetNode ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
+	if not ast.propagates(ms.tree(), e: targetNode) 'handles'
+		failAt(c, p: p, ms: ms, node: s, code: diag.errUnexpectedToken, msg: "a try before an assignment's target passes its failure on, so it takes no 'otherwise'; handle the failure in a try block around the assignment", errs: errs)
+		return ast.noType
+	end 'handles'
+	let inner = ast.tryExprE(ms.tree(), id: targetNode)
+	let k = ms.tree().kindOf(inner)
+	if k != ast.NodeKind.memberExpr and k != ast.NodeKind.indexExpr 'notPart'
+		failAt(c, p: p, ms: ms, node: s, code: diag.errUnexpectedToken, msg: "a try before an assignment's target covers a field or an element of what a call lends, as in 'try p.get(k).n = v'; assign a variable without it", errs: errs)
+		return ast.noType
+	end 'notPart'
+	let target = checkTry(c, p: p, ms: ms, e: targetNode, errs: errs)
+	if target == ast.noType 'failed'
+		return ast.noType
+	end 'failed'
+	if k == ast.NodeKind.memberExpr and memberKindOf(c, node: inner) != ast.MemberKind.memberField 'notField'
+		failAt(c, p: p, ms: ms, node: s, code: diag.errAssignToImmutable, msg: "'{ast.memberExprName(ms.tree(), id: inner)}' cannot be assigned", errs: errs)
+		return ast.noType
+	end 'notField'
+	return target
+end 'checkTryTarget'
 
 // namesAssignable is whether the name that an assignment targets may be reassigned. When it may not, the value is not held to the\n// name's type, since the refusal is the assignment's, which the ownership pass reports.
 function namesAssignable(c Checker, node ast.NodeID) returns bool

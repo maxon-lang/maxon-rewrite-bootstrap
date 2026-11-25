@@ -274,7 +274,20 @@ function isStaticString(ms ast.ModuleState, e ast.NodeID) returns bool
 end 'isStaticString'
 
 function assignStmtOwn(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState, st ast.NodeID, consumes s OwnState) returns OwnState
-	let target = ast.assignStmtTarget(ms.tree(), id: st)
+	let written = ast.assignStmtTarget(ms.tree(), id: st)
+	if ms.tree().kindOf(written) == ast.NodeKind.tryExpr 'try'
+		// `try p.get(k).n = v` passes the target's failure on (check.checkAssign), before anything is written.
+		let added = enterTry(o, handles: false)
+		let out = assignToOwn(o, p: p, ms: ms, st: st, target: ast.tryExprE(ms.tree(), id: written), s: s)
+		let entry = leaveTryEntry(o, added: added)
+		handled(o, p: p, ms: ms, e: written, entry: entry)
+		return out
+	end 'try'
+	return assignToOwn(o, p: p, ms: ms, st: st, target: written, s: s)
+end 'assignStmtOwn'
+
+// assignToOwn checks the assignment st of its value to target, its target or the place a try before it covers.
+function assignToOwn(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState, st ast.NodeID, target ast.NodeID, consumes s OwnState) returns OwnState
 	let value = ast.assignStmtValue(ms.tree(), id: st)
 	let site = offsetOfOwn(o, p: p, ms: ms, node: st)
 	requireStoredBorrows(o, p: p, ms: ms, target: target, value: value, site: site)
@@ -350,7 +363,7 @@ function assignStmtOwn(mutates o Ownership, p ast.Project, mutates ms ast.Module
 		return subscript(o, p: p, ms: ms, e: target, s: out)
 	end 'index'
 	panic("ownership: unhandled assignment target")
-end 'assignStmtOwn'
+end 'assignToOwn'
 
 // changedThroughProjection is the rest of an assignment of a part of a borrowed result: where its function lends the place
 // to be changed, the value the part held is dropped and of, what holds the part, is evaluated, which checks the call that

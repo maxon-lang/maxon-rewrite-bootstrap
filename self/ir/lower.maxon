@@ -567,7 +567,21 @@ end 'visitContinueStmt'
 // visitAssignStmt stores a value into a place, dropping the value the place held: the assignment is where that owner's
 // value dies. The value is computed first, so it may read the old one.
 function visitAssignStmt(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, s ast.NodeID)
-	let target = ast.assignStmtTarget(p.modules[l.mi].tree, id: s)
+	let written = ast.assignStmtTarget(p.modules[l.mi].tree, id: s)
+	if p.modules[l.mi].tree.kindOf(written) == ast.NodeKind.tryExpr 'try'
+		// `try p.get(k).n = v`: the try passes the target's failure on, before anything is written.
+		let added = enterPropagating(l)
+		assignTo(l, p: p, ms: ms, s: s, target: ast.tryExprE(p.modules[l.mi].tree, id: written))
+		if added 'leave'
+			leaveTry(l)
+		end 'leave'
+		return
+	end 'try'
+	assignTo(l, p: p, ms: ms, s: s, target: written)
+end 'visitAssignStmt'
+
+// assignTo lowers the assignment s of its value to target, its target or the place a try before it covers.
+function assignTo(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, s ast.NodeID, target ast.NodeID)
 	let value = ast.assignStmtValue(p.modules[l.mi].tree, id: s)
 	if appendsTo(l, p: p, ms: ms, target: target, value: value) 'append'
 		lowerAppend(l, p: p, ms: ms, target: target, value: value)
@@ -632,7 +646,7 @@ function visitAssignStmt(mutates l Lowerer, p ast.Project, mutates ms ast.Module
 		return
 	end 'index'
 	panic("lower: unhandled assignment target")
-end 'visitAssignStmt'
+end 'assignTo'
 
 function visitForStmt(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, s ast.NodeID)
 	if not ast.forStmtIsRange(p.modules[l.mi].tree, id: s) and p.typings[l.mi].iterations.has(s as Count) 'cursor'

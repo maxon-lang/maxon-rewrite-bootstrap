@@ -3040,6 +3040,11 @@ end 'forms'
   on every path) gives the `try` its expression's value; one that runs off its end gives none, so the `try` is a
   statement of its own (`E3059`, as for `otherwise ignore`). A block handler inside brackets, as in an argument, and
   in a constant, is not supported.
+- **A try before an assignment's target** covers the call that lends the place and passes its failure on before anything
+  is written: `try nodes.get(key).visited = true`, where `get` is a `mutates self` method that throws and lends the node
+  (see "Ownership"). The target is a field or an element of what the call lends; a try with an `otherwise` there is
+  `E2001`, since a handled failure leaves no place to write (a try block around the assignment handles it), and so is a
+  try before a variable, which covers no call. The value is computed as any value, with a try of its own where it can fail.
 - `throws` names an enum or a union, and not an interface or anything else (`E3113`); a value that is neither cannot be
   thrown (`E3005`). `otherwise ignore` gives no
   value, so its `try` is a statement of its own (`E3059`).
@@ -5337,6 +5342,8 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   of an integer or of `f64.max` as well. Here a text that is a well-formed number the type cannot hold (a `Port`'s
   `"70000"`, an `int`'s `"9223372036854775808"`, a float's `"1e309"`) is `outOfRange`, and `invalidFormat` is a text that
   is not written as the type's values are, so a program tells the two apart.
+- `try p.get(k).n = v` is minimaxon's: a try before an assignment's target covers the call that lends the place and passes
+  its failure on, where maxon has no place a call lends to be changed.
 
 ## Changing the language
 

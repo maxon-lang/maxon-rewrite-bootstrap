@@ -1,0 +1,48 @@
+// expect-error: E2013 at 41:2
+// A place that a 'let self' method lends is lent only to be read, with a try before the target as without.
+typealias Integer = int(i64.min to i64.max)
+
+type Node
+	export var visited as bool
+	export var weight as Integer
+
+	static function make(weight Integer) returns Node
+		return Node{visited: false, weight: weight}
+	end 'make'
+end 'Node'
+
+type Graph
+	var a as Node
+	var b as Node
+
+	static function make() returns Graph
+		return Graph{a: Node.make(1), b: Node.make(2)}
+	end 'make'
+
+	function look(key Integer) returns borrowed Node throws ArrayError
+		if key == 0 'a'
+			return a
+		end 'a'
+		throw ArrayError.emptySlot
+	end 'look'
+
+	function get(mutates self, key Integer) returns borrowed Node throws ArrayError
+		if key == 0 'a'
+			return a
+		end 'a'
+		if key == 1 'b'
+			return b
+		end 'b'
+		throw ArrayError.emptySlot
+	end 'get'
+end 'Graph'
+
+function poke(mutates g Graph) throws ArrayError
+	try g.look(0).weight = 4
+end 'poke'
+
+function main() returns ExitCode
+	var g = Graph.make()
+	try poke(g) otherwise ignore
+	return 0
+end 'main'
