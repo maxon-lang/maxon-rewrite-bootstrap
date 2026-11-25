@@ -851,3 +851,44 @@ func TestConvertRenamesMaxonsSlotAsCell(t *testing.T) {
 		t.Errorf("spec tests:\ngot:\n%q\nwant:\n%q", got, want)
 	}
 }
+
+// TestConvertExportsWhatOtherModulesName: an unmarked declaration that a file of another module of the listing, or one it
+// does not list, names becomes export, with the types that its signature names; one that only its own module names, or that
+// a file outside the directory it is visible to names, stays as it is.
+func TestConvertExportsWhatOtherModulesName(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "stdlib")
+	write := func(rel, text string) {
+		path := filepath.Join(root, rel)
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, []byte(text), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	write("Paths.maxon", "")
+	write("Sibling.maxon", "function sibling() returns Count\n\treturn sameModule()\nend 'sibling'\n")
+	write("Later.maxon", "function later() returns String\n\treturn \"{path.rootLength()}\"\nend 'later'\n")
+	write("helpers/area/Inside.maxon", "function inside() returns Count\n\treturn 0\nend 'inside'\n")
+	write("helpers/other/Outside.maxon", "function outside() returns Count\n\treturn insideOnly()\nend 'outside'\n")
+	saved := libraryListing
+	defer func() { libraryListing = saved }()
+	libraryListing = map[string]string{"Paths.maxon": "paths", "Sibling.maxon": "paths", "helpers/area/Inside.maxon": "area", "helpers/other/Outside.maxon": "other"}
+	in := "enum Rule\n\tkeep\nend 'Rule'\n\n" +
+		"type Path\n\tlet text as String\n\n\tfunction rootLength(rule Rule) returns Count\n\t\treturn 0\n\tend 'rootLength'\n\n" +
+		"\tfunction sameModule() returns Count\n\t\treturn 0\n\tend 'sameModule'\n\n" +
+		"\tpublic function visible() returns Count\n\t\treturn 0\n\tend 'visible'\n\n" +
+		"\tfunction hidden() returns Count\n\t\t#if os(Windows)\n\t\t\tfunction local() returns Count\n\t\t\t\treturn 0\n\t\t\tend 'local'\n\t\t#endif\n\t\treturn 0\n\tend 'hidden'\nend 'Path'\n"
+	want := "export enum Rule\n\tkeep\nend 'Rule'\n\n" +
+		"type Path\n\tlet text as String\n\n\texport function rootLength(rule Rule) returns Count\n\t\treturn 0\n\tend 'rootLength'\n\n" +
+		"\tfunction sameModule() returns Count\n\t\treturn 0\n\tend 'sameModule'\n\n" +
+		"\tpublic function visible() returns Count\n\t\treturn 0\n\tend 'visible'\n\n" +
+		"\tfunction hidden() returns Count\n\t\t#if os(Windows)\n\t\t\tfunction local() returns Count\n\t\t\t\treturn 0\n\t\t\tend 'local'\n\t\t#endif\n\t\treturn 0\n\tend 'hidden'\nend 'Path'\n"
+	if got := Convert(filepath.Join(root, "Paths.maxon"), in, sourceFile).Text; got != want {
+		t.Errorf("a file of the root:\ngot:\n%s\nwant:\n%s", got, want)
+	}
+	helper := "function insideOnly() returns Count\n\treturn 0\nend 'insideOnly'\n"
+	if got := Convert(filepath.Join(root, "helpers", "area", "Inside.maxon"), helper, sourceFile).Text; got != helper {
+		t.Errorf("a helper that only a file outside its directory names:\n%s", got)
+	}
+}

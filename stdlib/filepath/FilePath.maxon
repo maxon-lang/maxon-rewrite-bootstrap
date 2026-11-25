@@ -46,7 +46,7 @@ let PercentEscapeRadix = 16
 
 typealias PathComponentArray = Array with String
 
-enum ParentComponentRule
+export enum ParentComponentRule
 	cancelsThePreviousName
 	keptForTheFilesystem
 end 'ParentComponentRule'
@@ -63,7 +63,7 @@ extension FilePath
 	end 'empty'
 
 	/// Resolve URL, validate characters, normalize separators.
-	static function create(input String) returns FilePath throws FilePathError
+	export static function create(input String) returns FilePath throws FilePathError
 		let resolved = try resolveFileURL(input)
 		#if os(Windows)
 			if hasInvalidChars(resolved) 'bad'
@@ -411,7 +411,7 @@ extension FilePath
 		return folded(ParentComponentRule.cancelsThePreviousName)
 	end 'normalize'
 
-	function folded(parents ParentComponentRule) returns FilePath
+	export function folded(parents ParentComponentRule) returns FilePath
 		if path.isEmpty() 'emptyPath'
 			return FilePath{path: path.clone()}
 		end 'emptyPath'
@@ -458,7 +458,7 @@ extension FilePath
 
 	/// How many leading bytes of the path are its root, which `normalize` keeps as it is: `/` (every leading
 	/// separator) on POSIX; on Windows `C:\`, a drive-relative `C:`, a UNC `\\server\share\` or a rooted `\`.
-	function rootByteLength() returns BytePos
+	export function rootByteLength() returns BytePos
 		let len = path.byteLength()
 		#if os(Windows)
 			if hasDriveRoot() 'driveRoot'

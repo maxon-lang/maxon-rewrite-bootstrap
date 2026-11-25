@@ -275,11 +275,11 @@ end 'findKeyInNode'
 // =============================================================================
 
 type JsonParser
-	var bytes as ByteArray
-	var pos = 0 as BytePos
+	export var bytes as ByteArray
+	export var pos = 0 as BytePos
 	public var doc as JsonDoc
 
-	static function create(bytes ByteArray, doc JsonDoc) returns JsonParser
+	export static function create(bytes ByteArray, doc JsonDoc) returns JsonParser
 		return Self{bytes: bytes.clone(), doc: doc.clone()}
 	end 'create'
 
@@ -287,11 +287,11 @@ type JsonParser
 		doc.root = rootId
 	end 'commitRoot'
 
-	function atEnd() returns bool
+	export function atEnd() returns bool
 		return pos >= bytes.count() as BytePos
 	end 'atEnd'
 
-	function peek() returns Byte throws JsonError
+	export function peek() returns Byte throws JsonError
 		if pos >= bytes.count() as BytePos 'eof'
 			throw JsonError.unexpectedEof
 		end 'eof'
@@ -300,7 +300,7 @@ type JsonParser
 		end 'getErr'
 	end 'peek'
 
-	function advance(mutates self) throws JsonError
+	export function advance(mutates self) throws JsonError
 		if pos >= bytes.count() as BytePos 'eof'
 			throw JsonError.unexpectedEof
 		end 'eof'

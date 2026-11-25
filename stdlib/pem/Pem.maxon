@@ -44,25 +44,25 @@ public type PemBlock
 	/// The decoded body.
 	public let bytes as ByteArray
 
-	static function create(label String, bytes ByteArray) returns PemBlock
+	export static function create(label String, bytes ByteArray) returns PemBlock
 		return PemBlock{label: label.clone(), bytes: bytes.clone()}
 	end 'create'
 end 'PemBlock'
 
 type PemScanner
-	var blocks as PemBlocks
+	export var blocks as PemBlocks
 	var inBlock as bool
-	var label as ByteArray
-	var body as ByteArray
+	export var label as ByteArray
+	export var body as ByteArray
 	var beginPrefix as ByteArray
 	var endPrefix as ByteArray
 	var boundarySuffix as ByteArray
 
-	static function create() returns PemScanner
+	export static function create() returns PemScanner
 		return PemScanner{blocks: PemBlocks.create(0), inBlock: false, label: ByteArray.create(0), body: ByteArray.create(0), beginPrefix: PemBeginPrefix.toByteArray(), endPrefix: PemEndPrefix.toByteArray(), boundarySuffix: PemBoundarySuffix.toByteArray()}
 	end 'create'
 
-	function accept(mutates self, line ByteArray) throws PemError
+	export function accept(mutates self, line ByteArray) throws PemError
 		if not inBlock 'outside'
 			let boundaryLength = pemBoundaryLength(line)
 			if isBegin(line, boundaryLength: boundaryLength) 'begins'
@@ -89,7 +89,7 @@ type PemScanner
 		end 'eachBodyByte'
 	end 'accept'
 
-	function finish() returns PemBlocks throws PemError
+	export function finish() returns PemBlocks throws PemError
 		if inBlock 'unterminated'
 			throw PemError.unterminatedBlock
 		end 'unterminated'

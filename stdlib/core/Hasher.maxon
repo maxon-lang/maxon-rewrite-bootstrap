@@ -7,8 +7,8 @@ end 'HashSeedError'
 
 /// The 64 bits a `KeyedHasher` fold starts from.
 public type HashSeed
-	let word as HashDigest
-	let empty as HashDigest
+	export let word as HashDigest
+	export let empty as HashDigest
 
 	/// A fresh seed from the operating system's entropy, or, under a `MAXON_HASH_SEED` pin, the next
 	/// seed of the sequence that pin fixes.
@@ -37,14 +37,14 @@ public type HashSeed
 	end 'ofWord'
 end 'HashSeed'
 
-function processFoldStart() returns HashDigest
+export function processFoldStart() returns HashDigest
 	return __Builtins.hashSeed()
 end 'processFoldStart'
 
 /// The process fold `String`, `Character` and `Array` hash with, seeded once per process. A digest kept
 /// or resumed is a `KeyedHasher` fold.
 public type Hasher
-	var state as HashDigest
+	export var state as HashDigest
 
 	public static function create() returns Self
 		return Self{state: processFoldStart()}
@@ -66,7 +66,7 @@ end 'Hasher'
 /// A running fold. Each step's state seeds the next, so `"ab"` then `"c"` and `"abc"` differ. The static
 /// `empty`/`combined` pair is the same fold as expressions, for a place a mutable hasher cannot go.
 public type KeyedHasher
-	var state as HashDigest
+	export var state as HashDigest
 
 	/// The state of a fold with nothing in it.
 	public static function empty(seed HashSeed) returns HashDigest

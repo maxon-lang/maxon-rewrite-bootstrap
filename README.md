@@ -558,7 +558,12 @@ is that of its module (`app::main`), and a project with no `main` in any module 
   extension names that module. Each directory of maxon's `stdlib/helpers/` is a module of the library by the conversion
   (`files.txt` maps each file to it) and the conversion makes every `public` of a helper file `export`, so a helper is the
   whole library's and no program's, and so is a `public` member of another library file whose parameters or typealias target
-  name a helper's type or such a member (its result may name one). A program the spec runner stages in the library is
+  name a helper's type or such a member (its result may name one). Where maxon's unmarked declaration is visible to the
+  library's tree, here it is the declaring module's, so the conversion makes an unmarked declaration `export` when a file
+  of another module of `files.txt`, or a file of maxon's library that is not converted yet, writes its name, within the
+  directory maxon makes it visible to (`cmd/convert --listing`, `visibility.go`), together with the types of the file that
+  its signature names (`E3167`); it reads names as words, so a word that such a file writes for something else exports a
+  declaration that nothing names, which reaches no program. A program the spec runner stages in the library is
   compiled as a file of the core, so it sees the library's `export` declarations too, bare. Only the library modules a program
   names, directly or through others, are compiled past their resolve (`reachedModules`), so a program pays for no other, and
   resolves only those it reaches: in a program's compile the library's resolves wait for the program's, and a library module

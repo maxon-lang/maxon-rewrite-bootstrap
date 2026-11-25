@@ -344,7 +344,7 @@ Stack trace:
 ```
 
 <!-- test: sha2.the-hardware-and-software-compressions-agree -->
-<!-- skip: language difference: modules are Go's, so an unmarked declaration is its module's alone and an export reaches the tree of its module's parent, where maxon's unmarked declaration reaches its directory's subtree and its export the whole project -->
+<!-- skip: language difference: minimaxon's library is software only, so the hardware intrinsics the test calls (`__Builtins.cpuHasSha`, `__Builtins.sha256Blocks`) are not provided -->
 <!-- tier: stdlib -->
 SHA-256 has two compressions: the SHA instructions (SHA-NI on x64, the ARMv8 SHA2 extension on arm64) where
 the CPU has them, and the portable one everywhere else. `Digest.create` takes the hardware one when it can,

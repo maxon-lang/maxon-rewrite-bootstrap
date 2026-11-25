@@ -99,7 +99,7 @@ func convertStdlib(compiler, maxonStdlib string, say func(env []string, name str
 	}
 	converted := filepath.Join(scratch, "converted")
 	for _, e := range entries {
-		if err := say(env, converter, "--out="+converted, "--split="+stdlibSplits, filepath.Join(maxonStdlib, e.source)); err != nil {
+		if err := say(env, converter, "--out="+converted, "--split="+stdlibSplits, "--listing="+stdlibListing, filepath.Join(maxonStdlib, e.source)); err != nil {
 			return err
 		}
 		if err := place(filepath.Join(converted, filepath.Base(e.source)), e.target()); err != nil {
