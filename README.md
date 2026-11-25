@@ -1863,6 +1863,8 @@ as the whole constant (a number is a constant of the code and a string a literal
 interpolated string, a byte string, a map or a list, a function value or a closure, a value boxed into an interface, a
 conditional or a match, or an operator or a cast the checker does not fold. The raw values of an enum or a union are data
 only when every case's is, so a read has the same owner whatever the case.
+Not yet: a module-level or `static let` that calls `create` of a `Set`, a `Map` or a `List`, as maxon's initializer may: here it
+is refused with `E3220`, since it needs a static layout of a hashed collection.
 
 A datum is one piece of the data, its boxes laid out as lowering would build them on the heap (a record's words padded as
 `boxBytes` pads them, an array's header and buffer) followed by its strings, named `const <module>::<name>` or
