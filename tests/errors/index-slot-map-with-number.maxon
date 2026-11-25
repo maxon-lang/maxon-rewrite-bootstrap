@@ -1,4 +1,4 @@
-// expect-error: E3005 at 14:12
+// expect-error: E3005 at 14:17
 typealias CellPool = SlotMap with Cell
 
 type Cell
@@ -11,6 +11,6 @@ end 'Cell'
 
 function main() returns ExitCode
 	var p = CellPool.create()
-	print("{p[0].n}")
+	print("{(try p.get(0) otherwise panic("the slot key names no element")).n}")
 	return 0
 end 'main'

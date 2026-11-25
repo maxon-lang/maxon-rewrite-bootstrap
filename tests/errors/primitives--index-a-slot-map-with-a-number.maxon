@@ -86,11 +86,11 @@ function total(x T) uses T returns Count where T implements Shape
 	return x.area()
 end 'total'
 
-// expect-error: E3005 at 94:12
+// expect-error: E3005 at 94:17
 typealias CellPool = SlotMap with Cell
 
 function main() returns ExitCode
 	var p = CellPool.create()
-	print("{p[0].n}")
+	print("{(try p.get(0) otherwise panic("the slot key names no element")).n}")
 	return 0
 end 'main'

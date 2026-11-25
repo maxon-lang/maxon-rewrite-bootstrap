@@ -35,7 +35,6 @@ var builtinNames = map[string]bool{
 	"__StringCursor":            true,
 	"__GroupMemory":             true,
 	"List":                      true,
-	"SlotMap":                   true,
 	"SlotKey":                   true,
 	"frozen":                    true,
 	"cown":                      true,
@@ -110,7 +109,7 @@ var builtinNames = map[string]bool{
 
 // builtinMethods are the methods minimaxon declares on each type it builds in, by the type's name, in the table's order.
 var builtinMethods = map[string][]string{
-	"Array":                 {"create", "init", "filled", "count", "isEmpty", "capacity", "get", "set", "push", "append", "insert", "remove", "pop", "dropEmpty", "clear", "truncate", "reserve", "resize", "slice", "growFilled", "refill", "clearSlot", "fillSlot", "takeSlot", "contains", "containsSequence", "equals", "first", "last", "awaitAny"},
+	"Array":                 {"create", "init", "filled", "count", "isEmpty", "capacity", "get", "set", "push", "append", "insert", "remove", "pop", "dropEmpty", "clear", "truncate", "reserve", "resize", "slice", "growFilled", "refill", "clearSlot", "fillSlot", "takeSlot", "lendSlot", "contains", "containsSequence", "equals", "first", "last", "awaitAny"},
 	"FixedArray":            {"create", "count", "get", "set", "refill"},
 	"__ManagedMemory":       {"length", "get", "capacity", "elementSize", "set", "swap", "append", "remove", "clear", "slice", "grow", "setLength", "createCursor"},
 	"__ManagedMemoryCursor": {"current", "index", "advance", "retreat", "seek", "peek"},
@@ -118,7 +117,6 @@ var builtinMethods = map[string][]string{
 	"__StringCursor":        {"create", "current", "advance"},
 	"__GroupMemory":         {"create", "groups", "control", "setControl", "first", "second", "put", "setSecond", "takeFirst", "takeSecond", "clear"},
 	"List":                  {"create", "count", "isEmpty", "contains", "prepend", "append", "removeFirst", "removeLast", "first", "last", "next", "prev", "remove", "moveToFront", "dropEmpty"},
-	"SlotMap":               {"create", "count", "isEmpty", "contains", "insert", "remove", "dropEmpty"},
 	"SlotKey":               {"fromWord", "word"},
 	"String":                {"byteLength", "byteAt", "sliceBytes", "toByteArray", "from", "byteAtOrPanic", "addressableBytes", "init", "bytes", "codepoints", "utf16", "isEmpty", "equals", "count", "contains", "startsWith", "endsWith", "findFirst", "findLast", "indexAfter", "startIndex", "endIndex", "slice", "sliceLength", "replace", "replaceFirst", "toLower", "toUpper", "charAt", "containsCharacter"},
 	"ByteView":              {"createIterator", "count"},

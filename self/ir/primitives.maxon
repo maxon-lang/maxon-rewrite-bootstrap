@@ -159,15 +159,15 @@ function builtinOf(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState,
 	return ast.contentType(ms.types, reads: p.types, t: applied)
 end 'builtinOf'
 
-// indexType is the type of what goes between the brackets: a position for an array, and for a list or a slot map the slot key of
-// the element.
+// indexType is the type of what goes between the brackets: a position for an array, and for a list the slot key of the
+// element.
 function indexType(p ast.Project, mutates ms ast.ModuleState, bt ast.TypeID) returns ast.TypeID
 	let kind = ast.typeKind(ms.types, reads: p.types, t: bt)
 	let args = ast.typeArgsOf(ms.types, reads: p.types, t: bt)
 	if kind == ast.TypeKind.builtinArray 'array'
 		return p.builtins.countTy
 	end 'array'
-	if kind == ast.TypeKind.builtinList or kind == ast.TypeKind.builtinSlotMap 'handle'
+	if kind == ast.TypeKind.builtinList 'handle'
 		var of = ast.TypeIDList.create(0)
 		of.push(args[0])
 		return ast.instantiateType(ms.types, reads: p.types, origin: p.builtins.slotKeyOrigin, args: of)
@@ -179,7 +179,7 @@ end 'indexType'
 function elementType(p ast.Project, ms ast.ModuleState, bt ast.TypeID) returns ast.TypeID
 	let kind = ast.typeKind(ms.types, reads: p.types, t: bt)
 	let args = ast.typeArgsOf(ms.types, reads: p.types, t: bt)
-	if kind == ast.TypeKind.builtinArray or kind == ast.TypeKind.builtinList or kind == ast.TypeKind.builtinSlotMap 'one'
+	if kind == ast.TypeKind.builtinArray or kind == ast.TypeKind.builtinList 'one'
 		return args[0]
 	end 'one'
 	panic("lower: {ast.typeName(ms.types, reads: p.types, t: bt)} has no elements")
@@ -197,16 +197,14 @@ function isArray(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c
 	return ast.typeKind(ms.types, reads: p.types, t: bt) == ast.TypeKind.builtinArray
 end 'isArray'
 
-// elemEntry is the address of an element of a list or a slot map; an array's goes through arrayOf.
+// elemEntry is the address of an element of a list; an array's goes through arrayOf.
 function elemEntry(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, site diag.Site, collection ast.TypeID, coll Reg, index Reg) returns Reg
 	let bt = builtinOf(l, p: p, ms: ms, collection: collection)
 	let kind = ast.typeKind(ms.types, reads: p.types, t: bt)
 	var symbol = Rt.rtNone
 	if kind == ast.TypeKind.builtinList 'list'
 		symbol = Rt.rtListElem
-	end 'list' else if kind == ast.TypeKind.builtinSlotMap 'pool'
-		symbol = Rt.rtSlotMapElem
-	end 'pool' else 'other'
+	end 'list' else 'other'
 		panic("lower: {ast.typeName(ms.types, reads: p.types, t: bt)} has no elements to address")
 	end 'other'
 	return entry(l, p: p, site: site, symbol: symbol, kind: IrKind.kindScalar, args: argsOf2(coll, b: index))
@@ -677,6 +675,18 @@ function lowerArrayTakeSlot(mutates l Lowerer, p ast.Project, mutates ms ast.Mod
 	return arrayTakeSlot(l, p: p, ms: ms, box: a, arr: recv, index: args[0])
 end 'lowerArrayTakeSlot'
 
+// lowerArrayLendSlot lends the element at an index to be changed (ast.lendsToChange): the address of its word, or for a
+// record held in place the address of its words, which is its value; past the end and at an empty slot it traps, as a
+// subscript's read does. A byte-sized element has no word of its own to lend.
+function lowerArrayLendSlot(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	let a = arrayOfCall(l, p: p, ms: ms, c: c)
+	if arrayPacked(p, ms: ms, box: a) 'packed'
+		refuse(l, site: siteOf(l, p: p, node: c.node), code: diag.errUnsupported, message: "an element of an array of byte-sized elements (a byte range, an enum of at most 256 cases) has no word of its own, so it is not lent in place yet")
+		return konst(l, value: 0 as Word)
+	end 'packed'
+	return arrayLend(l, p: p, ms: ms, box: a, arr: recv, index: args[0])
+end 'lowerArrayLendSlot'
+
 function lowerArraySlice(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	let a = arrayOfCall(l, p: p, ms: ms, c: c)
 	return arraySlice(l, p: p, ms: ms, box: a, arr: recv, start: args[0], endIndex: args[1])
@@ -794,32 +804,6 @@ function lowerListMoveToFront(mutates l Lowerer, p ast.Project, ms ast.ModuleSta
 	return konst(l, value: 0 as Word)
 end 'lowerListMoveToFront'
 
-function lowerSlotMapCreate(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
-	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtSlotMapNew, kind: IrKind.kindManaged, args: RegList.create(0))
-end 'lowerSlotMapCreate'
-
-function lowerSlotMapCount(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
-	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtSlotMapLen, kind: IrKind.kindScalar, args: argsOf1(recv))
-end 'lowerSlotMapCount'
-
-function lowerSlotMapIsEmpty(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
-	let n = entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtSlotMapLen, kind: IrKind.kindScalar, args: argsOf1(recv))
-	return isZero(l, v: n)
-end 'lowerSlotMapIsEmpty'
-
-function lowerSlotMapContains(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
-	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtSlotMapContains, kind: IrKind.kindScalar, args: argsOf2(recv, b: args[0]))
-end 'lowerSlotMapContains'
-
-function lowerSlotMapInsert(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
-	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtSlotMapInsert, kind: IrKind.kindScalar, args: argsOf2(recv, b: args[0]))
-end 'lowerSlotMapInsert'
-
-function lowerSlotMapDropEmpty(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
-	let n = entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtSlotMapLen, kind: IrKind.kindScalar, args: argsOf1(recv))
-	return dropEmpty(l, p: p, ms: ms, c: c, left: n, collection: recv)
-end 'lowerSlotMapDropEmpty'
-
 // lowerSlotKeyFromWord is the slot key whose word is the argument, the same word.
 function lowerSlotKeyFromWord(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	return args[0]
@@ -829,10 +813,6 @@ end 'lowerSlotKeyFromWord'
 function lowerSlotKeyWord(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	return recv
 end 'lowerSlotKeyWord'
-
-function lowerSlotMapRemove(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
-	return removeSlotKey(l, p: p, ms: ms, c: c, contains: Rt.rtSlotMapContains, remove: Rt.rtSlotMapRemove, collection: recv, handle: args[0])
-end 'lowerSlotMapRemove'
 
 function lowerStringByteLength(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	return runtime(l, symbol: Rt.rtStrLen, kind: IrKind.kindScalar, args: argsOf1(recv))
@@ -1020,7 +1000,7 @@ function holdsInterpreterOnly(p ast.Project, mutates ms ast.ModuleState, t ast.T
 	if kind == ast.TypeKind.builtinFrozen or kind == ast.TypeKind.builtinCown or kind == ast.TypeKind.builtinService 'shared'
 		return holdsInterpreterOnly(p, ms: ms, t: heldType(p, ms: ms, t: t), visiting: visiting)
 	end 'shared'
-	if kind == ast.TypeKind.builtinList or kind == ast.TypeKind.builtinSlotMap 'only'
+	if kind == ast.TypeKind.builtinList 'only'
 		return true
 	end 'only'
 	// A cursor holds a word of the buffer it borrows and its index, and never drops the buffer.

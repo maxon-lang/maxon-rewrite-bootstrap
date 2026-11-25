@@ -14,7 +14,6 @@ export function extensionKey(p Project, ms ModuleState, t TypeID) returns table.
 		unionTy gives table.Option.some(originOf(ms.types, reads: p.types, t: t))
 		builtinArray gives table.Option.some(originOf(ms.types, reads: p.types, t: t))
 		builtinList gives table.Option.some(originOf(ms.types, reads: p.types, t: t))
-		builtinSlotMap gives table.Option.some(originOf(ms.types, reads: p.types, t: t))
 		builtinSlotKey gives table.Option.some(originOf(ms.types, reads: p.types, t: t))
 		builtinFrozen gives table.Option.some(originOf(ms.types, reads: p.types, t: t))
 		builtinCown gives table.Option.some(originOf(ms.types, reads: p.types, t: t))

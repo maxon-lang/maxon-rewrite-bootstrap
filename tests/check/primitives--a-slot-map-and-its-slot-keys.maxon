@@ -91,8 +91,8 @@ typealias CellPool = SlotMap with Cell
 function main() returns ExitCode
 	var p = CellPool.create()
 	let h = p.insert(Cell.make(1))
-	p[h].n = 2
-	touch(p[h])
+	(try p.get(h) otherwise panic("the slot key names no element")).n = 2
+	touch(try p.get(h) otherwise panic("the slot key names no element"))
 	if p.contains(h) 'c'
 		let gone = try p.remove(h) otherwise panic("the slot key names no element")
 		print("{gone.n}")

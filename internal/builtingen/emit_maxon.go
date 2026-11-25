@@ -402,6 +402,9 @@ func (m *maxonBody) lends(f fn, id string) {
 	if f.Lends {
 		m.line("ft.lists[funcList(ft, f: %[1]s)][funcIndex(ft, f: %[1]s)].result = ResultConv.resultBorrowed", id)
 	}
+	if f.Place {
+		m.line("ft.lists[funcList(ft, f: %[1]s)][funcIndex(ft, f: %[1]s)].lendsPlace = true", id)
+	}
 }
 
 // errorType sets the error that the function id throws, when it throws one.

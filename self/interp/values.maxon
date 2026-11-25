@@ -23,8 +23,6 @@ let kindNone = 3 as Count
 
 let kindList = 4 as Count
 
-let kindSlotMap = 5 as Count
-
 // kindFrozen and kindCown are boxes with many owners: a count of them, not one owner, decides when the box is freed.
 let kindFrozen = 6 as Count
 

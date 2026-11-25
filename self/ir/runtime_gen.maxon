@@ -154,13 +154,6 @@ export enum Rt
 	rtListRemove
 	rtListMoveToFront
 	rtListCopy
-	rtSlotMapNew
-	rtSlotMapLen
-	rtSlotMapContains
-	rtSlotMapElem
-	rtSlotMapInsert
-	rtSlotMapRemove
-	rtSlotMapCopy
 	rtFrozenFreeze
 	rtFrozenGet
 	rtShare
@@ -676,27 +669,6 @@ export function rtSymbol(r Rt) returns String
 	if r == Rt.rtListCopy 'rtListCopy'
 		return "rt.list.copy"
 	end 'rtListCopy'
-	if r == Rt.rtSlotMapNew 'rtSlotMapNew'
-		return "rt.slotMap.new"
-	end 'rtSlotMapNew'
-	if r == Rt.rtSlotMapLen 'rtSlotMapLen'
-		return "rt.slotMap.len"
-	end 'rtSlotMapLen'
-	if r == Rt.rtSlotMapContains 'rtSlotMapContains'
-		return "rt.slotMap.contains"
-	end 'rtSlotMapContains'
-	if r == Rt.rtSlotMapElem 'rtSlotMapElem'
-		return "rt.slotMap.elem"
-	end 'rtSlotMapElem'
-	if r == Rt.rtSlotMapInsert 'rtSlotMapInsert'
-		return "rt.slotMap.insert"
-	end 'rtSlotMapInsert'
-	if r == Rt.rtSlotMapRemove 'rtSlotMapRemove'
-		return "rt.slotMap.remove"
-	end 'rtSlotMapRemove'
-	if r == Rt.rtSlotMapCopy 'rtSlotMapCopy'
-		return "rt.slotMap.copy"
-	end 'rtSlotMapCopy'
 	if r == Rt.rtFrozenFreeze 'rtFrozenFreeze'
 		return "runtime::frozenFreeze"
 	end 'rtFrozenFreeze'
@@ -1329,27 +1301,6 @@ export function rtText(r Rt) returns String
 	if r == Rt.rtListCopy 'rtListCopy'
 		return "rt.list.copy"
 	end 'rtListCopy'
-	if r == Rt.rtSlotMapNew 'rtSlotMapNew'
-		return "rt.slotMap.new"
-	end 'rtSlotMapNew'
-	if r == Rt.rtSlotMapLen 'rtSlotMapLen'
-		return "rt.slotMap.len"
-	end 'rtSlotMapLen'
-	if r == Rt.rtSlotMapContains 'rtSlotMapContains'
-		return "rt.slotMap.contains"
-	end 'rtSlotMapContains'
-	if r == Rt.rtSlotMapElem 'rtSlotMapElem'
-		return "rt.slotMap.elem"
-	end 'rtSlotMapElem'
-	if r == Rt.rtSlotMapInsert 'rtSlotMapInsert'
-		return "rt.slotMap.insert"
-	end 'rtSlotMapInsert'
-	if r == Rt.rtSlotMapRemove 'rtSlotMapRemove'
-		return "rt.slotMap.remove"
-	end 'rtSlotMapRemove'
-	if r == Rt.rtSlotMapCopy 'rtSlotMapCopy'
-		return "rt.slotMap.copy"
-	end 'rtSlotMapCopy'
 	if r == Rt.rtFrozenFreeze 'rtFrozenFreeze'
 		return "rt.frozen.freeze"
 	end 'rtFrozenFreeze'
@@ -1982,200 +1933,179 @@ export function rtCode(r Rt) returns Count
 	if r == Rt.rtListCopy 'rtListCopy'
 		return 151
 	end 'rtListCopy'
-	if r == Rt.rtSlotMapNew 'rtSlotMapNew'
-		return 152
-	end 'rtSlotMapNew'
-	if r == Rt.rtSlotMapLen 'rtSlotMapLen'
-		return 153
-	end 'rtSlotMapLen'
-	if r == Rt.rtSlotMapContains 'rtSlotMapContains'
-		return 154
-	end 'rtSlotMapContains'
-	if r == Rt.rtSlotMapElem 'rtSlotMapElem'
-		return 155
-	end 'rtSlotMapElem'
-	if r == Rt.rtSlotMapInsert 'rtSlotMapInsert'
-		return 156
-	end 'rtSlotMapInsert'
-	if r == Rt.rtSlotMapRemove 'rtSlotMapRemove'
-		return 157
-	end 'rtSlotMapRemove'
-	if r == Rt.rtSlotMapCopy 'rtSlotMapCopy'
-		return 158
-	end 'rtSlotMapCopy'
 	if r == Rt.rtFrozenFreeze 'rtFrozenFreeze'
-		return 159
+		return 152
 	end 'rtFrozenFreeze'
 	if r == Rt.rtFrozenGet 'rtFrozenGet'
-		return 160
+		return 153
 	end 'rtFrozenGet'
 	if r == Rt.rtShare 'rtShare'
-		return 161
+		return 154
 	end 'rtShare'
 	if r == Rt.rtCownNew 'rtCownNew'
-		return 162
+		return 155
 	end 'rtCownNew'
 	if r == Rt.rtBytesNew 'rtBytesNew'
-		return 163
+		return 156
 	end 'rtBytesNew'
 	if r == Rt.rtBytesLen 'rtBytesLen'
-		return 164
+		return 157
 	end 'rtBytesLen'
 	if r == Rt.rtBytesGet 'rtBytesGet'
-		return 165
+		return 158
 	end 'rtBytesGet'
 	if r == Rt.rtBytesSet 'rtBytesSet'
-		return 166
+		return 159
 	end 'rtBytesSet'
 	if r == Rt.rtBytesInsert 'rtBytesInsert'
-		return 167
+		return 160
 	end 'rtBytesInsert'
 	if r == Rt.rtBytesRemove 'rtBytesRemove'
-		return 168
+		return 161
 	end 'rtBytesRemove'
 	if r == Rt.rtBytesAppend 'rtBytesAppend'
-		return 169
+		return 162
 	end 'rtBytesAppend'
 	if r == Rt.rtBytesAppendStr 'rtBytesAppendStr'
-		return 170
+		return 163
 	end 'rtBytesAppendStr'
 	if r == Rt.rtBytesToString 'rtBytesToString'
-		return 171
+		return 164
 	end 'rtBytesToString'
 	if r == Rt.rtOsArgs 'rtOsArgs'
-		return 172
+		return 165
 	end 'rtOsArgs'
 	if r == Rt.rtOsEnvironmentVariable 'rtOsEnvironmentVariable'
-		return 173
+		return 166
 	end 'rtOsEnvironmentVariable'
 	if r == Rt.rtOsExecutablePath 'rtOsExecutablePath'
-		return 174
+		return 167
 	end 'rtOsExecutablePath'
 	if r == Rt.rtOsCurrentPath 'rtOsCurrentPath'
-		return 175
+		return 168
 	end 'rtOsCurrentPath'
 	if r == Rt.rtOsProcessId 'rtOsProcessId'
-		return 176
+		return 169
 	end 'rtOsProcessId'
 	if r == Rt.rtOsSetExitCode 'rtOsSetExitCode'
-		return 177
+		return 170
 	end 'rtOsSetExitCode'
 	if r == Rt.rtOsExitAtOnce 'rtOsExitAtOnce'
-		return 178
+		return 171
 	end 'rtOsExitAtOnce'
 	if r == Rt.rtOsEnterBackgroundPriority 'rtOsEnterBackgroundPriority'
-		return 179
+		return 172
 	end 'rtOsEnterBackgroundPriority'
 	if r == Rt.rtOsClockNanos 'rtOsClockNanos'
-		return 180
+		return 173
 	end 'rtOsClockNanos'
 	if r == Rt.rtOsClockMillis 'rtOsClockMillis'
-		return 181
+		return 174
 	end 'rtOsClockMillis'
 	if r == Rt.rtOsTickMillis 'rtOsTickMillis'
-		return 182
+		return 175
 	end 'rtOsTickMillis'
 	if r == Rt.rtOsThreadCpuTicks 'rtOsThreadCpuTicks'
-		return 183
+		return 176
 	end 'rtOsThreadCpuTicks'
 	if r == Rt.rtOsUnixNanos 'rtOsUnixNanos'
-		return 184
+		return 177
 	end 'rtOsUnixNanos'
 	if r == Rt.rtOsUnixSeconds 'rtOsUnixSeconds'
-		return 185
+		return 178
 	end 'rtOsUnixSeconds'
 	if r == Rt.rtOsProcessorCount 'rtOsProcessorCount'
-		return 186
+		return 179
 	end 'rtOsProcessorCount'
 	if r == Rt.rtOsPathFrom 'rtOsPathFrom'
-		return 187
+		return 180
 	end 'rtOsPathFrom'
 	if r == Rt.rtOsReadText 'rtOsReadText'
-		return 188
+		return 181
 	end 'rtOsReadText'
 	if r == Rt.rtOsWriteTextMode 'rtOsWriteTextMode'
-		return 189
+		return 182
 	end 'rtOsWriteTextMode'
 	if r == Rt.rtOsWriteBinaryMode 'rtOsWriteBinaryMode'
-		return 190
+		return 183
 	end 'rtOsWriteBinaryMode'
 	if r == Rt.rtOsRename 'rtOsRename'
-		return 191
+		return 184
 	end 'rtOsRename'
 	if r == Rt.rtOsDelete 'rtOsDelete'
-		return 192
+		return 185
 	end 'rtOsDelete'
 	if r == Rt.rtOsFileInfo 'rtOsFileInfo'
-		return 193
+		return 186
 	end 'rtOsFileInfo'
 	if r == Rt.rtOsIsDirectory 'rtOsIsDirectory'
-		return 194
+		return 187
 	end 'rtOsIsDirectory'
 	if r == Rt.rtOsExists 'rtOsExists'
-		return 195
+		return 188
 	end 'rtOsExists'
 	if r == Rt.rtOsCreateDirectory 'rtOsCreateDirectory'
-		return 196
+		return 189
 	end 'rtOsCreateDirectory'
 	if r == Rt.rtOsDeleteDirectory 'rtOsDeleteDirectory'
-		return 197
+		return 190
 	end 'rtOsDeleteDirectory'
 	if r == Rt.rtOsList 'rtOsList'
-		return 198
+		return 191
 	end 'rtOsList'
 	if r == Rt.rtDebugLaunch 'rtDebugLaunch'
-		return 199
+		return 192
 	end 'rtDebugLaunch'
 	if r == Rt.rtDebugWaitEvent 'rtDebugWaitEvent'
-		return 200
+		return 193
 	end 'rtDebugWaitEvent'
 	if r == Rt.rtDebugContinueEvent 'rtDebugContinueEvent'
-		return 201
+		return 194
 	end 'rtDebugContinueEvent'
 	if r == Rt.rtDebugReadMemory 'rtDebugReadMemory'
-		return 202
+		return 195
 	end 'rtDebugReadMemory'
 	if r == Rt.rtDebugWriteCode 'rtDebugWriteCode'
-		return 203
+		return 196
 	end 'rtDebugWriteCode'
 	if r == Rt.rtDebugReadContext 'rtDebugReadContext'
-		return 204
+		return 197
 	end 'rtDebugReadContext'
 	if r == Rt.rtDebugWriteContext 'rtDebugWriteContext'
-		return 205
+		return 198
 	end 'rtDebugWriteContext'
 	if r == Rt.rtDebugSuspend 'rtDebugSuspend'
-		return 206
+		return 199
 	end 'rtDebugSuspend'
 	if r == Rt.rtDebugResume 'rtDebugResume'
-		return 207
+		return 200
 	end 'rtDebugResume'
 	if r == Rt.rtDebugBreakIn 'rtDebugBreakIn'
-		return 208
+		return 201
 	end 'rtDebugBreakIn'
 	if r == Rt.rtDebugDetach 'rtDebugDetach'
-		return 209
+		return 202
 	end 'rtDebugDetach'
 	if r == Rt.rtDebugCloseHandle 'rtDebugCloseHandle'
-		return 210
+		return 203
 	end 'rtDebugCloseHandle'
 	if r == Rt.rtDebugTerminate 'rtDebugTerminate'
-		return 211
+		return 204
 	end 'rtDebugTerminate'
 	if r == Rt.rtOsRun 'rtOsRun'
-		return 212
+		return 205
 	end 'rtOsRun'
 	if r == Rt.rtOsRunIn 'rtOsRunIn'
-		return 213
+		return 206
 	end 'rtOsRunIn'
 	if r == Rt.rtOsRunInput 'rtOsRunInput'
-		return 214
+		return 207
 	end 'rtOsRunInput'
 	if r == Rt.rtOsReadStdin 'rtOsReadStdin'
-		return 215
+		return 208
 	end 'rtOsReadStdin'
 	if r == Rt.rtOsStdoutWantsColor 'rtOsStdoutWantsColor'
-		return 216
+		return 209
 	end 'rtOsStdoutWantsColor'
 	panic("ir: rtNone has no number")
 end 'rtCode'
@@ -2334,71 +2264,64 @@ export function rtOf(code Count) returns Rt
 		149 gives Rt.rtListRemove
 		150 gives Rt.rtListMoveToFront
 		151 gives Rt.rtListCopy
-		152 gives Rt.rtSlotMapNew
-		153 gives Rt.rtSlotMapLen
-		154 gives Rt.rtSlotMapContains
-		155 gives Rt.rtSlotMapElem
-		156 gives Rt.rtSlotMapInsert
-		157 gives Rt.rtSlotMapRemove
-		158 gives Rt.rtSlotMapCopy
-		159 gives Rt.rtFrozenFreeze
-		160 gives Rt.rtFrozenGet
-		161 gives Rt.rtShare
-		162 gives Rt.rtCownNew
-		163 gives Rt.rtBytesNew
-		164 gives Rt.rtBytesLen
-		165 gives Rt.rtBytesGet
-		166 gives Rt.rtBytesSet
-		167 gives Rt.rtBytesInsert
-		168 gives Rt.rtBytesRemove
-		169 gives Rt.rtBytesAppend
-		170 gives Rt.rtBytesAppendStr
-		171 gives Rt.rtBytesToString
-		172 gives Rt.rtOsArgs
-		173 gives Rt.rtOsEnvironmentVariable
-		174 gives Rt.rtOsExecutablePath
-		175 gives Rt.rtOsCurrentPath
-		176 gives Rt.rtOsProcessId
-		177 gives Rt.rtOsSetExitCode
-		178 gives Rt.rtOsExitAtOnce
-		179 gives Rt.rtOsEnterBackgroundPriority
-		180 gives Rt.rtOsClockNanos
-		181 gives Rt.rtOsClockMillis
-		182 gives Rt.rtOsTickMillis
-		183 gives Rt.rtOsThreadCpuTicks
-		184 gives Rt.rtOsUnixNanos
-		185 gives Rt.rtOsUnixSeconds
-		186 gives Rt.rtOsProcessorCount
-		187 gives Rt.rtOsPathFrom
-		188 gives Rt.rtOsReadText
-		189 gives Rt.rtOsWriteTextMode
-		190 gives Rt.rtOsWriteBinaryMode
-		191 gives Rt.rtOsRename
-		192 gives Rt.rtOsDelete
-		193 gives Rt.rtOsFileInfo
-		194 gives Rt.rtOsIsDirectory
-		195 gives Rt.rtOsExists
-		196 gives Rt.rtOsCreateDirectory
-		197 gives Rt.rtOsDeleteDirectory
-		198 gives Rt.rtOsList
-		199 gives Rt.rtDebugLaunch
-		200 gives Rt.rtDebugWaitEvent
-		201 gives Rt.rtDebugContinueEvent
-		202 gives Rt.rtDebugReadMemory
-		203 gives Rt.rtDebugWriteCode
-		204 gives Rt.rtDebugReadContext
-		205 gives Rt.rtDebugWriteContext
-		206 gives Rt.rtDebugSuspend
-		207 gives Rt.rtDebugResume
-		208 gives Rt.rtDebugBreakIn
-		209 gives Rt.rtDebugDetach
-		210 gives Rt.rtDebugCloseHandle
-		211 gives Rt.rtDebugTerminate
-		212 gives Rt.rtOsRun
-		213 gives Rt.rtOsRunIn
-		214 gives Rt.rtOsRunInput
-		215 gives Rt.rtOsReadStdin
-		216 gives Rt.rtOsStdoutWantsColor
+		152 gives Rt.rtFrozenFreeze
+		153 gives Rt.rtFrozenGet
+		154 gives Rt.rtShare
+		155 gives Rt.rtCownNew
+		156 gives Rt.rtBytesNew
+		157 gives Rt.rtBytesLen
+		158 gives Rt.rtBytesGet
+		159 gives Rt.rtBytesSet
+		160 gives Rt.rtBytesInsert
+		161 gives Rt.rtBytesRemove
+		162 gives Rt.rtBytesAppend
+		163 gives Rt.rtBytesAppendStr
+		164 gives Rt.rtBytesToString
+		165 gives Rt.rtOsArgs
+		166 gives Rt.rtOsEnvironmentVariable
+		167 gives Rt.rtOsExecutablePath
+		168 gives Rt.rtOsCurrentPath
+		169 gives Rt.rtOsProcessId
+		170 gives Rt.rtOsSetExitCode
+		171 gives Rt.rtOsExitAtOnce
+		172 gives Rt.rtOsEnterBackgroundPriority
+		173 gives Rt.rtOsClockNanos
+		174 gives Rt.rtOsClockMillis
+		175 gives Rt.rtOsTickMillis
+		176 gives Rt.rtOsThreadCpuTicks
+		177 gives Rt.rtOsUnixNanos
+		178 gives Rt.rtOsUnixSeconds
+		179 gives Rt.rtOsProcessorCount
+		180 gives Rt.rtOsPathFrom
+		181 gives Rt.rtOsReadText
+		182 gives Rt.rtOsWriteTextMode
+		183 gives Rt.rtOsWriteBinaryMode
+		184 gives Rt.rtOsRename
+		185 gives Rt.rtOsDelete
+		186 gives Rt.rtOsFileInfo
+		187 gives Rt.rtOsIsDirectory
+		188 gives Rt.rtOsExists
+		189 gives Rt.rtOsCreateDirectory
+		190 gives Rt.rtOsDeleteDirectory
+		191 gives Rt.rtOsList
+		192 gives Rt.rtDebugLaunch
+		193 gives Rt.rtDebugWaitEvent
+		194 gives Rt.rtDebugContinueEvent
+		195 gives Rt.rtDebugReadMemory
+		196 gives Rt.rtDebugWriteCode
+		197 gives Rt.rtDebugReadContext
+		198 gives Rt.rtDebugWriteContext
+		199 gives Rt.rtDebugSuspend
+		200 gives Rt.rtDebugResume
+		201 gives Rt.rtDebugBreakIn
+		202 gives Rt.rtDebugDetach
+		203 gives Rt.rtDebugCloseHandle
+		204 gives Rt.rtDebugTerminate
+		205 gives Rt.rtOsRun
+		206 gives Rt.rtOsRunIn
+		207 gives Rt.rtOsRunInput
+		208 gives Rt.rtOsReadStdin
+		209 gives Rt.rtOsStdoutWantsColor
 		default panic("ir: a number that is no runtime symbol")
 	end 'code'
 end 'rtOf'
@@ -2870,27 +2793,6 @@ export function rtUnit(r Rt) returns RtUnit
 	if r == Rt.rtListCopy 'rtListCopy'
 		return RtUnit.rtUnitInterpreter
 	end 'rtListCopy'
-	if r == Rt.rtSlotMapNew 'rtSlotMapNew'
-		return RtUnit.rtUnitInterpreter
-	end 'rtSlotMapNew'
-	if r == Rt.rtSlotMapLen 'rtSlotMapLen'
-		return RtUnit.rtUnitInterpreter
-	end 'rtSlotMapLen'
-	if r == Rt.rtSlotMapContains 'rtSlotMapContains'
-		return RtUnit.rtUnitInterpreter
-	end 'rtSlotMapContains'
-	if r == Rt.rtSlotMapElem 'rtSlotMapElem'
-		return RtUnit.rtUnitInterpreter
-	end 'rtSlotMapElem'
-	if r == Rt.rtSlotMapInsert 'rtSlotMapInsert'
-		return RtUnit.rtUnitInterpreter
-	end 'rtSlotMapInsert'
-	if r == Rt.rtSlotMapRemove 'rtSlotMapRemove'
-		return RtUnit.rtUnitInterpreter
-	end 'rtSlotMapRemove'
-	if r == Rt.rtSlotMapCopy 'rtSlotMapCopy'
-		return RtUnit.rtUnitInterpreter
-	end 'rtSlotMapCopy'
 	if r == Rt.rtFrozenFreeze 'rtFrozenFreeze'
 		return RtUnit.rtUnitShared
 	end 'rtFrozenFreeze'
@@ -3911,13 +3813,6 @@ export function rtGivesString(r Rt) returns bool
 		rtListRemove or
 		rtListMoveToFront or
 		rtListCopy or
-		rtSlotMapNew or
-		rtSlotMapLen or
-		rtSlotMapContains or
-		rtSlotMapElem or
-		rtSlotMapInsert or
-		rtSlotMapRemove or
-		rtSlotMapCopy or
 		rtFrozenFreeze or
 		rtFrozenGet or
 		rtShare or

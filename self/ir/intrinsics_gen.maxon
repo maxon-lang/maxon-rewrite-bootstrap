@@ -77,6 +77,9 @@ export function intrinsicCall(mutates l Lowerer, p ast.Project, mutates ms ast.M
 	if op == ast.Intrinsic.intrArrayTakeSlot 'intrArrayTakeSlot'
 		return lowerArrayTakeSlot(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrArrayTakeSlot'
+	if op == ast.Intrinsic.intrArrayLendSlot 'intrArrayLendSlot'
+		return lowerArrayLendSlot(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrArrayLendSlot'
 	if op == ast.Intrinsic.intrArrayContains 'intrArrayContains'
 		return lowerArrayContains(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrArrayContains'
@@ -236,27 +239,6 @@ export function intrinsicCall(mutates l Lowerer, p ast.Project, mutates ms ast.M
 	if op == ast.Intrinsic.intrListDropEmpty 'intrListDropEmpty'
 		return lowerListDropEmpty(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrListDropEmpty'
-	if op == ast.Intrinsic.intrSlotMapCreate 'intrSlotMapCreate'
-		return lowerSlotMapCreate(l, p: p, ms: ms, c: c, recv: recv, args: args)
-	end 'intrSlotMapCreate'
-	if op == ast.Intrinsic.intrSlotMapCount 'intrSlotMapCount'
-		return lowerSlotMapCount(l, p: p, ms: ms, c: c, recv: recv, args: args)
-	end 'intrSlotMapCount'
-	if op == ast.Intrinsic.intrSlotMapIsEmpty 'intrSlotMapIsEmpty'
-		return lowerSlotMapIsEmpty(l, p: p, ms: ms, c: c, recv: recv, args: args)
-	end 'intrSlotMapIsEmpty'
-	if op == ast.Intrinsic.intrSlotMapContains 'intrSlotMapContains'
-		return lowerSlotMapContains(l, p: p, ms: ms, c: c, recv: recv, args: args)
-	end 'intrSlotMapContains'
-	if op == ast.Intrinsic.intrSlotMapInsert 'intrSlotMapInsert'
-		return lowerSlotMapInsert(l, p: p, ms: ms, c: c, recv: recv, args: args)
-	end 'intrSlotMapInsert'
-	if op == ast.Intrinsic.intrSlotMapRemove 'intrSlotMapRemove'
-		return lowerSlotMapRemove(l, p: p, ms: ms, c: c, recv: recv, args: args)
-	end 'intrSlotMapRemove'
-	if op == ast.Intrinsic.intrSlotMapDropEmpty 'intrSlotMapDropEmpty'
-		return lowerSlotMapDropEmpty(l, p: p, ms: ms, c: c, recv: recv, args: args)
-	end 'intrSlotMapDropEmpty'
 	if op == ast.Intrinsic.intrSlotKeyFromWord 'intrSlotKeyFromWord'
 		return lowerSlotKeyFromWord(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrSlotKeyFromWord'
@@ -925,6 +907,9 @@ export function ownsOperands(op ast.Intrinsic) returns bool
 	if op == ast.Intrinsic.intrArrayTakeSlot 'intrArrayTakeSlot'
 		return false
 	end 'intrArrayTakeSlot'
+	if op == ast.Intrinsic.intrArrayLendSlot 'intrArrayLendSlot'
+		return false
+	end 'intrArrayLendSlot'
 	if op == ast.Intrinsic.intrArrayContains 'intrArrayContains'
 		return false
 	end 'intrArrayContains'
@@ -1084,27 +1069,6 @@ export function ownsOperands(op ast.Intrinsic) returns bool
 	if op == ast.Intrinsic.intrListDropEmpty 'intrListDropEmpty'
 		return false
 	end 'intrListDropEmpty'
-	if op == ast.Intrinsic.intrSlotMapCreate 'intrSlotMapCreate'
-		return false
-	end 'intrSlotMapCreate'
-	if op == ast.Intrinsic.intrSlotMapCount 'intrSlotMapCount'
-		return false
-	end 'intrSlotMapCount'
-	if op == ast.Intrinsic.intrSlotMapIsEmpty 'intrSlotMapIsEmpty'
-		return false
-	end 'intrSlotMapIsEmpty'
-	if op == ast.Intrinsic.intrSlotMapContains 'intrSlotMapContains'
-		return false
-	end 'intrSlotMapContains'
-	if op == ast.Intrinsic.intrSlotMapInsert 'intrSlotMapInsert'
-		return false
-	end 'intrSlotMapInsert'
-	if op == ast.Intrinsic.intrSlotMapRemove 'intrSlotMapRemove'
-		return false
-	end 'intrSlotMapRemove'
-	if op == ast.Intrinsic.intrSlotMapDropEmpty 'intrSlotMapDropEmpty'
-		return false
-	end 'intrSlotMapDropEmpty'
 	if op == ast.Intrinsic.intrSlotKeyFromWord 'intrSlotKeyFromWord'
 		return false
 	end 'intrSlotKeyFromWord'

@@ -178,7 +178,6 @@ type DebugTypes
 			builtinArray then self.describeArray(p, ms: ms, ref: ref, name: name)
 			builtinSlotKey then self.begin(p, ms: ms, ref: ref, name: name, kind: mxdbg.MxdbgTypeKindPrimitive, size: wordSize, align: wordSize, flag: 0)
 			builtinList or
-			builtinSlotMap or
 			builtinFrozen or
 			builtinCown or
 			builtinCursor or

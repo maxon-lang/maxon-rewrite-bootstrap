@@ -1,4 +1,4 @@
-// expect-error: E3186 at 25:17
+// expect-error: E3186 at 25:73
 typealias CellArray = Array with Cell
 
 typealias CellPool = SlotMap with Cell
@@ -22,6 +22,6 @@ end 'make'
 function main() returns ExitCode
 	var p = CellPool.create()
 	let h = p.insert(Cell.make(1))
-	pair(p[h], b: p[h])
+	pair(try p.get(h) otherwise panic("the slot key names no element"), b: try p.get(h) otherwise panic("the slot key names no element"))
 	return 0
 end 'main'

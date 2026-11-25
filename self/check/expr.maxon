@@ -655,7 +655,6 @@ function hasIdentity(p ast.Project, ms ast.ModuleState, t ast.TypeID) returns bo
 		constFloat gives false
 		enumTy gives false
 		unionTy gives false
-		builtinSlotMap gives false
 		builtinSlotKey gives false
 		builtinFrozen gives false
 		builtinCown gives false
@@ -1129,7 +1128,6 @@ function castTargetIsRefused(p ast.Project, ms ast.ModuleState, target ast.TypeI
 		constFloat gives false
 		builtinArray gives false
 		builtinList gives false
-		builtinSlotMap gives false
 		builtinSlotKey gives false
 		builtinFrozen gives false
 		builtinCown gives false
@@ -1161,7 +1159,6 @@ function castKindWord(p ast.Project, ms ast.ModuleState, t ast.TypeID) returns S
 		unionTy gives "union"
 		builtinArray gives name
 		builtinList gives name
-		builtinSlotMap gives name
 		builtinSlotKey gives name
 		builtinFrozen gives name
 		builtinCown gives name
@@ -1194,7 +1191,6 @@ function castTargetWord(p ast.Project, ms ast.ModuleState, t ast.TypeID) returns
 		unionTy gives nameOfType(p, ms: ms, t: t)
 		builtinArray gives nameOfType(p, ms: ms, t: t)
 		builtinList gives nameOfType(p, ms: ms, t: t)
-		builtinSlotMap gives nameOfType(p, ms: ms, t: t)
 		builtinSlotKey gives nameOfType(p, ms: ms, t: t)
 		builtinFrozen gives nameOfType(p, ms: ms, t: t)
 		builtinCown gives nameOfType(p, ms: ms, t: t)

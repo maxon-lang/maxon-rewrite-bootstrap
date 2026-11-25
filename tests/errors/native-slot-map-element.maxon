@@ -1,7 +1,0 @@
-// expect-error: E9900 at 3:26
-function main() returns ExitCode
-	var p = CountPool.create()
-	return 0
-end 'main'
-
-typealias CountPool = SlotMap with Count

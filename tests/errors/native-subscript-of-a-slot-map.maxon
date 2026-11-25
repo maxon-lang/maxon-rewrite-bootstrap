@@ -1,8 +1,0 @@
-// expect-error: E9900 at 3:10
-function f(p SlotMap with Count, h SlotKey with Count) returns Count
-	return p[h]
-end 'f'
-
-function main() returns ExitCode
-	return 0
-end 'main'

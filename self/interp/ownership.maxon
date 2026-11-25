@@ -448,15 +448,6 @@ function free(mutates vm Vm, o Count) throws Halt
 		end 'each'
 		return
 	end 'list'
-	if kind == kindSlotMap 'pool'
-		for slot in 0 upto vm.h.tables[data].live.count() 'each'
-			if vm.h.tables[data].live[slot] 'alive'
-				let element = vm.h.tables[data].cells[slot]
-				try freeCell(vm, c: element)
-			end 'alive'
-		end 'each'
-		return
-	end 'pool'
 	panic("interp: unknown object kind {kind}")
 end 'free'
 

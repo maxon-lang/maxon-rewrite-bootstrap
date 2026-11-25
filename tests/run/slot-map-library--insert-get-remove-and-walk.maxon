@@ -1,0 +1,55 @@
+// The library SlotMap inserts, lends, removes and walks its elements in the order of their slots, reuses a freed slot under a
+// new generation, which the old key does not match, and ends with dropEmpty once it holds nothing.
+typealias CellPool = SlotMap with Cell
+
+type Cell
+	export var n as Count
+
+	static function make(n Count) returns Cell
+		return Cell{n: n}
+	end 'make'
+end 'Cell'
+
+function bump(mutates c Cell)
+	c.n = try c.n + 1 otherwise c.n
+end 'bump'
+
+function main() returns ExitCode
+	var p = CellPool.create()
+	let a = p.insert(Cell.make(1))
+	let b = p.insert(Cell.make(2))
+	print("{p.count()} {p.contains(a)} {p.contains(b)} {a == b}\n")
+	(try p.get(a) otherwise panic("a")).n = 10
+	bump(try p.get(b) otherwise panic("b"))
+	print("{(try p.get(a) otherwise panic("a")).n} {(try p.get(b) otherwise panic("b")).n}\n")
+	let gone = try p.remove(a) otherwise panic("the slot key names no element")
+	print("{gone.n} {p.contains(a)} {p.count()}\n")
+	let c = p.insert(Cell.make(3))
+	print("{p.contains(a)} {p.contains(c)} {a == c} {(try p.get(c) otherwise panic("c")).n} {p.count()}\n")
+	for x in p 'all'
+		print("{x.n};")
+	end 'all'
+	print("\n")
+	let copied = p.clone()
+	(try p.get(c) otherwise panic("c")).n = 30
+	print("{(try p.get(c) otherwise panic("c")).n} {copied.contains(c)}\n")
+	try 'stale'
+		p.get(a).n = 99
+	end 'stale' otherwise 'gone'
+		print("stale\n")
+	end 'gone'
+	let x = try p.remove(b) otherwise panic("b")
+	let y = try p.remove(c) otherwise panic("c")
+	print("{x.n} {y.n} {p.isEmpty()}\n")
+	p.dropEmpty()
+	return 0
+end 'main'
+
+//> 2 true true false
+//> 10 3
+//> 10 false 1
+//> false true false 3 2
+//> 3;3;
+//> 30 true
+//> stale
+//> 3 30 true

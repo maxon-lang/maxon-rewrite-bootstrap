@@ -55,7 +55,7 @@ end 'swapFirst'
 
 function find(p SlotMap with T, handle SlotKey with T) uses T returns Option with T where T implements Copyable
 	if p.contains(handle) 'live'
-		return Option.some(p[handle].clone())
+		return Option.some((try p.get(handle) otherwise panic("the slot key names no element")).clone())
 	end 'live'
 	return Option.none
 end 'find'

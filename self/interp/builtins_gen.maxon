@@ -479,34 +479,6 @@ function runtimeEntry(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 		try entryListCopy(vm, f: f, x: x)
 		return
 	end 'rtListCopy'
-	if symbol == ir.Rt.rtSlotMapNew 'rtSlotMapNew'
-		try entrySlotMapNew(vm, f: f, x: x)
-		return
-	end 'rtSlotMapNew'
-	if symbol == ir.Rt.rtSlotMapLen 'rtSlotMapLen'
-		try entrySlotMapLen(vm, f: f, x: x)
-		return
-	end 'rtSlotMapLen'
-	if symbol == ir.Rt.rtSlotMapContains 'rtSlotMapContains'
-		try entrySlotMapContains(vm, f: f, x: x)
-		return
-	end 'rtSlotMapContains'
-	if symbol == ir.Rt.rtSlotMapElem 'rtSlotMapElem'
-		try entrySlotMapElem(vm, f: f, x: x)
-		return
-	end 'rtSlotMapElem'
-	if symbol == ir.Rt.rtSlotMapInsert 'rtSlotMapInsert'
-		try entrySlotMapInsert(vm, f: f, x: x)
-		return
-	end 'rtSlotMapInsert'
-	if symbol == ir.Rt.rtSlotMapRemove 'rtSlotMapRemove'
-		try entrySlotMapRemove(vm, f: f, x: x)
-		return
-	end 'rtSlotMapRemove'
-	if symbol == ir.Rt.rtSlotMapCopy 'rtSlotMapCopy'
-		try entrySlotMapCopy(vm, f: f, x: x)
-		return
-	end 'rtSlotMapCopy'
 	if symbol == ir.Rt.rtFrozenFreeze 'rtFrozenFreeze'
 		try entryFrozenFreeze(vm, f: f, x: x)
 		return

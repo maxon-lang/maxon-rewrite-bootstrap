@@ -886,49 +886,6 @@ function entryListCopy(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	giveRef(vm, x: x, o: copy)
 end 'entryListCopy'
 
-function entrySlotMapNew(mutates vm Vm, f ir.IrFunction, x ir.Instr)
-	let made = newTable(vm, kind: kindSlotMap)
-	giveRef(vm, x: x, o: made)
-end 'entrySlotMapNew'
-
-function entrySlotMapLen(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
-	let p = try collection(vm, o: argRef(vm, f: f, x: x, i: 0), kind: kindSlotMap, what: "a length")
-	giveNum(vm, x: x, n: try vm.h.tables[vm.h.oData[p]].count() as ir.Word otherwise panic("interp: a slot map past a word"))
-end 'entrySlotMapLen'
-
-function entrySlotMapContains(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
-	let p = try collection(vm, o: argRef(vm, f: f, x: x, i: 0), kind: kindSlotMap, what: "a lookup")
-	giveFlag(vm, x: x, b: vm.h.tables[vm.h.oData[p]].lookup(argNum(vm, f: f, x: x, i: 1)).isSome())
-end 'entrySlotMapContains'
-
-function entrySlotMapElem(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
-	let p = try collection(vm, o: argRef(vm, f: f, x: x, i: 0), kind: kindSlotMap, what: "an element address")
-	let slot = try slotOf(vm, o: p, handle: argNum(vm, f: f, x: x, i: 1))
-	let element = vm.h.tables[vm.h.oData[p]].cells[slot]
-	giveAddress(vm, x: x, c: element)
-end 'entrySlotMapElem'
-
-function entrySlotMapInsert(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
-	let p = try collection(vm, o: argRef(vm, f: f, x: x, i: 0), kind: kindSlotMap, what: "an insert")
-	let e = try moveIn(vm, f: f, holder: p, src: argAt(f, x: x, i: 1), what: "the insert")
-	try restructure(vm, o: p)
-	let data = vm.h.oData[p]
-	let slot = vm.h.tables[data].acquire(e)
-	giveNum(vm, x: x, n: vm.h.tables[data].handleOf(slot))
-end 'entrySlotMapInsert'
-
-function entrySlotMapRemove(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
-	let p = try collection(vm, o: argRef(vm, f: f, x: x, i: 0), kind: kindSlotMap, what: "a remove")
-	let slot = try slotOf(vm, o: p, handle: argNum(vm, f: f, x: x, i: 1))
-	try takeSlot(vm, x: x, o: p, slot: slot, what: "the remove")
-end 'entrySlotMapRemove'
-
-function entrySlotMapCopy(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
-	let p = try collection(vm, o: argRef(vm, f: f, x: x, i: 0), kind: kindSlotMap, what: "a copy")
-	let copy = try copyObject(vm, o: p)
-	giveRef(vm, x: x, o: copy)
-end 'entrySlotMapCopy'
-
 // takeSlot gives the element of a list or a slot map slot to the caller and releases the slot, so a slot key to it finds nothing from
 // now on, even when the slot is used again.
 function takeSlot(mutates vm Vm, x ir.Instr, o Count, slot Count, what String) throws Halt
@@ -992,7 +949,7 @@ function copyObject(mutates vm Vm, o Count) returns Count throws Halt
 		end 'elements'
 		return out
 	end 'array'
-	if kind == kindList or kind == kindSlotMap 'table'
+	if kind == kindList 'table'
 		let out = newTable(vm, kind: kind)
 		let outData = vm.h.oData[out]
 		vm.h.tables[outData].gens = vm.h.tables[data].gens.clone()

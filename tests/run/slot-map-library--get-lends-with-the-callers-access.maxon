@@ -1,0 +1,57 @@
+// A SlotMap's get lends the element with the access its caller has to the map: changed through a var, read through a let,
+// a let parameter and a method with a let receiver, and two reads of one map live at once.
+typealias Integer = int(i64.min to i64.max)
+
+typealias Nodes = SlotMap with Node
+
+typealias NodeKey = SlotKey with Node
+
+type Node
+	export var value as Integer
+	export var visited as bool
+
+	static function make(value Integer) returns Node
+		return Node{value: value, visited: false}
+	end 'make'
+end 'Node'
+
+type Graph
+	var nodes as Nodes
+
+	static function make() returns Graph
+		return Graph{nodes: Nodes.create()}
+	end 'make'
+
+	function valueOf(key NodeKey) returns Integer
+		return try self.nodes.get(key).value otherwise 0
+	end 'valueOf'
+
+	function visit(mutates self, key NodeKey) throws ArrayError
+		try self.nodes.get(key).visited = true
+	end 'visit'
+end 'Graph'
+
+function sum(nodes Nodes, a NodeKey, b NodeKey) returns Integer
+	return try (try nodes.get(a)).value + (try nodes.get(b)).value otherwise 0
+end 'sum'
+
+function names(a Node, b Node) returns String
+	return "{a.value}+{b.value}"
+end 'names'
+
+function main() returns ExitCode
+	var nodes = Nodes.create()
+	let a = nodes.insert(Node.make(1))
+	let b = nodes.insert(Node.make(2))
+	(try nodes.get(a) otherwise panic("a")).value = 10
+	let frozenCopy = nodes.clone()
+	print("{sum(frozenCopy, a: a, b: b)} {names(try frozenCopy.get(a) otherwise panic("a"), b: try frozenCopy.get(b) otherwise panic("b"))}\n")
+	var g = Graph.make()
+	let k = g.nodes.insert(Node.make(5))
+	try g.visit(k) otherwise panic("k")
+	print("{g.valueOf(k)} {(try g.nodes.get(k) otherwise panic("k")).visited}\n")
+	return 0
+end 'main'
+
+//> 12 10+2
+//> 5 true

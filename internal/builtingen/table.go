@@ -178,7 +178,6 @@ var builtinTypes = []builtinType{
 		Methods: rawSurface{What: "a raw '__GroupMemory' buffer is reachable", Instead: "use 'Map'"},
 	}},
 	{Key: "List", Name: "List", Params: []string{"T"}, Managed: true, Subscriptable: true},
-	{Key: "SlotMap", Name: "SlotMap", Params: []string{"T"}, Managed: true, Subscriptable: true},
 	{Key: "SlotKey", Name: "SlotKey", Params: []string{"T"}},
 	{Key: "Frozen", Name: "frozen", Params: []string{"T"}, Managed: true, Shared: true},
 	{Key: "Cown", Name: "cown", Params: []string{"T"}, Managed: true, Shared: true},
@@ -475,6 +474,9 @@ type function struct {
 	// Lends is whether the method gives a place in its receiver, or a view of a String's bytes, rather than a value, as a
 	// function that returns borrowed does.
 	Lends bool
+	// Place is, for a method that Lends, whether what it lends is a place in its receiver with a word of its own, which it
+	// lends with the access its caller has to the receiver, at its address (ast.lendsByAddress), rather than a view.
+	Place bool
 	// Field is the ast.Builtins field that holds a free function which is not declared by its name, or a method that the
 	// checker chooses for a call of the name in place of the one declared by it: an overload by the arguments' form.
 	Field string
@@ -659,6 +661,10 @@ var tableFunctions = []function{
 	// emptySlot at an empty slot.
 	{Owner: "Array", Name: "fillSlot", Self: "mutates", Params: []string{"at ElementIndex", "consumes value T"}, Intrinsic: "ArrayFillSlot", Raw: &rawSurface{What: "an array's empty slot is filled in place", Instead: "use 'set(i, value: v)'"}},
 	{Owner: "Array", Name: "takeSlot", Self: "mutates", Params: []string{"at ElementIndex"}, Result: "T", Throws: "ArrayError", Intrinsic: "ArrayTakeSlot", Raw: &rawSurface{What: "an element is taken out of an array's slot, which is left empty", Instead: "use 'remove(at)'"}},
+	// lendSlot lends the element at an index, to read or to change, trapping past the end and at an empty slot as a subscript
+	// does: the one unchecked access that a library collection's checked get lends through. It is provisional, the
+	// library's alone, until the subscript goes and Array's own get lends.
+	{Owner: "Array", Name: "lendSlot", Params: []string{"at ElementIndex"}, Result: "T", Lends: true, Place: true, Intrinsic: "ArrayLendSlot", Raw: &rawSurface{What: "an array's element is lent in place", Instead: "use a subscript, 'a[i]'"}},
 	// contains, containsSequence and equals are maxon's for an element that is Equatable; the checker holds them to the
 	// elements this compiler compares itself (checkElementsComparable).
 	{Owner: "Array", Name: "contains", Params: []string{"element T"}, Result: "Bool", Intrinsic: "ArrayContains", Checked: true},
@@ -751,13 +757,6 @@ var tableFunctions = []function{
 	{Owner: "List", Name: "moveToFront", Self: "mutates", Params: []string{"key SlotKey with T"}, Intrinsic: "ListMoveToFront"},
 	{Owner: "List", Name: "dropEmpty", Self: "consumes", Intrinsic: "ListDropEmpty"},
 
-	{Owner: "SlotMap", Name: "create", Static: true, Result: "Self", Intrinsic: "SlotMapCreate"},
-	{Owner: "SlotMap", Name: "count", Result: "Count", Intrinsic: "SlotMapCount"},
-	{Owner: "SlotMap", Name: "isEmpty", Result: "Bool", Intrinsic: "SlotMapIsEmpty"},
-	{Owner: "SlotMap", Name: "contains", Params: []string{"key SlotKey with T"}, Result: "Bool", Intrinsic: "SlotMapContains"},
-	{Owner: "SlotMap", Name: "insert", Self: "mutates", Params: []string{"consumes value T"}, Result: "SlotKey with T", Intrinsic: "SlotMapInsert"},
-	{Owner: "SlotMap", Name: "remove", Self: "mutates", Params: []string{"key SlotKey with T"}, Result: "T", Throws: "ArrayError", Intrinsic: "SlotMapRemove"},
-	{Owner: "SlotMap", Name: "dropEmpty", Self: "consumes", Intrinsic: "SlotMapDropEmpty"},
 	// fromWord and word are the library's door to a slot key's word, which a slot map of the library packs its slot and the
 	// slot's generation into; each is the word itself.
 	{Owner: "SlotKey", Name: "fromWord", Static: true, Params: []string{"word Count"}, Result: "Self", Intrinsic: "SlotKeyFromWord", Raw: &rawSurface{What: "a slot key is made of a word", Instead: "use the slot key a slot map's 'insert' gives"}},
@@ -1218,14 +1217,6 @@ var entries = []entry{
 	{"ListRemove", "rt.list.remove", "Interpreter", roleCall, "(list, slot key) -> element: moves it out"},
 	{"ListMoveToFront", "rt.list.moveToFront", "Interpreter", roleCall, "(list, slot key)"},
 	{"ListCopy", "rt.list.copy", "Interpreter", roleCall, "(list) -> list: every element copied, slot keys still valid in the copy"},
-
-	{"SlotMapNew", "rt.slotMap.new", "Interpreter", roleCall, "() -> slot map"},
-	{"SlotMapLen", "rt.slotMap.len", "Interpreter", roleCall, "(slot map) -> count"},
-	{"SlotMapContains", "rt.slotMap.contains", "Interpreter", roleCall, "(slot map, slot key) -> bool"},
-	{"SlotMapElem", "rt.slotMap.elem", "Interpreter", roleCall, "(slot map, slot key) -> address of the element"},
-	{"SlotMapInsert", "rt.slotMap.insert", "Interpreter", roleCall, "(slot map, element) -> slot key: moves it in"},
-	{"SlotMapRemove", "rt.slotMap.remove", "Interpreter", roleCall, "(slot map, slot key) -> element: moves it out"},
-	{"SlotMapCopy", "rt.slotMap.copy", "Interpreter", roleCall, "(slot map) -> slot map: every element copied, slot keys still valid in the copy"},
 
 	{"FrozenFreeze", "rt.frozen.freeze", "Shared", roleCall, "(value) -> frozen: moves the value into a new box with a count of 1; the backend stores a String's word after it"},
 	{"FrozenGet", "rt.frozen.get", "Shared", roleCall, "(frozen) -> what it holds, lent: an immutable borrow, valid while the frozen value is; the backend writes it in place, a load that leaves the count alone"},

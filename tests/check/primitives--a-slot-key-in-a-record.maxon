@@ -91,6 +91,6 @@ typealias CellPool = SlotMap with Cell
 function main() returns ExitCode
 	var p = CellPool.create()
 	let r = Rack.make(p.insert(Cell.make(1)))
-	touch(p[r.node])
+	touch(try p.get(r.node) otherwise panic("the slot key names no element"))
 	return 0
 end 'main'

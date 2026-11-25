@@ -130,7 +130,7 @@ the step that fails, with the gate's own output.
 | `minimaxon qualify <dir>...` | write the module's path before each bare name of another module's declaration in the projects (see "Changing the language") |
 | `minimaxon rename [--prelude=f,...] [--rules=file] <rule>... <program>...` | rename a built-in type or rewrite the calls of a built-in method by the declaration the checker resolved, never by text: `Array.append=push`, `Array.insert=insert({at}, value: {item})`, `Array.pop.unwrap=try {call} otherwise panic("empty")`, and a free function's whole call: `readFile().unwrap=try File.readText({path}) otherwise panic("unread")` (the rules are in `self/driver/rename.maxon`) |
 | `minimaxon fmt [--check] <path>...` | put the `.maxon` files and the Maxon code blocks of the `.md` files under the paths in the one layout; `--check` changes nothing and exits 1 listing the files that are not in it (see "Layout" and "Changing the language") |
-| `minimaxon interp <file\|dir> [--seed=N] [--frees]` | development only: run under the tracking interpreter, which runs a list, a slot map, a frozen value, a cown and a behaviour, and reports a violation of the memory model; `--frees` lists the values freed, in order |
+| `minimaxon interp <file\|dir> [--seed=N] [--frees]` | development only: run under the tracking interpreter, which runs a list, a frozen value, a cown and a behaviour, and reports a violation of the memory model; `--frees` lists the values freed, in order |
 | `minimaxon fuzz [--seed=N] [--count=N] [--schedules=N] [--keep=DIR] [--native] [--dump]` | development only: write random programs, check them and run them under the interpreter (`self/fuzz`); `--native` also runs the executable of each that compiles and compares it with the interpreter (see "Tests") |
 | `go run ./cmd/convert [--specs] [--write] [--check] [--out=DIR] [<path>...]` | convert existing Maxon `.maxon` source files to minimaxon syntax and layout, marking unsupported constructs with `// TODO` comments and warnings on stderr; `--check` writes nothing and prints each kind of warning with its count and files, most frequent first (run `minimaxon qualify` after converting a project of several modules); `--specs` converts maxon's spec files, which is how `specs/` is made. A source file's top-level declaration of a name that minimaxon has built in (`internal/builtingen`'s table, which writes `cmd/convert/builtins_gen.go`) is left out, with the comment above it, since the built-in is the declaration every other module uses; a spec test's program keeps one, as a program may declare such a name. A source file's declaration of a record type that minimaxon builds in and that has members the built-in lacks (`Clock`, `Directory`) is kept as an extension of the built-in, with the members the built-in declares and the fields left out, and maxon's `WaitDeadlineMs` is written `Count`. A capability word before a type argument (`Array with immutable Key`) is left out (see "Where it differs from Maxon"). A block that is the first operand inside brackets (`let n = (try f() otherwise 'e' ... end 'e') as T`, `xs.push(match x 'm' ... end 'm')`) is bound on lines of its own before the line, since minimaxon reads no line break inside brackets. It lays out what it converts with the compiler's `fmt`: the gate's, `bin\minimaxon.exe` in the repository, or the compiler the environment variable `MINIMAXON` names |
 | `go run ./cmd/sample [-interval D] [-threads] [-top N] [-callers N] [-focus TEXT,...] [-o FILE] <exe> [arg...]` | profile an executable that `build --emit-map` made: runs it, samples its main thread's instruction pointer and its `rbp` frames (1 ms by default), and prints the functions by self and by total samples, with the callers of the top ones and of those whose symbol contains a `-focus` text, and the wall time; code outside the image (a Windows DLL) is charged to the function that called it, found by scanning the stack, and exits with the program's code |
@@ -389,7 +389,7 @@ and none is run. Any other program that compiles is run twice, as the executable
 (see "The interpreter"), from the IR that the native build lowered, and both must give the stdout and the exit code the
 directives say; the interpreter must also find no violation of the memory model, and the executable, built with
 `--count-allocations`, must end with no heap box live (a program that traps skips that check). A program that uses a
-list or a slot map has no executable yet: it fails to compile with `E9900`, and the runner then runs it under the
+list has no executable yet: it fails to compile with `E9900`, and the runner then runs it under the
 interpreter alone. A program that schedules behaviours runs under 20 schedules of the interpreter
 (seeds 0 to 19), and every one must give the same stdout and exit code and no violation, as must the executable, whose
 workers schedule it as the machine does, so the directives of such a program must say an output that does not depend
@@ -922,7 +922,7 @@ project as a whole knows, so it is written when the error is located (`ast.locat
 
 `interp` runs the same stages through lower, with no runtime module and without refusing what only the interpreter runs
 (`lowerForInterpreter` in `self/driver/interp.maxon`), and gives the IR to the interpreter instead of the backend. This is how a map,
-a list, a slot map, a frozen value, a cown and a behaviour run.
+a list, a frozen value, a cown and a behaviour run.
 
 ### The modules phase
 
@@ -1779,7 +1779,7 @@ declared as an instance over its record's type parameters (`Wrapper with T`) is 
 info takes every one of its answers from it by matching on all of them; the lowering still asks `heldInPlace`,
 `inlineFieldWords` and `ast.packsByte` directly, and must agree with it.
 Every other holder keeps the value as a managed word, the address of a box of its words that it owns, as every record was
-held before: a payload, a half of a map's pair, a node of a list or a slot map, a capture of a closure or a
+held before: a payload, a half of a map's pair, a node of a list, a capture of a closure or a
 behaviour, an argument of a message, the contents of an interface value, a frozen value or a cown, and an argument that a
 parameter consumes, since a callee may keep what it consumes past the caller's frame (a coroutine, a behaviour): the value
 goes into the holder as a copy of its words into a new box (`boxed`), is read from it as the box's address, which is the address of
@@ -1813,7 +1813,7 @@ drop of one, a store into one or a move out of one as a violation.
 
 ### The primitives in the IR
 
-An `Array`, a `List` and a `SlotMap` (see "Primitives") are heap boxes that only runtime entries touch, so the IR holds no
+An `Array` and a `List` (see "Primitives") are heap boxes that only runtime entries touch, so the IR holds no
 layout of them: an operation is a `runtime` call of a named entry (`internal/builtingen/table.go`), and the interpreter and the
 runtime each implement the entries. The element is always visible in the call:
 
@@ -1837,7 +1837,7 @@ runtime each implement the entries. The element is always visible in the call:
   in the middle of a block would keep what the trap block reads live to the block's end), and an element as a load of the
   buffer's address and an indexed access (`[data + index*8]`, `[data + index]`; a string's bytes are in its box, so a
   byte of one is the access alone). Every
-  other entry stays a call: growth, insertion, removal, the byte write, lists and slot maps. Where an index is proved
+  other entry stays a call: growth, insertion, removal, the byte write, lists. Where an index is proved
   (inside a `FixedArray` by the checker, or by the test of a `try` around `get` and `set`), lowering writes the entry's call
   `proven` (`runtime rt.array.elem(%a, %i) proven`), which the expansion makes the access alone, with no `length` or
   `bounds`: lowering writes calls only, so the source form holds every call the expansion takes out. The interpreter runs the expanded form (the driver expands the IR it keeps for it, as
@@ -1875,7 +1875,7 @@ runtime each implement the entries. The element is always visible in the call:
 - `clone()` is one instruction, `%r = copy %s T` (see "Drops"), whatever `T` is: a record, a union, a string or a primitive.
   What it does to each part is code that depends on the type, so it is a routine of its own for each type that the backend makes
   (below) and the interpreter does by the shape of the value; a copy of an array copies every element by its own type, and a
-  copy of a slot map or a list keeps its slot keys valid.
+  copy of a list keeps its slot keys valid.
 - A `SlotKey with T` is `scalar`; everything else here is `managed`.
 
 **Native.** The array, the byte array and the OS entries have code: the entries are functions of `runtime/` (`arrays.maxon`,
@@ -1883,10 +1883,10 @@ runtime each implement the entries. The element is always visible in the call:
 words, the length, the capacity and the address of its elements, which are 8-byte words; `rt.array.insert` grows it by the growth policy
 (see "Text") and shifts what follows, and frees the buffer it leaves (the elements moved to the new one, so only the buffer goes), and
 `rt.array.remove` hands the element it removes to the caller, who owns it. `rt.array.fill` appends a number of copies of a word that needs no copy of its own, which an array of a scalar that `create` or `filled` makes, and the words of a buffer of groups, are written by in one pass. `rt.array.shrink` sets the length of an array or a byte array and keeps the buffer: `clear` and `truncate` of an element that needs no drop are that one call, and of an element that owns something they drop each element in place, last first, in one loop in the IR (`arrayShrinkTo`), and then call it. A byte array has the same three words, with a buffer
-of one byte to an element; its copy and drop routines copy and free the buffer whole. A list and a slot map are lowered all
+of one byte to an element; its copy and drop routines copy and free the buffer whole. A list is lowered all
 the same, which is what the interpreter runs, but the driver refuses a function that needs one before it generates code:
 `E9900`, at the first use in each function. A function that only drops, copies or holds a value that contains one (a `consumes`
-parameter of type `List with T`, or a record with a slot map in it) is refused too, at the function, since there is no routine to
+parameter of type `List with T`, or a record with a list in it) is refused too, at the function, since there is no routine to
 free it.
 
 ### Frozen values, cowns and behaviours in the IR
@@ -1970,7 +1970,7 @@ the same two routines (`backend.dropClosure`, `copyClosure`), and the drop routi
 body (`backend.emitCaptureDrop`), named `captures` and the body's symbol, since its types are the body's and no function
 type names them. Natively the count is stepped by one locked add (`lock xadd`), as a frozen value's is: a function value
 is immutable, so a copy of it may reach another thread, as the capture of a behaviour will. A closure that owns a value
-which only the interpreter can drop (a list, a slot map) is refused natively like one that drops it.
+which only the interpreter can drop (a list) is refused natively like one that drops it.
 
 ### Interface values in the IR
 
@@ -2026,7 +2026,7 @@ drops what it owns, deeply by type: the fields of a record, the payload of a uni
 dropped: a `let` or `mutates` parameter, a projection, and a `match` binding of a payload, which is stored with
 `store s3, %r borrow`. A place that holds nothing, because it was moved from or never assigned, drops as a no-op, so one drop at
 the end of a scope serves every path to it and no analysis of paths is needed. A function that drops a value that holds a
-list or a slot map is refused natively like one that makes it.
+list is refused natively like one that makes it.
 
 - **One place decides what moves.** The ownership pass marks each expression whose value changes owner (`ast.Typing.consumed`):
   a binding, an assignment, a `consumes` argument, a return, a field or a payload, a branch of a conditional or a match.
@@ -2157,7 +2157,7 @@ nothing.
 
 ### The interpreter
 
-`self/interp` runs the IR of a whole program, with the primitives written in Maxon (an array, a list and a slot map, each with
+`self/interp` runs the IR of a whole program, with the primitives written in Maxon (an array and a list, each with
 the generational slot keys that "Primitives" describes; a frozen value and a cown, with their counts) and a simulated scheduler of
 behaviours, and tracks the heap as the memory model describes it. It is for tests and development: it is never part of a
 compiled program, and the driver reaches it only from `minimaxon interp`, the test runner and `fuzz`. It has no types; it works
@@ -2205,7 +2205,7 @@ output and exit code are its own, a violation exits with 4 and a program that ou
   behaviours, and requires the same stdout and exit code as the directives and no violation. `self/interp/interp.maxtest` tests it on
   IR that is written to break each rule (and to schedule behaviours: their order, their interleaving, the counts). `minimaxon fuzz` (`self/fuzz`) writes random well-formed programs over records, unions,
   strings, the four conventions, calls with overlapping and disjoint arguments, match bindings, loops, generics with bounds,
-  arrays, lists and slot maps with slot keys, a borrowed place held while a later operand of the same expression changes or
+  arrays, lists with slot keys, slot maps, a borrowed place held while a later operand of the same expression changes or
   consumes what it lies in, and frozen values, cowns and behaviours. The checker refuses most of them, since the generator leans
   on the edges of the rules: about two programs in five are careless and break rules throughout, and two in five of the rest
   break exactly one rule of sharing, once (a behaviour that takes a borrow, a variable used after a behaviour took it, a frozen
@@ -2216,7 +2216,7 @@ output and exit code are its own, a violation exits with 4 and a program that ou
   `self/fuzz/library.txt`. The command runs its seeds in worker processes, loads each program from memory
   (`project.loadSourceInto`), and with `--native` also builds each accepted program that has an executable, with its
   allocations counted, and compares it with the interpreter's: the same output and exit code, and no box left live.
-  The programs with no list or slot map, which are the ones with an executable, share in half the seeds, and those are
+  The programs with no list, which are the ones with an executable, share in half the seeds, and those are
   quiet: only main's own statements print (a print anywhere else only evaluates its string) and only they schedule
   behaviours, so the behaviours on each cown run in main's order and the output and the exit code are the same under
   every schedule, the executable's and the interpreter's alike. Such a program's executable runs 3 times, under the
@@ -3754,7 +3754,7 @@ A `Txn` has no copy and no drop, so every path that makes one ends it with `comm
 
 `Copyable` and `Droppable` are structural: a type never says it has one (`implements Copyable` on a declaration is
 `E3921`), it says what removes it. `Copyable` is lost by `is noncopyable` or by a part that lacks it; a part is a field,
-a union payload, an element of an `Array`, `List` or `SlotMap`. A `frozen`, a `cown` and a
+a union payload, an element of an `Array` or a `List`. A `frozen`, a `cown` and a
 `SlotKey` have both whatever they hold, so the loss stops there. A generic type is judged per instance (`Box with Socket`
 is not `Copyable`, `Box with Count` is), and a type parameter has a capability only by bound; `Copyable` includes
 `Droppable`. A type that declares a destructor, a method whose receiver is `destructs self`, loses both, and so does
@@ -3926,7 +3926,7 @@ names no type parameter of the extended declaration is `E2015`. A method with su
 ### Primitives
 
 Layer 2 of [docs/regions.md](docs/regions.md), as far as step 3 goes: their signatures and ownership rules. An
-`Array with T`, a `List with T` (doubly linked, one node per element) and a `SlotMap with T` own their elements.
+`Array with T` and a `List with T` (doubly linked, one node per element) own their elements.
 Their operations are generic methods that no source declares (`internal/builtingen/table.go`), typed, borrowed and moved
 like any other method from the signature below, so none of the ownership rules has a special case for them. They are
 declared in the stdlib module, so a name resolves to them last, after the module's own, the root's and an exported
@@ -3937,7 +3937,6 @@ one anywhere.
 | `FixedArray with N T`, `FixedArray with T` | maxon's fixed-size array (`stdlib/FixedArray.maxon`): an array whose count never changes, which its type states (`with 3 Int`, a literal from 1 to 4294967295, `E2069`) or, runtime-sized, its value. `create()` and `create(value: x)` where the type states the count, `create(n)` and `create(n, value: x)` where it does not (`E3194` for the other form), each zeroed where no `value:` is given and `T` has a zero value (`E3106`), and a constant `n` gives the type that states it; `Alias from [a, b]`, of exactly the count a counted alias states, or stating the literal's; `count()`; `get(i)` where `T` is `Copyable` and `set(i, value: v)` where `T` is `Droppable`; `refill(x)`, copies of `x` over every element. A get or a set of a type that states its count at an index the range analysis proves inside it cannot fail and compiles to the access with no check; a constant index outside it is `E3005`, and any other index throws `ArrayError.indexOutOfBounds` as an array's does, so it needs a `try` (`E3057`, naming the ranged type that would prove it). A `FixedArray with N T` is a subtype of `FixedArray with T`, so it goes where one is taken and a join of the two is the runtime-sized type. `for x in xs` walks it as an array; inside an `extension FixedArray` its `Self` states no count, and `countof(Self)` in a method is the receiver's |
 | `Array with T` | `create(n)`, `n` zero elements, where `T` has a zero value or `n` is the literal `0` (`E3106`); `filled(n, value: x)` where `T` is `Copyable`; `count()`, `isEmpty()`; `get(i)`, a copy of the element, where `T` is `Copyable`, and `set(i, value: v)`, where `T` is `Droppable`, both throwing `ArrayError.indexOutOfBounds` past the end; `push(value)`; `append(other)`, a copy of each element of `other`, where `T` is `Copyable`; `insert(at, value: v)`, which clamps `at` to the count; `remove(at)` and `pop()` return `T` and throw `ArrayError`; `dropEmpty()` |
 | `List with T` | `create()`; `count()`, `isEmpty()`, `contains(h)`; `first()`, `last()`, `next(h)` and `prev(h)` return `SlotKey with T` and throw `ArrayError.indexOutOfBounds` where there is no such node; `prepend(value)` and `append(value)` return `SlotKey with T`; `removeFirst()` and `removeLast()` return `T` and throw `ArrayError`; `remove(h)` returns `T` and throws `ArrayError.emptySlot` for a slot key that names no element; `moveToFront(h)`; `dropEmpty()` |
-| `SlotMap with T` | `create()`; `count()`, `isEmpty()`, `contains(h)`; `insert(value)` returns `SlotKey with T`; `remove(h)` returns `T` and throws `ArrayError.emptySlot` for a slot key that names no element; `dropEmpty()` |
 | `SlotKey with T` | no operations; `==` and `!=`. The library tiers alone (`E3185`) make one of a word, `SlotKey.fromWord(w)` through a typealias of the instance, and read its word, `key.word()`, a `Count`: each is the word itself, which a slot map of the library packs its slot and the slot's generation into |
 | `__ManagedMemory with T` | maxon's raw buffer, which only the library tiers name (`E3185`): the box of an array, seen through maxon's buffer operations, each the array operation that does the same, so there is one implementation of each on either target. `length()`, `capacity()`; `get(i)`, a copy of the element, where `T` is `Copyable`, throwing `__ManagedMemoryError.indexOutOfBounds` past the end and `emptySlot` at an empty slot (see `Array.clearSlot`); `set(i, value:)`, `swap(i, j: j)` (an exchange in place, no copy), `append(other)`, `remove(at)`, `clear()`, `slice(start, endIndex:)` (a copy), `grow(n)` (`reserve`) and `setLength(n)` (`resize`), which are the array operations of the same name (see "Where it differs from Maxon" for what is not provided). `xs.managed` is the buffer of an array: the array itself seen as one, so it is borrowed, moved and dropped as `xs` is (`let m = xs.managed` moves `xs`) |
 | `__GroupMemory with (A, B)` | minimaxon's raw buffer of the groups of a swiss table, which only the library tiers name (`E3185`), laid out as Go's map lays out its groups: each group is a control word and then eight pairs, the first half of a pair beside its second. `create(groups, control: w)` makes the groups, each control word `w` and each pair empty; `groups()`; `control(g)` and `setControl(g, value: w)` read and write a group's word as it is; a pair is named by its index over every group, eight to a group: `first(at)` and `second(at)` lend a half (a lent managed half that is empty panics, as an array's empty slot does), `put(at, first: a, second: b)` and `setSecond(at, value: b)` move halves in and drop what they held, `takeFirst(at)` and `takeSecond(at)` move one out and leave it empty, and `clear(at)` drops both. A group or a pair past the end traps. It is an array box of the words (`ir/groups.maxon`), so a read is a load; its drop and its copy go through each half by its type, an empty managed half being 0 |
@@ -4006,8 +4005,8 @@ slots are all empty ends; a slot is empty where it is all 0, so over a scalar an
 - **Collections own their elements.** Adding takes the element `consumes`, so it moves in. Taking one out is `remove`,
   `pop`, `removeFirst` or `removeLast`, which move it out to the caller, owned; the only other way to hold an
   element is `.clone()`. `clone()` of a collection is deep.
--  **A subscript is a projection.** `a[i]`, `m[k]`, `l[h]` and `p[h]` borrow the element: the array is indexed by a
-  `Count`, a list and a slot map by the `SlotKey` of the element. Read, it is a `let` borrow; assigned
+-  **A subscript is a projection.** `a[i]`, `m[k]` and `l[h]` borrow the element: the array is indexed by a
+  `Count`, a list by the `SlotKey` of the element. Read, it is a `let` borrow; assigned
   through (`a[i] = v`, `a[i].count = 3`) or passed to a `mutates` parameter, it is `mutates`. It is never an owned
   value: binding it, returning it or passing it to a `consumes` parameter is `E3901`, or `E3900` where the collection
   itself is borrowed, and `clone()` is the fix. A scalar element is copied like any scalar, so `let n = a[i]` is fine.
@@ -4032,15 +4031,26 @@ slots are all empty ends; a slot is empty where it is all 0, so over a scalar an
   nothing, so `a[0].n + shrink(a)` is fine; so is a copy on the left, `a[0].clone() == wipe(a)`, or the other operand
   computed into a variable first. One helper, `hold`, takes every one of these, and a hold is only a push that is looked
   at when something in the rest changes or moves a place.
-- **Slot keys.** A `SlotMap with T` is a keyed store of elements, unordered, not a cache of reusable objects: `insert`
-  gives the key of the element it stores, and the key finds it until it is removed. A `SlotKey with T` is a plain word:
-  copy it freely, store it in a field, in an array or in another element, compare it with `==`. It owns nothing. Using one
-  is a lookup, so a slot key whose element was removed finds nothing, and a slot that was reused does not answer to the
-  old key, because a slot key also carries a generation. A slot key of one slot map used on another slot map of the same
-  element type is not a soundness issue: the lookup fails or finds that slot map's element at the same slot. A slot key of
-  another element type is refused (`E3005`). A `List` hands out the same kind of slot key for its nodes, so a cache is a
-  `List` of entries in order of use and the library's `Map` from each key to the slot key of its entry, and a linked
-  structure is a `SlotMap` of nodes that name each other by slot key (see `tests/`).
+- **Slot keys.** A `SlotMap with T` is the library's keyed store of elements (`stdlib/slotmap/SlotMap.maxon`, minimaxon's
+  own), unordered, not a cache of reusable objects: `insert(value)` gives the key of the element it stores, and the key
+  finds it until `remove(key)` takes it out. `get(key)` lends the element, with the access its caller has to the map (see
+  "Ownership"): through a `var` or a `mutates` parameter it is changed in place (`try nodes.get(key).visited = true`),
+  through a `let` it is read; it throws `ArrayError.emptySlot` for a key that names no element, as `remove` does, so every
+  `get` is written with `try`. `contains(key)`, `count()`, `isEmpty()`, `dropEmpty()` and a copy (`clone()`, the keys
+  still valid in it) are the rest, and `for x in map` walks the elements in the order of their slots, deterministic and
+  unspecified: a program must not rely on it, since a SlotMap is unordered. The elements lie in an array of slots, and a
+  slot freed by `remove` is reused by a later `insert`. A `SlotKey with T` is a plain word: copy it freely, store it in a
+  field, in an array or in another element, compare it with `==`. It owns nothing. It is the slot and the slot's
+  generation, odd while the slot holds an element and even while it is free, so a key whose element was removed finds
+  nothing, and a reused slot does not answer to the old key. Only `remove` makes a key stale: `insert` never does, though
+  it may move the elements' storage, which is why a place `get` lends does not outlive a change of the map (`E3186`). A
+  slot whose generation would pass the most a key holds is retired, never reused. A slot key of one slot map used on
+  another slot map of the same element type is not a soundness issue: the lookup fails or finds that slot map's element at
+  the same slot. A slot key of another element type is refused (`E3005`). A SlotMap of byte-sized elements (a byte range,
+  an enum of at most 256 cases) is refused natively for now (`E9000`): its array packs them, and a packed element has no
+  word of its own to lend. A `List` hands out the same kind of slot key for its nodes, so a cache is a `List` of entries in
+  order of use and the library's `Map` from each key to the slot key of its entry, and a linked structure is a `SlotMap`
+  of nodes that name each other by slot key (see `tests/`).
 - **The Map is the library's** (`stdlib/Map.maxon`), on the design of Go's map: `Map with (K, V)` where `K implements Hashable and Equatable`,
   with maxon's API: `create()`, `insert(k, value: v)` (`MapError.keyAlreadyExists`), `upsert`, `get(k)` (a copy,
   `MapError.keyNotFound`), `contains`, `remove`, `count()`, `getCapacity()` and `createIterator()`. A key's 32-bit `hash()` is
@@ -4100,7 +4110,7 @@ slots are all empty ends; a slot is empty where it is all 0, so over a scalar an
   the cursor borrows it (see "Borrowing values"). Each `current()` is a value of its own, owned by
   `x` until the pass ends, or, where `current()` returns borrowed (a requirement or a method), lent to `x` as an array's
   element is: a borrow of the cursor, which the loop holds, so moving it is `E3900` and `.clone()` the fix. A throw of `createIterator()` or `advance()` ends the loop, and a `createIterator()` that
-  throws another error is `E2015`, as is a loop over a value whose type has no protocol (a slot map, a number), in maxon's
+  throws another error is `E2015`, as is a loop over a value whose type has no protocol (a number), in maxon's
   words, which for a type parameter or an interface value name the requirement to add. A string's `bytes()`,
   `codepoints()` and `utf16()` views are such collections.
   A `Map` is walked by its `MapIterator`, table by table in the order the map made them and each in the order of its slots: `current()` lends the entry as a tuple of two
@@ -4124,7 +4134,7 @@ slots are all empty ends; a slot is empty where it is all 0, so over a scalar an
   union, `Array with String`, in declaration order; both are read before a case of the same name. `allCases` of a union
   is `E4006`. A loop over either walks the array as any other (`for c in E.allCases` is a loop over a fresh array).
 - **Running them.** An array runs natively: heap-allocated, bounds-checked, and freed with what it holds where its owner
-  dies (see "The primitives in the IR" and "Native freeing"). A list and a slot map are checked and lowered, and the interpreter runs them (see "The interpreter"), so a
+  dies (see "The primitives in the IR" and "Native freeing"). A list is checked and lowered, and the interpreter runs it (see "The interpreter"), so a
   program that uses one is refused when it is compiled to an executable (`E9900`) and still passes `check`; the test
   runner runs such a program under the interpreter alone.
 - **Limits.** A primitive implements no interface (`E3017`). A record
@@ -5139,7 +5149,7 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   local, a payload or a receiver, and `modify`), static fields, default parameters. The memory model of [docs/regions.md](docs/regions.md) is implemented: owned
   values, the primitives, frozen values, cowns and behaviours (see "Ownership", "Primitives" and
   "Immutable values, cowns and behaviours"), with an interpreter that runs all of it and a native backend that runs
-  all but the list and the slot map. `freeze` is a function here, `when` is a statement that takes cowns and gives names to their values,
+  all but the list. `freeze` is a function here, `when` is a statement that takes cowns and gives names to their values,
   and a frozen value is a type, `frozen with T`, where Maxon recovers immutability from facts about a value's history.
   The grammar has none of the rest, so each is a syntax error. Maxon's codes for the rules of its regions (`E3196`,
   `E3198` to `E3203`, `E3205` to `E3209`, `E3211`, `E3214`, `E3226`) are not raised, and the spec tests that expect one
@@ -5165,10 +5175,10 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   passing `let xs = [1, 2]` to a parameter of `Array with Count` is `E3005` until the literal is written where the parameter is.
 - `Array` and `List` have the names, the signatures and the errors of maxon's stdlib, but they are built-in
   types rather than stdlib code, and keep these differences: a subscript is a place (`a[i].f = x`, `mutates a[i]`) that
-  traps on a miss, where only `get` and `set` throw, as maxon's do; `SlotMap`, `SlotKey` and the list's slot key API (`prepend`
+  traps on a miss, where only `get` and `set` throw, as maxon's do; `SlotKey` and the list's slot key API (`prepend`
   and `append` return a `SlotKey`, `first` and `last` return one, `remove(h)`, `next`, `prev`, `moveToFront`) stand where
   maxon has pointers and indexes; `filled` and `dropEmpty` are minimaxon's own; the loop holds the array or the list it walks, so a body that pushes to it or reassigns it is
-  refused (`E3186`) where maxon re-reads the live count; `sort`, `sortUnstable`, `sortBy`, `sortUnstableBy`, `cursor`, `createIterator`, `map`, `filter` and `hash()` are the library's extensions of `Array` (`stdlib/Array.maxon`, converted, and maxon's six sort files converted from `stdlib/helpers/sort/`, driftsort for `sort` and `sortBy` and pdqsort for the unstable ones, as one file of the root each, so a sort compares in the order maxon's does; a sort needs `T` `Copyable` and `Droppable`, since maxon's `get` copies an element; `withIterator` is not there), `swap(i, j: j)` (maxon's, `smallSort.maxon`: a panic past the end, over the buffer's `swap`, which exchanges two elements where they are, a managed one moved and never copied or dropped) and `appendMemory(buffer)` (over the buffer's `append`) are library members written over `self.managed`, and `create(n, zeroed: false)` is an empty array with room for `n`, legal for every element (`zeroed: true` is `create(n)`; the flag is a literal), `Array` implements `Iterable` there but not `Hashable` (minimaxon has no conditional conformance, so `hash()` is a method of the arrays whose element is `Hashable`, and an array is no `Map` key), `reserve(n)` gives the buffer room for `n` elements exactly where it has less, so that pushing up to them moves nothing, though a capacity is no part of an array's value here (there is no `capacity()`), and `clear`, `truncate`, `resize`, `slice`, `first` and `last` are maxon's, and `clearSlot(at)` too, which only the library tiers call (`E3185`): it drops the element at an index and leaves the slot empty, a hash table's tombstone. Its two other halves are library-only as well, and drop nothing, so a slot table holds an element without `Droppable`: `fillSlot(at, value: v)` moves a value into an empty slot and traps past the end or at a slot that holds an element, and `takeSlot(at)` moves the element out, leaves the slot empty and throws `indexOutOfBounds` past the end and `emptySlot` at an empty slot. A slot is empty where a library tier grew an array of its type parameter with `resize` (outside the library tiers that is `E3106`, as maxon refuses it) or cleared it; it is maxon's: an empty slot of a managed element is 0, the empty place a drop does nothing with, so dropping the array drops only the full slots, and a copy keeps an empty slot empty, while over a scalar a grown or cleared slot is the element 0. `get`, `first`, `last` and a buffer's `get` or a cursor's `peek` of an empty slot throw `emptySlot`, and a read that lends it (a subscript, a `for`, a cursor's `current()`) panics with maxon's `empty slot: element N of the array was never filled`, so no element that is not there is ever lent; the indexes and counts they take are `ElementIndex`; `create(n)` and `resize` refuse an enum element
+  refused (`E3186`) where maxon re-reads the live count; `sort`, `sortUnstable`, `sortBy`, `sortUnstableBy`, `cursor`, `createIterator`, `map`, `filter` and `hash()` are the library's extensions of `Array` (`stdlib/Array.maxon`, converted, and maxon's six sort files converted from `stdlib/helpers/sort/`, driftsort for `sort` and `sortBy` and pdqsort for the unstable ones, as one file of the root each, so a sort compares in the order maxon's does; a sort needs `T` `Copyable` and `Droppable`, since maxon's `get` copies an element; `withIterator` is not there), `swap(i, j: j)` (maxon's, `smallSort.maxon`: a panic past the end, over the buffer's `swap`, which exchanges two elements where they are, a managed one moved and never copied or dropped) and `appendMemory(buffer)` (over the buffer's `append`) are library members written over `self.managed`, and `create(n, zeroed: false)` is an empty array with room for `n`, legal for every element (`zeroed: true` is `create(n)`; the flag is a literal), `Array` implements `Iterable` there but not `Hashable` (minimaxon has no conditional conformance, so `hash()` is a method of the arrays whose element is `Hashable`, and an array is no `Map` key), `reserve(n)` gives the buffer room for `n` elements exactly where it has less, so that pushing up to them moves nothing, though a capacity is no part of an array's value here (there is no `capacity()`), and `clear`, `truncate`, `resize`, `slice`, `first` and `last` are maxon's, and `clearSlot(at)` too, which only the library tiers call (`E3185`): it drops the element at an index and leaves the slot empty, a hash table's tombstone. Its two other halves are library-only as well, and drop nothing, so a slot table holds an element without `Droppable`: `fillSlot(at, value: v)` moves a value into an empty slot and traps past the end or at a slot that holds an element, and `takeSlot(at)` moves the element out, leaves the slot empty and throws `indexOutOfBounds` past the end and `emptySlot` at an empty slot. `lendSlot(at)`, library-only and provisional until the subscript goes and `get` lends, lends the element at an index with the access its caller has to the array (a place in it, see "Ownership"), trapping past the end and at an empty slot as a subscript does; it is the one unchecked access that a SlotMap's `get` lends through, and an array of byte-sized elements, which packs them, has no word to lend (`E9000`). A slot is empty where a library tier grew an array of its type parameter with `resize` (outside the library tiers that is `E3106`, as maxon refuses it) or cleared it; it is maxon's: an empty slot of a managed element is 0, the empty place a drop does nothing with, so dropping the array drops only the full slots, and a copy keeps an empty slot empty, while over a scalar a grown or cleared slot is the element 0. `get`, `first`, `last` and a buffer's `get` or a cursor's `peek` of an empty slot throw `emptySlot`, and a read that lends it (a subscript, a `for`, a cursor's `current()`) panics with maxon's `empty slot: element N of the array was never filled`, so no element that is not there is ever lent; the indexes and counts they take are `ElementIndex`; `create(n)` and `resize` refuse an enum element
   some case of which writes a raw value or carries a payload, since a slot holds a case's ordinal and its zero is the first case, which is maxon's case of raw value 0 only where no case writes one, and take no `zeroed:`; and `String` has the byte operations `byteLength`, `byteAt`, `sliceBytes`, `toByteArray`, the static `String.from(bytes)`, and maxon's text methods (see "Text").
   There is no built-in `Option`, which maxon's stdlib has no more of either: an
   operation that can miss throws.
@@ -5359,6 +5369,8 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   is not written as the type's values are, so a program tells the two apart.
 - `try p.get(k).n = v` is minimaxon's: a try before an assignment's target covers the call that lends the place and passes
   its failure on, where maxon has no place a call lends to be changed.
+- `SlotMap with T` and `SlotKey with T` are minimaxon's (`stdlib/slotmap`), where maxon has no slot map: minimaxon's
+  replacement for pointers, a SlotMap of nodes that name each other by generational key.
 
 ## Changing the language
 

@@ -10,5 +10,8 @@ function main() returns ExitCode
 end 'main'
 
 // expect-free: string "p1"
-// expect-free: slot map
+// expect-free: record
+// expect-free: array
 // expect-free: string "p2"
+// expect-free: array
+// expect-free: array

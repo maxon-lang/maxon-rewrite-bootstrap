@@ -933,9 +933,11 @@ type Generator
 		return t == a.want
 	end 'accepts'
 
+	// isCollection is whether a value of type t is subscripted: an array or a list. A slot map's element is lent by its get,
+	// which the generator does not write.
 	function isCollection(t Count) returns bool
 		let k = tys[t].kind
-		return k == Kind.kArray or k == Kind.kSlotMap or k == Kind.kList
+		return k == Kind.kArray or k == Kind.kList
 	end 'isCollection'
 
 	// walk is the places in and under p whose type accept takes.
@@ -1867,7 +1869,7 @@ type Generator
 				continue 'each'
 			end 'unusable'
 			let k = tys[vars[v].t].kind
-			if k == Kind.kArray or k == Kind.kSlotMap or k == Kind.kList 'sequence'
+			if k == Kind.kArray or k == Kind.kList 'sequence'
 				if tys[vars[v].t].args[0] == t 'element'
 					found.push(v)
 				end 'element'
@@ -1967,7 +1969,7 @@ type Generator
 			let inner = self.inside(whole, src: "{name}[0]", t: elemT, mutable: mutable)
 			return table.Option.some(self.element(inner, guard: "{name}.count() > 0"))
 		end 'array'
-		if k == Kind.kSlotMap or k == Kind.kList 'handled'
+		if k == Kind.kList 'handled'
 			let pooledT = tys[t].args[0]
 			let handleT = self.slotKeyOf(pooledT)
 			let h = self.place(handleT, mutable: false)
@@ -3830,7 +3832,7 @@ type Generator
 			end 'guard'
 			return table.Option.some(Access.make("0", result: typed(Kind.kCount, value: "0")))
 		end 'array'
-		if k == Kind.kSlotMap or k == Kind.kList 'handled'
+		if k == Kind.kList 'handled'
 			if not mutable 'named'
 				// A slot key that is a field is a copy that the checker still sees as a place, so it is passed only by name.
 				let handleT = self.slotKeyOf(elem)

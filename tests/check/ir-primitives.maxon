@@ -15,10 +15,14 @@ function lookup(m Map with (Count, Count), k Count) returns Count
 	return (try m.get(k) otherwise panic("no such key"))
 end 'lookup'
 
+function overwrite(mutates n Count, value Count)
+	n = value
+end 'overwrite'
+
 function build() returns Count
 	var p = CountPool.create()
 	let h = p.insert(1)
-	p[h] = 2
+	overwrite(try p.get(h) otherwise panic("the slot key names no element"), value: 2)
 	let copied = p.clone()
 	return 0
 end 'build'

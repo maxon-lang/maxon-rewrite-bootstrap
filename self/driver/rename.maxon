@@ -15,6 +15,9 @@
 //	                         as when the table makes one a static method: readFile()=File.readText({path})
 //	old().m=template         as the one before, for a call followed by '.m()', which the template replaces too
 //	Owner.old=?              lists the calls instead of rewriting them
+//	Owner.[]=template        a subscript of a value of the built-in type Owner, written again from the template, in
+//	                         parentheses where it is an operand: {self} is the text of the collection and {index} of
+//	                         the index: SlotMap.[]=try {self}.get({index}) otherwise panic("stale")
 //
 // A program is a file or a project directory as check takes it; a file of cases ("// case: name" lines) is checked case by
 // case, each after the --prelude files, as the unit tests read it. --rules=FILE reads rules from a file, one to a line.
@@ -42,6 +45,11 @@ let freeCallMark = "()"
 let callPlaceholderName = "call"
 
 let selfPlaceholderName = "self"
+
+let indexPlaceholderName = "index"
+
+// subscriptRule is the old name of a rule that rewrites a subscript.
+let subscriptRule = "[]"
 
 let callPlaceholder = "\{call\}"
 
@@ -921,6 +929,51 @@ function freeCallSites(p ast.Project, s Scan, id ast.NodeID, info ast.CallInfo, 
 	return RenameSites.create(0)
 end 'freeCallSites'
 
+// subscriptSites rewrites a subscript of a value of a built-in type that a subscript rule names: the whole subscript, from
+// the template, with the collection's text for {self} and the index's for {index}.
+function subscriptSites(p ast.Project, s Scan, id ast.NodeID) returns RenameSites
+	let obj = ast.indexExprObj(p.modules[s.module].tree, id: id)
+	let objTy = ast.nodeType(p.typings[s.module], node: obj)
+	if objTy == ast.noType 'untyped'
+		return RenameSites.create(0)
+	end 'untyped'
+	let held = ast.contentType(ast.TypeSlot.none(), reads: p.types, t: objTy)
+	let origin = ast.originOf(ast.TypeSlot.none(), reads: p.types, t: held)
+	let owner = ast.typeEntry(ast.TypeSlot.none(), reads: p.types, t: origin).name.clone()
+	for r in 0 upto s.rules.count() 'rules'
+		if s.rules[r].old != subscriptRule or s.rules[r].owner != owner or not ast.typeKind(ast.TypeSlot.none(), reads: p.types, t: origin).isBuiltin() 'other'
+			continue 'rules'
+		end 'other'
+		let whole = ast.exprExtent(p.modules[s.module].tree, e: id)
+		let collection = ast.exprExtent(p.modules[s.module].tree, e: obj)
+		let index = ast.exprExtent(p.modules[s.module].tree, e: p.modules[s.module].tree.listAt(ast.indexExprArgsRef(p.modules[s.module].tree, id: id), index: 0) as ast.NodeID)
+		let place = s.text.at(p.modules[s.module].tree.startOf(id) as Count)
+		if not whole.isSome() or not collection.isSome() or not index.isSome() 'unplaced'
+			return missAt(s, file: place.file, at: place.local, name: subscriptRule.clone())
+		end 'unplaced'
+		let w = whole.unwrap()
+		let c = collection.unwrap()
+		let x = index.unwrap()
+		let begin = s.text.at(w.begin as Count).local
+		let until = s.text.at(w.until as Count).local
+		var spans = ArgSpans.new()
+		spans.insert(selfPlaceholderName.clone(), value: ArgSpan.make(s.text.at(c.begin as Count).local, until: s.text.at(c.until as Count).local))
+		spans.insert(indexPlaceholderName.clone(), value: ArgSpan.make(s.text.at(x.begin as Count).local, until: s.text.at(x.until as Count).local))
+		let written = templateParts(s.rules[r].template, args: spans)
+		if not written.isSome() 'badTemplate'
+			return missAt(s, file: place.file, at: place.local, name: subscriptRule.clone())
+		end 'badTemplate'
+		var parts = written.unwrap()
+		if needsParens(s.text.texts[place.file], begin: begin, until: until) 'parens'
+			parts = withParens(parts)
+		end 'parens'
+		var sites = RenameSites.create(0)
+		sites.push(RenameSite.rename(s.text.spans[place.file].path.clone(), edit: RenameEdit.write(begin, until: until, parts: parts)))
+		return sites
+	end 'rules'
+	return RenameSites.create(0)
+end 'subscriptSites'
+
 // moduleSites is what the rules rename in a module of the project.
 function moduleSites(p ast.Project, s Scan) returns RenameSites
 	var sites = RenameSites.create(0)
@@ -949,7 +1002,9 @@ function moduleSites(p ast.Project, s Scan) returns RenameSites
 			sites.append(typeName(p, s: s, id: id, name: ast.nameExprName(p.modules[s.module].tree, id: id), qualifiers: 0))
 		end 'nameExpr' else if kind == ast.NodeKind.callExpr 'callExpr'
 			sites.append(callSites(p, s: s, id: id))
-		end 'callExpr'
+		end 'callExpr' else if kind == ast.NodeKind.indexExpr 'indexExpr'
+			sites.append(subscriptSites(p, s: s, id: id))
+		end 'indexExpr'
 	end 'nodes'
 	return sites
 end 'moduleSites'

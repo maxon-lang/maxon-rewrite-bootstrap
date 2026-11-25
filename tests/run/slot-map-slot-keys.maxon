@@ -17,23 +17,23 @@ function main() returns ExitCode
 	let a = p.insert(Cell.make(1))
 	let b = p.insert(Cell.make(2))
 	print("{p.count()} {p.contains(a)} {p.contains(b)} {a == b}\n")
-	p[a].n = 10
-	bump(p[b])
-	print("{p[a].n} {p[b].n}\n")
+	(try p.get(a) otherwise panic("the slot key names no element")).n = 10
+	bump(try p.get(b) otherwise panic("the slot key names no element"))
+	print("{(try p.get(a) otherwise panic("the slot key names no element")).n} {(try p.get(b) otherwise panic("the slot key names no element")).n}\n")
 	let gone = try p.remove(a) otherwise panic("the slot key names no element")
 	print("{gone.n} {p.contains(a)} {p.count()}\n")
 	let c = p.insert(Cell.make(3))
-	print("{p.contains(a)} {p.contains(c)} {a == c} {p[c].n} {p.count()}\n")
+	print("{p.contains(a)} {p.contains(c)} {a == c} {(try p.get(c) otherwise panic("the slot key names no element")).n} {p.count()}\n")
 	let again = try p.remove(a) otherwise Cell.make(0)
 	print("{again.n} {p.count()}\n")
 	let first = try p.remove(b) otherwise panic("the slot key names no element")
 	let second = try p.remove(c) otherwise panic("the slot key names no element")
 	print("{first.n} {second.n} {p.isEmpty()}\n")
 	let late = p.insert(Cell.make(4))
-	print("{p.contains(b)} {p.contains(c)} {p.contains(late)} {p[late].n}\n")
+	print("{p.contains(b)} {p.contains(c)} {p.contains(late)} {(try p.get(late) otherwise panic("the slot key names no element")).n}\n")
 	let copied = p.clone()
-	p[late].n = 5
-	print("{p[late].n} {copied[late].n} {copied.contains(late)}\n")
+	(try p.get(late) otherwise panic("the slot key names no element")).n = 5
+	print("{(try p.get(late) otherwise panic("the slot key names no element")).n} {(try copied.get(late) otherwise panic("the slot key names no element")).n} {copied.contains(late)}\n")
 	return 0
 end 'main'
 

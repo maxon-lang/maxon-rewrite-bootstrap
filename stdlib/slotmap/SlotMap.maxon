@@ -1,0 +1,165 @@
+/// A keyed store of elements, unordered, minimaxon's replacement for pointers: insert gives the key of the element it
+/// stores, and the key finds the element until remove takes it out. A graph, a tree or a linked structure is a SlotMap of
+/// nodes that name each other by key.
+/// @category Collections
+// The elements lie in an array of slots; a slot that holds none is empty (Array.takeSlot left it so). Each slot has a
+// generation, odd while it holds an element and even while it is free, and a key is the word of its slot and the slot's
+// generation when the element went in (SlotKey.fromWord). So a key finds its element only while the slot holds that
+// element: remove makes every key of it stale, and a slot freed by remove is reused by a later insert under a new
+// generation, which the old key does not match. insert never makes a key stale; it may move the elements' storage, which
+// is why a place get lends does not outlive a change of the map. A slot whose generation would pass the most a key holds
+// is retired: it is never reused, so no key is ever matched by a later element.
+public type SlotMap uses T implements export.Iterable with (T, SlotMapIterator)
+	public typealias Key = SlotKey with T
+	public typealias SlotMapIter = SlotMapIterator with T
+	export typealias Elements = Array with T
+	export typealias Generations = Array with Count
+	export typealias Slots = Array with Count
+	var elements as Elements
+	var generations as Generations
+	var free as Slots
+	var live as Count
+
+	public static function create() returns Self
+		return Self{elements: Elements.create(0), generations: Generations.create(0), free: Slots.create(0), live: 0}
+	end 'create'
+
+	/// How many elements the map holds.
+	public function count() returns Count
+		return live
+	end 'count'
+
+	public function isEmpty() returns bool
+		return live == 0
+	end 'isEmpty'
+
+	/// Whether the key names an element of this map.
+	public function contains(key Key) returns bool
+		let slot = slotOf(key)
+		let generation = try generations.get(slot) otherwise 0
+		return generation == generationOf(key) and holds(generation)
+	end 'contains'
+
+	/// Stores the value and gives its key. A key the map gave before stays valid.
+	public function insert(mutates self, consumes value T) returns Key
+		live = try live + 1 otherwise panic("SlotMap: more elements than a count holds")
+		if free.isEmpty() 'grow'
+			let slot = elements.count()
+			if slot > maxSlot 'full'
+				panic("SlotMap: more slots than a key names")
+			end 'full'
+			elements.push(value)
+			generations.push(firstGeneration)
+			return keyOf(slot, generation: firstGeneration)
+		end 'grow'
+		let slot = try free.pop() otherwise panic("SlotMap: a free slot")
+		elements.fillSlot(slot, value: value)
+		let generation = try (try generations.get(slot) otherwise panic("SlotMap: a slot's generation")) + 1 otherwise panic("SlotMap: a free slot past the last generation")
+		try generations.set(slot, value: generation) otherwise panic("SlotMap: a slot's generation")
+		return keyOf(slot, generation: generation)
+	end 'insert'
+
+	/// Lends the element the key names, to read or to change; fails with ArrayError.emptySlot where the key names none, as a
+	/// key of a removed element does.
+	public function get(key Key) returns borrowed T throws ArrayError
+		if not self.contains(key) 'stale'
+			throw ArrayError.emptySlot
+		end 'stale'
+		return elements.lendSlot(slotOf(key))
+	end 'get'
+
+	/// Takes the element the key names out of the map, which makes every key of it stale; fails with ArrayError.emptySlot
+	/// where the key names none.
+	public function remove(mutates self, key Key) returns T throws ArrayError
+		if not self.contains(key) 'stale'
+			throw ArrayError.emptySlot
+		end 'stale'
+		let slot = slotOf(key)
+		let element = try elements.takeSlot(slot) otherwise panic("SlotMap: the slot a live key names")
+		live = try live - 1 otherwise panic("SlotMap: a removal from an empty map")
+		let generation = generationOf(key)
+		if generation < lastGeneration 'reuse'
+			try generations.set(slot, value: generation + 1) otherwise panic("SlotMap: a slot's generation")
+			free.push(slot)
+		end 'reuse' else 'retire'
+			try generations.set(slot, value: retiredGeneration) otherwise panic("SlotMap: a slot's generation")
+		end 'retire'
+		return element
+	end 'remove'
+
+	/// Ends the map, which must hold no element: it is how a map of values with destructors ends.
+	public function dropEmpty(consumes self)
+		elements.dropEmpty()
+	end 'dropEmpty'
+
+	/// Walks the elements in the order of their slots, which no program may rely on: a SlotMap is unordered.
+	public function createIterator() returns SlotMapIter throws IterationError
+		return try SlotMapIter.create(elements, generations: generations)
+	end 'createIterator'
+end 'SlotMap'
+
+/// Iterator for SlotMap: the elements in the order of their slots, each lent, skipping the free slots.
+public type SlotMapIterator uses T implements export.Iterator with T
+	export typealias Elements = Array with T
+	export typealias Generations = Array with Count
+	typealias ElementCursor = __ManagedMemoryCursor with T
+	typealias GenerationCursor = __ManagedMemoryCursor with Count
+	var elements as ElementCursor
+	var generations as GenerationCursor
+
+	export static function create(elements Elements, generations Generations) returns Self throws IterationError
+		var e = try elements.managed.createCursor() otherwise throw IterationError.exhausted
+		var g = try generations.managed.createCursor() otherwise throw IterationError.exhausted
+		while not holds(g.current()) 'skip'
+			try g.advance() otherwise throw IterationError.exhausted
+			try e.advance() otherwise throw IterationError.exhausted
+		end 'skip'
+		return Self{elements: e, generations: g}
+	end 'create'
+
+	public function current() returns borrowed T
+		return elements.current()
+	end 'current'
+
+	public function advance(mutates self) throws IterationError
+		try generations.advance() otherwise throw IterationError.exhausted
+		try elements.advance() otherwise throw IterationError.exhausted
+		while not holds(generations.current()) 'skip'
+			try generations.advance() otherwise throw IterationError.exhausted
+			try elements.advance() otherwise throw IterationError.exhausted
+		end 'skip'
+	end 'advance'
+end 'SlotMapIterator'
+
+// A key's word is its slot in the low slotBits bits and its generation above them.
+let slotBits = 4294967296
+
+let maxSlot = 4294967295
+
+// A slot's generation is odd while it holds an element and even while it is free; the first element of a slot has the
+// first generation, and a slot whose element of the last generation is removed is retired: its generation stays even
+// and is no key's, so it is never reused.
+let firstGeneration = 1
+
+let lastGeneration = 2147483647
+
+let retiredGeneration = 2147483648
+
+function holds(generation Count) returns bool
+	return generation mod 2 == 1
+end 'holds'
+
+function slotOf(key SlotKey with T) uses T returns Count
+	return key.word() mod slotBits
+end 'slotOf'
+
+function generationOf(key SlotKey with T) uses T returns Count
+	return key.word() / slotBits
+end 'generationOf'
+
+// keyOf is the key of a slot and its generation, which the map keeps at most maxSlot and retiredGeneration, so the word
+// fits a key's.
+function keyOf(slot Count, generation Count) uses T returns SlotKey with T
+	let word = try generation * slotBits + slot otherwise panic("SlotMap: a key past a word")
+	return SlotKey.fromWord(word)
+end 'keyOf'

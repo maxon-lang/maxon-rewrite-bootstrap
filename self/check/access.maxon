@@ -191,7 +191,7 @@ function checkIndex(mutates c Checker, p ast.Project, mutates ms ast.ModuleState
 		return ast.noType
 	end 'cown'
 	let k = kindOfType(p, ms: ms, t: t)
-	if k != ast.TypeKind.builtinArray and k != ast.TypeKind.builtinList and k != ast.TypeKind.builtinSlotMap 'notSubscriptable'
+	if k != ast.TypeKind.builtinArray and k != ast.TypeKind.builtinList 'notSubscriptable'
 		failAt(c, p: p, ms: ms, node: e, code: diag.errTypeMismatch, msg: "{nameOfType(p, ms: ms, t: t)} has no elements to index: only an array, a list or a slot map does", errs: errs)
 		return ast.noType
 	end 'notSubscriptable'

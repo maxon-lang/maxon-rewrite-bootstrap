@@ -1,0 +1,27 @@
+// expect-error: E2013 at 16:2
+// expect-error: E3186 at 23:14
+// A SlotMap's get lends a place read-only from a map the caller may only read, and the place holds the map while it is
+// used.
+typealias Nodes = SlotMap with Node
+
+type Node
+	export var value as Count
+
+	static function make(value Count) returns Node
+		return Node{value: value}
+	end 'make'
+end 'Node'
+
+function touch(nodes Nodes, k SlotKey with Node) throws ArrayError
+	try nodes.get(k).value = 3
+end 'touch'
+
+function main() returns ExitCode
+	var nodes = Nodes.create()
+	let k = nodes.insert(Node.make(1))
+	let held = try nodes.get(k) otherwise panic("k")
+	let other = nodes.insert(Node.make(2))
+	print("{held.value} {other == k}\n")
+	try touch(nodes, k: k) otherwise ignore
+	return 0
+end 'main'

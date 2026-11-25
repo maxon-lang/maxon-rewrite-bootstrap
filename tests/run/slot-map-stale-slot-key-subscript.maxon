@@ -15,8 +15,8 @@ function main() returns ExitCode
 	let gone = try p.remove(old) otherwise panic("the slot key names no element")
 	print("removed {gone.n}\n")
 	let fresh = p.insert(Cell.make(2))
-	print("reused {p[fresh].n} {p.contains(old)}\n")
-	print("{p[old].n}\n")
+	print("reused {(try p.get(fresh) otherwise panic("the slot key names no element")).n} {p.contains(old)}\n")
+	print("{(try p.get(old) otherwise panic("the slot key names no element")).n}\n")
 	return 0
 end 'main'
 

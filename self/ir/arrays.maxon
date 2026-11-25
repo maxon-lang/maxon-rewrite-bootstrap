@@ -349,6 +349,31 @@ function clearFormSlot(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleSt
 	arrayWrite(l, p: p, ms: ms, box: box, arr: arr, index: index, v: empty, checked: false)
 end 'clearFormSlot'
 
+// arrayLend is the place of the element at index that lendSlot lends, trapping past the end and at an empty slot: the
+// address of its word, or for a record held in place the address of its words.
+function arrayLend(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, box ArrayBox, arr Reg, index Reg) returns Reg
+	return match elementWay(p, ms: ms, box: box) 'way'
+		heldPacked gives panic("ir: a byte of a buffer is lent, which lowerArrayLendSlot refuses")
+		heldInline(_) gives arrayAddress(l, p: p, ms: ms, box: box, arr: arr, index: index, checked: true)
+		heldString or
+		heldWord or
+		heldBox gives lendFormSlot(l, p: p, ms: ms, box: box, arr: arr, index: index)
+		heldAddress(_) gives panic("ir: an element held as the address of words elsewhere")
+	end 'way'
+end 'arrayLend'
+
+// lendFormSlot is the address of the word or String at index, trapping at an empty slot as a lent read does.
+function lendFormSlot(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, box ArrayBox, arr Reg, index Reg) returns Reg
+	let addr = arrayAddress(l, p: p, ms: ms, box: box, arr: arr, index: index, checked: true)
+	let elem = arrayElem(p, ms: ms, box: box)
+	if zeroIsEmpty(ms.types, reads: p.types, t: elem) 'mayBeEmpty'
+		let held = newReg(l, kind: kindOf(l, p: p, ms: ms, t: elem))
+		emit(l, i: newLoadAt(held, addr: addr))
+		requireFilled(l, p: p, ms: ms, site: box.site, elem: elem, element: held, index: index, read: SlotRead.slotLent)
+	end 'mayBeEmpty'
+	return addr
+end 'lendFormSlot'
+
 // fillSlotMessage is the trap of a fillSlot of a slot that holds an element, which it would have to drop.
 let fillSlotMessage = "fillSlot of a slot that holds an element"
 
