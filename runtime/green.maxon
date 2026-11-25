@@ -536,9 +536,10 @@ function finished(context Count, g Count)
 end 'finished'
 
 // schedPin is Scheduler.pinToMachine, Go's LockOSThread: the running green thread is pinned to the thread that runs it, one
-// pin deeper, so it runs on that thread alone and the thread runs no other until the last unpin (scheduleLoop). Off a
-// green thread, in a program without the scheduler, the code runs on its thread anyway, and there is nothing to note.
-// The runtime's code is never preempted, so the green thread is on this thread throughout.
+// pin deeper, so it runs on that thread alone and the thread runs no other until the last unpin (scheduleLoop). A program
+// without the scheduler has the link's single-thread form in its place (self/backend/start.maxon), which counts the pins of
+// its one thread; off a green thread here the code runs on its thread anyway, and there is nothing to note. The runtime's
+// code is never preempted, so the green thread is on this thread throughout.
 function schedPin() returns bool
 	let context = __Raw.threadContext()
 	let g = __Raw.loadWord(context, offset: contextGreenOffset)
@@ -556,16 +557,17 @@ function schedPin() returns bool
 end 'schedPin'
 
 // schedUnpin is Scheduler.unpinFromMachine, Go's UnlockOSThread: one pin of the running green thread less, and with the
-// last the green thread and its thread are free of each other. A green thread that holds no pin is a fatal error, as
-// maxon's is.
+// last the green thread and its thread are free of each other. An unpin by a green thread that holds no pin is a fatal error,
+// as maxon's is, since it would release a pin another owner of the thread took (pinUnheld). In a program without the
+// scheduler the link puts its single-thread form in its place (self/backend/start.maxon), which keeps the depth itself.
 function schedUnpin()
 	let g = __Raw.loadWord(__Raw.threadContext(), offset: contextGreenOffset)
 	if g == noGreen 'off'
-		return
+		pinUnheld()
 	end 'off'
 	let pins = __Raw.loadWord(g, offset: greenPinsOffset)
 	if pins == 0 'none'
-		panic("Scheduler.unpinFromMachine: the green thread holds no pin")
+		pinUnheld()
 	end 'none'
 	__Raw.storeWord(g, offset: greenPinsOffset, value: __Raw.wrappingSub(pins, right: 1))
 	if pins == 1 'last'
@@ -573,7 +575,16 @@ function schedUnpin()
 	end 'last'
 end 'schedUnpin'
 
-// schedPinDepth is how many pins the running green thread holds; off a green thread, none.
+// pinNotHeld is maxon's message for an unpin by a green thread that holds no pin.
+let pinNotHeld = "a machine pin was released by a green thread that holds none"
+
+// pinUnheld is the fatal error of an unpin by a green thread that holds no pin.
+function pinUnheld()
+	runtimeFatal(pinNotHeld)
+end 'pinUnheld'
+
+// schedPinDepth is how many pins the running green thread holds; off a green thread, none. A program without the scheduler
+// has the link's single-thread form in its place.
 function schedPinDepth() returns Count
 	let g = __Raw.loadWord(__Raw.threadContext(), offset: contextGreenOffset)
 	if g == noGreen 'off'

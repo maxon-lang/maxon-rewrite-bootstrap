@@ -1,0 +1,20 @@
+// native-only
+// An unpin by a thread that holds no pin is maxon's fatal error, which exits with 70, in a program without the scheduler,
+// whose one thread the link's single-thread forms count the pins of: the pins nest, and the unpin past the last one is
+// fatal. The interpreter's pins pin nothing.
+// expect-scheduler: none
+// expect-exit: 70
+//> pinned true, depth 2
+//> depth 0
+
+function main() returns ExitCode
+	let first = Scheduler.pinToMachine()
+	let second = Scheduler.pinToMachine()
+	print("pinned {first and second}, depth {Scheduler.pinDepth()}\n")
+	Scheduler.unpinFromMachine()
+	Scheduler.unpinFromMachine()
+	print("depth {Scheduler.pinDepth()}\n")
+	Scheduler.unpinFromMachine()
+	print("unreached\n")
+	return 0
+end 'main'
