@@ -64,8 +64,8 @@ Linux host can: the corpus natively for `x64-linux` and, when a `qemu-aarch64` i
 own executables; and it says of each step it skips that it skips it and why: the `x64-windows` corpus, the debugger's batch
 session and the fault line of an x64 Windows program (Windows only), the `arm64-linux` lanes without qemu, and the Mac lane,
 which reaches the Mac through a share only the Windows machine mounts. The compiler reads the directory of temporary files
-from `TMPDIR`, as maxon does, and refuses to guess one, so the gate sets it to the system's (`/tmp`) where a container sets
-none; the build cache is under `MINIMAXON_CACHE` when that names a directory, and off otherwise. A Linux host never renews
+from `TMPDIR`, and uses `/tmp` when that is unset or empty, as maxon does (the gate's step "TMPDIR unset" holds it to that);
+the build cache is under `MINIMAXON_CACHE` when that names a directory, and off otherwise. A Linux host never renews
 the seeds, which needs the Windows seed run (see `seed/README.md`). The host's kernel is Linux 5.3 or later (WSL 2's is), which the corpus's runs of child processes need.
 
 Go is the one that `go.mod` names: an older installed Go fetches it itself (`GOTOOLCHAIN=auto`, Go's default) from the
@@ -96,8 +96,8 @@ that Windows runs through the share is not a step here. The gate says of each st
 `x64-windows`, `x64-linux` and `arm64-linux` selftest, corpus and reruns, which macOS has no way to run, the debugger's batch session,
 and the fault lines of those three targets' programs. `selftest` runs the tests that build and run a program on the host
 with the arm64 test runtime (`arm64RuntimeUnit`); the machine IR's tests of hand-written x64 functions are linked into an
-x64 Linux executable and not run. The compiler reads the directory of temporary files from `TMPDIR`, which macOS sets; a
-Mac never renews the seeds, but proves the macOS one when they are renewed (see `seed/README.md`).
+x64 Linux executable and not run. The compiler reads the directory of temporary files from `TMPDIR`, or `/tmp` when that is
+unset or empty; a Mac never renews the seeds, but proves the macOS one when they are renewed (see `seed/README.md`).
 
 ### Continuous integration
 
@@ -125,7 +125,7 @@ programs as an artifact. The workflow reads the repository and writes nothing to
 | Command | What it does |
 |---|---|
 | `minimaxon build <file\|dir> [-o out.exe] [--target=<arch>-<os>]` | compile; the path given is the project's root, and a directory is a project, one module per directory (see "Modules"); `--target` names the target, `x64-windows`, `x64-linux` or `arm64-linux` (see "Targets"), the system the compiler runs on by default |
-| `minimaxon run <file\|dir>` | compile to the compiler's directory of the temporary directory (`minimaxon`, under `TEMP` on Windows and `TMPDIR` elsewhere, where every executable the compiler and its tests build goes, so that a scanner can be told to leave that one directory alone), as `minimaxon-run-<process id>-<name>.exe`, and run; exits with the program's code |
+| `minimaxon run <file\|dir>` | compile to the compiler's directory of the temporary directory (`minimaxon`, under `TEMP` on Windows and `TMPDIR`, or `/tmp` when that is unset or empty, elsewhere, where every executable the compiler and its tests build goes, so that a scanner can be told to leave that one directory alone), as `minimaxon-run-<process id>-<name>.exe`, and run; exits with the program's code |
 | `minimaxon check [--tests] <file\|dir>` | diagnostics only, exit code 1 when there are any; `check runtime` checks the runtime's source and holds it to the functions the compiler calls (see "The runtime"); `--tests` checks every module's files of tests (`.maxtest`) with its source |
 | `minimaxon test [--update-positions] [--behaviours] [--repeat=N] [--worker-counts=N,N,...] [--env-runner=path] [--executables=N] [--target=<arch>-<os>] [dir]` | run the corpus (default: the nearest `tests` directory from the executable upward; see "Tests"), compiled for the target and run through its runner |
 | `minimaxon test <specs-dir\|file.md> [--verbose] [--require-passed\|--skip-passed] [--record-passed] [--executables=N]` | run maxon's spec tests (see "Tests") |

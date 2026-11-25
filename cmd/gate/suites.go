@@ -136,6 +136,7 @@ func (r suiteRun) steps() ([]laneStep, [][]string) {
 		{step{"stdlib", func() error { return eachTarget(func(t string) error { return mm("check", "stdlib", "--target="+t) }) }}, "checks"},
 		// The compiler's own source is a program too: a rule that it breaks would otherwise show only when the seed is renewed.
 		{step{"self", func() error { return mm("check", "self", "--tests", "--verify-reads") }}, "checks"},
+		{step{"TMPDIR unset", func() error { return compilesWithoutTmpdir(r.h, r.compiler) }}, "checks"},
 		{step{"layout", func() error { return mm("fmt", "--check", "self", "runtime", "tests", "stdlib") }}, "checks"},
 		// Every program the generator writes that the checker accepts must run clean under the interpreter: a violation is a
 		// hole in the checker.
@@ -523,6 +524,25 @@ func selfCompilesForArm64(compiler string) error {
 		if err := quiet(nil, compiler, "build", "self", "--target="+t, "--verify-ir", "--no-cache", "-o", filepath.Join(dir, "minimaxon")); err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+// compilesWithoutTmpdir runs a program with TMPDIR taken out of the environment, as a GitHub runner leaves it: the compiler
+// must then use /tmp, as maxon does (ast.temporaryDirectory), and the run, which builds its executable there, must succeed
+// and leave the compiler's directory in /tmp. Windows has no default for its TEMP, so it is not run there.
+func compilesWithoutTmpdir(h host, compiler string) error {
+	if h.windows() {
+		skip("TMPDIR unset", "Windows names its directory of temporary files by TEMP, and has no default for it")
+		return nil
+	}
+	cmd := exec.Command(compiler, "run", filepath.Join("tests", "run", "a-function-with-no-statement-is-allowed.maxon"))
+	cmd.Env = slices.DeleteFunc(os.Environ(), func(v string) bool { return strings.HasPrefix(v, "TMPDIR=") })
+	if out, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("%s%s with TMPDIR unset: %w", out, strings.Join(cmd.Args, " "), err)
+	}
+	if !isDir(filepath.Join("/tmp", "minimaxon")) {
+		return errors.New("with TMPDIR unset the compiler did not make its directory of temporary files in /tmp")
 	}
 	return nil
 }

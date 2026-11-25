@@ -93,8 +93,6 @@ jobs:
           START: ${{ needs.prepare.outputs.start }}
           COUNT: ${{ needs.prepare.outputs.count }}
           FUZZ_OUT: ${{ runner.temp }}/fuzz
-          # The compiler needs TMPDIR, which the ubuntu runner does not set.
-          TMPDIR: ${{ runner.temp }}
         run: bash cmd/fuzzshards/run.sh bin/minimaxon "$START" "$COUNT" --native
       - uses: actions/upload-artifact@v4
         if: failure()
@@ -125,8 +123,6 @@ jobs:
           START: ${{ needs.prepare.outputs.start }}
           COUNT: ${{ needs.prepare.outputs.count }}
           FUZZ_OUT: ${{ runner.temp }}/fuzz
-          # The compiler needs TMPDIR, which the ubuntu runner does not set.
-          TMPDIR: ${{ runner.temp }}
         run: bash cmd/fuzzshards/run.sh bin/minimaxon "$START" "$COUNT" --native
       - uses: actions/upload-artifact@v4
         if: failure()

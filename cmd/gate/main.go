@@ -69,11 +69,6 @@ func gate() {
 	if err != nil {
 		fail(err)
 	}
-	// The compiler finds the directory of temporary files by the variable maxon reads (TEMP on Windows, TMPDIR elsewhere),
-	// and refuses to guess one; a container that sets none gets the system's, which Go knows.
-	if !h.windows() && os.Getenv("TMPDIR") == "" {
-		os.Setenv("TMPDIR", os.TempDir())
-	}
 	args := os.Args[2:]
 	if h.seed == "" && os.Args[1] != "suites" {
 		fail(fmt.Errorf("%s: %s has no committed seed to build the compiler from; it runs the lanes of a compiler that another host built: gate suites <compiler> (README, \"Continuous integration\")", os.Args[1], h.target))
