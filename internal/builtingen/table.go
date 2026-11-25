@@ -173,6 +173,12 @@ var builtinTypes = []builtinType{
 		Named:   rawSurface{What: "the raw buffer cursor type is nameable", Instead: "walk an 'Array' with 'for'"},
 		Methods: rawSurface{What: "a raw '__ManagedMemoryCursor' is reachable", Instead: "walk an 'Array' with 'for'"},
 	}},
+	// SlotArrayCursor is a position in a slot array, a buffer's cursor under the slot array's name, so that its reads are
+	// held to the slot array's empty slots where a buffer's, an array's, has none.
+	{Key: "SlotArrayCursor", Name: "__SlotArrayCursor", Params: []string{"T"}, Kind: "Cursor", Managed: true, Raw: &rawType{
+		Named:   rawSurface{What: "the cursor of the library's slot arrays is nameable", Instead: "walk an 'Array' with 'for'"},
+		Methods: rawSurface{What: "a raw '__SlotArrayCursor' is reachable", Instead: "walk an 'Array' with 'for'"},
+	}},
 	// StringCursor is a position in a String's grapheme clusters: a view of the String, which it borrows, and the byte
 	// positions where the cluster it is at starts and ends. It holds a borrow, as a buffer's cursor does.
 	{Key: "StringCursor", Name: "__StringCursor", Kind: "Cursor", Managed: true, Raw: &rawType{
@@ -269,7 +275,8 @@ var recordTypes = []recordType{
 }
 
 // view is a member of a built-in generic type, read without parentheses, that is the same value seen as an instance of
-// another type of the table at the same type arguments: maxon's `.managed`, the buffer of an array.
+// another type of the table at the same type arguments: maxon's `.managed`, the buffer of an array. A slot array has no
+// buffer view: a buffer is an array's, whose every slot below its count is filled, and an array is made of a buffer.
 type view struct {
 	Owner, Name, Type string
 	Raw               rawSurface
@@ -277,7 +284,6 @@ type view struct {
 
 var views = []view{
 	{Owner: "Array", Name: "managed", Type: "ManagedMemory", Raw: rawSurface{What: "a value's raw '__ManagedMemory' buffer is reachable", Instead: "use the 'Array' methods"}},
-	{Owner: "SlotArray", Name: "managed", Type: "ManagedMemory", Raw: rawSurface{What: "a value's raw '__ManagedMemory' buffer is reachable", Instead: "use the 'Array' methods"}},
 }
 
 // unionCase is a case of a built-in union; Payload are its fields as "name Type".
@@ -713,19 +719,6 @@ var tableFunctions = []function{
 	{Owner: "Array", Name: "slice", Params: []string{"start ElementIndex", "endIndex ElementIndex"}, Result: "Self", Bounds: []string{"T Copyable"}, Throws: "ArrayError", Intrinsic: "ArraySlice"},
 	{Owner: "Array", Name: "growFilled", Self: "mutates", Params: []string{"newLength ElementIndex", "value T"}, Bounds: []string{"T Copyable"}, Intrinsic: "ArrayGrowFilled"},
 	{Owner: "Array", Name: "refill", Self: "mutates", Params: []string{"newLength ElementIndex", "value T"}, Bounds: []string{"T Copyable"}, Intrinsic: "ArrayRefill"},
-	// clearSlot is maxon's tombstone of a slot table: the element at an index is dropped and its slot left empty, where
-	// remove would close the gap. An empty slot of a managed element is 0, which get reads as emptySlot.
-	{Owner: "Array", Name: "clearSlot", Self: "mutates", Params: []string{"at ElementIndex"}, Bounds: []string{"T Droppable"}, Throws: "ArrayError", Intrinsic: "ArrayClearSlot", Raw: &rawSurface{What: "an array's slot is emptied in place", Instead: "use 'remove(at)'"}},
-	// fillSlot and takeSlot are clearSlot's other halves, which a slot table needs for an element that has no Droppable: fillSlot
-	// moves a value into an empty slot and drops nothing, trapping where the index is past the end or the slot holds an
-	// element, and takeSlot moves the element out and leaves the slot empty, failing with indexOutOfBounds past the end and
-	// emptySlot at an empty slot.
-	{Owner: "Array", Name: "fillSlot", Self: "mutates", Params: []string{"at ElementIndex", "consumes value T"}, Intrinsic: "ArrayFillSlot", Raw: &rawSurface{What: "an array's empty slot is filled in place", Instead: "use 'set(i, value: v)'"}},
-	{Owner: "Array", Name: "takeSlot", Self: "mutates", Params: []string{"at ElementIndex"}, Result: "T", Throws: "ArrayError", Intrinsic: "ArrayTakeSlot", Raw: &rawSurface{What: "an element is taken out of an array's slot, which is left empty", Instead: "use 'remove(at)'"}},
-	// lendSlot lends the element at an index, to read or to change, trapping past the end and at an empty slot as a subscript
-	// does: the one unchecked access that a library collection's checked get lends through. It is provisional, the
-	// library's alone, until the subscript goes and Array's own get lends.
-	{Owner: "Array", Name: "lendSlot", Params: []string{"at ElementIndex"}, Result: "T", Lends: true, Place: true, Intrinsic: "ArrayLendSlot", Raw: &rawSurface{What: "an array's element is lent in place", Instead: "use a subscript, 'a[i]'"}},
 	// contains, containsSequence and equals are maxon's for an element that is Equatable; the checker holds them to the
 	// elements this compiler compares itself (checkElementsComparable).
 	{Owner: "Array", Name: "contains", Params: []string{"element T"}, Result: "Bool", Intrinsic: "ArrayContains", Checked: true},
@@ -733,10 +726,15 @@ var tableFunctions = []function{
 	{Owner: "Array", Name: "equals", Params: []string{"other Self"}, Result: "Bool", Intrinsic: "ArrayEquals", Checked: true}, {Owner: "Array", Name: "first", Result: "T", Bounds: []string{"T Copyable"}, Throws: "ArrayError", Intrinsic: "ArrayFirst"},
 	{Owner: "Array", Name: "last", Result: "T", Bounds: []string{"T Copyable"}, Throws: "ArrayError", Intrinsic: "ArrayLast"},
 
-	// A slot array's operations are the array's of the same name, at the same intrinsics, but for create(n), whose n slots are
-	// empty where the array's are zero elements, so it is legal for every element, isFilled(at), which an array whose
-	// every slot below its count is filled has no need of, and dropEmpty. isFilled traps past the end, as a subscript does; over a scalar an
-	// empty slot is the element 0, as dropEmpty reads it.
+	// A slot array's count, get, push and clear are the array's, at the same intrinsics. Its own are the operations that leave
+	// or meet an empty slot, which an array, whose every slot below its count is filled, does not have: create(n), whose n
+	// slots are empty where the array's are zero elements, so it is legal for every element; isFilled(at), which traps past
+	// the end, as a subscript does; clearSlot, maxon's tombstone of a slot table, which drops the element at an index and
+	// leaves its slot empty; fillSlot and takeSlot, its other halves for an element that has no Droppable, which move a
+	// value into an empty slot (trapping past the end or where the slot holds an element) and out of a filled one (failing
+	// with indexOutOfBounds past the end and emptySlot at an empty slot), dropping nothing; lendSlot, which lends the element
+	// at an index, trapping past the end and at an empty slot; createCursor, a cursor of the slot array's own type, whose
+	// reads meet an empty slot as lendSlot's do; and dropEmpty. Over a scalar an empty slot is the element 0.
 	{Owner: "SlotArray", Name: "create", Static: true, Params: []string{"count ElementIndex"}, Result: "Self", Intrinsic: "ArrayEmptySlots"},
 	// adopt makes the slot array of an array's box, every slot filled: the same value under the slot array's type, as an
 	// array is made of a raw buffer, so a library collection takes an array literal as its slots with no copy.
@@ -749,6 +747,7 @@ var tableFunctions = []function{
 	{Owner: "SlotArray", Name: "fillSlot", Self: "mutates", Params: []string{"at ElementIndex", "consumes value T"}, Intrinsic: "ArrayFillSlot"},
 	{Owner: "SlotArray", Name: "takeSlot", Self: "mutates", Params: []string{"at ElementIndex"}, Result: "T", Throws: "ArrayError", Intrinsic: "ArrayTakeSlot"},
 	{Owner: "SlotArray", Name: "lendSlot", Params: []string{"at ElementIndex"}, Result: "T", Lends: true, Place: true, Intrinsic: "ArrayLendSlot"},
+	{Owner: "SlotArray", Name: "createCursor", Result: "SlotArrayCursor with T", Throws: "ManagedMemoryError", Intrinsic: "CursorCreate"},
 	// clear drops the element of every filled slot, skipping the empty ones as an array's drop does, and keeps the buffer.
 	{Owner: "SlotArray", Name: "clear", Self: "mutates", Bounds: []string{"T Droppable"}, Intrinsic: "ArrayClear"},
 	// dropEmpty ends a slot array whose every slot is empty, with no test of its own: the slot table that calls it knows
@@ -804,6 +803,12 @@ var tableFunctions = []function{
 	{Owner: "ManagedMemoryCursor", Name: "retreat", Self: "mutates", Throws: "ManagedMemoryError", Intrinsic: "CursorRetreat"},
 	{Owner: "ManagedMemoryCursor", Name: "seek", Self: "mutates", Params: []string{"index ElementIndex"}, Throws: "ManagedMemoryError", Intrinsic: "CursorSeek"},
 	{Owner: "ManagedMemoryCursor", Name: "peek", Params: []string{"ahead ElementIndex"}, Result: "T", Bounds: []string{"T Copyable"}, Throws: "ManagedMemoryError", Intrinsic: "CursorPeek"},
+	{Owner: "SlotArrayCursor", Name: "current", Result: "T", Lends: true, Intrinsic: "CursorCurrent"},
+	{Owner: "SlotArrayCursor", Name: "index", Result: "ElementIndex", Intrinsic: "CursorIndex"},
+	{Owner: "SlotArrayCursor", Name: "advance", Self: "mutates", Throws: "ManagedMemoryError", Intrinsic: "CursorAdvance"},
+	{Owner: "SlotArrayCursor", Name: "retreat", Self: "mutates", Throws: "ManagedMemoryError", Intrinsic: "CursorRetreat"},
+	{Owner: "SlotArrayCursor", Name: "seek", Self: "mutates", Params: []string{"index ElementIndex"}, Throws: "ManagedMemoryError", Intrinsic: "CursorSeek"},
+	{Owner: "SlotArrayCursor", Name: "peek", Params: []string{"ahead ElementIndex"}, Result: "T", Bounds: []string{"T Copyable"}, Throws: "ManagedMemoryError", Intrinsic: "CursorPeek"},
 	{Owner: "StringCursor", Name: "create", Static: true, Params: []string{"text String"}, Result: "Self", Throws: "ManagedMemoryError", Intrinsic: "StringCursorCreate"},
 	{Owner: "StringCursor", Name: "current", Result: "String", Lends: true, Intrinsic: "StringCursorCurrent"},
 	{Owner: "StringCursor", Name: "advance", Self: "mutates", Throws: "ManagedMemoryError", Intrinsic: "StringCursorAdvance"},

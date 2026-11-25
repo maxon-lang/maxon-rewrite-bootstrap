@@ -1,6 +1,6 @@
-// expect-error: E3185 at 7:8
-// expect-error: E3185 at 8:22
-typealias Names = Array with String
+// expect-error: E3185 at 3:19
+// A slot array, whose operations leave and fill empty slots, is the library tiers' alone.
+typealias Names = __SlotArray with String
 
 function main() returns ExitCode
 	var names = Names.create(0)

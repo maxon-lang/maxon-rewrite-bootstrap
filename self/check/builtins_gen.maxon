@@ -94,16 +94,16 @@ function checkIntrinsicArgs(mutates c Checker, p ast.Project, mutates ms ast.Mod
 	if op == ast.Intrinsic.intrArrayTruncate or op == ast.Intrinsic.intrArrayReserve or op == ast.Intrinsic.intrArraySlice or op == ast.Intrinsic.intrArrayGrowFilled 'signature4'
 		return
 	end 'signature4'
-	if op == ast.Intrinsic.intrArrayRefill or op == ast.Intrinsic.intrArrayClearSlot or op == ast.Intrinsic.intrArrayFillSlot or op == ast.Intrinsic.intrArrayTakeSlot 'signature5'
+	if op == ast.Intrinsic.intrArrayRefill or op == ast.Intrinsic.intrArrayFirst or op == ast.Intrinsic.intrArrayLast or op == ast.Intrinsic.intrArrayEmptySlots 'signature5'
 		return
 	end 'signature5'
-	if op == ast.Intrinsic.intrArrayLendSlot or op == ast.Intrinsic.intrArrayFirst or op == ast.Intrinsic.intrArrayLast or op == ast.Intrinsic.intrArrayEmptySlots 'signature6'
+	if op == ast.Intrinsic.intrArrayIsFilled or op == ast.Intrinsic.intrArrayClearSlot or op == ast.Intrinsic.intrArrayFillSlot or op == ast.Intrinsic.intrArrayTakeSlot 'signature6'
 		return
 	end 'signature6'
-	if op == ast.Intrinsic.intrArrayIsFilled or op == ast.Intrinsic.intrSlotArrayDropEmpty or op == ast.Intrinsic.intrFixedArrayFilled or op == ast.Intrinsic.intrFixedArrayCount 'signature7'
+	if op == ast.Intrinsic.intrArrayLendSlot or op == ast.Intrinsic.intrCursorCreate or op == ast.Intrinsic.intrSlotArrayDropEmpty or op == ast.Intrinsic.intrFixedArrayFilled 'signature7'
 		return
 	end 'signature7'
-	if op == ast.Intrinsic.intrFixedArrayRefill or op == ast.Intrinsic.intrArrayElementSize or op == ast.Intrinsic.intrArraySwap or op == ast.Intrinsic.intrCursorCreate 'signature8'
+	if op == ast.Intrinsic.intrFixedArrayCount or op == ast.Intrinsic.intrFixedArrayRefill or op == ast.Intrinsic.intrArrayElementSize or op == ast.Intrinsic.intrArraySwap 'signature8'
 		return
 	end 'signature8'
 	if op == ast.Intrinsic.intrCursorCurrent or op == ast.Intrinsic.intrCursorIndex or op == ast.Intrinsic.intrCursorAdvance or op == ast.Intrinsic.intrCursorRetreat 'signature9'

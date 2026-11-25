@@ -1,26 +1,27 @@
-// A loop lends each element of an array, and an empty slot of a managed element holds none, so the loop panics there with
-// maxon's message rather than lend a box that is not there.
-typealias Names = Array with String
+// A loop over a slot array's cursor lends each element, and an empty slot of a managed element holds none, so the loop
+// panics there with maxon's message rather than lend a box that is not there.
+typealias Names = __SlotArray with String
 
-type Column uses Element where Element implements Droppable
-	typealias Slots = Array with Element
+function cleared(consumes one String, consumes two String) returns Names
+	var slots = Names.create(0)
+	slots.push(one)
+	slots.push(two)
+	try slots.clearSlot(1) otherwise panic("a slot inside the column")
+	return slots
+end 'cleared'
 
-	static function cleared(consumes first Element, consumes second Element) returns Slots
-		var slots = Slots.create(0)
-		slots.push(first)
-		slots.push(second)
-		try slots.clearSlot(1) otherwise panic("a slot inside the column")
-		return slots
-	end 'cleared'
-end 'Column'
-
-typealias NameColumn = Column with String
+function walk(names Names)
+	var at = try names.createCursor() otherwise panic("two slots")
+	print("{at.current()}\n")
+	try at.advance() otherwise panic("a second slot")
+	print("{at.current()}\n")
+end 'walk'
 
 function main() returns ExitCode
-	let names = NameColumn.cleared("ada", second: "bob")
-	for name in names 'each'
-		print("{name}\n")
-	end 'each'
+	var names = cleared("ada", two: "bob")
+	walk(names)
+	try names.clearSlot(0) otherwise panic("a slot inside the column")
+	names.dropEmpty()
 	return 0
 end 'main'
 

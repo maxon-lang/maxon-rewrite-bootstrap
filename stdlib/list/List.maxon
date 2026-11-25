@@ -241,7 +241,7 @@ end 'List'
 /// Iterator for List: its elements from the first to the last, each lent, through a cursor over the ring of slots.
 public type ListIterator uses T implements core.Iterator with T
 	export typealias Elements = __SlotArray with T
-	typealias ElementCursor = __ManagedMemoryCursor with T
+	typealias ElementCursor = __SlotArrayCursor with T
 	var cursor as ElementCursor
 	var left as Count
 
@@ -249,7 +249,7 @@ public type ListIterator uses T implements core.Iterator with T
 		if live == 0 'empty'
 			throw IterationError.exhausted
 		end 'empty'
-		var c = try slots.managed.createCursor() otherwise throw IterationError.exhausted
+		var c = try slots.createCursor() otherwise throw IterationError.exhausted
 		try c.seek(head) otherwise throw IterationError.exhausted
 		return Self{cursor: c, left: pred(live)}
 	end 'create'

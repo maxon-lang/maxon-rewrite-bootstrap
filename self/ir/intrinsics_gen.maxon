@@ -74,18 +74,6 @@ export function intrinsicCall(mutates l Lowerer, p ast.Project, mutates ms ast.M
 	if op == ast.Intrinsic.intrArrayRefill 'intrArrayRefill'
 		return lowerArrayRefill(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrArrayRefill'
-	if op == ast.Intrinsic.intrArrayClearSlot 'intrArrayClearSlot'
-		return lowerArrayClearSlot(l, p: p, ms: ms, c: c, recv: recv, args: args)
-	end 'intrArrayClearSlot'
-	if op == ast.Intrinsic.intrArrayFillSlot 'intrArrayFillSlot'
-		return lowerArrayFillSlot(l, p: p, ms: ms, c: c, recv: recv, args: args)
-	end 'intrArrayFillSlot'
-	if op == ast.Intrinsic.intrArrayTakeSlot 'intrArrayTakeSlot'
-		return lowerArrayTakeSlot(l, p: p, ms: ms, c: c, recv: recv, args: args)
-	end 'intrArrayTakeSlot'
-	if op == ast.Intrinsic.intrArrayLendSlot 'intrArrayLendSlot'
-		return lowerArrayLendSlot(l, p: p, ms: ms, c: c, recv: recv, args: args)
-	end 'intrArrayLendSlot'
 	if op == ast.Intrinsic.intrArrayContains 'intrArrayContains'
 		return lowerArrayContains(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrArrayContains'
@@ -107,6 +95,21 @@ export function intrinsicCall(mutates l Lowerer, p ast.Project, mutates ms ast.M
 	if op == ast.Intrinsic.intrArrayIsFilled 'intrArrayIsFilled'
 		return lowerArrayIsFilled(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrArrayIsFilled'
+	if op == ast.Intrinsic.intrArrayClearSlot 'intrArrayClearSlot'
+		return lowerArrayClearSlot(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrArrayClearSlot'
+	if op == ast.Intrinsic.intrArrayFillSlot 'intrArrayFillSlot'
+		return lowerArrayFillSlot(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrArrayFillSlot'
+	if op == ast.Intrinsic.intrArrayTakeSlot 'intrArrayTakeSlot'
+		return lowerArrayTakeSlot(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrArrayTakeSlot'
+	if op == ast.Intrinsic.intrArrayLendSlot 'intrArrayLendSlot'
+		return lowerArrayLendSlot(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrArrayLendSlot'
+	if op == ast.Intrinsic.intrCursorCreate 'intrCursorCreate'
+		return lowerCursorCreate(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrCursorCreate'
 	if op == ast.Intrinsic.intrSlotArrayDropEmpty 'intrSlotArrayDropEmpty'
 		return lowerSlotArrayDropEmpty(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrSlotArrayDropEmpty'
@@ -134,9 +137,6 @@ export function intrinsicCall(mutates l Lowerer, p ast.Project, mutates ms ast.M
 	if op == ast.Intrinsic.intrArraySwap 'intrArraySwap'
 		return lowerArraySwap(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrArraySwap'
-	if op == ast.Intrinsic.intrCursorCreate 'intrCursorCreate'
-		return lowerCursorCreate(l, p: p, ms: ms, c: c, recv: recv, args: args)
-	end 'intrCursorCreate'
 	if op == ast.Intrinsic.intrCursorCurrent 'intrCursorCurrent'
 		return lowerCursorCurrent(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrCursorCurrent'
@@ -874,18 +874,6 @@ export function ownsOperands(op ast.Intrinsic) returns bool
 	if op == ast.Intrinsic.intrArrayRefill 'intrArrayRefill'
 		return false
 	end 'intrArrayRefill'
-	if op == ast.Intrinsic.intrArrayClearSlot 'intrArrayClearSlot'
-		return false
-	end 'intrArrayClearSlot'
-	if op == ast.Intrinsic.intrArrayFillSlot 'intrArrayFillSlot'
-		return false
-	end 'intrArrayFillSlot'
-	if op == ast.Intrinsic.intrArrayTakeSlot 'intrArrayTakeSlot'
-		return false
-	end 'intrArrayTakeSlot'
-	if op == ast.Intrinsic.intrArrayLendSlot 'intrArrayLendSlot'
-		return false
-	end 'intrArrayLendSlot'
 	if op == ast.Intrinsic.intrArrayContains 'intrArrayContains'
 		return false
 	end 'intrArrayContains'
@@ -907,6 +895,21 @@ export function ownsOperands(op ast.Intrinsic) returns bool
 	if op == ast.Intrinsic.intrArrayIsFilled 'intrArrayIsFilled'
 		return false
 	end 'intrArrayIsFilled'
+	if op == ast.Intrinsic.intrArrayClearSlot 'intrArrayClearSlot'
+		return false
+	end 'intrArrayClearSlot'
+	if op == ast.Intrinsic.intrArrayFillSlot 'intrArrayFillSlot'
+		return false
+	end 'intrArrayFillSlot'
+	if op == ast.Intrinsic.intrArrayTakeSlot 'intrArrayTakeSlot'
+		return false
+	end 'intrArrayTakeSlot'
+	if op == ast.Intrinsic.intrArrayLendSlot 'intrArrayLendSlot'
+		return false
+	end 'intrArrayLendSlot'
+	if op == ast.Intrinsic.intrCursorCreate 'intrCursorCreate'
+		return false
+	end 'intrCursorCreate'
 	if op == ast.Intrinsic.intrSlotArrayDropEmpty 'intrSlotArrayDropEmpty'
 		return false
 	end 'intrSlotArrayDropEmpty'
@@ -934,9 +937,6 @@ export function ownsOperands(op ast.Intrinsic) returns bool
 	if op == ast.Intrinsic.intrArraySwap 'intrArraySwap'
 		return false
 	end 'intrArraySwap'
-	if op == ast.Intrinsic.intrCursorCreate 'intrCursorCreate'
-		return false
-	end 'intrCursorCreate'
 	if op == ast.Intrinsic.intrCursorCurrent 'intrCursorCurrent'
 		return false
 	end 'intrCursorCurrent'

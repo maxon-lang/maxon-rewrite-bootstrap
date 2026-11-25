@@ -105,13 +105,13 @@ end 'SlotMap'
 public type SlotMapIterator uses T implements core.Iterator with T
 	export typealias Elements = __SlotArray with T
 	export typealias Generations = Array with Count
-	typealias ElementCursor = __ManagedMemoryCursor with T
+	typealias ElementCursor = __SlotArrayCursor with T
 	typealias GenerationCursor = __ManagedMemoryCursor with Count
 	var elements as ElementCursor
 	var generations as GenerationCursor
 
 	export static function create(elements Elements, generations Generations) returns Self throws IterationError
-		var e = try elements.managed.createCursor() otherwise throw IterationError.exhausted
+		var e = try elements.createCursor() otherwise throw IterationError.exhausted
 		var g = try generations.managed.createCursor() otherwise throw IterationError.exhausted
 		while not holds(g.current()) 'skip'
 			try g.advance() otherwise throw IterationError.exhausted

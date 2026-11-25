@@ -1,0 +1,24 @@
+// expect-error: E3004 at 15:12
+// expect-error: E3004 at 16:22
+// expect-error: E3004 at 17:8
+// expect-error: E3004 at 18:14
+// expect-error: E3018 at 21:30
+// An array has no empty slot below its count, so it has none of the slot array's operations that would leave one or
+// meet one, and a slot array has no buffer view through which an array could be made of its empty slots.
+typealias Names = Array with String
+
+typealias Slots = __SlotArray with String
+
+function main() returns ExitCode
+	var names = Names.create(0)
+	names.push("ada")
+	try names.clearSlot(0) otherwise panic("a slot inside the array")
+	let ada = try names.takeSlot(0) otherwise ""
+	names.fillSlot(0, value: ada)
+	print(names.lendSlot(0))
+	var slots = Slots.create(1)
+	slots.fillSlot(0, value: "bob")
+	let made = Names.init(slots.managed)
+	print("{made.count()}\n")
+	return 0
+end 'main'

@@ -29,14 +29,27 @@ export function cursorWords(p ast.Project, ms ast.ModuleState, t ast.TypeID) ret
 	return cursorFields
 end 'cursorWords'
 
-// cursorBuffer is the array box of the buffer that a cursor of the type t walks.
+// cursorBuffer is the array box of the buffer that a cursor of the type t walks: a slot array's for a slot array's cursor,
+// so that its reads meet an empty slot as the slot array's do.
 function cursorBuffer(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, site diag.Site, t ast.TypeID) returns ArrayBox
 	let cursor = applyType(l, p: p, ms: ms, t: t)
 	var args = ast.TypeIDList.create(0)
 	args.push(ast.typeArgAt(ms.types, reads: p.types, t: cursor, index: 0))
-	let buffer = ast.instantiateType(ms.types, reads: p.types, origin: p.builtins.managedMemoryOrigin, args: args)
+	let buffer = ast.instantiateType(ms.types, reads: p.types, origin: walkedOrigin(p, ms: ms, cursor: cursor), args: args)
 	return arrayOf(l, p: p, ms: ms, site: site, t: buffer)
 end 'cursorBuffer'
+
+// walkedOrigin is the type of the buffer that a buffer's or a slot array's cursor walks.
+function walkedOrigin(p ast.Project, ms ast.ModuleState, cursor ast.TypeID) returns ast.TypeID
+	let origin = ast.originOf(ms.types, reads: p.types, t: cursor)
+	if origin == p.builtins.managedMemoryCursorOrigin 'buffer'
+		return p.builtins.managedMemoryOrigin
+	end 'buffer'
+	if origin == p.builtins.slotArrayCursorOrigin 'slots'
+		return p.builtins.slotArrayOrigin
+	end 'slots'
+	panic("ir: a cursor that walks no buffer")
+end 'walkedOrigin'
 
 // cursorOfCall is the array box of the buffer of the cursor that a call of a cursor's method is on.
 function cursorOfCall(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite) returns ArrayBox

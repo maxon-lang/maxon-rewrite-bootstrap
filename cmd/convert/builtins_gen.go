@@ -32,6 +32,7 @@ var builtinNames = map[string]bool{
 	"__ManagedMemory":           true,
 	"__SlotArray":               true,
 	"__ManagedMemoryCursor":     true,
+	"__SlotArrayCursor":         true,
 	"__StringCursor":            true,
 	"__GroupMemory":             true,
 	"SlotKey":                   true,
@@ -109,11 +110,12 @@ var builtinNames = map[string]bool{
 
 // builtinMethods are the methods minimaxon declares on each type it builds in, by the type's name, in the table's order.
 var builtinMethods = map[string][]string{
-	"Array":                 {"create", "init", "filled", "count", "isEmpty", "capacity", "get", "set", "push", "append", "insert", "remove", "pop", "dropEmpty", "clear", "truncate", "reserve", "resize", "slice", "growFilled", "refill", "clearSlot", "fillSlot", "takeSlot", "lendSlot", "contains", "containsSequence", "equals", "first", "last", "awaitAny"},
-	"__SlotArray":           {"create", "adopt", "count", "get", "push", "isFilled", "clearSlot", "fillSlot", "takeSlot", "lendSlot", "clear", "dropEmpty"},
+	"Array":                 {"create", "init", "filled", "count", "isEmpty", "capacity", "get", "set", "push", "append", "insert", "remove", "pop", "dropEmpty", "clear", "truncate", "reserve", "resize", "slice", "growFilled", "refill", "contains", "containsSequence", "equals", "first", "last", "awaitAny"},
+	"__SlotArray":           {"create", "adopt", "count", "get", "push", "isFilled", "clearSlot", "fillSlot", "takeSlot", "lendSlot", "createCursor", "clear", "dropEmpty"},
 	"FixedArray":            {"create", "count", "get", "set", "refill"},
 	"__ManagedMemory":       {"length", "get", "byteAt", "capacity", "elementSize", "set", "swap", "append", "remove", "clear", "slice", "grow", "setLength", "createCursor"},
 	"__ManagedMemoryCursor": {"current", "index", "advance", "retreat", "seek", "peek"},
+	"__SlotArrayCursor":     {"current", "index", "advance", "retreat", "seek", "peek"},
 	"__StringCursor":        {"create", "current", "advance"},
 	"__GroupMemory":         {"create", "groups", "control", "setControl", "first", "second", "put", "setSecond", "takeFirst", "takeSecond", "clear"},
 	"SlotKey":               {"fromWord", "word"},
