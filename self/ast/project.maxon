@@ -707,7 +707,8 @@ export type Project
 	// writes, for the debug info that a build with --debug-info writes (ir.IrFunction.spans).
 	export var keepsSpans as bool
 	export var rootModule as diag.ModuleID
-	// library is the root module of the standard library's source when the project holds it (see "Modules" in the README).
+	// library is the root module of the standard library's source when the project holds it (see "Modules" in the README). It
+	// holds no file: the library's declarations are in the modules below it.
 	export var library as table.Option with diag.ModuleID
 	export var modules as ModuleList
 	export var stdlib as Module
@@ -837,6 +838,66 @@ export let stdlibQualifier = "stdlib"
 // runtimeQualifier names the runtime module wherever it is compiled, so that its functions have the symbols the compiler
 // calls them by (ir.rtSymbol).
 export let runtimeQualifier = "runtime"
+
+// The modules of the standard library that the compiler names, each a child of the library's root (README, "Modules"): the
+// interfaces, the conformances of the built-in types and the hashing, which every program reaches and every other module of
+// the library may name; the type that a map literal makes; the types that a range value makes; and the helpers that the
+// core names itself, whose own code can therefore name nothing of it.
+export let libraryCoreModule = "core"
+
+export let libraryMapModule = "map"
+
+export let libraryRangeModule = "range"
+
+export let libraryHelpersModule = "_helpers"
+
+// isLibraryModule is whether the module of the id is one of the standard library's.
+export function isLibraryModule(p Project, modID diag.ModuleID) returns bool
+	for candidate in p.modules 'modules'
+		if candidate.id == modID 'hit'
+			return candidate.isLibrary
+		end 'hit'
+	end 'modules'
+	panic("project: no module has the id {modID}")
+end 'isLibraryModule'
+
+// isRuntimeModule is whether the module of the id is the runtime's source.
+export function isRuntimeModule(p Project, modID diag.ModuleID) returns bool
+	for candidate in p.modules 'modules'
+		if candidate.id == modID 'hit'
+			return candidate.isRuntime
+		end 'hit'
+	end 'modules'
+	panic("project: no module has the id {modID}")
+end 'isRuntimeModule'
+
+// libraryModuleNamed is the module of the standard library that the library root has a child of the name of, or none when
+// the project holds no library or the library has no such module.
+export function libraryModuleNamed(p Project, name String) returns table.Option with diag.ModuleID
+	return match p.library 'library'
+		some(root) gives childModuleNamed(p, parent: root, name: name)
+		none gives table.Option.none
+	end 'library'
+end 'libraryModuleNamed'
+
+function childModuleNamed(p Project, parent diag.ModuleID, name String) returns table.Option with diag.ModuleID
+	for candidate in p.modules 'modules'
+		if candidate.id == parent 'hit'
+			return candidate.findChild(name)
+		end 'hit'
+	end 'modules'
+	panic("project: no module has the id {parent}")
+end 'childModuleNamed'
+
+// stagedPath is the path that a program staged in the library tier is compiled at: a file of the core module, as maxon's
+// runner stages it in the library's root, so it sees what the library's modules see of one another. A library with no core
+// has only its root to stage in.
+function stagedPath(p Project) returns String
+	return match consumes libraryModuleNamed(p, name: libraryCoreModule) 'core'
+		some(core) gives modulePath(p, modID: core).clone()
+		none gives stdlibQualifier
+	end 'core'
+end 'stagedPath'
 
 // moduleDecl is a declaration, with everything in it, lent where it lies.
 export function moduleDecl(p Project, ref DeclRef) returns borrowed Decl
@@ -1094,15 +1155,15 @@ export function describeModuleOf(m Module) returns String
 end 'describeModuleOf'
 
 // isVisibleFrom is whether something that the module owner declares with the visibility v can be named from the module
-// from. A program staged in the library tier is compiled as maxon's runner compiles it, as a file of the library's root,
-// so it sees what the root sees.
+// from. A program staged in the library tier is compiled as maxon's runner compiles it, as a file of the library (stagedPath),
+// so it sees what the library's modules see of one another.
 export function isVisibleFrom(p Project, v Visibility, owner diag.ModuleID, from diag.ModuleID) returns bool
 	if owner != diag.stdlibID and p.modules[modIndex(owner)].isLibrary 'library'
 		let inside = from != diag.stdlibID and p.modules[modIndex(from)].isLibrary
 		let staged = from != diag.stdlibID and p.modules[modIndex(from)].stagedInLibrary
 		var fromPath = modulePath(p, modID: from)
 		if staged 'staged'
-			fromPath = stdlibQualifier
+			fromPath = stagedPath(p)
 		end 'staged'
 		return match v 'v'
 			everyone gives true

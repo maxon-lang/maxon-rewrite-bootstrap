@@ -462,6 +462,9 @@ export let errBorrowedReturn = "E3926"
 // A value that holds a borrow, a buffer's cursor or a value of a type that holds one, escapes what it borrows: it is returned past it, stored where it may outlive it, captured, boxed, or given to a type parameter that stands only for types that hold none.
 export let errBorrowEscapes = "E3927"
 
+// A source file lies in the standard library's root directory, which holds modules only.
+export let errLibraryRootFile = "E3928"
+
 // A raw value is a string with an interpolated value, which a case cannot hold.
 export let errRawValueNotLiteral = "E3940"
 

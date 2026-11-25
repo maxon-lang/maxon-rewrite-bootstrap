@@ -70,8 +70,8 @@ end 'checkArrayLit'
 // isLibraryMap is whether t is an instance of the standard library's Map, the type of a map literal.
 function isLibraryMap(p ast.Project, ms ast.ModuleState, t ast.TypeID) returns bool
 	let origin = ast.originOf(ms.types, reads: p.types, t: t)
-	return match p.library 'library'
-		some(root) gives ast.typeEntry(ms.types, reads: p.types, t: origin).decl.module == root and ast.typeEntry(ms.types, reads: p.types, t: origin).name == ast.libraryMapName
+	return match consumes ast.libraryModuleNamed(p, name: ast.libraryMapModule) 'library'
+		some(holder) gives ast.typeEntry(ms.types, reads: p.types, t: origin).decl.module == holder and ast.typeEntry(ms.types, reads: p.types, t: origin).name == ast.libraryMapName
 		none gives false
 	end 'library'
 end 'isLibraryMap'

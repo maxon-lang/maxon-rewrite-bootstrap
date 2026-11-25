@@ -893,24 +893,24 @@ function resolveMatchCore(mutates r Resolver, p ast.Project, ms ast.ModuleState,
 	closeBlock(r, labelRef: ast.matchCoreLabelRef(r.tree, id: mc))
 end 'resolveMatchCore'
 
-// resolveLibraryType binds an expression that makes a type of the standard library's root, the type named name, to it:
-// a map literal makes Map (ast.libraryMapName) and a range value Range or OpenRange. It names the type as a written name
-// would, so the module depends on the library's root from here on, and a declaration of the program with the same name
-// does not shadow it, since the program wrote no name. what is the expression, for the messages.
-function resolveLibraryType(mutates r Resolver, p ast.Project, id ast.NodeID, name String, what String, mutates errs diag.ErrorList)
+// resolveLibraryType binds an expression that makes a type of the standard library, the type named name that its module
+// module declares, to it: a map literal makes Map (ast.libraryMapName) and a range value Range or OpenRange. It names the
+// type as a written name would, so the module depends on the library module from here on, and a declaration of the program
+// with the same name does not shadow it, since the program wrote no name. what is the expression, for the messages.
+function resolveLibraryType(mutates r Resolver, p ast.Project, id ast.NodeID, module String, name String, what String, mutates errs diag.ErrorList)
 	let off = r.tree.startOf(id)
 	if not p.library.isSome() 'none'
 		pushErr(errs, modID: r.modID, off: off, code: diag.errExpressionError, msg: "{what} makes the standard library's '{name}', and this compile has no library: build the value with code")
 		return
 	end 'none'
-	var root = diag.stdlibID
-	match p.library 'library'
-		some(m) then root = m
-		none then return
-	end 'library'
-	match consumes takeLookup(r, p: p, lr: libraryModuleLookup(r, p: p, module: root, name: name), off: off, errs: errs) 'hit'
+	let holder = ast.libraryModuleNamed(p, name: module)
+	if not holder.isSome() 'absent'
+		pushErr(errs, modID: r.modID, off: off, code: diag.errExpressionError, msg: "{what} makes the standard library's '{name}', which its module '{module}' declares, and this library has no such module")
+		return
+	end 'absent'
+	match consumes takeLookup(r, p: p, lr: libraryModuleLookup(r, p: p, module: holder.unwrap(), name: name), off: off, errs: errs) 'hit'
 		some(ref) then r.res.bindDecl(id, d: ref)
-		none then pushErr(errs, modID: r.modID, off: off, code: diag.errExpressionError, msg: "{what} makes the standard library's '{name}', which its root does not declare publicly")
+		none then pushErr(errs, modID: r.modID, off: off, code: diag.errExpressionError, msg: "{what} makes the standard library's '{name}', which its module '{module}' does not declare publicly")
 	end 'hit'
 end 'resolveLibraryType'
 
@@ -1011,6 +1011,7 @@ function resolveMemberExpr(mutates r Resolver, p ast.Project, ms ast.ModuleState
 				none then _ = 0
 			end 'static'
 			if rewritten 'done'
+				noteDependency(r, ref: bare.decl, off: r.tree.startOf(cur))
 				return
 			end 'done'
 		end 'typeHead'
@@ -1144,7 +1145,7 @@ function resolveExpr(mutates r Resolver, p ast.Project, ms ast.ModuleState, id a
 		resolveExprList(r, p: p, ms: ms, list: ast.collectionLitExprElemsRef(r.tree, id: id), errs: errs)
 		resolveExprList(r, p: p, ms: ms, list: ast.collectionLitExprValuesRef(r.tree, id: id), errs: errs)
 		if r.tree.listLen(ast.collectionLitExprValuesRef(r.tree, id: id)) > 0 'map'
-			resolveLibraryType(r, p: p, id: id, name: ast.libraryMapName, what: "a map literal", errs: errs)
+			resolveLibraryType(r, p: p, id: id, module: ast.libraryMapModule, name: ast.libraryMapName, what: "a map literal", errs: errs)
 		end 'map'
 	end 'coll' else if k == ast.NodeKind.tupleExpr 'tup'
 		resolveExprList(r, p: p, ms: ms, list: ast.tupleExprElemsRef(r.tree, id: id), errs: errs)
@@ -1157,7 +1158,7 @@ function resolveExpr(mutates r Resolver, p ast.Project, ms ast.ModuleState, id a
 	end 'from' else if k == ast.NodeKind.rangeExpr 'range'
 		resolveExpr(r, p: p, ms: ms, id: ast.rangeExprLow(r.tree, id: id), errs: errs)
 		resolveExpr(r, p: p, ms: ms, id: ast.rangeExprHigh(r.tree, id: id), errs: errs)
-		resolveLibraryType(r, p: p, id: id, name: ast.rangeTypeName(ast.rangeExprInclusive(r.tree, id: id)), what: "a range value", errs: errs)
+		resolveLibraryType(r, p: p, id: id, module: ast.libraryRangeModule, name: ast.rangeTypeName(ast.rangeExprInclusive(r.tree, id: id)), what: "a range value", errs: errs)
 	end 'range' else if k == ast.NodeKind.matchExpr 'me'
 		resolveMatchCore(r, p: p, ms: ms, mc: ast.matchExprMatch(r.tree, id: id), errs: errs)
 	end 'me' else if k == ast.NodeKind.panicExpr 'pe'
@@ -1595,22 +1596,23 @@ function resolveEnumDecl(mutates r Resolver, p ast.Project, ms ast.ModuleState, 
 	r.members = ast.DeclRefIndex.new()
 end 'resolveEnumDecl'
 
-// resolveEnumKeys records the declarations of the library's root that a payload-free enum is a key by (ast.KeyNames), which
-// the declare stage gives it, as maxon makes every such enum Hashable and Equatable. Naming them makes the module depend on
-// the root, as a written name would. A compile with no library, or a root that does not declare them all, gives none, and so
-// does a module of the library other than its root, which the root depends on.
+// resolveEnumKeys records the declarations of the library's core module that a payload-free enum is a key by (ast.KeyNames),
+// which the declare stage gives it, as maxon makes every such enum Hashable and Equatable. Naming them makes the module
+// depend on the core, as a written name would. A compile with no library, or a core that does not declare them all, gives
+// none, and so does the library's helper module, which the core depends on.
 function resolveEnumKeys(mutates r Resolver, p ast.Project, ed ast.EnumDecl)
-	var root = diag.stdlibID
-	match p.library 'library'
-		some(m) then root = m
-		none then return
-	end 'library'
-	if r.modID != root and p.modules[ast.modIndex(r.modID)].isLibrary 'helper'
+	let core = ast.libraryModuleNamed(p, name: ast.libraryCoreModule)
+	if not core.isSome() 'none'
+		return
+	end 'none'
+	let helpers = ast.libraryModuleNamed(p, name: ast.libraryHelpersModule)
+	if helpers.isSome() and r.modID == helpers.unwrap() 'helper'
 		return
 	end 'helper'
-	let hashable = libraryModuleLookup(r, p: p, module: root, name: hashableName)
-	let equatable = libraryModuleLookup(r, p: p, module: root, name: equatableName)
-	let hashValue = libraryModuleLookup(r, p: p, module: root, name: hashValueName)
+	let coreModule = core.unwrap()
+	let hashable = libraryModuleLookup(r, p: p, module: coreModule, name: hashableName)
+	let equatable = libraryModuleLookup(r, p: p, module: coreModule, name: equatableName)
+	let hashValue = libraryModuleLookup(r, p: p, module: coreModule, name: hashValueName)
 	if not hashable.found or not equatable.found or not hashValue.found 'absent'
 		return
 	end 'absent'
@@ -1953,6 +1955,26 @@ function givesConformance(m ast.Module) returns bool
 	return false
 end 'givesConformance'
 
+// noteCoreDependency makes a module of a compile that has the library depend on the library's core, whose conformances and
+// members its code uses without writing a name of it: a module sees the members and the conformances that extensions add only
+// of the modules it names, the bounds of the library's types are the core's interfaces, and the core is the library's base.
+// Every module of the library does, and every module of a program, the runtime aside. It cannot make a cycle: the one module
+// the core names, the helpers, is left out, and a name of another module in the core is E2012 where it is written.
+function noteCoreDependency(mutates r Resolver, p ast.Project)
+	let core = ast.libraryModuleNamed(p, name: ast.libraryCoreModule)
+	if not core.isSome() 'none'
+		return
+	end 'none'
+	let helpers = ast.libraryModuleNamed(p, name: ast.libraryHelpersModule)
+	if helpers.isSome() and helpers.unwrap() == r.modID 'helpers'
+		return
+	end 'helpers'
+	if ast.isRuntimeModule(p, modID: r.modID) 'runtime'
+		return
+	end 'runtime'
+	r.res.addDep(core.unwrap(), offset: 0 as diag.U32)
+end 'noteCoreDependency'
+
 export function resolveModule(mutates ms ast.ModuleState, p ast.Project, mutates errs diag.ErrorList)
 	let modID = ms.module
 	let modIdx = ast.modIndex(modID)
@@ -1966,6 +1988,7 @@ export function resolveModule(mutates ms ast.ModuleState, p ast.Project, mutates
 	if p.modules[modIdx].isLibrary 'library'
 		refuseLibraryCollisions(r, p: p, errs: errs)
 	end 'library'
+	noteCoreDependency(r, p: p)
 	ms.ownTree = exchange(r.tree, value: ast.Tree.new(modID, text: ""))
 	ms.resolution = exchange(r.res, value: ast.Resolution.new(modID))
 end 'resolveModule'

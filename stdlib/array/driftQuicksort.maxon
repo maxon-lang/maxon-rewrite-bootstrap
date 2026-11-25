@@ -1,0 +1,188 @@
+// Stable quicksort — driftsort's run builder. When a natural run is shorter
+// than `minGoodRunLen`, driftsort manufactures a run of that length by sorting
+// the block here, then the powersort merge stack (driftsort.maxon) combines the
+// runs. This is the "top-down partition" half of driftsort's bottom-up-merge +
+// top-down-partition hybrid.
+//
+// Unlike `pdqsort` (the UNSTABLE sortUnstable engine), this quicksort is STABLE:
+// equal-keyed elements keep their input order. Stability comes from the
+// partition (below): the two classes (`< pivot` and `>= pivot`) are each laid
+// down in their original relative order, and every `< pivot` element precedes
+// every `>= pivot` element — so no two equal-keyed elements ever swap.
+//
+// The partition buffers the SMALLER of the two classes into the auxiliary
+// buffer, so it needs only `min(|<|, |>=|) <= sliceLen/2 <= scratchCap` slots —
+// the same budget the merge buffer already guarantees.
+//
+// Loads after mergeSort.maxon (uses MergeScratchArray) and
+// before driftsort.maxon (which calls stableQuicksortRange). See StdlibLoader.
+export extension Array
+	// Stable partition of [lo, hi) around the value at `pivotIndex`. Returns
+	// the final pivot-boundary index `p` such that:
+	//   * [lo, p)  holds every element `< pivot`, in original relative order
+	//   * [p, hi)  holds every element `>= pivot`, in original relative order
+	// (the pivot element itself lands somewhere in [p, hi), as the first of its
+	// equal-key group, since equal-to-pivot belongs to the `>=` class).
+	//
+	// Buffers whichever class is smaller, so `scratch` need only hold
+	// `min(lessCount, geCount) <= (hi - lo) / 2` elements.
+	//
+	// The pivot is parked in `pivotHold`, a one-slot storage this pass never writes, so every comparison reads
+	// one record that no store into [lo, hi) displaces. `clear` keeps the capacity `pivotHold` already has, so
+	// only the very first `push` of a whole sort allocates.
+	//
+	// Each split loop tests membership of the BUFFERED class first, so the scanned element's last mention is the
+	// in-place `managed.set` that consumes it.
+	function stablePartition(mutates self, lo ElementIndex, hi ElementIndex, pivotIndex ElementIndex, mutates scratch MergeScratchArray, mutates pivotHold MergeScratchArray, cmp SortComparator) returns ElementIndex where T implements Droppable and Copyable
+		scratch.truncate(0)
+		pivotHold.clear()
+		pivotHold.push(try self.managed.get(pivotIndex) otherwise panic("stablePartition: get OOB at pivot"))
+		let pv = try pivotHold.get(0) otherwise panic("stablePartition: pivotHold is empty one line after a push into it")
+		// Count the `< pivot` class so we can pick the smaller class to buffer.
+		var lessCount = 0 as ElementIndex
+		var scan = lo
+		while scan < hi 'count'
+			let v = try self.managed.get(scan) otherwise panic("stablePartition: get OOB during count")
+			if cmp(v, pv) == core.Ordering.lessThan 'isLess'
+				lessCount = try lessCount + 1 otherwise panic("out of range")
+			end 'isLess'
+			scan = scan + 1
+		end 'count'
+		let total = try hi - lo otherwise panic("out of range")
+		let geCount = try total - lessCount otherwise panic("out of range")
+		if geCount <= lessCount 'bufferGe'
+			// Buffer the `>=` class. Single left-to-right pass: compact the
+			// `< pivot` class in place toward `lo` (cursor `w`, always <= the
+			// read cursor so nothing live is clobbered), push the `>= pivot`
+			// class into scratch. Both stay in original order. Then copy the
+			// buffered `>=` class back, right after the in-place `<` class — no
+			// shift, because the `<` class already sits at its final [lo, p).
+			var w = lo
+			var k = 0 as ElementIndex
+			var i = lo
+			while i < hi 'splitGe'
+				let v = try self.managed.get(i) otherwise panic("stablePartition: get OOB at i (ge)")
+				if cmp(v, pv) != core.Ordering.lessThan 'toScratch'
+					scratch.push(v)
+					k = try k + 1 otherwise panic("out of range")
+				end 'toScratch' else 'keepLeft'
+					try self.managed.set(w, value: v) otherwise panic("stablePartition: set OOB at w (ge)")
+					w = try w + 1 otherwise panic("out of range")
+				end 'keepLeft'
+				i = i + 1
+			end 'splitGe'
+			var out = try (lo + lessCount) as ElementIndex otherwise panic("out of range")
+			var s = 0 as ElementIndex
+			while s < geCount 'writeGe'
+				try self.managed.set(out, value: try scratch.get(s) otherwise panic("stablePartition: scratch.get OOB (ge)")) otherwise panic("stablePartition: set OOB at out (ge)")
+				out = try out + 1 otherwise panic("out of range")
+				s = s + 1
+			end 'writeGe'
+			return try lo + lessCount otherwise panic("out of range")
+		end 'bufferGe' else 'bufferLess'
+			// Buffer the `<` class. Single left-to-right pass: compact the
+			// `>= pivot` class in place toward `lo`, push the `< pivot` class
+			// into scratch (both in original order). The in-place `>=` class
+			// now sits at [lo, lo+geCount); shift it right by `lessCount` (a
+			// backward copy, to handle the overlap) so it ends at [p, hi), then
+			// drop the buffered `<` class into [lo, p).
+			var w = lo
+			var k = 0 as ElementIndex
+			var i = lo
+			while i < hi 'splitLess'
+				let v = try self.managed.get(i) otherwise panic("stablePartition: get OOB at i (less)")
+				if cmp(v, pv) == core.Ordering.lessThan 'toScratch2'
+					scratch.push(v)
+					k = try k + 1 otherwise panic("out of range")
+				end 'toScratch2' else 'keepRight'
+					try self.managed.set(w, value: v) otherwise panic("stablePartition: set OOB at w (less)")
+					w = try w + 1 otherwise panic("out of range")
+				end 'keepRight'
+				i = i + 1
+			end 'splitLess'
+			// Shift the in-place `>=` block [lo, lo+geCount) right by lessCount,
+			// copying from the high end down so we never overwrite an unread slot.
+			var src = try (lo + geCount) as ElementIndex otherwise panic("out of range")
+			while src > lo 'shiftGe'
+				try self.managed.set(src - 1 + lessCount, value: try self.managed.get(src - 1) otherwise panic("stablePartition: get OOB during shift")) otherwise panic("stablePartition: set OOB during shift")
+				src = src - 1
+			end 'shiftGe'
+			var out = lo
+			var s = 0 as ElementIndex
+			while s < lessCount 'writeLess'
+				try self.managed.set(out, value: try scratch.get(s) otherwise panic("stablePartition: scratch.get OOB (less)")) otherwise panic("stablePartition: set OOB at out (less)")
+				out = try out + 1 otherwise panic("out of range")
+				s = s + 1
+			end 'writeLess'
+			return try lo + lessCount otherwise panic("out of range")
+		end 'bufferLess'
+	end 'stablePartition'
+
+	// `pivotHold` is `stablePartition`'s one-slot pivot storage, threaded from
+	// `driftsortRange` alongside `scratch` for the same reason: allocated once
+	// per sort rather than once per partition.
+	export function stableQuicksortRange(mutates self, lo ElementIndex, hi ElementIndex, mutates scratch MergeScratchArray, scratchCap ElementIndex, mutates pivotHold MergeScratchArray, cmp SortComparator) where T implements Droppable and Copyable
+		self.stableQuicksortWithin(lo, hi: hi, scratch: scratch, scratchCap: scratchCap, pivotHold: pivotHold, cmp: cmp, partitionsLeft: self.sortDepthBudget(try hi - lo otherwise panic("out of range")))
+	end 'stableQuicksortRange'
+
+	function stableMergeSortRange(mutates self, lo ElementIndex, hi ElementIndex, mutates scratch MergeScratchArray, scratchCap ElementIndex, cmp SortComparator) where T implements Copyable
+		if (try hi - lo otherwise panic("out of range")) <= SmallSortThreshold 'small'
+			self.internalInsertionSortRange(lo, hi: hi, cmp: cmp)
+			return
+		end 'small'
+		let mid = try lo + (hi - lo) / 2 otherwise panic("out of range")
+		self.stableMergeSortRange(lo, hi: mid, scratch: scratch, scratchCap: scratchCap, cmp: cmp)
+		self.stableMergeSortRange(mid, hi: hi, scratch: scratch, scratchCap: scratchCap, cmp: cmp)
+		self.mergeAdaptive(lo, mid: mid, hi: hi, scratch: scratch, scratchCap: scratchCap, cmp: cmp)
+	end 'stableMergeSortRange'
+
+	// Every iteration shrinks the window or returns: a non-empty `< pivot`
+	// class is split off, and an empty one hands the range to the stable
+	// merge sort.
+	function stableQuicksortWithin(mutates self, lo ElementIndex, hi ElementIndex, mutates scratch MergeScratchArray, scratchCap ElementIndex, mutates pivotHold MergeScratchArray, cmp SortComparator, partitionsLeft ElementIndex) where T implements Droppable and Copyable
+		var curLo = lo
+		var curHi = hi
+		var budget = partitionsLeft
+		while (try curHi - curLo otherwise panic("out of range")) > SmallSortThreshold 'loop'
+			// A merge sort, where pdqsort falls back to heapsort: this fallback must stay stable.
+			if budget == 0 'tooManyUnbalancedPartitions'
+				self.stableMergeSortRange(curLo, hi: curHi, scratch: scratch, scratchCap: scratchCap, cmp: cmp)
+				return
+			end 'tooManyUnbalancedPartitions'
+			budget = budget - 1
+			let pivotIndex = self.choosePivot(curLo, hi: curHi, cmp: cmp)
+			let p = self.stablePartition(curLo, hi: curHi, pivotIndex: pivotIndex, scratch: scratch, pivotHold: pivotHold, cmp: cmp)
+			// [curLo, p) is the `< pivot` class; [p, curHi) is `>= pivot`, in
+			// original order. An empty left class leaves the pivot's equal group
+			// scattered through the right one, so the partition settled nothing.
+			let leftLen = try p - curLo otherwise panic("out of range")
+			let rightLen = try curHi - p otherwise panic("out of range")
+			if leftLen == 0 'allGe'
+				self.stableMergeSortRange(curLo, hi: curHi, scratch: scratch, scratchCap: scratchCap, cmp: cmp)
+				return
+			end 'allGe'
+			if leftLen <= rightLen 'leftSmaller'
+				self.stableQuicksortWithin(curLo, hi: p, scratch: scratch, scratchCap: scratchCap, pivotHold: pivotHold, cmp: cmp, partitionsLeft: budget)
+				curLo = p
+			end 'leftSmaller' else 'rightSmaller'
+				self.stableQuicksortWithin(p, hi: curHi, scratch: scratch, scratchCap: scratchCap, pivotHold: pivotHold, cmp: cmp, partitionsLeft: budget)
+				curHi = p
+			end 'rightSmaller'
+		end 'loop'
+		self.internalInsertionSortRange(curLo, hi: curHi, cmp: cmp)
+	end 'stableQuicksortWithin'
+
+	function sortDepthBudget(n ElementIndex) returns ElementIndex
+		var remaining = n
+		var bits = 0 as ElementIndex
+		while remaining > 1 'halve'
+			remaining = remaining / 2
+			bits = try bits + 1 otherwise panic("out of range")
+		end 'halve'
+		return try QuicksortDepthPerLevel * bits otherwise panic("out of range")
+	end 'sortDepthBudget'
+end 'Array'
+
+export let SmallSortThreshold = 32
+
+let QuicksortDepthPerLevel = 2

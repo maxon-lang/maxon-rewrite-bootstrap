@@ -621,6 +621,18 @@ func TestConvertLibraryRules(t *testing.T) {
 			in:   "public type Array uses Element implements Iterable with (Element, ArrayIter)\n\tpublic typealias ArrayIter = ArrayIterator with Element\n\tpublic typealias ElementMemory = __ManagedMemory with Element\n\n\tpublic function count() returns Count\n\t\treturn 0\n\tend 'count'\n\n\tpublic function appendMemory(source ElementMemory)\n\t\tmanaged.append(source)\n\tend 'appendMemory'\n\n\tpublic function createIterator() returns ArrayIter throws IterationError\n\t\treturn try ArrayIter.create(managed)\n\tend 'createIterator'\n\n\tpublic function cursor() returns ArrayIter throws IterationError\n\t\treturn try ArrayIter.create(managed)\n\tend 'cursor'\nend 'Array'\n\npublic extension Array implements Hashable where Element implements Hashable\n\tpublic function hash() returns HashValue\n\t\tif __Builtins.elementsHashAsStorage() 'storage'\n\t\t\treturn 0\n\t\tend 'storage'\n\t\treturn managed.length() as HashValue\n\tend 'hash'\n\n\tpublic function count() returns Count\n\t\treturn 0\n\tend 'count'\nend 'Array'\n",
 			want: "extension Array implements Iterable with (T, ArrayIter)\n\tpublic typealias ArrayIter = ArrayIterator with T\n\tpublic typealias ElementMemory = __ManagedMemory with T\n\n\tpublic function appendMemory(source ElementMemory)\n\t\tself.managed.append(source)\n\tend 'appendMemory'\n\n\tpublic function createIterator() returns ArrayIter throws IterationError\n\t\treturn try ArrayIter.create(self.managed)\n\tend 'createIterator'\n\n\tpublic function cursor() returns ArrayIter throws IterationError\n\t\treturn try ArrayIter.create(self.managed)\n\tend 'cursor'\nend 'Array'\n\npublic extension Array where T implements Hashable\n\tpublic function hash() returns HashValue\n\t\treturn self.managed.length() as HashValue\n\tend 'hash'\nend 'Array'\n",
 		},
+		{
+			name: "a region that declares a built-in name for each system goes with it",
+			file: "Region.maxon",
+			in:   "#if os(Windows)\n\tpublic typealias ExitCode = int(0 to u32.max)\n#else\n\tpublic typealias ExitCode = int(0 to 255)\n#endif\n\npublic let Kept = 1\n",
+			want: "public let Kept = 1\n",
+		},
+		{
+			name: "a method of a built-in record that calls a raw function the table lacks goes with what only it reaches",
+			file: "Process.maxon",
+			in:   "public let Limit = 65536\n\npublic let Kept = 1\n\npublic type Process\n\tpublic static function dropped() returns Count\n\t\treturn Limit + helper(__Builtins.notProvided())\n\tend 'dropped'\n\n\tstatic function helper(n Count) returns Count\n\t\treturn n\n\tend 'helper'\n\n\tpublic static function keeps() returns Count\n\t\treturn Kept\n\tend 'keeps'\nend 'Process'\n",
+			want: "public let Kept = 1\n\nextension Process\n\tpublic static function keeps() returns Count\n\t\treturn Kept\n\tend 'keeps'\nend 'Process'\n",
+		},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

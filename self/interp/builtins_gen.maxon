@@ -503,6 +503,10 @@ function runtimeEntry(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 		try entryOsExitAtOnce(vm, f: f, x: x)
 		return
 	end 'rtOsExitAtOnce'
+	if symbol == ir.Rt.rtOsEnvironmentEntry 'rtOsEnvironmentEntry'
+		try entryOsEnvironmentEntry(vm, f: f, x: x)
+		return
+	end 'rtOsEnvironmentEntry'
 	if symbol == ir.Rt.rtOsEnterBackgroundPriority 'rtOsEnterBackgroundPriority'
 		try entryOsEnterBackgroundPriority(vm, f: f, x: x)
 		return

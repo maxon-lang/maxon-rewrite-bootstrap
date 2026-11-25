@@ -30,6 +30,30 @@ export function findFileIndex(files FileSpanList, offset diag.U32) returns Count
 	return lo - 1
 end 'findFileIndex'
 
+// endOfFileHolding is where the file that holds offset ends, the file findFileIndex names: the last that starts at or before
+// it, or the first.
+function endOfFileHolding(files FileSpanList, offset diag.U32) returns diag.U32
+	var finish = 0 as diag.U32
+	var first = true
+	for file in files 'files'
+		if first or file.start <= offset 'holds'
+			finish = file.endOff
+		end 'holds'
+		first = false
+	end 'files'
+	return finish
+end 'endOfFileHolding'
+
+// endOfModuleFileHolding is endOfFileHolding for the files of the module of the id.
+export function endOfModuleFileHolding(p Project, modID diag.ModuleID, offset diag.U32) returns diag.U32
+	for candidate in p.modules 'modules'
+		if candidate.id == modID 'hit'
+			return endOfFileHolding(candidate.files, offset: offset)
+		end 'hit'
+	end 'modules'
+	panic("positions: no module has the id {modID}")
+end 'endOfModuleFileHolding'
+
 export function locateTextOffset(text String, files FileSpanList, offset diag.U32) returns ErrorLocation
 	if files.count() == 0 'synth'
 		return ErrorLocation.make("<stdlib>", line: 0 as Count, col: 0 as Count)
@@ -111,7 +135,7 @@ end 'locateSite'
 // qualifierOf is how a name is qualified by the module that declares it, from the root its qualified names start from: the
 // project's, or the library's for a module of the standard library, whose path starts with the library's.
 export function qualifierOf(m Module) returns String
-	if isQualifierRoot(m) 'root'
+	if m.isQualifierRoot() 'root'
 		return rootQualifier
 	end 'root'
 	if m.isLibrary 'library'
@@ -121,21 +145,18 @@ export function qualifierOf(m Module) returns String
 	return m.path.clone()
 end 'qualifierOf'
 
-// isQualifierRoot is whether m is the root that its qualified names start from, which `export` names.
-function isQualifierRoot(m Module) returns bool
-	if m.isLibrary 'library'
-		return m.path == stdlibQualifier
-	end 'library'
-	return m.path == ""
-end 'isQualifierRoot'
-
-// sameTier is whether the module at index i is named from the module m by a qualified name: a module of the standard library
-// names only the library's, and a program's module only the program's.
-function sameTier(mods ModuleList, i Count, m diag.ModuleID) returns bool
+// sameTier is whether the module candidate of mods is named from the module m by a qualified name: a module of the standard
+// library names only the library's, and a program's module only the program's.
+function sameTier(mods ModuleList, candidate Module, m diag.ModuleID) returns bool
 	if m == diag.stdlibID or modIndex(m) >= mods.count() 'unplaced'
-		return not mods[i].isLibrary
+		return not candidate.isLibrary
 	end 'unplaced'
-	return mods[i].isLibrary == mods[modIndex(m)].isLibrary
+	for named in mods 'modules'
+		if named.id == m 'hit'
+			return candidate.isLibrary == named.isLibrary
+		end 'hit'
+	end 'modules'
+	panic("positions: no module has the id {m}")
 end 'sameTier'
 
 // NameOwner says which module a bare name of another module's declaration means: none when no other module declares it, an
@@ -168,17 +189,17 @@ export function owningModule(mods ModuleList, m diag.ModuleID, name String) retu
 	var found = 0 as Count
 	var qualifier = ""
 	var rootDeclares = false
-	for i in 0 upto mods.count() 'modules'
-		if mods[i].id == m or not sameTier(mods, i: i, m: m) 'self'
+	for candidate in mods 'modules'
+		if candidate.id == m or not sameTier(mods, candidate: candidate, m: m) 'self'
 			continue 'modules'
 		end 'self'
-		if isQualifierRoot(mods[i]) 'root'
-			rootDeclares = mods[i].names.has(name)
+		if candidate.isQualifierRoot() 'root'
+			rootDeclares = candidate.names.has(name)
 			continue 'modules'
 		end 'root'
-		if isExportedBy(mods[i], name: name) 'other'
+		if isExportedBy(candidate, name: name) 'other'
 			found = try found + 1 otherwise panic("positions: more modules than memory")
-			qualifier = qualifierOf(mods[i])
+			qualifier = qualifierOf(candidate)
 		end 'other'
 	end 'modules'
 	if rootDeclares 'root'
@@ -215,9 +236,9 @@ function qualifyHint(mods ModuleList, e diag.CompileError) returns String
 		return ""
 	end 'none'
 	var spellings = StringList.create(0)
-	for i in 0 upto mods.count() 'each'
-		if mods[i].names.has(e.unqualified) and mods[i].id != e.site.module and sameTier(mods, i: i, m: e.site.module) 'declared'
-			spellings.push("'{qualifierOf(mods[i])}.{e.unqualified}'")
+	for candidate in mods 'each'
+		if candidate.names.has(e.unqualified) and candidate.id != e.site.module and sameTier(mods, candidate: candidate, m: e.site.module) 'declared'
+			spellings.push("'{qualifierOf(candidate)}.{e.unqualified}'")
 		end 'declared'
 	end 'each'
 	if spellings.count() == 0 'noOther'

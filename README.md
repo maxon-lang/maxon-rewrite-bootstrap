@@ -498,63 +498,89 @@ is that of its module (`app::main`), and a project with no `main` in any module 
   `7 as geometry.Length`, `net.http.parse()`, `geometry.Shape.circle(2)`. The root module's own declarations are
   `export.X` (`export` is a name only as the start of a qualified name), and `stdlib.X` is a built-in.
 - **A bare name** is a local, a field, a type parameter, the module's own declaration, a built-in or, last, a public
-  declaration of the standard library's root (below), and nothing else, so adding a declaration to one module never changes
+  declaration of any module of the standard library (below), and nothing else, so adding a declaration to one module never changes
   how another resolves, and resolving a module reads only the declarations of the modules it names. A bare name that only
   another module declares is unknown (`E3004` for a call, `E3011` for a type, `E2004` for a value), and the message names
   the qualified spellings; where the visibility of each such declaration keeps it from the module, it is `E3008` at the
   name instead, as maxon refuses a declaration it may not name, except for a module-level `let` or `var`, which stays
   unknown (`E2004`) as in maxon.
 - **The standard library** is Maxon source in `stdlib/`, found as `runtime/` is (the `stdlib` directory of the nearest
-  directory, from the compiler's executable's upward, that has one), converted from maxon's `stdlib/` by `cmd/convert`
-  but for `Map.maxon`, `Stream.maxon`, `Console.maxon`, `Character.maxon`, `StringSplit.maxon`, `StringTrim.maxon`, `Parsable.maxon`, `IntText.maxon`, `FloatText.maxon`, `BoolText.maxon` and `CharacterText.maxon`, which are minimaxon's own (see "Where it differs from Maxon") and
-  which no conversion touches; maxon's
-  `StringBuilder.maxon` is left out, since an interpolation builds a String here:
+  directory, from the compiler's executable's upward, that has one). It is laid out by what a programmer uses, which maxon's
+  `stdlib/` is not, and its root holds no file (a `.maxon` file there is `E3928`, which names the module to move it to), so
+  `stdlib/` lists only modules: `array` (the methods of `Array` and its sorts), `string`, `character`, `characterset`, `map`,
+  `set`, `list`, `range`, `parsable`, `json`, `url`, `filepath`, `stream`, `console`, `math`, `random`, `base64`, `pem`, `clock`,
+  `directory`, `cell`, `slotmap`, `unicode`, `ascii`, `sha2`, `heap`, the `core` and `_helpers`. The `core` holds the
+  interfaces, the conformances that the built-in types need to meet them and the hashing: a module sees an `extension
+  <built-in> implements I` only when the module that writes it declares `I` (see "Extensions"), so each conformance of
+  `Array`, `String`, `Character`, `FilePath`, the integers and the floats is written in the module that declares the
+  interfaces, and what a type has beside them is in its own module (the core also holds the two iterators that those
+  conformances return, `ArrayIterator` and `StringIterator`, and `FilePath`'s `comparisonSpelling`, which
+  its `equals` and `hash` read). The `core` is the one module that every program reaches, and every other module of the
+  library depends on it (`resolve.noteCoreDependency`), but for `_helpers`, which is the library's own: the helpers that the
+  core names (`slotScan`, `ByteOrder`), whose every declaration is `export`, so no program names one. The names of the modules
+  that the compiler itself looks for are constants in one place (`ast.libraryCoreModule`, `libraryMapModule`,
+  `libraryRangeModule`, `libraryHelpersModule`), and `ast.libraryModuleNamed` finds each: the core holds the interfaces that a
+  payload-free enum is a key by, the `map` the type that a map literal makes and the `range` those that a range value makes.
+  The library is converted from maxon's `stdlib/` by `cmd/convert` but for the files that are minimaxon's own (`Map.maxon`,
+  `Set.maxon`, `Stream.maxon`, `Console.maxon`, `Character.maxon`, `StringSplit.maxon`, `StringTrim.maxon`, `Parsable.maxon`,
+  `IntText.maxon`, `FloatText.maxon`, `BoolText.maxon`, `CharacterText.maxon`, `StringIterator.maxon`,
+  `InitableFromArrayLiteral.maxon` and the generated `unicodeCategory_gen.maxon`; see "Where it differs from Maxon"), which no
+  conversion touches; maxon's `StringBuilder.maxon` is left out, since an interpolation builds a String here.
   `stdlib/files.txt` lists the files converted so far, each with the library module it goes to (its directory under
-  `stdlib/`, `.` for the root) and, where two files of one module would share a name, the name it takes (`StringHash.maxon`), and `.\stdlib.ps1 <maxon's stdlib directory>` (`go run ./cmd/gate stdlib`, on every host) regenerates them, then applies the
-  compiler's `fix` to them as `specs.ps1` does to the spec tests (a `let` that is changed becomes a `var`, a name of another
-  library module is qualified); none is edited here, and a declaration of a name the compiler builds in (`BytePos`) is left
-  out. `gate stdlib --check <maxon's stdlib directory>` fails when a regeneration differs from what is committed and puts
-  the files back; the gate runs it as the step "library regenerates" when `MAXON_STDLIB` names that directory, and skips it
-  otherwise, since it cannot assume where maxon is checked out. The conversion replaces a conditional region that calls a CPU-specific intrinsic (`__Builtins.cpuHasSha`, `__Builtins.sha256Blocks`) by its `#else` branch or leaves it out, so `Sha2` is software only on every target. Maxon's driftsort grows its merge scratch with `resize`, which no tier may do to an array of a type parameter here, and then writes it as a prefix from slot 0 before it reads it; the conversion makes the resize a `reserve`, and a function that stores to the scratch by index empties it first (`truncate(0)`) and pushes each element instead. The modules are layers, as a program's are: maxon's library names any of its declarations from any file, so
-  the list puts files that name each other in one module and each other module above the ones it names. Every
-  program is compiled with it (`project.addLibrary`): its directories are modules after the program's, flagged `isLibrary`,
-  the root's path being `stdlib` and each one under it `stdlib.<path>`, so no program module shares one, and
-  `Project.library` names the root. A program names the public declarations of every library module bare
-  (`Unicode.isWhitespace(32)`), after its own names and the built-ins, so the layering is the library's own, unless another
-  module of the program declares the name where the module sees it: then, as in maxon, the name is the program's, written
-  qualified (`lib.CivilMonth`), so a name the library adds never captures one the program declares; a public name
-  is declared by one library module only (`E3006` at the later one). A library module names the library's other modules
-  qualified from the library's root (`hashtable.X`, `export.X` for the root's), as any module names another, and its `export` reaches the tree rooted at its parent within the
-  library, which for the root and a top-level module is the whole library and never a program. A program sees nothing of
-  the library short of `public`. A module is the unit that a program reaches and pays for whole (its check and its lower), and
-  an extension or a conformance is seen only from the modules that name the one that declares it, so a top-level file of
-  maxon's library that declares types of its own and extends none, and that no file of the root names, is a module of its own
-  named after it (`stdlib/math`, `stdlib/unicode`, `stdlib/random`, `stdlib/base64`, `stdlib/pem`, `stdlib/cell`, `stdlib/clock`, `stdlib/directory`; `Sha2.maxon`, `Hmac.maxon` and `Hkdf.maxon`, which name each other's private functions, are the one module `stdlib/sha2`), and the files that give the
-  conformances and extensions of the built-in types, with what they name (maxon's sort helpers, which `Array.maxon`'s sorts call
-  and which call its `swap`), stay in the root. Each directory of maxon's `stdlib/helpers/` is a direct child module of the library's
-  root (`stdlib/hashtable`, `stdlib/crypto`; `stdlib/files.txt` maps each file to its module), and the conversion makes
-  every `public` of a helper file `export`, so a helper is the whole library's and no program's, and so is a `public`
-  member of another library file whose parameters or typealias target name a helper's type or such a member (its result may
-  name one); a helper that the root
-  names and that names the root, `Hash.maxon`, is a file of the root, with its `public` made `export` all the same. A
-  program the spec runner stages in the library is compiled as a file of the library's root, so it sees the library's
-  `export` declarations too, bare. Only the library modules a program names, directly or through others, are compiled past
-  their resolve (`reachedModules`), so a program pays for no other, and resolves only those it reaches: in a program's compile
-  the library's resolves wait for the program's, and a library module resolves only when a module of the program names it or
-  names a library module whose source may name it, directly or through others (`resolvesModule`; what a library module may
-  name is read from its text when it is parsed, `project.libraryModulesNamedIn`: each module whose qualifier's first name it
-  writes before a dot and a name, comments included, a superset of what its resolve records). With the build cache, a library module the
-  program does not reach is not parsed either: the library's names index (`libindex.maxon`), kept in the cache under the digest of
-  the compiler and every file of the library, gives each module the words that reach it (its declared names and the members
-  `libraryMembersOf` counts) and the modules its source may name, and a library module's parse waits for the program's parses and
-  runs only when a word the program's text writes reaches it, closed over what those name (`reachedByProgram`), a superset of what
-  the resolves name; a compile that has no index parses every library module and writes the index; each is a module of the build cache like any other,
-  with its own key, and is compiled for the compile's target. A project that is the runtime's source or `stdlib/` itself is
-  compiled without a second library, and the compiler's own source, `self/` (found as `runtime/` is,
-  `project.isCompilerDirectory`), without any: it names nothing of the library, so its build never reads `stdlib/` and a
-  library file may use syntax that the compiler building `self/` (the seed) does not parse once that compiler has this rule;
-  a seed from before it still parses every library module when it builds `self/`. A compile of `stdlib/` compiles every
-  module of it, which is how the gate checks the library.
+  `stdlib/`) and, where two files of one module would share a name, the name it takes (`StringHash.maxon`); `stdlib/split.txt`
+  lists the declarations of a converted file that go to another module than the file's (`cmd/convert --split`: the
+  conformance half of `Array.maxon`, `String.maxon` and `FilePath.maxon` is the core's, the methods stay), by the text its
+  first line starts with and, to move only some members of an extension, their names, so a split is a rule that a
+  regeneration repeats, and one that no longer fits its file fails. `.\stdlib.ps1 <maxon's stdlib directory>` (`go run
+  ./cmd/gate stdlib`, on every host) regenerates them, then applies the compiler's `fix` to them as `specs.ps1` does to the
+  spec tests (a `let` that is changed becomes a `var`, a name of another library module is qualified, and a call of a member
+  that an extension of another library module adds makes the caller name that module, by a function that has a parameter of one of its types);
+  none is edited here, and a declaration of a name the compiler builds in (`BytePos`) is left out. `gate stdlib --check
+  <maxon's stdlib directory>` fails when a regeneration differs from what is committed and puts the files back; the gate runs
+  it as the step "library regenerates" when `MAXON_STDLIB` names that directory, and skips it otherwise, since it cannot
+  assume where maxon is checked out. The conversion replaces a conditional region that calls a CPU-specific intrinsic
+  (`__Builtins.cpuHasSha`, `__Builtins.sha256Blocks`) by its `#else` branch or leaves it out, so `Sha2` is software only on
+  every target. Maxon's driftsort grows its merge scratch with `resize`, which no tier may do to an array of a type parameter
+  here, and then writes it as a prefix from slot 0 before it reads it; the conversion makes the resize a `reserve`, and a
+  function that stores to the scratch by index empties it first (`truncate(0)`) and pushes each element instead. It leaves out a conditional region that declares only names the compiler builds in (maxon's `ExitCode`,
+  whose range each system's branch sets), and a method that calls a raw function the table lacks, with the constants and
+  private methods that only such methods reach. The modules are layers, as a program's are: maxon's library names any of its declarations from any file, so
+  the layout puts files that name each other in one module and each other module above the ones it names. Every program is
+  compiled with it (`project.addLibrary`): its directories are modules after the program's, flagged `isLibrary`, the root's
+  path being `stdlib` and each one under it `stdlib.<path>`, so no program module shares one, and `Project.library` names the
+  root. A program names the public declarations of every library module bare (`Unicode.isWhitespace(32)`), after its own
+  names and the built-ins, so the layering is the library's own, unless another module of the program declares the name
+  where the module sees it: then, as in maxon, the name is the program's, written qualified (`lib.CivilMonth`), so a name the
+  library adds never captures one the program declares; a public name is declared by one library module only (`E3006` at the
+  later one). A library module names the library's other modules qualified from the library's root (`_helpers.X`, `core.X`),
+  as any module names another, and its `export` reaches the tree rooted at its parent within the library, which for a
+  top-level module is the whole library and never a program. A program sees nothing of the library short of `public`. A
+  module is the unit that a program reaches and pays for whole (its check and its lower), and an extension or a conformance is
+  seen only from the modules that name the one that declares it, so a library module that calls a member of another module's
+  extension names that module. Each directory of maxon's `stdlib/helpers/` is a module of the library by the conversion
+  (`files.txt` maps each file to it) and the conversion makes every `public` of a helper file `export`, so a helper is the
+  whole library's and no program's, and so is a `public` member of another library file whose parameters or typealias target
+  name a helper's type or such a member (its result may name one). A program the spec runner stages in the library is
+  compiled as a file of the core, so it sees the library's `export` declarations too, bare. Only the library modules a program
+  names, directly or through others, are compiled past their resolve (`reachedModules`), so a program pays for no other, and
+  resolves only those it reaches: in a program's compile the library's resolves wait for the program's, and a library module
+  resolves only when a module of the program names it or names a library module whose source may name it, directly or
+  through others (`resolvesModule`; what a library module may name is read from its text when it is parsed,
+  `project.libraryModulesNamedIn`: each module whose qualifier's first name it writes before a dot and a name, comments
+  included, and the core, a superset of what its resolve records). With the build cache, a library module the program does
+  not reach is not parsed either: the library's names index (`libindex.maxon`), kept in the cache under the digest of the
+  compiler and every file of the library, gives each module the words that reach it (its declared names and the members
+  `libraryMembersOf` counts) and the modules its source may name, and a library module's parse waits for the program's parses
+  and runs only when a word the program's text writes reaches it, closed over what those name (`reachedByProgram`), the core
+  being reached always, a superset of what the resolves name (a known over-reach: a word is of a module whatever type
+  the program writes it for, so `FilePath`'s member words `join`, `parent`, `isEmpty`, `empty`, `resolve`, `startsWith` and
+  `separator` still reach the `filepath` module in a program that uses no `FilePath`); a compile that has no index parses every library module and
+  writes the index; each is a module of the build cache like any other, with its own key, and is compiled for the compile's
+  target. A project that is the runtime's source or `stdlib/` itself is compiled without a second library, and the compiler's
+  own source, `self/` (found as `runtime/` is, `project.isCompilerDirectory`), without any: it names nothing of the library, so
+  its build never reads `stdlib/` and a library file may use syntax that the compiler building `self/` (the seed) does not
+  parse once that compiler has this rule; a seed from before it still parses every library module when it builds `self/`. A
+  compile of `stdlib/` compiles every module of it, which is how the gate checks the library.
 - **The raw surface is the library tiers'.** Maxon's library is written on a raw surface that reads and writes memory past the
   ownership model's bookkeeping: the static functions of `__Builtins`, the type `__ManagedMemory` and its methods, and an
   array's `.managed` (see "Primitives"). Only a module of the runtime or of the library, a program the spec runner stages
@@ -943,7 +969,8 @@ through; declare needs only the type objects of other modules' types, since what
 verify; a constant waits for the constants of the modules it names; a check reads the declarations and constants of the modules
 it reaches; the lower of a module reads of other modules only the typings of those it reaches, which its verify waited on,
 directly or through the verifies of the modules it names, so it waits for no other module's lower; the inline of a module
-reads the optimized code and the leaves of the modules it names, whose calls it inlines. A lower that runs while the check of
+reads the optimized code and the leaves of the modules it names, directly or through others (`markNamedClosure`, the set the cache's order
+checks and lowers for a module that is not settled, so none is a module the compile did not reach), whose calls it inlines. A lower that runs while the check of
 a module it does not reach fails reports nothing, since the errors of the earliest stage are the ones reported. A task
 that waits for one that failed in its own stage still runs, as every module of a stage is visited; one whose inputs failed in
 an earlier stage, directly or through the tasks they waited on, or were skipped, does not (a module whose dependency failed
@@ -1237,7 +1264,9 @@ the test runners and a compile with `--emit-ir` or `--verify-ir`, which need eve
 - **The summary** of a module, made by its inline, is the digest of its shown text, of the IR of its leaves (`opt.findLeaves`; the
   IR printer's text, which names functions and types by link name) and of the summaries of the modules it names: what another
   module copies of it, its declarations, layouts, constants, generic and extension bodies and the leaves it inlines, and,
-  folded in, what those depend on. Editing any other body changes the module's key and not its summary.
+  folded in, what those depend on, so the leaf that an instance in the module copies from a module that only a module it
+  names names is in its key with nothing added to the key (the inline reads the leaves of exactly the modules the summaries
+  fold in). Editing any other body changes the module's key and not its summary.
 - **The key** of a module (`keyOf`) is the digest of the compile's base (the compiler's identity, the target,
   `--count-allocations`, and for a program the runtime's source), the module's path, its source and the summary of each module it
   names. Handles, the project's directory, the schedule and the number of workers are in no key.
@@ -1528,8 +1557,8 @@ what a later pass such as reference counting or an optimization changes.
   `relocateTerm` move each operation's registers, blocks and pool indexes), entered by a jump that ends the call's
   block, and its `ret` and `throw` jump to a new block holding the rest of it, passing the call's value and error (0
   for the one that is not there), so a throwing callee joins the caller's failure handling where the call did. A module's
-  calls of the leaves of the modules it names are inlined as its own: its lower task waited for theirs (see "The modules
-  phase"). On `self`, 7,226 calls are inlined, and the build of `self` by itself takes about 6% less time.
+  calls of the leaves of the modules it names, directly or through others, are inlined as its own: its inline task waited for theirs (see "The modules
+  phase"), which a generic's instance in the module needs, since its code calls into the module that declares the generic and what that names. On `self`, 7,226 calls are inlined, and the build of `self` by itself takes about 6% less time.
 - **The passes after inlining** run on each function of a module once every call of a leaf in it is replaced, in this
   order. What each may do with an operation is decided in one place, `opt.motionOf` (`self/opt/motion.maxon`), which names
   every operation: a constant, a pure operation, a division (pure but faulting on 0), a check, a read of memory that only
@@ -4115,7 +4144,7 @@ taken out; a library slot array's (`__SlotArray`) makes no test, as the slot tab
   `for x in list` walks it front to back through the iteration protocol (`ListIterator with T`, a cursor over the ring), each
   element lent, the list held while the body runs (`E3186`). A place `get` lends does not outlive a change of the list. A
   List of byte-sized elements lends each element's byte, as a SlotMap of them does (see "Ownership").
-- **The Map is the library's** (`stdlib/Map.maxon`), on the design of Go's map: `Map with (K, V)` where `K implements Hashable and Equatable`,
+- **The Map is the library's** (`stdlib/map/Map.maxon`), on the design of Go's map: `Map with (K, V)` where `K implements Hashable and Equatable`,
   with maxon's API: `create()`, `insert(k, value: v)` (`MapError.keyAlreadyExists`), `upsert`, `get(k)` (a copy,
   `MapError.keyNotFound`), `contains`, `remove`, `count()`, `getCapacity()` and `createIterator()`. A key's 32-bit `hash()` is
   spread to 64 bits under the map's seed (`__Builtins.hashSeed()`, which `MAXON_HASH_SEED` pins). A map of at most eight entries is
@@ -4132,13 +4161,13 @@ taken out; a library slot array's (`__SlotArray`) makes no test, as the slot tab
   alias and a `float` through `PrimitiveExtensions`, a `String` through the library's extension (its `hash()` folds its bytes
   with `__Builtins.hashBytes`, its `equals` is the built-in one, which meets the requirement in place), and a type of
   the program that declares both (`E3017` otherwise).
-- **The Set is the library's too** (`stdlib/Set.maxon`): `Set with Element` where `Element implements Hashable and Equatable`, a
+- **The Set is the library's too** (`stdlib/set/Set.maxon`): `Set with Element` where `Element implements Hashable and Equatable`, a
   `Map with (Element, bool)` whose every value is true, so it shares the map's table and its probing, growth and
   tombstones instead of maxon's own open-addressing table. It has `create()`, `insert`, `contains`, `remove` (whether the
   element was there), `count()`, `getCapacity()` and `createIterator()`, and `for x in set` walks it in the map's order.
   `Set from [...]` is `Set.init` over the literal (see "Primitives", `Type from value`): the elements are moved into the table in
   order, so of two equal elements the first stays, as `insert` leaves it.
-- **`Math`** is maxon's (`stdlib/Math.maxon`, converted), over `__Builtins.bitsToFloat` and `floatToBits` for the non-finite doubles.
+- **`Math`** is maxon's (`stdlib/math/Math.maxon`, converted), over `__Builtins.bitsToFloat` and `floatToBits` for the non-finite doubles.
 - **Generic code** over a primitive is checked once, as in "Generics": a value of type `T` held by an `Array with T` is
   owned and movable, so a generic container gives an element out with `remove` or `pop`, or `.clone()`.
 - **Iteration.** `for x in a` walks an array: each element in turn is lent to `x`, as `a[i]` lends it, so a scalar is
@@ -4185,7 +4214,7 @@ taken out; a library slot array's (`__SlotArray`) makes no test, as the slot tab
   table, read-only, `_` for one the body does not use, and `for entry in m` binds the pair. The map is held while the
   body runs (`E3186`). The loop is the iteration protocol's: `createIterator()` once, then `current()` and `advance()` per
   entry, `current()` writing the two borrows into two words of the loop's frame, so a pass allocates nothing.
-  A range value is maxon's: `a to b` makes the library's `Range` and `a upto b` its `OpenRange` (`stdlib/Range.maxon`,
+  A range value is maxon's: `a to b` makes the library's `Range` and `a upto b` its `OpenRange` (`stdlib/range/Range.maxon`,
   converted), by a call of the type's static `create` with the two bounds, which are `RangeBound`s
   (`int(i64.min to i64.max)`), so a float or a wider integer bound is refused as an argument of the wrong type is. The
   operator binds looser than `or` and tighter than `x if c else y`, so `1 upto n + 1` is one range over a computed bound
@@ -4277,12 +4306,12 @@ start of one, and `startIndex()`, `endIndex()`, `findFirst(needle)` and `findLas
 them, and `sliceBytes(start, endPos: end)` by bytes, `contains`, `startsWith`, `endsWith`, `equals` and `isEmpty` ask,
 `replace(old, with: new)` and `replaceFirst` leave a string with an empty or absent `old` as it was, `trim(chars)`,
 `trimStart(chars)` and `trimEnd(chars)` remove the clusters a `CharacterSet` holds (`CharacterSet.whitespacesAndNewlines`
-when it is left out) at either end, the start or the end, written in the library (`stdlib/StringTrim.maxon`, whose one scan
+when it is left out) at either end, the start or the end, written in the library (`stdlib/characterset/StringTrim.maxon`, whose one scan
 forward over the clusters finds both ends, since a String has no index at a byte position to scan back from) and each a
 view of the receiver (`returns borrowed String`); the compiler, which is built without the library, trims its own ASCII
 text with `table.blankTrimmed`, and the runtime's whitespace scans the seed's `trim` lowers to go with the next seed,
 `toLower` and `toUpper` map the ASCII letters only, as maxon's do. `split(delimiter)` gives the pieces between the delimiters as an array of copies, since an array holds no view
-(`stdlib/StringSplit.maxon`), `indexAfter(index)` the index of the next grapheme cluster (`StringError.invalidIndex` at the
+(`stdlib/string/StringSplit.maxon`), `indexAfter(index)` the index of the next grapheme cluster (`StringError.invalidIndex` at the
 end), and `byteAtOrPanic(i)` is `byteAt(i)` under the name maxon's library calls it. The library tiers' doors to the bytes as
 a buffer, `addressableBytes()` and `String.init(managed)`, copy them, where maxon's lend and wrap the String's own buffer: a
 String owns its bytes, which the String itself may hold where they are few, so there is no buffer to lend. A slice and a trim are a view: a String of the receiver's
@@ -4330,14 +4359,14 @@ surrogates are no step, and `Character.fromCodepoint(cp)` encodes one; each pani
 `Codepoint` can name, and `advanceBy` past the first or the last scalar value. `for c in 'a' to 'z'` (or `upto`), both bounds
 literals, counts through the scalar values between them and gives each as a Character; with one integer bound the range is
 of integers, the literal's code point. A Character is `Hashable`, `Equatable` and `Comparable` through the library's
-`stdlib/Character.maxon` (minimaxon's own, since maxon's declares the type that is built in here), so it is a `Map` key, a `Set`
+`stdlib/core/Character.maxon` (minimaxon's own, since maxon's declares the type that is built in here; its surrogate code points are `stdlib/character`), so it is a `Map` key, a `Set`
 element and sorts; its hash is the hash of the String of its bytes, which for one held in its two words is one fold of the words. `String` has `charAt(index)`, the cluster at an index as a Character, and `containsCharacter(c)`.
-maxon's `Ascii` is converted from maxon's library (`stdlib/ascii`), and so is its `CharacterSet` (`stdlib/CharacterSet.maxon`).
+maxon's `Ascii` is converted from maxon's library (`stdlib/ascii`), and so is its `CharacterSet` (`stdlib/characterset/CharacterSet.maxon`).
 Its predefined sets are static lets whose `Set` literal is built where they are read; the module that reads one makes the
 instances the literal calls, since finding a module's instances follows a read of another module's constant to the calls of
 its value, in its module (`ir.visitConstant`). What it reads is `unicodeGeneralCategory`, maxon's helper, over the
 General_Category table of every code point, which `internal/textgen` writes from `DerivedGeneralCategory.txt` to
-`stdlib/string/unicodeCategory_gen.maxon`, the helper module of maxon's `stdlib/helpers/string/`. A Character is two words, laid out as a String is: one of 1 to 15
+`stdlib/characterset/unicodeCategory_gen.maxon`, the helper module of maxon's `stdlib/helpers/string/`. A Character is two words, laid out as a String is: one of 1 to 15
 bytes holds them in its two words as every String of so few bytes does (see "The IR"), so its words are the words of the
 String of its bytes, it owns nothing, its copy and drop are the two words, and making a String of it copies the words; a
 longer one is a String of its bytes, a literal's in the executable's data or a box it owns. `runtime/characters.maxon`'s
@@ -4350,7 +4379,7 @@ the iteration protocol (see "Iteration"): a `for` over it, or `createIterator()`
 changing the string leaves them as they were. A view is no `Array`, as in maxon.
 
 A `String` is walked by `for c in s` cluster by cluster, each a view of its bytes (see "Iteration"), and implements the
-library's `Iterable with (String, StringIterator)` (`stdlib/StringIterator.maxon`, minimaxon's own), so a type parameter
+library's `Iterable with (String, StringIterator)` (`stdlib/core/StringIterator.maxon`, minimaxon's own), so a type parameter
 bound by `Iterable` and an `Iterable` interface value walk it too: its `createIterator()` gives a `StringIterator` that
 holds a String cursor (`__StringCursor`, see "Borrowing values"): the String's two words, which it borrows and does not
 copy, and where the cluster it is at starts and ends. `current()` lends that cluster as a view, as the loop does, and
@@ -4399,11 +4428,21 @@ records that have no fields (`internal/builtingen/table.go`), so a program calls
   is made with `FilePath.from`, or from a string literal with `FilePath from "text"`, which panics where `from` would throw.
   The rest of maxon's `FilePath` (`join`, `parent`, `filename`, `fileExtension`, `stem`, `normalize`, `resolve`,
   `relativeTo`, `isInside`, `startsWith`, `equals`, `hash`...) is maxon's, converted as an extension of the built-in record
-  (`stdlib/FilePath.maxon`), less `resolvedPhysically`, which needs a raw directory call there is not.
+  (`stdlib/filepath/FilePath.maxon`), less `resolvedPhysically`, which needs a raw directory call there is not.
   The built-in record goes once a seed compiles the library's type: then its `from`, `init` and `toString` rows go, the
   conversion writes the type rather than an extension, the OS rows (`File`, `Directory`, `Process.executablePath`,
   `Subprocess.runInDirectory`, `FilePathArray`) find the library's `FilePath` by its name at the root, as a map literal finds
   `Map`, and `self/`'s `path.toString()` calls become interpolations.
+- **`Process`** is a built-in record with the rows above, and the library's `stdlib/process` (`Process.maxon`, converted) extends
+  it with maxon's `currentEnvironmentEntries()` (`StringArray`, one `NAME=VALUE` entry per element in the order the system
+  reports them, `environmentUnreadable` where it hands over none), `envEntryName(entry)`, `envEntryValue(entry)` (an entry
+  divides at its first `=` after byte 0, as a Windows entry `=C:=C:\dir` is named `=C:`), `envNameKey(name)` (lowercased on
+  Windows, as given elsewhere), `EnvNameValueSeparator` and `BackgroundPriority`. The walk is `__Builtins.osEnvironmentEntry(index)`
+  (`rt.os.environmentEntry`, `runtime/environment.maxon`), a fresh buffer of bytes for the entry at an index, empty past the
+  last and one NUL byte where the system has no environment, neither of which an entry is: `GetEnvironmentStringsW` on
+  Windows, converted from UTF-16 entry by entry, and on Linux and macOS the vector of entries the process started with.
+  maxon's `environmentVariable`, `executablePath`, `id` and `enterBackgroundPriority` stay the built-ins' own, which read the
+  system directly where maxon's `environmentVariable` walks the entries. A `__ManagedMemory` of bytes has maxon's `byteAt`, which is its `get`.
 - **Errors** are maxon's enums, cases and all: `FileReadError` (`notFound`, `accessDenied`, `busy`, `failed`),
   `FileWriteError` (`failed`, `notFound`, `accessDenied`, `alreadyExists`, `busy`, `partialFileLeft`),
   `FilePermission` (`normal`, 0666, the default of `mode:`, and `executable`, 0755, which only Linux's runtime has an effect for),
@@ -4866,13 +4905,13 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   code maxon reports each of those as `E1010`, where minimaxon gives the rule's own code (`E1004`, `E1900` to `E1903`).
   The conversion writes such a character of a literal as an escape and of a comment as its code point, and drops a byte
   order mark, so the spec test that one is accepted is skipped.
-- `Map` is the library's own (`stdlib/Map.maxon`), not converted from maxon's: it is laid out on the design of Go's map (`internal/runtime/maps`),
+- `Map` is the library's own (`stdlib/map/Map.maxon`), not converted from maxon's: it is laid out on the design of Go's map (`internal/runtime/maps`),
   groups of eight slots with a control word each, keys beside their values, tables of at most 1024 slots found by a
   directory over the hash's top bits, where maxon's probes linearly over columns of keys, values, states and hashes. Its
   API and its errors are maxon's; its capacities (`getCapacity()` is 8 for a map of one entry, where maxon's is 16), the
   order its entries are walked in, which maxon leaves unspecified, and its unmarked fields are not, so the spec tests that
   pin them are skipped (`self/driver/skips.tsv`). The built-in map is gone: a map literal makes it by calling its static
-  `init` with an array of the keys and one of the values, the type found by its name at the library's root (`ast.libraryMapName`)
+  `init` with an array of the keys and one of the values, the type found by its name in the library's `map` module (`ast.libraryMapName`, `ast.libraryMapModule`)
   where maxon's compiler looks for the type that implements `BuiltinDictionaryLiteral`, which the conversion leaves out of
   the header with the other literal markers (`Builtin*Literal`). maxon's `Map` has no subscript, `replace`, `isEmpty` or
   `dropEmpty`, which the built-in had, and a `SlotKey` is no key, since it is not `Hashable`. A payload-free enum is a key,
@@ -5171,20 +5210,20 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   `fromString(text)` is maxon's, written in the library (minimaxon's own files, since maxon's are the compiler-owned
   `Builtins.maxon`'s `__int_fromString`, `__float_fromString` and `__bool_fromString`), with the text they accept and
   `ParseError` (`invalidFormat`, and `outOfRange`, see the last item of this section): `int.fromString` is one optional `-` and
-  ASCII digits (`stdlib/IntText.maxon`), with no `+`, no `_`, no prefix and no space; `float.fromString` is a float
-  literal's text with an optional `-` (`stdlib/FloatText.maxon`): digits with `_`, at most one `.` and an exponent with an
+  ASCII digits (`stdlib/parsable/IntText.maxon`), with no `+`, no `_`, no prefix and no space; `float.fromString` is a float
+  literal's text with an optional `-` (`stdlib/parsable/FloatText.maxon`): digits with `_`, at most one `.` and an exponent with an
   optional sign, whose digits are one big integer that a power of ten scales or divides, so the value is an exact ratio
   rounded once to the nearest double, ties to even, as the compiler reads a literal (`self/ast/floats.maxon`), where maxon
   keeps 768 significant digits and a sticky bit, which rounds the same; `bool.fromString` is `true` or `false`
-  (`stdlib/BoolText.maxon`); and `Character.fromString`, which maxon has not, is a text of exactly one grapheme cluster
-  (`stdlib/CharacterText.maxon`). Text that is not one of these, or has anything after it, is `ParseError.invalidFormat`.
+  (`stdlib/parsable/BoolText.maxon`); and `Character.fromString`, which maxon has not, is a text of exactly one grapheme cluster
+  (`stdlib/parsable/CharacterText.maxon`). Text that is not one of these, or has anything after it, is `ParseError.invalidFormat`.
   The integer's and the float's are static functions of `extension int` and `extension float`, generic over `Self` (see
   "Extensions"), so each is read through a typealias as a value of it: `Port.fromString("80")` is a `Port`, and a number
   that is well-formed and outside the range of the alias, or of an integer past `u64.max`, or of a float past `f64.max`,
   is `ParseError.outOfRange`. Each is built on a reader of a prefix of the text from a byte position that returns the
-  value and where it stopped (`intTextRead`, `floatTextRead`, not public, in the library's root), which the whole
+  value and where it stopped (`intTextRead`, `floatTextRead`, not public, in the `parsable` module), which the whole
   text must reach the end of, and which reads the bytes of the String where they are, so a decimal and a `bool` allocate
-  nothing. `bool` and `Character` implement the library's `Parsable` (`stdlib/Parsable.maxon`), whose `fromString` throws
+  nothing. `bool` and `Character` implement the library's `Parsable` (`stdlib/parsable/Parsable.maxon`), whose `fromString` throws
   `ParseError`, where maxon's throws `Error`: a `throws` of an interface is `E3113` here, so a type of the program
   implements `Parsable` by throwing `ParseError`; an integer and a float do not implement it, since an interface's
   `returns Self` is matched against the one type the conformance names and theirs is generic over `Self`; and a
@@ -5216,7 +5255,7 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   that reason). Not yet: `sendTimeout:`, interface handles (`I.handle`),
   `T.request`, `acquire`, `reply.later()`, `SharedValue`, `default`, a generic service, a message with type parameters,
   one `try await h.m()` over a message that throws, and services in the interpreter.
-- `stdlib/Stream.maxon` and `stdlib/Console.maxon` (`Console.stdin()`, a `StreamReader` over a `StdinSource`) are minimaxon's own,
+- `stdlib/stream/Stream.maxon` and `stdlib/console/Console.maxon` (`Console.stdin()`, a `StreamReader` over a `StdinSource`) are minimaxon's own,
   written from maxon's (with `helpers/stream/streamBytes.maxon`) until they convert: maxon's name the network's, TLS's, files'
   and child processes' sources, which this library has not got, and spell a constant (`64 * 1024 * 1024 as LineCap`),
   unchecked arithmetic and a receiver that satisfies `mutable self` as maxon's rules allow and these do not. So there is no
@@ -5260,7 +5299,7 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   traps on a miss, where only `get` and `set` throw, as maxon's do; `SlotKey` and the list's slot key API (`prepend`
   and `append` return a `SlotKey`, `first` and `last` return one, `remove(h)`, `next`, `prev`, `moveToFront`) stand where
   maxon has pointers and indexes; `filled` and `dropEmpty` are minimaxon's own; the loop holds the array or the list it walks, so a body that pushes to it or reassigns it is
-  refused (`E3186`) where maxon re-reads the live count; `sort`, `sortUnstable`, `sortBy`, `sortUnstableBy`, `cursor`, `createIterator`, `map`, `filter` and `hash()` are the library's extensions of `Array` (`stdlib/Array.maxon`, converted, and maxon's six sort files converted from `stdlib/helpers/sort/`, driftsort for `sort` and `sortBy` and pdqsort for the unstable ones, as one file of the root each, so a sort compares in the order maxon's does; a sort needs `T` `Copyable` and `Droppable`, since maxon's `get` copies an element; `withIterator` is not there), `swap(i, j: j)` (maxon's, `smallSort.maxon`: a panic past the end, over the buffer's `swap`, which exchanges two elements where they are, a managed one moved and never copied or dropped) and `appendMemory(buffer)` (over the buffer's `append`) are library members written over `self.managed`, and `create(n, zeroed: false)` is an empty array with room for `n`, legal for every element (`zeroed: true` is `create(n)`; the flag is a literal), `Array` implements `Iterable` there but not `Hashable` (minimaxon has no conditional conformance, so `hash()` is a method of the arrays whose element is `Hashable`, and an array is no `Map` key), `reserve(n)` gives the buffer room for `n` elements exactly where it has less, so that pushing up to them moves nothing, though a capacity is no part of an array's value here (there is no `capacity()`), and `clear`, `truncate`, `resize`, `slice`, `first` and `last` are maxon's, and `clearSlot(at)` too, which only the library tiers call (`E3185`): it drops the element at an index and leaves the slot empty, a hash table's tombstone. Its two other halves are library-only as well, and drop nothing, so a slot table holds an element without `Droppable`: `fillSlot(at, value: v)` moves a value into an empty slot and traps past the end or at a slot that holds an element, and `takeSlot(at)` moves the element out, leaves the slot empty and throws `indexOutOfBounds` past the end and `emptySlot` at an empty slot. `lendSlot(at)`, library-only and provisional until the subscript goes and `get` lends, lends the element at an index with the access its caller has to the array (a place in it, see "Ownership"), trapping past the end and at an empty slot as a subscript does; it is the one unchecked access that a SlotMap's and a List's `get` lend through, and of an array of byte-sized elements, which packs them, it lends the element's byte (see "Ownership", the bytes lent by address). A slot is empty where a library tier grew an array of its type parameter with `resize` (outside the library tiers that is `E3106`, as maxon refuses it) or cleared it; it is maxon's: an empty slot of a managed element is 0, the empty place a drop does nothing with, so dropping the array drops only the full slots, and a copy keeps an empty slot empty, while over a scalar a grown or cleared slot is the element 0. `get`, `first`, `last` and a buffer's `get` or a cursor's `peek` of an empty slot throw `emptySlot`, and a read that lends it (a subscript, a `for`, a cursor's `current()`) panics with maxon's `empty slot: element N of the array was never filled`, so no element that is not there is ever lent; the indexes and counts they take are `ElementIndex`; `create(n)` and `resize` refuse an enum element
+  refused (`E3186`) where maxon re-reads the live count; `sort`, `sortUnstable`, `sortBy`, `sortUnstableBy`, `cursor`, `createIterator`, `map`, `filter` and `hash()` are the library's extensions of `Array` (`stdlib/array/Array.maxon`, converted, and maxon's six sort files converted from `stdlib/helpers/sort/`, driftsort for `sort` and `sortBy` and pdqsort for the unstable ones, as files of `stdlib/array`, so a sort compares in the order maxon's does; a sort needs `T` `Copyable` and `Droppable`, since maxon's `get` copies an element; `withIterator` is not there), `swap(i, j: j)` (maxon's, `smallSort.maxon`: a panic past the end, over the buffer's `swap`, which exchanges two elements where they are, a managed one moved and never copied or dropped) and `appendMemory(buffer)` (over the buffer's `append`) are library members written over `self.managed`, and `create(n, zeroed: false)` is an empty array with room for `n`, legal for every element (`zeroed: true` is `create(n)`; the flag is a literal), `Array` implements `Iterable` there but not `Hashable` (minimaxon has no conditional conformance, so `hash()` is a method of the arrays whose element is `Hashable`, and an array is no `Map` key), `reserve(n)` gives the buffer room for `n` elements exactly where it has less, so that pushing up to them moves nothing, though a capacity is no part of an array's value here (there is no `capacity()`), and `clear`, `truncate`, `resize`, `slice`, `first` and `last` are maxon's, and `clearSlot(at)` too, which only the library tiers call (`E3185`): it drops the element at an index and leaves the slot empty, a hash table's tombstone. Its two other halves are library-only as well, and drop nothing, so a slot table holds an element without `Droppable`: `fillSlot(at, value: v)` moves a value into an empty slot and traps past the end or at a slot that holds an element, and `takeSlot(at)` moves the element out, leaves the slot empty and throws `indexOutOfBounds` past the end and `emptySlot` at an empty slot. `lendSlot(at)`, library-only and provisional until the subscript goes and `get` lends, lends the element at an index with the access its caller has to the array (a place in it, see "Ownership"), trapping past the end and at an empty slot as a subscript does; it is the one unchecked access that a SlotMap's and a List's `get` lend through, and of an array of byte-sized elements, which packs them, it lends the element's byte (see "Ownership", the bytes lent by address). A slot is empty where a library tier grew an array of its type parameter with `resize` (outside the library tiers that is `E3106`, as maxon refuses it) or cleared it; it is maxon's: an empty slot of a managed element is 0, the empty place a drop does nothing with, so dropping the array drops only the full slots, and a copy keeps an empty slot empty, while over a scalar a grown or cleared slot is the element 0. `get`, `first`, `last` and a buffer's `get` or a cursor's `peek` of an empty slot throw `emptySlot`, and a read that lends it (a subscript, a `for`, a cursor's `current()`) panics with maxon's `empty slot: element N of the array was never filled`, so no element that is not there is ever lent; the indexes and counts they take are `ElementIndex`; `create(n)` and `resize` refuse an enum element
   some case of which writes a raw value or carries a payload, since a slot holds a case's ordinal and its zero is the first case, which is maxon's case of raw value 0 only where no case writes one, and take no `zeroed:`; and `String` has the byte operations `byteLength`, `byteAt`, `sliceBytes`, `toByteArray`, the static `String.from(bytes)`, and maxon's text methods (see "Text").
   There is no built-in `Option`, which maxon's stdlib has no more of either: an
   operation that can miss throws.
@@ -5271,7 +5310,7 @@ the checker reports where Maxon's parser does, as it needs the type of the value
 - The OS functions (see "The OS") have maxon's names, signatures and errors, but are a subset, built in rather than
   stdlib code: `FilePath`'s built-in `from` does not resolve a `file://` URL (one is taken as a path); `File` has no `readBinary`, `createText`, `exists`, `renameNew`, `info` or `openRead`,
   `Directory.exists`, `removeTree` and `removeContents` are maxon's (`stdlib/directory` extends the built-in with the last two), and
-  `Directory.list` lists in the order the system gives; `Process` has only `environmentVariable`, `executablePath`, `id` and `setExitCode`; `Subprocess.run`
+  `Directory.list` lists in the order the system gives; `Process` has `environmentVariable`, `executablePath`, `id`, `setExitCode`, `exit` and `enterBackgroundPriority` built in, and the library's environment functions (see "The OS"); `Subprocess.run`
   takes no `workingDirectory:` or `deadline:` (`runWithDeadline` takes the deadline), and `CollectedOutput` has no `status`, `pid` or `durationMs`;
   `SubprocessError` is an enum without maxon's payloads (the name, the reason, the output). Natively the runtime uses
   the `A` Win32 calls, so a path or an argument is bytes in the system's code page rather than UTF-8 turned into
@@ -5330,12 +5369,15 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   `push(consumes item T)`, `swap(mutates a T, mutates b T)`, `parse(sets result Ast)`, and `mutates self` or
   `consumes self` for a receiver, and `destructs self` for a destructor.
 - Modules are Go's, not Maxon's. Another module's names are always qualified by its path (`net.http.parse()`, and
-  `export.X` for the root's), where Maxon also finds a bare name in the root or as the one exported declaration
+  `export.X` for the project root's), where Maxon also finds a bare name in the root or as the one exported declaration
   anywhere (`E3095`, `E3063` for two, which minimaxon does not have). `export` reaches the tree rooted at the declaring
   module's parent, as Go's `internal/`, and `public` everyone. Import cycles are refused. The standard library follows
   the same rules within `stdlib/` (see "Modules"): a library file names another library module's declaration by its path
-  from the library's root, where maxon's stdlib names any declaration of the library bare; a program names the public
-  declarations of every library module bare, as in maxon, and nothing else of the library. What a file of maxon's
+  from the library's root (`core.Ordering`), where maxon's stdlib names any declaration of the library bare, and the
+  library is laid out by what a programmer uses, as maxon's is not: each module of `stdlib/` is one thing (`array`, `string`,
+  `map`, `json`, `filepath`, ...), the `core` holds the interfaces, the conformances that the built-in types need to meet them
+  and the hashing, and `_helpers` is the library's own, which no program names; the library's root holds no file. A program
+  names the public declarations of every library module bare, as in maxon, and nothing else of the library. What a file of maxon's
   `stdlib/helpers/` declares `public` is `export` here, which reaches the whole library and no program, where maxon's
   programs see the helpers' names bare (`readOrderedWord`, `TableCapacity`); the spec tests that name one outside the
   library tier are skipped with that reason. The built-ins are public, so a public
@@ -5399,8 +5441,8 @@ the checker reports where Maxon's parser does, as it needs the type of the value
 - `Cell` (`stdlib/cell`) stores what `fill` and `replace` are given by a copy, as `Array.push` does, so those two take only a
   `Copyable` element (`where T implements Copyable`), where maxon's takes a unique value too and moves it in; `Directory.list`,
   `create`, `delete` and `currentPath` are built in over the runtime, not over `__ManagedDirectory`. `Json` is converted
-  (`stdlib/Json.maxon`), with maxon's UTF-8 and UTF-16 helpers (`stdlib/utf8.maxon`, `stdlib/utf16.maxon`, in the root
-  module, which reads the surrogate constants of maxon's `Character.maxon`, declared in minimaxon's own).
+  (`stdlib/json/Json.maxon`), with maxon's UTF-8 and UTF-16 helpers (`stdlib/json/utf8.maxon`, `stdlib/json/utf16.maxon`, in the same
+  module, which read the surrogate constants of maxon's `Character.maxon`, declared by `stdlib/character`).
 - An operand is never `if`, `let`, `var`, `when`, `throw`, `return`, `break` or `continue`, which Maxon reads there as the
   name of a parameter or a function (`return 1 + if(5)`): each starts a statement here, so it keeps that meaning at the
   start of every operand, and a free function named by one cannot be called. A bare read of `while`, `for`, `match` or
@@ -5450,6 +5492,12 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   `"70000"`, an `int`'s `"9223372036854775808"`, a float's `"1e309"`) is `outOfRange`, and `invalidFormat` is a text that
   is not written as the type's values are, so a program tells the two apart.
 - `try p.get(k).n = v` is minimaxon's: a try before an assignment's target covers the call that lends the place and passes
+- **`Process` has not `isAlive`, `namespace`, `endDescendants` or `DescendantProcess`**, and `Pid` is not declared: each needs a
+  raw function that lists or tests the host's processes, which this runtime has not, and `Pid` is declared in maxon's
+  `Subprocess.maxon`, which is not converted yet. The conversion leaves them out with the helpers only they reach.
+  `Process.currentEnvironmentEntries()` and the rest of the environment functions are maxon's, but the interpreter has no way to
+  walk its own environment that the compiler's seed compiles, so a program that calls one is `// native-only` and halts under
+  the interpreter, as one that enters background priority does.
   its failure on, where maxon has no place a call lends to be changed.
 - `SlotMap with T` and `SlotKey with T` are minimaxon's (`stdlib/slotmap`), where maxon has no slot map: minimaxon's
   replacement for pointers, a SlotMap of nodes that name each other by generational key.

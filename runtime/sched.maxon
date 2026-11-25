@@ -1283,3 +1283,56 @@ function requestedWorkers() returns Count
 	end 'tooFew'
 	return count
 end 'requestedWorkers'
+
+// quiesceForCount is what checkLeaks does before it counts, and only it, so an executable that does not count its
+// allocations links none of it: the main thread, after the drain, waits until every other thread that runs green threads
+// is parked for good, so that the heaps liveBoxes reads change no more. A thread on the idle list has parked: stopThread
+// pushes it under the scheduler's lock after its last change to its heap's counts (what it does after the push, giving back
+// its kept runs and waiting, touches no word heapLive reads), so the lock that takes it off is its acknowledgement, a full
+// barrier that publishes those changes. Taken off, it waits for good, since only a thread that took it off the list hands it
+// a processor or wakes it (takeThreadFor, endDrain, startPinned for a pinned one, and none is pinned). The monitor is no
+// thread of the list and its heap is not counted (startMonitor), and with nothing left it readies, wakes and starts nothing.
+//
+// The wait ends because every other thread reaches the idle list once the drain has ended, which nothingLeft decided under the
+// lock with every processor idle and no behaviour or green thread live. No timer is left, since a sleep's timer is taken off
+// when it is due and a deadline's by its green thread before it goes on (eventWaitOnce), and no green thread waits on an event
+// entry (eventWait counts it among the waiters only while it waits), so eventsPending is false and no queue holds work. A
+// thread is then either on the idle list; or between idling its processor and stopThread (findRunnable after idleProcPut,
+// endDrain among it), which finds no work to take a processor for and goes on to stopThread; or in the event queue's wait,
+// which the break here ends, after which it finds no work and stops; or, at most, holding a processor it took after the
+// drain, with nothing to run. None is in a blocking call: a green thread in one is live until it finishes (finished's
+// stepLive), so the drain could not have ended; and none is stopped for its pinned green thread (stopPinned), which would be
+// live too, and a green thread that finishes pinned is unpinned first (finished's unpinGreen). A thread started meanwhile
+// is on the list before it runs (initThread) and stops like the rest.
+function quiesceForCount(context Count)
+	let scheduler = __Raw.loadWord(context, offset: contextSchedulerOffset)
+	if scheduler == noScheduler 'oneThread'
+		return
+	end 'oneThread'
+	var parked = 0 as Count
+	while true 'quiesce'
+		lockScheduler(scheduler)
+		var thread = __Raw.loadWord(scheduler, offset: schedIdleThreadsOffset)
+		while thread != noThread 'take'
+			parked = __Raw.wrappingAdd(parked, right: 1)
+			thread = __Raw.loadWord(thread, offset: contextIdleNextOffset)
+		end 'take'
+		__Raw.storeWord(scheduler, offset: schedIdleThreadsOffset, value: noThread)
+		var others = 0 as Count
+		thread = __Raw.loadWord(scheduler, offset: schedAllThreadsOffset)
+		while thread != noThread 'count'
+			if thread != context 'other'
+				others = __Raw.wrappingAdd(others, right: 1)
+			end 'other'
+			thread = __Raw.loadWord(thread, offset: contextAllNextOffset)
+		end 'count'
+		unlockScheduler(scheduler)
+		if parked >= others 'parked'
+			return
+		end 'parked'
+		if __Raw.loadAcquire(scheduler, offset: schedLastTakeOffset) == 0 'waiting'
+			breakEventWait(scheduler)
+		end 'waiting'
+		yieldThread()
+	end 'quiesce'
+end 'quiesceForCount'

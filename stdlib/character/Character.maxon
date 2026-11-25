@@ -1,0 +1,13 @@
+// The surrogate code points, which maxon's Character.maxon declares for the library's UTF-8 and UTF-16 readers (json): no
+// scalar value is one. The rest of maxon's Character is built in (README, "Text"), and its conformances are the core's.
+export let SurrogateFirst = 0xD800
+
+export let LeadSurrogateLast = 0xDBFF
+
+export let TrailSurrogateFirst = 0xDC00
+
+export let SurrogateLast = 0xDFFF
+
+export function codepointIsSurrogate(codepoint Codepoint) returns bool
+	return codepoint >= SurrogateFirst and codepoint <= SurrogateLast
+end 'codepointIsSurrogate'

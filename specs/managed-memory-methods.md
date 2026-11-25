@@ -296,7 +296,6 @@ end 'main'
 ```
 
 <!-- test: bounds-byte-oob -->
-<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 ```maxon
 typealias Int = int(i64.min to i64.max)
@@ -1507,7 +1506,6 @@ error E3110: <fragment>:7:17: 'managed.setByte' cannot address the bytes of an e
 ```
 
 <!-- test: error.byte-at-on-a-managed-element-buffer-is-refused -->
-<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- tier: stdlib -->
 
 ⭐⭐ **THE HALF A REFUSAL OF THE WRITER ALONE WOULD MISS, WHICH IS WHY IT HAS ITS OWN CASE.** `byteAt`
@@ -1572,7 +1570,6 @@ end 'main'
 ### A throwing buffer read written without `try` names the buffer method
 
 <!-- test: error.byte-at-without-try -->
-<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 <!-- positions: moved -->
 <!-- tier: stdlib -->
 

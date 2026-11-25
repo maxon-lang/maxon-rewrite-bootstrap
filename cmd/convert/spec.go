@@ -228,6 +228,7 @@ func (c *specConverter) convertSection(body []string, firstLine int) []string {
 		return body
 	}
 	res := convertProgram(c.file, strings.Join(body[first:last], "\n"), specProgram, c.ownTypes)
+	res.Text = moveLibraryListing(res.Text)
 	for _, w := range res.Warnings {
 		w.Line += firstLine + first - 1
 		c.warnings = append(c.warnings, w)
@@ -239,6 +240,25 @@ func (c *specConverter) convertSection(body []string, firstLine int) []string {
 	out := append([]string{}, body[:first]...)
 	out = append(out, strings.Split(strings.TrimSuffix(res.Text, "\n"), "\n")...)
 	return append(out, body[last:]...)
+}
+
+const (
+	// maxonLibraryListing is how a spec lists maxon's stdlib directory, which holds maxon's files, and libraryFileSought the
+	// file of it that such a spec looks for.
+	maxonLibraryListing = `Directory.list(FilePath from "../stdlib")`
+	libraryFileSought   = `"String.maxon"`
+	// minimaxonLibraryListing is the directory that holds that file here: the library's root holds no file, only modules
+	// (README, "Modules"), and `String.maxon` is in the module of strings.
+	minimaxonLibraryListing = `Directory.list(FilePath from "../stdlib/string")`
+)
+
+// moveLibraryListing makes a spec that lists maxon's stdlib directory for `String.maxon` list the directory that holds the
+// file in minimaxon's library.
+func moveLibraryListing(text string) string {
+	if !strings.Contains(text, libraryFileSought) {
+		return text
+	}
+	return strings.ReplaceAll(text, maxonLibraryListing, minimaxonLibraryListing)
 }
 
 // testSource is the source of every ```maxon block of the test whose lines start at from, up to the next test or heading.

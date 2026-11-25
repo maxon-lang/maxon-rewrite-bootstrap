@@ -532,6 +532,12 @@ function entryOsReadStdin(mutates vm Vm, f ir.IrFunction, x ir.Instr)
 	giveRef(vm, x: x, o: made)
 end 'entryOsReadStdin'
 
+// entryOsEnvironmentEntry halts: the compiler has no way to walk its own environment that its seed compiles, so a program that
+// reads the environment's entries says `// native-only`.
+function entryOsEnvironmentEntry(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	panic("interp: the process's environment entries are not run by the interpreter: mark the program native-only")
+end 'entryOsEnvironmentEntry'
+
 // entryOsStdoutWantsColor is false: the interpreter's standard output is a capture, which no escape sequence may go into.
 function entryOsStdoutWantsColor(mutates vm Vm, f ir.IrFunction, x ir.Instr)
 	giveFlag(vm, x: x, b: false)

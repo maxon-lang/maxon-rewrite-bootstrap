@@ -120,6 +120,16 @@ function checkArrayResizeArgs(mutates c Checker, p ast.Project, ms ast.ModuleSta
 	failAt(c, p: p, ms: ms, node: call, code: diag.errZeroOutsideElement, msg: "'resize' cannot grow an array of '{name}': the grown slots are zero and zero is not a value of '{name}'. Append with 'push(value)' or 'growFilled(n, value:)'", errs: errs)
 end 'checkArrayResizeArgs'
 
+// checkManagedByteAtArgs refuses byteAt on a buffer whose elements are not bytes: maxon's reads the bytes of any element that
+// holds no address, which this compiler has no buffer of, and a buffer of anything else is read by get.
+function checkManagedByteAtArgs(mutates c Checker, p ast.Project, ms ast.ModuleState, call ast.NodeID, ordered ast.NodeIDList, mutates errs diag.ErrorList)
+	let elem = callElement(c, call: call)
+	if typeHasKind(p, ms: ms, t: elem, kind: ast.TypeKind.intRange) and ast.typeEntry(ms.types, reads: p.types, t: elem).minVal.isZero() and ast.typeEntry(ms.types, reads: p.types, t: elem).maxVal.eq(ast.I128.fromCount(255 as Count)) 'bytes'
+		return
+	end 'bytes'
+	failAt(c, p: p, ms: ms, node: call, code: diag.errUnsupportedFeature, msg: "Unsupported: 'byteAt' on a buffer of '{nameOfType(p, ms: ms, t: elem)}': only a buffer of bytes is read by byte; read the element with 'get(index)'", errs: errs)
+end 'checkManagedByteAtArgs'
+
 // checkElementsComparable refuses a method that compares elements, for an element that this compiler cannot compare: it
 // compares integers, bools, enums and strings, and has no Equatable interface for any other type yet.
 function checkElementsComparable(mutates c Checker, p ast.Project, ms ast.ModuleState, call ast.NodeID, method String, mutates errs diag.ErrorList)

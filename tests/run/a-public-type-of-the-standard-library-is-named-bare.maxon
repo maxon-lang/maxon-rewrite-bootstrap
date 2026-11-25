@@ -1,4 +1,4 @@
-// Unicode is declared by stdlib/Unicode.maxon, which every program is compiled with.
+// Unicode is declared by stdlib/unicode/Unicode.maxon, which every program is compiled with.
 function main() returns ExitCode
 	if Unicode.isWhitespace(12288) 'ideographic'
 		print("ideographic\n")

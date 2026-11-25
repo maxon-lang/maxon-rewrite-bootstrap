@@ -2402,6 +2402,7 @@ filepath.md: filepath-change-extension
 filepath.md: filepath-change-extension-add
 filepath.md: filepath-change-extension-with-parent
 filepath.md: filepath-empty
+filepath.md: filepath-equality
 filepath.md: filepath-extension
 filepath.md: filepath-extension-maxon
 filepath.md: filepath-extension-none
@@ -2411,6 +2412,7 @@ filepath.md: filepath-from-method
 filepath.md: filepath-from-string
 filepath.md: filepath-from-valid-ok
 filepath.md: filepath-hidden-file
+filepath.md: filepath-inequality
 filepath.md: filepath-is-absolute-drive
 filepath.md: filepath-is-absolute-unc
 filepath.md: filepath-is-relative
@@ -7600,6 +7602,7 @@ stdlib-loading.md: stdlib-loading.no-clock-is-byte-neutral
 stdlib-loading.md: stdlib-loading.range-is-constructible-from-to-in-expression-position
 stdlib-loading.md: stdlib-loading.range-iterates-through-its-iterable-conformance
 stdlib-loading.md: stdlib-loading.unicode-is-whitespace-from-stdlib
+stdlib-loading.md: stdlib-loading.unreached-host-sibling-still-compiles-on-wasm
 stdlib-user-shadows.md: stdlib-user-shadows.a-cast-of-a-library-float-alias-to-the-programs-own-alias-of-that-name-is-not-unneeded
 stdlib-user-shadows.md: stdlib-user-shadows.a-field-of-a-value-of-the-moved-declaration
 stdlib-user-shadows.md: stdlib-user-shadows.a-generic-function-binds-the-librarys-byte-in-a-file-declaring-its-own

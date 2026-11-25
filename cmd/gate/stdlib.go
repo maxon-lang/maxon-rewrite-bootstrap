@@ -12,9 +12,17 @@ import (
 )
 
 // stdlibListing is the file that names what is converted from maxon's standard library: a line is a file relative to
-// maxon's stdlib directory, the library module it goes to (a directory under stdlib/, "." for the root) and, where two
-// files of a module would share a name, the name it takes.
+// maxon's stdlib directory, the library module it goes to (a directory under stdlib/, never the root, which holds no file)
+// and, where two files of a module would share a name, the name it takes.
 var stdlibListing = filepath.Join("stdlib", "files.txt")
+
+// stdlibSplits is the table beside the listing of the declarations that go to another module than their file's (cmd/convert,
+// --split).
+var stdlibSplits = filepath.Join("stdlib", "split.txt")
+
+// libraryRootModule is the listing's name for the library's root, which holds no file: what a file of it would be is a
+// module's.
+const libraryRootModule = "."
 
 // maxonStdlibVariable names maxon's stdlib directory for the gate's own check that the library regenerates as committed
 // (checkStdlib); without it the check is skipped, as the gate cannot assume where maxon is checked out.
@@ -44,7 +52,10 @@ func readStdlibListing() ([]stdlibEntry, error) {
 		case 0:
 			continue
 		case 1:
-			return nil, fmt.Errorf("%s: '%s' names no module: write the module's directory after the file, '.' for the root", stdlibListing, line)
+			return nil, fmt.Errorf("%s: '%s' names no module: write the module's directory after the file", stdlibListing, line)
+		}
+		if words[1] == libraryRootModule {
+			return nil, fmt.Errorf("%s: '%s' is a file of the library's root, which holds none: name its module", stdlibListing, line)
 		}
 		e := stdlibEntry{source: filepath.FromSlash(words[0]), module: words[1], name: filepath.Base(words[0])}
 		if len(words) > 2 {
@@ -88,21 +99,40 @@ func convertStdlib(compiler, maxonStdlib string, say func(env []string, name str
 	}
 	converted := filepath.Join(scratch, "converted")
 	for _, e := range entries {
-		if err := say(env, converter, "--out="+converted, filepath.Join(maxonStdlib, e.source)); err != nil {
+		if err := say(env, converter, "--out="+converted, "--split="+stdlibSplits, filepath.Join(maxonStdlib, e.source)); err != nil {
 			return err
 		}
-		if err := os.MkdirAll(filepath.Dir(e.target()), 0o755); err != nil {
+		if err := place(filepath.Join(converted, filepath.Base(e.source)), e.target()); err != nil {
 			return err
 		}
-		data, err := os.ReadFile(filepath.Join(converted, filepath.Base(e.source)))
+		// What the split table moved out of the file is under a directory of its module, with the file's name.
+		moved, err := filepath.Glob(filepath.Join(converted, "*", filepath.Base(e.source)))
 		if err != nil {
 			return err
 		}
-		if err := os.WriteFile(e.target(), data, 0o644); err != nil {
-			return err
+		for _, from := range moved {
+			module := filepath.Base(filepath.Dir(from))
+			if err := place(from, filepath.Join("stdlib", module, e.name)); err != nil {
+				return err
+			}
+			if err := os.RemoveAll(filepath.Dir(from)); err != nil {
+				return err
+			}
 		}
 	}
 	return say(env, compiler, "fix", "stdlib")
+}
+
+// place copies the converted file from to the path to under stdlib/.
+func place(from, to string) error {
+	if err := os.MkdirAll(filepath.Dir(to), 0o755); err != nil {
+		return err
+	}
+	data, err := os.ReadFile(from)
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(to, data, 0o644)
 }
 
 // checkStdlib fails when regenerating the library from maxon's differs from what is committed: it regenerates in place,

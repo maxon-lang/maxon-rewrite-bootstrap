@@ -19,7 +19,7 @@ const (
 )
 
 const usageText = `usage:
-  convert [--specs] [--write] [--check] [--out=DIR] [<path>...]
+  convert [--specs] [--write] [--check] [--out=DIR [--split=TABLE]] [<path>...]
 
 Converts existing Maxon (.maxon) source files to minimaxon syntax and layout.
 Unsupported constructs are preserved with inline // TODO comments and warnings on stderr.
@@ -27,6 +27,8 @@ Unsupported constructs are preserved with inline // TODO comments and warnings o
 Flags:
   -w, --write      rewrite .maxon files in place
   -o, --out=DIR    write converted .maxon files under DIR
+  --split=TABLE    with --out: move the declarations that TABLE (split.go) names out of each file into the library module
+                   it gives, written as DIR/<module>/<file>, and leave the rest in DIR/<file>
   --check          do not write; print each kind of warning with its count and the number of files it
                    appears in, most frequent first; exit 1 if any file would change or has warnings
   --specs          the inputs are maxon spec files (.md): each test's maxon block is converted and a test that
@@ -43,7 +45,7 @@ func main() {
 
 func runMain(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	var writeInPlace, checkOnly, specs bool
-	var outDir string
+	var outDir, splitPath string
 	var paths []string
 
 	for i := 0; i < len(args); i++ {
@@ -67,6 +69,8 @@ func runMain(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 			outDir = args[i]
 		case strings.HasPrefix(arg, "--out="):
 			outDir = strings.TrimPrefix(arg, "--out=")
+		case strings.HasPrefix(arg, "--split="):
+			splitPath = strings.TrimPrefix(arg, "--split=")
 		case strings.HasPrefix(arg, "-") && arg != "-":
 			fmt.Fprintf(stderr, "convert: unknown flag %q\n%s\n", arg, usageText)
 			return exitUsage
@@ -82,6 +86,18 @@ func runMain(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	if writeInPlace && outDir != "" {
 		fmt.Fprintln(stderr, "convert: --write and --out cannot be used together")
 		return exitUsage
+	}
+	var routes []route
+	if splitPath != "" {
+		if outDir == "" {
+			fmt.Fprintln(stderr, "convert: --split needs --out=DIR")
+			return exitUsage
+		}
+		var err error
+		if routes, err = readRoutes(splitPath); err != nil {
+			fmt.Fprintf(stderr, "convert: %v\n", err)
+			return exitUsage
+		}
 	}
 	if checkOnly && (writeInPlace || outDir != "") {
 		fmt.Fprintln(stderr, "convert: --check cannot be combined with --write or --out")
@@ -215,7 +231,19 @@ func runMain(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 				fmt.Fprintf(stderr, "convert: %v\n", err)
 				return exitUsage
 			}
-			if err := os.WriteFile(dst, []byte(res.Text), 0o644); err != nil {
+			text := res.Text
+			if routes != nil {
+				rest, order, texts, err := splitDeclarations(filepath.Base(job.srcPath), text, routes)
+				if err == nil {
+					err = writeSplit(outDir, filepath.Base(job.relPath), order, texts)
+				}
+				if err != nil {
+					fmt.Fprintf(stderr, "convert: %v\n", err)
+					return exitUsage
+				}
+				text = rest
+			}
+			if err := os.WriteFile(dst, []byte(text), 0o644); err != nil {
 				fmt.Fprintf(stderr, "convert: %v\n", err)
 				return exitUsage
 			}

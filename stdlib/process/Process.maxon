@@ -1,0 +1,116 @@
+// What separates a name from its value inside one entry: `=` (0x3D). ⭐ ONE home, because both halves of
+// the split and the block ASSEMBLER must divide an entry at the same byte.
+//
+// ⚠ At file scope because a `let` inside a type body declares a FIELD: a constant cannot be a static
+// member here. It is the only top-level name this facility adds, and the three functions
+// that read it are members of `Process`.
+public let EnvNameValueSeparator = 61 as Byte
+
+// The byte `__Builtins.osEnvironmentEntry`'s one-byte "host could not answer" record holds — a NUL, which no
+// real entry consists of. `EnvironmentRuntime.EnvironmentUnreadableByte` is the producer's half.
+let EnvironmentUnreadableByte = 0
+
+public typealias BackgroundPriority = int(i64.min to i64.max)
+
+/// Information about the currently-running process.
+extension Process
+	/// This process's environment, one `NAME=VALUE` entry per element, in the order the OS reports them.
+	/// Throws `environmentUnreadable` when the host hands over no environment.
+	///
+	/// The walk reads `__Builtins.osEnvironmentEntry` from index 0 and tells its three answers apart by
+	/// what no real entry can be: an EMPTY answer is past the last entry (every entry carries a name),
+	/// and a lone NUL is the host's failure (no entry is one: a host cstring holds no NUL, and a WASI
+	/// entry carries its `=`).
+	public static function currentEnvironmentEntries() returns StringArray throws ProcessIntrospectionError
+		var entries = StringArray.create(0)
+		var index = 0 as ElementIndex
+		while true 'eachEntry'
+			let raw = __Builtins.osEnvironmentEntry(index)
+			if raw.length() == 0 'pastTheEnd'
+				break
+			end 'pastTheEnd'
+			if raw.length() == 1 'oneByte'
+				let only = try raw.byteAt(0) otherwise panic("Process.currentEnvironmentEntries: byteAt(0) of a one-byte answer")
+				if only == EnvironmentUnreadableByte 'hostFailed'
+					throw ProcessIntrospectionError.environmentUnreadable
+				end 'hostFailed'
+			end 'oneByte'
+			entries.push(String.init(raw))
+			index = try index + 1 otherwise panic("out of range")
+		end 'eachEntry'
+		return entries
+	end 'currentEnvironmentEntries'
+
+	/// The NAME half of one `NAME=VALUE` entry — everything before its first `=`, or the whole entry when
+	/// it holds none.
+	public static function envEntryName(entry String) returns String
+		let bytes = entry.toByteArray()
+		return envEntryBytes(bytes, from: 0, to: envEntrySeparatorAt(bytes))
+	end 'envEntryName'
+
+	/// The key an environment variable name is compared by: lowercased on Windows, `name` as given
+	/// under POSIX. Two names with equal keys are one variable. That is what each platform means by a
+	/// variable name: Windows spells its search path `Path` and answers to `PATH`, while under POSIX
+	/// two names differing in case are two variables.
+	public static function envNameKey(name String) returns String
+		#if os(Windows)
+			return name.toLower()
+		#else
+			return name.clone()
+		#endif
+	end 'envNameKey'
+
+	/// The VALUE half of one `NAME=VALUE` entry — everything past its first `=`, or the empty String when
+	/// it holds none.
+	///
+	/// An entry carrying no separator at all is a name set to nothing, and the empty String is its value
+	/// rather than a sentinel — `Process.environmentVariable` reports an ABSENT name by throwing.
+	public static function envEntryValue(entry String) returns String
+		let bytes = entry.toByteArray()
+		let at = envEntrySeparatorAt(bytes)
+		// An entry holding no separator answers `at == count`, so its value is the zero-width slice at the
+		// end — the same shape a `NAME=` with nothing after it produces.
+		let firstValueByte = bytes.count() if at == bytes.count() else (try at + 1 otherwise panic("out of range"))
+		return envEntryBytes(bytes, from: firstValueByte, to: bytes.count())
+	end 'envEntryValue'
+
+	/// Where one entry divides: the position of its first `=`, or its byte length when it holds none.
+	///
+	/// ⭐ **ONE ANSWER FOR BOTH HALVES.** A name taken from one rule and a value from another disagree
+	/// the moment either is edited, and the entry they disagree over is `=C:=C:\dir` — a name split at
+	/// the wrong byte reads as a value, silently.
+	///
+	/// ⚠ THE SEARCH STARTS AT BYTE 1, NOT BYTE 0, and that is a platform fact rather than a defensive
+	/// flourish: a Windows process's environment begins with entries like `=C:=C:\dir` recording the
+	/// current directory of each drive, whose NAME is `=C:`. Splitting at byte 0 would give every one of
+	/// them the empty name, and they would then collide with each other in the override lookup.
+	static function envEntrySeparatorAt(bytes ByteArray) returns ElementIndex
+		let n = bytes.count()
+		for i in 1 upto n 'eachByte'
+			let b = try bytes.get(i) otherwise panic("envEntrySeparatorAt: i < n = bytes.count() but get({i}) failed")
+			if b == EnvNameValueSeparator 'atSeparator'
+				return i
+			end 'atSeparator'
+		end 'eachByte'
+		return n
+	end 'envEntrySeparatorAt'
+
+	static function envEntryBytes(bytes ByteArray, from ElementIndex, to ElementIndex) returns String
+		var taken = ByteArray.create(0)
+		for i in from upto to 'eachByte'
+			taken.push(try bytes.get(i) otherwise panic("envEntryBytes: i < to <= bytes.count() but get({i}) failed"))
+		end 'eachByte'
+		return String.from(taken)
+	end 'envEntryBytes'
+end 'Process'
+
+// ============================================================================================
+// THIS PROCESS'S ENVIRONMENT — the entry walk, and the rule that divides an entry
+// ============================================================================================
+//
+// ⭐ Here rather than in `Subprocess` because reading THIS process's environment is introspection of
+// this process, which is what this file is. `Subprocess` is a CONSUMER: it builds a child's block from
+// these same entries, and a second walk there would be free to disagree with this one about what this
+// process's environment contains.
+
+// What separates a name from its value inside one entry: `=` (0x3D). ⭐ ONE home, because both halves of

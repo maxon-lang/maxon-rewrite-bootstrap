@@ -1,0 +1,34 @@
+// An environment entry divides at its first `=` after byte 0: a Windows process's environment starts with entries such as
+// `=C:=C:\dir`, whose name is `=C:`. A name is compared through envNameKey, which folds case on Windows alone.
+//> plain=A|B
+//> twice=A|B=C
+//> drive==C:|C:\dir
+//> none=NOEQ|
+//> empty=|
+//> trailing=A|
+//> separator=61
+//> folds=true
+
+function foldsCase() returns bool
+	#if os(Windows)
+		return true
+	#else
+		return false
+	#endif
+end 'foldsCase'
+
+function divided(entry String) returns String
+	return "{Process.envEntryName(entry)}|{Process.envEntryValue(entry)}"
+end 'divided'
+
+function main() returns ExitCode
+	print("plain={divided("A=B")}\n")
+	print("twice={divided("A=B=C")}\n")
+	print("drive={divided("=C:=C:\\dir")}\n")
+	print("none={divided("NOEQ")}\n")
+	print("empty={divided("")}\n")
+	print("trailing={divided("A=")}\n")
+	print("separator={EnvNameValueSeparator}\n")
+	print("folds={(Process.envNameKey("Path") == "path") == foldsCase()}\n")
+	return 0
+end 'main'

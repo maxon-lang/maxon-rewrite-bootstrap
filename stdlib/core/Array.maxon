@@ -1,0 +1,75 @@
+extension Array implements Iterable with (T, ArrayIter)
+	public typealias ArrayIter = ArrayIterator with T
+
+	/// Create a fresh iterator positioned at the first element.
+	/// Throws IterationError.exhausted if the array is empty.
+	public function createIterator() returns ArrayIter throws IterationError
+		return try ArrayIter.create(self.managed)
+	end 'createIterator'
+
+	/// Alias for createIterator(). Kept for call sites that still think of this
+	/// as a cursor (random-access navigation via advance/retreat/peek).
+	public function cursor() returns ArrayIter throws IterationError
+		return try ArrayIter.create(self.managed)
+	end 'cursor'
+end 'Array'
+
+/// Iterator for Array — holds a managed cursor into the backing memory and
+/// preserves the "points at valid element" invariant. current() is infallible;
+/// navigation (advance/retreat/peek) throws IterationError. advanceBy/retreatBy
+/// come from the Iterator/BidirectionalIterator extension methods.
+public type ArrayIterator uses Element implements BidirectionalIterator with Element
+	public typealias ElementMemory = __ManagedMemory with Element
+	typealias RawCursor = __ManagedMemoryCursor with Element
+	var raw as RawCursor
+
+	public static function create(source ElementMemory) returns Self throws IterationError
+		let cursor = try source.createCursor() otherwise throw IterationError.exhausted
+		return Self{raw: cursor}
+	end 'create'
+
+	// --- Infallible reads ---
+
+	public function current() returns borrowed Element
+		return raw.current()
+	end 'current'
+
+	public function index() returns ElementIndex
+		return raw.index()
+	end 'index'
+
+	// --- Navigation (only fallible surface) ---
+
+	/// Move forward by `n` positions (default 1). Throws IterationError.exhausted
+	/// if the resulting position would be past the last element.
+	public function advance(mutates self) throws IterationError
+		try raw.advance() otherwise throw IterationError.exhausted
+	end 'advance'
+
+	public function retreat(mutates self) throws IterationError
+		try raw.retreat() otherwise throw IterationError.atStart
+	end 'retreat'
+
+	/// Seek directly to an absolute position. Throws IterationError.exhausted if
+	/// the index is out of bounds.
+	public function seek(mutates self, index ElementIndex) throws IterationError
+		try raw.seek(index) otherwise throw IterationError.exhausted
+	end 'seek'
+
+	public function peek(ahead ElementIndex) returns Element throws IterationError where Element implements Copyable
+		return try raw.peek(ahead) otherwise throw IterationError.exhausted
+	end 'peek'
+end 'ArrayIterator'
+
+// The compiler's native `__managed_hash` and `__managed_hash_float` compute these same two folds, chosen
+// by the `ProgramSignatures.conformerHashesAsStorage` that `elementsHashAsStorage` reads; they must agree.
+// Conditional conformance: Array implements Hashable and Equatable when Element does
+public extension Array where T implements Hashable and Equatable
+	public function hash() returns HashValue
+		var state = processFoldStart()
+		for item in self 'eachElement'
+			state = KeyedHasher.combined(state, value: item.hash() as HashDigest)
+		end 'eachElement'
+		return hashValueOfDigest(state)
+	end 'hash'
+end 'Array'

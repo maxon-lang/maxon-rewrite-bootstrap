@@ -24,7 +24,9 @@ let testRecordBytes = 32 as Count
 
 // The record of a stop, past the stopped thread's context, where both threads find it: 1 once the thread spins, what it
 // is stopped by (its handle or its thread id), the address it was stopped at and the word that rt.asyncPreempt returns
-// through, and 1 once it has gone on.
+// through, and 1 once it has gone on. The thread stores the flags with release and the stopper reads them with acquire,
+// so a stopper that sees the thread spin sees what it is stopped by: with plain stores and loads arm64 may show the flag
+// before the id, and a signal to thread 0 stops nothing, which left both threads spinning until the run timed out.
 let testSpinningOffset = 0 as Count
 
 let testTargetOffset = 8 as Count
@@ -156,6 +158,9 @@ function testStopping()
 	startThread(spinner)
 	testAwait(stop, offset: testSpinningOffset)
 	let target = __Raw.loadWord(stop, offset: testTargetOffset)
+	if target == 0 'unseen'
+		panic("the spinning thread's handle or id is not seen after it says it spins")
+	end 'unseen'
 	#if os(Windows)
 		if dword(__Raw.callImport1("SuspendThread", arg1: target)) == testSuspendFailed 'suspend'
 			panic("cannot suspend the spinning thread")
@@ -184,9 +189,10 @@ function testStopping()
 	testWrite("stopped where it spun, and went on\n")
 end 'testStopping'
 
-// testAwait spins until the word of the stop record at offset is not 0.
+// testAwait spins until the word of the stop record at offset is not 0, read with acquire, so what the thread stored
+// before it is seen.
 function testAwait(stop Count, offset Count)
-	while __Raw.loadWord(stop, offset: offset) == 0 'wait'
+	while __Raw.loadAcquire(stop, offset: offset) == 0 'wait'
 		__Raw.spinPause()
 	end 'wait'
 end 'testAwait'
@@ -197,11 +203,11 @@ function testSpinner(context Count)
 	let stop = __Raw.wrappingAdd(context, right: contextBytes)
 	setThreadIdentity(context)
 	__Raw.storeWord(stop, offset: testTargetOffset, value: __Raw.loadWord(context, offset: contextThreadOffset))
-	__Raw.storeWord(stop, offset: testSpinningOffset, value: 1)
+	__Raw.storeRelease(stop, offset: testSpinningOffset, value: 1)
 	while __Raw.loadWord(context, offset: contextSignalPendingOffset) != 0 'spin'
 		__Raw.spinPause()
 	end 'spin'
-	__Raw.storeWord(stop, offset: testDoneOffset, value: 1)
+	__Raw.storeRelease(stop, offset: testDoneOffset, value: 1)
 end 'testSpinner'
 
 // testResumeAt is the runtime's resumeAt for the stop record: the stop keeps the address and the slot below the stack

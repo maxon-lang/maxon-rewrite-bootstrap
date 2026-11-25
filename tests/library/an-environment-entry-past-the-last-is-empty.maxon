@@ -1,0 +1,22 @@
+// A program of the library tier asks the runtime for the environment's entries one at a time, as Process.currentEnvironmentEntries
+// does: each is a fresh buffer of bytes, and the one past the last, and any index beyond it, is empty, which no entry is.
+// The interpreter has no way to walk its own environment, so the program is native-only.
+// native-only
+//> some=true
+//> past=true
+//> beyond=true
+//> unreadable=false
+
+function main() returns ExitCode
+	var count = 0 as ElementIndex
+	while __Builtins.osEnvironmentEntry(count).length() != 0 'entries'
+		count = try count + 1 otherwise panic("the environment holds more entries than there are indexes")
+	end 'entries'
+	print("some={count > 0}\n")
+	print("past={ByteArray.init(__Builtins.osEnvironmentEntry(count)).isEmpty()}\n")
+	print("beyond={ByteArray.init(__Builtins.osEnvironmentEntry(1000000)).isEmpty()}\n")
+	let first = __Builtins.osEnvironmentEntry(0)
+	let lone = try first.byteAt(0) otherwise panic("the first entry has a byte")
+	print("unreadable={first.length() == 1 and lone == 0}\n")
+	return 0
+end 'main'

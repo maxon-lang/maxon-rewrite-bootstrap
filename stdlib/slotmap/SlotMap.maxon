@@ -9,7 +9,7 @@
 // generation, which the old key does not match. insert never makes a key stale; it may move the elements' storage, which
 // is why a place get lends does not outlive a change of the map. A slot whose generation would pass the most a key holds
 // is retired: it is never reused, so no key is ever matched by a later element.
-public type SlotMap uses T implements export.Iterable with (T, SlotMapIterator)
+public type SlotMap uses T implements core.Iterable with (T, SlotMapIterator)
 	public typealias Key = SlotKey with T
 	public typealias SlotMapIter = SlotMapIterator with T
 	export typealias Elements = __SlotArray with T
@@ -102,7 +102,7 @@ public type SlotMap uses T implements export.Iterable with (T, SlotMapIterator)
 end 'SlotMap'
 
 /// Iterator for SlotMap: the elements in the order of their slots, each lent, skipping the free slots.
-public type SlotMapIterator uses T implements export.Iterator with T
+public type SlotMapIterator uses T implements core.Iterator with T
 	export typealias Elements = __SlotArray with T
 	export typealias Generations = Array with Count
 	typealias ElementCursor = __ManagedMemoryCursor with T

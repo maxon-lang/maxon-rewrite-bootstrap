@@ -505,6 +505,11 @@ function lowerArrayGet(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleSt
 	return arrayCopyAt(l, p: p, ms: ms, box: a, arr: recv, index: args[0])
 end 'lowerArrayGet'
 
+// lowerManagedByteAt is a buffer's get, of the buffer of bytes that the checker holds byteAt to.
+function lowerManagedByteAt(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return lowerArrayGet(l, p: p, ms: ms, c: c, recv: recv, args: args)
+end 'lowerManagedByteAt'
+
 // lowerArraySet replaces the element at index, and fails with indexOutOfBounds past the end, dropping the value it was
 // given, as maxon's set does.
 function lowerArraySet(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg

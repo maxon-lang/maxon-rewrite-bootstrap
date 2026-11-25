@@ -3,7 +3,7 @@
 // give a conformance (resolve.libraryMembersOf's rule), and the library modules its own
 // source may name (project.libraryModulesNamedIn). A program's compile that has the index parses a module of the library
 // only when the program reaches it: each word that the program's text writes, comments and strings included, reaches the
-// modules it is a word of, closed over what those name, and the root is reached always. That is a superset of what the
+// modules it is a word of, closed over what those name, and the core is reached always. That is a superset of what the
 // program's resolves name, so a module the index leaves out is one no resolve would have named, which is never resolved
 // (resolvesModule) and now is never parsed either. Go's compiler reads a package's export data instead of its source in the
 // same way.
@@ -231,15 +231,47 @@ function wordsIn(text String) returns ast.StringList
 	return words
 end 'wordsIn'
 
+// addLiteralWords adds to the words of a program the names of the library types that its literals make, which it never writes
+// and so would never reach the module of: a map literal makes the Map and a range value the Range or the OpenRange
+// (ast.libraryMapName, ast.rangeTypeName).
+function addLiteralWords(mutates words ast.StringList, tree ast.Tree)
+	var makesMap = false
+	var makesRange = false
+	var makesOpenRange = false
+	for n in 1 upto tree.records.count() 'nodes'
+		let id = try n as ast.NodeID otherwise panic("driver: more nodes than a node id holds")
+		let kind = tree.kindOf(id)
+		if kind == ast.NodeKind.collectionLitExpr and tree.listLen(ast.collectionLitExprValuesRef(tree, id: id)) > 0 'map'
+			makesMap = true
+		end 'map' else if kind == ast.NodeKind.rangeExpr 'range'
+			if ast.rangeExprInclusive(tree, id: id) 'inclusive'
+				makesRange = true
+			end 'inclusive' else 'open'
+				makesOpenRange = true
+			end 'open'
+		end 'range'
+	end 'nodes'
+	if makesMap 'map'
+		words.push(ast.libraryMapName.clone())
+	end 'map'
+	if makesRange 'range'
+		words.push(ast.rangeTypeName(true))
+	end 'range'
+	if makesOpenRange 'openRange'
+		words.push(ast.rangeTypeName(false))
+	end 'openRange'
+end 'addLiteralWords'
+
 typealias WordSet = table.StringMap with Count
 
 // reachedQualifiers are the keys (libraryKey) of the library modules that a program whose words are words reaches by the index:
-// the root's, each module one of whose words the program writes, and what those may name, to the end.
-function reachedQualifiers(index LibraryIndex, words WordSet, root String) returns WordSet
+// the always-reached module's (the core's), each module one of whose words the program writes, and what those may name, to
+// the end.
+function reachedQualifiers(index LibraryIndex, words WordSet, always String) returns WordSet
 	var reached = WordSet.new()
 	var pending = ast.StringList.create(0)
-	reached.insert(root.clone(), value: 1)
-	pending.push(root.clone())
+	reached.insert(always.clone(), value: 1)
+	pending.push(always.clone())
 	for i in 0 upto index.modules.count() 'modules'
 		let q = index.modules[i].key.clone()
 		if reached.has(q) 'known'

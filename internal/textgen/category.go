@@ -12,9 +12,9 @@ import (
 const generalCategoryFile = "ucd/DerivedGeneralCategory.txt"
 
 // categoryOutput is the library's file of the General_Category table, which maxon's CharacterSet reads through
-// unicodeGeneralCategory: in the helper module of maxon's stdlib/helpers/string/, whose unicodeCategory.maxon reads the
-// table from binary files that minimaxon does not read. Only a module that names the helper compiles it.
-const categoryOutput = "../../stdlib/string/unicodeCategory_gen.maxon"
+// unicodeGeneralCategory: in the characterset module, which stands in for maxon's stdlib/helpers/string/unicodeCategory.maxon
+// that reads the table from binary files that minimaxon does not read.
+const categoryOutput = "../../stdlib/characterset/unicodeCategory_gen.maxon"
 
 const (
 	// A category entry is the first code point of a run of one category, shifted up by categoryBits, and the category, in
