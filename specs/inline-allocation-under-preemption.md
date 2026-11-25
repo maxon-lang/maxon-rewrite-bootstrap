@@ -64,7 +64,7 @@ type Churn
 			for word in b 'sumB'
 				total = try total + (word as Total) otherwise panic("out of range")
 			end 'sumB'
-			round = try round + 1 otherwise panic("out of range")
+			round = round + 1
 		end 'eachRound'
 		self.finished = try self.finished + total otherwise panic("out of range")
 	end 'run'

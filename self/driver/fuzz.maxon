@@ -658,7 +658,7 @@ function fuzzWorker(options FuzzOptions, library String) returns ExitCode
 				end 'ran'
 			end 'native'
 		end 'accepted'
-		seed = try seed + 1 otherwise panic("fuzz: the seeds pass the largest number")
+		seed = table.sum(seed, b: 1)
 	end 'seeds'
 	print("{tally.line()}\n")
 	return 0

@@ -460,7 +460,7 @@ function main() returns ExitCode
 			total = try total + 1 otherwise panic("out of range")
 			j = j + 1
 		end 'inner'
-		i = try i + 1 otherwise panic("out of range")
+		i = i + 1
 	end 'outer'
 	return try total as ExitCode otherwise panic("out of range")
 end 'main'
@@ -477,7 +477,7 @@ function main() returns ExitCode
 		var j = 1 as FullRangeInt
 		while j <= i 'inner'
 			total = try total + 1 otherwise panic("out of range")
-			j = try j + 1 otherwise panic("out of range")
+			j = j + 1
 		end 'inner'
 		i = i + 1
 	end 'outer'
@@ -642,7 +642,7 @@ function main() returns ExitCode
 			end 'diag'
 			j = j + 1
 		end 'inner'
-		i = try i + 1 otherwise panic("out of range")
+		i = i + 1
 	end 'outer'
 	return try sentinel + total otherwise panic("out of range")
 end 'main'

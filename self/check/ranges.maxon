@@ -54,9 +54,9 @@ typealias RangeFrameList = Array with RangeFrame
 // (ArithInfo.fails). An operation that can fail must be covered by a try, and so must a call of a function that throws;
 // lowering checks only what can fail.
 //
-// The analysis is one walk, linear in the code. What may be assigned (a var, a mutates or sets parameter, and their
-// fields) loses what is known of it at the top of a loop, and a place loses it when it is assigned or a call may change
-// it, so no loop is walked twice.
+// The analysis is one walk, linear in the code. At the top of a loop, what the loop's body may falsify is forgotten
+// (loops.maxon), and a place loses what is known of it when it is assigned or a call may change it, so no loop is walked
+// twice.
 type Ranges
 	export var modID as diag.ModuleID
 	export var modIdx as Count
@@ -89,9 +89,13 @@ type Ranges
 	// no failure, and the state it leaves behind is discarded.
 	export var probing as bool
 	export var probe as LoopProbe
+	// scans are the effects of the loops' bodies of the functions being walked, and wide the span of each local's type by
+	// its slot, which a local a loop writes has at the loop's top.
+	export var scans as LoopScans
+	export var wide as SpanList
 
 	static function make(modID diag.ModuleID, modIdx Count, consumes typing ast.Typing) returns Ranges
-		return Ranges{modID: modID, modIdx: modIdx, typing: typing, errs: diag.ErrorList.create(0), needless: diag.ErrorList.create(0), failed: false, fn: ast.noFunc, base: 0 as Count, slots: 0 as Count, locals: ast.LocalIDList.create(0), mutable: ByteArray.create(0), st: deadState, handlers: RangeHandlerList.create(0), frames: RangeFrameList.create(0), behaviour: false, written: PlaceList.create(0), states: States.new(), bounds: AccBoundList.create(0), probing: false, probe: LoopProbe.new()}
+		return Ranges{modID: modID, modIdx: modIdx, typing: typing, errs: diag.ErrorList.create(0), needless: diag.ErrorList.create(0), failed: false, fn: ast.noFunc, base: 0 as Count, slots: 0 as Count, locals: ast.LocalIDList.create(0), mutable: ByteArray.create(0), st: deadState, handlers: RangeHandlerList.create(0), frames: RangeFrameList.create(0), behaviour: false, written: PlaceList.create(0), states: States.new(), bounds: AccBoundList.create(0), probing: false, probe: LoopProbe.new(), scans: LoopScans.new(), wide: SpanList.create(0)}
 	end 'make'
 end 'Ranges'
 
@@ -233,6 +237,8 @@ function rangeFunction(mutates r Ranges, p ast.Project, ms ast.ModuleState, fid 
 	let outerBounds = exchange(r.bounds, value: AccBoundList.create(0))
 	let outerLocals = exchange(r.locals, value: functionLocals(r, p: p, ms: ms, fid: fid))
 	let outerMutable = exchange(r.mutable, value: ByteArray.create(0))
+	let outerLoops = r.scans.loops.count()
+	let outerEffects = r.scans.effects.count()
 	r.fn = fid
 	r.behaviour = behaviour
 	enterLocals(r)
@@ -247,6 +253,7 @@ function rangeFunction(mutates r Ranges, p ast.Project, ms ast.ModuleState, fid 
 			r.states.list[st].spans[slot] = typeSpan(ms.types, reads: p.types, t: ty)
 		end 'int'
 	end 'locals'
+	let outerWide = exchange(r.wide, value: r.states.list[r.st].spans.clone())
 	if ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fid).isTest 'test'
 		// A test handles every error its body raises: the failure of any call, of any error type, ends the test.
 		r.handlers.push(RangeHandler.make(false, takes: ast.noType, site: 0 as ast.NodeID))
@@ -263,6 +270,8 @@ function rangeFunction(mutates r Ranges, p ast.Project, ms ast.ModuleState, fid 
 	r.bounds = outerBounds
 	r.locals = outerLocals
 	r.mutable = outerMutable
+	r.wide = outerWide
+	r.scans.truncate(outerLoops, effectCount: outerEffects)
 	truncatePlaces(r.written, count: outerWritten)
 end 'rangeFunction'
 
@@ -366,31 +375,6 @@ function rangeBlock(mutates r Ranges, p ast.Project, ms ast.ModuleState, body di
 		rangeStmt(r, p: p, ms: ms, s: ms.tree().listAt(body, index: i) as ast.NodeID)
 	end 'each'
 end 'rangeBlock'
-
-// rangeForget makes what is known of what may be assigned its type's span again: the state at the top of a loop, which the
-// end of the body comes back to. What may be assigned is a var, a mutates or sets parameter, and the fields of either.
-// The accumulators of the loops around keep their bounds.
-function rangeForget(mutates r Ranges, p ast.Project, ms ast.ModuleState)
-	if r.fn == ast.noFunc or isDead(r, s: r.st) 'nothing'
-		return
-	end 'nothing'
-	rangeOwn(r)
-	let st = r.st
-	for i in 0 upto r.locals.count() 'locals'
-		let id = r.locals[i]
-		let ty = r.typing.locals[id as Count].ty
-		let slot = slotOf(r, local: id)
-		if r.mutable[slot] != 0 and ast.isIntType(ms.types, reads: p.types, t: ty) 'forgotten'
-			r.states.list[st].spans[slot] = typeSpan(ms.types, reads: p.types, t: ty)
-		end 'forgotten'
-	end 'locals'
-	for i in 0 upto r.bounds.count() 'bounds'
-		let slot = r.bounds[i].local
-		let bounded = r.states.list[st].spans[slot].clamp(r.bounds[i].span)
-		r.states.list[st].spans[slot] = bounded
-	end 'bounds'
-	r.states.list[st].drop(Gone.assignable(r.mutable.clone()))
-end 'rangeForget'
 
 // rangeWrite gives a place the value of the span s, after which nothing known of the place before holds.
 function rangeWrite(mutates r Ranges, p ast.Project, ms ast.ModuleState, place Place, s Span, t ast.TypeID)
@@ -725,7 +709,7 @@ function rangeIfTryStmt(mutates r Ranges, p ast.Project, ms ast.ModuleState, s a
 end 'rangeIfTryStmt'
 
 function rangeWhileStmt(mutates r Ranges, p ast.Project, ms ast.ModuleState, s ast.NodeID)
-	rangeForget(r, p: p, ms: ms)
+	rangeLoopTop(r, p: p, ms: ms, s: s)
 	let cond = ast.whileStmtCond(ms.tree(), id: s)
 	let since = rangeCondition(r, p: p, ms: ms, c: cond)
 	let top = rangeKeep(r)
@@ -779,10 +763,10 @@ function rangeForEach(mutates r Ranges, p ast.Project, ms ast.ModuleState, s ast
 	_ = rangeEval(r, p: p, ms: ms, e: ast.forStmtFrom(ms.tree(), id: s))
 	// A walk of a drain leaves the array at count 0 however it ends, a failure out of the body included, and the body cannot
 	// name the array, so it shrinks from the start.
-	if r.typing.drains.has(s as Count) 'drained'
+	if walksDrain(r, s: s) 'drained'
 		rangeReceiverChanged(r, p: p, ms: ms, e: ast.forStmtFrom(ms.tree(), id: s), effect: ast.CountEffect.countShrink)
 	end 'drained'
-	rangeForget(r, p: p, ms: ms)
+	rangeLoopTop(r, p: p, ms: ms, s: s)
 	let top = rangeKeep(r)
 	r.frames.push(RangeFrame.make(s))
 	let times = rangeScaleTimes(r, trips: pastEveryWord())
@@ -792,6 +776,11 @@ function rangeForEach(mutates r Ranges, p ast.Project, ms ast.ModuleState, s ast
 	let breaks = rangePopFrame(r)
 	r.st = r.states.joined(top, b: breaks)
 end 'rangeForEach'
+
+// walksDrain is whether the for loop s walks a drain, which leaves the array it drains at count 0.
+function walksDrain(r Ranges, s ast.NodeID) returns bool
+	return r.typing.drains.has(s as Count)
+end 'walksDrain'
 
 // rangeLoopBody is the state in the body of a for loop, whose variable lies between the bounds: the state at the top of
 // the loop when the variable has no span to know.
@@ -818,39 +807,42 @@ function rangeLoopBody(mutates r Ranges, p ast.Project, ms ast.ModuleState, s as
 	end 'never' else 'runs'
 		let counter = Place.local(slotOf(r, local: local))
 		r.states.list[body].refine(counter, v: v)
-		match consumes rangeFixedBound(r, p: p, ms: ms, e: ast.forStmtTo(ms.tree(), id: s)) 'bound'
-			some(bound) then rangeRelateBound(r, body: body, bound: bound, counter: counter, inclusive: ast.forStmtInclusive(ms.tree(), id: s))
+		match consumes rangeOffsetOf(r, p: p, ms: ms, e: ast.forStmtTo(ms.tree(), id: s)) 'bound'
+			some(bound) then rangeRelateBound(r, p: p, ms: ms, s: s, body: body, bound: bound, counter: counter)
 			none then _ = 0
 		end 'bound'
+		match consumes rangeOffsetOf(r, p: p, ms: ms, e: ast.forStmtFrom(ms.tree(), id: s)) 'start'
+			some(start) then rangeRelateStart(r, p: p, ms: ms, s: s, body: body, start: start, counter: counter)
+			none then _ = 0
+		end 'start'
 	end 'runs'
 	return body
 end 'rangeLoopBody'
 
-// rangeRelateBound records that the counter of a for loop is below its bound, a place moved by a constant: 'bound > counter',
-// or 'bound >= counter' for a loop that reaches its bound.
-function rangeRelateBound(mutates r Ranges, body Count, bound Offset, counter Place, inclusive bool)
-	match consumes comparedGap(">=" if inclusive else ">", dx: bound.by, dy: ast.I128.zero(), exact: bound.exact) 'gap'
+// rangeRelateBound records that the counter of the for loop s is below its bound, a place moved by a constant: 'bound >
+// counter', or 'bound >= counter' for a loop that reaches its bound, where the body only raises the place or leaves it. The
+// loop evaluated the bound once, and the counter stays below that value, which the place never falls under.
+function rangeRelateBound(mutates r Ranges, p ast.Project, ms ast.ModuleState, s ast.NodeID, body Count, bound Offset, counter Place)
+	if not risesOnly(rangeLoopMoves(r, p: p, ms: ms, s: s, q: bound.at)) 'falls'
+		return
+	end 'falls'
+	match consumes boundGap(bound.by, exact: bound.exact, inclusive: ast.forStmtInclusive(ms.tree(), id: s)) 'gap'
 		some(gap) then r.states.list[body].relate(bound.at, lo: counter, gap: gap)
 		none then _ = 0
 	end 'gap'
 end 'rangeRelateBound'
 
-// rangeFixedBound is the place moved by a constant that the bound e of a for loop is, if nothing in the function can change
-// the place: its root is no var and no parameter taken to change. The loop evaluated the bound once, so the counter stays
-// below a bound that cannot change on every iteration.
-function rangeFixedBound(r Ranges, p ast.Project, ms ast.ModuleState, e ast.NodeID) returns table.Option with Offset
-	return match consumes rangeOffsetOf(r, p: p, ms: ms, e: e) 'place'
-		some(o) gives rangeUnassignable(r, o: o)
-		none gives table.Option.none
-	end 'place'
-end 'rangeFixedBound'
-
-function rangeUnassignable(r Ranges, consumes o Offset) returns table.Option with Offset
-	if r.mutable[o.at.root] != 0 'assignable'
-		return table.Option.none
-	end 'assignable'
-	return table.Option.some(o)
-end 'rangeUnassignable'
+// rangeRelateStart records that the counter of the for loop s is at least where it started, a place moved by a constant,
+// where the body only lowers the place or leaves it: the counter only rises from the value the loop evaluated once.
+function rangeRelateStart(mutates r Ranges, p ast.Project, ms ast.ModuleState, s ast.NodeID, body Count, start Offset, counter Place)
+	if not fallsOnly(rangeLoopMoves(r, p: p, ms: ms, s: s, q: start.at)) 'rises'
+		return
+	end 'rises'
+	match consumes startGap(start.by, exact: start.exact) 'gap'
+		some(gap) then r.states.list[body].relate(counter, lo: start.at, gap: gap)
+		none then _ = 0
+	end 'gap'
+end 'rangeRelateStart'
 
 // rangeWhenStmt analyses the body of a behaviour as a function of its own: it runs later, so neither what is known here
 // nor a try around it reaches into it. A behaviour whose body the bodies check gave no function has nothing to follow.

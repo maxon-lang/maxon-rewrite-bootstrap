@@ -266,11 +266,202 @@ function poppedInCondition() returns Count
 	return 0
 end 'poppedInCondition'
 
+function emptied(mutates h Holder)
+	h.items.clear()
+end 'emptied'
+
+// Each function below guards an index before a loop whose body falsifies the guard by the time a later iteration reads at
+// the index: a pop, a call that takes the array to change it, a method of the record that holds it, a call that takes that
+// record to change it, an assignment of the record, a closure made in the body, a walk of a drain, a pop in a nested loop, a pop on an
+// iteration that continues, a pop on the path that breaks out, and a pop before a throw caught outside the loop and inside
+// it.
+function loopPop() returns Count
+	var xs = threes()
+	let i = two()
+	var missed = 0 as Count
+	if i < xs.count() 'guarded'
+		for _ in 0 upto 2 'each'
+			missed = try missed + (try xs.get(i) otherwise 100) otherwise panic("overflowed")
+			try xs.pop() otherwise panic("empty")
+		end 'each'
+	end 'guarded'
+	return missed
+end 'loopPop'
+
+function loopPassed() returns Count
+	var xs = threes()
+	let i = two()
+	var missed = 0 as Count
+	if i < xs.count() 'guarded'
+		for _ in 0 upto 2 'each'
+			missed = try missed + (try xs.get(i) otherwise 100) otherwise panic("overflowed")
+			shrink(xs)
+		end 'each'
+	end 'guarded'
+	return missed
+end 'loopPassed'
+
+function loopHolderMethod() returns Count
+	var h = Holder.make(threes())
+	let i = two()
+	var missed = 0 as Count
+	if i < h.items.count() 'guarded'
+		for _ in 0 upto 2 'each'
+			missed = try missed + (try h.items.get(i) otherwise 100) otherwise panic("overflowed")
+			h.drain()
+		end 'each'
+	end 'guarded'
+	return missed
+end 'loopHolderMethod'
+
+function loopHolderPassed() returns Count
+	var h = Holder.make(threes())
+	let i = two()
+	var missed = 0 as Count
+	if i < h.items.count() 'guarded'
+		for _ in 0 upto 2 'each'
+			missed = try missed + (try h.items.get(i) otherwise 100) otherwise panic("overflowed")
+			emptied(h)
+		end 'each'
+	end 'guarded'
+	return missed
+end 'loopHolderPassed'
+
+function loopHolderAssigned() returns Count
+	var h = Holder.make(threes())
+	let i = two()
+	var missed = 0 as Count
+	if i < h.items.count() 'guarded'
+		for _ in 0 upto 2 'each'
+			missed = try missed + (try h.items.get(i) otherwise 100) otherwise panic("overflowed")
+			h = Holder.make(Counts.filled(1, value: 3))
+		end 'each'
+	end 'guarded'
+	return missed
+end 'loopHolderAssigned'
+
+function loopClosure() returns Count
+	var xs = threes()
+	let i = two()
+	var missed = 0 as Count
+	if i < xs.count() 'guarded'
+		for _ in 0 upto 2 'each'
+			missed = try missed + (try xs.get(i) otherwise 100) otherwise panic("overflowed")
+			_ = apply(function() gives cutOnce(xs))
+		end 'each'
+	end 'guarded'
+	return missed
+end 'loopClosure'
+
+function loopDrain() returns Count
+	var xs = threes()
+	let i = two()
+	var missed = 0 as Count
+	if i < xs.count() 'guarded'
+		for _ in 0 upto 2 'each'
+			missed = try missed + (try xs.get(i) otherwise 100) otherwise panic("overflowed")
+			for x in xs.drain() 'drained'
+				missed = try missed + x otherwise panic("overflowed")
+			end 'drained'
+		end 'each'
+	end 'guarded'
+	return missed
+end 'loopDrain'
+
+function nestedPop() returns Count
+	var xs = threes()
+	let i = two()
+	var missed = 0 as Count
+	if i < xs.count() 'guarded'
+		for _ in 0 upto 2 'each'
+			missed = try missed + (try xs.get(i) otherwise 100) otherwise panic("overflowed")
+			for _ in 0 upto 1 'inner'
+				try xs.pop() otherwise panic("empty")
+			end 'inner'
+		end 'each'
+	end 'guarded'
+	return missed
+end 'nestedPop'
+
+function continuedPop() returns Count
+	var xs = threes()
+	let i = two()
+	var missed = 0 as Count
+	if i < xs.count() 'guarded'
+		for k in 0 upto 3 'each'
+			missed = try missed + (try xs.get(i) otherwise 100) otherwise panic("overflowed")
+			if k == 0 'first'
+				try xs.pop() otherwise panic("empty")
+				continue 'each'
+			end 'first'
+		end 'each'
+	end 'guarded'
+	return missed
+end 'continuedPop'
+
+function brokenPop() returns Count
+	var xs = threes()
+	let i = two()
+	var missed = 0 as Count
+	if i < xs.count() 'guarded'
+		var k = 0 as Count
+		while k < 5 'each'
+			if k == 1 'cut'
+				try xs.pop() otherwise panic("empty")
+				break 'each'
+			end 'cut'
+			k = k + 1
+		end 'each'
+		missed = try xs.get(i) otherwise 100
+	end 'guarded'
+	return missed
+end 'brokenPop'
+
+function thrownOut() returns Count
+	var xs = threes()
+	let i = two()
+	var missed = 0 as Count
+	if i < xs.count() 'guarded'
+		try 'loop'
+			for k in 0 upto 3 'each'
+				try xs.pop() otherwise panic("empty")
+				if k == 0 'first'
+					throw ArrayError.indexOutOfBounds
+				end 'first'
+			end 'each'
+		end 'loop' otherwise 'caught'
+			missed = try xs.get(i) otherwise 100
+		end 'caught'
+	end 'guarded'
+	return missed
+end 'thrownOut'
+
+function thrownInside() returns Count
+	var xs = threes()
+	let i = two()
+	var missed = 0 as Count
+	if i < xs.count() 'guarded'
+		for _ in 0 upto 2 'each'
+			missed = try missed + (try xs.get(i) otherwise 100) otherwise panic("overflowed")
+			try 'cut'
+				try xs.pop() otherwise panic("empty")
+				throw ArrayError.indexOutOfBounds
+			end 'cut' otherwise 'caught'
+				missed = try missed + 1 otherwise panic("overflowed")
+			end 'caught'
+		end 'each'
+	end 'guarded'
+	return missed
+end 'thrownInside'
+
 function main() returns ExitCode
 	print("{popped()} {cleared()} {removed()} {assigned()} {passed()}\n")
 	print("{captured()} {stepped()} {other()} {viaHolder()} {guardThenPop()}\n")
 	print("{staleAfterPop()} {staleAfterClear()} {staleAfterAssign()} {staleAfterCall()} {staleAfterClosure()}\n")
 	print("{staleBound()} {nextOfGuarded()} {movedTerm()} {boundOne()} {poppedInCondition()}\n")
+	print("{loopPop()} {loopPassed()} {loopHolderMethod()} {loopHolderPassed()} {loopHolderAssigned()}\n")
+	print("{loopClosure()} {loopDrain()} {nestedPop()} {continuedPop()}\n")
+	print("{brokenPop()} {thrownOut()} {thrownInside()}\n")
 	return 0
 end 'main'
 
@@ -278,3 +469,6 @@ end 'main'
 //> 103 103 109 100 100
 //> 100 100 100 100 100
 //> 100 100 100 100 100
+//> 103 103 103 103 103
+//> 103 112 103 203
+//> 100 100 105

@@ -127,7 +127,7 @@ function findPair(target Integer) returns Integer
 			end 'over'
 			b = b + 1
 		end 'innerB'
-		a = try a + 1 otherwise panic("out of range")
+		a = a + 1
 	end 'outerA'
 	return 0
 end 'findPair'

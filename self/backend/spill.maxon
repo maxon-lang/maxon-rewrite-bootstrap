@@ -386,7 +386,7 @@ export type Spiller
 				continue 'blocks'
 			end 'count'
 			for i in start upto stop 'values'
-				if lv.liveIn[i] != lastLive[addCounts(lastStart, b: try i - start otherwise panic("backend: live sets out of order"))] 'differs'
+				if lv.liveIn[i] != lastLive[addCounts(lastStart, b: table.difference(i, b: start))] 'differs'
 					liveChanged[b] = true
 					break 'values'
 				end 'differs'
@@ -1139,7 +1139,7 @@ function relieveBlock(mutates fn MirFunction, mutates s Spiller, b Count, relief
 		enterDefined(fn, s: s, r: r, b: b, after: first)
 	end 'params'
 	for k in first upto endAt 'instrs'
-		let i = try k - first otherwise panic("backend: an instruction before its block")
+		let i = table.difference(k, b: first)
 		s.bracketedNow.clear()
 		while s.pendPos.count() > 0 and s.pendPos[0] <= k 'pending'
 			if s.pendPos[0] < k 'missed'

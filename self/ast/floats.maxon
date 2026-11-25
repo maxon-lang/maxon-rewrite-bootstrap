@@ -321,6 +321,7 @@ export function roundRatio(neg bool, num Limbs, den Limbs, exp2 FullRangeInt) re
 	if p < 0 'under'
 		return signedZero(neg)
 	end 'under'
+	let biasedExponent = e + exponentBias
 	var n = num.clone()
 	var d = den.clone()
 	if k >= 0 'scaleUp'
@@ -344,12 +345,11 @@ export function roundRatio(neg bool, num Limbs, den Limbs, exp2 FullRangeInt) re
 	end 'roundUp'
 	var bits = q
 	if p == precision 'normal'
-		var biased = e
-		biased = try biased + exponentBias otherwise panic("floats: an exponent is past the word")
+		var biased = biasedExponent as FullRangeInt
 		var sig = q
 		if sig == implicitBit * 2 'carried'
 			sig = implicitBit
-			biased = try biased + 1 otherwise panic("floats: an exponent is past the word")
+			biased = biased + 1
 		end 'carried'
 		if biased >= infiniteExponentField 'carriedOver'
 			return infinity(neg)

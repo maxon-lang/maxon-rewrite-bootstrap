@@ -424,7 +424,7 @@ end 'rangeClosure'
 // before the closure is gone.
 function rangeClosureOf(mutates r Ranges, p ast.Project, ms ast.ModuleState, info ast.ClosureInfo)
 	for capture in info.captures 'captures'
-		if capture.conv == ast.Convention.convMutates 'changes'
+		if capturesToChange(capture) 'changes'
 			rangeChanged(r, p: p, ms: ms, place: Place.local(slotOf(r, local: capture.outerLocal)), t: typeOf(r, e: capture.refNode))
 		end 'changes'
 	end 'captures'
@@ -530,12 +530,11 @@ function rangeCallExpr(mutates r Ranges, p ast.Project, ms ast.ModuleState, e as
 	end 'args'
 	let access = receiver != 0 and rangeAccess(r, p: p, ms: ms, e: e, info: call, receiver: receiver, index: first, since: afterFirst)
 	for i in 0 upto call.ordered.count() 'changes'
-		let a = call.ordered[i]
-		if a != 0 and i < call.paramSpecs.count() and ast.isByAddress(call.paramSpecs[i].conv) 'byAddress'
-			rangeChangedAt(r, p: p, ms: ms, e: a)
+		if argumentChanges(call, i: i) 'byAddress'
+			rangeChangedAt(r, p: p, ms: ms, e: call.ordered[i])
 		end 'byAddress'
 	end 'changes'
-	if receiver != 0 and call.selfConv != ast.Convention.convLet 'receiverChanges'
+	if receiverChanges(call, receiver: receiver) 'receiverChanges'
 		rangeReceiverChanged(r, p: p, ms: ms, e: receiver, effect: receiverEffect(p, ms: ms, info: call, receiverType: typeOf(r, e: receiver)))
 	end 'receiverChanges'
 	if access 'judged'
@@ -558,12 +557,27 @@ function rangeAsyncCall(mutates r Ranges, p ast.Project, ms ast.ModuleState, e a
 		end 'given'
 	end 'args'
 	for i in 0 upto call.ordered.count() 'changes'
-		let a = call.ordered[i]
-		if a != 0 and i < call.paramSpecs.count() and ast.isByAddress(call.paramSpecs[i].conv) 'byAddress'
-			rangeChangedAt(r, p: p, ms: ms, e: a)
+		if argumentChanges(call, i: i) 'byAddress'
+			rangeChangedAt(r, p: p, ms: ms, e: call.ordered[i])
 		end 'byAddress'
 	end 'changes'
 end 'rangeAsyncCall'
+
+// argumentChanges is whether a call may change what its argument i names: an argument given to a parameter taken mutates
+// or sets. The walk and the scan of a loop's body both ask it.
+function argumentChanges(info ast.CallInfo, i Count) returns bool
+	return info.ordered[i] != 0 and i < info.paramSpecs.count() and ast.isByAddress(info.paramSpecs[i].conv)
+end 'argumentChanges'
+
+// receiverChanges is whether a call may change its receiver, in the way receiverEffect says.
+function receiverChanges(info ast.CallInfo, receiver ast.NodeID) returns bool
+	return receiver != 0 and info.selfConv != ast.Convention.convLet
+end 'receiverChanges'
+
+// capturesToChange is whether a closure's calls may change the local a capture names, wherever they run.
+function capturesToChange(capture ast.Capture) returns bool
+	return capture.conv == ast.Convention.convMutates
+end 'capturesToChange'
 
 // rangeAwait analyses an await, which fails with what the function of the promise's coroutine throws.
 function rangeAwait(mutates r Ranges, p ast.Project, ms ast.ModuleState, e ast.NodeID) returns Span

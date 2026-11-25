@@ -1006,7 +1006,7 @@ type ProofGen
 		self.line("{kwEnd} {label}")
 	end 'exitStatement'
 
-	// forStatement writes a loop over an array's count, or another bound, whose variable is below the bound.
+	// forStatement writes a loop over an array's count, or another bound, whose variable is below the bound, from 0, 1 or a place.
 	function forStatement(mutates self, depth Count)
 		let v = self.fresh("k")
 		var array = self.randomArray()
@@ -1032,7 +1032,9 @@ type ProofGen
 			start = "1"
 		end 'second' else if shape < 16 'inclusive'
 			word = kwTo
-		end 'inclusive'
+		end 'inclusive' else if shape < 26 'fromPlace'
+			start = self.readPlace()
+		end 'fromPlace'
 		let label = self.label()
 		self.line("{kwFor} {v} {kwIn} {start} {word} {bound} {label}")
 		self.indentMore()
@@ -1041,6 +1043,11 @@ type ProofGen
 		let mark = self.focusMark()
 		self.focusPush(array, place: v)
 		self.focusUses()
+		if shape >= 16 and shape < 26 and self.chance(60) 'fromStart'
+			// The distance of the counter from where it started, which the analysis knows is at least 0 while the body does not raise
+			// the start.
+			self.readAt(array, index: "({proofHandled("{v} - {start}", fallback: "0")})")
+		end 'fromStart'
 		let size = self.blockSize()
 		self.block(proofLower(depth), statements: size)
 		self.focusRelease(mark)

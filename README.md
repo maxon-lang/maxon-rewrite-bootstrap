@@ -3117,8 +3117,9 @@ end 'forms'
   index is cut by its relations to places whose spans are known: an index below a count is below 2^62, so `i + 1` cannot
   overflow, and `n - 1` cannot go below 0 where `n` lies above an index. An index may be a place moved by a constant
   (`xs.get(i + 1)`, `xs.get(n - 1)`). A `for i in a upto b` whose bound `b` is a count or a local, or one moved by a
-  constant, that nothing in the function may change (its root is no `var` and no parameter taken to change) gives its body
-  `b - i >= 1`. A state keeps at most 32 relations. Every rule is checked by brute force against what the operations do to
+  constant, that the loop's body only raises or leaves alone (a `var` it does not assign, an array it pushes to) gives its
+  body `b - i >= 1`, and a start `a` that the body only lowers or leaves alone gives `i - a >= 0`; what is known where the
+  loop is entered stays at its top unless the body may falsify it ("Checked arithmetic"). A state keeps at most 32 relations. Every rule is checked by brute force against what the operations do to
   values (`self/check/rules.maxtest`). An access that is not proven where no
   `try` covers it is `E3057`, which says what it needs (`'xs.get(i)' needs i < xs.count()`) and names the guard and the
   `try` that would give it. A `try` that covers nothing that can fail, as one that covers only proven accesses, is `E3944` (see
@@ -3239,10 +3240,20 @@ and knows:
 - that one place is at least another (`a >= b`, `a > b`), which `a - b` reads;
 - a constant's exact value.
 
-What may be assigned (a `var`, a `mutates` or `sets` parameter, and their fields) loses what is known of it at the top
-of a loop, and a place loses it when it is assigned, passed to a call that may change it, or captured by a closure that borrows
-it to change it (the closure changes it whenever it is called, and the ownership pass lets nothing read it while the closure
-lives), so no loop is walked twice (but see accumulators, below); a condition says nothing of a place that it changes itself, as in `if a > 5 and reset(a)`. A
+What is known where a loop is entered stays known at its top unless the loop's body may falsify it, and a place loses
+what is known of it when it is assigned, passed to a call that may change it, or captured by a closure that borrows it to
+change it (the closure changes it whenever it is called, and the ownership pass lets nothing read it while the closure
+lives), so no loop is walked twice (but see accumulators, below); a condition says nothing of a place that it changes
+itself, as in `if a > 5 and reset(a)`. Before a loop is walked, a scan of its body (and a `while` loop's condition) notes
+every way the walk would see a place change, by the same classifier (`self/check/loops.maxon`): an assignment, a
+`mutates` or `sets` argument, a receiver a call takes to change (by its row's `Count` effect, or a change of everything
+in it), a closure made that captures a local to change it, a walk of a drain, in the loops nested in the body too; a
+call of a function value, an `await` and a `when` are opaque and forget whatever may be assigned. At the top, a local the
+body writes has its type's span again; a count the body only grows keeps its lowest and the relations it lies above, one
+it only shrinks its highest and the relations it lies below; anything else the body touches, or that holds or lies inside
+what it touches, is forgotten. The effects are summed over every statement whatever path runs it, so what is kept holds
+at the start of every iteration, after the body's end and after a `continue`: one scan decides the top, with no
+iteration. A
 divisor that is not 0 may still be -1, so a signed `a / b` needs `b > 0`, or `b != 0` and `b != -1`. Proven code is
 faster than it was before checked arithmetic, when every operation was checked.
 

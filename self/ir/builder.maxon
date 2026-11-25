@@ -624,7 +624,7 @@ export type Builder
 				for at in paramStart[blk] upto paramStart[blk + 1] 'params'
 					blockParams.push(grouped[at])
 				end 'params'
-				let paramCount = try blockParams.count() - params otherwise panic("ir: a block has fewer parameters than none")
+				let paramCount = table.difference(blockParams.count(), b: params)
 				blocks.push(Block.make(places[blk], endAt: stop, params: params, paramCount: paramCount, term: renumber.out.clone()))
 			end 'live'
 		end 'blocks'

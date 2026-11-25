@@ -646,7 +646,7 @@ export type Ssa
 			f.blocks[b].first = first
 			f.blocks[b].endAt = order.count()
 			f.blocks[b].params = firstParam
-			f.blocks[b].paramCount = try blockParams.count() - firstParam otherwise panic("opt: parameters out of order")
+			f.blocks[b].paramCount = table.difference(blockParams.count(), b: firstParam)
 		end 'blocks'
 		table.arrange(f.instrs, source: order, taken: listed)
 		if f.keepsSpans 'spans'

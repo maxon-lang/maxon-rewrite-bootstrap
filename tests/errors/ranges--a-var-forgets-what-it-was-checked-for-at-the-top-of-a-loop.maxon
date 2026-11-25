@@ -23,6 +23,7 @@ function f(total Count, parts Count) returns Count
 	var sum = 0 as Count
 	while sum < 10 'fill'
 		sum = sum + total / d
+		d = parts
 	end 'fill'
 	return sum
 end 'f'

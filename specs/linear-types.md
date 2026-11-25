@@ -7691,7 +7691,7 @@ function main() returns ExitCode
 		end 'inner'
 		h.k = t.b
 		t = Tp.create(3)
-		i = try i + 1 otherwise panic("out of range")
+		i = i + 1
 	end 'outer'
 	h.k.n = 4
 	print("{h.k.n}\n")

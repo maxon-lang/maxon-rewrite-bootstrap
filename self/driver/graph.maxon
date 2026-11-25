@@ -146,7 +146,7 @@ type TaskGraph
 					end 'compiled'
 				end 'deps'
 			end 'named'
-			let inputCount = try inputs.count() - firstInput otherwise panic("driver: a task's inputs end before they start")
+			let inputCount = table.difference(inputs.count(), b: firstInput)
 			tasks.push(Task.make(stage, module: m, firstInput: firstInput, inputCount: inputCount))
 			moduleTask[m] = id
 			added.push(id)

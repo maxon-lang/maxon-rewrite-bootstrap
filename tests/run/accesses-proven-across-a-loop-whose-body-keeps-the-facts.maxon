@@ -1,0 +1,100 @@
+// What is known where a loop is entered stays known at its top when nothing in the body can falsify it, so each access
+// below is written with no try and runs with no check: a loop to a var that holds the count and that the body does not
+// change, a loop over the count of an array the body pushes to, a guard before a loop whose body leaves the index and the
+// array alone, a loop that writes the elements it reads, nested loops over two arrays, a guard kept through a loop nested
+// in a loop, and the distance of a loop's counter from a var it starts at, which the body leaves alone.
+typealias Counts = Array with Count
+
+function threes() returns Counts
+	return Counts.filled(3, value: 3)
+end 'threes'
+
+function upToVar() returns Count
+	var xs = threes()
+	var n = xs.count()
+	var total = 0 as Count
+	for i in 0 upto n 'each'
+		total = try total + xs.get(i) otherwise panic("total overflowed")
+	end 'each'
+	n = 0
+	return total + n
+end 'upToVar'
+
+function pushedWhileRead() returns Count
+	var xs = threes()
+	var total = 0 as Count
+	for i in 0 upto xs.count() 'each'
+		total = try total + xs.get(i) otherwise panic("total overflowed")
+		xs.push(1)
+	end 'each'
+	return try total + xs.count() otherwise panic("total overflowed")
+end 'pushedWhileRead'
+
+function guardedBefore(i Count) returns Count
+	var xs = threes()
+	var total = 0 as Count
+	if i < xs.count() 'inside'
+		for _ in 0 upto 4 'each'
+			total = try total + xs.get(i) otherwise panic("total overflowed")
+			xs.push(2)
+		end 'each'
+	end 'inside'
+	return total
+end 'guardedBefore'
+
+function doubled() returns Count
+	var xs = threes()
+	for i in 0 upto xs.count() 'each'
+		let v = try xs.get(i) * 2 otherwise panic("element overflowed")
+		xs.set(i, value: v)
+	end 'each'
+	return try xs.get(0) otherwise 0
+end 'doubled'
+
+function products() returns Count
+	var xs = threes()
+	var ys = Counts.filled(2, value: 5)
+	var total = 0 as Count
+	for i in 0 upto xs.count() 'rows'
+		for j in 0 upto ys.count() 'columns'
+			total = try total + xs.get(i) * ys.get(j) otherwise panic("total overflowed")
+			ys.set(j, value: 1)
+		end 'columns'
+		xs.push(1)
+	end 'rows'
+	return total
+end 'products'
+
+function keptThroughANest(i Count) returns Count
+	var xs = threes()
+	var total = 0 as Count
+	if i < xs.count() 'inside'
+		var k = 0 as Count
+		while k < 2 'outer'
+			for _ in 0 upto 2 'inner'
+				total = try total + xs.get(i) otherwise panic("total overflowed")
+				xs.push(1)
+			end 'inner'
+			k = k + 1
+		end 'outer'
+	end 'inside'
+	return total
+end 'keptThroughANest'
+
+function distances() returns Count
+	var low = 1 as Count
+	var total = 0 as Count
+	for i in low upto 4 'each'
+		let d = i - low
+		total = try total + d otherwise panic("total overflowed")
+	end 'each'
+	low = 0
+	return total + low
+end 'distances'
+
+function main() returns ExitCode
+	print("{upToVar()} {pushedWhileRead()} {guardedBefore(1)} {doubled()} {products()} {keptThroughANest(2)} {distances()}\n")
+	return 0
+end 'main'
+
+//> 9 15 12 6 42 12 3

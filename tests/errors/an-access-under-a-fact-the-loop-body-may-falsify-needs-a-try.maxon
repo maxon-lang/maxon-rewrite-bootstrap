@@ -1,0 +1,108 @@
+// expect-error: E3057 at 43:18
+// expect-error: E3057 at 54:18
+// expect-error: E3057 at 65:23
+// expect-error: E3057 at 76:18
+// expect-error: E3057 at 87:17
+// expect-error: E3057 at 97:18
+// A fact stated before a loop, or the loop's own bound, is not known at the loop's top when the body may falsify it on an
+// earlier iteration: a pop, a call that takes the array to change it, a method of the record that holds it, a closure made
+// in the body that changes it, an assignment of the var that bounds the loop, and a pop in a loop nested in the body.
+typealias Counts = Array with Count
+
+typealias Cut = function() returns Count mutates captures
+
+type Holder
+	export var items as Counts
+
+	static function make(consumes items Counts) returns Holder
+		return Holder{items: items}
+	end 'make'
+
+	function drain(mutates self)
+		items.clear()
+	end 'drain'
+end 'Holder'
+
+function shrink(mutates xs Counts)
+	try xs.pop() otherwise panic("empty")
+end 'shrink'
+
+function cutOnce(mutates xs Counts) returns Count
+	try xs.pop() otherwise panic("empty")
+	return xs.count()
+end 'cutOnce'
+
+function apply(mutates f Cut) returns Count
+	return f()
+end 'apply'
+
+function popped(i Count) returns Count
+	var xs = Counts.filled(3, value: 1)
+	if i < xs.count() 'guarded'
+		for _ in 0 upto 2 'each'
+			let v = xs.get(i)
+			try xs.pop() otherwise panic("empty")
+		end 'each'
+	end 'guarded'
+	return 0
+end 'popped'
+
+function passed(i Count) returns Count
+	var xs = Counts.filled(3, value: 1)
+	if i < xs.count() 'guarded'
+		for _ in 0 upto 2 'each'
+			let v = xs.get(i)
+			shrink(xs)
+		end 'each'
+	end 'guarded'
+	return 0
+end 'passed'
+
+function viaHolder(i Count) returns Count
+	var h = Holder.make(Counts.filled(3, value: 1))
+	if i < h.items.count() 'guarded'
+		for _ in 0 upto 2 'each'
+			let v = h.items.get(i)
+			h.drain()
+		end 'each'
+	end 'guarded'
+	return 0
+end 'viaHolder'
+
+function captured(i Count) returns Count
+	var xs = Counts.filled(3, value: 1)
+	if i < xs.count() 'guarded'
+		for _ in 0 upto 2 'each'
+			let v = xs.get(i)
+			_ = apply(function() gives cutOnce(xs))
+		end 'each'
+	end 'guarded'
+	return 0
+end 'captured'
+
+function assignedBound() returns Count
+	let xs = Counts.filled(3, value: 1)
+	var n = xs.count()
+	for i in 0 upto n 'each'
+		let v = xs.get(i)
+		n = 9
+	end 'each'
+	return n
+end 'assignedBound'
+
+function nestedPop(i Count) returns Count
+	var xs = Counts.filled(3, value: 1)
+	if i < xs.count() 'guarded'
+		for _ in 0 upto 2 'each'
+			let v = xs.get(i)
+			for _ in 0 upto 1 'inner'
+				try xs.pop() otherwise panic("empty")
+			end 'inner'
+		end 'each'
+	end 'guarded'
+	return 0
+end 'nestedPop'
+
+function main() returns ExitCode
+	return 0
+end 'main'

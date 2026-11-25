@@ -228,7 +228,7 @@ function nestedIdle(p Integer) returns Integer
 			sum = try sum + j otherwise panic("out of range")
 			j = j + 1
 		end 'inner'
-		i = try i + 1 otherwise panic("out of range")
+		i = i + 1
 	end 'outer'
 	return try sum + k1 + k2 + k3 + k4 + k5 + k6 + k7 + k8 + k9 + k10 + k11 + k12 otherwise panic("out of range")
 end 'nestedIdle'
@@ -574,7 +574,7 @@ function depthTwo(p Integer) returns Integer
 			sum = try sum + j otherwise panic("out of range")
 			j = j + 1
 		end 'inner'
-		i = try i + 1 otherwise panic("out of range")
+		i = i + 1
 	end 'outer'
 	return try sum + k1 + k2 + k3 + k4 + k5 + k6 + k7 + k8 + k9 + k10 + k11 + k12 otherwise panic("out of range")
 end 'depthTwo'

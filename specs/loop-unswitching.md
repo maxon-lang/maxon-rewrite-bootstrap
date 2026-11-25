@@ -303,7 +303,7 @@ function firstBigRow(mutates rows WordArray, width Count, limit Word) returns Wo
 				break 'outer'
 			end 'hit'
 		end 'inner'
-		r = try r + 1 otherwise panic("out of range")
+		r = r + 1
 	end 'outer'
 	return found
 end 'firstBigRow'

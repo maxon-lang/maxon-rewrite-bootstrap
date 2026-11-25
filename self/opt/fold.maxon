@@ -1091,7 +1091,7 @@ export type Fold
 				end 'kept'
 			end 'params'
 			let term = self.newTerm(f, t: f.blocks[b].term.clone())
-			blockList.push(ir.Block.make(first, endAt: source.count(), params: firstParam, paramCount: try blockParams.count() - firstParam otherwise panic("opt: parameters out of order"), term: term))
+			blockList.push(ir.Block.make(first, endAt: source.count(), params: firstParam, paramCount: table.difference(blockParams.count(), b: firstParam), term: term))
 		end 'blocks'
 		let kept = source.count()
 		table.arrange(f.instrs, source: source, taken: taken)

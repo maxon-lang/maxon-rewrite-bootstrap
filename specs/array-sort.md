@@ -816,11 +816,11 @@ function main() returns ExitCode
 	var sumAfter = 0 as Integer
 	var squaresAfter = 0 as Integer
 	for i in 0 upto a.count() 'walk'
-		let v = try a.get(i) otherwise return 99
+		let v = a.get(i)
 		sumAfter = try sumAfter + v otherwise panic("out of range")
 		squaresAfter = try squaresAfter + v * v otherwise panic("out of range")
 		if i > 0 'pair'
-			let p = try a.get(i - 1) otherwise return 99
+			let p = a.get(i - 1)
 			if p > v 'oop'
 				ordered = false
 			end 'oop'
@@ -980,11 +980,11 @@ function main() returns ExitCode
 	var sumAfter = 0 as Integer
 	var squaresAfter = 0 as Integer
 	for i in 0 upto a.count() 'walk'
-		let v = try a.get(i) otherwise return 99
+		let v = a.get(i)
 		sumAfter = try sumAfter + v otherwise panic("out of range")
 		squaresAfter = try squaresAfter + v * v otherwise panic("out of range")
 		if i > 0 'pair'
-			let p = try a.get(i - 1) otherwise return 99
+			let p = a.get(i - 1)
 			if p > v 'oop'
 				ordered = false
 			end 'oop'
@@ -1073,11 +1073,11 @@ function main() returns ExitCode
 	var sumAfter = 0 as Integer
 	var squaresAfter = 0 as Integer
 	for i in 0 upto a.count() 'walk'
-		let v = try a.get(i) otherwise return 99
+		let v = a.get(i)
 		sumAfter = try sumAfter + v otherwise panic("out of range")
 		squaresAfter = try squaresAfter + v * v otherwise panic("out of range")
 		if i > 0 'pair'
-			let p = try a.get(i - 1) otherwise return 99
+			let p = a.get(i - 1)
 			if p > v 'oop'
 				ordered = false
 			end 'oop'
@@ -1133,11 +1133,11 @@ function main() returns ExitCode
 	var sumAfter = 0 as Integer
 	var squaresAfter = 0 as Integer
 	for i in 0 upto a.count() 'walk'
-		let v = try a.get(i) otherwise return 99
+		let v = a.get(i)
 		sumAfter = try sumAfter + v otherwise panic("out of range")
 		squaresAfter = try squaresAfter + v * v otherwise panic("out of range")
 		if i > 0 'pair'
-			let p = try a.get(i - 1) otherwise return 99
+			let p = a.get(i - 1)
 			if p > v 'oop'
 				ordered = false
 			end 'oop'

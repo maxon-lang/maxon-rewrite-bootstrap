@@ -482,7 +482,7 @@ function execCallValue(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 		let at = vm.regAt(r)
 		vm.argN.push(vm.regN[at])
 		vm.argR.push(vm.regR[at])
-		let index = try i - first otherwise panic("interp: an argument before the first")
+		let index = table.difference(i, b: first)
 		try checkArgument(vm, f: f, callee: callee, i: index, r: r)
 	end 'args'
 	let given = try count - first otherwise panic("interp: a call through a function value without the value")

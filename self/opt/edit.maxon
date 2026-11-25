@@ -184,7 +184,7 @@ export type Editor
 			f.args.push(more[j])
 		end 'more'
 		edges.argsStart[i] = at
-		edges.argsCount[i] = try f.args.count() - at otherwise panic("opt: arguments out of order")
+		edges.argsCount[i] = table.difference(f.args.count(), b: at)
 	end 'extendEdge'
 
 	// storeEdges writes edges back into the terminator of block b, whose edges loadEdges read: the same kind of terminator

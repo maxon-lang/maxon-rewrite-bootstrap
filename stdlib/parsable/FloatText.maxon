@@ -338,11 +338,11 @@ function floatTextRound(num FloatTextLimbs, den FloatTextLimbs) returns Count th
 	if p != floatTextPrecision 'subnormalBits'
 		return q
 	end 'subnormalBits'
-	var biased = try (e0 + floatTextExponentBias) as FloatTextExponent otherwise panic("FloatText: an exponent is past its bound")
+	var biased = (e0 + floatTextExponentBias) as FloatTextExponent
 	var significand = q
 	if significand == floatTextImplicitBit * 2 'carried'
 		significand = floatTextImplicitBit
-		biased = try biased + 1 otherwise panic("FloatText: an exponent is past its bound")
+		biased = biased + 1
 	end 'carried'
 	if biased > floatTextMaxExponent + floatTextExponentBias 'carriedOver'
 		throw FloatTextFailure.overflow

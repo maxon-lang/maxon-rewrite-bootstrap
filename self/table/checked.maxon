@@ -1,6 +1,19 @@
-// sum is a + b where a count could in principle reach the top of Count. This compiler's range analysis knows that no
-// collection holds more elements than memory has bytes, which the seed's does not yet, so the addition is written as a call
-// the seed accepts; the seed's next renewal replaces each call of it with the addition.
+// The functions here are operations that this compiler's range analysis proves cannot fail and the seed's does not yet:
+// it knows that no collection holds more elements than memory has bytes, and keeps what it knows of a count or an index
+// through a loop whose body cannot change it. Each is written as a call the seed accepts, and the seed's next renewal
+// replaces each call with the operation.
+
+// sum is a + b where a count could in principle reach the top of Count.
 export function sum(a Count, b Count) returns Count
 	return try a + b otherwise panic("table: a count past memory")
 end 'sum'
+
+// difference is a - b where b is at most a.
+export function difference(a Count, b Count) returns Count
+	return try a - b otherwise panic("table: a count below zero")
+end 'difference'
+
+// countAt is the count at index i of xs, below xs's count.
+export function countAt(xs Array with Count, i Count) returns Count
+	return try xs.get(i) otherwise panic("table: an index past the end of its list")
+end 'countAt'

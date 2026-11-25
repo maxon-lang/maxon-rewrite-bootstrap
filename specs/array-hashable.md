@@ -1106,7 +1106,7 @@ function intVerdict() returns String
 	var flips = 0 as Count
 	var unmoved = 0 as Count
 	for index in 0 upto values.count() 'eachIndex'
-		let original = try values.get(index) otherwise panic("the index is inside the array")
+		let original = values.get(index)
 		for bit in masks 'eachMask'
 			var changed = values.clone()
 			try changed.set(index, value: original xor bit) otherwise panic("the index is inside the array")
@@ -1132,7 +1132,7 @@ function byteVerdict() returns String
 	var flips = 0 as Count
 	var unmoved = 0 as Count
 	for index in 0 upto bytes.count() 'eachIndex'
-		let original = try bytes.get(index) otherwise panic("the index is inside the array")
+		let original = bytes.get(index)
 		for bit in masks 'eachMask'
 			var changed = bytes.clone()
 			try changed.set(index, value: original xor bit) otherwise panic("the index is inside the array")

@@ -298,7 +298,7 @@ function growAndSum(mutates a WordArray) returns Word
 	var t = 0 as Word
 	for i in 0 upto a.count() 'each'
 		a.push(try i as Word otherwise panic("out of range"))
-		t = try t + (try a.get(i) otherwise 1000) otherwise panic("out of range")
+		t = try t + (a.get(i)) otherwise panic("out of range")
 	end 'each'
 	return t
 end 'growAndSum'

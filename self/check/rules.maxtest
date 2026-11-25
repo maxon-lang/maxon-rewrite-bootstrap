@@ -615,22 +615,35 @@ function bindShifted(mutates st RangeState, target Count, source Count, k FullRa
 	end 'related'
 end 'bindShifted'
 
-// forgetRoots is the top of a loop where the roots of mask may be assigned, as the walk's rangeForget makes it: the span
-// of an assignable integer local is its type's again, and every fact on an assignable root is gone.
+// forgetRoots is the top of a loop whose body is opaque, where the roots of mask may be assigned, as the walk's keepThrough
+// makes it: the span of an assignable integer local is its type's again, and every fact on an assignable root is gone.
 function forgetRoots(mutates st RangeState, mask Count)
+	var scans = LoopScans.new()
+	let loop = scans.enter(0 as ast.NodeID)
+	scans.opaque()
+	scans.leave()
+	st.keepThrough(scans, loop: loop, mutable: rootMask(mask), wide: wideSpans())
+end 'forgetRoots'
+
+// rootMask is the flags by slot of the roots of mask, which may be assigned.
+function rootMask(mask Count) returns ByteArray
 	var mutable = ByteArray.create(quantities)
 	for i in 0 upto quantities 'roots'
 		if ((mask shr i) and 1) == 1 'assignable'
 			mutable[i] = 1
 		end 'assignable'
 	end 'roots'
-	for q in 0 upto quantities 'locals'
-		if isLocalQuantity(q) and mutable[quantityPlace(q).root] != 0 'local'
-			st.spans[quantityPlace(q).root] = countSpan()
-		end 'local'
-	end 'locals'
-	st.drop(Gone.assignable(mutable))
-end 'forgetRoots'
+	return mutable
+end 'rootMask'
+
+// wideSpans are the spans of the locals' types by slot, the span of a count for every quantity of the universe.
+function wideSpans() returns SpanList
+	var out = SpanList.create(0)
+	for _ in 0 upto quantities 'each'
+		out.push(countSpan())
+	end 'each'
+	return out
+end 'wideSpans'
 
 // Reach is the values one quantity can have after an operation, lo to hi, or none.
 type Reach
@@ -1345,3 +1358,503 @@ test 'a guard narrows a span to the values that satisfy it, and relates only wha
 		end 'cur'
 	end 'cmps'
 end 'a guard narrows a span to the values that satisfy it, and relates only what it proves'
+
+// BodyOp is a statement of a loop's body: an operation of the universe; a closure made in the body that captures the root
+// at a holder to change it, which its calls change whenever they run; or a call of a closure made before the loop that
+// captured it.
+union BodyOp
+	op(o Op)
+	makes(holder Count)
+	calls(holder Count)
+end 'BodyOp'
+
+typealias BodyOps = Array with BodyOp
+
+// LoopItem is a part of a loop's body: a statement run on every iteration; one run on some iterations only, which then
+// continue at once, the rest of the body left out; or a loop nested in the body, which runs its statement 0 to nestedRuns
+// times.
+union LoopItem
+	always(op BodyOp)
+	skipping(op BodyOp)
+	nested(op BodyOp)
+end 'LoopItem'
+
+typealias LoopItems = Array with LoopItem
+
+typealias LoopBodies = Array with LoopItems
+
+// A loop runs its body loopIterations times at most, and the start of each iteration is checked. Values past loopTop are not
+// followed, as values past the limits are not in checkAll: the rules are linear, so a fact broken further out is broken
+// sooner by the same body. A valuation within loopTop is a number, its quantities a, count(c), count(g.0) and n as digits
+// of base loopBase; g.0 is held at 0, as no fact here names it.
+let loopIterations = 3 as Count
+
+let loopTop = 5 as Count
+
+let loopBase = 6 as Count
+
+let nestedRuns = 2 as Count
+
+// assignableRoots are a, c, g and n, every root of the universe: each is a var.
+let assignableRoots = 15 as Count
+
+function encoded(v Ints) returns Count
+	return try v[0] + loopBase * (v[1] + loopBase * (v[2] + loopBase * v[second])) otherwise panic("rules: a valuation past the loop's universe")
+end 'encoded'
+
+function decoded(code Count) returns Ints
+	var v = Ints.create(quantities)
+	var rest = code
+	v[0] = rest mod loopBase
+	rest = rest / loopBase
+	v[1] = rest mod loopBase
+	rest = rest / loopBase
+	v[2] = rest mod loopBase
+	v[second] = rest / loopBase
+	return v
+end 'decoded'
+
+// Explorer builds sets of valuations by their codes, telling by a mark of each code which are in the set being built.
+type Explorer
+	export var marks as Ints
+	export var generation as Count
+
+	static function new() returns Explorer
+		var size = 1 as Count
+		for _ in 0 upto 4 'digits'
+			size = try size * loopBase otherwise panic("rules: a universe past the word")
+		end 'digits'
+		return Explorer{marks: Ints.create(size), generation: 0 as Count}
+	end 'new'
+
+	function begin(mutates self)
+		generation = try generation + 1 otherwise panic("rules: too many sets")
+	end 'begin'
+
+	function add(mutates self, code Count, mutates set Ints)
+		if marks[code] != generation 'fresh'
+			marks[code] = generation
+			set.push(code)
+		end 'fresh'
+	end 'add'
+end 'Explorer'
+
+// bodyReach is what a statement can make of the valuation v, quantity by quantity: an operation what concrete says, and a
+// closure's call anything under the root it captured.
+function bodyReach(b BodyOp, v Ints) returns Reaches
+	return match b 'b'
+		op(o) gives concrete(o, v: v)
+		makes(h) gives capturedReach(h, v: v)
+		calls(h) gives capturedReach(h, v: v)
+	end 'b'
+end 'bodyReach'
+
+function capturedReach(h Count, v Ints) returns Reaches
+	var out = Reaches.create(0)
+	for q in 0 upto quantities 'same'
+		out.push(held(v[q]))
+	end 'same'
+	writeOf(out, holder: holderPaths()[h])
+	return out
+end 'capturedReach'
+
+// applyStatement adds to out every valuation within loopTop that the statement b can make of a valuation of set.
+function applyStatement(mutates ex Explorer, b BodyOp, set Ints, mutates out Ints)
+	var lo = Ints.create(quantities)
+	var hi = Ints.create(quantities)
+	for i in 0 upto set.count() 'each'
+		let reaches = bodyReach(b, v: decoded(set[i]))
+		var runs = true
+		for q in 0 upto quantities 'bounds'
+			if q == atCollection 'held'
+				continue 'bounds'
+			end 'held'
+			if reaches[q].none or reaches[q].lo > loopTop 'cannot'
+				runs = false
+				break 'bounds'
+			end 'cannot'
+			lo[q] = reaches[q].lo
+			hi[q] = minCount(reaches[q].hi, b: loopTop)
+		end 'bounds'
+		if runs 'runs'
+			var v = lo.clone()
+			var more = true
+			while more 'values'
+				ex.add(encoded(v), set: out)
+				more = nextValuation(v, lo: lo, hi: hi)
+			end 'values'
+		end 'runs'
+	end 'each'
+end 'applyStatement'
+
+function appliedTo(mutates ex Explorer, b BodyOp, set Ints) returns Ints
+	var out = Ints.create(0)
+	ex.begin()
+	applyStatement(ex, b: b, set: set, out: out)
+	return out
+end 'appliedTo'
+
+// united is the valuations of a and of b.
+function united(mutates ex Explorer, a Ints, b Ints) returns Ints
+	var out = Ints.create(0)
+	ex.begin()
+	for i in 0 upto a.count() 'a'
+		ex.add(a[i], set: out)
+	end 'a'
+	for i in 0 upto b.count() 'b'
+		ex.add(b[i], set: out)
+	end 'b'
+	return out
+end 'united'
+
+// ranBody is the valuations at the start of the next iteration from those of set at the start of this one: what reaches the
+// end of the body, and what a skipping statement sends to the next iteration at once.
+function ranBody(mutates ex Explorer, items LoopItems, set Ints) returns Ints
+	var flow = set.clone()
+	var skipped = Ints.create(0)
+	for i in 0 upto items.count() 'items'
+		match items[i] 'item'
+			always(b) then flow = appliedTo(ex, b: b, set: flow)
+			skipping(b) then skipped = ranSkipping(ex, skipped: skipped, b: b, flow: flow)
+			nested(b) then flow = ranNested(ex, b: b, set: flow)
+		end 'item'
+	end 'items'
+	return united(ex, a: flow, b: skipped)
+end 'ranBody'
+
+// ranSkipping adds to skipped what a statement run on some iterations only sends to the next one.
+function ranSkipping(mutates ex Explorer, skipped Ints, b BodyOp, flow Ints) returns Ints
+	let ran = appliedTo(ex, b: b, set: flow)
+	return united(ex, a: skipped, b: ran)
+end 'ranSkipping'
+
+function ranNested(mutates ex Explorer, b BodyOp, set Ints) returns Ints
+	var out = set.clone()
+	var runs = set.clone()
+	for _ in 0 upto nestedRuns 'runs'
+		runs = appliedTo(ex, b: b, set: runs)
+		out = united(ex, a: out, b: runs)
+	end 'runs'
+	return out
+end 'ranNested'
+
+// noteBodyOp notes a statement's effects as the scan of a loop's body does (loops.maxon): an operation's count effect on
+// its holder, a write's holder and an assignment's local changed, a closure made changing the root it captures, and a call
+// of a closure made before the loop opaque.
+function noteBodyOp(mutates scans LoopScans, b BodyOp)
+	match b 'b'
+		op(o) then noteOp(scans, o: o)
+		makes(h) then scans.change(holderPlace(h), effect: ast.CountEffect.countChange)
+		calls(h) then scans.opaque()
+	end 'b'
+end 'noteBodyOp'
+
+function noteOp(mutates scans LoopScans, o Op)
+	match o 'o'
+		effect(h, e) then scans.change(holderPlace(h), effect: e)
+		write(h) then scans.change(holderPlace(h), effect: ast.CountEffect.countChange)
+		assign(t, k) then scans.change(quantityPlace(t), effect: ast.CountEffect.countChange)
+		assignAny(t) then scans.change(quantityPlace(t), effect: ast.CountEffect.countChange)
+		bind(t, source, k) then scans.change(quantityPlace(t), effect: ast.CountEffect.countChange)
+		compare(x, cmp, y) then panic("rules: a guard is no statement of a body")
+		constant(x, cmp, k) then panic("rules: a guard is no statement of a body")
+		shifted(x, dx, cmp, y, dy, wraps) then panic("rules: a guard is no statement of a body")
+		empty(q, truth) then panic("rules: a guard is no statement of a body")
+		forget(mask) then panic("rules: a loop top is no statement of a body")
+	end 'o'
+end 'noteOp'
+
+// scannedBody is the scan of a loop whose body is items, as the walk's scan makes it, and the loop is its first.
+function scannedBody(items LoopItems) returns LoopScans
+	var scans = LoopScans.new()
+	_ = scans.enter(0 as ast.NodeID)
+	for i in 0 upto items.count() 'items'
+		match items[i] 'item'
+			always(b) then noteBodyOp(scans, b: b)
+			skipping(b) then noteBodyOp(scans, b: b)
+			nested(b) then noteNested(scans, b: b)
+		end 'item'
+	end 'items'
+	scans.leave()
+	return scans
+end 'scannedBody'
+
+function noteNested(mutates scans LoopScans, b BodyOp)
+	_ = scans.enter(1 as ast.NodeID)
+	noteBodyOp(scans, b: b)
+	scans.leave()
+end 'noteNested'
+
+function bodyOpText(b BodyOp) returns String
+	let holders = holderPaths()
+	return match b 'b'
+		op(o) gives opText(o)
+		makes(h) gives "make a closure that changes {holders[h]}"
+		calls(h) gives "call a closure made before the loop that changes {holders[h]}"
+	end 'b'
+end 'bodyOpText'
+
+function itemText(item LoopItem) returns String
+	return match item 'item'
+		always(b) gives bodyOpText(b)
+		skipping(b) gives "if any: {bodyOpText(b)}; continue"
+		nested(b) gives "a loop of: {bodyOpText(b)}"
+	end 'item'
+end 'itemText'
+
+function bodyText(items LoopItems) returns String
+	var text = ""
+	for i in 0 upto items.count() 'items'
+		if i > 0 'more'
+			text = "{text}; "
+		end 'more'
+		text = "{text}{itemText(items[i])}"
+	end 'items'
+	return "[{text}]"
+end 'bodyText'
+
+// loopBodyOps are the statements of loop bodies: every count effect on c and on g.0, a call that changes g, which holds
+// g.0, a write of each holder, assignments of a and n, a = a + 1, n = count(c), closures made that change a, c or g, and
+// calls of closures made before the loop that change c or g.
+function loopBodyOps() returns BodyOps
+	let effects = countEffects()
+	var out = BodyOps.create(0)
+	for i in 0 upto effects.count() 'effects'
+		out.push(BodyOp.op(Op.effect(1 as Count, effect: effects[i])))
+		out.push(BodyOp.op(Op.effect(4 as Count, effect: effects[i])))
+	end 'effects'
+	out.push(BodyOp.op(Op.effect(3 as Count, effect: ast.CountEffect.countChange)))
+	for h in 1 upto holderPaths().count() 'writes'
+		out.push(BodyOp.op(Op.write(h)))
+	end 'writes'
+	out.push(BodyOp.op(Op.assignAny(0 as Count)))
+	out.push(BodyOp.op(Op.assignAny(second)))
+	out.push(BodyOp.op(Op.bind(0 as Count, source: 0 as Count, k: 1)))
+	out.push(BodyOp.op(Op.bind(second, source: 1 as Count, k: 0)))
+	out.push(BodyOp.makes(0 as Count))
+	out.push(BodyOp.makes(1 as Count))
+	out.push(BodyOp.makes(3 as Count))
+	out.push(BodyOp.calls(1 as Count))
+	out.push(BodyOp.calls(3 as Count))
+	return out
+end 'loopBodyOps'
+
+// pairedOps are the statements the bodies of two parts are made of: the moves of count(c), a pop of g.0, a write of g.1,
+// a = a + 1 and a call of a closure that changes c.
+function pairedOps() returns BodyOps
+	var out = BodyOps.create(0)
+	out.push(BodyOp.op(Op.effect(1 as Count, effect: ast.CountEffect.countGrowOne)))
+	out.push(BodyOp.op(Op.effect(1 as Count, effect: ast.CountEffect.countShrinkOne)))
+	out.push(BodyOp.op(Op.effect(1 as Count, effect: ast.CountEffect.countGrow)))
+	out.push(BodyOp.op(Op.effect(1 as Count, effect: ast.CountEffect.countShrink)))
+	out.push(BodyOp.op(Op.effect(1 as Count, effect: ast.CountEffect.countKeep)))
+	out.push(BodyOp.op(Op.effect(4 as Count, effect: ast.CountEffect.countShrinkOne)))
+	out.push(BodyOp.op(Op.write(5 as Count)))
+	out.push(BodyOp.op(Op.bind(0 as Count, source: 0 as Count, k: 1)))
+	out.push(BodyOp.calls(1 as Count))
+	return out
+end 'pairedOps'
+
+function oneItem(consumes item LoopItem) returns LoopItems
+	var out = LoopItems.create(0)
+	out.push(item)
+	return out
+end 'oneItem'
+
+function twoItems(consumes first LoopItem, consumes next LoopItem) returns LoopItems
+	var out = oneItem(first)
+	out.push(next)
+	return out
+end 'twoItems'
+
+// loopBodies are every statement of loopBodyOps as a body of its own, run always, on some iterations, or in a nested loop;
+// and each of pairedOps run so, followed by each of them run always.
+function loopBodies() returns LoopBodies
+	let ops = loopBodyOps()
+	var out = LoopBodies.create(0)
+	for i in 0 upto ops.count() 'single'
+		out.push(oneItem(LoopItem.always(ops[i].clone())))
+		out.push(oneItem(LoopItem.skipping(ops[i].clone())))
+		out.push(oneItem(LoopItem.nested(ops[i].clone())))
+	end 'single'
+	let pairs = pairedOps()
+	for i in 0 upto pairs.count() 'first'
+		for j in 0 upto pairs.count() 'next'
+			out.push(twoItems(LoopItem.always(pairs[i].clone()), next: LoopItem.always(pairs[j].clone())))
+			out.push(twoItems(LoopItem.skipping(pairs[i].clone()), next: LoopItem.always(pairs[j].clone())))
+			out.push(twoItems(LoopItem.nested(pairs[i].clone()), next: LoopItem.always(pairs[j].clone())))
+		end 'next'
+	end 'first'
+	return out
+end 'loopBodies'
+
+// loopStates are the states a loop is entered with: none known, each span of a, count(c), count(g.0) and n, and each
+// relation between two of them. A loop's top keeps or forgets each fact by itself, by the effects of the body alone, so a
+// fact kept from a state of one fact is kept from every state that holds it, which holds of fewer valuations.
+function loopStates() returns RangeStateList
+	let spans = spanChoices()
+	let qs = relationQuantities()
+	let pairs = relationPairs(qs)
+	var out = RangeStateList.create(0)
+	out.push(startState(spans, pick: Ints.create(quantities)))
+	for q in 0 upto qs.count() 'spans'
+		for s in 1 upto spans.count() 'span'
+			var pick = Ints.create(quantities)
+			pick[qs[q]] = s
+			out.push(startState(spans, pick: pick))
+		end 'span'
+	end 'spans'
+	for r in 0 upto pairs.count() 'pair'
+		for g in 0 upto gapChoices 'gap'
+			var st = startState(spans, pick: Ints.create(quantities))
+			relateChoice(st, pair: pairs[r], gap: g)
+			out.push(st)
+		end 'gap'
+	end 'pair'
+	return out
+end 'loopStates'
+
+// loopStarts are the valuations a loop is entered with, each of a, count(c), count(g.0) and n from 0 to universeTop.
+function loopStarts() returns Ints
+	var out = Ints.create(0)
+	var v = Ints.create(quantities)
+	var choice = Ints.create(4)
+	var more = true
+	while more 'each'
+		v[0] = choice[0]
+		v[1] = choice[1]
+		v[2] = choice[2]
+		v[second] = choice[3]
+		out.push(encoded(v))
+		more = stepFrom(choice, from: 0 as Count, top: universeTop)
+	end 'each'
+	return out
+end 'loopStarts'
+
+// Reached are the valuations at the start of each iteration from one valuation where the loop is entered: codes[i] at the
+// start of iteration iterations[i], counted from 0.
+type Reached
+	export var codes as Ints
+	export var iterations as Ints
+
+	static function new() returns Reached
+		return Reached{codes: Ints.create(0), iterations: Ints.create(0)}
+	end 'new'
+end 'Reached'
+
+typealias ReachedList = Array with Reached
+
+function reachedFrom(mutates ex Explorer, items LoopItems, start Count) returns Reached
+	var out = Reached.new()
+	var set = Ints.create(0)
+	set.push(start)
+	for k in 0 upto loopIterations + 1 'iterations'
+		for i in 0 upto set.count() 'codes'
+			out.codes.push(set[i])
+			out.iterations.push(k)
+		end 'codes'
+		if k < loopIterations 'more'
+			set = ranBody(ex, items: items, set: set)
+		end 'more'
+	end 'iterations'
+	return out
+end 'reachedFrom'
+
+// checkLoopTop fails unless every fact the top of a loop with the body items keeps from each state holds at the start of
+// every iteration that a valuation the state describes reaches.
+function checkLoopTop(items LoopItems, states RangeStateList, starts Ints, reached ReachedList)
+	let scans = scannedBody(items)
+	let mutable = rootMask(assignableRoots)
+	let wide = wideSpans()
+	let places = quantityPlaces()
+	for s in 0 upto states.count() 'states'
+		var top = states[s].clone()
+		top.keepThrough(scans, loop: 0 as Count, mutable: mutable, wide: wide)
+		let entered = Bounds.of(states[s], derive: false, places: places)
+		let kept = Bounds.of(top, derive: true, places: places)
+		for i in 0 upto starts.count() 'starts'
+			let from = decoded(starts[i])
+			if entered.broken(from) == "" 'described'
+				for j in 0 upto reached[i].codes.count() 'reached'
+					let v = decoded(reached[i].codes[j])
+					let why = kept.broken(v)
+					if why != "" 'broken'
+						panic("rules: a loop of {bodyText(items)} entered with {stateText(states[s])} keeps {stateText(top)} at its top{why}, but {valuationText(from)} reaches {valuationText(v)} at the start of iteration {reached[i].iterations[j]}")
+					end 'broken'
+				end 'reached'
+			end 'described'
+		end 'starts'
+	end 'states'
+end 'checkLoopTop'
+
+// checkCounter fails unless the facts a for loop with the body items records of its counter hold at the start of every
+// iteration that runs: below its bound, count(c), count(g.0) or n less 1 or 0, where the body only raises it, and above its
+// start, a or count(c) plus 0 or 1, where the body only lowers it. The counter starts at 0 below a bound, and below no bound
+// above a start.
+function checkCounter(items LoopItems, starts Ints, reached ReachedList)
+	let scans = scannedBody(items)
+	let mutable = rootMask(assignableRoots)
+	let bounds = relationQuantities()
+	for b in 1 upto bounds.count() 'bounds'
+		let q = bounds[b]
+		if risesOnly(scans.effectOn(0 as Count, q: quantityPlace(q), mutable: mutable)) 'rises'
+			for by in -1 upto 1 'by'
+				checkBound(items, q: q, by: by, inclusive: false, starts: starts, reached: reached)
+				checkBound(items, q: q, by: by, inclusive: true, starts: starts, reached: reached)
+			end 'by'
+		end 'rises'
+	end 'bounds'
+	for q in 0 upto 2 'starts'
+		if fallsOnly(scans.effectOn(0 as Count, q: quantityPlace(q), mutable: mutable)) 'falls'
+			for by in 0 upto 2 'by'
+				checkStart(items, q: q, by: by, starts: starts, reached: reached)
+			end 'by'
+		end 'falls'
+	end 'starts'
+end 'checkCounter'
+
+function checkBound(items LoopItems, q Count, by FullRangeInt, inclusive bool, starts Ints, reached ReachedList)
+	let gap = small(boundGap(ast.I128.fromInt(by), exact: true, inclusive: inclusive).unwrap())
+	for i in 0 upto starts.count() 'starts'
+		let from = decoded(starts[i])
+		let bound = try signed(from[q]) + by otherwise panic("rules: a bound past the word")
+		for j in 0 upto reached[i].codes.count() 'reached'
+			let counter = signed(reached[i].iterations[j])
+			let runs = counter <= bound if inclusive else counter < bound
+			let v = decoded(reached[i].codes[j])
+			if runs and (try signed(v[q]) - counter otherwise panic("rules: a difference past the word")) < gap 'broken'
+				panic("rules: a for loop of {bodyText(items)} up to {quantityText(quantityPlace(q))} + {by} (reached: {inclusive}) records the bound at least {gap} above the counter, but {valuationText(from)} reaches {valuationText(v)} with the counter at {counter}")
+			end 'broken'
+		end 'reached'
+	end 'starts'
+end 'checkBound'
+
+function checkStart(items LoopItems, q Count, by FullRangeInt, starts Ints, reached ReachedList)
+	let gap = small(startGap(ast.I128.fromInt(by), exact: true).unwrap())
+	for i in 0 upto starts.count() 'starts'
+		let from = decoded(starts[i])
+		let start = try signed(from[q]) + by otherwise panic("rules: a start past the word")
+		for j in 0 upto reached[i].codes.count() 'reached'
+			let counter = try start + signed(reached[i].iterations[j]) otherwise panic("rules: a counter past the word")
+			let v = decoded(reached[i].codes[j])
+			if (try counter - signed(v[q]) otherwise panic("rules: a difference past the word")) < gap 'broken'
+				panic("rules: a for loop of {bodyText(items)} from {quantityText(quantityPlace(q))} + {by} records the counter at least {gap} above it, but {valuationText(from)} reaches {valuationText(v)} with the counter at {counter}")
+			end 'broken'
+		end 'reached'
+	end 'starts'
+end 'checkStart'
+
+test 'the top of a loop keeps only what no iteration of its body can falsify'
+	let bodies = loopBodies()
+	let states = loopStates()
+	let starts = loopStarts()
+	var ex = Explorer.new()
+	for b in 0 upto bodies.count() 'bodies'
+		var reached = ReachedList.create(0)
+		for i in 0 upto starts.count() 'starts'
+			reached.push(reachedFrom(ex, items: bodies[b], start: starts[i]))
+		end 'starts'
+		checkLoopTop(bodies[b], states: states, starts: starts, reached: reached)
+		checkCounter(bodies[b], starts: starts, reached: reached)
+	end 'bodies'
+end 'the top of a loop keeps only what no iteration of its body can falsify'

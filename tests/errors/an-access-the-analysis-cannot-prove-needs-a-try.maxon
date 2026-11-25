@@ -9,7 +9,7 @@ function sumOfVar() returns Count
 	var xs = Counts.filled(3, value: 1)
 	var total = 0 as Count
 	for i in 0 upto xs.count() 'each'
-		xs.push(1)
+		try xs.pop() otherwise panic("empty")
 		let v = xs.get(i)
 		total = try total + v otherwise panic("total overflowed")
 	end 'each'

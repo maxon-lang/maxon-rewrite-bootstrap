@@ -95,6 +95,7 @@ versions (the baseline) is the noise floor: a ratio inside it says nothing. Chec
 | 2026-11-25 | 15f5a2ab+ | P5 checkpoint, stage so far (A = 4c494e68, before P1) | 11 | 1481 | 1374 | 0.928 | 0.883-0.956 | 17.3% | 11402 | 3829 |
 | 2026-11-25 | 213afb4d+ | P6: chains, bindings, offsets, tightened operands (A = 213afb4d) | 11 | 1369 | 1356 | 0.991 | 0.962-1.023 | 16.5% | 11418 | 3841 |
 | 2026-11-25 | a47129a6+ | S4 array reads lose the empty-slot test (A = a47129a6) | 21 | 1341 | 1316 | 0.982 | 0.945-1.013 | 18.1% | 11578 | 60 |
+| 2026-11-25 | 11745dbd+ | P7 loop effect scan, facts kept at loop tops (A = 11745dbd) | 21 | 1315 | 1323 | 1.006 | 0.960-1.034 | 17.4% | 11622 | 62 |
 
 At the P5 checkpoint the counts in the compiler's own IR were 11386 bounds and 3816 empty-slot at 4c494e68, 11400 and 3829
 at the tip before P5, and 11402 and 3829 after it. The stage is under its limit (+2%) by a wide margin because the slot-array

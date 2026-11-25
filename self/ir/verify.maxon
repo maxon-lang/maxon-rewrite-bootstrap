@@ -132,7 +132,7 @@ type Verifier
 	function expectFloats(mutates self, f IrFunction, k Count, args FloatMask, result bool, shift Count, of String)
 		let mask = callFloats(f, x: f.instrs[k])
 		for i in shift upto callArgCount(f.instrs[k]) 'args'
-			if isFloatAt(mask, place: i) != isFloatAt(args, place: try i - shift otherwise panic("ir: an argument below the shift")) 'differs'
+			if isFloatAt(mask, place: i) != isFloatAt(args, place: table.difference(i, b: shift)) 'differs'
 				self.problem("instruction {k} passes the floats {floatsText(mask)}, which {of} does not take")
 				return
 			end 'differs'

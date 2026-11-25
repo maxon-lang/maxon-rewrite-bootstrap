@@ -131,11 +131,9 @@ type Relation
 	end 'make'
 end 'Relation'
 
-// Gone says which places a state forgets: those that overlap a place that changed, or those whose root may be assigned,
-// which the flags by slot say.
+// Gone says which places a state forgets: those that overlap a place that changed, or all but some of them.
 union Gone
 	overlapping(place Place)
-	assignable(mutable ByteArray)
 	// besides are the places that overlap a collection but its count, which a count effect adjusts instead.
 	besides(collection Place)
 	// apart are the places that overlap a place but the place itself, whose facts a move by a known amount keeps.
@@ -144,7 +142,6 @@ union Gone
 	function isGone(p Place) returns bool
 		return match self 'rule'
 			overlapping(q) gives q.overlaps(p)
-			assignable(mutable) gives mutable[p.root] != 0
 			besides(q) gives q.overlaps(p) and not p.isCountOf(q)
 			apart(q) gives q.overlaps(p) and not q.same(p)
 		end 'rule'
@@ -390,6 +387,60 @@ type RangeState
 		relations.truncate(stay)
 	end 'widenCount'
 
+	// keepThrough makes the state at the top of a loop from the state where the loop is entered: what an effect of the body
+	// can falsify goes, and what none can stays. The effects are those of every statement of the body, whatever path runs
+	// it, so a fact that none falsifies holds at the start of every iteration, whether the one before ended at the end of
+	// the body or at a continue: one pass decides the top, and no iteration is needed, since what it keeps the body keeps.
+	// A local the body writes has its type's span again, by wide; a count that only grows keeps its lowest and a relation it
+	// lies above, and one that only shrinks keeps its highest and a relation it lies below.
+	function keepThrough(mutates self, scans LoopScans, loop Count, mutable ByteArray, wide SpanList)
+		if dead 'dead'
+			return
+		end 'dead'
+		var opaque = false
+		for i in scans.loops[loop].first upto scans.loops[loop].past 'locals'
+			if scans.effects[i].opaque 'opaque'
+				opaque = true
+			end 'opaque' else if scans.effects[i].at.isLocal() 'written'
+				let slot = scans.effects[i].at.root
+				spans[slot] = wide[slot].clone()
+			end 'written'
+		end 'locals'
+		if opaque 'assignable'
+			for slot in 0 upto spans.count() 'slots'
+				if mutable[slot] != 0 'forgotten'
+					spans[slot] = wide[slot].clone()
+				end 'forgotten'
+			end 'slots'
+		end 'assignable'
+		var keptFields = 0 as Count
+		for i in 0 upto fields.count() 'fields'
+			let moves = scans.effectOn(loop, q: fields[i].at, mutable: mutable)
+			if moves != ast.CountEffect.countChange 'stays'
+				if moves == ast.CountEffect.countGrow 'grows'
+					fields[i].span = Span.make(fields[i].span.lo.clone(), hi: ast.I128.fromCount(maxElementCount))
+				end 'grows' else if moves == ast.CountEffect.countShrink 'shrinks'
+					fields[i].span = Span.make(ast.I128.zero(), hi: fields[i].span.hi.clone())
+				end 'shrinks'
+				if keptFields != i 'moved'
+					fields[keptFields] = fields[i].clone()
+				end 'moved'
+				keptFields = keptFields + 1
+			end 'stays'
+		end 'fields'
+		fields.truncate(keptFields)
+		var keptRelations = 0 as Count
+		for i in 0 upto relations.count() 'relations'
+			if risesOnly(scans.effectOn(loop, q: relations[i].hi, mutable: mutable)) and fallsOnly(scans.effectOn(loop, q: relations[i].lo, mutable: mutable)) 'stays'
+				if keptRelations != i 'moved'
+					relations[keptRelations] = relations[i].clone()
+				end 'moved'
+				keptRelations = keptRelations + 1
+			end 'stays'
+		end 'relations'
+		relations.truncate(keptRelations)
+	end 'keepThrough'
+
 	// shiftCount is a count that moves by exactly delta: every fact on it moves with it.
 	function shiftCount(mutates self, holder Place, by ast.I128)
 		self.drop(Gone.besides(holder.clone()))
@@ -415,6 +466,162 @@ type RangeState
 		end 'relations'
 	end 'shiftCount'
 end 'RangeState'
+
+// PlaceEffect is what the body of a loop may do to a place: the count effect of a call on the collection at the place,
+// which changes whatever else lies inside it, a write being countChange; or, where opaque, anything to whatever may be
+// assigned, for code whose effects the scan cannot name.
+type PlaceEffect
+	export var at as Place
+	export var effect as ast.CountEffect
+	export var opaque as bool
+
+	static function make(consumes at Place, effect ast.CountEffect, opaque bool) returns PlaceEffect
+		return PlaceEffect{at: at, effect: effect, opaque: opaque}
+	end 'make'
+end 'PlaceEffect'
+
+typealias PlaceEffectList = Array with PlaceEffect
+
+// LoopScan is a loop whose body the scan has summed up: its effects are those from first until past, the effects of the
+// loops nested in it among them.
+type LoopScan
+	export var node as ast.NodeID
+	export var first as Count
+	export var past as Count
+
+	static function make(node ast.NodeID, first Count) returns LoopScan
+		return LoopScan{node: node, first: first, past: first}
+	end 'make'
+end 'LoopScan'
+
+typealias LoopScanList = Array with LoopScan
+
+typealias LoopIndexes = Array with Count
+
+// LoopScans are the effects of the bodies of the loops of a function, scanned once each. A loop nested in another is
+// scanned while the other is, its effects among the other's, so a nest is scanned once and not once per level.
+type LoopScans
+	export var effects as PlaceEffectList
+	export var loops as LoopScanList
+	// open are the loops being scanned, innermost last.
+	export var open as LoopIndexes
+
+	static function new() returns LoopScans
+		return LoopScans{effects: PlaceEffectList.create(0), loops: LoopScanList.create(0), open: LoopIndexes.create(0)}
+	end 'new'
+
+	// find is the loop of the node s, if it was scanned.
+	function find(s ast.NodeID) returns table.Option with Count
+		for i in 0 upto loops.count() 'each'
+			if loops[i].node == s 'found'
+				return table.Option.some(i)
+			end 'found'
+		end 'each'
+		return table.Option.none
+	end 'find'
+
+	// enter begins the scan of the loop of the node s, inside the loops being scanned, and gives the loop.
+	function enter(mutates self, s ast.NodeID) returns Count
+		let loop = loops.count()
+		loops.push(LoopScan.make(s, first: effects.count()))
+		open.push(loop)
+		return loop
+	end 'enter'
+
+	// leave ends the scan of the innermost loop being scanned: what follows is the loops' around it alone.
+	function leave(mutates self)
+		let loop = try open.pop() otherwise panic("ranges: a loop scan ended that was never begun")
+		loops[loop].past = effects.count()
+	end 'leave'
+
+	// change notes that the body may have the count effect effect on the collection at place, and change the rest of it.
+	function change(mutates self, place Place, effect ast.CountEffect)
+		effects.push(PlaceEffect.make(place.clone(), effect: effect, opaque: false))
+	end 'change'
+
+	// opaque notes code that may change whatever may be assigned, in ways the scan cannot name.
+	function opaque(mutates self)
+		effects.push(PlaceEffect.make(Place.local(0 as Count), effect: ast.CountEffect.countChange, opaque: true))
+	end 'opaque'
+
+	// truncate forgets the loops scanned since there were loops of them and effects of them, as the walk of a function ends.
+	function truncate(mutates self, loopCount Count, effectCount Count)
+		loops.truncate(loopCount)
+		effects.truncate(effectCount)
+	end 'truncate'
+
+	// effectOn is how the body of loop may move the place q, by every effect of the body: not at all (countKeep), only up
+	// (countGrow), only down (countShrink), or any way (countChange). A count moves as the effects on its collection say;
+	// anything else that the place of an effect overlaps may become anything, and so may whatever may be assigned where the
+	// body is opaque.
+	function effectOn(loop Count, q Place, mutable ByteArray) returns ast.CountEffect
+		var out = ast.CountEffect.countKeep
+		for i in loops[loop].first upto loops[loop].past 'effects'
+			var one = ast.CountEffect.countKeep
+			if effects[i].opaque 'opaque'
+				if mutable[q.root] != 0 'assignable'
+					one = ast.CountEffect.countChange
+				end 'assignable'
+			end 'opaque' else if q.isCountOf(effects[i].at) 'count'
+				one = loopDirection(effects[i].effect)
+			end 'count' else if effects[i].at.overlaps(q) 'overlaps'
+				one = ast.CountEffect.countChange
+			end 'overlaps'
+			out = mergedDirection(out, b: one)
+			if out == ast.CountEffect.countChange 'any'
+				return out
+			end 'any'
+		end 'effects'
+		return out
+	end 'effectOn'
+end 'LoopScans'
+
+// loopDirection is the way a count effect moves a count over any number of iterations: an exact step repeated is a move
+// by an amount not known.
+function loopDirection(e ast.CountEffect) returns ast.CountEffect
+	return match e 'e'
+		countKeep gives ast.CountEffect.countKeep
+		countGrow or
+		countGrowOne gives ast.CountEffect.countGrow
+		countShrink or
+		countShrinkOne gives ast.CountEffect.countShrink
+		countChange gives ast.CountEffect.countChange
+	end 'e'
+end 'loopDirection'
+
+// mergedDirection is the way a place moves that moves the way a says and the way b says, in any order and number.
+function mergedDirection(a ast.CountEffect, b ast.CountEffect) returns ast.CountEffect
+	if a == ast.CountEffect.countKeep 'onlyB'
+		return b
+	end 'onlyB'
+	if b == ast.CountEffect.countKeep or a == b 'onlyA'
+		return a
+	end 'onlyA'
+	return ast.CountEffect.countChange
+end 'mergedDirection'
+
+// risesOnly is whether a place that moves the way e says is never below where it was: the upper side of a relation stays.
+function risesOnly(e ast.CountEffect) returns bool
+	return e == ast.CountEffect.countKeep or e == ast.CountEffect.countGrow
+end 'risesOnly'
+
+// fallsOnly is whether a place that moves the way e says is never above where it was: the lower side of a relation stays.
+function fallsOnly(e ast.CountEffect) returns bool
+	return e == ast.CountEffect.countKeep or e == ast.CountEffect.countShrink
+end 'fallsOnly'
+
+// boundGap is how far a for loop's bound place lies above its counter on every iteration, for a bound written as the place
+// plus by, where the body only raises the place or leaves it (risesOnly): 'bound > counter', or 'bound >= counter' for a
+// loop that reaches its bound, held by the value the loop evaluated once, which the place never falls under.
+function boundGap(by ast.I128, exact bool, inclusive bool) returns table.Option with ast.I128
+	return comparedGap(">=" if inclusive else ">", dx: by, dy: ast.I128.zero(), exact: exact)
+end 'boundGap'
+
+// startGap is how far a for loop's counter lies above its start place on every iteration, for a start written as the place
+// plus by, where the body only lowers the place or leaves it (fallsOnly): the counter only rises from where it started.
+function startGap(by ast.I128, exact bool) returns table.Option with ast.I128
+	return comparedGap(">=", dx: ast.I128.zero(), dy: by, exact: exact)
+end 'startGap'
 
 // narrowedSpan is what 'x op y' leaves of x's span cur, where y has the span other.
 function narrowedSpan(cur Span, op String, other Span) returns Span

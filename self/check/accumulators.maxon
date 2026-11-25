@@ -347,11 +347,11 @@ function rangeCandidates(r Ranges, p ast.Project, ms ast.ModuleState, body diag.
 	return found
 end 'rangeCandidates'
 
-// rangeLoopHead makes the state at the top of a for loop: what may be assigned is forgotten, except the accumulators of
-// the body that the loop bounds.
+// rangeLoopHead makes the state at the top of a for loop: what the body may falsify is forgotten, except the bounds of the
+// accumulators of the body that the loop bounds.
 function rangeLoopHead(mutates r Ranges, p ast.Project, ms ast.ModuleState, s ast.NodeID, from Span, upper Span, trips ast.I128)
 	let cands = rangeCandidates(r, p: p, ms: ms, body: ast.forStmtBodyRef(ms.tree(), id: s))
-	rangeForget(r, p: p, ms: ms)
+	rangeLoopTop(r, p: p, ms: ms, s: s)
 	if cands.count() == 0 'none'
 		return
 	end 'none'

@@ -1,0 +1,454 @@
+// The top of a loop: what is known where the loop is entered stays at its top unless the body can falsify it
+// (RangeState.keepThrough), so one walk of the body serves every iteration. What the body can do is found by a scan of its
+// statements and expressions before the walk, which notes every way the walk itself sees a place change: an assignment to
+// the place or to what holds it, an argument taken mutates or sets, a receiver a call takes to change (with the count
+// effect of a built-in row, a change of everything in it for any other function), a closure made in the body that
+// captures a local to change it, and a walk of a drain. What the scan cannot name, a call of a function value, an await and
+// a behaviour, is opaque: whatever may be assigned is forgotten. A local declared in the body is never known where the loop
+// is entered, so its declaration notes nothing. A break, a continue, a return and a throw only end an iteration early,
+// having done what the statements before them did, which the scan has noted already.
+
+// rangeLoopTop makes the state at the top of the loop s from the state where the loop is entered: what the body may falsify
+// is forgotten, and the accumulators of the loops around keep their bounds.
+function rangeLoopTop(mutates r Ranges, p ast.Project, ms ast.ModuleState, s ast.NodeID)
+	if r.fn == ast.noFunc or isDead(r, s: r.st) 'nothing'
+		return
+	end 'nothing'
+	let loop = rangeLoopOf(r, p: p, ms: ms, s: s)
+	rangeOwn(r)
+	let st = r.st
+	r.states.list[st].keepThrough(r.scans, loop: loop, mutable: r.mutable, wide: r.wide)
+	for i in 0 upto r.bounds.count() 'bounds'
+		let slot = r.bounds[i].local
+		let bounded = r.states.list[st].spans[slot].clamp(r.bounds[i].span)
+		r.states.list[st].spans[slot] = bounded
+	end 'bounds'
+end 'rangeLoopTop'
+
+// rangeLoopOf is the loop s among the scans, its body scanned the first time it is asked for: a loop inside one already
+// scanned was scanned with it.
+function rangeLoopOf(mutates r Ranges, p ast.Project, ms ast.ModuleState, s ast.NodeID) returns Count
+	match consumes r.scans.find(s) 'found'
+		some(loop) then return loop
+		none then _ = 0
+	end 'found'
+	var scans = exchange(r.scans, value: LoopScans.new())
+	let loop = effectsOfLoop(r, p: p, ms: ms, s: s, scans: scans)
+	r.scans = scans
+	return loop
+end 'rangeLoopOf'
+
+// rangeLoopMoves is how the body of the loop s may move a place, which a for loop asks of the places its bounds name.
+function rangeLoopMoves(mutates r Ranges, p ast.Project, ms ast.ModuleState, s ast.NodeID, q Place) returns ast.CountEffect
+	let loop = rangeLoopOf(r, p: p, ms: ms, s: s)
+	return r.scans.effectOn(loop, q: q, mutable: r.mutable)
+end 'rangeLoopMoves'
+
+// effectsOfLoop scans what each iteration of the loop s runs, and gives the loop: a while loop's condition and its body, a
+// for loop's body. A for loop's bounds and the collection it walks are evaluated once, before the loop, so their effects are
+// those of the code around it.
+function effectsOfLoop(r Ranges, p ast.Project, ms ast.ModuleState, s ast.NodeID, mutates scans LoopScans) returns Count
+	let loop = scans.enter(s)
+	let k = ms.tree().kindOf(s)
+	if k == ast.NodeKind.whileStmt 'while'
+		effectsOfExpr(r, p: p, ms: ms, e: ast.whileStmtCond(ms.tree(), id: s), scans: scans)
+		effectsOfBlock(r, p: p, ms: ms, body: ast.whileStmtBodyRef(ms.tree(), id: s), scans: scans)
+	end 'while' else if k == ast.NodeKind.forStmt 'for'
+		effectsOfBlock(r, p: p, ms: ms, body: ast.forStmtBodyRef(ms.tree(), id: s), scans: scans)
+	end 'for' else 'other'
+		panic("ranges: the node {s} of kind {k.name} is no loop")
+	end 'other'
+	scans.leave()
+	return loop
+end 'effectsOfLoop'
+
+function effectsOfBlock(r Ranges, p ast.Project, ms ast.ModuleState, body diag.U32, mutates scans LoopScans)
+	for i in 0 upto ms.tree().listLen(body) 'each'
+		effectsOfStmt(r, p: p, ms: ms, s: ms.tree().listAt(body, index: i) as ast.NodeID, scans: scans)
+	end 'each'
+end 'effectsOfBlock'
+
+function effectsOfStmt(r Ranges, p ast.Project, ms ast.ModuleState, s ast.NodeID, mutates scans LoopScans)
+	let k = ms.tree().kindOf(s)
+	match k 'kind'
+		letStmt then effectsOfOptional(r, p: p, ms: ms, e: ast.letStmtInit(ms.tree(), id: s), scans: scans)
+		destructStmt or
+		tupleAssignStmt then effectsOfSteps(r, p: p, ms: ms, s: s, scans: scans)
+		assignStmt then effectsOfAssign(r, p: p, ms: ms, s: s, scans: scans)
+		discardStmt then effectsOfExpr(r, p: p, ms: ms, e: ast.discardStmtValue(ms.tree(), id: s), scans: scans)
+		exprStmt then effectsOfExpr(r, p: p, ms: ms, e: ast.exprStmtE(ms.tree(), id: s), scans: scans)
+		ifStmt then effectsOfIf(r, p: p, ms: ms, s: s, scans: scans)
+		ifTryStmt then effectsOfIfTry(r, p: p, ms: ms, s: s, scans: scans)
+		whileStmt then _ = effectsOfLoop(r, p: p, ms: ms, s: s, scans: scans)
+		forStmt then effectsOfFor(r, p: p, ms: ms, s: s, scans: scans)
+		tryStmt then effectsOfTryStmt(r, p: p, ms: ms, s: s, scans: scans)
+		throwStmt then effectsOfExpr(r, p: p, ms: ms, e: ast.throwStmtValue(ms.tree(), id: s), scans: scans)
+		returnStmt then effectsOfOptional(r, p: p, ms: ms, e: ast.returnStmtValue(ms.tree(), id: s), scans: scans)
+		breakStmt or
+		continueStmt then _ = 0
+		matchStmt then effectsOfMatch(r, p: p, ms: ms, core: ast.matchStmtMatch(ms.tree(), id: s), scans: scans)
+		whenStmt then scans.opaque()
+		none or
+		funcDecl or
+		param or
+		constDecl or
+		typeDecl or
+		fieldDecl or
+		extensionDecl or
+		enumDecl or
+		enumCaseDecl or
+		unionDecl or
+		unionCaseDecl or
+		aliasDecl or
+		funcType or
+		funcTypeParam or
+		bound or
+		typeRef or
+		typeCount or
+		typeParam or
+		constraint or
+		interfaceDecl or
+		funcSig or
+		endLabel or
+		bindName or
+		assignTarget or
+		handlerBlock or
+		matchCore or
+		matchArm or
+		pattern or
+		memberExpr or
+		indexExpr or
+		callExpr or
+		fromExpr or
+		unaryExpr or
+		asyncExpr or
+		awaitExpr or
+		castExpr or
+		binaryExpr or
+		rangeExpr or
+		condExpr or
+		tryExpr or
+		intLit or
+		floatLit or
+		strLit or
+		byteStrLit or
+		boolLit or
+		charLit or
+		nameExpr or
+		selfExpr or
+		tupleExpr or
+		structLitExpr or
+		structField or
+		collectionLitExpr or
+		arg or
+		spawnExpr or
+		panicExpr or
+		matchExpr or
+		typeQueryExpr or
+		closureExpr or
+		closureParam then panic("ranges: the node {s} of kind {k.name} is no statement")
+	end 'kind'
+end 'effectsOfStmt'
+
+function effectsOfOptional(r Ranges, p ast.Project, ms ast.ModuleState, e ast.NodeID, mutates scans LoopScans)
+	if e != 0 'given'
+		effectsOfExpr(r, p: p, ms: ms, e: e, scans: scans)
+	end 'given'
+end 'effectsOfOptional'
+
+function effectsOfSteps(r Ranges, p ast.Project, ms ast.ModuleState, s ast.NodeID, mutates scans LoopScans)
+	let steps = ast.expansionOf(r.typing, node: s)
+	for i in 0 upto steps.count() 'steps'
+		effectsOfStmt(r, p: p, ms: ms, s: steps[i], scans: scans)
+	end 'steps'
+end 'effectsOfSteps'
+
+// effectsOfAssign notes the place an assignment writes. A target the analysis does not follow, an element or a field too
+// deep, holds nothing it follows: an element is not a place, and a write to it changes no count.
+function effectsOfAssign(r Ranges, p ast.Project, ms ast.ModuleState, s ast.NodeID, mutates scans LoopScans)
+	let target = ast.assignStmtTarget(ms.tree(), id: s)
+	effectsOfExpr(r, p: p, ms: ms, e: target, scans: scans)
+	effectsOfExpr(r, p: p, ms: ms, e: ast.assignStmtValue(ms.tree(), id: s), scans: scans)
+	effectsAt(r, p: p, ms: ms, e: target, effect: ast.CountEffect.countChange, scans: scans)
+end 'effectsOfAssign'
+
+function effectsOfIf(r Ranges, p ast.Project, ms ast.ModuleState, s ast.NodeID, mutates scans LoopScans)
+	effectsOfExpr(r, p: p, ms: ms, e: ast.ifStmtCond(ms.tree(), id: s), scans: scans)
+	effectsOfBlock(r, p: p, ms: ms, body: ast.ifStmtThenRef(ms.tree(), id: s), scans: scans)
+	if ast.ifStmtHasElse(ms.tree(), id: s) 'else'
+		effectsOfBlock(r, p: p, ms: ms, body: ast.ifStmtElseRef(ms.tree(), id: s), scans: scans)
+	end 'else'
+end 'effectsOfIf'
+
+function effectsOfIfTry(r Ranges, p ast.Project, ms ast.ModuleState, s ast.NodeID, mutates scans LoopScans)
+	effectsOfExpr(r, p: p, ms: ms, e: ast.ifTryStmtCall(ms.tree(), id: s), scans: scans)
+	effectsOfBlock(r, p: p, ms: ms, body: ast.ifTryStmtThenRef(ms.tree(), id: s), scans: scans)
+	if ast.ifTryStmtHasElse(ms.tree(), id: s) 'else'
+		effectsOfBlock(r, p: p, ms: ms, body: ast.ifTryStmtElseRef(ms.tree(), id: s), scans: scans)
+	end 'else'
+end 'effectsOfIfTry'
+
+// effectsOfFor notes a for loop inside the body: its bounds, or the collection it walks, run once per iteration of the loop
+// around it, and a walk of a drain shrinks the array it drains; its own body is scanned as a loop of its own, inside.
+function effectsOfFor(r Ranges, p ast.Project, ms ast.ModuleState, s ast.NodeID, mutates scans LoopScans)
+	let from = ast.forStmtFrom(ms.tree(), id: s)
+	effectsOfExpr(r, p: p, ms: ms, e: from, scans: scans)
+	effectsOfOptional(r, p: p, ms: ms, e: ast.forStmtTo(ms.tree(), id: s), scans: scans)
+	if walksDrain(r, s: s) 'drained'
+		effectsAt(r, p: p, ms: ms, e: from, effect: ast.CountEffect.countShrink, scans: scans)
+	end 'drained'
+	_ = effectsOfLoop(r, p: p, ms: ms, s: s, scans: scans)
+end 'effectsOfFor'
+
+function effectsOfTryStmt(r Ranges, p ast.Project, ms ast.ModuleState, s ast.NodeID, mutates scans LoopScans)
+	effectsOfBlock(r, p: p, ms: ms, body: ast.tryStmtBodyRef(ms.tree(), id: s), scans: scans)
+	if ast.tryStmtHasOtherwise(ms.tree(), id: s) 'handler'
+		effectsOfBlock(r, p: p, ms: ms, body: ast.tryStmtHandlerRef(ms.tree(), id: s), scans: scans)
+	end 'handler'
+end 'effectsOfTryStmt'
+
+function effectsOfMatch(r Ranges, p ast.Project, ms ast.ModuleState, core ast.NodeID, mutates scans LoopScans)
+	effectsOfExpr(r, p: p, ms: ms, e: ast.matchCoreSubject(ms.tree(), id: core), scans: scans)
+	let armsRef = ast.matchCoreArmsRef(ms.tree(), id: core)
+	for i in 0 upto ms.tree().listLen(armsRef) 'arms'
+		let arm = ms.tree().listAt(armsRef, index: i) as ast.NodeID
+		if ast.matchArmForm(ms.tree(), id: arm) == ast.ArmKind.armThen 'then'
+			effectsOfStmt(r, p: p, ms: ms, s: ast.matchArmAction(ms.tree(), id: arm), scans: scans)
+		end 'then' else 'value'
+			effectsOfOptional(r, p: p, ms: ms, e: ast.matchArmValue(ms.tree(), id: arm), scans: scans)
+		end 'value'
+	end 'arms'
+end 'effectsOfMatch'
+
+function effectsOfExpr(r Ranges, p ast.Project, ms ast.ModuleState, e ast.NodeID, mutates scans LoopScans)
+	let k = ms.tree().kindOf(e)
+	match k 'kind'
+		memberExpr then effectsOfMember(r, p: p, ms: ms, e: e, scans: scans)
+		indexExpr then effectsOfIndex(r, p: p, ms: ms, e: e, scans: scans)
+		callExpr then effectsOfCall(r, p: p, ms: ms, e: e, scans: scans)
+		fromExpr then effectsOfExpr(r, p: p, ms: ms, e: ast.fromExprValue(ms.tree(), id: e), scans: scans)
+		unaryExpr then effectsOfExpr(r, p: p, ms: ms, e: ast.unaryExprE(ms.tree(), id: e), scans: scans)
+		asyncExpr then effectsOfCall(r, p: p, ms: ms, e: ast.asyncExprCall(ms.tree(), id: e), scans: scans)
+		awaitExpr then effectsOfAwait(r, p: p, ms: ms, e: e, scans: scans)
+		castExpr then effectsOfExpr(r, p: p, ms: ms, e: ast.castExprE(ms.tree(), id: e), scans: scans)
+		binaryExpr then effectsOfChain(r, p: p, ms: ms, e: e, scans: scans)
+		rangeExpr then effectsOfRange(r, p: p, ms: ms, e: e, scans: scans)
+		condExpr then effectsOfCond(r, p: p, ms: ms, e: e, scans: scans)
+		tryExpr then effectsOfTry(r, p: p, ms: ms, e: e, scans: scans)
+		intLit or
+		floatLit or
+		byteStrLit or
+		boolLit or
+		charLit or
+		nameExpr or
+		selfExpr or
+		typeQueryExpr then _ = 0
+		strLit then effectsOfStr(r, p: p, ms: ms, e: e, scans: scans)
+		tupleExpr or
+		structLitExpr then effectsOfStruct(r, p: p, ms: ms, e: e, scans: scans)
+		collectionLitExpr then effectsOfCollection(r, p: p, ms: ms, e: e, scans: scans)
+		spawnExpr then effectsOfSpawn(r, p: p, ms: ms, e: e, scans: scans)
+		panicExpr then effectsOfExpr(r, p: p, ms: ms, e: ast.panicExprMessage(ms.tree(), id: e), scans: scans)
+		matchExpr then effectsOfMatch(r, p: p, ms: ms, core: ast.matchExprMatch(ms.tree(), id: e), scans: scans)
+		closureExpr then effectsOfClosure(r, e: e, scans: scans)
+		none or
+		funcDecl or
+		param or
+		constDecl or
+		typeDecl or
+		fieldDecl or
+		extensionDecl or
+		enumDecl or
+		enumCaseDecl or
+		unionDecl or
+		unionCaseDecl or
+		aliasDecl or
+		funcType or
+		funcTypeParam or
+		bound or
+		typeRef or
+		typeCount or
+		typeParam or
+		constraint or
+		interfaceDecl or
+		funcSig or
+		endLabel or
+		letStmt or
+		destructStmt or
+		bindName or
+		tupleAssignStmt or
+		assignTarget or
+		discardStmt or
+		assignStmt or
+		exprStmt or
+		ifStmt or
+		ifTryStmt or
+		whileStmt or
+		forStmt or
+		tryStmt or
+		handlerBlock or
+		throwStmt or
+		returnStmt or
+		breakStmt or
+		continueStmt or
+		matchStmt or
+		whenStmt or
+		matchCore or
+		matchArm or
+		pattern or
+		structField or
+		arg or
+		closureParam then panic("ranges: the node {e} of kind {k.name} is no expression")
+	end 'kind'
+end 'effectsOfExpr'
+
+// effectsAt notes that the body may have the count effect effect on what e names, if it names a place the analysis follows.
+function effectsAt(r Ranges, p ast.Project, ms ast.ModuleState, e ast.NodeID, effect ast.CountEffect, mutates scans LoopScans)
+	match consumes rangePlaceOf(r, p: p, ms: ms, e: e) 'place'
+		some(place) then scans.change(place, effect: effect)
+		none then _ = 0
+	end 'place'
+end 'effectsAt'
+
+function effectsOfMember(r Ranges, p ast.Project, ms ast.ModuleState, e ast.NodeID, mutates scans LoopScans)
+	if r.typing.names.has(e as Count) or ast.memberOfType(memberInfoOf(r, e: e).kind) 'name'
+		return
+	end 'name'
+	effectsOfExpr(r, p: p, ms: ms, e: ast.memberExprObj(ms.tree(), id: e), scans: scans)
+end 'effectsOfMember'
+
+function effectsOfIndex(r Ranges, p ast.Project, ms ast.ModuleState, e ast.NodeID, mutates scans LoopScans)
+	effectsOfExpr(r, p: p, ms: ms, e: ast.indexExprObj(ms.tree(), id: e), scans: scans)
+	let argsRef = ast.indexExprArgsRef(ms.tree(), id: e)
+	for i in 0 upto ms.tree().listLen(argsRef) 'args'
+		effectsOfExpr(r, p: p, ms: ms, e: ms.tree().listAt(argsRef, index: i) as ast.NodeID, scans: scans)
+	end 'args'
+end 'effectsOfIndex'
+
+// effectsOfCall notes what a call may change, as the walk's rangeCallExpr decides it: each argument taken to change, and a
+// receiver taken to change by the count effect of its row. A call of a function value runs code the scan cannot see, which
+// may change what a closure captured where it was made, before the loop or in it.
+function effectsOfCall(r Ranges, p ast.Project, ms ast.ModuleState, e ast.NodeID, mutates scans LoopScans)
+	let call = r.typing.calls.expect(e as Count, what: "call")
+	let receiver = ast.callReceiver(ms.tree(), e: e, kind: call.kind)
+	if receiver != 0 'receiver'
+		effectsOfExpr(r, p: p, ms: ms, e: receiver, scans: scans)
+	end 'receiver'
+	if call.kind == ast.CallKind.callValue 'value'
+		effectsOfExpr(r, p: p, ms: ms, e: ast.callExprCallee(ms.tree(), id: e), scans: scans)
+		scans.opaque()
+	end 'value'
+	for i in 0 upto call.ordered.count() 'args'
+		let a = call.ordered[i]
+		if a != 0 'given'
+			effectsOfExpr(r, p: p, ms: ms, e: a, scans: scans)
+		end 'given'
+		if argumentChanges(call, i: i) 'changes'
+			effectsAt(r, p: p, ms: ms, e: a, effect: ast.CountEffect.countChange, scans: scans)
+		end 'changes'
+	end 'args'
+	if receiverChanges(call, receiver: receiver) 'receiverChanges'
+		effectsAt(r, p: p, ms: ms, e: receiver, effect: receiverEffect(p, ms: ms, info: call, receiverType: typeOf(r, e: receiver)), scans: scans)
+	end 'receiverChanges'
+end 'effectsOfCall'
+
+// effectsOfAwait is opaque: what the call of the promise changes, the analysis learns only where it is awaited.
+function effectsOfAwait(r Ranges, p ast.Project, ms ast.ModuleState, e ast.NodeID, mutates scans LoopScans)
+	effectsOfExpr(r, p: p, ms: ms, e: ast.awaitExprE(ms.tree(), id: e), scans: scans)
+	scans.opaque()
+end 'effectsOfAwait'
+
+// effectsOfChain walks an operator and the operators nested in its left operand without taking stack for each.
+function effectsOfChain(r Ranges, p ast.Project, ms ast.ModuleState, e ast.NodeID, mutates scans LoopScans)
+	var node = e
+	while ms.tree().kindOf(node) == ast.NodeKind.binaryExpr 'chain'
+		effectsOfExpr(r, p: p, ms: ms, e: ast.binaryExprR(ms.tree(), id: node), scans: scans)
+		node = ast.binaryExprL(ms.tree(), id: node)
+	end 'chain'
+	effectsOfExpr(r, p: p, ms: ms, e: node, scans: scans)
+end 'effectsOfChain'
+
+function effectsOfRange(r Ranges, p ast.Project, ms ast.ModuleState, e ast.NodeID, mutates scans LoopScans)
+	effectsOfExpr(r, p: p, ms: ms, e: ast.rangeExprLow(ms.tree(), id: e), scans: scans)
+	effectsOfExpr(r, p: p, ms: ms, e: ast.rangeExprHigh(ms.tree(), id: e), scans: scans)
+end 'effectsOfRange'
+
+function effectsOfCond(r Ranges, p ast.Project, ms ast.ModuleState, e ast.NodeID, mutates scans LoopScans)
+	effectsOfExpr(r, p: p, ms: ms, e: ast.condExprCond(ms.tree(), id: e), scans: scans)
+	effectsOfExpr(r, p: p, ms: ms, e: ast.condExprThen(ms.tree(), id: e), scans: scans)
+	effectsOfExpr(r, p: p, ms: ms, e: ast.condExprElse(ms.tree(), id: e), scans: scans)
+end 'effectsOfCond'
+
+// effectsOfTry notes what a try covers and what its handler runs, whichever form the handler has.
+function effectsOfTry(r Ranges, p ast.Project, ms ast.ModuleState, e ast.NodeID, mutates scans LoopScans)
+	effectsOfExpr(r, p: p, ms: ms, e: ast.tryExprE(ms.tree(), id: e), scans: scans)
+	effectsOfOptional(r, p: p, ms: ms, e: ast.tryFallback(ms.tree(), e: e), scans: scans)
+	let handler = ast.tryExprHandler(ms.tree(), id: e)
+	if handler != 0 'handler'
+		effectsOfBlock(r, p: p, ms: ms, body: ast.handlerBlockBodyRef(ms.tree(), id: handler), scans: scans)
+	end 'handler'
+	let ret = ast.tryExprRet(ms.tree(), id: e)
+	if ret != 0 'return'
+		effectsOfStmt(r, p: p, ms: ms, s: ret, scans: scans)
+	end 'return'
+	let thr = ast.tryExprThr(ms.tree(), id: e)
+	if thr != 0 'throw'
+		effectsOfStmt(r, p: p, ms: ms, s: thr, scans: scans)
+	end 'throw'
+end 'effectsOfTry'
+
+function effectsOfStr(r Ranges, p ast.Project, ms ast.ModuleState, e ast.NodeID, mutates scans LoopScans)
+	let partsRef = ast.strLitPartsRef(ms.tree(), id: e)
+	for i in 0 upto ms.tree().strPartCount(partsRef) 'parts'
+		if ms.tree().strPartIsExpr(partsRef, index: i) 'interpolated'
+			effectsOfExpr(r, p: p, ms: ms, e: ms.tree().strPartExpr(partsRef, index: i), scans: scans)
+		end 'interpolated'
+	end 'parts'
+end 'effectsOfStr'
+
+function effectsOfStruct(r Ranges, p ast.Project, ms ast.ModuleState, e ast.NodeID, mutates scans LoopScans)
+	effectsOfEach(r, p: p, ms: ms, values: r.typing.structLits.expect(e as Count, what: "record literal").ordered, scans: scans)
+end 'effectsOfStruct'
+
+// effectsOfEach notes the effects of each value given, a value of 0 being one left out.
+function effectsOfEach(r Ranges, p ast.Project, ms ast.ModuleState, values ast.NodeIDList, mutates scans LoopScans)
+	for i in 0 upto values.count() 'values'
+		effectsOfOptional(r, p: p, ms: ms, e: values[i], scans: scans)
+	end 'values'
+end 'effectsOfEach'
+
+function effectsOfCollection(r Ranges, p ast.Project, ms ast.ModuleState, e ast.NodeID, mutates scans LoopScans)
+	let elemsRef = ast.collectionLitExprElemsRef(ms.tree(), id: e)
+	let valuesRef = ast.collectionLitExprValuesRef(ms.tree(), id: e)
+	for i in 0 upto ms.tree().listLen(elemsRef) 'each'
+		effectsOfExpr(r, p: p, ms: ms, e: ms.tree().listAt(elemsRef, index: i) as ast.NodeID, scans: scans)
+	end 'each'
+	for i in 0 upto ms.tree().listLen(valuesRef) 'values'
+		effectsOfExpr(r, p: p, ms: ms, e: ms.tree().listAt(valuesRef, index: i) as ast.NodeID, scans: scans)
+	end 'values'
+end 'effectsOfCollection'
+
+function effectsOfSpawn(r Ranges, p ast.Project, ms ast.ModuleState, e ast.NodeID, mutates scans LoopScans)
+	let capacity = ast.spawnExprCapacity(ms.tree(), id: e)
+	if capacity != 0 'capacity'
+		effectsOfExpr(r, p: p, ms: ms, e: ast.argValue(ms.tree(), id: capacity), scans: scans)
+	end 'capacity'
+	effectsOfExpr(r, p: p, ms: ms, e: ast.spawnExprCall(ms.tree(), id: e), scans: scans)
+end 'effectsOfSpawn'
+
+// effectsOfClosure notes each local a closure made in the body captures to change, which its calls change wherever they
+// run. Its body runs when it is called and changes nothing else the analysis follows.
+function effectsOfClosure(r Ranges, e ast.NodeID, mutates scans LoopScans)
+	if not r.typing.closures.has(e as Count) 'unchecked'
+		return
+	end 'unchecked'
+	effectsOfCaptures(r, captures: r.typing.closures.expect(e as Count, what: "closure").captures, scans: scans)
+end 'effectsOfClosure'
+
+function effectsOfCaptures(r Ranges, captures ast.CaptureList, mutates scans LoopScans)
+	for i in 0 upto captures.count() 'captures'
+		if capturesToChange(captures[i]) 'changes'
+			scans.change(Place.local(slotOf(r, local: captures[i].outerLocal)), effect: ast.CountEffect.countChange)
+		end 'changes'
+	end 'captures'
+end 'effectsOfCaptures'

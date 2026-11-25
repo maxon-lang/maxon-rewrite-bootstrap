@@ -126,7 +126,7 @@ function big(n Integer) returns Integer
 		a = try a + r otherwise panic("out of range")
 		i0 = i0 + 1
 	end 'L0'
-	total = try total + a otherwise panic("out of range")
+	total = total + a
 	var b = 1 as Integer
 	var i1 = 0 as Integer
 	while i1 < n 'L1'
@@ -345,7 +345,7 @@ function main() returns ExitCode
 		t = i + 1
 		i = try i + t otherwise panic("out of range")
 	end 'l'
-	return try t as ExitCode otherwise panic("out of range")
+	return t
 end 'main'
 ```
 ```exitcode
@@ -396,7 +396,7 @@ function main() returns ExitCode
 			end 'even'
 			j = j + 1
 		end 'inner'
-		i = try i + 1 otherwise panic("out of range")
+		i = i + 1
 	end 'outer'
 	return try result as ExitCode otherwise panic("out of range")
 end 'main'
@@ -455,7 +455,7 @@ function main() returns ExitCode
 			return 98
 		end 'paddingLeakedIn'
 		guard = try guard + 1 otherwise panic("out of range")
-		pass = try pass + 1 otherwise panic("out of range")
+		pass = pass + 1
 		if guard > 10 'runaway'
 			return 99
 		end 'runaway'

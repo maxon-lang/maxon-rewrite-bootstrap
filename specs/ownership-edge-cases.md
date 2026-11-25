@@ -2675,7 +2675,7 @@ function main() returns ExitCode
 			end 'check'
 			j = j + 1
 		end 'inner'
-		i = try i + 1 otherwise panic("out of range")
+		i = i + 1
 	end 'outer'
 	return try result as ExitCode otherwise panic("out of range")
 end 'main'
