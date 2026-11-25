@@ -924,7 +924,7 @@ end 'operandAlias'
 // call lends from for its scope (README, "Ownership"). A var so bound is a view that may be given another view of what it
 // holds (check.viewAssignOwn).
 function bindsLent(c Checker, p ast.Project, ms ast.ModuleState, e ast.NodeID, t ast.TypeID) returns bool
-	return ast.isManagedType(ms.types, reads: p.types, t: t) and lendsResult(c, tree: ms.tree(), e: ast.through(ms.tree(), e: e))
+	return ast.isManagedType(ms.types, reads: p.types, t: t) and (lendsResult(c, tree: ms.tree(), e: ast.through(ms.tree(), e: e)) or ast.isLentTry(c.typing, e: e))
 end 'bindsLent'
 
 function bindLet(mutates c Checker, p ast.Project, ms ast.ModuleState, s ast.NodeID, name String, t ast.TypeID, isVar bool, off diag.U32, mutates errs diag.ErrorList)

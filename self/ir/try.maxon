@@ -217,6 +217,9 @@ function visitTryExpr(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleSta
 		goTo(l, target: join)
 		return konst(l, value: 0 as Word)
 	end 'handler'
+	if ast.isLentTry(p.typings[l.mi], e: e) 'lent'
+		return lentTry(l, p: p, ms: ms, e: e)
+	end 'lent'
 	let typ = exprType(p, module: l.module, node: e)
 	let result = l.b.f.newSlot(kindOf(l, p: p, ms: ms, t: typ))
 	let other = l.b.newBlock()
@@ -234,6 +237,49 @@ function visitTryExpr(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleSta
 	goTo(l, target: join)
 	return fetch(l, slot: result)
 end 'visitTryExpr'
+
+// lentTry lowers a try that lends the place its call lends on a success and its fallback on a failure (ast.isLentTry):
+// the result is a borrow on either path, and a fallback made here moves into the local the checker gave it, which the
+// enclosing block owns and ends (dropping what a success left empty does nothing).
+function lentTry(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID) returns Reg
+	let typ = exprType(p, module: l.module, node: e)
+	let result = l.b.f.newSlot(kindOf(l, p: p, ms: ms, t: typ))
+	var holder = noSlot
+	let fallbackNode = ast.tryFallback(p.modules[l.mi].tree, e: e)
+	if p.typings[l.mi].nodeLocals.has(fallbackNode as Count) 'held'
+		let loc = localEntry(p, module: l.fnModule, id: localOfNode(p, module: l.module, node: fallbackNode))
+		holder = indexOf(slotOf(loc))
+		ownLocal(l, p: p, ms: ms, slot: slotOf(loc), t: loc.ty)
+	end 'held'
+	let other = l.b.newBlock()
+	let join = l.b.newBlock()
+	_ = enterTry(l, target: other, binding: noSlot)
+	pushScope(l, block: false)
+	let lent = lowerExpr(l, p: p, ms: ms, e: ast.tryExprE(p.modules[l.mi].tree, id: e))
+	emit(l, i: newStoreSlot(result, src: lent, borrow: true))
+	popScope(l, p: p)
+	leaveTry(l)
+	goTo(l, target: join)
+	l.cur = other
+	pushScope(l, block: false)
+	let inFlight = l.pending.count()
+	let fallback = lowerExpr(l, p: p, ms: ms, e: fallbackNode)
+	if holder != noSlot 'own'
+		emit(l, i: newStoreSlot(slotIndex(holder), src: fallback, borrow: false))
+		popPending(l, n: inFlight)
+		let held = newReg(l, kind: slotKind(l, slot: slotIndex(holder)))
+		emit(l, i: newLoadSlot(held, slot: slotIndex(holder)))
+		emit(l, i: newStoreSlot(result, src: held, borrow: true))
+	end 'own' else 'borrowed'
+		emit(l, i: newStoreSlot(result, src: fallback, borrow: true))
+	end 'borrowed'
+	popScope(l, p: p)
+	goTo(l, target: join)
+	l.cur = join
+	let d = newReg(l, kind: slotKind(l, slot: result))
+	emit(l, i: newLoadSlot(d, slot: result))
+	return d
+end 'lentTry'
 
 // lowerThrough lowers a try whose value is its expression's, which passes a failure on or leaves the statement with a
 // return, a break, a continue or a throw, or with a handler block that leaves.

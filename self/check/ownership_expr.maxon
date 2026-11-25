@@ -225,6 +225,10 @@ function changesProjection(mutates o Ownership, p ast.Project, ms ast.ModuleStat
 	if call == 0 'notProjection'
 		return false
 	end 'notProjection'
+	if readsLentTry(o, ms: ms, e: e) 'fallback'
+		fail(o, p: p, site: site, code: diag.errAssignToImmutable, msg: "a try that gives a value on a failure lends the place, or its fallback, only to be read, so what it gives cannot be {what}; change the place inside a try that leaves on a failure, as a try block does")
+		return true
+	end 'fallback'
 	if ast.isChangingProjectionCall(o.c.typing, call: call) 'changing'
 		return true
 	end 'changing'

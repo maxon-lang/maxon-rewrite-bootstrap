@@ -590,6 +590,18 @@ function tryExprOwn(mutates o Ownership, p ast.Project, mutates ms ast.ModuleSta
 	end 'falls'
 	let mark = o.inFlight.count()
 	let added = enterTry(o, handles: not passes)
+	if isLentTryOwn(o, ms: ms, e: e) 'lent'
+		// The place is lent, and so is the fallback, which a local holds where it is made here (check.holdFallback).
+		let read = eval(o, p: p, ms: ms, e: inner, s: s)
+		let failed = leaveTryEntry(o, added: added)
+		land(o, mark: mark)
+		if o.c.typing.nodeLocals.has(ast.tryFallback(ms.tree(), e: e) as Count) 'held'
+			let made = consume(o, p: p, ms: ms, e: ast.tryFallback(ms.tree(), e: e), dest: OwnDest.of(OwnDestKind.destVariable), s: failed)
+			return join(o, p: p, ms: ms, a: read, b: made)
+		end 'held'
+		let borrowed = eval(o, p: p, ms: ms, e: ast.tryFallback(ms.tree(), e: e), s: failed)
+		return join(o, p: p, ms: ms, a: read, b: borrowed)
+	end 'lent'
 	let after = consume(o, p: p, ms: ms, e: inner, dest: OwnDest.of(OwnDestKind.destResult), s: s)
 	let entry = leaveTryEntry(o, added: added)
 	land(o, mark: mark)

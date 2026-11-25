@@ -1261,11 +1261,52 @@ function checkTry(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, 
 	end 'ignore'
 	let fallback = ast.tryFallback(ms.tree(), e: e)
 	if fallback != 0 'value'
-		return checkFallback(c, p: p, ms: ms, e: e, fallback: fallback, result: result, want: want, errs: errs)
+		let t = checkFallback(c, p: p, ms: ms, e: e, fallback: fallback, result: result, want: want, errs: errs)
+		holdFallback(c, p: p, ms: ms, e: e, fallback: fallback, t: t, errs: errs)
+		return t
 	end 'value'
 	checkTryJump(c, p: p, ms: ms, e: e, errs: errs)
 	return result
 end 'checkTry'
+
+// holdFallback declares the local that holds the fallback of a try over a call that lends a managed place, where the
+// fallback is a value made there (impliesFallbackLocal): the try lends it on a failure as it lends the place on a success,
+// so the value lives in the local, which the enclosing block owns and ends, and nothing is copied on either path. The local
+// is the fallback's node's, since a try's own is the error its handler binds.
+function holdFallback(mutates c Checker, p ast.Project, ms ast.ModuleState, e ast.NodeID, fallback ast.NodeID, t ast.TypeID, mutates errs diag.ErrorList)
+	if t == ast.noType 'failed'
+		return
+	end 'failed'
+	let inner = ast.through(ms.tree(), e: ast.tryExprE(ms.tree(), id: e))
+	if ms.tree().kindOf(inner) != ast.NodeKind.callExpr or not ast.isProjectionCall(c.typing, call: inner) or not ast.isManagedType(ms.types, reads: p.types, t: t) 'value'
+		return
+	end 'value'
+	c.typing.lentTries.insert(e as Count, value: true)
+	if not impliesFallbackLocal(c, ms: ms, fallback: fallback) 'none'
+		return
+	end 'none'
+	pushScope(c)
+	let local = declareLocal(c, p: p, ms: ms, name: "'fallback", t: t, isVar: false, definedAt: e, off: offsetOf(c, p: p, ms: ms, node: fallback), errs: errs)
+	popScope(c)
+	if local != ast.noLocal 'declared'
+		c.typing.nodeLocals.insert(fallback as Count, value: local)
+	end 'declared'
+end 'holdFallback'
+
+// impliesFallbackLocal is whether a fallback is a value made where the try is, which a local must hold for the try to lend
+// it: not a place (a name, a field, an element, the place a call lends), whose own owner it borrows, nor a String literal
+// with no parts, which is static.
+function impliesFallbackLocal(c Checker, ms ast.ModuleState, fallback ast.NodeID) returns bool
+	let n = ast.through(ms.tree(), e: fallback)
+	let k = ms.tree().kindOf(n)
+	if k == ast.NodeKind.nameExpr or k == ast.NodeKind.memberExpr or k == ast.NodeKind.indexExpr or k == ast.NodeKind.panicExpr 'place'
+		return false
+	end 'place'
+	if k == ast.NodeKind.callExpr and ast.isProjectionCall(c.typing, call: n) 'lent'
+		return false
+	end 'lent'
+	return not (k == ast.NodeKind.strLit and ms.tree().strIsPlain(ast.strLitPartsRef(ms.tree(), id: n)))
+end 'impliesFallbackLocal'
 
 // checkTryHandler types the block handler of a try: it runs on a failure, binding the error when it names it. A handler that
 // leaves gives the try its expression's value; one that runs off its end gives none, so the try stands alone as a statement.

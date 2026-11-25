@@ -1,0 +1,69 @@
+// expect-error: E3900 at 55:9
+// expect-error: E3186 at 61:2
+// expect-error: E3186 at 65:2
+// expect-error: E2013 at 67:7
+// expect-error: E3186 at 67:11
+// A try that lends a place or its fallback borrows both for as long as what it is bound to lives: changing the receiver or
+// the fallback's owner meanwhile is E3186. It lends either only to be read (E2013), and moving it out is E3901.
+typealias Integer = int(i64.min to i64.max)
+
+typealias Names = Array with String
+
+type Shelf
+	var first as String
+	var second as String
+	var spare as String
+
+	static function make() returns Shelf
+		return Shelf{first: "ada", second: "bob", spare: "spare"}
+	end 'make'
+
+	function name(which Integer) returns borrowed String throws ArrayError
+		if which == 0 'first'
+			return first
+		end 'first'
+		if which == 1 'second'
+			return second
+		end 'second'
+		throw ArrayError.emptySlot
+	end 'name'
+
+	function rename(mutates self, consumes to String)
+		first = to
+	end 'rename'
+
+	function pick(mutates self, which Integer) returns borrowed String throws ArrayError
+		if which == 0 'first'
+			return first
+		end 'first'
+		throw ArrayError.emptySlot
+	end 'pick'
+
+	function count(which Integer) returns borrowed Integer throws ArrayError
+		if which > 1 'none'
+			throw ArrayError.emptySlot
+		end 'none'
+		return which
+	end 'count'
+end 'Shelf'
+
+function grow(mutates s String)
+	s = "{s}!"
+end 'grow'
+
+function keep(shelf Shelf) returns String
+	return try shelf.name(0) otherwise "none"
+end 'keep'
+
+function main() returns ExitCode
+	var shelf = Shelf.make()
+	let name = try shelf.name(5) otherwise "none"
+	shelf.rename("changed")
+	print("{name}\n")
+	var spare = "spare"
+	let either = try shelf.name(6) otherwise spare
+	spare = "other"
+	print("{either}\n")
+	grow(try shelf.pick(3) otherwise spare)
+	return 0
+end 'main'

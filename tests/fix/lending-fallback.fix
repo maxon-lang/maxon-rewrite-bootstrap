@@ -1,0 +1,52 @@
+// A try that lends a place or its fallback is copied where it would be moved.
+typealias Integer = int(i64.min to i64.max)
+
+typealias Names = Array with String
+
+type Shelf
+	var first as String
+	var second as String
+	var spare as String
+
+	static function make() returns Shelf
+		return Shelf{first: "ada", second: "bob", spare: "spare"}
+	end 'make'
+
+	function name(which Integer) returns borrowed String throws ArrayError
+		if which == 0 'first'
+			return first
+		end 'first'
+		if which == 1 'second'
+			return second
+		end 'second'
+		throw ArrayError.emptySlot
+	end 'name'
+
+	function rename(mutates self, consumes to String)
+		first = to
+	end 'rename'
+
+	function pick(mutates self, which Integer) returns borrowed String throws ArrayError
+		if which == 0 'first'
+			return first
+		end 'first'
+		throw ArrayError.emptySlot
+	end 'pick'
+
+	function count(which Integer) returns borrowed Integer throws ArrayError
+		if which > 1 'none'
+			throw ArrayError.emptySlot
+		end 'none'
+		return which
+	end 'count'
+end 'Shelf'
+
+function keep(shelf Shelf) returns String
+	return try shelf.name(0) otherwise "none"
+end 'keep'
+
+function main() returns ExitCode
+	let shelf = Shelf.make()
+	print("{keep(shelf)}\n")
+	return 0
+end 'main'

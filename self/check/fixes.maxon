@@ -115,6 +115,10 @@ end 'castFix'
 
 // cloneFix copies the value of the place e instead of moving it.
 export function cloneFix(t ast.Tree, e ast.NodeID) returns diag.Fix
+	if t.kindOf(e) == ast.NodeKind.tryExpr and ast.tryFallback(t, e: e) != 0 'fallback'
+		// A '.clone()' after the fallback would copy only the fallback.
+		return wrapFix(t, kind: fixKindClone, e: e, before: "(", after: ").clone()")
+	end 'fallback'
 	let found = ast.exprEnd(t, e: e)
 	if not found.isSome() 'unknown'
 		return diag.Fix.none()

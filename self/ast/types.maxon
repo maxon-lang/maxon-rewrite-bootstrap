@@ -2626,11 +2626,26 @@ export function isStorage(tree Tree, typing Typing, node NodeID) returns bool
 	if k == NodeKind.callExpr 'call'
 		return isProjectionCall(typing, call: e)
 	end 'call'
+	if k == NodeKind.tryExpr 'try'
+		return isLentTry(typing, e: e)
+	end 'try'
 	return false
 end 'isStorage'
 
+// isLentTry is whether e is a try over a call that lends a managed place, which gives a value on a failure: the try lends
+// the place on a success and the fallback on a failure, and copies neither (README, "Ownership"). The checker finds them as
+// it types each try (check.holdFallback).
+export function isLentTry(typing Typing, e NodeID) returns bool
+	return typing.lentTries.has(e as Count)
+end 'isLentTry'
+
 // isProjectionCall is whether a call gives a place that its callee borrows from the arguments, as a subscript gives an
 // element of its collection, rather than a value of its own.
+export function isProjectionCall(typing Typing, call NodeID) returns bool
+	var slot as Count
+	return typing.calls.find(call as Count, slot: slot) and typing.calls.valueAt(slot).result == ResultConv.resultBorrowed
+end 'isProjectionCall'
+
 // lendsToChange is whether a function of a result convention and a receiver convention lends a place that the caller may
 // change: one that returns a borrowed place and takes `mutates self`, as Hylo's inout accessor does. Any other borrowed
 // result is a place to be read.
@@ -2643,11 +2658,6 @@ export function isChangingProjectionCall(typing Typing, call NodeID) returns boo
 	var slot as Count
 	return typing.calls.find(call as Count, slot: slot) and lendsToChange(typing.calls.valueAt(slot).result, selfConv: typing.calls.valueAt(slot).selfConv)
 end 'isChangingProjectionCall'
-
-export function isProjectionCall(typing Typing, call NodeID) returns bool
-	var slot as Count
-	return typing.calls.find(call as Count, slot: slot) and typing.calls.valueAt(slot).result == ResultConv.resultBorrowed
-end 'isProjectionCall'
 
 // isPromiseType is whether a type is a `Promise with ...`: what an async call gives, which an await consumes.
 export function isPromiseType(tt TypeSlot, reads TypeTable, t TypeID) returns bool

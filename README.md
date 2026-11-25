@@ -3240,6 +3240,15 @@ type-parameter type has one owner; every other access is a borrow that cannot ou
   bound to. Each place lent must outlive the statement: one made there, such as `name().trim()`, is `E3927`, fixed the
   same way; a literal and a constant outlive it. A result lent from such a `let` lies in what the `let` holds, so it holds
   that in its place (`check.boundPaths`).
+- **A try over a call that lends a managed place, with a value on a failure, lends one or the other** (`ast.isLentTry`):
+  `let name = try shelf.name(i) otherwise "none"` binds a borrow of the element on a success and of the fallback on a
+  failure, and copies neither. The borrow holds what either may lend from, the call's lenders and the fallback's (a place
+  it names, or the local below), so changing either meanwhile is `E3186` (`check.addLentPaths`). A fallback that is a value
+  made there, such as `"#{i}"` or a call's result, moves into a local of the enclosing block that the checker declares for
+  it (`check.holdFallback`), which is filled only on a failure and dropped where the block ends; a String literal with no
+  parts is static and needs none. Either is lent only to be read: assigning through it or passing it `mutates` is `E2013`,
+  and a change in place goes in a try that leaves on a failure, as a try block does. Moving it out is `E3900`/`E3901`, whose
+  fix copies the whole try, `(try ... otherwise "none").clone()`; a scalar read out is a value, as it is from any place.
 - **A `var` bound to a borrowed result is a view** (`ast.LocalEntry.isView`): it borrows as such a `let` does, owns nothing
   and holds what its binding lends from for its scope, and it may be assigned another borrowed result that lends only
   from within what it holds or from itself, as a parser narrows what is left to read with `rest = rest.sliceBytes(n,

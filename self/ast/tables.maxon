@@ -535,6 +535,9 @@ export type Typing
 	// slotTakes are the reads of a promise out of an element or a field that a consume empties: the slot is left empty, and
 	// its holder keeps its other parts, as maxon's read of a promise out of storage names its slot.
 	export var slotTakes as NodeBoolMap
+	// lentTries are the tries over a call that lends a managed place that give a value on a failure (isLentTry): each lends
+	// the place on a success and its fallback on a failure, and copies neither.
+	export var lentTries as NodeBoolMap
 	// boxes are the expressions whose value goes where an interface value is expected, each with that interface: the value
 	// moves into the box of an interface value there, or the box lends it where the place only borrows.
 	export var boxes as NodeBoxMap
@@ -575,11 +578,12 @@ export type Typing
 		let fdum = NodeUsesMap.new()
 		let con = NodeBoolMap.new()
 		let st = NodeBoolMap.new()
+		let lt = NodeBoolMap.new()
 		let bx = NodeBoxMap.new()
 		let si = NodeTypeMap.new()
 		let rr = NodeBoolMap.new()
 		let wt = FuncWaitingMap.new()
-		return Typing{module: module, types: tm, arith: am, names: nm, members: mm, calls: cm, structLits: sm, patterns: pm, arms: ak, whens: wm, closures: clm, iterations: im, hooks: hk, jumps: jm, locals: ls, nodeLocals: nlm, indexes: ixm, expansions: exm, funcLocals: flm, funcUses: fum, fieldUses: fdum, consumed: con, slotTakes: st, boxes: bx, staticInstances: si, rawReads: rr, waiting: wt, declared: false}
+		return Typing{module: module, types: tm, arith: am, names: nm, members: mm, calls: cm, structLits: sm, patterns: pm, arms: ak, whens: wm, closures: clm, iterations: im, hooks: hk, jumps: jm, locals: ls, nodeLocals: nlm, indexes: ixm, expansions: exm, funcLocals: flm, funcUses: fum, fieldUses: fdum, consumed: con, slotTakes: st, lentTries: lt, boxes: bx, staticInstances: si, rawReads: rr, waiting: wt, declared: false}
 	end 'new'
 
 	export function allocLocal(mutates self, consumes entry LocalEntry) returns LocalID

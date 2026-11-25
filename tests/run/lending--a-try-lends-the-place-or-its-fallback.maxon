@@ -1,0 +1,62 @@
+// A try over a throwing call that lends a String gives a value on a failure without copying: it lends the element on a
+// success and the fallback on a failure, a static literal, another place, or a value made there, which a local of the
+// block holds; a scalar read out is a value, and '.clone()' makes an owned copy.
+typealias Integer = int(i64.min to i64.max)
+
+typealias Names = Array with String
+
+type Shelf
+	var first as String
+	var second as String
+	var spare as String
+
+	static function make() returns Shelf
+		return Shelf{first: "ada", second: "bob", spare: "spare"}
+	end 'make'
+
+	function name(which Integer) returns borrowed String throws ArrayError
+		if which == 0 'first'
+			return first
+		end 'first'
+		if which == 1 'second'
+			return second
+		end 'second'
+		throw ArrayError.emptySlot
+	end 'name'
+
+	function count(which Integer) returns borrowed Integer throws ArrayError
+		if which > 1 'none'
+			throw ArrayError.emptySlot
+		end 'none'
+		return which
+	end 'count'
+end 'Shelf'
+
+function shout(s String) returns String
+	return "{s}!"
+end 'shout'
+
+function main() returns ExitCode
+	let shelf = Shelf.make()
+	let found = try shelf.name(0) otherwise "none"
+	let missing = try shelf.name(5) otherwise "none"
+	let made = try shelf.name(1) otherwise "computed {missing}"
+	let built = try shelf.name(7) otherwise "computed {found}"
+	let other = try shelf.name(9) otherwise shelf.spare
+	let n = try shelf.count(4) otherwise 42
+	print("{found} {missing} {made} {built} {other} {n}\n")
+	for i in 0 upto 3 'loop'
+		let each = try shelf.name(i) otherwise "#{i}"
+		print("{shout(each)} {(try shelf.name(i) otherwise "lit").count()}\n")
+	end 'loop'
+	var copy = (try shelf.name(8) otherwise "kept").clone()
+	copy = "{copy}+"
+	print("{copy}\n")
+	return 0
+end 'main'
+
+//> ada none bob computed ada spare 42
+//> ada! 3
+//> bob! 3
+//> #2! 3
+//> kept+

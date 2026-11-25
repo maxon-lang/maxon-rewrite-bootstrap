@@ -2165,6 +2165,7 @@ export function storeTyping(mutates w table.CacheWriter, v Typing)
 	storeIntMapOfArrayOfNodeID(w, v: v.fieldUses)
 	storeIntMapOfBool(w, v: v.consumed)
 	storeIntMapOfBool(w, v: v.slotTakes)
+	storeIntMapOfBool(w, v: v.lentTries)
 	storeIntMapOfTypeID(w, v: v.boxes)
 	storeIntMapOfTypeID(w, v: v.staticInstances)
 	storeIntMapOfBool(w, v: v.rawReads)
@@ -2197,12 +2198,13 @@ extension Typing
 		let theFieldUses = loadIntMapOfArrayOfNodeID(r)
 		let theConsumed = loadIntMapOfBool(r)
 		let theSlotTakes = loadIntMapOfBool(r)
+		let theLentTries = loadIntMapOfBool(r)
 		let theBoxes = loadIntMapOfTypeID(r)
 		let theStaticInstances = loadIntMapOfTypeID(r)
 		let theRawReads = loadIntMapOfBool(r)
 		let theWaiting = loadIntMapOfWaiting(r)
 		let theDeclared = r.flag()
-		return Typing{module: theModule, types: theTypes, arith: theArith, names: theNames, members: theMembers, calls: theCalls, structLits: theStructLits, patterns: thePatterns, arms: theArms, whens: theWhens, closures: theClosures, iterations: theIterations, hooks: theHooks, jumps: theJumps, locals: theLocals, nodeLocals: theNodeLocals, indexes: theIndexes, expansions: theExpansions, funcLocals: theFuncLocals, funcUses: theFuncUses, fieldUses: theFieldUses, consumed: theConsumed, slotTakes: theSlotTakes, boxes: theBoxes, staticInstances: theStaticInstances, rawReads: theRawReads, waiting: theWaiting, declared: theDeclared}
+		return Typing{module: theModule, types: theTypes, arith: theArith, names: theNames, members: theMembers, calls: theCalls, structLits: theStructLits, patterns: thePatterns, arms: theArms, whens: theWhens, closures: theClosures, iterations: theIterations, hooks: theHooks, jumps: theJumps, locals: theLocals, nodeLocals: theNodeLocals, indexes: theIndexes, expansions: theExpansions, funcLocals: theFuncLocals, funcUses: theFuncUses, fieldUses: theFieldUses, consumed: theConsumed, slotTakes: theSlotTakes, lentTries: theLentTries, boxes: theBoxes, staticInstances: theStaticInstances, rawReads: theRawReads, waiting: theWaiting, declared: theDeclared}
 	end 'cacheLoad'
 end 'Typing'
 

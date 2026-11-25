@@ -268,8 +268,30 @@ function projectionOf(o Ownership, ms ast.ModuleState, e ast.NodeID) returns ast
 	if k == ast.NodeKind.indexExpr 'index'
 		return projectionOf(o, ms: ms, e: ast.indexExprObj(ms.tree(), id: n))
 	end 'index'
+	if isLentTryOwn(o, ms: ms, e: n) 'lentTry'
+		return projectionOf(o, ms: ms, e: ast.tryExprE(ms.tree(), id: n))
+	end 'lentTry'
 	return 0 as ast.NodeID
 end 'projectionOf'
+
+// isLentTryOwn is ast.isLentTry for the ownership pass.
+function isLentTryOwn(o Ownership, ms ast.ModuleState, e ast.NodeID) returns bool
+	return ast.isLentTry(o.c.typing, e: e)
+end 'isLentTryOwn'
+
+// readsLentTry is whether e is, or selects a field or an element of, a try that lends a place or its fallback (isLentTry),
+// which lends either only to be read: on a failure the place is the fallback, which nothing may change through the try.
+function readsLentTry(o Ownership, ms ast.ModuleState, e ast.NodeID) returns bool
+	let n = ast.through(ms.tree(), e: e)
+	let k = ms.tree().kindOf(n)
+	if k == ast.NodeKind.memberExpr 'member'
+		return isPlaceMember(ownMember(o, node: n).kind) and readsLentTry(o, ms: ms, e: ast.memberExprObj(ms.tree(), id: n))
+	end 'member'
+	if k == ast.NodeKind.indexExpr 'index'
+		return readsLentTry(o, ms: ms, e: ast.indexExprObj(ms.tree(), id: n))
+	end 'index'
+	return isLentTryOwn(o, ms: ms, e: n)
+end 'readsLentTry'
 
 // lenders are the arguments that a call of a function returning a borrowed place may lend it from: each one it passes to a
 // let or a mutates parameter, the receiver among them, and for a place lent to be changed the receiver alone. Which one the place is in is the callee's to decide and is not
@@ -317,6 +339,18 @@ function lentPaths(o Ownership, p ast.Project, ms ast.ModuleState, e ast.NodeID)
 end 'lentPaths'
 
 function addLentPaths(o Ownership, p ast.Project, ms ast.ModuleState, e ast.NodeID, mutates paths AccessPaths)
+	let n = ast.through(ms.tree(), e: e)
+	if isLentTryOwn(o, ms: ms, e: n) 'lentTry'
+		// The place on a success, or the fallback on a failure: the borrow holds both.
+		addLentPaths(o, p: p, ms: ms, e: ast.tryExprE(ms.tree(), id: n), paths: paths)
+		let fallback = ast.tryFallback(ms.tree(), e: n)
+		if o.c.typing.nodeLocals.has(fallback as Count) 'held'
+			paths.push(AccessPath.at(o.c.typing.nodeLocals.get(fallback as Count).unwrap()))
+		end 'held' else 'fallback'
+			addLentPaths(o, p: p, ms: ms, e: fallback, paths: paths)
+		end 'fallback'
+		return
+	end 'lentTry'
 	let call = projectionOf(o, ms: ms, e: e)
 	if call == 0 'place'
 		let path = pathOf(o, p: p, ms: ms, e: e)
