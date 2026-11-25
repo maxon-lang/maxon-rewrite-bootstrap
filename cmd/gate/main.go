@@ -25,6 +25,9 @@ import (
 	"runtime"
 	"slices"
 	"strings"
+
+	"minimaxon/internal/heavylock"
+	"minimaxon/internal/hosts"
 )
 
 const usage = `usage:
@@ -74,7 +77,7 @@ func gate() {
 		fail(fmt.Errorf("%s: %s has no committed seed to build the compiler from; it runs the lanes of a compiler that another host built: gate suites <compiler> (README, \"Continuous integration\")", os.Args[1], h.target))
 	}
 	if os.Args[1] != "suites" || !slices.ContainsFunc(args, func(a string) bool { return strings.HasPrefix(a, "--lane=") }) {
-		release, err := holdHeavy()
+		release, err := heavylock.Hold()
 		if err != nil {
 			fail(err)
 		}
@@ -183,38 +186,17 @@ type host struct {
 	lanes []string
 }
 
-// seeds are the committed compilers, one per host target the repository is built on, all built from self/ by the Windows
-// one's renewal (gate seed).
-var seeds = map[string]string{
-	"x64-windows": filepath.Join("seed", "minimaxon.exe"),
-	"x64-linux":   filepath.Join("seed", "minimaxon-x64-linux"),
-	"arm64-macos": filepath.Join("seed", macosSeedName),
-}
-
 // armLinuxLanes are the lanes that arm64 Linux runs natively on a compiler that x64 Linux cross-built (gate suites): the
 // compiler's own suites, and the corpus and the reruns of the programs that schedule behaviours for arm64-linux, which an
 // x64 host can run only under qemu and does not.
 var armLinuxLanes = []string{"checks", "native", "native-behaviours"}
 
-// macosSeedName is the macOS seed's file name. A Mach-O executable is signed under the name it is built as, so every
-// compiler that is compared with it is built under this name too, each in a directory of its own (gate seed).
-const macosSeedName = "minimaxon-arm64-macos"
-
 func currentHost() (host, error) {
-	var name string
-	switch runtime.GOOS + "/" + runtime.GOARCH {
-	case "windows/amd64":
-		name = "x64-windows"
-	case "linux/amd64":
-		name = "x64-linux"
-	case "darwin/arm64":
-		name = "arm64-macos"
-	case "linux/arm64":
-		name = "arm64-linux"
-	default:
-		return host{}, fmt.Errorf("gate: no host is %s/%s; the hosts are x64 Windows, x64 Linux, arm64 macOS and (without a seed) arm64 Linux", runtime.GOOS, runtime.GOARCH)
+	name, err := hosts.Target()
+	if err != nil {
+		return host{}, fmt.Errorf("gate: %w", err)
 	}
-	h := host{target: name, seed: seeds[name]}
+	h := host{target: name, seed: hosts.SeedPath(name)}
 	if name == "arm64-linux" {
 		h.lanes = armLinuxLanes
 	}

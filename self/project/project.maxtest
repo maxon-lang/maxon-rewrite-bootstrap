@@ -21,3 +21,9 @@ test 'project'
 		none then _ = 0
 	end 'cyc'
 end 'project'
+
+test 'a name joined to a root stays under the root'
+	table.assertEqStr(joinPath("/", name: "stdlib"), expected: "/stdlib", label: "joinPath(\"/\")")
+	table.assertEqStr(joinPath("C:\\", name: "stdlib"), expected: "C:\\stdlib", label: "joinPath(\"C:\\\\\")")
+	table.assertEqStr(joinPath("/tmp/", name: "stdlib"), expected: "/tmp{ast.hostSeparator()}stdlib", label: "joinPath(\"/tmp/\")")
+end 'a name joined to a root stays under the root'

@@ -1,13 +1,16 @@
 package main
 
-import "fmt"
+import (
+	"fmt"
+	"syscall"
+)
 
 const belowNormalPriorityClass = 0x4000
 
 // currentProcess is GetCurrentProcess's pseudo handle, which names the calling process and needs no closing.
 const currentProcess = ^uintptr(0)
 
-var setPriorityClass = kernel32.NewProc("SetPriorityClass")
+var setPriorityClass = syscall.NewLazyDLL("kernel32.dll").NewProc("SetPriorityClass")
 
 // lowerPriority puts the gate at below-normal priority, as maxon's spec-test does, so that everything it starts, which inherits the
 // class, leaves the machine usable for a foreground job.

@@ -77,3 +77,16 @@ neither.
 | 2026-11-23 | 9dbfc6e | String views, var views, debug-info locals, E3944 removed, seed renewed | 131958 | 1792 | 1684 | 1652 | 4437738 | 526.4 | 546.6 |
 | 2026-11-23 | fc53e85 | page heap, demand-driven imports, debug port (measured with five agents building) | 132425 | 1774 | 1667 | 1680 | 4463530 | 548.6 | 561.8 |
 | 2026-11-24 | 1130276f | maps without Option, readers lend (1130276f); machine busy | 142299 | 1699 | 1462 | 1473 | 4785962 | 572.5 | 589.8 |
+
+## Self-build A/B and the run-time checks in the compiler
+
+One row per measurement of `go run ./cmd/selfab --note <stage>` (README, "Tools"). A is a base revision and B the working
+tree, each built as C1 by its own seed; the medians are of `<C1> build self --no-cache` run alternately on both, in
+milliseconds. B/A is the ratio of the medians, and its range is over the pairs of runs, so the row of two identical
+versions (the baseline) is the noise floor: a ratio inside it says nothing. Check is the share of the build that the
+`bodies` and `verify` stages of `--timings` take, and bounds and empty-slot count the `bounds` operations and the calls of
+`rt.panicEmptySlot` in the optimized IR (`--emit-ir`) of the compiler that B's C1 makes of `self/`.
+
+| Date | Commit | Stage | Runs | A ms | B ms | B/A | B/A range | Check | Bounds | Empty slot |
+|---|---|---|---:|---:|---:|---:|---|---:|---:|---:|
+| 2026-11-24 | d1f764dd | P0 baseline: A = B, the noise floor | 11 | 1502 | 1495 | 0.995 | 0.943-1.051 | 18.5% | 11362 | 3802 |

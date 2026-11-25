@@ -11,6 +11,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+
+	"minimaxon/internal/hosts"
 )
 
 // renewSeeds renews the three seeds from self/, and refuses unless each reproduces itself. On x64 Windows the Windows seed
@@ -63,7 +65,7 @@ func renewSeeds(h host, staged bool) error {
 		return errors.Join(err, errors.New("seed not renewed: the Linux compiler that Windows built differs from the one it builds of itself on Linux, so a compile depends on its host"))
 	}
 	// Under the seed's own name, which a Mach-O executable is signed under.
-	macSeed := filepath.Join("bin", "seed-arm64-macos", macosSeedName)
+	macSeed := filepath.Join("bin", "seed-arm64-macos", hosts.MacOSSeedName)
 	if err := os.MkdirAll(filepath.Dir(macSeed), 0o755); err != nil {
 		return err
 	}
@@ -76,20 +78,20 @@ func renewSeeds(h host, staged bool) error {
 	if err := copyFile(c2, h.seed); err != nil {
 		return err
 	}
-	if err := copyFile(linuxSeed, seeds["x64-linux"]); err != nil {
+	if err := copyFile(linuxSeed, hosts.SeedPath("x64-linux")); err != nil {
 		return err
 	}
-	if err := copyFile(macSeed, seeds["arm64-macos"]); err != nil {
+	if err := copyFile(macSeed, hosts.SeedPath("arm64-macos")); err != nil {
 		return err
 	}
 	// Windows keeps no executable bit for git to commit, so the Linux and macOS seeds are marked executable in the index,
 	// without which a clone of the commit cannot start them.
 	for _, t := range []string{"x64-linux", "arm64-macos"} {
-		if err := quiet(nil, "git", "update-index", "--chmod=+x", seeds[t]); err != nil {
-			return fmt.Errorf("%w\nseeds copied, but %s is not marked executable in the index: run git update-index --chmod=+x %s", err, seeds[t], seeds[t])
+		if err := quiet(nil, "git", "update-index", "--chmod=+x", hosts.SeedPath(t)); err != nil {
+			return fmt.Errorf("%w\nseeds copied, but %s is not marked executable in the index: run git update-index --chmod=+x %s", err, hosts.SeedPath(t), hosts.SeedPath(t))
 		}
 	}
-	fmt.Printf("seeds renewed: %s from %s, %s from %s, %s from %s\n", h.seed, c2, seeds["x64-linux"], linuxSeed, seeds["arm64-macos"], macSeed)
+	fmt.Printf("seeds renewed: %s from %s, %s from %s, %s from %s\n", h.seed, c2, hosts.SeedPath("x64-linux"), linuxSeed, hosts.SeedPath("arm64-macos"), macSeed)
 	return nil
 }
 

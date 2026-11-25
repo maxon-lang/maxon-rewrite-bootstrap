@@ -8,6 +8,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"minimaxon/internal/hosts"
 )
 
 // macSeedSources are what a compiler reads to build self/, which the Mac is given with the compiler it proves.
@@ -50,7 +52,7 @@ func proveMacSeed(candidate string) error {
 			return fmt.Errorf("seed not renewed: cannot stage %s for the Mac: %w", dir, err)
 		}
 	}
-	if err := copyFile(candidate, filepath.Join(root, macosSeedName)); err != nil {
+	if err := copyFile(candidate, filepath.Join(root, hosts.MacOSSeedName)); err != nil {
 		return err
 	}
 	if err := copyFile(filepath.Join("cmd", "gate", "macseed.sh"), filepath.Join(root, "run.sh")); err != nil {
