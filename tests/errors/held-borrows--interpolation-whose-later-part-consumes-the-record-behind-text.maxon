@@ -104,3 +104,5 @@ function main() returns ExitCode
 	print("{p.name} {take(p)}")
 	return 0
 end 'main'
+
+// expect-error: E3186 at 104:24

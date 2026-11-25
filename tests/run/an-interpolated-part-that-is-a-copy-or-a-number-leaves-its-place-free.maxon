@@ -1,0 +1,44 @@
+// An interpolated part holds the place it reads only when the join reads that place's String: a copy, a number and a
+// quoted String are new text, made when the part runs, so a later part may move or replace the place they came from.
+//> 3x-held-past-its-two-words s
+//> 1 s
+//> "3x-held-past-its-two-words" s
+//> 3x-held-past-its-two-words- s
+//> 3x-held-past-its-two-words s 3x-held-past-its-two-words
+//> 1 r
+//> "3x-held-past-its-two-words" r
+//> 3x-held-past-its-two-words- r
+function swallow(consumes x T, consumes result R) uses T, R returns R where T implements Droppable
+	let kept = x
+	return result
+end 'swallow'
+
+function rebuild(mutates x T, consumes result R) uses T, R returns R where T implements Copyable and Droppable
+	let again = x.clone()
+	x = again
+	return result
+end 'rebuild'
+
+function fresh() returns String
+	return "{3}x-held-past-its-two-words"
+end 'fresh'
+
+function main() returns ExitCode
+	var a = fresh()
+	print("{a.clone()} {swallow(a, result: "s")}\n")
+	var arr = [fresh()]
+	print("{arr.count()} {swallow(arr, result: "s")}\n")
+	var b = fresh()
+	print("{b:q} {swallow(b, result: "s")}\n")
+	var c = fresh()
+	print("{"{c.clone()}-"} {swallow(c, result: "s")}\n")
+	var d = fresh()
+	print("{d.clone()} {rebuild(d, result: "s")} {d}\n")
+	var e = [fresh()]
+	print("{e.count()} {rebuild(e, result: "r")}\n")
+	var g = fresh()
+	print("{g:q} {rebuild(g, result: "r")}\n")
+	var h = fresh()
+	print("{"{h.clone()}-"} {rebuild(h, result: "r")}\n")
+	return 0
+end 'main'

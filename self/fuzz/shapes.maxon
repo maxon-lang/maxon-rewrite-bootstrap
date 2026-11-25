@@ -361,13 +361,20 @@ function actionTable() returns WeightedList
 end 'actionTable'
 
 // GeneratedProgram is the source of a program and whether its output and exit code are the same under every schedule of
-// its behaviours, so that its executable and the interpreter, which schedule differently, can be compared.
+// its behaviours, so that its executable and the interpreter, which schedule differently, can be compared. With it comes the
+// same program with a shape planted at the start of main that the checker must refuse with an ownership error on one of the
+// lines from plantFirst to plantLast, counted from 1.
 export type GeneratedProgram
 	export var source as String
 	export var scheduleIndependent as bool
+	export var planted as String
+	export var plantName as String
+	export var plantFirst as Count
+	export var plantLast as Count
 
-	static function make(consumes source String, scheduleIndependent bool) returns GeneratedProgram
-		return GeneratedProgram{source: source, scheduleIndependent: scheduleIndependent}
+	static function make(consumes source String, scheduleIndependent bool, consumes planted String, shape PlantedShape, plantFirst Count) returns GeneratedProgram
+		let last = try plantFirst + shape.lines.count() - 1 otherwise panic("fuzz: a shape of no lines")
+		return GeneratedProgram{source: source, scheduleIndependent: scheduleIndependent, planted: planted, plantName: shape.name.clone(), plantFirst: plantFirst, plantLast: last}
 	end 'make'
 end 'GeneratedProgram'
 
@@ -375,7 +382,8 @@ end 'GeneratedProgram'
 export function generate(seed Count, library String) returns GeneratedProgram
 	var g = Generator.new(seed)
 	g.start()
-	return GeneratedProgram.make(g.finish(library), scheduleIndependent: g.scheduleIndependent())
+	let shape = plantedShape(seed)
+	return GeneratedProgram.make(g.finish(library), scheduleIndependent: g.scheduleIndependent(), planted: g.finishPlanted(library, plant: shape.lines), shape: shape, plantFirst: g.plantedLine(library))
 end 'generate'
 
 // program is the source of the program generate writes for the seed.

@@ -244,6 +244,8 @@ type Generator
 	var sinning as bool
 	var recent as Count
 	var recentOK as bool
+	// mainAt is the index in out of the line that declares main, after which a planted shape goes.
+	var mainAt as Count
 
 	static function new(seed Count) returns Generator
 		var tys = TyList.create(0)
@@ -251,7 +253,7 @@ type Generator
 		tys.push(Ty.make(Kind.kBool, name: "", args: CountList.create(0), src: "bool"))
 		tys.push(Ty.make(Kind.kString, name: "", args: CountList.create(0), src: "String"))
 		tys.push(Ty.make(Kind.kByte, name: "", args: CountList.create(0), src: "Small"))
-		return Generator{rng: Rand.new(seed), tys: tys, tyIndex: TyIndex.new(), records: RecordList.create(0), unions: UnionList.create(0), fns: FnList.create(0), aliases: CountList.create(0), out: StringList.create(0), indent: 0, labels: 0, names: 0, scopes: Scopes.create(0), vars: VarList.create(0), store: PlaceList.create(0), hasRet: false, ret: 0, loop: 0, budget: 0, guards: StringList.create(0), pendingInit: CountList.create(0), carelessPercent: 0, arraysOnly: false, sharing: false, quiet: false, behaviours: 0, sinsLeft: 0, heldSin: false, inMain: false, tries: 0, sinning: false, recent: 0, recentOK: false}
+		return Generator{rng: Rand.new(seed), tys: tys, tyIndex: TyIndex.new(), records: RecordList.create(0), unions: UnionList.create(0), fns: FnList.create(0), aliases: CountList.create(0), out: StringList.create(0), indent: 0, labels: 0, names: 0, scopes: Scopes.create(0), vars: VarList.create(0), store: PlaceList.create(0), hasRet: false, ret: 0, loop: 0, budget: 0, guards: StringList.create(0), pendingInit: CountList.create(0), carelessPercent: 0, arraysOnly: false, sharing: false, quiet: false, behaviours: 0, sinsLeft: 0, heldSin: false, inMain: false, tries: 0, sinning: false, recent: 0, recentOK: false, mainAt: 0}
 	end 'new'
 
 	// kindOf is the kind of a type.
@@ -3171,6 +3173,7 @@ type Generator
 	function mainFunction(mutates self)
 		scopes = Scopes.create(0)
 		self.push()
+		mainAt = out.count()
 		self.line("{kwFunction} main() {kwReturns} ExitCode")
 		inMain = true
 		hasRet = false
@@ -4582,4 +4585,36 @@ type Generator
 	function finish(library String) returns String
 		return "{trimTrailingNewlines(library)}\n\n{self.aliasDecls()}{joinStrings(out, separator: "\n")}\n"
 	end 'finish'
+
+	// finishPlanted is the program's text with the lines of plant at the start of main's body.
+	function finishPlanted(library String, plant StringList) returns String
+		var lines = StringList.create(0)
+		var at = 0 as Count
+		for text in out 'lines'
+			lines.push(text.clone())
+			if at == mainAt 'main'
+				for planted in plant 'plant'
+					lines.push(planted.clone())
+				end 'plant'
+			end 'main'
+			at = try at + 1 otherwise panic("fuzz: more lines than memory")
+		end 'lines'
+		return "{trimTrailingNewlines(library)}\n\n{self.aliasDecls()}{joinStrings(lines, separator: "\n")}\n"
+	end 'finishPlanted'
+
+	// plantedLine is the number of the first line that finishPlanted plants, counted from 1: the line after main's, whose
+	// text is everything up to it.
+	function plantedLine(library String) returns Count
+		var head = StringList.create(0)
+		var at = 0 as Count
+		for text in out 'lines'
+			if at > mainAt 'past'
+				break 'lines'
+			end 'past'
+			head.push(text.clone())
+			at = try at + 1 otherwise panic("fuzz: more lines than memory")
+		end 'lines'
+		let before = lineBreaks("{trimTrailingNewlines(library)}\n\n{self.aliasDecls()}{joinStrings(head, separator: "\n")}\n")
+		return try before + 1 otherwise panic("fuzz: more lines than memory")
+	end 'plantedLine'
 end 'Generator'

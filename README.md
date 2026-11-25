@@ -2232,7 +2232,12 @@ output and exit code are its own, a violation exits with 4 and a program that ou
   break exactly one rule of sharing, once (a behaviour that takes a borrow, a variable used after a behaviour took it, a frozen
   value changed or taken apart, a cown read outside a behaviour, a borrowed place held across a later operand), so that a rule
   the checker lacked would be all that stands between that program and the interpreter. Every program it accepts must run
-  clean, under several schedules when it schedules a behaviour, and one that does not is a hole. A program is a pure function of
+  clean, under several schedules when it schedules a behaviour, and one that does not is a hole. Each accepted program is
+  also checked again with a shape planted at the start of main (`self/fuzz/planted.maxon`): a read of a place followed,
+  in the same expression or statement, by a call that moves or replaces it while the read still holds it (an interpolated
+  part behind text, after another part, nested, of a field, an element or a `FilePath`, or appended to; a compared
+  operand; an argument; a receiver; a subscripted collection; an exchanged place; a match binding; a loop's collection).
+  The checker must refuse it with an ownership error on the shape's lines, and a planted program it accepts is a hole. A program is a pure function of
   its seed; the generator draws from `self/fuzz/rand.maxon` and the generic library every program starts with is
   `self/fuzz/library.txt`. The command runs its seeds in worker processes, loads each program from memory
   (`project.loadSourceInto`), and with `--native` also builds each accepted program that has an executable, with its
@@ -4064,7 +4069,8 @@ slots are all empty ends; a slot is empty where it is all 0, so over a scalar an
   place, then evaluates the next, then uses the borrow, the place stays borrowed through the next. That is an argument
   while later arguments are evaluated, the target of `x.f = v` and `a[i] = v` while the value is, the left operand of a
   string comparison while the right is, the collection of a subscript while its index is, and each part of an
-  interpolated string while the later ones are (the parts are measured and joined once all are evaluated).
+  interpolated string that is joined from what it reads, until the last part is (the parts are measured and joined once
+  all are evaluated).
   A call in there that changes an overlapping place is refused (`E3186`): `look(a[0], n: drop(a))`, where `drop`
   takes `a` as `mutates`, `a[0].n = drop(a)`, `a[0] == wipe(a)`, `rows[0].cells[shrink(rows)]` (read, assigned,
   passed `mutates` or matched) and `"{p.name}{take(p)}"`. A scalar that is only read is a value by then and holds
@@ -4277,7 +4283,13 @@ bound, by calling it (`Typing.hooks`). An interpolation measures its parts (a St
 known one, an integer's digit count by `rt.decimalLength`), allocates once (`rt.str.joinRoom`) and puts each part in place
 (`rt.str.joinPut`, and `rt.str.joinDigits`, which writes an integer's digits into the buffer with no String of their own),
 its ASCII bit the AND of the parts'; an interpolation that is a part of another with no format of its own gives the outer
-one its parts (`self/ir/joins.maxon`). An assignment whose value is an interpolation that starts with the assigned place
+one its parts (`self/ir/joins.maxon`). A part that is an unquoted String, or a `FilePath`, is joined from the String it
+reads, kept as a handle until the one join after the last part, so the place it reads is held until then; the checker's
+ownership pass holds each such part the same way, nested parts included (`strLitOwn`), and both ask the same question of a
+part, `ast.textPartBorrows` (with `ast.nestedTextParts` for the parts a nested literal gives), so the two cannot disagree on
+which parts are read at the join. A later part that moves or changes the place is refused (`E3186`), whichever part it is:
+`"{s} {take(s)}"` as much as `"{s}{take(s)}"`. A part of a type parameter is held as a String would be, since an instance
+may make it one. An assignment whose value is an interpolation that starts with the assigned place
 itself, `s = "{s}..."` (a local, a field of a place, or an element at a literal or immutable index, through a `mutates`
 parameter too), appends: the assignment consumes the old String, so where its owned bit is set (not a literal, whose bytes
 are the executable's) and its box has room (`boxCapacity`, the size of the heap's slot or large block, read from the box's

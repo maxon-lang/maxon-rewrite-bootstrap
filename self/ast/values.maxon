@@ -69,3 +69,21 @@ export function intLitValue(t Tree, id NodeID) returns I128
 	end 'neg'
 	return magnitude
 end 'intLitValue'
+
+// nestedTextParts is the parts of the part at index of an interpolated literal when that part is itself an interpolated
+// literal written with no format: the outer literal takes its parts in its place, so the inner String is never made and its
+// parts are joined with the outer ones.
+export function nestedTextParts(t Tree, partsRef diag.U32, index Count) returns table.Option with diag.U32
+	if not t.strPartIsExpr(partsRef, index: index) or t.strPartFormat(partsRef, index: index).byteLength() > 0 'other'
+		return table.Option.none
+	end 'other'
+	let inner = through(t, e: t.strPartExpr(partsRef, index: index))
+	if t.kindOf(inner) != NodeKind.strLit 'notLiteral'
+		return table.Option.none
+	end 'notLiteral'
+	let innerRef = strLitPartsRef(t, id: inner)
+	if t.strIsPlain(innerRef) 'plain'
+		return table.Option.none
+	end 'plain'
+	return table.Option.some(innerRef)
+end 'nestedTextParts'

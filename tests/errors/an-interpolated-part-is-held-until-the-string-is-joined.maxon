@@ -1,0 +1,89 @@
+// An interpolated String is joined once, after its last part, from the Strings its parts read, so a part that reads a
+// place holds it until then: a later part may not move it or change it, whichever part it is, behind text, inside a
+// nested literal, or through a field, an element, a lent place or a FilePath. Each shape here is refused for a part
+// that consumes the place and for one that replaces it.
+function swallow(consumes x T, consumes result R) uses T, R returns R where T implements Droppable
+	let kept = x
+	return result
+end 'swallow'
+
+function rebuild(mutates x T, consumes result R) uses T, R returns R where T implements Copyable and Droppable
+	let again = x.clone()
+	x = again
+	return result
+end 'rebuild'
+
+type Rec
+	var s as String
+
+	static function make(consumes s String) returns Rec
+		return Rec{s: s}
+	end 'make'
+
+	function first() returns borrowed String
+		return s
+	end 'first'
+end 'Rec'
+
+function afterText(consumes a String, mutates b String) returns String
+	let x = "{a} {swallow(a, result: "s")}"
+	return "{b} {rebuild(b, result: x)}"
+end 'afterText'
+
+function notFirst(consumes a String, mutates b String) returns String
+	let x = "{b.byteLength()} {a} {swallow(a, result: "s")}"
+	return "{b} {b} {rebuild(b, result: x)}"
+end 'notFirst'
+
+function nested(consumes a String, mutates b String) returns String
+	let x = "{"{a}-"} {swallow(a, result: "s")}"
+	return "{"{b}-"} {rebuild(b, result: x)}"
+end 'nested'
+
+function field(consumes a Rec, mutates b Rec) returns String
+	let x = "{a.s} {swallow(a, result: "s")}"
+	return "{b.s} {rebuild(b, result: x)}"
+end 'field'
+
+function element(consumes a Array with String, mutates b Array with String) returns String
+	let x = "{a[0]} {swallow(a, result: "s")}"
+	return "{b[0]} {rebuild(b, result: x)}"
+end 'element'
+
+function lent(consumes a Rec, mutates b Rec) returns String
+	let x = "{a.first()} {swallow(a, result: "s")}"
+	return "{b.first()} {rebuild(b, result: x)}"
+end 'lent'
+
+function path(consumes a FilePath, mutates b FilePath) returns String
+	let x = "{a} {swallow(a, result: "s")}"
+	return "{b} {rebuild(b, result: x)}"
+end 'path'
+
+function append(consumes a String, mutates b Rec) returns String
+	var c = a
+	c = "{c} {swallow(c, result: "s")}"
+	c = "{b.s} {rebuild(b, result: c)}"
+	return c
+end 'append'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// expect-error: E3186 at 29:24
+// expect-error: E3186 at 30:23
+// expect-error: E3186 at 34:41
+// expect-error: E3186 at 35:27
+// expect-error: E3186 at 39:29
+// expect-error: E3186 at 40:28
+// expect-error: E3186 at 44:26
+// expect-error: E3186 at 45:25
+// expect-error: E3186 at 49:27
+// expect-error: E3186 at 50:26
+// expect-error: E3186 at 54:32
+// expect-error: E3186 at 55:31
+// expect-error: E3186 at 59:24
+// expect-error: E3186 at 60:23
+// expect-error: E3186 at 65:20
+// expect-error: E3186 at 66:22

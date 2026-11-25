@@ -590,7 +590,7 @@ function projectionConflict(mutates o Ownership, p ast.Project, mutates ms ast.M
 	end 'collection'
 	if k == OwnProjectionKind.projectPart 'part'
 		let advice = copyAdvice(o, p: p, ms: ms, t: pr.ty, ifCopyable: "interpolate a copy: '{held}.clone()'", fallback: "compute this first into a variable")
-		fail(o, p: p, site: site, code: diag.errExclusivity, msg: "'{text}' is borrowed by the part '{held}' of an enclosing string, which holds it while the next part is evaluated; {advice}")
+		fail(o, p: p, site: site, code: diag.errExclusivity, msg: "'{text}' is borrowed by the part '{held}' of an enclosing string, which holds it until the string is joined after its last part; {advice}")
 		return
 	end 'part'
 	if k == OwnProjectionKind.projectLoop 'loop'
@@ -729,43 +729,43 @@ function visitExprOwn(mutates o Ownership, p ast.Project, mutates ms ast.ModuleS
 	panic("ownership: the node {e} of kind {k.name} is no expression")
 end 'visitExprOwn'
 
-// strLitOwn holds a first part that is a string while the second is evaluated: lowering joins the parts from the left,
-// and joins the first with the second once both exist. Every later part is joined as soon as it is evaluated, so none of
-// them is held, and a part that is not a string is turned into one as soon as it is evaluated.
+// strLitOwn holds the place each part reads while the rest are evaluated, when lowering joins the literal from the String the
+// part reads: the join comes once, after the last part, so a later part that changed or moved the place would leave the join
+// reading what was freed.
 function strLitOwn(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, consumes s OwnState) returns OwnState
-	let parts = ast.strLitPartsRef(ms.tree(), id: e)
-	let n = ms.tree().strPartCount(parts)
 	let held = o.projections.count()
-	var out = s
-	for i in 0 upto n 'parts'
-		let part = partExpr(ms.tree(), parts: parts, index: i)
-		if part != 0 'expr'
-			out = expr(o, p: p, ms: ms, e: part, s: out)
-		end 'expr'
-		if i == 0 and n > 1 'first'
-			holdText(o, p: p, ms: ms, first: part, second: partExpr(ms.tree(), parts: parts, index: 1))
-		end 'first' else if i == 1 'second'
-			release(o, mark: held)
-		end 'second'
-	end 'parts'
+	let out = textPartsOwn(o, p: p, ms: ms, parts: ast.strLitPartsRef(ms.tree(), id: e), s: s)
+	release(o, mark: held)
 	return out
 end 'strLitOwn'
 
-// partExpr is the expression of a part of a string, or 0 for a part that is text.
-function partExpr(tree ast.Tree, parts diag.U32, index Count) returns ast.NodeID
-	if tree.strPartIsExpr(parts, index: index) 'expr'
-		return tree.strPartExpr(parts, index: index)
-	end 'expr'
-	return 0 as ast.NodeID
-end 'partExpr'
+// textPartsOwn evaluates the parts of a literal in order, as lowering does: a nested literal with no format of its own adds
+// its parts in its place, so they are held until the outer literal's join.
+function textPartsOwn(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState, parts diag.U32, consumes s OwnState) returns OwnState
+	var out = s
+	let n = ms.tree().strPartCount(parts)
+	for i in 0 upto n 'parts'
+		if not ms.tree().strPartIsExpr(parts, index: i) 'text'
+			continue 'parts'
+		end 'text'
+		match consumes ast.nestedTextParts(ms.tree(), partsRef: parts, index: i) 'nested'
+			some(inner) then out = textPartsOwn(o, p: p, ms: ms, parts: inner, s: out)
+			none then out = textPartOwn(o, p: p, ms: ms, parts: parts, index: i, s: out)
+		end 'nested'
+	end 'parts'
+	return out
+end 'textPartsOwn'
 
-// holdText holds the first part of an interpolated string while the second is evaluated, when the first is a string and
-// a second part runs after it.
-function holdText(mutates o Ownership, p ast.Project, ms ast.ModuleState, first ast.NodeID, second ast.NodeID)
-	if first != 0 and second != 0 and not runsNoCode(ms.tree(), e: second) and ast.contentType(ms.types, reads: p.types, t: ownType(o, node: first)) == p.builtins.stringTy 'held'
-		hold(o, p: p, ms: ms, place: first, kind: OwnProjectionKind.projectPart, byAddress: false)
-	end 'held'
-end 'holdText'
+// textPartOwn evaluates the expression of a part and holds what it reads when the join reads it.
+function textPartOwn(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState, parts diag.U32, index Count, consumes s OwnState) returns OwnState
+	let part = ms.tree().strPartExpr(parts, index: index)
+	let out = expr(o, p: p, ms: ms, e: part, s: s)
+	let t = ast.contentType(ms.types, reads: p.types, t: ownType(o, node: part))
+	if ast.textPartBorrows(p.builtins, tt: ms.types, reads: p.types, t: t, spec: ast.partFormatSpec(ms.tree(), partsRef: parts, index: index)) 'borrowed'
+		hold(o, p: p, ms: ms, place: part, kind: OwnProjectionKind.projectPart, byAddress: false)
+	end 'borrowed'
+	return out
+end 'textPartOwn'
 
 function nameExprOwn(mutates o Ownership, p ast.Project, ms ast.ModuleState, e ast.NodeID, consumes s OwnState) returns OwnState
 	let kind = ownName(o, node: e).kind

@@ -853,7 +853,6 @@ borrow-liveness.md: an-element-survives-a-clear-of-the-binding-its-array-moved-i
 borrow-liveness.md: an-element-survives-a-match-give-of-its-array
 borrow-liveness.md: an-element-survives-a-move-of-its-array-into-a-nested-block
 borrow-liveness.md: an-indirect-call-last-argument-read-survives-the-callee-reassigning-the-field
-borrow-liveness.md: an-interpolated-field-read-survives-a-later-part-reassigning-the-field
 borrow-liveness.md: control-two-fresh-records-merged-into-a-var-then-a-field-bound-survives-the-var-rebinding
 borrow-liveness.md: field-chain-source
 borrow-liveness.md: first-counts-like-get
