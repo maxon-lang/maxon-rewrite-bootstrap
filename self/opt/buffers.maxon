@@ -22,6 +22,7 @@ export type BufferSplit
 			return false
 		end 'none'
 		out.clear()
+		out.reserve(f.instrs.count())
 		spans.clear()
 		for b in 0 upto f.blocks.count() 'blocks'
 			let first = out.count()

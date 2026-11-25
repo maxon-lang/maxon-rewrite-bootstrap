@@ -1062,6 +1062,7 @@ export type Fold
 			end 'kept'
 		end 'number'
 		var instrs = ir.InstrList.create(0)
+		instrs.reserve(f.instrs.count())
 		spans.clear()
 		var blockList = ir.BlockList.create(0)
 		var blockParams = ir.RegList.create(0)

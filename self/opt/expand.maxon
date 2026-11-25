@@ -41,6 +41,7 @@ export type Expander
 		end 'none'
 		self.countReads(f)
 		out.clear()
+		out.reserve(f.instrs.count())
 		traps.clear()
 		spans.clear()
 		trapSpans.clear()

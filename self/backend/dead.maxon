@@ -223,6 +223,7 @@ export type DeadCode
 	// left empty.
 	function compact(mutates self, mutates fn MirFunction)
 		out.clear()
+		out.reserve(fn.instrs.count())
 		outSpans.clear()
 		for o in 0 upto fn.order.count() 'blocks'
 			let b = fn.order[o] as Count

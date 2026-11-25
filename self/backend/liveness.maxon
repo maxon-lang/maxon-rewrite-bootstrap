@@ -449,6 +449,7 @@ function writeLayout(mutates fn MirFunction)
 		return
 	end 'written'
 	var out = MInstrList.create(0)
+	out.reserve(fn.instrs.count())
 	var spans = ir.SpanList.create(0)
 	var placed = BoolList.create(0)
 	ir.resetFlags(placed, n: fn.blocks.count())

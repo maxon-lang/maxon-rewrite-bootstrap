@@ -135,9 +135,12 @@ export type Selector
 	var harvest as LocalHarvest
 	// sharedWords are the words that no one move sets which the function being selected makes once, on arm64.
 	var sharedWords as WordSharing
+	// spareInstrs is the buffer of the machine instructions of the function selected last, which the next one writes into
+	// rather than growing a new one.
+	var spareInstrs as MInstrList
 
 	static function new(verifies bool, target ast.Target) returns Selector
-		return Selector{u: CodeUnit.new(), mir: MirFunction.new("", canThrow: false, arch: target.arch), defs: DefAtList.create(0), second: MRegList.create(0), stringTy: ast.noType, characterTy: ast.noType, args: MRegList.create(0), callArgs: MRegList.create(0), callFloats: Array.create(0), places: CountList.create(0), params: MRegList.create(0), paramPlaces: CountList.create(0), paramFloats: Array.create(0), paramWordAt: CountList.create(0), wordPositions: CountList.create(0), closureBody: false, calleeSymbols: CalleeSymbols.new(), canThrow: false, floatResult: false, fnSymbol: "", tables: TableSet.new(), due: ir.WitnessTableList.create(0), thunks: TableSet.new(), dueThunks: ast.FuncIDList.create(0), typeNames: TableSet.new(), typeSymbols: CalleeSymbols.new(), datums: TableSet.new(), readCount: CountList.create(0), reads: ir.RegList.create(0), irBlock: 0, irAt: 0, dead: DeadCode.new(), layout: BlockLayout.new(), allocator: Allocator.new(verifies, target: target), classes: ClassChoice.new(), arch: target.arch, system: target.system, harvest: LocalHarvest.new(), sharedWords: WordSharing.new()}
+		return Selector{u: CodeUnit.new(), mir: MirFunction.new("", canThrow: false, arch: target.arch), defs: DefAtList.create(0), second: MRegList.create(0), stringTy: ast.noType, characterTy: ast.noType, args: MRegList.create(0), callArgs: MRegList.create(0), callFloats: Array.create(0), places: CountList.create(0), params: MRegList.create(0), paramPlaces: CountList.create(0), paramFloats: Array.create(0), paramWordAt: CountList.create(0), wordPositions: CountList.create(0), closureBody: false, calleeSymbols: CalleeSymbols.new(), canThrow: false, floatResult: false, fnSymbol: "", tables: TableSet.new(), due: ir.WitnessTableList.create(0), thunks: TableSet.new(), dueThunks: ast.FuncIDList.create(0), typeNames: TableSet.new(), typeSymbols: CalleeSymbols.new(), datums: TableSet.new(), readCount: CountList.create(0), reads: ir.RegList.create(0), irBlock: 0, irAt: 0, dead: DeadCode.new(), layout: BlockLayout.new(), allocator: Allocator.new(verifies, target: target), classes: ClassChoice.new(), arch: target.arch, system: target.system, harvest: LocalHarvest.new(), sharedWords: WordSharing.new(), spareInstrs: MInstrList.create(0)}
 	end 'new'
 
 	// prepare names what the function's instructions ask for by handle: the symbols of its callees, and the drop and copy
@@ -1321,6 +1324,8 @@ function selectFunction(mutates sel Selector, p ast.Project, mutates ms ast.Modu
 	sel.fnSymbol = symbol.clone()
 	sel.closureBody = closure
 	sel.mir = MirFunction.new(symbol, canThrow: sel.canThrow, arch: sel.arch)
+	sel.mir.instrs = exchange(sel.spareInstrs, value: MInstrList.create(0))
+	sel.mir.instrs.clear()
 	sel.mir.floatResult = sel.floatResult
 	sel.mir.stringResult = f.stringResult
 	sel.mir.keepsSpans = f.keepsSpans
@@ -1390,6 +1395,7 @@ function selectFunction(mutates sel Selector, p ast.Project, mutates ms ast.Modu
 	if f.keepsSpans 'locals'
 		sel.harvest.finish(sel.u, f: f, fn: mir, lay: sel.layout)
 	end 'locals'
+	sel.spareInstrs = exchange(mir.instrs, value: MInstrList.create(0))
 	sel.allocator.spiller.clock.lap(EmitPhase.encoding)
 	return refusals
 end 'selectFunction'

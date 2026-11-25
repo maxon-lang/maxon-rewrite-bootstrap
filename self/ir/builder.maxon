@@ -638,6 +638,7 @@ export type Builder
 			end 'live'
 		end 'order'
 		var placed = InstrList.create(0)
+		placed.reserve(total)
 		for k in 0 upto total 'place'
 			var x = table.takeAt(instrs, at: order[k])
 			let target = failTarget(x)

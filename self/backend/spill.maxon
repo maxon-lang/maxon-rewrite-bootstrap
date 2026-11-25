@@ -759,6 +759,7 @@ export type Spiller
 		ir.buildCsr(applyKeys, targets: applyIndexes, nodes: insertKey(nextCount(fn.instrs.count())), starts: applyStarts, list: applyList)
 		var out = exchange(spareInstrs, value: MInstrList.create(0))
 		out.clear()
+		out.reserve(addCounts(fn.instrs.count(), b: inserts.count()))
 		movedFrom.clear()
 		ir.resetFlags(placed, n: fn.blocks.count())
 		for o in 0 upto fn.order.count() 'blocks'

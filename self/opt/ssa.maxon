@@ -16,6 +16,10 @@
 // knownEmpty is what renaming holds for a slot that holds nothing on every path to the point it is at.
 let knownEmpty = ir.noReg
 
+// entryZeroConsts is the most constants compact writes at the entry: a zero scalar, a zero managed value and an empty
+// String.
+let entryZeroConsts = 3 as Count
+
 export type Ssa
 	export var analysis as Analysis
 	// What construction did, over every function it was given: the slots promoted and those that stay in the frame, the
@@ -607,6 +611,7 @@ export type Ssa
 	// parameters, and keeps only the slots that stay in the frame.
 	function compact(mutates self, mutates f ir.IrFunction)
 		instrs.clear()
+		instrs.reserve(try f.instrs.count() + entryZeroConsts otherwise panic("ssa: a function past memory"))
 		spans.clear()
 		blockParams.clear()
 		for b in 0 upto f.blocks.count() 'blocks'

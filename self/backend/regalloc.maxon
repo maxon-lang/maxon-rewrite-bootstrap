@@ -1104,7 +1104,7 @@ export type Colourer
 	// a parallel copy before its jump.
 	function rewrite(mutates self, mutates fn MirFunction, lv Liveness)
 		let n = fn.instrs.count()
-		origInstrs = exchange(fn.instrs, value: MInstrList.create(0))
+		var emitted = exchange(origInstrs, value: exchange(fn.instrs, value: MInstrList.create(0)))
 		origBlocks = fn.blocks.clone()
 		origEdges = fn.edges.clone()
 		ir.buildCsr(insAt, targets: insIndex, nodes: n, starts: insStart, list: insList)
@@ -1114,7 +1114,8 @@ export type Colourer
 		for k in 0 upto n 'self'
 			outSelf.push(noDef)
 		end 'self'
-		var emitted = MInstrList.create(0)
+		emitted.clear()
+		emitted.reserve(n)
 		for o in 0 upto fn.order.count() 'blocks'
 			let b = fn.order[o] as Count
 			let first = emitted.count()
