@@ -669,7 +669,16 @@ function rangeAssignOffset(mutates r Ranges, p ast.Project, ms ast.ModuleState, 
 	end 'related'
 end 'rangeAssignOffset'
 
+// rangeAssignOther analyses an assignment to a place the analysis does not follow. An element's address is taken only after
+// the value is computed, so a subscript is judged in the state after the value.
 function rangeAssignOther(mutates r Ranges, p ast.Project, ms ast.ModuleState, target ast.NodeID, value ast.NodeID)
+	if ms.tree().kindOf(target) == ast.NodeKind.indexExpr 'element'
+		let index = rangeSubscriptOperands(r, p: p, ms: ms, e: target)
+		let since = r.written.count()
+		_ = rangeEval(r, p: p, ms: ms, e: value)
+		rangeSubscript(r, p: p, ms: ms, e: target, index: index, since: since)
+		return
+	end 'element'
 	_ = rangeEval(r, p: p, ms: ms, e: target)
 	_ = rangeEval(r, p: p, ms: ms, e: value)
 end 'rangeAssignOther'

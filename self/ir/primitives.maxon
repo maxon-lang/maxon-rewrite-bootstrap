@@ -150,7 +150,7 @@ function elemPlace(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState,
 	let index = indexValue(l, p: p, ms: ms, e: e)
 	let collTy = exprType(p, module: l.module, node: obj)
 	let box = arrayOf(l, p: p, ms: ms, site: siteOf(l, p: p, node: e), t: collTy)
-	return arrayPlace(l, p: p, ms: ms, box: box, arr: coll, index: index)
+	return arrayPlace(l, p: p, ms: ms, box: box, arr: coll, index: index, checked: subscriptChecked(p, module: l.module, node: e))
 end 'elemPlace'
 
 // builtinOf is the primitive type that a collection's type is, read through the binding and through a frozen value.
@@ -196,7 +196,7 @@ function visitIndexExpr(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleS
 	let index = indexValue(l, p: p, ms: ms, e: e)
 	let collTy = exprType(p, module: l.module, node: obj)
 	let box = arrayOf(l, p: p, ms: ms, site: siteOf(l, p: p, node: e), t: collTy)
-	return arrayLoad(l, p: p, ms: ms, box: box, arr: coll, index: index)
+	return arrayRead(l, p: p, ms: ms, box: box, arr: coll, index: index, checked: subscriptChecked(p, module: l.module, node: e), read: SlotRead.slotLent)
 end 'visitIndexExpr'
 
 // assignElement stores into a[i]: the collection and the index are evaluated, then the value, and only then is the
@@ -209,7 +209,7 @@ function assignElement(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleSt
 	let collTy = exprType(p, module: l.module, node: obj)
 	let v = arrayHeld(l, p: p, ms: ms, v: given, t: exprType(p, module: l.module, node: target), holder: collTy)
 	let box = arrayOf(l, p: p, ms: ms, site: siteOf(l, p: p, node: target), t: collTy)
-	arrayStore(l, p: p, ms: ms, box: box, arr: coll, index: index, v: v)
+	arrayWrite(l, p: p, ms: ms, box: box, arr: coll, index: index, v: v, checked: subscriptChecked(p, module: l.module, node: target))
 end 'assignElement'
 
 // visitCollectionLitExpr builds the collection of a literal as the explicit code does: an empty one, then a push of each
@@ -693,7 +693,7 @@ end 'lowerArrayTakeSlot'
 // (lentInByte); past the end and at an empty slot it traps, as a subscript's read does.
 function lowerArrayLendSlot(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	let a = arrayOfCall(l, p: p, ms: ms, c: c)
-	return arrayLend(l, p: p, ms: ms, box: a, arr: recv, index: args[0])
+	return arrayLend(l, p: p, ms: ms, box: a, arr: recv, index: args[0], checked: true)
 end 'lowerArrayLendSlot'
 
 function lowerArraySlice(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg

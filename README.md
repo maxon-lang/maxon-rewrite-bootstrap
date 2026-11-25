@@ -2285,7 +2285,8 @@ output and exit code are its own, a violation exits with 4 and a program that ou
 - **`fuzz --proofs`** writes another kind of program (`self/fuzz/proofs.maxon`, over the library `self/fuzz/proofs.txt`): a few
   scenario functions that read and store at an index of an array (of numbers and of strings, in a record two deep, and a
   `FixedArray`) under guards, in loops over a count or a bound, in `while` loops that step or drain, some of them requiring
-  that the index stays at most its bound, and at midpoints of two places with and without a guard, each mixed, at the points
+  that the index stays at most its bound, or below a `var` bound that only the invariant keeps at most the count, with a
+  branch that moves the bound or changes the array and continues, and at midpoints of two places with and without a guard, each mixed, at the points
   where a fact was just stated, and reads of an end (`first`, `last`, `pop`, once or twice, under guards such as
   `xs.count() >= 2`), with everything that must make the analysis forget it: a built-in that changes the count
   (`pop`, `remove`, `clear`, `truncate`, `push`, `insert`, `set`), an assignment of the array or of the index, a function or a
@@ -2294,7 +2295,9 @@ output and exit code are its own, a violation exits with 4 and a program that ou
   its own handler (`try xs.get(i) otherwise 7`) so that a program the analysis does not prove still runs, and the compiler's own
   `fix` pass then removes the handler wherever the analysis proves the access (E3944), and an invariant wherever it cannot
   prove it (E3945), so the generator needs no model of what
-  the analysis proves. Each program prints a checksum; an access the analysis proved that the interpreter finds outside its array
+  the analysis proves. A read or a store at the index of a fact on its array is sometimes a subscript instead, which has no
+  handler: a proven one runs with no check, and one the analysis does not prove traps outside, which ends the program (a
+  trap that the executable must end with too). Each program prints a checksum; an access the analysis proved that the interpreter finds outside its array
   (`proven access out of range`), or an executable whose output is not the interpreter's, is a failure, which names the seed and
   keeps the program under `--keep=DIR` (the compiler's temporary directory, in `minimaxon-fuzz-proofs`, without it). The checker
   may refuse a program for what it knows of the code (a statically known index outside a `FixedArray`, a divisor that is 0), up to
@@ -3132,7 +3135,10 @@ end 'forms'
   values (`self/check/rules.maxtest`). An access that is not proven where no
   `try` covers it is `E3057`, which says what it needs (`'xs.get(i)' needs i < xs.count()`) and names the guard and the
   `try` that would give it (`'xs.pop()' needs xs.count() > 0`). A `try` that covers nothing that can fail, as one that covers only proven accesses, is `E3944` (see
-  "Checked arithmetic").
+  "Checked arithmetic"). A subscript `a[i]` of an `Array` or a `FixedArray` asks what a `get` at its index asks, where
+  its element is read or its address taken (for an assignment `a[i] = v`, after `v` is computed); where it is proven, the
+  element is read or written with no check, and elsewhere it traps outside the array as before, so nothing a program may
+  write changes. The typing records each verdict by the subscript's node (`Typing.subscripts`), which lowering reads.
 - What leaves the function, through a `try` without `otherwise` or a `throw`, must be the error the function throws:
   `E3059` otherwise, also where the function throws nothing; convert another error with `otherwise throw`. Where what
   fails so is an operation's range (an arithmetic, a cast, an index, a conversion at a return), `fix` gives the

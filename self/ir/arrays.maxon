@@ -355,21 +355,22 @@ end 'clearFormSlot'
 // arrayLend is the place of the element at index that lendSlot lends, trapping past the end and at an empty slot: the
 // address of its word, for a record held in place the address of its words, and for a packed element the address of its
 // byte, through rt.bytes.elem as a word's is through rt.array.elem: one entry, checked the same way, which the expansion
-// makes the same bounds check and address (opt/expand.maxon).
-function arrayLend(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, box ArrayBox, arr Reg, index Reg) returns Reg
+// makes the same bounds check and address (opt/expand.maxon), or the address alone where the index is proved inside the
+// array (not checked).
+function arrayLend(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, box ArrayBox, arr Reg, index Reg, checked bool) returns Reg
 	return match elementWay(p, ms: ms, box: box) 'way'
-		heldPacked gives elementEntry(l, p: p, site: box.site, symbol: Rt.rtBytesElem, args: argsOf2(arr, b: index), checked: true)
-		heldInline(_) gives arrayAddress(l, p: p, ms: ms, box: box, arr: arr, index: index, checked: true)
+		heldPacked gives elementEntry(l, p: p, site: box.site, symbol: Rt.rtBytesElem, args: argsOf2(arr, b: index), checked: checked)
+		heldInline(_) gives arrayAddress(l, p: p, ms: ms, box: box, arr: arr, index: index, checked: checked)
 		heldString or
 		heldWord or
-		heldBox gives lendFormSlot(l, p: p, ms: ms, box: box, arr: arr, index: index)
+		heldBox gives lendFormSlot(l, p: p, ms: ms, box: box, arr: arr, index: index, checked: checked)
 		heldAddress(_) gives panic("ir: an element held as the address of words elsewhere")
 	end 'way'
 end 'arrayLend'
 
 // lendFormSlot is the address of the word or String at index, trapping at an empty slot as a lent read does.
-function lendFormSlot(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, box ArrayBox, arr Reg, index Reg) returns Reg
-	let addr = arrayAddress(l, p: p, ms: ms, box: box, arr: arr, index: index, checked: true)
+function lendFormSlot(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, box ArrayBox, arr Reg, index Reg, checked bool) returns Reg
+	let addr = arrayAddress(l, p: p, ms: ms, box: box, arr: arr, index: index, checked: checked)
 	let elem = arrayElem(p, ms: ms, box: box)
 	if zeroIsEmpty(ms.types, reads: p.types, t: elem) and slotsMayBeEmpty(p, ms: ms, box: box) 'mayBeEmpty'
 		let held = newReg(l, kind: kindOf(l, p: p, ms: ms, t: elem))
@@ -560,22 +561,24 @@ function arrayAddress(mutates l Lowerer, p ast.Project, ms ast.ModuleState, box 
 end 'arrayAddress'
 
 // arrayPlace is the address a call that takes the element at index by address is given: the element's own for an array of
-// words, and for an array of bytes a slot that holds the element until writeBack stores it back.
-function arrayPlace(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, box ArrayBox, arr Reg, index Reg) returns Reg
+// words, and for an array of bytes a slot that holds the element until writeBack stores it back. Where the index is proved
+// inside the array (not checked), the address is taken with no check.
+function arrayPlace(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, box ArrayBox, arr Reg, index Reg, checked bool) returns Reg
 	return match elementWay(p, ms: ms, box: box) 'way'
-		heldInline(_) gives recordPlace(l, p: p, ms: ms, box: box, arr: arr, index: index)
-		heldString gives arrayAddress(l, p: p, ms: ms, box: box, arr: arr, index: index, checked: true)
-		heldWord gives arrayAddress(l, p: p, ms: ms, box: box, arr: arr, index: index, checked: true)
-		heldBox gives arrayAddress(l, p: p, ms: ms, box: box, arr: arr, index: index, checked: true)
-		heldPacked gives bytePlace(l, p: p, ms: ms, box: box, arr: arr, index: index)
+		heldInline(_) gives recordPlace(l, p: p, ms: ms, box: box, arr: arr, index: index, checked: checked)
+		heldString gives arrayAddress(l, p: p, ms: ms, box: box, arr: arr, index: index, checked: checked)
+		heldWord gives arrayAddress(l, p: p, ms: ms, box: box, arr: arr, index: index, checked: checked)
+		heldBox gives arrayAddress(l, p: p, ms: ms, box: box, arr: arr, index: index, checked: checked)
+		heldPacked gives bytePlace(l, p: p, ms: ms, box: box, arr: arr, index: index, checked: checked)
 		heldAddress(_) gives panic("ir: an element held as the address of words elsewhere")
 	end 'way'
 end 'arrayPlace'
 
-// bytePlace is a slot that holds the byte at index of an array of bytes until writeBack stores it back.
-function bytePlace(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, box ArrayBox, arr Reg, index Reg) returns Reg
+// bytePlace is a slot that holds the byte at index of an array of bytes until writeBack stores it back, which writes a byte
+// by its entry either way.
+function bytePlace(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, box ArrayBox, arr Reg, index Reg, checked bool) returns Reg
 	let slot = l.b.f.newSlot(IrKind.kindScalar)
-	let element = arrayLoad(l, p: p, ms: ms, box: box, arr: arr, index: index)
+	let element = arrayRead(l, p: p, ms: ms, box: box, arr: arr, index: index, checked: checked, read: SlotRead.slotLent)
 	emit(l, i: newStoreSlot(slot, src: element, borrow: false))
 	l.writeBacks.push(WriteBack.make(box.clone(), arr: arr, index: index, slot: slot))
 	let d = newReg(l, kind: IrKind.kindScalar)
@@ -979,8 +982,8 @@ function recordAddress(mutates l Lowerer, p ast.Project, box ArrayBox, arr Reg, 
 end 'recordAddress'
 
 // recordPlace is the place of the element at index of an array held in place, which holds the address of its words.
-function recordPlace(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, box ArrayBox, arr Reg, index Reg) returns Reg
-	let at = arrayAddress(l, p: p, ms: ms, box: box, arr: arr, index: index, checked: true)
+function recordPlace(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, box ArrayBox, arr Reg, index Reg, checked bool) returns Reg
+	let at = arrayAddress(l, p: p, ms: ms, box: box, arr: arr, index: index, checked: checked)
 	return heldPlace(l, words: at)
 end 'recordPlace'
 

@@ -1,11 +1,11 @@
 // The proof generator writes programs that aim at the range analysis's proofs of access and arithmetic: arrays and fixed arrays
 // read and written by index inside guards and loops, mixed with everything that must make the analysis forget what it knows (a
 // mutation of the array or of the index between the fact and its use, a closure that changes either, a call or a record's method
-// that changes the array, an assignment of the array, an early exit). Each access is written with its own handler, as
-// `try xs.get(i) otherwise 7`, so that a program the analysis cannot prove runs checked and never traps; the compiler's own
-// `fix` pass then removes the handler where the analysis proves the access (E3944), so the generator never needs to know what
-// the analysis proves. What is left runs under the interpreter, where an access that was proven and lies outside its array is a
-// violation, and natively, where the output must be the interpreter's.
+// that changes the array, an assignment of the array, an early exit). Each access but a subscript is written with its own
+// handler, as `try xs.get(i) otherwise 7`, so that a program the analysis cannot prove runs checked and never traps; the
+// compiler's own `fix` pass then removes the handler where the analysis proves the access (E3944), so the generator never needs
+// to know what the analysis proves. What is left runs under the interpreter, where an access that was proven and lies outside
+// its array is a violation, and natively, where the output must be the interpreter's.
 //
 // A program is the library of proofs.txt, a few scenario functions and a main that prints each scenario's checksum. A scenario
 // declares the same arrays, index variables and records, then writes a block of statements. The statements that are the point
@@ -52,6 +52,15 @@ let proofFuelLimit = 12 as Count
 
 // proofInvariantPercent is how often a loop over a stepping index states that the index stays at most its bound.
 let proofInvariantPercent = 40 as Count
+
+// proofSubscriptPercent is how often a read or a store at the index of a fact on its array is a subscript, which has no
+// handler: where the analysis proves it, it runs with no check, so an index outside is a violation under the interpreter, and
+// elsewhere it traps there, which ends the program.
+let proofSubscriptPercent = 15 as Count
+
+// proofClampedPercent is how often a loop over a stepping index runs below a var bound that the body may move and that only
+// the loop's invariant keeps at most the array's count.
+let proofClampedPercent = 30 as Count
 
 // proofFixedCount is how many elements the fixed array of the library has.
 let proofFixedCount = 4 as Count
@@ -666,14 +675,37 @@ type ProofGen
 			if isNames 'names'
 				value = "\"w\""
 			end 'names'
-			let store = "{kwTry} {text}.set({place}, value: {value}) {kwOtherwise} {kwIgnore}"
-			self.line(store)
+			self.storeAt(changed, index: place, value: value)
 		end 'store'
 		self.readAt(array, index: place)
 	end 'probe'
 
+	// subscripted is whether an access at an index of an array is written as a subscript: only under a fact on that array and
+	// that index, where it mostly lies inside, since a subscript the analysis does not prove traps outside and ends the program,
+	// and never at a slot index, which is no position.
+	function subscripted(mutates self, array Count, index String) returns bool
+		if containsText(index, needle: " {kwAs} ") 'cast'
+			return false
+		end 'cast'
+		var focused = false
+		for f in 0 upto focusArrays.count() 'facts'
+			if focusArrays[f] == array and focusPlaces[f] == index 'fact'
+				focused = true
+			end 'fact'
+		end 'facts'
+		return focused and self.chance(proofSubscriptPercent)
+	end 'subscripted'
+
 	function readAt(mutates self, array Count, index String)
 		let text = arrays[array].text.clone()
+		if self.subscripted(array, index: index) 'subscript'
+			if arrays[array].kind == proofNames 'names'
+				self.line("acc = mix(acc, v: {text}[{index}].byteLength())")
+				return
+			end 'names'
+			self.line("acc = mix(acc, v: {text}[{index}])")
+			return
+		end 'subscript'
 		if arrays[array].kind == proofNames 'names'
 			let v = self.fresh("v")
 			self.line("{kwLet} {v} = {proofHandled("{text}.get({index})", fallback: proofNameFallback)}")
@@ -692,13 +724,22 @@ type ProofGen
 	// writeStatement stores a number or a string at an index.
 	function writeStatement(mutates self)
 		let t = self.accessTarget()
-		let text = arrays[t.array].text.clone()
 		var value = "{self.pick(50)}"
 		if arrays[t.array].kind == proofNames 'names'
 			value = "\"w\""
 		end 'names'
-		self.line("{kwTry} {text}.set({t.index}, value: {value}) {kwOtherwise} {kwIgnore}")
+		self.storeAt(t.array, index: t.index, value: value)
 	end 'writeStatement'
+
+	// storeAt stores the value at an index of an array, by a set with its handler or by a subscript.
+	function storeAt(mutates self, array Count, index String, value String)
+		let text = arrays[array].text.clone()
+		if self.subscripted(array, index: index) 'subscript'
+			self.line("{text}[{index}] = {value}")
+			return
+		end 'subscript'
+		self.line("{kwTry} {text}.set({index}, value: {value}) {kwOtherwise} {kwIgnore}")
+	end 'storeAt'
 
 	// newArray is an expression for a new value of an array of numbers.
 	function newCounts(mutates self) returns String
@@ -1132,6 +1173,30 @@ type ProofGen
 		self.line("{kwEnd} {label}")
 	end 'forStatement'
 
+	// clampMoves writes, in a loop whose bound clamp only its invariant keeps at most the count of the array, a branch that
+	// repeats the loop by a continue after a change that keeps the invariant or one that breaks it: the analysis must prove the
+	// invariant at the continue or refuse it (E3945), whose fix takes the invariant out.
+	function clampMoves(mutates self, array Count, clamp String, loop String)
+		let text = arrays[array].text.clone()
+		let label = self.label()
+		let c = self.cond(0)
+		self.line("{kwIf} {c} {label}")
+		self.indentMore()
+		let r = self.pick(100)
+		if r < 35 'lower'
+			self.line("{clamp} = {proofHandled("{clamp} - 1", fallback: "0")}")
+		end 'lower' else if r < 70 or arrays[array].kind == proofFixed 'raise'
+			self.line("{clamp} = {proofHandled("{clamp} + 1", fallback: "0")}")
+		end 'raise' else if r < 85 'pop'
+			self.line("{kwTry} {text}.pop() {kwOtherwise} {kwIgnore}")
+		end 'pop' else 'clear'
+			self.line("{text}.clear()")
+		end 'clear'
+		self.line("{kwContinue} {loop}")
+		self.indentLess()
+		self.line("{kwEnd} {label}")
+	end 'clampMoves'
+
 	// whileStatement writes a loop over an index that steps, one that empties an array, or any condition, with a fuel counter that
 	// ends it however the body changes its condition.
 	function whileStatement(mutates self, depth Count)
@@ -1145,6 +1210,7 @@ type ProofGen
 		var steps = false
 		var drains = false
 		var invariant = ""
+		var clamp = ""
 		if kind < 60 'stepping'
 			place = self.focusedCursor()
 			if focusArrays.count() > 0 and self.chance(proofFocusPercent) 'focused'
@@ -1154,7 +1220,14 @@ type ProofGen
 			let row24 = "{place} = idx({self.pick(3)})"
 			self.line(row24)
 			var bound = "{arrays[array].text}.count()"
-			if self.chance(25) 'local'
+			if self.chance(proofClampedPercent) 'clamped'
+				// A bound the body may move, which the analysis forgets at the top of the loop: only the invariant keeps it at most
+				// the count there, so the accesses at the place depend on the invariant holding at every continue.
+				clamp = self.fresh("b")
+				self.line("{kwVar} {clamp} = {bound}")
+				condition = "{place} < {clamp}"
+				invariant = "{clamp} <= {bound}"
+			end 'clamped' else if self.chance(25) 'local'
 				bound = self.boundLocal(array)
 				condition = "{place} < {bound}"
 			end 'local' else if self.chance(85) 'below'
@@ -1164,7 +1237,7 @@ type ProofGen
 			end 'belowOrAt'
 			// An invariant that a step of one keeps, unless the body moves the place or the bound otherwise: one it cannot prove is
 			// taken out by the fix, and the accesses that needed it are refused.
-			if self.chance(proofInvariantPercent) 'invariant'
+			if clamp == "" and self.chance(proofInvariantPercent) 'invariant'
 				invariant = "{place} <= {bound}"
 			end 'invariant'
 			steps = true
@@ -1197,6 +1270,9 @@ type ProofGen
 			self.line("{place} = {proofHandled("{place} + 1", fallback: "0")}")
 		end 'first'
 		self.focusUses()
+		if clamp != "" 'clamped'
+			self.clampMoves(array, clamp: clamp, loop: label)
+		end 'clamped'
 		let size = self.blockSize()
 		self.block(proofLower(depth), statements: size)
 		if drains and self.chance(80) 'drain'

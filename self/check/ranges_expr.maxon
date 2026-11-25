@@ -500,13 +500,36 @@ function rangeMemberExpr(mutates r Ranges, p ast.Project, ms ast.ModuleState, e 
 end 'rangeMemberExpr'
 
 function rangeIndexExpr(mutates r Ranges, p ast.Project, ms ast.ModuleState, e ast.NodeID) returns Span
-	_ = rangeEval(r, p: p, ms: ms, e: ast.indexExprObj(ms.tree(), id: e))
-	let argsRef = ast.indexExprArgsRef(ms.tree(), id: e)
-	for i in 0 upto ms.tree().listLen(argsRef) 'args'
-		_ = rangeEval(r, p: p, ms: ms, e: ms.tree().listAt(argsRef, index: i) as ast.NodeID)
-	end 'args'
+	let index = rangeSubscriptOperands(r, p: p, ms: ms, e: e)
+	rangeSubscript(r, p: p, ms: ms, e: e, index: index, since: r.written.count())
 	return rangeTyped(r, p: p, ms: ms, e: e)
 end 'rangeIndexExpr'
+
+// rangeSubscriptOperands analyses the collection and the index of a subscript, in the order they are evaluated, and gives the
+// index's span.
+function rangeSubscriptOperands(mutates r Ranges, p ast.Project, ms ast.ModuleState, e ast.NodeID) returns Span
+	_ = rangeEval(r, p: p, ms: ms, e: ast.indexExprObj(ms.tree(), id: e))
+	let argsRef = ast.indexExprArgsRef(ms.tree(), id: e)
+	var index = noSpan()
+	for i in 0 upto ms.tree().listLen(argsRef) 'args'
+		index = rangeEval(r, p: p, ms: ms, e: ms.tree().listAt(argsRef, index: i) as ast.NodeID)
+	end 'args'
+	return index
+end 'rangeSubscriptOperands'
+
+// rangeSubscript judges a subscript of an Array or a FixedArray, which traps outside the array, where its element is read or
+// its address taken: it asks what a get at its index asks, of the state there, with the index's span index and since the
+// count of the places written when the index was evaluated. The verdict goes in the typing, where lowering leaves out the
+// check of a proven subscript.
+function rangeSubscript(mutates r Ranges, p ast.Project, ms ast.ModuleState, e ast.NodeID, index Span, since Count)
+	let obj = ast.indexExprObj(ms.tree(), id: e)
+	if r.probing or not isMeasuredType(p, ms: ms, t: typeOf(r, e: obj)) 'unjudged'
+		return
+	end 'unjudged'
+	let at = ms.tree().listAt(ast.indexExprArgsRef(ms.tree(), id: e), index: 0 as Count) as ast.NodeID
+	let proven = rangeProves(r, p: p, ms: ms, at: at, receiver: obj, requirement: ast.Precondition.requiresIndexBelow, index: index, since: since)
+	r.typing.subscripts.insert(e as Count, value: proven)
+end 'rangeSubscript'
 
 function rangeCallExpr(mutates r Ranges, p ast.Project, ms ast.ModuleState, e ast.NodeID) returns Span
 	let call = r.typing.calls.expect(e as Count, what: "call").clone()
@@ -615,7 +638,7 @@ function rangeAccess(mutates r Ranges, p ast.Project, ms ast.ModuleState, e ast.
 		some(f) gives f
 		none panic("ranges: the built-in '{ast.funcEntry(ms.funcs, funcReads: p.funcs, f: checked).name}' has a precondition but no twin that cannot fail")
 	end 'twin'
-	let proven = rangeProves(r, p: p, ms: ms, info: info, receiver: receiver, requirement: requirement, index: index, since: since)
+	let proven = rangeProves(r, p: p, ms: ms, at: indexArgument(info), receiver: receiver, requirement: requirement, index: index, since: since)
 	if not r.probing 'record'
 		var chosen = info.clone()
 		chosen.fn = checked
@@ -675,11 +698,11 @@ function checkedAccessFunc(p ast.Project, ms ast.ModuleState, info ast.CallInfo,
 	return ast.typeEntry(ms.types, reads: p.types, t: origin).findMethod(ast.funcEntry(ms.funcs, funcReads: p.funcs, f: info.fn).name).unwrap()
 end 'checkedAccessFunc'
 
-// rangeProves is whether the state proves the precondition of an access on the collection receiver: that the index, whose
-// value has the span index, lies inside the collection's count, or that the count is not 0. The count's span and how far
-// the count is known to lie above the index's place decide it, as they are where the index was evaluated: a fact on either
-// that changed since is not used.
-function rangeProves(r Ranges, p ast.Project, ms ast.ModuleState, info ast.CallInfo, receiver ast.NodeID, requirement ast.Precondition, index Span, since Count) returns bool
+// rangeProves is whether the state proves the precondition of an access on the collection receiver: that the index, the
+// expression at whose value has the span index, lies inside the collection's count, or, for an access with no index (at 0),
+// that the count is not 0. The count's span and how far the count is known to lie above the index's place decide it, as
+// they are where the index was evaluated: a fact on either that changed since is not used.
+function rangeProves(r Ranges, p ast.Project, ms ast.ModuleState, at ast.NodeID, receiver ast.NodeID, requirement ast.Precondition, index Span, since Count) returns bool
 	if isDead(r, s: r.st) 'dead'
 		return false
 	end 'dead'
@@ -688,16 +711,16 @@ function rangeProves(r Ranges, p ast.Project, ms ast.ModuleState, info ast.CallI
 	if statesItsCount(p, ms: ms, t: t) 'stated'
 		count = Span.exactly(ast.I128.fromCount(ast.statedCount(ms.types, reads: p.types, t: t)))
 	end 'stated'
-	var at = index.clone()
-	if indexArgument(info) != 0 'indexed'
-		at = rangeTightened(r, p: p, ms: ms, e: indexArgument(info), v: index, since: since)
+	var value = index.clone()
+	if at != 0 'indexed'
+		value = rangeTightened(r, p: p, ms: ms, e: at, v: index, since: since)
 	end 'indexed'
-	var least = count.lo.sub(at.hi)
+	var least = count.lo.sub(value.hi)
 	match consumes rangePlaceOf(r, p: p, ms: ms, e: receiver) 'collection'
-		some(q) then least = rangeCountAbove(r, p: p, ms: ms, count: placeCount(q), stated: count, index: at, at: indexArgument(info), since: since)
+		some(q) then least = rangeCountAbove(r, p: p, ms: ms, count: placeCount(q), stated: count, index: value, at: at, since: since)
 		none then _ = 0
 	end 'collection'
-	return provesPrecondition(requirement, least: least, lowest: at.lo)
+	return provesPrecondition(requirement, least: least, lowest: value.lo)
 end 'rangeProves'
 
 // rangeCountAbove is the least that the count of a collection lies above the index of the span index, which the

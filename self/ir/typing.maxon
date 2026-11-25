@@ -81,6 +81,12 @@ export function drainsAt(p ast.Project, module diag.ModuleID, node ast.NodeID) r
 	return p.typings[ast.modIndex(module)].drains.has(node as Count)
 end 'drainsAt'
 
+// subscriptChecked is whether a subscript keeps the check that traps outside the array: every subscript but one of an Array
+// or a FixedArray whose index the range analysis proved inside it.
+export function subscriptChecked(p ast.Project, module diag.ModuleID, node ast.NodeID) returns bool
+	return not p.typings[ast.modIndex(module)].subscripts.getOr(node as Count, fallback: false)
+end 'subscriptChecked'
+
 // jumpTargetOf is the loop or match that a break or a continue leaves or repeats.
 export function jumpTargetOf(p ast.Project, module diag.ModuleID, node ast.NodeID) returns ast.NodeID
 	return p.typings[ast.modIndex(module)].jumps.expect(node as Count, what: "jump target")

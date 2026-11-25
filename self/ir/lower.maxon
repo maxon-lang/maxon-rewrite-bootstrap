@@ -480,7 +480,7 @@ function wordPlace(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState,
 		let coll = lowerRead(l, p: p, ms: ms, e: obj)
 		let index = indexValue(l, p: p, ms: ms, e: e)
 		let box = arrayOf(l, p: p, ms: ms, site: siteOf(l, p: p, node: e), t: exprType(p, module: l.module, node: obj))
-		return arrayLend(l, p: p, ms: ms, box: box, arr: coll, index: index)
+		return arrayLend(l, p: p, ms: ms, box: box, arr: coll, index: index, checked: subscriptChecked(p, module: l.module, node: e))
 	end 'element'
 	return address(l, p: p, ms: ms, e: e)
 end 'wordPlace'

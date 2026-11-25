@@ -98,6 +98,8 @@ versions (the baseline) is the noise floor: a ratio inside it says nothing. Chec
 | 2026-11-25 | 11745dbd+ | P7 loop effect scan, facts kept at loop tops (A = 11745dbd) | 21 | 1315 | 1323 | 1.006 | 0.960-1.034 | 17.4% | 11622 | 62 |
 | 2026-11-25 | 0a3f9ade+ | P8 proven pop, first, last, remove; exact steps (A = 0a3f9ade) | 11 | 1422 | 1406 | 0.989 | 0.951-1.042 | 18.2% | 11723 | 62 |
 | 2026-11-25 | cc149a94+ | P9 while invariants, midpoint, bridged relations (A = cc149a94) | 11 | 1351 | 1357 | 1.005 | 0.976-1.048 | 18.4% | 11744 | 62 |
+| 2026-11-25 | 00dd7b08+ | P10 proven subscripts (A = 00dd7b08) | 11 | 1365 | 1358 | 0.995 | 0.957-1.037 | 18.1% | 10248 | 62 |
+| 2026-11-25 | 00dd7b08+ | P10 measurement, stage so far (A = e9db0f07, the merge base with main) | 11 | 1413 | 1351 | 0.956 | 0.936-0.979 | 17.7% | 10248 | 62 |
 
 At the P5 checkpoint the counts in the compiler's own IR were 11386 bounds and 3816 empty-slot at 4c494e68, 11400 and 3829
 at the tip before P5, and 11402 and 3829 after it. The stage is under its limit (+2%) by a wide margin because the slot-array
@@ -108,3 +110,8 @@ At S4 the compiler's own IR keeps 60 empty-slot panics, every one a lent read of
 StringMap (`self/table/map.maxon`, a `__SlotArray`'s `lendSlot`), 45 in the maps' methods and 15 where they are inlined.
 The bounds count rises by 153 because the functions that lost their tests are smaller and more of them are inlined, each
 copy with its bounds. The compiler's `.text` falls from 5,500,151 to 5,385,463 bytes (-2.1%).
+
+At P10 the range analysis judges the 11,858 subscripts of `self/` and proves 2,616 of them (22%); `stdlib/` has 55, 13
+proven, and `runtime/` none. The bounds in the compiler's own IR fall from 11744 to 10248 (-12.7%), and its `.text` from
+5,480,887 to 4,558,890 bytes (-16.8%). From the merge base with main (e9db0f07, 11321 bounds and 3779 empty-slot) to P10 the
+self-build is 4.4% faster.

@@ -553,6 +553,10 @@ export type Typing
 	// rawReads are the expressions of a value of an enum whose cases write integers that go where an integer is expected,
 	// which read the raw value of the case the value holds, maxon's constants enum.
 	export var rawReads as NodeBoolMap
+	// subscripts are the subscripts of an Array or a FixedArray that the range analysis judged, each true where it proved the
+	// index inside the array, so that the element is read or written with no check, and false where the subscript keeps its
+	// trap.
+	export var subscripts as NodeBoolMap
 	// waiting is what each function whose body the module checked may wait for, by its body and every call it makes, which
 	// the check of a module that calls it reads (check/waits.maxon), by the function.
 	export var waiting as FuncWaitingMap
@@ -590,8 +594,9 @@ export type Typing
 		let bx = NodeBoxMap.new()
 		let si = NodeTypeMap.new()
 		let rr = NodeBoolMap.new()
+		let sub = NodeBoolMap.new()
 		let wt = FuncWaitingMap.new()
-		return Typing{module: module, types: tm, arith: am, names: nm, members: mm, calls: cm, structLits: sm, patterns: pm, arms: ak, whens: wm, closures: clm, iterations: im, hooks: hk, jumps: jm, locals: ls, nodeLocals: nlm, indexes: ixm, drains: drm, expansions: exm, funcLocals: flm, funcUses: fum, fieldUses: fdum, consumed: con, slotTakes: st, lendsPlace: lp, lentTries: lt, boxes: bx, staticInstances: si, rawReads: rr, waiting: wt, declared: false}
+		return Typing{module: module, types: tm, arith: am, names: nm, members: mm, calls: cm, structLits: sm, patterns: pm, arms: ak, whens: wm, closures: clm, iterations: im, hooks: hk, jumps: jm, locals: ls, nodeLocals: nlm, indexes: ixm, drains: drm, expansions: exm, funcLocals: flm, funcUses: fum, fieldUses: fdum, consumed: con, slotTakes: st, lendsPlace: lp, lentTries: lt, boxes: bx, staticInstances: si, rawReads: rr, subscripts: sub, waiting: wt, declared: false}
 	end 'new'
 
 	export function allocLocal(mutates self, consumes entry LocalEntry) returns LocalID

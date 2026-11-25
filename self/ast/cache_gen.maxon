@@ -2173,6 +2173,7 @@ export function storeTyping(mutates w table.CacheWriter, v Typing)
 	storeIntMapOfTypeID(w, v: v.boxes)
 	storeIntMapOfTypeID(w, v: v.staticInstances)
 	storeIntMapOfBool(w, v: v.rawReads)
+	storeIntMapOfBool(w, v: v.subscripts)
 	storeIntMapOfWaiting(w, v: v.waiting)
 	w.flag(v.declared)
 end 'storeTyping'
@@ -2208,9 +2209,10 @@ extension Typing
 		let theBoxes = loadIntMapOfTypeID(r)
 		let theStaticInstances = loadIntMapOfTypeID(r)
 		let theRawReads = loadIntMapOfBool(r)
+		let theSubscripts = loadIntMapOfBool(r)
 		let theWaiting = loadIntMapOfWaiting(r)
 		let theDeclared = r.flag()
-		return Typing{module: theModule, types: theTypes, arith: theArith, names: theNames, members: theMembers, calls: theCalls, structLits: theStructLits, patterns: thePatterns, arms: theArms, whens: theWhens, closures: theClosures, iterations: theIterations, hooks: theHooks, jumps: theJumps, locals: theLocals, nodeLocals: theNodeLocals, indexes: theIndexes, drains: theDrains, expansions: theExpansions, funcLocals: theFuncLocals, funcUses: theFuncUses, fieldUses: theFieldUses, consumed: theConsumed, slotTakes: theSlotTakes, lendsPlace: theLendsPlace, lentTries: theLentTries, boxes: theBoxes, staticInstances: theStaticInstances, rawReads: theRawReads, waiting: theWaiting, declared: theDeclared}
+		return Typing{module: theModule, types: theTypes, arith: theArith, names: theNames, members: theMembers, calls: theCalls, structLits: theStructLits, patterns: thePatterns, arms: theArms, whens: theWhens, closures: theClosures, iterations: theIterations, hooks: theHooks, jumps: theJumps, locals: theLocals, nodeLocals: theNodeLocals, indexes: theIndexes, drains: theDrains, expansions: theExpansions, funcLocals: theFuncLocals, funcUses: theFuncUses, fieldUses: theFieldUses, consumed: theConsumed, slotTakes: theSlotTakes, lendsPlace: theLendsPlace, lentTries: theLentTries, boxes: theBoxes, staticInstances: theStaticInstances, rawReads: theRawReads, subscripts: theSubscripts, waiting: theWaiting, declared: theDeclared}
 	end 'cacheLoad'
 end 'Typing'
 

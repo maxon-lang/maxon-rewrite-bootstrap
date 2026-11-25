@@ -1,0 +1,138 @@
+// A subscript of an Array or a FixedArray asks what a get at its index asks, and where the analysis proves the index
+// inside the array, the element is read or written with no check: in a counted for, under a guard, in a while loop that
+// requires an invariant, at a midpoint, through a record held in place, a byte, a String, a fixed array and an element
+// passed to be changed.
+typealias Counts = Array with Count
+
+typealias Four = FixedArray with 4 Count
+
+typealias Points = Array with Point
+
+typealias Strings = Array with String
+
+type Point
+	var x as Count
+	var y as Count
+
+	static function make(x Count, y Count) returns Point
+		return Point{x: x, y: y}
+	end 'make'
+end 'Point'
+
+function bump(mutates n Count)
+	n = try n + 1 otherwise panic("bump overflowed")
+end 'bump'
+
+function doubled(mutates xs Counts) returns Count
+	var total = 0 as Count
+	for i in 0 upto xs.count() 'each'
+		xs[i] = try xs[i] * 2 otherwise panic("doubled overflowed")
+		total = try total + xs[i] otherwise panic("total overflowed")
+	end 'each'
+	return total
+end 'doubled'
+
+function neighbours(xs Counts, i Count) returns Count
+	if i < xs.count() 'inside'
+		let here = xs[i]
+		if i + 1 < xs.count() 'next'
+			return try here + xs[i + 1] otherwise panic("sum overflowed")
+		end 'next'
+		return here
+	end 'inside'
+	return 0
+end 'neighbours'
+
+function reverse(mutates ys Counts)
+	if ys.count() < 2 'short'
+		return
+	end 'short'
+	var lo = 0 as Count
+	var hi = ys.count()
+	hi = hi - 1
+	while lo < hi requires hi < ys.count() 'swap'
+		let a = ys[lo]
+		ys[lo] = ys[hi]
+		ys[hi] = a
+		lo = lo + 1
+		hi = hi - 1
+	end 'swap'
+end 'reverse'
+
+function search(xs Counts, wanted Count) returns Count
+	var lo = 0 as Count
+	var hi = xs.count()
+	while lo < hi requires hi <= xs.count() 'halve'
+		let mid = lo + (hi - lo) / 2
+		if xs[mid] < wanted 'below'
+			lo = mid + 1
+		end 'below' else 'atOrAbove'
+			hi = mid
+		end 'atOrAbove'
+	end 'halve'
+	return lo
+end 'search'
+
+function moved(mutates points Points) returns Count
+	var total = 0 as Count
+	for i in 0 upto points.count() 'each'
+		points[i].x = points[i].y
+		bump(points[i].y)
+		total = try total + points[i].x + points[i].y otherwise panic("total overflowed")
+	end 'each'
+	return total
+end 'moved'
+
+function shouted(mutates bytes ByteArray, mutates words Strings) returns String
+	for i in 0 upto bytes.count() 'bytes'
+		let b = bytes[i]
+		if b >= 97 and b <= 122 'lower'
+			bytes[i] = b - 32
+		end 'lower'
+	end 'bytes'
+	for i in 0 upto words.count() 'words'
+		words[i] = "{words[i]}!"
+	end 'words'
+	var text = String.from(bytes)
+	for i in 0 upto words.count() 'join'
+		text = "{text} {words[i]}"
+	end 'join'
+	return text
+end 'shouted'
+
+function fixedSum() returns Count
+	var four = Four.create()
+	var total = 0 as Count
+	for i in 0 upto countof(Four) 'fill'
+		four[i] = i + 1
+		bump(four[i])
+		total = try total + four[i] otherwise panic("total overflowed")
+	end 'fill'
+	return total
+end 'fixedSum'
+
+function main() returns ExitCode
+	var xs = Counts.create(0)
+	for k in 1 upto 6 'fill'
+		xs.push(k)
+	end 'fill'
+	let total = doubled(xs)
+	reverse(xs)
+	var points = Points.create(0)
+	points.push(Point.make(0, y: 1))
+	points.push(Point.make(0, y: 5))
+	var bytes = "abc".toByteArray()
+	var words = Strings.create(0)
+	words.push("hi")
+	words.push("yo")
+	var sorted = Counts.create(0)
+	for k in 0 upto 5 'sorted'
+		sorted.push(k * 2 + 1)
+	end 'sorted'
+	print("{total} {xs[0]}{xs[4]} {neighbours(xs, i: 1)} {neighbours(xs, i: 4)} {search(sorted, wanted: 5)} {search(sorted, wanted: 10)}\n")
+	print("{moved(points)} {shouted(bytes, words: words)} {fixedSum()}\n")
+	return 0
+end 'main'
+
+//> 30 102 14 2 2 5
+//> 14 ABC hi! yo! 14
