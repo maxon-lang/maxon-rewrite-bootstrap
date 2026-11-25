@@ -47,14 +47,18 @@ export enum DatumShape
 	bytes
 end 'DatumShape'
 
-// DatumBox is one box of a constant: its words are words[first] on, count of them.
+// DatumBox is one box of a constant: its words are words[first] on, count of them. The box of an array has room for capacity
+// elements, its count and roomBytes of zeros after them, as an array that reserved that room has (`create(n, zeroed:
+// false)`).
 export type DatumBox
 	export var shape as DatumShape
 	export var first as Count
 	export var count as Count
+	export var capacity as Count
+	export var roomBytes as Count
 
 	export static function make(shape DatumShape, first Count, count Count) returns DatumBox
-		return DatumBox{shape: shape, first: first, count: count}
+		return DatumBox{shape: shape, first: first, count: count, capacity: count, roomBytes: 0}
 	end 'make'
 end 'DatumBox'
 
@@ -229,8 +233,7 @@ function datumWord(mutates b DatumBuild, p ast.Project, ms ast.ModuleState, modu
 	if k == ast.NodeKind.structLitExpr or k == ast.NodeKind.tupleExpr 'structLitExpr'
 		let lit = structLitInfoAt(p, module: module, node: e)
 		if ast.typeKind(ms.types, reads: p.types, t: lit.ty) == ast.TypeKind.builtinArray 'emptyArray'
-			// An empty array is a new box each use takes.
-			return false
+			return datumArrayOf(b, p: p, ms: ms, module: module, ty: lit.ty, count: 0, value: 0 as ast.NodeID, capacity: 0, w: w)
 		end 'emptyArray'
 		let origin = ast.typeEntry(ms.types, reads: p.types, t: lit.ty).effectiveOrigin()
 		var values = ExprRefList.create(0)
@@ -244,7 +247,7 @@ function datumWord(mutates b DatumBuild, p ast.Project, ms ast.ModuleState, modu
 		return datumRecord(b, p: p, ms: ms, t: lit.ty, tag: noTag, module: module, values: values, w: w)
 	end 'structLitExpr'
 	if k == ast.NodeKind.collectionLitExpr 'collectionLitExpr'
-		return datumArray(b, p: p, ms: ms, module: module, e: e, ty: ty, w: w)
+		return datumArray(b, p: p, ms: ms, module: module, tree: p.modules[mi].tree, e: e, ty: ty, w: w)
 	end 'collectionLitExpr'
 	if k == ast.NodeKind.byteStrLit or k == ast.NodeKind.charLit or k == ast.NodeKind.selfExpr or k == ast.NodeKind.binaryExpr or k == ast.NodeKind.unaryExpr or k == ast.NodeKind.asyncExpr or k == ast.NodeKind.awaitExpr or k == ast.NodeKind.spawnExpr or k == ast.NodeKind.condExpr or k == ast.NodeKind.fromExpr or k == ast.NodeKind.rangeExpr or k == ast.NodeKind.tryExpr or k == ast.NodeKind.panicExpr or k == ast.NodeKind.indexExpr or k == ast.NodeKind.matchExpr or k == ast.NodeKind.closureExpr or k == ast.NodeKind.typeQueryExpr 'perUse'
 		// Computed where it is read: a byte string is a new byte array each time, and the others run code or compute a
@@ -299,8 +302,8 @@ function datumCast(mutates b DatumBuild, p ast.Project, ms ast.ModuleState, modu
 	return true
 end 'datumCast'
 
-// datumCall is a call in a constant: a copy is the value it copies, a case of a union with a payload a box, and a literal
-// factory the record literal it returns with the arguments written in.
+// datumCall is a call in a constant: a copy is the value it copies, a case of a union with a payload a box, `create` of an
+// array the array it makes, and a literal factory the record literal it returns with the arguments written in.
 function datumCall(mutates b DatumBuild, p ast.Project, ms ast.ModuleState, module diag.ModuleID, e ast.NodeID, mutates w DatumWord) returns bool
 	let mi = ast.modIndex(module)
 	let info = callInfoAt(p, module: module, node: e)
@@ -321,6 +324,9 @@ function datumCall(mutates b DatumBuild, p ast.Project, ms ast.ModuleState, modu
 		return false
 	end 'notFactory'
 	let fn = info.fn
+	if isArrayCreate(ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fn).intrinsic) 'create'
+		return datumArrayCreate(b, p: p, ms: ms, module: module, e: e, info: info, op: ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fn).intrinsic, w: w)
+	end 'create'
 	let fm = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fn).module
 	let fmi = ast.modIndex(fm)
 	let body = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fn).bodyRef
@@ -379,6 +385,11 @@ function datumRecord(mutates b DatumBuild, p ast.Project, ms ast.ModuleState, t 
 			return true
 		end 'niche'
 		if form == UnionForm.unionNull 'null'
+			if caseIndex == payloadCase(ms.types, reads: p.types, t: t) 'payload'
+				// Its payload case is the payload's box.
+				let payload = try values.get(0) otherwise panic("ir: a payload case without its payload")
+				return datumWord(b, p: p, ms: ms, module: payload.module, e: payload.node, w: w)
+			end 'payload'
 			// Its empty case is the word 0, which the data does not hold as a value; it is built where it is read.
 			return false
 		end 'null'
@@ -421,9 +432,27 @@ function datumRecord(mutates b DatumBuild, p ast.Project, ms ast.ModuleState, t 
 end 'datumRecord'
 
 // datumArray lays out an array literal: its elements, a word each or a byte each for an array that packs them. A map and
-// a list are built where they are read.
-function datumArray(mutates b DatumBuild, p ast.Project, ms ast.ModuleState, module diag.ModuleID, e ast.NodeID, ty ast.TypeID, mutates w DatumWord) returns bool
-	let mi = ast.modIndex(module)
+// a list are built where they are read. The literal e is of the module, whose tree is tree.
+function datumArray(mutates b DatumBuild, p ast.Project, ms ast.ModuleState, module diag.ModuleID, tree ast.Tree, e ast.NodeID, ty ast.TypeID, mutates w DatumWord) returns bool
+	var shape = DatumShape.array
+	if not datumArrayShape(p, ms: ms, ty: ty, shape: shape) 'built'
+		return false
+	end 'built'
+	let elemsRef = ast.collectionLitExprElemsRef(tree, id: e)
+	var parts = DatumWordList.create(0)
+	for i in 0 upto tree.listLen(elemsRef) 'each'
+		if not pushDatumElement(b, p: p, ms: ms, module: module, e: tree.listAt(elemsRef, index: i) as ast.NodeID, shape: shape, parts: parts) 'unknown'
+			return false
+		end 'unknown'
+	end 'each'
+	finishDatumArray(b, shape: shape, parts: parts, capacity: 0, elementBytes: 0, w: w)
+	return true
+end 'datumArray'
+
+// datumArrayShape is how the box of an array of the type ty is laid out, a word or a byte to an element, or false where the
+// array is no datum: a map, a list, an array of a type parameter's elements, or of elements held in place, whose words are
+// in the buffer and which the data lays out as boxes.
+function datumArrayShape(p ast.Project, ms ast.ModuleState, ty ast.TypeID, mutates shape DatumShape) returns bool
 	let bt = ast.contentType(ms.types, reads: p.types, t: ty)
 	if ast.typeKind(ms.types, reads: p.types, t: bt) != ast.TypeKind.builtinArray 'notArray'
 		return false
@@ -432,33 +461,129 @@ function datumArray(mutates b DatumBuild, p ast.Project, ms ast.ModuleState, mod
 	if ast.typeKind(ms.types, reads: p.types, t: elem) == ast.TypeKind.typeParam 'built'
 		return false
 	end 'built'
-	// An element held in place is its words in the buffer, which the data lays out as boxes: such an array is built where read.
-	var shape = DatumShape.array
 	match holding(ms.types, reads: p.types, b: p.builtins, t: elem, holder: Holder.inElement) 'way'
 		heldInline(_) then return false
 		heldPacked then shape = DatumShape.bytes
 		heldString or
 		heldWord or
-		heldBox then _ = 0
+		heldBox then shape = DatumShape.array
 		heldAddress(_) panic("ir: an element held as the address of words elsewhere")
 	end 'way'
-	let packed = shape == DatumShape.bytes
-	let elemsRef = ast.collectionLitExprElemsRef(p.modules[mi].tree, id: e)
+	return true
+end 'datumArrayShape'
+
+// pushDatumElement lays out the element e of an array of the shape and adds its word to parts, or gives false when it is not
+// known before the program runs.
+function pushDatumElement(mutates b DatumBuild, p ast.Project, ms ast.ModuleState, module diag.ModuleID, e ast.NodeID, shape DatumShape, mutates parts DatumWordList) returns bool
+	var v = DatumWord.make(DatumPart.scalar, value: 0 as Word)
+	if not datumWord(b, p: p, ms: ms, module: module, e: e, w: v) 'unknown'
+		return false
+	end 'unknown'
+	if shape == DatumShape.bytes and v.part != DatumPart.scalar 'notByte'
+		panic("ir: an element of a packed array constant is no number")
+	end 'notByte'
+	parts.push(v)
+	return true
+end 'pushDatumElement'
+
+// finishDatumArray adds the box of an array with the words of its elements, laid out before it, and room for capacity of
+// them, each elementBytes long, and gives it as the value.
+function finishDatumArray(mutates b DatumBuild, shape DatumShape, parts DatumWordList, capacity Count, elementBytes Count, mutates w DatumWord)
 	let at = b.d.boxes.count()
-	b.d.boxes.push(DatumBox.make(shape, first: 0, count: 0))
-	var parts = DatumWordList.create(0)
-	for i in 0 upto p.modules[mi].tree.listLen(elemsRef) 'each'
-		var v = DatumWord.make(DatumPart.scalar, value: 0 as Word)
-		if not datumWord(b, p: p, ms: ms, module: module, e: p.modules[mi].tree.listAt(elemsRef, index: i) as ast.NodeID, w: v) 'unknown'
-			return false
-		end 'unknown'
-		if packed and v.part != DatumPart.scalar 'notByte'
-			panic("ir: an element of a packed array constant is no number")
-		end 'notByte'
-		parts.push(v)
-	end 'each'
-	b.d.boxes[at] = DatumBox.make(shape, first: b.d.words.count(), count: parts.count())
+	var box = DatumBox.make(shape, first: b.d.words.count(), count: parts.count())
+	if capacity > parts.count() 'room'
+		box.capacity = capacity
+		box.roomBytes = try (capacity - parts.count()) * elementBytes otherwise panic("ir: a constant's room past memory")
+	end 'room'
+	b.d.boxes.push(box)
 	b.d.words.append(parts)
 	w = DatumWord.make(DatumPart.box, value: wordAt(at))
+end 'finishDatumArray'
+
+// isArrayCreate is whether a built-in is a `create` of an Array or a FixedArray.
+function isArrayCreate(op ast.Intrinsic) returns bool
+	return op == ast.Intrinsic.intrArrayCreate or op == ast.Intrinsic.intrArrayCreateZeroed or op == ast.Intrinsic.intrArrayFilled or op == ast.Intrinsic.intrFixedArrayCreate or op == ast.Intrinsic.intrFixedArrayFilled or op == ast.Intrinsic.intrFixedArrayCreateCounted
+end 'isArrayCreate'
+
+// datumArrayCreate is the array that a call of `create` of an Array or a FixedArray makes, as lowering makes it (arrayZeroed,
+// arrayFilled): a count of copies of the value it is given, or of zero elements, where the element has a zero, and
+// otherwise none. `create(n, zeroed: false)` is the empty array; the room it reserves is the runtime's buffer, which is no
+// part of the value (the interpreter does not model it). The count is the one the type states or a constant argument.
+function datumArrayCreate(mutates b DatumBuild, p ast.Project, ms ast.ModuleState, module diag.ModuleID, e ast.NodeID, info ast.CallInfo, op ast.Intrinsic, mutates w DatumWord) returns bool
+	let ty = exprType(p, module: module, node: e)
+	var count = 0 as Count
+	if op == ast.Intrinsic.intrFixedArrayCreate or op == ast.Intrinsic.intrFixedArrayFilled 'stated'
+		count = ast.statedCount(ms.types, reads: p.types, t: ty)
+	end 'stated' else 'argument'
+		var n = DatumWord.make(DatumPart.scalar, value: 0 as Word)
+		if not datumWord(b, p: p, ms: ms, module: module, e: createArgument(info, index: 0), w: n) or n.part != DatumPart.scalar 'unknown'
+			return false
+		end 'unknown'
+		count = try n.value as Count otherwise return false
+	end 'argument'
+	var value = 0 as ast.NodeID
+	if op == ast.Intrinsic.intrFixedArrayFilled 'filledStated'
+		value = createArgument(info, index: 0)
+	end 'filledStated' else if op == ast.Intrinsic.intrArrayFilled 'filled'
+		value = createArgument(info, index: 1)
+	end 'filled' else if op == ast.Intrinsic.intrArrayCreateZeroed and not datumFlag(b, p: p, ms: ms, module: module, e: createArgument(info, index: 1)) 'reserved'
+		return datumArrayOf(b, p: p, ms: ms, module: module, ty: ty, count: 0, value: value, capacity: count, w: w)
+	end 'reserved'
+	return datumArrayOf(b, p: p, ms: ms, module: module, ty: ty, count: count, value: value, capacity: count, w: w)
+end 'datumArrayCreate'
+
+// datumFlag is the literal `true` or `false` that the checker requires of a flag of a call (`zeroed:`), read as the word
+// it lays out.
+function datumFlag(mutates b DatumBuild, p ast.Project, ms ast.ModuleState, module diag.ModuleID, e ast.NodeID) returns bool
+	var v = DatumWord.make(DatumPart.scalar, value: 0 as Word)
+	if not datumWord(b, p: p, ms: ms, module: module, e: e, w: v) or v.part != DatumPart.scalar 'unknown'
+		panic("ir: a flag of a call that is no literal bool")
+	end 'unknown'
+	return v.value != 0 as Word
+end 'datumFlag'
+
+// createArgument is the argument of a call of `create` that the parameter index is given, which the checker requires.
+function createArgument(info ast.CallInfo, index Count) returns ast.NodeID
+	return try info.ordered.get(index) otherwise panic("ir: a call of create without its argument {index}")
+end 'createArgument'
+
+// datumArrayOf lays out an array of the type ty of count elements, with room for capacity of them: each a copy of the value,
+// laid out again for each so that no two share a box, or, where there is no value, a zero, which an element with no zero has
+// none of.
+function datumArrayOf(mutates b DatumBuild, p ast.Project, ms ast.ModuleState, module diag.ModuleID, ty ast.TypeID, count Count, value ast.NodeID, capacity Count, mutates w DatumWord) returns bool
+	var shape = DatumShape.array
+	if not datumArrayShape(p, ms: ms, ty: ty, shape: shape) 'built'
+		return false
+	end 'built'
+	var n = count
+	if value == 0 and not hasZero(p, ms: ms, t: ast.typeArgAt(ms.types, reads: p.types, t: ast.contentType(ms.types, reads: p.types, t: ty), index: 0)) 'noZero'
+		n = 0
+	end 'noZero'
+	var parts = DatumWordList.create(0)
+	for _ in 0 upto n 'each'
+		if value == 0 'zero'
+			parts.push(DatumWord.make(DatumPart.scalar, value: 0 as Word))
+		end 'zero' else if not pushDatumElement(b, p: p, ms: ms, module: module, e: value, shape: shape, parts: parts) 'unknown'
+			return false
+		end 'unknown'
+	end 'each'
+	finishDatumArray(b, shape: shape, parts: parts, capacity: capacity, elementBytes: datumElementBytes(p, ms: ms, ty: ty, shape: shape), w: w)
 	return true
-end 'datumArray'
+end 'datumArrayOf'
+
+// datumElementBytes is how many bytes an element of an array of the type ty takes in its buffer: a byte where it packs, a
+// String's two words, or a word.
+function datumElementBytes(p ast.Project, ms ast.ModuleState, ty ast.TypeID, shape DatumShape) returns Count
+	if shape == DatumShape.bytes 'packed'
+		return 1
+	end 'packed'
+	let elem = ast.typeArgAt(ms.types, reads: p.types, t: ast.contentType(ms.types, reads: p.types, t: ty), index: 0)
+	match holding(ms.types, reads: p.types, b: p.builtins, t: elem, holder: Holder.inElement) 'way'
+		heldString then return stringValueBytes
+		heldWord or
+		heldBox or
+		heldPacked then return wordBytes
+		heldInline(_) then return wordBytes
+		heldAddress(_) then return wordBytes
+	end 'way'
+end 'datumElementBytes'

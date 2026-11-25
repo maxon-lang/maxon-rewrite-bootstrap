@@ -62,7 +62,7 @@ function refuseConstantCall(mutates c Checker, p ast.Project, mutates ms ast.Mod
 		return
 	end 'scalar'
 	let written = writtenCallee(c, p: p, ms: ms, callee: callee, errs: errs)
-	checkFail(c.modID, off: exprOffset(c, p: p, ms: ms, node: call), code: diag.errModuleLetCallsFunction, msg: "the initializer of '{c.constName}' calls '{written}': a module-level or static `let` initializer and a raw value call nothing but a static `create`-style function whose body is one `return Self\{...\}` of its parameters and constants, so write a literal, or build the value where it is used", errs: errs)
+	checkFail(c.modID, off: exprOffset(c, p: p, ms: ms, node: call), code: diag.errModuleLetCallsFunction, msg: "the initializer of '{c.constName}' calls '{written}': a raw value calls nothing but a static `create`-style function whose body is one `return Self\{...\}` of its parameters and constants, and a module-level or static `let` initializer calls nothing but such a function, `create` of an Array or a FixedArray and a case of a union, so write a literal, or build the value where it is used", errs: errs)
 end 'refuseConstantCall'
 
 // isConstantResult is whether a value of type t is a number, an enum or a bool, which a constant may hold.
@@ -101,7 +101,7 @@ function typeCall(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, 
 	let k = ms.tree().kindOf(callee)
 	let bare = k == ast.NodeKind.nameExpr and not isQualifiedName(c, p: p, ms: ms, e: callee)
 	let named = k == ast.NodeKind.nameExpr and (not bare or lookupLocal(c, name: ast.nameExprName(ms.tree(), id: callee)) == ast.noLocal)
-	if (named or k == ast.NodeKind.memberExpr) and not c.allowCalls and not isLiteralFactoryCall(c, p: p, ms: ms, callee: callee) 'forbidden'
+	if (named or k == ast.NodeKind.memberExpr) and not c.allowCalls and not isLiteralFactoryCall(c, p: p, ms: ms, callee: callee) and not isBuildingCall(c, p: p, ms: ms, callee: callee) 'forbidden'
 		refuseConstantCall(c, p: p, ms: ms, call: call, callee: callee, errs: errs)
 		return ast.noType
 	end 'forbidden'

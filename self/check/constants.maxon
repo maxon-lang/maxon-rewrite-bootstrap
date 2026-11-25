@@ -565,6 +565,42 @@ function isLiteralFactoryCall(c Checker, p ast.Project, ms ast.ModuleState, call
 	return probe.count() == 0 and fn != ast.noFunc and isLiteralFactory(p, ms: ms, fn: fn)
 end 'isLiteralFactoryCall'
 
+// isBuildingCall is whether the callee of a call in the value of a module-level or static let is one that the compiler
+// builds itself, which maxon's initializer may make as it makes no call of a function the program or the library
+// declares: `create` of an Array or a FixedArray (`Names.create(0)`), or a case of a union that carries a payload
+// (`Op.add(1)`). Its value is laid out as data where its arguments are known (datumOf). A raw value makes neither, as
+// maxon's constant evaluator makes neither.
+function isBuildingCall(c Checker, p ast.Project, ms ast.ModuleState, callee ast.NodeID) returns bool
+	if c.inRawValue or ms.tree().kindOf(callee) != ast.NodeKind.memberExpr 'notMember'
+		return false
+	end 'notMember'
+	let obj = ast.memberExprObj(ms.tree(), id: callee)
+	if ms.tree().kindOf(obj) != ast.NodeKind.nameExpr 'notType'
+		return false
+	end 'notType'
+	var probe = diag.ErrorList.create(0)
+	let t = typeNamed(c, p: p, ms: ms, name: obj, errs: probe)
+	if t == ast.noType and probe.count() == 0 and isUnboundHead(c, p: p, ms: ms, obj: obj) 'unbound'
+		// A name that names nothing here runs nothing: typing the call says what it names (E2004, E3008).
+		return true
+	end 'unbound'
+	if probe.count() > 0 or t == ast.noType 'notNamed'
+		return false
+	end 'notNamed'
+	let name = ast.memberExprName(ms.tree(), id: callee)
+	let origin = ast.originOf(ms.types, reads: p.types, t: t)
+	if typeHasKind(p, ms: ms, t: t, kind: ast.TypeKind.unionTy) 'union'
+		return ast.typeEntry(ms.types, reads: p.types, t: origin).findCase(name).isSome()
+	end 'union'
+	return name == "create" and (origin == p.builtins.arrayOrigin or origin == p.builtins.fixedArrayOrigin)
+end 'isBuildingCall'
+
+// isUnboundHead is whether the name obj that a member call is written on names nothing the module can see: no local, no
+// declaration, no primitive and no type parameter.
+function isUnboundHead(c Checker, p ast.Project, ms ast.ModuleState, obj ast.NodeID) returns bool
+	return lookupLocal(c, name: ast.nameExprName(ms.tree(), id: obj)) == ast.noLocal and not ast.nodeDecl(p, ms: ms, node: obj as Count).isSome() and primitiveNamed(c, p: p, ms: ms, e: obj) == ast.noType and typeParamNamed(c, p: p, ms: ms, e: obj) == ast.noType
+end 'isUnboundHead'
+
 // isLiteralFactory is whether a function is a literal factory: a static function that the program declares, of a type that
 // is not generic, that is not generic and throws nothing, and whose body is one `return` of a record literal whose fields run
 // no code, so they are its parameters and constants. A call of it is the literal with the arguments written in.

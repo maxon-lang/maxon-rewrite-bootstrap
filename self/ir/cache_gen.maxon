@@ -365,6 +365,8 @@ function storeDatumBox(mutates w table.CacheWriter, v DatumBox)
 	w.word8(v.shape.ordinal as table.Word64)
 	w.word64(v.first as table.Word64)
 	w.word64(v.count as table.Word64)
+	w.word64(v.capacity as table.Word64)
+	w.word64(v.roomBytes as table.Word64)
 end 'storeDatumBox'
 
 extension DatumBox
@@ -372,7 +374,9 @@ extension DatumBox
 		let theShape = DatumShape.allCases[r.word8() as Count]
 		let theFirst = r.word64() as Count
 		let theCount = r.word64() as Count
-		return DatumBox{shape: theShape, first: theFirst, count: theCount}
+		let theCapacity = r.word64() as Count
+		let theRoomBytes = r.word64() as Count
+		return DatumBox{shape: theShape, first: theFirst, count: theCount, capacity: theCapacity, roomBytes: theRoomBytes}
 	end 'cacheLoad'
 end 'DatumBox'
 

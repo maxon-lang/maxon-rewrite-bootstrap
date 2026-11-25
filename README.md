@@ -1852,7 +1852,13 @@ and read from there (`ir.Datum`, the `datum` instruction). `ir.datumOf` (`self/i
 it: it lays out integers and floats that the checker knows, `bool`s, enum cases, plain strings, records and tuples (with
 their fields' defaults), cases of a union with no payload, array literals (a packed one as bytes), `.clone()` of these, the
 other constants they name (laid out again inside this one) and calls of a literal factory, whose body is read with its
-parameters bound to the arguments. Everything else is built where it is read, as before: a number, a string or a function value
+parameters bound to the arguments. An empty or fixed-length array that a module-level or `static let` makes with `create` of an
+`Array` or a `FixedArray` (`Names.create(0)`, `Nums.create(3)`, `Buf.create(4)`, `Buf.create(3, value: 7)`), or with an empty
+literal (`Names{}`), and a case of a union with a payload (`Op.add(1)`, `Hold.owned(9)`) are static data too, as maxon's
+initializer may make them: neither calls a function the program or the library declares, so the array is laid out as
+lowering would make it (a count of zero elements, or of copies of the value, each laid out again; `create(n, zeroed: false)` is
+the empty array with room for `n`, zeros in the data, so its `capacity()` is `n`) and the case as its box, with nothing run
+before `main`. Everything else is built where it is read, as before: a number, a string or a function value
 as the whole constant (a number is a constant of the code and a string a literal already), and a constant that holds an
 interpolated string, a byte string, a map or a list, a function value or a closure, a value boxed into an interface, a
 conditional or a match, or an operator or a cast the checker does not fold. The raw values of an enum or a union are data
@@ -4788,7 +4794,8 @@ parser makes it a constant of the module named `Type.name`, as it does a `typeal
 `Type.name` into a name bound to it, so it is typed, ranged, ordered (`E2012` for a cycle) and lowered as a module-level `let`:
 its value is read from the data section when it is a box known before the program runs and inlined at each use otherwise
 (see "Constants in the data section"), and a call in its initializer is `E3220` unless it is a literal factory (see "Raw
-values"), which the initializer may call by its bare name as one of the type's methods may. One that an extension adds is filed, as its typealiases are, under the type it extends in the module that writes the
+values"), which the initializer may call by its bare name as one of the type's methods may, `create` of an `Array` or a
+`FixedArray`, or a case of a union (see "Constants in the data section"). One that an extension adds is filed, as its typealiases are, under the type it extends in the module that writes the
 extension (`ast.ExtAlias`), and found as its methods are, where the module sees the extension: the check makes `Type.name` a
 name bound to it (`readTypeStatic`), as it does one of the type's body written after a typealias of the type. In the
 initializer of a constant, which the constants stage types on a tree it shares, the read is typed there and made a name by
@@ -5151,8 +5158,8 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   A record or function raw value is a constant, as maxon's is, where a call of a literal factory is the literal filled by its
   arguments (maxon reads `Meta.create(1)` so too, never running `create`); here the factory is declared and its body must be
   one `return` of a record literal over its parameters and constants, which a constant of the module may call too, and a call
-  of a function that is no such factory is `E2045` or `E3220` (`create` of an array, which maxon's module `let` may call,
-  is not yet allowed: see below).
+  of a function that is no such factory is `E2045` or `E3220`, where a raw value's `create` of an array is too (a module-level
+  or `static let` may call it, as maxon's may: see "Constants in the data section").
   Maxon refuses a raw value its constant evaluator cannot hold with `E2015` (a `String` or an array in the record, a field
   left out or given twice, a factory with more arguments than fields), `E3095` for a bare function name that two modules
   declare, and `E3155` for a reserved one; here the ordinary rules say what is wrong (`E3005`, `E3086`, `E3006`, `E3036`,
@@ -5160,11 +5167,6 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   the executable's data, which no program can tell apart since building it runs no code. `.rawValue` of such an enum or union
   is the whole record, which the reader owns, where maxon refuses it without a field
   after it (`E2015`); and the record that the enum or union exports is not held to be at least as visible as it (`E3167`).
-- Not yet: a module-level or `static let` that calls `create` of an `Array` or a `FixedArray` (`Names.create(0)`,
-  `Buf.create(4)`) or builds a case of a union with a payload (`Op.add(1)`, `Hold.owned(9)`), as maxon's may: maxon's
-  initializer calls no function the program or the library declares, and builds these itself. Here a constant calls nothing
-  but a literal factory (see "Raw values"), and both are refused for now with `E3220`, the second because the check refuses a
-  member call of a constant before it resolves it to a case; their spec tests fail until then.
 - **A result may be less visible than its function**, as a function of Go may return a type that is not exported: `export
   function make() returns Secret` is fine where `Secret` has no modifier, and the caller outside `Secret`'s module holds
   the value without naming the type (see "Modules"). Maxon refuses it (`E3167`), as it does a parameter, a field, a payload,
