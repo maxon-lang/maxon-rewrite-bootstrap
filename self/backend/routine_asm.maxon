@@ -353,7 +353,10 @@ function arm64LockAdd(mutates u CodeUnit, base Arm64Register, disp Imm32, src Ar
 	encodeArm64Ldaddal(u.asm.code, dest: src, src: src, base: at)
 end 'arm64LockAdd'
 
-// rCopyBytes copies as many bytes as second says from copyFrom to copyTo, and leaves the three and third holding anything.
+// rCopyBytes copies as many bytes as second says from copyFrom to copyTo, and leaves the three and third holding anything;
+// on arm64 it leaves x0 to x8 holding anything too, as every call may (its routine holds nothing in them across it). Its
+// target is always a box its routine has just allocated, so the two never overlap, and a copy may read and write them in
+// any order.
 function rCopyBytes(mutates u CodeUnit, a ast.TargetArch)
 	match a 'arch'
 		x64 then u.asm.repMovsb()
@@ -361,21 +364,145 @@ function rCopyBytes(mutates u CodeUnit, a ast.TargetArch)
 	end 'arch'
 end 'rCopyBytes'
 
+// The sizes of arm64CopyBytes's cases, Go's memmove's plan: up to copySmallBytes bytes are a word, a half word, a quarter
+// word or a byte from each end, overlapping in the middle; up to copyMediumBytes, the pairs of words from each end; above
+// it a loop of copyLoopBytes at a time, and then the last copyLoopBytes from the end, overlapping what the loop wrote.
+let copySmallBytes = 16
+
+let copyPairsBytes = 32
+
+let copyMediumBytes = 64
+
+let copyLoopBytes = 64
+
+let copyWordBytes = 8
+
+let copyQuarterBytes = 4
+
+let copyHalfWordBytes = 2
+
+// arm64CopyFirst and arm64CopySecond are the registers of pair k of those arm64CopyBytes holds the bytes it copies in:
+// x0 to x7, four pairs.
+function arm64CopyFirst(k Count) returns Arm64Register
+	return match k 'pair'
+		0 gives Arm64Register.x0
+		1 gives Arm64Register.x2
+		2 gives Arm64Register.x4
+		3 gives Arm64Register.x6
+		default panic("backend: arm64CopyBytes holds its data in four pairs")
+	end 'pair'
+end 'arm64CopyFirst'
+
+function arm64CopySecond(k Count) returns Arm64Register
+	return match k 'pair'
+		0 gives Arm64Register.x1
+		1 gives Arm64Register.x3
+		2 gives Arm64Register.x5
+		3 gives Arm64Register.x7
+		default panic("backend: arm64CopyBytes holds its data in four pairs")
+	end 'pair'
+end 'arm64CopySecond'
+
+// arm64PairDisp is the offset of pair k from a base, or before an end base the offset of pair k of the last of them.
+function arm64PairDisp(k Count, of Count, fromEnd bool) returns Imm32
+	let at = try k * arm64PairBytes otherwise panic("backend: a pair's offset past its field")
+	if not fromEnd 'start'
+		return try at as Imm32 otherwise panic("backend: a pair's offset past its field")
+	end 'start'
+	let span = try of * arm64PairBytes otherwise panic("backend: a pair's offset past its field")
+	return try ((at as FullRangeInt) - (span as FullRangeInt)) as Imm32 otherwise panic("backend: a pair's offset past its field")
+end 'arm64PairDisp'
+
+// arm64CopyPairs copies the first starts pairs of words from from to to and the last ends pairs before fromEnd to before
+// toEnd, every load before the first store.
+function arm64CopyPairs(mutates u CodeUnit, from Arm64Register, to Arm64Register, fromEnd Arm64Register, toEnd Arm64Register, starts Count, ends Count)
+	for k in 0 upto starts 'loadStarts'
+		encodeArm64Ldp64(u.asm.code, first: arm64CopyFirst(k), second: arm64CopySecond(k), base: from, disp: arm64PairDisp(k, of: starts, fromEnd: false))
+	end 'loadStarts'
+	for k in 0 upto ends 'loadEnds'
+		let r = try starts + k otherwise panic("backend: arm64CopyBytes holds its data in four pairs")
+		encodeArm64Ldp64(u.asm.code, first: arm64CopyFirst(r), second: arm64CopySecond(r), base: fromEnd, disp: arm64PairDisp(k, of: ends, fromEnd: true))
+	end 'loadEnds'
+	for k in 0 upto starts 'storeStarts'
+		encodeArm64Stp64(u.asm.code, first: arm64CopyFirst(k), second: arm64CopySecond(k), base: to, disp: arm64PairDisp(k, of: starts, fromEnd: false))
+	end 'storeStarts'
+	for k in 0 upto ends 'storeEnds'
+		let r = try starts + k otherwise panic("backend: arm64CopyBytes holds its data in four pairs")
+		encodeArm64Stp64(u.asm.code, first: arm64CopyFirst(r), second: arm64CopySecond(r), base: toEnd, disp: arm64PairDisp(k, of: ends, fromEnd: true))
+	end 'storeEnds'
+end 'arm64CopyPairs'
+
+// arm64CopyBytes is rCopyBytes on arm64, by size as Go's memmove copies: no loop below copyMediumBytes, and every byte
+// read once or twice but never a byte outside the source.
 function arm64CopyBytes(mutates u CodeUnit)
 	let count = arm64RoutineRegister(rSecond)
-	let byte = arm64RoutineRegister(rThird)
+	let fromEnd = arm64RoutineRegister(rThird)
 	let to = arm64RoutineRegister(rCopyTo)
 	let from = arm64RoutineRegister(rCopyFrom)
-	let top = u.asm.newLabel()
+	let toEnd = Arm64Register.x8
+	let first = arm64CopyFirst(0)
+	let last = arm64CopySecond(0)
 	let done = u.asm.newLabel()
+	let large = u.asm.newLabel()
+	let medium = u.asm.newLabel()
+	let pairs = u.asm.newLabel()
+	let quarters = u.asm.newLabel()
+	let halves = u.asm.newLabel()
+	let single = u.asm.newLabel()
 	u.asm.arm64BranchIfZero(count, label: done)
-	u.asm.bind(top)
-	encodeArm64LdrbOff(u.asm.code, dest: byte, base: from, disp: 0)
-	encodeArm64StrbOff(u.asm.code, src: byte, base: to, disp: 0)
-	u.asm.arm64AddImm(from, src: from, value: 1)
-	u.asm.arm64AddImm(to, src: to, value: 1)
-	encodeArm64SubsRegImm(u.asm.code, dest: count, src: count, imm: 1)
-	u.asm.arm64BranchIf(MCond.notEqual, label: top)
+	encodeArm64AddRegReg(u.asm.code, dest: fromEnd, left: from, right: count)
+	encodeArm64AddRegReg(u.asm.code, dest: toEnd, left: to, right: count)
+	encodeArm64CmpRegImm(u.asm.code, left: count, imm: copySmallBytes as Arm64Imm12)
+	u.asm.arm64BranchIf(MCond.above, label: pairs)
+	encodeArm64CmpRegImm(u.asm.code, left: count, imm: copyWordBytes as Arm64Imm12)
+	u.asm.arm64BranchIf(MCond.below, label: quarters)
+	encodeArm64Ldr64Off(u.asm.code, dest: first, base: from, disp: 0)
+	encodeArm64Ldr64Unscaled(u.asm.code, dest: last, base: fromEnd, disp: 0 - copyWordBytes)
+	encodeArm64Str64Off(u.asm.code, src: first, base: to, disp: 0)
+	encodeArm64Str64Unscaled(u.asm.code, src: last, base: toEnd, disp: 0 - copyWordBytes)
+	u.asm.arm64Jump(done)
+	u.asm.bind(quarters)
+	encodeArm64CmpRegImm(u.asm.code, left: count, imm: copyQuarterBytes as Arm64Imm12)
+	u.asm.arm64BranchIf(MCond.below, label: halves)
+	encodeArm64Ldr32Off(u.asm.code, dest: first, base: from, disp: 0)
+	encodeArm64Ldr32Unscaled(u.asm.code, dest: last, base: fromEnd, disp: 0 - copyQuarterBytes)
+	encodeArm64Str32Off(u.asm.code, src: first, base: to, disp: 0)
+	encodeArm64Str32Unscaled(u.asm.code, src: last, base: toEnd, disp: 0 - copyQuarterBytes)
+	u.asm.arm64Jump(done)
+	u.asm.bind(halves)
+	encodeArm64CmpRegImm(u.asm.code, left: count, imm: copyHalfWordBytes as Arm64Imm12)
+	u.asm.arm64BranchIf(MCond.below, label: single)
+	encodeArm64LdrhOff(u.asm.code, dest: first, base: from, disp: 0)
+	encodeArm64LdrhUnscaled(u.asm.code, dest: last, base: fromEnd, disp: 0 - copyHalfWordBytes)
+	encodeArm64StrhOff(u.asm.code, src: first, base: to, disp: 0)
+	encodeArm64StrhUnscaled(u.asm.code, src: last, base: toEnd, disp: 0 - copyHalfWordBytes)
+	u.asm.arm64Jump(done)
+	u.asm.bind(single)
+	encodeArm64LdrbOff(u.asm.code, dest: first, base: from, disp: 0)
+	encodeArm64StrbOff(u.asm.code, src: first, base: to, disp: 0)
+	u.asm.arm64Jump(done)
+	u.asm.bind(pairs)
+	encodeArm64CmpRegImm(u.asm.code, left: count, imm: copyPairsBytes as Arm64Imm12)
+	u.asm.arm64BranchIf(MCond.above, label: medium)
+	arm64CopyPairs(u, from: from, to: to, fromEnd: fromEnd, toEnd: toEnd, starts: 1, ends: 1)
+	u.asm.arm64Jump(done)
+	u.asm.bind(medium)
+	encodeArm64CmpRegImm(u.asm.code, left: count, imm: copyMediumBytes as Arm64Imm12)
+	u.asm.arm64BranchIf(MCond.above, label: large)
+	arm64CopyPairs(u, from: from, to: to, fromEnd: fromEnd, toEnd: toEnd, starts: 2, ends: 2)
+	u.asm.arm64Jump(done)
+	// Above copyMediumBytes: copyLoopBytes at a time while more than that are left, and then the last copyLoopBytes,
+	// which overlap what the loop wrote last where fewer were left.
+	u.asm.bind(large)
+	let loop = u.asm.newLabel()
+	u.asm.bind(loop)
+	arm64CopyPairs(u, from: from, to: to, fromEnd: fromEnd, toEnd: toEnd, starts: copyLoopBytes / arm64PairBytes, ends: 0)
+	u.asm.arm64AddImm(from, src: from, value: copyLoopBytes)
+	u.asm.arm64AddImm(to, src: to, value: copyLoopBytes)
+	encodeArm64SubRegImm(u.asm.code, dest: count, src: count, imm: copyLoopBytes as Arm64Imm12)
+	encodeArm64CmpRegImm(u.asm.code, left: count, imm: copyLoopBytes as Arm64Imm12)
+	u.asm.arm64BranchIf(MCond.above, label: loop)
+	arm64CopyPairs(u, from: from, to: to, fromEnd: fromEnd, toEnd: toEnd, starts: 0, ends: copyLoopBytes / arm64PairBytes)
 	u.asm.bind(done)
 end 'arm64CopyBytes'
 
