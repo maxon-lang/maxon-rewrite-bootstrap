@@ -138,7 +138,7 @@ function main() returns ExitCode
 	let level = Level.create(5)
 	let arr = [1, 2, 3]
 	let result = arr.map(function(_ Integer) gives try level.rawValue as int(1 to 3) otherwise panic("out of range"))
-	return result.count()
+	return try result.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

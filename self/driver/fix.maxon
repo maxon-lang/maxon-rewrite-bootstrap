@@ -169,6 +169,62 @@ end 'causeSkipLine'
 
 typealias Flags = Array with bool
 
+// Kept is what fix leaves alone in a test that expects a compile error and that minimaxon refuses with the code it expects:
+// the errors the test expects, as diagnosticPlaces writes them, and every diagnostic but a missing try. The check reports
+// every missing try of a function, so where maxon's test has one that it is about and a later operation that maxon checks
+// at run time, both are reported, and only the second gets its try. A diagnostic is an expected one when it names the
+// expected place, or only its line where the test's positions are moved, whose columns are not minimaxon's; an expectation
+// that names no place keeps every error of its code.
+type Kept
+	var places as ast.StringList
+	var moved as bool
+	var sections as SourceSections
+
+	static function none() returns Kept
+		return Kept{places: ast.StringList.create(0), moved: false, sections: SourceSections.create(0)}
+	end 'none'
+
+	// of is what a test whose maxoncstderr block is expected keeps, display naming its spec file.
+	static function of(test SpecTest, expected String, display String, sections SourceSections) returns Kept
+		let wanted = trimSpace(replaceText(expected, needle: "specs/{fileStem(display)}/{test.name}.maxon", replacement: fragmentToken)).clone()
+		return Kept{places: splitLines(diagnosticPlaces(wanted)), moved: test.positionsMoved, sections: sections.clone()}
+	end 'of'
+
+	// isActive is whether the program is a test's that keeps its expected errors.
+	function isActive() returns bool
+		return places.count() > 0
+	end 'isActive'
+
+	// leaves is whether fix leaves the diagnostic alone: it is no missing try, or it is one the test expects.
+	function leaves(e diag.CompileError) returns bool
+		if e.code != diag.errUncheckedFailure 'other'
+			return true
+		end 'other'
+		let got = diagnosticPlaces(diagnosticText(e, sections: sections))
+		for want in places 'places'
+			if got == want or hasPrefix(got, prefix: "{want}{placeEnd}") 'same'
+				return true
+			end 'same'
+			if moved and withoutColumn(got) == withoutColumn(want) 'sameLine'
+				return true
+			end 'sameLine'
+		end 'places'
+		return false
+	end 'leaves'
+end 'Kept'
+
+// withoutColumn is a place `<fragment>:line:column` without its column, and any other place as it is.
+function withoutColumn(place String) returns String
+	var at = place.byteLength()
+	while at > 0 and place.byteAt(try at - 1 otherwise 0) != colonByte 'colon'
+		at = try at - 1 otherwise 0
+	end 'colon'
+	if at == 0 or not place.contains(fragmentToken) 'unplaced'
+		return place.clone()
+	end 'unplaced'
+	return place.sliceBytes(0, endPos: try at - 1 otherwise 0).clone()
+end 'withoutColumn'
+
 // FixProgram is a program being fixed, in memory: one file, or the files of a project's directory at root.
 type FixProgram
 	var root as String
@@ -180,10 +236,12 @@ type FixProgram
 	var inLibrary as bool
 	// targets are the targets the program is checked for (fixTargets).
 	var targets as ast.TargetList
+	// kept is the errors that a test expects, which fix leaves alone (Kept).
+	var kept as Kept
 
 	static function make(consumes root String, consumes name String, single bool, consumes files project.SourceFiles, candidates ast.TargetList) returns FixProgram
 		let targets = fixTargets(candidates, files: files)
-		return FixProgram{root: root, name: name, single: single, files: files, inLibrary: false, targets: targets}
+		return FixProgram{root: root, name: name, single: single, files: files, inLibrary: false, targets: targets, kept: Kept.none()}
 	end 'make'
 
 	function fileIndex(path String) returns table.Option with Count
@@ -209,9 +267,11 @@ type FixOutcome
 	var broken as bool
 	var said as String
 	var watched as table.Option with String
+	// rounds are the rounds that made a fix.
+	var rounds as Count
 
-	static function make(consumes files project.SourceFiles, consumes changed Flags, consumes kinds ast.StringList, consumes left String, leftCause diag.ErrorCause, broken bool, consumes said String, consumes watched table.Option with String) returns FixOutcome
-		return FixOutcome{files: files, changed: changed, kinds: kinds, left: left, leftCause: leftCause, broken: broken, said: said, watched: watched}
+	static function make(consumes files project.SourceFiles, consumes changed Flags, consumes kinds ast.StringList, consumes left String, leftCause diag.ErrorCause, broken bool, consumes said String, consumes watched table.Option with String, rounds Count) returns FixOutcome
+		return FixOutcome{files: files, changed: changed, kinds: kinds, left: left, leftCause: leftCause, broken: broken, said: said, watched: watched, rounds: rounds}
 	end 'make'
 
 	// haltedLeft is the code left by fixing that halts at the watched codes: the first of them that was the first diagnostic of a
@@ -411,15 +471,16 @@ function addKind(mutates kinds ast.StringList, kind String)
 end 'addKind'
 
 // chooseFixes is the fixes of the diagnostics, in their order, that can be made together. A diagnostic whose code is the
-// expected one gets none: what a test expects is what it is about, whatever fix its message names.
+// expected one gets none: what a test expects is what it is about, whatever fix its message names. Nor does one that the
+// program keeps (Kept).
 function chooseFixes(prog FixProgram, errs diag.ErrorList, expected table.Option with String) returns Choice
 	var choice = Choice.new()
-	for i in 0 upto errs.count() 'errors'
-		if isExpectedCode(errs[i].code, expected: expected) 'about'
+	for e in errs 'errors'
+		if isExpectedCode(e.code, expected: expected) or (prog.kept.isActive() and prog.kept.leaves(e)) 'about'
 			continue 'errors'
 		end 'about'
-		if errs[i].fix.isSome() and choice.fits(prog, fix: errs[i].fix) 'fits'
-			choice.add(errs[i].fix)
+		if e.fix.isSome() and choice.fits(prog, fix: e.fix) 'fits'
+			choice.add(e.fix)
 		end 'fits'
 	end 'errors'
 	return choice
@@ -483,10 +544,9 @@ function applyChoice(mutates prog FixProgram, choice Choice, mutates changed Fla
 end 'applyChoice'
 
 // fixRoundsOf bounds the rounds of fixing a program: a round for each byte of its files. Each round applies at least one fix,
-// and the range analysis reports one failure of a function at a time, so a function with many operations that can fail
-// takes a round for each, however many there are; each fix covers a failure of its own, at least a byte of the program, so
-// fixing that has not ended in that many rounds is going round in a circle. A fixed count of rounds left such a function
-// half covered, and fixed again it changed again.
+// and each fix covers a failure of its own, at least a byte of the program, so fixing that has not ended in that many rounds
+// is going round in a circle. Most programs take a round or two, since the check reports every missing try of a function at
+// once; the bound is what holds whatever the diagnostics of a round leave for the next.
 function fixRoundsOf(prog FixProgram) returns Count
 	var bytes = 0 as Count
 	for file in prog.files 'files'
@@ -516,6 +576,7 @@ function fixProgram(consumes prog FixProgram, libraries FixLibraries, expected t
 	var said = ""
 	var watched = table.Option.none as table.Option with String
 	let rounds = fixRoundsOf(current)
+	var applied = 0 as Count
 	for round in 0 upto increment(rounds) 'rounds'
 		let errs = checkFixing(current, libraries: libraries)
 		if errs.count() == 0 'clean'
@@ -536,7 +597,7 @@ function fixProgram(consumes prog FixProgram, libraries FixLibraries, expected t
 		end 'unfixable'
 		if round == rounds 'last'
 			said = "{said}unended  fixing {current.name} did not end in {rounds} rounds, so it is left as it was\n"
-			return FixOutcome.make(original, changed: unchanged, kinds: ast.StringList.create(0), left: left, leftCause: leftCause, broken: broken, said: said, watched: watched)
+			return FixOutcome.make(original, changed: unchanged, kinds: ast.StringList.create(0), left: left, leftCause: leftCause, broken: broken, said: said, watched: watched, rounds: applied)
 		end 'last'
 		let choice = chooseFixes(current, errs: errs, expected: expected)
 		if choice.edits.count() == 0 'stuck'
@@ -548,11 +609,12 @@ function fixProgram(consumes prog FixProgram, libraries FixLibraries, expected t
 			break 'rounds'
 		end 'undone'
 		changed = roundChanged
+		applied = increment(applied)
 		for k in 0 upto choice.kinds.count() 'kinds'
 			addKind(kinds, kind: choice.kinds[k])
 		end 'kinds'
 	end 'rounds'
-	return FixOutcome.make(current.files, changed: changed, kinds: kinds, left: left, leftCause: leftCause, broken: broken, said: said, watched: watched)
+	return FixOutcome.make(current.files, changed: changed, kinds: kinds, left: left, leftCause: leftCause, broken: broken, said: said, watched: watched, rounds: applied)
 end 'fixProgram'
 
 // FixTally counts what a run of fix did: the programs or tests it changed, by kind of fix, the spec tests it skipped for a
@@ -566,12 +628,15 @@ type FixTally
 	var kindCounts as CountList
 	var codes as ast.StringList
 	var codeCounts as CountList
+	// rounds are the most rounds that made a fix of one program or test.
+	var rounds as Count
 
 	static function new() returns FixTally
-		return FixTally{changed: 0, trapSkips: 0, codeSkips: 0, broken: 0, kinds: ast.StringList.create(0), kindCounts: CountList.create(0), codes: ast.StringList.create(0), codeCounts: CountList.create(0)}
+		return FixTally{changed: 0, trapSkips: 0, codeSkips: 0, broken: 0, kinds: ast.StringList.create(0), kindCounts: CountList.create(0), codes: ast.StringList.create(0), codeCounts: CountList.create(0), rounds: 0}
 	end 'new'
 
 	function count(mutates self, outcome FixOutcome)
+		rounds = maxCount(rounds, b: outcome.rounds)
 		if outcome.broken 'broken'
 			broken = increment(broken)
 		end 'broken'
@@ -593,6 +658,7 @@ type FixTally
 		trapSkips = offsetBy(trapSkips, by: other.trapSkips)
 		codeSkips = offsetBy(codeSkips, by: other.codeSkips)
 		broken = offsetBy(broken, by: other.broken)
+		rounds = maxCount(rounds, b: other.rounds)
 		for i in 0 upto other.kinds.count() 'kinds'
 			countIn(kinds, counts: kindCounts, key: other.kinds[i], by: other.kindCounts[i])
 		end 'kinds'
@@ -649,7 +715,7 @@ function printFixSummary(tally FixTally, checkOnly bool, unit String)
 	if checkOnly 'checking'
 		verb = "would fix"
 	end 'checking'
-	print("{verb} {tally.changed} {unit}, by kind of fix: {countsText(tally.kinds, counts: tally.kindCounts)}\n")
+	print("{verb} {tally.changed} {unit}, by kind of fix: {countsText(tally.kinds, counts: tally.kindCounts)}, in at most {tally.rounds} rounds of fixes\n")
 	if tally.trapSkips > 0 'traps'
 		print("skipped {tally.trapSkips} tests that expect maxon's run-time trap where a fix would add a try\n")
 	end 'traps'
@@ -792,14 +858,17 @@ end 'fixSource'
 // isFixable is whether fix may change a spec test: one that the conversion did not skip, that runs a program rather than
 // being about a diagnostic, and whose block is the program alone.
 function isFixable(test SpecTest, text String) returns bool
+	return isFixableBlock(test, text: text) and not resultFence(test, base: compilerErrorFence).isSome()
+end 'isFixable'
+
+// isFixableBlock is whether fix may change the block of a spec test: one that the conversion did not skip, and whose block
+// is the program alone.
+function isFixableBlock(test SpecTest, text String) returns bool
 	if test.skips.count() > 0 or not test.hasSource or test.sourceStart >= test.sourceFinish 'skipped'
 		return false
 	end 'skipped'
-	if resultFence(test, base: compilerErrorFence).isSome() 'aboutDiagnostic'
-		return false
-	end 'aboutDiagnostic'
 	return not sourceHasOverlay(text.sliceBytes(test.sourceStart, endPos: test.sourceFinish))
-end 'isFixable'
+end 'isFixableBlock'
 
 // expectsTrap is whether what the test expects on stderr is a panic, which a trap of maxon's prints.
 function expectsTrap(test SpecTest, text String) returns bool
@@ -940,9 +1009,42 @@ function fixSpecTestAt(shared SharedRuntimes, libraries FixLibraries, exe String
 	end 'mismatched'
 	if isFixable(test, text: text) 'runs'
 		fixSpecTest(libraries, test: test, text: text, display: display, skips: skips, expected: table.Option.none, checkOnly: checkOnly, result: result)
-	end 'runs'
+	end 'runs' else if isFixableBlock(test, text: text) 'refused'
+		fixAroundExpected(libraries, test: test, text: text, display: display, checkOnly: checkOnly, result: result)
+	end 'refused'
 	return result
 end 'fixSpecTestAt'
+
+// fixAroundExpected adds to edits the missing tries of a test that expects a compile error and that minimaxon refuses with
+// the code it expects, but for the errors the test expects (Kept). The test is changed only when what is left is what it
+// expects, as the runner compares it, so a try that would cover an expected error as well leaves the test as it was.
+function fixAroundExpected(libraries FixLibraries, test SpecTest, text String, display String, checkOnly bool, mutates result FixResult)
+	let fence = fenceText(test, text: text, base: compilerErrorFence)
+	if not fence.isSome() 'unexpected'
+		return
+	end 'unexpected'
+	let expected = fence.unwrap().clone()
+	let source = text.sliceBytes(test.sourceStart, endPos: test.sourceFinish)
+	let sections = splitSections(source)
+	var prog = specProgram(test, display: display, source: source, sections: sections)
+	prog.kept = Kept.of(test, expected: expected, display: display, sections: sections)
+	let outcome = fixProgram(prog, libraries: libraries, expected: table.Option.none, watches: ast.StringList.create(0))
+	result.say(outcome.said)
+	if not outcome.anyChanged() 'unchanged'
+		return
+	end 'unchanged'
+	let fixed = fixedBlock(source, sections: sections, outcome: outcome)
+	let fixedSections = splitSections(fixed)
+	let errs = checkFixing(specProgram(test, display: display, source: fixed, sections: fixedSections), libraries: libraries)
+	if checkSpecError(test, expected: expected, stem: fileStem(display), errs: errs, sections: fixedSections).outcome != TestOutcome.testPassed 'disagrees'
+		return
+	end 'disagrees'
+	result.tally.countChange(outcome)
+	if checkOnly 'listed'
+		result.say("would fix  {display}: {test.name}\n")
+	end 'listed'
+	result.edits.push(syntax.Edit.make(test.sourceStart, until: test.sourceFinish, replacement: fixed))
+end 'fixAroundExpected'
 
 // skipSpecTest skips a test for a code or a cause that the skip table names, with the table's line after its marker.
 function skipSpecTest(mutates result FixResult, test SpecTest, line String)

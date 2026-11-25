@@ -462,10 +462,10 @@ typealias Holder = Array with NumArray
 let Anchor = NumArray.create(0)
 
 function main() returns ExitCode
-	let h = Holder.create(0)
+	var h = Holder.create(0)
 	h.push(Anchor)
 	let stored = try h.get(0) otherwise NumArray.create(0)
-	return (h.count() as ExitCode) + (stored.count() as ExitCode)
+	return try (h.count() as ExitCode) + (stored.count() as ExitCode) otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

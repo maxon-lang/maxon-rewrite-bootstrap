@@ -92,6 +92,7 @@ array-element-enum-identity.md: a-literal-of-one-enum
 array-element-enum-identity.md: error.a-body-literal-of-a-string-then-an-int
 array-element-enum-identity.md: error.a-literal-of-two-enums
 array-element-enum-identity.md: error.a-top-level-literal-of-a-string-then-an-int
+array-element-enum-identity.md: error.a-top-level-literal-of-two-unions
 array-element-enum-identity.md: error.push-an-element-of-another-enum
 array-enum-element-size.md: a-declared-enum-byte-with-a-few-cases-keeps-every-value
 array-enum-element-size.md: a-declared-enum-byte-with-more-than-256-cases-keeps-every-value
@@ -2245,6 +2246,7 @@ export-keyword.md: error.a-hidden-type-written-in-a-parameter-is-refused-once
 export-keyword.md: error.a-non-exported-types-static-is-refused-across-files
 export-keyword.md: error.a-non-exported-unions-case-construction-across-files
 export-keyword.md: error.duplicate-typealias-same-file
+export-keyword.md: error.hidden-alias-as-a-top-level-container-create
 export-keyword.md: error.hidden-alias-as-a-top-level-set-from-head
 export-keyword.md: error.non-exported-enum-cross-file
 export-keyword.md: error.non-exported-function-cross-file
@@ -2673,7 +2675,6 @@ fixed-array-static-index.md: an-index-whose-range-fits-the-size-needs-no-try
 fixed-array-static-index.md: an-out-of-range-runtime-set-throws
 fixed-array-static-index.md: error.a-constant-index-at-the-size-is-refused
 fixed-array-static-index.md: error.a-constant-index-well-past-the-size-is-refused
-fixed-array-static-index.md: error.a-counter-reaching-past-the-size-requires-try
 fixed-array-static-index.md: error.a-negative-constant-index-is-refused
 fixed-array-static-index.md: error.an-out-of-range-constant-set-is-refused
 fixed-array-static-index.md: every-slot-of-a-fixed-array-at-constant-indexes
@@ -2704,6 +2705,7 @@ fixed-array.md: a-service-handle-fixed-array-starts-from-a-value
 fixed-array.md: a-sized-fixed-array-minted-in-two-files-is-one-type
 fixed-array.md: a-sized-fixed-array-widens-on-a-return-and-on-a-field-store
 fixed-array.md: a-sized-fixed-array-widens-to-runtime-sized
+fixed-array.md: a-top-level-let-of-a-constant-length-create-is-sized
 fixed-array.md: a-try-otherwise-joins-a-sized-and-a-runtime-sized-fixed-array-in-either-order
 fixed-array.md: a-type-sized-create-takes-a-value-and-no-length
 fixed-array.md: a-type-sized-managed-fixed-array-refills-and-clones
@@ -6373,6 +6375,7 @@ refcount-reassigned-slot-borrow.md: field-reassign-then-read-borrow-regression
 refcount-reassigned-slot-borrow.md: loop-resident-by-reference-reassign-borrow
 refcount-reassigned-slot-borrow.md: unrelated-by-reference-reassign-keeps-borrow
 refcount-shared-borrow-root-phi-args.md: shared-borrow-root-break-edge
+reference-identity.md: an-immutable-container-accepts-a-constant
 reference-identity.md: clone-isolates-mutation
 reference-identity.md: static-array-of-literals
 regions-async-lend.md: a-field-of-a-local-handed-by-reference-is-written-by-the-coroutine
@@ -7488,7 +7491,12 @@ static-variables.md: a-body-array-bool-element
 static-variables.md: a-boxed-union-constant-shared-across-many-reads-frees-cleanly
 static-variables.md: a-boxed-union-constant-stores-its-tag-and-zeroes-the-payload
 static-variables.md: a-boxed-unions-payload-free-case-is-a-constant
+static-variables.md: a-parameter-default-may-call-an-accessor-that-returns-a-global
+static-variables.md: a-parameter-default-may-name-a-let-global
 static-variables.md: a-payload-free-enum-case-is-a-top-level-constant
+static-variables.md: a-returned-global-is-not-shadowed-by-a-later-call-argument
+static-variables.md: a-returned-inline-conditional-may-hand-back-a-global
+static-variables.md: a-returned-name-IS-shadowed-by-a-binder-above-it
 static-variables.md: a-top-level-array-let-names-another-global
 static-variables.md: a-top-level-array-let-names-another-global-forward
 static-variables.md: a-top-level-character-is-a-record-slot
@@ -7520,6 +7528,7 @@ static-variables.md: error.top-level-let-and-type-of-one-name
 static-variables.md: error.top-level-let-and-union-of-one-name
 static-variables.md: error.top-level-let-array-reassign
 static-variables.md: error.union-case-into-enum-field-in-a-function-body
+static-variables.md: module-union-read-initializer
 static-variables.md: static-and-instance-fields
 static-variables.md: static-let-basic
 static-variables.md: static-let-cross-file
@@ -7546,6 +7555,7 @@ stdlib-array.md: for-in-iteration
 stdlib-array.md: for-in-nested
 stdlib-array.md: get-all-elements
 stdlib-array.md: get-empty-array
+stdlib-array.md: get-empty-module-level-array
 stdlib-array.md: get-out-of-bounds
 stdlib-array.md: insert-at-beginning
 stdlib-array.md: insert-at-end
@@ -8149,9 +8159,11 @@ top-level-let.md: a-top-level-array-of-element-alias-casts
 top-level-let.md: a-top-level-let-of-an-unstated-nested-tuple
 top-level-let.md: a-top-level-let-of-an-unstated-tuple
 top-level-let.md: a-top-level-let-of-an-unstated-tuple-holding-a-construction-by-its-alias
+top-level-let.md: a-top-level-let-of-an-unstated-tuple-holding-an-empty-container
 top-level-let.md: a-top-level-let-of-an-unstated-tuple-that-owns-a-string
 top-level-let.md: a-top-level-short-circuit-is-a-constant
 top-level-let.md: a-tuple-column-of-a-top-level-map
+top-level-let.md: a-tuple-payload-of-a-top-level-union-case
 top-level-let.md: an-array-of-element-alias-casts-in-a-body
 top-level-let.md: an-unstated-tuple-constant-declared-in-another-file
 top-level-let.md: an-untyped-top-level-array-literal-of-tuples
@@ -8480,6 +8492,7 @@ type-name-collision.md: a-root-unmarked-type-and-a-subdirectorys-of-one-name-coe
 type-name-collision.md: a-service-throws-an-enum-qualified-past-another-directorys-alias
 type-name-collision.md: a-type-and-an-enum-of-one-name-in-two-directories-coexist
 type-name-collision.md: a-type-and-another-directorys-generic-instance-alias-of-one-name-coexist
+type-name-collision.md: a-union-case-construction-beside-the-librarys-type-names-the-authors-at-top-level
 type-name-collision.md: alias-named-like-its-own-compiled-name
 type-name-collision.md: an-authors-comparable-is-the-authors-own-interface
 type-name-collision.md: an-authors-comparable-leaves-the-library-sort-on-ints
@@ -8671,6 +8684,7 @@ union-managed-payload.md: a-var-moved-in-a-fallthrough-arm-is-dropped-on-the-dis
 union-managed-payload.md: a-var-moved-in-a-fallthrough-arm-is-dropped-on-the-dispatch-edge-of-a-chain-pattern-arm
 union-managed-payload.md: a-var-moved-in-a-fallthrough-arm-is-dropped-on-the-dispatch-edge-of-a-planned-default
 union-managed-payload.md: a-var-moved-in-a-fallthrough-arm-is-not-dropped-twice
+union-managed-payload.md: an-int-argument-widens-into-a-float-payload
 union-managed-payload.md: borrowed-bind-in-an-arm-that-breaks
 union-managed-payload.md: borrowed-bind-in-an-arm-that-breaks-the-match
 union-managed-payload.md: borrowed-bind-in-an-arm-that-continues
@@ -9058,6 +9072,10 @@ wide-immediate-arithmetic.md: past-the-24-bit-split
 wide-immediate-arithmetic.md: shifted-imm12-boundary
 wide-immediate-arithmetic.md: under-register-pressure
 wide-immediate-arithmetic.md: wide-immediate-in-a-loop
+wide-spill-frames.md: a-walking-frame-on-a-green-threads-stack
+wide-spill-frames.md: spill-slot-past-the-scaled-imm12
+wide-spill-frames.md: the-smallest-frame-that-walks-the-guard-pages
+wide-spill-frames.md: wide-incoming-argument-past-the-scaled-imm12
 with-iterator.md: withIterator.a-loop-that-breaks-before-awaiting-drops-every-promise-once
 with-iterator.md: withIterator.a-promise-array-it-never-awaits-is-dropped-once
 with-iterator.md: withIterator.awaits-every-promise-of-an-array

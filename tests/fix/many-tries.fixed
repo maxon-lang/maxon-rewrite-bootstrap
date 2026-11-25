@@ -1,5 +1,5 @@
-// More operations that may leave their range than fix has rounds for, in one function: the range analysis reports
-// one failure of a function at a time, so each round covers one, and every one of them gets its try.
+// More operations that may leave their range than fix once had rounds for, in one function: the check reports every
+// one of them, so one round of fixes covers them all, and every one of them gets its try.
 typealias Integer = int(i64.min to i64.max)
 
 function sink(x Integer) returns Integer

@@ -301,12 +301,18 @@ end 'rangeRaise'
 
 // rangeRaiseFixed is rangeRaise for an error whose message names the change that fix makes.
 function rangeRaiseFixed(mutates r Ranges, p ast.Project, ms ast.ModuleState, node ast.NodeID, consumes code String, consumes msg String, consumes fix diag.Fix)
+	rangeReportFixed(r, p: p, ms: ms, node: node, code: code, msg: msg, fix: fix)
+	r.failed = true
+end 'rangeRaiseFixed'
+
+// rangeReportFixed is rangeRaiseFixed for a failure that no try covers, which does not end the walk: the walk goes on as if
+// a try covered it, so that each missing try of a function has its error, and one.
+function rangeReportFixed(mutates r Ranges, p ast.Project, ms ast.ModuleState, node ast.NodeID, consumes code String, consumes msg String, consumes fix diag.Fix)
 	if r.failed 'once'
 		return
 	end 'once'
-	r.failed = true
 	checkFailFixed(r.modID, off: ms.tree().startOf(node), code: code, msg: msg, fix: fix, errs: r.errs)
-end 'rangeRaiseFixed'
+end 'rangeReportFixed'
 
 function typeOf(r Ranges, e ast.NodeID) returns ast.TypeID
 	return ast.nodeType(r.typing, node: e)

@@ -189,7 +189,7 @@ function apply(f Fn1, x Integer) returns Integer
 end 'apply'
 
 function main() returns ExitCode
-	let a = '0' + apply(function(n Integer) gives try n + 1 otherwise panic("out of range"), x: 1)
+	let a = '0' + apply(function(n Integer) gives n + 1, x: 1)
 	let p0 = 0
 	let p1 = 1
 	let b = 'A' + apply(function(n Integer) gives n + '0', x: 1)

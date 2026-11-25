@@ -1003,7 +1003,7 @@ function main() returns ExitCode
 	index.upsert(1, value: stored)
 	var mine = pick(index, k: 9)
 	mine.push(3)
-	return Empty.count() as ExitCode
+	return try Empty.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```maxoncstderr
@@ -2032,13 +2032,13 @@ typealias Names = Array with Integer
 let sharedEmptyNames = Names.create(0)
 
 function pairable(bound Names, wanted Names) returns Names
-	return sharedEmptyNames if bound.count() < wanted.count() else wanted
+	return sharedEmptyNames if bound.count() < wanted.count() else wanted.clone()
 end 'pairable'
 
 function main() returns ExitCode
-	let a = Names.create(0)
+	var a = Names.create(0)
 	a.push(1)
-	let b = Names.create(0)
+	var b = Names.create(0)
 	b.push(2)
 	b.push(3)
 	let short = pairable(a, wanted: b)
@@ -2072,8 +2072,8 @@ typealias Bits = Array with Integer
 let sharedEmptyBits = Bits.create(0)
 
 function withRootBits(base Bits, bits Integer) returns Bits
-	let out = Bits.create(0)
-	out.push((base.count() as Integer) + bits)
+	var out = Bits.create(0)
+	out.push(try (base.count() as Integer) + bits otherwise panic("out of range"))
 	return out
 end 'withRootBits'
 
@@ -2112,14 +2112,14 @@ typealias Bits = Array with Integer
 let bits = Bits.create(0)
 
 function localWins() returns Bits
-	let bits = Bits.create(0)
+	var bits = Bits.create(0)
 	bits.push(7)
 	bits.push(9)
 	return bits
 end 'localWins'
 
 function main() returns ExitCode
-	let got = localWins()
+	var got = localWins()
 	got.push(11)
 	print("global={bits.count()} local={got.count()}")
 	return 0
@@ -2152,11 +2152,11 @@ typealias Names = Array with Integer
 let sharedEmptyNames = Names.create(0)
 
 function describe(names Names = sharedEmptyNames) returns Integer
-	return names.count()
+	return try names.count() as Integer otherwise panic("out of range")
 end 'describe'
 
 function main() returns ExitCode
-	let given = Names.create(0)
+	var given = Names.create(0)
 	given.push(7)
 	given.push(9)
 	print("omitted={describe()} written={describe(sharedEmptyNames)} given={describe(given)}")
@@ -2180,11 +2180,11 @@ typealias Names = Array with Integer
 let sharedEmptyNames = Names.create(0)
 
 function shared() returns frozen with Names
-	return sharedEmptyNames
+	return freeze(sharedEmptyNames)
 end 'shared'
 
-function describe(names Names = shared()) returns Integer
-	return names.count()
+function describe(names Names = thaw(shared())) returns Integer
+	return try names.count() as Integer otherwise panic("out of range")
 end 'describe'
 
 function main() returns ExitCode

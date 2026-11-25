@@ -4683,7 +4683,7 @@ export union ParseError
 end 'ParseError'
 
 // --- file: app/main.maxon
-let h = ParseError.malformed(7)
+let h = lib.ParseError.malformed(7)
 
 function main() returns ExitCode
 	match h 'which'

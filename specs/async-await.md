@@ -2705,7 +2705,7 @@ end 'mayFail'
 function main() returns ExitCode
 	let p = async mayFail()
 	let r = await p
-	return r
+	return try r as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```maxoncstderr

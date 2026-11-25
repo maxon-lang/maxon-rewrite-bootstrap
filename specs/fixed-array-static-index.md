@@ -234,6 +234,7 @@ end 'main'
 ```
 
 <!-- test: error.a-counter-reaching-past-the-size-requires-try -->
+<!-- skip: language difference: it tests one missing try in a program that has two, the addition around the access, which maxon checks at run time, and the try that the addition needs covers the access too -->
 <!-- positions: moved -->
 `0 to 4` reaches index 4 of a `FixedArray with 4`, so its counter is not proven and a bare access is
 refused.

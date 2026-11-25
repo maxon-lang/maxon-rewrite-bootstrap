@@ -3669,6 +3669,7 @@ error E3185: <fragment>:3:2: '__ManagedFile' named outside the library tiers: th
 ```
 
 <!-- test: error.a-raw-handle-static-at-module-scope-in-user-code-is-not-reachable -->
+<!-- skip: language difference: maxon's raw memory surface is mapped onto Array where an operation has a counterpart and is otherwise not provided, because its safety rests on run-time reference counts and shared buffers that minimaxon's ownership model replaced -->
 ```maxon
 let h = __ManagedFile.openRead("p")
 

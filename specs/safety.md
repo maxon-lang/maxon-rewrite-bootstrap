@@ -290,7 +290,7 @@ end 'opaque'
 function main() returns ExitCode
 	let d = opaque(7)
 	let q = 100 / d
-	return q as ExitCode
+	return try q as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```maxoncstderr

@@ -72,6 +72,12 @@ let fixCaseExtension = ".fix"
 
 let fixedExtension = ".fixed"
 
+// fixCaseRounds is the most rounds of fixes a fix case may take: a round makes every fix that the diagnostics name and that
+// can be made together, and the check names every missing try of a function at once, so only a fix that another one's
+// makes needed takes a second round. A case that takes more fixes one thing a round, as a check that stops at the first
+// failure of a function made fix do once.
+let fixCaseRounds = 2 as Count
+
 let errorLocationSplit = " at "
 
 // The UTF-8 byte order mark: EF BB BF.
@@ -1041,11 +1047,15 @@ function runFixTest(file String, expected String) returns TestResult
 	return fixedResult(outcome, expected: expected, wanted: wanted, actual: outcome.files[0].text)
 end 'runFixTest'
 
-// fixedResult is whether the fixed program checks clean and its text is the wanted text of the file named expected.
+// fixedResult is whether the fixed program checks clean, in at most fixCaseRounds rounds, and its text is the wanted text of
+// the file named expected.
 function fixedResult(outcome FixOutcome, expected String, wanted String, actual String) returns TestResult
 	if outcome.left != "" 'left'
 		return TestResult.failed("fixed, it still has an error {outcome.left}")
 	end 'left'
+	if outcome.rounds > fixCaseRounds 'slow'
+		return TestResult.failed("fixed in {outcome.rounds} rounds, more than {fixCaseRounds}")
+	end 'slow'
 	if actual != wanted 'differs'
 		return TestResult.failed("fixed, it is not {expected}: {firstDifference(wanted, actual: actual)}")
 	end 'differs'
