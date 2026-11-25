@@ -1,0 +1,50 @@
+// BlockWalk gives the blocks of a function their ranges again as a pass writes its instructions anew, one by one in the
+// order the blocks hold them, into a list it emptied for them: the walk of a drain of the instructions they were. Each
+// block's range becomes the instructions written while the walk was in it. The old ranges must follow each other from 0,
+// as they do in a function whose instructions are laid out block after block, which reach checks.
+export type BlockWalk
+	// block is the block being walked, and until where its range ended among the old instructions.
+	var block as Count
+	var until as Count
+
+	// start opens the first block before the walk writes anything.
+	export static function start(mutates f IrFunction) returns BlockWalk
+		var walk = BlockWalk{block: 0, until: 0}
+		walk.open(f, k: 0, written: 0)
+		return walk
+	end 'start'
+
+	// reach is the walk come to the old instruction k with written instructions written: the blocks that ended before k
+	// end where the writing stands, and the next opens there.
+	export function reach(mutates self, mutates f IrFunction, k Count, written Count)
+		while block < f.blocks.count() and until == k 'past'
+			f.blocks[block].endAt = written
+			block = try block + 1 otherwise panic("ir: more blocks than a count holds")
+			self.open(f, k: k, written: written)
+		end 'past'
+	end 'reach'
+
+	// endsAt is whether the block being walked ends before the old instruction k, which then is the first of another.
+	export function endsAt(f IrFunction, k Count) returns bool
+		return block < f.blocks.count() and until == k
+	end 'endsAt'
+
+	// finish ends the blocks left once every old instruction was walked, k of them.
+	export function finish(mutates self, mutates f IrFunction, k Count, written Count)
+		self.reach(f, k: k, written: written)
+		if block < f.blocks.count() 'unwalked'
+			panic("ir: block {block} of a function holds instructions past the last")
+		end 'unwalked'
+	end 'finish'
+
+	function open(mutates self, mutates f IrFunction, k Count, written Count)
+		if block == f.blocks.count() 'none'
+			return
+		end 'none'
+		if f.blocks[block].first != k 'apart'
+			panic("ir: block {block} of a function starts at {f.blocks[block].first}, not after the one before it at {k}")
+		end 'apart'
+		until = f.blocks[block].endAt
+		f.blocks[block].first = written
+	end 'open'
+end 'BlockWalk'

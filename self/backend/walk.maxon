@@ -1,0 +1,69 @@
+// LayoutWalk gives the blocks of a function their ranges again as a pass writes its instructions anew, one by one in the
+// order of its layout, into a list it emptied for them: the walk of a drain of the instructions they were, which the
+// layout orders (writeLayout). Each block of the layout gets the instructions written while the walk was in it; a block
+// the layout leaves out holds none, and the pass gives it its place. reach checks that the old ranges of the layout's
+// blocks follow each other from 0.
+export type LayoutWalk
+	// at is the place in the layout of the block being walked, and until where its range ended among the old instructions.
+	var at as Count
+	var until as Count
+
+	// start opens the layout's first block before the walk writes anything.
+	export static function start(mutates fn MirFunction) returns LayoutWalk
+		var walk = LayoutWalk{at: 0, until: 0}
+		walk.open(fn, k: 0, written: 0)
+		return walk
+	end 'start'
+
+	// endsAt is whether the block being walked ends before the old instruction k, which then is the first of another.
+	export function endsAt(fn MirFunction, k Count) returns bool
+		return at < fn.order.count() and until == k
+	end 'endsAt'
+
+	// block is the block being walked.
+	export function block(fn MirFunction) returns Count
+		return fn.order[at] as Count
+	end 'block'
+
+	// reach is the walk come to the old instruction k with written instructions written: the blocks that ended before k
+	// end where the writing stands, and the next opens there.
+	export function reach(mutates self, mutates fn MirFunction, k Count, written Count)
+		while self.endsAt(fn, k: k) 'past'
+			self.next(fn, k: k, written: written)
+		end 'past'
+	end 'reach'
+
+	// next ends the block being walked, which endsAt says ends before the old instruction k, where the writing stands, and
+	// opens the next block of the layout there, if there is one (inBlock).
+	export function next(mutates self, mutates fn MirFunction, k Count, written Count)
+		let b = self.block(fn)
+		fn.blocks[b].endAt = written
+		at = try at + 1 otherwise panic("backend: more blocks than a count holds")
+		self.open(fn, k: k, written: written)
+	end 'next'
+
+	// inBlock is whether the walk is in a block of the layout, which it is until it has walked the last.
+	export function inBlock(fn MirFunction) returns bool
+		return at < fn.order.count()
+	end 'inBlock'
+
+	// finish ends the blocks left once every old instruction was walked, k of them.
+	export function finish(mutates self, mutates fn MirFunction, k Count, written Count)
+		self.reach(fn, k: k, written: written)
+		if at < fn.order.count() 'unwalked'
+			panic("backend: block {self.block(fn)} of the layout holds instructions past the last")
+		end 'unwalked'
+	end 'finish'
+
+	function open(mutates self, mutates fn MirFunction, k Count, written Count)
+		if at == fn.order.count() 'none'
+			return
+		end 'none'
+		let b = self.block(fn)
+		if fn.blocks[b].first != k 'apart'
+			panic("backend: block {b} of the layout starts at {fn.blocks[b].first}, not after the one before it at {k}")
+		end 'apart'
+		until = fn.blocks[b].endAt
+		fn.blocks[b].first = written
+	end 'open'
+end 'LayoutWalk'

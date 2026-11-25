@@ -136,35 +136,36 @@ end 'lightestParam'
 // rewriteMemoryParams writes fn with its memory parameters taken off: each block over its registers starts with the
 // reloads of its memory parameters, and each edge into one stores their arguments before its jump.
 function rewriteMemoryParams(mutates fn MirFunction, over BoolList, memory BoolList, slotOf CountList)
-	var out = MInstrList.create(0)
+	// The instructions are moved out of fn, in the order of its layout (writeLayout), and drained, each written again with
+	// what goes before it; nothing between can fail, so fn is never left without its instructions.
+	var old = exchange(fn.instrs, value: MInstrList.create(0))
+	fn.instrs.reserve(old.count())
 	var spans = ir.SpanList.create(0)
-	for o in 0 upto fn.order.count() 'blocks'
-		let b = fn.order[o] as Count
-		let first = out.count()
-		if over[b] 'reloads'
-			for p in 0 upto fn.blocks[b].paramCount 'params'
-				let r = fn.blockParams[addCounts(fn.blocks[b].params, b: p)]
-				if memory[vregIndex(r)] 'memory'
-					out.push(newReload(r, slot: spillSlotOfCount(slotOf[vregIndex(r)])))
-				end 'memory'
-			end 'params'
-		end 'reloads'
-		for k in fn.blocks[b].first upto fn.blocks[b].endAt 'instrs'
-			if fn.instrs[k].ref == MRef.edge 'edge'
-				let edge = refIndex(fn.instrs[k])
-				if over[fn.edges[edge].target as Count] 'stores'
-					storeMemoryArgs(fn, out: out, edge: edge, memory: memory, slotOf: slotOf)
-				end 'stores'
-			end 'edge'
-			padSpans(spans, fn: fn, count: out.count())
-			out.push(table.takeAt(fn.instrs, at: k))
-			keepSpan(spans, fn: fn, k: k)
-		end 'instrs'
-		fn.blocks[b].first = first
-		fn.blocks[b].endAt = out.count()
-	end 'blocks'
-	padSpans(spans, fn: fn, count: out.count())
-	fn.instrs = out
+	var walk = LayoutWalk.start(fn)
+	reloadsOf(fn, walk: walk, over: over, memory: memory, slotOf: slotOf)
+	var k = 0 as Count
+	for x in old.drain() 'instrs'
+		while walk.endsAt(fn, k: k) 'blocks'
+			walk.next(fn, k: k, written: fn.instrs.count())
+			reloadsOf(fn, walk: walk, over: over, memory: memory, slotOf: slotOf)
+		end 'blocks'
+		if x.ref == MRef.edge 'edge'
+			let edge = refIndex(x)
+			if over[fn.edges[edge].target as Count] 'stores'
+				storeMemoryArgs(fn, edge: edge, memory: memory, slotOf: slotOf)
+			end 'stores'
+		end 'edge'
+		padSpans(spans, fn: fn, count: fn.instrs.count())
+		fn.instrs.push(x)
+		keepSpan(spans, fn: fn, k: k)
+		k = nextCount(k)
+	end 'instrs'
+	while walk.endsAt(fn, k: k) 'rest'
+		walk.next(fn, k: k, written: fn.instrs.count())
+		reloadsOf(fn, walk: walk, over: over, memory: memory, slotOf: slotOf)
+	end 'rest'
+	walk.finish(fn, k: k, written: fn.instrs.count())
+	padSpans(spans, fn: fn, count: fn.instrs.count())
 	if fn.keepsSpans 'spans'
 		fn.spans = spans
 	end 'spans'
@@ -184,9 +185,25 @@ function rewriteMemoryParams(mutates fn MirFunction, over BoolList, memory BoolL
 	end 'params'
 end 'rewriteMemoryParams'
 
+// reloadsOf writes the reloads of the memory parameters of the block the walk has opened, where it is over its registers.
+function reloadsOf(mutates fn MirFunction, walk LayoutWalk, over BoolList, memory BoolList, slotOf CountList)
+	if not walk.inBlock(fn) 'none'
+		return
+	end 'none'
+	let b = walk.block(fn)
+	if over[b] 'reloads'
+		for p in 0 upto fn.blocks[b].paramCount 'params'
+			let r = fn.blockParams[addCounts(fn.blocks[b].params, b: p)]
+			if memory[vregIndex(r)] 'memory'
+				fn.instrs.push(newReload(r, slot: spillSlotOfCount(slotOf[vregIndex(r)])))
+			end 'memory'
+		end 'params'
+	end 'reloads'
+end 'reloadsOf'
+
 // storeMemoryArgs writes, before the jump along edge, the copies and stores that pass its arguments for its target's
 // memory parameters, and takes those arguments off the edge. The target's parameters are still all its own here.
-function storeMemoryArgs(mutates fn MirFunction, mutates out MInstrList, edge Count, memory BoolList, slotOf CountList)
+function storeMemoryArgs(mutates fn MirFunction, edge Count, memory BoolList, slotOf CountList)
 	let target = fn.edges[edge].target as Count
 	let params = fn.blocks[target].params
 	let args = fn.edges[edge].args
@@ -196,7 +213,7 @@ function storeMemoryArgs(mutates fn MirFunction, mutates out MInstrList, edge Co
 		if isVirtual(a) and memory[vregIndex(a)] and isParamOf(fn, r: a, b: target) 'memory'
 			let class = fn.classes[vregIndex(a)]
 			let copied = fn.newVReg(class)
-			out.push(newCopy(copied, src: a))
+			fn.instrs.push(newCopy(copied, src: a))
 			for j in i upto count 'same'
 				if fn.edgeArgs[addCounts(args, b: j)] == a 'renamed'
 					fn.edgeArgs[addCounts(args, b: j)] = copied
@@ -209,7 +226,7 @@ function storeMemoryArgs(mutates fn MirFunction, mutates out MInstrList, edge Co
 		let a = fn.edgeArgs[addCounts(args, b: i)]
 		let param = vregIndex(fn.blockParams[addCounts(params, b: i)])
 		if memory[param] 'memory'
-			out.push(newSpill(a, slot: spillSlotOfCount(slotOf[param])))
+			fn.instrs.push(newSpill(a, slot: spillSlotOfCount(slotOf[param])))
 		end 'memory' else 'register'
 			fn.edgeArgs[kept] = a
 			kept = nextCount(kept)

@@ -5,76 +5,84 @@
 // the elements of arrays separates (motion.maxon), as in `a[i] = a[i] + x`, and loop-invariant code motion moves it out
 // of a loop that changes no array's box. The interpreter runs the accesses whole, as the expansion makes them.
 //
-// The cost is one pass over the instructions of a function that accesses an element, and one copy of them.
+// The cost is one pass over the instructions of a function that accesses an element, each moved once.
 
 export type BufferSplit
-	// The instructions being written, and their spans, of a function that keeps them.
-	var out as ir.InstrList
+	// held is, between functions, an empty list that keeps the room of the instructions of the last function split, which
+	// the next function's are written into, so that no list grows anew. spans are the spans of a function that keeps them.
+	var held as ir.InstrList
 	var spans as ir.SpanList
 
 	export static function new() returns BufferSplit
-		return BufferSplit{out: ir.InstrList.create(0), spans: ir.SpanList.create(0)}
+		return BufferSplit{held: ir.InstrList.create(0), spans: ir.SpanList.create(0)}
 	end 'new'
 
-	// split splits the element accesses of f, and says whether it had one.
+	// split splits the element accesses of f, and says whether it had one. Its instructions are held while the walk writes
+	// f's anew, and nothing between can fail or read f's instructions, so f is never left without them.
 	export function split(mutates self, mutates f ir.IrFunction) returns bool
 		if not accessesElement(f) 'none'
 			return false
 		end 'none'
-		out.clear()
-		out.reserve(f.instrs.count())
+		var old = exchange(f.instrs, value: exchange(held, value: ir.InstrList.create(0)))
+		f.instrs.reserve(old.count())
 		spans.clear()
-		for b in 0 upto f.blocks.count() 'blocks'
-			let first = out.count()
-			for k in f.blocks[b].first upto f.blocks[b].endAt 'instrs'
-				self.splitAt(f, k: k)
-				if f.keepsSpans 'spans'
-					while spans.count() < out.count() 'span'
-						spans.push(f.spans[k])
-					end 'span'
-				end 'spans'
-			end 'instrs'
-			f.blocks[b].first = first
-			f.blocks[b].endAt = out.count()
-		end 'blocks'
-		f.instrs = exchange(out, value: ir.InstrList.create(0))
+		var walk = ir.BlockWalk.start(f)
+		var k = 0 as Count
+		for x in old.drain() 'instrs'
+			walk.reach(f, k: k, written: f.instrs.count())
+			if not splitInto(f, x: x) 'kept'
+				f.instrs.push(x)
+			end 'kept'
+			if f.keepsSpans 'spans'
+				while spans.count() < f.instrs.count() 'span'
+					spans.push(f.spans[k])
+				end 'span'
+			end 'spans'
+			k = try k + 1 otherwise panic("opt: more instructions than a count holds")
+		end 'instrs'
+		walk.finish(f, k: k, written: f.instrs.count())
+		held = old
 		ir.takeSpans(f, laid: spans)
 		return true
 	end 'split'
-
-	// splitAt writes instruction k of f, split when it is an element access.
-	function splitAt(mutates self, mutates f ir.IrFunction, k Count)
-		let op = f.instrs[k].op
-		let dst = f.instrs[k].dst
-		let src = f.instrs[k].a
-		let index = f.instrs[k].b
-		if op == ir.Opcode.opElemLoad 'read'
-			let shift = ir.elemLoadShift(f.instrs[k])
-			let data = self.buffer(f, src: src)
-			out.push(ir.newElemAt(dst, data: data, index: index, shift: shift))
-		end 'read' else if op == ir.Opcode.opElemAddr 'address'
-			let shift = ir.elemAddrShift(f.instrs[k])
-			let data = self.buffer(f, src: src)
-			out.push(ir.newElemAddrAt(dst, data: data, index: index, shift: shift))
-		end 'address' else if splitsByte(f.instrs[k]) 'byte'
-			let data = self.buffer(f, src: src)
-			out.push(ir.newByteAt(dst, data: data, index: index))
-		end 'byte' else if splitsStringByte(f.instrs[k]) 'string'
-			let data = f.newReg(ir.IrKind.kindScalar)
-			out.push(ir.newStrBytes(data, src: src, box: f.newFrameBox()))
-			out.push(ir.newByteAt(dst, data: data, index: index))
-		end 'string' else 'other'
-			out.push(table.takeAt(f.instrs, at: k))
-		end 'other'
-	end 'splitAt'
-
-	// buffer writes the read of the buffer of the array src and gives the register it reads into.
-	function buffer(mutates self, mutates f ir.IrFunction, src ir.Reg) returns ir.Reg
-		let data = f.newReg(ir.IrKind.kindScalar)
-		out.push(ir.newBuffer(data, src: src))
-		return data
-	end 'buffer'
 end 'BufferSplit'
+
+// splitInto writes the instruction x after f's instructions, split, where it is an element access, and says whether it
+// was; the caller writes any other instruction as it is, moved there, since a value held in place that a call consumes is
+// a copy.
+function splitInto(mutates f ir.IrFunction, x ir.Instr) returns bool
+	let op = x.op
+	let dst = x.dst
+	let src = x.a
+	let index = x.b
+	if op == ir.Opcode.opElemLoad 'read'
+		let shift = ir.elemLoadShift(x)
+		let data = buffer(f, src: src)
+		f.instrs.push(ir.newElemAt(dst, data: data, index: index, shift: shift))
+	end 'read' else if op == ir.Opcode.opElemAddr 'address'
+		let shift = ir.elemAddrShift(x)
+		let data = buffer(f, src: src)
+		f.instrs.push(ir.newElemAddrAt(dst, data: data, index: index, shift: shift))
+	end 'address' else if splitsByte(x) 'byte'
+		let data = buffer(f, src: src)
+		f.instrs.push(ir.newByteAt(dst, data: data, index: index))
+	end 'byte' else if splitsStringByte(x) 'string'
+		let data = f.newReg(ir.IrKind.kindScalar)
+		let box = f.newFrameBox()
+		f.instrs.push(ir.newStrBytes(data, src: src, box: box))
+		f.instrs.push(ir.newByteAt(dst, data: data, index: index))
+	end 'string' else 'other'
+		return false
+	end 'other'
+	return true
+end 'splitInto'
+
+// buffer writes the read of the buffer of the array src after f's instructions and gives the register it reads into.
+function buffer(mutates f ir.IrFunction, src ir.Reg) returns ir.Reg
+	let data = f.newReg(ir.IrKind.kindScalar)
+	f.instrs.push(ir.newBuffer(data, src: src))
+	return data
+end 'buffer'
 
 // accessesElement is whether f has an element access that the split splits.
 function accessesElement(f ir.IrFunction) returns bool

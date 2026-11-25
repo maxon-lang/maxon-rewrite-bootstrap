@@ -112,7 +112,7 @@ export type Spiller
 	var madeOut as BoolList
 	// The edits of a round.
 	var insertAt as CountList
-	var inserts as MInstrList
+	var inserts as MInstrSlots
 	var cancelled as BoolList
 	var deleted as BoolList
 	var dirty as BoolList
@@ -200,7 +200,7 @@ export type Spiller
 
 	// under is a spiller for functions whose calls follow convs.
 	export static function under(consumes convs Conventions) returns Spiller
-		return Spiller{graph: MirGraph.new(), lv: Liveness.new(), scan: BlockScan.new(), convs: convs, ops: Operands.new(), result: SpillResult.new(), root: MRegList.create(0), slotOf: IndexList.create(0), stored: BoolList.create(0), constAt: IndexList.create(0), consts: MInstrList.create(0), slots: 0, shaped: false, knownRegs: 0, surveyed: false, stale: BoolList.create(0), lastLiveStart: CountList.create(0), lastLive: CountList.create(0), liveChanged: BoolList.create(0), madeBlock: IndexList.create(0), madeOwner: CountList.create(0), madeInsert: IndexList.create(0), madeOut: BoolList.create(0), insertAt: CountList.create(0), inserts: MInstrList.create(0), cancelled: BoolList.create(0), deleted: BoolList.create(0), dirty: BoolList.create(0), changed: false, current: false, mark: 0, liveMark: CountList.create(0), visit: CountList.create(0), stack: CountList.create(0), reach: CountList.create(0), reachAnchor: CountList.create(0), anchorStamp: CountList.create(0), anchorIndex: CountList.create(0), anchorBlock: CountList.create(0), anchorPos: CountList.create(0), anchorEntry: IndexList.create(0), anchorHoisted: BoolList.create(0), anchorReg: MRegList.create(0), inS: IndexList.create(0), sReg: MRegList.create(0), sOwner: CountList.create(0), sCursor: CountList.create(0), sOut: BoolList.create(0), sCount: CountList.create(0), outMark: CountList.create(0), blockMark: 0, fwdOut: BoolList.create(0), outCount: CountList.create(0), readStamp: CountList.create(0), readMark: 0, pendPos: CountList.create(0), pendReg: MRegList.create(0), pendOwner: CountList.create(0), pendCursor: CountList.create(0), pendOut: BoolList.create(0), loopMax: CountList.create(0), blockMost: CountList.create(0), blockFits: BoolList.create(0), loopEnd: CountList.create(0), splitThisRound: MRegList.create(0), bracketedNow: MRegList.create(0), dyingCount: CountList.create(0), writeCount: CountList.create(0), deadList: MRegList.create(0), pickedTier: 0, insertRank: CountList.create(0), applyIndexes: CountList.create(0), applyKeys: CountList.create(0), applyStarts: CountList.create(0), applyList: CountList.create(0), placed: BoolList.create(0), spareInstrs: MInstrList.create(0), movedFrom: IndexList.create(0), touched: BoolList.create(0), edited: false, clock: EmitClock.off()}
+		return Spiller{graph: MirGraph.new(), lv: Liveness.new(), scan: BlockScan.new(), convs: convs, ops: Operands.new(), result: SpillResult.new(), root: MRegList.create(0), slotOf: IndexList.create(0), stored: BoolList.create(0), constAt: IndexList.create(0), consts: MInstrList.create(0), slots: 0, shaped: false, knownRegs: 0, surveyed: false, stale: BoolList.create(0), lastLiveStart: CountList.create(0), lastLive: CountList.create(0), liveChanged: BoolList.create(0), madeBlock: IndexList.create(0), madeOwner: CountList.create(0), madeInsert: IndexList.create(0), madeOut: BoolList.create(0), insertAt: CountList.create(0), inserts: MInstrSlots.create(0), cancelled: BoolList.create(0), deleted: BoolList.create(0), dirty: BoolList.create(0), changed: false, current: false, mark: 0, liveMark: CountList.create(0), visit: CountList.create(0), stack: CountList.create(0), reach: CountList.create(0), reachAnchor: CountList.create(0), anchorStamp: CountList.create(0), anchorIndex: CountList.create(0), anchorBlock: CountList.create(0), anchorPos: CountList.create(0), anchorEntry: IndexList.create(0), anchorHoisted: BoolList.create(0), anchorReg: MRegList.create(0), inS: IndexList.create(0), sReg: MRegList.create(0), sOwner: CountList.create(0), sCursor: CountList.create(0), sOut: BoolList.create(0), sCount: CountList.create(0), outMark: CountList.create(0), blockMark: 0, fwdOut: BoolList.create(0), outCount: CountList.create(0), readStamp: CountList.create(0), readMark: 0, pendPos: CountList.create(0), pendReg: MRegList.create(0), pendOwner: CountList.create(0), pendCursor: CountList.create(0), pendOut: BoolList.create(0), loopMax: CountList.create(0), blockMost: CountList.create(0), blockFits: BoolList.create(0), loopEnd: CountList.create(0), splitThisRound: MRegList.create(0), bracketedNow: MRegList.create(0), dyingCount: CountList.create(0), writeCount: CountList.create(0), deadList: MRegList.create(0), pickedTier: 0, insertRank: CountList.create(0), applyIndexes: CountList.create(0), applyKeys: CountList.create(0), applyStarts: CountList.create(0), applyList: CountList.create(0), placed: BoolList.create(0), spareInstrs: MInstrList.create(0), movedFrom: IndexList.create(0), touched: BoolList.create(0), edited: false, clock: EmitClock.off()}
 	end 'under'
 
 	// adopt takes up fn, which a spiller has spilled already, so that colouring can follow without spilling it again.
@@ -779,41 +779,50 @@ export type Spiller
 			applyKeys.push(addCounts(insertKey(insertAt[i]), b: insertRank[i]))
 		end 'indexes'
 		ir.buildCsr(applyKeys, targets: applyIndexes, nodes: insertKey(nextCount(fn.instrs.count())), starts: applyStarts, list: applyList)
-		var out = exchange(spareInstrs, value: MInstrList.create(0))
-		out.clear()
-		out.reserve(addCounts(fn.instrs.count(), b: inserts.count()))
+		// The instructions are moved out of fn, in the order of its layout (writeLayout), and drained, each written again
+		// after the insertions before it into the room of the list spareInstrs holds; nothing between can fail, so fn is
+		// never left without its instructions.
+		var old = exchange(fn.instrs, value: exchange(spareInstrs, value: MInstrList.create(0)))
+		fn.instrs.reserve(addCounts(old.count(), b: inserts.count()))
 		movedFrom.clear()
 		ir.resetFlags(placed, n: fn.blocks.count())
-		for o in 0 upto fn.order.count() 'blocks'
-			let b = fn.order[o] as Count
-			placed[b] = true
-			let first = out.count()
-			for k in fn.blocks[b].first upto fn.blocks[b].endAt 'instrs'
-				for e in applyStarts[insertKey(k)] upto applyStarts[insertKey(nextCount(k))] 'inserts'
-					stale[b] = true
-					if not cancelled[applyList[e]] 'live'
-						out.push(table.takeAt(inserts, at: applyList[e]))
-						movedFrom.push(noDef)
-					end 'live'
-				end 'inserts'
-				if not deleted[k] 'kept'
-					out.push(table.takeAt(fn.instrs, at: k))
-					movedFrom.push(indexOfCount(k))
-				end 'kept' else 'dropped'
-					stale[b] = true
-					self.touchOperands(k)
-				end 'dropped'
-			end 'instrs'
-			fn.blocks[b].first = first
-			fn.blocks[b].endAt = out.count()
-		end 'blocks'
+		var walk = LayoutWalk.start(fn)
+		self.placeWalked(fn, walk: walk)
+		var k = 0 as Count
+		for x in old.drain() 'instrs'
+			while walk.endsAt(fn, k: k) 'blocks'
+				walk.next(fn, k: k, written: fn.instrs.count())
+				self.placeWalked(fn, walk: walk)
+			end 'blocks'
+			let b = walk.block(fn)
+			for e in applyStarts[insertKey(k)] upto applyStarts[insertKey(nextCount(k))] 'inserts'
+				stale[b] = true
+				if not cancelled[applyList[e]] 'live'
+					fn.instrs.push(try inserts.takeSlot(applyList[e]) otherwise panic("backend: an insertion applied twice"))
+					movedFrom.push(noDef)
+				end 'live'
+			end 'inserts'
+			if not deleted[k] 'kept'
+				fn.instrs.push(x)
+				movedFrom.push(indexOfCount(k))
+			end 'kept' else 'dropped'
+				stale[b] = true
+				self.touchOperands(k)
+			end 'dropped'
+			k = nextCount(k)
+		end 'instrs'
+		while walk.endsAt(fn, k: k) 'rest'
+			walk.next(fn, k: k, written: fn.instrs.count())
+			self.placeWalked(fn, walk: walk)
+		end 'rest'
+		walk.finish(fn, k: k, written: fn.instrs.count())
 		for b in 0 upto fn.blocks.count() 'unreached'
 			if not placed[b] 'empty'
-				fn.blocks[b].first = out.count()
-				fn.blocks[b].endAt = out.count()
+				fn.blocks[b].first = fn.instrs.count()
+				fn.blocks[b].endAt = fn.instrs.count()
 			end 'empty'
 		end 'unreached'
-		spareInstrs = exchange(fn.instrs, value: out)
+		spareInstrs = old
 		if fn.keepsSpans 'spans'
 			var spans = ir.SpanList.create(0)
 			for i in 0 upto movedFrom.count() 'each'
@@ -828,6 +837,13 @@ export type Spiller
 		edited = true
 		current = false
 	end 'apply'
+
+	// placeWalked marks placed the block of the layout the walk has opened.
+	function placeWalked(mutates self, fn MirFunction, walk LayoutWalk)
+		if walk.inBlock(fn) 'block'
+			placed[walk.block(fn)] = true
+		end 'block'
+	end 'placeWalked'
 
 	// touchOperands marks touched the values the instruction at k reads and defines, which an edit removes.
 	function touchOperands(mutates self, k Count)

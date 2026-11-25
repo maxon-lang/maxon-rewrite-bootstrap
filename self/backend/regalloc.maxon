@@ -117,7 +117,7 @@ export type Colourer
 	// Copies inserted before an instruction: insAt[i] is the instruction insInstr[i] goes before.
 	var insAt as CountList
 	var insIndex as CountList
-	var insInstr as MInstrList
+	var insInstr as MInstrSlots
 	var insStart as CountList
 	var insList as CountList
 	// The search of a repair: the register each register on a path was reached from, and which ones start it.
@@ -136,7 +136,7 @@ export type Colourer
 	var arch as ast.TargetArch
 
 	export static function new(arch ast.TargetArch) returns Colourer
-		return Colourer{result: ColourResult.new(), callerSaved: 0, calleeSaved: 0, reg: CountList.create(0), coloured: BoolList.create(0), loc: CountList.create(0), forbid: Array.create(0), hint: Array.create(0), contested: Array.create(0), pairFrom: CountList.create(0), pairTo: CountList.create(0), partnerStart: CountList.create(0), partnerList: CountList.create(0), deathAt: CountList.create(0), deathStamp: CountList.create(0), stamp: 0, physBefore: Array.create(0), physAfter: Array.create(0), throughAt: Array.create(0), written: Array.create(0), dieAt: CountList.create(0), dieValue: CountList.create(0), dieStart: CountList.create(0), dieList: CountList.create(0), opens: BoolList.create(0), bracketEnd: CountList.create(0), commuted: BoolList.create(0), live: BoolList.create(0), liveList: CountList.create(0), livePos: CountList.create(0), bracketed: BoolList.create(0), restoreAt: CountList.create(0), holder: CountList.create(0), busy: 0, openValue: CountList.create(0), openReg: CountList.create(0), openEnd: CountList.create(0), winValue: CountList.create(0), winBlock: CountList.create(0), winFrom: CountList.create(0), winTo: CountList.create(0), winReg: CountList.create(0), winFirst: IndexList.create(0), winNext: IndexList.create(0), openWin: IndexList.create(0), homeless: BoolList.create(0), homes: 0, flagged: CountList.create(0), moveValue: CountList.create(0), moveTo: CountList.create(0), moveDsts: CountList.create(0), moveSrcs: CountList.create(0), moveOut: MInstrList.create(0), insAt: CountList.create(0), insIndex: CountList.create(0), insInstr: MInstrList.create(0), insStart: CountList.create(0), insList: CountList.create(0), parent: CountList.create(0), queue: CountList.create(0), ops: Operands.new(), origInstrs: MInstrList.create(0), origBlocks: MBlockList.create(0), origEdges: MEdgeList.create(0), outStart: CountList.create(0), outSelf: IndexList.create(0), outEnd: CountList.create(0), arch: arch}
+		return Colourer{result: ColourResult.new(), callerSaved: 0, calleeSaved: 0, reg: CountList.create(0), coloured: BoolList.create(0), loc: CountList.create(0), forbid: Array.create(0), hint: Array.create(0), contested: Array.create(0), pairFrom: CountList.create(0), pairTo: CountList.create(0), partnerStart: CountList.create(0), partnerList: CountList.create(0), deathAt: CountList.create(0), deathStamp: CountList.create(0), stamp: 0, physBefore: Array.create(0), physAfter: Array.create(0), throughAt: Array.create(0), written: Array.create(0), dieAt: CountList.create(0), dieValue: CountList.create(0), dieStart: CountList.create(0), dieList: CountList.create(0), opens: BoolList.create(0), bracketEnd: CountList.create(0), commuted: BoolList.create(0), live: BoolList.create(0), liveList: CountList.create(0), livePos: CountList.create(0), bracketed: BoolList.create(0), restoreAt: CountList.create(0), holder: CountList.create(0), busy: 0, openValue: CountList.create(0), openReg: CountList.create(0), openEnd: CountList.create(0), winValue: CountList.create(0), winBlock: CountList.create(0), winFrom: CountList.create(0), winTo: CountList.create(0), winReg: CountList.create(0), winFirst: IndexList.create(0), winNext: IndexList.create(0), openWin: IndexList.create(0), homeless: BoolList.create(0), homes: 0, flagged: CountList.create(0), moveValue: CountList.create(0), moveTo: CountList.create(0), moveDsts: CountList.create(0), moveSrcs: CountList.create(0), moveOut: MInstrList.create(0), insAt: CountList.create(0), insIndex: CountList.create(0), insInstr: MInstrSlots.create(0), insStart: CountList.create(0), insList: CountList.create(0), parent: CountList.create(0), queue: CountList.create(0), ops: Operands.new(), origInstrs: MInstrList.create(0), origBlocks: MBlockList.create(0), origEdges: MEdgeList.create(0), outStart: CountList.create(0), outSelf: IndexList.create(0), outEnd: CountList.create(0), arch: arch}
 	end 'new'
 
 	// start sizes the state for fn under the conventions convs.
@@ -1122,7 +1122,7 @@ export type Colourer
 			for k in origBlocks[b].first upto origBlocks[b].endAt 'instrs'
 				outStart[k] = emitted.count()
 				for e in insStart[k] upto insStart[nextCount(k)] 'inserted'
-					emitted.push(table.takeAt(insInstr, at: insList[e]))
+					emitted.push(try insInstr.takeSlot(insList[e]) otherwise panic("backend: an inserted copy taken twice"))
 				end 'inserted'
 				self.rewriteInstr(fn, out: emitted, b: b, k: k, lv: lv)
 				outEnd[k] = emitted.count()

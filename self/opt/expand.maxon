@@ -13,19 +13,27 @@
 // (opt.sourceOf), and spills the expanded loop where the source form's fits (inline.maxon).
 
 // Expander is the state of the expansion, kept from one function to the next so that its arrays keep their capacity: how
-// many times each register is read, the operands of one operation, the instructions being written, and the call each
-// trap block makes.
+// many times each register is read, the operands of one operation, an empty list with the room of the last function's
+// instructions, which the next function's are written into, and the call each trap block makes.
 export type Expander
 	var reads as Array with Count
 	var operands as ir.RegList
-	var out as ir.InstrList
+	var held as ir.InstrList
 	var traps as ir.InstrList
-	// The spans of out and of traps, of a function that keeps them: what an instruction expands to has its span.
+	// The spans of f's instructions and of traps, of a function that keeps them: what an instruction expands to has its span.
 	var spans as ir.SpanList
 	var trapSpans as ir.SpanList
+	// pending is whether the address of an element waits for the instruction after it in its block, which may read it
+	// (expandOne): the address that the old instruction pendingAt, a call of the entry pendingSymbol whose arguments start
+	// at pendingArgs, gives to pendingDst.
+	var pending as bool
+	var pendingAt as Count
+	var pendingSymbol as ir.Rt
+	var pendingArgs as Count
+	var pendingDst as ir.Reg
 
 	export static function new() returns Expander
-		return Expander{reads: Array.create(0), operands: ir.RegList.create(0), out: ir.InstrList.create(0), traps: ir.InstrList.create(0), spans: ir.SpanList.create(0), trapSpans: ir.SpanList.create(0)}
+		return Expander{reads: Array.create(0), operands: ir.RegList.create(0), held: ir.InstrList.create(0), traps: ir.InstrList.create(0), spans: ir.SpanList.create(0), trapSpans: ir.SpanList.create(0), pending: false, pendingAt: 0, pendingSymbol: ir.Rt.rtArrayElem, pendingArgs: 0, pendingDst: ir.noReg}
 	end 'new'
 
 	// expandFunction expands the calls of f and of the bodies of its closures and behaviours, and says whether there was one.
@@ -40,33 +48,38 @@ export type Expander
 			return changed
 		end 'none'
 		self.countReads(f)
-		out.clear()
-		out.reserve(f.instrs.count())
+		// The instructions are moved out of f and drained, each written anew into the room of the list held, and nothing
+		// between can fail, so f is never left without its instructions.
+		var old = exchange(f.instrs, value: exchange(held, value: ir.InstrList.create(0)))
+		f.instrs.reserve(old.count())
 		traps.clear()
 		spans.clear()
 		trapSpans.clear()
 		let own = f.blocks.count()
-		for b in 0 upto own 'blocks'
-			let first = out.count()
-			var k = f.blocks[b].first
-			let endAt = f.blocks[b].endAt
-			while k < endAt 'instrs'
-				let from = k
-				k = self.expandAt(f, k: k, endAt: endAt, own: own)
-				self.spanned(f, k: from)
-			end 'instrs'
-			f.blocks[b].first = first
-			f.blocks[b].endAt = out.count()
-		end 'blocks'
+		var walk = ir.BlockWalk.start(f)
+		var k = 0 as Count
+		for x in old.drain() 'instrs'
+			if walk.endsAt(f, k: k) 'blockEnds'
+				self.flush(f)
+			end 'blockEnds'
+			walk.reach(f, k: k, written: f.instrs.count())
+			if self.expandOne(f, x: x, k: k, last: walk.endsAt(f, k: plusOne(k)), own: own) 'kept'
+				f.instrs.push(x)
+				self.spanned(f, k: k)
+			end 'kept'
+			k = plusOne(k)
+		end 'instrs'
+		self.flush(f)
+		walk.finish(f, k: k, written: f.instrs.count())
+		held = old
 		for t in 0 upto traps.count() 'traps'
-			let first = out.count()
-			out.push(traps[t].clone())
+			let first = f.instrs.count()
+			f.instrs.push(traps[t].clone())
 			if f.keepsSpans 'span'
 				spans.push(trapSpans[t])
 			end 'span'
-			f.blocks.push(ir.Block.make(first, endAt: out.count(), params: f.blockParams.count(), paramCount: 0, term: ir.newTrap()))
+			f.blocks.push(ir.Block.make(first, endAt: f.instrs.count(), params: f.blockParams.count(), paramCount: 0, term: ir.newTrap()))
 		end 'traps'
-		f.instrs = exchange(out, value: ir.InstrList.create(0))
 		ir.takeSpans(f, laid: spans)
 		return true
 	end 'expandFunction'
@@ -76,7 +89,7 @@ export type Expander
 		if not f.keepsSpans 'none'
 			return
 		end 'none'
-		while spans.count() < out.count() 'out'
+		while spans.count() < f.instrs.count() 'out'
 			spans.push(f.spans[k])
 		end 'out'
 		while trapSpans.count() < traps.count() 'traps'
@@ -84,47 +97,87 @@ export type Expander
 		end 'traps'
 	end 'spanned'
 
-	// expandAt writes the instruction k of a block that ends at endAt, expanded where it is a call the expansion replaces,
-	// and gives the index of the next instruction it has not written. own is how many blocks f has before the trap blocks.
-	function expandAt(mutates self, mutates f ir.IrFunction, k Count, endAt Count, own Count) returns Count
-		let next = plusOne(k)
-		if not expandable(f.instrs[k]) 'kept'
-			out.push(table.takeAt(f.instrs, at: k))
-			return next
+	// expandOne writes x, the old instruction k, expanded where it is a call the expansion replaces, and says whether x is
+	// to be written as it is, which the caller does, moving it, since a value held in place that a call consumes is a copy.
+	// The address of an element that only the instruction after it may read waits for that instruction (pending), unless x
+	// is the last of its block: a load of the address right after it is the element read itself. own is how many blocks f
+	// has before the trap blocks.
+	function expandOne(mutates self, mutates f ir.IrFunction, x ir.Instr, k Count, last bool, own Count) returns bool
+		if pending 'waiting'
+			let at = pendingAt
+			let read = self.fuse(f, next: x)
+			self.spanned(f, k: at)
+			if read 'fused'
+				return false
+			end 'fused'
+		end 'waiting'
+		if not expandable(x) 'kept'
+			return true
 		end 'kept'
-		let call = f.instrs[k].clone()
-		let symbol = ir.callRuntimeSymbol(call)
-		let start = ir.callRuntimeArgsStart(call)
+		let symbol = ir.callRuntimeSymbol(x)
+		let start = ir.callRuntimeArgsStart(x)
 		let src = f.args[start]
 		let of = collectionOf(symbol)
 		if readsLength(symbol) 'length'
-			out.push(ir.newLength(call.dst, src: src, of: of))
-			return next
+			f.instrs.push(ir.newLength(x.dst, src: src, of: of))
+			self.spanned(f, k: k)
+			return false
 		end 'length'
 		let index = f.args[plusOne(start)]
-		if not ir.callRuntimeProven(call) 'check'
+		if not ir.callRuntimeProven(x) 'check'
 			let length = f.newReg(ir.IrKind.kindScalar)
-			out.push(ir.newLength(length, src: src, of: of))
+			f.instrs.push(ir.newLength(length, src: src, of: of))
 			let fail = ir.blockOf(try own + traps.count() otherwise panic("opt: a function with more blocks than memory"))
-			traps.push(ir.newCallRuntime(ir.noReg, symbol: symbol, argsStart: call.a, argsCount: call.b, routine: ir.noRoutine, proven: false))
-			out.push(ir.newBounds(index, length: length, fail: fail))
+			traps.push(ir.newCallRuntime(ir.noReg, symbol: symbol, argsStart: x.a, argsCount: x.b, routine: ir.noRoutine, proven: false))
+			f.instrs.push(ir.newBounds(index, length: length, fail: fail))
 		end 'check'
 		if symbol != ir.Rt.rtArrayElem and symbol != ir.Rt.rtStrsElem and symbol != ir.Rt.rtBytesElem 'byte'
-			out.push(ir.newLoadByte(call.dst, src: src, index: index, of: of))
-			return next
+			f.instrs.push(ir.newLoadByte(x.dst, src: src, index: index, of: of))
+			self.spanned(f, k: k)
+			return false
 		end 'byte'
-		let shift = elementShift(symbol)
-		if symbol == ir.Rt.rtBytesElem and next < endAt and f.instrs[next].op == ir.Opcode.opLoadByteAt and ir.loadByteAtAddr(f.instrs[next]) == call.dst and reads[regIndex(call.dst)] == 1 'readByte'
-			out.push(ir.newLoadByte(f.instrs[next].dst, src: src, index: index, of: of))
-			return plusOne(next)
+		self.spanned(f, k: k)
+		if not last and reads[regIndex(x.dst)] == 1 'wait'
+			pending = true
+			pendingAt = k
+			pendingSymbol = symbol
+			pendingArgs = start
+			pendingDst = x.dst
+			return false
+		end 'wait'
+		f.instrs.push(elementAddress(f, symbol: symbol, start: start, dst: x.dst))
+		self.spanned(f, k: k)
+		return false
+	end 'expandOne'
+
+	// fuse writes the address of an element that waits, read by next where next is the load of it, and says whether it was.
+	function fuse(mutates self, mutates f ir.IrFunction, next ir.Instr) returns bool
+		pending = false
+		let symbol = pendingSymbol
+		let src = f.args[pendingArgs]
+		let index = f.args[plusOne(pendingArgs)]
+		if symbol == ir.Rt.rtBytesElem and next.op == ir.Opcode.opLoadByteAt and ir.loadByteAtAddr(next) == pendingDst 'readByte'
+			f.instrs.push(ir.newLoadByte(next.dst, src: src, index: index, of: collectionOf(symbol)))
+			return true
 		end 'readByte'
-		if symbol != ir.Rt.rtBytesElem and next < endAt and f.instrs[next].op == ir.Opcode.opLoadAt and ir.loadAtAddr(f.instrs[next]) == call.dst and reads[regIndex(call.dst)] == 1 'read'
-			out.push(ir.newElemLoad(f.instrs[next].dst, arr: src, index: index, shift: shift))
-			return plusOne(next)
+		if symbol != ir.Rt.rtBytesElem and next.op == ir.Opcode.opLoadAt and ir.loadAtAddr(next) == pendingDst 'read'
+			f.instrs.push(ir.newElemLoad(next.dst, arr: src, index: index, shift: elementShift(symbol)))
+			return true
 		end 'read'
-		out.push(ir.newElemAddr(call.dst, arr: src, index: index, shift: shift))
-		return next
-	end 'expandAt'
+		f.instrs.push(elementAddress(f, symbol: symbol, start: pendingArgs, dst: pendingDst))
+		return false
+	end 'fuse'
+
+	// flush writes the address of an element that waits for an instruction its block does not have.
+	function flush(mutates self, mutates f ir.IrFunction)
+		if not pending 'none'
+			return
+		end 'none'
+		pending = false
+		f.instrs.push(elementAddress(f, symbol: pendingSymbol, start: pendingArgs, dst: pendingDst))
+		let at = pendingAt
+		self.spanned(f, k: at)
+	end 'flush'
 
 	// countReads counts how many times each register of f is read, by its instructions and its terminators.
 	function countReads(mutates self, f ir.IrFunction)
@@ -151,6 +204,12 @@ export type Expander
 		end 'operands'
 	end 'countOperands'
 end 'Expander'
+
+// elementAddress is the address of the element that a call of the entry symbol, whose arguments start at start, reads into
+// dst.
+function elementAddress(f ir.IrFunction, symbol ir.Rt, start Count, dst ir.Reg) returns ir.Instr
+	return ir.newElemAddr(dst, arr: f.args[start], index: f.args[plusOne(start)], shift: elementShift(symbol))
+end 'elementAddress'
 
 // expandModule expands the functions of a module that the interpreter runs as they were lowered.
 export function expandModule(mutates fns ir.IrFunctionList)

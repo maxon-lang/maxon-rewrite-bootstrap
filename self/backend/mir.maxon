@@ -109,6 +109,10 @@ end 'MInstr'
 
 export typealias MInstrList = Array with MInstr
 
+// MInstrSlots is a pool of instructions that a pass takes out in another order than it put them in, which leaves its slots
+// empty.
+export typealias MInstrSlots = __SlotArray with MInstr
+
 // newMachine is a form with its register operands, the displacement of a memory operand and an immediate.
 export function newMachine(form FormID, a MReg, b MReg, c MReg, aux Imm32, imm FullRangeInt) returns MInstr
 	var x = MInstr.make(MKind.target, form: form, a: a, b: b, c: c)
