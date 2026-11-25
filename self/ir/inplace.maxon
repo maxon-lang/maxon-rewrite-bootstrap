@@ -23,18 +23,32 @@ function newArea(mutates l Lowerer, words Count) returns Reg
 	return area
 end 'newArea'
 
-// copyWords copies words words from the address src to the address dst.
+// copyWords copies words words from the address src to the address dst, two at a time: the loads of a pair of words
+// before their stores, which arm64 makes one ldp and one stp. dst and src are one place or places that do not overlap,
+// so the order of a pair's accesses leaves what is copied as it was.
 function copyWords(mutates l Lowerer, dst Reg, src Reg, words Count)
 	copyWordsAt(l, dst: dst, at: 0, src: src, words: words)
 end 'copyWords'
 
 // copyWordsAt copies words words from the address src to the bytes at offset at of the address dst: a record's field whose
-// words are its own.
+// words are its own. It copies them two at a time, as copyWords says.
 function copyWordsAt(mutates l Lowerer, dst Reg, at Count, src Reg, words Count)
-	for i in 0 upto words 'words'
+	var i = 0 as Count
+	while i < words 'words'
+		let pair = words - i >= copyPairWords
+		let after = nextWord(i)
 		let w = newReg(l, kind: IrKind.kindScalar)
 		emit(l, i: newLoadField(w, obj: src, offset: wordOffset(i)))
-		emit(l, i: newStoreField(dst, offset: try at + wordOffset(i) otherwise panic("ir: a field past memory"), src: w, borrow: false))
+		if pair 'pairLoad'
+			let v = newReg(l, kind: IrKind.kindScalar)
+			emit(l, i: newLoadField(v, obj: src, offset: wordOffset(after)))
+			emit(l, i: newStoreField(dst, offset: fieldWordOffset(at, i: i), src: w, borrow: false))
+			emit(l, i: newStoreField(dst, offset: fieldWordOffset(at, i: after), src: v, borrow: false))
+			i = nextWord(after)
+		end 'pairLoad' else 'single'
+			emit(l, i: newStoreField(dst, offset: fieldWordOffset(at, i: i), src: w, borrow: false))
+			i = after
+		end 'single'
 	end 'words'
 end 'copyWordsAt'
 
@@ -48,6 +62,18 @@ function heldPlace(mutates l Lowerer, words Reg) returns Reg
 	emit(l, i: newSlotAddr(place, slot: held))
 	return place
 end 'heldPlace'
+
+// fieldWordOffset is the offset of word i of a field at offset at.
+function fieldWordOffset(at Count, i Count) returns Count
+	return try at + wordOffset(i) otherwise panic("ir: a field past memory")
+end 'fieldWordOffset'
+
+function nextWord(i Count) returns Count
+	return try i + 1 otherwise panic("ir: a record past memory")
+end 'nextWord'
+
+// copyPairWords is how many words copyWords loads before it stores them.
+let copyPairWords = 2 as Count
 
 // placedCopy is a copy of the words words at v in a frame area of its own.
 function placedCopy(mutates l Lowerer, words Count, v Reg) returns Reg

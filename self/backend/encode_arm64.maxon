@@ -70,15 +70,19 @@ function arm64EncodeBlocks(mutates u CodeUnit, fn MirFunction, mutates lay Block
 	end 'blocks'
 end 'arm64EncodeBlocks'
 
-// arm64EncodeAt encodes instruction k of fn, or it and the jump after it in its block, which ends at stop, as one, and is
-// the instruction after them: a jump to the block laid out next is left out, and a conditional branch to it over a jump
-// becomes one branch the other way.
+// arm64EncodeAt encodes instruction k of fn, or it and the instruction after it in its block, which ends at stop, as one,
+// and is the instruction after them: a jump to the block laid out next is left out, a conditional branch to it over a jump
+// becomes one branch the other way, and two loads or two stores of adjacent words are one ldp or stp (arm64Pairs).
 function arm64EncodeAt(mutates u CodeUnit, fn MirFunction, mutates lay BlockLayout, k Count, stop Count, next ir.Index) returns Count
 	let after = nextCount(k)
 	if isEdgeJump(fn.instrs[k]) and lay.goesTo(fn, edge: refIndex(fn.instrs[k]), b: next) 'fallsThrough'
 		return after
 	end 'fallsThrough'
 	if not arm64IsEdgeBranch(fn.instrs[k]) 'other'
+		if after < stop and arm64Pairs(fn.instrs[k], next: fn.instrs[after]) 'pair'
+			arm64EncodePair(u, first: fn.instrs[k], next: fn.instrs[after])
+			return nextCount(after)
+		end 'pair'
 		arm64EncodeInstr(u, fn: fn, lay: lay, x: fn.instrs[k])
 		return after
 	end 'other'
@@ -91,6 +95,58 @@ function arm64EncodeAt(mutates u CodeUnit, fn MirFunction, mutates lay BlockLayo
 	arm64EncodeEdgeBranch(u, fn: fn, lay: lay, x: fn.instrs[k])
 	return after
 end 'arm64EncodeAt'
+
+// arm64PairLow and arm64PairHigh are the reach of the offset of an ldp or stp of two words: 7 bits of words, signed.
+let arm64PairLow = -512
+
+let arm64PairHigh = 504
+
+let arm64PairWordBytes = 8
+
+// arm64WordLoad and arm64WordStore are whether an instruction is a load or a store of a word at a constant offset from a
+// base register, which a pair replaces.
+function arm64WordLoad(x MInstr) returns bool
+	return x.ref == MRef.none and (isArm64Form(x, form: Arm64Form.ldr64Off) or isArm64Form(x, form: Arm64Form.ldr64Unscaled))
+end 'arm64WordLoad'
+
+function arm64WordStore(x MInstr) returns bool
+	return x.ref == MRef.none and (isArm64Form(x, form: Arm64Form.str64Off) or isArm64Form(x, form: Arm64Form.str64Unscaled))
+end 'arm64WordStore'
+
+// arm64Pairs is whether x and the instruction after it, next, are one ldp or stp: two loads or two stores of the words at
+// adjacent offsets from one base, in either order, the lower at an offset the pair's field holds. Two loads pair only
+// where the first leaves the base and the other's register alone, so that the pair reads what they read: ldp writes
+// both registers after reading both words. Two stores always do.
+function arm64Pairs(x MInstr, next MInstr) returns bool
+	let loads = arm64WordLoad(x) and arm64WordLoad(next)
+	if not loads and not (arm64WordStore(x) and arm64WordStore(next)) 'kinds'
+		return false
+	end 'kinds'
+	if x.b != next.b 'bases'
+		return false
+	end 'bases'
+	let low = x.aux if x.aux < next.aux else next.aux
+	let high = next.aux if x.aux < next.aux else x.aux
+	if (high as FullRangeInt) - (low as FullRangeInt) != arm64PairWordBytes or low < arm64PairLow or low > arm64PairHigh or (low as FullRangeInt) mod arm64PairWordBytes != 0 'offsets'
+		return false
+	end 'offsets'
+	return not loads or (x.a != x.b and x.a != next.a)
+end 'arm64Pairs'
+
+// arm64EncodePair writes the ldp or stp of x and next, which arm64Pairs holds to be one, with the register of the lower
+// word first.
+function arm64EncodePair(mutates u CodeUnit, first MInstr, next MInstr)
+	let swapped = next.aux < first.aux
+	let low = arm64GeneralRegister(next.a if swapped else first.a)
+	let high = arm64GeneralRegister(first.a if swapped else next.a)
+	let disp = next.aux if swapped else first.aux
+	let base = arm64GeneralRegister(first.b)
+	if arm64WordLoad(first) 'load'
+		encodeArm64Ldp64(u.asm.code, first: low, second: high, base: base, disp: disp)
+	end 'load' else 'store'
+		encodeArm64Stp64(u.asm.code, first: low, second: high, base: base, disp: disp)
+	end 'store'
+end 'arm64EncodePair'
 
 // arm64Inverted is a conditional branch that goes where x does when x does not.
 function arm64Inverted(x MInstr) returns MInstr
