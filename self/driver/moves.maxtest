@@ -1,0 +1,23 @@
+// moveMessage is the message of the use after a move that the program of the file is refused for.
+function moveMessage(path String) returns String
+	let file = try FilePath.from(path) otherwise panic("{path} is not a path")
+	let text = try File.readText(file) otherwise panic("{path} cannot be read")
+	let errs = lowerSource(path, text: text)
+	for e in errs 'each'
+		if e.code == diag.errUseAfterMove 'moved'
+			return e.message.clone()
+		end 'moved'
+	end 'each'
+	panic("{path}: no use after a move was reported")
+end 'moveMessage'
+
+test 'a use after a move says the move was in an earlier iteration only when it came around a loop'
+	let around = moveMessage("tests/errors/use-after-move--a-move-later-in-a-loop-reaches-its-top-in-the-next-iteration.maxon")
+	if not findText(around, needle: "earlier iteration").isSome() 'around'
+		panic("a move that came around the loop is said as: {around}")
+	end 'around'
+	let straight = moveMessage("tests/errors/use-after-move--a-move-in-an-assignments-value-is-no-earlier-iteration.maxon")
+	if findText(straight, needle: "iteration").isSome() 'straight'
+		panic("a move with no loop around it is said as: {straight}")
+	end 'straight'
+end 'a use after a move says the move was in an earlier iteration only when it came around a loop'
