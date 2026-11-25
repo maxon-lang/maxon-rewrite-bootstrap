@@ -231,29 +231,30 @@ function slotWord(mutates l Lowerer, p ast.Project, ms ast.ModuleState, elem ast
 	return word
 end 'slotWord'
 
-// slotFilled is whether the slot at index, which is inside the array, holds an element: a slot is empty where it is all 0,
-// as resize and clearSlot leave it, so over a scalar an empty slot and an element 0 are the same.
-function slotFilled(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, box ArrayBox, arr Reg, index Reg) returns Reg
+// slotFilled is whether the slot at index holds an element: a slot is empty where it is all 0, as resize and clearSlot leave
+// it, so over a scalar an empty slot and an element 0 are the same. An index not known to be inside the array (checked)
+// traps past the end, as a subscript does.
+function slotFilled(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, box ArrayBox, arr Reg, index Reg, checked bool) returns Reg
 	let empty = konst(l, value: 0 as Word)
 	return match elementWay(p, ms: ms, box: box) 'way'
-		heldPacked gives byteFilled(l, p: p, box: box, arr: arr, index: index, empty: empty)
-		heldInline(words) gives wordsFilled(l, p: p, ms: ms, box: box, arr: arr, index: index, words: words, empty: empty)
-		heldString gives formFilled(l, p: p, ms: ms, box: box, arr: arr, index: index)
-		heldWord gives formFilled(l, p: p, ms: ms, box: box, arr: arr, index: index)
-		heldBox gives formFilled(l, p: p, ms: ms, box: box, arr: arr, index: index)
+		heldPacked gives byteFilled(l, p: p, box: box, arr: arr, index: index, empty: empty, checked: checked)
+		heldInline(words) gives wordsFilled(l, p: p, ms: ms, box: box, arr: arr, index: index, words: words, empty: empty, checked: checked)
+		heldString gives formFilled(l, p: p, ms: ms, box: box, arr: arr, index: index, checked: checked)
+		heldWord gives formFilled(l, p: p, ms: ms, box: box, arr: arr, index: index, checked: checked)
+		heldBox gives formFilled(l, p: p, ms: ms, box: box, arr: arr, index: index, checked: checked)
 		heldAddress(_) gives panic("ir: an element held as the address of words elsewhere")
 	end 'way'
 end 'slotFilled'
 
 // byteFilled is whether the byte at index of an array of bytes is not 0.
-function byteFilled(mutates l Lowerer, p ast.Project, box ArrayBox, arr Reg, index Reg, empty Reg) returns Reg
-	let byte = elementEntry(l, p: p, site: box.site, symbol: Rt.rtBytesGet, args: argsOf2(arr, b: index), checked: false)
+function byteFilled(mutates l Lowerer, p ast.Project, box ArrayBox, arr Reg, index Reg, empty Reg, checked bool) returns Reg
+	let byte = elementEntry(l, p: p, site: box.site, symbol: Rt.rtBytesGet, args: argsOf2(arr, b: index), checked: checked)
 	return compare(l, op: CmpOp.cmpNe, a: byte, b: empty, unsigned: true)
 end 'byteFilled'
 
 // wordsFilled is whether some one of the words words of the element at index of an array held in place is not 0.
-function wordsFilled(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, box ArrayBox, arr Reg, index Reg, words Count, empty Reg) returns Reg
-	let at = arrayAddress(l, p: p, ms: ms, box: box, arr: arr, index: index, checked: false)
+function wordsFilled(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, box ArrayBox, arr Reg, index Reg, words Count, empty Reg, checked bool) returns Reg
+	let at = arrayAddress(l, p: p, ms: ms, box: box, arr: arr, index: index, checked: checked)
 	var any = empty
 	for w in 0 upto words 'words'
 		let word = newReg(l, kind: IrKind.kindScalar)
@@ -264,8 +265,8 @@ function wordsFilled(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleStat
 end 'wordsFilled'
 
 // formFilled is whether the slot at index of an array of words or Strings is not its empty slot.
-function formFilled(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, box ArrayBox, arr Reg, index Reg) returns Reg
-	let addr = arrayAddress(l, p: p, ms: ms, box: box, arr: arr, index: index, checked: false)
+function formFilled(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, box ArrayBox, arr Reg, index Reg, checked bool) returns Reg
+	let addr = arrayAddress(l, p: p, ms: ms, box: box, arr: arr, index: index, checked: checked)
 	let elem = arrayElem(p, ms: ms, box: box)
 	let d = newReg(l, kind: kindOf(l, p: p, ms: ms, t: elem))
 	emit(l, i: newLoadAt(d, addr: addr))
@@ -280,7 +281,7 @@ function arrayAnyFilled(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleS
 	let length = arrayLength(l, p: p, ms: ms, box: box, arr: arr)
 	let loop = countedLoopBegin(l, limit: length)
 	let i = countedLoopIndex(l, loop: loop)
-	let filled = slotFilled(l, p: p, ms: ms, box: box, arr: arr, index: i)
+	let filled = slotFilled(l, p: p, ms: ms, box: box, arr: arr, index: i, checked: false)
 	storeIf(l, slot: result, cond: filled, value: 1 as Word)
 	countedLoopEnd(l, loop: loop)
 	return load(l, slot: result)

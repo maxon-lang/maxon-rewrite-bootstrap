@@ -1,0 +1,118 @@
+// A slot array is the library's array whose slots below its count may be empty: create(n) makes n empty slots, isFilled
+// tells a filled slot from an empty one, fillSlot and push fill slots, get copies an element and fails with emptySlot at an
+// empty slot and indexOutOfBounds past the end, lendSlot lends one, takeSlot moves one out and clearSlot drops one, each
+// leaving its slot empty, and dropEmpty ends the array once every slot is empty. fillSlot and takeSlot drop nothing, so a
+// slot array holds an element without Droppable, here a transaction that must be committed. Over a scalar an empty slot is
+// the element 0.
+typealias Integer = int(i64.min to i64.max)
+
+type Txn
+	var id as Count
+
+	static function begin(id Count) returns Txn
+		return Txn{id: id}
+	end 'begin'
+
+	function commit(destructs self)
+		print("commit {id}\n")
+	end 'commit'
+end 'Txn'
+
+type Point
+	var x as Integer
+	var y as Integer
+
+	static function make(x Integer, y Integer) returns Point
+		return Point{x: x, y: y}
+	end 'make'
+
+	function sum() returns Integer
+		return try x + y otherwise 0
+	end 'sum'
+end 'Point'
+
+typealias Names = __SlotArray with String
+
+typealias Numbers = __SlotArray with Integer
+
+typealias Points = __SlotArray with Point
+
+typealias Bytes = __SlotArray with Byte
+
+typealias Txns = __SlotArray with Txn
+
+// marks is a slot array's slots, x where one is filled and . where it is empty.
+function marks(slots __SlotArray with T) uses T returns String
+	var text = ""
+	for i in 0 upto slots.count() 'each'
+		let mark = "x" if slots.isFilled(i) else "."
+		text = "{text}{mark}"
+	end 'each'
+	return text
+end 'marks'
+
+function described(names Names, at Count) returns String
+	let found = try names.get(at) otherwise (e) 'missing'
+		return match e 'why'
+			emptySlot gives "empty"
+			indexOutOfBounds gives "outside"
+		end 'why'
+	end 'missing'
+	return found
+end 'described'
+
+function main() returns ExitCode
+	var names = Names.create(3)
+	print("{marks(names)} {names.count()} {names.managed.length()}\n")
+	names.fillSlot(1, value: "ada")
+	names.push("bob")
+	print("{marks(names)} {described(names, at: 0)} {described(names, at: 1)} {described(names, at: 4)} {names.lendSlot(3)}\n")
+	let bob = try names.takeSlot(3) otherwise "none"
+	let gone = try names.takeSlot(3) otherwise "empty"
+	try names.clearSlot(1) otherwise panic("a slot inside the array")
+	print("{marks(names)} {bob} {gone} {described(names, at: 1)}\n")
+	names.dropEmpty()
+	var numbers = Numbers.create(2)
+	print("{marks(numbers)}\n")
+	numbers.fillSlot(0, value: 7)
+	print("{marks(numbers)} {try numbers.get(0) otherwise 99} {try numbers.get(1) otherwise 99}\n")
+	let seven = try numbers.takeSlot(0) otherwise 99
+	print("{marks(numbers)} {seven}\n")
+	numbers.dropEmpty()
+	var points = Points.create(2)
+	points.fillSlot(1, value: Point.make(1, y: 2))
+	print("{marks(points)} {points.lendSlot(1).sum()}\n")
+	let point = try points.takeSlot(1) otherwise Point.make(0, y: 0)
+	print("{marks(points)} {point.sum()}\n")
+	points.dropEmpty()
+	var bytes = Bytes.create(2)
+	bytes.fillSlot(0, value: 9)
+	print("{marks(bytes)} {try bytes.get(0) otherwise 0}\n")
+	try bytes.clearSlot(0) otherwise panic("a slot inside the array")
+	print("{marks(bytes)}\n")
+	bytes.dropEmpty()
+	var txns = Txns.create(1)
+	txns.fillSlot(0, value: Txn.begin(1))
+	txns.push(Txn.begin(2))
+	print("{marks(txns)}\n")
+	(try txns.takeSlot(1) otherwise panic("a full slot")).commit()
+	(try txns.takeSlot(0) otherwise panic("a full slot")).commit()
+	print("{marks(txns)}\n")
+	txns.dropEmpty()
+	return 0
+end 'main'
+
+//> ... 3 3
+//> .x.x empty ada outside bob
+//> .... bob empty empty
+//> ..
+//> x. 7 0
+//> .. 7
+//> .x 3
+//> .. 3
+//> x. 9
+//> ..
+//> xx
+//> commit 2
+//> commit 1
+//> ..

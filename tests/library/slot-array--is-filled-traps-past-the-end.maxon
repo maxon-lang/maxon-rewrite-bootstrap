@@ -1,0 +1,14 @@
+// expect-exit: 1
+// isFilled asks of a slot of the array, so past the end it traps, as a subscript does.
+typealias Names = __SlotArray with String
+
+function main() returns ExitCode
+	let names = Names.create(2)
+	print("before\n")
+	print("{names.isFilled(2)}\n")
+	print("after\n")
+	names.dropEmpty()
+	return 0
+end 'main'
+
+//> before

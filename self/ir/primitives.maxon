@@ -414,6 +414,15 @@ export function lowerArrayCreate(mutates l Lowerer, p ast.Project, mutates ms as
 	return arrayZeroed(l, p: p, ms: ms, c: c, count: args[0])
 end 'lowerArrayCreate'
 
+// lowerArrayEmptySlots is a slot array's create(n): n empty slots, all 0, as resize grows an array of a type parameter.
+function lowerArrayEmptySlots(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	let a = arrayOfCall(l, p: p, ms: ms, c: c)
+	let out = arrayNew(l, p: p, ms: ms, box: a)
+	arrayReserve(l, p: p, ms: ms, box: a, arr: out, count: args[0])
+	arrayGrowZero(l, p: p, ms: ms, box: a, arr: out, newLength: args[0])
+	return out
+end 'lowerArrayEmptySlots'
+
 // lowerArrayCreateZeroed is create(n, zeroed:) with the literal flag read off the call: n zero elements, or an empty array
 // with room for n.
 function lowerArrayCreateZeroed(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
@@ -657,6 +666,12 @@ function lowerArraySwap(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleS
 	arraySwap(l, p: p, ms: ms, box: a, arr: recv, i: args[0], j: args[1])
 	return konst(l, value: 0 as Word)
 end 'lowerArraySwap'
+
+// lowerArrayIsFilled is whether the slot at an index holds an element, trapping past the end as a subscript does.
+function lowerArrayIsFilled(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	let a = arrayOfCall(l, p: p, ms: ms, c: c)
+	return slotFilled(l, p: p, ms: ms, box: a, arr: recv, index: args[0], checked: true)
+end 'lowerArrayIsFilled'
 
 function lowerArrayClearSlot(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	let a = arrayOfCall(l, p: p, ms: ms, c: c)

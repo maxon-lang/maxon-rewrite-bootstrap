@@ -150,6 +150,13 @@ var builtinTypes = []builtinType{
 		Named:   rawSurface{What: "the raw buffer type is nameable", Instead: "use 'Array'"},
 		Methods: rawSurface{What: "a raw '__ManagedMemory' buffer is reachable", Instead: "use the 'Array' methods"},
 	}},
+	// SlotArray is the slot array of the library's slot tables: an array, the same box under another name, whose slots below
+	// its count may be empty. Each of its operations is the array operation that does the same, so moving a slot table onto
+	// it changes the type its slots are named by and nothing else.
+	{Key: "SlotArray", Name: "__SlotArray", Params: []string{"T"}, Kind: "Array", Managed: true, Raw: &rawType{
+		Named:   rawSurface{What: "the slot array of the library's slot tables is nameable", Instead: "use 'Array', or a 'SlotMap' to keep elements by key"},
+		Methods: rawSurface{What: "a raw '__SlotArray' is reachable", Instead: "use the 'Array' methods"},
+	}},
 	// ManagedMemoryCursor is maxon's position in a raw buffer: the buffer it borrows and the index of an element of it.
 	// It holds a borrow, so a value of it and of any type that holds one may not outlive the buffer (README, "Borrowing
 	// values").
@@ -268,6 +275,7 @@ type view struct {
 
 var views = []view{
 	{Owner: "Array", Name: "managed", Type: "ManagedMemory", Raw: rawSurface{What: "a value's raw '__ManagedMemory' buffer is reachable", Instead: "use the 'Array' methods"}},
+	{Owner: "SlotArray", Name: "managed", Type: "ManagedMemory", Raw: rawSurface{What: "a value's raw '__ManagedMemory' buffer is reachable", Instead: "use the 'Array' methods"}},
 }
 
 // unionCase is a case of a built-in union; Payload are its fields as "name Type".
@@ -671,6 +679,21 @@ var tableFunctions = []function{
 	{Owner: "Array", Name: "containsSequence", Params: []string{"sequence Self"}, Result: "Bool", Intrinsic: "ArrayContainsSequence", Checked: true},
 	{Owner: "Array", Name: "equals", Params: []string{"other Self"}, Result: "Bool", Intrinsic: "ArrayEquals", Checked: true}, {Owner: "Array", Name: "first", Result: "T", Bounds: []string{"T Copyable"}, Throws: "ArrayError", Intrinsic: "ArrayFirst"},
 	{Owner: "Array", Name: "last", Result: "T", Bounds: []string{"T Copyable"}, Throws: "ArrayError", Intrinsic: "ArrayLast"},
+
+	// A slot array's operations are the array's of the same name, at the same intrinsics, but for create(n), whose n slots are
+	// empty where the array's are zero elements, so it is legal for every element, and isFilled(at), which an array whose
+	// every slot below its count is filled has no need of. isFilled traps past the end, as a subscript does; over a scalar an
+	// empty slot is the element 0, as dropEmpty reads it.
+	{Owner: "SlotArray", Name: "create", Static: true, Params: []string{"count ElementIndex"}, Result: "Self", Intrinsic: "ArrayEmptySlots"},
+	{Owner: "SlotArray", Name: "count", Result: "Count", Intrinsic: "ArrayCount"},
+	{Owner: "SlotArray", Name: "get", Params: []string{"index ElementIndex"}, Result: "T", Bounds: []string{"T Copyable"}, Throws: "ArrayError", Intrinsic: "ArrayGet"},
+	{Owner: "SlotArray", Name: "push", Self: "mutates", Params: []string{"consumes value T"}, Intrinsic: "ArrayPush"},
+	{Owner: "SlotArray", Name: "isFilled", Params: []string{"at ElementIndex"}, Result: "Bool", Intrinsic: "ArrayIsFilled"},
+	{Owner: "SlotArray", Name: "clearSlot", Self: "mutates", Params: []string{"at ElementIndex"}, Bounds: []string{"T Droppable"}, Throws: "ArrayError", Intrinsic: "ArrayClearSlot"},
+	{Owner: "SlotArray", Name: "fillSlot", Self: "mutates", Params: []string{"at ElementIndex", "consumes value T"}, Intrinsic: "ArrayFillSlot"},
+	{Owner: "SlotArray", Name: "takeSlot", Self: "mutates", Params: []string{"at ElementIndex"}, Result: "T", Throws: "ArrayError", Intrinsic: "ArrayTakeSlot"},
+	{Owner: "SlotArray", Name: "lendSlot", Params: []string{"at ElementIndex"}, Result: "T", Lends: true, Place: true, Intrinsic: "ArrayLendSlot"},
+	{Owner: "SlotArray", Name: "dropEmpty", Self: "consumes", Intrinsic: "ArrayDropEmpty"},
 
 	// A FixedArray is an array's box of its count of elements, which never grows. create() makes the count its type states,
 	// zeroed, and create(value:) copies of the value; a runtime-sized one takes the count, create(n) and create(n, value:),
