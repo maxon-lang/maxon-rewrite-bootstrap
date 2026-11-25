@@ -1,0 +1,252 @@
+// A child process through the event queue: a run of a child (osRun) parks its green thread until the kernel reports the child's
+// exit and the ends of its pipes (a pidfd on Linux, a kqueue's process filter on macOS, a job object's completion on Windows),
+// so other green threads run meanwhile; a child still running at the run's deadline is ended at it, and the run fails with the
+// timeout case; and many runs on green threads at once each get their own child's output and exit code.
+//> a child's exit readied the green thread that waited for it, which others ran beside
+//> a child still running at the run's deadline was ended at it
+//> 32 children on green threads each read their own output
+
+// The host's shell, the flag that has it run a command, the end of the lines it prints, and the commands that the runs use: one
+// that waits about a second and then writes a line to each stream and exits 3, and one that waits about a second and then
+// prints a label, which the label's number completes.
+#if os(Windows)
+	let testShell = "cmd.exe"
+
+	let testShellRuns = "/c"
+
+	let testLineEnd = "\r\n"
+
+	let testExitThree = "ping -n 2 127.0.0.1 >nul&& echo out&& 1>&2 echo err&& exit /b 3"
+
+	let testPauseThenEcho = "ping -n 2 127.0.0.1 >nul&& echo child "
+#else
+	let testShell = "sh"
+
+	let testShellRuns = "-c"
+
+	let testLineEnd = "\n"
+
+	let testExitThree = "sleep 1; echo out; echo err 1>&2; exit 3"
+
+	let testPauseThenEcho = "sleep 1; echo child "
+#endif
+
+// The error word of a run that failed with the timeout case: the case plus one, as failWith stores it.
+let testTimedOutWord = 5 as Count
+
+// testSleeperSeconds is how long the child of the deadline test would run, far past its deadline, so that a child waited out
+// instead of ended is seen however loaded the machine is.
+let testSleeperSeconds = 8 as Count
+
+let testDeadlineMillis = 1000 as Count
+
+let testDeadlineMostNanos = 4500000000 as Count
+
+let testTickNanos = 20000000 as Count
+
+// testTicksLeast is how many 20 ms ticks of the second the child of the first test runs at least have to be made while it runs.
+let testTicksLeast = 10 as Count
+
+// The ticker's record: its count, and the word that stops it.
+let testTicksBytes = 16 as Count
+
+let testChildren = 32 as Count
+
+let testChildrenMostNanos = 16000000000 as Count
+
+function main() returns ExitCode
+	greenReady(greenSpawn(__Raw.codeAddress("testCoordinator")))
+	return 0
+end 'main'
+
+function testCoordinator(g Count) returns Count
+	testExit()
+	testDeadline()
+	testConcurrent()
+	return 0
+end 'testCoordinator'
+
+// testExit runs a child that exits with 3 after a second, with a green thread that ticks beside it, which keeps running as
+// long as the run's thread waits on its child.
+function testExit()
+	let ticks = alloc(testTicksBytes)
+	__Raw.storeWord(ticks, offset: 0, value: 0)
+	__Raw.storeWord(ticks, offset: wordBytes, value: 0)
+	let ticker = greenSpawn(__Raw.codeAddress("testTicker"))
+	greenSetArgument(ticker, index: 0, value: ticks)
+	greenReady(ticker)
+	let out = alloc(__Raw.stringSize())
+	let err = alloc(__Raw.stringSize())
+	let failure = alloc(wordBytes)
+	let code = testRun(testShell, arguments: testShellArguments(testExitThree), deadlineMs: 0, out: out, err: err, failure: failure)
+	// The ticker stops once the word after its count is set.
+	__Raw.storeWord(ticks, offset: wordBytes, value: 1)
+	_ = greenAwait(ticker)
+	if __Raw.loadWord(failure, offset: 0) != 0 'failed'
+		panic("a run of a child failed")
+	end 'failed'
+	if code != 3 'code'
+		panic("a child's exit code was not 3")
+	end 'code'
+	if not testSlotIs(out, text: "out{testLineEnd}") or not testSlotIs(err, text: "err{testLineEnd}") 'text'
+		panic("a child's output or error was not what it wrote")
+	end 'text'
+	if __Raw.loadWord(ticks, offset: 0) < testTicksLeast 'starved'
+		panic("the green threads beside a run of a child did not run while it waited")
+	end 'starved'
+	free(ticks)
+	testDrop(out)
+	testDrop(err)
+	free(failure)
+	testWrite("a child's exit readied the green thread that waited for it, which others ran beside\n")
+end 'testExit'
+
+// testTicker counts a tick every 20 ms until the word after the count is set.
+function testTicker(g Count) returns Count
+	let ticks = greenArgument(g, index: 0)
+	while __Raw.loadAcquire(ticks, offset: wordBytes) == 0 'ticking'
+		greenSleep(testTickNanos)
+		__Raw.storeWord(ticks, offset: 0, value: __Raw.wrappingAdd(__Raw.loadWord(ticks, offset: 0), right: 1))
+	end 'ticking'
+	return 0
+end 'testTicker'
+
+// testDeadline runs a child that sleeps far past a deadline of a second: the run fails with the timeout case at the deadline,
+// not after the child's sleep, since the child is ended.
+function testDeadline()
+	let out = alloc(__Raw.stringSize())
+	let err = alloc(__Raw.stringSize())
+	let failure = alloc(wordBytes)
+	let started = osClockNanos()
+	#if os(Windows)
+		let code = testRun("ping.exe", arguments: testSleeperArguments(), deadlineMs: testDeadlineMillis, out: out, err: err, failure: failure)
+	#else
+		let code = testRun("sleep", arguments: testSleeperArguments(), deadlineMs: testDeadlineMillis, out: out, err: err, failure: failure)
+	#endif
+	let elapsed = __Raw.wrappingSub(osClockNanos(), right: started)
+	if __Raw.loadWord(failure, offset: 0) != testTimedOutWord 'notTimedOut'
+		panic("a child that outlived the deadline did not fail the run with the timeout case")
+	end 'notTimedOut'
+	if elapsed < testDeadlineMillis * nanosPerMilli 'early'
+		panic("a run ended before its deadline")
+	end 'early'
+	if elapsed > testDeadlineMostNanos 'late'
+		panic("a child that outlived the deadline was waited out, not ended")
+	end 'late'
+	free(failure)
+	testDrop(out)
+	testDrop(err)
+	testWrite("a child still running at the run's deadline was ended at it\n")
+end 'testDeadline'
+
+// testConcurrent runs a child on each of many green threads at once, which each pause a second and print their own label.
+function testConcurrent()
+	let started = osClockNanos()
+	let runs = alloc(testChildren * wordBytes)
+	for i in 0 upto testChildren 'spawn'
+		let run = greenSpawn(__Raw.codeAddress("testChild"))
+		greenSetArgument(run, index: 0, value: i)
+		__Raw.storeWord(runs, offset: i * wordBytes, value: run)
+		greenReady(run)
+	end 'spawn'
+	for i in 0 upto testChildren 'await'
+		if greenAwait(__Raw.loadWord(runs, offset: i * wordBytes)) != 0 'wrong'
+			panic("a child's run read another child's output")
+		end 'wrong'
+	end 'await'
+	if __Raw.wrappingSub(osClockNanos(), right: started) > testChildrenMostNanos 'serial'
+		panic("the children did not run at once")
+	end 'serial'
+	free(runs)
+	testWrite("{testChildren} children on green threads each read their own output\n")
+end 'testConcurrent'
+
+// testChild runs the child with the label of its green thread's argument and gives 0 when it read that label's line and exited
+// with 0, and 1 otherwise.
+function testChild(g Count) returns Count
+	let label = greenArgument(g, index: 0)
+	let out = alloc(__Raw.stringSize())
+	let err = alloc(__Raw.stringSize())
+	let failure = alloc(wordBytes)
+	let code = testRun(testShell, arguments: testShellArguments("{testPauseThenEcho}{label}"), deadlineMs: 0, out: out, err: err, failure: failure)
+	var result = 0 as Count
+	if __Raw.loadWord(failure, offset: 0) != 0 or code != 0 or not testSlotIs(out, text: "child {label}{testLineEnd}") or __Raw.stringLengthAt(err, offset: 0) != 0 'wrong'
+		result = 1
+	end 'wrong'
+	free(failure)
+	testDrop(out)
+	testDrop(err)
+	return result
+end 'testChild'
+
+// testRun runs a program with the arguments, which it frees, and gives its exit code, the error word at failure.
+function testRun(executable String, arguments Count, deadlineMs Count, out Count, err Count, failure Count) returns Count
+	let code = osRun(executable, arguments: arguments, deadlineMs: deadlineMs, stdout: out, stderr: err, errorAddress: failure)
+	let data = __Raw.loadWord(arguments, offset: osArrayDataOffset)
+	for i in 0 upto __Raw.loadWord(arguments, offset: osArrayLengthOffset) 'strings'
+		let slot = __Raw.wrappingAdd(data, right: collectionBytes(i, elementBytes: __Raw.stringSize()))
+		testDropString(slot)
+	end 'strings'
+	free(data)
+	free(arguments)
+	return code
+end 'testRun'
+
+// testShellArguments is the arguments of the host's shell that run a command.
+function testShellArguments(command String) returns Count
+	let arguments = stringArrayNew()
+	testPush(arguments, text: testShellRuns)
+	testPush(arguments, text: command)
+	return arguments
+end 'testShellArguments'
+
+// testSleeperArguments is the arguments of the host's program that waits testSleeperSeconds: ping, which waits about a second
+// for each ping past the first, on Windows, and sleep elsewhere.
+function testSleeperArguments() returns Count
+	let arguments = stringArrayNew()
+	#if os(Windows)
+		testPush(arguments, text: "-n")
+		testPush(arguments, text: "{testSleeperSeconds + 1}")
+		testPush(arguments, text: "127.0.0.1")
+	#else
+		testPush(arguments, text: "{testSleeperSeconds}")
+	#endif
+	return arguments
+end 'testSleeperArguments'
+
+function testPush(arguments Count, text String)
+	pushBytes(arguments, address: __Raw.stringBytes(text), length: __Raw.stringLength(text))
+end 'testPush'
+
+// testSlotIs is whether the string at an address holds the text.
+function testSlotIs(slot Count, text String) returns bool
+	let length = __Raw.stringLengthAt(slot, offset: 0)
+	if length != __Raw.stringLength(text) 'length'
+		return false
+	end 'length'
+	let bytes = __Raw.stringBytesAt(slot, offset: 0)
+	let wanted = __Raw.stringBytes(text)
+	for i in 0 upto length 'bytes'
+		if __Raw.loadByte(bytes, offset: i) != __Raw.loadByte(wanted, offset: i) 'differs'
+			return false
+		end 'differs'
+	end 'bytes'
+	return true
+end 'testSlotIs'
+
+function testWrite(text String)
+	write(__Raw.loadWord(__Raw.stdoutAddress(), offset: 0), text: text)
+end 'testWrite'
+
+// testDropString frees the room of the string at an address, which a string too long to hold its bytes in its words owns.
+function testDropString(slot Count)
+	if __Raw.loadWord(slot, offset: wordBytes) < signBit 'owned'
+		__Raw.freeStringRoom(__Raw.stringBytesAt(slot, offset: 0))
+	end 'owned'
+end 'testDropString'
+
+// testDrop frees a string that a run stored at an address, and the address.
+function testDrop(slot Count)
+	testDropString(slot)
+	free(slot)
+end 'testDrop'

@@ -38,8 +38,6 @@ var macosABI = []layoutConst{
 	{"macosModeDirectory", 0x4000, true, toRuntime, "S_IFDIR."},
 	{"macosModeCharacter", 0x2000, true, toRuntime, "S_IFCHR: a character device, a terminal among them."},
 	{"macosModeOwnerWrite", 0x80, true, toRuntime, "S_IWUSR: a file without it is the read-only one of FileInfo."},
-	{"macosPollIn", 1, true, toRuntime, "POLLIN."},
-	{"macosPollOut", 4, true, toRuntime, "POLLOUT."},
 	{"macosEpipe", 32, true, toRuntime, "EPIPE: a write to a pipe whose reader has closed it."},
 	{"macosFcntlGetFlags", 3, true, toRuntime, "F_GETFL."},
 	{"macosFcntlSetFlags", 4, true, toRuntime, "F_SETFL."},
@@ -47,9 +45,6 @@ var macosABI = []layoutConst{
 	{"macosFdCloexec", 1, true, toRuntime, "FD_CLOEXEC: an fd that an exec closes."},
 	{"macosOpenNonblock", 4, true, toRuntime, "O_NONBLOCK: a write that would wait writes what fits, or fails with EAGAIN."},
 	{"macosFcntlSetNoSigpipe", 73, true, toRuntime, "F_SETNOSIGPIPE: a write to the fd whose reader has closed it fails with EPIPE and sends no SIGPIPE."},
-	{"macosPollRecordBytes", 8, true, toRuntime, "a struct pollfd: the fd and the events asked, then the events that came, 16 bits."},
-	{"macosPollEventsOffset", 4, true, toRuntime, "where a struct pollfd holds the events asked."},
-	{"macosPollReturnedOffset", 6, true, toRuntime, "where a struct pollfd holds the events that came."},
 	{"macosDirentNameOffset", 21, true, toRuntime, "where a struct dirent that readdir gives holds its name, zero-terminated, after d_ino, d_seekoff, d_reclen, d_namlen and d_type."},
 
 	// The errors told apart, which a call that fails leaves in errno.
@@ -102,6 +97,8 @@ var macosABI = []layoutConst{
 	{"macosEvDelete", 0x2, true, toRuntime, "EV_DELETE: takes an event off the kqueue."},
 	{"macosEvfiltRead", 0xFFFF, true, toRuntime, "EVFILT_READ, -1 in 16 bits: an event of an fd that has something to read."},
 	{"macosEvfiltWrite", 0xFFFE, true, toRuntime, "EVFILT_WRITE, -2 in 16 bits: an event of an fd that has room to write."},
+	{"macosEvfiltProc", 0xFFFB, true, toRuntime, "EVFILT_PROC, -5 in 16 bits: an event of a process, of the kinds its fflags ask for."},
+	{"macosNoteExit", 0x80000000, true, toRuntime, "NOTE_EXIT: the fflags of EVFILT_PROC that ask for the process's exit."},
 	{"macosNoteTrigger", 0x1000000, true, toRuntime, "NOTE_TRIGGER: the fflags that trigger a user event."},
 
 	// Threads and parking.

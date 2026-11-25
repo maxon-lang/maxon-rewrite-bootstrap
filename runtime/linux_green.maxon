@@ -262,4 +262,27 @@
 	function eventSignal(entry Count)
 		signalEventfd(__Raw.loadWord(entry, offset: entryHandleOffset))
 	end 'eventSignal'
+
+	// processWatch opens the pidfd of a process, which the kernel makes readable once the process has ended, and registers it
+	// as a handle; the pid names a child that has not been waited for, so no other process has its number. Without the system
+	// call the program stops: a wait that polled instead would be a different wait.
+	function processWatch(scheduler Count, process Count) returns Count
+		let pidfd = __Raw.syscall2(linuxSysPidfdOpen, arg1: process, arg2: 0)
+		if failed(pidfd) 'refused'
+			if errnoOf(pidfd) == linuxEnosys 'missing'
+				panic("waiting for a child process needs pidfd_open, which Linux 5.3 and later has")
+			end 'missing'
+			return noEntry
+		end 'refused'
+		let entry = eventRegister(pidfd)
+		if entry == noEntry 'unregistered'
+			closeFd(pidfd)
+		end 'unregistered'
+		return entry
+	end 'processWatch'
+
+	// processWatchClose closes the pidfd of a process's entry.
+	function processWatchClose(pidfd Count)
+		closeFd(pidfd)
+	end 'processWatchClose'
 #endif

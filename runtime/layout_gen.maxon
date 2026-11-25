@@ -597,6 +597,9 @@ let windowsEntryKeyOffset = 0 as Count
 // windowsEntryOverlappedOffset is where an OVERLAPPED_ENTRY holds the address of the OVERLAPPED that completed, 0 for a posted packet.
 let windowsEntryOverlappedOffset = 8 as Count
 
+// windowsEntryTransferredOffset is where an OVERLAPPED_ENTRY holds the number of bytes transferred, 32 bits, which a job's notification holds its message in.
+let windowsEntryTransferredOffset = 24 as Count
+
 // windowsEntryBytes is the size of an OVERLAPPED_ENTRY.
 let windowsEntryBytes = 32 as Count
 
@@ -707,6 +710,9 @@ let linuxSysGetpriority = 140 as Count
 
 // linuxSysSetpriority is setpriority(which, who, nice): the nice value of the calling thread, and of the threads and processes it starts.
 let linuxSysSetpriority = 141 as Count
+
+// linuxSysPidfdOpen is pidfd_open(pid, flags): an fd that the event queue sees readable once the process has ended, which the kernel has from 5.3, under the same number on every architecture.
+let linuxSysPidfdOpen = 434 as Count
 
 // linuxEpollCloexec is EPOLL_CLOEXEC: the event queue is closed in a child that execs.
 let linuxEpollCloexec = 524288 as Count
@@ -912,6 +918,9 @@ let linuxEintr = 4 as Count
 // linuxEagain is EAGAIN.
 let linuxEagain = 11 as Count
 
+// linuxEnosys is ENOSYS: a system call the kernel does not have.
+let linuxEnosys = 38 as Count
+
 // linuxEacces is EACCES.
 let linuxEacces = 13 as Count
 
@@ -938,21 +947,6 @@ let linuxEpipe = 32 as Count
 
 // linuxSigkill is SIGKILL.
 let linuxSigkill = 9 as Count
-
-// linuxPollIn is POLLIN.
-let linuxPollIn = 1 as Count
-
-// linuxPollOut is POLLOUT.
-let linuxPollOut = 4 as Count
-
-// linuxPollRecordBytes is a struct pollfd: the fd and the events asked, then the events that came, 16 bits.
-let linuxPollRecordBytes = 8 as Count
-
-// linuxPollEventsOffset is where a struct pollfd holds the events asked.
-let linuxPollEventsOffset = 4 as Count
-
-// linuxPollReturnedOffset is where a struct pollfd holds the events that came.
-let linuxPollReturnedOffset = 6 as Count
 
 // macosClockRealtime is CLOCK_REALTIME: the calendar, as the system keeps it.
 let macosClockRealtime = 0 as Count
@@ -1035,12 +1029,6 @@ let macosModeCharacter = 8192 as Count
 // macosModeOwnerWrite is S_IWUSR: a file without it is the read-only one of FileInfo.
 let macosModeOwnerWrite = 128 as Count
 
-// macosPollIn is POLLIN.
-let macosPollIn = 1 as Count
-
-// macosPollOut is POLLOUT.
-let macosPollOut = 4 as Count
-
 // macosEpipe is EPIPE: a write to a pipe whose reader has closed it.
 let macosEpipe = 32 as Count
 
@@ -1061,15 +1049,6 @@ let macosOpenNonblock = 4 as Count
 
 // macosFcntlSetNoSigpipe is F_SETNOSIGPIPE: a write to the fd whose reader has closed it fails with EPIPE and sends no SIGPIPE.
 let macosFcntlSetNoSigpipe = 73 as Count
-
-// macosPollRecordBytes is a struct pollfd: the fd and the events asked, then the events that came, 16 bits.
-let macosPollRecordBytes = 8 as Count
-
-// macosPollEventsOffset is where a struct pollfd holds the events asked.
-let macosPollEventsOffset = 4 as Count
-
-// macosPollReturnedOffset is where a struct pollfd holds the events that came.
-let macosPollReturnedOffset = 6 as Count
 
 // macosDirentNameOffset is where a struct dirent that readdir gives holds its name, zero-terminated, after d_ino, d_seekoff, d_reclen, d_namlen and d_type.
 let macosDirentNameOffset = 21 as Count
@@ -1169,6 +1148,12 @@ let macosEvfiltRead = 65535 as Count
 
 // macosEvfiltWrite is EVFILT_WRITE, -2 in 16 bits: an event of an fd that has room to write.
 let macosEvfiltWrite = 65534 as Count
+
+// macosEvfiltProc is EVFILT_PROC, -5 in 16 bits: an event of a process, of the kinds its fflags ask for.
+let macosEvfiltProc = 65531 as Count
+
+// macosNoteExit is NOTE_EXIT: the fflags of EVFILT_PROC that ask for the process's exit.
+let macosNoteExit = 2147483648 as Count
 
 // macosNoteTrigger is NOTE_TRIGGER: the fflags that trigger a user event.
 let macosNoteTrigger = 16777216 as Count
@@ -1339,9 +1324,6 @@ let macosSpawnCloexecDefault = 16384 as Count
 	// linuxSysRenameat2 is renameat2(old directory fd, old, new directory fd, new, flags), which with no flags replaces what is at new.
 	let linuxSysRenameat2 = 276 as Count
 
-	// linuxSysPpoll is ppoll(fds, count, timespec of the timeout or 0 for none, signal mask, size of the mask).
-	let linuxSysPpoll = 73 as Count
-
 	// linuxSysEpollPwait is epoll_pwait(epoll fd, events, most events, timeout in milliseconds, signal mask, size of the mask).
 	let linuxSysEpollPwait = 22 as Count
 #else
@@ -1356,9 +1338,6 @@ let macosSpawnCloexecDefault = 16384 as Count
 
 	// linuxSysFstat is fstat(fd, stat).
 	let linuxSysFstat = 5 as Count
-
-	// linuxSysPoll is poll(fds, count, timeout in milliseconds).
-	let linuxSysPoll = 7 as Count
 
 	// linuxSysMmap is mmap(address, length, protection, flags, fd, offset).
 	let linuxSysMmap = 9 as Count

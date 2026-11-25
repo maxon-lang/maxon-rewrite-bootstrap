@@ -232,8 +232,35 @@
 
 	// entryUnregister takes a handle's filters off the kqueue, which its close does too.
 	function entryUnregister(scheduler Count, entry Count)
+		if __Raw.loadWord(entry, offset: entryKindOffset) == entryKindProcess 'process'
+			_ = changeProcess(scheduler, entry: entry, flags: macosEvDelete)
+			return
+		end 'process'
 		_ = changeHandle(scheduler, entry: entry, flags: macosEvDelete)
 	end 'entryUnregister'
+
+	// processWatch has the kqueue report the exit of a process, the pid an entry holds: its EVFILT_PROC filter with NOTE_EXIT,
+	// which a process that has ended and is not yet waited for still reports, and gives the entry, or noEntry.
+	function processWatch(scheduler Count, process Count) returns Count
+		let entry = entryTake(scheduler, kind: entryKindProcess, handle: process)
+		if not changeProcess(scheduler, entry: entry, flags: macosEvAddClear) 'refused'
+			entryGive(scheduler, entry: entry)
+			return noEntry
+		end 'refused'
+		return entry
+	end 'processWatch'
+
+	// changeProcess makes a change of flags to the exit filter of the pid of an entry, in the running thread's block.
+	function changeProcess(scheduler Count, entry Count, flags Count) returns bool
+		let change = __Raw.wrappingAdd(threadBlockSwitch(__Raw.threadContext()), right: threadBlockEventsOffset)
+		fillKevent(change, ident: __Raw.loadWord(entry, offset: entryHandleOffset), filter: macosEvfiltProc, flags: flags, key: entry)
+		__Raw.storeWord32(change, offset: macosKeventFflagsOffset, value: macosNoteExit)
+		return not failed(checkedInt(__Raw.callImport6("kevent", arg1: __Raw.loadWord(scheduler, offset: schedEventQueueOffset), arg2: change, arg3: oneChange, arg4: noEvents, arg5: 0, arg6: noTimeout)))
+	end 'changeProcess'
+
+	// processWatchClose has nothing to close: the filter left the kqueue with the entry, and a pid is no handle.
+	function processWatchClose(pid Count)
+	end 'processWatchClose'
 
 	// changeHandle makes a change of flags to both filters of a handle's fd.
 	function changeHandle(scheduler Count, entry Count, flags Count) returns bool

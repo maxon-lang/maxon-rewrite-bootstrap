@@ -3,7 +3,11 @@
 // count it moved, 0 for a read at the end of the data, or what ended its wait (transferExpired, transferClosed,
 // transferCancelled), or transferFailed when the system refused the call; a transfer of an evicted entry starts
 // nothing and gives transferClosed. A write may move less than it was given, as the system's does, and its caller writes
-// the rest.
+// the rest. A write to a pipe whose reader has closed it fails (transferFailed) and raises no signal.
+//
+// eventChildPipe makes a pipe between this process and a child it starts: this process's end is the one eventPipe makes, and
+// the child's, which becomes its standard input, output or error, waits as a file's does (and on Windows is the end the child
+// inherits).
 
 // The results of a transfer that moved nothing: above any count.
 let transferFailed = 0xFFFFFFFFFFFFFFFF as Count
@@ -38,8 +42,7 @@ let pipeEndBytes = 16 as Count
 
 #if os(Linux) or os(macOS)
 	// eventTransfer reads up to length bytes of a handle into buffer, or writes them from it, for a mode, waiting for the
-	// handle, until a deadline (eventNoDeadline for none), as long as the call would wait (EAGAIN). A write to a pipe whose
-	// reader has closed it sends the process SIGPIPE on Linux, as a blocking write's does.
+	// handle, until a deadline (eventNoDeadline for none), as long as the call would wait (EAGAIN).
 	function eventTransfer(entry Count, mode Count, buffer Count, length Count, deadline Count) returns Count
 		if evicted(entry) 'evicted'
 			return transferClosed
@@ -79,21 +82,57 @@ let pipeEndBytes = 16 as Count
 	// transferCall is one read or write of an fd, its count or -errno.
 	function transferCall(fd Count, mode Count, buffer Count, length Count) returns Count
 		if mode == eventWrite 'write'
-			return __Raw.syscall3(linuxSysWrite, arg1: fd, arg2: buffer, arg3: length)
+			return writeWithoutSigpipe(fd, buffer: buffer, length: length)
 		end 'write'
 		return __Raw.syscall3(linuxSysRead, arg1: fd, arg2: buffer, arg3: length)
 	end 'transferCall'
 
-	// eventPipe makes a pipe whose ends do not wait (O_NONBLOCK) and close in a child that execs, into ends.
-	function eventPipe(ends Count) returns bool
+	// writeWithoutSigpipe is a write that fails with EPIPE where a write to a pipe with no reader would send the thread
+	// SIGPIPE, whose default action ends the process: the signal is held back around the write and, when one was raised, taken
+	// before the mask is put back. The runtime's code is never stopped by the monitor, so the thread is the same throughout.
+	function writeWithoutSigpipe(fd Count, buffer Count, length Count) returns Count
+		var pipeSignal = (1 as Count) shl (linuxSigpipe - 1)
+		var before = 0 as Count
+		_ = __Raw.syscall4(linuxSysRtSigprocmask, arg1: linuxSigBlock, arg2: __Raw.addressOf(pipeSignal), arg3: __Raw.addressOf(before), arg4: linuxSignalMaskBytes)
+		let result = __Raw.syscall3(linuxSysWrite, arg1: fd, arg2: buffer, arg3: length)
+		if failed(result) and errnoOf(result) == linuxEpipe 'raised'
+			let now = alloc(linuxTimespecBytes)
+			zeroRange(now, from: 0, to: linuxTimespecBytes)
+			_ = __Raw.syscall4(linuxSysRtSigtimedwait, arg1: __Raw.addressOf(pipeSignal), arg2: 0, arg3: now, arg4: linuxSignalMaskBytes)
+			free(now)
+		end 'raised'
+		_ = __Raw.syscall4(linuxSysRtSigprocmask, arg1: linuxSigSetMask, arg2: __Raw.addressOf(before), arg3: 0, arg4: linuxSignalMaskBytes)
+		return result
+	end 'writeWithoutSigpipe'
+
+	// pipeMade makes a pipe with the flags into ends, its read end and then its write end, and says whether it did.
+	function pipeMade(ends Count, flags Count) returns bool
 		var pair = 0 as Count
-		if failed(__Raw.syscall2(linuxSysPipe2, arg1: __Raw.addressOf(pair), arg2: linuxOpenNonblock or linuxOpenCloseOnExec)) 'refused'
+		if failed(__Raw.syscall2(linuxSysPipe2, arg1: __Raw.addressOf(pair), arg2: flags)) 'refused'
 			return false
 		end 'refused'
 		__Raw.storeWord(ends, offset: 0, value: pair and lowHalfMask)
 		__Raw.storeWord(ends, offset: wordBytes, value: pair shr 32)
 		return true
+	end 'pipeMade'
+
+	// eventPipe makes a pipe whose ends do not wait (O_NONBLOCK) and close in a child that execs, into ends.
+	function eventPipe(ends Count) returns bool
+		return pipeMade(ends, flags: linuxOpenNonblock or linuxOpenCloseOnExec)
 	end 'eventPipe'
+
+	// eventChildPipe makes a pipe into ends, its read end and then its write end, whose end that this process uses does not wait
+	// and whose end the child uses does, both closing in a child that execs, the one the child's dup3 puts at its standard
+	// handle excepted. The child writes the pipe where childWrites is set.
+	function eventChildPipe(ends Count, childWrites bool) returns bool
+		if not pipeMade(ends, flags: linuxOpenCloseOnExec) 'refused'
+			return false
+		end 'refused'
+		let ours = __Raw.loadWord(ends, offset: 0 if childWrites else wordBytes)
+		let flags = __Raw.syscall2(linuxSysFcntl, arg1: ours, arg2: linuxFcntlGetFlags)
+		_ = __Raw.syscall3(linuxSysFcntl, arg1: ours, arg2: linuxFcntlSetFlags, arg3: flags or linuxOpenNonblock)
+		return true
+	end 'eventChildPipe'
 #endif
 
 #if os(macOS)
@@ -126,6 +165,30 @@ let pipeEndBytes = 16 as Count
 		return true
 	end 'eventPipe'
 
+	// eventChildPipe makes a pipe into ends, its read end and then its write end, whose end that this process uses does not wait
+	// and whose end the child uses does, both closing in a child that execs, the one the child's file actions put at its standard
+	// handle excepted. The child writes the pipe where childWrites is set, and gets SIGPIPE from a write once this process has
+	// closed its end, as a child of a pipe does; this process's write end fails with EPIPE instead, as eventPipe's does.
+	function eventChildPipe(ends Count, childWrites bool) returns bool
+		var pair = 0 as Count
+		if failed(checkedInt(__Raw.callImport1("pipe", arg1: __Raw.addressOf(pair)))) 'refused'
+			return false
+		end 'refused'
+		let reader = pair and lowHalfMask
+		let writer = pair shr 32
+		if childWrites 'output'
+			pipeEndFlags(reader)
+			_ = __Raw.callImport3("fcntl", arg1: writer, arg2: macosFcntlSetFd, arg3: macosFdCloexec)
+		end 'output' else 'input'
+			pipeEndFlags(writer)
+			_ = __Raw.callImport3("fcntl", arg1: writer, arg2: macosFcntlSetNoSigpipe, arg3: 1)
+			_ = __Raw.callImport3("fcntl", arg1: reader, arg2: macosFcntlSetFd, arg3: macosFdCloexec)
+		end 'input'
+		__Raw.storeWord(ends, offset: 0, value: reader)
+		__Raw.storeWord(ends, offset: wordBytes, value: writer)
+		return true
+	end 'eventChildPipe'
+
 	// pipeEndFlags makes an end of a pipe one that does not wait and that an exec closes.
 	function pipeEndFlags(fd Count)
 		let flags = intResult(__Raw.callImport3("fcntl", arg1: fd, arg2: macosFcntlGetFlags, arg3: 0))
@@ -151,6 +214,9 @@ let pipeEndBytes = 16 as Count
 	// pipeOpenMode is PIPE_ACCESS_INBOUND | FILE_FLAG_OVERLAPPED | FILE_FLAG_FIRST_PIPE_INSTANCE: the server's end reads,
 	// overlapped, and the pipe is made, not one of another's name opened.
 	let pipeOpenMode = 0x40080001 as Count
+
+	// pipeOpenModeWrite is pipeOpenMode's with PIPE_ACCESS_OUTBOUND: the server's end writes.
+	let pipeOpenModeWrite = 0x40080002 as Count
 
 	// pipeMode is PIPE_TYPE_BYTE | PIPE_READMODE_BYTE | PIPE_WAIT | PIPE_REJECT_REMOTE_CLIENTS.
 	let pipeMode = 8 as Count
@@ -206,25 +272,45 @@ let pipeEndBytes = 16 as Count
 	// that overlapped I/O works on, of a name of the process's and a serial, whose server end reads and whose client end
 	// writes.
 	function eventPipe(ends Count) returns bool
+		return namedPipe(ends, serverReads: true, clientFlags: fileFlagOverlapped, clientSecurity: noSecurity)
+	end 'eventPipe'
+
+	// eventChildPipe makes a named pipe into ends, its read end and then its write end, whose server end, overlapped, is the
+	// one this process uses and whose client end, which waits as any handle does, is the one the child inherits. The child writes
+	// the pipe where childWrites is set.
+	function eventChildPipe(ends Count, childWrites bool) returns bool
+		let security = alloc(securityBytes)
+		zeroRange(security, from: 0, to: securityBytes)
+		__Raw.storeWord32(security, offset: securityLengthOffset, value: securityBytes)
+		__Raw.storeWord32(security, offset: securityInheritOffset, value: 1)
+		let made = namedPipe(ends, serverReads: childWrites, clientFlags: 0, clientSecurity: security)
+		free(security)
+		return made
+	end 'eventChildPipe'
+
+	// namedPipe makes a named pipe of the process's and a serial into ends, its read end and then its write end: the server end,
+	// overlapped and never inherited, reads where serverReads is set and writes where it is not, and the client end does the
+	// other, opened with the flags and the security attributes given.
+	function namedPipe(ends Count, serverReads bool, clientFlags Count, clientSecurity Count) returns bool
 		let scheduler = schedulerOf(__Raw.threadContext())
 		let serial = __Raw.atomicAdd(scheduler, offset: schedPipeSerialOffset, value: 1)
 		let process = dword(__Raw.callImport0("GetCurrentProcessId"))
 		let name = wideOf("\\\\.\\pipe\\minimaxon-{process}-{serial}")
-		let reader = __Raw.callImport8("CreateNamedPipeW", arg1: name, arg2: pipeOpenMode, arg3: pipeMode, arg4: onePipeInstance, arg5: pipeBufferBytes, arg6: pipeBufferBytes, arg7: defaultPipeTimeout, arg8: noSecurity)
-		if reader == invalidHandle 'refused'
+		let server = __Raw.callImport8("CreateNamedPipeW", arg1: name, arg2: pipeOpenMode if serverReads else pipeOpenModeWrite, arg3: pipeMode, arg4: onePipeInstance, arg5: pipeBufferBytes, arg6: pipeBufferBytes, arg7: defaultPipeTimeout, arg8: noSecurity)
+		if server == invalidHandle 'refused'
 			free(name)
 			return false
 		end 'refused'
-		let writer = __Raw.callImport7("CreateFileW", arg1: name, arg2: genericWrite, arg3: noSharing, arg4: noSecurity, arg5: openExisting, arg6: fileFlagOverlapped, arg7: noTemplate)
+		let client = __Raw.callImport7("CreateFileW", arg1: name, arg2: genericWrite if serverReads else genericRead, arg3: noSharing, arg4: clientSecurity, arg5: openExisting, arg6: clientFlags, arg7: noTemplate)
 		free(name)
-		if writer == invalidHandle 'unopened'
-			closeHandle(reader)
+		if client == invalidHandle 'unopened'
+			closeHandle(server)
 			return false
 		end 'unopened'
-		__Raw.storeWord(ends, offset: 0, value: reader)
-		__Raw.storeWord(ends, offset: wordBytes, value: writer)
+		__Raw.storeWord(ends, offset: 0, value: server if serverReads else client)
+		__Raw.storeWord(ends, offset: wordBytes, value: client if serverReads else server)
 		return true
-	end 'eventPipe'
+	end 'namedPipe'
 
 	// eventPipeClose closes an end of a pipe that eventPipe made, after eventForget of its entry.
 	function eventPipeClose(handle Count)

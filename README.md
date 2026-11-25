@@ -66,7 +66,7 @@ session and the fault line of an x64 Windows program (Windows only), the `arm64-
 which reaches the Mac through a share only the Windows machine mounts. The compiler reads the directory of temporary files
 from `TMPDIR`, as maxon does, and refuses to guess one, so the gate sets it to the system's (`/tmp`) where a container sets
 none; the build cache is under `MINIMAXON_CACHE` when that names a directory, and off otherwise. A Linux host never renews
-the seeds, which needs the Windows seed run (see `seed/README.md`).
+the seeds, which needs the Windows seed run (see `seed/README.md`). The host's kernel is Linux 5.3 or later (WSL 2's is), which the corpus's runs of child processes need.
 
 Go is the one that `go.mod` names: an older installed Go fetches it itself (`GOTOOLCHAIN=auto`, Go's default) from the
 module proxy, `proxy.golang.org`, which a machine that cannot reach `go.dev` still reaches. A test that starts a program of
@@ -214,7 +214,7 @@ products of the stages it waited on, as an executor of behaviours gives it); the
 `--target=<arch>-<os>` (on `build`, `run`, `check` and `test`) names what a compile is for, as maxon spells it: `x64-windows`, a PE
 executable that imports kernel32, or `x64-linux` or `arm64-linux`, a static ELF executable (`ET_EXEC` at maxon's fixed load
 address, 0x400000, with no interpreter, no dynamic section and no relocation, `EM_X86_64` or `EM_AARCH64`) that calls the kernel
-itself. A name of no target is refused
+itself; the one it makes for a program that runs a child process needs Linux 5.3 or later, whose `pidfd_open` the run watches the child's exit with (on a kernel without it the run stops with a message that says so, and never polls instead). A name of no target is refused
 with the list of the targets and exit code 1, as maxon's is. The default is the system the compiler runs on (`hostTarget`, the
 `#if`s of `self/driver/targets.maxon`: the architecture and the system the compiler was compiled for), and a `build` with no `-o` names its executable with the target's extension, `.exe` or
 none. The target picks the branches of every `#if` of the compile, the runtime's among them (see "The runtime"), and is part of
@@ -232,7 +232,7 @@ of the executable (`buildImage`, `writePointers` and `writeImage`: `pe.maxon`, `
 system call conventions (`x64HostArg(system, index:)`), and the read of a thread's context (`x64ThreadContext`, which
 `x64.rules` reads; on arm64-linux `tpidr_el0` holds the context itself). The runtime's Linux source is one for both
 architectures: the arm64 kernel's numbers and layouts that differ are `layout_gen.maxon`'s rows under `#if arch(arm64)`, and
-the few calls that arm64's kernel lacks (`mkdir`, `unlink`, `rename`, `poll`, `epoll_wait`) are made by the one relative to a
+the few calls that arm64's kernel lacks (`mkdir`, `unlink`, `rename`, `epoll_wait`) are made by the one relative to a
 directory or with a signal mask in an `#if arch(arm64)` at their place. `minimaxon test --target=x64-linux` on Windows
 compiles each test for Linux and runs its executable through WSL (`wsl.exe --exec` and the executable's path under `/mnt/`,
 in the default distribution), as maxon's `targets.tsv` names a runner for each target, and `--target=arm64-linux` the same,
@@ -2694,7 +2694,10 @@ so the code at `run` must have released and freed what the behaviour holds by th
   eventfd on Linux and a kqueue on macOS; a completion whose key is an event entry readies the green thread that
   waits on it. An event entry (Go's pollDesc) is a user event's (`eventUserNew`, signalled from any thread) or a handle's
   (`eventRegister`): an fd or a HANDLE registered once, edge-triggered for reading and writing on Linux and macOS, and on
-  Windows with an OVERLAPPED of its own for each, an operation that completes at once posting nothing. A wait
+  Windows with an OVERLAPPED of its own for each, an operation that completes at once posting nothing, or a process's
+  (`eventProcessNew`), ready once a child the caller started has exited: its pidfd (`pidfd_open`, Linux 5.3) registered as a
+  handle on Linux, a kqueue `EVFILT_PROC` with `NOTE_EXIT` on macOS, and on Windows a job object that holds the child alone
+  and posts its "no process left" notification to the completion port, keyed by the entry. A wait
   (`eventWait`) ends at an event, at its deadline (a timer of the same heap, which a wait whose event came first takes
   off it, so a wait allocates nothing), at an eviction (`eventEvict`, which `eventForget` does before it waits out the
   waits in progress and takes the handle off the event queue) or at its coroutine's cancel; on Windows a wait that ends
@@ -2708,17 +2711,19 @@ so the code at `run` must have released and freed what the behaviour holds by th
 (`eventRegister`), a green thread that waits on it parks (`eventWait`), and the kernel queues an event, a completion
 packet on Windows, an epoll event on Linux, a kqueue event on macOS. A thread with nothing to run blocks in the kernel's
 wait until an event comes or the earliest timer is due, takes what was queued (`takeEvents`) and readies the waiters; the
-monitor takes the events that no thread has taken for 10 ms, without waiting. The runtime never busy-polls, with one
-exception: a run of a child process on Windows (`runChild` in `runtime/subprocess.maxon`) peeks at its pipes and waits on
-the child 1 ms at a time, until the subprocess primitives move it onto the event queue.
+monitor takes the events that no thread has taken for 10 ms, without waiting. The runtime never polls. A run of a child
+process (`runChild`, `runtime/subprocess.maxon`) is a few green threads each parked on one entry: the child's pipes are
+registered ends read (and the input's written) through `eventTransfer`, the child's exit is a process entry, and all wait until
+the run's deadline, at which the child is ended; the run's own green thread parks until they have finished, and the child, which
+has exited, is then waited for, which returns at once.
 
 **Main with or without the scheduler** (`self/backend/start.maxon`). The link decides by reachability, with no flag,
 whether a program runs the scheduler (`SchedulerChoice`): it marks the live code from the entry as for a program of one
 thread, with each of the scheduler's routines that code outside it names linked to its single-thread form, and the
 program uses the scheduler when that code reaches `rt.stackSwitch`. Running a green thread and leaving one are the only
-switches of a stack, so a `when`, an `async` call, an `await`, `sleep`, `Scheduler.yield()` and whatever comes to start
+switches of a stack, so a `when`, an `async` call, an `await`, `sleep`, `Scheduler.yield()`, a run of a child process (its pipes and its exit are waited for on green threads) and whatever comes to start
 or park a green thread reach it, in whichever function or module they are, and nothing else does: printing, files,
-processes, the environment, allocation, `Process.setExitCode`, `Scheduler.processorCount()`, panics and the leak count
+the environment, allocation, `Process.setExitCode`, `Scheduler.processorCount()`, panics and the leak count
 do not. The single-thread forms (the substitutes) are the blocking call's bracket (`enterBlocking`, `exitBlocking`), the
 exit claim (`takeExitClaim`), each a routine that does nothing (`rt.unbracketed`) since no other thread can take a
 processor or stop one, and `Process.setExitCode`, which keeps its code in the stub's `g.exitCode` (`rt.setExitCodeAlone`)

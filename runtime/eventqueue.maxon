@@ -16,6 +16,11 @@
 //   as a regular file on Linux, has no entry (noEntry), and its caller makes its calls blocking.
 // - A user event's (eventUserNew), which eventSignal signals from any thread, as a completion of the system's reaches a green
 //   thread: a packet posted to the port, an eventfd of its own, a user event of the kqueue. Its mode is eventRead.
+// - A process's (eventProcessNew), which an exit of a process the caller started readies in the mode eventRead, the kernel
+//   telling the event queue, with no thread of the runtime's to wait on the process: on Linux the process's pidfd
+//   (pidfd_open, the kernel's from 5.3), which an entry of a handle holds and epoll reports readable once the process has
+//   ended; on macOS a kqueue's EVFILT_PROC with NOTE_EXIT; on Windows a job object that holds the process alone, whose
+//   notification that no process is left in it is a completion posted to the port, keyed by the entry.
 //
 // An event that comes while no green thread waits is kept in the state word (eventQueued), and the next wait takes it
 // at once. A wait (eventWait) ends with a status: eventReady, or, its wake claimed in the state word before an event's,
@@ -75,6 +80,9 @@ let entryKindUser = 1 as Count
 
 let entryKindHandle = 2 as Count
 
+// A process's entry on the systems whose event queue names a process by more than a handle's fd (macOS, Windows).
+let entryKindProcess = 3 as Count
+
 let nanosPerMilli = 1000000 as Count
 
 // eventRegister registers a handle with the event queue and gives its event entry, or noEntry when the event queue refuses
@@ -127,6 +135,22 @@ function eventUserFree(entry Count)
 	entryUserFree(scheduler, entry: entry)
 	entryGive(scheduler, entry: entry)
 end 'eventUserFree'
+
+// eventProcessNew gives the event entry of a process that the caller started, whose eventWait in the mode eventRead ends
+// with eventReady once the process has exited, or noEntry when the system refused to watch it. The process is named as the
+// system names it for this: its pid on Linux and macOS, its process handle on Windows, where the caller starts it suspended and
+// resumes it once it is watched, since a job object takes a process that has not ended. On a Linux whose kernel lacks
+// pidfd_open the program stops with a message that says so, never waits another way.
+function eventProcessNew(process Count) returns Count
+	return processWatch(schedulerOf(__Raw.threadContext()), process: process)
+end 'eventProcessNew'
+
+// eventProcessFree stops watching a process and gives its entry back, once no wait on it is in progress.
+function eventProcessFree(entry Count)
+	let handle = __Raw.loadWord(entry, offset: entryHandleOffset)
+	eventForget(entry)
+	processWatchClose(handle)
+end 'eventProcessFree'
 
 // eventWait parks the running green thread until an event of a mode of the entry, its deadline (eventNoDeadline for
 // none), its eviction or its coroutine's cancel, and gives which.
@@ -348,6 +372,35 @@ end 'tookBreak'
 
 	let overlappedBytes = 32 as Count
 
+	// The values of a job object that reports a process's exit to the port: JobObjectAssociateCompletionPortInformation and
+	// JobObjectExtendedLimitInformation, whose JOBOBJECT_EXTENDED_LIMIT_INFORMATION is 144 bytes with its LimitFlags, 32 bits, at
+	// 16; JOB_OBJECT_LIMIT_SILENT_BREAKAWAY_OK, which keeps the process's own children out of the job, so that it holds the
+	// process alone; and JOB_OBJECT_MSG_ACTIVE_PROCESS_ZERO, the message that says no process is left in it.
+	let jobAssociateCompletionPort = 7 as Count
+
+	let jobExtendedLimitInformation = 9 as Count
+
+	let jobRecordBytes = 144 as Count
+
+	let jobLimitFlagsOffset = 16 as Count
+
+	let jobSilentBreakawayOk = 0x1000 as Count
+
+	let jobMessageActiveProcessZero = 4 as Count
+
+	// JobObjectBasicAccountingInformation, whose JOBOBJECT_BASIC_ACCOUNTING_INFORMATION holds the count of the processes active
+	// in the job at 40, 32 bits.
+	let jobBasicAccountingInformation = 1 as Count
+
+	let jobAccountingBytes = 48 as Count
+
+	let jobActiveProcessesOffset = 40 as Count
+
+	// The JOBOBJECT_ASSOCIATE_COMPLETION_PORT: the completion key and the port.
+	let jobPortKeyOffset = 0 as Count
+
+	let jobPortOffset = 8 as Count
+
 	// initEventQueue makes the completion port.
 	function initEventQueue(scheduler Count)
 		let port = __Raw.callImport4("CreateIoCompletionPort", arg1: invalidHandle, arg2: 0, arg3: 0, arg4: anyConcurrency)
@@ -377,7 +430,12 @@ end 'tookBreak'
 			let key = __Raw.loadWord(entry, offset: windowsEntryKeyOffset)
 			if key == eventBreakKey 'break'
 				tookBreak(scheduler, delay: delay)
-			end 'break' else if __Raw.loadWord(entry, offset: windowsEntryOverlappedOffset) == __Raw.wrappingAdd(key, right: entryWriteOverlappedOffset) 'write'
+			end 'break' else if __Raw.loadAcquire(key, offset: entryKindOffset) == entryKindProcess 'process'
+				// A job's other notifications (a process added to it or exiting) are no exit of the process it holds alone.
+				if dword(__Raw.loadWord32(entry, offset: windowsEntryTransferredOffset)) == jobMessageActiveProcessZero 'exited'
+					list = eventQueuedInto(key, mode: eventRead, list: list)
+				end 'exited'
+			end 'process' else if __Raw.loadWord(entry, offset: windowsEntryOverlappedOffset) == __Raw.wrappingAdd(key, right: entryWriteOverlappedOffset) 'write'
 				list = eventQueuedInto(key, mode: eventWrite, list: list)
 			end 'write' else 'read'
 				list = eventQueuedInto(key, mode: eventRead, list: list)
@@ -459,4 +517,45 @@ end 'tookBreak'
 	function eventSignal(entry Count)
 		postCompletion(__Raw.loadWord(__Raw.threadContext(), offset: contextSchedulerOffset), key: entry)
 	end 'eventSignal'
+
+	// processWatch makes a job object that holds the process alone and posts a completion keyed by the entry when it is
+	// empty, whose handle the entry holds, or gives noEntry.
+	function processWatch(scheduler Count, process Count) returns Count
+		let job = __Raw.callImport2("CreateJobObjectW", arg1: noSecurity, arg2: noName)
+		if job == 0 'refused'
+			return noEntry
+		end 'refused'
+		let entry = entryTake(scheduler, kind: entryKindProcess, handle: job)
+		if not jobHolds(job, process: process, entry: entry, port: __Raw.loadWord(scheduler, offset: schedEventQueueOffset)) 'unheld'
+			entryGive(scheduler, entry: entry)
+			closeHandle(job)
+			return noEntry
+		end 'unheld'
+		return entry
+	end 'processWatch'
+
+	// jobHolds has a job's limits keep the children of its processes out of it, its notifications go to the port with the
+	// entry as their key, and the process in it, and says whether each took.
+	function jobHolds(job Count, process Count, entry Count, port Count) returns bool
+		let record = alloc(jobRecordBytes)
+		zeroRange(record, from: 0, to: jobRecordBytes)
+		__Raw.storeWord32(record, offset: jobLimitFlagsOffset, value: jobSilentBreakawayOk)
+		var held = dword(__Raw.callImport4("SetInformationJobObject", arg1: job, arg2: jobExtendedLimitInformation, arg3: record, arg4: jobRecordBytes)) != 0
+		if held 'associate'
+			zeroRange(record, from: 0, to: jobRecordBytes)
+			__Raw.storeWord(record, offset: jobPortKeyOffset, value: entry)
+			__Raw.storeWord(record, offset: jobPortOffset, value: port)
+			held = dword(__Raw.callImport4("SetInformationJobObject", arg1: job, arg2: jobAssociateCompletionPort, arg3: record, arg4: wordBytes + wordBytes)) != 0
+		end 'associate'
+		free(record)
+		if held 'assign'
+			held = dword(__Raw.callImport2("AssignProcessToJobObject", arg1: job, arg2: process)) != 0
+		end 'assign'
+		return held
+	end 'jobHolds'
+
+	// processWatchClose closes the job object of a process's entry.
+	function processWatchClose(job Count)
+		closeHandle(job)
+	end 'processWatchClose'
 #endif

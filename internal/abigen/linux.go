@@ -10,7 +10,6 @@ var linuxABI = []layoutConst{
 	{"linuxSysWrite", 1, true, toRuntime | toSelfBack, "write(fd, buffer, count)."},
 	{"linuxSysClose", 3, true, toRuntime, "close(fd)."},
 	{"linuxSysFstat", 5, true, toRuntime, "fstat(fd, stat)."},
-	{"linuxSysPoll", 7, true, toRuntime, "poll(fds, count, timeout in milliseconds)."},
 	{"linuxSysMmap", 9, true, toRuntime | toSelfBack, "mmap(address, length, protection, flags, fd, offset)."},
 	{"linuxSysMprotect", 10, true, toRuntime | toSelfBack, "mprotect(address, length, protection)."},
 	{"linuxSysMunmap", 11, true, toRuntime, "munmap(address, length)."},
@@ -56,6 +55,7 @@ var linuxABI = []layoutConst{
 	{"linuxSysEpollCtl", 233, true, toRuntime, "epoll_ctl(epoll fd, operation, fd, event)."},
 	{"linuxSysEpollWait", 232, true, toRuntime, "epoll_wait(epoll fd, events, most events, timeout in milliseconds)."},
 	{"linuxSysEventfd2", 290, true, toRuntime, "eventfd2(initial count, flags): a counter that the event queue sees readable while it is above 0."},
+	{"linuxSysPidfdOpen", 434, true, toRuntime, "pidfd_open(pid, flags): an fd that the event queue sees readable once the process has ended, which the kernel has from 5.3, under the same number on every architecture."},
 
 	// epoll and eventfd.
 	{"linuxEpollCloexec", 0x80000, true, toRuntime, "EPOLL_CLOEXEC: the event queue is closed in a child that execs."},
@@ -153,6 +153,7 @@ var linuxABI = []layoutConst{
 	{"linuxEnoent", 2, true, toRuntime, "ENOENT."},
 	{"linuxEintr", 4, true, toRuntime, "EINTR: a call that a signal broke off, which is made again."},
 	{"linuxEagain", 11, true, toRuntime, "EAGAIN."},
+	{"linuxEnosys", 38, true, toRuntime, "ENOSYS: a system call the kernel does not have."},
 	{"linuxEacces", 13, true, toRuntime, "EACCES."},
 	{"linuxEbusy", 16, true, toRuntime, "EBUSY."},
 	{"linuxEexist", 17, true, toRuntime, "EEXIST."},
@@ -162,11 +163,6 @@ var linuxABI = []layoutConst{
 	{"linuxEnotempty", 39, true, toRuntime, "ENOTEMPTY."},
 	{"linuxEpipe", 32, true, toRuntime, "EPIPE: a write to a pipe whose reader has closed it."},
 	{"linuxSigkill", 9, true, toRuntime, "SIGKILL."},
-	{"linuxPollIn", 1, true, toRuntime, "POLLIN."},
-	{"linuxPollOut", 4, true, toRuntime, "POLLOUT."},
-	{"linuxPollRecordBytes", 8, true, toRuntime, "a struct pollfd: the fd and the events asked, then the events that came, 16 bits."},
-	{"linuxPollEventsOffset", 4, true, toRuntime, "where a struct pollfd holds the events asked."},
-	{"linuxPollReturnedOffset", 6, true, toRuntime, "where a struct pollfd holds the events that came."},
 }
 
 // archValue is a row of linuxABI with the value it has on another architecture's kernel.
@@ -235,13 +231,12 @@ var linuxArm64 = []archValue{
 	{"linuxUcontextPcOffset", 440},
 }
 
-var linuxArm64Lacks = []string{"linuxSysPoll", "linuxSysRename", "linuxSysMkdir", "linuxSysRmdir", "linuxSysUnlink", "linuxSysArchPrctl", "linuxSysEpollWait", "linuxArchSetFs"}
+var linuxArm64Lacks = []string{"linuxSysRename", "linuxSysMkdir", "linuxSysRmdir", "linuxSysUnlink", "linuxSysArchPrctl", "linuxSysEpollWait", "linuxArchSetFs"}
 
 var linuxArm64Extra = []layoutConst{
 	{"linuxSysMkdirat", 34, true, toRuntime, "mkdirat(directory fd, path, mode)."},
 	{"linuxSysUnlinkat", 35, true, toRuntime, "unlinkat(directory fd, path, flags), which with no flags refuses a directory."},
 	{"linuxSysRenameat2", 276, true, toRuntime, "renameat2(old directory fd, old, new directory fd, new, flags), which with no flags replaces what is at new."},
-	{"linuxSysPpoll", 73, true, toRuntime, "ppoll(fds, count, timespec of the timeout or 0 for none, signal mask, size of the mask)."},
 	{"linuxSysEpollPwait", 22, true, toRuntime, "epoll_pwait(epoll fd, events, most events, timeout in milliseconds, signal mask, size of the mask)."},
 	{"linuxCloneThreadFlags", 0xD0F00, true, toSelfBack, "the worker's flags with CLONE_SYSVSEM, glibc's flags of a thread: the thread shares the undo list of System V semaphores, which no thread of the runtime has, and without the flag qemu-user, which runs arm64-linux under WSL, refuses to make a thread."},
 }
