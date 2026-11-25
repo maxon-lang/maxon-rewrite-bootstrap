@@ -1,0 +1,55 @@
+// A SlotMap of byte-sized elements lends each one byte wide, as a List does: read through get, changed through a mutates
+// parameter without touching the element in the next slot, and a byte-sized value that a lending method lends from a
+// field of its own, which a word holds, is changed through the same parameter: the low byte of the word is the value.
+typealias Levels = SlotMap with Level
+
+typealias Level = int(0 to 9)
+
+typealias Codes = SlotMap with Byte
+
+function raise(mutates l Level)
+	l = try (l + 1) as Level otherwise 9
+end 'raise'
+
+function raiseAt(mutates m Levels, k SlotKey with Level) throws ArrayError
+	raise(try m.get(k))
+end 'raiseAt'
+
+type Gauge
+	var level as Level
+	var tail as Count
+
+	static function make() returns Gauge
+		return Gauge{level: 3, tail: 77}
+	end 'make'
+
+	function current() returns borrowed Level
+		return level
+	end 'current'
+end 'Gauge'
+
+function main() returns ExitCode
+	var levels = Levels.create()
+	let a = levels.insert(1)
+	let b = levels.insert(5)
+	let c = levels.insert(8)
+	try raiseAt(levels, k: b) otherwise panic("b")
+	try raiseAt(levels, k: c) otherwise panic("c")
+	try raiseAt(levels, k: c) otherwise panic("c")
+	print("{(try levels.get(a) otherwise 0)} {(try levels.get(b) otherwise 0)} {(try levels.get(c) otherwise 0)}\n")
+	var codes = Codes.create()
+	let x = codes.insert(200)
+	let y = codes.insert(7)
+	_ = try codes.remove(x) otherwise 0
+	let z = codes.insert(42)
+	print("{(try codes.get(y) otherwise 0)} {(try codes.get(z) otherwise 0)} {codes.count()}\n")
+	var g = Gauge.make()
+	raise(g.current())
+	raise(g.current())
+	print("{g.current()} {g.tail}\n")
+	return 0
+end 'main'
+
+//> 1 6 9
+//> 7 42 2
+//> 5 77

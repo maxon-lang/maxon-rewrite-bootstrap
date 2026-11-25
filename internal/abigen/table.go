@@ -73,6 +73,8 @@ var layouts = []layoutConst{
 		"how far the index of an element of a word is shifted to its offset in a buffer: wordBytes is 1 shifted by it."},
 	{"stringElementShift", 4, true, toSelfIR | toSelfBack,
 		"how far the index of a String element is shifted to its offset in a buffer: stringValueBytes is 1 shifted by it."},
+	{"byteElementShift", 0, true, toSelfIR | toSelfBack,
+		"how far the index of a byte of a byte array's buffer is shifted to its offset: none, a byte being 1 byte."},
 
 	// A byte array's box is an array's box, so its routines read the same offsets; only its buffer differs.
 	{"arrayLengthOffset", 0, false, toRuntime | toSelfBack,

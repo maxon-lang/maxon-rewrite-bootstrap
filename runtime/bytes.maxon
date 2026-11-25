@@ -15,6 +15,12 @@ function bytesGet(array Count, index Count) returns Byte
 	return __Raw.loadByte(at, offset: 0)
 end 'bytesGet'
 
+// bytesElem is the address of the byte at an index, which panics past the end. It is a borrow, valid until the next call
+// that changes the array.
+function bytesElem(array Count, index Count) returns Count
+	return collectionElementAddress(array, index: index, elementBytes: byteBytes)
+end 'bytesElem'
+
 // bytesSet replaces the byte at an index, which panics past the end.
 function bytesSet(array Count, index Count, value Byte)
 	let at = collectionElementAddress(array, index: index, elementBytes: byteBytes)

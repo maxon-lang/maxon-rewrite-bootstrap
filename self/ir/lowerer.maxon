@@ -144,16 +144,22 @@ export type ArrayBox
 end 'ArrayBox'
 
 // WriteBack is an element of a byte array that a call takes by address, through a slot that holds it: the slot is written
-// back to the element when the call returns.
+// back to the element when the call returns. The element is at index of arr, or, where at is a register, the byte at that
+// address, a place of a byte-sized type that a call lent (lentInByte).
 export type WriteBack
 	export var box as ArrayBox
 	export var arr as Reg
 	export var index as Reg
+	export var at as Reg
 	export var slot as Count
 
 	export static function make(consumes box ArrayBox, arr Reg, index Reg, slot Count) returns WriteBack
-		return WriteBack{box: box, arr: arr, index: index, slot: slot}
+		return WriteBack{box: box, arr: arr, index: index, at: noReg, slot: slot}
 	end 'make'
+
+	export static function makeAt(consumes box ArrayBox, at Reg, slot Count) returns WriteBack
+		return WriteBack{box: box, arr: noReg, index: noReg, at: at, slot: slot}
+	end 'makeAt'
 end 'WriteBack'
 
 export typealias WriteBackList = Array with WriteBack

@@ -40,6 +40,12 @@ export function rewriteInstr(mutates fn ir.IrFunction, at Count, defs ir.Defs, m
 	if op == ir.Opcode.opStoreAt 'opcodeStoreAt'
 		return false
 	end 'opcodeStoreAt'
+	if op == ir.Opcode.opLoadByteAt 'opcodeLoadByteAt'
+		return false
+	end 'opcodeLoadByteAt'
+	if op == ir.Opcode.opStoreByteAt 'opcodeStoreByteAt'
+		return false
+	end 'opcodeStoreByteAt'
 	if op == ir.Opcode.opLoadGlobal 'opcodeLoadGlobal'
 		return false
 	end 'opcodeLoadGlobal'

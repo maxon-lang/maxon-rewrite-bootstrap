@@ -235,6 +235,9 @@ extension Selector
 		if shift == wordElementShift 'word'
 			return self.define(X64Form.leaRegBaseIndex8Disp, b: base, c: index, aux: 0, imm: 0)
 		end 'word'
+		if shift == byteElementShift 'byte'
+			return self.define(X64Form.leaRegBaseIndex1Disp, b: base, c: index, aux: 0, imm: 0)
+		end 'byte'
 		if shift <= wordElementShift 'narrow'
 			panic("backend: an element narrower than a word has no element address")
 		end 'narrow'

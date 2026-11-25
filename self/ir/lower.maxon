@@ -464,6 +464,27 @@ function visitWhileStmt(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleS
 	l.cur = join
 end 'visitWhileStmt'
 
+// wordPlace is the place a function that lends by address returns for e, whose value is held as a word: its address, or,
+// for a place of a byte-sized type (lentInByte), the byte itself, never a slot that holds a copy of it, since the place
+// outlives the frame: what a call lent, an element of an array that packs its elements, or else the word that holds it.
+function wordPlace(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID) returns Reg
+	if not lentInByte(l, p: p, ms: ms, t: exprType(p, module: l.module, node: e)) 'word'
+		return address(l, p: p, ms: ms, e: e)
+	end 'word'
+	let k = p.modules[l.mi].tree.kindOf(e)
+	if k == ast.NodeKind.callExpr and lendsByAddressAt(l, p: p, ms: ms, node: e) 'lent'
+		return lowerCall(l, p: p, ms: ms, c: callSite(l, p: p, node: e))
+	end 'lent'
+	if k == ast.NodeKind.indexExpr 'element'
+		let obj = ast.indexExprObj(p.modules[l.mi].tree, id: e)
+		let coll = lowerRead(l, p: p, ms: ms, e: obj)
+		let index = indexValue(l, p: p, ms: ms, e: e)
+		let box = arrayOf(l, p: p, ms: ms, site: siteOf(l, p: p, node: e), t: exprType(p, module: l.module, node: obj))
+		return arrayLend(l, p: p, ms: ms, box: box, arr: coll, index: index)
+	end 'element'
+	return address(l, p: p, ms: ms, e: e)
+end 'wordPlace'
+
 function visitReturnStmt(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, s ast.NodeID)
 	var v = noReg
 	let value = ast.returnStmtValue(p.modules[l.mi].tree, id: s)
@@ -476,7 +497,7 @@ function visitReturnStmt(mutates l Lowerer, p ast.Project, mutates ms ast.Module
 		// in place the address of its words, which is its value.
 		v = match held(l, p: p, ms: ms, t: exprType(p, module: l.module, node: value)) 'holding'
 			heldAddress(_) gives lowerExpr(l, p: p, ms: ms, e: value)
-			heldWord gives address(l, p: p, ms: ms, e: value)
+			heldWord gives wordPlace(l, p: p, ms: ms, e: value)
 			heldString gives address(l, p: p, ms: ms, e: value)
 			heldBox gives address(l, p: p, ms: ms, e: value)
 			heldInline(_) gives panic("ir: a variable that holds words of its own or a byte of a buffer")

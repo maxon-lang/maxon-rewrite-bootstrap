@@ -39,6 +39,9 @@ export let wordElementShift = 3
 // stringElementShift is how far the index of a String element is shifted to its offset in a buffer: stringValueBytes is 1 shifted by it.
 export let stringElementShift = 4
 
+// byteElementShift is how far the index of a byte of a byte array's buffer is shifted to its offset: none, a byte being 1 byte.
+export let byteElementShift = 0
+
 // arrayLengthOffset is where the box of an array, and of a byte array, holds its length, a count of elements.
 export let arrayLengthOffset = 0
 

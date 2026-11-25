@@ -45,6 +45,9 @@ export let wordElementShift = 3 as Count
 // stringElementShift is how far the index of a String element is shifted to its offset in a buffer: stringValueBytes is 1 shifted by it.
 export let stringElementShift = 4 as Count
 
+// byteElementShift is how far the index of a byte of a byte array's buffer is shifted to its offset: none, a byte being 1 byte.
+export let byteElementShift = 0 as Count
+
 // closureCapturesOffset is where the box of a closure holds what it captured, closureCaptureBytes each, in the order of its body's captures.
 export let closureCapturesOffset = 24 as Count
 

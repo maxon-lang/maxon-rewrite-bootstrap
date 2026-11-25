@@ -109,12 +109,16 @@ export type Expander
 			traps.push(ir.newCallRuntime(ir.noReg, symbol: symbol, argsStart: call.a, argsCount: call.b, routine: ir.noRoutine, proven: false))
 			out.push(ir.newBounds(index, length: length, fail: fail))
 		end 'check'
-		if symbol != ir.Rt.rtArrayElem and symbol != ir.Rt.rtStrsElem 'byte'
+		if symbol != ir.Rt.rtArrayElem and symbol != ir.Rt.rtStrsElem and symbol != ir.Rt.rtBytesElem 'byte'
 			out.push(ir.newLoadByte(call.dst, src: src, index: index, of: of))
 			return next
 		end 'byte'
 		let shift = elementShift(symbol)
-		if next < endAt and f.instrs[next].op == ir.Opcode.opLoadAt and ir.loadAtAddr(f.instrs[next]) == call.dst and reads[regIndex(call.dst)] == 1 'read'
+		if symbol == ir.Rt.rtBytesElem and next < endAt and f.instrs[next].op == ir.Opcode.opLoadByteAt and ir.loadByteAtAddr(f.instrs[next]) == call.dst and reads[regIndex(call.dst)] == 1 'readByte'
+			out.push(ir.newLoadByte(f.instrs[next].dst, src: src, index: index, of: of))
+			return plusOne(next)
+		end 'readByte'
+		if symbol != ir.Rt.rtBytesElem and next < endAt and f.instrs[next].op == ir.Opcode.opLoadAt and ir.loadAtAddr(f.instrs[next]) == call.dst and reads[regIndex(call.dst)] == 1 'read'
 			out.push(ir.newElemLoad(f.instrs[next].dst, arr: src, index: index, shift: shift))
 			return plusOne(next)
 		end 'read'
@@ -181,7 +185,7 @@ function readsLength(symbol ir.Rt) returns bool
 end 'readsLength'
 
 function readsElement(symbol ir.Rt) returns bool
-	return symbol == ir.Rt.rtArrayElem or symbol == ir.Rt.rtStrsElem or symbol == ir.Rt.rtBytesGet or symbol == ir.Rt.rtStrByteAt
+	return symbol == ir.Rt.rtArrayElem or symbol == ir.Rt.rtStrsElem or symbol == ir.Rt.rtBytesElem or symbol == ir.Rt.rtBytesGet or symbol == ir.Rt.rtStrByteAt
 end 'readsElement'
 
 // elementShift is how far the index of an element that an entry addresses is shifted to its offset in the buffer.
@@ -192,12 +196,15 @@ function elementShift(symbol ir.Rt) returns Count
 	if symbol == ir.Rt.rtStrsElem 'string'
 		return ir.stringElementShift
 	end 'string'
+	if symbol == ir.Rt.rtBytesElem 'byte'
+		return ir.byteElementShift
+	end 'byte'
 	panic("opt: {ir.rtSymbol(symbol)} addresses no element the expansion knows")
 end 'elementShift'
 
 // collectionOf is the box an entry that the expansion replaces reads: an array's or a byte array's, or a string's.
 function collectionOf(symbol ir.Rt) returns ir.Collection
-	if symbol == ir.Rt.rtArrayLen or symbol == ir.Rt.rtBytesLen or symbol == ir.Rt.rtArrayElem or symbol == ir.Rt.rtStrsElem or symbol == ir.Rt.rtBytesGet 'array'
+	if symbol == ir.Rt.rtArrayLen or symbol == ir.Rt.rtBytesLen or symbol == ir.Rt.rtArrayElem or symbol == ir.Rt.rtStrsElem or symbol == ir.Rt.rtBytesElem or symbol == ir.Rt.rtBytesGet 'array'
 		return ir.Collection.collectionArray
 	end 'array'
 	if symbol == ir.Rt.rtStrLen or symbol == ir.Rt.rtStrByteAt 'string'

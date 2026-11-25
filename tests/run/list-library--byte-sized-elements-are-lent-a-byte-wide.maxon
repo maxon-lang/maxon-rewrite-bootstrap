@@ -1,0 +1,79 @@
+// A List of byte-sized elements (a byte range, an enum of at most 256 cases), whose array packs them, lends each element
+// one byte wide: read through get, first and last, changed through a mutates parameter without touching its neighbours,
+// across a growth of the ring and a walk. A bool, which is no byte-sized element, is the control.
+typealias Bytes = List with Byte
+
+typealias Suits = List with Suit
+
+typealias Flags = List with bool
+
+enum Suit
+	clubs
+	diamonds
+	hearts
+end 'Suit'
+
+function bump(mutates b Byte)
+	b = try b + 1 otherwise 0
+end 'bump'
+
+function bumpAt(mutates l Bytes, i Count) throws ArrayError
+	bump(try l.get(i))
+end 'bumpAt'
+
+function next(mutates s Suit)
+	s = match s 'suit'
+		clubs gives Suit.diamonds
+		diamonds gives Suit.hearts
+		hearts gives Suit.clubs
+	end 'suit'
+end 'next'
+
+function nextAt(mutates l Suits, i Count) throws ArrayError
+	next(try l.get(i))
+end 'nextAt'
+
+function show(l Bytes) returns String
+	var out = ""
+	for b in l 'each'
+		out = "{out}[{b}]"
+	end 'each'
+	return out
+end 'show'
+
+function main() returns ExitCode
+	let tens = List from [10, 20, 30]
+	print("{(try tens.first() otherwise 0)} {(try tens.get(1) otherwise 0)} {(try tens.last() otherwise 0)}\n")
+	var bytes = Bytes from [1, 2, 3]
+	try bumpAt(bytes, i: 1) otherwise panic("1")
+	try bumpAt(bytes, i: 1) otherwise panic("1")
+	print("{show(bytes)}\n")
+	for i in 0 upto 300 'grow'
+		bytes.prepend((i mod 256) as Byte)
+		bytes.append(255)
+	end 'grow'
+	try bumpAt(bytes, i: 300) otherwise panic("300")
+	print("{bytes.count()} {(try bytes.get(299) otherwise 0)} {(try bytes.get(300) otherwise 0)} {(try bytes.get(301) otherwise 0)} {(try bytes.get(302) otherwise 0)} {(try bytes.last() otherwise 0)}\n")
+	var total = 0 as Count
+	for b in bytes 'sum'
+		total = try total + (b as Count) otherwise panic("overflow")
+	end 'sum'
+	print("{total}\n")
+	var suits = Suits from [Suit.clubs, Suit.clubs, Suit.hearts]
+	try nextAt(suits, i: 0) otherwise panic("0")
+	try nextAt(suits, i: 2) otherwise panic("2")
+	for s in suits 'each'
+		print("[{s}]")
+	end 'each'
+	print("\n")
+	let flags = Flags from [true, false]
+	print("{(try flags.get(1) otherwise true)}\n")
+	return 0
+end 'main'
+
+//> 10 20 30
+//> [1][4][3]
+//> 603 0 2 4 3 255
+//> 110095
+//> [diamonds][clubs][clubs]
+//> false

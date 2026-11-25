@@ -447,6 +447,10 @@ function runtimeEntry(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 		try entryBytesGet(vm, f: f, x: x)
 		return
 	end 'rtBytesGet'
+	if symbol == ir.Rt.rtBytesElem 'rtBytesElem'
+		try entryBytesElem(vm, f: f, x: x)
+		return
+	end 'rtBytesElem'
 	if symbol == ir.Rt.rtBytesSet 'rtBytesSet'
 		try entryBytesSet(vm, f: f, x: x)
 		return
